@@ -1,0 +1,88 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cd7bb81df5b74b34dadbf531f381a26b, type: 3}
+  m_Name: OVRPlatformToolSettings
+  m_EditorClassIdentifier: 
+  riftRedistPackages:
+  - include: 0
+    name: ' .NET Framework 3.5'
+    id: ' 606493776156948    '
+  - include: 0
+    name: ' .NET Framework 4.0'
+    id: ' 133610290311340    '
+  - include: 0
+    name: ' .NET Framework 4.5.1'
+    id: ' 1617306711884127   '
+  - include: 0
+    name: ' .NET Framework 4.7.1'
+    id: ' 1667821599930345   '
+  - include: 0
+    name: ' DirectX (June 2010)'
+    id: ' 822786567843179    '
+  - include: 0
+    name: ' OpenAL 1.1'
+    id: ' 1147517301974655   '
+  - include: 0
+    name: ' Visual C++ 2005'
+    id: ' 1604897159783747   '
+  - include: 0
+    name: ' Visual C++ 2008'
+    id: ' 118440348500045    '
+  - include: 0
+    name: ' Visual C++ 2010'
+    id: ' 532320330249657    '
+  - include: 0
+    name: ' Visual C++ 2010 x86'
+    id: ' 1008652072555515   '
+  - include: 0
+    name: ' Visual C++ 2012'
+    id: ' 1683508698536289   '
+  - include: 0
+    name: ' Visual C++ 2012 x86'
+    id: ' 1002692246447245   '
+  - include: 0
+    name: ' Visual C++ 2013'
+    id: ' 1675031999409058   '
+  - include: 0
+    name: ' Visual C++ 2013 x86'
+    id: ' 910524935693407    '
+  - include: 0
+    name: ' Visual C++ 2015 Update 3'
+    id: ' 1183534128364060   '
+  - include: 0
+    name: ' Visual C++ 2015 x86 Update 3'
+    id: ' 1113033105419344   '
+  - include: 0
+    name: ' Visual C++ 2017'
+    id: ' 1315322525257173   '
+  - include: 0
+    name: ' Visual C++ 2017 x86'
+    id: ' 1064693870299984   '
+  - include: 0
+    name: ' Visual C++ 2019'
+    id: ' 2657209094360789   '
+  - include: 0
+    name: ' Visual C++ 2019 x86'
+    id: ' 2556834837738356   '
+  - include: 0
+    name: ' Vulkan Runtime 1.0.65.1'
+    id: ' 1824471960899274   '
+  - include: 0
+    name: ' Vulkan Runtime 1.1.73.0'
+    id: ' 1941020095932382   '
+  languagePackDirectory: 
+  assetConfigs:
+  - configList: []
+  - configList: []
+  - configList: []
+  targetPlatform: 2
+  runOvrLint: 1
