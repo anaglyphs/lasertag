@@ -16,45 +16,51 @@ namespace Anaglyph.LaserTag
 		[SerializeField] private float damage = 50f;
 
 		public UnityEvent onHit = new();
+		private bool isFlying = true;
 
-		private bool justAwoke = true;
-		private bool didHit = false;
-		//private float damage = Role.Default.GunDamage;
+		private NetworkVariable<NetworkPose> networkPose 
+			= new(default, NetworkVariableReadPermission.Everyone, 
+				NetworkVariableWritePermission.Owner);
 
 		private float distancePerFrame => metersPerSecond * Time.deltaTime;
 
+		private void Awake()
+		{
+			networkPose.OnValueChanged += OnNetworkPoseChange;
+		}
+
 		public override void OnNetworkSpawn()
 		{
-			didHit = false;
-
-			if(IsOwner)
+            isFlying = true;
+            if (IsOwner)
 			{
-				SetPoseRpc(new NetworkPose(transform.position, transform.rotation));
-				// SetDamageRpc(PlayerLocal.Instance.currentRole.GunDamage);
-            }
+				networkPose.Value = new NetworkPose(transform);
+			}
+			else
+			{
+				SetPoseLocally(networkPose.Value);
+			}
+		}
+
+		private void OnNetworkPoseChange(NetworkPose previous, NetworkPose newValue) => 
+			SetPoseLocally(newValue);
+
+		private void SetPoseLocally(NetworkPose pose)
+		{
+			transform.SetPositionAndRotation(pose.position, pose.rotation);
+			previousPosition = transform.position;
+            trailRenderer.Clear();
+            trailRenderer.AddPosition(transform.position);
 		}
 
 		private void OnEnable()
 		{
-			justAwoke = true;
-		}
-
-		private void OnDisable()
-		{
-			trailRenderer.Clear();
-			
+			isFlying = true;
 		}
 
 		private void Update()
 		{
-			if(justAwoke)
-			{
-				trailRenderer.AddPosition(transform.position);
-				previousPosition = transform.position;
-				justAwoke = false;
-			}
-
-			if (!didHit)
+			if (isFlying)
 			{
 				Fly();
 				
@@ -63,21 +69,9 @@ namespace Anaglyph.LaserTag
 					TestHit();
 				}
 			}
-        }
+		}
 
-        [Rpc(SendTo.Everyone)]
-        private void SetPoseRpc(NetworkPose pose)
-        {
-            transform.SetPositionAndRotation(pose.position, pose.rotation);
-        }
-
-        [Rpc(SendTo.Everyone)]
-        private void SetDamageRpc(float newDamage)
-        {
-			this.damage = newDamage;
-        }
-
-        Vector3 previousPosition = Vector3.zero;
+		Vector3 previousPosition = Vector3.zero;
 		private void Fly()
 		{
 			previousPosition = transform.position;
@@ -112,13 +106,13 @@ namespace Anaglyph.LaserTag
 
 			if(didHit)
 			{
-				Hit(depthHit.Position, depthHit.Normal);
+				HandleHitLocally(depthHit.Position, depthHit.Normal);
 			}
 
 			//Vector3 diff = transform.position - previousPosition;
 			if (Physics.Linecast(previousPosition, transform.position, out RaycastHit hit))
 			{
-				Hit(hit.point, hit.normal);
+				HandleHitLocally(hit.point, hit.normal);
 
 				if (hit.collider.CompareTag("Player"))
 				{
@@ -127,19 +121,18 @@ namespace Anaglyph.LaserTag
 			}
 		}
 
-		private void Hit(Vector3 pos, Vector3 norm)
+		private void HandleHitLocally(Vector3 pos, Vector3 norm)
 		{
-			if(IsSpawned)
-				HitRpc(pos, norm);
+			if (IsSpawned) HitRpc(pos, norm);
 			DespawnWithDelay();
 		}
 
 		[Rpc(SendTo.Everyone)]
-		private void HitRpc(Vector3 hitPos, Vector3 hitNorm)
+		private void HitRpc(Vector3 pos, Vector3 norm)
 		{
-			transform.position = hitPos;
-			transform.up = Vector3.Reflect(transform.forward, hitNorm);
-			didHit = true;
+			transform.position = pos;
+			transform.up = norm;
+			isFlying = false;
 			onHit.Invoke();
 		}
 
