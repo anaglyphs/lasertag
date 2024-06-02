@@ -42,7 +42,7 @@ namespace Anaglyph.LaserTag
 			}
 		}
 
-		private void OnNetworkPoseChange(NetworkPose previous, NetworkPose newValue) => 
+		private void OnNetworkPoseChange(NetworkPose p, NetworkPose newValue) => 
 			SetPoseLocally(newValue);
 
 		private void SetPoseLocally(NetworkPose pose)
@@ -65,9 +65,7 @@ namespace Anaglyph.LaserTag
 				Fly();
 				
 				if(IsOwner)
-				{
 					TestHit();
-				}
 			}
 		}
 

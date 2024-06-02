@@ -72,6 +72,13 @@ namespace Anaglyph.SharedSpaces
 		[Rpc(SendTo.Owner)]
 		private void RequestShareRpc(ulong returnTo, ulong targetOculusId)
 		{
+			if (targetOculusId == 0)
+			{
+				Debug.LogError("Can't share anchor. Oculus ID is zero");
+
+				return;
+			}
+
 			StartCoroutine(ShareCoroutine(returnTo, new OVRSpaceUser(targetOculusId)));
 		}
 
@@ -137,6 +144,12 @@ namespace Anaglyph.SharedSpaces
 
 		private IEnumerator ShareCoroutine(ulong sendTo, OVRSpaceUser user)
 		{
+			if(user.Id == 0)
+			{
+				Debug.Log("Cannot share anchor. User ID is 0");
+				yield return null;
+			}
+
 			bool shareSuccess = false;
 			bool currentlySharing = false;
 
