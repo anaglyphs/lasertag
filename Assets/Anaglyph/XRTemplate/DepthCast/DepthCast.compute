@@ -19,6 +19,10 @@ Texture2DArray<float> EnvDepthTextureCS;
 
 int2 EnvDepthTextureSize;
 
+float3 WorldStart;
+float3 WorldEnd;
+int NumSamples;
+
 float SampleEnvDepthCS(const float2 uv, const int slice)
 {
 	float4x4 reprojMat = _EnvironmentDepth3DOFReprojectionMatrices[slice];
@@ -85,9 +89,12 @@ float3 ComputeWorldSpaceNormal(float2 uv, float3 worldPos, int slice)
 [numthreads(32, 1, 1)]
 void CSMain(uint3 id : SV_DispatchThreadID)
 {
-	const uint slice = 0;
+    const uint slice = 0;
+    const uint i = id.x;
+	
+    const float rayDist = i / (float)NumSamples;
 
-	const float4 rayPos = float4(RaycastRequests[id.x], 1);
+    const float4 rayPos = float4(lerp(WorldStart, WorldEnd, rayDist), 1);
 	
 	const float4 hcs = mul(unity_StereoMatrixVP[slice], rayPos);
 	const float2 uv = (hcs.xy / hcs.w) * 0.5 + float2(0.5, 0.5);
@@ -100,12 +107,12 @@ void CSMain(uint3 id : SV_DispatchThreadID)
 	envDepthMeters += (envDepthMeters < 0.3) * 9999.0;
 	float rayDepthMeters = -mul(unity_StereoMatrixV[slice], rayPos).z;
 	
-	RaycastResults[id.x].ZDepthDiff = envDepthMeters - rayDepthMeters;
+	RaycastResults[i].ZDepthDiff = envDepthMeters - rayDepthMeters;
 	
 	const float4x4 matInvViewProj = unity_StereoMatrixInvVP[slice];
 	float3 worldPos = ComputeWorldSpacePositionCS(uv, envDepth, matInvViewProj);
 	float3 worldNorm = ComputeWorldSpaceNormal(uv, worldPos, slice);
 	
-	RaycastResults[id.x].Position = worldPos;
-	RaycastResults[id.x].Normal = worldNorm;
+	RaycastResults[i].Position = worldPos;
+	RaycastResults[i].Normal = worldNorm;
 }

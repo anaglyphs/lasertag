@@ -1,9 +1,7 @@
 using Meta.XR.Depth;
-using Unity.XR.Oculus;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
-using UnityEngine.Diagnostics;
 
 
 /**
@@ -23,10 +21,14 @@ public class DepthCast : MonoBehaviour
 {
 	private const Camera.MonoOrStereoscopicEye Left = Camera.MonoOrStereoscopicEye.Left;
 
-	private static readonly int raycastResultsId = Shader.PropertyToID("RaycastResults");
+	private static readonly int RaycastResultsId = Shader.PropertyToID("RaycastResults");
 	private static readonly int raycastRequestsId = Shader.PropertyToID("RaycastRequests");
 	private static readonly int EnvDepthTextureCS = Shader.PropertyToID("EnvDepthTextureCS");
 	private static readonly int EnvDepthTextureSize = Shader.PropertyToID("EnvDepthTextureSize");
+
+	private static readonly int WorldStartId = Shader.PropertyToID("WorldStart");
+	private static readonly int WorldEndId = Shader.PropertyToID("WorldEnd");
+	private static readonly int NumSamplesId = Shader.PropertyToID("NumSamples");
 
 	[SerializeField] private ComputeShader computeShader;
 	[SerializeField] private EnvironmentDepthTextureProvider envDepthTextureProvider;
@@ -36,6 +38,8 @@ public class DepthCast : MonoBehaviour
 	public Vector2Int environmentDepthTextureSize = DefaultEnvironmentDepthTextureSize;
 
 	private bool depthEnabled = false;
+
+	private List<Vector3> worldSamples = new List<Vector3>(500);
 
 	/// <summary>
 	/// 
@@ -98,19 +102,20 @@ public class DepthCast : MonoBehaviour
 		if (numDepthTextureSamples == 0)
 			numDepthTextureSamples = 1;
 
-		float distStep = (end - start) / numDepthTextureSamples;
+		int threads = Mathf.CeilToInt(numDepthTextureSamples / 32f);
 
-		List<Vector3> worldSamples = new List<Vector3>(numDepthTextureSamples);
+		var resultsCB = GetComputeBuffers(numDepthTextureSamples);
 
-		for (int i = 0; i < numDepthTextureSamples; i++)
-		{
-			worldSamples.Add(ray.GetPoint(start + distStep * i));
-		}
+		computeShader.SetVector(WorldStartId, worldStart);
+		computeShader.SetVector(WorldEndId, worldEnd);
+        computeShader.SetInt(NumSamplesId, numDepthTextureSamples);
 
-		if (worldSamples.Count == 0)
-			return false;
+        computeShader.SetBuffer(0, RaycastResultsId, resultsCB);
 
-		DepthCastResult[] results = DispatchCompute(worldSamples);
+		computeShader.Dispatch(0, threads, 1, 1);
+
+		var results = new DepthCastResult[numDepthTextureSamples];
+		resultsCB.GetData(results);
 
 		for (int i = 0; i < results.Length; i++)
 		{
@@ -167,7 +172,6 @@ public class DepthCast : MonoBehaviour
 		return true;
 	}
 
-	private ComputeBuffer requestsCB;
 	private ComputeBuffer resultsCB;
 
 	public static Camera Camera { get; private set; }
@@ -178,8 +182,6 @@ public class DepthCast : MonoBehaviour
 
 		Instance = this;
 
-		requestsCB?.Release();
-		requestsCB = null;
 		resultsCB?.Release();
 		resultsCB = null;
 
@@ -201,7 +203,6 @@ public class DepthCast : MonoBehaviour
 
 	private void OnDestroy()
 	{
-		requestsCB?.Release();
 		resultsCB?.Release();
 	}
 
@@ -221,44 +222,21 @@ public class DepthCast : MonoBehaviour
 		computeShader.SetInts(EnvDepthTextureSize, environmentDepthTextureSize.x, environmentDepthTextureSize.y);
 	}
 
-	private DepthCastResult[] DispatchCompute(List<Vector3> requestedPositions)
+	private ComputeBuffer GetComputeBuffers(int size)
 	{
-		int count = requestedPositions.Count;
-		int threads = Mathf.CeilToInt(count / 32f);
-
-		var (requestsCB, resultsCB) = GetComputeBuffers(count);
-		requestsCB.SetData(requestedPositions);
-
-		computeShader.SetBuffer(0, raycastRequestsId, requestsCB);
-		computeShader.SetBuffer(0, raycastResultsId, resultsCB);
-
-		computeShader.Dispatch(0, threads, 1, 1);
-
-		var raycastResults = new DepthCastResult[count];
-		resultsCB.GetData(raycastResults);
-
-		return raycastResults;
-	}
-
-	private (ComputeBuffer, ComputeBuffer) GetComputeBuffers(int size)
-	{
-		if (requestsCB != null && resultsCB != null && requestsCB.count != size)
+		if (resultsCB != null && resultsCB.count != size)
 		{
-			requestsCB.Release();
-			requestsCB = null;
 			resultsCB.Release();
 			resultsCB = null;
 		}
 
-		if (requestsCB == null || resultsCB == null)
+		if (resultsCB == null)
 		{
-			requestsCB = new ComputeBuffer(size, Marshal.SizeOf<Vector3>(),
-				ComputeBufferType.Structured);
 			resultsCB = new ComputeBuffer(size, Marshal.SizeOf<DepthCastResult>(),
 				ComputeBufferType.Structured);
 		}
 
-		return (requestsCB, resultsCB);
+		return resultsCB;
 	}
 
 	// https://gist.github.com/SalvatorePreviti/0ec6a73cb14cd33f12350ae27468f2e7
