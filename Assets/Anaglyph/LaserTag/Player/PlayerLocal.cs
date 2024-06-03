@@ -8,9 +8,9 @@ namespace Anaglyph.LaserTag
 {
 	public class PlayerLocal : SingletonBehavior<PlayerLocal>
 	{
-		public Role currentRole = Role.Default;
+		public Role currentRole = Role.Standard;
 		
-		public float health = Role.Default.MaxHealth;
+		public float health = Role.Standard.MaxHealth;
 
 		public float respawnTimer = 0;
 
@@ -89,7 +89,7 @@ namespace Anaglyph.LaserTag
 			{
 				respawnTimer = 0;
 
-				passthroughLayer.edgeColor = Color.Lerp(Color.red, Color.clear, Mathf.Clamp01(health / Role.Default.MaxHealth));
+				passthroughLayer.edgeColor = Color.Lerp(Color.red, Color.clear, Mathf.Clamp01(health / Role.Standard.MaxHealth));
 
 				health += currentRole.HealthRegenerationPerSecond * Time.deltaTime;
 				health = Mathf.Clamp(health, 0, currentRole.MaxHealth);

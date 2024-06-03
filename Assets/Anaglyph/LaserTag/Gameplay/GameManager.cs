@@ -13,6 +13,6 @@ public class GameManager : SingletonNetworkBehavior<GameManager>
                 return role;
         }
 
-        return Role.Default;
+        return Role.Standard;
     }
 }

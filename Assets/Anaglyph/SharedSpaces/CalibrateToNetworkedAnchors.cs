@@ -1,3 +1,4 @@
+using System.Collections;
 using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
@@ -23,12 +24,22 @@ namespace Anaglyph.SharedSpaces
 		private NetworkedSpatialAnchor lastFoundAnchor;
 		private bool isColocatedToLastFoundAnchor;
 		private bool isColocatedToAnyAnchor;
+		private bool shouldRecalibrateNextUpdate;
 
 		private void Awake()
 		{
 			rig = FindObjectOfType<XROrigin>();
 
 			calibrateTimer = calibrateDelaySeconds;
+
+			OVRManager.display.RecenteredPose += HandleRecenter;
+		}
+
+		private void HandleRecenter()
+		{
+			shouldRecalibrateNextUpdate = true;
+
+			Debug.Log("Recenter detected. Calibrating to last anchor");
 		}
 
 		private void Update()
@@ -72,7 +83,15 @@ namespace Anaglyph.SharedSpaces
 			}
 		}
 
-		private bool TryFindClosestWithinDistance(out NetworkedSpatialAnchor foundAnchor)
+        private void LateUpdate()
+        {
+            if (shouldRecalibrateNextUpdate)
+            {
+                CalibrateToAnchor(lastFoundAnchor);
+            }
+        }
+
+        private bool TryFindClosestWithinDistance(out NetworkedSpatialAnchor foundAnchor)
 		{
 			foundAnchor = null;
 
@@ -94,6 +113,9 @@ namespace Anaglyph.SharedSpaces
 
 		public void CalibrateToAnchor(NetworkedSpatialAnchor anchor)
 		{
+			if (anchor == null)
+				return;
+
 			Matrix4x4 rigMat = Matrix4x4.TRS(rig.transform.position, rig.transform.rotation, Vector3.one);
 			Matrix4x4 desiredMat = Matrix4x4.TRS(anchor.transform.position, anchor.transform.rotation, Vector3.one);
 			Matrix4x4 anchorMat = Matrix4x4.TRS(anchor.AttachedSpatialAnchor.transform.position, anchor.AttachedSpatialAnchor.transform.rotation, Vector3.one);

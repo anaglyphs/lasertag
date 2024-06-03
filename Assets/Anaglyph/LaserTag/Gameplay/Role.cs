@@ -23,11 +23,11 @@ public struct Role : IEquatable<Role>
         return this.Uuid.guid == other.Uuid.guid; // We might need a better method of equating roles, idk, as long as Netcode is happy :)
     }
 
-    public static Role Default => new Role()
+    public static Role Standard => new Role()
     {
         Uuid = new(Guid.Empty),
 
-        TeamNumber = -1,
+        TeamNumber = 1,
         ReturnToBaseOnDie = false,
         BaseRespawnDistance = 1.5f,
 

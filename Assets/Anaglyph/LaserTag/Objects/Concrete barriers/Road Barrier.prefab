@@ -212,7 +212,6 @@ GameObject:
   - component: {fileID: 9164692786515424972}
   - component: {fileID: 4407592719180123594}
   - component: {fileID: 5063313920619097981}
-  - component: {fileID: 227534569827359545}
   m_Layer: 0
   m_Name: Barrier_tetra
   m_TagString: Untagged
@@ -260,7 +259,7 @@ MeshRenderer:
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 2
   m_RayTraceProcedural: 0
-  m_RenderingLayerMask: 3
+  m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
   - {fileID: 2100000, guid: df5375d482325064b9bb4ee4ea1429cd, type: 2}
@@ -307,17 +306,3 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300004, guid: 6f7f0798d552cde4db3a4527cc4fbde2, type: 3}
---- !u!114 &227534569827359545
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5947869607584290758}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8f41e8388e5af4f4887bc8e3a93ca2ae, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  <DepthBiasValue>k__BackingField: 0
-  DoesAffectChildren: 0
