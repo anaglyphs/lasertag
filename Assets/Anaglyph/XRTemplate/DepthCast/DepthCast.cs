@@ -81,7 +81,7 @@ public class DepthCast : MonoBehaviour
 		Vector3 tolerance = Vector3.zero;
 		bool rayInView = GetFrustumLineIntersection(planes, ray, tolerance, out start, out end);
 
-		if (!rayInView)
+		if (!rayInView || Mathf.Sign(end) < 0)
 			return false;
 
 		start = Mathf.Max(start, 0);
@@ -93,7 +93,7 @@ public class DepthCast : MonoBehaviour
 		// number of samples along ray (pixel distance)
 		Vector2 screenStart = Camera.WorldToScreenPoint(worldStart, Left);
 		Vector2 screenEnd = Camera.WorldToScreenPoint(worldEnd, Left);
-		int numDepthTextureSamples = (int)(Vector2.Distance(screenStart, screenEnd) / 2f);
+		int numDepthTextureSamples = (int)(Vector2.Distance(screenStart, screenEnd) / 3f);
 
 		if (numDepthTextureSamples == 0)
 			numDepthTextureSamples = 1;

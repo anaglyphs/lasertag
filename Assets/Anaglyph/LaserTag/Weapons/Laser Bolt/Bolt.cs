@@ -18,13 +18,13 @@ namespace Anaglyph.LaserTag
 		public UnityEvent onHit = new();
 		private bool isFlying = true;
 
-		private NetworkVariable<NetworkPose> networkPose 
-			= new(default, NetworkVariableReadPermission.Everyone, 
-				NetworkVariableWritePermission.Owner);
-
 		private float distancePerFrame => metersPerSecond * Time.deltaTime;
 
-		private void Awake()
+        private NetworkVariable<NetworkPose> networkPose
+		= new(default, NetworkVariableReadPermission.Everyone,
+			NetworkVariableWritePermission.Owner);
+
+        private void Awake()
 		{
 			networkPose.OnValueChanged += OnNetworkPoseChange;
 		}

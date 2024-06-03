@@ -57,9 +57,9 @@ namespace Anaglyph.XRTemplate
 			inputDevice.TryGetFeatureValue(CommonUsages.triggerButton, out bool triggerIsDown);
 			TriggerIsDown = triggerIsDown;
 
-			if (Input.GetMouseButtonDown(0)) {
-				TriggerIsDown = true;
-			}
+			//if (Input.GetMouseButtonDown(0)) {
+			//	TriggerIsDown = true;
+			//}
 
 			inputDevice.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 joystickVector);
 			JoystickVector = joystickVector;
