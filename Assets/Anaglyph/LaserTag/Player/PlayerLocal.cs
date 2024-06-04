@@ -31,7 +31,7 @@ namespace Anaglyph.LaserTag
 		[SerializeField] private Transform localHeadTransform;
 		[SerializeField] private Transform localLeftHandTransform;
 		[SerializeField] private Transform localRightHandTransform;
-		[SerializeField] private Transform localChestTransform;
+		//[SerializeField] private Transform localChestTransform;
 
 		protected override void SuperAwake()
 		{
@@ -123,7 +123,7 @@ namespace Anaglyph.LaserTag
 				networkPlayer.HeadTransform.SetPositionAndRotation(localHeadTransform.position, localHeadTransform.rotation);
 				networkPlayer.LeftHandTransform.SetPositionAndRotation(localLeftHandTransform.position, localLeftHandTransform.rotation);
 				networkPlayer.RightHandTransform.SetPositionAndRotation(localRightHandTransform.position, localRightHandTransform.rotation);
-				networkPlayer.ChestTransform.SetPositionAndRotation(localChestTransform.position, localChestTransform.rotation);
+				//networkPlayer.ChestTransform.SetPositionAndRotation(localChestTransform.position, localChestTransform.rotation);
 			}
 		}
 

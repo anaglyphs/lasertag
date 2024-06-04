@@ -12,7 +12,7 @@ namespace Anaglyph.LaserTag.Networking
 		public Transform HeadTransform;
 		public Transform LeftHandTransform;
 		public Transform RightHandTransform;
-		public Transform ChestTransform;
+		//public Transform ChestTransform;
 
 		[SerializeField] private GameObject[] deactivateIfOwner;
 		[SerializeField] private MonoBehaviour[] enabledIfOwner;
@@ -33,8 +33,8 @@ namespace Anaglyph.LaserTag.Networking
 		private NetworkVariable<NetworkPose> rightHandPoseSync = new NetworkVariable<NetworkPose>
 			(writePerm: NetworkVariableWritePermission.Owner);
 
-		private NetworkVariable<NetworkPose> chestPoseSync = new NetworkVariable<NetworkPose>
-			(writePerm: NetworkVariableWritePermission.Owner);
+		//private NetworkVariable<NetworkPose> chestPoseSync = new NetworkVariable<NetworkPose>
+		//	(writePerm: NetworkVariableWritePermission.Owner);
 
 		public static List<Player> AllPlayers = new();
 
@@ -86,14 +86,14 @@ namespace Anaglyph.LaserTag.Networking
 				headPoseSync.Value = new NetworkPose(HeadTransform);
 				leftHandPoseSync.Value = new NetworkPose(LeftHandTransform);
 				rightHandPoseSync.Value = new NetworkPose(RightHandTransform);
-				chestPoseSync.Value = new NetworkPose(ChestTransform);
+				//chestPoseSync.Value = new NetworkPose(ChestTransform);
             }
 			else
 			{
 				HeadTransform.SetPositionAndRotation(headPoseSync.Value.position, headPoseSync.Value.rotation);
 				LeftHandTransform.SetPositionAndRotation(leftHandPoseSync.Value.position, leftHandPoseSync.Value.rotation);
 				RightHandTransform.SetPositionAndRotation(rightHandPoseSync.Value.position, rightHandPoseSync.Value.rotation);
-				ChestTransform.SetPositionAndRotation(chestPoseSync.Value.position, chestPoseSync.Value.rotation);
+				//ChestTransform.SetPositionAndRotation(chestPoseSync.Value.position, chestPoseSync.Value.rotation);
 			}
 		}
 
