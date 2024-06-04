@@ -2,6 +2,7 @@ using UnityEngine;
 
 namespace GlassUI
 {
+	[ExecuteAlways]
     public class ZeroY : MonoBehaviour
     {
 		private void LateUpdate()
