@@ -1,4 +1,6 @@
 using System;
+using System.Collections;
+using System.Threading.Tasks;
 using UnityEngine;
 
 namespace Anaglyph.XRTemplate
@@ -26,13 +28,34 @@ namespace Anaglyph.XRTemplate
 				throw new Exception("OVRManager isn't initialized.");
 			}
 
+#if UNITY_EDITOR
+			EnablePassthroughOculusDelayedInEditor(on);
+#else
 			PassthroughOn = on;
 
 			OVRManager.instance.isInsightPassthroughEnabled = on;
 			OnPassthroughChange.Invoke(on);
 
 			ChangeCameraBackground(on);
-		}
+#endif
+        }
+
+#if UNITY_EDITOR
+		private static async void EnablePassthroughOculusDelayedInEditor(bool on)
+		{
+            OVRManager.instance.isInsightPassthroughEnabled = false;
+
+            await Task.Delay(500);
+
+            PassthroughOn = on;
+
+            OVRManager.instance.isInsightPassthroughEnabled = on;
+            OnPassthroughChange.Invoke(on);
+
+            ChangeCameraBackground(on);
+        }
+#endif
+
 #endif
 
 		private static void ChangeCameraBackground(bool on)
