@@ -12,6 +12,10 @@ struct RaycastResult
 	float3 Normal;
 };
 
+#if defined(SHADER_API_D3D11)
+#define FLIP_UVS 1
+#endif
+
 StructuredBuffer<float3> RaycastRequests;
 RWStructuredBuffer<RaycastResult> RaycastResults;
 
@@ -23,10 +27,16 @@ float3 WorldStart;
 float3 WorldEnd;
 int NumSamples;
 
-float SampleEnvDepthCS(const float2 uv, const int slice)
+float SampleEnvDepthCS(float2 uv, const int slice)
 {
 	float4x4 reprojMat = _EnvironmentDepth3DOFReprojectionMatrices[slice];
+	
+#if FLIP_UVS
+	uv.y = 1 - uv.y;
+#endif
+	
 	const float4 reprojectedUV = mul(reprojMat, float4(uv.x, uv.y, 0.0, 1.0));
+	
 	// TODO: fix hardcoded screen space ?
 	const uint3 depthtextureuv = uint3(reprojectedUV.x * EnvDepthTextureSize.x, reprojectedUV.y * EnvDepthTextureSize.y, 0);
 
@@ -82,6 +92,10 @@ float3 ComputeWorldSpaceNormal(float2 uv, float3 worldPos, int slice)
 
 	// get view space normal from the cross product of the diffs
 	float3 viewNormal = -normalize(cross(hDeriv, vDeriv));
+
+#if FLIP_UVS
+	viewNormal = -viewNormal;
+#endif
 
 	return viewNormal;
 }
