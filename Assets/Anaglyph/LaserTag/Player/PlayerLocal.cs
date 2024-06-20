@@ -31,6 +31,9 @@ namespace Anaglyph.LaserTag
 		[SerializeField] private Transform localHeadTransform;
 		[SerializeField] private Transform localLeftHandTransform;
 		[SerializeField] private Transform localRightHandTransform;
+
+		public Transform LocalHeadTransform => localHeadTransform;
+
 		//[SerializeField] private Transform localChestTransform;
 
 		protected override void SuperAwake()
@@ -71,13 +74,7 @@ namespace Anaglyph.LaserTag
 				if (_base.TeamNumber != currentRole.TeamNumber)
 					continue;
 
-				Vector3 headPosFlat = localHeadTransform.position;
-				headPosFlat.y = 0;
-
-				Vector3 basePosFlat = _base.transform.position;
-				basePosFlat.y = 0;
-
-				if (Vector3.Distance(basePosFlat, headPosFlat) < _base.radius)
+				if (Vector3.Distance(localHeadTransform.position, _base.transform.position) < _base.radius.Value)
 				{
 					closeToBase = true;
 				}

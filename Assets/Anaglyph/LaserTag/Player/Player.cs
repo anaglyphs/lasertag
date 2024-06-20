@@ -33,6 +33,11 @@ namespace Anaglyph.LaserTag.Networking
 		private NetworkVariable<NetworkPose> rightHandPoseSync = new NetworkVariable<NetworkPose>
 			(writePerm: NetworkVariableWritePermission.Owner);
 
+		private NetworkVariable<int> team = new NetworkVariable<int> 
+			(writePerm: NetworkVariableWritePermission.Owner);
+
+		public int Team => team.Value;
+
 		//private NetworkVariable<NetworkPose> chestPoseSync = new NetworkVariable<NetworkPose>
 		//	(writePerm: NetworkVariableWritePermission.Owner);
 

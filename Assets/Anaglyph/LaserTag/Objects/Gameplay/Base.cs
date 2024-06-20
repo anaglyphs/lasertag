@@ -24,7 +24,7 @@ namespace Anaglyph.LaserTag.Networking
 
 		public static List<Base> AllBases = new();
 
-		public float radius = 1.5f;
+		public NetworkVariable<float> radius = new(1.5f, writePerm: NetworkVariableWritePermission.Owner);
 
 		public override void OnNetworkSpawn()
 		{
