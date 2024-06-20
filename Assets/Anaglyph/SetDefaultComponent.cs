@@ -16,10 +16,23 @@ namespace Anaglyph
             if (comp == null)
             {
                 comp = behaviour.GetComponentInParent<T>(true);
-
-                if (comp == null)
-                    throw new MissingComponentException(behaviour.name + " couldn't find necessary " + typeof(T).Name);
             }
         }
-    }
+
+		public static void SetDefaultComponentFromParent<T>(this Component behaviour, ref T comp) where T : Component
+		{
+			if (comp == null)
+			{
+				comp = behaviour.GetComponentInParent<T>(true);
+			}
+		}
+
+		public static void SetDefaultComponetFromChild<T>(this Component behaviour, ref T comp) where T : Component
+		{
+			if (comp == null)
+			{
+				comp = behaviour.GetComponentInChildren<T>(true);
+			}
+		}
+	}
 }

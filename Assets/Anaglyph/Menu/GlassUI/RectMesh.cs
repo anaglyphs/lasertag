@@ -1,59 +1,40 @@
+using Anaglyph;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
 namespace GlassUI
 {
 	[ExecuteAlways]
-	[RequireComponent(typeof(MeshRenderer), typeof(RectTransform))]
-	public class RectMesh : UIBehaviour
+	[RequireComponent(typeof(RectTransform))]
+	public class RectMesh : ProgrammaticMesh
 	{
-		[SerializeField] private Mesh originalMesh;
 		[SerializeField] private float padding = 0.01f;
 
-		private RectTransform rectTransform;
-		private MeshFilter meshFilter;
-		private Vector3[] vertsOriginal;
-		private Mesh modifiedMesh;
+		[SerializeField] private RectTransform rectTransform;
 
-		private bool initializedMesh;
+		protected override void OnValidate()
+		{
+			base.OnValidate();
+
+			this.SetDefaultComponent(ref rectTransform);
+		}
 
 		protected override void Awake()
 		{
-			rectTransform = GetComponent<RectTransform>();
-			meshFilter = GetComponent<MeshFilter>();
-
-			if (modifiedMesh != null)
-				DestroyImmediate(modifiedMesh);
-
-			modifiedMesh = new Mesh();
-
-			var originalMeshData = Mesh.AcquireReadOnlyMeshData(originalMesh);
-			Mesh.ApplyAndDisposeWritableMeshData(originalMeshData, modifiedMesh);
-
-			vertsOriginal = originalMesh.vertices;
-
-			initializedMesh = true;
+			base.Awake();
 		}
 
-		protected override void Start()
+		private void Start()
 		{
-			SetSize();
+			UpdateMesh();
 		}
 
-		protected override void OnRectTransformDimensionsChange()
+		public void UpdateMesh()
 		{
-			SetSize();
+			UpdateMesh(rectTransform.rect.size, rectTransform.rect.center, padding);
 		}
 
-		private void SetSize()
-		{
-			if (!initializedMesh)
-				return;
-
-			SetSize(rectTransform.rect.size, rectTransform.rect.center, padding);
-		}
-
-		public void SetSize(Vector2 size, Vector2 center, float padding = 0)
+		public void UpdateMesh(Vector2 size, Vector2 center, float padding = 0)
 		{
 			if (!initializedMesh)
 				return;

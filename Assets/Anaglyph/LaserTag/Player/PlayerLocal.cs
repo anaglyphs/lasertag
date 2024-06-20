@@ -77,7 +77,7 @@ namespace Anaglyph.LaserTag
 				Vector3 basePosFlat = _base.transform.position;
 				basePosFlat.y = 0;
 
-				if (Vector3.Distance(basePosFlat, headPosFlat) < currentRole.BaseRespawnDistance)
+				if (Vector3.Distance(basePosFlat, headPosFlat) < _base.radius)
 				{
 					closeToBase = true;
 				}
