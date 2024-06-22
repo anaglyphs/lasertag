@@ -7,9 +7,10 @@ public abstract class SingletonBehavior<T> : SuperAwakeBehavior where T : Single
 
 	protected override void SuperAwake()
 	{
-		if (ReferenceEquals(Instance, null))
+		if (Instance == null)
 		{
 			Instance = (T)this;
+			SingletonAwake();
 		}
 		else
 		{
@@ -18,9 +19,15 @@ public abstract class SingletonBehavior<T> : SuperAwakeBehavior where T : Single
 		}
 	}
 
+	protected abstract void SingletonAwake();
+
 	protected virtual void OnDestroy()
 	{
 		if (Instance == this)
 			Instance = null;
+
+		OnSingletonDestroy();
 	}
+
+	protected abstract void OnSingletonDestroy();
 }

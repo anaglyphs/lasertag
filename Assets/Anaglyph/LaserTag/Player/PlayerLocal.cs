@@ -36,10 +36,8 @@ namespace Anaglyph.LaserTag
 
 		//[SerializeField] private Transform localChestTransform;
 
-		protected override void SuperAwake()
+		protected override void SingletonAwake()
 		{
-			base.SuperAwake();
-
 			passthroughLayer = FindObjectOfType<OVRPassthroughLayer>(true);
 			passthroughLayer.edgeRenderingEnabled = true;
 			passthroughLayer.edgeColor = Color.clear;
@@ -152,6 +150,11 @@ namespace Anaglyph.LaserTag
 
 			onAliveChange.Invoke(true);
 			onRespawn.Invoke();
+		}
+
+		protected override void OnSingletonDestroy()
+		{
+			
 		}
 	}
 }

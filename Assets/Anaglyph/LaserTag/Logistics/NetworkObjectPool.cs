@@ -17,16 +17,19 @@ namespace Anaglyph.LaserTag.Logistics
 
 		Dictionary<GameObject, ObjectPool<NetworkObject>> m_PooledObjects = new Dictionary<GameObject, ObjectPool<NetworkObject>>();
 
+		protected override void SingletonAwake()
+		{
+			
+		}
+
 		private void Start()
 		{
 			NetworkManager.Singleton.OnClientStarted += OnSessionStart;
 			NetworkManager.Singleton.OnClientStopped += OnSessionStopped;
 		}
 
-		protected override void OnDestroy()
+		protected override void OnSingletonDestroy()
 		{
-			base.OnDestroy();
-
 			if (NetworkManager.Singleton == null)
 				return;
 
