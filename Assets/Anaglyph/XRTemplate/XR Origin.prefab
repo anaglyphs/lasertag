@@ -1359,7 +1359,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a4b13589911d00d49bb8395c49568d3f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _occlusionType: 2
+  _occlusionType: 1
 --- !u!114 &278063313867506157
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1374,7 +1374,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   computeShader: {fileID: 7200000, guid: 3cd5ec81e0270054cbdfa7e6e1790a9c, type: 3}
   envDepthTextureProvider: {fileID: 328423425347015900}
-  environmentDepthTextureSize: {x: 2000, y: 2000}
 --- !u!114 &1394363023484580083
 MonoBehaviour:
   m_ObjectHideFlags: 0
