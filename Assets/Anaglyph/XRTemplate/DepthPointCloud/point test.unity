@@ -134,9 +134,9 @@ GameObject:
   - component: {fileID: 2131454126}
   - component: {fileID: 2131454125}
   - component: {fileID: 2131454128}
-  - component: {fileID: 2131454130}
   - component: {fileID: 2131454129}
   - component: {fileID: 2131454131}
+  - component: {fileID: 2131454132}
   m_Layer: 0
   m_Name: Pointcloud
   m_TagString: Untagged
@@ -208,7 +208,7 @@ VisualEffect:
   m_GameObject: {fileID: 2131454122}
   m_Enabled: 1
   m_Asset: {fileID: 8926484042661614526, guid: b3dc266fd6ff2e84f9d6ba86f3431038, type: 3}
-  m_InitialEventName: OnPlay
+  m_InitialEventName: UpdatePoints
   m_InitialEventNameOverriden: 1
   m_StartSeed: 0
   m_ResetSeedOnPlay: 1
@@ -224,7 +224,10 @@ VisualEffect:
     m_Vector4f:
       m_Array: []
     m_Uint:
-      m_Array: []
+      m_Array:
+      - m_Value: 262144
+        m_Name: PointCount
+        m_Overridden: 1
     m_Int:
       m_Array:
       - m_Value: 512
@@ -232,6 +235,12 @@ VisualEffect:
         m_Overridden: 1
       - m_Value: 512
         m_Name: PointTexSizeY
+        m_Overridden: 1
+      - m_Value: 512
+        m_Name: PointTexWidth
+        m_Overridden: 1
+      - m_Value: 512
+        m_Name: PointTexHeight
         m_Overridden: 1
     m_Matrix4x4f:
       m_Array: []
@@ -275,35 +284,6 @@ MonoBehaviour:
   computeShader: {fileID: 7200000, guid: 889f3ff0fda3a8b4d8e002aab8a00217, type: 3}
   envDepthTextureProvider: {fileID: 0}
   environmentDepthTextureSize: {x: 2000, y: 2000}
---- !u!114 &2131454130
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2131454122}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 44c07dba6e91cb74a8d557ec2cb3cbe7, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  points: []
-  onAccumulate:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2131454128}
-        m_TargetAssemblyTypeName: Anaglyph.XRTemplate.PointCloudRenderer, com.trev3d.xrtemplate
-        m_MethodName: UpdatePoints
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-  maxPoints: 1048576
 --- !u!114 &2131454131
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -323,6 +303,35 @@ MonoBehaviour:
   framerateTarget: 72
   suggestedCpuPerfLevel: 2
   suggestedGpuPerfLevel: 2
+--- !u!114 &2131454132
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2131454122}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 44c07dba6e91cb74a8d557ec2cb3cbe7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  points: []
+  onAccumulate:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 2131454128}
+        m_TargetAssemblyTypeName: Anaglyph.XRTemplate.PointCloudRenderer, com.trev3d.xrtemplate
+        m_MethodName: UpdateAllPoints
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+  maxPoints: 1048576
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

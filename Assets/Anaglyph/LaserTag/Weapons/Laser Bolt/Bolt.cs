@@ -108,7 +108,7 @@ namespace Anaglyph.LaserTag
 			}
 
 			//Vector3 diff = transform.position - previousPosition;
-			if (Physics.Linecast(previousPosition, transform.position, out RaycastHit hit))
+			if (Physics.Linecast(previousPosition, transform.position, out RaycastHit hit, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
 			{
 				HandleHitLocally(hit.point, hit.normal);
 

@@ -18,7 +18,7 @@ namespace Anaglyph.XRTemplate
                 points.Add(new(Random.Range(-1f, 1f), Random.Range(-1f, 1f), Random.Range(-1f, 1f)));
             }
 
-            pointCloudRenderer.UpdatePoints(points);
+            pointCloudRenderer.UpdateAllPoints(points);
         }
 
 		private void OnValidate()

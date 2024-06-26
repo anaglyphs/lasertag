@@ -471,7 +471,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   originalMesh: {fileID: 0}
+  meshFilter: {fileID: 5860570640175469079}
   padding: 0
+  rectTransform: {fileID: 6998999265974698179}
 --- !u!1 &1177750112877631425
 GameObject:
   m_ObjectHideFlags: 0
@@ -761,6 +763,7 @@ GameObject:
   - component: {fileID: 8696751949257387819}
   - component: {fileID: 4735952825087104118}
   - component: {fileID: 242466431391712396}
+  - component: {fileID: 4554260768482862413}
   m_Layer: 5
   m_Name: Pages
   m_TagString: Untagged
@@ -868,7 +871,36 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   originalMesh: {fileID: -2243694021022699714, guid: 9a947e8932165ec42b96b22209cf26a2, type: 3}
+  meshFilter: {fileID: 8696751949257387819}
   padding: 0
+  rectTransform: {fileID: 5704648485300518326}
+--- !u!114 &4554260768482862413
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1942192072708057679}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3af00d8130661924c880237daa4bd06a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  OnChange:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 242466431391712396}
+        m_TargetAssemblyTypeName: GlassUI.RectMesh, ph.anagly.menu
+        m_MethodName: UpdateMesh
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!1 &2722306267163088333
 GameObject:
   m_ObjectHideFlags: 0
@@ -1044,7 +1076,7 @@ Transform:
   m_GameObject: {fileID: 4077673737700536255}
   serializedVersion: 2
   m_LocalRotation: {x: 0.70710576, y: -0, z: -0, w: 0.70710784}
-  m_LocalPosition: {x: 0, y: -0.438, z: 0.006}
+  m_LocalPosition: {x: 0, y: -1.35, z: 0.006000042}
   m_LocalScale: {x: 1, y: 0.7534853, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1216,6 +1248,7 @@ GameObject:
   - component: {fileID: 1709695708171743267}
   - component: {fileID: 6414711172186185346}
   - component: {fileID: 2268764213839941695}
+  - component: {fileID: 818864345191102633}
   m_Layer: 5
   m_Name: Dock
   m_TagString: Untagged
@@ -1305,13 +1338,15 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4363915781737209323}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 402adfb7791ffac44ae7e3b606e3aca3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   originalMesh: {fileID: -2243694021022699714, guid: 9a947e8932165ec42b96b22209cf26a2, type: 3}
+  meshFilter: {fileID: 5999284102127151176}
   padding: 0
+  rectTransform: {fileID: 7428779095887765835}
 --- !u!114 &1709695708171743267
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1430,6 +1465,33 @@ MonoBehaviour:
   OnServerStopped:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &818864345191102633
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4363915781737209323}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3af00d8130661924c880237daa4bd06a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  OnChange:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 4392600372695251950}
+        m_TargetAssemblyTypeName: GlassUI.RectMesh, ph.anagly.menu
+        m_MethodName: UpdateMesh
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!1 &4694904851421027556
 GameObject:
   m_ObjectHideFlags: 0
@@ -3054,7 +3116,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 109842168795725812, guid: feffb660bfdfdae4689f8ba93123e11c, type: 3}
       propertyPath: m_Size
-      value: 0.248826
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 109842168795725812, guid: feffb660bfdfdae4689f8ba93123e11c, type: 3}
+      propertyPath: m_Value
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 177296459565064906, guid: feffb660bfdfdae4689f8ba93123e11c, type: 3}
       propertyPath: m_AnchorMax.y
@@ -3150,7 +3216,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3867320367722160767, guid: feffb660bfdfdae4689f8ba93123e11c, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 0.63593346
+      value: 0.000011444092
       objectReference: {fileID: 0}
     - target: {fileID: 3967845899021693015, guid: feffb660bfdfdae4689f8ba93123e11c, type: 3}
       propertyPath: m_IsActive

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.VFX;
@@ -11,6 +12,12 @@ namespace Anaglyph.XRTemplate
 		[SerializeField] private VisualEffect effect;
 		private Texture2D pointTexture;
 		private float[] pointPositions;
+		private uint pointCount;
+
+		private static readonly int PointTexID = Shader.PropertyToID("PointTex");
+		private static readonly int PointTexWidthID = Shader.PropertyToID("PointTexWidth");
+		private static readonly int PointTexHeightID = Shader.PropertyToID("PointTexHeight");
+		private static readonly int PointCountID = Shader.PropertyToID("PointCount");
 
 		private void OnValidate()
 		{
@@ -26,19 +33,20 @@ namespace Anaglyph.XRTemplate
 
 			pointPositions = new float[pointTexture.width * pointTexture.height * 4];
 
-			effect.SetTexture("PointTex", pointTexture);
-			effect.SetInt("PointTexSizeX", pointTexture.width);
-			effect.SetInt("PointTexSizeY", pointTexture.height);
+			effect.SetTexture(PointTexID, pointTexture);
+			effect.SetInt(PointTexWidthID, pointTexture.width);
+			effect.SetInt(PointTexHeightID, pointTexture.height);
+			effect.SetUInt(PointCountID, (uint)(pointTexture.width * pointTexture.height));
 		}
 
-		public void UpdatePoints(List<Vector3> allPoints)
+		public void UpdateAllPoints(List<Vector3> allPoints)
 		{
-			int count = Mathf.Min(allPoints.Count, pointTexture.width * pointTexture.height);
+			pointCount = (uint)Mathf.Min(allPoints.Count, pointTexture.width * pointTexture.height);
 
-			for (int i = 0; i < count; i++)
+			for (uint i = 0; i < pointCount; i++)
 			{
-				int strided = i * 4;
-				Vector3 p = allPoints[i];
+				uint strided = i * 4;
+				Vector3 p = allPoints[(int)i];
 
 				pointPositions[strided + 0] = p.x;
 				pointPositions[strided + 1] = p.y;
@@ -50,10 +58,14 @@ namespace Anaglyph.XRTemplate
 				//pointTexture.SetPixel(x, y, new Color(p.x, p.y, p.z));
 			}
 
-			pointTexture.SetPixelData<float>(pointPositions, 0);
-
+			pointTexture.SetPixelData(pointPositions, 0);
 			pointTexture.Apply();
-			effect.SetTexture("PointTex", pointTexture);
+			effect.SetTexture(PointTexID, pointTexture);
+
+			effect.SetUInt(PointCountID, pointCount);
+
+			effect.Reinit();
+			effect.SendEvent(0);
 		}
 
 		private void OnDestroy()

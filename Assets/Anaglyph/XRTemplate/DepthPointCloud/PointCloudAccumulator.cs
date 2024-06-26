@@ -16,23 +16,23 @@ namespace Anaglyph.XRTemplate
 		private void Start()
 		{
 			mainCamera = Camera.main;
-			InvokeRepeating("Accumulate", 1f, 3f);
+			InvokeRepeating("Accumulate", 1f, 0.5f);
 		}
 
 		public void Accumulate()
 		{
-			for(int i = 0; i < points.Count; i++)
-			{
-				Vector3 v = mainCamera.WorldToViewportPoint(points[i], Camera.MonoOrStereoscopicEye.Left);
-
-				if (v.z > 0 && v.x > 0f && v.x < 1f && v.y > 0f && v.y < 1f)
-				{
-					points.RemoveAt(i);
-					i--;
-				}
-			}
-
 			if (!enabled) return;
+
+			//for(int i = 0; i < points.Count; i++)
+			//{
+			//	Vector3 v = mainCamera.WorldToViewportPoint(points[i], Camera.MonoOrStereoscopicEye.Left);
+
+			//	if (v.z > 0 && v.z < 4f && v.x > 0.1f && v.x < 0.9f && v.y > 0.1f && v.y < 0.9f)
+			//	{
+			//		points.RemoveAt(i);
+			//		i--;
+			//	}
+			//}
 
 			bool success = DepthGridSampler.Sample(out DepthCastResult[] results, new Vector2Int(100, 100), false);
 			if (!success) return;

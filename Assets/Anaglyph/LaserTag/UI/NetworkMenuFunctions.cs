@@ -4,7 +4,7 @@ using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
 
-namespace ECSharedSpaceXR.Menu
+namespace Anaglyph.LaserTag.UI
 {
 	public class NetworkMenuFunctions : MonoBehaviour
 	{
