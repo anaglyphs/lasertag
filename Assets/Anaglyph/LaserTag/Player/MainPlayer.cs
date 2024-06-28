@@ -6,9 +6,10 @@ using System;
 
 namespace Anaglyph.LaserTag
 {
-	public class PlayerLocal : SingletonBehavior<PlayerLocal>
+	public class MainPlayer : SingletonBehavior<MainPlayer>
 	{
 		public Role currentRole = Role.Standard;
+		public int Team => currentRole.TeamNumber;
 		
 		public float health = Role.Standard.MaxHealth;
 
@@ -16,7 +17,7 @@ namespace Anaglyph.LaserTag
 
 		public bool alive { get; private set; } = true;
 
-		public bool nearBase = false;
+		public bool inBase = false;
 
 		public UnityEvent onDie = new();
 		public UnityEvent onRespawn = new();
@@ -24,7 +25,6 @@ namespace Anaglyph.LaserTag
 		public UnityEvent onTakeDamage = new();
 
 		private OVRPassthroughLayer passthroughLayer;
-
 
 		[NonSerialized] public Player networkPlayer;
 
@@ -65,20 +65,17 @@ namespace Anaglyph.LaserTag
 			//else 
 			//	currentRole = Role.Default;
 
-			bool closeToBase = false;
-
-			foreach (Base _base in Base.AllBases)
+			inBase = false;
+			foreach (Base b in Base.AllBases)
 			{
-				if (_base.TeamNumber != currentRole.TeamNumber)
+				if (b.TeamNumber != currentRole.TeamNumber)
 					continue;
 
-				if (Vector3.Distance(localHeadTransform.position, _base.transform.position) < _base.radius.Value)
+				if (Geo.PointIsInCylinder(b.transform.position, Base.Radius, 3, localHeadTransform.position))
 				{
-					closeToBase = true;
+					inBase = true;
 				}
 			}
-
-			nearBase = closeToBase;
 
 			if (alive)
 			{
@@ -90,7 +87,7 @@ namespace Anaglyph.LaserTag
 				health = Mathf.Clamp(health, 0, currentRole.MaxHealth);
 			} else
 			{
-				if ((currentRole.ReturnToBaseOnDie && nearBase) || !currentRole.ReturnToBaseOnDie)
+				if ((currentRole.ReturnToBaseOnDie && inBase) || !currentRole.ReturnToBaseOnDie)
 				{
 					respawnTimer += Time.deltaTime;
 				}
@@ -118,7 +115,6 @@ namespace Anaglyph.LaserTag
 				networkPlayer.HeadTransform.SetPositionAndRotation(localHeadTransform.position, localHeadTransform.rotation);
 				networkPlayer.LeftHandTransform.SetPositionAndRotation(localLeftHandTransform.position, localLeftHandTransform.rotation);
 				networkPlayer.RightHandTransform.SetPositionAndRotation(localRightHandTransform.position, localRightHandTransform.rotation);
-				//networkPlayer.ChestTransform.SetPositionAndRotation(localChestTransform.position, localChestTransform.rotation);
 			}
 		}
 

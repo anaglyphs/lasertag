@@ -1,6 +1,5 @@
 using Anaglyph.LaserTag.Networking;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -49,14 +48,13 @@ public class RadarDriver : MonoBehaviour
 
 		radarGridMaterial.material.SetVector("_GridOffset", transform.parent.position * RadarScale);
 
-		TrackAll(Player.AllPlayers.Where(player => !player.IsOwner).Select(player => player.HeadTransform), playerMarkerPrefab, ref players);
-
-        TrackAll(Base.AllBases.Select(_base => _base.transform), baseMarkerPrefab, ref bases);
+		TrackAll(Player.OtherPlayers, playerMarkerPrefab, ref players);
+        TrackAll(Base.AllBases, baseMarkerPrefab, ref bases);
     }
 
-	void TrackAll(IEnumerable<Transform> objects, GameObject prefab, ref List<GameObject> markerList)
+	void TrackAll<T>(List<T> objects, GameObject prefab, ref List<GameObject> markerList) where T : MonoBehaviour
 	{
-		int objectCount = objects.Count();
+		int objectCount = objects.Count;
 
 		if (markerList.Count < objectCount)
 		{
@@ -77,7 +75,7 @@ public class RadarDriver : MonoBehaviour
 
 		for (int i = 0; i < objectCount; i++)
 		{
-			Vector3 objectOffset = objects.ElementAt(i).position - handObject.transform.position;
+			Vector3 objectOffset = objects[i].transform.position - handObject.transform.position;
 
             markerList[i].transform.localPosition = new Vector3(objectOffset.x * 100 * RadarScale, objectOffset.z * 100 * RadarScale, 0);
         }

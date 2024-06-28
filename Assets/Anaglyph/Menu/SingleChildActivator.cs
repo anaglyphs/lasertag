@@ -8,6 +8,8 @@ namespace Anaglyph.Menu
 {
 	public class SingleChildActivator : SuperAwakeBehavior
 	{
+		[SerializeField] private GameObject initialActiveChild;
+
 		protected override void SuperAwake()
 		{
 			int childCount = transform.childCount;
@@ -18,7 +20,10 @@ namespace Anaglyph.Menu
 				g.AddComponent<DeactivateSiblingsOnEnable>();
 			}
 
-			SetActiveChild(0);
+			if(initialActiveChild != null && initialActiveChild.transform.parent == transform)
+				SetActiveChild(initialActiveChild.transform.GetSiblingIndex());
+			else
+				SetActiveChild(0);
 		}
 
 		public void DeactivateAllChildren()

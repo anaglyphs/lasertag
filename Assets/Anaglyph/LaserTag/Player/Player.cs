@@ -21,6 +21,7 @@ namespace Anaglyph.LaserTag.Networking
 		public UnityEvent onKilled = new();
 		public UnityEvent onDamaged = new();
 
+		public bool IsAlive => isAliveSync.Value;
 		public NetworkVariable<bool> isAliveSync = new NetworkVariable<bool>
 			(true, writePerm: NetworkVariableWritePermission.Owner);
 
@@ -42,6 +43,7 @@ namespace Anaglyph.LaserTag.Networking
 		//	(writePerm: NetworkVariableWritePermission.Owner);
 
 		public static List<Player> AllPlayers = new();
+		public static List<Player> OtherPlayers = new();
 
         private void Awake()
 		{
@@ -64,19 +66,15 @@ namespace Anaglyph.LaserTag.Networking
 			isAliveSync.OnValueChanged.Invoke(isAliveSync.Value, isAliveSync.Value);
 
 			foreach (MonoBehaviour m in enabledIfOwner)
-			{
 				m.enabled = IsOwner;
-			}
 
 			foreach(GameObject g in deactivateIfOwner)
-			{
 				g.SetActive(!IsOwner);
-			}
 
-			if(IsOwner)
-			{
-				PlayerLocal.Instance.networkPlayer = this;
-            }
+			if (IsOwner)
+				MainPlayer.Instance.networkPlayer = this;
+			else
+				OtherPlayers.Add(this);
 
             AllPlayers.Add(this);
         }
@@ -92,6 +90,8 @@ namespace Anaglyph.LaserTag.Networking
 				leftHandPoseSync.Value = new NetworkPose(LeftHandTransform);
 				rightHandPoseSync.Value = new NetworkPose(RightHandTransform);
 				//chestPoseSync.Value = new NetworkPose(ChestTransform);
+
+				team.Value = MainPlayer.Instance.currentRole.TeamNumber;
             }
 			else
 			{
@@ -109,15 +109,14 @@ namespace Anaglyph.LaserTag.Networking
 
 			if (IsOwner)
 			{
-				PlayerLocal.Instance.TakeDamage(damage);
+				MainPlayer.Instance.TakeDamage(damage);
 			}
         }
 
         public override void OnNetworkDespawn()
         {
-            base.OnNetworkDespawn();
-
             AllPlayers.Remove(this);
+			OtherPlayers.Remove(this);
         }
     }
 }

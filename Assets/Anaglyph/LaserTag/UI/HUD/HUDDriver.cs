@@ -9,7 +9,7 @@ namespace Anaglyph.LaserTag.UI
 	public class HUDDriver : MonoBehaviour
 	{
 		[SerializeField]
-		private PlayerLocal localPlayer;
+		private MainPlayer localPlayer;
 
 		[SerializeField]
 		private Text respawnText;
@@ -47,7 +47,7 @@ namespace Anaglyph.LaserTag.UI
 
 			rootHudObject.SetActive(!localPlayer.alive);
 
-			if (localPlayer.currentRole.ReturnToBaseOnDie && !localPlayer.nearBase)
+			if (localPlayer.currentRole.ReturnToBaseOnDie && !localPlayer.inBase)
 			{
 				respawnText.text = $"GO TO:   BASE";
 			}

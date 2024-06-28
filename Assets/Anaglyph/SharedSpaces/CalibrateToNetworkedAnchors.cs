@@ -1,5 +1,3 @@
-using System.Collections;
-using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
 

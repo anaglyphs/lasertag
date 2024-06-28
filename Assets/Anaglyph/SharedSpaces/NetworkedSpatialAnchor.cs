@@ -6,6 +6,7 @@ using UnityEngine;
 
 namespace Anaglyph.SharedSpaces
 {
+	[Serializable]
 	public struct NetworkGuid : INetworkSerializeByMemcpy
 	{
 		public NetworkGuid(Guid guid)

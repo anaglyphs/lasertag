@@ -12,23 +12,23 @@ namespace Anaglyph.LaserTag
 
         private void Update()
         {
-            teamNumberText.text = $"{PlayerLocal.Instance.currentRole.TeamNumber}";
+            teamNumberText.text = $"{MainPlayer.Instance.currentRole.TeamNumber}";
         }
 
 
         public void IncrementTeamNumber()
         {
-            PlayerLocal.Instance.currentRole.TeamNumber++;
+            MainPlayer.Instance.currentRole.TeamNumber++;
         }
 
         public void DecrementTeamNumber()
         {
-            PlayerLocal.Instance.currentRole.TeamNumber--;
+            MainPlayer.Instance.currentRole.TeamNumber--;
         }
 
         public void SetBaseAffinity(bool shouldReturn)
         {
-            PlayerLocal.Instance.currentRole.ReturnToBaseOnDie = shouldReturn;
+            MainPlayer.Instance.currentRole.ReturnToBaseOnDie = shouldReturn;
         }
     }
 }

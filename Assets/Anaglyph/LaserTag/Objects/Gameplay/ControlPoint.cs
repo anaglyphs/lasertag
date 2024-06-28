@@ -1,61 +1,121 @@
-using Anaglyph.LaserTag;
 using Anaglyph.LaserTag.Networking;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.UI;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag
 {
-    public class ControlPoint : NetworkBehaviour
-    {
-		public NetworkVariable<int> controllingTeam = new(-1, writePerm: NetworkVariableWritePermission.Owner);
-
-		public NetworkVariable<float> radius = new(1.5f, writePerm: NetworkVariableWritePermission.Owner);
-		public NetworkVariable<float> millisToTake = new(15000, writePerm: NetworkVariableWritePermission.Owner);
-
-		public NetworkVariable<float> millisTaken = new(0, writePerm: NetworkVariableWritePermission.Owner);
-
-		private bool stalemate;
+	public class ControlPoint : NetworkBehaviour
+	{
+		public const float Radius = 1.5f;
+		public const float MillisToTake = 10000;
+		private int ColorID = Shader.PropertyToID("_Color");
 
 		public UnityEvent<int> onConqueredByTeam;
 
-		private void FixedUpdate()
+		[SerializeField] private MeshRenderer meshRenderer;
+		[SerializeField] private Image conquerTimeIndicator;
+
+		public int ControllingTeam => controllingTeamSync.Value;
+		private NetworkVariable<int> controllingTeamSync = new(-1, writePerm: NetworkVariableWritePermission.Owner);
+
+		public int ConqueringTeam => conqueringTeamSync.Value;
+
+		private NetworkVariable<int> conqueringTeamSync = new(-1, writePerm: NetworkVariableWritePermission.Owner);
+
+		public float MillisTaken => millisTakenSync.Value;
+		private NetworkVariable<float> millisTakenSync = new(0, writePerm: NetworkVariableWritePermission.Owner);
+
+		private void Awake()
 		{
-			if (!IsOwner)
-				return;
+			controllingTeamSync.OnValueChanged += OnConqueredByTeam;
+			meshRenderer.material = new Material(meshRenderer.sharedMaterial);
+		}
 
-			int conqueringTeam = -1;
+		private void UpdateAppearance()
+		{
+			Color color = Color.red;
+			if (ControllingTeam == MainPlayer.Instance.Team)
+				color = Color.green;
+			else if (ConqueringTeam == MainPlayer.Instance.Team)
+				color = Color.yellow;
 
-			bool withinRadius = Vector3.Distance(PlayerLocal.Instance.LocalHeadTransform.position, transform.position) < radius.Value;
+			meshRenderer.material.SetColor(ColorID, color);
+			conquerTimeIndicator.color = color;
+		}
 
-			foreach(Player player in Player.AllPlayers)
+		private void Update()
+		{
+			UpdateAppearance();
+		}
+
+		private void OnConqueredByTeam(int prevValue, int value)
+		{
+			onConqueredByTeam.Invoke(ControllingTeam);
+		}
+
+		private bool PlayerIsInsidePoint(Player player)
+		{
+			if (!player.IsAlive)
+				return false;
+
+			Vector3 playerHeadPos = player.HeadTransform.position;
+			return Geo.PointIsInCylinder(transform.position, Radius, 3, playerHeadPos);
+		}
+
+		private void UpdateOwner()
+		{
+			if (ConqueringTeam == ControllingTeam)
 			{
-				float playerHeadDistance = Vector3.Distance(PlayerLocal.Instance.LocalHeadTransform.position, transform.position);
-				bool playerIsWithinRadius = playerHeadDistance < radius.Value;
-
-				if(playerIsWithinRadius)
+				foreach (Player player in Player.AllPlayers)
 				{
-					if (conqueringTeam == -1)
-						conqueringTeam = player.Team;
-					else if(player.Team != conqueringTeam)
-					{
-						// stalemate
-						return;
-					}
+					if (PlayerIsInsidePoint(player) && player.Team != ControllingTeam)
+						conqueringTeamSync.Value = player.Team;
 				}
 			}
-
-			if (conqueringTeam == -1 && conqueringTeam != controllingTeam.Value)
+			else
 			{
-				millisTaken.Value = Mathf.Max(0, millisTaken.Value - Time.fixedDeltaTime);
-			}
+				bool conqueringTeamIsInside = false;
+				bool otherTeamIsInside = false;
 
-			millisTaken.Value += Time.fixedDeltaTime * 1000;
+				foreach (Player player in Player.AllPlayers)
+				{
+					if (PlayerIsInsidePoint(player))
+					{
+						if (player.Team == ConqueringTeam)
+							conqueringTeamIsInside = true;
+						else
+							otherTeamIsInside = true;
+					}
+				}
 
-			if(millisTaken.Value > millisToTake.Value)
-			{
-				Conquer(conqueringTeam);
+				if (conqueringTeamIsInside)
+				{
+					if (!otherTeamIsInside)
+					{
+						millisTakenSync.Value += Time.fixedDeltaTime * 1000;
+
+						if (millisTakenSync.Value > MillisToTake)
+							Conquer(ConqueringTeam);
+					}
+				}
+				else
+				{
+					millisTakenSync.Value = Mathf.Max(0, millisTakenSync.Value - Time.fixedDeltaTime * 1000);
+
+					if (millisTakenSync.Value < 0.001)
+						conqueringTeamSync.Value = ControllingTeam;
+				}
 			}
+		}
+
+		private void FixedUpdate()
+		{
+			conquerTimeIndicator.fillAmount = 1 - MillisTaken / MillisToTake;
+
+			if (IsOwner)
+				UpdateOwner();
 		}
 
 		public void Conquer(int team)
@@ -63,11 +123,11 @@ namespace Anaglyph.Lasertag
 			if (!IsOwner)
 				return;
 
-			if (team == controllingTeam.Value)
+			if (team == controllingTeamSync.Value)
 				return;
 
-			controllingTeam.Value = team;
-			millisTaken.Value = 0;
+			controllingTeamSync.Value = team;
+			millisTakenSync.Value = 0;
 			onConqueredByTeam.Invoke(team);
 		}
 	}

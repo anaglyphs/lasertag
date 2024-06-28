@@ -1,7 +1,7 @@
 using Anaglyph.SharedSpaces;
 using System;
-using Unity.Netcode;
 
+[Serializable]
 public struct Role : IEquatable<Role>
 {
     public NetworkGuid Uuid { get; set; }

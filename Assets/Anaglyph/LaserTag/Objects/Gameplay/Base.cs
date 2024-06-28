@@ -1,89 +1,46 @@
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace Anaglyph.LaserTag.Networking
 {
 	[DefaultExecutionOrder(500)]
 	public class Base : NetworkBehaviour
 	{
-		[SerializeField]
-		public int TeamNumber = 0;
+		public const float Radius = 1;
+		private int ColorID = Shader.PropertyToID("_Color");
 
-		private NetworkVariable<int> teamNumberSync = new NetworkVariable<int>(0, writePerm: NetworkVariableWritePermission.Owner);
+		public int TeamNumber => teamNumberSync.Value;
+		private NetworkVariable<int> teamNumberSync = new NetworkVariable<int>(1, writePerm: NetworkVariableWritePermission.Owner);
 
-		[SerializeField]
-		private Text teamNumberText;
-
-		[SerializeField]
-		private Text overheadTeamNumberText;
-
-		[SerializeField]
-		private GameObject overheadTeamTextObject;
+		[SerializeField] private MeshRenderer meshRenderer;
 
 		public static List<Base> AllBases = new();
 
-		public NetworkVariable<float> radius = new(1.5f, writePerm: NetworkVariableWritePermission.Owner);
+		private void Awake()
+		{
+			meshRenderer.material = new Material(meshRenderer.sharedMaterial);
+		}
 
 		public override void OnNetworkSpawn()
 		{
 			AllBases.Add(this);
-		}
-
-		private void LateUpdate()
-		{
-			if (!IsSpawned)
-				return;
 
 			if (IsOwner)
-			{
-				teamNumberSync.Value = TeamNumber;
-			}
-			else
-			{
-				TeamNumber = teamNumberSync.Value;
-			}
-
-			teamNumberText.text = $"Team\n{TeamNumber}";
-			overheadTeamNumberText.text = $"Team {TeamNumber}";
+				teamNumberSync.Value = MainPlayer.Instance.Team;
 		}
 
-		public override void OnNetworkDespawn()
-		{
-			base.OnNetworkDespawn();
+		public override void OnNetworkDespawn() => AllBases.Remove(this);
 
-			AllBases.Remove(this);
+		private void UpdateAppearance()
+		{
+			Color color = TeamNumber == MainPlayer.Instance.Team ? Color.green : Color.red;
+			meshRenderer.material.SetColor(ColorID, color);
 		}
 
-		public void IncrementTeamNumber()
+		private void Update()
 		{
-			if (!IsOwner)
-			{
-				TakeOwnershipRpc(NetworkManager.Singleton.LocalClientId);
-			}
-			else
-			{
-				TeamNumber++;
-			}
-		}
-
-		public void DecrementTeamNumber()
-		{
-			if (!IsOwner)
-			{
-				TakeOwnershipRpc(NetworkManager.Singleton.LocalClientId);
-			}
-			else
-			{
-				TeamNumber--;
-			}
-		}
-
-		[Rpc(SendTo.Server)]
-		public void TakeOwnershipRpc(ulong clientId)
-		{
-			this.NetworkObject.ChangeOwnership(clientId);
+			UpdateAppearance();
 		}
 	}
 }
