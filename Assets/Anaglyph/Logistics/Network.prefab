@@ -47,20 +47,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   NetworkConfig:
-    ProtocolVersion: 0
+    ProtocolVersion: 1
     NetworkTransport: {fileID: 6401581593241775294}
     PlayerPrefab: {fileID: 6958064522276107603, guid: e4f083ef36e807249952bb99ca629aa6, type: 3}
     Prefabs:
       NetworkPrefabsLists:
       - {fileID: 11400000, guid: 6dc0f37b7e0f53147a7c9c9adc804bf0, type: 2}
-    TickRate: 72
+    TickRate: 45
     ClientConnectionBufferTimeout: 10
     ConnectionApproval: 0
     ConnectionData: 
     EnableTimeResync: 0
     TimeResyncInterval: 30
     EnsureNetworkVariableLengthSafety: 0
-    EnableSceneManagement: 1
+    EnableSceneManagement: 0
     ForceSamePrefabs: 1
     RecycleNetworkIds: 1
     NetworkIdRecycleDelay: 120

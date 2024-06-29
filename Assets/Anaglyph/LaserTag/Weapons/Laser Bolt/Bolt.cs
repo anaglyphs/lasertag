@@ -1,5 +1,6 @@
 using Anaglyph.LaserTag.Logistics;
 using Anaglyph.LaserTag.Networking;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
@@ -18,39 +19,34 @@ namespace Anaglyph.LaserTag
 		public UnityEvent onHit = new();
 		private bool isFlying = true;
 
-		private float distancePerFrame => metersPerSecond * Time.deltaTime;
+		private NetworkVariable<NetworkPose> networkPos = new();
 
-        private NetworkVariable<NetworkPose> networkPose
-		= new(default, NetworkVariableReadPermission.Everyone,
-			NetworkVariableWritePermission.Owner);
-
-        private void Awake()
+		private void Awake()
 		{
-			networkPose.OnValueChanged += OnNetworkPoseChange;
+			networkPos.OnValueChanged += OnSpawnPosChange;
 		}
 
 		public override void OnNetworkSpawn()
 		{
-            isFlying = true;
-            if (IsOwner)
+			isFlying = true;
+			if (IsOwner)
 			{
-				networkPose.Value = new NetworkPose(transform);
+				networkPos.Value = new NetworkPose(transform);
 			}
 			else
 			{
-				SetPoseLocally(networkPose.Value);
+				SetPoseLocally(networkPos.Value);
 			}
 		}
 
-		private void OnNetworkPoseChange(NetworkPose p, NetworkPose newValue) => 
-			SetPoseLocally(newValue);
+		private void OnSpawnPosChange(NetworkPose p, NetworkPose v) => SetPoseLocally(v);
 
 		private void SetPoseLocally(NetworkPose pose)
 		{
 			transform.SetPositionAndRotation(pose.position, pose.rotation);
 			previousPosition = transform.position;
-            trailRenderer.Clear();
-            trailRenderer.AddPosition(transform.position);
+			trailRenderer.Clear();
+			trailRenderer.AddPosition(transform.position);
 		}
 
 		private void OnEnable()
@@ -73,55 +69,52 @@ namespace Anaglyph.LaserTag
 		private void Fly()
 		{
 			previousPosition = transform.position;
-			transform.position += transform.forward * distancePerFrame;
+			transform.position += transform.forward * metersPerSecond * Time.deltaTime;
 		}
 
 		private void TestHit()
 		{
-			Vector3 camPos = DepthCast.Camera.transform.position;
+			if (!IsOwner)
+				return;
 
-			Vector3 boltFromCam = transform.position - camPos;
-
-			if (Vector3.Magnitude(boltFromCam) > 100)
-			{
+			if (Vector3.Distance(transform.position, MainPlayer.Instance.HeadTransform.position) > 100)
 				NetworkObject.Despawn();
-			}
-
-			// Despawn if out of camera view
-			//Vector3 inViewSpace = DepthCast.Camera.WorldToViewportPoint(transform.position,
-			//		Camera.MonoOrStereoscopicEye.Left);
-
-			//if (inViewSpace.x < 0 || inViewSpace.x > 1 ||
-			//	inViewSpace.y < 0 || inViewSpace.y > 1 || inViewSpace.z < 0)
-			//{
-			//	NetworkObject.Despawn();
-			//}
 
 			Ray forwardRay = new Ray(previousPosition, transform.forward);
 			float distanceCovered = Vector3.Distance(previousPosition, transform.position);
 
-			bool didHit = DepthCast.Raycast(forwardRay, out var depthHit, distanceCovered);
+			bool depthDidHit = DepthCast.Raycast(forwardRay, out var depthHit, distanceCovered);
+			bool physDidHit = Physics.Linecast(previousPosition, transform.position, out RaycastHit hit,
+				Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
 
-			if(didHit)
+			if (depthDidHit && physDidHit)
 			{
-				HandleHitLocally(depthHit.Position, depthHit.Normal);
+				bool castIsCloser = hit.distance < Vector3.Distance(depthHit.Position, previousPosition)
+					|| Vector3.Distance(depthHit.Position, hit.point) < 0.1f;
+
+				if (castIsCloser)
+					depthDidHit = false;
 			}
 
-			//Vector3 diff = transform.position - previousPosition;
-			if (Physics.Linecast(previousPosition, transform.position, out RaycastHit hit, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+			if (depthDidHit)
 			{
-				HandleHitLocally(hit.point, hit.normal);
+				Hit(depthHit.Position, depthHit.Normal);
 
-				if (hit.collider.CompareTag("Player"))
-				{
+			}
+			else if (physDidHit)
+			{
+				Hit(hit.point, hit.normal);
+
+				if (hit.collider.CompareTag(Player.Tag))
 					hit.collider.GetComponentInParent<Player>().HitRpc(damage);
-				}
 			}
 		}
 
-		private void HandleHitLocally(Vector3 pos, Vector3 norm)
+		private void Hit(Vector3 pos, Vector3 norm)
 		{
-			if (IsSpawned) HitRpc(pos, norm);
+			if (IsSpawned)
+				HitRpc(pos, norm);
+
 			DespawnWithDelay();
 		}
 

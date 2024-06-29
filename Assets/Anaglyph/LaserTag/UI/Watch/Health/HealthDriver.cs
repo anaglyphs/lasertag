@@ -33,13 +33,13 @@ public class HealthDriver : MonoBehaviour
     {
         barColor = Color.Lerp(barColor, Color.white, Time.deltaTime * 3.5f);
 
-        float healthPercent = MainPlayer.Instance.health / MainPlayer.Instance.currentRole.MaxHealth;
+        float healthPercent = MainPlayer.Instance.Health / MainPlayer.Instance.currentRole.MaxHealth;
 
         healthBarTransform.sizeDelta = new Vector2(Mathf.Lerp(0, maxBarWidth, healthPercent), healthBarTransform.sizeDelta.y);
 
-        if (!MainPlayer.Instance.alive)
+        if (!MainPlayer.Instance.IsAlive)
         {
-            healthBarImage.color = Color.Lerp(barColor, new Color(255f / 255f, 99f / 255f, 99f / 255f, 1f), Mathf.Clamp01(MainPlayer.Instance.currentRole.RespawnTimeSeconds - MainPlayer.Instance.respawnTimer));
+            healthBarImage.color = Color.Lerp(barColor, new Color(255f / 255f, 99f / 255f, 99f / 255f, 1f), Mathf.Clamp01(MainPlayer.Instance.RespawnTimerSeconds));
 
             return;
         }

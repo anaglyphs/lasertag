@@ -1,4 +1,6 @@
 using Anaglyph.LaserTag.Networking;
+using NUnit.Framework;
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
@@ -10,52 +12,46 @@ namespace Anaglyph.LaserTag
 	{
 		public const float Radius = 1.5f;
 		public const float MillisToTake = 10000;
-		private int ColorID = Shader.PropertyToID("_Color");
+		private static int ColorID = Shader.PropertyToID("_Color");
 
-		public UnityEvent<int> onConqueredByTeam;
+		public static List<ControlPoint> AllControlPoints { get; private set; } = new();
 
 		[SerializeField] private MeshRenderer meshRenderer;
 		[SerializeField] private Image conquerTimeIndicator;
 
+		public UnityEvent onControllingTeamChange = new();
+
 		public int ControllingTeam => controllingTeamSync.Value;
-		private NetworkVariable<int> controllingTeamSync = new(-1, writePerm: NetworkVariableWritePermission.Owner);
+		private NetworkVariable<int> controllingTeamSync = new(-1);
 
-		public int ConqueringTeam => conqueringTeamSync.Value;
+		public int CapturingTeam => capturingTeamSync.Value;
+		private NetworkVariable<int> capturingTeamSync = new(-1);
 
-		private NetworkVariable<int> conqueringTeamSync = new(-1, writePerm: NetworkVariableWritePermission.Owner);
-
-		public float MillisTaken => millisTakenSync.Value;
-		private NetworkVariable<float> millisTakenSync = new(0, writePerm: NetworkVariableWritePermission.Owner);
+		public float MillisCaptured => millisCapturedSync.Value;
+		private NetworkVariable<float> millisCapturedSync = new(0);
 
 		private void Awake()
 		{
-			controllingTeamSync.OnValueChanged += OnConqueredByTeam;
 			meshRenderer.material = new Material(meshRenderer.sharedMaterial);
+			AllControlPoints.Add(this);
+
+			controllingTeamSync.OnValueChanged += delegate { 
+
+				if(IsOwner)
+					millisCapturedSync.Value = 0;
+				
+				onControllingTeamChange.Invoke();
+			};
 		}
 
-		private void UpdateAppearance()
+		public override void OnDestroy()
 		{
-			Color color = Color.red;
-			if (ControllingTeam == MainPlayer.Instance.Team)
-				color = Color.green;
-			else if (ConqueringTeam == MainPlayer.Instance.Team)
-				color = Color.yellow;
+			base.OnDestroy();
 
-			meshRenderer.material.SetColor(ColorID, color);
-			conquerTimeIndicator.color = color;
+			AllControlPoints.Remove(this);
 		}
 
-		private void Update()
-		{
-			UpdateAppearance();
-		}
-
-		private void OnConqueredByTeam(int prevValue, int value)
-		{
-			onConqueredByTeam.Invoke(ControllingTeam);
-		}
-
-		private bool PlayerIsInsidePoint(Player player)
+		private bool CheckIfPlayerIsInside(Player player)
 		{
 			if (!player.IsAlive)
 				return false;
@@ -64,61 +60,74 @@ namespace Anaglyph.LaserTag
 			return Geo.PointIsInCylinder(transform.position, Radius, 3, playerHeadPos);
 		}
 
-		private void UpdateOwner()
+		private void ManagePointCapture()
 		{
-			if (ConqueringTeam == ControllingTeam)
+			if (!IsOwner)
+				return;
+
+			bool pointIsSecure = CapturingTeam == ControllingTeam;
+
+			if (pointIsSecure)
 			{
+				// check for new capturing players
 				foreach (Player player in Player.AllPlayers)
 				{
-					if (PlayerIsInsidePoint(player) && player.Team != ControllingTeam)
-						conqueringTeamSync.Value = player.Team;
+					if (CheckIfPlayerIsInside(player) && player.Team != ControllingTeam)
+						capturingTeamSync.Value = player.Team;
 				}
 			}
 			else
 			{
-				bool conqueringTeamIsInside = false;
-				bool otherTeamIsInside = false;
+				bool capturingTeamIsInside = false;
+				bool anyOtherTeamIsInside = false;
 
 				foreach (Player player in Player.AllPlayers)
 				{
-					if (PlayerIsInsidePoint(player))
+					if (CheckIfPlayerIsInside(player))
 					{
-						if (player.Team == ConqueringTeam)
-							conqueringTeamIsInside = true;
+						if (player.Team == CapturingTeam)
+							capturingTeamIsInside = true;
 						else
-							otherTeamIsInside = true;
+							anyOtherTeamIsInside = true;
 					}
 				}
 
-				if (conqueringTeamIsInside)
+				if (capturingTeamIsInside)
 				{
-					if (!otherTeamIsInside)
+					if (!anyOtherTeamIsInside)
 					{
-						millisTakenSync.Value += Time.fixedDeltaTime * 1000;
+						millisCapturedSync.Value += Time.fixedDeltaTime * 1000;
 
-						if (millisTakenSync.Value > MillisToTake)
-							Conquer(ConqueringTeam);
+						if (millisCapturedSync.Value > MillisToTake)
+							Capture(CapturingTeam);
 					}
 				}
 				else
 				{
-					millisTakenSync.Value = Mathf.Max(0, millisTakenSync.Value - Time.fixedDeltaTime * 1000);
+					// capturing team loses capture over time
+					if (millisCapturedSync.Value <= 0)
+						capturingTeamSync.Value = ControllingTeam;
 
-					if (millisTakenSync.Value < 0.001)
-						conqueringTeamSync.Value = ControllingTeam;
+					millisCapturedSync.Value = Mathf.Max(0, millisCapturedSync.Value - Time.fixedDeltaTime * 1000);
 				}
 			}
 		}
 
-		private void FixedUpdate()
+		private void UpdateAppearance()
 		{
-			conquerTimeIndicator.fillAmount = 1 - MillisTaken / MillisToTake;
+			Color color = Color.red;
+			if (ControllingTeam == MainPlayer.Instance.Team)
+				color = Color.green;
+			else if (CapturingTeam == MainPlayer.Instance.Team)
+				color = Color.yellow;
 
-			if (IsOwner)
-				UpdateOwner();
+			meshRenderer.material.SetColor(ColorID, color);
+			conquerTimeIndicator.color = color;
+
+			conquerTimeIndicator.fillAmount = 1 - MillisCaptured / MillisToTake;
 		}
 
-		public void Conquer(int team)
+		public void Capture(int team)
 		{
 			if (!IsOwner)
 				return;
@@ -127,8 +136,18 @@ namespace Anaglyph.LaserTag
 				return;
 
 			controllingTeamSync.Value = team;
-			millisTakenSync.Value = 0;
-			onConqueredByTeam.Invoke(team);
+			millisCapturedSync.Value = 0;
+		}
+
+		private void Update()
+		{
+			UpdateAppearance();
+		}
+
+		private void FixedUpdate()
+		{
+			if (IsOwner)
+				ManagePointCapture();
 		}
 	}
 }

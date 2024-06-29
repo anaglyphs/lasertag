@@ -10,10 +10,6 @@ namespace Anaglyph.LaserTag.Weapons
 	{
 		[SerializeField] private HandedControllerInput input;
 
-		[SerializeField] private int energyPerShot = 2;
-		[SerializeField] private float energyRefill = 2;
-		private float energy = 100;
-
 		[SerializeField] private int fixedUpdatesPerFire = 5;
 		private int fixedUpdateTilNextFire = 0;
 
@@ -41,19 +37,14 @@ namespace Anaglyph.LaserTag.Weapons
 
 			if (input.TriggerIsDown)
 			{
-				if (energy <= 0)
-					return;
-
 				fixedUpdateTilNextFire -= 1;
 
 				if(fixedUpdateTilNextFire <= 0)
 				{
 					Fire();
 					fixedUpdateTilNextFire = fixedUpdatesPerFire;
-					energy -= energyPerShot;
 				}
 			} else {
-				energy += energyRefill;
 				fixedUpdateTilNextFire = 0;
 			}
 		}

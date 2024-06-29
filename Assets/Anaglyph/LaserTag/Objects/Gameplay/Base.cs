@@ -8,39 +8,42 @@ namespace Anaglyph.LaserTag.Networking
 	public class Base : NetworkBehaviour
 	{
 		public const float Radius = 1;
-		private int ColorID = Shader.PropertyToID("_Color");
+		private static int ColorID = Shader.PropertyToID("_Color");
 
-		public int TeamNumber => teamNumberSync.Value;
-		private NetworkVariable<int> teamNumberSync = new NetworkVariable<int>(1, writePerm: NetworkVariableWritePermission.Owner);
+		public int Team => teamSync.Value;
+		private NetworkVariable<int> teamSync = new(1);
+
+		public static List<Base> AllBases { get; private set; } = new ();
 
 		[SerializeField] private MeshRenderer meshRenderer;
-
-		public static List<Base> AllBases = new();
 
 		private void Awake()
 		{
 			meshRenderer.material = new Material(meshRenderer.sharedMaterial);
-		}
-
-		public override void OnNetworkSpawn()
-		{
 			AllBases.Add(this);
-
-			if (IsOwner)
-				teamNumberSync.Value = MainPlayer.Instance.Team;
 		}
-
-		public override void OnNetworkDespawn() => AllBases.Remove(this);
 
 		private void UpdateAppearance()
 		{
-			Color color = TeamNumber == MainPlayer.Instance.Team ? Color.green : Color.red;
+			Color color = Team == MainPlayer.Instance.Team ? Color.green : Color.red;
 			meshRenderer.material.SetColor(ColorID, color);
 		}
 
 		private void Update()
 		{
 			UpdateAppearance();
+		}
+
+		public override void OnNetworkSpawn()
+		{
+			if (IsOwner)
+				teamSync.Value = MainPlayer.Instance.Team;
+		}
+
+		public override void OnDestroy()
+		{
+			base.OnDestroy();
+			AllBases.Remove(this);
 		}
 	}
 }

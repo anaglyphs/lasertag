@@ -9,9 +9,6 @@ namespace Anaglyph.LaserTag.UI
 	public class HUDDriver : MonoBehaviour
 	{
 		[SerializeField]
-		private MainPlayer localPlayer;
-
-		[SerializeField]
 		private Text respawnText;
 
 		[SerializeField]
@@ -31,7 +28,7 @@ namespace Anaglyph.LaserTag.UI
 		}
 
 		// https://easings.net/#easeInOutCirc
-		private float easeInOutCirc(float x)
+		private float EaseInOutCirc(float x)
 		{
 			return x < 0.5
 			  ? (1 - Mathf.Sqrt(1 - Mathf.Pow(2 * x, 2))) / 2
@@ -43,17 +40,17 @@ namespace Anaglyph.LaserTag.UI
 			//transform.position = Vector3.Lerp(transform.position, headObject.transform.position, Time.deltaTime * 5);
 			//transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.Euler(0, headObject.transform.eulerAngles.y, 0), Time.deltaTime * 5);
 
-			menuMaskRectTransform.sizeDelta = new Vector2(menuMaskRectTransform.sizeDelta.x, Mathf.Lerp(0, maxMenuMaskHeight, easeInOutCirc(Mathf.Clamp01(localPlayer.currentRole.RespawnTimeSeconds - localPlayer.respawnTimer))));
+			menuMaskRectTransform.sizeDelta = new Vector2(menuMaskRectTransform.sizeDelta.x, Mathf.Lerp(0, maxMenuMaskHeight, EaseInOutCirc(Mathf.Clamp01(MainPlayer.Instance.RespawnTimerSeconds))));
 
-			rootHudObject.SetActive(!localPlayer.alive);
+			rootHudObject.SetActive(!MainPlayer.Instance.IsAlive);
 
-			if (localPlayer.currentRole.ReturnToBaseOnDie && !localPlayer.inBase)
+			if (MainPlayer.Instance.currentRole.ReturnToBaseOnDie && !MainPlayer.Instance.IsInFriendlyBase)
 			{
 				respawnText.text = $"GO TO:   BASE";
 			}
 			else
 			{
-				respawnText.text = $"RESPAWN: {(localPlayer.currentRole.RespawnTimeSeconds - localPlayer.respawnTimer).ToString("F1")}s";
+				respawnText.text = $"RESPAWN: {(MainPlayer.Instance.RespawnTimerSeconds).ToString("F1")}s";
 			}
 		}
 	}

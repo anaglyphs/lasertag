@@ -13,7 +13,6 @@ GameObject:
   - component: {fileID: 6606369252371184621}
   - component: {fileID: 4844728147305137197}
   - component: {fileID: 568041658472282936}
-  - component: {fileID: 9053720209163071791}
   - component: {fileID: 1015608851602803071}
   - component: {fileID: 8042134594337612406}
   - component: {fileID: 3387444908012126266}
@@ -55,13 +54,13 @@ MonoBehaviour:
   GlobalObjectIdHash: 865765349
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
-  Ownership: 1
+  Ownership: 0
   AlwaysReplicateAsRoot: 0
-  SynchronizeTransform: 0
+  SynchronizeTransform: 1
   ActiveSceneSynchronization: 0
   SceneMigrationSynchronization: 0
   SpawnWithObservers: 1
-  DontDestroyWithOwner: 1
+  DontDestroyWithOwner: 0
   AutoObjectParentSync: 0
 --- !u!114 &6606369252371184621
 MonoBehaviour:
@@ -259,21 +258,6 @@ VFXRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
---- !u!114 &9053720209163071791
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1486168899473020810}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a9801d270a575b94fb85cd33ff361cc2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  onEnable:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!82 &1015608851602803071
 AudioSource:
   m_ObjectHideFlags: 0

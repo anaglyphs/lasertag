@@ -310,6 +310,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dd5864f4c9b2125489197c76c91918b2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  initialActiveChild: {fileID: 0}
 --- !u!114 &1536729680698083645
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1057,6 +1058,17 @@ PrefabInstance:
       insertIndex: -1
       addedObject: {fileID: 5039304457815300421}
   m_SourcePrefab: {fileID: 100100000, guid: 7726d459ee1d21c4692229b33a100c4a, type: 3}
+--- !u!114 &6038857245461863698 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 5928977661196920431, guid: 7726d459ee1d21c4692229b33a100c4a, type: 3}
+  m_PrefabInstance: {fileID: 110797161642474365}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7072914922070000554}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!224 &7072914921312734823 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 7179208172974241050, guid: 7726d459ee1d21c4692229b33a100c4a, type: 3}
@@ -1080,6 +1092,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   text: Host game on <b>{0}</b>
+  label: {fileID: 6038857245461863698}
 --- !u!1001 &252861589734033069
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1930,6 +1943,17 @@ PrefabInstance:
       insertIndex: -1
       addedObject: {fileID: 6538552454045418535}
   m_SourcePrefab: {fileID: 100100000, guid: 8031558441b4d2e4b9ab247d8ae036e7, type: 3}
+--- !u!114 &1309102337497514149 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3724102548332734186, guid: 8031558441b4d2e4b9ab247d8ae036e7, type: 3}
+  m_PrefabInstance: {fileID: 2415185225174984271}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6612213741178681193}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &6612213741178681193 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 8811076581762715942, guid: 8031558441b4d2e4b9ab247d8ae036e7, type: 3}
@@ -1948,6 +1972,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   text: Hosting on {0}
+  label: {fileID: 1309102337497514149}
 --- !u!224 &6612213741178681198 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 8811076581762715937, guid: 8031558441b4d2e4b9ab247d8ae036e7, type: 3}
@@ -2111,7 +2136,7 @@ PrefabInstance:
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 9021729969637239158, guid: cad39559bc5961f4cafc893c668fb43a, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 4702881515304943786}
+      addedObject: {fileID: 6882334655066178468}
   m_SourcePrefab: {fileID: 100100000, guid: cad39559bc5961f4cafc893c668fb43a, type: 3}
 --- !u!114 &3500063290057591434 stripped
 MonoBehaviour:
@@ -2134,7 +2159,7 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 9021729969637239158, guid: cad39559bc5961f4cafc893c668fb43a, type: 3}
   m_PrefabInstance: {fileID: 3046220053220393664}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &4702881515304943786
+--- !u!114 &6882334655066178468
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -2143,12 +2168,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 6302162485892262838}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9accffc91d3ce354282510aa8dd0083b, type: 3}
+  m_Script: {fileID: 11500000, guid: 657f02cde7368e1478f30404378b240c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   field: {fileID: 3500063290057591434}
-  key: ip field
-  defaultValue: 
 --- !u!1001 &3488776532557924748
 PrefabInstance:
   m_ObjectHideFlags: 0

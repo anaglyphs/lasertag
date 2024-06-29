@@ -6,35 +6,34 @@ using System;
 
 namespace Anaglyph.LaserTag
 {
+	[DefaultExecutionOrder(-100)]
 	public class MainPlayer : SingletonBehavior<MainPlayer>
 	{
 		public Role currentRole = Role.Standard;
 		public int Team => currentRole.TeamNumber;
-		
-		public float health = Role.Standard.MaxHealth;
 
-		public float respawnTimer = 0;
-
-		public bool alive { get; private set; } = true;
-
-		public bool inBase = false;
+		public float Health { get; private set; } =  Role.Standard.MaxHealth;
+		public bool IsAlive { get; private set; } = true;
+		public bool IsInFriendlyBase { get; private set; } = false;
 
 		public UnityEvent onDie = new();
 		public UnityEvent onRespawn = new();
 		public UnityEvent<bool> onAliveChange = new();
 		public UnityEvent onTakeDamage = new();
 
+		[NonSerialized] public Player activeNetworkPlayer;
+
+		[SerializeField] private Transform headTransform;
+		[SerializeField] private Transform leftHandTransform;
+		[SerializeField] private Transform rightHandTransform;
+		public Transform HeadTransform => headTransform;
+		public Transform LeftHandTransform => leftHandTransform; 
+		public Transform RightHandTransform => rightHandTransform;
+
+		public float RespawnTimerSeconds { get; private set; } = 0;
+
+		// todo move this into another component
 		private OVRPassthroughLayer passthroughLayer;
-
-		[NonSerialized] public Player networkPlayer;
-
-		[SerializeField] private Transform localHeadTransform;
-		[SerializeField] private Transform localLeftHandTransform;
-		[SerializeField] private Transform localRightHandTransform;
-
-		public Transform LocalHeadTransform => localHeadTransform;
-
-		//[SerializeField] private Transform localChestTransform;
 
 		protected override void SingletonAwake()
 		{
@@ -43,90 +42,82 @@ namespace Anaglyph.LaserTag
 			passthroughLayer.edgeColor = Color.clear;
 		}
 
-		public void TakeDamage(float damage)
+		public void Damage(float damage)
 		{
-			if (!alive)
-				return;
-
 			onTakeDamage.Invoke();
+			Health -= damage;
+		}
 
-			health -= damage;
-
-			if (health <= 0)
+		private void HandleBases()
+		{
+			IsInFriendlyBase = false;
+			foreach (Base b in Base.AllBases)
 			{
-				Kill();
+				if (b.Team != currentRole.TeamNumber)
+					continue;
+
+				if (Geo.PointIsInCylinder(b.transform.position, Base.Radius, 3, headTransform.position))
+					IsInFriendlyBase = true;
 			}
 		}
 
-		private void Update()
+		private void HandleHealth()
 		{
-			//if (networkPlayer != null)
-			//	currentRole = GameManager.Instance.GetRoleByUuid(networkPlayer.role.Value);
-			//else 
-			//	currentRole = Role.Default;
+			passthroughLayer.edgeColor = Color.Lerp(Color.red, Color.clear, Mathf.Clamp01(Health / Role.Standard.MaxHealth));
 
-			inBase = false;
-			foreach (Base b in Base.AllBases)
+			if (IsAlive)
 			{
-				if (b.TeamNumber != currentRole.TeamNumber)
-					continue;
-
-				if (Geo.PointIsInCylinder(b.transform.position, Base.Radius, 3, localHeadTransform.position))
-				{
-					inBase = true;
-				}
-			}
-
-			if (alive)
-			{
-				respawnTimer = 0;
-
-				passthroughLayer.edgeColor = Color.Lerp(Color.red, Color.clear, Mathf.Clamp01(health / Role.Standard.MaxHealth));
-
-				health += currentRole.HealthRegenerationPerSecond * Time.deltaTime;
-				health = Mathf.Clamp(health, 0, currentRole.MaxHealth);
-			} else
-			{
-				if ((currentRole.ReturnToBaseOnDie && inBase) || !currentRole.ReturnToBaseOnDie)
-				{
-					respawnTimer += Time.deltaTime;
-				}
+				if (Health < 0)
+					Kill();
 				else
-				{
-					respawnTimer -= Time.deltaTime;
-				}
-
-				if (respawnTimer >= currentRole.RespawnTimeSeconds)
-				{
-					Respawn();
-				}
-				else if (respawnTimer <= 0.0)
-				{
-					respawnTimer = 0.0f;
-				}
-
-				health = Mathf.Lerp(0, currentRole.MaxHealth, Mathf.Clamp01(respawnTimer / currentRole.RespawnTimeSeconds));
-
-				passthroughLayer.edgeColor = Color.Lerp(Color.clear, Color.red, Mathf.Clamp01(currentRole.RespawnTimeSeconds - respawnTimer));
+					Health += currentRole.HealthRegenerationPerSecond * Time.deltaTime;
 			}
 
-			if (networkPlayer != null)
-			{
-				networkPlayer.HeadTransform.SetPositionAndRotation(localHeadTransform.position, localHeadTransform.rotation);
-				networkPlayer.LeftHandTransform.SetPositionAndRotation(localLeftHandTransform.position, localLeftHandTransform.rotation);
-				networkPlayer.RightHandTransform.SetPositionAndRotation(localRightHandTransform.position, localRightHandTransform.rotation);
-			}
+			WeaponsManagement.canFire = IsAlive;
+
+			Health = Mathf.Clamp(Health, 0, currentRole.MaxHealth);
+		}
+
+		private void CountdownToRespawn()
+		{
+			if (IsAlive)
+				return;
+
+			if ((currentRole.ReturnToBaseOnDie && IsInFriendlyBase) || !currentRole.ReturnToBaseOnDie)
+				RespawnTimerSeconds -= Time.fixedDeltaTime;
+
+			if (RespawnTimerSeconds <= 0)
+				Respawn();
+
+			RespawnTimerSeconds = Mathf.Clamp(RespawnTimerSeconds, 0, currentRole.RespawnTimeoutSeconds);
+		}
+
+		private void FixedUpdate()
+		{
+			if(!IsAlive)
+				CountdownToRespawn();
+		}
+
+		private void UpdateNetworkedPlayerTransforms()
+		{
+			if (activeNetworkPlayer == null)
+				return;
+				
+			activeNetworkPlayer.HeadTransform.SetFrom(headTransform);
+			activeNetworkPlayer.LeftHandTransform.SetFrom(leftHandTransform);
+			activeNetworkPlayer.RightHandTransform.SetFrom(rightHandTransform);
+			activeNetworkPlayer.teamSync.Value = Team;
 		}
 
 		public void Kill()
 		{
-			passthroughLayer.edgeColor = Color.red;
-
 			WeaponsManagement.canFire = false;
 
-			networkPlayer.isAliveSync.Value = false;
+			activeNetworkPlayer.isAliveSync.Value = false;
 
-			alive = false;
+			IsAlive = false;
+			Health = 0;
+			RespawnTimerSeconds = currentRole.RespawnTimeoutSeconds;
 
 			onAliveChange.Invoke(false);
 			onDie.Invoke();
@@ -138,14 +129,20 @@ namespace Anaglyph.LaserTag
 
 			WeaponsManagement.canFire = true;
 
-			networkPlayer.isAliveSync.Value = true;
+			activeNetworkPlayer.isAliveSync.Value = true;
 
-			alive = true;
-
-			health = currentRole.MaxHealth;
+			IsAlive = true;
+			Health = currentRole.MaxHealth;
 
 			onAliveChange.Invoke(true);
 			onRespawn.Invoke();
+		}
+
+		private void Update()
+		{
+			HandleHealth();
+			HandleBases();
+			UpdateNetworkedPlayerTransforms();
 		}
 
 		protected override void OnSingletonDestroy()

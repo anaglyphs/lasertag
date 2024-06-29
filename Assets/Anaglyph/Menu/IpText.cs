@@ -3,16 +3,16 @@ using System.Net;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Anaglyph.LaserTag.UI
+namespace Anaglyph.Menu
 {
 	public class IpText : MonoBehaviour
 	{
 		public string text = "{0}";
-		private Text textMesh;
+		[SerializeField] private Text label;
 
-		private void Awake()
+		private void OnValidate()
 		{
-			textMesh = GetComponent<Text>();
+			this.SetDefaultComponent(ref label);
 		}
 
 		private void OnEnable() => UpdateTextWithIp();
@@ -23,7 +23,7 @@ namespace Anaglyph.LaserTag.UI
 		{
 			string ip = GetLocalIPAddress();
 			string formattedText = string.Format(text, ip);
-			textMesh.text = formattedText;
+			label.text = formattedText;
 		}
 
 		public static string GetLocalIPAddress()

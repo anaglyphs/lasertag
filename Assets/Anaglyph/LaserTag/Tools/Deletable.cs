@@ -13,7 +13,15 @@ namespace Anaglyph.LaserTag
 			if (NetworkObject.IsOwner)
 				NetworkObject.Despawn();
 			else
-				NetworkObject.RequestOwnership();
+			{
+				if (NetworkObject.IsOwnershipRequestRequired)
+				{
+					NetworkObject.RequestOwnership();
+				} else
+				{
+					NetworkObject.ChangeOwnership(NetworkManager.LocalClientId);
+				}
+			}
 		}
 
 		protected override void OnOwnershipChanged(ulong previous, ulong current)

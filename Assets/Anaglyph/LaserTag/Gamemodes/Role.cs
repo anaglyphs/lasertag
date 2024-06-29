@@ -14,7 +14,7 @@ public struct Role : IEquatable<Role>
     public float GunDamage { get; set; }
 
     public float HealthRegenerationPerSecond { get; set; }
-    public float RespawnTimeSeconds { get; set; }
+    public float RespawnTimeoutSeconds { get; set; }
 
     // public bool CanShoot { get; set; } // TODO: Need to find a good way to make this work
 
@@ -35,6 +35,6 @@ public struct Role : IEquatable<Role>
         GunDamage = 50,
 
         HealthRegenerationPerSecond = 10,
-        RespawnTimeSeconds = 4,
+        RespawnTimeoutSeconds = 4,
     };
 }
