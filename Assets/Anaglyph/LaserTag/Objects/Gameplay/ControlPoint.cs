@@ -19,7 +19,7 @@ namespace Anaglyph.LaserTag
 		[SerializeField] private MeshRenderer meshRenderer;
 		[SerializeField] private Image conquerTimeIndicator;
 
-		public UnityEvent onControllingTeamChange = new();
+		public UnityEvent<int> onControllingTeamChange = new();
 
 		public int ControllingTeam => controllingTeamSync.Value;
 		private NetworkVariable<int> controllingTeamSync = new(-1);
@@ -40,7 +40,7 @@ namespace Anaglyph.LaserTag
 				if(IsOwner)
 					millisCapturedSync.Value = 0;
 				
-				onControllingTeamChange.Invoke();
+				onControllingTeamChange.Invoke(controllingTeamSync.Value);
 			};
 		}
 

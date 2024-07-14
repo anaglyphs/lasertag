@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Events;
 
 namespace Anaglyph.LaserTag.Networking
 {
@@ -17,21 +18,16 @@ namespace Anaglyph.LaserTag.Networking
 
 		[SerializeField] private MeshRenderer meshRenderer;
 
+		public UnityEvent<int> OnTeamChange;
+
 		private void Awake()
 		{
-			meshRenderer.material = new Material(meshRenderer.sharedMaterial);
 			AllBases.Add(this);
-		}
 
-		private void UpdateAppearance()
-		{
-			Color color = Team == MainPlayer.Instance.Team ? Color.green : Color.red;
-			meshRenderer.material.SetColor(ColorID, color);
-		}
-
-		private void Update()
-		{
-			UpdateAppearance();
+			teamSync.OnValueChanged += delegate
+			{
+				OnTeamChange.Invoke(teamSync.Value);
+			};
 		}
 
 		public override void OnNetworkSpawn()

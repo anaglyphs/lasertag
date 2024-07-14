@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 6435377189782562929}
   - component: {fileID: 7923053713300863580}
   - component: {fileID: 747991994927016620}
+  - component: {fileID: 2046348258125281854}
   m_Layer: 0
   m_Name: Base
   m_TagString: Untagged
@@ -48,7 +49,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 1192101105
+  GlobalObjectIdHash: 3030045214
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 5
@@ -115,6 +116,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 735876e89ca1df14cbcf5f22d3807ed5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &2046348258125281854
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3063152390251463876}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de906b0a9e4e02d4cb6ed9ea738b7abe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  renderers:
+  - {fileID: 1247770579426270712}
 --- !u!1 &3635300645810488308
 GameObject:
   m_ObjectHideFlags: 0
