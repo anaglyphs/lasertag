@@ -1,3 +1,4 @@
+using Anaglyph.Lasertag;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
@@ -24,11 +25,18 @@ namespace Anaglyph.LaserTag.Networking
 		public bool IsAlive => isAliveSync.Value;
 		public NetworkVariable<bool> isAliveSync = new();
 
-		public int Team => teamSync.Value;
-		public NetworkVariable<int> teamSync = new();
-
 		public static List<Player> AllPlayers { get; private set; } = new();
 		public static List<Player> OtherPlayers { get; private set; } = new();
+
+		[SerializeField] private TeamOwner teamOwner;
+		public TeamOwner TeamOwner => teamOwner;
+
+		public byte Team => teamOwner.Team;
+
+		private void OnValidate()
+		{
+			this.SetComponent(ref teamOwner);
+		}
 
 		private void Awake()
 		{

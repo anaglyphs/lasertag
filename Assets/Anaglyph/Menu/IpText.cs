@@ -12,7 +12,7 @@ namespace Anaglyph.Menu
 
 		private void OnValidate()
 		{
-			this.SetDefaultComponent(ref label);
+			this.SetComponent(ref label);
 		}
 
 		private void OnEnable() => UpdateTextWithIp();

@@ -9,7 +9,7 @@ namespace Anaglyph.Lasertag
 
 		private void OnValidate()
 		{
-			this.SetDefaultComponent(ref renderer);
+			this.SetComponent(ref renderer);
 		}
 
 		private void Start() => Handle();

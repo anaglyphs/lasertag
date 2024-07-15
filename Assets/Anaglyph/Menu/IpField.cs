@@ -10,7 +10,7 @@ namespace Anaglyph.Menu
 
 		private void OnValidate()
 		{
-			this.SetDefaultComponent(ref field);
+			this.SetComponent(ref field);
 		}
 
 		private void Start()

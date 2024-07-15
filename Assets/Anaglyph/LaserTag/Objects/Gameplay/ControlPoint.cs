@@ -1,10 +1,9 @@
+using Anaglyph.Lasertag;
 using Anaglyph.LaserTag.Networking;
-using NUnit.Framework;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
-using UnityEngine.UI;
 
 namespace Anaglyph.LaserTag
 {
@@ -12,27 +11,32 @@ namespace Anaglyph.LaserTag
 	{
 		public const float Radius = 1.5f;
 		public const float MillisToTake = 10000;
-		private static int ColorID = Shader.PropertyToID("_Color");
 
 		public static List<ControlPoint> AllControlPoints { get; private set; } = new();
 
-		[SerializeField] private MeshRenderer meshRenderer;
-		[SerializeField] private Image conquerTimeIndicator;
+		public UnityEvent<byte> onControllingTeamChange = new();
 
-		public UnityEvent<int> onControllingTeamChange = new();
+		public byte ControllingTeam => controllingTeamSync.Value;
+		private NetworkVariable<byte> controllingTeamSync = new(0);
 
-		public int ControllingTeam => controllingTeamSync.Value;
-		private NetworkVariable<int> controllingTeamSync = new(-1);
-
-		public int CapturingTeam => capturingTeamSync.Value;
-		private NetworkVariable<int> capturingTeamSync = new(-1);
+		public byte CapturingTeam => capturingTeamSync.Value;
+		private NetworkVariable<byte> capturingTeamSync = new(0);
 
 		public float MillisCaptured => millisCapturedSync.Value;
 		private NetworkVariable<float> millisCapturedSync = new(0);
 
+		[SerializeField] private TeamColorer teamColorer;
+
+		public bool IsBeingCaptured;
+		public bool IsStalemated;
+
+		private void OnValidate()
+		{
+			this.SetComponent(ref teamColorer);
+		}
+
 		private void Awake()
 		{
-			meshRenderer.material = new Material(meshRenderer.sharedMaterial);
 			AllControlPoints.Add(this);
 
 			controllingTeamSync.OnValueChanged += delegate { 
@@ -78,23 +82,20 @@ namespace Anaglyph.LaserTag
 			}
 			else
 			{
-				bool capturingTeamIsInside = false;
-				bool anyOtherTeamIsInside = false;
-
 				foreach (Player player in Player.AllPlayers)
 				{
 					if (CheckIfPlayerIsInside(player))
 					{
 						if (player.Team == CapturingTeam)
-							capturingTeamIsInside = true;
+							IsBeingCaptured = true;
 						else
-							anyOtherTeamIsInside = true;
+							IsStalemated = true;
 					}
 				}
 
-				if (capturingTeamIsInside)
+				if (IsBeingCaptured)
 				{
-					if (!anyOtherTeamIsInside)
+					if (!IsStalemated)
 					{
 						millisCapturedSync.Value += Time.fixedDeltaTime * 1000;
 
@@ -115,19 +116,13 @@ namespace Anaglyph.LaserTag
 
 		private void UpdateAppearance()
 		{
-			Color color = Color.red;
-			if (ControllingTeam == MainPlayer.Instance.Team)
-				color = Color.green;
-			else if (CapturingTeam == MainPlayer.Instance.Team)
-				color = Color.yellow;
-
-			meshRenderer.material.SetColor(ColorID, color);
-			conquerTimeIndicator.color = color;
-
-			conquerTimeIndicator.fillAmount = 1 - MillisCaptured / MillisToTake;
+			if (IsBeingCaptured && IsStalemated)
+				teamColorer.SetColor(0);
+			else
+				teamColorer.SetColor(ControllingTeam);
 		}
 
-		public void Capture(int team)
+		public void Capture(byte team)
 		{
 			if (!IsOwner)
 				return;

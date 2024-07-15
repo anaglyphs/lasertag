@@ -1,3 +1,4 @@
+using Anaglyph.Lasertag;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
@@ -11,29 +12,25 @@ namespace Anaglyph.LaserTag.Networking
 		public const float Radius = 1;
 		private static int ColorID = Shader.PropertyToID("_Color");
 
-		public int Team => teamSync.Value;
-		private NetworkVariable<int> teamSync = new(1);
+		[SerializeField] private TeamOwner teamOwner;
+		public TeamOwner TeamOwner => teamOwner;
+		public byte Team => teamOwner.Team;
 
 		public static List<Base> AllBases { get; private set; } = new ();
 
 		[SerializeField] private MeshRenderer meshRenderer;
 
-		public UnityEvent<int> OnTeamChange;
+		public UnityEvent<byte> OnTeamChange => teamOwner.OnTeamChange;
 
 		private void Awake()
 		{
 			AllBases.Add(this);
-
-			teamSync.OnValueChanged += delegate
-			{
-				OnTeamChange.Invoke(teamSync.Value);
-			};
 		}
 
 		public override void OnNetworkSpawn()
 		{
 			if (IsOwner)
-				teamSync.Value = MainPlayer.Instance.Team;
+				teamOwner.teamSync.Value = MainPlayer.Instance.team;
 		}
 
 		public override void OnDestroy()

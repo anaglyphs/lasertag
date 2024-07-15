@@ -109,7 +109,7 @@ GameObject:
   - component: {fileID: 4737041616819380296}
   - component: {fileID: 1157186111017555043}
   m_Layer: 0
-  m_Name: Center
+  m_Name: Head
   m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -576,7 +576,7 @@ GameObject:
   - component: {fileID: 5557311319812307847}
   - component: {fileID: 4816026993844000766}
   m_Layer: 0
-  m_Name: Head
+  m_Name: Headset
   m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -738,6 +738,8 @@ GameObject:
   - component: {fileID: -5693910488107663892}
   - component: {fileID: 1644879199666297498}
   - component: {fileID: 5575681868257953417}
+  - component: {fileID: 2387703453467970642}
+  - component: {fileID: 5779350372256684547}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -885,8 +887,7 @@ MonoBehaviour:
         m_CallState: 2
   isAliveSync:
     m_InternalValue: 1
-  teamSync:
-    m_InternalValue: 0
+  teamOwner: {fileID: 2387703453467970642}
 --- !u!114 &1644879199666297498
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -914,6 +915,56 @@ MonoBehaviour:
   enabledIfOwner:
   - {fileID: 1644879199666297498}
   disableIfOwner: []
+--- !u!114 &2387703453467970642
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6958064522276107603}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 065fb88f6928a064f86e464bdb1b7956, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  teamSync:
+    m_InternalValue: 0
+  OnTeamChange:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 5779350372256684547}
+        m_TargetAssemblyTypeName: Anaglyph.Lasertag.TeamColorer, ph.anagly.lasertag
+        m_MethodName: SetColor
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: 
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!114 &5779350372256684547
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6958064522276107603}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de906b0a9e4e02d4cb6ed9ea738b7abe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  renderers:
+  - {fileID: 4717412609529735901}
+  - {fileID: 4790237004022800674}
+  - {fileID: 4937440726736163187}
+  - {fileID: 3559159289528566506}
+  teamOwner: {fileID: 2387703453467970642}
+  OnColorSet:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1 &7661177598156210288
 GameObject:
   m_ObjectHideFlags: 0

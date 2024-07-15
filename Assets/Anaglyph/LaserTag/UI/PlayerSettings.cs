@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 namespace Anaglyph.LaserTag
 {
-    public class PlayerSettingsSetter : MonoBehaviour
+    public class PlayerSettings : MonoBehaviour
     {
         [SerializeField]
         private Text teamNumberText;
@@ -15,6 +15,10 @@ namespace Anaglyph.LaserTag
             teamNumberText.text = $"{MainPlayer.Instance.currentRole.TeamNumber}";
         }
 
+        public void SetTeam(byte team)
+        {
+            MainPlayer.Instance.team = team;
+        }
 
         public void IncrementTeamNumber()
         {

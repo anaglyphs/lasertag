@@ -10,7 +10,7 @@ namespace Anaglyph.LaserTag
 	public class MainPlayer : SingletonBehavior<MainPlayer>
 	{
 		public Role currentRole = Role.Standard;
-		public int Team => currentRole.TeamNumber;
+		public byte team;
 
 		public float Health { get; private set; } =  Role.Standard.MaxHealth;
 		public bool IsAlive { get; private set; } = true;
@@ -106,7 +106,7 @@ namespace Anaglyph.LaserTag
 			activeNetworkPlayer.HeadTransform.SetFrom(headTransform);
 			activeNetworkPlayer.LeftHandTransform.SetFrom(leftHandTransform);
 			activeNetworkPlayer.RightHandTransform.SetFrom(rightHandTransform);
-			activeNetworkPlayer.teamSync.Value = Team;
+			activeNetworkPlayer.TeamOwner.teamSync.Value = team;
 		}
 
 		public void Kill()

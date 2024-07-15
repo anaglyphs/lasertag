@@ -8,10 +8,16 @@ namespace Anaglyph.Lasertag
 		private static readonly int TeamColorID = Shader.PropertyToID("_Color");
 
 		[SerializeField] private MeshRenderer[] renderers;
+		[SerializeField] private TeamOwner teamOwner;
+
+		public Color Color { get; private set; }
 
 		private void OnValidate()
 		{
 			renderers = GetComponentsInChildren<MeshRenderer>(true);
+
+			this.SetComponetFromParent(ref teamOwner);
+			teamOwner?.OnTeamChange.AddPersistentListenerOnce(SetColor);
 		}
 
 		public UnityEvent<Color> OnColorSet = new();
@@ -22,20 +28,24 @@ namespace Anaglyph.Lasertag
 			{
 				renderer.material = new(renderer.material);
 			}
-
-			SetColor(0);
 		}
 
-		public void SetColor(int teamNumber)
+		private void Start()
 		{
-			Color color = TeamManagement.TeamColors[teamNumber];
+			if(teamOwner != null)
+			SetColor(teamOwner.Team);
+		}
+
+		public void SetColor(byte teamNumber)
+		{
+			Color = TeamManagement.TeamColors[teamNumber];
 
 			foreach (var renderer in renderers)
 			{
-				renderer.material.SetColor(TeamColorID, color);
+				renderer.material.SetColor(TeamColorID, Color);
 			}
 
-			OnColorSet.Invoke(color);
+			OnColorSet.Invoke(Color);
 		}
 	}
 }
