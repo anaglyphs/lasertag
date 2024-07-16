@@ -6,7 +6,7 @@ namespace Anaglyph.Lasertag
 {
 	public static class TeamManagement
 	{
-		public const int NumTeams = 3;
+		public const byte NumTeams = 3;
 
 		public static readonly Color[] TeamColors = new Color[]
 		{
