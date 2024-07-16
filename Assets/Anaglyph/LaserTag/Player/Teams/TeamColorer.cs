@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -7,8 +8,11 @@ namespace Anaglyph.Lasertag
 	{
 		private static readonly int TeamColorID = Shader.PropertyToID("_Color");
 
-		[SerializeField] private MeshRenderer[] renderers;
+		[SerializeField] private byte defaultTeam;
+		[SerializeField] private Renderer[] renderers;
 		[SerializeField] private TeamOwner teamOwner;
+
+		[SerializeField] float multiply = 1;
 
 		public Color Color { get; private set; }
 
@@ -38,7 +42,7 @@ namespace Anaglyph.Lasertag
 
 		public void SetColor(byte teamNumber)
 		{
-			Color = TeamManagement.TeamColors[teamNumber];
+			Color = TeamManagement.TeamColors[teamNumber] * multiply;
 
 			foreach (var renderer in renderers)
 			{
