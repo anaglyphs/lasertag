@@ -1,21 +1,21 @@
-using Anaglyph.LaserTag;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Anaglyph.LaserTag.UI
 {
-	public class HUDDriver : MonoBehaviour
+	public class HUDDriver : SingletonBehavior<HUDDriver>
 	{
+		[SerializeField]
+		private Text timerTex;
+
 		[SerializeField]
 		private Text respawnText;
 
 		[SerializeField]
-		private GameObject rootHudObject;
+		private Image healthMeterImage;
 
-		//[SerializeField]
-		//private GameObject headObject;
+		[SerializeField]
+		private GameObject rootHudObject;
 
 		[SerializeField]
 		private RectTransform menuMaskRectTransform;
@@ -52,6 +52,18 @@ namespace Anaglyph.LaserTag.UI
 			{
 				respawnText.text = $"RESPAWN: {(MainPlayer.Instance.RespawnTimerSeconds).ToString("F1")}s";
 			}
+
+			healthMeterImage.fillAmount = MainPlayer.Instance.Health / MainPlayer.Instance.currentRole.MaxHealth;
+		}
+
+		protected override void SingletonAwake()
+		{
+			throw new System.NotImplementedException();
+		}
+
+		protected override void OnSingletonDestroy()
+		{
+			throw new System.NotImplementedException();
 		}
 	}
 }

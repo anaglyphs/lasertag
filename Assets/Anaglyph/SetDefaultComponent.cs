@@ -1,4 +1,6 @@
+#if UNITY_EDITOR
 using UnityEditor.Events;
+#endif
 using UnityEngine;
 using UnityEngine.Events;
 

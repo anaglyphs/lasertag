@@ -6,7 +6,7 @@ using UnityEngine.Events;
 
 namespace Anaglyph.LaserTag.Networking
 {
-	[DefaultExecutionOrder(500)]
+	[DefaultExecutionOrder(-500)]
 	public class Player : NetworkBehaviour
 	{
 		public const string Tag = "Player";
@@ -32,6 +32,9 @@ namespace Anaglyph.LaserTag.Networking
 		public TeamOwner TeamOwner => teamOwner;
 
 		public byte Team => teamOwner.Team;
+
+		public bool IsInFriendlyBase { get; private set; }
+		public bool IsInBase { get; private set; }
 
 		private void OnValidate()
 		{
@@ -64,6 +67,26 @@ namespace Anaglyph.LaserTag.Networking
 
             AllPlayers.Add(this);
         }
+
+		private void HandleBases()
+		{
+			IsInBase = false;
+			IsInFriendlyBase = false;
+			foreach (Base b in Base.AllBases)
+			{
+				if (Geo.PointIsInCylinder(b.transform.position, Base.Radius, 3, headTransform.position))
+				{
+					IsInBase = true;
+					if (Team == b.Team)
+						IsInFriendlyBase = true;
+				}
+			}
+		}
+
+		private void Update()
+		{
+			HandleBases();
+		}
 
 		[Rpc(SendTo.Everyone)]
 		public void HitRpc(float damage)

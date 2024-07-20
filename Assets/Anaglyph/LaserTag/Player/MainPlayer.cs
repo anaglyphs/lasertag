@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.Events;
 using Anaglyph.LaserTag.Weapons;
 using System;
+using Anaglyph.Lasertag;
 
 namespace Anaglyph.LaserTag
 {
@@ -53,11 +54,17 @@ namespace Anaglyph.LaserTag
 			IsInFriendlyBase = false;
 			foreach (Base b in Base.AllBases)
 			{
-				if (b.Team != currentRole.TeamNumber)
+				if (!Geo.PointIsInCylinder(b.transform.position, Base.Radius, 3, headTransform.position))
 					continue;
 
-				if (Geo.PointIsInCylinder(b.transform.position, Base.Radius, 3, headTransform.position))
+				if (b.Team == currentRole.TeamNumber)
+				{
 					IsInFriendlyBase = true;
+				}
+				else if (!RoundManager.GameIsOn)
+				{
+					currentRole.TeamNumber = b.Team;
+				}
 			}
 		}
 
