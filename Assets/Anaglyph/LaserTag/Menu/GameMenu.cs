@@ -1,21 +1,19 @@
-using System.Collections;
-using System.Collections.Generic;
+using Unity.Netcode;
 using UnityEngine;
 
 namespace Anaglyph.Lasertag
 {
     public class GameMenu : MonoBehaviour
     {
-        // Start is called before the first frame update
-        void Start()
+        public void BecomeGameMaster()
         {
-        
+            RoundManager.Instance.NetworkObject.RequestOwnership();
         }
 
-        // Update is called once per frame
-        void Update()
+        public void SetTime(float time)
         {
-        
-        }
+			RoundManager.Instance.
+
+		}
     }
 }
