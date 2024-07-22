@@ -22,7 +22,7 @@ namespace Anaglyph.LaserTag
 		public UnityEvent<bool> onAliveChange = new();
 		public UnityEvent onTakeDamage = new();
 
-		[NonSerialized] public Player activeNetworkPlayer;
+		[NonSerialized] public Player networkPlayer;
 
 		[SerializeField] private Transform headTransform;
 		[SerializeField] private Transform leftHandTransform;
@@ -43,10 +43,15 @@ namespace Anaglyph.LaserTag
 			passthroughLayer.edgeColor = Color.clear;
 		}
 
-		public void Damage(float damage)
+		public void Damage(float damage, ulong damagedBy)
 		{
 			onTakeDamage.Invoke();
 			Health -= damage;
+
+			if(Health < damage)
+			{
+				Kill(damagedBy);
+			}
 		}
 
 		private void HandleBases()
@@ -54,16 +59,13 @@ namespace Anaglyph.LaserTag
 			IsInFriendlyBase = false;
 			foreach (Base b in Base.AllBases)
 			{
-				if (!Geo.PointIsInCylinder(b.transform.position, Base.Radius, 3, headTransform.position))
-					continue;
+				if (Geo.PointIsInCylinder(b.transform.position, Base.Radius, 3, headTransform.position))
+				{
+					if (!RoundManager.Instance.GameIsOn)
+						currentRole.TeamNumber = b.Team;
 
-				if (b.Team == currentRole.TeamNumber)
-				{
-					IsInFriendlyBase = true;
-				}
-				else if (!RoundManager.GameIsOn)
-				{
-					currentRole.TeamNumber = b.Team;
+					if (b.Team == currentRole.TeamNumber)
+						IsInFriendlyBase = true;
 				}
 			}
 		}
@@ -75,7 +77,7 @@ namespace Anaglyph.LaserTag
 			if (IsAlive)
 			{
 				if (Health < 0)
-					Kill();
+					Kill(0);
 				else
 					Health += currentRole.HealthRegenerationPerSecond * Time.deltaTime;
 			}
@@ -107,24 +109,26 @@ namespace Anaglyph.LaserTag
 
 		private void UpdateNetworkedPlayerTransforms()
 		{
-			if (activeNetworkPlayer == null)
+			if (networkPlayer == null)
 				return;
 				
-			activeNetworkPlayer.HeadTransform.SetFrom(headTransform);
-			activeNetworkPlayer.LeftHandTransform.SetFrom(leftHandTransform);
-			activeNetworkPlayer.RightHandTransform.SetFrom(rightHandTransform);
-			activeNetworkPlayer.TeamOwner.teamSync.Value = team;
+			networkPlayer.HeadTransform.SetFrom(headTransform);
+			networkPlayer.LeftHandTransform.SetFrom(leftHandTransform);
+			networkPlayer.RightHandTransform.SetFrom(rightHandTransform);
+			networkPlayer.TeamOwner.teamSync.Value = team;
 		}
 
-		public void Kill()
+		public void Kill(ulong killedBy)
 		{
 			WeaponsManagement.canFire = false;
 
-			activeNetworkPlayer.isAliveSync.Value = false;
+			networkPlayer.isAliveSync.Value = false;
 
 			IsAlive = false;
 			Health = 0;
 			RespawnTimerSeconds = currentRole.RespawnTimeoutSeconds;
+
+			networkPlayer.KilledRpc(killedBy);
 
 			onAliveChange.Invoke(false);
 			onDie.Invoke();
@@ -136,7 +140,7 @@ namespace Anaglyph.LaserTag
 
 			WeaponsManagement.canFire = true;
 
-			activeNetworkPlayer.isAliveSync.Value = true;
+			networkPlayer.isAliveSync.Value = true;
 
 			IsAlive = true;
 			Health = currentRole.MaxHealth;

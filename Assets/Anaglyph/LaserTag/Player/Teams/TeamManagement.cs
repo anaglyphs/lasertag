@@ -15,5 +15,13 @@ namespace Anaglyph.Lasertag
 			new Color(30  / 255f, 136 / 255f, 229 / 255f),
 			new Color(255 / 255f, 193 / 255f, 7   / 255f),
 		};
+
+		public static readonly String[] TeamNames = new string[]
+		{
+			"None",
+			"Red",
+			"Blue",
+			"Yellow",
+		};
 	}
 }

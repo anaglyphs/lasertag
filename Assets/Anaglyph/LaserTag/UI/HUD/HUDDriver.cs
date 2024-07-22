@@ -12,9 +12,6 @@ namespace Anaglyph.LaserTag.UI
 		private Text respawnText;
 
 		[SerializeField]
-		private Image healthMeterImage;
-
-		[SerializeField]
 		private GameObject rootHudObject;
 
 		[SerializeField]
@@ -52,8 +49,6 @@ namespace Anaglyph.LaserTag.UI
 			{
 				respawnText.text = $"RESPAWN: {(MainPlayer.Instance.RespawnTimerSeconds).ToString("F1")}s";
 			}
-
-			healthMeterImage.fillAmount = MainPlayer.Instance.Health / MainPlayer.Instance.currentRole.MaxHealth;
 		}
 
 		protected override void SingletonAwake()

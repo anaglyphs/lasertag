@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -8,14 +6,17 @@ namespace Anaglyph.Lasertag
     public class TeamSpriteColorer : MonoBehaviour
     {
         [SerializeField] private byte team;
-		[SerializeField] private float multiply = 0;
+		[SerializeField] private float multiply = 1;
 
+		[SerializeField] private Image image;
 
 		private void OnValidate()
 		{
+			this.SetComponent(ref image);
+
 			Color multiplied = TeamManagement.TeamColors[team] * multiply;
 			multiplied.a = 1;
-			GetComponent<Image>().color =  multiplied;
+			image.color =  multiplied;
 		}
 	}
 }

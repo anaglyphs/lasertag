@@ -3,7 +3,7 @@ using UnityEngine.Events;
 
 namespace Anaglyph.Lasertag
 {
-	public class TeamScores : NetworkBehaviour
+	public class ScoreCounter : NetworkBehaviour
 	{
 		private NetworkVariable<int>[] scores = new NetworkVariable<int>[TeamManagement.NumTeams];
 
@@ -27,6 +27,11 @@ namespace Anaglyph.Lasertag
 					}
 				};
 			}
+		}
+
+		public void Score(byte team, int points)
+		{
+			scores[team].Value += points;
 		}
 
 		public void ResetScores()

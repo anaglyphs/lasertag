@@ -74,7 +74,7 @@ namespace Anaglyph.LaserTag
 			if (pointIsSecure)
 			{
 				// check for new capturing players
-				foreach (Player player in Player.AllPlayers)
+				foreach (Player player in Player.AllPlayers.Values)
 				{
 					if (CheckIfPlayerIsInside(player) && player.Team != ControllingTeam)
 						capturingTeamSync.Value = player.Team;
@@ -82,7 +82,7 @@ namespace Anaglyph.LaserTag
 			}
 			else
 			{
-				foreach (Player player in Player.AllPlayers)
+				foreach (Player player in Player.AllPlayers.Values)
 				{
 					if (CheckIfPlayerIsInside(player))
 					{
