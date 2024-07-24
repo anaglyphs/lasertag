@@ -4,22 +4,22 @@ namespace Anaglyph.Lasertag
 {
     public class RoundEvents : SuperAwakeBehavior
     {
-		public UnityEvent OnCountdown;
-		public UnityEvent OnStart;
-		public UnityEvent OnEnd;
+		public UnityEvent OnCountdown = new();
+		public UnityEvent OnStart = new();
+		public UnityEvent OnEnd = new();
 
 		protected override void SuperAwake()
 		{
-			RoundManager.OnGameCountdown += OnCountdown.Invoke;
-			RoundManager.OnGameStart += OnStart.Invoke;
-			RoundManager.OnGameEnd += OnEnd.Invoke;
+			RoundManager.OnGameCountdownEveryone += OnCountdown.Invoke;
+			RoundManager.OnGameStartEveryone += OnStart.Invoke;
+			RoundManager.OnGameEndEveryone += OnEnd.Invoke;
 		}
 
 		private void OnDestroy()
 		{
-			RoundManager.OnGameCountdown -= OnCountdown.Invoke;
-			RoundManager.OnGameStart -= OnStart.Invoke;
-			RoundManager.OnGameEnd -= OnEnd.Invoke;
+			RoundManager.OnGameCountdownEveryone -= OnCountdown.Invoke;
+			RoundManager.OnGameStartEveryone -= OnStart.Invoke;
+			RoundManager.OnGameEndEveryone -= OnEnd.Invoke;
 		}
 	}
 }

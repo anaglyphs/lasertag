@@ -11,24 +11,24 @@ namespace Anaglyph.Lasertag
 	{
 		None = 0,
 		Timer = 1,
-		PointsTarget = 2,
+		ReachScore = 2,
 	}
 
 	[Serializable]
-	public struct GameSettings
+	public struct GameSettings : INetworkSerializeByMemcpy
 	{
 		public bool teams;
 		public bool respawnInBases;
+
 		public byte pointsPerKill;
 		public byte pointsPerSecondHoldingPoint;
+
 		public WinCondition winCondition;
-		public bool useTimer;
 		public int timerSeconds;
-		public int scoreTarget;
+		public short scoreTarget;
 
-		public bool CheckWinByTimer() => (winCondition & WinCondition.Timer) != WinCondition.None;
-
-		public bool CheckWinByPoints() => (winCondition & WinCondition.PointsTarget) != WinCondition.None;
+		public bool CheckWinByTimer() => winCondition.HasFlag(WinCondition.Timer);
+		public bool CheckWinByPoints() => winCondition.HasFlag(WinCondition.ReachScore);
 	}
 
 	public class RoundManager : NetworkBehaviour
@@ -51,9 +51,11 @@ namespace Anaglyph.Lasertag
 		private Coroutine controlPointScoreLoopCoroutineHandle;
 		private Coroutine gameTimerCoroutineHandle;
 
-		public static event Action OnGameCountdown = delegate { };
-		public static event Action OnGameStart = delegate { };
-		public static event Action OnGameEnd = delegate { };
+		public static event Action OnGameCountdownEveryone = delegate { };
+		public static event Action OnGameStartEveryone = delegate { };
+		public static event Action OnGameEndEveryone = delegate { };
+		public static event Action OnBecomeGameMasterLocal = delegate { };
+		public static event Action OnLoseGameMasterLocal = delegate { };
 
 		private void Awake()
 		{
@@ -62,22 +64,27 @@ namespace Anaglyph.Lasertag
 			teamScoresSync = new NetworkVariable<int>[TeamManagement.NumTeams];
 			for(int i = 0; i < teamScoresSync.Length; i++)
 				teamScoresSync[i] = new NetworkVariable<int>(0);
+		}
 
-			Player.OnPlayerKilledPlayer += OnPlayerKilledPlayerAsOwner;
+		public override void OnGainedOwnership()
+		{
+			OnBecomeGameMasterLocal.Invoke();
+		}
+
+		public override void OnLostOwnership()
+		{
+			OnLoseGameMasterLocal.Invoke();
 		}
 
 		public override void OnDestroy()
 		{
 			base.OnDestroy();
-
-			Player.OnPlayerKilledPlayer -= OnPlayerKilledPlayerAsOwner;
 		}
 
 		[Rpc(SendTo.Owner)]
-		public void QueueStartGameOwnerRpc()
+		public void QueueStartGameOwnerRpc(GameSettings gameSettings)
 		{
-			if (!IsOwner)
-				return;
+			activeGameSettingsSync.Value = gameSettings;
 
 			gameQueueCoroutineHandle = StartCoroutine(QueueStartGameAsOwnerCoroutine());
 		}
@@ -98,8 +105,6 @@ namespace Anaglyph.Lasertag
 
 			if (ActiveGameSettings.respawnInBases)
 			{
-				GlobalMessage.Instance.Set("Everyone must be in base for the round to start!");
-
 				int numPlayersInbase;
 				do
 				{
@@ -114,8 +119,6 @@ namespace Anaglyph.Lasertag
 					yield return null;
 
 				} while (numPlayersInbase < Player.AllPlayers.Count);
-
-				GlobalMessage.Instance.Set("");
 			}
 
 			StartCountdownEveryoneRpc();
@@ -125,10 +128,17 @@ namespace Anaglyph.Lasertag
 			StartGameOwnerRpc();
 		}
 
+		[Rpc(SendTo.Owner)]
+		public void ResetScoresRpc()
+		{
+			foreach (var score in teamScoresSync)
+				score.Value = 0;
+		}
+
 		[Rpc(SendTo.Everyone)]
 		private void StartCountdownEveryoneRpc()
 		{
-			OnGameCountdown.Invoke();
+			OnGameCountdownEveryone.Invoke();
 		}
 
 		[Rpc(SendTo.Owner)]
@@ -142,6 +152,8 @@ namespace Anaglyph.Lasertag
 
 			gameIsOnSync.Value = true;
 
+			// sub to score events
+			Player.OnPlayerKilledPlayer += OnPlayerKilledPlayerAsOwner;
 			controlPointScoreLoopCoroutineHandle = StartCoroutine(ControlPointLoopCoroutine());
 
 			StartGameEveryoneRpc();
@@ -150,7 +162,7 @@ namespace Anaglyph.Lasertag
 		[Rpc(SendTo.Everyone)]
 		public void StartGameEveryoneRpc()
 		{
-			OnGameStart.Invoke();
+			OnGameStartEveryone.Invoke();
 		}
 
 		private IEnumerator GameTimerAsOwnerCoroutine()
@@ -202,19 +214,14 @@ namespace Anaglyph.Lasertag
 		}
 
 		[Rpc(SendTo.Owner)]
-		public void ResetScoresRpc()
+		public void EndGameOwnerRpc()
 		{
-			foreach(var score in teamScoresSync)
-				score.Value = 0;
-		}
-
-		[Rpc(SendTo.Owner)]
-		private void EndGameOwnerRpc()
-		{
-			if (!IsOwner)
-				return;
-
 			gameIsOnSync.Value = false;
+
+			Player.OnPlayerKilledPlayer -= OnPlayerKilledPlayerAsOwner;
+
+			if (gameQueueCoroutineHandle != null)
+				StopCoroutine(gameQueueCoroutineHandle);;
 
 			if (controlPointScoreLoopCoroutineHandle != null)
 				StopCoroutine(controlPointScoreLoopCoroutineHandle);
@@ -228,7 +235,7 @@ namespace Anaglyph.Lasertag
 		[Rpc(SendTo.Everyone)]
 		private void EndGameEveryoneRpc()
 		{
-			OnGameEnd.Invoke();
+			OnGameEndEveryone.Invoke();
 		}
 	}
 }
