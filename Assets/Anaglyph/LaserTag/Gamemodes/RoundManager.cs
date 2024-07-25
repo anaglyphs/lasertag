@@ -2,8 +2,10 @@ using Anaglyph.LaserTag;
 using Anaglyph.LaserTag.Networking;
 using System;
 using System.Collections;
+using System.Runtime.InteropServices.WindowsRuntime;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace Anaglyph.Lasertag
 {
@@ -12,6 +14,14 @@ namespace Anaglyph.Lasertag
 		None = 0,
 		Timer = 1,
 		ReachScore = 2,
+	}
+
+	public enum RoundState : byte
+	{
+		NotPlaying = 0,
+		Queued = 1,
+		Countdown = 2,
+		Playing = 3,
 	}
 
 	[Serializable]
@@ -35,16 +45,17 @@ namespace Anaglyph.Lasertag
 	{
 		public static RoundManager Instance { get; private set; }
 
-		private NetworkVariable<bool> gameIsOnSync;
-		public bool GameIsOn => gameIsOnSync.Value;
+		public NetworkVariable<RoundState> roundStateSync = new();
+		public RoundState RoundState => roundStateSync.Value;
 
-		private NetworkVariable<float> timeGameEndsSync;
+		public NetworkVariable<float> timeGameEndsSync = new();
 		public float TimeGameEnds => timeGameEndsSync.Value;
 
-		private NetworkVariable<int>[] teamScoresSync;
+		//public NetworkList<int> teamScoresSync;
+		public NetworkVariable<int>[] teamScoresSync = new NetworkVariable<int>[TeamManagement.NumTeams];
 		public int GetTeamScore(byte team) => teamScoresSync[team].Value;
 
-		private NetworkVariable<GameSettings> activeGameSettingsSync;
+		private NetworkVariable<GameSettings> activeGameSettingsSync = new();
 		public GameSettings ActiveGameSettings => activeGameSettingsSync.Value;
 
 		private Coroutine gameQueueCoroutineHandle;
@@ -60,11 +71,21 @@ namespace Anaglyph.Lasertag
 		private void Awake()
 		{
 			Instance = this;
+			//teamScoresSync = new NetworkList<int>();
 
-			teamScoresSync = new NetworkVariable<int>[TeamManagement.NumTeams];
 			for(int i = 0; i < teamScoresSync.Length; i++)
-				teamScoresSync[i] = new NetworkVariable<int>(0);
+			{
+				teamScoresSync[i] = new();
+			}
 		}
+
+		//public override void OnNetworkSpawn()
+		//{
+		//	for (int i = 0; i < TeamManagement.NumTeams; i++)
+		//	{
+		//		teamScoresSync.Add(0);
+		//	}
+		//}
 
 		public override void OnGainedOwnership()
 		{
@@ -85,15 +106,8 @@ namespace Anaglyph.Lasertag
 		public void QueueStartGameOwnerRpc(GameSettings gameSettings)
 		{
 			activeGameSettingsSync.Value = gameSettings;
-
+			roundStateSync.Value = RoundState.Queued;
 			gameQueueCoroutineHandle = StartCoroutine(QueueStartGameAsOwnerCoroutine());
-		}
-
-		[Rpc(SendTo.Owner)]
-		public void CancelQueuedGameOwnerRpc()
-		{
-			if (gameQueueCoroutineHandle != null)
-				StopCoroutine(gameQueueCoroutineHandle);
 		}
 
 		private IEnumerator QueueStartGameAsOwnerCoroutine()
@@ -121,6 +135,8 @@ namespace Anaglyph.Lasertag
 				} while (numPlayersInbase < Player.AllPlayers.Count);
 			}
 
+			roundStateSync.Value = RoundState.Countdown;
+
 			StartCountdownEveryoneRpc();
 
 			yield return new WaitForSeconds(4);
@@ -131,8 +147,12 @@ namespace Anaglyph.Lasertag
 		[Rpc(SendTo.Owner)]
 		public void ResetScoresRpc()
 		{
-			foreach (var score in teamScoresSync)
-				score.Value = 0;
+			for (byte i = 0; i < teamScoresSync.Length; i++)
+			{
+				NetworkVariable<int> score = new();
+				score.Initialize(this);
+				teamScoresSync[i] = score;
+			}
 		}
 
 		[Rpc(SendTo.Everyone)]
@@ -150,7 +170,7 @@ namespace Anaglyph.Lasertag
 				gameTimerCoroutineHandle = StartCoroutine(GameTimerAsOwnerCoroutine());
 			}
 
-			gameIsOnSync.Value = true;
+			roundStateSync.Value = RoundState.Playing;
 
 			// sub to score events
 			Player.OnPlayerKilledPlayer += OnPlayerKilledPlayerAsOwner;
@@ -188,7 +208,7 @@ namespace Anaglyph.Lasertag
 
 		private IEnumerator ControlPointLoopCoroutine()
 		{
-			while (GameIsOn)
+			while (RoundState == RoundState.Playing)
 			{
 				foreach (ControlPoint point in ControlPoint.AllControlPoints)
 				{
@@ -216,7 +236,7 @@ namespace Anaglyph.Lasertag
 		[Rpc(SendTo.Owner)]
 		public void EndGameOwnerRpc()
 		{
-			gameIsOnSync.Value = false;
+			roundStateSync.Value = RoundState.NotPlaying;
 
 			Player.OnPlayerKilledPlayer -= OnPlayerKilledPlayerAsOwner;
 

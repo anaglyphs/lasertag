@@ -27,12 +27,6 @@ namespace Anaglyph.LaserTag.Networking
 			AllBases.Add(this);
 		}
 
-		public override void OnNetworkSpawn()
-		{
-			if (IsOwner)
-				teamOwner.teamSync.Value = MainPlayer.Instance.team;
-		}
-
 		public override void OnDestroy()
 		{
 			base.OnDestroy();

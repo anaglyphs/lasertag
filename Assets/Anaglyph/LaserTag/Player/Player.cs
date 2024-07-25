@@ -1,4 +1,5 @@
 using Anaglyph.Lasertag;
+using OVR.OpenVR;
 using System;
 using System.Collections.Generic;
 using Unity.Collections;
@@ -41,7 +42,7 @@ namespace Anaglyph.LaserTag.Networking
 		public bool IsInFriendlyBase { get; private set; }
 		public bool IsInBase { get; private set; }
 
-		public static event Action<Player, Player> OnPlayerKilledPlayer;
+		public static event Action<Player, Player> OnPlayerKilledPlayer = delegate { };
 		public static void InvokePlayerKilledPlayer(Player killer, Player victim) => OnPlayerKilledPlayer.Invoke(killer, victim);
 
 		private void OnValidate()

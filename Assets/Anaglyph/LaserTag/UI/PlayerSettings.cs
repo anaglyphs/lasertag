@@ -17,7 +17,7 @@ namespace Anaglyph.LaserTag
 
         public void SetTeam(byte team)
         {
-            MainPlayer.Instance.team = team;
+            MainPlayer.Instance.networkPlayer.TeamOwner.teamSync.Value = team;
         }
 
         public void IncrementTeamNumber()

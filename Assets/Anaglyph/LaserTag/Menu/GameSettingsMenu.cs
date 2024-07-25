@@ -2,12 +2,12 @@ using UnityEngine;
 
 namespace Anaglyph.Lasertag
 {
-	public class GameMenu : MonoBehaviour
+	public class GameSettingsMenu : MonoBehaviour
 	{
 		public static readonly GameSettings TeamDeathmatchPreset = new GameSettings()
 		{
 			teams = true,
-			respawnInBases = true,
+			respawnInBases = false,
 
 			pointsPerKill = 1,
 			pointsPerSecondHoldingPoint = 0,
@@ -33,35 +33,21 @@ namespace Anaglyph.Lasertag
 		public GameSettings settings = new();
 
 		[SerializeField] private GameObject startGamePage;
-		[SerializeField] private GameObject becomeGameMaster;
 		[SerializeField] private GameObject gameRunningPage;
 
 		private void Start()
 		{
-			RoundManager.OnBecomeGameMasterLocal += UpdateActivePage;
-			RoundManager.OnLoseGameMasterLocal += UpdateActivePage;
-			RoundManager.OnGameStartEveryone += UpdateActivePage;
-			RoundManager.OnGameEndEveryone += UpdateActivePage;
+			RoundManager.Instance.roundStateSync.OnValueChanged += OnGameStateChange;
 
-			UpdateActivePage();
+			OnGameStateChange(0, RoundManager.Instance.RoundState);
 		}
 
-		private void UpdateActivePage()
+		private void OnGameStateChange(RoundState prev, RoundState state)
 		{
-			if (RoundManager.Instance.GameIsOn)
-			{
+			if (RoundManager.Instance.RoundState != RoundState.NotPlaying)
 				gameRunningPage.SetActive(true);
-			}
 			else
-			{
-				if (RoundManager.Instance.IsOwner)
-				{
-					startGamePage.SetActive(true);
-				} else
-				{
-					becomeGameMaster.SetActive(true);
-				}
-			}
+				startGamePage.SetActive(true);
 		}
 
 		public void BecomeGameMaster()
@@ -71,17 +57,11 @@ namespace Anaglyph.Lasertag
 
 		public void StartGame()
 		{
-			if (!RoundManager.Instance.IsOwner)
-				return;
-
 			RoundManager.Instance.QueueStartGameOwnerRpc(settings);
 		}
 
 		public void EndGame()
 		{
-			if (!RoundManager.Instance.IsOwner)
-				return;
-
 			RoundManager.Instance.EndGameOwnerRpc();
 		}
 

@@ -1,3 +1,7 @@
+using Anaglyph.Lasertag;
+using System.Collections;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -5,8 +9,8 @@ namespace Anaglyph.LaserTag.UI
 {
 	public class HUDDriver : SingletonBehavior<HUDDriver>
 	{
-		[SerializeField]
-		private Text timerTex;
+
+		[Header("Death Popup")]
 
 		[SerializeField]
 		private Text respawnText;
@@ -17,11 +21,47 @@ namespace Anaglyph.LaserTag.UI
 		[SerializeField]
 		private RectTransform menuMaskRectTransform;
 
+		[Header("Round countdown")]
+
+		[SerializeField] private GameObject countdownText;
+
+		[Header("Scoreboard")]
+
+		[SerializeField] private GameObject scoreboard;
+
 		private float maxMenuMaskHeight = 0;
 
 		void Start()
 		{
 			maxMenuMaskHeight = menuMaskRectTransform.sizeDelta.y;
+
+			RoundManager.OnGameCountdownEveryone += OnRoundCountdown;
+			RoundManager.OnGameEndEveryone += OnRoundEnd;
+
+			countdownText.SetActive(false);
+			scoreboard.SetActive(false);
+		}
+
+		private void OnRoundCountdown()
+		{
+			countdownText.SetActive(true);
+
+			Task.Factory.StartNew(() => Thread.Sleep(5000))
+			.ContinueWith((t) =>
+			{
+				countdownText.SetActive(false);
+			}, TaskScheduler.FromCurrentSynchronizationContext());
+		}
+
+		private void OnRoundEnd()
+		{
+			scoreboard.SetActive(true);
+
+			Task.Factory.StartNew(() => Thread.Sleep(3000))
+			.ContinueWith((t) =>
+			{
+				scoreboard.SetActive(false);
+			}, TaskScheduler.FromCurrentSynchronizationContext());
 		}
 
 		// https://easings.net/#easeInOutCirc
@@ -53,12 +93,13 @@ namespace Anaglyph.LaserTag.UI
 
 		protected override void SingletonAwake()
 		{
-			throw new System.NotImplementedException();
+			
 		}
 
 		protected override void OnSingletonDestroy()
 		{
-			throw new System.NotImplementedException();
+			RoundManager.OnGameCountdownEveryone -= OnRoundCountdown;
+			RoundManager.OnGameEndEveryone -= OnRoundEnd;
 		}
 	}
 }

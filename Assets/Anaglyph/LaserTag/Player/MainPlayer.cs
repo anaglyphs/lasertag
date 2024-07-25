@@ -3,7 +3,6 @@ using UnityEngine;
 using UnityEngine.Events;
 using Anaglyph.LaserTag.Weapons;
 using System;
-using Anaglyph.Lasertag;
 
 namespace Anaglyph.LaserTag
 {
@@ -11,7 +10,6 @@ namespace Anaglyph.LaserTag
 	public class MainPlayer : SingletonBehavior<MainPlayer>
 	{
 		public Role currentRole = Role.Standard;
-		public byte team;
 
 		public float Health { get; private set; } =  Role.Standard.MaxHealth;
 		public bool IsAlive { get; private set; } = true;
@@ -59,14 +57,14 @@ namespace Anaglyph.LaserTag
 			IsInFriendlyBase = false;
 			foreach (Base b in Base.AllBases)
 			{
-				if (Geo.PointIsInCylinder(b.transform.position, Base.Radius, 3, headTransform.position))
-				{
-					if (!RoundManager.Instance.GameIsOn)
-						currentRole.TeamNumber = b.Team;
+				if (b.Team != currentRole.TeamNumber)
+					continue;
 
-					if (b.Team == currentRole.TeamNumber)
-						IsInFriendlyBase = true;
-				}
+				if (Geo.PointIsInCylinder(b.transform.position, Base.Radius, 3, headTransform.position))
+					continue;
+
+				IsInFriendlyBase = true;
+				break;
 			}
 		}
 
@@ -115,7 +113,6 @@ namespace Anaglyph.LaserTag
 			networkPlayer.HeadTransform.SetFrom(headTransform);
 			networkPlayer.LeftHandTransform.SetFrom(leftHandTransform);
 			networkPlayer.RightHandTransform.SetFrom(rightHandTransform);
-			networkPlayer.TeamOwner.teamSync.Value = team;
 		}
 
 		public void Kill(ulong killedBy)
@@ -127,7 +124,6 @@ namespace Anaglyph.LaserTag
 			IsAlive = false;
 			Health = 0;
 			RespawnTimerSeconds = currentRole.RespawnTimeoutSeconds;
-
 			networkPlayer.KilledRpc(killedBy);
 
 			onAliveChange.Invoke(false);
@@ -141,6 +137,7 @@ namespace Anaglyph.LaserTag
 			WeaponsManagement.canFire = true;
 
 			networkPlayer.isAliveSync.Value = true;
+			networkPlayer.RespawnRpc();
 
 			IsAlive = true;
 			Health = currentRole.MaxHealth;
