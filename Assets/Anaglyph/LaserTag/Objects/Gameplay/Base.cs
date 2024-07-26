@@ -22,6 +22,11 @@ namespace Anaglyph.LaserTag.Networking
 
 		public UnityEvent<byte> OnTeamChange => teamOwner.OnTeamChange;
 
+		private void OnValidate()
+		{
+			this.SetComponent(ref teamOwner);
+		}
+
 		private void Awake()
 		{
 			AllBases.Add(this);

@@ -1,5 +1,4 @@
 using Anaglyph.Lasertag;
-using OVR.OpenVR;
 using System;
 using System.Collections.Generic;
 using Unity.Collections;
@@ -45,19 +44,33 @@ namespace Anaglyph.LaserTag.Networking
 		public static event Action<Player, Player> OnPlayerKilledPlayer = delegate { };
 		public static void InvokePlayerKilledPlayer(Player killer, Player victim) => OnPlayerKilledPlayer.Invoke(killer, victim);
 
+		public NetworkVariable<int> score;
+		public int Score => score.Value;
+
+		private void Awake()
+		{
+			isAliveSync.OnValueChanged += delegate (bool wasAlive, bool isAlive)
+			{
+				if (wasAlive && !isAlive)
+					onKilled.Invoke();
+				else if (!wasAlive && isAlive)
+					onRespawn.Invoke();
+			};
+		}
+
 		private void OnValidate()
 		{
 			this.SetComponent(ref teamOwner);
 		}
 
 		public override void OnNetworkSpawn()
-        {
+		{
 			isAliveSync.Value = true;
 
 			if (IsOwner)
 				MainPlayer.Instance.networkPlayer = this;
 
-            AllPlayers.Add(OwnerClientId, this);
+			AllPlayers.Add(OwnerClientId, this);
 			OtherPlayers.Add(this);
 		}
 
@@ -90,21 +103,23 @@ namespace Anaglyph.LaserTag.Networking
 		[Rpc(SendTo.Everyone)]
 		public void DamageRpc(float damage, ulong damagedBy)
 		{
-			onDamaged.Invoke();
-
-			if (IsOwner)
+			if(IsOwner)
 				MainPlayer.Instance.Damage(damage, damagedBy);
-        }
+
+			onDamaged.Invoke();
+		}
 
 		[Rpc(SendTo.Everyone)]
-		public void KilledRpc(ulong killerId) {
-			onKilled.Invoke();
+		public void KilledByPlayerRpc(ulong killerId) {
 
 			if(AllPlayers.TryGetValue(killerId, out Player killer))
 				OnPlayerKilledPlayer.Invoke(killer, this);
 		}
 
-		[Rpc(SendTo.Everyone)]
-		public void RespawnRpc() => onRespawn.Invoke();
+		[Rpc(SendTo.Owner)]
+		public void ResetScoreRpc()
+		{
+			score.Value = 0;
+		}
 	}
 }

@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 namespace Anaglyph.Lasertag
 {
-    public class RoundTimer : MonoBehaviour
+    public class RoundTimerDisplay : MonoBehaviour
     {
         [SerializeField] private Text text;
 
@@ -16,9 +16,9 @@ namespace Anaglyph.Lasertag
 
 		private void Update()
 		{
-			if (RoundManager.Instance.RoundState == RoundState.Playing && RoundManager.Instance.ActiveGameSettings.CheckWinByTimer())
+			if (RoundManager.Instance.RoundState == RoundState.Playing && RoundManager.Instance.ActiveSettings.CheckWinByTimer())
 			{
-				TimeSpan time = TimeSpan.FromSeconds(RoundManager.Instance.TimeGameEnds - NetworkManager.Singleton.LocalTime.Time);
+				TimeSpan time = TimeSpan.FromSeconds(RoundManager.Instance.TimeRoundEnds - NetworkManager.Singleton.LocalTime.Time);
 				text.text = time.ToString(@"mm\:ss");
 			} else {
 				text.text = "";

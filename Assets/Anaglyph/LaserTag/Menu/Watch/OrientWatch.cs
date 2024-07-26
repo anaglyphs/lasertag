@@ -14,7 +14,9 @@ namespace Anaglyph.Lasertag
 			Vector3 localHeadPosOnPlane = Vector3.ProjectOnPlane(localHeadPos, Vector3.forward);
 			Vector3 globalHeadPosOnPlane = transform.TransformPoint(localHeadPosOnPlane);
 
-			watchBandTransform.LookAt(globalHeadPosOnPlane);
+		
+
+			//watchBandTransform.rotation = Quaternion.LookRotation(globalHeadPosOnPlane, watchBandTransform) .LookAt(globalHeadPosOnPlane);
 		}
 	}
 }

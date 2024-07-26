@@ -4,7 +4,7 @@ namespace Anaglyph.Lasertag
 {
 	public class GameSettingsMenu : MonoBehaviour
 	{
-		public static readonly GameSettings TeamDeathmatchPreset = new GameSettings()
+		public static readonly RoundSettings TeamDeathmatchPreset = new RoundSettings()
 		{
 			teams = true,
 			respawnInBases = false,
@@ -17,7 +17,7 @@ namespace Anaglyph.Lasertag
 			scoreTarget = 15,
 		};
 
-		public static readonly GameSettings KingOfTheHillPreset = new GameSettings()
+		public static readonly RoundSettings KingOfTheHillPreset = new RoundSettings()
 		{
 			teams = true,
 			respawnInBases = true,
@@ -30,7 +30,7 @@ namespace Anaglyph.Lasertag
 			scoreTarget = 0,
 		};
 
-		public GameSettings settings = new();
+		public RoundSettings settings = new();
 
 		[SerializeField] private GameObject startGamePage;
 		[SerializeField] private GameObject gameRunningPage;

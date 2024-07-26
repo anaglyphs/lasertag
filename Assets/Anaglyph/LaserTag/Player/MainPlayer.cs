@@ -124,7 +124,7 @@ namespace Anaglyph.LaserTag
 			IsAlive = false;
 			Health = 0;
 			RespawnTimerSeconds = currentRole.RespawnTimeoutSeconds;
-			networkPlayer.KilledRpc(killedBy);
+			networkPlayer.KilledByPlayerRpc(killedBy);
 
 			onAliveChange.Invoke(false);
 			onDie.Invoke();
@@ -137,7 +137,6 @@ namespace Anaglyph.LaserTag
 			WeaponsManagement.canFire = true;
 
 			networkPlayer.isAliveSync.Value = true;
-			networkPlayer.RespawnRpc();
 
 			IsAlive = true;
 			Health = currentRole.MaxHealth;
