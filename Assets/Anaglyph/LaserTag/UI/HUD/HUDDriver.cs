@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Anaglyph.LaserTag.UI
+namespace Anaglyph.Lasertag.UI
 {
 	public class HUDDriver : SingletonBehavior<HUDDriver>
 	{
@@ -35,8 +35,8 @@ namespace Anaglyph.LaserTag.UI
 		{
 			maxMenuMaskHeight = menuMaskRectTransform.sizeDelta.y;
 
-			RoundManager.OnGameCountdownEveryone += OnRoundCountdown;
-			RoundManager.OnGameEndEveryone += OnRoundEnd;
+			RoundManager.OnCountdown += OnRoundCountdown;
+			RoundManager.OnRoundEnd += OnRoundEnd;
 
 			countdownText.SetActive(false);
 			scoreboard.SetActive(false);
@@ -98,8 +98,8 @@ namespace Anaglyph.LaserTag.UI
 
 		protected override void OnSingletonDestroy()
 		{
-			RoundManager.OnGameCountdownEveryone -= OnRoundCountdown;
-			RoundManager.OnGameEndEveryone -= OnRoundEnd;
+			RoundManager.OnCountdown -= OnRoundCountdown;
+			RoundManager.OnRoundEnd -= OnRoundEnd;
 		}
 	}
 }

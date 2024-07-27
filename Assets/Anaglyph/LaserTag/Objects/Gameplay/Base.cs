@@ -4,13 +4,12 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
 
-namespace Anaglyph.LaserTag.Networking
+namespace Anaglyph.Lasertag.Networking
 {
 	[DefaultExecutionOrder(500)]
 	public class Base : NetworkBehaviour
 	{
 		public const float Radius = 1;
-		private static int ColorID = Shader.PropertyToID("_Color");
 
 		[SerializeField] private TeamOwner teamOwner;
 		public TeamOwner TeamOwner => teamOwner;
@@ -25,6 +24,12 @@ namespace Anaglyph.LaserTag.Networking
 		private void OnValidate()
 		{
 			this.SetComponent(ref teamOwner);
+		}
+
+		public override void OnNetworkSpawn()
+		{
+			if (IsOwner)
+				teamOwner.teamSync.Value = MainPlayer.Instance.networkPlayer.Team;
 		}
 
 		private void Awake()

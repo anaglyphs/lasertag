@@ -3,7 +3,7 @@ using System;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Anaglyph.LaserTag
+namespace Anaglyph.Lasertag
 {
 	public class Spawner : SuperAwakeBehavior
 	{

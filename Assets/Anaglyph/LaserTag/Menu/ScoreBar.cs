@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -21,19 +19,21 @@ namespace Anaglyph.Lasertag
 
 			if (RoundManager.Instance.ActiveSettings.CheckWinByTimer())
 			{
-				for (byte i = 1; i < TeamManagement.NumTeams; i++)
-				{
-					int score = RoundManager.Instance.GetTeamScore(i);
-
-					if (score > divideBy)
-						divideBy = score;
-				}
+				divideBy = RoundManager.Instance.GetTeamScore(RoundManager.Instance.WinningTeam);
+				
 			} else if(RoundManager.Instance.ActiveSettings.CheckWinByPoints())
 			{
 				divideBy = RoundManager.Instance.ActiveSettings.scoreTarget;
 			}
 
-			image.fillAmount = divideBy > 0 ? (float)RoundManager.Instance.GetTeamScore(team) / (float)divideBy : 0;
+			float fillAmount = divideBy > 0 ? (float)RoundManager.Instance.GetTeamScore(team) / (float)divideBy : 0;
+
+			image.fillAmount = Mathf.Lerp(image.fillAmount, fillAmount, 20 * Time.deltaTime);
+		}
+
+		private void OnDisable()
+		{
+			image.fillAmount = 0;
 		}
 	}
 }

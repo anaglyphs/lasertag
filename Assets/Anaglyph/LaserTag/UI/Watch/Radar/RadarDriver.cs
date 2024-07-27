@@ -1,4 +1,4 @@
-using Anaglyph.LaserTag.Networking;
+using Anaglyph.Lasertag.Networking;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;

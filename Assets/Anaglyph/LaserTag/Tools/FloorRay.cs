@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.Events;
 
-namespace Anaglyph.LaserTag
+namespace Anaglyph.Lasertag
 {
 	[DefaultExecutionOrder(10)]
 	public class FloorRay : MonoBehaviour

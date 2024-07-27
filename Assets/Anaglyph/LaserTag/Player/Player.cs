@@ -6,7 +6,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
 
-namespace Anaglyph.LaserTag.Networking
+namespace Anaglyph.Lasertag.Networking
 {
 	[DefaultExecutionOrder(-500)]
 	public class Player : NetworkBehaviour

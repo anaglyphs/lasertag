@@ -1,11 +1,11 @@
-using Anaglyph.Lasertag;
-using Anaglyph.LaserTag.Networking;
+using Anaglyph.Lasertag.Networking;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.UI;
 
-namespace Anaglyph.LaserTag
+namespace Anaglyph.Lasertag
 {
 	public class ControlPoint : NetworkBehaviour
 	{
@@ -16,8 +16,8 @@ namespace Anaglyph.LaserTag
 
 		public UnityEvent<byte> onControllingTeamChange = new();
 
-		public byte ControllingTeam => controllingTeamSync.Value;
-		private NetworkVariable<byte> controllingTeamSync = new(0);
+		[SerializeField] private TeamOwner teamOwner;
+		public byte ControllingTeam => teamOwner.Team;
 
 		public byte CapturingTeam => capturingTeamSync.Value;
 		private NetworkVariable<byte> capturingTeamSync = new(0);
@@ -25,6 +25,7 @@ namespace Anaglyph.LaserTag
 		public float MillisCaptured => millisCapturedSync.Value;
 		private NetworkVariable<float> millisCapturedSync = new(0);
 
+		[SerializeField] private Image conquerTimeIndicator;
 		[SerializeField] private TeamColorer teamColorer;
 
 		public bool IsBeingCaptured;
@@ -32,19 +33,19 @@ namespace Anaglyph.LaserTag
 
 		private void OnValidate()
 		{
-			this.SetComponent(ref teamColorer);
+			this.SetComponent(ref teamOwner);
 		}
 
 		private void Awake()
 		{
 			AllControlPoints.Add(this);
 
-			controllingTeamSync.OnValueChanged += delegate { 
+			teamOwner.teamSync.OnValueChanged += delegate { 
 
 				if(IsOwner)
 					millisCapturedSync.Value = 0;
 				
-				onControllingTeamChange.Invoke(controllingTeamSync.Value);
+				onControllingTeamChange.Invoke(ControllingTeam);
 			};
 		}
 
@@ -120,6 +121,8 @@ namespace Anaglyph.LaserTag
 				teamColorer.SetColor(0);
 			else
 				teamColorer.SetColor(ControllingTeam);
+
+			conquerTimeIndicator.fillAmount = 1 - MillisCaptured / MillisToTake;
 		}
 
 		public void Capture(byte team)
@@ -127,10 +130,10 @@ namespace Anaglyph.LaserTag
 			if (!IsOwner)
 				return;
 
-			if (team == controllingTeamSync.Value)
+			if (team == ControllingTeam)
 				return;
 
-			controllingTeamSync.Value = team;
+			teamOwner.teamSync.Value = team;
 			millisCapturedSync.Value = 0;
 		}
 

@@ -1,12 +1,12 @@
-using Anaglyph.LaserTag.Logistics;
-using Anaglyph.LaserTag.Networking;
+using Anaglyph.Lasertag.Logistics;
+using Anaglyph.Lasertag.Networking;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
 
-namespace Anaglyph.LaserTag
+namespace Anaglyph.Lasertag
 {
 	public class Bolt : NetworkBehaviour
 	{

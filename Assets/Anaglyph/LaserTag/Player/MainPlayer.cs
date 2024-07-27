@@ -1,10 +1,10 @@
-using Anaglyph.LaserTag.Networking;
+using Anaglyph.Lasertag.Networking;
 using UnityEngine;
 using UnityEngine.Events;
-using Anaglyph.LaserTag.Weapons;
+using Anaglyph.Lasertag.Weapons;
 using System;
 
-namespace Anaglyph.LaserTag
+namespace Anaglyph.Lasertag
 {
 	[DefaultExecutionOrder(-100)]
 	public class MainPlayer : SingletonBehavior<MainPlayer>
@@ -30,6 +30,9 @@ namespace Anaglyph.LaserTag
 		public Transform RightHandTransform => rightHandTransform;
 
 		public float RespawnTimerSeconds { get; private set; } = 0;
+
+		public byte preferredTeam = 1;
+		public void SetPreferredTeam(byte team) => preferredTeam = Math.Clamp(team, (byte)1, TeamManagement.NumTeams);
 
 		// todo move this into another component
 		private OVRPassthroughLayer passthroughLayer;

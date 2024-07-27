@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.Pool;
 
-namespace Anaglyph.LaserTag.Logistics
+namespace Anaglyph.Lasertag.Logistics
 {
 	public class NetworkObjectPool : SingletonBehavior<NetworkObjectPool>
 	{

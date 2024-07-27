@@ -2,7 +2,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
 
-namespace Anaglyph.LaserTag
+namespace Anaglyph.Lasertag
 {
 	public class NetworkManagerEvents : SuperAwakeBehavior
 	{

@@ -3,7 +3,7 @@ using UnityEngine;
 using Unity.Netcode;
 using Anaglyph.Menu;
 
-namespace Anaglyph.LaserTag
+namespace Anaglyph.Lasertag
 {
 	public class ToolPalette : MonoBehaviour
 	{

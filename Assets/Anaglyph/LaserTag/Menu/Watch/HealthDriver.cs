@@ -1,4 +1,4 @@
-using Anaglyph.LaserTag;
+using Anaglyph.Lasertag;
 using UnityEngine;
 using UnityEngine.UI;
 

@@ -10,16 +10,16 @@ namespace Anaglyph.Lasertag
 
 		protected override void SuperAwake()
 		{
-			RoundManager.OnGameCountdownEveryone += OnCountdown.Invoke;
-			RoundManager.OnGameStartEveryone += OnStart.Invoke;
-			RoundManager.OnGameEndEveryone += OnEnd.Invoke;
+			RoundManager.OnCountdown += OnCountdown.Invoke;
+			RoundManager.OnRoundStart += OnStart.Invoke;
+			RoundManager.OnRoundEnd += OnEnd.Invoke;
 		}
 
 		private void OnDestroy()
 		{
-			RoundManager.OnGameCountdownEveryone -= OnCountdown.Invoke;
-			RoundManager.OnGameStartEveryone -= OnStart.Invoke;
-			RoundManager.OnGameEndEveryone -= OnEnd.Invoke;
+			RoundManager.OnCountdown -= OnCountdown.Invoke;
+			RoundManager.OnRoundStart -= OnStart.Invoke;
+			RoundManager.OnRoundEnd -= OnEnd.Invoke;
 		}
 	}
 }

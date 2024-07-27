@@ -1,6 +1,6 @@
 using Unity.Netcode;
 
-namespace Anaglyph.LaserTag
+namespace Anaglyph.Lasertag
 {
 	public class Deletable : NetworkBehaviour
 	{

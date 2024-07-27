@@ -1,7 +1,7 @@
 using Anaglyph.Menu;
 using UnityEngine;
 
-namespace Anaglyph.LaserTag.UI
+namespace Anaglyph.Lasertag.UI
 {
 	public class SpawnObjectButton : MonoBehaviour
 	{

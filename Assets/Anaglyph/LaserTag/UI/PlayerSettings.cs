@@ -1,9 +1,9 @@
-using Anaglyph.LaserTag.Networking;
+using Anaglyph.Lasertag.Networking;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 
-namespace Anaglyph.LaserTag
+namespace Anaglyph.Lasertag
 {
     public class PlayerSettings : MonoBehaviour
     {

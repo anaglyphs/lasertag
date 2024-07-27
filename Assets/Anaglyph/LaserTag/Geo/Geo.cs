@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Anaglyph.LaserTag
+namespace Anaglyph.Lasertag
 {
     public static class Geo
 	{
