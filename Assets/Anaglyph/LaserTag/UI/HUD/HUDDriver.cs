@@ -21,8 +21,8 @@ namespace Anaglyph.Lasertag.UI
 		[SerializeField] private GameObject queuePopup;
 
 		[Header("Round countdown")]
-
 		[SerializeField] private GameObject countdownPopup;
+		[SerializeField] private GameObject goPopup;
 
 		[Header("Scoreboard")]
 
@@ -37,14 +37,15 @@ namespace Anaglyph.Lasertag.UI
 			countdownPopup.SetActive(false);
 			scoreboardPopup.SetActive(false);
 			queuePopup.SetActive(false);
+			goPopup.SetActive(false);
 
 			RoundManager.Instance.roundStateSync.OnValueChanged += OnRoundStateChange;
 		}
 
 		private void OnRoundStateChange(RoundState prev, RoundState state)
 		{
-			if(state == RoundState.Countdown)
-				countdownPopup.SetActive(true);	
+			countdownPopup.SetActive(state == RoundState.Countdown);
+			goPopup.SetActive(state == RoundState.Playing);
 
 			if (prev == RoundState.Playing && state == RoundState.NotPlaying)
 				scoreboardPopup.SetActive(true);

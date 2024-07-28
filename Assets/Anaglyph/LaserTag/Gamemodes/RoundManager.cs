@@ -172,7 +172,7 @@ namespace Anaglyph.Lasertag
 
 					foreach (Player player in Player.AllPlayers.Values)
 					{
-						if (player.IsInBase)
+						if (player.IsInFriendlyBase)
 							numPlayersInbase++;
 					}
 
