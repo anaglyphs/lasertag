@@ -1,7 +1,3 @@
-using Anaglyph.Lasertag;
-using System.Collections;
-using System.Threading;
-using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -16,18 +12,21 @@ namespace Anaglyph.Lasertag.UI
 		private Text respawnText;
 
 		[SerializeField]
-		private GameObject rootHudObject;
+		private GameObject respawnPopup;
 
 		[SerializeField]
 		private RectTransform menuMaskRectTransform;
 
+		[Header("Game queued")]
+		[SerializeField] private GameObject queuePopup;
+
 		[Header("Round countdown")]
 
-		[SerializeField] private GameObject countdownText;
+		[SerializeField] private GameObject countdownPopup;
 
 		[Header("Scoreboard")]
 
-		[SerializeField] private GameObject scoreboard;
+		[SerializeField] private GameObject scoreboardPopup;
 
 		private float maxMenuMaskHeight = 0;
 
@@ -35,33 +34,23 @@ namespace Anaglyph.Lasertag.UI
 		{
 			maxMenuMaskHeight = menuMaskRectTransform.sizeDelta.y;
 
-			RoundManager.OnCountdown += OnRoundCountdown;
-			RoundManager.OnRoundEnd += OnRoundEnd;
+			countdownPopup.SetActive(false);
+			scoreboardPopup.SetActive(false);
+			queuePopup.SetActive(false);
 
-			countdownText.SetActive(false);
-			scoreboard.SetActive(false);
+			RoundManager.Instance.roundStateSync.OnValueChanged += OnRoundStateChange;
 		}
 
-		private void OnRoundCountdown()
+		private void OnRoundStateChange(RoundState prev, RoundState state)
 		{
-			countdownText.SetActive(true);
+			if(state == RoundState.Countdown)
+				countdownPopup.SetActive(true);	
 
-			Task.Factory.StartNew(() => Thread.Sleep(5000))
-			.ContinueWith((t) =>
-			{
-				countdownText.SetActive(false);
-			}, TaskScheduler.FromCurrentSynchronizationContext());
-		}
+			if (prev == RoundState.Playing && state == RoundState.NotPlaying)
+				scoreboardPopup.SetActive(true);
 
-		private void OnRoundEnd()
-		{
-			scoreboard.SetActive(true);
+			queuePopup.SetActive(state == RoundState.Queued);
 
-			Task.Factory.StartNew(() => Thread.Sleep(3000))
-			.ContinueWith((t) =>
-			{
-				scoreboard.SetActive(false);
-			}, TaskScheduler.FromCurrentSynchronizationContext());
 		}
 
 		// https://easings.net/#easeInOutCirc
@@ -79,7 +68,7 @@ namespace Anaglyph.Lasertag.UI
 
 			menuMaskRectTransform.sizeDelta = new Vector2(menuMaskRectTransform.sizeDelta.x, Mathf.Lerp(0, maxMenuMaskHeight, EaseInOutCirc(Mathf.Clamp01(MainPlayer.Instance.RespawnTimerSeconds))));
 
-			rootHudObject.SetActive(!MainPlayer.Instance.IsAlive);
+			respawnPopup.SetActive(!MainPlayer.Instance.IsAlive);
 
 			if (MainPlayer.Instance.currentRole.ReturnToBaseOnDie && !MainPlayer.Instance.IsInFriendlyBase)
 			{
@@ -89,6 +78,8 @@ namespace Anaglyph.Lasertag.UI
 			{
 				respawnText.text = $"RESPAWN: {(MainPlayer.Instance.RespawnTimerSeconds).ToString("F1")}s";
 			}
+
+			queuePopup.SetActive(RoundManager.Instance.RoundState == RoundState.Queued);
 		}
 
 		protected override void SingletonAwake()
@@ -98,8 +89,7 @@ namespace Anaglyph.Lasertag.UI
 
 		protected override void OnSingletonDestroy()
 		{
-			RoundManager.OnCountdown -= OnRoundCountdown;
-			RoundManager.OnRoundEnd -= OnRoundEnd;
+			RoundManager.Instance.roundStateSync.OnValueChanged -= OnRoundStateChange;
 		}
 	}
 }

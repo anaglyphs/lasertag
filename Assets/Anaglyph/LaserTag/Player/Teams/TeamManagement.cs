@@ -1,5 +1,4 @@
 using System;
-using Unity.Netcode;
 using UnityEngine;
 
 namespace Anaglyph.Lasertag
@@ -15,7 +14,7 @@ namespace Anaglyph.Lasertag
 			new Color(30  / 255f, 136 / 255f, 229 / 255f),
 		};
 
-		public static readonly String[] TeamNames = new string[]
+		public static readonly string[] TeamNames = new string[]
 		{
 			"None",
 			"Red",

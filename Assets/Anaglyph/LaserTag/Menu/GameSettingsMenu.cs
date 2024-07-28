@@ -7,14 +7,14 @@ namespace Anaglyph.Lasertag
 		public static readonly RoundSettings TeamDeathmatchPreset = new RoundSettings()
 		{
 			teams = true,
-			respawnInBases = false,
+			respawnInBases = true,
 
 			pointsPerKill = 1,
 			pointsPerSecondHoldingPoint = 0,
 
-			winCondition = WinCondition.ReachScore,
-			timerSeconds = 0,
-			scoreTarget = 15,
+			winCondition = WinCondition.Timer,
+			timerSeconds = 120,
+			scoreTarget = 0,
 		};
 
 		public static readonly RoundSettings KingOfTheHillPreset = new RoundSettings()
@@ -34,6 +34,11 @@ namespace Anaglyph.Lasertag
 
 		[SerializeField] private GameObject startGamePage;
 		[SerializeField] private GameObject gameRunningPage;
+
+		private void Awake()
+		{
+			settings = TeamDeathmatchPreset;
+		}
 
 		private void Start()
 		{

@@ -51,6 +51,10 @@ namespace Anaglyph.Lasertag
 		public float TimeRoundEnds => timeRoundEndsSync.Value;
 
 		//public NetworkList<int> teamScoresSync;
+		private NetworkVariable<int> team0ScoreSync = new();
+		private NetworkVariable<int> team1ScoreSync = new();
+		private NetworkVariable<int> team2ScoreSync = new();
+
 		public NetworkVariable<int>[] teamScoresSync;
 		public NetworkVariable<byte> winningTeamSync;
 		public int GetTeamScore(byte team) => teamScoresSync[team].Value;
@@ -58,8 +62,6 @@ namespace Anaglyph.Lasertag
 
 		private NetworkVariable<RoundSettings> activeSettingsSync = new();
 		public RoundSettings ActiveSettings => activeSettingsSync.Value;
-
-		private Coroutine roundQueueCoroutineHandle;
 
 		public static event Action OnNotPlaying = delegate { };
 		public static event Action OnQueued = delegate { };
@@ -78,16 +80,15 @@ namespace Anaglyph.Lasertag
 		{
 			Instance = this;
 
-			teamScoresSync = new NetworkVariable<int>[TeamManagement.NumTeams]; 
-			for (int i = 0; i < teamScoresSync.Length; i++)
-			{
-				NetworkVariable<int> score = new(0);
-				score.Initialize(this);
+			teamScoresSync = new NetworkVariable<int>[TeamManagement.NumTeams];
 
-				teamScoresSync[i] = score;
-			}
+			teamScoresSync[0] = team0ScoreSync;
+			teamScoresSync[1] = team1ScoreSync;
+			teamScoresSync[2] = team2ScoreSync;
 
 			roundStateSync.OnValueChanged += OnStateUpdateLocally;
+
+			OnStateUpdateLocally(RoundState.NotPlaying, RoundState.NotPlaying);
 		}
 
 		private void OnStateUpdateLocally(RoundState prev, RoundState state)
@@ -97,23 +98,29 @@ namespace Anaglyph.Lasertag
 				case RoundState.NotPlaying:
 					OnNotPlaying();
 					if (prev == RoundState.Playing) OnRoundEnd();
+
+					MainPlayer.Instance.Respawn();
+					MainPlayer.Instance.currentRole.ReturnToBaseOnDie = false;
+
 					break;
 
 				case RoundState.Queued:
+
 					OnQueued();
 
 					break;
 
 				case RoundState.Countdown:
 
-					MainPlayer.Instance.networkPlayer.TeamOwner.teamSync.Value
-						= ActiveSettings.teams ? MainPlayer.Instance.preferredTeam : (byte)0;
-
 					OnCountdown();
 					break;
 
 				case RoundState.Playing:
 					OnRoundStart();
+
+					MainPlayer.Instance.Respawn();
+					MainPlayer.Instance.currentRole.ReturnToBaseOnDie = ActiveSettings.respawnInBases;
+
 					break;
 			}
 		}
@@ -148,7 +155,7 @@ namespace Anaglyph.Lasertag
 		{
 			activeSettingsSync.Value = gameSettings;
 			roundStateSync.Value = RoundState.Queued;
-			roundQueueCoroutineHandle = StartCoroutine(QueueStartGameAsOwnerCoroutine());
+			StartCoroutine(QueueStartGameAsOwnerCoroutine());
 		}
 
 		private IEnumerator QueueStartGameAsOwnerCoroutine()
@@ -174,10 +181,12 @@ namespace Anaglyph.Lasertag
 
 				} else
 					roundStateSync.Value = RoundState.Countdown;
+
+				yield return null;
 			}
 
 			if(RoundState == RoundState.Countdown)
-				yield return new WaitForSeconds(4);
+				yield return new WaitForSeconds(3);
 
 			if(RoundState == RoundState.Countdown)
 				StartGameOwnerRpc();
@@ -204,6 +213,9 @@ namespace Anaglyph.Lasertag
 		[Rpc(SendTo.Owner)]
 		private void StartGameOwnerRpc()
 		{
+			if(ActiveSettings.CheckWinByTimer())
+				timeRoundEndsSync.Value = (float)NetworkManager.LocalTime.Time + ActiveSettings.timerSeconds;
+
 			roundStateSync.Value = RoundState.Playing;
 			SubscribeToEvents();
 		}
@@ -213,10 +225,7 @@ namespace Anaglyph.Lasertag
 			OwnerCheck();
 
 			if (ActiveSettings.CheckWinByTimer())
-			{
-				timeRoundEndsSync.Value = (float)NetworkManager.LocalTime.Time + ActiveSettings.timerSeconds;
 				StartCoroutine(GameTimerAsOwnerCoroutine());
-			}
 
 			// sub to score events
 			Player.OnPlayerKilledPlayer += OnPlayerKilledPlayerAsOwner;
@@ -227,8 +236,11 @@ namespace Anaglyph.Lasertag
 		{
 			OwnerCheck();
 
-			while (NetworkManager.LocalTime.TimeAsFloat < TimeRoundEnds)
+			while (RoundState == RoundState.Playing)
 			{
+				if(NetworkManager.LocalTime.TimeAsFloat > TimeRoundEnds)
+					EndGameOwnerRpc();
+
 				yield return null;
 			}
 
@@ -301,9 +313,6 @@ namespace Anaglyph.Lasertag
 		private void UnsubscribeFromEvents()
 		{
 			Player.OnPlayerKilledPlayer -= OnPlayerKilledPlayerAsOwner;
-
-			if (roundQueueCoroutineHandle != null)
-				StopCoroutine(roundQueueCoroutineHandle);
 		}
 
 

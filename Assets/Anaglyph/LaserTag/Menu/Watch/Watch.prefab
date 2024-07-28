@@ -788,7 +788,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0.84705883, g: 0.105882354, b: 0.3764706, a: 1}
+  m_Color: {r: 0.11764706, g: 0.53333336, b: 0.8980392, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -817,7 +817,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c0a37fe91e07a6b43bd285892dfb2140, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  team: 1
+  team: 2
   multiply: 1
   image: {fileID: 8389960556420202683}
 --- !u!114 &401858957248203555
@@ -833,7 +833,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   image: {fileID: 8389960556420202683}
-  team: 1
+  team: 2
 --- !u!1 &7854119925010820862
 GameObject:
   m_ObjectHideFlags: 0
@@ -1005,7 +1005,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0.11764706, g: 0.53333336, b: 0.8980392, a: 1}
+  m_Color: {r: 0.84705883, g: 0.105882354, b: 0.3764706, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -1034,7 +1034,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c0a37fe91e07a6b43bd285892dfb2140, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  team: 2
+  team: 1
   multiply: 1
   image: {fileID: 1846364536235500853}
 --- !u!114 &1166785879603176144
@@ -1050,4 +1050,4 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   image: {fileID: 1846364536235500853}
-  team: 0
+  team: 1

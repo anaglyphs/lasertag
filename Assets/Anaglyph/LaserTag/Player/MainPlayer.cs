@@ -31,8 +31,8 @@ namespace Anaglyph.Lasertag
 
 		public float RespawnTimerSeconds { get; private set; } = 0;
 
-		public byte preferredTeam = 1;
-		public void SetPreferredTeam(byte team) => preferredTeam = Math.Clamp(team, (byte)1, TeamManagement.NumTeams);
+		//public byte preferredTeam = 1;
+		//public void SetPreferredTeam(byte team) => preferredTeam = Math.Clamp(team, (byte)1, TeamManagement.NumTeams);
 
 		// todo move this into another component
 		private OVRPassthroughLayer passthroughLayer;
@@ -60,10 +60,10 @@ namespace Anaglyph.Lasertag
 			IsInFriendlyBase = false;
 			foreach (Base b in Base.AllBases)
 			{
-				if (b.Team != currentRole.TeamNumber)
+				if (b.Team != networkPlayer.Team)
 					continue;
 
-				if (Geo.PointIsInCylinder(b.transform.position, Base.Radius, 3, headTransform.position))
+				if (!Geo.PointIsInCylinder(b.transform.position, Base.Radius, 3, headTransform.position))
 					continue;
 
 				IsInFriendlyBase = true;

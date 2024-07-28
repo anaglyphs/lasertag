@@ -9,10 +9,8 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private Image[] scoreBars;
 		[SerializeField] private Text winMessage;
 
-		public void Show()
+		public void OnEnable()
 		{
-			gameObject.SetActive(true);
-
 			winMessage.text = $"{TeamManagement.TeamNames[RoundManager.Instance.WinningTeam]} team won!";
 
 			StartCoroutine(DelayHide());
@@ -20,7 +18,7 @@ namespace Anaglyph.Lasertag
 
 		private IEnumerator DelayHide()
 		{
-			yield return new WaitForSeconds(4);
+			yield return new WaitForSeconds(6);
 
 			gameObject.SetActive(false);
 		}
