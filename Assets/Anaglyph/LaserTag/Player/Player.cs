@@ -16,9 +16,11 @@ namespace Anaglyph.Lasertag.Networking
 		[SerializeField] private Transform headTransform;
 		[SerializeField] private Transform leftHandTransform;
 		[SerializeField] private Transform rightHandTransform;
+		[SerializeField] private Transform torsoTransform;
 		public Transform HeadTransform => headTransform;
 		public Transform LeftHandTransform => leftHandTransform;
 		public Transform RightHandTransform => rightHandTransform;
+		public Transform TorsoTransform => torsoTransform;
 
 		public UnityEvent onRespawn = new();
 		public UnityEvent onKilled = new();

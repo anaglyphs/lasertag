@@ -4,9 +4,8 @@ using UnityEngine.UI;
 
 namespace Anaglyph.Lasertag
 {
-	public class GameEndHUD : MonoBehaviour
+	public class ScoreboardHUD : MonoBehaviour
 	{
-		[SerializeField] private Image[] scoreBars;
 		[SerializeField] private Text winMessage;
 
 		public void OnEnable()
