@@ -1,4 +1,4 @@
-using Meta.XR.Depth;
+using Meta.XR.EnvironmentDepth;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
@@ -21,6 +21,11 @@ public class DepthCast : MonoBehaviour
 {
 	private const Camera.MonoOrStereoscopicEye Left = Camera.MonoOrStereoscopicEye.Left;
 
+
+	private static readonly int DepthTextureID = Shader.PropertyToID("_EnvironmentDepthTexture");
+	private static readonly int ReprojectionMatricesID = Shader.PropertyToID("_EnvironmentDepthReprojectionMatrices");
+	private static readonly int ZBufferParamsID = Shader.PropertyToID("_EnvironmentDepthZBufferParams");
+
 	private static readonly int RaycastResultsId = Shader.PropertyToID("RaycastResults");
 	private static readonly int raycastRequestsId = Shader.PropertyToID("RaycastRequests");
 	private static readonly int EnvDepthTextureCSId = Shader.PropertyToID("EnvDepthTextureCS");
@@ -34,7 +39,7 @@ public class DepthCast : MonoBehaviour
 	private static readonly int NumSamplesId = Shader.PropertyToID("NumSamples");
 
 	[SerializeField] private ComputeShader computeShader;
-	[SerializeField] private EnvironmentDepthTextureProvider envDepthTextureProvider;
+	[SerializeField] private EnvironmentDepthManager envDepthManager;
 
 	//private static readonly Vector2Int DefaultEnvironmentDepthTextureSize = new Vector2Int(2000, 2000);
 
@@ -188,9 +193,9 @@ public class DepthCast : MonoBehaviour
 		resultsCB?.Release();
 		resultsCB = null;
 
-		if(envDepthTextureProvider == null)
+		if(envDepthManager == null)
 		{
-			envDepthTextureProvider = FindObjectOfType<EnvironmentDepthTextureProvider>(true);
+			envDepthManager = FindObjectOfType<EnvironmentDepthManager>(true);
 		}
 	}
 
@@ -212,23 +217,20 @@ public class DepthCast : MonoBehaviour
 	private void UpdateCurrentRenderingState()
 	{
 		depthEnabled = Unity.XR.Oculus.Utils.GetEnvironmentDepthSupported() &&
-			envDepthTextureProvider != null &&
-			envDepthTextureProvider.GetEnvironmentDepthEnabled();
+			envDepthManager != null &&
+			envDepthManager.IsDepthAvailable;
 
 		if (!depthEnabled)
 			return;
 
-		int depthTextureId = EnvironmentDepthTextureProvider.DepthTextureID;
-
-
-		computeShader.SetTextureFromGlobal(0, EnvDepthTextureCSId, depthTextureId);
+		computeShader.SetTextureFromGlobal(0, EnvDepthTextureCSId, DepthTextureID);
 		//computeShader.SetInts(EnvDepthTextureSizeId, environmentDepthTextureSize.x, environmentDepthTextureSize.y);
 
 		computeShader.SetMatrixArray(EnvironmentDepth3DOFReprojectionMatricesId,
-				Shader.GetGlobalMatrixArray(EnvironmentDepthTextureProvider.Reprojection3DOFMatricesID));
+				Shader.GetGlobalMatrixArray(ReprojectionMatricesID));
 
 		computeShader.SetVector(EnvironmentDepthZBufferParamsId,
-				Shader.GetGlobalVector(EnvironmentDepthTextureProvider.ZBufferParamsID));
+				Shader.GetGlobalVector(ZBufferParamsID));
 	}
 
 	private ComputeBuffer GetComputeBuffers(int size)

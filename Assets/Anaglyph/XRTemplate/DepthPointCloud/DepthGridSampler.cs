@@ -1,4 +1,5 @@
-using Meta.XR.Depth;
+using Meta.XR;
+using Meta.XR.EnvironmentDepth;
 using System;
 using System.Runtime.InteropServices;
 using UnityEngine;
@@ -9,6 +10,7 @@ namespace Anaglyph.XRTemplate.PointCloud
     {
 		private const Camera.MonoOrStereoscopicEye Left = Camera.MonoOrStereoscopicEye.Left;
 
+		private static readonly int DepthTextureID = Shader.PropertyToID("_EnvironmentDepthTexture");
 		private static readonly int ResultsId = Shader.PropertyToID("Results");
 		private static readonly int EnvDepthTextureCSId = Shader.PropertyToID("EnvDepthTextureCS");
 		private static readonly int EnvDepthTextureSizeId = Shader.PropertyToID("EnvDepthTextureSize");
@@ -16,7 +18,7 @@ namespace Anaglyph.XRTemplate.PointCloud
 		private static readonly int NumSamplesXYId = Shader.PropertyToID("NumSamplesXY");
 
 		[SerializeField] private ComputeShader computeShader;
-		[SerializeField] private EnvironmentDepthTextureProvider envDepthTextureProvider;
+		[SerializeField] private EnvironmentDepthManager envDepthManager;
 
 		private static readonly Vector2Int DefaultEnvironmentDepthTextureSize = new Vector2Int(2000, 2000);
 
@@ -89,9 +91,9 @@ namespace Anaglyph.XRTemplate.PointCloud
 			resultsBuffer?.Release();
 			resultsBuffer = null;
 
-			if (envDepthTextureProvider == null)
+			if (envDepthManager == null)
 			{
-				envDepthTextureProvider = FindObjectOfType<EnvironmentDepthTextureProvider>(true);
+				envDepthManager = FindObjectOfType<EnvironmentDepthManager>(true);
 			}
 		}
 
@@ -113,16 +115,13 @@ namespace Anaglyph.XRTemplate.PointCloud
 		private void UpdateCurrentRenderingState()
 		{
 			depthEnabled = Unity.XR.Oculus.Utils.GetEnvironmentDepthSupported() &&
-				envDepthTextureProvider != null &&
-				envDepthTextureProvider.GetEnvironmentDepthEnabled();
+				envDepthManager != null &&
+				envDepthManager.IsDepthAvailable;
 
 			if (!depthEnabled)
 				return;
 
-			int depthTextureId = EnvironmentDepthTextureProvider.DepthTextureID;
-
-
-			computeShader.SetTextureFromGlobal(0, EnvDepthTextureCSId, depthTextureId);
+			computeShader.SetTextureFromGlobal(0, EnvDepthTextureCSId, DepthTextureID);
 			computeShader.SetInts(EnvDepthTextureSizeId, environmentDepthTextureSize.x, environmentDepthTextureSize.y);
 		}
 

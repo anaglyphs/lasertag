@@ -46,10 +46,10 @@ float SampleEnvDepthCS(float2 uv, const int slice)
 	// TODO: fix hardcoded screen space ?
 	//const uint3 depthtextureuv = uint3(reprojectedUV.x * EnvDepthTextureSize.x, reprojectedUV.y * EnvDepthTextureSize.y, 0);
 
-    const float3 uv3 = float3(uv.xy, 0);
+	const float3 uv3 = float3(uv.xy, 0);
 	
 	// depth z buffer value
-    const float inputDepthEye = EnvDepthTextureCS.SampleLevel(linearClampSampler, uv3, 0);
+	const float inputDepthEye = EnvDepthTextureCS.SampleLevel(linearClampSampler, uv3, 0);
 	const float4 envZBufParams = EnvironmentDepthZBufferParams;
 	
 	const float inputDepthNdc = inputDepthEye * 2.0 - 1.0;
@@ -85,11 +85,11 @@ float3 ComputeWorldSpaceNormal(float2 uv, float3 worldPos, int slice)
 	const float4x4 invProjMat = unity_StereoMatrixInvVP[slice];
 
 	// get view space position at 1 pixel offsets in each major direction
-    float2 offsetUV = uv + float2(1.0, 0.0) * NORMAL_CALC_UV_OFFSET;
+	float2 offsetUV = uv + float2(1.0, 0.0) * NORMAL_CALC_UV_OFFSET;
 	float deviceDepth = SampleEnvDepthCS(offsetUV, slice);
 	float3 viewSpacePos_r = ComputeWorldSpacePositionCS(offsetUV, deviceDepth, invProjMat);
 
-    offsetUV = uv + float2(0.0, 1.0) * NORMAL_CALC_UV_OFFSET;
+	offsetUV = uv + float2(0.0, 1.0) * NORMAL_CALC_UV_OFFSET;
 	deviceDepth = SampleEnvDepthCS(offsetUV, slice);
 	float3 viewSpacePos_u = ComputeWorldSpacePositionCS(offsetUV, deviceDepth, invProjMat);
 
@@ -110,12 +110,12 @@ float3 ComputeWorldSpaceNormal(float2 uv, float3 worldPos, int slice)
 [numthreads(32, 1, 1)]
 void CSMain(uint3 id : SV_DispatchThreadID)
 {
-    const uint slice = 0;
-    const uint i = id.x;
+	const uint slice = 0;
+	const uint i = id.x;
 	
-    const float rayDist = i / (float)NumSamples;
+	const float rayDist = i / (float)NumSamples;
 
-    const float4 rayPos = float4(lerp(WorldStart, WorldEnd, rayDist), 1);
+	const float4 rayPos = float4(lerp(WorldStart, WorldEnd, rayDist), 1);
 	
 	const float4 hcs = mul(unity_StereoMatrixVP[slice], rayPos);
 	const float2 uv = (hcs.xy / hcs.w) * 0.5 + float2(0.5, 0.5);
