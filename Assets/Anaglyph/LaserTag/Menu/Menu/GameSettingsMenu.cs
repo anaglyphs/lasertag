@@ -13,7 +13,7 @@ namespace Anaglyph.Lasertag
 			pointsPerSecondHoldingPoint = 0,
 
 			winCondition = WinCondition.Timer,
-			timerSeconds = 120,
+			timerSeconds = 180,
 			scoreTarget = 0,
 		};
 

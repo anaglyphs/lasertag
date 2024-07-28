@@ -26,11 +26,11 @@ namespace Anaglyph.Lasertag.Networking
 			this.SetComponent(ref teamOwner);
 		}
 
-		public override void OnNetworkSpawn()
-		{
-			if (IsOwner)
-				teamOwner.teamSync.Value = MainPlayer.Instance.networkPlayer.Team;
-		}
+		//public override void OnNetworkSpawn()
+		//{
+		//	if (IsOwner)
+		//		teamOwner.teamSync.Value = MainPlayer.Instance.networkPlayer.Team;
+		//}
 
 		private void Awake()
 		{

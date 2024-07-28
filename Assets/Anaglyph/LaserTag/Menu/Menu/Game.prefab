@@ -86,7 +86,7 @@ GameObject:
   - component: {fileID: 4905575579610259353}
   - component: {fileID: 673250094360089656}
   m_Layer: 5
-  m_Name: Text (Legacy)
+  m_Name: Info text
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -159,15 +159,14 @@ MonoBehaviour:
     - Have everyone choose either team red or blue
     in the player settings menu.
 
-    - Place red and blue bases. <b>Bases match
-    the team you''re on when you place them!</b>
+    - Place bases for the red and blue teams.
 
-    - Have everyone stand inside
-    their base.
+    -
+    Have everyone stand inside their base.
 
 
-    Then you can start a game. A countdown start and the game will
-    begin!'
+    Then you can start a game. A countdown
+    will appear and the game will begin!'
 --- !u!1001 &309025235824774425
 PrefabInstance:
   m_ObjectHideFlags: 0

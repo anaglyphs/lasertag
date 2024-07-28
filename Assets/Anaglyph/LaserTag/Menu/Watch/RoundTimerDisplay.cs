@@ -16,13 +16,14 @@ namespace Anaglyph.Lasertag
 
 		private void Update()
 		{
+			float time = 0;
+
 			if (RoundManager.Instance.RoundState == RoundState.Playing && RoundManager.Instance.ActiveSettings.CheckWinByTimer())
 			{
-				TimeSpan time = TimeSpan.FromSeconds(RoundManager.Instance.TimeRoundEnds - NetworkManager.Singleton.LocalTime.Time);
-				text.text = time.ToString(@"mm\:ss");
-			} else {
-				text.text = "";
+				time = RoundManager.Instance.TimeRoundEnds - (float)NetworkManager.Singleton.LocalTime.Time;
 			}
+
+			text.text = TimeSpan.FromSeconds(time).ToString(@"mm\:ss");
 		}
 	}
 }

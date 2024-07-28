@@ -104,6 +104,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 396faefd5836ae846a4f7c3b09590850, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  teamOwner: {fileID: 8086672029411800011}
   meshRenderer: {fileID: 1247770579426270712}
 --- !u!114 &747991994927016620
 MonoBehaviour:
@@ -129,9 +130,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: de906b0a9e4e02d4cb6ed9ea738b7abe, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  defaultTeam: 0
   renderers:
   - {fileID: 1247770579426270712}
   teamOwner: {fileID: 8086672029411800011}
+  multiply: 1
   OnColorSet:
     m_PersistentCalls:
       m_Calls: []
@@ -154,7 +157,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 2046348258125281854}
         m_TargetAssemblyTypeName: Anaglyph.Lasertag.TeamColorer, ph.anagly.lasertag
-        m_MethodName: OnTeamChange
+        m_MethodName: SetColor
         m_Mode: 0
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
