@@ -66,8 +66,8 @@ namespace Anaglyph.Lasertag
 		public static event Action OnNotPlaying = delegate { };
 		public static event Action OnQueued = delegate { };
 		public static event Action OnCountdown = delegate { };
-		public static event Action OnRoundStart = delegate { };
-		public static event Action OnRoundEnd = delegate { };
+		public static event Action OnPlaying = delegate { };
+		public static event Action OnPlayEnd = delegate { };
 		public static event Action OnBecomeMaster = delegate { };
 		public static event Action OnLoserMaster = delegate { };
 
@@ -97,7 +97,7 @@ namespace Anaglyph.Lasertag
 			{
 				case RoundState.NotPlaying:
 					OnNotPlaying();
-					if (prev == RoundState.Playing) OnRoundEnd();
+					if (prev == RoundState.Playing) OnPlayEnd();
 
 					MainPlayer.Instance.Respawn();
 					MainPlayer.Instance.currentRole.ReturnToBaseOnDie = false;
@@ -116,7 +116,7 @@ namespace Anaglyph.Lasertag
 					break;
 
 				case RoundState.Playing:
-					OnRoundStart();
+					OnPlaying();
 
 					MainPlayer.Instance.Respawn();
 					MainPlayer.Instance.currentRole.ReturnToBaseOnDie = ActiveSettings.respawnInBases;
@@ -164,7 +164,9 @@ namespace Anaglyph.Lasertag
 
 			ResetScoresRpc();
 
-			while(RoundState == RoundState.Queued)
+			yield return new WaitForSeconds(1);
+
+			while (RoundState == RoundState.Queued)
 			{
 				if (ActiveSettings.respawnInBases)
 				{
