@@ -209,13 +209,20 @@ namespace Anaglyph.Lasertag
 				player.ResetScoreRpc();
 			}
 
+			foreach (ControlPoint point in ControlPoint.AllControlPoints)
+			{
+				point.ResetPointRpc();
+			}
+
 			winningTeamSync.Value = 0;
 		}
 
 		[Rpc(SendTo.Owner)]
 		private void StartGameOwnerRpc()
 		{
-			if(ActiveSettings.CheckWinByTimer())
+			ResetScoresRpc();
+
+			if (ActiveSettings.CheckWinByTimer())
 				timeRoundEndsSync.Value = (float)NetworkManager.LocalTime.Time + ActiveSettings.timerSeconds;
 
 			roundStateSync.Value = RoundState.Playing;
@@ -272,9 +279,9 @@ namespace Anaglyph.Lasertag
 			{
 				foreach (ControlPoint point in ControlPoint.AllControlPoints)
 				{
-					if (!point.IsBeingCaptured && point.ControllingTeam != 0)
+					if (point.MillisCaptured == 0 && point.HoldingTeam != 0)
 					{
-						ScoreTeamRpc(point.ControllingTeam, ActiveSettings.pointsPerSecondHoldingPoint);
+						ScoreTeamRpc(point.HoldingTeam, ActiveSettings.pointsPerSecondHoldingPoint);
 					}
 				}
 
