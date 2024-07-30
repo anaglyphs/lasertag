@@ -44,16 +44,16 @@ namespace Anaglyph.Lasertag
 
 		public static RoundManager Instance { get; private set; }
 
-		public NetworkVariable<RoundState> roundStateSync = new();
+		public NetworkVariable<RoundState> roundStateSync = new(RoundState.NotPlaying);
 		public RoundState RoundState => roundStateSync.Value;
 
-		public NetworkVariable<float> timeRoundEndsSync = new();
+		public NetworkVariable<float> timeRoundEndsSync = new(0);
 		public float TimeRoundEnds => timeRoundEndsSync.Value;
 
 		//public NetworkList<int> teamScoresSync;
-		private NetworkVariable<int> team0ScoreSync = new();
-		private NetworkVariable<int> team1ScoreSync = new();
-		private NetworkVariable<int> team2ScoreSync = new();
+		private NetworkVariable<int> team0ScoreSync = new(0);
+		private NetworkVariable<int> team1ScoreSync = new(0);
+		private NetworkVariable<int> team2ScoreSync = new(0);
 
 		public NetworkVariable<int>[] teamScoresSync;
 		public NetworkVariable<byte> winningTeamSync;
