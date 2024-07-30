@@ -8,6 +8,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 2046348258125281854, guid: 237740fc6f5f696478aef9a107c91303, type: 3}
+      propertyPath: defaultTeam
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 3063152390251463876, guid: 237740fc6f5f696478aef9a107c91303, type: 3}
       propertyPath: m_Name
       value: Base Blue
@@ -51,6 +55,10 @@ PrefabInstance:
     - target: {fileID: 3741694315336954932, guid: 237740fc6f5f696478aef9a107c91303, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8086672029411800011, guid: 237740fc6f5f696478aef9a107c91303, type: 3}
+      propertyPath: teamSync.m_InternalValue
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 9142028406143682949, guid: 237740fc6f5f696478aef9a107c91303, type: 3}
       propertyPath: GlobalObjectIdHash

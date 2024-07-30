@@ -8,6 +8,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 2046348258125281854, guid: 237740fc6f5f696478aef9a107c91303, type: 3}
+      propertyPath: defaultTeam
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 3063152390251463876, guid: 237740fc6f5f696478aef9a107c91303, type: 3}
       propertyPath: m_Name
       value: Base Red
@@ -58,7 +62,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 9142028406143682949, guid: 237740fc6f5f696478aef9a107c91303, type: 3}
       propertyPath: GlobalObjectIdHash
-      value: 219758455
+      value: 2932591334
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
