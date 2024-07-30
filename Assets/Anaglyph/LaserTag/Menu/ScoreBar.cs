@@ -31,9 +31,6 @@ namespace Anaglyph.Lasertag
 			image.fillAmount = Mathf.Lerp(image.fillAmount, fillAmount, 20 * Time.deltaTime);
 		}
 
-		private void OnDisable()
-		{
-			image.fillAmount = 0;
-		}
+		private void OnEnable() => image.fillAmount = 0;
 	}
 }
