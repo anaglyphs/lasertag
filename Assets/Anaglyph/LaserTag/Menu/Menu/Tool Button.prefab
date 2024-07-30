@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 8207850725445362024}
   - component: {fileID: 5419490919557342963}
   - component: {fileID: 6834235614478568048}
+  - component: {fileID: 3897351471001155204}
   m_Layer: 5
   m_Name: Tool Button
   m_TagString: Untagged
@@ -153,3 +154,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   toolIndex: 0
+--- !u!114 &3897351471001155204
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1756884726791015767}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 71545d9fe587d1241ae59ca19025fff5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  clip: {fileID: 8300000, guid: e6d3ccbda8e755b4a9129559866cf77e, type: 3}

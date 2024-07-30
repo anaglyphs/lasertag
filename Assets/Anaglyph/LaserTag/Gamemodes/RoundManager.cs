@@ -237,7 +237,7 @@ namespace Anaglyph.Lasertag
 				StartCoroutine(GameTimerAsOwnerCoroutine());
 
 			// sub to score events
-			Player.OnPlayerKilledPlayer += OnPlayerKilledPlayerAsOwner;
+			Player.OnPlayerKilledPlayer += OnPlayerKilledPlayer;
 			StartCoroutine(ControlPointLoopCoroutine());
 		}
 
@@ -258,7 +258,7 @@ namespace Anaglyph.Lasertag
 			EndGameOwnerRpc();
 		}
 
-		private void OnPlayerKilledPlayerAsOwner(Player killer, Player victim)
+		private void OnPlayerKilledPlayer(Player killer, Player victim)
 		{
 			OwnerCheck();
 
@@ -292,6 +292,8 @@ namespace Anaglyph.Lasertag
 		[Rpc(SendTo.Owner)]
 		public void ScoreTeamRpc(byte team, int points)
 		{
+			if (team == 0) return;
+
 			teamScoresSync[team].Value += points;
 
 			byte winningTeam = 0;
@@ -321,7 +323,7 @@ namespace Anaglyph.Lasertag
 
 		private void UnsubscribeFromEvents()
 		{
-			Player.OnPlayerKilledPlayer -= OnPlayerKilledPlayerAsOwner;
+			Player.OnPlayerKilledPlayer -= OnPlayerKilledPlayer;
 		}
 
 

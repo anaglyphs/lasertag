@@ -258,9 +258,6 @@ MonoBehaviour:
       m_Calls: []
   teamOwner: {fileID: 6633945873485707899}
   conquerTimeIndicator: {fileID: 7320190101900911683}
-  teamColorer: {fileID: 8038499340235933692}
-  IsBeingCaptured: 0
-  IsStalemated: 0
 --- !u!1 &3635300645810488308
 GameObject:
   m_ObjectHideFlags: 0
@@ -377,7 +374,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3295135943891189526}
   - component: {fileID: 3573175791617451146}
-  - component: {fileID: 1236825066453149185}
+  - component: {fileID: 7304787297992290921}
   m_Layer: 5
   m_Name: Canvas
   m_TagString: Untagged
@@ -429,7 +426,7 @@ Canvas:
   m_SortingLayerID: 0
   m_SortingOrder: 0
   m_TargetDisplay: 0
---- !u!114 &1236825066453149185
+--- !u!114 &7304787297992290921
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
