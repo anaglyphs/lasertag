@@ -140,6 +140,10 @@ namespace Anaglyph.Lasertag
 			typeof(MonoBehaviour), typeof(Animator), typeof(Collider), typeof(Rigidbody)
 		};
 
+		private static readonly Type[] whiteListedPreviewComponents = {
+			typeof(TeamColorer),
+		};
+
 		private static GameObject InstantiateObjectAsPreview(GameObject obj)
 		{
 			GameObject preview = Instantiate(obj);
@@ -157,6 +161,19 @@ namespace Anaglyph.Lasertag
 					Type componentType = c.GetType();
 
 					if (c == null)
+						continue;
+
+					bool whiteListed = false;
+					foreach (Type t in whiteListedPreviewComponents)
+					{
+						if (componentType == t || componentType.IsSubclassOf(t))
+						{
+							whiteListed = true;
+							break;
+						}
+					}
+
+					if (whiteListed)
 						continue;
 
 					foreach (Type t in blacklistedPreviewComponents)

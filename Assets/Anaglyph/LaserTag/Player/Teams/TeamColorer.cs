@@ -35,8 +35,11 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			if(teamOwner != null)
-			SetColor(teamOwner.Team);
+
+			if(teamOwner == null)
+				SetColor(defaultTeam);
+			else
+				SetColor(teamOwner.Team);
 		}
 
 		public void SetColor(byte teamNumber)
