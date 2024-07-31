@@ -30,14 +30,17 @@ namespace Anaglyph.Lasertag.UI
 
 		private float maxMenuMaskHeight = 0;
 
-		void Start()
+		protected override void SingletonAwake()
 		{
-			maxMenuMaskHeight = menuMaskRectTransform.sizeDelta.y;
-
 			countdownPopup.SetActive(false);
 			scoreboardPopup.SetActive(false);
 			queuePopup.SetActive(false);
 			goPopup.SetActive(false);
+		}
+
+		void Start()
+		{
+			maxMenuMaskHeight = menuMaskRectTransform.sizeDelta.y;
 
 			RoundManager.Instance.roundStateSync.OnValueChanged += OnRoundStateChange;
 		}
@@ -81,11 +84,6 @@ namespace Anaglyph.Lasertag.UI
 			}
 
 			queuePopup.SetActive(RoundManager.Instance.RoundState == RoundState.Queued);
-		}
-
-		protected override void SingletonAwake()
-		{
-			
 		}
 
 		protected override void OnSingletonDestroy()

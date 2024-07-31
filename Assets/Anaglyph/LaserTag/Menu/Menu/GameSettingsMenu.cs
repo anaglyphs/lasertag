@@ -13,7 +13,7 @@ namespace Anaglyph.Lasertag
 			pointsPerSecondHoldingPoint = 0,
 
 			winCondition = WinCondition.Timer,
-			timerSeconds = 180,
+			timerSeconds = 300,
 			scoreTarget = 0,
 		};
 
@@ -91,7 +91,13 @@ namespace Anaglyph.Lasertag
 		public void SetTimerSeconds(int timerSeconds) => settings.timerSeconds = timerSeconds;
 		public void SetScoreTarget(short scoreTarget) => settings.scoreTarget = scoreTarget;
 
-		public void SetTeamDeathmatchPreset() => settings = TeamDeathmatchPreset;
-		public void SetKingOfThehillPreset() => settings = KingOfTheHillPreset;
+		public void SetTeamDeathmatchPreset() => CopySettingsWithSeconds(TeamDeathmatchPreset, settings.timerSeconds);
+		public void SetKingOfTheHillPreset() => CopySettingsWithSeconds(KingOfTheHillPreset, settings.timerSeconds);
+
+		private void CopySettingsWithSeconds(RoundSettings copyFrom, int timerSeconds)
+		{
+			settings = copyFrom;
+			settings.timerSeconds = timerSeconds;
+		}
 	}
 }

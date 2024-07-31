@@ -59,6 +59,8 @@ namespace Anaglyph.Lasertag
 
 		public void Kill(ulong killedBy)
 		{
+			if(!IsAlive) return;
+
 			WeaponsManagement.canFire = false;
 
 			networkPlayer.isAliveSync.Value = false;
@@ -74,11 +76,14 @@ namespace Anaglyph.Lasertag
 
 		public void Respawn()
 		{
+			if (IsAlive) return;
+
 			passthroughLayer.edgeColor = Color.clear;
 
 			WeaponsManagement.canFire = true;
 
-			networkPlayer.isAliveSync.Value = true;
+			if(networkPlayer != null)
+				networkPlayer.isAliveSync.Value = true;
 
 			IsAlive = true;
 			Health = currentRole.MaxHealth;
@@ -90,8 +95,7 @@ namespace Anaglyph.Lasertag
 		private void FixedUpdate()
 		{
 			// respawn timer
-			if (IsAlive)
-				return;
+			if (IsAlive) return;
 
 			if ((currentRole.ReturnToBaseOnDie && IsInFriendlyBase) || !currentRole.ReturnToBaseOnDie)
 				RespawnTimerSeconds -= Time.fixedDeltaTime;

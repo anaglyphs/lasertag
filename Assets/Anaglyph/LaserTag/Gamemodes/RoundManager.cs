@@ -199,9 +199,7 @@ namespace Anaglyph.Lasertag
 		{
 			for (byte i = 0; i < teamScoresSync.Length; i++)
 			{
-				NetworkVariable<int> score = new();
-				score.Initialize(this);
-				teamScoresSync[i] = score;
+				teamScoresSync[i].Value = 0;
 			}
 
 			foreach(Player player in Player.AllPlayers.Values)
