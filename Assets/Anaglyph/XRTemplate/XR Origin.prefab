@@ -1217,6 +1217,7 @@ GameObject:
   - component: {fileID: 1394363023484580083}
   - component: {fileID: 5339566166535882300}
   - component: {fileID: 2096479223950645350}
+  - component: {fileID: 9006756455823775937}
   m_Layer: 0
   m_Name: XR Origin
   m_TagString: Untagged
@@ -1374,7 +1375,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   computeShader: {fileID: 7200000, guid: 3cd5ec81e0270054cbdfa7e6e1790a9c, type: 3}
-  envDepthTextureProvider: {fileID: 328423425347015900}
 --- !u!114 &1394363023484580083
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1459,6 +1459,19 @@ MonoBehaviour:
   m_DeselectOnBackgroundClick: 1
   m_PointerBehavior: 0
   m_CursorLockBehavior: 0
+--- !u!114 &9006756455823775937
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7254734392762225021}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8ab2101bcee2eca4aba65dd269d4d1cd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  envDepthTextureProvider: {fileID: 328423425347015900}
 --- !u!1 &8273645227207553632
 GameObject:
   m_ObjectHideFlags: 0

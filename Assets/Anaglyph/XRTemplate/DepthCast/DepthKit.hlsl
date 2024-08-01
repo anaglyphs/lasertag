@@ -1,22 +1,25 @@
 // https://github.com/oculus-samples/Unity-DepthAPI/issues/16
 
-#define UNITY_SINGLE_PASS_STEREO
-#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-
 #if defined(SHADER_API_D3D11) 
 #define FLIP_UVS 1
 #endif
 
-Texture2DArray<float> EnvDepthTextureCS;
-SamplerState linearClampSampler;
-float4x4 EnvironmentDepth3DOFReprojectionMatrices[2];
-float4 EnvironmentDepthZBufferParams;
+uniform Texture2DArray<float> DepthTextureDK;
+uniform SamplerState linearClampSampler;
+uniform float4x4 DepthTex3DOFMatricesDK[2];
+uniform float4 DepthTexZBufferParamsDK;
+
+uniform float4 ZBufferParams;
+uniform float4x4 StereoMatrixV[2];
+uniform float4x4 StereoMatrixVP[2];
+uniform float4x4 StereoMatrixInvVP[2];
+uniform float4x4 StereoMatrixInvP[2];
 
 #define NORMAL_CALC_UV_OFFSET float2(0.001f, 0.001f)
 
 float SampleEnvDepthDK(float2 uv, const int slice)
 {
-	float4x4 reprojMat = EnvironmentDepth3DOFReprojectionMatrices[slice];
+    float4x4 reprojMat = DepthTex3DOFMatricesDK[slice];
 	
 #if FLIP_UVS
 	uv.y = 1 - uv.y;
@@ -26,14 +29,14 @@ float SampleEnvDepthDK(float2 uv, const int slice)
     const float3 uv3 = float3(uv.xy, 0);
 	
 	// depth z buffer value
-    const float inputDepthEye = EnvDepthTextureCS.SampleLevel(linearClampSampler, uv3, 0);
-	const float4 envZBufParams = EnvironmentDepthZBufferParams;
+    const float inputDepthEye = DepthTextureDK.SampleLevel(linearClampSampler, uv3, 0);
+    const float4 envZBufParams = DepthTexZBufferParamsDK;
 	
 	const float inputDepthNdc = inputDepthEye * 2.0 - 1.0;
 	const float envLinearDepth = (1.0f / (inputDepthNdc + envZBufParams.y)) * envZBufParams.x;
 
 	// depth camera z buffer
-    float envDepth = (1 - envLinearDepth * envZBufParams.w) / (envLinearDepth * envZBufParams.z);
+    float envDepth = (1 - envLinearDepth * ZBufferParams.w) / (envLinearDepth * ZBufferParams.z);
 
 	return envDepth;
 }
@@ -53,7 +56,7 @@ float3 ApplyMatrixDK(float2 positionNDC, float deviceDepth, float4x4 invViewProj
 
 float3 ComputeWorldSpacePositionDK(float2 positionNDC, float deviceDepth, int slice)
 {
-    return ApplyMatrixDK(positionNDC, deviceDepth, unity_StereoMatrixInvVP[slice]);
+    return ApplyMatrixDK(positionNDC, deviceDepth, StereoMatrixInvVP[slice]);
 }
 
 // https://gist.github.com/bgolus/a07ed65602c009d5e2f753826e8078a0

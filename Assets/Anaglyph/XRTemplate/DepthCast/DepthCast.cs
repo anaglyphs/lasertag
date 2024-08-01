@@ -1,3 +1,4 @@
+using Anaglyph.XRTemplate;
 using Meta.XR.Depth;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -22,13 +23,8 @@ public class DepthCast : MonoBehaviour
 	private const Camera.MonoOrStereoscopicEye Left = Camera.MonoOrStereoscopicEye.Left;
 
 	private static readonly int RaycastResultsId = Shader.PropertyToID("RaycastResults");
-	private static readonly int raycastRequestsId = Shader.PropertyToID("RaycastRequests");
-	private static readonly int EnvDepthTextureCSId = Shader.PropertyToID("EnvDepthTextureCS");
-	//private static readonly int EnvDepthTextureSizeId = Shader.PropertyToID("EnvDepthTextureSize");
-
-	private static readonly int EnvironmentDepth3DOFReprojectionMatricesId = Shader.PropertyToID("EnvironmentDepth3DOFReprojectionMatrices");
-	private static readonly int EnvironmentDepthZBufferParamsId = Shader.PropertyToID("EnvironmentDepthZBufferParams");
-
+	private static readonly int RaycastRequestsId = Shader.PropertyToID("RaycastRequests");
+	
 	private static readonly int WorldStartId = Shader.PropertyToID("WorldStart");
 	private static readonly int WorldEndId = Shader.PropertyToID("WorldEnd");
 	private static readonly int NumSamplesId = Shader.PropertyToID("NumSamples");
@@ -218,17 +214,29 @@ public class DepthCast : MonoBehaviour
 		if (!depthEnabled)
 			return;
 
-		int depthTextureId = EnvironmentDepthTextureProvider.DepthTextureID;
+		computeShader.SetTexture(0, "DepthTextureDK",
+				Shader.GetGlobalTexture(EnvironmentDepthTextureProvider.DepthTextureID));
 
+		computeShader.SetMatrixArray("DepthTex3DOFMatricesDK",
+			Shader.GetGlobalMatrixArray(EnvironmentDepthTextureProvider.Reprojection3DOFMatricesID));
 
-		computeShader.SetTextureFromGlobal(0, EnvDepthTextureCSId, depthTextureId);
-		//computeShader.SetInts(EnvDepthTextureSizeId, environmentDepthTextureSize.x, environmentDepthTextureSize.y);
-
-		computeShader.SetMatrixArray(EnvironmentDepth3DOFReprojectionMatricesId,
-				Shader.GetGlobalMatrixArray(EnvironmentDepthTextureProvider.Reprojection3DOFMatricesID));
-
-		computeShader.SetVector(EnvironmentDepthZBufferParamsId,
+		computeShader.SetVector("DepthTexZBufferParamsDK",
 				Shader.GetGlobalVector(EnvironmentDepthTextureProvider.ZBufferParamsID));
+
+		computeShader.SetVector("ZBufferParams",
+			Shader.GetGlobalVector("_ZBufferParams"));
+
+		computeShader.SetMatrixArray("StereoMatrixInvVP",
+			Shader.GetGlobalMatrixArray("unity_StereoMatrixInvVP"));
+
+		computeShader.SetMatrixArray("StereoMatrixVP",
+			Shader.GetGlobalMatrixArray("unity_StereoMatrixVP"));
+
+		computeShader.SetMatrixArray("StereoMatrixV",
+			Shader.GetGlobalMatrixArray("unity_StereoMatrixV"));
+
+		computeShader.SetMatrixArray("StereoMatrixInvP",
+			Shader.GetGlobalMatrixArray("unity_StereoMatrixInvP"));
 	}
 
 	private ComputeBuffer GetComputeBuffers(int size)

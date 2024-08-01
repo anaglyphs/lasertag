@@ -8,7 +8,7 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private Transform hitIndicator;
 		[SerializeField] private LineRendererLaser laser;
 
-		private void Update()
+		private void LateUpdate()
 		{
 			bool didHit = DepthCast.Raycast(new Ray(transform.position, transform.forward), out DepthCastResult hit, maxLength: 10f, handRejection: true);
 			laser.enabled = didHit;

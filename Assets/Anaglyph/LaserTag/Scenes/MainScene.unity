@@ -333,7 +333,7 @@ PrefabInstance:
     - target: {fileID: 5999284102127151176, guid: 3318c2be2cb272a40ba29ae4ed9ed046, type: 3}
       propertyPath: m_Mesh
       value: 
-      objectReference: {fileID: 1681384465}
+      objectReference: {fileID: 1770448306}
     - target: {fileID: 6535025090177576234, guid: 3318c2be2cb272a40ba29ae4ed9ed046, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -497,7 +497,7 @@ PrefabInstance:
     - target: {fileID: 8696751949257387819, guid: 3318c2be2cb272a40ba29ae4ed9ed046, type: 3}
       propertyPath: m_Mesh
       value: 
-      objectReference: {fileID: 1245324018}
+      objectReference: {fileID: 1455156006}
     - target: {fileID: 9159955309993259527, guid: 3318c2be2cb272a40ba29ae4ed9ed046, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -637,7 +637,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 58.103, y: -23.507, z: -60.705}
---- !u!43 &1245324018
+--- !u!43 &1455156006
 Mesh:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -802,7 +802,7 @@ Mesh:
     offset: 0
     size: 0
     path: 
---- !u!43 &1681384465
+--- !u!43 &1770448306
 Mesh:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1015,7 +1015,7 @@ ParentConstraint:
   m_TranslationOffsets:
   - {x: -0.1931043, y: -0.000113129616, z: 0.00014710426}
   m_RotationOffsets:
-  - {x: 81.446014, y: -179.99997, z: 0}
+  - {x: 81.44595, y: -179.99997, z: 0}
   m_AffectTranslationX: 1
   m_AffectTranslationY: 1
   m_AffectTranslationZ: 1
@@ -2808,14 +2808,6 @@ PrefabInstance:
     - target: {fileID: 860547997720573071, guid: 2d7b982ab40786c47a4b9f5bc045644b, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1904500041491354297, guid: 2d7b982ab40786c47a4b9f5bc045644b, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0.09
-      objectReference: {fileID: 0}
-    - target: {fileID: 1904500041491354297, guid: 2d7b982ab40786c47a4b9f5bc045644b, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0.036
       objectReference: {fileID: 0}
     - target: {fileID: 8801289868094812065, guid: 2d7b982ab40786c47a4b9f5bc045644b, type: 3}
       propertyPath: m_Name

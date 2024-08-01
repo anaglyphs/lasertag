@@ -1,8 +1,7 @@
 // https://github.com/oculus-samples/Unity-DepthAPI/issues/16
+#include "Assets/Anaglyph/XRTemplate/DepthCast/DepthKit.hlsl"
 
 #pragma kernel CSMain
-#include "Assets/Anaglyph/XRTemplate/DepthCast/DepthKit.hlsl"
-//#include "Packages/com.meta.xr.depthapi.urp/Shaders/EnvironmentOcclusionURP.hlsl"
 
 struct RaycastResult
 {
@@ -11,39 +10,41 @@ struct RaycastResult
 	float3 Normal;
 };
 
+#if defined(SHADER_API_D3D11) 
+#define FLIP_UVS 1 
+#endif
+
 StructuredBuffer<float3> RaycastRequests;
 RWStructuredBuffer<RaycastResult> RaycastResults;
 
 float3 WorldStart;
-float3 WorldEnd;
+float3 WorldEnd; 
 int NumSamples;
 
 [numthreads(32, 1, 1)]
 void CSMain(uint3 id : SV_DispatchThreadID)
 {
-    const uint slice = 0;
-    const uint i = id.x;
+	const uint slice = 0;
+	const uint i = id.x;
 	
-    const float rayDist = i / (float)NumSamples;
+	const float rayDist = i / (float) NumSamples;
 
-    const float4 rayPos = float4(lerp(WorldStart, WorldEnd, rayDist), 1);
+	const float4 rayPos = float4(lerp(WorldStart, WorldEnd, rayDist), 1);
 	
-	const float4 hcs = mul(unity_StereoMatrixVP[slice], rayPos);
+	const float4 hcs = mul(StereoMatrixVP[slice], rayPos);
 	const float2 uv = (hcs.xy / hcs.w) * 0.5 + float2(0.5, 0.5);
 
 	const float envDepth = SampleEnvDepthDK(uv, slice);
 	
-	const float4x4 matInvProj = unity_StereoMatrixInvP[slice];
-	float envDepthMeters = -ApplyMatrixDK(uv, envDepth, matInvProj).z;
+	float envDepthMeters = -ApplyMatrixDK(uv, envDepth, StereoMatrixInvP[slice]).z;
 	// prevent depth texture edge values from reading a hit in your face
 	// envDepthMeters += (envDepthMeters < 0.3) * 9999.0;
 	
-	float rayDepthMeters = -mul(unity_StereoMatrixV[slice], rayPos).z;
+	float rayDepthMeters = -mul(StereoMatrixV[slice], rayPos).z;
 	
 	RaycastResults[i].ZDepthDiff = envDepthMeters - rayDepthMeters;
 	
-	const float4x4 matInvViewProj = unity_StereoMatrixInvVP[slice];
-	float3 worldPos = ComputeWorldSpacePositionDK(uv, envDepth, 0);
+	float3 worldPos = ComputeWorldSpacePositionDK(uv, envDepth, slice);
 	float3 worldNorm = ComputeWorldSpaceNormalDK(uv, worldPos, slice);
 	
 	RaycastResults[i].Position = worldPos;

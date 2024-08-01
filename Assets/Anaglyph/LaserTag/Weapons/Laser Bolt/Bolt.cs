@@ -16,6 +16,7 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private int msHitDeactivateDelay = 1000;
 		[SerializeField] private float damage = 50f;
 
+		public UnityEvent onFire = new();
 		public UnityEvent onHit = new();
 		private bool isFlying = true;
 
@@ -51,6 +52,7 @@ namespace Anaglyph.Lasertag
 
 		private void OnEnable()
 		{
+			onFire.Invoke();
 			isFlying = true;
 		}
 
