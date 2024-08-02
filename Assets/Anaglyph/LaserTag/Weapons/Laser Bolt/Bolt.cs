@@ -1,5 +1,6 @@
 using Anaglyph.Lasertag.Logistics;
 using Anaglyph.Lasertag.Networking;
+using System.Collections;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Unity.Netcode;
@@ -18,6 +19,7 @@ namespace Anaglyph.Lasertag
 
 		public UnityEvent onFire = new();
 		public UnityEvent onHit = new();
+		public UnityEvent onFrameAfterHit = new();
 		private bool isFlying = true;
 
 		private NetworkVariable<NetworkPose> networkPos = new();
@@ -118,6 +120,15 @@ namespace Anaglyph.Lasertag
 				HitRpc(pos, norm);
 
 			DespawnWithDelay();
+
+			StartCoroutine(WaitForFrame());
+		}
+
+		private IEnumerator WaitForFrame()
+		{
+			yield return new WaitForEndOfFrame();
+			yield return new WaitForEndOfFrame();
+			onFrameAfterHit.Invoke();
 		}
 
 		[Rpc(SendTo.Everyone)]

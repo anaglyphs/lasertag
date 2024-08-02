@@ -3,16 +3,17 @@ Shader "Lasertag/DepthLight"
 	Properties
 	{
 		_Color ("Color", Color) = (1,1,1,1)
+		_Intensity ("Intensity", Float) = 1
 	}
 
 	SubShader
 	{
 		Tags { "RenderType"="Opaque" }
 		LOD 200
-		// Blend One One // Additive
 		ZTest Always
 		ZWrite Off
 		Cull Front
+		Blend SrcAlpha OneMinusSrcAlpha
 
 		Pass {
 			HLSLPROGRAM 
@@ -23,37 +24,9 @@ Shader "Lasertag/DepthLight"
 			#include "Assets/Anaglyph/XRTemplate/DepthCast/DepthKit.hlsl"
 
 			CBUFFER_START(UnityPerMaterial)
-				half4 _Color;            
+				half4 _Color;
+				half _Intensity;
 			CBUFFER_END 
-
-			struct Attributes
-			{
-				float4 positionOS   : POSITION;
-
-				UNITY_VERTEX_INPUT_INSTANCE_ID
-			};
-
-			struct Varyings
-			{
-				float4 positionHCS : SV_POSITION;
-				float4 positionHCSTexCoord : TEXCOORD0;
-
-				UNITY_VERTEX_OUTPUT_STEREO
-			};
-
-			Varyings vert(Attributes IN)
-			{
-				Varyings OUT;
-
-				UNITY_SETUP_INSTANCE_ID(IN);
-				// UNITY_INITIALIZE_OUTPUT(IN, OUT);
-				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(OUT);
-
-				OUT.positionHCS = TransformObjectToHClip(IN.positionOS.xyz);
-				OUT.positionHCSTexCoord = OUT.positionHCS;
-
-				return OUT;
-			}
 
 			float sqr(float x)
 			{
@@ -74,32 +47,69 @@ Shader "Lasertag/DepthLight"
 				return max_intensity * sqr(1 - s2) / (1 + falloff * s);
 			}
 
+			struct Attributes
+			{
+				float4 positionOS   : POSITION;
+
+				UNITY_VERTEX_INPUT_INSTANCE_ID
+			};
+
+			struct Varyings
+			{
+				float4 positionHCS : SV_POSITION;
+				float4 positionHCSTexCoord : TEXCOORD0;
+				float3 positionWS : TEXCOORD1;
+
+				UNITY_VERTEX_OUTPUT_STEREO
+			};
+
+			Varyings vert(Attributes IN)
+			{
+				Varyings OUT;
+
+				UNITY_SETUP_INSTANCE_ID(IN);
+				// UNITY_INITIALIZE_OUTPUT(IN, OUT);
+				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(OUT);
+
+				OUT.positionHCS = TransformObjectToHClip(IN.positionOS);
+				OUT.positionHCSTexCoord = OUT.positionHCS;
+				OUT.positionWS = TransformObjectToWorld(IN.positionOS);
+
+				return OUT;
+			}
+
 			half4 frag(Varyings IN) : SV_Target 
 			{
+				// return _Color;
+
 				UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(IN);
-			   
-				const float2 uv = (IN.positionHCSTexCoord.xy / IN.positionHCSTexCoord.w) * 0.5 + float2(0.5, 0.5);
 				
-				// const float2 uv = (depthSpace.xy / depthSpace.w + 1.0f) * 0.5f;
-				float deviceDepth = SampleEnvDepthDK(uv, 0);
+				const int slice = unity_StereoEyeIndex;
+
+				// const float2 hvsToUV = ReprojectUVsDK((IN.positionHCSTexCoord.xy / IN.positionHCSTexCoord.w) * 0.5 + float2(0.5, 0.5), slice);
+				const float2 worldToUV = UVFromWorldDK(IN.positionWS, slice);
+
+				float2 uv = worldToUV;
+
+				
+				float deviceDepth = SampleEnvDepthDK(uv, slice);
 
 				float3 lightPos = mul(unity_ObjectToWorld, float4(0,0,0,1)).xyz;
-				float3 worldPos = ComputeWorldSpacePositionDK(uv, deviceDepth, 0);
-				float3 worldNorm = ComputeWorldSpaceNormalDK(uv, worldPos, 0);
+				float3 worldPos = ComputeWorldSpacePositionDK(uv, deviceDepth, slice);
+				float3 worldNorm = ComputeWorldSpaceNormalDK(uv, worldPos, slice);
 
 				float3 diff = lightPos - worldPos;
 				
 				float3 lightDir = normalize(diff);
 
-				half4 diffuse = _Color;
-				diffuse *= max(dot(worldNorm, lightDir), 0.0);
-
 				float dist = length(diff);
 				float rad = length(mul(unity_ObjectToWorld, float4(1,0,0,0))) / 2;
-				diffuse *= sqr(max(0, 1 - dist / rad));
-				return diffuse;
+				
+				float intensity = max(dot(worldNorm, lightDir), 0.0) * sqr(max(0, 1 - dist / rad)) * _Intensity;
 
-				return half4(lightPos, 1);
+				return float4(_Color.rgb, intensity);
+
+				// return half4(1, 0, 0, 1);
 			}
 
 			ENDHLSL

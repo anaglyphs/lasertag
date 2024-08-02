@@ -36,6 +36,9 @@ namespace Anaglyph.XRTemplate
 			Shader.SetGlobalMatrixArray("DepthTex3DOFMatricesDK", 
 				Shader.GetGlobalMatrixArray(EnvironmentDepthTextureProvider.Reprojection3DOFMatricesID));
 
+			Shader.SetGlobalMatrixArray("DepthTexReprojMatricesDK",
+				Shader.GetGlobalMatrixArray(EnvironmentDepthTextureProvider.ReprojectionMatricesID));
+
 			Shader.SetGlobalVector("DepthTexZBufferParamsDK",
 					Shader.GetGlobalVector(EnvironmentDepthTextureProvider.ZBufferParamsID));
 

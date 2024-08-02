@@ -62,7 +62,7 @@ Shader "Anaglyph/DepthKitTest"
 			{
 				// The SAMPLE_TEXTURE2D marco samples the texture with the given
 				// sampler.
-				half4 color = half4(SampleEnvDepthDK(IN.uv, 0).r, 0, 0, 1);
+				half4 color = half4(SampleEnvDepthDK(IN.uv, 0).r, 0, 0, 1); 
 				return color;
 			}
 			ENDHLSL

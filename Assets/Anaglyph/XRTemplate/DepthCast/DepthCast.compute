@@ -31,10 +31,12 @@ void CSMain(uint3 id : SV_DispatchThreadID)
 
 	const float4 rayPos = float4(lerp(WorldStart, WorldEnd, rayDist), 1);
 	
-	const float4 hcs = mul(StereoMatrixVP[slice], rayPos);
-	const float2 uv = (hcs.xy / hcs.w) * 0.5 + float2(0.5, 0.5);
+    const float4 hcs = mul(StereoMatrixVP[slice], rayPos);
+    float2 uv = (hcs.xy / hcs.w) * 0.5 + float2(0.5, 0.5); 
+    uv = ReprojectUVsDK(uv, 0);
+    //float2 uv = UVFromWorldDK(rayPos, 0);
 
-	const float envDepth = SampleEnvDepthDK(uv, slice);
+	const float envDepth = SampleEnvDepthDK(uv, 0); 
 	
 	float envDepthMeters = -ApplyMatrixDK(uv, envDepth, StereoMatrixInvP[slice]).z;
 	// prevent depth texture edge values from reading a hit in your face
