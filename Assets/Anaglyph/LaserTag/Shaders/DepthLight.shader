@@ -20,8 +20,8 @@ Shader "Lasertag/DepthLight"
 			#pragma vertex vert
 			#pragma fragment frag
 
-			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 			#include "Assets/Anaglyph/XRTemplate/DepthCast/DepthKit.hlsl"
+			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
 			CBUFFER_START(UnityPerMaterial)
 				half4 _Color;
@@ -86,13 +86,13 @@ Shader "Lasertag/DepthLight"
 				
 				const int slice = unity_StereoEyeIndex;
 
-				// const float2 hvsToUV = ReprojectUVsDK((IN.positionHCSTexCoord.xy / IN.positionHCSTexCoord.w) * 0.5 + float2(0.5, 0.5), slice);
-				const float2 worldToUV = UVFromWorldDK(IN.positionWS, slice);
+				const float2 hvsToUV = (IN.positionHCSTexCoord.xy / IN.positionHCSTexCoord.w) * 0.5 + float2(0.5, 0.5);
+				// const float2 worldToUV = UVFromWorldDK(IN.positionWS, slice);
 
-				float2 uv = worldToUV;
+				float2 uv = hvsToUV; 
 
 				
-				float deviceDepth = SampleEnvDepthDK(uv, slice);
+				float deviceDepth = SampleDepthDK(uv, slice);
 
 				float3 lightPos = mul(unity_ObjectToWorld, float4(0,0,0,1)).xyz;
 				float3 worldPos = ComputeWorldSpacePositionDK(uv, deviceDepth, slice);
@@ -105,7 +105,7 @@ Shader "Lasertag/DepthLight"
 				float dist = length(diff);
 				float rad = length(mul(unity_ObjectToWorld, float4(1,0,0,0))) / 2;
 				
-				float intensity = max(dot(worldNorm, lightDir), 0.0) * sqr(max(0, 1 - dist / rad)) * _Intensity;
+				float intensity = max(dot(worldNorm, lightDir), 0.0) * sqr(max(0, 1 - dist / rad)) * _Intensity; 
 
 				return float4(_Color.rgb, intensity);
 

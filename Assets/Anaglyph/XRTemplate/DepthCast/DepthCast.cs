@@ -17,7 +17,7 @@ public struct DepthCastResult
 	public Vector3 Normal;
 }
 
-[DefaultExecutionOrder(30000)]
+[DefaultExecutionOrder(-30000)]
 public class DepthCast : MonoBehaviour
 {
 	private const Camera.MonoOrStereoscopicEye Left = Camera.MonoOrStereoscopicEye.Left;
@@ -195,7 +195,7 @@ public class DepthCast : MonoBehaviour
 		Camera = Camera.main;
 	}
 
-	private void LateUpdate()
+	private void Update()
 	{
 		UpdateCurrentRenderingState();
 	}
