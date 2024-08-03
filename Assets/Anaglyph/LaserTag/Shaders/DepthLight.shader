@@ -13,7 +13,7 @@ Shader "Lasertag/DepthLight"
 		ZTest Always
 		ZWrite Off
 		Cull Front
-		Blend SrcAlpha OneMinusSrcAlpha
+		Blend One OneMinusSrcAlpha
 
 		Pass {
 			HLSLPROGRAM 
@@ -107,7 +107,7 @@ Shader "Lasertag/DepthLight"
 				
 				float intensity = max(dot(worldNorm, lightDir), 0.0) * sqr(max(0, 1 - dist / rad)) * _Intensity; 
 
-				return float4(_Color.rgb, intensity);
+				return float4(_Color.rgb * intensity, 0);
 
 				// return half4(1, 0, 0, 1);
 			}

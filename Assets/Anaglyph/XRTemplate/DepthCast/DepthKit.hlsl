@@ -1,8 +1,5 @@
 // https://github.com/oculus-samples/Unity-DepthAPI/issues/16
 
-#define UNITY_SINGLE_PASS_STEREO
-#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-
 #if defined(SHADER_API_D3D11) 
 #define FLIP_UVS 1
 #endif
@@ -78,7 +75,7 @@ float3 ApplyMatrixDK(float2 positionNDC, float deviceDepth, float4x4 invViewProj
 
 float3 ComputeWorldSpacePositionDK(float2 positionNDC, float deviceDepth, int slice)
 {
-	return ApplyMatrixDK(positionNDC, deviceDepth, unity_StereoMatrixInvVP[slice]);
+	return ApplyMatrixDK(positionNDC, deviceDepth, StereoMatrixInvVP[slice]);
 }
 
 // https://gist.github.com/bgolus/a07ed65602c009d5e2f753826e8078a0

@@ -31,7 +31,7 @@ void CSMain(uint3 id : SV_DispatchThreadID)
 
 	const float4 rayPos = float4(lerp(WorldStart, WorldEnd, rayDist), 1);
 	
-    const float4 hcs = mul(unity_StereoMatrixVP[slice], rayPos);
+    const float4 hcs = mul(StereoMatrixVP[slice], rayPos);
     const float2 uv = (hcs.xy / hcs.w) * 0.5 + float2(0.5, 0.5);
     //const float2 uvReproj = ReprojectUVsDK(uv, 0);
 	//float2 uv = UVFromWorldDK(rayPos, 0);
@@ -39,11 +39,11 @@ void CSMain(uint3 id : SV_DispatchThreadID)
 
     const float envDepth = SampleDepthDK(uv, 0);
 	
-    float envDepthMeters = -ApplyMatrixDK(uv, envDepth, unity_StereoMatrixInvP[slice]).z;
+    float envDepthMeters = -ApplyMatrixDK(uv, envDepth, StereoMatrixInvP[slice]).z;
 	// prevent depth texture edge values from reading a hit in your face
 	// envDepthMeters += (envDepthMeters < 0.3) * 9999.0;
 	
-    float rayDepthMeters = -mul(unity_StereoMatrixV[slice], rayPos).z;
+    float rayDepthMeters = -mul(StereoMatrixV[slice], rayPos).z;
 	
 	RaycastResults[i].ZDepthDiff = envDepthMeters - rayDepthMeters;
 	
