@@ -16,7 +16,7 @@ uniform float4x4 StereoMatrixVP[2];
 uniform float4x4 StereoMatrixInvVP[2];
 uniform float4x4 StereoMatrixInvP[2];
 
-#define NORMAL_CALC_UV_OFFSET float2(0.001f, 0.001f)
+#define NORMAL_CALC_UV_OFFSET float2(0.0005f, 0.0005f)
 
 float2 HeadRotCorrectDK(float2 uv, const int slice)
 {

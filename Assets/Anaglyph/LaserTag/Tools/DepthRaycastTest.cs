@@ -3,12 +3,13 @@ using Anaglyph.XRTemplate;
 
 namespace Anaglyph.Lasertag
 {
+	[DefaultExecutionOrder(100)]
 	public class DepthRaycastTest : MonoBehaviour
 	{
 		[SerializeField] private Transform hitIndicator;
 		[SerializeField] private LineRendererLaser laser;
 
-		private void LateUpdate()
+		private void Update()
 		{
 			bool didHit = DepthCast.Raycast(new Ray(transform.position, transform.forward), out DepthCastResult hit, maxLength: 10f, handRejection: true);
 			laser.enabled = didHit;
