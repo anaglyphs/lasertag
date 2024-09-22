@@ -11,7 +11,6 @@ GameObject:
   - component: {fileID: 7007780462266575649}
   - component: {fileID: 7536264710679282727}
   - component: {fileID: 3559159289528566506}
-  - component: {fileID: 4908359099445677508}
   m_Layer: 0
   m_Name: Chest Mesh
   m_TagString: Player
@@ -84,19 +83,6 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!114 &4908359099445677508
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1314190869219865469}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1dc1fff39cff37e40bbdd02bcf6dae2a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  boolObject: {fileID: 11400000, guid: a7ecfbb4886f5d744b769c1066675349, type: 2}
 --- !u!1 &1746489447900163166
 GameObject:
   m_ObjectHideFlags: 0
@@ -300,14 +286,13 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4774172339863190352}
-  - component: {fileID: 3437197097337109069}
   m_Layer: 0
   m_Name: Chest
   m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &4774172339863190352
 Transform:
   m_ObjectHideFlags: 0
@@ -324,37 +309,6 @@ Transform:
   - {fileID: 9104129335880328241}
   m_Father: {fileID: 9176886480471808712}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &3437197097337109069
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2225369292945117693}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e96cb6065543e43c4a752faaa1468eb1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  UseUnreliableDeltas: 1
-  SyncPositionX: 1
-  SyncPositionY: 1
-  SyncPositionZ: 1
-  SyncRotAngleX: 1
-  SyncRotAngleY: 1
-  SyncRotAngleZ: 1
-  SyncScaleX: 0
-  SyncScaleY: 0
-  SyncScaleZ: 0
-  PositionThreshold: 0.001
-  RotAngleThreshold: 0.01
-  ScaleThreshold: 0.01
-  UseQuaternionSynchronization: 0
-  UseQuaternionCompression: 0
-  UseHalfFloatPrecision: 0
-  InLocalSpace: 0
-  Interpolate: 0
-  SlerpPosition: 0
 --- !u!1 &4081909171814318843
 GameObject:
   m_ObjectHideFlags: 0
@@ -836,7 +790,6 @@ MonoBehaviour:
   headTransform: {fileID: 1420149355333452064}
   leftHandTransform: {fileID: 3701957463809472084}
   rightHandTransform: {fileID: 3176845950572255976}
-  torsoTransform: {fileID: 4774172339863190352}
   onRespawn:
     m_PersistentCalls:
       m_Calls:

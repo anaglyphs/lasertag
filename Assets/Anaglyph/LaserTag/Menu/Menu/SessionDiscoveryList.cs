@@ -1,82 +1,76 @@
-﻿using System.Net;
-using Unity.Netcode;
-using Unity.Netcode.Transports.UTP;
-using UnityEngine;
-using UnityEngine.UI;
+﻿//using NetworkDiscoveryUnity;
+//using System.Net;
+//using Unity.Netcode;
+//using Unity.Netcode.Transports.UTP;
+//using UnityEngine;
+//using UnityEngine.UI;
 
-public class SessionDiscoveryList : SuperAwakeBehavior
-{
-	[SerializeField] private GameObject buttonPrefab;
-	[SerializeField] private GameObject infoText;
-	[SerializeField] private Transform buttonContainer;
+//public class SessionDiscoveryList : SuperAwakeBehavior
+//{
+//	[SerializeField] private GameObject buttonPrefab;
+//	[SerializeField] private GameObject infoText;
+//	[SerializeField] private Transform buttonContainer;
 
-	private ExampleNetworkDiscovery sessionBroadcaster;
+//	private void OnEnable()
+//	{
+//		sessionBroadcaster.OnServerFound.AddListener(OnServerFound);
+//		sessionBroadcaster.StartClient();
+//		Refresh();
+//	}
 
-	protected override void SuperAwake()
-	{
-		sessionBroadcaster = FindObjectOfType<ExampleNetworkDiscovery>(true);
-	}
+//	private void OnDisable()
+//	{
+//		sessionBroadcaster.OnServerFound.RemoveListener(OnServerFound);
+//		sessionBroadcaster.StopDiscovery();
+//		ClearButtons();
+//	}
 
-	private void OnEnable()
-	{
-		sessionBroadcaster.OnServerFound.AddListener(OnServerFound);
-		sessionBroadcaster.StartClient();
-		Refresh();
-	}
+//	public void Refresh()
+//	{
+//		ClearButtons();
 
-	private void OnDisable()
-	{
-		sessionBroadcaster.OnServerFound.RemoveListener(OnServerFound);
-		sessionBroadcaster.StopDiscovery();
-		ClearButtons();
-	}
+//		if (sessionBroadcaster.IsRunning)
+//		{
+//			Debug.Log("Scanning for games...");
+//			sessionBroadcaster.ClientBroadcast(new DiscoveryBroadcastData());
+//		}
+//	}
 
-	public void Refresh()
-	{
-		ClearButtons();
+//	public void ClearButtons()
+//	{
+//		infoText.gameObject.SetActive(true);
 
-		if (sessionBroadcaster.IsRunning)
-		{
-			Debug.Log("Scanning for games...");
-			sessionBroadcaster.ClientBroadcast(new DiscoveryBroadcastData());
-		}
-	}
+//		for (int i = 0; i < buttonContainer.childCount; i++)
+//		{
+//			// destruction is not immediate, so this works
+//			GameObject g = buttonContainer.GetChild(i).gameObject;
+//			if (g != infoText)
+//			{
+//				Destroy(buttonContainer.GetChild(i).gameObject);
+//			}
+//		}
+//	}
 
-	public void ClearButtons()
-	{
-		infoText.gameObject.SetActive(true);
+//	void OnServerFound(IPEndPoint sender, DiscoveryResponseData response)
+//	{
+//		infoText.gameObject.SetActive(false);
 
-		for (int i = 0; i < buttonContainer.childCount; i++)
-		{
-			// destruction is not immediate, so this works
-			GameObject g = buttonContainer.GetChild(i).gameObject;
-			if (g != infoText)
-			{
-				Destroy(buttonContainer.GetChild(i).gameObject);
-			}
-		}
-	}
+//		GameObject g = Instantiate(buttonPrefab, buttonContainer);
+//		Button newButton = g.GetComponent<Button>();
 
-	void OnServerFound(IPEndPoint sender, DiscoveryResponseData response)
-	{
-		infoText.gameObject.SetActive(false);
+//		string address = sender.Address.ToString();
 
-		GameObject g = Instantiate(buttonPrefab, buttonContainer);
-		Button newButton = g.GetComponent<Button>();
+//		newButton.GetComponentInChildren<Text>().text = address;
 
-		string address = sender.Address.ToString();
+//		newButton.onClick.AddListener(delegate
+//		{
+//			UnityTransport transport = 
+//			(UnityTransport)NetworkManager.Singleton.NetworkConfig.NetworkTransport;
 
-		newButton.GetComponentInChildren<Text>().text = address;
-
-		newButton.onClick.AddListener(delegate
-		{
-			UnityTransport transport = 
-			(UnityTransport)NetworkManager.Singleton.NetworkConfig.NetworkTransport;
-
-			transport.SetConnectionData(address, 25001);
-			NetworkManager.Singleton.StartClient();
-		});
-	}
+//			transport.SetConnectionData(address, 25001);
+//			NetworkManager.Singleton.StartClient();
+//		});
+//	}
 
 
-}
+//}

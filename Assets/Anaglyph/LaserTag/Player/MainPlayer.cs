@@ -25,11 +25,11 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private Transform headTransform;
 		[SerializeField] private Transform leftHandTransform;
 		[SerializeField] private Transform rightHandTransform;
-		[SerializeField] private Transform torsoTransform;
+		//[SerializeField] private Transform torsoTransform;
 		public Transform HeadTransform => headTransform;
 		public Transform LeftHandTransform => leftHandTransform; 
 		public Transform RightHandTransform => rightHandTransform;
-		public Transform TorsoTransform => torsoTransform;
+		//public Transform TorsoTransform => torsoTransform;
 
 		public float RespawnTimerSeconds { get; private set; } = 0;
 
@@ -143,7 +143,7 @@ namespace Anaglyph.Lasertag
 				networkPlayer.HeadTransform.SetFrom(headTransform);
 				networkPlayer.LeftHandTransform.SetFrom(leftHandTransform);
 				networkPlayer.RightHandTransform.SetFrom(rightHandTransform);
-				networkPlayer.TorsoTransform.SetFrom(torsoTransform);
+				//networkPlayer.TorsoTransform.SetFrom(torsoTransform);
 			}
 		}
 
