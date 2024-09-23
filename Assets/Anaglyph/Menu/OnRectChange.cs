@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
 
-namespace Anaglyph.LaserTag.UI
+namespace Anaglyph.Lasertag.UI
 {
 	[ExecuteAlways]
 	public class OnRectChange : UIBehaviour

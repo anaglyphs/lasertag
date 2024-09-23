@@ -1,9 +1,9 @@
-using Anaglyph.LaserTag.Logistics;
+using Anaglyph.Lasertag.Logistics;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
 
-namespace Anaglyph.LaserTag.Weapons
+namespace Anaglyph.Lasertag.Weapons
 {
 	public class Shotgun : MonoBehaviour
 	{

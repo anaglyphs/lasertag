@@ -1,0 +1,55 @@
+// https://github.com/oculus-samples/Unity-DepthAPI/issues/16
+#include "DepthKit.hlsl"
+
+#pragma kernel CSMain
+
+struct RaycastResult
+{
+	float ZDepthDiff;
+	float3 Position;
+	float3 Normal;
+};
+
+#if defined(SHADER_API_D3D11) 
+#define FLIP_UVS 1 
+#endif
+
+StructuredBuffer<float3> RaycastRequests;
+RWStructuredBuffer<RaycastResult> RaycastResults;
+
+float3 WorldStart;
+float3 WorldEnd; 
+int NumSamples;
+
+[numthreads(32, 1, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+	const uint slice = 0;
+	const uint i = id.x;
+	
+	const float rayDist = i / (float) NumSamples;
+
+	const float4 rayPos = float4(lerp(WorldStart, WorldEnd, rayDist), 1);
+	
+    const float4 hcs = mul(StereoMatrixVP[slice], rayPos);
+    const float2 uv = (hcs.xy / hcs.w) * 0.5 + float2(0.5, 0.5);
+    //const float2 uvReproj = ReprojectUVsDK(uv, 0);
+	//float2 uv = UVFromWorldDK(rayPos, 0);
+	//uv = ReprojectUVsDK(uv, 0);
+
+    const float envDepth = SampleDepthDK(uv, 0);
+	
+    float envDepthMeters = -ApplyMatrixDK(uv, envDepth, StereoMatrixInvP[slice]).z;
+	// prevent depth texture edge values from reading a hit in your face
+	// envDepthMeters += (envDepthMeters < 0.3) * 9999.0;
+	
+    float rayDepthMeters = -mul(StereoMatrixV[slice], rayPos).z;
+	
+	RaycastResults[i].ZDepthDiff = envDepthMeters - rayDepthMeters;
+	
+	float3 worldPos = ComputeWorldSpacePositionDK(uv, envDepth, slice);
+	float3 worldNorm = ComputeWorldSpaceNormalDK(uv, worldPos, slice);
+	
+	RaycastResults[i].Position = worldPos;
+	RaycastResults[i].Normal = worldNorm;
+}

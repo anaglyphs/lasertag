@@ -21,7 +21,7 @@ namespace Anaglyph.XRTemplate
 
 		private void OnValidate()
 		{
-			this.SetDefaultComponent(ref effect);
+			this.SetComponent(ref effect);
 		}
 
 		private void Awake()

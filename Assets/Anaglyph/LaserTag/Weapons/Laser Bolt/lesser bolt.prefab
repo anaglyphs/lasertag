@@ -48,6 +48,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 1060127963983847517, guid: 24fe9491462961f4091217e62ff6ff84, type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: 167a28c47917022428ef3ef2e2507346, type: 2}
     - target: {fileID: 1486168899473020810, guid: 24fe9491462961f4091217e62ff6ff84, type: 3}
       propertyPath: m_Name
       value: lesser bolt
@@ -58,7 +62,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: 2edddad0f54c12743b8f66bcab1b3c07, type: 2}
     - target: {fileID: 6606369252371184621, guid: 24fe9491462961f4091217e62ff6ff84, type: 3}
       propertyPath: damage
-      value: 11
+      value: 5
       objectReference: {fileID: 0}
     - target: {fileID: 6606369252371184621, guid: 24fe9491462961f4091217e62ff6ff84, type: 3}
       propertyPath: metersPerSecond
@@ -66,7 +70,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6747195467610947331, guid: 24fe9491462961f4091217e62ff6ff84, type: 3}
       propertyPath: GlobalObjectIdHash
-      value: 921357965
+      value: 3833939247
       objectReference: {fileID: 0}
     - target: {fileID: 8042134594337612406, guid: 24fe9491462961f4091217e62ff6ff84, type: 3}
       propertyPath: m_Asset

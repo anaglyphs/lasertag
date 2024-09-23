@@ -203,7 +203,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 402adfb7791ffac44ae7e3b606e3aca3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  originalMesh: {fileID: 0}
+  meshFilter: {fileID: 8309235756296543932}
   padding: 0
+  rectTransform: {fileID: 6441235303720524347}
 --- !u!1 &7754222141543173250
 GameObject:
   m_ObjectHideFlags: 0
@@ -267,10 +270,8 @@ MonoBehaviour:
       m_Action: Show Menu
       m_Flags: 0
     m_Flags: 0
-  avatarHead: {fileID: 0}
   componentsDisabledWhileVisible: []
   objectsInactiveWhileVisible: []
-  activeAtStart: 0
   offset: {x: 0, y: -0.5, z: 1}
 --- !u!114 &4824228324567095767
 MonoBehaviour:
@@ -368,6 +369,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 4773991523455167926}
     m_Modifications:
+    - target: {fileID: 5928977661196920431, guid: 7726d459ee1d21c4692229b33a100c4a, type: 3}
+      propertyPath: m_Text
+      value: Button
+      objectReference: {fileID: 0}
     - target: {fileID: 7179208172146064169, guid: 7726d459ee1d21c4692229b33a100c4a, type: 3}
       propertyPath: m_text
       value: Button
@@ -434,6 +439,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 4773991523455167926}
     m_Modifications:
+    - target: {fileID: 3724102548332734186, guid: 8031558441b4d2e4b9ab247d8ae036e7, type: 3}
+      propertyPath: m_Text
+      value: Title
+      objectReference: {fileID: 0}
     - target: {fileID: 8811076581762715936, guid: 8031558441b4d2e4b9ab247d8ae036e7, type: 3}
       propertyPath: m_text
       value: Title

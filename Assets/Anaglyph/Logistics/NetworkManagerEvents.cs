@@ -2,7 +2,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
 
-namespace Anaglyph.LaserTag
+namespace Anaglyph.Lasertag
 {
 	public class NetworkManagerEvents : SuperAwakeBehavior
 	{
@@ -10,11 +10,12 @@ namespace Anaglyph.LaserTag
 		public UnityEvent OnServerStarted = new();
 		public UnityEvent OnHostStarted = new();
 
-
 		public UnityEvent OnConnect = new();
 
 		public UnityEvent<bool> OnClientStopped = new();
 		public UnityEvent<bool> OnServerStopped = new();
+
+		public UnityEvent OnDisconnect = new();
 
 		private NetworkManager networkManager;
 
@@ -37,10 +38,15 @@ namespace Anaglyph.LaserTag
 			networkManager.OnServerStarted += OnServerStarted.Invoke;
 			networkManager.OnClientStarted += CheckForHost;
 			networkManager.OnConnectionEvent += HandleConnectionEvent;
+			networkManager.OnTransportFailure += OnDisconnect.Invoke;
 
 			networkManager.OnClientStopped += OnClientStopped.Invoke;
 			networkManager.OnServerStopped += OnServerStopped.Invoke;
+			networkManager.OnClientStopped += InvokeOnDisconnect;
+			networkManager.OnServerStopped += InvokeOnDisconnect;
 		}
+
+		private void InvokeOnDisconnect(bool b) => OnDisconnect.Invoke();
 
 		private void HandleConnectionEvent(NetworkManager manager, ConnectionEventData eventData)
 		{
@@ -59,9 +65,12 @@ namespace Anaglyph.LaserTag
 			networkManager.OnServerStarted -= OnServerStarted.Invoke;
 			networkManager.OnClientStarted -= CheckForHost;
 			networkManager.OnConnectionEvent -= HandleConnectionEvent;
+			networkManager.OnTransportFailure -= OnDisconnect.Invoke;
 
 			networkManager.OnClientStopped -= OnClientStopped.Invoke;
 			networkManager.OnServerStopped -= OnServerStopped.Invoke;
+			networkManager.OnClientStopped -= InvokeOnDisconnect;
+			networkManager.OnServerStopped -= InvokeOnDisconnect;
 		}
 	}
 }

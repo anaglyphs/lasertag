@@ -23,7 +23,7 @@ namespace Anaglyph.XRTemplate
 
 		private void OnValidate()
 		{
-            this.SetDefaultComponent(ref pointCloudRenderer);
+            this.SetComponent(ref pointCloudRenderer);
 		}
 	}
 }

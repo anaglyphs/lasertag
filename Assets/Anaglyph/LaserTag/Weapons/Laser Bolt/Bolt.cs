@@ -1,12 +1,13 @@
-using Anaglyph.LaserTag.Logistics;
-using Anaglyph.LaserTag.Networking;
+using Anaglyph.Lasertag.Logistics;
+using Anaglyph.Lasertag.Networking;
+using System.Collections;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
 
-namespace Anaglyph.LaserTag
+namespace Anaglyph.Lasertag
 {
 	public class Bolt : NetworkBehaviour
 	{
@@ -16,7 +17,9 @@ namespace Anaglyph.LaserTag
 		[SerializeField] private int msHitDeactivateDelay = 1000;
 		[SerializeField] private float damage = 50f;
 
+		public UnityEvent onFire = new();
 		public UnityEvent onHit = new();
+		public UnityEvent onFrameAfterHit = new();
 		private bool isFlying = true;
 
 		private NetworkVariable<NetworkPose> networkPos = new();
@@ -51,6 +54,7 @@ namespace Anaglyph.LaserTag
 
 		private void OnEnable()
 		{
+			onFire.Invoke();
 			isFlying = true;
 		}
 
@@ -106,7 +110,7 @@ namespace Anaglyph.LaserTag
 				Hit(hit.point, hit.normal);
 
 				if (hit.collider.CompareTag(Player.Tag))
-					hit.collider.GetComponentInParent<Player>().HitRpc(damage);
+					hit.collider.GetComponentInParent<Player>().DamageRpc(damage, OwnerClientId);
 			}
 		}
 
@@ -116,6 +120,15 @@ namespace Anaglyph.LaserTag
 				HitRpc(pos, norm);
 
 			DespawnWithDelay();
+
+			StartCoroutine(WaitForFrame());
+		}
+
+		private IEnumerator WaitForFrame()
+		{
+			yield return new WaitForEndOfFrame();
+			yield return new WaitForEndOfFrame();
+			onFrameAfterHit.Invoke();
 		}
 
 		[Rpc(SendTo.Everyone)]

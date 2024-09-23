@@ -58,7 +58,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0, g: 1, b: 0, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -86,8 +86,10 @@ GameObject:
   - component: {fileID: 3741694315336954932}
   - component: {fileID: 9142028406143682949}
   - component: {fileID: 6435377189782562929}
-  - component: {fileID: 1104207416116212406}
   - component: {fileID: 747991994927016620}
+  - component: {fileID: 8038499340235933692}
+  - component: {fileID: 6633945873485707899}
+  - component: {fileID: 7189055371048723487}
   m_Layer: 0
   m_Name: Control Point
   m_TagString: Untagged
@@ -166,20 +168,6 @@ MonoBehaviour:
   InLocalSpace: 0
   Interpolate: 1
   SlerpPosition: 0
---- !u!114 &1104207416116212406
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3063152390251463876}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e5bb3544cf063a0448354f3f9c678a57, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  meshRenderer: {fileID: 1247770579426270712}
-  conquerTimeIndicator: {fileID: 7320190101900911683}
 --- !u!114 &747991994927016620
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -192,6 +180,84 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 735876e89ca1df14cbcf5f22d3807ed5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &8038499340235933692
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3063152390251463876}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de906b0a9e4e02d4cb6ed9ea738b7abe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  defaultTeam: 0
+  renderers:
+  - {fileID: 1247770579426270712}
+  teamOwner: {fileID: 6633945873485707899}
+  multiply: 1
+  OnColorSet:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 7320190101900911683}
+        m_TargetAssemblyTypeName: UnityEngine.UI.Graphic, UnityEngine.UI
+        m_MethodName: set_color
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!114 &6633945873485707899
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3063152390251463876}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 065fb88f6928a064f86e464bdb1b7956, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  teamSync:
+    m_InternalValue: 0
+  OnTeamChange:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 8038499340235933692}
+        m_TargetAssemblyTypeName: Anaglyph.Lasertag.TeamColorer, ph.anagly.lasertag
+        m_MethodName: SetColor
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: 
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!114 &7189055371048723487
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3063152390251463876}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e5bb3544cf063a0448354f3f9c678a57, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  onControllingTeamChange:
+    m_PersistentCalls:
+      m_Calls: []
+  teamOwner: {fileID: 6633945873485707899}
+  conquerTimeIndicator: {fileID: 7320190101900911683}
 --- !u!1 &3635300645810488308
 GameObject:
   m_ObjectHideFlags: 0
@@ -308,7 +374,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3295135943891189526}
   - component: {fileID: 3573175791617451146}
-  - component: {fileID: 1236825066453149185}
+  - component: {fileID: 7304787297992290921}
   m_Layer: 5
   m_Name: Canvas
   m_TagString: Untagged
@@ -360,7 +426,7 @@ Canvas:
   m_SortingLayerID: 0
   m_SortingOrder: 0
   m_TargetDisplay: 0
---- !u!114 &1236825066453149185
+--- !u!114 &7304787297992290921
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

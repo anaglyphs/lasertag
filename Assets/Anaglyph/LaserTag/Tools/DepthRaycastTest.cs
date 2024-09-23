@@ -1,8 +1,9 @@
 using UnityEngine;
 using Anaglyph.XRTemplate;
 
-namespace Anaglyph.LaserTag
+namespace Anaglyph.Lasertag
 {
+	[DefaultExecutionOrder(100)]
 	public class DepthRaycastTest : MonoBehaviour
 	{
 		[SerializeField] private Transform hitIndicator;
