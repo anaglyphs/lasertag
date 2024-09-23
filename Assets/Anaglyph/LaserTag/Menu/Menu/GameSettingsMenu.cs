@@ -43,7 +43,10 @@ namespace Anaglyph.Lasertag
 		private void Start()
 		{
 			RoundManager.OnRoundStateChange += OnGameStateChange;
+		}
 
+		private void OnEnable()
+		{
 			OnGameStateChange(0, RoundManager.RoundState);
 		}
 

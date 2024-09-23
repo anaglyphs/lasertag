@@ -10,10 +10,11 @@ TrueTypeFontImporter:
   includeFontData: 1
   fontNames:
   - Altinn-DIN
-  fallbackFontReferences: []
+  fallbackFontReferences:
+  - {fileID: 12800000, guid: 1c32b3822cd53194ba767e8c84e3e053, type: 3}
   customCharacters: 
   fontRenderingMode: 0
-  ascentCalculationMode: 1
+  ascentCalculationMode: 2
   useLegacyBoundsCalculation: 0
   shouldRoundAdvanceValue: 1
   userData: 

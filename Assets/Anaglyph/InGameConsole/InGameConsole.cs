@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 public class InGameConsole : MonoBehaviour
 {
-	public static bool longMessagesEnabled = false;
+	public static bool longMessagesEnabled = true;
 
 	private const int MaxCharacters = 5000;
 	private const string logStart = "--- start ---";

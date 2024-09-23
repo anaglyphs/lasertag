@@ -13,23 +13,13 @@ namespace Anaglyph.SharedSpaces
 
 		[SerializeField] private Transform closestIndicator;
 		[SerializeField] private float maxDistanceToAnchorTo = 3;
-		[SerializeField] private float calibrateDelaySeconds = 1;
 
-		[SerializeField] private Transform colocationNoticeTransform;
-		[SerializeField] private float colocationNoticeVerticalOffset = 1.5f;
-
-		private float calibrateTimer = 0;
-		private NetworkedSpatialAnchor lastFoundAnchor;
-		private bool isColocatedToLastFoundAnchor;
-		private bool isColocatedToAnyAnchor;
+		private NetworkedSpatialAnchor anchoredTo = null;
 		private bool shouldRecalibrateNextUpdate;
 
 		private void Awake()
 		{
 			rig = FindObjectOfType<XROrigin>();
-
-			calibrateTimer = calibrateDelaySeconds;
-
 			OVRManager.display.RecenteredPose += HandleRecenter;
 		}
 
@@ -37,47 +27,16 @@ namespace Anaglyph.SharedSpaces
 		{
 			shouldRecalibrateNextUpdate = true;
 
-			Debug.Log("Recenter detected. Calibrating to last anchor");
+			Debug.Log("Recenter detected. Calibrating to anchor");
 		}
 
 		private void Update()
 		{
-			if (NetworkedSpatialAnchor.allLocalizedAnchorManagers.Count == 0)
-			{
-				isColocatedToAnyAnchor = false;
-			}
+			bool didFindAnchor = TryFindClosestAnchor(out var foundAnchor);
 
-			bool didFindAnchor = TryFindClosestWithinDistance(out var foundAnchor);
-
-			if(didFindAnchor && !isColocatedToAnyAnchor && !foundAnchor.IsOwner)
-			{
-				colocationNoticeTransform.gameObject.SetActive(true);
-				colocationNoticeTransform.position = foundAnchor.AttachedSpatialAnchor.transform.position + Vector3.up * colocationNoticeVerticalOffset;
-				colocationNoticeTransform.rotation = Quaternion.LookRotation(colocationNoticeTransform.position - rig.Camera.transform.position, Vector3.up);
-
-			} else
-			{
-				colocationNoticeTransform.gameObject.SetActive(false);
-			}
-
-			bool withinRangeToCalibrate = didFindAnchor && Vector3.Distance(foundAnchor.AttachedSpatialAnchor.transform.position, rig.Camera.transform.position) < maxDistanceToAnchorTo;
-
-			if (lastFoundAnchor != foundAnchor)
-			{
-				lastFoundAnchor = foundAnchor;
-				calibrateTimer = calibrateDelaySeconds;
-				isColocatedToLastFoundAnchor = false;
-			}
-			
-			if(withinRangeToCalibrate && !isColocatedToLastFoundAnchor)
-			{
-				calibrateTimer = Mathf.Max(calibrateTimer - Time.deltaTime, 0);
-
-				if (calibrateTimer == 0 && !isColocatedToLastFoundAnchor)
-				{
-					CalibrateToAnchor(foundAnchor);
-					isColocatedToLastFoundAnchor = true;
-				}
+            if (didFindAnchor && anchoredTo != foundAnchor)
+            {
+				CalibrateToAnchor(foundAnchor);
 			}
 		}
 
@@ -85,11 +44,11 @@ namespace Anaglyph.SharedSpaces
         {
             if (shouldRecalibrateNextUpdate)
             {
-                CalibrateToAnchor(lastFoundAnchor);
+                CalibrateToAnchor(anchoredTo);
             }
         }
 
-        private bool TryFindClosestWithinDistance(out NetworkedSpatialAnchor foundAnchor)
+        private bool TryFindClosestAnchor(out NetworkedSpatialAnchor foundAnchor)
 		{
 			foundAnchor = null;
 
@@ -137,11 +96,6 @@ namespace Anaglyph.SharedSpaces
 			{
 				closestIndicator.SetPositionAndRotation(anchor.transform.position, anchor.transform.rotation);
 			}
-
-			isColocatedToAnyAnchor = true;
-
-			if(colocationNoticeTransform != null)
-				colocationNoticeTransform.gameObject.SetActive(false);
 		}
 	}
 }

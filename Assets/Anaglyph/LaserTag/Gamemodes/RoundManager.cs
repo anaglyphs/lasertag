@@ -91,6 +91,19 @@ namespace Anaglyph.Lasertag
 			OnStateUpdateLocally(RoundState.NotPlaying, RoundState.NotPlaying);
 		}
 
+		private void Update()
+		{
+			if (!IsSpawned) return;
+
+			Player mainNetworkPlayer = MainPlayer.Instance.networkPlayer;
+
+			if (RoundState == RoundState.NotPlaying || RoundState == RoundState.Queued || mainNetworkPlayer.Team == 0) {
+				
+				if (mainNetworkPlayer.IsInBase)
+					mainNetworkPlayer.TeamOwner.teamSync.Value = mainNetworkPlayer.InBase.Team;
+			}
+        }
+
 		private void OnStateUpdateLocally(RoundState prev, RoundState state)
 		{
 			OnRoundStateChange.Invoke(prev, state);
@@ -176,7 +189,7 @@ namespace Anaglyph.Lasertag
 
 					foreach (Player player in Player.AllPlayers.Values)
 					{
-						if (player.IsInFriendlyBase)
+						if (player.IsInBase)
 							numPlayersInbase++;
 					}
 
