@@ -10,7 +10,7 @@ namespace Anaglyph.Lasertag
 
 		public void OnEnable()
 		{
-			winMessage.text = $"{TeamManagement.TeamNames[RoundManager.Instance.WinningTeam]} team won!";
+			winMessage.text = $"{TeamManagement.TeamNames[RoundManager.WinningTeam]} team won!";
 
 			StartCoroutine(DelayHide());
 		}

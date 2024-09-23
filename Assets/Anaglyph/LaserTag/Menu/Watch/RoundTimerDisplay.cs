@@ -18,9 +18,9 @@ namespace Anaglyph.Lasertag
 		{
 			float time = 0;
 
-			if (RoundManager.Instance.RoundState == RoundState.Playing && RoundManager.Instance.ActiveSettings.CheckWinByTimer())
+			if (RoundManager.RoundState == RoundState.Playing && RoundManager.ActiveSettings.CheckWinByTimer())
 			{
-				time = RoundManager.Instance.TimeRoundEnds - (float)NetworkManager.Singleton.LocalTime.Time;
+				time = RoundManager.TimeRoundEnds - (float)NetworkManager.Singleton.LocalTime.Time;
 			}
 
 			text.text = TimeSpan.FromSeconds(time).ToString(@"mm\:ss");

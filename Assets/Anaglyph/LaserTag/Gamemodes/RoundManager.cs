@@ -44,25 +44,25 @@ namespace Anaglyph.Lasertag
 
 		public static RoundManager Instance { get; private set; }
 
-		public NetworkVariable<RoundState> roundStateSync = new(RoundState.NotPlaying);
-		public RoundState RoundState => roundStateSync.Value;
+		private NetworkVariable<RoundState> roundStateSync = new(RoundState.NotPlaying);
+		public static RoundState RoundState => Instance.roundStateSync.Value;
 
-		public NetworkVariable<float> timeRoundEndsSync = new(0);
-		public float TimeRoundEnds => timeRoundEndsSync.Value;
+		private NetworkVariable<float> timeRoundEndsSync = new(0);
+		public static float TimeRoundEnds => Instance.timeRoundEndsSync.Value;
 
-		//public NetworkList<int> teamScoresSync;
 		private NetworkVariable<int> team0ScoreSync = new(0);
 		private NetworkVariable<int> team1ScoreSync = new(0);
 		private NetworkVariable<int> team2ScoreSync = new(0);
 
-		public NetworkVariable<int>[] teamScoresSync;
-		public NetworkVariable<byte> winningTeamSync;
-		public int GetTeamScore(byte team) => teamScoresSync[team].Value;
-		public byte WinningTeam => winningTeamSync.Value;
+		private NetworkVariable<int>[] teamScoresSync;
+		private NetworkVariable<byte> winningTeamSync = new();
+		public static int GetTeamScore(byte team) => Instance.teamScoresSync[team].Value;
+		public static byte WinningTeam => Instance.winningTeamSync.Value;
 
 		private NetworkVariable<RoundSettings> activeSettingsSync = new();
-		public RoundSettings ActiveSettings => activeSettingsSync.Value;
+		public static RoundSettings ActiveSettings => Instance.activeSettingsSync.Value;
 
+		public static event Action<RoundState, RoundState> OnRoundStateChange = delegate { };
 		public static event Action OnNotPlaying = delegate { };
 		public static event Action OnQueued = delegate { };
 		public static event Action OnCountdown = delegate { };
@@ -93,6 +93,8 @@ namespace Anaglyph.Lasertag
 
 		private void OnStateUpdateLocally(RoundState prev, RoundState state)
 		{
+			OnRoundStateChange.Invoke(prev, state);
+
 			switch (state)
 			{
 				case RoundState.NotPlaying:

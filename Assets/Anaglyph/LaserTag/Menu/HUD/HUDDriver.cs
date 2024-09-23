@@ -5,17 +5,12 @@ namespace Anaglyph.Lasertag.UI
 {
 	public class HUDDriver : SingletonBehavior<HUDDriver>
 	{
-
 		[Header("Death Popup")]
+		[SerializeField] private Text respawnText;
 
-		[SerializeField]
-		private Text respawnText;
+		[SerializeField] private GameObject respawnPopup;
 
-		[SerializeField]
-		private GameObject respawnPopup;
-
-		[SerializeField]
-		private RectTransform menuMaskRectTransform;
+		[SerializeField] private RectTransform menuMaskRectTransform;
 
 		[Header("Game queued")]
 		[SerializeField] private GameObject queuePopup;
@@ -25,7 +20,6 @@ namespace Anaglyph.Lasertag.UI
 		[SerializeField] private GameObject goPopup;
 
 		[Header("Scoreboard")]
-
 		[SerializeField] private GameObject scoreboardPopup;
 
 		private float maxMenuMaskHeight = 0;
@@ -42,7 +36,7 @@ namespace Anaglyph.Lasertag.UI
 		{
 			maxMenuMaskHeight = menuMaskRectTransform.sizeDelta.y;
 
-			RoundManager.Instance.roundStateSync.OnValueChanged += OnRoundStateChange;
+			RoundManager.OnRoundStateChange += OnRoundStateChange;
 		}
 
 		private void OnRoundStateChange(RoundState prev, RoundState state)
@@ -67,9 +61,6 @@ namespace Anaglyph.Lasertag.UI
 
 		void Update()
 		{
-			//transform.position = Vector3.Lerp(transform.position, headObject.transform.position, Time.deltaTime * 5);
-			//transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.Euler(0, headObject.transform.eulerAngles.y, 0), Time.deltaTime * 5);
-
 			menuMaskRectTransform.sizeDelta = new Vector2(menuMaskRectTransform.sizeDelta.x, Mathf.Lerp(0, maxMenuMaskHeight, EaseInOutCirc(Mathf.Clamp01(MainPlayer.Instance.RespawnTimerSeconds))));
 
 			respawnPopup.SetActive(!MainPlayer.Instance.IsAlive);
@@ -82,13 +73,11 @@ namespace Anaglyph.Lasertag.UI
 			{
 				respawnText.text = $"RESPAWN: {(MainPlayer.Instance.RespawnTimerSeconds).ToString("F1")}s";
 			}
-
-			queuePopup.SetActive(RoundManager.Instance.RoundState == RoundState.Queued);
 		}
 
 		protected override void OnSingletonDestroy()
 		{
-			RoundManager.Instance.roundStateSync.OnValueChanged -= OnRoundStateChange;
+			RoundManager.OnRoundStateChange -= OnRoundStateChange;
 		}
 	}
 }

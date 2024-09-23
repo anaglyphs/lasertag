@@ -42,14 +42,14 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			RoundManager.Instance.roundStateSync.OnValueChanged += OnGameStateChange;
+			RoundManager.OnRoundStateChange += OnGameStateChange;
 
-			OnGameStateChange(0, RoundManager.Instance.RoundState);
+			OnGameStateChange(0, RoundManager.RoundState);
 		}
 
 		private void OnGameStateChange(RoundState prev, RoundState state)
 		{
-			if (RoundManager.Instance.RoundState != RoundState.NotPlaying)
+			if (RoundManager.RoundState != RoundState.NotPlaying)
 				gameRunningPage.SetActive(true);
 			else
 				startGamePage.SetActive(true);

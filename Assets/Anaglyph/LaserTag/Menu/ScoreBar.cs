@@ -17,16 +17,16 @@ namespace Anaglyph.Lasertag
 		{
 			int divideBy = 0;
 
-			if (RoundManager.Instance.ActiveSettings.CheckWinByTimer())
+			if (RoundManager.ActiveSettings.CheckWinByTimer())
 			{
-				divideBy = RoundManager.Instance.GetTeamScore(RoundManager.Instance.WinningTeam);
+				divideBy = RoundManager.GetTeamScore(RoundManager.WinningTeam);
 				
-			} else if(RoundManager.Instance.ActiveSettings.CheckWinByPoints())
+			} else if(RoundManager.ActiveSettings.CheckWinByPoints())
 			{
-				divideBy = RoundManager.Instance.ActiveSettings.scoreTarget;
+				divideBy = RoundManager.ActiveSettings.scoreTarget;
 			}
 
-			float fillAmount = divideBy > 0 ? (float)RoundManager.Instance.GetTeamScore(team) / (float)divideBy : 0;
+			float fillAmount = divideBy > 0 ? (float)RoundManager.GetTeamScore(team) / (float)divideBy : 0;
 
 			image.fillAmount = Mathf.Lerp(image.fillAmount, fillAmount, 20 * Time.deltaTime);
 		}
