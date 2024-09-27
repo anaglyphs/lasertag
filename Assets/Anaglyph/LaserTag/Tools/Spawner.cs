@@ -1,4 +1,5 @@
 using Anaglyph.XRTemplate;
+using Anaglyph.XRTemplate.Depth;
 using System;
 using Unity.Netcode;
 using UnityEngine;

@@ -1,0 +1,28 @@
+{
+    "name": "Meta.XR.EnvironmentDepth",
+    "rootNamespace": "Meta.XR.EnvironmentDepth",
+    "references": [
+        "Oculus.VR",
+        "Unity.XR.Oculus"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.xr.oculus",
+            "expression": "4.2.0",
+            "define": "DEPTH_API_SUPPORTED"
+        },
+        {
+            "define": "OVR_UNITY_PACKAGE_MANAGER",
+            "name": "com.meta.xr.sdk.core",
+            "expression": ""
+        }
+    ],
+    "noEngineReferences": false
+}

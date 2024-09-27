@@ -18,7 +18,7 @@ Shader "Lasertag/DepthLight"
 		Pass {
 			HLSLPROGRAM 
 			#pragma vertex vert
-			#pragma fragment frag 
+			#pragma fragment frag
 
 			#include "Assets/Anaglyph/XRTemplate/Depth/DepthKit.hlsl" 
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
@@ -87,7 +87,7 @@ Shader "Lasertag/DepthLight"
 				const float deviceDepth = SampleDepthDK(uv, slice);
 
 				float3 lightPos = mul(unity_ObjectToWorld, float4(0,0,0,1)).xyz;
-				float3 worldPos = ComputeWorldSpacePositionDK(uv, deviceDepth, slice);
+				float3 worldPos = ComputeWorldSpacePositionDK(uv, deviceDepth, 1, slice);
 				float3 worldNorm = ComputeWorldSpaceNormalDK(uv, worldPos, slice);
 
 				float3 diff = lightPos - worldPos;

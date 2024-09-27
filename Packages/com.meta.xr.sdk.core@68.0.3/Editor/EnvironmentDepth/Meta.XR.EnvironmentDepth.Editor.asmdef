@@ -1,0 +1,37 @@
+{
+    "name": "Meta.XR.EnvironmentDepth.Editor",
+    "rootNamespace": "Meta.XR.EnvironmentDepth.Editor",
+    "references": [
+        "Oculus.VR.Editor",
+        "Unity.XR.Oculus",
+        "Oculus.VR",
+        "Meta.XR.EnvironmentDepth"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.xr.oculus",
+            "expression": "",
+            "define": "USING_XR_SDK_OCULUS"
+        },
+        {
+            "name": "com.unity.xr.oculus",
+            "expression": "4.2.0",
+            "define": "DEPTH_API_SUPPORTED"
+        },
+        {
+            "define": "OVR_UNITY_PACKAGE_MANAGER",
+            "name": "com.meta.xr.sdk.core",
+            "expression": ""
+        }
+    ],
+    "noEngineReferences": false
+}

@@ -1210,13 +1210,11 @@ GameObject:
   m_Component:
   - component: {fileID: 2038948978265102462}
   - component: {fileID: 8644192857832922400}
-  - component: {fileID: 328423425347015900}
-  - component: {fileID: 6706506037886156149}
+  - component: {fileID: 7302683130375540734}
   - component: {fileID: 6613598736387990720}
   - component: {fileID: 278063313867506157}
   - component: {fileID: 1394363023484580083}
   - component: {fileID: 5339566166535882300}
-  - component: {fileID: 2096479223950645350}
   m_Layer: 0
   m_Name: XR Origin
   m_TagString: Untagged
@@ -1257,7 +1255,7 @@ MonoBehaviour:
   m_CameraFloorOffsetObject: {fileID: 1653215028502333740}
   m_RequestedTrackingOriginMode: 1
   m_CameraYOffset: 0
---- !u!114 &328423425347015900
+--- !u!114 &7302683130375540734
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1266,25 +1264,12 @@ MonoBehaviour:
   m_GameObject: {fileID: 7254734392762225021}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ddd9160392010594198e19590e3e2244, type: 3}
+  m_Script: {fileID: 11500000, guid: 71a155ece80369d4e99bdaf5e59169b5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Enable6DoFCalculations: 1
-  Enable3DoFCalculations: 1
-  _customTrackingSpaceTransform: {fileID: 5322712704338568415}
---- !u!114 &6706506037886156149
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7254734392762225021}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a4b13589911d00d49bb8395c49568d3f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _occlusionType: 1
+  _occlusionShadersMode: 1
+  _removeHands: 0
+  _trackingSpace: {fileID: 2038948978265102462}
 --- !u!114 &6613598736387990720
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1298,7 +1283,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   computeShader: {fileID: 7200000, guid: 399dfec21ac4def4c896fedf94178498, type: 3}
-  envDepthTextureProvider: {fileID: 328423425347015900}
+  envDepthTextureProvider: {fileID: 7302683130375540734}
 --- !u!114 &278063313867506157
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1311,7 +1296,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4da2cc6f08414be49a8dd29eafdfeaa2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  envDepthTextureProvider: {fileID: 328423425347015900}
+  envDepthTextureProvider: {fileID: 7302683130375540734}
 --- !u!114 &1394363023484580083
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1366,36 +1351,6 @@ MonoBehaviour:
   m_VerticalAxis: Vertical
   m_SubmitButton: Submit
   m_CancelButton: Cancel
---- !u!114 &2096479223950645350
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7254734392762225021}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 01614664b831546d2ae94a42149d80ac, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SendPointerHoverToParent: 1
-  m_MoveRepeatDelay: 0.5
-  m_MoveRepeatRate: 0.1
-  m_XRTrackingOrigin: {fileID: 0}
-  m_ActionsAsset: {fileID: -944628639613478452, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
-  m_PointAction: {fileID: -1654692200621890270, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
-  m_MoveAction: {fileID: -8784545083839296357, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
-  m_SubmitAction: {fileID: 392368643174621059, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
-  m_CancelAction: {fileID: 7727032971491509709, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
-  m_LeftClickAction: {fileID: 3001919216989983466, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
-  m_MiddleClickAction: {fileID: -2185481485913320682, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
-  m_RightClickAction: {fileID: -4090225696740746782, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
-  m_ScrollWheelAction: {fileID: 6240969308177333660, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
-  m_TrackedDevicePositionAction: {fileID: 6564999863303420839, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
-  m_TrackedDeviceOrientationAction: {fileID: 7970375526676320489, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
-  m_DeselectOnBackgroundClick: 1
-  m_PointerBehavior: 0
-  m_CursorLockBehavior: 0
 --- !u!1 &8273645227207553632
 GameObject:
   m_ObjectHideFlags: 0
@@ -1528,6 +1483,9 @@ MonoBehaviour:
   overridePerLayerColorScaleAndOffset: 0
   colorScale: {x: 1, y: 1, z: 1, w: 1}
   colorOffset: {x: 0, y: 0, z: 0, w: 0}
+  passthroughLayerResumed:
+    m_PersistentCalls:
+      m_Calls: []
   colorMapEditorType_: 0
   colorMapEditorGradient:
     serializedVersion: 2

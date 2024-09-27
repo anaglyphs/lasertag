@@ -22,40 +22,41 @@
       "hash": "e4d0be44e97e3086ae7ad8c1522469d85ed1c2c5"
     },
     "com.meta.xr.depthapi": {
-      "version": "file:com.meta.xr.depthapi",
+      "version": "https://github.com/oculus-samples/Unity-DepthAPI.git?path=/Packages/com.meta.xr.depthapi",
       "depth": 0,
-      "source": "embedded",
+      "source": "git",
       "dependencies": {
-        "com.unity.xr.oculus": "4.2.0-exp-env-depth.2"
-      }
+        "com.unity.xr.oculus": "4.2.0"
+      },
+      "hash": "5af969a9836f66157d6dc8997774ed89ac5baa1f"
     },
     "com.meta.xr.depthapi.urp": {
-      "version": "file:com.meta.xr.depthapi.urp",
+      "version": "https://github.com/oculus-samples/Unity-DepthAPI.git?path=/Packages/com.meta.xr.depthapi.urp",
       "depth": 0,
-      "source": "embedded",
+      "source": "git",
       "dependencies": {
-        "com.unity.xr.oculus": "4.2.0-exp-env-depth.2"
-      }
+        "com.unity.xr.oculus": "4.2.0"
+      },
+      "hash": "5af969a9836f66157d6dc8997774ed89ac5baa1f"
     },
     "com.meta.xr.sdk.core": {
-      "version": "66.0.0",
+      "version": "file:com.meta.xr.sdk.core@68.0.3",
       "depth": 0,
-      "source": "registry",
-      "dependencies": {},
-      "url": "https://packages.unity.com"
+      "source": "embedded",
+      "dependencies": {}
     },
     "com.meta.xr.sdk.haptics": {
-      "version": "66.0.0",
+      "version": "68.0.1",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.meta.xr.sdk.core": "66.0.0"
+        "com.meta.xr.sdk.core": "68.0.2"
       },
       "url": "https://packages.unity.com"
     },
     "com.meta.xr.sdk.interaction": {
-      "version": "66.0.0",
-      "depth": 0,
+      "version": "68.0.2",
+      "depth": 1,
       "source": "registry",
       "dependencies": {
         "com.unity.ugui": "1.0.0",
@@ -64,22 +65,21 @@
       "url": "https://packages.unity.com"
     },
     "com.meta.xr.sdk.interaction.ovr": {
-      "version": "66.0.0",
+      "version": "68.0.2",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.meta.xr.sdk.core": "66.0.0",
-        "com.meta.xr.sdk.interaction": "66.0.0"
+        "com.meta.xr.sdk.core": "68.0.3",
+        "com.meta.xr.sdk.interaction": "68.0.2"
       },
       "url": "https://packages.unity.com"
     },
     "com.meta.xr.sdk.platform": {
-      "version": "66.0.0",
+      "version": "68.0.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.unity.ugui": "1.0.0",
-        "com.meta.xr.sdk.core": "66.0.0"
+        "com.unity.ugui": "1.0.0"
       },
       "url": "https://packages.unity.com"
     },

@@ -27,29 +27,24 @@ void CSMain(uint3 id : SV_DispatchThreadID)
 	const uint slice = 0;
 	const uint i = id.x;
 	
-	const float rayDist = i / (float) NumSamples;
+	float rayDist = i / (float) NumSamples;
 
-	const float4 rayPos = float4(lerp(WorldStart, WorldEnd, rayDist), 1);
+	float4 rayPos = float4(lerp(WorldStart, WorldEnd, rayDist), 1);
 	
-    const float4 hcs = mul(StereoMatrixVP[slice], rayPos);
-    const float2 uv = (hcs.xy / hcs.w) * 0.5 + float2(0.5, 0.5);
-    //const float2 uvReproj = ReprojectUVsDK(uv, 0);
-	//float2 uv = UVFromWorldDK(rayPos, 0);
-	//uv = ReprojectUVsDK(uv, 0);
+	float4 rayInDepthHCS = mul(dk_DepthTexReprojMatrices[slice], rayPos);
+	float2 rayInDepthUV = HCStoUV(rayInDepthHCS);
 
-    const float envDepth = SampleDepthDK(uv, 0);
+	float envDepth = dk_DepthTexture.SampleLevel(trilinearClampSampler, float3(rayInDepthUV, slice), 0); 
+    float envDepthNDC = envDepth * 2.0 - 1.0;
 	
-    float envDepthMeters = -ApplyMatrixDK(uv, envDepth, StereoMatrixInvP[slice]).z;
-	// prevent depth texture edge values from reading a hit in your face
-	// envDepthMeters += (envDepthMeters < 0.3) * 9999.0;
+    float4 hitInDepthHCS = UVtoHCS(rayInDepthUV, 1, rayInDepthHCS.w);
+    float4 hitPos = mul(dk_InvDepthTexReprojMatrices[slice], float4(hitInDepthHCS.xy, rayInDepthHCS.zw));
 	
-    float rayDepthMeters = -mul(StereoMatrixV[slice], rayPos).z;
 	
-	RaycastResults[i].ZDepthDiff = envDepthMeters - rayDepthMeters;
+	//float envDepthMeters = -ApplyMatrixDK(rayInDepthUV, envDepth, dk_StereoMatrixInvP[slice]).z;
+	//float rayDepthMeters = -mul(dk_StereoMatrixV[slice], rayPos).z;
+    RaycastResults[i].ZDepthDiff = envDepthNDC - rayInDepthHCS.z / rayInDepthHCS.w;
 	
-	float3 worldPos = ComputeWorldSpacePositionDK(uv, envDepth, slice);
-	float3 worldNorm = ComputeWorldSpaceNormalDK(uv, worldPos, slice);
-	
-	RaycastResults[i].Position = worldPos;
-	RaycastResults[i].Normal = worldNorm;
+    RaycastResults[i].Position = hitPos;
+	RaycastResults[i].Normal = (0, 1, 0); // i'll fix this later
 }
