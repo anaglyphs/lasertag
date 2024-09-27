@@ -22,29 +22,26 @@ float3 WorldEnd;
 int NumSamples;
 
 [numthreads(32, 1, 1)]
-void CSMain(uint3 id : SV_DispatchThreadID)
+void CSMain(uint3 id : SV_DispatchThreadID) 
 {
 	const uint slice = 0;
 	const uint i = id.x;
 	
 	float rayDist = i / (float) NumSamples;
-
+	 
 	float4 rayPos = float4(lerp(WorldStart, WorldEnd, rayDist), 1);
 	
 	float4 rayInDepthHCS = mul(dk_DepthTexReprojMatrices[slice], rayPos);
-	float2 rayInDepthUV = HCStoUV(rayInDepthHCS);
+	float2 rayInDepthUV = HCStoNDC(rayInDepthHCS).xy;
 
-	float envDepth = dk_DepthTexture.SampleLevel(trilinearClampSampler, float3(rayInDepthUV, slice), 0); 
+    float envDepth = SampleDepth(rayInDepthUV, 0);
+	
+    float4 depthPosHCS = NDCtoHCS(float3(rayInDepthUV, envDepth), rayInDepthHCS.w);
+    float4 depthPosWorld = HCStoWorld(depthPosHCS, slice);
+	
     float envDepthNDC = envDepth * 2.0 - 1.0;
-	
-    float4 hitInDepthHCS = UVtoHCS(rayInDepthUV, 1, rayInDepthHCS.w);
-    float4 hitPos = mul(dk_InvDepthTexReprojMatrices[slice], float4(hitInDepthHCS.xy, rayInDepthHCS.zw));
-	
-	
-	//float envDepthMeters = -ApplyMatrixDK(rayInDepthUV, envDepth, dk_StereoMatrixInvP[slice]).z;
-	//float rayDepthMeters = -mul(dk_StereoMatrixV[slice], rayPos).z;
     RaycastResults[i].ZDepthDiff = envDepthNDC - rayInDepthHCS.z / rayInDepthHCS.w;
 	
-    RaycastResults[i].Position = hitPos;
-	RaycastResults[i].Normal = (0, 1, 0); // i'll fix this later
+    RaycastResults[i].Position = depthPosWorld.xyz;
+	RaycastResults[i].Normal = float3(0, 1, 0);
 }
