@@ -63,7 +63,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.05, y: 0.05, z: 0.05}
+  m_LocalScale: {x: 0.10000001, y: 0.10000001, z: 0.05}
   m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 4676539180661686304}
@@ -113,7 +113,7 @@ SpriteRenderer:
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
-  m_DrawMode: 0
+  m_DrawMode: 1
   m_Size: {x: 0.2, y: 0.2}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
@@ -174,7 +174,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.05, y: 0.05, z: 0.05}
+  m_LocalScale: {x: 0.10000001, y: 0.10000001, z: 0.05}
   m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 4984624886654572639}
@@ -224,7 +224,7 @@ SpriteRenderer:
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
-  m_DrawMode: 0
+  m_DrawMode: 1
   m_Size: {x: 0.2, y: 0.2}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
@@ -1211,8 +1211,8 @@ GameObject:
   - component: {fileID: 2038948978265102462}
   - component: {fileID: 8644192857832922400}
   - component: {fileID: 7302683130375540734}
-  - component: {fileID: 6613598736387990720}
   - component: {fileID: 278063313867506157}
+  - component: {fileID: 6613598736387990720}
   - component: {fileID: 1394363023484580083}
   - component: {fileID: 5339566166535882300}
   m_Layer: 0
@@ -1269,20 +1269,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _occlusionShadersMode: 2
   _removeHands: 0
-  _trackingSpace: {fileID: 2038948978265102462}
---- !u!114 &6613598736387990720
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7254734392762225021}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 88ccf2da8cfbed844a4e1e0bf87e2a24, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  computeShader: {fileID: 7200000, guid: 399dfec21ac4def4c896fedf94178498, type: 3}
+  _trackingSpace: {fileID: 5322712704338568415}
 --- !u!114 &278063313867506157
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1296,7 +1283,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   envDepthTextureProvider: {fileID: 7302683130375540734}
-  trackingSpace: {fileID: 2038948978265102462}
+  trackingSpace: {fileID: 5322712704338568415}
+--- !u!114 &6613598736387990720
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7254734392762225021}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 88ccf2da8cfbed844a4e1e0bf87e2a24, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  computeShader: {fileID: 7200000, guid: 399dfec21ac4def4c896fedf94178498, type: 3}
 --- !u!114 &1394363023484580083
 MonoBehaviour:
   m_ObjectHideFlags: 0
