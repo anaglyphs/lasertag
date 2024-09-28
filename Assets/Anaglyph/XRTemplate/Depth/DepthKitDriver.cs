@@ -60,7 +60,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 				dk_Proj[i] = CalculateDepthProjMatrix(desc);
 				dk_InvProj[i] = Matrix4x4.Inverse(dk_Proj[i]);
 
-				dk_View[i] = trackingSpace.localToWorldMatrix * CalculateDepthViewMatrix(desc);
+				dk_View[i] = CalculateDepthViewMatrix(desc) * trackingSpace.worldToLocalMatrix;
 				dk_InvView[i] = Matrix4x4.Inverse(dk_View[i]);
 			}
 

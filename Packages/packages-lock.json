@@ -7,20 +7,6 @@
       "dependencies": {},
       "hash": "3e7f8c52eb46548aa6c55db054112fab4ec48211"
     },
-    "com.meta.movement": {
-      "version": "https://github.com/oculus-samples/Unity-Movement.git",
-      "depth": 0,
-      "source": "git",
-      "dependencies": {
-        "com.meta.xr.sdk.core": "63.0.0",
-        "com.meta.xr.sdk.interaction": "63.0.0",
-        "com.meta.xr.sdk.interaction.ovr": "63.0.0",
-        "com.unity.textmeshpro": "3.0.6",
-        "com.unity.animation.rigging": "1.2.1",
-        "com.unity.burst": "1.4.1"
-      },
-      "hash": "e4d0be44e97e3086ae7ad8c1522469d85ed1c2c5"
-    },
     "com.meta.xr.depthapi": {
       "version": "https://github.com/oculus-samples/Unity-DepthAPI.git?path=/Packages/com.meta.xr.depthapi",
       "depth": 0,
@@ -46,31 +32,11 @@
       "dependencies": {}
     },
     "com.meta.xr.sdk.haptics": {
-      "version": "68.0.1",
-      "depth": 0,
-      "source": "registry",
-      "dependencies": {
-        "com.meta.xr.sdk.core": "68.0.2"
-      },
-      "url": "https://packages.unity.com"
-    },
-    "com.meta.xr.sdk.interaction": {
-      "version": "68.0.2",
-      "depth": 1,
-      "source": "registry",
-      "dependencies": {
-        "com.unity.ugui": "1.0.0",
-        "com.unity.textmeshpro": "3.0.6"
-      },
-      "url": "https://packages.unity.com"
-    },
-    "com.meta.xr.sdk.interaction.ovr": {
       "version": "68.0.2",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.meta.xr.sdk.core": "68.0.3",
-        "com.meta.xr.sdk.interaction": "68.0.2"
+        "com.meta.xr.sdk.core": "68.0.3"
       },
       "url": "https://packages.unity.com"
     },
@@ -95,16 +61,6 @@
       "depth": 0,
       "source": "builtin",
       "dependencies": {}
-    },
-    "com.unity.animation.rigging": {
-      "version": "1.2.1",
-      "depth": 1,
-      "source": "registry",
-      "dependencies": {
-        "com.unity.burst": "1.4.1",
-        "com.unity.test-framework": "1.1.24"
-      },
-      "url": "https://packages.unity.com"
     },
     "com.unity.burst": {
       "version": "1.8.16",
@@ -309,15 +265,6 @@
       "dependencies": {
         "com.unity.test-framework": "1.0.16",
         "com.unity.settings-manager": "1.0.1"
-      },
-      "url": "https://packages.unity.com"
-    },
-    "com.unity.textmeshpro": {
-      "version": "3.0.6",
-      "depth": 1,
-      "source": "registry",
-      "dependencies": {
-        "com.unity.ugui": "1.0.0"
       },
       "url": "https://packages.unity.com"
     },
