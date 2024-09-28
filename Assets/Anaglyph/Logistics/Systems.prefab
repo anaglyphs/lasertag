@@ -185,9 +185,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   closestIndicator: {fileID: 577747644057606694}
   maxDistanceToAnchorTo: 8
-  calibrateDelaySeconds: 0.1
-  colocationNoticeTransform: {fileID: 8328524260445403724}
-  colocationNoticeVerticalOffset: 1.5
 --- !u!114 &1393560638002658404
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -416,6 +413,19 @@ MonoBehaviour:
           m_FloatArgument: 0
           m_StringArgument: 
           m_BoolArgument: 1
+        m_CallState: 2
+      - m_Target: {fileID: 11400000, guid: 5390df5bc7d02f14081ac7755da55437, type: 2}
+        m_TargetAssemblyTypeName: VariableObjects.GenericVariableObject`1[[System.Boolean,
+          mscorlib
+        m_MethodName: Set
+        m_Mode: 6
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
         m_CallState: 2
 --- !u!114 &7812237449445609425
 MonoBehaviour:

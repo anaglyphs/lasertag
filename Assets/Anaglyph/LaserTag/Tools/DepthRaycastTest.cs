@@ -1,6 +1,6 @@
 using UnityEngine;
 using Anaglyph.XRTemplate;
-using Anaglyph.XRTemplate.Depth;
+using Anaglyph.XRTemplate.DepthKit;
 
 namespace Anaglyph.Lasertag
 {
@@ -12,8 +12,7 @@ namespace Anaglyph.Lasertag
 
 		private void Update()
 		{
-			bool didHit = DepthCast.Raycast(new Ray(transform.position, transform.forward), out DepthCastResult hit, maxLength: 10f, handRejection: true);
-			laser.enabled = didHit;
+			bool didHit = DepthCast.Raycast(new Ray(transform.position, transform.forward), out DepthCastResult hit, maxLength: 30f, handRejection: true);
 
 			if (didHit)
 			{

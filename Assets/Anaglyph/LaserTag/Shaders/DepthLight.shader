@@ -78,29 +78,40 @@ Shader "Lasertag/DepthLight"
 
 			half4 frag(Varyings IN) : SV_Target 
 			{
-				// UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(IN);
+				UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(IN);
+
+				const int eye = unity_StereoEyeIndex;
+
+				const float3 ndc = WorldtoNDC(IN.positionWS, eye); 
 				
-				// const int slice = unity_StereoEyeIndex;
+				const float depthNDC = SampleDepthNDC(ndc.xy, eye);
 
-				// const float2 uv = (IN.positionHCSTexCoord.xy / IN.positionHCSTexCoord.w) * 0.5 + float2(0.5, 0.5);
+				float2 uv = ndc.xy;
+				float3 lightPos = mul(unity_ObjectToWorld, float4(0,0,0,1)).xyz;
+				float3 depthWorld = NDCtoWorld(float3(uv, depthNDC), eye);
+
+				uv = ndc.xy + float2(0.001, 0.0);
+				float3 depthWorldH = NDCtoWorld(float3(uv, SampleDepthNDC(uv, eye)), eye);
+
+				uv = ndc.xy + float2(0.0, 0.001);
+				float3 depthWorldV = NDCtoWorld(float3(uv, SampleDepthNDC(uv, eye)), eye);
+	
+				const float3 hDeriv = depthWorldH - depthWorld;
+				const float3 vDeriv = depthWorldV - depthWorld;
+	
+				float3 worldNorm = -normalize(cross(hDeriv, vDeriv));
+
+				float3 diff = lightPos - depthWorld;
 				
-				// const float deviceDepth = SampleDepthDK(uv, slice);
+				float3 lightDir = normalize(diff);
 
-				// float3 lightPos = mul(unity_ObjectToWorld, float4(0,0,0,1)).xyz;
-				// float3 worldPos = ComputeWorldSpacePositionDK(uv, deviceDepth, 1, slice);
-				// float3 worldNorm = ComputeWorldSpaceNormalDK(uv, worldPos, slice);
-
-				// float3 diff = lightPos - worldPos;
+				float dist = length(diff);
+				float rad = length(mul(unity_ObjectToWorld, float4(1,0,0,0))) / 2;
 				
-				// float3 lightDir = normalize(diff);
+				float intensity = max(dot(worldNorm, lightDir), 0.0) * sqr(max(0, 1 - dist / rad)) * _Intensity; 
 
-				// float dist = length(diff);
-				// float rad = length(mul(unity_ObjectToWorld, float4(1,0,0,0))) / 2;
-				
-				// float intensity = max(dot(worldNorm, lightDir), 0.0) * sqr(max(0, 1 - dist / rad)) * _Intensity; 
-
-				// return float4(_Color.rgb * intensity, 0);
-				return float4(_Color.rgb, 0);
+				return float4(_Color.rgb * intensity, 0);
+				// return float4(worldNorm, 0);
 			}
 
 			ENDHLSL

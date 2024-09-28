@@ -1,9 +1,5 @@
-using Meta.XR.EnvironmentDepth;
-using Unity.XR.Oculus;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
-
 
 /**
  * Based on code by Jude Tudor (? or Tudor Jude ?)
@@ -17,7 +13,7 @@ public struct DepthCastResult
 	public Vector3 Normal;
 }
 
-namespace Anaglyph.XRTemplate.Depth
+namespace Anaglyph.XRTemplate.DepthKit
 {
 	[DefaultExecutionOrder(-30)]
 	public class DepthCast : MonoBehaviour
@@ -32,15 +28,6 @@ namespace Anaglyph.XRTemplate.Depth
 		private static readonly int NumSamplesId = Shader.PropertyToID("NumSamples");
 
 		[SerializeField] private ComputeShader computeShader;
-		[SerializeField] private EnvironmentDepthManager envDepthTextureProvider;
-
-		//private static readonly Vector2Int DefaultEnvironmentDepthTextureSize = new Vector2Int(2000, 2000);
-
-		//public Vector2Int environmentDepthTextureSize = DefaultEnvironmentDepthTextureSize;
-
-		private bool depthEnabled = false;
-
-		private List<Vector3> worldSamples = new List<Vector3>(500);
 
 		/// <summary>
 		/// 
@@ -66,7 +53,7 @@ namespace Anaglyph.XRTemplate.Depth
 		{
 			result = default;
 
-			if (!depthEnabled)
+			if (!DepthKitDriver.DepthAvailable)
 			{
 				if (Debug.isDebugBuild)
 					Debug.Log("Depth incapable or disabled! Falling back to floorcast...");
@@ -181,16 +168,10 @@ namespace Anaglyph.XRTemplate.Depth
 
 		private void Awake()
 		{
-
 			Instance = this;
 
 			resultsCB?.Release();
 			resultsCB = null;
-
-			if (envDepthTextureProvider == null)
-			{
-				envDepthTextureProvider = FindObjectOfType<EnvironmentDepthManager>(true);
-			}
 		}
 
 		private void OnEnable()
@@ -200,48 +181,16 @@ namespace Anaglyph.XRTemplate.Depth
 
 		private void Update()
 		{
-			UpdateCurrentRenderingState();
+			if (!DepthKitDriver.DepthAvailable)
+				return;
+
+			computeShader.SetTexture(0, "dk_DepthTexture",
+					Shader.GetGlobalTexture(DepthKitDriver.dk_DepthTexture_ID));
 		}
 
 		private void OnDestroy()
 		{
 			resultsCB?.Release();
-		}
-
-		private void UpdateCurrentRenderingState()
-		{
-			depthEnabled = Utils.GetEnvironmentDepthSupported() &&
-				envDepthTextureProvider != null &&
-				envDepthTextureProvider.IsDepthAvailable;
-
-			if (!depthEnabled)
-				return;
-
-			computeShader.SetTexture(0, "dk_DepthTexture",
-					Shader.GetGlobalTexture("dk_DepthTexture"));
-
-			{
-				//computeShader.SetMatrixArray("dk_DepthTexReprojMatrices",
-				//	Shader.GetGlobalMatrixArray("dk_DepthTexReprojMatrices"));
-
-				//computeShader.SetMatrixArray("dk_InvDepthTexReprojMatrices",
-				//	Shader.GetGlobalMatrixArray("dk_InvDepthTexReprojMatrices"));
-
-				//computeShader.SetVector("dk_DepthTexZBufferParams",
-				//		Shader.GetGlobalVector("dk_DepthTexZBufferParams"));
-
-				//computeShader.SetMatrixArray("dk_StereoMatrixInvVP",
-				//	Shader.GetGlobalMatrixArray("unity_StereoMatrixInvVP"));
-
-				//computeShader.SetMatrixArray("dk_StereoMatrixVP",
-				//	Shader.GetGlobalMatrixArray("unity_StereoMatrixVP"));
-
-				//computeShader.SetMatrixArray("dk_StereoMatrixV",
-				//	Shader.GetGlobalMatrixArray("unity_StereoMatrixV"));
-
-				//computeShader.SetMatrixArray("dk_StereoMatrixInvP",
-				//	Shader.GetGlobalMatrixArray("unity_StereoMatrixInvP"));
-			}
 		}
 
 		private ComputeBuffer GetComputeBuffers(int size)
@@ -329,13 +278,5 @@ namespace Anaglyph.XRTemplate.Depth
 
 			return GeometryUtility.TestPlanesAABB(frustum, bb);
 		}
-
-		//private void OnValidate()
-		//{
-		//	if(environmentDepthTextureSize == default)
-		//	{
-		//		environmentDepthTextureSize = DefaultEnvironmentDepthTextureSize;
-		//	}
-		//}
 	}
 }

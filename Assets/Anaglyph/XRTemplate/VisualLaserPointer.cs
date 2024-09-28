@@ -5,7 +5,7 @@ namespace Anaglyph.XRTemplate
 {
 	[RequireComponent(typeof(LineRenderer))]
 
-	[DefaultExecutionOrder(-100)]
+	[DefaultExecutionOrder(32000)]
 	public class LineRendererLaser : MonoBehaviour
 	{
 		public Vector3 startOffset = new Vector3(0, 0, 0.05f);
@@ -14,6 +14,8 @@ namespace Anaglyph.XRTemplate
 		private Vector3 localEndPos;
 
 		[SerializeField] private Raycaster casterSubscribed;
+
+		private bool setForFrame;
 
 		private void Awake()
 		{
@@ -46,27 +48,25 @@ namespace Anaglyph.XRTemplate
 			lineRenderer.SetPosition(0, startOffset);
 		}
 
-		private void Update()
+		private void LateUpdate()
 		{
-			lineRenderer.enabled = false;
+			lineRenderer.SetPosition(1, localEndPos);
+			lineRenderer.enabled = setForFrame;
+
+			setForFrame = false;
+			localEndPos = Vector3.forward;
 		}
 
 		private void OnCast()
 		{
-			lineRenderer.enabled = true;
 			localEndPos = Vector3.forward;
+			setForFrame = true;
 		}
 
 		public void SetEndPositionForFrame(Vector3 worldPos)
 		{
-			lineRenderer.enabled = true;
 			localEndPos = transform.InverseTransformPoint(worldPos);
-		}
-
-		private void OnWillRenderObject()
-		{
-			lineRenderer.SetPosition(1, localEndPos);
-			localEndPos = Vector3.forward;
+			setForFrame = true;
 		}
 	}
 }

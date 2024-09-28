@@ -1,5 +1,5 @@
 using Anaglyph.XRTemplate;
-using Anaglyph.XRTemplate.Depth;
+using Anaglyph.XRTemplate.DepthKit;
 using System;
 using Unity.Netcode;
 using UnityEngine;
@@ -102,7 +102,7 @@ namespace Anaglyph.Lasertag
 		private bool Raycast(out Vector3 pos)
 		{
 			Ray ray = new Ray(transform.TransformPoint(rayOriginOffset), transform.forward);
-			bool hit = DepthCast.Raycast(ray, out var result, 8, handRejection: true);
+			bool hit = DepthCast.Raycast(ray, out var result, handRejection: true);
 			pos = result.Position + Vector3.up * objectVerticalOffset;
 			return hit;
 		}

@@ -1,6 +1,6 @@
 using Anaglyph.Lasertag.Logistics;
 using Anaglyph.Lasertag.Networking;
-using Anaglyph.XRTemplate.Depth;
+using Anaglyph.XRTemplate.DepthKit;
 using System.Collections;
 using System.Threading.Tasks;
 using Unity.Netcode;
