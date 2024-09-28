@@ -210,7 +210,7 @@ namespace Anaglyph.XRTemplate.Depth
 
 		private void UpdateCurrentRenderingState()
 		{
-			depthEnabled = Unity.XR.Oculus.Utils.GetEnvironmentDepthSupported() &&
+			depthEnabled = Utils.GetEnvironmentDepthSupported() &&
 				envDepthTextureProvider != null &&
 				envDepthTextureProvider.IsDepthAvailable;
 
@@ -220,26 +220,28 @@ namespace Anaglyph.XRTemplate.Depth
 			computeShader.SetTexture(0, "dk_DepthTexture",
 					Shader.GetGlobalTexture("dk_DepthTexture"));
 
-			computeShader.SetMatrixArray("dk_DepthTexReprojMatrices",
-				Shader.GetGlobalMatrixArray("dk_DepthTexReprojMatrices"));
+			{
+				//computeShader.SetMatrixArray("dk_DepthTexReprojMatrices",
+				//	Shader.GetGlobalMatrixArray("dk_DepthTexReprojMatrices"));
 
-			computeShader.SetMatrixArray("dk_InvDepthTexReprojMatrices",
-				Shader.GetGlobalMatrixArray("dk_InvDepthTexReprojMatrices"));
+				//computeShader.SetMatrixArray("dk_InvDepthTexReprojMatrices",
+				//	Shader.GetGlobalMatrixArray("dk_InvDepthTexReprojMatrices"));
 
-			computeShader.SetVector("dk_DepthTexZBufferParams",
-					Shader.GetGlobalVector("dk_DepthTexZBufferParams"));
+				//computeShader.SetVector("dk_DepthTexZBufferParams",
+				//		Shader.GetGlobalVector("dk_DepthTexZBufferParams"));
 
-			computeShader.SetMatrixArray("dk_StereoMatrixInvVP",
-				Shader.GetGlobalMatrixArray("unity_StereoMatrixInvVP"));
+				//computeShader.SetMatrixArray("dk_StereoMatrixInvVP",
+				//	Shader.GetGlobalMatrixArray("unity_StereoMatrixInvVP"));
 
-			computeShader.SetMatrixArray("dk_StereoMatrixVP",
-				Shader.GetGlobalMatrixArray("unity_StereoMatrixVP"));
+				//computeShader.SetMatrixArray("dk_StereoMatrixVP",
+				//	Shader.GetGlobalMatrixArray("unity_StereoMatrixVP"));
 
-			computeShader.SetMatrixArray("dk_StereoMatrixV",
-				Shader.GetGlobalMatrixArray("unity_StereoMatrixV"));
+				//computeShader.SetMatrixArray("dk_StereoMatrixV",
+				//	Shader.GetGlobalMatrixArray("unity_StereoMatrixV"));
 
-			computeShader.SetMatrixArray("dk_StereoMatrixInvP",
-				Shader.GetGlobalMatrixArray("unity_StereoMatrixInvP"));
+				//computeShader.SetMatrixArray("dk_StereoMatrixInvP",
+				//	Shader.GetGlobalMatrixArray("unity_StereoMatrixInvP"));
+			}
 		}
 
 		private ComputeBuffer GetComputeBuffers(int size)

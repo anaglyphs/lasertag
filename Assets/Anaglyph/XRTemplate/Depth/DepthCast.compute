@@ -29,19 +29,31 @@ void CSMain(uint3 id : SV_DispatchThreadID)
 	
 	float rayDist = i / (float) NumSamples;
 	 
-	float4 rayPos = float4(lerp(WorldStart, WorldEnd, rayDist), 1);
-	
-	float4 rayInDepthHCS = mul(dk_DepthTexReprojMatrices[slice], rayPos);
-	float2 rayInDepthUV = HCStoNDC(rayInDepthHCS).xy;
+	float3 rayWorld = lerp(WorldStart, WorldEnd, rayDist);
+    float3 rayNDC = WorldtoNDC(rayWorld, slice);
+    float2 rayUV = rayNDC.xy;
 
-    float envDepth = SampleDepth(rayInDepthUV, 0);
+	// depth compare to find closest point of intersection
+    float envDepth = SampleDepth(rayUV, slice);
+	RaycastResults[i].ZDepthDiff = envDepth - rayNDC.z;
 	
-    float4 depthPosHCS = NDCtoHCS(float3(rayInDepthUV, envDepth), rayInDepthHCS.w);
-    float4 depthPosWorld = HCStoWorld(depthPosHCS, slice);
+	// world pos position
+    float3 depthWorld = NDCtoWorld(float3(rayUV, envDepth), slice);
+	RaycastResults[i].Position = depthWorld;
 	
-    float envDepthNDC = envDepth * 2.0 - 1.0;
-    RaycastResults[i].ZDepthDiff = envDepthNDC - rayInDepthHCS.z / rayInDepthHCS.w;
+	// world norm
+    rayUV = rayNDC.xy + float2(0.01, 0.0);
+    float3 depthWorldH = NDCtoWorld(float3(rayUV, SampleDepth(rayUV, slice)), slice);
+
+    rayUV = rayNDC.xy + float2(0.0, 0.01);
+    float3 depthWorldV = NDCtoWorld(float3(rayUV, SampleDepth(rayUV, slice)), slice);
 	
-    RaycastResults[i].Position = depthPosWorld.xyz;
-	RaycastResults[i].Normal = float3(0, 1, 0);
+	float3 hDeriv = depthWorldH - depthWorld;
+	float3 vDeriv = depthWorldV - depthWorld;
+	
+	float3 norm = -normalize(cross(hDeriv, vDeriv));
+#if FLIP_UVS
+	norm = -norm;
+#endif
+    RaycastResults[i].Normal = norm;
 }
