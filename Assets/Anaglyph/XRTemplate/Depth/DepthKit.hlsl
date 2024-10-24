@@ -1,56 +1,54 @@
 // Anaglyph depth kit
 
-uniform Texture2DArray<float> dk_DepthTexture;
+uniform Texture2DArray<float> agDepthTex;
+uniform Texture2DArray<float3> agDepthNormalTex;
 uniform SamplerState bilinearClampSampler;
 
-uniform float4x4 dk_Proj[2];
-uniform float4x4 dk_InvProj[2];
+uniform float4x4 agDepthProj[2];
+uniform float4x4 agDepthProjInv[2];
 
-uniform float4x4 dk_View[2];
-uniform float4x4 dk_InvView[2];
+uniform float4x4 agDepthView[2];
+uniform float4x4 agDepthViewInv[2];
 
-/**
-uniform float4 dk_ZBufferParams;
-uniform float4x4 dk_StereoMatrixV[2];
-uniform float4x4 dk_StereoMatrixVP[2];
-uniform float4x4 dk_StereoMatrixInvVP[2];
-uniform float4x4 dk_StereoMatrixInvP[2];
-**/
-
-float SampleDepthNDC(float2 uv, int eye = 0)
+float agDepthSample(float2 uv, int eye = 0)
 {	
-    return dk_DepthTexture.SampleLevel(bilinearClampSampler, float3(uv.xy, eye), 0);
+    return agDepthTex.SampleLevel(bilinearClampSampler, float3(uv.xy, eye), 0);
 }
 
-float4 WorldtoHCS(float3 worldPos, int eye = 0)
+float3 agDepthNormalSample(float2 uv, int eye = 0)
 {
-    return mul(dk_Proj[eye], mul(dk_View[eye], float4(worldPos, 1)));
+	return agDepthNormalTex.SampleLevel(bilinearClampSampler, float3(uv.xy, eye), 0);
 }
 
-float4 HCStoWorldH(float4 hcs, int eye = 0)
+float4 agDepthWorldToHCS(float3 worldPos, int eye = 0)
 {
-    return mul(dk_InvView[eye], mul(dk_InvProj[eye], hcs));
+    return mul(agDepthProj[eye], mul(agDepthView[eye], float4(worldPos, 1)));
 }
 
-float3 HCStoNDC(float4 hcs)
+float4 agDepthHCStoWorldH(float4 hcs, int eye = 0)
+{
+    return mul(agDepthViewInv[eye], mul(agDepthProjInv[eye], hcs));
+}
+
+float3 agDepthHCStoNDC(float4 hcs)
 {
 	return (hcs.xyz / hcs.w) * 0.5 + 0.5;
 }
 
-float4 NDCtoHCS(float3 ndc)
+float4 agDepthNDCtoHCS(float3 ndc)
 {
 	return float4(ndc * 2.0 - 1.0, 1);
 }
 
-float3 WorldtoNDC(float3 worldPos, int eye = 0)
+float3 agDepthWorldToNDC(float3 worldPos, int eye = 0)
 {
-    float4 hcs = WorldtoHCS(worldPos, eye);
-	return HCStoNDC(hcs);
+    float4 hcs = agDepthWorldToHCS(worldPos, eye);
+	return agDepthHCStoNDC(hcs);
 }
 
-float3 NDCtoWorld(float3 ndc, int eye = 0)
+float3 agDepthNDCtoWorld(float3 ndc, int eye = 0)
 {
-    float4 hcs = NDCtoHCS(ndc);
-    float4 worldH = HCStoWorldH(hcs, eye);
+    float4 hcs = agDepthNDCtoHCS(ndc);
+    float4 worldH = agDepthHCStoWorldH(hcs, eye);
     return worldH.xyz / worldH.w;
 }

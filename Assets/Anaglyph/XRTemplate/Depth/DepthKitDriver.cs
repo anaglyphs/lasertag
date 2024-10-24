@@ -7,26 +7,25 @@ namespace Anaglyph.XRTemplate.DepthKit
 	[DefaultExecutionOrder(-40)]
 	public class DepthKitDriver : MonoBehaviour
 	{
-		Matrix4x4[] dk_Proj = new Matrix4x4[2];
-		Matrix4x4[] dk_InvProj = new Matrix4x4[2];
+		Matrix4x4[] agDepthProj = new Matrix4x4[2];
+		Matrix4x4[] agDepthProjInv = new Matrix4x4[2];
 
-		Matrix4x4[] dk_View = new Matrix4x4[2];
-		Matrix4x4[] dk_InvView = new Matrix4x4[2];
+		Matrix4x4[] agDepthView = new Matrix4x4[2];
+		Matrix4x4[] agDepthViewInv = new Matrix4x4[2];
 
 		public static readonly int Meta_EnvironmentDepthTexture_ID = Shader.PropertyToID("_EnvironmentDepthTexture");
-		public static readonly int dk_DepthTexture_ID = Shader.PropertyToID("dk_DepthTexture");
-		public static readonly int dk_NormalTexture_ID = Shader.PropertyToID("dk_NormalTexture");
+		public static readonly int agDepthTex_ID = Shader.PropertyToID("agDepthTex");
+		public static readonly int agDepthNormTex_ID = Shader.PropertyToID("agDepthNormalTex");
 
-		public static readonly int dk_Proj_ID = Shader.PropertyToID(nameof(dk_Proj));
-		public static readonly int dk_InvProj_ID = Shader.PropertyToID(nameof(dk_InvProj));
+		public static readonly int agDepthProj_ID = Shader.PropertyToID(nameof(agDepthProj));
+		public static readonly int agDepthProjInv_ID = Shader.PropertyToID(nameof(agDepthProjInv));
 
-		public static readonly int dk_View_ID = Shader.PropertyToID(nameof(dk_View));
-		public static readonly int dk_InvView_ID = Shader.PropertyToID(nameof(dk_InvView));
+		public static readonly int agDepthView_ID = Shader.PropertyToID(nameof(agDepthView));
+		public static readonly int agDepthViewInv_ID = Shader.PropertyToID(nameof(agDepthViewInv));
 
 		[SerializeField] private EnvironmentDepthManager envDepthTextureProvider;
-		//[SerializeField] private Material normalShader;
-
-		//private RenderTexture normalTexture;
+		[SerializeField] private Shader normalTexShader;
+		[SerializeField] private CustomRenderTexture normalTexture;
 
 		public Transform trackingSpace;
 		public static bool DepthAvailable { get; private set; }
@@ -38,56 +37,49 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		public void UpdateCurrentRenderingState()
 		{
-			DepthAvailable = Utils.GetEnvironmentDepthSupported() &&
+			DepthAvailable = //Utils.GetEnvironmentDepthSupported() &&
 				envDepthTextureProvider != null &&
 				envDepthTextureProvider.IsDepthAvailable;
 
 			if (!DepthAvailable)
 				return;
 
-			//if(normalTexture == null)
-			//{
-			//	normalTexture = new RenderTexture()
-			//}
+			Texture depthTex = Shader.GetGlobalTexture(Meta_EnvironmentDepthTexture_ID);
 
-			Shader.SetGlobalTexture(dk_DepthTexture_ID, 
-				Shader.GetGlobalTexture(Meta_EnvironmentDepthTexture_ID));
+			Shader.SetGlobalTexture(agDepthTex_ID, depthTex);
 
-			for (int i = 0; i < dk_Proj.Length; i++)
+			if(normalTexture == null)
+			{
+				normalTexture = new(depthTex.width, depthTex.height, UnityEngine.Experimental.Rendering.GraphicsFormat.R8G8B8A8_SNorm);
+				normalTexture.dimension = UnityEngine.Rendering.TextureDimension.Tex2DArray;
+				normalTexture.volumeDepth = 2;
+				normalTexture.useMipMap = false;
+				normalTexture.material = new Material(normalTexShader);
+				normalTexture.updateMode = CustomRenderTextureUpdateMode.Realtime;
+
+				normalTexture.Initialize();
+			}
+
+			//normalTexture.Update();
+
+			Shader.SetGlobalTexture(agDepthNormTex_ID,
+				normalTexture);
+
+			for (int i = 0; i < agDepthProj.Length; i++)
 			{
 				var desc = Utils.GetEnvironmentDepthFrameDesc(i);
 
-				dk_Proj[i] = CalculateDepthProjMatrix(desc);
-				dk_InvProj[i] = Matrix4x4.Inverse(dk_Proj[i]);
+				agDepthProj[i] = CalculateDepthProjMatrix(desc);
+				agDepthProjInv[i] = Matrix4x4.Inverse(agDepthProj[i]);
 
-				dk_View[i] = CalculateDepthViewMatrix(desc) * trackingSpace.worldToLocalMatrix;
-				dk_InvView[i] = Matrix4x4.Inverse(dk_View[i]);
+				agDepthView[i] = CalculateDepthViewMatrix(desc) * trackingSpace.worldToLocalMatrix;
+				agDepthViewInv[i] = Matrix4x4.Inverse(agDepthView[i]);
 			}
 
-			Shader.SetGlobalMatrixArray(nameof(dk_Proj), dk_Proj);
-			Shader.SetGlobalMatrixArray(nameof(dk_InvProj), dk_InvProj);
-			Shader.SetGlobalMatrixArray(nameof(dk_View), dk_View);
-			Shader.SetGlobalMatrixArray(nameof(dk_InvView), dk_InvView);
-
-			{
-				//Shader.SetGlobalVector("dk_DepthTexZBufferParams",
-				//		Shader.GetGlobalVector(ZBufferParamsID));
-
-				//Shader.SetGlobalVector("dk_ZBufferParams",
-				//	Shader.GetGlobalVector("_ZBufferParams"));
-
-				//Shader.SetGlobalMatrixArray("dk_StereoMatrixInvVP",
-				//	Shader.GetGlobalMatrixArray("unity_StereoMatrixInvVP"));
-
-				//Shader.SetGlobalMatrixArray("dk_StereoMatrixVP",
-				//	Shader.GetGlobalMatrixArray("unity_StereoMatrixVP"));
-
-				//Shader.SetGlobalMatrixArray("dk_StereoMatrixV",
-				//	Shader.GetGlobalMatrixArray("unity_StereoMatrixV"));
-
-				//Shader.SetGlobalMatrixArray("dk_StereoMatrixInvP",
-				//	Shader.GetGlobalMatrixArray("unity_StereoMatrixInvP"));
-			}
+			Shader.SetGlobalMatrixArray(nameof(agDepthProj), agDepthProj);
+			Shader.SetGlobalMatrixArray(nameof(agDepthProjInv), agDepthProjInv);
+			Shader.SetGlobalMatrixArray(nameof(agDepthView), agDepthView);
+			Shader.SetGlobalMatrixArray(nameof(agDepthViewInv), agDepthViewInv);
 		}
 
 		private static readonly Vector3 _scalingVector3 = new(1, 1, -1);

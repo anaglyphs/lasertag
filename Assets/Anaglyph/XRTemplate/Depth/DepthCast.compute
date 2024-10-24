@@ -29,23 +29,23 @@ void CSMain(uint3 id : SV_DispatchThreadID)
 	const float rayStep = i / (float) NumSamples;
 	 
 	const float3 rayWorld = lerp(WorldStart, WorldEnd, rayStep);
-	const float3 rayNDC = WorldtoNDC(rayWorld);
+	const float3 rayNDC = agDepthWorldToNDC(rayWorld);
 	float2 rayUV = rayNDC.xy;
 
 	// depth compare to find closest point of intersection
-	const float envDepth = SampleDepthNDC(rayUV);
+	const float envDepth = agDepthSample(rayUV);
 	RaycastResults[i].ZDepthDiff = envDepth - rayNDC.z;
 	
 	// world pos position
-	const float3 depthWorld = NDCtoWorld(float3(rayUV, envDepth));
+	const float3 depthWorld = agDepthNDCtoWorld(float3(rayUV, envDepth));
 	RaycastResults[i].Position = depthWorld;
 	
 	// world norm
 	rayUV = rayNDC.xy + float2(0.003, 0.0);
-	float3 depthWorldH = NDCtoWorld(float3(rayUV, SampleDepthNDC(rayUV)));
+	float3 depthWorldH = agDepthNDCtoWorld(float3(rayUV, agDepthSample(rayUV)));
 
 	rayUV = rayNDC.xy + float2(0.0, 0.003);
-	float3 depthWorldV = NDCtoWorld(float3(rayUV, SampleDepthNDC(rayUV)));
+	float3 depthWorldV = agDepthNDCtoWorld(float3(rayUV, agDepthSample(rayUV)));
 	
 	const float3 hDeriv = depthWorldH - depthWorld;
 	const float3 vDeriv = depthWorldV - depthWorld;

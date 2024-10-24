@@ -184,8 +184,8 @@ namespace Anaglyph.XRTemplate.DepthKit
 			if (!DepthKitDriver.DepthAvailable)
 				return;
 
-			computeShader.SetTexture(0, "dk_DepthTexture",
-					Shader.GetGlobalTexture(DepthKitDriver.dk_DepthTexture_ID));
+			computeShader.SetTexture(0, "agDepthTex",
+					Shader.GetGlobalTexture(DepthKitDriver.agDepthTex_ID));
 		}
 
 		private void OnDestroy()

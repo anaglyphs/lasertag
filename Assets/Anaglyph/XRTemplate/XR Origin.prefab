@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 5322712704338568415}
   m_Layer: 0
-  m_Name: Camera Offset
+  m_Name: Tracking Origin
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1685,6 +1685,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   envDepthTextureProvider: {fileID: 7302683130375540734}
+  normalTexShader: {fileID: 4800000, guid: a4cf83b3b8804a5448237a612ccd5674, type: 3}
   trackingSpace: {fileID: 5322712704338568415}
 --- !u!114 &6613598736387990720
 MonoBehaviour:

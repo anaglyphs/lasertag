@@ -82,24 +82,15 @@ Shader "Lasertag/DepthLight"
 
 				const int eye = unity_StereoEyeIndex;
 
-				const float3 ndc = WorldtoNDC(IN.positionWS, eye); 
+				const float3 ndc = agDepthWorldToNDC(IN.positionWS, eye); 
 				
-				const float depthNDC = SampleDepthNDC(ndc.xy, eye);
+				const float depthNDC = agDepthSample(ndc.xy, eye);
 
 				float2 uv = ndc.xy;
 				float3 lightPos = mul(unity_ObjectToWorld, float4(0,0,0,1)).xyz;
-				float3 depthWorld = NDCtoWorld(float3(uv, depthNDC), eye);
-
-				uv = ndc.xy + float2(0.001, 0.0);
-				float3 depthWorldH = NDCtoWorld(float3(uv, SampleDepthNDC(uv, eye)), eye);
-
-				uv = ndc.xy + float2(0.0, 0.001);
-				float3 depthWorldV = NDCtoWorld(float3(uv, SampleDepthNDC(uv, eye)), eye);
+				float3 depthWorld = agDepthNDCtoWorld(float3(uv, depthNDC), eye);
 	
-				const float3 hDeriv = depthWorldH - depthWorld;
-				const float3 vDeriv = depthWorldV - depthWorld;
-	
-				float3 worldNorm = -normalize(cross(hDeriv, vDeriv));
+				float3 worldNorm = agDepthNormalSample(uv, eye);
 
 				float3 diff = lightPos - depthWorld;
 				
@@ -109,6 +100,7 @@ Shader "Lasertag/DepthLight"
 				float rad = length(mul(unity_ObjectToWorld, float4(1,0,0,0))) / 2;
 				
 				float intensity = max(dot(worldNorm, lightDir), 0.0) * sqr(max(0, 1 - dist / rad)) * _Intensity; 
+				//float intensity = sqr(max(0, 1 - dist / rad)) * _Intensity; 
 
 				return float4(_Color.rgb * intensity, 0);
 				// return float4(worldNorm, 0);
