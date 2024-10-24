@@ -1,6 +1,5 @@
 using Anaglyph;
 using UnityEngine;
-using UnityEngine.EventSystems;
 
 namespace GlassUI
 {
@@ -19,12 +18,17 @@ namespace GlassUI
 			this.SetComponent(ref rectTransform);
 		}
 
-		protected override void Awake()
-		{
-			base.Awake();
-		}
+		//protected override void Awake()
+		//{
+		//	base.Awake();
+		//}
 
 		private void Start()
+		{
+			UpdateMesh();
+		}
+
+		private void OnRectTransformDimensionsChange()
 		{
 			UpdateMesh();
 		}

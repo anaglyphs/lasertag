@@ -7,11 +7,12 @@ namespace Anaglyph.Menu
 {
 	public class PageNavigationView : MonoBehaviour
 	{
-		private List<NavigationPage> pagesHistory = new(5);
+		private List<NavPage> history = new(5);
+		public List<NavPage> History => history;
 
-		private NavigationPage previousPage;
-		private NavigationPage currentPage;
-		public NavigationPage CurrentPage => currentPage;
+		private NavPage previousPage;
+		private NavPage currentPage;
+		public NavPage CurrentPage => currentPage;
 
 		private RectTransform rectTransform;
 
@@ -22,7 +23,12 @@ namespace Anaglyph.Menu
 		public float transitionLengthSeconds = 0.3f;
 		public AnimationCurve normalizedTransitionCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
 
-		[SerializeField] private NavigationPage firstPageActive;
+		[SerializeField] private NavPage firstPageActive;
+
+		private void OnValidate()
+		{
+			this.SetComponentFromChild(ref firstPageActive);
+		}
 
 		private void Awake()
 		{
@@ -35,7 +41,7 @@ namespace Anaglyph.Menu
 			GoToPage(firstPageActive);
 		}
 
-		public void GoToPage(NavigationPage targetPage)
+		public void GoToPage(NavPage targetPage)
 		{
 			if(targetPage == null)
 				throw new Exception("Target page should not be null");
@@ -46,25 +52,25 @@ namespace Anaglyph.Menu
 			if (targetPage == currentPage)
 				return;
 
-			int targetPageHistoryIndex = pagesHistory.IndexOf(targetPage);
+			int targetPageHistoryIndex = history.IndexOf(targetPage);
 			bool targetPageIsInHistory = targetPageHistoryIndex != -1;
 
 			if(!targetPageIsInHistory)
-				pagesHistory.Add(targetPage);
+				history.Add(targetPage);
 			else
-				pagesHistory.RemoveRange(targetPageHistoryIndex + 1, pagesHistory.Count - targetPageHistoryIndex - 1);
+				history.RemoveRange(targetPageHistoryIndex + 1, history.Count - targetPageHistoryIndex - 1);
 
 			StartTransition(targetPageIsInHistory, currentPage, targetPage);
 		}
 		
 		public void GoBack()
 		{
-			if (pagesHistory.Count < 2) return;
+			if (history.Count < 2) return;
 
-			GoToPage(pagesHistory[pagesHistory.Count - 2]);
+			GoToPage(history[history.Count - 2]);
 		}
 
-		private void StartTransition(bool backward, NavigationPage fromPage, NavigationPage toPage)
+		private void StartTransition(bool backward, NavPage fromPage, NavPage toPage)
 		{
 			if (toPage == null || fromPage == null) {
 				currentPage = toPage;
@@ -93,15 +99,23 @@ namespace Anaglyph.Menu
 			StopTransition();
 		}
 
+		private void DeactivateAllOtherObjects()
+		{
+			int currentIndex = currentPage != null ? currentPage.transform.GetSiblingIndex() : -1;
+
+			for (int i = 0; i < transform.childCount; i++)
+			{
+				if(i != currentIndex)
+					transform.GetChild(i).gameObject.SetActive(false);
+			}
+		}
+
 		private void StopTransition()
 		{
 			transitioning = false;
 			transitionStartTime = -transitionLengthSeconds;
 
-			for (int i = 0; i < transform.childCount; i++)
-			{
-				transform.GetChild(i).gameObject.SetActive(false);
-			}
+			DeactivateAllOtherObjects();
 
 			if (currentPage != null)
 			{

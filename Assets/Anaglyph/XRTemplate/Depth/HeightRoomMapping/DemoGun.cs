@@ -12,7 +12,7 @@ namespace Anaglyph.XRTemplate
         public void Shoot()
         {
             GameObject projectile = Instantiate(prefab.gameObject, transform.position, transform.rotation);
-            projectile.GetComponent<Rigidbody>().velocity = transform.forward * speed;
+            projectile.GetComponent<Rigidbody>().linearVelocity = transform.forward * speed;
         }
     }
 }

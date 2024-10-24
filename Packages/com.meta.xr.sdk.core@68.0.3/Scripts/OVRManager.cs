@@ -2427,7 +2427,7 @@ public partial class OVRManager : MonoBehaviour, OVRMixedRealityCaptureConfigura
     {
         if (s_displaySubsystems == null)
             s_displaySubsystems = new List<XRDisplaySubsystem>();
-        SubsystemManager.GetInstances(s_displaySubsystems);
+        SubsystemManager.GetSubsystems(s_displaySubsystems);
         if (s_displaySubsystems.Count > 0)
             return s_displaySubsystems[0];
         return null;
@@ -2450,7 +2450,7 @@ public partial class OVRManager : MonoBehaviour, OVRMixedRealityCaptureConfigura
     {
         if (s_inputSubsystems == null)
             s_inputSubsystems = new List<XRInputSubsystem>();
-        SubsystemManager.GetInstances(s_inputSubsystems);
+        SubsystemManager.GetSubsystems(s_inputSubsystems);
         if (s_inputSubsystems.Count > 0)
             return s_inputSubsystems[0];
         return null;

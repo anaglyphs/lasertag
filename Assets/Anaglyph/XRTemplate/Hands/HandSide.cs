@@ -9,13 +9,13 @@ namespace Anaglyph.XRTemplate
 	{
 		public bool isRight;
 		public XRNode node { get; private set; }
-		public XRRayInteractor rayInteractor { get; private set; }
+		public UnityEngine.XR.Interaction.Toolkit.Interactors.XRRayInteractor rayInteractor { get; private set; }
 
 		private void Awake()
 		{
 			node = isRight ? XRNode.RightHand : XRNode.LeftHand;
 
-			var rayInteractors = FindObjectsOfType<XRRayInteractor>(true);
+			var rayInteractors = FindObjectsOfType<UnityEngine.XR.Interaction.Toolkit.Interactors.XRRayInteractor>(true);
 			foreach (var interactor in rayInteractors)
 			{
 				if (((XRController)interactor.xrController).controllerNode == node)

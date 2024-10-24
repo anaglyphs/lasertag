@@ -16,7 +16,7 @@ namespace Anaglyph.Menu
 		{
 			if (eventData is TrackedDeviceEventData trackedDeviceEventData)
 			{
-				if (trackedDeviceEventData.interactor is XRBaseControllerInteractor xrInteractor)
+				if (trackedDeviceEventData.interactor is UnityEngine.XR.Interaction.Toolkit.Interactors.XRBaseInputInteractor xrInteractor)
 					if (xrInteractor.xrController is XRController xrController)
 						if (xrController.controllerNode == XRNode.LeftHand || xrController.controllerNode == XRNode.RightHand)
 						{

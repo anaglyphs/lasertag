@@ -130,7 +130,7 @@ namespace Meta.XR.EnvironmentDepth
             }
 
             var displays = new List<XRDisplaySubsystem>(1);
-            SubsystemManager.GetInstances(displays);
+            SubsystemManager.GetSubsystems(displays);
             _xrDisplay = displays.Single();
             Assert.IsNotNull(_xrDisplay, nameof(_xrDisplay));
 
