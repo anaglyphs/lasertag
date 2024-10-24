@@ -1,4 +1,5 @@
 using Meta.XR.EnvironmentDepth;
+using System.Threading;
 using Unity.XR.Oculus;
 using UnityEngine;
 
@@ -14,8 +15,11 @@ namespace Anaglyph.XRTemplate.DepthKit
 		Matrix4x4[] agDepthViewInv = new Matrix4x4[2];
 
 		public static readonly int Meta_EnvironmentDepthTexture_ID = Shader.PropertyToID("_EnvironmentDepthTexture");
+
+		public static readonly int agDepthTexSize_ID = Shader.PropertyToID("agDepthTexSize");
 		public static readonly int agDepthTex_ID = Shader.PropertyToID("agDepthTex");
 		public static readonly int agDepthNormTex_ID = Shader.PropertyToID("agDepthNormalTex");
+		public static readonly int agDepthNormalTexRW_ID = Shader.PropertyToID("agDepthNormalTexRW");
 
 		public static readonly int agDepthProj_ID = Shader.PropertyToID(nameof(agDepthProj));
 		public static readonly int agDepthProjInv_ID = Shader.PropertyToID(nameof(agDepthProjInv));
@@ -24,11 +28,21 @@ namespace Anaglyph.XRTemplate.DepthKit
 		public static readonly int agDepthViewInv_ID = Shader.PropertyToID(nameof(agDepthViewInv));
 
 		[SerializeField] private EnvironmentDepthManager envDepthTextureProvider;
-		[SerializeField] private Shader normalTexShader;
-		[SerializeField] private CustomRenderTexture normalTexture;
+		[SerializeField] private ComputeShader normalTexShader;
+		private (uint x, uint y, uint z) normShadSize;
+
+		private RenderTexture normTex;
 
 		public Transform trackingSpace;
 		public static bool DepthAvailable { get; private set; }
+
+		private void Start()
+		{
+			normalTexShader.GetKernelThreadGroupSizes(0, 
+				out normShadSize.x, 
+				out normShadSize.y, 
+				out normShadSize.z);
+		}
 
 		private void Update()
 		{
@@ -48,22 +62,26 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 			Shader.SetGlobalTexture(agDepthTex_ID, depthTex);
 
-			if(normalTexture == null)
-			{
-				normalTexture = new(depthTex.width, depthTex.height, UnityEngine.Experimental.Rendering.GraphicsFormat.R8G8B8A8_SNorm);
-				normalTexture.dimension = UnityEngine.Rendering.TextureDimension.Tex2DArray;
-				normalTexture.volumeDepth = 2;
-				normalTexture.useMipMap = false;
-				normalTexture.material = new Material(normalTexShader);
-				normalTexture.updateMode = CustomRenderTextureUpdateMode.Realtime;
+			Shader.SetGlobalVector(agDepthTexSize_ID, new Vector2(depthTex.width, depthTex.height));
 
-				normalTexture.Initialize();
+			if(normTex == null)
+			{
+				normTex = new(depthTex.width, depthTex.height, 0, UnityEngine.Experimental.Rendering.GraphicsFormat.R8G8B8A8_SNorm, 1);
+
+				normTex.dimension = UnityEngine.Rendering.TextureDimension.Tex2DArray;
+				normTex.volumeDepth = 2;
+				normTex.useMipMap = false;
+				normTex.enableRandomWrite = true;
+
+				normTex.Create();
 			}
 
-			//normalTexture.Update();
+			normalTexShader.SetTexture(0, agDepthTex_ID, depthTex);
+			normalTexShader.SetTexture(0, agDepthNormalTexRW_ID, normTex);
+			normalTexShader.Dispatch(0, depthTex.width / (int)normShadSize.x, depthTex.height / (int)normShadSize.y, 2);
 
 			Shader.SetGlobalTexture(agDepthNormTex_ID,
-				normalTexture);
+				normTex);
 
 			for (int i = 0; i < agDepthProj.Length; i++)
 			{

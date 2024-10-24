@@ -1,0 +1,34 @@
+// https://github.com/oculus-samples/Unity-DepthAPI/issues/16
+#include "DepthKit.hlsl"
+
+RWTexture2DArray<float3> agDepthNormalTexRW;
+#pragma kernel CSMain
+
+int eye = 0;
+
+[numthreads(8, 8, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+	float2 texSizeF = agDepthTexSize;
+	
+	uint2 ind = id.xy;
+	float2 uv = id.xy / texSizeF;
+	uint eye = id.z;
+	
+	float3 depthWorld = agDepthNDCtoWorld(float3(uv, agDepthTex[uint3(ind, eye)]), eye);
+	
+	ind = id.xy + uint2(1, 0);
+	uv = ind / texSizeF;
+	float3 depthWorldH = agDepthNDCtoWorld(float3(uv, agDepthTex[uint3(ind, eye)]), eye);
+
+	ind = id.xy + uint2(0, 1);
+	uv = ind / texSizeF;
+	float3 depthWorldV = agDepthNDCtoWorld(float3(uv, agDepthTex[uint3(ind, eye)]), eye);
+	
+	const float3 hDeriv = depthWorldH - depthWorld;
+	const float3 vDeriv = depthWorldV - depthWorld;
+	
+	float3 worldNorm = -normalize(cross(hDeriv, vDeriv));
+
+	agDepthNormalTexRW[id] = worldNorm;
+}

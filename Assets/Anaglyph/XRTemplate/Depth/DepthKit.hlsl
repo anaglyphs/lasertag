@@ -1,14 +1,15 @@
 // Anaglyph depth kit
 
-uniform Texture2DArray<float> agDepthTex;
-uniform Texture2DArray<float3> agDepthNormalTex;
-uniform SamplerState bilinearClampSampler;
+Texture2DArray<float> agDepthTex;
+Texture2DArray<float3> agDepthNormalTex;
+SamplerState bilinearClampSampler;
+uint2 agDepthTexSize;
 
-uniform float4x4 agDepthProj[2];
-uniform float4x4 agDepthProjInv[2];
+float4x4 agDepthProj[2];
+float4x4 agDepthProjInv[2];
 
-uniform float4x4 agDepthView[2];
-uniform float4x4 agDepthViewInv[2];
+float4x4 agDepthView[2];
+float4x4 agDepthViewInv[2];
 
 float agDepthSample(float2 uv, int eye = 0)
 {	

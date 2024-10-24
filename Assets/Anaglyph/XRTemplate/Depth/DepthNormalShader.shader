@@ -7,31 +7,33 @@ Shader "CustomRenderTexture/DepthNormals"
 	SubShader
 	{
 		Blend One Zero
+		Tags { "RenderType"="Opaque" "RenderPipeline" = "UniversalPipeline"}
+        ZWrite Off Cull Off
 
 		Pass
 		{
 			Name "DepthNormals"
 
 			HLSLPROGRAM
-			#include "UnityCustomRenderTexture.cginc"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.core/Runtime/Utilities/Blit.hlsl"
 			#include "DepthKit.hlsl"
-			#pragma vertex CustomRenderTextureVertexShader
-			#pragma fragment frag
+			#pragma vertex Vert
+            #pragma fragment frag
 			#pragma target 3.0
 
-			float4 frag(v2f_customrendertexture IN) : SV_Target
+			int eye = 0;
+
+			float4 frag(Varyings IN) : SV_Target
 			{
-				float2 uv = IN.globalTexcoord.xy;
+				float2 uv = IN.texcoord.xy;
 
-				int eye = IN.globalTexcoord.z;
-
-				float3 lightPos = mul(unity_ObjectToWorld, float4(0,0,0,1)).xyz;
 				float3 depthWorld = agDepthNDCtoWorld(float3(uv, agDepthSample(uv, eye)), eye);
 
-				uv = IN.globalTexcoord.xy + float2(0.005, 0.0);
+				uv = IN.texcoord.xy + float2(0.005, 0.0);
 				float3 depthWorldH = agDepthNDCtoWorld(float3(uv, agDepthSample(uv, eye)), eye);
 
-				uv = IN.globalTexcoord.xy + float2(0.0, 0.005);
+				uv = IN.texcoord.xy + float2(0.0, 0.005);
 				float3 depthWorldV = agDepthNDCtoWorld(float3(uv, agDepthSample(uv, eye)), eye);
 	
 				const float3 hDeriv = depthWorldH - depthWorld;
