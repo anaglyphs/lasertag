@@ -1614,6 +1614,7 @@ GameObject:
   - component: {fileID: 8644192857832922400}
   - component: {fileID: 7302683130375540734}
   - component: {fileID: 278063313867506157}
+  - component: {fileID: 5825765430486137254}
   - component: {fileID: 6613598736387990720}
   - component: {fileID: 1394363023484580083}
   - component: {fileID: 5339566166535882300}
@@ -1687,6 +1688,19 @@ MonoBehaviour:
   envDepthTextureProvider: {fileID: 7302683130375540734}
   normalTexShader: {fileID: 7200000, guid: 094ecfc2d2e1d984c9955562fea46b9d, type: 3}
   trackingSpace: {fileID: 5322712704338568415}
+--- !u!114 &5825765430486137254
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7254734392762225021}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: db8fffe207dfacc4c8753042b92956bb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  computeShader: {fileID: 7200000, guid: 968ab733b92d7c147bde23e56a4d1810, type: 3}
 --- !u!114 &6613598736387990720
 MonoBehaviour:
   m_ObjectHideFlags: 0

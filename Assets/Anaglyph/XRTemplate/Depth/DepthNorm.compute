@@ -2,12 +2,12 @@
 #include "DepthKit.hlsl"
 
 RWTexture2DArray<float3> agDepthNormalTexRW;
-#pragma kernel CSMain
+#pragma kernel DepthNorm
 
 int eye = 0;
 
 [numthreads(8, 8, 1)]
-void CSMain(uint3 id : SV_DispatchThreadID)
+void DepthNorm(uint3 id : SV_DispatchThreadID)
 {
 	float2 texSizeF = agDepthTexSize;
 	

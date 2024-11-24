@@ -1,0 +1,35 @@
+// https://github.com/oculus-samples/Unity-DepthAPI/issues/16
+#include "DepthKit.hlsl"
+
+#pragma kernel UVtoWorldDepth
+#pragma kernel WorldToWorldDepth
+
+#if defined(SHADER_API_D3D11)
+#define FLIP_UVS 1
+#endif
+
+StructuredBuffer<float2> RequestsUV;
+StructuredBuffer<float3> RequestsWorld;
+RWStructuredBuffer<float3> Results;
+
+[numthreads(64, 1, 1)]
+void UVtoWorldDepth(uint3 id : SV_DispatchThreadID) 
+{
+	const uint i = id.x;
+	
+	float3 ndc = float3(RequestsUV[i].xy, 1);
+	ndc.z = agDepthSample(ndc.xy, 0);
+	
+	Results[i] = agDepthNDCtoWorld(ndc, 0);
+}
+
+[numthreads(64, 1, 1)]
+void WorldToWorldDepth(uint3 id : SV_DispatchThreadID)
+{
+	const uint i = id.x;
+	
+	float3 ndc = agDepthWorldToNDC(RequestsWorld[i], 0);
+	ndc.z = agDepthSample(ndc.xy, 0);
+	
+	Results[i] = agDepthNDCtoWorld(ndc, 0);
+}
