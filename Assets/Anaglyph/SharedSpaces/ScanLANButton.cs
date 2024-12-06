@@ -1,39 +1,39 @@
-using NetworkDiscoveryUnity;
-using System.Collections;
-using UnityEngine;
-using UnityEngine.UI;
+//using NetworkDiscoveryUnity;
+//using System.Collections;
+//using UnityEngine;
+//using UnityEngine.UI;
 
-namespace SharedSpaces
-{
-    public class ScanLANButton : MonoBehaviour
-    {
-		public float secondsToWaitBetweenScans = 1f;
+//namespace SharedSpaces
+//{
+//    public class ScanLANButton : MonoBehaviour
+//    {
+//		public float secondsToWaitBetweenScans = 1f;
 
-		private Button button;
+//		private Button button;
 
-		private void Awake()
-		{
-			button = GetComponent<Button>();
+//		private void Awake()
+//		{
+//			button = GetComponent<Button>();
 
-			button.onClick.AddListener(delegate
-			{
-				NetworkDiscovery.Instance.SendBroadcast();
-				StartCoroutine(DisableButtonTemporarily());
-			});
-		}
+//			button.onClick.AddListener(delegate
+//			{
+//				NetworkDiscovery.Instance.SendBroadcast();
+//				StartCoroutine(DisableButtonTemporarily());
+//			});
+//		}
 
-		private void OnEnable()
-		{
-			button.interactable = true;
-		}
+//		private void OnEnable()
+//		{
+//			button.interactable = true;
+//		}
 
-		private IEnumerator DisableButtonTemporarily()
-		{
-			button.interactable = false;
+//		private IEnumerator DisableButtonTemporarily()
+//		{
+//			button.interactable = false;
 
-			yield return new WaitForSeconds(secondsToWaitBetweenScans);
+//			yield return new WaitForSeconds(secondsToWaitBetweenScans);
 
-			button.interactable = true;
-		}
-	}
-}
+//			button.interactable = true;
+//		}
+//	}
+//}

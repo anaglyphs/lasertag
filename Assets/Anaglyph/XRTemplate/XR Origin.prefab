@@ -1672,7 +1672,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _occlusionShadersMode: 2
   _removeHands: 0
-  _trackingSpace: {fileID: 5322712704338568415}
+  CustomTrackingSpace: {fileID: 5322712704338568415}
+  <MaskMeshFilters>k__BackingField: []
+  _cameraRig: {fileID: 0}
 --- !u!114 &278063313867506157
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1748,6 +1750,7 @@ MonoBehaviour:
   m_RepeatRate: 0.1
   m_TrackedDeviceDragThresholdMultiplier: 1.4
   m_TrackedScrollDeltaMultiplier: 5
+  m_BypassUIToolkitEvents: 0
   m_ActiveInputMode: 2
   m_EnableXRInput: 1
   m_EnableMouseInput: 1

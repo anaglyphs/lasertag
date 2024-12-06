@@ -120,15 +120,6 @@ namespace Anaglyph.Lasertag
 				HitRpc(pos, norm);
 
 			DespawnWithDelay();
-
-			StartCoroutine(WaitForFrame());
-		}
-
-		private IEnumerator WaitForFrame()
-		{
-			yield return new WaitForEndOfFrame();
-			yield return new WaitForEndOfFrame();
-			onFrameAfterHit.Invoke();
 		}
 
 		[Rpc(SendTo.Everyone)]
@@ -138,6 +129,14 @@ namespace Anaglyph.Lasertag
 			transform.up = norm;
 			isFlying = false;
 			onHit.Invoke();
+			StartCoroutine(WaitForFrame());
+		}
+
+		private IEnumerator WaitForFrame()
+		{
+			yield return new WaitForEndOfFrame();
+			yield return new WaitForEndOfFrame();
+			onFrameAfterHit.Invoke();
 		}
 
 		private async void DespawnWithDelay()

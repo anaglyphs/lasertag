@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 05d394ae2a81edd4cbc3c51917e766e3, type: 3}
   m_Name: OculusProjectConfig
   m_EditorClassIdentifier: 
-  targetDeviceTypes: 040000000300000002000000
+  targetDeviceTypes: 04000000030000000200000005000000
   allowOptional3DofHeadTracking: 0
   handTrackingSupport: 0
   handTrackingFrequency: 0
@@ -25,6 +25,7 @@ MonoBehaviour:
   faceTrackingSupport: 0
   eyeTrackingSupport: 0
   virtualKeyboardSupport: 0
+  colocationSessionSupport: 2
   sceneSupport: 2
   boundaryVisibilitySupport: 2
   disableBackups: 1
@@ -32,6 +33,7 @@ MonoBehaviour:
   securityXmlPath: 
   skipUnneededShaders: 0
   enableIL2CPPLTO: 1
+  removeGradleManifest: 1
   focusAware: 1
   requiresSystemKeyboard: 1
   experimentalFeaturesEnabled: 0
