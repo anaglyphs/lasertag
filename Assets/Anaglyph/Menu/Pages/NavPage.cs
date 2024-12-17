@@ -2,14 +2,14 @@ using UnityEngine;
 
 namespace Anaglyph.Menu
 {
-    [RequireComponent(typeof(RectTransform), typeof(CanvasGroup))]
+	[RequireComponent(typeof(RectTransform), typeof(CanvasGroup))]
 	public class NavPage : SuperAwakeBehavior
-    {
+	{
 		[SerializeField] private RectTransform rectTransform;
 		[SerializeField] private CanvasGroup canvasGroup;
-		 private PageNavigationView parentView;
+		private PageNavigationView parentView;
 
-        public RectTransform RectTransform => rectTransform;
+		public RectTransform RectTransform => rectTransform;
 		public CanvasGroup CanvasGroup => canvasGroup;
 		public PageNavigationView ParentView => parentView;
 
@@ -24,6 +24,7 @@ namespace Anaglyph.Menu
 			parentView = GetComponentInParent<PageNavigationView>(true);
 		}
 
+		public void NavigateHere() => ParentView.GoToPage(this);
 		public void GoBack() => parentView.GoBack();
 
 		private void OnEnable()
