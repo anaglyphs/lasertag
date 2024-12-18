@@ -12,33 +12,30 @@ namespace Anaglyph.Lasertag
 		private const ushort Port = 25001;
 		private const string Listen = "0.0.0.0";
 
-		[SerializeField] private NavPage homePage;
-		[SerializeField] private NavPage manuallyConnectPage;
-		[SerializeField] private NavPage connectingPage;
-		[SerializeField] private NavPage joinedPage;
-		[SerializeField] private NavPage hostSettingsPage;
-		[SerializeField] private NavPage hostingPage;
-
 		private NetworkManager manager;
 		private UnityTransport transport;
 
 		[Header(nameof(homePage))]
+		[SerializeField] private NavPage homePage;
 		[SerializeField] private Button hostButton;
-		[SerializeField] private Button manuallyConnectButton;
 
 		[Header(nameof(manuallyConnectPage))]
+		[SerializeField] private NavPage manuallyConnectPage;
 		[SerializeField] private InputField ipField;
 		[SerializeField] private Button connectButton;
 
 		[Header(nameof(connectingPage))]
+		[SerializeField] private NavPage connectingPage;
 		[SerializeField] private Text connectingText;
 		[SerializeField] private Button connectingCancelButton;
 
 		[Header(nameof(joinedPage))]
+		[SerializeField] private NavPage joinedPage;
 		[SerializeField] private Text joinedText;
 		[SerializeField] private Button joinedDisconnectButton;
 
 		[Header(nameof(hostingPage))]
+		[SerializeField] private NavPage hostingPage;
 		[SerializeField] private Text hostingText;
 		[SerializeField] private Button hostingStopButton;
 
@@ -51,9 +48,11 @@ namespace Anaglyph.Lasertag
 
 			// homepage
 			hostButton.onClick.AddListener(StartHost);
-			manuallyConnectButton.onClick.AddListener(manuallyConnectPage.NavigateHere);
 
 			// manually connect page
+
+			manuallyConnectPage.showBackButton = true;
+
 			ipField.onValueChanged.AddListener((string address) => transport.ConnectionData.Address = address);
 			string ip = IpText.GetLocalIPAddress();
 			int length = Mathf.Min(ip.Length, ip.LastIndexOf('.') + 1);
@@ -62,40 +61,46 @@ namespace Anaglyph.Lasertag
 			connectButton.onClick.AddListener(() => manager.StartClient());
 
 			// connecting page
+			connectingPage.showBackButton = false;
 			connectingCancelButton.onClick.AddListener(() => manager.Shutdown());
+
+			// joined page
+			joinedPage.showBackButton = false;
+			joinedDisconnectButton.onClick.AddListener(() => manager.Shutdown());
+
+			// hosting page
+			hostingPage.showBackButton = false;
+			hostingStopButton.onClick.AddListener(() => manager.Shutdown());
 		}
 
 		private void OnDestroy()
 		{
 			if(manager != null)
-			{
 				manager.OnConnectionEvent -= OnConnectionEvent;
-			}
 		}
 
 		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
 		{
-			switch(data.EventType)
+			if(data.EventType == ConnectionEvent.ClientConnected)
 			{
-				case ConnectionEvent.ClientConnected:
 
-					if (manager.IsServer)
-					{
-						hostingPage.NavigateHere();
-						hostingText.text = $"Hosting at {transport.ConnectionData.Address}";
-					}
-					else
-					{
-						connectingPage.NavigateHere();
-						connectingText.text = $"Trying to connect to {transport.ConnectionData.Address}";
-					}
+				if (manager.IsServer)
+				{
+					hostingPage.NavigateHere();
+					hostingText.text = $"Hosting at {transport.ConnectionData.Address}";
+				}
+				else
+				{
+					connectingPage.NavigateHere();
+					connectingText.text = $"Trying to connect to {transport.ConnectionData.Address}";
+				}
 
-					break;
-				case ConnectionEvent.ClientDisconnected:
+			} 
+			else if(data.EventType == ConnectionEvent.ClientDisconnected)
+			{
 
-					homePage.NavigateHere();
+				homePage.NavigateHere();
 
-					break;
 			}
         }
 

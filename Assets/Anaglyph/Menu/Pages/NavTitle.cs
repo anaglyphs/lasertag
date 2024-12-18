@@ -8,7 +8,6 @@ namespace Anaglyph.MenuXR
 		private NavPage parentNavPage;
 		[SerializeField] private GameObject backButton;
 		[SerializeField] private RectTransform titleRectTransform;
-		public bool alwaysHideBack;
 
 		private void Awake()
 		{
@@ -19,7 +18,7 @@ namespace Anaglyph.MenuXR
 		{
 			parentNavPage = GetComponentInParent<NavPage>(true);
 
-			bool showBackButton = !alwaysHideBack && parentNavPage.ParentView?.History.Count > 1;
+			bool showBackButton = parentNavPage.showBackButton && parentNavPage.ParentView?.History.Count > 1;
 
 			backButton.SetActive(showBackButton);
 			titleRectTransform.anchoredPosition = showBackButton ? new Vector2(80, 0) : Vector2.zero;

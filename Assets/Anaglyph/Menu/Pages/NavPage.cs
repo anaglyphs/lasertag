@@ -7,6 +7,8 @@ namespace Anaglyph.Menu
 	{
 		[SerializeField] private RectTransform rectTransform;
 		[SerializeField] private CanvasGroup canvasGroup;
+		public bool showBackButton = true;
+
 		private PageNavigationView parentView;
 
 		public RectTransform RectTransform => rectTransform;
