@@ -1,3 +1,4 @@
+using Anaglyph.Menu;
 using UnityEngine;
 
 namespace Anaglyph.Lasertag
@@ -32,8 +33,8 @@ namespace Anaglyph.Lasertag
 
 		public RoundSettings settings = new();
 
-		[SerializeField] private GameObject startGamePage;
-		[SerializeField] private GameObject gameRunningPage;
+		[SerializeField] private NavPage startGamePage;
+		[SerializeField] private NavPage gameRunningPage;
 
 		private void Awake()
 		{
@@ -53,9 +54,9 @@ namespace Anaglyph.Lasertag
 		private void OnGameStateChange(RoundState prev, RoundState state)
 		{
 			if (RoundManager.RoundState != RoundState.NotPlaying)
-				gameRunningPage.SetActive(true);
+				gameRunningPage.NavigateHere();
 			else
-				startGamePage.SetActive(true);
+				startGamePage.NavigateHere();
 		}
 
 		public void BecomeGameMaster()

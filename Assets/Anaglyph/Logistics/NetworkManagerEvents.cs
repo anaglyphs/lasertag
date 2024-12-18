@@ -1,5 +1,4 @@
 using Unity.Netcode;
-using UnityEngine;
 using UnityEngine.Events;
 
 namespace Anaglyph.Lasertag

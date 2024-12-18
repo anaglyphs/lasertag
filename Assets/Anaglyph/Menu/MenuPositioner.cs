@@ -4,7 +4,7 @@ using UnityEngine.InputSystem;
 
 namespace Anaglyph.Menu
 {
-	public class MenuManager : SuperAwakeBehavior
+	public class MenuPositioner : SuperAwakeBehavior
 	{
 		[SerializeField] private InputAction showMenuAction;
 		[SerializeField] private MonoBehaviour[] componentsDisabledWhileVisible;
@@ -85,25 +85,25 @@ namespace Anaglyph.Menu
 			transform.rotation = Quaternion.LookRotation(flatForward);
 		}
 
-#if UNITY_EDITOR
-		private void OnDrawGizmosSelected()
-		{
-			if (mainCamera != null)
-			{
-				Gizmos.color = Color.green;
-				Gizmos.DrawSphere(camTransform.position, 0.1f);
-			}
-		}
+//#if UNITY_EDITOR
+//		private void OnDrawGizmosSelected()
+//		{
+//			if (mainCamera != null)
+//			{
+//				Gizmos.color = Color.green;
+//				Gizmos.DrawSphere(camTransform.position, 0.1f);
+//			}
+//		}
 
-		private void OnValidate()
-		{
-			mainCamera = Camera.main;
+//		private void OnValidate()
+//		{
+//			mainCamera = Camera.main;
 
-			if (mainCamera != null)
-			{
-				SetPose();
-			}
-		}
-#endif
+//			if (mainCamera != null)
+//			{
+//				SetPose();
+//			}
+//		}
+//#endif
 	}
 }

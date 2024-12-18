@@ -1,4 +1,5 @@
 using Anaglyph.Menu;
+using System.Collections;
 using System.Net;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
@@ -45,69 +46,106 @@ namespace Anaglyph.Lasertag
 			manager.TryGetComponent(out transport);
 
 			manager.OnConnectionEvent += OnConnectionEvent;
+			manager.OnClientStarted += OnClientStarted;
 
 			// homepage
-			hostButton.onClick.AddListener(StartHost);
+			hostButton.onClick.AddListener(Host);
 
 			// manually connect page
 
 			manuallyConnectPage.showBackButton = true;
 
-			ipField.onValueChanged.AddListener((string address) => transport.ConnectionData.Address = address);
 			string ip = IpText.GetLocalIPAddress();
 			int length = Mathf.Min(ip.Length, ip.LastIndexOf('.') + 1);
 			ipField.text = ip.Substring(0, length);
 
-			connectButton.onClick.AddListener(() => manager.StartClient());
+			connectButton.onClick.AddListener(() => Join(ipField.text));
 
 			// connecting page
 			connectingPage.showBackButton = false;
-			connectingCancelButton.onClick.AddListener(() => manager.Shutdown());
+			connectingCancelButton.onClick.AddListener(Disconnect);
 
 			// joined page
 			joinedPage.showBackButton = false;
-			joinedDisconnectButton.onClick.AddListener(() => manager.Shutdown());
+			joinedDisconnectButton.onClick.AddListener(Disconnect);
 
 			// hosting page
 			hostingPage.showBackButton = false;
-			hostingStopButton.onClick.AddListener(() => manager.Shutdown());
+			hostingStopButton.onClick.AddListener(Disconnect);
 		}
+
+		//// I wish I didn't have to poll for this
+		//private bool wasListening;
+		//private void Update()
+		//{
+		//	if (manager == null) return;
+
+		//	if (manager.IsListening && !wasListening && !manager.IsHost)
+		//	{
+		//		connectingPage.NavigateHere();
+		//		connectingText.text = $"Trying to connect to {transport.ConnectionData.Address}";
+		//	}
+		//	else if (!manager.IsListening && wasListening)
+		//	{
+		//		homePage.NavigateHere();
+		//	}
+
+		//	wasListening = manager.IsListening;
+		//}
 
 		private void OnDestroy()
 		{
-			if(manager != null)
+			if (manager != null)
+			{
 				manager.OnConnectionEvent -= OnConnectionEvent;
+				manager.OnClientStarted -= OnClientStarted;
+			}
 		}
 
 		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
 		{
 			if(data.EventType == ConnectionEvent.ClientConnected)
 			{
-
-				if (manager.IsServer)
+				if (manager.IsHost)
 				{
 					hostingPage.NavigateHere();
 					hostingText.text = $"Hosting at {transport.ConnectionData.Address}";
 				}
 				else
 				{
-					connectingPage.NavigateHere();
-					connectingText.text = $"Trying to connect to {transport.ConnectionData.Address}";
+					joinedPage.NavigateHere();
+					joinedText.text = $"Joined {transport.ConnectionData.Address}";
 				}
-
-			} 
-			else if(data.EventType == ConnectionEvent.ClientDisconnected)
+			} else if(data.EventType == ConnectionEvent.ClientDisconnected)
 			{
-
 				homePage.NavigateHere();
-
 			}
         }
 
-		private void StartHost()
+		private void OnClientStarted()
 		{
+			if (!manager.IsHost)
+				connectingPage.NavigateHere();
+		}
+
+		private void Host()
+		{
+			manager.Shutdown();
 			transport.SetConnectionData(GetLocalIPv4(), Port, Listen);
 			manager.StartHost();
+		}
+
+		private void Join(string ip)
+		{
+			manager.Shutdown();
+			transport.SetConnectionData(ip, Port);
+			manager.StartClient();
+		}
+
+		private void Disconnect()
+		{
+			manager.Shutdown();
+			homePage.NavigateHere();
 		}
 
 		private string GetLocalIPv4()
