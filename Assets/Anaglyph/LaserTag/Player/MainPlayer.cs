@@ -33,9 +33,6 @@ namespace Anaglyph.Lasertag
 
 		public float RespawnTimerSeconds { get; private set; } = 0;
 
-		//public byte preferredTeam = 1;
-		//public void SetPreferredTeam(byte team) => preferredTeam = Math.Clamp(team, (byte)1, TeamManagement.NumTeams);
-
 		// todo move this into another component. this really doesn't belong here
 		private OVRPassthroughLayer passthroughLayer;
 

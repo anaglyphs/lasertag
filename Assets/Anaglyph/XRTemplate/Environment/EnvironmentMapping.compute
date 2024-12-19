@@ -1,0 +1,123 @@
+// https://github.com/oculus-samples/Unity-DepthAPI/issues/16
+#include "../Depth/DepthKit.hlsl"
+#include "../Environment/Environment.hlsl"
+
+#pragma kernel Accumulate // 0
+#pragma kernel Apply      // 1
+#pragma kernel Init       // 2
+#pragma kernel Walls
+
+RWTexture2D<float2> _EnvHeightMapWritable;
+RWTexture2D<int> _PerFrameHeight; // should be 32bit signed int
+RWTexture2D<float2> _WallFieldWritable; 
+
+uint _TexSize;
+uint _DepthSamples;
+
+float2 _DepthRange;
+float4 _DepthFrameCrop;
+float2 _HeightRange;
+
+float3 _DepthFramePos;
+
+float _EdgeFilterSize;
+float _GradientCutoff;
+
+float _LerpHeight;
+
+float _WallMinHeight;
+
+#define HEIGHT_INT_FACTOR 1000
+#define UNWRITTEN_INT -32000
+
+
+#define VERTI uint2(0, 1)
+#define HORIZ uint2(1, 0)
+
+bool WorldWithinCroppedDepthFrame(float3 world)
+{
+	float2 ndc = agDepthWorldToNDC(world).xy;
+	return all(ndc.xy > _DepthFrameCrop.xy) && all(ndc.xy < _DepthFrameCrop.zw);
+}
+
+[numthreads(64, 1, 1)]
+void Accumulate(uint3 id : SV_DispatchThreadID)
+{
+	float2 depthUV = id.xy / (float) _DepthSamples;
+	depthUV = _DepthFrameCrop.xy + depthUV * (_DepthFrameCrop.zw - _DepthFrameCrop.xy);
+	float depth = saturate(agDepthSample(depthUV));
+	float3 depthWorld = agDepthNDCtoWorld(float3(depthUV, depth));
+	int2 mapCoord = round(agEnvWorldToUV(depthWorld) * _TexSize);
+	
+	// within valid height range
+	float2 heightRangeWorld = _HeightRange + _DepthFramePos.y;
+	bool validY = heightRangeWorld.x < depthWorld.y && depthWorld.y < heightRangeWorld.y;
+	
+	// within valid distance
+	float dist = distance(depthWorld.xz, _DepthFramePos.xz);
+	bool validDistance = _DepthRange.x < dist && dist < _DepthRange.y;
+	
+	// previous height is visible in view
+	float2 heightMapVal = _EnvHeightMapWritable[mapCoord];
+	float prevHeight = heightMapVal.r;
+	bool written = heightMapVal.g;
+	float3 prevWorldPos = float3(depthWorld.x, prevHeight, depthWorld.z);
+	bool prevHeightInView = WorldWithinCroppedDepthFrame(prevWorldPos) || !written;
+	
+	// sobel outline - need to optimize 
+	//float dl = agDepthNDCToLinear(depth);
+	float dlL = agDepthNDCToLinear(agDepthSample(depthUV + float2(_EdgeFilterSize, 0)));
+	float dlR = agDepthNDCToLinear(agDepthSample(depthUV - float2(_EdgeFilterSize, 0)));
+	float dlU = agDepthNDCToLinear(agDepthSample(depthUV + float2(0, _EdgeFilterSize)));
+	float dlD = agDepthNDCToLinear(agDepthSample(depthUV - float2(0, _EdgeFilterSize)));
+	bool notEdge = abs(dlL - dlR) < _GradientCutoff && abs(dlD - dlU) < _GradientCutoff;
+	
+	bool valid = validY && validDistance && notEdge && prevHeightInView;
+	
+	int intHeight = round(depthWorld.y * HEIGHT_INT_FACTOR);
+	intHeight = lerp(UNWRITTEN_INT, intHeight, valid);
+	
+	InterlockedMax(_PerFrameHeight[mapCoord], intHeight);
+}
+
+[numthreads(32, 2, 1)]
+void Apply(uint3 id : SV_DispatchThreadID)
+{
+	int intHeight = _PerFrameHeight[id.xy];
+	float2 mapVal = _EnvHeightMapWritable[id.xy]; // r = height, g = is written
+	
+	_PerFrameHeight[id.xy] = UNWRITTEN_INT;
+	bool writtenThisFrame = intHeight != UNWRITTEN_INT;
+	
+	float height = intHeight / (float) HEIGHT_INT_FACTOR;
+	height = lerp(mapVal.r, height, writtenThisFrame);
+	height = lerp(mapVal.r, height, _LerpHeight);
+	float written = max(mapVal.g, writtenThisFrame);
+	_EnvHeightMapWritable[id.xy] = float2(height, written);
+}
+
+[numthreads(64, 1, 1)]
+void Init(uint3 id : SV_DispatchThreadID)
+{
+	_PerFrameHeight[id.xy] = UNWRITTEN_INT;
+	_EnvHeightMapWritable[id.xy] = 0;
+    _WallFieldWritable[id.xy] = 0;
+}
+
+[numthreads(8, 8, 1)]
+void Walls(uint3 id : SV_DispatchThreadID)
+{	
+    uint2 id2 = uint2(clamp(id.x, 0, _TexSize - 1), clamp(id.y, 0, _TexSize - 1));
+    float diff = abs(_EnvHeightMapWritable[id2] - _EnvHeightMapWritable[id2 + VERTI]) +
+		abs(_EnvHeightMapWritable[id2] - _EnvHeightMapWritable[id2 + HORIZ]);
+
+    _WallFieldWritable[id.xy] = lerp(0, 1, diff > _WallMinHeight);
+	
+	
+}
+
+[numthreads(8, 8, 1)]
+void WallsSDF(uint3 id : SV_DispatchThreadID)
+{
+    
+}

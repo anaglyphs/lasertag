@@ -1057,6 +1057,7 @@ GameObject:
   - component: {fileID: 860547997720573071}
   - component: {fileID: 6632985524961572019}
   - component: {fileID: 1250038486655402428}
+  - component: {fileID: 2859085507901022068}
   m_Layer: 0
   m_Name: Tool Palette
   m_TagString: Untagged
@@ -1116,6 +1117,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   spawner: {fileID: 2322030472805947534}
   toolSelector: {fileID: 6632985524961572019}
+--- !u!114 &2859085507901022068
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8801289868094812065}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fc87f9e035e305f4d950832df303f213, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &8897153627337755357
 GameObject:
   m_ObjectHideFlags: 0
@@ -1216,7 +1229,7 @@ SpriteRenderer:
   m_Size: {x: 2.4, y: 2.4}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
-  m_WasSpriteAssigned: 1
+  m_WasSpriteAssigned: 0
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!210 &6656926321903649770

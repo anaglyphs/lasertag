@@ -5,10 +5,10 @@
 -DANDROID_PLATFORM=android-31
 -DANDROID_ABI=arm64-v8a
 -DCMAKE_ANDROID_ARCH_ABI=arm64-v8a
--DANDROID_NDK=C:\Program Files\Unity\Hub\Editor\6000.0.27f1\Editor\Data\PlaybackEngines\AndroidPlayer\NDK
--DCMAKE_ANDROID_NDK=C:\Program Files\Unity\Hub\Editor\6000.0.27f1\Editor\Data\PlaybackEngines\AndroidPlayer\NDK
--DCMAKE_TOOLCHAIN_FILE=C:\Program Files\Unity\Hub\Editor\6000.0.27f1\Editor\Data\PlaybackEngines\AndroidPlayer\NDK\build\cmake\android.toolchain.cmake
--DCMAKE_MAKE_PROGRAM=C:\Program Files\Unity\Hub\Editor\6000.0.27f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\cmake\3.22.1\bin\ninja.exe
+-DANDROID_NDK=C:\Program Files\Unity\Hub\Editor\6000.0.31f1\Editor\Data\PlaybackEngines\AndroidPlayer\NDK
+-DCMAKE_ANDROID_NDK=C:\Program Files\Unity\Hub\Editor\6000.0.31f1\Editor\Data\PlaybackEngines\AndroidPlayer\NDK
+-DCMAKE_TOOLCHAIN_FILE=C:\Program Files\Unity\Hub\Editor\6000.0.31f1\Editor\Data\PlaybackEngines\AndroidPlayer\NDK\build\cmake\android.toolchain.cmake
+-DCMAKE_MAKE_PROGRAM=C:\Program Files\Unity\Hub\Editor\6000.0.31f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\cmake\3.22.1\bin\ninja.exe
 -DCMAKE_LIBRARY_OUTPUT_DIRECTORY=C:\Users\jt\source\lasertag\Library\PramData\AndroidApplicationController\Cache\com.trev3d.lasertagdev\gradle-project\unityLibrary\build\intermediates\cxx\Debug\3f4e423t\obj\arm64-v8a
 -DCMAKE_RUNTIME_OUTPUT_DIRECTORY=C:\Users\jt\source\lasertag\Library\PramData\AndroidApplicationController\Cache\com.trev3d.lasertagdev\gradle-project\unityLibrary\build\intermediates\cxx\Debug\3f4e423t\obj\arm64-v8a
 -DCMAKE_BUILD_TYPE=Debug

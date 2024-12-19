@@ -106,7 +106,7 @@ GameObject:
   - component: {fileID: 241114878030588134}
   - component: {fileID: 6318854394184693099}
   - component: {fileID: 1393560638002658404}
-  - component: {fileID: 1069551568361919456}
+  - component: {fileID: 6350967885494900857}
   - component: {fileID: 8269870313120343997}
   - component: {fileID: 1293351293127728987}
   - component: {fileID: 6766412519365791640}
@@ -184,7 +184,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   sharedAnchorPrefab: {fileID: 6151402896905020864, guid: 1bafc8ec0e82426478635d59f4197f98, type: 3}
---- !u!114 &1069551568361919456
+--- !u!114 &6350967885494900857
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -193,42 +193,19 @@ MonoBehaviour:
   m_GameObject: {fileID: 1252286925736113731}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ae3897a27382c6046bd6d52f51544650, type: 3}
+  m_Script: {fileID: 11500000, guid: c37e109f64551fc42b510f84ef9ab494, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  OnClientStarted:
-    m_PersistentCalls:
-      m_Calls: []
-  OnServerStarted:
-    m_PersistentCalls:
-      m_Calls: []
-  OnHostStarted:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1393560638002658404}
-        m_TargetAssemblyTypeName: AnchorSpawner, Assembly-CSharp
-        m_MethodName: SpawnPrefab
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-  OnConnect:
-    m_PersistentCalls:
-      m_Calls: []
-  OnClientStopped:
-    m_PersistentCalls:
-      m_Calls: []
-  OnServerStopped:
-    m_PersistentCalls:
-      m_Calls: []
-  OnDisconnect:
-    m_PersistentCalls:
-      m_Calls: []
+  compute: {fileID: 7200000, guid: c48d18ef3b30e1e45a887e461cbef191, type: 3}
+  textureSize: 512
+  depthRange: {x: 0.5, y: 6}
+  depthFrameCrop: {x: 0, y: 0, z: 1, w: 1}
+  heightRange: {x: -2, y: 0.5}
+  edgeFilterSize: 0.02
+  gradientCutoff: 0.2
+  lerpHeight: 0.2
+  envSize: 50
+  depthSamples: 128
 --- !u!114 &8269870313120343997
 MonoBehaviour:
   m_ObjectHideFlags: 0

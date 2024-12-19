@@ -1,6 +1,7 @@
 // Anaglyph depth kit
 
 Texture2DArray<float> agDepthTex;
+uniform Texture2DArray<float4> agDepthEdgeTex;
 Texture2DArray<float3> agDepthNormalTex;
 SamplerState bilinearClampSampler;
 uint2 agDepthTexSize;
@@ -11,9 +12,22 @@ float4x4 agDepthProjInv[2];
 float4x4 agDepthView[2];
 float4x4 agDepthViewInv[2];
 
+uniform float4 agDepthZParams;
+
 float agDepthSample(float2 uv, int eye = 0)
 {	
     return agDepthTex.SampleLevel(bilinearClampSampler, float3(uv.xy, eye), 0);
+}
+
+float4 agDepthSampleEdge(float2 uv, int eye = 0)
+{
+    return agDepthEdgeTex.SampleLevel(bilinearClampSampler, float3(uv.xy, eye), 0);
+}
+
+float agDepthNDCToLinear(float depthNDC)
+{
+    depthNDC = depthNDC * 2.0 - 1.0;
+    return (1.0f / (depthNDC + agDepthZParams.y)) * agDepthZParams.x;
 }
 
 float3 agDepthNormalSample(float2 uv, int eye = 0)

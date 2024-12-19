@@ -1,3 +1,4 @@
+using Unity.Netcode;
 using UnityEngine;
 
 namespace Anaglyph.SharedSpaces
@@ -6,11 +7,25 @@ namespace Anaglyph.SharedSpaces
 	{
 		[SerializeField] private GameObject sharedAnchorPrefab;
 
-		private Transform spawnTarget;
+		Transform spawnTarget;
 
-		private void Awake()
+		private void Start()
 		{
 			spawnTarget = Camera.main.transform;
+
+			NetworkManager.Singleton.OnConnectionEvent += OnConnectionEvent;
+		}
+
+		private void OnDestroy()
+		{
+			if(NetworkManager.Singleton != null)
+				NetworkManager.Singleton.OnConnectionEvent -= OnConnectionEvent;
+		}
+
+		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData eventData)
+		{
+			if (manager.IsHost)
+				SpawnPrefab();
 		}
 
 		public void SpawnPrefab()
