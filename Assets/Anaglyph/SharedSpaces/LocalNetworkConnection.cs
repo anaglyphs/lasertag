@@ -4,7 +4,7 @@ using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
 
-namespace SharedSpaces
+namespace Anaglyph.SharedSpaces
 {
     public class LocalNetworkConnection : MonoBehaviour
     {
