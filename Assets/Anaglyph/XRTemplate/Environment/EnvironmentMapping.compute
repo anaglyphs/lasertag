@@ -5,11 +5,10 @@
 #pragma kernel Accumulate // 0
 #pragma kernel Apply      // 1
 #pragma kernel Init       // 2
-#pragma kernel Walls
 
 RWTexture2D<float2> _EnvHeightMapWritable;
-RWTexture2D<int> _PerFrameHeight; // should be 32bit signed int
-RWTexture2D<float2> _WallFieldWritable; 
+RWStructuredBuffer<int> _PerFrameHeight;
+//RWTexture2D<float2> _WallFieldWritable; 
 
 uint _TexSize;
 uint _DepthSamples;
@@ -40,12 +39,18 @@ bool WorldWithinCroppedDepthFrame(float3 world)
 	return all(ndc.xy > _DepthFrameCrop.xy) && all(ndc.xy < _DepthFrameCrop.zw);
 }
 
-[numthreads(64, 1, 1)]
+uint PerFrameIndex(uint2 mapCoord)
+{
+	return mapCoord.y * _TexSize.x + mapCoord.x;
+}
+
+[numthreads(8, 8, 1)]
 void Accumulate(uint3 id : SV_DispatchThreadID)
 {
 	float2 depthUV = id.xy / (float) _DepthSamples;
-	depthUV = _DepthFrameCrop.xy + depthUV * (_DepthFrameCrop.zw - _DepthFrameCrop.xy);
-	float depth = saturate(agDepthSample(depthUV));
+	// depthUV = saturate(depthUV);
+	// depthUV = _DepthFrameCrop.xy + depthUV * (_DepthFrameCrop.zw - _DepthFrameCrop.xy);
+	float depth = agDepthSample(depthUV);
 	float3 depthWorld = agDepthNDCtoWorld(float3(depthUV, depth));
 	int2 mapCoord = round(agEnvWorldToUV(depthWorld) * _TexSize);
 	
@@ -77,16 +82,18 @@ void Accumulate(uint3 id : SV_DispatchThreadID)
 	int intHeight = round(depthWorld.y * HEIGHT_INT_FACTOR);
 	intHeight = lerp(UNWRITTEN_INT, intHeight, valid);
 	
-	InterlockedMax(_PerFrameHeight[mapCoord], intHeight);
+	InterlockedMax(_PerFrameHeight[PerFrameIndex(mapCoord)], intHeight);
+
 }
 
-[numthreads(32, 2, 1)]
+[numthreads(8, 8, 1)]
 void Apply(uint3 id : SV_DispatchThreadID)
 {
-	int intHeight = _PerFrameHeight[id.xy];
+	uint perFrameIndex = PerFrameIndex(id.xy);
+	int intHeight = _PerFrameHeight[perFrameIndex];
 	float2 mapVal = _EnvHeightMapWritable[id.xy]; // r = height, g = is written
 	
-	_PerFrameHeight[id.xy] = UNWRITTEN_INT;
+	_PerFrameHeight[perFrameIndex] = UNWRITTEN_INT;
 	bool writtenThisFrame = intHeight != UNWRITTEN_INT;
 	
 	float height = intHeight / (float) HEIGHT_INT_FACTOR;
@@ -96,28 +103,28 @@ void Apply(uint3 id : SV_DispatchThreadID)
 	_EnvHeightMapWritable[id.xy] = float2(height, written);
 }
 
-[numthreads(64, 1, 1)]
+[numthreads(8, 8, 1)]
 void Init(uint3 id : SV_DispatchThreadID)
 {
-	_PerFrameHeight[id.xy] = UNWRITTEN_INT;
+	_PerFrameHeight[PerFrameIndex(id.xy)] = UNWRITTEN_INT;
 	_EnvHeightMapWritable[id.xy] = 0;
-    _WallFieldWritable[id.xy] = 0;
+    //_WallFieldWritable[id.xy] = 0;
 }
 
-[numthreads(8, 8, 1)]
-void Walls(uint3 id : SV_DispatchThreadID)
-{	
-    uint2 id2 = uint2(clamp(id.x, 0, _TexSize - 1), clamp(id.y, 0, _TexSize - 1));
-    float diff = abs(_EnvHeightMapWritable[id2] - _EnvHeightMapWritable[id2 + VERTI]) +
-		abs(_EnvHeightMapWritable[id2] - _EnvHeightMapWritable[id2 + HORIZ]);
+//[numthreads(8, 8, 1)]
+//void Walls(uint3 id : SV_DispatchThreadID)
+//{	
+//    uint2 id2 = uint2(clamp(id.x, 0, _TexSize - 1), clamp(id.y, 0, _TexSize - 1));
+//    float diff = abs(_EnvHeightMapWritable[id2] - _EnvHeightMapWritable[id2 + VERTI]) +
+//		abs(_EnvHeightMapWritable[id2] - _EnvHeightMapWritable[id2 + HORIZ]);
 
-    _WallFieldWritable[id.xy] = lerp(0, 1, diff > _WallMinHeight);
+//    _WallFieldWritable[id.xy] = lerp(0, 1, diff > _WallMinHeight);
 	
 	
-}
+//}
 
-[numthreads(8, 8, 1)]
-void WallsSDF(uint3 id : SV_DispatchThreadID)
-{
+//[numthreads(8, 8, 1)]
+//void WallsSDF(uint3 id : SV_DispatchThreadID)
+//{
     
-}
+//}

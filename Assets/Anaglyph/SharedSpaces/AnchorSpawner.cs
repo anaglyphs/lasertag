@@ -24,8 +24,13 @@ namespace Anaglyph.SharedSpaces
 
 		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData eventData)
 		{
-			if (manager.IsHost)
+			if (!manager.IsHost)
+				return;
+
+			if (eventData.EventType == ConnectionEvent.ClientConnected)
 				SpawnPrefab();
+			//else if (eventData.EventType == ConnectionEvent.ClientDisconnected)
+			//	DespawnAll();
 		}
 
 		public void SpawnPrefab()

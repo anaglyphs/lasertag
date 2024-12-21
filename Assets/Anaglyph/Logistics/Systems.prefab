@@ -198,9 +198,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   compute: {fileID: 7200000, guid: c48d18ef3b30e1e45a887e461cbef191, type: 3}
   textureSize: 512
-  depthRange: {x: 0.5, y: 6}
+  depthRange: {x: 0.5, y: 4}
   depthFrameCrop: {x: 0, y: 0, z: 1, w: 1}
-  heightRange: {x: -2, y: 0.5}
+  heightRange: {x: -2, y: 0}
   edgeFilterSize: 0.02
   gradientCutoff: 0.2
   lerpHeight: 0.2
@@ -321,7 +321,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   OnAwake:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 11400000, guid: c5a8519e7fbfe9b4cbf5f0d64d48bda1, type: 2}
+        m_TargetAssemblyTypeName: VariableObjects.GenericVariableObject`1[[System.Boolean,
+          mscorlib
+        m_MethodName: Set
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &2883331069506957876
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -362,19 +375,6 @@ MonoBehaviour:
           m_FloatArgument: 0
           m_StringArgument: 
           m_BoolArgument: 1
-        m_CallState: 2
-      - m_Target: {fileID: 11400000, guid: c5a8519e7fbfe9b4cbf5f0d64d48bda1, type: 2}
-        m_TargetAssemblyTypeName: VariableObjects.GenericVariableObject`1[[System.Boolean,
-          mscorlib
-        m_MethodName: set_Value
-        m_Mode: 6
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
         m_CallState: 2
 --- !u!114 &7812237449445609425
 MonoBehaviour:

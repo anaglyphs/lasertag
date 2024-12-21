@@ -1800,29 +1800,21 @@ MonoBehaviour:
     m_Name: Show Menu
     m_Type: 0
     m_ExpectedControlType: 
-    m_Id: f40f7cd9-e1c2-44ef-880c-677bd2279b39
+    m_Id: 89371a64-ac0f-42cd-a369-99395de7beba
     m_Processors: 
     m_Interactions: 
     m_SingletonActionBindings:
     - m_Name: 
-      m_Id: 95747ccd-0290-4ac0-a421-2f4e06e52e6a
-      m_Path: <XRController>/{MenuButton}
+      m_Id: 410fb294-58a0-4a63-b66c-4ecaf63ba799
+      m_Path: <XRController>/{Primary2DAxisClick}
       m_Interactions: 
       m_Processors: 
       m_Groups: 
       m_Action: Show Menu
       m_Flags: 0
     - m_Name: 
-      m_Id: 570680e7-21fe-4461-bccf-191bef8b47a7
-      m_Path: <Keyboard>/m
-      m_Interactions: 
-      m_Processors: 
-      m_Groups: 
-      m_Action: Show Menu
-      m_Flags: 0
-    - m_Name: 
-      m_Id: 07eb839e-2410-44ba-a76d-9102b103af40
-      m_Path: <XRController>/thumbstickClicked
+      m_Id: bad21742-be54-4ebe-8c19-c893885e917a
+      m_Path: '*/{Menu}'
       m_Interactions: 
       m_Processors: 
       m_Groups: 
@@ -1831,7 +1823,7 @@ MonoBehaviour:
     m_Flags: 0
   componentsDisabledWhileVisible: []
   objectsInactiveWhileVisible: []
-  offset: {x: 0, y: -0.3, z: 1}
+  offset: {x: 0, y: -0.5, z: 1}
 --- !u!114 &9112859745202624927
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3108,6 +3100,10 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 1311055825055584260, guid: 899494258a191e9428da4eeea4557dc3, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 2481301686518760145, guid: 899494258a191e9428da4eeea4557dc3, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -3359,6 +3355,10 @@ PrefabInstance:
     - target: {fileID: 7143327454694983046, guid: 899494258a191e9428da4eeea4557dc3, type: 3}
       propertyPath: m_AnchoredPosition.y
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7577837526546825120, guid: 899494258a191e9428da4eeea4557dc3, type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7581011392679077518, guid: 899494258a191e9428da4eeea4557dc3, type: 3}
       propertyPath: m_AnchorMax.y
