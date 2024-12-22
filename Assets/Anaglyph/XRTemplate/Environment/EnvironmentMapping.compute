@@ -14,7 +14,6 @@ uint _TexSize;
 uint _DepthSamples;
 
 float2 _DepthRange;
-float4 _DepthFrameCrop;
 float2 _HeightRange;
 
 float3 _DepthFramePos;
@@ -33,10 +32,10 @@ float _WallMinHeight;
 #define VERTI uint2(0, 1)
 #define HORIZ uint2(1, 0)
 
-bool WorldWithinCroppedDepthFrame(float3 world)
+bool WorldWithinFrame(float3 world)
 {
 	float2 ndc = agDepthWorldToNDC(world).xy;
-	return all(ndc.xy > _DepthFrameCrop.xy) && all(ndc.xy < _DepthFrameCrop.zw);
+    return all(ndc.xy > float2(0, 0)) && all(ndc.xy < float2(1, 1));
 }
 
 uint PerFrameIndex(uint2 mapCoord)
@@ -47,9 +46,7 @@ uint PerFrameIndex(uint2 mapCoord)
 [numthreads(8, 8, 1)]
 void Accumulate(uint3 id : SV_DispatchThreadID)
 {
-	float2 depthUV = id.xy / (float) _DepthSamples;
-	// depthUV = saturate(depthUV);
-	// depthUV = _DepthFrameCrop.xy + depthUV * (_DepthFrameCrop.zw - _DepthFrameCrop.xy);
+    float2 depthUV = saturate(id.xy / (float) _DepthSamples);
 	float depth = agDepthSample(depthUV);
 	float3 depthWorld = agDepthNDCtoWorld(float3(depthUV, depth));
 	int2 mapCoord = round(agEnvWorldToUV(depthWorld) * _TexSize);
@@ -67,7 +64,7 @@ void Accumulate(uint3 id : SV_DispatchThreadID)
 	float prevHeight = heightMapVal.r;
 	bool written = heightMapVal.g;
 	float3 prevWorldPos = float3(depthWorld.x, prevHeight, depthWorld.z);
-	bool prevHeightInView = WorldWithinCroppedDepthFrame(prevWorldPos) || !written;
+    bool prevHeightInView = WorldWithinFrame(prevWorldPos) || !written;
 	
 	// sobel outline - need to optimize 
 	//float dl = agDepthNDCToLinear(depth);

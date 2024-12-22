@@ -1,4 +1,5 @@
 using Anaglyph.Menu;
+using SharedSpaces;
 using System.Collections;
 using System.Net;
 using Unity.Netcode;
@@ -59,6 +60,10 @@ namespace Anaglyph.Lasertag
 			int length = Mathf.Min(ip.Length, ip.LastIndexOf('.') + 1);
 			ipField.text = ip.Substring(0, length);
 
+#if UNITY_EDITOR
+			ipField.text = "127.0.0.1";
+#endif
+
 			connectButton.onClick.AddListener(() => Join(ipField.text));
 
 			// connecting page
@@ -104,7 +109,7 @@ namespace Anaglyph.Lasertag
 
 		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
 		{
-			if(data.EventType == ConnectionEvent.ClientConnected)
+			if(NetcodeHelpers.ThisClientConnected(data))
 			{
 				if (manager.IsHost)
 				{
@@ -116,7 +121,7 @@ namespace Anaglyph.Lasertag
 					joinedPage.NavigateHere();
 					joinedText.text = $"Joined {transport.ConnectionData.Address}";
 				}
-			} else if(data.EventType == ConnectionEvent.ClientDisconnected)
+			} else if(NetcodeHelpers.ThisClientDisconnected(data))
 			{
 				homePage.NavigateHere();
 			}

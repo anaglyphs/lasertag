@@ -199,8 +199,7 @@ MonoBehaviour:
   compute: {fileID: 7200000, guid: c48d18ef3b30e1e45a887e461cbef191, type: 3}
   textureSize: 512
   depthRange: {x: 0.5, y: 4}
-  depthFrameCrop: {x: 0, y: 0, z: 1, w: 1}
-  heightRange: {x: -2, y: 0}
+  heightRange: {x: -2, y: 0.5}
   edgeFilterSize: 0.02
   gradientCutoff: 0.2
   lerpHeight: 0.2

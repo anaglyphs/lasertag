@@ -1,3 +1,4 @@
+using SharedSpaces;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -22,15 +23,13 @@ namespace Anaglyph.SharedSpaces
 				NetworkManager.Singleton.OnConnectionEvent -= OnConnectionEvent;
 		}
 
-		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData eventData)
+		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
 		{
 			if (!manager.IsHost)
 				return;
 
-			if (eventData.EventType == ConnectionEvent.ClientConnected)
+			if (NetcodeHelpers.ThisClientConnected(data))
 				SpawnPrefab();
-			//else if (eventData.EventType == ConnectionEvent.ClientDisconnected)
-			//	DespawnAll();
 		}
 
 		public void SpawnPrefab()

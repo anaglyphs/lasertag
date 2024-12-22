@@ -1,4 +1,5 @@
 using Anaglyph.Menu;
+using SharedSpaces;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -26,13 +27,15 @@ namespace Anaglyph.Lasertag
 
 		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
 		{
-			if (data.EventType == ConnectionEvent.ClientConnected)
+			if (NetcodeHelpers.ThisClientConnected(data))
+			{
 				UpdateVisibilityOfNetworkOnlyObjects(true);
-			else if (data.EventType == ConnectionEvent.ClientDisconnected)
+			}
+			else if (NetcodeHelpers.ThisClientDisconnected(data))
 			{
 				UpdateVisibilityOfNetworkOnlyObjects(false);
 
-				foreach(GameObject menu in menusOnlyVisibleIfConnected)
+				foreach (GameObject menu in menusOnlyVisibleIfConnected)
 				{
 					if (menu.activeSelf)
 					{

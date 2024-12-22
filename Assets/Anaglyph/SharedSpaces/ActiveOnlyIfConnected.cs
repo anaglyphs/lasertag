@@ -1,3 +1,4 @@
+using SharedSpaces;
 using System.Collections;
 using Unity.Netcode;
 using UnityEngine;
@@ -18,11 +19,11 @@ namespace Anaglyph.SharedSpaces
 				NetworkManager.Singleton.OnConnectionEvent -= OnConnectionEvent;
 		}
 
-		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData eventData)
+		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
 		{
-			if (eventData.EventType == ConnectionEvent.ClientConnected)
+			if (NetcodeHelpers.ThisClientConnected(data))
 				gameObject.SetActive(true);
-			else if(eventData.EventType == ConnectionEvent.ClientDisconnected)
+			else if(NetcodeHelpers.ThisClientDisconnected(data))
 				gameObject.SetActive(false);
 		}
 	}

@@ -12,14 +12,14 @@ namespace Anaglyph.XRTemplate
 		public static Action<ComputeBuffer> OnPerFrameEnvMap = delegate { };
 		public static Action<RenderTexture> OnEnvMap = delegate { };
 
+		public static int UNWRITTEN_INT = -32000;
+
 		[SerializeField] private ComputeShader compute;
 
 		[SerializeField] private int textureSize = 512;
 
 		[SerializeField] private Vector2 depthRange = new Vector2(0.5f, 6f);
-		[Header("Left, Bottom, Width, Height")]
-		[SerializeField] private Vector4 depthFrameCrop = new(0, 0, 1, 1);
-		[SerializeField] private Vector2 heightRange = new Vector2(-2f, 2f);
+		[SerializeField] private Vector2 heightRange = new Vector2(-3f, 0.5f);
 
 		[SerializeField] private float edgeFilterSize = 0.02f;
 		[SerializeField] private float gradientCutoff = 0.2f;
@@ -30,11 +30,6 @@ namespace Anaglyph.XRTemplate
 		public float EnvironmentSize => envSize;
 
 		[SerializeField] private int depthSamples = 128;
-
-		private (int x, int y, int z) accumulateGroups;
-		private (int x, int y, int z) applyGroups;
-		private (int x, int y, int z) initGroups;
-		private (int x, int y, int z) clearPerFrameGroups;
 
 		private static int ID(string str) => Shader.PropertyToID(str);
 
@@ -123,7 +118,6 @@ namespace Anaglyph.XRTemplate
 			compute.SetInt(_DepthSamples, depthSamples);
 
 			compute.SetVector(_DepthRange, depthRange);
-			compute.SetVector(_DepthFrameCrop, depthFrameCrop);
 			compute.SetVector(_HeightRange, heightRange);
 
 			compute.SetFloat(_EdgeFilterSize, edgeFilterSize);
@@ -146,22 +140,24 @@ namespace Anaglyph.XRTemplate
 			Init.Dispatch(textureSize, textureSize, 1);
 		}
 
-		private void LateUpdate()
+		private void FixedUpdate()
 		{
 			if (!DepthKitDriver.DepthAvailable) return;
 
 			Texture depthTex = Shader.GetGlobalTexture(DepthKitDriver.agDepthTex_ID);
-			//compute.SetTexture(0, DepthKitDriver.agDepthTex_ID, depthTex);
+			if (depthTex == null) return;
+
 			compute.SetVector(_DepthFramePos, DepthKitDriver.LastDepthFramePose.position);
 
 			Accumulate.SetTexture(DepthKitDriver.agDepthTex_ID, depthTex);
 
 			Accumulate.Dispatch(depthSamples, depthSamples, 1);
 			OnPerFrameEnvMap.Invoke(perFrameEnvMap);
-			
+			//Apply.Dispatch(textureSize, textureSize, 1);
+			//OnEnvMap.Invoke(envMap);
 		}
 
-		public void ApplyData(byte[] data)
+		public void ApplyData(int[] data)
 		{
 			perFrameEnvMap.SetData(data);
 			Apply.Dispatch(textureSize, textureSize, 1);
