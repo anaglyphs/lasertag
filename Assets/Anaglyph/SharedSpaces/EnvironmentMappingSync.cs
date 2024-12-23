@@ -54,7 +54,7 @@ namespace Anaglyph.SharedSpaces
 			}
 		}
 
-		private void OnPerFrameEnvMap(int[] perFrameEnvMap)
+		private void OnPerFrameEnvMap(uint[] perFrameEnvMap)
 		{
 			try
 			{

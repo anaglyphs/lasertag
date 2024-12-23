@@ -7,7 +7,7 @@
 #pragma kernel Init       // 2
 
 RWTexture2D<float2> _EnvHeightMapWritable;
-RWStructuredBuffer<int> _PerFrameHeight; // should be 32bit signed int
+RWStructuredBuffer<uint> _PerFrameHeight; // should be 32bit signed int
 //RWTexture2D<float2> _WallFieldWritable; 
 
 uint _TexSize;
@@ -26,8 +26,6 @@ float _LerpHeight;
 float _WallMinHeight;
 
 #define HEIGHT_INT_FACTOR 1000
-#define UNWRITTEN_INT -32000
-
 
 #define VERTI uint2(0, 1)
 #define HORIZ uint2(1, 0)
@@ -41,6 +39,17 @@ bool WorldWithinFrame(float3 world)
 {
 	float2 ndc = agDepthWorldToNDC(world).xy;
 	return all(ndc.xy > float2(0, 0)) && all(ndc.xy < float2(1, 1));
+}
+
+float UIntToFloatHeight(uint height)
+{
+    return float((int) height - 32500) / HEIGHT_INT_FACTOR;
+}
+
+uint FloatToUIntHeight(float height) 
+{
+    return height * HEIGHT_INT_FACTOR + 32500;
+
 }
 
 [numthreads(8, 8, 1)]
@@ -76,39 +85,38 @@ void Accumulate(uint3 id : SV_DispatchThreadID)
 	
 	bool valid = validY && validDistance && notEdge && prevHeightInView;
 	
-	int intHeight = round(depthWorld.y * HEIGHT_INT_FACTOR - 100);
+    uint index = CoordToIndex(mapCoord);
+    uint uintHeight = FloatToUIntHeight(depthWorld.y);
 	
 	if (!valid)
 		return;
 	
-    InterlockedMax(_PerFrameHeight[CoordToIndex(mapCoord)], intHeight);
+    InterlockedMax(_PerFrameHeight[index], uintHeight);
 }
 
 [numthreads(8, 8, 1)]
 void Apply(uint3 id : SV_DispatchThreadID)
 {
-    int intHeight = _PerFrameHeight[CoordToIndex(id.xy)];
+    uint index = CoordToIndex(id.xy);
+    uint uintHeight = _PerFrameHeight[index];
 	float2 mapVal = _EnvHeightMapWritable[id.xy]; // r = height, g = is written
 	
-	
-	bool writtenThisFrame = intHeight != UNWRITTEN_INT;
-	
-    float height = (intHeight + 100)  / (float) HEIGHT_INT_FACTOR;
+    float height = UIntToFloatHeight(uintHeight);
 	//height = lerp(mapVal.r, height, writtenThisFrame);
 	//height = lerp(mapVal.r, height, _LerpHeight);
-	float written = max(mapVal.g, writtenThisFrame);
+    float written = max(mapVal.g, uintHeight != 0);
 	
-	if(!writtenThisFrame)
+    if (!uintHeight)
 		return;
 	
 	_EnvHeightMapWritable[id.xy] = float2(height, written);
-    _PerFrameHeight[CoordToIndex(id.xy)] = UNWRITTEN_INT;
+    _PerFrameHeight[CoordToIndex(id.xy)] = 0;
 }
 
 [numthreads(8, 8, 1)]
 void Init(uint3 id : SV_DispatchThreadID)
 {
-    _PerFrameHeight[CoordToIndex(id.xy)] = UNWRITTEN_INT;
+    _PerFrameHeight[CoordToIndex(id.xy)] = 0;
 	_EnvHeightMapWritable[id.xy] = 0;
 	//_WallFieldWritable[id.xy] = 0;
 }

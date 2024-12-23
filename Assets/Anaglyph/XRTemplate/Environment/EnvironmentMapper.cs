@@ -11,7 +11,7 @@ namespace Anaglyph.XRTemplate
 	[DefaultExecutionOrder(-10)]
 	public class EnvironmentMapper : SingletonBehavior<EnvironmentMapper>
 	{
-		public static Action<int[]> OnPerFrameEnvMap = delegate { };
+		public static Action<uint[]> OnPerFrameEnvMap = delegate { };
 
 		public static int UNWRITTEN_INT = -32000;
 
@@ -58,7 +58,7 @@ namespace Anaglyph.XRTemplate
 		public RenderTexture Map => envMap;
 		//private RenderTexture perFrameMap;
 		private ComputeBuffer perFrameMap;
-		private int[] lastPerFrameEnvMapData;
+		private uint[] lastPerFrameEnvMapData;
 		private bool running = true; 
 
 		private struct Kernel
@@ -107,10 +107,10 @@ namespace Anaglyph.XRTemplate
 			envMap.enableRandomWrite = true;
 
 			var size = envMap.width * envMap.height;
-			lastPerFrameEnvMapData = new int[size];
+			lastPerFrameEnvMapData = new uint[size];
 			//perFrameMap = new RenderTexture(textureSize, textureSize, 0, GraphicsFormat.R32_SInt);
 			//perFrameMap.enableRandomWrite = true;
-			perFrameMap = new ComputeBuffer(size, Marshal.SizeOf<int>(), ComputeBufferType.Structured);
+			perFrameMap = new ComputeBuffer(size, sizeof(uint), ComputeBufferType.Structured);
 
 			Shader.SetGlobalFloat(agEnvSizeMeters, envSize);
 			Shader.SetGlobalTexture(agEnvHeightMap, envMap);
@@ -174,7 +174,7 @@ namespace Anaglyph.XRTemplate
 				}
 				else
 				{
-					request.GetData<int>().CopyTo(lastPerFrameEnvMapData);
+					request.GetData<uint>().CopyTo(lastPerFrameEnvMapData);
 					OnPerFrameEnvMap.Invoke(lastPerFrameEnvMapData);
 					yield return null;
 				}
