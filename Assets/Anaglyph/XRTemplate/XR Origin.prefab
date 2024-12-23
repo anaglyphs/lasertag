@@ -1656,7 +1656,7 @@ MonoBehaviour:
   m_Camera: {fileID: 5728646336010394143}
   m_OriginBaseGameObject: {fileID: 7254734392762225021}
   m_CameraFloorOffsetObject: {fileID: 1653215028502333740}
-  m_RequestedTrackingOriginMode: 1
+  m_RequestedTrackingOriginMode: 2
   m_CameraYOffset: 0
 --- !u!114 &7302683130375540734
 MonoBehaviour:
@@ -1688,7 +1688,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   envDepthTextureProvider: {fileID: 7302683130375540734}
-  normalTexShader: {fileID: 7200000, guid: 094ecfc2d2e1d984c9955562fea46b9d, type: 3}
   trackingSpace: {fileID: 5322712704338568415}
 --- !u!114 &5825765430486137254
 MonoBehaviour:

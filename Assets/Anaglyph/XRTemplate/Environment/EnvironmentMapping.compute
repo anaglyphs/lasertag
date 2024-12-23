@@ -74,10 +74,12 @@ void Accumulate(uint3 id : SV_DispatchThreadID)
 	float dlD = agDepthNDCToLinear(agDepthSample(depthUV - float2(0, _EdgeFilterSize)));
 	bool notEdge = abs(dlL - dlR) < _GradientCutoff && abs(dlD - dlU) < _GradientCutoff;
 	
-	bool valid = validY && validDistance && notEdge && prevHeightInView;
-	
 	int intHeight = round(depthWorld.y * HEIGHT_INT_FACTOR);
-	intHeight = lerp(UNWRITTEN_INT, intHeight, valid);
+	
+    bool valid = validY && validDistance && notEdge && prevHeightInView;
+	
+    if (!valid)
+        return;
 	
 	InterlockedMax(_PerFrameHeight[PerFrameIndex(mapCoord)], intHeight);
 
@@ -88,16 +90,18 @@ void Apply(uint3 id : SV_DispatchThreadID)
 {
 	uint perFrameIndex = PerFrameIndex(id.xy);
 	int intHeight = _PerFrameHeight[perFrameIndex];
+    bool writtenThisFrame = intHeight != UNWRITTEN_INT;
 	float2 mapVal = _EnvHeightMapWritable[id.xy]; // r = height, g = is written
 	
-	_PerFrameHeight[perFrameIndex] = UNWRITTEN_INT;
-	bool writtenThisFrame = intHeight != UNWRITTEN_INT;
-	
 	float height = intHeight / (float) HEIGHT_INT_FACTOR;
-	height = lerp(mapVal.r, height, writtenThisFrame);
-	height = lerp(mapVal.r, height, _LerpHeight);
+	//height = lerp(mapVal.r, height, writtenThisFrame);
 	float written = max(mapVal.g, writtenThisFrame);
+	
+    if (!writtenThisFrame)
+        return;
+	
 	_EnvHeightMapWritable[id.xy] = float2(height, written);
+    _PerFrameHeight[perFrameIndex] = UNWRITTEN_INT;
 }
 
 [numthreads(8, 8, 1)]

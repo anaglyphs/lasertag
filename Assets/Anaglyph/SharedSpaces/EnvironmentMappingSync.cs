@@ -1,12 +1,10 @@
 using Anaglyph.XRTemplate;
 using SharedSpaces;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace Anaglyph.SharedSpaces
 {
@@ -19,9 +17,9 @@ namespace Anaglyph.SharedSpaces
 		private struct PixelUpdate
 		{
 			public int index;
-			public int value;
+			public short value;
 
-			public const int byteSize = sizeof(int) + sizeof(int);
+			public const int byteSize = sizeof(int) + sizeof(short);
 
 			public void Serialize(FastBufferWriter writer)
 			{
@@ -53,98 +51,82 @@ namespace Anaglyph.SharedSpaces
 			{
 				EnvironmentMapper.Instance.ClearMap();
 				manager.CustomMessagingManager.OnUnnamedMessage += OnUnnamedMessage;
-			} else if(NetcodeHelpers.ThisClientDisconnected(data))
-			{
-				manager.CustomMessagingManager.OnUnnamedMessage -= OnUnnamedMessage;
 			}
 		}
 
-		bool requesting = false;
-
-		private void OnPerFrameEnvMap(ComputeBuffer perFrameEnvMap)
+		private void OnPerFrameEnvMap(int[] perFrameEnvMap)
 		{
-			if (requesting)
-				return;
-
-			if (!manager.IsHost)
-				return;
-
-			StartCoroutine(Readback());
-			IEnumerator Readback()
+			try
 			{
-				requesting = true;
-				AsyncGPUReadbackRequest request = AsyncGPUReadback.Request(perFrameEnvMap);
+				if (!manager.IsHost)
+					return;
 
-				
-				while (!request.done)
+				updates.Clear();
+
+				for (int i = 0; i < perFrameEnvMap.Length; i++)
 				{
-					yield return null;
-				}
+					if (perFrameEnvMap[i] == EnvironmentMapper.UNWRITTEN_INT)
+						continue;
 
-				if (request.hasError)
-				{
-					Debug.Log("GPU readback error detected.");
-				}
-				else
-				{
-					request.GetData<int>().CopyTo(perFrameEnvMapData);
-
-					updates.Clear();
-
-					for (int i = 0; i < perFrameEnvMapData.Length; i++)
+					updates.Add(new PixelUpdate
 					{
-						if (perFrameEnvMapData[i] == EnvironmentMapper.UNWRITTEN_INT)
-							continue;
+						index = i,
+						value = (short)perFrameEnvMap[i]
+					});
+				}
 
-						updates.Add(new PixelUpdate
-						{
-							index = i,
-							value = perFrameEnvMapData[i]
-						});
+				FastBufferWriter writer = new FastBufferWriter(PixelUpdate.byteSize * updates.Count, Allocator.Temp);
+
+				using (writer)
+				{
+					if (!writer.TryBeginWrite(PixelUpdate.byteSize * updates.Count))
+					{
+						throw new OverflowException("Not enough space in the buffer");
 					}
 
-					FastBufferWriter writer = new FastBufferWriter(PixelUpdate.byteSize * updates.Count, Allocator.Temp);
-
-					using (writer)
+					foreach (var update in updates)
 					{
-						if (!writer.TryBeginWrite(PixelUpdate.byteSize * updates.Count))
-						{
-							throw new OverflowException("Not enough space in the buffer");
-						}
-
-						foreach (var update in updates)
-						{
-							update.Serialize(writer);
-						}
-
-						manager.CustomMessagingManager.SendUnnamedMessage(NetworkManager.ConnectedClientsIds, writer, NetworkDelivery.ReliableFragmentedSequenced);
+						update.Serialize(writer);
 					}
 
-					writer.Dispose();
+					manager.CustomMessagingManager.SendUnnamedMessage(NetworkManager.ConnectedClientsIds, writer, NetworkDelivery.ReliableFragmentedSequenced);
 				}
-				requesting = false;
+
+				writer.Dispose();
+			} catch (Exception ex)
+			{
+				Debug.LogException(ex);
 			}
 		}
 
 		private void OnUnnamedMessage(ulong clientId, FastBufferReader reader)
 		{
-			int updateCount = reader.Length / PixelUpdate.byteSize;
-
-            for (int i = 0; i < perFrameEnvMapData.Length; i++)
-            {
-				perFrameEnvMapData[i] = EnvironmentMapper.UNWRITTEN_INT;
-            }
-
-            reader.TryBeginRead(reader.Length);
-
-			for(int i = 0; i < updateCount; i++)
+			try
 			{
-				var update = new PixelUpdate();
-				update.Deserialize(reader);
-				perFrameEnvMapData[update.index] = update.value;
-			}
+				if (IsHost)
+					return;
 
-			EnvironmentMapper.Instance.ApplyData(perFrameEnvMapData);
+				int updateCount = reader.Length / PixelUpdate.byteSize;
+
+				for (int i = 0; i < perFrameEnvMapData.Length; i++)
+				{
+					perFrameEnvMapData[i] = EnvironmentMapper.UNWRITTEN_INT;
+				}
+
+				reader.TryBeginRead(reader.Length);
+
+				for (int i = 0; i < updateCount; i++)
+				{
+					var update = new PixelUpdate();
+					update.Deserialize(reader);
+					perFrameEnvMapData[update.index] = update.value;
+				}
+
+				EnvironmentMapper.Instance.ApplyData(perFrameEnvMapData);
+			} catch(Exception ex)
+			{
+				Debug.LogException(ex);
+			}
 		}
 
 		public override void OnDestroy()

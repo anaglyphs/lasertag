@@ -199,8 +199,8 @@ MonoBehaviour:
   compute: {fileID: 7200000, guid: c48d18ef3b30e1e45a887e461cbef191, type: 3}
   textureSize: 512
   depthRange: {x: 0.5, y: 4}
-  heightRange: {x: -2, y: 0.5}
-  edgeFilterSize: 0.02
+  heightRange: {x: -3, y: 0.5}
+  edgeFilterSize: 0.01
   gradientCutoff: 0.2
   lerpHeight: 0.2
   envSize: 50
@@ -278,9 +278,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_ProtocolType: 0
-  m_UseWebSockets: 0
+  m_UseWebSockets: 1
   m_UseEncryption: 0
-  m_MaxPacketQueueSize: 128
+  m_MaxPacketQueueSize: 512
   m_MaxPayloadSize: 6144
   m_HeartbeatTimeoutMS: 500
   m_ConnectTimeoutMS: 1000

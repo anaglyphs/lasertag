@@ -1,16 +1,16 @@
 using Anaglyph.XRTemplate.DepthKit;
 using System;
-using System.Runtime.InteropServices;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering;
 
 namespace Anaglyph.XRTemplate
 {
 	[DefaultExecutionOrder(-10)]
 	public class EnvironmentMapper : SingletonBehavior<EnvironmentMapper>
 	{
-		public static Action<ComputeBuffer> OnPerFrameEnvMap = delegate { };
-		public static Action<RenderTexture> OnEnvMap = delegate { };
+		public static Action<int[]> OnPerFrameEnvMap = delegate { };
 
 		public static int UNWRITTEN_INT = -32000;
 
@@ -56,6 +56,8 @@ namespace Anaglyph.XRTemplate
 		private RenderTexture envMap;
 		public RenderTexture Map => envMap;
 		private ComputeBuffer perFrameEnvMap;
+		private int[] lastPerFrameEnvMapData;
+		private bool running = true;
 
 		private struct Kernel
 		{
@@ -103,8 +105,8 @@ namespace Anaglyph.XRTemplate
 			envMap.enableRandomWrite = true;
 
 			var size = envMap.width * envMap.height;
-			var sizeOfInt = Marshal.SizeOf<int>();
-			perFrameEnvMap = new ComputeBuffer(size, sizeOfInt, ComputeBufferType.Structured);
+			lastPerFrameEnvMapData = new int[size];
+			perFrameEnvMap = new ComputeBuffer(size, sizeof(int));
 
 			Shader.SetGlobalFloat(agEnvSizeMeters, envSize);
 			Shader.SetGlobalTexture(agEnvHeightMap, envMap);
@@ -138,30 +140,51 @@ namespace Anaglyph.XRTemplate
 			Init.SetTexture(_EnvHeightMapWritable, envMap);
 
 			Init.Dispatch(textureSize, textureSize, 1);
+
+			StartCoroutine(ScanRoomLoop());
 		}
 
-		private void FixedUpdate()
+		private IEnumerator ScanRoomLoop()
 		{
-			if (!DepthKitDriver.DepthAvailable) return;
+			running = true;
+			while (running)
+			{
+				Texture depthTex = Shader.GetGlobalTexture(DepthKitDriver.agDepthTex_ID);
+				if(depthTex == null)
+				{
+					yield return null;
+					continue;
+				}
 
-			Texture depthTex = Shader.GetGlobalTexture(DepthKitDriver.agDepthTex_ID);
-			if (depthTex == null) return;
+				compute.SetVector(_DepthFramePos, DepthKitDriver.LastDepthFramePose.position);
+				compute.SetVector(_HeightRange, heightRange);
+				Accumulate.SetTexture(DepthKitDriver.agDepthTex_ID, depthTex);
+				Accumulate.Dispatch(depthSamples, depthSamples, 1);
 
-			compute.SetVector(_DepthFramePos, DepthKitDriver.LastDepthFramePose.position);
+				AsyncGPUReadbackRequest request = AsyncGPUReadback.Request(perFrameEnvMap);
+				while (!request.done) yield return null;
 
-			Accumulate.SetTexture(DepthKitDriver.agDepthTex_ID, depthTex);
+				if (request.hasError)
+				{
+					Debug.Log("GPU readback error detected.");
+				}
+				else
+				{
+					request.GetData<int>().CopyTo(lastPerFrameEnvMapData);
+					OnPerFrameEnvMap.Invoke(lastPerFrameEnvMapData);
+					yield return null;
+				}
 
-			Accumulate.Dispatch(depthSamples, depthSamples, 1);
-			OnPerFrameEnvMap.Invoke(perFrameEnvMap);
-			//Apply.Dispatch(textureSize, textureSize, 1);
-			//OnEnvMap.Invoke(envMap);
+				Apply.Dispatch(textureSize, textureSize, 1);
+
+				yield return new WaitForSeconds(1f / 30f);
+			}
 		}
 
 		public void ApplyData(int[] data)
 		{
 			perFrameEnvMap.SetData(data);
 			Apply.Dispatch(textureSize, textureSize, 1);
-			OnEnvMap.Invoke(envMap);
 		}
 
 		public void ClearMap()
@@ -175,6 +198,7 @@ namespace Anaglyph.XRTemplate
 		{
 			ClearMap();
 			perFrameEnvMap.Release();
+			running = false;
 		}
 	}
 }

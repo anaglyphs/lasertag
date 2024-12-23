@@ -1,12 +1,15 @@
 using Meta.XR.EnvironmentDepth;
+using System;
 using Unity.XR.Oculus;
 using UnityEngine;
 
 namespace Anaglyph.XRTemplate.DepthKit
 {
 	[DefaultExecutionOrder(-40)]
-	public class DepthKitDriver : MonoBehaviour
+	public class DepthKitDriver : SingletonBehavior<DepthKitDriver>
 	{
+		public static Action OnNewDepthFrame = delegate { };
+
 		Matrix4x4[] agDepthProj = new Matrix4x4[2];
 		Matrix4x4[] agDepthProjInv = new Matrix4x4[2];
 
@@ -32,6 +35,16 @@ namespace Anaglyph.XRTemplate.DepthKit
 		public Transform trackingSpace;
 		public static bool DepthAvailable { get; private set; }
 		public static Pose LastDepthFramePose { get; private set; }
+
+		protected override void SingletonAwake()
+		{
+			
+		}
+
+		protected override void OnSingletonDestroy()
+		{
+			OnNewDepthFrame = delegate { };
+		}
 
 		private void Update()
 		{
@@ -71,6 +84,8 @@ namespace Anaglyph.XRTemplate.DepthKit
 			Shader.SetGlobalMatrixArray(nameof(agDepthProjInv), agDepthProjInv);
 			Shader.SetGlobalMatrixArray(nameof(agDepthView), agDepthView);
 			Shader.SetGlobalMatrixArray(nameof(agDepthViewInv), agDepthViewInv);
+
+			OnNewDepthFrame.Invoke();
 		}
 
 		private static readonly Vector3 _scalingVector3 = new(1, 1, -1);
