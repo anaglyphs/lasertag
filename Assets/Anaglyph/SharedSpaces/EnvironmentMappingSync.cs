@@ -36,13 +36,13 @@ namespace Anaglyph.SharedSpaces
 
 		private void Start()
 		{
-			EnvironmentMapper.OnPerFrameEnvMap += OnPerFrameEnvMap;
+			//EnvironmentMapper.OnPerFrameEnvMap += OnPerFrameEnvMap;
 			manager = NetworkManager.Singleton;
 
 			var map = EnvironmentMapper.Instance.Map;
 			perFrameEnvMapData = new int[map.width * map.height];
 
-			manager.OnConnectionEvent += OnConnectionEvent;
+			//manager.OnConnectionEvent += OnConnectionEvent;
 		}
 
 		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)

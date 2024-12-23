@@ -7,7 +7,7 @@
 #pragma kernel Init       // 2
 
 RWTexture2D<float2> _EnvHeightMapWritable;
-RWStructuredBuffer<int> _PerFrameHeight;
+RWStructuredBuffer<int> _PerFrameHeight; // should be 32bit signed int
 //RWTexture2D<float2> _WallFieldWritable; 
 
 uint _TexSize;
@@ -32,24 +32,24 @@ float _WallMinHeight;
 #define VERTI uint2(0, 1)
 #define HORIZ uint2(1, 0)
 
+uint CoordToIndex(uint2 coord)
+{
+    return coord.y * _TexSize + coord.x;
+}
+
 bool WorldWithinFrame(float3 world)
 {
 	float2 ndc = agDepthWorldToNDC(world).xy;
-    return all(ndc.xy > float2(0, 0)) && all(ndc.xy < float2(1, 1));
-}
-
-uint PerFrameIndex(uint2 mapCoord)
-{
-	return mapCoord.y * _TexSize.x + mapCoord.x;
+	return all(ndc.xy > float2(0, 0)) && all(ndc.xy < float2(1, 1));
 }
 
 [numthreads(8, 8, 1)]
 void Accumulate(uint3 id : SV_DispatchThreadID)
 {
-    float2 depthUV = saturate(id.xy / (float) _DepthSamples);
+	float2 depthUV = id.xy / (float) _DepthSamples;
 	float depth = agDepthSample(depthUV);
 	float3 depthWorld = agDepthNDCtoWorld(float3(depthUV, depth));
-	int2 mapCoord = round(agEnvWorldToUV(depthWorld) * _TexSize);
+	uint2 mapCoord = round(agEnvWorldToUV(depthWorld) * _TexSize);
 	
 	// within valid height range
 	float2 heightRangeWorld = _HeightRange + _DepthFramePos.y;
@@ -64,7 +64,7 @@ void Accumulate(uint3 id : SV_DispatchThreadID)
 	float prevHeight = heightMapVal.r;
 	bool written = heightMapVal.g;
 	float3 prevWorldPos = float3(depthWorld.x, prevHeight, depthWorld.z);
-    bool prevHeightInView = WorldWithinFrame(prevWorldPos) || !written;
+	bool prevHeightInView = WorldWithinFrame(prevWorldPos) || !written;
 	
 	// sobel outline - need to optimize 
 	//float dl = agDepthNDCToLinear(depth);
@@ -74,42 +74,43 @@ void Accumulate(uint3 id : SV_DispatchThreadID)
 	float dlD = agDepthNDCToLinear(agDepthSample(depthUV - float2(0, _EdgeFilterSize)));
 	bool notEdge = abs(dlL - dlR) < _GradientCutoff && abs(dlD - dlU) < _GradientCutoff;
 	
-	int intHeight = round(depthWorld.y * HEIGHT_INT_FACTOR);
+	bool valid = validY && validDistance && notEdge && prevHeightInView;
 	
-    bool valid = validY && validDistance && notEdge && prevHeightInView;
+	int intHeight = round(depthWorld.y * HEIGHT_INT_FACTOR - 100);
 	
-    if (!valid)
-        return;
+	if (!valid)
+		return;
 	
-	InterlockedMax(_PerFrameHeight[PerFrameIndex(mapCoord)], intHeight);
-
+    InterlockedMax(_PerFrameHeight[CoordToIndex(mapCoord)], intHeight);
 }
 
 [numthreads(8, 8, 1)]
 void Apply(uint3 id : SV_DispatchThreadID)
 {
-	uint perFrameIndex = PerFrameIndex(id.xy);
-	int intHeight = _PerFrameHeight[perFrameIndex];
-    bool writtenThisFrame = intHeight != UNWRITTEN_INT;
+    int intHeight = _PerFrameHeight[CoordToIndex(id.xy)];
 	float2 mapVal = _EnvHeightMapWritable[id.xy]; // r = height, g = is written
 	
-	float height = intHeight / (float) HEIGHT_INT_FACTOR;
+	
+	bool writtenThisFrame = intHeight != UNWRITTEN_INT;
+	
+    float height = (intHeight + 100)  / (float) HEIGHT_INT_FACTOR;
 	//height = lerp(mapVal.r, height, writtenThisFrame);
+	//height = lerp(mapVal.r, height, _LerpHeight);
 	float written = max(mapVal.g, writtenThisFrame);
 	
-    if (!writtenThisFrame)
-        return;
+	if(!writtenThisFrame)
+		return;
 	
 	_EnvHeightMapWritable[id.xy] = float2(height, written);
-    _PerFrameHeight[perFrameIndex] = UNWRITTEN_INT;
+    _PerFrameHeight[CoordToIndex(id.xy)] = UNWRITTEN_INT;
 }
 
 [numthreads(8, 8, 1)]
 void Init(uint3 id : SV_DispatchThreadID)
 {
-	_PerFrameHeight[PerFrameIndex(id.xy)] = UNWRITTEN_INT;
+    _PerFrameHeight[CoordToIndex(id.xy)] = UNWRITTEN_INT;
 	_EnvHeightMapWritable[id.xy] = 0;
-    //_WallFieldWritable[id.xy] = 0;
+	//_WallFieldWritable[id.xy] = 0;
 }
 
 //[numthreads(8, 8, 1)]
@@ -127,5 +128,5 @@ void Init(uint3 id : SV_DispatchThreadID)
 //[numthreads(8, 8, 1)]
 //void WallsSDF(uint3 id : SV_DispatchThreadID)
 //{
-    
+	
 //}

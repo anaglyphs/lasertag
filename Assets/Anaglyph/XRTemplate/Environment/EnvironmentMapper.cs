@@ -1,6 +1,7 @@
 using Anaglyph.XRTemplate.DepthKit;
 using System;
 using System.Collections;
+using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -55,9 +56,10 @@ namespace Anaglyph.XRTemplate
 
 		private RenderTexture envMap;
 		public RenderTexture Map => envMap;
-		private ComputeBuffer perFrameEnvMap;
+		//private RenderTexture perFrameMap;
+		private ComputeBuffer perFrameMap;
 		private int[] lastPerFrameEnvMapData;
-		private bool running = true;
+		private bool running = true; 
 
 		private struct Kernel
 		{
@@ -75,12 +77,12 @@ namespace Anaglyph.XRTemplate
 				groupSize = ((int)x, (int)y, (int)z);
 			}
 
-			public void SetTexture(int id, Texture texture)
+			public void Set(int id, Texture texture)
 			{
 				shader.SetTexture(index, id, texture);
 			}
 
-			public void SetBuffer(int id, ComputeBuffer buffer)
+			public void Set(int id, ComputeBuffer buffer)
 			{
 				shader.SetBuffer(index, id, buffer);
 			}
@@ -106,7 +108,9 @@ namespace Anaglyph.XRTemplate
 
 			var size = envMap.width * envMap.height;
 			lastPerFrameEnvMapData = new int[size];
-			perFrameEnvMap = new ComputeBuffer(size, sizeof(int));
+			//perFrameMap = new RenderTexture(textureSize, textureSize, 0, GraphicsFormat.R32_SInt);
+			//perFrameMap.enableRandomWrite = true;
+			perFrameMap = new ComputeBuffer(size, Marshal.SizeOf<int>(), ComputeBufferType.Structured);
 
 			Shader.SetGlobalFloat(agEnvSizeMeters, envSize);
 			Shader.SetGlobalTexture(agEnvHeightMap, envMap);
@@ -128,16 +132,16 @@ namespace Anaglyph.XRTemplate
 			compute.SetFloat(_LerpHeight, lerpHeight);
 
 			Accumulate = new Kernel(compute, 0);
-			Accumulate.SetBuffer(_PerFrameHeight, perFrameEnvMap);
-			Accumulate.SetTexture(_EnvHeightMapWritable, envMap);
+			Accumulate.Set(_PerFrameHeight, perFrameMap);
+			Accumulate.Set(_EnvHeightMapWritable, envMap);
 
 			Apply = new Kernel(compute, 1);
-			Apply.SetBuffer(_PerFrameHeight, perFrameEnvMap);
-			Apply.SetTexture(_EnvHeightMapWritable, envMap);
+			Apply.Set(_PerFrameHeight, perFrameMap);
+			Apply.Set(_EnvHeightMapWritable, envMap);
 
 			Init = new Kernel(compute, 2);
-			Init.SetBuffer(_PerFrameHeight, perFrameEnvMap);
-			Init.SetTexture(_EnvHeightMapWritable, envMap);
+			Init.Set(_PerFrameHeight, perFrameMap);
+			Init.Set(_EnvHeightMapWritable, envMap);
 
 			Init.Dispatch(textureSize, textureSize, 1);
 
@@ -158,10 +162,10 @@ namespace Anaglyph.XRTemplate
 
 				compute.SetVector(_DepthFramePos, DepthKitDriver.LastDepthFramePose.position);
 				compute.SetVector(_HeightRange, heightRange);
-				Accumulate.SetTexture(DepthKitDriver.agDepthTex_ID, depthTex);
+				Accumulate.Set(DepthKitDriver.agDepthTex_ID, depthTex);
 				Accumulate.Dispatch(depthSamples, depthSamples, 1);
 
-				AsyncGPUReadbackRequest request = AsyncGPUReadback.Request(perFrameEnvMap);
+				AsyncGPUReadbackRequest request = AsyncGPUReadback.Request(perFrameMap);
 				while (!request.done) yield return null;
 
 				if (request.hasError)
@@ -183,8 +187,9 @@ namespace Anaglyph.XRTemplate
 
 		public void ApplyData(int[] data)
 		{
-			perFrameEnvMap.SetData(data);
-			Apply.Dispatch(textureSize, textureSize, 1);
+			
+
+			//Apply.Dispatch(textureSize, textureSize, 1);
 		}
 
 		public void ClearMap()
@@ -197,7 +202,6 @@ namespace Anaglyph.XRTemplate
 		protected override void OnSingletonDestroy()
 		{
 			ClearMap();
-			perFrameEnvMap.Release();
 			running = false;
 		}
 	}
