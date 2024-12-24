@@ -10,7 +10,6 @@ namespace Anaglyph.XRTemplate
 	public class XrSettingsOnStart : MonoBehaviour
 	{
 		[SerializeField] private bool passthroughOn = false;
-		[SerializeField] private bool tryLoadRoomMesh = false;
 		//[SerializeField] private float renderScale = 1.0f;
 		[SerializeField] private OVRManager.FoveatedRenderingLevel foveatedRenderingLevel = OVRManager.FoveatedRenderingLevel.Low;
 		[SerializeField] private bool useDynamicFoveatedRendering = true;
@@ -53,9 +52,6 @@ namespace Anaglyph.XRTemplate
 			Debug.Log("OVRManager initialized");
 
 			PassthroughManager.SetPassthrough(passthroughOn);
-
-			if (tryLoadRoomMesh)
-				RoomMeshManager.LoadRoomMesh();
 		}
 	}
 }

@@ -712,8 +712,9 @@ PlayerSettings:
   il2cppCompilerConfiguration:
     Android: 0
   il2cppCodeGeneration:
-    Android: 0
-  il2cppStacktraceInformation: {}
+    Android: 1
+  il2cppStacktraceInformation:
+    Android: 1
   managedStrippingLevel:
     Android: 3
   incrementalIl2cppBuild: {}

@@ -1,7 +1,6 @@
 using Anaglyph.XRTemplate.DepthKit;
 using System;
 using System.Collections;
-using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -11,9 +10,9 @@ namespace Anaglyph.XRTemplate
 	[DefaultExecutionOrder(-10)]
 	public class EnvironmentMapper : SingletonBehavior<EnvironmentMapper>
 	{
-		public static Action<uint[]> OnPerFrameEnvMap = delegate { };
+		public const int PER_FRAME_UNWRITTEN = 0;
 
-		public static int UNWRITTEN_INT = -32000;
+		public static Action<int[]> OnPerFrameEnvMap = delegate { };
 
 		[SerializeField] private ComputeShader compute;
 
@@ -58,7 +57,7 @@ namespace Anaglyph.XRTemplate
 		public RenderTexture Map => envMap;
 		//private RenderTexture perFrameMap;
 		private ComputeBuffer perFrameMap;
-		private uint[] lastPerFrameEnvMapData;
+		private int[] lastPerFrameEnvMapData;
 		private bool running = true; 
 
 		private struct Kernel
@@ -103,21 +102,24 @@ namespace Anaglyph.XRTemplate
 
 		protected override void SingletonAwake()
 		{
-			envMap = new RenderTexture(textureSize, textureSize, 0, GraphicsFormat.R16G16_SFloat);
-			envMap.enableRandomWrite = true;
-
-			var size = envMap.width * envMap.height;
-			lastPerFrameEnvMapData = new uint[size];
-			//perFrameMap = new RenderTexture(textureSize, textureSize, 0, GraphicsFormat.R32_SInt);
-			//perFrameMap.enableRandomWrite = true;
-			perFrameMap = new ComputeBuffer(size, sizeof(uint), ComputeBufferType.Structured);
-
-			Shader.SetGlobalFloat(agEnvSizeMeters, envSize);
-			Shader.SetGlobalTexture(agEnvHeightMap, envMap);
+			
 		}
 
 		private void Start()
 		{
+			envMap = new RenderTexture(textureSize, textureSize, 0, GraphicsFormat.R16G16_SFloat);
+			envMap.enableRandomWrite = true;
+
+			var size = envMap.width * envMap.height;
+			lastPerFrameEnvMapData = new int[size];
+
+			//perFrameMap = new RenderTexture(textureSize, textureSize, 0, GraphicsFormat.R32_SInt);
+			//perFrameMap.enableRandomWrite = true;
+			perFrameMap = new ComputeBuffer(size, sizeof(Int32));
+
+			Shader.SetGlobalFloat(agEnvSizeMeters, envSize);
+			Shader.SetGlobalTexture(agEnvHeightMap, envMap);
+
 			compute.SetInt(_TexSize, envMap.width);
 
 			compute.SetFloat(_TexSize, envMap.width);
@@ -143,13 +145,17 @@ namespace Anaglyph.XRTemplate
 			Init.Set(_PerFrameHeight, perFrameMap);
 			Init.Set(_EnvHeightMapWritable, envMap);
 
-			Init.Dispatch(textureSize, textureSize, 1);
+			
 
 			StartCoroutine(ScanRoomLoop());
 		}
 
 		private IEnumerator ScanRoomLoop()
 		{
+			yield return new WaitForFixedUpdate();
+
+			Init.Dispatch(textureSize, textureSize, 1);
+
 			running = true;
 			while (running)
 			{
@@ -174,7 +180,7 @@ namespace Anaglyph.XRTemplate
 				}
 				else
 				{
-					request.GetData<uint>().CopyTo(lastPerFrameEnvMapData);
+					request.GetData<int>().CopyTo(lastPerFrameEnvMapData);
 					OnPerFrameEnvMap.Invoke(lastPerFrameEnvMapData);
 					yield return null;
 				}
@@ -187,9 +193,8 @@ namespace Anaglyph.XRTemplate
 
 		public void ApplyData(int[] data)
 		{
-			
-
-			//Apply.Dispatch(textureSize, textureSize, 1);
+			perFrameMap.SetData(data);
+			Apply.Dispatch(textureSize, textureSize, 1);
 		}
 
 		public void ClearMap()

@@ -2,6 +2,7 @@ using Anaglyph.XRTemplate;
 using SharedSpaces;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
@@ -36,13 +37,13 @@ namespace Anaglyph.SharedSpaces
 
 		private void Start()
 		{
-			//EnvironmentMapper.OnPerFrameEnvMap += OnPerFrameEnvMap;
+			EnvironmentMapper.OnPerFrameEnvMap += OnPerFrameEnvMap;
 			manager = NetworkManager.Singleton;
 
 			var map = EnvironmentMapper.Instance.Map;
 			perFrameEnvMapData = new int[map.width * map.height];
 
-			//manager.OnConnectionEvent += OnConnectionEvent;
+			manager.OnConnectionEvent += OnConnectionEvent;
 		}
 
 		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
@@ -54,18 +55,18 @@ namespace Anaglyph.SharedSpaces
 			}
 		}
 
-		private void OnPerFrameEnvMap(uint[] perFrameEnvMap)
+		private void OnPerFrameEnvMap(int[] perFrameEnvMap)
 		{
+			if (!manager.IsHost)
+				return;
+
 			try
 			{
-				if (!manager.IsHost)
-					return;
-
 				updates.Clear();
 
 				for (int i = 0; i < perFrameEnvMap.Length; i++)
 				{
-					if (perFrameEnvMap[i] == EnvironmentMapper.UNWRITTEN_INT)
+					if (perFrameEnvMap[i] == EnvironmentMapper.PER_FRAME_UNWRITTEN)
 						continue;
 
 					updates.Add(new PixelUpdate
@@ -101,16 +102,16 @@ namespace Anaglyph.SharedSpaces
 
 		private void OnUnnamedMessage(ulong clientId, FastBufferReader reader)
 		{
+			if (IsHost)
+				return;
+
 			try
 			{
-				if (IsHost)
-					return;
-
 				int updateCount = reader.Length / PixelUpdate.byteSize;
 
 				for (int i = 0; i < perFrameEnvMapData.Length; i++)
 				{
-					perFrameEnvMapData[i] = EnvironmentMapper.UNWRITTEN_INT;
+					perFrameEnvMapData[i] = EnvironmentMapper.PER_FRAME_UNWRITTEN;
 				}
 
 				reader.TryBeginRead(reader.Length);
@@ -119,11 +120,11 @@ namespace Anaglyph.SharedSpaces
 				{
 					var update = new PixelUpdate();
 					update.Deserialize(reader);
-					perFrameEnvMapData[update.index] = update.value;
+					perFrameEnvMapData[update.index] = (int)update.value;
 				}
 
 				EnvironmentMapper.Instance.ApplyData(perFrameEnvMapData);
-			} catch(Exception ex)
+			} catch (Exception ex)
 			{
 				Debug.LogException(ex);
 			}

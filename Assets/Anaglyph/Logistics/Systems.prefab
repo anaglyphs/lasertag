@@ -151,7 +151,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   passthroughOn: 1
-  tryLoadRoomMesh: 0
   foveatedRenderingLevel: 2
   useDynamicFoveatedRendering: 1
   framerateTarget: 90
@@ -199,7 +198,7 @@ MonoBehaviour:
   compute: {fileID: 7200000, guid: c48d18ef3b30e1e45a887e461cbef191, type: 3}
   textureSize: 512
   depthRange: {x: 0.5, y: 4}
-  heightRange: {x: -3, y: 0.5}
+  heightRange: {x: -3, y: 0}
   edgeFilterSize: 0.01
   gradientCutoff: 0.2
   lerpHeight: 0.2
