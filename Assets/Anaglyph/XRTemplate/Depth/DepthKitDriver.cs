@@ -34,7 +34,6 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		public Transform trackingSpace;
 		public static bool DepthAvailable { get; private set; }
-		public static Pose LastDepthFramePose { get; private set; }
 
 		protected override void SingletonAwake()
 		{
@@ -152,8 +151,6 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 			var viewMatrix = Matrix4x4.TRS(frameDesc.createPoseLocation, depthOrientation,
 				_scalingVector3).inverse;
-
-			LastDepthFramePose = new Pose(frameDesc.createPoseLocation, depthOrientation);
 
 			return viewMatrix;
 		}
