@@ -14,10 +14,12 @@ namespace Anaglyph.XRTemplate
 		public const int PER_FRAME_UNWRITTEN = 0;
 
 		public static Action<NativeArray<int>> OnPerFrameEnvMap = delegate { };
+		public static Action OnApply;
 
 		[SerializeField] private ComputeShader compute;
 
 		[SerializeField] private int textureSize = 512;
+		public int TextureSize => textureSize;
 
 		[SerializeField] private Vector2 depthRange = new Vector2(0.5f, 6f);
 		[SerializeField] private Vector2 heightRange = new Vector2(-3f, 0.5f);
@@ -184,6 +186,8 @@ namespace Anaglyph.XRTemplate
 				Apply.Dispatch(textureSize, textureSize, 1);
 				ClearPerFrame.Dispatch(textureSize, textureSize, 1);
 
+				OnApply.Invoke();
+
 				yield return new WaitForSeconds(1f / 30f);
 			}
 		}
@@ -205,6 +209,9 @@ namespace Anaglyph.XRTemplate
 		{
 			ClearMap();
 			running = false;
+
+			OnPerFrameEnvMap = delegate { };
+			OnApply = delegate { };
 		}
 	}
 }

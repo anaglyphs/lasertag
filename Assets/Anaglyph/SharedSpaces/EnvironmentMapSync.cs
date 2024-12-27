@@ -3,6 +3,8 @@ using SharedSpaces;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Drawing;
+using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
@@ -11,9 +13,10 @@ using UnityEngine;
 
 namespace Anaglyph.SharedSpaces
 {
-	public class EnvironmentMappingSync : NetworkBehaviour
+	public class EnvironmentMapSync : NetworkBehaviour
 	{
 		private NetworkManager manager;
+		private int[] dataBuffer;
 
 		[Serializable]
 		private struct PixelUpdate
@@ -38,9 +41,13 @@ namespace Anaglyph.SharedSpaces
 
 		private void Start()
 		{
-			EnvironmentMapper.OnPerFrameEnvMap += OnPerFrameEnvMap;
 			manager = NetworkManager.Singleton;
 			manager.OnConnectionEvent += OnConnectionEvent;
+
+			EnvironmentMapper.OnPerFrameEnvMap += OnPerFrameEnvMap;
+			EnvironmentMapper.OnApply += OnApply;
+
+			dataBuffer = new int[EnvironmentMapper.Instance.TextureSize * EnvironmentMapper.Instance.TextureSize];
 		}
 
 		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
@@ -88,9 +95,10 @@ namespace Anaglyph.SharedSpaces
 			}
 		}
 
+		// send data to server
 		private void OnPerFrameEnvMap(NativeArray<int> data)
 		{
-			if (!manager.IsHost)
+			if (!NetworkManager.IsConnectedClient)
 				return;
 
 			StartCoroutine(ScheduleJobs());
@@ -123,39 +131,88 @@ namespace Anaglyph.SharedSpaces
 					serializeHandle.Complete();
 					serializeJob.updates.Dispose();
 
-					manager.CustomMessagingManager.SendUnnamedMessage(
-						NetworkManager.ConnectedClientsIds, 
-						writer, 
-						NetworkDelivery.ReliableFragmentedSequenced);
+					if (IsHost)
+						SendToAllNonHostClients(writer);
+					else
+						SendToHost(writer);
 				}
 			}
 		}
 
 		private void OnUnnamedMessage(ulong clientId, FastBufferReader reader)
 		{
+			// host forwards data to all clients
+			// clients apply data to env map
 			if (IsHost)
+			{
+				int numBytes = reader.Length;
+				FastBufferWriter writer = new FastBufferWriter(numBytes, Allocator.TempJob);
+				using (writer)
+				{
+					
+					reader.TryBeginRead(numBytes);
+					byte[] buffer = new byte[numBytes];
+					reader.ReadBytes(ref buffer, numBytes);
+
+					writer.TryBeginWrite(numBytes);
+					writer.WriteBytes(buffer);
+
+					SendToAllNonHostClients(writer);
+				}
+			}
+			else
+			{
+				reader.TryBeginRead(reader.Length);
+
+				int updateCount = reader.Length / PixelUpdate.byteSize;
+				for (int i = 0; i < updateCount; i++)
+				{
+					var update = new PixelUpdate();
+					update.Deserialize(reader);
+					dataBuffer[update.index] = (int)update.value;
+				}
+			}
+		}
+
+		private void OnApply()
+		{
+			EnvironmentMapper.Instance.ApplyData(dataBuffer);
+			for (int i = 0; i < dataBuffer.Length; i++)
+				dataBuffer[i] = 0;
+		}
+
+		private void SendToAllNonHostClients(FastBufferWriter writer)
+		{
+			int numPeers = NetworkManager.ConnectedClientsIds.Count - 1;
+
+			if (numPeers == 0)
 				return;
 
-			var map = EnvironmentMapper.Instance.Map;
-			int[] data = new int[map.width * map.height];
-
-			reader.TryBeginRead(reader.Length);
-
-			int updateCount = reader.Length / PixelUpdate.byteSize;
-			for (int i = 0; i < updateCount; i++)
+			ulong[] peerIDs = new ulong[numPeers];
+			int i = 0;
+			foreach (ulong id in NetworkManager.ConnectedClientsIds)
 			{
-				var update = new PixelUpdate();
-				update.Deserialize(reader);
-				data[update.index] = (int)update.value;
+				if (id != NetworkManager.LocalClientId)
+				{
+					peerIDs[i] = id;
+					i++;
+				}
 			}
 
-			EnvironmentMapper.Instance.ApplyData(data);
+			manager.CustomMessagingManager.SendUnnamedMessage(peerIDs, writer,
+						NetworkDelivery.ReliableFragmentedSequenced);
 		}
+
+		private void SendToHost(FastBufferWriter writer) => 
+			manager.CustomMessagingManager.SendUnnamedMessage(
+							NetworkManager.ServerClientId, writer,
+							NetworkDelivery.ReliableFragmentedSequenced);
 
 		public override void OnDestroy()
 		{
 			base.OnDestroy();
 			EnvironmentMapper.OnPerFrameEnvMap -= OnPerFrameEnvMap;
+			EnvironmentMapper.OnApply -= OnApply;
 		}
 	}
 }

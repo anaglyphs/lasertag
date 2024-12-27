@@ -67,10 +67,11 @@ namespace Anaglyph.Lasertag.Networking
 
 		public override void OnNetworkSpawn()
 		{
-			isAliveSync.Value = true;
-
 			if (IsOwner)
+			{
+				isAliveSync.Value = true;
 				MainPlayer.Instance.networkPlayer = this;
+			}
 
 			AllPlayers.Add(OwnerClientId, this);
 			OtherPlayers.Add(this);
