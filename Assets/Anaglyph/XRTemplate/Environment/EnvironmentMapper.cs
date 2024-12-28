@@ -14,7 +14,7 @@ namespace Anaglyph.XRTemplate
 		public const int PER_FRAME_UNWRITTEN = 0;
 
 		public static Action<NativeArray<int>> OnPerFrameEnvMap = delegate { };
-		public static Action OnApply;
+		public static Action OnApply = delegate { };
 
 		[SerializeField] private ComputeShader compute;
 
@@ -170,6 +170,8 @@ namespace Anaglyph.XRTemplate
 				Accumulate.Set(DepthKitDriver.agDepthTex_ID, depthTex);
 				Accumulate.Dispatch(depthSamples, depthSamples, 1);
 
+				yield return new WaitForSeconds(1f / 10f);
+
 				AsyncGPUReadbackRequest request = AsyncGPUReadback.Request(perFrameMap);
 				while (!request.done) yield return null;
 
@@ -186,9 +188,11 @@ namespace Anaglyph.XRTemplate
 				Apply.Dispatch(textureSize, textureSize, 1);
 				ClearPerFrame.Dispatch(textureSize, textureSize, 1);
 
+				yield return new WaitForSeconds(1f / 10f);
+
 				OnApply.Invoke();
 
-				yield return new WaitForSeconds(1f / 30f);
+				yield return new WaitForSeconds(1f / 10f);
 			}
 		}
 
@@ -196,6 +200,7 @@ namespace Anaglyph.XRTemplate
 		{
 			perFrameMap.SetData(data);
 			Apply.Dispatch(textureSize, textureSize, 1);
+			ClearPerFrame.Dispatch(textureSize, textureSize, 1);
 		}
 
 		public void ClearMap()

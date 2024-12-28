@@ -1,6 +1,6 @@
 using Unity.Netcode;
 
-namespace SharedSpaces
+namespace Anaglyph.SharedSpaces
 {
     public static class NetcodeHelpers
     {

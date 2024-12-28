@@ -1,4 +1,4 @@
-using SharedSpaces;
+using Anaglyph.SharedSpaces;
 using Unity.Netcode;
 using UnityEngine;
 

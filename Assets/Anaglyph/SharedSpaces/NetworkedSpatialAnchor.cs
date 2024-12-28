@@ -50,6 +50,9 @@ namespace Anaglyph.SharedSpaces
 
 		public override void OnNetworkSpawn()
 		{
+#if UNITY_EDITOR
+			return;
+#endif
 			if (IsOwner)
 			{
 				AttachedSpatialAnchor = CreateChildOVRSpatialAnchor();

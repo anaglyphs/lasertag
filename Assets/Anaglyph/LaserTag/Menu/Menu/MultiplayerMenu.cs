@@ -1,5 +1,5 @@
 using Anaglyph.Menu;
-using SharedSpaces;
+using Anaglyph.SharedSpaces;
 using System.Collections;
 using System.Net;
 using Unity.Netcode;
