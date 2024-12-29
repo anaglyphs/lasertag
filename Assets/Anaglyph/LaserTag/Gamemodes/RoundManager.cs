@@ -102,7 +102,7 @@ namespace Anaglyph.Lasertag
 				if (mainNetworkPlayer.IsInBase)
 					mainNetworkPlayer.TeamOwner.teamSync.Value = mainNetworkPlayer.InBase.Team;
 			}
-        }
+		}
 
 		private void OnStateUpdateLocally(RoundState prev, RoundState state)
 		{

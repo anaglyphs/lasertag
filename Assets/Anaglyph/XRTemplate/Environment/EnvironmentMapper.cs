@@ -57,7 +57,6 @@ namespace Anaglyph.XRTemplate
 		public RenderTexture Map => envMap;
 		//private RenderTexture perFrameMap;
 		private ComputeBuffer perFrameMap;
-		private bool running = true; 
 
 		private struct Kernel
 		{
@@ -151,50 +150,39 @@ namespace Anaglyph.XRTemplate
 
 		private IEnumerator ScanRoomLoop()
 		{
-			yield return new WaitForFixedUpdate();
+			Texture depthTex;
 
+			do
+			{
+				depthTex = Shader.GetGlobalTexture(DepthKitDriver.agDepthTex_ID);
+				yield return null;
+			} while (depthTex == null);
+			
 			ClearEnvMap.Dispatch(textureSize, textureSize, 1);
 			ClearPerFrame.Dispatch(textureSize, textureSize, 1);
 
-			running = true;
-			while (running)
-			{
-				Texture depthTex = Shader.GetGlobalTexture(DepthKitDriver.agDepthTex_ID);
-				if(depthTex == null)
-				{
-					yield return new WaitForSeconds(1f / 30f); ;
-					continue;
-				}
+			Accumulate.Set(DepthKitDriver.agDepthTex_ID, depthTex);
 
-				compute.SetVector(_HeightRange, heightRange);
-				Accumulate.Set(DepthKitDriver.agDepthTex_ID, depthTex);
+			while (true)
+			{
 				Accumulate.Dispatch(depthSamples, depthSamples, 1);
 
-				AsyncGPUReadbackRequest request = AsyncGPUReadback.Request(perFrameMap);
+				var dataRequest = AsyncGPUReadback.Request(perFrameMap);
 				yield return new WaitForSeconds(1f / 30f);
-				while (!request.done) yield return null;
+				while (!dataRequest.done) yield return null;
 
-				if (request.hasError)
-				{
-					Debug.Log("GPU readback error detected.");
-				}
-				else
-				{
-					var data = request.GetData<int>();
-					OnPerFrameEnvMap.Invoke(data);
-				}
+				if (!dataRequest.hasError)
+					OnPerFrameEnvMap.Invoke(dataRequest.GetData<int>());
 
 				Apply.Dispatch(textureSize, textureSize, 1);
-				ClearPerFrame.Dispatch(textureSize, textureSize, 1);
 				OnApply.Invoke();
 			}
 		}
 
-		public void ApplyData(int[] data)
+		public void ApplyData(NativeArray<int> data)
 		{
 			perFrameMap.SetData(data);
 			Apply.Dispatch(textureSize, textureSize, 1);
-			ClearPerFrame.Dispatch(textureSize, textureSize, 1);
 		}
 
 		public void ClearMap()
@@ -207,7 +195,6 @@ namespace Anaglyph.XRTemplate
 		protected override void OnSingletonDestroy()
 		{
 			ClearMap();
-			running = false;
 
 			OnPerFrameEnvMap = delegate { };
 			OnApply = delegate { };

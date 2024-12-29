@@ -15,7 +15,7 @@ namespace Anaglyph.SharedSpaces
 	{
 		private NetworkManager manager;
 		private EnvironmentMapper mapper;
-		private int[] dataBuffer;
+		private NativeArray<int> perFrameData;
 
 		[Serializable]
 		private struct PixelUpdate
@@ -25,12 +25,14 @@ namespace Anaglyph.SharedSpaces
 
 			public const int byteSize = sizeof(int) + sizeof(short);
 
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 			public void Serialize(FastBufferWriter writer)
 			{
 				BytePacker.WriteValueBitPacked(writer, index);
 				BytePacker.WriteValueBitPacked(writer, value);
 			}
 
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 			public void Deserialize(FastBufferReader reader)
 			{
 				ByteUnpacker.ReadValueBitPacked(reader, out index);
@@ -48,7 +50,7 @@ namespace Anaglyph.SharedSpaces
 			EnvironmentMapper.OnApply += OnApply;
 
 			int size = mapper.TextureSize;
-			dataBuffer = new int[size * size];
+			perFrameData = new(size * size, Allocator.Persistent);
 		}
 
 		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
@@ -75,7 +77,7 @@ namespace Anaglyph.SharedSpaces
 					updates.Add(new PixelUpdate
 					{
 						index = i,
-						value = (short)perFrameData[i]
+						value = (short)(perFrameData[i])
 					});
 				}
 			}
@@ -93,6 +95,26 @@ namespace Anaglyph.SharedSpaces
 
 				foreach (var update in updates)
 					update.Serialize(writer);
+			}
+		}
+
+		private struct DeserializePerFrameDataJob : IJob
+		{
+			[NativeDisableUnsafePtrRestriction]
+			public FastBufferReader reader;
+			public NativeArray<int> perFrameData;
+
+			public void Execute()
+			{
+				reader.TryBeginRead(reader.Length);
+
+				int updateCount = reader.Length / PixelUpdate.byteSize;
+				for (int i = 0; i < updateCount; i++)
+				{
+					var update = new PixelUpdate();
+					update.Deserialize(reader);
+					perFrameData[update.index] = update.value;
+				}
 			}
 		}
 
@@ -135,7 +157,7 @@ namespace Anaglyph.SharedSpaces
 					if (manager.IsServer)
 						SendToAllOtherClients(writer, NetworkManager.ServerClientId);
 					else
-						SendToHost(writer);
+						SendToServer(writer);
 				}
 			}
 		}
@@ -143,18 +165,22 @@ namespace Anaglyph.SharedSpaces
 		private void OnUnnamedMessage(ulong clientId, FastBufferReader reader)
 		{
 			if (clientId == manager.LocalClientId)
-				return;
+				throw new Exception("Client should not send a message to itself!");
 
 			if (manager.IsClient)
 			{
-				reader.TryBeginRead(reader.Length);
-
-				int updateCount = reader.Length / PixelUpdate.byteSize;
-				for (int i = 0; i < updateCount; i++)
+				StartCoroutine(Deserialize());
+				IEnumerator Deserialize()
 				{
-					var update = new PixelUpdate();
-					update.Deserialize(reader);
-					dataBuffer[update.index] = update.value;
+					var deserializeJob = new DeserializePerFrameDataJob()
+					{
+						reader = reader,
+						perFrameData = perFrameData,
+					};
+
+					var handle = deserializeJob.Schedule();
+					while (handle.IsCompleted) yield return null;
+					handle.Complete();
 				}
 			}
 
@@ -164,9 +190,9 @@ namespace Anaglyph.SharedSpaces
 
 		private void OnApply() 
 		{
-			EnvironmentMapper.Instance.ApplyData(dataBuffer);
-			//for (int i = 0; i < dataBuffer.Length; i++)
-			//	dataBuffer[i] = EnvironmentMapper.PER_FRAME_UNWRITTEN;
+			EnvironmentMapper.Instance.ApplyData(perFrameData);
+			for (int i = 0; i < perFrameData.Length; i++)
+				perFrameData[i] = EnvironmentMapper.PER_FRAME_UNWRITTEN;
 		}
 
 		private unsafe void ForwardToAllOtherClients(FastBufferReader reader, ulong sender)
@@ -198,31 +224,9 @@ namespace Anaglyph.SharedSpaces
 					manager.CustomMessagingManager.SendUnnamedMessage(
 						id, writer, NetworkDelivery.ReliableFragmentedSequenced);
 			}
-
-			//if (!IsServer)
-			//	throw new Exception("You can't call this on clients!");
-
-			//int numPeers = NetworkManager.ConnectedClientsIds.Count - 1;
-
-			//if (numPeers == 0)
-			//	return;
-
-			//ulong[] peerIDs = new ulong[numPeers];
-			//int i = 0;
-			//foreach (ulong id in NetworkManager.ConnectedClientsIds)
-			//{
-			//	if (id != NetworkManager.ServerClientId && id != sender)
-			//	{
-			//		peerIDs[i] = id;
-			//		i++;
-			//	}
-			//}
-
-			//manager.CustomMessagingManager.SendUnnamedMessage(peerIDs, writer,
-			//			NetworkDelivery.ReliableFragmentedSequenced);
 		}
 
-		private void SendToHost(FastBufferWriter writer) => 
+		private void SendToServer(FastBufferWriter writer) => 
 			manager.CustomMessagingManager.SendUnnamedMessage(
 							NetworkManager.ServerClientId, writer,
 							NetworkDelivery.ReliableFragmentedSequenced);

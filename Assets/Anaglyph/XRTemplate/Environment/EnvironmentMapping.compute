@@ -95,6 +95,9 @@ void Accumulate(uint3 id : SV_DispatchThreadID)
 	
 	if (!valid)
 		return;
+    
+    if (intHeight == PER_FRAME_UNWRITTEN)
+        intHeight = PER_FRAME_UNWRITTEN + 1;
 	
 	InterlockedMax(_PerFrameHeight[index], intHeight);
 }
@@ -115,6 +118,7 @@ void Apply(uint3 id : SV_DispatchThreadID)
 		return;
 	
 	_EnvHeightMapWritable[id.xy] = float2(r, g);
+	_PerFrameHeight[index] = PER_FRAME_UNWRITTEN;
 }
 
 [numthreads(8, 8, 1)]
