@@ -162,7 +162,7 @@ namespace Anaglyph.XRTemplate
 				Texture depthTex = Shader.GetGlobalTexture(DepthKitDriver.agDepthTex_ID);
 				if(depthTex == null)
 				{
-					yield return null;
+					yield return new WaitForSeconds(1f / 30f); ;
 					continue;
 				}
 
@@ -170,9 +170,8 @@ namespace Anaglyph.XRTemplate
 				Accumulate.Set(DepthKitDriver.agDepthTex_ID, depthTex);
 				Accumulate.Dispatch(depthSamples, depthSamples, 1);
 
-				yield return new WaitForSeconds(1f / 10f);
-
 				AsyncGPUReadbackRequest request = AsyncGPUReadback.Request(perFrameMap);
+				yield return new WaitForSeconds(1f / 30f);
 				while (!request.done) yield return null;
 
 				if (request.hasError)
@@ -187,12 +186,7 @@ namespace Anaglyph.XRTemplate
 
 				Apply.Dispatch(textureSize, textureSize, 1);
 				ClearPerFrame.Dispatch(textureSize, textureSize, 1);
-
-				yield return new WaitForSeconds(1f / 10f);
-
 				OnApply.Invoke();
-
-				yield return new WaitForSeconds(1f / 10f);
 			}
 		}
 

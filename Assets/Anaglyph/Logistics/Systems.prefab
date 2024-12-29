@@ -114,6 +114,7 @@ GameObject:
   - component: {fileID: 6795854006561429885}
   - component: {fileID: 2883331069506957876}
   - component: {fileID: 7812237449445609425}
+  - component: {fileID: 4259786034356999575}
   m_Layer: 0
   m_Name: Systems
   m_TagString: Untagged
@@ -455,6 +456,18 @@ MonoBehaviour:
   _readOnlyWideMotionModeHandPosesEnabled: 0
   wideMotionModeHandPosesEnabled: 0
   dynamicResolutionVersion: 1
+--- !u!114 &4259786034356999575
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1252286925736113731}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9dd17030e2347014e939dd5246bcb9e5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &4280211499020221105
 GameObject:
   m_ObjectHideFlags: 0

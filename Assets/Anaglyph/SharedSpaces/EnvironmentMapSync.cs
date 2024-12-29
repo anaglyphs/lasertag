@@ -14,6 +14,7 @@ namespace Anaglyph.SharedSpaces
 	public class EnvironmentMapSync : MonoBehaviour
 	{
 		private NetworkManager manager;
+		private EnvironmentMapper mapper;
 		private int[] dataBuffer;
 
 		[Serializable]
@@ -42,10 +43,12 @@ namespace Anaglyph.SharedSpaces
 			manager = NetworkManager.Singleton;
 			manager.OnConnectionEvent += OnConnectionEvent;
 
+			mapper = EnvironmentMapper.Instance;
 			EnvironmentMapper.OnPerFrameEnvMap += OnPerFrameEnvMap;
 			EnvironmentMapper.OnApply += OnApply;
 
-			dataBuffer = new int[EnvironmentMapper.Instance.TextureSize * EnvironmentMapper.Instance.TextureSize];
+			int size = mapper.TextureSize;
+			dataBuffer = new int[size * size];
 		}
 
 		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
@@ -151,7 +154,7 @@ namespace Anaglyph.SharedSpaces
 				{
 					var update = new PixelUpdate();
 					update.Deserialize(reader);
-					dataBuffer[update.index] = (int)update.value;
+					dataBuffer[update.index] = update.value;
 				}
 			}
 
@@ -162,8 +165,8 @@ namespace Anaglyph.SharedSpaces
 		private void OnApply() 
 		{
 			EnvironmentMapper.Instance.ApplyData(dataBuffer);
-			for (int i = 0; i < dataBuffer.Length; i++)
-				dataBuffer[i] = EnvironmentMapper.PER_FRAME_UNWRITTEN;
+			//for (int i = 0; i < dataBuffer.Length; i++)
+			//	dataBuffer[i] = EnvironmentMapper.PER_FRAME_UNWRITTEN;
 		}
 
 		private unsafe void ForwardToAllOtherClients(FastBufferReader reader, ulong sender)
