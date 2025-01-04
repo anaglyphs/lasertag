@@ -16,6 +16,7 @@ namespace Anaglyph.SharedSpaces
 		private NetworkManager manager;
 		private EnvironmentMapper mapper;
 		private NativeArray<int> perFrameData;
+		private bool deserializing = false;
 
 		[Serializable]
 		private struct PixelUpdate
@@ -95,6 +96,16 @@ namespace Anaglyph.SharedSpaces
 
 				foreach (var update in updates)
 					update.Serialize(writer);
+			}
+		}
+
+		private struct ClearPerFrameDataJob : IJobFor
+		{
+			public NativeArray<int> perFrameData;
+
+			public void Execute(int index)
+			{
+				perFrameData[index] = EnvironmentMapper.PER_FRAME_UNWRITTEN;
 			}
 		}
 
@@ -178,9 +189,11 @@ namespace Anaglyph.SharedSpaces
 						perFrameData = perFrameData,
 					};
 
+					deserializing = true;
 					var handle = deserializeJob.Schedule();
 					while (handle.IsCompleted) yield return null;
 					handle.Complete();
+					deserializing = false;
 				}
 			}
 
@@ -190,6 +203,9 @@ namespace Anaglyph.SharedSpaces
 
 		private void OnApply() 
 		{
+			if (deserializing)
+				return;
+
 			EnvironmentMapper.Instance.ApplyData(perFrameData);
 			for (int i = 0; i < perFrameData.Length; i++)
 				perFrameData[i] = EnvironmentMapper.PER_FRAME_UNWRITTEN;

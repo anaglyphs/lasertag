@@ -9,7 +9,6 @@
 
 RWStructuredBuffer<int> _PerFrameHeight; // should be 32bit signed int
 RWTexture2D<float2> _EnvHeightMapWritable;
-//RWTexture2D<float2> _WallFieldWritable; 
 
 uint _TexSize;
 uint _DepthSamples;
@@ -133,21 +132,3 @@ void ClearPerFrame(uint3 id : SV_DispatchThreadID)
 	uint index = CoordToIndex(id.xy);
 	_PerFrameHeight[index] = PER_FRAME_UNWRITTEN;
 }
-
-//[numthreads(8, 8, 1)]
-//void Walls(uint3 id : SV_DispatchThreadID)
-//{	
-//    uint2 id2 = uint2(clamp(id.x, 0, _TexSize - 1), clamp(id.y, 0, _TexSize - 1));
-//    float diff = abs(_EnvHeightMapWritable[id2] - _EnvHeightMapWritable[id2 + VERTI]) +
-//		abs(_EnvHeightMapWritable[id2] - _EnvHeightMapWritable[id2 + HORIZ]);
-
-//    _WallFieldWritable[id.xy] = lerp(0, 1, diff > _WallMinHeight);
-	
-	
-//}
-
-//[numthreads(8, 8, 1)]
-//void WallsSDF(uint3 id : SV_DispatchThreadID)
-//{
-	
-//}

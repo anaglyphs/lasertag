@@ -1,4 +1,5 @@
 using System;
+using System.Net;
 using System.Text;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
@@ -42,7 +43,7 @@ namespace Anaglyph.SharedSpaces
 
 			if(manager.IsHost)
 			{
-				var address = transport.ConnectionData.Address;
+				string address = transport.ConnectionData.Address;
 
 				OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(address)).ContinueWith(result =>
 				{
@@ -61,6 +62,9 @@ namespace Anaglyph.SharedSpaces
 		private void OnColocationSessionDiscovered(OVRColocationSession.Data data)
 		{
 			transport.ConnectionData.Address = Encoding.ASCII.GetString(data.Metadata);
+#if UNITY_EDITOR
+			transport.ConnectionData.Address = "127.0.0.1";
+#endif
 			manager.StartClient();
 		}
 	}
