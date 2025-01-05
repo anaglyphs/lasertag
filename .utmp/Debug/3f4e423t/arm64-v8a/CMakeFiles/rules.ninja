@@ -42,7 +42,7 @@ rule CXX_SHARED_LIBRARY_LINKER__game_Debug
 # Rule for re-running cmake.
 
 rule RERUN_CMAKE
-  command = "C:\Program Files\Unity\Hub\Editor\6000.0.31f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\cmake\3.22.1\bin\cmake.exe" --regenerate-during-build -SC:\Users\jt\source\lasertag\Library\PramData\AndroidApplicationController\Cache\com.trev3d.lasertagdev\gradle-project\unityLibrary\src\main\cpp -BC:\Users\jt\source\lasertag\.utmp\Debug\3f4e423t\arm64-v8a
+  command = "C:\Program Files\Unity\Hub\Editor\6000.0.31f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\cmake\3.22.1\bin\cmake.exe" --regenerate-during-build -SC:\Users\jt\source\lasertag\Library\Bee\Android\Prj\IL2CPP\Gradle\unityLibrary\src\main\cpp -BC:\Users\jt\source\lasertag\.utmp\Debug\3f4e423t\arm64-v8a
   description = Re-running CMake...
   generator = 1
 

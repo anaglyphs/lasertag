@@ -84,7 +84,7 @@ namespace Anaglyph.XRTemplate
 				shader.SetBuffer(index, id, buffer);
 			}
 
-			public void Dispatch(int fillX, int fillY, int fillZ)
+			public void Dispatch(int fillX, int fillY, int fillZ = 1)
 			{
 				int numGroupsX = fillX / groupSize.x;
 				int numGroupsY = fillY / groupSize.y;
@@ -149,47 +149,36 @@ namespace Anaglyph.XRTemplate
 		}
 
 		private IEnumerator ScanRoomLoop()
-		{
-			Texture depthTex;
-
-			do
-			{
-				depthTex = Shader.GetGlobalTexture(DepthKitDriver.agDepthTex_ID);
-				yield return null;
-			} while (depthTex == null);
-			
-			ClearEnvMap.Dispatch(textureSize, textureSize, 1);
-			ClearPerFrame.Dispatch(textureSize, textureSize, 1);
-
-			Accumulate.Set(DepthKitDriver.agDepthTex_ID, depthTex);
+		{	
+			ClearEnvMap.Dispatch(textureSize, textureSize);
+			ClearPerFrame.Dispatch(textureSize, textureSize);
 
 			while (true)
 			{
-				Accumulate.Dispatch(depthSamples, depthSamples, 1);
+				var depthTex = Shader.GetGlobalTexture(DepthKitDriver.agDepthTex_ID);
+				Accumulate.Set(DepthKitDriver.agDepthTex_ID, depthTex);
 
+				Accumulate.Dispatch(depthSamples, depthSamples, 1);
 				var dataRequest = AsyncGPUReadback.Request(perFrameMap);
-				yield return new WaitForSeconds(1f / 30f);
+				Apply.Dispatch(textureSize, textureSize);
 				while (!dataRequest.done) yield return null;
 
 				if (!dataRequest.hasError)
 					OnPerFrameEnvMap.Invoke(dataRequest.GetData<int>());
 
-				Apply.Dispatch(textureSize, textureSize, 1);
-				OnApply.Invoke();
+				yield return new WaitForSeconds(1f / 15f);
 			}
 		}
 
 		public void ApplyData(NativeArray<int> data)
 		{
 			perFrameMap.SetData(data);
-			Apply.Dispatch(textureSize, textureSize, 1);
+			Apply.Dispatch(textureSize, textureSize);
 		}
 
 		public void ClearMap()
 		{
-			RenderTexture.active = envMap;
-			GL.Clear(true, true, Color.black);
-			RenderTexture.active = null;
+			ClearEnvMap.Dispatch(textureSize, textureSize);
 		}
 
 		protected override void OnSingletonDestroy()

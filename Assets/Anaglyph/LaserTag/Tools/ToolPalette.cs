@@ -23,11 +23,6 @@ namespace Anaglyph.Lasertag
 				Left = this;
 		}
 
-		private void Start()
-		{
-			gameObject.SetActive(NetworkManager.Singleton.IsConnectedClient);
-		}
-
 		public void OpenSpawnerWithObject(GameObject objectToSpawn)
 		{
 			toolSelector.SetActiveChild(spawner.transform.GetSiblingIndex());
