@@ -1,5 +1,3 @@
-using System;
-using System.Net;
 using System.Text;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
@@ -7,7 +5,7 @@ using UnityEngine;
 
 namespace Anaglyph.SharedSpaces
 {
-    public class LocalNetworkConnection : MonoBehaviour
+    public class AutomaticGameJoiner : MonoBehaviour
     {
 		private static NetworkManager manager => NetworkManager.Singleton;
 		private static UnityTransport transport => (UnityTransport) NetworkManager.Singleton.NetworkConfig.NetworkTransport;

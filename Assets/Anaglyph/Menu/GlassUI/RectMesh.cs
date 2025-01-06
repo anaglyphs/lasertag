@@ -15,7 +15,7 @@ namespace GlassUI
 		{
 			base.OnValidate();
 
-			this.SetComponent(ref rectTransform);
+			TryGetComponent(out rectTransform);
 		}
 
 		//protected override void Awake()

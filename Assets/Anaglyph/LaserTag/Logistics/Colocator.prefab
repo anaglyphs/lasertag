@@ -103,7 +103,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8853041759341014876}
-  - component: {fileID: 5436697670252303249}
   - component: {fileID: 6318854394184693099}
   - component: {fileID: 1393560638002658404}
   - component: {fileID: 1069551568361919456}
@@ -132,18 +131,6 @@ Transform:
   - {fileID: 8328524260445403724}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &5436697670252303249
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1252286925736113731}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e7036598a4c8f184684257d12263f529, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &6318854394184693099
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -158,9 +145,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   closestIndicator: {fileID: 577747644057606694}
   maxDistanceToAnchorTo: 3
-  calibrateDelaySeconds: 1
-  colocationNoticeTransform: {fileID: 8328524260445403724}
-  colocationNoticeVerticalOffset: 1.5
 --- !u!114 &1393560638002658404
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -214,6 +198,9 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnServerStopped:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDisconnect:
     m_PersistentCalls:
       m_Calls: []
 --- !u!114 &3584420606969044866
@@ -305,6 +292,9 @@ MeshRenderer:
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 2
   m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -472,6 +462,9 @@ MeshRenderer:
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 2
   m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -510,4 +503,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   originalMesh: {fileID: -2243694021022699714, guid: 9a947e8932165ec42b96b22209cf26a2, type: 3}
+  meshFilter: {fileID: 9156034012019411021}
   padding: 0
+  rectTransform: {fileID: 8873679093179441428}

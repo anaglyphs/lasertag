@@ -450,7 +450,6 @@ GameObject:
   - component: {fileID: 7391368578742033943}
   - component: {fileID: 4717412609529735901}
   - component: {fileID: 6047634390268307362}
-  - component: {fileID: 6958350526306962623}
   - component: {fileID: 6106146367972398567}
   m_Layer: 0
   m_Name: Helmet Mesh
@@ -541,19 +540,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   <DepthBiasValue>k__BackingField: 0
   DoesAffectChildren: 1
---- !u!114 &6958350526306962623
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6518786421956299528}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1dc1fff39cff37e40bbdd02bcf6dae2a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  boolObject: {fileID: 11400000, guid: a7ecfbb4886f5d744b769c1066675349, type: 2}
 --- !u!114 &6106146367972398567
 MonoBehaviour:
   m_ObjectHideFlags: 0

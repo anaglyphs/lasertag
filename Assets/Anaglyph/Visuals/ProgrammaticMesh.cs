@@ -14,7 +14,7 @@ namespace Anaglyph
 
 		protected virtual void OnValidate()
 		{
-			this.SetComponent(ref meshFilter);
+			TryGetComponent(out meshFilter);
 		}
 
 		protected virtual void Awake()

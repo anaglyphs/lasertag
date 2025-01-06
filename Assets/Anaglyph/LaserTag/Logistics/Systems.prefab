@@ -113,7 +113,6 @@ GameObject:
   - component: {fileID: 6766412519365791640}
   - component: {fileID: 5165934986485531721}
   - component: {fileID: 6795854006561429885}
-  - component: {fileID: 2883331069506957876}
   - component: {fileID: 7812237449445609425}
   m_Layer: 0
   m_Name: Systems
@@ -205,6 +204,7 @@ MonoBehaviour:
   lerpHeight: 0.2
   envSize: 50
   depthSamples: 128
+  scanFrequency: 10
 --- !u!114 &4259786034356999575
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -345,47 +345,6 @@ MonoBehaviour:
           m_FloatArgument: 0
           m_StringArgument: 
           m_BoolArgument: 0
-        m_CallState: 2
---- !u!114 &2883331069506957876
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1252286925736113731}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fce0d158b331b7640ab3c03420725e9b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  onAwake:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 11400000, guid: a7ecfbb4886f5d744b769c1066675349, type: 2}
-        m_TargetAssemblyTypeName: VariableObjects.GenericVariableObject`1[[System.Boolean,
-          mscorlib
-        m_MethodName: Set
-        m_Mode: 6
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 1
-        m_CallState: 2
-      - m_Target: {fileID: 11400000, guid: 5390df5bc7d02f14081ac7755da55437, type: 2}
-        m_TargetAssemblyTypeName: VariableObjects.GenericVariableObject`1[[System.Boolean,
-          mscorlib
-        m_MethodName: Set
-        m_Mode: 6
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 1
         m_CallState: 2
 --- !u!114 &7812237449445609425
 MonoBehaviour:

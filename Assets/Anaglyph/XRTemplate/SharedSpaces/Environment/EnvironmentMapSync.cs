@@ -8,6 +8,7 @@ using Unity.Jobs;
 using Unity.Netcode;
 using UnityEngine;
 using Unity.Burst;
+using Anaglyph.Netcode;
 
 namespace Anaglyph.SharedSpaces
 {
@@ -45,7 +46,7 @@ namespace Anaglyph.SharedSpaces
 			manager.OnConnectionEvent += OnConnectionEvent;
 
 			mapper = EnvironmentMapper.Instance;
-			EnvironmentMapper.OnPerFrameEnvMap += OnPerFrameEnvMap;
+			EnvironmentMapper.OnScan += HandleScan;
 		}
 
 		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
@@ -135,7 +136,7 @@ namespace Anaglyph.SharedSpaces
 		}
 
 		// send data to server
-		private void OnPerFrameEnvMap(NativeArray<int> data)
+		private void HandleScan(NativeArray<int> data)
 		{
 			if (!manager.IsConnectedClient)
 				return;
@@ -233,20 +234,6 @@ namespace Anaglyph.SharedSpaces
 					SendToAllOtherClients(writer, sender);
 				}
 			}
-			
-			//FastBufferWriter writer = new FastBufferWriter(numBytes, Allocator.Temp);
-			//using (writer)
-			//{
-			//	byte[] byteArray = new byte[numBytes];
-			//	fixed (byte* bytePtr = byteArray)
-			//	{
-			//		reader.Seek(0);
-			//		reader.ReadBytesSafe(bytePtr, numBytes);
-			//		writer.WriteBytesSafe(bytePtr, numBytes);
-			//	}
-
-			//	SendToAllOtherClients(writer, sender);
-			//} 
 		}
 
 		private void SendToAllOtherClients(FastBufferWriter writer, ulong sender)
@@ -254,19 +241,19 @@ namespace Anaglyph.SharedSpaces
 			foreach (ulong id in manager.ConnectedClientsIds)
 			{
 				if (id != sender && id != NetworkManager.ServerClientId)
-					manager.CustomMessagingManager.SendUnnamedMessage(
+					manager.CustomMessagingManager?.SendUnnamedMessage(
 						id, writer, NetworkDelivery.ReliableFragmentedSequenced);
 			}
 		}
 
 		private void SendToServer(FastBufferWriter writer) => 
-			manager.CustomMessagingManager.SendUnnamedMessage(
+			manager.CustomMessagingManager?.SendUnnamedMessage(
 							NetworkManager.ServerClientId, writer,
 							NetworkDelivery.ReliableFragmentedSequenced);
 
 		private void OnDestroy()
 		{
-			EnvironmentMapper.OnPerFrameEnvMap -= OnPerFrameEnvMap;
+			EnvironmentMapper.OnScan -= HandleScan;
 		}
 	}
 }

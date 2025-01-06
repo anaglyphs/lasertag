@@ -1,7 +1,5 @@
-using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.UI;
-using Anaglyph;
 
 namespace Anaglyph.Menu
 {
@@ -11,7 +9,7 @@ namespace Anaglyph.Menu
 
 		private void OnValidate()
 		{
-			this.SetComponent(ref field);
+			TryGetComponent(out field);
 		}
 
 		private void Start()

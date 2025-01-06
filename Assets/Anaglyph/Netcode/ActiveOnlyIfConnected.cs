@@ -1,7 +1,7 @@
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Anaglyph.SharedSpaces
+namespace Anaglyph.Netcode
 {
 	public class ActiveOnlyIfConnected : MonoBehaviour
 	{

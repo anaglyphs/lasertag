@@ -1,7 +1,7 @@
 // https://github.com/oculus-samples/Unity-DepthAPI/issues/16
 #include "DepthKit.hlsl"
 
-RWTexture2DArray<float3> agDepthNormalTexRW;
+RWTexture2DArray<float4> agDepthNormalTexRW;
 #pragma kernel DepthNorm
 
 int eye = 0;
@@ -30,5 +30,5 @@ void DepthNorm(uint3 id : SV_DispatchThreadID)
 	
 	float3 worldNorm = -normalize(cross(hDeriv, vDeriv));
 
-	agDepthNormalTexRW[id] = worldNorm;
+    agDepthNormalTexRW[id] = float4(worldNorm, 1);
 }

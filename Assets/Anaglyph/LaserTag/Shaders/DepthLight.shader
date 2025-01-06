@@ -8,7 +8,7 @@ Shader "Lasertag/DepthLight"
 
 	SubShader
 	{
-		Tags { "RenderType"="Opaque" }
+		Tags { "RenderType" = "Opaque" }
 		LOD 200
 		ZTest Always
 		ZWrite Off

@@ -62,7 +62,7 @@ namespace Anaglyph.Lasertag.Networking
 
 		private void OnValidate()
 		{
-			this.SetComponent(ref teamOwner);
+			TryGetComponent(out teamOwner);
 		}
 
 		public override void OnNetworkSpawn()

@@ -1,7 +1,7 @@
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.Netcode
 {
     public class EnableIfOwner : NetworkBehaviour
     {

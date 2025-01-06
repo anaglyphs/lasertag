@@ -1,7 +1,7 @@
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag.Logistics
+namespace Anaglyph.Netcode
 {
 	public struct NetworkPose : INetworkSerializable, System.IEquatable<NetworkPose>
 	{

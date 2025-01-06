@@ -19,14 +19,14 @@ namespace Anaglyph.Lasertag
 		{
 			renderers = GetComponentsInChildren<MeshRenderer>(true);
 
-			this.SetComponetFromParent(ref teamOwner);
-			teamOwner?.OnTeamChange.AddPersistentListenerOnce(SetColor);
+			teamOwner = GetComponentInParent<TeamOwner>(true);
 		}
 
 		public UnityEvent<Color> OnColorSet = new();
 
 		private void Awake()
 		{
+			teamOwner.OnTeamChange.AddListener(SetColor);
 			foreach (var renderer in renderers)
 			{
 				renderer.material = new(renderer.material);

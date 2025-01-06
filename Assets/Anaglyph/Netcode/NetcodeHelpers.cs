@@ -1,6 +1,6 @@
 using Unity.Netcode;
 
-namespace Anaglyph.SharedSpaces
+namespace Anaglyph.Netcode
 {
     public static class NetcodeHelpers
     {
@@ -15,5 +15,15 @@ namespace Anaglyph.SharedSpaces
 			return data.EventType == ConnectionEvent.ClientDisconnected &&
 				data.ClientId == NetworkManager.Singleton.LocalClientId;
 		}
+	}
+
+	public static class WritePerm
+	{
+		public static NetworkVariableWritePermission Owner => NetworkVariableWritePermission.Owner;
+	}
+
+	public static class ReadPerm
+	{
+		public static NetworkVariableReadPermission Everyone => NetworkVariableReadPermission.Everyone;
 	}
 }

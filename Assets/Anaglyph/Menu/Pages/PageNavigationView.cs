@@ -27,7 +27,7 @@ namespace Anaglyph.Menu
 
 		private void OnValidate()
 		{
-			this.SetComponentFromChild(ref firstPageActive);
+			firstPageActive = GetComponentInChildren<NavPage>(true);
 		}
 
 		private void Awake()

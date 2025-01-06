@@ -1663,9 +1663,6 @@ PrefabInstance:
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 4239447829336590961, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 2751328406903076567}
-    - targetCorrespondingSourceObject: {fileID: 4239447829336590961, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}
-      insertIndex: -1
       addedObject: {fileID: 1663172079777775890}
     - targetCorrespondingSourceObject: {fileID: 4239447829336590961, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}
       insertIndex: -1
@@ -1676,87 +1673,6 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 4239447829336590961, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}
   m_PrefabInstance: {fileID: 3972421217011190944}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &2751328406903076567
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1005828126166861521}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ae3897a27382c6046bd6d52f51544650, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  OnClientStarted:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 7550431595235590562}
-        m_TargetAssemblyTypeName: UnityEngine.UI.Text, UnityEngine.UI
-        m_MethodName: set_text
-        m_Mode: 5
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: Trying to connect...
-          m_BoolArgument: 0
-        m_CallState: 2
-      - m_Target: {fileID: 0}
-        m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
-        m_MethodName: SetActive
-        m_Mode: 6
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: Trying to connect...
-          m_BoolArgument: 1
-        m_CallState: 2
-  OnServerStarted:
-    m_PersistentCalls:
-      m_Calls: []
-  OnHostStarted:
-    m_PersistentCalls:
-      m_Calls: []
-  OnConnect:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 0}
-        m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
-        m_MethodName: SetActive
-        m_Mode: 6
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: Connected
-          m_BoolArgument: 0
-        m_CallState: 2
-      - m_Target: {fileID: 7550431595235590562}
-        m_TargetAssemblyTypeName: UnityEngine.UI.Text, UnityEngine.UI
-        m_MethodName: set_text
-        m_Mode: 5
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: Connected
-          m_BoolArgument: 0
-        m_CallState: 2
-  OnClientStopped:
-    m_PersistentCalls:
-      m_Calls: []
-  OnServerStopped:
-    m_PersistentCalls:
-      m_Calls: []
-  OnDisconnect:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!225 &1663172079777775890
 CanvasGroup:
   m_ObjectHideFlags: 0
@@ -2360,9 +2276,6 @@ PrefabInstance:
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 4239447829336590961, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 8528036164007730530}
-    - targetCorrespondingSourceObject: {fileID: 4239447829336590961, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}
-      insertIndex: -1
       addedObject: {fileID: 7840625015401266467}
     - targetCorrespondingSourceObject: {fileID: 4239447829336590961, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}
       insertIndex: -1
@@ -2389,87 +2302,6 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 4239447829336590961, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}
   m_PrefabInstance: {fileID: 5431788357823608459}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &8528036164007730530
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8193206527386270970}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ae3897a27382c6046bd6d52f51544650, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  OnClientStarted:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1479981406488083337}
-        m_TargetAssemblyTypeName: UnityEngine.UI.Text, UnityEngine.UI
-        m_MethodName: set_text
-        m_Mode: 5
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: Trying to connect...
-          m_BoolArgument: 0
-        m_CallState: 2
-      - m_Target: {fileID: 526396024576374692}
-        m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
-        m_MethodName: SetActive
-        m_Mode: 6
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: Trying to connect...
-          m_BoolArgument: 1
-        m_CallState: 2
-  OnServerStarted:
-    m_PersistentCalls:
-      m_Calls: []
-  OnHostStarted:
-    m_PersistentCalls:
-      m_Calls: []
-  OnConnect:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 526396024576374692}
-        m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
-        m_MethodName: SetActive
-        m_Mode: 6
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: Connected
-          m_BoolArgument: 0
-        m_CallState: 2
-      - m_Target: {fileID: 1479981406488083337}
-        m_TargetAssemblyTypeName: UnityEngine.UI.Text, UnityEngine.UI
-        m_MethodName: set_text
-        m_Mode: 5
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: Connected
-          m_BoolArgument: 0
-        m_CallState: 2
-  OnClientStopped:
-    m_PersistentCalls:
-      m_Calls: []
-  OnServerStopped:
-    m_PersistentCalls:
-      m_Calls: []
-  OnDisconnect:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!225 &7840625015401266467
 CanvasGroup:
   m_ObjectHideFlags: 0

@@ -1,4 +1,5 @@
 using Anaglyph.Lasertag.Networking;
+using System;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
@@ -29,7 +30,12 @@ namespace Anaglyph.Lasertag
 
 		private void OnValidate()
 		{
-			this.SetComponent(ref teamOwner);
+			TryGetComponent(out teamOwner);
+		}
+
+		private void SetComponent(ref TeamOwner teamOwner)
+		{
+			throw new NotImplementedException();
 		}
 
 		private void Awake()

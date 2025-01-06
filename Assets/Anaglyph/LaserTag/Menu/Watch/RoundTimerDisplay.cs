@@ -11,7 +11,7 @@ namespace Anaglyph.Lasertag
 
 		private void OnValidate()
 		{
-			this.SetComponent(ref text);
+			TryGetComponent(out text);
 		}
 
 		private void Update()

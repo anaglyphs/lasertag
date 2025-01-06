@@ -1,4 +1,3 @@
-using Anaglyph;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -11,7 +10,7 @@ namespace Anaglyph.MenuXR
 
 		private void Awake()
 		{
-			this.SetComponent(ref image);
+			TryGetComponent(out image);
 		}
 
 		private void OnEnable()
@@ -28,7 +27,7 @@ namespace Anaglyph.MenuXR
 		{
 			if (colorObject == null) return;
 
-			this.SetComponent(ref image);
+			TryGetComponent(out image);
 			SetColor(colorObject.Value);
 		}
 

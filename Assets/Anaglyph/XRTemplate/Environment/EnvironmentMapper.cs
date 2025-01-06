@@ -13,7 +13,7 @@ namespace Anaglyph.XRTemplate
 	{
 		public const int PER_FRAME_UNWRITTEN = 0;
 
-		public static Action<NativeArray<int>> OnPerFrameEnvMap = delegate { };
+		public static Action<NativeArray<int>> OnScan = delegate { };
 		public static Action OnApply = delegate { };
 
 		[SerializeField] private ComputeShader compute;
@@ -34,13 +34,15 @@ namespace Anaglyph.XRTemplate
 
 		[SerializeField] private int depthSamples = 128;
 
+		[SerializeField] private float scanFrequency = 15f;
+
 		private static int ID(string str) => Shader.PropertyToID(str);
 
 		private static readonly int agEnvSizeMeters = ID(nameof(agEnvSizeMeters));
 		private static readonly int agEnvHeightMap = ID(nameof(agEnvHeightMap));
 
-		private static readonly int _PerFrameHeight = ID(nameof(_PerFrameHeight));
-		private static readonly int _EnvHeightMapWritable = ID(nameof(_EnvHeightMapWritable));
+		private static readonly int _PerFrameScan = ID(nameof(_PerFrameScan));
+		private static readonly int _HeightMap = ID(nameof(_HeightMap));
 		private static readonly int _TexSize = ID(nameof(_TexSize));
 		
 		private static readonly int _DepthSamples = ID(nameof(_DepthSamples));
@@ -53,74 +55,42 @@ namespace Anaglyph.XRTemplate
 
 		private static readonly int _LerpHeight = ID(nameof(_LerpHeight));
 
-		private RenderTexture envMap;
-		public RenderTexture Map => envMap;
-		//private RenderTexture perFrameMap;
-		private ComputeBuffer perFrameMap;
+		private RenderTexture heightMap;
+		public RenderTexture Map => heightMap;
+		private ComputeBuffer perFrameScanBuffer;
 
-		private struct Kernel
-		{
-			public ComputeShader shader;
-			public int index;
-			public (int x, int y, int z) groupSize;
-
-			public Kernel(ComputeShader shader, int index)
-			{
-				this.shader = shader;
-				this.index = index;
-
-				uint x, y, z;
-				shader.GetKernelThreadGroupSizes(index, out x, out y, out z);
-				groupSize = ((int)x, (int)y, (int)z);
-			}
-
-			public void Set(int id, Texture texture)
-			{
-				shader.SetTexture(index, id, texture);
-			}
-
-			public void Set(int id, ComputeBuffer buffer)
-			{
-				shader.SetBuffer(index, id, buffer);
-			}
-
-			public void Dispatch(int fillX, int fillY, int fillZ = 1)
-			{
-				int numGroupsX = fillX / groupSize.x;
-				int numGroupsY = fillY / groupSize.y;
-				int numGroupsZ = fillZ / groupSize.z;
-
-				shader.Dispatch(index, numGroupsX, numGroupsY, numGroupsZ);
-			}
-		}
-
-		private Kernel Accumulate;
-		private Kernel Apply;
-		private Kernel ClearEnvMap;
-		private Kernel ClearPerFrame;
+		private ComputeKernel Accumulate;
+		private ComputeKernel Apply;
+		private ComputeKernel ClearEnvMap;
+		private ComputeKernel ClearPerFrame;
 
 		protected override void SingletonAwake()
 		{
 			
 		}
 
+		protected override void OnSingletonDestroy()
+		{
+			ClearMap();
+
+			OnScan = delegate { };
+			OnApply = delegate { };
+		}
+
 		private void Start()
 		{
-			envMap = new RenderTexture(textureSize, textureSize, 0, GraphicsFormat.R16G16_SFloat);
-			envMap.enableRandomWrite = true;
+			heightMap = new(textureSize, textureSize, 0, GraphicsFormat.R16G16_SFloat);
+			heightMap.enableRandomWrite = true;
 
-			var size = envMap.width * envMap.height;
-
-			//perFrameMap = new RenderTexture(textureSize, textureSize, 0, GraphicsFormat.R32_SInt);
-			//perFrameMap.enableRandomWrite = true;
-			perFrameMap = new ComputeBuffer(size, sizeof(Int32), ComputeBufferType.Structured);//, ComputeBufferMode.SubUpdates);
+			var size = heightMap.width * heightMap.height;
+			perFrameScanBuffer = new(size, sizeof(Int32), ComputeBufferType.Structured);
 
 			Shader.SetGlobalFloat(agEnvSizeMeters, envSize);
-			Shader.SetGlobalTexture(agEnvHeightMap, envMap);
+			Shader.SetGlobalTexture(agEnvHeightMap, heightMap);
 
-			compute.SetInt(_TexSize, envMap.width);
+			compute.SetInt(_TexSize, heightMap.width);
 
-			compute.SetFloat(_TexSize, envMap.width);
+			compute.SetFloat(_TexSize, heightMap.width);
 			compute.SetInt(_DepthSamples, depthSamples);
 
 			compute.SetVector(_DepthRange, depthRange);
@@ -131,62 +101,70 @@ namespace Anaglyph.XRTemplate
 
 			compute.SetFloat(_LerpHeight, lerpHeight);
 
-			Accumulate = new Kernel(compute, 0);
-			Accumulate.Set(_PerFrameHeight, perFrameMap);
-			Accumulate.Set(_EnvHeightMapWritable, envMap);
+			Accumulate = new ComputeKernel(compute, 0);
+			Accumulate.Set(_PerFrameScan, perFrameScanBuffer);
+			Accumulate.Set(_HeightMap, heightMap);
 
-			Apply = new Kernel(compute, 1);
-			Apply.Set(_PerFrameHeight, perFrameMap);
-			Apply.Set(_EnvHeightMapWritable, envMap);
+			Apply = new ComputeKernel(compute, 1);
+			Apply.Set(_PerFrameScan, perFrameScanBuffer);
+			Apply.Set(_HeightMap, heightMap);
 
-			ClearEnvMap = new Kernel(compute, 2);
-			ClearEnvMap.Set(_EnvHeightMapWritable, envMap);
+			ClearEnvMap = new ComputeKernel(compute, 2);
+			ClearEnvMap.Set(_HeightMap, heightMap);
 
-			ClearPerFrame = new Kernel(compute, 3);
-			ClearPerFrame.Set(_PerFrameHeight, perFrameMap);
+			ClearEnvMap.Dispatch(textureSize, textureSize);
 
-			StartCoroutine(ScanRoomLoop());
+			StartCoroutine(ScanTimer());
 		}
 
-		private IEnumerator ScanRoomLoop()
-		{	
-			ClearEnvMap.Dispatch(textureSize, textureSize);
-			ClearPerFrame.Dispatch(textureSize, textureSize);
+		private IEnumerator ScanTimer()
+		{
+            while (true)
+            {
+				yield return new WaitForSeconds(1f / scanFrequency);
+				shouldScanThisUpdate = true;
+            }
+        }
 
-			while (true)
+		bool shouldScanThisUpdate = true;
+		private void LateUpdate()
+		{
+			if (!shouldScanThisUpdate || !DepthKitDriver.DepthAvailable)
+				return;
+
+			shouldScanThisUpdate = false;
+
+			int id = DepthKitDriver.agDepthViewInv_ID;
+			compute.SetMatrixArray(id, Shader.GetGlobalMatrixArray(id));
+			id = DepthKitDriver.agDepthView_ID;
+			compute.SetMatrixArray(id, Shader.GetGlobalMatrixArray(id));
+
+			var depthTex = Shader.GetGlobalTexture(DepthKitDriver.agDepthTex_ID);
+			Accumulate.Set(DepthKitDriver.agDepthTex_ID, depthTex);
+			Accumulate.Dispatch(depthSamples, depthSamples, 1);
+			var dataRequest = AsyncGPUReadback.Request(perFrameScanBuffer);
+
+			Apply.Dispatch(textureSize, textureSize);
+
+			StartCoroutine(WaitForGPUData());
+			IEnumerator WaitForGPUData()
 			{
-				var depthTex = Shader.GetGlobalTexture(DepthKitDriver.agDepthTex_ID);
-				Accumulate.Set(DepthKitDriver.agDepthTex_ID, depthTex);
-
-				Accumulate.Dispatch(depthSamples, depthSamples, 1);
-				var dataRequest = AsyncGPUReadback.Request(perFrameMap);
-				Apply.Dispatch(textureSize, textureSize);
 				while (!dataRequest.done) yield return null;
 
 				if (!dataRequest.hasError)
-					OnPerFrameEnvMap.Invoke(dataRequest.GetData<int>());
-
-				yield return new WaitForSeconds(1f / 15f);
+					OnScan.Invoke(dataRequest.GetData<int>());
 			}
 		}
 
 		public void ApplyData(NativeArray<int> data)
 		{
-			perFrameMap.SetData(data);
+			perFrameScanBuffer.SetData(data);
 			Apply.Dispatch(textureSize, textureSize);
 		}
 
 		public void ClearMap()
 		{
 			ClearEnvMap.Dispatch(textureSize, textureSize);
-		}
-
-		protected override void OnSingletonDestroy()
-		{
-			ClearMap();
-
-			OnPerFrameEnvMap = delegate { };
-			OnApply = delegate { };
 		}
 	}
 }

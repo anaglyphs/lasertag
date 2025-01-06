@@ -1,7 +1,7 @@
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.Netcode
 {
     public class InvisibleIfOwner : NetworkBehaviour
     {
@@ -9,7 +9,7 @@ namespace Anaglyph.Lasertag
 
 		private void OnValidate()
 		{
-			this.SetComponent(ref renderer);
+			TryGetComponent(out renderer);
 		}
 
 		private void Start() => Handle();

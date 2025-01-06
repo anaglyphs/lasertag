@@ -17,8 +17,8 @@ namespace Anaglyph.Menu
 
 		private void OnValidate()
 		{
-			this.SetComponent(ref rectTransform);
-			this.SetComponent(ref canvasGroup);
+			TryGetComponent(out rectTransform);
+			TryGetComponent(out canvasGroup);
 		}
 
 		protected override void SuperAwake()

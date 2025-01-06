@@ -2,7 +2,7 @@
 
 Texture2DArray<float> agDepthTex;
 uniform Texture2DArray<float4> agDepthEdgeTex;
-Texture2DArray<float3> agDepthNormalTex;
+Texture2DArray<float4> agDepthNormalTex;
 SamplerState bilinearClampSampler;
 uint2 agDepthTexSize;
 
@@ -30,7 +30,7 @@ float agDepthNDCToLinear(float depthNDC)
     return (1.0f / (depthNDC + agDepthZParams.y)) * agDepthZParams.x;
 }
 
-float3 agDepthNormalSample(float2 uv, int eye = 0)
+float4 agDepthNormalSample(float2 uv, int eye = 0)
 {
 	return agDepthNormalTex.SampleLevel(bilinearClampSampler, float3(uv.xy, eye), 0);
 }

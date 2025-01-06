@@ -12,7 +12,7 @@ namespace Anaglyph.Lasertag
 
 		private void OnValidate()
 		{
-			this.SetComponent(ref image);
+			TryGetComponent(out image);
 
 			Color multiplied = TeamManagement.TeamColors[team] * multiply;
 			multiplied.a = 1;
