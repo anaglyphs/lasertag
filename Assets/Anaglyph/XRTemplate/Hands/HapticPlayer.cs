@@ -1,21 +1,22 @@
 using UnityEngine;
+using Oculus.Haptics;
 
 namespace Anaglyph.XRTemplate
 {
     public class HapticPlayer : MonoBehaviour
     {
-        [SerializeField] private Oculus.Haptics.HapticClip clip;
+		[SerializeField] private HapticClip clip = null;
         private HandSide side;
-        private Oculus.Haptics.Controller controller;
+		private Controller controller;
 
-        private Oculus.Haptics.HapticClipPlayer player;
+		private HapticClipPlayer player;
 
 		private void Awake()
 		{
 			side = GetComponentInParent<HandSide>();
             player = new(clip);
 
-            controller = side.isRight ? Oculus.Haptics.Controller.Right : Oculus.Haptics.Controller.Left;
+			controller = side.isRight ? Controller.Right : Controller.Left;
 		}
 
 

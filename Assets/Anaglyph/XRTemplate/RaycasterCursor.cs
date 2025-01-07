@@ -6,8 +6,8 @@ namespace Anaglyph.XRTemplate
 	[DefaultExecutionOrder(-100)]
 	public class RaycasterCursor : MonoBehaviour
 	{
-		[SerializeField] private Raycaster raycaster;
-		[SerializeField] private new Renderer renderer;
+		[SerializeField] private Raycaster raycaster = null;
+		[SerializeField] private new Renderer renderer = null;
 
 		private void Awake()
 		{

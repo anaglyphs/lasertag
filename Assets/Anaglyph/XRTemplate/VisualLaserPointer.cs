@@ -9,11 +9,11 @@ namespace Anaglyph.XRTemplate
 	public class LineRendererLaser : MonoBehaviour
 	{
 		public Vector3 startOffset = new Vector3(0, 0, 0.05f);
-		[SerializeField] private LineRenderer lineRenderer;
+		[SerializeField] private LineRenderer lineRenderer = null;
 
 		private Vector3 localEndPos;
 
-		[SerializeField] private Raycaster casterSubscribed;
+		[SerializeField] private Raycaster casterSubscribed = null;
 
 		private bool setForFrame;
 

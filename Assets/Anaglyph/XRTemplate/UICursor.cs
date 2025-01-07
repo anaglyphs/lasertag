@@ -1,11 +1,11 @@
 using UnityEngine;
-
+using UnityEngine.XR.Interaction.Toolkit.Interactors;
 
 namespace Anaglyph.XRTemplate
 {
     public class UICursor : MonoBehaviour
     {
-        [SerializeField] private UnityEngine.XR.Interaction.Toolkit.Interactors.XRRayInteractor interactor;
+        [SerializeField] private XRRayInteractor interactor = null;
 		private SpriteRenderer sprite;
 
 		private void Awake()

@@ -27,7 +27,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 		private static readonly int WorldEndId = Shader.PropertyToID("WorldEnd");
 		private static readonly int NumSamplesId = Shader.PropertyToID("NumSamples");
 
-		[SerializeField] private ComputeShader computeShader;
+		[SerializeField] private ComputeShader computeShader = null;
 
 		/// <summary>
 		/// 

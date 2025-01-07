@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.XR.Interaction.Toolkit.Interactors.Visuals;
 
 
 
@@ -13,7 +14,7 @@ namespace Anaglyph.XRTemplate
 		{
 			bool visible = lineVisualEnablers.Count > 0;
 
-			UnityEngine.XR.Interaction.Toolkit.Interactors.Visuals.XRInteractorLineVisual[] visuals = FindObjectsOfType<UnityEngine.XR.Interaction.Toolkit.Interactors.Visuals.XRInteractorLineVisual>(true);
+			XRInteractorLineVisual[] visuals = FindObjectsByType<XRInteractorLineVisual>(FindObjectsSortMode.None);
 
 			foreach (var visual in visuals)
 			{

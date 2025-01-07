@@ -7,7 +7,7 @@ namespace Anaglyph.XRTemplate
 {
     public class DepthWrapMesh : MonoBehaviour
     {
-        [SerializeField] private Material mat;
+        [SerializeField] private Material mat = null;
 		public UnityEvent<RenderTexture> onNewFrameAvailable = new();
 
 		private XRDisplaySubsystem xrDisplay;

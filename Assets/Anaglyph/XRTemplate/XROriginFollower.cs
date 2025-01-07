@@ -8,7 +8,7 @@ namespace Anaglyph.XRTemplate
 		private Transform xrFloorOffsetTransform;
 		private void OnEnable()
 		{
-			xrFloorOffsetTransform = FindObjectOfType<XROrigin>().CameraFloorOffsetObject.transform;
+			xrFloorOffsetTransform = FindFirstObjectByType<XROrigin>().CameraFloorOffsetObject.transform;
 		}
 
 		private void LateUpdate()

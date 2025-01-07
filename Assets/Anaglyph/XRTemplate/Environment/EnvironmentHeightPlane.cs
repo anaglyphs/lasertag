@@ -7,7 +7,7 @@ public class EnvironmentHeightPlane : MonoBehaviour
 {
 	private MeshFilter meshFilter;
 
-	[SerializeField] private int verticesPerSide;
+	[SerializeField] private int verticesPerSide = 512;
 
 	private void Awake()
 	{

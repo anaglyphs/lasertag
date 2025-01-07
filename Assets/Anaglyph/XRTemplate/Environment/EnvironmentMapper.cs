@@ -16,18 +16,13 @@ namespace Anaglyph.XRTemplate
 		public static Action<NativeArray<int>> OnScan = delegate { };
 		public static Action OnApply = delegate { };
 
-		[SerializeField] private ComputeShader compute;
+		[SerializeField] private ComputeShader compute = null;
 
 		[SerializeField] private int textureSize = 512;
 		public int TextureSize => textureSize;
 
 		[SerializeField] private Vector2 depthRange = new Vector2(0.5f, 6f);
 		[SerializeField] private Vector2 heightRange = new Vector2(-3f, 0.5f);
-
-		[SerializeField] private float edgeFilterSize = 0.02f;
-		[SerializeField] private float gradientCutoff = 0.2f;
-
-		[SerializeField] private float lerpHeight = 0.2f;
 
 		[SerializeField] private float envSize = 50;
 		public float EnvironmentSize => envSize;
@@ -50,19 +45,14 @@ namespace Anaglyph.XRTemplate
 		private static readonly int _DepthRange = ID(nameof(_DepthRange));
 		private static readonly int _HeightRange = ID(nameof(_HeightRange));
 
-		private static readonly int _EdgeFilterSize = ID(nameof(_EdgeFilterSize));
-		private static readonly int _GradientCutoff = ID(nameof(_GradientCutoff));
-
-		private static readonly int _LerpHeight = ID(nameof(_LerpHeight));
-
 		private RenderTexture heightMap;
 		public RenderTexture Map => heightMap;
 		private ComputeBuffer perFrameScanBuffer;
 
-		private ComputeKernel Accumulate;
+		private ComputeKernel Scan;
 		private ComputeKernel Apply;
-		private ComputeKernel ClearEnvMap;
-		private ComputeKernel ClearPerFrame;
+		private ComputeKernel Clear;
+		private ComputeKernel Raycast;
 
 		protected override void SingletonAwake()
 		{
@@ -96,23 +86,22 @@ namespace Anaglyph.XRTemplate
 			compute.SetVector(_DepthRange, depthRange);
 			compute.SetVector(_HeightRange, heightRange);
 
-			compute.SetFloat(_EdgeFilterSize, edgeFilterSize);
-			compute.SetFloat(_GradientCutoff, gradientCutoff);
+			Scan = new ComputeKernel(compute, nameof(Scan));
+			Scan.Set(_PerFrameScan, perFrameScanBuffer);
+			Scan.Set(_HeightMap, heightMap);
 
-			compute.SetFloat(_LerpHeight, lerpHeight);
-
-			Accumulate = new ComputeKernel(compute, 0);
-			Accumulate.Set(_PerFrameScan, perFrameScanBuffer);
-			Accumulate.Set(_HeightMap, heightMap);
-
-			Apply = new ComputeKernel(compute, 1);
+			Apply = new ComputeKernel(compute, nameof(Apply));
 			Apply.Set(_PerFrameScan, perFrameScanBuffer);
 			Apply.Set(_HeightMap, heightMap);
 
-			ClearEnvMap = new ComputeKernel(compute, 2);
-			ClearEnvMap.Set(_HeightMap, heightMap);
+			Clear = new ComputeKernel(compute, nameof(Clear));
+			Clear.Set(_HeightMap, heightMap);
+			Clear.Set(_PerFrameScan, perFrameScanBuffer);
 
-			ClearEnvMap.Dispatch(textureSize, textureSize);
+			Raycast = new(compute, nameof(Raycast));
+			Raycast.Set(agEnvHeightMap, heightMap);
+
+			Clear.Dispatch(textureSize, textureSize);
 
 			StartCoroutine(ScanTimer());
 		}
@@ -129,6 +118,8 @@ namespace Anaglyph.XRTemplate
 		bool shouldScanThisUpdate = true;
 		private void LateUpdate()
 		{
+			Raycast.Set(DepthKitDriver.agDepthTex_ID, heightMap);
+
 			if (!shouldScanThisUpdate || !DepthKitDriver.DepthAvailable)
 				return;
 
@@ -140,8 +131,8 @@ namespace Anaglyph.XRTemplate
 			compute.SetMatrixArray(id, Shader.GetGlobalMatrixArray(id));
 
 			var depthTex = Shader.GetGlobalTexture(DepthKitDriver.agDepthTex_ID);
-			Accumulate.Set(DepthKitDriver.agDepthTex_ID, depthTex);
-			Accumulate.Dispatch(depthSamples, depthSamples, 1);
+			Scan.Set(DepthKitDriver.agDepthTex_ID, depthTex);
+			Scan.Dispatch(depthSamples, depthSamples, 1);
 			var dataRequest = AsyncGPUReadback.Request(perFrameScanBuffer);
 
 			Apply.Dispatch(textureSize, textureSize);
@@ -164,7 +155,30 @@ namespace Anaglyph.XRTemplate
 
 		public void ClearMap()
 		{
-			ClearEnvMap.Dispatch(textureSize, textureSize);
+			Clear.Dispatch(textureSize, textureSize);
+		}
+
+		private static readonly int raycastOrigin = ID(nameof(raycastOrigin));
+		private static readonly int raycastStep = ID(nameof(raycastStep));
+		private static readonly int hitIndex = ID(nameof(hitIndex));
+
+		public void Cast(Ray ray, out Vector3 point, float maxDistance = 10f)
+		{
+			compute.SetVector(raycastOrigin, ray.origin);
+
+			float metersPerPixel = (envSize / textureSize);
+			int numSteps = Mathf.RoundToInt(maxDistance / metersPerPixel);
+			Vector3 step = ray.direction * metersPerPixel;
+			compute.SetVector(raycastStep, step);
+
+			ComputeBuffer stepHit = new ComputeBuffer(1, sizeof(uint));
+			stepHit.SetData(new uint[] { (uint)numSteps });
+			Raycast.Set(hitIndex, stepHit);
+
+			Raycast.Dispatch(numSteps, 1, 1);
+			uint[] result = new uint[1];
+			stepHit.GetData(result);
+			point = ray.origin + step * result[0];
 		}
 	}
 }

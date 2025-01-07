@@ -2,9 +2,10 @@
 #include "../Depth/DepthKit.hlsl"
 #include "../Environment/Environment.hlsl"
 
-#pragma kernel Scan           // 0
-#pragma kernel Apply          // 1
-#pragma kernel ClearHeightMap // 2
+#pragma kernel Scan
+#pragma kernel Apply
+#pragma kernel Clear
+#pragma kernel Raycast
 
 RWStructuredBuffer<int> _PerFrameScan; // should be 32bit signed int
 RWTexture2D<float2> _HeightMap; 
@@ -15,25 +16,16 @@ uint _DepthSamples;
 float2 _DepthRange;
 float2 _HeightRange;
 
-float _EdgeFilterSize;
-float _GradientCutoff;
-
-float _LerpHeight;
-
-float _WallMinHeight;
-
 #define HEIGHT_INT_FACTOR 100
 #define PER_FRAME_UNWRITTEN 0
+#define EDGE_GRADE 0.01
 
-#define VERTI uint2(0, 1)
-#define HORIZ uint2(1, 0)
-
-uint CoordToIndex(uint2 coord)
+uint ToIndex(uint2 coord)
 {
 	return coord.y * _TexSize + coord.x;
 }
 
-bool WorldWithinFrame(float3 world)
+bool IsInFrame(float3 world)
 {
 	float2 ndc = agDepthWorldToNDC(world).xy;
 	return all(ndc.xy > float2(0, 0)) && all(ndc.xy < float2(1, 1));
@@ -46,27 +38,27 @@ float IntToFloatHeight(int height)
 
 int FloatToIntHeight(float height) 
 {
-	return height * HEIGHT_INT_FACTOR;
+	return round(height * HEIGHT_INT_FACTOR);
 }
 
 [numthreads(64, 1, 1)]
 void Scan(uint3 id : SV_DispatchThreadID)
 {
 	float2 depthUV = float2(id.xy) / _DepthSamples;
-	float depth = saturate(agDepthSample(depthUV));
-	float3 depthWorld = agDepthNDCtoWorld(float3(depthUV, depth));
+	float depth = agDepthSample(depthUV);
+	float4 depthHCS = agDepthNDCtoHCS(float3(depthUV, depth));
+	float4 depthWorld = agDepthHCStoWorldH(depthHCS);
+	depthWorld /= depthWorld.w;
 	float height = depthWorld.y;
 	int intHeight = FloatToIntHeight(depthWorld.y);
 	
-	float2 uv = saturate(agEnvWorldToUV(depthWorld));
-	uint2 mapCoord = uint2(uv * _TexSize); //round(uv * _TexSize);
-	uint index = CoordToIndex(mapCoord);
+	float2 uv = saturate(agEnvWorldToUV(depthWorld.xyz));
+	uint2 mapCoord = uint2(uv * _TexSize);
+	uint index = ToIndex(mapCoord);
 	
 	// within valid height range 
 	
 	float3 depthCameraPos = agDepthViewInv[0]._m03_m13_m23;
-	// float3 depthCameraPos = mul(agDepthViewInv[0], float4(0, 0, 0, 1));
-	
 	float2 heightRangeWorld = _HeightRange + depthCameraPos.y;
 	bool validY = (heightRangeWorld.x < height) && (height < heightRangeWorld.y);
 	
@@ -75,41 +67,74 @@ void Scan(uint3 id : SV_DispatchThreadID)
 	bool validDistance = (_DepthRange.x < dist) && (dist < _DepthRange.y);
 	
 	// previous height is visible in view
-    float2 heightMapVal = _HeightMap[mapCoord];
+	float2 heightMapVal = _HeightMap[mapCoord];
 	float prevHeight = heightMapVal.r;
 	bool prevWritten = heightMapVal.g != 0;
 	float3 prevWorldPos = float3(depthWorld.x, prevHeight, depthWorld.z);
-	bool prevHeightInView = WorldWithinFrame(prevWorldPos) || !prevWritten;
+	bool prevHeightInView = IsInFrame(prevWorldPos) || !prevWritten;
 	
-	bool valid = validY && validDistance && prevHeightInView;
+	// not an edge
+	float o = 1.0 / _DepthSamples;
+	float2 uvVert = depthUV + float2(0, o);
+	float depthVert = agDepthSample(uvVert) * 2 - 1;
+	float diffVert = abs(depthVert - depthHCS.z);
+	
+	float2 uvHoriz = depthUV + float2(o, 0);
+	float depthHoriz = agDepthSample(uvHoriz) * 2 - 1;
+	float diffHoriz = abs(depthHoriz - depthHCS.z);
+	
+	bool isEdge = (diffVert > EDGE_GRADE) || (diffHoriz > EDGE_GRADE);
+	
+	// validate
+	bool valid = validY && validDistance && prevHeightInView && !isEdge; 
 	
 	if (!valid)
 		return;
 	
-    InterlockedMax(_PerFrameScan[index], intHeight);
+	// todo: remove
+	if(intHeight == 0)
+		intHeight = 1;
+	
+	InterlockedMax(_PerFrameScan[index], intHeight);
 }
 
 [numthreads(8, 8, 1)]
 void Apply(uint3 id : SV_DispatchThreadID)
 {
-	uint index = CoordToIndex(id.xy);
-    int intHeight = _PerFrameScan[index];
+	uint index = ToIndex(id.xy);
+	int intHeight = _PerFrameScan[index];
 	
 	bool wasWritten = intHeight != PER_FRAME_UNWRITTEN;
 	
-    float2 heightMapVal = _HeightMap[id.xy]; // r = height, g = is written
+	float2 heightMapVal = _HeightMap[id.xy]; // r = height, g = is written
 	float r = IntToFloatHeight(intHeight);
 	bool g = heightMapVal.g || wasWritten;
 	
 	if(!wasWritten)
 		return;
 	
-    _HeightMap[id.xy] = float2(r, g);
-    _PerFrameScan[index] = PER_FRAME_UNWRITTEN;
+	_HeightMap[id.xy] = float2(r, g);
+	_PerFrameScan[index] = PER_FRAME_UNWRITTEN;
 }
 
 [numthreads(8, 8, 1)]
-void ClearHeightMap(uint3 id : SV_DispatchThreadID)
+void Clear(uint3 id : SV_DispatchThreadID)
 {
-    _HeightMap[id.xy] = 0;
+	_HeightMap[id.xy] = 0;
+	uint index = ToIndex(id.xy);
+	_PerFrameScan[index] = PER_FRAME_UNWRITTEN;
+}
+
+float3 raycastOrigin;
+float3 raycastStep;
+RWStructuredBuffer<uint> hitIndex;
+[numthreads(64, 1, 1)]
+void Raycast(uint3 id : SV_DispatchThreadID)
+{
+	uint stepNumber = id.x;
+	
+	float3 worldPos = raycastOrigin + raycastStep * stepNumber;
+	float envHeight = agEnvSample(agEnvWorldToUV(worldPos));
+	if(worldPos.y < envHeight)
+		InterlockedMin(hitIndex[0], stepNumber);
 }

@@ -1,4 +1,5 @@
 using Meta.XR.EnvironmentDepth;
+using System;
 using Unity.XR.Oculus;
 using UnityEngine;
 
@@ -7,7 +8,6 @@ namespace Anaglyph.XRTemplate.DepthKit
 	[DefaultExecutionOrder(-40)]
 	public class DepthKitDriver : SingletonBehavior<DepthKitDriver>
 	{
-
 		private Matrix4x4[] agDepthProj = new Matrix4x4[2];
 		private Matrix4x4[] agDepthProjInv = new Matrix4x4[2];
 
@@ -33,14 +33,16 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		public static readonly int agDepthTexSize = ID(nameof(agDepthTexSize));
 
-		[SerializeField] private EnvironmentDepthManager envDepthTextureProvider;
+		[SerializeField] private EnvironmentDepthManager envDepthTextureProvider = null;
 
 		public Transform trackingSpace;
 		public static bool DepthAvailable { get; private set; }
 
-		[SerializeField] private ComputeShader depthNormalCompute;
+		[SerializeField] private ComputeShader depthNormalCompute = null;
 		private ComputeKernel normKernel;
-		[SerializeField] private RenderTexture normTex;
+		[SerializeField] private RenderTexture normTex = null;
+
+		public static Action<Texture> OnGetDepthTexture = delegate { };
 
 		protected override void SingletonAwake()
 		{
@@ -49,7 +51,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		protected override void OnSingletonDestroy()
 		{
-			
+			OnGetDepthTexture = delegate { };
 		}
 
 		private void Start()
@@ -72,6 +74,8 @@ namespace Anaglyph.XRTemplate.DepthKit
 				return;
 
 			Texture depthTex = Shader.GetGlobalTexture(Meta_EnvironmentDepthTexture_ID);
+
+			OnGetDepthTexture.Invoke(depthTex);
 
 			Shader.SetGlobalVector(agDepthTexSize, new Vector2(depthTex.width, depthTex.height));
 

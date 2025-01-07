@@ -16,18 +16,18 @@ uniform float4 agDepthZParams;
 
 float agDepthSample(float2 uv, int eye = 0)
 {	
-    return agDepthTex.SampleLevel(bilinearClampSampler, float3(uv.xy, eye), 0);
+	return agDepthTex.SampleLevel(bilinearClampSampler, float3(uv.xy, eye), 0);
 }
 
 float4 agDepthSampleEdge(float2 uv, int eye = 0)
 {
-    return agDepthEdgeTex.SampleLevel(bilinearClampSampler, float3(uv.xy, eye), 0);
+	return agDepthEdgeTex.SampleLevel(bilinearClampSampler, float3(uv.xy, eye), 0);
 }
 
 float agDepthNDCToLinear(float depthNDC)
 {
-    depthNDC = depthNDC * 2.0 - 1.0;
-    return (1.0f / (depthNDC + agDepthZParams.y)) * agDepthZParams.x;
+	depthNDC = depthNDC * 2.0 - 1.0;
+	return (1.0f / (depthNDC + agDepthZParams.y)) * agDepthZParams.x;
 }
 
 float4 agDepthNormalSample(float2 uv, int eye = 0)
@@ -37,12 +37,12 @@ float4 agDepthNormalSample(float2 uv, int eye = 0)
 
 float4 agDepthWorldToHCS(float3 worldPos, int eye = 0)
 {
-    return mul(agDepthProj[eye], mul(agDepthView[eye], float4(worldPos, 1)));
+	return mul(agDepthProj[eye], mul(agDepthView[eye], float4(worldPos, 1)));
 }
 
 float4 agDepthHCStoWorldH(float4 hcs, int eye = 0)
 {
-    return mul(agDepthViewInv[eye], mul(agDepthProjInv[eye], hcs));
+	return mul(agDepthViewInv[eye], mul(agDepthProjInv[eye], hcs));
 }
 
 float3 agDepthHCStoNDC(float4 hcs)
@@ -57,13 +57,13 @@ float4 agDepthNDCtoHCS(float3 ndc)
 
 float3 agDepthWorldToNDC(float3 worldPos, int eye = 0)
 {
-    float4 hcs = agDepthWorldToHCS(worldPos, eye);
+	float4 hcs = agDepthWorldToHCS(worldPos, eye);
 	return agDepthHCStoNDC(hcs);
 }
 
 float3 agDepthNDCtoWorld(float3 ndc, int eye = 0)
 {
-    float4 hcs = agDepthNDCtoHCS(ndc);
-    float4 worldH = agDepthHCStoWorldH(hcs, eye);
-    return worldH.xyz / worldH.w;
+	float4 hcs = agDepthNDCtoHCS(ndc);
+	float4 worldH = agDepthHCStoWorldH(hcs, eye);
+	return worldH.xyz / worldH.w;
 }
