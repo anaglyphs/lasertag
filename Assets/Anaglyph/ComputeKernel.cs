@@ -33,9 +33,9 @@ namespace Anaglyph
 
 		public void Dispatch(int fillX, int fillY, int fillZ = 1)
 		{
-			int numGroupsX = fillX / groupSize.x;
-			int numGroupsY = fillY / groupSize.y;
-			int numGroupsZ = fillZ / groupSize.z;
+			int numGroupsX = Mathf.CeilToInt(fillX / (float)groupSize.x);
+			int numGroupsY = Mathf.CeilToInt(fillY / (float)groupSize.y);
+			int numGroupsZ = Mathf.CeilToInt(fillZ / (float)groupSize.z);
 
 			shader.Dispatch(index, numGroupsX, numGroupsY, numGroupsZ);
 		}

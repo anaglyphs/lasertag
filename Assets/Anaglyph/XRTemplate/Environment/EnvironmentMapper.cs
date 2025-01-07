@@ -52,7 +52,7 @@ namespace Anaglyph.XRTemplate
 		private ComputeKernel Scan;
 		private ComputeKernel Apply;
 		private ComputeKernel Clear;
-		private ComputeKernel Raycast;
+		private ComputeKernel RaycastKernel;
 
 		protected override void SingletonAwake()
 		{
@@ -98,8 +98,8 @@ namespace Anaglyph.XRTemplate
 			Clear.Set(_HeightMap, heightMap);
 			Clear.Set(_PerFrameScan, perFrameScanBuffer);
 
-			Raycast = new(compute, nameof(Raycast));
-			Raycast.Set(agEnvHeightMap, heightMap);
+			RaycastKernel = new(compute, "Raycast");
+			RaycastKernel.Set(agEnvHeightMap, heightMap);
 
 			Clear.Dispatch(textureSize, textureSize);
 
@@ -118,7 +118,7 @@ namespace Anaglyph.XRTemplate
 		bool shouldScanThisUpdate = true;
 		private void LateUpdate()
 		{
-			Raycast.Set(DepthKitDriver.agDepthTex_ID, heightMap);
+			RaycastKernel.Set(DepthKitDriver.agDepthTex_ID, heightMap);
 
 			if (!shouldScanThisUpdate || !DepthKitDriver.DepthAvailable)
 				return;
@@ -162,23 +162,41 @@ namespace Anaglyph.XRTemplate
 		private static readonly int raycastStep = ID(nameof(raycastStep));
 		private static readonly int hitIndex = ID(nameof(hitIndex));
 
-		public void Cast(Ray ray, out Vector3 point, float maxDistance = 10f)
+		public bool Raycast(Ray ray, out Vector3 hitPoint, float maxDistance = 10f)
 		{
+			hitPoint = ray.origin;
 			compute.SetVector(raycastOrigin, ray.origin);
 
 			float metersPerPixel = (envSize / textureSize);
-			int numSteps = Mathf.RoundToInt(maxDistance / metersPerPixel);
-			Vector3 step = ray.direction * metersPerPixel;
-			compute.SetVector(raycastStep, step);
+			int totalNumSteps = Mathf.CeilToInt(maxDistance / metersPerPixel);
 
-			ComputeBuffer stepHit = new ComputeBuffer(1, sizeof(uint));
-			stepHit.SetData(new uint[] { (uint)numSteps });
-			Raycast.Set(hitIndex, stepHit);
+			if (totalNumSteps <= 0)
+				return false;
 
-			Raycast.Dispatch(numSteps, 1, 1);
-			uint[] result = new uint[1];
-			stepHit.GetData(result);
-			point = ray.origin + step * result[0];
+			Vector3 stepVector = ray.direction * metersPerPixel;
+			compute.SetVector(raycastStep, stepVector);
+
+			ComputeBuffer stepHitNumber = new ComputeBuffer(1, sizeof(uint));
+			stepHitNumber.SetData(new uint[] { (uint)totalNumSteps });
+			RaycastKernel.Set(hitIndex, stepHitNumber);
+
+			RaycastKernel.Dispatch(totalNumSteps, 1, 1);
+
+			uint[] gpuReadback = new uint[1];
+			stepHitNumber.GetData(gpuReadback);
+			uint stepHitIndex = gpuReadback[0];
+
+			if (stepHitIndex == totalNumSteps)
+				return false;
+
+			hitPoint = ray.origin + stepVector * stepHitIndex;
+			return true;
 		}
+	}
+
+	public static class EnvironmentMap
+	{
+		public static bool Raycast(Ray ray, out Vector3 point, float maxDistance = 10f) =>
+			EnvironmentMapper.Instance.Raycast(ray, out point, maxDistance);
 	}
 }

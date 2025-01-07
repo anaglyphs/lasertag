@@ -27,7 +27,7 @@ namespace Anaglyph.Lasertag
 
 			Ray ray = new Ray(transform.position, transform.forward);
 			Vector3 point;
-			EnvironmentMapper.Instance.Cast(ray, out point);
+			EnvironmentMapper.Instance.Raycast(ray, out point, 50f);
 			hitIndicator.position = point;
 		}
 	}

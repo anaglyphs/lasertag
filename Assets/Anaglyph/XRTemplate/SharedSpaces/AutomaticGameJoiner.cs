@@ -60,9 +60,6 @@ namespace Anaglyph.SharedSpaces
 		private void OnColocationSessionDiscovered(OVRColocationSession.Data data)
 		{
 			transport.ConnectionData.Address = Encoding.ASCII.GetString(data.Metadata);
-#if UNITY_EDITOR
-			transport.ConnectionData.Address = "127.0.0.1";
-#endif
 			manager.StartClient();
 		}
 	}

@@ -197,11 +197,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   compute: {fileID: 7200000, guid: c48d18ef3b30e1e45a887e461cbef191, type: 3}
   textureSize: 512
-  depthRange: {x: 0.5, y: 4}
+  depthRange: {x: 0.5, y: 6}
   heightRange: {x: -3, y: 0}
-  edgeFilterSize: 0.01
-  gradientCutoff: 0.2
-  lerpHeight: 0.2
   envSize: 50
   depthSamples: 128
   scanFrequency: 10
@@ -276,7 +273,7 @@ MonoBehaviour:
     NetworkProfilingMetrics: 1
     OldPrefabList: []
   RunInBackground: 1
-  LogLevel: 1
+  LogLevel: 0
 --- !u!114 &6766412519365791640
 MonoBehaviour:
   m_ObjectHideFlags: 0

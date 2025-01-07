@@ -1,4 +1,4 @@
-# Install script for directory: C:/Users/jt/source/lasertag/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/src/main/cpp
+# Install script for directory: C:/Users/jt/source/lasertag/Library/PramData/AndroidApplicationController/Cache/com.trev3d.lasertagdev/gradle-project/unityLibrary/src/main/cpp
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

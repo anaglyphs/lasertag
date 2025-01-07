@@ -20,7 +20,7 @@ float2 _HeightRange;
 #define PER_FRAME_UNWRITTEN 0
 #define EDGE_GRADE 0.01
 
-uint ToIndex(uint2 coord)
+uint toIndex(uint2 coord)
 {
 	return coord.y * _TexSize + coord.x;
 }
@@ -31,12 +31,12 @@ bool IsInFrame(float3 world)
 	return all(ndc.xy > float2(0, 0)) && all(ndc.xy < float2(1, 1));
 }
 
-float IntToFloatHeight(int height)
+float toFloatHeight(int height)
 {
 	return float(height) / HEIGHT_INT_FACTOR;
 }
 
-int FloatToIntHeight(float height) 
+int toIntHeight(float height) 
 {
 	return round(height * HEIGHT_INT_FACTOR);
 }
@@ -50,11 +50,11 @@ void Scan(uint3 id : SV_DispatchThreadID)
 	float4 depthWorld = agDepthHCStoWorldH(depthHCS);
 	depthWorld /= depthWorld.w;
 	float height = depthWorld.y;
-	int intHeight = FloatToIntHeight(depthWorld.y);
+	int intHeight = toIntHeight(depthWorld.y);
 	
 	float2 uv = saturate(agEnvWorldToUV(depthWorld.xyz));
 	uint2 mapCoord = uint2(uv * _TexSize);
-	uint index = ToIndex(mapCoord);
+	uint index = toIndex(mapCoord);
 	
 	// within valid height range 
 	
@@ -74,7 +74,7 @@ void Scan(uint3 id : SV_DispatchThreadID)
 	bool prevHeightInView = IsInFrame(prevWorldPos) || !prevWritten;
 	
 	// not an edge
-	float o = 1.0 / _DepthSamples;
+	float o = 2.0 / _DepthSamples;
 	float2 uvVert = depthUV + float2(0, o);
 	float depthVert = agDepthSample(uvVert) * 2 - 1;
 	float diffVert = abs(depthVert - depthHCS.z);
@@ -101,13 +101,13 @@ void Scan(uint3 id : SV_DispatchThreadID)
 [numthreads(8, 8, 1)]
 void Apply(uint3 id : SV_DispatchThreadID)
 {
-	uint index = ToIndex(id.xy);
+	uint index = toIndex(id.xy);
 	int intHeight = _PerFrameScan[index];
 	
 	bool wasWritten = intHeight != PER_FRAME_UNWRITTEN;
 	
 	float2 heightMapVal = _HeightMap[id.xy]; // r = height, g = is written
-	float r = IntToFloatHeight(intHeight);
+	float r = toFloatHeight(intHeight);
 	bool g = heightMapVal.g || wasWritten;
 	
 	if(!wasWritten)
@@ -121,7 +121,7 @@ void Apply(uint3 id : SV_DispatchThreadID)
 void Clear(uint3 id : SV_DispatchThreadID)
 {
 	_HeightMap[id.xy] = 0;
-	uint index = ToIndex(id.xy);
+	uint index = toIndex(id.xy);
 	_PerFrameScan[index] = PER_FRAME_UNWRITTEN;
 }
 

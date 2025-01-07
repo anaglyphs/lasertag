@@ -4,6 +4,7 @@ Texture2DArray<float> agDepthTex;
 uniform Texture2DArray<float4> agDepthEdgeTex;
 Texture2DArray<float4> agDepthNormalTex;
 SamplerState bilinearClampSampler;
+SamplerState pointClampSampler;
 uint2 agDepthTexSize;
 
 float4x4 agDepthProj[2];
@@ -16,12 +17,12 @@ uniform float4 agDepthZParams;
 
 float agDepthSample(float2 uv, int eye = 0)
 {	
-	return agDepthTex.SampleLevel(bilinearClampSampler, float3(uv.xy, eye), 0);
+	return agDepthTex.SampleLevel(pointClampSampler, float3(uv.xy, eye), 0);
 }
 
 float4 agDepthSampleEdge(float2 uv, int eye = 0)
 {
-	return agDepthEdgeTex.SampleLevel(bilinearClampSampler, float3(uv.xy, eye), 0);
+	return agDepthEdgeTex.SampleLevel(pointClampSampler, float3(uv.xy, eye), 0);
 }
 
 float agDepthNDCToLinear(float depthNDC)
@@ -32,7 +33,7 @@ float agDepthNDCToLinear(float depthNDC)
 
 float4 agDepthNormalSample(float2 uv, int eye = 0)
 {
-	return agDepthNormalTex.SampleLevel(bilinearClampSampler, float3(uv.xy, eye), 0);
+	return agDepthNormalTex.SampleLevel(pointClampSampler, float3(uv.xy, eye), 0);
 }
 
 float4 agDepthWorldToHCS(float3 worldPos, int eye = 0)

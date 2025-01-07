@@ -1,5 +1,6 @@
 using Anaglyph.Lasertag.Networking;
 using Anaglyph.Netcode;
+using Anaglyph.XRTemplate;
 using Anaglyph.XRTemplate.DepthKit;
 using System.Collections;
 using System.Threading.Tasks;
@@ -87,7 +88,13 @@ namespace Anaglyph.Lasertag
 			Ray forwardRay = new Ray(previousPosition, transform.forward);
 			float distanceCovered = Vector3.Distance(previousPosition, transform.position);
 
-			bool depthDidHit = DepthCast.Raycast(forwardRay, out var depthHit, distanceCovered);
+			//bool depthDidHit = DepthCast.Raycast(forwardRay, out var depthHit, distanceCovered);
+			bool depthDidHit = EnvironmentMap.Raycast(forwardRay, out Vector3 pointHit, distanceCovered);
+			DepthCastResult depthHit = new DepthCastResult()
+			{
+				Position = pointHit,
+				Normal = -forwardRay.direction,
+			};
 			bool physDidHit = Physics.Linecast(previousPosition, transform.position, out RaycastHit hit,
 				Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
 
