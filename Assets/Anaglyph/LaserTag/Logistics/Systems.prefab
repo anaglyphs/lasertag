@@ -112,6 +112,7 @@ GameObject:
   - component: {fileID: 1293351293127728987}
   - component: {fileID: 6766412519365791640}
   - component: {fileID: 5165934986485531721}
+  - component: {fileID: 2606672166833018791}
   - component: {fileID: 6795854006561429885}
   - component: {fileID: 7812237449445609425}
   m_Layer: 0
@@ -251,7 +252,7 @@ MonoBehaviour:
     Prefabs:
       NetworkPrefabsLists:
       - {fileID: 11400000, guid: 6dc0f37b7e0f53147a7c9c9adc804bf0, type: 2}
-    TickRate: 45
+    TickRate: 60
     ClientConnectionBufferTimeout: 10
     ConnectionApproval: 0
     ConnectionData: 
@@ -298,7 +299,7 @@ MonoBehaviour:
   ConnectionData:
     Address: 127.0.0.1
     Port: 7777
-    ServerListenAddress: 127.0.0.1
+    ServerListenAddress: 0.0.0.0
   DebugSimulator:
     PacketDelayMS: 0
     PacketJitterMS: 0
@@ -315,6 +316,34 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 28ed39932787e4745ab5df6d52d1bc11, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &2606672166833018791
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1252286925736113731}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fce0d158b331b7640ab3c03420725e9b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  onAwake:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 11400000, guid: 5390df5bc7d02f14081ac7755da55437, type: 2}
+        m_TargetAssemblyTypeName: VariableObjects.GenericVariableObject`1[[System.Boolean,
+          mscorlib
+        m_MethodName: Set
+        m_Mode: 6
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 1
+        m_CallState: 2
 --- !u!114 &6795854006561429885
 MonoBehaviour:
   m_ObjectHideFlags: 0
