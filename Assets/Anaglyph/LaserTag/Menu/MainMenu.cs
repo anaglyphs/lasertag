@@ -6,9 +6,9 @@ namespace Anaglyph.Lasertag
 {
 	public class MainMenu : MonoBehaviour
 	{
-		[SerializeField] private GameObject[] onlyVisibleIfConnected;
-		[SerializeField] private GameObject[] menusOnlyVisibleIfConnected;
-		[SerializeField] private GameObject fallbackMenuOnDisconnect;
+		[SerializeField] private GameObject[] onlyVisibleIfConnected = null;
+		[SerializeField] private GameObject[] menusOnlyVisibleIfConnected = null;
+		[SerializeField] private GameObject fallbackMenuOnDisconnect = null;
 
 		private NetworkManager manager;
 

@@ -8,9 +8,9 @@ namespace Anaglyph.Lasertag
 {
 	public class Spawner : SuperAwakeBehavior
 	{
-		[SerializeField] private HandedControllerInput input;
-		[SerializeField] private ObjectBoundsVisual objectBoundsVisual;
-		[SerializeField] private LineRendererLaser pointerLaser;
+		[SerializeField] private HandedControllerInput input = null;
+		[SerializeField] private ObjectBoundsVisual objectBoundsVisual = null;
+		[SerializeField] private LineRendererLaser pointerLaser = null;
 		[SerializeField] private float rotateSpeed;
 		[SerializeField] private float floorOffset = 0.05f;
 		[SerializeField] private Vector3 rayOriginOffset = new(0, 0, 0.1f);
@@ -102,9 +102,10 @@ namespace Anaglyph.Lasertag
 		private bool Raycast(out Vector3 pos)
 		{
 			Ray ray = new Ray(transform.TransformPoint(rayOriginOffset), transform.forward);
-			bool hit = DepthCast.Raycast(ray, out var result, handRejection: true);
-			pos = result.Position + Vector3.up * objectVerticalOffset;
-			return hit;
+			//bool hit = DepthCast.Raycast(ray, out var result, handRejection: true);
+			bool didHit = EnvironmentMap.Raycast(ray, out Vector3 hitPoint);
+			pos = hitPoint + Vector3.up * objectVerticalOffset;
+			return didHit;
 		}
 
 		//private Vector3 FloorCast(float floorY)

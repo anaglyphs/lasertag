@@ -1,5 +1,6 @@
 using Anaglyph.Menu;
 using Anaglyph.Netcode;
+using Anaglyph.SharedSpaces;
 using System.Net;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
@@ -17,28 +18,28 @@ namespace Anaglyph.Lasertag
 		private UnityTransport transport;
 
 		[Header(nameof(homePage))]
-		[SerializeField] private NavPage homePage;
-		[SerializeField] private Button hostButton;
+		[SerializeField] private NavPage homePage = null;
+		[SerializeField] private Button hostButton = null;
 
 		[Header(nameof(manuallyConnectPage))]
-		[SerializeField] private NavPage manuallyConnectPage;
-		[SerializeField] private InputField ipField;
-		[SerializeField] private Button connectButton;
+		[SerializeField] private NavPage manuallyConnectPage = null;
+		[SerializeField] private InputField ipField = null;
+		[SerializeField] private Button connectButton = null;
 
 		[Header(nameof(connectingPage))]
-		[SerializeField] private NavPage connectingPage;
-		[SerializeField] private Text connectingText;
-		[SerializeField] private Button connectingCancelButton;
+		[SerializeField] private NavPage connectingPage = null;
+		[SerializeField] private Text connectingText = null;
+		[SerializeField] private Button connectingCancelButton = null;
 
 		[Header(nameof(joinedPage))]
-		[SerializeField] private NavPage joinedPage;
-		[SerializeField] private Text joinedText;
-		[SerializeField] private Button joinedDisconnectButton;
+		[SerializeField] private NavPage joinedPage = null;
+		[SerializeField] private Text joinedText = null;
+		[SerializeField] private Button joinedDisconnectButton = null;
 
 		[Header(nameof(hostingPage))]
-		[SerializeField] private NavPage hostingPage;
-		[SerializeField] private Text hostingText;
-		[SerializeField] private Button hostingStopButton;
+		[SerializeField] private NavPage hostingPage = null;
+		[SerializeField] private Text hostingText = null;
+		[SerializeField] private Button hostingStopButton = null;
 
 		private void Start()
 		{
@@ -49,7 +50,9 @@ namespace Anaglyph.Lasertag
 			manager.OnClientStarted += OnClientStarted;
 
 			// homepage
+			homePage.OnVisible.AddListener((bool v) => AutomaticGameJoiner.Instance.autoJoin = v);
 			hostButton.onClick.AddListener(Host);
+
 
 			// manually connect page
 

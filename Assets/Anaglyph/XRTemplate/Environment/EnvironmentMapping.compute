@@ -8,16 +8,20 @@
 #pragma kernel Raycast
 
 RWStructuredBuffer<int> _PerFrameScan; // should be 32bit signed int
-RWTexture2D<float2> _HeightMap; 
+RWTexture2D<float> _HeightMap; 
 
 uint _TexSize;
 uint _DepthSamples;
 
-float2 _DepthRange;
-float2 _HeightRange;
+#define DEPTH_MIN 1
+#define DEPTH_MAX 6.0
 
-#define HEIGHT_INT_FACTOR 100
+#define HEIGHT_MIN -3.0
+#define HEIGHT_MAX 0.5
+
+#define HEIGHT_INT_FACTOR 100.0
 #define PER_FRAME_UNWRITTEN 0
+#define HEIGHT_UNWRITTEN PER_FRAME_UNWRITTEN / HEIGHT_INT_FACTOR
 #define EDGE_GRADE 0.01
 
 uint toIndex(uint2 coord)
@@ -36,7 +40,7 @@ float toFloatHeight(int height)
 	return float(height) / HEIGHT_INT_FACTOR;
 }
 
-int toIntHeight(float height) 
+int toIntHeight(float height)
 {
 	return round(height * HEIGHT_INT_FACTOR);
 }
@@ -45,55 +49,55 @@ int toIntHeight(float height)
 void Scan(uint3 id : SV_DispatchThreadID)
 {
 	float2 depthUV = float2(id.xy) / _DepthSamples;
+	
 	float depth = agDepthSample(depthUV);
+	
 	float4 depthHCS = agDepthNDCtoHCS(float3(depthUV, depth));
 	float4 depthWorld = agDepthHCStoWorldH(depthHCS);
 	depthWorld /= depthWorld.w;
+	
 	float height = depthWorld.y;
 	int intHeight = toIntHeight(depthWorld.y);
+	
+	intHeight += intHeight == PER_FRAME_UNWRITTEN;
 	
 	float2 uv = saturate(agEnvWorldToUV(depthWorld.xyz));
 	uint2 mapCoord = uint2(uv * _TexSize);
 	uint index = toIndex(mapCoord);
 	
 	// within valid height range 
-	
-	float3 depthCameraPos = agDepthViewInv[0]._m03_m13_m23;
-	float2 heightRangeWorld = _HeightRange + depthCameraPos.y;
-	bool validY = (heightRangeWorld.x < height) && (height < heightRangeWorld.y);
+	float3 eyePos = agDepthViewInv[0]._m03_m13_m23;
+	float validHeightMin = eyePos.y + HEIGHT_MIN;
+	float validHeightMax = eyePos.y + HEIGHT_MAX;
+	bool validY = validHeightMin < height && height < validHeightMax;
 	
 	// within valid distance
-	float dist = distance(depthWorld.xz, depthCameraPos.xz);
-	bool validDistance = (_DepthRange.x < dist) && (dist < _DepthRange.y);
+	float dist = distance(depthWorld.xz, eyePos.xz);
+	bool validDistance = DEPTH_MIN < dist && dist < DEPTH_MAX;
 	
 	// previous height is visible in view
-	float2 heightMapVal = _HeightMap[mapCoord];
-	float prevHeight = heightMapVal.r;
-	bool prevWritten = heightMapVal.g != 0;
-	float3 prevWorldPos = float3(depthWorld.x, prevHeight, depthWorld.z);
-	bool prevHeightInView = IsInFrame(prevWorldPos) || !prevWritten;
+	float heightLastFrame = _HeightMap[mapCoord];
+	float3 posLastFrame = float3(depthWorld.x, heightLastFrame, depthWorld.z);
+	bool previousHeightInView = IsInFrame(posLastFrame) || !heightLastFrame != HEIGHT_UNWRITTEN;
 	
 	// not an edge
-	float o = 2.0 / _DepthSamples;
-	float2 uvVert = depthUV + float2(0, o);
-	float depthVert = agDepthSample(uvVert) * 2 - 1;
-	float diffVert = abs(depthVert - depthHCS.z);
+	float edgeSampleOffset = 2.0 / _DepthSamples;
 	
-	float2 uvHoriz = depthUV + float2(o, 0);
-	float depthHoriz = agDepthSample(uvHoriz) * 2 - 1;
-	float diffHoriz = abs(depthHoriz - depthHCS.z);
+	float2 edgeSampleUVy = depthUV + float2(0, edgeSampleOffset);
+	float edgeDepthY = agDepthSample(edgeSampleUVy) * 2 - 1;
+	float edgeDiffY = abs(edgeDepthY - depthHCS.z);
 	
-	bool isEdge = (diffVert > EDGE_GRADE) || (diffHoriz > EDGE_GRADE);
+	float2 edgeSampleUVx = depthUV + float2(edgeSampleOffset, 0);
+	float edgeDepthX = agDepthSample(edgeSampleUVx) * 2 - 1;
+	float edgeDiffX = abs(edgeDepthX - depthHCS.z);
+	
+	bool isEdge = edgeDiffX + edgeDiffY > EDGE_GRADE;
 	
 	// validate
-	bool valid = validY && validDistance && prevHeightInView && !isEdge; 
+	bool valid = validY && validDistance && previousHeightInView && !isEdge;
 	
 	if (!valid)
 		return;
-	
-	// todo: remove
-	if(intHeight == 0)
-		intHeight = 1;
 	
 	InterlockedMax(_PerFrameScan[index], intHeight);
 }
@@ -104,16 +108,10 @@ void Apply(uint3 id : SV_DispatchThreadID)
 	uint index = toIndex(id.xy);
 	int intHeight = _PerFrameScan[index];
 	
-	bool wasWritten = intHeight != PER_FRAME_UNWRITTEN;
-	
-	float2 heightMapVal = _HeightMap[id.xy]; // r = height, g = is written
-	float r = toFloatHeight(intHeight);
-	bool g = heightMapVal.g || wasWritten;
-	
-	if(!wasWritten)
+	if (intHeight == PER_FRAME_UNWRITTEN)
 		return;
 	
-	_HeightMap[id.xy] = float2(r, g);
+	_HeightMap[id.xy] = toFloatHeight(intHeight);
 	_PerFrameScan[index] = PER_FRAME_UNWRITTEN;
 }
 

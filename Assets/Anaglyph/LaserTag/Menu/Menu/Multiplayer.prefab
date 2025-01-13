@@ -841,6 +841,9 @@ MonoBehaviour:
   rectTransform: {fileID: 5695144283392161339}
   canvasGroup: {fileID: 2635079933866185168}
   showBackButton: 1
+  OnVisible:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!224 &5695144283392161339 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 4813259525780573213, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}
@@ -1496,6 +1499,9 @@ MonoBehaviour:
   rectTransform: {fileID: 8538087391463731288}
   canvasGroup: {fileID: 5219143742204411207}
   showBackButton: 1
+  OnVisible:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!224 &8538087391463731288 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 4813259525780573213, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}
@@ -1700,6 +1706,9 @@ MonoBehaviour:
   rectTransform: {fileID: 8497379926486794429}
   canvasGroup: {fileID: 1663172079777775890}
   showBackButton: 1
+  OnVisible:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!114 &7550431595235590562 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 6910885250051214594, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}
@@ -2329,6 +2338,9 @@ MonoBehaviour:
   rectTransform: {fileID: 697412198183942806}
   canvasGroup: {fileID: 7840625015401266467}
   showBackButton: 1
+  OnVisible:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1001 &5819241211553529052
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2481,6 +2493,9 @@ MonoBehaviour:
   rectTransform: {fileID: 1301042237854757057}
   canvasGroup: {fileID: 1555988670097913763}
   showBackButton: 1
+  OnVisible:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1001 &6355346376232440268
 PrefabInstance:
   m_ObjectHideFlags: 0

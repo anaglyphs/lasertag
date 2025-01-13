@@ -142,13 +142,12 @@ PlayerSettings:
   loadStoreDebugModeEnabled: 0
   visionOSBundleVersion: 1.0
   tvOSBundleVersion: 1.0
-  bundleVersion: 1.1.18
+  bundleVersion: 2.0.0a
   preloadedAssets:
-  - {fileID: 0}
   - {fileID: 11400000, guid: 45e3534b9d174724b806ead5a65249ad, type: 2}
-  - {fileID: 0}
   - {fileID: 11400000, guid: 98f64f4b2a2851449894736b3332276f, type: 2}
-  - {fileID: 0}
+  - {fileID: -687199915405183056, guid: f3686f9e4cdebbc4e8faeed1e0f88fcd, type: 2}
+  - {fileID: 11400000, guid: 4c41dd6ad791e2a4b8898d0ea8b277ec, type: 2}
   metroInputSource: 0
   wsaTransparentSwapchain: 0
   m_HolographicPauseOnTrackingLoss: 1
@@ -170,7 +169,7 @@ PlayerSettings:
   androidMaxAspectRatio: 2.1
   androidMinAspectRatio: 1
   applicationIdentifier:
-    Android: com.trev3d.lasertagdev
+    Android: com.trev3d.lasertag
     Standalone: com.Purdue-Envision-Center.Radiation-Survey-Meter
   buildNumber:
     Standalone: 0
@@ -178,9 +177,9 @@ PlayerSettings:
     iPhone: 0
     tvOS: 0
   overrideDefaultApplicationIdentifier: 1
-  AndroidBundleVersionCode: 113
+  AndroidBundleVersionCode: 115
   AndroidMinSdkVersion: 32
-  AndroidTargetSdkVersion: 0
+  AndroidTargetSdkVersion: 32
   AndroidPreferredInstallLocation: 0
   aotOptions: 
   stripEngineCode: 1
@@ -282,7 +281,7 @@ PlayerSettings:
   AndroidEnableTango: 0
   androidEnableBanner: 1
   androidUseLowAccuracyLocation: 0
-  androidUseCustomKeystore: 0
+  androidUseCustomKeystore: 1
   m_AndroidBanners:
   - width: 320
     height: 180
@@ -805,11 +804,11 @@ PlayerSettings:
   captureStartupLogs: {}
   activeInputHandler: 1
   windowsGamepadBackendHint: 0
-  cloudProjectId: 
+  cloudProjectId: d6cc0458-f206-4773-a3be-273f390dbb65
   framebufferDepthMemorylessMode: 0
   qualitySettingsNames: []
-  projectName: 
-  organizationId: 
+  projectName: Lasertag
+  organizationId: anagly-ph
   cloudEnabled: 0
   legacyClampBlendShapeWeights: 0
   hmiLoadingImage: {fileID: 0}

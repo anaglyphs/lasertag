@@ -71,12 +71,12 @@ Shader "Anaglyph/EnvironmentGrid" {
 				           + _MainTex.Sample(bilinearRepeat, uvPosScaled.yz)
 				           + _MainTex.Sample(bilinearRepeat, uvPosScaled.xz); 
 				
-				float2 heightMapVal = agEnvHeightMap.Sample(bilinearRepeat, IN.uv, 0).rg; 
+				float heightMapVal = agEnvHeightMap.Sample(bilinearRepeat, IN.uv, 0).r; 
 
 				float4 result;
 				result.rgb = grid;
 				result.a = 1;
-				result *= saturate(grid + _Darken) * heightMapVal.g;
+				result *= saturate(grid + _Darken) * (heightMapVal.r != 0);
 
 				return result;
 			}

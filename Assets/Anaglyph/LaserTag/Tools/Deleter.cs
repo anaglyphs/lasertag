@@ -5,10 +5,10 @@ namespace Anaglyph.Lasertag
 {
 	public class Deleter : MonoBehaviour
 	{
-		[SerializeField] private HandedControllerInput trigger;
-		[SerializeField] private Raycaster raycaster;
-		[SerializeField] private ObjectBoundsVisual boundsVisual;
-		[SerializeField] private RaycasterCursor cursorVisual;
+		[SerializeField] private HandedControllerInput trigger = null;
+		[SerializeField] private Raycaster raycaster = null;
+		[SerializeField] private ObjectBoundsVisual boundsVisual = null;
+		[SerializeField] private RaycasterCursor cursorVisual = null;
 
 		private Deletable hoveredDeletable;
 

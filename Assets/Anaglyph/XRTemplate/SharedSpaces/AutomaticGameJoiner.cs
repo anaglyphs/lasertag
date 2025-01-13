@@ -1,30 +1,38 @@
+using System.Net;
 using System.Text;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
-using UnityEngine;
 
 namespace Anaglyph.SharedSpaces
 {
-    public class AutomaticGameJoiner : MonoBehaviour
+    public class AutomaticGameJoiner : SingletonBehavior<AutomaticGameJoiner>
     {
 		private static NetworkManager manager => NetworkManager.Singleton;
 		private static UnityTransport transport => (UnityTransport) NetworkManager.Singleton.NetworkConfig.NetworkTransport;
+
+		public bool autoJoin = true;
 
 		private void Start()
 		{
 			manager.OnClientStarted += OnClientStarted;
 			manager.OnClientStopped += OnClientStopped;
+			OVRColocationSession.ColocationSessionDiscovered += HandleColocationSessionDiscovered;
 
-			OVRColocationSession.StartDiscoveryAsync().ContinueWith(result =>
-			{
-				if (!result.Success)
-					Debug.LogError("Failed to start colocation session discovery");
-
-				OVRColocationSession.ColocationSessionDiscovered += OnColocationSessionDiscovered;
-			});
+			HandleChange();
 		}
 
-		private void OnDestroy()
+		private void OnEnable() => HandleChange();
+		private void OnDisable() => HandleChange();
+
+		private void OnClientStarted() => HandleChange();
+		private void OnClientStopped(bool b) => HandleChange();
+
+		protected override void SingletonAwake()
+		{
+
+		}
+
+		protected override void OnSingletonDestroy()
 		{
 			if (manager != null)
 			{
@@ -32,97 +40,45 @@ namespace Anaglyph.SharedSpaces
 				manager.OnClientStopped -= OnClientStopped;
 			}
 
-			OVRColocationSession.ColocationSessionDiscovered -= OnColocationSessionDiscovered;
+			OVRColocationSession.ColocationSessionDiscovered -= HandleColocationSessionDiscovered;
 		}
 
-		private void OnClientStarted()
+		private void HandleChange()
 		{
-			OVRColocationSession.StopDiscoveryAsync();
-
-			if(manager.IsHost)
+			if (!enabled)
 			{
-				string address = transport.ConnectionData.Address;
+				OVRColocationSession.StopDiscoveryAsync();
+				OVRColocationSession.StopAdvertisementAsync();
+			}
+			else
+			{
+				if (manager == null)
+					return;
 
-				OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(address)).ContinueWith(result =>
+				if (manager.IsHost)
 				{
-					if(!result.Success)
-						Debug.LogError("Failed to start colocation session advertisement");
-				});
+					string address = transport.ConnectionData.Address;
+					OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(address));
+				}
+				else
+				{
+					OVRColocationSession.StopAdvertisementAsync();
+				}
+
+				if (manager.IsClient)
+					OVRColocationSession.StopDiscoveryAsync();
+				else
+					OVRColocationSession.StartDiscoveryAsync();
 			}
 		}
 
-		private void OnClientStopped(bool b)
+		private void HandleColocationSessionDiscovered(OVRColocationSession.Data data)
 		{
-			OVRColocationSession.StopAdvertisementAsync();
-			OVRColocationSession.StartDiscoveryAsync();
-		}
+			if (!autoJoin)
+				return;
 
-		private void OnColocationSessionDiscovered(OVRColocationSession.Data data)
-		{
 			transport.ConnectionData.Address = Encoding.ASCII.GetString(data.Metadata);
 			manager.StartClient();
 		}
 	}
 }
-
-
-
-
-
-
-//using NetworkDiscoveryUnity;
-//using Unity.Netcode;
-//using Unity.Netcode.Transports.UTP;
-//using UnityEngine;
-
-//namespace SharedSpaces
-//{
-//	public class LocalNetworkConnection : MonoBehaviour
-//	{
-//		private static NetworkDiscovery discovery => NetworkDiscovery.Instance;
-//		private static NetworkManager manager => NetworkManager.Singleton;
-//		private static UnityTransport transport => (UnityTransport)NetworkManager.Singleton.NetworkConfig.NetworkTransport;
-
-//		private void Start()
-//		{
-//			manager.OnServerStarted += OnServerStarted;
-//			manager.OnServerStopped += OnServerStopped;
-
-//			discovery.onReceivedServerResponse.AddListener(OnReceivedServerResponse);
-//		}
-
-//		private void OnDestroy()
-//		{
-
-//			if (manager != null)
-//			{
-//				manager.OnServerStarted -= OnServerStarted;
-//				manager.OnServerStopped -= OnServerStopped;
-//			}
-
-//			if (discovery != null)
-//			{
-//				discovery.onReceivedServerResponse.RemoveListener(OnReceivedServerResponse);
-//			}
-//		}
-
-//		private void OnServerStarted()
-//		{
-//			discovery.EnsureServerIsInitialized();
-//		}
-
-//		private void OnServerStopped(bool b)
-//		{
-//			discovery.CloseServerUdpClient();
-//		}
-
-//		private void OnReceivedServerResponse(NetworkDiscovery.DiscoveryInfo info)
-//		{
-//			if (manager.IsConnectedClient) return;
-
-//			transport.SetConnectionData(info.EndPoint.Address.ToString(), 25001);
-//			NetworkManager.Singleton.StartClient();
-//			manager.StartClient();
-//		}
-//	}
-//}

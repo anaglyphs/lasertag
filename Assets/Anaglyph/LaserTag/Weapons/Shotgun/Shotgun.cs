@@ -7,8 +7,8 @@ namespace Anaglyph.Lasertag.Weapons
 {
 	public class Shotgun : MonoBehaviour
 	{
-		[SerializeField] private GameObject boltPrefab;
-		[SerializeField] private Transform emitFromTransform;
+		[SerializeField] private GameObject boltPrefab = null;
+		[SerializeField] private Transform emitFromTransform = null;
 		public UnityEvent onFire = new();
 
 		[SerializeField] private int fixedUpdatesPerFire = 5;

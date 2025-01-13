@@ -38,7 +38,7 @@ namespace Anaglyph.Lasertag
 
 		protected override void SingletonAwake()
 		{
-			passthroughLayer = FindObjectOfType<OVRPassthroughLayer>(true);
+			passthroughLayer = FindFirstObjectByType<OVRPassthroughLayer>();
 			passthroughLayer.edgeRenderingEnabled = true;
 			passthroughLayer.edgeColor = Color.clear;
 		}

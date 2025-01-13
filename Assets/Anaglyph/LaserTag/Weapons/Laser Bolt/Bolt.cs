@@ -14,7 +14,7 @@ namespace Anaglyph.Lasertag
 	{
 		public float metersPerSecond;
 
-		[SerializeField] private TrailRenderer trailRenderer;
+		[SerializeField] private TrailRenderer trailRenderer = null;
 		[SerializeField] private int msHitDeactivateDelay = 1000;
 		[SerializeField] private float damage = 50f;
 
@@ -90,18 +90,14 @@ namespace Anaglyph.Lasertag
 
 			//bool depthDidHit = DepthCast.Raycast(forwardRay, out var depthHit, distanceCovered);
 			bool depthDidHit = EnvironmentMap.Raycast(forwardRay, out Vector3 pointHit, distanceCovered);
-			DepthCastResult depthHit = new DepthCastResult()
-			{
-				Position = pointHit,
-				Normal = -forwardRay.direction,
-			};
+
 			bool physDidHit = Physics.Linecast(previousPosition, transform.position, out RaycastHit hit,
 				Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
 
 			if (depthDidHit && physDidHit)
 			{
-				bool castIsCloser = hit.distance < Vector3.Distance(depthHit.Position, previousPosition)
-					|| Vector3.Distance(depthHit.Position, hit.point) < 0.1f;
+				bool castIsCloser = hit.distance < Vector3.Distance(pointHit, previousPosition)
+					|| Vector3.Distance(pointHit, hit.point) < 0.1f;
 
 				if (castIsCloser)
 					depthDidHit = false;
@@ -109,7 +105,7 @@ namespace Anaglyph.Lasertag
 
 			if (depthDidHit)
 			{
-				Hit(depthHit.Position, depthHit.Normal);
+				Hit(pointHit, -forwardRay.direction);
 
 			}
 			else if (physDidHit)

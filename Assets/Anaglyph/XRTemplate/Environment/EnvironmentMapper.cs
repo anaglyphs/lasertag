@@ -21,9 +21,6 @@ namespace Anaglyph.XRTemplate
 		[SerializeField] private int textureSize = 512;
 		public int TextureSize => textureSize;
 
-		[SerializeField] private Vector2 depthRange = new Vector2(0.5f, 6f);
-		[SerializeField] private Vector2 heightRange = new Vector2(-3f, 0.5f);
-
 		[SerializeField] private float envSize = 50;
 		public float EnvironmentSize => envSize;
 
@@ -41,9 +38,6 @@ namespace Anaglyph.XRTemplate
 		private static readonly int _TexSize = ID(nameof(_TexSize));
 		
 		private static readonly int _DepthSamples = ID(nameof(_DepthSamples));
-
-		private static readonly int _DepthRange = ID(nameof(_DepthRange));
-		private static readonly int _HeightRange = ID(nameof(_HeightRange));
 
 		private RenderTexture heightMap;
 		public RenderTexture Map => heightMap;
@@ -69,7 +63,7 @@ namespace Anaglyph.XRTemplate
 
 		private void Start()
 		{
-			heightMap = new(textureSize, textureSize, 0, GraphicsFormat.R16G16_SFloat);
+			heightMap = new(textureSize, textureSize, 0, GraphicsFormat.R16_SFloat);
 			heightMap.enableRandomWrite = true;
 
 			var size = heightMap.width * heightMap.height;
@@ -82,9 +76,6 @@ namespace Anaglyph.XRTemplate
 
 			compute.SetFloat(_TexSize, heightMap.width);
 			compute.SetInt(_DepthSamples, depthSamples);
-
-			compute.SetVector(_DepthRange, depthRange);
-			compute.SetVector(_HeightRange, heightRange);
 
 			Scan = new ComputeKernel(compute, nameof(Scan));
 			Scan.Set(_PerFrameScan, perFrameScanBuffer);

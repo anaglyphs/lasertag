@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Events;
 
 namespace Anaglyph.Menu
 {
@@ -14,6 +15,8 @@ namespace Anaglyph.Menu
 		public RectTransform RectTransform => rectTransform;
 		public CanvasGroup CanvasGroup => canvasGroup;
 		public PageNavigationView ParentView => parentView;
+
+		public UnityEvent<bool> OnVisible = new();
 
 		private void OnValidate()
 		{
@@ -35,6 +38,13 @@ namespace Anaglyph.Menu
 
 			if (parentView != null && parentView.CurrentPage != this)
 				parentView.GoToPage(this);
+
+			OnVisible.Invoke(gameObject.activeInHierarchy);
+		}
+
+		private void OnDisable()
+		{
+			OnVisible.Invoke(gameObject.activeInHierarchy);
 		}
 	}
 }

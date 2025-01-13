@@ -6,21 +6,21 @@ namespace Anaglyph.Lasertag.UI
 	public class HUDDriver : SingletonBehavior<HUDDriver>
 	{
 		[Header("Death Popup")]
-		[SerializeField] private Text respawnText;
+		[SerializeField] private Text respawnText = null;
 
-		[SerializeField] private GameObject respawnPopup;
+		[SerializeField] private GameObject respawnPopup = null;
 
-		[SerializeField] private RectTransform menuMaskRectTransform;
+		[SerializeField] private RectTransform menuMaskRectTransform = null;
 
 		[Header("Game queued")]
-		[SerializeField] private GameObject queuePopup;
+		[SerializeField] private GameObject queuePopup = null;
 
 		[Header("Round countdown")]
-		[SerializeField] private GameObject countdownPopup;
-		[SerializeField] private GameObject goPopup;
+		[SerializeField] private GameObject countdownPopup = null;
+		[SerializeField] private GameObject goPopup = null;
 
 		[Header("Scoreboard")]
-		[SerializeField] private GameObject scoreboardPopup;
+		[SerializeField] private GameObject scoreboardPopup = null;
 
 		private float maxMenuMaskHeight = 0;
 

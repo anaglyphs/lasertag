@@ -8,13 +8,13 @@ namespace Anaglyph.Lasertag.Weapons
 {
 	public class Automatic : MonoBehaviour
 	{
-		[SerializeField] private HandedControllerInput input;
+		[SerializeField] private HandedControllerInput input = null;
 
 		[SerializeField] private int fixedUpdatesPerFire = 5;
 		private int fixedUpdateTilNextFire = 0;
 
-		[SerializeField] private GameObject boltPrefab;
-		[SerializeField] private Transform emitFromTransform;
+		[SerializeField] private GameObject boltPrefab = null;
+		[SerializeField] private Transform emitFromTransform = null;
 		public UnityEvent onFire = new();
 
 		public void Fire()

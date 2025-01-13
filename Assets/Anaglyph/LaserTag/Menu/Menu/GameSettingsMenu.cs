@@ -33,8 +33,8 @@ namespace Anaglyph.Lasertag
 
 		public RoundSettings settings = new();
 
-		[SerializeField] private NavPage startGamePage;
-		[SerializeField] private NavPage gameRunningPage;
+		[SerializeField] private NavPage startGamePage = null;
+		[SerializeField] private NavPage gameRunningPage = null;
 
 		private void Awake()
 		{
