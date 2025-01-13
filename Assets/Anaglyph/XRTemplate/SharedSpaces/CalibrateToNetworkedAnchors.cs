@@ -11,7 +11,6 @@ namespace Anaglyph.SharedSpaces
 	{
 		private XROrigin rig;
 
-		[SerializeField] private Transform closestIndicator;
 		[SerializeField] private float maxDistanceToAnchorTo = 3;
 
 		private NetworkedSpatialAnchor anchoredTo = null;
@@ -19,7 +18,7 @@ namespace Anaglyph.SharedSpaces
 
 		private void Awake()
 		{
-			rig = FindObjectOfType<XROrigin>();
+			rig = FindFirstObjectByType<XROrigin>();
 			OVRManager.display.RecenteredPose += HandleRecenter;
 		}
 
@@ -91,11 +90,6 @@ namespace Anaglyph.SharedSpaces
 			Quaternion targetRigRot = Quaternion.LookRotation(targetForward, Vector3.up);
 
 			rig.transform.SetPositionAndRotation(targetRigPos, targetRigRot);
-
-			if (closestIndicator != null)
-			{
-				closestIndicator.SetPositionAndRotation(anchor.transform.position, anchor.transform.rotation);
-			}
 		}
 	}
 }

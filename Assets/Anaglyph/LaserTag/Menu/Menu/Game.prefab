@@ -1867,7 +1867,7 @@ PrefabInstance:
     - target: {fileID: 8851658432414041739, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
       propertyPath: m_Sprite
       value: 
-      objectReference: {fileID: 21300000, guid: 430419d860008154b9833d6a4fca7b1d, type: 3}
+      objectReference: {fileID: 21300000, guid: 174c7b668d6ea2140bbbbcfda4e70c8b, type: 3}
     - target: {fileID: 5928977661196920431, guid: 7726d459ee1d21c4692229b33a100c4a, type: 3}
       propertyPath: m_Text
       value: End game
@@ -2114,6 +2114,9 @@ MonoBehaviour:
   rectTransform: {fileID: 977679356315433392}
   canvasGroup: {fileID: 75725931133816721}
   showBackButton: 1
+  OnVisible:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1001 &6864823027055714370
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2293,3 +2296,6 @@ MonoBehaviour:
   rectTransform: {fileID: 2128199461744766047}
   canvasGroup: {fileID: 273874473338261582}
   showBackButton: 1
+  OnVisible:
+    m_PersistentCalls:
+      m_Calls: []

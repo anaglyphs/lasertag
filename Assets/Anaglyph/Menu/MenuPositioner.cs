@@ -56,6 +56,9 @@ namespace Anaglyph.Menu
 
 		public void SetVisible(bool b)
 		{
+			if (gameObject.activeSelf == b)
+				return;
+
 			gameObject.SetActive(b);
 
 			if (b)

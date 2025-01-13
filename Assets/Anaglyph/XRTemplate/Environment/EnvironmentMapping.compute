@@ -17,7 +17,7 @@ uint _DepthSamples;
 #define DEPTH_MAX 6.0
 
 #define HEIGHT_MIN -3.0
-#define HEIGHT_MAX 0.5
+#define HEIGHT_MAX 0.3
 
 #define HEIGHT_INT_FACTOR 100.0
 #define PER_FRAME_UNWRITTEN 0
@@ -85,7 +85,7 @@ void Scan(uint3 id : SV_DispatchThreadID)
 	
 	float2 edgeSampleUVy = depthUV + float2(0, edgeSampleOffset);
 	float edgeDepthY = agDepthSample(edgeSampleUVy) * 2 - 1;
-	float edgeDiffY = abs(edgeDepthY - depthHCS.z);
+	float edgeDiffY = abs(edgeDepthY - depthHCS.z); 
 	
 	float2 edgeSampleUVx = depthUV + float2(edgeSampleOffset, 0);
 	float edgeDepthX = agDepthSample(edgeSampleUVx) * 2 - 1;

@@ -17,6 +17,8 @@ namespace Anaglyph.Lasertag
 		private NetworkManager manager;
 		private UnityTransport transport;
 
+		private MenuPositioner menuPositioner;
+
 		[Header(nameof(homePage))]
 		[SerializeField] private NavPage homePage = null;
 		[SerializeField] private Button hostButton = null;
@@ -45,6 +47,8 @@ namespace Anaglyph.Lasertag
 		{
 			manager = NetworkManager.Singleton;
 			manager.TryGetComponent(out transport);
+
+			menuPositioner = GetComponentInParent<MenuPositioner>(true);
 
 			manager.OnConnectionEvent += OnConnectionEvent;
 			manager.OnClientStarted += OnClientStarted;
@@ -123,9 +127,14 @@ namespace Anaglyph.Lasertag
 					joinedPage.NavigateHere();
 					joinedText.text = $"Joined {transport.ConnectionData.Address}";
 				}
+
+				menuPositioner.SetVisible(false);
+
 			} else if(NetcodeHelpers.ThisClientDisconnected(data))
 			{
 				homePage.NavigateHere();
+
+				menuPositioner.SetVisible(true);
 			}
         }
 
