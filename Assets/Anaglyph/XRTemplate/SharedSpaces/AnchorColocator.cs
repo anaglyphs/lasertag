@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Anaglyph.SharedSpaces
 {
-	public class AnchorSpawner : MonoBehaviour
+	public class AnchorColocator : MonoBehaviour
 	{
 		[SerializeField] private GameObject sharedAnchorPrefab;
 
@@ -47,11 +47,6 @@ namespace Anaglyph.SharedSpaces
 			NetworkedSpatialAnchor newAnchor = newAnchorObject.GetComponent<NetworkedSpatialAnchor>();
 
 			newAnchor.NetworkObject.Spawn();
-		}
-
-		public void DespawnAll()
-		{
-			NetworkedSpatialAnchor.DespawnAll();
 		}
 	}
 }

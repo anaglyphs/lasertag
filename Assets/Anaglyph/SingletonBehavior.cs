@@ -5,8 +5,11 @@ public abstract class SingletonBehavior<T> : MonoBehaviour where T : SingletonBe
 {
 	public static T Instance { get; private set; }
 
-	private void Awake()
+	private void Init()
 	{
+		if (Instance == this)
+			return;
+
 		if (Instance == null)
 		{
 			Instance = (T)this;
@@ -17,6 +20,11 @@ public abstract class SingletonBehavior<T> : MonoBehaviour where T : SingletonBe
 			Debug.LogWarning("More than one instance of " + GetType() + " created!");
 			Destroy(this);
 		}
+	}
+
+	private void Awake()
+	{
+		Init();
 	}
 
 	protected abstract void SingletonAwake();
