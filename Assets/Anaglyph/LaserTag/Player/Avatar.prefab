@@ -736,8 +736,9 @@ GameObject:
   - component: {fileID: 5575681868257953417}
   - component: {fileID: 2387703453467970642}
   - component: {fileID: 5779350372256684547}
+  - component: {fileID: 7617915960464339836}
   m_Layer: 0
-  m_Name: Player
+  m_Name: Avatar
   m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -774,7 +775,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 4185304840
+  GlobalObjectIdHash: 2049764313
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 0
@@ -1017,6 +1018,19 @@ MonoBehaviour:
   OnColorSet:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &7617915960464339836
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6958064522276107603}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dd40dabccc1699740abefe04044fa00e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!1 &7661177598156210288
 GameObject:
   m_ObjectHideFlags: 0

@@ -1,29 +1,34 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Events;
 
 namespace Anaglyph
 {
 	[Serializable]
-	public class EventVariable<T>
+	public struct EventVariable<T>
 	{
-		[SerializeField] private T variableValue;
-		[SerializeField] private UnityEvent<T> onChange = new();
-		[SerializeField] private UnityEvent<T> beforeChange = new();
+		[SerializeField] private T value;
+		public event Action<T> OnChange;
+		public event Action<T> BeforeChange;
+
+		public EventVariable(T value) {
+			this.value = value;
+			OnChange = delegate { };
+			BeforeChange = delegate { };
+		}
 
 		public T Value
 		{
-			get => variableValue;
+			get => value;
 
 			set
 			{
-				if (EqualityComparer<T>.Default.Equals(variableValue, value))
+				if (EqualityComparer<T>.Default.Equals(this.value, value))
 					return;
 
-				beforeChange.Invoke(variableValue);
-				variableValue = value;
-				onChange.Invoke(variableValue);
+				BeforeChange?.Invoke(this.value);
+				this.value = value;
+				OnChange?.Invoke(this.value);
 			}
 		}
 
@@ -32,20 +37,14 @@ namespace Anaglyph
 			Value = x;
 		}
 
-		public void AddListener(UnityAction<T> f)
+		public void AddListenerAndCheck(Action<T> f)
 		{
-			onChange.AddListener(f);
-		}
+			f.Invoke(value);
 
-		public void AddListenerAndCheck(UnityAction<T> f)
-		{
-			f.Invoke(variableValue);
-			AddListener(f);
-		}
+			if (OnChange == null)
+				OnChange = delegate { };
 
-		public void RemoveListener(UnityAction<T> f)
-		{
-			onChange.RemoveListener(f);
+			OnChange += f;
 		}
 	}
 }

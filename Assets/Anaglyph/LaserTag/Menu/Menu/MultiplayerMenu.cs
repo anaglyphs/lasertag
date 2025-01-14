@@ -130,7 +130,9 @@ namespace Anaglyph.Lasertag
 
 				menuPositioner.SetVisible(false);
 
-			} else if(NetcodeHelpers.ThisClientDisconnected(data))
+			}
+			
+			if(NetcodeHelpers.ThisClientDisconnected(data))
 			{
 				homePage.NavigateHere();
 

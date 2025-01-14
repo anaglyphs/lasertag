@@ -1,26 +1,33 @@
 using Anaglyph.Netcode;
+using System;
 using Unity.Netcode;
 using UnityEngine;
 
 namespace Anaglyph.SharedSpaces
 {
-	public class AnchorColocator : MonoBehaviour
+	public class AnchorColocator : SingletonBehavior<AnchorColocator>
 	{
 		[SerializeField] private GameObject sharedAnchorPrefab;
 
-		Transform spawnTarget;
+		private Transform spawnTarget;
+		public static EventVariable<bool> IsColocated = new(false);
+
+		protected override void SingletonAwake()
+		{
+
+		}
+
+		protected override void OnSingletonDestroy()
+		{
+			if (NetworkManager.Singleton != null)
+				NetworkManager.Singleton.OnConnectionEvent -= OnConnectionEvent;
+		}
 
 		private void Start()
 		{
 			spawnTarget = Camera.main.transform;
 
 			NetworkManager.Singleton.OnConnectionEvent += OnConnectionEvent;
-		}
-
-		private void OnDestroy()
-		{
-			if(NetworkManager.Singleton != null)
-				NetworkManager.Singleton.OnConnectionEvent -= OnConnectionEvent;
 		}
 
 		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)

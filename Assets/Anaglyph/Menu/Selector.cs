@@ -5,7 +5,7 @@ namespace Anaglyph.Menu
 {
     public class Selector : MonoBehaviour
     {
-		public EventVariable<int> index = new();
+		public EventVariable<int> index = new(0);
 
         [SerializeField] private RectTransform selectionIndicator;
 

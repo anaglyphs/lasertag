@@ -31,6 +31,12 @@ namespace Anaglyph.SharedSpaces
 			OVRManager.display.RecenteredPose += HandleRecenter;
 		}
 
+		private void OnDestroy()
+		{
+			if (activeAnchor == this)
+				AnchorColocator.IsColocated.Value = false;
+		}
+
 		private void HandleRecenter()
 		{
 			if(activeAnchor == this)
@@ -47,8 +53,11 @@ namespace Anaglyph.SharedSpaces
 
 		public static void CalibrateToAnchor(ColocationAnchor anchor)
 		{
-			if (anchor == null || anchor == activeAnchor || !anchor.networkedAnchor.Localized)
+			if (anchor == null || anchor == activeAnchor || !anchor.networkedAnchor.Anchor.Localized)
 				return;
+
+			if (activeAnchor == null)
+				AnchorColocator.IsColocated.Value = true;
 
 			activeAnchor = anchor;
 

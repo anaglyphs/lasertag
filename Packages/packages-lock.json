@@ -119,7 +119,7 @@
         "com.unity.ide.visualstudio": "2.0.22",
         "com.unity.ide.rider": "3.0.31",
         "com.unity.editorcoroutines": "1.0.0",
-        "com.unity.performance.profile-analyzer": "1.2.2",
+        "com.unity.performance.profile-analyzer": "1.2.3",
         "com.unity.test-framework": "1.4.5",
         "com.unity.testtools.codecoverage": "1.2.6"
       }
@@ -222,7 +222,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.performance.profile-analyzer": {
-      "version": "1.2.2",
+      "version": "1.2.3",
       "depth": 1,
       "source": "registry",
       "dependencies": {},
@@ -286,19 +286,19 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.services.authentication": {
-      "version": "3.3.3",
+      "version": "3.4.0",
       "depth": 1,
       "source": "registry",
       "dependencies": {
         "com.unity.ugui": "1.0.0",
-        "com.unity.services.core": "1.13.0",
+        "com.unity.services.core": "1.14.0",
         "com.unity.nuget.newtonsoft-json": "3.2.1",
         "com.unity.modules.unitywebrequest": "1.0.0"
       },
       "url": "https://packages.unity.com"
     },
     "com.unity.services.core": {
-      "version": "1.13.0",
+      "version": "1.14.0",
       "depth": 1,
       "source": "registry",
       "dependencies": {
@@ -326,7 +326,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.services.multiplayer": {
-      "version": "1.0.2",
+      "version": "1.1.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -347,11 +347,11 @@
       "depth": 1,
       "source": "registry",
       "dependencies": {
-        "com.unity.collections": "1.2.4",
         "com.unity.services.core": "1.12.4",
-        "com.unity.nuget.newtonsoft-json": "3.0.2",
         "com.unity.modules.unitywebrequest": "1.0.0",
-        "com.unity.services.authentication": "2.0.0"
+        "com.unity.nuget.newtonsoft-json": "3.0.2",
+        "com.unity.services.authentication": "2.0.0",
+        "com.unity.collections": "1.2.4"
       },
       "url": "https://packages.unity.com"
     },
@@ -443,7 +443,7 @@
       }
     },
     "com.unity.xr.core-utils": {
-      "version": "2.4.0",
+      "version": "2.5.0",
       "depth": 1,
       "source": "registry",
       "dependencies": {

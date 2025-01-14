@@ -27,7 +27,6 @@ namespace Anaglyph.SharedSpaces
 		//private Guid serverUuid;
 		public NetworkVariable<NetworkPose> OriginalPoseSync = new NetworkVariable<NetworkPose>();
 		public NetworkVariable<NetworkGuid> Uuid = new NetworkVariable<NetworkGuid>(new(Guid.Empty));
-		public bool Localized => spatialAnchor.Localized;
 
 		private void OnValidate()
 		{
