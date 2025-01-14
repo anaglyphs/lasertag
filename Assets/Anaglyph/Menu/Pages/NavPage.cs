@@ -3,8 +3,8 @@ using UnityEngine.Events;
 
 namespace Anaglyph.Menu
 {
-	[RequireComponent(typeof(RectTransform), typeof(CanvasGroup))]
-	public class NavPage : SuperAwakeBehavior
+	// [RequireComponent(typeof(RectTransform), typeof(CanvasGroup))]
+	public class NavPage : MonoBehaviour
 	{
 		[SerializeField] private RectTransform rectTransform;
 		[SerializeField] private CanvasGroup canvasGroup;
@@ -18,22 +18,31 @@ namespace Anaglyph.Menu
 
 		public UnityEvent<bool> OnVisible = new();
 
+		private bool started = false;
+
 		private void OnValidate()
 		{
 			TryGetComponent(out rectTransform);
 			TryGetComponent(out canvasGroup);
 		}
 
-		protected override void SuperAwake()
+		private void Awake()
 		{
 			parentView = GetComponentInParent<PageNavigationView>(true);
 		}
 
-		public void NavigateHere() => ParentView.GoToPage(this);
+		private void Start()
+		{
+			started = true;
+		}
+
+		public void NavigateHere() => parentView.GoToPage(this);
 		public void GoBack() => parentView.GoBack();
 
 		private void OnEnable()
 		{
+			if (!started) return;
+
 			parentView = GetComponentInParent<PageNavigationView>(true);
 
 			if (parentView != null && parentView.CurrentPage != this)

@@ -1,12 +1,11 @@
 using Anaglyph.XRTemplate;
-using Anaglyph.XRTemplate.DepthKit;
 using System;
 using Unity.Netcode;
 using UnityEngine;
 
 namespace Anaglyph.Lasertag
 {
-	public class Spawner : SuperAwakeBehavior
+	public class Spawner : MonoBehaviour
 	{
 		[SerializeField] private HandedControllerInput input = null;
 		[SerializeField] private ObjectBoundsVisual objectBoundsVisual = null;
@@ -21,7 +20,7 @@ namespace Anaglyph.Lasertag
 		private float spawnAngle;
 		private HandSide handSide;
 
-		protected override void SuperAwake()
+		private void Awake()
 		{
 			handSide = GetComponentInParent<HandSide>(true);
 			pointerLaser.startOffset = rayOriginOffset;

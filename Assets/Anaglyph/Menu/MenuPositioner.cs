@@ -4,7 +4,7 @@ using UnityEngine.InputSystem;
 
 namespace Anaglyph.Menu
 {
-	public class MenuPositioner : SuperAwakeBehavior
+	public class MenuPositioner : MonoBehaviour
 	{
 		[SerializeField] private InputAction showMenuAction;
 		[SerializeField] private MonoBehaviour[] componentsDisabledWhileVisible;
@@ -15,7 +15,7 @@ namespace Anaglyph.Menu
 
 		[SerializeField] private Vector3 offset;
 
-		protected override void SuperAwake()
+		private void Awake()
 		{
 			showMenuAction.performed += delegate
 			{

@@ -2,11 +2,11 @@ using UnityEngine;
 
 namespace VariableObjects
 {
-	public class ActivateIfObjectBool : SuperAwakeBehavior
+	public class ActivateIfObjectBool : MonoBehaviour
 	{
 		[SerializeField] private BoolObject boolObject;
 
-		protected override void SuperAwake()
+		private void Awake()
 		{
 			boolObject.onChange += gameObject.SetActive;
 			gameObject.SetActive(boolObject.Value);

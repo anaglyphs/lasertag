@@ -29,6 +29,7 @@ namespace Anaglyph.Lasertag
 			if (NetcodeHelpers.ThisClientConnected(data))
 			{
 				UpdateVisibilityOfNetworkOnlyObjects(true);
+				
 			}
 			else if (NetcodeHelpers.ThisClientDisconnected(data))
 			{

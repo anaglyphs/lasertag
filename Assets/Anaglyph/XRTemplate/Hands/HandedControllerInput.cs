@@ -5,7 +5,7 @@ using UnityEngine.XR;
 namespace Anaglyph.XRTemplate
 {
 	[DefaultExecutionOrder(-1000)]
-	public class HandedControllerInput : SuperAwakeBehavior
+	public class HandedControllerInput : MonoBehaviour
 	{
 		private HandSide handSide;
 		private InputDevice inputDevice;
@@ -18,7 +18,7 @@ namespace Anaglyph.XRTemplate
 
 		public Vector2 JoystickVector { get; private set; }
 
-		protected override void SuperAwake()
+		private void Awake()
 		{
 			handSide = GetComponentInParent<HandSide>(true);
 			inputDeviceRole = handSide.isRight ? InputDeviceRole.RightHanded : InputDeviceRole.LeftHanded;

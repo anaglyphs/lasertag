@@ -1,11 +1,11 @@
 using UnityEngine;
 
 [DefaultExecutionOrder(-32000)]
-public abstract class SingletonBehavior<T> : SuperAwakeBehavior where T : SingletonBehavior<T>
+public abstract class SingletonBehavior<T> : MonoBehaviour where T : SingletonBehavior<T>
 {
 	public static T Instance { get; private set; }
 
-	protected override void SuperAwake()
+	private void Awake()
 	{
 		if (Instance == null)
 		{

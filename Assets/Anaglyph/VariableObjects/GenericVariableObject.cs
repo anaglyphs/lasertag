@@ -42,14 +42,14 @@ namespace VariableObjects
 	}
 
 	[MovedFrom("VariableObjects.GenericScriptableVariableEvents")]
-	public abstract class GenericVariableObjectEvents<T> : SuperAwakeBehavior
+	public abstract class GenericVariableObjectEvents<T> : MonoBehaviour
 	{
 		[SerializeField] private GenericVariableObject<T> scriptableVariable;
 
 		public UnityEvent<T> onChange;
 		public UnityEvent<T> beforeChange;
 
-		protected override void SuperAwake()
+		private void Awake()
 		{
 			scriptableVariable.onChange += onChange.Invoke;
 			scriptableVariable.beforeChange += beforeChange.Invoke;

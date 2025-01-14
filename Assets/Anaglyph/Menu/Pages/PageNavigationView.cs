@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using UnityEditor;
 using UnityEngine;
 
 namespace Anaglyph.Menu
@@ -14,7 +13,7 @@ namespace Anaglyph.Menu
 		private NavPage currentPage;
 		public NavPage CurrentPage => currentPage;
 
-		private RectTransform rectTransform;
+		[SerializeField] private RectTransform rectTransform;
 
 		private bool transitioning;
 		private double transitionStartTime;
@@ -27,12 +26,8 @@ namespace Anaglyph.Menu
 
 		private void OnValidate()
 		{
-			firstPageActive = GetComponentInChildren<NavPage>(true);
-		}
-
-		private void Awake()
-		{
 			rectTransform = GetComponent<RectTransform>();
+			firstPageActive = GetComponentInChildren<NavPage>(true);
 		}
 
 		private void Start()
@@ -43,7 +38,7 @@ namespace Anaglyph.Menu
 
 		public void GoToPage(NavPage targetPage)
 		{
-			if(targetPage == null)
+			if (targetPage == null)
 				throw new Exception("Target page should not be null");
 
 			if (targetPage.transform.parent != transform)
@@ -55,14 +50,14 @@ namespace Anaglyph.Menu
 			int targetPageHistoryIndex = history.IndexOf(targetPage);
 			bool targetPageIsInHistory = targetPageHistoryIndex != -1;
 
-			if(!targetPageIsInHistory)
+			if (!targetPageIsInHistory)
 				history.Add(targetPage);
 			else
 				history.RemoveRange(targetPageHistoryIndex + 1, history.Count - targetPageHistoryIndex - 1);
 
 			StartTransition(targetPageIsInHistory, currentPage, targetPage);
 		}
-		
+
 		public void GoBack()
 		{
 			if (history.Count < 2) return;
@@ -72,7 +67,8 @@ namespace Anaglyph.Menu
 
 		private void StartTransition(bool backward, NavPage fromPage, NavPage toPage)
 		{
-			if (toPage == null || fromPage == null) {
+			if (toPage == null || fromPage == null)
+			{
 				currentPage = toPage;
 				currentPage.CanvasGroup.interactable = true;
 				StopTransition();
@@ -105,7 +101,7 @@ namespace Anaglyph.Menu
 
 			for (int i = 0; i < transform.childCount; i++)
 			{
-				if(i != currentIndex)
+				if (i != currentIndex)
 					transform.GetChild(i).gameObject.SetActive(false);
 			}
 		}
@@ -137,58 +133,17 @@ namespace Anaglyph.Menu
 			float prevPageOffset = -offset;
 			float currentPageOffset = rectTransform.rect.width - offset;
 
-			if(goingBack)
+			if (goingBack)
 			{
 				prevPageOffset *= -1;
 				currentPageOffset *= -1;
 			}
-			
+
 			previousPage.RectTransform.anchoredPosition = new Vector2(prevPageOffset, 0);
 			currentPage.RectTransform.anchoredPosition = new Vector2(currentPageOffset, 0);
 
-			if(transitionNormalized > 1)
+			if (transitionNormalized > 1)
 				StopTransition();
 		}
-
-#if UNITY_EDITOR
-
-		[InitializeOnLoad]
-		static class PageNavigationEditorHelper
-		{
-			static PageNavigationEditorHelper()
-			{
-				Selection.selectionChanged -= OnEditorSelectionChange;
-				Selection.selectionChanged += OnEditorSelectionChange;
-			}
-
-			private static void OnEditorSelectionChange()
-			{
-				GameObject selected = Selection.activeGameObject;
-				Transform parent = selected?.transform.parent;
-
-				if (parent?.GetComponent<PageNavigationView>() == null)
-					return;
-
-				for (int i = 0; i < parent.childCount; i++)
-				{
-					GameObject g = parent.GetChild(i).gameObject;
-
-					g.SetActive(g == selected);
-				}
-
-				if (selected != null && selected.transform.parent == parent)
-				{
-					for (int i = 0; i < parent.childCount; i++)
-					{
-						GameObject g = parent.GetChild(i).gameObject;
-
-						g.SetActive(g == selected);
-					}
-				}
-			}
-		}
-
-#endif
-
 	}
 }

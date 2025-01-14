@@ -120,12 +120,12 @@ namespace Anaglyph.Lasertag
 				if (manager.IsHost)
 				{
 					hostingPage.NavigateHere();
-					hostingText.text = $"Hosting at {transport.ConnectionData.Address}";
+					hostingText.text = $"IP address: {transport.ConnectionData.Address}";
 				}
 				else
 				{
 					joinedPage.NavigateHere();
-					joinedText.text = $"Joined {transport.ConnectionData.Address}";
+					joinedText.text = $"IP address: {transport.ConnectionData.Address}";
 				}
 
 				menuPositioner.SetVisible(false);
@@ -141,7 +141,10 @@ namespace Anaglyph.Lasertag
 		private void OnClientStarted()
 		{
 			if (!manager.IsHost)
+			{
+				connectingText.text = $"IP address: {transport.ConnectionData.Address}";
 				connectingPage.NavigateHere();
+			}
 		}
 
 		private void Host()

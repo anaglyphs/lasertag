@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Anaglyph.XRTemplate
 {
 	[DefaultExecutionOrder(-100)]
-    public class ObjectBoundsVisual : SuperAwakeBehavior
+    public class ObjectBoundsVisual : MonoBehaviour
     {
 		[SerializeField] private Material material;
 		[SerializeReference] private Mesh boundVisualTemplateMesh;
@@ -20,7 +20,7 @@ namespace Anaglyph.XRTemplate
 
 		private List<MeshRenderer> meshRenderers = new List<MeshRenderer>();
 
-		protected override void SuperAwake()
+		private void Awake()
 		{
 			visualMesh = Instantiate(boundVisualTemplateMesh);
 		}

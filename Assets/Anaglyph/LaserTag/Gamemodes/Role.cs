@@ -21,6 +21,6 @@ public struct Role
 		MaxHealth = 100,
 
 		HealthRegenerationPerSecond = 10,
-		RespawnTimeoutSeconds = 3,
+		RespawnTimeoutSeconds = 5,
 	};
 }

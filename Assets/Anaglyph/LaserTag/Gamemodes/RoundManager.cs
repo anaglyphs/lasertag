@@ -71,6 +71,19 @@ namespace Anaglyph.Lasertag
 		public static event Action OnBecomeMaster = delegate { };
 		public static event Action OnLoserMaster = delegate { };
 
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+		private static void OnApplicationInit()
+		{
+			OnRoundStateChange = delegate { };
+			OnNotPlaying = delegate { };
+			OnQueued = delegate { };
+			OnCountdown = delegate { };
+			OnPlaying = delegate { };
+			OnPlayEnd = delegate { };
+			OnBecomeMaster = delegate { };
+			OnLoserMaster = delegate { };
+		}
+
 		private void OwnerCheck()
 		{
 			if(!IsOwner) throw new Exception(NotOwnerExceptionMessage);

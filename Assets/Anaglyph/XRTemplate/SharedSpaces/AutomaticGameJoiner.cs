@@ -1,7 +1,7 @@
-using System.Net;
 using System.Text;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
+using UnityEngine;
 
 namespace Anaglyph.SharedSpaces
 {
@@ -9,6 +9,9 @@ namespace Anaglyph.SharedSpaces
     {
 		private static NetworkManager manager => NetworkManager.Singleton;
 		private static UnityTransport transport => (UnityTransport) NetworkManager.Singleton.NetworkConfig.NetworkTransport;
+
+		private static string LogHeader = "[AutoJoiner] ";
+		private static void Log(string str) => Debug.Log(LogHeader + str);
 
 		public bool autoJoin = true;
 
@@ -45,31 +48,52 @@ namespace Anaglyph.SharedSpaces
 
 		private void HandleChange()
 		{
+
 			if (!enabled)
 			{
-				OVRColocationSession.StopDiscoveryAsync();
-				OVRColocationSession.StopAdvertisementAsync();
+				ClientStopped();
+				HostingStopped();
 			}
 			else
 			{
 				if (manager == null)
 					return;
 
-				if (manager.IsHost)
-				{
-					string address = transport.ConnectionData.Address;
-					OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(address));
-				}
+				if (manager.IsHost && manager.IsListening)
+					HostingStarted();
 				else
-				{
-					OVRColocationSession.StopAdvertisementAsync();
-				}
+					HostingStopped();
 
-				if (manager.IsClient)
-					OVRColocationSession.StopDiscoveryAsync();
+				if (manager.IsListening)
+					ClientStarted();
 				else
-					OVRColocationSession.StartDiscoveryAsync();
+					ClientStopped();
 			}
+		}
+
+		private void HostingStarted()
+		{
+			string address = transport.ConnectionData.Address;
+			OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(address));
+			Log("Started advertisement " + address);
+		}
+
+		private void HostingStopped()
+		{
+			OVRColocationSession.StopAdvertisementAsync();
+			Log("Stopped advertisement");
+		}
+
+		private void ClientStarted()
+		{
+			OVRColocationSession.StopDiscoveryAsync();
+			Log("Stopped discovery");
+		}
+
+		private void ClientStopped()
+		{
+			OVRColocationSession.StartDiscoveryAsync();
+			Log("Started discovery");
 		}
 
 		private void HandleColocationSessionDiscovered(OVRColocationSession.Data data)

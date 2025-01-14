@@ -33,8 +33,8 @@ namespace Anaglyph.Lasertag
 
 		public RoundSettings settings = new();
 
-		[SerializeField] private NavPage startGamePage = null;
-		[SerializeField] private NavPage gameRunningPage = null;
+		[SerializeField] private NavPage startGamePage;
+		[SerializeField] private NavPage gameRunningPage;
 
 		private void Awake()
 		{
@@ -46,6 +46,11 @@ namespace Anaglyph.Lasertag
 			RoundManager.OnRoundStateChange += OnGameStateChange;
 		}
 
+		private void OnDestroy()
+		{
+			RoundManager.OnRoundStateChange -= OnGameStateChange;
+		}
+
 		private void OnEnable()
 		{
 			OnGameStateChange(0, RoundManager.RoundState);
@@ -53,6 +58,8 @@ namespace Anaglyph.Lasertag
 
 		private void OnGameStateChange(RoundState prev, RoundState state)
 		{
+			Debug.Log(gameObject);
+
 			if (RoundManager.RoundState != RoundState.NotPlaying)
 				gameRunningPage.NavigateHere();
 			else

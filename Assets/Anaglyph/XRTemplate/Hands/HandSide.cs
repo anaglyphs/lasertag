@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.XR;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
+using UnityEngine.XR.WSA;
 
 namespace Anaglyph.XRTemplate
 {
@@ -10,21 +11,42 @@ namespace Anaglyph.XRTemplate
 	{
 		public bool isRight;
 		public XRNode node { get; private set; }
+		public XRController controller { get; private set; }
 		public XRRayInteractor rayInteractor { get; private set; }
 
 		private void Awake()
 		{
 			node = isRight ? XRNode.RightHand : XRNode.LeftHand;
 
-			var rayInteractors = FindObjectsByType<XRRayInteractor>(FindObjectsSortMode.None);
-			foreach (var interactor in rayInteractors)
+			var controllers = FindObjectsByType<XRController>(FindObjectsSortMode.None);
+			foreach (var cont in controllers)
 			{
-				if (((XRController)interactor.xrController).controllerNode == node)
+				if (cont.controllerNode == node)
 				{
-					rayInteractor = interactor;
+					controller = cont;
+					rayInteractor = controller.GetComponentInChildren<XRRayInteractor>(true);
 					break;
 				}
 			}
+
+			InputDevices.deviceConnected += HandleDeviceConnected;
+			InputDevices.deviceDisconnected += HandleDeviceConnected;
+		}
+
+		private void Start()
+		{
+			HandleDeviceConnected(controller.inputDevice);
+		}
+
+		private void HandleDeviceConnected(InputDevice device)
+		{
+			gameObject.SetActive(controller.inputDevice.isValid);
+		}
+
+		private void OnDestroy()
+		{
+			InputDevices.deviceConnected -= HandleDeviceConnected;
+			InputDevices.deviceDisconnected -= HandleDeviceConnected;
 		}
 
 	}

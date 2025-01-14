@@ -12,43 +12,11 @@ namespace Anaglyph.Lasertag.UI
 
 		[SerializeField] private RectTransform menuMaskRectTransform = null;
 
-		[Header("Game queued")]
-		[SerializeField] private GameObject queuePopup = null;
-
-		[Header("Round countdown")]
-		[SerializeField] private GameObject countdownPopup = null;
-		[SerializeField] private GameObject goPopup = null;
-
-		[Header("Scoreboard")]
-		[SerializeField] private GameObject scoreboardPopup = null;
-
 		private float maxMenuMaskHeight = 0;
-
-		protected override void SingletonAwake()
-		{
-			countdownPopup.SetActive(false);
-			scoreboardPopup.SetActive(false);
-			queuePopup.SetActive(false);
-			goPopup.SetActive(false);
-		}
 
 		void Start()
 		{
 			maxMenuMaskHeight = menuMaskRectTransform.sizeDelta.y;
-
-			RoundManager.OnRoundStateChange += OnRoundStateChange;
-		}
-
-		private void OnRoundStateChange(RoundState prev, RoundState state)
-		{
-			countdownPopup.SetActive(state == RoundState.Countdown);
-			goPopup.SetActive(state == RoundState.Playing);
-
-			if (prev == RoundState.Playing && state == RoundState.NotPlaying)
-				scoreboardPopup.SetActive(true);
-
-			queuePopup.SetActive(state == RoundState.Queued);
-
 		}
 
 		// https://easings.net/#easeInOutCirc
@@ -77,7 +45,12 @@ namespace Anaglyph.Lasertag.UI
 
 		protected override void OnSingletonDestroy()
 		{
-			RoundManager.OnRoundStateChange -= OnRoundStateChange;
+			
+		}
+
+		protected override void SingletonAwake()
+		{
+			
 		}
 	}
 }
