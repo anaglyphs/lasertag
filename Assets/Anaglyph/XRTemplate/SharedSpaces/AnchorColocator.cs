@@ -1,5 +1,4 @@
 using Anaglyph.Netcode;
-using System;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -10,11 +9,10 @@ namespace Anaglyph.SharedSpaces
 		[SerializeField] private GameObject sharedAnchorPrefab;
 
 		private Transform spawnTarget;
-		public static EventVariable<bool> IsColocated = new(false);
 
 		protected override void SingletonAwake()
 		{
-
+			
 		}
 
 		protected override void OnSingletonDestroy()
@@ -32,11 +30,11 @@ namespace Anaglyph.SharedSpaces
 
 		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
 		{
-			if (!manager.IsHost)
-				return;
-
 			if (NetcodeHelpers.ThisClientConnected(data))
-				SpawnPrefab();
+			{
+				if(manager.IsHost)
+					SpawnPrefab();
+			}
 		}
 
 		public void SpawnPrefab()

@@ -3,14 +3,14 @@ set(CMAKE_HOST_SYSTEM_NAME "Windows")
 set(CMAKE_HOST_SYSTEM_VERSION "10.0.19044")
 set(CMAKE_HOST_SYSTEM_PROCESSOR "AMD64")
 
-include("C:/Program Files/Unity/Hub/Editor/6000.0.31f1/Editor/Data/PlaybackEngines/AndroidPlayer/NDK/build/cmake/android.toolchain.cmake")
+include("C:/Program Files/Unity/Hub/Editor/6000.0.33f1/Editor/Data/PlaybackEngines/AndroidPlayer/NDK/build/cmake/android.toolchain.cmake")
 
 set(CMAKE_SYSTEM "Android-31")
 set(CMAKE_SYSTEM_NAME "Android")
 set(CMAKE_SYSTEM_VERSION "31")
 set(CMAKE_SYSTEM_PROCESSOR "aarch64")
 
-set(CMAKE_ANDROID_NDK "C:/Program Files/Unity/Hub/Editor/6000.0.31f1/Editor/Data/PlaybackEngines/AndroidPlayer/NDK")
+set(CMAKE_ANDROID_NDK "C:/Program Files/Unity/Hub/Editor/6000.0.33f1/Editor/Data/PlaybackEngines/AndroidPlayer/NDK")
 set(CMAKE_ANDROID_STANDALONE_TOOLCHAIN "")
 set(CMAKE_ANDROID_ARCH "arm64")
 set(CMAKE_ANDROID_ARCH_ABI "arm64-v8a")
@@ -19,7 +19,7 @@ set(CMAKE_ANDROID_ARCH_LLVM_TRIPLE "aarch64-none-linux-android")
 set(CMAKE_ANDROID_NDK_VERSION "23.1")
 set(CMAKE_ANDROID_NDK_DEPRECATED_HEADERS "1")
 set(CMAKE_ANDROID_NDK_TOOLCHAIN_HOST_TAG "windows-x86_64")
-set(CMAKE_ANDROID_NDK_TOOLCHAIN_UNIFIED "C:/Program Files/Unity/Hub/Editor/6000.0.31f1/Editor/Data/PlaybackEngines/AndroidPlayer/NDK/toolchains/llvm/prebuilt/windows-x86_64")
+set(CMAKE_ANDROID_NDK_TOOLCHAIN_UNIFIED "C:/Program Files/Unity/Hub/Editor/6000.0.33f1/Editor/Data/PlaybackEngines/AndroidPlayer/NDK/toolchains/llvm/prebuilt/windows-x86_64")
 
 # Copyright (C) 2020 The Android Open Source Project
 #

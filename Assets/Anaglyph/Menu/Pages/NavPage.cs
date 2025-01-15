@@ -45,9 +45,6 @@ namespace Anaglyph.Menu
 
 			parentView = GetComponentInParent<PageNavigationView>(true);
 
-			if (parentView != null && parentView.CurrentPage != this)
-				parentView.GoToPage(this);
-
 			OnVisible.Invoke(gameObject.activeInHierarchy);
 		}
 

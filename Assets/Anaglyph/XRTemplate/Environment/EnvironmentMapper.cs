@@ -48,6 +48,8 @@ namespace Anaglyph.XRTemplate
 		private ComputeKernel Clear;
 		private ComputeKernel RaycastKernel;
 
+		private Transform cameraTransform;
+
 		protected override void SingletonAwake()
 		{
 			
@@ -94,6 +96,8 @@ namespace Anaglyph.XRTemplate
 
 			Clear.Dispatch(textureSize, textureSize);
 
+			cameraTransform = Camera.main.transform;
+
 			StartCoroutine(ScanTimer());
 		}
 
@@ -112,6 +116,11 @@ namespace Anaglyph.XRTemplate
 			RaycastKernel.Set(DepthKitDriver.agDepthTex_ID, heightMap);
 
 			if (!shouldScanThisUpdate || !DepthKitDriver.DepthAvailable)
+				return;
+
+			float camY = cameraTransform.position.y;
+
+			if (-100 > camY || camY > 100)
 				return;
 
 			shouldScanThisUpdate = false;

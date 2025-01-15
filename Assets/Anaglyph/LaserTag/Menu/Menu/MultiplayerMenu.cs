@@ -85,25 +85,6 @@ namespace Anaglyph.Lasertag
 			hostingStopButton.onClick.AddListener(Disconnect);
 		}
 
-		//// I wish I didn't have to poll for this
-		//private bool wasListening;
-		//private void Update()
-		//{
-		//	if (manager == null) return;
-
-		//	if (manager.IsListening && !wasListening && !manager.IsHost)
-		//	{
-		//		connectingPage.NavigateHere();
-		//		connectingText.text = $"Trying to connect to {transport.ConnectionData.Address}";
-		//	}
-		//	else if (!manager.IsListening && wasListening)
-		//	{
-		//		homePage.NavigateHere();
-		//	}
-
-		//	wasListening = manager.IsListening;
-		//}
-
 		private void OnDestroy()
 		{
 			if (manager != null)

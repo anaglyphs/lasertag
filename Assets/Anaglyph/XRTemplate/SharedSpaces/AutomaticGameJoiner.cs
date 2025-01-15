@@ -5,8 +5,8 @@ using UnityEngine;
 
 namespace Anaglyph.SharedSpaces
 {
-    public class AutomaticGameJoiner : SingletonBehavior<AutomaticGameJoiner>
-    {
+	public class AutomaticGameJoiner : SingletonBehavior<AutomaticGameJoiner>
+	{
 		private static NetworkManager manager => NetworkManager.Singleton;
 		private static UnityTransport transport => (UnityTransport) NetworkManager.Singleton.NetworkConfig.NetworkTransport;
 

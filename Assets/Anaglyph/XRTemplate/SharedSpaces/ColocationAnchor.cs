@@ -1,4 +1,5 @@
 using Anaglyph.Netcode;
+using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
 
@@ -9,7 +10,7 @@ namespace Anaglyph.SharedSpaces
 	/// </summary>
 	[DefaultExecutionOrder(500)]
 	[RequireComponent(typeof(NetworkedSpatialAnchor))]
-	public class ColocationAnchor : MonoBehaviour
+	public class ColocationAnchor : NetworkBehaviour
 	{
 		private static XROrigin rig;
 		private static ColocationAnchor activeAnchor;
@@ -27,24 +28,36 @@ namespace Anaglyph.SharedSpaces
 		{
 			if(rig == null)
 				rig = FindFirstObjectByType<XROrigin>();
+		}
 
+		public async override void OnNetworkSpawn()
+		{
 			OVRManager.display.RecenteredPose += HandleRecenter;
+
+			await Awaitable.EndOfFrameAsync();
+
+			if (!IsOwner && activeAnchor == null)
+				rig.transform.position = new Vector3(0, 1000, 0);
 		}
 
-		private void OnDestroy()
+		public override void OnNetworkDespawn()
 		{
+			OVRManager.display.RecenteredPose -= HandleRecenter;
+		}
+
+		private async void HandleRecenter()
+		{
+			await Awaitable.EndOfFrameAsync();
+
 			if (activeAnchor == this)
-				AnchorColocator.IsColocated.Value = false;
-		}
-
-		private void HandleRecenter()
-		{
-			if(activeAnchor == this)
 				CalibrateToAnchor(this);
 		}
 
         private void LateUpdate()
         {
+			if (activeAnchor == this)
+				return;
+
 			float distanceFromOrigin = Vector3.Distance(networkedAnchor.transform.position, rig.Camera.transform.position);
 
 			if (distanceFromOrigin < colocateAtDistance || activeAnchor == null)
@@ -53,11 +66,8 @@ namespace Anaglyph.SharedSpaces
 
 		public static void CalibrateToAnchor(ColocationAnchor anchor)
 		{
-			if (anchor == null || anchor == activeAnchor || !anchor.networkedAnchor.Anchor.Localized)
+			if (anchor == null || !anchor.networkedAnchor.Anchor.Localized)
 				return;
-
-			if (activeAnchor == null)
-				AnchorColocator.IsColocated.Value = true;
 
 			activeAnchor = anchor;
 
