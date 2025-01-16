@@ -11,7 +11,6 @@ namespace Anaglyph.Lasertag
 {
 	public class MultiplayerMenu : MonoBehaviour
 	{
-		private const ushort Port = 25001;
 		private const string Listen = "0.0.0.0";
 
 		private NetworkManager manager;
@@ -133,14 +132,14 @@ namespace Anaglyph.Lasertag
 		private void Host()
 		{
 			manager.Shutdown();
-			transport.SetConnectionData(GetLocalIPv4(), Port, Listen);
+			transport.ConnectionData.Address = GetLocalIPv4();
 			manager.StartHost();
 		}
 
 		private void Join(string ip)
 		{
 			manager.Shutdown();
-			transport.SetConnectionData(ip, Port);
+			transport.ConnectionData.Address = ip;
 			manager.StartClient();
 		}
 
