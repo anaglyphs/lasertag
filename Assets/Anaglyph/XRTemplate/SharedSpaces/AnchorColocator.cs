@@ -1,5 +1,6 @@
 using Anaglyph.Netcode;
 using Unity.Netcode;
+using Unity.XR.CoreUtils;
 using UnityEngine;
 
 namespace Anaglyph.SharedSpaces
@@ -9,6 +10,8 @@ namespace Anaglyph.SharedSpaces
 		[SerializeField] private GameObject sharedAnchorPrefab;
 
 		private Transform spawnTarget;
+
+		private XROrigin xrRig;
 
 		protected override void SingletonAwake()
 		{
@@ -24,6 +27,7 @@ namespace Anaglyph.SharedSpaces
 		private void Start()
 		{
 			spawnTarget = Camera.main.transform;
+			xrRig = FindFirstObjectByType<XROrigin>();
 
 			NetworkManager.Singleton.OnConnectionEvent += OnConnectionEvent;
 		}
@@ -34,6 +38,12 @@ namespace Anaglyph.SharedSpaces
 			{
 				if(manager.IsHost)
 					SpawnPrefab();
+				else
+					xrRig.transform.position = new Vector3(0, 1000, 0);
+
+			} else if(NetcodeHelpers.ThisClientDisconnected(data))
+			{
+				xrRig.transform.position = new Vector3(0, 0, 0);
 			}
 		}
 

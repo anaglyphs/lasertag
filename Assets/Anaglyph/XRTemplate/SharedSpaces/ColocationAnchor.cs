@@ -30,14 +30,9 @@ namespace Anaglyph.SharedSpaces
 				rig = FindFirstObjectByType<XROrigin>();
 		}
 
-		public async override void OnNetworkSpawn()
+		public override void OnNetworkSpawn()
 		{
 			OVRManager.display.RecenteredPose += HandleRecenter;
-
-			await Awaitable.EndOfFrameAsync();
-
-			if (!IsOwner && activeAnchor == null)
-				rig.transform.position = new Vector3(0, 1000, 0);
 		}
 
 		public override void OnNetworkDespawn()
