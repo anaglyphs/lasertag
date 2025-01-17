@@ -59,7 +59,7 @@ namespace Anaglyph.Lasertag
 			AllControlPoints.Remove(this);
 		}
 
-		private bool CheckIfPlayerIsInside(Player player)
+		private bool CheckIfPlayerIsInside(Networking.Avatar player)
 		{
 			if (!player.IsAlive)
 				return false;
@@ -97,7 +97,7 @@ namespace Anaglyph.Lasertag
 				if (isSecure)
 				{
 					// check for new capturing players
-					foreach (Player player in Player.AllPlayers.Values)
+					foreach (Networking.Avatar player in Networking.Avatar.AllPlayers.Values)
 					{
 						if (player.Team != 0 && player.Team != HoldingTeam && CheckIfPlayerIsInside(player))
 						{
@@ -109,7 +109,7 @@ namespace Anaglyph.Lasertag
 				
 				if(!isSecure)
 				{
-					foreach (Player player in Player.AllPlayers.Values)
+					foreach (Networking.Avatar player in Networking.Avatar.AllPlayers.Values)
 					{
 						if (CheckIfPlayerIsInside(player))
 						{

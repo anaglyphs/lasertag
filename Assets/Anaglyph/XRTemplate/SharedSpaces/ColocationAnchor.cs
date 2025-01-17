@@ -1,4 +1,5 @@
 using Anaglyph.Netcode;
+using System;
 using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
@@ -13,11 +14,40 @@ namespace Anaglyph.SharedSpaces
 	public class ColocationAnchor : NetworkBehaviour
 	{
 		private static XROrigin rig;
-		private static ColocationAnchor activeAnchor;
+
+		private static ColocationAnchor _activeAnchor;
+		public static event Action<ColocationAnchor> ActiveAnchorChange;
+		public static ColocationAnchor ActiveAnchor
+		{
+			get => _activeAnchor;
+			set
+			{
+				bool changed = value != _activeAnchor;
+				_activeAnchor = value;
+				if (changed) 
+					ActiveAnchorChange?.Invoke(_activeAnchor);
+			}
+		}
 
 		[SerializeField] private NetworkedSpatialAnchor networkedAnchor;
-
 		[SerializeField] private float colocateAtDistance = 3;
+
+		[RuntimeInitializeOnLoadMethod]
+		private static void OnInit()
+		{
+			OVRManager.display.RecenteredPose += HandleRecenter;
+
+			Application.quitting += delegate
+			{
+				OVRManager.display.RecenteredPose -= HandleRecenter;
+			};
+		}
+
+		private static async void HandleRecenter()
+		{
+			await Awaitable.EndOfFrameAsync();
+			CalibrateToAnchor(ActiveAnchor);
+		}
 
 		private void OnValidate()
 		{
@@ -30,32 +60,22 @@ namespace Anaglyph.SharedSpaces
 				rig = FindFirstObjectByType<XROrigin>();
 		}
 
-		public override void OnNetworkSpawn()
+		public override void OnDestroy()
 		{
-			OVRManager.display.RecenteredPose += HandleRecenter;
-		}
+			base.OnDestroy();
 
-		public override void OnNetworkDespawn()
-		{
-			OVRManager.display.RecenteredPose -= HandleRecenter;
-		}
-
-		private async void HandleRecenter()
-		{
-			await Awaitable.EndOfFrameAsync();
-
-			if (activeAnchor == this)
-				CalibrateToAnchor(this);
+			if(ActiveAnchor == this)
+				ActiveAnchor = null;
 		}
 
         private void LateUpdate()
         {
-			if (activeAnchor == this)
+			if (ActiveAnchor == this)
 				return;
 
 			float distanceFromOrigin = Vector3.Distance(networkedAnchor.transform.position, rig.Camera.transform.position);
 
-			if (distanceFromOrigin < colocateAtDistance || activeAnchor == null)
+			if (distanceFromOrigin < colocateAtDistance || ActiveAnchor == null)
 				CalibrateToAnchor(this);
 		}
 
@@ -64,7 +84,7 @@ namespace Anaglyph.SharedSpaces
 			if (anchor == null || !anchor.networkedAnchor.Anchor.Localized)
 				return;
 
-			activeAnchor = anchor;
+			ActiveAnchor = anchor;
 
 			Matrix4x4 rigMat = Matrix4x4.TRS(rig.transform.position, rig.transform.rotation, Vector3.one);
 			NetworkPose anchorOriginalPose = anchor.networkedAnchor.OriginalPoseSync.Value;

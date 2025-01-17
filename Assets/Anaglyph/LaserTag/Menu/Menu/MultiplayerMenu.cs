@@ -1,6 +1,7 @@
 using Anaglyph.Menu;
 using Anaglyph.Netcode;
 using Anaglyph.SharedSpaces;
+using Anaglyph.XRTemplate.SharedSpaces;
 using System.Net;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
@@ -11,12 +12,15 @@ namespace Anaglyph.Lasertag
 {
 	public class MultiplayerMenu : MonoBehaviour
 	{
-		private const string Listen = "0.0.0.0";
+		private enum SessionState
+		{
+			Connecting,
+			Colocating,
+			Connected,
+		}
 
 		private NetworkManager manager;
 		private UnityTransport transport;
-
-		private MenuPositioner menuPositioner;
 
 		[Header(nameof(homePage))]
 		[SerializeField] private NavPage homePage = null;
@@ -27,27 +31,23 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private InputField ipField = null;
 		[SerializeField] private Button connectButton = null;
 
-		[Header(nameof(connectingPage))]
-		[SerializeField] private NavPage connectingPage = null;
-		[SerializeField] private Text connectingText = null;
-		[SerializeField] private Button connectingCancelButton = null;
+		[Header(nameof(sessionPage))]
+		[SerializeField] private NavPage sessionPage = null;
+		[SerializeField] private Image sessionIcon = null;
+		[SerializeField] private Text sessionStateText = null;
+		[SerializeField] private Text sessionIpText = null;
+		[SerializeField] private Button disconnectButton = null;
 
-		[Header(nameof(joinedPage))]
-		[SerializeField] private NavPage joinedPage = null;
-		[SerializeField] private Text joinedText = null;
-		[SerializeField] private Button joinedDisconnectButton = null;
-
-		[Header(nameof(hostingPage))]
-		[SerializeField] private NavPage hostingPage = null;
-		[SerializeField] private Text hostingText = null;
-		[SerializeField] private Button hostingStopButton = null;
+		[Header("Session icons")]
+		[SerializeField] private Sprite connectingSprite = null;
+		[SerializeField] private Sprite colocatingSprite = null;
+		[SerializeField] private Sprite connectedSprite = null;
+		[SerializeField] private Sprite hostingSprite = null;
 
 		private void Start()
 		{
 			manager = NetworkManager.Singleton;
 			manager.TryGetComponent(out transport);
-
-			menuPositioner = GetComponentInParent<MenuPositioner>(true);
 
 			manager.OnConnectionEvent += OnConnectionEvent;
 			manager.OnClientStarted += OnClientStarted;
@@ -56,9 +56,7 @@ namespace Anaglyph.Lasertag
 			homePage.OnVisible.AddListener((bool v) => AutomaticGameJoiner.Instance.autoJoin = v);
 			hostButton.onClick.AddListener(Host);
 
-
 			// manually connect page
-
 			manuallyConnectPage.showBackButton = true;
 
 			string ip = IpText.GetLocalIPAddress();
@@ -68,20 +66,15 @@ namespace Anaglyph.Lasertag
 #if UNITY_EDITOR
 			ipField.text = "127.0.0.1";
 #endif
-
 			connectButton.onClick.AddListener(() => Join(ipField.text));
 
 			// connecting page
-			connectingPage.showBackButton = false;
-			connectingCancelButton.onClick.AddListener(Disconnect);
+			sessionPage.showBackButton = false;
+			disconnectButton.onClick.AddListener(Disconnect);
 
-			// joined page
-			joinedPage.showBackButton = false;
-			joinedDisconnectButton.onClick.AddListener(Disconnect);
+			manager.OnClientStopped += OnClientStopped;
 
-			// hosting page
-			hostingPage.showBackButton = false;
-			hostingStopButton.onClick.AddListener(Disconnect);
+			Colocation.IsColocatedChange += OnColocationChange;
 		}
 
 		private void OnDestroy()
@@ -91,42 +84,62 @@ namespace Anaglyph.Lasertag
 				manager.OnConnectionEvent -= OnConnectionEvent;
 				manager.OnClientStarted -= OnClientStarted;
 			}
+
+			Colocation.IsColocatedChange -= OnColocationChange;
+		}
+
+		private void OnClientStarted()
+		{
+			OpenSessionPage(SessionState.Connecting);
+		}
+
+		private void OnClientStopped(bool wasHost)
+		{
+			homePage.NavigateHere();
 		}
 
 		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
 		{
-			if(NetcodeHelpers.ThisClientConnected(data))
-			{
-				if (manager.IsHost)
-				{
-					hostingPage.NavigateHere();
-					hostingText.text = $"IP address: {transport.ConnectionData.Address}";
-				}
-				else
-				{
-					joinedPage.NavigateHere();
-					joinedText.text = $"IP address: {transport.ConnectionData.Address}";
-				}
+			if (NetcodeHelpers.ThisClientConnected(data))
+				OpenSessionPage(SessionState.Colocating);
+		}
 
-				menuPositioner.SetVisible(false);
-
-			}
-			
-			if(NetcodeHelpers.ThisClientDisconnected(data))
-			{
-				homePage.NavigateHere();
-
-				menuPositioner.SetVisible(true);
-			}
-        }
-
-		private void OnClientStarted()
+		private void OnColocationChange(bool isColocated)
 		{
-			if (!manager.IsHost)
+			if(isColocated)
+				OpenSessionPage(SessionState.Connected);
+		}
+
+		private void OpenSessionPage(SessionState state)
+		{
+			sessionIpText.text = transport.ConnectionData.Address;
+
+			switch (state)
 			{
-				connectingText.text = $"IP address: {transport.ConnectionData.Address}";
-				connectingPage.NavigateHere();
+				case SessionState.Connecting:
+					sessionStateText.text = "Connecting...";
+					sessionIcon.sprite = connectingSprite;
+					break;
+
+				case SessionState.Colocating:
+					sessionStateText.text = "Colocating...";
+					sessionIcon.sprite = colocatingSprite;
+					break;
+
+				case SessionState.Connected:
+					if(manager.IsHost)
+					{
+						sessionStateText.text = "Hosting";
+						sessionIcon.sprite = hostingSprite;
+					} else
+					{
+						sessionStateText.text = "Connected!";
+						sessionIcon.sprite = connectedSprite;
+					}
+					break;
 			}
+
+			sessionPage.NavigateHere();
 		}
 
 		private void Host()
@@ -145,8 +158,8 @@ namespace Anaglyph.Lasertag
 
 		private void Disconnect()
 		{
-			manager.Shutdown();
 			homePage.NavigateHere();
+			manager.Shutdown();
 		}
 
 		private string GetLocalIPv4()

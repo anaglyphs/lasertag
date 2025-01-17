@@ -48,7 +48,7 @@ public class RadarDriver : MonoBehaviour
 
 		radarGridMaterial.material.SetVector("_GridOffset", transform.parent.position * RadarScale);
 
-		TrackAll(Player.OtherPlayers, playerMarkerPrefab, ref players);
+		TrackAll(Anaglyph.Lasertag.Networking.Avatar.OtherPlayers, playerMarkerPrefab, ref players);
         TrackAll(Base.AllBases, baseMarkerPrefab, ref bases);
     }
 

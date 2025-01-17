@@ -112,8 +112,8 @@ namespace Anaglyph.Lasertag
 			{
 				Hit(hit.point, hit.normal);
 
-				if (hit.collider.CompareTag(Player.Tag))
-					hit.collider.GetComponentInParent<Player>().DamageRpc(damage, OwnerClientId);
+				if (hit.collider.CompareTag(Networking.Avatar.Tag))
+					hit.collider.GetComponentInParent<Networking.Avatar>().DamageRpc(damage, OwnerClientId);
 			}
 		}
 

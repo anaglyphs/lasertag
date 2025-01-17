@@ -108,7 +108,7 @@ namespace Anaglyph.Lasertag
 		{
 			if (!IsSpawned) return;
 
-			Player mainNetworkPlayer = MainPlayer.Instance.networkPlayer;
+			Networking.Avatar mainNetworkPlayer = MainPlayer.Instance.networkPlayer;
 
 			if (RoundState == RoundState.NotPlaying || RoundState == RoundState.Queued || mainNetworkPlayer.Team == 0) {
 				
@@ -200,13 +200,13 @@ namespace Anaglyph.Lasertag
 				{
 					int numPlayersInbase = 0;
 
-					foreach (Player player in Player.AllPlayers.Values)
+					foreach (Networking.Avatar player in Networking.Avatar.AllPlayers.Values)
 					{
 						if (player.IsInBase)
 							numPlayersInbase++;
 					}
 
-					if (numPlayersInbase == Player.AllPlayers.Count)
+					if (numPlayersInbase == Networking.Avatar.AllPlayers.Count)
 						roundStateSync.Value = RoundState.Countdown;
 
 				} else
@@ -230,7 +230,7 @@ namespace Anaglyph.Lasertag
 				teamScoresSync[i].Value = 0;
 			}
 
-			foreach(Player player in Player.AllPlayers.Values)
+			foreach(Networking.Avatar player in Networking.Avatar.AllPlayers.Values)
 			{
 				player.ResetScoreRpc();
 			}
@@ -263,7 +263,7 @@ namespace Anaglyph.Lasertag
 				StartCoroutine(GameTimerAsOwnerCoroutine());
 
 			// sub to score events
-			Player.OnPlayerKilledPlayer += OnPlayerKilledPlayer;
+			Networking.Avatar.OnPlayerKilledPlayer += OnPlayerKilledPlayer;
 			StartCoroutine(ControlPointLoopCoroutine());
 		}
 
@@ -284,7 +284,7 @@ namespace Anaglyph.Lasertag
 			EndGameOwnerRpc();
 		}
 
-		private void OnPlayerKilledPlayer(Player killer, Player victim)
+		private void OnPlayerKilledPlayer(Networking.Avatar killer, Networking.Avatar victim)
 		{
 			OwnerCheck();
 
@@ -349,7 +349,7 @@ namespace Anaglyph.Lasertag
 
 		private void UnsubscribeFromEvents()
 		{
-			Player.OnPlayerKilledPlayer -= OnPlayerKilledPlayer;
+			Networking.Avatar.OnPlayerKilledPlayer -= OnPlayerKilledPlayer;
 		}
 
 

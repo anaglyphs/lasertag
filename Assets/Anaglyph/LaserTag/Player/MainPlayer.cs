@@ -20,7 +20,7 @@ namespace Anaglyph.Lasertag
 		public UnityEvent<bool> onAliveChange = new();
 		public UnityEvent onTakeDamage = new();
 
-		[NonSerialized] public Player networkPlayer;
+		[NonSerialized] public Networking.Avatar networkPlayer;
 
 		[SerializeField] private Transform headTransform;
 		[SerializeField] private Transform leftHandTransform;

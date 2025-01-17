@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
@@ -8,7 +7,7 @@ using UnityEngine.Events;
 namespace Anaglyph.Lasertag.Networking
 {
 	[DefaultExecutionOrder(-500)]
-	public class Player : NetworkBehaviour
+	public class Avatar : NetworkBehaviour
 	{
 		public const string Tag = "Player";
 
@@ -28,11 +27,8 @@ namespace Anaglyph.Lasertag.Networking
 		public bool IsAlive => isAliveSync.Value;
 		public NetworkVariable<bool> isAliveSync = new();
 
-		public string GetNickname() => nicknameSync.Value.ToString();
-		public NetworkVariable<FixedString32Bytes> nicknameSync;
-
-		public static Dictionary<ulong, Player> AllPlayers { get; private set; } = new();
-		public static List<Player> OtherPlayers { get; private set; } = new();
+		public static Dictionary<ulong, Avatar> AllPlayers { get; private set; } = new();
+		public static List<Avatar> OtherPlayers { get; private set; } = new();
 
 		[SerializeField] private TeamOwner teamOwner;
 		public TeamOwner TeamOwner => teamOwner;
@@ -43,11 +39,10 @@ namespace Anaglyph.Lasertag.Networking
 		public bool IsInBase { get; private set; }
 		public Base InBase { get; private set; }
 
-		public static event Action<Player, Player> OnPlayerKilledPlayer = delegate { };
-		public static void InvokePlayerKilledPlayer(Player killer, Player victim) => OnPlayerKilledPlayer.Invoke(killer, victim);
+		public static event Action<Avatar, Avatar> OnPlayerKilledPlayer = delegate { };
 
-		public NetworkVariable<int> score;
-		public int Score => score.Value;
+		public NetworkVariable<int> scoreSync;
+		public int Score => scoreSync.Value;
 
 		private void Awake()
 		{
@@ -122,14 +117,14 @@ namespace Anaglyph.Lasertag.Networking
 		[Rpc(SendTo.Everyone)]
 		public void KilledByPlayerRpc(ulong killerId) {
 
-			if(AllPlayers.TryGetValue(killerId, out Player killer))
+			if(AllPlayers.TryGetValue(killerId, out Avatar killer))
 				OnPlayerKilledPlayer.Invoke(killer, this);
 		}
 
 		[Rpc(SendTo.Owner)]
 		public void ResetScoreRpc()
 		{
-			score.Value = 0;
+			scoreSync.Value = 0;
 		}
 	}
 }

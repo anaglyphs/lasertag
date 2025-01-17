@@ -1,11 +1,13 @@
 using Anaglyph.Netcode;
+using Anaglyph.XRTemplate.SharedSpaces;
+using System;
 using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
 
 namespace Anaglyph.SharedSpaces
 {
-	public class AnchorColocator : SingletonBehavior<AnchorColocator>
+	public class AnchorColocator : SingletonBehavior<AnchorColocator>, IColocator
 	{
 		[SerializeField] private GameObject sharedAnchorPrefab;
 
@@ -13,15 +15,37 @@ namespace Anaglyph.SharedSpaces
 
 		private XROrigin xrRig;
 
+		private bool _isColocated;
+		public event Action<bool> IsColocatedChange;
+		private void SetIsColocated(bool b) => IsColocated = b;
+		public bool IsColocated
+		{
+			get => _isColocated;
+			set
+			{
+				bool changed = value != _isColocated;
+				_isColocated = value;
+				if (changed) 
+					IsColocatedChange?.Invoke(_isColocated);
+			}
+		}
+
 		protected override void SingletonAwake()
 		{
-			
+			ColocationAnchor.ActiveAnchorChange += OnActiveAnchorChange;
+			Colocation.SetActiveColocator(this);
 		}
 
 		protected override void OnSingletonDestroy()
 		{
+			ColocationAnchor.ActiveAnchorChange -= OnActiveAnchorChange;
 			if (NetworkManager.Singleton != null)
 				NetworkManager.Singleton.OnConnectionEvent -= OnConnectionEvent;
+		}
+
+		private void OnActiveAnchorChange(ColocationAnchor anchor)
+		{
+			IsColocated = anchor != null;
 		}
 
 		private void Start()
