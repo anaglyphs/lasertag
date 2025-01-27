@@ -46,14 +46,17 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		public void StopColocation()
 		{
 			IsColocated = false;
+			finding = false;
 
 			if (currentWorldLock != null)
 				Destroy(currentWorldLock.gameObject);
 		}
 
+		private bool finding = false;
 		public async void FindKeyboard()
 		{
 			StopColocation();
+			finding = true;
 
 			if (!OVRAnchor.TrackerConfiguration.KeyboardTrackingSupported)
 				throw new Exception("Keyboard tracking isn't supported on this device!");
@@ -71,9 +74,12 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			while (keyboardAnchor == default)
 			{
-				var fetchResult = await tracker.FetchTrackablesAsync(anchors);
+				if (!finding)
+					return;
 
 				await Awaitable.FixedUpdateAsync();
+
+				var fetchResult = await tracker.FetchTrackablesAsync(anchors);
 
 				if (!fetchResult.Success)
 				{
@@ -98,10 +104,17 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if(!locatable.TryGetSceneAnchorPose(out var ovrPose))
 				throw new Exception("Couldn't get anchor pose");
 
+			if (!finding)
+				return;
+
 			Transform trackingSpace = MainXROrigin.TrackingSpace;
 			Pose keyboardPose = new Pose();
 			keyboardPose.position = trackingSpace.TransformPoint(ovrPose.Position.Value);
-			keyboardPose.rotation = trackingSpace.transform.rotation * (ovrPose.Rotation.Value * Quaternion.Euler(90, 0, 0));
+			keyboardPose.rotation = trackingSpace.transform.rotation * ovrPose.Rotation.Value;
+			Vector3 flatForward = keyboardPose.up;
+			flatForward.y = 0;
+			flatForward = flatForward.normalized;
+			keyboardPose.rotation = Quaternion.LookRotation(flatForward, Vector3.up);
 
 			var g = Instantiate(worldLockAnchorPrefab, keyboardPose.position, keyboardPose.rotation);
 			g.TryGetComponent(out currentWorldLock);
