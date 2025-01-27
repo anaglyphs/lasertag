@@ -1731,6 +1731,7 @@ GameObject:
   - component: {fileID: 278063313867506157}
   - component: {fileID: 1394363023484580083}
   - component: {fileID: 5339566166535882300}
+  - component: {fileID: 1121965266883459124}
   m_Layer: 0
   m_Name: XR Origin
   m_TagString: Untagged
@@ -1785,7 +1786,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _occlusionShadersMode: 2
   _removeHands: 0
-  CustomTrackingSpace: {fileID: 5322712704338568415}
+  CustomTrackingSpace: {fileID: 2038948978265102462}
   <MaskMeshFilters>k__BackingField: []
   _cameraRig: {fileID: 0}
 --- !u!114 &278063313867506157
@@ -1801,7 +1802,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   envDepthTextureProvider: {fileID: 7302683130375540734}
-  trackingSpace: {fileID: 5322712704338568415}
   depthNormalCompute: {fileID: 7200000, guid: 094ecfc2d2e1d984c9955562fea46b9d, type: 3}
   normTex: {fileID: 0}
 --- !u!114 &1394363023484580083
@@ -1858,6 +1858,18 @@ MonoBehaviour:
   m_VerticalAxis: Vertical
   m_SubmitButton: Submit
   m_CancelButton: Cancel
+--- !u!114 &1121965266883459124
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7254734392762225021}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0926ecc77c6d5974796856a7744bd972, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &8273645227207553632
 GameObject:
   m_ObjectHideFlags: 0

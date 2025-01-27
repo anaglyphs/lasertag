@@ -20,6 +20,11 @@ namespace Anaglyph.Netcode
 			this.rotation = transform.rotation;
 		}
 
+		public Pose ToPose()
+		{
+			return new Pose(position, rotation);
+		}
+
 		public bool Equals(NetworkPose other)
 		{
 			return position == other.position && rotation == other.rotation;

@@ -1,7 +1,7 @@
-using Anaglyph.Netcode;
+using Anaglyph.XRTemplate;
+using Anaglyph.XRTemplate.SharedSpaces;
 using System;
 using Unity.Netcode;
-using Unity.XR.CoreUtils;
 using UnityEngine;
 
 namespace Anaglyph.SharedSpaces
@@ -13,8 +13,6 @@ namespace Anaglyph.SharedSpaces
 	[RequireComponent(typeof(NetworkedSpatialAnchor))]
 	public class ColocationAnchor : NetworkBehaviour
 	{
-		private static XROrigin rig;
-
 		private static ColocationAnchor _activeAnchor;
 		public static event Action<ColocationAnchor> ActiveAnchorChange;
 		public static ColocationAnchor ActiveAnchor
@@ -46,18 +44,12 @@ namespace Anaglyph.SharedSpaces
 		private static async void HandleRecenter()
 		{
 			await Awaitable.EndOfFrameAsync();
-			CalibrateToAnchor(ActiveAnchor);
+			ActiveAnchor?.ColocateToAnchor();
 		}
 
 		private void OnValidate()
 		{
 			TryGetComponent(out networkedAnchor);
-		}
-
-		private void Awake()
-		{
-			if(rig == null)
-				rig = FindFirstObjectByType<XROrigin>();
 		}
 
 		public override void OnDestroy()
@@ -73,38 +65,28 @@ namespace Anaglyph.SharedSpaces
 			if (ActiveAnchor == this)
 				return;
 
-			float distanceFromOrigin = Vector3.Distance(networkedAnchor.transform.position, rig.Camera.transform.position);
+			Vector3 camPosition = MainXROrigin.Instance.Camera.transform.position;
+			float distanceFromOrigin = Vector3.Distance(networkedAnchor.transform.position, camPosition);
 
 			if (distanceFromOrigin < colocateAtDistance || ActiveAnchor == null)
-				CalibrateToAnchor(this);
+				MakeActiveAnchor();
 		}
 
-		public static void CalibrateToAnchor(ColocationAnchor anchor)
+		public void MakeActiveAnchor()
 		{
-			if (anchor == null || !anchor.networkedAnchor.Anchor.Localized)
+			if (!networkedAnchor.Anchor.Localized)
 				return;
 
-			ActiveAnchor = anchor;
+			ActiveAnchor = this;
 
-			Matrix4x4 rigMat = Matrix4x4.TRS(rig.transform.position, rig.transform.rotation, Vector3.one);
-			NetworkPose anchorOriginalPose = anchor.networkedAnchor.OriginalPoseSync.Value;
-			Matrix4x4 desiredMat = Matrix4x4.TRS(anchorOriginalPose.position, anchorOriginalPose.rotation, Vector3.one);
-			Matrix4x4 anchorMat = Matrix4x4.TRS(anchor.transform.position, anchor.transform.rotation, Vector3.one);
+			ColocateToAnchor();
+		}
 
-			// the rig relative to the anchor
-			Matrix4x4 rigLocalToAnchor = anchorMat.inverse * rigMat;
-
-			// that relative matrix relative to the desired transform
-			Matrix4x4 relativeToDesired = desiredMat * rigLocalToAnchor;
-
-			Vector3 targetRigPos = relativeToDesired.GetPosition();
-
-			Vector3 targetForward = relativeToDesired.MultiplyVector(Vector3.forward);
-			targetForward.y = 0;
-			targetForward.Normalize();
-			Quaternion targetRigRot = Quaternion.LookRotation(targetForward, Vector3.up);
-
-			rig.transform.SetPositionAndRotation(targetRigPos, targetRigRot);
+		public void ColocateToAnchor()
+		{
+			Pose toPose = networkedAnchor.OriginalPoseSync.Value.ToPose();
+			Pose fromPose = new Pose(transform.position, transform.rotation);
+			Colocation.TransformTrackingSpace(fromPose, toPose);
 		}
 	}
 }

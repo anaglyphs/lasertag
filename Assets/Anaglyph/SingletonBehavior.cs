@@ -17,7 +17,7 @@ public abstract class SingletonBehavior<T> : MonoBehaviour where T : SingletonBe
 		}
 		else
 		{
-			Debug.LogWarning("More than one instance of " + GetType() + " created!");
+			Debug.LogWarning($"Multiple {GetType()}s");
 			Destroy(this);
 		}
 	}

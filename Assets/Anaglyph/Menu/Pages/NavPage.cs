@@ -1,6 +1,11 @@
 using UnityEngine;
 using UnityEngine.Events;
 
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+
+
 namespace Anaglyph.Menu
 {
 	// [RequireComponent(typeof(RectTransform), typeof(CanvasGroup))]
@@ -52,5 +57,35 @@ namespace Anaglyph.Menu
 		{
 			OnVisible.Invoke(gameObject.activeInHierarchy);
 		}
+
+
 	}
+
+#if UNITY_EDITOR
+
+	[InitializeOnLoad]
+	static class NavPageEditorHelper
+	{
+		static SceneVisibilityManager Visibility => SceneVisibilityManager.instance;
+
+		static NavPageEditorHelper()
+		{
+			Selection.selectionChanged += delegate
+			{
+				GameObject selectedObject = Selection.activeGameObject;
+
+				if (selectedObject == null)
+					return;
+				
+				if (!selectedObject.TryGetComponent(out NavPage navPage))
+					return;
+
+				Visibility.Hide(selectedObject.transform.parent.gameObject, true);
+				Visibility.Show(selectedObject, true);
+			};
+		}
+	}
+
+#endif
+
 }

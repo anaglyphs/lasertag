@@ -35,7 +35,6 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		[SerializeField] private EnvironmentDepthManager envDepthTextureProvider = null;
 
-		public Transform trackingSpace;
 		public static bool DepthAvailable { get; private set; }
 
 		[SerializeField] private ComputeShader depthNormalCompute = null;
@@ -112,7 +111,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 				agDepthProj[i] = CalculateDepthProjMatrix(desc);
 				agDepthProjInv[i] = Matrix4x4.Inverse(agDepthProj[i]);
 
-				agDepthView[i] = CalculateDepthViewMatrix(desc) * trackingSpace.worldToLocalMatrix;
+				agDepthView[i] = CalculateDepthViewMatrix(desc) * MainXROrigin.TrackingSpace.worldToLocalMatrix;
 				agDepthViewInv[i] = Matrix4x4.Inverse(agDepthView[i]);
 			}
 
