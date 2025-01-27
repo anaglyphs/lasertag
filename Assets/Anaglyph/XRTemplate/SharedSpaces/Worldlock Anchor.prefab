@@ -9,15 +9,14 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1864775655400532940}
-  - component: {fileID: 7193132605894861672}
   - component: {fileID: 321370433711836803}
-  - component: {fileID: -1500784526931333930}
   - component: {fileID: 891251290024235993}
+  - component: {fileID: -7588093276697512665}
   - component: {fileID: 471741878431666474}
   - component: {fileID: 6727088059367313208}
   - component: {fileID: 1980866231862824632}
   m_Layer: 0
-  m_Name: Colocation Anchor
+  m_Name: Worldlock Anchor
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -38,31 +37,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &7193132605894861672
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6151402896905020864}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 2534750477
-  InScenePlacedSourceGlobalObjectIdHash: 0
-  DeferredDespawnTick: 0
-  Ownership: 0
-  AlwaysReplicateAsRoot: 0
-  SynchronizeTransform: 0
-  ActiveSceneSynchronization: 0
-  SceneMigrationSynchronization: 1
-  SpawnWithObservers: 1
-  DontDestroyWithOwner: 0
-  AutoObjectParentSync: 0
-  SyncOwnerTransformWhenParented: 1
-  AllowOwnerToParent: 0
 --- !u!114 &321370433711836803
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -75,21 +49,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 34e0461a4939d3b4fbdf706bbd80108c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!114 &-1500784526931333930
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6151402896905020864}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b34e90e8013d8234595b88abbfe04e8e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  ShowTopMostFoldoutHeaderGroup: 1
-  spatialAnchor: {fileID: 321370433711836803}
-  Uuid: {}
 --- !u!114 &891251290024235993
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -102,9 +61,23 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 722955a90de5aba4cb0b0f3ca2012c57, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ShowTopMostFoldoutHeaderGroup: 1
   anchor: {fileID: 321370433711836803}
   colocateAtDistance: 3
+--- !u!114 &-7588093276697512665
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6151402896905020864}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fc3308518d5606c4fb3cfe0deac125fc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  desiredPose:
+    position: {x: 0, y: -1, z: 0}
+    rotation: {x: 0, y: 0, z: 0, w: 1}
 --- !u!33 &471741878431666474
 MeshFilter:
   m_ObjectHideFlags: 0

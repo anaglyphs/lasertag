@@ -1,4 +1,5 @@
 using Anaglyph.Netcode;
+using Anaglyph.XRTemplate.SharedSpaces;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -19,13 +20,15 @@ namespace Anaglyph.SharedSpaces
 	}
 
 	[RequireComponent(typeof(OVRSpatialAnchor))]
-	public class NetworkedSpatialAnchor : NetworkBehaviour
+	public class NetworkedAnchor : NetworkBehaviour, IDesiredPose
 	{
 		[SerializeField] private OVRSpatialAnchor spatialAnchor;
 		public OVRSpatialAnchor Anchor => spatialAnchor;
 
 		//private Guid serverUuid;
 		public NetworkVariable<NetworkPose> OriginalPoseSync = new NetworkVariable<NetworkPose>();
+		public Pose DesiredPose => OriginalPoseSync.Value;
+
 		public NetworkVariable<NetworkGuid> Uuid = new NetworkVariable<NetworkGuid>(new(Guid.Empty));
 
 		private void OnValidate()

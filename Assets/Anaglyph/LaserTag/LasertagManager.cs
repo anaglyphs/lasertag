@@ -45,6 +45,8 @@ namespace Anaglyph.Lasertag
 
 		public override void OnNetworkDespawn()
 		{
+			Colocation.ActiveColocator.StopColocation();
+
 			MainXROrigin.Instance.transform.position = Vector3.zero;
 			MainXROrigin.Instance.transform.rotation = Quaternion.identity;
 		}

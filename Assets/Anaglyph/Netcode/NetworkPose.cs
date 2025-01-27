@@ -20,6 +20,15 @@ namespace Anaglyph.Netcode
 			this.rotation = transform.rotation;
 		}
 
+		public NetworkPose(Pose pose)
+		{
+			this.position = pose.position;
+			this.rotation = pose.rotation;
+		}
+
+		public static implicit operator Pose(NetworkPose pose) => new Pose(pose.position, pose.rotation);
+		public static explicit operator NetworkPose(Pose pose) => new NetworkPose(pose.position, pose.rotation);
+
 		public Pose ToPose()
 		{
 			return new Pose(position, rotation);

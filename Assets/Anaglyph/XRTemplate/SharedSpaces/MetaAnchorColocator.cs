@@ -9,6 +9,7 @@ namespace Anaglyph.SharedSpaces
 	public class MetaAnchorColocator : SingletonBehavior<MetaAnchorColocator>, IColocator
 	{
 		[SerializeField] private GameObject sharedAnchorPrefab;
+		private NetworkedAnchor networkedAnchor;
 
 		private Transform spawnTarget;
 
@@ -29,15 +30,15 @@ namespace Anaglyph.SharedSpaces
 
 		protected override void SingletonAwake()
 		{
-			ColocationAnchor.ActiveAnchorChange += OnActiveAnchorChange;
+			WorldLock.ActiveLockChange += OnActiveAnchorChange;
 		}
 
 		protected override void OnSingletonDestroy()
 		{
-			ColocationAnchor.ActiveAnchorChange -= OnActiveAnchorChange;
+			WorldLock.ActiveLockChange -= OnActiveAnchorChange;
 		}
 
-		private void OnActiveAnchorChange(ColocationAnchor anchor)
+		private void OnActiveAnchorChange(WorldLock anchor)
 		{
 			IsColocated = anchor != null;
 		}
@@ -72,6 +73,14 @@ namespace Anaglyph.SharedSpaces
 				MainXROrigin.TrackingSpace.position = new Vector3(0, 1000, 0);
 		}
 
+		public void StopColocation()
+		{
+			IsColocated = false;
+
+			if (networkedAnchor != null && networkedAnchor.IsSpawned)
+				networkedAnchor.NetworkObject.Despawn();
+		}
+
 		public void SpawnPrefab()
 		{
 			Vector3 spawnPos = spawnTarget.position;
@@ -82,11 +91,9 @@ namespace Anaglyph.SharedSpaces
 			flatForward.Normalize();
 			Quaternion spawnRot = Quaternion.LookRotation(flatForward, Vector3.up);
 
-			GameObject newAnchorObject = Instantiate(sharedAnchorPrefab, spawnPos, spawnRot);
-
-			NetworkedSpatialAnchor newAnchor = newAnchorObject.GetComponent<NetworkedSpatialAnchor>();
-
-			newAnchor.NetworkObject.Spawn();
+			GameObject g = Instantiate(sharedAnchorPrefab, spawnPos, spawnRot);
+			g.TryGetComponent(out networkedAnchor);
+			networkedAnchor.NetworkObject.Spawn();
 		}
 	}
 }

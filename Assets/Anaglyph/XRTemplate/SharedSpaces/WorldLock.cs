@@ -10,24 +10,25 @@ namespace Anaglyph.SharedSpaces
 	/// Transforms VR playspace so that the anchor matches its networked position
 	/// </summary>
 	[DefaultExecutionOrder(500)]
-	[RequireComponent(typeof(NetworkedSpatialAnchor))]
-	public class ColocationAnchor : NetworkBehaviour
+	public class WorldLock : MonoBehaviour
 	{
-		private static ColocationAnchor _activeAnchor;
-		public static event Action<ColocationAnchor> ActiveAnchorChange;
-		public static ColocationAnchor ActiveAnchor
+		private static WorldLock _activeLock;
+		public static event Action<WorldLock> ActiveLockChange;
+		public static WorldLock ActiveLock
 		{
-			get => _activeAnchor;
+			get => _activeLock;
 			set
 			{
-				bool changed = value != _activeAnchor;
-				_activeAnchor = value;
+				bool changed = value != _activeLock;
+				_activeLock = value;
 				if (changed) 
-					ActiveAnchorChange?.Invoke(_activeAnchor);
+					ActiveLockChange?.Invoke(_activeLock);
 			}
 		}
 
-		[SerializeField] private NetworkedSpatialAnchor networkedAnchor;
+		private IDesiredPose desiredPose;
+		[SerializeField] private OVRSpatialAnchor anchor;
+		public OVRSpatialAnchor Anchor => anchor;
 		[SerializeField] private float colocateAtDistance = 3;
 
 		[RuntimeInitializeOnLoadMethod]
@@ -44,48 +45,56 @@ namespace Anaglyph.SharedSpaces
 		private static async void HandleRecenter()
 		{
 			await Awaitable.EndOfFrameAsync();
-			ActiveAnchor?.ColocateToAnchor();
+			ActiveLock?.LockOnto();
 		}
 
 		private void OnValidate()
 		{
-			TryGetComponent(out networkedAnchor);
+			TryGetComponent(out anchor);
 		}
 
-		public override void OnDestroy()
+		private void Awake()
 		{
-			base.OnDestroy();
+			TryGetComponent(out desiredPose);
+		}
 
-			if(ActiveAnchor == this)
-				ActiveAnchor = null;
+		private void OnDestroy()
+		{
+			if(ActiveLock == this)
+				ActiveLock = null;
 		}
 
         private void LateUpdate()
         {
-			if (ActiveAnchor == this)
+			if (ActiveLock == this)
 				return;
 
 			Vector3 camPosition = MainXROrigin.Instance.Camera.transform.position;
-			float distanceFromOrigin = Vector3.Distance(networkedAnchor.transform.position, camPosition);
+			float distanceFromOrigin = Vector3.Distance(anchor.transform.position, camPosition);
 
-			if (distanceFromOrigin < colocateAtDistance || ActiveAnchor == null)
+			if (distanceFromOrigin < colocateAtDistance || ActiveLock == null)
 				MakeActiveAnchor();
 		}
 
 		public void MakeActiveAnchor()
 		{
-			if (!networkedAnchor.Anchor.Localized)
+			if (!anchor.Localized)
 				return;
 
-			ActiveAnchor = this;
+			ActiveLock = this;
 
-			ColocateToAnchor();
+			LockOnto();
 		}
 
-		public void ColocateToAnchor()
+		public void LockOnto()
 		{
-			Pose toPose = networkedAnchor.OriginalPoseSync.Value.ToPose();
 			Pose fromPose = new Pose(transform.position, transform.rotation);
+
+			Pose toPose = Pose.identity;
+
+			if(desiredPose != null)
+				toPose = desiredPose.DesiredPose;
+
 			Colocation.TransformTrackingSpace(fromPose, toPose);
 		}
 	}

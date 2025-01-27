@@ -9,6 +9,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		public event Action<bool> IsColocatedChange;
 
 		public void Colocate();
+		public void StopColocation();
 	}
 
 	public static class Colocation

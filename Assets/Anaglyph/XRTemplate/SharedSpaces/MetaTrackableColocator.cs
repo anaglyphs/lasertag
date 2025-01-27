@@ -1,3 +1,4 @@
+using Anaglyph.SharedSpaces;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -6,6 +7,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 {
 	public class MetaTrackableColocator : SingletonBehavior<MetaTrackableColocator>, IColocator
 	{
+		[SerializeField] private GameObject worldLockAnchorPrefab = null;
+		private WorldLock currentWorldLock = null;
+
 		private OVRAnchor.Tracker tracker;
 
 		private bool _isColocated;
@@ -39,9 +43,17 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			FindKeyboard();
 		}
 
-		public async void FindKeyboard()
+		public void StopColocation()
 		{
 			IsColocated = false;
+
+			if (currentWorldLock != null)
+				Destroy(currentWorldLock.gameObject);
+		}
+
+		public async void FindKeyboard()
+		{
+			StopColocation();
 
 			if (!OVRAnchor.TrackerConfiguration.KeyboardTrackingSupported)
 				throw new Exception("Keyboard tracking isn't supported on this device!");
@@ -59,12 +71,14 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			while (keyboardAnchor == default)
 			{
-				await Awaitable.FixedUpdateAsync();
-
 				var fetchResult = await tracker.FetchTrackablesAsync(anchors);
 
+				await Awaitable.FixedUpdateAsync();
+
 				if (!fetchResult.Success)
+				{
 					continue;
+				}
 
 				foreach (var anchor in anchors)
 				{
@@ -86,11 +100,17 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			Transform trackingSpace = MainXROrigin.TrackingSpace;
 			Pose keyboardPose = new Pose();
-			
 			keyboardPose.position = trackingSpace.TransformPoint(ovrPose.Position.Value);
 			keyboardPose.rotation = trackingSpace.transform.rotation * (ovrPose.Rotation.Value * Quaternion.Euler(90, 0, 0));
 
-			Colocation.TransformTrackingSpace(keyboardPose);
+			var g = Instantiate(worldLockAnchorPrefab, keyboardPose.position, keyboardPose.rotation);
+			g.TryGetComponent(out currentWorldLock);
+
+			//while (currentWorldLock != null && !currentWorldLock.Anchor.Localized)
+			//{
+			//	await Awaitable.FixedUpdateAsync();
+			//}
+
 			IsColocated = true;
 		}
 	}
