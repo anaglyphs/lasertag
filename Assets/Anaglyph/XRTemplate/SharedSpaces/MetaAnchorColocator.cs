@@ -84,7 +84,7 @@ namespace Anaglyph.SharedSpaces
 		public void SpawnPrefab()
 		{
 			Vector3 spawnPos = spawnTarget.position;
-			spawnPos.y = 0;
+			spawnPos.y -= 1.7f;
 
 			Vector3 flatForward = spawnTarget.transform.forward;
 			flatForward.y = 0;
