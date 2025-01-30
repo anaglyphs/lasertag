@@ -7,8 +7,10 @@ using System;
 namespace Anaglyph.Lasertag
 {
 	[DefaultExecutionOrder(-100)]
-	public class MainPlayer : SingletonBehavior<MainPlayer>
+	public class MainPlayer : MonoBehaviour
 	{
+		public static MainPlayer Instance { get; private set; }
+
 		public Role currentRole = Role.Standard;
 
 		public float Health { get; private set; } =  Role.Standard.MaxHealth;
@@ -36,8 +38,10 @@ namespace Anaglyph.Lasertag
 		// todo move this into another component. this really doesn't belong here
 		private OVRPassthroughLayer passthroughLayer;
 
-		protected override void SingletonAwake()
+		private void Awake()
 		{
+			Instance = this;
+
 			passthroughLayer = FindFirstObjectByType<OVRPassthroughLayer>();
 			passthroughLayer.edgeRenderingEnabled = true;
 			passthroughLayer.edgeColor = Color.clear;
@@ -142,11 +146,6 @@ namespace Anaglyph.Lasertag
 				networkPlayer.RightHandTransform.SetFrom(rightHandTransform);
 				//networkPlayer.TorsoTransform.SetFrom(torsoTransform);
 			}
-		}
-
-		protected override void OnSingletonDestroy()
-		{
-			
 		}
 	}
 }

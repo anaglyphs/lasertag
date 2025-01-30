@@ -5,8 +5,10 @@ using UnityEngine;
 
 namespace Anaglyph.SharedSpaces
 {
-	public class AutomaticNetworkConnector : SingletonBehavior<AutomaticNetworkConnector>
+	public class AutomaticNetworkConnector : MonoBehaviour
 	{
+		public static AutomaticNetworkConnector Instance { get; private set; }
+
 		private static NetworkManager manager => NetworkManager.Singleton;
 		private static UnityTransport transport => (UnityTransport) NetworkManager.Singleton.NetworkConfig.NetworkTransport;
 
@@ -30,12 +32,15 @@ namespace Anaglyph.SharedSpaces
 		private void OnClientStarted() => HandleChange();
 		private void OnClientStopped(bool b) => HandleChange();
 
-		protected override void SingletonAwake()
-		{
+		private void OnApplicationFocus(bool focus) => HandleChange();
+		private void OnApplicationPause(bool pause) => HandleChange();
 
+		private void Awake()
+		{
+			Instance = this;
 		}
 
-		protected override void OnSingletonDestroy()
+		private void OnDestroy()
 		{
 			if (manager != null)
 			{

@@ -9,8 +9,10 @@ using UnityEngine.Rendering;
 namespace Anaglyph.XRTemplate
 {
 	[DefaultExecutionOrder(-10)]
-	public class EnvironmentMapper : SingletonBehavior<EnvironmentMapper>
+	public class EnvironmentMapper : MonoBehaviour
 	{
+		public static EnvironmentMapper Instance { get; private set; }
+
 		public const int PER_FRAME_UNWRITTEN = 0;
 
 		public static Action<NativeArray<int>> OnScan = delegate { };
@@ -50,12 +52,12 @@ namespace Anaglyph.XRTemplate
 
 		private Transform cameraTransform;
 
-		protected override void SingletonAwake()
+		private void Awake()
 		{
-			
+			Instance = this;
 		}
 
-		protected override void OnSingletonDestroy()
+		private void OnDestroy()
 		{
 			ClearMap();
 

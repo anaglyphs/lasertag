@@ -3,8 +3,10 @@ using UnityEngine.UI;
 
 namespace Anaglyph.Lasertag.UI
 {
-	public class HUDDriver : SingletonBehavior<HUDDriver>
+	public class HUDDriver : MonoBehaviour
 	{
+		public static HUDDriver Instance { get; private set; }
+
 		[Header("Death Popup")]
 		[SerializeField] private Text respawnText = null;
 
@@ -14,7 +16,12 @@ namespace Anaglyph.Lasertag.UI
 
 		private float maxMenuMaskHeight = 0;
 
-		void Start()
+		private void Awake()
+		{
+			Instance = this;
+		}
+
+		private void Start()
 		{
 			maxMenuMaskHeight = menuMaskRectTransform.sizeDelta.y;
 		}
@@ -41,16 +48,6 @@ namespace Anaglyph.Lasertag.UI
 			{
 				respawnText.text = $"RESPAWN: {(MainPlayer.Instance.RespawnTimerSeconds).ToString("F1")}s";
 			}
-		}
-
-		protected override void OnSingletonDestroy()
-		{
-			
-		}
-
-		protected override void SingletonAwake()
-		{
-			
 		}
 	}
 }

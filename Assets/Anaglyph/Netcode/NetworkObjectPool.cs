@@ -7,8 +7,9 @@ using UnityEngine.Pool;
 
 namespace Anaglyph.Lasertag.Logistics
 {
-	public class NetworkObjectPool : SingletonBehavior<NetworkObjectPool>
+	public class NetworkObjectPool : MonoBehaviour
 	{
+		public static NetworkObjectPool Instance { get; private set; }
 
 		[SerializeField]
 		List<PoolConfigObject> PooledPrefabsList;
@@ -17,9 +18,9 @@ namespace Anaglyph.Lasertag.Logistics
 
 		Dictionary<GameObject, ObjectPool<NetworkObject>> m_PooledObjects = new Dictionary<GameObject, ObjectPool<NetworkObject>>();
 
-		protected override void SingletonAwake()
+		private void Awake()
 		{
-			
+			Instance = this;
 		}
 
 		private void Start()
@@ -28,7 +29,7 @@ namespace Anaglyph.Lasertag.Logistics
 			NetworkManager.Singleton.OnClientStopped += OnSessionStopped;
 		}
 
-		protected override void OnSingletonDestroy()
+		private void OnDestroy()
 		{
 			if (NetworkManager.Singleton == null)
 				return;

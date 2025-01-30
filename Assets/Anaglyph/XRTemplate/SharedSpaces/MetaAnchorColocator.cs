@@ -6,8 +6,10 @@ using UnityEngine;
 
 namespace Anaglyph.SharedSpaces
 {
-	public class MetaAnchorColocator : SingletonBehavior<MetaAnchorColocator>, IColocator
+	public class MetaAnchorColocator : MonoBehaviour, IColocator
 	{
+		public static MetaAnchorColocator Instance { get; private set; }
+
 		[SerializeField] private GameObject sharedAnchorPrefab;
 		private NetworkedAnchor networkedAnchor;
 
@@ -28,12 +30,13 @@ namespace Anaglyph.SharedSpaces
 			}
 		}
 
-		protected override void SingletonAwake()
+		private void Awake()
 		{
+			Instance = this;
 			WorldLock.ActiveLockChange += OnActiveAnchorChange;
 		}
 
-		protected override void OnSingletonDestroy()
+		private void OnDestroy()
 		{
 			WorldLock.ActiveLockChange -= OnActiveAnchorChange;
 		}
