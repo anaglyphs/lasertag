@@ -15,8 +15,6 @@ namespace Anaglyph.SharedSpaces
 		private static string LogHeader = "[AutoJoiner] ";
 		private static void Log(string str) => Debug.Log(LogHeader + str);
 
-		public bool autoJoin = true;
-
 		private void Start()
 		{
 			manager.OnClientStarted += OnClientStarted;
@@ -32,8 +30,10 @@ namespace Anaglyph.SharedSpaces
 		private void OnClientStarted() => HandleChange();
 		private void OnClientStopped(bool b) => HandleChange();
 
+#if !UNITY_EDITOR
 		private void OnApplicationFocus(bool focus) => HandleChange();
 		private void OnApplicationPause(bool pause) => HandleChange();
+#endif
 
 		private void Awake()
 		{
@@ -53,8 +53,14 @@ namespace Anaglyph.SharedSpaces
 
 		private void HandleChange()
 		{
-			if (!enabled || !Application.isFocused)
+
+			if (!enabled 
+#if !UNITY_EDITOR
+				|| !Application.isFocused
+#endif
+				)
 			{
+				Log("Stopping both discovery and advertisement");
 				OVRColocationSession.StopDiscoveryAsync();
 				OVRColocationSession.StopAdvertisementAsync();
 			}
@@ -78,34 +84,33 @@ namespace Anaglyph.SharedSpaces
 		private void HostingStarted()
 		{
 			string address = transport.ConnectionData.Address;
+			Log($"Starting advertisement {address}");
 			OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(address));
-			Log("Started advertisement " + address);
 		}
 
 		private void HostingStopped()
 		{
+			Log("Stopping advertisement");
 			OVRColocationSession.StopAdvertisementAsync();
-			Log("Stopped advertisement");
 		}
 
 		private void ClientStarted()
 		{
+			Log("Stopping discovery");
 			OVRColocationSession.StopDiscoveryAsync();
-			Log("Stopped discovery");
 		}
 
 		private void ClientStopped()
 		{
+			Log("Starting discovery");
 			OVRColocationSession.StartDiscoveryAsync();
-			Log("Started discovery");
 		}
 
 		private void HandleColocationSessionDiscovered(OVRColocationSession.Data data)
 		{
-			if (!autoJoin)
-				return;
-
-			transport.ConnectionData.Address = Encoding.ASCII.GetString(data.Metadata);
+			string address = Encoding.ASCII.GetString(data.Metadata);
+			Log($"Discovered {address}");
+			transport.ConnectionData.Address = address;
 			manager.StartClient();
 		}
 	}

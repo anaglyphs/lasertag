@@ -22,6 +22,8 @@ namespace Anaglyph.Lasertag
 		private NetworkManager manager;
 		private UnityTransport transport;
 
+		[SerializeField] private PageNavigationView navView;
+
 		[Header(nameof(homePage))]
 		[SerializeField] private NavPage homePage = null;
 
@@ -56,8 +58,16 @@ namespace Anaglyph.Lasertag
 			manager.OnConnectionEvent += OnConnectionEvent;
 			manager.OnClientStarted += OnClientStarted;
 
-			// homepage
-			homePage.OnVisible.AddListener((bool v) => AutomaticNetworkConnector.Instance.autoJoin = v);
+			navView.onPageChange.AddListener(delegate (NavPage page)
+			{
+				if (page == hostSettingsPage || page == manuallyConnectPage)
+				{
+					AutomaticNetworkConnector.Instance.enabled = false;
+				} else
+				{
+					AutomaticNetworkConnector.Instance.enabled = true;
+				}
+			});
 
 			// host settings page
 			hostSettingsPage.showBackButton = true;

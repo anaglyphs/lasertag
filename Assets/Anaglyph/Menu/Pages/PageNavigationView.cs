@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Events;
 
 namespace Anaglyph.Menu
 {
@@ -23,6 +24,8 @@ namespace Anaglyph.Menu
 		public AnimationCurve normalizedTransitionCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
 
 		[SerializeField] private NavPage firstPageActive;
+
+		public UnityEvent<NavPage> onPageChange = new();
 
 		private void OnValidate()
 		{
@@ -56,6 +59,7 @@ namespace Anaglyph.Menu
 				history.RemoveRange(targetPageHistoryIndex + 1, history.Count - targetPageHistoryIndex - 1);
 
 			StartTransition(targetPageIsInHistory, currentPage, targetPage);
+			onPageChange.Invoke(targetPage);
 		}
 
 		public void GoBack()
