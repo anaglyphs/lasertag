@@ -53,14 +53,10 @@ namespace Anaglyph.SharedSpaces
 
 		private void HandleChange()
 		{
-#if UNITY_EDITOR
-			return;
-#endif
-
 			if (!enabled || !Application.isFocused)
 			{
-				ClientStopped();
-				HostingStopped();
+				OVRColocationSession.StopDiscoveryAsync();
+				OVRColocationSession.StopAdvertisementAsync();
 			}
 			else
 			{
