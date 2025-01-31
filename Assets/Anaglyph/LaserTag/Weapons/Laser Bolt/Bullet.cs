@@ -1,7 +1,5 @@
-using Anaglyph.Lasertag.Networking;
 using Anaglyph.Netcode;
 using Anaglyph.XRTemplate;
-using Anaglyph.XRTemplate.DepthKit;
 using System.Collections;
 using System.Threading.Tasks;
 using Unity.Netcode;
@@ -10,7 +8,7 @@ using UnityEngine.Events;
 
 namespace Anaglyph.Lasertag
 {
-	public class Bolt : NetworkBehaviour
+	public class Bullet : NetworkBehaviour
 	{
 		public float metersPerSecond;
 
@@ -23,11 +21,13 @@ namespace Anaglyph.Lasertag
 		public UnityEvent onFrameAfterHit = new();
 		private bool isFlying = true;
 
-		private NetworkVariable<NetworkPose> networkPos = new();
+		private NetworkVariable<NetworkPose> spawnPosSync = new();
+		private NetworkVariable<double> spawnTimeSync = new();
 
 		private void Awake()
 		{
-			networkPos.OnValueChanged += OnSpawnPosChange;
+			spawnPosSync.OnValueChanged += OnSpawnPosChange;
+			
 		}
 
 		public override void OnNetworkSpawn()
@@ -35,11 +35,12 @@ namespace Anaglyph.Lasertag
 			isFlying = true;
 			if (IsOwner)
 			{
-				networkPos.Value = new NetworkPose(transform);
+				spawnPosSync.Value = new NetworkPose(transform);
+				spawnTimeSync.Value = NetworkManager.ServerTime.Time;
 			}
 			else
 			{
-				SetPoseLocally(networkPos.Value);
+				SetPoseLocally(spawnPosSync.Value);
 			}
 		}
 
@@ -73,7 +74,11 @@ namespace Anaglyph.Lasertag
 		Vector3 previousPosition = Vector3.zero;
 		private void Fly()
 		{
+			double lifeTime = NetworkManager.ServerTime.Time - spawnTimeSync.Value;
 			previousPosition = transform.position;
+			Vector3 travel = transform.forward * metersPerSecond * (float)lifeTime;
+			transform.position = spawnPosSync.Value.position + travel;
+
 			transform.position += transform.forward * metersPerSecond * Time.deltaTime;
 		}
 

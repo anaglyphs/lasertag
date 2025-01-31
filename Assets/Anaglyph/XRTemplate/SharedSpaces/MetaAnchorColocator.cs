@@ -49,24 +49,7 @@ namespace Anaglyph.SharedSpaces
 		private void Start()
 		{
 			spawnTarget = Camera.main.transform;
-
-			// NetworkManager.Singleton.OnConnectionEvent += OnConnectionEvent;
 		}
-
-		//private void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
-		//{
-		//	if (NetcodeHelpers.ThisClientConnected(data))
-		//	{
-		//		if(manager.IsHost)
-		//			SpawnPrefab();
-		//		else
-		//			xrRig.transform.position = new Vector3(0, 1000, 0);
-
-		//	} else if(NetcodeHelpers.ThisClientDisconnected(data))
-		//	{
-		//		xrRig.transform.position = new Vector3(0, 0, 0);
-		//	}
-		//}
 
 		public void Colocate()
 		{
