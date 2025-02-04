@@ -17,7 +17,7 @@ namespace Anaglyph
 			obj = new();
 		}
 
-		public static void WriteFile<T>(T obj, string nameAndExtension) where T : struct
+		public static void WriteFile<T>(string nameAndExtension, T obj) where T : struct
 		{
 			string jsonString = JsonUtility.ToJson(obj);
 			File.WriteAllText(GetPath(nameAndExtension), jsonString);
