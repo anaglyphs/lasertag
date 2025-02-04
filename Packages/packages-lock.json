@@ -7,6 +7,13 @@
       "dependencies": {},
       "hash": "3e7f8c52eb46548aa6c55db054112fab4ec48211"
     },
+    "com.malee.reorderablelist": {
+      "version": "1.0.1",
+      "depth": 1,
+      "source": "registry",
+      "dependencies": {},
+      "url": "https://package.openupm.com"
+    },
     "com.meta.xr.depthapi": {
       "version": "https://github.com/oculus-samples/Unity-DepthAPI.git?path=/Packages/com.meta.xr.depthapi",
       "depth": 0,
@@ -49,6 +56,16 @@
         "com.unity.editorcoroutines": "1.0.0"
       },
       "url": "https://packages.unity.com"
+    },
+    "com.strikervr.strikersdk": {
+      "version": "0.9.0",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {
+        "com.malee.reorderablelist": "1.0.1",
+        "com.unity.nuget.newtonsoft-json": "3.0.1"
+      },
+      "url": "https://package.openupm.com"
     },
     "com.unity.2d.sprite": {
       "version": "1.0.0",
@@ -529,6 +546,12 @@
       "dependencies": {}
     },
     "com.unity.modules.jsonserialize": {
+      "version": "1.0.0",
+      "depth": 0,
+      "source": "builtin",
+      "dependencies": {}
+    },
+    "com.unity.modules.particlesystem": {
       "version": "1.0.0",
       "depth": 0,
       "source": "builtin",

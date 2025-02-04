@@ -6,6 +6,7 @@
     "com.meta.xr.sdk.core": "72.0.0",
     "com.meta.xr.sdk.haptics": "71.0.0",
     "com.meta.xr.simulator": "72.0.0",
+    "com.strikervr.strikersdk": "0.9.0",
     "com.unity.2d.sprite": "1.0.0",
     "com.unity.collections": "2.5.1",
     "com.unity.feature.development": "1.0.2",
@@ -32,6 +33,7 @@
     "com.unity.modules.audio": "1.0.0",
     "com.unity.modules.imageconversion": "1.0.0",
     "com.unity.modules.jsonserialize": "1.0.0",
+    "com.unity.modules.particlesystem": "1.0.0",
     "com.unity.modules.physics": "1.0.0",
     "com.unity.modules.physics2d": "1.0.0",
     "com.unity.modules.ui": "1.0.0",
@@ -40,5 +42,15 @@
     "com.unity.modules.vr": "1.0.0",
     "com.unity.modules.xr": "1.0.0"
   },
-  "scopedRegistries": []
+  "scopedRegistries": [
+    {
+      "name": "package.openupm.com",
+      "url": "https://package.openupm.com",
+      "scopes": [
+        "com.strikervr.strikersdk",
+        "com.malee.reorderablelist"
+      ],
+      "overrideBuiltIns": false
+    }
+  ]
 }
