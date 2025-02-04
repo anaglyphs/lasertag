@@ -1,8 +1,12 @@
 using Anaglyph.XRTemplate;
 using Anaglyph.XRTemplate.SharedSpaces;
+using NUnit.Framework;
 using System;
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
+using static Anaglyph.XRTemplate.SharedSpaces.AnchorGuidSaving;
+using static OVRSpatialAnchor;
 
 namespace Anaglyph.SharedSpaces
 {
@@ -51,12 +55,35 @@ namespace Anaglyph.SharedSpaces
 			spawnTarget = Camera.main.transform;
 		}
 
-		public void Colocate()
+		public async void Colocate()
 		{
 			if (NetworkManager.Singleton.IsHost)
+			{
 				SpawnPrefab();
+
+				SavedAnchors savedAnchors = GetSavedAnchors();
+
+				if (savedAnchors.guidStrings != null && savedAnchors.guidStrings.Count > 0)
+				{
+					List<UnboundAnchor> unboundAnchors = new();
+
+					List<Guid> guidStrings = new(savedAnchors.guidStrings.Count);
+					foreach (string uuidString in savedAnchors.guidStrings)
+						guidStrings.Add(new Guid(uuidString));
+
+					var loadResult = await LoadUnboundAnchorsAsync(guidStrings, unboundAnchors);
+					if (loadResult.Success && unboundAnchors.Count > 0)
+					{
+						await networkedAnchor.LocalizeAndBindAsync(unboundAnchors[0]);
+					}
+				}
+
+				await networkedAnchor.Share();
+			}
 			else
+			{
 				MainXROrigin.TrackingSpace.position = new Vector3(0, 1000, 0);
+			}
 		}
 
 		public void StopColocation()
@@ -70,7 +97,7 @@ namespace Anaglyph.SharedSpaces
 		public void SpawnPrefab()
 		{
 			Vector3 spawnPos = spawnTarget.position;
-			spawnPos.y -= 1.5f;
+			spawnPos.y = 0;
 
 			Vector3 flatForward = spawnTarget.transform.forward;
 			flatForward.y = 0;

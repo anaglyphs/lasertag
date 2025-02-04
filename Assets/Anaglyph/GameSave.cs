@@ -7,9 +7,10 @@ namespace Anaglyph
 	{
 		public static void ReadFile<T>(string nameAndExtension, out T obj) where T : struct
 		{
-			if (File.Exists(GetPath(nameAndExtension)))
+			string path = GetPath(nameAndExtension);
+			if (File.Exists(path))
 			{
-				string fileContents = File.ReadAllText(nameAndExtension);
+				string fileContents = File.ReadAllText(path);
 				obj = JsonUtility.FromJson<T>(fileContents);
 				return;
 			}
@@ -20,7 +21,8 @@ namespace Anaglyph
 		public static void WriteFile<T>(string nameAndExtension, T obj) where T : struct
 		{
 			string jsonString = JsonUtility.ToJson(obj);
-			File.WriteAllText(GetPath(nameAndExtension), jsonString);
+			string path = GetPath(nameAndExtension);
+			File.WriteAllText(path, jsonString);
 		}
 
 		private static string GetPath(string nameAndExtension)
