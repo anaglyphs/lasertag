@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.Events;
 using Anaglyph.Lasertag.Weapons;
 using System;
+using Unity.XR.CoreUtils;
 
 namespace Anaglyph.Lasertag
 {
@@ -141,9 +142,9 @@ namespace Anaglyph.Lasertag
 			// network player transforms
 			if (networkPlayer != null)
 			{
-				networkPlayer.HeadTransform.SetFrom(headTransform);
-				networkPlayer.LeftHandTransform.SetFrom(leftHandTransform);
-				networkPlayer.RightHandTransform.SetFrom(rightHandTransform);
+				networkPlayer.HeadTransform.SetWorldPose(headTransform.GetWorldPose());
+				networkPlayer.LeftHandTransform.SetWorldPose(leftHandTransform.GetWorldPose());
+				networkPlayer.RightHandTransform.SetWorldPose(rightHandTransform.GetWorldPose());
 				//networkPlayer.TorsoTransform.SetFrom(torsoTransform);
 			}
 		}

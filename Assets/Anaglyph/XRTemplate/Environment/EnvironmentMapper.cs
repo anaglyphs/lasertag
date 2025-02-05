@@ -1,6 +1,8 @@
 using Anaglyph.XRTemplate.DepthKit;
 using System;
 using System.Collections;
+using System.Collections.Generic;
+using System.Drawing;
 using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
@@ -17,6 +19,8 @@ namespace Anaglyph.XRTemplate
 
 		public static Action<NativeArray<int>> OnScan = delegate { };
 		public static Action OnApply = delegate { };
+
+		public static List<Transform> ignoredPlayerTransforms = new();
 
 		[SerializeField] private ComputeShader compute = null;
 
@@ -38,7 +42,11 @@ namespace Anaglyph.XRTemplate
 		private static readonly int _PerFrameScan = ID(nameof(_PerFrameScan));
 		private static readonly int _HeightMap = ID(nameof(_HeightMap));
 		private static readonly int _TexSize = ID(nameof(_TexSize));
-		
+
+		private static readonly int _IgnoredPlayerPositionsCount = ID(nameof(_IgnoredPlayerPositionsCount));
+		private static readonly int _IgnoredPlayerPositions = ID(nameof(_IgnoredPlayerPositions));
+
+
 		private static readonly int _DepthSamples = ID(nameof(_DepthSamples));
 
 		private RenderTexture heightMap;
@@ -131,6 +139,15 @@ namespace Anaglyph.XRTemplate
 			compute.SetMatrixArray(id, Shader.GetGlobalMatrixArray(id));
 			id = DepthKitDriver.agDepthView_ID;
 			compute.SetMatrixArray(id, Shader.GetGlobalMatrixArray(id));
+
+			Vector4[] ignoredPositions = new Vector4[ignoredPlayerTransforms.Count];
+			for (int i = 0; i < ignoredPlayerTransforms.Count; i++)
+			{
+				Transform playerTransform = ignoredPlayerTransforms[i];
+				ignoredPositions[i] = playerTransform.position;
+			}
+			compute.SetVectorArray(_IgnoredPlayerPositions, ignoredPositions);
+			compute.SetInt(_IgnoredPlayerPositionsCount, ignoredPlayerTransforms.Count);
 
 			var depthTex = Shader.GetGlobalTexture(DepthKitDriver.agDepthTex_ID);
 			Scan.Set(DepthKitDriver.agDepthTex_ID, depthTex);

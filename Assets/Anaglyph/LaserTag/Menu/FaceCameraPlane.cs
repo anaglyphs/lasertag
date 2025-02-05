@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Anaglyph
 {
     [DefaultExecutionOrder(30000)]
-    public class FaceCamera : MonoBehaviour
+    public class FaceCameraPlane : MonoBehaviour
     {
 		private static Camera mainCamera;
 
@@ -14,7 +14,7 @@ namespace Anaglyph
 
 		private void LateUpdate()
 		{
-			transform.LookAt(mainCamera.transform.position);
+			transform.rotation = Quaternion.LookRotation(mainCamera.transform.forward, Vector3.up);
 		}
 	}
 }

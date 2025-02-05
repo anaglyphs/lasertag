@@ -2,12 +2,11 @@ using UnityEngine;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.Rendering;
 using System.Collections;
-using UnityEngine.XR;
 
 namespace Anaglyph.XRTemplate
 {
 	[DefaultExecutionOrder(500)]
-	public class XrSettingsOnStart : MonoBehaviour
+	public class XRConfigurer : MonoBehaviour
 	{
 		[SerializeField] private bool passthroughOn = false;
 		//[SerializeField] private float renderScale = 1.0f;
