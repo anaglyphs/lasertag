@@ -6,10 +6,8 @@ using UnityEngine;
 namespace Anaglyph.XRTemplate.DepthKit
 {
 	[DefaultExecutionOrder(-40)]
-	public class DepthKitDriver : MonoBehaviour
+	public class DepthKitDriver : SingletonBehavior<DepthKitDriver>
 	{
-		public static DepthKitDriver Instance { get; private set; }
-
 		private Matrix4x4[] agDepthProj = new Matrix4x4[2];
 		private Matrix4x4[] agDepthProjInv = new Matrix4x4[2];
 
@@ -45,12 +43,12 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		public static Action<Texture> OnGetDepthTexture = delegate { };
 
-		private void Awake()
+		protected override void SingletonAwake()
 		{
-			Instance = this;
+			
 		}
 
-		private void OnDestroy()
+		protected override void OnSingletonDestroy()
 		{
 			OnGetDepthTexture = delegate { };
 		}

@@ -1,0 +1,127 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b63f559a0f0edd94aa9f54a4dccdec9c, type: 3}
+  m_Name: Sweep_Down
+  m_EditorClassIdentifier: 
+  primitiveSequence:
+  - command: vibrate
+    intensity: 0
+    frequency: 0
+    duration: 1000
+  - command: vibrate
+    intensity: 0
+    frequency: 0
+    duration: 1000
+  - command: vibrate
+    intensity: 0
+    frequency: 0
+    duration: 250
+  - command: vibrate
+    intensity: 1
+    frequency: 220
+    duration: 50
+  - command: vibrate
+    intensity: 1
+    frequency: 215
+    duration: 50
+  - command: vibrate
+    intensity: 1
+    frequency: 210
+    duration: 50
+  - command: vibrate
+    intensity: 1
+    frequency: 205
+    duration: 50
+  - command: vibrate
+    intensity: 1
+    frequency: 200
+    duration: 50
+  - command: vibrate
+    intensity: 1
+    frequency: 195
+    duration: 50
+  - command: vibrate
+    intensity: 1
+    frequency: 190
+    duration: 50
+  - command: vibrate
+    intensity: 1
+    frequency: 185
+    duration: 50
+  - command: vibrate
+    intensity: 1
+    frequency: 180
+    duration: 50
+  - command: vibrate
+    intensity: 1
+    frequency: 175
+    duration: 50
+  - command: vibrate
+    intensity: 1
+    frequency: 170
+    duration: 50
+  - command: vibrate
+    intensity: 1
+    frequency: 165
+    duration: 50
+  - command: vibrate
+    intensity: 1
+    frequency: 160
+    duration: 50
+  - command: vibrate
+    intensity: 1
+    frequency: 155
+    duration: 50
+  - command: vibrate
+    intensity: 1
+    frequency: 150
+    duration: 50
+  - command: vibrate
+    intensity: 1
+    frequency: 145
+    duration: 50
+  - command: vibrate
+    intensity: 1
+    frequency: 140
+    duration: 50
+  - command: vibrate
+    intensity: 1
+    frequency: 135
+    duration: 50
+  - command: vibrate
+    intensity: 1
+    frequency: 130
+    duration: 50
+  - command: vibrate
+    intensity: 1
+    frequency: 125
+    duration: 50
+  - command: vibrate
+    intensity: 1
+    frequency: 115
+    duration: 50
+  - command: vibrate
+    intensity: 1
+    frequency: 110
+    duration: 50
+  - command: vibrate
+    intensity: 1
+    frequency: 105
+    duration: 50
+  - command: vibrate
+    intensity: 1
+    frequency: 100
+    duration: 50
+  - command: vibrate
+    intensity: 1
+    frequency: 95
+    duration: 50

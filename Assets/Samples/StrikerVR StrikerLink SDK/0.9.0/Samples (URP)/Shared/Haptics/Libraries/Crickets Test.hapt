@@ -1,0 +1,84 @@
+{
+  "effects": [
+    {
+      "effect_id": "Front",
+      "tracks": [
+        {
+          "deviceId": "fosterFront",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 4,
+              "sample_id_to_play": "80Hz_buzz_cricket",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Back",
+      "tracks": [
+        {
+          "deviceId": "fosterBack",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "80Hz_buzz_cricket",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "samples_palette": [
+    {
+      "sample_id": "80Hz_buzz_cricket",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 8000,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "80Hz_buzz_cricket",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 8000,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    }
+  ]
+}

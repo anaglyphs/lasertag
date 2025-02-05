@@ -1,0 +1,54 @@
+// https://github.com/oculus-samples/Unity-DepthAPI/issues/16
+#include "DepthKit.hlsl"
+
+#pragma kernel CSMain
+
+struct RaycastResult
+{
+	float ZDepthDiff;
+	float3 Position;
+	float3 Normal;
+};
+
+#if defined(SHADER_API_D3D11) 
+#define FLIP_UVS 1 
+#endif
+
+StructuredBuffer<float3> RaycastRequests;
+RWStructuredBuffer<RaycastResult> RaycastResults;
+
+float3 WorldStart;
+float3 WorldEnd; 
+int NumSamples;
+
+[numthreads(32, 1, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID) 
+{
+	const uint i = id.x;
+	
+	const float rayStep = i / (float) NumSamples;
+	 
+	const float3 rayWorld = lerp(WorldStart, WorldEnd, rayStep);
+	const float3 rayNDC = agDepthWorldToNDC(rayWorld);
+	float2 rayUV = rayNDC.xy;
+
+	// depth compare to find closest point of intersection
+	const float envDepth = agDepthSample(rayUV);
+	RaycastResults[i].ZDepthDiff = envDepth - rayNDC.z;
+	
+	// world pos position
+	const float3 depthWorld = agDepthNDCtoWorld(float3(rayUV, envDepth));
+	RaycastResults[i].Position = depthWorld;
+	
+	// world norm
+	rayUV = rayNDC.xy + float2(0.003, 0.0);
+	float3 depthWorldH = agDepthNDCtoWorld(float3(rayUV, agDepthSample(rayUV)));
+
+	rayUV = rayNDC.xy + float2(0.0, 0.003);
+	float3 depthWorldV = agDepthNDCtoWorld(float3(rayUV, agDepthSample(rayUV)));
+	
+	const float3 hDeriv = depthWorldH - depthWorld;
+	const float3 vDeriv = depthWorldV - depthWorld;
+	
+	RaycastResults[i].Normal = -normalize(cross(hDeriv, vDeriv));;
+}

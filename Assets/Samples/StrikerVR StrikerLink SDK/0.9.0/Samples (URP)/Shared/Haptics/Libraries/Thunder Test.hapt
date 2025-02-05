@@ -1,0 +1,357 @@
+{
+  "effects": [
+    {
+      "effect_id": "Thunder Test 40Hz",
+      "tracks": [
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "40Hz_Thunder",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Thunder Test 50Hz",
+      "tracks": [
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "50Hz",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Thunder Test 60Hz",
+      "tracks": [
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "60Hz",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Thunder Test 70Hz",
+      "tracks": [
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "70Hz",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Thunder Test 80Hz",
+      "tracks": [
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "80Hz",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Thunder Test 90Hz",
+      "tracks": [
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "90Hz",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Thunder Test 100Hz",
+      "tracks": [
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "100Hz",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Thunder Test 20Hz",
+      "tracks": [
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "20Hz",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Thunder Test 30Hz",
+      "tracks": [
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "30Hz",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "samples_palette": [
+    {
+      "sample_id": "40Hz_Thunder",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 4000,
+          "frequency_time": 0,
+          "duration_base": 1000,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "50Hz",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 5000,
+          "frequency_time": 0,
+          "duration_base": 1000,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "60Hz",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 6000,
+          "frequency_time": 0,
+          "duration_base": 1000,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "70Hz",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 7000,
+          "frequency_time": 0,
+          "duration_base": 1000,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "80Hz",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 8000,
+          "frequency_time": 0,
+          "duration_base": 1000,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "90Hz",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9000,
+          "frequency_time": 0,
+          "duration_base": 1000,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "100Hz",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10000,
+          "frequency_time": 0,
+          "duration_base": 1000,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "20Hz",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 2000,
+          "frequency_time": 0,
+          "duration_base": 1000,
+          "intensity": 0.4,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "30Hz",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 3000,
+          "frequency_time": 0,
+          "duration_base": 1000,
+          "intensity": 0.8,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    }
+  ]
+}

@@ -3,15 +3,12 @@ using UnityEngine;
 using UnityEngine.Events;
 using Anaglyph.Lasertag.Weapons;
 using System;
-using Unity.XR.CoreUtils;
 
 namespace Anaglyph.Lasertag
 {
 	[DefaultExecutionOrder(-100)]
-	public class MainPlayer : MonoBehaviour
+	public class MainPlayer : SingletonBehavior<MainPlayer>
 	{
-		public static MainPlayer Instance { get; private set; }
-
 		public Role currentRole = Role.Standard;
 
 		public float Health { get; private set; } =  Role.Standard.MaxHealth;
@@ -39,10 +36,8 @@ namespace Anaglyph.Lasertag
 		// todo move this into another component. this really doesn't belong here
 		private OVRPassthroughLayer passthroughLayer;
 
-		private void Awake()
+		protected override void SingletonAwake()
 		{
-			Instance = this;
-
 			passthroughLayer = FindFirstObjectByType<OVRPassthroughLayer>();
 			passthroughLayer.edgeRenderingEnabled = true;
 			passthroughLayer.edgeColor = Color.clear;
@@ -142,11 +137,16 @@ namespace Anaglyph.Lasertag
 			// network player transforms
 			if (networkPlayer != null)
 			{
-				networkPlayer.HeadTransform.SetWorldPose(headTransform.GetWorldPose());
-				networkPlayer.LeftHandTransform.SetWorldPose(leftHandTransform.GetWorldPose());
-				networkPlayer.RightHandTransform.SetWorldPose(rightHandTransform.GetWorldPose());
+				networkPlayer.HeadTransform.SetFrom(headTransform);
+				networkPlayer.LeftHandTransform.SetFrom(leftHandTransform);
+				networkPlayer.RightHandTransform.SetFrom(rightHandTransform);
 				//networkPlayer.TorsoTransform.SetFrom(torsoTransform);
 			}
+		}
+
+		protected override void OnSingletonDestroy()
+		{
+			
 		}
 	}
 }

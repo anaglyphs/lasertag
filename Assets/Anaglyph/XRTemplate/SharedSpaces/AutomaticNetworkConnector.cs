@@ -5,15 +5,15 @@ using UnityEngine;
 
 namespace Anaglyph.SharedSpaces
 {
-	public class AutomaticNetworkConnector : MonoBehaviour
+	public class AutomaticNetworkConnector : SingletonBehavior<AutomaticNetworkConnector>
 	{
-		public static AutomaticNetworkConnector Instance { get; private set; }
-
 		private static NetworkManager manager => NetworkManager.Singleton;
 		private static UnityTransport transport => (UnityTransport) NetworkManager.Singleton.NetworkConfig.NetworkTransport;
 
 		private static string LogHeader = "[AutoJoiner] ";
 		private static void Log(string str) => Debug.Log(LogHeader + str);
+
+		public bool autoJoin = true;
 
 		private void Start()
 		{
@@ -30,17 +30,12 @@ namespace Anaglyph.SharedSpaces
 		private void OnClientStarted() => HandleChange();
 		private void OnClientStopped(bool b) => HandleChange();
 
-#if !UNITY_EDITOR
-		private void OnApplicationFocus(bool focus) => HandleChange();
-		private void OnApplicationPause(bool pause) => HandleChange();
-#endif
-
-		private void Awake()
+		protected override void SingletonAwake()
 		{
-			Instance = this;
+
 		}
 
-		private void OnDestroy()
+		protected override void OnSingletonDestroy()
 		{
 			if (manager != null)
 			{
@@ -53,16 +48,14 @@ namespace Anaglyph.SharedSpaces
 
 		private void HandleChange()
 		{
-
-			if (!enabled 
-#if !UNITY_EDITOR
-				|| !Application.isFocused
+#if UNITY_EDITOR
+			return;
 #endif
-				)
+
+			if (!enabled || !Application.isFocused)
 			{
-				Log("Stopping both discovery and advertisement");
-				OVRColocationSession.StopDiscoveryAsync();
-				OVRColocationSession.StopAdvertisementAsync();
+				ClientStopped();
+				HostingStopped();
 			}
 			else
 			{
@@ -84,33 +77,34 @@ namespace Anaglyph.SharedSpaces
 		private void HostingStarted()
 		{
 			string address = transport.ConnectionData.Address;
-			Log($"Starting advertisement {address}");
 			OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(address));
+			Log("Started advertisement " + address);
 		}
 
 		private void HostingStopped()
 		{
-			Log("Stopping advertisement");
 			OVRColocationSession.StopAdvertisementAsync();
+			Log("Stopped advertisement");
 		}
 
 		private void ClientStarted()
 		{
-			Log("Stopping discovery");
 			OVRColocationSession.StopDiscoveryAsync();
+			Log("Stopped discovery");
 		}
 
 		private void ClientStopped()
 		{
-			Log("Starting discovery");
 			OVRColocationSession.StartDiscoveryAsync();
+			Log("Started discovery");
 		}
 
 		private void HandleColocationSessionDiscovered(OVRColocationSession.Data data)
 		{
-			string address = Encoding.ASCII.GetString(data.Metadata);
-			Log($"Discovered {address}");
-			transport.ConnectionData.Address = address;
+			if (!autoJoin)
+				return;
+
+			transport.ConnectionData.Address = Encoding.ASCII.GetString(data.Metadata);
 			manager.StartClient();
 		}
 	}

@@ -1,0 +1,664 @@
+{
+  "effects": [
+    {
+      "effect_id": "Laser_shot",
+      "tracks": [
+        {
+          "deviceId": "fosters",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "sample_id_to_play": "modulated_buzz",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        },
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "sample_id_to_play": "shot_heavy_no_contact",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "reload_retro_laser",
+      "tracks": [
+        {
+          "deviceId": "fosterBack",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "sample_id_to_play": "vibe_sweep_up",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        },
+        {
+          "deviceId": "fosterFront",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "sample_id_to_play": "Sweep_Up",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "retro_laser_shot",
+      "tracks": [
+        {
+          "deviceId": "fosterBack",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "sample_id_to_play": "trigger_future_low",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        },
+        {
+          "deviceId": "fosterFront",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "sample_id_to_play": "trigger_future_high",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        },
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "sample_id_to_play": "shot_single_lite",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "samples_palette": [
+    {
+      "sample_id": "modulated_buzz",
+      "sequence": [
+        {
+          "command": "vibrate",
+          "intensity": 0.1,
+          "frequency": 120,
+          "duration_base": 25
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.1,
+          "frequency": 117,
+          "duration_base": 25
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.2,
+          "frequency": 115,
+          "duration_base": 25
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.2,
+          "frequency": 112,
+          "duration_base": 25
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.3,
+          "frequency": 110,
+          "duration_base": 25
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.3,
+          "frequency": 108,
+          "duration_base": 25
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.4,
+          "frequency": 105,
+          "duration_base": 25
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.5,
+          "frequency": 103,
+          "duration_base": 25
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.6,
+          "frequency": 100,
+          "duration_base": 25
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.7,
+          "frequency": 98,
+          "duration_base": 25
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.8,
+          "frequency": 95,
+          "duration_base": 25
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.9,
+          "frequency": 93,
+          "duration_base": 25
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 91,
+          "duration_base": 50
+        }
+      ]
+    },
+    {
+      "sample_id": "shot_heavy_no_contact",
+      "sequence": [
+        {
+          "command": "tick",
+          "intensity": 0.7,
+          "frequency": -1,
+          "duration_base": 5
+        },
+        {
+          "command": "pulse",
+          "intensity": 0.7,
+          "frequency": -1,
+          "duration_base": 5
+        },
+        {
+          "command": "pulse",
+          "intensity": 1.0,
+          "frequency": -1,
+          "duration_base": 5
+        },
+        {
+          "command": "pause",
+          "intensity": 0.0,
+          "frequency": -1,
+          "duration_base": 5
+        },
+        {
+          "command": "tick",
+          "intensity": 1.0,
+          "frequency": -1,
+          "duration_base": 5
+        }
+      ]
+    },
+    {
+      "sample_id": "vibe_sweep_up",
+      "sequence": [
+        {
+          "command": "vibrate",
+          "intensity": 0.01,
+          "frequency": 85,
+          "duration_base": 100
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.01,
+          "frequency": 88,
+          "duration_base": 100
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.01,
+          "frequency": 90,
+          "duration_base": 100
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 92,
+          "duration_base": 100
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 95,
+          "duration_base": 100
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 98,
+          "duration_base": 100
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 100,
+          "duration_base": 100
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 102,
+          "duration_base": 100
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 105,
+          "duration_base": 100
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 108,
+          "duration_base": 100
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 110,
+          "duration_base": 50
+        }
+      ]
+    },
+    {
+      "sample_id": "Sweep_Up",
+      "sequence": [
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 95,
+          "duration_base": 50
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 100,
+          "duration_base": 50
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 105,
+          "duration_base": 50
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 110,
+          "duration_base": 50
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 115,
+          "duration_base": 50
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 125,
+          "duration_base": 50
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 130,
+          "duration_base": 50
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 135,
+          "duration_base": 50
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 140,
+          "duration_base": 50
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 145,
+          "duration_base": 50
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 150,
+          "duration_base": 50
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 155,
+          "duration_base": 50
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 160,
+          "duration_base": 50
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 165,
+          "duration_base": 50
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 170,
+          "duration_base": 50
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 175,
+          "duration_base": 50
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 180,
+          "duration_base": 50
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 185,
+          "duration_base": 50
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 190,
+          "duration_base": 50
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 195,
+          "duration_base": 50
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 200,
+          "duration_base": 50
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 205,
+          "duration_base": 50
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 210,
+          "duration_base": 50
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 215,
+          "duration_base": 50
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 220,
+          "duration_base": 50
+        }
+      ]
+    },
+    {
+      "sample_id": "trigger_future_low",
+      "sequence": [
+        {
+          "command": "vibrate",
+          "intensity": 0.1,
+          "frequency": 120,
+          "duration_base": 40
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.1,
+          "frequency": 117,
+          "duration_base": 40
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.2,
+          "frequency": 115,
+          "duration_base": 40
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.2,
+          "frequency": 112,
+          "duration_base": 40
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.3,
+          "frequency": 110,
+          "duration_base": 40
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.3,
+          "frequency": 108,
+          "duration_base": 40
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.4,
+          "frequency": 105,
+          "duration_base": 40
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.5,
+          "frequency": 103,
+          "duration_base": 40
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.6,
+          "frequency": 100,
+          "duration_base": 40
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.7,
+          "frequency": 98,
+          "duration_base": 40
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.8,
+          "frequency": 95,
+          "duration_base": 40
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.9,
+          "frequency": 93,
+          "duration_base": 40
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 90,
+          "duration_base": 40
+        }
+      ]
+    },
+    {
+      "sample_id": "trigger_future_high",
+      "sequence": [
+        {
+          "command": "vibrate",
+          "intensity": 0.1,
+          "frequency": 1000,
+          "duration_base": 25
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.1,
+          "frequency": 990,
+          "duration_base": 25
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.2,
+          "frequency": 980,
+          "duration_base": 25
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.2,
+          "frequency": 970,
+          "duration_base": 25
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.3,
+          "frequency": 960,
+          "duration_base": 25
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.3,
+          "frequency": 950,
+          "duration_base": 25
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.4,
+          "frequency": 940,
+          "duration_base": 25
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.5,
+          "frequency": 930,
+          "duration_base": 25
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.6,
+          "frequency": 920,
+          "duration_base": 25
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.7,
+          "frequency": 910,
+          "duration_base": 25
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.8,
+          "frequency": 900,
+          "duration_base": 25
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.9,
+          "frequency": 890,
+          "duration_base": 25
+        },
+        {
+          "command": "vibrate",
+          "intensity": 1.0,
+          "frequency": 880,
+          "duration_base": 25
+        }
+      ]
+    },
+    {
+      "sample_id": "shot_single_lite",
+      "sequence": [
+        {
+          "command": "pulse",
+          "intensity": 0.6,
+          "frequency": -1,
+          "duration_base": 20
+        },
+        {
+          "command": "tick",
+          "intensity": 0.4,
+          "frequency": -1,
+          "duration_base": 5
+        },
+        {
+          "command": "tick",
+          "intensity": 0.4,
+          "frequency": -1,
+          "duration_base": 5
+        },
+        {
+          "command": "pause",
+          "intensity": 0.0,
+          "frequency": -1,
+          "duration_base": 15
+        },
+        {
+          "command": "pulse",
+          "intensity": 1.0,
+          "frequency": -1,
+          "duration_base": 5
+        }
+      ]
+    }
+  ]
+}

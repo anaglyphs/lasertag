@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b63f559a0f0edd94aa9f54a4dccdec9c, type: 3}
+  m_Name: pulse_lite_5
+  m_EditorClassIdentifier: 
+  primitiveSequence:
+  - command: pulse
+    intensity: 0.8
+    frequency: -1
+    duration: 10
+  - command: pause
+    intensity: 0.5
+    frequency: -1
+    duration: 10
+  - command: tick
+    intensity: 0.8
+    frequency: -1
+    duration: 10

@@ -1,0 +1,67 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b63f559a0f0edd94aa9f54a4dccdec9c, type: 3}
+  m_Name: modulated_buzz_1
+  m_EditorClassIdentifier: 
+  primitiveSequence:
+  - command: vibrate
+    intensity: 0.1
+    frequency: 180
+    duration: 25
+  - command: vibrate
+    intensity: 0.1
+    frequency: 176
+    duration: 25
+  - command: vibrate
+    intensity: 0.1
+    frequency: 173
+    duration: 25
+  - command: vibrate
+    intensity: 0.2
+    frequency: 168
+    duration: 25
+  - command: vibrate
+    intensity: 0.2
+    frequency: 165
+    duration: 25
+  - command: vibrate
+    intensity: 0.2
+    frequency: 162
+    duration: 25
+  - command: vibrate
+    intensity: 0.3
+    frequency: 158
+    duration: 25
+  - command: vibrate
+    intensity: 0.3
+    frequency: 154
+    duration: 25
+  - command: vibrate
+    intensity: 0.3
+    frequency: 150
+    duration: 25
+  - command: vibrate
+    intensity: 0.4
+    frequency: 147
+    duration: 25
+  - command: vibrate
+    intensity: 0.4
+    frequency: 143
+    duration: 25
+  - command: vibrate
+    intensity: 0.4
+    frequency: 140
+    duration: 25
+  - command: vibrate
+    intensity: 0.5
+    frequency: 137
+    duration: 50

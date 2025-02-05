@@ -1,18 +1,13 @@
 using Anaglyph.XRTemplate;
 using Anaglyph.XRTemplate.SharedSpaces;
 using System;
-using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
-using static Anaglyph.XRTemplate.SharedSpaces.AnchorGuidSaving;
-using static OVRSpatialAnchor;
 
 namespace Anaglyph.SharedSpaces
 {
-	public class MetaAnchorColocator : MonoBehaviour, IColocator
+	public class MetaAnchorColocator : SingletonBehavior<MetaAnchorColocator>, IColocator
 	{
-		public static MetaAnchorColocator Instance { get; private set; }
-
 		[SerializeField] private GameObject sharedAnchorPrefab;
 		private NetworkedAnchor networkedAnchor;
 
@@ -33,13 +28,12 @@ namespace Anaglyph.SharedSpaces
 			}
 		}
 
-		private void Awake()
+		protected override void SingletonAwake()
 		{
-			Instance = this;
 			WorldLock.ActiveLockChange += OnActiveAnchorChange;
 		}
 
-		private void OnDestroy()
+		protected override void OnSingletonDestroy()
 		{
 			WorldLock.ActiveLockChange -= OnActiveAnchorChange;
 		}
@@ -52,37 +46,31 @@ namespace Anaglyph.SharedSpaces
 		private void Start()
 		{
 			spawnTarget = Camera.main.transform;
+
+			// NetworkManager.Singleton.OnConnectionEvent += OnConnectionEvent;
 		}
 
-		public async void Colocate()
+		//private void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
+		//{
+		//	if (NetcodeHelpers.ThisClientConnected(data))
+		//	{
+		//		if(manager.IsHost)
+		//			SpawnPrefab();
+		//		else
+		//			xrRig.transform.position = new Vector3(0, 1000, 0);
+
+		//	} else if(NetcodeHelpers.ThisClientDisconnected(data))
+		//	{
+		//		xrRig.transform.position = new Vector3(0, 0, 0);
+		//	}
+		//}
+
+		public void Colocate()
 		{
 			if (NetworkManager.Singleton.IsHost)
-			{
 				SpawnPrefab();
-
-				SavedAnchors savedAnchors = GetSavedAnchors();
-
-				if (savedAnchors.guidStrings != null && savedAnchors.guidStrings.Count > 0)
-				{
-					List<UnboundAnchor> unboundAnchors = new();
-
-					List<Guid> guidStrings = new(savedAnchors.guidStrings.Count);
-					foreach (string uuidString in savedAnchors.guidStrings)
-						guidStrings.Add(new Guid(uuidString));
-
-					var loadResult = await LoadUnboundAnchorsAsync(guidStrings, unboundAnchors);
-					if (loadResult.Success && unboundAnchors.Count > 0)
-					{
-						await networkedAnchor.LocalizeAndBindAsync(unboundAnchors[0]);
-					}
-				}
-
-				await networkedAnchor.Share();
-			}
 			else
-			{
 				MainXROrigin.TrackingSpace.position = new Vector3(0, 1000, 0);
-			}
 		}
 
 		public void StopColocation()
@@ -96,7 +84,7 @@ namespace Anaglyph.SharedSpaces
 		public void SpawnPrefab()
 		{
 			Vector3 spawnPos = spawnTarget.position;
-			spawnPos.y = 0;
+			spawnPos.y -= 1.5f;
 
 			Vector3 flatForward = spawnTarget.transform.forward;
 			flatForward.y = 0;

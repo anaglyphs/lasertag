@@ -44,14 +44,6 @@ namespace Anaglyph.Lasertag.Networking
 		public NetworkVariable<int> scoreSync;
 		public int Score => scoreSync.Value;
 
-		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-		private static void Init()
-		{
-			AllPlayers = new();
-			OtherPlayers = new();
-			OnPlayerKilledPlayer = delegate { };
-		}
-
 		private void Awake()
 		{
 			isAliveSync.OnValueChanged += delegate (bool wasAlive, bool isAlive)

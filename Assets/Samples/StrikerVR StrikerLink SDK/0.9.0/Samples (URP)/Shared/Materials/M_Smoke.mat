@@ -1,0 +1,91 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 6
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: M_Smoke
+  m_Shader: {fileID: 4800000, guid: 926841c66d3b76d4bbb07888ddf151d8, type: 3}
+  m_ShaderKeywords: 
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _SampleTexture2D_990EF065_Texture_1:
+        m_Texture: {fileID: 2800000, guid: c72cab26e190abd47b9296c3630aa61e, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _SampleTexture2D_9a58637c464d8f80bf543443276f8155_Texture_1:
+        m_Texture: {fileID: 2800000, guid: 0742f7ff8cbe6494a940e09b09940162, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _SampleTexture2D_CB6C2698_Texture_1:
+        m_Texture: {fileID: 2800000, guid: 84909ee22a839c743b1a2e58b9c1efbd, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _SampleTexture2D_E28BF87A_Texture_1:
+        m_Texture: {fileID: 2800000, guid: 0742f7ff8cbe6494a940e09b09940162, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _SampleTexture2D_da4ed541b2d25384bd5377f3ab713bc8_Texture_1:
+        m_Texture: {fileID: 2800000, guid: 84909ee22a839c743b1a2e58b9c1efbd, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _SampleTexture2D_f8e87bfa8414f88e9dc13efdd887c1de_Texture_1:
+        m_Texture: {fileID: 2800000, guid: c72cab26e190abd47b9296c3630aa61e, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _SmokeDepthTexture:
+        m_Texture: {fileID: 2800000, guid: 84909ee22a839c743b1a2e58b9c1efbd, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _SmokeTexture:
+        m_Texture: {fileID: 2800000, guid: 0742f7ff8cbe6494a940e09b09940162, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _TilingClouds:
+        m_Texture: {fileID: 2800000, guid: c72cab26e190abd47b9296c3630aa61e, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _texcoord:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_Lightmaps:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_LightmapsInd:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_ShadowMasks:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Floats:
+    - Vector1_28762D22: 1
+    - Vector1_949253D4: 1
+    - Vector1_98D19D85: 1
+    - Vector1_DA0FE9C2: 200
+    - _AlphaCutoff: 0.5
+    - _DepthBasedEmissiveColorMultiplier: 1
+    - _PrimaryCloudColorMultiplier: 1
+    - _SecondaryCloudColorMultiplier: 200
+    m_Colors:
+    - Color_1420587C: {r: 0, g: 0.6669483, b: 1, a: 0}
+    - Color_3AD18717: {r: 0, g: 0.105168544, b: 0.16037738, a: 1}
+    - Color_E3950221: {r: 0, g: 0.3252096, b: 0.46226418, a: 0}
+    - _DepthBasedEmissiveColor: {r: 0, g: 0.32549015, b: 0.462745, a: 0}
+    - _EmissionColor: {r: 1, g: 1, b: 1, a: 1}
+    - _PrimaryCloudColor: {r: 0, g: 0.10588237, b: 0.16078427, a: 1}
+    - _SecondaryCloudColor: {r: 0, g: 0.6666667, b: 1, a: 0}
+  m_BuildTextureStacks: []

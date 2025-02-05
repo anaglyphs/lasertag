@@ -27,16 +27,25 @@ MonoBehaviour:
     m_IsDefault: 1
     m_Capabilities: 7
     m_ConfigSource: 0
-  - m_Id: scoped:project:package.openupm.com
-    m_Name: package.openupm.com
+  - m_Id: scoped:project:OpenUPM
+    m_Name: OpenUPM
     m_Url: https://package.openupm.com
     m_Scopes:
-    - com.strikervr.strikersdk
     - com.malee.reorderablelist
+    - jillejr.newtonsoft.json-for-unity
+    - com.strikervr.strikersdk
     m_IsDefault: 0
     m_Capabilities: 0
     m_ConfigSource: 4
-  m_UserSelectedRegistryName: package.openupm.com
+  - m_Id: scoped:project:Keijiro
+    m_Name: Keijiro
+    m_Url: https://registry.npmjs.com
+    m_Scopes:
+    - jp.keijiro
+    m_IsDefault: 0
+    m_Capabilities: 0
+    m_ConfigSource: 4
+  m_UserSelectedRegistryName: OpenUPM
   m_UserAddingNewScopedRegistry: 0
   m_RegistryInfoDraft:
     m_Modified: 0

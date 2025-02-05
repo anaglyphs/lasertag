@@ -15,11 +15,7 @@ namespace Anaglyph.Menu
 
 				g.AddComponent<DeactivateSiblingsOnEnable>();
 			}
-		}
 
-		private async void Start()
-		{
-			await Awaitable.EndOfFrameAsync();
 			if (initialActiveChild != null && initialActiveChild.transform.parent == transform)
 				SetActiveChild(initialActiveChild.transform.GetSiblingIndex());
 			else

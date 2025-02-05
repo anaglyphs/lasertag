@@ -1,11 +1,10 @@
 using Anaglyph.Netcode;
 using Anaglyph.XRTemplate.SharedSpaces;
 using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
-using static OVRSpatialAnchor;
 
 namespace Anaglyph.SharedSpaces
 {
@@ -23,8 +22,6 @@ namespace Anaglyph.SharedSpaces
 	[RequireComponent(typeof(OVRSpatialAnchor))]
 	public class NetworkedAnchor : NetworkBehaviour, IDesiredPose
 	{
-		private void Log(string str) => Debug.Log($"[NetworkedAnchor] {str}");
-
 		[SerializeField] private OVRSpatialAnchor spatialAnchor;
 		public OVRSpatialAnchor Anchor => spatialAnchor;
 
@@ -45,108 +42,162 @@ namespace Anaglyph.SharedSpaces
 			spatialAnchor.enabled = false;
 		}
 
-		private async void OnGuidChanged(NetworkGuid previous, NetworkGuid current)
+		private void OnGuidChanged(NetworkGuid previous, NetworkGuid current)
 		{
 			if (IsOwner || Uuid.Value.guid == Guid.Empty)
 				return;
 
-			await Load(Uuid.Value.guid);
+			StartCoroutine(DownloadAndLocalizeCoroutine(Uuid.Value.guid));
 		}
 
-		public override async void OnNetworkSpawn()
+		public override void OnNetworkSpawn()
 		{
-			if(!IsOwner)
+			if (IsOwner)
+			{
+				OriginalPoseSync.Value = new NetworkPose(transform);
+				StartCoroutine(SaveCoroutine());
+			}
+			else
 			{
 				if (Uuid.Value.guid == Guid.Empty)
 					return;
 
-				await Load(Uuid.Value.guid);
+				StartCoroutine(DownloadAndLocalizeCoroutine(Uuid.Value.guid));
 			}
 		}
 
-		public async Task Share()
+		private IEnumerator SaveCoroutine()
 		{
-			if (!IsOwner)
-				throw new Exception("Only the anchor owner can share it!");
-
-			Log("Sharing new anchor");
-
 			spatialAnchor.enabled = true;
 
-			bool localizeSuccess = await spatialAnchor.WhenLocalizedAsync();
-			ThrowExceptionIfBehaviorDisabled();
-			if (!localizeSuccess)
-				throw new Exception($"Failed to localize anchor {spatialAnchor.Uuid}");
-			OriginalPoseSync.Value = new NetworkPose(transform);
+			while (!spatialAnchor.Localized) yield return null;
 
-			Log($"Saving anchor {spatialAnchor.Uuid}...");
+			bool saveSuccess = false;
+			bool currentlySaving = false;
 
-			var saveResult = await spatialAnchor.SaveAnchorAsync();
-			ThrowExceptionIfBehaviorDisabled();
-			if (!saveResult.Success)
-				throw new Exception($"Failed to save anchor {spatialAnchor.Uuid}");
+			while (!saveSuccess)
+			{
+				if (!currentlySaving)
+				{
+					currentlySaving = true;
 
-			AnchorGuidSaving.AddGuid(spatialAnchor.Uuid);
+					Debug.Log($"Saving anchor {spatialAnchor.Uuid}...");
 
-			Log($"Sharing anchor {spatialAnchor.Uuid}...");
+					OVRSpatialAnchor.SaveAnchorsAsync(new List<OVRSpatialAnchor> { spatialAnchor });
 
-			var shareResult = await spatialAnchor.ShareAsync(spatialAnchor.Uuid);
-			ThrowExceptionIfBehaviorDisabled();
-			if (shareResult.Success)
-				Log($"Successfully saved anchor {spatialAnchor.Uuid}");
-			else
-				throw new Exception($"Failed to share anchor {spatialAnchor.Uuid}: {shareResult}");
+					var anchors = new List<OVRSpatialAnchor> { spatialAnchor };
+
+					OVRSpatialAnchor.ShareAsync(anchors, spatialAnchor.Uuid).ContinueWith(result =>
+					{
+						if (result.Success)
+						{
+							Debug.Log($"Successfully saved anchor {spatialAnchor.Uuid}");
+							saveSuccess = true;
+						}
+						else
+						{
+							Debug.LogError($"Failed to save anchor {spatialAnchor.Uuid}: {result.ToString()}");
+						}
+
+						currentlySaving = false;
+					});
+
+					while(currentlySaving)
+						yield return null;
+				}
+
+
+				if (!saveSuccess)
+				{
+					Debug.Log("Save failed. Waiting to retry...");
+					yield return new WaitForSeconds(5);
+				}
+			}
 
 			Uuid.Value = new(spatialAnchor.Uuid);
 		}
 
-		public async Task LocalizeAndBindAsync(UnboundAnchor unboundAnchor)
+		private IEnumerator DownloadAndLocalizeCoroutine(Guid uuid)
 		{
-			var localizeSuccess = await unboundAnchor.LocalizeAsync();
-			ThrowExceptionIfBehaviorDisabled();
-			if (!localizeSuccess)
-				throw new Exception($"Could not localize anchor {unboundAnchor.Uuid}");
+			if (uuid == Guid.Empty)
+				yield break;
 
-			unboundAnchor.BindTo(spatialAnchor);
-			bool gotAnchorPose = unboundAnchor.TryGetPose(out Pose anchorPose);
-			if (!gotAnchorPose)
-				throw new Exception($"Couldn't get anchor {unboundAnchor.Uuid} pose");
-			spatialAnchor.enabled = true;
-		}
+			bool downloadSuccess = false;
+			bool currentlyDownloading = false;
 
-		private async Task Load(Guid uuid)
-		{
-			List<UnboundAnchor> loadedAnchors = new();
+			OVRSpatialAnchor.UnboundAnchor unboundAnchor = default;
 
-			UnboundAnchor unboundAnchor = default;
-
-			Log($"Checking if anchor {uuid} is saved locally...");
-
-			var loadResult = await LoadUnboundAnchorsAsync(new[] { uuid }, loadedAnchors);
-			ThrowExceptionIfBehaviorDisabled();
-			if (!loadResult.Success)
+			while (!downloadSuccess)
 			{
-				throw new Exception($"Failed to load anchor {uuid}");
+				if (!currentlyDownloading)
+				{
+					currentlyDownloading = true;
+
+					Debug.Log($"Loading anchor {uuid}...");
+
+					List<OVRSpatialAnchor.UnboundAnchor> loadedAnchors = new();
+					OVRSpatialAnchor.LoadUnboundSharedAnchorsAsync(Uuid.Value.guid, loadedAnchors).ContinueWith(result =>
+					{
+						if (loadedAnchors == null || loadedAnchors.Count == 0)
+						{
+							Debug.LogError($"Failed to loaded anchor {uuid}");
+						}
+						else
+						{
+							Debug.Log($"Loaded anchor {loadedAnchors[0].Uuid}");
+
+							downloadSuccess = true;
+
+							unboundAnchor = loadedAnchors[0];
+						}
+
+						currentlyDownloading = false;
+					});
+
+					while (currentlyDownloading)
+						yield return null;
+				}
+
+				if (!downloadSuccess)
+				{
+					Debug.Log("Download failed. Waiting to retry...");
+					yield return new WaitForSeconds(5);
+				}
 			}
-			else if (loadResult.Value.Count == 0)
+
+			bool localizeSuccess = false;
+			bool currentlyLocalizing = false;
+
+			while (!localizeSuccess)
 			{
-				Log($"Did not find anchors {uuid} saved locally. Downloading...");
+				if (!currentlyLocalizing)
+				{
+					currentlyLocalizing = true;
 
-				var downloadResult = await LoadUnboundSharedAnchorsAsync(uuid, loadedAnchors);
-				ThrowExceptionIfBehaviorDisabled();
-				if (downloadResult.Success)
-					throw new Exception($"Failed to download anchor {uuid}: {downloadResult}");
+					Debug.Log($"Attempting to localize and bind {unboundAnchor.Uuid}...");
+
+					unboundAnchor.LocalizeAsync(10).ContinueWith(delegate (bool success)
+					{
+						if (success)
+						{
+							Debug.Log($"Localized anchor {unboundAnchor.Uuid} successfully");
+
+							unboundAnchor.BindTo(spatialAnchor);
+							spatialAnchor.enabled = true;
+
+							localizeSuccess = true;
+						}
+						else
+						{
+							Debug.LogError($"Failed to localize anchor {unboundAnchor.Uuid}, will try again soon...");
+
+							currentlyLocalizing = false;
+						}
+					});
+				}
+
+				yield return null;
 			}
-
-			unboundAnchor = loadedAnchors[0];
-
-			await LocalizeAndBindAsync(unboundAnchor);
-		}
-
-		private void ThrowExceptionIfBehaviorDisabled()
-		{
-			if (!enabled)
-				throw new TaskCanceledException("Behavior disabled during async operation");
 		}
 	}
 }

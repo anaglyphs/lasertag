@@ -157,9 +157,6 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   firstPageActive: {fileID: 530228856435826187}
-  onPageChange:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!114 &8161924038812295379
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -172,8 +169,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ab2bf6706c2697d439952557fc0356ba, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  navView: {fileID: 7721118575378658267}
   homePage: {fileID: 530228856435826187}
+  hostButton: {fileID: 8721921522447358862}
   hostSettingsPage: {fileID: 6302618620231878715}
   hostSettingsAutoColocationButton: {fileID: 7794955162712773365}
   hostSettingsKeyboardColocationButton: {fileID: 676486769363787471}
@@ -1359,6 +1356,17 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 8f1f588c4d54e2b46a2c771f32cf9336, type: 3}
+--- !u!114 &8721921522447358862 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 5640984000358561740, guid: 8f1f588c4d54e2b46a2c771f32cf9336, type: 3}
+  m_PrefabInstance: {fileID: 3981938974247070786}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 12a0fcb80e750314990fde9471a6353b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!224 &8721921522447358863 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 5640984000358561741, guid: 8f1f588c4d54e2b46a2c771f32cf9336, type: 3}

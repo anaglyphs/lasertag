@@ -9,8 +9,6 @@
 
 RWStructuredBuffer<int> _PerFrameScan; // should be 32bit signed int
 RWTexture2D<float> _HeightMap; 
-float3 _IgnoredPlayerPositions[512];
-int _IgnoredPlayerPositionsCount;
 
 uint _TexSize;
 uint _DepthSamples;
@@ -18,18 +16,13 @@ uint _DepthSamples;
 #define DEPTH_MIN 1
 #define DEPTH_MAX 6.0
 
-#define MIN_DISTANCE_FROM_PLAYER 1.0f
-
 #define HEIGHT_MIN -3.0
 #define HEIGHT_MAX 0.3
-
-#define EDGE_CHECK_UV_OFFSET_X 0.002f
-#define EDGE_CHECK_UV_OFFSET_Y 0.005f
-#define MAX_EDGE_CHECK_GRADE 0.01
 
 #define HEIGHT_INT_FACTOR 100.0
 #define PER_FRAME_UNWRITTEN 0
 #define HEIGHT_UNWRITTEN PER_FRAME_UNWRITTEN / HEIGHT_INT_FACTOR
+#define EDGE_GRADE 0.01
 
 uint toIndex(uint2 coord)
 {
@@ -90,30 +83,18 @@ void Scan(uint3 id : SV_DispatchThreadID)
 	// not an edge
 	float edgeSampleOffset = 2.0 / _DepthSamples;
 	
-	float2 edgeSampleUVy = depthUV + float2(0, EDGE_CHECK_UV_OFFSET_X);
+	float2 edgeSampleUVy = depthUV + float2(0, edgeSampleOffset);
 	float edgeDepthY = agDepthSample(edgeSampleUVy) * 2 - 1;
 	float edgeDiffY = abs(edgeDepthY - depthHCS.z); 
 	
-	float2 edgeSampleUVx = depthUV + float2(EDGE_CHECK_UV_OFFSET_Y, 0);
+	float2 edgeSampleUVx = depthUV + float2(edgeSampleOffset, 0);
 	float edgeDepthX = agDepthSample(edgeSampleUVx) * 2 - 1;
 	float edgeDiffX = abs(edgeDepthX - depthHCS.z);
 	
-	bool isEdge = edgeDiffX > MAX_EDGE_CHECK_GRADE || edgeDiffY > MAX_EDGE_CHECK_GRADE;
-	
-	bool isCloseToPlayer = false;
-	for (int i = 0; i < _IgnoredPlayerPositionsCount; i++)
-	{
-		float3 playerPos = _IgnoredPlayerPositions[i];
-		float distFromPlayer = distance(depthWorld.xz, playerPos.xz);
-		if (distFromPlayer < MIN_DISTANCE_FROM_PLAYER)
-		{
-			isCloseToPlayer = true;
-			break;
-		}
-	}
+	bool isEdge = edgeDiffX + edgeDiffY > EDGE_GRADE;
 	
 	// validate
-		bool valid = validY && validDistance && previousHeightInView && !isEdge && !isCloseToPlayer;
+	bool valid = validY && validDistance && previousHeightInView && !isEdge;
 	
 	if (!valid)
 		return;

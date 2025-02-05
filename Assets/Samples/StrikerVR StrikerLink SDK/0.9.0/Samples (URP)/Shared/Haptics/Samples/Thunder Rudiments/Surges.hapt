@@ -1,0 +1,615 @@
+{
+  "effects": [
+    {
+      "effect_id": "Surge - Max",
+      "tracks": [
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "Surge_Level_10_thunder",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Surge - Heavy",
+      "tracks": [
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "Surge_Level_9_Thunder",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Surge - Strong",
+      "tracks": [
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "Surge_Level_8_Thunder",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Surge - Medium",
+      "tracks": [
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "Surge_Level_7_Thunder",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Surge - Soft",
+      "tracks": [
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "Surge_Level_6_Thunder",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Surge - Softer",
+      "tracks": [
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "Surge_Level_5_thunder",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Surge - Softest",
+      "tracks": [
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "Surge_Level_4_thunder",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "samples_palette": [
+    {
+      "sample_id": "Surge_Level_10_thunder",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pause",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 5,
+          "intensity": 0.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "Surge_Level_9_Thunder",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 0.9,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 0.9,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 0.9,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pause",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 5,
+          "intensity": 0.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 0.9,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "Surge_Level_8_Thunder",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 0.8,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 0.8,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 0.8,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pause",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 5,
+          "intensity": 0.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 0.8,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "Surge_Level_7_Thunder",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 0.7,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 0.7,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 0.7,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pause",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 5,
+          "intensity": 0.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 0.7,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "Surge_Level_6_Thunder",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 0.6,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 0.6,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 0.6,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pause",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 5,
+          "intensity": 0.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 0.6,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "Surge_Level_5_thunder",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 9,
+          "intensity": 0.5,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 9,
+          "intensity": 0.5,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 9,
+          "intensity": 0.5,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pause",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 5,
+          "intensity": 0.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 9,
+          "intensity": 0.5,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "Surge_Level_4_thunder",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 6,
+          "intensity": 0.6,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 6,
+          "intensity": 0.6,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 6,
+          "intensity": 0.6,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pause",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 5,
+          "intensity": 0.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 6,
+          "intensity": 0.6,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    }
+  ]
+}

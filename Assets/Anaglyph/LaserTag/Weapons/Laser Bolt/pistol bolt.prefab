@@ -11,7 +11,6 @@ GameObject:
   - component: {fileID: 2809571718428945146}
   - component: {fileID: 7849052982998338478}
   - component: {fileID: 1645982490264701862}
-  - component: {fileID: 4594778782833755821}
   m_Layer: 0
   m_Name: depth light
   m_TagString: Untagged
@@ -87,19 +86,6 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!114 &4594778782833755821
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 422434247420672015}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0622b7328037d0f4884faf8cb1cd6859, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  bulletTransform: {fileID: 497877160278586219}
 --- !u!1 &1486168899473020810
 GameObject:
   m_ObjectHideFlags: 0
@@ -365,7 +351,7 @@ VFXRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1486168899473020810}
   m_Enabled: 1
-  m_CastShadows: 1
+  m_CastShadows: 0
   m_ReceiveShadows: 0
   m_DynamicOccludee: 1
   m_StaticShadowCaster: 0

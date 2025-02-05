@@ -1,0 +1,3460 @@
+{
+  "effects": [
+    {
+      "effect_id": "Laser Blast",
+      "tracks": [
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "shot_lite_no_contact_mavrik",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        },
+        {
+          "deviceId": "fosters",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "modulated_buzz",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Laser Blast 2",
+      "tracks": [
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "Surge_Level_10_thunder",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        },
+        {
+          "deviceId": "fosterFront",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "Laser_fire_front",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        },
+        {
+          "deviceId": "fosterBack",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "Laser_fire_back",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Laser Blast - Mod-1",
+      "tracks": [
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "Surge_Level_10_thunder",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        },
+        {
+          "deviceId": "fosterBack",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": true,
+              "duration_target": 500.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 2,
+              "sample_id_to_play": "Laser_fire_back_mod_1",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        },
+        {
+          "deviceId": "fosterFront",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": true,
+              "duration_target": 500.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 2,
+              "sample_id_to_play": "Laser_fire_front_mod_2",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Laser Blast - Mod-2",
+      "tracks": [
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "Surge_Level_10_thunder",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        },
+        {
+          "deviceId": "fosterBack",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": true,
+              "duration_target": 500.0,
+              "overlay": false,
+              "overdrive": true,
+              "Waveform": 3,
+              "sample_id_to_play": "Laser_fire_back_mod_2",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        },
+        {
+          "deviceId": "fosterFront",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": true,
+              "duration_target": 500.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "Laser_fire_front_mod_2",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Rail Striker",
+      "tracks": [
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "Rail_fire_thunder",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        },
+        {
+          "deviceId": "fosterBack",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "Rail_fire_cricket",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Arcade Charge ",
+      "tracks": [
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "Rail_charge_thunder",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        },
+        {
+          "deviceId": "fosters",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": true,
+              "Waveform": 3,
+              "sample_id_to_play": "Rail_charge_cricket",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Retro Laser",
+      "tracks": [
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "Surge_Level_5_thunder",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        },
+        {
+          "deviceId": "fosterBack",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "trigger_future_low",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        },
+        {
+          "deviceId": "fosterFront",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "trigger_future_high",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Retro Reload",
+      "tracks": [
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "vibe_sweep_up_thunder",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        },
+        {
+          "deviceId": "fosterBack",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "Sweep_Up",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        },
+        {
+          "deviceId": "fosterFront",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "overlay": false,
+              "overdrive": false,
+              "Waveform": 0,
+              "sample_id_to_play": "vibe_sweep_up",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "samples_palette": [
+    {
+      "sample_id": "shot_lite_no_contact_mavrik",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pause",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 0.5,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "modulated_buzz",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 12000,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.1,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 11700,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.1,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 11500,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.2,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 11200,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.2,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 11000,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.3,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10800,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.3,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10500,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.4,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10300,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.5,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10000,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.6,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9800,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.7,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9500,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.8,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9300,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.9,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9100,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "Surge_Level_10_thunder",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pause",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 5,
+          "intensity": 0.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "Laser_fire_front",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 18000,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.1,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 17600,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.1,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 17300,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.1,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 16800,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.2,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 16500,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.2,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 16200,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.2,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 15800,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.3,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 15400,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.3,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 15000,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.3,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 14700,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.4,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 14300,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.4,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 14000,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.4,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 13700,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.5,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "Laser_fire_back",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 12000,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.1,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 11700,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.1,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 11500,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.2,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 11200,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.2,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 11000,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.3,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10800,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.3,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10500,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.4,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10300,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.5,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10000,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.6,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9800,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.7,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9500,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.8,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9300,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.9,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9100,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "Surge_Level_10_thunder",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pause",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 5,
+          "intensity": 0.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "Laser_fire_back_mod_1",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 12000,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.1,
+          "intensity_time": 0,
+          "waveform": 2,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 11700,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.1,
+          "intensity_time": 0,
+          "waveform": 2,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 11500,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.2,
+          "intensity_time": 0,
+          "waveform": 2,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 11200,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.2,
+          "intensity_time": 0,
+          "waveform": 2,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 11000,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.3,
+          "intensity_time": 0,
+          "waveform": 2,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10800,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.3,
+          "intensity_time": 0,
+          "waveform": 2,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10500,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.4,
+          "intensity_time": 0,
+          "waveform": 2,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10300,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.5,
+          "intensity_time": 0,
+          "waveform": 2,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10000,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.6,
+          "intensity_time": 0,
+          "waveform": 2,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9800,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.7,
+          "intensity_time": 0,
+          "waveform": 2,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9500,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.8,
+          "intensity_time": 0,
+          "waveform": 2,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9300,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.9,
+          "intensity_time": 0,
+          "waveform": 2,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9100,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 2,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "Laser_fire_front_mod_2",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 18000,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.1,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 17600,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.1,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 17300,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.1,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 16800,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.2,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 16500,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.2,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 16200,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.2,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 15800,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.3,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 15400,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.3,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 15000,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.3,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 14700,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.4,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 14300,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.4,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 14000,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.4,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 13700,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.5,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "Surge_Level_10_thunder",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pause",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 5,
+          "intensity": 0.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 10,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "Laser_fire_back_mod_2",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 12000,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.1,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 11700,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.1,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 11500,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.2,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 11200,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.2,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 11000,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.3,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10800,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.3,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10500,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.4,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10300,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.5,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10000,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.6,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9800,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.7,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9500,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.8,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9300,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.9,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9100,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        }
+      ]
+    },
+    {
+      "sample_id": "Laser_fire_front_mod_2",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 18000,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.1,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 17600,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.1,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 17300,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.1,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 16800,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.2,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 16500,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.2,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 16200,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.2,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 15800,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.3,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 15400,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.3,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 15000,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.3,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 14700,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.4,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 14300,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.4,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 14000,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.4,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 13700,
+          "frequency_time": 0,
+          "duration_base": 20,
+          "intensity": 0.5,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "Rail_fire_thunder",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 7,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 7,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 7,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pause",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 7,
+          "intensity": 0.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 7,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 5000,
+          "frequency_time": 30,
+          "duration_base": 400,
+          "intensity": 0.6,
+          "intensity_time": 30,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 4,
+          "intensity": 0.5,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 4,
+          "intensity": 0.5,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 4,
+          "intensity": 0.5,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pause",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 4,
+          "intensity": 0.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 4,
+          "intensity": 0.5,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 4000,
+          "frequency_time": 450,
+          "duration_base": 0,
+          "intensity": 0.4,
+          "intensity_time": 450,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 2000,
+          "frequency_time": 750,
+          "duration_base": 500,
+          "intensity": 0.15,
+          "intensity_time": 750,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "Rail_fire_cricket",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10000,
+          "frequency_time": 0,
+          "duration_base": 70,
+          "intensity": 0.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10000,
+          "frequency_time": 70,
+          "duration_base": 420,
+          "intensity": 0.6,
+          "intensity_time": 70,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 8000,
+          "frequency_time": 490,
+          "duration_base": 0,
+          "intensity": 0.3,
+          "intensity_time": 490,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 6000,
+          "frequency_time": 491,
+          "duration_base": 500,
+          "intensity": 0.03,
+          "intensity_time": 491,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "Rail_charge_thunder",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "pause",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 150,
+          "intensity": 0.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 4,
+          "intensity": 0.54,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 4,
+          "intensity": 0.54,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 4,
+          "intensity": 0.54,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pause",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 6,
+          "intensity": 0.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 4,
+          "intensity": 0.54,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pause",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 67,
+          "intensity": 0.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 4,
+          "intensity": 0.23,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 4,
+          "intensity": 0.23,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 4,
+          "intensity": 0.23,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pause",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 6,
+          "intensity": 0.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 4,
+          "intensity": 0.23,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pause",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 63,
+          "intensity": 0.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 4,
+          "intensity": 0.3,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 4,
+          "intensity": 0.3,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 4,
+          "intensity": 0.3,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pause",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 6,
+          "intensity": 0.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 4,
+          "intensity": 0.3,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 2000,
+          "frequency_time": 0,
+          "duration_base": 550,
+          "intensity": 0.1,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 2000,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 0.11,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 2500,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 0.12,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 3000,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 0.15,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 3500,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 0.17,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 4000,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 0.19,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 4500,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 0.21,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 5000,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 0.23,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 5500,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 0.25,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 6000,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 0.1,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "Rail_charge_cricket",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "pause",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 150,
+          "intensity": 0.0,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "pause",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 22,
+          "intensity": 0.0,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "pause",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 67,
+          "intensity": 0.0,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "pause",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 22,
+          "intensity": 0.0,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "pause",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 63,
+          "intensity": 0.0,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "pause",
+          "frequency": -100,
+          "frequency_time": 0,
+          "duration_base": 22,
+          "intensity": 0.0,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 6000,
+          "frequency_time": 0,
+          "duration_base": 550,
+          "intensity": 0.05,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 6000,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 0.06,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 6000,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 0.07,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 6000,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 0.08,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 6500,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 0.09,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 7000,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 0.1,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 7500,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 0.11,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 8000,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 0.12,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 8500,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 0.1,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9000,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 0.05,
+          "intensity_time": 0,
+          "waveform": 3,
+          "overlay": false,
+          "overDrive": true
+        }
+      ]
+    },
+    {
+      "sample_id": "Surge_Level_5_thunder",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 9,
+          "intensity": 0.5,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 9,
+          "intensity": 0.5,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pulse",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 9,
+          "intensity": 0.5,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "pause",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 5,
+          "intensity": 0.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "tick",
+          "frequency": 0,
+          "frequency_time": 0,
+          "duration_base": 9,
+          "intensity": 0.5,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "trigger_future_low",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 12000,
+          "frequency_time": 0,
+          "duration_base": 40,
+          "intensity": 0.1,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 11700,
+          "frequency_time": 0,
+          "duration_base": 40,
+          "intensity": 0.1,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 11500,
+          "frequency_time": 0,
+          "duration_base": 40,
+          "intensity": 0.2,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 11200,
+          "frequency_time": 0,
+          "duration_base": 40,
+          "intensity": 0.2,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 11000,
+          "frequency_time": 0,
+          "duration_base": 40,
+          "intensity": 0.3,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10800,
+          "frequency_time": 0,
+          "duration_base": 40,
+          "intensity": 0.3,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10500,
+          "frequency_time": 0,
+          "duration_base": 40,
+          "intensity": 0.4,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10300,
+          "frequency_time": 0,
+          "duration_base": 40,
+          "intensity": 0.5,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10000,
+          "frequency_time": 0,
+          "duration_base": 40,
+          "intensity": 0.6,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9800,
+          "frequency_time": 0,
+          "duration_base": 40,
+          "intensity": 0.7,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9500,
+          "frequency_time": 0,
+          "duration_base": 40,
+          "intensity": 0.8,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9300,
+          "frequency_time": 0,
+          "duration_base": 40,
+          "intensity": 0.9,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9000,
+          "frequency_time": 0,
+          "duration_base": 40,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "trigger_future_high",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 100000,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.1,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 99000,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.1,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 98000,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.2,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 97000,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.2,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 96000,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.3,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 95000,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.3,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 94000,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.4,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 93000,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.5,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 92000,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.6,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 91000,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.7,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 90000,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.8,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 89000,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 0.9,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 88000,
+          "frequency_time": 0,
+          "duration_base": 25,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "vibe_sweep_up_thunder",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 8500,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 0.5,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 8800,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 0.6,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9000,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 0.7,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9200,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9500,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9700,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9800,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9900,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10000,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "Sweep_Up",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9500,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10000,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10500,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 11000,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 11500,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 12500,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 13000,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 13500,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 14000,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 14500,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 15000,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 15500,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 16000,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 16500,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 17000,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 17500,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 18000,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 18500,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 19000,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 19500,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 20000,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 20500,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 21000,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 21500,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 22000,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    },
+    {
+      "sample_id": "vibe_sweep_up",
+      "sequence": [
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 8500,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 0.01,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 8800,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 0.01,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9000,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 0.01,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9200,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9500,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 9800,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10000,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10200,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10500,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 10800,
+          "frequency_time": 0,
+          "duration_base": 100,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        },
+        {
+          "version": "2.0",
+          "command": "vibrate",
+          "frequency": 11000,
+          "frequency_time": 0,
+          "duration_base": 50,
+          "intensity": 1.0,
+          "intensity_time": 0,
+          "waveform": 0,
+          "overlay": false,
+          "overDrive": false
+        }
+      ]
+    }
+  ]
+}

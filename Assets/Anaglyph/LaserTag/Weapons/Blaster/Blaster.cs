@@ -11,7 +11,7 @@ namespace Anaglyph.Lasertag.Weapons
 		[SerializeField] private Transform emitFromTransform;
 		public UnityEvent onFire = new();
 
-		public void Fire()
+        public void Fire()
 		{
 			if (!NetworkManager.Singleton.IsConnectedClient || !WeaponsManagement.canFire)
 				return;

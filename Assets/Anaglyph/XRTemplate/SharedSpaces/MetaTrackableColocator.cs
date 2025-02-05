@@ -5,10 +5,8 @@ using UnityEngine;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
-	public class MetaTrackableColocator : MonoBehaviour, IColocator
+	public class MetaTrackableColocator : SingletonBehavior<MetaTrackableColocator>, IColocator
 	{
-		public static MetaTrackableColocator Instance { get; private set; }
-
 		[SerializeField] private GameObject worldLockAnchorPrefab = null;
 		private WorldLock currentWorldLock = null;
 
@@ -29,13 +27,12 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 		}
 
-		private void Awake()
+		protected override void SingletonAwake()
 		{
-			Instance = this;
 			tracker = new OVRAnchor.Tracker();
 		}
 
-		private void OnDestroy()
+		protected override void OnSingletonDestroy()
 		{
 			tracker.Dispose();
 		}

@@ -1,0 +1,67 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b63f559a0f0edd94aa9f54a4dccdec9c, type: 3}
+  m_Name: trigger_future_high
+  m_EditorClassIdentifier: 
+  primitiveSequence:
+  - command: vibrate
+    intensity: 0.1
+    frequency: 1000
+    duration: 25
+  - command: vibrate
+    intensity: 0.1
+    frequency: 990
+    duration: 25
+  - command: vibrate
+    intensity: 0.2
+    frequency: 980
+    duration: 25
+  - command: vibrate
+    intensity: 0.2
+    frequency: 970
+    duration: 25
+  - command: vibrate
+    intensity: 0.3
+    frequency: 960
+    duration: 25
+  - command: vibrate
+    intensity: 0.3
+    frequency: 950
+    duration: 25
+  - command: vibrate
+    intensity: 0.4
+    frequency: 940
+    duration: 25
+  - command: vibrate
+    intensity: 0.5
+    frequency: 930
+    duration: 25
+  - command: vibrate
+    intensity: 0.6
+    frequency: 920
+    duration: 25
+  - command: vibrate
+    intensity: 0.7
+    frequency: 910
+    duration: 25
+  - command: vibrate
+    intensity: 0.8
+    frequency: 900
+    duration: 25
+  - command: vibrate
+    intensity: 0.9
+    frequency: 890
+    duration: 25
+  - command: vibrate
+    intensity: 1
+    frequency: 880
+    duration: 25

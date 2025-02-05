@@ -1,0 +1,440 @@
+{
+  "effects": [
+    {
+      "effect_id": "Single_Tennis_Ball_Shot",
+      "tracks": [
+        {
+          "deviceId": "fosterBack",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "sample_id_to_play": "Ballzooka_Shot_vibe 1",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        },
+        {
+          "deviceId": "fosterFront",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "sample_id_to_play": "Ballzooka_Shot_vibe 2",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        },
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "sample_id_to_play": "shot_medium_no_contact",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Tennis_Ball_Reload",
+      "tracks": [
+        {
+          "deviceId": "fosterBack",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "sample_id_to_play": "chirp_lite_3",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        },
+        {
+          "deviceId": "fosterFront",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "sample_id_to_play": "chirp_lite_1",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Tennis_Rotate",
+      "tracks": [
+        {
+          "deviceId": "fosterFront",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "sample_id_to_play": "chirp_lite_short",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        },
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "sample_id_to_play": "Rotate",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Single_Tennis_Ball_Small",
+      "tracks": [
+        {
+          "deviceId": "fosterBack",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "sample_id_to_play": "Ballzooka_Shot_vibe 1",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        },
+        {
+          "deviceId": "fosterFront",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "sample_id_to_play": "Ballzooka_Shot_vibe 2",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        },
+        {
+          "deviceId": "hammerTop",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "sample_id_to_play": "shot_lite_no_contact",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Big_Ball_Contact",
+      "tracks": [
+        {
+          "deviceId": "fosters",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "sample_id_to_play": "pulse_lite_3",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "effect_id": "Small_Ball_Contact",
+      "tracks": [
+        {
+          "deviceId": "fosters",
+          "sequence": [
+            {
+              "is_modify_intensity": false,
+              "is_modify_frequency": false,
+              "is_modify_duration": false,
+              "duration_target": 0.0,
+              "sample_id_to_play": "pulse_lite_1",
+              "factor_intensity": [],
+              "factor_frequency": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "samples_palette": [
+    {
+      "sample_id": "Ballzooka_Shot_vibe 1",
+      "sequence": [
+        {
+          "command": "vibrate",
+          "intensity": 0.15,
+          "frequency": 70,
+          "duration_base": 100
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.09,
+          "frequency": 60,
+          "duration_base": 50
+        }
+      ]
+    },
+    {
+      "sample_id": "Ballzooka_Shot_vibe 2",
+      "sequence": [
+        {
+          "command": "pause",
+          "intensity": 0.5,
+          "frequency": 40,
+          "duration_base": 100
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.15,
+          "frequency": 70,
+          "duration_base": 200
+        }
+      ]
+    },
+    {
+      "sample_id": "shot_medium_no_contact",
+      "sequence": [
+        {
+          "command": "pulse",
+          "intensity": 0.7,
+          "frequency": -1,
+          "duration_base": 20
+        },
+        {
+          "command": "tick",
+          "intensity": 0.5,
+          "frequency": -1,
+          "duration_base": 5
+        },
+        {
+          "command": "tick",
+          "intensity": 0.5,
+          "frequency": -1,
+          "duration_base": 5
+        },
+        {
+          "command": "pause",
+          "intensity": 0.0,
+          "frequency": -1,
+          "duration_base": 15
+        },
+        {
+          "command": "pulse",
+          "intensity": 1.0,
+          "frequency": -1,
+          "duration_base": 5
+        }
+      ]
+    },
+    {
+      "sample_id": "chirp_lite_3",
+      "sequence": [
+        {
+          "command": "vibrate",
+          "intensity": 0.1,
+          "frequency": 30,
+          "duration_base": 200
+        }
+      ]
+    },
+    {
+      "sample_id": "chirp_lite_1",
+      "sequence": [
+        {
+          "command": "vibrate",
+          "intensity": 0.15,
+          "frequency": 30,
+          "duration_base": 100
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.1,
+          "frequency": 35,
+          "duration_base": 100
+        }
+      ]
+    },
+    {
+      "sample_id": "chirp_lite_short",
+      "sequence": [
+        {
+          "command": "vibrate",
+          "intensity": 0.03,
+          "frequency": 30,
+          "duration_base": 20
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.06,
+          "frequency": 35,
+          "duration_base": 20
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.09,
+          "frequency": 35,
+          "duration_base": 20
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.12,
+          "frequency": 35,
+          "duration_base": 20
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.15,
+          "frequency": 35,
+          "duration_base": 20
+        }
+      ]
+    },
+    {
+      "sample_id": "Rotate",
+      "sequence": [
+        {
+          "command": "vibrate",
+          "intensity": 0.01,
+          "frequency": 20,
+          "duration_base": 20
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.02,
+          "frequency": 22,
+          "duration_base": 20
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.03,
+          "frequency": 20,
+          "duration_base": 20
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.05,
+          "frequency": 22,
+          "duration_base": 20
+        },
+        {
+          "command": "vibrate",
+          "intensity": 0.07,
+          "frequency": 24,
+          "duration_base": 20
+        }
+      ]
+    },
+    {
+      "sample_id": "shot_lite_no_contact",
+      "sequence": [
+        {
+          "command": "pulse",
+          "intensity": 1.0,
+          "frequency": -1,
+          "duration_base": 10
+        },
+        {
+          "command": "pause",
+          "intensity": 0.5,
+          "frequency": -1,
+          "duration_base": 10
+        },
+        {
+          "command": "tick",
+          "intensity": 1.0,
+          "frequency": -1,
+          "duration_base": 10
+        }
+      ]
+    },
+    {
+      "sample_id": "pulse_lite_3",
+      "sequence": [
+        {
+          "command": "pulse",
+          "intensity": 0.4,
+          "frequency": -1,
+          "duration_base": 10
+        },
+        {
+          "command": "pause",
+          "intensity": 0.5,
+          "frequency": -1,
+          "duration_base": 10
+        },
+        {
+          "command": "tick",
+          "intensity": 0.4,
+          "frequency": -1,
+          "duration_base": 10
+        }
+      ]
+    },
+    {
+      "sample_id": "pulse_lite_1",
+      "sequence": [
+        {
+          "command": "pulse",
+          "intensity": 0.1,
+          "frequency": -1,
+          "duration_base": 10
+        },
+        {
+          "command": "pause",
+          "intensity": 0.5,
+          "frequency": -1,
+          "duration_base": 10
+        },
+        {
+          "command": "tick",
+          "intensity": 0.1,
+          "frequency": -1,
+          "duration_base": 10
+        }
+      ]
+    }
+  ]
+}
