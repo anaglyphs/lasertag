@@ -20,6 +20,7 @@ GameObject:
   - component: {fileID: 3997152652732784663}
   - component: {fileID: 1236109553123837729}
   - component: {fileID: 8683497771972242247}
+  - component: {fileID: 3417518868985722032}
   - component: {fileID: 3219858410916326727}
   m_Layer: 0
   m_Name: Systems
@@ -273,6 +274,35 @@ MonoBehaviour:
     PacketDelayMS: 0
     PacketJitterMS: 0
     PacketDropRate: 0
+--- !u!114 &3417518868985722032
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7592662432409998298}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0f5017b8552ced944bb108f95ad8f579, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  autoConnect: 1
+  overrideConnection: 0
+  overrideIp: 127.0.0.1
+  overridePort: 5060
+  logLevel: 2
+  libraryPrefix: myStrikerApp_
+  hapticLibraries:
+  - {fileID: 4343544732731029679, guid: 8d0c10d23a12de048abb57e6bb357fb9, type: 3}
+  OnClientConnected:
+    m_PersistentCalls:
+      m_Calls: []
+  OnClientDisconnected:
+    m_PersistentCalls:
+      m_Calls: []
+  OnConnectionFailed:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!114 &3219858410916326727
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -2,7 +2,9 @@ using Anaglyph.Lasertag.Logistics;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
- 
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.XR;
+
 namespace Anaglyph.Lasertag.Weapons
 {
 	public class Blaster : MonoBehaviour
@@ -10,6 +12,12 @@ namespace Anaglyph.Lasertag.Weapons
 		[SerializeField] private GameObject boltPrefab;
 		[SerializeField] private Transform emitFromTransform;
 		public UnityEvent onFire = new();
+
+		private void OnFire(InputValue value)
+		{
+			if(value.isPressed)
+				Fire();
+		}
 
 		public void Fire()
 		{
