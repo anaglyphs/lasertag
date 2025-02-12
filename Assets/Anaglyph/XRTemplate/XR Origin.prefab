@@ -660,7 +660,7 @@ MonoBehaviour:
       m_Interactions: 
       m_SingletonActionBindings: []
       m_Flags: 0
-    m_InputActionReferencePerformed: {fileID: -5982496924579745919, guid: 79db32dae9e808443971c72edb6c30a9, type: 3}
+    m_InputActionReferencePerformed: {fileID: -5982496924579745919, guid: 616e1c785ffcdf143b4e0c78a1535fad, type: 3}
     m_InputActionReferenceValue: {fileID: 0}
     m_ObjectReferenceObject: {fileID: 0}
     m_ManualPerformed: 0
@@ -681,7 +681,7 @@ MonoBehaviour:
       m_Interactions: 
       m_SingletonActionBindings: []
       m_Flags: 0
-    m_InputActionReference: {fileID: 2464016903823916871, guid: 79db32dae9e808443971c72edb6c30a9, type: 3}
+    m_InputActionReference: {fileID: 2464016903823916871, guid: 616e1c785ffcdf143b4e0c78a1535fad, type: 3}
     m_ObjectReferenceObject: {fileID: 0}
     m_ManualValue: {x: 0, y: 0}
   m_TranslateManipulationInput:
@@ -1285,6 +1285,7 @@ GameObject:
   - component: {fileID: 1394363023484580083}
   - component: {fileID: 5339566166535882300}
   - component: {fileID: 1121965266883459124}
+  - component: {fileID: 8246169409757483527}
   m_Layer: 0
   m_Name: XR Origin
   m_TagString: Untagged
@@ -1423,6 +1424,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0926ecc77c6d5974796856a7744bd972, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &8246169409757483527
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7254734392762225021}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 017c5e3933235514c9520e1dace2a4b2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_ActionAssets:
+  - {fileID: -944628639613478452, guid: 79db32dae9e808443971c72edb6c30a9, type: 3}
 --- !u!1 &7378736532143776793
 GameObject:
   m_ObjectHideFlags: 0
@@ -2297,7 +2312,7 @@ MonoBehaviour:
       m_Interactions: 
       m_SingletonActionBindings: []
       m_Flags: 0
-    m_InputActionReference: {fileID: -6756787485274679044, guid: 79db32dae9e808443971c72edb6c30a9, type: 3}
+    m_InputActionReference: {fileID: -6756787485274679044, guid: 616e1c785ffcdf143b4e0c78a1535fad, type: 3}
     m_ObjectReferenceObject: {fileID: 0}
     m_ManualValue: {x: 0, y: 0}
   m_TranslateManipulationInput:

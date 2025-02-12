@@ -10,8 +10,8 @@ GameObject:
   m_Component:
   - component: {fileID: 4399103225990605551}
   - component: {fileID: 1529154523991496594}
-  - component: {fileID: 4037410085546680506}
-  - component: {fileID: 6636756195112956096}
+  - component: {fileID: 5703417671279448298}
+  - component: {fileID: 3401056095228059898}
   m_Layer: 0
   m_Name: Blaster
   m_TagString: Untagged
@@ -66,9 +66,9 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-      - m_Target: {fileID: 6636756195112956096}
-        m_TargetAssemblyTypeName: LaserTag.VR.HapticPlayer, Assembly-CSharp
-        m_MethodName: PlayClip
+      - m_Target: {fileID: 5703417671279448298}
+        m_TargetAssemblyTypeName: Oculus.Haptics.HapticSource, Oculus.Haptics
+        m_MethodName: Play
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -78,24 +78,9 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
---- !u!114 &4037410085546680506
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3351604493564354878}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: eed99dab2ae1f0f4db94888eda552bea, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  OnTriggerPress:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1529154523991496594}
-        m_TargetAssemblyTypeName: LaserTag.Networking.Blaster, Assembly-CSharp
-        m_MethodName: Fire
+      - m_Target: {fileID: 3401056095228059898}
+        m_TargetAssemblyTypeName: Anaglyph.StrikerSupport.StrikerHapticPlayer, StrikerSupport
+        m_MethodName: Play
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -105,7 +90,7 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
---- !u!114 &6636756195112956096
+--- !u!114 &5703417671279448298
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -114,10 +99,28 @@ MonoBehaviour:
   m_GameObject: {fileID: 3351604493564354878}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0064e6d9002a394449f208b37f0c1a43, type: 3}
+  m_Script: {fileID: 11500000, guid: b9dc93c7e1ae142448d4a122be86ea8d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  clip: {fileID: 2460798210113038985, guid: 9e5280b4ce2eb7949b8975ab8c740090, type: 3}
+  _clip: {fileID: 2460798210113038985, guid: 9e5280b4ce2eb7949b8975ab8c740090, type: 3}
+  _controller: 2
+  _loop: 0
+  _amplitude: 1
+  _frequencyShift: 0
+  _priority: 128
+--- !u!114 &3401056095228059898
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3351604493564354878}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f9c480ede12467643a4a60b9e5965bba, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  hapticEffect: {fileID: 5572794820186912483, guid: a72c91097a4fb384f93318ce20e55d79, type: 3}
 --- !u!1 &6172933575010090853
 GameObject:
   m_ObjectHideFlags: 0

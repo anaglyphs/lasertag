@@ -21,6 +21,7 @@ GameObject:
   - component: {fileID: 1236109553123837729}
   - component: {fileID: 8683497771972242247}
   - component: {fileID: 3417518868985722032}
+  - component: {fileID: 3404404070851454834}
   - component: {fileID: 3219858410916326727}
   m_Layer: 0
   m_Name: Systems
@@ -293,7 +294,7 @@ MonoBehaviour:
   logLevel: 2
   libraryPrefix: myStrikerApp_
   hapticLibraries:
-  - {fileID: 4343544732731029679, guid: 8d0c10d23a12de048abb57e6bb357fb9, type: 3}
+  - {fileID: 2533612936895294810, guid: a72c91097a4fb384f93318ce20e55d79, type: 3}
   OnClientConnected:
     m_PersistentCalls:
       m_Calls: []
@@ -303,6 +304,18 @@ MonoBehaviour:
   OnConnectionFailed:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &3404404070851454834
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7592662432409998298}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c792bc1dc2749da488b1f308ceaf1b30, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!114 &3219858410916326727
 MonoBehaviour:
   m_ObjectHideFlags: 0

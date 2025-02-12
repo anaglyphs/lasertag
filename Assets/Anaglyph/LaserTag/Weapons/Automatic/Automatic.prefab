@@ -10,8 +10,8 @@ GameObject:
   m_Component:
   - component: {fileID: 4399103225990605551}
   - component: {fileID: 5062768097670836963}
-  - component: {fileID: 4037410085546680506}
-  - component: {fileID: 5504976519213088411}
+  - component: {fileID: 1156916571031357007}
+  - component: {fileID: 7223635316505082110}
   m_Layer: 0
   m_Name: Automatic
   m_TagString: Untagged
@@ -49,7 +49,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 05b75b37666bc1641a6395ce12df8258, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  input: {fileID: 4037410085546680506}
   fixedUpdatesPerFire: 5
   boltPrefab: {fileID: 6335627118381249066, guid: adc581b48dccfb24ebccf6aaa9b8df75, type: 3}
   emitFromTransform: {fileID: 1904074958090471196}
@@ -68,9 +67,9 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-      - m_Target: {fileID: 5504976519213088411}
-        m_TargetAssemblyTypeName: LaserTag.VR.HapticPlayer, Assembly-CSharp
-        m_MethodName: PlayClip
+      - m_Target: {fileID: 1156916571031357007}
+        m_TargetAssemblyTypeName: Oculus.Haptics.HapticSource, Oculus.Haptics
+        m_MethodName: Play
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -80,7 +79,19 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
---- !u!114 &4037410085546680506
+      - m_Target: {fileID: 7223635316505082110}
+        m_TargetAssemblyTypeName: Anaglyph.StrikerSupport.StrikerHapticPlayer, StrikerSupport
+        m_MethodName: Play
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!114 &1156916571031357007
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -89,13 +100,16 @@ MonoBehaviour:
   m_GameObject: {fileID: 3351604493564354878}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: eed99dab2ae1f0f4db94888eda552bea, type: 3}
+  m_Script: {fileID: 11500000, guid: b9dc93c7e1ae142448d4a122be86ea8d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  OnTriggerPress:
-    m_PersistentCalls:
-      m_Calls: []
---- !u!114 &5504976519213088411
+  _clip: {fileID: 2460798210113038985, guid: 9e5280b4ce2eb7949b8975ab8c740090, type: 3}
+  _controller: 2
+  _loop: 0
+  _amplitude: 1
+  _frequencyShift: 0
+  _priority: 128
+--- !u!114 &7223635316505082110
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -104,10 +118,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 3351604493564354878}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0064e6d9002a394449f208b37f0c1a43, type: 3}
+  m_Script: {fileID: 11500000, guid: f9c480ede12467643a4a60b9e5965bba, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  clip: {fileID: 2460798210113038985, guid: 9e5280b4ce2eb7949b8975ab8c740090, type: 3}
+  hapticEffect: {fileID: 5572794820186912483, guid: a72c91097a4fb384f93318ce20e55d79, type: 3}
 --- !u!1 &6172933575010090853
 GameObject:
   m_ObjectHideFlags: 0

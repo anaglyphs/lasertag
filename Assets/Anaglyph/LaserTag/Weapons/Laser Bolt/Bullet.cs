@@ -78,8 +78,6 @@ namespace Anaglyph.Lasertag
 			previousPosition = transform.position;
 			Vector3 travel = transform.forward * metersPerSecond * (float)lifeTime;
 			transform.position = spawnPosSync.Value.position + travel;
-
-			transform.position += transform.forward * metersPerSecond * Time.deltaTime;
 		}
 
 		private void TestHit()

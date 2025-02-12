@@ -3,67 +3,98 @@ using StrikerLink.Shared.Devices.Types;
 using StrikerLink.Unity.Runtime.Core;
 using System.Runtime.InteropServices;
 using Unity.XR.Oculus.Input;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.InputSystem.Utilities;
 using UnityEngine.InputSystem.XR;
 
-[StructLayout(LayoutKind.Explicit, Size = 32)]
-public struct MyDeviceState : IInputStateTypeInfo
+public class StrikerInputDevice : MonoBehaviour
 {
-	public FourCC format => new FourCC('M', 'Y', 'D', 'V');
+	private MavrikDevice inputDevice;
 
-	[FieldOffset(0)]
-	[InputControl(name = "button", layout = "Button", bit = 3)]
-	public ushort buttons;
-}
-
-[InputControlLayout(displayName = "My Device", stateType = typeof(MyDeviceState))]
-public class StrikerInputDevice : InputDevice, IInputUpdateCallbackReceiver
-{
 	private DeviceBase strikerDevice;
 	private OculusTouchController leftController;
-	private float triggerAxis;
 
-	[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-	private static void InitializeInPlayer()
+	private void Awake()
 	{
-		InputSystem.RegisterLayout<StrikerInputDevice>();
-		InputSystem.AddDevice<StrikerInputDevice>();
+		inputDevice = InputSystem.AddDevice<MavrikDevice>();
+
+		StrikerController.Controller.OnClientConnected.AddListener(OnClientConnected);
+
+		InputSystem.onDeviceChange += OnDeviceChange;
+
+		InputSystem.onBeforeUpdate += OnBeforeInputUpdate;
 	}
 
-	public void OnUpdate()
+	private void OnDestroy()
 	{
-		// todo, move this all somewhere else
-		if (StrikerController.IsConnected)
-		{
-			if (strikerDevice == null)
-			{
-				strikerDevice = StrikerController.Controller.GetClient().GetDevice(0);
-				return;
-			}
-		}
-		else
-		{
+		InputSystem.RemoveDevice(inputDevice);
+
+		StrikerController.Controller.OnClientConnected.RemoveListener(OnClientConnected);
+
+		InputSystem.onDeviceChange -= OnDeviceChange;
+
+		InputSystem.onBeforeUpdate -= OnBeforeInputUpdate;
+	}
+
+	private void OnDeviceChange(InputDevice device, InputDeviceChange change)
+	{
+		leftController = (OculusTouchController)XRController.leftHand;
+	}
+
+	private void OnClientConnected()
+	{
+		strikerDevice = StrikerController.Controller.GetClient().GetDevice(0);
+	}
+
+	public void OnBeforeInputUpdate()
+	{
+		if (strikerDevice == null || leftController == null)
 			return;
-		}
 
-		if (leftController == null)
-		{
-			leftController = (OculusTouchController)XRController.leftHand;
-			return;
-		}
+		float triggerAxis = strikerDevice.GetAxis(DeviceAxis.TriggerAxis);
+		inputDevice.trigger.QueueValueChange(triggerAxis);
+	}
+}
 
-		using (StateEvent.From(leftController, out var eventPtr))
-		{
-			float triggerAxis = strikerDevice.GetAxis(DeviceAxis.TriggerAxis);
 
-			leftController.triggerPressed.WriteValueIntoEvent(triggerAxis, eventPtr);
-			leftController.trigger.WriteValueIntoEvent(triggerAxis, eventPtr);
 
-			InputSystem.QueueEvent(eventPtr);
-		}
+[StructLayout(LayoutKind.Explicit, Size = 32)]
+public struct MavrikState : IInputStateTypeInfo
+{
+	public FourCC format => new FourCC('M', 'V', 'R', 'K');
+
+	[FieldOffset(5)] 
+	[InputControl(layout = "Button")]
+	public ushort trigger;
+}
+
+#if UNITY_EDITOR
+[InitializeOnLoad]
+#endif
+[InputControlLayout(displayName = "StrikerVR Mavrik", stateType = typeof(MavrikState))]
+public class MavrikDevice : InputDevice
+{
+	static MavrikDevice()
+	{
+		InputSystem.RegisterLayout<MavrikDevice>();
+	}
+
+	[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+	private static void InitializeInPlayer() { }
+
+	public AxisControl trigger { get; private set; }
+
+
+	protected override void FinishSetup()
+	{
+		base.FinishSetup();
+		trigger = GetChildControl<AxisControl>(nameof(MavrikState.trigger));
 	}
 }
