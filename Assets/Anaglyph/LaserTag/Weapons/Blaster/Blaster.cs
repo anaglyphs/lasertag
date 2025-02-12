@@ -12,9 +12,9 @@ namespace Anaglyph.Lasertag.Weapons
 		[SerializeField] private Transform emitFromTransform;
 		public UnityEvent onFire = new();
 
-		private void OnFire(InputValue value)
+		private void OnFire(InputAction.CallbackContext context)
 		{
-			if(value.isPressed)
+			if(context.performed && context.ReadValueAsButton())
 				Fire();
 		}
 

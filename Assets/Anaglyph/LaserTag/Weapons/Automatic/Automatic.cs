@@ -1,4 +1,3 @@
-using Anaglyph.XRTemplate;
 using Anaglyph.Lasertag.Logistics;
 using Unity.Netcode;
 using UnityEngine;
@@ -18,9 +17,9 @@ namespace Anaglyph.Lasertag.Weapons
 
 		private bool firing;
 
-		public void OnFire(InputValue value)
+		public void OnFire(InputAction.CallbackContext context)
 		{
-			firing = value.isPressed;
+			firing = context.ReadValueAsButton();
 		}
 
 		private void FixedUpdate()

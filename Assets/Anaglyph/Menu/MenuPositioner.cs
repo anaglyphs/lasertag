@@ -14,6 +14,7 @@ namespace Anaglyph.Menu
 		private Transform camTransform => mainCamera.transform;
 
 		[SerializeField] private Vector3 offset;
+		[SerializeField] private Vector3 eulerOffset;
 
 		private void Awake()
 		{
@@ -85,7 +86,7 @@ namespace Anaglyph.Menu
 
 			transform.position = pose.MultiplyPoint(offset);
 
-			transform.rotation = Quaternion.LookRotation(flatForward);
+			transform.rotation = Quaternion.LookRotation(flatForward) * Quaternion.Euler(eulerOffset);
 		}
 
 //#if UNITY_EDITOR

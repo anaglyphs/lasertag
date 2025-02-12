@@ -1,14 +1,12 @@
 using Anaglyph.XRTemplate;
 using UnityEngine;
-using Unity.Netcode;
 using Anaglyph.Menu;
+using UnityEngine.XR.Interaction.Toolkit.Interactors;
 
 namespace Anaglyph.Lasertag
 {
 	public class ToolPalette : MonoBehaviour
 	{
-		[SerializeField] private bool isRight;
-
 		public static ToolPalette Left { get; private set; }
 		public static ToolPalette Right { get; private set; }
 
@@ -16,10 +14,16 @@ namespace Anaglyph.Lasertag
 
 		private void Awake()
 		{
-			if (isRight)
+			var handedness = GetComponentInParent<HierarchyHandedness>().Handedness;
+
+			if (handedness == InteractorHandedness.Right)
+			{
 				Right = this;
-			else
+			}
+			else if (handedness == InteractorHandedness.Left)
+			{
 				Left = this;
+			}
 		}
 
 		public void OpenSpawnerWithObject(GameObject objectToSpawn)

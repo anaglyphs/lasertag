@@ -1,3 +1,4 @@
+using StrikerLink.Shared.Client;
 using StrikerLink.Shared.Devices.DeviceFeatures;
 using StrikerLink.Shared.Devices.Types;
 using StrikerLink.Unity.Runtime.Core;
@@ -18,6 +19,7 @@ public class StrikerInputDevice : MonoBehaviour
 {
 	private MavrikDevice inputDevice;
 
+	private StrikerClient strikerClient;
 	private DeviceBase strikerDevice;
 	private OculusTouchController leftController;
 
@@ -25,10 +27,7 @@ public class StrikerInputDevice : MonoBehaviour
 	{
 		inputDevice = InputSystem.AddDevice<MavrikDevice>();
 
-		StrikerController.Controller.OnClientConnected.AddListener(OnClientConnected);
-
 		InputSystem.onDeviceChange += OnDeviceChange;
-
 		InputSystem.onBeforeUpdate += OnBeforeInputUpdate;
 	}
 
@@ -36,10 +35,7 @@ public class StrikerInputDevice : MonoBehaviour
 	{
 		InputSystem.RemoveDevice(inputDevice);
 
-		StrikerController.Controller.OnClientConnected.RemoveListener(OnClientConnected);
-
 		InputSystem.onDeviceChange -= OnDeviceChange;
-
 		InputSystem.onBeforeUpdate -= OnBeforeInputUpdate;
 	}
 
@@ -48,18 +44,26 @@ public class StrikerInputDevice : MonoBehaviour
 		leftController = (OculusTouchController)XRController.leftHand;
 	}
 
-	private void OnClientConnected()
-	{
-		strikerDevice = StrikerController.Controller.GetClient().GetDevice(0);
-	}
-
 	public void OnBeforeInputUpdate()
 	{
-		if (strikerDevice == null || leftController == null)
-			return;
+		float triggerAxis = 0;
 
-		float triggerAxis = strikerDevice.GetAxis(DeviceAxis.TriggerAxis);
-		inputDevice.trigger.QueueValueChange(triggerAxis);
+		var strikerClient = StrikerController.Controller.GetClient();
+
+		if (strikerClient != null && strikerClient.IsConnected)
+		{
+			if (strikerDevice == null || !strikerDevice.Connected)
+			{
+				strikerDevice = strikerClient.GetDevice(0);
+			}
+			else if(strikerDevice.Connected)
+			{
+				triggerAxis = strikerDevice.GetAxis(DeviceAxis.TriggerAxis);
+			}
+		}
+		
+		if(triggerAxis != inputDevice.trigger.value)
+			inputDevice.trigger.QueueValueChange(triggerAxis);
 	}
 }
 
