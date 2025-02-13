@@ -40,11 +40,11 @@
       "url": "https://packages.unity.com"
     },
     "com.meta.xr.sdk.haptics": {
-      "version": "71.0.0",
+      "version": "72.0.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.meta.xr.sdk.core": "71.0.0"
+        "com.meta.xr.sdk.core": "72.0.0"
       },
       "url": "https://packages.unity.com"
     },
@@ -84,11 +84,12 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.collections": {
-      "version": "2.5.1",
+      "version": "2.5.2",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.unity.burst": "1.8.17",
+        "com.unity.burst": "1.8.18",
+        "com.unity.mathematics": "1.3.2",
         "com.unity.test-framework": "1.4.5",
         "com.unity.nuget.mono-cecil": "1.11.4",
         "com.unity.test-framework.performance": "3.0.3"
