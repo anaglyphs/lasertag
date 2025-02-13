@@ -20,6 +20,7 @@ GameObject:
   - component: {fileID: 3997152652732784663}
   - component: {fileID: 1236109553123837729}
   - component: {fileID: 8683497771972242247}
+  - component: {fileID: 4350344826023650112}
   - component: {fileID: 3417518868985722032}
   - component: {fileID: 3404404070851454834}
   - component: {fileID: 3219858410916326727}
@@ -275,6 +276,18 @@ MonoBehaviour:
     PacketDelayMS: 0
     PacketJitterMS: 0
     PacketDropRate: 0
+--- !u!114 &4350344826023650112
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7592662432409998298}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80b955a1f853e614d9e4de4d68c43c2d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!114 &3417518868985722032
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -287,12 +300,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0f5017b8552ced944bb108f95ad8f579, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  autoConnect: 1
+  autoConnect: 0
   overrideConnection: 0
   overrideIp: 127.0.0.1
   overridePort: 5060
   logLevel: 2
-  libraryPrefix: myStrikerApp_
+  libraryPrefix: Lasertag_
   hapticLibraries:
   - {fileID: 2533612936895294810, guid: a72c91097a4fb384f93318ce20e55d79, type: 3}
   OnClientConnected:
