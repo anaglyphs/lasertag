@@ -10,33 +10,59 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private static void Log(string str) => Debug.Log($"[{nameof(AnchorGuidSaving)}] {str}");
 
 		[Serializable]
-		public struct SavedAnchors
+		public struct SavedAnchorGuids
 		{
 			public List<string> guidStrings;
 		}
 
-		public static SavedAnchors GetSavedAnchors()
+		public static SavedAnchorGuids LoadSavedGuids()
 		{
 			Log($"Reading saved anchor uuids...");
-			GameSave.ReadFile(AnchorsSaveFileName, out SavedAnchors localAnchors);
+			GameSave.ReadFile(AnchorsSaveFileName, out SavedAnchorGuids localAnchors);
 			if (localAnchors.guidStrings == null)
 				localAnchors.guidStrings = new();
 			return localAnchors;
 		}
 
-		public static void AddGuid(Guid uuid)
+		public static void OverwriteSavedGuids(SavedAnchorGuids savedAnchors)
+		{
+			GameSave.WriteFile(AnchorsSaveFileName, savedAnchors);
+			Log($"Overwrote guid history");
+		}
+
+		public static void DeleteSavedAnchors()
+		{
+			SavedAnchorGuids saved = LoadSavedGuids();
+			Guid[] guids = new Guid[saved.guidStrings.Count];
+
+			for (int i = 0; i < saved.guidStrings.Count; i++)
+			{
+				string guidString = saved.guidStrings[i];
+				Guid guid = Guid.Parse(guidString);
+			}
+
+			OVRAnchor.EraseAsync(null, guids);
+
+			SavedAnchorGuids empty = new()
+			{
+				guidStrings = new()
+			};
+
+			OverwriteSavedGuids(empty);
+		}
+
+		public static void AddAndSaveGuid(Guid uuid)
 		{
 			string uuidString = uuid.ToString();
-			SavedAnchors localAnchors = GetSavedAnchors();
+			SavedAnchorGuids localAnchors = LoadSavedGuids();
 
 			if(localAnchors.guidStrings == null)
 				localAnchors.guidStrings = new();
 
 			if (!localAnchors.guidStrings.Contains(uuidString))
 			{
-				Log($"Saving anchor {uuidString} to file...");
 				localAnchors.guidStrings.Add(uuidString);
-				GameSave.WriteFile(AnchorsSaveFileName, localAnchors);
+				OverwriteSavedGuids(localAnchors);
 				Log($"Saved anchor {uuidString} to file!");
 			}
 		}

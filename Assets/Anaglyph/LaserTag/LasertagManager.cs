@@ -4,6 +4,7 @@ using Anaglyph.XRTemplate.SharedSpaces;
 using System;
 using Unity.Netcode;
 using UnityEngine;
+using VariableObjects;
 
 namespace Anaglyph.Lasertag
 {
@@ -15,6 +16,8 @@ namespace Anaglyph.Lasertag
 			Automatic = 0,
 			TrackedKeyboard = 1,
 		}
+
+		[SerializeField] private BoolObject useKeyboardColocation;
 
 		public static LasertagManager Current;
 		private NetworkVariable<ColocationMethod> colocationMethodSync = new(0);
@@ -29,7 +32,13 @@ namespace Anaglyph.Lasertag
 
 		public override void OnNetworkSpawn()
 		{
-			switch(colocationMethodSync.Value)
+			if (IsOwner)
+			{
+				colocationMethodSync.Value = useKeyboardColocation.Value ?
+					ColocationMethod.TrackedKeyboard : ColocationMethod.Automatic;
+			}
+
+			switch (colocationMethodSync.Value)
 			{
 				case ColocationMethod.Automatic:
 					Colocation.SetActiveColocator(MetaAnchorColocator.Instance);

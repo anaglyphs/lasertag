@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Unity.Netcode;
+using Unity.XR.CoreUtils;
 using UnityEngine;
 using static OVRSpatialAnchor;
 
@@ -20,8 +21,25 @@ namespace Anaglyph.SharedSpaces
 		public Guid guid;
 	}
 
+	public class NetworkedAnchorException : Exception
+	{
+		public NetworkedAnchorException()
+		{
+		}
+
+		public NetworkedAnchorException(string message)
+			: base(message)
+		{
+		}
+
+		public NetworkedAnchorException(string message, Exception inner)
+			: base(message, inner)
+		{
+		}
+	}
+
 	[RequireComponent(typeof(OVRSpatialAnchor))]
-	public class NetworkedAnchor : NetworkBehaviour, IDesiredPose
+	public class NetworkedAnchor : NetworkBehaviour, IAnchor
 	{
 		private void Log(string str) => Debug.Log($"[NetworkedAnchor] {str}");
 
@@ -30,7 +48,11 @@ namespace Anaglyph.SharedSpaces
 
 		//private Guid serverUuid;
 		public NetworkVariable<NetworkPose> OriginalPoseSync = new NetworkVariable<NetworkPose>();
-		public Pose DesiredPose => OriginalPoseSync.Value;
+
+		private bool anchored = false;
+		public bool Anchored => anchored;
+		public Pose TrackedPose => transform.GetWorldPose();
+		public Pose AnchoredPose => OriginalPoseSync.Value;
 
 		public NetworkVariable<NetworkGuid> Uuid = new NetworkVariable<NetworkGuid>(new(Guid.Empty));
 
@@ -55,7 +77,7 @@ namespace Anaglyph.SharedSpaces
 
 		public override async void OnNetworkSpawn()
 		{
-			if(!IsOwner)
+			if (!IsOwner)
 			{
 				if (Uuid.Value.guid == Guid.Empty)
 					return;
@@ -69,83 +91,157 @@ namespace Anaglyph.SharedSpaces
 			if (!IsOwner)
 				throw new Exception("Only the anchor owner can share it!");
 
-			Log("Sharing new anchor");
+			Redo:
+			try
+			{
+				ExitIfBehaviorDisabled();
 
-			spatialAnchor.enabled = true;
+				Log("Sharing new anchor");
 
-			bool localizeSuccess = await spatialAnchor.WhenLocalizedAsync();
-			ThrowExceptionIfBehaviorDisabled();
-			if (!localizeSuccess)
-				throw new Exception($"Failed to localize anchor {spatialAnchor.Uuid}");
-			OriginalPoseSync.Value = new NetworkPose(transform);
+				spatialAnchor.enabled = true;
 
-			Log($"Saving anchor {spatialAnchor.Uuid}...");
+				bool localizeSuccess = await spatialAnchor.WhenLocalizedAsync();
 
-			var saveResult = await spatialAnchor.SaveAnchorAsync();
-			ThrowExceptionIfBehaviorDisabled();
-			if (!saveResult.Success)
-				throw new Exception($"Failed to save anchor {spatialAnchor.Uuid}");
+				ExitIfBehaviorDisabled();
+				if (!localizeSuccess)
+					throw new NetworkedAnchorException($"Failed to localize anchor {spatialAnchor.Uuid}");
 
-			AnchorGuidSaving.AddGuid(spatialAnchor.Uuid);
+				OriginalPoseSync.Value = new NetworkPose(transform);
+				anchored = true;
 
-			Log($"Sharing anchor {spatialAnchor.Uuid}...");
+				Log($"Saving anchor {spatialAnchor.Uuid}...");
 
-			var shareResult = await spatialAnchor.ShareAsync(spatialAnchor.Uuid);
-			ThrowExceptionIfBehaviorDisabled();
-			if (shareResult.Success)
-				Log($"Successfully saved anchor {spatialAnchor.Uuid}");
-			else
-				throw new Exception($"Failed to share anchor {spatialAnchor.Uuid}: {shareResult}");
+				var saveResult = await spatialAnchor.SaveAnchorAsync();
+				ExitIfBehaviorDisabled();
+				if (!saveResult.Success)
+					throw new NetworkedAnchorException($"Failed to save anchor {spatialAnchor.Uuid}");
 
-			Uuid.Value = new(spatialAnchor.Uuid);
+				AnchorGuidSaving.AddAndSaveGuid(spatialAnchor.Uuid);
+
+				Log($"Sharing anchor {spatialAnchor.Uuid}...");
+
+				var shareResult = await spatialAnchor.ShareAsync(spatialAnchor.Uuid);
+				ExitIfBehaviorDisabled();
+				if (shareResult.Success)
+					Log($"Successfully shared anchor {spatialAnchor.Uuid}");
+				else
+					throw new NetworkedAnchorException($"Failed to share anchor {spatialAnchor.Uuid}: {shareResult}");
+
+				Uuid.Value = new(spatialAnchor.Uuid);
+			}
+			catch (NetworkedAnchorException e)
+			{
+				Debug.LogException(e);
+
+				Debug.Log("Trying again in 5 seconds");
+				await Awaitable.WaitForSecondsAsync(5);
+				goto Redo;
+			}
+			catch (TaskCanceledException)
+			{
+				Debug.Log("Task cancelled");
+			}
 		}
 
 		public async Task LocalizeAndBindAsync(UnboundAnchor unboundAnchor)
 		{
-			var localizeSuccess = await unboundAnchor.LocalizeAsync();
-			ThrowExceptionIfBehaviorDisabled();
-			if (!localizeSuccess)
-				throw new Exception($"Could not localize anchor {unboundAnchor.Uuid}");
+			Redo:
+			try
+			{
+				ExitIfBehaviorDisabled();
 
-			unboundAnchor.BindTo(spatialAnchor);
-			bool gotAnchorPose = unboundAnchor.TryGetPose(out Pose anchorPose);
-			if (!gotAnchorPose)
-				throw new Exception($"Couldn't get anchor {unboundAnchor.Uuid} pose");
-			spatialAnchor.enabled = true;
+				var localizeSuccess = await unboundAnchor.LocalizeAsync();
+				ExitIfBehaviorDisabled();
+				if (!localizeSuccess)
+					throw new NetworkedAnchorException($"Could not localize anchor {unboundAnchor.Uuid}");
+
+				bool gotAnchorPose = unboundAnchor.TryGetPose(out Pose anchorPose);
+				if (!gotAnchorPose)
+					throw new NetworkedAnchorException($"Couldn't get anchor {unboundAnchor.Uuid} pose");
+				spatialAnchor.transform.SetWorldPose(anchorPose);
+
+				unboundAnchor.BindTo(spatialAnchor);
+				spatialAnchor.enabled = true;
+
+				await Awaitable.NextFrameAsync();
+
+				if (IsOwner)
+					OriginalPoseSync.Value = new(anchorPose);
+
+				anchored = true;
+
+				Log($"Saving anchor {spatialAnchor.Uuid}...");
+
+				var saveResult = await spatialAnchor.SaveAnchorAsync();
+				ExitIfBehaviorDisabled();
+				if (!saveResult.Success)
+					throw new NetworkedAnchorException($"Failed to save anchor {spatialAnchor.Uuid}");
+
+				AnchorGuidSaving.AddAndSaveGuid(spatialAnchor.Uuid);
+			}
+			catch (NetworkedAnchorException e)
+			{
+				Debug.LogException(e);
+				Debug.Log("Trying again in 5 seconds");
+				await Awaitable.WaitForSecondsAsync(5);
+				goto Redo;
+			}
+			catch (TaskCanceledException)
+			{
+				Debug.Log("Task cancelled");
+			}
 		}
 
 		private async Task Load(Guid uuid)
 		{
-			List<UnboundAnchor> loadedAnchors = new();
-
-			UnboundAnchor unboundAnchor = default;
-
-			Log($"Checking if anchor {uuid} is saved locally...");
-
-			var loadResult = await LoadUnboundAnchorsAsync(new[] { uuid }, loadedAnchors);
-			ThrowExceptionIfBehaviorDisabled();
-			if (!loadResult.Success)
+			Redo:
+			try
 			{
-				throw new Exception($"Failed to load anchor {uuid}");
+				ExitIfBehaviorDisabled();
+
+				List<UnboundAnchor> loadedAnchors = new();
+
+				UnboundAnchor unboundAnchor = default;
+
+				Log($"Checking if anchor {uuid} is saved locally...");
+
+				var loadResult = await LoadUnboundAnchorsAsync(new[] { uuid }, loadedAnchors);
+				ExitIfBehaviorDisabled();
+				if (!loadResult.Success)
+				{
+					throw new NetworkedAnchorException($"Failed to load anchor {uuid}");
+				}
+				else if (loadResult.Value.Count == 0)
+				{
+					Log($"Did not find anchors {uuid} saved locally. Downloading...");
+
+					var downloadResult = await LoadUnboundSharedAnchorsAsync(uuid, loadedAnchors);
+					ExitIfBehaviorDisabled();
+					if (!downloadResult.Success)
+						throw new NetworkedAnchorException($"Failed to download anchor {uuid}: {downloadResult}");
+				}
+
+				Log($"Loaded anchor {uuid}");
+				unboundAnchor = loadedAnchors[0];
+
+				await LocalizeAndBindAsync(unboundAnchor);
 			}
-			else if (loadResult.Value.Count == 0)
+			catch (NetworkedAnchorException e)
 			{
-				Log($"Did not find anchors {uuid} saved locally. Downloading...");
-
-				var downloadResult = await LoadUnboundSharedAnchorsAsync(uuid, loadedAnchors);
-				ThrowExceptionIfBehaviorDisabled();
-				if (downloadResult.Success)
-					throw new Exception($"Failed to download anchor {uuid}: {downloadResult}");
+				Debug.LogException(e);
+				Debug.Log("Trying again in 5 seconds");
+				await Awaitable.WaitForSecondsAsync(5);
+				goto Redo;
 			}
-
-			unboundAnchor = loadedAnchors[0];
-
-			await LocalizeAndBindAsync(unboundAnchor);
+			catch (TaskCanceledException)
+			{
+				Debug.Log("Task cancelled");
+			}
 		}
 
-		private void ThrowExceptionIfBehaviorDisabled()
+		private void ExitIfBehaviorDisabled()
 		{
-			if (!enabled)
+			if (this == null || !enabled)
 				throw new TaskCanceledException("Behavior disabled during async operation");
 		}
 	}

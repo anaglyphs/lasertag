@@ -26,11 +26,7 @@ namespace Anaglyph.Lasertag
 
 		[Header(nameof(homePage))]
 		[SerializeField] private NavPage homePage = null;
-
-		[Header(nameof(hostSettingsPage))]
-		[SerializeField] private NavPage hostSettingsPage = null;
-		[SerializeField] private Button hostSettingsAutoColocationButton = null;
-		[SerializeField] private Button hostSettingsKeyboardColocationButton = null;
+		[SerializeField] private Button hostButton = null;
 
 		[Header(nameof(manuallyConnectPage))]
 		[SerializeField] private NavPage manuallyConnectPage = null;
@@ -60,7 +56,7 @@ namespace Anaglyph.Lasertag
 
 			navView.onPageChange.AddListener(delegate (NavPage page)
 			{
-				if (page == hostSettingsPage || page == manuallyConnectPage)
+				if (page == manuallyConnectPage)
 				{
 					AutomaticNetworkConnector.Instance.enabled = false;
 				} else
@@ -69,20 +65,8 @@ namespace Anaglyph.Lasertag
 				}
 			});
 
-			// host settings page
-			hostSettingsPage.showBackButton = true;
-			hostSettingsAutoColocationButton.onClick.AddListener(delegate
-			{
-				LasertagManager.Current.SetColocationMethod(
-					LasertagManager.ColocationMethod.Automatic);
-				Host();
-			});
-			hostSettingsKeyboardColocationButton.onClick.AddListener(delegate
-			{
-				LasertagManager.Current.SetColocationMethod(
-					LasertagManager.ColocationMethod.TrackedKeyboard);
-				Host();
-			});
+			// home page
+			hostButton.onClick.AddListener(Host);
 
 			// manually connect page
 			manuallyConnectPage.showBackButton = true;

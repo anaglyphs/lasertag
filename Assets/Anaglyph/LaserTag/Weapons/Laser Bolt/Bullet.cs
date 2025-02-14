@@ -16,18 +16,20 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private int msHitDeactivateDelay = 1000;
 		[SerializeField] private float damage = 50f;
 
+		[SerializeField] private float laserVisualPadding = 0.1f;
+
 		public UnityEvent onFire = new();
 		public UnityEvent onHit = new();
 		public UnityEvent onFrameAfterHit = new();
 		private bool isFlying = true;
 
 		private NetworkVariable<NetworkPose> spawnPosSync = new();
-		private NetworkVariable<double> spawnTimeSync = new();
+		//private NetworkVariable<float> spawnTimeSync = new();
+		private float spawnTime;
 
 		private void Awake()
 		{
 			spawnPosSync.OnValueChanged += OnSpawnPosChange;
-			
 		}
 
 		public override void OnNetworkSpawn()
@@ -36,12 +38,16 @@ namespace Anaglyph.Lasertag
 			if (IsOwner)
 			{
 				spawnPosSync.Value = new NetworkPose(transform);
-				spawnTimeSync.Value = NetworkManager.ServerTime.Time;
+
+				//float networkTime = NetworkManager.LocalTime.TimeAsFloat;
+				// spawnTimeSync.Value = networkTime;
 			}
 			else
 			{
 				SetPoseLocally(spawnPosSync.Value);
 			}
+
+			spawnTime = Time.time;
 		}
 
 		private void OnSpawnPosChange(NetworkPose p, NetworkPose v) => SetPoseLocally(v);
@@ -51,7 +57,7 @@ namespace Anaglyph.Lasertag
 			transform.SetPositionAndRotation(pose.position, pose.rotation);
 			previousPosition = transform.position;
 			trailRenderer.Clear();
-			trailRenderer.AddPosition(transform.position);
+			trailRenderer.AddPosition(transform.position - transform.forward * laserVisualPadding);
 		}
 
 		private void OnEnable()
@@ -74,9 +80,11 @@ namespace Anaglyph.Lasertag
 		Vector3 previousPosition = Vector3.zero;
 		private void Fly()
 		{
-			double lifeTime = NetworkManager.ServerTime.Time - spawnTimeSync.Value;
+			//float networkTime = NetworkManager.LocalTime.TimeAsFloat;
+			//float lifeTime = networkTime - spawnTimeSync.Value;
+			float lifeTime = Time.time - spawnTime;
 			previousPosition = transform.position;
-			Vector3 travel = transform.forward * metersPerSecond * (float)lifeTime;
+			Vector3 travel = transform.forward * metersPerSecond * lifeTime;
 			transform.position = spawnPosSync.Value.position + travel;
 		}
 
@@ -135,6 +143,14 @@ namespace Anaglyph.Lasertag
 			transform.up = norm;
 			isFlying = false;
 			onHit.Invoke();
+			Vector3 trailTermination = transform.position + transform.forward * laserVisualPadding;
+			if (trailRenderer.positionCount > 2)
+			{
+				trailRenderer.SetPosition(trailRenderer.positionCount - 1, trailTermination);
+			}else
+			{
+				trailRenderer.AddPosition(trailTermination);
+			}
 			StartCoroutine(WaitForFrame());
 		}
 

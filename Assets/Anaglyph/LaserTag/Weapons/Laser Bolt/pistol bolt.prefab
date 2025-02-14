@@ -183,6 +183,7 @@ MonoBehaviour:
   trailRenderer: {fileID: 4844728147305137197}
   msHitDeactivateDelay: 1000
   damage: 20
+  laserVisualPadding: 0.2
   onFire:
     m_PersistentCalls:
       m_Calls:
@@ -351,7 +352,7 @@ TrailRenderer:
     textureScale: {x: 1, y: 1}
     shadowBias: 0.5
     generateLightingData: 0
-  m_MinVertexDistance: 0.1
+  m_MinVertexDistance: 0
   m_MaskInteraction: 0
   m_Autodestruct: 0
   m_Emitting: 1

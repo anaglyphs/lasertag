@@ -36,15 +36,15 @@ namespace Anaglyph.SharedSpaces
 		private void Awake()
 		{
 			Instance = this;
-			WorldLock.ActiveLockChange += OnActiveAnchorChange;
+			WorldLock.LockedToChanged += OnActiveAnchorChange;
 		}
 
 		private void OnDestroy()
 		{
-			WorldLock.ActiveLockChange -= OnActiveAnchorChange;
+			WorldLock.LockedToChanged -= OnActiveAnchorChange;
 		}
 
-		private void OnActiveAnchorChange(WorldLock anchor)
+		private void OnActiveAnchorChange(IAnchor anchor)
 		{
 			IsColocated = anchor != null;
 		}
@@ -60,7 +60,7 @@ namespace Anaglyph.SharedSpaces
 			{
 				SpawnPrefab();
 
-				SavedAnchors savedAnchors = GetSavedAnchors();
+				SavedAnchorGuids savedAnchors = LoadSavedGuids();
 
 				if (savedAnchors.guidStrings != null && savedAnchors.guidStrings.Count > 0)
 				{

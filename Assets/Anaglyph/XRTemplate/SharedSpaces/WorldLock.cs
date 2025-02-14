@@ -11,24 +11,22 @@ namespace Anaglyph.SharedSpaces
 	[DefaultExecutionOrder(500)]
 	public class WorldLock : MonoBehaviour
 	{
-		private static WorldLock _activeLock;
-		public static event Action<WorldLock> ActiveLockChange;
-		public static WorldLock ActiveLock
+		private static IAnchor _lockedTo;
+		public static event Action<IAnchor> LockedToChanged;
+		public static IAnchor ActiveLock
 		{
-			get => _activeLock;
+			get => _lockedTo;
 			set
 			{
-				bool changed = value != _activeLock;
-				_activeLock = value;
+				bool changed = value != _lockedTo;
+				_lockedTo = value;
 				if (changed) 
-					ActiveLockChange?.Invoke(_activeLock);
+					LockedToChanged?.Invoke(_lockedTo);
 			}
 		}
 
-		private IDesiredPose desiredPose;
-		[SerializeField] private OVRSpatialAnchor anchor;
-		public OVRSpatialAnchor Anchor => anchor;
-		[SerializeField] private float colocateAtDistance = 3;
+		private IAnchor anchor;
+		[SerializeField] private float maxLockDistance = 3;
 
 		[RuntimeInitializeOnLoadMethod]
 		private static void OnInit()
@@ -44,57 +42,49 @@ namespace Anaglyph.SharedSpaces
 		private static async void HandleRecenter()
 		{
 			await Awaitable.EndOfFrameAsync();
-			ActiveLock?.LockOnto();
-		}
 
-		private void OnValidate()
-		{
-			TryGetComponent(out anchor);
+			LockOnto(ActiveLock);
 		}
 
 		private void Awake()
 		{
-			TryGetComponent(out desiredPose);
+			TryGetComponent(out anchor);
 		}
 
 		private void OnDestroy()
 		{
-			if(ActiveLock == this)
+			if(ActiveLock == anchor)
 				ActiveLock = null;
 		}
 
         private void LateUpdate()
         {
-			if (ActiveLock == this)
+			if (ActiveLock == anchor)
 				return;
 
 			Vector3 camPosition = MainXROrigin.Instance.Camera.transform.position;
-			float distanceFromOrigin = Vector3.Distance(anchor.transform.position, camPosition);
+			float distanceFromOrigin = Vector3.Distance(anchor.TrackedPose.position, camPosition);
 
-			if (distanceFromOrigin < colocateAtDistance || ActiveLock == null)
-				MakeActiveAnchor();
+			if (distanceFromOrigin < maxLockDistance || ActiveLock == null)
+				LockToAnchor(anchor);
 		}
 
-		public void MakeActiveAnchor()
+		public static void LockToAnchor(IAnchor anchor)
 		{
-			if (!anchor.Localized)
+			if (!anchor.Anchored)
 				return;
 
-			ActiveLock = this;
+			ActiveLock = anchor;
 
-			LockOnto();
+			LockOnto(anchor);
 		}
 
-		public void LockOnto()
+		private static void LockOnto(IAnchor anchor)
 		{
-			Pose fromPose = new Pose(transform.position, transform.rotation);
+			if (anchor == null || !anchor.Anchored)
+				return;
 
-			Pose toPose = Pose.identity;
-
-			if(desiredPose != null)
-				toPose = desiredPose.DesiredPose;
-
-			Colocation.TransformTrackingSpace(fromPose, toPose);
+			Colocation.TransformTrackingSpace(anchor.TrackedPose, anchor.AnchoredPose);
 		}
 	}
 }
