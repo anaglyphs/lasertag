@@ -1,0 +1,56 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel Clear
+#pragma kernel Scan
+
+#include "../Depth/DepthKit.hlsl"
+#include "../Environment/Environment.hlsl"
+
+uint _TexSize;
+
+#define WIDTH 512
+#define HEIGHT 128
+#define VOX_PER_M 10.0f
+
+RWTexture3D<float> _Volume;
+
+float3 indicesToWorldPos(uint3 indices)
+{
+	float3 pos = indices;
+	pos.x -= ((float) WIDTH) / 2.0f;
+	pos.z -= ((float) WIDTH) / 2.0f;
+	pos.y -= ((float) HEIGHT) / 2.0f;
+	
+	return pos * VOX_PER_M;
+}
+
+[numthreads(4, 4, 4)]
+void Clear(uint3 id : SV_DispatchThreadID)
+{
+	_Volume[id] = 1.0f;
+}
+
+ 
+[numthreads(4,4,4)]
+void Scan (uint3 id : SV_DispatchThreadID)
+{
+	
+	
+	float3 eyePos = agDepthEyePos();
+	float3 voxPos = indicesToWorldPos(id);
+	
+	float2 voxUV = agDepthWorldToNDC(voxPos);
+	float3 depthNDC = float3(voxUV.xy, agDepthSample(voxUV));
+	float3 depthPos = agDepthNDCtoWorld(depthNDC); 
+	
+	float voxEyeDist = distance(voxPos, eyePos);
+	float depthEyeDist = distance(depthPos, eyePos);
+	
+	float val = depthEyeDist - voxEyeDist;
+	
+	bool volumeInFrustum = voxUV.x > 0 && voxUV.x < 1 && voxUV.y > 0 && voxUV.y < 1;
+	bool valInRange = val > -0.2f;
+	
+	//if (volumeInFrustum && valInRange)
+	_Volume[id] = val;
+
+}

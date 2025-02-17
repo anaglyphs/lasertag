@@ -15,6 +15,11 @@ float4x4 agDepthViewInv[2];
 
 uniform float4 agDepthZParams;
 
+float3 agDepthEyePos(int eye = 0)
+{
+	return agDepthViewInv[eye]._m03_m13_m23;
+}
+
 float agDepthSample(float2 uv, int eye = 0)
 {	
 	return agDepthTex.SampleLevel(pointClampSampler, float3(uv.xy, eye), 0);
@@ -68,3 +73,5 @@ float3 agDepthNDCtoWorld(float3 ndc, int eye = 0)
 	float4 worldH = agDepthHCStoWorldH(hcs, eye);
 	return worldH.xyz / worldH.w;
 }
+
+// todo linearz function

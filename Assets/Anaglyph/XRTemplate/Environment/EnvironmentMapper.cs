@@ -2,7 +2,6 @@ using Anaglyph.XRTemplate.DepthKit;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Drawing;
 using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
