@@ -103,7 +103,7 @@ namespace Anaglyph.XRTemplate
 			RaycastKernel = new(compute, "Raycast");
 			RaycastKernel.Set(agEnvHeightMap, heightMap);
 
-			Clear.Dispatch(textureSize, textureSize);
+			Clear.DispatchGroups(textureSize, textureSize);
 
 			cameraTransform = Camera.main.transform;
 
@@ -150,10 +150,10 @@ namespace Anaglyph.XRTemplate
 
 			var depthTex = Shader.GetGlobalTexture(DepthKitDriver.agDepthTex_ID);
 			Scan.Set(DepthKitDriver.agDepthTex_ID, depthTex);
-			Scan.Dispatch(depthSamples, depthSamples, 1);
+			Scan.DispatchGroups(depthSamples, depthSamples, 1);
 			var dataRequest = AsyncGPUReadback.Request(perFrameScanBuffer);
 
-			Apply.Dispatch(textureSize, textureSize);
+			Apply.DispatchGroups(textureSize, textureSize);
 
 			StartCoroutine(WaitForGPUData());
 			IEnumerator WaitForGPUData()
@@ -168,12 +168,12 @@ namespace Anaglyph.XRTemplate
 		public void ApplyData(NativeArray<int> data)
 		{
 			perFrameScanBuffer.SetData(data);
-			Apply.Dispatch(textureSize, textureSize);
+			Apply.DispatchGroups(textureSize, textureSize);
 		}
 
 		public void ClearMap()
 		{
-			Clear.Dispatch(textureSize, textureSize);
+			Clear.DispatchGroups(textureSize, textureSize);
 		}
 
 		private static readonly int raycastOrigin = ID(nameof(raycastOrigin));
@@ -198,7 +198,7 @@ namespace Anaglyph.XRTemplate
 			stepHitNumber.SetData(new uint[] { (uint)totalNumSteps });
 			RaycastKernel.Set(hitIndex, stepHitNumber);
 
-			RaycastKernel.Dispatch(totalNumSteps, 1, 1);
+			RaycastKernel.DispatchGroups(totalNumSteps, 1, 1);
 
 			uint[] gpuReadback = new uint[1];
 			stepHitNumber.GetData(gpuReadback);

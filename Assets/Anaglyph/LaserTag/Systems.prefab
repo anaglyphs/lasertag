@@ -15,8 +15,6 @@ GameObject:
   - component: {fileID: 1408139977609173223}
   - component: {fileID: 3803295207761392546}
   - component: {fileID: 3484051137019691332}
-  - component: {fileID: 1806545364217862810}
-  - component: {fileID: 310703205190854883}
   - component: {fileID: 3997152652732784663}
   - component: {fileID: 1236109553123837729}
   - component: {fileID: 8683497771972242247}
@@ -171,35 +169,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   worldLockAnchorPrefab: {fileID: 6151402896905020864, guid: fda22aacb6971844d937e3e271ebc108, type: 3}
---- !u!114 &1806545364217862810
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7592662432409998298}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c37e109f64551fc42b510f84ef9ab494, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  compute: {fileID: 7200000, guid: c48d18ef3b30e1e45a887e461cbef191, type: 3}
-  textureSize: 512
-  envSize: 50
-  depthSamples: 128
-  scanFrequency: 5
---- !u!114 &310703205190854883
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7592662432409998298}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9dd17030e2347014e939dd5246bcb9e5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &3997152652732784663
 MonoBehaviour:
   m_ObjectHideFlags: 0

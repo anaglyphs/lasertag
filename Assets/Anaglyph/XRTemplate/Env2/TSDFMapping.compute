@@ -1,0 +1,90 @@
+#pragma kernel Clear
+#pragma kernel Scan
+#pragma kernel Raycast
+
+#include "../Depth/DepthKit.hlsl"
+
+uniform uint _Width;
+uniform uint _Height;
+uniform uint _Depth;
+uniform float _MetersPerVoxel;
+RWTexture3D<half> _Volume;
+
+float3 voxelToWorld(uint3 indices)
+{
+	float3 pos = indices;
+	pos.x -= ((float) _Width) / 2.0f;
+	pos.y -= ((float) _Height) / 2.0f;
+	pos.z -= ((float) _Depth) / 2.0f;
+	
+	return pos * _MetersPerVoxel;
+}
+
+uint3 worldToVoxel(float3 pos)
+{
+	pos /= _MetersPerVoxel;
+	
+	pos.x += ((float) _Width) / 2.0f;
+	pos.y += ((float) _Height) / 2.0f;
+	pos.z += ((float) _Depth) / 2.0f;
+	
+	uint3 id = uint3(pos);
+	id = clamp(id, 0, uint3(_Width, _Height, _Depth));
+	return id;
+}
+
+[numthreads(4, 4, 4)]
+void Clear(uint3 id : SV_DispatchThreadID)
+{
+	_Volume[id] = _MetersPerVoxel;
+}
+ 
+[numthreads(4, 4, 4)]
+void Scan (uint3 id : SV_DispatchThreadID)
+{
+	float3 eyePos = agDepthEyePos();
+	float3 voxPos = voxelToWorld(id);
+	
+	float4 voxHCS = agDepthWorldToHCS(voxPos);
+	float3 voxNDC = agDepthHCStoNDC(voxHCS);
+	float voxLinearZ = agDepthNDCToLinear(voxNDC.z);
+	
+	bool volumeInFrustum = voxNDC.x > 0 && voxNDC.x < 1 &&
+		voxNDC.y > 0 && voxNDC.y < 1 &&
+		voxHCS.z > 0 && voxLinearZ < 7.0f;
+	
+	if (!volumeInFrustum)
+		discard;
+	
+	float depth = agDepthSample(voxNDC.xy);
+	float3 depthNDC = float3(voxNDC.xy, depth);
+	float3 depthPos = agDepthNDCtoWorld(depthNDC); 
+	
+	float voxEyeDist = distance(voxPos, eyePos);
+	float depthEyeDist = distance(depthPos, eyePos);
+	
+	half val = depthEyeDist - voxEyeDist;
+	val = min(val, _MetersPerVoxel);
+	
+	bool valInRange = val > -_MetersPerVoxel;
+	
+	if (volumeInFrustum && valInRange)
+		_Volume[id] = val;
+}
+
+float3 raycastOrigin;
+float3 raycastStep;
+RWStructuredBuffer<uint> hitIndex;
+[numthreads(64, 1, 1)]
+void Raycast(uint3 id : SV_DispatchThreadID)
+{
+	uint stepNumber = id.x;
+	
+	float3 worldPos = raycastOrigin + raycastStep * stepNumber;
+	float val1 = _Volume[worldToVoxel(worldPos)];
+	worldPos += raycastStep;
+	float val2 = _Volume[worldToVoxel(worldPos)];
+	
+	if (val1 - val2 > _MetersPerVoxel)
+		InterlockedMin(hitIndex[0], stepNumber);
+}

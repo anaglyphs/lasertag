@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Anaglyph
 {
@@ -31,13 +32,19 @@ namespace Anaglyph
 			shader.SetBuffer(index, id, buffer);
 		}
 
-		public void Dispatch(int fillX, int fillY, int fillZ = 1)
+		public void Dispatch(int x, int y, int z)
+			=> shader.Dispatch(index, x, y, z);
+
+		public void DispatchGroups(int fillX, int fillY, int fillZ = 1)
 		{
 			int numGroupsX = Mathf.CeilToInt(fillX / (float)groupSize.x);
 			int numGroupsY = Mathf.CeilToInt(fillY / (float)groupSize.y);
 			int numGroupsZ = Mathf.CeilToInt(fillZ / (float)groupSize.z);
 
-			shader.Dispatch(index, numGroupsX, numGroupsY, numGroupsZ);
+			Dispatch(numGroupsX, numGroupsY, numGroupsZ);
 		}
+
+		public void DispatchGroups(RenderTexture tex) =>
+			DispatchGroups(tex.width, tex.height, tex.volumeDepth);
 	}
 }

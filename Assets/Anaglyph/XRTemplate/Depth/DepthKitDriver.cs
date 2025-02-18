@@ -102,7 +102,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 			normKernel.Set(agDepthTex_ID, depthTex);
 			normKernel.Set(agDepthNormalTexRW_ID, normTex);
-			normKernel.Dispatch(normTex.width, normTex.height, 2);
+			normKernel.DispatchGroups(normTex.width, normTex.height, 2);
 
 			Shader.SetGlobalTexture(agDepthNormTex_ID, normTex);
 
