@@ -7,20 +7,20 @@
 
 uint _TexSize;
 
-#define WIDTH 512
-#define HEIGHT 128
-#define VOX_PER_M 10.0f
+#define WIDTH 1024
+#define HEIGHT 256
+#define VOX_PER_M 20.0f
 
-RWTexture3D<float> _Volume;
+RWTexture3D<half> _Volume;
 
 float3 indicesToWorldPos(uint3 indices)
 {
 	float3 pos = indices;
-	pos.x -= ((float) WIDTH) / 2.0f;
-	pos.z -= ((float) WIDTH) / 2.0f;
+	pos.x -= ((float) WIDTH ) / 2.0f;
 	pos.y -= ((float) HEIGHT) / 2.0f;
+	pos.z -= ((float) WIDTH ) / 2.0f;
 	
-	return pos * VOX_PER_M;
+	return pos / VOX_PER_M;
 }
 
 [numthreads(4, 4, 4)]
@@ -33,24 +33,24 @@ void Clear(uint3 id : SV_DispatchThreadID)
 [numthreads(4,4,4)]
 void Scan (uint3 id : SV_DispatchThreadID)
 {
-	
-	
 	float3 eyePos = agDepthEyePos();
 	float3 voxPos = indicesToWorldPos(id);
 	
-	float2 voxUV = agDepthWorldToNDC(voxPos);
-	float3 depthNDC = float3(voxUV.xy, agDepthSample(voxUV));
+	float4 voxHCS = agDepthWorldToHCS(voxPos);
+	float3 voxNDC = agDepthHCStoNDC(voxHCS);
+	float depth = agDepthSample(voxNDC.xy);
+	float3 depthNDC = float3(voxNDC.xy, depth);
 	float3 depthPos = agDepthNDCtoWorld(depthNDC); 
 	
 	float voxEyeDist = distance(voxPos, eyePos);
 	float depthEyeDist = distance(depthPos, eyePos);
 	
-	float val = depthEyeDist - voxEyeDist;
+	half val = depthEyeDist - voxEyeDist;
 	
-	bool volumeInFrustum = voxUV.x > 0 && voxUV.x < 1 && voxUV.y > 0 && voxUV.y < 1;
-	bool valInRange = val > -0.2f;
+	bool volumeInFrustum = voxNDC.x > 0 && voxNDC.x < 1 && voxNDC.y > 0 && voxNDC.y < 1 && voxHCS.z > 0;
+	bool valInRange = val > -0.2f && val < 0.2f;
 	
-	//if (volumeInFrustum && valInRange)
-	_Volume[id] = val;
+	if (volumeInFrustum && valInRange)
+		_Volume[id] = val;
 
 }
