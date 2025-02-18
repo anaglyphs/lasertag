@@ -4,6 +4,8 @@ namespace Anaglyph.Menu
 {
     public class DeactivateSiblingsOnEnable : MonoBehaviour
     {
+
+
         private void OnEnable()
         {
             if (transform.parent == null)

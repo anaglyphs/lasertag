@@ -4,6 +4,7 @@ using UnityEngine.Events;
 using Anaglyph.Lasertag.Weapons;
 using System;
 using Unity.XR.CoreUtils;
+using VariableObjects;
 
 namespace Anaglyph.Lasertag
 {
@@ -14,7 +15,7 @@ namespace Anaglyph.Lasertag
 
 		public Role currentRole = Role.Standard;
 
-		public float Health { get; private set; } =  Role.Standard.MaxHealth;
+		public float Health { get; private set; } = Role.Standard.MaxHealth;
 		public bool IsAlive { get; private set; } = true;
 		public bool IsInFriendlyBase { get; private set; } = false;
 
@@ -30,7 +31,7 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private Transform rightHandTransform;
 		//[SerializeField] private Transform torsoTransform;
 		public Transform HeadTransform => headTransform;
-		public Transform LeftHandTransform => leftHandTransform; 
+		public Transform LeftHandTransform => leftHandTransform;
 		public Transform RightHandTransform => rightHandTransform;
 		//public Transform TorsoTransform => torsoTransform;
 
@@ -38,14 +39,13 @@ namespace Anaglyph.Lasertag
 
 		// todo move this into another component. this really doesn't belong here
 		private OVRPassthroughLayer passthroughLayer;
+		[SerializeField] private BoolObject redDamageVision;
 
 		private void Awake()
 		{
 			Instance = this;
 
 			passthroughLayer = FindFirstObjectByType<OVRPassthroughLayer>();
-			passthroughLayer.edgeRenderingEnabled = true;
-			passthroughLayer.edgeColor = Color.clear;
 		}
 
 		public void Damage(float damage, ulong damagedBy)
@@ -53,7 +53,7 @@ namespace Anaglyph.Lasertag
 			onTakeDamage.Invoke();
 			Health -= damage;
 
-			if(Health < damage)
+			if (Health < damage)
 			{
 				Kill(damagedBy);
 			}
@@ -61,7 +61,7 @@ namespace Anaglyph.Lasertag
 
 		public void Kill(ulong killedBy)
 		{
-			if(!IsAlive) return;
+			if (!IsAlive) return;
 
 			WeaponsManagement.canFire = false;
 
@@ -84,7 +84,7 @@ namespace Anaglyph.Lasertag
 
 			WeaponsManagement.canFire = true;
 
-			if(networkPlayer != null)
+			if (networkPlayer != null)
 				networkPlayer.isAliveSync.Value = true;
 
 			IsAlive = true;
@@ -111,7 +111,18 @@ namespace Anaglyph.Lasertag
 		private void Update()
 		{
 			// health
-			passthroughLayer.edgeColor = Color.Lerp(Color.red, Color.clear, Mathf.Clamp01(Health / Role.Standard.MaxHealth));
+
+			if (redDamageVision.Value)
+			{
+				passthroughLayer.edgeRenderingEnabled = true;
+				var color = Color.Lerp(Color.red, Color.clear, Mathf.Clamp01(Health / Role.Standard.MaxHealth));
+				passthroughLayer.edgeColor = color;
+			}
+			else
+			{
+				passthroughLayer.edgeRenderingEnabled = false;
+				passthroughLayer.edgeColor = Color.clear;
+			}
 
 			if (IsAlive)
 			{

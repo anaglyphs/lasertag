@@ -6,7 +6,7 @@ namespace Anaglyph.Menu
 	{
 		[SerializeField] private GameObject initialActiveChild;
 
-		private void Awake()
+		private async void Start()
 		{
 			int childCount = transform.childCount;
 			for (int i = 0; i < childCount; i++)
@@ -15,11 +15,9 @@ namespace Anaglyph.Menu
 
 				g.AddComponent<DeactivateSiblingsOnEnable>();
 			}
-		}
 
-		private async void Start()
-		{
 			await Awaitable.EndOfFrameAsync();
+			
 			if (initialActiveChild != null && initialActiveChild.transform.parent == transform)
 				SetActiveChild(initialActiveChild.transform.GetSiblingIndex());
 			else
