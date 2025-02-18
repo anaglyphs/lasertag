@@ -17,8 +17,12 @@ namespace Anaglyph.XRTemplate
 		private static readonly int _Depth = ID(nameof(_Depth));
 		private static readonly int _MetersPerVoxel = ID(nameof(_MetersPerVoxel));
 		private static readonly int _Volume = ID(nameof(_Volume));
+		private static readonly int _IndexOffset = ID(nameof(_IndexOffset));
 
 		[SerializeField] private RenderTexture volume;
+
+		[SerializeField] private int chunkSize = 128;
+		[SerializeField] private float maxZDist = 7f;
 
 		private ComputeKernel clearKernel;
 		private ComputeKernel scanKernel;
@@ -50,6 +54,16 @@ namespace Anaglyph.XRTemplate
 			ScanLoop();
 		}
 
+		private Vector3 VoxelToWorld(Vector3Int indices)
+		{
+			Vector3 pos = indices;
+			pos.x -= volume.width / 2;
+			pos.y -= volume.height / 2;
+			pos.z -= volume.volumeDepth / 2;
+
+			return pos * metersPerVoxel;
+		}
+
 		private async void ScanLoop()
 		{
 			while (enabled)
@@ -57,12 +71,52 @@ namespace Anaglyph.XRTemplate
 				await Awaitable.WaitForSecondsAsync(0.5f);
 
 				var depthTex = Shader.GetGlobalTexture(DepthKitDriver.agDepthTex_ID);
-
+				
 				if (depthTex == null)
 					return;
 
 				scanKernel.Set(DepthKitDriver.agDepthTex_ID, depthTex);
-				scanKernel.DispatchGroups(volume);
+				var depthProj = Shader.GetGlobalMatrixArray(DepthKitDriver.agDepthProj_ID)[0];
+				var depthView = Shader.GetGlobalMatrixArray(DepthKitDriver.agDepthView_ID)[0];
+				var p = depthProj.decomposeProjection;
+				p.zFar = maxZDist;
+				depthProj = Matrix4x4.Frustum(p);
+				Plane[] planes = new Plane[6];
+				GeometryUtility.CalculateFrustumPlanes(depthProj * depthView, planes);
+
+				Vector3Int chunks = new(volume.width, volume.height, volume.volumeDepth);
+				chunks /= chunkSize;
+
+				Vector3Int chunkSizeHalf = Vector3Int.one * (chunkSize / 2);
+
+				for (int x = 0; x < chunks.x; x++)
+				{
+					int xc = x * chunkSize;
+
+					for(int y = 0; y < chunks.y; y++)
+					{
+						int yc = y * chunkSize;
+
+						for (int z = 0; z < chunks.z; z++)
+						{
+							int zc = z * chunkSize;
+
+							Vector3Int centerInt = new(xc, yc, zc);
+							centerInt += chunkSizeHalf;
+
+							Vector3 center = VoxelToWorld(centerInt);
+							Vector3 size = Vector3.one * chunkSize * metersPerVoxel;
+							Bounds chunkBounds = new Bounds(center, size);
+
+							if (GeometryUtility.TestPlanesAABB(planes, chunkBounds))
+							{
+								Vector3Int o = new Vector3Int(x, y, z) * chunkSize; 
+								compute.SetInts(_IndexOffset, o.x, o.y, o.z);
+								scanKernel.DispatchGroups(chunkSize, chunkSize, chunkSize);
+							}
+						}
+					}
+				}
 			}
 		}
 

@@ -9,6 +9,7 @@ uniform uint _Height;
 uniform uint _Depth;
 uniform float _MetersPerVoxel;
 RWTexture3D<half> _Volume;
+uniform int3 _IndexOffset;
 
 float3 voxelToWorld(uint3 indices)
 {
@@ -42,6 +43,8 @@ void Clear(uint3 id : SV_DispatchThreadID)
 [numthreads(4, 4, 4)]
 void Scan (uint3 id : SV_DispatchThreadID)
 {
+	id += _IndexOffset;
+	
 	float3 eyePos = agDepthEyePos();
 	float3 voxPos = voxelToWorld(id);
 	
@@ -54,7 +57,7 @@ void Scan (uint3 id : SV_DispatchThreadID)
 		voxHCS.z > 0 && voxLinearZ < 7.0f;
 	
 	if (!volumeInFrustum)
-		discard;
+		return;
 	
 	float depth = agDepthSample(voxNDC.xy);
 	float3 depthNDC = float3(voxNDC.xy, depth);
