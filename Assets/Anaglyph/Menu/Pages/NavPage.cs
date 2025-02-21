@@ -15,11 +15,11 @@ namespace Anaglyph.Menu
 		[SerializeField] private CanvasGroup canvasGroup;
 		public bool showBackButton = true;
 
-		private PageNavigationView parentView;
+		private NavPagesParent parentView;
 
 		public RectTransform RectTransform => rectTransform;
 		public CanvasGroup CanvasGroup => canvasGroup;
-		public PageNavigationView ParentView => parentView;
+		public NavPagesParent ParentView => parentView;
 
 		public UnityEvent<bool> OnVisible = new();
 
@@ -33,7 +33,7 @@ namespace Anaglyph.Menu
 
 		private void Awake()
 		{
-			parentView = GetComponentInParent<PageNavigationView>(true);
+			parentView = GetComponentInParent<NavPagesParent>(true);
 		}
 
 		private void Start()
@@ -48,7 +48,7 @@ namespace Anaglyph.Menu
 		{
 			if (!started) return;
 
-			parentView = GetComponentInParent<PageNavigationView>(true);
+			parentView = GetComponentInParent<NavPagesParent>(true);
 
 			OnVisible.Invoke(gameObject.activeInHierarchy);
 		}

@@ -48,8 +48,6 @@ namespace Anaglyph.XRTemplate
 
 			OVRPlugin.systemDisplayFrequency = framerateTarget;
 
-			Debug.Log("OVRManager initialized");
-
 			PassthroughManager.SetPassthrough(passthroughOn);
 		}
 	}

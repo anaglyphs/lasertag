@@ -5,7 +5,7 @@ namespace GlassUI
 {
 	[ExecuteAlways]
 	[RequireComponent(typeof(RectTransform))]
-	public class RectMesh : ProgrammaticMesh
+	public class RectMesh : MeshScript
 	{
 		[SerializeField] private float padding = 0.01f;
 

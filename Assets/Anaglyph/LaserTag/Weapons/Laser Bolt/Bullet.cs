@@ -100,7 +100,7 @@ namespace Anaglyph.Lasertag
 			float distanceCovered = Vector3.Distance(previousPosition, transform.position);
 
 			//bool depthDidHit = DepthCast.Raycast(forwardRay, out var depthHit, distanceCovered);
-			bool depthDidHit = EnvironmentTSDFMapper.Instance.Raycast(forwardRay, distanceCovered, out Vector3 pointHit);
+			bool depthDidHit = EnvironmentMapper.Instance.Raycast(forwardRay, distanceCovered, out Vector3 pointHit);
 
 			bool physDidHit = Physics.Linecast(previousPosition, transform.position, out RaycastHit hit,
 				Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);

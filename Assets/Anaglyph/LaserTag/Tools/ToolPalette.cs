@@ -10,11 +10,11 @@ namespace Anaglyph.Lasertag
 		public static ToolPalette Left { get; private set; }
 		public static ToolPalette Right { get; private set; }
 
-		public SingleChildActivator toolSelector;
+		public SingleActiveChild toolSelector;
 
 		private void Awake()
 		{
-			var handedness = GetComponentInParent<HierarchyHandedness>().Handedness;
+			var handedness = GetComponentInParent<HandedHierarchy>().Handedness;
 
 			if (handedness == InteractorHandedness.Right)
 			{

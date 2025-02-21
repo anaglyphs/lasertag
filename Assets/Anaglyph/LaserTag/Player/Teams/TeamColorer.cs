@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.UI;
 
 namespace Anaglyph.Lasertag
 {
@@ -8,7 +9,8 @@ namespace Anaglyph.Lasertag
 		private static readonly int TeamColorID = Shader.PropertyToID("_Color");
 
 		[SerializeField] private byte defaultTeam;
-		[SerializeField] private Renderer[] renderers;
+		[SerializeField] private new Renderer renderer;
+		[SerializeField] private Image image;
 		[SerializeField] private TeamOwner teamOwner;
 
 		[SerializeField] float multiply = 1;
@@ -17,9 +19,10 @@ namespace Anaglyph.Lasertag
 
 		private void OnValidate()
 		{
-			renderers = GetComponentsInChildren<MeshRenderer>(true);
-
 			teamOwner = GetComponentInParent<TeamOwner>(true);
+
+			TryGetComponent(out renderer);
+			TryGetComponent(out image);
 		}
 
 		public UnityEvent<Color> OnColorSet = new();
@@ -27,15 +30,11 @@ namespace Anaglyph.Lasertag
 		private void Awake()
 		{
 			teamOwner.OnTeamChange.AddListener(SetColor);
-			foreach (var renderer in renderers)
-			{
-				renderer.material = new(renderer.material);
-			}
+			renderer.material = new(renderer.material);
 		}
 
 		private void Start()
 		{
-
 			if(teamOwner == null)
 				SetColor(defaultTeam);
 			else
@@ -44,12 +43,10 @@ namespace Anaglyph.Lasertag
 
 		public void SetColor(byte teamNumber)
 		{
-			Color = TeamManagement.TeamColors[teamNumber] * multiply;
+			Color = Teams.TeamColors[teamNumber] * multiply;
 
-			foreach (var renderer in renderers)
-			{
-				renderer.material.SetColor(TeamColorID, Color);
-			}
+			renderer.material.SetColor(TeamColorID, Color);
+			image.color = Color;
 
 			OnColorSet.Invoke(Color);
 		}

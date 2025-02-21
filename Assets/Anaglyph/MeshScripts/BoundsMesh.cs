@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Anaglyph
 {
-    public class BoundsMesh : ProgrammaticMesh
+    public class BoundsMesh : MeshScript
     {
 		private static void ResizeMesh(Mesh templateMesh, Mesh resizedMesh, Vector3 size)
 		{

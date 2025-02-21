@@ -5,7 +5,7 @@ namespace Anaglyph.Lasertag
 {
 	public class ScoreCounter : NetworkBehaviour
 	{
-		private NetworkVariable<int>[] scores = new NetworkVariable<int>[TeamManagement.NumTeams];
+		private NetworkVariable<int>[] scores = new NetworkVariable<int>[Teams.NumTeams];
 
 		public int scoreTarget = 0;
 		public byte winningTeam { get; private set; } = 0;

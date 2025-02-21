@@ -5,7 +5,7 @@ using UnityEngine.EventSystems;
 namespace Anaglyph.Lasertag.UI
 {
 	[ExecuteAlways]
-	public class OnRectChange : UIBehaviour
+	public class RectEvents : UIBehaviour
 	{
 		private bool started = false;
 

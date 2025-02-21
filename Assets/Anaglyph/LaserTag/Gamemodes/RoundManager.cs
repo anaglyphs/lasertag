@@ -93,7 +93,7 @@ namespace Anaglyph.Lasertag
 		{
 			Instance = this;
 
-			teamScoresSync = new NetworkVariable<int>[TeamManagement.NumTeams];
+			teamScoresSync = new NetworkVariable<int>[Teams.NumTeams];
 
 			teamScoresSync[0] = team0ScoreSync;
 			teamScoresSync[1] = team1ScoreSync;

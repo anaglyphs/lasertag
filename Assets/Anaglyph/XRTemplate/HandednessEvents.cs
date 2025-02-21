@@ -6,11 +6,11 @@ namespace Anaglyph.XRTemplate
 {
     public class HandednessEvents : MonoBehaviour
     {
-		private HierarchyHandedness hierarchyHandedness;
+		private HandedHierarchy hierarchyHandedness;
 
 		private void Awake()
 		{
-			hierarchyHandedness = GetComponentInParent<HierarchyHandedness>(true);
+			hierarchyHandedness = GetComponentInParent<HandedHierarchy>(true);
 			if (hierarchyHandedness == null)
 				return;
 
