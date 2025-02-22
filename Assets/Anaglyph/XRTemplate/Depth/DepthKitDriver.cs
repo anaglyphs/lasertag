@@ -1,7 +1,11 @@
 using Meta.XR.EnvironmentDepth;
+using StrikerLink.ThirdParty.WebSocketSharp;
 using System;
+using Unity.Collections;
 using Unity.XR.Oculus;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering;
 
 namespace Anaglyph.XRTemplate.DepthKit
 {
@@ -40,10 +44,18 @@ namespace Anaglyph.XRTemplate.DepthKit
 		public static bool DepthAvailable { get; private set; }
 
 		[SerializeField] private ComputeShader depthNormalCompute = null;
+		
 		private ComputeKernel normKernel;
 		[SerializeField] private RenderTexture normTex = null;
 
+		private ComputeKernel readbackKernel;
+		[SerializeField] private RenderTexture readbackTex = null;
+
 		public static Action<Texture> OnGetDepthTexture = delegate { };
+
+		private NativeArray<byte> depthTexBytes;
+		private Texture2D depthTexCPU;
+		public Texture2D DepthTexCPU => depthTexCPU;
 
 		private void Awake()
 		{
@@ -55,9 +67,15 @@ namespace Anaglyph.XRTemplate.DepthKit
 			OnGetDepthTexture = delegate { };
 		}
 
+		private void OnEnable()
+		{
+			ReadbackLoop();
+		}
+
 		private void Start()
 		{
-			normKernel = new(depthNormalCompute, 0);
+			normKernel = new(depthNormalCompute, "DepthNorm");
+			readbackKernel = new(depthNormalCompute, "ConvertDepth");
 		}
 
 		private void Update()
@@ -88,11 +106,14 @@ namespace Anaglyph.XRTemplate.DepthKit
 			Shader.SetGlobalVector(agDepthZParams_ID,
 				Shader.GetGlobalVector(Meta_EnvironmentDepthZBufferParams_ID));
 
+			int w = depthTex.width;
+			int h = depthTex.height;
+
 			if (normTex == null)
 			{
-				normTex = new(depthTex.width, depthTex.height, 0, UnityEngine.Experimental.Rendering.GraphicsFormat.R8G8B8A8_SNorm, 1);
+				normTex = new(w, h, 0, GraphicsFormat.R8G8B8A8_SNorm, 1);
 
-				normTex.dimension = UnityEngine.Rendering.TextureDimension.Tex2DArray;
+				normTex.dimension = TextureDimension.Tex2DArray;
 				normTex.volumeDepth = 2;
 				normTex.useMipMap = false;
 				normTex.enableRandomWrite = true;
@@ -102,7 +123,25 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 			normKernel.Set(agDepthTex_ID, depthTex);
 			normKernel.Set(agDepthNormalTexRW_ID, normTex);
-			normKernel.DispatchGroups(normTex.width, normTex.height, 2);
+			normKernel.DispatchGroups(normTex);
+
+			if(readbackTex == null)
+			{
+				readbackTex = new(w, h, 0, GraphicsFormat.R16_UNorm, 1);
+
+				readbackTex.dimension = TextureDimension.Tex2DArray;
+				readbackTex.volumeDepth = 2;
+				readbackTex.useMipMap = false;
+				readbackTex.enableRandomWrite = true;
+				
+				readbackTex.Create();
+
+				depthTexCPU = new Texture2D(readbackTex.width, readbackTex.height, readbackTex.graphicsFormat, TextureCreationFlags.DontUploadUponCreate);
+			}
+
+			readbackKernel.Set(agDepthTex_ID, depthTex);
+			readbackKernel.Set("agDepthReadback", readbackTex);
+			readbackKernel.DispatchGroups(readbackTex);
 
 			Shader.SetGlobalTexture(agDepthNormTex_ID, normTex);
 
@@ -121,6 +160,26 @@ namespace Anaglyph.XRTemplate.DepthKit
 			Shader.SetGlobalMatrixArray(nameof(agDepthProjInv), agDepthProjInv);
 			Shader.SetGlobalMatrixArray(nameof(agDepthView), agDepthView);
 			Shader.SetGlobalMatrixArray(nameof(agDepthViewInv), agDepthViewInv);
+		}
+
+		private async void ReadbackLoop()
+		{
+			while(enabled)
+			{
+				await Awaitable.NextFrameAsync();
+
+				if (readbackTex == null)
+					continue;
+
+				var request = await AsyncGPUReadback.RequestAsync(readbackTex);
+
+				if (request.hasError)
+					continue;
+
+				depthTexBytes = request.GetData<byte>();
+
+				depthTexCPU.LoadRawTextureData(depthTexBytes);
+			}
 		}
 
 		private static readonly Vector3 _scalingVector3 = new(1, 1, -1);

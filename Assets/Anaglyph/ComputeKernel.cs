@@ -32,6 +32,16 @@ namespace Anaglyph
 			shader.SetBuffer(index, id, buffer);
 		}
 
+		public void Set(string id, Texture texture)
+		{
+			shader.SetTexture(index, id, texture);
+		}
+
+		public void Set(string id, ComputeBuffer buffer)
+		{
+			shader.SetBuffer(index, id, buffer);
+		}
+
 		public void Dispatch(int x, int y, int z)
 			=> shader.Dispatch(index, x, y, z);
 

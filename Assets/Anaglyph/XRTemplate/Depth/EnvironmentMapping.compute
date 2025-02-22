@@ -1,14 +1,10 @@
-#pragma kernel Clear
-#pragma kernel Scan
-#pragma kernel Raycast
-
 #include "../Depth/DepthKit.hlsl"
 
 uniform uint3 volumeSize; // dimensions of volume texture
 uniform float metersPerVoxel;
-uniform float maxEyeDist; // in meters
 RWTexture3D<half> volume; // tsdf
-StructuredBuffer<float3> viewVoxels;
+StructuredBuffer<float3> frustumVolume;
+// RWStructuredBuffer<half> lastIntegration;
 
 float3 voxelToWorld(uint3 indices)
 {
@@ -36,16 +32,21 @@ float3 worldToVoxelUVW(float3 pos)
 	return saturate(pos);;
 }
 
+#pragma kernel Clear
+
 [numthreads(4, 4, 4)]
 void Clear(uint3 id : SV_DispatchThreadID)
 {
 	volume[id] = metersPerVoxel; 
 }
+
+
+#pragma kernel Integrate
  
 [numthreads(64, 1, 1)]
-void Scan (uint i : SV_DispatchThreadID)
+void Integrate (uint i : SV_DispatchThreadID)
 {
-	float3 vLocalPos = viewVoxels[i];
+	float3 vLocalPos = frustumVolume[i];
 	float3 vWorldPos = mul(agDepthViewInv[0], float4(vLocalPos, 1));
 	uint3 id = worldToVoxel(vWorldPos);
 	
@@ -65,21 +66,20 @@ void Scan (uint i : SV_DispatchThreadID)
 	half sDist = depthEyeDist - voxEyeDist;
 	sDist = min(sDist, metersPerVoxel);
 	
-	
-	bool sDistInRange = sDist > -metersPerVoxel;
-	
-	bool frustumCheck = 
-		voxNDC.x > 0 && voxNDC.x < 1 &&
-		voxNDC.y > 0 && voxNDC.y < 1 &&
-		voxHCS.z > 0;
-	
-	if (sDistInRange && frustumCheck) 
-		volume[id] = sDist; 
+	if (sDist > -metersPerVoxel)
+		volume[id] = sDist;
+	// lastIntegration[i] = sDist;
 }
+
+
+
+
+
+#pragma kernel Raycast
 
 /// Raycast
 
-uniform float3 rcOrig;
+uniform float3 rcOrig; 
 uniform float3 rcDir;
 uniform float rcIntScale;
 RWStructuredBuffer<uint> rcResult;
