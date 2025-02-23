@@ -185,7 +185,7 @@ namespace Anaglyph.Lasertag.EnvironmentSync
 				if (!DepthKitDriver.DepthAvailable)
 					continue;
 
-				byte[] depthTexRaw = depth.DepthTexCPU.EncodeToJPG(75);
+				byte[] depthTexRaw = depth.DepthTexCPU.EncodeToEXR(Texture2D.EXRFlags.CompressZIP);
 				Matrix4x4 view = GetShaderMats(viewID)[0];
 				Matrix4x4 proj = GetShaderMats(projID)[0];
 				DepthUpdate depthUpdate = new(view, proj, depthTexRaw);
@@ -252,35 +252,35 @@ namespace Anaglyph.Lasertag.EnvironmentSync
 				if(receivedDepthTex== null)
 					receivedDepthTex = new(2, 2);
 
-				receivedDepthTex.LoadImage(rawImg);
+				ImageConversion.LoadImage(receivedDepthTex, rawImg, false);
 
-				//int w = receivedDepthTex.width;
-				//int h = receivedDepthTex.height;
+				int w = receivedDepthTex.width;
+				int h = receivedDepthTex.height;
 
-				//if (convertedDepthTex == null || 
-				//	w != convertedDepthTex.width ||
-				//	h != convertedDepthTex.height)
-				//{
-				//	RenderTextureDescriptor desc = new()
-				//	{
-				//		width = w,
-				//		height = h,
-				//		graphicsFormat = GraphicsFormat.R8_UNorm,
-				//		depthStencilFormat = GraphicsFormat.None,
-				//		dimension = TextureDimension.Tex2DArray,
-				//		volumeDepth = 1,
-				//		msaaSamples = 1,
-				//	};
-				//	convertedDepthTex = new RenderTexture(desc);
-				//}
-				
-				//Graphics.Blit(receivedDepthTex, convertedDepthTex);
+				if (convertedDepthTex == null ||
+					w != convertedDepthTex.width ||
+					h != convertedDepthTex.height)
+				{
+					RenderTextureDescriptor desc = new()
+					{
+						width = w,
+						height = h,
+						graphicsFormat = GraphicsFormat.R16_UNorm,
+						depthStencilFormat = GraphicsFormat.None,
+						dimension = TextureDimension.Tex2DArray,
+						volumeDepth = 1,
+						msaaSamples = 1,
+					};
+					convertedDepthTex = new RenderTexture(desc);
+				}
+
+				Graphics.Blit(receivedDepthTex, convertedDepthTex);
 
 				// note:
 				// this is where you were last.
 				// I think you need to convert the texture via compute shader instead of blitting
 
-				mapper.ApplyScan(receivedDepthTex, view, proj);
+				mapper.ApplyScan(convertedDepthTex, view, proj);
 			}
 		}
 
