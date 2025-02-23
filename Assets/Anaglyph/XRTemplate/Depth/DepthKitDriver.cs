@@ -1,5 +1,4 @@
 using Meta.XR.EnvironmentDepth;
-using StrikerLink.ThirdParty.WebSocketSharp;
 using System;
 using Unity.Collections;
 using Unity.XR.Oculus;
@@ -54,7 +53,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 		public static Action<Texture> OnGetDepthTexture = delegate { };
 
 		private NativeArray<byte> depthTexBytes;
-		private Texture2D depthTexCPU;
+		[SerializeField] private Texture2D depthTexCPU;
 		public Texture2D DepthTexCPU => depthTexCPU;
 
 		private void Awake()
@@ -62,9 +61,14 @@ namespace Anaglyph.XRTemplate.DepthKit
 			Instance = this;
 		}
 
-		private void OnDestroy()
+		private bool hasStarted = false;
+		private void Start()
 		{
-			OnGetDepthTexture = delegate { };
+			normKernel = new(depthNormalCompute, "DepthNorm");
+			readbackKernel = new(depthNormalCompute, "ConvertDepth");
+
+			hasStarted = true;
+			ReadbackLoop();
 		}
 
 		private void OnEnable()
@@ -72,15 +76,14 @@ namespace Anaglyph.XRTemplate.DepthKit
 			ReadbackLoop();
 		}
 
-		private void Start()
-		{
-			normKernel = new(depthNormalCompute, "DepthNorm");
-			readbackKernel = new(depthNormalCompute, "ConvertDepth");
-		}
-
 		private void Update()
 		{
 			UpdateCurrentRenderingState();
+		}
+
+		private void OnDestroy()
+		{
+			OnGetDepthTexture = delegate { };
 		}
 
 		public void UpdateCurrentRenderingState()
@@ -129,8 +132,8 @@ namespace Anaglyph.XRTemplate.DepthKit
 			{
 				readbackTex = new(w, h, 0, GraphicsFormat.R16_UNorm, 1);
 
-				readbackTex.dimension = TextureDimension.Tex2DArray;
-				readbackTex.volumeDepth = 2;
+				readbackTex.dimension = TextureDimension.Tex2D;
+				readbackTex.volumeDepth = 1;
 				readbackTex.useMipMap = false;
 				readbackTex.enableRandomWrite = true;
 				
@@ -141,7 +144,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 			readbackKernel.Set(agDepthTex_ID, depthTex);
 			readbackKernel.Set("agDepthReadback", readbackTex);
-			readbackKernel.DispatchGroups(readbackTex);
+			readbackKernel.DispatchGroups(readbackTex.width, readbackTex.height, 1);
 
 			Shader.SetGlobalTexture(agDepthNormTex_ID, normTex);
 
@@ -164,9 +167,15 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		private async void ReadbackLoop()
 		{
+			if (!hasStarted)
+				return;
+
 			while(enabled)
 			{
 				await Awaitable.NextFrameAsync();
+
+				if (!enabled)
+					return;
 
 				if (readbackTex == null)
 					continue;
@@ -179,6 +188,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 				depthTexBytes = request.GetData<byte>();
 
 				depthTexCPU.LoadRawTextureData(depthTexBytes);
+				depthTexCPU.Apply();
 			}
 		}
 

@@ -1,5 +1,4 @@
 using Anaglyph.XRTemplate.DepthKit;
-using StrikerLink.ThirdParty.WebSocketSharp;
 using System.Collections.Generic;
 using Unity.Collections;
 using UnityEngine;
@@ -28,6 +27,14 @@ namespace Anaglyph.XRTemplate
 		private ComputeKernel integrateKernel;
 		private ComputeKernel raycastKernel;
 
+		private int viewID => DepthKitDriver.agDepthView_ID;
+		private int projID => DepthKitDriver.agDepthProj_ID;
+
+		private int viewInvID => DepthKitDriver.agDepthViewInv_ID;
+		private int projInvID => DepthKitDriver.agDepthProjInv_ID;
+
+		private int depthTexID => DepthKitDriver.agDepthTex_ID;
+
 		// cached points within viewspace depth frustum 
 		// like a 3D lookup table
 		private ComputeBuffer frustumVolume;
@@ -38,7 +45,7 @@ namespace Anaglyph.XRTemplate
 			Instance = this;
 		}
 
-		private bool setupDone = false;
+		private bool hasStarted = false;
 		private void Start()
 		{
 			clearKernel = new(shader, "Clear");
@@ -58,6 +65,8 @@ namespace Anaglyph.XRTemplate
 			Clear();
 
 			ScanLoop();
+
+			hasStarted = true;
 		}
 
 		public void Clear()
@@ -67,19 +76,9 @@ namespace Anaglyph.XRTemplate
 
 		private void OnEnable()
 		{
-			if (setupDone)
+			if(!hasStarted)
 				ScanLoop();
 		}
-
-		//private Vector3 VoxelToWorld(Vector3Int indices)
-		//{
-		//	Vector3 pos = indices;
-		//	pos.x -= volume.width / 2;
-		//	pos.y -= volume.height / 2;
-		//	pos.z -= volume.volumeDepth / 2;
-
-		//	return pos * metersPerVoxel;
-		//}
 
 		private async void ScanLoop()
 		{
@@ -87,16 +86,35 @@ namespace Anaglyph.XRTemplate
 			{
 				await Awaitable.WaitForSecondsAsync(1f / dispatchesPerSecond);
 
-				var depthTex = Shader.GetGlobalTexture(DepthKitDriver.agDepthTex_ID);
+				var depthTex = Shader.GetGlobalTexture(depthTexID);
 				if (depthTex == null) continue;
 				
-				integrateKernel.Set(DepthKitDriver.agDepthTex_ID, depthTex);
-
 				if (frustumVolume == null)
 					Setup();
 
-				integrateKernel.DispatchGroups(frustumVolume.count, 1, 1);
+				Matrix4x4 view = Shader.GetGlobalMatrixArray(viewID)[0];
+				Matrix4x4 proj = Shader.GetGlobalMatrixArray(projID)[0];
+
+				// ApplyScan(depthTex, view, proj);
 			}
+		}
+
+		public void ApplyScan(Texture depthTex, Matrix4x4 view, Matrix4x4 proj)//, bool useDepthFrame)
+		{
+			shader.SetMatrixArray(viewID, new[]{ view, Matrix4x4.zero });
+			shader.SetMatrixArray(projID, new[]{ proj, Matrix4x4.zero });
+
+			shader.SetMatrixArray(viewInvID, new[] { view.inverse, Matrix4x4.zero });
+			shader.SetMatrixArray(projInvID, new[] { proj.inverse, Matrix4x4.zero });
+
+			//if (useDepthFrame)
+			//	integrateKernel.Set("depthFrame", depthTex);
+			//else
+			integrateKernel.Set(depthTexID, depthTex);
+
+			//shader.SetBool("useDepthFrame", useDepthFrame);
+
+			integrateKernel.DispatchGroups(frustumVolume.count, 1, 1);
 		}
 
 		private void Setup()

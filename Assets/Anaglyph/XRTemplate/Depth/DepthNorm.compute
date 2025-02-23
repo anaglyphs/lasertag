@@ -2,7 +2,7 @@
 #include "DepthKit.hlsl"
 
 RWTexture2DArray<float4> agDepthNormalTexRW;
-RWTexture2DArray<half> agDepthReadback;
+RWTexture2D<half> agDepthReadback;
 
 int eye = 0;
 
@@ -38,7 +38,18 @@ void DepthNorm(uint3 id : SV_DispatchThreadID)
 #pragma kernel ConvertDepth
 
 [numthreads(8, 8, 1)]
-void ConvertDepth(uint3 id : SV_DispatchThreadID)
+void ConvertDepth(uint2 id : SV_DispatchThreadID)
 {
-	agDepthReadback[id] = agDepthTex[id];
+	agDepthReadback[id] = agDepthTex[uint3(id, 0)];
 }
+
+//#pragma kernel ConvertRGBA32toR8
+
+//Texture2D<float4> rgbaTex;
+//RWTexture2D<float> rTex;
+
+//[numthreads(8, 8, 1)]
+//void ConvertRGBA32toR8(uint2 id : SV_DispatchThreadID)
+//{
+//	agDepthTex[uint3(id, 0)] = rgbaTex[id].r;
+//}
