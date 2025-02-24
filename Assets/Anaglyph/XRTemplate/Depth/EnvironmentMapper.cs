@@ -1,9 +1,6 @@
 using Anaglyph.XRTemplate.DepthKit;
 using System.Collections.Generic;
-using Unity.Collections;
 using UnityEngine;
-using UnityEngine.Rendering;
-using UnityEngine.Experimental.Rendering;
 
 namespace Anaglyph.XRTemplate
 {
@@ -23,7 +20,8 @@ namespace Anaglyph.XRTemplate
 		
 		[SerializeField] private float maxEyeDist = 7f;
 
-		private ComputeKernel clearKernel;
+		private ComputeKernel clearVolumeKernel;
+		private ComputeKernel clearUpdatesKernel;
 		private ComputeKernel integrateKernel;
 		private ComputeKernel raycastKernel;
 
@@ -38,7 +36,9 @@ namespace Anaglyph.XRTemplate
 		// cached points within viewspace depth frustum 
 		// like a 3D lookup table
 		private ComputeBuffer frustumVolume;
-		// private ComputeBuffer lastIntegration;
+		private ComputeBuffer volumeUpdates;
+
+		public ComputeBuffer VolumeUpdate => volumeUpdates;
 
 		private void Awake()
 		{
@@ -48,13 +48,13 @@ namespace Anaglyph.XRTemplate
 		private bool hasStarted = false;
 		private void Start()
 		{
-			clearKernel = new(shader, "Clear");
-			clearKernel.Set(nameof(volume), volume);
+			clearVolumeKernel = new(shader, "Clear");
+			clearVolumeKernel.Set(nameof(volume), volume);
+
+			clearUpdatesKernel = new(shader, "ClearVolumeUpdates");
 
 			integrateKernel = new(shader, "Integrate");
 			integrateKernel.Set(nameof(volume), volume);
-
-			integrateKernel = new(shader, "Integrate");
 
 			raycastKernel = new(shader, "Raycast");
 			raycastKernel.Set("rcVolume", volume);
@@ -71,7 +71,7 @@ namespace Anaglyph.XRTemplate
 
 		public void Clear()
 		{
-			clearKernel.DispatchGroups(volume);
+			clearVolumeKernel.DispatchGroups(volume);
 		}
 
 		private void OnEnable()
@@ -92,36 +92,15 @@ namespace Anaglyph.XRTemplate
 				if (frustumVolume == null)
 					Setup();
 
-				Matrix4x4 view = Shader.GetGlobalMatrixArray(viewID)[0];
-				Matrix4x4 proj = Shader.GetGlobalMatrixArray(projID)[0];
-
-				// ApplyScan(depthTex, view, proj);
+				clearUpdatesKernel.DispatchGroups(frustumVolume.count, 1, 1);
+				integrateKernel.DispatchGroups(frustumVolume.count / 4, 1, 1);
 			}
-		}
-
-		public void ApplyScan(Texture depthTex, Matrix4x4 view, Matrix4x4 proj)//, bool useDepthFrame)
-		{
-			shader.SetMatrixArray(viewID, new[]{ view, Matrix4x4.zero });
-			shader.SetMatrixArray(projID, new[]{ proj, Matrix4x4.zero });
-
-			shader.SetMatrixArray(viewInvID, new[] { view.inverse, Matrix4x4.zero });
-			shader.SetMatrixArray(projInvID, new[] { proj.inverse, Matrix4x4.zero });
-
-			//if (useDepthFrame)
-			//	integrateKernel.Set("depthFrame", depthTex);
-			//else
-			integrateKernel.Set(depthTexID, depthTex);
-
-			//shader.SetBool("useDepthFrame", useDepthFrame);
-
-			integrateKernel.DispatchGroups(frustumVolume.count, 1, 1);
 		}
 
 		private void Setup()
 		{
 			var depthProj = Shader.GetGlobalMatrixArray(DepthKitDriver.agDepthProj_ID)[0];
 			FrustumPlanes frustum = depthProj.decomposeProjection;
-			//frustum.zNear = 0.2f;
 			frustum.zFar = maxEyeDist;
 
 			List<Vector3> positions = new(200000);
@@ -153,11 +132,15 @@ namespace Anaglyph.XRTemplate
 				}
 			}
 
-			frustumVolume = new ComputeBuffer(positions.Count, sizeof(float) * 3);
-			// lastIntegration = new ComputeBuffer(positions.Count, sizeof())
+			frustumVolume = new(positions.Count, sizeof(float) * 3);
 
 			frustumVolume.SetData(positions);
 			integrateKernel.Set(nameof(frustumVolume), frustumVolume);
+
+			volumeUpdates = new(positions.Count / 4, sizeof(int));
+
+			clearUpdatesKernel.Set(nameof(volumeUpdates), volumeUpdates);
+			integrateKernel.Set(nameof(volumeUpdates), volumeUpdates);
 		}
 
 		private void OnDestroy()

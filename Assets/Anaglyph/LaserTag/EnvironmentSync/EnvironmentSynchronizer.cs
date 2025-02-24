@@ -5,6 +5,8 @@ using Anaglyph.XRTemplate;
 using Anaglyph.XRTemplate.DepthKit;
 using System;
 using System.Collections;
+using System.IO.Compression;
+using System.IO;
 using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Collections;
@@ -28,18 +30,11 @@ namespace Anaglyph.Lasertag.EnvironmentSync
 
 		[SerializeField] private float updateFrequency;
 
-		[SerializeField] private Texture2D receivedDepthTex;
-		[SerializeField] private RenderTexture convertedDepthTex;
-
 		private NetworkManager manager => NetworkManager.Singleton;
 		private EnvironmentMapper mapper => EnvironmentMapper.Instance;
-		private DepthKitDriver depth => DepthKitDriver.Instance;
 
 		private int viewID => DepthKitDriver.agDepthView_ID;
 		private int projID => DepthKitDriver.agDepthProj_ID;
-		private int depthTexID => DepthKitDriver.agDepthTex_ID;
-
-		public UnityEvent<Texture2D> onGetDepth = new();
 
 		private const int Mat4Size = sizeof(float) * 16;
 
@@ -50,17 +45,38 @@ namespace Anaglyph.Lasertag.EnvironmentSync
 			manager.OnConnectionEvent += OnConnectionEvent;
 		}
 
-		private struct DepthUpdate : IDisposable
+		public static byte[] Compress(byte[] data)
+		{
+			MemoryStream output = new MemoryStream();
+			using (DeflateStream dstream = new DeflateStream(output, System.IO.Compression.CompressionLevel.Optimal))
+			{
+				dstream.Write(data, 0, data.Length);
+			}
+			return output.ToArray();
+		}
+
+		public static byte[] Decompress(byte[] data)
+		{
+			MemoryStream input = new MemoryStream(data);
+			MemoryStream output = new MemoryStream();
+			using (DeflateStream dstream = new DeflateStream(input, CompressionMode.Decompress))
+			{
+				dstream.CopyTo(output);
+			}
+			return output.ToArray();
+		}
+
+		private struct VolumeUpdate : IDisposable
 		{
 			public NativeReference<Matrix4x4> view;
 			public NativeReference<Matrix4x4> proj;
-			public NativeArray<byte> depthTexRaw;
+			public NativeArray<byte> values;
 
-			public DepthUpdate(Matrix4x4 view, Matrix4x4 proj, byte[] depthTexRaw)
+			public VolumeUpdate(Matrix4x4 view, Matrix4x4 proj, byte[] values)
 			{
 				this.view = new(view, Allocator.TempJob);
 				this.proj = new(proj, Allocator.TempJob);
-				this.depthTexRaw = new(depthTexRaw, Allocator.TempJob);
+				this.values = new(values, Allocator.TempJob);
 			}
 
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -72,8 +88,8 @@ namespace Anaglyph.Lasertag.EnvironmentSync
 				writer.TryBeginWrite(Mat4Size);
 				writer.WriteValue(proj.Value);
 
-				writer.TryBeginWrite(depthTexRaw.Length);
-				writer.WriteBytes(depthTexRaw);
+				writer.TryBeginWrite(values.Length);
+				writer.WriteBytes(values, values.Length);
 			}
 
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -88,25 +104,25 @@ namespace Anaglyph.Lasertag.EnvironmentSync
 				this.proj.Value = proj;
 
 				reader.TryBeginRead(reader.Length - Mat4Size * 2);
-				reader.ReadBytes((byte*)depthTexRaw.GetUnsafePtr(), reader.Length - reader.Position);
+				reader.ReadBytes((byte*)values.GetUnsafePtr(), reader.Length - reader.Position);
 			}
 
 			public void Dispose()
 			{
 				view.Dispose();
 				proj.Dispose();
-				depthTexRaw.Dispose();
+				values.Dispose();
 			}
 		}
 
 		[BurstCompile]
 		private struct SerializeJob : IJob
 		{
-			public DepthUpdate depthUpdate;
+			public VolumeUpdate depthUpdate;
 			[NativeDisableUnsafePtrRestriction]
 			public FastBufferWriter writer;
 
-			public SerializeJob(FastBufferWriter writer, DepthUpdate depthUpdate)
+			public SerializeJob(FastBufferWriter writer, VolumeUpdate depthUpdate)
 			{
 				this.writer = writer;
 				this.depthUpdate = depthUpdate;
@@ -121,7 +137,7 @@ namespace Anaglyph.Lasertag.EnvironmentSync
 		[BurstCompile]
 		private struct DeserializeJob : IJob
 		{
-			public DepthUpdate result;
+			public VolumeUpdate result;
 			[NativeDisableUnsafePtrRestriction]
 			public FastBufferReader reader;
 
@@ -185,12 +201,17 @@ namespace Anaglyph.Lasertag.EnvironmentSync
 				if (!DepthKitDriver.DepthAvailable)
 					continue;
 
-				byte[] depthTexRaw = depth.DepthTexCPU.EncodeToEXR(Texture2D.EXRFlags.CompressZIP);
+				var readback = await AsyncGPUReadback.RequestAsync(mapper.VolumeUpdate);
+
+				if (readback.hasError) continue;
+				byte[] b = readback.GetData<byte>().ToArray();
+				b = Compress(b);
+
 				Matrix4x4 view = GetShaderMats(viewID)[0];
 				Matrix4x4 proj = GetShaderMats(projID)[0];
-				DepthUpdate depthUpdate = new(view, proj, depthTexRaw);
+				VolumeUpdate depthUpdate = new(view, proj, b);
 
-				int numBytes = depthTexRaw.Length + Mat4Size * 2;
+				int numBytes = b.Length + Mat4Size * 2;
 
 				FastBufferWriter writer = new(numBytes, Allocator.TempJob);
 				using (writer)
@@ -233,54 +254,50 @@ namespace Anaglyph.Lasertag.EnvironmentSync
 
 			if (manager.IsClient)
 			{
-				reader.Seek(0);
+				//reader.Seek(0);
 
-				int numDepthTexBytes = reader.Length - Mat4Size * 2;
-				DeserializeJob deserializeJob = new(reader, numDepthTexBytes);
+				//int numDepthTexBytes = reader.Length - Mat4Size * 2;
+				//DeserializeJob deserializeJob = new(reader, numDepthTexBytes);
 
-				var handle = deserializeJob.Schedule();
-				while (!handle.IsCompleted) await Awaitable.NextFrameAsync();
-				handle.Complete();
+				//var handle = deserializeJob.Schedule();
+				//while (!handle.IsCompleted) await Awaitable.NextFrameAsync();
+				//handle.Complete();
 
-				var result = deserializeJob.result;
+				//var result = deserializeJob.result;
 
-				byte[] rawImg = result.depthTexRaw.ToArray();
-				Matrix4x4 view = result.view.Value;
-				Matrix4x4 proj = result.proj.Value;
-				result.Dispose();
+				//byte[] rawImg = result.updates.ToArray();
+				//Matrix4x4 view = result.view.Value;
+				//Matrix4x4 proj = result.proj.Value;
+				//result.Dispose();
 
-				if(receivedDepthTex== null)
-					receivedDepthTex = new(2, 2);
+				//if(receivedDepthTex== null)
+				//	receivedDepthTex = new(2, 2);
 
-				ImageConversion.LoadImage(receivedDepthTex, rawImg, false);
+				//ImageConversion.LoadImage(receivedDepthTex, rawImg, false);
 
-				int w = receivedDepthTex.width;
-				int h = receivedDepthTex.height;
+				//int w = receivedDepthTex.width;
+				//int h = receivedDepthTex.height;
 
-				if (convertedDepthTex == null ||
-					w != convertedDepthTex.width ||
-					h != convertedDepthTex.height)
-				{
-					RenderTextureDescriptor desc = new()
-					{
-						width = w,
-						height = h,
-						graphicsFormat = GraphicsFormat.R16_UNorm,
-						depthStencilFormat = GraphicsFormat.None,
-						dimension = TextureDimension.Tex2DArray,
-						volumeDepth = 1,
-						msaaSamples = 1,
-					};
-					convertedDepthTex = new RenderTexture(desc);
-				}
+				//if (convertedDepthTex == null ||
+				//	w != convertedDepthTex.width ||
+				//	h != convertedDepthTex.height)
+				//{
+				//	RenderTextureDescriptor desc = new()
+				//	{
+				//		width = w,
+				//		height = h,
+				//		graphicsFormat = GraphicsFormat.R16_UNorm,
+				//		depthStencilFormat = GraphicsFormat.None,
+				//		dimension = TextureDimension.Tex2DArray,
+				//		volumeDepth = 1,
+				//		msaaSamples = 1,
+				//	};
+				//	convertedDepthTex = new RenderTexture(desc);
+				//}
 
-				Graphics.Blit(receivedDepthTex, convertedDepthTex);
+				//Graphics.Blit(receivedDepthTex, convertedDepthTex);
 
-				// note:
-				// this is where you were last.
-				// I think you need to convert the texture via compute shader instead of blitting
-
-				mapper.ApplyScan(convertedDepthTex, view, proj);
+				//mapper.ApplyScan(convertedDepthTex, view, proj);
 			}
 		}
 

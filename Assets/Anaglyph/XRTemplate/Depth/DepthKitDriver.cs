@@ -50,11 +50,11 @@ namespace Anaglyph.XRTemplate.DepthKit
 		private ComputeKernel readbackKernel;
 		[SerializeField] private RenderTexture readbackTex = null;
 
-		public static Action<Texture> OnGetDepthTexture = delegate { };
+		//public static Action<Texture> OnGetDepthTexture = delegate { };
 
-		private NativeArray<byte> depthTexBytes;
-		[SerializeField] private Texture2D depthTexCPU;
-		public Texture2D DepthTexCPU => depthTexCPU;
+		//private NativeArray<byte> depthTexBytes;
+		//[SerializeField] private Texture2D depthTexCPU;
+		//public Texture2D DepthTexCPU => depthTexCPU;
 
 		private void Awake()
 		{
@@ -83,7 +83,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		private void OnDestroy()
 		{
-			OnGetDepthTexture = delegate { };
+			//OnGetDepthTexture = delegate { };
 		}
 
 		public void UpdateCurrentRenderingState()
@@ -97,7 +97,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 			Texture depthTex = Shader.GetGlobalTexture(Meta_EnvironmentDepthTexture_ID);
 
-			OnGetDepthTexture.Invoke(depthTex);
+			//OnGetDepthTexture.Invoke(depthTex);
 
 			Shader.SetGlobalVector(agDepthTexSize, new Vector2(depthTex.width, depthTex.height));
 
@@ -139,7 +139,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 				
 				readbackTex.Create();
 
-				depthTexCPU = new Texture2D(readbackTex.width, readbackTex.height, readbackTex.graphicsFormat, TextureCreationFlags.DontUploadUponCreate);
+				//depthTexCPU = new Texture2D(readbackTex.width, readbackTex.height, readbackTex.graphicsFormat, TextureCreationFlags.DontUploadUponCreate);
 			}
 
 			readbackKernel.Set(agDepthTex_ID, depthTex);
@@ -185,10 +185,10 @@ namespace Anaglyph.XRTemplate.DepthKit
 				if (request.hasError)
 					continue;
 
-				depthTexBytes = request.GetData<byte>();
+				//depthTexBytes = request.GetData<byte>();
 
-				depthTexCPU.LoadRawTextureData(depthTexBytes);
-				depthTexCPU.Apply();
+				//depthTexCPU.LoadRawTextureData(depthTexBytes);
+				//depthTexCPU.Apply();
 			}
 		}
 
