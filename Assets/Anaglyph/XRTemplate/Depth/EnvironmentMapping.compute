@@ -39,7 +39,7 @@ float3 worldToVoxelUVW(float3 pos)
 
 void writeVolumeUpdate(uint index, float normValue)
 {
-	int byte = normValue * 127;
+	uint byte = (normValue + 1) / 2.0f * 255;
 	uint intIndex = index / 4;
 	uint bshift = (index % 4) * 8;
 	volumeUpdates[intIndex] += byte << bshift;
@@ -50,30 +50,22 @@ float readVolumeUpdate(uint index)
 	uint intIndex = index / 4;
 	uint bshift = (index % 4) * 8;
 	int byte = (volumeUpdates[intIndex] >> bshift) & 0xFF;
-	float norm = byte / 127.0f;
+	float norm = (byte / 255.0f - 0.5f) * 2.0f;
 	return norm;
 }
 
-#pragma kernel Clear
+#pragma kernel ClearVolume
 
 [numthreads(4, 4, 4)]
-void Clear(uint3 id : SV_DispatchThreadID)
+void ClearVolume(uint3 id : SV_DispatchThreadID)
 {
 	volume[id] = 1;
 }
 
-#pragma kernel ClearVolumeUpdates
-
-[numthreads(64, 1, 1)]
-void ClearVolumeUpdates(uint i : SV_DispatchThreadID)
-{
-	volumeUpdates[i] = 0;
-}
-
 #pragma kernel Integrate
  
-[numthreads(64, 1, 1)] 
-void Integrate (uint i : SV_DispatchThreadID)
+[numthreads(64, 1, 1)]
+void Integrate(uint i : SV_DispatchThreadID)
 {
 	float3 vLocalPos = frustumVolume[i];
 	float3 vWorldPos = mul(agDepthViewInv[0], float4(vLocalPos, 1));
@@ -93,7 +85,7 @@ void Integrate (uint i : SV_DispatchThreadID)
 	float voxEyeDist = distance(voxPos, eyePos);
 	float depthEyeDist = distance(depthPos, eyePos);
 	
-	half sDist = depthEyeDist - voxEyeDist;	
+	half sDist = depthEyeDist - voxEyeDist;
 	half sDistNorm = sDist / metersPerVoxel;
 	sDist = min(sDist, 1);
 	
@@ -104,10 +96,18 @@ void Integrate (uint i : SV_DispatchThreadID)
 	}
 }
 
-#pragma kernel ApplyVolumeUpdates
+#pragma kernel ClearUpdates
 
 [numthreads(64, 1, 1)]
-void ApplyVolumeUpdates(uint i : SV_DispatchThreadID)
+void ClearUpdates(uint i : SV_DispatchThreadID)
+{
+	volumeUpdates[i] = 0;
+}
+
+#pragma kernel ApplyUpdates
+
+[numthreads(64, 1, 1)]
+void ApplyUpdates(uint i : SV_DispatchThreadID)
 {
 	float3 vLocalPos = frustumVolume[i];
 	float3 vWorldPos = mul(agDepthViewInv[0], float4(vLocalPos, 1));

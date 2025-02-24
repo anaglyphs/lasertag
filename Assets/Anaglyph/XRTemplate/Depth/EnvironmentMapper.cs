@@ -49,11 +49,11 @@ namespace Anaglyph.XRTemplate
 		private bool hasStarted = false;
 		private void Start()
 		{
-			clearVolumeKernel = new(shader, "Clear");
+			clearVolumeKernel = new(shader, "ClearVolume");
 			clearVolumeKernel.Set(nameof(volume), volume);
 
-			clearUpdatesKernel = new(shader, "ClearVolumeUpdates");
-			applyUpdatesKernel = new(shader, "ApplyVolumeUpdates");
+			clearUpdatesKernel = new(shader, "ClearUpdates");
+			applyUpdatesKernel = new(shader, "ApplyUpdates");
 			applyUpdatesKernel.Set(nameof(volume), volume);
 
 			integrateKernel = new(shader, "Integrate");
