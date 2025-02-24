@@ -22,6 +22,7 @@ namespace Anaglyph.XRTemplate
 
 		private ComputeKernel clearVolumeKernel;
 		private ComputeKernel clearUpdatesKernel;
+		private ComputeKernel applyUpdatesKernel;
 		private ComputeKernel integrateKernel;
 		private ComputeKernel raycastKernel;
 
@@ -52,6 +53,8 @@ namespace Anaglyph.XRTemplate
 			clearVolumeKernel.Set(nameof(volume), volume);
 
 			clearUpdatesKernel = new(shader, "ClearVolumeUpdates");
+			applyUpdatesKernel = new(shader, "ApplyVolumeUpdates");
+			applyUpdatesKernel.Set(nameof(volume), volume);
 
 			integrateKernel = new(shader, "Integrate");
 			integrateKernel.Set(nameof(volume), volume);
@@ -93,7 +96,8 @@ namespace Anaglyph.XRTemplate
 					Setup();
 
 				clearUpdatesKernel.DispatchGroups(frustumVolume.count, 1, 1);
-				integrateKernel.DispatchGroups(frustumVolume.count / 4, 1, 1);
+				
+				integrateKernel.DispatchGroups(frustumVolume.count, 1, 1);
 			}
 		}
 
@@ -133,14 +137,28 @@ namespace Anaglyph.XRTemplate
 			}
 
 			frustumVolume = new(positions.Count, sizeof(float) * 3);
-
 			frustumVolume.SetData(positions);
+
 			integrateKernel.Set(nameof(frustumVolume), frustumVolume);
+			applyUpdatesKernel.Set(nameof(frustumVolume), frustumVolume);
 
 			volumeUpdates = new(positions.Count / 4, sizeof(int));
 
 			clearUpdatesKernel.Set(nameof(volumeUpdates), volumeUpdates);
+			applyUpdatesKernel.Set(nameof(volumeUpdates), volumeUpdates);
 			integrateKernel.Set(nameof(volumeUpdates), volumeUpdates);
+		}
+
+		public void ApplyUpdates(Matrix4x4 view, Matrix4x4 proj, byte[] updates)
+		{
+			shader.SetMatrixArray(viewID, new[] { view, Matrix4x4.zero });
+			shader.SetMatrixArray(projID, new[] { proj, Matrix4x4.zero });
+
+			shader.SetMatrixArray(viewInvID, new[] { view.inverse, Matrix4x4.zero });
+			shader.SetMatrixArray(projInvID, new[] { proj.inverse, Matrix4x4.zero });
+
+			volumeUpdates.SetData(updates);
+			applyUpdatesKernel.DispatchGroups(frustumVolume.count, 1, 1);
 		}
 
 		private void OnDestroy()

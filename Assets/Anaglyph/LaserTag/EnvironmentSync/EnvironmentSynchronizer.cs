@@ -14,8 +14,6 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.Events;
-using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 
 namespace Anaglyph.Lasertag.EnvironmentSync
@@ -254,50 +252,25 @@ namespace Anaglyph.Lasertag.EnvironmentSync
 
 			if (manager.IsClient)
 			{
-				//reader.Seek(0);
+				reader.Seek(0);
 
-				//int numDepthTexBytes = reader.Length - Mat4Size * 2;
-				//DeserializeJob deserializeJob = new(reader, numDepthTexBytes);
+				int numDepthTexBytes = reader.Length - Mat4Size * 2;
+				DeserializeJob deserializeJob = new(reader, numDepthTexBytes);
 
-				//var handle = deserializeJob.Schedule();
-				//while (!handle.IsCompleted) await Awaitable.NextFrameAsync();
-				//handle.Complete();
+				var handle = deserializeJob.Schedule();
+				while (!handle.IsCompleted) await Awaitable.NextFrameAsync();
+				handle.Complete();
 
-				//var result = deserializeJob.result;
+				var result = deserializeJob.result;
 
-				//byte[] rawImg = result.updates.ToArray();
-				//Matrix4x4 view = result.view.Value;
-				//Matrix4x4 proj = result.proj.Value;
-				//result.Dispose();
+				byte[] volumeUpdates = result.values.ToArray();
+				Matrix4x4 view = result.view.Value;
+				Matrix4x4 proj = result.proj.Value;
+				result.Dispose();
 
-				//if(receivedDepthTex== null)
-				//	receivedDepthTex = new(2, 2);
+				volumeUpdates = Decompress(volumeUpdates);
 
-				//ImageConversion.LoadImage(receivedDepthTex, rawImg, false);
-
-				//int w = receivedDepthTex.width;
-				//int h = receivedDepthTex.height;
-
-				//if (convertedDepthTex == null ||
-				//	w != convertedDepthTex.width ||
-				//	h != convertedDepthTex.height)
-				//{
-				//	RenderTextureDescriptor desc = new()
-				//	{
-				//		width = w,
-				//		height = h,
-				//		graphicsFormat = GraphicsFormat.R16_UNorm,
-				//		depthStencilFormat = GraphicsFormat.None,
-				//		dimension = TextureDimension.Tex2DArray,
-				//		volumeDepth = 1,
-				//		msaaSamples = 1,
-				//	};
-				//	convertedDepthTex = new RenderTexture(desc);
-				//}
-
-				//Graphics.Blit(receivedDepthTex, convertedDepthTex);
-
-				//mapper.ApplyScan(convertedDepthTex, view, proj);
+				mapper.ApplyUpdates(view, proj, volumeUpdates);
 			}
 		}
 

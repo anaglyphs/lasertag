@@ -37,19 +37,19 @@ float3 worldToVoxelUVW(float3 pos)
 
 // https://stackoverflow.com/questions/40759199/sending-a-byte-to-the-gpu
 
-void writeVolumeUpdate(int index, float normValue)
+void writeVolumeUpdate(uint index, float normValue)
 {
 	int byte = normValue * 127;
-	int intIndex = index / 4;
-	int bshift = (index - intIndex) * 8;
-	volumeUpdates += byte << bshift;
+	uint intIndex = index / 4;
+	uint bshift = (index % 4) * 8;
+	volumeUpdates[intIndex] += byte << bshift;
 }
 
-float readVolumeUpdate(int index)
+float readVolumeUpdate(uint index)
 {
-	int intIndex = index / 4;
-	int bshift = (index - intIndex) * 8;
-	int byte = ((volumeUpdates[intIndex] >> bshift) & 0xFF);
+	uint intIndex = index / 4;
+	uint bshift = (index % 4) * 8;
+	int byte = (volumeUpdates[intIndex] >> bshift) & 0xFF;
 	float norm = byte / 127.0f;
 	return norm;
 }
@@ -59,7 +59,7 @@ float readVolumeUpdate(int index)
 [numthreads(4, 4, 4)]
 void Clear(uint3 id : SV_DispatchThreadID)
 {
-	volume[id] = 1; 
+	volume[id] = 1;
 }
 
 #pragma kernel ClearVolumeUpdates
@@ -72,7 +72,7 @@ void ClearVolumeUpdates(uint i : SV_DispatchThreadID)
 
 #pragma kernel Integrate
  
-[numthreads(64, 1, 1)]
+[numthreads(64, 1, 1)] 
 void Integrate (uint i : SV_DispatchThreadID)
 {
 	float3 vLocalPos = frustumVolume[i];
@@ -94,12 +94,12 @@ void Integrate (uint i : SV_DispatchThreadID)
 	float depthEyeDist = distance(depthPos, eyePos);
 	
 	half sDist = depthEyeDist - voxEyeDist;	
-	sDist = min(sDist, metersPerVoxel);
 	half sDistNorm = sDist / metersPerVoxel;
+	sDist = min(sDist, 1);
 	
 	if (sDistNorm > -1)
 	{
-		volume[id] = sDistNorm;
+		// volume[id] = sDistNorm;
 		writeVolumeUpdate(i, sDistNorm);
 	}
 }
@@ -113,7 +113,10 @@ void ApplyVolumeUpdates(uint i : SV_DispatchThreadID)
 	float3 vWorldPos = mul(agDepthViewInv[0], float4(vLocalPos, 1));
 	uint3 id = worldToVoxel(vWorldPos);
 	
-	volume[id] = readVolumeUpdate(i);
+	float value = readVolumeUpdate(i);
+	
+	if(value != 0)
+		volume[id] = value;
 }
 
 #pragma kernel Raycast
