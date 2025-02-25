@@ -1,6 +1,5 @@
 using UnityEngine;
 using Anaglyph.XRTemplate;
-using Anaglyph.XRTemplate.DepthKit;
 
 namespace Anaglyph.Lasertag
 {
@@ -12,9 +11,9 @@ namespace Anaglyph.Lasertag
 		private void Update()
 		{
 			Ray ray = new Ray(transform.position, transform.forward);
-			Vector3 point;
-			EnvironmentMapper.Instance.Raycast(ray, 50f, out point);
-			hitIndicator.position = point;
+			var hit = Environment.Raycast(ray, 50f);
+			hitIndicator.gameObject.SetActive(hit.didHit);
+			hitIndicator.position = hit.point;
 		}
 	}
 }

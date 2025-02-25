@@ -1,6 +1,9 @@
 using Anaglyph.XRTemplate.DepthKit;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.Rendering;
 
 namespace Anaglyph.XRTemplate
 {
@@ -19,6 +22,7 @@ namespace Anaglyph.XRTemplate
 		private int vDepth => volume.volumeDepth;
 		
 		[SerializeField] private float maxEyeDist = 7f;
+		public float MaxEyeDist => maxEyeDist;
 
 		private ComputeKernel clearKernel;
 		private ComputeKernel integrateKernel;
@@ -159,12 +163,26 @@ namespace Anaglyph.XRTemplate
 
 		private const float RaycastScaleFactor = 1000f;
 
-		public bool Raycast(Ray ray, float maxDist, out Vector3 hitPoint)
+		public struct RaycastResult
 		{
-			hitPoint = ray.origin;
+			public Vector3 point;
+			public float distance;
+			public bool didHit;
+
+			public RaycastResult(Vector3 hitPoint, float distance)
+			{
+				this.point = hitPoint;
+				this.distance = distance;
+				this.didHit = false;
+			}
+		}
+
+		public RaycastResult Raycast(Ray ray, float maxDist)
+		{
+			RaycastResult hit = new(ray.origin, 0);
 
 			if (maxDist == 0)
-				return false;
+				return hit;
 
 			shader.SetVector("rcOrig", ray.origin);
 			shader.SetVector("rcDir", ray.direction);
@@ -178,23 +196,38 @@ namespace Anaglyph.XRTemplate
 
 			int totalNumSteps = Mathf.RoundToInt(maxDist / metersPerVoxel);
 
+			if (totalNumSteps == 0)
+				return hit;
+
 			raycastKernel.DispatchGroups(totalNumSteps, 1, 1);
 
-			uint[] resultData = new uint[1];
-			resultBuffer.GetData(resultData);
+			//var request = await AsyncGPUReadback.Request(resultBuffer);
+			//if (request.hasError)
+			//	return hit;
+			//var result = request.GetData<uint>();
+			uint[] d = new uint[1];
+			resultBuffer.GetData(d);
+			uint hitDistInt = d[0];
+			//result.Dispose();
 			resultBuffer.Release();
-			uint hitDistInt = resultData[0];
 
 			if (hitDistInt >= lengthInt)
-				return false;
+				return hit;
 
 			float hitDist = hitDistInt / RaycastScaleFactor;
 
 			if (hitDist >= maxDist)
-				return false;
+				return hit;
 
-			hitPoint = ray.GetPoint(hitDist);
-			return true;
+			hit = new(ray.GetPoint(hitDist), hitDist);
+			hit.didHit = true;
+			return hit;
 		}
+	}
+
+	public static class Environment
+	{
+		public static EnvironmentMapper.RaycastResult Raycast(Ray ray, float maxDist)
+			=> EnvironmentMapper.Instance.Raycast(ray, maxDist);
 	}
 }

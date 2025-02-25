@@ -12,7 +12,6 @@ GameObject:
   - component: {fileID: 8239736399241822091}
   - component: {fileID: 8807235644134131342}
   - component: {fileID: 1210394929621187967}
-  - component: {fileID: 6778082157334904697}
   - component: {fileID: 1383827261942209009}
   - component: {fileID: 1408139977609173223}
   - component: {fileID: 3803295207761392546}
@@ -135,20 +134,6 @@ MonoBehaviour:
   dispatchesPerSecond: 30
   volume: {fileID: 8400000, guid: 1b824cd65da368c4ba66330fd10e8ba2, type: 2}
   maxEyeDist: 7
---- !u!114 &6778082157334904697
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7592662432409998298}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bb467aabc3fe90944b6a92068ffe0c79, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  updateFrequency: 1
-  shader: {fileID: 7200000, guid: 094ecfc2d2e1d984c9955562fea46b9d, type: 3}
 --- !u!114 &1383827261942209009
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -9,9 +9,11 @@ SamplerState linearClampSampler;
 float3 voxelToWorld(uint3 indices)
 {
 	float3 pos = indices;
+	pos += 0.5f;
 	pos -= volumeSize / 2.0f;
+	pos *= metersPerVoxel;
 	
-	return pos * metersPerVoxel;
+	return pos;
 }
 
 uint3 worldToVoxel(float3 pos)
@@ -28,8 +30,10 @@ float3 worldToVoxelUVW(float3 pos)
 {	
 	pos /= metersPerVoxel;
 	pos += volumeSize / 2.0f;
+	pos -= 0.5f;
 	pos /= volumeSize;
-	return saturate(pos);;
+	
+	return saturate(pos);
 }
 
 #pragma kernel Clear
@@ -37,7 +41,7 @@ float3 worldToVoxelUVW(float3 pos)
 [numthreads(4, 4, 4)]
 void Clear(uint3 id : SV_DispatchThreadID)
 {
-	volume[id] = metersPerVoxel; 
+	volume[id] = 1; 
 }
 
 
@@ -68,11 +72,12 @@ void Integrate (uint i : SV_DispatchThreadID)
 	float voxEyeDist = distance(voxPos, eyePos);
 	float depthEyeDist = distance(depthPos, eyePos);
 	
-	half sDist = depthEyeDist - voxEyeDist;
-	sDist = min(sDist, metersPerVoxel);
+	float sDist = depthEyeDist - voxEyeDist;
+	half sDistNorm = sDist / metersPerVoxel;
+	sDistNorm = min(sDistNorm, 1);
 	
-	if (sDist > -metersPerVoxel)
-		volume[id] = sDist;
+	if (sDistNorm > -1)
+		volume[id] = sDistNorm;
 }
 
 #pragma kernel Raycast
@@ -87,7 +92,7 @@ Texture3D<half> rcVolume;
 
 half sampleVolume(float3 uvw)
 {
-	return rcVolume.SampleLevel(linearClampSampler, uvw, 0);
+	return rcVolume.SampleLevel(linearClampSampler, uvw, 0) * metersPerVoxel;
 }
 
 [numthreads(64, 1, 1)]

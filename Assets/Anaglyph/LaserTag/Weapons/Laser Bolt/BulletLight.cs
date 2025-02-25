@@ -4,19 +4,38 @@ namespace Anaglyph.Lasertag
 {
     public class BulletLight : MonoBehaviour
     {
-        [SerializeField] private Transform bulletTransform;
-		private Vector3 previousBulletPosition;
+		private Bullet bullet = null;
+		private MeshRenderer meshRenderer = null;
 
-		private void OnEnable()
+		private void Awake()
 		{
-			transform.position = previousBulletPosition;
-			previousBulletPosition = transform.position;
+			TryGetComponent(out meshRenderer);
+			bullet = GetComponentInParent<Bullet>();
+
+			bullet.OnFire.AddListener(HandleFire);
+			bullet.OnCollide.AddListener(HandleCollision);
 		}
 
+		private void HandleFire()
+		{
+			meshRenderer.enabled = true;
+
+			prevBulletPosition = bullet.transform.position;
+			transform.position = prevBulletPosition;
+		}
+
+		private async void HandleCollision()
+		{
+			await Awaitable.NextFrameAsync();
+			meshRenderer.enabled = false;
+		}
+
+		private Vector3 prevBulletPosition;
 		private void LateUpdate()
 		{
-			transform.position = (bulletTransform.position + previousBulletPosition) / 2f;
-			previousBulletPosition = bulletTransform.position;
+			var pos = bullet.transform.position;
+			transform.position = Vector3.Lerp(pos, prevBulletPosition, 0.5f);
+			prevBulletPosition = pos;
 		}
 	}
 }

@@ -32,6 +32,8 @@ namespace Anaglyph.Lasertag
 
 		public override void OnNetworkSpawn()
 		{
+			EnvironmentMapper.Instance.Clear();
+
 			if (IsOwner)
 			{
 				colocationMethodSync.Value = useKeyboardColocation.Value ?
