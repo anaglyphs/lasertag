@@ -1,9 +1,6 @@
 using Anaglyph.XRTemplate.DepthKit;
 using System.Collections.Generic;
-using Unity.Collections;
 using UnityEngine;
-using UnityEngine.Rendering;
-using UnityEngine.Experimental.Rendering;
 
 namespace Anaglyph.XRTemplate
 {
@@ -95,7 +92,7 @@ namespace Anaglyph.XRTemplate
 				Matrix4x4 view = Shader.GetGlobalMatrixArray(viewID)[0];
 				Matrix4x4 proj = Shader.GetGlobalMatrixArray(projID)[0];
 
-				// ApplyScan(depthTex, view, proj);
+				ApplyScan(depthTex, view, proj);
 			}
 		}
 
@@ -107,12 +104,7 @@ namespace Anaglyph.XRTemplate
 			shader.SetMatrixArray(viewInvID, new[] { view.inverse, Matrix4x4.zero });
 			shader.SetMatrixArray(projInvID, new[] { proj.inverse, Matrix4x4.zero });
 
-			//if (useDepthFrame)
-			//	integrateKernel.Set("depthFrame", depthTex);
-			//else
 			integrateKernel.Set(depthTexID, depthTex);
-
-			//shader.SetBool("useDepthFrame", useDepthFrame);
 
 			integrateKernel.DispatchGroups(frustumVolume.count, 1, 1);
 		}
