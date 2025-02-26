@@ -60,10 +60,6 @@ void Integrate (uint i : SV_DispatchThreadID)
 	float4 voxHCS = agDepthWorldToHCS(voxPos);
 	float3 voxNDC = agDepthHCStoNDC(voxHCS);
 	
-	//float depth;
-	//if (useDepthFrame)
-	//	depth = depthFrame.SampleLevel(linearClampSampler, voxNDC.xy, 0);
-	//else
 	float depth = agDepthSample(voxNDC.xy);
 	
 	float3 depthNDC = float3(voxNDC.xy, depth);
@@ -90,7 +86,7 @@ uniform float rcIntScale;
 RWStructuredBuffer<uint> rcResult;
 Texture3D<half> rcVolume;
 
-half sampleVolume(float3 uvw)
+half sampleDist(float3 uvw)
 {
 	return rcVolume.SampleLevel(linearClampSampler, uvw, 0) * metersPerVoxel;
 }
@@ -105,12 +101,12 @@ void Raycast(uint3 id : SV_DispatchThreadID)
 	for (int i = 0; i < 3; i++)
 	{
 		float3 uvw = worldToVoxelUVW(worldPos);
-		half signedDistance = sampleVolume(uvw);
+		half signedDistance = sampleDist(uvw);
 		worldPos += rcDir * signedDistance;
 	}
 	
 	float3 uvw = worldToVoxelUVW(worldPos);
-	half signedDistance = sampleVolume(uvw);
+	half signedDistance = sampleDist(uvw);
 	
 	float distanceFromCenter = distance(worldPos, rcOrig);
 	uint distFromCenterInt = distanceFromCenter * rcIntScale;

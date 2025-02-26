@@ -39,7 +39,6 @@ namespace Anaglyph.XRTemplate
 		// cached points within viewspace depth frustum 
 		// like a 3D lookup table
 		private ComputeBuffer frustumVolume;
-		// private ComputeBuffer lastIntegration;
 
 		private void Awake()
 		{
