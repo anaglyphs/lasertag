@@ -12,6 +12,10 @@ namespace Anaglyph.XRTemplate
 	{
 		[SerializeField] private InteractorHandedness _handedness;
 		public event Action<InteractorHandedness> OnHandednessChange = delegate { };
+
+		[SerializeField] private XRRayInteractor rayInteractor;
+		public XRRayInteractor RayInteractor => rayInteractor;
+
 		public InteractorHandedness Handedness
 		{
 			get => _handedness;

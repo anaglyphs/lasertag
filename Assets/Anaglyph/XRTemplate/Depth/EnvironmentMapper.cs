@@ -1,9 +1,6 @@
 using Anaglyph.XRTemplate.DepthKit;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.EventSystems;
-using UnityEngine.Rendering;
 
 namespace Anaglyph.XRTemplate
 {
@@ -176,12 +173,15 @@ namespace Anaglyph.XRTemplate
 			}
 		}
 
-		public RaycastResult Raycast(Ray ray, float maxDist)
+		public static bool Raycast(Ray ray, float maxDist, out RaycastResult result)
+			=> Instance.RaycastInternal(ray, maxDist, out result);
+
+		private bool RaycastInternal(Ray ray, float maxDist, out RaycastResult result)
 		{
-			RaycastResult hit = new(ray.origin, 0);
+			result = new(ray.origin, 0);
 
 			if (maxDist == 0)
-				return hit;
+				return false;
 
 			shader.SetVector("rcOrig", ray.origin);
 			shader.SetVector("rcDir", ray.direction);
@@ -196,7 +196,7 @@ namespace Anaglyph.XRTemplate
 			int totalNumSteps = Mathf.RoundToInt(maxDist / metersPerVoxel);
 
 			if (totalNumSteps == 0)
-				return hit;
+				return false;
 
 			raycastKernel.DispatchGroups(totalNumSteps, 1, 1);
 
@@ -211,22 +211,16 @@ namespace Anaglyph.XRTemplate
 			resultBuffer.Release();
 
 			if (hitDistInt >= lengthInt)
-				return hit;
+				return false;
 
 			float hitDist = hitDistInt / RaycastScaleFactor;
 
 			if (hitDist >= maxDist)
-				return hit;
+				return false;
 
-			hit = new(ray.GetPoint(hitDist), hitDist);
-			hit.didHit = true;
-			return hit;
+			result = new(ray.GetPoint(hitDist), hitDist);
+			result.didHit = true;
+			return true;
 		}
-	}
-
-	public static class Environment
-	{
-		public static EnvironmentMapper.RaycastResult Raycast(Ray ray, float maxDist)
-			=> EnvironmentMapper.Instance.Raycast(ray, maxDist);
 	}
 }

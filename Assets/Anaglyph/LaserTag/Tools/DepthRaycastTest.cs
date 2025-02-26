@@ -11,9 +11,8 @@ namespace Anaglyph.Lasertag
 		private void Update()
 		{
 			Ray ray = new Ray(transform.position, transform.forward);
-			var hit = Environment.Raycast(ray, 50f);
-			hitIndicator.gameObject.SetActive(hit.didHit);
-			hitIndicator.position = hit.point;
+			hitIndicator.gameObject.SetActive(EnvironmentMapper.Raycast(ray, 50f, out var result));
+			hitIndicator.position = result.point;
 		}
 	}
 }

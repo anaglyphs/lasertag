@@ -10,14 +10,15 @@ namespace Anaglyph.Lasertag.UI
 
 		private void Awake()
 		{
-			handedButton = GetComponent<HandedButton>();
+			TryGetComponent(out handedButton);
 			handedButton.onClickIsRight.AddListener(OnClick);
 		}
 
 		private void OnClick(bool isRight)
 		{
-			ToolPalette p = isRight ? ToolPalette.Right : ToolPalette.Left;
-			p.OpenSpawnerWithObject(objectToSpawn);
+			var spawner = isRight ? Spawner.Right : Spawner.Left;
+			spawner.gameObject.SetActive(true);
+			spawner.SetObjectToSpawn(objectToSpawn);
 		}
 	}
 }

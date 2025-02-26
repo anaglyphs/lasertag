@@ -55,8 +55,7 @@ namespace Anaglyph.Lasertag
 			AudioSource.PlayClipAtPoint(fireSFX, transform.position);
 
 			fireRay = new(transform.position, transform.forward);
-			var envCast = Environment.Raycast(fireRay, MaxTravelDist);
-			if (envCast.didHit)
+			if (EnvironmentMapper.Raycast(fireRay, MaxTravelDist, out var envCast))
 				if (IsOwner)
 					envHitDist = envCast.distance;
 				else

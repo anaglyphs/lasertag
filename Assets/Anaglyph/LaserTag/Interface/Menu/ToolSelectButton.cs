@@ -5,7 +5,7 @@ namespace Anaglyph.Lasertag.UI
 {
 	public class ToolSelectButton : MonoBehaviour
 	{
-		public int toolIndex;
+		public string objectName;
 		private HandedButton handedButton;
 
 		private void Awake()
@@ -17,7 +17,9 @@ namespace Anaglyph.Lasertag.UI
 		private void OnClick(bool isRight)
 		{
 			ToolPalette p = isRight ? ToolPalette.Right : ToolPalette.Left;
-			p.toolSelector.SetActiveChild(toolIndex);
+
+
+			p.toolSelector.SetActiveChild(p.transform.Find(objectName).GetSiblingIndex());
 		}
 	}
 }
