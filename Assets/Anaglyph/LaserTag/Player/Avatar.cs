@@ -1,3 +1,4 @@
+using Anaglyph.XRTemplate;
 using System;
 using System.Collections.Generic;
 using Unity.Netcode;
@@ -112,6 +113,12 @@ namespace Anaglyph.Lasertag.Networking
 		{
 			HandleBases();
 		}
+
+		//private void LateUpdate()
+		//{
+		//	var origin = MainXROrigin.TrackingSpace;
+		//	transform.setp
+		//}
 
 		[Rpc(SendTo.Everyone)]
 		public void DamageRpc(float damage, ulong damagedBy)

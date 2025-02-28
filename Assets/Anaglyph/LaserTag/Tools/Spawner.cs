@@ -3,6 +3,7 @@ using System;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UIElements;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
 
 namespace Anaglyph.Lasertag
@@ -13,28 +14,27 @@ namespace Anaglyph.Lasertag
 
 		private GameObject objectToSpawn;
 		private GameObject previewObject;
-		private float spawnAngle;
+		private float angle;
 
-		[SerializeField] private ObjectBoundsVisual objectBoundsVisual;
-
-		private LineRenderer lineRenderer;
-		private HandedHierarchy handedness;
+		[SerializeField] private BoundsMesh boundsVisual;
+		[SerializeField] private LineRenderer lineRenderer;
+		
+		private HandedHierarchy hand;
 
 		public static Spawner Left { get; private set; }
 		public static Spawner Right { get; private set; }
 
 		private void Awake()
 		{
-			handedness = GetComponentInParent<HandedHierarchy>(true);
+			hand = GetComponentInParent<HandedHierarchy>(true);
 
-			TryGetComponent(out lineRenderer);
+			if (hand.Handedness == InteractorHandedness.Left)
+				Left = this;
+			else if (hand.Handedness == InteractorHandedness.Right)
+				Right = this;
+
 			lineRenderer.useWorldSpace = false;
 			lineRenderer.SetPositions(new[] { Vector3.zero, Vector3.zero });
-
-			if (handedness.Handedness == InteractorHandedness.Left)
-				Left = this;
-			else if (handedness.Handedness == InteractorHandedness.Right)
-				Right = this;
 		}
 
 		public void SetObjectToSpawn(GameObject objectToSpawn)
@@ -42,41 +42,52 @@ namespace Anaglyph.Lasertag
 			this.objectToSpawn = objectToSpawn;
 
 			if(previewObject != null)
-			{
 				Destroy(previewObject);
-			}
 
 			previewObject = InstantiateObjectAsPreview(objectToSpawn);
 
-			objectBoundsVisual.SetTrackedObject(previewObject);
-			previewObject.SetActive(false);
+			boundsVisual.SetTrackedObject(previewObject);
 		}
 
 		private void Update()
 		{
-			if (previewObject == null) return;
+			lineRenderer.enabled = false;
+			boundsVisual.enabled = false;
+			previewObject.SetActive(false);
 
-			bool hoveringOverUI = handedness.RayInteractor.IsOverUIGameObject();
-			previewObject.SetActive(!hoveringOverUI);
-			if (hoveringOverUI) return;
+			if (previewObject == null)
+			{
+				return;
+			}
 
-			bool raycastDidHit = Raycast(out Vector3 pos);
-			previewObject.SetActive(raycastDidHit);
-			if (!raycastDidHit) return;
+			bool overUI = hand.RayInteractor.IsOverUIGameObject();
+			if(overUI)
+			{
+				return;
+			}
 
-			lineRenderer.SetPosition(1, transform.InverseTransformPoint(pos));
+			lineRenderer.SetPosition(1, Vector3.forward);
+			lineRenderer.enabled = true;
 
-			previewObject.transform.position = pos;
-			previewObject.transform.rotation = Orient();
+			Ray ray = new(transform.position, transform.forward);
+			bool didHit = EnvironmentMapper.Raycast(ray, 50, out var result, true);
+			if(!didHit)
+			{
+				return;
+			}
+
+			previewObject.SetActive(true);
+			boundsVisual.enabled = true;
+
+			previewObject.transform.position = result.point;
+			previewObject.transform.eulerAngles = new(0, angle, 0);
 		}
 
 		private void OnEnable()
 		{
 			Vector3 forw = transform.forward;
 			forw.y = 0;
-			spawnAngle = Vector3.SignedAngle(Vector3.forward, forw, Vector3.up);
-
-			//spawnAngle = 0;
+			angle = Vector3.SignedAngle(Vector3.forward, forw, Vector3.up);
 		}
 		private void OnDisable()
 		{
@@ -87,46 +98,23 @@ namespace Anaglyph.Lasertag
 		private void OnFire(InputAction.CallbackContext context)
 		{
 			if (context.performed && context.ReadValueAsButton())
-				Spawn();
+			{
+				var position = previewObject.transform.position;
+				var rotation = previewObject.transform.rotation;
+
+				NetworkObject.InstantiateAndSpawn(objectToSpawn, NetworkManager.Singleton,
+					position: position, rotation: rotation,
+					ownerClientId: NetworkManager.Singleton.LocalClientId);
+			}
 		}
 
 		private void OnAxis(InputAction.CallbackContext context)
 		{
-			Rotate(context.ReadValue<Vector2>().x);
+			angle += context.ReadValue<Vector2>().x;
 		}
 
-		public void Spawn()
-		{
-			if (handedness.RayInteractor.IsOverUIGameObject()) return;
-			
-			if (!Raycast(out Vector3 position)) return;
+		
 
-			Quaternion rotation = Orient();
-
-			NetworkObject.InstantiateAndSpawn(objectToSpawn, NetworkManager.Singleton,
-				position: position, rotation: rotation,
-				ownerClientId: NetworkManager.Singleton.LocalClientId);
-		}
-
-		private void Rotate(float angle)
-		{
-			if (handedness.RayInteractor.IsOverUIGameObject()) return;
-
-			spawnAngle += angle;
-		}
-
-		private bool Raycast(out Vector3 pos)
-		{
-			Ray ray = new Ray(transform.position, transform.forward);
-			bool didHit = EnvironmentMapper.Raycast(ray, 50, out var result);
-			pos = result.point;
-			return didHit;
-		}
-
-		private Quaternion Orient()
-		{
-			return Quaternion.Euler(0, spawnAngle, 0);
-		}
 
 		private static readonly Type[] blacklistedPreviewComponents = {
 			typeof(MonoBehaviour), typeof(Animator), typeof(Collider), typeof(Rigidbody)

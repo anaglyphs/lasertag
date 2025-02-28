@@ -1,6 +1,4 @@
 using Meta.XR.EnvironmentDepth;
-using System;
-using Unity.Collections;
 using Unity.XR.Oculus;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;

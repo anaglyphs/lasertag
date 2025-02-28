@@ -1,6 +1,7 @@
 using Anaglyph.XRTemplate.DepthKit;
 using System.Collections.Generic;
 using UnityEngine;
+using static UnityEditor.PlayerSettings;
 
 namespace Anaglyph.XRTemplate
 {
@@ -159,13 +160,13 @@ namespace Anaglyph.XRTemplate
 
 		private const float RaycastScaleFactor = 1000f;
 
-		public struct RaycastResult
+		public struct RayResult
 		{
 			public Vector3 point;
 			public float distance;
 			public bool didHit;
 
-			public RaycastResult(Vector3 hitPoint, float distance)
+			public RayResult(Vector3 hitPoint, float distance)
 			{
 				this.point = hitPoint;
 				this.distance = distance;
@@ -173,15 +174,28 @@ namespace Anaglyph.XRTemplate
 			}
 		}
 
-		public static bool Raycast(Ray ray, float maxDist, out RaycastResult result)
-			=> Instance.RaycastInternal(ray, maxDist, out result);
+		public static bool Raycast(Ray ray, float maxDist, out RayResult result, bool fallback = false)
+			=> Instance.RaycastInternal(ray, maxDist, out result, fallback);
 
-		private bool RaycastInternal(Ray ray, float maxDist, out RaycastResult result)
+		private bool RaycastInternal(Ray ray, float maxDist, out RayResult result, bool fallback)
 		{
 			result = new(ray.origin, 0);
-
 			if (maxDist == 0)
 				return false;
+
+			if (!DepthKitDriver.DepthAvailable && fallback)
+			{
+				// floor cast if depth isn't available
+
+				var orig = ray.origin;
+				var dir = ray.direction;
+				Vector2 slope = new Vector2(dir.x, dir.z) / dir.z;
+
+				result.point = new Vector3(slope.x * -orig.y + orig.x, 0, slope.y * -orig.y + orig.z);
+				result.distance = Vector3.Distance(orig, result.point);
+
+				return true;
+			}
 
 			shader.SetVector("rcOrig", ray.origin);
 			shader.SetVector("rcDir", ray.direction);

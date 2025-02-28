@@ -1,65 +1,63 @@
 using Anaglyph.XRTemplate;
-using System.Runtime.CompilerServices;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 namespace Anaglyph.Lasertag
 {
-	[RequireComponent(typeof(Raycaster))]
 	public class Deleter : MonoBehaviour
 	{
-		private Raycaster raycaster;
-		private LineRenderer lineRenderer;
-		[SerializeField] private ObjectBoundsVisual boundsVisual;
-		[SerializeField] private RaycasterCursor cursor;
+		[SerializeField] private BoundsMesh boundsVisual;
+		[SerializeField] private Transform cursor;
+		[SerializeField] LineRenderer lineRenderer;
+		
+		private HandedHierarchy hand;
 
 		private Deletable hoveredDeletable;
 
-		private HandedHierarchy handedness;
-
 		private void Awake()
 		{
-			handedness = GetComponentInParent<HandedHierarchy>(true);
-
-			TryGetComponent(out raycaster);
-			TryGetComponent(out lineRenderer);
-
+			hand = GetComponentInParent<HandedHierarchy>(true);
 
 			lineRenderer.SetPositions(new[] { Vector3.zero, Vector3.zero });
 			lineRenderer.useWorldSpace = false;
-
-
-			raycaster.OnHitObjectChange += HandleHitObjectChange;
 		}
 
 		private void Update()
 		{
-			bool overUI = handedness.RayInteractor.IsOverUIGameObject();
-			cursor.gameObject.SetActive(!overUI);
-			lineRenderer.enabled = !overUI;
+			lineRenderer.enabled = false;
+			boundsVisual.enabled = false;
+			cursor.gameObject.SetActive(false);
 
-			if (overUI) return;
+			bool overUI = hand.RayInteractor.IsOverUIGameObject();
+			if(overUI)
+			{
+				return;
+			}
 
+			lineRenderer.SetPosition(1, Vector3.forward);
+			lineRenderer.enabled = true;
 
-			bool didHit = raycaster.Raycast();
+			Ray ray = new(transform.position, transform.forward);
+			bool didHit = Physics.Raycast(ray, out RaycastHit hitInfo);
+			hoveredDeletable = hitInfo.collider?.GetComponentInParent<Deletable>();
+			
+			if (!didHit || hoveredDeletable == null)
+			{
+				return;
+			}
 
-			cursor.gameObject.SetActive(didHit);
-			if (didHit)
-				lineRenderer.SetPosition(1, Vector3.forward * raycaster.Result.distance);
-			else
-				lineRenderer.SetPosition(1, Vector3.forward);
-		}
+			boundsVisual.enabled = true;
+			cursor.gameObject.SetActive(true);
 
-		private void HandleHitObjectChange(GameObject newObj, GameObject prev)
-		{
-			var hoveredDeletable = newObj?.GetComponentInParent<Deletable>();
-			boundsVisual.SetTrackedObject(newObj);
+			cursor.position = hitInfo.point;
+			lineRenderer.SetPosition(1, Vector3.forward * hitInfo.distance);
+			boundsVisual.SetTrackedObject(hoveredDeletable);
 		}
 
 		private void OnFire(InputAction.CallbackContext context)
 		{
 			if (context.performed && context.ReadValueAsButton())
-				hoveredDeletable.Delete();
+				hoveredDeletable?.Delete();
 		}
 	}
 }

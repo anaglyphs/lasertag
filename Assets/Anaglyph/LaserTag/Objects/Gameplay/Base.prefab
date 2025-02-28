@@ -13,7 +13,6 @@ GameObject:
   - component: {fileID: 6435377189782562929}
   - component: {fileID: 7923053713300863580}
   - component: {fileID: 747991994927016620}
-  - component: {fileID: 2046348258125281854}
   - component: {fileID: 8086672029411800011}
   m_Layer: 0
   m_Name: Base
@@ -50,7 +49,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 3030045214
+  GlobalObjectIdHash: 1192101105
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 5
@@ -61,6 +60,8 @@ MonoBehaviour:
   SpawnWithObservers: 1
   DontDestroyWithOwner: 1
   AutoObjectParentSync: 0
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
 --- !u!114 &6435377189782562929
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -73,6 +74,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e96cb6065543e43c4a752faaa1468eb1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
+  NetworkTransformExpanded: 0
+  AuthorityMode: 0
+  TickSyncChildren: 0
   UseUnreliableDeltas: 0
   SyncPositionX: 1
   SyncPositionY: 1
@@ -90,6 +95,7 @@ MonoBehaviour:
   UseQuaternionCompression: 0
   UseHalfFloatPrecision: 0
   InLocalSpace: 0
+  SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
 --- !u!114 &7923053713300863580
@@ -104,6 +110,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 396faefd5836ae846a4f7c3b09590850, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
   teamOwner: {fileID: 8086672029411800011}
   meshRenderer: {fileID: 1247770579426270712}
 --- !u!114 &747991994927016620
@@ -118,26 +125,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 735876e89ca1df14cbcf5f22d3807ed5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!114 &2046348258125281854
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3063152390251463876}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: de906b0a9e4e02d4cb6ed9ea738b7abe, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  defaultTeam: 0
-  renderers:
-  - {fileID: 1247770579426270712}
-  teamOwner: {fileID: 8086672029411800011}
-  multiply: 1
-  OnColorSet:
-    m_PersistentCalls:
-      m_Calls: []
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!114 &8086672029411800011
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -150,23 +138,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 065fb88f6928a064f86e464bdb1b7956, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
   teamSync:
     m_InternalValue: 0
   OnTeamChange:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2046348258125281854}
-        m_TargetAssemblyTypeName: Anaglyph.Lasertag.TeamColorer, ph.anagly.lasertag
-        m_MethodName: SetColor
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: 
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
 --- !u!1 &3635300645810488308
 GameObject:
   m_ObjectHideFlags: 0
@@ -179,6 +156,7 @@ GameObject:
   - component: {fileID: 4257718847525541838}
   - component: {fileID: 1247770579426270712}
   - component: {fileID: 6823860902925426197}
+  - component: {fileID: 3560656639578262588}
   m_Layer: 0
   m_Name: Mesh
   m_TagString: Untagged
@@ -226,6 +204,9 @@ MeshRenderer:
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 2
   m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -273,3 +254,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: -2432090755550338912, guid: 374f236a4c340d44ba1a9c2d54df7979, type: 3}
+--- !u!114 &3560656639578262588
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3635300645810488308}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de906b0a9e4e02d4cb6ed9ea738b7abe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  defaultTeam: 0
+  multiply: 1
+  OnColorSet:
+    m_PersistentCalls:
+      m_Calls: []

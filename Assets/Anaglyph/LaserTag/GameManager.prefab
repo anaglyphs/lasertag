@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 2338726735730229642}
   - component: {fileID: 3319629619306386294}
   - component: {fileID: 8282663135494968696}
+  - component: {fileID: 1319307689243415292}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -46,7 +47,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   GlobalObjectIdHash: 1312824599
-  InScenePlacedSourceGlobalObjectIdHash: 0
+  InScenePlacedSourceGlobalObjectIdHash: 3585226305
   DeferredDespawnTick: 0
   Ownership: 8
   AlwaysReplicateAsRoot: 0
@@ -72,3 +73,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
   useKeyboardColocation: {fileID: 11400000, guid: 47b47a4c1dcf98e4a9c4022fa9722c2b, type: 2}
+--- !u!114 &1319307689243415292
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 325363287343033227}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 858eafa75daee0d418ca2674299e4eca, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1

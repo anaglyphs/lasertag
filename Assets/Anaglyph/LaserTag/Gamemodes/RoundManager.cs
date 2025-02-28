@@ -1,4 +1,3 @@
-using Anaglyph.Lasertag.Networking;
 using System;
 using System.Collections;
 using Unity.Netcode;
@@ -36,6 +35,21 @@ namespace Anaglyph.Lasertag
 
 		public bool CheckWinByTimer() => winCondition.HasFlag(WinCondition.Timer);
 		public bool CheckWinByPoints() => winCondition.HasFlag(WinCondition.ReachScore);
+
+		public static RoundSettings Default()
+		{
+			return new()
+			{
+				teams = true,
+				respawnInBases = true,
+
+				pointsPerKill = 1,
+				pointsPerSecondHoldingPoint = 1,
+
+				winCondition = WinCondition.Timer,
+				timerSeconds = 60 * 5,
+			};
+		}
 	}
 
 	public class RoundManager : NetworkBehaviour
@@ -63,25 +77,11 @@ namespace Anaglyph.Lasertag
 		public static RoundSettings ActiveSettings => Instance.activeSettingsSync.Value;
 
 		public static event Action<RoundState, RoundState> OnRoundStateChange = delegate { };
-		public static event Action OnNotPlaying = delegate { };
-		public static event Action OnQueued = delegate { };
-		public static event Action OnCountdown = delegate { };
-		public static event Action OnPlaying = delegate { };
-		public static event Action OnPlayEnd = delegate { };
-		public static event Action OnBecomeMaster = delegate { };
-		public static event Action OnLoserMaster = delegate { };
 
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
 		private static void OnApplicationInit()
 		{
 			OnRoundStateChange = delegate { };
-			OnNotPlaying = delegate { };
-			OnQueued = delegate { };
-			OnCountdown = delegate { };
-			OnPlaying = delegate { };
-			OnPlayEnd = delegate { };
-			OnBecomeMaster = delegate { };
-			OnLoserMaster = delegate { };
 		}
 
 		private void OwnerCheck()
@@ -100,6 +100,7 @@ namespace Anaglyph.Lasertag
 			teamScoresSync[2] = team2ScoreSync;
 
 			roundStateSync.OnValueChanged += OnStateUpdateLocally;
+			roundStateSync.OnValueChanged += OnRoundStateChange.Invoke;
 
 			OnStateUpdateLocally(RoundState.NotPlaying, RoundState.NotPlaying);
 		}
@@ -119,13 +120,9 @@ namespace Anaglyph.Lasertag
 
 		private void OnStateUpdateLocally(RoundState prev, RoundState state)
 		{
-			OnRoundStateChange.Invoke(prev, state);
-
 			switch (state)
 			{
 				case RoundState.NotPlaying:
-					OnNotPlaying();
-					if (prev == RoundState.Playing) OnPlayEnd();
 
 					MainPlayer.Instance.Respawn();
 					MainPlayer.Instance.currentRole.ReturnToBaseOnDie = false;
@@ -134,17 +131,13 @@ namespace Anaglyph.Lasertag
 
 				case RoundState.Queued:
 
-					OnQueued();
-
 					break;
 
 				case RoundState.Countdown:
 
-					OnCountdown();
 					break;
 
 				case RoundState.Playing:
-					OnPlaying();
 
 					MainPlayer.Instance.Respawn();
 					MainPlayer.Instance.currentRole.ReturnToBaseOnDie = ActiveSettings.respawnInBases;
@@ -155,15 +148,12 @@ namespace Anaglyph.Lasertag
 
 		public override void OnGainedOwnership()
 		{
-			OnBecomeMaster.Invoke();
-
 			if(RoundState == RoundState.Playing)
 				SubscribeToEvents();
 		}
 
 		public override void OnLostOwnership()
 		{
-			OnLoserMaster.Invoke();
 			UnsubscribeFromEvents();
 		}
 
@@ -278,8 +268,6 @@ namespace Anaglyph.Lasertag
 
 				yield return null;
 			}
-
-			//yield return new WaitForSeconds(ActiveSettings.timerSeconds);
 
 			EndGameOwnerRpc();
 		}
