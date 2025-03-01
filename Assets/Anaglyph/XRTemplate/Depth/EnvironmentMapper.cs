@@ -1,7 +1,6 @@
 using Anaglyph.XRTemplate.DepthKit;
 using System.Collections.Generic;
 using UnityEngine;
-using static UnityEditor.PlayerSettings;
 
 namespace Anaglyph.XRTemplate
 {

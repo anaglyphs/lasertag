@@ -1,4 +1,3 @@
-using Anaglyph.XRTemplate;
 using System;
 using System.Collections.Generic;
 using Unity.Netcode;
@@ -74,7 +73,7 @@ namespace Anaglyph.Lasertag.Networking
 			if (IsOwner)
 			{
 				isAliveSync.Value = true;
-				MainPlayer.Instance.networkPlayer = this;
+				MainPlayer.Instance.avatar = this;
 			}
 
 			AllPlayers.Add(OwnerClientId, this);

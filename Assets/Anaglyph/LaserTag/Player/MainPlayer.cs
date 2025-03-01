@@ -24,7 +24,7 @@ namespace Anaglyph.Lasertag
 		public UnityEvent<bool> onAliveChange = new();
 		public UnityEvent onTakeDamage = new();
 
-		[NonSerialized] public Networking.Avatar networkPlayer;
+		[NonSerialized] public Networking.Avatar avatar;
 
 		[SerializeField] private Transform headTransform;
 		[SerializeField] private Transform leftHandTransform;
@@ -65,12 +65,12 @@ namespace Anaglyph.Lasertag
 
 			WeaponsManagement.canFire = false;
 
-			networkPlayer.isAliveSync.Value = false;
+			avatar.isAliveSync.Value = false;
 
 			IsAlive = false;
 			Health = 0;
 			RespawnTimerSeconds = currentRole.RespawnTimeoutSeconds;
-			networkPlayer.KilledByPlayerRpc(killedBy);
+			avatar.KilledByPlayerRpc(killedBy);
 
 			onAliveChange.Invoke(false);
 			onDie.Invoke();
@@ -84,8 +84,8 @@ namespace Anaglyph.Lasertag
 
 			WeaponsManagement.canFire = true;
 
-			if (networkPlayer != null)
-				networkPlayer.isAliveSync.Value = true;
+			if (avatar != null)
+				avatar.isAliveSync.Value = true;
 
 			IsAlive = true;
 			Health = currentRole.MaxHealth;
@@ -140,7 +140,7 @@ namespace Anaglyph.Lasertag
 			IsInFriendlyBase = false;
 			foreach (Base b in Base.AllBases)
 			{
-				if (b.Team != networkPlayer.Team)
+				if (b.Team != avatar.Team)
 					continue;
 
 				if (!Geo.PointIsInCylinder(b.transform.position, Base.Radius, 3, headTransform.position))
@@ -151,11 +151,11 @@ namespace Anaglyph.Lasertag
 			}
 
 			// network player transforms
-			if (networkPlayer != null)
+			if (avatar != null)
 			{
-				networkPlayer.HeadTransform.SetWorldPose(headTransform.GetWorldPose());
-				networkPlayer.LeftHandTransform.SetWorldPose(leftHandTransform.GetWorldPose());
-				networkPlayer.RightHandTransform.SetWorldPose(rightHandTransform.GetWorldPose());
+				avatar.HeadTransform.SetWorldPose(headTransform.GetWorldPose());
+				avatar.LeftHandTransform.SetWorldPose(leftHandTransform.GetWorldPose());
+				avatar.RightHandTransform.SetWorldPose(rightHandTransform.GetWorldPose());
 				//networkPlayer.TorsoTransform.SetFrom(torsoTransform);
 			}
 		}
