@@ -78,12 +78,6 @@ namespace Anaglyph.Lasertag
 
 		public static event Action<RoundState, RoundState> OnRoundStateChange = delegate { };
 
-		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-		private static void OnApplicationInit()
-		{
-			OnRoundStateChange = delegate { };
-		}
-
 		private void OwnerCheck()
 		{
 			if(!IsOwner) throw new Exception(NotOwnerExceptionMessage);
@@ -98,9 +92,14 @@ namespace Anaglyph.Lasertag
 			teamScoresSync[0] = team0ScoreSync;
 			teamScoresSync[1] = team1ScoreSync;
 			teamScoresSync[2] = team2ScoreSync;
+		}
 
+		public override void OnNetworkSpawn()
+		{
+			if (IsOwner)
+				roundStateSync.Value = RoundState.NotPlaying;
+			
 			roundStateSync.OnValueChanged += OnStateUpdateLocally;
-			roundStateSync.OnValueChanged += OnRoundStateChange.Invoke;
 
 			OnStateUpdateLocally(RoundState.NotPlaying, RoundState.NotPlaying);
 		}
@@ -109,12 +108,12 @@ namespace Anaglyph.Lasertag
 		{
 			if (!IsSpawned) return;
 
-			Networking.Avatar mainNetworkPlayer = MainPlayer.Instance.networkPlayer;
+			Networking.Avatar avatar = MainPlayer.Instance.avatar;
 
-			if (RoundState == RoundState.NotPlaying || RoundState == RoundState.Queued || mainNetworkPlayer.Team == 0) {
+			if (RoundState == RoundState.NotPlaying || RoundState == RoundState.Queued || avatar.Team == 0) {
 				
-				if (mainNetworkPlayer.IsInBase)
-					mainNetworkPlayer.TeamOwner.teamSync.Value = mainNetworkPlayer.InBase.Team;
+				if (avatar.IsInBase)
+					avatar.TeamOwner.teamSync.Value = avatar.InBase.Team;
 			}
 		}
 
@@ -144,6 +143,8 @@ namespace Anaglyph.Lasertag
 
 					break;
 			}
+
+			OnRoundStateChange.Invoke(prev, state);
 		}
 
 		public override void OnGainedOwnership()
@@ -165,6 +166,7 @@ namespace Anaglyph.Lasertag
 
 		public override void OnNetworkDespawn()
 		{
+			OnStateUpdateLocally(roundStateSync.Value, RoundState.NotPlaying);
 			UnsubscribeFromEvents();
 		}
 
@@ -196,7 +198,7 @@ namespace Anaglyph.Lasertag
 							numPlayersInbase++;
 					}
 
-					if (numPlayersInbase == Networking.Avatar.AllPlayers.Count)
+					if (numPlayersInbase != 0 && numPlayersInbase == Networking.Avatar.AllPlayers.Count)
 						roundStateSync.Value = RoundState.Countdown;
 
 				} else

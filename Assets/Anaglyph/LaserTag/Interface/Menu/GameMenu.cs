@@ -24,12 +24,22 @@ namespace Anaglyph.Lasertag
 			startButton.onClick.AddListener(StartGame);
 
 			playingPage.showBackButton = false;
-			cancelButton.onClick.AddListener(RoundManager.Instance.EndGameOwnerRpc);
+			cancelButton.onClick.AddListener(EndGame);
+		}
+
+		private void OnDestroy()
+		{
+			RoundManager.OnRoundStateChange -= HandleStateChange;
 		}
 
 		private void StartGame()
 		{
 			RoundManager.Instance?.QueueStartGameOwnerRpc(RoundSettings.Default());
+		}
+
+		private void EndGame()
+		{
+			RoundManager.Instance?.EndGameOwnerRpc();
 		}
 
 		private void HandleStateChange(RoundState prev, RoundState state)
