@@ -268,11 +268,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1264327728285245068, guid: babefde94bd6ded44b50c9be528ca019, type: 3}
       propertyPath: m_Text
-      value: Host over a relay server
+      value: Host through relay server
       objectReference: {fileID: 0}
     - target: {fileID: 2715429596210558130, guid: babefde94bd6ded44b50c9be528ca019, type: 3}
       propertyPath: m_Name
-      value: Host over a relay server
+      value: Host through relay server
       objectReference: {fileID: 0}
     - target: {fileID: 2715429596210558130, guid: babefde94bd6ded44b50c9be528ca019, type: 3}
       propertyPath: m_IsActive
@@ -491,8 +491,9 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8745655936492411677, guid: b7cfb477b0273f247ad77433f15655e8, type: 3}
       propertyPath: m_Text
-      value: By default, players connect over the local network. If people are having
-        issues connecting, you can use a relay server to bridge connections.
+      value: By default, players connect over the local network, but company and
+        school networks can cause issues. If people are having issues connecting,
+        you can use a relay server to bridge connections.
       objectReference: {fileID: 0}
     - target: {fileID: 8745655936492411677, guid: b7cfb477b0273f247ad77433f15655e8, type: 3}
       propertyPath: m_FontData.m_MinSize

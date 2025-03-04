@@ -249,8 +249,8 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1817936151310235978}
   m_HandleRect: {fileID: 8824759528110485111}
   m_Direction: 2
-  m_Value: 1.0000008
-  m_Size: 0.8502024
+  m_Value: 1
+  m_Size: 0.77777773
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -957,57 +957,30 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: '<b>Headsets don''t connect automatically</b>
-
-    Make sure all of the
-    headsets are on the same WiFi network! Enterprise networks will likely put headsets
-    on separate sub-networks preventing connection. If you''re having issues hosting
-    a game on your WiFi network, try hosting it from a phone or PC hotspot instead.
-
-
-    <b>"You''ve
-    moved too far" message</b>
-
-    If you play in a large space, your headset may
-    tell you that you''ve ''moved too far.'' You can disable this message by turning
-    off ''physical space features.'' <i>System Settings > Advanced > Enable custom
-    [developer] settings ON > Physical space features OFF</i>
-
-
-    <b>Bullets hitting
-    invisible things or passing trough objects</b>
-
-    The game automatically scans
-    your environment as you walk around. This scan only goes up to head level, so
-    it won''t scan ceilings or surfaces above you. It also doesn''t support multiple
-    floors, so you can''t play through areas that overlap vertically! Make sure to
-    play in a mostly level space with few overhangs. You can turn on ''Debug Mode''
-    in settings to see how the scan works with your environment.
-
-
-    <b>Stuck on
-    ''colocating''</b>
-
-    Colocation refers to calibrating the positions of virtual
-    avatars with their real players. If you''re having issues with colocation, try
-    hosting with with ''keyboard colocation'' enabled in game settings. <b>You must
+  m_Text: "<b>Headsets don't connect automatically</b>\nMake sure all of the headsets
+    are on the same WiFi network! Company and school networks will likely cause issues.
+    \n\nIf you're having issues, try using the 'host through relay server' option.
+    Only use this if you really need to though, as we have limited bandwidth before
+    we need to start paying :)\n\n<b>\"You've moved too far\" message</b>\nIf you
+    play in a large space, your headset may tell you that you've 'moved too far.'
+    You can disable this message by turning off 'physical space features.' <i>System
+    Settings > Advanced > Enable custom [developer] settings ON > Physical space
+    features OFF</i>\n\n<b>Bullets hitting invisible things or passing trough objects</b>\nThe
+    game automatically scans your environment as you walk around. This scan only
+    goes up to head level, so it won't scan ceilings or surfaces above you. It also
+    doesn't support multiple floors, so you can't play through areas that overlap
+    vertically! Make sure to play in a mostly level space with few overhangs. You
+    can turn on 'Debug Mode' in settings to see how the scan works with your environment.\n\n<b>Stuck
+    on 'colocating'</b>\nColocation refers to calibrating the positions of virtual
+    avatars with their real players. If you're having issues with colocation, try
+    hosting with with 'keyboard colocation' enabled in game settings. <b>You must
     also turn on system keyboard tracking on each headset to use this. It is disabled
     by default in system settings!!!</b> <i>System settings > Devices > Keyboard
-    > Show my keyboard ON</i>
-
-
-    <b>Video recordings randomly turn black</b>
-
-    The
-    red filter applied when taking damage while ''physical space features'' is off
-    can cause this. You can turn off the red filter in game graphics settings.
-
-
-    <b>Player
-    heads dislocate over time</b>
-
-    I need to find ways to mitigate this. For
-    now, reconnect or rehost the game while standing where you originally started.'
+    > Show my keyboard ON</i>\n\n<b>Video recordings randomly turn black</b>\nThe
+    red filter applied when taking damage while 'physical space features' is off
+    can cause this. You can turn off the red filter in game graphics settings.\n\n<b>Player
+    heads dislocate over time</b>\nI need to find ways to mitigate this. For now,
+    reconnect or rehost the game while standing where you originally started."
 --- !u!1 &5233306342426459601
 GameObject:
   m_ObjectHideFlags: 0
@@ -1220,7 +1193,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 7408530325668810801}
   m_Direction: 2
   m_Value: 1
-  m_Size: 0.34035653
+  m_Size: 0.29166666
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
