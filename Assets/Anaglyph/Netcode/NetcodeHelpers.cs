@@ -1,3 +1,4 @@
+using System.Net;
 using Unity.Netcode;
 
 namespace Anaglyph.Netcode
@@ -14,6 +15,20 @@ namespace Anaglyph.Netcode
 		{
 			return data.EventType == ConnectionEvent.ClientDisconnected &&
 				data.ClientId == NetworkManager.Singleton.LocalClientId;
+		}
+
+		public static string GetLocalIPv4()
+		{
+			var addresses = Dns.GetHostEntry(Dns.GetHostName()).AddressList;
+			foreach (var address in addresses)
+			{
+				if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+				{
+					return address.ToString();
+				}
+			}
+
+			return null;
 		}
 	}
 

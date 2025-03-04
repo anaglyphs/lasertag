@@ -53,7 +53,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public static void TransformTrackingSpace(Pose fromPose, Pose toPose)
 		{
-			Transform r = MainXROrigin.TrackingSpace;
+			Transform r = MainXROrigin.Transform;
 			Matrix4x4 rigMat = Matrix4x4.TRS(r.position, r.rotation, Vector3.one);
 			Matrix4x4 desiredMat = Matrix4x4.TRS(toPose.position, toPose.rotation, Vector3.one);
 			Matrix4x4 anchorMat = Matrix4x4.TRS(fromPose.position, fromPose.rotation, Vector3.one);
@@ -72,7 +72,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			targetForward.Normalize();
 			Quaternion targetRigRot = Quaternion.LookRotation(targetForward, Vector3.up);
 
-			MainXROrigin.TrackingSpace.SetPositionAndRotation(targetRigPos, targetRigRot);
+			MainXROrigin.Transform.SetPositionAndRotation(targetRigPos, targetRigRot);
 		}
 	}
 }

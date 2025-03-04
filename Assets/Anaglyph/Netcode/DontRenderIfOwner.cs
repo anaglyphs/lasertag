@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Anaglyph.Netcode
 {
-    public class InvisibleIfOwner : NetworkBehaviour
+    public class DontRenderIfOwner : NetworkBehaviour
     {
 		[SerializeField] private new Renderer renderer;
 

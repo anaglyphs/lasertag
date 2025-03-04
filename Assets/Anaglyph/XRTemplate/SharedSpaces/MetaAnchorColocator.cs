@@ -56,7 +56,11 @@ namespace Anaglyph.SharedSpaces
 
 		public async void Colocate()
 		{
-			if (NetworkManager.Singleton.IsHost)
+			var findInactive = FindObjectsInactive.Include;
+			var sortMode = FindObjectsSortMode.None;
+			NetworkedAnchor[] allAnchors = FindObjectsByType<NetworkedAnchor>(findInactive, sortMode);
+
+			if (allAnchors.Length == 0)
 			{
 				SpawnPrefab();
 
@@ -81,7 +85,7 @@ namespace Anaglyph.SharedSpaces
 			}
 			else
 			{
-				MainXROrigin.TrackingSpace.position = new Vector3(0, 1000, 0);
+				MainXROrigin.Transform.position = new Vector3(0, 1000, 0);
 			}
 		}
 

@@ -42,7 +42,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public void Colocate()
 		{
-			MainXROrigin.TrackingSpace.position = new Vector3(0, 1000, 0);
+			MainXROrigin.Transform.position = new Vector3(0, 1000, 0);
 			FindKeyboard();
 		}
 
@@ -110,7 +110,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (!finding)
 				return;
 
-			Transform trackingSpace = MainXROrigin.TrackingSpace;
+			Transform trackingSpace = MainXROrigin.Transform;
 			Pose keyboardPose = new Pose();
 			keyboardPose.position = trackingSpace.TransformPoint(ovrPose.Position.Value);
 			keyboardPose.rotation = trackingSpace.transform.rotation * ovrPose.Rotation.Value;

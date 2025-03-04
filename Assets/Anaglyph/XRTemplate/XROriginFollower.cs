@@ -1,24 +1,16 @@
-using Unity.XR.CoreUtils;
 using UnityEngine;
 
 namespace Anaglyph.XRTemplate
 {
     public class XROriginFollower : MonoBehaviour
     {
-		private Transform xrFloorOffsetTransform;
-		private void OnEnable()
-		{
-			xrFloorOffsetTransform = FindFirstObjectByType<XROrigin>().CameraFloorOffsetObject.transform;
-		}
+		private void Update() => UpdateTransform();
+		private void LateUpdate() => UpdateTransform();
 
-		private void LateUpdate()
+		private void UpdateTransform()
 		{
-			transform.SetPositionAndRotation(xrFloorOffsetTransform.position, xrFloorOffsetTransform.rotation);
-		}
-
-		public void ResetRigPos()
-		{
-			xrFloorOffsetTransform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+			var t = MainXROrigin.Transform;
+			transform.SetPositionAndRotation(t.position, t.rotation);
 		}
 	}
 }

@@ -83,9 +83,22 @@ namespace Anaglyph.SharedSpaces
 
 		private void HostingStarted()
 		{
-			string address = transport.ConnectionData.Address;
-			Log($"Starting advertisement {address}");
-			OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(address));
+			string message = "";
+
+			switch(transport.Protocol)
+			{
+				case UnityTransport.ProtocolType.UnityTransport:
+					string address = transport.ConnectionData.Address;
+					message = $"IP:{address}";
+					break;
+
+				case UnityTransport.ProtocolType.RelayUnityTransport:
+					
+					break;
+			}
+
+			Log($"Starting advertisement {message}");
+			OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(message));
 		}
 
 		private void HostingStopped()

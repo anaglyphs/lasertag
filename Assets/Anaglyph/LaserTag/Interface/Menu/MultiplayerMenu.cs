@@ -2,7 +2,6 @@ using Anaglyph.Menu;
 using Anaglyph.Netcode;
 using Anaglyph.SharedSpaces;
 using Anaglyph.XRTemplate.SharedSpaces;
-using System.Net;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
@@ -71,7 +70,7 @@ namespace Anaglyph.Lasertag
 			// manually connect page
 			manuallyConnectPage.showBackButton = true;
 
-			string ip = GetLocalIPv4();
+			string ip = NetcodeHelpers.GetLocalIPv4();
 			int length = Mathf.Min(ip.Length, ip.LastIndexOf('.') + 1);
 			ipField.text = ip.Substring(0, length);
 
@@ -157,7 +156,7 @@ namespace Anaglyph.Lasertag
 		private void Host()
 		{
 			manager.Shutdown();
-			transport.ConnectionData.Address = GetLocalIPv4();
+			transport.ConnectionData.Address = NetcodeHelpers.GetLocalIPv4();
 			manager.StartHost();
 		}
 
@@ -172,16 +171,6 @@ namespace Anaglyph.Lasertag
 		{
 			homePage.NavigateHere();
 			manager.Shutdown();
-		}
-
-		private string GetLocalIPv4()
-		{
-			var addresses = Dns.GetHostEntry(Dns.GetHostName()).AddressList;
-			foreach(var address in addresses)
-				if(address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-					return address.ToString();
-
-			return null;
 		}
 	}
 }
