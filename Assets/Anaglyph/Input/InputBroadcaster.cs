@@ -11,7 +11,7 @@ namespace Anaglyph.Input
 		{
 			foreach (InputAction action in actionMap.actions)
 			{
-				action.performed += OnActionTriggered;
+				action.started += OnActionTriggered;
 				action.performed += OnActionTriggered;
 				action.canceled += OnActionTriggered;
 			}

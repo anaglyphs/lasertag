@@ -1,3 +1,4 @@
+using System;
 using System.Net;
 using System.Threading.Tasks;
 using Unity.Netcode;
@@ -6,12 +7,10 @@ using Unity.Services.Authentication;
 using Unity.Services.Core;
 using Unity.Services.Relay;
 using Unity.Services.Relay.Models;
-using UnityEditor.Networking.PlayerConnection;
-using UnityEngine;
 
 namespace Anaglyph.Netcode
 {
-	public static class NetworkManagerExtensions
+	public static class NetworkHelper
 	{
 		public static ushort port = 7777;
 		public static string contyp = "dtls";
@@ -19,9 +18,10 @@ namespace Anaglyph.Netcode
 		private static NetworkManager manager => NetworkManager.Singleton;
 		private static UnityTransport transport;
 
-		public static async void StartHost(this NetworkManager manager, bool useRelay)
+		public static Guid allocationId { get; private set; }
+
+		public static async void StartHost(bool useRelay)
 		{
-			manager.Shutdown();
 			AssignTransport();
 
 			if (useRelay)
@@ -29,6 +29,7 @@ namespace Anaglyph.Netcode
 				await SetupServices();
 
 				Allocation allocation = await RelayService.Instance.CreateAllocationAsync(20);
+				allocationId = allocation.AllocationId;
 
 				transport.SetRelayServerData(allocation.ToRelayServerData(contyp));
 			}
@@ -51,19 +52,18 @@ namespace Anaglyph.Netcode
 			StartHost();
 		}
 
-		public static void StartClientWithIP(this NetworkManager manager, string ip)
+		public static void StartClientWithIP(string ip)
 		{
 			AssignTransport();
-			manager.Shutdown();
 			
 			transport.SetConnectionData(ip, port);
-			manager.StartClient();
+
+			StartClient();
 		}
 
-		public static async void StartClientWithRelayCode(this NetworkManager manager, string code)
+		public static async void StartClientWithRelayCode(string code)
 		{
 			AssignTransport();
-			manager.Shutdown();
 
 			await SetupServices();
 
@@ -74,10 +74,9 @@ namespace Anaglyph.Netcode
 			StartClient();
 		}
 
-
 		private static void AssignTransport()
 		{
-			if (transport != null)
+			if (transport == null)
 				manager.TryGetComponent(out transport);
 		}
 

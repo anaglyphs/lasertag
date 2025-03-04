@@ -1,6 +1,10 @@
+using Anaglyph.Netcode;
+using System;
 using System.Text;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
+using Unity.Networking.Transport.Relay;
+using Unity.Services.Relay;
 using UnityEngine;
 
 namespace Anaglyph.SharedSpaces
@@ -14,6 +18,9 @@ namespace Anaglyph.SharedSpaces
 
 		private static string LogHeader = "[AutoJoiner] ";
 		private static void Log(string str) => Debug.Log(LogHeader + str);
+
+		private static string IPPrefix = "IP:";
+		private static string RelayPrefix = "Relay:";
 
 		private void Start()
 		{
@@ -81,7 +88,7 @@ namespace Anaglyph.SharedSpaces
 			}
 		}
 
-		private void HostingStarted()
+		private async void HostingStarted()
 		{
 			string message = "";
 
@@ -89,16 +96,18 @@ namespace Anaglyph.SharedSpaces
 			{
 				case UnityTransport.ProtocolType.UnityTransport:
 					string address = transport.ConnectionData.Address;
-					message = $"IP:{address}";
+					message = IPPrefix + address;
 					break;
 
 				case UnityTransport.ProtocolType.RelayUnityTransport:
-					
+					Guid allocationId = NetworkHelper.allocationId;
+					var joinCode = await RelayService.Instance.GetJoinCodeAsync(allocationId);
+					message = RelayPrefix + joinCode;
 					break;
 			}
 
 			Log($"Starting advertisement {message}");
-			OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(message));
+			await OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(message));
 		}
 
 		private void HostingStopped()
@@ -121,10 +130,16 @@ namespace Anaglyph.SharedSpaces
 
 		private void HandleColocationSessionDiscovered(OVRColocationSession.Data data)
 		{
-			string address = Encoding.ASCII.GetString(data.Metadata);
-			Log($"Discovered {address}");
-			transport.ConnectionData.Address = address;
-			manager.StartClient();
+			string message = Encoding.ASCII.GetString(data.Metadata);
+			Log($"Discovered {message}");
+
+			if(message.StartsWith(IPPrefix))
+			{
+				NetworkHelper.StartClientWithIP(message.Remove(0, IPPrefix.Length));
+			} else if(message.StartsWith(RelayPrefix))
+			{
+				NetworkHelper.StartClientWithRelayCode(message.Remove(0, RelayPrefix.Length));
+			}
 		}
 	}
 }

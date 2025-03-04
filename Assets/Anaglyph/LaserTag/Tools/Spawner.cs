@@ -14,6 +14,7 @@ namespace Anaglyph.Lasertag
 
 		private GameObject objectToSpawn;
 		private GameObject previewObject;
+		private float rotating;
 		private float angle;
 
 		[SerializeField] private BoundsMesh boundsVisual;
@@ -51,6 +52,8 @@ namespace Anaglyph.Lasertag
 
 		private void Update()
 		{
+			angle += rotating * Time.deltaTime * rotateSpeed;
+
 			lineRenderer.enabled = false;
 			boundsVisual.enabled = false;
 			previewObject.SetActive(false);
@@ -110,7 +113,7 @@ namespace Anaglyph.Lasertag
 
 		private void OnAxis(InputAction.CallbackContext context)
 		{
-			angle += context.ReadValue<Vector2>().x;
+			rotating = -context.ReadValue<Vector2>().x;
 		}
 
 		

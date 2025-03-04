@@ -6,6 +6,7 @@ using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
 using UnityEngine.UI;
+using VariableObjects;
 
 namespace Anaglyph.Lasertag
 {
@@ -20,6 +21,8 @@ namespace Anaglyph.Lasertag
 
 		private NetworkManager manager;
 		private UnityTransport transport;
+
+		[SerializeField] private BoolObject useUnityRelayService;
 
 		[SerializeField] private NavPagesParent navView;
 
@@ -77,7 +80,7 @@ namespace Anaglyph.Lasertag
 #if UNITY_EDITOR
 			ipField.text = "127.0.0.1";
 #endif
-			connectButton.onClick.AddListener(() => Join(ipField.text));
+			connectButton.onClick.AddListener(() => NetworkHelper.StartClientWithIP(ip));
 
 			// connecting page
 			sessionPage.showBackButton = false;
@@ -155,16 +158,7 @@ namespace Anaglyph.Lasertag
 
 		private void Host()
 		{
-			manager.Shutdown();
-			transport.ConnectionData.Address = NetcodeHelpers.GetLocalIPv4();
-			manager.StartHost();
-		}
-
-		private void Join(string ip)
-		{
-			manager.Shutdown();
-			transport.ConnectionData.Address = ip;
-			manager.StartClient();
+			NetworkHelper.StartHost(useUnityRelayService.Value);
 		}
 
 		private void Disconnect()
