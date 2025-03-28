@@ -30,7 +30,7 @@ namespace Anaglyph.Lasertag
 				Current = this;
 		}
 
-		public override void OnNetworkSpawn()
+		protected override void OnNetworkPostSpawn()
 		{
 			EnvironmentMapper.Instance.Clear();
 

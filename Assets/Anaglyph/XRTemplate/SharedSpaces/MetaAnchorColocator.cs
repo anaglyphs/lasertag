@@ -11,7 +11,6 @@ namespace Anaglyph.SharedSpaces
 {
 	public class MetaAnchorColocator : IColocator
 	{
-		private NetworkedAnchor networkedAnchor;
 		private bool colocationActive;
 
 		private static bool _isColocated;
@@ -49,7 +48,7 @@ namespace Anaglyph.SharedSpaces
 
 				GameObject prefab = Resources.Load<GameObject>("Networked Colocation Anchor");
 				GameObject g = GameObject.Instantiate(prefab, spawnPos, spawnRot);
-				g.TryGetComponent(out networkedAnchor);
+				g.TryGetComponent(out NetworkedAnchor networkedAnchor);
 				networkedAnchor.NetworkObject.Spawn();
 
 				// try to bind with an existing saved anchor
@@ -111,9 +110,6 @@ namespace Anaglyph.SharedSpaces
 		{
 			colocationActive = false;
 			IsColocated = false;
-
-			if (networkedAnchor != null && networkedAnchor.IsSpawned)
-				networkedAnchor.NetworkObject.Despawn();
 		}
 	}
 }
