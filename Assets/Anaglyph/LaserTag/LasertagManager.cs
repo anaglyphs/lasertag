@@ -43,11 +43,11 @@ namespace Anaglyph.Lasertag
 			switch (colocationMethodSync.Value)
 			{
 				case ColocationMethod.Automatic:
-					Colocation.SetActiveColocator(MetaAnchorColocator.Instance);
+					Colocation.SetActiveColocator(new MetaAnchorColocator());
 					break;
 
 				case ColocationMethod.TrackedKeyboard:
-					Colocation.SetActiveColocator(MetaTrackableColocator.Instance);
+					Colocation.SetActiveColocator(new MetaTrackableColocator());
 					break;
 			}
 

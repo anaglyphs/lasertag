@@ -3,9 +3,10 @@ using AprilTag;
 using System;
 using System.Collections.Generic;
 using UnityEngine.XR;
-using EnvisionCenter.XRTemplate.DisplayCapture.AprilTags;
+using Anaglyph.XRTemplate.CameraReader.AprilTags;
+using Anaglyph.XRTemplate.CameraReader;
 
-namespace EnvisionCenter.XRTemplate.QuestCV
+namespace Anaglyph.XRTemplate.QuestCV
 {
 	[DefaultExecutionOrder(-1000)]
 	public class AprilTagTracker : MonoBehaviour
@@ -14,11 +15,9 @@ namespace EnvisionCenter.XRTemplate.QuestCV
 
 		private TagDetector detector;
 
-		public float horizontalFovDeg = 82f;
 		public float tagSizeMeters = 0.12f;
-		[SerializeField] private int decimation = 4;
 
-		private Texture2D texture;
+		private Texture2D tex;
 
 		private List<TagPose> worldPoses = new(10);
 		public IEnumerable<TagPose> WorldPoses => worldPoses;
@@ -29,18 +28,17 @@ namespace EnvisionCenter.XRTemplate.QuestCV
 		private void Awake()
 		{
 			Instance = this;
-			detector = new TagDetector(1024, 1024, decimation);
 		}
 
 		private void OnEnable()
 		{
-			// DisplayCaptureManager.OnNewFrame += OnReceivedNewFrame;
+			CameraManager.OnNewFrame += OnReceivedNewFrame;
 			TrackingLoop();
 		}
 
 		private void OnDisable()
 		{
-			// DisplayCaptureManager.OnNewFrame -= OnReceivedNewFrame;
+			CameraManager.OnNewFrame -= OnReceivedNewFrame;
 			newFrameAvailable = false;
 		}
 
@@ -48,7 +46,7 @@ namespace EnvisionCenter.XRTemplate.QuestCV
 		private bool newFrameAvailable = false;
 		private void OnReceivedNewFrame(Texture2D t)
 		{
-			texture = t;
+			tex = t;
 			newFrameAvailable = true;
 		}
 
@@ -81,25 +79,32 @@ namespace EnvisionCenter.XRTemplate.QuestCV
 				if (!newFrameAvailable)
 					continue;
 
-				var fov = horizontalFovDeg;
+				if(detector == null)
+					detector = new TagDetector(tex.width, tex.height, 1);
+
+				var intrins = CameraManager.Instance.CamIntrinsics;
+				var fov = 2 * Mathf.Atan((intrins.Resolution.y / 2f) / intrins.FocalLength.y);
 				var size = tagSizeMeters;
-				Color32[] pixels = texture.GetPixels32();
-				await detector.SchedulePoseEstimationJob(pixels, fov * Mathf.Deg2Rad, size);
+
+				var imgBytes = CameraManager.Instance.CamTex.GetPixelData<byte>(0);
+				await detector.SchedulePoseEstimationJob(imgBytes, fov, size);
 
 				worldPoses.Clear();
 
 				// nanoseconds to milliseconds
-				var timestamp = 0;//  DisplayCaptureManager.Instance.TimestampNanoseconds * 0.000000001f;
+				var timestamp = CameraManager.Instance.TimestampNanoseconds * 0.000000001f;
 				OVRPlugin.PoseStatef headPoseState = OVRPlugin.GetNodePoseStateAtTime(timestamp, OVRPlugin.Node.Head);
 				OVRPose headPose = headPoseState.Pose.ToOVRPose();
-				Matrix4x4 headTransform = Matrix4x4.TRS(headPose.position, headPose.orientation, Vector3.one);
+				Matrix4x4 viewMat = Matrix4x4.TRS(headPose.position, headPose.orientation, Vector3.one);
+				var lensPose = CameraManager.Instance.CamPoseOnDevice;
+				viewMat *= Matrix4x4.TRS(lensPose.position, lensPose.rotation, Vector3.one);
 
 				foreach (var pose in detector.DetectedTags)
 				{
 					TagPose worldPose = new(
 						pose.ID,
-						headTransform.MultiplyPoint(pose.Position),
-						headTransform.rotation * pose.Rotation * Quaternion.Euler(-90, 0, 0));
+						viewMat.MultiplyPoint(pose.Position),
+						viewMat.rotation * pose.Rotation * Quaternion.Euler(-90, 0, 0));
 
 					worldPoses.Add(worldPose);
 				}

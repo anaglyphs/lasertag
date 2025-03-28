@@ -28,12 +28,12 @@ namespace AprilTag
 
 		#region Constructor
 
-		public TagDetector(int width, int height, int decimation = 2)
+		public TagDetector(int width, int height, int decimation)
 		{
 			// Object creation
 			_detector = Interop.Detector.Create();
 			_family = Interop.Family.CreateTagStandard41h12();
-			_image = Interop.ImageU8.Create(width, height);
+			_image = Interop.ImageU8.CreateStride(width, height, width);
 
 			// Detector configuration
 			_detector.ThreadCount = SystemConfig.PreferredThreadCount;
@@ -64,9 +64,9 @@ namespace AprilTag
 		//	RunDetectorAndEstimator(fov, tagSize);
 		//}
 
-		public async Task SchedulePoseEstimationJob(Color32[] image, float fov, float tagSize)
+		public async Task SchedulePoseEstimationJob(NativeArray<byte> imgBytes, float fov, float tagSize)
 		{
-			ImageConverter.Convert(image, _image);
+			imgBytes.AsReadOnlySpan().CopyTo(_image.Buffer);
 
 			_profileData = null;
 
@@ -94,7 +94,7 @@ namespace AprilTag
 
 			var handle = job.Schedule(tagCount, 1, default);
 
-			while (!handle.IsCompleted) await Awaitable.EndOfFrameAsync();
+			while (!handle.IsCompleted) await Awaitable.NextFrameAsync();
 
 			handle.Complete();
 

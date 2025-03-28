@@ -39,7 +39,7 @@ namespace Anaglyph.SharedSpaces
 	}
 
 	[RequireComponent(typeof(OVRSpatialAnchor))]
-	public class NetworkedAnchor : NetworkBehaviour, IAnchor
+	public class NetworkedAnchor : NetworkBehaviour
 	{
 		private void Log(string str) => Debug.Log($"[NetworkedAnchor] {str}");
 
@@ -51,10 +51,12 @@ namespace Anaglyph.SharedSpaces
 
 		private bool anchored = false;
 		public bool Anchored => anchored;
-		public Pose TrackedPose => transform.GetWorldPose();
-		public Pose AnchoredPose => OriginalPoseSync.Value;
+		public Pose DesiredPose => OriginalPoseSync.Value;
 
 		public NetworkVariable<NetworkGuid> Uuid = new NetworkVariable<NetworkGuid>(new(Guid.Empty));
+
+		private static List<NetworkedAnchor> allAnchored = new();
+		public static IReadOnlyList<NetworkedAnchor> AllAnchored => allAnchored;
 
 		private void OnValidate()
 		{
@@ -86,6 +88,12 @@ namespace Anaglyph.SharedSpaces
 			}
 		}
 
+		public override void OnNetworkDespawn()
+		{
+			if (allAnchored.Contains(this))
+				allAnchored.Remove(this);
+		}
+
 		public async Task Share()
 		{
 			if (!IsOwner)
@@ -108,6 +116,8 @@ namespace Anaglyph.SharedSpaces
 
 				OriginalPoseSync.Value = new NetworkPose(transform);
 				anchored = true;
+				if(!allAnchored.Contains(this))
+					allAnchored.Add(this);
 
 				Log($"Saving anchor {spatialAnchor.Uuid}...");
 
@@ -169,6 +179,8 @@ namespace Anaglyph.SharedSpaces
 					OriginalPoseSync.Value = new(anchorPose);
 
 				anchored = true;
+				if (!allAnchored.Contains(this))
+					allAnchored.Add(this);
 
 				Log($"Saving anchor {spatialAnchor.Uuid}...");
 

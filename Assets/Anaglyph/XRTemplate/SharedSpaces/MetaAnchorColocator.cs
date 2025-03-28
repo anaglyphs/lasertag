@@ -2,29 +2,24 @@ using Anaglyph.XRTemplate;
 using Anaglyph.XRTemplate.SharedSpaces;
 using System;
 using System.Collections.Generic;
-using Unity.Netcode;
+using Unity.XR.CoreUtils;
 using UnityEngine;
 using static Anaglyph.XRTemplate.SharedSpaces.AnchorGuidSaving;
 using static OVRSpatialAnchor;
 
 namespace Anaglyph.SharedSpaces
 {
-	public class MetaAnchorColocator : MonoBehaviour, IColocator
+	public class MetaAnchorColocator : IColocator
 	{
-		public static MetaAnchorColocator Instance { get; private set; }
-
-		[SerializeField] private GameObject sharedAnchorPrefab;
 		private NetworkedAnchor networkedAnchor;
+		private bool colocationActive;
 
-		private Transform spawnTarget;
-
-		private bool _isColocated;
+		private static bool _isColocated;
 		public event Action<bool> IsColocatedChange;
-		private void SetIsColocated(bool b) => IsColocated = b;
 		public bool IsColocated
 		{
 			get => _isColocated;
-			set
+			private set
 			{
 				bool changed = value != _isColocated;
 				_isColocated = value;
@@ -33,37 +28,31 @@ namespace Anaglyph.SharedSpaces
 			}
 		}
 
-		private void Awake()
-		{
-			Instance = this;
-			WorldLock.LockedToChanged += OnActiveAnchorChange;
-		}
-
-		private void OnDestroy()
-		{
-			WorldLock.LockedToChanged -= OnActiveAnchorChange;
-		}
-
-		private void OnActiveAnchorChange(IAnchor anchor)
-		{
-			IsColocated = anchor != null;
-		}
-
-		private void Start()
-		{
-			spawnTarget = Camera.main.transform;
-		}
-
 		public async void Colocate()
 		{
 			var findInactive = FindObjectsInactive.Include;
 			var sortMode = FindObjectsSortMode.None;
-			NetworkedAnchor[] allAnchors = FindObjectsByType<NetworkedAnchor>(findInactive, sortMode);
+			NetworkedAnchor[] allAnchors = GameObject.FindObjectsByType<NetworkedAnchor>(findInactive, sortMode);
 
 			if (allAnchors.Length == 0)
 			{
-				SpawnPrefab();
+				// spawn anchor
+				Transform head = MainXROrigin.Instance.Camera.transform;
 
+				Vector3 spawnPos = head.position;
+				spawnPos.y = 0;
+
+				Vector3 flatForward = head.transform.forward;
+				flatForward.y = 0;
+				flatForward.Normalize();
+				Quaternion spawnRot = Quaternion.LookRotation(flatForward, Vector3.up);
+
+				GameObject prefab = Resources.Load<GameObject>("Networked Colocation Anchor");
+				GameObject g = GameObject.Instantiate(prefab, spawnPos, spawnRot);
+				g.TryGetComponent(out networkedAnchor);
+				networkedAnchor.NetworkObject.Spawn();
+
+				// try to bind with an existing saved anchor
 				SavedAnchorGuids savedAnchors = LoadSavedGuids();
 
 				if (savedAnchors.guidStrings != null && savedAnchors.guidStrings.Count > 0)
@@ -87,29 +76,44 @@ namespace Anaglyph.SharedSpaces
 			{
 				MainXROrigin.Transform.position = new Vector3(0, 1000, 0);
 			}
+
+			colocationActive = true;
+
+			while (colocationActive)
+			{
+				await Awaitable.NextFrameAsync();
+
+				if (NetworkedAnchor.AllAnchored.Count == 0)
+					continue;
+
+				// find closest anchor
+				Vector3 headPos = MainXROrigin.Instance.Camera.transform.position;
+				float maxDist = float.MaxValue;
+				NetworkedAnchor closestAnchor = NetworkedAnchor.AllAnchored[0];
+
+				for (int i = 1; i < NetworkedAnchor.AllAnchored.Count; i++)
+				{
+					NetworkedAnchor candidate = NetworkedAnchor.AllAnchored[i];
+
+					float dist = Vector3.SqrMagnitude(headPos - candidate.transform.position);
+					float newMaxDist = Mathf.Min(maxDist, dist);
+
+					if (newMaxDist < maxDist)
+						closestAnchor = candidate;
+				}
+
+				Pose anchorPose = closestAnchor.transform.GetWorldPose();
+				Colocation.TransformTrackingSpace(anchorPose, closestAnchor.DesiredPose);
+			}
 		}
 
 		public void StopColocation()
 		{
+			colocationActive = false;
 			IsColocated = false;
 
 			if (networkedAnchor != null && networkedAnchor.IsSpawned)
 				networkedAnchor.NetworkObject.Despawn();
-		}
-
-		public void SpawnPrefab()
-		{
-			Vector3 spawnPos = spawnTarget.position;
-			spawnPos.y = 0;
-
-			Vector3 flatForward = spawnTarget.transform.forward;
-			flatForward.y = 0;
-			flatForward.Normalize();
-			Quaternion spawnRot = Quaternion.LookRotation(flatForward, Vector3.up);
-
-			GameObject g = Instantiate(sharedAnchorPrefab, spawnPos, spawnRot);
-			g.TryGetComponent(out networkedAnchor);
-			networkedAnchor.NetworkObject.Spawn();
 		}
 	}
 }

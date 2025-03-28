@@ -1,15 +1,12 @@
 {
-    "name": "XRTemplate.AprilTags",
-    "rootNamespace": "EnvisionCenter.XRTemplate.DisplayCapture.AprilTags",
+    "name": "Camera",
+    "rootNamespace": "Anaglyph.XRTemplate.Camera",
     "references": [
-        "GUID:c85f558502c2ed74fb418fe9c223ef02",
-        "GUID:b5d61f4edfac76b47b088207da741669",
-        "GUID:2b534dedc2840dc4e83541e1a315209c",
         "GUID:f64c9ebcd7899c3448a08dc9f9ddbe30"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
-    "allowUnsafeCode": false,
+    "allowUnsafeCode": true,
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,

@@ -2,23 +2,22 @@ using AprilTag;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace EnvisionCenter.XRTemplate.QuestCV
+namespace Anaglyph.XRTemplate.QuestCV
 {
 	public class TagIndicators : MonoBehaviour
 	{
-		[SerializeField] private AprilTagTracker aprilTagTracker;
 		[SerializeField] private GameObject aprilTagIndicatorPrefab;
 
 		private List<GameObject> indicators = new(3);
 
 		private void OnEnable()
 		{
-			aprilTagTracker.OnDetectTags += OnDetectTags;
+			AprilTagTracker.Instance.OnDetectTags += OnDetectTags;
 		}
 
 		private void OnDisable()
 		{
-			aprilTagTracker.OnDetectTags -= OnDetectTags;
+			AprilTagTracker.Instance.OnDetectTags -= OnDetectTags;
 		}
 
 		private void OnDetectTags(IEnumerable<TagPose> poses)

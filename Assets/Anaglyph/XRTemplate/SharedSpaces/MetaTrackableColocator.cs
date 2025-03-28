@@ -5,18 +5,12 @@ using UnityEngine;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
-	public class MetaTrackableColocator : MonoBehaviour, IColocator
+	public class MetaTrackableColocator : IColocator
 	{
-		public static MetaTrackableColocator Instance { get; private set; }
-
-		[SerializeField] private GameObject worldLockAnchorPrefab = null;
-		private WorldLock currentWorldLock = null;
-
-		private OVRAnchor.Tracker tracker;
+		private OVRAnchor.Tracker tracker = new OVRAnchor.Tracker();
 
 		private bool _isColocated;
 		public event Action<bool> IsColocatedChange;
-		private void SetIsColocated(bool b) => IsColocated = b;
 		public bool IsColocated
 		{
 			get => _isColocated;
@@ -29,17 +23,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 		}
 
-		private void Awake()
-		{
-			Instance = this;
-			tracker = new OVRAnchor.Tracker();
-		}
-
-		private void OnDestroy()
-		{
-			tracker.Dispose();
-		}
-
 		public void Colocate()
 		{
 			MainXROrigin.Transform.position = new Vector3(0, 1000, 0);
@@ -50,9 +33,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			IsColocated = false;
 			finding = false;
-
-			if (currentWorldLock != null)
-				Destroy(currentWorldLock.gameObject);
 		}
 
 		private bool finding = false;
@@ -119,13 +99,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			flatForward = flatForward.normalized;
 			keyboardPose.rotation = Quaternion.LookRotation(flatForward, Vector3.up);
 
-			var g = Instantiate(worldLockAnchorPrefab, keyboardPose.position, keyboardPose.rotation);
-			g.TryGetComponent(out currentWorldLock);
-
-			//while (currentWorldLock != null && !currentWorldLock.Anchor.Localized)
-			//{
-			//	await Awaitable.FixedUpdateAsync();
-			//}
+			Pose desiredPose = new Pose(new Vector3(0, 0.7f, 0), Quaternion.identity);
+			Colocation.TransformTrackingSpace(keyboardPose, desiredPose);
 
 			IsColocated = true;
 		}

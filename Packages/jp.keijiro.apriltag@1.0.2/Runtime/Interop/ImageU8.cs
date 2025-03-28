@@ -1,8 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
-using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 
 namespace AprilTag.Interop {
 
@@ -48,11 +46,14 @@ public sealed class ImageU8 : SafeHandleZeroOrMinusOneIsInvalid
     public static ImageU8 Create(int width, int height)
       => _Create((uint)width, (uint)height);
 
-    #endregion
+    public static ImageU8 CreateStride(int width, int height, int stride)
+		=> _CreateStride((uint)width, (uint)height, (uint)stride);
 
-    #region Unmanaged interface
+	#endregion
 
-    [DllImport(Config.DllName, EntryPoint="image_u8_create_stride")]
+	#region Unmanaged interface
+
+	[DllImport(Config.DllName, EntryPoint="image_u8_create_stride")]
     static extern ImageU8 _CreateStride(uint width, uint height, uint stride);
 
     [DllImport(Config.DllName, EntryPoint="image_u8_create")]

@@ -1,0 +1,288 @@
+package com.trev3d.Camera;
+
+import static android.content.ContentValues.TAG;
+import static android.hardware.camera2.CameraCharacteristics.*;
+
+import android.Manifest;
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.graphics.ImageFormat;
+import android.graphics.Rect;
+import android.media.Image;
+import android.media.ImageReader;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.hardware.camera2.*;
+import android.util.Log;
+
+import java.nio.ByteBuffer;
+import java.util.List;
+
+import androidx.annotation.NonNull;
+
+import com.unity3d.player.UnityPlayer;
+
+public class CameraReader {
+
+	public static com.trev3d.Camera.CameraReader instance = null;
+
+	private final Context context;
+	private final CameraManager manager;
+
+	private CameraCaptureSession session;
+	private CameraDevice device;
+	private ImageReader reader;
+	private Handler handler;
+
+	private String cameraId;
+	private int imgWidth;
+	private int imgHeight;
+
+	private ByteBuffer byteBuffer;
+	private long timestamp;
+
+	private UnityInterface unityInterface;
+
+	private class UnityInterface {
+
+		public String gameObjectName;
+
+		public UnityInterface(String gameObjectName) {
+			this.gameObjectName = gameObjectName;
+		}
+
+		public void Call(String functionName) {
+			UnityPlayer.UnitySendMessage(gameObjectName, functionName, "");
+		}
+
+		public void OnCaptureStarted() {
+			Call("OnCaptureStarted");
+		}
+
+		public void OnCaptureStopped() {
+			Call("OnCaptureStopped");
+		}
+
+		public void OnNewFrameAvailable() {
+			Call("OnNewFrameAvailable");
+		}
+	}
+
+	public CameraReader() {
+		context = UnityPlayer.currentContext;
+		manager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
+	}
+
+	public static synchronized com.trev3d.Camera.CameraReader getInstance() {
+		if (instance == null)
+			instance = new com.trev3d.Camera.CameraReader();
+
+		return instance;
+	}
+
+	private final CameraDevice.StateCallback deviceCallback = new CameraDevice.StateCallback() {
+		@Override
+		public void onOpened(@NonNull CameraDevice camera) {
+			try {
+
+				device = camera;
+
+				var format = ImageFormat.YUV_420_888;
+				reader = ImageReader.newInstance(imgWidth, imgHeight, format, 2);
+				reader.setOnImageAvailableListener(imageCallback, handler);
+
+				int bufferSize = imgWidth * imgHeight;
+
+				byteBuffer = ByteBuffer.allocateDirect(bufferSize);
+				device.createCaptureSession(List.of(reader.getSurface()), sessionCallback, handler);
+
+				unityInterface.OnCaptureStarted();
+
+			} catch (CameraAccessException e) {
+				Log.e(TAG, e.toString());
+				stopCapture();
+			}
+		}
+
+		@Override
+		public void onDisconnected(@NonNull CameraDevice camera) {
+			stopCapture();
+		}
+
+		@Override
+		public void onError(@NonNull CameraDevice camera, int error) {
+			stopCapture();
+		}
+	};
+
+	private final CameraCaptureSession.StateCallback sessionCallback = new CameraCaptureSession.StateCallback() {
+		@Override
+		public void onConfigured(@NonNull CameraCaptureSession session) {
+
+			CameraReader.this.session = session;
+
+			try {
+
+				var useCase = CameraDevice.TEMPLATE_PREVIEW;
+				CaptureRequest.Builder captureRequest = device.createCaptureRequest(useCase);
+				captureRequest.addTarget(reader.getSurface());
+				session.setRepeatingRequest(captureRequest.build(), null, handler);
+
+			} catch (CameraAccessException e) {
+				Log.e(TAG, e.toString());
+				cleanup();
+			}
+		}
+
+		@Override
+		public void onConfigureFailed(@NonNull CameraCaptureSession session) {
+			cleanup();
+		}
+	};
+
+	private final ImageReader.OnImageAvailableListener imageCallback = new ImageReader.OnImageAvailableListener() {
+
+		@Override
+		public void onImageAvailable(@NonNull ImageReader imageReader) {
+			Image image = imageReader.acquireLatestImage();
+
+			if (image == null) return;
+
+			byteBuffer.clear();
+			ByteBuffer yBuffer = image.getPlanes()[0].getBuffer();
+			byteBuffer.put(yBuffer);
+
+			// in nanoseconds
+			timestamp = image.getTimestamp();
+
+			image.close();
+
+			unityInterface.OnNewFrameAvailable();
+		}
+	};
+
+	// Called by Unity
+
+	public void setup(String gameObjectName) {
+		unityInterface = new UnityInterface(gameObjectName);
+
+		configure(0, 320, 240);
+	}
+
+	public void configure(int camIndex, int width, int height) {
+		try {
+			imgWidth = width;
+			imgHeight = height;
+
+			String[] camIds = manager.getCameraIdList();
+			cameraId = camIds[camIndex];
+
+		} catch (CameraAccessException e) {
+			Log.e(TAG, e.toString());
+		}
+	}
+
+	public void startCapture() {
+
+		if (device != null)
+			return;
+
+		try {
+			Log.i(TAG, "Starting camera capture");
+
+			HandlerThread handlerThread = new HandlerThread("CameraBackground");
+			handlerThread.start();
+			handler = new Handler(handlerThread.getLooper());
+
+			var granted = PackageManager.PERMISSION_GRANTED;
+			if (context.checkSelfPermission(Manifest.permission.CAMERA) != granted) {
+				Log.e(TAG, "No camera permission");
+				return;
+			}
+
+			manager.openCamera(cameraId, deviceCallback, handler);
+
+		} catch (CameraAccessException e) {
+			Log.e(TAG, e.toString());
+			cleanup();
+		}
+	}
+
+	public void stopCapture() {
+		Log.i(TAG, "Stopping camera capture");
+
+		cleanup();
+
+		unityInterface.OnCaptureStopped();
+	}
+
+	private void cleanup() {
+		if(session != null) {
+			session.close();
+			session = null;
+		}
+
+		if(device != null) {
+			device.close();
+			device = null;
+		}
+
+		if(reader != null) {
+			reader.close();
+			reader = null;
+		}
+
+		if(handler != null) {
+			handler.getLooper().quit();
+			handler = null;
+		}
+	}
+
+	public ByteBuffer getByteBuffer() {
+		return byteBuffer;
+	}
+
+	public long getTimestamp() {
+		return timestamp;
+	}
+
+	public float[] getCamPoseOnDevice() {
+
+		try {
+
+			var c = manager.getCameraCharacteristics(cameraId);
+			float[] pos = c.get(LENS_POSE_TRANSLATION);
+			float[] quat = c.get(LENS_POSE_ROTATION);
+
+			return new float[]{
+					pos[0], pos[1], pos[2], quat[0], quat[1], quat[2], quat[3]
+			};
+
+		} catch (CameraAccessException e) {
+			Log.e(TAG, e.toString());
+		}
+
+		return null;
+	}
+
+	public float[] getCamIntrinsics() {
+
+		try {
+
+			var c = manager.getCameraCharacteristics(cameraId);
+
+			float[] intrins = c.get(LENS_INTRINSIC_CALIBRATION);
+			Rect size = c.get(SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE);
+
+			return new float[]{
+					intrins[0], intrins[1], intrins[2], intrins[3], intrins[4], size.right, size.bottom
+			};
+
+		} catch (CameraAccessException e) {
+			Log.e(TAG, e.toString());
+		}
+
+		return null;
+
+	}
+}

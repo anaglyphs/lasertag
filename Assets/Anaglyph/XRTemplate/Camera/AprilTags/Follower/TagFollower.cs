@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace EnvisionCenter.XRTemplate.QuestCV
+namespace Anaglyph.XRTemplate.QuestCV
 {
 	public class TagFollower : MonoBehaviour
 	{
