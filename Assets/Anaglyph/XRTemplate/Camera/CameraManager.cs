@@ -107,6 +107,11 @@ namespace Anaglyph.XRTemplate.CameraReader
 			androidInterface = new AndroidInterface(gameObject);
 		}
 
+		private void Start()
+		{
+			Configure(0, 320, 240);
+		}
+
 		private void OnDestroy()
 		{
 			OnNewFrame = delegate { };

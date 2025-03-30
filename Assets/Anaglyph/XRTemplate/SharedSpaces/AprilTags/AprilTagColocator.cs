@@ -33,7 +33,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private bool colocationActive = false;
 
-		public Dictionary<int, AprilTagAnchor> foundTags;
+		public Dictionary<int, AprilTagAnchor> foundTags = new();
 
 		private GameObject tagAnchorPrefab;
 
@@ -46,6 +46,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			IsColocated = false;
 			colocationActive = true;
+
+			foundTags.Clear();
 
 			CameraManager.Instance.StartCapture();
 			AprilTagTracker.Instance.OnDetectTags += OnDetectTags;
