@@ -4,12 +4,8 @@ using Anaglyph.XRTemplate.QuestCV;
 using AprilTag;
 using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using Unity.Netcode;
-using Unity.XR.CoreUtils;
-using UnityEditor;
 using UnityEngine;
-using static UnityEngine.GameObject;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
@@ -29,26 +25,20 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 		}
 
-		private const float Lerp = 0.3f;
+		private const float Lerp = 0.1f;
 
 		private bool colocationActive = false;
 
-		public Dictionary<int, AprilTagAnchor> foundTags = new();
+		public static Dictionary<int, AprilTagAnchor> foundTags = new();
 
 		private GameObject tagAnchorPrefab;
-
-		public AprilTagColocator()
-		{
-			tagAnchorPrefab = Resources.Load<GameObject>("April Tag Anchor");
-		}
 
 		public void Colocate()
 		{
 			IsColocated = false;
 			colocationActive = true;
 
-			foundTags.Clear();
-
+			CameraManager.Instance.Configure(0, 320, 240);
 			CameraManager.Instance.StartCapture();
 			AprilTagTracker.Instance.OnDetectTags += OnDetectTags;
 		}
@@ -64,17 +54,22 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				if(tagWasFound)
 				{
 					var foundTag = foundTags[pose.ID];
+
+					Colocation.LerpTrackingSpace(new(pose.Position, pose.Rotation), foundTag.DesiredPose, Lerp / poses.Count);
 					foundTag.transform.SetPositionAndRotation(pose.Position, pose.Rotation);
-					Colocation.LerpTrackingSpace(foundTag.transform.GetWorldPose(), foundTag.DesiredPose, Lerp / poses.Count);
 
 					IsColocated = true;
 
 				} else if(manager.IsHost)
 				{
+					if(tagAnchorPrefab == null)
+						tagAnchorPrefab = Resources.Load<GameObject>("April Tag Anchor");
+
 					GameObject g = GameObject.Instantiate(tagAnchorPrefab, pose.Position, pose.Rotation);
 					g.TryGetComponent(out AprilTagAnchor anchor);
 					anchor.transform.localScale = Vector3.one * AprilTagTracker.Instance.tagSizeMeters;
 					anchor.desiredPoseSync.Value = new NetworkPose(pose.Position, pose.Rotation);
+					anchor.idSync.Value = pose.ID;
 					anchor.NetworkObject.Spawn();
 
 				}
@@ -83,6 +78,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public void StopColocation()
 		{
+			foundTags.Clear();
+
 			CameraManager.Instance.StopCapture();
 			AprilTagTracker.Instance.OnDetectTags -= OnDetectTags;
 

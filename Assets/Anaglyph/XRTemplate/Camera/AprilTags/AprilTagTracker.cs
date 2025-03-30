@@ -95,7 +95,8 @@ namespace Anaglyph.XRTemplate.QuestCV
 				var timestamp = CameraManager.Instance.TimestampNanoseconds * 0.000000001f;
 				OVRPlugin.PoseStatef headPoseState = OVRPlugin.GetNodePoseStateAtTime(timestamp, OVRPlugin.Node.Head);
 				OVRPose headPose = headPoseState.Pose.ToOVRPose();
-				Matrix4x4 viewMat = Matrix4x4.TRS(headPose.position, headPose.orientation, Vector3.one);
+				Matrix4x4 origin = MainXROrigin.Transform.localToWorldMatrix;
+				Matrix4x4 viewMat = origin * Matrix4x4.TRS(headPose.position, headPose.orientation, Vector3.one);
 				var lensPose = CameraManager.Instance.CamPoseOnDevice;
 				viewMat *= Matrix4x4.TRS(lensPose.position, lensPose.rotation, Vector3.one);
 
