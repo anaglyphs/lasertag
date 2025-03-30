@@ -74,5 +74,14 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			MainXROrigin.Transform.SetPositionAndRotation(targetRigPos, targetRigRot);
 		}
+
+		public static void LerpTrackingSpace(Pose fromPose, Pose toPose, float lerp)
+		{
+			Pose lerpedPose = new Pose();
+			lerpedPose.position = Vector3.Lerp(fromPose.position, toPose.position, lerp);
+			lerpedPose.rotation = Quaternion.Lerp(fromPose.rotation, toPose.rotation, lerp);
+
+			TransformTrackingSpace(fromPose, lerpedPose);
+		}
 	}
 }

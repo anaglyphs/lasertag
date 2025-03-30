@@ -34,7 +34,7 @@ namespace Anaglyph.Lasertag
 
 		private void StartGame()
 		{
-			RoundManager.Instance?.QueueStartGameOwnerRpc(RoundSettings.Default());
+			RoundManager.Instance?.QueueStartGameOwnerRpc(RoundSettings.DemoGame());
 		}
 
 		private void EndGame()

@@ -20,8 +20,8 @@ namespace Anaglyph.XRTemplate.QuestCV
 		private Texture2D tex;
 
 		private List<TagPose> worldPoses = new(10);
-		public IEnumerable<TagPose> WorldPoses => worldPoses;
-		public event Action<IEnumerable<TagPose>> OnDetectTags = delegate { };
+		public IReadOnlyList<TagPose> WorldPoses => worldPoses;
+		public event Action<IReadOnlyList<TagPose>> OnDetectTags = delegate { };
 
 		private List<XRNodeState> nodeStates = new();
 

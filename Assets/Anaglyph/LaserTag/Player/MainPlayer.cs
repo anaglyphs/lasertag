@@ -5,6 +5,8 @@ using Anaglyph.Lasertag.Weapons;
 using System;
 using Unity.XR.CoreUtils;
 using VariableObjects;
+using Unity.Netcode;
+using Anaglyph.Netcode;
 
 namespace Anaglyph.Lasertag
 {
@@ -13,9 +15,9 @@ namespace Anaglyph.Lasertag
 	{
 		public static MainPlayer Instance { get; private set; }
 
-		public Role currentRole = Role.Standard;
+		private const float MaxHealth = 100;
 
-		public float Health { get; private set; } = Role.Standard.MaxHealth;
+		public float Health { get; private set; } = MaxHealth;
 		public bool IsAlive { get; private set; } = true;
 		public bool IsInFriendlyBase { get; private set; } = false;
 
@@ -24,7 +26,8 @@ namespace Anaglyph.Lasertag
 		public UnityEvent<bool> onAliveChange = new();
 		public UnityEvent onTakeDamage = new();
 
-		[NonSerialized] public Networking.Avatar avatar;
+		[SerializeField] private GameObject avatarPrefab;
+		public Networking.Avatar avatar;
 
 		[SerializeField] private Transform headTransform;
 		[SerializeField] private Transform leftHandTransform;
@@ -40,12 +43,51 @@ namespace Anaglyph.Lasertag
 		// todo move this into another component. this really doesn't belong here
 		private OVRPassthroughLayer passthroughLayer;
 		[SerializeField] private BoolObject redDamageVision;
+		[SerializeField] private BoolObject participatingInGames;
 
 		private void Awake()
 		{
 			Instance = this;
 
 			passthroughLayer = FindFirstObjectByType<OVRPassthroughLayer>();
+		}
+
+		private void Start()
+		{
+			NetworkManager.Singleton.OnConnectionEvent += HandleConnectionEvent;
+			participatingInGames.onChange += HandleParticipatingChange;
+		}
+
+		private void OnDestroy()
+		{
+			if(NetworkManager.Singleton != null)
+				NetworkManager.Singleton.OnConnectionEvent -= HandleConnectionEvent;
+
+			participatingInGames.onChange -= HandleParticipatingChange;
+		}
+
+		private void HandleConnectionEvent(NetworkManager manager, ConnectionEventData eventData)
+		{
+			if(NetcodeHelpers.ThisClientConnected(eventData) || NetcodeHelpers.ThisClientDisconnected(eventData))
+				HandleAvatar();
+		}
+
+		private void HandleParticipatingChange(bool b) => HandleAvatar();
+
+		private void HandleAvatar()
+		{
+			var manager = NetworkManager.Singleton;
+			if (!manager.IsConnectedClient)
+				return;
+
+			if (participatingInGames && avatar == null)
+			{
+				NetworkObject.InstantiateAndSpawn(avatarPrefab, manager, manager.LocalClientId, destroyWithScene: true, isPlayerObject: true);
+			}
+			else if (avatar != null)
+			{
+				avatar.NetworkObject.Despawn();
+			}
 		}
 
 		public void Damage(float damage, ulong damagedBy)
@@ -69,7 +111,7 @@ namespace Anaglyph.Lasertag
 
 			IsAlive = false;
 			Health = 0;
-			RespawnTimerSeconds = currentRole.RespawnTimeoutSeconds;
+			RespawnTimerSeconds = RoundManager.Settings.respawnSeconds;
 			avatar.KilledByPlayerRpc(killedBy);
 
 			onAliveChange.Invoke(false);
@@ -88,7 +130,7 @@ namespace Anaglyph.Lasertag
 				avatar.isAliveSync.Value = true;
 
 			IsAlive = true;
-			Health = currentRole.MaxHealth;
+			Health = MaxHealth;
 
 			onAliveChange.Invoke(true);
 			onRespawn.Invoke();
@@ -99,13 +141,13 @@ namespace Anaglyph.Lasertag
 			// respawn timer
 			if (IsAlive) return;
 
-			if ((currentRole.ReturnToBaseOnDie && IsInFriendlyBase) || !currentRole.ReturnToBaseOnDie)
+			if ((RoundManager.Settings.respawnInBases && IsInFriendlyBase) || !RoundManager.Settings.respawnInBases)
 				RespawnTimerSeconds -= Time.fixedDeltaTime;
 
 			if (RespawnTimerSeconds <= 0)
 				Respawn();
 
-			RespawnTimerSeconds = Mathf.Clamp(RespawnTimerSeconds, 0, currentRole.RespawnTimeoutSeconds);
+			RespawnTimerSeconds = Mathf.Clamp(RespawnTimerSeconds, 0, RoundManager.Settings.respawnSeconds);
 		}
 
 		private void Update()
@@ -115,7 +157,7 @@ namespace Anaglyph.Lasertag
 			if (redDamageVision.Value)
 			{
 				passthroughLayer.edgeRenderingEnabled = true;
-				var color = Color.Lerp(Color.red, Color.clear, Mathf.Clamp01(Health / Role.Standard.MaxHealth));
+				var color = Color.Lerp(Color.red, Color.clear, Mathf.Clamp01(Health / MaxHealth));
 				passthroughLayer.edgeColor = color;
 			}
 			else
@@ -129,12 +171,12 @@ namespace Anaglyph.Lasertag
 				if (Health < 0)
 					Kill(0);
 				else
-					Health += currentRole.HealthRegenerationPerSecond * Time.deltaTime;
+					Health += RoundManager.Settings.healthRegenPerSecond * Time.deltaTime;
 			}
 
 			WeaponsManagement.canFire = IsAlive;
 
-			Health = Mathf.Clamp(Health, 0, currentRole.MaxHealth);
+			Health = Mathf.Clamp(Health, 0, MaxHealth);
 
 			// bases
 			IsInFriendlyBase = false;

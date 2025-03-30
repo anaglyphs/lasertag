@@ -8,18 +8,19 @@ using VariableObjects;
 
 namespace Anaglyph.Lasertag
 {
-	public class LasertagManager : NetworkBehaviour
+	public class ColocationManager : NetworkBehaviour
 	{
 		[Serializable]
 		public enum ColocationMethod
 		{
 			Automatic = 0,
 			TrackedKeyboard = 1,
+			AprilTag = 2,
 		}
 
 		[SerializeField] private BoolObject useKeyboardColocation;
 
-		public static LasertagManager Current;
+		public static ColocationManager Current;
 		private NetworkVariable<ColocationMethod> colocationMethodSync = new(0);
 		public void SetColocationMethod(ColocationMethod colocationMethod)
 			=> colocationMethodSync.Value = colocationMethod;
@@ -30,6 +31,10 @@ namespace Anaglyph.Lasertag
 				Current = this;
 		}
 
+		private MetaAnchorColocator metaAnchorColocator = new();
+		private MetaTrackableColocator metaTrackableColocator = new();
+		private AprilTagColocator aprilTagColocator = new();
+
 		protected override void OnNetworkSessionSynchronized()
 		{
 			EnvironmentMapper.Instance.Clear();
@@ -37,17 +42,21 @@ namespace Anaglyph.Lasertag
 			if (IsOwner)
 			{
 				colocationMethodSync.Value = useKeyboardColocation.Value ?
-					ColocationMethod.TrackedKeyboard : ColocationMethod.Automatic;
+					ColocationMethod.AprilTag : ColocationMethod.Automatic;
 			}
 
 			switch (colocationMethodSync.Value)
 			{
 				case ColocationMethod.Automatic:
-					Colocation.SetActiveColocator(new MetaAnchorColocator());
+					Colocation.SetActiveColocator(metaAnchorColocator);
 					break;
 
 				case ColocationMethod.TrackedKeyboard:
-					Colocation.SetActiveColocator(new MetaTrackableColocator());
+					Colocation.SetActiveColocator(metaTrackableColocator);
+					break;
+
+				case ColocationMethod.AprilTag:
+					Colocation.SetActiveColocator(aprilTagColocator);
 					break;
 			}
 

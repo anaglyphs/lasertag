@@ -25,6 +25,8 @@ namespace Anaglyph.Lasertag
 	{
 		public bool teams;
 		public bool respawnInBases;
+		public float respawnSeconds;
+		public float healthRegenPerSecond;
 
 		public byte pointsPerKill;
 		public byte pointsPerSecondHoldingPoint;
@@ -36,18 +38,37 @@ namespace Anaglyph.Lasertag
 		public bool CheckWinByTimer() => winCondition.HasFlag(WinCondition.Timer);
 		public bool CheckWinByPoints() => winCondition.HasFlag(WinCondition.ReachScore);
 
-		public static RoundSettings Default()
+		public static RoundSettings DemoGame()
 		{
 			return new()
 			{
 				teams = true,
 				respawnInBases = true,
+				respawnSeconds = 1,
+				healthRegenPerSecond = 5,
 
-				pointsPerKill = 1,
+				pointsPerKill = 2,
 				pointsPerSecondHoldingPoint = 1,
 
 				winCondition = WinCondition.Timer,
 				timerSeconds = 60 * 5,
+			};
+		}
+
+		public static RoundSettings Lobby()
+		{
+			return new()
+			{
+				teams = false,
+				respawnInBases = false,
+				respawnSeconds = 5,
+				healthRegenPerSecond = 5,
+
+				pointsPerKill = 0,
+				pointsPerSecondHoldingPoint = 0,
+
+				winCondition = WinCondition.None,
+				timerSeconds = 0,
 			};
 		}
 	}
@@ -73,8 +94,8 @@ namespace Anaglyph.Lasertag
 		public static int GetTeamScore(byte team) => Instance.teamScoresSync[team].Value;
 		public static byte WinningTeam => Instance.winningTeamSync.Value;
 
-		private NetworkVariable<RoundSettings> activeSettingsSync = new();
-		public static RoundSettings ActiveSettings => Instance.activeSettingsSync.Value;
+		private NetworkVariable<RoundSettings> roundSettingsSync = new();
+		public static RoundSettings Settings => Instance.roundSettingsSync.Value;
 
 		public static event Action<RoundState, RoundState> OnRoundStateChange = delegate { };
 
@@ -97,7 +118,10 @@ namespace Anaglyph.Lasertag
 		public override void OnNetworkSpawn()
 		{
 			if (IsOwner)
+			{
 				roundStateSync.Value = RoundState.NotPlaying;
+				roundSettingsSync.Value = RoundSettings.Lobby();
+			}
 			
 			roundStateSync.OnValueChanged += OnStateUpdateLocally;
 
@@ -124,7 +148,8 @@ namespace Anaglyph.Lasertag
 				case RoundState.NotPlaying:
 
 					MainPlayer.Instance.Respawn();
-					MainPlayer.Instance.currentRole.ReturnToBaseOnDie = false;
+					if (IsOwner)
+						roundSettingsSync.Value = RoundSettings.Lobby();
 
 					break;
 
@@ -139,7 +164,6 @@ namespace Anaglyph.Lasertag
 				case RoundState.Playing:
 
 					MainPlayer.Instance.Respawn();
-					MainPlayer.Instance.currentRole.ReturnToBaseOnDie = ActiveSettings.respawnInBases;
 
 					break;
 			}
@@ -173,7 +197,7 @@ namespace Anaglyph.Lasertag
 		[Rpc(SendTo.Owner)]
 		public void QueueStartGameOwnerRpc(RoundSettings gameSettings)
 		{
-			activeSettingsSync.Value = gameSettings;
+			roundSettingsSync.Value = gameSettings;
 			roundStateSync.Value = RoundState.Queued;
 			StartCoroutine(QueueStartGameAsOwnerCoroutine());
 		}
@@ -188,7 +212,7 @@ namespace Anaglyph.Lasertag
 
 			while (RoundState == RoundState.Queued)
 			{
-				if (ActiveSettings.respawnInBases)
+				if (Settings.respawnInBases)
 				{
 					int numPlayersInbase = 0;
 
@@ -240,8 +264,8 @@ namespace Anaglyph.Lasertag
 		{
 			ResetScoresRpc();
 
-			if (ActiveSettings.CheckWinByTimer())
-				timeRoundEndsSync.Value = (float)NetworkManager.LocalTime.Time + ActiveSettings.timerSeconds;
+			if (Settings.CheckWinByTimer())
+				timeRoundEndsSync.Value = (float)NetworkManager.LocalTime.Time + Settings.timerSeconds;
 
 			roundStateSync.Value = RoundState.Playing;
 			SubscribeToEvents();
@@ -251,7 +275,7 @@ namespace Anaglyph.Lasertag
 		{
 			OwnerCheck();
 
-			if (ActiveSettings.CheckWinByTimer())
+			if (Settings.CheckWinByTimer())
 				StartCoroutine(GameTimerAsOwnerCoroutine());
 
 			// sub to score events
@@ -278,9 +302,9 @@ namespace Anaglyph.Lasertag
 		{
 			OwnerCheck();
 
-			if (ActiveSettings.teams)
+			if (Settings.teams)
 			{
-				ScoreTeamRpc(killer.Team, ActiveSettings.pointsPerKill);
+				ScoreTeamRpc(killer.Team, Settings.pointsPerKill);
 			} else
 			{
 				
@@ -297,7 +321,7 @@ namespace Anaglyph.Lasertag
 				{
 					if (point.MillisCaptured == 0 && point.HoldingTeam != 0)
 					{
-						ScoreTeamRpc(point.HoldingTeam, ActiveSettings.pointsPerSecondHoldingPoint);
+						ScoreTeamRpc(point.HoldingTeam, Settings.pointsPerSecondHoldingPoint);
 					}
 				}
 
@@ -324,7 +348,7 @@ namespace Anaglyph.Lasertag
 			}
 			winningTeamSync.Value = winningTeam;
 
-			if (ActiveSettings.CheckWinByPoints() && teamScoresSync[team].Value > ActiveSettings.scoreTarget)
+			if (Settings.CheckWinByPoints() && teamScoresSync[team].Value > Settings.scoreTarget)
 			{
 				EndGameOwnerRpc();
 			}

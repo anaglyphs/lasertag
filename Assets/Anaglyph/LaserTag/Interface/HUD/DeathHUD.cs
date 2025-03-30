@@ -41,7 +41,7 @@ namespace Anaglyph.Lasertag.UI
 
 			respawnPopup.SetActive(!MainPlayer.Instance.IsAlive);
 
-			if (MainPlayer.Instance.currentRole.ReturnToBaseOnDie && !MainPlayer.Instance.IsInFriendlyBase)
+			if (RoundManager.Settings.respawnInBases && !MainPlayer.Instance.IsInFriendlyBase)
 			{
 				respawnText.text = $"GO TO:   BASE";
 			}

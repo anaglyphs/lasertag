@@ -2,6 +2,7 @@ using Anaglyph.XRTemplate;
 using Anaglyph.XRTemplate.SharedSpaces;
 using System;
 using System.Collections.Generic;
+using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
 using static Anaglyph.XRTemplate.SharedSpaces.AnchorGuidSaving;
@@ -57,20 +58,20 @@ namespace Anaglyph.SharedSpaces
 				// try to bind with an existing saved anchor
 				SavedAnchorGuids savedAnchors = LoadSavedGuids();
 
-				if (savedAnchors.guidStrings != null && savedAnchors.guidStrings.Count > 0)
-				{
-					List<UnboundAnchor> unboundAnchors = new();
+				//if (savedAnchors.guidStrings != null && savedAnchors.guidStrings.Count > 0)
+				//{
+				//	List<UnboundAnchor> unboundAnchors = new();
 
-					List<Guid> guidStrings = new(savedAnchors.guidStrings.Count);
-					foreach (string uuidString in savedAnchors.guidStrings)
-						guidStrings.Add(new Guid(uuidString));
+				//	List<Guid> guidStrings = new(savedAnchors.guidStrings.Count);
+				//	foreach (string uuidString in savedAnchors.guidStrings)
+				//		guidStrings.Add(new Guid(uuidString));
 
-					var loadResult = await LoadUnboundAnchorsAsync(guidStrings, unboundAnchors);
-					if (loadResult.Success && unboundAnchors.Count > 0)
-					{
-						await networkedAnchor.LocalizeAndBindAsync(unboundAnchors[0]);
-					}
-				}
+				//	var loadResult = await LoadUnboundAnchorsAsync(guidStrings, unboundAnchors);
+				//	if (loadResult.Success && unboundAnchors.Count > 0)
+				//	{
+				//		await networkedAnchor.LocalizeAndBindAsync(unboundAnchors[0]);
+				//	}
+				//}
 
 				await networkedAnchor.Share();
 			}
@@ -83,7 +84,7 @@ namespace Anaglyph.SharedSpaces
 
 			while (colocationActive)
 			{
-				await Awaitable.NextFrameAsync();
+				await Awaitable.WaitForSecondsAsync(1);
 
 				if (NetworkedAnchor.AllAnchored.Count == 0)
 					continue;
