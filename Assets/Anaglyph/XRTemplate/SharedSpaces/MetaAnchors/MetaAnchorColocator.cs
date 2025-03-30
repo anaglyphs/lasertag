@@ -6,6 +6,7 @@ using Unity.XR.CoreUtils;
 using UnityEngine;
 using static Anaglyph.XRTemplate.SharedSpaces.AnchorGuidSaving;
 using static OVRSpatialAnchor;
+using static UnityEngine.Object;
 
 namespace Anaglyph.SharedSpaces
 {
@@ -29,9 +30,11 @@ namespace Anaglyph.SharedSpaces
 
 		public async void Colocate()
 		{
+			IsColocated = false;
+
 			var findInactive = FindObjectsInactive.Include;
 			var sortMode = FindObjectsSortMode.None;
-			NetworkedAnchor[] allAnchors = GameObject.FindObjectsByType<NetworkedAnchor>(findInactive, sortMode);
+			NetworkedAnchor[] allAnchors = FindObjectsByType<NetworkedAnchor>(findInactive, sortMode);
 
 			if (allAnchors.Length == 0)
 			{
@@ -47,7 +50,7 @@ namespace Anaglyph.SharedSpaces
 				Quaternion spawnRot = Quaternion.LookRotation(flatForward, Vector3.up);
 
 				GameObject prefab = Resources.Load<GameObject>("Networked Colocation Anchor");
-				GameObject g = GameObject.Instantiate(prefab, spawnPos, spawnRot);
+				GameObject g = Instantiate(prefab, spawnPos, spawnRot);
 				g.TryGetComponent(out NetworkedAnchor networkedAnchor);
 				networkedAnchor.NetworkObject.Spawn();
 
@@ -103,6 +106,7 @@ namespace Anaglyph.SharedSpaces
 
 				Pose anchorPose = closestAnchor.transform.GetWorldPose();
 				Colocation.TransformTrackingSpace(anchorPose, closestAnchor.DesiredPose);
+				IsColocated = true;
 			}
 		}
 

@@ -1,6 +1,5 @@
 using Anaglyph.Netcode;
 using Anaglyph.XRTemplate;
-using System.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
