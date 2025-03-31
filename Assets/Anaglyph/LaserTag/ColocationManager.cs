@@ -42,7 +42,7 @@ namespace Anaglyph.Lasertag
 			if (IsOwner)
 			{
 				colocationMethodSync.Value = useKeyboardColocation.Value ?
-					ColocationMethod.AprilTag : ColocationMethod.Automatic;
+					ColocationMethod.TrackedKeyboard : ColocationMethod.Automatic;
 			}
 
 			switch (colocationMethodSync.Value)

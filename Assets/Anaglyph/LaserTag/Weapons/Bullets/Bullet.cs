@@ -58,7 +58,14 @@ namespace Anaglyph.Lasertag
 				if (IsOwner)
 					envHitDist = envCast.distance;
 				else
-					SyncLocalWorldHitRPC(envCast.distance);
+					EnvironmentRaycastRpc(envCast.distance);
+		}
+
+		[Rpc(SendTo.Owner)]
+		private void EnvironmentRaycastRpc(float dist)
+		{
+			if (dist > EnvironmentMapper.Instance.MaxEyeDist)
+				envHitDist = Mathf.Min(envHitDist, dist);
 		}
 
 		private void OnSpawnPosChange(NetworkPose p, NetworkPose v) => SetPoseLocally(v);
@@ -66,82 +73,52 @@ namespace Anaglyph.Lasertag
 		private void SetPoseLocally(Pose pose)
 		{
 			transform.SetPositionAndRotation(pose.position, pose.rotation);
-			prevPos = transform.position;
 		}
 
 		private void Update()
 		{
 			if (isAlive)
 			{
-				Fly();
-				
-				if(IsOwner)
-					TestHit();
-			}
-		}
+				float lifeTime = Time.time - spawnedTime;
+				Vector3 prevPos = transform.position;
+				travelDist = metersPerSecond * lifeTime;
 
-		Vector3 prevPos = Vector3.zero;
-		private void Fly()
-		{
-			float lifeTime = Time.time - spawnedTime;
-			prevPos = transform.position;
-			travelDist = metersPerSecond * lifeTime;
+				transform.position = fireRay.GetPoint(travelDist);
 
-			transform.position = fireRay.GetPoint(travelDist);
-		}
-
-		private void TestHit()
-		{
-			if (!IsOwner)
-				return;
-
-			bool didHitEnv = travelDist > envHitDist;
-
-			if (didHitEnv)
-				transform.position = fireRay.GetPoint(envHitDist);
-
-			bool didHitPhys = Physics.Linecast(prevPos, transform.position, out var physHit,
-				Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
-
-			if(didHitPhys)
-			{
-				Hit(physHit.point, physHit.normal);
-
-				var col = physHit.collider;
-
-				if (col.CompareTag(Networking.Avatar.Tag))
+				if (IsOwner)
 				{
-					var av = col.GetComponentInParent<Networking.Avatar>();
-					av.DamageRpc(damage, OwnerClientId);
+					bool didHitEnv = travelDist > envHitDist;
+
+					if (didHitEnv)
+						transform.position = fireRay.GetPoint(envHitDist);
+
+					bool didHitPhys = Physics.Linecast(prevPos, transform.position, out var physHit,
+						Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+
+					if (didHitPhys)
+					{
+						HitRpc(physHit.point, physHit.normal);
+
+						var col = physHit.collider;
+
+						if (col.CompareTag(Networking.Avatar.Tag))
+						{
+							var av = col.GetComponentInParent<Networking.Avatar>();
+							av.DamageRpc(damage, OwnerClientId);
+						}
+
+					}
+					else if (didHitEnv)
+					{
+						Vector3 envHitPoint = fireRay.GetPoint(envHitDist);
+						HitRpc(envHitPoint, -transform.forward);
+					}
 				}
-
-			} else if(didHitEnv)
-			{
-				Vector3 envHitPoint = fireRay.GetPoint(envHitDist);
-				Hit(envHitPoint, -transform.forward);
 			}
-		}
-
-		private async void Hit(Vector3 pos, Vector3 norm)
-		{
-			if (IsSpawned)
-				HitRpc(pos, norm);
-
-			await Awaitable.WaitForSecondsAsync(despawnDelay);
-
-			if (IsOwner && IsSpawned)
-				NetworkObject.Despawn();
-		}
-
-		[Rpc(SendTo.Owner)]
-		private void SyncLocalWorldHitRPC(float dist)
-		{
-			if(dist > EnvironmentMapper.Instance.MaxEyeDist)
-				envHitDist = Mathf.Min(envHitDist, dist);
 		}
 
 		[Rpc(SendTo.Everyone)]
-		private void HitRpc(Vector3 pos, Vector3 norm)
+		private async void HitRpc(Vector3 pos, Vector3 norm)
 		{
 			transform.position = pos;
 			transform.up = norm;
@@ -149,6 +126,12 @@ namespace Anaglyph.Lasertag
 
 			OnCollide.Invoke();
 			AudioSource.PlayClipAtPoint(collideSFX, transform.position);
+
+			if (IsOwner && IsSpawned)
+			{
+				await Awaitable.WaitForSecondsAsync(despawnDelay);
+				NetworkObject.Despawn();
+			}
 		}
 	}
 }
