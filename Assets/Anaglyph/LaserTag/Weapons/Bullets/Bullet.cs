@@ -1,5 +1,8 @@
 using Anaglyph.Netcode;
 using Anaglyph.XRTemplate;
+using OVR.OpenVR;
+using System.Collections;
+using System.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
@@ -47,7 +50,7 @@ namespace Anaglyph.Lasertag
 			}
 			else
 			{
-				SetPoseLocally(SpawnPose);
+				SetPose(SpawnPose);
 			}
 
 			OnFire.Invoke();
@@ -68,9 +71,9 @@ namespace Anaglyph.Lasertag
 				envHitDist = Mathf.Min(envHitDist, dist);
 		}
 
-		private void OnSpawnPosChange(NetworkPose p, NetworkPose v) => SetPoseLocally(v);
+		private void OnSpawnPosChange(NetworkPose p, NetworkPose v) => SetPose(v);
 
-		private void SetPoseLocally(Pose pose)
+		private void SetPose(Pose pose)
 		{
 			transform.SetPositionAndRotation(pose.position, pose.rotation);
 		}
@@ -118,7 +121,7 @@ namespace Anaglyph.Lasertag
 		}
 
 		[Rpc(SendTo.Everyone)]
-		private async void HitRpc(Vector3 pos, Vector3 norm)
+		private void HitRpc(Vector3 pos, Vector3 norm)
 		{
 			transform.position = pos;
 			transform.up = norm;
@@ -127,10 +130,13 @@ namespace Anaglyph.Lasertag
 			OnCollide.Invoke();
 			AudioSource.PlayClipAtPoint(collideSFX, transform.position);
 
-			if (IsOwner && IsSpawned)
+			if (IsOwner)
 			{
-				await Awaitable.WaitForSecondsAsync(despawnDelay);
-				NetworkObject.Despawn();
+				StartCoroutine(D());
+				IEnumerator D() {
+					yield return new WaitForSeconds(despawnDelay);
+					NetworkObject.Despawn();
+				}
 			}
 		}
 	}
