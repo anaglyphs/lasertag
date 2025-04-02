@@ -25,7 +25,7 @@ namespace Anaglyph.Lasertag
 
 			manager.OnConnectionEvent += OnConnectionEvent;
 
-			UpdateVisibilityOfNetworkOnlyObjects(manager.IsConnectedClient || manager.IsHost);
+			UpdateVisibilityOfNetworkOnlyObjects(manager.IsConnectedClient);
 
 			Colocation.IsColocatedChange += HandleColocation;
 		}

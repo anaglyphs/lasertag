@@ -60,7 +60,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 					IsColocated = true;
 
-				} else if(manager.IsHost)
+				} else if(manager.LocalClientId == manager.CurrentSessionOwner)
 				{
 					if(tagAnchorPrefab == null)
 						tagAnchorPrefab = Resources.Load<GameObject>("April Tag Anchor");

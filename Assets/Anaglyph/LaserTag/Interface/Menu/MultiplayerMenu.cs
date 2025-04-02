@@ -80,7 +80,7 @@ namespace Anaglyph.Lasertag
 #if UNITY_EDITOR
 			ipField.text = "127.0.0.1";
 #endif
-			connectButton.onClick.AddListener(() => NetworkHelper.StartClientWithIP(ip));
+			connectButton.onClick.AddListener(() => NetworkHelper.ConnectLAN(ip));
 
 			// connecting page
 			sessionPage.showBackButton = false;
@@ -158,7 +158,9 @@ namespace Anaglyph.Lasertag
 
 		private void Host()
 		{
-			NetworkHelper.StartHost(useUnityRelayService.Value);
+			var service = useUnityRelayService.Value ? NetworkHelper.Protocol.UnityService : NetworkHelper.Protocol.LAN;
+
+			NetworkHelper.Host(service);
 		}
 
 		private void Disconnect()

@@ -4,8 +4,10 @@ using System.Text;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using Unity.Networking.Transport.Relay;
+using Unity.Services.Multiplayer;
 using Unity.Services.Relay;
 using UnityEngine;
+using Unity.Services.DistributedAuthority;
 
 namespace Anaglyph.SharedSpaces
 {
@@ -19,7 +21,7 @@ namespace Anaglyph.SharedSpaces
 		private static string LogHeader = "[AutoJoiner] ";
 		private static void Log(string str) => Debug.Log(LogHeader + str);
 
-		private static string IPPrefix = "IP:";
+		private static string LanPrefix = "IP:";
 		private static string RelayPrefix = "Relay:";
 
 		private void Start()
@@ -76,11 +78,6 @@ namespace Anaglyph.SharedSpaces
 				if (manager == null)
 					return;
 
-				if (manager.IsHost && manager.IsListening)
-					HostingStarted();
-				else
-					HostingStopped();
-
 				if (manager.IsListening)
 					ClientStarted();
 				else
@@ -88,21 +85,26 @@ namespace Anaglyph.SharedSpaces
 			}
 		}
 
-		private async void HostingStarted()
+		private async void ClientStarted()
 		{
+			Log("Stopping discovery");
+			await OVRColocationSession.StopDiscoveryAsync();
+
 			string message = "";
 
-			switch(transport.Protocol)
+			switch (transport.Protocol)
 			{
 				case UnityTransport.ProtocolType.UnityTransport:
+
 					string address = transport.ConnectionData.Address;
-					message = IPPrefix + address;
+					message = LanPrefix + address;
 					break;
 
 				case UnityTransport.ProtocolType.RelayUnityTransport:
-					Guid allocationId = NetworkHelper.allocationId;
-					var joinCode = await RelayService.Instance.GetJoinCodeAsync(allocationId);
-					message = RelayPrefix + joinCode;
+
+					var sessionIds = await MultiplayerService.Instance.GetJoinedSessionIdsAsync();
+					message = RelayPrefix + sessionIds[sessionIds.Count - 1];
+
 					break;
 			}
 
@@ -110,22 +112,15 @@ namespace Anaglyph.SharedSpaces
 			await OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(message));
 		}
 
-		private void HostingStopped()
+		private async void ClientStopped()
 		{
 			Log("Stopping advertisement");
-			OVRColocationSession.StopAdvertisementAsync();
-		}
+			await OVRColocationSession.StopAdvertisementAsync();
 
-		private void ClientStarted()
-		{
-			Log("Stopping discovery");
-			OVRColocationSession.StopDiscoveryAsync();
-		}
+			await Awaitable.WaitForSecondsAsync(0.5f);
 
-		private void ClientStopped()
-		{
 			Log("Starting discovery");
-			OVRColocationSession.StartDiscoveryAsync();
+			await OVRColocationSession.StartDiscoveryAsync();
 		}
 
 		private void HandleColocationSessionDiscovered(OVRColocationSession.Data data)
@@ -133,12 +128,12 @@ namespace Anaglyph.SharedSpaces
 			string message = Encoding.ASCII.GetString(data.Metadata);
 			Log($"Discovered {message}");
 
-			if(message.StartsWith(IPPrefix))
+			if(message.StartsWith(LanPrefix))
 			{
-				NetworkHelper.StartClientWithIP(message.Remove(0, IPPrefix.Length));
+				NetworkHelper.ConnectLAN(message.Remove(0, LanPrefix.Length));
 			} else if(message.StartsWith(RelayPrefix))
 			{
-				NetworkHelper.StartClientWithRelayCode(message.Remove(0, RelayPrefix.Length));
+				NetworkHelper.ConnectDistAuth(message.Remove(0, RelayPrefix.Length));
 			}
 		}
 	}

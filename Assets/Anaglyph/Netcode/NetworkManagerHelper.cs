@@ -1,3 +1,4 @@
+using Mono.Cecil.Cil;
 using System;
 using System.Net;
 using System.Threading.Tasks;
@@ -5,8 +6,7 @@ using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
-using Unity.Services.Relay;
-using Unity.Services.Relay.Models;
+using Unity.Services.Multiplayer;
 
 namespace Anaglyph.Netcode
 {
@@ -16,68 +16,64 @@ namespace Anaglyph.Netcode
 		public static string contyp = "dtls";
 
 		private static NetworkManager manager => NetworkManager.Singleton;
-		private static UnityTransport transport;
+		private static UnityTransport transport => (UnityTransport)NetworkManager.Singleton.NetworkConfig.NetworkTransport;
 
-		public static Guid allocationId { get; private set; }
-
-		public static async void StartHost(bool useRelay)
+		public enum Protocol
 		{
-			AssignTransport();
-
-			if (useRelay)
-			{
-				await SetupServices();
-
-				Allocation allocation = await RelayService.Instance.CreateAllocationAsync(20);
-				allocationId = allocation.AllocationId;
-
-				transport.SetRelayServerData(allocation.ToRelayServerData(contyp));
-			}
-			else
-			{
-				string localAddress = "";
-				var addresses = Dns.GetHostEntry(Dns.GetHostName()).AddressList;
-				foreach (var address in addresses)
-				{
-					if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-					{
-						localAddress = address.ToString();
-						break;
-					}
-				}
-
-				transport.SetConnectionData(localAddress, port);
-			}
-
-			StartHost();
+			LAN,
+			UnityService, 
 		}
 
-		public static void StartClientWithIP(string ip)
+		public static async void Host(Protocol protocol)
 		{
-			AssignTransport();
-			
+			switch(protocol)
+			{
+				case Protocol.LAN:
+
+					string localAddress = "";
+					var addresses = Dns.GetHostEntry(Dns.GetHostName()).AddressList;
+					foreach (var address in addresses)
+					{
+						if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+						{
+							localAddress = address.ToString();
+							break;
+						}
+					}
+
+					transport.SetConnectionData(localAddress, port);
+					StartHost();
+					break;
+
+
+				case Protocol.UnityService:
+
+					await SetupServices();
+
+
+					//Allocation allocation = await RelayService.Instance.CreateAllocationAsync(20);
+					//allocationId = allocation.AllocationId;
+
+					//transport.SetRelayServerData(allocation.ToRelayServerData(contyp));
+					//StartHost();
+
+					var options = new SessionOptions()
+					{
+						Name = Guid.NewGuid().ToString(),
+						MaxPlayers = 20,
+					}.WithDistributedAuthorityNetwork();
+
+					await MultiplayerService.Instance.CreateSessionAsync(options);
+
+					break;
+			}
+		}
+
+		public static void ConnectLAN(string ip)
+		{
 			transport.SetConnectionData(ip, port);
 
 			StartClient();
-		}
-
-		public static async void StartClientWithRelayCode(string code)
-		{
-			AssignTransport();
-
-			await SetupServices();
-
-			var joinAllocation = await RelayService.Instance.JoinAllocationAsync(code);
-
-			transport.SetRelayServerData(joinAllocation.ToRelayServerData(contyp));
-
-			StartClient();
-		}
-
-		private static void AssignTransport()
-		{
-			if (transport == null)
-				manager.TryGetComponent(out transport);
 		}
 
 		private static async Task SetupServices()
@@ -87,6 +83,24 @@ namespace Anaglyph.Netcode
 
 			if (!AuthenticationService.Instance.IsSignedIn)
 				await AuthenticationService.Instance.SignInAnonymouslyAsync();
+		}
+
+		//public static async void ConnectRelay(string code)
+		//{
+		//	await SetupServices();
+
+		//	var joinAllocation = await RelayService.Instance.JoinAllocationAsync(code);
+
+		//	transport.SetRelayServerData(joinAllocation.ToRelayServerData(contyp));
+
+		//	StartClient();
+		//}
+
+		public static async void ConnectDistAuth(string id)
+		{
+			await SetupServices();
+
+			await MultiplayerService.Instance.JoinSessionByIdAsync(id);
 		}
 
 		private static void StartClient()
