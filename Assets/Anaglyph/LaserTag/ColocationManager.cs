@@ -13,9 +13,9 @@ namespace Anaglyph.Lasertag
 		[Serializable]
 		public enum ColocationMethod
 		{
-			Automatic = 0,
-			TrackedKeyboard = 1,
-			AprilTag = 2,
+			Automatic,
+			TrackedKeyboard,
+			AprilTag,
 		}
 
 		[SerializeField] private BoolObject useKeyboardColocation;

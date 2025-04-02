@@ -99,7 +99,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			flatForward = flatForward.normalized;
 			keyboardPose.rotation = Quaternion.LookRotation(flatForward, Vector3.up);
 
-			Pose desiredPose = new Pose(new Vector3(0, 0.7f, 0), Quaternion.identity);
+			Pose desiredPose = new Pose(new Vector3(0, 0, 0), Quaternion.identity);
 			Colocation.TransformTrackingSpace(keyboardPose, desiredPose);
 
 			IsColocated = true;
