@@ -188,7 +188,7 @@ namespace Anaglyph.XRTemplate
 
 				var orig = ray.origin;
 				var dir = ray.direction;
-				Vector2 slope = new Vector2(dir.x, dir.z) / dir.z;
+				Vector2 slope = new Vector2(dir.x, dir.z) / dir.y;
 
 				result.point = new Vector3(slope.x * -orig.y + orig.x, 0, slope.y * -orig.y + orig.z);
 				result.distance = Vector3.Distance(orig, result.point);
