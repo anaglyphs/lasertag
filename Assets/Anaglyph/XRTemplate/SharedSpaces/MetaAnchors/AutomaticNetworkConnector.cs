@@ -9,7 +9,7 @@ using Unity.Services.Relay;
 using UnityEngine;
 using Unity.Services.DistributedAuthority;
 
-namespace Anaglyph.SharedSpaces
+namespace Anaglyph.XRTemplate.SharedSpaces
 {
 	public class AutomaticNetworkConnector : MonoBehaviour
 	{

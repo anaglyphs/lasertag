@@ -1,5 +1,4 @@
 using Anaglyph.Netcode;
-using Anaglyph.XRTemplate.SharedSpaces;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -8,7 +7,7 @@ using Unity.XR.CoreUtils;
 using UnityEngine;
 using static OVRSpatialAnchor;
 
-namespace Anaglyph.SharedSpaces
+namespace Anaglyph.XRTemplate.SharedSpaces
 {
 	[Serializable]
 	public struct NetworkGuid : INetworkSerializeByMemcpy
@@ -126,7 +125,7 @@ namespace Anaglyph.SharedSpaces
 				if (!saveResult.Success)
 					throw new NetworkedAnchorException($"Failed to save anchor {spatialAnchor.Uuid}");
 
-				AnchorGuidSaving.AddAndSaveGuid(spatialAnchor.Uuid);
+				// AnchorGuidSaving.AddAndSaveGuid(spatialAnchor.Uuid);
 
 				Log($"Sharing anchor {spatialAnchor.Uuid}...");
 
@@ -189,7 +188,7 @@ namespace Anaglyph.SharedSpaces
 				if (!saveResult.Success)
 					throw new NetworkedAnchorException($"Failed to save anchor {spatialAnchor.Uuid}");
 
-				AnchorGuidSaving.AddAndSaveGuid(spatialAnchor.Uuid);
+				// AnchorGuidSaving.AddAndSaveGuid(spatialAnchor.Uuid);
 			}
 			catch (NetworkedAnchorException e)
 			{

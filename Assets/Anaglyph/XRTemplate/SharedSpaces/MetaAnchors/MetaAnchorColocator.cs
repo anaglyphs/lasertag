@@ -1,15 +1,9 @@
-using Anaglyph.XRTemplate;
-using Anaglyph.XRTemplate.SharedSpaces;
 using System;
-using System.Collections.Generic;
-using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
-using static Anaglyph.XRTemplate.SharedSpaces.AnchorGuidSaving;
-using static OVRSpatialAnchor;
 using static UnityEngine.Object;
 
-namespace Anaglyph.SharedSpaces
+namespace Anaglyph.XRTemplate.SharedSpaces
 {
 	public class MetaAnchorColocator : IColocator
 	{
@@ -56,7 +50,7 @@ namespace Anaglyph.SharedSpaces
 				networkedAnchor.NetworkObject.Spawn();
 
 				// try to bind with an existing saved anchor
-				SavedAnchorGuids savedAnchors = LoadSavedGuids();
+				// SavedAnchorGuids savedAnchors = LoadSavedGuids();
 
 				//if (savedAnchors.guidStrings != null && savedAnchors.guidStrings.Count > 0)
 				//{

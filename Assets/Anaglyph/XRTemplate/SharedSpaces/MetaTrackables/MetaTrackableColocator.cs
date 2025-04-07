@@ -1,4 +1,4 @@
-using Anaglyph.SharedSpaces;
+using Anaglyph.XRTemplate.SharedSpaces;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
