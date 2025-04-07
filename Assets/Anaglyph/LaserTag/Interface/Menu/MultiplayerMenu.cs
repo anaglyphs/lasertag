@@ -1,6 +1,6 @@
 using Anaglyph.Menu;
 using Anaglyph.Netcode;
-using Anaglyph.SharedSpaces;
+using Anaglyph.XRTemplate.SharedSpaces;
 using Anaglyph.XRTemplate.SharedSpaces;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;

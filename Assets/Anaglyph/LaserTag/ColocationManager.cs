@@ -1,6 +1,5 @@
-using Anaglyph.SharedSpaces;
-using Anaglyph.XRTemplate;
 using Anaglyph.XRTemplate.SharedSpaces;
+using Anaglyph.XRTemplate;
 using System;
 using Unity.Netcode;
 using UnityEngine;
