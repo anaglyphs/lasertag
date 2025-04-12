@@ -97,6 +97,7 @@ GameObject:
   - component: {fileID: 4861561073879411851}
   - component: {fileID: 4737041616819380296}
   - component: {fileID: 1157186111017555043}
+  - component: {fileID: 6356306120694193649}
   m_Layer: 0
   m_Name: Head
   m_TagString: Player
@@ -201,6 +202,18 @@ VFXRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+--- !u!114 &6356306120694193649
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1746489447900163166}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e2ad3dbf83e51744781ec13b94d8c713, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1866142780104944628
 GameObject:
   m_ObjectHideFlags: 0

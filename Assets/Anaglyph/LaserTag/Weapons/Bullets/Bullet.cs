@@ -14,7 +14,7 @@ namespace Anaglyph.Lasertag
 		private const float MaxTravelDist = 50;
 
 		[SerializeField] private float metersPerSecond;
-		[SerializeField] private float damage = 50f;
+		[SerializeField] private AnimationCurve damageOverDistance = AnimationCurve.Constant(0, MaxTravelDist, 50f);
 
 		[SerializeField] private int despawnDelay = 1;
 
@@ -107,6 +107,7 @@ namespace Anaglyph.Lasertag
 						if (col.CompareTag(Networking.Avatar.Tag))
 						{
 							var av = col.GetComponentInParent<Networking.Avatar>();
+							float damage = damageOverDistance.Evaluate(travelDist);
 							av.DamageRpc(damage, OwnerClientId);
 						}
 

@@ -72,6 +72,14 @@ PrefabInstance:
       propertyPath: metersPerSecond
       value: 100
       objectReference: {fileID: 0}
+    - target: {fileID: 6606369252371184621, guid: 24fe9491462961f4091217e62ff6ff84, type: 3}
+      propertyPath: damageOverDistance.m_Curve.Array.data[1].value
+      value: 33
+      objectReference: {fileID: 0}
+    - target: {fileID: 6606369252371184621, guid: 24fe9491462961f4091217e62ff6ff84, type: 3}
+      propertyPath: damageOverDistance.m_Curve.Array.data[2].value
+      value: 33
+      objectReference: {fileID: 0}
     - target: {fileID: 6747195467610947331, guid: 24fe9491462961f4091217e62ff6ff84, type: 3}
       propertyPath: GlobalObjectIdHash
       value: 921357965

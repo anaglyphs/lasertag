@@ -208,8 +208,40 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
   metersPerSecond: 120
-  damage: 20
-  msHitDeactivateDelay: 1000
+  damageOverDistance:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 100
+      inSlope: -91.910576
+      outSlope: -91.910576
+      tangentMode: 0
+      weightedMode: 3
+      inWeight: 0
+      outWeight: 0.07768501
+    - serializedVersion: 3
+      time: 4.971554
+      value: 50
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 50
+      value: 50
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  despawnDelay: 1
   fireSFX: {fileID: 8300000, guid: 49adec157a499594ca49a17e286c4bb2, type: 3}
   collideSFX: {fileID: 8300000, guid: 4083a17f54a820948bb1db48ce9920ed, type: 3}
   OnFire:

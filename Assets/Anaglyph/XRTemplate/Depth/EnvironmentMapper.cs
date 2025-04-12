@@ -33,9 +33,15 @@ namespace Anaglyph.XRTemplate
 
 		private int depthTexID => DepthKitDriver.agDepthTex_ID;
 
+		private int numPlayersID = Shader.PropertyToID("numPlayers");
+		private int playerHeadsWorldID = Shader.PropertyToID("playerHeadsWorld");
+
 		// cached points within viewspace depth frustum 
 		// like a 3D lookup table
 		private ComputeBuffer frustumVolume;
+
+		public List<Transform> PlayerHeads = new();
+		private Vector4[] headPositions = new Vector4[512];
 
 		private void Awake()
 		{
@@ -103,6 +109,15 @@ namespace Anaglyph.XRTemplate
 
 			shader.SetMatrixArray(viewInvID, new[] { view.inverse, Matrix4x4.zero });
 			shader.SetMatrixArray(projInvID, new[] { proj.inverse, Matrix4x4.zero });
+
+			for(int i = 0; i < PlayerHeads.Count; i++)
+			{
+				Vector3 playerHead = PlayerHeads[i].position;
+				headPositions[i] = playerHead;
+			}
+
+			shader.SetInt(numPlayersID, PlayerHeads.Count);
+			shader.SetVectorArray(playerHeadsWorldID, headPositions);
 
 			integrateKernel.Set(depthTexID, depthTex);
 
