@@ -1,3 +1,4 @@
+using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.XR;
 
@@ -5,15 +6,9 @@ namespace Anaglyph.XRTemplate
 {
 	public class DeactivateIfControllerDisconnected : MonoBehaviour
 	{
-		private HandedHierarchy handedParent;
-		private InputDevice inputDevice;
+		[SerializeField] private InputDeviceCharacteristics deviceCharacteristics;
 
 		private void Awake()
-		{
-			handedParent = GetComponentInParent<HandedHierarchy>();
-		}
-
-		private void Start()
 		{
 			InputDevices.deviceConnected += HandleControllerConnection;
 			InputDevices.deviceDisconnected += HandleControllerConnection;
@@ -27,11 +22,7 @@ namespace Anaglyph.XRTemplate
 
 		private void HandleControllerConnection(InputDevice device)
 		{
-			var thisDevice = InputDevices.GetDeviceAtXRNode(handedParent.Node);
-			if (thisDevice.isValid)
-				inputDevice = thisDevice;
-
-			if (device == inputDevice)
+			if (device.characteristics.HasFlag(deviceCharacteristics))
 				gameObject.SetActive(device.isValid);
 		}
 	}
