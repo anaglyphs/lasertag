@@ -1,7 +1,6 @@
 using Anaglyph.Menu;
 using Anaglyph.Netcode;
 using Anaglyph.XRTemplate.SharedSpaces;
-using Anaglyph.XRTemplate.SharedSpaces;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
@@ -74,13 +73,15 @@ namespace Anaglyph.Lasertag
 			manuallyConnectPage.showBackButton = true;
 
 			string ip = NetcodeHelpers.GetLocalIPv4();
+
+#if UNITY_EDITOR
+			ip = "127.0.0.1";
+#endif
+
 			int length = Mathf.Min(ip.Length, ip.LastIndexOf('.') + 1);
 			ipField.text = ip.Substring(0, length);
 
-#if UNITY_EDITOR
-			ipField.text = "127.0.0.1";
-#endif
-			connectButton.onClick.AddListener(() => NetworkHelper.ConnectLAN(ip));
+			connectButton.onClick.AddListener(() => NetworkHelper.ConnectLAN(ipField.text));
 
 			// connecting page
 			sessionPage.showBackButton = false;

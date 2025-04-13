@@ -5,7 +5,6 @@ namespace Anaglyph.Netcode
 {
 	public class ActiveOnlyIfConnected : MonoBehaviour
 	{
-
 		private void Start()
 		{
 			NetworkManager.Singleton.OnConnectionEvent += OnConnectionEvent;
