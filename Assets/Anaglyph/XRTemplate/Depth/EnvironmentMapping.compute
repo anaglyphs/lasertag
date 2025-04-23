@@ -2,8 +2,8 @@
 
 uniform uint3 volumeSize; // dimensions of volume texture
 uniform float metersPerVoxel;
+float3 chunkPos;
 RWTexture3D<half> volume; // tsdf
-StructuredBuffer<float3> frustumVolume;
 SamplerState linearClampSampler;
 
 int numPlayers;
@@ -19,12 +19,14 @@ float3 voxelToWorld(uint3 indices)
 	pos += 0.5f;
 	pos -= volumeSize / 2.0f;
 	pos *= metersPerVoxel;
+	pos += chunkPos;
 	
 	return pos;
 }
 
 uint3 worldToVoxel(float3 pos)
 {
+	pos -= chunkPos;
 	pos /= metersPerVoxel;
 	pos += volumeSize / 2.0f;
 	
@@ -54,12 +56,10 @@ void Clear(uint3 id : SV_DispatchThreadID)
 
 #pragma kernel Integrate
  
-[numthreads(64, 1, 1)]
-void Integrate (uint i : SV_DispatchThreadID)
-{	
-	float3 vLocalPos = frustumVolume[i];
-	float3 vWorldPos = mul(agDepthViewInv[0], float4(vLocalPos, 1));
-	uint3 id = worldToVoxel(vWorldPos);
+[numthreads(8, 8, 8)]
+void Integrate (uint3 i : SV_DispatchThreadID)
+{
+	uint3 id = i;
 	
 	float3 eyePos = agDepthEyePos();
 	float3 voxPos = voxelToWorld(id);
@@ -79,59 +79,63 @@ void Integrate (uint i : SV_DispatchThreadID)
 	half sDistNorm = sDist / metersPerVoxel;
 	sDistNorm = min(sDistNorm, 1);
 	
-	bool inPlayer = false;
+	//bool inPlayer = false;
 	
-	for (int i = 0; i < numPlayers; i++)
-	{
-		float3 playerPos = playerHeadsWorld[i];
+	//for (int i = 0; i < numPlayers; i++)
+	//{
+	//	float3 playerPos = playerHeadsWorld[i];
 		
-		if (distance(vWorldPos.xz, playerPos.xz) < PLAYER_RADIUS && 
-			vWorldPos.y < playerPos.y + PLAYER_TOP &&
-			vWorldPos.y > playerPos.y - PLAYER_BOTTOM)
-		{
-			inPlayer = true;
-		}
-	}
+	//	if (distance(voxPos.xz, playerPos.xz) < PLAYER_RADIUS &&
+	//		voxPos.y < playerPos.y + PLAYER_TOP &&
+	//		voxPos.y > playerPos.y - PLAYER_BOTTOM)
+	//	{
+	//		inPlayer = true;
+	//	}
+	//}
 	
-	if (sDistNorm > -1 && !inPlayer)
+	bool inView = voxNDC.x > 0 && voxNDC.x < 1 &&
+					voxNDC.y > 0 && voxNDC.y < 1 &&
+					voxHCS.z > 0; 
+	
+	if (sDistNorm > -1 && inView)// && !inPlayer)
 		volume[id] = sDistNorm;
 }
-
-#pragma kernel Raycast
+ 
+//#pragma kernel Raycast
 
 /// Raycast
 
-uniform float3 rcOrig; 
-uniform float3 rcDir;
-uniform float rcIntScale;
-RWStructuredBuffer<uint> rcResult;
-Texture3D<half> rcVolume;
+//uniform float3 rcOrig; 
+//uniform float3 rcDir;
+//uniform float rcIntScale;
+//RWStructuredBuffer<uint> rcResult;
+//Texture3D<half> rcVolume;
 
-half sampleDist(float3 uvw)
-{
-	return rcVolume.SampleLevel(linearClampSampler, uvw, 0) * metersPerVoxel;
-}
+//half sampleDist(float3 uvw)
+//{
+//	return rcVolume.SampleLevel(linearClampSampler, uvw, 0) * metersPerVoxel;
+//}
 
-[numthreads(64, 1, 1)]
-void Raycast(uint3 id : SV_DispatchThreadID)
-{
-	float3 startPos = rcOrig + rcDir * metersPerVoxel * id.x;
-	float3 worldPos = startPos;
+//[numthreads(64, 1, 1)]
+//void Raycast(uint3 id : SV_DispatchThreadID)
+//{
+//	float3 startPos = rcOrig + rcDir * metersPerVoxel * id.x;
+//	float3 worldPos = startPos;
 	
-	// each thread does a mini raymarch through the TSDF
-	for (int i = 0; i < 3; i++)
-	{
-		float3 uvw = worldToVoxelUVW(worldPos);
-		half signedDistance = sampleDist(uvw);
-		worldPos += rcDir * signedDistance;
-	}
+//	// each thread does a mini raymarch through the TSDF
+//	for (int i = 0; i < 3; i++)
+//	{
+//		float3 uvw = worldToVoxelUVW(worldPos);
+//		half signedDistance = sampleDist(uvw);
+//		worldPos += rcDir * signedDistance;
+//	}
 	
-	float3 uvw = worldToVoxelUVW(worldPos);
-	half signedDistance = sampleDist(uvw);
+//	float3 uvw = worldToVoxelUVW(worldPos);
+//	half signedDistance = sampleDist(uvw);
 	
-	float distanceFromCenter = distance(worldPos, rcOrig);
-	uint distFromCenterInt = distanceFromCenter * rcIntScale;
+//	float distanceFromCenter = distance(worldPos, rcOrig);
+//	uint distFromCenterInt = distanceFromCenter * rcIntScale;
 	
-	if (abs(signedDistance) < 0.02f)
-		InterlockedMin(rcResult[0], distFromCenterInt);
-}
+//	if (abs(signedDistance) < 0.02f)
+//		InterlockedMin(rcResult[0], distFromCenterInt);
+//}

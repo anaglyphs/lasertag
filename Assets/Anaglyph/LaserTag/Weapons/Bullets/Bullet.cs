@@ -1,6 +1,5 @@
 using Anaglyph.Netcode;
 using Anaglyph.XRTemplate;
-using OVR.OpenVR;
 using System.Collections;
 using System.Threading.Tasks;
 using Unity.Netcode;
@@ -56,20 +55,20 @@ namespace Anaglyph.Lasertag
 			OnFire.Invoke();
 			AudioSource.PlayClipAtPoint(fireSFX, transform.position);
 
-			fireRay = new(transform.position, transform.forward);
-			if (EnvironmentMapper.Raycast(fireRay, MaxTravelDist, out var envCast))
-				if (IsOwner)
-					envHitDist = envCast.distance;
-				else
-					EnvironmentRaycastRpc(envCast.distance);
+			//fireRay = new(transform.position, transform.forward);
+			//if (Chunk.Raycast(fireRay, MaxTravelDist, out var envCast))
+			//	if (IsOwner)
+			//		envHitDist = envCast.distance;
+			//	else
+			//		EnvironmentRaycastRpc(envCast.distance);
 		}
 
-		[Rpc(SendTo.Owner)]
-		private void EnvironmentRaycastRpc(float dist)
-		{
-			if (dist > EnvironmentMapper.Instance.MaxEyeDist)
-				envHitDist = Mathf.Min(envHitDist, dist);
-		}
+		//[Rpc(SendTo.Owner)]
+		//private void EnvironmentRaycastRpc(float dist)
+		//{
+		//	if (dist > Chunk.Instance.MaxEyeDist)
+		//		envHitDist = Mathf.Min(envHitDist, dist);
+		//}
 
 		private void OnSpawnPosChange(NetworkPose p, NetworkPose v) => SetPose(v);
 

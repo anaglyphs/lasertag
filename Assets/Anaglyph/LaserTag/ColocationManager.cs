@@ -36,7 +36,7 @@ namespace Anaglyph.Lasertag
 
 		protected override void OnNetworkSessionSynchronized()
 		{
-			EnvironmentMapper.Instance.Clear();
+			//Chunk.Instance.Clear();
 
 			if (IsOwner)
 			{

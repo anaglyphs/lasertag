@@ -72,18 +72,19 @@ namespace Anaglyph.Lasertag
 			lineRenderer.SetPosition(1, Vector3.forward);
 			lineRenderer.enabled = true;
 
-			Ray ray = new(transform.position, transform.forward);
-			bool didHit = EnvironmentMapper.Raycast(ray, 50, out var result, true);
-			if(!didHit)
-			{
-				return;
-			}
+			//Ray ray = new(transform.position, transform.forward);
+			//bool didHit = Chunk.Raycast(ray, 50, out var result, true);
+			//if(!didHit)
+			//{
+			//	return;
+			//}
 
-			previewObject.SetActive(true);
-			boundsVisual.enabled = true;
 
-			previewObject.transform.position = result.point;
-			previewObject.transform.eulerAngles = new(0, angle, 0);
+			//previewObject.SetActive(true);
+			//boundsVisual.enabled = true;
+
+			//previewObject.transform.position = result.point;
+			//previewObject.transform.eulerAngles = new(0, angle, 0);
 		}
 
 		private void OnEnable()
