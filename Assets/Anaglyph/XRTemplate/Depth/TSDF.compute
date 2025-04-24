@@ -3,15 +3,28 @@
 uniform uint3 volumeSize; // dimensions of volume texture
 uniform float metersPerVoxel;
 float3 chunkPos;
-RWTexture3D<half> volume; // tsdf
+// RWTexture3D<half> volume; // tsdf
+RWStructuredBuffer<half> volume;
 SamplerState linearClampSampler;
 
-int numPlayers;
-float3 playerHeadsWorld[512];
+//int numPlayers;
+//float3 playerHeadsWorld[512];
 
 #define PLAYER_TOP 0.2 
 #define PLAYER_BOTTOM 1.7
 #define PLAYER_RADIUS 0.5
+
+half readVol(uint3 i)
+{
+	uint3 v = volumeSize;
+	return volume[i.x + (i.y * v.x) + (i.z * v.x * v.y)];
+}
+
+void writeVol(uint3 i, half val)
+{
+	uint3 v = volumeSize;
+	volume[i.x + (i.y * v.x) + (i.z * v.x * v.y)] = val;
+}
 
 float3 voxelToWorld(uint3 indices)
 {
@@ -50,7 +63,7 @@ float3 worldToVoxelUVW(float3 pos)
 [numthreads(4, 4, 4)]
 void Clear(uint3 id : SV_DispatchThreadID)
 {
-	volume[id] = 1; 
+	writeVol(id, 1);
 }
 
 
@@ -98,7 +111,7 @@ void Integrate (uint3 i : SV_DispatchThreadID)
 					voxHCS.z > 0; 
 	
 	if (sDistNorm > -1 && inView)// && !inPlayer)
-		volume[id] = sDistNorm;
+		writeVol(id, sDistNorm);
 }
  
 //#pragma kernel Raycast

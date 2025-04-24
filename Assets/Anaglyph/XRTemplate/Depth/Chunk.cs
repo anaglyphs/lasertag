@@ -8,9 +8,13 @@ namespace Anaglyph.XRTemplate
 	{
 		[SerializeField] private ComputeShader shader = null;
 		[SerializeField] private float metersPerVoxel = 0.1f;
+		public float MetersPerVoxel => metersPerVoxel;
 		[SerializeField] private int size = 128;
+		public int Size => size;
 
-		[SerializeField] private RenderTexture volume;
+		private ComputeBuffer volume;
+		public ComputeBuffer Volume => volume;
+
 		public Bounds Bounds { get; private set; }
 		
 		[SerializeField] private float maxEyeDist = 7f;
@@ -37,25 +41,15 @@ namespace Anaglyph.XRTemplate
 
 		private void Awake()
 		{
-			RenderTextureDescriptor desc = new RenderTextureDescriptor()
-			{
-				dimension = UnityEngine.Rendering.TextureDimension.Tex3D,
-				width = size,
-				height = size,
-				volumeDepth = size,
-				mipCount = 1,
-				msaaSamples = 1,
-				graphicsFormat = GraphicsFormat.R8_SNorm,
-				enableRandomWrite = true,
-			};
-
-			volume = new RenderTexture(desc);
+			volume = new ComputeBuffer(size * size * size, 4);
 
 			Mapper.chunks.Add(this);
 		}
 
 		private void OnDestroy()
 		{
+			volume.Dispose();
+
 			Mapper.chunks.Remove(this);
 		}
 
@@ -76,7 +70,7 @@ namespace Anaglyph.XRTemplate
 		public void Clear()
 		{
 			clearKernel.Set(nameof(volume), volume);
-			clearKernel.DispatchGroups(volume);
+			clearKernel.DispatchGroups(size, size, size);
 		}
 
 		public void Integrate()
@@ -123,80 +117,82 @@ namespace Anaglyph.XRTemplate
 			integrateKernel.DispatchGroups(size, size, size);
 		}
 
-		//private const float RaycastScaleFactor = 1000f;
+		/**
+		private const float RaycastScaleFactor = 1000f;
 
-		//public struct RayResult
-		//{
-		//	public Vector3 point;
-		//	public float distance;
-		//	public bool didHit;
+		public struct RayResult
+		{
+			public Vector3 point;
+			public float distance;
+			public bool didHit;
 
-		//	public RayResult(Vector3 hitPoint, float distance)
-		//	{
-		//		this.point = hitPoint;
-		//		this.distance = distance;
-		//		this.didHit = false;
-		//	}
-		//}
+			public RayResult(Vector3 hitPoint, float distance)
+			{
+				this.point = hitPoint;
+				this.distance = distance;
+				this.didHit = false;
+			}
+		}
 
-		//private bool RaycastInternal(Ray ray, float maxDist, out RayResult result, bool fallback)
-		//{
-		//	result = new(ray.origin, 0);
-		//	if (maxDist == 0)
-		//		return false;
+		private bool RaycastInternal(Ray ray, float maxDist, out RayResult result, bool fallback)
+		{
+			result = new(ray.origin, 0);
+			if (maxDist == 0)
+				return false;
 
-		//	if (!DepthKitDriver.DepthAvailable && fallback)
-		//	{
-		//		// floor cast if depth isn't available
+			if (!DepthKitDriver.DepthAvailable && fallback)
+			{
+				// floor cast if depth isn't available
 
-		//		var orig = ray.origin;
-		//		var dir = ray.direction;
-		//		Vector2 slope = new Vector2(dir.x, dir.z) / dir.y;
+				var orig = ray.origin;
+				var dir = ray.direction;
+				Vector2 slope = new Vector2(dir.x, dir.z) / dir.y;
 
-		//		result.point = new Vector3(slope.x * -orig.y + orig.x, 0, slope.y * -orig.y + orig.z);
-		//		result.distance = Vector3.Distance(orig, result.point);
+				result.point = new Vector3(slope.x * -orig.y + orig.x, 0, slope.y * -orig.y + orig.z);
+				result.distance = Vector3.Distance(orig, result.point);
 
-		//		return true;
-		//	}
+				return true;
+			}
 
-		//	shader.SetVector("rcOrig", ray.origin);
-		//	shader.SetVector("rcDir", ray.direction);
-		//	shader.SetFloat("rcIntScale", RaycastScaleFactor);
+			shader.SetVector("rcOrig", ray.origin);
+			shader.SetVector("rcDir", ray.direction);
+			shader.SetFloat("rcIntScale", RaycastScaleFactor);
 
-		//	uint lengthInt = (uint)(maxDist * RaycastScaleFactor);
+			uint lengthInt = (uint)(maxDist * RaycastScaleFactor);
 
-		//	ComputeBuffer resultBuffer = new ComputeBuffer(1, sizeof(uint));
-		//	resultBuffer.SetData(new uint[] { lengthInt });
-		//	raycastKernel.Set("rcResult", resultBuffer);
+			ComputeBuffer resultBuffer = new ComputeBuffer(1, sizeof(uint));
+			resultBuffer.SetData(new uint[] { lengthInt });
+			raycastKernel.Set("rcResult", resultBuffer);
 
-		//	int totalNumSteps = Mathf.RoundToInt(maxDist / metersPerVoxel);
+			int totalNumSteps = Mathf.RoundToInt(maxDist / metersPerVoxel);
 
-		//	if (totalNumSteps == 0)
-		//		return false;
+			if (totalNumSteps == 0)
+				return false;
 
-		//	raycastKernel.DispatchGroups(totalNumSteps, 1, 1);
+			raycastKernel.DispatchGroups(totalNumSteps, 1, 1);
 
-		//	//var request = await AsyncGPUReadback.Request(resultBuffer);
-		//	//if (request.hasError)
-		//	//	return hit;
-		//	//var result = request.GetData<uint>();
-		//	uint[] d = new uint[1];
-		//	resultBuffer.GetData(d);
-		//	uint hitDistInt = d[0];
-		//	//result.Dispose();
-		//	resultBuffer.Release();
+			//var request = await AsyncGPUReadback.Request(resultBuffer);
+			//if (request.hasError)
+			//	return hit;
+			//var result = request.GetData<uint>();
+			uint[] d = new uint[1];
+			resultBuffer.GetData(d);
+			uint hitDistInt = d[0];
+			//result.Dispose();
+			resultBuffer.Release();
 
-		//	if (hitDistInt >= lengthInt)
-		//		return false;
+			if (hitDistInt >= lengthInt)
+				return false;
 
-		//	float hitDist = hitDistInt / RaycastScaleFactor;
+			float hitDist = hitDistInt / RaycastScaleFactor;
 
-		//	if (hitDist >= maxDist)
-		//		return false;
+			if (hitDist >= maxDist)
+				return false;
 
-		//	result = new(ray.GetPoint(hitDist), hitDist);
-		//	result.didHit = true;
-		//	return true;
-		//}
+			result = new(ray.GetPoint(hitDist), hitDist);
+			result.didHit = true;
+			return true;
+		}
+		**/
 	}
 }

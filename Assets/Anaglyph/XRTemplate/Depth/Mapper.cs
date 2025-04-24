@@ -5,6 +5,7 @@ using UnityEngine;
 public class Mapper : MonoBehaviour
 {
 	public static List<Chunk> chunks = new();
+	public float frequency = 30f;
 
 	private void OnEnable()
 	{
@@ -15,7 +16,7 @@ public class Mapper : MonoBehaviour
 	{
 		while (enabled)
 		{
-			await Awaitable.WaitForSecondsAsync(0.5f);
+			await Awaitable.WaitForSecondsAsync(1f / frequency);
 
 			foreach (var chunk in chunks)
 			{
