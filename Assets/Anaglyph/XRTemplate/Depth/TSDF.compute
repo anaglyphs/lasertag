@@ -1,8 +1,10 @@
 #include "../Depth/DepthKit.hlsl"
 
-uniform uint3 volumeSize; // dimensions of volume texture
-uniform float metersPerVoxel;
+uint3 volumeSize; // dimensions of volume texture
+float metersPerVoxel;
+float distTruncate;
 float3 chunkPos;
+float maxEyeDist;
 // RWTexture3D<half> volume; // tsdf
 RWStructuredBuffer<half> volume;
 SamplerState linearClampSampler;
@@ -48,15 +50,15 @@ uint3 worldToVoxel(float3 pos)
 	return id;
 }
 
-float3 worldToVoxelUVW(float3 pos)
-{	
-	pos /= metersPerVoxel;
-	pos += volumeSize / 2.0f;
-	pos -= 0.5f;
-	pos /= volumeSize;
+//float3 worldToVoxelUVW(float3 pos)
+//{	
+//	pos /= metersPerVoxel;
+//	pos += volumeSize / 2.0f;
+//	pos -= 0.5f;
+//	pos /= volumeSize;
 	
-	return saturate(pos);
-}
+//	return saturate(pos);
+//}
 
 #pragma kernel Clear
 
@@ -89,7 +91,7 @@ void Integrate (uint3 i : SV_DispatchThreadID)
 	float depthEyeDist = distance(depthPos, eyePos);
 	
 	float sDist = depthEyeDist - voxEyeDist;
-	half sDistNorm = sDist / metersPerVoxel;
+	half sDistNorm = sDist / distTruncate;
 	sDistNorm = min(sDistNorm, 1);
 	
 	//bool inPlayer = false;
@@ -106,11 +108,13 @@ void Integrate (uint3 i : SV_DispatchThreadID)
 	//	}
 	//}
 	
-	bool inView = voxNDC.x > 0 && voxNDC.x < 1 &&
-					voxNDC.y > 0 && voxNDC.y < 1 &&
+	bool inView = voxNDC.x > 0.2 && voxNDC.x < 0.8 &&
+					voxNDC.y > 0.2 && voxNDC.y < 0.8 &&
 					voxHCS.z > 0; 
 	
-	if (sDistNorm > -1 && inView)// && !inPlayer)
+	bool withinMaxDist = voxEyeDist < maxEyeDist;
+	
+	if (sDistNorm > -1 && inView && withinMaxDist)// && !inPlayer)
 		writeVol(id, sDistNorm);
 }
  

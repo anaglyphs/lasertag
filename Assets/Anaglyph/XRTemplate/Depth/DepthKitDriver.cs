@@ -60,6 +60,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 			UpdateCurrentRenderingState();
 		}
 
+
 		public void UpdateCurrentRenderingState()
 		{
 			DepthAvailable = Utils.GetEnvironmentDepthSupported() &&

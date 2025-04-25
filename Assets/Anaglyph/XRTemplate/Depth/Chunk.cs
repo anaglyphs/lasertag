@@ -1,6 +1,6 @@
 using Anaglyph.XRTemplate.DepthKit;
+using System;
 using UnityEngine;
-using UnityEngine.Experimental.Rendering;
 
 namespace Anaglyph.XRTemplate
 {
@@ -9,8 +9,9 @@ namespace Anaglyph.XRTemplate
 		[SerializeField] private ComputeShader shader = null;
 		[SerializeField] private float metersPerVoxel = 0.1f;
 		public float MetersPerVoxel => metersPerVoxel;
-		[SerializeField] private int size = 128;
-		public int Size => size;
+		[SerializeField] private float distTruncate = 0.2f;
+		[SerializeField] private int volumeSize = 32;
+		public int Size => volumeSize;
 
 		private ComputeBuffer volume;
 		public ComputeBuffer Volume => volume;
@@ -31,7 +32,12 @@ namespace Anaglyph.XRTemplate
 
 		private int depthTexID => DepthKitDriver.agDepthTex_ID;
 
+		private int maxEyeDistID = Shader.PropertyToID(nameof(maxEyeDist));
 		private int chunkPosID = Shader.PropertyToID("chunkPos");
+
+		private int volumeSizeID = Shader.PropertyToID(nameof(volumeSize));
+		private int metersPerVoxelID = Shader.PropertyToID(nameof(metersPerVoxel));
+		private int distTruncateID = Shader.PropertyToID(nameof(distTruncate));
 
 		//private int numPlayersID = Shader.PropertyToID("numPlayers");		
 		//private int playerHeadsWorldID = Shader.PropertyToID("playerHeadsWorld");
@@ -39,58 +45,52 @@ namespace Anaglyph.XRTemplate
 		//public List<Transform> PlayerHeads = new();
 		//private Vector4[] headPositions = new Vector4[512];
 
+		public Action OnIntegrate = delegate { };
+
 		private void Awake()
 		{
-			volume = new ComputeBuffer(size * size * size, 4);
-
 			Mapper.chunks.Add(this);
 		}
 
 		private void OnDestroy()
 		{
-			volume.Dispose();
+			if(volume != null)
+				volume.Dispose();
 
 			Mapper.chunks.Remove(this);
 		}
 
 		private void Start()
 		{
-			float sizeMeters = size * metersPerVoxel;
+			float sizeMeters = volumeSize * metersPerVoxel;
 			Bounds = new(transform.position, Vector3.one * sizeMeters);
 
-			clearKernel = new(shader, "Clear");
 			integrateKernel = new(shader, "Integrate");
+			clearKernel = new(shader, "Clear");
 
 			//raycastKernel = new(shader, "Raycast");
 			//raycastKernel.Set("rcVolume", volume);
 
-			Clear();
 		}
 
 		public void Clear()
 		{
 			clearKernel.Set(nameof(volume), volume);
-			clearKernel.DispatchGroups(size, size, size);
+			clearKernel.DispatchGroups(volumeSize, volumeSize, volumeSize);
 		}
 
-		public void Integrate()
+		public void Integrate(Texture depthTex, Matrix4x4 view, Matrix4x4 proj)//, bool useDepthFrame)
 		{
-			var depthTex = Shader.GetGlobalTexture(depthTexID);
-			if (depthTex == null) return;
+			if (volume == null)
+			{
+				volume = new ComputeBuffer(volumeSize * volumeSize * volumeSize, 4);
+				Clear();
+			}
 
-			Matrix4x4 view = Shader.GetGlobalMatrixArray(viewID)[0];
-			Matrix4x4 proj = Shader.GetGlobalMatrixArray(projID)[0];
-
-			var planes = GeometryUtility.CalculateFrustumPlanes(view * proj);
-
-			if(GeometryUtility.TestPlanesAABB(planes, Bounds))
-				ApplyScan(depthTex, view, proj);
-		}
-
-		public void ApplyScan(Texture depthTex, Matrix4x4 view, Matrix4x4 proj)//, bool useDepthFrame)
-		{
-			shader.SetInts("volumeSize", size, size, size);
-			shader.SetFloat(nameof(metersPerVoxel), metersPerVoxel);
+			shader.SetInts(volumeSizeID, volumeSize, volumeSize, volumeSize);
+			shader.SetFloat(metersPerVoxelID, metersPerVoxel);
+			shader.SetFloat(distTruncateID, distTruncate);
+			shader.SetFloat(maxEyeDistID, maxEyeDist);
 
 			shader.SetMatrixArray(viewID, new[]{ view, Matrix4x4.zero });
 			shader.SetMatrixArray(projID, new[]{ proj, Matrix4x4.zero });
@@ -114,7 +114,9 @@ namespace Anaglyph.XRTemplate
 
 			integrateKernel.Set(depthTexID, depthTex);
 			integrateKernel.Set(nameof(volume), volume);
-			integrateKernel.DispatchGroups(size, size, size);
+			integrateKernel.DispatchGroups(volumeSize, volumeSize, volumeSize);
+
+			OnIntegrate?.Invoke();
 		}
 
 		/**

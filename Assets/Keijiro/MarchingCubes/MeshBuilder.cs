@@ -75,33 +75,6 @@ public class MeshBuilder : System.IDisposable
             _mesh.bounds = new Bounds(Vector3.zero, ext);
         }
 
-        //void RunCompute(RenderTexture voxels, float target, float scale)
-        //{
-        //	_counterBuffer.SetCounterValue(0);
-
-        //	// Isosurface reconstruction
-        //	_compute.SetInts("Dims", _grids);
-        //	_compute.SetInt("MaxTriangle", _triangleBudget);
-        //	_compute.SetFloat("Scale", scale);
-        //	_compute.SetFloat("Isovalue", target);
-        //	_compute.SetBuffer(0, "TriangleTable", _triangleTable);
-        //	_compute.SetTexture(0, "Voxels", voxels);
-        //	_compute.SetBuffer(0, "VertexBuffer", _vertexBuffer);
-        //	_compute.SetBuffer(0, "IndexBuffer", _indexBuffer);
-        //	_compute.SetBuffer(0, "Counter", _counterBuffer);
-        //	_compute.DispatchThreads(0, _grids);
-
-        //	// Clear unused area of the buffers.
-        //	_compute.SetBuffer(1, "VertexBuffer", _vertexBuffer);
-        //	_compute.SetBuffer(1, "IndexBuffer", _indexBuffer);
-        //	_compute.SetBuffer(1, "Counter", _counterBuffer);
-        //	_compute.DispatchThreads(1, 1024, 1, 1);
-
-        //	// Bounding box
-        //	var ext = new Vector3(_grids.x, _grids.y, _grids.z) * scale;
-        //	_mesh.bounds = new Bounds(Vector3.zero, ext);
-        //}
-
         #endregion
 
         #region Compute buffer objects
