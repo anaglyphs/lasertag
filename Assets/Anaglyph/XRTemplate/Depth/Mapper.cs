@@ -48,7 +48,7 @@ public class Mapper : MonoBehaviour
 				var maxDist = chunk.MaxEyeDist + chunk.Bounds.extents.x;
 				bool withinDist = Vector3.Distance(headPos, chunkCenter) < maxDist;
 
-				if (GeometryUtility.TestPlanesAABB(frustum, chunk.Bounds) && withinDist)
+				if (IsBoundsInsideFrustum(frustum, chunk.Bounds) && withinDist)
 					chunk.Integrate(depthTex, view, proj);
 			}
 		}
@@ -69,5 +69,29 @@ public class Mapper : MonoBehaviour
 
 			await Awaitable.NextFrameAsync();
 		}
+	}
+
+	private static bool IsBoundsInsideFrustum(Plane[] frustumPlanes, Bounds bounds)
+	{
+		Vector3 center = bounds.center;
+		Vector3 extents = bounds.extents;
+
+		foreach (var plane in frustumPlanes)
+		{
+			// Compute the projection interval radius of b onto L(t) = b.c + t * p.n
+			Vector3 normal = plane.normal;
+			float r = extents.x * Mathf.Abs(normal.x) +
+					  extents.y * Mathf.Abs(normal.y) +
+					  extents.z * Mathf.Abs(normal.z);
+
+			// Distance from box center to plane
+			float s = Vector3.Dot(normal, center) + plane.distance;
+
+			// If outside, box is completely outside this plane
+			if (s + r < 0)
+				return false;
+		}
+
+		return true; // Fully or partially inside
 	}
 }
