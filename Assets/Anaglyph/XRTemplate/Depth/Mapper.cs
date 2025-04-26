@@ -57,13 +57,15 @@ public class Mapper : MonoBehaviour
 
 	private async void MeshLoop()
 	{
+		await Awaitable.WaitForSecondsAsync(3);
+
 		while(enabled)
 		{
 			for (int i = 0; i < meshers.Count; i++)
 			{
 				ChunkMesher mesher = meshers[i];
 				if (mesher == null)
-					continue;
+					break;
 
 				if (mesher.ShouldUpdate)
 				{

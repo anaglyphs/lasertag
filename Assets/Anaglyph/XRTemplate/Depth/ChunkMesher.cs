@@ -78,7 +78,6 @@ namespace Anaglyph.XRTemplate.DepthKit {
 			int vertexCount = 3 * triBudget;
 
 			var vReq = await AsyncGPUReadback.RequestAsync(vBuff);
-			//while (!vReq.done) await Awaitable.NextFrameAsync();
 			var verts = vReq.GetData<Vector3>();
 
 			if (this == null)
@@ -87,7 +86,6 @@ namespace Anaglyph.XRTemplate.DepthKit {
 			builder.Mesh.SetVertexBufferData(verts, 0, 0, verts.Length, 0, MeshUpdateFlags.DontRecalculateBounds);
 
 			var iReq = await AsyncGPUReadback.RequestAsync(iBuff);
-			//while (!iReq.done) await Awaitable.NextFrameAsync();
 			var tris = iReq.GetData<uint>();
 
 			if (this == null)
