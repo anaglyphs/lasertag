@@ -1,7 +1,6 @@
 using UnityEngine;
 using MarchingCubes;
 using UnityEngine.Rendering;
-using System.Linq;
 
 namespace Anaglyph.XRTemplate.DepthKit {
 
@@ -13,6 +12,7 @@ namespace Anaglyph.XRTemplate.DepthKit {
 
 		private MeshBuilder builder;
 
+		[SerializeField] private bool updateColliders;
 		[SerializeField] private ComputeShader meshCompute;
 
 		bool shouldUpdate = false;
@@ -40,10 +40,17 @@ namespace Anaglyph.XRTemplate.DepthKit {
 
 
 #if UNITY_EDITOR
+
+		private static readonly Color g = new Color(0, 1, 0, 0.1f);
+
 		private void OnDrawGizmos()
 		{
-			Gizmos.color = shouldUpdate ? Color.green : Color.black;
+			if (!shouldUpdate)
+				return;
+
+			// Gizmos.color = shouldUpdate ? Color.green : Color.black;
 			
+			Gizmos.color = g;
 			Gizmos.DrawWireCube(chunk.Bounds.center, chunk.Bounds.size);
 		}
 #endif
@@ -74,18 +81,25 @@ namespace Anaglyph.XRTemplate.DepthKit {
 			//while (!vReq.done) await Awaitable.NextFrameAsync();
 			var verts = vReq.GetData<Vector3>();
 
+			if (this == null)
+				return;
+
 			builder.Mesh.SetVertexBufferData(verts, 0, 0, verts.Length, 0, MeshUpdateFlags.DontRecalculateBounds);
 
 			var iReq = await AsyncGPUReadback.RequestAsync(iBuff);
 			//while (!iReq.done) await Awaitable.NextFrameAsync();
 			var tris = iReq.GetData<uint>();
 
+			if (this == null)
+				return;
+
 			builder.Mesh.SetIndexBufferData(tris, 0, 0, tris.Length, MeshUpdateFlags.DontRecalculateBounds);
 
 			// builder.Mesh.RecalculateBounds();
 			builder.Mesh.UploadMeshData(false);
 
-			meshCollider.sharedMesh = builder.Mesh;
+			if (updateColliders)
+				meshCollider.sharedMesh = builder.Mesh;
 		}
 	}
 }

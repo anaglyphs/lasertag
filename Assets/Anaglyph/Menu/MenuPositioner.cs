@@ -43,6 +43,12 @@ namespace Anaglyph.Menu
 			SetPose();
 		}
 
+		void OnApplicationFocus(bool hasFocus)
+		{
+			if (hasFocus)
+				SetPose();
+		}
+
 		public void ToggleVisible()
 		{
 			Vector3 viewPos = mainCamera.WorldToViewportPoint(transform.position);

@@ -6,7 +6,7 @@ using UnityEngine.Rendering;
 
 namespace Anaglyph.XRTemplate.DepthKit
 {
-	[DefaultExecutionOrder(-40)]
+	[DefaultExecutionOrder(-40)] 
 	public class DepthKitDriver : MonoBehaviour
 	{
 		public static DepthKitDriver Instance { get; private set; }
@@ -71,6 +71,10 @@ namespace Anaglyph.XRTemplate.DepthKit
 				return;
 
 			Texture depthTex = Shader.GetGlobalTexture(Meta_EnvironmentDepthTexture_ID);
+
+
+			if (depthTex == null)
+				return;
 
 			Shader.SetGlobalVector(agDepthTexSize, new Vector2(depthTex.width, depthTex.height));
 

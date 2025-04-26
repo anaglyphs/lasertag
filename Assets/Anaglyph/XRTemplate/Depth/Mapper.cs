@@ -34,21 +34,22 @@ public class Mapper : MonoBehaviour
 		{
 			await Awaitable.WaitForSecondsAsync(1f / frequency);
 
-			var depthTex = Shader.GetGlobalTexture(depthTexID);
-			if (depthTex == null) return;
+			var depthTex = Shader.GetGlobalTexture(DepthKitDriver.Meta_EnvironmentDepthTexture_ID);
+			if (depthTex == null) continue;
 
 			Matrix4x4 view = Shader.GetGlobalMatrixArray(viewID)[0];
 			Matrix4x4 proj = Shader.GetGlobalMatrixArray(projID)[0];
 			GeometryUtility.CalculateFrustumPlanes(proj * view, frustum);
 
-			foreach (var chunk in chunks)
+			for (int i = 0; i < chunks.Count; i++)
 			{
+				Chunk chunk = chunks[i];
 				var headPos = mainCam.transform.position;
 				var chunkCenter = chunk.transform.position;
 				var maxDist = chunk.MaxEyeDist + chunk.Bounds.extents.x;
 				bool withinDist = Vector3.Distance(headPos, chunkCenter) < maxDist;
 
-				if (IsBoundsInsideFrustum(frustum, chunk.Bounds) && withinDist)
+				if (GeometryUtility.TestPlanesAABB(frustum, chunk.Bounds) && withinDist)
 					chunk.Integrate(depthTex, view, proj);
 			}
 		}
@@ -58,8 +59,12 @@ public class Mapper : MonoBehaviour
 	{
 		while(enabled)
 		{
-			foreach (var mesher in meshers)
+			for (int i = 0; i < meshers.Count; i++)
 			{
+				ChunkMesher mesher = meshers[i];
+				if (mesher == null)
+					continue;
+
 				if (mesher.ShouldUpdate)
 				{
 					mesher.BuildMesh();

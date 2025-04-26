@@ -94,6 +94,7 @@ public class InGameConsole : MonoBehaviour
 	public void Clear()
 	{
 		log = logStart;
+		lastLogEntry = "";
 		UpdateText();
 	}
 
