@@ -3,6 +3,7 @@ using Anaglyph.Netcode;
 using Anaglyph.XRTemplate.SharedSpaces;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
+using Unity.Services.Multiplayer;
 using UnityEngine;
 using UnityEngine.UI;
 using VariableObjects;
@@ -167,7 +168,8 @@ namespace Anaglyph.Lasertag
 		private void Disconnect()
 		{
 			homePage.NavigateHere();
-			manager.Shutdown();
+
+			NetworkHelper.Disconnect();
 		}
 	}
 }

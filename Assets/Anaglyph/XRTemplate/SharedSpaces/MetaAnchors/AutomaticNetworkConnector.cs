@@ -136,7 +136,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				NetworkHelper.ConnectLAN(message.Remove(0, LanPrefix.Length));
 			} else if(message.StartsWith(RelayPrefix))
 			{
-				NetworkHelper.ConnectDistAuth(message.Remove(0, RelayPrefix.Length));
+				NetworkHelper.ConnectUnityServices(message.Remove(0, RelayPrefix.Length));
 			}
 		}
 	}

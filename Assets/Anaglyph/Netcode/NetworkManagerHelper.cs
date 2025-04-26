@@ -1,11 +1,16 @@
 using System;
+using System.Collections.Generic;
+using System.Linq.Expressions;
 using System.Net;
 using System.Threading.Tasks;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
+using Unity.Services.Lobbies;
 using Unity.Services.Multiplayer;
+using Unity.Services.Relay;
+using UnityEngine;
 
 namespace Anaglyph.Netcode
 {
@@ -29,6 +34,8 @@ namespace Anaglyph.Netcode
 			{
 				case Protocol.LAN:
 
+					manager.NetworkConfig.UseCMBService = false;
+
 					string localAddress = "";
 					var addresses = Dns.GetHostEntry(Dns.GetHostName()).AddressList;
 					foreach (var address in addresses)
@@ -44,17 +51,9 @@ namespace Anaglyph.Netcode
 					StartHost();
 					break;
 
-
 				case Protocol.UnityService:
 
 					await SetupServices();
-
-
-					//Allocation allocation = await RelayService.Instance.CreateAllocationAsync(20);
-					//allocationId = allocation.AllocationId;
-
-					//transport.SetRelayServerData(allocation.ToRelayServerData(contyp));
-					//StartHost();
 
 					var options = new SessionOptions()
 					{
@@ -62,7 +61,7 @@ namespace Anaglyph.Netcode
 						MaxPlayers = 20,
 					}.WithDistributedAuthorityNetwork();
 
-					await MultiplayerService.Instance.CreateSessionAsync(options);
+					CurrentSession = await MultiplayerService.Instance.CreateSessionAsync(options);
 
 					break;
 			}
@@ -84,22 +83,36 @@ namespace Anaglyph.Netcode
 				await AuthenticationService.Instance.SignInAnonymouslyAsync();
 		}
 
-		//public static async void ConnectRelay(string code)
-		//{
-		//	await SetupServices();
+		private static float timeSinceAttempt = 0;
+		public static ISession CurrentSession { get; private set; }
 
-		//	var joinAllocation = await RelayService.Instance.JoinAllocationAsync(code);
-
-		//	transport.SetRelayServerData(joinAllocation.ToRelayServerData(contyp));
-
-		//	StartClient();
-		//}
-
-		public static async void ConnectDistAuth(string id)
+		public static async void ConnectUnityServices(string id)
 		{
+			if (Time.time - timeSinceAttempt < 10)
+				return;
+
+			timeSinceAttempt = Time.time;
+
 			await SetupServices();
 
-			await MultiplayerService.Instance.JoinSessionByIdAsync(id);
+			CurrentSession = await MultiplayerService.Instance.JoinSessionByIdAsync(id);
+		}
+
+		public static async void Disconnect()
+		{
+			try
+			{
+				if (CurrentSession != null)
+					await CurrentSession.LeaveAsync();
+
+				CurrentSession = null;
+			}
+			catch (SessionException)
+			{
+
+			}
+
+			manager.Shutdown();
 		}
 
 		private static void StartClient()

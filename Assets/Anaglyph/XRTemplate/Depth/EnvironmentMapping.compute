@@ -76,7 +76,7 @@ void Integrate (uint i : SV_DispatchThreadID)
 	float depthEyeDist = distance(depthPos, eyePos);
 	
 	float sDist = depthEyeDist - voxEyeDist;
-	half sDistNorm = sDist / metersPerVoxel;
+	half sDistNorm = sDist / (metersPerVoxel * 2);
 	sDistNorm = min(sDistNorm, 1);
 	
 	bool inPlayer = false;
