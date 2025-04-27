@@ -35,7 +35,7 @@ public class Mapper : MonoBehaviour
 			await Awaitable.WaitForSecondsAsync(1f / frequency);
 
 			var depthTex = Shader.GetGlobalTexture(depthTexID);
-			if (depthTex == null) return;
+			if (depthTex == null) continue;
 
 			Matrix4x4 view = Shader.GetGlobalMatrixArray(viewID)[0];
 			Matrix4x4 proj = Shader.GetGlobalMatrixArray(projID)[0];

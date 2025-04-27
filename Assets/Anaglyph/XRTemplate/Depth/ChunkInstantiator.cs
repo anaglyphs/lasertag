@@ -19,7 +19,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 						pos *= chunkPrefab.MetersPerVoxel * (chunkPrefab.Size - 1);
 
-						Instantiate(chunkPrefab.gameObject, pos, Quaternion.identity);
+						Instantiate(chunkPrefab.gameObject, pos, Quaternion.identity, transform);
 					}
 						
 		}
