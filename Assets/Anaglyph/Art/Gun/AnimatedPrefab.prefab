@@ -170,8 +170,8 @@ ParticleSystem:
     startSpeed:
       serializedVersion: 2
       minMaxState: 3
-      scalar: 70
-      minScalar: 40
+      scalar: 150
+      minScalar: 100
       maxCurve:
         serializedVersion: 2
         m_Curve:
@@ -666,7 +666,7 @@ ParticleSystem:
     serializedVersion: 6
     enabled: 1
     type: 4
-    angle: 22.22
+    angle: 5.95
     length: 5
     boxThickness: {x: 0, y: 0, z: 0}
     radiusThickness: 1
@@ -9893,7 +9893,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: a3f0795c47974b242a1c753cf48e4e5b, type: 3}
       propertyPath: m_Name
-      value: CoolGun3
+      value: AnimatedPrefab
       objectReference: {fileID: 0}
     - target: {fileID: 2789988089622000168, guid: a3f0795c47974b242a1c753cf48e4e5b, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
