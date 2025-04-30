@@ -112,7 +112,7 @@ void Integrate (uint3 i : SV_DispatchThreadID)
 					voxNDC.y > 0.2 && voxNDC.y < 0.8 &&
 					voxHCS.z > 0; 
 	
-	bool withinMaxDist = voxEyeDist < maxEyeDist;
+	bool withinMaxDist = voxEyeDist < maxEyeDist && voxEyeDist > 1;
 	
 	if (sDistNorm > -1 && inView && withinMaxDist)// && !inPlayer)
 		writeVol(id, sDistNorm);
