@@ -108,8 +108,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					break;
 			}
 
-			Log($"Starting advertisement {message}");
-			await OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(message));
+			if (manager.IsHost || transport.Protocol == UnityTransport.ProtocolType.RelayUnityTransport)
+			{
+				Log($"Starting advertisement {message}");
+				await OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(message));
+			}
 		}
 
 		private async void ClientStopped()
