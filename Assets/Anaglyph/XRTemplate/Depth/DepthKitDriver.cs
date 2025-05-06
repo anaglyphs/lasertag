@@ -60,9 +60,6 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		public void UpdateCurrentRenderingState()
 		{
-			if (!DepthAvailable)
-				return;
-
 			Texture depthTex = Shader.GetGlobalTexture(Meta_EnvironmentDepthTexture_ID);
 
 			DepthAvailable = depthTex != null;
