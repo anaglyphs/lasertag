@@ -89,25 +89,31 @@ namespace Anaglyph.Menu
 			transform.rotation = Quaternion.LookRotation(flatForward) * Quaternion.Euler(eulerOffset);
 		}
 
-//#if UNITY_EDITOR
-//		private void OnDrawGizmosSelected()
-//		{
-//			if (mainCamera != null)
-//			{
-//				Gizmos.color = Color.green;
-//				Gizmos.DrawSphere(camTransform.position, 0.1f);
-//			}
-//		}
+		private void OnApplicationFocus(bool focus)
+		{
+			if (focus)
+				SetPose();
+		}
 
-//		private void OnValidate()
-//		{
-//			mainCamera = Camera.main;
+		//#if UNITY_EDITOR
+		//		private void OnDrawGizmosSelected()
+		//		{
+		//			if (mainCamera != null)
+		//			{
+		//				Gizmos.color = Color.green;
+		//				Gizmos.DrawSphere(camTransform.position, 0.1f);
+		//			}
+		//		}
 
-//			if (mainCamera != null)
-//			{
-//				SetPose();
-//			}
-//		}
-//#endif
+		//		private void OnValidate()
+		//		{
+		//			mainCamera = Camera.main;
+
+		//			if (mainCamera != null)
+		//			{
+		//				SetPose();
+		//			}
+		//		}
+		//#endif
 	}
 }

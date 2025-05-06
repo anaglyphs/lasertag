@@ -36,8 +36,6 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		public static readonly int agDepthTexSize = ID(nameof(agDepthTexSize));
 
-		[SerializeField] private EnvironmentDepthManager envDepthTextureProvider = null;
-
 		public static bool DepthAvailable { get; private set; }
 
 		[SerializeField] private ComputeShader depthNormalCompute = null;
@@ -62,14 +60,15 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		public void UpdateCurrentRenderingState()
 		{
-			DepthAvailable = Utils.GetEnvironmentDepthSupported() &&
-				envDepthTextureProvider != null &&
-				envDepthTextureProvider.IsDepthAvailable;
-
 			if (!DepthAvailable)
 				return;
 
 			Texture depthTex = Shader.GetGlobalTexture(Meta_EnvironmentDepthTexture_ID);
+
+			DepthAvailable = depthTex != null;
+
+			if (!DepthAvailable)
+				return;
 
 			Shader.SetGlobalVector(agDepthTexSize, new Vector2(depthTex.width, depthTex.height));
 

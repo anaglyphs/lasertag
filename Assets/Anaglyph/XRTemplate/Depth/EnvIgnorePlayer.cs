@@ -1,15 +1,18 @@
 using Anaglyph.XRTemplate;
 using UnityEngine;
 
-public class EnvIgnorePlayer : MonoBehaviour
+namespace Anaglyph.XRTemplate.DepthKit
 {
-	private void Awake()
+	public class EnvIgnorePlayer : MonoBehaviour
 	{
-		EnvironmentMapper.Instance.PlayerHeads.Add(transform);
-	}
+		private void Awake()
+		{
+			EnvironmentMapper.Instance.PlayerHeads.Add(transform);
+		}
 
-	private void OnDestroy()
-	{
-		EnvironmentMapper.Instance.PlayerHeads.Remove(transform);
+		private void OnDestroy()
+		{
+			EnvironmentMapper.Instance.PlayerHeads.Remove(transform);
+		}
 	}
 }
