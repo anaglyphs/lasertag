@@ -43,7 +43,7 @@ GameObject:
   - component: {fileID: 2882740328613426173}
   - component: {fileID: 5885351839497868055}
   - component: {fileID: 5208756079920353003}
-  - component: {fileID: 3494104697887443858}
+  - component: {fileID: 8626552166585325637}
   m_Layer: 0
   m_Name: Simple Target
   m_TagString: Untagged
@@ -106,35 +106,60 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
   pointValue: 1
-  despawnDelay: 1
+  openAtZ: 0
+  closeAtZ: 0
   OnScore:
     m_PersistentCalls:
       m_Calls: []
   OnHit:
     m_PersistentCalls:
       m_Calls: []
---- !u!95 &3494104697887443858
-Animator:
-  serializedVersion: 7
+  OnOpen:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 8626552166585325637}
+        m_TargetAssemblyTypeName: UnityEngine.Animation, UnityEngine
+        m_MethodName: set_clip
+        m_Mode: 2
+        m_Arguments:
+          m_ObjectArgument: {fileID: 7400000, guid: 89d7ae274ac642f41ba0d0b418f81e5c, type: 2}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.AnimationClip, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+  OnClose:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 8626552166585325637}
+        m_TargetAssemblyTypeName: UnityEngine.Animation, UnityEngine
+        m_MethodName: set_clip
+        m_Mode: 2
+        m_Arguments:
+          m_ObjectArgument: {fileID: 7400000, guid: ff0c5aca21892ea45840d38220f2d28b, type: 2}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.AnimationClip, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!111 &8626552166585325637
+Animation:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4087976309746649379}
   m_Enabled: 1
-  m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 9100000, guid: fd8034c4c96aef2419b35020998b9e3a, type: 2}
-  m_CullingMode: 0
-  m_UpdateMode: 0
-  m_ApplyRootMotion: 0
-  m_LinearVelocityBlending: 0
-  m_StabilizeFeet: 0
+  serializedVersion: 4
+  m_Animation: {fileID: 7400000, guid: 6f697dd0ad65a5e4f901559c714cfc8f, type: 2}
+  m_Animations: []
+  m_WrapMode: 0
+  m_PlayAutomatically: 1
   m_AnimatePhysics: 0
-  m_WarningMessage: 
-  m_HasTransformHierarchy: 1
-  m_AllowConstantClipSamplingOptimization: 1
-  m_KeepAnimatorStateOnDisable: 0
-  m_WriteDefaultValuesOnDisable: 0
+  m_UpdateMode: 0
+  m_CullingType: 0
 --- !u!1 &5745426039844447579
 GameObject:
   m_ObjectHideFlags: 0
@@ -146,7 +171,7 @@ GameObject:
   - component: {fileID: 6551944662752043092}
   - component: {fileID: 1343415466860623309}
   - component: {fileID: 7230304081953027871}
-  - component: {fileID: 208363804186270730}
+  - component: {fileID: 5434544330190143217}
   m_Layer: 0
   m_Name: Cube
   m_TagString: Untagged
@@ -164,7 +189,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0.75, z: 0}
-  m_LocalScale: {x: 0.8, y: 1.5, z: 0.1}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 8185029862254834313}
@@ -176,7 +201,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5745426039844447579}
-  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: -3860864116172256851, guid: 5eea7309ed432294fa646771078b3514, type: 3}
 --- !u!23 &7230304081953027871
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -222,8 +247,8 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &208363804186270730
-BoxCollider:
+--- !u!64 &5434544330190143217
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -240,6 +265,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
+  serializedVersion: 5
+  m_Convex: 1
+  m_CookingOptions: -1
+  m_Mesh: {fileID: -3860864116172256851, guid: 5eea7309ed432294fa646771078b3514, type: 3}

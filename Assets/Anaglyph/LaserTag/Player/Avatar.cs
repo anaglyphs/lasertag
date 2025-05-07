@@ -44,6 +44,9 @@ namespace Anaglyph.Lasertag.Networking
 		public NetworkVariable<int> scoreSync;
 		public int Score => scoreSync.Value;
 
+		public NetworkVariable<bool> isColocatedSync;
+		public bool IsColocated => isColocatedSync.Value;
+
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
 		private static void Init()
 		{
