@@ -1,8 +1,6 @@
 using Anaglyph.Netcode;
 using Anaglyph.XRTemplate;
-using OVR.OpenVR;
 using System.Collections;
-using System.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
@@ -104,12 +102,15 @@ namespace Anaglyph.Lasertag
 
 						var col = physHit.collider;
 
-						if (col.CompareTag(Networking.Avatar.Tag))
-						{
-							var av = col.GetComponentInParent<Networking.Avatar>();
-							float damage = damageOverDistance.Evaluate(travelDist);
-							av.DamageRpc(damage, OwnerClientId);
-						}
+						//if (col.CompareTag(Networking.Avatar.Tag))
+						//{
+						//	var av = col.GetComponentInParent<Networking.Avatar>();
+						//	float damage = damageOverDistance.Evaluate(travelDist);
+						//	av.DamageRpc(damage, OwnerClientId);
+						//}
+
+						var hitHandler = col.GetComponentInParent<IBulletHitHandler>();
+						hitHandler?.OnOwnedBulletHit(this, physHit.point);
 
 					}
 					else if (didHitEnv)
