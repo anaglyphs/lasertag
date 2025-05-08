@@ -32,7 +32,7 @@ namespace Anaglyph.Lasertag.Gallery
 			Colocation.ActiveColocator.Colocate();
 		}
 
-		private void Update()
+		private void LateUpdate()
 		{
 			if(!isHost && !NetworkManager.Singleton.IsListening)
 			{

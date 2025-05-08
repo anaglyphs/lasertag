@@ -1931,9 +1931,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7043395ca89465c49b275fb6e6198f98, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  isHost: 1
+  isHost: 0
   startGame: 0
-  hostIP: 192.168.0.1
+  hostIP: 127.0.0.1
   possiblePrefabs:
   - {fileID: 8927193134135301024, guid: 557e3c4b7f0078949852c555cbcb04d3, type: 3}
   - {fileID: 5435533313180738053, guid: d86ba5da1e5b6f942977a280d023d3a0, type: 3}
