@@ -116,6 +116,10 @@ namespace Anaglyph.XRTemplate.CameraReader
 
 		public void Configure(int index, int width, int height)
 		{
+#if UNITY_EDITOR
+			return;
+#endif
+
 			androidInterface.Configure(index, width, height);
 			camTex = new Texture2D(width, height, TextureFormat.R8, 1, false);
 			bufferSize = width * height;// * 4;

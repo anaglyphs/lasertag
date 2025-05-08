@@ -2,11 +2,11 @@ using Anaglyph.Lasertag.Networking;
 using UnityEngine;
 using UnityEngine.Events;
 using Anaglyph.Lasertag.Weapons;
-using System;
 using Unity.XR.CoreUtils;
 using VariableObjects;
 using Unity.Netcode;
 using Anaglyph.Netcode;
+using Anaglyph.XRTemplate.SharedSpaces;
 
 namespace Anaglyph.Lasertag
 {
@@ -19,6 +19,7 @@ namespace Anaglyph.Lasertag
 
 		public float Health { get; private set; } = MaxHealth;
 		public bool IsAlive { get; private set; } = true;
+		public bool IsColocated { get; private set; } = false;
 		public bool IsInFriendlyBase { get; private set; } = false;
 
 		public UnityEvent onDie = new();
@@ -56,6 +57,13 @@ namespace Anaglyph.Lasertag
 		{
 			NetworkManager.Singleton.OnConnectionEvent += HandleConnectionEvent;
 			participatingInGames.onChange += HandleParticipatingChange;
+
+			Colocation.IsColocatedChange += delegate (bool b)
+			{
+				IsColocated = b;
+				if (avatar != null)
+					avatar.isColocatedSync.Value = IsColocated;
+			};
 		}
 
 		private void OnDestroy()

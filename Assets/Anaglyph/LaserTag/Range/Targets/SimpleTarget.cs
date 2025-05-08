@@ -28,19 +28,19 @@ namespace Anaglyph.Lasertag.Gallery
 			};
 		}
 
-		private float prevZ = Mathf.Infinity;
+		private float prevZ;
 		private void Update()
 		{
 			float z = transform.position.z;
 			if(IsOwner)
 			{
-				if (prevZ > openAtZ && z < openAtZ)
+				if (prevZ > openAtZ && z <= openAtZ)
 					openSync.Value = true;
-				else if(prevZ > closeAtZ && z < closeAtZ)
+				else if(prevZ > closeAtZ && z <= closeAtZ)
 					openSync.Value = false;
 			}
 
-			prevZ = transform.position.z;
+			prevZ = z;
 		}
 
 		public void OnOwnedBulletHit(Bullet bullet, Vector3 worldHitPoint)

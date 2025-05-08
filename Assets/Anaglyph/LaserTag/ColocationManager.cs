@@ -24,6 +24,7 @@ namespace Anaglyph.Lasertag
 		public void SetColocationMethod(ColocationMethod colocationMethod)
 			=> colocationMethodSync.Value = colocationMethod;
 
+
 		private void Start()
 		{
 			if (Current == null)
