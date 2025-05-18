@@ -14,27 +14,27 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   primitiveSequence:
   - version: 2.0
+    command: tick
+    frequency: 0
+    frequencyTime: 0
+    duration: 10
+    intensity: -0.7
+    intensityTime: 0
+    waveform: 0
+    overlay: 0
+    overDrive: 0
+  - version: 2.0
     command: pulse
     frequency: 0
     frequencyTime: 0
     duration: 10
-    intensity: 1
+    intensity: 0.7
     intensityTime: 0
     waveform: 0
     overlay: 0
     overDrive: 0
   - version: 2.0
-    command: tick
-    frequency: 0
-    frequencyTime: 0
-    duration: 10
-    intensity: 1
-    intensityTime: 0
-    waveform: 0
-    overlay: 0
-    overDrive: 0
-  - version: 2.0
-    command: tick
+    command: pulse
     frequency: 0
     frequencyTime: 0
     duration: 10
@@ -54,11 +54,11 @@ MonoBehaviour:
     overlay: 0
     overDrive: 0
   - version: 2.0
-    command: pulse
+    command: tick
     frequency: 0
     frequencyTime: 0
     duration: 10
-    intensity: 1
+    intensity: -1
     intensityTime: 0
     waveform: 0
     overlay: 0

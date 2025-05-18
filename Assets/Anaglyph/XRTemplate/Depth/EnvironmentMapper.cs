@@ -21,6 +21,9 @@ namespace Anaglyph.XRTemplate
 		[SerializeField] private float maxEyeDist = 7f;
 		public float MaxEyeDist => maxEyeDist;
 
+		[SerializeField] private float minEyeDist = 1f;
+		public float MinEyeDist => minEyeDist;
+
 		private ComputeKernel clearKernel;
 		private ComputeKernel integrateKernel;
 		private ComputeKernel raycastKernel;
@@ -154,7 +157,7 @@ namespace Anaglyph.XRTemplate
 					{
 						Vector3 v = new Vector3(x, y, -z);
 
-						if (v.magnitude < maxEyeDist)
+						if (v.magnitude > minEyeDist && v.magnitude < maxEyeDist)
 							positions.Add(v);
 					}
 				}

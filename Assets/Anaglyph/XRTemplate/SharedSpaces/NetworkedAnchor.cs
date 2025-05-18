@@ -118,12 +118,12 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				if(!allAnchored.Contains(this))
 					allAnchored.Add(this);
 
-				Log($"Saving anchor {spatialAnchor.Uuid}...");
+				//Log($"Saving anchor {spatialAnchor.Uuid}...");
 
-				var saveResult = await spatialAnchor.SaveAnchorAsync();
-				ExitIfBehaviorDisabled();
-				if (!saveResult.Success)
-					throw new NetworkedAnchorException($"Failed to save anchor {spatialAnchor.Uuid}");
+				//var saveResult = await spatialAnchor.SaveAnchorAsync();
+				//ExitIfBehaviorDisabled();
+				//if (!saveResult.Success)
+				//	throw new NetworkedAnchorException($"Failed to save anchor {spatialAnchor.Uuid}");
 
 				// AnchorGuidSaving.AddAndSaveGuid(spatialAnchor.Uuid);
 
@@ -214,23 +214,28 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 				UnboundAnchor unboundAnchor = default;
 
-				Log($"Checking if anchor {uuid} is saved locally...");
+				//Log($"Checking if anchor {uuid} is saved locally...");
 
-				var loadResult = await LoadUnboundAnchorsAsync(new[] { uuid }, loadedAnchors);
+				//var loadResult = await LoadUnboundAnchorsAsync(new[] { uuid }, loadedAnchors);
+				//ExitIfBehaviorDisabled();
+				//if (!loadResult.Success)
+				//{
+				//	throw new NetworkedAnchorException($"Failed to load anchor {uuid}");
+				//}
+				//else if (loadResult.Value.Count == 0)
+				//{
+				//	Log($"Did not find anchors {uuid} saved locally. Downloading...");
+
+				//	var downloadResult = await LoadUnboundSharedAnchorsAsync(uuid, loadedAnchors);
+				//	ExitIfBehaviorDisabled();
+				//	if (!downloadResult.Success)
+				//		throw new NetworkedAnchorException($"Failed to download anchor {uuid}: {downloadResult}");
+				//}
+
+				var downloadResult = await LoadUnboundSharedAnchorsAsync(uuid, loadedAnchors);
 				ExitIfBehaviorDisabled();
-				if (!loadResult.Success)
-				{
-					throw new NetworkedAnchorException($"Failed to load anchor {uuid}");
-				}
-				else if (loadResult.Value.Count == 0)
-				{
-					Log($"Did not find anchors {uuid} saved locally. Downloading...");
-
-					var downloadResult = await LoadUnboundSharedAnchorsAsync(uuid, loadedAnchors);
-					ExitIfBehaviorDisabled();
-					if (!downloadResult.Success)
-						throw new NetworkedAnchorException($"Failed to download anchor {uuid}: {downloadResult}");
-				}
+				if (!downloadResult.Success)
+					throw new NetworkedAnchorException($"Failed to download anchor {uuid}: {downloadResult}");
 
 				Log($"Loaded anchor {uuid}");
 				unboundAnchor = loadedAnchors[0];
