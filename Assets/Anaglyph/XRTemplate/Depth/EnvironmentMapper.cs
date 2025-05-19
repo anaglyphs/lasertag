@@ -35,6 +35,7 @@ namespace Anaglyph.XRTemplate
 		private int projInvID => DepthKitDriver.agDepthProjInv_ID;
 
 		private int depthTexID => DepthKitDriver.agDepthTex_ID;
+		private int normTexID => DepthKitDriver.agDepthNormTex_ID;
 
 		private int numPlayersID = Shader.PropertyToID("numPlayers");
 		private int playerHeadsWorldID = Shader.PropertyToID("playerHeadsWorld");
@@ -94,6 +95,8 @@ namespace Anaglyph.XRTemplate
 
 				var depthTex = Shader.GetGlobalTexture(depthTexID);
 				if (depthTex == null) continue;
+
+				var normTex = Shader.GetGlobalTexture(normTexID);
 				
 				if (frustumVolume == null)
 					Setup();
@@ -101,11 +104,11 @@ namespace Anaglyph.XRTemplate
 				Matrix4x4 view = Shader.GetGlobalMatrixArray(viewID)[0];
 				Matrix4x4 proj = Shader.GetGlobalMatrixArray(projID)[0];
 
-				ApplyScan(depthTex, view, proj);
+				ApplyScan(depthTex, normTex, view, proj);
 			}
 		}
 
-		public void ApplyScan(Texture depthTex, Matrix4x4 view, Matrix4x4 proj)//, bool useDepthFrame)
+		public void ApplyScan(Texture depthTex, Texture normTex, Matrix4x4 view, Matrix4x4 proj)//, bool useDepthFrame)
 		{
 			shader.SetMatrixArray(viewID, new[]{ view, Matrix4x4.zero });
 			shader.SetMatrixArray(projID, new[]{ proj, Matrix4x4.zero });
@@ -123,6 +126,7 @@ namespace Anaglyph.XRTemplate
 			shader.SetVectorArray(playerHeadsWorldID, headPositions);
 
 			integrateKernel.Set(depthTexID, depthTex);
+			integrateKernel.Set(normTexID, normTex);
 
 			integrateKernel.DispatchGroups(frustumVolume.count, 1, 1);
 		}
