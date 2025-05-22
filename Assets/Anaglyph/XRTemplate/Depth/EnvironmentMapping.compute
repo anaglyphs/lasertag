@@ -83,7 +83,7 @@ void Integrate (uint i : SV_DispatchThreadID)
 	float normDot = -dot(normalize(eyeToVox), depthNorm);
 	sDist *= saturate(normDot);
 	
-	half sDistNorm = sDist / (metersPerVoxel * 2);
+	half sDistNorm = sDist / metersPerVoxel;
 	sDistNorm = min(sDistNorm, 1);
 	
 	bool inPlayer = false;
