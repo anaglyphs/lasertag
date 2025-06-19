@@ -1,5 +1,9 @@
 using UnityEngine;
 using UnityEngine.Events;
+using NUnit.Framework;
+using System.Collections.Generic;
+
+
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -60,32 +64,4 @@ namespace Anaglyph.Menu
 
 
 	}
-
-#if UNITY_EDITOR
-
-	[InitializeOnLoad]
-	static class NavPageEditorHelper
-	{
-		static SceneVisibilityManager Visibility => SceneVisibilityManager.instance;
-
-		static NavPageEditorHelper()
-		{
-			Selection.selectionChanged += delegate
-			{
-				GameObject selectedObject = Selection.activeGameObject;
-
-				if (selectedObject == null)
-					return;
-				
-				if (!selectedObject.TryGetComponent(out NavPage navPage))
-					return;
-
-				Visibility.Hide(selectedObject.transform.parent.gameObject, true);
-				Visibility.Show(selectedObject, true);
-			};
-		}
-	}
-
-#endif
-
 }
