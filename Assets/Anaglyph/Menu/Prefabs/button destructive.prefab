@@ -8,6 +8,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 3820094644485124329, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
+      propertyPath: colorEntry
+      value: 
+      objectReference: {fileID: 11400000, guid: fb8294a70bb31754c8cbe922c03a93a2, type: 2}
     - target: {fileID: 3824845799110356537, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
       propertyPath: clip
       value: 
@@ -120,6 +124,18 @@ PrefabInstance:
       propertyPath: m_Color.r
       value: 0.8113208
       objectReference: {fileID: 0}
+    - target: {fileID: 8599046475619286865, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
+      propertyPath: m_Color.b
+      value: 0.10256318
+      objectReference: {fileID: 0}
+    - target: {fileID: 8599046475619286865, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
+      propertyPath: m_Color.g
+      value: 0.23799163
+      objectReference: {fileID: 0}
+    - target: {fileID: 8599046475619286865, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
+      propertyPath: m_Color.r
+      value: 0.8113208
+      objectReference: {fileID: 0}
     - target: {fileID: 8851658432414041739, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
       propertyPath: m_Sprite
       value: 
@@ -133,12 +149,12 @@ PrefabInstance:
       insertIndex: 2
       addedObject: {fileID: 8947222286043064934}
   m_SourcePrefab: {fileID: 100100000, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
---- !u!114 &1929404777054809635 stripped
+--- !u!114 &1023099497135367278 stripped
 MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 7179208172974241052, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
+  m_CorrespondingSourceObject: {fileID: 8599046475619286865, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
   m_PrefabInstance: {fileID: 8748018696460360511}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1929404777054809638}
+  m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
@@ -189,7 +205,7 @@ MonoBehaviour:
     m_SelectedTrigger: Selected
     m_DisabledTrigger: Disabled
   m_Interactable: 1
-  m_TargetGraphic: {fileID: 1929404777054809635}
+  m_TargetGraphic: {fileID: 1023099497135367278}
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
