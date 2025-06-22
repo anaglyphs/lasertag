@@ -5,6 +5,7 @@ using UnityEngine.Events;
 
 namespace Anaglyph.Menu
 {
+	[EditorSelectionAffectsVisibility]
 	public class NavPagesParent : MonoBehaviour
 	{
 		private List<NavPage> history = new(5);
