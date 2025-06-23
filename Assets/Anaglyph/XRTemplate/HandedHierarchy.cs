@@ -17,14 +17,6 @@ namespace Anaglyph.XRTemplate
 		private XRNode _node;
 		public XRNode Node => _node;
 
-		[SerializeField] private XRRayInteractor rayInteractor;
-		public XRRayInteractor RayInteractor => rayInteractor;
-
-		private void Awake()
-		{
-			UpdateNode();
-		}
-
 		public InteractorHandedness Handedness
 		{
 			get => _handedness;
@@ -56,16 +48,6 @@ namespace Anaglyph.XRTemplate
 					break;
 			}
 		}
-
-		//public InputDeviceCharacteristics GetHandedInputCharacteristic()
-		//{
-		//	switch(_handedness)
-		//	{
-		//		case InteractorHandedness.Left: return InputDeviceCharacteristics.Left;
-		//		case InteractorHandedness.Right: return InputDeviceCharacteristics.Right;
-		//		default: return InputDeviceCharacteristics.None;
-		//	}
-		//}
 
 	}
 }

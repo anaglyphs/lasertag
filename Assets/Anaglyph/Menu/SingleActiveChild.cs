@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Anaglyph.Menu
 {
-	[EditorSelectionAffectsVisibility]
+	[HideSiblingsOfSelectedChild]
 	public class SingleActiveChild : MonoBehaviour
 	{
 		[SerializeField] private GameObject initialActiveChild;

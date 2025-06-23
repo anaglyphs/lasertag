@@ -28,12 +28,6 @@ namespace Anaglyph.Lasertag
 			boundsVisual.enabled = false;
 			cursor.gameObject.SetActive(false);
 
-			bool overUI = hand.RayInteractor.IsOverUIGameObject();
-			if(overUI)
-			{
-				return;
-			}
-
 			lineRenderer.SetPosition(1, Vector3.forward);
 			lineRenderer.enabled = true;
 

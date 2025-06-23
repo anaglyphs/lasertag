@@ -11,11 +11,11 @@ namespace Anaglyph.Menu
 {
 
 	[AttributeUsage(AttributeTargets.Class, Inherited = true)]
-	public class EditorSelectionAffectsVisibility : Attribute
+	public class HideSiblingsOfSelectedChild : Attribute
 	{
 	}
 
-#if UNITY_EDITORE
+#if UNITY_EDITOR
 	/// <summary>
 	/// This automatically hides all siblings of descendents of components implementing <see cref="IEditorSelectionAffectsVisibility"/>.
 	/// This is useful for objects who's activation is usually mutually exclusive (i.e. different pages in a user interface).
@@ -38,7 +38,7 @@ namespace Anaglyph.Menu
 			if (selectedObject == null)
 				return;
 
-			List<Component> hiders = selectedObject.GetComponentsWithAttributeInParent<EditorSelectionAffectsVisibility>(true);
+			List<Component> hiders = selectedObject.GetComponentsWithAttributeInParent<HideSiblingsOfSelectedChild>(true);
 
 			for (int h = hiders.Count - 1; h >= 0; h--)
 			{
@@ -54,6 +54,9 @@ namespace Anaglyph.Menu
 						Visibility.Hide(child.gameObject, true);
 				}
 			}
+
+			if(hiders.Count > 0)
+				Visibility.Show(selectedObject, true);
 		}
 
 		private static List<Component> GetComponentsWithAttributeInParent<TAttribute>(this GameObject gameObject, bool includeInactive = true)
