@@ -16,6 +16,18 @@ PrefabInstance:
       propertyPath: clip
       value: 
       objectReference: {fileID: 8300000, guid: 5c4bfe7d40c4f2947aa9f102ded0b299, type: 3}
+    - target: {fileID: 3824845799110356537, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
+      propertyPath: click
+      value: 
+      objectReference: {fileID: 8300000, guid: 5c4bfe7d40c4f2947aa9f102ded0b299, type: 3}
+    - target: {fileID: 3824845799110356537, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
+      propertyPath: press
+      value: 
+      objectReference: {fileID: 8300000, guid: e6d3ccbda8e755b4a9129559866cf77e, type: 3}
+    - target: {fileID: 3824845799110356537, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
+      propertyPath: release
+      value: 
+      objectReference: {fileID: 8300000, guid: 5c4bfe7d40c4f2947aa9f102ded0b299, type: 3}
     - target: {fileID: 5486063733383708762, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
       propertyPath: colorEntry
       value: 
@@ -184,7 +196,7 @@ MonoBehaviour:
     m_SelectOnDown: {fileID: 0}
     m_SelectOnLeft: {fileID: 0}
     m_SelectOnRight: {fileID: 0}
-  m_Transition: 1
+  m_Transition: 3
   m_Colors:
     m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
     m_HighlightedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}

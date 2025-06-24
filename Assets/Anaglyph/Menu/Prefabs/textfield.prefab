@@ -93,8 +93,8 @@ GameObject:
   - component: {fileID: 9021729969637239166}
   - component: {fileID: 5252631200137638813}
   - component: {fileID: 1933418608547530826}
-  - component: {fileID: 1093951027645463286}
   - component: {fileID: 1254326007081742932}
+  - component: {fileID: 2343512989843257711}
   m_Layer: 5
   m_Name: textfield
   m_TagString: Untagged
@@ -261,19 +261,6 @@ MonoBehaviour:
   m_CaretWidth: 1
   m_ReadOnly: 0
   m_ShouldActivateOnSelect: 1
---- !u!114 &1093951027645463286
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9021729969637239158}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 71545d9fe587d1241ae59ca19025fff5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  clip: {fileID: 8300000, guid: e6d3ccbda8e755b4a9129559866cf77e, type: 3}
 --- !u!114 &1254326007081742932
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -286,6 +273,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed0a95351b41af54bbd062e7ac5131dc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &2343512989843257711
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9021729969637239158}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6d650a64ebb9b4e4786fca0792a95413, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  press: {fileID: 8300000, guid: 1212d566c52fa1c44ab97ec15e2a4101, type: 3}
+  click: {fileID: 0}
 --- !u!1 &9021729969848722616
 GameObject:
   m_ObjectHideFlags: 0

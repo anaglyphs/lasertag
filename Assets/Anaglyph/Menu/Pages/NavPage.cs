@@ -1,18 +1,9 @@
 using UnityEngine;
+using System;
 using UnityEngine.Events;
-using NUnit.Framework;
-using System.Collections.Generic;
-
-
-
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
-
 
 namespace Anaglyph.Menu
 {
-	// [RequireComponent(typeof(RectTransform), typeof(CanvasGroup))]
 	public class NavPage : MonoBehaviour
 	{
 		[SerializeField] private RectTransform rectTransform;
@@ -25,9 +16,9 @@ namespace Anaglyph.Menu
 		public CanvasGroup CanvasGroup => canvasGroup;
 		public NavPagesParent ParentView => parentView;
 
-		public UnityEvent<bool> OnVisible = new();
-
-		private bool started = false;
+		public UnityEvent NavigatingHere = new();
+		public UnityEvent NavigatingAway = new();
+		public UnityEvent NavigatingBack = new();
 
 		private void OnValidate()
 		{
@@ -37,31 +28,15 @@ namespace Anaglyph.Menu
 
 		private void Awake()
 		{
-			parentView = GetComponentInParent<NavPagesParent>(true);
+			UpdateNavParent();
 		}
 
-		private void Start()
+		public void UpdateNavParent()
 		{
-			started = true;
+			parentView = GetComponentInParent<NavPagesParent>(true);
 		}
 
 		public void NavigateHere() => parentView.GoToPage(this);
 		public void GoBack() => parentView.GoBack();
-
-		private void OnEnable()
-		{
-			if (!started) return;
-
-			parentView = GetComponentInParent<NavPagesParent>(true);
-
-			OnVisible.Invoke(gameObject.activeInHierarchy);
-		}
-
-		private void OnDisable()
-		{
-			OnVisible.Invoke(gameObject.activeInHierarchy);
-		}
-
-
 	}
 }

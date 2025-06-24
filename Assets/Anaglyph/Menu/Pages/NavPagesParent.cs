@@ -93,6 +93,11 @@ namespace Anaglyph.Menu
 			transitioning = true;
 			transitionStartTime = Time.time;
 			goingBack = backward;
+
+			currentPage.NavigatingHere.Invoke();
+			previousPage.NavigatingAway.Invoke();
+			if (goingBack)
+				previousPage.NavigatingBack.Invoke();
 		}
 
 		private void OnDisable()

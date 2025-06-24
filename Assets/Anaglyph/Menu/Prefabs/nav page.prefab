@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 6312315329841390295}
   - component: {fileID: 878095820082086004}
   - component: {fileID: 8072566549257119677}
+  - component: {fileID: 154436768528333807}
   m_Layer: 0
   m_Name: nav page
   m_TagString: Untagged
@@ -91,7 +92,13 @@ MonoBehaviour:
   rectTransform: {fileID: 4813259525780573213}
   canvasGroup: {fileID: 878095820082086004}
   showBackButton: 1
-  OnVisible:
+  NavigatingHere:
+    m_PersistentCalls:
+      m_Calls: []
+  NavigatingAway:
+    m_PersistentCalls:
+      m_Calls: []
+  NavigatingBack:
     m_PersistentCalls:
       m_Calls: []
 --- !u!225 &878095820082086004
@@ -118,6 +125,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed0a95351b41af54bbd062e7ac5131dc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &154436768528333807
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4239447829336590961}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 86187ce651cbece4ab5c64f0bae16e7d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  navBack: {fileID: 8300000, guid: 5c4bfe7d40c4f2947aa9f102ded0b299, type: 3}
 --- !u!1001 &4780741744160881522
 PrefabInstance:
   m_ObjectHideFlags: 0

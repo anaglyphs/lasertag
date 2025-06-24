@@ -25,12 +25,12 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2865561505497369727}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 5640984000358561741}
+  m_Father: {fileID: 7827908793417522193}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 0.5}
   m_AnchorMax: {x: 1, y: 0.5}
@@ -59,7 +59,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_RaycastTarget: 1
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
@@ -194,19 +194,14 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:
-    - targetCorrespondingSourceObject: {fileID: 7179208172974241050, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
-      insertIndex: 2
+    - targetCorrespondingSourceObject: {fileID: 4704915081017925318, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
+      insertIndex: -1
       addedObject: {fileID: 2651724572669607097}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 7179208172974241049, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
       insertIndex: -1
       addedObject: {fileID: 8603140625864332293}
   m_SourcePrefab: {fileID: 100100000, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
---- !u!224 &5640984000358561741 stripped
-RectTransform:
-  m_CorrespondingSourceObject: {fileID: 7179208172974241050, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
-  m_PrefabInstance: {fileID: 3308288395221746391}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &5640984000358561742 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 7179208172974241049, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
@@ -225,3 +220,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   goToPage: {fileID: 0}
+--- !u!224 &7827908793417522193 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 4704915081017925318, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
+  m_PrefabInstance: {fileID: 3308288395221746391}
+  m_PrefabAsset: {fileID: 0}
