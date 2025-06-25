@@ -9,7 +9,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1323261816400825267}
-  - component: {fileID: 8239736399241822091}
   - component: {fileID: 8807235644134131342}
   - component: {fileID: 1210394929621187967}
   - component: {fileID: 1383827261942209009}
@@ -43,24 +42,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &8239736399241822091
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7592662432409998298}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c0a2a82985c55f44facf99f5d7d9e440, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  passthroughOn: 1
-  foveatedRenderingLevel: 2
-  useDynamicFoveatedRendering: 1
-  framerateTarget: 90
-  suggestedCpuPerfLevel: 1
-  suggestedGpuPerfLevel: 2
 --- !u!114 &8807235644134131342
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -158,6 +139,8 @@ MonoBehaviour:
   dispatchesPerSecond: 30
   volume: {fileID: 8400000, guid: 1b824cd65da368c4ba66330fd10e8ba2, type: 2}
   maxEyeDist: 7
+  minEyeDist: 1
+  PlayerHeads: []
 --- !u!114 &1383827261942209009
 MonoBehaviour:
   m_ObjectHideFlags: 0
