@@ -182,7 +182,7 @@ MonoBehaviour:
   sessionIcon: {fileID: 1257152168898523504}
   sessionStateText: {fileID: 2849203451518413744}
   sessionIpText: {fileID: 1454424998963041956}
-  disconnectButton: {fileID: 8562285802201834043}
+  disconnectButton: {fileID: 1170704720660620921}
   connectingSprite: {fileID: 21300000, guid: d3c9fefec1d2fa94a9e98735219d1497, type: 3}
   colocatingSprite: {fileID: 21300000, guid: 9ad4ea9c3a4a52540b949569c3631105, type: 3}
   connectedSprite: {fileID: 21300000, guid: 6c082bdc222d48d4cb056ce6ec9acab2, type: 3}
@@ -553,7 +553,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1929404777054809637, guid: fda09da0c3d6977408b45defa3660d35, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 80
+      value: 60
       objectReference: {fileID: 0}
     - target: {fileID: 1929404777054809637, guid: fda09da0c3d6977408b45defa3660d35, type: 3}
       propertyPath: m_LocalPosition.x
@@ -625,9 +625,9 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 1929404777054809637, guid: fda09da0c3d6977408b45defa3660d35, type: 3}
   m_PrefabInstance: {fileID: 790859823512176733}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &8562285802201834043 stripped
+--- !u!114 &1170704720660620921 stripped
 MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 8947222286043064934, guid: fda09da0c3d6977408b45defa3660d35, type: 3}
+  m_CorrespondingSourceObject: {fileID: 1929404777054809636, guid: fda09da0c3d6977408b45defa3660d35, type: 3}
   m_PrefabInstance: {fileID: 790859823512176733}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 0}
@@ -763,10 +763,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1301042237854757057}
     m_Modifications:
-    - target: {fileID: 8603140625864332293, guid: 8f1f588c4d54e2b46a2c771f32cf9336, type: 3}
-      propertyPath: goToPage
-      value: 
-      objectReference: {fileID: 0}
     - target: {fileID: 5486063733383708762, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
       propertyPath: colorEntry
       value: 
@@ -851,6 +847,10 @@ PrefabInstance:
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: 21300000, guid: d74322c3a2fbe534bb8c68f9b2221842, type: 3}
+    - target: {fileID: 8603140625864332293, guid: 8f1f588c4d54e2b46a2c771f32cf9336, type: 3}
+      propertyPath: goToPage
+      value: 
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -869,7 +869,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 12a0fcb80e750314990fde9471a6353b, type: 3}
+  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
 --- !u!1001 &5431788357823608459
@@ -1656,7 +1656,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 12a0fcb80e750314990fde9471a6353b, type: 3}
+  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
 --- !u!224 &1322337661997427403 stripped
