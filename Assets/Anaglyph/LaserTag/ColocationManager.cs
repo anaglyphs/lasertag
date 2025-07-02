@@ -29,9 +29,8 @@ namespace Anaglyph.Lasertag
 				Current = this;
 		}
 
-		private MetaAnchorColocator metaAnchorColocator = new();
-		private MetaTrackableColocator metaTrackableColocator = new();
-		private AprilTagColocator aprilTagColocator = new();
+		[SerializeField] private MetaAnchorColocator metaAnchorColocator;
+		[SerializeField] private AprilTagColocator aprilTagColocator;
 
 		protected override void OnNetworkSessionSynchronized()
 		{

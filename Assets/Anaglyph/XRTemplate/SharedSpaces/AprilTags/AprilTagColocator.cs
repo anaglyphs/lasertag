@@ -8,8 +8,14 @@ using UnityEngine;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
-	public class AprilTagColocator : IColocator
+	public class AprilTagColocator : MonoBehaviour, IColocator
 	{
+		[SerializeField] private Transform tagIndicator;
+
+		private void Start() {
+			tagIndicator.gameObject.SetActive(false);
+		}
+
 		private static bool _isColocated;
 		public event Action<bool> IsColocatedChange;
 		public bool IsColocated
@@ -37,6 +43,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			await CameraManager.Instance.TryOpenCamera();
 			AprilTagTracker.Instance.tagSizeMeters = tagSize;
 			AprilTagTracker.Instance.OnDetectTags += OnDetectTags;
+
+			tagIndicator.localScale = Vector3.one * tagSize;
 		}
 
 		private void OnDetectTags(IEnumerable<TagPose> poses)
@@ -45,7 +53,14 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			foreach(TagPose pose in poses)
 			{
+				if(!IsColocated)
+					Colocation.TransformTrackingSpace(new Pose(pose.Position, pose.Rotation), Pose.identity);
+
+				IsColocated = true;
 				Colocation.LerpTrackingSpace(new Pose(pose.Position, pose.Rotation), Pose.identity, Lerp);
+
+				tagIndicator.gameObject.SetActive(true);
+				tagIndicator.SetPositionAndRotation(pose.Position, pose.Rotation);
 			}
 		}
 
@@ -53,6 +68,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			CameraManager.Instance.CloseCamera();
 			AprilTagTracker.Instance.OnDetectTags -= OnDetectTags;
+
+			tagIndicator.gameObject.SetActive(false);
 
 			colocationActive = false;
 			IsColocated = false;

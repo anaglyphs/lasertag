@@ -5,7 +5,7 @@ using static UnityEngine.Object;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
-	public class MetaAnchorColocator : IColocator
+	public class MetaAnchorColocator : MonoBehaviour, IColocator
 	{
 		private bool colocationActive;
 
@@ -18,7 +18,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			{
 				bool changed = value != _isColocated;
 				_isColocated = value;
-				if (changed) 
+				if (changed)
 					IsColocatedChange?.Invoke(_isColocated);
 			}
 		}
