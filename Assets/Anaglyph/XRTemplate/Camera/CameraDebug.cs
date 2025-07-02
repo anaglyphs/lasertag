@@ -1,23 +1,24 @@
 using Anaglyph.XRTemplate.CameraReader;
 using UnityEngine;
 
-namespace Anaglyph.XRTemplate.CameraReader
+namespace EnvisionCenter.XRTemplate.CameraReader
 {
     public class CameraDebug : MonoBehaviour
     {
 		private Material material;
 
-		private void Awake()
+		private async void Start()
 		{
 			TryGetComponent(out Renderer renderer);
 			material = new(renderer.material);
 			renderer.material = material;
 
-			CameraManager.OnCaptureStart += OnCaptureStart;
-		}
+			await CameraManager.Instance.Configure(1, 640, 480);
+			if (!CameraManager.Instance.IsConfigured)
+				Debug.LogError("Could not configure camera");
 
-		private void OnCaptureStart()
-		{
+			await CameraManager.Instance.TryOpenCamera();
+
 			material.mainTexture = CameraManager.Instance.CamTex;
 		}
 	}

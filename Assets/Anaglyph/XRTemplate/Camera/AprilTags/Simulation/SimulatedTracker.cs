@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Anaglyph.XRTemplate.CameraReader.AprilTags.Simulation
+namespace EnvisionCenter.XRTemplate.DisplayCapture.AprilTags.Simulation
 {
     public class SimulatedTracker : MonoBehaviour
     {

@@ -1,5 +1,7 @@
 using System;
+using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.Android;
 
 namespace Anaglyph.XRTemplate.CameraReader
 {
@@ -17,9 +19,13 @@ namespace Anaglyph.XRTemplate.CameraReader
 		private Intrinsics camIntrinsics;
 		public Intrinsics CamIntrinsics => camIntrinsics;
 
-		public static event Action<Texture2D> OnNewFrame = delegate { };
-		public static event Action OnCaptureStart = delegate { };
-		public static event Action OnCaptureStop = delegate { };
+		public static event Action DeviceOpened = delegate { };
+		public static event Action DeviceClosed = delegate { };
+		public static event Action DeviceDisconnected = delegate { };
+		public static event Action DeviceError = delegate { };
+		public static event Action Configured = delegate { };
+		public static event Action ConfigureFailed = delegate { };
+		public static event Action<Texture2D> ImageAvailable = delegate { };
 
 		private unsafe sbyte* buffer;
 		private int bufferSize;
@@ -27,10 +33,32 @@ namespace Anaglyph.XRTemplate.CameraReader
 		public unsafe sbyte* Buffer => buffer;
 		public int BufferSize => bufferSize;
 
-		public bool IsCapturing { get; private set; }
+		public bool ShouldDeviceBeOpen { get; private set; }
+		public bool IsDeviceOpened { get; private set; }
+		public bool IsConfigured { get; private set; }
+
+		public const int ERROR_CAMERA_DEVICE = 0x00000004;
+		public const int ERROR_CAMERA_DISABLED = 0x00000003;
+		public const int ERROR_CAMERA_IN_USE = 0x00000001;
+		public const int ERROR_CAMERA_SERVICE = 0x00000005;
+		public const int ERROR_MAX_CAMERAS_IN_USE = 0x00000002;
 
 		/// In nanoseconds!
 		public long TimestampNanoseconds { get; private set; }
+
+		
+		public class PermissionException : Exception
+		{
+			public PermissionException(string message) : base(message)
+			{
+			}
+		}
+		public class ConfiguredException : Exception
+		{
+			public ConfiguredException(string message) : base(message)
+			{
+			}
+		}
 
 		private class AndroidInterface
 		{
@@ -39,24 +67,16 @@ namespace Anaglyph.XRTemplate.CameraReader
 
 			private void Call(string method)
 			{
-#if !UNITY_EDITOR
 				androidInstance.Call(method);
-#endif
 			}
 
 			private T Call<T>(string method)
 			{
-#if UNITY_EDITOR
-				return default;		
-#endif
 				return androidInstance.Call<T>(method);
 			}
 
 			public AndroidInterface(GameObject messageReceiver)
 			{
-#if UNITY_EDITOR
-				return;
-#endif
 				androidClass = new AndroidJavaClass("com.trev3d.Camera.CameraReader");
 				androidInstance = androidClass.CallStatic<AndroidJavaObject>("getInstance");
 				androidInstance.Call("setup", messageReceiver.name);
@@ -67,24 +87,18 @@ namespace Anaglyph.XRTemplate.CameraReader
 				androidInstance.Call("configure", index, width, height);
 			}
 
-			public void StartCapture() => Call("startCapture");
+			public void OpenCamera() => Call("open");
 
-			public void StopCapture() => Call("stopCapture");
+			public void CloseCamera() => Call("close");
 
 			public unsafe sbyte* GetByteBuffer()
 			{
-#if UNITY_EDITOR
-				return null;
-#endif
 				AndroidJavaObject byteBuffer = Call<AndroidJavaObject>("getByteBuffer");
 				return AndroidJNI.GetDirectBufferAddress(byteBuffer.GetRawObject());
 			}
 
 			public long GetTimestamp()
 			{
-#if UNITY_EDITOR
-				return 0;
-#endif
 				return androidInstance.Call<long>("getTimestamp");
 			}
 
@@ -107,15 +121,49 @@ namespace Anaglyph.XRTemplate.CameraReader
 			androidInterface = new AndroidInterface(gameObject);
 		}
 
-		private void OnDestroy()
+		private const string MetaCameraPermission = "horizonos.permission.HEADSET_CAMERA";
+
+		private async Task<bool> PermissionCheck()
 		{
-			OnNewFrame = delegate { };
-			OnCaptureStart = delegate { };
-			OnCaptureStop = delegate { };
+			if (!Permission.HasUserAuthorizedPermission(MetaCameraPermission))
+			{
+				Permission.RequestUserPermission(MetaCameraPermission);
+
+				await Awaitable.WaitForSecondsAsync(0.2f);
+
+				while (!Application.isFocused)
+					await Awaitable.NextFrameAsync();
+
+				if (!Permission.HasUserAuthorizedPermission(MetaCameraPermission))
+					return false;
+			}
+
+			if (!Permission.HasUserAuthorizedPermission(Permission.Camera))
+			{
+				Permission.RequestUserPermission(Permission.Camera);
+
+				await Awaitable.WaitForSecondsAsync(0.2f);
+
+				while (!Application.isFocused)
+					await Awaitable.NextFrameAsync();
+
+				if (!Permission.HasUserAuthorizedPermission(Permission.Camera))
+					return false;
+			}
+
+			return true;
 		}
 
-		public void Configure(int index, int width, int height)
+		private void OnDestroy()
 		{
+			ImageAvailable = delegate { };
+		}
+
+		public async Task Configure(int index, int width, int height)
+		{
+			if (!await PermissionCheck())
+				throw new Exception("Camera does not have permission!");
+
 			androidInterface.Configure(index, width, height);
 			camTex = new Texture2D(width, height, TextureFormat.R8, 1, false);
 			bufferSize = width * height;// * 4;
@@ -135,34 +183,78 @@ namespace Anaglyph.XRTemplate.CameraReader
 				Resolution = new Vector2Int((int)vals[5], (int)vals[6]),
 				Skew = vals[4]
 			};
+
+			IsConfigured = true;
 		}
 
-		public void StartCapture()
+		public async Task TryOpenCamera()
 		{
-			if (IsCapturing)
+			if (!await PermissionCheck())
+				throw new PermissionException("Camera does not have permission!");
+
+			if (!IsConfigured)
+				throw new ConfiguredException("CameraManager is not yet configured! You must first call " + nameof(Configure));
+
+			androidInterface.OpenCamera();
+
+			ShouldDeviceBeOpen = true;
+		}
+
+		public void CloseCamera()
+		{
+			if (!ShouldDeviceBeOpen)
 				return;
 
-			IsCapturing = true;
+			ShouldDeviceBeOpen = false;
 
-			androidInterface.StartCapture();
+			androidInterface.CloseCamera();
 		}
-
-		public void StopCapture() => androidInterface.StopCapture();
 
 		// Messages sent from Android
 
 #pragma warning disable IDE0051 // Remove unused private members
-		private unsafe void OnCaptureStarted()
+
+		private void OnDeviceOpened()
 		{
-			OnCaptureStart.Invoke();
+			IsDeviceOpened = true;
+			DeviceOpened.Invoke();
 		}
 
-		private void OnPermissionDenied()
+		private async void OnDeviceClosed()
 		{
-			//onPermissionDenied.Invoke();
+			IsDeviceOpened = false;
+			DeviceClosed.Invoke();
+
+			if (ShouldDeviceBeOpen)
+				await TryOpenCamera();
 		}
 
-		private unsafe void OnNewFrameAvailable()
+		private void OnDeviceDisconnected()
+		{
+			IsDeviceOpened = false;
+			DeviceDisconnected.Invoke();
+		}
+
+		private void OnDeviceError(string errorCodeAsString)
+		{
+			IsDeviceOpened = false;
+			int.TryParse(errorCodeAsString, out int error);
+			DeviceError.Invoke();
+		}
+
+		private void OnConfigured()
+		{
+			IsConfigured = true;
+			Configured.Invoke();
+		}
+
+		private void OnConfigureFailed()
+		{
+			IsConfigured = false;
+			ConfigureFailed.Invoke();
+		}
+
+		private unsafe void OnImageAvailable()
 		{
 			buffer = androidInterface.GetByteBuffer();
 			if (buffer == default) return;
@@ -171,7 +263,7 @@ namespace Anaglyph.XRTemplate.CameraReader
 			camTex.Apply();
 			TimestampNanoseconds = androidInterface.GetTimestamp();
 
-			OnNewFrame.Invoke(camTex);
+			ImageAvailable.Invoke(camTex);
 		}
 
 		public struct Intrinsics
@@ -182,12 +274,6 @@ namespace Anaglyph.XRTemplate.CameraReader
 			public float Skew;
 		}
 
-		private void OnCaptureStopped()
-		{
-			OnCaptureStop.Invoke();
-
-			IsCapturing = false;
-		}
 #pragma warning restore IDE0051 // Remove unused private members
 	}
 }

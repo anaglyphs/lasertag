@@ -2,7 +2,7 @@ using AprilTag;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Anaglyph.XRTemplate.QuestCV
+namespace EnvisionCenter.XRTemplate.QuestCV
 {
 	public class TagFollowerMover : MonoBehaviour
 	{

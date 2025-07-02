@@ -3,10 +3,10 @@ using AprilTag;
 using System;
 using System.Collections.Generic;
 using UnityEngine.XR;
-using Anaglyph.XRTemplate.CameraReader.AprilTags;
+using EnvisionCenter.XRTemplate.DisplayCapture.AprilTags;
 using Anaglyph.XRTemplate.CameraReader;
 
-namespace Anaglyph.XRTemplate.QuestCV
+namespace EnvisionCenter.XRTemplate.QuestCV
 {
 	[DefaultExecutionOrder(-1000)]
 	public class AprilTagTracker : MonoBehaviour
@@ -20,8 +20,8 @@ namespace Anaglyph.XRTemplate.QuestCV
 		private Texture2D tex;
 
 		private List<TagPose> worldPoses = new(10);
-		public IReadOnlyList<TagPose> WorldPoses => worldPoses;
-		public event Action<IReadOnlyList<TagPose>> OnDetectTags = delegate { };
+		public IEnumerable<TagPose> WorldPoses => worldPoses;
+		public event Action<IEnumerable<TagPose>> OnDetectTags = delegate { };
 
 		private List<XRNodeState> nodeStates = new();
 
@@ -32,13 +32,13 @@ namespace Anaglyph.XRTemplate.QuestCV
 
 		private void OnEnable()
 		{
-			CameraManager.OnNewFrame += OnReceivedNewFrame;
+			CameraManager.ImageAvailable += OnReceivedNewFrame;
 			TrackingLoop();
 		}
 
 		private void OnDisable()
 		{
-			CameraManager.OnNewFrame -= OnReceivedNewFrame;
+			CameraManager.ImageAvailable -= OnReceivedNewFrame;
 			newFrameAvailable = false;
 		}
 
@@ -74,12 +74,14 @@ namespace Anaglyph.XRTemplate.QuestCV
 
 			while(enabled)
 			{
-				await Awaitable.EndOfFrameAsync();
+				await Awaitable.NextFrameAsync();
 
 				if (!newFrameAvailable)
 					continue;
 
-				if(detector == null)
+				newFrameAvailable = false;
+
+				if (detector == null)
 					detector = new TagDetector(tex.width, tex.height, 1);
 
 				var intrins = CameraManager.Instance.CamIntrinsics;
@@ -95,8 +97,7 @@ namespace Anaglyph.XRTemplate.QuestCV
 				var timestamp = CameraManager.Instance.TimestampNanoseconds * 0.000000001f;
 				OVRPlugin.PoseStatef headPoseState = OVRPlugin.GetNodePoseStateAtTime(timestamp, OVRPlugin.Node.Head);
 				OVRPose headPose = headPoseState.Pose.ToOVRPose();
-				Matrix4x4 origin = MainXROrigin.Transform.localToWorldMatrix;
-				Matrix4x4 viewMat = origin * Matrix4x4.TRS(headPose.position, headPose.orientation, Vector3.one);
+				Matrix4x4 viewMat = Matrix4x4.TRS(headPose.position, headPose.orientation, Vector3.one);
 				var lensPose = CameraManager.Instance.CamPoseOnDevice;
 				viewMat *= Matrix4x4.TRS(lensPose.position, lensPose.rotation, Vector3.one);
 
@@ -109,8 +110,6 @@ namespace Anaglyph.XRTemplate.QuestCV
 
 					worldPoses.Add(worldPose);
 				}
-
-				newFrameAvailable = false;
 
 				OnDetectTags.Invoke(worldPoses);
 			}

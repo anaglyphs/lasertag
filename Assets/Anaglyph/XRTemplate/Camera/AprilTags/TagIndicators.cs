@@ -2,7 +2,7 @@ using AprilTag;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Anaglyph.XRTemplate.QuestCV
+namespace EnvisionCenter.XRTemplate.QuestCV
 {
 	public class TagIndicators : MonoBehaviour
 	{
@@ -10,9 +10,15 @@ namespace Anaglyph.XRTemplate.QuestCV
 
 		private List<GameObject> indicators = new(3);
 
-		private void OnEnable()
+		private void Start()
 		{
 			AprilTagTracker.Instance.OnDetectTags += OnDetectTags;
+		}
+
+		private void OnEnable()
+		{
+			if(didStart)
+				AprilTagTracker.Instance.OnDetectTags += OnDetectTags;
 		}
 
 		private void OnDisable()

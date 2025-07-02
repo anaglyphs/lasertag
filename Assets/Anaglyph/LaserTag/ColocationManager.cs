@@ -12,12 +12,11 @@ namespace Anaglyph.Lasertag
 		[Serializable]
 		public enum ColocationMethod
 		{
-			Automatic,
-			TrackedKeyboard,
+			MetaSharedAnchor,
 			AprilTag,
 		}
 
-		[SerializeField] private BoolObject useKeyboardColocation;
+		[SerializeField] private BoolObject useAprilTagColocation;
 
 		public static ColocationManager Current;
 		private NetworkVariable<ColocationMethod> colocationMethodSync = new(0);
@@ -40,18 +39,14 @@ namespace Anaglyph.Lasertag
 
 			if (IsOwner)
 			{
-				colocationMethodSync.Value = useKeyboardColocation.Value ?
-					ColocationMethod.TrackedKeyboard : ColocationMethod.Automatic;
+				colocationMethodSync.Value = useAprilTagColocation.Value ?
+					ColocationMethod.AprilTag : ColocationMethod.MetaSharedAnchor;
 			}
 
 			switch (colocationMethodSync.Value)
 			{
-				case ColocationMethod.Automatic:
+				case ColocationMethod.MetaSharedAnchor:
 					Colocation.SetActiveColocator(metaAnchorColocator);
-					break;
-
-				case ColocationMethod.TrackedKeyboard:
-					Colocation.SetActiveColocator(metaTrackableColocator);
 					break;
 
 				case ColocationMethod.AprilTag:

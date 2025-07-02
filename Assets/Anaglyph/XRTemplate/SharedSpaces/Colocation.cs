@@ -51,8 +51,26 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		public static void TransformTrackingSpace(Pose fromPose)
 		 => TransformTrackingSpace(fromPose, new Pose(Vector3.zero, Quaternion.identity));
 
-		public static void TransformTrackingSpace(Pose fromPose, Pose toPose)
+		private static Pose FlattenPoseRotation(Pose pose)
 		{
+			Vector3 forward = pose.rotation * Vector3.forward;
+			forward.y = 0f;
+
+			if (forward == Vector3.zero)
+				return new Pose(pose.position, Quaternion.identity); // Fallback if rotation is vertical
+
+			Quaternion yOnlyRotation = Quaternion.LookRotation(forward.normalized, Vector3.up);
+			return new Pose(pose.position, yOnlyRotation);
+		}
+
+		public static void TransformTrackingSpace(Pose fromPose, Pose toPose, bool enforceUp = true)
+		{
+			if (enforceUp)
+			{
+				fromPose = FlattenPoseRotation(fromPose);
+				toPose = FlattenPoseRotation(toPose);
+			}
+
 			Transform r = MainXROrigin.Transform;
 			Matrix4x4 rigMat = Matrix4x4.TRS(r.position, r.rotation, Vector3.one);
 			Matrix4x4 desiredMat = Matrix4x4.TRS(toPose.position, toPose.rotation, Vector3.one);
@@ -64,24 +82,16 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			// that relative matrix relative to the desired transform
 			Matrix4x4 relativeToDesired = desiredMat * rigLocalToAnchor;
 
-			Vector3 targetRigPos = relativeToDesired.GetPosition();
-
-			Vector3 targetForward = relativeToDesired.MultiplyVector(Vector3.forward);
-
-			targetForward.y = 0;
-			targetForward.Normalize();
-			Quaternion targetRigRot = Quaternion.LookRotation(targetForward, Vector3.up);
-
-			MainXROrigin.Transform.SetPositionAndRotation(targetRigPos, targetRigRot);
+			MainXROrigin.Transform.SetPositionAndRotation(relativeToDesired.GetPosition(), relativeToDesired.rotation);
 		}
 
-		public static void LerpTrackingSpace(Pose fromPose, Pose toPose, float lerp)
+		public static void LerpTrackingSpace(Pose fromPose, Pose toPose, float lerp, bool enforceUp = true)
 		{
 			Pose lerpedPose = new Pose();
 			lerpedPose.position = Vector3.Lerp(fromPose.position, toPose.position, lerp);
 			lerpedPose.rotation = Quaternion.Lerp(fromPose.rotation, toPose.rotation, lerp);
 
-			TransformTrackingSpace(fromPose, lerpedPose);
+			TransformTrackingSpace(fromPose, lerpedPose, enforceUp);
 		}
 	}
 }

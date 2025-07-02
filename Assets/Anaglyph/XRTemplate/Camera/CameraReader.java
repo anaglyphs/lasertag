@@ -55,17 +55,17 @@ public class CameraReader {
 			UnityPlayer.UnitySendMessage(gameObjectName, functionName, "");
 		}
 
-		public void OnCaptureStarted() {
-			Call("OnCaptureStarted");
+		public void Call(String functionName, String arg) {
+			UnityPlayer.UnitySendMessage(gameObjectName, functionName, arg);
 		}
 
-		public void OnCaptureStopped() {
-			Call("OnCaptureStopped");
-		}
-
-		public void OnNewFrameAvailable() {
-			Call("OnNewFrameAvailable");
-		}
+		public void OnDeviceOpened() { Call("OnDeviceOpened"); }
+		public void OnDeviceClosed() { Call("OnDeviceClosed"); }
+		public void OnDeviceDisconnected() { Call("OnDeviceDisconnected"); }
+		public void OnDeviceError(String errorCodeAsString) { Call("OnDeviceError", errorCodeAsString); }
+		public void OnConfigured() { Call("OnConfigured"); }
+		public void OnConfigureFailed() { Call("OnConfigureFailed"); }
+		public void OnImageAvailable() { Call("OnImageAvailable"); }
 	}
 
 	public CameraReader() {
@@ -96,22 +96,30 @@ public class CameraReader {
 				byteBuffer = ByteBuffer.allocateDirect(bufferSize);
 				device.createCaptureSession(List.of(reader.getSurface()), sessionCallback, handler);
 
-				unityInterface.OnCaptureStarted();
+				unityInterface.OnDeviceOpened();
 
 			} catch (CameraAccessException e) {
 				Log.e(TAG, e.toString());
-				stopCapture();
+				close();
 			}
 		}
 
 		@Override
+		public void onClosed(@NonNull CameraDevice camera) {
+			unityInterface.OnDeviceClosed();
+			cleanup();
+		}
+
+		@Override
 		public void onDisconnected(@NonNull CameraDevice camera) {
-			stopCapture();
+			unityInterface.OnDeviceDisconnected();
+			cleanup();
 		}
 
 		@Override
 		public void onError(@NonNull CameraDevice camera, int error) {
-			stopCapture();
+			unityInterface.OnDeviceError(Integer.toString(error));
+			cleanup();
 		}
 	};
 
@@ -128,6 +136,8 @@ public class CameraReader {
 				captureRequest.addTarget(reader.getSurface());
 				session.setRepeatingRequest(captureRequest.build(), null, handler);
 
+				unityInterface.OnConfigured();
+
 			} catch (CameraAccessException e) {
 				Log.e(TAG, e.toString());
 				cleanup();
@@ -136,6 +146,7 @@ public class CameraReader {
 
 		@Override
 		public void onConfigureFailed(@NonNull CameraCaptureSession session) {
+			unityInterface.OnConfigureFailed();
 			cleanup();
 		}
 	};
@@ -157,7 +168,7 @@ public class CameraReader {
 
 			image.close();
 
-			unityInterface.OnNewFrameAvailable();
+			unityInterface.OnImageAvailable();
 		}
 	};
 
@@ -165,8 +176,6 @@ public class CameraReader {
 
 	public void setup(String gameObjectName) {
 		unityInterface = new UnityInterface(gameObjectName);
-
-		configure(0, 320, 240);
 	}
 
 	public void configure(int camIndex, int width, int height) {
@@ -182,7 +191,7 @@ public class CameraReader {
 		}
 	}
 
-	public void startCapture() {
+	public void open() {
 
 		if (device != null)
 			return;
@@ -202,18 +211,16 @@ public class CameraReader {
 
 			manager.openCamera(cameraId, deviceCallback, handler);
 
+			unityInterface.OnDeviceOpened();
+
 		} catch (CameraAccessException e) {
 			Log.e(TAG, e.toString());
 			cleanup();
 		}
 	}
 
-	public void stopCapture() {
-		Log.i(TAG, "Stopping camera capture");
-
+	public void close() {
 		cleanup();
-
-		unityInterface.OnCaptureStopped();
 	}
 
 	private void cleanup() {

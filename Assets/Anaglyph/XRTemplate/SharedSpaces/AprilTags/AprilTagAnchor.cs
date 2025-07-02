@@ -13,7 +13,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public override void OnNetworkSpawn()
 		{
-			AprilTagColocator.foundTags.Add(idSync.Value, this);
+			// AprilTagColocator.foundTags.Add(idSync.Value, this);
 		}
 	}
 }
