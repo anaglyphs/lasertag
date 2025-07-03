@@ -14,6 +14,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private void Start() {
 			tagIndicator.gameObject.SetActive(false);
+			CameraManager.Instance.Configure(1, 320, 240);
 		}
 
 		private static bool _isColocated;
@@ -31,7 +32,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		}
 
 		public float tagSize = 0.1f;
-		private const float Lerp = 0.1f;
+		public float lerp = 0.01f;
 		private bool colocationActive = false;
 
 		public async void Colocate()
@@ -39,7 +40,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			IsColocated = false;
 			colocationActive = true;
 
-			await CameraManager.Instance.Configure(0, 320, 240);
 			await CameraManager.Instance.TryOpenCamera();
 			AprilTagTracker.Instance.tagSizeMeters = tagSize;
 			AprilTagTracker.Instance.OnDetectTags += OnDetectTags;
@@ -57,7 +57,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					Colocation.TransformTrackingSpace(new Pose(pose.Position, pose.Rotation), Pose.identity);
 
 				IsColocated = true;
-				Colocation.LerpTrackingSpace(new Pose(pose.Position, pose.Rotation), Pose.identity, Lerp);
+				Colocation.LerpTrackingSpace(new Pose(pose.Position, pose.Rotation), Pose.identity, lerp);
 
 				tagIndicator.gameObject.SetActive(true);
 				tagIndicator.SetPositionAndRotation(pose.Position, pose.Rotation);

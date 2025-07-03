@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using UnityEngine.XR;
 using EnvisionCenter.XRTemplate.DisplayCapture.AprilTags;
 using Anaglyph.XRTemplate.CameraReader;
+using Anaglyph.XRTemplate;
 
 namespace EnvisionCenter.XRTemplate.QuestCV
 {
@@ -100,6 +101,8 @@ namespace EnvisionCenter.XRTemplate.QuestCV
 				Matrix4x4 viewMat = Matrix4x4.TRS(headPose.position, headPose.orientation, Vector3.one);
 				var lensPose = CameraManager.Instance.CamPoseOnDevice;
 				viewMat *= Matrix4x4.TRS(lensPose.position, lensPose.rotation, Vector3.one);
+				viewMat = MainXROrigin.Transform.localToWorldMatrix * viewMat;
+				
 
 				foreach (var pose in detector.DetectedTags)
 				{

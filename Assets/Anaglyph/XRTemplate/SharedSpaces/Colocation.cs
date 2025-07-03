@@ -63,18 +63,20 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			return new Pose(pose.position, yOnlyRotation);
 		}
 
-		public static void TransformTrackingSpace(Pose fromPose, Pose toPose, bool enforceUp = true)
+		public static void TransformTrackingSpace(Pose from, Pose to, bool enforceUp = true)
 		{
+			var root = MainXROrigin.Transform;
+			Matrix4x4 rigMat = Matrix4x4.TRS(root.position, root.rotation, Vector3.one);
+			Matrix4x4 anchorMat = Matrix4x4.TRS(from.position, from.rotation, Vector3.one);
+			Matrix4x4 desiredMat = Matrix4x4.TRS(to.position, to.rotation, Vector3.one);
+
 			if (enforceUp)
 			{
-				fromPose = FlattenPoseRotation(fromPose);
-				toPose = FlattenPoseRotation(toPose);
+				Vector3 f = anchorMat * Vector3.forward;
+				Vector3 flatForward = new Vector3(f.x, 0, f.z).normalized;
+				Quaternion correctedRot = Quaternion.LookRotation(flatForward, Vector3.up);
+				anchorMat = Matrix4x4.TRS(anchorMat.GetPosition(), correctedRot, Vector3.one);
 			}
-
-			Transform r = MainXROrigin.Transform;
-			Matrix4x4 rigMat = Matrix4x4.TRS(r.position, r.rotation, Vector3.one);
-			Matrix4x4 desiredMat = Matrix4x4.TRS(toPose.position, toPose.rotation, Vector3.one);
-			Matrix4x4 anchorMat = Matrix4x4.TRS(fromPose.position, fromPose.rotation, Vector3.one);
 
 			// the rig relative to the anchor
 			Matrix4x4 rigLocalToAnchor = anchorMat.inverse * rigMat;
@@ -82,16 +84,19 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			// that relative matrix relative to the desired transform
 			Matrix4x4 relativeToDesired = desiredMat * rigLocalToAnchor;
 
-			MainXROrigin.Transform.SetPositionAndRotation(relativeToDesired.GetPosition(), relativeToDesired.rotation);
+			Vector3 targetRigPos = relativeToDesired.GetPosition();
+
+			root.SetPositionAndRotation(relativeToDesired.GetPosition(), relativeToDesired.rotation);
 		}
 
-		public static void LerpTrackingSpace(Pose fromPose, Pose toPose, float lerp, bool enforceUp = true)
+		public static void LerpTrackingSpace(Pose from, Pose to, float lerp, bool enforceUp = true)
 		{
+			lerp = 1 - lerp;
 			Pose lerpedPose = new Pose();
-			lerpedPose.position = Vector3.Lerp(fromPose.position, toPose.position, lerp);
-			lerpedPose.rotation = Quaternion.Lerp(fromPose.rotation, toPose.rotation, lerp);
+			lerpedPose.position = Vector3.Lerp(from.position, to.position, lerp);
+			lerpedPose.rotation = Quaternion.Lerp(from.rotation, to.rotation, lerp);
 
-			TransformTrackingSpace(fromPose, lerpedPose, enforceUp);
+			TransformTrackingSpace(lerpedPose, to, enforceUp);
 		}
 	}
 }

@@ -106,6 +106,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   tagIndicator: {fileID: 7849511789531832086}
   tagSize: 0.1
+  lerp: 0.1
 --- !u!114 &1319307689243415292
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -283,6 +284,22 @@ PrefabInstance:
     - target: {fileID: 4069664990272625943, guid: ba1330d76aa0e456baf97e3d13c40427, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6622359861819213794, guid: ba1330d76aa0e456baf97e3d13c40427, type: 3}
+      propertyPath: m_Size.x
+      value: 2.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6622359861819213794, guid: ba1330d76aa0e456baf97e3d13c40427, type: 3}
+      propertyPath: m_Size.y
+      value: 2.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6824038319154351986, guid: ba1330d76aa0e456baf97e3d13c40427, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0.99999994
+      objectReference: {fileID: 0}
+    - target: {fileID: 6824038319154351986, guid: ba1330d76aa0e456baf97e3d13c40427, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0.99999994
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
