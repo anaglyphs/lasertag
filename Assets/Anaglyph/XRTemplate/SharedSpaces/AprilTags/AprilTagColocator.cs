@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
+using System.Threading.Tasks;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
@@ -12,9 +13,14 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	{
 		[SerializeField] private Transform tagIndicator;
 
-		private void Start() {
+		private async void Start() {
 			tagIndicator.gameObject.SetActive(false);
-			CameraManager.Instance.Configure(1, 320, 240);
+			await EnsureConfigured();
+		}
+
+		private async Task EnsureConfigured() {
+			if(!CameraManager.Instance.IsConfigured)
+				await CameraManager.Instance.Configure(1, 320, 240);
 		}
 
 		private static bool _isColocated;
@@ -40,6 +46,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			IsColocated = false;
 			colocationActive = true;
 
+			await EnsureConfigured();
 			await CameraManager.Instance.TryOpenCamera();
 			AprilTagTracker.Instance.tagSizeMeters = tagSize;
 			AprilTagTracker.Instance.OnDetectTags += OnDetectTags;
