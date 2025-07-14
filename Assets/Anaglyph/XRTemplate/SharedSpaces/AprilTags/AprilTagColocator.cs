@@ -23,7 +23,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				await CameraManager.Instance.Configure(1, 320, 240);
 		}
 
-		private static bool _isColocated;
+		private bool _isColocated;
 		public event Action<bool> IsColocatedChange;
 		public bool IsColocated
 		{

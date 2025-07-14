@@ -25,8 +25,7 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			if (Current == null)
-				Current = this;
+			Current = this;
 		}
 
 		[SerializeField] private MetaAnchorColocator metaAnchorColocator;

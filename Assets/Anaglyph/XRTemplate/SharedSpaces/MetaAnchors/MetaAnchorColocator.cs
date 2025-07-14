@@ -1,4 +1,5 @@
 using System;
+using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
 
@@ -10,7 +11,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private bool colocationActive;
 
-		private static bool _isColocated;
+		private bool _isColocated;
 		public event Action<bool> IsColocatedChange;
 		public bool IsColocated
 		{

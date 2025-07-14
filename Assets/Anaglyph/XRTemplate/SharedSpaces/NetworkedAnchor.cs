@@ -182,12 +182,12 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				if (!allAnchored.Contains(this))
 					allAnchored.Add(this);
 
-				Log($"Saving anchor {spatialAnchor.Uuid}...");
+				//Log($"Saving anchor {spatialAnchor.Uuid}...");
 
-				var saveResult = await spatialAnchor.SaveAnchorAsync();
-				ExitIfBehaviorDisabled();
-				if (!saveResult.Success)
-					throw new NetworkedAnchorException($"Failed to save anchor {spatialAnchor.Uuid}");
+				//var saveResult = await spatialAnchor.SaveAnchorAsync();
+				//ExitIfBehaviorDisabled();
+				//if (!saveResult.Success)
+				//	throw new NetworkedAnchorException($"Failed to save anchor {spatialAnchor.Uuid}");
 
 				// AnchorGuidSaving.AddAndSaveGuid(spatialAnchor.Uuid);
 			}
@@ -203,7 +203,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				Debug.Log("Task cancelled");
 			}
 		}
-
+		
 		private async Task Load(Guid uuid)
 		{
 			Redo:

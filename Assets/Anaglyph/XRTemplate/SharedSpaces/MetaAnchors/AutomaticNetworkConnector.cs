@@ -3,11 +3,8 @@ using System;
 using System.Text;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
-using Unity.Networking.Transport.Relay;
 using Unity.Services.Multiplayer;
-using Unity.Services.Relay;
 using UnityEngine;
-using Unity.Services.DistributedAuthority;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
