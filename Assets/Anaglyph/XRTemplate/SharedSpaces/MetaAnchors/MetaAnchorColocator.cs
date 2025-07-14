@@ -77,7 +77,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			colocationActive = true;
 		}
 
-		private void Update()
+		private void LateUpdate()
 		{
 			if (!colocationActive || NetworkedAnchor.AllAnchored.Count == 0)
 				return;
@@ -101,7 +101,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 
 			Pose anchorPose = closestAnchor.transform.GetWorldPose();
-			Colocation.TransformTrackingSpace(anchorPose, closestAnchor.DesiredPose);
+			Colocation.TransformOrigin(anchorPose, Colocation.VerticallyAlignPose(closestAnchor.DesiredPose));
 			IsColocated = true;
 		}
 

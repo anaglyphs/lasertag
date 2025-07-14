@@ -128,11 +128,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private void HandleColocationSessionDiscovered(OVRColocationSession.Data data)
 		{
-			if (NetworkManager.Singleton.IsListening)
-				return;
-
 			string message = Encoding.ASCII.GetString(data.Metadata);
 			Log($"Discovered {message}");
+
+			if (NetworkManager.Singleton.IsListening)
+				return;
 
 			if(message.StartsWith(LanPrefix))
 			{
