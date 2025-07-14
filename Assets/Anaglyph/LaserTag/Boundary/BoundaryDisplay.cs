@@ -1,3 +1,5 @@
+using Anaglyph.XRTemplate;
+using Unity.XR.CoreUtils;
 using UnityEngine;
 
 namespace Anaglyph.Lasertag
@@ -15,7 +17,7 @@ namespace Anaglyph.Lasertag
 
 		private void LateUpdate()
 		{
-			Vector3 camPos = camera.transform.position;
+			Vector3 camPos = camera.transform.localPosition;
 			Vector3 camPosFlat = new Vector3(camPos.x, 0, camPos.z);
 
 			if (camPosFlat.magnitude == 0)
@@ -23,8 +25,8 @@ namespace Anaglyph.Lasertag
 
 			Quaternion rot = Quaternion.LookRotation(camPosFlat, Vector3.up);
 
-			transform.position = (Vector3.up * camPos.y) + rot * (Vector3.forward * radius);
-			transform.rotation = rot;
+			transform.localPosition = (rot * (Vector3.forward * radius)) + (Vector3.up * camPos.y);
+			transform.localRotation = rot;
 		}
 	}
 }
