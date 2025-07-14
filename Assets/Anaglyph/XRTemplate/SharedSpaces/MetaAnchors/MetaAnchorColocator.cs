@@ -7,6 +7,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 {
 	public class MetaAnchorColocator : MonoBehaviour, IColocator
 	{
+		[SerializeField] private GameObject networkedColocationAnchorPrefab;
+
 		private bool colocationActive;
 
 		private static bool _isColocated;
@@ -44,8 +46,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				flatForward.Normalize();
 				Quaternion spawnRot = Quaternion.LookRotation(flatForward, Vector3.up);
 
-				GameObject prefab = Resources.Load<GameObject>("Networked Colocation Anchor");
-				GameObject g = Instantiate(prefab, spawnPos, spawnRot);
+				GameObject g = Instantiate(networkedColocationAnchorPrefab, spawnPos, spawnRot);
 				g.TryGetComponent(out NetworkedAnchor networkedAnchor);
 				networkedAnchor.NetworkObject.Spawn();
 

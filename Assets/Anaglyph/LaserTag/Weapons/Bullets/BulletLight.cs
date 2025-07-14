@@ -27,7 +27,8 @@ namespace Anaglyph.Lasertag
 		private async void HandleCollision()
 		{
 			await Awaitable.NextFrameAsync();
-			meshRenderer.enabled = false;
+			if(meshRenderer != null)
+				meshRenderer.enabled = false;
 		}
 
 		private Vector3 prevBulletPosition;

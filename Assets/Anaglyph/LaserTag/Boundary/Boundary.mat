@@ -29,8 +29,10 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _FadeEnd: 5
-    - _FadeStart: 8
+    - _FadeEnd: 1
+    - _FadeStart: 2
+    - _Scale: 50
+    - _Slope: 1
     m_Colors:
     - _Color: {r: 1, g: 0.30269495, b: 0, a: 1}
   m_BuildTextureStacks: []

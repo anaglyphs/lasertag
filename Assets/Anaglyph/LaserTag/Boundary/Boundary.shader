@@ -5,6 +5,8 @@ Shader "Custom/OpaqueAlphaPassthrough"
 		_Color ("Color", Color) = (1, 1, 1, 1)
 		_FadeStart ("Fade Start Distance", Float) = 1.0
 		_FadeEnd ("Fade End Distance", Float) = 0.1
+		_Scale ("Stripe Scale", Float) = 100
+		_Slope ("Stripe Slope", Float) = 1
 	}
 	SubShader
 	{
@@ -45,6 +47,8 @@ Shader "Custom/OpaqueAlphaPassthrough"
 			float4 _Color;
 			float _FadeStart;
 			float _FadeEnd;
+			float _Scale;
+			float _Slope;
 
 			Varyings vert (Attributes v)
 			{
@@ -67,7 +71,7 @@ Shader "Custom/OpaqueAlphaPassthrough"
 				
 				float alpha = saturate((dist - _FadeStart) / (_FadeEnd - _FadeStart));
 
-				alpha *= (((i.uv.x + i.uv.y) * 100) % 1) > 0.5;
+				alpha *= (((i.uv.x * _Slope + i.uv.y) * _Scale) % 1) > 0.5;
 
 				float4 color = _Color.rgba * alpha;
 				META_DEPTH_OCCLUDE_OUTPUT_PREMULTIPLY_WORLDPOS(i.positionWS, color, 0);

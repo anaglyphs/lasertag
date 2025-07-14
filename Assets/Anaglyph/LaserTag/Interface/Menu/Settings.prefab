@@ -476,8 +476,8 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8745655936492411677, guid: b7cfb477b0273f247ad77433f15655e8, type: 3}
       propertyPath: m_Text
-      value: Some networks are not compatible with local network hosting (default).
-        Use this if players are having trouble connecting to you. This is experimental!!!
+      value: Routes traffic through Unity's cloud servers. Use this if players are
+        having trouble connecting to you.
       objectReference: {fileID: 0}
     - target: {fileID: 8745655936492411677, guid: b7cfb477b0273f247ad77433f15655e8, type: 3}
       propertyPath: m_FontData.m_MinSize
@@ -709,7 +709,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8745655936492411677, guid: b7cfb477b0273f247ad77433f15655e8, type: 3}
       propertyPath: m_Text
-      value: Can slow the framerate with a lot of bullets
+      value: This can cause framerate drops if there are a lot of bullets in view
       objectReference: {fileID: 0}
     - target: {fileID: 8745655936492411677, guid: b7cfb477b0273f247ad77433f15655e8, type: 3}
       propertyPath: m_FontData.m_MinSize
@@ -1167,9 +1167,9 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8745655936492411677, guid: b7cfb477b0273f247ad77433f15655e8, type: 3}
       propertyPath: m_Text
-      value: Advanced. Use fiducial marker to colocate players. You must print a
-        tagStandard41h12 AprilTag fiducial marker yourself. The inner white area
-        should be 10cm by 10cm. This is experimental!!!
+      value: Experimental! Uses fiducial markers to colocate players. You must print
+        a tagStandard41h12 AprilTag fiducial yourself. The inner white area should
+        be 10cm by 10cm.
       objectReference: {fileID: 0}
     - target: {fileID: 8745655936492411677, guid: b7cfb477b0273f247ad77433f15655e8, type: 3}
       propertyPath: m_FontData.m_MinSize
@@ -2702,11 +2702,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1264327728285245068, guid: babefde94bd6ded44b50c9be528ca019, type: 3}
       propertyPath: m_Text
-      value: Show 'too far' alert boundary
+      value: '''Physical space features'' boundary'
       objectReference: {fileID: 0}
     - target: {fileID: 2715429596210558130, guid: babefde94bd6ded44b50c9be528ca019, type: 3}
       propertyPath: m_Name
-      value: Show 'too far' alert boundary
+      value: '''Physical space features'' boundary'
       objectReference: {fileID: 0}
     - target: {fileID: 2715429596210558131, guid: babefde94bd6ded44b50c9be528ca019, type: 3}
       propertyPath: m_Pivot.x
@@ -3164,10 +3164,9 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8745655936492411677, guid: b7cfb477b0273f247ad77433f15655e8, type: 3}
       propertyPath: m_Text
-      value: This boundary shows you where an intrusve 'you've moved too far!' system
-        pop-up will appear if you don't disable 'physical space features' in system
-        developer settings. For more information, see the troubleshooting link in
-        the '?' menu.
+      value: Meta headsets restrict playspace area unless you disable 'physical space
+        features' in system settings. Once you disable that, you can also disable
+        this option to hide the in-game boundary.
       objectReference: {fileID: 0}
     - target: {fileID: 8745655936492411677, guid: b7cfb477b0273f247ad77433f15655e8, type: 3}
       propertyPath: m_FontData.m_MinSize

@@ -1,6 +1,7 @@
 using Anaglyph.Menu;
 using Anaglyph.Netcode;
 using Anaglyph.XRTemplate.SharedSpaces;
+using System.Runtime.CompilerServices;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using Unity.Services.Multiplayer;
@@ -91,6 +92,11 @@ namespace Anaglyph.Lasertag
 			manager.OnClientStopped += OnClientStopped;
 
 			Colocation.IsColocatedChange += OnColocationChange;
+		}
+
+		private void Update()
+		{
+			hostButton.interactable = NetworkHelper.CheckIsReady();
 		}
 
 		private void OnDestroy()

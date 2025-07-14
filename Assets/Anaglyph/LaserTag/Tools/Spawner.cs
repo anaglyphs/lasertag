@@ -3,7 +3,6 @@ using System;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.UIElements;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
 
 namespace Anaglyph.Lasertag

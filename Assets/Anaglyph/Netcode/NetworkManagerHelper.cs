@@ -6,6 +6,7 @@ using Unity.Netcode.Transports.UTP;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
 using Unity.Services.Multiplayer;
+using UnityEditor;
 using UnityEngine;
 
 namespace Anaglyph.Netcode
@@ -14,6 +15,9 @@ namespace Anaglyph.Netcode
 	{
 		public static ushort port = 7777;
 		public static string contyp = "dtls";
+
+		public static float cooldownSeconds = 8;
+		private static float lastAttemptTime = -1000;
 
 		private static NetworkManager manager => NetworkManager.Singleton;
 		private static UnityTransport transport => (UnityTransport)NetworkManager.Singleton.NetworkConfig.NetworkTransport;
@@ -24,12 +28,36 @@ namespace Anaglyph.Netcode
 			UnityService, 
 		}
 
+		private static void SetNetworkTransportType<T>() where T : NetworkTransport
+		{
+			if(!manager.TryGetComponent(out T transport))
+				transport = manager.gameObject.AddComponent<T>();
+
+			manager.NetworkConfig.NetworkTransport = transport;
+		}
+
+		private static bool Cooldown()
+		{
+			bool coolingDown = !CheckIsReady();
+
+			if (!coolingDown)
+				lastAttemptTime = Time.time;
+
+			return coolingDown;
+		}
+
+		public static bool CheckIsReady() => Time.time - lastAttemptTime > cooldownSeconds;
+
 		public static async void Host(Protocol protocol)
 		{
-			switch(protocol)
+			if (Cooldown())
+				return;
+
+			switch (protocol)
 			{
 				case Protocol.LAN:
 
+					SetNetworkTransportType<UnityTransport>();
 					manager.NetworkConfig.UseCMBService = false;
 
 					string localAddress = "";
@@ -65,6 +93,11 @@ namespace Anaglyph.Netcode
 
 		public static void ConnectLAN(string ip)
 		{
+			if (Cooldown())
+				return;
+
+			SetNetworkTransportType<UnityTransport>();
+
 			transport.SetConnectionData(ip, port);
 
 			StartClient();
@@ -79,15 +112,12 @@ namespace Anaglyph.Netcode
 				await AuthenticationService.Instance.SignInAnonymouslyAsync();
 		}
 
-		private static float timeSinceAttempt = 0;
 		public static ISession CurrentSession { get; private set; }
 
 		public static async void ConnectUnityServices(string id)
 		{
-			if (Time.time - timeSinceAttempt < 10)
+			if (Cooldown())
 				return;
-
-			timeSinceAttempt = Time.time;
 
 			await SetupServices();
 
