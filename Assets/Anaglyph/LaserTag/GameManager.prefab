@@ -92,7 +92,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 304bb6caa6bf4544f937804a6279a0b3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  networkedColocationAnchorPrefab: {fileID: 6151402896905020864, guid: 1bafc8ec0e82426478635d59f4197f98, type: 3}
+  anchorPrefab: {fileID: -1500784526931333930, guid: 1bafc8ec0e82426478635d59f4197f98, type: 3}
 --- !u!114 &7899954696120425326
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -107,7 +107,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   tagIndicator: {fileID: 7849511789531832086}
   tagSize: 0.1
-  lerp: 0.1
+  iterativeLerp: 0.1
 --- !u!114 &1319307689243415292
 MonoBehaviour:
   m_ObjectHideFlags: 0

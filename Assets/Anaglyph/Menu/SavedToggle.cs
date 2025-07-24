@@ -8,7 +8,7 @@ namespace Anaglyph.Menu
 		[SerializeField] private string key;
 		[SerializeField] private bool defaultValue;
 
-		private void Awake()
+		private void Start()
 		{
 			TryGetComponent(out Toggle toggle);
 

@@ -48,8 +48,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 		}
 
-		public static void TransformTrackingSpace(Pose fromPose)
-		 => TransformTrackingSpace(fromPose, new Pose(Vector3.zero, Quaternion.identity));
+		public static void TransformOrigin(Pose fromPose)
+		 => TransformOrigin(fromPose, new Pose(Vector3.zero, Quaternion.identity));
 
 		private static Pose FlattenPoseRotation(Pose pose)
 		{
@@ -63,7 +63,26 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			return new Pose(pose.position, yOnlyRotation);
 		}
 
-		public static void TransformTrackingSpace(Pose from, Pose to, bool enforceUp = true)
+		public static Matrix4x4 VerticallyAlignMatrix(Matrix4x4 mat)
+		{
+			Vector3 f = mat * Vector3.forward;
+			Vector3 flatForward = new Vector3(f.x, 0, f.z).normalized;
+			Quaternion correctedRot = Quaternion.LookRotation(flatForward, Vector3.up);
+			return Matrix4x4.TRS(mat.GetPosition(), correctedRot, mat.lossyScale);
+		}
+
+		public static Pose VerticallyAlignPose(Pose pose)
+		{
+			Matrix4x4 mat = Matrix4x4.TRS(pose.position, pose.rotation, Vector3.one);
+
+			mat = VerticallyAlignMatrix(mat);
+
+			pose = new(mat.GetPosition(), mat.rotation);
+
+			return pose;
+		}
+
+		public static void TransformOrigin(Pose from, Pose to, bool enforceUp = true, float lerp = 1f)
 		{
 			var root = MainXROrigin.Transform;
 			Matrix4x4 rigMat = Matrix4x4.TRS(root.position, root.rotation, Vector3.one);
@@ -71,12 +90,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			Matrix4x4 desiredMat = Matrix4x4.TRS(to.position, to.rotation, Vector3.one);
 
 			if (enforceUp)
-			{
-				Vector3 f = anchorMat * Vector3.forward;
-				Vector3 flatForward = new Vector3(f.x, 0, f.z).normalized;
-				Quaternion correctedRot = Quaternion.LookRotation(flatForward, Vector3.up);
-				anchorMat = Matrix4x4.TRS(anchorMat.GetPosition(), correctedRot, Vector3.one);
-			}
+				anchorMat = VerticallyAlignMatrix(anchorMat);
 
 			// the rig relative to the anchor
 			Matrix4x4 rigLocalToAnchor = anchorMat.inverse * rigMat;
@@ -84,19 +98,15 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			// that relative matrix relative to the desired transform
 			Matrix4x4 relativeToDesired = desiredMat * rigLocalToAnchor;
 
-			Vector3 targetRigPos = relativeToDesired.GetPosition();
+			Pose targetPose = new(relativeToDesired.GetPosition(), relativeToDesired.rotation);
 
-			root.SetPositionAndRotation(relativeToDesired.GetPosition(), relativeToDesired.rotation);
-		}
+			if(lerp != 1f)
+			{
+				targetPose.position = Vector3.Lerp(root.position, targetPose.position, lerp);
+				targetPose.rotation = Quaternion.Lerp(root.rotation, targetPose.rotation, lerp);
+			}
 
-		public static void LerpTrackingSpace(Pose from, Pose to, float lerp, bool enforceUp = true)
-		{
-			lerp = 1 - lerp;
-			Pose lerpedPose = new Pose();
-			lerpedPose.position = Vector3.Lerp(from.position, to.position, lerp);
-			lerpedPose.rotation = Quaternion.Lerp(from.rotation, to.rotation, lerp);
-
-			TransformTrackingSpace(lerpedPose, to, enforceUp);
+			root.SetPositionAndRotation(targetPose.position, targetPose.rotation);
 		}
 	}
 }

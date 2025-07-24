@@ -271,7 +271,7 @@ PlayerSettings:
   AndroidTargetArchitectures: 2
   AndroidSplashScreenScale: 0
   androidSplashScreen: {fileID: 0}
-  AndroidKeystoreName: /Users/jt/Library/Mobile Documents/com~apple~CloudDocs/Keystores/trev3d.keystore
+  AndroidKeystoreName: C:/Users/jt/iCloudDrive/Keystores/trev3d.keystore
   AndroidKeyaliasName: julian
   AndroidEnableArmv9SecurityFeatures: 0
   AndroidEnableArm64MTE: 0
@@ -281,7 +281,7 @@ PlayerSettings:
   AndroidEnableTango: 0
   androidEnableBanner: 1
   androidUseLowAccuracyLocation: 0
-  androidUseCustomKeystore: 0
+  androidUseCustomKeystore: 1
   m_AndroidBanners:
   - width: 320
     height: 180
@@ -726,7 +726,7 @@ PlayerSettings:
   suppressCommonWarnings: 1
   allowUnsafeCode: 0
   useDeterministicCompilation: 1
-  additionalIl2CppArgs: 
+  additionalIl2CppArgs: --compiler-flags="     -flto=thin"
   scriptingRuntimeVersion: 1
   gcIncremental: 1
   gcWBarrierValidation: 0
