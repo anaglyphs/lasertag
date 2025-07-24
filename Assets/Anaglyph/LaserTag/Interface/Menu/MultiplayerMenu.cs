@@ -1,10 +1,8 @@
 using Anaglyph.Menu;
 using Anaglyph.Netcode;
 using Anaglyph.XRTemplate.SharedSpaces;
-using System.Runtime.CompilerServices;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
-using Unity.Services.Multiplayer;
 using UnityEngine;
 using UnityEngine.UI;
 using VariableObjects;

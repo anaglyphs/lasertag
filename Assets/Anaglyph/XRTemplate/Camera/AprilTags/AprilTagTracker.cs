@@ -100,8 +100,9 @@ namespace EnvisionCenter.XRTemplate.QuestCV
 				OVRPose headPose = headPoseState.Pose.ToOVRPose();
 				Matrix4x4 viewMat = Matrix4x4.TRS(headPose.position, headPose.orientation, Vector3.one);
 				var lensPose = CameraManager.Instance.CamPoseOnDevice;
-				viewMat *= Matrix4x4.TRS(lensPose.position, lensPose.rotation, Vector3.one);
-				viewMat = MainXROrigin.Transform.localToWorldMatrix * viewMat;
+				Matrix4x4 cameraMat = Matrix4x4.TRS(lensPose.position, lensPose.rotation, Vector3.one);
+				Matrix4x4 cameraRelativeToRig = viewMat * cameraMat;
+				viewMat = MainXROrigin.Transform.worldToLocalMatrix * cameraRelativeToRig;
 				
 
 				foreach (var pose in detector.DetectedTags)
