@@ -51,7 +51,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		public static void TransformTrackingSpace(Pose fromPose)
 		 => TransformTrackingSpace(fromPose, new Pose(Vector3.zero, Quaternion.identity));
 
-		private static Pose FlattenPoseRotation(Pose pose)
+		public static Pose FlattenPoseRotation(Pose pose)
 		{
 			Vector3 forward = pose.rotation * Vector3.forward;
 			forward.y = 0f;
@@ -66,17 +66,24 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		public static void TransformTrackingSpace(Pose from, Pose to, bool enforceUp = true)
 		{
 			var root = MainXROrigin.Transform;
+
+			if(enforceUp)
+			{
+				from = FlattenPoseRotation(from);
+				to = FlattenPoseRotation(to);
+			}
+
 			Matrix4x4 rigMat = Matrix4x4.TRS(root.position, root.rotation, Vector3.one);
 			Matrix4x4 anchorMat = Matrix4x4.TRS(from.position, from.rotation, Vector3.one);
 			Matrix4x4 desiredMat = Matrix4x4.TRS(to.position, to.rotation, Vector3.one);
 
-			if (enforceUp)
-			{
-				Vector3 f = anchorMat * Vector3.forward;
-				Vector3 flatForward = new Vector3(f.x, 0, f.z).normalized;
-				Quaternion correctedRot = Quaternion.LookRotation(flatForward, Vector3.up);
-				anchorMat = Matrix4x4.TRS(anchorMat.GetPosition(), correctedRot, Vector3.one);
-			}
+			//if (enforceUp)
+			//{
+			//	Vector3 f = anchorMat.MultiplyVector(Vector3.forward);
+			//	Vector3 flatForward = new Vector3(f.x, 0, f.z).normalized;
+			//	Quaternion correctedRot = Quaternion.LookRotation(flatForward, Vector3.up);
+			//	anchorMat = Matrix4x4.TRS(anchorMat.GetPosition(), correctedRot, Vector3.one);
+			//}
 
 			// the rig relative to the anchor
 			Matrix4x4 rigLocalToAnchor = anchorMat.inverse * rigMat;

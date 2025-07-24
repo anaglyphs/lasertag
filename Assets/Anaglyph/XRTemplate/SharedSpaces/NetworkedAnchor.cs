@@ -49,13 +49,16 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		public NetworkVariable<NetworkPose> OriginalPoseSync = new NetworkVariable<NetworkPose>();
 
 		private bool anchored = false;
-		public bool Anchored => anchored;
+		public bool IsAnchored => anchored;
 		public Pose DesiredPose => OriginalPoseSync.Value;
 
 		public NetworkVariable<NetworkGuid> Uuid = new NetworkVariable<NetworkGuid>(new(Guid.Empty));
 
 		private static List<NetworkedAnchor> allAnchored = new();
 		public static IReadOnlyList<NetworkedAnchor> AllAnchored => allAnchored;
+
+		private static List<NetworkedAnchor> allInstances = new();
+		public static IReadOnlyList<NetworkedAnchor> AllInstances => allAnchored;
 
 		private void OnValidate()
 		{
@@ -66,6 +69,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			Uuid.OnValueChanged += OnGuidChanged;
 			spatialAnchor.enabled = false;
+
+			allInstances.Add(this);
 		}
 
 		private async void OnGuidChanged(NetworkGuid previous, NetworkGuid current)
@@ -91,6 +96,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			if (allAnchored.Contains(this))
 				allAnchored.Remove(this);
+
+			if(allInstances.Contains(this))
+				allInstances.Remove(this);
 		}
 
 		public async Task Share()
@@ -108,6 +116,10 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				spatialAnchor.enabled = true;
 
 				bool localizeSuccess = await spatialAnchor.WhenLocalizedAsync();
+
+#if UNITY_EDITOR
+				await Awaitable.WaitForSecondsAsync(0.5f);
+#endif
 
 				ExitIfBehaviorDisabled();
 				if (!localizeSuccess)
@@ -130,6 +142,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				Log($"Sharing anchor {spatialAnchor.Uuid}...");
 
 				var shareResult = await spatialAnchor.ShareAsync(spatialAnchor.Uuid);
+
+#if UNITY_EDITOR
+				await Awaitable.WaitForSecondsAsync(0.5f);
+#endif
+
 				ExitIfBehaviorDisabled();
 				if (shareResult.Success)
 					Log($"Successfully shared anchor {spatialAnchor.Uuid}");
@@ -160,6 +177,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				ExitIfBehaviorDisabled();
 
 				var localizeSuccess = await unboundAnchor.LocalizeAsync();
+
+#if UNITY_EDITOR
+				await Awaitable.WaitForSecondsAsync(0.5f);
+#endif
+
 				ExitIfBehaviorDisabled();
 				if (!localizeSuccess)
 					throw new NetworkedAnchorException($"Could not localize anchor {unboundAnchor.Uuid}");
@@ -174,19 +196,19 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 				await Awaitable.NextFrameAsync();
 
-				if (IsOwner)
-					OriginalPoseSync.Value = new(anchorPose);
+				//if (IsOwner)
+				//	OriginalPoseSync.Value = new(anchorPose);
 
 				anchored = true;
 				if (!allAnchored.Contains(this))
 					allAnchored.Add(this);
 
-				Log($"Saving anchor {spatialAnchor.Uuid}...");
+				//Log($"Saving anchor {spatialAnchor.Uuid}...");
 
-				var saveResult = await spatialAnchor.SaveAnchorAsync();
-				ExitIfBehaviorDisabled();
-				if (!saveResult.Success)
-					throw new NetworkedAnchorException($"Failed to save anchor {spatialAnchor.Uuid}");
+				//var saveResult = await spatialAnchor.SaveAnchorAsync();
+				//ExitIfBehaviorDisabled();
+				//if (!saveResult.Success)
+				//	throw new NetworkedAnchorException($"Failed to save anchor {spatialAnchor.Uuid}");
 
 				// AnchorGuidSaving.AddAndSaveGuid(spatialAnchor.Uuid);
 			}

@@ -53,19 +53,23 @@ Shader "Custom/OpaqueAlphaPassthrough"
 			Varyings vert (Attributes v)
 			{
 				Varyings o;
+
+				UNITY_SETUP_INSTANCE_ID(v);
+				// UNITY_INITIALIZE_OUTPUT(Varyings, o)
+				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+
 				float4 positionWS = mul(GetObjectToWorldMatrix(), v.positionOS);
 				o.positionWS = positionWS.xyz;
 				o.positionCS = TransformWorldToHClip(o.positionWS);
 				o.uv = v.uv;
-
-				UNITY_SETUP_INSTANCE_ID(v);
-				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
 				return o;
 			}
 
 			float4 frag (Varyings i) : SV_Target
 			{
+				UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
+
 				float3 camPos = GetCameraPositionWS();
 				float dist = distance(camPos, i.positionWS);
 				
