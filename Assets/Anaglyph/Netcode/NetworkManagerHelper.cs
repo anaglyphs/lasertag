@@ -6,7 +6,6 @@ using Unity.Netcode.Transports.UTP;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
 using Unity.Services.Multiplayer;
-using UnityEditor;
 using UnityEngine;
 
 namespace Anaglyph.Netcode
@@ -28,12 +27,12 @@ namespace Anaglyph.Netcode
 			UnityService, 
 		}
 
-		private static void SetNetworkTransportType<T>() where T : NetworkTransport
+		private static void SetNetworkTransportType(string s)
 		{
-			if(!manager.TryGetComponent(out T transport))
-				transport = manager.gameObject.AddComponent<T>();
-
-			manager.NetworkConfig.NetworkTransport = transport;
+			NetworkTransport newTransport = manager.GetComponent(s) as NetworkTransport;
+			if (newTransport == null)
+				throw new NullReferenceException($"Could not find transport {s}!");
+			manager.NetworkConfig.NetworkTransport = newTransport;
 		}
 
 		private static bool Cooldown()
@@ -46,6 +45,8 @@ namespace Anaglyph.Netcode
 			return coolingDown;
 		}
 
+		public static bool CheckIfSessionOwner() => manager.CurrentSessionOwner == manager.LocalClientId;
+
 		public static bool CheckIsReady() => Time.time - lastAttemptTime > cooldownSeconds;
 
 		public static async void Host(Protocol protocol)
@@ -57,7 +58,8 @@ namespace Anaglyph.Netcode
 			{
 				case Protocol.LAN:
 
-					SetNetworkTransportType<UnityTransport>();
+					SetNetworkTransportType("UnityTransport");
+
 					manager.NetworkConfig.UseCMBService = false;
 
 					string localAddress = "";
@@ -76,6 +78,8 @@ namespace Anaglyph.Netcode
 					break;
 
 				case Protocol.UnityService:
+
+					SetNetworkTransportType("DistributedAuthorityTransport");
 
 					await SetupServices();
 
@@ -96,7 +100,7 @@ namespace Anaglyph.Netcode
 			if (Cooldown())
 				return;
 
-			SetNetworkTransportType<UnityTransport>();
+			SetNetworkTransportType("UnityTransport");
 
 			transport.SetConnectionData(ip, port);
 
@@ -118,6 +122,8 @@ namespace Anaglyph.Netcode
 		{
 			if (Cooldown())
 				return;
+
+			SetNetworkTransportType("DistributedAuthorityTransport");
 
 			await SetupServices();
 

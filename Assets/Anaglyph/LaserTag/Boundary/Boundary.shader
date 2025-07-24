@@ -7,6 +7,7 @@ Shader "Custom/OpaqueAlphaPassthrough"
 		_FadeEnd ("Fade End Distance", Float) = 0.1
 		_Scale ("Stripe Scale", Float) = 100
 		_Slope ("Stripe Slope", Float) = 1
+		_XROrigin ("XR Origin", Vector) = (0, 0, 0)
 	}
 	SubShader
 	{
@@ -26,10 +27,11 @@ Shader "Custom/OpaqueAlphaPassthrough"
 
 			#pragma multi_compile _ HARD_OCCLUSION SOFT_OCCLUSION
 
+			// #define PI 3.1415926538
+
 			struct Attributes
 			{
 				float4 positionOS : POSITION;
-				float2 uv         : TEXCOORD0;
 
 				UNITY_VERTEX_INPUT_INSTANCE_ID
 			};
@@ -37,10 +39,9 @@ Shader "Custom/OpaqueAlphaPassthrough"
 			struct Varyings
 			{
 				float4 positionCS : SV_POSITION;
-				float2 uv         : TEXCOORD0; 
 				float3 positionWS : TEXCOORD1;
 
-
+				UNITY_VERTEX_INPUT_INSTANCE_ID
 				UNITY_VERTEX_OUTPUT_STEREO 
 			};
 
@@ -49,19 +50,18 @@ Shader "Custom/OpaqueAlphaPassthrough"
 			float _FadeEnd;
 			float _Scale;
 			float _Slope;
+			float3 _XROrigin;
 
 			Varyings vert (Attributes v)
 			{
 				Varyings o;
 
-				UNITY_SETUP_INSTANCE_ID(v);
-				// UNITY_INITIALIZE_OUTPUT(Varyings, o)
+				UNITY_SETUP_INSTANCE_ID(v);	
 				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
 				float4 positionWS = mul(GetObjectToWorldMatrix(), v.positionOS);
 				o.positionWS = positionWS.xyz;
 				o.positionCS = TransformWorldToHClip(o.positionWS);
-				o.uv = v.uv;
 
 				return o;
 			}
@@ -75,7 +75,13 @@ Shader "Custom/OpaqueAlphaPassthrough"
 				
 				float alpha = saturate((dist - _FadeStart) / (_FadeEnd - _FadeStart));
 
-				alpha *= (((i.uv.x * _Slope + i.uv.y) * _Scale) % 1) > 0.5;
+				float2 uv = float2(0, 0);
+				float angle = atan2(i.positionWS.x - _XROrigin.x, i.positionWS.z - _XROrigin.z);
+
+				uv.x = 1 + (angle / (PI * 2));
+				uv.y = i.positionWS.y;
+
+				alpha *= (((uv.x * _Slope + uv.y) * _Scale) % 1.0) > 0.5;
 
 				float4 color = _Color.rgba * alpha;
 				META_DEPTH_OCCLUDE_OUTPUT_PREMULTIPLY_WORLDPOS(i.positionWS, color, 0);

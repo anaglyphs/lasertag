@@ -25,8 +25,7 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			if (Current == null)
-				Current = this;
+			Current = this;
 		}
 
 		[SerializeField] private MetaAnchorColocator metaAnchorColocator;
@@ -60,8 +59,8 @@ namespace Anaglyph.Lasertag
 		{
 			Colocation.ActiveColocator.StopColocation();
 
-			MainXROrigin.Instance.transform.position = Vector3.zero;
-			MainXROrigin.Instance.transform.rotation = Quaternion.identity;
+			MainXROrigin.Transform.position = Vector3.zero;
+			MainXROrigin.Transform.rotation = Quaternion.identity;
 		}
 
 		public override void OnDestroy()

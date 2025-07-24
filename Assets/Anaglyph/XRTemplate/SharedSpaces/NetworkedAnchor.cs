@@ -109,6 +109,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			Redo:
 			try
 			{
+				OriginalPoseSync.Value = new NetworkPose(transform);
+
 				ExitIfBehaviorDisabled();
 
 				Log("Sharing new anchor");
@@ -125,7 +127,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				if (!localizeSuccess)
 					throw new NetworkedAnchorException($"Failed to localize anchor {spatialAnchor.Uuid}");
 
-				OriginalPoseSync.Value = new NetworkPose(transform);
 				anchored = true;
 				if(!allAnchored.Contains(this))
 					allAnchored.Add(this);
@@ -224,7 +225,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				Debug.Log("Task cancelled");
 			}
 		}
-
+		
 		private async Task Load(Guid uuid)
 		{
 			Redo:
