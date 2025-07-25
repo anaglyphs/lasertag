@@ -1,7 +1,5 @@
 using McCaffrey;
-using System;
 using System.Collections.Generic;
-using System.IO.Hashing;
 using System.Threading.Tasks;
 using Unity.Collections;
 using Unity.Jobs;
@@ -18,7 +16,7 @@ namespace Anaglyph
 
 		NativeArray<PointTreeBurst.Node> tree;
 
-		private void Start()
+		private void Awake()
 		{
 			List<float3> vertices = new();
 			MeshFilter[] meshFilters = environmentObject.GetComponentsInChildren<MeshFilter>();
@@ -40,29 +38,21 @@ namespace Anaglyph
 			buildJob.Schedule().Complete();
 
 			points.Dispose();
-
-			Test(icpIterations);
 		}
 
-		private async void Test(int iterations)
+		private async void OnEnable()
 		{
 			float3[] points = new float3[testDepthMesh.mesh.vertices.Length];
 			for (int i = 0; i < points.Length; i++)
 				points[i] = testDepthMesh.mesh.vertices[i];
 
-			float3 newCentroid = float3.zero;
-
-			foreach (float3 v in points)
-				newCentroid += v;
-			newCentroid /= points.Length;
-
 			NativeArray<float3> knnResults = new(points.Length, Allocator.Persistent);
 			NativeArray<float3> newPoints = new(points, Allocator.Persistent);
 
-			for (int i = 0; i < iterations; i++)
+			float4x4 trans = transform.localToWorldMatrix;
+			while (enabled)
 			{
-				float4x4 trans = testDepthMesh.transform.localToWorldMatrix;
-				trans = await ClosestPointStep(trans, newPoints, knnResults,  newCentroid);
+				trans = await ClosestPointStep(trans, newPoints, knnResults);
 				Matrix4x4 mat = trans;
 
 				testDepthMesh.transform.SetPositionAndRotation(mat.GetPosition(), mat.rotation);
@@ -72,8 +62,14 @@ namespace Anaglyph
 			newPoints.Dispose();
 		}
 
-		public async Task<float4x4> ClosestPointStep(float4x4 newTrans, NativeArray<float3> newPoints, NativeArray<float3> knnResults, float3 newCentroid)
+		public async Task<float4x4> ClosestPointStep(float4x4 newTrans, NativeArray<float3> newPoints, NativeArray<float3> knnResults)
 		{
+			float3 newCentroid = float3.zero;
+
+			foreach (float3 v in newPoints)
+				newCentroid += v;
+			newCentroid /= newPoints.Length;
+
 			PointTreeBurst.FindClosestPoints findJob = new()
 			{
 				pointTransform = newTrans,
@@ -88,7 +84,7 @@ namespace Anaglyph
 			findJobHandle.Complete();
 
 			float3 envCentroid = float3.zero;
-			foreach (float3 v in knnResults)
+			foreach (float3 v in newPoints)
 				envCentroid += v;
 			envCentroid /= knnResults.Length;
 
@@ -103,118 +99,64 @@ namespace Anaglyph
 
 				float3 newPointMinusCentGlobal = newPointGlobal - newCentroidGlobal;
 
-				float3 envPoint = knnResults[i];
+				float3 envPoint = newPoints[i];
 				float3 envPointMinusCent = envPoint - envCentroid;
+
+				//if (math.distance(newPointGlobal, envPoint) > 0.05f)
+				//	continue;
 
 				for (int x = 0; x < 3; x++)
 					for (int y = 0; y < 3; y++)
-						covMat[x, y] += envPointMinusCent[y] * newPointMinusCentGlobal[x];
+						covMat[y, x] += envPointMinusCent[y] * newPointMinusCentGlobal[x];
 			}
 
 			// svd
 			SVDJacobi.Decompose(covMat, out float[,] Ua, out float[,] Vha, out float[] sa);
 
-			float3x3 U = MatToMat(Ua);
-			float3x3 Vt = MatToMat(Vha);
+			float3x3 U = arrayToMat(Ua);
+			float3x3 Vt = arrayToMat(Vha);
+
+			// envCentroid, centroid of static environment
+			// newCentroidGlobal, global position (relative to env) of new points to register
 
 			float3x3 rot = math.mul(U, Vt);
+			//rot = math.transpose(rot);
 
 			if (math.determinant(rot) < 0)
 			{
 				float3x3 V = math.transpose(Vt);
-
 				V.c2 *= -1;
-
 				Vt = math.transpose(V);
 				rot = math.mul(U, Vt);
 			}
 
-			float4x4 translate = float4x4.Translate(envCentroid - newCentroidGlobal);
-			float4x4 rotate = new float4x4(rot, float3.zero);
+			//float rotNorm = frobNorm(rot - float3x3.identity);
+			//if (math.abs(rotNorm) < 0.005f)
+			//	rot = float3x3.identity;
 
-			newTrans = math.mul(newTrans, math.mul(translate, rotate));
+			float3 t = envCentroid - math.mul(rot, newCentroidGlobal);
+			float4x4 deltaTransform = float4x4.TRS(t, new quaternion(rot), new float3(1));
+			newTrans = math.mul(deltaTransform, newTrans);
 
 			return newTrans;
 		}
 
-		private static float3x3 MatToMat(float[,] mat)
+		private static float frobNorm(float3x3 matrix)
+		{
+			float sumOfSquares = 0f;
+			for (int i = 0; i < 3; i++)
+				for (int j = 0; j < 3; j++)
+					sumOfSquares += math.square(matrix[i][j]);
+			return math.sqrt(sumOfSquares);
+		}
+
+		private static float3x3 arrayToMat(float[,] mat)
 		{
 			float3x3 f = new float3x3();
 			for (int x = 0; x < 3; x++)
 				for (int y = 0; y < 3; y++)
 					f[x][y] = mat[x, y];
 			return f;
-		}
-
-		public static float[,] MatTranspose(float[,] mat)
-		{
-			int w = mat.GetLength(0);
-			int h = mat.GetLength(1);
-
-			float[,] trans = new float[w, h];
-
-			for(int x = 0; x < w; x++)
-				for(int y = 0; y < h; y++)
-				{
-					int l = (w - 1) - x;
-					int v = (h - 1) - y;
-
-					trans[x, y] = mat[l, v];
-				}
-
-			return trans;
-		}
-
-		public static float[,] MatMultiply(float[,] a, float[,] b)
-		{
-			int aRows = a.GetLength(0);
-			int aCols = a.GetLength(1);
-			int bRows = b.GetLength(0);
-			int bCols = b.GetLength(1);
-
-
-			float[,] result = new float[aRows, bCols];
-
-			for (int i = 0; i < aRows; i++)
-			{
-				for (int j = 0; j < bCols; j++)
-				{
-					float sum = 0;
-					for (int k = 0; k < aCols; k++)
-					{
-						sum += a[i, k] * b[k, j];
-					}
-					result[i, j] = sum;
-				}
-			}
-
-			return result;
-		}
-
-		public static Matrix4x4 ToUnityMat(float[,] rotation3x3)
-		{
-			if (rotation3x3.GetLength(0) != 3 || rotation3x3.GetLength(1) != 3)
-			{
-				throw new ArgumentException("Input must be a 3x3 matrix.");
-			}
-
-			Matrix4x4 matrix = Matrix4x4.identity;
-
-			// Fill in the rotation part
-			matrix.m00 = rotation3x3[0, 0];
-			matrix.m01 = rotation3x3[0, 1];
-			matrix.m02 = rotation3x3[0, 2];
-
-			matrix.m10 = rotation3x3[1, 0];
-			matrix.m11 = rotation3x3[1, 1];
-			matrix.m12 = rotation3x3[1, 2];
-
-			matrix.m20 = rotation3x3[2, 0];
-			matrix.m21 = rotation3x3[2, 1];
-			matrix.m22 = rotation3x3[2, 2];
-
-			// The rest (translation and perspective terms) remain as in the identity matrix
-			return matrix;
 		}
 	}
 }
