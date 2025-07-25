@@ -70,7 +70,7 @@ public static class PointTreeBurst
 
 		private int BuildBranch(int start, int end, int depth, ref int numNodes)
 		{
-			if (start >= end)
+			if (start > end)
 				return -1;
 
 			Node node = new();
@@ -93,10 +93,10 @@ public static class PointTreeBurst
 			{
 				int nextDepth = depth + 1;
 
-				if(split > start)
-					node.lesser = BuildBranch(start, split, nextDepth, ref numNodes);
+				if(split - 1 >= start)
+					node.lesser = BuildBranch(start, split - 1, nextDepth, ref numNodes);
 
-				if(split + 1 < end)
+				if(split + 1 <= end)
 					node.greater = BuildBranch(split + 1, end, nextDepth, ref numNodes);
 			}
 
