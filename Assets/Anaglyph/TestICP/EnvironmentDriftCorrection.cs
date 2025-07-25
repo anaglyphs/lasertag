@@ -1,6 +1,7 @@
 using McCaffrey;
 using System;
 using System.Collections.Generic;
+using System.IO.Hashing;
 using System.Threading.Tasks;
 using Unity.Collections;
 using Unity.Jobs;
@@ -107,34 +108,62 @@ namespace Anaglyph
 
 				for (int x = 0; x < 3; x++)
 					for (int y = 0; y < 3; y++)
-						covMat[x, y] += envPointMinusCent[x] * newPointMinusCentGlobal[y];
+						covMat[x, y] += envPointMinusCent[y] * newPointMinusCentGlobal[x];
 			}
 
 			// svd
-			SVDJacobi.Decompose(covMat, out float[,] U, out float[,] Vh, out float[] s);
+			SVDJacobi.Decompose(covMat, out float[,] Ua, out float[,] Vha, out float[] sa);
 
-			// https://learnopencv.com/iterative-closest-point-icp-explained/
-			float[,] rot3x3 = MatMultiply(U, Vh);
+			float3x3 U = MatToMat(Ua);
+			float3x3 Vt = MatToMat(Vha);
 
-			float4x4 rotate = ToUnityMat(rot3x3);
-			
-			if(math.determinant(rotate) < 0)
+			float3x3 rot = math.mul(U, Vt);
+
+			if (math.determinant(rot) < 0)
 			{
-				Vh[2, 0] *= -1;
-				Vh[2, 1] *= -1;
-				Vh[2, 2] *= -1;
+				float3x3 V = math.transpose(Vt);
 
-				rot3x3 = MatMultiply(U, Vh);
-				rotate = ToUnityMat(rot3x3);
+				V.c2 *= -1;
+
+				Vt = math.transpose(V);
+				rot = math.mul(U, Vt);
 			}
 
 			float4x4 translate = float4x4.Translate(envCentroid - newCentroidGlobal);
+			float4x4 rotate = new float4x4(rot, float3.zero);
+
 			newTrans = math.mul(newTrans, math.mul(translate, rotate));
 
 			return newTrans;
 		}
 
+		private static float3x3 MatToMat(float[,] mat)
+		{
+			float3x3 f = new float3x3();
+			for (int x = 0; x < 3; x++)
+				for (int y = 0; y < 3; y++)
+					f[x][y] = mat[x, y];
+			return f;
+		}
 
+		public static float[,] MatTranspose(float[,] mat)
+		{
+			int w = mat.GetLength(0);
+			int h = mat.GetLength(1);
+
+			float[,] trans = new float[w, h];
+
+			for(int x = 0; x < w; x++)
+				for(int y = 0; y < h; y++)
+				{
+					int l = (w - 1) - x;
+					int v = (h - 1) - y;
+
+					trans[x, y] = mat[l, v];
+				}
+
+			return trans;
+		}
 
 		public static float[,] MatMultiply(float[,] a, float[,] b)
 		{
@@ -143,8 +172,6 @@ namespace Anaglyph
 			int bRows = b.GetLength(0);
 			int bCols = b.GetLength(1);
 
-			if (aCols != bRows)
-				throw new ArgumentException("Number of columns in the first matrix must equal the number of rows in the second.");
 
 			float[,] result = new float[aRows, bCols];
 
