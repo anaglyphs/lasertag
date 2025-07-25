@@ -1,4 +1,5 @@
 using System;
+using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
 
@@ -26,7 +27,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 		}
 
-		private async void InstantiateNewAnchor()
+		private void InstantiateNewAnchor()
 		{
 			Transform head = MainXROrigin.Instance.Camera.transform;
 
@@ -41,10 +42,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			GameObject g = Instantiate(networkedColocationAnchorPrefab, spawnPos, spawnRot);
 			g.name = $"Colocation meta anchor {NetworkedAnchor.AllInstances.Count}";
 			Debug.Log($"Instantiated {g.name}");
-			g.TryGetComponent(out NetworkedAnchor networkedAnchor);
-			networkedAnchor.NetworkObject.Spawn();
-
-			await networkedAnchor.Share();
+			g.TryGetComponent(out NetworkObject networkObj);
+			networkObj.Spawn();
 		}
 
 		public async void Colocate()
@@ -91,14 +90,14 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private void LateUpdate()
 		{
-			if (!colocationActive || NetworkedAnchor.AllAnchored.Count == 0)
+			if (!colocationActive || NetworkedAnchor.AllInstances.Count == 0)
 				return;
 
 			// find closest anchor
 			Vector3 headPos = MainXROrigin.Instance.Camera.transform.position;
 			float maxDist = float.MaxValue;
 
-			NetworkedAnchor closestAnchored = NetworkedAnchor.AllInstances[0];
+			NetworkedAnchor closestAnchored = null;
 
 			for (int i = 0; i < NetworkedAnchor.AllInstances.Count; i++)
 			{
@@ -113,6 +112,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 						closestAnchored = anchor;
 				}
 			}
+
+			if (closestAnchored == null)
+				return;
 
 			Pose anchorPose = closestAnchored.transform.GetWorldPose();
 			Colocation.TransformTrackingSpace(anchorPose, Colocation.FlattenPoseRotation(closestAnchored.DesiredPose));

@@ -62,7 +62,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			{
 				float lerp = IsColocated ? iterativeLerp : 1f;
 				IsColocated = true;
-				Colocation.TransformOrigin(new Pose(pose.Position, pose.Rotation), Pose.identity, true, lerp);
+				Colocation.LerpTrackingSpace(new Pose(pose.Position, pose.Rotation), Pose.identity, lerp);
 
 				tagIndicator.gameObject.SetActive(true);
 				tagIndicator.SetPositionAndRotation(pose.Position, pose.Rotation);

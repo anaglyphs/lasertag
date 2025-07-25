@@ -54,11 +54,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public NetworkVariable<NetworkGuid> Uuid = new NetworkVariable<NetworkGuid>(new(Guid.Empty));
 
-		private static List<NetworkedAnchor> allAnchored = new();
-		public static IReadOnlyList<NetworkedAnchor> AllAnchored => allAnchored;
-
 		private static List<NetworkedAnchor> allInstances = new();
-		public static IReadOnlyList<NetworkedAnchor> AllInstances => allAnchored;
+		public static IReadOnlyList<NetworkedAnchor> AllInstances => allInstances;
 
 		private void OnValidate()
 		{
@@ -83,7 +80,10 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public override async void OnNetworkSpawn()
 		{
-			if (!IsOwner)
+			if(IsOwner)
+			{
+				await Share();
+			} else
 			{
 				if (Uuid.Value.guid == Guid.Empty)
 					return;
@@ -94,10 +94,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public override void OnNetworkDespawn()
 		{
-			if (allAnchored.Contains(this))
-				allAnchored.Remove(this);
-
-			if(allInstances.Contains(this))
+			if (allInstances.Contains(this))
 				allInstances.Remove(this);
 		}
 
@@ -128,8 +125,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					throw new NetworkedAnchorException($"Failed to localize anchor {spatialAnchor.Uuid}");
 
 				anchored = true;
-				if(!allAnchored.Contains(this))
-					allAnchored.Add(this);
 
 				//Log($"Saving anchor {spatialAnchor.Uuid}...");
 
@@ -201,8 +196,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				//	OriginalPoseSync.Value = new(anchorPose);
 
 				anchored = true;
-				if (!allAnchored.Contains(this))
-					allAnchored.Add(this);
 
 				//Log($"Saving anchor {spatialAnchor.Uuid}...");
 
