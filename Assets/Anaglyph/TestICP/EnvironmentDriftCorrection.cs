@@ -1,6 +1,7 @@
 using McCaffrey;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -15,31 +16,6 @@ namespace Anaglyph
 		[SerializeField] int icpIterations = 10;
 
 		NativeArray<PointTreeBurst.Node> tree;
-
-		public bool run;
-
-		private void OnValidate()
-		{
-			if(run)
-			{
-				run = false;
-
-				RunICP(1);
-			}
-		}
-
-		private void RunICP(int iterations)
-		{
-			float3[] fArray = new float3[testDepthMesh.mesh.vertices.Length];
-			for (int i = 0; i < fArray.Length; i++)
-			{
-				fArray[i] = testDepthMesh.mesh.vertices[i];
-			}
-
-			Matrix4x4 newMat = EstimateTransform(testDepthMesh.transform.localToWorldMatrix, fArray, iterations);
-
-			testDepthMesh.transform.SetPositionAndRotation(newMat.GetPosition(), newMat.rotation);
-		}
 
 		private void Start()
 		{
@@ -63,83 +39,99 @@ namespace Anaglyph
 			buildJob.Schedule().Complete();
 
 			points.Dispose();
+
+			Test(icpIterations);
 		}
 
-		
-		public Matrix4x4 EstimateTransform(Matrix4x4 headsetTransform, float3[] localDepthPoints, int iterations)
+		private async void Test(int iterations)
 		{
+			float3[] points = new float3[testDepthMesh.mesh.vertices.Length];
+			for (int i = 0; i < points.Length; i++)
+				points[i] = testDepthMesh.mesh.vertices[i];
 
-			Vector3 localDepthCentroid = Vector3.zero;
+			float3 newCentroid = float3.zero;
 
-			foreach (Vector3 v in localDepthPoints)
-				localDepthCentroid += v;
-			localDepthCentroid /= localDepthPoints.Length;
-			Vector3 worldDepthCentroid = headsetTransform.MultiplyPoint(localDepthCentroid);
+			foreach (float3 v in points)
+				newCentroid += v;
+			newCentroid /= points.Length;
 
-			Vector3[] localDepthPointsMinusCentroid = new Vector3[localDepthPoints.Length];
+			NativeArray<float3> knnResults = new(points.Length, Allocator.Persistent);
+			NativeArray<float3> newPoints = new(points, Allocator.Persistent);
 
-			for (int i = 0; i < localDepthPoints.Length; i++)
-				localDepthPointsMinusCentroid[i] = (Vector3)localDepthPoints[i] - localDepthCentroid;
-
-
-			for (int k = 0; k < iterations; k++)
+			for (int i = 0; i < iterations; i++)
 			{
-				NativeArray<float3> results = new(localDepthPoints.Length, Allocator.TempJob);
-				NativeArray<float3> points = new(localDepthPoints, Allocator.TempJob);
+				float4x4 trans = testDepthMesh.transform.localToWorldMatrix;
+				trans = await ClosestPointStep(trans, newPoints, knnResults,  newCentroid);
+				Matrix4x4 mat = trans;
 
-				PointTreeBurst.FindClosestPoints findJob = new()
-				{
-					pointTransform = headsetTransform,
-					points = points,
-					nodes = tree,
-					found = results,
-				};
-
-				var findJobHandle = findJob.ScheduleParallelByRef(results.Length, 0, default);
-				findJobHandle.Complete();
-
-
-				Vector3 corrCentroid = Vector3.zero;
-				foreach (Vector3 v in results)
-					corrCentroid += v;
-				corrCentroid /= results.Length;
-
-				Vector3[] corrPointsMinusCentroid = new Vector3[results.Length];
-				for (int i = 0; i < results.Length; i++)
-					corrPointsMinusCentroid[i] = (Vector3)results[i] - corrCentroid;
-
-
-
-				float[,] covMat = new float[3, 3];
-				for (int i = 0; i < results.Length; i++)
-				{
-					Vector3 globalDepthPointMinusCentroid = headsetTransform.MultiplyPoint(localDepthPointsMinusCentroid[i]);
-					Vector3 correspondingPointMinusCentroid = corrPointsMinusCentroid[i];
-
-					for (int x = 0; x < 3; x++)
-						for (int y = 0; y < 3; y++)
-							covMat[x, y] += correspondingPointMinusCentroid[x] * globalDepthPointMinusCentroid[y];
-				}
-
-				// svd
-				SVDJacobi.Decompose(covMat, out float[,] U, out float[,] Vh, out float[] s);
-
-				// https://learnopencv.com/iterative-closest-point-icp-explained/
-				float[,] Ut = SVDJacobi.MatTranspose(U);
-				float[,] V = SVDJacobi.MatTranspose(Vh);
-				float[,] rot3x3 = MatMultiply(U, Vh);
-
-				Matrix4x4 rotate = ToUnityMat(rot3x3);
-				Matrix4x4 translate = Matrix4x4.Translate(corrCentroid - worldDepthCentroid);
-
-				headsetTransform *= (translate * rotate);
-
-
-				points.Dispose();
-				results.Dispose();
+				testDepthMesh.transform.SetPositionAndRotation(mat.GetPosition(), mat.rotation);
 			}
 
-			return headsetTransform;
+			knnResults.Dispose();
+			newPoints.Dispose();
+		}
+
+		public async Task<float4x4> ClosestPointStep(float4x4 newTrans, NativeArray<float3> newPoints, NativeArray<float3> knnResults, float3 newCentroid)
+		{
+			PointTreeBurst.FindClosestPoints findJob = new()
+			{
+				pointTransform = newTrans,
+				points = newPoints,
+				nodes = tree,
+				found = knnResults,
+			};
+
+			var findJobHandle = findJob.ScheduleParallelByRef(knnResults.Length, 0, default);
+			while (!findJobHandle.IsCompleted)
+				await Awaitable.NextFrameAsync();
+			findJobHandle.Complete();
+
+			float3 envCentroid = float3.zero;
+			foreach (float3 v in knnResults)
+				envCentroid += v;
+			envCentroid /= knnResults.Length;
+
+			float4 nc4 = new float4(newCentroid, 1);
+			float3 newCentroidGlobal = math.mul(newTrans, nc4).xyz;
+
+			float[,] covMat = new float[3, 3];
+			for (int i = 0; i < knnResults.Length; i++)
+			{
+				float4 np4 = new(newPoints[i], 1);
+				float3 newPointGlobal = math.mul(newTrans, np4).xyz;
+
+				float3 newPointMinusCentGlobal = newPointGlobal - newCentroidGlobal;
+
+				float3 envPoint = knnResults[i];
+				float3 envPointMinusCent = envPoint - envCentroid;
+
+				for (int x = 0; x < 3; x++)
+					for (int y = 0; y < 3; y++)
+						covMat[x, y] += envPointMinusCent[x] * newPointMinusCentGlobal[y];
+			}
+
+			// svd
+			SVDJacobi.Decompose(covMat, out float[,] U, out float[,] Vh, out float[] s);
+
+			// https://learnopencv.com/iterative-closest-point-icp-explained/
+			float[,] rot3x3 = MatMultiply(U, Vh);
+
+			float4x4 rotate = ToUnityMat(rot3x3);
+			
+			if(math.determinant(rotate) < 0)
+			{
+				Vh[2, 0] *= -1;
+				Vh[2, 1] *= -1;
+				Vh[2, 2] *= -1;
+
+				rot3x3 = MatMultiply(U, Vh);
+				rotate = ToUnityMat(rot3x3);
+			}
+
+			float4x4 translate = float4x4.Translate(envCentroid - newCentroidGlobal);
+			newTrans = math.mul(newTrans, math.mul(translate, rotate));
+
+			return newTrans;
 		}
 
 
