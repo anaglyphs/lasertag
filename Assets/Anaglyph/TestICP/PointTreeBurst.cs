@@ -124,9 +124,7 @@ public static class PointTreeBurst
 			int iterations = 0;
 
 			float3 point = points[index];
-			var transformAff = new AffineTransform(pointTransform);
-			var pointAff = new AffineTransform(point, quaternion.identity);
-			float3 target = math.mul(transformAff, pointAff).t;
+			float3 target = math.transform(pointTransform, point);
 
 			Search(target, 0, 0, ref maxDistSqr, ref closest, ref iterations);
 

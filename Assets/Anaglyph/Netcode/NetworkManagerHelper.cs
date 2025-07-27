@@ -29,6 +29,8 @@ namespace Anaglyph.Netcode
 
 		private static void SetNetworkTransportType(string s)
 		{
+			manager.NetworkConfig.UseCMBService = false;
+
 			NetworkTransport newTransport = manager.GetComponent(s) as NetworkTransport;
 			if (newTransport == null)
 				throw new NullReferenceException($"Could not find transport {s}!");

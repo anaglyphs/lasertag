@@ -88,18 +88,16 @@ namespace Anaglyph
 				envCentroid += v;
 			envCentroid /= knnResults.Length;
 
-			float4 nc4 = new float4(newCentroid, 1);
-			float3 newCentroidGlobal = math.mul(newTrans, nc4).xyz;
+			float3 newCentroidGlobal = math.transform(newTrans, newCentroid);
 
 			float[,] covMat = new float[3, 3];
 			for (int i = 0; i < knnResults.Length; i++)
 			{
-				float4 np4 = new(newPoints[i], 1);
-				float3 newPointGlobal = math.mul(newTrans, np4).xyz;
+				float3 newPointGlobal = math.transform(newTrans, newPoints[i]);
 
 				float3 newPointMinusCentGlobal = newPointGlobal - newCentroidGlobal;
 
-				float3 envPoint = newPoints[i];
+				float3 envPoint = knnResults[i];
 				float3 envPointMinusCent = envPoint - envCentroid;
 
 				//if (math.distance(newPointGlobal, envPoint) > 0.05f)

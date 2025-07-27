@@ -42,7 +42,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	{
 		private void Log(string str) => Debug.Log($"[NetworkedAnchor] {str}");
 
-		[SerializeField] private OVRSpatialAnchor spatialAnchor;
+		private OVRSpatialAnchor spatialAnchor;
 		public OVRSpatialAnchor Anchor => spatialAnchor;
 
 		//private Guid serverUuid;
@@ -54,8 +54,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public NetworkVariable<NetworkGuid> Uuid = new NetworkVariable<NetworkGuid>(new(Guid.Empty));
 
-		private static List<NetworkedAnchor> allInstances = new();
-		public static IReadOnlyList<NetworkedAnchor> AllInstances => allInstances;
+		//private static List<NetworkedAnchor> allInstances = new();
+		//public static IReadOnlyList<NetworkedAnchor> AllInstances => allInstances;
 
 		private void OnValidate()
 		{
@@ -64,10 +64,12 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private void Awake()
 		{
-			Uuid.OnValueChanged += OnGuidChanged;
+			spatialAnchor = GetComponent<OVRSpatialAnchor>();
 			spatialAnchor.enabled = false;
 
-			allInstances.Add(this);
+			Uuid.OnValueChanged += OnGuidChanged;
+
+			//allInstances.Add(this);
 		}
 
 		private async void OnGuidChanged(NetworkGuid previous, NetworkGuid current)
@@ -92,11 +94,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 		}
 
-		public override void OnNetworkDespawn()
-		{
-			if (allInstances.Contains(this))
-				allInstances.Remove(this);
-		}
+		//public override void OnNetworkDespawn()
+		//{
+		//	if (allInstances.Contains(this))
+		//		allInstances.Remove(this);
+		//}
 
 		public async Task Share()
 		{

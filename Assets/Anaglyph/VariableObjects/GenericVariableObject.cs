@@ -3,16 +3,24 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.Scripting.APIUpdating;
+using UnityEngine.Serialization;
 
 namespace VariableObjects
 {
 	[MovedFrom("VariableObjects.GenericScriptableVariable")]
 	public abstract class GenericVariableObject<T> : ScriptableObject
-    {
-		[SerializeField] private T variableValue;
+	{
+		[FormerlySerializedAs("variableValue")]
+		[SerializeField] protected T defaultVal;
+		protected T val;
 
 		public event Action<T> onChange = delegate { };
 		public event Action<T> beforeChange = delegate { };
+
+		protected virtual void OnEnable()
+		{
+			val = defaultVal;
+		}
 
 		public void Set(T t)
 		{
@@ -27,19 +35,20 @@ namespace VariableObjects
 
 		public T Value
 		{
-			get => variableValue;
+			get => val;
 
 			set
 			{
-				if (EqualityComparer<T>.Default.Equals(variableValue, value))
+				if (EqualityComparer<T>.Default.Equals(val, value))
 					return;
 
-				beforeChange.Invoke(variableValue);
-				variableValue = value;
-				onChange.Invoke(variableValue);
+				beforeChange.Invoke(val);
+				val = value;
+				onChange.Invoke(val);
 			}
 		}
 	}
+
 
 	[MovedFrom("VariableObjects.GenericScriptableVariableEvents")]
 	public abstract class GenericVariableObjectEvents<T> : MonoBehaviour

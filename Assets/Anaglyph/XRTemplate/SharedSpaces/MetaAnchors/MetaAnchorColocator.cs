@@ -7,9 +7,10 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 {
 	public class MetaAnchorColocator : MonoBehaviour, IColocator
 	{
-		[SerializeField] private float spawnNewAnchorDistance = 10;
-		[SerializeField] private GameObject networkedColocationAnchorPrefab;
-		[SerializeField] private Transform selectedAnchorIndicator;
+		public static MetaAnchorColocator Current { get; private set; }
+
+		//[SerializeField] private float anchorRespawnDistance = 10;
+		[SerializeField] private ColocationAnchor anchorPrefab;
 
 		private bool colocationActive;
 
@@ -27,8 +28,16 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 		}
 
-		private void InstantiateNewAnchor()
+		private void Awake()
 		{
+			Current = this;
+		}
+
+		public void InstantiateNewAnchor()
+		{
+			if (ColocationAnchor.Instance != null)
+				ColocationAnchor.Instance.NetworkObject.Despawn(true);
+
 			Transform head = MainXROrigin.Instance.Camera.transform;
 
 			Vector3 spawnPos = head.position;
@@ -39,25 +48,22 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			flatForward.Normalize();
 			Quaternion spawnRot = Quaternion.LookRotation(flatForward, Vector3.up);
 
-			GameObject g = Instantiate(networkedColocationAnchorPrefab, spawnPos, spawnRot);
-			g.name = $"Colocation meta anchor {NetworkedAnchor.AllInstances.Count}";
-			Debug.Log($"Instantiated {g.name}");
-			g.TryGetComponent(out NetworkObject networkObj);
-			networkObj.Spawn();
+			GameObject g = Instantiate(anchorPrefab.gameObject, spawnPos, spawnRot);
+			Debug.Log($"Instantiated new anchor");
+
+			g.TryGetComponent(out NetworkObject networkObject);
+			networkObject.Spawn();
 		}
 
-		public async void Colocate()
+		public void Colocate()
 		{
 			IsColocated = false;
 
-			await Awaitable.WaitForSecondsAsync(0.1f);
-
-			var sort = FindObjectsSortMode.None;
 			var inactive = FindObjectsInactive.Include;
 
-			NetworkedAnchor[] anchors = FindObjectsByType<NetworkedAnchor>(inactive, sort);
+			NetworkedAnchor anchors = FindAnyObjectByType<NetworkedAnchor>(inactive);
 
-			if (anchors.Length == 0)
+			if (anchors == null)
 			{
 				// spawn anchor
 				InstantiateNewAnchor();
@@ -90,40 +96,28 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private void LateUpdate()
 		{
-			if (!colocationActive || NetworkedAnchor.AllInstances.Count == 0)
+			var anchor = ColocationAnchor.Instance;
+
+			if (!colocationActive || anchor == null)
 				return;
 
-			// find closest anchor
-			Vector3 headPos = MainXROrigin.Instance.Camera.transform.position;
-			float maxDist = float.MaxValue;
+			//if (anchor.IsOwner)
+			//{
+			//	Vector3 headPos = MainXROrigin.Instance.Camera.transform.position;
+			//	Vector3 anchorPos = anchor.transform.position;
+			//	if (Vector3.Distance(headPos, anchorPos) > anchorRespawnDistance)
+			//	{
+			//		anchor.NetworkObject.Despawn();
+			//		InstantiateNewAnchor();
+			//	}
+			//}
 
-			NetworkedAnchor closestAnchored = null;
-
-			for (int i = 0; i < NetworkedAnchor.AllInstances.Count; i++)
+			if (anchor.IsAnchored)
 			{
-				NetworkedAnchor anchor = NetworkedAnchor.AllInstances[i];
-
-				float dist = Vector3.Distance(headPos, anchor.transform.position);
-
-				if (dist < maxDist)
-				{
-					maxDist = dist;
-					if (anchor.IsAnchored)
-						closestAnchored = anchor;
-				}
+				Pose anchorPose = anchor.transform.GetWorldPose();
+				Colocation.TransformTrackingSpace(anchorPose, anchor.DesiredPose);
+				IsColocated = true;
 			}
-
-			if (closestAnchored == null)
-				return;
-
-			Pose anchorPose = closestAnchored.transform.GetWorldPose();
-			Colocation.TransformTrackingSpace(anchorPose, Colocation.FlattenPoseRotation(closestAnchored.DesiredPose));
-			IsColocated = true;
-
-			if (maxDist > spawnNewAnchorDistance)
-				InstantiateNewAnchor();
-
-			selectedAnchorIndicator?.SetPositionAndRotation(anchorPose.position + Vector3.up * 0.01f, anchorPose.rotation);
 		}
 
 		public void StopColocation()

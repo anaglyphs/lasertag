@@ -22,6 +22,7 @@ namespace Anaglyph.Lasertag
 		private UnityTransport transport;
 
 		[SerializeField] private BoolObject useUnityRelayService;
+		[SerializeField] private BoolObject useAprilTagColocation;
 
 		[SerializeField] private NavPagesParent navView;
 
@@ -40,6 +41,8 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private Text sessionStateText = null;
 		[SerializeField] private Text sessionIpText = null;
 		[SerializeField] private Button disconnectButton = null;
+		[SerializeField] private Button hostRespawnAnchorButton = null;
+		[SerializeField] private Text hostRespawnAnchorLabel = null;
 
 		[Header("Session icons")]
 		[SerializeField] private Sprite connectingSprite = null;
@@ -87,6 +90,8 @@ namespace Anaglyph.Lasertag
 			sessionPage.showBackButton = false;
 			disconnectButton.onClick.AddListener(Disconnect);
 
+			hostRespawnAnchorButton.onClick.AddListener(MetaAnchorColocator.Current.InstantiateNewAnchor);
+
 			manager.OnClientStopped += OnClientStopped;
 
 			Colocation.IsColocatedChange += OnColocationChange;
@@ -130,9 +135,16 @@ namespace Anaglyph.Lasertag
 				OpenSessionPage(SessionState.Connected);
 		}
 
+		private void ShowMetaAnchorOptions(bool b)
+		{
+			hostRespawnAnchorButton.gameObject.SetActive(b);
+			hostRespawnAnchorLabel.gameObject.SetActive(b);
+		}
+
 		private void OpenSessionPage(SessionState state)
 		{
 			sessionIpText.text = transport.ConnectionData.Address;
+			ShowMetaAnchorOptions(false);
 
 			switch (state)
 			{
@@ -156,6 +168,11 @@ namespace Anaglyph.Lasertag
 						sessionStateText.text = "Connected!";
 						sessionIcon.sprite = connectedSprite;
 					}
+
+					bool isUsingMetaAnchorColocation
+							= Colocation.ActiveColocator.GetType() == typeof(MetaAnchorColocator);
+
+					ShowMetaAnchorOptions(isUsingMetaAnchorColocation);
 					break;
 			}
 
