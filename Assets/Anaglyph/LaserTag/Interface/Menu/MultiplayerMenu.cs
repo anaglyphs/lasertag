@@ -1,6 +1,7 @@
 using Anaglyph.Menu;
 using Anaglyph.Netcode;
 using Anaglyph.XRTemplate.SharedSpaces;
+using System;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
@@ -19,10 +20,8 @@ namespace Anaglyph.Lasertag
 		}
 
 		private NetworkManager manager;
-		private UnityTransport transport;
 
 		[SerializeField] private BoolObject useUnityRelayService;
-		[SerializeField] private BoolObject useAprilTagColocation;
 
 		[SerializeField] private NavPagesParent navView;
 
@@ -53,7 +52,6 @@ namespace Anaglyph.Lasertag
 		private void Start()
 		{
 			manager = NetworkManager.Singleton;
-			manager.TryGetComponent(out transport);
 
 			manager.OnConnectionEvent += OnConnectionEvent;
 			manager.OnClientStarted += OnClientStarted;
@@ -95,11 +93,9 @@ namespace Anaglyph.Lasertag
 			manager.OnClientStopped += OnClientStopped;
 
 			Colocation.IsColocatedChange += OnColocationChange;
-		}
 
-		private void Update()
-		{
-			hostButton.interactable = NetworkHelper.CheckIsReady();
+			ShowMetaAnchorOptions(false);
+			ColocationAnchor.OwnershipChanged += OnColocationOwnershipChanged;
 		}
 
 		private void OnDestroy()
@@ -141,10 +137,25 @@ namespace Anaglyph.Lasertag
 			hostRespawnAnchorLabel.gameObject.SetActive(b);
 		}
 
+		private void OnColocationOwnershipChanged(bool isOwner)
+		{
+			ShowMetaAnchorOptions(isOwner);
+		}
+
 		private void OpenSessionPage(SessionState state)
 		{
-			sessionIpText.text = transport.ConnectionData.Address;
-			ShowMetaAnchorOptions(false);
+			sessionIpText.text = "";
+
+			NetworkTransport transport = manager.NetworkConfig.NetworkTransport;
+			Type transportType = transport.GetType();
+
+			if (string.Equals(transportType.Name, "DistributedAuthorityTransport"))
+			{
+				sessionIpText.text = "Relay Server";
+			} else if (transport.GetType() == typeof(UnityTransport))
+			{
+				sessionIpText.text = ((UnityTransport)transport).ConnectionData.Address;
+			}
 
 			switch (state)
 			{
@@ -159,7 +170,7 @@ namespace Anaglyph.Lasertag
 					break;
 
 				case SessionState.Connected:
-					if(manager.IsHost)
+					if(manager.CurrentSessionOwner	 == manager.LocalClientId)
 					{
 						sessionStateText.text = "Hosting";
 						sessionIcon.sprite = hostingSprite;
@@ -168,11 +179,6 @@ namespace Anaglyph.Lasertag
 						sessionStateText.text = "Connected!";
 						sessionIcon.sprite = connectedSprite;
 					}
-
-					bool isUsingMetaAnchorColocation
-							= Colocation.ActiveColocator.GetType() == typeof(MetaAnchorColocator);
-
-					ShowMetaAnchorOptions(isUsingMetaAnchorColocation);
 					break;
 			}
 
@@ -181,6 +187,8 @@ namespace Anaglyph.Lasertag
 
 		private void Host()
 		{
+			OpenSessionPage(SessionState.Connecting);
+
 			var service = useUnityRelayService.Value ? NetworkHelper.Protocol.UnityService : NetworkHelper.Protocol.LAN;
 
 			NetworkHelper.Host(service);
