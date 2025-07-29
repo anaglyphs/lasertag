@@ -31,8 +31,10 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private MetaAnchorColocator metaAnchorColocator;
 		[SerializeField] private AprilTagColocator aprilTagColocator;
 
-		protected override void OnNetworkSessionSynchronized()
+		public override async void OnNetworkSpawn()
 		{
+			await Awaitable.EndOfFrameAsync();
+
 			EnvironmentMapper.Instance.Clear();
 
 			if (IsOwner)

@@ -35,12 +35,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public void InstantiateNewAnchor()
 		{
-			var currentAnchor = ColocationAnchor.Instance;
-
-			if (currentAnchor != null)
-			{
-				ColocationAnchor.Instance.NetworkObject.Despawn(true);
-			}
+			if(ColocationAnchor.Instance != null)
+				ColocationAnchor.Instance.DespawnAndDestroyRpc();
 
 			Transform head = MainXROrigin.Instance.Camera.transform;
 

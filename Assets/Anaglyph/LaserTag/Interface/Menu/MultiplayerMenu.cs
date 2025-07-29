@@ -94,8 +94,7 @@ namespace Anaglyph.Lasertag
 
 			Colocation.IsColocatedChange += OnColocationChange;
 
-			ShowMetaAnchorOptions(false);
-			ColocationAnchor.OwnershipChanged += OnColocationOwnershipChanged;
+			ShowAnchorOptions(false);
 		}
 
 		private void OnDestroy()
@@ -131,15 +130,10 @@ namespace Anaglyph.Lasertag
 				OpenSessionPage(SessionState.Connected);
 		}
 
-		private void ShowMetaAnchorOptions(bool b)
+		private void ShowAnchorOptions(bool b)
 		{
 			hostRespawnAnchorButton.gameObject.SetActive(b);
 			hostRespawnAnchorLabel.gameObject.SetActive(b);
-		}
-
-		private void OnColocationOwnershipChanged(bool isOwner)
-		{
-			ShowMetaAnchorOptions(isOwner);
 		}
 
 		private void OpenSessionPage(SessionState state)
@@ -170,7 +164,7 @@ namespace Anaglyph.Lasertag
 					break;
 
 				case SessionState.Connected:
-					if(manager.CurrentSessionOwner	 == manager.LocalClientId)
+					if(manager.CurrentSessionOwner == manager.LocalClientId)
 					{
 						sessionStateText.text = "Hosting";
 						sessionIcon.sprite = hostingSprite;
@@ -181,6 +175,10 @@ namespace Anaglyph.Lasertag
 					}
 					break;
 			}
+
+			bool shouldShowAnchorOptions = Colocation.IsColocated && 
+				Colocation.ActiveColocator.GetType() == typeof(MetaAnchorColocator);
+			ShowAnchorOptions(shouldShowAnchorOptions);
 
 			sessionPage.NavigateHere();
 		}
