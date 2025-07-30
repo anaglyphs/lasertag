@@ -73,7 +73,6 @@ namespace Anaglyph.Lasertag.Networking
 			if (IsOwner)
 			{
 				isAliveSync.Value = true;
-				MainPlayer.Instance.avatar = this;
 			}
 
 			AllPlayers.Add(OwnerClientId, this);

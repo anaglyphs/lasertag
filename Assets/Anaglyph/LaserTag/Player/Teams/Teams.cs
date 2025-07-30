@@ -7,7 +7,7 @@ namespace Anaglyph.Lasertag
 	{
 		public const byte NumTeams = 3;
 
-		public static readonly Color[] TeamColors = new Color[]
+		public static readonly Color[] Colors = new Color[]
 		{
 			Color.white, // blank team
 			new Color(216 / 255f, 27  / 255f, 96  / 255f),

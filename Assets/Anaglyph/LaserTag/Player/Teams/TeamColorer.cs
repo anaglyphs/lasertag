@@ -41,7 +41,7 @@ namespace Anaglyph.Lasertag
 
 		public void SetColor(byte teamNumber)
 		{
-			Color = Teams.TeamColors[teamNumber] * multiply;
+			Color = Teams.Colors[teamNumber] * multiply;
 
 			if(renderer != null)
 				renderer.material.SetColor(TeamColorID, Color);

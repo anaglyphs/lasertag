@@ -19,7 +19,6 @@ namespace Anaglyph.Lasertag.UI
 		private void Awake()
 		{
 			Instance = this;
-			MainPlayer.Instance.onDie.AddListener(Update);
 		}
 
 		private void Start()
@@ -35,7 +34,7 @@ namespace Anaglyph.Lasertag.UI
 			  : (Mathf.Sqrt(1 - Mathf.Pow(-2 * x + 2, 2)) + 1) / 2;
 		}
 
-		void Update()
+		private void Update()
 		{
 			menuMaskRectTransform.sizeDelta = new Vector2(menuMaskRectTransform.sizeDelta.x, Mathf.Lerp(0, maxMenuMaskHeight, EaseInOutCirc(Mathf.Clamp01(MainPlayer.Instance.RespawnTimerSeconds))));
 

@@ -1,12 +1,11 @@
 using Anaglyph.Lasertag.Networking;
 using UnityEngine;
-using UnityEngine.Events;
 using Anaglyph.Lasertag.Weapons;
-using System;
 using Unity.XR.CoreUtils;
 using VariableObjects;
 using Unity.Netcode;
 using Anaglyph.Netcode;
+using System;
 
 namespace Anaglyph.Lasertag
 {
@@ -21,13 +20,14 @@ namespace Anaglyph.Lasertag
 		public bool IsAlive { get; private set; } = true;
 		public bool IsInFriendlyBase { get; private set; } = false;
 
-		public UnityEvent onDie = new();
-		public UnityEvent onRespawn = new();
-		public UnityEvent<bool> onAliveChange = new();
-		public UnityEvent onTakeDamage = new();
+		public event Action Died = delegate { };
+		public event Action Respawned = delegate { };
+		public event Action Damaged = delegate { };
+		public event Action<byte> TeamChanged = delegate { };
 
 		[SerializeField] private GameObject avatarPrefab;
-		public Networking.Avatar avatar;
+		private Networking.Avatar avatar;
+		public Networking.Avatar Avatar => avatar;
 
 		[SerializeField] private Transform headTransform;
 		[SerializeField] private Transform leftHandTransform;
@@ -43,7 +43,7 @@ namespace Anaglyph.Lasertag
 		// todo move this into another component. this really doesn't belong here
 		private OVRPassthroughLayer passthroughLayer;
 		[SerializeField] private BoolObject redDamageVision;
-		[SerializeField] private BoolObject participatingInGames;
+		//[SerializeField] private BoolObject participatingInGames;
 
 		private void Awake()
 		{
@@ -55,7 +55,7 @@ namespace Anaglyph.Lasertag
 		private void Start()
 		{
 			NetworkManager.Singleton.OnConnectionEvent += HandleConnectionEvent;
-			participatingInGames.onChange += HandleParticipatingChange;
+			//participatingInGames.onChange += HandleParticipatingChange;
 		}
 
 		private void OnDestroy()
@@ -63,36 +63,45 @@ namespace Anaglyph.Lasertag
 			if(NetworkManager.Singleton != null)
 				NetworkManager.Singleton.OnConnectionEvent -= HandleConnectionEvent;
 
-			participatingInGames.onChange -= HandleParticipatingChange;
+			//participatingInGames.onChange -= HandleParticipatingChange;
 		}
 
 		private void HandleConnectionEvent(NetworkManager manager, ConnectionEventData eventData)
 		{
 			if(NetcodeHelpers.ThisClientConnected(eventData) || NetcodeHelpers.ThisClientDisconnected(eventData))
-				HandleAvatar();
+				SpawnAvatar();
 		}
 
-		private void HandleParticipatingChange(bool b) => HandleAvatar();
+		//private void HandleParticipatingChange(bool b) => HandleAvatar();
 
-		private void HandleAvatar()
+		//private void HandleAvatar()
+		//{
+		//	if (participatingInGames && avatar == null)
+		//	{
+		//		SpawnAvatar();
+		//	}
+		//	else if (avatar != null)
+		//	{
+		//		avatar.NetworkObject.Despawn();
+		//	}
+		//}
+
+		private void SpawnAvatar()
 		{
 			var manager = NetworkManager.Singleton;
 			if (!manager.IsConnectedClient)
 				return;
 
-			if (participatingInGames && avatar == null)
-			{
-				NetworkObject.InstantiateAndSpawn(avatarPrefab, manager, manager.LocalClientId, destroyWithScene: true, isPlayerObject: true);
-			}
-			else if (avatar != null)
-			{
-				avatar.NetworkObject.Despawn();
-			}
+			var avatarObject = NetworkObject.InstantiateAndSpawn(avatarPrefab, 
+				manager, manager.LocalClientId, destroyWithScene: true, isPlayerObject: true);
+
+			avatar = avatarObject.GetComponent<Networking.Avatar>();
+			avatar.TeamOwner.OnTeamChange.AddListener(TeamChanged.Invoke);
 		}
 
 		public void Damage(float damage, ulong damagedBy)
 		{
-			onTakeDamage.Invoke();
+			Damaged.Invoke();
 			Health -= damage;
 
 			if (Health < damage)
@@ -114,8 +123,8 @@ namespace Anaglyph.Lasertag
 			RespawnTimerSeconds = RoundManager.Settings.respawnSeconds;
 			avatar.KilledByPlayerRpc(killedBy);
 
-			onAliveChange.Invoke(false);
-			onDie.Invoke();
+			//onAliveChange.Invoke(false);
+			Died.Invoke();
 		}
 
 		public void Respawn()
@@ -132,8 +141,8 @@ namespace Anaglyph.Lasertag
 			IsAlive = true;
 			Health = MaxHealth;
 
-			onAliveChange.Invoke(true);
-			onRespawn.Invoke();
+			//onAliveChange.Invoke(true);
+			Respawned.Invoke();
 		}
 
 		private void FixedUpdate()

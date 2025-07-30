@@ -132,8 +132,7 @@ namespace Anaglyph.Lasertag
 		{
 			if (!IsSpawned) return;
 
-			Networking.Avatar avatar = MainPlayer.Instance.avatar;
-
+			var avatar = MainPlayer.Instance.Avatar;
 			if (RoundState == RoundState.NotPlaying || RoundState == RoundState.Queued || avatar.Team == 0) {
 				
 				if (avatar.IsInBase)
