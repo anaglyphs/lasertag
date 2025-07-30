@@ -98,12 +98,12 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public static void LerpTrackingSpace(Pose from, Pose to, float lerp, bool enforceUp = true)
 		{
-			lerp = 1 - lerp;
+
 			Pose lerpedPose = new Pose();
 			lerpedPose.position = Vector3.Lerp(from.position, to.position, lerp);
 			lerpedPose.rotation = Quaternion.Lerp(from.rotation, to.rotation, lerp);
 
-			TransformTrackingSpace(lerpedPose, to, enforceUp);
+			TransformTrackingSpace(from, lerpedPose, enforceUp);
 		}
 	}
 }

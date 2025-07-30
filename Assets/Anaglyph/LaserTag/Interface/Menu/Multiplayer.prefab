@@ -121,7 +121,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   rectTransform: {fileID: 4513844901159287906}
-  transitionLengthSeconds: 0.3
+  transitionLengthSeconds: 0.1
   normalizedTransitionCurve:
     serializedVersion: 2
     m_Curve:
@@ -172,7 +172,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   useUnityRelayService: {fileID: 11400000, guid: 8256b37a220cf5d4aa386e985d532dcb, type: 2}
-  useAprilTagColocation: {fileID: 0}
   navView: {fileID: 7721118575378658267}
   homePage: {fileID: 530228856435826187}
   hostButton: {fileID: 6116763151090473305}
@@ -1035,7 +1034,8 @@ PrefabInstance:
       propertyPath: showBackButton
       value: 0
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 8072566549257119677, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects:
     - targetCorrespondingSourceObject: {fileID: 4813259525780573213, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}

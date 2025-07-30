@@ -1,13 +1,12 @@
 using System;
-using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class InGameConsole : MonoBehaviour
 {
-	public static bool longMessagesEnabled = true;
+	public static bool longMessagesEnabled = false;
 
-	private const int MaxCharacters = 5000;
+	private const int MaxCharacters = 20000;
 	private const string logStart = "--- start ---";
 	private const string colorClosing = "</color>";
 
@@ -72,8 +71,6 @@ public class InGameConsole : MonoBehaviour
 	{
 		UpdateText();
 		onLogUpdated += UpdateText;
-
-		StartCoroutine(ApplyScrollPosition());
 	}
 
 	private void Start()
@@ -97,7 +94,7 @@ public class InGameConsole : MonoBehaviour
 		UpdateText();
 	}
 
-	private void UpdateText()
+	private async void UpdateText()
 	{
 		bool atBottom = rect.verticalNormalizedPosition < 0.0001f;
 
@@ -105,15 +102,8 @@ public class InGameConsole : MonoBehaviour
 
 		if (atBottom)
 		{
-			Canvas.ForceUpdateCanvases();
-			StartCoroutine(ApplyScrollPosition());
+			await Awaitable.EndOfFrameAsync();
+			rect.verticalNormalizedPosition = 0;
 		}
-	}
-
-	IEnumerator ApplyScrollPosition()
-	{
-		yield return new WaitForEndOfFrame();
-		rect.verticalNormalizedPosition = 0;
-		LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)rect.transform);
 	}
 }

@@ -88,7 +88,7 @@ namespace Anaglyph.Lasertag
 			sessionPage.showBackButton = false;
 			disconnectButton.onClick.AddListener(Disconnect);
 
-			hostRespawnAnchorButton.onClick.AddListener(MetaAnchorColocator.Current.InstantiateNewAnchor);
+			hostRespawnAnchorButton.onClick.AddListener(RespawnAnchor);
 
 			manager.OnClientStopped += OnClientStopped;
 
@@ -122,6 +122,11 @@ namespace Anaglyph.Lasertag
 		{
 			if (NetcodeHelpers.ThisClientConnected(data))
 				OpenSessionPage(SessionState.Colocating);
+		}
+
+		private void RespawnAnchor()
+		{
+			MetaAnchorColocator.Current.InstantiateNewAnchor();
 		}
 
 		private void OnColocationChange(bool isColocated)

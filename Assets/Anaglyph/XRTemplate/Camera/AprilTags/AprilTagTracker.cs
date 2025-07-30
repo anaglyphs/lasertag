@@ -102,7 +102,7 @@ namespace EnvisionCenter.XRTemplate.QuestCV
 				var lensPose = CameraManager.Instance.CamPoseOnDevice;
 				Matrix4x4 cameraMat = Matrix4x4.TRS(lensPose.position, lensPose.rotation, Vector3.one);
 				Matrix4x4 cameraRelativeToRig = viewMat * cameraMat;
-				viewMat = MainXROrigin.Transform.worldToLocalMatrix * cameraRelativeToRig;
+				viewMat = MainXROrigin.Transform.localToWorldMatrix * cameraRelativeToRig;
 				
 
 				foreach (var pose in detector.DetectedTags)

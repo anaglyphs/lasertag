@@ -55,15 +55,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			networkObject.Spawn();
 		}
 
-		public void Colocate()
+		public async void Colocate()
 		{
 			IsColocated = false;
 
-			var inactive = FindObjectsInactive.Include;
+			await Awaitable.EndOfFrameAsync();
 
-			NetworkedAnchor anchors = FindAnyObjectByType<NetworkedAnchor>(inactive);
-
-			if (anchors == null)
+			if (ColocationAnchor.Instance == null)
 			{
 				// spawn anchor
 				InstantiateNewAnchor();

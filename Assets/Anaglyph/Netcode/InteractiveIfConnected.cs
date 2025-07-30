@@ -9,15 +9,13 @@ namespace Anaglyph.Netcode
 		private Selectable selectable;
 		public bool interactableIfDisconnected;
 
-		private void Awake()
+		private async void Awake()
 		{
 			selectable = GetComponent<Selectable>();
-		}
 
-		private void Start()
-		{
+			await Awaitable.EndOfFrameAsync();
+
 			NetworkManager.Singleton.OnConnectionEvent += OnConnectionEvent;
-
 			selectable.interactable = NetworkManager.Singleton.IsConnectedClient || interactableIfDisconnected;
 		}
 

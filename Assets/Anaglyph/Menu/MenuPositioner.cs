@@ -30,15 +30,10 @@ namespace Anaglyph.Menu
 			mainCamera = Camera.main;
 		}
 
-		private void Start()
+		private async void Start()
 		{
-			StartCoroutine(LateSetPoseOnStart());
-		}
-
-		private IEnumerator LateSetPoseOnStart()
-		{
-			yield return new WaitForEndOfFrame();
-			yield return new WaitForEndOfFrame();
+			await Awaitable.NextFrameAsync();
+			await Awaitable.EndOfFrameAsync();
 			SetPose();
 		}
 
@@ -54,26 +49,26 @@ namespace Anaglyph.Menu
 				SetVisible(!gameObject.activeSelf);
 		}
 
-		public void SetVisible(bool b)
+		public void SetVisible(bool visible)
 		{
-			if (gameObject.activeSelf == b)
+			if (gameObject.activeSelf == visible)
 				return;
 
-			gameObject.SetActive(b);
+			gameObject.SetActive(visible);
 
-			if (b)
+			if (visible)
 			{
 				SetPose();
 			}
 
 			foreach (MonoBehaviour mb in componentsDisabledWhileVisible)
 			{
-				mb.enabled = !b;
+				mb.enabled = !visible;
 			}
 
 			foreach (GameObject go in objectsInactiveWhileVisible)
 			{
-				go.SetActive(!b);
+				go.SetActive(!visible);
 			}
 		}
 
@@ -90,10 +85,15 @@ namespace Anaglyph.Menu
 			transform.rotation = Quaternion.LookRotation(forward, Vector3.up);
 		}
 
-		private void OnApplicationFocus(bool focus)
+		private async void OnApplicationFocus(bool focus)
 		{
 			if (focus)
+			{
+				await Awaitable.NextFrameAsync();
+				await Awaitable.EndOfFrameAsync();
 				SetPose();
+
+			}
 		}
 
 		//#if UNITY_EDITOR
