@@ -11,8 +11,8 @@ GameObject:
   - component: {fileID: 2809571718428945146}
   - component: {fileID: 7849052982998338478}
   - component: {fileID: 1645982490264701862}
-  - component: {fileID: 4594778782833755821}
   - component: {fileID: 4821469977973223834}
+  - component: {fileID: 8034132025094812116}
   m_Layer: 0
   m_Name: depth light
   m_TagString: Untagged
@@ -88,18 +88,6 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!114 &4594778782833755821
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 422434247420672015}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0622b7328037d0f4884faf8cb1cd6859, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &4821469977973223834
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -131,6 +119,20 @@ MonoBehaviour:
   beforeChange:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &8034132025094812116
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 422434247420672015}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9d1299af106458545813d403576cd5fe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  color: {r: 1, g: 1, b: 1, a: 1}
+  epsilon: 0.01
 --- !u!1 &1486168899473020810
 GameObject:
   m_ObjectHideFlags: 0
@@ -145,8 +147,9 @@ GameObject:
   - component: {fileID: 4844728147305137197}
   - component: {fileID: 568041658472282936}
   - component: {fileID: 8042134594337612406}
+  - component: {fileID: 7599501502531725509}
   m_Layer: 0
-  m_Name: pistol bolt
+  m_Name: bullet
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -244,36 +247,6 @@ MonoBehaviour:
   despawnDelay: 1
   fireSFX: {fileID: 8300000, guid: 49adec157a499594ca49a17e286c4bb2, type: 3}
   collideSFX: {fileID: 8300000, guid: 4083a17f54a820948bb1db48ce9920ed, type: 3}
-  OnFire:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 4844728147305137197}
-        m_TargetAssemblyTypeName: UnityEngine.TrailRenderer, UnityEngine
-        m_MethodName: Clear
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-  OnCollide:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 8042134594337612406}
-        m_TargetAssemblyTypeName: UnityEngine.VFX.VisualEffect, UnityEngine
-        m_MethodName: Play
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
 --- !u!96 &4844728147305137197
 TrailRenderer:
   serializedVersion: 3
@@ -298,7 +271,7 @@ TrailRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: ae0c41ce2907011419380511bc783fb0, type: 2}
+  - {fileID: -876546973899608171, guid: cd84469dc86c67646a28247fcf59b1fb, type: 3}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -456,7 +429,10 @@ VisualEffect:
     m_Vector3f:
       m_Array: []
     m_Vector4f:
-      m_Array: []
+      m_Array:
+      - m_Value: {x: 1, y: 0, z: 0, w: 0}
+        m_Name: Color
+        m_Overridden: 0
     m_Uint:
       m_Array: []
     m_Int:
@@ -471,6 +447,22 @@ VisualEffect:
       m_Array: []
     m_Bool:
       m_Array: []
+--- !u!114 &7599501502531725509
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1486168899473020810}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0622b7328037d0f4884faf8cb1cd6859, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  trailRenderer: {fileID: 4844728147305137197}
+  depthLight: {fileID: 8034132025094812116}
+  impactEffect: {fileID: 8042134594337612406}
+  defaultColor: {r: 1, g: 0, b: 0, a: 1}
 --- !u!1 &6039689287547379617
 GameObject:
   m_ObjectHideFlags: 0

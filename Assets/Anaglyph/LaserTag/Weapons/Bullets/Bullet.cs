@@ -1,8 +1,7 @@
 using Anaglyph.Netcode;
 using Anaglyph.XRTemplate;
-using OVR.OpenVR;
+using System;
 using System.Collections;
-using System.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
@@ -30,8 +29,8 @@ namespace Anaglyph.Lasertag
 		private float envHitDist;
 		private float travelDist;
 
-		public UnityEvent OnFire = new();
-		public UnityEvent OnCollide = new();
+		public event Action OnFire = delegate { };
+		public event Action OnCollide = delegate { };
 
 		private void Awake()
 		{

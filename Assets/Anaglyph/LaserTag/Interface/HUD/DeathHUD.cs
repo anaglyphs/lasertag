@@ -24,6 +24,18 @@ namespace Anaglyph.Lasertag.UI
 		private void Start()
 		{
 			maxMenuMaskHeight = menuMaskRectTransform.sizeDelta.y;
+			MainPlayer.Instance.Died += OnDied;
+			MainPlayer.Instance.Respawned += OnRespawned;
+		}
+
+		private void OnDied()
+		{
+			gameObject.SetActive(true);
+		}
+
+		private void OnRespawned()
+		{
+			gameObject.SetActive(false);
 		}
 
 		// https://easings.net/#easeInOutCirc
@@ -40,7 +52,7 @@ namespace Anaglyph.Lasertag.UI
 
 			respawnPopup.SetActive(!MainPlayer.Instance.IsAlive);
 
-			if (RoundManager.Settings.respawnInBases && !MainPlayer.Instance.IsInFriendlyBase)
+			if (MatchManager.Settings.respawnInBases && !MainPlayer.Instance.IsInFriendlyBase)
 			{
 				respawnText.text = $"GO TO:   BASE";
 			}

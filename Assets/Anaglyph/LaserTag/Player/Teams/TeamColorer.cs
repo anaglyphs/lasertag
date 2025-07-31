@@ -6,11 +6,13 @@ namespace Anaglyph.Lasertag
 {
 	public class TeamColorer : MonoBehaviour
 	{
-		private static readonly int TeamColorID = Shader.PropertyToID("_Color");
+		public const string ColorPerObjectName = "_ColorPerObject";
+		public static readonly int ColorID = Shader.PropertyToID(ColorPerObjectName);
 
 		[SerializeField] private byte defaultTeam;
 		private TeamOwner teamOwner;
 		private new Renderer renderer;
+		private MaterialPropertyBlock propertyBlock;
 		private Image image;
 
 		[SerializeField] float multiply = 1;
@@ -21,8 +23,10 @@ namespace Anaglyph.Lasertag
 
 		private void Awake()
 		{
+			propertyBlock = new();
+
 			if(TryGetComponent(out renderer))
-				renderer.material = new(renderer.material);
+				renderer.GetPropertyBlock(propertyBlock);
 			TryGetComponent(out image);
 
 			teamOwner = GetComponentInParent<TeamOwner>(true);
@@ -43,8 +47,10 @@ namespace Anaglyph.Lasertag
 		{
 			Color = Teams.Colors[teamNumber] * multiply;
 
+			propertyBlock.SetColor(ColorID, Color);
+
 			if(renderer != null)
-				renderer.material.SetColor(TeamColorID, Color);
+				renderer.SetPropertyBlock(propertyBlock);
 
 			if(image != null)
 				image.color = Color;

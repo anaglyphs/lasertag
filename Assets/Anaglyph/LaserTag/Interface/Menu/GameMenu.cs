@@ -18,7 +18,7 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			RoundManager.OnRoundStateChange += HandleStateChange;
+			MatchManager.MatchStateChanged += HandleStateChange;
 
 			startPage.showBackButton = false;
 			startButton.onClick.AddListener(StartGame);
@@ -29,22 +29,22 @@ namespace Anaglyph.Lasertag
 
 		private void OnDestroy()
 		{
-			RoundManager.OnRoundStateChange -= HandleStateChange;
+			MatchManager.MatchStateChanged -= HandleStateChange;
 		}
 
 		private void StartGame()
 		{
-			RoundManager.Instance?.QueueStartGameOwnerRpc(RoundSettings.DemoGame());
+			MatchManager.Instance?.QueueStartGameOwnerRpc(MatchSettings.DemoGame());
 		}
 
 		private void EndGame()
 		{
-			RoundManager.Instance?.EndGameOwnerRpc();
+			MatchManager.Instance?.EndGameOwnerRpc();
 		}
 
-		private void HandleStateChange(RoundState prev, RoundState state)
+		private void HandleStateChange(MatchState prev, MatchState state)
 		{
-			if (state == RoundState.NotPlaying)
+			if (state == MatchState.NotPlaying)
 				startPage.NavigateHere();
 			else
 				playingPage.NavigateHere();

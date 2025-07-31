@@ -15,7 +15,7 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			RoundManager.OnRoundStateChange += HandleStateChange;
+			MatchManager.MatchStateChanged += HandleStateChange;
 
 			jumblingTheyNumers = false;
 			gameOver.enabled = false;
@@ -35,22 +35,22 @@ namespace Anaglyph.Lasertag
 				blueScoreText.text = $"{Mathf.RoundToInt(Random.Range(0, 99))}";
 			} else
 			{
-				redScoreText.fontSize = RoundManager.WinningTeam == 1 ? 80 : 60;
-				blueScoreText.fontSize = RoundManager.WinningTeam == 2 ? 80 : 60;
+				redScoreText.fontSize = MatchManager.WinningTeam == 1 ? 80 : 60;
+				blueScoreText.fontSize = MatchManager.WinningTeam == 2 ? 80 : 60;
 
-				redScoreText.text = $"{RoundManager.GetTeamScore(1)}";
-				blueScoreText.text = $"{RoundManager.GetTeamScore(2)}";
+				redScoreText.text = $"{MatchManager.GetTeamScore(1)}";
+				blueScoreText.text = $"{MatchManager.GetTeamScore(2)}";
 			}
 		}
 
 		private void OnDestroy()
 		{
-			RoundManager.OnRoundStateChange -= HandleStateChange;
+			MatchManager.MatchStateChanged -= HandleStateChange;
 		}
 
-		private async void HandleStateChange(RoundState prev, RoundState state)
+		private async void HandleStateChange(MatchState prev, MatchState state)
 		{
-			if (state == RoundState.NotPlaying && prev == RoundState.Playing)
+			if (state == MatchState.NotPlaying && prev == MatchState.Playing)
 			{
 				jumblingTheyNumers = true;
 				gameOver.enabled = true;

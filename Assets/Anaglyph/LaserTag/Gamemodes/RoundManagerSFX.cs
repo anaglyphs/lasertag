@@ -18,32 +18,32 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			RoundManager.OnRoundStateChange += HandleStateChange;
+			MatchManager.MatchStateChanged += HandleStateChange;
 		}
 
 		private void OnDestroy()
 		{
-			RoundManager.OnRoundStateChange -= HandleStateChange;
+			MatchManager.MatchStateChanged -= HandleStateChange;
 		}
 
-		private void HandleStateChange(RoundState old, RoundState state)
+		private void HandleStateChange(MatchState old, MatchState state)
 		{
 			switch(state)
 			{
-				case RoundState.NotPlaying:
-					if (old == RoundState.Playing)
+				case MatchState.NotPlaying:
+					if (old == MatchState.Playing)
 						audioSource.PlayOneShot(finish);
 					break;
 
-				case RoundState.Queued:
+				case MatchState.Queued:
 					audioSource.PlayOneShot(queue);
 					break;
 
-				case RoundState.Countdown:
+				case MatchState.Countdown:
 					audioSource.PlayOneShot(countdown);
 					break;
 
-				case RoundState.Playing:
+				case MatchState.Playing:
 					audioSource.PlayOneShot(siren);
 					break;
 			}

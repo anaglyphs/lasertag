@@ -1,4 +1,3 @@
-using Anaglyph.Lasertag.Networking;
 using System;
 using System.Collections.Generic;
 using Unity.Netcode;
@@ -11,7 +10,7 @@ namespace Anaglyph.Lasertag
 	public class ControlPoint : NetworkBehaviour
 	{
 		public const float Radius = 1.5f;
-		public const float MillisToTake = 3000;
+		public const float MillisToTake = 10000;
 
 		public static List<ControlPoint> AllControlPoints { get; private set; } = new();
 

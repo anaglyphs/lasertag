@@ -85,14 +85,21 @@ namespace Anaglyph.Lasertag
 			forw.y = 0;
 			angle = Vector3.SignedAngle(Vector3.forward, forw, Vector3.up);
 		}
+
 		private void OnDisable()
 		{
 			if (previewObject != null)
 				previewObject.SetActive(false);
+
+			lineRenderer.enabled = false;
+			boundsVisual.enabled = false;
 		}
 
 		private void OnFire(InputAction.CallbackContext context)
 		{
+			if (!enabled)
+				return;
+
 			if (context.performed && context.ReadValueAsButton())
 			{
 				var position = previewObject.transform.position;

@@ -68,7 +68,7 @@ namespace Anaglyph.Lasertag
 
 		private void HandleConnectionEvent(NetworkManager manager, ConnectionEventData eventData)
 		{
-			if(NetcodeHelpers.ThisClientConnected(eventData) || NetcodeHelpers.ThisClientDisconnected(eventData))
+			if(NetcodeHelpers.ThisClientConnected(eventData))
 				SpawnAvatar();
 		}
 
@@ -120,7 +120,7 @@ namespace Anaglyph.Lasertag
 
 			IsAlive = false;
 			Health = 0;
-			RespawnTimerSeconds = RoundManager.Settings.respawnSeconds;
+			RespawnTimerSeconds = MatchManager.Settings.respawnSeconds;
 			avatar.KilledByPlayerRpc(killedBy);
 
 			//onAliveChange.Invoke(false);
@@ -150,13 +150,13 @@ namespace Anaglyph.Lasertag
 			// respawn timer
 			if (IsAlive) return;
 
-			if ((RoundManager.Settings.respawnInBases && IsInFriendlyBase) || !RoundManager.Settings.respawnInBases)
+			if ((MatchManager.Settings.respawnInBases && IsInFriendlyBase) || !MatchManager.Settings.respawnInBases)
 				RespawnTimerSeconds -= Time.fixedDeltaTime;
 
 			if (RespawnTimerSeconds <= 0)
 				Respawn();
 
-			RespawnTimerSeconds = Mathf.Clamp(RespawnTimerSeconds, 0, RoundManager.Settings.respawnSeconds);
+			RespawnTimerSeconds = Mathf.Clamp(RespawnTimerSeconds, 0, MatchManager.Settings.respawnSeconds);
 		}
 
 		private void Update()
@@ -180,7 +180,7 @@ namespace Anaglyph.Lasertag
 				if (Health < 0)
 					Kill(0);
 				else
-					Health += RoundManager.Settings.healthRegenPerSecond * Time.deltaTime;
+					Health += MatchManager.Settings.healthRegenPerSecond * Time.deltaTime;
 			}
 
 			WeaponsManagement.canFire = IsAlive;

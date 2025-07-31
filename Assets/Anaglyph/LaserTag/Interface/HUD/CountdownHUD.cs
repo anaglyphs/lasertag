@@ -14,7 +14,7 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			RoundManager.OnRoundStateChange += HandleStateChange;
+			MatchManager.MatchStateChanged += HandleStateChange;
 
 			queued.enabled = false;
 		}
@@ -31,25 +31,25 @@ namespace Anaglyph.Lasertag
 
 		private void OnDestroy()
 		{
-			RoundManager.OnRoundStateChange -= HandleStateChange;
+			MatchManager.MatchStateChanged -= HandleStateChange;
 		}
 
-		private async void HandleStateChange(RoundState prev, RoundState state)
+		private async void HandleStateChange(MatchState prev, MatchState state)
 		{
 			switch (state)
 			{
-				case RoundState.NotPlaying:
+				case MatchState.NotPlaying:
 					countdownText.enabled = false;
 					queued.enabled = false;
 
 					break;
 
-				case RoundState.Queued:
+				case MatchState.Queued:
 					queued.enabled = true;
 
 					break;
 
-				case RoundState.Countdown:
+				case MatchState.Countdown:
 					queued.enabled = false;
 
 					countdownText.text = "";
@@ -59,7 +59,7 @@ namespace Anaglyph.Lasertag
 
 					break;
 
-				case RoundState.Playing:
+				case MatchState.Playing:
 					queued.enabled = false;
 
 					showCountdownOnCountdownText = false;

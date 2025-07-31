@@ -2,6 +2,7 @@ using Anaglyph.XRTemplate;
 using UnityEngine;
 using Anaglyph.Menu;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
+using OVR.OpenVR;
 
 namespace Anaglyph.Lasertag
 {

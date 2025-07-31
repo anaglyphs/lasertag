@@ -10,8 +10,8 @@ namespace Anaglyph.Lasertag
 		public static readonly Color[] Colors = new Color[]
 		{
 			Color.white, // blank team
-			new Color(216 / 255f, 27  / 255f, 96  / 255f),
-			new Color(30  / 255f, 136 / 255f, 229 / 255f),
+			new Color(255 / 255f, 25  / 255f, 0   / 255f),
+			new Color(0   / 255f, 140 / 255f, 255 / 255f),
 		};
 
 		public static readonly string[] TeamNames = new string[]

@@ -9,15 +9,11 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private BoundsMesh boundsVisual;
 		[SerializeField] private Transform cursor;
 		[SerializeField] LineRenderer lineRenderer;
-		
-		private HandedHierarchy hand;
 
 		private Deletable hoveredDeletable;
 
 		private void Awake()
 		{
-			hand = GetComponentInParent<HandedHierarchy>(true);
-
 			lineRenderer.SetPositions(new[] { Vector3.zero, Vector3.zero });
 			lineRenderer.useWorldSpace = false;
 		}
@@ -48,8 +44,18 @@ namespace Anaglyph.Lasertag
 			boundsVisual.SetTrackedObject(hoveredDeletable);
 		}
 
+		private void OnDisable()
+		{
+			lineRenderer.enabled = false;
+			boundsVisual.enabled = false;
+			cursor.gameObject.SetActive(false);
+		}
+
 		private void OnFire(InputAction.CallbackContext context)
 		{
+			if (!enabled)
+				return;
+
 			if (context.performed && context.ReadValueAsButton())
 				hoveredDeletable?.Delete();
 		}

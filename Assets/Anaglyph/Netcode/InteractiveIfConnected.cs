@@ -7,30 +7,42 @@ namespace Anaglyph.Netcode
     public class InteractiveIfConnected : MonoBehaviour
     {
 		private Selectable selectable;
-		public bool interactableIfDisconnected;
+		public bool invert;
 
-		private async void Awake()
+		private NetworkManager networkManager => NetworkManager.Singleton;
+
+		private void Awake()
 		{
 			selectable = GetComponent<Selectable>();
+		}
 
-			await Awaitable.EndOfFrameAsync();
+		private void OnEnable()
+		{
+			if(didStart)
+				HandleChange();
+		}
 
-			NetworkManager.Singleton.OnConnectionEvent += OnConnectionEvent;
-			selectable.interactable = NetworkManager.Singleton.IsConnectedClient || interactableIfDisconnected;
+		private void Start()
+		{
+			networkManager.OnConnectionEvent += OnConnectionEvent;
+			HandleChange();
 		}
 
 		private void OnDestroy()
 		{
-			if (NetworkManager.Singleton != null)
-				NetworkManager.Singleton.OnConnectionEvent -= OnConnectionEvent;
+			if (networkManager != null)
+				networkManager.OnConnectionEvent -= OnConnectionEvent;
 		}
 
 		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
 		{
-			if (NetcodeHelpers.ThisClientConnected(data))
-				selectable.interactable = !interactableIfDisconnected;
-			else if (NetcodeHelpers.ThisClientDisconnected(data))
-				selectable.interactable = interactableIfDisconnected;
+			HandleChange();
+		}
+
+		private void HandleChange()
+		{
+			bool isConnected = networkManager != null && networkManager.IsConnectedClient;
+			selectable.interactable = isConnected ^ invert;
 		}
 	}
 }
