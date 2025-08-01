@@ -15,6 +15,8 @@ namespace Anaglyph.Menu
 
 		[SerializeField] private Vector3 offset;
 
+		[SerializeField] private bool visibleOnStart = true;
+
 		private void Awake()
 		{
 			showMenuAction.performed += delegate
@@ -35,6 +37,7 @@ namespace Anaglyph.Menu
 			await Awaitable.NextFrameAsync();
 			await Awaitable.EndOfFrameAsync();
 			SetPose();
+			SetVisible(visibleOnStart);
 		}
 
 		public void ToggleVisible()

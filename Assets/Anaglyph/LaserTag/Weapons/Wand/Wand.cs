@@ -1,10 +1,11 @@
 using Anaglyph.Lasertag.Logistics;
 using Anaglyph.XRTemplate;
-using System;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SpatialTracking;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
+using static OVRPlugin;
 
 namespace Anaglyph.Lasertag.Weapons
 {
@@ -12,100 +13,116 @@ namespace Anaglyph.Lasertag.Weapons
 	{
 		[SerializeField] private GameObject boltPrefab;
 		[SerializeField] private Transform emitFromTransform;
-		[SerializeField] private double sampleFrequency = 1 / 120.0;
-		[SerializeField] private float flickStartDegPerSec = 286f;
-		[SerializeField] private float flickStopDegPerSec = 90f;
-		[SerializeField] private float minFlickAngle = 70f;
-		[SerializeField] private float minViewDotFireVec = 0.5f;
-		[SerializeField] private float minTimeBetweenShots = 0.3f;
+		[SerializeField] private double firePosePredictionSecs = 0.1f;
 
+
+		public float sampleFrequency = 1f / 240f;
+
+		public float peakThreshold = 20f;
+		public float stopThreshold = 3f;
+
+		public float minFireVecDotWithViewDir = 0.4f;
 
 		private Camera mainCamera;
 		private HandedHierarchy handedHierarchy;
+		private Node node;
+		
 		private double timeLastFrame;
-		private double timeLastFire;
-		private bool flickInProgress;
-		private Vector3 flickRotationAxis;
-		private Quaternion flickStartRot;
+		private double lastFireTime;
 
 		private TrackedPoseDriver trackedPoseDriver;
+
+		private bool peaked = false;
+		private double peakedTime = 0;
 
 		private void Awake()
 		{
 			handedHierarchy = GetComponentInParent<HandedHierarchy>();
 			trackedPoseDriver = GetComponentInParent<TrackedPoseDriver>(true);
 			mainCamera = Camera.main;
+
 		}
 
 		private void OnEnable()
 		{
-			timeLastFrame = OVRPlugin.GetTimeInSeconds();
+			timeLastFrame = GetTimeInSeconds();
 		}
 
-		private void Update()
+		private void Start()
 		{
 			var handedness = handedHierarchy.Handedness;
 
 			if (handedness == InteractorHandedness.None)
 				return;
 
-			var node = handedness == InteractorHandedness.Left ?
-				OVRPlugin.Node.HandLeft : OVRPlugin.Node.HandRight;
+			node = handedness == InteractorHandedness.Left ?
+				Node.HandLeft : Node.HandRight;
+		}
 
-			double time = OVRPlugin.GetTimeInSeconds();
-			double timeDelta = time - timeLastFrame;
-			int numSamples = (int)(timeDelta / sampleFrequency);
+		private void LateUpdate()
+		{
+			// sample
+			double timeThisFrame = GetTimeInSeconds();
 
-			numSamples = Math.Min(numSamples, 50);
+			double deltaTime = timeThisFrame - timeLastFrame;
+
+			int numSamples = (int)(deltaTime / sampleFrequency);
+			double sampleTimeStep = deltaTime / numSamples;
+
+			for(int i = 0; i < numSamples; i++)
+			{
+				double time = timeLastFrame + i * sampleTimeStep;
+
+				var poseState = GetNodePoseStateAtTime(time, node);
+				var av = poseState.AngularVelocity;
+				Vector3 angVel = new(av.x, av.y, av.z);
+
+				var headPoseState = GetNodePoseStateAtTime(time, Node.Head);
+				var hav = headPoseState.AngularVelocity;
+				Vector3 headAngVel = new(hav.x, hav.y, hav.z);
+
+				// relative to head
+				angVel -= headAngVel;
 				
-			for (int i = 0; i < numSamples; i++) {
+				float angSpeed = Vector3.Magnitude(angVel);
 
-				double timeB = timeLastFrame + (i * sampleFrequency);
-				double timeA = timeB - sampleFrequency;
-
-				OVRPose ovrPose = OVRPlugin.GetNodePoseStateAtTime(timeA, node).Pose.ToOVRPose();
-				Pose poseA = new Pose(ovrPose.position, ovrPose.orientation);
-
-				ovrPose = OVRPlugin.GetNodePoseStateAtTime(timeB, node).Pose.ToOVRPose();
-				Pose poseB = new Pose(ovrPose.position, ovrPose.orientation);
-
-				Quaternion deltaRot = poseA.rotation * Quaternion.Inverse(poseB.rotation);
-
-				deltaRot.ToAngleAxis(out float deltaAngle, out Vector3 axis);
-				float deltaAngleNoTwist = deltaAngle * Vector3.ProjectOnPlane(axis, transform.forward).magnitude;
-
-				float deltaAngleSpeed = deltaAngleNoTwist / (float)sampleFrequency;
-
-				if (!flickInProgress && deltaAngleSpeed > flickStartDegPerSec)
+				if(!peaked && angSpeed > peakThreshold)
 				{
-					flickInProgress = true;
-					flickRotationAxis = axis.normalized;
-					flickStartRot = poseB.rotation;
-				}
-				else if (flickInProgress && (deltaAngleSpeed < flickStopDegPerSec))// || Vector3.Dot(flickRotationAxis, axis.normalized) < 0))
-				{
-					flickInProgress = false;
+					peaked = true;
+					peakedTime = time;
 
-					if(Vector3.Dot(emitFromTransform.forward, mainCamera.transform.forward) > minViewDotFireVec
-						&& Quaternion.Angle(poseB.rotation, flickStartRot) > minFlickAngle
-						&& (float)(timeB - timeLastFire) > minTimeBetweenShots)
+				} else if (peaked && time > peakedTime && angSpeed < stopThreshold)
+				{
+					peaked = false;
+					
+					double fireTime = time + firePosePredictionSecs;
+					poseState = GetNodePoseStateAtTime(fireTime, node);
+					var pose = poseState.Pose.ToOVRPose();
+
+					Vector3 fireForward = pose.orientation * Vector3.forward;
+					Vector3 camForward = mainCamera.transform.forward;
+					float dot = Vector3.Dot(camForward, fireForward);
+
+					if (dot > minFireVecDotWithViewDir)
 					{
-						timeLastFire = timeB;
-						Fire(poseB);
-						break;
+						lastFireTime = fireTime;
+						Fire(new Pose(pose.position, pose.orientation));
 					}
+
+					break;
 				}
 			}
 
-			
-
-			timeLastFrame = time;
+			timeLastFrame = timeThisFrame;
 		}
+
 
 		public void Fire(Pose firePose)
 		{
 			if (!NetworkManager.Singleton.IsConnectedClient || !WeaponsManagement.canFire)
 				return;
+
+
 
 			// jank
 			trackedPoseDriver.transform.localPosition = firePose.position;
@@ -116,5 +133,13 @@ namespace Anaglyph.Lasertag.Weapons
 
 			n.SpawnWithOwnership(NetworkManager.Singleton.LocalClientId);
 		}
+
+#if UNITY_EDITOR
+		private void OnFire(InputAction.CallbackContext context)
+		{
+			if (context.performed && context.ReadValueAsButton())
+				Fire(new Pose(transform.position, transform.rotation));
+		}
+#endif
 	}
 }

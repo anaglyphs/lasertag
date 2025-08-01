@@ -4,7 +4,6 @@ using System;
 using System.Collections;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.Events;
 
 namespace Anaglyph.Lasertag
 {
@@ -19,6 +18,8 @@ namespace Anaglyph.Lasertag
 
 		[SerializeField] private AudioClip fireSFX;
 		[SerializeField] private AudioClip collideSFX;
+
+		[SerializeField] private float damageRadius = 0.01f;
 
 		private NetworkVariable<NetworkPose> spawnPoseSync = new();
 		public Pose SpawnPose => spawnPoseSync.Value;
@@ -90,12 +91,20 @@ namespace Anaglyph.Lasertag
 				if (IsOwner)
 				{
 					bool didHitEnv = travelDist > envHitDist;
+					var pos = transform.position;
 
 					if (didHitEnv)
-						transform.position = fireRay.GetPoint(envHitDist);
+						pos = fireRay.GetPoint(envHitDist);
 
-					bool didHitPhys = Physics.Linecast(prevPos, transform.position, out var physHit,
-						Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+					float dist = Vector3.Distance(prevPos, pos);
+
+					bool didHitPhys = Physics.SphereCast(prevPos, damageRadius, fireRay.direction, out RaycastHit physHit, dist);
+
+					//bool didHitPhys = Physics.SphereCast(prevPos, pos, damageRadius, 
+					//	fireRay.direction, out RaycastHit physHit);
+
+					//bool didHitPhys = Physics.Linecast(prevPos, transform.position, out var physHit,
+					//	Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
 
 					if (didHitPhys)
 					{
