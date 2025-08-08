@@ -150,7 +150,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8efe31a24e3d984ca47d6a0541bde51, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  environmentObject: {fileID: 1318104358}
+  environmentObject: {fileID: 1365882822}
   testDepthMesh: {fileID: 904475879}
   icpIterations: 10
 --- !u!23 &904475878
@@ -205,7 +205,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 904475876}
-  m_Mesh: {fileID: 132909190508998285, guid: a02c4cc228cb72e439dc1a909bcd029f, type: 3}
+  m_Mesh: {fileID: -7155311769652809008, guid: 3bffa4f240831cf44a5a158b041ba543, type: 3}
 --- !u!4 &904475880
 Transform:
   m_ObjectHideFlags: 0
@@ -214,13 +214,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 904475876}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: 0.39177683, z: -0, w: 0.92006034}
-  m_LocalPosition: {x: -0.021637276, y: 0, z: 0.0092135}
+  m_LocalRotation: {x: -0.30408835, y: -0.12683973, z: -0.073544085, w: 0.9412934}
+  m_LocalPosition: {x: -0.32816696, y: -1.8822383, z: 4.6031427}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 46.13, z: 0}
+  m_LocalEulerAnglesHint: {x: -36.237, y: -13.922, z: -4.36}
 --- !u!1 &1218785700
 GameObject:
   m_ObjectHideFlags: 0
@@ -2616,7 +2616,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!23 &1318104360
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -2685,6 +2685,11 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1365882822 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 6b73dfbe0d99fd04a9b1d126e45a75f3, type: 3}
+  m_PrefabInstance: {fileID: 1447861386}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1442588510
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2800,7 +2805,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 6b73dfbe0d99fd04a9b1d126e45a75f3, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

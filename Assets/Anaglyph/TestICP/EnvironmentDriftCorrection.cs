@@ -1,4 +1,3 @@
-using McCaffrey;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Unity.Collections;
@@ -90,7 +89,7 @@ namespace Anaglyph
 
 			float3 newCentroidGlobal = math.transform(newTrans, newCentroid);
 
-			float[,] covMat = new float[3, 3];
+			float3x3 covMat = new();
 			for (int i = 0; i < knnResults.Length; i++)
 			{
 				float3 newPointGlobal = math.transform(newTrans, newPoints[i]);
@@ -105,35 +104,17 @@ namespace Anaglyph
 
 				for (int x = 0; x < 3; x++)
 					for (int y = 0; y < 3; y++)
-						covMat[y, x] += envPointMinusCent[y] * newPointMinusCentGlobal[x];
+						covMat[x][y] += envPointMinusCent[y] * newPointMinusCentGlobal[x];
 			}
 
-			// svd
-			SVDJacobi.Decompose(covMat, out float[,] Ua, out float[,] Vha, out float[] sa);
-
-			float3x3 U = arrayToMat(Ua);
-			float3x3 Vt = arrayToMat(Vha);
-
-			// envCentroid, centroid of static environment
-			// newCentroidGlobal, global position (relative to env) of new points to register
-
-			float3x3 rot = math.mul(U, Vt);
-			//rot = math.transpose(rot);
-
-			if (math.determinant(rot) < 0)
-			{
-				float3x3 V = math.transpose(Vt);
-				V.c2 *= -1;
-				Vt = math.transpose(V);
-				rot = math.mul(U, Vt);
-			}
+			quaternion rot = svd.svdRotation(covMat);
 
 			//float rotNorm = frobNorm(rot - float3x3.identity);
 			//if (math.abs(rotNorm) < 0.005f)
 			//	rot = float3x3.identity;
 
 			float3 t = envCentroid - math.mul(rot, newCentroidGlobal);
-			float4x4 deltaTransform = float4x4.TRS(t, new quaternion(rot), new float3(1));
+			float4x4 deltaTransform = float4x4.TRS(t, rot, new float3(1));
 			newTrans = math.mul(deltaTransform, newTrans);
 
 			return newTrans;
