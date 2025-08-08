@@ -115,10 +115,11 @@ namespace Anaglyph.XRTemplate.CameraReader
 
 		private AndroidInterface androidInterface;
 
-		private void Awake()
+		private async void Awake()
 		{
 			Instance = this;
 			androidInterface = new AndroidInterface(gameObject);
+			await CameraManager.Instance.Configure(1, 320, 240);
 		}
 
 		private const string MetaCameraPermission = "horizonos.permission.HEADSET_CAMERA";

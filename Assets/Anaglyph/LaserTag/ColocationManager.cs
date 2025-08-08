@@ -29,7 +29,7 @@ namespace Anaglyph.Lasertag
 		}
 
 		[SerializeField] private MetaAnchorColocator metaAnchorColocator;
-		[SerializeField] private AprilTagColocator aprilTagColocator;
+		[SerializeField] private SingleAprilTagColocator aprilTagColocator;
 
 		public override async void OnNetworkSpawn()
 		{
