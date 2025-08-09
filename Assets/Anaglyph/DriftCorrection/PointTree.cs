@@ -3,7 +3,7 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 
-public static class PointTreeBurst
+public static class PointTree
 {
 	public static void QuicksortPoints(NativeArray<float3> points, int axis) =>
 		QuicksortPoints(points, 0, points.Length - 1, axis);
@@ -54,7 +54,7 @@ public static class PointTreeBurst
 	}
 
 	[BurstCompile]
-	public struct BuildTreeJob : IJob
+	public struct BuildJob : IJob
 	{
 		public NativeArray<float3> points;
 		[WriteOnly]

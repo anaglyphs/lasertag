@@ -6,7 +6,7 @@ using Unity.Jobs;
 
 public class PointTreeBurstTest : MonoBehaviour
 {
-	NativeArray<PointTreeBurst.Node> tree;
+	NativeArray<PointTree.Node> tree;
 
 	public Transform target;
 	public Transform pointIndicator;
@@ -20,10 +20,10 @@ public class PointTreeBurstTest : MonoBehaviour
 			foreach (var vertex in meshFilter.mesh.vertices)
 				vertices.Add(vertex);
 
-		tree = new NativeArray<PointTreeBurst.Node>(vertices.Count, Allocator.Persistent);
+		tree = new NativeArray<PointTree.Node>(vertices.Count, Allocator.Persistent);
 		NativeArray<float3> points = new NativeArray<float3>(vertices.ToArray(), Allocator.TempJob);
 
-		PointTreeBurst.BuildTreeJob buildJob = new()
+		PointTree.BuildJob buildJob = new()
 		{
 			points = points,
 			nodes = tree,
@@ -41,7 +41,7 @@ public class PointTreeBurstTest : MonoBehaviour
 		NativeArray<float3> points = new(1, Allocator.TempJob);
 		points[0] = target.position;
 
-		PointTreeBurst.FindClosestPoints findJob = new()
+		PointTree.FindClosestPoints findJob = new()
 		{
 			pointTransform = float4x4.identity,
 			points = points,

@@ -7,7 +7,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 {
     public class AprilTagAnchor : NetworkBehaviour
     {
-		public static Dictionary<int, AprilTagAnchor> AllAnchors;
+		public static Dictionary<int, AprilTagAnchor> AllAnchors = new();
 
 		public NetworkVariable<int> idSync = new();
 		public int ID => idSync.Value;
@@ -17,6 +17,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public NetworkVariable<bool> isLockedSync = new();
 		public bool IsLocked => isLockedSync.Value;
+
+		public Pose GetPose() => new(transform.position, transform.rotation);
 
 		public override void OnNetworkSpawn()
 		{

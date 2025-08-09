@@ -79,7 +79,7 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 0
   useAprilTagColocation: {fileID: 11400000, guid: 47b47a4c1dcf98e4a9c4022fa9722c2b, type: 2}
   metaAnchorColocator: {fileID: 1903966757991957580}
-  aprilTagColocator: {fileID: 7899954696120425326}
+  aprilTagColocator: {fileID: 0}
 --- !u!114 &1903966757991957580
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -102,12 +102,14 @@ MonoBehaviour:
   m_GameObject: {fileID: 325363287343033227}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8ad45ccdfaca2e3448b1f5bc3e270db1, type: 3}
+  m_Script: {fileID: 11500000, guid: 57b4e9b1012013c4cabd8ad8b87de3f9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  anchorePrefab: {fileID: 3895574877841461789, guid: f993b0b3c5fd1a64e8e06a51fa819c3e, type: 3}
   tagIndicator: {fileID: 7849511789531832086}
-  tagSize: 0.1
-  iterativeLerp: 0.03
+  lockDistance: 5
+  tagSize: 0.095
+  iterativeLerp: 0.01
 --- !u!114 &1319307689243415292
 MonoBehaviour:
   m_ObjectHideFlags: 0

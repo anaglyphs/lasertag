@@ -23,13 +23,15 @@ namespace Anaglyph.Lasertag
 		public void SetColocationMethod(ColocationMethod colocationMethod)
 			=> colocationMethodSync.Value = colocationMethod;
 
-		private void Start()
+		private MetaAnchorColocator metaAnchorColocator;
+		private AprilTagColocator aprilTagColocator;
+
+		private void Awake()
 		{
 			Current = this;
+			metaAnchorColocator = GetComponent<MetaAnchorColocator>();
+			aprilTagColocator = GetComponent<AprilTagColocator>();
 		}
-
-		[SerializeField] private MetaAnchorColocator metaAnchorColocator;
-		[SerializeField] private SingleAprilTagColocator aprilTagColocator;
 
 		public override async void OnNetworkSpawn()
 		{

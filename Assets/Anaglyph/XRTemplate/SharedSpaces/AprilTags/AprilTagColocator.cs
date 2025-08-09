@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
-using Unity.Mathematics;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
@@ -94,7 +93,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			return new(pos, rot);
 		}
 
-		private void OnDetectTags(IEnumerable<TagPose> results)
+		private void OnDetectTags(IReadOnlyList<TagPose> results)
 		{
 			if (!colocationActive)
 				return;
@@ -103,40 +102,38 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			foreach (TagPose result in results)
 			{
-				var id = result.ID;
-				var pos = result.Position;
-				var rot = result.Rotation;
+				bool foundAnchor = AprilTagAnchor.AllAnchors.TryGetValue(result.ID, out var anchor);
 
-				AprilTagAnchor anchor = AprilTagAnchor.AllAnchors[id];
-
-				if (anchor == null)
+				if (!foundAnchor)
 				{
 					if (isSessionOwner)
 					{
-						var anchorObj = Instantiate(anchorePrefab, pos, rot);
+						var anchorObj = Instantiate(anchorePrefab);
 
 						anchor = anchorObj.GetComponent<AprilTagAnchor>();
-						anchor.idSync.Value = id;
-						anchor.desiredPoseSync.Value = new(pos, rot);
+						anchor.idSync.Value = result.ID;
+						anchor.desiredPoseSync.Value = new(result.Position, result.Rotation);
 
 						anchor.NetworkObject.Spawn();
 					}
 					else continue;
 				}
+
+				anchor.transform.position = result.Position;
+				anchor.transform.rotation = result.Rotation;
+				anchor.transform.localScale = Vector3.one * tagSize;
+
+				if (anchor.IsOwner && !anchor.IsLocked)
+				{
+					Pose oldPose = anchor.DesiredPose;
+					Pose targetPose = anchor.GetPose();
+					Pose newPose = LerpPose(oldPose, targetPose, iterativeLerp);
+
+					anchor.desiredPoseSync.Value = new(newPose);
+				}
 				else
 				{
-					anchor.transform.position = pos;
-					anchor.transform.rotation = rot;
-
-					if (anchor.IsOwner && !anchor.IsLocked)
-					{
-						Pose oldPose = anchor.DesiredPose;
-						Pose targetPose = new(pos, rot);
-
-						Pose newPose = LerpPose(oldPose, targetPose, iterativeLerp);
-
-						anchor.desiredPoseSync.Value = new(newPose);
-					}
+					Colocation.LerpTrackingSpace(anchor.GetPose(), anchor.DesiredPose, iterativeLerp / results.Count);
 				}
 			}
 

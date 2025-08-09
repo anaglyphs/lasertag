@@ -22,7 +22,7 @@ namespace EnvisionCenter.XRTemplate.QuestCV
 
 		private List<TagPose> worldPoses = new(10);
 		public IEnumerable<TagPose> WorldPoses => worldPoses;
-		public event Action<IEnumerable<TagPose>> OnDetectTags = delegate { };
+		public event Action<IReadOnlyList<TagPose>> OnDetectTags = delegate { };
 
 		private List<XRNodeState> nodeStates = new();
 
