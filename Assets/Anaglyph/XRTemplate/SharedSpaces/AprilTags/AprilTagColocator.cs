@@ -15,7 +15,10 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		[SerializeField] private GameObject anchorePrefab;
 		[SerializeField] private Transform tagIndicator;
 
+
 		public float lockDistance = 5;
+		public float maxHeadSpeed = 2f;
+		public float maxHeadAngSpeed = 2f;
 
 		private NetworkManager manager => NetworkManager.Singleton;
 
@@ -62,30 +65,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			tagIndicator.localScale = Vector3.one * tagSize;
 		}
 
-		private void Update()
-		{
-			Vector3 desiredCentroid = Vector3.zero;
-			Vector3 localCentroid = Vector3.zero;
-
-			if (!colocationActive)
-				return;
-
-			foreach (AprilTagAnchor anchor in AprilTagAnchor.AllAnchors.Values)
-			{
-				if (anchor.IsOwner && !anchor.IsLocked)
-				{
-					Vector3 anchorPos = anchor.transform.position;
-					Vector3 headPos = MainXROrigin.Instance.Camera.transform.position;
-
-					if (Vector3.Distance(anchorPos, headPos) > lockDistance)
-						anchor.isLockedSync.Value = true;
-				}
-
-				desiredCentroid += anchor.DesiredPose.position;
-				localCentroid += anchor.transform.position;
-			}
-		}
-
 		private static Pose LerpPose(Pose old, Pose target, float lerp)
 		{
 			Vector3 pos = Vector3.Lerp(old.position, target.position, lerp);
@@ -99,43 +78,74 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (!colocationActive)
 				return;
 
+			double timestamp = AprilTagTracker.Instance.FrameTimestamp;
+
+			OVRPlugin.PoseStatef poseState = OVRPlugin.GetNodePoseStateAtTime(timestamp, OVRPlugin.Node.Head);
+			var ovrAV = poseState.AngularVelocity;
+			var ovrV = poseState.Velocity;
+			Vector3 angVel = new(ovrAV.x, ovrAV.y, ovrAV.z);
+			Vector3 vel = new(ovrV.x, ovrV.y, ovrV.z);
+
+			if (vel.magnitude > maxHeadSpeed || angVel.magnitude > maxHeadAngSpeed)
+				return;
+
 			bool isSessionOwner = manager.CurrentSessionOwner == manager.LocalClientId;
+			var allAnchors = AprilTagAnchor.AllAnchors;
 
 			foreach (TagPose result in results)
 			{
-				bool foundAnchor = AprilTagAnchor.AllAnchors.TryGetValue(result.ID, out var anchor);
+				bool foundAnchor = allAnchors.TryGetValue(result.ID, out var anchor);
+
 				Pose tagPose = new(result.Position, result.Rotation);
 
-				if (!foundAnchor)
+				if (foundAnchor)
 				{
-					if (isSessionOwner)
+					anchor.transform.localScale = Vector3.one * tagSize;
+					anchor.transform.SetWorldPose(tagPose);
+
+					if (!anchor.IsLocked && anchor.IsOwner)
 					{
-						var anchorObj = Instantiate(anchorePrefab);
-
-						anchor = anchorObj.GetComponent<AprilTagAnchor>();
-
-						anchor.idSync.Value = result.ID;
-						anchor.desiredPoseSync.Value = new(tagPose);
-						anchor.transform.SetWorldPose(tagPose);
-
-						anchor.NetworkObject.SpawnWithOwnership(manager.LocalClientId);
+						anchor.desiredPoseSync.Value = new(LerpPose(anchor.DesiredPose, tagPose, iterativeLerp));
 					}
-					else continue;
+					else
+					{
+						Matrix4x4 localToTrackingSpace = MainXROrigin.Transform.worldToLocalMatrix * anchor.transform.localToWorldMatrix;
+						Colocation.LerpTrackingSpace(anchor.GetPose(), anchor.DesiredPose, iterativeLerp / results.Count);
+						Matrix4x4 global = MainXROrigin.Transform.localToWorldMatrix * localToTrackingSpace;
+						anchor.transform.position = global.GetPosition();
+						anchor.transform.rotation = global.rotation;
+					}
+
+					IsColocated = true;
 				}
+				else if (isSessionOwner)
+				{
+					var anchorObj = Instantiate(anchorePrefab);
 
-				Pose newPose = LerpPose(anchor.GetPose(), tagPose, iterativeLerp);
-				anchor.transform.SetWorldPose(newPose);
-				anchor.transform.localScale = Vector3.one * tagSize;
+					anchor = anchorObj.GetComponent<AprilTagAnchor>();
 
-				if (anchor.IsOwner && !anchor.IsLocked)
-					anchor.desiredPoseSync.Value = new(newPose);
-				else
-					Colocation.LerpTrackingSpace(anchor.GetPose(), anchor.DesiredPose, iterativeLerp / results.Count);
+					anchor.idSync.Value = result.ID;
+					anchor.transform.SetWorldPose(tagPose);
+					anchor.transform.localScale = Vector3.one * tagSize;
+					anchor.desiredPoseSync.Value = new(tagPose);
 
-				IsColocated = true;
+					anchor.NetworkObject.SpawnWithOwnership(manager.LocalClientId);
+
+					IsColocated = true;
+				}
 			}
 
+			foreach (AprilTagAnchor anchor in allAnchors.Values)
+			{
+				if (anchor.IsOwner && !anchor.IsLocked)
+				{
+					Vector3 anchorPos = anchor.transform.position;
+					Vector3 headPos = MainXROrigin.Instance.Camera.transform.position;
 
+					if (Vector3.Distance(anchorPos, headPos) > lockDistance)
+						anchor.isLockedSync.Value = true;
+				}
+			}
 		}
 
 		public void StopColocation()

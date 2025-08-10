@@ -25,10 +25,10 @@ public static class IterativeClosestPoint
 			await Awaitable.NextFrameAsync();
 		findJobHandle.Complete();
 
-		return FitCorrespondingPoints(subject, subjTrans, knnResults, float4x4.identity);
+		return FitCorresponding(subject, subjTrans, knnResults, float4x4.identity);
 	}
 
-	public static float4x4 FitCorrespondingPoints(ReadOnlySpan<float3> subject, float4x4 subjTrans, ReadOnlySpan<float3> target, float4x4 targTrans)
+	public static float4x4 FitCorresponding(ReadOnlySpan<float3> subject, float4x4 subjTrans, ReadOnlySpan<float3> target, float4x4 targTrans)
 	{
 		if (subject.Length != target.Length)
 			throw new ArgumentException("subject must be same length as target!");
@@ -60,6 +60,6 @@ public static class IterativeClosestPoint
 
 		float3 pos = targCentroid - math.mul(rot, subjCentroid);
 		float4x4 deltaTrans = float4x4.TRS(pos, rot, new float3(1));
-		return math.mul(deltaTrans, subjTrans);
+		return deltaTrans;
 	}
 }

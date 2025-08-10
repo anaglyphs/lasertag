@@ -52,6 +52,7 @@ namespace Anaglyph
 			{
 				float4x4 trans = transform.localToWorldMatrix;
 				Matrix4x4 mat = await IterativeClosestPoint.Iterate(newPoints, trans, tree, knnResults);
+				mat = mat * transform.localToWorldMatrix;
 
 				testDepthMesh.transform.SetPositionAndRotation(mat.GetPosition(), mat.rotation);
 			}
