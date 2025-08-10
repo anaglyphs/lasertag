@@ -47,11 +47,11 @@ namespace Anaglyph
 			NativeArray<float3> knnResults = new(points.Length, Allocator.Persistent);
 			NativeArray<float3> newPoints = new(points, Allocator.Persistent);
 
-			float4x4 trans = transform.localToWorldMatrix;
+			
 			while (enabled)
 			{
-				trans = await IterativeClosestPoint.IterateClosestPoints(newPoints, trans, tree, knnResults);
-				Matrix4x4 mat = trans;
+				float4x4 trans = transform.localToWorldMatrix;
+				Matrix4x4 mat = await IterativeClosestPoint.Iterate(newPoints, trans, tree, knnResults);
 
 				testDepthMesh.transform.SetPositionAndRotation(mat.GetPosition(), mat.rotation);
 			}

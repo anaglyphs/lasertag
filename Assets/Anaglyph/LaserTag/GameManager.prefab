@@ -51,7 +51,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 3585226305
+  GlobalObjectIdHash: 169030479
   InScenePlacedSourceGlobalObjectIdHash: 3585226305
   DeferredDespawnTick: 0
   Ownership: 3
@@ -78,8 +78,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 0
   useAprilTagColocation: {fileID: 11400000, guid: 47b47a4c1dcf98e4a9c4022fa9722c2b, type: 2}
-  metaAnchorColocator: {fileID: 1903966757991957580}
-  aprilTagColocator: {fileID: 0}
 --- !u!114 &1903966757991957580
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -107,9 +105,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   anchorePrefab: {fileID: 3895574877841461789, guid: f993b0b3c5fd1a64e8e06a51fa819c3e, type: 3}
   tagIndicator: {fileID: 7849511789531832086}
-  lockDistance: 5
-  tagSize: 0.095
-  iterativeLerp: 0.01
+  lockDistance: 3
+  tagSize: 0.096
+  iterativeLerp: 0.05
 --- !u!114 &1319307689243415292
 MonoBehaviour:
   m_ObjectHideFlags: 0
