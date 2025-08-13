@@ -1,10 +1,10 @@
-using UnityEngine;
+//using UnityEngine;
 
-namespace Anaglyph.XRTemplate.SharedSpaces
-{
-    public class AnchorGuidSavingActions : MonoBehaviour
-    {
-        public void DeleteSavedAnchors() => AnchorGuidSaving.DeleteSavedAnchors();
+//namespace Anaglyph.XRTemplate.SharedSpaces
+//{
+//    public class AnchorGuidSavingActions : MonoBehaviour
+//    {
+//        public void DeleteSavedAnchors() => AnchorGuidSaving.DeleteSavedAnchors();
 
-	}
-}
+//	}
+//}

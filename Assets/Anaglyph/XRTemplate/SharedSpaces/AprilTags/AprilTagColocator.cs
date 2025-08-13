@@ -4,32 +4,65 @@ using EnvisionCenter.XRTemplate.QuestCV;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Unity.Mathematics;
 using Unity.Netcode;
-using Unity.XR.CoreUtils;
 using UnityEngine;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
-	public class AprilTagColocator : MonoBehaviour, IColocator
+	public class AprilTagColocator : NetworkBehaviour, IColocator
 	{
-		[SerializeField] private GameObject anchorePrefab;
-		[SerializeField] private Transform tagIndicator;
+		private HashSet<int> tagsLocked = new();
+		private Dictionary<int, Vector3> canonTags = new();
+		private Dictionary<int, Vector3> localTags = new();
 
+		[SerializeField] private Vector2Int texSize = new(1280, 960);
 
-		public float lockDistance = 5;
+		public float lockDistanceScale = 10;
+		[Tooltip("In meters/second")]
 		public float maxHeadSpeed = 2f;
+		[Tooltip("In radians/second")]
 		public float maxHeadAngSpeed = 2f;
 
-		private NetworkManager manager => NetworkManager.Singleton;
+		private static NetworkManager manager => NetworkManager.Singleton;
 
-		private async void Start() {
-			tagIndicator.gameObject.SetActive(false);
+		private async void Start()
+		{
+			manager.OnClientConnectedCallback += OnClientConnected;
 			await EnsureConfigured();
 		}
 
-		private async Task EnsureConfigured() {
-			if(!CameraManager.Instance.IsConfigured)
-				await CameraManager.Instance.Configure(1, 320, 240);
+		[Rpc(SendTo.Everyone)]
+		private void RegisterCanonTagRpc(int id, Vector3 canonicalPosition)
+		{
+			canonTags[id] = canonicalPosition;
+		}
+
+		[Rpc(SendTo.SpecifiedInParams)]
+		private void SyncCanonTagsRpc(int[] id, Vector3[] positions, RpcParams rpcParams = default)
+		{
+			for (int i = 0; i < id.Length; i++)
+				canonTags[id[i]] = positions[i];
+		}
+
+		private void OnClientConnected(ulong id)
+		{
+			if (IsOwner && id != manager.LocalClientId)
+			{
+				int[] keys = new int[canonTags.Count];
+				Vector3[] values = new Vector3[canonTags.Count];
+
+				canonTags.Keys.CopyTo(keys, 0);
+				canonTags.Values.CopyTo(values, 0);
+
+				SyncCanonTagsRpc(keys, values, RpcTarget.Single(id, RpcTargetUse.Temp));
+			}
+		}
+
+		private async Task EnsureConfigured()
+		{
+			if (!CameraManager.Instance.IsConfigured)
+				await CameraManager.Instance.Configure(1, texSize.x, texSize.y);
 		}
 
 		private bool _isColocated;
@@ -47,30 +80,103 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		}
 
 		public float tagSize = 0.1f;
-		public float iterativeLerp = 0.01f;
 		private bool colocationActive = false;
-
-		private bool CheckIfSessionOwner() => manager.CurrentSessionOwner == manager.LocalClientId;
 
 		public async void Colocate()
 		{
 			IsColocated = false;
 			colocationActive = true;
 
-			await EnsureConfigured();
 			await CameraManager.Instance.TryOpenCamera();
 			AprilTagTracker.Instance.tagSizeMeters = tagSize;
 			AprilTagTracker.Instance.OnDetectTags += OnDetectTags;
-
-			tagIndicator.localScale = Vector3.one * tagSize;
 		}
 
-		private static Pose LerpPose(Pose old, Pose target, float lerp)
-		{
-			Vector3 pos = Vector3.Lerp(old.position, target.position, lerp);
-			Quaternion rot = Quaternion.Lerp(old.rotation, target.rotation, lerp);
+		private List<float3> sharedLocalPositions = new();
+		private List<float3> sharedCanonPositions = new();
 
-			return new(pos, rot);
+		private void LateUpdate()
+		{
+			if (IsOwner)
+			{
+				var headPos = MainXROrigin.Instance.Camera.transform.position;
+
+				foreach (int id in canonTags.Keys)
+				{
+					Vector3 canonPos = canonTags[id];
+					if (!TagIsWithinRegisterDistance(canonPos))
+						tagsLocked.Add(id);
+				}
+			}
+
+			sharedLocalPositions.Clear();
+			sharedCanonPositions.Clear();
+
+			foreach (int id in localTags.Keys)
+			{
+				float3 localPos = localTags[id];
+				bool mutuallyFound = canonTags.TryGetValue(id, out Vector3 canonPos);
+
+				if (mutuallyFound)
+				{
+					sharedLocalPositions.Add(localPos);
+					sharedCanonPositions.Add(canonPos);
+				}
+			}
+
+			if (sharedLocalPositions.Count < 3)
+				return;
+
+			float4x4 trackingSpace = MainXROrigin.Transform.localToWorldMatrix;
+
+			Matrix4x4 delta = IterativeClosestPoint.FitCorresponding(
+				sharedLocalPositions.ToArray(), trackingSpace, 
+				sharedCanonPositions.ToArray(), Matrix4x4.identity);
+			// delta = FlattenRotation(delta);
+			var newMat = MainXROrigin.Transform.localToWorldMatrix * delta;
+
+			MainXROrigin.Transform.position = newMat.GetPosition();
+			MainXROrigin.Transform.rotation = newMat.rotation;
+		}
+
+		private bool TagIsWithinRegisterDistance(Vector3 globalPos)
+		{
+			Vector3 headPos = MainXROrigin.Instance.Camera.transform.position;
+			return Vector3.Distance(headPos, globalPos) < tagSize * lockDistanceScale;
+		}
+
+		public static Matrix4x4 FlattenRotation(Matrix4x4 m)
+		{
+			// Extract translation
+			Vector3 pos = m.GetColumn(3);
+
+			// Extract and normalize forward
+			Vector3 forward = m.GetColumn(2);
+			forward.y = 0f;
+
+			if (forward.sqrMagnitude < 1e-6f)
+			{
+				// Forward was almost vertical, fallback to right vector projection
+				Vector3 right = m.GetColumn(0);
+				forward = new Vector3(right.x, 0f, right.z);
+				if (forward.sqrMagnitude < 1e-6f)
+					forward = Vector3.forward;
+			}
+
+			forward.Normalize();
+
+			// Build new orthonormal basis
+			Vector3 rightNew = Vector3.Normalize(Vector3.Cross(Vector3.up, forward));
+			Vector3 upNew = Vector3.Cross(forward, rightNew);
+
+			// Assemble new matrix (pure rotation + original translation)
+			Matrix4x4 result = Matrix4x4.identity;
+			result.SetColumn(0, new Vector4(rightNew.x, rightNew.y, rightNew.z, 0f));
+			result.SetColumn(1, new Vector4(upNew.x, upNew.y, upNew.z, 0f));
+			result.SetColumn(2, new Vector4(forward.x, forward.y, forward.z, 0f));
+			result.SetColumn(3, new Vector4(pos.x, pos.y, pos.z, 1f));
+
+			return result;
 		}
 
 		private void OnDetectTags(IReadOnlyList<TagPose> results)
@@ -78,72 +184,23 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (!colocationActive)
 				return;
 
-			double timestamp = AprilTagTracker.Instance.FrameTimestamp;
-
-			OVRPlugin.PoseStatef poseState = OVRPlugin.GetNodePoseStateAtTime(timestamp, OVRPlugin.Node.Head);
-			var ovrAV = poseState.AngularVelocity;
-			var ovrV = poseState.Velocity;
-			Vector3 angVel = new(ovrAV.x, ovrAV.y, ovrAV.z);
-			Vector3 vel = new(ovrV.x, ovrV.y, ovrV.z);
-
-			if (vel.magnitude > maxHeadSpeed || angVel.magnitude > maxHeadAngSpeed)
-				return;
-
-			bool isSessionOwner = manager.CurrentSessionOwner == manager.LocalClientId;
-			var allAnchors = AprilTagAnchor.AllAnchors;
-
 			foreach (TagPose result in results)
 			{
-				bool foundAnchor = allAnchors.TryGetValue(result.ID, out var anchor);
+				Vector3 globalPos = result.Position;
 
-				Pose tagPose = new(result.Position, result.Rotation);
+				Matrix4x4 worldToTracking = MainXROrigin.Transform.worldToLocalMatrix;
+				Vector3 localPos = worldToTracking.MultiplyPoint(globalPos);
 
-				if (foundAnchor)
+				localTags[result.ID] = localPos;
+
+				if (IsOwner)
 				{
-					anchor.transform.localScale = Vector3.one * tagSize;
-					anchor.transform.SetWorldPose(tagPose);
+					bool locked = tagsLocked.Contains(result.ID);
 
-					if (!anchor.IsLocked && anchor.IsOwner)
+					if(!locked && TagIsWithinRegisterDistance(globalPos))
 					{
-						anchor.desiredPoseSync.Value = new(LerpPose(anchor.DesiredPose, tagPose, iterativeLerp));
+						RegisterCanonTagRpc(result.ID, globalPos);
 					}
-					else
-					{
-						Matrix4x4 localToTrackingSpace = MainXROrigin.Transform.worldToLocalMatrix * anchor.transform.localToWorldMatrix;
-						Colocation.LerpTrackingSpace(anchor.GetPose(), anchor.DesiredPose, iterativeLerp / results.Count);
-						Matrix4x4 global = MainXROrigin.Transform.localToWorldMatrix * localToTrackingSpace;
-						anchor.transform.position = global.GetPosition();
-						anchor.transform.rotation = global.rotation;
-					}
-
-					IsColocated = true;
-				}
-				else if (isSessionOwner)
-				{
-					var anchorObj = Instantiate(anchorePrefab);
-
-					anchor = anchorObj.GetComponent<AprilTagAnchor>();
-
-					anchor.idSync.Value = result.ID;
-					anchor.transform.SetWorldPose(tagPose);
-					anchor.transform.localScale = Vector3.one * tagSize;
-					anchor.desiredPoseSync.Value = new(tagPose);
-
-					anchor.NetworkObject.SpawnWithOwnership(manager.LocalClientId);
-
-					IsColocated = true;
-				}
-			}
-
-			foreach (AprilTagAnchor anchor in allAnchors.Values)
-			{
-				if (anchor.IsOwner && !anchor.IsLocked)
-				{
-					Vector3 anchorPos = anchor.transform.position;
-					Vector3 headPos = MainXROrigin.Instance.Camera.transform.position;
-
-					if (Vector3.Distance(anchorPos, headPos) > lockDistance)
-						anchor.isLockedSync.Value = true;
 				}
 			}
 		}
@@ -153,10 +210,12 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			CameraManager.Instance.CloseCamera();
 			AprilTagTracker.Instance.OnDetectTags -= OnDetectTags;
 
-			tagIndicator.gameObject.SetActive(false);
-
 			colocationActive = false;
 			IsColocated = false;
-		}
+
+			tagsLocked.Clear();
+			canonTags.Clear();
+			localTags.Clear();
+	}
 	}
 }

@@ -17,11 +17,15 @@ namespace Anaglyph.Lasertag
 		}
 
 		[SerializeField] private BoolObject useAprilTagColocation;
+		[SerializeField] private FloatObject aprilTagSizeOption;
 
 		public static ColocationManager Current;
+
 		private NetworkVariable<ColocationMethod> colocationMethodSync = new(0);
 		public void SetColocationMethod(ColocationMethod colocationMethod)
 			=> colocationMethodSync.Value = colocationMethod;
+
+		private NetworkVariable<float> aprilTagSizeSync = new();
 
 		private MetaAnchorColocator metaAnchorColocator;
 		private AprilTagColocator aprilTagColocator;
@@ -43,6 +47,8 @@ namespace Anaglyph.Lasertag
 			{
 				colocationMethodSync.Value = useAprilTagColocation.Value ?
 					ColocationMethod.AprilTag : ColocationMethod.MetaSharedAnchor;
+
+				aprilTagSizeSync.Value = aprilTagSizeOption.Value / 100f;
 			}
 
 			switch (colocationMethodSync.Value)
@@ -53,6 +59,7 @@ namespace Anaglyph.Lasertag
 
 				case ColocationMethod.AprilTag:
 					Colocation.SetActiveColocator(aprilTagColocator);
+					aprilTagColocator.tagSize = aprilTagSizeSync.Value;
 					break;
 			}
 

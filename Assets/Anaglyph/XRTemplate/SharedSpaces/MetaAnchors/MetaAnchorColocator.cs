@@ -49,7 +49,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			Quaternion spawnRot = Quaternion.LookRotation(flatForward, Vector3.up);
 
 			GameObject g = Instantiate(anchorPrefab.gameObject, spawnPos, spawnRot);
-			Debug.Log($"Instantiated new anchor");
+			// Debug.Log($"Instantiated new anchor");
 
 			g.TryGetComponent(out NetworkObject networkObject);
 			networkObject.Spawn();
