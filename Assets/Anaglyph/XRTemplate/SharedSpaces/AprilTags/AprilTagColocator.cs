@@ -6,7 +6,9 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Unity.Mathematics;
 using Unity.Netcode;
+using Unity.XR.CoreUtils;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
@@ -26,10 +28,65 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private static NetworkManager manager => NetworkManager.Singleton;
 
+		[SerializeField] private Mesh indicatorMesh;
+		[SerializeField] private Material indicatorMaterial;
+
+		[SerializeField] private Mesh debugPointMesh;
+		[SerializeField] private Material debugPointMaterial;
+
+		private MaterialPropertyBlock mpb;
+		private TagPose[] tags;
+
+		private void Awake()
+		{
+			mpb = new MaterialPropertyBlock();
+		}
+
+		private void OnEnable()
+		{
+			ProceduralDrawFeature.Draw += RenderFoundTags;
+		}
+
+		private void OnDisable()
+		{
+			ProceduralDrawFeature.Draw -= RenderFoundTags;
+		}
+
 		private async void Start()
 		{
 			manager.OnClientConnectedCallback += OnClientConnected;
 			await EnsureConfigured();
+		}
+
+		private void RenderFoundTags(RasterCommandBuffer cmd)
+		{
+			if (tags != null)
+			{
+				mpb.SetColor("_BaseColor", Color.white);
+				foreach (TagPose tagPose in tags)
+				{
+					var model = Matrix4x4.TRS(tagPose.Position, tagPose.Rotation, Vector3.one * tagSize * 3);
+					cmd.DrawMesh(indicatorMesh, model, indicatorMaterial, 0, 0, mpb);
+				}
+			}
+
+			if (Anaglyph.DebugMode)
+			{
+				mpb.SetColor("_BaseColor", Color.green);
+				foreach (Vector3 canonTagPos in canonTags.Values)
+				{
+					var model = Matrix4x4.TRS(canonTagPos, Quaternion.identity, Vector3.one * 0.02f);
+					cmd.DrawMesh(debugPointMesh, model, debugPointMaterial, 0, 0, mpb);
+				}
+
+				mpb.SetColor("_BaseColor", Color.yellow);
+				foreach (Vector3 localTagPos in localTags.Values)
+				{
+					var model = MainXROrigin.Transform.localToWorldMatrix * 
+						Matrix4x4.TRS(localTagPos, Quaternion.identity, Vector3.one * 0.02f);
+					cmd.DrawMesh(debugPointMesh, model, debugPointMaterial, 0, 0, mpb);
+				}
+			}
 		}
 
 		[Rpc(SendTo.Everyone)]
@@ -97,6 +154,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private void LateUpdate()
 		{
+			if (!colocationActive)
+				return;
+
 			if (IsOwner)
 			{
 				var headPos = MainXROrigin.Instance.Camera.transform.position;
@@ -124,19 +184,32 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				}
 			}
 
-			if (sharedLocalPositions.Count < 3)
-				return;
+			if (sharedLocalPositions.Count >= 4)
+			{
+				Matrix4x4 trackingSpace = MainXROrigin.Transform.localToWorldMatrix;
 
-			float4x4 trackingSpace = MainXROrigin.Transform.localToWorldMatrix;
+				Matrix4x4 delta = IterativeClosestPoint.FitCorresponding(
+					sharedLocalPositions.ToArray(), trackingSpace,
+					sharedCanonPositions.ToArray(), float4x4.identity);
 
-			Matrix4x4 delta = IterativeClosestPoint.FitCorresponding(
-				sharedLocalPositions.ToArray(), trackingSpace, 
-				sharedCanonPositions.ToArray(), Matrix4x4.identity);
-			// delta = FlattenRotation(delta);
-			var newMat = MainXROrigin.Transform.localToWorldMatrix * delta;
+				// delta = FlattenRotation(delta);
+				trackingSpace = delta * trackingSpace;
+				delta = FlattenRotation(delta);
+				MainXROrigin.Transform.position = trackingSpace.GetPosition();
+				MainXROrigin.Transform.rotation = trackingSpace.rotation;
 
-			MainXROrigin.Transform.position = newMat.GetPosition();
-			MainXROrigin.Transform.rotation = newMat.rotation;
+				IsColocated = true;
+			}
+
+			var originPos = MainXROrigin.Transform.position;
+
+			if (originPos.magnitude > 100000f ||
+				float.IsNaN(originPos.x) || float.IsInfinity(originPos.x) ||
+				float.IsNaN(originPos.y) || float.IsInfinity(originPos.y) ||
+				float.IsNaN(originPos.z) || float.IsInfinity(originPos.z))
+			{
+				MainXROrigin.Transform.SetWorldPose(Pose.identity);
+			}
 		}
 
 		private bool TagIsWithinRegisterDistance(Vector3 globalPos)
@@ -184,8 +257,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (!colocationActive)
 				return;
 
+			tags = ((List<TagPose>)results).ToArray();
+
 			foreach (TagPose result in results)
 			{
+
 				Vector3 globalPos = result.Position;
 
 				Matrix4x4 worldToTracking = MainXROrigin.Transform.worldToLocalMatrix;

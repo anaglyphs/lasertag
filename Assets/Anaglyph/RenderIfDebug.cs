@@ -6,11 +6,15 @@ namespace Anaglyph
     {
 		private new Renderer renderer;
 
-		private void OnEnable()
+		private void Awake()
 		{
 			renderer = GetComponent<Renderer>();
+		}
 
+		private void OnEnable()
+		{
 			Anaglyph.DebugModeChanged += OnDebugModeChanged;
+			renderer.enabled = Anaglyph.DebugMode;
 		}
 
 		private void OnDisable()

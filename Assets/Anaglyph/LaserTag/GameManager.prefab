@@ -105,9 +105,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
   texSize: {x: 1280, y: 960}
-  lockDistanceScale: 30
+  lockDistanceScale: 15
   maxHeadSpeed: 0.5
   maxHeadAngSpeed: 0.5
+  indicatorMesh: {fileID: -5322466972774305626, guid: 3a88f3fb66ef78745a11363b74fe2cd4, type: 3}
+  indicatorMaterial: {fileID: 2100000, guid: 27f6747ba6952684fbfb2d2135976c96, type: 2}
+  debugPointMesh: {fileID: 289301614986012343, guid: fd00829a26dc9fc4280b779bc4e1a4b7, type: 3}
+  debugPointMaterial: {fileID: 2100000, guid: 0d26ad5852d65e9449287a73ea132e72, type: 2}
   tagSize: 0.1
 --- !u!114 &1319307689243415292
 MonoBehaviour:

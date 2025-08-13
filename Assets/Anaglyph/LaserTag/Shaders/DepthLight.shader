@@ -82,13 +82,13 @@ Shader "Lasertag/DepthLight"
 
 				const float3 ndc = agDepthWorldToNDC(IN.positionWS, eye); 
 				
-				const float depthNDC = agDepthSample(ndc.xy, eye);
+				const float depthNDC = agDepthSample(ndc.xy, eye, bilinearClampSampler);
 
 				float2 uv = ndc.xy;
 				float3 lightPos = mul(unity_ObjectToWorld, float4(0,0,0,1)).xyz;
 				float3 depthWorld = agDepthNDCtoWorld(float3(uv, depthNDC), eye);
 	
-				float3 worldNorm = agDepthNormalSample(uv, eye);
+				float3 worldNorm = agDepthNormalSample(uv, eye, bilinearClampSampler);
 
 				float3 diff = lightPos - depthWorld;
 				

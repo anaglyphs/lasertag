@@ -25,6 +25,11 @@ float agDepthSample(float2 uv, int eye = 0)
 	return agDepthTex.SampleLevel(pointClampSampler, float3(uv.xy, eye), 0);
 }
 
+float agDepthSample(float2 uv, int eye, SamplerState samplerState)
+{
+	return agDepthTex.SampleLevel(samplerState, float3(uv.xy, eye), 0);
+}
+
 float4 agDepthSampleEdge(float2 uv, int eye = 0)
 {
 	return agDepthEdgeTex.SampleLevel(pointClampSampler, float3(uv.xy, eye), 0);
@@ -39,6 +44,11 @@ float agDepthNDCToLinear(float depthNDC)
 float4 agDepthNormalSample(float2 uv, int eye = 0)
 {
 	return agDepthNormalTex.SampleLevel(pointClampSampler, float3(uv.xy, eye), 0);
+}
+
+float4 agDepthNormalSample(float2 uv, int eye, SamplerState samplerState)
+{
+	return agDepthNormalTex.SampleLevel(samplerState, float3(uv.xy, eye), 0);
 }
 
 float4 agDepthWorldToHCS(float3 worldPos, int eye = 0)
