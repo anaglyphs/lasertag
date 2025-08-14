@@ -32,8 +32,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		[SerializeField] private Material indicatorMaterial;
 
 		[SerializeField] private Mesh debugPointMesh;
-		[SerializeField] private Material debugPointMaterial;
+		[SerializeField] private Material debugMaterial;
 
+		private static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
 		private MaterialPropertyBlock mpb;
 		private TagPose[] tags;
 
@@ -60,31 +61,47 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private void RenderFoundTags(RasterCommandBuffer cmd)
 		{
+			Vector3 scale;
+
 			if (tags != null)
 			{
-				mpb.SetColor("_BaseColor", Color.white);
+				scale = Vector3.one * tagSize * 3;
+				Color color = Color.white;
+
 				foreach (TagPose tagPose in tags)
 				{
-					var model = Matrix4x4.TRS(tagPose.Position, tagPose.Rotation, Vector3.one * tagSize * 3);
+					if (IsOwner)
+					{
+						bool tagRegistered = canonTags.ContainsKey(tagPose.ID);
+						color = tagRegistered ? Color.green : Color.yellow;
+					}
+
+					mpb.SetColor(BaseColorID, color);
+
+					var model = Matrix4x4.TRS(tagPose.Position, tagPose.Rotation, scale);
 					cmd.DrawMesh(indicatorMesh, model, indicatorMaterial, 0, 0, mpb);
 				}
 			}
 
 			if (Anaglyph.DebugMode)
 			{
-				mpb.SetColor("_BaseColor", Color.green);
+				scale = Vector3.one * 0.03f;
+				mpb.SetColor(BaseColorID, Color.green);
 				foreach (Vector3 canonTagPos in canonTags.Values)
 				{
-					var model = Matrix4x4.TRS(canonTagPos, Quaternion.identity, Vector3.one * 0.02f);
-					cmd.DrawMesh(debugPointMesh, model, debugPointMaterial, 0, 0, mpb);
+					var model = Matrix4x4.TRS(canonTagPos, Quaternion.identity, scale);
+					cmd.DrawMesh(debugPointMesh, model, debugMaterial, 0, 0, mpb);
+
+					//cmd.DrawMeshInstanced(debugPointMesh, 0, debugMaterial, 0, )
 				}
 
-				mpb.SetColor("_BaseColor", Color.yellow);
+				scale = Vector3.one * 0.02f;
+				mpb.SetColor(BaseColorID, Color.yellow);
 				foreach (Vector3 localTagPos in localTags.Values)
 				{
-					var model = MainXROrigin.Transform.localToWorldMatrix * 
-						Matrix4x4.TRS(localTagPos, Quaternion.identity, Vector3.one * 0.02f);
-					cmd.DrawMesh(debugPointMesh, model, debugPointMaterial, 0, 0, mpb);
+					var model = MainXROrigin.Transform.localToWorldMatrix *
+						Matrix4x4.TRS(localTagPos, Quaternion.identity, scale);
+					cmd.DrawMesh(debugPointMesh, model, debugMaterial, 0, 0, mpb);
 				}
 			}
 		}
@@ -192,9 +209,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					sharedLocalPositions.ToArray(), trackingSpace,
 					sharedCanonPositions.ToArray(), float4x4.identity);
 
-				// delta = FlattenRotation(delta);
-				trackingSpace = delta * trackingSpace;
 				delta = FlattenRotation(delta);
+				trackingSpace = delta * trackingSpace;
+				
 				MainXROrigin.Transform.position = trackingSpace.GetPosition();
 				MainXROrigin.Transform.rotation = trackingSpace.rotation;
 
