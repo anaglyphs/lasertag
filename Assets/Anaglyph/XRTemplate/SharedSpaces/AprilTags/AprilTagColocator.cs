@@ -61,6 +61,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private void RenderFoundTags(RasterCommandBuffer cmd)
 		{
+			if (!colocationActive)
+				return;
+
 			Vector3 scale;
 
 			if (tags != null)
