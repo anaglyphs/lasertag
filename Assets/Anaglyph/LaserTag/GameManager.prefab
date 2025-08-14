@@ -50,7 +50,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 169030479
+  GlobalObjectIdHash: 3585226305
   InScenePlacedSourceGlobalObjectIdHash: 3585226305
   DeferredDespawnTick: 0
   Ownership: 3
@@ -104,10 +104,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
+  tagLerp: 0.1
   texSize: {x: 1280, y: 960}
   lockDistanceScale: 15
-  maxHeadSpeed: 0.5
-  maxHeadAngSpeed: 0.5
+  maxHeadSpeed: 0.2
+  maxHeadAngSpeed: 0.2
   indicatorMesh: {fileID: -5322466972774305626, guid: 3a88f3fb66ef78745a11363b74fe2cd4, type: 3}
   indicatorMaterial: {fileID: 2100000, guid: 27f6747ba6952684fbfb2d2135976c96, type: 2}
   debugPointMesh: {fileID: 289301614986012343, guid: fd00829a26dc9fc4280b779bc4e1a4b7, type: 3}

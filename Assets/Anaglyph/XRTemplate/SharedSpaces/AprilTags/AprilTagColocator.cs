@@ -9,6 +9,7 @@ using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.UIElements;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
@@ -18,6 +19,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private Dictionary<int, Vector3> canonTags = new();
 		private Dictionary<int, Vector3> localTags = new();
 
+		[SerializeField] private float tagLerp = 0.1f;
 		[SerializeField] private Vector2Int texSize = new(1280, 960);
 
 		public float lockDistanceScale = 10;
@@ -212,7 +214,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					sharedLocalPositions.ToArray(), trackingSpace,
 					sharedCanonPositions.ToArray(), float4x4.identity);
 
-				delta = FlattenRotation(delta);
 				trackingSpace = delta * trackingSpace;
 				
 				MainXROrigin.Transform.position = trackingSpace.GetPosition();
@@ -237,41 +238,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			Vector3 headPos = MainXROrigin.Instance.Camera.transform.position;
 			return Vector3.Distance(headPos, globalPos) < tagSize * lockDistanceScale;
 		}
-
-		public static Matrix4x4 FlattenRotation(Matrix4x4 m)
-		{
-			// Extract translation
-			Vector3 pos = m.GetColumn(3);
-
-			// Extract and normalize forward
-			Vector3 forward = m.GetColumn(2);
-			forward.y = 0f;
-
-			if (forward.sqrMagnitude < 1e-6f)
-			{
-				// Forward was almost vertical, fallback to right vector projection
-				Vector3 right = m.GetColumn(0);
-				forward = new Vector3(right.x, 0f, right.z);
-				if (forward.sqrMagnitude < 1e-6f)
-					forward = Vector3.forward;
-			}
-
-			forward.Normalize();
-
-			// Build new orthonormal basis
-			Vector3 rightNew = Vector3.Normalize(Vector3.Cross(Vector3.up, forward));
-			Vector3 upNew = Vector3.Cross(forward, rightNew);
-
-			// Assemble new matrix (pure rotation + original translation)
-			Matrix4x4 result = Matrix4x4.identity;
-			result.SetColumn(0, new Vector4(rightNew.x, rightNew.y, rightNew.z, 0f));
-			result.SetColumn(1, new Vector4(upNew.x, upNew.y, upNew.z, 0f));
-			result.SetColumn(2, new Vector4(forward.x, forward.y, forward.z, 0f));
-			result.SetColumn(3, new Vector4(pos.x, pos.y, pos.z, 1f));
-
-			return result;
-		}
-
+		
 		private void OnDetectTags(IReadOnlyList<TagPose> results)
 		{
 			if (!colocationActive)
@@ -281,21 +248,37 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			foreach (TagPose result in results)
 			{
-
 				Vector3 globalPos = result.Position;
 
 				Matrix4x4 worldToTracking = MainXROrigin.Transform.worldToLocalMatrix;
 				Vector3 localPos = worldToTracking.MultiplyPoint(globalPos);
 
+				if(localTags.TryGetValue(result.ID, out Vector3 value))
+					localPos = Vector3.Lerp(value, localPos, tagLerp);
+				
 				localTags[result.ID] = localPos;
 
 				if (IsOwner)
 				{
-					bool locked = tagsLocked.Contains(result.ID);
+					var headState = OVRPlugin.GetNodePoseStateAtTime(AprilTagTracker.Instance.FrameTimestamp, OVRPlugin.Node.Head);
+					var v = headState.Velocity;
+					Vector3 vel = new(v.x, v.y, v.z);
+					float headSpeed = vel.magnitude;
+					var av = headState.AngularVelocity;
+					Vector3 angVel = new(av.x, av.y, av.z);
+					float angHeadSpeed = angVel.magnitude;
 
-					if(!locked && TagIsWithinRegisterDistance(globalPos))
+					bool headIsStable = headSpeed < maxHeadSpeed && angHeadSpeed < maxHeadAngSpeed;
+
+					if (headIsStable)
 					{
-						RegisterCanonTagRpc(result.ID, globalPos);
+						bool locked = tagsLocked.Contains(result.ID);
+						bool isCloseEnough = TagIsWithinRegisterDistance(globalPos);
+
+						if (!locked && isCloseEnough)
+						{
+							RegisterCanonTagRpc(result.ID, globalPos);
+						}
 					}
 				}
 			}
