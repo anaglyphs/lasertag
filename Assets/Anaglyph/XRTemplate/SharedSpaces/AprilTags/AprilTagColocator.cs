@@ -1,15 +1,13 @@
-using Anaglyph.XRTemplate.CameraReader;
+using Anaglyph.XRTemplate.AprilTags;
+using Anaglyph.XRTemplate.DeviceCameras;
 using AprilTag;
-using EnvisionCenter.XRTemplate.QuestCV;
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using Unity.Mathematics;
 using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.UIElements;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
@@ -30,6 +28,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private static NetworkManager manager => NetworkManager.Singleton;
 
+		private CameraReader cameraReader;
+		private AprilTagTracker tagTracker;
+
 		[SerializeField] private Mesh indicatorMesh;
 		[SerializeField] private Material indicatorMaterial;
 
@@ -43,6 +44,10 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private void Awake()
 		{
 			mpb = new MaterialPropertyBlock();
+
+			// todo: better way of doing this 
+			cameraReader = FindAnyObjectByType<CameraReader>();
+			tagTracker = FindAnyObjectByType<AprilTagTracker>();
 		}
 
 		private void OnEnable()
@@ -55,10 +60,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			ProceduralDrawFeature.Draw -= RenderFoundTags;
 		}
 
-		private async void Start()
+		private void Start()
 		{
 			manager.OnClientConnectedCallback += OnClientConnected;
-			await EnsureConfigured();
 		}
 
 		private void RenderFoundTags(RasterCommandBuffer cmd)
@@ -138,12 +142,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 		}
 
-		private async Task EnsureConfigured()
-		{
-			if (!CameraManager.Instance.IsConfigured)
-				await CameraManager.Instance.Configure(1, texSize.x, texSize.y);
-		}
-
 		private bool _isColocated;
 		public event Action<bool> IsColocatedChange;
 		public bool IsColocated
@@ -166,9 +164,12 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			IsColocated = false;
 			colocationActive = true;
 
-			await CameraManager.Instance.TryOpenCamera();
-			AprilTagTracker.Instance.tagSizeMeters = tagSize;
-			AprilTagTracker.Instance.OnDetectTags += OnDetectTags;
+			if(!cameraReader.IsConfigured)
+				await cameraReader.Configure(1, texSize.x, texSize.y);
+
+			await cameraReader.TryOpenCamera();
+			tagTracker.tagSizeMeters = tagSize;
+			tagTracker.OnDetectTags += OnDetectTags;
 		}
 
 		private List<float3> sharedLocalPositions = new();
@@ -260,7 +261,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 				if (IsOwner)
 				{
-					var headState = OVRPlugin.GetNodePoseStateAtTime(AprilTagTracker.Instance.FrameTimestamp, OVRPlugin.Node.Head);
+					var headState = OVRPlugin.GetNodePoseStateAtTime(tagTracker.FrameTimestamp, OVRPlugin.Node.Head);
 					var v = headState.Velocity;
 					Vector3 vel = new(v.x, v.y, v.z);
 					float headSpeed = vel.magnitude;
@@ -286,8 +287,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public void StopColocation()
 		{
-			CameraManager.Instance.CloseCamera();
-			AprilTagTracker.Instance.OnDetectTags -= OnDetectTags;
+			cameraReader.CloseCamera();
+			tagTracker.OnDetectTags -= OnDetectTags;
 
 			colocationActive = false;
 			IsColocated = false;

@@ -3,29 +3,27 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Android;
 
-namespace Anaglyph.XRTemplate.CameraReader
+namespace Anaglyph.XRTemplate.DeviceCameras
 {
 	[DefaultExecutionOrder(-1000)]
-	public class CameraManager : MonoBehaviour
+	public class CameraReader : MonoBehaviour
 	{
-		public static CameraManager Instance { get; private set; }
+		private Texture2D texture;
+		public Texture2D Texture => texture;
 
-		private Texture2D camTex;
-		public Texture2D CamTex => camTex;
+		private Pose hardwarePose;
+		public Pose HardwarePose => hardwarePose;
 
-		private Pose camPoseOnDevice;
-		public Pose CamPoseOnDevice => camPoseOnDevice;
+		private Intrinsics hardwareIntrinsics;
+		public Intrinsics HardwareIntrinsics => hardwareIntrinsics;
 
-		private Intrinsics camIntrinsics;
-		public Intrinsics CamIntrinsics => camIntrinsics;
-
-		public static event Action DeviceOpened = delegate { };
-		public static event Action DeviceClosed = delegate { };
-		public static event Action DeviceDisconnected = delegate { };
-		public static event Action DeviceError = delegate { };
-		public static event Action Configured = delegate { };
-		public static event Action ConfigureFailed = delegate { };
-		public static event Action<Texture2D> ImageAvailable = delegate { };
+		public event Action DeviceOpened = delegate { };
+		public event Action DeviceClosed = delegate { };
+		public event Action DeviceDisconnected = delegate { };
+		public event Action DeviceError = delegate { };
+		public event Action Configured = delegate { };
+		public event Action ConfigureFailed = delegate { };
+		public event Action<Texture2D> ImageAvailable = delegate { };
 
 		private unsafe sbyte* buffer;
 		private int bufferSize;
@@ -44,7 +42,7 @@ namespace Anaglyph.XRTemplate.CameraReader
 		public const int ERROR_MAX_CAMERAS_IN_USE = 0x00000002;
 
 		/// In nanoseconds!
-		public long TimestampNanoseconds { get; private set; }
+		public long TimestampNs { get; private set; }
 
 		
 		public class PermissionException : Exception
@@ -62,29 +60,28 @@ namespace Anaglyph.XRTemplate.CameraReader
 
 		private class AndroidInterface
 		{
-			private AndroidJavaClass androidClass;
-			private AndroidJavaObject androidInstance;
+			private AndroidJavaClass jniClass;
+			private AndroidJavaObject jniObj;
 
 			private void Call(string method)
 			{
-				androidInstance.Call(method);
+				jniObj.Call(method);
 			}
 
 			private T Call<T>(string method)
 			{
-				return androidInstance.Call<T>(method);
+				return jniObj.Call<T>(method);
 			}
 
 			public AndroidInterface(GameObject messageReceiver)
 			{
-				androidClass = new AndroidJavaClass("com.trev3d.Camera.CameraReader");
-				androidInstance = androidClass.CallStatic<AndroidJavaObject>("getInstance");
-				androidInstance.Call("setup", messageReceiver.name);
+				jniClass = new AndroidJavaClass("com.trev3d.Camera.CameraReader");
+				jniObj = jniClass.CallStatic<AndroidJavaObject>("create", messageReceiver.name);
 			}
 
 			public void Configure(int index, int width, int height)
 			{
-				androidInstance.Call("configure", index, width, height);
+				jniObj.Call("configure", index, width, height);
 			}
 
 			public void OpenCamera() => Call("open");
@@ -99,17 +96,17 @@ namespace Anaglyph.XRTemplate.CameraReader
 
 			public long GetTimestamp()
 			{
-				return androidInstance.Call<long>("getTimestamp");
+				return jniObj.Call<long>("getTimestamp");
 			}
 
 			public float[] GetCamPoseOnDevice()
 			{
-				return androidInstance.Call<float[]>("getCamPoseOnDevice");
+				return jniObj.Call<float[]>("getCamPoseOnDevice");
 			}
 
 			public float[] GetCamIntrinsics()
 			{
-				return androidInstance.Call<float[]>("getCamIntrinsics");
+				return jniObj.Call<float[]>("getCamIntrinsics");
 			}
 		}
 
@@ -117,7 +114,6 @@ namespace Anaglyph.XRTemplate.CameraReader
 
 		private void Awake()
 		{
-			Instance = this;
 #if !UNITY_EDITOR
 			androidInterface = new AndroidInterface(gameObject);
 #endif
@@ -131,10 +127,10 @@ namespace Anaglyph.XRTemplate.CameraReader
 			{
 				Permission.RequestUserPermission(MetaCameraPermission);
 
-				await Awaitable.WaitForSecondsAsync(0.2f);
-
 				while (!Application.isFocused)
 					await Awaitable.NextFrameAsync();
+
+				await Awaitable.WaitForSecondsAsync(0.2f);
 
 				if (!Permission.HasUserAuthorizedPermission(MetaCameraPermission))
 					return false;
@@ -144,10 +140,10 @@ namespace Anaglyph.XRTemplate.CameraReader
 			{
 				Permission.RequestUserPermission(Permission.Camera);
 
-				await Awaitable.WaitForSecondsAsync(0.2f);
-
 				while (!Application.isFocused)
 					await Awaitable.NextFrameAsync();
+
+				await Awaitable.WaitForSecondsAsync(0.2f);
 
 				if (!Permission.HasUserAuthorizedPermission(Permission.Camera))
 					return false;
@@ -172,18 +168,18 @@ namespace Anaglyph.XRTemplate.CameraReader
 				throw new Exception("Camera does not have permission!");
 
 			androidInterface.Configure(index, width, height);
-			camTex = new Texture2D(width, height, TextureFormat.R8, 1, false);
+			texture = new Texture2D(width, height, TextureFormat.R8, 1, false);
 			bufferSize = width * height;// * 4;
 
 			float[] vals;
 			vals = androidInterface.GetCamPoseOnDevice();
 			Vector3 pos = new(vals[0], vals[1], -vals[2]);
 			Quaternion rot = Quaternion.Inverse(new(-vals[3], -vals[4], vals[5], vals[6])) * Quaternion.Euler(180, 0, 0);
-			camPoseOnDevice = new Pose(pos, rot);
+			hardwarePose = new Pose(pos, rot);
 
 			vals = androidInterface.GetCamIntrinsics();
 
-			camIntrinsics = new Intrinsics
+			hardwareIntrinsics = new Intrinsics
 			{
 				FocalLength = new Vector2(vals[0], vals[1]),
 				PrincipalPoint = new Vector2(vals[2], vals[3]),
@@ -270,11 +266,11 @@ namespace Anaglyph.XRTemplate.CameraReader
 			buffer = androidInterface.GetByteBuffer();
 			if (buffer == default) return;
 
-			camTex.LoadRawTextureData((IntPtr)buffer, bufferSize);
-			camTex.Apply();
-			TimestampNanoseconds = androidInterface.GetTimestamp();
+			texture.LoadRawTextureData((IntPtr)buffer, bufferSize);
+			texture.Apply();
+			TimestampNs = androidInterface.GetTimestamp();
 
-			ImageAvailable.Invoke(camTex);
+			ImageAvailable.Invoke(texture);
 		}
 
 		public struct Intrinsics

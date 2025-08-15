@@ -113,7 +113,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (anchor.IsAnchored)
 			{
 				Pose anchorPose = anchor.transform.GetWorldPose();
-				Colocation.TransformTrackingSpace(anchorPose, anchor.DesiredPose);
+				MainXROrigin.MatchPoseToTarget(anchorPose, anchor.DesiredPose);
 				IsColocated = true;
 			}
 		}

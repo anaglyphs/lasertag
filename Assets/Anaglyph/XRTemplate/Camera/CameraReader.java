@@ -24,8 +24,6 @@ import com.unity3d.player.UnityPlayer;
 
 public class CameraReader {
 
-	public static com.trev3d.Camera.CameraReader instance = null;
-
 	private final Context context;
 	private final CameraManager manager;
 
@@ -68,17 +66,17 @@ public class CameraReader {
 		public void OnImageAvailable() { Call("OnImageAvailable"); }
 	}
 
-	public CameraReader() {
+	public CameraReader(String gameObjectName) {
+		
+		unityInterface = new UnityInterface(gameObjectName);
+
 		context = UnityPlayer.currentContext;
 		manager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
 	}
 
-	public static synchronized com.trev3d.Camera.CameraReader getInstance() {
-		if (instance == null)
-			instance = new com.trev3d.Camera.CameraReader();
-
-		return instance;
-	}
+	public static CameraReader create(String gameObjectName) {
+        return new CameraReader(gameObjectName);
+    }
 
 	private final CameraDevice.StateCallback deviceCallback = new CameraDevice.StateCallback() {
 		@Override

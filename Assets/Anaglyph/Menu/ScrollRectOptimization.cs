@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace EnvisionCenter.LabUI
+namespace Anaglyph.LabUI
 {
 	public class ScrollRectOptimization : MonoBehaviour
 	{

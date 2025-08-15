@@ -2,7 +2,7 @@ using AprilTag;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace EnvisionCenter.XRTemplate.DisplayCapture.AprilTags
+namespace Anaglyph.XRTemplate.AprilTags
 {
 	[SelectionBase]
     public class SimulatedTag : MonoBehaviour

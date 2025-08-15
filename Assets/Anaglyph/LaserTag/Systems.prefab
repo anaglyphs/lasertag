@@ -20,6 +20,8 @@ GameObject:
   - component: {fileID: 3417518868985722032}
   - component: {fileID: 3404404070851454834}
   - component: {fileID: 6533571191635796371}
+  - component: {fileID: 2459850896001473842}
+  - component: {fileID: 7364140641647340021}
   m_Layer: 0
   m_Name: Systems
   m_TagString: Untagged
@@ -284,4 +286,29 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3974b9aa56bda954c903adb0b1b1a236, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  cameraReader: {fileID: 7364140641647340021}
   tagSizeMeters: 0.25
+--- !u!114 &2459850896001473842
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7592662432409998298}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d78354083d4b19b479517e268a4fd2dc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &7364140641647340021
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7592662432409998298}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d78354083d4b19b479517e268a4fd2dc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 

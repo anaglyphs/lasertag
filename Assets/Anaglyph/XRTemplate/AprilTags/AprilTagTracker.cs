@@ -2,17 +2,14 @@ using UnityEngine;
 using AprilTag;
 using System;
 using System.Collections.Generic;
-using UnityEngine.XR;
-using EnvisionCenter.XRTemplate.DisplayCapture.AprilTags;
-using Anaglyph.XRTemplate.CameraReader;
-using Anaglyph.XRTemplate;
+using Anaglyph.XRTemplate.DeviceCameras;
 
-namespace EnvisionCenter.XRTemplate.QuestCV
+namespace Anaglyph.XRTemplate.AprilTags
 {
 	[DefaultExecutionOrder(-1000)]
 	public class AprilTagTracker : MonoBehaviour
 	{
-		public static AprilTagTracker Instance { get; private set; }
+		[SerializeField] private CameraReader cameraReader;
 
 		private TagDetector detector;
 
@@ -26,20 +23,15 @@ namespace EnvisionCenter.XRTemplate.QuestCV
 
 		public double FrameTimestamp { get; private set; }
 
-		private void Awake()
-		{
-			Instance = this;
-		}
-
 		private void OnEnable()
 		{
-			CameraManager.ImageAvailable += OnReceivedNewFrame;
+			cameraReader.ImageAvailable += OnReceivedNewFrame;
 			TrackingLoop();
 		}
 
 		private void OnDisable()
 		{
-			CameraManager.ImageAvailable -= OnReceivedNewFrame;
+			cameraReader.ImageAvailable -= OnReceivedNewFrame;
 			newFrameAvailable = false;
 		}
 
@@ -85,14 +77,14 @@ namespace EnvisionCenter.XRTemplate.QuestCV
 				if (detector == null)
 					detector = new TagDetector(tex.width, tex.height, 1);
 
-				var intrins = CameraManager.Instance.CamIntrinsics;
+				var intrins = cameraReader.HardwareIntrinsics;
 				var fov = 2 * Mathf.Atan((intrins.Resolution.y / 2f) / intrins.FocalLength.y);
 				var size = tagSizeMeters;
 
-				FrameTimestamp = CameraManager.Instance.TimestampNanoseconds * 0.000000001f;
+				FrameTimestamp = cameraReader.TimestampNs * 0.000000001f;
 				OVRPlugin.PoseStatef headPoseState = OVRPlugin.GetNodePoseStateAtTime(FrameTimestamp, OVRPlugin.Node.Head);
 
-				var imgBytes = CameraManager.Instance.CamTex.GetPixelData<byte>(0);
+				var imgBytes = cameraReader.Texture.GetPixelData<byte>(0);
 				await detector.Detect(imgBytes, fov, size);
 
 				worldPoses.Clear();
@@ -100,7 +92,7 @@ namespace EnvisionCenter.XRTemplate.QuestCV
 				// nanoseconds to milliseconds
 				OVRPose headPose = headPoseState.Pose.ToOVRPose();
 				Matrix4x4 viewMat = Matrix4x4.TRS(headPose.position, headPose.orientation, Vector3.one);
-				var lensPose = CameraManager.Instance.CamPoseOnDevice;
+				var lensPose = cameraReader.HardwarePose;
 				Matrix4x4 cameraMat = Matrix4x4.TRS(lensPose.position, lensPose.rotation, Vector3.one);
 				Matrix4x4 cameraRelativeToRig = viewMat * cameraMat;
 				viewMat = MainXROrigin.Transform.localToWorldMatrix * cameraRelativeToRig;

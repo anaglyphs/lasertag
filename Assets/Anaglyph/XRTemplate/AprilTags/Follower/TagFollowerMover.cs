@@ -2,10 +2,12 @@ using AprilTag;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace EnvisionCenter.XRTemplate.QuestCV
+namespace Anaglyph.XRTemplate.AprilTags
 {
 	public class TagFollowerMover : MonoBehaviour
 	{
+		[SerializeField] private AprilTagTracker tracker;
+
 		public static TagFollowerMover Instance { get; private set; }
 
 		public Dictionary<int, TagFollower> allFollowers = new();
@@ -15,8 +17,8 @@ namespace EnvisionCenter.XRTemplate.QuestCV
 			Instance = this;
 		}
 
-		private void OnEnable() => AprilTagTracker.Instance.OnDetectTags += OnDetectTags;
-		private void OnDisable() => AprilTagTracker.Instance.OnDetectTags -= OnDetectTags;
+		private void OnEnable() => tracker.OnDetectTags += OnDetectTags;
+		private void OnDisable() => tracker.OnDetectTags -= OnDetectTags;
 
 		private void OnDetectTags(IEnumerable<TagPose> tagPoses)
 		{
