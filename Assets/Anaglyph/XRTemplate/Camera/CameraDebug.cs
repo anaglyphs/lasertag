@@ -10,7 +10,7 @@ namespace EnvisionCenter.XRTemplate.CameraReader
 		private async void Start()
 		{
 			TryGetComponent(out Renderer renderer);
-			material = new(renderer.material);
+			material = new(renderer.sharedMaterial);
 			renderer.material = material;
 
 			await CameraManager.Instance.Configure(1, 640, 480);

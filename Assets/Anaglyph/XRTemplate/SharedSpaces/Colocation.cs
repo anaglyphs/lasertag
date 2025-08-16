@@ -51,9 +51,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		public static void TransformTrackingSpace(Pose fromPose)
 		 => TransformTrackingSpace(fromPose, new Pose(Vector3.zero, Quaternion.identity));
 
-		public static Pose FlattenPoseRotation(Pose pose)
+		public static Pose FlattenPoseRotation(Pose pose, bool flattenUp = false)
 		{
 			Vector3 forward = pose.rotation * Vector3.forward;
+
+			if(flattenUp && Mathf.Abs(forward.y) > Mathf.Sqrt(2) / 2f)
+				forward = pose.rotation * Vector3.up;
+
 			forward.y = 0f;
 
 			if (forward == Vector3.zero)
@@ -63,14 +67,14 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			return new Pose(pose.position, yOnlyRotation);
 		}
 
-		public static void TransformTrackingSpace(Pose from, Pose to, bool enforceUp = true)
+		public static void TransformTrackingSpace(Pose from, Pose to, bool enforceUp = true, bool flattenUp = false)
 		{
 			var root = MainXROrigin.Transform;
 
 			if(enforceUp)
 			{
-				from = FlattenPoseRotation(from);
-				to = FlattenPoseRotation(to);
+				from = FlattenPoseRotation(from, flattenUp);
+				to = FlattenPoseRotation(to, flattenUp);
 			}
 
 			Matrix4x4 rigMat = Matrix4x4.TRS(root.position, root.rotation, Vector3.one);
@@ -96,14 +100,14 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			root.SetPositionAndRotation(relativeToDesired.GetPosition(), relativeToDesired.rotation);
 		}
 
-		public static void LerpTrackingSpace(Pose from, Pose to, float lerp, bool enforceUp = true)
+		public static void LerpTrackingSpace(Pose from, Pose to, float lerp, bool enforceUp = true, bool flattenUp = false)
 		{
 
 			Pose lerpedPose = new Pose();
 			lerpedPose.position = Vector3.Lerp(from.position, to.position, lerp);
 			lerpedPose.rotation = Quaternion.Lerp(from.rotation, to.rotation, lerp);
 
-			TransformTrackingSpace(from, lerpedPose, enforceUp);
+			TransformTrackingSpace(from, lerpedPose, enforceUp, flattenUp);
 		}
 	}
 }

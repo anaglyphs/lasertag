@@ -22,9 +22,9 @@ namespace EnvisionCenter.XRTemplate.QuestCV
 
 		private List<TagPose> worldPoses = new(10);
 		public IEnumerable<TagPose> WorldPoses => worldPoses;
-		public event Action<IEnumerable<TagPose>> OnDetectTags = delegate { };
+		public event Action<IReadOnlyList<TagPose>> OnDetectTags = delegate { };
 
-		private List<XRNodeState> nodeStates = new();
+		public double FrameTimestamp { get; private set; }
 
 		private void Awake()
 		{
@@ -89,14 +89,15 @@ namespace EnvisionCenter.XRTemplate.QuestCV
 				var fov = 2 * Mathf.Atan((intrins.Resolution.y / 2f) / intrins.FocalLength.y);
 				var size = tagSizeMeters;
 
+				FrameTimestamp = CameraManager.Instance.TimestampNanoseconds * 0.000000001f;
+				OVRPlugin.PoseStatef headPoseState = OVRPlugin.GetNodePoseStateAtTime(FrameTimestamp, OVRPlugin.Node.Head);
+
 				var imgBytes = CameraManager.Instance.CamTex.GetPixelData<byte>(0);
-				await detector.SchedulePoseEstimationJob(imgBytes, fov, size);
+				await detector.Detect(imgBytes, fov, size);
 
 				worldPoses.Clear();
 
 				// nanoseconds to milliseconds
-				var timestamp = CameraManager.Instance.TimestampNanoseconds * 0.000000001f;
-				OVRPlugin.PoseStatef headPoseState = OVRPlugin.GetNodePoseStateAtTime(timestamp, OVRPlugin.Node.Head);
 				OVRPose headPose = headPoseState.Pose.ToOVRPose();
 				Matrix4x4 viewMat = Matrix4x4.TRS(headPose.position, headPose.orientation, Vector3.one);
 				var lensPose = CameraManager.Instance.CamPoseOnDevice;

@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace EnvisionCenter.XRTemplate.DisplayCapture.AprilTags
 {
+	[SelectionBase]
     public class SimulatedTag : MonoBehaviour
     {
         public int tagId = 0;

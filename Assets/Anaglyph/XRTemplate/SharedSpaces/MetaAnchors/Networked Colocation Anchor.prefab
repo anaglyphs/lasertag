@@ -15,7 +15,7 @@ GameObject:
   - component: {fileID: -1500784526931333930}
   - component: {fileID: 471741878431666474}
   - component: {fileID: 6727088059367313208}
-  - component: {fileID: 1980866231862824632}
+  - component: {fileID: 3393283916453621078}
   m_Layer: 0
   m_Name: Networked Colocation Anchor
   m_TagString: Untagged
@@ -155,7 +155,7 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!114 &1980866231862824632
+--- !u!114 &3393283916453621078
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -164,25 +164,6 @@ MonoBehaviour:
   m_GameObject: {fileID: 6151402896905020864}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bce009f3c9554aa4caeca764c4245fea, type: 3}
+  m_Script: {fileID: 11500000, guid: 50018297c8850064aa9aa8ac4cdbfbf3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  scriptableVariable: {fileID: 11400000, guid: c5a8519e7fbfe9b4cbf5f0d64d48bda1, type: 2}
-  onChange:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 6727088059367313208}
-        m_TargetAssemblyTypeName: UnityEngine.Renderer, UnityEngine
-        m_MethodName: set_enabled
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-  beforeChange:
-    m_PersistentCalls:
-      m_Calls: []

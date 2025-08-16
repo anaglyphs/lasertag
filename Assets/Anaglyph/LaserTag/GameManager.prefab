@@ -35,8 +35,7 @@ Transform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 7849511789531832086}
+  m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &3319629619306386294
@@ -78,8 +77,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 0
   useAprilTagColocation: {fileID: 11400000, guid: 47b47a4c1dcf98e4a9c4022fa9722c2b, type: 2}
-  metaAnchorColocator: {fileID: 1903966757991957580}
-  aprilTagColocator: {fileID: 7899954696120425326}
+  aprilTagSizeOption: {fileID: 11400000, guid: 82699730f4d9ee247857edb33a942db4, type: 2}
 --- !u!114 &1903966757991957580
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -102,12 +100,20 @@ MonoBehaviour:
   m_GameObject: {fileID: 325363287343033227}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8ad45ccdfaca2e3448b1f5bc3e270db1, type: 3}
+  m_Script: {fileID: 11500000, guid: 57b4e9b1012013c4cabd8ad8b87de3f9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  tagIndicator: {fileID: 7849511789531832086}
+  ShowTopMostFoldoutHeaderGroup: 1
+  tagLerp: 0.1
+  texSize: {x: 1280, y: 960}
+  lockDistanceScale: 15
+  maxHeadSpeed: 0.2
+  maxHeadAngSpeed: 0.2
+  indicatorMesh: {fileID: -5322466972774305626, guid: 3a88f3fb66ef78745a11363b74fe2cd4, type: 3}
+  indicatorMaterial: {fileID: 2100000, guid: 27f6747ba6952684fbfb2d2135976c96, type: 2}
+  debugPointMesh: {fileID: 289301614986012343, guid: fd00829a26dc9fc4280b779bc4e1a4b7, type: 3}
+  debugMaterial: {fileID: 2100000, guid: 0d26ad5852d65e9449287a73ea132e72, type: 2}
   tagSize: 0.1
-  iterativeLerp: 0.03
 --- !u!114 &1319307689243415292
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -234,53 +240,3 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
---- !u!1001 &6094861085276504577
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 2338726735730229642}
-    m_Modifications:
-    - target: {fileID: 3530447018555636591, guid: ba1330d76aa0e456baf97e3d13c40427, type: 3}
-      propertyPath: m_Name
-      value: Tag Indicator
-      objectReference: {fileID: 0}
-    - target: {fileID: 4069664990272625943, guid: ba1330d76aa0e456baf97e3d13c40427, type: 3}
-      propertyPath: m_LocalScale.x
-      value: 0.1
-      objectReference: {fileID: 0}
-    - target: {fileID: 4069664990272625943, guid: ba1330d76aa0e456baf97e3d13c40427, type: 3}
-      propertyPath: m_LocalScale.y
-      value: 0.1
-      objectReference: {fileID: 0}
-    - target: {fileID: 4069664990272625943, guid: ba1330d76aa0e456baf97e3d13c40427, type: 3}
-      propertyPath: m_LocalScale.z
-      value: 0.1
-      objectReference: {fileID: 0}
-    - target: {fileID: 4069664990272625943, guid: ba1330d76aa0e456baf97e3d13c40427, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4069664990272625943, guid: ba1330d76aa0e456baf97e3d13c40427, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4069664990272625943, guid: ba1330d76aa0e456baf97e3d13c40427, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4069664990272625943, guid: ba1330d76aa0e456baf97e3d13c40427, type: 3}
-      propertyPath: m_ConstrainProportionsScale
-      value: 1
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: ba1330d76aa0e456baf97e3d13c40427, type: 3}
---- !u!4 &7849511789531832086 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 4069664990272625943, guid: ba1330d76aa0e456baf97e3d13c40427, type: 3}
-  m_PrefabInstance: {fileID: 6094861085276504577}
-  m_PrefabAsset: {fileID: 0}

@@ -118,7 +118,9 @@ namespace Anaglyph.XRTemplate.CameraReader
 		private void Awake()
 		{
 			Instance = this;
+#if !UNITY_EDITOR
 			androidInterface = new AndroidInterface(gameObject);
+#endif
 		}
 
 		private const string MetaCameraPermission = "horizonos.permission.HEADSET_CAMERA";
@@ -161,6 +163,11 @@ namespace Anaglyph.XRTemplate.CameraReader
 
 		public async Task Configure(int index, int width, int height)
 		{
+#if UNITY_EDITOR
+			IsConfigured = true;
+			return;
+#endif
+
 			if (!await PermissionCheck())
 				throw new Exception("Camera does not have permission!");
 
@@ -195,7 +202,9 @@ namespace Anaglyph.XRTemplate.CameraReader
 			if (!IsConfigured)
 				throw new ConfiguredException("CameraManager is not yet configured! You must first call " + nameof(Configure));
 
+#if !UNITY_EDITOR
 			androidInterface.OpenCamera();
+#endif
 
 			ShouldDeviceBeOpen = true;
 		}
@@ -207,7 +216,9 @@ namespace Anaglyph.XRTemplate.CameraReader
 
 			ShouldDeviceBeOpen = false;
 
+#if !UNITY_EDITOR
 			androidInterface.CloseCamera();
+#endif
 		}
 
 		// Messages sent from Android

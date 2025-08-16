@@ -4,9 +4,6 @@ namespace Anaglyph.Lasertag
 {
     public class WarningMenu : MonoBehaviour
     {
-        void Start()
-        {
-        
-        }
+
     }
 }

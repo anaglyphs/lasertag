@@ -64,14 +64,20 @@ namespace AprilTag
 		//	RunDetectorAndEstimator(fov, tagSize);
 		//}
 
-		public async Task SchedulePoseEstimationJob(NativeArray<byte> imgBytes, float fov, float tagSize)
+		public async Task Detect(NativeArray<byte> imgBytes, float fov, float tagSize)
 		{
 			imgBytes.AsReadOnlySpan().CopyTo(_image.Buffer);
 
 			_profileData = null;
 
 			// Run the AprilTag detector.
-			using var tags = _detector.Detect(_image);
+
+			Interop.DetectionArray tags = await Task.Run(() =>
+			{
+				// Thread-safety check: this assumes _detector is not accessed anywhere else concurrently
+				return _detector.Detect(_image);
+			});
+
 			var tagCount = tags.Length;
 
 			// Convert the detector output into a NativeArray to make them
