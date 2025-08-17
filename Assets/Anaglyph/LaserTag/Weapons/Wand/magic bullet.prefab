@@ -466,7 +466,7 @@ GameObject:
   - component: {fileID: 8300938572300836486}
   - component: {fileID: 9032517765297558978}
   - component: {fileID: 1560945118965111198}
-  - component: {fileID: 129332265619541893}
+  - component: {fileID: 7268171837924407937}
   m_Layer: 0
   m_Name: hit marker
   m_TagString: Untagged
@@ -542,7 +542,7 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!114 &129332265619541893
+--- !u!114 &7268171837924407937
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -551,25 +551,6 @@ MonoBehaviour:
   m_GameObject: {fileID: 6039689287547379617}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bce009f3c9554aa4caeca764c4245fea, type: 3}
+  m_Script: {fileID: 11500000, guid: 50018297c8850064aa9aa8ac4cdbfbf3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  scriptableVariable: {fileID: 11400000, guid: c5a8519e7fbfe9b4cbf5f0d64d48bda1, type: 2}
-  onChange:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 6039689287547379617}
-        m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
-        m_MethodName: SetActive
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-  beforeChange:
-    m_PersistentCalls:
-      m_Calls: []

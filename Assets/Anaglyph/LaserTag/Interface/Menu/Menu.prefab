@@ -1852,35 +1852,27 @@ MonoBehaviour:
     m_Processors: 
     m_Interactions: 
     m_SingletonActionBindings:
-    - m_Name: One Modifier
-      m_Id: 8f61018a-6d24-4343-b82c-651d361a9b92
-      m_Path: OneModifier
+    - m_Name: 
+      m_Id: b4049bc0-f44d-43ba-9668-210398e5ab5f
+      m_Path: '*/{Primary2DAxisClick}'
       m_Interactions: 
       m_Processors: 
       m_Groups: 
       m_Action: Show Menu
-      m_Flags: 4
-    - m_Name: modifier
-      m_Id: 85e2d356-63ab-458e-9405-4b201fcb0521
-      m_Path: <XRController>{RightHand}/{Primary2DAxisClick}
+      m_Flags: 0
+    - m_Name: 
+      m_Id: ede691fa-96f0-4c11-a101-e76086e336ad
+      m_Path: <XRController>/{Menu}
       m_Interactions: 
       m_Processors: 
       m_Groups: 
       m_Action: Show Menu
-      m_Flags: 8
-    - m_Name: binding
-      m_Id: ee511190-bdc9-481d-a082-032f29c6e6de
-      m_Path: <XRController>{LeftHand}/{Primary2DAxisClick}
-      m_Interactions: 
-      m_Processors: 
-      m_Groups: 
-      m_Action: Show Menu
-      m_Flags: 8
+      m_Flags: 0
     m_Flags: 0
   componentsDisabledWhileVisible: []
   objectsInactiveWhileVisible: []
   offset: {x: 0, y: -0.4, z: 1}
-  visibleOnStart: 0
+  visibleOnStart: 1
 --- !u!114 &9112859745202624927
 MonoBehaviour:
   m_ObjectHideFlags: 0
