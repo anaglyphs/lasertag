@@ -53,13 +53,13 @@ MonoBehaviour:
   GlobalObjectIdHash: 3585226305
   InScenePlacedSourceGlobalObjectIdHash: 3585226305
   DeferredDespawnTick: 0
-  Ownership: 3
+  Ownership: 8
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 0
   ActiveSceneSynchronization: 0
   SceneMigrationSynchronization: 0
   SpawnWithObservers: 1
-  DontDestroyWithOwner: 0
+  DontDestroyWithOwner: 1
   AutoObjectParentSync: 1
   SyncOwnerTransformWhenParented: 0
   AllowOwnerToParent: 0
@@ -104,7 +104,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
-  tagLerp: 0.1
+  tagLerp: 0.5
   texSize: {x: 1280, y: 960}
   lockDistanceScale: 15
   maxHeadSpeed: 0.2

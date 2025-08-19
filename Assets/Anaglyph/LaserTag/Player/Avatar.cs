@@ -27,6 +27,9 @@ namespace Anaglyph.Lasertag.Networking
 		public bool IsAlive => isAliveSync.Value;
 		public NetworkVariable<bool> isAliveSync = new();
 
+		public bool IsParticipating => isParticipatingSync.Value;
+		public NetworkVariable<bool> isParticipatingSync = new();
+
 		public static Dictionary<ulong, Avatar> AllPlayers { get; private set; } = new();
 		public static List<Avatar> OtherPlayers { get; private set; } = new();
 

@@ -43,7 +43,7 @@ namespace Anaglyph.Lasertag
 		// todo move this into another component. this really doesn't belong here
 		private OVRPassthroughLayer passthroughLayer;
 		[SerializeField] private BoolObject redDamageVision;
-		//[SerializeField] private BoolObject participatingInGames;
+		[SerializeField] private BoolObject participatingInGames;
 
 		private void Awake()
 		{
@@ -55,7 +55,7 @@ namespace Anaglyph.Lasertag
 		private void Start()
 		{
 			NetworkManager.Singleton.OnConnectionEvent += HandleConnectionEvent;
-			//participatingInGames.onChange += HandleParticipatingChange;
+			participatingInGames.onChange += HandleParticipatingChange;
 		}
 
 		private void OnDestroy()
@@ -63,28 +63,20 @@ namespace Anaglyph.Lasertag
 			if(NetworkManager.Singleton != null)
 				NetworkManager.Singleton.OnConnectionEvent -= HandleConnectionEvent;
 
-			//participatingInGames.onChange -= HandleParticipatingChange;
+			participatingInGames.onChange -= HandleParticipatingChange;
 		}
 
 		private void HandleConnectionEvent(NetworkManager manager, ConnectionEventData eventData)
 		{
-			if(NetcodeHelpers.ThisClientConnected(eventData))
+			if(NetworkHelper.ThisClientConnected(eventData))
 				SpawnAvatar();
 		}
 
-		//private void HandleParticipatingChange(bool b) => HandleAvatar();
-
-		//private void HandleAvatar()
-		//{
-		//	if (participatingInGames && avatar == null)
-		//	{
-		//		SpawnAvatar();
-		//	}
-		//	else if (avatar != null)
-		//	{
-		//		avatar.NetworkObject.Despawn();
-		//	}
-		//}
+		private void HandleParticipatingChange(bool b)
+		{
+			if(avatar != null)
+				avatar.isParticipatingSync.Value = b;
+		}
 
 		private void SpawnAvatar()
 		{
@@ -97,10 +89,14 @@ namespace Anaglyph.Lasertag
 
 			avatar = avatarObject.GetComponent<Networking.Avatar>();
 			avatar.TeamOwner.OnTeamChange.AddListener(TeamChanged.Invoke);
+			avatar.isParticipatingSync.Value = participatingInGames.Value;
 		}
 
 		public void Damage(float damage, ulong damagedBy)
 		{
+			if (!participatingInGames.Value)
+				return;
+
 			Damaged.Invoke();
 			Health -= damage;
 
@@ -112,6 +108,9 @@ namespace Anaglyph.Lasertag
 
 		public void Kill(ulong killedBy)
 		{
+			if (!participatingInGames.Value)
+				return;
+
 			if (!IsAlive) return;
 
 			WeaponsManagement.canFire = false;
@@ -189,16 +188,22 @@ namespace Anaglyph.Lasertag
 
 			// bases
 			IsInFriendlyBase = false;
-			foreach (Base b in Base.AllBases)
+			if (participatingInGames.Value)
 			{
-				if (b.Team != avatar.Team)
-					continue;
+				foreach (Base b in Base.AllBases)
+				{
+					if (b.Team != avatar.Team)
+						continue;
 
-				if (!Geo.PointIsInCylinder(b.transform.position, Base.Radius, 3, headTransform.position))
-					continue;
+					if (!Geo.PointIsInCylinder(b.transform.position, Base.Radius, 3, headTransform.position))
+						continue;
 
+					IsInFriendlyBase = true;
+					break;
+				}
+			} else
+			{
 				IsInFriendlyBase = true;
-				break;
 			}
 
 			// network player transforms

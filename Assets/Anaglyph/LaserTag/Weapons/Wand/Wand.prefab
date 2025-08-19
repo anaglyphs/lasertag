@@ -60,14 +60,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0cc51126e1d80284d8332d6f6da1c1f2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  boltPrefab: {fileID: 1486168899473020810, guid: f9776ff1c67962b4c824fbb35290c86b, type: 3}
-  shieldPrefab: {fileID: 1097153723754889566, guid: 99cad7c1437f877499006150b11817a9, type: 3}
   emitFromTransform: {fileID: 8779354261685094304}
   onFire:
     m_PersistentCalls:
       m_Calls: []
-  fireWord: cast
-  shieldWord: shield
+  spells:
+  - fireball
+  - lightning
+  - shield
+  - missile
+  spellSpawns:
+  - {fileID: 1600935773405370644, guid: 08657e0e2cf0fbc4298a78a52365eb1b, type: 3}
+  - {fileID: 4590543788176844566, guid: 24eba45a1a5dd75498edce21ca888391, type: 3}
+  - {fileID: 1097153723754889566, guid: 99cad7c1437f877499006150b11817a9, type: 3}
+  - {fileID: 1486168899473020810, guid: f9776ff1c67962b4c824fbb35290c86b, type: 3}
 --- !u!1 &8121063855215823036
 GameObject:
   m_ObjectHideFlags: 0

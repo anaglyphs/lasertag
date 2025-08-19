@@ -9,7 +9,6 @@ using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.UIElements;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
@@ -57,7 +56,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private async void Start()
 		{
-			manager.OnClientConnectedCallback += OnClientConnected;
 			await EnsureConfigured();
 		}
 
@@ -66,30 +64,31 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (!colocationActive)
 				return;
 
-			Vector3 scale;
-
-			if (tags != null)
-			{
-				scale = Vector3.one * tagSize * 3;
-				Color color = Color.white;
-
-				foreach (TagPose tagPose in tags)
-				{
-					if (IsOwner)
-					{
-						bool tagRegistered = canonTags.ContainsKey(tagPose.ID);
-						color = tagRegistered ? Color.green : Color.yellow;
-					}
-
-					mpb.SetColor(BaseColorID, color);
-
-					var model = Matrix4x4.TRS(tagPose.Position, tagPose.Rotation, scale);
-					cmd.DrawMesh(indicatorMesh, model, indicatorMaterial, 0, 0, mpb);
-				}
-			}
-
 			if (Anaglyph.DebugMode)
 			{
+
+				Vector3 scale;
+
+				if (tags != null)
+				{
+					scale = Vector3.one * tagSize * 3;
+					Color color = Color.white;
+
+					foreach (TagPose tagPose in tags)
+					{
+						if (IsOwner)
+						{
+							bool tagRegistered = canonTags.ContainsKey(tagPose.ID);
+							color = tagRegistered ? Color.green : Color.yellow;
+						}
+
+						mpb.SetColor(BaseColorID, color);
+
+						var model = Matrix4x4.TRS(tagPose.Position, tagPose.Rotation, scale);
+						cmd.DrawMesh(indicatorMesh, model, indicatorMaterial, 0, 0, mpb);
+					}
+				}
+
 				scale = Vector3.one * 0.03f;
 				mpb.SetColor(BaseColorID, Color.green);
 				foreach (Vector3 canonTagPos in canonTags.Values)
@@ -111,31 +110,35 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 		}
 
-		[Rpc(SendTo.Everyone)]
+		[Rpc(SendTo.Everyone, Delivery = RpcDelivery.Reliable)]
 		private void RegisterCanonTagRpc(int id, Vector3 canonicalPosition)
 		{
 			canonTags[id] = canonicalPosition;
 		}
 
-		[Rpc(SendTo.SpecifiedInParams)]
+		[Rpc(SendTo.SpecifiedInParams, Delivery = RpcDelivery.Reliable)]
 		private void SyncCanonTagsRpc(int[] id, Vector3[] positions, RpcParams rpcParams = default)
 		{
 			for (int i = 0; i < id.Length; i++)
 				canonTags[id[i]] = positions[i];
 		}
 
-		private void OnClientConnected(ulong id)
+		[Rpc(SendTo.Owner)]
+		private void RetrieveCanonTagsRpc(ulong id)
 		{
-			if (IsOwner && id != manager.LocalClientId)
-			{
-				int[] keys = new int[canonTags.Count];
-				Vector3[] values = new Vector3[canonTags.Count];
+			int[] keys = new int[canonTags.Count];
+			Vector3[] values = new Vector3[canonTags.Count];
 
-				canonTags.Keys.CopyTo(keys, 0);
-				canonTags.Values.CopyTo(values, 0);
+			canonTags.Keys.CopyTo(keys, 0);
+			canonTags.Values.CopyTo(values, 0);
 
-				SyncCanonTagsRpc(keys, values, RpcTarget.Single(id, RpcTargetUse.Temp));
-			}
+			SyncCanonTagsRpc(keys, values, RpcTarget.Single(id, RpcTargetUse.Temp));
+		}
+
+		public override void OnNetworkSpawn()
+		{
+			if (!IsOwner)
+				RetrieveCanonTagsRpc(manager.LocalClientId);
 		}
 
 		private async Task EnsureConfigured()
@@ -215,7 +218,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					sharedCanonPositions.ToArray(), float4x4.identity);
 
 				trackingSpace = delta * trackingSpace;
-				
+
 				MainXROrigin.Transform.position = trackingSpace.GetPosition();
 				MainXROrigin.Transform.rotation = trackingSpace.rotation;
 
@@ -238,7 +241,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			Vector3 headPos = MainXROrigin.Instance.Camera.transform.position;
 			return Vector3.Distance(headPos, globalPos) < tagSize * lockDistanceScale;
 		}
-		
+
 		private void OnDetectTags(IReadOnlyList<TagPose> results)
 		{
 			if (!colocationActive)
@@ -253,9 +256,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				Matrix4x4 worldToTracking = MainXROrigin.Transform.worldToLocalMatrix;
 				Vector3 localPos = worldToTracking.MultiplyPoint(globalPos);
 
-				if(localTags.TryGetValue(result.ID, out Vector3 value))
+				if (localTags.TryGetValue(result.ID, out Vector3 value))
 					localPos = Vector3.Lerp(value, localPos, tagLerp);
-				
+
 				localTags[result.ID] = localPos;
 
 				if (IsOwner)
@@ -295,6 +298,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			tagsLocked.Clear();
 			canonTags.Clear();
 			localTags.Clear();
-	}
+		}
 	}
 }

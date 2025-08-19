@@ -98,7 +98,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7592662432409998298}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 28ed39932787e4745ab5df6d52d1bc11, type: 3}
   m_Name: 
@@ -121,9 +121,13 @@ MonoBehaviour:
   - Prefab: {fileID: 6335627118381249066, guid: adc581b48dccfb24ebccf6aaa9b8df75, type: 3}
     PrewarmCount: 50
   - Prefab: {fileID: 1486168899473020810, guid: f9776ff1c67962b4c824fbb35290c86b, type: 3}
-    PrewarmCount: 5
+    PrewarmCount: 10
   - Prefab: {fileID: 1097153723754889566, guid: 99cad7c1437f877499006150b11817a9, type: 3}
-    PrewarmCount: 5
+    PrewarmCount: 10
+  - Prefab: {fileID: 1600935773405370644, guid: 08657e0e2cf0fbc4298a78a52365eb1b, type: 3}
+    PrewarmCount: 10
+  - Prefab: {fileID: 4590543788176844566, guid: 24eba45a1a5dd75498edce21ca888391, type: 3}
+    PrewarmCount: 10
 --- !u!114 &1236109553123837729
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -305,13 +309,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ModelPath: vosk-model-small-en-us-0.15.zip
   VoiceProcessor: {fileID: 7457151206437038759}
-  MaxAlternatives: 3
+  MaxAlternatives: 0
   MaxRecordLength: 1
   AutoStart: 1
   KeyPhrases:
-  - cast
+  - fireball
+  - lightning
   - shield
-  - block
+  - missile
 --- !u!114 &7457151206437038759
 MonoBehaviour:
   m_ObjectHideFlags: 0

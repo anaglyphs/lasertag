@@ -33,6 +33,8 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private NavPage manuallyConnectPage = null;
 		[SerializeField] private InputField ipField = null;
 		[SerializeField] private Button connectButton = null;
+		[SerializeField] private InputField roomField = null;
+		[SerializeField] private Button roomConnectButton = null;
 
 		[Header(nameof(sessionPage))]
 		[SerializeField] private NavPage sessionPage = null;
@@ -56,24 +58,13 @@ namespace Anaglyph.Lasertag
 			manager.OnConnectionEvent += OnConnectionEvent;
 			manager.OnClientStarted += OnClientStarted;
 
-			navView.onPageChange.AddListener(delegate (NavPage page)
-			{
-				if (page == manuallyConnectPage)
-				{
-					AutomaticNetworkConnector.Instance.enabled = false;
-				} else
-				{
-					AutomaticNetworkConnector.Instance.enabled = true;
-				}
-			});
-
 			// home page
 			hostButton.onClick.AddListener(Host);
 
 			// manually connect page
 			manuallyConnectPage.showBackButton = true;
 
-			string ip = NetcodeHelpers.GetLocalIPv4();
+			string ip = NetworkHelper.GetLocalIPv4();
 
 #if UNITY_EDITOR
 			ip = "127.0.0.1";
@@ -83,6 +74,7 @@ namespace Anaglyph.Lasertag
 			ipField.text = ip.Substring(0, length);
 
 			connectButton.onClick.AddListener(() => NetworkHelper.ConnectLAN(ipField.text));
+			roomConnectButton.onClick.AddListener(() => NetworkHelper.StartOrJoinByNameAsync(roomField.text));
 
 			// connecting page
 			sessionPage.showBackButton = false;
@@ -120,7 +112,7 @@ namespace Anaglyph.Lasertag
 
 		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
 		{
-			if (NetcodeHelpers.ThisClientConnected(data))
+			if (NetworkHelper.ThisClientConnected(data))
 				OpenSessionPage(SessionState.Colocating);
 		}
 

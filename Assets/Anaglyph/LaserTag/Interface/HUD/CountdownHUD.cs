@@ -25,7 +25,7 @@ namespace Anaglyph.Lasertag
 
 			if (showCountdownOnCountdownText)
 			{
-				countdownText.text = string.Format($"{0,3:N1}", countdownTime + 1.0f);
+				countdownText.text = string.Format($"{Mathf.CeilToInt(countdownTime)}");
 			}
 		}
 

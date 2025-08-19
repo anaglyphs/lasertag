@@ -51,7 +51,7 @@ namespace Anaglyph.Lasertag
 				pointsPerSecondHoldingPoint = 1,
 
 				winCondition = WinCondition.Timer,
-				timerSeconds = 60 * 5,
+				timerSeconds = 60 * 2,
 			};
 		}
 
@@ -125,7 +125,9 @@ namespace Anaglyph.Lasertag
 			
 			matchStateSync.OnValueChanged += OnStateUpdateLocally;
 
-			OnStateUpdateLocally(MatchState.NotPlaying, MatchState.NotPlaying);
+			MainPlayer.Instance.Respawn();
+			if (IsOwner)
+				matchSettingsSync.Value = MatchSettings.Lobby();
 		}
 
 		private void Update()
@@ -217,7 +219,7 @@ namespace Anaglyph.Lasertag
 
 					foreach (Networking.Avatar player in Networking.Avatar.AllPlayers.Values)
 					{
-						if (player.IsInBase)
+						if (player.IsInBase || !player.IsParticipating)
 							numPlayersInbase++;
 					}
 

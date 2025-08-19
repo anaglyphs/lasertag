@@ -37,11 +37,11 @@ namespace Anaglyph.Lasertag
 
 		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
 		{
-			if (NetcodeHelpers.ThisClientConnected(data))
+			if (NetworkHelper.ThisClientConnected(data))
 			{
 				UpdateVisibilityOfNetworkOnlyObjects(true);
 			}
-			else if (NetcodeHelpers.ThisClientDisconnected(data))
+			else if (NetworkHelper.ThisClientDisconnected(data))
 			{
 				UpdateVisibilityOfNetworkOnlyObjects(false);
 

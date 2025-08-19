@@ -12,6 +12,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		public static AutomaticNetworkConnector Instance { get; private set; }
 
 		private static NetworkManager manager => NetworkManager.Singleton;
+		private static IMultiplayerService service => MultiplayerService.Instance;
 		private static UnityTransport transport => (UnityTransport) NetworkManager.Singleton.NetworkConfig.NetworkTransport;
 
 		private static string LogHeader = "[AutoJoiner] ";
@@ -20,29 +21,16 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private static string LanPrefix = "IP:";
 		private static string RelayPrefix = "Relay:";
 
-		private void Start()
+		private async void Start()
 		{
 			manager.OnClientStarted += OnClientStarted;
+			manager.OnConnectionEvent += OnConnectionEvent;
 			manager.OnClientStopped += OnClientStopped;
+
 			OVRColocationSession.ColocationSessionDiscovered += HandleColocationSessionDiscovered;
 
-			HandleChange();
-		}
-
-		private void OnEnable() => HandleChange();
-		private void OnDisable() => HandleChange();
-
-		private void OnClientStarted() => HandleChange();
-		private void OnClientStopped(bool b) => HandleChange();
-
-#if !UNITY_EDITOR
-		private void OnApplicationFocus(bool focus) => HandleChange();
-		private void OnApplicationPause(bool pause) => HandleChange();
-#endif
-
-		private void Awake()
-		{
-			Instance = this;
+			Log("Starting discovery");
+			await OVRColocationSession.StartDiscoveryAsync();
 		}
 
 		private void OnDestroy()
@@ -50,42 +38,27 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (manager != null)
 			{
 				manager.OnClientStarted -= OnClientStarted;
+				manager.OnConnectionEvent -= OnConnectionEvent;
 				manager.OnClientStopped -= OnClientStopped;
 			}
 
 			OVRColocationSession.ColocationSessionDiscovered -= HandleColocationSessionDiscovered;
 		}
 
-		private void HandleChange()
-		{
-
-			if (!enabled 
-#if !UNITY_EDITOR
-				|| !Application.isFocused
-#endif
-				)
-			{
-				Log("Stopping both discovery and advertisement");
-				OVRColocationSession.StopDiscoveryAsync();
-				OVRColocationSession.StopAdvertisementAsync();
-			}
-			else
-			{
-				if (manager == null)
-					return;
-
-				if (manager.IsListening)
-					ClientStarted();
-				else
-					ClientStopped();
-			}
-		}
-
-		private async void ClientStarted()
+		private async void OnClientStarted()
 		{
 			Log("Stopping discovery");
 			await OVRColocationSession.StopDiscoveryAsync();
+		}
 
+		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData eventData)
+		{
+			if (NetworkHelper.ThisClientConnected(eventData))
+				OnClientConnected();
+		}
+
+		private async void OnClientConnected()
+		{
 			string message = "";
 
 			switch (transport.Protocol)
@@ -104,25 +77,47 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					break;
 			}
 
-			if (manager.IsHost || transport.Protocol == UnityTransport.ProtocolType.RelayUnityTransport)
-			{
-				Log($"Starting advertisement {message}");
-				await OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(message));
-			}
+			Log($"Starting advertisement {message}");
+			await OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(message));
 		}
 
-		private async void ClientStopped()
+		private async void OnClientStopped(bool isHost)
 		{
 			Log("Stopping advertisement");
 			await OVRColocationSession.StopAdvertisementAsync();
 
-			await Awaitable.WaitForSecondsAsync(0.5f);
+			await Awaitable.WaitForSecondsAsync(5);
 
-			Log("Starting discovery");
-			await OVRColocationSession.StartDiscoveryAsync();
+			if (!manager.IsListening)
+			{
+				Log("Starting discovery");
+				await OVRColocationSession.StartDiscoveryAsync();
+			}
 		}
 
-		private void HandleColocationSessionDiscovered(OVRColocationSession.Data data)
+#if !UNITY_EDITOR
+		private void OnApplicationFocus(bool focus) => OnApplicationFocusChanged();
+		private void OnApplicationPause(bool pause) => OnApplicationFocusChanged();
+#endif
+
+		private async void OnApplicationFocusChanged()
+		{
+			if (Application.isFocused)
+			{
+				if (manager.IsConnectedClient)
+					OnClientConnected();
+				else
+					await OVRColocationSession.StartDiscoveryAsync();
+			} else
+			{
+				if (manager.IsConnectedClient)
+					await OVRColocationSession.StopAdvertisementAsync();
+				else
+					await OVRColocationSession.StopDiscoveryAsync();
+			}
+		}
+
+		private async void HandleColocationSessionDiscovered(OVRColocationSession.Data data)
 		{
 			string message = Encoding.ASCII.GetString(data.Metadata);
 			Log($"Discovered {message}");
@@ -135,7 +130,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				NetworkHelper.ConnectLAN(message.Remove(0, LanPrefix.Length));
 			} else if(message.StartsWith(RelayPrefix))
 			{
-				NetworkHelper.ConnectUnityServices(message.Remove(0, RelayPrefix.Length));
+				await NetworkHelper.ConnectUnityServices(message.Remove(0, RelayPrefix.Length));
 			}
 		}
 	}
