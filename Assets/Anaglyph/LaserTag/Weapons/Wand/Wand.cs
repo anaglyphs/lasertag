@@ -20,17 +20,6 @@ public class Wand : MonoBehaviour
 		voskRecognition = FindAnyObjectByType<VoskRecognition>();
 	}
 
-	private void Start()
-	{
-		
-	}
-
-	private void OnEnable()
-	{
-		if(didStart && !voskRecognition.VoiceProcessor.IsRecording)
-			voskRecognition.StartVoskStt();
-	}
-
 	private int start = 0;
 
 	private void Update()

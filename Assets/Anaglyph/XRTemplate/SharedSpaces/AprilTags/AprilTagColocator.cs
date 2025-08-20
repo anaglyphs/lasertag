@@ -123,7 +123,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				canonTags[id[i]] = positions[i];
 		}
 
-		[Rpc(SendTo.Owner)]
+		[Rpc(SendTo.Everyone, Delivery = RpcDelivery.Reliable)]
+		public void ClearCanonTagsRpc()
+		{
+			canonTags.Clear();
+		}
+
+		[Rpc(SendTo.Owner, Delivery = RpcDelivery.Reliable)]
 		private void RetrieveCanonTagsRpc(ulong id)
 		{
 			int[] keys = new int[canonTags.Count];

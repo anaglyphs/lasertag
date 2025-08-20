@@ -59,26 +59,32 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private async void OnClientConnected()
 		{
-			string message = "";
+			//string message = "";
 
-			switch (transport.Protocol)
+			//switch (transport.Protocol)
+			//{
+			//	case UnityTransport.ProtocolType.UnityTransport:
+
+			//		string address = transport.ConnectionData.Address;
+			//		message = LanPrefix + address;
+			//		break;
+
+			//	case UnityTransport.ProtocolType.RelayUnityTransport:
+
+			//		var sessionIds = await MultiplayerService.Instance.GetJoinedSessionIdsAsync();
+			//		message = RelayPrefix + sessionIds[sessionIds.Count - 1];
+
+			//		break;
+			//}
+
+			if (transport.Protocol == UnityTransport.ProtocolType.UnityTransport)
 			{
-				case UnityTransport.ProtocolType.UnityTransport:
+				string address = transport.ConnectionData.Address;
+				string message = LanPrefix + address;
 
-					string address = transport.ConnectionData.Address;
-					message = LanPrefix + address;
-					break;
-
-				case UnityTransport.ProtocolType.RelayUnityTransport:
-
-					var sessionIds = await MultiplayerService.Instance.GetJoinedSessionIdsAsync();
-					message = RelayPrefix + sessionIds[sessionIds.Count - 1];
-
-					break;
+				Log($"Starting advertisement {message}");
+				await OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(message));
 			}
-
-			Log($"Starting advertisement {message}");
-			await OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(message));
 		}
 
 		private async void OnClientStopped(bool isHost)
@@ -128,10 +134,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if(message.StartsWith(LanPrefix))
 			{
 				NetworkHelper.ConnectLAN(message.Remove(0, LanPrefix.Length));
-			} else if(message.StartsWith(RelayPrefix))
-			{
-				await NetworkHelper.ConnectUnityServices(message.Remove(0, RelayPrefix.Length));
-			}
+			} 
+			//else if(message.StartsWith(RelayPrefix))
+			//{
+			//	await NetworkHelper.ConnectUnityServices(message.Remove(0, RelayPrefix.Length));
+			//}
 		}
 	}
 }

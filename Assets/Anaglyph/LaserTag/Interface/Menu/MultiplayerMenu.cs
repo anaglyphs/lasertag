@@ -42,7 +42,7 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private Text sessionStateText = null;
 		[SerializeField] private Text sessionIpText = null;
 		[SerializeField] private Button disconnectButton = null;
-		[SerializeField] private Button hostRespawnAnchorButton = null;
+		[SerializeField] private Button recalibrateColocationButton = null;
 		[SerializeField] private Text hostRespawnAnchorLabel = null;
 
 		[Header("Session icons")]
@@ -64,15 +64,6 @@ namespace Anaglyph.Lasertag
 			// manually connect page
 			manuallyConnectPage.showBackButton = true;
 
-			string ip = NetworkHelper.GetLocalIPv4();
-
-#if UNITY_EDITOR
-			ip = "127.0.0.1";
-#endif
-
-			int length = Mathf.Min(ip.Length, ip.LastIndexOf('.') + 1);
-			ipField.text = ip.Substring(0, length);
-
 			connectButton.onClick.AddListener(() => NetworkHelper.ConnectLAN(ipField.text));
 			roomConnectButton.onClick.AddListener(() => NetworkHelper.StartOrJoinByNameAsync(roomField.text));
 
@@ -80,13 +71,11 @@ namespace Anaglyph.Lasertag
 			sessionPage.showBackButton = false;
 			disconnectButton.onClick.AddListener(Disconnect);
 
-			hostRespawnAnchorButton.onClick.AddListener(RespawnAnchor);
+			recalibrateColocationButton.onClick.AddListener(RecalibrateColocation);
 
 			manager.OnClientStopped += OnClientStopped;
 
 			Colocation.IsColocatedChange += OnColocationChange;
-
-			ShowAnchorOptions(false);
 		}
 
 		private void OnDestroy()
@@ -116,21 +105,27 @@ namespace Anaglyph.Lasertag
 				OpenSessionPage(SessionState.Colocating);
 		}
 
-		private void RespawnAnchor()
+		private void RecalibrateColocation()
 		{
-			MetaAnchorColocator.Current.InstantiateNewAnchor();
+			var type = Colocation.ActiveColocator.GetType();
+			if (type == typeof(MetaAnchorColocator))
+			{
+				MetaAnchorColocator.Current.InstantiateNewAnchor();
+			}
+			else if (type == typeof(AprilTagColocator))
+			{
+				AprilTagColocator aprilTagColocator = (AprilTagColocator)Colocation.ActiveColocator;
+
+				aprilTagColocator.NetworkObject.ChangeOwnership(manager.LocalClientId);
+
+				aprilTagColocator.ClearCanonTagsRpc();
+			}
 		}
 
 		private void OnColocationChange(bool isColocated)
 		{
 			if(isColocated)
 				OpenSessionPage(SessionState.Connected);
-		}
-
-		private void ShowAnchorOptions(bool b)
-		{
-			hostRespawnAnchorButton.gameObject.SetActive(b);
-			hostRespawnAnchorLabel.gameObject.SetActive(b);
 		}
 
 		private void OpenSessionPage(SessionState state)
@@ -172,10 +167,6 @@ namespace Anaglyph.Lasertag
 					}
 					break;
 			}
-
-			bool shouldShowAnchorOptions = Colocation.IsColocated && 
-				Colocation.ActiveColocator.GetType() == typeof(MetaAnchorColocator);
-			ShowAnchorOptions(shouldShowAnchorOptions);
 
 			sessionPage.NavigateHere();
 		}
