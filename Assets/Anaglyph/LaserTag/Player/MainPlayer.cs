@@ -44,6 +44,10 @@ namespace Anaglyph.Lasertag
 		private OVRPassthroughLayer passthroughLayer;
 		[SerializeField] private BoolObject redDamageVision;
 		[SerializeField] private BoolObject participatingInGames;
+		public BoolObject ParticipatingInGamesSetting => participatingInGames;
+
+		[NonSerialized]
+		public bool spawnAvatar = false;
 
 		private void Awake()
 		{
@@ -68,7 +72,7 @@ namespace Anaglyph.Lasertag
 
 		private void HandleConnectionEvent(NetworkManager manager, ConnectionEventData eventData)
 		{
-			if(NetworkHelper.ThisClientConnected(eventData))
+			if(NetworkHelper.ThisClientConnected(eventData) && spawnAvatar)
 				SpawnAvatar();
 		}
 
@@ -76,6 +80,11 @@ namespace Anaglyph.Lasertag
 		{
 			if(avatar != null)
 				avatar.isParticipatingSync.Value = b;
+
+			//if (avatar == null && b)
+			//	SpawnAvatar();
+			//else if (avatar != null && !b)
+			//	avatar.NetworkObject.Despawn();
 		}
 
 		private void SpawnAvatar()

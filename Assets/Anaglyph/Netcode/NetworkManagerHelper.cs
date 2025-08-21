@@ -31,7 +31,7 @@ namespace Anaglyph.Netcode
 			UnityService, 
 		}
 
-		private static void SetNetworkTransportType(string s)
+		public static void SetNetworkTransportType(string s)
 		{
 			manager.NetworkConfig.UseCMBService = false;
 
@@ -92,16 +92,14 @@ namespace Anaglyph.Netcode
 		{
 			SetNetworkTransportType("UnityTransport");
 
-			manager.NetworkConfig.UseCMBService = false;
-
-			string localAddress = "";
+			string localAddress = "127.0.0.1";
 			var addresses = Dns.GetHostEntry(Dns.GetHostName()).AddressList;
 			foreach (var address in addresses)
 			{
 				if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
 				{
 					localAddress = address.ToString();
-					break;
+					// break;
 				}
 			}
 

@@ -19,6 +19,9 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private BoolObject useAprilTagColocation;
 		[SerializeField] private FloatObject aprilTagSizeOption;
 
+		public BoolObject UseAprilTagColocationSetting => useAprilTagColocation;
+		public FloatObject AprilTagSizeSetting => aprilTagSizeOption;
+
 		public static ColocationManager Current;
 
 		private NetworkVariable<ColocationMethod> colocationMethodSync = new(0);
@@ -72,11 +75,6 @@ namespace Anaglyph.Lasertag
 
 			MainXROrigin.Transform.position = Vector3.zero;
 			MainXROrigin.Transform.rotation = Quaternion.identity;
-		}
-
-		public override void OnDestroy()
-		{
-			base.OnDestroy();
 		}
 	}
 }

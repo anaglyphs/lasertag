@@ -64,9 +64,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (!colocationActive)
 				return;
 
-			if (Anaglyph.DebugMode)
-			{
-
 				Vector3 scale;
 
 				if (tags != null)
@@ -89,6 +86,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					}
 				}
 
+			if (Anaglyph.DebugMode)
+			{
 				scale = Vector3.one * 0.03f;
 				mpb.SetColor(BaseColorID, Color.green);
 				foreach (Vector3 canonTagPos in canonTags.Values)

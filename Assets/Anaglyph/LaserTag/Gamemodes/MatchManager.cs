@@ -135,7 +135,7 @@ namespace Anaglyph.Lasertag
 			if (!IsSpawned) return;
 
 			var avatar = MainPlayer.Instance.Avatar;
-			if (MatchState == MatchState.NotPlaying || MatchState == MatchState.Queued || avatar.Team == 0) {
+			if (avatar != null && (MatchState == MatchState.NotPlaying || MatchState == MatchState.Queued || avatar.Team == 0)) {
 				
 				if (avatar.IsInBase)
 					avatar.TeamOwner.teamSync.Value = avatar.InBase.Team;

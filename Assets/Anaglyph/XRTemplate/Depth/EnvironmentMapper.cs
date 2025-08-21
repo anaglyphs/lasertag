@@ -69,7 +69,7 @@ namespace Anaglyph.XRTemplate
 			shader.SetInts("volumeSize", vWidth, vHeight, vDepth);
 			shader.SetFloat(nameof(metersPerVoxel), metersPerVoxel);
 
-			Clear();
+			// Clear();
 
 			ScanLoop();
 

@@ -80,6 +80,9 @@ namespace EnvisionCenter.XRTemplate.QuestCV
 				if (!newFrameAvailable)
 					continue;
 
+				if (!Application.isFocused)
+					continue;
+
 				newFrameAvailable = false;
 
 				if (detector == null)
