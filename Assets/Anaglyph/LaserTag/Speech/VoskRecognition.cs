@@ -226,7 +226,7 @@ public class VoskRecognition : MonoBehaviour
 
 	void Update()
 	{
-		if(AutoStart && !VoiceProcessor.IsRecording && !_isInitializing)
+		if(AutoStart && !VoiceProcessor.IsRecording && !_isInitializing && !_didInit)
 			StartVoskStt();
 
 		while (_threadedResultQueue.TryDequeue(out string finalJson))

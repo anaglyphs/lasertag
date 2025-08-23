@@ -47,7 +47,7 @@ namespace Anaglyph.Lasertag
 		public BoolObject ParticipatingInGamesSetting => participatingInGames;
 
 		[NonSerialized]
-		public bool spawnAvatar = false;
+		public bool spawnAvatar = true;
 
 		private void Awake()
 		{
