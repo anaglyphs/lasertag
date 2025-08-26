@@ -105,7 +105,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 				agDepthProj[i] = CalculateDepthProjMatrix(desc);
 				agDepthProjInv[i] = Matrix4x4.Inverse(agDepthProj[i]);
 
-				agDepthView[i] = CalculateDepthViewMatrix(desc) * MainXROrigin.Transform.worldToLocalMatrix;
+				agDepthView[i] = CalculateDepthViewMatrix(desc) * MainXRRig.TrackingSpace.worldToLocalMatrix;
 				agDepthViewInv[i] = Matrix4x4.Inverse(agDepthView[i]);
 			}
 

@@ -10,7 +10,7 @@ namespace Anaglyph.Lasertag
 
 		private void Update()
 		{
-			material.SetVector(xrOriginID, MainXROrigin.Transform.position);
+			material.SetVector(xrOriginID, MainXRRig.TrackingSpace.position);
 		}
 	}
 }

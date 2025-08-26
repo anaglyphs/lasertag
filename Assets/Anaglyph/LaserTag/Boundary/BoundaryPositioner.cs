@@ -17,7 +17,7 @@ namespace Anaglyph.Lasertag
 
 		private void LateUpdate()
 		{
-			Vector3 camLocalPos = MainXROrigin.Transform.InverseTransformPoint(camera.transform.position);
+			Vector3 camLocalPos = MainXRRig.TrackingSpace.InverseTransformPoint(camera.transform.position);
 			Vector3 camLocalPosFlat = new Vector3(camLocalPos.x, 0, camLocalPos.z);
 
 			if (camLocalPosFlat.magnitude == 0)
@@ -27,7 +27,7 @@ namespace Anaglyph.Lasertag
 			Vector3 localPos = (localRot * (Vector3.forward * radius)) + (Vector3.up * camLocalPos.y);
 
 			Pose boundaryLocalPose = new(localPos, localRot);
-			Pose boundaryPose = MainXROrigin.Transform.TransformPose(boundaryLocalPose);
+			Pose boundaryPose = MainXRRig.TrackingSpace.TransformPose(boundaryLocalPose);
 
 			transform.position = boundaryPose.position;
 			transform.rotation = boundaryPose.rotation;

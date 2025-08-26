@@ -132,10 +132,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 7254734392762225021}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c3dde676462e37b4b8065102d03fcf1a, type: 3}
+  m_Script: {fileID: 11500000, guid: 0926ecc77c6d5974796856a7744bd972, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  size: {x: 640, y: 460}
+  camera: {fileID: 5728646336010394143}
+  trackingSpace: {fileID: 2038948978265102462}
 --- !u!114 &1394363023484580083
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -202,6 +203,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0926ecc77c6d5974796856a7744bd972, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  camera: {fileID: 0}
+  trackingSpace: {fileID: 0}
 --- !u!114 &8246169409757483527
 MonoBehaviour:
   m_ObjectHideFlags: 0

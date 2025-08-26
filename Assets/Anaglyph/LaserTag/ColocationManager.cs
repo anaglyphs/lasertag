@@ -70,8 +70,8 @@ namespace Anaglyph.Lasertag
 		{
 			Colocation.ActiveColocator.StopColocation();
 
-			MainXROrigin.Transform.position = Vector3.zero;
-			MainXROrigin.Transform.rotation = Quaternion.identity;
+			MainXRRig.TrackingSpace.position = Vector3.zero;
+			MainXRRig.TrackingSpace.rotation = Quaternion.identity;
 		}
 
 		public override void OnDestroy()

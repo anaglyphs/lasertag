@@ -17,10 +17,13 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 		private Intrinsics hardwareIntrinsics;
 		public Intrinsics HardwareIntrinsics => hardwareIntrinsics;
 
+		[SerializeField] private Vector2Int defaultTextureSize = new Vector2Int(1280, 960);
+		[SerializeField] private int defaultCameraIndex = 1;
+
 		public event Action DeviceOpened = delegate { };
 		public event Action DeviceClosed = delegate { };
 		public event Action DeviceDisconnected = delegate { };
-		public event Action DeviceError = delegate { };
+		public event Action<ErrorCode> DeviceError = delegate { };
 		public event Action Configured = delegate { };
 		public event Action ConfigureFailed = delegate { };
 		public event Action<Texture2D> ImageAvailable = delegate { };
@@ -31,19 +34,22 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 		public unsafe sbyte* Buffer => buffer;
 		public int BufferSize => bufferSize;
 
-		public bool ShouldDeviceBeOpen { get; private set; }
-		public bool IsDeviceOpened { get; private set; }
+		public bool DeviceShouldBeOpen { get; private set; }
+		public bool DeviceIsOpen { get; private set; }
 		public bool IsConfigured { get; private set; }
 
-		public const int ERROR_CAMERA_DEVICE = 0x00000004;
-		public const int ERROR_CAMERA_DISABLED = 0x00000003;
-		public const int ERROR_CAMERA_IN_USE = 0x00000001;
-		public const int ERROR_CAMERA_SERVICE = 0x00000005;
-		public const int ERROR_MAX_CAMERAS_IN_USE = 0x00000002;
+		public enum ErrorCode
+		{
+			ERROR_UNKNOWN = default,
+			ERROR_CAMERA_DEVICE = 0x00000004,
+			ERROR_CAMERA_DISABLED = 0x00000003,
+			ERROR_CAMERA_IN_USE = 0x00000001,
+			ERROR_CAMERA_SERVICE = 0x00000005,
+			ERROR_MAX_CAMERAS_IN_USE = 0x00000002,
+		}
 
 		/// In nanoseconds!
 		public long TimestampNs { get; private set; }
-
 		
 		public class PermissionException : Exception
 		{
@@ -112,40 +118,41 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 
 		private AndroidInterface androidInterface;
 
-		private void Awake()
+		private async void Awake()
 		{
-#if !UNITY_EDITOR
-			androidInterface = new AndroidInterface(gameObject);
+#if UNITY_EDITOR
+			return;
 #endif
+
+			androidInterface = new AndroidInterface(gameObject);
+			await Configure(defaultCameraIndex, defaultTextureSize.x, defaultTextureSize.y);
 		}
 
 		private const string MetaCameraPermission = "horizonos.permission.HEADSET_CAMERA";
 
-		private async Task<bool> PermissionCheck()
+		private async Task<bool> CheckPermissions()
 		{
-			if (!Permission.HasUserAuthorizedPermission(MetaCameraPermission))
+			if (!await CheckPermission(MetaCameraPermission))
+				return false;
+
+			if (!await CheckPermission(Permission.Camera))
+				return false;
+
+			return true;
+		}
+
+		private async Task<bool> CheckPermission(string permission)
+		{
+			if (!Permission.HasUserAuthorizedPermission(permission))
 			{
-				Permission.RequestUserPermission(MetaCameraPermission);
+				Permission.RequestUserPermission(permission);
 
 				while (!Application.isFocused)
 					await Awaitable.NextFrameAsync();
 
-				await Awaitable.WaitForSecondsAsync(0.2f);
+				await Awaitable.WaitForSecondsAsync(0.5f);
 
-				if (!Permission.HasUserAuthorizedPermission(MetaCameraPermission))
-					return false;
-			}
-
-			if (!Permission.HasUserAuthorizedPermission(Permission.Camera))
-			{
-				Permission.RequestUserPermission(Permission.Camera);
-
-				while (!Application.isFocused)
-					await Awaitable.NextFrameAsync();
-
-				await Awaitable.WaitForSecondsAsync(0.2f);
-
-				if (!Permission.HasUserAuthorizedPermission(Permission.Camera))
+				if (!Permission.HasUserAuthorizedPermission(permission))
 					return false;
 			}
 
@@ -163,8 +170,10 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 			IsConfigured = true;
 			return;
 #endif
+			if (DeviceIsOpen)
+				throw new ConfiguredException("Cannot configure camera while camera is open!");
 
-			if (!await PermissionCheck())
+			if (!await CheckPermissions())
 				throw new Exception("Camera does not have permission!");
 
 			androidInterface.Configure(index, width, height);
@@ -192,29 +201,37 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 
 		public async Task TryOpenCamera()
 		{
-			if (!await PermissionCheck())
+			if (DeviceShouldBeOpen)
+				return;
+
+			DeviceShouldBeOpen = true;
+
+			if (!await CheckPermissions())
 				throw new PermissionException("Camera does not have permission!");
 
-			if (!IsConfigured)
-				throw new ConfiguredException("CameraManager is not yet configured! You must first call " + nameof(Configure));
-
-#if !UNITY_EDITOR
-			androidInterface.OpenCamera();
+#if UNITY_EDITOR
+			return;
 #endif
 
-			ShouldDeviceBeOpen = true;
+			do
+			{
+				androidInterface.OpenCamera();
+				await Awaitable.WaitForSecondsAsync(1);
+			} while (DeviceShouldBeOpen && !DeviceIsOpen);
 		}
 
 		public void CloseCamera()
 		{
-			if (!ShouldDeviceBeOpen)
+			if (!DeviceShouldBeOpen)
 				return;
 
-			ShouldDeviceBeOpen = false;
+			DeviceShouldBeOpen = false;
 
-#if !UNITY_EDITOR
-			androidInterface.CloseCamera();
+#if UNITY_EDITOR
+			return;
 #endif
+
+			androidInterface.CloseCamera();
 		}
 
 		// Messages sent from Android
@@ -223,30 +240,32 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 
 		private void OnDeviceOpened()
 		{
-			IsDeviceOpened = true;
+			DeviceIsOpen = true;
 			DeviceOpened.Invoke();
 		}
 
 		private async void OnDeviceClosed()
 		{
-			IsDeviceOpened = false;
+			DeviceIsOpen = false;
 			DeviceClosed.Invoke();
 
-			if (ShouldDeviceBeOpen)
+			await Awaitable.WaitForSecondsAsync(1);
+
+			if (DeviceShouldBeOpen)
 				await TryOpenCamera();
 		}
 
 		private void OnDeviceDisconnected()
 		{
-			IsDeviceOpened = false;
+			DeviceIsOpen = false;
 			DeviceDisconnected.Invoke();
 		}
 
 		private void OnDeviceError(string errorCodeAsString)
 		{
-			IsDeviceOpened = false;
-			int.TryParse(errorCodeAsString, out int error);
-			DeviceError.Invoke();
+			DeviceIsOpen = false;
+			if(int.TryParse(errorCodeAsString, out int error))
+				DeviceError.Invoke((ErrorCode)error);
 		}
 
 		private void OnConfigured()

@@ -1,16 +1,20 @@
-using Unity.XR.CoreUtils;
 using UnityEngine;
 
 namespace Anaglyph.XRTemplate
 {
-	public class MainXROrigin : MonoBehaviour
+	public class MainXRRig : MonoBehaviour
 	{
-		public static XROrigin Instance;
-		public static Transform Transform => Instance.transform;
+		private static MainXRRig Instance;
+
+		public new Camera camera;
+		public Transform trackingSpace;
+
+		public static Camera Camera => Instance.camera;
+		public static Transform TrackingSpace => Instance.trackingSpace;
 
 		private void Awake()
 		{
-			TryGetComponent(out Instance);
+			Instance = this;
 		}
 
 		/// <summary>
@@ -22,7 +26,7 @@ namespace Anaglyph.XRTemplate
 		/// <param name="flattenUp"></param>
 		public static void MatchPoseToTarget(Pose current, Pose target, bool enforceUp = true, bool flattenUp = false)
 		{
-			var root = MainXROrigin.Transform;
+			var root = MainXRRig.TrackingSpace;
 
 			if (enforceUp)
 			{

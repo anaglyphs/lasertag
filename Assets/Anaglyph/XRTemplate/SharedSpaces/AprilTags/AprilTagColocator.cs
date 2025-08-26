@@ -108,7 +108,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				mpb.SetColor(BaseColorID, Color.yellow);
 				foreach (Vector3 localTagPos in localTags.Values)
 				{
-					var model = MainXROrigin.Transform.localToWorldMatrix *
+					var model = MainXRRig.TrackingSpace.localToWorldMatrix *
 						Matrix4x4.TRS(localTagPos, Quaternion.identity, scale);
 					cmd.DrawMesh(debugPointMesh, model, debugMaterial, 0, 0, mpb);
 				}
@@ -182,7 +182,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			if (IsOwner)
 			{
-				var headPos = MainXROrigin.Instance.Camera.transform.position;
+				var headPos = MainXRRig.Camera.transform.position;
 
 				foreach (int id in canonTags.Keys)
 				{
@@ -209,7 +209,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			if (sharedLocalPositions.Count >= 4)
 			{
-				Matrix4x4 trackingSpace = MainXROrigin.Transform.localToWorldMatrix;
+				Matrix4x4 trackingSpace = MainXRRig.TrackingSpace.localToWorldMatrix;
 
 				Matrix4x4 delta = IterativeClosestPoint.FitCorresponding(
 					sharedLocalPositions.ToArray(), trackingSpace,
@@ -217,26 +217,26 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 				trackingSpace = delta * trackingSpace;
 				
-				MainXROrigin.Transform.position = trackingSpace.GetPosition();
-				MainXROrigin.Transform.rotation = trackingSpace.rotation;
+				MainXRRig.TrackingSpace.position = trackingSpace.GetPosition();
+				MainXRRig.TrackingSpace.rotation = trackingSpace.rotation;
 
 				IsColocated = true;
 			}
 
-			var originPos = MainXROrigin.Transform.position;
+			var originPos = MainXRRig.TrackingSpace.position;
 
 			if (originPos.magnitude > 100000f ||
 				float.IsNaN(originPos.x) || float.IsInfinity(originPos.x) ||
 				float.IsNaN(originPos.y) || float.IsInfinity(originPos.y) ||
 				float.IsNaN(originPos.z) || float.IsInfinity(originPos.z))
 			{
-				MainXROrigin.Transform.SetWorldPose(Pose.identity);
+				MainXRRig.TrackingSpace.SetWorldPose(Pose.identity);
 			}
 		}
 
 		private bool TagIsWithinRegisterDistance(Vector3 globalPos)
 		{
-			Vector3 headPos = MainXROrigin.Instance.Camera.transform.position;
+			Vector3 headPos = MainXRRig.Camera.transform.position;
 			return Vector3.Distance(headPos, globalPos) < tagSize * lockDistanceScale;
 		}
 		
@@ -251,7 +251,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			{
 				Vector3 globalPos = result.Position;
 
-				Matrix4x4 worldToTracking = MainXROrigin.Transform.worldToLocalMatrix;
+				Matrix4x4 worldToTracking = MainXRRig.TrackingSpace.worldToLocalMatrix;
 				Vector3 localPos = worldToTracking.MultiplyPoint(globalPos);
 
 				if(localTags.TryGetValue(result.ID, out Vector3 value))

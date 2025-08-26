@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1323261816400825267}
   - component: {fileID: 1210394929621187967}
-  - component: {fileID: 1383827261942209009}
   - component: {fileID: 1408139977609173223}
   - component: {fileID: 3997152652732784663}
   - component: {fileID: 1236109553123837729}
@@ -21,7 +20,6 @@ GameObject:
   - component: {fileID: 3404404070851454834}
   - component: {fileID: 6533571191635796371}
   - component: {fileID: 2459850896001473842}
-  - component: {fileID: 7364140641647340021}
   m_Layer: 0
   m_Name: Systems
   m_TagString: Untagged
@@ -63,34 +61,6 @@ MonoBehaviour:
   maxEyeDist: 7
   minEyeDist: 1
   PlayerHeads: []
---- !u!114 &1383827261942209009
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7592662432409998298}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3f3c97cef7e194047a314b9c8aa37483, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  OnAwake:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 11400000, guid: c5a8519e7fbfe9b4cbf5f0d64d48bda1, type: 2}
-        m_TargetAssemblyTypeName: VariableObjects.GenericVariableObject`1[[System.Boolean,
-          mscorlib
-        m_MethodName: Set
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
 --- !u!114 &1408139977609173223
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -286,21 +256,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3974b9aa56bda954c903adb0b1b1a236, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cameraReader: {fileID: 7364140641647340021}
-  tagSizeMeters: 0.25
+  cameraReader: {fileID: 2459850896001473842}
+  tagSizeMeters: 0.1
 --- !u!114 &2459850896001473842
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7592662432409998298}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d78354083d4b19b479517e268a4fd2dc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
---- !u!114 &7364140641647340021
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

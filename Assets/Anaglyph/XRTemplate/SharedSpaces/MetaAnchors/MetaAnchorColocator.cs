@@ -38,7 +38,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if(ColocationAnchor.Instance != null)
 				ColocationAnchor.Instance.DespawnAndDestroyRpc();
 
-			Transform head = MainXROrigin.Instance.Camera.transform;
+			Transform head = MainXRRig.Camera.transform;
 
 			Vector3 spawnPos = head.position;
 			spawnPos.y -= 1.5f;
@@ -86,7 +86,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 			else
 			{
-				MainXROrigin.Transform.position = new Vector3(0, 1000, 0);
+				MainXRRig.TrackingSpace.position = new Vector3(0, 1000, 0);
 			}
 
 			colocationActive = true;
@@ -113,7 +113,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (anchor.IsAnchored)
 			{
 				Pose anchorPose = anchor.transform.GetWorldPose();
-				MainXROrigin.MatchPoseToTarget(anchorPose, anchor.DesiredPose);
+				MainXRRig.MatchPoseToTarget(anchorPose, anchor.DesiredPose);
 				IsColocated = true;
 			}
 		}
