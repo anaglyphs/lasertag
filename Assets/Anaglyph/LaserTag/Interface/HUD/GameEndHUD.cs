@@ -12,10 +12,11 @@ namespace Anaglyph.Lasertag
 
 		private bool jumblingTheyNumers = false;
 
+		private MatchReferee matchManager => MatchReferee.Instance;
 
 		private void Start()
 		{
-			MatchManager.MatchStateChanged += HandleStateChange;
+			matchManager.StateChanged += HandleStateChange;
 
 			jumblingTheyNumers = false;
 			gameOver.enabled = false;
@@ -35,17 +36,17 @@ namespace Anaglyph.Lasertag
 				blueScoreText.text = $"{Mathf.RoundToInt(Random.Range(0, 99))}";
 			} else
 			{
-				redScoreText.fontSize = MatchManager.WinningTeam == 1 ? 80 : 60;
-				blueScoreText.fontSize = MatchManager.WinningTeam == 2 ? 80 : 60;
+				redScoreText.fontSize = matchManager.WinningTeam == 1 ? 80 : 60;
+				blueScoreText.fontSize = matchManager.WinningTeam == 2 ? 80 : 60;
 
-				redScoreText.text = $"{MatchManager.GetTeamScore(1)}";
-				blueScoreText.text = $"{MatchManager.GetTeamScore(2)}";
+				redScoreText.text = $"{matchManager.GetTeamScore(1)}";
+				blueScoreText.text = $"{matchManager.GetTeamScore(2)}";
 			}
 		}
 
 		private void OnDestroy()
 		{
-			MatchManager.MatchStateChanged -= HandleStateChange;
+			matchManager.StateChanged -= HandleStateChange;
 		}
 
 		private async void HandleStateChange(MatchState prev, MatchState state)

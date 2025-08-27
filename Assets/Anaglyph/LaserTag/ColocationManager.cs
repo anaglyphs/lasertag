@@ -9,6 +9,8 @@ namespace Anaglyph.Lasertag
 {
 	public class ColocationManager : NetworkBehaviour
 	{
+		public static ColocationManager Instance { get; private set; }
+
 		[Serializable]
 		public enum ColocationMethod
 		{
@@ -19,22 +21,18 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private BoolObject useAprilTagColocation;
 		[SerializeField] private FloatObject aprilTagSizeOption;
 
-		public static ColocationManager Current;
-
 		private NetworkVariable<ColocationMethod> colocationMethodSync = new(0);
 		public void SetColocationMethod(ColocationMethod colocationMethod)
 			=> colocationMethodSync.Value = colocationMethod;
 
 		private NetworkVariable<float> aprilTagSizeSync = new();
 
-		private MetaAnchorColocator metaAnchorColocator;
-		private AprilTagColocator aprilTagColocator;
+		[SerializeField] private MetaAnchorColocator metaAnchorColocator;
+		[SerializeField] private AprilTagColocator aprilTagColocator;
 
 		private void Awake()
 		{
-			Current = this;
-			metaAnchorColocator = GetComponent<MetaAnchorColocator>();
-			aprilTagColocator = GetComponent<AprilTagColocator>();
+			Instance = this;
 		}
 
 		public override async void OnNetworkSpawn()

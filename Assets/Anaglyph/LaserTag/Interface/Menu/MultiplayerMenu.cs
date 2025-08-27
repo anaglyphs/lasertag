@@ -60,10 +60,10 @@ namespace Anaglyph.Lasertag
 			{
 				if (page == manuallyConnectPage)
 				{
-					AutomaticNetworkConnector.Instance.enabled = false;
+					MetaBluetoothNetworkConnector.Instance.enabled = false;
 				} else
 				{
-					AutomaticNetworkConnector.Instance.enabled = true;
+					MetaBluetoothNetworkConnector.Instance.enabled = true;
 				}
 			});
 
@@ -82,7 +82,7 @@ namespace Anaglyph.Lasertag
 			int length = Mathf.Min(ip.Length, ip.LastIndexOf('.') + 1);
 			ipField.text = ip.Substring(0, length);
 
-			connectButton.onClick.AddListener(() => NetworkHelper.ConnectLAN(ipField.text));
+			connectButton.onClick.AddListener(() => NetcodeHelper.ConnectLAN(ipField.text));
 
 			// connecting page
 			sessionPage.showBackButton = false;
@@ -192,16 +192,16 @@ namespace Anaglyph.Lasertag
 		{
 			OpenSessionPage(SessionState.Connecting);
 
-			var service = useUnityRelayService.Value ? NetworkHelper.Protocol.UnityService : NetworkHelper.Protocol.LAN;
+			var service = useUnityRelayService.Value ? NetcodeHelper.Protocol.UnityService : NetcodeHelper.Protocol.LAN;
 
-			NetworkHelper.Host(service);
+			NetcodeHelper.Host(service);
 		}
 
 		private void Disconnect()
 		{
 			homePage.NavigateHere();
 
-			NetworkHelper.Disconnect();
+			NetcodeHelper.Disconnect();
 		}
 	}
 }

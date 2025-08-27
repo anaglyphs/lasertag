@@ -7,9 +7,9 @@ using UnityEngine;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
-	public class AutomaticNetworkConnector : MonoBehaviour
+	public class MetaBluetoothNetworkConnector : MonoBehaviour
 	{
-		public static AutomaticNetworkConnector Instance { get; private set; }
+		public static MetaBluetoothNetworkConnector Instance { get; private set; }
 
 		private static NetworkManager manager => NetworkManager.Singleton;
 		private static UnityTransport transport => (UnityTransport) NetworkManager.Singleton.NetworkConfig.NetworkTransport;
@@ -132,10 +132,10 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			if(message.StartsWith(LanPrefix))
 			{
-				NetworkHelper.ConnectLAN(message.Remove(0, LanPrefix.Length));
+				NetcodeHelper.ConnectLAN(message.Remove(0, LanPrefix.Length));
 			} else if(message.StartsWith(RelayPrefix))
 			{
-				NetworkHelper.ConnectUnityServices(message.Remove(0, RelayPrefix.Length));
+				NetcodeHelper.ConnectUnityServices(message.Remove(0, RelayPrefix.Length));
 			}
 		}
 	}

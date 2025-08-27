@@ -7,10 +7,7 @@ namespace Anaglyph.Lasertag
 		public Behaviour[] behaviours;
 		public bool invert;
 
-        private void Awake()
-        {
-			MatchManager.MatchStateChanged += OnMatchStateChanged;
-        }
+		private MatchReferee referee => MatchReferee.Instance;
 
 		private void OnEnable()
 		{
@@ -20,6 +17,8 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
+			referee.StateChanged += OnMatchStateChanged;
+
 			HandleChange();
 		}
 
@@ -30,7 +29,7 @@ namespace Anaglyph.Lasertag
 
 		private void HandleChange()
 		{
-			bool isPlaying = MatchManager.MatchState == MatchState.Playing;
+			bool isPlaying = referee.State == MatchState.Playing;
 			foreach (Behaviour behaviour in behaviours)
 			{
 				behaviour.enabled = isPlaying ^ invert;

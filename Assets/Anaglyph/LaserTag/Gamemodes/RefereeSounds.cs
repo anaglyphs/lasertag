@@ -2,9 +2,11 @@ using UnityEngine;
 
 namespace Anaglyph.Lasertag
 {
-    public class RoundManagerSFX : MonoBehaviour
+    public class RefereeSounds : MonoBehaviour
     {
 		private AudioSource audioSource;
+
+		[SerializeField] private MatchReferee matchManager;
 
 		[SerializeField] AudioClip queue;
 		[SerializeField] AudioClip countdown;
@@ -18,12 +20,12 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			MatchManager.MatchStateChanged += HandleStateChange;
+			matchManager.StateChanged += HandleStateChange;
 		}
 
 		private void OnDestroy()
 		{
-			MatchManager.MatchStateChanged -= HandleStateChange;
+			matchManager.StateChanged -= HandleStateChange;
 		}
 
 		private void HandleStateChange(MatchState old, MatchState state)

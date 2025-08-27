@@ -9,7 +9,7 @@ namespace Anaglyph.Menu
 
 		private void OnEnable()
 		{
-			if(enable != null)
+			if (enable != null)
 				AudioSource.PlayClipAtPoint(enable, transform.position);
 		}
 

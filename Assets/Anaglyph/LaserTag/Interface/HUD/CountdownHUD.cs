@@ -8,13 +8,15 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private Graphic queued;
 		[SerializeField] private Text countdownText;
 
+		private MatchReferee matchReferee => MatchReferee.Instance;
+
 		float countdownTime = 3.0f;
 		private bool showCountdownOnCountdownText = false;
 
 
 		private void Start()
 		{
-			MatchManager.MatchStateChanged += HandleStateChange;
+			matchReferee.StateChanged += HandleStateChange;
 
 			queued.enabled = false;
 		}
@@ -31,7 +33,7 @@ namespace Anaglyph.Lasertag
 
 		private void OnDestroy()
 		{
-			MatchManager.MatchStateChanged -= HandleStateChange;
+			matchReferee.StateChanged -= HandleStateChange;
 		}
 
 		private async void HandleStateChange(MatchState prev, MatchState state)

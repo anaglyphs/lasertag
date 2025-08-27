@@ -18,7 +18,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private Dictionary<int, Vector3> localTags = new();
 
 		[SerializeField] private float tagLerp = 0.1f;
-		[SerializeField] private Vector2Int texSize = new(1280, 960);
 
 		public float lockDistanceScale = 10;
 		[Tooltip("In meters/second")]
@@ -28,8 +27,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private static NetworkManager manager => NetworkManager.Singleton;
 
-		private CameraReader cameraReader;
-		private AprilTagTracker tagTracker;
+		[SerializeField] private CameraReader cameraReader;
+		[SerializeField] private AprilTagTracker tagTracker;
 
 		[SerializeField] private Mesh indicatorMesh;
 		[SerializeField] private Material indicatorMaterial;
@@ -164,12 +163,10 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			IsColocated = false;
 			colocationActive = true;
 
-			if(!cameraReader.IsConfigured)
-				await cameraReader.Configure(1, texSize.x, texSize.y);
-
-			await cameraReader.TryOpenCamera();
 			tagTracker.tagSizeMeters = tagSize;
 			tagTracker.OnDetectTags += OnDetectTags;
+
+			await cameraReader.TryOpenCamera();
 		}
 
 		private List<float3> sharedLocalPositions = new();
@@ -207,7 +204,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				}
 			}
 
-			if (sharedLocalPositions.Count >= 4)
+			if (sharedLocalPositions.Count >= 3)
 			{
 				Matrix4x4 trackingSpace = MainXRRig.TrackingSpace.localToWorldMatrix;
 

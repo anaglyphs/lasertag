@@ -8,12 +8,6 @@ namespace Anaglyph.Lasertag
 		private Selectable selectable;
 		public bool invert;
 
-		private void Awake()
-		{
-			selectable = GetComponent<Selectable>();
-			MatchManager.MatchStateChanged += OnMatchStateChanged;
-		}
-
 		private void OnEnable()
 		{
 			if(didStart)
@@ -22,12 +16,15 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
+			selectable = GetComponent<Selectable>();
+			MatchReferee.Instance.StateChanged += OnMatchStateChanged;
+
 			HandleChange();
 		}
 
 		private void OnDestroy()
 		{
-			MatchManager.MatchStateChanged -= OnMatchStateChanged;
+			MatchReferee.Instance.StateChanged -= OnMatchStateChanged;
 		}
 
 		private void OnMatchStateChanged(MatchState prev, MatchState current)
@@ -37,7 +34,7 @@ namespace Anaglyph.Lasertag
 
 		private void HandleChange()
 		{
-			bool isPlaying = MatchManager.MatchState == MatchState.Playing;
+			bool isPlaying = MatchReferee.Instance.State == MatchState.Playing;
 			selectable.interactable = isPlaying ^ invert;
 		}
 	}

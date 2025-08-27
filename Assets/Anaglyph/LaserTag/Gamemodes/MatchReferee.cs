@@ -73,17 +73,17 @@ namespace Anaglyph.Lasertag
 		}
 	}
 
-	public class MatchManager : NetworkBehaviour
+	public class MatchReferee : NetworkBehaviour
 	{
 		private const string NotOwnerExceptionMessage = "Only the NGO owner should call this!";
 
-		public static MatchManager Instance { get; private set; }
+		public static MatchReferee Instance { get; private set; }
 
-		private NetworkVariable<MatchState> matchStateSync = new(MatchState.NotPlaying);
-		public static MatchState MatchState => Instance.matchStateSync.Value;
+		private NetworkVariable<MatchState> stateSync = new(MatchState.NotPlaying);
+		public MatchState State => stateSync.Value;
 
 		private NetworkVariable<float> timeMatchEndsSync = new(0);
-		public static float TimeMatchEnds => Instance.timeMatchEndsSync.Value;
+		public float TimeMatchEnds => timeMatchEndsSync.Value;
 
 		private NetworkVariable<int> team0ScoreSync = new(0);
 		private NetworkVariable<int> team1ScoreSync = new(0);
@@ -91,13 +91,13 @@ namespace Anaglyph.Lasertag
 
 		private NetworkVariable<int>[] teamScoresSync;
 		private NetworkVariable<byte> winningTeamSync = new();
-		public static int GetTeamScore(byte team) => Instance.teamScoresSync[team].Value;
-		public static byte WinningTeam => Instance.winningTeamSync.Value;
+		public int GetTeamScore(byte team) => teamScoresSync[team].Value;
+		public byte WinningTeam => winningTeamSync.Value;
 
 		private NetworkVariable<MatchSettings> matchSettingsSync = new();
-		public static MatchSettings Settings => Instance.matchSettingsSync.Value;
+		public MatchSettings Settings => matchSettingsSync.Value;
 
-		public static event Action<MatchState, MatchState> MatchStateChanged = delegate { };
+		public event Action<MatchState, MatchState> StateChanged = delegate { };
 
 		private void OwnerCheck()
 		{
@@ -119,11 +119,11 @@ namespace Anaglyph.Lasertag
 		{
 			if (IsOwner)
 			{
-				matchStateSync.Value = MatchState.NotPlaying;
+				stateSync.Value = MatchState.NotPlaying;
 				matchSettingsSync.Value = MatchSettings.Lobby();
 			}
 			
-			matchStateSync.OnValueChanged += OnStateUpdateLocally;
+			stateSync.OnValueChanged += OnStateUpdateLocally;
 
 			OnStateUpdateLocally(MatchState.NotPlaying, MatchState.NotPlaying);
 		}
@@ -133,7 +133,7 @@ namespace Anaglyph.Lasertag
 			if (!IsSpawned) return;
 
 			var avatar = MainPlayer.Instance.Avatar;
-			if (MatchState == MatchState.NotPlaying || MatchState == MatchState.Queued || avatar.Team == 0) {
+			if (State == MatchState.NotPlaying || State == MatchState.Queued || avatar.Team == 0) {
 				
 				if (avatar.IsInBase)
 					avatar.TeamOwner.teamSync.Value = avatar.InBase.Team;
@@ -167,12 +167,12 @@ namespace Anaglyph.Lasertag
 					break;
 			}
 
-			MatchStateChanged.Invoke(prev, state);
+			StateChanged.Invoke(prev, state);
 		}
 
 		public override void OnGainedOwnership()
 		{
-			if(MatchState == MatchState.Playing)
+			if(State == MatchState.Playing)
 				SubscribeToEvents();
 		}
 
@@ -189,7 +189,7 @@ namespace Anaglyph.Lasertag
 
 		public override void OnNetworkDespawn()
 		{
-			OnStateUpdateLocally(matchStateSync.Value, MatchState.NotPlaying);
+			OnStateUpdateLocally(stateSync.Value, MatchState.NotPlaying);
 			UnsubscribeFromEvents();
 		}
 
@@ -197,7 +197,7 @@ namespace Anaglyph.Lasertag
 		public void QueueStartGameOwnerRpc(MatchSettings gameSettings)
 		{
 			matchSettingsSync.Value = gameSettings;
-			matchStateSync.Value = MatchState.Queued;
+			stateSync.Value = MatchState.Queued;
 			StartCoroutine(QueueStartGameAsOwnerCoroutine());
 		}
 
@@ -209,7 +209,7 @@ namespace Anaglyph.Lasertag
 
 			yield return new WaitForSeconds(1);
 
-			while (MatchState == MatchState.Queued)
+			while (State == MatchState.Queued)
 			{
 				if (Settings.respawnInBases)
 				{
@@ -222,18 +222,18 @@ namespace Anaglyph.Lasertag
 					}
 
 					if (numPlayersInbase != 0 && numPlayersInbase == Networking.Avatar.AllPlayers.Count)
-						matchStateSync.Value = MatchState.Countdown;
+						stateSync.Value = MatchState.Countdown;
 
 				} else
-					matchStateSync.Value = MatchState.Countdown;
+					stateSync.Value = MatchState.Countdown;
 
 				yield return null;
 			}
 
-			if(MatchState == MatchState.Countdown)
+			if(State == MatchState.Countdown)
 				yield return new WaitForSeconds(3);
 
-			if(MatchState == MatchState.Countdown)
+			if(State == MatchState.Countdown)
 				StartGameOwnerRpc();
 		}
 
@@ -266,7 +266,7 @@ namespace Anaglyph.Lasertag
 			if (Settings.CheckWinByTimer())
 				timeMatchEndsSync.Value = (float)NetworkManager.LocalTime.Time + Settings.timerSeconds;
 
-			matchStateSync.Value = MatchState.Playing;
+			stateSync.Value = MatchState.Playing;
 			SubscribeToEvents();
 		}
 
@@ -286,7 +286,7 @@ namespace Anaglyph.Lasertag
 		{
 			OwnerCheck();
 
-			while (MatchState == MatchState.Playing)
+			while (State == MatchState.Playing)
 			{
 				if(NetworkManager.LocalTime.TimeAsFloat > TimeMatchEnds)
 					EndGameOwnerRpc();
@@ -314,7 +314,7 @@ namespace Anaglyph.Lasertag
 		{
 			OwnerCheck();
 
-			while (MatchState == MatchState.Playing)
+			while (State == MatchState.Playing)
 			{
 				foreach (ControlPoint point in ControlPoint.AllControlPoints)
 				{
@@ -356,7 +356,7 @@ namespace Anaglyph.Lasertag
 		[Rpc(SendTo.Owner)]
 		public void EndGameOwnerRpc()
 		{
-			matchStateSync.Value = MatchState.NotPlaying;
+			stateSync.Value = MatchState.NotPlaying;
 			UnsubscribeFromEvents();
 		}
 

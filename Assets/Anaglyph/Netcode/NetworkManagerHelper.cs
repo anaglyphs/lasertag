@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Anaglyph.Netcode
 {
-	public static class NetworkHelper
+	public static class NetcodeHelper
 	{
 		public static ushort port = 7777;
 		public static string contyp = "dtls";

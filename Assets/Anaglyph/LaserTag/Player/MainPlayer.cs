@@ -120,7 +120,7 @@ namespace Anaglyph.Lasertag
 
 			IsAlive = false;
 			Health = 0;
-			RespawnTimerSeconds = MatchManager.Settings.respawnSeconds;
+			RespawnTimerSeconds = MatchReferee.Instance.Settings.respawnSeconds;
 			avatar.KilledByPlayerRpc(killedBy);
 
 			//onAliveChange.Invoke(false);
@@ -150,13 +150,13 @@ namespace Anaglyph.Lasertag
 			// respawn timer
 			if (IsAlive) return;
 
-			if ((MatchManager.Settings.respawnInBases && IsInFriendlyBase) || !MatchManager.Settings.respawnInBases)
+			if ((MatchReferee.Instance.Settings.respawnInBases && IsInFriendlyBase) || !MatchReferee.Instance.Settings.respawnInBases)
 				RespawnTimerSeconds -= Time.fixedDeltaTime;
 
 			if (RespawnTimerSeconds <= 0)
 				Respawn();
 
-			RespawnTimerSeconds = Mathf.Clamp(RespawnTimerSeconds, 0, MatchManager.Settings.respawnSeconds);
+			RespawnTimerSeconds = Mathf.Clamp(RespawnTimerSeconds, 0, MatchReferee.Instance.Settings.respawnSeconds);
 		}
 
 		private void Update()
@@ -180,7 +180,7 @@ namespace Anaglyph.Lasertag
 				if (Health < 0)
 					Kill(0);
 				else
-					Health += MatchManager.Settings.healthRegenPerSecond * Time.deltaTime;
+					Health += MatchReferee.Instance.Settings.healthRegenPerSecond * Time.deltaTime;
 			}
 
 			WeaponsManagement.canFire = IsAlive;
