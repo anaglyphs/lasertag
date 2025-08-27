@@ -47,7 +47,6 @@ GameObject:
   - component: {fileID: 5287327361013762756}
   - component: {fileID: 1394363023484580083}
   - component: {fileID: 5339566166535882300}
-  - component: {fileID: 1121965266883459124}
   - component: {fileID: 8246169409757483527}
   - component: {fileID: 4637823443449216595}
   - component: {fileID: 8285261156524746950}
@@ -191,20 +190,6 @@ MonoBehaviour:
   m_VerticalAxis: Vertical
   m_SubmitButton: Submit
   m_CancelButton: Cancel
---- !u!114 &1121965266883459124
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7254734392762225021}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0926ecc77c6d5974796856a7744bd972, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  camera: {fileID: 0}
-  trackingSpace: {fileID: 0}
 --- !u!114 &8246169409757483527
 MonoBehaviour:
   m_ObjectHideFlags: 0
