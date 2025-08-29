@@ -1,4 +1,5 @@
 using Anaglyph.Netcode;
+using System;
 using System.Text;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
@@ -23,10 +24,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private void Start()
 		{
 			manager.OnClientStarted += OnClientStarted;
-			manager.OnClientStopped += OnClientStopped;
 			OVRColocationSession.ColocationSessionDiscovered += HandleColocationSessionDiscovered;
-
-			HandleChange();
 		}
 
 		private void OnEnable() => HandleChange();
@@ -43,16 +41,12 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private void Awake()
 		{
 			Instance = this;
+			NetcodeHelper.IsRunningChange += IsNetworkRunningChanged;
 		}
 
 		private void OnDestroy()
 		{
-			if (manager != null)
-			{
-				manager.OnClientStarted -= OnClientStarted;
-				manager.OnClientStopped -= OnClientStopped;
-			}
-
+			NetcodeHelper.IsRunningChange -= IsNetworkRunningChanged;
 			OVRColocationSession.ColocationSessionDiscovered -= HandleColocationSessionDiscovered;
 		}
 
@@ -75,17 +69,28 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					return;
 
 				if (manager.IsListening)
-					ClientStarted();
+					NetworkStarted();
 				else
-					ClientStopped();
+					NetworkStopped();
 			}
 		}
 
-		private async void ClientStarted()
+		private void IsNetworkRunningChanged(bool isRunning)
+		{
+			if (isRunning)
+				NetworkStarted();
+			else
+				NetworkStopped();
+		}
+
+		private async void NetworkStarted()
 		{
 			Log("Stopping discovery");
 			await OVRColocationSession.StopDiscoveryAsync();
+		}
 
+		private async void OnClientStarted()
+		{
 			string message = "";
 
 			switch (transport.Protocol)
@@ -98,26 +103,19 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 				case UnityTransport.ProtocolType.RelayUnityTransport:
 
-					var sessionIds = await MultiplayerService.Instance.GetJoinedSessionIdsAsync();
-					message = RelayPrefix + sessionIds[sessionIds.Count - 1];
+					message = RelayPrefix + NetcodeHelper.CurrentSessionName;
 
 					break;
 			}
 
-			if (manager.IsHost || transport.Protocol == UnityTransport.ProtocolType.RelayUnityTransport)
-			{
-				Log($"Starting advertisement {message}");
-				await OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(message));
-			}
+			Log($"Starting advertisement {message}");
+			await OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(message));
 		}
 
-		private async void ClientStopped()
+		private async void NetworkStopped()
 		{
 			Log("Stopping advertisement");
 			await OVRColocationSession.StopAdvertisementAsync();
-
-			await Awaitable.WaitForSecondsAsync(0.5f);
-
 			Log("Starting discovery");
 			await OVRColocationSession.StartDiscoveryAsync();
 		}

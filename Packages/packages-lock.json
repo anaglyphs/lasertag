@@ -38,28 +38,26 @@
       "hash": "11f09e231a903f2be3b429f2eaa4ffc575fa6810"
     },
     "com.meta.xr.sdk.core": {
-      "version": "74.0.2",
+      "version": "78.0.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {},
       "url": "https://packages.unity.com"
     },
     "com.meta.xr.sdk.haptics": {
-      "version": "74.0.2",
+      "version": "77.0.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.meta.xr.sdk.core": "74.0.2"
+        "com.meta.xr.sdk.core": "77.0.0"
       },
       "url": "https://packages.unity.com"
     },
     "com.meta.xr.simulator": {
-      "version": "74.0.0",
+      "version": "78.0.0",
       "depth": 0,
       "source": "registry",
-      "dependencies": {
-        "com.unity.editorcoroutines": "1.0.0"
-      },
+      "dependencies": {},
       "url": "https://packages.unity.com"
     },
     "com.strikervr.strikersdk": {
@@ -201,7 +199,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.netcode.gameobjects": {
-      "version": "2.4.4",
+      "version": "2.5.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -503,7 +501,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.xr.oculus": {
-      "version": "4.5.1",
+      "version": "4.5.2",
       "depth": 0,
       "source": "registry",
       "dependencies": {

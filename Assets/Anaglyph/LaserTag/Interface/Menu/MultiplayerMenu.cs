@@ -32,6 +32,7 @@ namespace Anaglyph.Lasertag
 		[Header(nameof(manuallyConnectPage))]
 		[SerializeField] private NavPage manuallyConnectPage = null;
 		[SerializeField] private InputField ipField = null;
+		[SerializeField] private Toggle useRelayToggle = null;
 		[SerializeField] private Button connectButton = null;
 
 		[Header(nameof(sessionPage))]
@@ -54,18 +55,7 @@ namespace Anaglyph.Lasertag
 			manager = NetworkManager.Singleton;
 
 			manager.OnConnectionEvent += OnConnectionEvent;
-			manager.OnClientStarted += OnClientStarted;
-
-			navView.onPageChange.AddListener(delegate (NavPage page)
-			{
-				if (page == manuallyConnectPage)
-				{
-					MetaBluetoothNetworkConnector.Instance.enabled = false;
-				} else
-				{
-					MetaBluetoothNetworkConnector.Instance.enabled = true;
-				}
-			});
+			NetcodeHelper.IsRunningChange += IsNetworkRunningChanged;
 
 			// home page
 			hostButton.onClick.AddListener(Host);
@@ -82,15 +72,18 @@ namespace Anaglyph.Lasertag
 			int length = Mathf.Min(ip.Length, ip.LastIndexOf('.') + 1);
 			ipField.text = ip.Substring(0, length);
 
-			connectButton.onClick.AddListener(() => NetcodeHelper.ConnectLAN(ipField.text));
+			connectButton.onClick.AddListener(delegate {
+				if(useRelayToggle)
+					NetcodeHelper.ConnectUnityServices(ipField.text);
+				else
+					NetcodeHelper.ConnectLAN(ipField.text);
+			});
 
 			// connecting page
 			sessionPage.showBackButton = false;
 			disconnectButton.onClick.AddListener(Disconnect);
 
 			hostRespawnAnchorButton.onClick.AddListener(RespawnAnchor);
-
-			manager.OnClientStopped += OnClientStopped;
 
 			Colocation.IsColocatedChange += OnColocationChange;
 
@@ -100,28 +93,43 @@ namespace Anaglyph.Lasertag
 		private void OnDestroy()
 		{
 			if (manager != null)
-			{
 				manager.OnConnectionEvent -= OnConnectionEvent;
-				manager.OnClientStarted -= OnClientStarted;
-			}
+
+			NetcodeHelper.IsRunningChange -= IsNetworkRunningChanged;
 
 			Colocation.IsColocatedChange -= OnColocationChange;
 		}
 
-		private void OnClientStarted()
+		private void IsNetworkRunningChanged(bool isRunning)
 		{
-			OpenSessionPage(SessionState.Connecting);
-		}
+			if(isRunning)
+			{
+				OpenSessionPage(SessionState.Connecting);
 
-		private void OnClientStopped(bool wasHost)
-		{
-			homePage.NavigateHere();
+				NetworkTransport transport = manager.NetworkConfig.NetworkTransport;
+				Type transportType = transport.GetType();
+
+				if (string.Equals(transportType.Name, "DistributedAuthorityTransport"))
+				{
+					sessionIpText.text = $"Relay: {NetcodeHelper.CurrentSessionName}";
+				}
+				else if (transport.GetType() == typeof(UnityTransport))
+				{
+					sessionIpText.text = ((UnityTransport)transport).ConnectionData.Address;
+				}
+			} else
+			{
+				homePage.NavigateHere();
+				sessionIpText.text = "";
+			}
 		}
 
 		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
 		{
 			if (NetcodeHelpers.ThisClientConnected(data))
+			{
 				OpenSessionPage(SessionState.Colocating);
+			}
 		}
 
 		private void RespawnAnchor()
@@ -143,19 +151,6 @@ namespace Anaglyph.Lasertag
 
 		private void OpenSessionPage(SessionState state)
 		{
-			sessionIpText.text = "";
-
-			NetworkTransport transport = manager.NetworkConfig.NetworkTransport;
-			Type transportType = transport.GetType();
-
-			if (string.Equals(transportType.Name, "DistributedAuthorityTransport"))
-			{
-				sessionIpText.text = "Relay Server";
-			} else if (transport.GetType() == typeof(UnityTransport))
-			{
-				sessionIpText.text = ((UnityTransport)transport).ConnectionData.Address;
-			}
-
 			switch (state)
 			{
 				case SessionState.Connecting:

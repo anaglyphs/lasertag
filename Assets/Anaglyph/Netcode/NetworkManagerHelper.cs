@@ -1,5 +1,6 @@
 using System;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
@@ -7,6 +8,7 @@ using Unity.Services.Authentication;
 using Unity.Services.Core;
 using Unity.Services.Multiplayer;
 using UnityEngine;
+using static Anaglyph.Netcode.NetcodeHelper;
 
 namespace Anaglyph.Netcode
 {
@@ -15,11 +17,28 @@ namespace Anaglyph.Netcode
 		public static ushort port = 7777;
 		public static string contyp = "dtls";
 
-		public static float cooldownSeconds = 8;
-		private static float lastAttemptTime = -1000;
+		private static float cooldownDoneTime = 0;
+		public const float cooldownSeconds = 8;
 
 		private static NetworkManager manager => NetworkManager.Singleton;
 		private static UnityTransport transport => (UnityTransport)NetworkManager.Singleton.NetworkConfig.NetworkTransport;
+
+		private static bool _isRunning;
+		public static event Action<bool> IsRunningChange = delegate { };
+		public static bool IsRunning
+		{
+			get => _isRunning;
+			private set
+			{
+				bool changed = value != _isRunning;
+				_isRunning = value;
+				if (changed)
+					IsRunningChange?.Invoke(_isRunning);
+			}
+		}
+
+		private static Task currentTask;
+		private static CancellationTokenSource CancelTokenSource = new();
 
 		public enum Protocol
 		{
@@ -29,33 +48,22 @@ namespace Anaglyph.Netcode
 
 		private static void SetNetworkTransportType(string s)
 		{
-			manager.NetworkConfig.UseCMBService = false;
-
 			NetworkTransport newTransport = manager.GetComponent(s) as NetworkTransport;
 			if (newTransport == null)
 				throw new NullReferenceException($"Could not find transport {s}!");
 			manager.NetworkConfig.NetworkTransport = newTransport;
 		}
 
-		private static bool Cooldown()
+		public static void Host(Protocol protocol)
 		{
-			bool coolingDown = !CheckIsReady();
-
-			if (!coolingDown)
-				lastAttemptTime = Time.time;
-
-			return coolingDown;
-		}
-
-		public static bool CheckIfSessionOwner() => manager.CurrentSessionOwner == manager.LocalClientId;
-
-		public static bool CheckIsReady() => Time.time - lastAttemptTime > cooldownSeconds;
-
-		public static async void Host(Protocol protocol)
-		{
-			if (Cooldown())
+			if (currentTask != null && !currentTask.IsCompleted)
 				return;
 
+			currentTask = Host(protocol, CancelTokenSource.Token);
+		}
+
+		private static async Task Host(Protocol protocol, CancellationToken ct)
+		{
 			switch (protocol)
 			{
 				case Protocol.LAN:
@@ -81,17 +89,7 @@ namespace Anaglyph.Netcode
 
 				case Protocol.UnityService:
 
-					SetNetworkTransportType("DistributedAuthorityTransport");
-
-					await SetupServices();
-
-					var options = new SessionOptions()
-					{
-						Name = Guid.NewGuid().ToString(),
-						MaxPlayers = 20,
-					}.WithDistributedAuthorityNetwork();
-
-					CurrentSession = await MultiplayerService.Instance.CreateSessionAsync(options);
+					await ConnectUnityServices(DateTime.Now.ToString("HHmmssffff"), ct);
 
 					break;
 			}
@@ -99,10 +97,8 @@ namespace Anaglyph.Netcode
 
 		public static void ConnectLAN(string ip)
 		{
-			if (Cooldown())
-				return;
-
 			SetNetworkTransportType("UnityTransport");
+			manager.NetworkConfig.UseCMBService = false;
 
 			transport.SetConnectionData(ip, port);
 
@@ -119,21 +115,52 @@ namespace Anaglyph.Netcode
 		}
 
 		public static ISession CurrentSession { get; private set; }
+		public static string CurrentSessionName { get; private set; } = "";
 
-		public static async void ConnectUnityServices(string id)
+		public static void ConnectUnityServices(string id)
 		{
-			if (Cooldown())
+			if (currentTask != null && !currentTask.IsCompleted)
 				return;
 
+			currentTask = ConnectUnityServices(id, CancelTokenSource.Token);
+		}
+
+		private static async Task ConnectUnityServices(string id, CancellationToken ct)
+		{
+			IsRunning = true;
+
+			if (Time.time < cooldownDoneTime) {
+				float waitTime = cooldownDoneTime - Time.time;
+				await Awaitable.WaitForSecondsAsync(waitTime);
+			}
+
+			if (ct.IsCancellationRequested) return;
+
 			SetNetworkTransportType("DistributedAuthorityTransport");
+			manager.NetworkConfig.UseCMBService = true;
+
+			cooldownDoneTime = Time.time + cooldownSeconds;
 
 			await SetupServices();
 
-			CurrentSession = await MultiplayerService.Instance.JoinSessionByIdAsync(id);
+			if (ct.IsCancellationRequested) return;
+
+			var options = new SessionOptions()
+			{
+				Name = id,
+				MaxPlayers = 20,
+			}.WithDistributedAuthorityNetwork();
+
+			CurrentSessionName = id;
+			CurrentSession = await MultiplayerService.Instance.CreateOrJoinSessionAsync(id, options);
+			if (ct.IsCancellationRequested) Disconnect();
 		}
 
 		public static async void Disconnect()
 		{
+			if(currentTask != null && !currentTask.IsCompleted)
+				CancelTokenSource.Cancel();
+
 			try
 			{
 				if (CurrentSession != null)
@@ -146,6 +173,8 @@ namespace Anaglyph.Netcode
 
 			}
 
+			IsRunning = false;
+
 			manager.Shutdown();
 		}
 
@@ -153,12 +182,14 @@ namespace Anaglyph.Netcode
 		{
 			manager.Shutdown();
 			manager.StartClient();
+			IsRunning = true;
 		}
 
 		private static void StartHost()
 		{
 			manager.Shutdown();
 			manager.StartHost();
+			IsRunning = true;
 		}
 	}
 }

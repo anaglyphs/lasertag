@@ -3,11 +3,11 @@ using Anaglyph.XRTemplate.DeviceCameras;
 using AprilTag;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using Unity.Mathematics;
 using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
@@ -17,6 +17,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private Dictionary<int, Vector3> canonTags = new();
 		private Dictionary<int, Vector3> localTags = new();
 
+		public ReadOnlyDictionary<int, Vector3> CanonTags;
+		public ReadOnlyDictionary<int, Vector3> LocalTags;
+
 		[SerializeField] private float tagLerp = 0.1f;
 
 		public float lockDistanceScale = 10;
@@ -25,93 +28,26 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		[Tooltip("In radians/second")]
 		public float maxHeadAngSpeed = 2f;
 
-		private static NetworkManager manager => NetworkManager.Singleton;
+		public bool ColocationActive => colocationActive;
 
 		[SerializeField] private CameraReader cameraReader;
 		[SerializeField] private AprilTagTracker tagTracker;
 
-		[SerializeField] private Mesh indicatorMesh;
-		[SerializeField] private Material indicatorMaterial;
-
-		[SerializeField] private Mesh debugPointMesh;
-		[SerializeField] private Material debugMaterial;
-
-		private static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
-		private MaterialPropertyBlock mpb;
-		private TagPose[] tags;
+		public CameraReader CameraReader => cameraReader;
+		public AprilTagTracker TagTracker => tagTracker;
 
 		private void Awake()
 		{
-			mpb = new MaterialPropertyBlock();
-
-			// todo: better way of doing this 
 			cameraReader = FindAnyObjectByType<CameraReader>();
 			tagTracker = FindAnyObjectByType<AprilTagTracker>();
-		}
 
-		private void OnEnable()
-		{
-			ProceduralDrawFeature.Draw += RenderFoundTags;
-		}
-
-		private void OnDisable()
-		{
-			ProceduralDrawFeature.Draw -= RenderFoundTags;
+			CanonTags = new(canonTags);
+			localTags = new(localTags);
 		}
 
 		private void Start()
 		{
-			manager.OnClientConnectedCallback += OnClientConnected;
-		}
-
-		private void RenderFoundTags(RasterCommandBuffer cmd)
-		{
-			if (!colocationActive)
-				return;
-
-			Vector3 scale;
-
-			if (tags != null)
-			{
-				scale = Vector3.one * tagSize * 3;
-				Color color = Color.white;
-
-				foreach (TagPose tagPose in tags)
-				{
-					if (IsOwner)
-					{
-						bool tagRegistered = canonTags.ContainsKey(tagPose.ID);
-						color = tagRegistered ? Color.green : Color.yellow;
-					}
-
-					mpb.SetColor(BaseColorID, color);
-
-					var model = Matrix4x4.TRS(tagPose.Position, tagPose.Rotation, scale);
-					cmd.DrawMesh(indicatorMesh, model, indicatorMaterial, 0, 0, mpb);
-				}
-			}
-
-			if (Anaglyph.DebugMode)
-			{
-				scale = Vector3.one * 0.03f;
-				mpb.SetColor(BaseColorID, Color.green);
-				foreach (Vector3 canonTagPos in canonTags.Values)
-				{
-					var model = Matrix4x4.TRS(canonTagPos, Quaternion.identity, scale);
-					cmd.DrawMesh(debugPointMesh, model, debugMaterial, 0, 0, mpb);
-
-					//cmd.DrawMeshInstanced(debugPointMesh, 0, debugMaterial, 0, )
-				}
-
-				scale = Vector3.one * 0.02f;
-				mpb.SetColor(BaseColorID, Color.yellow);
-				foreach (Vector3 localTagPos in localTags.Values)
-				{
-					var model = MainXRRig.TrackingSpace.localToWorldMatrix *
-						Matrix4x4.TRS(localTagPos, Quaternion.identity, scale);
-					cmd.DrawMesh(debugPointMesh, model, debugMaterial, 0, 0, mpb);
-				}
-			}
+			NetworkManager.OnClientConnectedCallback += OnClientConnected;
 		}
 
 		[Rpc(SendTo.Everyone)]
@@ -129,7 +65,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private void OnClientConnected(ulong id)
 		{
-			if (IsOwner && id != manager.LocalClientId)
+			if (IsOwner && id != NetworkManager.LocalClientId)
 			{
 				int[] keys = new int[canonTags.Count];
 				Vector3[] values = new Vector3[canonTags.Count];
@@ -242,7 +178,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (!colocationActive)
 				return;
 
-			tags = ((List<TagPose>)results).ToArray();
+			// tags = ((List<TagPose>)results).ToArray();
 
 			foreach (TagPose result in results)
 			{
