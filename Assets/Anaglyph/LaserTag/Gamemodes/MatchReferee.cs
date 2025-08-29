@@ -18,6 +18,7 @@ namespace Anaglyph.Lasertag
 		Queued = 1,
 		Countdown = 2,
 		Playing = 3,
+		Finished = 4,
 	}
 
 	[Serializable]
@@ -81,6 +82,7 @@ namespace Anaglyph.Lasertag
 
 		private NetworkVariable<MatchState> stateSync = new(MatchState.NotPlaying);
 		public MatchState State => stateSync.Value;
+		public event Action<MatchState> StateChanged = delegate { };
 
 		private NetworkVariable<float> timeMatchEndsSync = new(0);
 		public float TimeMatchEnds => timeMatchEndsSync.Value;
@@ -96,8 +98,6 @@ namespace Anaglyph.Lasertag
 
 		private NetworkVariable<MatchSettings> matchSettingsSync = new();
 		public MatchSettings Settings => matchSettingsSync.Value;
-
-		public event Action<MatchState, MatchState> StateChanged = delegate { };
 
 		private void OwnerCheck()
 		{
@@ -133,7 +133,7 @@ namespace Anaglyph.Lasertag
 			if (!IsSpawned) return;
 
 			var avatar = MainPlayer.Instance.Avatar;
-			if (State == MatchState.NotPlaying || State == MatchState.Queued || avatar.Team == 0) {
+			if (State == MatchState.NotPlaying || State == MatchState.Finished || State == MatchState.Queued || avatar.Team == 0) {
 				
 				if (avatar.IsInBase)
 					avatar.TeamOwner.teamSync.Value = avatar.InBase.Team;
@@ -144,7 +144,7 @@ namespace Anaglyph.Lasertag
 		{
 			switch (state)
 			{
-				case MatchState.NotPlaying:
+				case MatchState.NotPlaying or MatchState.Finished:
 
 					MainPlayer.Instance.Respawn();
 					if (IsOwner)
@@ -153,21 +153,19 @@ namespace Anaglyph.Lasertag
 					break;
 
 				case MatchState.Queued:
-
+					MainPlayer.Instance.Respawn();
 					break;
 
 				case MatchState.Countdown:
-
+					MainPlayer.Instance.Respawn();
 					break;
 
 				case MatchState.Playing:
-
 					MainPlayer.Instance.Respawn();
-
 					break;
 			}
 
-			StateChanged.Invoke(prev, state);
+			StateChanged.Invoke(state);
 		}
 
 		public override void OnGainedOwnership()
@@ -356,7 +354,7 @@ namespace Anaglyph.Lasertag
 		[Rpc(SendTo.Owner)]
 		public void EndGameOwnerRpc()
 		{
-			stateSync.Value = MatchState.NotPlaying;
+			stateSync.Value = MatchState.Finished;
 			UnsubscribeFromEvents();
 		}
 

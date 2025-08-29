@@ -19,7 +19,7 @@ namespace Anaglyph.Lasertag
 			Connected,
 		}
 
-		private NetworkManager manager;
+		private static NetworkManager manager => NetworkManager.Singleton;
 
 		[SerializeField] private BoolObject useUnityRelayService;
 
@@ -52,10 +52,7 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			manager = NetworkManager.Singleton;
-
-			manager.OnConnectionEvent += OnConnectionEvent;
-			NetcodeHelper.IsRunningChange += IsNetworkRunningChanged;
+			NetcodeHelper.StateChange += IsNetworkRunningChanged;
 
 			// home page
 			hostButton.onClick.AddListener(Host);
@@ -92,43 +89,43 @@ namespace Anaglyph.Lasertag
 
 		private void OnDestroy()
 		{
-			if (manager != null)
-				manager.OnConnectionEvent -= OnConnectionEvent;
-
-			NetcodeHelper.IsRunningChange -= IsNetworkRunningChanged;
-
+			NetcodeHelper.StateChange -= IsNetworkRunningChanged;
 			Colocation.IsColocatedChange -= OnColocationChange;
 		}
 
-		private void IsNetworkRunningChanged(bool isRunning)
+		private void IsNetworkRunningChanged(NetcodeHelper.NetworkState state)
 		{
-			if(isRunning)
+			switch (state)
 			{
-				OpenSessionPage(SessionState.Connecting);
+				case NetcodeHelper.NetworkState.Disconnected:
+					sessionIpText.text = "";
+					homePage.NavigateHere();
+					break;
 
-				NetworkTransport transport = manager.NetworkConfig.NetworkTransport;
-				Type transportType = transport.GetType();
+				case NetcodeHelper.NetworkState.Connecting:
+					UpdateIpText();
+					OpenSessionPage(SessionState.Connecting);
+					break;
 
-				if (string.Equals(transportType.Name, "DistributedAuthorityTransport"))
-				{
-					sessionIpText.text = $"Relay: {NetcodeHelper.CurrentSessionName}";
-				}
-				else if (transport.GetType() == typeof(UnityTransport))
-				{
-					sessionIpText.text = ((UnityTransport)transport).ConnectionData.Address;
-				}
-			} else
-			{
-				homePage.NavigateHere();
-				sessionIpText.text = "";
+				case NetcodeHelper.NetworkState.Connected:
+					UpdateIpText();
+					OnColocationChange(Colocation.IsColocated);
+					break;
 			}
 		}
 
-		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
+		private void UpdateIpText()
 		{
-			if (NetcodeHelpers.ThisClientConnected(data))
+			NetworkTransport transport = manager.NetworkConfig.NetworkTransport;
+			Type transportType = transport.GetType();
+
+			if (string.Equals(transportType.Name, "DistributedAuthorityTransport"))
 			{
-				OpenSessionPage(SessionState.Colocating);
+				sessionIpText.text = $"Relay: {NetcodeHelper.CurrentSessionName}";
+			}
+			else if (transport.GetType() == typeof(UnityTransport))
+			{
+				sessionIpText.text = ((UnityTransport)transport).ConnectionData.Address;
 			}
 		}
 
@@ -139,14 +136,8 @@ namespace Anaglyph.Lasertag
 
 		private void OnColocationChange(bool isColocated)
 		{
-			if(isColocated)
-				OpenSessionPage(SessionState.Connected);
-		}
-
-		private void ShowAnchorOptions(bool b)
-		{
-			hostRespawnAnchorButton.gameObject.SetActive(b);
-			hostRespawnAnchorLabel.gameObject.SetActive(b);
+			if(NetcodeHelper.State == NetcodeHelper.NetworkState.Connected)
+				OpenSessionPage(Colocation.IsColocated ? SessionState.Connected : SessionState.Colocating);
 		}
 
 		private void OpenSessionPage(SessionState state)
@@ -183,19 +174,21 @@ namespace Anaglyph.Lasertag
 			sessionPage.NavigateHere();
 		}
 
+
+		private void ShowAnchorOptions(bool b)
+		{
+			hostRespawnAnchorButton.gameObject.SetActive(b);
+			hostRespawnAnchorLabel.gameObject.SetActive(b);
+		}
+
 		private void Host()
 		{
-			OpenSessionPage(SessionState.Connecting);
-
 			var service = useUnityRelayService.Value ? NetcodeHelper.Protocol.UnityService : NetcodeHelper.Protocol.LAN;
-
 			NetcodeHelper.Host(service);
 		}
 
 		private void Disconnect()
 		{
-			homePage.NavigateHere();
-
 			NetcodeHelper.Disconnect();
 		}
 	}

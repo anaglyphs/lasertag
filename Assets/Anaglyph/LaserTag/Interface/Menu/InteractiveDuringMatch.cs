@@ -27,7 +27,7 @@ namespace Anaglyph.Lasertag
 			MatchReferee.Instance.StateChanged -= OnMatchStateChanged;
 		}
 
-		private void OnMatchStateChanged(MatchState prev, MatchState current)
+		private void OnMatchStateChanged(MatchState current)
 		{
 			HandleChange();
 		}

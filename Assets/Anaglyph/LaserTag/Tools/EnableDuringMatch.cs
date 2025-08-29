@@ -22,7 +22,7 @@ namespace Anaglyph.Lasertag
 			HandleChange();
 		}
 
-		private void OnMatchStateChanged(MatchState prev, MatchState current)
+		private void OnMatchStateChanged(MatchState current)
 		{
 			HandleChange();
 		}

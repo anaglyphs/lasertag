@@ -28,15 +28,10 @@ namespace Anaglyph.Lasertag
 			matchManager.StateChanged -= HandleStateChange;
 		}
 
-		private void HandleStateChange(MatchState old, MatchState state)
+		private void HandleStateChange(MatchState state)
 		{
 			switch(state)
 			{
-				case MatchState.NotPlaying:
-					if (old == MatchState.Playing)
-						audioSource.PlayOneShot(finish);
-					break;
-
 				case MatchState.Queued:
 					audioSource.PlayOneShot(queue);
 					break;
@@ -47,6 +42,10 @@ namespace Anaglyph.Lasertag
 
 				case MatchState.Playing:
 					audioSource.PlayOneShot(siren);
+					break;
+
+				case MatchState.Finished:
+					audioSource.PlayOneShot(finish);
 					break;
 			}
 		}

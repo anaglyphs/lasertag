@@ -10,7 +10,7 @@ namespace Anaglyph.Lasertag
 
 		private MatchReferee matchReferee => MatchReferee.Instance;
 
-		float countdownTime = 3.0f;
+		float countdownTime = 0;
 		private bool showCountdownOnCountdownText = false;
 
 
@@ -23,11 +23,11 @@ namespace Anaglyph.Lasertag
 
 		private void Update()
 		{
-			countdownTime = Mathf.Clamp(countdownTime - Time.deltaTime, 0.0f, 10.0f);
+			float time = countdownTime - Time.time;
 
 			if (showCountdownOnCountdownText)
 			{
-				countdownText.text = string.Format($"{0,3:N1}", countdownTime + 1.0f);
+				countdownText.text = string.Format($"{Mathf.CeilToInt(time)}");
 			}
 		}
 
@@ -36,7 +36,7 @@ namespace Anaglyph.Lasertag
 			matchReferee.StateChanged -= HandleStateChange;
 		}
 
-		private async void HandleStateChange(MatchState prev, MatchState state)
+		private async void HandleStateChange(MatchState state)
 		{
 			switch (state)
 			{
@@ -56,7 +56,7 @@ namespace Anaglyph.Lasertag
 
 					countdownText.text = "";
 					countdownText.enabled = true;
-					countdownTime = 3.0f;
+					countdownTime = Time.time + 3;
 					showCountdownOnCountdownText = true;
 
 					break;

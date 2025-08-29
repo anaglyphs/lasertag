@@ -49,9 +49,9 @@ namespace Anaglyph.Lasertag
 			matchManager.StateChanged -= HandleStateChange;
 		}
 
-		private async void HandleStateChange(MatchState prev, MatchState state)
+		private async void HandleStateChange(MatchState state)
 		{
-			if (state == MatchState.NotPlaying && prev == MatchState.Playing)
+			if (state == MatchState.Finished)
 			{
 				jumblingTheyNumers = true;
 				gameOver.enabled = true;

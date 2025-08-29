@@ -42,9 +42,9 @@ namespace Anaglyph.Lasertag
 			MatchReferee.Instance?.EndGameOwnerRpc();
 		}
 
-		private void HandleStateChange(MatchState prev, MatchState state)
+		private void HandleStateChange(MatchState state)
 		{
-			if (state == MatchState.NotPlaying)
+			if (state == MatchState.NotPlaying || state == MatchState.Finished)
 				startPage.NavigateHere();
 			else
 				playingPage.NavigateHere();

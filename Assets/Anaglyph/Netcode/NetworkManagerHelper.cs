@@ -8,7 +8,6 @@ using Unity.Services.Authentication;
 using Unity.Services.Core;
 using Unity.Services.Multiplayer;
 using UnityEngine;
-using static Anaglyph.Netcode.NetcodeHelper;
 
 namespace Anaglyph.Netcode
 {
@@ -23,34 +22,64 @@ namespace Anaglyph.Netcode
 		private static NetworkManager manager => NetworkManager.Singleton;
 		private static UnityTransport transport => (UnityTransport)NetworkManager.Singleton.NetworkConfig.NetworkTransport;
 
-		private static bool _isRunning;
-		public static event Action<bool> IsRunningChange = delegate { };
-		public static bool IsRunning
+		public enum NetworkState
 		{
-			get => _isRunning;
+			Disconnected = 0,
+			Connecting,
+			Connected,
+		}
+
+		public enum Protocol
+		{
+			LAN,
+			UnityService,
+		}
+
+		private static NetworkState _state;
+		public static event Action<NetworkState> StateChange = delegate { };
+		public static NetworkState State
+		{
+			get => _state;
 			private set
 			{
-				bool changed = value != _isRunning;
-				_isRunning = value;
+				bool changed = value != _state;
+				_state = value;
 				if (changed)
-					IsRunningChange?.Invoke(_isRunning);
+					StateChange?.Invoke(_state);
+			}
+		}
+
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+		private static void OnSceneLoad()
+		{
+			manager.OnClientStarted += () => State = NetworkState.Connecting;
+			manager.OnClientStopped += _ => State = NetworkState.Disconnected;
+			manager.OnConnectionEvent += OnConnectionEvent;
+		}
+
+		private static void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
+		{
+			if(NetcodeHelpers.ThisClientConnected(data))
+			{
+				State = NetworkState.Connected;
+			} else if(NetcodeHelpers.ThisClientDisconnected(data))
+			{
+				State = NetworkState.Disconnected;
 			}
 		}
 
 		private static Task currentTask;
 		private static CancellationTokenSource CancelTokenSource = new();
 
-		public enum Protocol
-		{
-			LAN,
-			UnityService, 
-		}
-
 		private static void SetNetworkTransportType(string s)
 		{
+			if (State != NetworkState.Disconnected)
+				throw new Exception("You can only change the transport while disconnected!");
+
 			NetworkTransport newTransport = manager.GetComponent(s) as NetworkTransport;
 			if (newTransport == null)
-				throw new NullReferenceException($"Could not find transport {s}!");
+				throw new Exception($"Could not find transport {s}!");
+
 			manager.NetworkConfig.NetworkTransport = newTransport;
 		}
 
@@ -69,7 +98,6 @@ namespace Anaglyph.Netcode
 				case Protocol.LAN:
 
 					SetNetworkTransportType("UnityTransport");
-
 					manager.NetworkConfig.UseCMBService = false;
 
 					string localAddress = "";
@@ -84,7 +112,7 @@ namespace Anaglyph.Netcode
 					}
 
 					transport.SetConnectionData(localAddress, port);
-					StartHost();
+					manager.StartHost();
 					break;
 
 				case Protocol.UnityService:
@@ -97,12 +125,14 @@ namespace Anaglyph.Netcode
 
 		public static void ConnectLAN(string ip)
 		{
+			State = NetworkState.Connecting;
+
 			SetNetworkTransportType("UnityTransport");
 			manager.NetworkConfig.UseCMBService = false;
 
 			transport.SetConnectionData(ip, port);
 
-			StartClient();
+			manager.StartClient();
 		}
 
 		private static async Task SetupServices()
@@ -127,7 +157,10 @@ namespace Anaglyph.Netcode
 
 		private static async Task ConnectUnityServices(string id, CancellationToken ct)
 		{
-			IsRunning = true;
+			SetNetworkTransportType("DistributedAuthorityTransport");
+			manager.NetworkConfig.UseCMBService = true;
+
+			State = NetworkState.Connecting;
 
 			if (Time.time < cooldownDoneTime) {
 				float waitTime = cooldownDoneTime - Time.time;
@@ -135,9 +168,6 @@ namespace Anaglyph.Netcode
 			}
 
 			if (ct.IsCancellationRequested) return;
-
-			SetNetworkTransportType("DistributedAuthorityTransport");
-			manager.NetworkConfig.UseCMBService = true;
 
 			cooldownDoneTime = Time.time + cooldownSeconds;
 
@@ -173,23 +203,10 @@ namespace Anaglyph.Netcode
 
 			}
 
-			IsRunning = false;
+			State = NetworkState.Disconnected;
 
 			manager.Shutdown();
-		}
-
-		private static void StartClient()
-		{
-			manager.Shutdown();
-			manager.StartClient();
-			IsRunning = true;
-		}
-
-		private static void StartHost()
-		{
-			manager.Shutdown();
-			manager.StartHost();
-			IsRunning = true;
+			
 		}
 	}
 }

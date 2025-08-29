@@ -1,6 +1,7 @@
 using Anaglyph.Netcode;
 using System;
 using System.Text;
+using System.Threading.Tasks;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using Unity.Services.Multiplayer;
@@ -21,103 +22,84 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private static string LanPrefix = "IP:";
 		private static string RelayPrefix = "Relay:";
 
-		private void Start()
-		{
-			manager.OnClientStarted += OnClientStarted;
-			OVRColocationSession.ColocationSessionDiscovered += HandleColocationSessionDiscovered;
-		}
-
-		private void OnEnable() => HandleChange();
-		private void OnDisable() => HandleChange();
-
-		private void OnClientStarted() => HandleChange();
-		private void OnClientStopped(bool b) => HandleChange();
-
-#if !UNITY_EDITOR
-		private void OnApplicationFocus(bool focus) => HandleChange();
-		private void OnApplicationPause(bool pause) => HandleChange();
-#endif
-
 		private void Awake()
 		{
 			Instance = this;
-			NetcodeHelper.IsRunningChange += IsNetworkRunningChanged;
+			NetcodeHelper.StateChange += OnNetworkStateChange;
+			OVRColocationSession.ColocationSessionDiscovered += HandleColocationSessionDiscovered;
 		}
 
 		private void OnDestroy()
 		{
-			NetcodeHelper.IsRunningChange -= IsNetworkRunningChanged;
+			NetcodeHelper.StateChange -= OnNetworkStateChange;
 			OVRColocationSession.ColocationSessionDiscovered -= HandleColocationSessionDiscovered;
 		}
 
-		private void HandleChange()
-		{
+		private async void OnNetworkStateChange(NetcodeHelper.NetworkState state) => await HandleChange();
 
-			if (!enabled 
+		private async void OnEnable() => await HandleChange();
+		private async void OnDisable() => await HandleChange();
+
 #if !UNITY_EDITOR
-				|| !Application.isFocused
+		private void OnApplicationFocus(bool focus) => await HandleChange();
+		private void OnApplicationPause(bool pause) => await HandleChange();
 #endif
-				)
-			{
-				Log("Stopping both discovery and advertisement");
-				OVRColocationSession.StopDiscoveryAsync();
-				OVRColocationSession.StopAdvertisementAsync();
-			}
-			else
+
+		private async Task HandleChange()
+		{
+#if UNITY_EDITOR
+			if(enabled)
+#else
+			if (enabled && Application.isFocused)
+#endif
 			{
 				if (manager == null)
 					return;
 
-				if (manager.IsListening)
-					NetworkStarted();
-				else
-					NetworkStopped();
+				switch (NetcodeHelper.State)
+				{
+					case NetcodeHelper.NetworkState.Disconnected:
+						Log("Stopping advertisement, starting discovery");
+						await OVRColocationSession.StopAdvertisementAsync();
+						await OVRColocationSession.StartDiscoveryAsync();
+						break;
+
+					case NetcodeHelper.NetworkState.Connecting:
+						Log("Stopping discovery");
+						await OVRColocationSession.StopDiscoveryAsync();
+						break;
+
+					case NetcodeHelper.NetworkState.Connected:
+						await Broadcast();
+						break;
+				}
+			}
+			else
+			{
+				Log("Stopping both discovery and advertisement");
+				await OVRColocationSession.StopDiscoveryAsync();
+				await OVRColocationSession.StopAdvertisementAsync();
 			}
 		}
 
-		private void IsNetworkRunningChanged(bool isRunning)
-		{
-			if (isRunning)
-				NetworkStarted();
-			else
-				NetworkStopped();
-		}
-
-		private async void NetworkStarted()
-		{
-			Log("Stopping discovery");
-			await OVRColocationSession.StopDiscoveryAsync();
-		}
-
-		private async void OnClientStarted()
+		private async Task Broadcast()
 		{
 			string message = "";
 
 			switch (transport.Protocol)
 			{
 				case UnityTransport.ProtocolType.UnityTransport:
-
 					string address = transport.ConnectionData.Address;
 					message = LanPrefix + address;
 					break;
 
 				case UnityTransport.ProtocolType.RelayUnityTransport:
-
 					message = RelayPrefix + NetcodeHelper.CurrentSessionName;
-
 					break;
 			}
 
 			Log($"Starting advertisement {message}");
 			await OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(message));
-		}
-
-		private async void NetworkStopped()
-		{
-			Log("Stopping advertisement");
-			await OVRColocationSession.StopAdvertisementAsync();
-			Log("Starting discovery");
-			await OVRColocationSession.StartDiscoveryAsync();
 		}
 
 		private void HandleColocationSessionDiscovered(OVRColocationSession.Data data)
