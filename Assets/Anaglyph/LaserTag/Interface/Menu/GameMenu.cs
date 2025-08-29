@@ -44,7 +44,7 @@ namespace Anaglyph.Lasertag
 
 		private void HandleStateChange(MatchState state)
 		{
-			if (state == MatchState.NotPlaying || state == MatchState.Finished)
+			if (state == MatchState.NotPlaying)
 				startPage.NavigateHere();
 			else
 				playingPage.NavigateHere();

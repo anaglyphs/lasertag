@@ -21,11 +21,13 @@ namespace Anaglyph.Lasertag
 		private void Start()
 		{
 			matchManager.StateChanged += HandleStateChange;
+			matchManager.MatchFinished += OnMatchFinished;
 		}
 
 		private void OnDestroy()
 		{
 			matchManager.StateChanged -= HandleStateChange;
+			matchManager.MatchFinished -= OnMatchFinished;
 		}
 
 		private void HandleStateChange(MatchState state)
@@ -43,11 +45,12 @@ namespace Anaglyph.Lasertag
 				case MatchState.Playing:
 					audioSource.PlayOneShot(siren);
 					break;
-
-				case MatchState.Finished:
-					audioSource.PlayOneShot(finish);
-					break;
 			}
+		}
+
+		private void OnMatchFinished()
+		{
+			audioSource.PlayOneShot(finish);
 		}
 	}
 }

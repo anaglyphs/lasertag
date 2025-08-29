@@ -1,3 +1,5 @@
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -10,25 +12,14 @@ namespace Anaglyph.Lasertag
 
 		private MatchReferee matchReferee => MatchReferee.Instance;
 
-		float countdownTime = 0;
-		private bool showCountdownOnCountdownText = false;
-
+		private Task countdownTask = Task.CompletedTask;
+		private CancellationTokenSource countdownCanceller = new();
 
 		private void Start()
 		{
 			matchReferee.StateChanged += HandleStateChange;
-
 			queued.enabled = false;
-		}
-
-		private void Update()
-		{
-			float time = countdownTime - Time.time;
-
-			if (showCountdownOnCountdownText)
-			{
-				countdownText.text = string.Format($"{Mathf.CeilToInt(time)}");
-			}
+			countdownText.enabled = false;
 		}
 
 		private void OnDestroy()
@@ -38,33 +29,22 @@ namespace Anaglyph.Lasertag
 
 		private async void HandleStateChange(MatchState state)
 		{
+			queued.enabled = state == MatchState.Queued;
+
+			if (state != MatchState.Countdown && !countdownTask.IsCompleted)
+			{
+				countdownCanceller.Cancel();
+				countdownText.enabled = false;
+			}
+
 			switch (state)
 			{
-				case MatchState.NotPlaying:
-					countdownText.enabled = false;
-					queued.enabled = false;
-
-					break;
-
-				case MatchState.Queued:
-					queued.enabled = true;
-
-					break;
-
 				case MatchState.Countdown:
-					queued.enabled = false;
-
-					countdownText.text = "";
-					countdownText.enabled = true;
-					countdownTime = Time.time + 3;
-					showCountdownOnCountdownText = true;
-
+					countdownTask = CountdownTask(countdownCanceller.Token);
 					break;
 
 				case MatchState.Playing:
 					queued.enabled = false;
-
-					showCountdownOnCountdownText = false;
 					countdownText.text = "Go!";
 					countdownText.enabled = true;
 
@@ -74,6 +54,24 @@ namespace Anaglyph.Lasertag
 
 					break;
 			}
+		}
+
+		private async Task CountdownTask(CancellationToken ctn)
+		{
+			countdownText.enabled = true;
+
+			countdownText.text = "3";
+			await Awaitable.WaitForSecondsAsync(1);
+			if (ctn.IsCancellationRequested) return;
+
+			countdownText.text = "2";
+			await Awaitable.WaitForSecondsAsync(1);
+			if (ctn.IsCancellationRequested) return;
+
+			countdownText.text = "1";
+			await Awaitable.WaitForSecondsAsync(1);
+
+			countdownText.enabled = false;
 		}
 	}
 }

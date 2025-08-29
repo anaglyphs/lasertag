@@ -5,20 +5,21 @@ using UnityEngine;
 
 namespace Anaglyph.Lasertag
 {
+	[Flags]
 	public enum WinCondition : byte
 	{
-		None = 0,
-		Timer = 1,
-		ReachScore = 2,
+		None          = 0b00000000,
+		Timer         = 0b00000001,
+		ReachScore    = 0b00000010,
 	}
 
+	[Flags]
 	public enum MatchState : byte
 	{
-		NotPlaying = 0,
-		Queued = 1,
-		Countdown = 2,
-		Playing = 3,
-		Finished = 4,
+		NotPlaying = 0b00000000,
+		Queued     = 0b00000010,
+		Countdown  = 0b00000011,
+		Playing    = 0b00000001,
 	}
 
 	[Serializable]
@@ -92,12 +93,12 @@ namespace Anaglyph.Lasertag
 		private NetworkVariable<int> team2ScoreSync = new(0);
 
 		private NetworkVariable<int>[] teamScoresSync;
-		private NetworkVariable<byte> winningTeamSync = new();
 		public int GetTeamScore(byte team) => teamScoresSync[team].Value;
-		public byte WinningTeam => winningTeamSync.Value;
 
 		private NetworkVariable<MatchSettings> matchSettingsSync = new();
 		public MatchSettings Settings => matchSettingsSync.Value;
+
+		public event Action MatchFinished = delegate { };
 
 		private void OwnerCheck()
 		{
@@ -133,7 +134,7 @@ namespace Anaglyph.Lasertag
 			if (!IsSpawned) return;
 
 			var avatar = MainPlayer.Instance.Avatar;
-			if (State == MatchState.NotPlaying || State == MatchState.Finished || State == MatchState.Queued || avatar.Team == 0) {
+			if (State != MatchState.Playing || avatar.Team == 0) {
 				
 				if (avatar.IsInBase)
 					avatar.TeamOwner.teamSync.Value = avatar.InBase.Team;
@@ -144,7 +145,7 @@ namespace Anaglyph.Lasertag
 		{
 			switch (state)
 			{
-				case MatchState.NotPlaying or MatchState.Finished:
+				case MatchState.NotPlaying:
 
 					MainPlayer.Instance.Respawn();
 					if (IsOwner)
@@ -252,8 +253,6 @@ namespace Anaglyph.Lasertag
 			{
 				point.ResetPointRpc();
 			}
-
-			winningTeamSync.Value = 0;
 		}
 
 		[Rpc(SendTo.Owner)]
@@ -333,29 +332,44 @@ namespace Anaglyph.Lasertag
 
 			teamScoresSync[team].Value += points;
 
-			byte winningTeam = 0;
-			int highScore = 0;
-			for(byte i = 0; i < teamScoresSync.Length; i++)
-			{
-				int score = GetTeamScore(i);
-				if (score > highScore) {
-					highScore = score;
-					winningTeam = i;
-				}
-			}
-			winningTeamSync.Value = winningTeam;
-
 			if (Settings.CheckWinByPoints() && teamScoresSync[team].Value > Settings.scoreTarget)
 			{
 				EndGameOwnerRpc();
 			}
 		}
 
+		public byte CalculateWinningTeam()
+		{
+			byte winningTeam = 0;
+			int highScore = 0;
+			for (byte i = 0; i < teamScoresSync.Length; i++)
+			{
+				int score = GetTeamScore(i);
+				if (score > highScore)
+				{
+					highScore = score;
+					winningTeam = i;
+				}
+			}
+			return winningTeam;
+		}
+
 		[Rpc(SendTo.Owner)]
 		public void EndGameOwnerRpc()
 		{
-			stateSync.Value = MatchState.Finished;
+			var prevState = State;
+			stateSync.Value = MatchState.NotPlaying;
+
+			if (prevState == MatchState.Playing)
+				GameEndRpc();
+			
 			UnsubscribeFromEvents();
+		}
+
+		[Rpc(SendTo.Everyone)]
+		public void GameEndRpc()
+		{
+			MatchFinished.Invoke();
 		}
 
 		private void UnsubscribeFromEvents()
