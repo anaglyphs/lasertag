@@ -10,7 +10,7 @@ namespace Anaglyph.XRTemplate
 
 		[SerializeField] private ComputeShader shader = null;
 		[SerializeField] private float metersPerVoxel = 0.1f;
-		[SerializeField] private float dispatchesPerSecond = 30f;
+		[SerializeField] private float dispatchesPerSecond = 5f;
 
 		[SerializeField] private RenderTexture volume;
 

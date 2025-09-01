@@ -31,7 +31,7 @@ namespace Anaglyph.Lasertag
 		{
 			queued.enabled = state == MatchState.Queued;
 
-			if (state != MatchState.Countdown && !countdownTask.IsCompleted)
+			if (!countdownTask.IsCompleted)
 			{
 				countdownCanceller.Cancel();
 				countdownText.enabled = false;
@@ -40,6 +40,7 @@ namespace Anaglyph.Lasertag
 			switch (state)
 			{
 				case MatchState.Countdown:
+					countdownCanceller = new();
 					countdownTask = CountdownTask(countdownCanceller.Token);
 					break;
 
@@ -62,15 +63,16 @@ namespace Anaglyph.Lasertag
 
 			countdownText.text = "3";
 			await Awaitable.WaitForSecondsAsync(1);
-			if (ctn.IsCancellationRequested) return;
 
+			if (ctn.IsCancellationRequested) goto Canceled;
 			countdownText.text = "2";
 			await Awaitable.WaitForSecondsAsync(1);
-			if (ctn.IsCancellationRequested) return;
 
+			if (ctn.IsCancellationRequested) goto Canceled;
 			countdownText.text = "1";
 			await Awaitable.WaitForSecondsAsync(1);
 
+		Canceled:
 			countdownText.enabled = false;
 		}
 	}

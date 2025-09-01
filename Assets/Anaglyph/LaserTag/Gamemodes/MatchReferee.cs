@@ -2,6 +2,20 @@ using System;
 using System.Collections;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.UI;
+using System.Reflection;
+using Unity.Collections.LowLevel.Unsafe;
+using System.Threading.Tasks;
+using System.Threading;
+
+
+
+
+
+
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace Anaglyph.Lasertag
 {
@@ -100,10 +114,8 @@ namespace Anaglyph.Lasertag
 
 		public event Action MatchFinished = delegate { };
 
-		private void OwnerCheck()
-		{
-			if(!IsOwner) throw new Exception(NotOwnerExceptionMessage);
-		}
+		private CancellationTokenSource matchCanceller;
+		private Task currentMatchTask = Task.CompletedTask;
 
 		private void Awake()
 		{
@@ -143,6 +155,9 @@ namespace Anaglyph.Lasertag
 
 		private void OnStateUpdateLocally(MatchState prev, MatchState state)
 		{
+			if (!currentMatchTask.IsCompleted)
+				matchCanceller.Cancel();
+
 			switch (state)
 			{
 				case MatchState.NotPlaying:
@@ -159,6 +174,8 @@ namespace Anaglyph.Lasertag
 
 				case MatchState.Countdown:
 					MainPlayer.Instance.Respawn();
+					matchCanceller = new();
+					currentMatchTask = Countdown(matchCanceller.Token);
 					break;
 
 				case MatchState.Playing:
@@ -167,6 +184,33 @@ namespace Anaglyph.Lasertag
 			}
 
 			StateChanged.Invoke(state);
+		}
+
+		private async Task Countdown(CancellationToken ctn)
+		{
+			if (!IsOwner) return;
+
+			await Awaitable.WaitForSecondsAsync(3);
+			if (ctn.IsCancellationRequested) return;
+
+			stateSync.Value = MatchState.Playing;
+		}
+
+		private async Task Match(MatchSettings settings, CancellationToken ctn)
+		{
+			Task timer = null;
+
+			if (settings.winCondition == WinCondition.Timer) {
+				timer = Timer(settings.timerSeconds, ctn);
+			}
+
+			if (timer != null)
+				timer.Wait();
+		}
+
+		private async Task Timer(float seconds,  CancellationToken ctn)
+		{
+			await Awaitable.WaitForSecondsAsync()
 		}
 
 		public override void OnGainedOwnership()
@@ -198,6 +242,12 @@ namespace Anaglyph.Lasertag
 			matchSettingsSync.Value = gameSettings;
 			stateSync.Value = MatchState.Queued;
 			StartCoroutine(QueueStartGameAsOwnerCoroutine());
+		}
+
+		[Rpc(SendTo.Owner)]
+		public void SetStateRpc(MatchState state)
+		{
+			stateSync.Value = state;
 		}
 
 		private IEnumerator QueueStartGameAsOwnerCoroutine()
@@ -379,4 +429,30 @@ namespace Anaglyph.Lasertag
 
 
 	}
+
+#if UNITY_EDITOR
+
+	[CustomEditor(typeof(MatchReferee))]
+	public class Example : Editor
+	{
+		public override void OnInspectorGUI()
+		{
+			MatchReferee matchReferee = (MatchReferee)target;
+			// DrawDefaultInspector();
+
+			var state = (MatchState)EditorGUILayout.EnumFlagsField("Match State", matchReferee.State);
+			if (state != matchReferee.State)
+				SetState(matchReferee, state);
+		}
+
+		private void SetState(MatchReferee matchReferee, MatchState state)
+		{
+			var fi = typeof(MatchReferee).GetField("stateSync", BindingFlags.Instance | BindingFlags.NonPublic);
+			var nv = fi.GetValue(matchReferee);
+			var prop = nv.GetType().GetProperty("Value", BindingFlags.Instance | BindingFlags.Public);
+			prop.SetValue(nv, state, null);
+		}
+	}
+
+#endif
 }
