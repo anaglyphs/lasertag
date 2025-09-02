@@ -1,3 +1,6 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -10,54 +13,58 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private Text redScoreText;
 		[SerializeField] private Text blueScoreText;
 
-		// private bool jumblingTheyNumers = false;
+		private MatchReferee referee => MatchReferee.Instance;
 
-		private MatchReferee matchManager => MatchReferee.Instance;
+		private CancellationTokenSource scoreCanceller = new();
 
 		private void Start()
 		{
-			matchManager.MatchFinished += OnMatchFinished;
+			referee.MatchFinished += OnMatchFinished;
+			referee.StateChanged += OnStateChanged;
 			gameObject.SetActive(false);
+		}
+
+		private void OnStateChanged(MatchState state)
+		{
+			if (state != MatchState.NotPlaying)
+			{
+				scoreCanceller.Cancel();
+				gameObject.SetActive(false);
+			}
 		}
 
 		private void OnDestroy()
 		{
-			matchManager.MatchFinished -= OnMatchFinished;
+			referee.MatchFinished -= OnMatchFinished;
+			scoreCanceller.Cancel();
 		}
 
-		private async void OnMatchFinished()
+		private void OnMatchFinished()
 		{
-			byte winningTeam = matchManager.CalculateWinningTeam();
-			gameObject.SetActive(true);
+			scoreCanceller.Cancel();
+			scoreCanceller = new();
+			ShowScore(scoreCanceller.Token);
+		}
 
-			redScoreText.fontSize = winningTeam == 1 ? 80 : 60;
-			blueScoreText.fontSize = winningTeam == 2 ? 80 : 60;
+		private async Task ShowScore(CancellationToken ctn)
+		{
+			try
+			{
+				byte winningTeam = referee.CalculateWinningTeam();
+				gameObject.SetActive(true);
 
-			redScoreText.text = $"{matchManager.GetTeamScore(1)}";
-			blueScoreText.text = $"{matchManager.GetTeamScore(2)}";
+				redScoreText.fontSize = winningTeam == 1 ? 80 : 60;
+				blueScoreText.fontSize = winningTeam == 2 ? 80 : 60;
 
-			await Awaitable.WaitForSecondsAsync(5);
+				redScoreText.text = $"{referee.GetTeamScore(1)}";
+				blueScoreText.text = $"{referee.GetTeamScore(2)}";
+
+				await Awaitable.WaitForSecondsAsync(5, ctn);
+				ctn.ThrowIfCancellationRequested();
+
+			} catch(OperationCanceledException) { }
 
 			gameObject.SetActive(false);
 		}
-
-		//private void Update()
-		//{
-		//	if (jumblingTheyNumers)
-		//	{
-		//		redScoreText.fontSize = 60;
-		//		blueScoreText.fontSize = 60;
-
-		//		redScoreText.text = $"{Mathf.RoundToInt(Random.Range(0, 99))}";
-		//		blueScoreText.text = $"{Mathf.RoundToInt(Random.Range(0, 99))}";
-		//	} else
-		//	{
-		//		redScoreText.fontSize = matchManager.WinningTeam == 1 ? 80 : 60;
-		//		blueScoreText.fontSize = matchManager.WinningTeam == 2 ? 80 : 60;
-
-		//		redScoreText.text = $"{matchManager.GetTeamScore(1)}";
-		//		blueScoreText.text = $"{matchManager.GetTeamScore(2)}";
-		//	}
-		//}
 	}
 }

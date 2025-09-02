@@ -34,7 +34,7 @@ namespace Anaglyph.Lasertag
 		{
 			switch(state)
 			{
-				case MatchState.Queued:
+				case MatchState.Mustering:
 					audioSource.PlayOneShot(queue);
 					break;
 

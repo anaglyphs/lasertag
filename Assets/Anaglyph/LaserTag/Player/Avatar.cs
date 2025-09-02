@@ -132,6 +132,13 @@ namespace Anaglyph.Lasertag.Networking
 
 			if(AllPlayers.TryGetValue(killerId, out Avatar killer))
 				OnPlayerKilledPlayer.Invoke(killer, this);
+
+			var referee = MatchReferee.Instance;
+
+			if(referee.State == MatchState.Playing && killer.Team != Team)
+			{
+				referee.ScoreTeamRpc(killer.Team, referee.Settings.pointsPerKill);
+			}
 		}
 
 		[Rpc(SendTo.Owner)]

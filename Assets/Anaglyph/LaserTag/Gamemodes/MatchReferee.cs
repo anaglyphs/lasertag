@@ -1,39 +1,26 @@
 using System;
-using System.Collections;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.UI;
-using System.Reflection;
-using Unity.Collections.LowLevel.Unsafe;
 using System.Threading.Tasks;
 using System.Threading;
-
-
-
-
-
-
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
 
 namespace Anaglyph.Lasertag
 {
 	[Flags]
 	public enum WinCondition : byte
 	{
-		None          = 0b00000000,
-		Timer         = 0b00000001,
-		ReachScore    = 0b00000010,
+		None       = 0b00000000,
+		Timer      = 0b00000001,
+		ReachScore = 0b00000010,
 	}
 
 	[Flags]
 	public enum MatchState : byte
 	{
-		NotPlaying = 0b00000000,
-		Queued     = 0b00000010,
-		Countdown  = 0b00000011,
-		Playing    = 0b00000001,
+		NotPlaying = 0b00000001,
+		Mustering  = 0b00000010,
+		Countdown  = 0b00000100,
+		Playing    = 0b00001000,
 	}
 
 	[Serializable]
@@ -98,9 +85,7 @@ namespace Anaglyph.Lasertag
 		private NetworkVariable<MatchState> stateSync = new(MatchState.NotPlaying);
 		public MatchState State => stateSync.Value;
 		public event Action<MatchState> StateChanged = delegate { };
-
-		private NetworkVariable<float> timeMatchEndsSync = new(0);
-		public float TimeMatchEnds => timeMatchEndsSync.Value;
+		public event Action MatchFinished = delegate { };
 
 		private NetworkVariable<int> team0ScoreSync = new(0);
 		private NetworkVariable<int> team1ScoreSync = new(0);
@@ -109,13 +94,14 @@ namespace Anaglyph.Lasertag
 		private NetworkVariable<int>[] teamScoresSync;
 		public int GetTeamScore(byte team) => teamScoresSync[team].Value;
 
-		private NetworkVariable<MatchSettings> matchSettingsSync = new();
-		public MatchSettings Settings => matchSettingsSync.Value;
+		private NetworkVariable<MatchSettings> settingsSync = new();
+		public MatchSettings Settings => settingsSync.Value;
 
-		public event Action MatchFinished = delegate { };
+		private CancellationTokenSource cancelTokenSrc = new();
 
-		private CancellationTokenSource matchCanceller;
-		private Task currentMatchTask = Task.CompletedTask;
+		private SemaphoreSlim scoreWinSemaphore;
+
+		private float localTimeMatchEnds = 0;
 
 		private void Awake()
 		{
@@ -133,12 +119,12 @@ namespace Anaglyph.Lasertag
 			if (IsOwner)
 			{
 				stateSync.Value = MatchState.NotPlaying;
-				matchSettingsSync.Value = MatchSettings.Lobby();
+				settingsSync.Value = MatchSettings.Lobby();
 			}
-			
-			stateSync.OnValueChanged += OnStateUpdateLocally;
 
-			OnStateUpdateLocally(MatchState.NotPlaying, MatchState.NotPlaying);
+			stateSync.OnValueChanged += OnStateChanged;
+
+			OnStateChanged(MatchState.NotPlaying, MatchState.NotPlaying);
 		}
 
 		private void Update()
@@ -146,121 +132,60 @@ namespace Anaglyph.Lasertag
 			if (!IsSpawned) return;
 
 			var avatar = MainPlayer.Instance.Avatar;
-			if (State != MatchState.Playing || avatar.Team == 0) {
-				
+			if (avatar == null) return;
+
+			if (State != MatchState.Playing || avatar.Team == 0)
+			{
 				if (avatar.IsInBase)
 					avatar.TeamOwner.teamSync.Value = avatar.InBase.Team;
 			}
 		}
 
-		private void OnStateUpdateLocally(MatchState prev, MatchState state)
+		private void OnStateChanged(MatchState prev, MatchState state)
 		{
-			if (!currentMatchTask.IsCompleted)
-				matchCanceller.Cancel();
+			MainPlayer.Instance.Respawn();
 
 			switch (state)
 			{
-				case MatchState.NotPlaying:
-
-					MainPlayer.Instance.Respawn();
-					if (IsOwner)
-						matchSettingsSync.Value = MatchSettings.Lobby();
-
-					break;
-
-				case MatchState.Queued:
-					MainPlayer.Instance.Respawn();
-					break;
-
-				case MatchState.Countdown:
-					MainPlayer.Instance.Respawn();
-					matchCanceller = new();
-					currentMatchTask = Countdown(matchCanceller.Token);
-					break;
-
 				case MatchState.Playing:
-					MainPlayer.Instance.Respawn();
+					localTimeMatchEnds = Time.time + Settings.timerSeconds;
+					break;
+
+				case MatchState.NotPlaying:
+					if (IsOwner)
+						settingsSync.Value = MatchSettings.Lobby();
 					break;
 			}
 
 			StateChanged.Invoke(state);
 		}
 
-		private async Task Countdown(CancellationToken ctn)
+		private CancellationToken PrepareNextTask()
 		{
-			if (!IsOwner) return;
+			cancelTokenSrc.Cancel();
 
-			await Awaitable.WaitForSecondsAsync(3);
-			if (ctn.IsCancellationRequested) return;
-
-			stateSync.Value = MatchState.Playing;
-		}
-
-		private async Task Match(MatchSettings settings, CancellationToken ctn)
-		{
-			Task timer = null;
-
-			if (settings.winCondition == WinCondition.Timer) {
-				timer = Timer(settings.timerSeconds, ctn);
-			}
-
-			if (timer != null)
-				timer.Wait();
-		}
-
-		private async Task Timer(float seconds,  CancellationToken ctn)
-		{
-			await Awaitable.WaitForSecondsAsync()
-		}
-
-		public override void OnGainedOwnership()
-		{
-			if(State == MatchState.Playing)
-				SubscribeToEvents();
-		}
-
-		public override void OnLostOwnership()
-		{
-			UnsubscribeFromEvents();
-		}
-
-		public override void OnDestroy()
-		{
-			base.OnDestroy();
-			UnsubscribeFromEvents();
-		}
-
-		public override void OnNetworkDespawn()
-		{
-			OnStateUpdateLocally(stateSync.Value, MatchState.NotPlaying);
-			UnsubscribeFromEvents();
+			cancelTokenSrc = new();
+			return cancelTokenSrc.Token;
 		}
 
 		[Rpc(SendTo.Owner)]
-		public void QueueStartGameOwnerRpc(MatchSettings gameSettings)
+		public void StartMatchRpc(MatchSettings settings)
 		{
-			matchSettingsSync.Value = gameSettings;
-			stateSync.Value = MatchState.Queued;
-			StartCoroutine(QueueStartGameAsOwnerCoroutine());
+			if (State != MatchState.NotPlaying)
+				return;
+
+			settingsSync.Value = settings;
+
+			Muster(PrepareNextTask());
 		}
 
-		[Rpc(SendTo.Owner)]
-		public void SetStateRpc(MatchState state)
+		private async Task Muster(CancellationToken ctn)
 		{
-			stateSync.Value = state;
-		}
-
-		private IEnumerator QueueStartGameAsOwnerCoroutine()
-		{
-			OwnerCheck();
-
-			ResetScoresRpc();
-
-			yield return new WaitForSeconds(1);
-
-			while (State == MatchState.Queued)
+			try
 			{
-				if (Settings.respawnInBases)
+				stateSync.Value = MatchState.Mustering;
+
+				while (State == MatchState.Mustering)
 				{
 					int numPlayersInbase = 0;
 
@@ -271,19 +196,119 @@ namespace Anaglyph.Lasertag
 					}
 
 					if (numPlayersInbase != 0 && numPlayersInbase == Networking.Avatar.AllPlayers.Count)
-						stateSync.Value = MatchState.Countdown;
+					{
+						Countdown(ctn);
+						break;
+					}
 
-				} else
-					stateSync.Value = MatchState.Countdown;
+					await Awaitable.NextFrameAsync(ctn);
+				}
 
-				yield return null;
+			} catch(OperationCanceledException)
+			{
+				stateSync.Value = MatchState.NotPlaying;
+				throw;
 			}
+		}
 
-			if(State == MatchState.Countdown)
-				yield return new WaitForSeconds(3);
+		private async Task Countdown(CancellationToken ctn)
+		{
+			try
+			{
+				stateSync.Value = MatchState.Countdown;
+				await Awaitable.WaitForSecondsAsync(3, ctn);
+				ctn.ThrowIfCancellationRequested();
+				RunMatch(Settings, ctn);
 
-			if(State == MatchState.Countdown)
-				StartGameOwnerRpc();
+			} catch (OperationCanceledException)
+			{
+				stateSync.Value = MatchState.NotPlaying;
+				throw;
+			}
+		}
+
+		private async Task RunMatch(MatchSettings settings, CancellationToken ctn)
+		{
+			try
+			{
+				// check if starting a new match
+				// this task could be run by a different client resuming a match
+				// i.e. if the original match starter leaves
+				bool startingNewMatch = stateSync.Value != MatchState.Playing;
+				if (startingNewMatch)
+				{
+					settingsSync.Value = settings;
+					stateSync.Value = MatchState.Playing;
+					ResetScoresRpc();
+				}
+
+				Task timerTask = Task.CompletedTask;
+				Task scoreTask = Task.CompletedTask;
+
+				if (settings.CheckWinByTimer())
+				{
+					float secondsLeft = localTimeMatchEnds - Time.time;
+					timerTask = Task.Delay(1000 * Mathf.RoundToInt(secondsLeft), ctn);
+				}
+
+				if (settings.CheckWinByPoints())
+				{
+					scoreWinSemaphore = new(0, 1);
+					scoreTask = scoreWinSemaphore.WaitAsync(ctn);
+				}
+
+				await Task.WhenAll(timerTask, scoreTask);
+			}
+			catch (OperationCanceledException) { }
+
+			stateSync.Value = MatchState.NotPlaying;
+			MatchFinishedRpc();
+
+			ctn.ThrowIfCancellationRequested();
+		}
+
+		private void CheckForWin()
+		{
+			for (byte i = 0; i < Teams.NumTeams; i++)
+			{
+				if (GetTeamScore(i) >= Settings.scoreTarget)
+				{
+					scoreWinSemaphore.Release();
+					return;
+				}
+			}
+		}
+
+		public override void OnGainedOwnership()
+		{
+			CancellationToken ctn = PrepareNextTask();
+
+			switch (State)
+			{
+				case MatchState.Mustering:
+					Muster(ctn);
+					break;
+
+				case MatchState.Playing:
+					RunMatch(Settings, ctn);
+					break;
+
+				default:
+					stateSync.Value = MatchState.NotPlaying;
+					break;
+			}
+		}
+
+		public override void OnDestroy()
+		{
+			base.OnDestroy();
+			PrepareNextTask();
+		}
+
+		public override void OnNetworkDespawn()
+		{
+			PrepareNextTask();
+			OnStateChanged(stateSync.Value, MatchState.NotPlaying);
 		}
 
 		[Rpc(SendTo.Owner)]
@@ -294,98 +319,21 @@ namespace Anaglyph.Lasertag
 				teamScoresSync[i].Value = 0;
 			}
 
-			foreach(Networking.Avatar player in Networking.Avatar.AllPlayers.Values)
+			foreach (Networking.Avatar player in Networking.Avatar.AllPlayers.Values)
 			{
 				player.ResetScoreRpc();
-			}
-
-			foreach (ControlPoint point in ControlPoint.AllControlPoints)
-			{
-				point.ResetPointRpc();
-			}
-		}
-
-		[Rpc(SendTo.Owner)]
-		private void StartGameOwnerRpc()
-		{
-			ResetScoresRpc();
-
-			if (Settings.CheckWinByTimer())
-				timeMatchEndsSync.Value = (float)NetworkManager.LocalTime.Time + Settings.timerSeconds;
-
-			stateSync.Value = MatchState.Playing;
-			SubscribeToEvents();
-		}
-
-		private void SubscribeToEvents()
-		{
-			OwnerCheck();
-
-			if (Settings.CheckWinByTimer())
-				StartCoroutine(GameTimerAsOwnerCoroutine());
-
-			// sub to score events
-			Networking.Avatar.OnPlayerKilledPlayer += OnPlayerKilledPlayer;
-			StartCoroutine(ControlPointLoopCoroutine());
-		}
-
-		private IEnumerator GameTimerAsOwnerCoroutine()
-		{
-			OwnerCheck();
-
-			while (State == MatchState.Playing)
-			{
-				if(NetworkManager.LocalTime.TimeAsFloat > TimeMatchEnds)
-					EndGameOwnerRpc();
-
-				yield return null;
-			}
-
-			EndGameOwnerRpc();
-		}
-
-		private void OnPlayerKilledPlayer(Networking.Avatar killer, Networking.Avatar victim)
-		{
-			OwnerCheck();
-
-			if (Settings.teams)
-			{
-				ScoreTeamRpc(killer.Team, Settings.pointsPerKill);
-			} else
-			{
-				
-			}
-		}
-
-		private IEnumerator ControlPointLoopCoroutine()
-		{
-			OwnerCheck();
-
-			while (State == MatchState.Playing)
-			{
-				foreach (ControlPoint point in ControlPoint.AllControlPoints)
-				{
-					if (point.MillisCaptured == 0 && point.HoldingTeam != 0)
-					{
-						ScoreTeamRpc(point.HoldingTeam, Settings.pointsPerSecondHoldingPoint);
-					}
-				}
-
-				yield return new WaitForSeconds(1);
 			}
 		}
 
 		[Rpc(SendTo.Owner)]
 		public void ScoreTeamRpc(byte team, int points)
 		{
-			if (team == 0) return;
+			if (State != MatchState.Playing) return;
+			if (team == 0 || points == 0) return;
 
 			teamScoresSync[team].Value += points;
 
-			if (Settings.CheckWinByPoints() && teamScoresSync[team].Value > Settings.scoreTarget)
-			{
-				EndGameOwnerRpc();
-			}
+			CheckForWin();
 		}
 
 		public byte CalculateWinningTeam()
@@ -405,54 +353,15 @@ namespace Anaglyph.Lasertag
 		}
 
 		[Rpc(SendTo.Owner)]
-		public void EndGameOwnerRpc()
+		public void EndMatchRpc()
 		{
-			var prevState = State;
-			stateSync.Value = MatchState.NotPlaying;
-
-			if (prevState == MatchState.Playing)
-				GameEndRpc();
-			
-			UnsubscribeFromEvents();
+			PrepareNextTask();
 		}
 
 		[Rpc(SendTo.Everyone)]
-		public void GameEndRpc()
+		public void MatchFinishedRpc()
 		{
 			MatchFinished.Invoke();
 		}
-
-		private void UnsubscribeFromEvents()
-		{
-			Networking.Avatar.OnPlayerKilledPlayer -= OnPlayerKilledPlayer;
-		}
-
-
 	}
-
-#if UNITY_EDITOR
-
-	[CustomEditor(typeof(MatchReferee))]
-	public class Example : Editor
-	{
-		public override void OnInspectorGUI()
-		{
-			MatchReferee matchReferee = (MatchReferee)target;
-			// DrawDefaultInspector();
-
-			var state = (MatchState)EditorGUILayout.EnumFlagsField("Match State", matchReferee.State);
-			if (state != matchReferee.State)
-				SetState(matchReferee, state);
-		}
-
-		private void SetState(MatchReferee matchReferee, MatchState state)
-		{
-			var fi = typeof(MatchReferee).GetField("stateSync", BindingFlags.Instance | BindingFlags.NonPublic);
-			var nv = fi.GetValue(matchReferee);
-			var prop = nv.GetType().GetProperty("Value", BindingFlags.Instance | BindingFlags.Public);
-			prop.SetValue(nv, state, null);
-		}
-	}
-
-#endif
 }

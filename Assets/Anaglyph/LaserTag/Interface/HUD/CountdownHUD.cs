@@ -12,7 +12,6 @@ namespace Anaglyph.Lasertag
 
 		private MatchReferee matchReferee => MatchReferee.Instance;
 
-		private Task countdownTask = Task.CompletedTask;
 		private CancellationTokenSource countdownCanceller = new();
 
 		private void Start()
@@ -29,30 +28,21 @@ namespace Anaglyph.Lasertag
 
 		private async void HandleStateChange(MatchState state)
 		{
-			queued.enabled = state == MatchState.Queued;
+			queued.enabled = state == MatchState.Mustering;
 
-			if (!countdownTask.IsCompleted)
-			{
-				countdownCanceller.Cancel();
-				countdownText.enabled = false;
-			}
+			countdownCanceller.Cancel();
+			countdownText.enabled = false;
 
 			switch (state)
 			{
 				case MatchState.Countdown:
 					countdownCanceller = new();
-					countdownTask = CountdownTask(countdownCanceller.Token);
+					CountdownTask(countdownCanceller.Token);
 					break;
 
 				case MatchState.Playing:
-					queued.enabled = false;
-					countdownText.text = "Go!";
-					countdownText.enabled = true;
-
-					await Awaitable.WaitForSecondsAsync(1);
-
-					countdownText.enabled = false;
-
+					countdownCanceller = new();
+					GoTask(countdownCanceller.Token);
 					break;
 			}
 		}
@@ -62,17 +52,22 @@ namespace Anaglyph.Lasertag
 			countdownText.enabled = true;
 
 			countdownText.text = "3";
-			await Awaitable.WaitForSecondsAsync(1);
+			await Awaitable.WaitForSecondsAsync(1, ctn);
 
-			if (ctn.IsCancellationRequested) goto Canceled;
 			countdownText.text = "2";
-			await Awaitable.WaitForSecondsAsync(1);
+			await Awaitable.WaitForSecondsAsync(1, ctn);
 
-			if (ctn.IsCancellationRequested) goto Canceled;
 			countdownText.text = "1";
-			await Awaitable.WaitForSecondsAsync(1);
+			await Awaitable.WaitForSecondsAsync(1, ctn);
+		}
 
-		Canceled:
+		private async Task GoTask(CancellationToken ctn)
+		{
+			countdownText.enabled = true;
+
+			countdownText.text = "Go!";
+			await Awaitable.WaitForSecondsAsync(1.5f, ctn);
+
 			countdownText.enabled = false;
 		}
 	}

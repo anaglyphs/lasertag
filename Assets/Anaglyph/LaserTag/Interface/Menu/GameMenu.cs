@@ -34,12 +34,12 @@ namespace Anaglyph.Lasertag
 
 		private void StartGame()
 		{
-			MatchReferee.Instance?.QueueStartGameOwnerRpc(MatchSettings.DemoGame());
+			MatchReferee.Instance?.StartMatchRpc(MatchSettings.DemoGame());
 		}
 
 		private void EndGame()
 		{
-			MatchReferee.Instance?.EndGameOwnerRpc();
+			MatchReferee.Instance?.EndMatchRpc();
 		}
 
 		private void HandleStateChange(MatchState state)

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
@@ -12,9 +13,7 @@ namespace Anaglyph.Lasertag
 		public const float Radius = 1.5f;
 		public const float MillisToTake = 10000;
 
-		public static List<ControlPoint> AllControlPoints { get; private set; } = new();
-
-		public UnityEvent<byte> onControllingTeamChange = new();
+		public UnityEvent<byte> ControllingTeamChanged = new();
 
 		[SerializeField] private TeamOwner teamOwner;
 		public byte HoldingTeam => teamOwner.Team;
@@ -25,46 +24,49 @@ namespace Anaglyph.Lasertag
 		public float MillisCaptured => millisCapturedSync.Value;
 		private NetworkVariable<float> millisCapturedSync = new(0);
 
+		private MatchReferee referee => MatchReferee.Instance;
+
 		[SerializeField] private Image conquerTimeIndicator;
+
+		private Task scoreLoopTask;
 
 		private void OnValidate()
 		{
 			TryGetComponent(out teamOwner);
 		}
 
-		private void SetComponent(ref TeamOwner teamOwner)
+		private void Start()
 		{
-			throw new NotImplementedException();
-		}
-
-		private void Awake()
-		{
-			AllControlPoints.Add(this);
-
 			teamOwner.teamSync.OnValueChanged += delegate
 			{
 
 				if (IsOwner)
 					millisCapturedSync.Value = 0;
 
-				onControllingTeamChange.Invoke(HoldingTeam);
+				ControllingTeamChanged.Invoke(HoldingTeam);
 			};
+
+			referee.StateChanged += OnMatchStateChanged;
 		}
 
-		public override void OnDestroy()
+		private void OnMatchStateChanged(MatchState state)
 		{
-			base.OnDestroy();
-
-			AllControlPoints.Remove(this);
+			if (IsOwner)
+			{
+				switch (state)
+				{
+					case MatchState.Playing:
+						ResetPointRpc();
+						scoreLoopTask = ScoreLoop();
+						break;
+				}
+			}
 		}
 
-		private bool CheckIfPlayerIsInside(Networking.Avatar player)
+		public override void OnGainedOwnership()
 		{
-			if (!player.IsAlive)
-				return false;
-
-			Vector3 playerHeadPos = player.HeadTransform.position;
-			return Geo.PointIsInCylinder(transform.position, Radius, 3, playerHeadPos);
+			if (referee.State == MatchState.Playing)
+				scoreLoopTask = ScoreLoop();
 		}
 
 		[Rpc(SendTo.Owner)]
@@ -85,7 +87,32 @@ namespace Anaglyph.Lasertag
 			capturingTeamSync.Value = 0;
 		}
 
-		private void FixedUpdate()
+		private async Task ScoreLoop()
+		{
+			if (!IsOwner)
+				return;
+
+			while (referee.State == MatchState.Playing)
+			{
+				await Awaitable.WaitForSecondsAsync(1, destroyCancellationToken);
+				destroyCancellationToken.ThrowIfCancellationRequested();
+
+				if (teamOwner.Team != 0)
+					referee.ScoreTeamRpc(teamOwner.Team, referee.Settings.pointsPerSecondHoldingPoint);
+			}
+		}
+
+
+		private bool CheckIfPlayerIsInside(Networking.Avatar player)
+		{
+			if (!player.IsAlive)
+				return false;
+
+			Vector3 playerHeadPos = player.HeadTransform.position;
+			return Geo.PointIsInCylinder(transform.position, Radius, 3, playerHeadPos);
+		}
+
+		private void Update()
 		{
 			if (IsOwner)
 			{
@@ -105,8 +132,7 @@ namespace Anaglyph.Lasertag
 						}
 					}
 				}
-				
-				if(!isSecure)
+				else
 				{
 					foreach (Networking.Avatar player in Networking.Avatar.AllPlayers.Values)
 					{
