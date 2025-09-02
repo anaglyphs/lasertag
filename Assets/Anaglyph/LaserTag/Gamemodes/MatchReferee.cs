@@ -160,6 +160,38 @@ namespace Anaglyph.Lasertag
 			StateChanged.Invoke(state);
 		}
 
+		public override void OnGainedOwnership()
+		{
+			CancellationToken ctn = CancelTaskAndPrepareNext();
+
+			switch (State)
+			{
+				case MatchState.Mustering:
+					Muster(ctn);
+					break;
+
+				case MatchState.Playing:
+					RunMatch(Settings, ctn);
+					break;
+
+				default:
+					stateSync.Value = MatchState.NotPlaying;
+					break;
+			}
+		}
+
+		public override void OnDestroy()
+		{
+			base.OnDestroy();
+			cancelTokenSrc?.Cancel();
+		}
+
+		public override void OnNetworkDespawn()
+		{
+			cancelTokenSrc?.Cancel();
+			OnStateChanged(stateSync.Value, MatchState.NotPlaying);
+		}
+
 		private CancellationToken CancelTaskAndPrepareNext()
 		{
 			cancelTokenSrc?.Cancel();
@@ -266,38 +298,6 @@ namespace Anaglyph.Lasertag
 			MatchFinishedRpc();
 
 			ctn.ThrowIfCancellationRequested();
-		}
-
-		public override void OnGainedOwnership()
-		{
-			CancellationToken ctn = CancelTaskAndPrepareNext();
-
-			switch (State)
-			{
-				case MatchState.Mustering:
-					Muster(ctn);
-					break;
-
-				case MatchState.Playing:
-					RunMatch(Settings, ctn);
-					break;
-
-				default:
-					stateSync.Value = MatchState.NotPlaying;
-					break;
-			}
-		}
-
-		public override void OnDestroy()
-		{
-			base.OnDestroy();
-			cancelTokenSrc?.Cancel();
-		}
-
-		public override void OnNetworkDespawn()
-		{
-			cancelTokenSrc?.Cancel();
-			OnStateChanged(stateSync.Value, MatchState.NotPlaying);
 		}
 
 		[Rpc(SendTo.Owner)]

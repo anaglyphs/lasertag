@@ -41,8 +41,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private async void OnDisable() => await HandleChange();
 
 #if !UNITY_EDITOR
-		private void OnApplicationFocus(bool focus) => await HandleChange();
-		private void OnApplicationPause(bool pause) => await HandleChange();
+		private async void OnApplicationFocus(bool focus) => await HandleChange();
+		private async void OnApplicationPause(bool pause) => await HandleChange();
 #endif
 
 		private async Task HandleChange()
