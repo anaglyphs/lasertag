@@ -93,13 +93,13 @@ namespace Anaglyph.Lasertag
 
 		private NetworkVariable<int>[] teamScoresSync;
 		public int GetTeamScore(byte team) => teamScoresSync[team].Value;
+		public event Action<byte> TeamScored = delegate { };
 
 		private NetworkVariable<MatchSettings> settingsSync = new();
 		public MatchSettings Settings => settingsSync.Value;
 
-		private CancellationTokenSource cancelTokenSrc = new();
-
-		private SemaphoreSlim scoreWinSemaphore;
+		private TaskCompletionSource<bool> winByScoreCompletion;
+		private CancellationTokenSource cancelTokenSrc;
 
 		private float localTimeMatchEnds = 0;
 
@@ -160,9 +160,9 @@ namespace Anaglyph.Lasertag
 			StateChanged.Invoke(state);
 		}
 
-		private CancellationToken PrepareNextTask()
+		private CancellationToken CancelTaskAndPrepareNext()
 		{
-			cancelTokenSrc.Cancel();
+			cancelTokenSrc?.Cancel();
 
 			cancelTokenSrc = new();
 			return cancelTokenSrc.Token;
@@ -176,7 +176,7 @@ namespace Anaglyph.Lasertag
 
 			settingsSync.Value = settings;
 
-			Muster(PrepareNextTask());
+			Muster(CancelTaskAndPrepareNext());
 		}
 
 		private async Task Muster(CancellationToken ctn)
@@ -253,8 +253,9 @@ namespace Anaglyph.Lasertag
 
 				if (settings.CheckWinByPoints())
 				{
-					scoreWinSemaphore = new(0, 1);
-					scoreTask = scoreWinSemaphore.WaitAsync(ctn);
+					winByScoreCompletion = new TaskCompletionSource<bool>();
+					ctn.Register(() => winByScoreCompletion.TrySetCanceled(ctn));
+					scoreTask = winByScoreCompletion.Task;
 				}
 
 				await Task.WhenAll(timerTask, scoreTask);
@@ -267,21 +268,9 @@ namespace Anaglyph.Lasertag
 			ctn.ThrowIfCancellationRequested();
 		}
 
-		private void CheckForWin()
-		{
-			for (byte i = 0; i < Teams.NumTeams; i++)
-			{
-				if (GetTeamScore(i) >= Settings.scoreTarget)
-				{
-					scoreWinSemaphore.Release();
-					return;
-				}
-			}
-		}
-
 		public override void OnGainedOwnership()
 		{
-			CancellationToken ctn = PrepareNextTask();
+			CancellationToken ctn = CancelTaskAndPrepareNext();
 
 			switch (State)
 			{
@@ -302,13 +291,32 @@ namespace Anaglyph.Lasertag
 		public override void OnDestroy()
 		{
 			base.OnDestroy();
-			PrepareNextTask();
+			cancelTokenSrc?.Cancel();
 		}
 
 		public override void OnNetworkDespawn()
 		{
-			PrepareNextTask();
+			cancelTokenSrc?.Cancel();
 			OnStateChanged(stateSync.Value, MatchState.NotPlaying);
+		}
+
+		[Rpc(SendTo.Owner)]
+		public void ScoreTeamRpc(byte team, int points)
+		{
+			if (State != MatchState.Playing) return;
+			if (team == 0 || points == 0) return;
+
+			teamScoresSync[team].Value += points;
+			TeamScored.Invoke(team);
+
+			bool canWinByScore = Settings.CheckWinByPoints();
+			bool isPlaying = State == MatchState.Playing;
+			bool isWinningScore = GetTeamScore(team) > Settings.scoreTarget;
+
+			if (isPlaying && canWinByScore && isWinningScore)
+			{
+				winByScoreCompletion.SetResult(true);
+			}
 		}
 
 		[Rpc(SendTo.Owner)]
@@ -323,17 +331,6 @@ namespace Anaglyph.Lasertag
 			{
 				player.ResetScoreRpc();
 			}
-		}
-
-		[Rpc(SendTo.Owner)]
-		public void ScoreTeamRpc(byte team, int points)
-		{
-			if (State != MatchState.Playing) return;
-			if (team == 0 || points == 0) return;
-
-			teamScoresSync[team].Value += points;
-
-			CheckForWin();
 		}
 
 		public byte CalculateWinningTeam()
@@ -355,7 +352,7 @@ namespace Anaglyph.Lasertag
 		[Rpc(SendTo.Owner)]
 		public void EndMatchRpc()
 		{
-			PrepareNextTask();
+			cancelTokenSrc?.Cancel();
 		}
 
 		[Rpc(SendTo.Everyone)]
