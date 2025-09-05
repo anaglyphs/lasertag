@@ -60,7 +60,7 @@ namespace Anaglyph.Lasertag
 			// manually connect page
 			manuallyConnectPage.showBackButton = true;
 
-			string ip = NetcodeHelpers.GetLocalIPv4();
+			string ip = NetcodeHelper.GetLocalIPv4();
 
 #if UNITY_EDITOR
 			ip = "127.0.0.1";
