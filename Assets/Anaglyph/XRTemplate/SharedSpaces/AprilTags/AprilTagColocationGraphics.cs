@@ -30,22 +30,22 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			colocator.TagTracker.OnDetectTags += OnTagsDetected;
 		}
 
-		private void OnEnable()
-		{
-			ProceduralDrawFeature.Draw += RenderFoundTags;
-		}
+		//private void OnEnable()
+		//{
+		//	ProceduralDrawFeature.Draw += RenderFoundTags;
+		//}
 
-		private void OnDisable()
-		{
-			ProceduralDrawFeature.Draw -= RenderFoundTags;
-		}
+		//private void OnDisable()
+		//{
+		//	ProceduralDrawFeature.Draw -= RenderFoundTags;
+		//}
 
 		private void OnTagsDetected(IReadOnlyList<TagPose> tagPoses)
 		{
 			latestTagPoses = tagPoses;
 		}
 
-		private void RenderFoundTags(RasterCommandBuffer cmd)
+		private void LateUpdate()
 		{
 			if (!colocator.ColocationActive)
 				return;
@@ -68,7 +68,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					mpb.SetColor(BaseColorID, color);
 
 					var model = Matrix4x4.TRS(tagPose.Position, tagPose.Rotation, scale);
-					cmd.DrawMesh(indicatorMesh, model, indicatorMaterial, 0, 0, mpb);
+					Graphics.DrawMesh(indicatorMesh, model, indicatorMaterial, 0, MainXRRig.Camera, 0, mpb);
 				}
 			}
 
@@ -79,7 +79,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				foreach (Vector3 canonTagPos in colocator.CanonTags.Values)
 				{
 					var model = Matrix4x4.TRS(canonTagPos, Quaternion.identity, scale);
-					cmd.DrawMesh(debugPointMesh, model, debugMaterial, 0, 0, mpb);
+					Graphics.DrawMesh(debugPointMesh, model, debugMaterial, 0, MainXRRig.Camera, 0, mpb);
 				}
 
 				scale = Vector3.one * 0.02f;
@@ -88,9 +88,14 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				{
 					var model = MainXRRig.TrackingSpace.localToWorldMatrix *
 						Matrix4x4.TRS(localTagPos, Quaternion.identity, scale);
-					cmd.DrawMesh(debugPointMesh, model, debugMaterial, 0, 0, mpb);
+					Graphics.DrawMesh(debugPointMesh, model, debugMaterial, 0, MainXRRig.Camera, 0, mpb);
 				}
 			}
+		}
+
+		private void RenderFoundTags(RasterCommandBuffer cmd)
+		{
+			
 		}
 	}
 }

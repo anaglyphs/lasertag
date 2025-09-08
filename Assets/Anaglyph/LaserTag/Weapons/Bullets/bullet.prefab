@@ -187,7 +187,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 865765349
+  GlobalObjectIdHash: 401838243
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 0
@@ -441,6 +441,9 @@ VisualEffect:
       m_Array:
       - m_Value: {x: 1, y: 0, z: 0, w: 0}
         m_Name: Color
+        m_Overridden: 0
+      - m_Value: {x: 1, y: 0, z: 0, w: 1}
+        m_Name: _Color
         m_Overridden: 0
     m_Uint:
       m_Array: []

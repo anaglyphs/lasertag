@@ -6,7 +6,7 @@ namespace Anaglyph.Lasertag
 {
 	public class TeamColorer : MonoBehaviour
 	{
-		public const string ColorPerObjectName = "_ColorPerObject";
+		public const string ColorPerObjectName = "_Color";
 		public static readonly int ColorID = Shader.PropertyToID(ColorPerObjectName);
 
 		[SerializeField] private byte defaultTeam;

@@ -1,4 +1,3 @@
-using NUnit.Framework.Internal;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -18,7 +17,6 @@ namespace Anaglyph.XRTemplate
 
 		private Bounds bounds;
 		private Mesh visualMesh;
-		private List<Vector3> vertexCache = new();
 
 		private Vector3[] templateVerts;
 		private Vector3[] movedVerts;

@@ -1,4 +1,5 @@
 using Unity.Netcode;
+using Unity.Services.Matchmaker.Models;
 using UnityEngine;
 using UnityEngine.VFX;
 
@@ -13,7 +14,7 @@ namespace Anaglyph.Lasertag
 
 		private MaterialPropertyBlock propertyBlock;
 
-		public Color defaultColor = Color.red;
+		public Color defaultColor = Teams.Colors[1];
 
 		private void Awake()
 		{
