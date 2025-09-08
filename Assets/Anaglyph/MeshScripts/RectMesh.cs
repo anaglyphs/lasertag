@@ -1,4 +1,6 @@
 using Anaglyph;
+using NUnit.Framework;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace GlassUI
@@ -10,6 +12,8 @@ namespace GlassUI
 		[SerializeField] private float padding = 0.01f;
 
 		[SerializeField] private RectTransform rectTransform;
+
+		private List<Vector3> vertices = new();
 
 		protected override void OnValidate()
 		{
@@ -43,7 +47,7 @@ namespace GlassUI
 			if (!initializedMesh)
 				return;
 
-			Vector3[] vertsNew = new Vector3[modifiedMesh.vertices.Length];
+			modifiedMesh.GetVertices(vertices);
 
 			Vector3 s = transform.lossyScale;
 			Vector2 globalSize = size * (Vector2)s;
@@ -51,7 +55,7 @@ namespace GlassUI
 			float xOffset = globalSize.x / 2 - 1 + padding;
 			float yOffset = globalSize.y / 2 - 1 + padding;
 
-			for (int i = 0; i < modifiedMesh.vertices.Length; i++)
+			for (int i = 0; i < vertices.Count; i++)
 			{
 				Vector3 vert = vertsOriginal[i];
 
@@ -62,10 +66,10 @@ namespace GlassUI
 
 				vert += (Vector3)(rectTransform.rect.center);
 
-				vertsNew[i] = vert;
+				vertices[i] = vert;
 			}
 
-			modifiedMesh.SetVertices(vertsNew);
+			modifiedMesh.SetVertices(vertices);
 			modifiedMesh.RecalculateBounds();
 			meshFilter.mesh = modifiedMesh;
 		}

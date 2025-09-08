@@ -18,12 +18,21 @@ namespace Anaglyph.XRTemplate
 
 		private Bounds bounds;
 		private Mesh visualMesh;
+		private List<Vector3> vertexCache = new();
 
+		private Vector3[] templateVerts;
+		private Vector3[] movedVerts;
 		private List<MeshRenderer> meshRenderers = new List<MeshRenderer>();
 
 		private void Awake()
 		{
 			visualMesh = Instantiate(boundVisualTemplateMesh);
+
+			List<Vector3> verts = new();
+			boundVisualTemplateMesh.GetVertices(verts);
+
+			templateVerts = verts.ToArray();
+			movedVerts = new Vector3[verts.Count];
 		}
 
 		private void OnDestroy()
@@ -88,7 +97,7 @@ namespace Anaglyph.XRTemplate
 				if (size.z < minSize.z)
 					size.z = minSize.z;
 
-				ResizeMesh(boundVisualTemplateMesh, visualMesh, size);
+				ResizeMesh(templateVerts, movedVerts, visualMesh, size);
 			}
 		}
 
@@ -97,23 +106,22 @@ namespace Anaglyph.XRTemplate
 			Graphics.DrawMesh(visualMesh, targetOrientation * Matrix4x4.Translate(bounds.center), material, 0);
 		}
 
-		private static void ResizeMesh(Mesh templateMesh, Mesh resizedMesh, Vector3 size)
+		private static void ResizeMesh(Vector3[] templateVerts, Vector3[] movedVerts, Mesh resizedMesh, Vector3 size)
 		{
-			Vector3[] verts = resizedMesh.vertices;
 			Vector3 offset = (size / 2 - Vector3.one);
 
-			for (int i = 0; i < verts.Length; i++)
+			for (int i = 0; i < movedVerts.Length; i++)
 			{
-				Vector3 vert = templateMesh.vertices[i];
+				Vector3 vert = templateVerts[i];
 
 				vert.x += offset.x * Mathf.Sign(vert.x);
 				vert.y += offset.y * Mathf.Sign(vert.y);
 				vert.z += offset.z * Mathf.Sign(vert.z);
 
-				verts[i] = vert;
+				movedVerts[i] = vert;
 			}
 
-			resizedMesh.SetVertices(verts);
+			resizedMesh.SetVertices(movedVerts);
 
 			//resizedMesh.RecalculateBounds();
 		}

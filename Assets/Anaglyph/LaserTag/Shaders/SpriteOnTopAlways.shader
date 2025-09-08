@@ -22,8 +22,10 @@ Shader "Custom/Sprite On Top Always"
 			#pragma fragment frag
 			#include "UnityCG.cginc"
 
+			CBUFFER_START(UnityPerMaterial)
 			sampler2D _MainTex;
 			fixed4 _Color;
+			CBUFFER_END
 
 			struct appdata
 			{

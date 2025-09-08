@@ -1,3 +1,5 @@
+using NUnit.Framework;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Anaglyph
@@ -8,7 +10,7 @@ namespace Anaglyph
 		[SerializeField] protected Mesh originalMesh;
 
 		[SerializeField] protected MeshFilter meshFilter;
-		protected Vector3[] vertsOriginal { get; private set; }
+		protected List<Vector3> vertsOriginal { get; private set; } = new();
 		protected Mesh modifiedMesh;
 		public bool initializedMesh { get; private set; }
 
@@ -27,7 +29,7 @@ namespace Anaglyph
 			var originalMeshData = Mesh.AcquireReadOnlyMeshData(originalMesh);
 			Mesh.ApplyAndDisposeWritableMeshData(originalMeshData, modifiedMesh);
 
-			vertsOriginal = originalMesh.vertices;
+			originalMesh.GetVertices(vertsOriginal);
 
 			initializedMesh = true;
 		}

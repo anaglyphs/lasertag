@@ -10,8 +10,8 @@ namespace Anaglyph.Lasertag
 		private MaterialPropertyBlock propertyBlock = null;
 		private MeshRenderer meshRenderer = null;
 
-		private const string ColorProp = "_ColorPerObject";
-		private const string IntensityProp = "_IntensityPerObject";
+		private const string ColorProp = "_Color";
+		private const string IntensityProp = "_Intensity";
 
 		private static readonly int ColorID = Shader.PropertyToID(ColorProp);
 		private static readonly int IntensityID = Shader.PropertyToID(IntensityProp);

@@ -2,8 +2,8 @@ Shader "Lasertag/DepthLight"
 {
 	Properties
 	{
-		[PerObjectData] _ColorPerObject ("Color", Color) = (1,1,1,1)
-		[PerObjectData] _IntensityPerObject ("Intensity", Float) = 1
+		_Color ("Color", Color) = (1,1,1,1)
+		_Intensity ("Intensity", Float) = 1
 	}
 
 	SubShader
@@ -23,8 +23,10 @@ Shader "Lasertag/DepthLight"
 			#include "Assets/Anaglyph/XRTemplate/Depth/DepthKit.hlsl" 
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
-			half4 _ColorPerObject;
-			half _IntensityPerObject;
+			CBUFFER_START(UnityPerMaterial)
+				half3 _Color;
+				half _Intensity;
+			CBUFFER_END
 
 			float sqr(float x)
 			{
@@ -32,7 +34,7 @@ Shader "Lasertag/DepthLight"
 			}
 
 			// float attenuate_cusp(float distance, float radius,
-			// 	float max_IntensityPerObject, float falloff)
+			// 	float max_Intensity, float falloff)
 			// {
 			// 	float s = distance / radius;
 
@@ -41,7 +43,7 @@ Shader "Lasertag/DepthLight"
 
 			// 	float s2 = sqr(s);
 
-			// 	return max_IntensityPerObject * sqr(1 - s2) / (1 + falloff * s);
+			// 	return max_Intensity * sqr(1 - s2) / (1 + falloff * s);
 			// }
 
 			struct Attributes
@@ -99,9 +101,9 @@ Shader "Lasertag/DepthLight"
 
 				float facingSurface = max(dot(worldNorm, lightDir), 0.0);
 				
-				float intensity = facingSurface * max(0, 1.0 / (dist * dist)) * _IntensityPerObject;
+				float intensity = facingSurface * max(0, 1.0 / (dist * dist)) * _Intensity;
 
-				float luminance = dot(_ColorPerObject, float3(0.2126, 0.7152, 0.0722));
+				float luminance = dot(_Color, float3(0.2126, 0.7152, 0.0722));
 				float brightness = luminance * intensity;
 
 				float threshold = 0.1;
@@ -109,7 +111,7 @@ Shader "Lasertag/DepthLight"
 				 
 				float t = clamp((brightness - threshold) / (maxBrightness - threshold), 0.0, 1.0);
 				
-				float3 saturatedColor = _ColorPerObject.rgb * intensity;
+				float3 saturatedColor = _Color * intensity;
 				float3 finalColor = lerp(saturatedColor, float3(1.0, 1.0, 1.0), t);
 				return float4(finalColor, 0);
 

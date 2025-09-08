@@ -1,4 +1,4 @@
-Shader "Custom/OpaqueAlphaPassthrough"
+Shader "Lasertag/Boundary"
 {
 	Properties
 	{
@@ -45,12 +45,14 @@ Shader "Custom/OpaqueAlphaPassthrough"
 				UNITY_VERTEX_OUTPUT_STEREO 
 			};
 
+			CBUFFER_START(UnityPerMaterial)
 			float4 _Color;
 			float _FadeStart;
 			float _FadeEnd;
 			float _Scale;
 			float _Slope;
 			float3 _XROrigin;
+			CBUFFER_END
 
 			Varyings vert (Attributes v)
 			{
