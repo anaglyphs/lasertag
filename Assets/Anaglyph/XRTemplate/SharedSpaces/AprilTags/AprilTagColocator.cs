@@ -149,7 +149,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					sharedCanonPositions.ToArray(), float4x4.identity);
 
 				trackingSpace = delta * trackingSpace;
-				
+
 				MainXRRig.TrackingSpace.position = trackingSpace.GetPosition();
 				MainXRRig.TrackingSpace.rotation = trackingSpace.rotation;
 
@@ -172,7 +172,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			Vector3 headPos = MainXRRig.Camera.transform.position;
 			return Vector3.Distance(headPos, globalPos) < tagSize * lockDistanceScale;
 		}
-		
+
 		private void OnDetectTags(IReadOnlyList<TagPose> results)
 		{
 			if (!colocationActive)
@@ -187,9 +187,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				Matrix4x4 worldToTracking = MainXRRig.TrackingSpace.worldToLocalMatrix;
 				Vector3 localPos = worldToTracking.MultiplyPoint(globalPos);
 
-				if(localTags.TryGetValue(result.ID, out Vector3 value))
+				if (localTags.TryGetValue(result.ID, out Vector3 value))
 					localPos = Vector3.Lerp(value, localPos, tagLerp);
-				
+
 				localTags[result.ID] = localPos;
 
 				if (IsOwner)
@@ -229,6 +229,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			tagsLocked.Clear();
 			canonTags.Clear();
 			localTags.Clear();
-	}
+		}
 	}
 }

@@ -52,7 +52,7 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			NetcodeHelper.StateChange += IsNetworkRunningChanged;
+			NetcodeManagement.StateChange += IsNetworkRunningChanged;
 
 			// home page
 			hostButton.onClick.AddListener(Host);
@@ -60,7 +60,7 @@ namespace Anaglyph.Lasertag
 			// manually connect page
 			manuallyConnectPage.showBackButton = true;
 
-			string ip = NetcodeHelper.GetLocalIPv4();
+			string ip = NetcodeManagement.GetLocalIPv4();
 
 #if UNITY_EDITOR
 			ip = "127.0.0.1";
@@ -71,9 +71,9 @@ namespace Anaglyph.Lasertag
 
 			connectButton.onClick.AddListener(delegate {
 				if(useRelayToggle)
-					NetcodeHelper.ConnectUnityServices(ipField.text);
+					NetcodeManagement.ConnectUnityServices(ipField.text);
 				else
-					NetcodeHelper.ConnectLAN(ipField.text);
+					NetcodeManagement.ConnectLAN(ipField.text);
 			});
 
 			// connecting page
@@ -89,25 +89,25 @@ namespace Anaglyph.Lasertag
 
 		private void OnDestroy()
 		{
-			NetcodeHelper.StateChange -= IsNetworkRunningChanged;
+			NetcodeManagement.StateChange -= IsNetworkRunningChanged;
 			Colocation.IsColocatedChange -= OnColocationChange;
 		}
 
-		private void IsNetworkRunningChanged(NetcodeHelper.NetworkState state)
+		private void IsNetworkRunningChanged(NetcodeManagement.NetworkState state)
 		{
 			switch (state)
 			{
-				case NetcodeHelper.NetworkState.Disconnected:
+				case NetcodeManagement.NetworkState.Disconnected:
 					sessionIpText.text = "";
 					homePage.NavigateHere();
 					break;
 
-				case NetcodeHelper.NetworkState.Connecting:
+				case NetcodeManagement.NetworkState.Connecting:
 					UpdateIpText();
 					OpenSessionPage(SessionState.Connecting);
 					break;
 
-				case NetcodeHelper.NetworkState.Connected:
+				case NetcodeManagement.NetworkState.Connected:
 					UpdateIpText();
 					OnColocationChange(Colocation.IsColocated);
 					break;
@@ -121,7 +121,7 @@ namespace Anaglyph.Lasertag
 
 			if (string.Equals(transportType.Name, "DistributedAuthorityTransport"))
 			{
-				sessionIpText.text = $"Relay: {NetcodeHelper.CurrentSessionName}";
+				sessionIpText.text = $"Relay: {NetcodeManagement.CurrentSessionName}";
 			}
 			else if (transport.GetType() == typeof(UnityTransport))
 			{
@@ -136,7 +136,7 @@ namespace Anaglyph.Lasertag
 
 		private void OnColocationChange(bool isColocated)
 		{
-			if(NetcodeHelper.State == NetcodeHelper.NetworkState.Connected)
+			if(NetcodeManagement.State == NetcodeManagement.NetworkState.Connected)
 				OpenSessionPage(Colocation.IsColocated ? SessionState.Connected : SessionState.Colocating);
 		}
 
@@ -183,13 +183,13 @@ namespace Anaglyph.Lasertag
 
 		private void Host()
 		{
-			var service = useUnityRelayService.Value ? NetcodeHelper.Protocol.UnityService : NetcodeHelper.Protocol.LAN;
-			NetcodeHelper.Host(service);
+			var service = useUnityRelayService.Value ? NetcodeManagement.Protocol.UnityService : NetcodeManagement.Protocol.LAN;
+			NetcodeManagement.Host(service);
 		}
 
 		private void Disconnect()
 		{
-			NetcodeHelper.Disconnect();
+			NetcodeManagement.Disconnect();
 		}
 	}
 }

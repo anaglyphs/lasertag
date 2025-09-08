@@ -26,7 +26,7 @@ namespace Anaglyph.Lasertag
 			matchReferee.StateChanged -= HandleStateChange;
 		}
 
-		private async void HandleStateChange(MatchState state)
+		private void HandleStateChange(MatchState state)
 		{
 			queued.enabled = state == MatchState.Mustering;
 
@@ -37,12 +37,12 @@ namespace Anaglyph.Lasertag
 			{
 				case MatchState.Countdown:
 					countdownCanceller = new();
-					CountdownTask(countdownCanceller.Token);
+					_ = CountdownTask(countdownCanceller.Token);
 					break;
 
 				case MatchState.Playing:
 					countdownCanceller = new();
-					GoTask(countdownCanceller.Token);
+					_ = GoTask(countdownCanceller.Token);
 					break;
 			}
 		}

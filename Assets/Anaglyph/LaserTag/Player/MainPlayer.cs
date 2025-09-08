@@ -68,7 +68,7 @@ namespace Anaglyph.Lasertag
 
 		private void HandleConnectionEvent(NetworkManager manager, ConnectionEventData eventData)
 		{
-			if(NetcodeHelper.ThisClientConnected(eventData))
+			if(NetcodeManagement.ThisClientConnected(eventData))
 				SpawnAvatar();
 		}
 

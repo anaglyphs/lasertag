@@ -11,7 +11,7 @@ using UnityEngine;
 
 namespace Anaglyph.Netcode
 {
-	public static class NetcodeHelper
+	public static class NetcodeManagement
 	{
 		public static ushort port = 7777;
 		public static string contyp = "dtls";
@@ -26,6 +26,7 @@ namespace Anaglyph.Netcode
 		{
 			Disconnected = 0,
 			Connecting,
+			ConnectingCantCancel,
 			Connected,
 		}
 
@@ -59,17 +60,23 @@ namespace Anaglyph.Netcode
 
 		private static void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
 		{
-			if(NetcodeHelper.ThisClientConnected(data))
+			if(NetcodeManagement.ThisClientConnected(data))
 			{
 				State = NetworkState.Connected;
-			} else if(NetcodeHelper.ThisClientDisconnected(data))
+			} else if(NetcodeManagement.ThisClientDisconnected(data))
 			{
 				State = NetworkState.Disconnected;
 			}
 		}
 
-		private static Task currentTask;
-		private static CancellationTokenSource CancelTokenSource = new();
+		private static CancellationTokenSource taskCanceller = new();
+
+		private static CancellationToken PrepareNextTask()
+		{
+			taskCanceller?.Cancel();
+			taskCanceller = new CancellationTokenSource();
+			return taskCanceller.Token;
+		}
 
 		private static void SetNetworkTransportType(string s)
 		{
@@ -84,14 +91,6 @@ namespace Anaglyph.Netcode
 		}
 
 		public static void Host(Protocol protocol)
-		{
-			if (currentTask != null && !currentTask.IsCompleted)
-				return;
-
-			currentTask = Host(protocol, CancelTokenSource.Token);
-		}
-
-		private static async Task Host(Protocol protocol, CancellationToken ct)
 		{
 			switch (protocol)
 			{
@@ -117,8 +116,7 @@ namespace Anaglyph.Netcode
 
 				case Protocol.UnityService:
 
-					await ConnectUnityServices(DateTime.Now.ToString("HHmmssffff"), ct);
-
+					_ = ConnectUnityServices(DateTime.Now.ToString("HHmmssffff"), PrepareNextTask());
 					break;
 			}
 		}
@@ -149,14 +147,14 @@ namespace Anaglyph.Netcode
 
 		public static void ConnectUnityServices(string id)
 		{
-			if (currentTask != null && !currentTask.IsCompleted)
-				return;
-
-			currentTask = ConnectUnityServices(id, CancelTokenSource.Token);
+			_ = ConnectUnityServices(id, PrepareNextTask());
 		}
 
 		private static async Task ConnectUnityServices(string id, CancellationToken ct)
 		{
+			if (State != NetworkState.Disconnected)
+				return;
+
 			SetNetworkTransportType("DistributedAuthorityTransport");
 			manager.NetworkConfig.UseCMBService = true;
 
@@ -167,13 +165,15 @@ namespace Anaglyph.Netcode
 				await Awaitable.WaitForSecondsAsync(waitTime);
 			}
 
-			if (ct.IsCancellationRequested) return;
+			ct.ThrowIfCancellationRequested();
 
 			cooldownDoneTime = Time.time + cooldownSeconds;
 
 			await SetupServices();
 
-			if (ct.IsCancellationRequested) return;
+			ct.ThrowIfCancellationRequested();
+
+			State = NetworkState.ConnectingCantCancel;
 
 			var options = new SessionOptions()
 			{
@@ -182,14 +182,15 @@ namespace Anaglyph.Netcode
 			}.WithDistributedAuthorityNetwork();
 
 			CurrentSessionName = id;
-			CurrentSession = await MultiplayerService.Instance.CreateOrJoinSessionAsync(id, options);
-			if (ct.IsCancellationRequested) Disconnect();
+			Task<ISession> sessionTask = MultiplayerService.Instance.CreateOrJoinSessionAsync(id, options);
+			CurrentSession = await sessionTask;
 		}
 
 		public static async void Disconnect()
 		{
-			if(currentTask != null && !currentTask.IsCompleted)
-				CancelTokenSource.Cancel();
+			taskCanceller?.Cancel();
+
+			State = NetworkState.Disconnected;
 
 			try
 			{
@@ -203,10 +204,7 @@ namespace Anaglyph.Netcode
 
 			}
 
-			State = NetworkState.Disconnected;
-
 			manager.Shutdown();
-			
 		}
 
 		public static bool ThisClientConnected(ConnectionEventData data)

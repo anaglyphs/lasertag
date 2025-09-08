@@ -38,8 +38,8 @@ namespace Anaglyph.Lasertag
 		public int timerSeconds;
 		public short scoreTarget;
 
-		public bool CheckWinByTimer() => winCondition.HasFlag(WinCondition.Timer);
-		public bool CheckWinByPoints() => winCondition.HasFlag(WinCondition.ReachScore);
+		public readonly bool CheckWinByTimer() => winCondition.HasFlag(WinCondition.Timer);
+		public readonly bool CheckWinByPoints() => winCondition.HasFlag(WinCondition.ReachScore);
 
 		public static MatchSettings DemoGame()
 		{
@@ -82,20 +82,20 @@ namespace Anaglyph.Lasertag
 
 		public static MatchReferee Instance { get; private set; }
 
-		private NetworkVariable<MatchState> stateSync = new(MatchState.NotPlaying);
+		private readonly NetworkVariable<MatchState> stateSync = new(MatchState.NotPlaying);
 		public MatchState State => stateSync.Value;
 		public event Action<MatchState> StateChanged = delegate { };
 		public event Action MatchFinished = delegate { };
 
-		private NetworkVariable<int> team0ScoreSync = new(0);
-		private NetworkVariable<int> team1ScoreSync = new(0);
-		private NetworkVariable<int> team2ScoreSync = new(0);
+		private readonly NetworkVariable<int> team0ScoreSync = new(0);
+		private readonly NetworkVariable<int> team1ScoreSync = new(0);
+		private readonly NetworkVariable<int> team2ScoreSync = new(0);
 
 		private NetworkVariable<int>[] teamScoresSync;
 		public int GetTeamScore(byte team) => teamScoresSync[team].Value;
 		public event Action<byte> TeamScored = delegate { };
 
-		private NetworkVariable<MatchSettings> settingsSync = new();
+		private readonly NetworkVariable<MatchSettings> settingsSync = new();
 		public MatchSettings Settings => settingsSync.Value;
 
 		private TaskCompletionSource<bool> winByScoreCompletion;
@@ -167,11 +167,11 @@ namespace Anaglyph.Lasertag
 			switch (State)
 			{
 				case MatchState.Mustering:
-					Muster(ctn);
+					_ = Muster(ctn);
 					break;
 
 				case MatchState.Playing:
-					RunMatch(Settings, ctn);
+					_ = RunMatch(Settings, ctn);
 					break;
 
 				default:
@@ -208,7 +208,7 @@ namespace Anaglyph.Lasertag
 
 			settingsSync.Value = settings;
 
-			Muster(CancelTaskAndPrepareNext());
+			_ = Muster(CancelTaskAndPrepareNext());
 		}
 
 		private async Task Muster(CancellationToken ctn)
@@ -229,7 +229,7 @@ namespace Anaglyph.Lasertag
 
 					if (numPlayersInbase != 0 && numPlayersInbase == Networking.Avatar.AllPlayers.Count)
 					{
-						Countdown(ctn);
+						_ = Countdown(ctn);
 						break;
 					}
 
@@ -250,7 +250,7 @@ namespace Anaglyph.Lasertag
 				stateSync.Value = MatchState.Countdown;
 				await Awaitable.WaitForSecondsAsync(3, ctn);
 				ctn.ThrowIfCancellationRequested();
-				RunMatch(Settings, ctn);
+				_ = RunMatch(Settings, ctn);
 
 			} catch (OperationCanceledException)
 			{

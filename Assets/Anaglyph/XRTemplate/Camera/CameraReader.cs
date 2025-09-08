@@ -164,6 +164,8 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 			ImageAvailable = delegate { };
 		}
 
+		private async Task Configure() => await Configure(defaultCameraIndex, defaultTextureSize.x, defaultTextureSize.y);
+
 		public async Task Configure(int index, int width, int height)
 		{
 #if UNITY_EDITOR
@@ -205,6 +207,9 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 				return;
 
 			DeviceShouldBeOpen = true;
+
+			if (!IsConfigured)
+				await Configure();
 
 			if (!await CheckPermissions())
 				throw new PermissionException("Camera does not have permission!");

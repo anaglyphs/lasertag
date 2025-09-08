@@ -4,14 +4,13 @@ using System.Text;
 using System.Threading.Tasks;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
-using Unity.Services.Multiplayer;
 using UnityEngine;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
-	public class MetaBluetoothNetworkConnector : MonoBehaviour
+	public class MetaBluetoothNetworkDiscovery : MonoBehaviour
 	{
-		public static MetaBluetoothNetworkConnector Instance { get; private set; }
+		public static MetaBluetoothNetworkDiscovery Instance { get; private set; }
 
 		private static NetworkManager manager => NetworkManager.Singleton;
 		private static UnityTransport transport => (UnityTransport) NetworkManager.Singleton.NetworkConfig.NetworkTransport;
@@ -22,30 +21,36 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private static string LanPrefix = "IP:";
 		private static string RelayPrefix = "Relay:";
 
+		private Task currentTask = Task.CompletedTask;
+		private void QueueTask(Func<Task> taskFactory)
+		{
+			currentTask = currentTask.ContinueWith(_ => taskFactory(), TaskContinuationOptions.ExecuteSynchronously).Unwrap();
+		}
+
 		private void Awake()
 		{
 			Instance = this;
-			NetcodeHelper.StateChange += OnNetworkStateChange;
+			NetcodeManagement.StateChange += OnNetworkStateChange;
 			OVRColocationSession.ColocationSessionDiscovered += HandleColocationSessionDiscovered;
 		}
 
 		private void OnDestroy()
 		{
-			NetcodeHelper.StateChange -= OnNetworkStateChange;
+			NetcodeManagement.StateChange -= OnNetworkStateChange;
 			OVRColocationSession.ColocationSessionDiscovered -= HandleColocationSessionDiscovered;
 		}
 
-		private async void OnNetworkStateChange(NetcodeHelper.NetworkState state) => await HandleChange();
+		private void OnNetworkStateChange(NetcodeManagement.NetworkState state) => HandleChange();
 
-		private async void OnEnable() => await HandleChange();
-		private async void OnDisable() => await HandleChange();
+		private void OnEnable() => HandleChange();
+		private void OnDisable() => HandleChange();
 
 #if !UNITY_EDITOR
-		private async void OnApplicationFocus(bool focus) => await HandleChange();
-		private async void OnApplicationPause(bool pause) => await HandleChange();
+		private void OnApplicationFocus(bool focus) => HandleChange();
+		private void OnApplicationPause(bool pause) => HandleChange();
 #endif
 
-		private async Task HandleChange()
+		private void HandleChange()
 		{
 #if UNITY_EDITOR
 			if(enabled)
@@ -56,33 +61,38 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				if (manager == null)
 					return;
 
-				switch (NetcodeHelper.State)
+				switch (NetcodeManagement.State)
 				{
-					case NetcodeHelper.NetworkState.Disconnected:
+					case NetcodeManagement.NetworkState.Disconnected:
 						Log("Stopping advertisement, starting discovery");
-						await OVRColocationSession.StopAdvertisementAsync();
-						await OVRColocationSession.StartDiscoveryAsync();
+						QueueTask(StopAdvertisement);
+						QueueTask(StartDiscovery);
 						break;
 
-					case NetcodeHelper.NetworkState.Connecting:
+					case NetcodeManagement.NetworkState.Connecting:
 						Log("Stopping discovery");
-						await OVRColocationSession.StopDiscoveryAsync();
+						QueueTask(StartDiscovery);
 						break;
 
-					case NetcodeHelper.NetworkState.Connected:
-						await Broadcast();
+					case NetcodeManagement.NetworkState.Connected:
+						QueueTask(StartAdvertisement);
 						break;
 				}
 			}
 			else
 			{
 				Log("Stopping both discovery and advertisement");
-				await OVRColocationSession.StopDiscoveryAsync();
-				await OVRColocationSession.StopAdvertisementAsync();
+				QueueTask(StopAdvertisement);
+				QueueTask(StopDiscovery);
 			}
 		}
 
-		private async Task Broadcast()
+		
+		private static async Task StartDiscovery() => await OVRColocationSession.StartDiscoveryAsync();
+		private static async Task StopDiscovery() => await OVRColocationSession.StopDiscoveryAsync();
+
+		private static async Task StopAdvertisement() => await OVRColocationSession.StopAdvertisementAsync();
+		private async Task StartAdvertisement()
 		{
 			string message = "";
 
@@ -94,7 +104,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					break;
 
 				case UnityTransport.ProtocolType.RelayUnityTransport:
-					message = RelayPrefix + NetcodeHelper.CurrentSessionName;
+					message = RelayPrefix + NetcodeManagement.CurrentSessionName;
 					break;
 			}
 
@@ -112,10 +122,10 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			if(message.StartsWith(LanPrefix))
 			{
-				NetcodeHelper.ConnectLAN(message.Remove(0, LanPrefix.Length));
+				NetcodeManagement.ConnectLAN(message.Remove(0, LanPrefix.Length));
 			} else if(message.StartsWith(RelayPrefix))
 			{
-				NetcodeHelper.ConnectUnityServices(message.Remove(0, RelayPrefix.Length));
+				NetcodeManagement.ConnectUnityServices(message.Remove(0, RelayPrefix.Length));
 			}
 		}
 	}

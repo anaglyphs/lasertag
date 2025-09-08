@@ -43,7 +43,7 @@ namespace Anaglyph.Lasertag
 		{
 			scoreCanceller.Cancel();
 			scoreCanceller = new();
-			ShowScore(scoreCanceller.Token);
+			_ = ShowScore(scoreCanceller.Token);
 		}
 
 		private async Task ShowScore(CancellationToken ctn)

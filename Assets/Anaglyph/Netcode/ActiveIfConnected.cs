@@ -20,9 +20,9 @@ namespace Anaglyph.Netcode
 
 		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
 		{
-			if (NetcodeHelper.ThisClientConnected(data))
+			if (NetcodeManagement.ThisClientConnected(data))
 				gameObject.SetActive(true);
-			else if(NetcodeHelper.ThisClientDisconnected(data))
+			else if(NetcodeManagement.ThisClientDisconnected(data))
 				gameObject.SetActive(false);
 		}
 	}
