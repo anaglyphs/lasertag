@@ -1,0 +1,221 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!200 &20000000
+ShaderVariantCollection:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: ShaderVariants
+  m_Shaders:
+  - first: {fileID: 10770, guid: 0000000000000000f000000000000000, type: 0}
+    second:
+      variants:
+      - keywords: 
+        passType: 0
+      - keywords: STEREO_INSTANCING_ON UNITY_UI_CLIP_RECT
+        passType: 0
+      - keywords: UNITY_UI_CLIP_RECT
+        passType: 0
+  - first: {fileID: 66, guid: 0000000000000000f000000000000000, type: 0}
+    second:
+      variants:
+      - keywords: 
+        passType: 0
+  - first: {fileID: 103, guid: 0000000000000000f000000000000000, type: 0}
+    second:
+      variants:
+      - keywords: 
+        passType: 0
+      - keywords: STEREO_INSTANCING_ON
+        passType: 0
+  - first: {fileID: 207, guid: 0000000000000000f000000000000000, type: 0}
+    second:
+      variants:
+      - keywords: 
+        passType: 0
+      - keywords: STEREO_INSTANCING_ON
+        passType: 0
+  - first: {fileID: 9000, guid: 0000000000000000f000000000000000, type: 0}
+    second:
+      variants:
+      - keywords: 
+        passType: 0
+  - first: {fileID: 9001, guid: 0000000000000000f000000000000000, type: 0}
+    second:
+      variants:
+      - keywords: 
+        passType: 0
+  - first: {fileID: 9002, guid: 0000000000000000f000000000000000, type: 0}
+    second:
+      variants:
+      - keywords: 
+        passType: 0
+  - first: {fileID: 9003, guid: 0000000000000000f000000000000000, type: 0}
+    second:
+      variants:
+      - keywords: 
+        passType: 0
+  - first: {fileID: 9004, guid: 0000000000000000f000000000000000, type: 0}
+    second:
+      variants:
+      - keywords: 
+        passType: 0
+  - first: {fileID: 9007, guid: 0000000000000000f000000000000000, type: 0}
+    second:
+      variants:
+      - keywords: 
+        passType: 0
+  - first: {fileID: 9101, guid: 0000000000000000f000000000000000, type: 0}
+    second:
+      variants:
+      - keywords: 
+        passType: 0
+  - first: {fileID: 9103, guid: 0000000000000000f000000000000000, type: 0}
+    second:
+      variants:
+      - keywords: UIE_FORCE_GAMMA
+        passType: 0
+  - first: {fileID: 19011, guid: 0000000000000000f000000000000000, type: 0}
+    second:
+      variants:
+      - keywords: 
+        passType: 0
+  - first: {fileID: 4800000, guid: d5a307c014552314b9f560906d708772, type: 3}
+    second:
+      variants:
+      - keywords: 
+        passType: 0
+  - first: {fileID: 4800000, guid: e6e9a19c3678ded42a3bc431ebef7dbd, type: 3}
+    second:
+      variants:
+      - keywords: 
+        passType: 0
+  - first: {fileID: 4800000, guid: 93446b5c5339d4f00b85c159e1159b7c, type: 3}
+    second:
+      variants:
+      - keywords: 
+        passType: 0
+      - keywords: STEREO_INSTANCING_ON
+        passType: 0
+  - first: {fileID: -6465566751694194690, guid: 7a3612ce8fdb2af46b20ef9036feafad, type: 3}
+    second:
+      variants:
+      - keywords: 
+        passType: 8
+      - keywords: EVALUATE_SH_VERTEX SOFT_OCCLUSION
+        passType: 13
+      - keywords: EVALUATE_SH_VERTEX SOFT_OCCLUSION STEREO_INSTANCING_ON
+        passType: 13
+  - first: {fileID: 4800000, guid: 51d684edc09819947a64a4c2bbb4aac1, type: 3}
+    second:
+      variants:
+      - keywords: SOFT_OCCLUSION
+        passType: 0
+      - keywords: SOFT_OCCLUSION STEREO_INSTANCING_ON
+        passType: 0
+      - keywords: SOFT_OCCLUSION STEREO_INSTANCING_ON _SURFACE_TYPE_TRANSPARENT
+        passType: 0
+      - keywords: SOFT_OCCLUSION _SURFACE_TYPE_TRANSPARENT
+        passType: 0
+  - first: {fileID: 4800000, guid: 25229be735919fa4ba5f70c19ceb52f6, type: 3}
+    second:
+      variants:
+      - keywords: 
+        passType: 0
+      - keywords: STEREO_INSTANCING_ON
+        passType: 0
+  - first: {fileID: 4800000, guid: 70f90c967e3a949439bc63cf849b361e, type: 3}
+    second:
+      variants:
+      - keywords: SOFT_OCCLUSION STEREO_INSTANCING_ON _GLOSSINESS_FROM_BASE_ALPHA
+          _NORMALMAP _SPECULAR_COLOR
+        passType: 13
+      - keywords: SOFT_OCCLUSION STEREO_INSTANCING_ON _NORMALMAP
+        passType: 13
+      - keywords: SOFT_OCCLUSION _GLOSSINESS_FROM_BASE_ALPHA _NORMALMAP _SPECULAR_COLOR
+        passType: 13
+      - keywords: SOFT_OCCLUSION _NORMALMAP
+        passType: 13
+  - first: {fileID: 4800000, guid: 8d2bb70cbf9db8d4da26e15b26e74248, type: 3}
+    second:
+      variants:
+      - keywords: 
+        passType: 8
+      - keywords: EVALUATE_SH_VERTEX
+        passType: 13
+      - keywords: EVALUATE_SH_VERTEX STEREO_INSTANCING_ON
+        passType: 13
+  - first: {fileID: 4800000, guid: dcb444cf737154443be726880a059186, type: 3}
+    second:
+      variants:
+      - keywords: 
+        passType: 8
+      - keywords: EVALUATE_SH_VERTEX
+        passType: 13
+      - keywords: EVALUATE_SH_VERTEX SOFT_OCCLUSION
+        passType: 13
+      - keywords: EVALUATE_SH_VERTEX SOFT_OCCLUSION STEREO_INSTANCING_ON
+        passType: 13
+  - first: {fileID: 4800000, guid: f66fcb9802ce5ab41a6469acf34a53ca, type: 3}
+    second:
+      variants:
+      - keywords: 
+        passType: 0
+  - first: {fileID: -6465566751694194690, guid: dc14517a9c33e064ca9f1a3893c54b18, type: 3}
+    second:
+      variants:
+      - keywords: 
+        passType: 8
+      - keywords: EVALUATE_SH_VERTEX
+        passType: 13
+      - keywords: EVALUATE_SH_VERTEX SOFT_OCCLUSION
+        passType: 13
+      - keywords: EVALUATE_SH_VERTEX SOFT_OCCLUSION STEREO_INSTANCING_ON
+        passType: 13
+  - first: {fileID: 4800000, guid: a116c1943cd260347b670648b26195e1, type: 3}
+    second:
+      variants:
+      - keywords: SOFT_OCCLUSION STEREO_INSTANCING_ON
+        passType: 0
+      - keywords: 
+        passType: 8
+  - first: {fileID: 4800000, guid: 3991386da5b0799499b4717ed8a6b95e, type: 3}
+    second:
+      variants:
+      - keywords: 
+        passType: 0
+  - first: {fileID: 4800000, guid: ca91a26c0744a764c9c882febb682628, type: 3}
+    second:
+      variants:
+      - keywords: 
+        passType: 0
+      - keywords: STEREO_INSTANCING_ON
+        passType: 0
+  - first: {fileID: -6465566751694194690, guid: cd84469dc86c67646a28247fcf59b1fb, type: 3}
+    second:
+      variants:
+      - keywords: SOFT_OCCLUSION
+        passType: 0
+      - keywords: SOFT_OCCLUSION STEREO_INSTANCING_ON
+        passType: 0
+      - keywords: 
+        passType: 8
+  - first: {fileID: 4800000, guid: 47b2c85a10813944294cb9f433cc9205, type: 3}
+    second:
+      variants:
+      - keywords: INSTANCING_ON SOFT_OCCLUSION STEREO_INSTANCING_ON
+        passType: 0
+      - keywords: 
+        passType: 8
+      - keywords: INSTANCING_ON
+        passType: 8
+  - first: {fileID: -6465566751694194690, guid: 675c217b2f486324dad66c29faa9ec36, type: 3}
+    second:
+      variants:
+      - keywords: SOFT_OCCLUSION
+        passType: 0
+      - keywords: SOFT_OCCLUSION STEREO_INSTANCING_ON
+        passType: 0
+      - keywords: 
+        passType: 8

@@ -83,9 +83,11 @@ namespace Anaglyph.Netcode
 			if (State != NetworkState.Disconnected)
 				throw new Exception("You can only change the transport while disconnected!");
 
-			NetworkTransport newTransport = manager.GetComponent(s) as NetworkTransport;
+			UnityTransport newTransport = manager.GetComponent(s) as UnityTransport;
 			if (newTransport == null)
 				throw new Exception($"Could not find transport {s}!");
+
+			newTransport.GetNetworkDriver().Dispose();
 
 			manager.NetworkConfig.NetworkTransport = newTransport;
 		}
@@ -123,12 +125,13 @@ namespace Anaglyph.Netcode
 
 		public static void ConnectLAN(string ip)
 		{
-			State = NetworkState.Connecting;
-
 			SetNetworkTransportType("UnityTransport");
+
 			manager.NetworkConfig.UseCMBService = false;
 
 			transport.SetConnectionData(ip, port);
+
+			State = NetworkState.Connecting;
 
 			manager.StartClient();
 		}
@@ -182,8 +185,7 @@ namespace Anaglyph.Netcode
 			}.WithDistributedAuthorityNetwork();
 
 			CurrentSessionName = id;
-			Task<ISession> sessionTask = MultiplayerService.Instance.CreateOrJoinSessionAsync(id, options);
-			CurrentSession = await sessionTask;
+			CurrentSession = await MultiplayerService.Instance.CreateOrJoinSessionAsync(id, options);
 		}
 
 		public static async void Disconnect()

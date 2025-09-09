@@ -45,36 +45,41 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			localTags = new(localTags);
 		}
 
-		private void Start()
-		{
-			NetworkManager.OnClientConnectedCallback += OnClientConnected;
-		}
-
-		[Rpc(SendTo.Everyone)]
+		[Rpc(SendTo.Everyone, Delivery = RpcDelivery.Reliable)]
 		private void RegisterCanonTagRpc(int id, Vector3 canonicalPosition)
 		{
 			canonTags[id] = canonicalPosition;
 		}
 
-		[Rpc(SendTo.SpecifiedInParams)]
+		[Rpc(SendTo.SpecifiedInParams, Delivery = RpcDelivery.Reliable)]
 		private void SyncCanonTagsRpc(int[] id, Vector3[] positions, RpcParams rpcParams = default)
 		{
 			for (int i = 0; i < id.Length; i++)
 				canonTags[id[i]] = positions[i];
 		}
 
-		private void OnClientConnected(ulong id)
+		[Rpc(SendTo.Everyone, Delivery = RpcDelivery.Reliable)]
+		public void ClearCanonTagsRpc()
 		{
-			if (IsOwner && id != NetworkManager.LocalClientId)
-			{
-				int[] keys = new int[canonTags.Count];
-				Vector3[] values = new Vector3[canonTags.Count];
+			canonTags.Clear();
+		}
 
-				canonTags.Keys.CopyTo(keys, 0);
-				canonTags.Values.CopyTo(values, 0);
+		[Rpc(SendTo.Owner, Delivery = RpcDelivery.Reliable)]
+		private void RetrieveCanonTagsRpc(ulong id)
+		{
+			int[] keys = new int[canonTags.Count];
+			Vector3[] values = new Vector3[canonTags.Count];
 
-				SyncCanonTagsRpc(keys, values, RpcTarget.Single(id, RpcTargetUse.Temp));
-			}
+			canonTags.Keys.CopyTo(keys, 0);
+			canonTags.Values.CopyTo(values, 0);
+
+			SyncCanonTagsRpc(keys, values, RpcTarget.Single(id, RpcTargetUse.Temp));
+		}
+
+		public override void OnNetworkSpawn()
+		{
+			if (!IsOwner)
+				RetrieveCanonTagsRpc(NetworkManager.LocalClientId);
 		}
 
 		private bool _isColocated;
@@ -99,10 +104,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			IsColocated = false;
 			colocationActive = true;
 
+			await cameraReader.TryOpenCamera();
 			tagTracker.tagSizeMeters = tagSize;
 			tagTracker.OnDetectTags += OnDetectTags;
-
-			await cameraReader.TryOpenCamera();
 		}
 
 		private List<float3> sharedLocalPositions = new();
@@ -140,7 +144,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				}
 			}
 
-			if (sharedLocalPositions.Count >= 3)
+			if (sharedLocalPositions.Count >= 4)
 			{
 				Matrix4x4 trackingSpace = MainXRRig.TrackingSpace.localToWorldMatrix;
 
@@ -177,8 +181,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			if (!colocationActive)
 				return;
-
-			// tags = ((List<TagPose>)results).ToArray();
 
 			foreach (TagPose result in results)
 			{

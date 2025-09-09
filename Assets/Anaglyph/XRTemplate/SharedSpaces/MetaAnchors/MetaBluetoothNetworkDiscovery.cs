@@ -1,6 +1,7 @@
 using Anaglyph.Netcode;
 using System;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
@@ -17,14 +18,22 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private static string LogHeader = "[AutoJoiner] ";
 		private static void Log(string str) => Debug.Log(LogHeader + str);
+		private static void LogWarning(string str) => Debug.LogWarning(LogHeader + str);
 
 		private static string LanPrefix = "IP:";
 		private static string RelayPrefix = "Relay:";
 
 		private Task currentTask = Task.CompletedTask;
-		private void QueueTask(Func<Task> taskFactory)
+
+		public Task QueueTask(Func<Task> taskFactory)
 		{
-			currentTask = currentTask.ContinueWith(_ => taskFactory(), TaskContinuationOptions.ExecuteSynchronously).Unwrap();
+			var name = taskFactory.Method.Name;
+			currentTask = currentTask
+				.ContinueWith(_ => taskFactory(), CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Current)
+				.Unwrap();
+
+			currentTask.ContinueWith(t => Debug.LogException(t.Exception), TaskContinuationOptions.OnlyOnFaulted);
+			return currentTask;
 		}
 
 		private void Awake()
@@ -64,14 +73,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				switch (NetcodeManagement.State)
 				{
 					case NetcodeManagement.NetworkState.Disconnected:
-						Log("Stopping advertisement, starting discovery");
 						QueueTask(StopAdvertisement);
+						QueueTask(() => Task.Delay(3000));
 						QueueTask(StartDiscovery);
 						break;
 
 					case NetcodeManagement.NetworkState.Connecting:
-						Log("Stopping discovery");
-						QueueTask(StartDiscovery);
+						QueueTask(StopDiscovery);
 						break;
 
 					case NetcodeManagement.NetworkState.Connected:
@@ -81,17 +89,42 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 			else
 			{
-				Log("Stopping both discovery and advertisement");
 				QueueTask(StopAdvertisement);
 				QueueTask(StopDiscovery);
 			}
 		}
 
-		
-		private static async Task StartDiscovery() => await OVRColocationSession.StartDiscoveryAsync();
-		private static async Task StopDiscovery() => await OVRColocationSession.StopDiscoveryAsync();
 
-		private static async Task StopAdvertisement() => await OVRColocationSession.StopAdvertisementAsync();
+		private static async Task StartDiscovery()
+		{
+			Log("Starting discovery");
+			var result = await OVRColocationSession.StartDiscoveryAsync();
+			if (result.Success)
+				Log("Discovery started");
+			else
+				LogWarning("Couldn't start discovery");
+		}
+
+		private static async Task StopDiscovery()
+		{
+			Log("Stopping discovery");
+			var result = await OVRColocationSession.StopDiscoveryAsync();
+			if (result.Success)
+				Log("Discovery stopped");
+			else
+				LogWarning("Couldn't stop discovery");
+		}
+
+		private static async Task StopAdvertisement()
+		{
+			Log("Stopping advertisement");
+			var result = await OVRColocationSession.StopAdvertisementAsync();
+			if (result.Success)
+				Log("Advertisement stopped");
+			else
+				LogWarning("Couldn't stop advertisement");
+		}
+
 		private async Task StartAdvertisement()
 		{
 			string message = "";
@@ -109,7 +142,12 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 
 			Log($"Starting advertisement {message}");
-			await OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(message));
+
+			var result = await OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(message));
+			if (result.Success)
+				Log("Advertisement started");
+			else
+				LogWarning("Couldn't start advertisement");
 		}
 
 		private void HandleColocationSessionDiscovered(OVRColocationSession.Data data)

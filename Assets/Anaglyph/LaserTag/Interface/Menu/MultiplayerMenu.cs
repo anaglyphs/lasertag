@@ -41,8 +41,7 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private Text sessionStateText = null;
 		[SerializeField] private Text sessionIpText = null;
 		[SerializeField] private Button disconnectButton = null;
-		[SerializeField] private Button hostRespawnAnchorButton = null;
-		[SerializeField] private Text hostRespawnAnchorLabel = null;
+		[SerializeField] private Button recalibrateButton = null;
 
 		[Header("Session icons")]
 		[SerializeField] private Sprite connectingSprite = null;
@@ -70,7 +69,7 @@ namespace Anaglyph.Lasertag
 			ipField.text = ip.Substring(0, length);
 
 			connectButton.onClick.AddListener(delegate {
-				if(useRelayToggle)
+				if(useRelayToggle.isOn)
 					NetcodeManagement.ConnectUnityServices(ipField.text);
 				else
 					NetcodeManagement.ConnectLAN(ipField.text);
@@ -80,11 +79,11 @@ namespace Anaglyph.Lasertag
 			sessionPage.showBackButton = false;
 			disconnectButton.onClick.AddListener(Disconnect);
 
-			hostRespawnAnchorButton.onClick.AddListener(RespawnAnchor);
+			recalibrateButton.onClick.AddListener(RecalibrateColocation);
 
 			Colocation.IsColocatedChange += OnColocationChange;
 
-			ShowAnchorOptions(false);
+			recalibrateButton.gameObject.SetActive(false);
 		}
 
 		private void OnDestroy()
@@ -129,9 +128,23 @@ namespace Anaglyph.Lasertag
 			}
 		}
 
-		private void RespawnAnchor()
+		// TODO: move to colocation manager
+		private void RecalibrateColocation()
 		{
-			MetaAnchorColocator.Current.InstantiateNewAnchor();
+			var type = Colocation.ActiveColocator.GetType();
+
+			if (type == typeof(MetaAnchorColocator))
+			{
+				MetaAnchorColocator.Current.InstantiateNewAnchor();
+			}
+			else if (type == typeof(AprilTagColocator))
+			{
+				AprilTagColocator aprilTagColocator = (AprilTagColocator)Colocation.ActiveColocator;
+
+				aprilTagColocator.NetworkObject.ChangeOwnership(manager.LocalClientId);
+
+				aprilTagColocator.ClearCanonTagsRpc();
+			}
 		}
 
 		private void OnColocationChange(bool isColocated)
@@ -167,18 +180,9 @@ namespace Anaglyph.Lasertag
 					break;
 			}
 
-			bool shouldShowAnchorOptions = Colocation.IsColocated && 
-				Colocation.ActiveColocator.GetType() == typeof(MetaAnchorColocator);
-			ShowAnchorOptions(shouldShowAnchorOptions);
+			recalibrateButton.gameObject.SetActive(state != SessionState.Connecting);
 
 			sessionPage.NavigateHere();
-		}
-
-
-		private void ShowAnchorOptions(bool b)
-		{
-			hostRespawnAnchorButton.gameObject.SetActive(b);
-			hostRespawnAnchorLabel.gameObject.SetActive(b);
 		}
 
 		private void Host()

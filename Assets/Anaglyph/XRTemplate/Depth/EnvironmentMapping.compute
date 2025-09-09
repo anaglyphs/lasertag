@@ -59,7 +59,7 @@ void Clear(uint3 id : SV_DispatchThreadID)
 void Integrate (uint i : SV_DispatchThreadID)
 {	
 	float3 vLocalPos = frustumVolume[i];
-	float3 vWorldPos = mul(agDepthViewInv[0], float4(vLocalPos, 1));
+	float3 vWorldPos = mul(agDepthViewInv[0], float4(vLocalPos, 1)).xyz;
 	uint3 id = worldToVoxel(vWorldPos);
 	
 	float3 eyePos = agDepthEyePos();
