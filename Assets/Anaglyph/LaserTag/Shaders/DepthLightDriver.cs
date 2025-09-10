@@ -46,7 +46,7 @@ namespace Anaglyph.Lasertag
 				{
 					position = depthLight.transform.position,
 					color = new(c.r, c.g, c.b),
-					intensity = depthLight.intensity,
+					intensity = depthLight.GetIntensity(),
 				};
 
 				lights[i] = light;
