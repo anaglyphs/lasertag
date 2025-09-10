@@ -28,7 +28,7 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			depthLightBuffer = new ComputeBuffer(16, Marshal.SizeOf<Light>());
+			depthLightBuffer = new ComputeBuffer(lights.Length, Marshal.SizeOf<Light>());
 			depthLightEffectMat.SetInt(LightCountID, 5);
 		}
 

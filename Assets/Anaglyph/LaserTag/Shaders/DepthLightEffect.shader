@@ -38,12 +38,14 @@ Shader "DepthLightEffect"
 			{
 				UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
-				const float2 uv = input.texcoord.xy;
+				float2 uv = input.texcoord.xy;
+
+				#if defined(SHADER_API_MOBILE)
+					uv.y = 1.0 - uv.y;
+				#endif
+
 				const int eye = unity_StereoEyeIndex;
 				const float depthNDC = agDepthSample(uv, eye, bilinearClampSampler);
-
-				// return half4(depthNDC, 0, 0, 1);
-				// return half4(_Lights[0].color.rgb, 1);
 
 				float3 depthWorld = agDepthNDCtoWorld(float3(uv, depthNDC), eye);
 				float3 worldNorm = agDepthNormalSample(uv, eye, bilinearClampSampler).xyz;
