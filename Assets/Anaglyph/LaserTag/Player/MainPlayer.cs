@@ -1,11 +1,12 @@
 using Anaglyph.Lasertag.Networking;
-using UnityEngine;
 using Anaglyph.Lasertag.Weapons;
-using Unity.XR.CoreUtils;
-using VariableObjects;
-using Unity.Netcode;
 using Anaglyph.Netcode;
 using System;
+using Unity.Netcode;
+using Unity.Services.Matchmaker.Models;
+using Unity.XR.CoreUtils;
+using UnityEngine;
+using VariableObjects;
 
 namespace Anaglyph.Lasertag
 {
@@ -26,8 +27,8 @@ namespace Anaglyph.Lasertag
 		public event Action<byte> TeamChanged = delegate { };
 
 		[SerializeField] private GameObject avatarPrefab;
-		private Networking.Avatar avatar;
-		public Networking.Avatar Avatar => avatar;
+		private Networking.PlayerAvatar avatar;
+		public Networking.PlayerAvatar Avatar => avatar;
 
 		[SerializeField] private Transform headTransform;
 		[SerializeField] private Transform leftHandTransform;
@@ -95,7 +96,7 @@ namespace Anaglyph.Lasertag
 			var avatarObject = NetworkObject.InstantiateAndSpawn(avatarPrefab, 
 				manager, manager.LocalClientId, destroyWithScene: true, isPlayerObject: true);
 
-			avatar = avatarObject.GetComponent<Networking.Avatar>();
+			avatar = avatarObject.GetComponent<PlayerAvatar>();
 			avatar.TeamOwner.OnTeamChange.AddListener(TeamChanged.Invoke);
 		}
 
@@ -110,7 +111,7 @@ namespace Anaglyph.Lasertag
 			}
 		}
 
-		public void Kill(ulong killedBy)
+		public void Kill(ulong killerID)
 		{
 			if (!IsAlive) return;
 
@@ -121,10 +122,19 @@ namespace Anaglyph.Lasertag
 			IsAlive = false;
 			Health = 0;
 			RespawnTimerSeconds = MatchReferee.Instance.Settings.respawnSeconds;
-			avatar.KilledByPlayerRpc(killedBy);
 
-			//onAliveChange.Invoke(false);
 			Died.Invoke();
+
+			if (PlayerAvatar.All.TryGetValue(killerID, out var killer))
+			{
+				avatar.KilledByPlayerRpc(killerID);
+
+				var referee = MatchReferee.Instance;
+				if (referee.State == MatchState.Playing && killer.Team != avatar.Team)
+				{
+					referee.ScoreTeamRpc(killer.Team, referee.Settings.pointsPerKill);
+				}
+			}
 		}
 
 		public void Respawn()

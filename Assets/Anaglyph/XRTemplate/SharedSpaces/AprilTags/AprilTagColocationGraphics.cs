@@ -84,7 +84,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 				scale = Vector3.one * 0.02f;
 				mpb.SetColor(BaseColorID, Color.yellow);
-				foreach (Vector3 localTagPos in colocator.CanonTags.Values)
+				foreach (Vector3 localTagPos in colocator.LocalTags.Values)
 				{
 					var model = MainXRRig.TrackingSpace.localToWorldMatrix *
 						Matrix4x4.TRS(localTagPos, Quaternion.identity, scale);

@@ -1,50 +1,66 @@
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using UnityEngine;
 
 namespace Anaglyph.Lasertag
 {
-    public class DepthLightDriver : MonoBehaviour
-    {
-		public Color color = Color.white;
-		public float epsilon = 0.01f;
-
-		private MaterialPropertyBlock propertyBlock = null;
-		private MeshRenderer meshRenderer = null;
-
-		private const string ColorProp = "_Color";
-		private const string IntensityProp = "_Intensity";
-
-		private static readonly int ColorID = Shader.PropertyToID(ColorProp);
-		private static readonly int IntensityID = Shader.PropertyToID(IntensityProp);
-
-		private void Awake()
+	public class DepthLightDriver : MonoBehaviour
+	{
+		[StructLayout(LayoutKind.Sequential)]
+		struct Light
 		{
-			meshRenderer = GetComponent<MeshRenderer>();
+			public Vector3 position;
+			public Vector3 color;
+			public float intensity;
+			float padding;
 		}
+
+		private Light[] lights = new Light[16];
+
+		[SerializeField] private Material depthLightEffectMat;
+		private ComputeBuffer depthLightBuffer;
+
+		public static List<DepthLight> AllLights = new();
+
+		private readonly int LightsID = Shader.PropertyToID("_Lights");
+		private readonly int LightCountID = Shader.PropertyToID("_LightCount");
 
 		private void Start()
 		{
-			propertyBlock = new();
+			depthLightBuffer = new ComputeBuffer(16, Marshal.SizeOf<Light>());
+			depthLightEffectMat.SetInt(LightCountID, 5);
 		}
 
 		private void LateUpdate()
 		{
-			float radius = transform.lossyScale.x;
-			float intensity = epsilon * radius * radius;
+			int count = Math.Min(AllLights.Count, lights.Length);
 
-			propertyBlock.SetColor(ColorID, color);
-			propertyBlock.SetFloat(IntensityID, intensity);
+			for (int i = 0; i < count; i++)
+			{
+				DepthLight depthLight = AllLights[i];
 
-			meshRenderer.SetPropertyBlock(propertyBlock);
+				Color c = depthLight.color;
+
+				Light light = new Light()
+				{
+					position = depthLight.transform.position,
+					color = new(c.r, c.g, c.b),
+					intensity = depthLight.intensity,
+				};
+
+				lights[i] = light;
+			}
+
+			depthLightBuffer.SetData(lights);
+
+			depthLightEffectMat.SetInt(LightCountID, count);
+			depthLightEffectMat.SetBuffer(LightsID, depthLightBuffer);
 		}
 
-		private void OnEnable()
+		private void OnDestroy()
 		{
-			meshRenderer.enabled = true;
-		}
-
-		private void OnDisable()
-		{
-			meshRenderer.enabled = false;
+			depthLightBuffer.Release();
 		}
 	}
 }

@@ -35,7 +35,11 @@ namespace Anaglyph.Lasertag
 
 		private void OnDestroy()
 		{
-			referee.MatchFinished -= OnMatchFinished;
+			if (referee != null)
+			{
+				referee.MatchFinished -= OnMatchFinished;
+				referee.StateChanged -= OnStateChanged;
+			}
 			scoreCanceller.Cancel();
 		}
 

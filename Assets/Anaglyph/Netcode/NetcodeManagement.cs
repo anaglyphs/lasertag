@@ -60,10 +60,10 @@ namespace Anaglyph.Netcode
 
 		private static void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
 		{
-			if(NetcodeManagement.ThisClientConnected(data))
+			if(ThisClientConnected(data))
 			{
 				State = NetworkState.Connected;
-			} else if(NetcodeManagement.ThisClientDisconnected(data))
+			} else if(ThisClientDisconnected(data))
 			{
 				State = NetworkState.Disconnected;
 			}

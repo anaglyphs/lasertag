@@ -53,7 +53,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 3184280641
+  GlobalObjectIdHash: 959866492
   InScenePlacedSourceGlobalObjectIdHash: 3184280641
   DeferredDespawnTick: 0
   Ownership: 3
@@ -122,10 +122,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
-  tagLerp: 0.1
+  tagLerp: 0.3
   lockDistanceScale: 15
-  maxHeadSpeed: 0.2
-  maxHeadAngSpeed: 0.2
+  maxHeadSpeed: 0.1
+  maxHeadAngSpeed: 0.1
   cameraReader: {fileID: 2551285239359811888}
   tagTracker: {fileID: 8030733127724905774}
   tagSize: 0.1

@@ -16,9 +16,11 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private NavPage playingPage = null;
 		[SerializeField] private Button cancelButton = null;
 
+		private MatchReferee referee => MatchReferee.Instance;
+
 		private void Start()
 		{
-			MatchReferee.Instance.StateChanged += HandleStateChange;
+			referee.StateChanged += HandleStateChange;
 
 			startPage.showBackButton = false;
 			startButton.onClick.AddListener(StartGame);
@@ -29,17 +31,18 @@ namespace Anaglyph.Lasertag
 
 		private void OnDestroy()
 		{
-			MatchReferee.Instance.StateChanged -= HandleStateChange;
+			if(referee != null)
+				referee.StateChanged -= HandleStateChange;
 		}
 
 		private void StartGame()
 		{
-			MatchReferee.Instance?.StartMatchRpc(MatchSettings.DemoGame());
+			referee?.StartMatchRpc(MatchSettings.DemoGame());
 		}
 
 		private void EndGame()
 		{
-			MatchReferee.Instance?.EndMatchRpc();
+			referee?.EndMatchRpc();
 		}
 
 		private void HandleStateChange(MatchState state)

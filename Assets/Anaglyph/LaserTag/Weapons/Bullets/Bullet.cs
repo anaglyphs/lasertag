@@ -103,9 +103,9 @@ namespace Anaglyph.Lasertag
 
 						var col = physHit.collider;
 
-						if (col.CompareTag(Networking.Avatar.Tag))
+						if (col.CompareTag(Networking.PlayerAvatar.Tag))
 						{
-							var av = col.GetComponentInParent<Networking.Avatar>();
+							var av = col.GetComponentInParent<Networking.PlayerAvatar>();
 							float damage = damageOverDistance.Evaluate(travelDist);
 							av.DamageRpc(damage, OwnerClientId);
 						}

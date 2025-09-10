@@ -7,7 +7,7 @@ using UnityEngine.Events;
 namespace Anaglyph.Lasertag.Networking
 {
 	[DefaultExecutionOrder(-500)]
-	public class Avatar : NetworkBehaviour
+	public class PlayerAvatar : NetworkBehaviour
 	{
 		public const string Tag = "Player";
 
@@ -27,8 +27,8 @@ namespace Anaglyph.Lasertag.Networking
 		public bool IsAlive => isAliveSync.Value;
 		public NetworkVariable<bool> isAliveSync = new();
 
-		public static Dictionary<ulong, Avatar> AllPlayers { get; private set; } = new();
-		public static List<Avatar> OtherPlayers { get; private set; } = new();
+		public static Dictionary<ulong, PlayerAvatar> All { get; private set; } = new();
+		public static List<PlayerAvatar> OtherPlayers { get; private set; } = new();
 
 		[SerializeField] private TeamOwner teamOwner;
 		public TeamOwner TeamOwner => teamOwner;
@@ -39,7 +39,7 @@ namespace Anaglyph.Lasertag.Networking
 		public bool IsInBase { get; private set; }
 		public Base InBase { get; private set; }
 
-		public static event Action<Avatar, Avatar> OnPlayerKilledPlayer = delegate { };
+		public static event Action<PlayerAvatar, PlayerAvatar> OnPlayerKilledPlayer = delegate { };
 
 		public NetworkVariable<int> scoreSync;
 		public int Score => scoreSync.Value;
@@ -47,7 +47,7 @@ namespace Anaglyph.Lasertag.Networking
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
 		private static void Init()
 		{
-			AllPlayers = new();
+			All = new();
 			OtherPlayers = new();
 			OnPlayerKilledPlayer = delegate { };
 		}
@@ -75,14 +75,14 @@ namespace Anaglyph.Lasertag.Networking
 				isAliveSync.Value = true;
 			}
 
-			AllPlayers.Add(OwnerClientId, this);
+			All.Add(OwnerClientId, this);
 			OtherPlayers.Add(this);
 		}
 
 		public override void OnNetworkDespawn()
 		{
 			OtherPlayers.Remove(this);
-			AllPlayers.Remove(OwnerClientId);
+			All.Remove(OwnerClientId);
 		}
 
 		private void HandleBases()
@@ -129,16 +129,8 @@ namespace Anaglyph.Lasertag.Networking
 
 		[Rpc(SendTo.Everyone)]
 		public void KilledByPlayerRpc(ulong killerId) {
-
-			if(AllPlayers.TryGetValue(killerId, out Avatar killer))
+			if(All.TryGetValue(killerId, out PlayerAvatar killer))
 				OnPlayerKilledPlayer.Invoke(killer, this);
-
-			var referee = MatchReferee.Instance;
-
-			if(referee.State == MatchState.Playing && killer.Team != Team)
-			{
-				referee.ScoreTeamRpc(killer.Team, referee.Settings.pointsPerKill);
-			}
 		}
 
 		[Rpc(SendTo.Owner)]

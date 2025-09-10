@@ -22,6 +22,12 @@ namespace Anaglyph.Lasertag
 			HandleChange();
 		}
 
+		private void OnDestroy()
+		{
+			if(referee != null)
+				referee.StateChanged -= OnMatchStateChanged;
+		}
+
 		private void OnMatchStateChanged(MatchState current)
 		{
 			HandleChange();

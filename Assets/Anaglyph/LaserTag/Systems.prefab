@@ -18,6 +18,7 @@ GameObject:
   - component: {fileID: 3031378351959483058}
   - component: {fileID: 1911858905772435188}
   - component: {fileID: 4465511314893751518}
+  - component: {fileID: 1045686990205537172}
   m_Layer: 0
   m_Name: Systems
   m_TagString: Untagged
@@ -244,3 +245,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c792bc1dc2749da488b1f308ceaf1b30, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &1045686990205537172
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 617670215892132972}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 00eeee097e4e2294b82947ced2ec8a78, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.DepthLightDriver
+  depthLightEffectMat: {fileID: 2100000, guid: b4af965f972a08049a2621e0c8fa511a, type: 2}

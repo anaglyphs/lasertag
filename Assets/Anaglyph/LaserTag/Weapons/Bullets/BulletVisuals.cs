@@ -9,7 +9,7 @@ namespace Anaglyph.Lasertag
     {
 		private Bullet bullet = null;
 		[SerializeField] private TrailRenderer trailRenderer = null;
-		[SerializeField] private DepthLightDriver depthLight = null;
+		[SerializeField] private DepthLight depthLight = null;
 		[SerializeField] private VisualEffect impactEffect = null;
 
 		private MaterialPropertyBlock propertyBlock;
@@ -38,7 +38,7 @@ namespace Anaglyph.Lasertag
 
 			var manager = NetworkManager.Singleton;
 			var playerObject = manager.ConnectedClients[bullet.OwnerClientId].PlayerObject;
-			var teamOwner = playerObject.GetComponent<Networking.Avatar>().TeamOwner;
+			var teamOwner = playerObject.GetComponent<Networking.PlayerAvatar>().TeamOwner;
 			var team = teamOwner.Team;
 
 			var color = Teams.Colors[team];

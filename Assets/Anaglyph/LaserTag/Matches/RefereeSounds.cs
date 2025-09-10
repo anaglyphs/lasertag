@@ -26,8 +26,11 @@ namespace Anaglyph.Lasertag
 
 		private void OnDestroy()
 		{
-			matchManager.StateChanged -= HandleStateChange;
-			matchManager.MatchFinished -= OnMatchFinished;
+			if (matchManager != null)
+			{
+				matchManager.StateChanged -= HandleStateChange;
+				matchManager.MatchFinished -= OnMatchFinished;
+			}
 		}
 
 		private void HandleStateChange(MatchState state)
