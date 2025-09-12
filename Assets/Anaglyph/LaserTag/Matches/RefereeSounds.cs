@@ -2,8 +2,8 @@ using UnityEngine;
 
 namespace Anaglyph.Lasertag
 {
-    public class RefereeSounds : MonoBehaviour
-    {
+	public class RefereeSounds : MonoBehaviour
+	{
 		private AudioSource audioSource;
 
 		[SerializeField] private MatchReferee matchManager;
@@ -26,13 +26,16 @@ namespace Anaglyph.Lasertag
 
 		private void OnDestroy()
 		{
-			matchManager.StateChanged -= HandleStateChange;
-			matchManager.MatchFinished -= OnMatchFinished;
+			if (matchManager != null)
+			{
+				matchManager.StateChanged -= HandleStateChange;
+				matchManager.MatchFinished -= OnMatchFinished;
+			}
 		}
 
 		private void HandleStateChange(MatchState state)
 		{
-			switch(state)
+			switch (state)
 			{
 				case MatchState.Mustering:
 					audioSource.PlayOneShot(queue);

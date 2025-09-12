@@ -41,8 +41,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			cameraReader = FindAnyObjectByType<CameraReader>();
 			tagTracker = FindAnyObjectByType<AprilTagTracker>();
 
-			CanonTags = new(canonTags);
-			localTags = new(localTags);
+			CanonTags = new ReadOnlyDictionary<int, Vector3>(canonTags);
+			LocalTags = new ReadOnlyDictionary<int, Vector3>(localTags);
 		}
 
 		[Rpc(SendTo.Everyone, Delivery = RpcDelivery.Reliable)]
@@ -144,7 +144,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				}
 			}
 
-			if (sharedLocalPositions.Count >= 4)
+			if (sharedLocalPositions.Count >= 3)
 			{
 				Matrix4x4 trackingSpace = MainXRRig.TrackingSpace.localToWorldMatrix;
 

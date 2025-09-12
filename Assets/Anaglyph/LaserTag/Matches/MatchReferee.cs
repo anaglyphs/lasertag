@@ -9,8 +9,8 @@ namespace Anaglyph.Lasertag
 	[Flags]
 	public enum WinCondition : byte
 	{
-		None       = 0b00000000,
-		Timer      = 0b00000001,
+		None = 0b00000000,
+		Timer = 0b00000001,
 		ReachScore = 0b00000010,
 	}
 
@@ -18,9 +18,9 @@ namespace Anaglyph.Lasertag
 	public enum MatchState : byte
 	{
 		NotPlaying = 0b00000001,
-		Mustering  = 0b00000010,
-		Countdown  = 0b00000100,
-		Playing    = 0b00001000,
+		Mustering = 0b00000010,
+		Countdown = 0b00000100,
+		Playing = 0b00001000,
 	}
 
 	[Serializable]
@@ -50,7 +50,7 @@ namespace Anaglyph.Lasertag
 				respawnSeconds = 1,
 				healthRegenPerSecond = 5,
 
-				pointsPerKill = 2,
+				pointsPerKill = 1,
 				pointsPerSecondHoldingPoint = 1,
 
 				winCondition = WinCondition.Timer,
@@ -112,6 +112,8 @@ namespace Anaglyph.Lasertag
 			teamScoresSync[0] = team0ScoreSync;
 			teamScoresSync[1] = team1ScoreSync;
 			teamScoresSync[2] = team2ScoreSync;
+
+			stateSync.OnValueChanged += OnStateChanged;
 		}
 
 		public override void OnNetworkSpawn()
@@ -121,8 +123,6 @@ namespace Anaglyph.Lasertag
 				stateSync.Value = MatchState.NotPlaying;
 				settingsSync.Value = MatchSettings.Lobby();
 			}
-
-			stateSync.OnValueChanged += OnStateChanged;
 
 			OnStateChanged(MatchState.NotPlaying, MatchState.NotPlaying);
 		}
@@ -221,13 +221,13 @@ namespace Anaglyph.Lasertag
 				{
 					int numPlayersInbase = 0;
 
-					foreach (Networking.Avatar player in Networking.Avatar.AllPlayers.Values)
+					foreach (Networking.PlayerAvatar player in Networking.PlayerAvatar.All.Values)
 					{
 						if (player.IsInBase)
 							numPlayersInbase++;
 					}
 
-					if (numPlayersInbase != 0 && numPlayersInbase == Networking.Avatar.AllPlayers.Count)
+					if (numPlayersInbase != 0 && numPlayersInbase == Networking.PlayerAvatar.All.Count)
 					{
 						_ = Countdown(ctn);
 						break;
@@ -236,7 +236,8 @@ namespace Anaglyph.Lasertag
 					await Awaitable.NextFrameAsync(ctn);
 				}
 
-			} catch(OperationCanceledException)
+			}
+			catch (OperationCanceledException)
 			{
 				stateSync.Value = MatchState.NotPlaying;
 				throw;
@@ -252,7 +253,8 @@ namespace Anaglyph.Lasertag
 				ctn.ThrowIfCancellationRequested();
 				_ = RunMatch(Settings, ctn);
 
-			} catch (OperationCanceledException)
+			}
+			catch (OperationCanceledException)
 			{
 				stateSync.Value = MatchState.NotPlaying;
 				throw;
@@ -327,7 +329,7 @@ namespace Anaglyph.Lasertag
 				teamScoresSync[i].Value = 0;
 			}
 
-			foreach (Networking.Avatar player in Networking.Avatar.AllPlayers.Values)
+			foreach (Networking.PlayerAvatar player in Networking.PlayerAvatar.All.Values)
 			{
 				player.ResetScoreRpc();
 			}

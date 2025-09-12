@@ -35,7 +35,11 @@ namespace Anaglyph.Lasertag
 
 		private void OnDestroy()
 		{
-			referee.MatchFinished -= OnMatchFinished;
+			if (referee != null)
+			{
+				referee.MatchFinished -= OnMatchFinished;
+				referee.StateChanged -= OnStateChanged;
+			}
 			scoreCanceller.Cancel();
 		}
 
@@ -62,7 +66,8 @@ namespace Anaglyph.Lasertag
 				await Awaitable.WaitForSecondsAsync(5, ctn);
 				ctn.ThrowIfCancellationRequested();
 
-			} catch(OperationCanceledException) { }
+			}
+			catch (OperationCanceledException) { }
 
 			gameObject.SetActive(false);
 		}

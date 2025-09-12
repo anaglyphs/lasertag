@@ -3,9 +3,9 @@ using UnityEngine;
 
 namespace Anaglyph.Netcode
 {
-    public class DontRenderIfOwner : NetworkBehaviour
-    {
-		[SerializeField] private new Renderer renderer;
+	public class DontRenderIfOwner : NetworkBehaviour
+	{
+		[SerializeField] private Renderer renderer;
 
 		private void OnValidate()
 		{

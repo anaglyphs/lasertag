@@ -2,8 +2,8 @@ using UnityEngine;
 
 namespace Anaglyph.Lasertag
 {
-    public class EnableDuringMatch : MonoBehaviour
-    {
+	public class EnableDuringMatch : MonoBehaviour
+	{
 		public Behaviour[] behaviours;
 		public bool invert;
 
@@ -11,7 +11,7 @@ namespace Anaglyph.Lasertag
 
 		private void OnEnable()
 		{
-			if(didStart)
+			if (didStart)
 				HandleChange();
 		}
 
@@ -20,6 +20,12 @@ namespace Anaglyph.Lasertag
 			referee.StateChanged += OnMatchStateChanged;
 
 			HandleChange();
+		}
+
+		private void OnDestroy()
+		{
+			if (referee != null)
+				referee.StateChanged -= OnMatchStateChanged;
 		}
 
 		private void OnMatchStateChanged(MatchState current)

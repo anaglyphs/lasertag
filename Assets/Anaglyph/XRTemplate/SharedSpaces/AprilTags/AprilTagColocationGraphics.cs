@@ -5,8 +5,8 @@ using UnityEngine.Rendering;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
-    public class AprilTagColocationGraphics : MonoBehaviour
-    {
+	public class AprilTagColocationGraphics : MonoBehaviour
+	{
 		[SerializeField] private AprilTagColocator colocator;
 
 		[SerializeField] private Mesh indicatorMesh;
@@ -84,7 +84,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 				scale = Vector3.one * 0.02f;
 				mpb.SetColor(BaseColorID, Color.yellow);
-				foreach (Vector3 localTagPos in colocator.CanonTags.Values)
+				foreach (Vector3 localTagPos in colocator.LocalTags.Values)
 				{
 					var model = MainXRRig.TrackingSpace.localToWorldMatrix *
 						Matrix4x4.TRS(localTagPos, Quaternion.identity, scale);
@@ -95,7 +95,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private void RenderFoundTags(RasterCommandBuffer cmd)
 		{
-			
+
 		}
 	}
 }

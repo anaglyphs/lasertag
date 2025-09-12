@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
@@ -28,8 +26,6 @@ namespace Anaglyph.Lasertag
 
 		[SerializeField] private Image conquerTimeIndicator;
 
-		private Task scoreLoopTask;
-
 		private void OnValidate()
 		{
 			TryGetComponent(out teamOwner);
@@ -49,6 +45,14 @@ namespace Anaglyph.Lasertag
 			referee.StateChanged += OnMatchStateChanged;
 		}
 
+		public override void OnDestroy()
+		{
+			base.OnDestroy();
+
+			if (referee != null)
+				referee.StateChanged -= OnMatchStateChanged;
+		}
+
 		private void OnMatchStateChanged(MatchState state)
 		{
 			if (IsOwner)
@@ -57,7 +61,7 @@ namespace Anaglyph.Lasertag
 				{
 					case MatchState.Playing:
 						ResetPointRpc();
-						scoreLoopTask = ScoreLoop();
+						_ = ScoreLoop();
 						break;
 				}
 			}
@@ -66,7 +70,7 @@ namespace Anaglyph.Lasertag
 		public override void OnGainedOwnership()
 		{
 			if (referee.State == MatchState.Playing)
-				scoreLoopTask = ScoreLoop();
+				_ = ScoreLoop();
 		}
 
 		[Rpc(SendTo.Owner)]
@@ -103,7 +107,7 @@ namespace Anaglyph.Lasertag
 		}
 
 
-		private bool CheckIfPlayerIsInside(Networking.Avatar player)
+		private bool CheckIfPlayerIsInside(Networking.PlayerAvatar player)
 		{
 			if (!player.IsAlive)
 				return false;
@@ -123,7 +127,7 @@ namespace Anaglyph.Lasertag
 				if (isSecure)
 				{
 					// check for new capturing players
-					foreach (Networking.Avatar player in Networking.Avatar.AllPlayers.Values)
+					foreach (Networking.PlayerAvatar player in Networking.PlayerAvatar.All.Values)
 					{
 						if (player.Team != 0 && player.Team != HoldingTeam && CheckIfPlayerIsInside(player))
 						{
@@ -134,7 +138,7 @@ namespace Anaglyph.Lasertag
 				}
 				else
 				{
-					foreach (Networking.Avatar player in Networking.Avatar.AllPlayers.Values)
+					foreach (Networking.PlayerAvatar player in Networking.PlayerAvatar.All.Values)
 					{
 						if (CheckIfPlayerIsInside(player))
 						{

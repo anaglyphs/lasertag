@@ -37,7 +37,7 @@ namespace Anaglyph.Lasertag
 
 			var manager = NetworkManager.Singleton;
 			var playerObject = manager.ConnectedClients[bullet.OwnerClientId].PlayerObject;
-			var teamOwner = playerObject.GetComponent<Networking.Avatar>().TeamOwner;
+			var teamOwner = playerObject.GetComponent<Networking.PlayerAvatar>().TeamOwner;
 			var team = teamOwner.Team;
 
 			var color = Teams.Colors[team];

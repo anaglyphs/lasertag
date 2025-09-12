@@ -3,28 +3,31 @@ using UnityEngine.UI;
 
 namespace Anaglyph.Lasertag
 {
-    public class InteractiveDuringMatch : MonoBehaviour
-    {
+	public class InteractiveDuringMatch : MonoBehaviour
+	{
 		private Selectable selectable;
 		public bool invert;
 
+		private MatchReferee referee => MatchReferee.Instance;
+
 		private void OnEnable()
 		{
-			if(didStart)
+			if (didStart)
 				HandleChange();
 		}
 
 		private void Start()
 		{
 			selectable = GetComponent<Selectable>();
-			MatchReferee.Instance.StateChanged += OnMatchStateChanged;
+			referee.StateChanged += OnMatchStateChanged;
 
 			HandleChange();
 		}
 
 		private void OnDestroy()
 		{
-			MatchReferee.Instance.StateChanged -= OnMatchStateChanged;
+			if (referee != null)
+				referee.StateChanged -= OnMatchStateChanged;
 		}
 
 		private void OnMatchStateChanged(MatchState current)

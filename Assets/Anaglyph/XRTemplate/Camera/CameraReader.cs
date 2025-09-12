@@ -50,7 +50,7 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 
 		/// In nanoseconds!
 		public long TimestampNs { get; private set; }
-		
+
 		public class PermissionException : Exception
 		{
 			public PermissionException(string message) : base(message)
@@ -118,14 +118,14 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 
 		private AndroidInterface androidInterface;
 
-		private async void Awake()
+		private void Awake()
 		{
 #if UNITY_EDITOR
 			return;
 #endif
 
 			androidInterface = new AndroidInterface(gameObject);
-			await Configure(defaultCameraIndex, defaultTextureSize.x, defaultTextureSize.y);
+			// await Configure(defaultCameraIndex, defaultTextureSize.x, defaultTextureSize.y);
 		}
 
 		private const string MetaCameraPermission = "horizonos.permission.HEADSET_CAMERA";
@@ -146,6 +146,8 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 			if (!Permission.HasUserAuthorizedPermission(permission))
 			{
 				Permission.RequestUserPermission(permission);
+
+				await Awaitable.WaitForSecondsAsync(0.1f);
 
 				while (!Application.isFocused)
 					await Awaitable.NextFrameAsync();
@@ -269,7 +271,7 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 		private void OnDeviceError(string errorCodeAsString)
 		{
 			DeviceIsOpen = false;
-			if(int.TryParse(errorCodeAsString, out int error))
+			if (int.TryParse(errorCodeAsString, out int error))
 				DeviceError.Invoke((ErrorCode)error);
 		}
 
