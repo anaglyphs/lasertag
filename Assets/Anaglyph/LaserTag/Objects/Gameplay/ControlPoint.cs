@@ -1,3 +1,4 @@
+using Anaglyph.Lasertag.Networking;
 using System.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
@@ -107,7 +108,7 @@ namespace Anaglyph.Lasertag
 		}
 
 
-		private bool CheckIfPlayerIsInside(Networking.PlayerAvatar player)
+		private bool CheckIfPlayerIsInside(PlayerAvatar player)
 		{
 			if (!player.IsAlive)
 				return false;
@@ -127,7 +128,7 @@ namespace Anaglyph.Lasertag
 				if (isSecure)
 				{
 					// check for new capturing players
-					foreach (Networking.PlayerAvatar player in Networking.PlayerAvatar.All.Values)
+					foreach (PlayerAvatar player in PlayerAvatar.All.Values)
 					{
 						if (player.Team != 0 && player.Team != HoldingTeam && CheckIfPlayerIsInside(player))
 						{
@@ -138,7 +139,7 @@ namespace Anaglyph.Lasertag
 				}
 				else
 				{
-					foreach (Networking.PlayerAvatar player in Networking.PlayerAvatar.All.Values)
+					foreach (PlayerAvatar player in	PlayerAvatar.All.Values)
 					{
 						if (CheckIfPlayerIsInside(player))
 						{
