@@ -23,28 +23,29 @@ namespace Anaglyph.Lasertag
 			if (manager == null)
 				return;
 
-			manager.OnConnectionEvent += OnConnectionEvent;
-
-			UpdateVisibilityOfNetworkOnlyObjects(manager.IsConnectedClient);
-
-			Colocation.IsColocatedChange += HandleColocation;
+			NetcodeManagement.StateChange += OnNetcodeStateChanged;
+			OnNetcodeStateChanged(NetcodeManagement.State);
 		}
 
 		private void OnDestroy()
 		{
-			Colocation.IsColocatedChange -= HandleColocation;
+			NetcodeManagement.StateChange -= OnNetcodeStateChanged;
 		}
 
-		private void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
+		private void OnNetcodeStateChanged(NetcodeManagement.NetworkState state)
 		{
-			if (NetcodeManagement.ThisClientConnected(data))
-			{
-				UpdateVisibilityOfNetworkOnlyObjects(true);
-			}
-			else if (NetcodeManagement.ThisClientDisconnected(data))
-			{
-				UpdateVisibilityOfNetworkOnlyObjects(false);
+			if (state == NetcodeManagement.NetworkState.Connecting)
+				menuPositioner.SetVisible(false);
+			else if(state == NetcodeManagement.NetworkState.Disconnected)
+				menuPositioner.SetVisible(true);
 
+			bool isConnected = state == NetcodeManagement.NetworkState.Connected;
+
+			foreach (var obj in onlyVisibleIfConnected)
+				obj.SetActive(isConnected);
+
+			if(!isConnected)
+			{
 				foreach (GameObject menu in menusOnlyVisibleIfConnected)
 				{
 					if (menu.activeSelf)
@@ -53,21 +54,7 @@ namespace Anaglyph.Lasertag
 						break;
 					}
 				}
-
-				menuPositioner.SetVisible(true);
 			}
-		}
-
-		private void HandleColocation(bool b)
-		{
-			if (Colocation.IsColocated && manager.IsConnectedClient)
-				menuPositioner.SetVisible(false);
-		}
-
-		private void UpdateVisibilityOfNetworkOnlyObjects(bool visible)
-		{
-			foreach(var obj in onlyVisibleIfConnected)
-				obj.SetActive(visible);
 		}
 	}
 }

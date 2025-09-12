@@ -26,7 +26,7 @@ namespace Anaglyph.Netcode
 		{
 			Disconnected = 0,
 			Connecting,
-			ConnectingCantCancel,
+			// ConnectingCantCancel,
 			Connected,
 		}
 
@@ -176,7 +176,7 @@ namespace Anaglyph.Netcode
 
 			ct.ThrowIfCancellationRequested();
 
-			State = NetworkState.ConnectingCantCancel;
+			// State = NetworkState.ConnectingCantCancel;
 
 			var options = new SessionOptions()
 			{

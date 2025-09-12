@@ -1,5 +1,4 @@
 using Unity.Netcode;
-using Unity.Services.Matchmaker.Models;
 using UnityEngine;
 using UnityEngine.VFX;
 
@@ -9,7 +8,7 @@ namespace Anaglyph.Lasertag
     {
 		private Bullet bullet = null;
 		[SerializeField] private TrailRenderer trailRenderer = null;
-		[SerializeField] private DepthLightDriver depthLight = null;
+		[SerializeField] private DepthLight depthLight = null;
 		[SerializeField] private VisualEffect impactEffect = null;
 
 		private MaterialPropertyBlock propertyBlock;

@@ -163,7 +163,7 @@ namespace Anaglyph.Lasertag
 					break;
 
 				case SessionState.Colocating:
-					sessionStateText.text = "Colocating...";
+					sessionStateText.text = "Aligning...";
 					sessionIcon.sprite = colocatingSprite;
 					break;
 

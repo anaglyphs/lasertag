@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Anaglyph.Lasertag
 {
-    public class DepthLightDriver : MonoBehaviour
+    public class DepthLight : MonoBehaviour
     {
 		public Color color = Color.white;
 		public float epsilon = 0.01f;
