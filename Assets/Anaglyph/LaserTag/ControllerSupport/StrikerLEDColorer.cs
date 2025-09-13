@@ -18,12 +18,22 @@ namespace Anaglyph.Lasertag
 			MainPlayer.Instance.TeamChanged += OnTeamChanged;
 		}
 
+		private void OnDestroy()
+		{
+			if(MainPlayer.Instance != null)
+				MainPlayer.Instance.TeamChanged -= OnTeamChanged;
+		}
+
 		private void OnTeamChanged(byte team)
 		{
 			Color teamColor = Teams.Colors[team];
 
-			strikerDevice.PlaySolidLedEffect(teamColor, group: DeviceMavrik.LedGroup.TopLine);
-			strikerDevice.PlaySolidLedEffect(teamColor, group: DeviceMavrik.LedGroup.FrontRings);
+			if (strikerDevice.isConnected)
+			{
+				strikerDevice.PlaySolidLedEffect(teamColor, group: DeviceMavrik.LedGroup.TopLine);
+				strikerDevice.PlaySolidLedEffect(teamColor, group: DeviceMavrik.LedGroup.FrontRings);
+			}
+			
 			strikerDevice.connectedLedColor = teamColor;
 		}
 	}

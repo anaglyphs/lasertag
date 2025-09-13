@@ -1,125 +1,150 @@
-//using Anaglyph.Lasertag.Networking;
-//using Unity.Netcode;
-//using UnityEngine;
+using Anaglyph.Lasertag.Networking;
+using Unity.Netcode;
+using UnityEngine;
 
-//namespace Anaglyph.Lasertag
-//{
-//	public class Flag : NetworkBehaviour
-//	{
-//		public const float Radius = 0.1f;
+namespace Anaglyph.Lasertag
+{
+	public class Flag : NetworkBehaviour
+	{
+		[SerializeField] private float radius = 0.5f;
 
-//		[SerializeField] private TeamOwner teamOwner;
-//		public byte Team => teamOwner.Team;
+		public const ulong NoPlayer = ulong.MaxValue;
 
-//		public NetworkVariable<ulong> flagHolderID = new(ulong.MaxValue);
-//		public ulong FlagHolderPlayerID => flagHolderID.Value;
+		[SerializeField] private TeamOwner teamOwner;
+		public byte Team => teamOwner.Team;
 
-//		public PlayerAvatar FlagHoldingPlayer { get; private set; }
+		public NetworkVariable<ulong> flagHolderID = new(NoPlayer);
+		public ulong FlagHolderPlayerID => flagHolderID.Value;
 
-//		[SerializeField] private Transform flagVisualTransform;
+		public PlayerAvatar FlagHolder { get; private set; }
 
-//		private void OnValidate()
-//		{
-//			TryGetComponent(out teamOwner);
-//		}
+		[SerializeField] private Transform flagVisualTransform;
+		[SerializeField] private float headOffset = 0.2f;
+		private Vector3 defaultFlagPosition;
 
-//		private void Start()
-//		{
-//			MatchReferee.Instance.StateChanged += OnMatchStateChanged;
+		// todo: move to other script?
+		[SerializeField] private AudioSource audioSource;
+		[SerializeField] private AudioClip scored;
+		[SerializeField] private AudioClip enemyCapturedFlag;
+		[SerializeField] private AudioClip enemyStoleFlag;
 
-//			flagHolderID.OnValueChanged += OnFlagHolderIdChanged;
-//		}
+		private void OnValidate()
+		{
+			TryGetComponent(out teamOwner);
+		}
 
-//		public override void OnDestroy()
-//		{
-//			base.OnDestroy();
+		private void Start()
+		{
+			MatchReferee.Instance.StateChanged += OnMatchStateChanged;
 
-//			if(MatchReferee.Instance != null)
-//				MatchReferee.Instance.StateChanged -= OnMatchStateChanged;
-//		}
+			flagHolderID.OnValueChanged += OnFlagHolderIdChanged;
 
-//		private void OnFlagHolderIdChanged(ulong prev, ulong id)
-//		{
-//			if(PlayerAvatar.All.TryGetValue(id, out var player))
-//			{
-//				FlagHoldingPlayer = player;
-//			} else
-//			{
-//				FlagHoldingPlayer = null;
-//			}
-//		}
+			defaultFlagPosition = flagVisualTransform.localPosition;
+		}
 
-//		private void OnMatchStateChanged(MatchState state)
-//		{
-//			if (IsOwner)
-//			{
-//				DropFlagRpc();
-//			}
-//		}
+		public override void OnDestroy()
+		{
+			base.OnDestroy();
 
-//		private void Update()
-//		{
-//			var player = MainPlayer.Instance.Avatar;
+			if (MatchReferee.Instance != null)
+				MatchReferee.Instance.StateChanged -= OnMatchStateChanged;
+		}
 
-//			if (player == null)
-//				return;
+		private void OnFlagHolderIdChanged(ulong prev, ulong id)
+		{
+			if (PlayerAvatar.All.TryGetValue(id, out var player))
+			{
+				FlagHolder = player;
 
-//			if (FlagHoldingPlayer != null)
-//			{
-//				if (player.IsInFriendlyBase && player == FlagHoldingPlayer)
-//				{
-//					CaptureFlagRpc(player.NetworkObjectId);
-//					player.onKilled.AddListener(DropFlagRpc);
-//				}
+				if(player.Team != MainPlayer.Instance?.Avatar?.Team)
+				{
+					audioSource.PlayOneShot(enemyStoleFlag);
+				}
+			}
+			else
+			{
+				FlagHolder = null;
+			}
+		}
 
-//				flagVisualTransform.transform.position = FlagHoldingPlayer.HeadTransform.position;
-//				Vector3 camLook = (player.HeadTransform.position - flagVisualTransform.position).normalized;
-//				flagVisualTransform.transform.rotation = Quaternion.LookRotation(camLook, Vector3.up);
-//			}
-//			else
-//			{
-//				Vector3 playerHeadPos = player.HeadTransform.position;
-//				bool inside = Geo.PointIsInCylinder(transform.position, Radius, 3, playerHeadPos);
+		private void OnMatchStateChanged(MatchState state)
+		{
+			if (IsOwner)
+				DropFlagRpc();
+		}
 
-//				if (inside)
-//				{
-//					PickupFlagRpc(player.OwnerClientId);
-//				}
-//			}
-//		}
+		private void LateUpdate()
+		{
+			var mainPlayer = MainPlayer.Instance?.Avatar;
 
-//		[Rpc(SendTo.Owner)]
-//		private void PickupFlagRpc(ulong id)
-//		{
-//			if (FlagHoldingPlayer != null)
-//				return;
+			if (mainPlayer == null)
+				return;
 
-//			flagHolderID.Value = id;
-//		}
+			if (FlagHolder == null)
+			{
+				Vector3 playerHeadPos = mainPlayer.HeadTransform.position;
+				bool isInside = Geo.PointIsInCylinder(transform.position, radius, 3, playerHeadPos);
+				bool isOtherTeam = teamOwner.Team != mainPlayer.Team;
 
-//		[Rpc(SendTo.Owner)]
-//		private void CaptureFlagRpc(ulong id)
-//		{
-//			var referee = MatchReferee.Instance;
+				if (isInside && isOtherTeam)
+					PickupFlag();
 
-//			if (PlayerAvatar.All.TryGetValue(id, out var player))
-//			{
-//				referee.ScoreTeamRpc(player.Team, referee.Settings.pointsPerFlagCapture);
-//			}
+				flagVisualTransform.transform.localPosition = defaultFlagPosition;
+			}
+			else
+			{
+				flagVisualTransform.transform.position = FlagHolder.HeadTransform.position + Vector3.up * headOffset;
 
-//			DropFlagRpc();
-//		}
+				if (FlagHolder == mainPlayer && mainPlayer.IsInFriendlyBase)
+				{
+					var referee = MatchReferee.Instance;
+					referee.ScoreTeamRpc(mainPlayer.Team, referee.Settings.pointsPerFlagCapture);
+					FlagCapturedRpc(mainPlayer.Team);
+					DropFlag();
+				}
+			}
 
-//		[Rpc(SendTo.Owner)]
-//		private void DropFlagRpc()
-//		{
-//			FlagHoldingPlayer = null;
+			Vector3 camLook = (flagVisualTransform.position - mainPlayer.HeadTransform.position).normalized;
+			flagVisualTransform.transform.rotation = Quaternion.LookRotation(camLook, Vector3.up);
+		}
 
-//			var mainAvatar = MainPlayer.Instance?.Avatar;
-//			if (mainAvatar != null)
-//			{
-//				mainAvatar.onKilled.RemoveListener(DropFlagRpc);
-//			}
-//		}
-//	}
-//}
+		private void PickupFlag()
+		{
+			var mainPlayer = MainPlayer.Instance?.Avatar;
+			mainPlayer.onKilled.AddListener(DropFlag);
+			FlagHolder = mainPlayer;
+			// flagVisualTransform.gameObject.SetActive(false);
+			PickupFlagRpc(mainPlayer.OwnerClientId);
+		}
+
+		[Rpc(SendTo.Owner)]
+		private void PickupFlagRpc(ulong id)
+		{
+			flagHolderID.Value = id;
+		}
+
+		private void DropFlag()
+		{
+			var mainPlayer = MainPlayer.Instance.Avatar;
+			mainPlayer.onKilled.RemoveListener(DropFlag);
+			FlagHolder = null;
+			// flagVisualTransform.gameObject.SetActive(true);
+			DropFlagRpc();
+		}
+
+		[Rpc(SendTo.Owner)]
+		private void DropFlagRpc()
+		{
+			flagHolderID.Value = NoPlayer;
+		}
+
+		[Rpc(SendTo.Everyone)]
+		private void FlagCapturedRpc(byte team)
+		{
+			if(MainPlayer.Instance.Avatar?.Team == team)
+				audioSource.PlayOneShot(scored);
+			else
+				audioSource.PlayOneShot(enemyCapturedFlag);
+		}
+	}
+}
