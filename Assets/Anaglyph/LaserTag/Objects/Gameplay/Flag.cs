@@ -13,9 +13,6 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private TeamOwner teamOwner;
 		public byte Team => teamOwner.Team;
 
-		public NetworkVariable<ulong> flagHolderID = new(NoPlayer);
-		public ulong FlagHolderPlayerID => flagHolderID.Value;
-
 		public PlayerAvatar FlagHolder { get; private set; }
 
 		[SerializeField] private Transform flagVisualTransform;
@@ -23,7 +20,6 @@ namespace Anaglyph.Lasertag
 		private Vector3 defaultFlagPosition;
 
 		// todo: move to other script?
-		[SerializeField] private AudioSource audioSource;
 		[SerializeField] private AudioClip scored;
 		[SerializeField] private AudioClip enemyCapturedFlag;
 		[SerializeField] private AudioClip enemyStoleFlag;
@@ -35,36 +31,24 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			MatchReferee.Instance.StateChanged += OnMatchStateChanged;
-
-			flagHolderID.OnValueChanged += OnFlagHolderIdChanged;
-
 			defaultFlagPosition = flagVisualTransform.localPosition;
 		}
 
-		public override void OnDestroy()
+		public override void OnNetworkSpawn()
 		{
-			base.OnDestroy();
+			MatchReferee.Instance.StateChanged += OnMatchStateChanged;
+		}
+
+		public override void OnNetworkDespawn() {
 
 			if (MatchReferee.Instance != null)
 				MatchReferee.Instance.StateChanged -= OnMatchStateChanged;
 		}
 
-		private void OnFlagHolderIdChanged(ulong prev, ulong id)
+		public override void OnGainedOwnership()
 		{
-			if (PlayerAvatar.All.TryGetValue(id, out var player))
-			{
-				FlagHolder = player;
-
-				if(player.Team != MainPlayer.Instance?.Avatar?.Team)
-				{
-					audioSource.PlayOneShot(enemyStoleFlag);
-				}
-			}
-			else
-			{
-				FlagHolder = null;
-			}
+			if (FlagHolder == null)
+				DropFlagRpc();
 		}
 
 		private void OnMatchStateChanged(MatchState state)
@@ -86,8 +70,8 @@ namespace Anaglyph.Lasertag
 				bool isInside = Geo.PointIsInCylinder(transform.position, radius, 3, playerHeadPos);
 				bool isOtherTeam = teamOwner.Team != mainPlayer.Team;
 
-				if (isInside && isOtherTeam)
-					PickupFlag();
+				if (isInside && isOtherTeam && mainPlayer.IsAlive)
+					PickupFlagLocal();
 
 				flagVisualTransform.transform.localPosition = defaultFlagPosition;
 			}
@@ -95,12 +79,11 @@ namespace Anaglyph.Lasertag
 			{
 				flagVisualTransform.transform.position = FlagHolder.HeadTransform.position + Vector3.up * headOffset;
 
-				if (FlagHolder == mainPlayer && mainPlayer.IsInFriendlyBase)
+				if (FlagHolder == mainPlayer && mainPlayer.IsInFriendlyBase && mainPlayer.IsAlive)
 				{
 					var referee = MatchReferee.Instance;
 					referee.ScoreTeamRpc(mainPlayer.Team, referee.Settings.pointsPerFlagCapture);
-					FlagCapturedRpc(mainPlayer.Team);
-					DropFlag();
+					FlagCapturedRpc(NetworkManager.Singleton.LocalClientId);
 				}
 			}
 
@@ -108,43 +91,53 @@ namespace Anaglyph.Lasertag
 			flagVisualTransform.transform.rotation = Quaternion.LookRotation(camLook, Vector3.up);
 		}
 
-		private void PickupFlag()
+		private void PickupFlagLocal()
 		{
 			var mainPlayer = MainPlayer.Instance?.Avatar;
-			mainPlayer.onKilled.AddListener(DropFlag);
+			mainPlayer.onKilled.AddListener(DropFlagLocal);
 			FlagHolder = mainPlayer;
-			// flagVisualTransform.gameObject.SetActive(false);
 			PickupFlagRpc(mainPlayer.OwnerClientId);
 		}
 
-		[Rpc(SendTo.Owner)]
+		[Rpc(SendTo.Everyone)]
 		private void PickupFlagRpc(ulong id)
 		{
-			flagHolderID.Value = id;
+			if (!PlayerAvatar.All.TryGetValue(id, out var player))
+				return;
+
+			FlagHolder = player;
+
+			if (MainPlayer.Instance.Avatar?.Team != FlagHolder.Team)
+				AudioSource.PlayClipAtPoint(enemyStoleFlag, transform.position);
 		}
 
-		private void DropFlag()
+		private void DropFlagLocal()
 		{
-			var mainPlayer = MainPlayer.Instance.Avatar;
-			mainPlayer.onKilled.RemoveListener(DropFlag);
-			FlagHolder = null;
-			// flagVisualTransform.gameObject.SetActive(true);
+			var mainPlayer = MainPlayer.Instance?.Avatar;
+			mainPlayer.onKilled.RemoveListener(DropFlagLocal);
 			DropFlagRpc();
 		}
 
-		[Rpc(SendTo.Owner)]
+		[Rpc(SendTo.Everyone)]
 		private void DropFlagRpc()
 		{
-			flagHolderID.Value = NoPlayer;
+			FlagHolder = null;
 		}
 
 		[Rpc(SendTo.Everyone)]
-		private void FlagCapturedRpc(byte team)
+		private void FlagCapturedRpc(ulong id)
 		{
-			if(MainPlayer.Instance.Avatar?.Team == team)
-				audioSource.PlayOneShot(scored);
+			if (!PlayerAvatar.All.TryGetValue(id, out var player))
+				return;
+
+			var capturePosition = player.HeadTransform.position;
+
+			if(MainPlayer.Instance.Avatar?.Team == player.Team)
+				AudioSource.PlayClipAtPoint(scored, capturePosition);
 			else
-				audioSource.PlayOneShot(enemyCapturedFlag);
+				AudioSource.PlayClipAtPoint(enemyCapturedFlag, capturePosition);
+
+			FlagHolder = null;
 		}
 	}
 }

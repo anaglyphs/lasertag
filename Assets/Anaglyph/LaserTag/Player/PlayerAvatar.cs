@@ -81,6 +81,7 @@ namespace Anaglyph.Lasertag.Networking
 
 		public override void OnNetworkDespawn()
 		{
+			onKilled.Invoke();
 			OtherPlayers.Remove(this);
 			All.Remove(OwnerClientId);
 		}

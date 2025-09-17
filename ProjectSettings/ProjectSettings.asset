@@ -66,7 +66,7 @@ PlayerSettings:
   allowedAutorotateToLandscapeRight: 1
   allowedAutorotateToLandscapeLeft: 1
   useOSAutorotation: 1
-  use32BitDisplayBuffer: 0
+  use32BitDisplayBuffer: 1
   preserveFramebufferAlpha: 0
   disableDepthAndStencilBuffers: 0
   androidStartInFullscreen: 1
@@ -272,7 +272,7 @@ PlayerSettings:
   AndroidTargetArchitectures: 2
   AndroidSplashScreenScale: 0
   androidSplashScreen: {fileID: 0}
-  AndroidKeystoreName: C:/Users/jt/iCloudDrive/Keystores/trev3d.keystore
+  AndroidKeystoreName: /Users/jt/Library/Mobile Documents/com~apple~CloudDocs/Keystores/trev3d.keystore
   AndroidKeyaliasName: julian
   AndroidEnableArmv9SecurityFeatures: 0
   AndroidEnableArm64MTE: 0
