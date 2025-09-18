@@ -17,7 +17,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		public static IColocator ActiveColocator => activeColocator;
 
 		private static bool _isColocated;
-		public static event Action<bool> IsColocatedChange;
+		public static event Action<bool> IsColocatedChange = delegate { };
 		private static void SetIsColocated(bool b) => IsColocated = b;
 		public static bool IsColocated
 		{

@@ -11,6 +11,8 @@ GameObject:
   - component: {fileID: 8602809240530545973}
   - component: {fileID: 5291754562700660134}
   - component: {fileID: 672875215782764715}
+  - component: {fileID: 2597228848780346804}
+  - component: {fileID: 7104384332007095216}
   - component: {fileID: 6911126833990273307}
   - component: {fileID: 3770516394125647478}
   - component: {fileID: 2017920904899384140}
@@ -53,7 +55,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 3184280641
+  GlobalObjectIdHash: 959866492
   InScenePlacedSourceGlobalObjectIdHash: 3184280641
   DeferredDespawnTick: 0
   Ownership: 3
@@ -79,6 +81,39 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &2597228848780346804
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5901269829941828840}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 71d570c9dd59d264a804f2c5119abf61, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.XRTemplate.SharedSpaces::Anaglyph.XRTemplate.SharedSpaces.DualTagColocator
+  tagLerp: 0.1
+  maxHeadSpeed: 2
+  maxHeadAngSpeed: 2
+  tagSize: 0.1
+  cameraReader: {fileID: 2551285239359811888}
+  tagTracker: {fileID: 8030733127724905774}
+--- !u!114 &7104384332007095216
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5901269829941828840}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fb71494683b6f415890e6892bada8285, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.XRTemplate.SharedSpaces::Anaglyph.XRTemplate.SharedSpaces.TagTrackerIndicators
+  tracker: {fileID: 8030733127724905774}
+  indicatorMesh: {fileID: -5322466972774305626, guid: 3a88f3fb66ef78745a11363b74fe2cd4, type: 3}
+  indicatorMaterial: {fileID: 2100000, guid: 27f6747ba6952684fbfb2d2135976c96, type: 2}
 --- !u!114 &6911126833990273307
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -96,6 +131,7 @@ MonoBehaviour:
   aprilTagSizeOption: {fileID: 11400000, guid: 82699730f4d9ee247857edb33a942db4, type: 2}
   metaAnchorColocator: {fileID: 3770516394125647478}
   aprilTagColocator: {fileID: 2017920904899384140}
+  dualTagColocator: {fileID: 2597228848780346804}
 --- !u!114 &3770516394125647478
 MonoBehaviour:
   m_ObjectHideFlags: 0

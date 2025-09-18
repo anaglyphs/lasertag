@@ -78,6 +78,7 @@ namespace Anaglyph.XRTemplate
 
 		public void Clear()
 		{
+            Debug.Log("Clearing environment scan");
 			clearKernel.DispatchGroups(volume);
 		}
 

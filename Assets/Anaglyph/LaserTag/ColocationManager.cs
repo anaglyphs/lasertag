@@ -29,17 +29,28 @@ namespace Anaglyph.Lasertag
 
 		[SerializeField] private MetaAnchorColocator metaAnchorColocator;
 		[SerializeField] private AprilTagColocator aprilTagColocator;
+        [SerializeField] private DualTagColocator dualTagColocator;
 
 		private void Awake()
-		{
-			Instance = this;
-		}
+        {
+            Instance = this;
+        }
+        
+        
+
+        private void OnColocated(bool isColocated)
+        {
+            if (isColocated)
+            {
+                EnvironmentMapper.Instance.Clear();
+            }
+        }
 
 		public override async void OnNetworkSpawn()
 		{
+            Colocation.IsColocatedChange += OnColocated;
+            
 			await Awaitable.EndOfFrameAsync();
-
-			EnvironmentMapper.Instance.Clear();
 
 			if (IsOwner)
 			{
@@ -56,8 +67,8 @@ namespace Anaglyph.Lasertag
 					break;
 
 				case ColocationMethod.AprilTag:
-					Colocation.SetActiveColocator(aprilTagColocator);
-					aprilTagColocator.tagSize = aprilTagSizeSync.Value;
+					Colocation.SetActiveColocator(dualTagColocator);
+                    dualTagColocator.tagSize = aprilTagSizeSync.Value;
 					break;
 			}
 
@@ -66,15 +77,12 @@ namespace Anaglyph.Lasertag
 
 		public override void OnNetworkDespawn()
 		{
+            Colocation.IsColocatedChange -= OnColocated;
+            
 			Colocation.ActiveColocator.StopColocation();
 
 			MainXRRig.TrackingSpace.position = Vector3.zero;
 			MainXRRig.TrackingSpace.rotation = Quaternion.identity;
-		}
-
-		public override void OnDestroy()
-		{
-			base.OnDestroy();
 		}
 	}
 }
