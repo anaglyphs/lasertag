@@ -9,6 +9,10 @@ using Unity.Services.Core;
 using Unity.Services.Multiplayer;
 using UnityEngine;
 
+#if UNITY_EDITOR
+using Unity.Multiplayer.Playmode;
+#endif
+
 namespace Anaglyph.Netcode
 {
 	public static class NetcodeManagement
@@ -82,6 +86,11 @@ namespace Anaglyph.Netcode
 		{
 			if (State != NetworkState.Disconnected)
 				throw new Exception("You can only change the transport while disconnected!");
+
+//#if UNITY_EDITOR
+//			if (!CurrentPlayer.IsMainEditor)
+//				return;
+//#endif
 
 			UnityTransport newTransport = manager.GetComponent(s) as UnityTransport;
 			if (newTransport == null)

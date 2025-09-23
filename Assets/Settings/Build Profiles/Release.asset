@@ -35,7 +35,7 @@ MonoBehaviour:
     - line: '|   useOnDemandResources: 0'
     - line: '|   accelerometerFrequency: 60'
     - line: '|   companyName: Julian Triveri'
-    - line: '|   productName: Laser Tag'
+    - line: '|   productName: Lasertag'
     - line: '|   defaultCursor: {instanceID: 0}'
     - line: '|   cursorHotspot: {x: 0, y: 0}'
     - line: '|   m_SplashScreenBackgroundColor: {r: 0.12156863, g: 0.12156863, b:
@@ -177,6 +177,10 @@ MonoBehaviour:
         type: 3}'
     - line: '|   - {fileID: -944628639613478452, guid: 616e1c785ffcdf143b4e0c78a1535fad,
         type: 3}'
+    - line: '|   - {fileID: -687199915405183056, guid: f3686f9e4cdebbc4e8faeed1e0f88fcd,
+        type: 2}'
+    - line: '|   - {fileID: 11400000, guid: 4c41dd6ad791e2a4b8898d0ea8b277ec, type:
+        2}'
     - line: '|   metroInputSource: 0'
     - line: '|   wsaTransparentSwapchain: 0'
     - line: '|   m_HolographicPauseOnTrackingLoss: 1'
@@ -300,7 +304,7 @@ MonoBehaviour:
     - line: '|   AndroidTargetArchitectures: 2'
     - line: '|   AndroidSplashScreenScale: 0'
     - line: '|   androidSplashScreen: {instanceID: 0}'
-    - line: '|   AndroidKeystoreName: /Users/jt/Library/Mobile Documents/com~apple~CloudDocs/Keystores/trev3d.keystore'
+    - line: '|   AndroidKeystoreName: C:/Users/jt/iCloudDrive/Keystores/trev3d.keystore'
     - line: '|   AndroidKeyaliasName: julian'
     - line: '|   AndroidEnableArmv9SecurityFeatures: 0'
     - line: '|   AndroidEnableArm64MTE: 0'
@@ -743,7 +747,8 @@ MonoBehaviour:
     - line: '|     Standalone: USE_INPUT_SYSTEM_POSE_CONTROL'
     - line: '|     Windows Store Apps: USE_INPUT_SYSTEM_POSE_CONTROL'
     - line: '|   additionalCompilerArguments: {}'
-    - line: '|   platformArchitecture: {}'
+    - line: '|   platformArchitecture:'
+    - line: '|     Android: 1'
     - line: '|   scriptingBackend:'
     - line: '|     Android: 1'
     - line: '|   il2cppCompilerConfiguration:'
@@ -885,7 +890,7 @@ MonoBehaviour:
         m_ExportAsGoogleAndroidProject: 0
         m_DebugSymbolLevel: 1
         m_DebugSymbolFormat: 5
-        m_CurrentDeploymentTargetId: __builtin__target_default
+        m_CurrentDeploymentTargetId: __builtin__target_all
         m_BuildType: 2
         m_LinkTimeOptimization: 0
         m_BuildAppBundle: 0

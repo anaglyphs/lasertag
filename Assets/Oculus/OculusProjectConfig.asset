@@ -14,14 +14,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   targetDeviceTypes: 03000000040000000500000002000000
   allowOptional3DofHeadTracking: 0
-  handTrackingSupport: 0
+  handTrackingSupport: 1
   handTrackingFrequency: 0
   handTrackingVersion: 0
   anchorSupport: 1
   sharedAnchorSupport: 2
   renderModelSupport: 1
   trackedKeyboardSupport: 2
-  bodyTrackingSupport: 0
+  bodyTrackingSupport: 2
   faceTrackingSupport: 0
   eyeTrackingSupport: 0
   virtualKeyboardSupport: 0

@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
@@ -33,6 +34,17 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			Current = this;
 		}
 
+		private void Start()
+		{
+			OVRManager.display.RecenteredPose += TryAlignPose;
+		}
+
+		private void OnDestroy()
+		{
+			if(OVRManager.display != null)
+				OVRManager.display.RecenteredPose -= TryAlignPose;
+		}
+
 		public void InstantiateNewAnchor()
 		{
 			if(ColocationAnchor.Instance != null)
@@ -53,6 +65,23 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			g.TryGetComponent(out NetworkObject networkObject);
 			networkObject.Spawn();
+
+			g.TryGetComponent(out OVRSpatialAnchor anchor);
+			
+			if (anchor.Localized)
+				TryAlignPose();
+			else
+				anchor.OnLocalize += OnLocalizeAnchor;
+		}
+
+		private async void OnLocalizeAnchor(OVRSpatialAnchor.OperationResult status)
+		{
+			if (status != OVRSpatialAnchor.OperationResult.Success)
+				return;
+
+			await Awaitable.EndOfFrameAsync();
+
+			TryAlignPose();
 		}
 
 		public async void Colocate()
@@ -92,7 +121,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			colocationActive = true;
 		}
 
-		private void LateUpdate()
+		private void TryAlignPose()
 		{
 			var anchor = ColocationAnchor.Instance;
 
@@ -110,7 +139,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			//	}
 			//}
 
-			if (anchor.IsAnchored)
+			if (anchor.IsLocalized)
 			{
 				Pose anchorPose = anchor.transform.GetWorldPose();
 				MainXRRig.MatchPoseToTarget(anchorPose, anchor.DesiredPose);

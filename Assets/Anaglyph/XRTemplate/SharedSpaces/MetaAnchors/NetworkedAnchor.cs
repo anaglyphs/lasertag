@@ -48,8 +48,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		//private Guid serverUuid;
 		public NetworkVariable<NetworkPose> OriginalPoseSync = new NetworkVariable<NetworkPose>();
 
-		private bool anchored = false;
-		public bool IsAnchored => anchored;
 		public Pose DesiredPose => OriginalPoseSync.Value;
 
 		public NetworkVariable<NetworkGuid> Uuid = new NetworkVariable<NetworkGuid>(new(Guid.Empty));
@@ -126,8 +124,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				if (!localizeSuccess)
 					throw new NetworkedAnchorException($"Failed to localize anchor {spatialAnchor.Uuid}");
 
-				anchored = true;
-
 				//Log($"Saving anchor {spatialAnchor.Uuid}...");
 
 				//var saveResult = await spatialAnchor.SaveAnchorAsync();
@@ -196,8 +192,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 				//if (IsOwner)
 				//	OriginalPoseSync.Value = new(anchorPose);
-
-				anchored = true;
 
 				//Log($"Saving anchor {spatialAnchor.Uuid}...");
 
