@@ -9,10 +9,6 @@ using Unity.Services.Core;
 using Unity.Services.Multiplayer;
 using UnityEngine;
 
-#if UNITY_EDITOR
-using Unity.Multiplayer.Playmode;
-#endif
-
 namespace Anaglyph.Netcode
 {
 	public static class NetcodeManagement
@@ -82,19 +78,30 @@ namespace Anaglyph.Netcode
 			return taskCanceller.Token;
 		}
 
-		private static void SetNetworkTransportType(string s)
+		private static void SetNetworkTransportType(Protocol protocol)
 		{
 			if (State != NetworkState.Disconnected)
 				throw new Exception("You can only change the transport while disconnected!");
 
-//#if UNITY_EDITOR
-//			if (!CurrentPlayer.IsMainEditor)
-//				return;
-//#endif
+			UnityTransport newTransport;
 
-			UnityTransport newTransport = manager.GetComponent(s) as UnityTransport;
+			switch (protocol)
+			{
+				case Protocol.LAN:
+					newTransport = manager.GetComponent<UnityTransport>();
+					break;
+
+				case Protocol.UnityService:
+					newTransport = manager.GetComponent("DistributedAuthorityTransport") as UnityTransport;
+					Debug.Log(newTransport.name);
+					break;
+
+				default:
+					return;
+			}
+
 			if (newTransport == null)
-				throw new Exception($"Could not find transport {s}!");
+				throw new Exception($"Could not find transport!");
 
 			newTransport.GetNetworkDriver().Dispose();
 
@@ -103,11 +110,11 @@ namespace Anaglyph.Netcode
 
 		public static void Host(Protocol protocol)
 		{
+			SetNetworkTransportType(protocol);
+
 			switch (protocol)
 			{
 				case Protocol.LAN:
-
-					SetNetworkTransportType("UnityTransport");
 					manager.NetworkConfig.UseCMBService = false;
 
 					string localAddress = "";
@@ -134,7 +141,7 @@ namespace Anaglyph.Netcode
 
 		public static void ConnectLAN(string ip)
 		{
-			SetNetworkTransportType("UnityTransport");
+			SetNetworkTransportType(Protocol.LAN);
 
 			manager.NetworkConfig.UseCMBService = false;
 
@@ -167,7 +174,6 @@ namespace Anaglyph.Netcode
 			if (State != NetworkState.Disconnected)
 				return;
 
-			SetNetworkTransportType("DistributedAuthorityTransport");
 			manager.NetworkConfig.UseCMBService = true;
 
 			State = NetworkState.Connecting;

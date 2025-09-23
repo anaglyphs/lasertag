@@ -18,7 +18,7 @@ MonoBehaviour:
   m_SeeAllPackageVersions: 0
   m_DismissPreviewPackagesInUse: 0
   oneTimeWarningShown: 0
-  oneTimeDeprecatedPopUpShown: 0
+  oneTimeDeprecatedPopUpShown: 1
   m_Registries:
   - m_Id: main
     m_Name: 
@@ -27,6 +27,9 @@ MonoBehaviour:
     m_IsDefault: 1
     m_Capabilities: 7
     m_ConfigSource: 0
+    m_Compliance:
+      m_Status: 0
+      m_Violations: []
   - m_Id: scoped:project:package.openupm.com
     m_Name: package.openupm.com
     m_Url: https://package.openupm.com
@@ -36,11 +39,14 @@ MonoBehaviour:
     m_IsDefault: 0
     m_Capabilities: 0
     m_ConfigSource: 4
+    m_Compliance:
+      m_Status: 0
+      m_Violations: []
   m_UserSelectedRegistryName: package.openupm.com
   m_UserAddingNewScopedRegistry: 0
   m_RegistryInfoDraft:
     m_Modified: 0
     m_ErrorMessage: 
-    m_UserModificationsInstanceId: -892
-    m_OriginalInstanceId: -896
+    m_UserModificationsInstanceId: -890
+    m_OriginalInstanceId: -894
   m_LoadAssets: 0
