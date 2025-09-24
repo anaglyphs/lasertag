@@ -3,7 +3,6 @@ using Anaglyph.Lasertag.Weapons;
 using Anaglyph.Netcode;
 using System;
 using Unity.Netcode;
-using Unity.Services.Matchmaker.Models;
 using Unity.XR.CoreUtils;
 using UnityEngine;
 using VariableObjects;
@@ -27,17 +26,17 @@ namespace Anaglyph.Lasertag
 		public event Action<byte> TeamChanged = delegate { };
 
 		[SerializeField] private GameObject avatarPrefab;
-		private Networking.PlayerAvatar avatar;
-		public Networking.PlayerAvatar Avatar => avatar;
+		private PlayerAvatar avatar;
+		public PlayerAvatar Avatar => avatar;
 
 		[SerializeField] private Transform headTransform;
 		[SerializeField] private Transform leftHandTransform;
 		[SerializeField] private Transform rightHandTransform;
-		[SerializeField] private Transform torsoTransform;
+		[SerializeField] private OVRSkeleton skeleton;
 		public Transform HeadTransform => headTransform;
 		public Transform LeftHandTransform => leftHandTransform;
 		public Transform RightHandTransform => rightHandTransform;
-		public Transform TorsoTransform => torsoTransform;
+		public OVRSkeleton Skeleton => skeleton;
 
 		public float RespawnTimerSeconds { get; private set; } = 0;
 
@@ -217,7 +216,11 @@ namespace Anaglyph.Lasertag
 				avatar.HeadTransform.SetWorldPose(headTransform.GetWorldPose());
 				avatar.LeftHandTransform.SetWorldPose(leftHandTransform.GetWorldPose());
 				avatar.RightHandTransform.SetWorldPose(rightHandTransform.GetWorldPose());
-				avatar.TorsoTransform.SetWorldPose(torsoTransform.GetWorldPose());
+
+				var spineMid = skeleton.Bones[(int)OVRSkeleton.BoneId.Body_SpineMiddle].Transform;
+				avatar.TorsoTransform.SetWorldPose(spineMid.GetWorldPose());
+
+				
 			}
 		}
 	}

@@ -29,7 +29,6 @@ namespace Anaglyph.XRTemplate
 
 		public void ResetCalibration()
 		{
-			
 			bool didReset = OVRBody.ResetBodyTrackingCalibration();
 			if (didReset)
 				Debug.Log($"{LogPrefix} reset");

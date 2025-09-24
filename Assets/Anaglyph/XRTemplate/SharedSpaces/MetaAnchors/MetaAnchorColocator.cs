@@ -91,10 +91,10 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public async void AlignTo(ColocationAnchor anchor)
 		{
+			await Awaitable.EndOfFrameAsync();
+
 			if (!anchor.IsLocalized)
 				return;
-
-			await Awaitable.EndOfFrameAsync();
 
 			Pose anchorPose = anchor.transform.GetWorldPose();
 			MainXRRig.MatchPoseToTarget(anchorPose, anchor.DesiredPose);
