@@ -54,7 +54,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: 167a28c47917022428ef3ef2e2507346, type: 2}
     - target: {fileID: 1486168899473020810, guid: 24fe9491462961f4091217e62ff6ff84, type: 3}
       propertyPath: m_Name
-      value: lesser bolt
+      value: Bullet Lesser
       objectReference: {fileID: 0}
     - target: {fileID: 2809571718428945146, guid: 24fe9491462961f4091217e62ff6ff84, type: 3}
       propertyPath: m_LocalScale.x
@@ -78,15 +78,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6606369252371184621, guid: 24fe9491462961f4091217e62ff6ff84, type: 3}
       propertyPath: damageOverDistance.m_Curve.Array.data[0].value
-      value: 50
+      value: 40
       objectReference: {fileID: 0}
     - target: {fileID: 6606369252371184621, guid: 24fe9491462961f4091217e62ff6ff84, type: 3}
       propertyPath: damageOverDistance.m_Curve.Array.data[1].value
-      value: 15
+      value: 8
       objectReference: {fileID: 0}
     - target: {fileID: 6606369252371184621, guid: 24fe9491462961f4091217e62ff6ff84, type: 3}
       propertyPath: damageOverDistance.m_Curve.Array.data[2].value
-      value: 15
+      value: 8
       objectReference: {fileID: 0}
     - target: {fileID: 6606369252371184621, guid: 24fe9491462961f4091217e62ff6ff84, type: 3}
       propertyPath: damageOverDistance.m_Curve.Array.data[0].inSlope
