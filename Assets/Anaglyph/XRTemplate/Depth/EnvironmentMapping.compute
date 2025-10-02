@@ -104,41 +104,56 @@ void Integrate (uint i : SV_DispatchThreadID)
 		volume[id] = sDistNorm;
 }
 
-#pragma kernel Raycast
+/// Raymarch
 
-/// Raycast
-
-uniform float3 rcOrig; 
-uniform float3 rcDir;
-uniform float rcIntScale;
-RWStructuredBuffer<uint> rcResult;
-Texture3D<half> rcVolume;
-
-half sampleDist(float3 uvw)
+struct RaymarchRequest
 {
-	return rcVolume.SampleLevel(linearClampSampler, uvw, 0) * metersPerVoxel;
+	float4 origin;
+	float3 direction;
+	float maxDistance;
+};
+
+uint numRaymarchRequests;
+StructuredBuffer<RaymarchRequest> raymarchRequests;
+RWStructuredBuffer<float> raymarchResults;
+Texture3D<half> raymarchVolume;
+
+half raymarchSample(float3 worldPos)
+{
+	float3 uvw = worldToVoxelUVW(worldPos);
+	return raymarchVolume.SampleLevel(linearClampSampler, uvw, 0) * metersPerVoxel;
 }
 
+#pragma kernel Raymarch
+
 [numthreads(64, 1, 1)]
-void Raycast(uint3 id : SV_DispatchThreadID)
+void Raymarch(uint3 id : SV_DispatchThreadID)
 {
-	float3 startPos = rcOrig + rcDir * metersPerVoxel * id.x;
-	float3 worldPos = startPos;
+	float result = -1;
 	
-	// each thread does a mini raymarch through the TSDF
-	for (int i = 0; i < 3; i++)
+	if(id.x >= numRaymarchRequests)
+		return;
+	
+	const float3 origin = raymarchRequests[id.x].origin;
+	const float3 direction = normalize(raymarchRequests[id.x].direction);
+	float maxDist = raymarchRequests[id.x].maxDistance;
+	
+	const uint maxSteps = maxDist / metersPerVoxel;
+	
+	float dist = 0;
+	
+	for (uint i = 0; i < maxSteps; i++)
 	{
-		float3 uvw = worldToVoxelUVW(worldPos);
-		half signedDistance = sampleDist(uvw);
-		worldPos += rcDir * signedDistance;
+		float3 pos = origin + direction * dist;
+		float val = raymarchSample(pos);
+		dist += val;
+		
+		if (abs(val) < 0.01)
+		{
+			result = dist;
+			break;
+		}
 	}
 	
-	float3 uvw = worldToVoxelUVW(worldPos);
-	half signedDistance = sampleDist(uvw);
-	
-	float distanceFromCenter = distance(worldPos, rcOrig);
-	uint distFromCenterInt = distanceFromCenter * rcIntScale;
-	
-	if (abs(signedDistance) < 0.02f)
-		InterlockedMin(rcResult[0], distFromCenterInt);
+	raymarchResults[id.x] = result;
 }

@@ -55,12 +55,18 @@ namespace Anaglyph.Lasertag
 			OnFire.Invoke();
 			AudioSource.PlayClipAtPoint(fireSFX, transform.position);
 
+			EnvRaymarch();
+		}
+
+		private async void EnvRaymarch()
+		{
 			fireRay = new(transform.position, transform.forward);
-			if (EnvironmentMapper.Raycast(fireRay, MaxTravelDist, out var envCast))
+			var result = await EnvironmentMapper.Instance.RaymarchAsync(fireRay, MaxTravelDist);
+			if (result.didHit)
 				if (IsOwner)
-					envHitDist = envCast.distance;
+					envHitDist = result.distance;
 				else
-					EnvironmentRaycastRpc(envCast.distance);
+					EnvironmentRaycastRpc(result.distance);
 		}
 
 		[Rpc(SendTo.Owner)]

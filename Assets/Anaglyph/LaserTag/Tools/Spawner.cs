@@ -49,7 +49,7 @@ namespace Anaglyph.Lasertag
 			boundsVisual.SetTrackedObject(previewObject);
 		}
 
-		private void Update()
+		private async void Update()
 		{
 			angle += rotating * Time.deltaTime * rotateSpeed;
 
@@ -66,8 +66,8 @@ namespace Anaglyph.Lasertag
 			lineRenderer.enabled = true;
 
 			Ray ray = new(transform.position, transform.forward);
-			bool didHit = EnvironmentMapper.Raycast(ray, 50, out var result, true);
-			if(!didHit)
+			var result = await EnvironmentMapper.Instance.RaymarchAsync(ray, 50);
+			if(!result.didHit)
 			{
 				return;
 			}

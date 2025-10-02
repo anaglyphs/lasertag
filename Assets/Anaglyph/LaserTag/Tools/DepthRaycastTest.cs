@@ -8,11 +8,11 @@ namespace Anaglyph.Lasertag
 	{
 		[SerializeField] private Transform hitIndicator;
 
-		private void Update()
-		{
-			Ray ray = new Ray(transform.position, transform.forward);
-			hitIndicator.gameObject.SetActive(EnvironmentMapper.Raycast(ray, 50f, out var result));
-			hitIndicator.position = result.point; 
-		}
+		//private void Update()
+		//{
+		//	Ray ray = new Ray(transform.position, transform.forward);
+		//	hitIndicator.gameObject.SetActive(EnvironmentMapper.Raycast(ray, 50f, out var result));
+		//	hitIndicator.position = result.point; 
+		//}
 	}
 }

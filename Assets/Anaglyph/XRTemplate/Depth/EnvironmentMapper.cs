@@ -1,6 +1,14 @@
 using Anaglyph.XRTemplate.DepthKit;
+using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Threading.Tasks;
+using Unity.Collections;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.Rendering;
+
 
 namespace Anaglyph.XRTemplate
 {
@@ -26,7 +34,7 @@ namespace Anaglyph.XRTemplate
 
 		private ComputeKernel clearKernel;
 		private ComputeKernel integrateKernel;
-		private ComputeKernel raycastKernel;
+		private ComputeKernel raymarchKernel;
 
 		private int viewID => DepthKitDriver.agDepthView_ID;
 		private int projID => DepthKitDriver.agDepthProj_ID;
@@ -39,6 +47,10 @@ namespace Anaglyph.XRTemplate
 
 		private int numPlayersID = Shader.PropertyToID("numPlayers");
 		private int playerHeadsWorldID = Shader.PropertyToID("playerHeadsWorld");
+
+		private int numRaymarchRequestsID = Shader.PropertyToID("numRaymarchRequests");
+		private int raymarchRequestsID = Shader.PropertyToID("raymarchRequests");
+		private int raymarchResultsID = Shader.PropertyToID("raymarchResults");
 
 		// cached points within viewspace depth frustum 
 		// like a 3D lookup table
@@ -63,8 +75,8 @@ namespace Anaglyph.XRTemplate
 
 			integrateKernel = new(shader, "Integrate");
 
-			raycastKernel = new(shader, "Raycast");
-			raycastKernel.Set("rcVolume", volume);
+			raymarchKernel = new(shader, "Raymarch");
+			raymarchKernel.Set("raymarchVolume", volume);
 
 			shader.SetInts("volumeSize", vWidth, vHeight, vDepth);
 			shader.SetFloat(nameof(metersPerVoxel), metersPerVoxel);
@@ -179,83 +191,108 @@ namespace Anaglyph.XRTemplate
 			frustumVolume?.Release();
 		}
 
-		private const float RaycastScaleFactor = 1000f;
-
-		public struct RayResult
+		[StructLayout(LayoutKind.Sequential)]
+		public struct RaymarchRequest
 		{
+			public RaymarchRequest(Ray ray, float maxDistance)
+			{
+				origin = ray.origin;
+				direction = ray.direction;
+				this.maxDistance = maxDistance;
+			}
+
+			public Vector4 origin;
+			public Vector3 direction;
+			public float maxDistance;
+		}
+
+		private readonly int requestStride = Marshal.SizeOf<RaymarchRequest>();
+
+		private List<RaymarchRequest> pendingRequests = new();
+
+		public struct RaymarchResult
+		{
+			public Ray ray;
 			public Vector3 point;
 			public float distance;
 			public bool didHit;
 
-			public RayResult(Vector3 hitPoint, float distance)
+			public RaymarchResult(Ray ray, float distance)
 			{
-				this.point = hitPoint;
+				this.ray = ray;
+				this.point = ray.origin + ray.direction * distance;
 				this.distance = distance;
-				this.didHit = false;
+				this.didHit = distance >= 0;
 			}
 		}
 
-		public static bool Raycast(Ray ray, float maxDist, out RayResult result, bool fallback = false)
-			=> Instance.RaycastInternal(ray, maxDist, out result, fallback);
+		private Task<float[]> thisFramesDispatch = null;
 
-		private bool RaycastInternal(Ray ray, float maxDist, out RayResult result, bool fallback)
+		public async Task<RaymarchResult> RaymarchAsync(Ray ray, float maxDistance)
 		{
-			result = new(ray.origin, 0);
-			if (maxDist == 0)
-				return false;
+			RaymarchRequest request = new RaymarchRequest(ray, maxDistance);
+			int index = pendingRequests.Count;
+			pendingRequests.Add(request);
 
-			if (!DepthKitDriver.DepthAvailable && fallback)
+			if(thisFramesDispatch == null)
 			{
-				// floor cast if depth isn't available
-
-				var orig = ray.origin;
-				var dir = ray.direction;
-				Vector2 slope = new Vector2(dir.x, dir.z) / dir.y;
-
-				result.point = new Vector3(slope.x * -orig.y + orig.x, 0, slope.y * -orig.y + orig.z);
-				result.distance = Vector3.Distance(orig, result.point);
-
-				return true;
+				thisFramesDispatch = DispatchRaymarches();
 			}
 
-			shader.SetVector("rcOrig", ray.origin);
-			shader.SetVector("rcDir", ray.direction);
-			shader.SetFloat("rcIntScale", RaycastScaleFactor);
+			var data = await thisFramesDispatch;
+			float dist = data[index];
 
-			uint lengthInt = (uint)(maxDist * RaycastScaleFactor);
-
-			ComputeBuffer resultBuffer = new ComputeBuffer(1, sizeof(uint));
-			resultBuffer.SetData(new uint[] { lengthInt });
-			raycastKernel.Set("rcResult", resultBuffer);
-
-			int totalNumSteps = Mathf.RoundToInt(maxDist / metersPerVoxel);
-
-			if (totalNumSteps == 0)
-				return false;
-
-			raycastKernel.DispatchGroups(totalNumSteps, 1, 1);
-
-			//var request = await AsyncGPUReadback.Request(resultBuffer);
-			//if (request.hasError)
-			//	return hit;
-			//var result = request.GetData<uint>();
-			uint[] d = new uint[1];
-			resultBuffer.GetData(d);
-			uint hitDistInt = d[0];
-			//result.Dispose();
-			resultBuffer.Release();
-
-			if (hitDistInt >= lengthInt)
-				return false;
-
-			float hitDist = hitDistInt / RaycastScaleFactor;
-
-			if (hitDist >= maxDist)
-				return false;
-
-			result = new(ray.GetPoint(hitDist), hitDist);
-			result.didHit = true;
-			return true;
+			RaymarchResult result = new(ray, dist);
+			return result;
 		}
+
+		private async Task<float[]> DispatchRaymarches()
+		{
+			await Awaitable.EndOfFrameAsync();
+
+			int count = pendingRequests.Count;
+			ComputeBuffer requestsBuffer = new(count, requestStride);
+			requestsBuffer.SetData(pendingRequests);
+			pendingRequests.Clear();
+			ComputeBuffer resultBuffer = new(count, sizeof(float));
+			thisFramesDispatch = null;
+
+			shader.SetInt(numRaymarchRequestsID, count);
+			raymarchKernel.Set(raymarchRequestsID, requestsBuffer);
+			raymarchKernel.Set(raymarchResultsID, resultBuffer);
+
+			raymarchKernel.DispatchGroups(count, 1, 1);
+
+			var tcs = new TaskCompletionSource<AsyncGPUReadbackRequest>();
+
+			AsyncGPUReadback.Request(resultBuffer, (req) =>
+			{
+				if (req.hasError)
+					tcs.SetException(new System.Exception("GPU readback failed"));
+				else
+					tcs.SetResult(req);
+
+				requestsBuffer.Dispose();
+				resultBuffer.Dispose();
+			});
+
+			AsyncGPUReadbackRequest result = await tcs.Task;
+			return result.GetData<float>().ToArray();
+		}
+
+		//private static Task<AsyncGPUReadbackRequest> AwaitReadback(ComputeBuffer buffer)
+		//{
+		//	var tcs = new TaskCompletionSource<AsyncGPUReadbackRequest>();
+
+		//	AsyncGPUReadback.Request(buffer, (req) =>
+		//	{
+		//		if (req.hasError)
+		//			tcs.SetException(new System.Exception("GPU readback failed"));
+		//		else
+		//			tcs.SetResult(req);
+		//	});
+
+		//	return tcs.Task;
+		//}
 	}
 }
