@@ -1,14 +1,8 @@
 using Anaglyph.XRTemplate.DepthKit;
-using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using Unity.Collections;
 using UnityEngine;
-using UnityEngine.EventSystems;
-using UnityEngine.Rendering;
-
 
 namespace Anaglyph.XRTemplate
 {
@@ -226,7 +220,7 @@ namespace Anaglyph.XRTemplate
 			}
 		}
 
-		private Task<float[]> thisFramesDispatch = null;
+		private Task<float[]> currentRaymarchBatch = null;
 
 		public async Task<RaymarchResult> RaymarchAsync(Ray ray, float maxDistance)
 		{
@@ -234,12 +228,12 @@ namespace Anaglyph.XRTemplate
 			int index = pendingRequests.Count;
 			pendingRequests.Add(request);
 
-			if(thisFramesDispatch == null)
+			if(currentRaymarchBatch == null)
 			{
-				thisFramesDispatch = DispatchRaymarches();
+				currentRaymarchBatch = DispatchRaymarches();
 			}
 
-			var data = await thisFramesDispatch;
+			var data = await currentRaymarchBatch;
 			float dist = data[index];
 
 			RaymarchResult result = new(ray, dist);
@@ -255,7 +249,7 @@ namespace Anaglyph.XRTemplate
 			requestsBuffer.SetData(pendingRequests);
 			pendingRequests.Clear();
 			ComputeBuffer resultBuffer = new(count, sizeof(float));
-			thisFramesDispatch = null;
+			currentRaymarchBatch = null;
 
 			shader.SetInt(numRaymarchRequestsID, count);
 			raymarchKernel.Set(raymarchRequestsID, requestsBuffer);
@@ -263,21 +257,30 @@ namespace Anaglyph.XRTemplate
 
 			raymarchKernel.DispatchGroups(count, 1, 1);
 
-			var tcs = new TaskCompletionSource<AsyncGPUReadbackRequest>();
+			
+			float[] results = new float[count];
+			resultBuffer.GetData(results);
 
-			AsyncGPUReadback.Request(resultBuffer, (req) =>
-			{
-				if (req.hasError)
-					tcs.SetException(new System.Exception("GPU readback failed"));
-				else
-					tcs.SetResult(req);
+			requestsBuffer.Dispose();
+			resultBuffer.Dispose();
 
-				requestsBuffer.Dispose();
-				resultBuffer.Dispose();
-			});
+			return results;
 
-			AsyncGPUReadbackRequest result = await tcs.Task;
-			return result.GetData<float>().ToArray();
+			//var tcs = new TaskCompletionSource<AsyncGPUReadbackRequest>();
+
+			//AsyncGPUReadback.Request(resultBuffer, (req) =>
+			//{
+			//	if (req.hasError)
+			//		tcs.SetException(new System.Exception("GPU readback failed"));
+			//	else
+			//		tcs.SetResult(req);
+
+			//	requestsBuffer.Dispose();
+			//	resultBuffer.Dispose();
+			//});
+
+			//AsyncGPUReadbackRequest result = await tcs.Task;
+			//return result.GetData<float>().ToArray();
 		}
 
 		//private static Task<AsyncGPUReadbackRequest> AwaitReadback(ComputeBuffer buffer)

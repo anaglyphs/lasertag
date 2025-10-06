@@ -19,6 +19,7 @@ GameObject:
   - component: {fileID: 1911858905772435188}
   - component: {fileID: 4465511314893751518}
   - component: {fileID: 4888897459915364459}
+  - component: {fileID: 2693871223051885009}
   m_Layer: 0
   m_Name: Systems
   m_TagString: Untagged
@@ -256,7 +257,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7e933e81d3c20c74ea6fdc708a67e3a5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  useRecommendedMSAALevel: 1
+  useRecommendedMSAALevel: 0
   _monoscopic: 0
   _sharpenType: 0
   _enableDynamicResolution: 1
@@ -325,3 +326,16 @@ MonoBehaviour:
   _readOnlyWideMotionModeHandPosesEnabled: 0
   wideMotionModeHandPosesEnabled: 0
   dynamicResolutionVersion: 1
+--- !u!114 &2693871223051885009
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 617670215892132972}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 22260813337135a4fae93673847261b8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  shader: {fileID: 7200000, guid: 5113686416045e545aeaf27cdc501269, type: 3}

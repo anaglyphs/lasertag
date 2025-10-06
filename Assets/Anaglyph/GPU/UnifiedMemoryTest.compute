@@ -1,0 +1,10 @@
+#pragma kernel TestKernel
+
+// TestKernel.compute
+RWStructuredBuffer<uint> data;
+
+[numthreads(1, 1, 1)]
+void TestKernel(uint3 id : SV_DispatchThreadID)
+{
+	data[0] = 9999;
+}
