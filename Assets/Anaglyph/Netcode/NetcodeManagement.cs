@@ -36,7 +36,7 @@ namespace Anaglyph.Netcode
 			UnityService,
 		}
 
-		private static NetworkState _state;
+		private static NetworkState _state = NetworkState.Disconnected;
 		public static event Action<NetworkState> StateChange = delegate { };
 		public static NetworkState State
 		{
@@ -56,6 +56,7 @@ namespace Anaglyph.Netcode
 			manager.OnClientStarted += () => State = NetworkState.Connecting;
 			manager.OnClientStopped += _ => State = NetworkState.Disconnected;
 			manager.OnConnectionEvent += OnConnectionEvent;
+			manager.OnTransportFailure += () => State = NetworkState.Disconnected;
 		}
 
 		private static void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
