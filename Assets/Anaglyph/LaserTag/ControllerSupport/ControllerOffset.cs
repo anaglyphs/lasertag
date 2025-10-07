@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Anaglyph.Lasertag.ControllerSupport
 {
-    public class Offset : MonoBehaviour
+    public class ControllerOffset : MonoBehaviour
     {
 		public Transform mavrikPoseTransform;
 

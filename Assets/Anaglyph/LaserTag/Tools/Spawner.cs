@@ -49,38 +49,43 @@ namespace Anaglyph.Lasertag
 			boundsVisual.SetTrackedObject(previewObject);
 		}
 
-		private async void Update()
+		private async void LateUpdate()
 		{
 			angle += rotating * Time.deltaTime * rotateSpeed;
 
-			lineRenderer.enabled = false;
-			boundsVisual.enabled = false;
-			previewObject.SetActive(false);
-
 			if (previewObject == null)
 			{
+				lineRenderer.enabled = false;
+				boundsVisual.enabled = false;
+				lineRenderer.SetPosition(1, Vector3.forward);
 				return;
 			}
-
-			lineRenderer.SetPosition(1, Vector3.forward);
-			lineRenderer.enabled = true;
 
 			Ray ray = new(transform.position, transform.forward);
 			var result = await EnvironmentMapper.Instance.RaymarchAsync(ray, 50);
-			if(!result.didHit)
-			{
+
+			if (!enabled)
 				return;
+
+			previewObject.SetActive(result.didHit);
+			boundsVisual.enabled = result.didHit;
+
+			if (result.didHit)
+			{
+				lineRenderer.SetPosition(1, Vector3.forward * result.distance);
+
+				previewObject.transform.position = result.point;
+				previewObject.transform.eulerAngles = new(0, angle, 0);
 			}
-
-			previewObject.SetActive(true);
-			boundsVisual.enabled = true;
-
-			previewObject.transform.position = result.point;
-			previewObject.transform.eulerAngles = new(0, angle, 0);
+			else
+			{
+				lineRenderer.SetPosition(1, Vector3.forward);
+			}
 		}
 
 		private void OnEnable()
 		{
+			lineRenderer.enabled = true;
 			Vector3 forw = transform.forward;
 			forw.y = 0;
 			angle = Vector3.SignedAngle(Vector3.forward, forw, Vector3.up);

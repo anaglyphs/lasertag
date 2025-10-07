@@ -18,30 +18,35 @@ namespace Anaglyph.Lasertag
 			lineRenderer.useWorldSpace = false;
 		}
 
-		private void Update()
+		private void LateUpdate()
 		{
-			lineRenderer.enabled = false;
-			boundsVisual.enabled = false;
-			cursor.gameObject.SetActive(false);
-
-			lineRenderer.SetPosition(1, Vector3.forward);
-			lineRenderer.enabled = true;
-
 			Ray ray = new(transform.position, transform.forward);
 			bool didHit = Physics.Raycast(ray, out RaycastHit hitInfo);
-			hoveredDeletable = hitInfo.collider?.GetComponentInParent<Deletable>();
-			
-			if (!didHit || hoveredDeletable == null)
+
+			hoveredDeletable = didHit ? hitInfo.collider.GetComponentInParent<Deletable>() : null;
+
+			lineRenderer.SetPosition(1, Vector3.forward * (didHit ? hitInfo.distance : 1f));
+
+			if (didHit)
 			{
+				boundsVisual.enabled = true;
+				boundsVisual.SetTrackedObject(hoveredDeletable);
+
+				cursor.position = hitInfo.point;
+				cursor.gameObject.SetActive(true);
+			}
+			else
+			{
+				boundsVisual.enabled = false;
+				cursor.gameObject.SetActive(false);
+
 				return;
 			}
+		}
 
-			boundsVisual.enabled = true;
-			cursor.gameObject.SetActive(true);
-
-			cursor.position = hitInfo.point;
-			lineRenderer.SetPosition(1, Vector3.forward * hitInfo.distance);
-			boundsVisual.SetTrackedObject(hoveredDeletable);
+		private void OnEnable()
+		{
+			lineRenderer.enabled = true;
 		}
 
 		private void OnDisable()
