@@ -9,9 +9,9 @@ using UnityEngine;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
-	public class MetaBluetoothSessionDiscovery : MonoBehaviour
+	public class MetaSessionDiscovery : MonoBehaviour
 	{
-		public static MetaBluetoothSessionDiscovery Instance { get; private set; }
+		public static MetaSessionDiscovery Instance { get; private set; }
 
 		private const string LogHeader = "[SessionDiscovery] ";
 		private static void Log(string str) => Debug.Log(LogHeader + str);
@@ -25,7 +25,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if(Instance == null)
 				Instance = this;
 			else
-				throw new Exception($"More than one instance of {typeof(MetaBluetoothSessionDiscovery)}!");
+				throw new Exception($"More than one instance of {typeof(MetaSessionDiscovery)}!");
 		}
 
 		private void Start()
@@ -74,7 +74,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		}
 
 		private bool isPaused = false;
-		private void OnApplicationPause(bool isPaused) {
+		private async void OnApplicationPause(bool isPaused) {
 			
 			this.isPaused = isPaused;
 			
@@ -135,8 +135,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				switch (state)
 				{
 					case State.Disabled:
-						await HaltDiscovery(ctkn);
-						await HaltAdvertisement(ctkn);
+						_ = HaltDiscovery(ctkn);
+						_ = HaltAdvertisement(ctkn);
 						break;
 
 					case State.NetcodeDisconnected:
@@ -155,14 +155,14 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 						break;
 				}
 
-			} catch (OperationCanceledException) { }
+			}
+			catch (OperationCanceledException) { }
 		}
 
 		private async Task StartDiscovery(CancellationToken cancelToken)
 		{
 			cancelToken.ThrowIfCancellationRequested();
 
-			Log("Starting discovery");
 			var result = await OVRColocationSession.StartDiscoveryAsync();
 
 			if (result.Success)
@@ -175,13 +175,12 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			cancelToken.ThrowIfCancellationRequested();
 
-			Log("Stopping discovery");
 			var result = await OVRColocationSession.StopDiscoveryAsync();
 
 			if (result.Success)
-				Log("Discovery stopped");
+				Log("Discovery halted");
 			else
-				LogWarning("Couldn't stop discovery");
+				LogWarning("Couldn't halt discovery");
 		}
 
 		private async Task StartAdvertisement(CancellationToken cancelToken)
@@ -204,26 +203,23 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					break;
 			}
 
-			Log($"Starting advertisement {message}");
-
 			var result = await OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(message));
 			if (result.Success)
-				Log("Advertisement started");
+				Log($"Advertisement started '{message}'");
 			else
-				LogWarning("Couldn't start advertisement");
+				LogWarning($"Couldn't start advertisement '{message}'");
 		}
 
 		private async Task HaltAdvertisement(CancellationToken cancelToken)
 		{
 			cancelToken.ThrowIfCancellationRequested();
 
-			Log("Stopping advertisement");
 			var result = await OVRColocationSession.StopAdvertisementAsync();
 
 			if (result.Success)
-				Log("Advertisement stopped");
+				Log("Advertisement halted");
 			else
-				LogWarning("Couldn't stop advertisement");
+				LogWarning("Couldn't halt advertisement");
 		}
 
 		private void HandleColocationSessionDiscovered(OVRColocationSession.Data data)
