@@ -172,7 +172,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ab2bf6706c2697d439952557fc0356ba, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  useUnityRelayService: {fileID: 11400000, guid: 8256b37a220cf5d4aa386e985d532dcb, type: 2}
   navView: {fileID: 7721118575378658267}
   homePage: {fileID: 530228856435826187}
   hostButton: {fileID: 6116763151090473305}
@@ -190,6 +189,7 @@ MonoBehaviour:
   colocatingSprite: {fileID: 21300000, guid: 9ad4ea9c3a4a52540b949569c3631105, type: 3}
   connectedSprite: {fileID: 21300000, guid: 6c082bdc222d48d4cb056ce6ec9acab2, type: 3}
   hostingSprite: {fileID: 21300000, guid: d74322c3a2fbe534bb8c68f9b2221842, type: 3}
+  hostRelay: {fileID: 11400000, guid: 8256b37a220cf5d4aa386e985d532dcb, type: 2}
 --- !u!1 &6666117925009825392
 GameObject:
   m_ObjectHideFlags: 0

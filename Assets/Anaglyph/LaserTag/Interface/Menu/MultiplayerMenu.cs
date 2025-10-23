@@ -21,8 +21,6 @@ namespace Anaglyph.Lasertag
 
 		private static NetworkManager manager => NetworkManager.Singleton;
 
-		[SerializeField] private BoolObject useUnityRelayService;
-
 		[SerializeField] private NavPagesParent navView;
 
 		[Header(nameof(homePage))]
@@ -49,6 +47,12 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private Sprite connectedSprite = null;
 		[SerializeField] private Sprite hostingSprite = null;
 
+		[Header("Host settings")]
+		[SerializeField] private BoolObject hostRelay = null;
+
+		private const string IpPrefsKey = "Ip";
+		private const string RelayPrefsKey = "Relay";
+
 		private void Start()
 		{
 			NetcodeManagement.StateChange += IsNetworkRunningChanged;
@@ -59,17 +63,15 @@ namespace Anaglyph.Lasertag
 			// manually connect page
 			manuallyConnectPage.showBackButton = true;
 
-			string ip = NetcodeManagement.GetLocalIPv4();
+			// #if UNITY_EDITOR
+			//             ip = "127.0.0.1";
+			// #endif
 
-#if UNITY_EDITOR
-			ip = "127.0.0.1";
-#endif
+			// int length = Mathf.Min(ip.Length, ip.LastIndexOf('.') + 1);
 
-			int length = Mathf.Min(ip.Length, ip.LastIndexOf('.') + 1);
-			ipField.text = ip.Substring(0, length);
-
-			connectButton.onClick.AddListener(delegate {
-				if(useRelayToggle.isOn)
+			connectButton.onClick.AddListener(delegate
+			{
+				if (useRelayToggle.isOn)
 					NetcodeManagement.ConnectUnityServices(ipField.text);
 				else
 					NetcodeManagement.ConnectLAN(ipField.text);
@@ -149,7 +151,7 @@ namespace Anaglyph.Lasertag
 
 		private void OnColocationChange(bool isColocated)
 		{
-			if(NetcodeManagement.State == NetcodeManagement.NetworkState.Connected)
+			if (NetcodeManagement.State == NetcodeManagement.NetworkState.Connected)
 				OpenSessionPage(Colocation.IsColocated ? SessionState.Connected : SessionState.Colocating);
 		}
 
@@ -168,11 +170,12 @@ namespace Anaglyph.Lasertag
 					break;
 
 				case SessionState.Connected:
-					if(manager.CurrentSessionOwner == manager.LocalClientId)
+					if (manager.CurrentSessionOwner == manager.LocalClientId)
 					{
 						sessionStateText.text = "Hosting";
 						sessionIcon.sprite = hostingSprite;
-					} else
+					}
+					else
 					{
 						sessionStateText.text = "Connected!";
 						sessionIcon.sprite = connectedSprite;
@@ -187,7 +190,7 @@ namespace Anaglyph.Lasertag
 
 		private void Host()
 		{
-			var service = useUnityRelayService.Value ? NetcodeManagement.Protocol.UnityService : NetcodeManagement.Protocol.LAN;
+			var service = hostRelay.Value ? NetcodeManagement.Protocol.UnityService : NetcodeManagement.Protocol.LAN;
 			NetcodeManagement.Host(service);
 		}
 

@@ -21,7 +21,7 @@
       "dependencies": {
         "com.unity.ide.visualstudio": "2.0.20"
       },
-      "hash": "123957fbc104b61dbc5705a1d329ffd275357ea3"
+      "hash": "25f1b97fedb6cf7b4b566c4a83ec8311b68d3e82"
     },
     "com.meta.xr.depthapi": {
       "version": "https://github.com/oculus-samples/Unity-DepthAPI.git?path=/Packages/com.meta.xr.depthapi",
@@ -90,7 +90,7 @@
       "dependencies": {}
     },
     "com.unity.burst": {
-      "version": "1.8.24",
+      "version": "1.8.25",
       "depth": 1,
       "source": "registry",
       "dependencies": {
@@ -100,11 +100,11 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.collections": {
-      "version": "2.5.7",
+      "version": "2.6.2",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.unity.burst": "1.8.19",
+        "com.unity.burst": "1.8.23",
         "com.unity.mathematics": "1.3.2",
         "com.unity.test-framework": "1.4.6",
         "com.unity.nuget.mono-cecil": "1.11.5",
@@ -130,16 +130,16 @@
       "depth": 0,
       "source": "builtin",
       "dependencies": {
-        "com.unity.ide.visualstudio": "2.0.23",
-        "com.unity.ide.rider": "3.0.37",
+        "com.unity.ide.visualstudio": "2.0.25",
+        "com.unity.ide.rider": "3.0.38",
         "com.unity.editorcoroutines": "1.0.0",
         "com.unity.performance.profile-analyzer": "1.2.3",
-        "com.unity.test-framework": "1.5.1",
+        "com.unity.test-framework": "1.6.0",
         "com.unity.testtools.codecoverage": "1.2.6"
       }
     },
     "com.unity.ide.rider": {
-      "version": "3.0.37",
+      "version": "3.0.38",
       "depth": 1,
       "source": "registry",
       "dependencies": {
@@ -148,11 +148,11 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.ide.visualstudio": {
-      "version": "2.0.23",
+      "version": "2.0.25",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.unity.test-framework": "1.1.9"
+        "com.unity.test-framework": "1.1.31"
       },
       "url": "https://packages.unity.com"
     },
@@ -173,7 +173,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.mobile.android-logcat": {
-      "version": "1.4.5",
+      "version": "1.4.6",
       "depth": 0,
       "source": "registry",
       "dependencies": {},
@@ -189,7 +189,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.netcode.gameobjects": {
-      "version": "2.5.1",
+      "version": "2.6.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -199,7 +199,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.nuget.mono-cecil": {
-      "version": "1.11.5",
+      "version": "1.11.6",
       "depth": 0,
       "source": "registry",
       "dependencies": {},
@@ -220,7 +220,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.project-auditor": {
-      "version": "1.0.1",
+      "version": "1.0.2",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -377,7 +377,7 @@
       }
     },
     "com.unity.test-framework": {
-      "version": "1.5.1",
+      "version": "1.6.0",
       "depth": 1,
       "source": "builtin",
       "dependencies": {
@@ -387,7 +387,7 @@
       }
     },
     "com.unity.test-framework.performance": {
-      "version": "3.1.0",
+      "version": "3.2.0",
       "depth": 1,
       "source": "registry",
       "dependencies": {
@@ -415,13 +415,13 @@
       }
     },
     "com.unity.transport": {
-      "version": "2.5.3",
+      "version": "2.6.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.unity.burst": "1.8.12",
+        "com.unity.burst": "1.8.24",
         "com.unity.collections": "2.2.1",
-        "com.unity.mathematics": "1.3.1"
+        "com.unity.mathematics": "1.3.2"
       },
       "url": "https://packages.unity.com"
     },

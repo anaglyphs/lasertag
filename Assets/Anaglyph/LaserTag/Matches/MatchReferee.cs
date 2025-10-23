@@ -56,7 +56,7 @@ namespace Anaglyph.Lasertag
 				pointsPerFlagCapture = 10,
 
 				winCondition = WinCondition.Timer,
-				timerSeconds = 60 * 2,
+				timerSeconds = 60 * 3,
 			};
 		}
 

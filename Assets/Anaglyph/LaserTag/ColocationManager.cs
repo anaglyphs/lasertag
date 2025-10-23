@@ -3,7 +3,6 @@ using Anaglyph.XRTemplate;
 using System;
 using Unity.Netcode;
 using UnityEngine;
-using VariableObjects;
 
 namespace Anaglyph.Lasertag
 {
@@ -12,20 +11,17 @@ namespace Anaglyph.Lasertag
 		public static ColocationManager Instance { get; private set; }
 
 		[Serializable]
-		public enum ColocationMethod
+		public enum Method
 		{
-			MetaSharedAnchor,
-			AprilTag,
+			MetaSharedAnchor = 0,
+			AprilTag = 1,
 		}
 
-		[SerializeField] private BoolObject useAprilTagColocation;
-		[SerializeField] private FloatObject aprilTagSizeOption;
-
-		private NetworkVariable<ColocationMethod> colocationMethodSync = new(0);
-		public void SetColocationMethod(ColocationMethod colocationMethod)
-			=> colocationMethodSync.Value = colocationMethod;
-
+		private NetworkVariable<Method> colocationMethodSync = new(0);
 		private NetworkVariable<float> aprilTagSizeSync = new();
+
+		public Method HostColocationMethod;
+		public float HostAprilTagSize;
 
 		[SerializeField] private MetaAnchorColocator metaAnchorColocator;
 		[SerializeField] private AprilTagColocator aprilTagColocator;
@@ -43,19 +39,18 @@ namespace Anaglyph.Lasertag
 
 			if (IsOwner)
 			{
-				colocationMethodSync.Value = useAprilTagColocation.Value ?
-					ColocationMethod.AprilTag : ColocationMethod.MetaSharedAnchor;
+				colocationMethodSync.Value = HostColocationMethod;
 
-				aprilTagSizeSync.Value = aprilTagSizeOption.Value / 100f;
+				aprilTagSizeSync.Value = HostAprilTagSize / 100f;
 			}
 
 			switch (colocationMethodSync.Value)
 			{
-				case ColocationMethod.MetaSharedAnchor:
+				case Method.MetaSharedAnchor:
 					Colocation.SetActiveColocator(metaAnchorColocator);
 					break;
 
-				case ColocationMethod.AprilTag:
+				case Method.AprilTag:
 					Colocation.SetActiveColocator(aprilTagColocator);
 					aprilTagColocator.tagSize = aprilTagSizeSync.Value;
 					break;

@@ -1,0 +1,11 @@
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../UIElementsSchema/UIElements.xsd" editor-extension-mode="True">
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Operator/style.uss?fileID=7433441132597879392&amp;guid=50e7e683e56714de0b0ad7967c86b879&amp;type=3" />
+    <ui:VisualElement name="root" class="panel" style="flex-grow: 1; left: 0; right: 0; top: 0; bottom: 0; flex-direction: column;">
+        <ui:Label text="Host Settings" class="title" />
+        <ui:EnumField label="Colocation Method" value="Center" type="Anaglyph.Lasertag.ColocationManager+ColocationMethod, Anaglyph.Lasertag" />
+        <ui:GroupBox text="Relay">
+            <ui:Toggle label="Use Relay&#10;&#10;" name="relay" />
+            <ui:TextField placeholder-text="Relay Room Name" />
+        </ui:GroupBox>
+    </ui:VisualElement>
+</ui:UXML>

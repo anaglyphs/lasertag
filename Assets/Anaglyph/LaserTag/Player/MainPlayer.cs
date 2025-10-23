@@ -42,7 +42,27 @@ namespace Anaglyph.Lasertag
 
 		// todo move this into another component. this really doesn't belong here
 		private OVRPassthroughLayer passthroughLayer;
-		[SerializeField] private BoolObject redDamageVision;
+		public bool redDamagedVision = true;
+		public bool isParticipating { get; private set; } = false;
+
+		public void SetIsParticipating(bool isParticipating)
+		{
+			this.isParticipating = isParticipating;
+			HandleAvatar();
+		}
+
+		private void HandleAvatar()
+		{
+			if (NetworkManager.Singleton.IsConnectedClient && isParticipating && avatar == null)
+			{
+				SpawnAvatar();
+			}
+			else if (!NetworkManager.Singleton.IsConnectedClient || !isParticipating && avatar != null)
+			{
+				avatar?.NetworkObject.Despawn();
+			}
+		}
+
 		//[SerializeField] private BoolObject participatingInGames;
 
 		private void Awake()
@@ -69,23 +89,8 @@ namespace Anaglyph.Lasertag
 		private void HandleConnectionEvent(NetworkManager manager, ConnectionEventData eventData)
 		{
 			if (NetcodeManagement.ThisClientConnected(eventData))
-				SpawnAvatar();
+				HandleAvatar();
 		}
-
-		//private void HandleParticipatingChange(bool b) => HandleAvatar();
-
-		//private void HandleAvatar()
-		//{
-		//	if (participatingInGames && avatar == null)
-		//	{
-		//		SpawnAvatar();
-		//	}
-		//	else if (avatar != null)
-		//	{
-		//		avatar.NetworkObject.Despawn();
-		//	}
-		//}
-
 		private void SpawnAvatar()
 		{
 			var manager = NetworkManager.Singleton;
@@ -172,7 +177,7 @@ namespace Anaglyph.Lasertag
 		{
 			// health
 
-			if (redDamageVision.Value)
+			if (redDamagedVision)
 			{
 				passthroughLayer.edgeRenderingEnabled = true;
 				var color = Color.Lerp(Color.red, Color.clear, Mathf.Clamp01(Health / MaxHealth));
@@ -196,31 +201,31 @@ namespace Anaglyph.Lasertag
 
 			Health = Mathf.Clamp(Health, 0, MaxHealth);
 
-			// bases
+
 			IsInFriendlyBase = false;
-			foreach (Base b in Base.AllBases)
-			{
-				if (b.Team != avatar.Team)
-					continue;
-
-				if (!Geo.PointIsInCylinder(b.transform.position, Base.Radius, 3, headTransform.position))
-					continue;
-
-				IsInFriendlyBase = true;
-				break;
-			}
-
-			// network player transforms
 			if (avatar != null)
 			{
+				// bases
+				foreach (Base b in Base.AllBases)
+				{
+					if (b.Team != avatar.Team)
+						continue;
+
+					if (!Geo.PointIsInCylinder(b.transform.position, Base.Radius, 3, headTransform.position))
+						continue;
+
+					IsInFriendlyBase = true;
+					break;
+				}
+
+				// network player transforms
 				avatar.HeadTransform.SetWorldPose(headTransform.GetWorldPose());
 				avatar.LeftHandTransform.SetWorldPose(leftHandTransform.GetWorldPose());
 				avatar.RightHandTransform.SetWorldPose(rightHandTransform.GetWorldPose());
 
 				var spineMid = skeleton.Bones[(int)OVRSkeleton.BoneId.Body_SpineMiddle].Transform;
 				avatar.TorsoTransform.SetWorldPose(spineMid.GetWorldPose());
-
-				
+				// wtf
 			}
 		}
 	}
