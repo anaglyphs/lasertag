@@ -96,7 +96,7 @@ MonoBehaviour:
   m_MaxPayloadSize: 6144
   m_HeartbeatTimeoutMS: 500
   m_ConnectTimeoutMS: 3000
-  m_MaxConnectAttempts: 1
+  m_MaxConnectAttempts: 2
   m_DisconnectTimeoutMS: 30000
   ConnectionData:
     Address: 127.0.0.1
@@ -125,7 +125,7 @@ MonoBehaviour:
   m_MaxPayloadSize: 6144
   m_HeartbeatTimeoutMS: 500
   m_ConnectTimeoutMS: 3000
-  m_MaxConnectAttempts: 1
+  m_MaxConnectAttempts: 2
   m_DisconnectTimeoutMS: 30000
   ConnectionData:
     Address: 127.0.0.1

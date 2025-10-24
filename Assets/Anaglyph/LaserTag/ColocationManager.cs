@@ -35,7 +35,8 @@ namespace Anaglyph.Lasertag
 		{
 			await Awaitable.EndOfFrameAsync();
 
-			EnvironmentMapper.Instance.Clear();
+			// todo move out of
+			EnvironmentMapper.Instance?.Clear();
 
 			if (IsOwner)
 			{

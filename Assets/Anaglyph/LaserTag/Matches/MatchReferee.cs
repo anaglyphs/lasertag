@@ -130,23 +130,9 @@ namespace Anaglyph.Lasertag
 			OnStateChanged(MatchState.NotPlaying, MatchState.NotPlaying);
 		}
 
-		private void Update()
-		{
-			if (!IsSpawned) return;
-
-			var avatar = MainPlayer.Instance.Avatar;
-			if (avatar == null) return;
-
-			if (State != MatchState.Playing || avatar.Team == 0)
-			{
-				if (avatar.IsInBase)
-					avatar.TeamOwner.teamSync.Value = avatar.InBase.Team;
-			}
-		}
-
 		private void OnStateChanged(MatchState prev, MatchState state)
 		{
-			MainPlayer.Instance.Respawn();
+			MainPlayer.Instance?.Respawn();
 
 			switch (state)
 			{

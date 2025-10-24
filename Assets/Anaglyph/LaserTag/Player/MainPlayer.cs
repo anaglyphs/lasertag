@@ -48,6 +48,12 @@ namespace Anaglyph.Lasertag
 		{
 			this.isParticipating = isParticipating;
 			HandleAvatar();
+			Respawn();
+
+			if (!isParticipating)
+			{
+				WeaponsManagement.canFire = false;
+			}
 		}
 
 		private void HandleAvatar()
@@ -62,8 +68,6 @@ namespace Anaglyph.Lasertag
 			}
 		}
 
-		//[SerializeField] private BoolObject participatingInGames;
-
 		private void Awake()
 		{
 			Instance = this;
@@ -74,15 +78,12 @@ namespace Anaglyph.Lasertag
 		private void Start()
 		{
 			NetworkManager.Singleton.OnConnectionEvent += HandleConnectionEvent;
-			//participatingInGames.onChange += HandleParticipatingChange;
 		}
 
 		private void OnDestroy()
 		{
 			if (NetworkManager.Singleton != null)
 				NetworkManager.Singleton.OnConnectionEvent -= HandleConnectionEvent;
-
-			//participatingInGames.onChange -= HandleParticipatingChange;
 		}
 
 		private void HandleConnectionEvent(NetworkManager manager, ConnectionEventData eventData)
@@ -144,7 +145,7 @@ namespace Anaglyph.Lasertag
 		{
 			if (IsAlive) return;
 
-			passthroughLayer.edgeColor = Color.clear;
+			ClearPassthroughEffects();
 
 			WeaponsManagement.canFire = true;
 
@@ -154,7 +155,6 @@ namespace Anaglyph.Lasertag
 			IsAlive = true;
 			Health = MaxHealth;
 
-			//onAliveChange.Invoke(true);
 			Respawned.Invoke();
 		}
 
@@ -172,9 +172,17 @@ namespace Anaglyph.Lasertag
 			RespawnTimerSeconds = Mathf.Clamp(RespawnTimerSeconds, 0, MatchReferee.Instance.Settings.respawnSeconds);
 		}
 
+		private void ClearPassthroughEffects()
+		{
+			passthroughLayer.edgeRenderingEnabled = false;
+			passthroughLayer.edgeColor = Color.clear;
+		}
+
 		private void Update()
 		{
 			// health
+			if (avatar == null)
+				return;
 
 			if (redDamagedVision)
 			{
@@ -184,8 +192,7 @@ namespace Anaglyph.Lasertag
 			}
 			else
 			{
-				passthroughLayer.edgeRenderingEnabled = false;
-				passthroughLayer.edgeColor = Color.clear;
+				ClearPassthroughEffects();
 			}
 
 			if (IsAlive)
@@ -200,32 +207,34 @@ namespace Anaglyph.Lasertag
 
 			Health = Mathf.Clamp(Health, 0, MaxHealth);
 
-
+			// bases
 			IsInFriendlyBase = false;
-			if (avatar != null)
+			foreach (Base teamBase in Base.AllBases)
 			{
-				// bases
-				foreach (Base b in Base.AllBases)
+				if (Geo.PointIsInCylinder(teamBase.transform.position, Base.Radius, 3, headTransform.position))
 				{
-					if (b.Team != avatar.Team)
+					if (MatchReferee.Instance.State != MatchState.Playing || avatar.Team == 0)
+					{
+						avatar.TeamOwner.teamSync.Value = teamBase.Team;
+					}
+					else if (avatar.Team != teamBase.Team)
+					{
 						continue;
-
-					if (!Geo.PointIsInCylinder(b.transform.position, Base.Radius, 3, headTransform.position))
-						continue;
+					}
 
 					IsInFriendlyBase = true;
 					break;
 				}
-
-				// network player transforms
-				avatar.HeadTransform.SetWorldPose(headTransform.GetWorldPose());
-				avatar.LeftHandTransform.SetWorldPose(leftHandTransform.GetWorldPose());
-				avatar.RightHandTransform.SetWorldPose(rightHandTransform.GetWorldPose());
-
-				var spineMid = skeleton.Bones[(int)OVRSkeleton.BoneId.Body_SpineMiddle].Transform;
-				avatar.TorsoTransform.SetWorldPose(spineMid.GetWorldPose());
-				// wtf
 			}
+
+			// network player transforms
+			avatar.HeadTransform.SetWorldPose(headTransform.GetWorldPose());
+			avatar.LeftHandTransform.SetWorldPose(leftHandTransform.GetWorldPose());
+			avatar.RightHandTransform.SetWorldPose(rightHandTransform.GetWorldPose());
+
+			var spineMid = skeleton.Bones[(int)OVRSkeleton.BoneId.Body_SpineMiddle].Transform;
+			avatar.TorsoTransform.SetWorldPose(spineMid.GetWorldPose());
+			// wtf
 		}
 	}
 }

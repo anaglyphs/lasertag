@@ -108,7 +108,7 @@ namespace Anaglyph.Lasertag.Operator
 		{
 			ColocationManager.Instance.HostAprilTagSize = tagSizeCm;
 			ColocationManager.Instance.HostColocationMethod = ColocationManager.Method.AprilTag;
-			MainPlayer.Instance.SetIsParticipating(false);
+			MainPlayer.Instance?.SetIsParticipating(false);
 
 			if (useRelay)
 			{
