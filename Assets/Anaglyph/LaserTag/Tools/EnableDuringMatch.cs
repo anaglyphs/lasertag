@@ -34,7 +34,7 @@ namespace Anaglyph.Lasertag
 
 		private void HandleChange()
 		{
-			bool isPlaying = referee.State == MatchState.Playing;
+			bool isPlaying = MatchReferee.State == MatchState.Playing;
 			foreach (Behaviour behaviour in behaviours)
 			{
 				behaviour.enabled = isPlaying ^ invert;

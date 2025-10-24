@@ -5,6 +5,7 @@ using System.Collections;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.XR;
 
 namespace Anaglyph.Lasertag
 {
@@ -60,6 +61,9 @@ namespace Anaglyph.Lasertag
 
 		private async void EnvRaymarch()
 		{
+			if (!XRSettings.enabled)
+				return;
+
 			fireRay = new(transform.position, transform.forward);
 			var result = await EnvironmentMapper.Instance.RaymarchAsync(fireRay, MaxTravelDist);
 			if (result.didHit)

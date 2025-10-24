@@ -86,7 +86,8 @@ namespace Anaglyph.Lasertag
 		public static MatchReferee Instance { get; private set; }
 
 		private readonly NetworkVariable<MatchState> stateSync = new(MatchState.NotPlaying);
-		public MatchState State => stateSync.Value;
+
+		public static MatchState State { get; private set; } = MatchState.NotPlaying;
 		public static event Action<MatchState> StateChanged = delegate { };
 		public static event Action MatchFinished = delegate { };
 
@@ -132,6 +133,8 @@ namespace Anaglyph.Lasertag
 
 		private void OnStateChanged(MatchState prev, MatchState state)
 		{
+			State = state;
+
 			MainPlayer.Instance?.Respawn();
 
 			switch (state)
@@ -171,6 +174,7 @@ namespace Anaglyph.Lasertag
 
 		public override void OnDestroy()
 		{
+			State = MatchState.NotPlaying;
 			base.OnDestroy();
 			cancelTokenSrc?.Cancel();
 		}

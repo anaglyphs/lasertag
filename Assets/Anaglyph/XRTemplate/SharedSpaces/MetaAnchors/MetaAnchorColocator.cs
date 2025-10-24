@@ -2,6 +2,7 @@ using System;
 using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
+using UnityEngine.XR;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
@@ -33,7 +34,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public void InstantiateNewAnchor()
 		{
-			if(ColocationAnchor.Instance != null)
+			if (ColocationAnchor.Instance != null)
 				ColocationAnchor.Instance.DespawnAndDestroyRpc();
 
 			Transform head = MainXRRig.Camera.transform;
@@ -55,6 +56,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public async void Colocate()
 		{
+			if (!XRSettings.enabled)
+				return;
+
 			IsColocated = false;
 
 			await Awaitable.EndOfFrameAsync();
@@ -91,6 +95,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public async void AlignTo(ColocationAnchor anchor)
 		{
+			if (!XRSettings.enabled)
+				return;
+
 			await Awaitable.EndOfFrameAsync();
 
 			if (!anchor.IsLocalized)

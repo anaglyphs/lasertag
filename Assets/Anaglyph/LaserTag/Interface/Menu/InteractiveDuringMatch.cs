@@ -36,7 +36,7 @@ namespace Anaglyph.Lasertag
 
 		private void HandleChange()
 		{
-			bool isPlaying = MatchReferee.Instance.State == MatchState.Playing;
+			bool isPlaying = MatchReferee.State == MatchState.Playing;
 			selectable.interactable = isPlaying ^ invert;
 		}
 	}

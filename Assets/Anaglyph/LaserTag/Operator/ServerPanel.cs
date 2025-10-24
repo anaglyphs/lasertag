@@ -335,10 +335,7 @@ namespace Anaglyph.Lasertag.Operator
 
 
 			UpdateHostingPage(NetcodeManagement.State);
-
-			var matchReferee = MatchReferee.Instance;
-			var matchState = matchReferee == null ? MatchState.NotPlaying : matchReferee.State;
-			UpdateMatchPage(matchState);
+			UpdateMatchPage(MatchReferee.State);
 		}
 	}
 }

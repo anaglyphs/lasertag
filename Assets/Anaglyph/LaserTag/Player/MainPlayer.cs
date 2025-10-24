@@ -5,6 +5,7 @@ using System;
 using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
+using UnityEngine.XR;
 
 namespace Anaglyph.Lasertag
 {
@@ -49,6 +50,8 @@ namespace Anaglyph.Lasertag
 			Instance = this;
 
 			passthroughLayer = FindFirstObjectByType<OVRPassthroughLayer>();
+
+			isParticipating = XRSettings.enabled;
 		}
 
 		private void Start()
@@ -134,9 +137,9 @@ namespace Anaglyph.Lasertag
 			{
 				avatar.KilledByPlayerRpc(killerID);
 
-				var referee = MatchReferee.Instance;
-				if (referee.State == MatchState.Playing && killer.Team != avatar.Team)
+				if (MatchReferee.State == MatchState.Playing && killer.Team != avatar.Team)
 				{
+					var referee = MatchReferee.Instance;
 					referee.ScoreTeamRpc(killer.Team, referee.Settings.pointsPerKill);
 				}
 			}
@@ -214,7 +217,7 @@ namespace Anaglyph.Lasertag
 			{
 				if (Geo.PointIsInCylinder(teamBase.transform.position, Base.Radius, 3, headTransform.position))
 				{
-					if (MatchReferee.Instance.State != MatchState.Playing || avatar.Team == 0)
+					if (MatchReferee.State != MatchState.Playing || avatar.Team == 0)
 					{
 						avatar.TeamOwner.teamSync.Value = teamBase.Team;
 					}

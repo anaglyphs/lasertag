@@ -8,6 +8,7 @@ using Unity.Mathematics;
 using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
+using UnityEngine.XR;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
@@ -114,6 +115,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private void LateUpdate()
 		{
+			if (!XRSettings.enabled)
+				return;
+
 			if (!colocationActive)
 				return;
 

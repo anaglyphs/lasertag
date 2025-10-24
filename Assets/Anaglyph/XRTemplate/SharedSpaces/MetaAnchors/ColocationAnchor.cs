@@ -1,6 +1,7 @@
 using System;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.XR;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
@@ -21,6 +22,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public async override void OnNetworkSpawn()
 		{
+			if (!XRSettings.enabled)
+				return;
+
 			OVRManager.display.RecenteredPose += OnRecenter;
 
 			bool localized = await networkedAnchor.Anchor.WhenLocalizedAsync();
