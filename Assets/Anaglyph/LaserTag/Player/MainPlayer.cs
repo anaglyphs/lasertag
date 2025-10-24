@@ -42,7 +42,31 @@ namespace Anaglyph.Lasertag
 		// todo move this into another component. this really doesn't belong here
 		private OVRPassthroughLayer passthroughLayer;
 		public bool redDamagedVision = true;
-		public bool isParticipating { get; private set; } = false;
+		public bool isParticipating { get; private set; } = true;
+
+		private void Awake()
+		{
+			Instance = this;
+
+			passthroughLayer = FindFirstObjectByType<OVRPassthroughLayer>();
+		}
+
+		private void Start()
+		{
+			NetworkManager.Singleton.OnConnectionEvent += HandleConnectionEvent;
+		}
+
+		private void OnDestroy()
+		{
+			if (NetworkManager.Singleton != null)
+				NetworkManager.Singleton.OnConnectionEvent -= HandleConnectionEvent;
+		}
+
+		private void HandleConnectionEvent(NetworkManager manager, ConnectionEventData eventData)
+		{
+			if (NetcodeManagement.ThisClientConnected(eventData))
+				HandleAvatar();
+		}
 
 		public void SetIsParticipating(bool isParticipating)
 		{
@@ -68,29 +92,6 @@ namespace Anaglyph.Lasertag
 			}
 		}
 
-		private void Awake()
-		{
-			Instance = this;
-
-			passthroughLayer = FindFirstObjectByType<OVRPassthroughLayer>();
-		}
-
-		private void Start()
-		{
-			NetworkManager.Singleton.OnConnectionEvent += HandleConnectionEvent;
-		}
-
-		private void OnDestroy()
-		{
-			if (NetworkManager.Singleton != null)
-				NetworkManager.Singleton.OnConnectionEvent -= HandleConnectionEvent;
-		}
-
-		private void HandleConnectionEvent(NetworkManager manager, ConnectionEventData eventData)
-		{
-			if (NetcodeManagement.ThisClientConnected(eventData))
-				HandleAvatar();
-		}
 		private void SpawnAvatar()
 		{
 			var manager = NetworkManager.Singleton;

@@ -23,7 +23,10 @@ namespace Anaglyph.Lasertag.ControllerIntegration
 		private void Awake()
 		{
 			if (Application.isEditor)
+			{
+				enabled = false;
 				return;
+			}
 			
 			hierarchyHandedness = GetComponentInParent<HandedHierarchy>(true);
 			oculusHapticPlayer = new();
