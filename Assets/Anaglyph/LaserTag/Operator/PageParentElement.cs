@@ -1,6 +1,6 @@
 using UnityEngine.UIElements;
 
-namespace Anaglyph.Lasertag.Anaglyph.LaserTag.Operator
+namespace Anaglyph.Lasertag.Operator
 {
 	public class PageParentElement : VisualElement
 	{

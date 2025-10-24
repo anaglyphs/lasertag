@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 
+using System.Text.RegularExpressions;
 using Anaglyph.Netcode;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
@@ -7,7 +8,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Anaglyph.Lasertag.Anaglyph.LaserTag.Operator
+namespace Anaglyph.Lasertag.Operator
 {
 	public sealed class ServerWindow : EditorWindow
 	{
@@ -40,20 +41,19 @@ namespace Anaglyph.Lasertag.Anaglyph.LaserTag.Operator
 		{
 			var window = GetWindow<ServerWindow>("Server Menu");
 			window.minSize = new Vector2(320, 200);
-			window.LoadPrefs();
-			window.CreateUI();
 		}
 
 		private void OnEnable()
 		{
 			LoadPrefs();
-			
 			CreateUI();
+			
+			NetcodeManagement.StateChange += UpdateHostingPage;
+			MatchReferee.StateChanged += UpdateMatchPage;
 		}
 
 		private void OnDisable()
 		{
-			SavePrefs();
 			NetcodeManagement.StateChange -= UpdateHostingPage;
 			MatchReferee.StateChanged -= UpdateMatchPage;
 		}
@@ -64,14 +64,6 @@ namespace Anaglyph.Lasertag.Anaglyph.LaserTag.Operator
 			useRelay = EditorPrefs.GetBool(UseRelaySaveKey, false);
 			roomName = EditorPrefs.GetString(RoomNameSaveKey, "");
 			ipAddress = EditorPrefs.GetString(IpSaveKey, "127.0.0.1");
-		}
-
-		private void SavePrefs()
-		{
-			EditorPrefs.SetFloat(TagSizeSaveKey, Mathf.Max(0f, tagSizeCm));
-			EditorPrefs.SetBool(UseRelaySaveKey, useRelay);
-			EditorPrefs.SetString(RoomNameSaveKey, roomName);
-			EditorPrefs.SetString(IpSaveKey, ipAddress);
 		}
 		
 		private void UpdateHostingPage(NetcodeManagement.NetworkState state) 
@@ -155,13 +147,11 @@ namespace Anaglyph.Lasertag.Anaglyph.LaserTag.Operator
 			
 			startServerPage.Add(new Label("Host Settings") { style = { unityFontStyleAndWeight = FontStyle.Bold } });
 
-			startServerPage.Add(new Label("If using a Windows hotspot, remember to give Unity an exception in Windows Firewall."));
-
 			var tagField = new FloatField("AprilTag size (cm)") { value = tagSizeCm };
 			tagField.RegisterValueChangedCallback(evt =>
 			{
 				tagSizeCm = Mathf.Max(0f, evt.newValue);
-				SavePrefs();
+				EditorPrefs.SetFloat(TagSizeSaveKey, tagSizeCm);
 			});
 			startServerPage.Add(tagField);
 
@@ -175,20 +165,21 @@ namespace Anaglyph.Lasertag.Anaglyph.LaserTag.Operator
 			ipField.RegisterValueChangedCallback(evt =>
 			{
 				ipAddress = evt.newValue;
-				SavePrefs();
+				EditorPrefs.SetString(IpSaveKey, ipAddress);
 			});
 			lanPage.Add(ipField);
 			
 			var relayPage = new VisualElement();
 			protocolPages.Add(relayPage);
 			
-			var roomField = new TextField("Room Name") { value = roomName };
-			roomField.RegisterValueChangedCallback(evt =>
+			var roomNameField = new TextField("Room Name") { value = roomName };
+			roomNameField.RegisterValueChangedCallback(evt =>
 			{
-				roomName = evt.newValue;
-				SavePrefs();
+				roomName = Regex.Replace(evt.newValue, @"[^a-zA-Z0-9]", "");
+				roomNameField.SetValueWithoutNotify(roomName);
+				EditorPrefs.SetString(RoomNameSaveKey, roomName);
 			});
-			relayPage.Add(roomField);
+			relayPage.Add(roomNameField);
 			
 			protocolPages.SetActiveElement(useRelay ? relayPage : lanPage);
 			
@@ -197,7 +188,7 @@ namespace Anaglyph.Lasertag.Anaglyph.LaserTag.Operator
 			useRelayField.RegisterValueChangedCallback(evt =>
 			{
 				useRelay = evt.newValue;
-				SavePrefs();
+				EditorPrefs.SetBool(UseRelaySaveKey, useRelay);
 
 				protocolPages.SetActiveElement(useRelay ? relayPage : lanPage);
 			});
@@ -221,6 +212,13 @@ namespace Anaglyph.Lasertag.Anaglyph.LaserTag.Operator
 				}
 			};
 			startServerPage.Add(hostButton);
+			
+			startServerPage.Add(new Label("If using a Windows hotspot, remember to give Unity an exception in Windows Firewall.")
+			{
+				style = {
+					whiteSpace = WhiteSpace.Normal,
+				}
+			});
 
 			// connecting
 			connectingPage = new VisualElement();
@@ -330,10 +328,8 @@ namespace Anaglyph.Lasertag.Anaglyph.LaserTag.Operator
 			matchRunningPage.Add(stopGame);
 			
 			
-			NetcodeManagement.StateChange += UpdateHostingPage;
 			UpdateHostingPage(NetcodeManagement.State);
 			
-			MatchReferee.StateChanged += UpdateMatchPage;
 			var matchReferee = MatchReferee.Instance;
 			var matchState = matchReferee == null ? MatchState.NotPlaying : matchReferee.State;
 			UpdateMatchPage(matchState);
