@@ -13,7 +13,7 @@ namespace Anaglyph.XRTemplate
 				return;
 			
 			OVRManager.display.RecenteredPose += ResetCalibration;
-			NetcodeManagement.StateChange += OnNetcodeStateChanged;
+			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
 		}
 
 		private void OnDestroy()
@@ -21,12 +21,12 @@ namespace Anaglyph.XRTemplate
 			if(OVRManager.display != null)
 				OVRManager.display.RecenteredPose -= ResetCalibration;
 
-			NetcodeManagement.StateChange -= OnNetcodeStateChanged;
+			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
 		}
 
-		private void OnNetcodeStateChanged(NetcodeManagement.NetworkState state)
+		private void OnNetcodeStateChanged(NetcodeState state)
 		{
-			if(state == NetcodeManagement.NetworkState.Connected)
+			if(state == NetcodeState.Connected)
 				ResetCalibration();
 		}
 

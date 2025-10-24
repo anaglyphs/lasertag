@@ -135,8 +135,6 @@ namespace Anaglyph.Lasertag
 		{
 			State = state;
 
-			MainPlayer.Instance?.Respawn();
-
 			switch (state)
 			{
 				case MatchState.Playing:

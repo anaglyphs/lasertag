@@ -55,7 +55,7 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			NetcodeManagement.StateChange += IsNetworkRunningChanged;
+			NetcodeManagement.StateChanged += IsNetworkRunningChanged;
 
 			// home page
 			hostButton.onClick.AddListener(Host);
@@ -90,25 +90,25 @@ namespace Anaglyph.Lasertag
 
 		private void OnDestroy()
 		{
-			NetcodeManagement.StateChange -= IsNetworkRunningChanged;
+			NetcodeManagement.StateChanged -= IsNetworkRunningChanged;
 			Colocation.IsColocatedChange -= OnColocationChange;
 		}
 
-		private void IsNetworkRunningChanged(NetcodeManagement.NetworkState state)
+		private void IsNetworkRunningChanged(NetcodeState state)
 		{
 			switch (state)
 			{
-				case NetcodeManagement.NetworkState.Disconnected:
+				case NetcodeState.Disconnected:
 					sessionIpText.text = "";
 					homePage.NavigateHere();
 					break;
 
-				case NetcodeManagement.NetworkState.Connecting:
+				case NetcodeState.Connecting:
 					UpdateIpText();
 					OpenSessionPage(SessionState.Connecting);
 					break;
 
-				case NetcodeManagement.NetworkState.Connected:
+				case NetcodeState.Connected:
 					UpdateIpText();
 					OnColocationChange(Colocation.IsColocated);
 					break;
@@ -151,7 +151,7 @@ namespace Anaglyph.Lasertag
 
 		private void OnColocationChange(bool isColocated)
 		{
-			if (NetcodeManagement.State == NetcodeManagement.NetworkState.Connected)
+			if (NetcodeManagement.State == NetcodeState.Connected)
 				OpenSessionPage(Colocation.IsColocated ? SessionState.Connected : SessionState.Colocating);
 		}
 

@@ -25,6 +25,9 @@ namespace Anaglyph.Lasertag.Operator
 		private const string UseRelaySaveKey = "Lasertag.useRelay";
 		private bool useRelay = false;
 
+		private const string UseAprilTagsSaveKey = "Lasertag.useAprilTags";
+		private bool useAprilTags = false;
+
 		private const string RoomNameSaveKey = "Lasertag.roomName";
 		private string roomName = "";
 
@@ -48,13 +51,13 @@ namespace Anaglyph.Lasertag.Operator
 			LoadPrefs();
 			CreateUI();
 
-			NetcodeManagement.StateChange += UpdateHostingPage;
+			NetcodeManagement.StateChanged += UpdateHostingPage;
 			MatchReferee.StateChanged += UpdateMatchPage;
 		}
 
 		private void OnDisable()
 		{
-			NetcodeManagement.StateChange -= UpdateHostingPage;
+			NetcodeManagement.StateChanged -= UpdateHostingPage;
 			MatchReferee.StateChanged -= UpdateMatchPage;
 		}
 
@@ -62,23 +65,24 @@ namespace Anaglyph.Lasertag.Operator
 		{
 			tagSizeCm = EditorPrefs.GetFloat(TagSizeSaveKey, tagSizeCm);
 			useRelay = EditorPrefs.GetBool(UseRelaySaveKey, useRelay);
+			useAprilTags = EditorPrefs.GetBool(UseAprilTagsSaveKey, useAprilTags);
 			roomName = EditorPrefs.GetString(RoomNameSaveKey, roomName);
 			ipAddress = EditorPrefs.GetString(IpSaveKey, ipAddress);
 		}
 
-		private void UpdateHostingPage(NetcodeManagement.NetworkState state)
+		private void UpdateHostingPage(NetcodeState state)
 		{
 			switch (state)
 			{
-				case NetcodeManagement.NetworkState.Disconnected:
+				case NetcodeState.Disconnected:
 					networkPages.SetActiveElement(startServerPage);
 					break;
 
-				case NetcodeManagement.NetworkState.Connecting:
+				case NetcodeState.Connecting:
 					networkPages.SetActiveElement(connectingPage);
 					break;
 
-				case NetcodeManagement.NetworkState.Connected:
+				case NetcodeState.Connected:
 					networkPages.SetActiveElement(connectedPage);
 					break;
 
@@ -107,7 +111,7 @@ namespace Anaglyph.Lasertag.Operator
 		private void StartHost()
 		{
 			ColocationManager.Instance.HostAprilTagSize = tagSizeCm;
-			ColocationManager.Instance.HostColocationMethod = ColocationManager.Method.AprilTag;
+			ColocationManager.Instance.HostColocationMethod = useAprilTags ? ColocationManager.Method.AprilTag : ColocationManager.Method.MetaSharedAnchor;
 			MainPlayer.Instance?.SetIsParticipating(false);
 
 			if (useRelay)
@@ -144,15 +148,28 @@ namespace Anaglyph.Lasertag.Operator
 					startServerPage.Add(new Label("Host Settings")
 						{ style = { unityFontStyleAndWeight = FontStyle.Bold } });
 
-					var tagField = new FloatField("AprilTag size (cm)") { value = tagSizeCm };
-					tagField.RegisterValueChangedCallback(evt =>
+					var useAprilTagsField = new Toggle("Use AprilTag alignment") { value = useAprilTags };
+					useAprilTagsField.RegisterValueChangedCallback(evt =>
+					{
+						useAprilTags = evt.newValue;
+						EditorPrefs.SetBool(UseAprilTagsSaveKey, useAprilTags);
+					});
+					startServerPage.Add(useAprilTagsField);
+
+					var tagSizeField = new FloatField("AprilTag size (cm)") { value = tagSizeCm };
+					tagSizeField.RegisterValueChangedCallback(evt =>
 					{
 						tagSizeCm = Mathf.Max(0f, evt.newValue);
 						EditorPrefs.SetFloat(TagSizeSaveKey, tagSizeCm);
 					});
-					startServerPage.Add(tagField);
-					
-					
+					startServerPage.Add(tagSizeField);
+
+					useAprilTagsField.RegisterValueChangedCallback(evt =>
+					{
+						tagSizeField.style.display = useAprilTags ? DisplayStyle.Flex : DisplayStyle.None;
+					});
+					tagSizeField.style.display = useAprilTags ? DisplayStyle.Flex : DisplayStyle.None;
+
 					var useRelayField = new Toggle("Use Relay") { value = useRelay };
 					useRelayField.RegisterValueChangedCallback(evt =>
 					{

@@ -5,7 +5,6 @@ using System;
 using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
-using UnityEngine.XR;
 
 namespace Anaglyph.Lasertag
 {
@@ -51,24 +50,25 @@ namespace Anaglyph.Lasertag
 
 			passthroughLayer = FindFirstObjectByType<OVRPassthroughLayer>();
 
-			isParticipating = XRSettings.enabled;
-		}
-
-		private void Start()
-		{
-			NetworkManager.Singleton.OnConnectionEvent += HandleConnectionEvent;
+			NetcodeManagement.StateChanged += OnNetworkStateChange;
+			MatchReferee.StateChanged += OnMatchStateChange;
 		}
 
 		private void OnDestroy()
 		{
-			if (NetworkManager.Singleton != null)
-				NetworkManager.Singleton.OnConnectionEvent -= HandleConnectionEvent;
+			NetcodeManagement.StateChanged -= OnNetworkStateChange;
+			MatchReferee.StateChanged -= OnMatchStateChange;
 		}
 
-		private void HandleConnectionEvent(NetworkManager manager, ConnectionEventData eventData)
+		private void OnNetworkStateChange(NetcodeState state)
 		{
-			if (NetcodeManagement.ThisClientConnected(eventData))
+			if(state == NetcodeState.Connected)
 				HandleAvatar();
+		}
+
+		private void OnMatchStateChange(MatchState state)
+		{
+			Respawn();
 		}
 
 		public void SetIsParticipating(bool isParticipating)
@@ -85,11 +85,11 @@ namespace Anaglyph.Lasertag
 
 		private void HandleAvatar()
 		{
-			if (NetworkManager.Singleton.IsConnectedClient && isParticipating && avatar == null)
+			if (NetcodeManagement.State == NetcodeState.Connected && isParticipating && avatar == null)
 			{
 				SpawnAvatar();
 			}
-			else if (!NetworkManager.Singleton.IsConnectedClient || !isParticipating && avatar != null)
+			else if (NetcodeManagement.State != NetcodeState.Connected || !isParticipating && avatar != null)
 			{
 				avatar?.NetworkObject.Despawn();
 			}

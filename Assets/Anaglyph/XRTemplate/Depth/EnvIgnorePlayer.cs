@@ -7,12 +7,12 @@ namespace Anaglyph.XRTemplate.DepthKit
 	{
 		private void Awake()
 		{
-			EnvironmentMapper.Instance.PlayerHeads.Add(transform);
+			EnvironmentMapper.Instance?.PlayerHeads.Add(transform);
 		}
 
 		private void OnDestroy()
 		{
-			EnvironmentMapper.Instance.PlayerHeads.Remove(transform);
+			EnvironmentMapper.Instance?.PlayerHeads.Remove(transform);
 		}
 	}
 }

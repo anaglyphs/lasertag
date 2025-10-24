@@ -57,18 +57,18 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			if (shouldSubscribe)
 			{
-				NetcodeManagement.StateChange += OnNetworkStateChange;
+				NetcodeManagement.StateChanged += OnNetworkStateChange;
 				OVRColocationSession.ColocationSessionDiscovered += HandleColocationSessionDiscovered;
 			} else
 			{
-				NetcodeManagement.StateChange -= OnNetworkStateChange;
+				NetcodeManagement.StateChanged -= OnNetworkStateChange;
 				OVRColocationSession.ColocationSessionDiscovered -= HandleColocationSessionDiscovered;
 			}
 
 			isSubscribed = shouldSubscribe;
 		}
 
-		private void OnNetworkStateChange(NetcodeManagement.NetworkState state)
+		private void OnNetworkStateChange(NetcodeState state)
 		{
 			UpdateState();
 		}
@@ -110,13 +110,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			{
 				switch (NetcodeManagement.State)
 				{
-					case NetcodeManagement.NetworkState.Disconnected:
+					case NetcodeState.Disconnected:
 						newState = State.NetcodeDisconnected;
 						break;
-					case NetcodeManagement.NetworkState.Connecting:
+					case NetcodeState.Connecting:
 						newState = State.NetcodeConnecting;
 						break;
-					case NetcodeManagement.NetworkState.Connected:
+					case NetcodeState.Connected:
 						newState = State.NetcodeConnected;
 						break;
 				}
