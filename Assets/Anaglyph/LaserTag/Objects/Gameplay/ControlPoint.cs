@@ -43,15 +43,13 @@ namespace Anaglyph.Lasertag
 				ControllingTeamChanged.Invoke(HoldingTeam);
 			};
 
-			referee.StateChanged += OnMatchStateChanged;
+			MatchReferee.StateChanged += OnMatchStateChanged;
 		}
 
 		public override void OnDestroy()
 		{
 			base.OnDestroy();
-
-			if (referee != null)
-				referee.StateChanged -= OnMatchStateChanged;
+			MatchReferee.StateChanged -= OnMatchStateChanged;
 		}
 
 		private void OnMatchStateChanged(MatchState state)

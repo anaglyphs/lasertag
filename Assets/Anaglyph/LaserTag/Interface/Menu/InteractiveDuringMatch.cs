@@ -19,15 +19,14 @@ namespace Anaglyph.Lasertag
 		private void Start()
 		{
 			selectable = GetComponent<Selectable>();
-			referee.StateChanged += OnMatchStateChanged;
+			MatchReferee.StateChanged += OnMatchStateChanged;
 
 			HandleChange();
 		}
 
 		private void OnDestroy()
 		{
-			if (referee != null)
-				referee.StateChanged -= OnMatchStateChanged;
+			MatchReferee.StateChanged -= OnMatchStateChanged;
 		}
 
 		private void OnMatchStateChanged(MatchState current)

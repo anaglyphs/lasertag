@@ -9,6 +9,9 @@ namespace Anaglyph.XRTemplate
 
 		private void Start()
 		{
+			if (Application.isEditor)
+				return;
+			
 			OVRManager.display.RecenteredPose += ResetCalibration;
 			NetcodeManagement.StateChange += OnNetcodeStateChanged;
 		}

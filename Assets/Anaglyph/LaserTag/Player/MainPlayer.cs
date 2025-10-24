@@ -5,7 +5,6 @@ using System;
 using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
-using VariableObjects;
 
 namespace Anaglyph.Lasertag
 {

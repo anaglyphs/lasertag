@@ -36,13 +36,12 @@ namespace Anaglyph.Lasertag
 
 		public override void OnNetworkSpawn()
 		{
-			MatchReferee.Instance.StateChanged += OnMatchStateChanged;
+			MatchReferee.StateChanged += OnMatchStateChanged;
 		}
 
-		public override void OnNetworkDespawn() {
-
-			if (MatchReferee.Instance != null)
-				MatchReferee.Instance.StateChanged -= OnMatchStateChanged;
+		public override void OnNetworkDespawn() 
+		{
+			MatchReferee.StateChanged -= OnMatchStateChanged;
 		}
 
 		public override void OnGainedOwnership()

@@ -87,8 +87,8 @@ namespace Anaglyph.Lasertag
 
 		private readonly NetworkVariable<MatchState> stateSync = new(MatchState.NotPlaying);
 		public MatchState State => stateSync.Value;
-		public event Action<MatchState> StateChanged = delegate { };
-		public event Action MatchFinished = delegate { };
+		public static event Action<MatchState> StateChanged = delegate { };
+		public static event Action MatchFinished = delegate { };
 
 		private readonly NetworkVariable<int> team0ScoreSync = new(0);
 		private readonly NetworkVariable<int> team1ScoreSync = new(0);

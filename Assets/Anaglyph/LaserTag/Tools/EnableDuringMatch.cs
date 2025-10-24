@@ -17,15 +17,14 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			referee.StateChanged += OnMatchStateChanged;
+			MatchReferee.StateChanged += OnMatchStateChanged;
 
 			HandleChange();
 		}
 
 		private void OnDestroy()
 		{
-			if (referee != null)
-				referee.StateChanged -= OnMatchStateChanged;
+			MatchReferee.StateChanged -= OnMatchStateChanged;
 		}
 
 		private void OnMatchStateChanged(MatchState current)

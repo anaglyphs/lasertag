@@ -20,7 +20,8 @@ namespace Anaglyph.Netcode
 		public const float cooldownSeconds = 8;
 
 		private static NetworkManager manager => NetworkManager.Singleton;
-		private static UnityTransport transport => (UnityTransport)NetworkManager.Singleton.NetworkConfig.NetworkTransport;
+		private static UnityTransport transport =>
+			(UnityTransport)NetworkManager.Singleton.NetworkConfig.NetworkTransport;
 
 		public enum NetworkState
 		{
@@ -61,10 +62,11 @@ namespace Anaglyph.Netcode
 
 		private static void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
 		{
-			if(NetcodeManagement.ThisClientConnected(data))
+			if (NetcodeManagement.ThisClientConnected(data))
 			{
 				State = NetworkState.Connected;
-			} else if(NetcodeManagement.ThisClientDisconnected(data))
+			}
+			else if (NetcodeManagement.ThisClientDisconnected(data))
 			{
 				State = NetworkState.Disconnected;
 			}
@@ -111,11 +113,10 @@ namespace Anaglyph.Netcode
 
 		public static void Host(Protocol protocol)
 		{
-			SetNetworkTransportType(protocol);
-
 			switch (protocol)
 			{
 				case Protocol.LAN:
+					SetNetworkTransportType(Protocol.LAN);
 					manager.NetworkConfig.UseCMBService = false;
 
 					string localAddress = "";
@@ -174,12 +175,15 @@ namespace Anaglyph.Netcode
 		{
 			if (State != NetworkState.Disconnected)
 				return;
+			
+			SetNetworkTransportType(Protocol.UnityService);
 
 			manager.NetworkConfig.UseCMBService = true;
 
 			State = NetworkState.Connecting;
 
-			if (Time.time < cooldownDoneTime) {
+			if (Time.time < cooldownDoneTime)
+			{
 				float waitTime = cooldownDoneTime - Time.time;
 				await Awaitable.WaitForSecondsAsync(waitTime);
 			}
