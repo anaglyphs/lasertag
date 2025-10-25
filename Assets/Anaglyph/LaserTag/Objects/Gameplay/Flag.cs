@@ -61,7 +61,7 @@ namespace Anaglyph.Lasertag
 			
 			if (!FlagHolder)
 			{
-				Vector3 playerHeadPos = MainPlayer.Instance.HeadTransform.position;
+				Vector3 playerHeadPos = Player.Instance.HeadTransform.position;
 				bool isInside = Geo.PointIsInCylinder(transform.position, radius, 3, playerHeadPos);
 				bool isOtherTeam = teamOwner.Team != PlayerAvatar.Local.Team;
 
@@ -94,7 +94,7 @@ namespace Anaglyph.Lasertag
 
 		private void PickupLocal()
 		{
-			MainPlayer.Instance.Died += DropLocal;
+			Player.Instance.Died += DropLocal;
 			
 			FlagHolder = PlayerAvatar.Local;
 			PickupFlagRpc(NetworkManager.LocalClientId);
@@ -113,7 +113,7 @@ namespace Anaglyph.Lasertag
 
 		private void DropLocal()
 		{
-			MainPlayer.Instance.Died -= DropLocal;
+			Player.Instance.Died -= DropLocal;
 			DropFlagRpc();
 		}
 

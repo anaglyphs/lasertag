@@ -9,9 +9,9 @@ using UnityEngine;
 namespace Anaglyph.Lasertag
 {
 	[DefaultExecutionOrder(-100)]
-	public class MainPlayer : MonoBehaviour
+	public class Player : MonoBehaviour
 	{
-		public static MainPlayer Instance { get; private set; }
+		public static Player Instance { get; private set; }
 
 		private const float MaxHealth = 100;
 
@@ -181,10 +181,12 @@ namespace Anaglyph.Lasertag
 
 		private void Update()
 		{
-			// health
 			if (!PlayerAvatar.Local)
 				return;
-
+			
+			
+			
+			// health
 			if (redDamagedVision)
 			{
 				passthroughLayer.edgeRenderingEnabled = true;
