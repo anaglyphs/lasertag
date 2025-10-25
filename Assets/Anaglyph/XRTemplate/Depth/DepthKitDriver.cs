@@ -1,7 +1,9 @@
-using Unity.XR.Oculus;
+using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
+using UnityEngine.XR.ARSubsystems;
+using UnityEngine.XR.Management;
 
 namespace Anaglyph.XRTemplate.DepthKit
 {
@@ -9,6 +11,11 @@ namespace Anaglyph.XRTemplate.DepthKit
 	public class DepthKitDriver : MonoBehaviour
 	{
 		public static DepthKitDriver Instance { get; private set; }
+		
+		private XROcclusionSubsystem depthSubsystem;
+		private XRFov[]         depthFrameFOVs   = new XRFov[2];
+		private Pose[]          depthFramePoses  = new Pose[2];
+		private XRNearFarPlanes depthPlanes;
 
 		private Matrix4x4[] agDepthProj = new Matrix4x4[2];
 		private Matrix4x4[] agDepthProjInv = new Matrix4x4[2];
@@ -51,6 +58,14 @@ namespace Anaglyph.XRTemplate.DepthKit
 		{
 			normKernel = new(depthNormalCompute, "DepthNorm");
 		}
+		
+		private void GetDepthSubsystem()
+		{
+			var xrLoader = XRGeneralSettings.Instance.Manager.activeLoader;
+			if (!xrLoader)
+				return;
+			depthSubsystem = xrLoader.GetLoadedSubsystem<XROcclusionSubsystem>();
+		}
 
 		private void Update()
 		{
@@ -59,9 +74,15 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		public void UpdateCurrentRenderingState()
 		{
+			if (depthSubsystem == null)
+				GetDepthSubsystem();
+
+			if (depthSubsystem == null || !depthSubsystem.running)
+				return;
+			
 			Texture depthTex = Shader.GetGlobalTexture(Meta_EnvironmentDepthTexture_ID);
 
-			DepthAvailable = depthTex != null;
+			DepthAvailable = depthTex;
 
 			if (!DepthAvailable)
 				return;
@@ -96,15 +117,23 @@ namespace Anaglyph.XRTemplate.DepthKit
 			normKernel.DispatchGroups(normTex);
 
 			Shader.SetGlobalTexture(agDepthNormTex_ID, normTex);
+			
+			depthSubsystem.TryGetFrame(Allocator.Temp, out var frame);
+			frame.TryGetFovs(out var nativeFOVs);
+			nativeFOVs.CopyTo(depthFrameFOVs);
+			frame.TryGetPoses(out var nativePoses);
+			nativePoses.CopyTo(depthFramePoses);
+			frame.TryGetNearFarPlanes(out var nearFarPlanes);
 
 			for (int i = 0; i < agDepthProj.Length; i++)
 			{
-				var desc = Utils.GetEnvironmentDepthFrameDesc(i);
-
-				agDepthProj[i] = CalculateDepthProjMatrix(desc);
+				agDepthProj[i] = CalculateDepthProjMatrix(depthFrameFOVs[i], depthPlanes);
 				agDepthProjInv[i] = Matrix4x4.Inverse(agDepthProj[i]);
+				
+				var pose = depthFramePoses[i];
+				Matrix4x4 depthFrameMat = Matrix4x4.TRS(pose.position, pose.rotation, Vector3.one);
 
-				agDepthView[i] = CalculateDepthViewMatrix(desc) * MainXRRig.TrackingSpace.worldToLocalMatrix;
+				agDepthView[i] = depthFrameMat.inverse * MainXRRig.TrackingSpace.worldToLocalMatrix;
 				agDepthViewInv[i] = Matrix4x4.Inverse(agDepthView[i]);
 			}
 
@@ -114,16 +143,16 @@ namespace Anaglyph.XRTemplate.DepthKit
 			Shader.SetGlobalMatrixArray(nameof(agDepthViewInv), agDepthViewInv);
 		}
 
-		private static readonly Vector3 _scalingVector3 = new(1, 1, -1);
+		// private static readonly Vector3 _scalingVector3 = new(1, 1, -1);
 
-		private static Matrix4x4 CalculateDepthProjMatrix(Utils.EnvironmentDepthFrameDesc frameDesc)
+		private static Matrix4x4 CalculateDepthProjMatrix(XRFov FOVs, XRNearFarPlanes planes)
 		{
-			float left = frameDesc.fovLeftAngle;
-			float right = frameDesc.fovRightAngle;
-			float bottom = frameDesc.fovDownAngle;
-			float top = frameDesc.fovTopAngle;
-			float near = frameDesc.nearZ;
-			float far = frameDesc.farZ;
+			float left = FOVs.angleLeft;
+			float right = FOVs.angleRight;
+			float bottom = FOVs.angleDown;
+			float top = FOVs.angleUp;
+			float near = planes.nearZ;
+			float far = planes.farZ;
 
 			float x = 2.0F / (right + left);
 			float y = 2.0F / (top + bottom);
@@ -165,21 +194,21 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 			return m;
 		}
-
-		private static Matrix4x4 CalculateDepthViewMatrix(Utils.EnvironmentDepthFrameDesc frameDesc)
-		{
-			var createRotation = frameDesc.createPoseRotation;
-			var depthOrientation = new Quaternion(
-				createRotation.x,
-				createRotation.y,
-				createRotation.z,
-				createRotation.w
-			);
-
-			var viewMatrix = Matrix4x4.TRS(frameDesc.createPoseLocation, depthOrientation,
-				_scalingVector3).inverse;
-
-			return viewMatrix;
-		}
+		
+		// private static Matrix4x4 CalculateDepthViewMatrix(Utils.EnvironmentDepthFrameDesc frameDesc)
+		// {
+		// 	var createRotation = frameDesc.createPoseRotation;
+		// 	var depthOrientation = new Quaternion(
+		// 		createRotation.x,
+		// 		createRotation.y,
+		// 		createRotation.z,
+		// 		createRotation.w
+		// 	);
+		//
+		// 	var viewMatrix = Matrix4x4.TRS(frameDesc.createPoseLocation, depthOrientation,
+		// 		_scalingVector3).inverse;
+		//
+		// 	return viewMatrix;
+		// }
 	}
 }

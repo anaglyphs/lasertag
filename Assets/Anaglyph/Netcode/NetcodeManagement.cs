@@ -54,6 +54,9 @@ namespace Anaglyph.Netcode
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
 		private static void OnSceneLoad()
 		{
+			if (!manager)
+				return;
+			
 			manager.OnClientStarted += () => State = NetcodeState.Connecting;
 			manager.OnClientStopped += _ => State = NetcodeState.Disconnected;
 			manager.OnConnectionEvent += OnConnectionEvent;
