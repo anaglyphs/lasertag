@@ -10,6 +10,8 @@ namespace Anaglyph.Lasertag.Networking
 	public class PlayerAvatar : NetworkBehaviour
 	{
 		public const string Tag = "Player";
+		
+		public static PlayerAvatar Local { get; private set; }
 
 		[SerializeField] private Transform headTransform;
 		[SerializeField] private Transform leftHandTransform;
@@ -73,6 +75,7 @@ namespace Anaglyph.Lasertag.Networking
 			if (IsOwner)
 			{
 				isAliveSync.Value = true;
+				Local = this;
 			}
 
 			All.Add(OwnerClientId, this);

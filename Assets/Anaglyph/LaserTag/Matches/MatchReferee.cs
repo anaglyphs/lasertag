@@ -304,7 +304,7 @@ namespace Anaglyph.Lasertag
 
 			bool canWinByScore = Settings.CheckWinByPoints();
 			bool isPlaying = State == MatchState.Playing;
-			bool isWinningScore = GetTeamScore(team) > Settings.scoreTarget;
+			bool isWinningScore = GetTeamScore(team) >= Settings.scoreTarget;
 
 			if (isPlaying && canWinByScore && isWinningScore)
 			{

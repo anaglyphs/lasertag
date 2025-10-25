@@ -25,8 +25,6 @@ namespace Anaglyph.Lasertag
 		public event Action<byte> TeamChanged = delegate { };
 
 		[SerializeField] private GameObject avatarPrefab;
-		private PlayerAvatar avatar;
-		public PlayerAvatar Avatar => avatar;
 
 		[SerializeField] private Transform headTransform;
 		[SerializeField] private Transform leftHandTransform;
@@ -85,13 +83,13 @@ namespace Anaglyph.Lasertag
 
 		private void HandleAvatar()
 		{
-			if (NetcodeManagement.State == NetcodeState.Connected && isParticipating && avatar == null)
+			if (NetcodeManagement.State == NetcodeState.Connected && isParticipating && PlayerAvatar.Local == null)
 			{
 				SpawnAvatar();
 			}
-			else if (NetcodeManagement.State != NetcodeState.Connected || !isParticipating && avatar != null)
+			else if (NetcodeManagement.State != NetcodeState.Connected || !isParticipating && PlayerAvatar.Local != null)
 			{
-				avatar?.NetworkObject.Despawn();
+				PlayerAvatar.Local?.NetworkObject.Despawn();
 			}
 		}
 
@@ -101,11 +99,10 @@ namespace Anaglyph.Lasertag
 			if (!manager.IsConnectedClient)
 				return;
 
-			var avatarObject = NetworkObject.InstantiateAndSpawn(avatarPrefab,
+			NetworkObject.InstantiateAndSpawn(avatarPrefab,
 				manager, manager.LocalClientId, destroyWithScene: true, isPlayerObject: true);
-
-			avatar = avatarObject.GetComponent<PlayerAvatar>();
-			avatar.TeamOwner.OnTeamChange.AddListener(TeamChanged.Invoke);
+			
+			PlayerAvatar.Local.TeamOwner.OnTeamChange.AddListener(TeamChanged.Invoke);
 		}
 
 		public void Damage(float damage, ulong damagedBy)
@@ -125,7 +122,7 @@ namespace Anaglyph.Lasertag
 
 			WeaponsManagement.canFire = false;
 
-			avatar.isAliveSync.Value = false;
+			PlayerAvatar.Local.isAliveSync.Value = false;
 
 			IsAlive = false;
 			Health = 0;
@@ -135,9 +132,9 @@ namespace Anaglyph.Lasertag
 
 			if (PlayerAvatar.All.TryGetValue(killerID, out var killer))
 			{
-				avatar.KilledByPlayerRpc(killerID);
+				PlayerAvatar.Local.KilledByPlayerRpc(killerID);
 
-				if (MatchReferee.State == MatchState.Playing && killer.Team != avatar.Team)
+				if (MatchReferee.State == MatchState.Playing && killer.Team != PlayerAvatar.Local.Team)
 				{
 					var referee = MatchReferee.Instance;
 					referee.ScoreTeamRpc(killer.Team, referee.Settings.pointsPerKill);
@@ -153,8 +150,8 @@ namespace Anaglyph.Lasertag
 
 			WeaponsManagement.canFire = true;
 
-			if (avatar != null)
-				avatar.isAliveSync.Value = true;
+			if (PlayerAvatar.Local)
+				PlayerAvatar.Local.isAliveSync.Value = true;
 
 			IsAlive = true;
 			Health = MaxHealth;
@@ -185,7 +182,7 @@ namespace Anaglyph.Lasertag
 		private void Update()
 		{
 			// health
-			if (avatar == null)
+			if (!PlayerAvatar.Local)
 				return;
 
 			if (redDamagedVision)
@@ -217,11 +214,11 @@ namespace Anaglyph.Lasertag
 			{
 				if (Geo.PointIsInCylinder(teamBase.transform.position, Base.Radius, 3, headTransform.position))
 				{
-					if (MatchReferee.State != MatchState.Playing || avatar.Team == 0)
+					if (MatchReferee.State != MatchState.Playing || PlayerAvatar.Local.Team == 0)
 					{
-						avatar.TeamOwner.teamSync.Value = teamBase.Team;
+						PlayerAvatar.Local.TeamOwner.teamSync.Value = teamBase.Team;
 					}
-					else if (avatar.Team != teamBase.Team)
+					else if (PlayerAvatar.Local.Team != teamBase.Team)
 					{
 						continue;
 					}
@@ -232,12 +229,12 @@ namespace Anaglyph.Lasertag
 			}
 
 			// network player transforms
-			avatar.HeadTransform.SetWorldPose(headTransform.GetWorldPose());
-			avatar.LeftHandTransform.SetWorldPose(leftHandTransform.GetWorldPose());
-			avatar.RightHandTransform.SetWorldPose(rightHandTransform.GetWorldPose());
+			PlayerAvatar.Local.HeadTransform.SetWorldPose(headTransform.GetWorldPose());
+			PlayerAvatar.Local.LeftHandTransform.SetWorldPose(leftHandTransform.GetWorldPose());
+			PlayerAvatar.Local.RightHandTransform.SetWorldPose(rightHandTransform.GetWorldPose());
 
 			var spineMid = skeleton.Bones[(int)OVRSkeleton.BoneId.Body_SpineMiddle].Transform;
-			avatar.TorsoTransform.SetWorldPose(spineMid.GetWorldPose());
+			PlayerAvatar.Local.TorsoTransform.SetWorldPose(spineMid.GetWorldPose());
 			// wtf
 		}
 	}
