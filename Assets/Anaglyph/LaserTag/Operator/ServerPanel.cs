@@ -36,8 +36,8 @@ namespace Anaglyph.Lasertag.Operator
 
 		private MatchSettings settings = MatchSettings.DemoGame();
 
-		private PageParentElement networkPages;
-		private PageParentElement matchPages;
+		private PageGroup networkPages;
+		private PageGroup matchPages;
 
 		private VisualElement startServerPage;
 		private VisualElement connectingPage;
@@ -141,14 +141,14 @@ namespace Anaglyph.Lasertag.Operator
 			rootVisualElement.style.paddingRight = 6;
 			rootVisualElement.style.paddingTop = 6;
 
-			networkPages = new PageParentElement();
+			networkPages = new PageGroup();
 			{
 				startServerPage = new VisualElement();
 				{
 					startServerPage.Add(new Label("Host Settings")
 						{ style = { unityFontStyleAndWeight = FontStyle.Bold } });
 
-					var useAprilTagsField = new Toggle("Use AprilTag alignment") { value = useAprilTags };
+					var useAprilTagsField = new Toggle("Use AprilTags") { value = useAprilTags };
 					useAprilTagsField.RegisterValueChangedCallback(evt =>
 					{
 						useAprilTags = evt.newValue;
@@ -179,7 +179,7 @@ namespace Anaglyph.Lasertag.Operator
 					startServerPage.Add(useRelayField);
 					
 					
-					var protocolPages = new PageParentElement();
+					var protocolPages = new PageGroup();
 					{
 						var lanPage = new VisualElement();
 						protocolPages.Add(lanPage);
@@ -229,16 +229,6 @@ namespace Anaglyph.Lasertag.Operator
 						style = { height = 32 }
 					};
 					startServerPage.Add(hostButton);
-
-					startServerPage.Add(
-						new Label(
-							"If using a Windows hotspot, remember to give Unity an exception in Windows Firewall.")
-						{
-							style =
-							{
-								whiteSpace = WhiteSpace.Normal,
-							}
-						});
 				}
 				networkPages.Add(startServerPage);
 
@@ -264,7 +254,7 @@ namespace Anaglyph.Lasertag.Operator
 
 
 					// match pages
-					matchPages = new PageParentElement();
+					matchPages = new PageGroup();
 					{
 						// match settings menu
 						matchSettingsPage = new VisualElement();
@@ -349,6 +339,27 @@ namespace Anaglyph.Lasertag.Operator
 				networkPages.Add(connectedPage);
 			}
 			rootVisualElement.Add(networkPages);
+			
+			rootVisualElement.Add(
+				new Label(
+					"Don't forget to disable sleep on your server machine!")
+				{
+					style =
+					{
+						whiteSpace = WhiteSpace.Normal,
+						unityFontStyleAndWeight = FontStyle.Bold,
+					}
+				});
+
+			rootVisualElement.Add(
+				new Label(
+					"If using a Windows hotspot, remember to give Unity an exception in Windows Firewall.")
+				{
+					style =
+					{
+						whiteSpace = WhiteSpace.Normal,
+					}
+				});
 
 
 			UpdateHostingPage(NetcodeManagement.State);
