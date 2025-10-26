@@ -1,7 +1,8 @@
 #if UNITY_EDITOR
 
-using System.Text.RegularExpressions;
 using Anaglyph.Netcode;
+using System.Net;
+using System.Text.RegularExpressions;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEditor;
@@ -19,19 +20,19 @@ namespace Anaglyph.Lasertag.Operator
 			window.minSize = new Vector2(320, 200);
 		}
 		
-		private const string TagSizeSaveKey = "Lasertag.tagSize";
+		private const string TagSizeSaveKey = "operator.tagSize";
 		private float tagSizeCm = 10f;
 
-		private const string UseRelaySaveKey = "Lasertag.useRelay";
+		private const string UseRelaySaveKey = "operator.useRelay";
 		private bool useRelay = false;
 
-		private const string UseAprilTagsSaveKey = "Lasertag.useAprilTags";
+		private const string UseAprilTagsSaveKey = "operator.useAprilTags";
 		private bool useAprilTags = false;
 
-		private const string RoomNameSaveKey = "Lasertag.roomName";
+		private const string RoomNameSaveKey = "operator.roomName";
 		private string roomName = "";
 
-		private const string IpSaveKey = "Lasertag.ip";
+		//private const string IpSaveKey = "operator.ip";
 		private string ipAddress = "127.0.0.1";
 
 		private MatchSettings settings = MatchSettings.DemoGame();
@@ -45,6 +46,19 @@ namespace Anaglyph.Lasertag.Operator
 
 		private VisualElement matchSettingsPage;
 		private VisualElement matchRunningPage;
+
+		private void Awake()
+		{
+			var addresses = Dns.GetHostEntry(Dns.GetHostName()).AddressList;
+			foreach (var address in addresses)
+			{
+				if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+				{
+					ipAddress = address.ToString();
+					break;
+				}
+			}
+		}
 
 		private void OnEnable()
 		{
@@ -67,7 +81,7 @@ namespace Anaglyph.Lasertag.Operator
 			useRelay = EditorPrefs.GetBool(UseRelaySaveKey, useRelay);
 			useAprilTags = EditorPrefs.GetBool(UseAprilTagsSaveKey, useAprilTags);
 			roomName = EditorPrefs.GetString(RoomNameSaveKey, roomName);
-			ipAddress = EditorPrefs.GetString(IpSaveKey, ipAddress);
+			// ipAddress = EditorPrefs.GetString(IpSaveKey, ipAddress);
 		}
 
 		private void UpdateHostingPage(NetcodeState state)
@@ -188,7 +202,7 @@ namespace Anaglyph.Lasertag.Operator
 							ipField.RegisterValueChangedCallback(evt =>
 							{
 								ipAddress = evt.newValue;
-								EditorPrefs.SetString(IpSaveKey, ipAddress);
+								// EditorPrefs.SetString(IpSaveKey, ipAddress);
 							});
 							lanPage.Add(ipField);
 						}

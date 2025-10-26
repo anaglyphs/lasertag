@@ -56,7 +56,7 @@ namespace Anaglyph.Lasertag
 
 		private async void EnvRaymarch()
 		{
-			if (!XRSettings.enabled || !Player.Instance)
+			if (!Player.Instance)
 				return;
 
 			fireRay = new(transform.position, transform.forward);
