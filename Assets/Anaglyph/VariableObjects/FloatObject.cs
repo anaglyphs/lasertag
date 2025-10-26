@@ -1,11 +1,10 @@
 using UnityEngine;
-using UnityEngine.Scripting.APIUpdating;
 
 namespace VariableObjects
 {
 	[CreateAssetMenu(fileName = "Float", menuName = "Variable Objects/Float")]
-	[MovedFrom("VariableObjects.ScriptableFloat")]
-	public class FloatObject : GenericVariableObject<float> {
+	public class FloatObject : GenericVariableObject<float>
+	{
 
 		[SerializeField] private bool save;
 		[SerializeField] private string saveKey;
