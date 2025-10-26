@@ -8,18 +8,18 @@ namespace VariableObjects
 		[SerializeField] private BoolObject scriptableBool;
 		private Toggle toggle;
 
-		private void Start()
+		private void Awake()
 		{
-			toggle = GetComponent<Toggle>();
-			scriptableBool.AddChangeListenerAndCheck(OnValueChange);
-			toggle.onValueChanged.AddListener(scriptableBool.Set);
-		}
+			TryGetComponent(out toggle);
 
-		private void OnValueChange(bool b) => toggle.isOn = b;
+			toggle.onValueChanged.AddListener(scriptableBool.Set);
+			scriptableBool.AddChangeListenerAndCheck(toggle.SetIsOnWithoutNotify);
+		}
 
 		private void OnDestroy()
 		{
-			scriptableBool.onChange -= OnValueChange;
+			if(toggle)
+				scriptableBool.onChange -= toggle.SetIsOnWithoutNotify;
 		}
 	}
 }
