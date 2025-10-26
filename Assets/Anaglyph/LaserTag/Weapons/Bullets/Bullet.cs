@@ -56,16 +56,26 @@ namespace Anaglyph.Lasertag
 
 		private async void EnvRaymarch()
 		{
-			if (!XRSettings.enabled)
+			if (!XRSettings.enabled || !Player.Instance)
 				return;
 
 			fireRay = new(transform.position, transform.forward);
 			var result = await EnvironmentMapper.Instance.RaymarchAsync(fireRay, MaxTravelDist);
 			if (result.didHit)
+			{
 				if (IsOwner)
+				{
 					envHitDist = result.distance;
-				else if(result.distance < EnvironmentMapper.Instance.MaxEyeDist)
-					EnvironmentRaycastRpc(result.distance);
+				}
+				else
+				{
+					var headPos = Player.Instance.HeadTransform.position;
+					var hitDistFromHead = Vector3.Distance(headPos, result.point);
+
+					if (hitDistFromHead < EnvironmentMapper.Instance.MaxEyeDist)
+						EnvironmentRaycastRpc(result.distance);
+				}
+			}
 		}
 
 		[Rpc(SendTo.Owner)]
