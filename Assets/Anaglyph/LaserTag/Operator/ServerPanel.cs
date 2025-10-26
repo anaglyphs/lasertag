@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 
+using System;
 using Anaglyph.Netcode;
 using System.Net;
 using System.Text.RegularExpressions;
@@ -37,6 +38,8 @@ namespace Anaglyph.Lasertag.Operator
 
 		private MatchSettings settings = MatchSettings.DemoGame();
 
+		private Label roomLabel;
+		
 		private PageGroup networkPages;
 		private PageGroup matchPages;
 
@@ -90,6 +93,17 @@ namespace Anaglyph.Lasertag.Operator
 
 				case NetcodeState.Connected:
 					networkPages.SetActiveElement(connectedPage);
+					
+					var manager = NetworkManager.Singleton;
+					var transport = (UnityTransport)manager.NetworkConfig.NetworkTransport;
+
+					roomLabel.text = "Room: " + transport.Protocol switch
+					{
+						UnityTransport.ProtocolType.UnityTransport => transport.ConnectionData.Address,
+						UnityTransport.ProtocolType.RelayUnityTransport => NetcodeManagement.CurrentSessionName,
+						_ => "ERROR"
+					};
+					
 					break;
 
 				default:
@@ -235,6 +249,27 @@ namespace Anaglyph.Lasertag.Operator
 						style = { height = 32 }
 					};
 					startServerPage.Add(hostButton);
+					
+					startServerPage.Add(
+						new Label(
+							"Don't forget to disable sleep on your server machine!")
+						{
+							style =
+							{
+								whiteSpace = WhiteSpace.Normal,
+								unityFontStyleAndWeight = FontStyle.Bold,
+							}
+						});
+
+					startServerPage.Add(
+						new Label(
+							"If using a Windows hotspot, remember to give Unity an exception in Windows Firewall.")
+						{
+							style =
+							{
+								whiteSpace = WhiteSpace.Normal,
+							}
+						});
 				}
 				networkPages.Add(startServerPage);
 
@@ -243,6 +278,13 @@ namespace Anaglyph.Lasertag.Operator
 				{
 					connectingPage.Add(new Label("Connecting...")
 						{ style = { unityFontStyleAndWeight = FontStyle.Bold } });
+					
+					var stopButton = new Button(NetcodeManagement.Disconnect)
+					{
+						text = "Cancel",
+						style = { height = 24 }
+					};
+					connectingPage.Add(stopButton);
 				}
 				networkPages.Add(connectingPage);
 
@@ -250,6 +292,9 @@ namespace Anaglyph.Lasertag.Operator
 				connectedPage = new VisualElement();
 				{
 					connectedPage.Add(new Label("Hosting") { style = { unityFontStyleAndWeight = FontStyle.Bold } });
+
+					roomLabel = new Label("<Room>");
+					connectedPage.Add(roomLabel);
 
 					var stopButton = new Button(NetcodeManagement.Disconnect)
 					{
@@ -345,27 +390,6 @@ namespace Anaglyph.Lasertag.Operator
 				networkPages.Add(connectedPage);
 			}
 			rootVisualElement.Add(networkPages);
-			
-			rootVisualElement.Add(
-				new Label(
-					"Don't forget to disable sleep on your server machine!")
-				{
-					style =
-					{
-						whiteSpace = WhiteSpace.Normal,
-						unityFontStyleAndWeight = FontStyle.Bold,
-					}
-				});
-
-			rootVisualElement.Add(
-				new Label(
-					"If using a Windows hotspot, remember to give Unity an exception in Windows Firewall.")
-				{
-					style =
-					{
-						whiteSpace = WhiteSpace.Normal,
-					}
-				});
 
 
 			UpdateHostingPage(NetcodeManagement.State);
