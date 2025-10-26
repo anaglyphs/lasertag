@@ -24,8 +24,8 @@ namespace Anaglyph.Lasertag.UI
 		private void Start()
 		{
 			maxMenuMaskHeight = menuMaskRectTransform.sizeDelta.y;
-			MainPlayer.Instance.Died += OnDied;
-			MainPlayer.Instance.Respawned += OnRespawned;
+			Player.Instance.Died += OnDied;
+			Player.Instance.Respawned += OnRespawned;
 		}
 
 		private void OnDied()
@@ -48,17 +48,17 @@ namespace Anaglyph.Lasertag.UI
 
 		private void Update()
 		{
-			menuMaskRectTransform.sizeDelta = new Vector2(menuMaskRectTransform.sizeDelta.x, Mathf.Lerp(0, maxMenuMaskHeight, EaseInOutCirc(Mathf.Clamp01(MainPlayer.Instance.RespawnTimerSeconds))));
+			menuMaskRectTransform.sizeDelta = new Vector2(menuMaskRectTransform.sizeDelta.x, Mathf.Lerp(0, maxMenuMaskHeight, EaseInOutCirc(Mathf.Clamp01(Player.Instance.RespawnTimerSeconds))));
 
-			respawnPopup.SetActive(!MainPlayer.Instance.IsAlive);
+			respawnPopup.SetActive(!Player.Instance.IsAlive);
 
-			if (MatchReferee.Instance.Settings.respawnInBases && !MainPlayer.Instance.IsInFriendlyBase)
+			if (MatchReferee.Instance.Settings.respawnInBases && !Player.Instance.IsInFriendlyBase)
 			{
 				respawnText.text = $"GO TO:   BASE";
 			}
 			else
 			{
-				respawnText.text = $"RESPAWN: {(MainPlayer.Instance.RespawnTimerSeconds).ToString("F1")}s";
+				respawnText.text = $"RESPAWN: {(Player.Instance.RespawnTimerSeconds).ToString("F1")}s";
 			}
 		}
 	}

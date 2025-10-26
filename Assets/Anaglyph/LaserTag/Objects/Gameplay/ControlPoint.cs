@@ -43,15 +43,13 @@ namespace Anaglyph.Lasertag
 				ControllingTeamChanged.Invoke(HoldingTeam);
 			};
 
-			referee.StateChanged += OnMatchStateChanged;
+			MatchReferee.StateChanged += OnMatchStateChanged;
 		}
 
 		public override void OnDestroy()
 		{
 			base.OnDestroy();
-
-			if (referee != null)
-				referee.StateChanged -= OnMatchStateChanged;
+			MatchReferee.StateChanged -= OnMatchStateChanged;
 		}
 
 		private void OnMatchStateChanged(MatchState state)
@@ -70,7 +68,7 @@ namespace Anaglyph.Lasertag
 
 		public override void OnGainedOwnership()
 		{
-			if (referee.State == MatchState.Playing)
+			if (MatchReferee.State == MatchState.Playing)
 				_ = ScoreLoop();
 		}
 
@@ -97,7 +95,7 @@ namespace Anaglyph.Lasertag
 			if (!IsOwner)
 				return;
 
-			while (referee.State == MatchState.Playing)
+			while (MatchReferee.State == MatchState.Playing)
 			{
 				await Awaitable.WaitForSecondsAsync(1, destroyCancellationToken);
 				destroyCancellationToken.ThrowIfCancellationRequested();

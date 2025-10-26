@@ -1,8 +1,9 @@
-using Anaglyph.XRTemplate.SharedSpaces;
 using Anaglyph.XRTemplate;
+using Anaglyph.XRTemplate.SharedSpaces;
 using System;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.XR;
 
 namespace Anaglyph.Lasertag
 {
@@ -35,7 +36,8 @@ namespace Anaglyph.Lasertag
 		{
 			await Awaitable.EndOfFrameAsync();
 
-			EnvironmentMapper.Instance.Clear();
+			// todo move out of
+			EnvironmentMapper.Instance?.Clear();
 
 			if (IsOwner)
 			{
@@ -62,6 +64,9 @@ namespace Anaglyph.Lasertag
 		public override void OnNetworkDespawn()
 		{
 			Colocation.ActiveColocator.StopColocation();
+
+			if (!XRSettings.enabled)
+				return;
 
 			MainXRRig.TrackingSpace.position = Vector3.zero;
 			MainXRRig.TrackingSpace.rotation = Quaternion.identity;

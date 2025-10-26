@@ -86,9 +86,10 @@ namespace Anaglyph.Lasertag
 		public static MatchReferee Instance { get; private set; }
 
 		private readonly NetworkVariable<MatchState> stateSync = new(MatchState.NotPlaying);
-		public MatchState State => stateSync.Value;
-		public event Action<MatchState> StateChanged = delegate { };
-		public event Action MatchFinished = delegate { };
+
+		public static MatchState State { get; private set; } = MatchState.NotPlaying;
+		public static event Action<MatchState> StateChanged = delegate { };
+		public static event Action MatchFinished = delegate { };
 
 		private readonly NetworkVariable<int> team0ScoreSync = new(0);
 		private readonly NetworkVariable<int> team1ScoreSync = new(0);
@@ -130,23 +131,9 @@ namespace Anaglyph.Lasertag
 			OnStateChanged(MatchState.NotPlaying, MatchState.NotPlaying);
 		}
 
-		private void Update()
-		{
-			if (!IsSpawned) return;
-
-			var avatar = MainPlayer.Instance.Avatar;
-			if (avatar == null) return;
-
-			if (State != MatchState.Playing || avatar.Team == 0)
-			{
-				if (avatar.IsInBase)
-					avatar.TeamOwner.teamSync.Value = avatar.InBase.Team;
-			}
-		}
-
 		private void OnStateChanged(MatchState prev, MatchState state)
 		{
-			MainPlayer.Instance.Respawn();
+			State = state;
 
 			switch (state)
 			{
@@ -185,6 +172,7 @@ namespace Anaglyph.Lasertag
 
 		public override void OnDestroy()
 		{
+			State = MatchState.NotPlaying;
 			base.OnDestroy();
 			cancelTokenSrc?.Cancel();
 		}
@@ -316,7 +304,7 @@ namespace Anaglyph.Lasertag
 
 			bool canWinByScore = Settings.CheckWinByPoints();
 			bool isPlaying = State == MatchState.Playing;
-			bool isWinningScore = GetTeamScore(team) > Settings.scoreTarget;
+			bool isWinningScore = GetTeamScore(team) >= Settings.scoreTarget;
 
 			if (isPlaying && canWinByScore && isWinningScore)
 			{

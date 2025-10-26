@@ -10,6 +10,8 @@ namespace Anaglyph.Lasertag.Networking
 	public class PlayerAvatar : NetworkBehaviour
 	{
 		public const string Tag = "Player";
+		
+		public static PlayerAvatar Local { get; private set; }
 
 		[SerializeField] private Transform headTransform;
 		[SerializeField] private Transform leftHandTransform;
@@ -73,6 +75,7 @@ namespace Anaglyph.Lasertag.Networking
 			if (IsOwner)
 			{
 				isAliveSync.Value = true;
+				Local = this;
 			}
 
 			All.Add(OwnerClientId, this);
@@ -88,7 +91,6 @@ namespace Anaglyph.Lasertag.Networking
 
 		private void HandleBases()
 		{
-
 			foreach (Base b in Base.AllBases)
 			{
 				if (Geo.PointIsInCylinder(b.transform.position, Base.Radius, 3, headTransform.position))
@@ -113,17 +115,11 @@ namespace Anaglyph.Lasertag.Networking
 			HandleBases();
 		}
 
-		//private void LateUpdate()
-		//{
-		//	var origin = MainXROrigin.TrackingSpace;
-		//	transform.setp
-		//}
-
 		[Rpc(SendTo.Everyone)]
 		public void DamageRpc(float damage, ulong damagedBy)
 		{
 			if (IsOwner)
-				MainPlayer.Instance.Damage(damage, damagedBy);
+				Player.Instance.Damage(damage, damagedBy);
 
 			onDamaged.Invoke();
 		}

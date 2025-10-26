@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
+using UnityEngine.XR;
 using static OVRSpatialAnchor;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
@@ -52,9 +53,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public NetworkVariable<NetworkGuid> Uuid = new NetworkVariable<NetworkGuid>(new(Guid.Empty));
 
-		//private static List<NetworkedAnchor> allInstances = new();
-		//public static IReadOnlyList<NetworkedAnchor> AllInstances => allInstances;
-
 		private void OnValidate()
 		{
 			TryGetComponent(out spatialAnchor);
@@ -66,8 +64,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			spatialAnchor.enabled = false;
 
 			Uuid.OnValueChanged += OnGuidChanged;
-
-			//allInstances.Add(this);
 		}
 
 		private async void OnGuidChanged(NetworkGuid previous, NetworkGuid current)
@@ -92,14 +88,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 		}
 
-		//public override void OnNetworkDespawn()
-		//{
-		//	if (allInstances.Contains(this))
-		//		allInstances.Remove(this);
-		//}
-
 		public async Task Share()
 		{
+			if (!XRSettings.enabled)
+				return;
+
 			if (!IsOwner)
 				throw new Exception("Only the anchor owner can share it!");
 
@@ -165,6 +158,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public async Task LocalizeAndBindAsync(UnboundAnchor unboundAnchor)
 		{
+			if (!XRSettings.enabled)
+				return;
+
 			Redo:
 			try
 			{
@@ -217,6 +213,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		
 		private async Task Load(Guid uuid)
 		{
+			if (!XRSettings.enabled)
+				return;
+
 			Redo:
 			try
 			{

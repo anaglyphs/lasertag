@@ -1,3 +1,4 @@
+using System;
 using Anaglyph.Lasertag.Networking;
 using Unity.Netcode;
 using UnityEngine;
@@ -7,11 +8,11 @@ namespace Anaglyph.Lasertag
 	public class Flag : NetworkBehaviour
 	{
 		[SerializeField] private float radius = 0.5f;
-
-		public const ulong NoPlayer = ulong.MaxValue;
-
 		[SerializeField] private TeamOwner teamOwner;
 		public byte Team => teamOwner.Team;
+		
+		public event Action<PlayerAvatar> PickedUp = delegate { };
+		public event Action<PlayerAvatar> Captured = delegate { };
 
 		public PlayerAvatar FlagHolder { get; private set; }
 
@@ -19,14 +20,11 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private float headOffset = 0.2f;
 		private Vector3 defaultFlagPosition;
 
-		// todo: move to other script?
-		[SerializeField] private AudioClip scored;
-		[SerializeField] private AudioClip enemyCapturedFlag;
-		[SerializeField] private AudioClip enemyStoleFlag;
+		private static Camera mainCamera;
 
-		private void OnValidate()
+		private void OnEnable()
 		{
-			TryGetComponent(out teamOwner);
+			mainCamera = Camera.main;
 		}
 
 		private void Start()
@@ -36,13 +34,12 @@ namespace Anaglyph.Lasertag
 
 		public override void OnNetworkSpawn()
 		{
-			MatchReferee.Instance.StateChanged += OnMatchStateChanged;
+			MatchReferee.StateChanged += OnMatchStateChanged;
 		}
 
-		public override void OnNetworkDespawn() {
-
-			if (MatchReferee.Instance != null)
-				MatchReferee.Instance.StateChanged -= OnMatchStateChanged;
+		public override void OnNetworkDespawn() 
+		{
+			MatchReferee.StateChanged -= OnMatchStateChanged;
 		}
 
 		public override void OnGainedOwnership()
@@ -57,21 +54,19 @@ namespace Anaglyph.Lasertag
 				DropFlagRpc();
 		}
 
-		private void LateUpdate()
+		private void Update()
 		{
-			var mainPlayer = MainPlayer.Instance?.Avatar;
-
-			if (mainPlayer == null)
+			if (!PlayerAvatar.Local)
 				return;
-
-			if (FlagHolder == null)
+			
+			if (!FlagHolder)
 			{
-				Vector3 playerHeadPos = mainPlayer.HeadTransform.position;
+				Vector3 playerHeadPos = Player.Instance.HeadTransform.position;
 				bool isInside = Geo.PointIsInCylinder(transform.position, radius, 3, playerHeadPos);
-				bool isOtherTeam = teamOwner.Team != mainPlayer.Team;
+				bool isOtherTeam = teamOwner.Team != PlayerAvatar.Local.Team;
 
-				if (isInside && isOtherTeam && mainPlayer.IsAlive)
-					PickupFlagLocal();
+				if (isInside && isOtherTeam && PlayerAvatar.Local.IsAlive)
+					PickupLocal();
 
 				flagVisualTransform.transform.localPosition = defaultFlagPosition;
 			}
@@ -79,24 +74,30 @@ namespace Anaglyph.Lasertag
 			{
 				flagVisualTransform.transform.position = FlagHolder.HeadTransform.position + Vector3.up * headOffset;
 
-				if (FlagHolder == mainPlayer && mainPlayer.IsInFriendlyBase && mainPlayer.IsAlive)
+				if (FlagHolder == PlayerAvatar.Local && PlayerAvatar.Local.IsInFriendlyBase && PlayerAvatar.Local.IsAlive)
 				{
 					var referee = MatchReferee.Instance;
-					referee.ScoreTeamRpc(mainPlayer.Team, referee.Settings.pointsPerFlagCapture);
+					referee.ScoreTeamRpc(PlayerAvatar.Local.Team, referee.Settings.pointsPerFlagCapture);
 					FlagCapturedRpc(NetworkManager.Singleton.LocalClientId);
 				}
 			}
+		}
 
-			Vector3 camLook = (flagVisualTransform.position - mainPlayer.HeadTransform.position).normalized;
+		private void LateUpdate()
+		{
+			if (!mainCamera)
+				return;
+			
+			Vector3 camLook = (flagVisualTransform.position - mainCamera.transform.position).normalized;
 			flagVisualTransform.transform.rotation = Quaternion.LookRotation(camLook, Vector3.up);
 		}
 
-		private void PickupFlagLocal()
+		private void PickupLocal()
 		{
-			var mainPlayer = MainPlayer.Instance?.Avatar;
-			mainPlayer.onKilled.AddListener(DropFlagLocal);
-			FlagHolder = mainPlayer;
-			PickupFlagRpc(mainPlayer.OwnerClientId);
+			Player.Instance.Died += DropLocal;
+			
+			FlagHolder = PlayerAvatar.Local;
+			PickupFlagRpc(NetworkManager.LocalClientId);
 		}
 
 		[Rpc(SendTo.Everyone)]
@@ -106,15 +107,13 @@ namespace Anaglyph.Lasertag
 				return;
 
 			FlagHolder = player;
-
-			if (MainPlayer.Instance.Avatar?.Team != FlagHolder.Team)
-				AudioSource.PlayClipAtPoint(enemyStoleFlag, transform.position);
+			
+			PickedUp.Invoke(FlagHolder);
 		}
 
-		private void DropFlagLocal()
+		private void DropLocal()
 		{
-			var mainPlayer = MainPlayer.Instance?.Avatar;
-			mainPlayer.onKilled.RemoveListener(DropFlagLocal);
+			Player.Instance.Died -= DropLocal;
 			DropFlagRpc();
 		}
 
@@ -130,12 +129,7 @@ namespace Anaglyph.Lasertag
 			if (!PlayerAvatar.All.TryGetValue(id, out var player))
 				return;
 
-			var capturePosition = player.HeadTransform.position;
-
-			if(MainPlayer.Instance.Avatar?.Team == player.Team)
-				AudioSource.PlayClipAtPoint(scored, capturePosition);
-			else
-				AudioSource.PlayClipAtPoint(enemyCapturedFlag, capturePosition);
+			Captured.Invoke(player);
 
 			FlagHolder = null;
 		}

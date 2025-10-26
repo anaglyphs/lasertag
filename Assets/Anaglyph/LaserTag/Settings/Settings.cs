@@ -34,7 +34,8 @@ namespace Anaglyph.Lasertag
 
 			damagedRedVision.AddChangeListenerAndCheck(b =>
 			{
-				MainPlayer.Instance.redDamagedVision = b;
+				if(Player.Instance != null)
+					Player.Instance.redDamagedVision = b;
 			});
 
 			lightEffects.AddChangeListenerAndCheck(b =>

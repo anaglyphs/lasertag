@@ -1,7 +1,9 @@
 using UnityEngine;
+using UnityEngine.XR;
 
 namespace Anaglyph.XRTemplate
 {
+	[DefaultExecutionOrder(-999)]
 	public class MainXRRig : MonoBehaviour
 	{
 		private static MainXRRig Instance;

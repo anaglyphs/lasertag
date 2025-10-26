@@ -17,15 +17,14 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			referee.StateChanged += OnMatchStateChanged;
+			MatchReferee.StateChanged += OnMatchStateChanged;
 
 			HandleChange();
 		}
 
 		private void OnDestroy()
 		{
-			if (referee != null)
-				referee.StateChanged -= OnMatchStateChanged;
+			MatchReferee.StateChanged -= OnMatchStateChanged;
 		}
 
 		private void OnMatchStateChanged(MatchState current)
@@ -35,7 +34,7 @@ namespace Anaglyph.Lasertag
 
 		private void HandleChange()
 		{
-			bool isPlaying = referee.State == MatchState.Playing;
+			bool isPlaying = MatchReferee.State == MatchState.Playing;
 			foreach (Behaviour behaviour in behaviours)
 			{
 				behaviour.enabled = isPlaying ^ invert;

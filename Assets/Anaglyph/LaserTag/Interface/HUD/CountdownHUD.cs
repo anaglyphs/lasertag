@@ -16,15 +16,14 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			matchReferee.StateChanged += HandleStateChange;
+			MatchReferee.StateChanged += HandleStateChange;
 			queued.enabled = false;
 			countdownText.enabled = false;
 		}
 
 		private void OnDestroy()
 		{
-			if (matchReferee != null)
-				matchReferee.StateChanged -= HandleStateChange;
+			MatchReferee.StateChanged -= HandleStateChange;
 		}
 
 		private void HandleStateChange(MatchState state)

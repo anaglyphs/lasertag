@@ -11,6 +11,14 @@ using UnityEngine;
 
 namespace Anaglyph.Netcode
 {
+	public enum NetcodeState
+	{
+		Disconnected = 0,
+		Connecting,
+		// ConnectingCantCancel,
+		Connected,
+	}
+
 	public static class NetcodeManagement
 	{
 		public static ushort port = 7777;
@@ -20,15 +28,8 @@ namespace Anaglyph.Netcode
 		public const float cooldownSeconds = 8;
 
 		private static NetworkManager manager => NetworkManager.Singleton;
-		private static UnityTransport transport => (UnityTransport)NetworkManager.Singleton.NetworkConfig.NetworkTransport;
-
-		public enum NetworkState
-		{
-			Disconnected = 0,
-			Connecting,
-			// ConnectingCantCancel,
-			Connected,
-		}
+		private static UnityTransport transport =>
+			(UnityTransport)NetworkManager.Singleton.NetworkConfig.NetworkTransport;
 
 		public enum Protocol
 		{
@@ -36,9 +37,9 @@ namespace Anaglyph.Netcode
 			UnityService,
 		}
 
-		private static NetworkState _state = NetworkState.Disconnected;
-		public static event Action<NetworkState> StateChange = delegate { };
-		public static NetworkState State
+		private static NetcodeState _state = NetcodeState.Disconnected;
+		public static event Action<NetcodeState> StateChanged = delegate { };
+		public static NetcodeState State
 		{
 			get => _state;
 			private set
@@ -46,27 +47,30 @@ namespace Anaglyph.Netcode
 				bool changed = value != _state;
 				_state = value;
 				if (changed)
-					StateChange?.Invoke(_state);
+					StateChanged?.Invoke(_state);
 			}
 		}
 
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
 		private static void OnSceneLoad()
 		{
-			manager.OnClientStarted += () => State = NetworkState.Connecting;
-			manager.OnClientStopped += _ => State = NetworkState.Disconnected;
+			if (!manager) return;
+			
+			manager.OnClientStarted += () => State = NetcodeState.Connecting;
+			manager.OnClientStopped += _ => State = NetcodeState.Disconnected;
 			manager.OnConnectionEvent += OnConnectionEvent;
-			manager.OnTransportFailure += () => State = NetworkState.Disconnected;
+			manager.OnTransportFailure += () => State = NetcodeState.Disconnected;
 		}
 
 		private static void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
 		{
-			if(NetcodeManagement.ThisClientConnected(data))
+			if (NetcodeManagement.ThisClientConnected(data))
 			{
-				State = NetworkState.Connected;
-			} else if(NetcodeManagement.ThisClientDisconnected(data))
+				State = NetcodeState.Connected;
+			}
+			else if (NetcodeManagement.ThisClientDisconnected(data))
 			{
-				State = NetworkState.Disconnected;
+				State = NetcodeState.Disconnected;
 			}
 		}
 
@@ -81,7 +85,7 @@ namespace Anaglyph.Netcode
 
 		private static void SetNetworkTransportType(Protocol protocol)
 		{
-			if (State != NetworkState.Disconnected)
+			if (State != NetcodeState.Disconnected)
 				throw new Exception("You can only change the transport while disconnected!");
 
 			UnityTransport newTransport;
@@ -111,11 +115,10 @@ namespace Anaglyph.Netcode
 
 		public static void Host(Protocol protocol)
 		{
-			SetNetworkTransportType(protocol);
-
 			switch (protocol)
 			{
 				case Protocol.LAN:
+					SetNetworkTransportType(Protocol.LAN);
 					manager.NetworkConfig.UseCMBService = false;
 
 					string localAddress = "";
@@ -148,7 +151,7 @@ namespace Anaglyph.Netcode
 
 			transport.SetConnectionData(ip, port);
 
-			State = NetworkState.Connecting;
+			State = NetcodeState.Connecting;
 
 			manager.StartClient();
 		}
@@ -172,14 +175,17 @@ namespace Anaglyph.Netcode
 
 		private static async Task ConnectUnityServices(string id, CancellationToken ct)
 		{
-			if (State != NetworkState.Disconnected)
+			if (State != NetcodeState.Disconnected)
 				return;
+			
+			SetNetworkTransportType(Protocol.UnityService);
 
 			manager.NetworkConfig.UseCMBService = true;
 
-			State = NetworkState.Connecting;
+			State = NetcodeState.Connecting;
 
-			if (Time.time < cooldownDoneTime) {
+			if (Time.time < cooldownDoneTime)
+			{
 				float waitTime = cooldownDoneTime - Time.time;
 				await Awaitable.WaitForSecondsAsync(waitTime);
 			}
@@ -208,7 +214,7 @@ namespace Anaglyph.Netcode
 		{
 			taskCanceller?.Cancel();
 
-			State = NetworkState.Disconnected;
+			State = NetcodeState.Disconnected;
 
 			try
 			{

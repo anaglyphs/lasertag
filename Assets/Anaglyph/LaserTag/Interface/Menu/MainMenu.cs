@@ -23,23 +23,23 @@ namespace Anaglyph.Lasertag
 			if (manager == null)
 				return;
 
-			NetcodeManagement.StateChange += OnNetcodeStateChanged;
+			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
 			OnNetcodeStateChanged(NetcodeManagement.State);
 		}
 
 		private void OnDestroy()
 		{
-			NetcodeManagement.StateChange -= OnNetcodeStateChanged;
+			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
 		}
 
-		private void OnNetcodeStateChanged(NetcodeManagement.NetworkState state)
+		private void OnNetcodeStateChanged(NetcodeState state)
 		{
-			if (state == NetcodeManagement.NetworkState.Connecting)
+			if (state == NetcodeState.Connecting)
 				menuPositioner.SetVisible(false);
-			else if(state == NetcodeManagement.NetworkState.Disconnected)
+			else if(state == NetcodeState.Disconnected)
 				menuPositioner.SetVisible(true);
-
-			bool isConnected = state == NetcodeManagement.NetworkState.Connected;
+				
+			bool isConnected = state == NetcodeState.Connected;
 
 			foreach (var obj in onlyVisibleIfConnected)
 				obj.SetActive(isConnected);

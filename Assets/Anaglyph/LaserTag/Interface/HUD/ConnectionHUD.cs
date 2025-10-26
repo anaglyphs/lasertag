@@ -13,7 +13,7 @@ namespace Anaglyph.Lasertag
 
 		private void Awake()
 		{
-			NetcodeManagement.StateChange += OnNetcodeStateChanged;
+			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
 			Colocation.IsColocatedChange += OnColocationChanged;
 
 			UpdateVisibility();
@@ -21,19 +21,19 @@ namespace Anaglyph.Lasertag
 
 		private void OnDestroy()
 		{
-			NetcodeManagement.StateChange -= OnNetcodeStateChanged;
+			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
 			Colocation.IsColocatedChange -= OnColocationChanged;
 		}
 
 		private void OnColocationChanged(bool isColocated) => UpdateVisibility();
-		private void OnNetcodeStateChanged(NetcodeManagement.NetworkState state) => UpdateVisibility();
+		private void OnNetcodeStateChanged(NetcodeState state) => UpdateVisibility();
 
 		private async void UpdateVisibility()
 		{
 			var state = NetcodeManagement.State;
-			connecting.SetActive(state == NetcodeManagement.NetworkState.Connecting);
-			colocating.SetActive(state == NetcodeManagement.NetworkState.Connected && !Colocation.IsColocated);
-			bool isReady = state == NetcodeManagement.NetworkState.Connected && Colocation.IsColocated;
+			connecting.SetActive(state == NetcodeState.Connecting);
+			colocating.SetActive(state == NetcodeState.Connected && !Colocation.IsColocated);
+			bool isReady = state == NetcodeState.Connected && Colocation.IsColocated;
 			ready.SetActive(isReady);
 			if(isReady)
 			{
