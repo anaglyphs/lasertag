@@ -4,7 +4,6 @@ using System;
 using System.Collections;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.Events;
 using UnityEngine.XR;
 
 namespace Anaglyph.Lasertag
@@ -45,13 +44,9 @@ namespace Anaglyph.Lasertag
 			spawnedTime = Time.time;
 
 			if (IsOwner)
-			{
 				spawnPoseSync.Value = new NetworkPose(transform);
-			}
 			else
-			{
 				SetPose(SpawnPose);
-			}
 
 			OnFire.Invoke();
 			AudioSource.PlayClipAtPoint(fireSFX, transform.position);
@@ -69,7 +64,7 @@ namespace Anaglyph.Lasertag
 			if (result.didHit)
 				if (IsOwner)
 					envHitDist = result.distance;
-				else
+				else if(result.distance < EnvironmentMapper.Instance.MaxEyeDist)
 					EnvironmentRaycastRpc(result.distance);
 		}
 
