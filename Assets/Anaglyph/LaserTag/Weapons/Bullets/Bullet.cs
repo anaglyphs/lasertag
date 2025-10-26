@@ -50,16 +50,17 @@ namespace Anaglyph.Lasertag
 
 			OnFire.Invoke();
 			AudioSource.PlayClipAtPoint(fireSFX, transform.position);
+			
+			fireRay = new(transform.position, transform.forward);
 
 			EnvRaymarch();
 		}
 
 		private async void EnvRaymarch()
 		{
-			if (!XRSettings.enabled || !Player.Instance)
+			if (!Player.Instance)
 				return;
-
-			fireRay = new(transform.position, transform.forward);
+			
 			var result = await EnvironmentMapper.Instance.RaymarchAsync(fireRay, MaxTravelDist);
 			if (result.didHit)
 			{

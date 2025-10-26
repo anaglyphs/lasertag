@@ -120,7 +120,6 @@ namespace Anaglyph.Lasertag
 		[Rpc(SendTo.Everyone)]
 		private void DropFlagRpc()
 		{
-			Captured.Invoke(FlagHolder);
 			FlagHolder = null;
 		}
 
@@ -130,7 +129,7 @@ namespace Anaglyph.Lasertag
 			if (!PlayerAvatar.All.TryGetValue(id, out var player))
 				return;
 
-			var capturePosition = player.HeadTransform.position;
+			Captured.Invoke(player);
 
 			FlagHolder = null;
 		}
