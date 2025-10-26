@@ -15,7 +15,6 @@ namespace Anaglyph.Netcode
 	{
 		Disconnected = 0,
 		Connecting,
-		// ConnectingCantCancel,
 		Connected,
 	}
 
@@ -64,11 +63,11 @@ namespace Anaglyph.Netcode
 
 		private static void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
 		{
-			if (NetcodeManagement.ThisClientConnected(data))
+			if (ThisClientConnected(data))
 			{
 				State = NetcodeState.Connected;
 			}
-			else if (NetcodeManagement.ThisClientDisconnected(data))
+			else if (ThisClientDisconnected(data))
 			{
 				State = NetcodeState.Disconnected;
 			}
@@ -197,8 +196,6 @@ namespace Anaglyph.Netcode
 			await SetupServices();
 
 			ct.ThrowIfCancellationRequested();
-
-			// State = NetworkState.ConnectingCantCancel;
 
 			var options = new SessionOptions()
 			{

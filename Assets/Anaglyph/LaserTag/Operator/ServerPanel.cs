@@ -49,15 +49,7 @@ namespace Anaglyph.Lasertag.Operator
 
 		private void Awake()
 		{
-			var addresses = Dns.GetHostEntry(Dns.GetHostName()).AddressList;
-			foreach (var address in addresses)
-			{
-				if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-				{
-					ipAddress = address.ToString();
-					break;
-				}
-			}
+			var addresses = NetcodeManagement.GetLocalIPv4();
 		}
 
 		private void OnEnable()

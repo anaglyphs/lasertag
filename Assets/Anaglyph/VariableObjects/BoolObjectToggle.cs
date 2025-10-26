@@ -1,26 +1,25 @@
 using UnityEngine;
-using UnityEngine.Scripting.APIUpdating;
 using UnityEngine.UI;
 
 namespace VariableObjects
 {
-	[MovedFrom("VariableObjects.ScriptableBoolToggle")]
 	public class BoolObjectToggle : MonoBehaviour
 	{
 		[SerializeField] private BoolObject scriptableBool;
 		private Toggle toggle;
 
-		private void Awake()
+		private void Start()
 		{
 			toggle = GetComponent<Toggle>();
-
+			scriptableBool.AddChangeListenerAndCheck(OnValueChange);
 			toggle.onValueChanged.AddListener(scriptableBool.Set);
-			scriptableBool.AddChangeListenerAndCheck(toggle.SetIsOnWithoutNotify);
 		}
+
+		private void OnValueChange(bool b) => toggle.isOn = b;
 
 		private void OnDestroy()
 		{
-			scriptableBool.onChange -= toggle.SetIsOnWithoutNotify;
+			scriptableBool.onChange -= OnValueChange;
 		}
 	}
 }
