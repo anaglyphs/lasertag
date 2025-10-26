@@ -10,10 +10,7 @@ namespace Anaglyph.Lasertag
 
 		private void Awake()
 		{
-			if(XRSettings.enabled)
-				Instantiate(xrRig);
-			else
-				Instantiate(desktopRig);
+			Instantiate(XRSettings.enabled ? xrRig : desktopRig);
 		}
 	}
 }

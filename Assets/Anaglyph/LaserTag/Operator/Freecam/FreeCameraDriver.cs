@@ -13,7 +13,7 @@ namespace EnvisionCenter.Freecam
 
 		public float maxSafeDistanceFromOrigin = 100;
 
-		public float orbitSpeed = 5;
+		public float orbitSpeed = 0.5f;
 		public float zoomStep = 0.1f;
 		public float moveSpeed = 1;
 
