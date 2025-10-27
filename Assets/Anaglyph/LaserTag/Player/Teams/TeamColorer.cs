@@ -1,9 +1,11 @@
+using System;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 
 namespace Anaglyph.Lasertag
 {
+	[ExecuteAlways]
 	public class TeamColorer : MonoBehaviour
 	{
 		public const string ColorPerObjectName = "_Color";
@@ -13,7 +15,7 @@ namespace Anaglyph.Lasertag
 		private TeamOwner teamOwner;
 		private new Renderer renderer;
 		private MaterialPropertyBlock propertyBlock;
-		private Image image;
+		private Graphic graphic;
 
 		[SerializeField] float multiply = 1;
 
@@ -23,37 +25,36 @@ namespace Anaglyph.Lasertag
 
 		private void Awake()
 		{
-			propertyBlock = new();
-
 			if(TryGetComponent(out renderer))
 				renderer.GetPropertyBlock(propertyBlock);
-			TryGetComponent(out image);
+			
+			TryGetComponent(out graphic);
 
 			teamOwner = GetComponentInParent<TeamOwner>(true);
-			
-			if(teamOwner != null)
+			if(teamOwner)
 				teamOwner.OnTeamChange.AddListener(SetColor);
 		}
 
-		private void Start()
+		private void Start() => UpdateColor();
+		private void OnValidate() => UpdateColor();
+
+		private void UpdateColor()
 		{
-			if(teamOwner == null)
-				SetColor(defaultTeam);
-			else
-				SetColor(teamOwner.Team);
+			SetColor(teamOwner ? teamOwner.Team : defaultTeam);
 		}
 
 		public void SetColor(byte teamNumber)
 		{
 			Color = Teams.Colors[teamNumber] * multiply;
 
-			propertyBlock.SetColor(ColorID, Color);
-
-			if(renderer != null)
+			if (renderer)
+			{
+				propertyBlock?.SetColor(ColorID, Color);
 				renderer.SetPropertyBlock(propertyBlock);
+			}
 
-			if(image != null)
-				image.color = Color;
+			if(graphic)
+				graphic.color = Color;
 
 			OnColorSet.Invoke(Color);
 		}
