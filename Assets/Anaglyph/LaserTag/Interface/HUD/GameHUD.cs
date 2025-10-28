@@ -1,24 +1,17 @@
 using System;
-using Anaglyph.XRTemplate;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.XR;
 
 namespace Anaglyph.Lasertag
 {
 	[DefaultExecutionOrder(9999)]
     public class GameHUD : MonoBehaviour
     {
-	    [SerializeField] public float controllerOffset = 0.18f;
-	    
 	    [SerializeField] private GameObject scoreGoalHUD;
 	    [SerializeField] private GameObject timerGoalHUD;
 	    
 	    [SerializeField] private Text timerTarget;
 	    [SerializeField] private Text scoreTarget;
-	    
-	    private Camera mainCamera;
-		private InputDevice follow = default;
 
 		private void Awake()
 		{
@@ -26,27 +19,10 @@ namespace Anaglyph.Lasertag
 			OnMatchStateChange(MatchReferee.State);
 		}
 
-		private void OnEnable()
-	    {
-		    mainCamera = Camera.main;
-
-			InputDevices.deviceConnected += OnDeviceEvent;
-			InputDevices.deviceDisconnected += OnDeviceEvent;
-			FindController();
-		}
-
-		private void OnDisable()
-		{
-			InputDevices.deviceConnected -= OnDeviceEvent;
-			InputDevices.deviceDisconnected -= OnDeviceEvent;
-		}
-
 		private void OnDestroy()
 		{
 			MatchReferee.StateChanged -= OnMatchStateChange;
 		}
-
-		private void OnDeviceEvent(InputDevice obj) => FindController();
 
 	    private void OnMatchStateChange(MatchState state)
 	    {
@@ -91,50 +67,6 @@ namespace Anaglyph.Lasertag
 			    case WinCondition.ReachScore:
 				    
 				    break;
-		    }
-	    }
-
-		private XRNode[] nodesToCheck = { XRNode.RightHand, XRNode.LeftHand };
-
-		private void FindController()
-		{
-			InputDevice controller = default;
-			foreach (var potentialNode in nodesToCheck)
-			{
-				controller = InputDevices.GetDeviceAtXRNode(potentialNode);
-				if (controller.isValid)
-				{
-					follow = controller;
-					break;
-				}
-			}
-		}
-
-	    private void LateUpdate()
-	    {
-		    if (!follow.isValid) return;
-
-			var camTrans = mainCamera.transform;
-			var camPos = camTrans.position;
-
-			var chars = follow.characteristics;
-
-			if (chars.HasFlag(InputDeviceCharacteristics.HeldInHand & InputDeviceCharacteristics.TrackedDevice))
-		    {
-			    Vector3 pos = Vector3.zero;
-			    follow.TryGetFeatureValue(CommonUsages.devicePosition, out pos);
-			    pos = MainXRRig.TrackingSpace.TransformPoint(pos);
-
-				bool isRight = chars.HasFlag(InputDeviceCharacteristics.Right);
-				Vector3 handToCam = (camPos - pos).normalized * (isRight ? -1 : 1);
-				Vector3 offs = Vector3.Cross(handToCam, camTrans.up);
-			    offs.y = 0;
-			    offs = offs.normalized * controllerOffset;
-			    transform.position = pos + offs;
-
-			    var lookDir = (transform.position - camPos).normalized;
-			    Quaternion rotation = Quaternion.LookRotation(lookDir, Vector3.up);
-			    transform.rotation = rotation;
 		    }
 	    }
     }
