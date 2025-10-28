@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 599938814855395981}
   - component: {fileID: 1780713923116306728}
   m_Layer: 5
-  m_Name: score line
+  m_Name: score
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -30,8 +30,8 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 2152036478453554063}
   - {fileID: 7982634177805384435}
+  - {fileID: 2152036478453554063}
   - {fileID: 8516274198718568753}
   - {fileID: 6860477486336740063}
   - {fileID: 1135323558339261354}
@@ -475,7 +475,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   controllerOffset: 0.15
   scoreGoalHUD: {fileID: 71788921323307222}
-  timerGoalHUD: {fileID: 2165415275471136872}
+  timerGoalHUD: {fileID: 7329224153938302005}
   timerTarget: {fileID: 2762016564989966450}
   scoreTarget: {fileID: 686679686901469187}
 --- !u!1 &7329224153938302005
@@ -1037,7 +1037,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4685838637789301511, guid: b7cfb477b0273f247ad77433f15655e8, type: 3}
       propertyPath: m_Name
-      value: timer
+      value: timer label
       objectReference: {fileID: 0}
     - target: {fileID: 8745655936492411677, guid: b7cfb477b0273f247ad77433f15655e8, type: 3}
       propertyPath: m_Text
@@ -1080,17 +1080,12 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: b7cfb477b0273f247ad77433f15655e8, type: 3}
---- !u!1 &2165415275471136872 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 4685838637789301511, guid: b7cfb477b0273f247ad77433f15655e8, type: 3}
-  m_PrefabInstance: {fileID: 6848401435689886575}
-  m_PrefabAsset: {fileID: 0}
 --- !u!114 &2762016564989966450 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 8745655936492411677, guid: b7cfb477b0273f247ad77433f15655e8, type: 3}
   m_PrefabInstance: {fileID: 6848401435689886575}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2165415275471136872}
+  m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
@@ -1553,7 +1548,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4685838637789301511, guid: b7cfb477b0273f247ad77433f15655e8, type: 3}
       propertyPath: m_Name
-      value: target
+      value: target score label
       objectReference: {fileID: 0}
     - target: {fileID: 8745655936492411677, guid: b7cfb477b0273f247ad77433f15655e8, type: 3}
       propertyPath: m_Text

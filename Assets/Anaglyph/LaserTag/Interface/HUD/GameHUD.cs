@@ -54,28 +54,24 @@ namespace Anaglyph.Lasertag
 		    
 		    gameObject.SetActive(playing);
 
-		    switch (state)
-		    {
-			    case MatchState.Playing:
-				    MatchSettings settings = MatchReferee.Settings;
-			    
-				    timerGoalHUD.SetActive(settings.winCondition == WinCondition.Timer);
-				    scoreGoalHUD.SetActive(settings.winCondition == WinCondition.ReachScore);
-			    
-				    switch (settings.winCondition)
-				    {
-					    case WinCondition.ReachScore:
-						    scoreTarget.text = settings.scoreTarget.ToString();
-						    break;
-				    }
+			if (state == MatchState.NotPlaying)
+			{
+				timerGoalHUD.SetActive(false);
+				scoreGoalHUD.SetActive(false);
+			}
+			else
+			{
+				MatchSettings settings = MatchReferee.Settings;
 
-				    break;
+				timerGoalHUD.SetActive(settings.winCondition == WinCondition.Timer);
+				scoreGoalHUD.SetActive(settings.winCondition == WinCondition.ReachScore);
 
-				default:
-					timerGoalHUD.SetActive(false);
-					scoreGoalHUD.SetActive(false);
-
-					break;
+				switch (settings.winCondition)
+				{
+					case WinCondition.ReachScore:
+						scoreTarget.text = settings.scoreTarget.ToString();
+						break;
+				}
 			}
 	    }
 
