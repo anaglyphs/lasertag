@@ -25,6 +25,8 @@ namespace Anaglyph.Lasertag
 
 		private void Awake()
 		{
+			propertyBlock = new MaterialPropertyBlock();
+
 			if(TryGetComponent(out renderer))
 				renderer.GetPropertyBlock(propertyBlock);
 			
