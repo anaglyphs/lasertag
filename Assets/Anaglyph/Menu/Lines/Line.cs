@@ -10,6 +10,8 @@ namespace Anaglyph.Menu
 		public float thickness;
 
 		public List<Vector2> points;
+		
+		public static Vector2 FromAngle(float a) => new (Mathf.Cos(a), Mathf.Sin(a));
 
 		protected override void OnPopulateMesh(VertexHelper vh)
 		{
@@ -36,7 +38,7 @@ namespace Anaglyph.Menu
 				{
 					var p = points[i + 1];
 					var a = Mathf.Atan2(p.y - v.y, p.x - v.x) + quarter;
-					na = new Vector2(Mathf.Cos(a), Mathf.Sin(a)).normalized;
+					na = FromAngle(a);
 					vec += na;
 				}
 
@@ -44,7 +46,7 @@ namespace Anaglyph.Menu
 				{
 					var p = points[i - 1];
 					var a = Mathf.Atan2(p.y - v.y, p.x - v.x) - quarter;
-					nb = new Vector2(Mathf.Cos(a), Mathf.Sin(a)).normalized;
+					nb = FromAngle(a);
 					vec += nb;
 				}
 				

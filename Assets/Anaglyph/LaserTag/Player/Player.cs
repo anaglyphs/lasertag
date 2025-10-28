@@ -126,7 +126,7 @@ namespace Anaglyph.Lasertag
 
 			IsAlive = false;
 			Health = 0;
-			RespawnTimerSeconds = MatchReferee.Instance.Settings.respawnSeconds;
+			RespawnTimerSeconds = MatchReferee.Settings.respawnSeconds;
 
 			Died.Invoke();
 
@@ -137,7 +137,7 @@ namespace Anaglyph.Lasertag
 				if (MatchReferee.State == MatchState.Playing && killer.Team != PlayerAvatar.Local.Team)
 				{
 					var referee = MatchReferee.Instance;
-					referee.ScoreTeamRpc(killer.Team, referee.Settings.pointsPerKill);
+					referee.ScoreTeamRpc(killer.Team, MatchReferee.Settings.pointsPerKill);
 				}
 			}
 		}
@@ -164,13 +164,13 @@ namespace Anaglyph.Lasertag
 			// respawn timer
 			if (IsAlive) return;
 
-			if ((MatchReferee.Instance.Settings.respawnInBases && IsInFriendlyBase) || !MatchReferee.Instance.Settings.respawnInBases)
+			if ((MatchReferee.Settings.respawnInBases && IsInFriendlyBase) || !MatchReferee.Settings.respawnInBases)
 				RespawnTimerSeconds -= Time.fixedDeltaTime;
 
 			if (RespawnTimerSeconds <= 0)
 				Respawn();
 
-			RespawnTimerSeconds = Mathf.Clamp(RespawnTimerSeconds, 0, MatchReferee.Instance.Settings.respawnSeconds);
+			RespawnTimerSeconds = Mathf.Clamp(RespawnTimerSeconds, 0, MatchReferee.Settings.respawnSeconds);
 		}
 
 		private void ClearPassthroughEffects()
@@ -203,7 +203,7 @@ namespace Anaglyph.Lasertag
 				if (Health < 0)
 					Kill(0);
 				else
-					Health += MatchReferee.Instance.Settings.healthRegenPerSecond * Time.deltaTime;
+					Health += MatchReferee.Settings.healthRegenPerSecond * Time.deltaTime;
 			}
 
 			WeaponsManagement.canFire = IsAlive;
