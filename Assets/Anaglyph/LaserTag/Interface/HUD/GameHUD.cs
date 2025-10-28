@@ -6,6 +6,7 @@ using UnityEngine.XR;
 
 namespace Anaglyph.Lasertag
 {
+	[DefaultExecutionOrder(9999)]
     public class GameHUD : MonoBehaviour
     {
 	    [SerializeField] public float controllerOffset = 0.18f;
@@ -26,7 +27,9 @@ namespace Anaglyph.Lasertag
 	    private void Start()
 	    {
 		    MatchReferee.StateChanged += OnMatchStateChange;
-	    }
+			OnMatchStateChange(MatchReferee.State);
+
+		}
 
 	    private void OnDestroy()
 	    {
@@ -55,7 +58,13 @@ namespace Anaglyph.Lasertag
 				    }
 
 				    break;
-		    }
+
+				default:
+					timerGoalHUD.SetActive(false);
+					scoreGoalHUD.SetActive(false);
+
+					break;
+			}
 	    }
 
 	    private void Update()
@@ -95,24 +104,21 @@ namespace Anaglyph.Lasertag
 
 		    if (!controller.isValid) return;
 
-		    if (node is XRNode.LeftHand or XRNode.RightHand)
-		    {
-			    Vector3 position = Vector3.zero;
-			    controller.TryGetFeatureValue(CommonUsages.devicePosition, out position);
-			    position = MainXRRig.TrackingSpace.TransformPoint(position);
-			    
-			    float offs = controllerOffset;
-			    if (node == XRNode.LeftHand)
-				    offs *= -1;
-			    
-			    Vector3 offsV = mainCamera.transform.right;
-			    offsV.y = 0;
-			    offsV = offsV.normalized * offs;
+			var camTrans = mainCamera.transform;
 
-			    transform.position = position + offsV;
-			    
-			    var camTrans = mainCamera.transform;
-			    var lookDir = (camTrans.position - transform.position).normalized;
+			if (node is XRNode.LeftHand or XRNode.RightHand)
+		    {
+			    Vector3 pos = Vector3.zero;
+			    controller.TryGetFeatureValue(CommonUsages.devicePosition, out pos);
+			    pos = MainXRRig.TrackingSpace.TransformPoint(pos);
+
+				bool isRight = node == XRNode.RightHand;
+				Vector3 offs = camTrans.right * (isRight ? -1 : 1);
+			    offs.y = 0;
+			    offs = offs.normalized * controllerOffset;
+			    transform.position = pos + offs;
+
+			    var lookDir = (transform.position - camTrans.position).normalized;
 			    Quaternion rotation = Quaternion.LookRotation(lookDir, Vector3.up);
 			    transform.rotation = rotation;
 		    }
