@@ -1,4 +1,5 @@
 using System;
+using Anaglyph.XRTemplate;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.XR;
@@ -7,7 +8,7 @@ namespace Anaglyph.Lasertag
 {
     public class GameHUD : MonoBehaviour
     {
-	    [SerializeField] private Vector3 offset;
+	    [SerializeField] public float controllerOffset = 0.18f;
 	    
 	    [SerializeField] private GameObject scoreGoalHUD;
 	    [SerializeField] private GameObject timerGoalHUD;
@@ -75,8 +76,7 @@ namespace Anaglyph.Lasertag
 				    break;
 		    }
 	    }
-
-	    private XRNode preferredNode = XRNode.RightHand;
+	    
 	    private XRNode[] nodesToCheck = { XRNode.RightHand, XRNode.LeftHand };
 
 	    private void LateUpdate()
@@ -94,16 +94,28 @@ namespace Anaglyph.Lasertag
 		    }
 
 		    if (!controller.isValid) return;
-		    
-		    Vector3 position = Vector3.zero;
-		    controller.TryGetFeatureValue(CommonUsages.devicePosition, out position);
 
-		    Vector3 offs = offset;
-		    if (node == XRNode.LeftHand)
-			    offs.x *= -1;
-		    
-		    transform.localPosition = position + offs;
-		    transform.LookAt(mainCamera.transform, Vector3.up);
+		    if (node is XRNode.LeftHand or XRNode.RightHand)
+		    {
+			    Vector3 position = Vector3.zero;
+			    controller.TryGetFeatureValue(CommonUsages.devicePosition, out position);
+			    position = MainXRRig.TrackingSpace.TransformPoint(position);
+			    
+			    float offs = controllerOffset;
+			    if (node == XRNode.LeftHand)
+				    offs *= -1;
+			    
+			    Vector3 offsV = mainCamera.transform.right;
+			    offsV.y = 0;
+			    offsV = offsV.normalized * offs;
+
+			    transform.position = position + offsV;
+			    
+			    var camTrans = mainCamera.transform;
+			    var lookDir = (camTrans.position - transform.position).normalized;
+			    Quaternion rotation = Quaternion.LookRotation(lookDir, Vector3.up);
+			    transform.rotation = rotation;
+		    }
 	    }
     }
 }
