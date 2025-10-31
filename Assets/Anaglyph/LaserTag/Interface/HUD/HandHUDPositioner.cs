@@ -8,9 +8,20 @@ namespace Anaglyph.Lasertag
     public class HandHUDPositioner : MonoBehaviour
     {
 	    [SerializeField] public float horizontalOffset = 0.15f;
+	    [SerializeField] private float handSwapTime = 0.3f;
+	    [SerializeField] private float handSwapThresh = 0.02f;
 	    
 	    private Camera mainCamera;
 	    private InputDevice follow;
+
+	    private enum HandSide
+	    {
+		    Left = -1,
+		    Right = 1
+	    }
+
+	    private HandSide side;
+	    private float swapTimer = float.MaxValue;
 	    
 	    private readonly XRNode[] nodesToCheck = { XRNode.RightHand, XRNode.LeftHand };
 	    
@@ -47,7 +58,7 @@ namespace Anaglyph.Lasertag
 	    private void LateUpdate()
 	    {
 		    if (!follow.isValid) return;
-
+		    
 		    var camTrans = mainCamera.transform;
 		    var camPos = camTrans.position;
 
@@ -59,10 +70,22 @@ namespace Anaglyph.Lasertag
 			    Vector3 pos = Vector3.zero;
 			    follow.TryGetFeatureValue(CommonUsages.devicePosition, out pos);
 			    pos = MainXRRig.TrackingSpace.TransformPoint(pos);
+			    
+			    // determine side
+			    Vector3 posCamSpace = camTrans.InverseTransformPoint(pos);
+			    HandSide currSide = posCamSpace.x >= 0 ? HandSide.Left : HandSide.Right;
+			    bool farEnough = Mathf.Abs(posCamSpace.x) > handSwapThresh;
+			    if (farEnough && currSide != side)
+			    {
+				    swapTimer += Time.deltaTime;
+				    if (swapTimer > handSwapTime)
+					    side = currSide;
+			    }
+			    else
+				    swapTimer = 0;
 
-			    bool isRight = chars.HasFlag(InputDeviceCharacteristics.Right);
-			    Vector3 handToCam = (camPos - pos).normalized * (isRight ? -1 : 1);
-			    Vector3 offs = Vector3.Cross(handToCam, camTrans.up);
+			    Vector3 camToHand = (pos - camPos).normalized * (int)side;
+			    Vector3 offs = Vector3.Cross(camTrans.up, camToHand);
 			    offs.y = 0;
 			    offs = offs.normalized * horizontalOffset;
 			    transform.position = pos + offs;

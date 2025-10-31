@@ -9,15 +9,15 @@ namespace Anaglyph.Lasertag
 		private Bullet bullet = null;
 		[SerializeField] private TrailRenderer trailRenderer = null;
 		[SerializeField] private DepthLight depthLight = null;
-		[SerializeField] private VisualEffect impactEffect = null;
+		[SerializeField] private ParticleSystem impactEffect = null;
 
-		private MaterialPropertyBlock propertyBlock;
+		//private MaterialPropertyBlock propertyBlock;
 
 		public Color defaultColor = Teams.Colors[1];
 
 		private void Awake()
 		{
-			propertyBlock = new();
+			//propertyBlock = new();
 
 			bullet = GetComponentInParent<Bullet>();
 
@@ -46,10 +46,13 @@ namespace Anaglyph.Lasertag
 				color = defaultColor;
 
 			depthLight.color = color;
-			propertyBlock.SetColor(TeamColorer.ColorID, color);
-			trailRenderer.SetPropertyBlock(propertyBlock);
+			//propertyBlock.SetColor(TeamColorer.ColorID, color);
+			//trailRenderer.SetPropertyBlock(propertyBlock);
+			trailRenderer.startColor = color;
+			trailRenderer.endColor = color;
 
-			impactEffect.SetVector4(TeamColorer.ColorID, color);
+			var partMod = impactEffect.main;
+			partMod.startColor = color;
 		}
 
 		private async void HandleCollision()

@@ -29,12 +29,7 @@ namespace Anaglyph.Lasertag
 
 	    private void OnMatchStateChanged(MatchState state)
 	    {
-		    switch (state)
-		    {
-			    case MatchState.Mustering:
-				    label.text = "0";
-				    break;
-		    }
+			UpdateScore(team);
 	    }
 
 	    private void OnTeamScored(byte scoredTeam, int points)
