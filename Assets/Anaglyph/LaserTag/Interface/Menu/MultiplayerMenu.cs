@@ -107,6 +107,14 @@ namespace Anaglyph.Lasertag
 			Colocation.IsColocatedChange += OnColocationChange;
 
 			recalibrateButton.gameObject.SetActive(false);
+			
+			navView.onPageChange.AddListener(OnNavPageChange); 
+		}
+
+		private void OnNavPageChange(NavPage page)
+		{
+			bool onManuallyConnectPage = page == manuallyConnectPage;
+			MetaSessionDiscovery.Instance.enabled = !onManuallyConnectPage;
 		}
 
 		private void OnDestroy()
