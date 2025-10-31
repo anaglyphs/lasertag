@@ -754,7 +754,7 @@ MonoBehaviour:
     - line: '|   il2cppCodeGeneration:'
     - line: '|     Android: 1'
     - line: '|   il2cppStacktraceInformation:'
-    - line: '|     Android: 0'
+    - line: '|     Android: 1'
     - line: '|   managedStrippingLevel:'
     - line: '|     Android: 4'
     - line: '|   incrementalIl2cppBuild: {}'
@@ -870,7 +870,7 @@ MonoBehaviour:
       type: {class: AndroidPlatformBuildSettings, ns: UnityEditor.Android, asm: UnityEditor.Android.Extensions}
       data:
         m_Development: 1
-        m_ConnectProfiler: 0
+        m_ConnectProfiler: 1
         m_BuildWithDeepProfilingSupport: 0
         m_AllowDebugging: 1
         m_WaitForManagedDebugger: 0

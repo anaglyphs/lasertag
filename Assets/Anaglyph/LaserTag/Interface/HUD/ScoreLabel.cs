@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -5,20 +6,33 @@ namespace Anaglyph.Lasertag
 {
     public class ScoreLabel : MonoBehaviour
     {
-	    public byte team;
+	    [SerializeField] private byte team;
 	    private Text label;
+
+	    public void SetTeam(byte newScore)
+	    {
+		    team = newScore;
+		    if(enabled)
+				UpdateScore();
+	    }
 
 	    private void Awake()
 	    {
 		    label = GetComponent<Text>();
+	    }
+	    
+	    private void Start()
+	    {
+		    UpdateScore();
 	    }
 
 	    private void OnEnable()
 	    {
 		    MatchReferee.StateChanged += OnMatchStateChanged;
 		    MatchReferee.TeamScored += OnTeamScored;
-		    UpdateScore(team);
-
+		    
+		    if(didStart)
+			    UpdateScore();
 	    }
 
 	    private void OnDisable()
@@ -29,17 +43,21 @@ namespace Anaglyph.Lasertag
 
 	    private void OnMatchStateChanged(MatchState state)
 	    {
-			UpdateScore(team);
+			UpdateScore();
 	    }
 
 	    private void OnTeamScored(byte scoredTeam, int points)
 	    {
-		    if(team == scoredTeam) UpdateScore(scoredTeam);
+		    if(team == scoredTeam) UpdateScore();
 	    }
 
-	    private void UpdateScore(byte team)
+	    private void UpdateScore()
 	    {
-		    label.text = MatchReferee.Instance.GetTeamScore(team).ToString();
+		    int score = 0;
+		    var referee = MatchReferee.Instance;
+		    if(referee)
+				score = referee.GetTeamScore(team);
+		    label.text = score.ToString();
 	    }
     }
 }

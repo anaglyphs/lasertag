@@ -327,7 +327,8 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8745655936492411677, guid: b7cfb477b0273f247ad77433f15655e8, type: 3}
       propertyPath: m_Text
-      value: Many bullets on screen can cause framedrops!
+      value: Lasers can cast a glow on nearby surfaces, but this can slow the game
+        if a lot of people are shooting
       objectReference: {fileID: 0}
     - target: {fileID: 8745655936492411677, guid: b7cfb477b0273f247ad77433f15655e8, type: 3}
       propertyPath: m_FontData.m_MinSize
@@ -1977,9 +1978,9 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8745655936492411677, guid: b7cfb477b0273f247ad77433f15655e8, type: 3}
       propertyPath: m_Text
-      value: Meta headsets restrict playspace area unless you disable 'physical space
-        features' in system settings. Once you disable that, you can also disable
-        this option to hide the in-game boundary.
+      value: Meta restricts arena size unless you disable 'physical space features'
+        in system settings. Once you disable that, you can also disable this option
+        to hide the in-game boundary.
       objectReference: {fileID: 0}
     - target: {fileID: 8745655936492411677, guid: b7cfb477b0273f247ad77433f15655e8, type: 3}
       propertyPath: m_FontData.m_MinSize

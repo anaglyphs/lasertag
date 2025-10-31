@@ -17,10 +17,11 @@ namespace Anaglyph.Lasertag
 	    private enum HandSide
 	    {
 		    Left = -1,
+		    None = 0,
 		    Right = 1
 	    }
 
-	    private HandSide side;
+	    private HandSide side = HandSide.None;
 	    private float swapTimer = float.MaxValue;
 	    
 	    private readonly XRNode[] nodesToCheck = { XRNode.RightHand, XRNode.LeftHand };
