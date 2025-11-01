@@ -130,7 +130,6 @@ namespace Anaglyph.Lasertag
 			
 			stateSync.OnValueChanged += OnStateChanged;
 			settingsSync.OnValueChanged += OnSettingsChanged;
-			Settings = settingsSync.Value;
 		}
 
 		public override void OnNetworkSpawn()
@@ -139,6 +138,8 @@ namespace Anaglyph.Lasertag
 			{
 				stateSync.Value = MatchState.NotPlaying;
 				settingsSync.Value = MatchSettings.Lobby();
+				
+				Settings = settingsSync.Value;
 			}
 
 			OnStateChanged(MatchState.NotPlaying, MatchState.NotPlaying);
