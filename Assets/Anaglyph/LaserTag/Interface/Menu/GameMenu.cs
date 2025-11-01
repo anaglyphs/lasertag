@@ -21,7 +21,8 @@ namespace Anaglyph.Lasertag
 		private void Start()
 		{
 			MatchReferee.StateChanged += HandleStateChange;
-
+			HandleStateChange(MatchReferee.State);
+			
 			startPage.showBackButton = false;
 			startButton.onClick.AddListener(StartGame);
 

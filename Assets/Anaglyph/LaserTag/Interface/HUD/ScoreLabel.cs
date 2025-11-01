@@ -1,63 +1,44 @@
-using System;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Anaglyph.Lasertag
 {
-    public class ScoreLabel : MonoBehaviour
-    {
-	    [SerializeField] private byte team;
-	    private Text label;
+	public class ScoreLabel : MonoBehaviour
+	{
+		[SerializeField] private byte team;
+		private Text label;
 
-	    public void SetTeam(byte newScore)
-	    {
-		    team = newScore;
-		    if(enabled)
-				UpdateScore();
-	    }
+		private void Awake()
+		{
+			label = GetComponent<Text>();
+		}
 
-	    private void Awake()
-	    {
-		    label = GetComponent<Text>();
-	    }
-	    
-	    private void Start()
-	    {
-		    UpdateScore();
-	    }
+		private void Start()
+		{
+			var matchRef = MatchReferee.Instance;
+			if (matchRef) UpdateScore(matchRef.GetTeamScore(team));
+		}
 
-	    private void OnEnable()
-	    {
-		    MatchReferee.StateChanged += OnMatchStateChanged;
-		    MatchReferee.TeamScored += OnTeamScored;
-		    
-		    if(didStart)
-			    UpdateScore();
-	    }
+		private void OnEnable()
+		{
+			label.text = "0";
+			MatchReferee.TeamScored += OnTeamScored;
 
-	    private void OnDisable()
-	    {
-		    MatchReferee.StateChanged -= OnMatchStateChanged;
-		    MatchReferee.TeamScored -=  OnTeamScored;
-	    }
+			var matchRef = MatchReferee.Instance;
+			if (didStart && matchRef) UpdateScore(matchRef.GetTeamScore(team));  
+		}
 
-	    private void OnMatchStateChanged(MatchState state)
-	    {
-			UpdateScore();
-	    }
+		private void OnDisable()
+		{
+			MatchReferee.TeamScored -= OnTeamScored;
+		}
 
-	    private void OnTeamScored(byte scoredTeam, int points)
-	    {
-		    if(team == scoredTeam) UpdateScore();
-	    }
+		private void OnTeamScored(byte scoredTeam, int score)
+		{
+			if (team == scoredTeam) 
+				UpdateScore(score);
+		}
 
-	    private void UpdateScore()
-	    {
-		    int score = 0;
-		    var referee = MatchReferee.Instance;
-		    if(referee)
-				score = referee.GetTeamScore(team);
-		    label.text = score.ToString();
-	    }
-    }
+		private void UpdateScore(int score) => label.text = score.ToString();
+	}
 }

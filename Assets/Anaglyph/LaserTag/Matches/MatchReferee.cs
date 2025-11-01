@@ -3,6 +3,7 @@ using Unity.Netcode;
 using UnityEngine;
 using System.Threading.Tasks;
 using System.Threading;
+using Anaglyph.Lasertag.Networking;
 
 namespace Anaglyph.Lasertag
 {
@@ -117,7 +118,16 @@ namespace Anaglyph.Lasertag
 			teamScoresSync[0] = team0ScoreSync;
 			teamScoresSync[1] = team1ScoreSync;
 			teamScoresSync[2] = team2ScoreSync;
-
+			
+			for (byte i = 0; i < teamScoresSync.Length; i++)
+			{
+				var team = i;
+				teamScoresSync[i].OnValueChanged += (_, newValue) =>
+				{
+					TeamScored.Invoke(team, newValue);
+				};
+			}
+			
 			stateSync.OnValueChanged += OnStateChanged;
 			settingsSync.OnValueChanged += OnSettingsChanged;
 			Settings = settingsSync.Value;
@@ -220,7 +230,7 @@ namespace Anaglyph.Lasertag
 				{
 					int numPlayersInbase = 0;
 
-					foreach (Networking.PlayerAvatar player in Networking.PlayerAvatar.All.Values)
+					foreach (PlayerAvatar player in PlayerAvatar.All.Values)
 					{
 						if (player.IsInBase)
 							numPlayersInbase++;
@@ -308,7 +318,6 @@ namespace Anaglyph.Lasertag
 			if (team == 0 || points == 0) return;
 
 			teamScoresSync[team].Value += points;
-			TeamScored.Invoke(team, points);
 
 			bool canWinByScore = Settings.CheckWinByScore();
 			bool isPlaying = State == MatchState.Playing;
@@ -320,17 +329,17 @@ namespace Anaglyph.Lasertag
 			}
 		}
 
-		[Rpc(SendTo.Owner)]
+		[Rpc(SendTo.Everyone)]
 		public void ResetScoresRpc()
 		{
-			for (byte i = 0; i < teamScoresSync.Length; i++)
+			PlayerAvatar.Local.ResetScoreRpc();
+			
+			if (IsOwner)
 			{
-				teamScoresSync[i].Value = 0;
-			}
-
-			foreach (Networking.PlayerAvatar player in Networking.PlayerAvatar.All.Values)
-			{
-				player.ResetScoreRpc();
+				for (byte i = 0; i < teamScoresSync.Length; i++)
+				{
+					teamScoresSync[i].Value = 0;
+				}
 			}
 		}
 
