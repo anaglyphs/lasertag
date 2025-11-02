@@ -57,7 +57,7 @@ namespace Anaglyph.Lasertag
 				pointsPerFlagCapture = 10,
 
 				winCondition = WinCondition.Timer,
-				timerSeconds = 60 * 3,
+				timerSeconds = 60 * 2,
 			};
 		}
 
@@ -217,6 +217,7 @@ namespace Anaglyph.Lasertag
 				return;
 
 			settingsSync.Value = settings;
+			ResetScoresRpc();
 
 			_ = Muster(CancelTaskAndPrepareNext());
 		}
@@ -283,7 +284,6 @@ namespace Anaglyph.Lasertag
 				{
 					settingsSync.Value = settings;
 					stateSync.Value = MatchState.Playing;
-					ResetScoresRpc();
 				}
 
 				Task timerTask = Task.CompletedTask;

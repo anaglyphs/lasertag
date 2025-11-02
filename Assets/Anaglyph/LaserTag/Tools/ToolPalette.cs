@@ -26,11 +26,5 @@ namespace Anaglyph.Lasertag
 				Left = this;
 			}
 		}
-
-		public void OpenSpawnerWithObject(GameObject objectToSpawn)
-		{
-			//toolSelector.SetActiveChild(spawner.transform.GetSiblingIndex());
-			//spawner.SetObjectToSpawn(objectToSpawn);
-		}
 	}
 }

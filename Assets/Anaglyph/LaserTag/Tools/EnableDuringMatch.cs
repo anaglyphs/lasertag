@@ -7,8 +7,6 @@ namespace Anaglyph.Lasertag
 		public Behaviour[] behaviours;
 		public bool invert;
 
-		private MatchReferee referee => MatchReferee.Instance;
-
 		private void OnEnable()
 		{
 			if (didStart)
@@ -34,10 +32,10 @@ namespace Anaglyph.Lasertag
 
 		private void HandleChange()
 		{
-			bool isPlaying = MatchReferee.State == MatchState.Playing;
+			bool playingOrQueued = MatchReferee.State != MatchState.NotPlaying;
 			foreach (Behaviour behaviour in behaviours)
 			{
-				behaviour.enabled = isPlaying ^ invert;
+				behaviour.enabled = playingOrQueued ^ invert;
 			}
 		}
 	}

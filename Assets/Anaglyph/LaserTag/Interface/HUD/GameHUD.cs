@@ -12,7 +12,7 @@ namespace Anaglyph.Lasertag
 	    
 	    [SerializeField] private Text timerTarget;
 	    [SerializeField] private Text scoreTarget;
-
+	    
 		private void Awake()
 		{
 			MatchReferee.StateChanged += OnMatchStateChange;
@@ -26,29 +26,33 @@ namespace Anaglyph.Lasertag
 
 	    private void OnMatchStateChange(MatchState state)
 	    {
-		    bool playing = state == MatchState.Playing;
+		    bool show = state != MatchState.NotPlaying;
 		    
-		    gameObject.SetActive(playing);
+		    gameObject.SetActive(show);
 
-			if (state == MatchState.NotPlaying)
-			{
-				timerGoalHUD.SetActive(false);
-				scoreGoalHUD.SetActive(false);
-			}
-			else
-			{
-				MatchSettings settings = MatchReferee.Settings;
+		    if (show)
+		    {
+			    MatchSettings settings = MatchReferee.Settings;
 
-				timerGoalHUD.SetActive(settings.winCondition == WinCondition.Timer);
-				scoreGoalHUD.SetActive(settings.winCondition == WinCondition.ReachScore);
+			    timerGoalHUD.SetActive(settings.winCondition == WinCondition.Timer);
+			    scoreGoalHUD.SetActive(settings.winCondition == WinCondition.ReachScore);
 
-				switch (settings.winCondition)
-				{
-					case WinCondition.ReachScore:
-						scoreTarget.text = settings.scoreTarget.ToString();
-						break;
-				}
-			}
+			    switch (settings.winCondition)
+			    {
+				    case WinCondition.Timer:
+					    UpdateTimerText();
+					    break;
+				    
+				    case WinCondition.ReachScore:
+					    scoreTarget.text = settings.scoreTarget.ToString();
+					    break;
+			    }
+		    }
+		    else
+		    {
+			    timerGoalHUD.SetActive(false);
+			    scoreGoalHUD.SetActive(false);
+		    }
 	    }
 
 	    private void Update()
@@ -60,14 +64,28 @@ namespace Anaglyph.Lasertag
 		    switch (MatchReferee.Settings.winCondition)
 		    {
 			    case WinCondition.Timer:
-				    TimeSpan time = TimeSpan.FromSeconds(MatchReferee.Instance.GetTimeLeft());
-					timerTarget.text = time.ToString(@"m\:ss");
+				    UpdateTimerText();
 				    break;
 			    
 			    case WinCondition.ReachScore:
-				    
 				    break;
 		    }
+	    }
+
+	    private void UpdateTimerText()
+	    {
+		    float seconds = 0;
+		    var matchRef = MatchReferee.Instance;
+		    if (matchRef)
+		    {
+			    if (MatchReferee.State == MatchState.Playing)
+					seconds = matchRef.GetTimeLeft();
+			    else
+					seconds = MatchReferee.Settings.timerSeconds;
+		    }
+		    
+		    var time = TimeSpan.FromSeconds(seconds);
+		    timerTarget.text = time.ToString(@"m\:ss");
 	    }
     }
 }
