@@ -3,7 +3,6 @@ using StrikerLink.Shared.Devices.DeviceFeatures;
 using StrikerLink.Shared.Devices.Types;
 using StrikerLink.Unity.Runtime.Core;
 using System.Runtime.InteropServices;
-using Unity.XR.Oculus.Input;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -13,7 +12,6 @@ using UnityEngine.InputSystem.Controls;
 using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.InputSystem.Utilities;
-using UnityEngine.InputSystem.XR;
 
 public class StrikerInputDevice : MonoBehaviour
 {
@@ -21,27 +19,18 @@ public class StrikerInputDevice : MonoBehaviour
 
 	private StrikerClient strikerClient;
 	private DeviceBase strikerDevice;
-	private OculusTouchController leftController;
 
 	private void Awake()
 	{
 		inputDevice = InputSystem.AddDevice<MavrikDevice>();
-
-		InputSystem.onDeviceChange += OnDeviceChange;
+		
 		InputSystem.onBeforeUpdate += OnBeforeInputUpdate;
 	}
 
 	private void OnDestroy()
 	{
 		InputSystem.RemoveDevice(inputDevice);
-
-		InputSystem.onDeviceChange -= OnDeviceChange;
 		InputSystem.onBeforeUpdate -= OnBeforeInputUpdate;
-	}
-
-	private void OnDeviceChange(InputDevice device, InputDeviceChange change)
-	{
-		leftController = (OculusTouchController)XRController.leftHand;
 	}
 
 	public void OnBeforeInputUpdate()
