@@ -199,6 +199,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 6312315329841390295, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}
+      propertyPath: showBackButton
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:
@@ -231,6 +235,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1301042237854757057}
     m_Modifications:
+    - target: {fileID: 3820094644485124329, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
+      propertyPath: colorEntry
+      value: 
+      objectReference: {fileID: 11400000, guid: 56114001dfeffd846aa1cabab33bd999, type: 2}
     - target: {fileID: 5928977661196920431, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
       propertyPath: m_Text
       value: Start match
@@ -318,6 +326,18 @@ PrefabInstance:
     - target: {fileID: 7179208172974241050, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8599046475619286865, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
+      propertyPath: m_Color.b
+      value: 0.07843137
+      objectReference: {fileID: 0}
+    - target: {fileID: 8599046475619286865, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
+      propertyPath: m_Color.g
+      value: 0.6039216
+      objectReference: {fileID: 0}
+    - target: {fileID: 8599046475619286865, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
+      propertyPath: m_Color.r
+      value: 0.3834305
       objectReference: {fileID: 0}
     - target: {fileID: 8851658432414041739, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
       propertyPath: m_Sprite
@@ -555,12 +575,12 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8745655936492411677, guid: b7cfb477b0273f247ad77433f15655e8, type: 3}
       propertyPath: m_Text
-      value: 'Before starting a match, place bases for teams red and blue from the
-        objects page.
+      value: '<b>Before starting a match, place at least one blue and red base in
+        your arena.</b>
 
 
-        More match features will come in the future! For
-        now, the only gamemodes are team deathmatch & control point capture.'
+        You can also place objects (flags and control points)
+        to create different game modes!'
       objectReference: {fileID: 0}
     - target: {fileID: 8745655936492411677, guid: b7cfb477b0273f247ad77433f15655e8, type: 3}
       propertyPath: m_FontData.m_MinSize

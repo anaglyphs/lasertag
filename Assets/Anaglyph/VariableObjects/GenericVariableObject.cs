@@ -17,6 +17,11 @@ namespace VariableObjects
 		public event Action<T> onChange = delegate { };
 		public event Action<T> beforeChange = delegate { };
 
+		protected void OnValidate()
+		{
+			val = defaultVal;
+		}
+
 		protected virtual void OnEnable()
 		{
 			val = defaultVal;

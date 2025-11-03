@@ -15,11 +15,10 @@ namespace Anaglyph.Netcode
 	{
 		Disconnected = 0,
 		Connecting,
-		// ConnectingCantCancel,
 		Connected,
 	}
 
-	public static partial class NetcodeManagement
+	public static class NetcodeManagement
 	{
 		public static ushort port = 7777;
 		public static string contyp = "dtls";
@@ -54,8 +53,7 @@ namespace Anaglyph.Netcode
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
 		private static void OnSceneLoad()
 		{
-			if (!manager)
-				return;
+			if (!manager) return;
 			
 			manager.OnClientStarted += () => State = NetcodeState.Connecting;
 			manager.OnClientStopped += _ => State = NetcodeState.Disconnected;
@@ -65,11 +63,11 @@ namespace Anaglyph.Netcode
 
 		private static void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
 		{
-			if (NetcodeManagement.ThisClientConnected(data))
+			if (ThisClientConnected(data))
 			{
 				State = NetcodeState.Connected;
 			}
-			else if (NetcodeManagement.ThisClientDisconnected(data))
+			else if (ThisClientDisconnected(data))
 			{
 				State = NetcodeState.Disconnected;
 			}
@@ -198,8 +196,6 @@ namespace Anaglyph.Netcode
 			await SetupServices();
 
 			ct.ThrowIfCancellationRequested();
-
-			// State = NetworkState.ConnectingCantCancel;
 
 			var options = new SessionOptions()
 			{

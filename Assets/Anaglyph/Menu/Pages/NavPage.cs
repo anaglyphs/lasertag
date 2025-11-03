@@ -1,5 +1,4 @@
 using UnityEngine;
-using System;
 using UnityEngine.Events;
 
 namespace Anaglyph.Menu

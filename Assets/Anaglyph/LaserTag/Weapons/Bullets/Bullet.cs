@@ -4,7 +4,6 @@ using System;
 using System.Collections;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.Events;
 using UnityEngine.XR;
 
 namespace Anaglyph.Lasertag
@@ -45,32 +44,39 @@ namespace Anaglyph.Lasertag
 			spawnedTime = Time.time;
 
 			if (IsOwner)
-			{
 				spawnPoseSync.Value = new NetworkPose(transform);
-			}
 			else
-			{
 				SetPose(SpawnPose);
-			}
 
 			OnFire.Invoke();
 			AudioSource.PlayClipAtPoint(fireSFX, transform.position);
+			
+			fireRay = new(transform.position, transform.forward);
 
 			EnvRaymarch();
 		}
 
 		private async void EnvRaymarch()
 		{
-			if (!XRSettings.enabled)
+			if (!Player.Instance)
 				return;
-
-			fireRay = new(transform.position, transform.forward);
+			
 			var result = await EnvironmentMapper.Instance.RaymarchAsync(fireRay, MaxTravelDist);
 			if (result.didHit)
+			{
 				if (IsOwner)
+				{
 					envHitDist = result.distance;
+				}
 				else
-					EnvironmentRaycastRpc(result.distance);
+				{
+					var headPos = Player.Instance.HeadTransform.position;
+					var hitDistFromHead = Vector3.Distance(headPos, result.point);
+
+					if (hitDistFromHead < EnvironmentMapper.Instance.MaxEyeDist)
+						EnvironmentRaycastRpc(result.distance);
+				}
+			}
 		}
 
 		[Rpc(SendTo.Owner)]

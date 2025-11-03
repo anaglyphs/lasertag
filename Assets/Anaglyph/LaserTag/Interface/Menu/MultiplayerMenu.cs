@@ -29,8 +29,10 @@ namespace Anaglyph.Lasertag
 
 		[Header(nameof(manuallyConnectPage))]
 		[SerializeField] private NavPage manuallyConnectPage = null;
-		[SerializeField] private InputField ipField = null;
 		[SerializeField] private Toggle useRelayToggle = null;
+		[SerializeField] private InputField ipField = null;
+		[SerializeField] private InputField roomField = null;
+		[SerializeField] private GameObject roomFieldLabel = null;
 		[SerializeField] private Button connectButton = null;
 
 		[Header(nameof(sessionPage))]
@@ -69,10 +71,29 @@ namespace Anaglyph.Lasertag
 
 			// int length = Mathf.Min(ip.Length, ip.LastIndexOf('.') + 1);
 
+			useRelayToggle.onValueChanged.AddListener(useRelay =>
+			{
+				if (useRelay)
+				{
+					ipField.gameObject.SetActive(false);
+					roomField.gameObject.SetActive(true);
+					roomFieldLabel.gameObject.SetActive(true);
+				}
+				else
+				{
+					ipField.gameObject.SetActive(true);
+					roomField.gameObject.SetActive(false);
+					roomFieldLabel.gameObject.SetActive(false);
+				}
+			});
+			useRelayToggle.onValueChanged.Invoke(useRelayToggle.isOn);
+
+			ipField.text = NetcodeManagement.GetLocalIPv4();
+
 			connectButton.onClick.AddListener(delegate
 			{
 				if (useRelayToggle.isOn)
-					NetcodeManagement.ConnectUnityServices(ipField.text);
+					NetcodeManagement.ConnectUnityServices(roomField.text);
 				else
 					NetcodeManagement.ConnectLAN(ipField.text);
 			});
@@ -86,6 +107,14 @@ namespace Anaglyph.Lasertag
 			Colocation.IsColocatedChange += OnColocationChange;
 
 			recalibrateButton.gameObject.SetActive(false);
+			
+			navView.onPageChange.AddListener(OnNavPageChange); 
+		}
+
+		private void OnNavPageChange(NavPage page)
+		{
+			bool onManuallyConnectPage = page == manuallyConnectPage;
+			MetaSessionDiscovery.Instance.enabled = !onManuallyConnectPage;
 		}
 
 		private void OnDestroy()

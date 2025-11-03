@@ -21,7 +21,7 @@ namespace Anaglyph.Lasertag
 	    private void OnDisable()
 	    {
 		    flag.PickedUp -= OnPickedUp;
-		    flag.Captured -= OnCaptured;  
+		    flag.Captured -= OnCaptured;
 	    }
 
 	    private void OnPickedUp(PlayerAvatar holder)

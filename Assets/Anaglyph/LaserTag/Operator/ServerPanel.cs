@@ -1,7 +1,9 @@
 #if UNITY_EDITOR
 
-using System.Text.RegularExpressions;
+using System;
 using Anaglyph.Netcode;
+using System.Net;
+using System.Text.RegularExpressions;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEditor;
@@ -19,25 +21,27 @@ namespace Anaglyph.Lasertag.Operator
 			window.minSize = new Vector2(320, 200);
 		}
 		
-		private const string TagSizeSaveKey = "Lasertag.tagSize";
+		private const string TagSizeSaveKey = "operator.tagSize";
 		private float tagSizeCm = 10f;
 
-		private const string UseRelaySaveKey = "Lasertag.useRelay";
+		private const string UseRelaySaveKey = "operator.useRelay";
 		private bool useRelay = false;
 
-		private const string UseAprilTagsSaveKey = "Lasertag.useAprilTags";
+		private const string UseAprilTagsSaveKey = "operator.useAprilTags";
 		private bool useAprilTags = false;
 
-		private const string RoomNameSaveKey = "Lasertag.roomName";
+		private const string RoomNameSaveKey = "operator.roomName";
 		private string roomName = "";
 
-		private const string IpSaveKey = "Lasertag.ip";
+		//private const string IpSaveKey = "operator.ip";
 		private string ipAddress = "127.0.0.1";
 
 		private MatchSettings settings = MatchSettings.DemoGame();
 
-		private PageParentElement networkPages;
-		private PageParentElement matchPages;
+		private Label roomLabel;
+		
+		private PageGroup networkPages;
+		private PageGroup matchPages;
 
 		private VisualElement startServerPage;
 		private VisualElement connectingPage;
@@ -45,6 +49,11 @@ namespace Anaglyph.Lasertag.Operator
 
 		private VisualElement matchSettingsPage;
 		private VisualElement matchRunningPage;
+
+		private void Awake()
+		{
+			var addresses = NetcodeManagement.GetLocalIPv4();
+		}
 
 		private void OnEnable()
 		{
@@ -67,7 +76,7 @@ namespace Anaglyph.Lasertag.Operator
 			useRelay = EditorPrefs.GetBool(UseRelaySaveKey, useRelay);
 			useAprilTags = EditorPrefs.GetBool(UseAprilTagsSaveKey, useAprilTags);
 			roomName = EditorPrefs.GetString(RoomNameSaveKey, roomName);
-			ipAddress = EditorPrefs.GetString(IpSaveKey, ipAddress);
+			// ipAddress = EditorPrefs.GetString(IpSaveKey, ipAddress);
 		}
 
 		private void UpdateHostingPage(NetcodeState state)
@@ -84,6 +93,17 @@ namespace Anaglyph.Lasertag.Operator
 
 				case NetcodeState.Connected:
 					networkPages.SetActiveElement(connectedPage);
+					
+					var manager = NetworkManager.Singleton;
+					var transport = (UnityTransport)manager.NetworkConfig.NetworkTransport;
+
+					roomLabel.text = "Room: " + transport.Protocol switch
+					{
+						UnityTransport.ProtocolType.UnityTransport => transport.ConnectionData.Address,
+						UnityTransport.ProtocolType.RelayUnityTransport => NetcodeManagement.CurrentSessionName,
+						_ => "ERROR"
+					};
+					
 					break;
 
 				default:
@@ -141,14 +161,14 @@ namespace Anaglyph.Lasertag.Operator
 			rootVisualElement.style.paddingRight = 6;
 			rootVisualElement.style.paddingTop = 6;
 
-			networkPages = new PageParentElement();
+			networkPages = new PageGroup();
 			{
 				startServerPage = new VisualElement();
 				{
 					startServerPage.Add(new Label("Host Settings")
 						{ style = { unityFontStyleAndWeight = FontStyle.Bold } });
 
-					var useAprilTagsField = new Toggle("Use AprilTag alignment") { value = useAprilTags };
+					var useAprilTagsField = new Toggle("Use AprilTags") { value = useAprilTags };
 					useAprilTagsField.RegisterValueChangedCallback(evt =>
 					{
 						useAprilTags = evt.newValue;
@@ -179,7 +199,7 @@ namespace Anaglyph.Lasertag.Operator
 					startServerPage.Add(useRelayField);
 					
 					
-					var protocolPages = new PageParentElement();
+					var protocolPages = new PageGroup();
 					{
 						var lanPage = new VisualElement();
 						protocolPages.Add(lanPage);
@@ -188,7 +208,7 @@ namespace Anaglyph.Lasertag.Operator
 							ipField.RegisterValueChangedCallback(evt =>
 							{
 								ipAddress = evt.newValue;
-								EditorPrefs.SetString(IpSaveKey, ipAddress);
+								// EditorPrefs.SetString(IpSaveKey, ipAddress);
 							});
 							lanPage.Add(ipField);
 						}
@@ -229,6 +249,17 @@ namespace Anaglyph.Lasertag.Operator
 						style = { height = 32 }
 					};
 					startServerPage.Add(hostButton);
+					
+					startServerPage.Add(
+						new Label(
+							"Don't forget to disable sleep on your server machine!")
+						{
+							style =
+							{
+								whiteSpace = WhiteSpace.Normal,
+								unityFontStyleAndWeight = FontStyle.Bold,
+							}
+						});
 
 					startServerPage.Add(
 						new Label(
@@ -247,6 +278,13 @@ namespace Anaglyph.Lasertag.Operator
 				{
 					connectingPage.Add(new Label("Connecting...")
 						{ style = { unityFontStyleAndWeight = FontStyle.Bold } });
+					
+					var stopButton = new Button(NetcodeManagement.Disconnect)
+					{
+						text = "Cancel",
+						style = { height = 24 }
+					};
+					connectingPage.Add(stopButton);
 				}
 				networkPages.Add(connectingPage);
 
@@ -254,6 +292,9 @@ namespace Anaglyph.Lasertag.Operator
 				connectedPage = new VisualElement();
 				{
 					connectedPage.Add(new Label("Hosting") { style = { unityFontStyleAndWeight = FontStyle.Bold } });
+
+					roomLabel = new Label("<Room>");
+					connectedPage.Add(roomLabel);
 
 					var stopButton = new Button(NetcodeManagement.Disconnect)
 					{
@@ -264,7 +305,7 @@ namespace Anaglyph.Lasertag.Operator
 
 
 					// match pages
-					matchPages = new PageParentElement();
+					matchPages = new PageGroup();
 					{
 						// match settings menu
 						matchSettingsPage = new VisualElement();

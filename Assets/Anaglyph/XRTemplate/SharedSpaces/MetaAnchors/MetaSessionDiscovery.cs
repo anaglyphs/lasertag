@@ -141,7 +141,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 					case State.NetcodeDisconnected:
 						await HaltAdvertisement(ctkn);
-						await Task.Delay(3000, ctkn);
+						await Task.Delay(1000, ctkn);
 						await StartDiscovery(ctkn);
 						break;
 

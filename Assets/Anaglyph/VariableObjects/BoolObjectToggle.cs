@@ -1,10 +1,8 @@
 using UnityEngine;
-using UnityEngine.Scripting.APIUpdating;
 using UnityEngine.UI;
 
 namespace VariableObjects
 {
-	[MovedFrom("VariableObjects.ScriptableBoolToggle")]
 	public class BoolObjectToggle : MonoBehaviour
 	{
 		[SerializeField] private BoolObject scriptableBool;
@@ -12,7 +10,7 @@ namespace VariableObjects
 
 		private void Awake()
 		{
-			toggle = GetComponent<Toggle>();
+			TryGetComponent(out toggle);
 
 			toggle.onValueChanged.AddListener(scriptableBool.Set);
 			scriptableBool.AddChangeListenerAndCheck(toggle.SetIsOnWithoutNotify);
@@ -20,7 +18,8 @@ namespace VariableObjects
 
 		private void OnDestroy()
 		{
-			scriptableBool.onChange -= toggle.SetIsOnWithoutNotify;
+			if(toggle)
+				scriptableBool.onChange -= toggle.SetIsOnWithoutNotify;
 		}
 	}
 }

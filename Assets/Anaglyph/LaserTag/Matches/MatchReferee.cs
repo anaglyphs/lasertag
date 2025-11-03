@@ -3,6 +3,7 @@ using Unity.Netcode;
 using UnityEngine;
 using System.Threading.Tasks;
 using System.Threading;
+using Anaglyph.Lasertag.Networking;
 
 namespace Anaglyph.Lasertag
 {
@@ -40,7 +41,7 @@ namespace Anaglyph.Lasertag
 		public short scoreTarget;
 
 		public readonly bool CheckWinByTimer() => winCondition.HasFlag(WinCondition.Timer);
-		public readonly bool CheckWinByPoints() => winCondition.HasFlag(WinCondition.ReachScore);
+		public readonly bool CheckWinByScore() => winCondition.HasFlag(WinCondition.ReachScore);
 
 		public static MatchSettings DemoGame()
 		{
@@ -56,7 +57,7 @@ namespace Anaglyph.Lasertag
 				pointsPerFlagCapture = 10,
 
 				winCondition = WinCondition.Timer,
-				timerSeconds = 60 * 3,
+				timerSeconds = 60 * 2,
 			};
 		}
 
@@ -97,15 +98,16 @@ namespace Anaglyph.Lasertag
 
 		private NetworkVariable<int>[] teamScoresSync;
 		public int GetTeamScore(byte team) => teamScoresSync[team].Value;
-		public event Action<byte> TeamScored = delegate { };
+		
+		public static event Action<byte, int> TeamScored = delegate { };
 
+		public static MatchSettings Settings { get; private set; } = MatchSettings.Lobby();
 		private readonly NetworkVariable<MatchSettings> settingsSync = new();
-		public MatchSettings Settings => settingsSync.Value;
 
 		private TaskCompletionSource<bool> winByScoreCompletion;
 		private CancellationTokenSource cancelTokenSrc;
-
-		private float localTimeMatchEnds = 0;
+		
+		public float TimeMatchEnds { get; private set; } = 0;
 
 		private void Awake()
 		{
@@ -116,8 +118,18 @@ namespace Anaglyph.Lasertag
 			teamScoresSync[0] = team0ScoreSync;
 			teamScoresSync[1] = team1ScoreSync;
 			teamScoresSync[2] = team2ScoreSync;
-
+			
+			for (byte i = 0; i < teamScoresSync.Length; i++)
+			{
+				var team = i;
+				teamScoresSync[i].OnValueChanged += (_, newValue) =>
+				{
+					TeamScored.Invoke(team, newValue);
+				};
+			}
+			
 			stateSync.OnValueChanged += OnStateChanged;
+			settingsSync.OnValueChanged += OnSettingsChanged;
 		}
 
 		public override void OnNetworkSpawn()
@@ -126,6 +138,8 @@ namespace Anaglyph.Lasertag
 			{
 				stateSync.Value = MatchState.NotPlaying;
 				settingsSync.Value = MatchSettings.Lobby();
+				
+				Settings = settingsSync.Value;
 			}
 
 			OnStateChanged(MatchState.NotPlaying, MatchState.NotPlaying);
@@ -138,7 +152,7 @@ namespace Anaglyph.Lasertag
 			switch (state)
 			{
 				case MatchState.Playing:
-					localTimeMatchEnds = Time.time + Settings.timerSeconds;
+					TimeMatchEnds = Time.time + Settings.timerSeconds;
 					break;
 
 				case MatchState.NotPlaying:
@@ -148,6 +162,11 @@ namespace Anaglyph.Lasertag
 			}
 
 			StateChanged.Invoke(state);
+		}
+
+		private void OnSettingsChanged(MatchSettings prev, MatchSettings settings)
+		{
+			Settings = settings;
 		}
 
 		public override void OnGainedOwnership()
@@ -198,6 +217,7 @@ namespace Anaglyph.Lasertag
 				return;
 
 			settingsSync.Value = settings;
+			ResetScoresRpc();
 
 			_ = Muster(CancelTaskAndPrepareNext());
 		}
@@ -212,7 +232,7 @@ namespace Anaglyph.Lasertag
 				{
 					int numPlayersInbase = 0;
 
-					foreach (Networking.PlayerAvatar player in Networking.PlayerAvatar.All.Values)
+					foreach (PlayerAvatar player in PlayerAvatar.All.Values)
 					{
 						if (player.IsInBase)
 							numPlayersInbase++;
@@ -264,7 +284,6 @@ namespace Anaglyph.Lasertag
 				{
 					settingsSync.Value = settings;
 					stateSync.Value = MatchState.Playing;
-					ResetScoresRpc();
 				}
 
 				Task timerTask = Task.CompletedTask;
@@ -272,11 +291,11 @@ namespace Anaglyph.Lasertag
 
 				if (settings.CheckWinByTimer())
 				{
-					float secondsLeft = localTimeMatchEnds - Time.time;
+					float secondsLeft = TimeMatchEnds - Time.time;
 					timerTask = Task.Delay(1000 * Mathf.RoundToInt(secondsLeft), ctn);
 				}
 
-				if (settings.CheckWinByPoints())
+				if (settings.CheckWinByScore())
 				{
 					winByScoreCompletion = new TaskCompletionSource<bool>();
 					ctn.Register(() => winByScoreCompletion.TrySetCanceled(ctn));
@@ -300,9 +319,8 @@ namespace Anaglyph.Lasertag
 			if (team == 0 || points == 0) return;
 
 			teamScoresSync[team].Value += points;
-			TeamScored.Invoke(team);
 
-			bool canWinByScore = Settings.CheckWinByPoints();
+			bool canWinByScore = Settings.CheckWinByScore();
 			bool isPlaying = State == MatchState.Playing;
 			bool isWinningScore = GetTeamScore(team) >= Settings.scoreTarget;
 
@@ -312,17 +330,17 @@ namespace Anaglyph.Lasertag
 			}
 		}
 
-		[Rpc(SendTo.Owner)]
+		[Rpc(SendTo.Everyone)]
 		public void ResetScoresRpc()
 		{
-			for (byte i = 0; i < teamScoresSync.Length; i++)
+			PlayerAvatar.Local.ResetScoreRpc();
+			
+			if (IsOwner)
 			{
-				teamScoresSync[i].Value = 0;
-			}
-
-			foreach (Networking.PlayerAvatar player in Networking.PlayerAvatar.All.Values)
-			{
-				player.ResetScoreRpc();
+				for (byte i = 0; i < teamScoresSync.Length; i++)
+				{
+					teamScoresSync[i].Value = 0;
+				}
 			}
 		}
 
@@ -341,6 +359,8 @@ namespace Anaglyph.Lasertag
 			}
 			return winningTeam;
 		}
+
+		public float GetTimeLeft() => Mathf.Max(TimeMatchEnds - Time.time, 0);
 
 		[Rpc(SendTo.Owner)]
 		public void EndMatchRpc()

@@ -10,9 +10,10 @@ TrueTypeFontImporter:
   includeFontData: 1
   fontNames:
   - D-DIN Exp
-  fallbackFontReferences: []
+  fallbackFontReferences:
+  - {fileID: 12800000, guid: d1753c3708305f04fbd3e83ce72d45f5, type: 3}
   customCharacters: 
-  fontRenderingMode: 0
+  fontRenderingMode: 1
   ascentCalculationMode: 2
   useLegacyBoundsCalculation: 0
   shouldRoundAdvanceValue: 1

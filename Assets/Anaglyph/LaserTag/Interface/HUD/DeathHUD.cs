@@ -52,7 +52,7 @@ namespace Anaglyph.Lasertag.UI
 
 			respawnPopup.SetActive(!Player.Instance.IsAlive);
 
-			if (MatchReferee.Instance.Settings.respawnInBases && !Player.Instance.IsInFriendlyBase)
+			if (MatchReferee.Settings.respawnInBases && !Player.Instance.IsInFriendlyBase)
 			{
 				respawnText.text = $"GO TO:   BASE";
 			}

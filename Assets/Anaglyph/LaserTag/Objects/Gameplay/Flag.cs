@@ -40,6 +40,7 @@ namespace Anaglyph.Lasertag
 		public override void OnNetworkDespawn() 
 		{
 			MatchReferee.StateChanged -= OnMatchStateChanged;
+			Player.Instance.Died -= DropLocal;
 		}
 
 		public override void OnGainedOwnership()
@@ -77,7 +78,7 @@ namespace Anaglyph.Lasertag
 				if (FlagHolder == PlayerAvatar.Local && PlayerAvatar.Local.IsInFriendlyBase && PlayerAvatar.Local.IsAlive)
 				{
 					var referee = MatchReferee.Instance;
-					referee.ScoreTeamRpc(PlayerAvatar.Local.Team, referee.Settings.pointsPerFlagCapture);
+					referee.ScoreTeamRpc(PlayerAvatar.Local.Team, MatchReferee.Settings.pointsPerFlagCapture);
 					FlagCapturedRpc(NetworkManager.Singleton.LocalClientId);
 				}
 			}
@@ -120,7 +121,6 @@ namespace Anaglyph.Lasertag
 		[Rpc(SendTo.Everyone)]
 		private void DropFlagRpc()
 		{
-			Captured.Invoke(FlagHolder);
 			FlagHolder = null;
 		}
 
@@ -130,7 +130,7 @@ namespace Anaglyph.Lasertag
 			if (!PlayerAvatar.All.TryGetValue(id, out var player))
 				return;
 
-			var capturePosition = player.HeadTransform.position;
+			Captured.Invoke(player);
 
 			FlagHolder = null;
 		}
