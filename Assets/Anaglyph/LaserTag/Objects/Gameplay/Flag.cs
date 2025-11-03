@@ -40,6 +40,7 @@ namespace Anaglyph.Lasertag
 		public override void OnNetworkDespawn() 
 		{
 			MatchReferee.StateChanged -= OnMatchStateChanged;
+			Player.Instance.Died -= DropLocal;
 		}
 
 		public override void OnGainedOwnership()
