@@ -38,18 +38,18 @@
       "hash": "11f09e231a903f2be3b429f2eaa4ffc575fa6810"
     },
     "com.meta.xr.sdk.core": {
-      "version": "81.0.0",
+      "version": "74.0.2",
       "depth": 0,
       "source": "registry",
       "dependencies": {},
       "url": "https://packages.unity.com"
     },
     "com.meta.xr.sdk.haptics": {
-      "version": "78.0.0",
+      "version": "74.0.2",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.meta.xr.sdk.core": "78.0.0"
+        "com.meta.xr.sdk.core": "74.0.2"
       },
       "url": "https://packages.unity.com"
     },
@@ -65,10 +65,12 @@
       "hash": "b0553630bc45d4fd50b38a2508a7f82fe76c2756"
     },
     "com.meta.xr.simulator": {
-      "version": "81.0.0",
+      "version": "74.0.0",
       "depth": 0,
       "source": "registry",
-      "dependencies": {},
+      "dependencies": {
+        "com.unity.editorcoroutines": "1.0.0"
+      },
       "url": "https://packages.unity.com"
     },
     "com.strikervr.strikersdk": {
