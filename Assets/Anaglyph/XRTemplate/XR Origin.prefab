@@ -73,7 +73,6 @@ MonoBehaviour:
   _removeHands: 0
   CustomTrackingSpace: {fileID: 2038948978265102462}
   <MaskMeshFilters>k__BackingField: []
-  _cameraRig: {fileID: 0}
 --- !u!114 &5287327361013762756
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -170,7 +169,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   projectionSurfaceType: 0
   overlayType: 1
-  compositionDepth: 5
+  compositionDepth: 0
   hidden: 0
   overridePerLayerColorScaleAndOffset: 0
   colorScale: {x: 1, y: 1, z: 1, w: 1}
