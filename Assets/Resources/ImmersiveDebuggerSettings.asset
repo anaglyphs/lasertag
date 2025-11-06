@@ -15,7 +15,7 @@ MonoBehaviour:
   debugTypes: []
   immersiveDebuggerEnabled: 0
   immersiveDebuggerDisplayAtStartup: 0
-  immersiveDebuggerToggleDisplayButton: 2
+  enableOnlyInDebugBuild: 0
   showInspectors: 0
   showConsole: 0
   followOverride: 1
@@ -31,7 +31,13 @@ MonoBehaviour:
   panelLayer: 20
   meshRendererLayer: 21
   overlayDepth: 10
+  useOverlay: 1
   inspectedDataEnabled: 
   inspectedDataAssets: []
   useCustomIntegrationConfig: 0
   customIntegrationConfigClassName: 
+  hierarchyViewShowsPrivateMembers: 0
+  clickButton: 8193
+  toggleFollowTranslationButton: 0
+  toggleFollowRotationButton: 0
+  immersiveDebuggerToggleDisplayButton: 2

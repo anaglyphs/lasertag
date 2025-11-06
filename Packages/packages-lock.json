@@ -14,15 +14,6 @@
       "dependencies": {},
       "url": "https://package.openupm.com"
     },
-    "com.maligan.unity-zed": {
-      "version": "https://github.com/maligan/unity-zed.git",
-      "depth": 0,
-      "source": "git",
-      "dependencies": {
-        "com.unity.ide.visualstudio": "2.0.20"
-      },
-      "hash": "25f1b97fedb6cf7b4b566c4a83ec8311b68d3e82"
-    },
     "com.meta.xr.depthapi": {
       "version": "https://github.com/oculus-samples/Unity-DepthAPI.git?path=/Packages/com.meta.xr.depthapi",
       "depth": 0,
@@ -35,7 +26,7 @@
       "depth": 0,
       "source": "git",
       "dependencies": {},
-      "hash": "11f09e231a903f2be3b429f2eaa4ffc575fa6810"
+      "hash": "5dbf45c95632cfd2fd0313cd1bac561e8ac75fe1"
     },
     "com.meta.xr.sdk.core": {
       "version": "81.0.0",
@@ -62,7 +53,7 @@
         "com.unity.textmeshpro": "3.0.6",
         "com.unity.ugui": "1.0.0"
       },
-      "hash": "b0553630bc45d4fd50b38a2508a7f82fe76c2756"
+      "hash": "d3b89c847dbcff03d0e318e570785d149238ad80"
     },
     "com.meta.xr.simulator": {
       "version": "81.0.0",
@@ -506,10 +497,11 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.xr.management": {
-      "version": "4.5.3",
+      "version": "4.5.2",
       "depth": 1,
       "source": "registry",
       "dependencies": {
+        "com.unity.modules.vr": "1.0.0",
         "com.unity.modules.xr": "1.0.0",
         "com.unity.xr.core-utils": "2.2.1",
         "com.unity.modules.subsystems": "1.0.0",
