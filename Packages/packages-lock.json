@@ -14,15 +14,6 @@
       "dependencies": {},
       "url": "https://package.openupm.com"
     },
-    "com.maligan.unity-zed": {
-      "version": "https://github.com/maligan/unity-zed.git",
-      "depth": 0,
-      "source": "git",
-      "dependencies": {
-        "com.unity.ide.visualstudio": "2.0.20"
-      },
-      "hash": "25f1b97fedb6cf7b4b566c4a83ec8311b68d3e82"
-    },
     "com.meta.xr.depthapi": {
       "version": "https://github.com/oculus-samples/Unity-DepthAPI.git?path=/Packages/com.meta.xr.depthapi",
       "depth": 0,
@@ -98,11 +89,11 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.collections": {
-      "version": "2.6.2",
+      "version": "2.6.3",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.unity.burst": "1.8.23",
+        "com.unity.burst": "1.8.25",
         "com.unity.mathematics": "1.3.2",
         "com.unity.test-framework": "1.4.6",
         "com.unity.nuget.mono-cecil": "1.11.5",
@@ -187,11 +178,11 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.netcode.gameobjects": {
-      "version": "2.6.0",
+      "version": "2.7.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.unity.transport": "2.4.0",
+        "com.unity.transport": "2.6.0",
         "com.unity.nuget.mono-cecil": "1.11.4"
       },
       "url": "https://packages.unity.com"
@@ -228,11 +219,11 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.render-pipelines.core": {
-      "version": "17.0.4",
+      "version": "17.2.0",
       "depth": 1,
       "source": "builtin",
       "dependencies": {
-        "com.unity.burst": "1.8.20",
+        "com.unity.burst": "1.8.14",
         "com.unity.mathematics": "1.3.2",
         "com.unity.ugui": "2.0.0",
         "com.unity.collections": "2.4.3",
@@ -243,12 +234,12 @@
       }
     },
     "com.unity.render-pipelines.universal": {
-      "version": "17.0.4",
+      "version": "17.2.0",
       "depth": 0,
       "source": "builtin",
       "dependencies": {
-        "com.unity.render-pipelines.core": "17.0.4",
-        "com.unity.shadergraph": "17.0.4",
+        "com.unity.render-pipelines.core": "17.2.0",
+        "com.unity.shadergraph": "17.2.0",
         "com.unity.render-pipelines.universal-config": "17.0.3"
       }
     },
@@ -301,17 +292,17 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.services.deployment": {
-      "version": "1.3.0",
+      "version": "1.4.1",
       "depth": 1,
       "source": "registry",
       "dependencies": {
         "com.unity.services.core": "1.12.0",
-        "com.unity.services.deployment.api": "1.0.0"
+        "com.unity.services.deployment.api": "1.1.2"
       },
       "url": "https://packages.unity.com"
     },
     "com.unity.services.deployment.api": {
-      "version": "1.0.0",
+      "version": "1.1.2",
       "depth": 2,
       "source": "registry",
       "dependencies": {},
@@ -366,11 +357,11 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.shadergraph": {
-      "version": "17.0.4",
+      "version": "17.2.0",
       "depth": 0,
       "source": "builtin",
       "dependencies": {
-        "com.unity.render-pipelines.core": "17.0.4",
+        "com.unity.render-pipelines.core": "17.2.0",
         "com.unity.searcher": "4.9.3"
       }
     },
@@ -433,12 +424,12 @@
       }
     },
     "com.unity.visualeffectgraph": {
-      "version": "17.0.4",
+      "version": "17.2.0",
       "depth": 0,
       "source": "builtin",
       "dependencies": {
-        "com.unity.shadergraph": "17.0.4",
-        "com.unity.render-pipelines.core": "17.0.4"
+        "com.unity.shadergraph": "17.2.0",
+        "com.unity.render-pipelines.core": "17.2.0"
       }
     },
     "com.unity.xr.core-utils": {
@@ -477,11 +468,10 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.xr.management": {
-      "version": "4.5.1",
+      "version": "4.5.3",
       "depth": 1,
       "source": "registry",
       "dependencies": {
-        "com.unity.modules.vr": "1.0.0",
         "com.unity.modules.xr": "1.0.0",
         "com.unity.xr.core-utils": "2.2.1",
         "com.unity.modules.subsystems": "1.0.0",
@@ -606,7 +596,8 @@
         "com.unity.modules.ui": "1.0.0",
         "com.unity.modules.imgui": "1.0.0",
         "com.unity.modules.jsonserialize": "1.0.0",
-        "com.unity.modules.hierarchycore": "1.0.0"
+        "com.unity.modules.hierarchycore": "1.0.0",
+        "com.unity.modules.physics": "1.0.0"
       }
     },
     "com.unity.modules.unitywebrequest": {
