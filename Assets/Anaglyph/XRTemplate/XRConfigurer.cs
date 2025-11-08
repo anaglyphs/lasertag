@@ -1,6 +1,4 @@
 // using UnityEngine;
-// using UnityEngine.Rendering.Universal;
-// using UnityEngine.Rendering;
 // using System.Collections;
 //
 // namespace Anaglyph.XRTemplate
@@ -27,7 +25,7 @@
 //
 // 		private IEnumerator WaitForOVRManagerInit()
 // 		{
-// 			while (OVRManager.instance == null)
+// 			while (OVRManager.instance)
 // 				yield return null;
 //
 // 			OVRManager.useDynamicFoveatedRendering = useDynamicFoveatedRendering;
