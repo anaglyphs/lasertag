@@ -112,7 +112,7 @@ GraphicsSettings:
       useDitherMaskForAlphaBlendedShadows: 1
     m_Automatic: 1
   m_LightmapStripping: 0
-  m_FogStripping: 1
+  m_FogStripping: 0
   m_InstancingStripping: 0
   m_BrgStripping: 0
   m_LightmapKeepPlain: 0
@@ -129,7 +129,7 @@ GraphicsSettings:
     UnityEngine.Rendering.Universal.UniversalRenderPipeline: {fileID: 11400000, guid: c1da462f2629d7d4d9f5669c3fd811e4, type: 2}
   m_LightsUseLinearIntensity: 1
   m_LightsUseColorTemperature: 1
-  m_LogWhenShaderIsCompiled: 1
+  m_LogWhenShaderIsCompiled: 0
   m_LightProbeOutsideHullStrategy: 1
-  m_CameraRelativeLightCulling: 1
-  m_CameraRelativeShadowCulling: 1
+  m_CameraRelativeLightCulling: 0
+  m_CameraRelativeShadowCulling: 0
