@@ -47,7 +47,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 		[SerializeField] private ComputeShader depthNormalCompute = null;
 		
 		private ComputeKernel normKernel;
-		[SerializeField] private RenderTexture normTex = null;
+		private RenderTexture normTex = null;
 
 		private void Awake()
 		{
