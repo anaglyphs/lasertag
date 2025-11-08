@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e2b12afd4d27418a9cfb2823fe2b9ff3, type: 3}
   m_Name: XRSimulationRuntimeSettings
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Unity.XR.Simulation::UnityEngine.XR.Simulation.XRSimulationRuntimeSettings
   m_EnvironmentLayer: 30
   m_EnvironmentScanParams:
     m_MinimumRescanTime: 0.1
@@ -63,5 +63,7 @@ MonoBehaviour:
     m_CubemapFaceSize: 16
   m_AnchorDiscoveryParams:
     m_MinTimeUntilUpdate: 0.2
+  m_BoundingBoxDiscoveryParams:
+    m_TrackingUpdateInterval: 0.09
   m_UseXRay: 1
   m_FlipXRayDirection: 0
