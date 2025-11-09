@@ -2853,6 +2853,12 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 8273645227207553632, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2893945346218155911}
+    - targetCorrespondingSourceObject: {fileID: 8273645227207553632, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7983327167821329044}
+    - targetCorrespondingSourceObject: {fileID: 8273645227207553632, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7904039475139823253}
   m_SourcePrefab: {fileID: 100100000, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
 --- !u!4 &3628280380739414177 stripped
 Transform:
@@ -2933,6 +2939,40 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c239b33ee5aee77488aadc51463c91de, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.XR.CompositionLayers::Unity.XR.CompositionLayers.CompositionOutline
+--- !u!114 &7983327167821329044
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4921592961275499637}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b15f82cc229284894964d2d30806969d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.XR.ARFoundation::UnityEngine.XR.ARFoundation.AROcclusionManager
+  m_HumanSegmentationStencilMode: 0
+  m_HumanSegmentationDepthMode: 0
+  m_EnvironmentDepthMode: 1
+  m_EnvironmentDepthTemporalSmoothing: 1
+  m_OcclusionPreferenceMode: 0
+--- !u!114 &7904039475139823253
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4921592961275499637}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3be8fb9835084b3f83d6d0ae1c6bd876, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.XR.ARFoundation::UnityEngine.XR.ARFoundation.ARShaderOcclusion
+  m_OcclusionManager: {fileID: 7983327167821329044}
+  m_OcclusionShaderMode: 1
+  m_SoftOcclusionPreprocessShader: {fileID: 0}
+  m_AROcclusionSources: 1
+  m_HandsOcclusionMaterial: {fileID: 0}
 --- !u!1 &5922542169172391784 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 7254734392762225021, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
