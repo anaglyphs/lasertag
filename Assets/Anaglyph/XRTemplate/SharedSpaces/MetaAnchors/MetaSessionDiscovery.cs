@@ -104,7 +104,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private State state = State.Disabled;
 		private async void UpdateState()
 		{
-			State newState = State.Disabled;
+			State newState = default;
 
 			if (enabled && !isPaused)
 			{
@@ -121,6 +121,10 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 						break;
 				}
 			}
+			else
+			{
+				newState = State.Disabled;
+			}
 
 			// only update if state has changed
 			if (newState == state)
@@ -135,8 +139,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				switch (state)
 				{
 					case State.Disabled:
-						_ = HaltDiscovery(ctkn);
-						_ = HaltAdvertisement(ctkn);
+						await HaltAdvertisement(ctkn);
+						await HaltDiscovery(ctkn);
 						break;
 
 					case State.NetcodeDisconnected:
@@ -168,7 +172,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (result.Success)
 				Log("Discovery started");
 			else
-				LogWarning("Couldn't start discovery");
+				LogWarning($"Couldn't start discovery: {result.Status}");
 		}
 
 		private async Task HaltDiscovery(CancellationToken cancelToken)
@@ -180,7 +184,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (result.Success)
 				Log("Discovery halted");
 			else
-				LogWarning("Couldn't halt discovery");
+				LogWarning($"Couldn't halt discovery: {result.Status}");
 		}
 
 		private async Task StartAdvertisement(CancellationToken cancelToken)
@@ -207,7 +211,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (result.Success)
 				Log($"Advertisement started '{message}'");
 			else
-				LogWarning($"Couldn't start advertisement '{message}'");
+				LogWarning($"Couldn't start advertisement '{message}', {result.Status}");
 		}
 
 		private async Task HaltAdvertisement(CancellationToken cancelToken)
@@ -219,7 +223,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (result.Success)
 				Log("Advertisement halted");
 			else
-				LogWarning("Couldn't halt advertisement");
+				LogWarning($"Couldn't halt advertisement: {result.Status}");
 		}
 
 		private void HandleColocationSessionDiscovered(OVRColocationSession.Data data)

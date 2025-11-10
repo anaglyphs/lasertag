@@ -149,7 +149,7 @@ GameObject:
   - component: {fileID: 4859776823073073340}
   - component: {fileID: 7188449230751622630}
   m_Layer: 0
-  m_Name: bullet
+  m_Name: Bullet
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -218,17 +218,17 @@ MonoBehaviour:
       time: 0
       value: 200
       inSlope: -304.81873
-      outSlope: -304.81873
-      tangentMode: 0
+      outSlope: -33
+      tangentMode: 69
       weightedMode: 3
       inWeight: 0
       outWeight: 0.023694076
     - serializedVersion: 3
       time: 5
       value: 35
-      inSlope: 0
+      inSlope: -33
       outSlope: 0
-      tangentMode: 0
+      tangentMode: 69
       weightedMode: 0
       inWeight: 0.33333334
       outWeight: 0.33333334
