@@ -1,0 +1,27 @@
+Texture2D<float> depthFrame;
+
+struct Block
+{
+    int3 position;
+    int offset;
+    int ptr;
+};
+
+RWStructuredBuffer<Block> blocks;
+int blocksLength;
+
+#define PRIMES int3(73856093, 19349669, 83492791)
+
+int Hash(const float3 posWrld)
+{
+    const float3 p = posWrld;
+    return (int(p.x * PRIMES.x) ^ int(p.y * PRIMES.y) ^ int(p.z * PRIMES.z)) % blocksLength;
+}
+
+#pragma kernel Integrate
+
+[numthreads(8,8,1)]
+void Integrate (uint3 id : SV_DispatchThreadID)
+{
+    
+}
