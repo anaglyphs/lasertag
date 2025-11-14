@@ -18,18 +18,10 @@ namespace Anaglyph.Lasertag.Networking
 
 		[SerializeField] private MeshRenderer meshRenderer;
 
-		public UnityEvent<byte> OnTeamChange => teamOwner.OnTeamChange;
-
 		private void OnValidate()
 		{
 			TryGetComponent(out teamOwner);
 		}
-
-		//public override void OnNetworkSpawn()
-		//{
-		//	if (IsOwner)
-		//		teamOwner.teamSync.Value = MainPlayer.Instance.networkPlayer.Team;
-		//}
 
 		private void Awake()
 		{

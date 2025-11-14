@@ -1,4 +1,6 @@
+using System;
 using Unity.Netcode;
+using UnityEngine;
 using UnityEngine.Events;
 
 namespace Anaglyph.Lasertag
@@ -9,18 +11,22 @@ namespace Anaglyph.Lasertag
 
         public byte Team => teamSync.Value;
 
-        public UnityEvent<byte> OnTeamChange = new();
+        public event Action<byte> TeamChanged = delegate { };
+		[SerializeField] private UnityEvent<byte> OnTeamChange = new();
 
 		private void Awake()
 		{
-			teamSync.OnValueChanged += delegate
-			{
-				OnTeamChange.Invoke(Team);
-			};
+			teamSync.OnValueChanged += OnValueChanged;
 		}
-
-		private void Start()
+		
+		public override void OnNetworkSpawn()
 		{
+			OnValueChanged(0, Team);
+		}
+		
+		private void OnValueChanged(byte previousValue, byte newValue)
+		{
+			TeamChanged.Invoke(Team);
 			OnTeamChange.Invoke(Team);
 		}
 	}

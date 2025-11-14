@@ -20,8 +20,8 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			MatchReferee.StateChanged += HandleStateChange;
-			HandleStateChange(MatchReferee.State);
+			MatchReferee.StateChanged += OnMatchStateChanged;
+			OnMatchStateChanged(MatchReferee.State);
 			
 			startPage.showBackButton = false;
 			startButton.onClick.AddListener(StartGame);
@@ -32,7 +32,7 @@ namespace Anaglyph.Lasertag
 
 		private void OnDestroy()
 		{
-			MatchReferee.StateChanged -= HandleStateChange;
+			MatchReferee.StateChanged -= OnMatchStateChanged;
 		}
 
 		private void StartGame()
@@ -45,7 +45,7 @@ namespace Anaglyph.Lasertag
 			referee?.EndMatchRpc();
 		}
 
-		private void HandleStateChange(MatchState state)
+		private void OnMatchStateChanged(MatchState state)
 		{
 			if (state == MatchState.NotPlaying)
 				startPage.NavigateHere();

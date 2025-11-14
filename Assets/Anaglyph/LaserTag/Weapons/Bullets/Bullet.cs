@@ -36,7 +36,7 @@ namespace Anaglyph.Lasertag
 		{
 			spawnPoseSync.OnValueChanged += OnSpawnPosChange;
 		}
-
+		
 		public override void OnNetworkSpawn()
 		{
 			envHitDist = MaxTravelDist;

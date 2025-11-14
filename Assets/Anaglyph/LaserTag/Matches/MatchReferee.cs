@@ -86,12 +86,9 @@ namespace Anaglyph.Lasertag
 
 	public class MatchReferee : NetworkBehaviour
 	{
-		private const string NotOwnerExceptionMessage = "Only the NGO owner should call this!";
-
 		public static MatchReferee Instance { get; private set; }
 
-		private readonly NetworkVariable<MatchState> stateSync = new(MatchState.NotPlaying);
-
+		private readonly NetworkVariable<MatchState> stateSync = new();
 		public static MatchState State { get; private set; } = MatchState.NotPlaying;
 		public static event Action<MatchState> StateChanged = delegate { };
 		public static event Action MatchFinished = delegate { };
@@ -101,8 +98,8 @@ namespace Anaglyph.Lasertag
 		
 		public static event Action<byte, int> TeamScored = delegate { };
 
-		public static MatchSettings Settings { get; private set; } = MatchSettings.Lobby();
 		private readonly NetworkVariable<MatchSettings> settingsSync = new();
+		public static MatchSettings Settings { get; private set; } = MatchSettings.Lobby();
 
 		private TaskCompletionSource<bool> winByScoreCompletion;
 		private CancellationTokenSource cancelTokenSrc;
@@ -113,11 +110,50 @@ namespace Anaglyph.Lasertag
 		{
 			Instance = this;
 			
-			stateSync.OnValueChanged += OnStateChanged;
-			settingsSync.OnValueChanged += OnSettingsChanged;
+			settingsSync.OnValueChanged += (_, settings) =>
+			{
+				SetSettingsLocally(settings);
+			};
+			
+			stateSync.OnValueChanged += (_, state) =>
+			{
+				SetStateLocally(state);
+			};
+			
+			SetSettingsLocally(MatchSettings.Lobby());
+			SetStateLocally(MatchState.NotPlaying);
 		}
 		
-		private void OnStateChanged(MatchState prev, MatchState state)
+		
+
+		private void Start()
+		{
+			NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
+		}
+
+		public override void OnDestroy()
+		{
+			base.OnDestroy();
+			if(NetworkManager.Singleton)
+				NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
+		}
+
+		public override void OnNetworkSpawn()
+		{
+			SetSettingsLocally(settingsSync.Value);
+			SetStateLocally(stateSync.Value);
+		}
+		
+		public override void OnNetworkDespawn()
+		{
+			ResetScoresLocally();
+			cancelTokenSrc?.Cancel();
+			
+			SetSettingsLocally(MatchSettings.Lobby());
+			SetStateLocally(MatchState.NotPlaying);
+		}
+		
+		private void SetStateLocally(MatchState state)
 		{
 			State = state;
 
@@ -128,7 +164,7 @@ namespace Anaglyph.Lasertag
 					break;
 				
 				case MatchState.Playing:
-					TimeMatchEnds = Time.time + Settings.timerSeconds;
+					
 					break;
 
 				case MatchState.NotPlaying:
@@ -140,31 +176,9 @@ namespace Anaglyph.Lasertag
 			StateChanged.Invoke(state);
 		}
 		
-		private void OnSettingsChanged(MatchSettings prev, MatchSettings settings)
+		private void SetSettingsLocally(MatchSettings settings)
 		{
 			Settings = settings;
-		}
-
-		public override void OnNetworkSpawn()
-		{
-			if (IsOwner)
-			{
-				stateSync.Value = MatchState.NotPlaying;
-				settingsSync.Value = MatchSettings.Lobby();
-				
-				Settings = settingsSync.Value;
-			}
-
-			OnStateChanged(MatchState.NotPlaying, MatchState.NotPlaying);
-		}
-		
-		public override void OnNetworkDespawn()
-		{
-			ResetScoresLocally();
-			
-			State = MatchState.NotPlaying;
-			cancelTokenSrc?.Cancel();
-			OnStateChanged(stateSync.Value, MatchState.NotPlaying);
 		}
 		
 		public override void OnGainedOwnership()
@@ -185,22 +199,16 @@ namespace Anaglyph.Lasertag
 					stateSync.Value = MatchState.NotPlaying;
 					break;
 			}
-			
-			NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
-		}
-
-		public override void OnLostOwnership()
-		{
-			NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
 		}
 		
 		private void OnClientConnected(ulong id)
 		{
-			if (!IsOwner)
-				throw new Exception("Only owner should be running this!");
-			
-			var sendTo = RpcTarget.Single(id, RpcTargetUse.Temp);
-			SyncScoresRpc(teamScores, sendTo);
+			if (IsOwner && id != OwnerClientId)
+			{
+				float timeLeft = TimeMatchEnds - Time.time;
+				var sendTo = RpcTarget.Single(id, RpcTargetUse.Temp);
+				SyncLateJoinerRpc(teamScores, timeLeft, sendTo);
+			}
 		}
 
 		private CancellationToken CancelTaskAndPrepareNext()
@@ -211,13 +219,13 @@ namespace Anaglyph.Lasertag
 			return cancelTokenSrc.Token;
 		}
 
-		[Rpc(SendTo.Owner)]
+		[Rpc(SendTo.Everyone)]
 		public void StartMatchRpc(MatchSettings settings)
 		{
 			if (State != MatchState.NotPlaying)
 				return;
 
-			settingsSync.Value = settings;
+			Settings = settings;
 
 			_ = Muster(CancelTaskAndPrepareNext());
 		}
@@ -226,7 +234,7 @@ namespace Anaglyph.Lasertag
 		{
 			try
 			{
-				stateSync.Value = MatchState.Mustering;
+				State = MatchState.Mustering;
 
 				while (State == MatchState.Mustering)
 				{
@@ -303,11 +311,11 @@ namespace Anaglyph.Lasertag
 				}
 
 				await Task.WhenAll(timerTask, scoreTask);
+				MatchFinishedRpc();
 			}
 			catch (OperationCanceledException) { }
 
 			stateSync.Value = MatchState.NotPlaying;
-			MatchFinishedRpc();
 
 			ctn.ThrowIfCancellationRequested();
 		}
@@ -315,31 +323,38 @@ namespace Anaglyph.Lasertag
 		[Rpc(SendTo.Everyone)]
 		public void ScoreTeamRpc(byte team, int points)
 		{
-			if (State != MatchState.Playing) return;
 			if (team == 0 || points == 0) return;
 
 			teamScores[team] += points;
 
 			TeamScored(team, points);
 
-			bool canWinByScore = Settings.CheckWinByScore();
-			bool isPlaying = State == MatchState.Playing;
-			bool isWinningScore = GetTeamScore(team) >= Settings.scoreTarget;
-
-			if (isPlaying && canWinByScore && isWinningScore)
+			if (IsOwner)
 			{
-				winByScoreCompletion.SetResult(true);
+				bool canWinByScore = Settings.CheckWinByScore();
+				bool isPlaying = State == MatchState.Playing;
+				bool isWinningScore = GetTeamScore(team) >= Settings.scoreTarget;
+
+				if (isPlaying && canWinByScore && isWinningScore)
+				{
+					winByScoreCompletion.SetResult(true);
+				}
 			}
 		}
 
 		[Rpc(SendTo.SpecifiedInParams)]
-		public void SyncScoresRpc(int[] scores, RpcParams rpcParams)
+		public void SyncLateJoinerRpc(int[] scores, float timeLeft, RpcParams rpcParams)
 		{
 			if (scores.Length != teamScores.Length)
 				return;
 			
-			for(int i = 0; i < teamScores.Length; i++)
+			TimeMatchEnds = Time.time + timeLeft;
+
+			for (byte i = 0; i < teamScores.Length; i++)
+			{
 				teamScores[i] += scores[i];
+				TeamScored.Invoke(i, scores[i]);
+			}
 		}
 
 		[Rpc(SendTo.Everyone)]

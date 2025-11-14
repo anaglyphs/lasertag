@@ -103,7 +103,7 @@ namespace Anaglyph.Lasertag
 			NetworkObject.InstantiateAndSpawn(avatarPrefab,
 				manager, manager.LocalClientId, destroyWithScene: true, isPlayerObject: true);
 			
-			PlayerAvatar.Local.TeamOwner.OnTeamChange.AddListener(TeamChanged.Invoke);
+			PlayerAvatar.Local.TeamOwner.TeamChanged += TeamChanged.Invoke;
 		}
 
 		public void Damage(float damage, ulong damagedBy)

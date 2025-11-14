@@ -34,22 +34,21 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			teamOwner.teamSync.OnValueChanged += delegate
-			{
-
-				if (IsOwner)
-					millisCapturedSync.Value = 0;
-
-				ControllingTeamChanged.Invoke(HoldingTeam);
-			};
-
 			MatchReferee.StateChanged += OnMatchStateChanged;
+			teamOwner.TeamChanged += OnTeamChanged;
 		}
 
 		public override void OnDestroy()
 		{
 			base.OnDestroy();
 			MatchReferee.StateChanged -= OnMatchStateChanged;
+		}
+		
+		private void OnTeamChanged(byte team)
+		{
+			if (IsOwner) millisCapturedSync.Value = 0;
+
+			ControllingTeamChanged.Invoke(HoldingTeam);
 		}
 
 		private void OnMatchStateChanged(MatchState state)

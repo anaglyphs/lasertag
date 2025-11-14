@@ -53,18 +53,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 959866492
-  InScenePlacedSourceGlobalObjectIdHash: 3184280641
+  GlobalObjectIdHash: 3184280641
+  InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
-  Ownership: 3
+  Ownership: 8
   AlwaysReplicateAsRoot: 0
-  SynchronizeTransform: 0
+  SynchronizeTransform: 1
   ActiveSceneSynchronization: 0
   SceneMigrationSynchronization: 0
   SpawnWithObservers: 1
   DontDestroyWithOwner: 1
   AutoObjectParentSync: 1
-  SyncOwnerTransformWhenParented: 0
+  SyncOwnerTransformWhenParented: 1
   AllowOwnerToParent: 0
 --- !u!114 &672875215782764715
 MonoBehaviour:
@@ -92,8 +92,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 0
-  useAprilTagColocation: {fileID: 11400000, guid: 47b47a4c1dcf98e4a9c4022fa9722c2b, type: 2}
-  aprilTagSizeOption: {fileID: 11400000, guid: 82699730f4d9ee247857edb33a942db4, type: 2}
+  HostColocationMethod: 0
+  HostAprilTagSize: 0
   metaAnchorColocator: {fileID: 3770516394125647478}
   aprilTagColocator: {fileID: 2017920904899384140}
 --- !u!114 &3770516394125647478

@@ -31,10 +31,10 @@ namespace Anaglyph.Lasertag
 			MatchReferee.TeamScored -= OnTeamScored;
 		}
 
-		private void OnTeamScored(byte scoredTeam, int score)
+		private void OnTeamScored(byte scoredTeam, int points)
 		{
 			if (team == scoredTeam) 
-				UpdateScore(score);
+				UpdateScore(MatchReferee.GetTeamScore(scoredTeam));
 		}
 
 		private void UpdateScore(int score) => label.text = score.ToString();
