@@ -53,6 +53,7 @@ namespace Anaglyph.Lasertag
 				respawnInBases = true,
 				respawnSeconds = 5,
 				healthRegenPerSecond = 5,
+				damageMultiplier = 1,
 
 				pointsPerKill = 1,
 				pointsPerSecondHoldingPoint = 1,
@@ -71,6 +72,7 @@ namespace Anaglyph.Lasertag
 				respawnInBases = false,
 				respawnSeconds = 5,
 				healthRegenPerSecond = 5,
+				damageMultiplier = 1,
 
 				pointsPerKill = 0,
 				pointsPerSecondHoldingPoint = 0,

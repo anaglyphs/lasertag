@@ -65,8 +65,8 @@ MonoBehaviour:
     - line: '|     width: 1'
     - line: '|     height: 1'
     - line: '|   m_SplashScreenLogos:'
-    - line: '|   - logo: {fileID: 10404, guid: 0000000000000000f000000000000000, type:
-        0}'
+    - line: '|   - logo: {fileID: 10404, guid: 0000000000000000f000000000000000,
+        type: 0}'
     - line: '|     duration: 2'
     - line: '|   m_VirtualRealitySplashScreen: {instanceID: 0}'
     - line: '|   m_HolographicTrackingLossScreen: {instanceID: 0}'
@@ -98,6 +98,7 @@ MonoBehaviour:
     - line: '|   androidStartInFullscreen: 1'
     - line: '|   androidRenderOutsideSafeArea: 1'
     - line: '|   androidUseSwappy: 0'
+    - line: '|   androidDisplayOptions: 1'
     - line: '|   androidBlitType: 1'
     - line: '|   androidResizeableActivity: 0'
     - line: '|   androidDefaultWindowWidth: 1920'
@@ -179,6 +180,10 @@ MonoBehaviour:
         type: 3}'
     - line: '|   - {fileID: -944628639613478452, guid: 616e1c785ffcdf143b4e0c78a1535fad,
         type: 3}'
+    - line: '|   - {fileID: -687199915405183056, guid: f3686f9e4cdebbc4e8faeed1e0f88fcd,
+        type: 2}'
+    - line: '|   - {fileID: 11400000, guid: 4c41dd6ad791e2a4b8898d0ea8b277ec, type:
+        2}'
     - line: '|   metroInputSource: 0'
     - line: '|   wsaTransparentSwapchain: 0'
     - line: '|   m_HolographicPauseOnTrackingLoss: 1'
@@ -208,7 +213,6 @@ MonoBehaviour:
     - line: '|     iPhone: 0'
     - line: '|     tvOS: 0'
     - line: '|   overrideDefaultApplicationIdentifier: 1'
-    - line: '|   AndroidBundleVersionCode: 316'
     - line: '|   AndroidBundleVersionCode: 317'
     - line: '|   AndroidMinSdkVersion: 32'
     - line: '|   AndroidTargetSdkVersion: 32'

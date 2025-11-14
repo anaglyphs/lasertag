@@ -110,6 +110,7 @@ namespace Anaglyph.Lasertag
 		{
 			Damaged.Invoke();
 			var mult = MatchReferee.Settings.damageMultiplier;
+			if (mult == 0) mult = 1;
 			Health -= damage * mult;
 
 			if (Health <= 0)

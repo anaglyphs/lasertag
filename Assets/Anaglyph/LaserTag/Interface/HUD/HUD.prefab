@@ -246,6 +246,7 @@ GameObject:
   - component: {fileID: 7181855698455719301}
   - component: {fileID: 8199889089746601493}
   - component: {fileID: 2089415058553552051}
+  - component: {fileID: 6797655442129938538}
   - component: {fileID: 446208027325884906}
   m_Layer: 5
   m_Name: Death
@@ -313,6 +314,20 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &6797655442129938538
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1977528419013774398}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3312d7739989d2b4e91e6319e9a96d76, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Padding: {x: 0, y: 0, z: 0, w: 0}
+  m_Softness: {x: 0, y: 0}
 --- !u!114 &446208027325884906
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -327,6 +342,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   respawnText: {fileID: 5901854019155512511}
   respawnPopup: {fileID: 1977528419013774398}
+  menuMaskRectTransform: {fileID: 7181855698455719301}
 --- !u!1 &2773401888495432745
 GameObject:
   m_ObjectHideFlags: 0

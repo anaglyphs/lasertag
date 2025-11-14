@@ -22,8 +22,7 @@ namespace Anaglyph.Lasertag
 		{
 			label.text = "0";
 			MatchReferee.TeamScored += OnTeamScored;
-
-			var matchRef = MatchReferee.Instance;
+			
 			if (didStart) UpdateScore(MatchReferee.GetTeamScore(team));  
 		}
 
