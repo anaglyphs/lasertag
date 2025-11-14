@@ -227,6 +227,8 @@ namespace Anaglyph.Lasertag
 
 		private void LateUpdate()
 		{
+			if (!PlayerAvatar.Local) return;
+			
 			// network player transforms
 			PlayerAvatar.Local.HeadTransform.SetWorldPose(headTransform.GetWorldPose());
 			PlayerAvatar.Local.LeftHandTransform.SetWorldPose(leftHandTransform.GetWorldPose());
