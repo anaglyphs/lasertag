@@ -35,17 +35,45 @@ namespace Anaglyph.Lasertag
 		public override void OnNetworkSpawn()
 		{
 			MatchReferee.StateChanged += OnMatchStateChanged;
+			NetworkManager.OnClientConnectedCallback += OnClientConnected;
+			MainPlayer.Instance.Died += OnDied;
 		}
 
 		public override void OnNetworkDespawn() 
 		{
+			if(FlagHolder == PlayerAvatar.Local)
+				DropEveryoneRpc();
+
+			FlagHolder = null;
+			
 			MatchReferee.StateChanged -= OnMatchStateChanged;
-			MainPlayer.Instance.Died -= DropEveryoneRpc;
+			NetworkManager.OnClientConnectedCallback -= OnClientConnected;
+			MainPlayer.Instance.Died -= OnDied;
+		}
+
+		private void OnDied()
+		{
+			if(FlagHolder == PlayerAvatar.Local)
+				DropEveryoneRpc();
+
+			FlagHolder = null;
+		}
+
+		void OnClientConnected(ulong id)
+		{
+			if (id == NetworkManager.LocalClientId)
+				return;
+
+			if (FlagHolder)
+			{
+				var sendTo = RpcTarget.Single(id, RpcTargetUse.Temp);
+				PickupFlagRpc(FlagHolder.OwnerClientId, sendTo);
+			}
 		}
 
 		public override void OnGainedOwnership()
 		{
-			if (FlagHolder == null)
+			if (FlagHolder)
 				DropEveryoneRpc();
 		}
 
@@ -93,8 +121,8 @@ namespace Anaglyph.Lasertag
 			flagVisualTransform.transform.rotation = Quaternion.LookRotation(camLook, Vector3.up);
 		}
 
-		[Rpc(SendTo.Everyone)]
-		private void PickupFlagRpc(ulong id)
+		[Rpc(SendTo.Everyone, AllowTargetOverride = true)]
+		private void PickupFlagRpc(ulong id, RpcParams rpcParams = default)
 		{
 			if (!PlayerAvatar.All.TryGetValue(id, out var player))
 				return;
@@ -103,8 +131,6 @@ namespace Anaglyph.Lasertag
 				return;
 
 			FlagHolder = player;
-			if (FlagHolder == PlayerAvatar.Local)
-				MainPlayer.Instance.Died += DropEveryoneRpc;
 			
 			PickedUp.Invoke(FlagHolder);
 		}
@@ -112,9 +138,6 @@ namespace Anaglyph.Lasertag
 		[Rpc(SendTo.Everyone)]
 		private void DropEveryoneRpc()
 		{
-			if (FlagHolder == PlayerAvatar.Local)
-				MainPlayer.Instance.Died -= DropEveryoneRpc;
-			
 			FlagHolder = null;
 		}
 

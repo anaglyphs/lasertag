@@ -112,23 +112,22 @@ namespace Anaglyph.Lasertag
 		
 		private void Start()
 		{
-			NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
 			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
 		}
-
-		public override void OnDestroy()
-		{
-			base.OnDestroy();
-			if(NetworkManager.Singleton)
-				NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
-		}
-
+		
 		public override void OnNetworkSpawn()
 		{
+			NetworkManager.OnClientConnectedCallback += OnClientConnected;
+			
 			if (IsOwner)
 			{
 				SetStateEveryoneRpc(MatchState.NotPlaying);
 			}
+		}
+
+		public override void OnNetworkDespawn()
+		{
+			NetworkManager.OnClientConnectedCallback -= OnClientConnected;
 		}
 		
 		void OnNetcodeStateChanged(NetcodeState netcodeState)
@@ -141,6 +140,7 @@ namespace Anaglyph.Lasertag
 					break;
 			}
 		}
+
 		
 		private void OnClientConnected(ulong id)
 		{
@@ -159,7 +159,7 @@ namespace Anaglyph.Lasertag
 		}
 
 		[Rpc(SendTo.Everyone, AllowTargetOverride = true)]
-		private void SetMatchSettingsEveryoneRpc(MatchSettings settings, RpcParams rpcParams)
+		private void SetMatchSettingsEveryoneRpc(MatchSettings settings, RpcParams rpcParams = default)
 		{
 			Settings = settings;
 		}
