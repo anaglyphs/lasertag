@@ -29,7 +29,7 @@ namespace Anaglyph.Lasertag
 		    if (PlayerAvatar.Local?.Team != holder.Team)
 		    {
 			    var pos = holder.HeadTransform.position;
-			    AudioSource.PlayClipAtPoint(enemyStoleFlag, pos);
+			    AudioPool.Play(enemyStoleFlag, pos);
 		    }
 	    }
 
@@ -41,7 +41,7 @@ namespace Anaglyph.Lasertag
 		    if (PlayerAvatar.Local && PlayerAvatar.Local?.Team != holder.Team)
 			    sfx = enemyCapturedFlag;
 		    
-		    AudioSource.PlayClipAtPoint(sfx, pos);
+		    AudioPool.Play(sfx, pos);
 	    }
     }
 }

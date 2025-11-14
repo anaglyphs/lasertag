@@ -48,7 +48,7 @@ namespace Anaglyph.Lasertag
 				SetPose(SpawnPose);
 
 			OnFire.Invoke();
-			AudioSource.PlayClipAtPoint(fireSFX, transform.position);
+			AudioPool.Play(fireSFX, transform.position);
 			
 			fireRay = new(transform.position, transform.forward);
 
@@ -143,7 +143,7 @@ namespace Anaglyph.Lasertag
 			isAlive = false;
 
 			OnCollide.Invoke();
-			AudioSource.PlayClipAtPoint(collideSFX, transform.position);
+			AudioPool.Play(collideSFX, transform.position);
 
 			if (IsOwner)
 			{

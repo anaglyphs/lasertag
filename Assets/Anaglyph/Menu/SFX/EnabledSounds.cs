@@ -10,13 +10,13 @@ namespace Anaglyph.Menu
 		private void OnEnable()
 		{
 			if (enable != null)
-				AudioSource.PlayClipAtPoint(enable, transform.position);
+				AudioPool.Play(enable, transform.position);
 		}
 
 		private void OnDisable()
 		{
 			if (disable != null)
-				AudioSource.PlayClipAtPoint(disable, transform.position);
+				AudioPool.Play(disable, transform.position);
 		}
 	}
 }
