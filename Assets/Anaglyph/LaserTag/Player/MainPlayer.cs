@@ -109,7 +109,7 @@ namespace Anaglyph.Lasertag
 		public void Damage(float damage, ulong damagedBy)
 		{
 			Damaged.Invoke();
-			var mult = MatchReferee.QueuedSettings.damageMultiplier;
+			var mult = MatchReferee.Settings.damageMultiplier;
 			if (mult == 0) mult = 1;
 			Health -= damage * mult;
 
@@ -138,7 +138,7 @@ namespace Anaglyph.Lasertag
 				if (MatchReferee.State == MatchState.Playing && killer.Team != PlayerAvatar.Local.Team)
 				{
 					var referee = MatchReferee.Instance;
-					referee.TeamScoredRpc(killer.Team, MatchReferee.QueuedSettings.pointsPerKill);
+					referee.TeamScoredRpc(killer.Team, MatchReferee.Settings.pointsPerKill);
 				}
 			}
 		}
@@ -185,7 +185,7 @@ namespace Anaglyph.Lasertag
 
 			if (IsAlive)
 			{
-				Health += MatchReferee.QueuedSettings.healthRegenPerSecond * Time.deltaTime;
+				Health += MatchReferee.Settings.healthRegenPerSecond * Time.deltaTime;
 			}
 
 			WeaponsManagement.CanFire = IsAlive;
@@ -216,9 +216,9 @@ namespace Anaglyph.Lasertag
 			if (!IsAlive)
 			{
 				float timeSinceDeath = Time.time - LastDeathTime;
-				bool timeCheck = timeSinceDeath > MatchReferee.QueuedSettings.respawnSeconds;
+				bool timeCheck = timeSinceDeath > MatchReferee.Settings.respawnSeconds;
 				
-				bool baseCheck = IsInFriendlyBase || !MatchReferee.QueuedSettings.respawnInBases;
+				bool baseCheck = IsInFriendlyBase || !MatchReferee.Settings.respawnInBases;
 
 				if (timeCheck && baseCheck)
 					Respawn();

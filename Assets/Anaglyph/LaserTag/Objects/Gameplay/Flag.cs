@@ -40,19 +40,19 @@ namespace Anaglyph.Lasertag
 		public override void OnNetworkDespawn() 
 		{
 			MatchReferee.StateChanged -= OnMatchStateChanged;
-			MainPlayer.Instance.Died -= DropLocal;
+			MainPlayer.Instance.Died -= DropEveryoneRpc;
 		}
 
 		public override void OnGainedOwnership()
 		{
 			if (FlagHolder == null)
-				DropFlagRpc();
+				DropEveryoneRpc();
 		}
 
 		private void OnMatchStateChanged(MatchState state)
 		{
 			if (IsOwner)
-				DropFlagRpc();
+				DropEveryoneRpc();
 		}
 
 		private void Update()
@@ -67,7 +67,7 @@ namespace Anaglyph.Lasertag
 				bool isOtherTeam = teamOwner.Team != PlayerAvatar.Local.Team;
 
 				if (isInside && isOtherTeam && PlayerAvatar.Local.IsAlive)
-					PickupLocal();
+					PickupFlagRpc(NetworkManager.LocalClientId);
 
 				flagVisualTransform.transform.localPosition = defaultFlagPosition;
 			}
@@ -78,7 +78,7 @@ namespace Anaglyph.Lasertag
 				if (FlagHolder == PlayerAvatar.Local && PlayerAvatar.Local.IsInFriendlyBase && PlayerAvatar.Local.IsAlive)
 				{
 					var referee = MatchReferee.Instance;
-					referee.TeamScoredRpc(PlayerAvatar.Local.Team, MatchReferee.QueuedSettings.pointsPerFlagCapture);
+					referee.TeamScoredRpc(PlayerAvatar.Local.Team, MatchReferee.Settings.pointsPerFlagCapture);
 					FlagCapturedRpc(NetworkManager.Singleton.LocalClientId);
 				}
 			}
@@ -93,34 +93,28 @@ namespace Anaglyph.Lasertag
 			flagVisualTransform.transform.rotation = Quaternion.LookRotation(camLook, Vector3.up);
 		}
 
-		private void PickupLocal()
-		{
-			MainPlayer.Instance.Died += DropLocal;
-			
-			FlagHolder = PlayerAvatar.Local;
-			PickupFlagRpc(NetworkManager.LocalClientId);
-		}
-
 		[Rpc(SendTo.Everyone)]
 		private void PickupFlagRpc(ulong id)
 		{
 			if (!PlayerAvatar.All.TryGetValue(id, out var player))
 				return;
 
+			if (FlagHolder == PlayerAvatar.Local)
+				return;
+
 			FlagHolder = player;
+			if (FlagHolder == PlayerAvatar.Local)
+				MainPlayer.Instance.Died += DropEveryoneRpc;
 			
 			PickedUp.Invoke(FlagHolder);
 		}
 
-		private void DropLocal()
-		{
-			MainPlayer.Instance.Died -= DropLocal;
-			DropFlagRpc();
-		}
-
 		[Rpc(SendTo.Everyone)]
-		private void DropFlagRpc()
+		private void DropEveryoneRpc()
 		{
+			if (FlagHolder == PlayerAvatar.Local)
+				MainPlayer.Instance.Died -= DropEveryoneRpc;
+			
 			FlagHolder = null;
 		}
 

@@ -100,7 +100,7 @@ namespace Anaglyph.Lasertag
 				destroyCancellationToken.ThrowIfCancellationRequested();
 
 				if (teamOwner.Team != 0)
-					referee.TeamScoredRpc(teamOwner.Team, MatchReferee.QueuedSettings.pointsPerSecondHoldingPoint);
+					referee.TeamScoredRpc(teamOwner.Team, MatchReferee.Settings.pointsPerSecondHoldingPoint);
 			}
 		}
 

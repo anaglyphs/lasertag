@@ -226,6 +226,7 @@ namespace Anaglyph.Lasertag
 		private void Disconnect()
 		{
 			NetcodeManagement.Disconnect();
+			homePage.NavigateHere();
 		}
 	}
 }

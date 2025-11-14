@@ -45,14 +45,14 @@ namespace Anaglyph.Lasertag.UI
 		{
 			respawnPopup.SetActive(!MainPlayer.Instance.IsAlive);
 
-			if (MatchReferee.QueuedSettings.respawnInBases && !MainPlayer.Instance.IsInFriendlyBase)
+			if (MatchReferee.Settings.respawnInBases && !MainPlayer.Instance.IsInFriendlyBase)
 			{
 				respawnText.text = $"GO TO:   BASE";
 			}
 			else
 			{
 				float timeSinceDeath = Time.time - MainPlayer.Instance.LastDeathTime;
-				float timeToRespawn = MatchReferee.QueuedSettings.respawnSeconds - timeSinceDeath;
+				float timeToRespawn = MatchReferee.Settings.respawnSeconds - timeSinceDeath;
 				respawnText.text = $"RESPAWN: {timeToRespawn:F1}s";
 			}
 		}

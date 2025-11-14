@@ -32,7 +32,7 @@ namespace Anaglyph.Lasertag
 
 		    if (show)
 		    {
-			    MatchSettings settings = MatchReferee.QueuedSettings;
+			    MatchSettings settings = MatchReferee.Settings;
 
 			    timerGoalHUD.SetActive(settings.winCondition == WinCondition.Timer);
 			    scoreGoalHUD.SetActive(settings.winCondition == WinCondition.ReachScore);
@@ -61,7 +61,7 @@ namespace Anaglyph.Lasertag
 
 		    if (!playing) return;
 
-		    switch (MatchReferee.QueuedSettings.winCondition)
+		    switch (MatchReferee.Settings.winCondition)
 		    {
 			    case WinCondition.Timer:
 				    UpdateTimerText();
@@ -81,7 +81,7 @@ namespace Anaglyph.Lasertag
 			    if (MatchReferee.State == MatchState.Playing)
 					seconds = matchRef.GetTimeLeft();
 			    else
-					seconds = MatchReferee.QueuedSettings.timerSeconds;
+					seconds = MatchReferee.Settings.timerSeconds;
 		    }
 		    
 		    var time = TimeSpan.FromSeconds(seconds);
