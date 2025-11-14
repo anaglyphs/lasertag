@@ -49,7 +49,7 @@ namespace Anaglyph
 				// find next available AudioSource
 				foreach (var _ in allSources)
 				{
-					poolIndex++;
+					poolIndex = (poolIndex + 1) % allSources.Count;
 					if (!allSources[poolIndex].gameObject.activeInHierarchy)
 						break;
 				}
