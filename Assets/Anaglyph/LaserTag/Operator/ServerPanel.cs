@@ -367,7 +367,7 @@ namespace Anaglyph.Lasertag.Operator
 									(short)Mathf.Clamp(evt.newValue, short.MinValue, short.MaxValue));
 							matchSettingsPage.Add(score);
 
-							var startGame = new Button(() => { MatchReferee.Instance.StartMatchRpc(settings); })
+							var startGame = new Button(() => { MatchReferee.Instance.QueueMatchEveryoneRpc(settings); })
 							{
 								text = "Start Game"
 							};
@@ -384,7 +384,7 @@ namespace Anaglyph.Lasertag.Operator
 								{ style = { unityFontStyleAndWeight = FontStyle.Bold, marginTop = 10 } };
 							matchRunningPage.Add(matchRunningLabel);
 
-							var stopGame = new Button(() => { MatchReferee.Instance.EndMatchRpc(); })
+							var stopGame = new Button(() => { MatchReferee.Instance.EndMatchEveryoneRpc(); })
 							{
 								text = "Stop Game",
 								style =

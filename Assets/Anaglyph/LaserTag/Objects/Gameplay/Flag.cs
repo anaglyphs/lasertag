@@ -78,7 +78,7 @@ namespace Anaglyph.Lasertag
 				if (FlagHolder == PlayerAvatar.Local && PlayerAvatar.Local.IsInFriendlyBase && PlayerAvatar.Local.IsAlive)
 				{
 					var referee = MatchReferee.Instance;
-					referee.ScoreTeamRpc(PlayerAvatar.Local.Team, MatchReferee.Settings.pointsPerFlagCapture);
+					referee.TeamScoredRpc(PlayerAvatar.Local.Team, MatchReferee.QueuedSettings.pointsPerFlagCapture);
 					FlagCapturedRpc(NetworkManager.Singleton.LocalClientId);
 				}
 			}

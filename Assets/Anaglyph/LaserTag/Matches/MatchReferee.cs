@@ -1,4 +1,5 @@
 using System;
+using System.Text.RegularExpressions;
 using Unity.Netcode;
 using UnityEngine;
 using System.Threading.Tasks;
@@ -88,8 +89,8 @@ namespace Anaglyph.Lasertag
 	{
 		public static MatchReferee Instance { get; private set; }
 
-		private readonly NetworkVariable<MatchState> stateSync = new();
-		public static MatchState State { get; private set; } = MatchState.NotPlaying;
+		private static MatchState _state = MatchState.NotPlaying;
+		public static MatchState State => _state;
 		public static event Action<MatchState> StateChanged = delegate { };
 		public static event Action MatchFinished = delegate { };
 		
@@ -98,8 +99,8 @@ namespace Anaglyph.Lasertag
 		
 		public static event Action<byte, int> TeamScored = delegate { };
 
-		private readonly NetworkVariable<MatchSettings> settingsSync = new();
-		public static MatchSettings Settings { get; private set; } = MatchSettings.Lobby();
+		public static MatchSettings QueuedSettings { get; private set; } = MatchSettings.Lobby();
+		private static MatchSettings currentSettings;
 
 		private TaskCompletionSource<bool> winByScoreCompletion;
 		private CancellationTokenSource cancelTokenSrc;
@@ -109,26 +110,12 @@ namespace Anaglyph.Lasertag
 		private void Awake()
 		{
 			Instance = this;
-			
-			settingsSync.OnValueChanged += (_, settings) =>
-			{
-				SetSettingsLocally(settings);
-			};
-			
-			stateSync.OnValueChanged += (_, state) =>
-			{
-				SetStateLocally(state);
-			};
-			
-			SetSettingsLocally(MatchSettings.Lobby());
-			SetStateLocally(MatchState.NotPlaying);
 		}
 		
-		
-
 		private void Start()
 		{
 			NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
+			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
 		}
 
 		public override void OnDestroy()
@@ -140,78 +127,24 @@ namespace Anaglyph.Lasertag
 
 		public override void OnNetworkSpawn()
 		{
-			SetSettingsLocally(settingsSync.Value);
-			SetStateLocally(stateSync.Value);
-		}
-		
-		public override void OnNetworkDespawn()
-		{
-			ResetScoresLocally();
-			cancelTokenSrc?.Cancel();
-			
-			SetSettingsLocally(MatchSettings.Lobby());
-			SetStateLocally(MatchState.NotPlaying);
-		}
-		
-		private void SetStateLocally(MatchState state)
-		{
-			State = state;
-
-			switch (state)
+			if (IsOwner)
 			{
-				case MatchState.Mustering:
+				SetStateEveryoneRpc(MatchState.NotPlaying);
+			}
+		}
+		
+		void OnNetcodeStateChanged(NetcodeState netcodeState)
+		{
+			switch (netcodeState)
+			{	
+				case NetcodeState.Disconnected:
+					_ = SetStateLocally(MatchState.NotPlaying);
 					ResetScoresLocally();
 					break;
-				
-				case MatchState.Playing:
-					
-					break;
-
-				case MatchState.NotPlaying:
-					if (IsOwner)
-						settingsSync.Value = MatchSettings.Lobby();
-					break;
-			}
-
-			StateChanged.Invoke(state);
-		}
-		
-		private void SetSettingsLocally(MatchSettings settings)
-		{
-			Settings = settings;
-		}
-		
-		public override void OnGainedOwnership()
-		{
-			CancellationToken ctn = CancelTaskAndPrepareNext();
-
-			switch (State)
-			{
-				case MatchState.Mustering:
-					_ = Muster(ctn);
-					break;
-
-				case MatchState.Playing:
-					_ = RunMatch(Settings, ctn);
-					break;
-
-				default:
-					stateSync.Value = MatchState.NotPlaying;
-					break;
-			}
-		}
-		
-		private void OnClientConnected(ulong id)
-		{
-			if (IsOwner && id != OwnerClientId)
-			{
-				float timeLeft = TimeMatchEnds - Time.time;
-				var sendTo = RpcTarget.Single(id, RpcTargetUse.Temp);
-				SyncLateJoinerRpc(teamScores, timeLeft, sendTo);
 			}
 		}
 
-		private CancellationToken CancelTaskAndPrepareNext()
+		private CancellationToken StopTaskAndPrepareNext()
 		{
 			cancelTokenSrc?.Cancel();
 
@@ -220,108 +153,118 @@ namespace Anaglyph.Lasertag
 		}
 
 		[Rpc(SendTo.Everyone)]
-		public void StartMatchRpc(MatchSettings settings)
+		private void SetStateEveryoneRpc(MatchState state, RpcParams rpcParams = default) 
+			=> _ = SetStateLocally(state);
+
+		private async Task SetStateLocally(MatchState state)
 		{
-			if (State != MatchState.NotPlaying)
+			if (_state == state)
 				return;
-
-			Settings = settings;
-
-			_ = Muster(CancelTaskAndPrepareNext());
-		}
-
-		private async Task Muster(CancellationToken ctn)
-		{
+			
+			_state = state;
+			StateChanged.Invoke(state);
+			var ctn = StopTaskAndPrepareNext();
+			
 			try
 			{
-				State = MatchState.Mustering;
-
-				while (State == MatchState.Mustering)
+				if(state != MatchState.Playing)
+					currentSettings = MatchSettings.Lobby();
+				
+				switch (_state)
 				{
-					int numPlayersInbase = 0;
-
-					foreach (PlayerAvatar player in PlayerAvatar.All.Values)
-					{
-						if (player.IsInBase)
-							numPlayersInbase++;
-					}
-
-					if (numPlayersInbase != 0 && numPlayersInbase == Networking.PlayerAvatar.All.Count)
-					{
-						_ = Countdown(ctn);
+					case MatchState.NotPlaying:
 						break;
-					}
 
-					await Awaitable.NextFrameAsync(ctn);
+					case MatchState.Mustering:
+						while (State == MatchState.Mustering)
+						{
+							int numPlayersInbase = 0;
+
+							foreach (PlayerAvatar player in PlayerAvatar.All.Values)
+							{
+								if (player.IsInBase)
+									numPlayersInbase++;
+							}
+
+							if (numPlayersInbase != 0 && numPlayersInbase == PlayerAvatar.All.Count)
+							{
+								if (IsOwner)
+									SetStateEveryoneRpc(MatchState.Countdown);
+							}
+
+							await Awaitable.NextFrameAsync(ctn);
+							ctn.ThrowIfCancellationRequested();
+						}
+
+						break;
+					
+					case MatchState.Countdown:
+						await Awaitable.WaitForSecondsAsync(3, ctn);	
+						ctn.ThrowIfCancellationRequested();
+						
+						if (IsOwner)
+							SetStateEveryoneRpc(MatchState.Playing);
+
+						break;
+					
+					case MatchState.Playing:
+						ResetScoresLocally();
+						currentSettings = QueuedSettings;
+						TimeMatchEnds = Time.time + currentSettings.timerSeconds;
+						
+						Task timerTask = Task.CompletedTask;
+						Task scoreTask = Task.CompletedTask;
+
+						try
+						{
+							if (currentSettings.CheckWinByTimer())
+							{
+								timerTask = GameTimerTask(ctn);
+							}
+
+							if (currentSettings.CheckWinByScore())
+							{
+								winByScoreCompletion = new TaskCompletionSource<bool>();
+								ctn.Register(() => winByScoreCompletion.TrySetCanceled(ctn));
+								scoreTask = winByScoreCompletion.Task;
+							}
+
+							await Task.WhenAll(timerTask, scoreTask);
+
+						}
+						catch (OperationCanceledException) { }
+
+						if (IsOwner)
+						{
+							SetStateEveryoneRpc(MatchState.NotPlaying);
+							MatchFinishedRpc();
+						}
+
+						ctn.ThrowIfCancellationRequested();
+
+						break;
 				}
-
 			}
 			catch (OperationCanceledException)
 			{
-				stateSync.Value = MatchState.NotPlaying;
-				throw;
 			}
 		}
 
-		private async Task Countdown(CancellationToken ctn)
+		private async Task GameTimerTask(CancellationToken ctn)
 		{
-			try
+			while (State == MatchState.Playing)
 			{
-				stateSync.Value = MatchState.Countdown;
-				await Awaitable.WaitForSecondsAsync(3, ctn);
+				float secondsLeft = TimeMatchEnds - Time.time;
+				if (secondsLeft < 0)
+					return;
+				
+				await Awaitable.NextFrameAsync(ctn);
 				ctn.ThrowIfCancellationRequested();
-				_ = RunMatch(Settings, ctn);
-
-			}
-			catch (OperationCanceledException)
-			{
-				stateSync.Value = MatchState.NotPlaying;
-				throw;
 			}
 		}
-
-		private async Task RunMatch(MatchSettings settings, CancellationToken ctn)
-		{
-			try
-			{
-				// check if starting a new match
-				// this task could be run by a different client resuming a match
-				// i.e. if the original match starter leaves
-				bool startingNewMatch = stateSync.Value != MatchState.Playing;
-				if (startingNewMatch)
-				{
-					settingsSync.Value = settings;
-					stateSync.Value = MatchState.Playing;
-				}
-
-				Task timerTask = Task.CompletedTask;
-				Task scoreTask = Task.CompletedTask;
-
-				if (settings.CheckWinByTimer())
-				{
-					float secondsLeft = TimeMatchEnds - Time.time;
-					timerTask = Task.Delay(1000 * Mathf.RoundToInt(secondsLeft), ctn);
-				}
-
-				if (settings.CheckWinByScore())
-				{
-					winByScoreCompletion = new TaskCompletionSource<bool>();
-					ctn.Register(() => winByScoreCompletion.TrySetCanceled(ctn));
-					scoreTask = winByScoreCompletion.Task;
-				}
-
-				await Task.WhenAll(timerTask, scoreTask);
-				MatchFinishedRpc();
-			}
-			catch (OperationCanceledException) { }
-
-			stateSync.Value = MatchState.NotPlaying;
-
-			ctn.ThrowIfCancellationRequested();
-		}
-
+		
 		[Rpc(SendTo.Everyone)]
-		public void ScoreTeamRpc(byte team, int points)
+		public void TeamScoredRpc(byte team, int points)
 		{
 			if (team == 0 || points == 0) return;
 
@@ -331,9 +274,9 @@ namespace Anaglyph.Lasertag
 
 			if (IsOwner)
 			{
-				bool canWinByScore = Settings.CheckWinByScore();
+				bool canWinByScore = currentSettings.CheckWinByScore();
 				bool isPlaying = State == MatchState.Playing;
-				bool isWinningScore = GetTeamScore(team) >= Settings.scoreTarget;
+				bool isWinningScore = GetTeamScore(team) >= currentSettings.scoreTarget;
 
 				if (isPlaying && canWinByScore && isWinningScore)
 				{
@@ -341,33 +284,64 @@ namespace Anaglyph.Lasertag
 				}
 			}
 		}
+		
+		private void OnClientConnected(ulong id)
+		{
+			if (IsOwner && id != OwnerClientId)
+			{
+				var sendTo = RpcTarget.Single(id, RpcTargetUse.Temp);
+				
+				float timeLeft = TimeMatchEnds - Time.time;
+				
+				SyncNewPlayerRpc(State, QueuedSettings, teamScores, timeLeft, sendTo);
+			}
+		}
+
+		[Rpc(SendTo.Everyone)]
+		public void QueueMatchEveryoneRpc(MatchSettings settings)
+		{
+			ResetScoresLocally();
+			QueuedSettings = settings;
+			_ = SetStateLocally(MatchState.Mustering);
+		}
+		
+		[Rpc(SendTo.Everyone)]
+		public void EndMatchEveryoneRpc() 
+			=> _ = SetStateLocally(MatchState.NotPlaying);
 
 		[Rpc(SendTo.SpecifiedInParams)]
-		public void SyncLateJoinerRpc(int[] scores, float timeLeft, RpcParams rpcParams)
+		private void SyncNewPlayerRpc(MatchState state, MatchSettings settings, int[] scores, float timeLeft, RpcParams rpcParams)
 		{
 			if (scores.Length != teamScores.Length)
-				return;
-			
-			TimeMatchEnds = Time.time + timeLeft;
+				throw new ArgumentException($"Scores array must be of length {teamScores.Length}");
 
+			// settings
+			QueuedSettings = settings;
+
+			_ = SetStateLocally(state);
+			
+			// override scores
 			for (byte i = 0; i < teamScores.Length; i++)
 			{
 				teamScores[i] += scores[i];
 				TeamScored.Invoke(i, scores[i]);
 			}
+			
+			// override time
+			TimeMatchEnds = Time.time + timeLeft;
 		}
 
 		[Rpc(SendTo.Everyone)]
-		public void ResetScoresRpc()
-		{
-			PlayerAvatar.Local.ResetScoreRpc();
-			ResetScoresLocally();
-		}
+		public void ResetScoresEveryoneRpc() => ResetScoresLocally();
 
 		private void ResetScoresLocally()
 		{
-			for (int i = 0; i < Teams.NumTeams; i++)
+			PlayerAvatar.Local?.ResetScoreRpc();
+			for (byte i = 0; i < Teams.NumTeams; i++)
+			{
 				teamScores[i] = 0;
+				TeamScored.Invoke(i, 0);
+			}
 		}
 
 		// public byte CalculateWinningTeam()
@@ -387,12 +361,6 @@ namespace Anaglyph.Lasertag
 		// }
 
 		public float GetTimeLeft() => Mathf.Max(TimeMatchEnds - Time.time, 0);
-
-		[Rpc(SendTo.Owner)]
-		public void EndMatchRpc()
-		{
-			cancelTokenSrc?.Cancel();
-		}
 
 		[Rpc(SendTo.Everyone)]
 		public void MatchFinishedRpc()

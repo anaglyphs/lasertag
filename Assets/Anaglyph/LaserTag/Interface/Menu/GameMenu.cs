@@ -37,12 +37,12 @@ namespace Anaglyph.Lasertag
 
 		private void StartGame()
 		{
-			referee?.StartMatchRpc(MatchSettings.DemoGame());
+			referee?.QueueMatchEveryoneRpc(MatchSettings.DemoGame());
 		}
 
 		private void EndGame()
 		{
-			referee?.EndMatchRpc();
+			referee?.EndMatchEveryoneRpc();
 		}
 
 		private void OnMatchStateChanged(MatchState state)
