@@ -1,27 +1,23 @@
-Texture2D<float> depthFrame;
+#include "EnvMapper2.cs.hlsl"
 
-struct Block
-{
-    int3 position;
-    int offset;
-    int ptr;
-};
+Texture2D<float> depth_frame;
 
+int table[];
 RWStructuredBuffer<Block> blocks;
-int blocksLength;
+int num_blocks;
 
 #define PRIMES int3(73856093, 19349669, 83492791)
 
-int Hash(const float3 posWrld)
+int hash(const float3 pos_ws)
 {
-    const float3 p = posWrld;
-    return (int(p.x * PRIMES.x) ^ int(p.y * PRIMES.y) ^ int(p.z * PRIMES.z)) % blocksLength;
+    const int3 p = pos_ws * PRIMES;
+    return (p.x ^ p.y ^ p.z) % num_blocks;
 }
 
-#pragma kernel Integrate
+#pragma kernel integrate
 
 [numthreads(8,8,1)]
-void Integrate (uint3 id : SV_DispatchThreadID)
+void integrate (uint3 id : SV_DispatchThreadID)
 {
     
 }
