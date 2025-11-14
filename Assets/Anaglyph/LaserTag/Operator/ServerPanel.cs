@@ -62,6 +62,8 @@ namespace Anaglyph.Lasertag.Operator
 
 			NetcodeManagement.StateChanged += UpdateHostingPage;
 			MatchReferee.StateChanged += UpdateMatchPage;
+			UpdateHostingPage(NetcodeManagement.State);
+			UpdateMatchPage(MatchReferee.State);
 		}
 
 		private void OnDisable()
@@ -130,6 +132,9 @@ namespace Anaglyph.Lasertag.Operator
 
 		private void StartHost()
 		{
+			UpdateHostingPage(NetcodeManagement.State);
+			UpdateMatchPage(MatchReferee.State);
+			
 			ColocationManager.Instance.HostAprilTagSize = tagSizeCm;
 			ColocationManager.Instance.HostColocationMethod = useAprilTags ? ColocationManager.Method.AprilTag : ColocationManager.Method.MetaSharedAnchor;
 			MainPlayer.Instance?.SetIsParticipating(false);
