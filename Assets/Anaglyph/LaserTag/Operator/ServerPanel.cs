@@ -132,7 +132,7 @@ namespace Anaglyph.Lasertag.Operator
 		{
 			ColocationManager.Instance.HostAprilTagSize = tagSizeCm;
 			ColocationManager.Instance.HostColocationMethod = useAprilTags ? ColocationManager.Method.AprilTag : ColocationManager.Method.MetaSharedAnchor;
-			Player.Instance?.SetIsParticipating(false);
+			MainPlayer.Instance?.SetIsParticipating(false);
 
 			if (useRelay)
 			{
@@ -328,8 +328,13 @@ namespace Anaglyph.Lasertag.Operator
 							regen.RegisterValueChangedCallback(evt =>
 								settings.healthRegenPerSecond = Mathf.Max(0f, evt.newValue));
 							matchSettingsPage.Add(regen);
+							
+							var damage = new FloatField("Damage multiplier") { value = settings.damageMultiplier };
+							damage.RegisterValueChangedCallback(evt =>
+								settings.damageMultiplier = Mathf.Max(0f, evt.newValue));
+							matchSettingsPage.Add(damage);
 
-							var ppk = new IntegerField("Points Per Kill") { value = settings.pointsPerKill };
+							var ppk = new IntegerField("Points / Kill") { value = settings.pointsPerKill };
 							ppk.RegisterValueChangedCallback(evt =>
 								settings.pointsPerKill = (byte)Mathf.Clamp(evt.newValue, 0, 255));
 							matchSettingsPage.Add(ppk);
@@ -339,6 +344,12 @@ namespace Anaglyph.Lasertag.Operator
 							pps.RegisterValueChangedCallback(evt =>
 								settings.pointsPerSecondHoldingPoint = (byte)Mathf.Clamp(evt.newValue, 0, 255));
 							matchSettingsPage.Add(pps);
+							
+							var ppf = new IntegerField("Points / Flag capture")
+								{ value = settings.pointsPerFlagCapture };
+							ppf.RegisterValueChangedCallback(evt =>
+								settings.pointsPerFlagCapture = (byte)Mathf.Clamp(evt.newValue, 0, 255));
+							matchSettingsPage.Add(ppf);
 
 							var winDropdown = new EnumField("Win Condition", settings.winCondition);
 							winDropdown.RegisterValueChangedCallback(evt =>

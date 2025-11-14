@@ -12,10 +12,6 @@ namespace Anaglyph.Lasertag.UI
 
 		[SerializeField] private GameObject respawnPopup = null;
 
-		[SerializeField] private RectTransform menuMaskRectTransform = null;
-
-		private float maxMenuMaskHeight = 0;
-
 		private void Awake()
 		{
 			Instance = this;
@@ -23,9 +19,8 @@ namespace Anaglyph.Lasertag.UI
 
 		private void Start()
 		{
-			maxMenuMaskHeight = menuMaskRectTransform.sizeDelta.y;
-			Player.Instance.Died += OnDied;
-			Player.Instance.Respawned += OnRespawned;
+			MainPlayer.Instance.Died += OnDied;
+			MainPlayer.Instance.Respawned += OnRespawned;
 		}
 
 		private void OnDied()
@@ -48,17 +43,17 @@ namespace Anaglyph.Lasertag.UI
 
 		private void Update()
 		{
-			menuMaskRectTransform.sizeDelta = new Vector2(menuMaskRectTransform.sizeDelta.x, Mathf.Lerp(0, maxMenuMaskHeight, EaseInOutCirc(Mathf.Clamp01(Player.Instance.RespawnTimerSeconds))));
+			respawnPopup.SetActive(!MainPlayer.Instance.IsAlive);
 
-			respawnPopup.SetActive(!Player.Instance.IsAlive);
-
-			if (MatchReferee.Settings.respawnInBases && !Player.Instance.IsInFriendlyBase)
+			if (MatchReferee.Settings.respawnInBases && !MainPlayer.Instance.IsInFriendlyBase)
 			{
 				respawnText.text = $"GO TO:   BASE";
 			}
 			else
 			{
-				respawnText.text = $"RESPAWN: {(Player.Instance.RespawnTimerSeconds).ToString("F1")}s";
+				float timeSinceDeath = Time.time - MainPlayer.Instance.LastDeathTime;
+				float timeToRespawn = MatchReferee.Settings.respawnSeconds - timeSinceDeath;
+				respawnText.text = $"RESPAWN: {timeToRespawn:F1}s";
 			}
 		}
 	}

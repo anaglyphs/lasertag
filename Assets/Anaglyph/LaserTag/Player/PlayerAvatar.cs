@@ -119,7 +119,7 @@ namespace Anaglyph.Lasertag.Networking
 		public void DamageRpc(float damage, ulong damagedBy)
 		{
 			if (IsOwner)
-				Player.Instance.Damage(damage, damagedBy);
+				MainPlayer.Instance.Damage(damage, damagedBy);
 
 			onDamaged.Invoke();
 		}

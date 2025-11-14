@@ -58,7 +58,7 @@ namespace Anaglyph.Lasertag
 
 		private async void EnvRaymarch()
 		{
-			if (!Player.Instance)
+			if (!MainPlayer.Instance)
 				return;
 			
 			var result = await EnvironmentMapper.Instance.RaymarchAsync(fireRay, MaxTravelDist);
@@ -70,7 +70,7 @@ namespace Anaglyph.Lasertag
 				}
 				else
 				{
-					var headPos = Player.Instance.HeadTransform.position;
+					var headPos = MainPlayer.Instance.HeadTransform.position;
 					var hitDistFromHead = Vector3.Distance(headPos, result.point);
 
 					if (hitDistFromHead < EnvironmentMapper.Instance.MaxEyeDist)

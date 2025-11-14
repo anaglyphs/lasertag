@@ -15,13 +15,13 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			Player.Instance.TeamChanged += OnTeamChanged;
+			MainPlayer.Instance.TeamChanged += OnTeamChanged;
 		}
 
 		private void OnDestroy()
 		{
-			if(Player.Instance != null)
-				Player.Instance.TeamChanged -= OnTeamChanged;
+			if(MainPlayer.Instance != null)
+				MainPlayer.Instance.TeamChanged -= OnTeamChanged;
 		}
 
 		private void OnTeamChanged(byte team)

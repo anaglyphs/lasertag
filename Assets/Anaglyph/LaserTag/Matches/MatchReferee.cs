@@ -4,6 +4,7 @@ using UnityEngine;
 using System.Threading.Tasks;
 using System.Threading;
 using Anaglyph.Lasertag.Networking;
+using Anaglyph.Netcode;
 
 namespace Anaglyph.Lasertag
 {
@@ -31,6 +32,7 @@ namespace Anaglyph.Lasertag
 		public bool respawnInBases;
 		public float respawnSeconds;
 		public float healthRegenPerSecond;
+		public float damageMultiplier;
 
 		public byte pointsPerKill;
 		public byte pointsPerSecondHoldingPoint;
@@ -49,7 +51,7 @@ namespace Anaglyph.Lasertag
 			{
 				teams = true,
 				respawnInBases = true,
-				respawnSeconds = 1,
+				respawnSeconds = 5,
 				healthRegenPerSecond = 5,
 
 				pointsPerKill = 1,
@@ -91,13 +93,9 @@ namespace Anaglyph.Lasertag
 		public static MatchState State { get; private set; } = MatchState.NotPlaying;
 		public static event Action<MatchState> StateChanged = delegate { };
 		public static event Action MatchFinished = delegate { };
-
-		private readonly NetworkVariable<int> team0ScoreSync = new(0);
-		private readonly NetworkVariable<int> team1ScoreSync = new(0);
-		private readonly NetworkVariable<int> team2ScoreSync = new(0);
-
-		private NetworkVariable<int>[] teamScoresSync;
-		public int GetTeamScore(byte team) => teamScoresSync[team].Value;
+		
+		private static readonly int[] teamScores = new int[Teams.NumTeams];
+		public static int GetTeamScore(byte team) => teamScores[team];
 		
 		public static event Action<byte, int> TeamScored = delegate { };
 
@@ -112,24 +110,37 @@ namespace Anaglyph.Lasertag
 		private void Awake()
 		{
 			Instance = this;
-
-			teamScoresSync = new NetworkVariable<int>[Teams.NumTeams];
-
-			teamScoresSync[0] = team0ScoreSync;
-			teamScoresSync[1] = team1ScoreSync;
-			teamScoresSync[2] = team2ScoreSync;
-			
-			for (byte i = 0; i < teamScoresSync.Length; i++)
-			{
-				var team = i;
-				teamScoresSync[i].OnValueChanged += (_, newValue) =>
-				{
-					TeamScored.Invoke(team, newValue);
-				};
-			}
 			
 			stateSync.OnValueChanged += OnStateChanged;
 			settingsSync.OnValueChanged += OnSettingsChanged;
+		}
+		
+		private void OnStateChanged(MatchState prev, MatchState state)
+		{
+			State = state;
+
+			switch (state)
+			{
+				case MatchState.Mustering:
+					ResetScoresLocally();
+					break;
+				
+				case MatchState.Playing:
+					TimeMatchEnds = Time.time + Settings.timerSeconds;
+					break;
+
+				case MatchState.NotPlaying:
+					if (IsOwner)
+						settingsSync.Value = MatchSettings.Lobby();
+					break;
+			}
+
+			StateChanged.Invoke(state);
+		}
+		
+		private void OnSettingsChanged(MatchSettings prev, MatchSettings settings)
+		{
+			Settings = settings;
 		}
 
 		public override void OnNetworkSpawn()
@@ -144,31 +155,16 @@ namespace Anaglyph.Lasertag
 
 			OnStateChanged(MatchState.NotPlaying, MatchState.NotPlaying);
 		}
-
-		private void OnStateChanged(MatchState prev, MatchState state)
+		
+		public override void OnNetworkDespawn()
 		{
-			State = state;
-
-			switch (state)
-			{
-				case MatchState.Playing:
-					TimeMatchEnds = Time.time + Settings.timerSeconds;
-					break;
-
-				case MatchState.NotPlaying:
-					if (IsOwner)
-						settingsSync.Value = MatchSettings.Lobby();
-					break;
-			}
-
-			StateChanged.Invoke(state);
+			ResetScoresLocally();
+			
+			State = MatchState.NotPlaying;
+			cancelTokenSrc?.Cancel();
+			OnStateChanged(stateSync.Value, MatchState.NotPlaying);
 		}
-
-		private void OnSettingsChanged(MatchSettings prev, MatchSettings settings)
-		{
-			Settings = settings;
-		}
-
+		
 		public override void OnGainedOwnership()
 		{
 			CancellationToken ctn = CancelTaskAndPrepareNext();
@@ -187,19 +183,22 @@ namespace Anaglyph.Lasertag
 					stateSync.Value = MatchState.NotPlaying;
 					break;
 			}
+			
+			NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
 		}
 
-		public override void OnDestroy()
+		public override void OnLostOwnership()
 		{
-			State = MatchState.NotPlaying;
-			base.OnDestroy();
-			cancelTokenSrc?.Cancel();
+			NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
 		}
-
-		public override void OnNetworkDespawn()
+		
+		private void OnClientConnected(ulong id)
 		{
-			cancelTokenSrc?.Cancel();
-			OnStateChanged(stateSync.Value, MatchState.NotPlaying);
+			if (!IsOwner)
+				throw new Exception("Only owner should be running this!");
+			
+			var sendTo = RpcTarget.Single(id, RpcTargetUse.Temp);
+			SyncScoresRpc(teamScores, sendTo);
 		}
 
 		private CancellationToken CancelTaskAndPrepareNext()
@@ -217,7 +216,6 @@ namespace Anaglyph.Lasertag
 				return;
 
 			settingsSync.Value = settings;
-			ResetScoresRpc();
 
 			_ = Muster(CancelTaskAndPrepareNext());
 		}
@@ -312,13 +310,15 @@ namespace Anaglyph.Lasertag
 			ctn.ThrowIfCancellationRequested();
 		}
 
-		[Rpc(SendTo.Owner)]
+		[Rpc(SendTo.Everyone)]
 		public void ScoreTeamRpc(byte team, int points)
 		{
 			if (State != MatchState.Playing) return;
 			if (team == 0 || points == 0) return;
 
-			teamScoresSync[team].Value += points;
+			teamScores[team] += points;
+
+			TeamScored(team, points);
 
 			bool canWinByScore = Settings.CheckWinByScore();
 			bool isPlaying = State == MatchState.Playing;
@@ -330,35 +330,44 @@ namespace Anaglyph.Lasertag
 			}
 		}
 
+		[Rpc(SendTo.SpecifiedInParams)]
+		public void SyncScoresRpc(int[] scores, RpcParams rpcParams)
+		{
+			if (scores.Length != teamScores.Length)
+				return;
+			
+			for(int i = 0; i < teamScores.Length; i++)
+				teamScores[i] += scores[i];
+		}
+
 		[Rpc(SendTo.Everyone)]
 		public void ResetScoresRpc()
 		{
 			PlayerAvatar.Local.ResetScoreRpc();
-			
-			if (IsOwner)
-			{
-				for (byte i = 0; i < teamScoresSync.Length; i++)
-				{
-					teamScoresSync[i].Value = 0;
-				}
-			}
+			ResetScoresLocally();
 		}
 
-		public byte CalculateWinningTeam()
+		private void ResetScoresLocally()
 		{
-			byte winningTeam = 0;
-			int highScore = 0;
-			for (byte i = 0; i < teamScoresSync.Length; i++)
-			{
-				int score = GetTeamScore(i);
-				if (score > highScore)
-				{
-					highScore = score;
-					winningTeam = i;
-				}
-			}
-			return winningTeam;
+			for (int i = 0; i < Teams.NumTeams; i++)
+				teamScores[i] = 0;
 		}
+
+		// public byte CalculateWinningTeam()
+		// {
+		// 	byte winningTeam = 0;
+		// 	int highScore = 0;
+		// 	for (byte i = 0; i < teamScoresSync.Length; i++)
+		// 	{
+		// 		int score = GetTeamScore(i);
+		// 		if (score > highScore)
+		// 		{
+		// 			highScore = score;
+		// 			winningTeam = i;
+		// 		}
+		// 	}
+		// 	return winningTeam;
+		// }
 
 		public float GetTimeLeft() => Mathf.Max(TimeMatchEnds - Time.time, 0);
 

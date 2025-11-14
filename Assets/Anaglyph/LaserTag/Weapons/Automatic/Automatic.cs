@@ -24,7 +24,7 @@ namespace Anaglyph.Lasertag.Weapons
 
 		private void FixedUpdate()
 		{
-			if (!NetworkManager.Singleton.IsConnectedClient || !WeaponsManagement.canFire)
+			if (!NetworkManager.Singleton.IsConnectedClient || !WeaponsManagement.CanFire)
 				return;
 
 			if (firing)
@@ -44,7 +44,7 @@ namespace Anaglyph.Lasertag.Weapons
 
 		public void Fire()
 		{
-			if (!NetworkManager.Singleton.IsConnectedClient || !WeaponsManagement.canFire)
+			if (!NetworkManager.Singleton.IsConnectedClient || !WeaponsManagement.CanFire)
 				return;
 
 			NetworkObject n = NetworkObjectPool.Instance.GetNetworkObject(

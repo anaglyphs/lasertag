@@ -2,6 +2,7 @@ using Anaglyph.Lasertag.Networking;
 using Anaglyph.Lasertag.Weapons;
 using Anaglyph.Netcode;
 using System;
+using System.Threading;
 using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
@@ -9,9 +10,9 @@ using UnityEngine;
 namespace Anaglyph.Lasertag
 {
 	[DefaultExecutionOrder(-100)]
-	public class Player : MonoBehaviour
+	public class MainPlayer : MonoBehaviour
 	{
-		public static Player Instance { get; private set; }
+		public static MainPlayer Instance { get; private set; }
 
 		private const float MaxHealth = 100;
 
@@ -35,7 +36,7 @@ namespace Anaglyph.Lasertag
 		public Transform RightHandTransform => rightHandTransform;
 		public OVRSkeleton Skeleton => skeleton;
 
-		public float RespawnTimerSeconds { get; private set; } = 0;
+		public float LastDeathTime { get; private set; }
 
 		// todo move this into another component. this really doesn't belong here
 		private OVRPassthroughLayer passthroughLayer;
@@ -77,7 +78,7 @@ namespace Anaglyph.Lasertag
 
 			if (!isParticipating)
 			{
-				WeaponsManagement.canFire = false;
+				WeaponsManagement.CanFire = false;
 			}
 		}
 
@@ -108,25 +109,24 @@ namespace Anaglyph.Lasertag
 		public void Damage(float damage, ulong damagedBy)
 		{
 			Damaged.Invoke();
-			Health -= damage;
+			var mult = MatchReferee.Settings.damageMultiplier;
+			Health -= damage * mult;
 
-			if (Health < damage)
-			{
+			if (Health <= 0)
 				Kill(damagedBy);
-			}
 		}
-
-		public void Kill(ulong killerID)
+		
+		public async void Kill(ulong killerID)
 		{
 			if (!IsAlive) return;
 
-			WeaponsManagement.canFire = false;
+			WeaponsManagement.CanFire = false;
 
 			PlayerAvatar.Local.isAliveSync.Value = false;
 
 			IsAlive = false;
 			Health = 0;
-			RespawnTimerSeconds = MatchReferee.Settings.respawnSeconds;
+			LastDeathTime = Time.time;
 
 			Died.Invoke();
 
@@ -148,7 +148,7 @@ namespace Anaglyph.Lasertag
 
 			ClearPassthroughEffects();
 
-			WeaponsManagement.canFire = true;
+			WeaponsManagement.CanFire = true;
 
 			if (PlayerAvatar.Local)
 				PlayerAvatar.Local.isAliveSync.Value = true;
@@ -157,20 +157,6 @@ namespace Anaglyph.Lasertag
 			Health = MaxHealth;
 
 			Respawned.Invoke();
-		}
-
-		private void FixedUpdate()
-		{
-			// respawn timer
-			if (IsAlive) return;
-
-			if ((MatchReferee.Settings.respawnInBases && IsInFriendlyBase) || !MatchReferee.Settings.respawnInBases)
-				RespawnTimerSeconds -= Time.fixedDeltaTime;
-
-			if (RespawnTimerSeconds <= 0)
-				Respawn();
-
-			RespawnTimerSeconds = Mathf.Clamp(RespawnTimerSeconds, 0, MatchReferee.Settings.respawnSeconds);
 		}
 
 		private void ClearPassthroughEffects()
@@ -183,8 +169,6 @@ namespace Anaglyph.Lasertag
 		{
 			if (!PlayerAvatar.Local)
 				return;
-			
-			
 			
 			// health
 			if (redDamagedVision)
@@ -200,13 +184,10 @@ namespace Anaglyph.Lasertag
 
 			if (IsAlive)
 			{
-				if (Health < 0)
-					Kill(0);
-				else
-					Health += MatchReferee.Settings.healthRegenPerSecond * Time.deltaTime;
+				Health += MatchReferee.Settings.healthRegenPerSecond * Time.deltaTime;
 			}
 
-			WeaponsManagement.canFire = IsAlive;
+			WeaponsManagement.CanFire = IsAlive;
 
 			Health = Mathf.Clamp(Health, 0, MaxHealth);
 
@@ -229,7 +210,22 @@ namespace Anaglyph.Lasertag
 					break;
 				}
 			}
+			
+			// respawn timer
+			if (!IsAlive)
+			{
+				float timeSinceDeath = Time.time - LastDeathTime;
+				bool timeCheck = timeSinceDeath > MatchReferee.Settings.respawnSeconds;
+				
+				bool baseCheck = IsInFriendlyBase || !MatchReferee.Settings.respawnInBases;
 
+				if (timeCheck && baseCheck)
+					Respawn();
+			}
+		}
+
+		private void LateUpdate()
+		{
 			// network player transforms
 			PlayerAvatar.Local.HeadTransform.SetWorldPose(headTransform.GetWorldPose());
 			PlayerAvatar.Local.LeftHandTransform.SetWorldPose(leftHandTransform.GetWorldPose());
@@ -237,7 +233,6 @@ namespace Anaglyph.Lasertag
 
 			var spineMid = skeleton.Bones[(int)OVRSkeleton.BoneId.Body_SpineMiddle].Transform;
 			PlayerAvatar.Local.TorsoTransform.SetWorldPose(spineMid.GetWorldPose());
-			// wtf
 		}
 	}
 }
