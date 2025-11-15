@@ -260,19 +260,22 @@ namespace Anaglyph.Lasertag
 						ResetScoresLocally();
 						TimeMatchEnds = Time.time + Settings.timerSeconds;
 
-						while (State == MatchState.Playing)
+						if (Settings.CheckWinByTimer())
 						{
-							var secondsLeft = TimeMatchEnds - Time.time;
-							if (secondsLeft < 0)
+							while (State == MatchState.Playing)
 							{
-								if (IsOwner)
-									FinishMatchEveryoneRpc();
+								var secondsLeft = TimeMatchEnds - Time.time;
+								if (secondsLeft < 0)
+								{
+									if (IsOwner)
+										FinishMatchEveryoneRpc();
 
-								break;
+									break;
+								}
+
+								await Awaitable.NextFrameAsync(ctn);
+								ctn.ThrowIfCancellationRequested();
 							}
-
-							await Awaitable.NextFrameAsync(ctn);
-							ctn.ThrowIfCancellationRequested();
 						}
 
 						break;
