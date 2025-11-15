@@ -6,6 +6,7 @@ using System.Net;
 using System.Text.RegularExpressions;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
+using Unity.Services.Matchmaker.Models;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -14,6 +15,11 @@ namespace Anaglyph.Lasertag.Operator
 {
 	public sealed class ServerWindow : EditorWindow
 	{
+		private static DisplayStyle Show(bool show)
+		{
+			return show ? DisplayStyle.Flex : DisplayStyle.None;
+		}
+
 		[MenuItem("Lasertag/Server Menu")]
 		private static void ShowWindow()
 		{
@@ -50,6 +56,11 @@ namespace Anaglyph.Lasertag.Operator
 		private VisualElement matchSettingsPage;
 		private VisualElement matchRunningPage;
 
+		private Label timerLabel;
+		private Label scoreGoalLabel;
+
+		private Label[] scoreLabels = new Label[Teams.NumTeams];
+
 		private void Awake()
 		{
 			var addresses = NetcodeManagement.GetLocalIPv4();
@@ -62,6 +73,8 @@ namespace Anaglyph.Lasertag.Operator
 
 			NetcodeManagement.StateChanged += UpdateHostingPage;
 			MatchReferee.StateChanged += UpdateMatchPage;
+			MatchReferee.TeamScored += OnTeamScored;
+
 			UpdateHostingPage(NetcodeManagement.State);
 			UpdateMatchPage(MatchReferee.State);
 		}
@@ -70,6 +83,7 @@ namespace Anaglyph.Lasertag.Operator
 		{
 			NetcodeManagement.StateChanged -= UpdateHostingPage;
 			MatchReferee.StateChanged -= UpdateMatchPage;
+			MatchReferee.TeamScored -= OnTeamScored;
 		}
 
 		private void LoadPrefs()
@@ -116,18 +130,40 @@ namespace Anaglyph.Lasertag.Operator
 
 		private void UpdateMatchPage(MatchState state)
 		{
-			var matchReferee = MatchReferee.Instance;
-			if (matchReferee == null)
+			if (state == MatchState.NotPlaying)
 			{
-				matchPages.SetActiveElement(null);
+				matchPages.SetActiveElement(matchSettingsPage);
 			}
 			else
 			{
-				if (state == MatchState.NotPlaying)
-					matchPages.SetActiveElement(matchSettingsPage);
-				else
-					matchPages.SetActiveElement(matchRunningPage);
+				matchPages.SetActiveElement(matchRunningPage);
+				UpdateGoalDisplay();
 			}
+		}
+
+		private void UpdateGoalDisplay()
+		{
+			var winByTimer = MatchReferee.Settings.CheckWinByTimer();
+			timerLabel.style.display = Show(winByTimer);
+			if (winByTimer) TimerUpdateLoop();
+
+			var winByScore = MatchReferee.Settings.CheckWinByScore();
+			scoreGoalLabel.style.display = Show(winByScore);
+			scoreGoalLabel.text = $"Playing to {MatchReferee.Settings.scoreTarget}";
+		}
+
+		private async void TimerUpdateLoop()
+		{
+			while (MatchReferee.State == MatchState.Playing)
+			{
+				timerLabel.text = MatchReferee.Instance.GetTimeLeft().ToString("mm:SS");
+				await Awaitable.WaitForSecondsAsync(1);
+			}
+		}
+
+		private void OnTeamScored(byte team, int points)
+		{
+			scoreLabels[team].text = points.ToString();
 		}
 
 		private void StartHost()
@@ -241,7 +277,6 @@ namespace Anaglyph.Lasertag.Operator
 						});
 					}
 					startServerPage.Add(protocolPages);
-
 
 					var hostButton = new Button(() =>
 					{
@@ -381,7 +416,6 @@ namespace Anaglyph.Lasertag.Operator
 						}
 						matchPages.Add(matchSettingsPage);
 
-
 						matchRunningPage = new VisualElement();
 						{
 							var matchRunningLabel = new Label("Match Running")
@@ -397,6 +431,21 @@ namespace Anaglyph.Lasertag.Operator
 								}
 							};
 							matchRunningPage.Add(stopGame);
+
+							scoreGoalLabel = new Label("_");
+							matchRunningPage.Add(scoreGoalLabel);
+
+							timerLabel = new Label("00:00");
+							matchRunningPage.Add(timerLabel);
+
+							for (byte i = 0; i < Teams.NumTeams; i++)
+							{
+								var teamColor = new StyleColor(Teams.Colors[i]);
+								var score = MatchReferee.GetTeamScore(i);
+								scoreLabels[i] = new Label(score.ToString()) { style = { color = teamColor } };
+								if (i > 0)
+									matchRunningPage.Add(scoreLabels[i]);
+							}
 						}
 						matchPages.Add(matchRunningPage);
 					}
