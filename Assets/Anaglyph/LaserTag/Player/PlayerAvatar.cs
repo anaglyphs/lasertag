@@ -10,17 +10,19 @@ namespace Anaglyph.Lasertag.Networking
 	public class PlayerAvatar : NetworkBehaviour
 	{
 		public const string Tag = "Player";
-		
+
 		public static PlayerAvatar Local { get; private set; }
 
 		[SerializeField] private Transform headTransform;
 		[SerializeField] private Transform leftHandTransform;
+
 		[SerializeField] private Transform rightHandTransform;
-		[SerializeField] private Transform torsoTransform;
+
+		// [SerializeField] private Transform torsoTransform;
 		public Transform HeadTransform => headTransform;
 		public Transform LeftHandTransform => leftHandTransform;
 		public Transform RightHandTransform => rightHandTransform;
-		public Transform TorsoTransform => torsoTransform;
+		// public Transform TorsoTransform => torsoTransform;
 
 		public UnityEvent onRespawn = new();
 		public UnityEvent onKilled = new();
@@ -49,14 +51,14 @@ namespace Anaglyph.Lasertag.Networking
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
 		private static void Init()
 		{
-			All = new();
-			OtherPlayers = new();
+			All = new Dictionary<ulong, PlayerAvatar>();
+			OtherPlayers = new List<PlayerAvatar>();
 			OnPlayerKilledPlayer = delegate { };
 		}
 
 		private void Awake()
 		{
-			isAliveSync.OnValueChanged += delegate (bool wasAlive, bool isAlive)
+			isAliveSync.OnValueChanged += delegate(bool wasAlive, bool isAlive)
 			{
 				if (wasAlive && !isAlive)
 					onKilled.Invoke();
@@ -91,8 +93,7 @@ namespace Anaglyph.Lasertag.Networking
 
 		private void HandleBases()
 		{
-			foreach (Base b in Base.AllBases)
-			{
+			foreach (var b in Base.AllBases)
 				if (Geo.PointIsInCylinder(b.transform.position, Base.Radius, 3, headTransform.position))
 				{
 					IsInBase = true;
@@ -103,7 +104,6 @@ namespace Anaglyph.Lasertag.Networking
 
 					return;
 				}
-			}
 
 			InBase = null;
 			IsInBase = false;
@@ -127,7 +127,7 @@ namespace Anaglyph.Lasertag.Networking
 		[Rpc(SendTo.Everyone)]
 		public void KilledByPlayerRpc(ulong killerId)
 		{
-			if (All.TryGetValue(killerId, out PlayerAvatar killer))
+			if (All.TryGetValue(killerId, out var killer))
 				OnPlayerKilledPlayer.Invoke(killer, this);
 		}
 

@@ -17,8 +17,10 @@ namespace Anaglyph.Lasertag
 
 		[SerializeField] private Transform headTransform;
 		[SerializeField] private Transform leftHandTransform;
+
 		[SerializeField] private Transform rightHandTransform;
-		[SerializeField] private OVRSkeleton skeleton;
+
+		// [SerializeField] private OVRSkeleton skeleton;
 		public bool redDamagedVision = true;
 
 		// todo move this into another component. this really doesn't belong here
@@ -31,7 +33,7 @@ namespace Anaglyph.Lasertag
 		public Transform HeadTransform => headTransform;
 		public Transform LeftHandTransform => leftHandTransform;
 		public Transform RightHandTransform => rightHandTransform;
-		public OVRSkeleton Skeleton => skeleton;
+		// public OVRSkeleton Skeleton => skeleton;
 
 		public float LastDeathTime { get; private set; }
 		public bool isParticipating { get; private set; } = true;
@@ -104,8 +106,8 @@ namespace Anaglyph.Lasertag
 			PlayerAvatar.Local.LeftHandTransform.SetWorldPose(leftHandTransform.GetWorldPose());
 			PlayerAvatar.Local.RightHandTransform.SetWorldPose(rightHandTransform.GetWorldPose());
 
-			var spineMid = skeleton.Bones[(int)OVRSkeleton.BoneId.Body_SpineMiddle].Transform;
-			PlayerAvatar.Local.TorsoTransform.SetWorldPose(spineMid.GetWorldPose());
+			// var spineMid = skeleton.Bones[(int)OVRSkeleton.BoneId.Body_SpineMiddle].Transform;
+			// PlayerAvatar.Local.TorsoTransform.SetWorldPose(spineMid.GetWorldPose());
 		}
 
 		private void OnDestroy()
