@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -29,14 +30,13 @@ namespace Anaglyph
 			source.spatialBlend = 1.0f;
 			source.dopplerLevel = 0.0f;
 			source.gameObject.transform.SetParent(transform);
-			source.gameObject.SetActive(false); ;
 			allSources.Add(source);
 		}
 
 		public static void Play(AudioClip clip, Vector3 pos, float vol = 1) 
-			=> Instance.ActivateAndPlay(clip, pos, vol);
+			=> Instance._Play(clip, pos, vol);
 
-		private async void ActivateAndPlay(AudioClip clip, Vector3 pos, float vol = 1)
+		private async void _Play(AudioClip clip, Vector3 pos, float vol = 1)
 		{
 			if (numPlaying == allSources.Count)
 			{
@@ -51,22 +51,27 @@ namespace Anaglyph
 				foreach (var _ in allSources)
 				{
 					poolIndex = (poolIndex + 1) % allSources.Count;
-					if (!allSources[poolIndex].gameObject.activeInHierarchy)
+					if (!allSources[poolIndex].isPlaying)
 						break;
 				}
 			}
 			
 			AudioSource player = allSources[poolIndex];
-			
-			numPlaying++;
-			player.transform.position = pos;
-			player.gameObject.SetActive(true);
-			player.PlayOneShot(clip, vol);
-			
-			await Awaitable.WaitForSecondsAsync(clip.length);
-			
-			player.gameObject.SetActive(false);
-			numPlaying--;
+
+			try
+			{
+				numPlaying++;
+				player.transform.position = pos;
+				player.PlayOneShot(clip, vol);
+
+				await Awaitable.WaitForSecondsAsync(clip.length, destroyCancellationToken);
+				destroyCancellationToken.ThrowIfCancellationRequested();
+				
+				numPlaying--;
+			}
+			catch (OperationCanceledException)
+			{
+			}
 		}
 	}
 }
