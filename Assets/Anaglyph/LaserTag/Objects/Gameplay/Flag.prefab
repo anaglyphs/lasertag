@@ -156,7 +156,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 0
+  GlobalObjectIdHash: 2072223612
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 3
@@ -184,8 +184,8 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   radius: 0.5
   teamOwner: {fileID: 6353561666301253323}
-  flagVisualTransform: {fileID: 8548631218218697036}
-  headOffset: 0.2
+  visual: {fileID: 0}
+  holderHeadOffset: 0.2
 --- !u!114 &6307693311043116455
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -253,9 +253,9 @@ MonoBehaviour:
   SyncRotAngleX: 1
   SyncRotAngleY: 1
   SyncRotAngleZ: 1
-  SyncScaleX: 1
-  SyncScaleY: 1
-  SyncScaleZ: 1
+  SyncScaleX: 0
+  SyncScaleY: 0
+  SyncScaleZ: 0
   PositionThreshold: 0.001
   RotAngleThreshold: 0.01
   ScaleThreshold: 0.01

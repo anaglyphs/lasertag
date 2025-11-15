@@ -15,9 +15,9 @@ GameObject:
   - component: {fileID: 3770516394125647478}
   - component: {fileID: 2017920904899384140}
   - component: {fileID: 3794738929113082028}
-  - component: {fileID: 5293559935730707558}
   - component: {fileID: 2551285239359811888}
   - component: {fileID: 8030733127724905774}
+  - component: {fileID: 5293559935730707558}
   - component: {fileID: 8525794981269805043}
   m_Layer: 0
   m_Name: GameManager
@@ -53,12 +53,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 3184280641
+  GlobalObjectIdHash: 1319322287
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 8
   AlwaysReplicateAsRoot: 0
-  SynchronizeTransform: 1
+  SynchronizeTransform: 0
   ActiveSceneSynchronization: 0
   SceneMigrationSynchronization: 0
   SpawnWithObservers: 1
@@ -146,23 +146,6 @@ MonoBehaviour:
   indicatorMaterial: {fileID: 2100000, guid: 27f6747ba6952684fbfb2d2135976c96, type: 2}
   debugPointMesh: {fileID: 289301614986012343, guid: fd00829a26dc9fc4280b779bc4e1a4b7, type: 3}
   debugMaterial: {fileID: 2100000, guid: 0d26ad5852d65e9449287a73ea132e72, type: 2}
---- !u!114 &5293559935730707558
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5901269829941828840}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1a196a31819ae204dae41eed03520a81, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  matchManager: {fileID: 672875215782764715}
-  queue: {fileID: 8300000, guid: ff414655314b36348936d9fb2a7d4857, type: 3}
-  countdown: {fileID: 8300000, guid: e7fa67c7cbc39524ba844f12a3521b63, type: 3}
-  siren: {fileID: 8300000, guid: 82d954251f3bfd940ad606bd11c8a19a, type: 3}
-  finish: {fileID: 8300000, guid: 3ee8e7dd95dc0284e9098437c664b92a, type: 3}
 --- !u!114 &2551285239359811888
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -191,6 +174,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cameraReader: {fileID: 2551285239359811888}
   tagSizeMeters: 0.12
+--- !u!114 &5293559935730707558
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5901269829941828840}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1a196a31819ae204dae41eed03520a81, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  queue: {fileID: 8300000, guid: ff414655314b36348936d9fb2a7d4857, type: 3}
+  countdown: {fileID: 8300000, guid: e7fa67c7cbc39524ba844f12a3521b63, type: 3}
+  siren: {fileID: 8300000, guid: 82d954251f3bfd940ad606bd11c8a19a, type: 3}
+  finish: {fileID: 8300000, guid: 3ee8e7dd95dc0284e9098437c664b92a, type: 3}
 --- !u!82 &8525794981269805043
 AudioSource:
   m_ObjectHideFlags: 0
