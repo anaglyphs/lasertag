@@ -27,6 +27,7 @@ namespace Anaglyph
 			var source = sourceObj.AddComponent<AudioSource>();
 			source.playOnAwake = false;
 			source.spatialBlend = 1.0f;
+			source.dopplerLevel = 0.0f;
 			source.gameObject.transform.SetParent(transform);
 			source.gameObject.SetActive(false); ;
 			allSources.Add(source);

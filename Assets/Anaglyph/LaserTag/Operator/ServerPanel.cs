@@ -156,14 +156,17 @@ namespace Anaglyph.Lasertag.Operator
 		{
 			while (MatchReferee.State == MatchState.Playing)
 			{
-				timerLabel.text = MatchReferee.Instance.GetTimeLeft().ToString("mm:SS");
+				var secondsLeft = MatchReferee.Instance.GetTimeLeft();
+				var timeSpan = TimeSpan.FromSeconds(secondsLeft);
+				timerLabel.text = timeSpan.ToString(@"m\:ss");
 				await Awaitable.WaitForSecondsAsync(1);
 			}
 		}
 
 		private void OnTeamScored(byte team, int points)
 		{
-			scoreLabels[team].text = points.ToString();
+			var label = scoreLabels[team];
+			label.text = MatchReferee.GetTeamScore(team).ToString();
 		}
 
 		private void StartHost()
@@ -437,19 +440,19 @@ namespace Anaglyph.Lasertag.Operator
 
 							timerLabel = new Label("00:00");
 							matchRunningPage.Add(timerLabel);
-
-							for (byte i = 0; i < Teams.NumTeams; i++)
-							{
-								var teamColor = new StyleColor(Teams.Colors[i]);
-								var score = MatchReferee.GetTeamScore(i);
-								scoreLabels[i] = new Label(score.ToString()) { style = { color = teamColor } };
-								if (i > 0)
-									matchRunningPage.Add(scoreLabels[i]);
-							}
 						}
 						matchPages.Add(matchRunningPage);
 					}
 					connectedPage.Add(matchPages);
+					
+					for (byte i = 0; i < Teams.NumTeams; i++)
+					{
+						var teamColor = new StyleColor(Teams.Colors[i]);
+						var score = MatchReferee.GetTeamScore(i);
+						scoreLabels[i] = new Label(score.ToString()) { style = { color = teamColor } };
+						if (i > 0)
+							connectedPage.Add(scoreLabels[i]);
+					}
 				}
 				networkPages.Add(connectedPage);
 			}
