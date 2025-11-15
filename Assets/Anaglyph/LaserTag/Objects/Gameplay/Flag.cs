@@ -38,7 +38,8 @@ namespace Anaglyph.Lasertag
 		{
 			MatchReferee.StateChanged += OnMatchStateChanged;
 			NetworkManager.OnClientConnectedCallback += OnClientConnected;
-			MainPlayer.Instance.Died += OnDied;
+
+			MainPlayer.Died += OnDied;
 		}
 
 		public override void OnNetworkDespawn()
@@ -48,7 +49,8 @@ namespace Anaglyph.Lasertag
 
 			MatchReferee.StateChanged -= OnMatchStateChanged;
 			NetworkManager.OnClientConnectedCallback -= OnClientConnected;
-			MainPlayer.Instance.Died -= OnDied;
+
+			MainPlayer.Died -= OnDied;
 		}
 
 		private void OnDied()

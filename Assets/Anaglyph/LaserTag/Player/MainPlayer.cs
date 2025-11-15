@@ -116,10 +116,10 @@ namespace Anaglyph.Lasertag
 			MatchReferee.StateChanged -= OnMatchStateChange;
 		}
 
-		public event Action Died = delegate { };
-		public event Action Respawned = delegate { };
-		public event Action Damaged = delegate { };
-		public event Action<byte> TeamChanged = delegate { };
+		public static event Action Died = delegate { };
+		public static event Action Respawned = delegate { };
+		public static event Action Damaged = delegate { };
+		public static event Action<byte> TeamChanged = delegate { };
 
 		private void OnNetworkStateChange(NetcodeState state)
 		{

@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -7,20 +8,23 @@ namespace Anaglyph.Lasertag.UI
 	{
 		public static DeathHUD Instance { get; private set; }
 
-		[Header("Death Popup")]
-		[SerializeField] private Text respawnText = null;
+		[Header("Death Popup")] [SerializeField]
+		private Text respawnText = null;
 
 		[SerializeField] private GameObject respawnPopup = null;
 
 		private void Awake()
 		{
 			Instance = this;
+
+			MainPlayer.Died += OnDied;
+			MainPlayer.Respawned += OnRespawned;
 		}
 
-		private void Start()
+		private void OnDestroy()
 		{
-			MainPlayer.Instance.Died += OnDied;
-			MainPlayer.Instance.Respawned += OnRespawned;
+			MainPlayer.Died -= OnDied;
+			MainPlayer.Respawned -= OnRespawned;
 		}
 
 		private void OnDied()
@@ -37,8 +41,8 @@ namespace Anaglyph.Lasertag.UI
 		private float EaseInOutCirc(float x)
 		{
 			return x < 0.5
-			  ? (1 - Mathf.Sqrt(1 - Mathf.Pow(2 * x, 2))) / 2
-			  : (Mathf.Sqrt(1 - Mathf.Pow(-2 * x + 2, 2)) + 1) / 2;
+				? (1 - Mathf.Sqrt(1 - Mathf.Pow(2 * x, 2))) / 2
+				: (Mathf.Sqrt(1 - Mathf.Pow(-2 * x + 2, 2)) + 1) / 2;
 		}
 
 		private void Update()
@@ -51,8 +55,8 @@ namespace Anaglyph.Lasertag.UI
 			}
 			else
 			{
-				float timeSinceDeath = Time.time - MainPlayer.Instance.LastDeathTime;
-				float timeToRespawn = MatchReferee.Settings.respawnSeconds - timeSinceDeath;
+				var timeSinceDeath = Time.time - MainPlayer.Instance.LastDeathTime;
+				var timeToRespawn = MatchReferee.Settings.respawnSeconds - timeSinceDeath;
 				respawnText.text = $"RESPAWN: {timeToRespawn:F1}s";
 			}
 		}

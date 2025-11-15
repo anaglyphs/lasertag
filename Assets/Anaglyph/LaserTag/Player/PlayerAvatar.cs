@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.Serialization;
 
 namespace Anaglyph.Lasertag.Networking
 {
@@ -24,9 +25,14 @@ namespace Anaglyph.Lasertag.Networking
 		public Transform RightHandTransform => rightHandTransform;
 		// public Transform TorsoTransform => torsoTransform;
 
-		public UnityEvent onRespawn = new();
-		public UnityEvent onKilled = new();
-		public UnityEvent onDamaged = new();
+		public UnityEvent OnRespawned = new();
+		public event Action Respawned = delegate { };
+
+		public UnityEvent OnKilled = new();
+		public event Action Killed = delegate { };
+
+		public UnityEvent OnDamaged = new();
+		public event Action Damaged = delegate { };
 
 		public bool IsAlive => isAliveSync.Value;
 		public NetworkVariable<bool> isAliveSync = new();
@@ -58,12 +64,16 @@ namespace Anaglyph.Lasertag.Networking
 
 		private void Awake()
 		{
+			Killed += OnKilled.Invoke;
+			Damaged += OnDamaged.Invoke;
+			Respawned += OnRespawned.Invoke;
+
 			isAliveSync.OnValueChanged += delegate(bool wasAlive, bool isAlive)
 			{
 				if (wasAlive && !isAlive)
-					onKilled.Invoke();
+					Killed.Invoke();
 				else if (!wasAlive && isAlive)
-					onRespawn.Invoke();
+					Respawned.Invoke();
 			};
 		}
 
@@ -86,7 +96,7 @@ namespace Anaglyph.Lasertag.Networking
 
 		public override void OnNetworkDespawn()
 		{
-			onKilled.Invoke();
+			Killed.Invoke();
 			OtherPlayers.Remove(this);
 			All.Remove(OwnerClientId);
 		}
@@ -121,7 +131,7 @@ namespace Anaglyph.Lasertag.Networking
 			if (IsOwner)
 				MainPlayer.Instance.Damage(damage, damagedBy);
 
-			onDamaged.Invoke();
+			Damaged.Invoke();
 		}
 
 		[Rpc(SendTo.Everyone)]
