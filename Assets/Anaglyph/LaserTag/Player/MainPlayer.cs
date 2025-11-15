@@ -192,7 +192,7 @@ namespace Anaglyph.Lasertag
 				if (MatchReferee.State == MatchState.Playing && killer.Team != PlayerAvatar.Local.Team)
 				{
 					var referee = MatchReferee.Instance;
-					referee.TeamScoredRpc(killer.Team, MatchReferee.Settings.pointsPerKill);
+					referee.ScoreRpc(killer.Team, MatchReferee.Settings.pointsPerKill);
 				}
 			}
 		}

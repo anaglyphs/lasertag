@@ -20,7 +20,7 @@ namespace Anaglyph.Lasertag.Operator
 			var window = GetWindow<ServerWindow>("Server Menu");
 			window.minSize = new Vector2(320, 200);
 		}
-		
+
 		private const string TagSizeSaveKey = "operator.tagSize";
 		private float tagSizeCm = 10f;
 
@@ -39,7 +39,7 @@ namespace Anaglyph.Lasertag.Operator
 		private MatchSettings settings = MatchSettings.DemoGame();
 
 		private Label roomLabel;
-		
+
 		private PageGroup networkPages;
 		private PageGroup matchPages;
 
@@ -95,7 +95,7 @@ namespace Anaglyph.Lasertag.Operator
 
 				case NetcodeState.Connected:
 					networkPages.SetActiveElement(connectedPage);
-					
+
 					var manager = NetworkManager.Singleton;
 					var transport = (UnityTransport)manager.NetworkConfig.NetworkTransport;
 
@@ -105,7 +105,7 @@ namespace Anaglyph.Lasertag.Operator
 						UnityTransport.ProtocolType.RelayUnityTransport => NetcodeManagement.CurrentSessionName,
 						_ => "ERROR"
 					};
-					
+
 					break;
 
 				default:
@@ -134,9 +134,11 @@ namespace Anaglyph.Lasertag.Operator
 		{
 			UpdateHostingPage(NetcodeManagement.State);
 			UpdateMatchPage(MatchReferee.State);
-			
+
 			ColocationManager.Instance.HostAprilTagSize = tagSizeCm;
-			ColocationManager.Instance.HostColocationMethod = useAprilTags ? ColocationManager.Method.AprilTag : ColocationManager.Method.MetaSharedAnchor;
+			ColocationManager.Instance.HostColocationMethod = useAprilTags
+				? ColocationManager.Method.AprilTag
+				: ColocationManager.Method.MetaSharedAnchor;
 			MainPlayer.Instance?.SetIsParticipating(false);
 
 			if (useRelay)
@@ -202,8 +204,8 @@ namespace Anaglyph.Lasertag.Operator
 						EditorPrefs.SetBool(UseRelaySaveKey, useRelay);
 					});
 					startServerPage.Add(useRelayField);
-					
-					
+
+
 					var protocolPages = new PageGroup();
 					{
 						var lanPage = new VisualElement();
@@ -221,7 +223,6 @@ namespace Anaglyph.Lasertag.Operator
 						var relayPage = new VisualElement();
 						protocolPages.Add(relayPage);
 						{
-
 							var roomNameField = new TextField("Room Name") { value = roomName };
 							roomNameField.RegisterValueChangedCallback(evt =>
 							{
@@ -231,7 +232,7 @@ namespace Anaglyph.Lasertag.Operator
 							});
 							relayPage.Add(roomNameField);
 						}
-						
+
 						// update visibility
 						protocolPages.SetActiveElement(useRelay ? relayPage : lanPage);
 						useRelayField.RegisterValueChangedCallback(evt =>
@@ -254,7 +255,7 @@ namespace Anaglyph.Lasertag.Operator
 						style = { height = 32 }
 					};
 					startServerPage.Add(hostButton);
-					
+
 					startServerPage.Add(
 						new Label(
 							"Don't forget to disable sleep on your server machine!")
@@ -262,7 +263,7 @@ namespace Anaglyph.Lasertag.Operator
 							style =
 							{
 								whiteSpace = WhiteSpace.Normal,
-								unityFontStyleAndWeight = FontStyle.Bold,
+								unityFontStyleAndWeight = FontStyle.Bold
 							}
 						});
 
@@ -272,7 +273,7 @@ namespace Anaglyph.Lasertag.Operator
 						{
 							style =
 							{
-								whiteSpace = WhiteSpace.Normal,
+								whiteSpace = WhiteSpace.Normal
 							}
 						});
 				}
@@ -283,7 +284,7 @@ namespace Anaglyph.Lasertag.Operator
 				{
 					connectingPage.Add(new Label("Connecting...")
 						{ style = { unityFontStyleAndWeight = FontStyle.Bold } });
-					
+
 					var stopButton = new Button(NetcodeManagement.Disconnect)
 					{
 						text = "Cancel",
@@ -315,7 +316,6 @@ namespace Anaglyph.Lasertag.Operator
 						// match settings menu
 						matchSettingsPage = new VisualElement();
 						{
-
 							var matchSettingsLabel = new Label("Match Settings")
 								{ style = { unityFontStyleAndWeight = FontStyle.Bold, marginTop = 10 } };
 							matchSettingsPage.Add(matchSettingsLabel);
@@ -333,7 +333,7 @@ namespace Anaglyph.Lasertag.Operator
 							regen.RegisterValueChangedCallback(evt =>
 								settings.healthRegenPerSecond = Mathf.Max(0f, evt.newValue));
 							matchSettingsPage.Add(regen);
-							
+
 							var damage = new FloatField("Damage multiplier") { value = settings.damageMultiplier };
 							damage.RegisterValueChangedCallback(evt =>
 								settings.damageMultiplier = Mathf.Max(0f, evt.newValue));
@@ -349,7 +349,7 @@ namespace Anaglyph.Lasertag.Operator
 							pps.RegisterValueChangedCallback(evt =>
 								settings.pointsPerSecondHoldingPoint = (byte)Mathf.Clamp(evt.newValue, 0, 255));
 							matchSettingsPage.Add(pps);
-							
+
 							var ppf = new IntegerField("Points / Flag capture")
 								{ value = settings.pointsPerFlagCapture };
 							ppf.RegisterValueChangedCallback(evt =>
@@ -372,7 +372,7 @@ namespace Anaglyph.Lasertag.Operator
 									(short)Mathf.Clamp(evt.newValue, short.MinValue, short.MaxValue));
 							matchSettingsPage.Add(score);
 
-							var startGame = new Button(() => { MatchReferee.Instance.QueueMatchEveryoneRpc(settings); })
+							var startGame = new Button(() => { MatchReferee.Instance.QueueMatchRpc(settings); })
 							{
 								text = "Start Game"
 							};
@@ -380,16 +380,15 @@ namespace Anaglyph.Lasertag.Operator
 							matchSettingsPage.Add(startGame);
 						}
 						matchPages.Add(matchSettingsPage);
-						
-						
+
+
 						matchRunningPage = new VisualElement();
 						{
-
 							var matchRunningLabel = new Label("Match Running")
 								{ style = { unityFontStyleAndWeight = FontStyle.Bold, marginTop = 10 } };
 							matchRunningPage.Add(matchRunningLabel);
 
-							var stopGame = new Button(() => { MatchReferee.Instance.EndMatchEveryoneRpc(); })
+							var stopGame = new Button(() => { MatchReferee.Instance.EndMatchRpc(); })
 							{
 								text = "Stop Game",
 								style =

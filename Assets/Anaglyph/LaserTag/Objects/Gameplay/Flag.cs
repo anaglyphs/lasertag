@@ -10,15 +10,17 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private float radius = 0.5f;
 		[SerializeField] private TeamOwner teamOwner;
 		public byte Team => teamOwner.Team;
-		
-		public event Action<PlayerAvatar> PickedUp = delegate { };
+
+		public event Action<PlayerAvatar> Taken = delegate { };
 		public event Action<PlayerAvatar> Captured = delegate { };
 
 		public PlayerAvatar FlagHolder { get; private set; }
 
-		[SerializeField] private Transform flagVisualTransform;
-		[SerializeField] private float headOffset = 0.2f;
-		private Vector3 defaultFlagPosition;
+		[SerializeField] private Transform visual;
+
+		[SerializeField] private float holderHeadOffset = 0.2f;
+
+		private Vector3 visualRestPos;
 
 		private static Camera mainCamera;
 
@@ -29,7 +31,7 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			defaultFlagPosition = flagVisualTransform.localPosition;
+			visualRestPos = visual.localPosition;
 		}
 
 		public override void OnNetworkSpawn()
@@ -39,13 +41,11 @@ namespace Anaglyph.Lasertag
 			MainPlayer.Instance.Died += OnDied;
 		}
 
-		public override void OnNetworkDespawn() 
+		public override void OnNetworkDespawn()
 		{
-			if(FlagHolder == PlayerAvatar.Local)
-				DropEveryoneRpc();
+			if (FlagHolder == PlayerAvatar.Local)
+				DropRpc();
 
-			FlagHolder = null;
-			
 			MatchReferee.StateChanged -= OnMatchStateChanged;
 			NetworkManager.OnClientConnectedCallback -= OnClientConnected;
 			MainPlayer.Instance.Died -= OnDied;
@@ -53,13 +53,11 @@ namespace Anaglyph.Lasertag
 
 		private void OnDied()
 		{
-			if(FlagHolder == PlayerAvatar.Local)
-				DropEveryoneRpc();
-
-			FlagHolder = null;
+			if (FlagHolder == PlayerAvatar.Local)
+				DropRpc();
 		}
 
-		void OnClientConnected(ulong id)
+		private void OnClientConnected(ulong id)
 		{
 			if (id == NetworkManager.LocalClientId)
 				return;
@@ -67,48 +65,45 @@ namespace Anaglyph.Lasertag
 			if (FlagHolder)
 			{
 				var sendTo = RpcTarget.Single(id, RpcTargetUse.Temp);
-				PickupFlagRpc(FlagHolder.OwnerClientId, sendTo);
+				TakeRpc(FlagHolder.OwnerClientId, sendTo);
 			}
 		}
 
 		public override void OnGainedOwnership()
 		{
 			if (FlagHolder)
-				DropEveryoneRpc();
+				DropRpc();
 		}
 
 		private void OnMatchStateChanged(MatchState state)
 		{
 			if (IsOwner)
-				DropEveryoneRpc();
+				DropRpc();
 		}
 
 		private void Update()
 		{
 			if (!PlayerAvatar.Local)
 				return;
-			
-			if (!FlagHolder)
+
+			if (FlagHolder)
 			{
-				Vector3 playerHeadPos = MainPlayer.Instance.HeadTransform.position;
-				bool isInside = Geo.PointIsInCylinder(transform.position, radius, 3, playerHeadPos);
-				bool isOtherTeam = teamOwner.Team != PlayerAvatar.Local.Team;
-
-				if (isInside && isOtherTeam && PlayerAvatar.Local.IsAlive)
-					PickupFlagRpc(NetworkManager.LocalClientId);
-
-				flagVisualTransform.transform.localPosition = defaultFlagPosition;
+				if (FlagHolder == PlayerAvatar.Local && PlayerAvatar.Local.IsInFriendlyBase &&
+				    PlayerAvatar.Local.IsAlive)
+				{
+					var referee = MatchReferee.Instance;
+					referee.ScoreRpc(PlayerAvatar.Local.Team, MatchReferee.Settings.pointsPerFlagCapture);
+					CaptureRpc(NetworkManager.LocalClientId);
+				}
 			}
 			else
 			{
-				flagVisualTransform.transform.position = FlagHolder.HeadTransform.position + Vector3.up * headOffset;
+				var playerHeadPos = MainPlayer.Instance.HeadTransform.position;
+				var isInside = Geo.PointIsInCylinder(transform.position, radius, 3, playerHeadPos);
+				var isOtherTeam = teamOwner.Team != PlayerAvatar.Local.Team;
 
-				if (FlagHolder == PlayerAvatar.Local && PlayerAvatar.Local.IsInFriendlyBase && PlayerAvatar.Local.IsAlive)
-				{
-					var referee = MatchReferee.Instance;
-					referee.TeamScoredRpc(PlayerAvatar.Local.Team, MatchReferee.Settings.pointsPerFlagCapture);
-					FlagCapturedRpc(NetworkManager.Singleton.LocalClientId);
-				}
+				if (PlayerAvatar.Local.IsAlive && isInside && isOtherTeam)
+					TakeRpc(NetworkManager.LocalClientId);
 			}
 		}
 
@@ -116,13 +111,24 @@ namespace Anaglyph.Lasertag
 		{
 			if (!mainCamera)
 				return;
-			
-			Vector3 camLook = (flagVisualTransform.position - mainCamera.transform.position).normalized;
-			flagVisualTransform.transform.rotation = Quaternion.LookRotation(camLook, Vector3.up);
+
+			var camPos = mainCamera.transform.position;
+			var camLook = (visual.position - camPos).normalized;
+			visual.rotation = Quaternion.LookRotation(camLook, Vector3.up);
+
+			if (FlagHolder)
+			{
+				var headPos = FlagHolder.HeadTransform.position;
+				visual.position = headPos + Vector3.up * holderHeadOffset;
+			}
+			else
+			{
+				visual.localPosition = visualRestPos;
+			}
 		}
 
 		[Rpc(SendTo.Everyone, AllowTargetOverride = true)]
-		private void PickupFlagRpc(ulong id, RpcParams rpcParams = default)
+		private void TakeRpc(ulong id, RpcParams rpcParams = default)
 		{
 			if (!PlayerAvatar.All.TryGetValue(id, out var player))
 				return;
@@ -131,18 +137,18 @@ namespace Anaglyph.Lasertag
 				return;
 
 			FlagHolder = player;
-			
-			PickedUp.Invoke(FlagHolder);
+
+			Taken.Invoke(FlagHolder);
 		}
 
 		[Rpc(SendTo.Everyone)]
-		private void DropEveryoneRpc()
+		private void DropRpc()
 		{
 			FlagHolder = null;
 		}
 
 		[Rpc(SendTo.Everyone)]
-		private void FlagCapturedRpc(ulong id)
+		private void CaptureRpc(ulong id)
 		{
 			if (!PlayerAvatar.All.TryGetValue(id, out var player))
 				return;

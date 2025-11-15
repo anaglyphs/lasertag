@@ -18,7 +18,7 @@ namespace Anaglyph.Lasertag
 
 		[SerializeField] private BoundsMesh boundsVisual;
 		[SerializeField] private LineRenderer lineRenderer;
-		
+
 		private HandedHierarchy hand;
 
 		public static Spawner Left { get; private set; }
@@ -41,7 +41,7 @@ namespace Anaglyph.Lasertag
 		{
 			this.objectToSpawn = objectToSpawn;
 
-			if(previewObject != null)
+			if (previewObject != null)
 				Destroy(previewObject);
 
 			previewObject = InstantiateObjectAsPreview(objectToSpawn);
@@ -75,7 +75,7 @@ namespace Anaglyph.Lasertag
 				lineRenderer.SetPosition(1, Vector3.forward * result.distance);
 
 				previewObject.transform.position = result.point;
-				previewObject.transform.eulerAngles = new(0, angle, 0);
+				previewObject.transform.eulerAngles = new Vector3(0, angle, 0);
 			}
 			else
 			{
@@ -86,7 +86,7 @@ namespace Anaglyph.Lasertag
 		private void OnEnable()
 		{
 			lineRenderer.enabled = true;
-			Vector3 forw = transform.forward;
+			var forw = transform.forward;
 			forw.y = 0;
 			angle = Vector3.SignedAngle(Vector3.forward, forw, Vector3.up);
 		}
@@ -121,51 +121,48 @@ namespace Anaglyph.Lasertag
 			rotating = -context.ReadValue<Vector2>().x;
 		}
 
-		
 
-
-		private static readonly Type[] blacklistedPreviewComponents = {
+		private static readonly Type[] blacklistedPreviewComponents =
+		{
 			typeof(MonoBehaviour), typeof(Animator), typeof(Collider), typeof(Rigidbody)
 		};
 
-		private static readonly Type[] whiteListedPreviewComponents = {
-			typeof(TeamColorer),
+		private static readonly Type[] whiteListedPreviewComponents =
+		{
+			typeof(TeamColorer), typeof(TeamOwner)
 		};
 
 		private static GameObject InstantiateObjectAsPreview(GameObject obj)
 		{
-			GameObject preview = Instantiate(obj);
+			var preview = Instantiate(obj);
 			preview.SetActive(false);
 
-			Component[] components = preview.GetComponentsInChildren<Component>(true);
+			var components = preview.GetComponentsInChildren<Component>(true);
 
-			for (int i = 0; i < 100; i++)
+			for (var i = 0; i < 100; i++)
 			{
 				// Because you can't force destroy components that others depend on >:(
-				bool allBlacklistedDestroyed = true;
+				var allBlacklistedDestroyed = true;
 
 				foreach (var c in components)
 				{
-					Type componentType = c.GetType();
+					var componentType = c.GetType();
 
 					if (c == null)
 						continue;
 
-					bool whiteListed = false;
-					foreach (Type t in whiteListedPreviewComponents)
-					{
+					var whiteListed = false;
+					foreach (var t in whiteListedPreviewComponents)
 						if (componentType == t || componentType.IsSubclassOf(t))
 						{
 							whiteListed = true;
 							break;
 						}
-					}
 
 					if (whiteListed)
 						continue;
 
-					foreach (Type t in blacklistedPreviewComponents)
-					{
+					foreach (var t in blacklistedPreviewComponents)
 						if (componentType == t || componentType.IsSubclassOf(t))
 						{
 							DestroyImmediate(c, false);
@@ -173,7 +170,6 @@ namespace Anaglyph.Lasertag
 								allBlacklistedDestroyed = false;
 							break;
 						}
-					}
 				}
 
 				if (allBlacklistedDestroyed)

@@ -43,7 +43,7 @@ namespace Anaglyph.Lasertag
 			base.OnDestroy();
 			MatchReferee.StateChanged -= OnMatchStateChanged;
 		}
-		
+
 		private void OnTeamChanged(byte team)
 		{
 			if (IsOwner) millisCapturedSync.Value = 0;
@@ -54,7 +54,6 @@ namespace Anaglyph.Lasertag
 		private void OnMatchStateChanged(MatchState state)
 		{
 			if (IsOwner)
-			{
 				switch (state)
 				{
 					case MatchState.Playing:
@@ -62,7 +61,6 @@ namespace Anaglyph.Lasertag
 						_ = ScoreLoop();
 						break;
 				}
-			}
 		}
 
 		public override void OnGainedOwnership()
@@ -100,7 +98,7 @@ namespace Anaglyph.Lasertag
 				destroyCancellationToken.ThrowIfCancellationRequested();
 
 				if (teamOwner.Team != 0)
-					referee.TeamScoredRpc(teamOwner.Team, MatchReferee.Settings.pointsPerSecondHoldingPoint);
+					referee.ScoreRpc(teamOwner.Team, MatchReferee.Settings.pointsPerSecondHoldingPoint);
 			}
 		}
 
@@ -110,7 +108,7 @@ namespace Anaglyph.Lasertag
 			if (!player.IsAlive)
 				return false;
 
-			Vector3 playerHeadPos = player.HeadTransform.position;
+			var playerHeadPos = player.HeadTransform.position;
 			return Geo.PointIsInCylinder(transform.position, Radius, 3, playerHeadPos);
 		}
 
@@ -118,26 +116,23 @@ namespace Anaglyph.Lasertag
 		{
 			if (IsOwner)
 			{
-				bool isSecure = CapturingTeam == HoldingTeam;
-				bool capturingTeamIsInside = false;
-				bool isStalemated = false;
+				var isSecure = CapturingTeam == HoldingTeam;
+				var capturingTeamIsInside = false;
+				var isStalemated = false;
 
 				if (isSecure)
 				{
 					// check for new capturing players
-					foreach (PlayerAvatar player in PlayerAvatar.All.Values)
-					{
+					foreach (var player in PlayerAvatar.All.Values)
 						if (player.Team != 0 && player.Team != HoldingTeam && CheckIfPlayerIsInside(player))
 						{
 							capturingTeamSync.Value = player.Team;
 							isSecure = false;
 						}
-					}
 				}
 				else
 				{
-					foreach (PlayerAvatar player in	PlayerAvatar.All.Values)
-					{
+					foreach (var player in PlayerAvatar.All.Values)
 						if (CheckIfPlayerIsInside(player))
 						{
 							if (player.Team == CapturingTeam)
@@ -145,7 +140,6 @@ namespace Anaglyph.Lasertag
 							else
 								isStalemated = true;
 						}
-					}
 
 					if (capturingTeamIsInside)
 					{
