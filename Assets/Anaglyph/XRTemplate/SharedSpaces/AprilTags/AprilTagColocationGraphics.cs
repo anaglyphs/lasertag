@@ -55,13 +55,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (latestTagPoses != null)
 			{
 				scale = Vector3.one * colocator.tagSize * 3;
-				Color color = Color.white;
+				var color = Color.white;
 
-				foreach (TagPose tagPose in latestTagPoses)
+				foreach (var tagPose in latestTagPoses)
 				{
 					if (colocator.IsOwner)
 					{
-						bool tagRegistered = colocator.CanonTags.ContainsKey(tagPose.ID);
+						var tagRegistered = colocator.CanonTags.ContainsKey(tagPose.ID);
 						color = tagRegistered ? Color.green : Color.yellow;
 					}
 
@@ -76,18 +76,18 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			{
 				scale = Vector3.one * 0.03f;
 				mpb.SetColor(BaseColorID, Color.green);
-				foreach (Vector3 canonTagPos in colocator.CanonTags.Values)
+				foreach (var canonTag in colocator.CanonTags.Values)
 				{
-					var model = Matrix4x4.TRS(canonTagPos, Quaternion.identity, scale);
+					var model = Matrix4x4.TRS(canonTag.position, Quaternion.identity, scale);
 					Graphics.DrawMesh(debugPointMesh, model, debugMaterial, 0, MainXRRig.Camera, 0, mpb);
 				}
 
 				scale = Vector3.one * 0.02f;
 				mpb.SetColor(BaseColorID, Color.yellow);
-				foreach (Vector3 localTagPos in colocator.LocalTags.Values)
+				foreach (var localTagPos in colocator.LocalTags.Values)
 				{
 					var model = MainXRRig.TrackingSpace.localToWorldMatrix *
-						Matrix4x4.TRS(localTagPos, Quaternion.identity, scale);
+					            Matrix4x4.TRS(localTagPos, Quaternion.identity, scale);
 					Graphics.DrawMesh(debugPointMesh, model, debugMaterial, 0, MainXRRig.Camera, 0, mpb);
 				}
 			}
@@ -95,7 +95,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private void RenderFoundTags(RasterCommandBuffer cmd)
 		{
-
 		}
 	}
 }

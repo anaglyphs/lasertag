@@ -15,12 +15,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private static bool _isColocated;
 		public event Action<bool> IsColocatedChange;
+
 		public bool IsColocated
 		{
 			get => _isColocated;
 			private set
 			{
-				bool changed = value != _isColocated;
+				var changed = value != _isColocated;
 				_isColocated = value;
 				if (changed)
 					IsColocatedChange?.Invoke(_isColocated);
@@ -37,17 +38,17 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (ColocationAnchor.Instance != null)
 				ColocationAnchor.Instance.DespawnAndDestroyRpc();
 
-			Transform head = MainXRRig.Camera.transform;
+			var head = MainXRRig.Camera.transform;
 
-			Vector3 spawnPos = head.position;
+			var spawnPos = head.position;
 			spawnPos.y -= 1.5f;
 
-			Vector3 flatForward = head.transform.forward;
+			var flatForward = head.transform.forward;
 			flatForward.y = 0;
 			flatForward.Normalize();
-			Quaternion spawnRot = Quaternion.LookRotation(flatForward, Vector3.up);
+			var spawnRot = Quaternion.LookRotation(flatForward, Vector3.up);
 
-			GameObject g = Instantiate(anchorPrefab.gameObject, spawnPos, spawnRot);
+			var g = Instantiate(anchorPrefab.gameObject, spawnPos, spawnRot);
 			// Debug.Log($"Instantiated new anchor");
 
 			g.TryGetComponent(out NetworkObject networkObject);
@@ -88,7 +89,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 			else
 			{
-				if(!IsColocated)
+				if (!IsColocated)
 					MainXRRig.TrackingSpace.position = new Vector3(0, 1000, 0);
 			}
 		}
@@ -103,8 +104,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (!anchor.IsLocalized)
 				return;
 
-			Pose anchorPose = anchor.transform.GetWorldPose();
-			MainXRRig.MatchPoseToTarget(anchorPose, anchor.DesiredPose);
+
+			var anchorMat = anchor.transform.localToWorldMatrix;
+			var dpose = anchor.DesiredPose;
+			var targetMat = Matrix4x4.TRS(dpose.position, dpose.rotation, Vector3.one);
+			MainXRRig.Instance.AlignSpace(anchorMat, targetMat);
 			IsColocated = true;
 		}
 

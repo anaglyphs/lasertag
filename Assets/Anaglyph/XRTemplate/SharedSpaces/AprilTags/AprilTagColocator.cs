@@ -15,19 +15,17 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	public class AprilTagColocator : NetworkBehaviour, IColocator
 	{
 		private HashSet<int> tagsLocked = new();
-		private Dictionary<int, Vector3> canonTags = new();
+		private Dictionary<int, Pose> canonTags = new();
 		private Dictionary<int, Vector3> localTags = new();
 
-		public ReadOnlyDictionary<int, Vector3> CanonTags;
+		public ReadOnlyDictionary<int, Pose> CanonTags;
 		public ReadOnlyDictionary<int, Vector3> LocalTags;
 
 		[SerializeField] private float tagLerp = 0.1f;
 
 		public float lockDistanceScale = 10;
-		[Tooltip("In meters/second")]
-		public float maxHeadSpeed = 2f;
-		[Tooltip("In radians/second")]
-		public float maxHeadAngSpeed = 2f;
+		[Tooltip("In meters/second")] public float maxHeadSpeed = 2f;
+		[Tooltip("In radians/second")] public float maxHeadAngSpeed = 2f;
 
 		public bool ColocationActive => colocationActive;
 
@@ -42,55 +40,68 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			cameraReader = FindAnyObjectByType<CameraReader>();
 			tagTracker = FindAnyObjectByType<AprilTagTracker>();
 
-			CanonTags = new ReadOnlyDictionary<int, Vector3>(canonTags);
+			CanonTags = new ReadOnlyDictionary<int, Pose>(canonTags);
 			LocalTags = new ReadOnlyDictionary<int, Vector3>(localTags);
 		}
 
-		[Rpc(SendTo.Everyone, Delivery = RpcDelivery.Reliable)]
-		private void RegisterCanonTagRpc(int id, Vector3 canonicalPosition)
+		public override void OnNetworkSpawn()
 		{
-			canonTags[id] = canonicalPosition;
+			NetworkManager.OnClientConnectedCallback += OnClientConnected;
 		}
 
-		[Rpc(SendTo.SpecifiedInParams, Delivery = RpcDelivery.Reliable)]
-		private void SyncCanonTagsRpc(int[] id, Vector3[] positions, RpcParams rpcParams = default)
+		public override void OnNetworkDespawn()
 		{
-			for (int i = 0; i < id.Length; i++)
-				canonTags[id[i]] = positions[i];
+			NetworkManager.OnClientConnectedCallback -= OnClientConnected;
 		}
 
-		[Rpc(SendTo.Everyone, Delivery = RpcDelivery.Reliable)]
+		private void OnClientConnected(ulong id)
+		{
+			var thisClient = id == NetworkManager.LocalClientId;
+			if (thisClient)
+				return;
+
+			if (IsOwner)
+			{
+				var keys = new int[canonTags.Count];
+				var values = new Pose[canonTags.Count];
+
+				canonTags.Keys.CopyTo(keys, 0);
+				canonTags.Values.CopyTo(values, 0);
+
+				var sendTo = RpcTarget.Single(id, RpcTargetUse.Temp);
+				SyncCanonTagsRpc(keys, values, sendTo);
+			}
+		}
+
+
+		[Rpc(SendTo.Everyone, InvokePermission = RpcInvokePermission.Owner)]
+		private void RegisterCanonTagRpc(int id, Pose canonPose)
+		{
+			canonTags[id] = canonPose;
+		}
+
+		[Rpc(SendTo.SpecifiedInParams, InvokePermission = RpcInvokePermission.Owner)]
+		private void SyncCanonTagsRpc(int[] id, Pose[] poses, RpcParams rpcParams = default)
+		{
+			for (var i = 0; i < id.Length; i++)
+				canonTags[id[i]] = poses[i];
+		}
+
+		[Rpc(SendTo.Everyone)]
 		public void ClearCanonTagsRpc()
 		{
 			canonTags.Clear();
 		}
 
-		[Rpc(SendTo.Owner, Delivery = RpcDelivery.Reliable)]
-		private void RetrieveCanonTagsRpc(ulong id)
-		{
-			int[] keys = new int[canonTags.Count];
-			Vector3[] values = new Vector3[canonTags.Count];
-
-			canonTags.Keys.CopyTo(keys, 0);
-			canonTags.Values.CopyTo(values, 0);
-
-			SyncCanonTagsRpc(keys, values, RpcTarget.Single(id, RpcTargetUse.Temp));
-		}
-
-		public override void OnNetworkSpawn()
-		{
-			if (!IsOwner)
-				RetrieveCanonTagsRpc(NetworkManager.LocalClientId);
-		}
-
 		private bool _isColocated;
 		public event Action<bool> IsColocatedChange;
+
 		public bool IsColocated
 		{
 			get => _isColocated;
 			private set
 			{
-				bool changed = value != _isColocated;
+				var changed = value != _isColocated;
 				_isColocated = value;
 				if (changed)
 					IsColocatedChange?.Invoke(_isColocated);
@@ -113,72 +124,24 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private List<float3> sharedLocalPositions = new();
 		private List<float3> sharedCanonPositions = new();
 
-		private void LateUpdate()
+		private bool TagIsWithinRegisterDistance(Vector3 globalPos)
+		{
+			var headPos = MainXRRig.Camera.transform.position;
+			return Vector3.Distance(headPos, globalPos) < tagSize * lockDistanceScale;
+		}
+
+		private void FixedUpdate()
 		{
 			if (!XRSettings.enabled)
 				return;
 
-			if (!colocationActive)
-				return;
-
 			if (IsOwner)
-			{
-				var headPos = MainXRRig.Camera.transform.position;
-
-				foreach (int id in canonTags.Keys)
+				foreach (var id in canonTags.Keys)
 				{
-					Vector3 canonPos = canonTags[id];
-					if (!TagIsWithinRegisterDistance(canonPos))
+					var canonPose = canonTags[id];
+					if (!TagIsWithinRegisterDistance(canonPose.position))
 						tagsLocked.Add(id);
 				}
-			}
-
-			sharedLocalPositions.Clear();
-			sharedCanonPositions.Clear();
-
-			foreach (int id in localTags.Keys)
-			{
-				float3 localPos = localTags[id];
-				bool mutuallyFound = canonTags.TryGetValue(id, out Vector3 canonPos);
-
-				if (mutuallyFound)
-				{
-					sharedLocalPositions.Add(localPos);
-					sharedCanonPositions.Add(canonPos);
-				}
-			}
-
-			if (sharedLocalPositions.Count >= 3)
-			{
-				Matrix4x4 trackingSpace = MainXRRig.TrackingSpace.localToWorldMatrix;
-
-				Matrix4x4 delta = IterativeClosestPoint.FitCorresponding(
-					sharedLocalPositions.ToArray(), trackingSpace,
-					sharedCanonPositions.ToArray(), float4x4.identity);
-
-				trackingSpace = delta * trackingSpace;
-
-				MainXRRig.TrackingSpace.position = trackingSpace.GetPosition();
-				MainXRRig.TrackingSpace.rotation = trackingSpace.rotation;
-
-				IsColocated = true;
-			}
-
-			var originPos = MainXRRig.TrackingSpace.position;
-
-			if (originPos.magnitude > 100000f ||
-				float.IsNaN(originPos.x) || float.IsInfinity(originPos.x) ||
-				float.IsNaN(originPos.y) || float.IsInfinity(originPos.y) ||
-				float.IsNaN(originPos.z) || float.IsInfinity(originPos.z))
-			{
-				MainXRRig.TrackingSpace.SetWorldPose(Pose.identity);
-			}
-		}
-
-		private bool TagIsWithinRegisterDistance(Vector3 globalPos)
-		{
-			Vector3 headPos = MainXRRig.Camera.transform.position;
-			return Vector3.Distance(headPos, globalPos) < tagSize * lockDistanceScale;
 		}
 
 		private void OnDetectTags(IReadOnlyList<TagPose> results)
@@ -186,15 +149,15 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (!colocationActive)
 				return;
 
-			foreach (TagPose result in results)
+			foreach (var result in results)
 			{
-				Vector3 globalPos = result.Position;
+				var globalPos = result.Position;
 
-				Matrix4x4 worldToTracking = MainXRRig.TrackingSpace.worldToLocalMatrix;
-				Vector3 localPos = worldToTracking.MultiplyPoint(globalPos);
+				var worldToTracking = MainXRRig.TrackingSpace.worldToLocalMatrix;
+				var localPos = worldToTracking.MultiplyPoint(globalPos);
 
-				if (localTags.TryGetValue(result.ID, out Vector3 value))
-					localPos = Vector3.Lerp(value, localPos, tagLerp);
+				if (localTags.TryGetValue(result.ID, out var value))
+					localPos = value;
 
 				localTags[result.ID] = localPos;
 
@@ -203,25 +166,91 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					var headState = OVRPlugin.GetNodePoseStateAtTime(tagTracker.FrameTimestamp, OVRPlugin.Node.Head);
 					var v = headState.Velocity;
 					Vector3 vel = new(v.x, v.y, v.z);
-					float headSpeed = vel.magnitude;
+					var headSpeed = vel.magnitude;
 					var av = headState.AngularVelocity;
 					Vector3 angVel = new(av.x, av.y, av.z);
-					float angHeadSpeed = angVel.magnitude;
+					var angHeadSpeed = angVel.magnitude;
 
-					bool headIsStable = headSpeed < maxHeadSpeed && angHeadSpeed < maxHeadAngSpeed;
+					var headIsStable = headSpeed < maxHeadSpeed && angHeadSpeed < maxHeadAngSpeed;
 
 					if (headIsStable)
 					{
-						bool locked = tagsLocked.Contains(result.ID);
-						bool isCloseEnough = TagIsWithinRegisterDistance(globalPos);
+						var locked = tagsLocked.Contains(result.ID);
 
-						if (!locked && isCloseEnough)
+						if (!locked)
 						{
-							RegisterCanonTagRpc(result.ID, globalPos);
+							var isCloseEnough = TagIsWithinRegisterDistance(globalPos);
+							if (isCloseEnough)
+							{
+								var pose = new Pose(globalPos, result.Rotation);
+								RegisterCanonTagRpc(result.ID, pose);
+							}
+							else
+							{
+								tagsLocked.Add(result.ID);
+							}
 						}
 					}
 				}
 			}
+
+			sharedLocalPositions.Clear();
+			sharedCanonPositions.Clear();
+
+			foreach (var id in localTags.Keys)
+			{
+				float3 localPos = localTags[id];
+				var mutuallyFound = canonTags.TryGetValue(id, out var canonPose);
+
+				if (mutuallyFound)
+				{
+					sharedLocalPositions.Add(localPos);
+					sharedCanonPositions.Add(canonPose.position);
+				}
+			}
+
+			var space = MainXRRig.TrackingSpace;
+			var spaceMat = MainXRRig.TrackingSpace.localToWorldMatrix;
+
+			switch (sharedLocalPositions.Count)
+			{
+				case 0:
+					return;
+
+				case >= 3:
+				{
+					Matrix4x4 delta = IterativeClosestPoint.FitCorresponding(
+						sharedLocalPositions.ToArray(), spaceMat,
+						sharedCanonPositions.ToArray(), float4x4.identity);
+
+					var aligned = delta * spaceMat;
+
+					MainXRRig.TrackingSpace.position = aligned.GetPosition();
+					MainXRRig.TrackingSpace.rotation = aligned.rotation;
+					break;
+				}
+				default:
+				{
+					var result = results[0];
+
+					var one = Vector3.one;
+					var tagMat = Matrix4x4.TRS(result.Position, result.Rotation, one);
+					var canonTag = canonTags[result.ID];
+					var canonTagMat = Matrix4x4.TRS(canonTag.position, canonTag.rotation, one);
+
+					MainXRRig.Instance.AlignSpace(tagMat, canonTagMat);
+					break;
+				}
+			}
+
+			IsColocated = true;
+
+			var spacePos = space.position;
+			if (spacePos.magnitude > 10000f ||
+			    float.IsNaN(spacePos.x) || float.IsInfinity(spacePos.x) ||
+			    float.IsNaN(spacePos.y) || float.IsInfinity(spacePos.y) ||
+			    float.IsNaN(spacePos.z) || float.IsInfinity(spacePos.z))
+				MainXRRig.TrackingSpace.SetWorldPose(Pose.identity);
 		}
 
 		public void StopColocation()

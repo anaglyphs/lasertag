@@ -1,8 +1,8 @@
-using Anaglyph.Netcode;
 using Anaglyph.XRTemplate;
 using System;
 using System.Collections;
 using Unity.Netcode;
+using Unity.XR.CoreUtils;
 using UnityEngine;
 
 namespace Anaglyph.Lasertag
@@ -19,7 +19,7 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private AudioClip fireSFX;
 		[SerializeField] private AudioClip collideSFX;
 
-		private NetworkVariable<NetworkPose> spawnPoseSync = new();
+		private NetworkVariable<Pose> spawnPoseSync = new();
 		public Pose SpawnPose => spawnPoseSync.Value;
 
 		private Ray fireRay;
@@ -35,7 +35,7 @@ namespace Anaglyph.Lasertag
 		{
 			spawnPoseSync.OnValueChanged += OnSpawnPosChange;
 		}
-		
+
 		public override void OnNetworkSpawn()
 		{
 			envHitDist = MaxTravelDist;
@@ -43,14 +43,14 @@ namespace Anaglyph.Lasertag
 			spawnedTime = Time.time;
 
 			if (IsOwner)
-				spawnPoseSync.Value = new NetworkPose(transform);
+				spawnPoseSync.Value = transform.GetWorldPose();
 			else
 				SetPose(SpawnPose);
 
 			OnFire.Invoke();
 			AudioPool.Play(fireSFX, transform.position);
-			
-			fireRay = new(transform.position, transform.forward);
+
+			fireRay = new Ray(transform.position, transform.forward);
 
 			EnvRaymarch();
 		}
@@ -59,7 +59,7 @@ namespace Anaglyph.Lasertag
 		{
 			if (!MainPlayer.Instance)
 				return;
-			
+
 			var result = await EnvironmentMapper.Instance.RaymarchAsync(fireRay, MaxTravelDist);
 			if (result.didHit)
 			{
@@ -85,7 +85,10 @@ namespace Anaglyph.Lasertag
 				envHitDist = Mathf.Min(envHitDist, dist);
 		}
 
-		private void OnSpawnPosChange(NetworkPose p, NetworkPose v) => SetPose(v);
+		private void OnSpawnPosChange(Pose p, Pose v)
+		{
+			SetPose(v);
+		}
 
 		private void SetPose(Pose pose)
 		{
@@ -96,20 +99,20 @@ namespace Anaglyph.Lasertag
 		{
 			if (isAlive)
 			{
-				float lifeTime = Time.time - spawnedTime;
-				Vector3 prevPos = transform.position;
+				var lifeTime = Time.time - spawnedTime;
+				var prevPos = transform.position;
 				travelDist = metersPerSecond * lifeTime;
 
 				transform.position = fireRay.GetPoint(travelDist);
 
 				if (IsOwner)
 				{
-					bool didHitEnv = travelDist > envHitDist;
+					var didHitEnv = travelDist > envHitDist;
 
 					if (didHitEnv)
 						transform.position = fireRay.GetPoint(envHitDist);
 
-					bool didHitPhys = Physics.Linecast(prevPos, transform.position, out var physHit,
+					var didHitPhys = Physics.Linecast(prevPos, transform.position, out var physHit,
 						Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
 
 					if (didHitPhys)
@@ -121,14 +124,13 @@ namespace Anaglyph.Lasertag
 						if (col.CompareTag(Networking.PlayerAvatar.Tag))
 						{
 							var av = col.GetComponentInParent<Networking.PlayerAvatar>();
-							float damage = damageOverDistance.Evaluate(travelDist);
+							var damage = damageOverDistance.Evaluate(travelDist);
 							av.DamageRpc(damage, OwnerClientId);
 						}
-
 					}
 					else if (didHitEnv)
 					{
-						Vector3 envHitPoint = fireRay.GetPoint(envHitDist);
+						var envHitPoint = fireRay.GetPoint(envHitDist);
 						HitRpc(envHitPoint, -transform.forward);
 					}
 				}
@@ -148,7 +150,9 @@ namespace Anaglyph.Lasertag
 			if (IsOwner)
 			{
 				StartCoroutine(D());
-				IEnumerator D() {
+
+				IEnumerator D()
+				{
 					yield return new WaitForSeconds(despawnDelay);
 					NetworkObject.Despawn();
 				}
