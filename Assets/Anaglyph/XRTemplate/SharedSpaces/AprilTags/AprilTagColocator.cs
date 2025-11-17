@@ -155,23 +155,25 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 				var worldToTracking = MainXRRig.TrackingSpace.worldToLocalMatrix;
 				var localPos = worldToTracking.MultiplyPoint(globalPos);
-
-				if (localTags.TryGetValue(result.ID, out var value))
-					localPos = value;
-
 				localTags[result.ID] = localPos;
 
 				if (IsOwner)
 				{
 					var headState = OVRPlugin.GetNodePoseStateAtTime(tagTracker.FrameTimestamp, OVRPlugin.Node.Head);
+					
 					var v = headState.Velocity;
 					Vector3 vel = new(v.x, v.y, v.z);
 					var headSpeed = vel.magnitude;
+					
 					var av = headState.AngularVelocity;
 					Vector3 angVel = new(av.x, av.y, av.z);
 					var angHeadSpeed = angVel.magnitude;
 
 					var headIsStable = headSpeed < maxHeadSpeed && angHeadSpeed < maxHeadAngSpeed;
+					
+					#if UNITY_EDITOR
+					headIsStable = true;
+					#endif
 
 					if (headIsStable)
 					{
@@ -185,7 +187,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 								var pose = new Pose(globalPos, result.Rotation);
 								RegisterCanonTagRpc(result.ID, pose);
 							}
-							else
+							else if(canonTags.ContainsKey(result.ID))
 							{
 								tagsLocked.Add(result.ID);
 							}
@@ -231,14 +233,19 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				}
 				default:
 				{
-					var result = results[0];
+					foreach (var result in results)
+					{
+						int id = result.ID;
+						if (!canonTags.ContainsKey(id) || !localTags.ContainsKey(id))
+							return;
+						
+						var one = Vector3.one;
+						var tagMat = Matrix4x4.TRS(result.Position, result.Rotation, one);
+						var canonTag = canonTags[id];
+						var canonTagMat = Matrix4x4.TRS(canonTag.position, canonTag.rotation, one);
 
-					var one = Vector3.one;
-					var tagMat = Matrix4x4.TRS(result.Position, result.Rotation, one);
-					var canonTag = canonTags[result.ID];
-					var canonTagMat = Matrix4x4.TRS(canonTag.position, canonTag.rotation, one);
-
-					MainXRRig.Instance.AlignSpace(tagMat, canonTagMat);
+						MainXRRig.Instance.AlignSpace(tagMat, canonTagMat);
+					}
 					break;
 				}
 			}

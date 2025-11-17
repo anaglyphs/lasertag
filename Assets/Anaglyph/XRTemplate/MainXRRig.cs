@@ -21,7 +21,7 @@ namespace Anaglyph.XRTemplate
 
 		private void LateUpdate()
 		{
-			ForceGlobalUp();
+			// ForceGlobalUp();
 		}
 
 		public void ForceGlobalUp()
@@ -42,7 +42,7 @@ namespace Anaglyph.XRTemplate
 
 			var rigMat = t.localToWorldMatrix;
 			var rel = target.inverse * current;
-			rigMat = rel * rigMat;
+			rigMat = rigMat * rel;
 
 			t.position = rigMat.GetPosition();
 			t.rotation = rigMat.rotation;

@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6186880427161281066}
   - component: {fileID: 6086720689030301630}
-  - component: {fileID: 8102963252137225395}
+  - component: {fileID: -5525011252565399262}
   m_Layer: 0
   m_Name: Editor Simulated AprilTag
   m_TagString: Untagged
@@ -49,33 +49,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dbaf3ea10ff843840841a8d631e8a8fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!1773428102 &8102963252137225395
-ParentConstraint:
+--- !u!114 &-5525011252565399262
+MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7026934261333446959}
   m_Enabled: 1
-  serializedVersion: 2
-  m_Weight: 1
-  m_TranslationAtRest: {x: 0, y: 1, z: 0}
-  m_RotationAtRest: {x: 0, y: 0, z: 0}
-  m_TranslationOffsets:
-  - {x: 0, y: 1, z: 0}
-  m_RotationOffsets:
-  - {x: 0, y: 0, z: 0}
-  m_AffectTranslationX: 1
-  m_AffectTranslationY: 1
-  m_AffectTranslationZ: 1
-  m_AffectRotationX: 1
-  m_AffectRotationY: 1
-  m_AffectRotationZ: 1
-  m_Active: 1
-  m_IsLocked: 0
-  m_Sources:
-  - sourceTransform: {fileID: 0}
-    weight: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ce95e3cc07b42f54fa880bf24d892fd5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1001 &50661462911187323
 PrefabInstance:
   m_ObjectHideFlags: 0

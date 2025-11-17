@@ -17,12 +17,15 @@ namespace Anaglyph.XRTemplate.AprilTags
 
 		private void OnEnable()
 		{
-			mainCamera = Camera.main;
+			if(didStart)
+				mainCamera = Camera.main;
 			Visible.Add(this);
 		}
 
 		private void Start()
 		{
+			mainCamera = Camera.main;
+
 #if !UNITY_EDITOR
 			gameObject.SetActive(false);
 #endif
