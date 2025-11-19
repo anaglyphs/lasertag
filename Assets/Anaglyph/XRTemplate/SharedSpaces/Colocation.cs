@@ -35,6 +35,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			if (activeColocator != null)
 			{
+				activeColocator.StopColocation();
 				activeColocator.IsColocatedChange -= SetIsColocated;
 			}
 

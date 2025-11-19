@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 
 namespace Anaglyph.XRTemplate
@@ -31,15 +30,20 @@ namespace Anaglyph.XRTemplate
 			transform.RotateAroundPoint(camera.transform.position, delta);
 		}
 
-		public void AlignSpace(Matrix4x4 current, Matrix4x4 target)
+		public void AlignSpace(Matrix4x4 current, Matrix4x4 target, float lerp = 1f)
 		{
 			var t = TrackingSpace;
 
 			var rigMat = t.localToWorldMatrix;
-			rigMat = target * current.inverse * rigMat;
+			var targetMat = target * current.inverse * rigMat;
 
-			t.position = rigMat.GetPosition();
-			t.rotation = rigMat.rotation;
+			var targetPos = targetMat.GetPosition();
+			var targetRot = t.rotation;
+			var rigPos = t.position;
+			var rigRot = t.rotation;
+
+			t.position = Vector3.Lerp(rigPos, targetPos, lerp);
+			t.rotation = Quaternion.Slerp(rigRot, targetRot, lerp);
 
 			ForceGlobalUp();
 		}
