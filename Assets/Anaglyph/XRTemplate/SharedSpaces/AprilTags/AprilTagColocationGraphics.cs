@@ -55,14 +55,14 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (latestTagPoses != null)
 			{
 				scale = Vector3.one * colocator.tagSize * 3;
-				var color = Color.white;
+				var color = Color.yellow;
 
 				foreach (var tagPose in latestTagPoses)
 				{
 					if (colocator.IsOwner)
 					{
-						var tagRegistered = colocator.CanonTags.ContainsKey(tagPose.ID);
-						color = tagRegistered ? Color.green : Color.yellow;
+						if (!colocator.LockedTags.Contains(tagPose.ID))
+							color = Color.green;
 					}
 
 					mpb.SetColor(BaseColorID, color);
@@ -74,15 +74,14 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			if (Anaglyph.DebugMode)
 			{
-				scale = Vector3.one * 0.03f;
+				scale = Vector3.one * 0.02f;
 				mpb.SetColor(BaseColorID, Color.green);
 				foreach (var canonTag in colocator.CanonTags.Values)
 				{
 					var model = Matrix4x4.TRS(canonTag.position, Quaternion.identity, scale);
 					Graphics.DrawMesh(debugPointMesh, model, debugMaterial, 0, MainXRRig.Camera, 0, mpb);
 				}
-
-				scale = Vector3.one * 0.02f;
+				
 				mpb.SetColor(BaseColorID, Color.yellow);
 				foreach (var localTagPos in colocator.LocalTags.Values)
 				{

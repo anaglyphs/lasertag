@@ -14,12 +14,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 {
 	public class AprilTagColocator : NetworkBehaviour, IColocator
 	{
-		private HashSet<int> tagsLocked = new();
+		private HashSet<int> lockedTags = new();
 		private Dictionary<int, Pose> canonTags = new();
 		private Dictionary<int, Vector3> localTags = new();
 
 		public ReadOnlyDictionary<int, Pose> CanonTags;
 		public ReadOnlyDictionary<int, Vector3> LocalTags;
+		public HashSet<int> LockedTags => lockedTags;
 
 		[SerializeField] private float tagLerp = 0.1f;
 
@@ -140,7 +141,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				{
 					var canonPose = canonTags[id];
 					if (!TagIsWithinRegisterDistance(canonPose.position))
-						tagsLocked.Add(id);
+						lockedTags.Add(id);
 				}
 		}
 
@@ -177,20 +178,12 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 					if (headIsStable)
 					{
-						var locked = tagsLocked.Contains(result.ID);
-
-						if (!locked)
+						var locked = lockedTags.Contains(result.ID);
+						var isCloseEnough = TagIsWithinRegisterDistance(globalPos);
+						if (!locked && isCloseEnough)
 						{
-							var isCloseEnough = TagIsWithinRegisterDistance(globalPos);
-							if (isCloseEnough)
-							{
-								var pose = new Pose(globalPos, result.Rotation);
-								RegisterCanonTagRpc(result.ID, pose);
-							}
-							else if(canonTags.ContainsKey(result.ID))
-							{
-								tagsLocked.Add(result.ID);
-							}
+							var pose = new Pose(globalPos, result.Rotation);
+							RegisterCanonTagRpc(result.ID, pose);
 						}
 					}
 				}
@@ -228,7 +221,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					var aligned = delta * spaceMat;
 
 					MainXRRig.TrackingSpace.position = aligned.GetPosition();
-					MainXRRig.TrackingSpace.rotation = aligned.rotation;
+					MainXRRig.TrackingSpace.rotation = aligned.rotation.Flatten();
 					break;
 				}
 				default:
@@ -268,7 +261,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			colocationActive = false;
 			IsColocated = false;
 
-			tagsLocked.Clear();
+			lockedTags.Clear();
 			canonTags.Clear();
 			localTags.Clear();
 		}

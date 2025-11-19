@@ -1,3 +1,4 @@
+using System;
 using Anaglyph.XRTemplate;
 using UnityEngine;
 
@@ -11,6 +12,11 @@ namespace Anaglyph.Lasertag
 		private void Update()
 		{
 			material.SetVector(xrOriginID, MainXRRig.TrackingSpace.position);
+		}
+
+		private void OnDisable()
+		{
+			material.SetVector(xrOriginID, Vector3.zero);
 		}
 	}
 }

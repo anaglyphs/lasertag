@@ -19,11 +19,6 @@ namespace Anaglyph.XRTemplate
 			Instance = this;
 		}
 
-		private void LateUpdate()
-		{
-			// ForceGlobalUp();
-		}
-
 		public void ForceGlobalUp()
 		{
 			var a = transform.eulerAngles;
@@ -41,8 +36,7 @@ namespace Anaglyph.XRTemplate
 			var t = TrackingSpace;
 
 			var rigMat = t.localToWorldMatrix;
-			var rel = target.inverse * current;
-			rigMat = rigMat * rel;
+			rigMat = target * current.inverse * rigMat;
 
 			t.position = rigMat.GetPosition();
 			t.rotation = rigMat.rotation;

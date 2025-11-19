@@ -1,9 +1,11 @@
+using System;
 using Anaglyph.XRTemplate;
 using Unity.XR.CoreUtils;
 using UnityEngine;
 
 namespace Anaglyph.Lasertag
 {
+	[DefaultExecutionOrder(9999)]
     public class BoundaryPositioner : MonoBehaviour
     {
 		[SerializeField] private float radius = 20;
