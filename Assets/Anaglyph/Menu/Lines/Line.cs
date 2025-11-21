@@ -1,83 +1,153 @@
-using System.Collections.Generic;
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Anaglyph.Menu
 {
-	[RequireComponent(typeof(CanvasRenderer))]
-	public class Line : Graphic
+	[ExecuteAlways]
+	[RequireComponent(typeof(CanvasRenderer), typeof(RectTransform))]
+	public class Line : MonoBehaviour
 	{
 		public float thickness;
-
-		public List<Vector2> points;
+		public Color color = Color.white;
+		public Vector2[] points;
 
 		public float firstAngle = 0;
 		public bool overrideFirstAngle = false;
+		public float lastAngle = 0;
+		public bool overrideLastAngle = false;
+
+		private Vector3[] verts;
+		private int[] tris;
+		private Color[] colors;
+
+		private Mesh mesh;
+		private CanvasRenderer cr;
+		private RectTransform rt;
+
+		private bool initialized = false;
 
 		public static Vector2 FromAngle(float a)
 		{
 			return new Vector2(Mathf.Cos(a), Mathf.Sin(a));
 		}
 
-		protected override void OnPopulateMesh(VertexHelper vh)
+		private void Init()
 		{
-			vh.Clear();
+			cr = GetComponent<CanvasRenderer>();
+			rt = GetComponent<RectTransform>();
 
-			if (points.Count < 2) return;
+			cr.materialCount = 1;
+			cr.SetMaterial(Graphic.defaultGraphicMaterial, 0);
 
-			var vertex = UIVertex.simpleVert;
-			vertex.color = color;
+			BuildMesh();
+			PositionVertices();
 
-			var end = points.Count - 1;
+			initialized = true;
+		}
 
-			for (var i = 0; i < points.Count; i++)
+		private void Awake()
+		{
+			Init();
+		}
+
+		private void OnValidate()
+		{
+			if (!initialized)
+				Init();
+
+			BuildMesh();
+			PositionVertices();
+		}
+
+		public void PositionVertices()
+		{
+			var end = points.Length - 1;
+			var halfThickness = thickness * 0.5f;
+
+			for (var i = 0; i < points.Length; i++)
 			{
 				var p = points[i];
 
-				var quarter = Mathf.PI / 2;
 				var nNext = Vector2.zero;
-				var nPrev = Vector2.zero;
-				var n = Vector2.zero;
-
 				if (i < end)
 				{
 					var pNext = points[i + 1];
-					var a = Mathf.Atan2(pNext.y - p.y, pNext.x - p.x) + quarter;
-					nNext = FromAngle(a);
-					n += nNext;
+					var dNext = (pNext - p).normalized;
+					nNext = new Vector2(dNext.y, -dNext.x);
 				}
 
+				var nPrev = Vector2.zero;
 				if (i > 0)
 				{
 					var pPrev = points[i - 1];
-					var a = Mathf.Atan2(pPrev.y - p.y, pPrev.x - p.x) - quarter;
-					nPrev = FromAngle(a);
-					n += nPrev;
+					var dPrev = (pPrev - p).normalized;
+					nPrev = new Vector2(-dPrev.y, dPrev.x);
 				}
 
-				n.Normalize();
+				var n = (nNext + nPrev).normalized;
+				var d = i < end ? nNext : nPrev;
 
-				if (i > 0 && i < end)
-				{
-					var l = Mathf.Sqrt(2) / Mathf.Sqrt(1 + Vector2.Dot(nNext, nPrev));
-					n *= l;
-				}
+				if (i == 0 && overrideFirstAngle)
+					n = FromAngle(firstAngle);
+				else if (i == end && overrideLastAngle)
+					n = FromAngle(lastAngle);
 
-				var halfThickness = thickness / 2f;
+				n /= Vector2.Dot(d, n);
 
-				vertex.position = p + n * halfThickness;
-				vh.AddVert(vertex);
-
-				vertex.position = p - n * halfThickness;
-				vh.AddVert(vertex);
-
-				if (i < end)
-				{
-					var triIndex = i * 2;
-					vh.AddTriangle(triIndex + 2, triIndex + 1, triIndex + 0);
-					vh.AddTriangle(triIndex + 2, triIndex + 3, triIndex + 1);
-				}
+				var v = i * 2;
+				verts[v + 0] = p + n * halfThickness;
+				verts[v + 1] = p - n * halfThickness;
 			}
+
+			mesh.vertices = verts;
+
+			cr.SetMesh(mesh);
+		}
+
+		public void SetColor(Color color)
+		{
+			this.color = color;
+
+			if (!initialized)
+				return;
+
+			colors = new Color[points.Length];
+			for (var i = 0; i < colors.Length; i++) colors[i] = color;
+			mesh.colors = colors;
+			cr.SetMesh(mesh);
+		}
+
+		public void BuildMesh()
+		{
+			verts = new Vector3[points.Length * 2];
+			tris = new int[points.Length * 6];
+
+			for (var i = 0; i < points.Length - 1; i++)
+			{
+				var v = i * 2;
+				var t = i * 6;
+
+				tris[t + 0] = v + 2;
+				tris[t + 1] = v + 1;
+				tris[t + 2] = v + 0;
+
+				tris[t + 3] = v + 2;
+				tris[t + 4] = v + 3;
+				tris[t + 5] = v + 1;
+			}
+
+			colors = new Color[verts.Length];
+			for (var i = 0; i < colors.Length; i++) colors[i] = color;
+
+			mesh = new Mesh
+			{
+				vertices = verts,
+				triangles = tris,
+				colors = colors
+			};
+
+			cr.SetMesh(mesh);
 		}
 	}
 }

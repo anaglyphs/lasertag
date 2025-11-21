@@ -1,5 +1,7 @@
 using System;
+using Anaglyph.Menu;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 namespace Anaglyph.Lasertag
@@ -7,16 +9,69 @@ namespace Anaglyph.Lasertag
 	[DefaultExecutionOrder(9999)]
 	public class GameHUD : MonoBehaviour
 	{
-		[SerializeField] private GameObject scoreGoalHUD;
-		[SerializeField] private GameObject timerGoalHUD;
+		[Header("Timer")] [SerializeField] private GameObject timerHUD;
 
-		[SerializeField] private Text timerTarget;
-		[SerializeField] private Text scoreTarget;
+		[SerializeField] private Text timerLabel;
+
+		[FormerlySerializedAs("timerSandTop")] [SerializeField]
+		private RectTransform topSand;
+
+		[FormerlySerializedAs("timerSandBottom")] [SerializeField]
+		private RectTransform bottomSand;
+
+		private float sandHeight;
+
+		[Header("Score goal")] [SerializeField]
+		private GameObject scoreGoalHUD;
+
+		[SerializeField] private Text scoreTargetLabel;
+		[SerializeField] private Line scoreLine1;
+		[SerializeField] private Line scoreLine2;
+		private ScoreLine[] scoreLines;
+
+		private struct ScoreLine
+		{
+			public Line line;
+			public Vector2 start;
+			public Vector2 end;
+			public byte team;
+
+			public ScoreLine(Line line, byte team)
+			{
+				this.line = line;
+				start = line.points[^2];
+				end = line.points[^1];
+				this.team = team;
+			}
+
+			public void Update()
+			{
+				var score = MatchReferee.GetTeamScore(team);
+				var target = MatchReferee.Settings.scoreTarget;
+				var progress = target > 0 ? score / (float)team : 0;
+				var v = Vector2.Lerp(start, end, progress);
+				line.points[^1] = v;
+				line.PositionVertices();
+			}
+		}
 
 		private void Awake()
 		{
 			MatchReferee.StateChanged += OnMatchStateChange;
+			MatchReferee.TeamScored += OnTeamScored;
 			OnMatchStateChange(MatchReferee.State);
+
+			sandHeight = topSand.rect.height;
+
+			scoreLines = new ScoreLine[Teams.NumTeams];
+			scoreLines[1] = new ScoreLine(scoreLine1, 1);
+			scoreLines[2] = new ScoreLine(scoreLine2, 1);
+		}
+
+		private void OnDestroy()
+		{
+			MatchReferee.StateChanged -= OnMatchStateChange;
+			MatchReferee.TeamScored -= OnTeamScored;
 		}
 
 		private void Update()
@@ -29,16 +84,12 @@ namespace Anaglyph.Lasertag
 			{
 				case WinCondition.Timer:
 					UpdateTimerText();
+					UpdateTimerSand();
 					break;
 
 				case WinCondition.ReachScore:
 					break;
 			}
-		}
-
-		private void OnDestroy()
-		{
-			MatchReferee.StateChanged -= OnMatchStateChange;
 		}
 
 		private void OnMatchStateChange(MatchState state)
@@ -51,25 +102,34 @@ namespace Anaglyph.Lasertag
 			{
 				var settings = MatchReferee.Settings;
 
-				timerGoalHUD.SetActive(settings.winCondition == WinCondition.Timer);
+				timerHUD.SetActive(settings.winCondition == WinCondition.Timer);
 				scoreGoalHUD.SetActive(settings.winCondition == WinCondition.ReachScore);
 
 				switch (settings.winCondition)
 				{
 					case WinCondition.Timer:
 						UpdateTimerText();
+						UpdateTimerSand();
 						break;
 
 					case WinCondition.ReachScore:
-						scoreTarget.text = settings.scoreTarget.ToString();
+						scoreTargetLabel.text = settings.scoreTarget.ToString();
 						break;
 				}
 			}
 			else
 			{
-				timerGoalHUD.SetActive(false);
+				timerHUD.SetActive(false);
 				scoreGoalHUD.SetActive(false);
 			}
+		}
+
+		private void OnTeamScored(byte team, int points)
+		{
+			if (team == 0)
+				return;
+
+			scoreLines[team].Update();
 		}
 
 		private void UpdateTimerText()
@@ -85,7 +145,26 @@ namespace Anaglyph.Lasertag
 			}
 
 			var time = TimeSpan.FromSeconds(seconds);
-			timerTarget.text = time.ToString(@"m\:ss");
+			timerLabel.text = time.ToString(@"m\:ss");
+		}
+
+		private void UpdateTimerSand()
+		{
+			var timeTotal = MatchReferee.Settings.timerSeconds;
+			var timeLeft = MatchReferee.Instance.GetTimeLeft();
+			var timeNorm = timeLeft / timeTotal;
+
+			var y = sandHeight * timeNorm;
+			var m = topSand.anchorMax;
+			topSand.anchorMax.Set(m.x, y);
+
+			y = sandHeight * (1 - timeNorm);
+			m = bottomSand.anchorMax;
+			topSand.anchorMax.Set(m.x, y);
+		}
+
+		private void UpdateScoreLines()
+		{
 		}
 	}
 }
