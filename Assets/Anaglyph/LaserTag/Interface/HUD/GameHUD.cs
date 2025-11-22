@@ -1,7 +1,5 @@
-using System;
 using Anaglyph.Menu;
 using UnityEngine;
-using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 namespace Anaglyph.Lasertag
@@ -44,7 +42,9 @@ namespace Anaglyph.Lasertag
 			{
 				var score = MatchReferee.GetTeamScore(team);
 				var target = MatchReferee.Settings.scoreTarget;
-				var progress = target > 0 ? score / (float)team : 0;
+				var progress = 0f;
+				if (target > 0)
+					progress = score / (float)target;
 				var v = Vector2.Lerp(start, end, progress);
 				line.points[^1] = v;
 				line.PositionVertices();
@@ -55,10 +55,10 @@ namespace Anaglyph.Lasertag
 		{
 			MatchReferee.StateChanged += OnMatchStateChange;
 			MatchReferee.TeamScored += OnTeamScored;
-			MatchReferee.TimerTickedSecond += UpdateTimerText;
+			MatchReferee.TimerTextChanged += UpdateTimerText;
 			OnMatchStateChange(MatchReferee.State);
 
-			sandHeight = topSand.rect.height;
+			sandHeight = topSand.sizeDelta.y;
 
 			scoreLines = new ScoreLine[Teams.NumTeams];
 			scoreLines[1] = new ScoreLine(scoreLine1, 1);
@@ -127,27 +127,28 @@ namespace Anaglyph.Lasertag
 			scoreLines[team].Update();
 		}
 
-		private void UpdateTimerText(TimeSpan timeSpan)
+		private void UpdateTimerText(string timerString)
 		{
-			timerLabel.text = timeSpan.ToString(@"m\:ss");
+			timerLabel.text = timerString;
 		}
 
 		private void UpdateTimerSand()
 		{
 			var timeTotal = MatchReferee.Settings.timerSeconds;
-			var timeLeft = MatchReferee.Instance.GetTimeLeft().TotalSeconds;
+			var timeLeft = MatchReferee.Instance.GetTimeLeft();
 
 			var sh = sandHeight;
-			var tn = (float)timeLeft / timeTotal;
+			var tn = timeLeft / timeTotal;
 
-			SetRectHeight(ref topSand, sh * tn);
-			SetRectHeight(ref bottomSand, sh * (1 - tn));
+			SetRectHeight(topSand, sh * tn);
+			SetRectHeight(bottomSand, sh * (1 - tn));
 		}
 
-		private static void SetRectHeight(ref RectTransform rt, float height)
+		private static void SetRectHeight(RectTransform rt, float height)
 		{
-			var v = rt.anchorMax;
-			rt.anchorMax.Set(v.x, height);
+			var v = rt.sizeDelta;
+			v.y = height;
+			rt.sizeDelta = v;
 		}
 	}
 }

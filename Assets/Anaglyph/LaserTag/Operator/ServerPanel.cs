@@ -1,12 +1,9 @@
 #if UNITY_EDITOR
 
-using System;
 using Anaglyph.Netcode;
-using System.Net;
 using System.Text.RegularExpressions;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
-using Unity.Services.Matchmaker.Models;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -74,7 +71,7 @@ namespace Anaglyph.Lasertag.Operator
 			NetcodeManagement.StateChanged += UpdateHostingPage;
 			MatchReferee.StateChanged += UpdateMatchPage;
 			MatchReferee.TeamScored += OnTeamScored;
-			MatchReferee.TimerTickedSecond += TimerTicked;
+			MatchReferee.TimerTextChanged += OnTimerTextChanged;
 
 			UpdateHostingPage(NetcodeManagement.State);
 			UpdateMatchPage(MatchReferee.State);
@@ -85,7 +82,7 @@ namespace Anaglyph.Lasertag.Operator
 			NetcodeManagement.StateChanged -= UpdateHostingPage;
 			MatchReferee.StateChanged -= UpdateMatchPage;
 			MatchReferee.TeamScored -= OnTeamScored;
-			MatchReferee.TimerTickedSecond -= TimerTicked;
+			MatchReferee.TimerTextChanged -= OnTimerTextChanged;
 		}
 
 		private void LoadPrefs()
@@ -153,9 +150,9 @@ namespace Anaglyph.Lasertag.Operator
 			scoreGoalLabel.text = $"Playing to {MatchReferee.Settings.scoreTarget}";
 		}
 
-		private void TimerTicked(TimeSpan timeLeft)
+		private void OnTimerTextChanged(string timerString)
 		{
-			timerLabel.text = timeLeft.ToString(@"m\:ss");
+			timerLabel.text = timerString;
 		}
 
 		private void OnTeamScored(byte team, int points)

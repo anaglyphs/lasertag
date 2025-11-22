@@ -107,7 +107,7 @@ namespace Anaglyph.Lasertag
 		public static MatchState State => _state;
 		public static event Action<MatchState> StateChanged = delegate { };
 		public static event Action MatchFinished = delegate { };
-		public static event Action<TimeSpan> TimerTickedSecond = delegate { };
+		public static event Action<string> TimerTextChanged = delegate { };
 
 		private static MatchSettings _settings = MatchSettings.Lobby();
 		public static MatchSettings Settings => _settings;
@@ -229,6 +229,8 @@ namespace Anaglyph.Lasertag
 						break;
 
 					case MatchState.Mustering:
+
+						UpdateTimerText(Settings.timerSeconds);
 						while (State == MatchState.Mustering)
 						{
 							var numPlayersInBase = 0;
@@ -263,18 +265,19 @@ namespace Anaglyph.Lasertag
 						if (Settings.CheckWinByTimer())
 							while (State == MatchState.Playing)
 							{
+								await Awaitable.WaitForSecondsAsync(1, ctn);
+								
 								var timeLeft = GetTimeLeft();
-								TimerTickedSecond.Invoke(timeLeft);
+								UpdateTimerText(timeLeft);
 
-								if (timeLeft.Ticks <= 0)
+								if (timeLeft <= 0)
 								{
 									if (IsOwner)
 										FinishMatchEveryoneRpc();
 
 									break;
 								}
-
-								await Awaitable.WaitForSecondsAsync(1, ctn);
+								
 								ctn.ThrowIfCancellationRequested();
 							}
 
@@ -327,9 +330,21 @@ namespace Anaglyph.Lasertag
 			}
 		}
 
-		public TimeSpan GetTimeLeft()
+		private void UpdateTimerText(float seconds)
 		{
-			return TimeSpan.FromSeconds(TimeMatchEnds - Time.time);
+			int rounded = Mathf.RoundToInt(seconds);
+			TimeSpan span = TimeSpan.FromSeconds(rounded);
+			TimerTextChanged.Invoke(span.ToString(@"m\:ss"));
+		}
+
+		public float GetTimeLeft()
+		{
+			float seconds = Settings.timerSeconds;
+
+			if (State == MatchState.Playing)
+				seconds = TimeMatchEnds - Time.time;
+			
+			return seconds;
 		}
 	}
 }

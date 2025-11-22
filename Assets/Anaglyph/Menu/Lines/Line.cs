@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -72,7 +71,13 @@ namespace Anaglyph.Menu
 				var nNext = Vector2.zero;
 				if (i < end)
 				{
-					var pNext = points[i + 1];
+					Vector2 pNext = Vector2.zero;
+					for (int s = i + 1; s < points.Length; s++)
+					{
+						pNext = points[s];
+						if (pNext != p)
+							break;
+					}
 					var dNext = (pNext - p).normalized;
 					nNext = new Vector2(dNext.y, -dNext.x);
 				}
@@ -80,7 +85,13 @@ namespace Anaglyph.Menu
 				var nPrev = Vector2.zero;
 				if (i > 0)
 				{
-					var pPrev = points[i - 1];
+					Vector2 pPrev = Vector2.zero;
+					for (int s = i - 1; s > -1; s--)
+					{
+						pPrev = points[s];
+						if (pPrev != p)
+							break;
+					}
 					var dPrev = (pPrev - p).normalized;
 					nPrev = new Vector2(-dPrev.y, dPrev.x);
 				}
@@ -112,7 +123,7 @@ namespace Anaglyph.Menu
 			if (!initialized)
 				return;
 
-			colors = new Color[points.Length];
+			colors = new Color[verts.Length];
 			for (var i = 0; i < colors.Length; i++) colors[i] = color;
 			mesh.colors = colors;
 			cr.SetMesh(mesh);
