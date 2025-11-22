@@ -95,7 +95,7 @@ MonoBehaviour:
   HostColocationMethod: 0
   HostAprilTagSize: 0
   metaAnchorColocator: {fileID: 3770516394125647478}
-  aprilTagColocator: {fileID: 2017920904899384140}
+  tagColocator: {fileID: 2017920904899384140}
 --- !u!114 &3770516394125647478
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -122,10 +122,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
-  tagLerp: 0.1
+  tagLerp: 0.3
   lockDistanceScale: 15
   maxHeadSpeed: 0.2
   maxHeadAngSpeed: 0.2
+  minSnapPosDelta: 1
+  minSnapRotDelta: 0.7853982
+  worldLockAnchorPrefab: {fileID: 6151402896905020864, guid: 100b8bb6cd981b149b252913fceb49fe, type: 3}
   cameraReader: {fileID: 2551285239359811888}
   tagTracker: {fileID: 8030733127724905774}
   tagSize: 0.1

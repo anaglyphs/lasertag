@@ -4,7 +4,6 @@ using AprilTag;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Xml.Schema;
 using Unity.Mathematics;
 using Unity.Netcode;
 using Unity.XR.CoreUtils;
@@ -13,15 +12,14 @@ using UnityEngine.XR;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
-	public class AprilTagColocator : NetworkBehaviour, IColocator
+	public class TagColocator : NetworkBehaviour, IColocator
 	{
 		private HashSet<int> lockedTags = new();
 		private Dictionary<int, Pose> canonTags = new();
 		// these are local to the XR tracking space!!!
 		// stop forgetting!!!
 		private Dictionary<int, Vector3> localTags = new();
-		private Transform originAnchor = null;
-		private Matrix4x4 originAnchorTarget = Matrix4x4.identity;
+		private WorldLockAnchor anchor;
 
 		public ReadOnlyDictionary<int, Pose> CanonTags;
 		public ReadOnlyDictionary<int, Vector3> LocalTags;
@@ -38,6 +36,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public bool ColocationActive => colocationActive;
 
+		[SerializeField] GameObject worldLockAnchorPrefab;
 		[SerializeField] private CameraReader cameraReader;
 		[SerializeField] private AprilTagTracker tagTracker;
 
@@ -73,12 +72,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				var sendTo = RpcTarget.Single(id, RpcTargetUse.Temp);
 				SyncCanonTagsRpc(keys, values, sendTo);
 			}
-		}
-
-		private void OnRecenter()
-		{
-			var anchorMat = originAnchor.localToWorldMatrix;
-			MainXRRig.Instance.AlignSpace(anchorMat, originAnchorTarget);
 		}
 
 
@@ -124,7 +117,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (!colocationActive)
 			{
 				NetworkManager.OnClientConnectedCallback += OnClientConnected;
-				OVRManager.display.RecenteredPose += OnRecenter;
 			}
 			
 			IsColocated = false;
@@ -134,11 +126,10 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			tagTracker.tagSizeMeters = tagSize;
 			tagTracker.OnDetectTags += OnDetectTags;
 
-			if (originAnchor)
+			if (anchor)
 				return;
 
-			GameObject g = CreateAnchor(Vector3.zero, Quaternion.identity);
-			originAnchor = g.transform;
+			anchor = Instantiate(worldLockAnchorPrefab).GetComponent<WorldLockAnchor>();
 		}
 
 		private List<float3> sharedLocalPositions = new();
@@ -224,42 +215,41 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 
 			var space = MainXRRig.TrackingSpace;
-			var spaceMat = MainXRRig.TrackingSpace.localToWorldMatrix;
 
-			var lerp = IsColocated ? 0.2f : 1f;
+			var lerp = IsColocated ? tagLerp : 1f;
 
-			switch (sharedLocalPositions.Count)
+			if (sharedLocalPositions.Count == 0)
 			{
-				case 0:
-					return;
+				return;
+			}
+			
+			if (sharedLocalPositions.Count >= 3)
+			{
+				// Kabsch if more than 3 tags
+				var spaceMat = MainXRRig.TrackingSpace.localToWorldMatrix;
+				Matrix4x4 delta = IterativeClosestPoint.FitCorresponding(
+					sharedLocalPositions.ToArray(), spaceMat,
+					sharedCanonPositions.ToArray(), float4x4.identity);
 
-				case >= 3:
+				var aligned = delta * spaceMat;
+
+				MainXRRig.Instance.AlignSpace(spaceMat, aligned, lerp);
+			}
+			else
+			{
+				// else, simply lerp to match pose
+				foreach (var result in results)
 				{
-					Matrix4x4 delta = IterativeClosestPoint.FitCorresponding(
-						sharedLocalPositions.ToArray(), spaceMat,
-						sharedCanonPositions.ToArray(), float4x4.identity);
+					int id = result.ID;
+					if (!canonTags.ContainsKey(id) || !localTags.ContainsKey(id))
+						return;
 
-					var aligned = delta * spaceMat;
-					
-					MainXRRig.Instance.AlignSpace(spaceMat, aligned, lerp);
-					break;
-				}
-				default:
-				{
-					foreach (var result in results)
-					{
-						int id = result.ID;
-						if (!canonTags.ContainsKey(id) || !localTags.ContainsKey(id))
-							return;
-						
-						var one = Vector3.one;
-						var tagMat = Matrix4x4.TRS(result.Position, result.Rotation, one);
-						var canonTag = canonTags[id];
-						var canonTagMat = Matrix4x4.TRS(canonTag.position, canonTag.rotation, one);
+					var one = Vector3.one;
+					var tagMat = Matrix4x4.TRS(result.Position, result.Rotation, one);
+					var canonTag = canonTags[id];
+					var canonTagMat = Matrix4x4.TRS(canonTag.position, canonTag.rotation, one);
 
-						MainXRRig.Instance.AlignSpace(tagMat, canonTagMat, lerp);
-					}
-					break;
+					MainXRRig.Instance.AlignSpace(tagMat, canonTagMat, lerp);
 				}
 			}
 
@@ -270,7 +260,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			    float.IsNaN(spacePos.z) || float.IsInfinity(spacePos.z))
 				MainXRRig.TrackingSpace.SetWorldPose(Pose.identity);
 			
-			originAnchorTarget = MainXRRig.TrackingSpace.worldToLocalMatrix;
+			anchor.target = MainXRRig.TrackingSpace.worldToLocalMatrix;
 
 			IsColocated = true;
 		}
@@ -280,7 +270,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			cameraReader.CloseCamera();
 			tagTracker.OnDetectTags -= OnDetectTags;
 			NetworkManager.OnClientConnectedCallback -= OnClientConnected;
-			OVRManager.display.RecenteredPose -= OnRecenter;
 
 			colocationActive = false;
 			IsColocated = false;
@@ -289,8 +278,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			canonTags.Clear();
 			localTags.Clear();
 			
-			if(originAnchor != null)
-				Destroy(originAnchor.gameObject);
+			if(anchor)
+				Destroy(anchor.gameObject);
 		}
 
 		public override void OnNetworkDespawn()

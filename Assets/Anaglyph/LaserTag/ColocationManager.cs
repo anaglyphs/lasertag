@@ -3,6 +3,7 @@ using Anaglyph.XRTemplate.SharedSpaces;
 using System;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.XR;
 
 namespace Anaglyph.Lasertag
@@ -25,7 +26,7 @@ namespace Anaglyph.Lasertag
 		public float HostAprilTagSize;
 
 		[SerializeField] private MetaAnchorColocator metaAnchorColocator;
-		[SerializeField] private AprilTagColocator aprilTagColocator;
+		[FormerlySerializedAs("aprilTagColocator")] [SerializeField] private TagColocator tagColocator;
 
 		private void Awake()
 		{
@@ -53,8 +54,8 @@ namespace Anaglyph.Lasertag
 					break;
 
 				case Method.AprilTag:
-					Colocation.SetActiveColocator(aprilTagColocator);
-					aprilTagColocator.tagSize = aprilTagSizeSync.Value;
+					Colocation.SetActiveColocator(tagColocator);
+					tagColocator.tagSize = aprilTagSizeSync.Value;
 					break;
 			}
 

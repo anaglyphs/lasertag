@@ -5,9 +5,9 @@ using UnityEngine.Rendering;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
-	public class AprilTagColocationGraphics : MonoBehaviour
+	public class TagColocatorVisuals : MonoBehaviour
 	{
-		[SerializeField] private AprilTagColocator colocator;
+		[SerializeField] private TagColocator colocator;
 
 		[SerializeField] private Mesh indicatorMesh;
 		[SerializeField] private Material indicatorMaterial;
@@ -30,16 +30,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			colocator.TagTracker.OnDetectTags += OnTagsDetected;
 		}
 
-		//private void OnEnable()
-		//{
-		//	ProceduralDrawFeature.Draw += RenderFoundTags;
-		//}
-
-		//private void OnDisable()
-		//{
-		//	ProceduralDrawFeature.Draw -= RenderFoundTags;
-		//}
-
 		private void OnTagsDetected(IReadOnlyList<TagPose> tagPoses)
 		{
 			latestTagPoses = tagPoses;
@@ -54,15 +44,15 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			if (latestTagPoses != null)
 			{
-				scale = Vector3.one * colocator.tagSize * 3;
-				var color = Color.yellow;
+				scale = Vector3.one * (colocator.tagSize * 3);
+				var color = Color.white;
 
 				foreach (var tagPose in latestTagPoses)
 				{
 					if (colocator.IsOwner)
 					{
 						if (!colocator.LockedTags.Contains(tagPose.ID))
-							color = Color.green;
+							color = Color.yellow;
 					}
 
 					mpb.SetColor(BaseColorID, color);
@@ -82,7 +72,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					Graphics.DrawMesh(debugPointMesh, model, debugMaterial, 0, MainXRRig.Camera, 0, mpb);
 				}
 				
-				mpb.SetColor(BaseColorID, Color.yellow);
+				mpb.SetColor(BaseColorID, Color.white);
 				foreach (var localTagPos in colocator.LocalTags.Values)
 				{
 					var model = MainXRRig.TrackingSpace.localToWorldMatrix *

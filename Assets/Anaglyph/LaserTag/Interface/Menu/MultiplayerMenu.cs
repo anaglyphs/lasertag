@@ -168,13 +168,13 @@ namespace Anaglyph.Lasertag
 			{
 				MetaAnchorColocator.Current.InstantiateNewAnchor();
 			}
-			else if (type == typeof(AprilTagColocator))
+			else if (type == typeof(TagColocator))
 			{
-				AprilTagColocator aprilTagColocator = (AprilTagColocator)Colocation.ActiveColocator;
+				TagColocator tagColocator = (TagColocator)Colocation.ActiveColocator;
 
-				aprilTagColocator.NetworkObject.ChangeOwnership(manager.LocalClientId);
+				tagColocator.NetworkObject.ChangeOwnership(manager.LocalClientId);
 
-				aprilTagColocator.ClearCanonTagsRpc();
+				tagColocator.ClearCanonTagsRpc();
 			}
 		}
 

@@ -38,7 +38,7 @@ namespace Anaglyph.XRTemplate
 			var targetMat = target * current.inverse * rigMat;
 
 			var targetPos = targetMat.GetPosition();
-			var targetRot = t.rotation;
+			var targetRot = targetMat.rotation;
 			var rigPos = t.position;
 			var rigRot = t.rotation;
 
