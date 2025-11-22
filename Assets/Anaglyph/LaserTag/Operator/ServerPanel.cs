@@ -74,6 +74,7 @@ namespace Anaglyph.Lasertag.Operator
 			NetcodeManagement.StateChanged += UpdateHostingPage;
 			MatchReferee.StateChanged += UpdateMatchPage;
 			MatchReferee.TeamScored += OnTeamScored;
+			MatchReferee.TimerTickedSecond += TimerTicked;
 
 			UpdateHostingPage(NetcodeManagement.State);
 			UpdateMatchPage(MatchReferee.State);
@@ -84,6 +85,7 @@ namespace Anaglyph.Lasertag.Operator
 			NetcodeManagement.StateChanged -= UpdateHostingPage;
 			MatchReferee.StateChanged -= UpdateMatchPage;
 			MatchReferee.TeamScored -= OnTeamScored;
+			MatchReferee.TimerTickedSecond -= TimerTicked;
 		}
 
 		private void LoadPrefs()
@@ -145,22 +147,15 @@ namespace Anaglyph.Lasertag.Operator
 		{
 			var winByTimer = MatchReferee.Settings.CheckWinByTimer();
 			timerLabel.style.display = Show(winByTimer);
-			if (winByTimer) TimerUpdateLoop();
 
 			var winByScore = MatchReferee.Settings.CheckWinByScore();
 			scoreGoalLabel.style.display = Show(winByScore);
 			scoreGoalLabel.text = $"Playing to {MatchReferee.Settings.scoreTarget}";
 		}
 
-		private async void TimerUpdateLoop()
+		private void TimerTicked(TimeSpan timeLeft)
 		{
-			while (MatchReferee.State == MatchState.Playing)
-			{
-				var secondsLeft = MatchReferee.Instance.GetTimeLeft();
-				var timeSpan = TimeSpan.FromSeconds(secondsLeft);
-				timerLabel.text = timeSpan.ToString(@"m\:ss");
-				await Awaitable.WaitForSecondsAsync(1);
-			}
+			timerLabel.text = timeLeft.ToString(@"m\:ss");
 		}
 
 		private void OnTeamScored(byte team, int points)
@@ -444,7 +439,7 @@ namespace Anaglyph.Lasertag.Operator
 						matchPages.Add(matchRunningPage);
 					}
 					connectedPage.Add(matchPages);
-					
+
 					for (byte i = 0; i < Teams.NumTeams; i++)
 					{
 						var teamColor = new StyleColor(Teams.Colors[i]);

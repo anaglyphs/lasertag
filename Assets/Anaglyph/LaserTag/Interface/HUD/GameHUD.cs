@@ -13,12 +13,8 @@ namespace Anaglyph.Lasertag
 
 		[SerializeField] private Text timerLabel;
 
-		[FormerlySerializedAs("timerSandTop")] [SerializeField]
-		private RectTransform topSand;
-
-		[FormerlySerializedAs("timerSandBottom")] [SerializeField]
-		private RectTransform bottomSand;
-
+		[SerializeField] private RectTransform topSand;
+		[SerializeField] private RectTransform bottomSand;
 		private float sandHeight;
 
 		[Header("Score goal")] [SerializeField]
@@ -59,6 +55,7 @@ namespace Anaglyph.Lasertag
 		{
 			MatchReferee.StateChanged += OnMatchStateChange;
 			MatchReferee.TeamScored += OnTeamScored;
+			MatchReferee.TimerTickedSecond += UpdateTimerText;
 			OnMatchStateChange(MatchReferee.State);
 
 			sandHeight = topSand.rect.height;
@@ -83,7 +80,6 @@ namespace Anaglyph.Lasertag
 			switch (MatchReferee.Settings.winCondition)
 			{
 				case WinCondition.Timer:
-					UpdateTimerText();
 					UpdateTimerSand();
 					break;
 
@@ -108,7 +104,6 @@ namespace Anaglyph.Lasertag
 				switch (settings.winCondition)
 				{
 					case WinCondition.Timer:
-						UpdateTimerText();
 						UpdateTimerSand();
 						break;
 
@@ -132,39 +127,27 @@ namespace Anaglyph.Lasertag
 			scoreLines[team].Update();
 		}
 
-		private void UpdateTimerText()
+		private void UpdateTimerText(TimeSpan timeSpan)
 		{
-			float seconds = 0;
-			var matchRef = MatchReferee.Instance;
-			if (matchRef)
-			{
-				if (MatchReferee.State == MatchState.Playing)
-					seconds = matchRef.GetTimeLeft();
-				else
-					seconds = MatchReferee.Settings.timerSeconds;
-			}
-
-			var time = TimeSpan.FromSeconds(seconds);
-			timerLabel.text = time.ToString(@"m\:ss");
+			timerLabel.text = timeSpan.ToString(@"m\:ss");
 		}
 
 		private void UpdateTimerSand()
 		{
 			var timeTotal = MatchReferee.Settings.timerSeconds;
-			var timeLeft = MatchReferee.Instance.GetTimeLeft();
-			var timeNorm = timeLeft / timeTotal;
+			var timeLeft = MatchReferee.Instance.GetTimeLeft().TotalSeconds;
 
-			var y = sandHeight * timeNorm;
-			var m = topSand.anchorMax;
-			topSand.anchorMax.Set(m.x, y);
+			var sh = sandHeight;
+			var tn = (float)timeLeft / timeTotal;
 
-			y = sandHeight * (1 - timeNorm);
-			m = bottomSand.anchorMax;
-			topSand.anchorMax.Set(m.x, y);
+			SetRectHeight(ref topSand, sh * tn);
+			SetRectHeight(ref bottomSand, sh * (1 - tn));
 		}
 
-		private void UpdateScoreLines()
+		private static void SetRectHeight(ref RectTransform rt, float height)
 		{
+			var v = rt.anchorMax;
+			rt.anchorMax.Set(v.x, height);
 		}
 	}
 }

@@ -107,10 +107,10 @@ namespace Anaglyph.Lasertag
 		public static MatchState State => _state;
 		public static event Action<MatchState> StateChanged = delegate { };
 		public static event Action MatchFinished = delegate { };
+		public static event Action<TimeSpan> TimerTickedSecond = delegate { };
 
 		private static MatchSettings _settings = MatchSettings.Lobby();
 		public static MatchSettings Settings => _settings;
-
 		public float TimeMatchEnds { get; private set; }
 
 		private void Awake()
@@ -261,11 +261,12 @@ namespace Anaglyph.Lasertag
 						TimeMatchEnds = Time.time + Settings.timerSeconds;
 
 						if (Settings.CheckWinByTimer())
-						{
 							while (State == MatchState.Playing)
 							{
-								var secondsLeft = TimeMatchEnds - Time.time;
-								if (secondsLeft < 0)
+								var timeLeft = GetTimeLeft();
+								TimerTickedSecond.Invoke(timeLeft);
+
+								if (timeLeft.Ticks <= 0)
 								{
 									if (IsOwner)
 										FinishMatchEveryoneRpc();
@@ -273,10 +274,9 @@ namespace Anaglyph.Lasertag
 									break;
 								}
 
-								await Awaitable.NextFrameAsync(ctn);
+								await Awaitable.WaitForSecondsAsync(1, ctn);
 								ctn.ThrowIfCancellationRequested();
 							}
-						}
 
 						break;
 				}
@@ -327,9 +327,9 @@ namespace Anaglyph.Lasertag
 			}
 		}
 
-		public float GetTimeLeft()
+		public TimeSpan GetTimeLeft()
 		{
-			return Mathf.Max(TimeMatchEnds - Time.time, 0);
+			return TimeSpan.FromSeconds(TimeMatchEnds - Time.time);
 		}
 	}
 }
