@@ -37,8 +37,12 @@ namespace Anaglyph.XRTemplate.AprilTags
 
 		// called on another thread so we do this
 		private bool newFrameAvailable = false;
+
 		private void OnReceivedNewFrame(Texture2D t)
 		{
+			if (!Application.isFocused)
+				return;
+
 			tex = t;
 			newFrameAvailable = true;
 		}
@@ -47,17 +51,15 @@ namespace Anaglyph.XRTemplate.AprilTags
 		{
 #if UNITY_EDITOR
 
-			while(enabled)
+			while (enabled)
 			{
 				await Awaitable.FixedUpdateAsync();
 
 				worldPoses.Clear();
 
-				foreach (SimulatedTag tag in SimulatedTag.Visible)
-				{
-					if(tag.isInView)
+				foreach (var tag in SimulatedTag.Visible)
+					if (tag.isInView)
 						worldPoses.Add(tag.GetTagPoseInWorldSpace());
-				}
 
 				OnDetectTags.Invoke(worldPoses);
 			}
@@ -65,7 +67,7 @@ namespace Anaglyph.XRTemplate.AprilTags
 			return;
 #endif
 
-			while(enabled)
+			while (enabled)
 			{
 				await Awaitable.NextFrameAsync();
 
@@ -78,11 +80,11 @@ namespace Anaglyph.XRTemplate.AprilTags
 					detector = new TagDetector(tex.width, tex.height, 1);
 
 				var intrins = cameraReader.HardwareIntrinsics;
-				var fov = 2 * Mathf.Atan((intrins.Resolution.y / 2f) / intrins.FocalLength.y);
+				var fov = 2 * Mathf.Atan(intrins.Resolution.y / 2f / intrins.FocalLength.y);
 				var size = tagSizeMeters;
 
 				FrameTimestamp = cameraReader.TimestampNs * 0.000000001f;
-				OVRPlugin.PoseStatef headPoseState = OVRPlugin.GetNodePoseStateAtTime(FrameTimestamp, OVRPlugin.Node.Head);
+				var headPoseState = OVRPlugin.GetNodePoseStateAtTime(FrameTimestamp, OVRPlugin.Node.Head);
 
 				var imgBytes = cameraReader.Texture.GetPixelData<byte>(0);
 				await detector.Detect(imgBytes, fov, size);
@@ -90,13 +92,13 @@ namespace Anaglyph.XRTemplate.AprilTags
 				worldPoses.Clear();
 
 				// nanoseconds to milliseconds
-				OVRPose headPose = headPoseState.Pose.ToOVRPose();
-				Matrix4x4 viewMat = Matrix4x4.TRS(headPose.position, headPose.orientation, Vector3.one);
+				var headPose = headPoseState.Pose.ToOVRPose();
+				var viewMat = Matrix4x4.TRS(headPose.position, headPose.orientation, Vector3.one);
 				var lensPose = cameraReader.HardwarePose;
-				Matrix4x4 cameraMat = Matrix4x4.TRS(lensPose.position, lensPose.rotation, Vector3.one);
-				Matrix4x4 cameraRelativeToRig = viewMat * cameraMat;
+				var cameraMat = Matrix4x4.TRS(lensPose.position, lensPose.rotation, Vector3.one);
+				var cameraRelativeToRig = viewMat * cameraMat;
 				viewMat = MainXRRig.TrackingSpace.localToWorldMatrix * cameraRelativeToRig;
-				
+
 
 				foreach (var pose in detector.DetectedTags)
 				{
@@ -107,6 +109,9 @@ namespace Anaglyph.XRTemplate.AprilTags
 
 					worldPoses.Add(worldPose);
 				}
+
+				if (worldPoses.Count == 0)
+					continue;
 
 				OnDetectTags.Invoke(worldPoses);
 			}

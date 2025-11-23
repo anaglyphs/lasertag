@@ -40,5 +40,12 @@ namespace Anaglyph.XRTemplate
 		{
 			return Quaternion.Inverse(r);
 		}
+
+		public static Pose Lerp(this Pose a, Pose b, float t)
+		{
+			a.position = Vector3.Lerp(a.position, b.position, t);
+			a.rotation = Quaternion.Slerp(a.rotation, b.rotation, t);
+			return a;
+		}
 	}
 }

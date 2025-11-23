@@ -54,9 +54,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   GlobalObjectIdHash: 1319322287
-  InScenePlacedSourceGlobalObjectIdHash: 0
+  InScenePlacedSourceGlobalObjectIdHash: 3184280641
   DeferredDespawnTick: 0
-  Ownership: 8
+  Ownership: 3
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 0
   ActiveSceneSynchronization: 0
@@ -122,16 +122,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
+  tagSize: 0.1
   tagLerp: 0.3
   lockDistanceScale: 15
-  maxHeadSpeed: 0.2
-  maxHeadAngSpeed: 0.2
-  minSnapPosDelta: 1
-  minSnapRotDelta: 0.7853982
+  maxHeadSpeed: 0.1
+  maxHeadAngSpeed: 0.1
   worldLockAnchorPrefab: {fileID: 6151402896905020864, guid: 100b8bb6cd981b149b252913fceb49fe, type: 3}
   cameraReader: {fileID: 2551285239359811888}
   tagTracker: {fileID: 8030733127724905774}
-  tagSize: 0.1
 --- !u!114 &3794738929113082028
 MonoBehaviour:
   m_ObjectHideFlags: 0

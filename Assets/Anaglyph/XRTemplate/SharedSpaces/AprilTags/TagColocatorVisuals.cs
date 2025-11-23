@@ -50,10 +50,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				foreach (var tagPose in latestTagPoses)
 				{
 					if (colocator.IsOwner)
-					{
 						if (!colocator.LockedTags.Contains(tagPose.ID))
 							color = Color.yellow;
-					}
 
 					mpb.SetColor(BaseColorID, color);
 
@@ -71,7 +69,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					var model = Matrix4x4.TRS(canonTag.position, Quaternion.identity, scale);
 					Graphics.DrawMesh(debugPointMesh, model, debugMaterial, 0, MainXRRig.Camera, 0, mpb);
 				}
-				
+
 				mpb.SetColor(BaseColorID, Color.white);
 				foreach (var localTagPos in colocator.LocalTags.Values)
 				{
@@ -80,10 +78,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					Graphics.DrawMesh(debugPointMesh, model, debugMaterial, 0, MainXRRig.Camera, 0, mpb);
 				}
 			}
-		}
-
-		private void RenderFoundTags(RasterCommandBuffer cmd)
-		{
 		}
 	}
 }
