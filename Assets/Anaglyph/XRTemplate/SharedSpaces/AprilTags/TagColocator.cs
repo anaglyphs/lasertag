@@ -15,7 +15,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	public class TagColocator : NetworkBehaviour, IColocator
 	{
 		private HashSet<int> lockedTags = new();
-
 		private Dictionary<int, Pose> canonTags = new();
 		private Dictionary<int, Vector3> localTags = new();
 		public HashSet<int> LockedTags => lockedTags;
@@ -73,7 +72,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				return;
 
 			if (_colocationActive)
-				StopColocation();
+				return;
 
 			IsColocated = false;
 			_colocationActive = true;
@@ -98,9 +97,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public void StopColocation()
 		{
-			if (!_colocationActive)
-				return;
-
 			OVRManager.display.RecenteredPose -= OnRecentered;
 			tagTracker.OnDetectTags -= OnDetectTags;
 			NetworkManager.OnClientConnectedCallback -= OnClientConnected;
@@ -162,6 +158,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		public void ClearCanonTagsRpc()
 		{
 			canonTags.Clear();
+			lockedTags.Clear();
 		}
 
 		private bool TagIsWithinRegisterDistance(Vector3 globalPos)

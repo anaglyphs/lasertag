@@ -28,19 +28,16 @@ namespace Anaglyph.Lasertag
 			public Line line;
 			public Vector2 start;
 			public Vector2 end;
-			public byte team;
 
-			public ScoreLine(Line line, byte team)
+			public ScoreLine(Line line)
 			{
 				this.line = line;
 				start = line.points[^2];
 				end = line.points[^1];
-				this.team = team;
 			}
 
-			public void Update()
+			public void Update(int score)
 			{
-				var score = MatchReferee.GetTeamScore(team);
 				var target = MatchReferee.Settings.scoreTarget;
 				var progress = 0f;
 				if (target > 0)
@@ -61,8 +58,8 @@ namespace Anaglyph.Lasertag
 			sandHeight = topSand.sizeDelta.y;
 
 			scoreLines = new ScoreLine[Teams.NumTeams];
-			scoreLines[1] = new ScoreLine(scoreLine1, 1);
-			scoreLines[2] = new ScoreLine(scoreLine2, 1);
+			scoreLines[1] = new ScoreLine(scoreLine1);
+			scoreLines[2] = new ScoreLine(scoreLine2);
 		}
 
 		private void OnDestroy()
@@ -124,7 +121,8 @@ namespace Anaglyph.Lasertag
 			if (team == 0)
 				return;
 
-			scoreLines[team].Update();
+			var score = MatchReferee.GetTeamScore(team);
+			scoreLines[team].Update(score);
 		}
 
 		private void UpdateTimerText(string timerString)
