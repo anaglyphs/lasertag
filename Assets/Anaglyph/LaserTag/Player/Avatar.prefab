@@ -5769,6 +5769,8 @@ MonoBehaviour:
   headTransform: {fileID: 1420149355333452064}
   leftHandTransform: {fileID: 3701957463809472084}
   rightHandTransform: {fileID: 3176845950572255976}
+  deactivatedWhenDead:
+  - {fileID: 1866142780104944628}
   OnRespawned:
     m_PersistentCalls:
       m_Calls: []

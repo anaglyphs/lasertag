@@ -16,8 +16,8 @@ namespace Anaglyph.Lasertag.Networking
 
 		[SerializeField] private Transform headTransform;
 		[SerializeField] private Transform leftHandTransform;
-
 		[SerializeField] private Transform rightHandTransform;
+		[SerializeField] private GameObject[] deactivatedWhenDead = Array.Empty<GameObject>();
 
 		// [SerializeField] private Transform torsoTransform;
 		public Transform HeadTransform => headTransform;
@@ -74,6 +74,8 @@ namespace Anaglyph.Lasertag.Networking
 					Killed.Invoke();
 				else if (!wasAlive && isAlive)
 					Respawned.Invoke();
+
+				foreach (var g in deactivatedWhenDead) g.SetActive(isAlive);
 			};
 		}
 
