@@ -97,6 +97,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public void StopColocation()
 		{
+			if (!XRSettings.enabled)
+				return;
+
 			OVRManager.display.RecenteredPose -= OnRecentered;
 			tagTracker.OnDetectTags -= OnDetectTags;
 			NetworkManager.OnClientConnectedCallback -= OnClientConnected;
@@ -159,12 +162,23 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			canonTags.Clear();
 			lockedTags.Clear();
+			localTags.Clear();
 		}
 
 		private bool TagIsWithinRegisterDistance(Vector3 globalPos)
 		{
 			var headPos = MainXRRig.Camera.transform.position;
 			return Vector3.Distance(headPos, globalPos) < tagSize * lockDistanceScale;
+		}
+
+		private void LateUpdate()
+		{
+			foreach (var regTag in canonTags)
+			{
+				var canonPos = regTag.Value.position;
+				if (!TagIsWithinRegisterDistance(canonPos))
+					lockedTags.Add(regTag.Key);
+			}
 		}
 
 		private async void OnDetectTags(IReadOnlyList<TagPose> results)
@@ -188,28 +202,23 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			headIsStable = true;
 #endif
 
-			foreach (var result in results)
+			foreach (var r in results)
 			{
-				var globalPos = result.Position;
+				var globalPos = r.Position;
 				var localPos = spaceMat.inverse.MultiplyPoint(globalPos);
-				localTags[result.ID] = localPos;
+				localTags[r.ID] = localPos;
 
 				if (IsOwner)
 				{
 					var isCloseEnough = TagIsWithinRegisterDistance(localPos);
-					if (isCloseEnough)
+					var isLocked = lockedTags.Contains(r.ID);
+					if (isCloseEnough && !isLocked)
 					{
-						if (lockedTags.Contains(result.ID)) continue;
-
-						var pose = new Pose(globalPos, result.Rotation);
-						if (canonTags.TryGetValue(result.ID, out var tagPose))
+						var pose = new Pose(r.Position, r.Rotation);
+						if (canonTags.TryGetValue(r.ID, out var tagPose))
 							pose = tagPose.Lerp(pose, tagLerp);
 
-						RegisterCanonTagRpc(result.ID, pose);
-					}
-					else if (canonTags.ContainsKey(result.ID))
-					{
-						lockedTags.Add(result.ID);
+						RegisterCanonTagRpc(r.ID, pose);
 					}
 				}
 			}
