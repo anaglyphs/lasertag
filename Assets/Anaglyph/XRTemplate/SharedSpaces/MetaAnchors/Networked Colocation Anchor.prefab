@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1864775655400532940}
   - component: {fileID: 7193132605894861672}
+  - component: {fileID: 4743051768782511526}
   - component: {fileID: 5128101364298341327}
   - component: {fileID: 321370433711836803}
   - component: {fileID: -1500784526931333930}
@@ -63,6 +64,19 @@ MonoBehaviour:
   AutoObjectParentSync: 1
   SyncOwnerTransformWhenParented: 1
   AllowOwnerToParent: 0
+--- !u!114 &4743051768782511526
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6151402896905020864}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e0529a80c68140b7bbb41d6c2d25166, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!114 &5128101364298341327
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -117,11 +131,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
-  OriginalPoseSync:
-    m_InternalValue:
-      position: {x: 0, y: 0, z: 0}
-      rotation: {x: 0, y: 0, z: 0, w: 0}
-  Uuid: {}
 --- !u!33 &471741878431666474
 MeshFilter:
   m_ObjectHideFlags: 0

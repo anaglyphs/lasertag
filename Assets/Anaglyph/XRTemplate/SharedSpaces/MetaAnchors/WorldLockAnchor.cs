@@ -21,6 +21,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private void OnEnable()
 		{
 			OVRManager.display.RecenteredPose += Align;
+			Align();
 		}
 
 		private void OnDisable()
