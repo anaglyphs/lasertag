@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 7459231172869217504}
   - component: {fileID: 6448117670786824747}
   - component: {fileID: 7418599492549241868}
-  - component: {fileID: 7425034829831491774}
+  - component: {fileID: 6413514653029965147}
   m_Layer: 0
   m_Name: Networking
   m_TagString: Untagged
@@ -135,7 +135,7 @@ MonoBehaviour:
     PacketDelayMS: 0
     PacketJitterMS: 0
     PacketDropRate: 0
---- !u!114 &7425034829831491774
+--- !u!114 &6413514653029965147
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -149,6 +149,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   PooledPrefabsList:
   - Prefab: {fileID: 1486168899473020810, guid: 24fe9491462961f4091217e62ff6ff84, type: 3}
-    PrewarmCount: 10
+    PrewarmCount: 20
   - Prefab: {fileID: 6335627118381249066, guid: adc581b48dccfb24ebccf6aaa9b8df75, type: 3}
     PrewarmCount: 50

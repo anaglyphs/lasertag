@@ -8,7 +8,6 @@ using Unity.Mathematics;
 using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
@@ -18,7 +17,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public float tagSizeCmHostSetting;
 		private readonly NetworkVariable<float> tagSizeSync = new();
-		public float TagSize => tagSizeSync.Value;
+		public float TagSizeCm => tagSizeSync.Value;
 
 		private readonly Dictionary<int, Pose> canonTags = new();
 		private readonly Dictionary<int, Vector3> localTags = new();
@@ -62,6 +61,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			if (IsOwner)
 				tagSizeSync.Value = tagSizeCmHostSetting;
+
+			NetworkManager.OnClientConnectedCallback += OnClientConnected;
+		}
+
+		public override void OnNetworkDespawn()
+		{
+			NetworkManager.OnClientConnectedCallback -= OnClientConnected;
 		}
 
 		public async void StartColocation()
@@ -71,14 +77,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			OVRManager.display.RecenteredPose += OnRecentered;
 			tagTracker.OnDetectTags += OnDetectTags;
-			NetworkManager.OnClientConnectedCallback += OnClientConnected;
 
 			await cameraReader.TryOpenCamera();
-			tagTracker.tagSizeMeters = TagSize / 100f;
-			
+			tagTracker.tagSizeMeters = TagSizeCm / 100f;
+
 			anchor = Instantiate(worldLockAnchorPrefab).GetComponent<WorldLockAnchor>();
 		}
-		
+
 		public void StopColocation()
 		{
 			if (!isActive) return;
@@ -101,7 +106,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			ClearAllTagsRpc();
 		}
-		
+
 		[Rpc(SendTo.Everyone)]
 		private void ClearAllTagsRpc()
 		{
@@ -109,7 +114,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			localTags.Clear();
 			isAligned = false;
 		}
-		
+
 		private void OnRecentered()
 		{
 			localTags.Clear();
@@ -146,31 +151,42 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			var space = MainXRRig.TrackingSpace;
 			var spaceMat = MainXRRig.TrackingSpace.localToWorldMatrix;
 
-			var head = OVRPlugin.GetNodePoseStateAtTime(tagTracker.FrameTimestamp, OVRPlugin.Node.Head);
-			var speed = head.Velocity.FromVector3f().magnitude;
-			var angSpeed = head.AngularVelocity.FromVector3f().magnitude;
-			
-			var headIsStable = speed < maxHeadSpeed && angSpeed < maxHeadAngSpeed;
+			// register local tags
+			foreach (var r in results)
+			{
+				var globalPos = r.Position;
+				var localPos = spaceMat.inverse.MultiplyPoint(globalPos);
+				localTags[r.ID] = localPos;
+			}
+
+			// register canon tags
+			if (IsOwner)
+			{
+				var timestamp = tagTracker.FrameTimestamp;
+				var head = OVRPlugin.GetNodePoseStateAtTime(timestamp, OVRPlugin.Node.Head);
+				var speed = head.Velocity.FromVector3f().magnitude;
+				var angSpeed = head.AngularVelocity.FromVector3f().magnitude;
+				var headIsStable = speed < maxHeadSpeed && angSpeed < maxHeadAngSpeed;
 
 #if UNITY_EDITOR
-			headIsStable = true;
+				headIsStable = true;
 #endif
 
-			if (headIsStable)
-			{
-				foreach (var r in results)
+				if (headIsStable)
 				{
-					var globalPos = r.Position;
-					var localPos = spaceMat.inverse.MultiplyPoint(globalPos);
-					localTags[r.ID] = localPos;
+					var headPos = MainXRRig.Camera.transform.position;
 
-					if (IsOwner)
+					foreach (var r in results)
 					{
-						var headPos = MainXRRig.Camera.transform.position;
-						var dist = Vector3.Distance(headPos, globalPos);
-						var isCloseEnough = dist < TagSize * lockDistanceScale;
 						var alreadyRegistered = canonTags.ContainsKey(r.ID);
-						if (isCloseEnough && !alreadyRegistered)
+						if (alreadyRegistered)
+							continue;
+
+						var globalPos = r.Position;
+						var dist = Vector3.Distance(headPos, globalPos);
+						var isCloseEnough = dist < TagSizeCm * lockDistanceScale;
+
+						if (isCloseEnough)
 						{
 							var pose = new Pose(r.Position, r.Rotation);
 							RegisterCanonTagRpc(r.ID, pose);
@@ -198,34 +214,14 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (sharedLocalPositions.Count < 3)
 				return;
 
-			var lerp = isAligned ? tagLerp : 1f;
-
 			// Kabsch if more than 3 tags
 			Matrix4x4 delta = IterativeClosestPoint.FitCorresponding(
 				sharedLocalPositions.ToArray(), spaceMat,
 				sharedCanonPositions.ToArray(), float4x4.identity);
 
+			var lerp = isAligned ? tagLerp : 1f;
 			var aligned = delta * spaceMat;
-
 			MainXRRig.Instance.AlignSpace(spaceMat, aligned, lerp);
-
-			// else
-			// {
-			// 	// else, simply lerp to match pose
-			// 	foreach (var result in results)
-			// 	{
-			// 		var id = result.ID;
-			// 		if (!canonTags.ContainsKey(id) || !localTags.ContainsKey(id))
-			// 			continue;
-			//
-			// 		var one = Vector3.one;
-			// 		var tagMat = Matrix4x4.TRS(result.Position, result.Rotation, one);
-			// 		var canonTag = canonTags[id];
-			// 		var canonTagMat = Matrix4x4.TRS(canonTag.position, canonTag.rotation, one);
-			//
-			// 		MainXRRig.Instance.AlignSpace(tagMat, canonTagMat, lerp);
-			// 	}
-			// }
 
 			var spacePos = space.position;
 			if (spacePos.magnitude > 10000f ||
@@ -242,7 +238,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			await Awaitable.EndOfFrameAsync();
 			anchor.target = anchor.transform.localToWorldMatrix;
 		}
-		
+
 		[Rpc(SendTo.Everyone, InvokePermission = RpcInvokePermission.Owner)]
 		private void RegisterCanonTagRpc(int id, Pose canonPose)
 		{

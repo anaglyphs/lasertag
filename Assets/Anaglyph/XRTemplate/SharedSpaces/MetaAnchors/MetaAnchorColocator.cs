@@ -7,9 +7,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	public class MetaAnchorColocator : NetworkBehaviour, IColocator
 	{
 		public static MetaAnchorColocator Instance { get; private set; }
-		
+
 		[SerializeField] private ColocationAnchor anchorPrefab;
-		
+
 		public event Action Colocated = delegate { };
 
 		private readonly NetworkVariable<ulong> currentAnchorId = new();
@@ -36,15 +36,15 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public void StartColocation()
 		{
-			if (!CurrentAnchor)
-			{
-				NetworkObject.ChangeOwnership(NetworkManager.LocalClientId);
-				SpawnNewCurrentAnchor();
-			}
+			if (!CurrentAnchor) RealignEveryone();
 		}
 
 		public void RealignEveryone()
 		{
+			var localId = NetworkManager.LocalClientId;
+			if (localId != OwnerClientId)
+				NetworkObject.ChangeOwnership(NetworkManager.LocalClientId);
+
 			SpawnNewCurrentAnchor();
 		}
 
@@ -52,7 +52,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			if (!IsOwner)
 				throw new Exception("Only the owner can spawn a new anchor!");
-			
+
 			// spawn anchor
 			var head = MainXRRig.Camera.transform;
 
@@ -67,10 +67,10 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			var g = Instantiate(anchorPrefab.gameObject, spawnPos, spawnRot);
 			g.TryGetComponent(out NetworkObject netObj);
 			netObj.Spawn();
-			
+
 			currentAnchorId.Value = netObj.NetworkObjectId;
 		}
-		
+
 		private void OnAligned()
 		{
 			Colocated.Invoke();
@@ -78,7 +78,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public void StopColocation()
 		{
-			// do nothing
+			// do nothing. world lock anchor naturally despawns
 		}
 	}
 }

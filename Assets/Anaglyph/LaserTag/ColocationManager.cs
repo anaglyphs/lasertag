@@ -37,7 +37,7 @@ namespace Anaglyph.Lasertag
 		protected override void OnNetworkSessionSynchronized()
 		{
 			if (IsOwner) methodSync.Value = methodHostSetting;
-			
+
 			switch (Method)
 			{
 				case ColocationMethod.MetaSharedAnchor:
@@ -48,9 +48,9 @@ namespace Anaglyph.Lasertag
 					activeColocator = tagColocator;
 					break;
 			}
-			
-			activeColocator.Colocated += OnColocated;
-			
+
+			SetActiveColocator(activeColocator);
+
 			if (!XRSettings.enabled) return;
 			activeColocator.StartColocation();
 		}
@@ -68,16 +68,31 @@ namespace Anaglyph.Lasertag
 			MainXRRig.TrackingSpace.rotation = Quaternion.identity;
 		}
 
+		private void SetActiveColocator(IColocator colocator)
+		{
+			if (activeColocator != null)
+			{
+				activeColocator.StopColocation();
+				activeColocator.Colocated -= OnColocated;
+			}
+
+			activeColocator = colocator;
+			activeColocator.Colocated += OnColocated;
+		}
+
 		public void RealignEveryone()
 		{
 			var localID = NetworkManager.Singleton.LocalClientId;
 			if (OwnerClientId != localID)
 				NetworkObject.ChangeOwnership(localID);
-			
-			activeColocator.RealignEveryone();	
-		} 
 
-		private void OnColocated() => SetColocated(true);
+			activeColocator.RealignEveryone();
+		}
+
+		private void OnColocated()
+		{
+			SetColocated(true);
+		}
 
 		private void SetColocated(bool b)
 		{

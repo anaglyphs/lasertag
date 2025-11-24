@@ -1,6 +1,6 @@
 using Anaglyph.XRTemplate;
 using System;
-using System.Collections;
+using System.Threading;
 using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
@@ -15,6 +15,7 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private AnimationCurve damageOverDistance = AnimationCurve.Constant(0, MaxTravelDist, 50f);
 
 		[SerializeField] private int despawnDelay = 1;
+		private CancellationTokenSource despawnCancelSrc;
 
 		[SerializeField] private AudioClip fireSFX;
 		[SerializeField] private AudioClip collideSFX;
@@ -148,15 +149,28 @@ namespace Anaglyph.Lasertag
 			AudioPool.Play(collideSFX, transform.position);
 
 			if (IsOwner)
-			{
-				StartCoroutine(D());
+				NetworkObject.Despawn(true);
+		}
 
-				IEnumerator D()
-				{
-					yield return new WaitForSeconds(despawnDelay);
-					NetworkObject.Despawn();
-				}
+		private async void DelayedDespawn()
+		{
+			despawnCancelSrc = new CancellationTokenSource();
+			var ctn = despawnCancelSrc.Token;
+
+			try
+			{
+				await Awaitable.WaitForSecondsAsync(despawnDelay, ctn);
+				ctn.ThrowIfCancellationRequested();
+				NetworkObject.Despawn(true);
 			}
+			catch (OperationCanceledException)
+			{
+			}
+		}
+
+		public override void OnNetworkDespawn()
+		{
+			despawnCancelSrc?.Cancel();
 		}
 	}
 }

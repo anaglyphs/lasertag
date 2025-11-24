@@ -44,7 +44,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			if (latestTagPoses != null)
 			{
-				scale = Vector3.one * (colocator.TagSize * 3);
+				scale = Vector3.one * (colocator.TagSizeCm * 0.03f);
 				var color = Color.white;
 
 				foreach (var tagPose in latestTagPoses)
