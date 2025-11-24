@@ -30,17 +30,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			Instance = this;
 
-			if (!XRSettings.enabled) return;
-
-			if (!anchor.Localized)
+			if (!XRSettings.enabled && !anchor.Localized)
 				MainXRRig.TrackingSpace.position = new Vector3(0, 1000, 0);
 
+			targetPoseSync.OnValueChanged += delegate { SetTargetPose(); };
 			if (IsOwner)
-			{
-				targetPoseSync.OnValueChanged += delegate { SetTargetPose(); };
 				targetPoseSync.Value = transform.GetWorldPose();
-				SetTargetPose();
-			}
+			SetTargetPose();
 
 			AnchorInstantiated.Invoke();
 

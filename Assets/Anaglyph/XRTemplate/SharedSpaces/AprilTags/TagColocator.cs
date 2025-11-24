@@ -85,9 +85,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			anchor = Instantiate(worldLockAnchorPrefab).GetComponent<WorldLockAnchor>();
 		}
 
-		public override void OnNetworkDespawn()
+		public void StopColocation()
 		{
-			if (!XRSettings.enabled) return;
 			if (!isActive) return;
 
 			OVRManager.display.RecenteredPose -= OnRecentered;

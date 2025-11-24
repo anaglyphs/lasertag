@@ -37,9 +37,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		public async void Align()
 		{
 			if (!XRSettings.enabled) return;
-
-			if (!anchor.Localized)
-				return;
+			if (!anchor.Localized) return;
 
 			await Awaitable.EndOfFrameAsync();
 			var currentMat = transform.localToWorldMatrix;

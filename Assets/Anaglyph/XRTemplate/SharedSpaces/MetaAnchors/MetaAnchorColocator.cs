@@ -32,6 +32,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				InstantiateNewAnchor();
 		}
 
+		public void StopColocation()
+		{
+			// do nothing
+		}
+
 		public void InstantiateNewAnchor()
 		{
 			var head = MainXRRig.Camera.transform;

@@ -7,5 +7,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	{
 		public event Action Colocated;
 		public void Colocate();
+		public void StopColocation();
 	}
 }
