@@ -135,9 +135,6 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 			if (!await CheckPermission(MetaCameraPermission))
 				return false;
 
-			if (!await CheckPermission(Permission.Camera))
-				return false;
-
 			return true;
 		}
 

@@ -164,10 +164,7 @@ namespace Anaglyph.Lasertag
 		private void RecalibrateColocation()
 		{
 			var colocation = ColocationManager.Instance;
-			var localID = NetworkManager.Singleton.LocalClientId;
-			if (colocation.OwnerClientId != localID)
-				colocation.NetworkObject.ChangeOwnership(localID);
-			colocation.Colocate();
+			colocation.RealignEveryone();
 		}
 
 		private void OnColocationChange(bool isColocated)

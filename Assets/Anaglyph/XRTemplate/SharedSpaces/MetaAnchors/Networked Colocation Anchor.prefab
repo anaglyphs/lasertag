@@ -12,8 +12,8 @@ GameObject:
   - component: {fileID: 7193132605894861672}
   - component: {fileID: 4743051768782511526}
   - component: {fileID: 5128101364298341327}
-  - component: {fileID: 321370433711836803}
   - component: {fileID: -1500784526931333930}
+  - component: {fileID: 321370433711836803}
   - component: {fileID: 471741878431666474}
   - component: {fileID: 6727088059367313208}
   - component: {fileID: 3393283916453621078}
@@ -54,7 +54,7 @@ MonoBehaviour:
   GlobalObjectIdHash: 2534750477
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
-  Ownership: 8
+  Ownership: 3
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
   ActiveSceneSynchronization: 0
@@ -106,18 +106,6 @@ MonoBehaviour:
     e31: 0
     e32: 0
     e33: 1
---- !u!114 &321370433711836803
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6151402896905020864}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 34e0461a4939d3b4fbdf706bbd80108c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &-1500784526931333930
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -131,6 +119,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &321370433711836803
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6151402896905020864}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 34e0461a4939d3b4fbdf706bbd80108c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!33 &471741878431666474
 MeshFilter:
   m_ObjectHideFlags: 0

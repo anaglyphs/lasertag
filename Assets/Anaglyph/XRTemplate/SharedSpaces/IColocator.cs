@@ -6,7 +6,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	public interface IColocator
 	{
 		public event Action Colocated;
-		public void Colocate();
+		public void StartColocation();
+		public void RealignEveryone();
 		public void StopColocation();
 	}
 }

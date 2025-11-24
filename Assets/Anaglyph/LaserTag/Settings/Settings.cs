@@ -28,7 +28,7 @@ namespace Anaglyph.Lasertag
 			aprilTagSize.AddChangeListenerAndCheck(s =>
 			{
 				if (aprilTagColocation.Value)
-					TagColocator.Instance.tagSizeHostSetting = s;
+					TagColocator.Instance.tagSizeCmHostSetting = s;
 			});
 
 			// boundary.AddChangeListenerAndCheck(b =>

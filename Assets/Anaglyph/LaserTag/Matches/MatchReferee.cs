@@ -322,7 +322,9 @@ namespace Anaglyph.Lasertag
 
 		private void ResetScoresLocally()
 		{
-			PlayerAvatar.Local?.ResetScoreRpc();
+			if(NetworkManager.IsConnectedClient)
+				PlayerAvatar.Local?.ResetScoreRpc();
+			
 			for (byte i = 0; i < Teams.NumTeams; i++)
 			{
 				_teamScores[i] = 0;

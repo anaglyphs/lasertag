@@ -74,7 +74,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		}
 
 		private bool isPaused = false;
-		private async void OnApplicationPause(bool isPaused) {
+		private void OnApplicationPause(bool isPaused) {
 			
 			this.isPaused = isPaused;
 			

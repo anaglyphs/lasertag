@@ -106,11 +106,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
-  tagSizeHostSetting: 0
+  tagSizeCmHostSetting: 0
   tagLerp: 0.3
   lockDistanceScale: 15
-  maxHeadSpeed: 0.1
-  maxHeadAngSpeed: 0.1
+  maxHeadSpeed: 0.01
+  maxHeadAngSpeed: 0.01
   worldLockAnchorPrefab: {fileID: 6151402896905020864, guid: 100b8bb6cd981b149b252913fceb49fe, type: 3}
   cameraReader: {fileID: 2551285239359811888}
   tagTracker: {fileID: 8030733127724905774}
@@ -143,7 +143,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d78354083d4b19b479517e268a4fd2dc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  defaultTextureSize: {x: 1280, y: 960}
+  defaultTextureSize: {x: 640, y: 480}
   defaultCameraIndex: 1
 --- !u!114 &8030733127724905774
 MonoBehaviour:

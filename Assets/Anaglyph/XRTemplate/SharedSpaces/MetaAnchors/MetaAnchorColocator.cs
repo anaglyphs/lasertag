@@ -1,44 +1,59 @@
 using System;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.XR;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
 	public class MetaAnchorColocator : NetworkBehaviour, IColocator
 	{
-		public event Action Colocated = delegate { };
 		public static MetaAnchorColocator Instance { get; private set; }
+		
 		[SerializeField] private ColocationAnchor anchorPrefab;
+		
+		public event Action Colocated = delegate { };
+
+		private readonly NetworkVariable<ulong> currentAnchorId = new();
+		private ColocationAnchor _currentAnchor;
+		public ColocationAnchor CurrentAnchor => _currentAnchor;
 
 		private void Awake()
 		{
 			Instance = this;
+
+			currentAnchorId.OnValueChanged += delegate
+			{
+				// ensure there is only one anchor
+				if (_currentAnchor && _currentAnchor.IsOwner)
+					_currentAnchor.NetworkObject.Despawn(true);
+
+				var objs = NetworkManager.SpawnManager.SpawnedObjects;
+				if (!objs.TryGetValue(currentAnchorId.Value, out var anchorNetObj)) return;
+
+				_currentAnchor = anchorNetObj.GetComponent<ColocationAnchor>();
+				_currentAnchor.WorldLocker.Aligned += OnAligned;
+			};
 		}
 
-		public override void OnNetworkSpawn()
+		public void StartColocation()
 		{
-			ColocationAnchor.Aligned += Colocated.Invoke;
+			if (!CurrentAnchor)
+			{
+				NetworkObject.ChangeOwnership(NetworkManager.LocalClientId);
+				SpawnNewCurrentAnchor();
+			}
 		}
 
-		public override void OnNetworkDespawn()
+		public void RealignEveryone()
 		{
-			ColocationAnchor.Aligned -= Colocated.Invoke;
+			SpawnNewCurrentAnchor();
 		}
 
-		public void Colocate()
+		private void SpawnNewCurrentAnchor()
 		{
-			if (IsOwner)
-				InstantiateNewAnchor();
-		}
-
-		public void StopColocation()
-		{
-			// do nothing
-		}
-
-		public void InstantiateNewAnchor()
-		{
+			if (!IsOwner)
+				throw new Exception("Only the owner can spawn a new anchor!");
+			
+			// spawn anchor
 			var head = MainXRRig.Camera.transform;
 
 			var spawnPos = head.position;
@@ -50,8 +65,20 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			var spawnRot = Quaternion.LookRotation(flatForward, Vector3.up);
 
 			var g = Instantiate(anchorPrefab.gameObject, spawnPos, spawnRot);
-			g.TryGetComponent(out NetworkObject networkObject);
-			networkObject.Spawn();
+			g.TryGetComponent(out NetworkObject netObj);
+			netObj.Spawn();
+			
+			currentAnchorId.Value = netObj.NetworkObjectId;
+		}
+		
+		private void OnAligned()
+		{
+			Colocated.Invoke();
+		}
+
+		public void StopColocation()
+		{
+			// do nothing
 		}
 	}
 }

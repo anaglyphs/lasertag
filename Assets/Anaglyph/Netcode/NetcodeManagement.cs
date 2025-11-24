@@ -253,5 +253,8 @@ namespace Anaglyph.Netcode
 
 			return null;
 		}
+
+		public static bool GetNetObjById(ulong id, out NetworkObject netObj) =>
+			NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(id, out netObj);
 	}
 }

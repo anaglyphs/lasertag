@@ -15,13 +15,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private void Awake()
 		{
 			anchor = GetComponent<OVRSpatialAnchor>();
-			anchor.OnLocalize += delegate { Align(); };
 		}
 
 		private void OnEnable()
 		{
 			OVRManager.display.RecenteredPose += Align;
-			Align();
 		}
 
 		private void OnDisable()
@@ -38,9 +36,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		public async void Align()
 		{
 			if (!XRSettings.enabled) return;
-			if (!anchor.Localized) return;
 
-			await Awaitable.EndOfFrameAsync();
+			await anchor.WhenLocalizedAsync();
+			
 			var currentMat = transform.localToWorldMatrix;
 			MainXRRig.Instance.AlignSpace(currentMat, target);
 			Aligned.Invoke();

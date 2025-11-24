@@ -37,7 +37,7 @@ namespace Anaglyph.Lasertag
 		{
 			var state = NetcodeManagement.State;
 			connecting.SetActive(state == NetcodeState.Connecting);
-			colocating.SetActive(state == NetcodeState.Connected);
+			colocating.SetActive(state == NetcodeState.Connected && !ColocationManager.IsColocated);
 			var isReady = state == NetcodeState.Connected && ColocationManager.IsColocated;
 			ready.SetActive(isReady);
 			if (isReady)
