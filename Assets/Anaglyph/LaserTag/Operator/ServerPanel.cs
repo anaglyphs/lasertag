@@ -2,6 +2,7 @@
 
 using Anaglyph.Netcode;
 using System.Text.RegularExpressions;
+using Anaglyph.XRTemplate.SharedSpaces;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEditor;
@@ -12,7 +13,7 @@ namespace Anaglyph.Lasertag.Operator
 {
 	public sealed class ServerWindow : EditorWindow
 	{
-		private static DisplayStyle Show(bool show)
+		private new static DisplayStyle Show(bool show)
 		{
 			return show ? DisplayStyle.Flex : DisplayStyle.None;
 		}
@@ -166,10 +167,10 @@ namespace Anaglyph.Lasertag.Operator
 			UpdateHostingPage(NetcodeManagement.State);
 			UpdateMatchPage(MatchReferee.State);
 
-			ColocationManager.Instance.HostAprilTagSize = tagSizeCm;
-			ColocationManager.Instance.HostColocationMethod = useAprilTags
-				? ColocationManager.Method.AprilTag
-				: ColocationManager.Method.MetaSharedAnchor;
+			TagColocator.Instance.tagSizeHostSetting = tagSizeCm;
+			ColocationManager.Instance.methodHostSetting = useAprilTags
+				? ColocationManager.ColocationMethod.AprilTag
+				: ColocationManager.ColocationMethod.MetaSharedAnchor;
 			MainPlayer.Instance?.SetIsParticipating(false);
 
 			if (useRelay)

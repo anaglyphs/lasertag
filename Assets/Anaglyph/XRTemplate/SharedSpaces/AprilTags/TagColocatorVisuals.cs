@@ -37,21 +37,20 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private void LateUpdate()
 		{
-			if (!colocator.ColocationActive)
+			if (!colocator.IsActive)
 				return;
 
 			Vector3 scale;
 
 			if (latestTagPoses != null)
 			{
-				scale = Vector3.one * (colocator.tagSize * 3);
+				scale = Vector3.one * (colocator.TagSize * 3);
 				var color = Color.white;
 
 				foreach (var tagPose in latestTagPoses)
 				{
-					if (colocator.IsOwner)
-						if (!colocator.LockedTags.Contains(tagPose.ID))
-							color = Color.yellow;
+					if (!colocator.CanonTags.ContainsKey(tagPose.ID))
+						color = Color.yellow;
 
 					mpb.SetColor(BaseColorID, color);
 

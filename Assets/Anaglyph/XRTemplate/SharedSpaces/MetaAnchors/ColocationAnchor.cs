@@ -1,53 +1,69 @@
 using System;
 using Unity.Netcode;
+using Unity.XR.CoreUtils;
 using UnityEngine;
 using UnityEngine.XR;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
-    public class ColocationAnchor : NetworkBehaviour
+	[RequireComponent(typeof(OVRSpatialAnchor), typeof(NetworkedAnchor), typeof(WorldLockAnchor))]
+	public class ColocationAnchor : NetworkBehaviour
 	{
-		public static Action<ColocationAnchor> ColocationAnchorLocalized = delegate { };
-
 		public static ColocationAnchor Instance { get; private set; }
-		public NetworkedAnchor networkedAnchor { get; private set; }
-		public Pose DesiredPose => networkedAnchor.DesiredPose;
-		public bool IsLocalized => networkedAnchor.Anchor.Localized;
+
+		private readonly NetworkVariable<Pose> targetPoseSync = new();
+
+		public static event Action Aligned = delegate { };
+		private static event Action AnchorInstantiated = delegate { };
+
+		private OVRSpatialAnchor anchor;
+		private WorldLockAnchor worldLockAnchor;
 
 		private void Awake()
 		{
-			networkedAnchor = GetComponent<NetworkedAnchor>();
-			Instance = this;
+			anchor = GetComponent<OVRSpatialAnchor>();
+			worldLockAnchor = GetComponent<WorldLockAnchor>();
+			worldLockAnchor.Aligned += Aligned.Invoke;
 		}
 
-		public async override void OnNetworkSpawn()
+		public override void OnNetworkSpawn()
 		{
-			if (!XRSettings.enabled)
-				return;
+			Instance = this;
 
-			OVRManager.display.RecenteredPose += OnRecenter;
+			if (!XRSettings.enabled) return;
 
-			bool localized = await networkedAnchor.Anchor.WhenLocalizedAsync();
+			if (!anchor.Localized)
+				MainXRRig.TrackingSpace.position = new Vector3(0, 1000, 0);
 
-			if(localized)
-				MetaAnchorColocator.Current.AlignTo(this);
+			if (IsOwner)
+			{
+				targetPoseSync.OnValueChanged += delegate { SetTargetPose(); };
+				targetPoseSync.Value = transform.GetWorldPose();
+				SetTargetPose();
+			}
+
+			AnchorInstantiated.Invoke();
+
+			if (IsOwner)
+				AnchorInstantiated += OnAnchorInstantiated;
+		}
+
+		private void SetTargetPose()
+		{
+			var t = targetPoseSync.Value;
+			var mat = Matrix4x4.TRS(t.position, t.rotation, Vector3.one);
+			worldLockAnchor.SetTargetAndAlign(mat);
+		}
+
+		private void OnAnchorInstantiated()
+		{
+			if (IsOwner && Instance != this)
+				NetworkObject.Despawn(true);
 		}
 
 		public override void OnNetworkDespawn()
 		{
-			if (OVRManager.display != null)
-				OVRManager.display.RecenteredPose -= OnRecenter;
-		}
-
-		private void OnRecenter()
-		{
-			MetaAnchorColocator.Current.AlignTo(this);
-		}
-
-		[Rpc(SendTo.Owner)]
-		public void DespawnAndDestroyRpc()
-		{
-			NetworkObject.Despawn(true);
+			AnchorInstantiated -= OnAnchorInstantiated;
 		}
 	}
 }

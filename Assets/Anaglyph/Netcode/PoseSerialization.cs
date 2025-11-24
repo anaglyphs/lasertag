@@ -1,3 +1,4 @@
+using System;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -30,6 +31,34 @@ namespace Anaglyph
 		{
 			if (serializer.IsReader) pose = new Pose();
 			serializer.SerializeValue(ref pose);
+		}
+	}
+
+	public static class GuidSerialization
+	{
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+		public static void InitializeGuidNetworkVariable()
+		{
+			UserNetworkVariableSerialization<Guid>.WriteValue = WriteValueSafe;
+			UserNetworkVariableSerialization<Guid>.ReadValue = ReadValueSafe;
+		}
+
+		private static void ReadValueSafe(this FastBufferReader reader, out Guid guid)
+		{
+			reader.ReadValueSafe(out var v, true);
+			guid = Guid.Parse(v);
+		}
+
+		private static void WriteValueSafe(this FastBufferWriter writer, in Guid guid)
+		{
+			writer.WriteValueSafe(guid.ToString(), true);
+		}
+
+		public static void SerializeValue<TReaderWriter>(this BufferSerializer<TReaderWriter> serializer, ref Guid guid)
+			where TReaderWriter : IReaderWriter
+		{
+			if (serializer.IsReader) guid = new Guid();
+			serializer.SerializeValue(ref guid);
 		}
 	}
 }

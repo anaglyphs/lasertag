@@ -3,7 +3,6 @@ using Anaglyph.XRTemplate.SharedSpaces;
 using System;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.Serialization;
 using UnityEngine.XR;
 
 namespace Anaglyph.Lasertag
@@ -13,69 +12,78 @@ namespace Anaglyph.Lasertag
 		public static ColocationManager Instance { get; private set; }
 
 		[Serializable]
-		public enum Method
+		public enum ColocationMethod
 		{
 			MetaSharedAnchor = 0,
-			AprilTag = 1,
+			AprilTag = 1
 		}
 
-		private NetworkVariable<Method> colocationMethodSync = new(0);
-		private NetworkVariable<float> aprilTagSizeSync = new();
+		public static bool IsColocated { get; private set; }
+		public static Action<bool> Colocated = delegate { };
 
-		public Method HostColocationMethod;
-		public float HostAprilTagSize;
+		public ColocationMethod methodHostSetting;
+		private readonly NetworkVariable<ColocationMethod> methodSync = new(0);
+		public ColocationMethod Method => methodSync.Value;
 
 		[SerializeField] private MetaAnchorColocator metaAnchorColocator;
-		[FormerlySerializedAs("aprilTagColocator")] [SerializeField] private TagColocator tagColocator;
+		[SerializeField] private TagColocator tagColocator;
+		private IColocator activeColocator;
 
 		private void Awake()
 		{
 			Instance = this;
 		}
 
-		public override async void OnNetworkSpawn()
+		protected override void OnNetworkPostSpawn()
 		{
-			await Awaitable.EndOfFrameAsync();
+			if (IsOwner) methodSync.Value = methodHostSetting;
 
-			// todo move out of
-			EnvironmentMapper.Instance?.Clear();
-
-			if (IsOwner)
+			switch (Method)
 			{
-				colocationMethodSync.Value = HostColocationMethod;
-
-				aprilTagSizeSync.Value = HostAprilTagSize / 100f;
-			}
-
-			switch (colocationMethodSync.Value)
-			{
-				case Method.MetaSharedAnchor:
-					Colocation.SetActiveColocator(metaAnchorColocator);
+				case ColocationMethod.MetaSharedAnchor:
+					activeColocator = metaAnchorColocator;
 					break;
 
-				case Method.AprilTag:
-					Colocation.SetActiveColocator(tagColocator);
-					tagColocator.tagSize = aprilTagSizeSync.Value;
+				case ColocationMethod.AprilTag:
+					activeColocator = tagColocator;
 					break;
 			}
 
-			Colocation.ActiveColocator.Colocate();
+			activeColocator.Colocated += OnColocated;
+			Colocate();
 		}
 
 		public override void OnNetworkDespawn()
 		{
-			Colocation.ActiveColocator.StopColocation();
+			activeColocator.Colocated -= OnColocated;
 
-			if (!XRSettings.enabled)
-				return;
+			if (!XRSettings.enabled) return;
+
+			SetColocated(false);
 
 			MainXRRig.TrackingSpace.position = Vector3.zero;
 			MainXRRig.TrackingSpace.rotation = Quaternion.identity;
 		}
 
-		public override void OnDestroy()
+		public void Colocate()
 		{
-			base.OnDestroy();
+			if (!XRSettings.enabled) return;
+
+			activeColocator.Colocate();
+		}
+
+		private void OnColocated()
+		{
+			SetColocated(true);
+		}
+
+		private void SetColocated(bool b)
+		{
+			if (b == IsColocated)
+				return;
+
+			IsColocated = b;
+			Colocated?.Invoke(IsColocated);
 		}
 	}
 }

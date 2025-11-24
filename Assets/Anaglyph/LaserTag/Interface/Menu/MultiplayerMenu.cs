@@ -5,6 +5,7 @@ using System;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.UI;
 using VariableObjects;
 
@@ -16,41 +17,45 @@ namespace Anaglyph.Lasertag
 		{
 			Connecting,
 			Colocating,
-			Connected,
+			Connected
 		}
 
 		private static NetworkManager manager => NetworkManager.Singleton;
 
 		[SerializeField] private NavPagesParent navView;
 
-		[Header(nameof(homePage))]
-		[SerializeField] private NavPage homePage = null;
+		[Header(nameof(homePage))] [SerializeField]
+		private NavPage homePage = null;
+
 		[SerializeField] private Button hostButton = null;
 
-		[Header(nameof(manuallyConnectPage))]
-		[SerializeField] private NavPage manuallyConnectPage = null;
+		[Header(nameof(manuallyConnectPage))] [SerializeField]
+		private NavPage manuallyConnectPage = null;
+
 		[SerializeField] private Toggle useRelayToggle = null;
 		[SerializeField] private InputField ipField = null;
 		[SerializeField] private InputField roomField = null;
 		[SerializeField] private GameObject roomFieldLabel = null;
 		[SerializeField] private Button connectButton = null;
 
-		[Header(nameof(sessionPage))]
-		[SerializeField] private NavPage sessionPage = null;
+		[Header(nameof(sessionPage))] [SerializeField]
+		private NavPage sessionPage = null;
+
 		[SerializeField] private Image sessionIcon = null;
 		[SerializeField] private Text sessionStateText = null;
 		[SerializeField] private Text sessionIpText = null;
 		[SerializeField] private Button disconnectButton = null;
 		[SerializeField] private Button recalibrateButton = null;
 
-		[Header("Session icons")]
-		[SerializeField] private Sprite connectingSprite = null;
+		[Header("Session icons")] [SerializeField]
+		private Sprite connectingSprite = null;
+
 		[SerializeField] private Sprite colocatingSprite = null;
 		[SerializeField] private Sprite connectedSprite = null;
 		[SerializeField] private Sprite hostingSprite = null;
 
-		[Header("Host settings")]
-		[SerializeField] private BoolObject hostRelay = null;
+		[Header("Host settings")] [SerializeField]
+		private BoolObject hostRelay = null;
 
 		private const string IpPrefsKey = "Ip";
 		private const string RelayPrefsKey = "Relay";
@@ -104,23 +109,23 @@ namespace Anaglyph.Lasertag
 
 			recalibrateButton.onClick.AddListener(RecalibrateColocation);
 
-			Colocation.IsColocatedChange += OnColocationChange;
+			ColocationManager.Colocated += OnColocationChange;
 
 			recalibrateButton.gameObject.SetActive(false);
-			
-			navView.onPageChange.AddListener(OnNavPageChange); 
+
+			navView.onPageChange.AddListener(OnNavPageChange);
 		}
 
 		private void OnNavPageChange(NavPage page)
 		{
-			bool onManuallyConnectPage = page == manuallyConnectPage;
+			var onManuallyConnectPage = page == manuallyConnectPage;
 			MetaSessionDiscovery.Instance.enabled = !onManuallyConnectPage;
 		}
 
 		private void OnDestroy()
 		{
 			NetcodeManagement.StateChanged -= IsNetworkRunningChanged;
-			Colocation.IsColocatedChange -= OnColocationChange;
+			ColocationManager.Colocated -= OnColocationChange;
 		}
 
 		private void IsNetworkRunningChanged(NetcodeState state)
@@ -139,49 +144,36 @@ namespace Anaglyph.Lasertag
 
 				case NetcodeState.Connected:
 					UpdateIpText();
-					OnColocationChange(Colocation.IsColocated);
+					OnColocationChange(ColocationManager.IsColocated);
 					break;
 			}
 		}
 
 		private void UpdateIpText()
 		{
-			NetworkTransport transport = manager.NetworkConfig.NetworkTransport;
-			Type transportType = transport.GetType();
+			var transport = manager.NetworkConfig.NetworkTransport;
+			var transportType = transport.GetType();
 
 			if (string.Equals(transportType.Name, "DistributedAuthorityTransport"))
-			{
 				sessionIpText.text = $"Relay: {NetcodeManagement.CurrentSessionName}";
-			}
 			else if (transport.GetType() == typeof(UnityTransport))
-			{
 				sessionIpText.text = ((UnityTransport)transport).ConnectionData.Address;
-			}
 		}
 
 		// TODO: move to colocation manager
 		private void RecalibrateColocation()
 		{
-			var type = Colocation.ActiveColocator.GetType();
-
-			if (type == typeof(MetaAnchorColocator))
-			{
-				MetaAnchorColocator.Current.InstantiateNewAnchor();
-			}
-			else if (type == typeof(TagColocator))
-			{
-				TagColocator tagColocator = (TagColocator)Colocation.ActiveColocator;
-
-				tagColocator.NetworkObject.ChangeOwnership(manager.LocalClientId);
-
-				tagColocator.ClearCanonTagsRpc();
-			}
+			var colocation = ColocationManager.Instance;
+			var localID = NetworkManager.Singleton.LocalClientId;
+			if (colocation.OwnerClientId != localID)
+				colocation.NetworkObject.ChangeOwnership(localID);
+			colocation.Colocate();
 		}
 
 		private void OnColocationChange(bool isColocated)
 		{
 			if (NetcodeManagement.State == NetcodeState.Connected)
-				OpenSessionPage(Colocation.IsColocated ? SessionState.Connected : SessionState.Colocating);
+				OpenSessionPage(ColocationManager.IsColocated ? SessionState.Connected : SessionState.Colocating);
 		}
 
 		private void OpenSessionPage(SessionState state)
@@ -209,6 +201,7 @@ namespace Anaglyph.Lasertag
 						sessionStateText.text = "Connected!";
 						sessionIcon.sprite = connectedSprite;
 					}
+
 					break;
 			}
 

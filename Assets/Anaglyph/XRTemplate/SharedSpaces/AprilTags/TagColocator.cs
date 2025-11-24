@@ -14,51 +14,44 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 {
 	public class TagColocator : NetworkBehaviour, IColocator
 	{
-		private HashSet<int> lockedTags = new();
-		private Dictionary<int, Pose> canonTags = new();
-		private Dictionary<int, Vector3> localTags = new();
-		public HashSet<int> LockedTags => lockedTags;
-		private WorldLockAnchor anchor;
+		public static TagColocator Instance { get; private set; }
+
+		public float tagSizeHostSetting;
+		private readonly NetworkVariable<float> tagSizeSync = new();
+		public float TagSize => tagSizeSync.Value;
+
+		private readonly Dictionary<int, Pose> canonTags = new();
+		private readonly Dictionary<int, Vector3> localTags = new();
 
 		public ReadOnlyDictionary<int, Pose> CanonTags;
 		public ReadOnlyDictionary<int, Vector3> LocalTags;
 
-		private List<float3> sharedLocalPositions = new();
-		private List<float3> sharedCanonPositions = new();
+		private readonly List<float3> sharedLocalPositions = new();
+		private readonly List<float3> sharedCanonPositions = new();
 
-		public float tagSize = 0.1f;
 		public float tagLerp = 0.1f;
-
 		public float lockDistanceScale = 10;
 		[Tooltip("In meters/second")] public float maxHeadSpeed = 2f;
 		[Tooltip("In radians/second")] public float maxHeadAngSpeed = 2f;
-
-		public bool ColocationActive => _colocationActive;
 
 		[SerializeField] private GameObject worldLockAnchorPrefab;
 		[SerializeField] private CameraReader cameraReader;
 		[SerializeField] private AprilTagTracker tagTracker;
 		public AprilTagTracker TagTracker => tagTracker;
 
-		private static bool _isColocated;
-		public event Action<bool> IsColocatedChange;
+		private WorldLockAnchor anchor;
 
-		public bool IsColocated
-		{
-			get => _isColocated;
-			private set
-			{
-				var changed = value != _isColocated;
-				_isColocated = value;
-				if (changed)
-					IsColocatedChange?.Invoke(_isColocated);
-			}
-		}
+		private bool isActive;
+		public bool IsActive => isActive;
+		private bool isAligned;
+		public bool IsAligned => isAligned;
 
-		private bool _colocationActive = false;
+		public event Action Colocated = delegate { };
 
 		private void Awake()
 		{
+			Instance = this;
+
 			cameraReader = FindAnyObjectByType<CameraReader>();
 			tagTracker = FindAnyObjectByType<AprilTagTracker>();
 
@@ -66,23 +59,25 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			LocalTags = new ReadOnlyDictionary<int, Vector3>(localTags);
 		}
 
+		public override void OnNetworkSpawn()
+		{
+			if (IsOwner)
+				tagSizeSync.Value = tagSizeHostSetting;
+		}
+
 		public async void Colocate()
 		{
-			if (!XRSettings.enabled)
-				return;
+			ClearTagsRpc();
 
-			if (_colocationActive)
-				return;
-
-			IsColocated = false;
-			_colocationActive = true;
+			if (isActive) return;
+			isActive = true;
 
 			OVRManager.display.RecenteredPose += OnRecentered;
 			tagTracker.OnDetectTags += OnDetectTags;
 			NetworkManager.OnClientConnectedCallback += OnClientConnected;
 
 			await cameraReader.TryOpenCamera();
-			tagTracker.tagSizeMeters = tagSize;
+			tagTracker.tagSizeMeters = TagSize;
 
 			if (anchor)
 				return;
@@ -90,15 +85,10 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			anchor = Instantiate(worldLockAnchorPrefab).GetComponent<WorldLockAnchor>();
 		}
 
-		private void OnRecentered()
+		public override void OnNetworkDespawn()
 		{
-			localTags.Clear();
-		}
-
-		public void StopColocation()
-		{
-			if (!XRSettings.enabled)
-				return;
+			if (!XRSettings.enabled) return;
+			if (!isActive) return;
 
 			OVRManager.display.RecenteredPose -= OnRecentered;
 			tagTracker.OnDetectTags -= OnDetectTags;
@@ -106,27 +96,18 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			cameraReader.CloseCamera();
 
-			lockedTags.Clear();
 			canonTags.Clear();
 			localTags.Clear();
 
 			if (anchor)
 				Destroy(anchor.gameObject);
 
-			_colocationActive = false;
-			IsColocated = false;
-		}
-
-		public override void OnNetworkDespawn()
-		{
-			StopColocation();
+			isActive = false;
+			isAligned = false;
 		}
 
 		private void OnClientConnected(ulong id)
 		{
-			if (!IsColocated)
-				return;
-
 			var thisClient = id == NetworkManager.LocalClientId;
 			if (thisClient)
 				return;
@@ -144,6 +125,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 		}
 
+		private void OnRecentered()
+		{
+			localTags.Clear();
+		}
+
 		[Rpc(SendTo.Everyone, InvokePermission = RpcInvokePermission.Owner)]
 		private void RegisterCanonTagRpc(int id, Pose canonPose)
 		{
@@ -158,27 +144,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		}
 
 		[Rpc(SendTo.Everyone)]
-		public void ClearCanonTagsRpc()
+		private void ClearTagsRpc()
 		{
 			canonTags.Clear();
-			lockedTags.Clear();
 			localTags.Clear();
-		}
-
-		private bool TagIsWithinRegisterDistance(Vector3 globalPos)
-		{
-			var headPos = MainXRRig.Camera.transform.position;
-			return Vector3.Distance(headPos, globalPos) < tagSize * lockDistanceScale;
-		}
-
-		private void LateUpdate()
-		{
-			foreach (var regTag in canonTags)
-			{
-				var canonPos = regTag.Value.position;
-				if (!TagIsWithinRegisterDistance(canonPos))
-					lockedTags.Add(regTag.Key);
-			}
+			isAligned = false;
 		}
 
 		private async void OnDetectTags(IReadOnlyList<TagPose> results)
@@ -210,14 +180,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 				if (IsOwner)
 				{
-					var isCloseEnough = TagIsWithinRegisterDistance(localPos);
-					var isLocked = lockedTags.Contains(r.ID);
-					if (isCloseEnough && !isLocked)
+					var headPos = MainXRRig.Camera.transform.position;
+					var dist = Vector3.Distance(headPos, globalPos);
+					var isCloseEnough = dist < TagSize * lockDistanceScale;
+					var alreadyRegistered = canonTags.ContainsKey(r.ID);
+					if (isCloseEnough && !alreadyRegistered)
 					{
 						var pose = new Pose(r.Position, r.Rotation);
-						if (canonTags.TryGetValue(r.ID, out var tagPose))
-							pose = tagPose.Lerp(pose, tagLerp);
-
 						RegisterCanonTagRpc(r.ID, pose);
 					}
 				}
@@ -241,7 +210,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (sharedLocalPositions.Count < 3)
 				return;
 
-			var lerp = IsColocated ? tagLerp : 1f;
+			var lerp = isAligned ? tagLerp : 1f;
 
 			// Kabsch if more than 3 tags
 			Matrix4x4 delta = IterativeClosestPoint.FitCorresponding(
@@ -277,10 +246,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			    float.IsNaN(spacePos.z) || float.IsInfinity(spacePos.z))
 				MainXRRig.TrackingSpace.SetWorldPose(Pose.identity);
 
+			if (!isAligned)
+				Colocated.Invoke();
+
+			isAligned = true;
+
 			await Awaitable.EndOfFrameAsync();
 			anchor.target = anchor.transform.localToWorldMatrix;
-
-			IsColocated = true;
 		}
 	}
 }
