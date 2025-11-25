@@ -46,10 +46,15 @@ namespace Anaglyph.Lasertag.Weapons
 		{
 			if (!NetworkManager.Singleton.IsConnectedClient || !WeaponsManagement.CanFire)
 				return;
+			
+			// var e = emitFromTransform;
+			// NetworkObject.InstantiateAndSpawn(boltPrefab, NetworkManager.Singleton,
+			// 	position: e.position, rotation: e.rotation,
+			// 	ownerClientId: NetworkManager.Singleton.LocalClientId);
 
 			NetworkObject n = NetworkObjectPool.Instance.GetNetworkObject(
 				boltPrefab, emitFromTransform.position, emitFromTransform.rotation);
-
+			
 			n.SpawnWithOwnership(NetworkManager.Singleton.LocalClientId);
 
 			onFire.Invoke();

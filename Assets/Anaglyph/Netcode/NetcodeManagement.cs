@@ -205,6 +205,11 @@ namespace Anaglyph.Netcode
 
 			CurrentSessionName = id;
 			CurrentSession = await MultiplayerService.Instance.CreateOrJoinSessionAsync(id, options);
+			CurrentSession.RemovedFromSession += delegate
+			{
+				manager.Shutdown();
+				CurrentSession = null;
+			};
 		}
 
 		public static async void Disconnect()
@@ -217,15 +222,11 @@ namespace Anaglyph.Netcode
 			{
 				if (CurrentSession != null)
 					await CurrentSession.LeaveAsync();
-
-				CurrentSession = null;
 			}
 			catch (SessionException)
 			{
 
 			}
-
-			manager.Shutdown();
 		}
 
 		public static bool ThisClientConnected(ConnectionEventData data)

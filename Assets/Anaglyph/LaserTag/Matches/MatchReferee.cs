@@ -170,7 +170,7 @@ namespace Anaglyph.Lasertag
 			}
 		}
 
-		[Rpc(SendTo.Everyone, AllowTargetOverride = true)]
+		[Rpc(SendTo.Everyone, AllowTargetOverride = true, InvokePermission = RpcInvokePermission.Owner)]
 		private void SyncSettingsRpc(MatchSettings settings, RpcParams rpcParams = default)
 		{
 			_settings = settings;

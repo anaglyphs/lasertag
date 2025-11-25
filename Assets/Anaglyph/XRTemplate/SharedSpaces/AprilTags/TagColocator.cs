@@ -92,7 +92,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			OVRManager.display.RecenteredPose -= OnRecentered;
 			tagTracker.OnDetectTags -= OnDetectTags;
-			NetworkManager.OnClientConnectedCallback -= OnClientConnected;
 
 			cameraReader.CloseCamera();
 
@@ -139,7 +138,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 		}
 
-		[Rpc(SendTo.SpecifiedInParams, InvokePermission = RpcInvokePermission.Owner)]
+		[Rpc(SendTo.SpecifiedInParams)]
 		private void SyncCanonTagsRpc(int[] id, Pose[] poses, RpcParams rpcParams = default)
 		{
 			for (var i = 0; i < id.Length; i++)

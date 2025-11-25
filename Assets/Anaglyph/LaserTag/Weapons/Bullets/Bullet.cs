@@ -62,7 +62,7 @@ namespace Anaglyph.Lasertag
 				return;
 
 			var result = await EnvironmentMapper.Instance.RaymarchAsync(fireRay, MaxTravelDist);
-			if (result.didHit)
+			if (NetworkObject.IsSpawned && result.didHit)
 			{
 				if (IsOwner)
 				{
@@ -98,47 +98,46 @@ namespace Anaglyph.Lasertag
 
 		private void Update()
 		{
-			if (isAlive)
+			if (!isAlive) return;
+			
+			var lifeTime = Time.time - spawnedTime;
+			var prevPos = transform.position;
+			travelDist = metersPerSecond * lifeTime;
+
+			transform.position = fireRay.GetPoint(travelDist);
+
+			if (IsOwner)
 			{
-				var lifeTime = Time.time - spawnedTime;
-				var prevPos = transform.position;
-				travelDist = metersPerSecond * lifeTime;
+				var didHitEnv = travelDist > envHitDist;
 
-				transform.position = fireRay.GetPoint(travelDist);
+				if (didHitEnv)
+					transform.position = fireRay.GetPoint(envHitDist);
 
-				if (IsOwner)
+				var didHitPhys = Physics.Linecast(prevPos, transform.position, out var physHit,
+					Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+
+				if (didHitPhys)
 				{
-					var didHitEnv = travelDist > envHitDist;
+					HitRpc(physHit.point, physHit.normal);
 
-					if (didHitEnv)
-						transform.position = fireRay.GetPoint(envHitDist);
+					var col = physHit.collider;
 
-					var didHitPhys = Physics.Linecast(prevPos, transform.position, out var physHit,
-						Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
-
-					if (didHitPhys)
+					if (col.CompareTag(Networking.PlayerAvatar.Tag))
 					{
-						HitRpc(physHit.point, physHit.normal);
-
-						var col = physHit.collider;
-
-						if (col.CompareTag(Networking.PlayerAvatar.Tag))
-						{
-							var av = col.GetComponentInParent<Networking.PlayerAvatar>();
-							var damage = damageOverDistance.Evaluate(travelDist);
-							av.DamageRpc(damage, OwnerClientId);
-						}
+						var av = col.GetComponentInParent<Networking.PlayerAvatar>();
+						var damage = damageOverDistance.Evaluate(travelDist);
+						av.DamageRpc(damage, OwnerClientId);
 					}
-					else if (didHitEnv)
-					{
-						var envHitPoint = fireRay.GetPoint(envHitDist);
-						HitRpc(envHitPoint, -transform.forward);
-					}
+				}
+				else if (didHitEnv)
+				{
+					var envHitPoint = fireRay.GetPoint(envHitDist);
+					HitRpc(envHitPoint, -transform.forward);
 				}
 			}
 		}
 
-		[Rpc(SendTo.Everyone)]
+		[Rpc(SendTo.Everyone, InvokePermission = RpcInvokePermission.Owner)]
 		private void HitRpc(Vector3 pos, Vector3 norm)
 		{
 			transform.position = pos;
@@ -148,8 +147,13 @@ namespace Anaglyph.Lasertag
 			OnCollide.Invoke();
 			AudioPool.Play(collideSFX, transform.position);
 
+			// if(IsOwner)
+			// 	NetworkObject.Despawn();
+			
+			// commented out to make sure this wasn't the problem
+
 			if (IsOwner)
-				NetworkObject.Despawn(true);
+				DelayedDespawn();
 		}
 
 		private async void DelayedDespawn()
