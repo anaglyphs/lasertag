@@ -21,7 +21,7 @@ namespace Anaglyph.Lasertag
 			var camLocalPos = MainXRRig.TrackingSpace.InverseTransformPoint(camera.transform.position);
 			var camLocalPosFlat = new Vector3(camLocalPos.x, 0, camLocalPos.z);
 
-			if (camLocalPosFlat.magnitude == 0)
+			if (camLocalPosFlat.magnitude < 0.01f)
 				return;
 
 			var localRot = Quaternion.LookRotation(camLocalPosFlat, Vector3.up);

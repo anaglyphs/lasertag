@@ -12,7 +12,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public event Action Colocated = delegate { };
 
-		private readonly NetworkVariable<ulong> currentAnchorId = new();
+		private readonly NetworkVariable<ulong> currentAnchorId = new(ulong.MaxValue);
 		private ColocationAnchor _currentAnchor;
 		public ColocationAnchor CurrentAnchor => _currentAnchor;
 

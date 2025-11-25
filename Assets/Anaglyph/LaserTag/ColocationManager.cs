@@ -34,7 +34,9 @@ namespace Anaglyph.Lasertag
 			Instance = this;
 		}
 
-		protected override void OnNetworkSessionSynchronized()
+		protected override void OnNetworkPostSpawn()
+
+		//protected override void OnNetworkSessionSynchronized()
 		{
 			if (IsOwner) methodSync.Value = methodHostSetting;
 

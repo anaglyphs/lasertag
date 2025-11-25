@@ -94,7 +94,7 @@ namespace Anaglyph.Lasertag
 	public class MatchReferee : NetworkBehaviour
 	{
 		public static MatchReferee Instance { get; private set; }
-		private static readonly int[] _teamScores = new int[Teams.NumTeams];
+		private static int[] _teamScores = new int[Teams.NumTeams];
 
 		public static int GetTeamScore(byte team)
 		{
@@ -140,33 +140,10 @@ namespace Anaglyph.Lasertag
 
 		public override void OnNetworkSpawn()
 		{
-			NetworkManager.OnClientConnectedCallback += OnClientConnected;
-
 			if (IsOwner)
 			{
 				SyncStateRpc(MatchState.NotPlaying);
 				SyncSettingsRpc(MatchSettings.Lobby());
-			}
-		}
-
-		public override void OnNetworkDespawn()
-		{
-			NetworkManager.OnClientConnectedCallback -= OnClientConnected;
-		}
-
-		private void OnClientConnected(ulong id)
-		{
-			if (IsOwner && id != OwnerClientId)
-			{
-				var sendTo = RpcTarget.Single(id, RpcTargetUse.Temp);
-				SyncSettingsRpc(Settings, sendTo);
-				SyncStateRpc(State, sendTo);
-
-				if (State == MatchState.Playing)
-				{
-					var timeLeft = TimeMatchEnds - Time.time;
-					SyncOngoingMatchRpc(_teamScores, timeLeft, sendTo);
-				}
 			}
 		}
 
@@ -175,22 +152,24 @@ namespace Anaglyph.Lasertag
 		{
 			_settings = settings;
 		}
-
-		[Rpc(SendTo.SpecifiedInParams, InvokePermission = RpcInvokePermission.Owner)]
-		private void SyncOngoingMatchRpc(int[] scores, float timeLeft, RpcParams rpcParams)
+		
+		protected override void OnSynchronize<T>(ref BufferSerializer<T> serializer)
 		{
-			if (scores.Length != _teamScores.Length)
-				throw new ArgumentException($"Scores array must be of length {_teamScores.Length}");
+			serializer.SerializeValue(ref _teamScores);
+			serializer.SerializeValue(ref _settings);
+			serializer.SerializeValue(ref _state);
 
-			// override scores
-			for (byte i = 0; i < _teamScores.Length; i++)
+			float timeLeft = 0;
+			if (serializer.IsWriter)
 			{
-				_teamScores[i] += scores[i];
-				TeamScored.Invoke(i, scores[i]);
+				timeLeft = GetTimeLeft();
+				serializer.SerializeValue(ref timeLeft);
 			}
-
-			// override time
-			TimeMatchEnds = Time.time + timeLeft;
+			else
+			{
+				serializer.SerializeValue(ref timeLeft);
+				TimeMatchEnds = Time.time + timeLeft;
+			}
 		}
 
 		[Rpc(SendTo.Everyone)]
@@ -341,12 +320,7 @@ namespace Anaglyph.Lasertag
 
 		public float GetTimeLeft()
 		{
-			float seconds = Settings.timerSeconds;
-
-			if (State == MatchState.Playing)
-				seconds = TimeMatchEnds - Time.time;
-			
-			return seconds;
+			return Mathf.Max(0, TimeMatchEnds - Time.time);
 		}
 	}
 }

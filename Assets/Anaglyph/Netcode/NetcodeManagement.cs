@@ -227,6 +227,8 @@ namespace Anaglyph.Netcode
 			{
 
 			}
+			
+			manager.Shutdown();
 		}
 
 		public static bool ThisClientConnected(ConnectionEventData data)

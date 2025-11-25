@@ -61,13 +61,41 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			if (IsOwner)
 				tagSizeSync.Value = tagSizeCmHostSetting;
-
-			NetworkManager.OnClientConnectedCallback += OnClientConnected;
 		}
 
-		public override void OnNetworkDespawn()
+		protected override void OnSynchronize<T>(ref BufferSerializer<T> serializer)
 		{
-			NetworkManager.OnClientConnectedCallback -= OnClientConnected;
+			int count = 0;
+			int key = 0;
+			Pose value = default;
+			
+			if (serializer.IsWriter)
+			{
+				count = canonTags.Count;
+				serializer.SerializeValue(ref count);
+
+				foreach (var kvp in canonTags)
+				{
+					key = kvp.Key;
+					value = kvp.Value;
+					serializer.SerializeValue(ref key);
+					serializer.SerializeValue(ref value);
+				}
+			}
+			else
+			{
+				serializer.SerializeValue(ref count);
+
+				canonTags.EnsureCapacity(count);
+				canonTags.Clear();
+
+				for (int i = 0; i < count; i++)
+				{
+					serializer.SerializeValue(ref key);
+					serializer.SerializeValue(ref value);
+					canonTags[key] = value;
+				}
+			}
 		}
 
 		public async void StartColocation()
@@ -117,25 +145,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private void OnRecentered()
 		{
 			localTags.Clear();
-		}
-
-		private void OnClientConnected(ulong id)
-		{
-			var thisClient = id == NetworkManager.LocalClientId;
-			if (thisClient)
-				return;
-
-			if (IsOwner)
-			{
-				var keys = new int[canonTags.Count];
-				var values = new Pose[canonTags.Count];
-
-				canonTags.Keys.CopyTo(keys, 0);
-				canonTags.Values.CopyTo(values, 0);
-
-				var sendTo = RpcTarget.Single(id, RpcTargetUse.Temp);
-				SyncCanonTagsRpc(keys, values, sendTo);
-			}
 		}
 
 		[Rpc(SendTo.SpecifiedInParams)]
