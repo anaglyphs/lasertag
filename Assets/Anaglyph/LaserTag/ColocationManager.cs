@@ -34,12 +34,13 @@ namespace Anaglyph.Lasertag
 			Instance = this;
 		}
 
-		protected override void OnNetworkPostSpawn()
-
-		//protected override void OnNetworkSessionSynchronized()
+		public override void OnNetworkSpawn()
 		{
 			if (IsOwner) methodSync.Value = methodHostSetting;
+		}
 
+		protected override void OnNetworkSessionSynchronized()
+		{
 			switch (Method)
 			{
 				case ColocationMethod.MetaSharedAnchor:
@@ -54,6 +55,7 @@ namespace Anaglyph.Lasertag
 			SetActiveColocator(activeColocator);
 
 			if (!XRSettings.enabled) return;
+
 			activeColocator.StartColocation();
 		}
 

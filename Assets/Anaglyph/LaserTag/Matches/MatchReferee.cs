@@ -152,7 +152,7 @@ namespace Anaglyph.Lasertag
 		{
 			_settings = settings;
 		}
-		
+
 		protected override void OnSynchronize<T>(ref BufferSerializer<T> serializer)
 		{
 			serializer.SerializeValue(ref _teamScores);
@@ -170,6 +170,8 @@ namespace Anaglyph.Lasertag
 				serializer.SerializeValue(ref timeLeft);
 				TimeMatchEnds = Time.time + timeLeft;
 			}
+
+			SetStateLocally(_state);
 		}
 
 		[Rpc(SendTo.Everyone)]
@@ -245,7 +247,7 @@ namespace Anaglyph.Lasertag
 							while (State == MatchState.Playing)
 							{
 								await Awaitable.WaitForSecondsAsync(1, ctn);
-								
+
 								var timeLeft = GetTimeLeft();
 								UpdateTimerText(timeLeft);
 
@@ -256,7 +258,7 @@ namespace Anaglyph.Lasertag
 
 									break;
 								}
-								
+
 								ctn.ThrowIfCancellationRequested();
 							}
 
@@ -301,9 +303,9 @@ namespace Anaglyph.Lasertag
 
 		private void ResetScoresLocally()
 		{
-			if(NetworkManager.IsConnectedClient)
+			if (NetworkManager.IsConnectedClient)
 				PlayerAvatar.Local?.ResetScoreRpc();
-			
+
 			for (byte i = 0; i < Teams.NumTeams; i++)
 			{
 				_teamScores[i] = 0;
@@ -313,14 +315,29 @@ namespace Anaglyph.Lasertag
 
 		private void UpdateTimerText(float seconds)
 		{
-			int rounded = Mathf.RoundToInt(seconds);
-			TimeSpan span = TimeSpan.FromSeconds(rounded);
+			var rounded = Mathf.RoundToInt(seconds);
+			var span = TimeSpan.FromSeconds(rounded);
 			TimerTextChanged.Invoke(span.ToString(@"m\:ss"));
 		}
 
 		public float GetTimeLeft()
 		{
-			return Mathf.Max(0, TimeMatchEnds - Time.time);
+			float timeLeft;
+
+			switch (State)
+			{
+				case MatchState.NotPlaying:
+					timeLeft = 0;
+					break;
+				case MatchState.Playing:
+					timeLeft = timeLeft = Mathf.Max(0, TimeMatchEnds - Time.time);
+					break;
+				default:
+					timeLeft = Settings.timerSeconds;
+					break;
+			}
+
+			return timeLeft;
 		}
 	}
 }

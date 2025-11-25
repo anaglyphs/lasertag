@@ -19,12 +19,20 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private void OnEnable()
 		{
+			Application.focusChanged += OnFocusChange;
 			OVRManager.display.RecenteredPose += Align;
 		}
 
 		private void OnDisable()
 		{
+			Application.focusChanged -= OnFocusChange;
 			OVRManager.display.RecenteredPose -= Align;
+		}
+
+		private void OnFocusChange(bool b)
+		{
+			if (b)
+				Align();
 		}
 
 		public void SetTargetAndAlign(Matrix4x4 mat)
@@ -38,7 +46,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (!XRSettings.enabled) return;
 
 			await anchor.WhenLocalizedAsync();
-			
+			await Awaitable.EndOfFrameAsync();
+
 			var currentMat = transform.localToWorldMatrix;
 			MainXRRig.Instance.AlignSpace(currentMat, target);
 			Aligned.Invoke();

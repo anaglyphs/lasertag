@@ -36,39 +36,40 @@ namespace Anaglyph.Lasertag
 
 		public override void OnNetworkSpawn()
 		{
-			MatchReferee.StateChanged += OnMatchStateChanged;
-			NetworkManager.OnClientConnectedCallback += OnClientConnected;
-
 			MainPlayer.Died += OnDied;
+			MatchReferee.StateChanged += OnMatchStateChanged;
+		}
+
+		protected override void OnSynchronize<T>(ref BufferSerializer<T> serializer)
+		{
+			var id = ulong.MaxValue;
+			if (serializer.IsWriter)
+				id = FlagHolder.NetworkObjectId;
+
+			serializer.SerializeValue(ref id);
+
+			if (serializer.IsReader)
+			{
+				FlagHolder = null;
+				var netObjs = NetworkManager.SpawnManager.SpawnedObjects;
+				if (netObjs.TryGetValue(id, out var netObj))
+					FlagHolder = netObj.GetComponent<PlayerAvatar>();
+			}
 		}
 
 		public override void OnNetworkDespawn()
 		{
+			MainPlayer.Died -= OnDied;
+			MatchReferee.StateChanged -= OnMatchStateChanged;
+
 			if (FlagHolder == PlayerAvatar.Local)
 				DropRpc();
-
-			MatchReferee.StateChanged -= OnMatchStateChanged;
-			NetworkManager.OnClientConnectedCallback -= OnClientConnected;
-
-			MainPlayer.Died -= OnDied;
 		}
 
 		private void OnDied()
 		{
 			if (FlagHolder == PlayerAvatar.Local)
 				DropRpc();
-		}
-
-		private void OnClientConnected(ulong id)
-		{
-			if (id == NetworkManager.LocalClientId)
-				return;
-
-			if (FlagHolder)
-			{
-				var sendTo = RpcTarget.Single(id, RpcTargetUse.Temp);
-				TakeRpc(FlagHolder.OwnerClientId, sendTo);
-			}
 		}
 
 		public override void OnGainedOwnership()

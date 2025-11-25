@@ -147,13 +147,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			localTags.Clear();
 		}
 
-		[Rpc(SendTo.SpecifiedInParams)]
-		private void SyncCanonTagsRpc(int[] id, Pose[] poses, RpcParams rpcParams = default)
-		{
-			for (var i = 0; i < id.Length; i++)
-				canonTags[id[i]] = poses[i];
-		}
-
 		private async void OnDetectTags(IReadOnlyList<TagPose> results)
 		{
 			var space = MainXRRig.TrackingSpace;

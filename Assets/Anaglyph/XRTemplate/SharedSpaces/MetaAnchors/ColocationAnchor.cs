@@ -27,6 +27,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			targetPoseSync.OnValueChanged += delegate { SetTargetPose(); };
 			if (IsOwner)
 				targetPoseSync.Value = transform.GetWorldPose();
+
+			SetTargetPose();
 		}
 
 		private void SetTargetPose()

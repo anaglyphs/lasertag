@@ -26,17 +26,28 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				if (_currentAnchor && _currentAnchor.IsOwner)
 					_currentAnchor.NetworkObject.Despawn(true);
 
-				var objs = NetworkManager.SpawnManager.SpawnedObjects;
-				if (!objs.TryGetValue(currentAnchorId.Value, out var anchorNetObj)) return;
-
-				_currentAnchor = anchorNetObj.GetComponent<ColocationAnchor>();
-				_currentAnchor.WorldLocker.Aligned += OnAligned;
+				GetCurrentAnchor();
 			};
+		}
+
+		private void GetCurrentAnchor()
+		{
+			var objs = NetworkManager.SpawnManager.SpawnedObjects;
+			if (!objs.TryGetValue(currentAnchorId.Value, out var anchorNetObj)) return;
+
+			var anchor = anchorNetObj.GetComponent<ColocationAnchor>();
+			if (anchor != _currentAnchor)
+			{
+				_currentAnchor = anchor;
+				_currentAnchor.WorldLocker.Aligned += OnAligned;
+			}
 		}
 
 		public void StartColocation()
 		{
-			if (!CurrentAnchor) RealignEveryone();
+			GetCurrentAnchor();
+			if (!CurrentAnchor)
+				RealignEveryone();
 		}
 
 		public void RealignEveryone()
