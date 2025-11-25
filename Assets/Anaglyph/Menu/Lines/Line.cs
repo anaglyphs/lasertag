@@ -22,7 +22,7 @@ namespace Anaglyph.Menu
 
 		private Mesh mesh;
 		private CanvasRenderer cr;
-		private RectTransform rt;
+		// private RectTransform rt;
 
 		private bool initialized = false;
 
@@ -34,10 +34,11 @@ namespace Anaglyph.Menu
 		private void Init()
 		{
 			cr = GetComponent<CanvasRenderer>();
-			rt = GetComponent<RectTransform>();
+			// rt = GetComponent<RectTransform>();
 
 			cr.materialCount = 1;
 			cr.SetMaterial(Graphic.defaultGraphicMaterial, 0);
+			cr.SetTexture(null);
 
 			BuildMesh();
 			PositionVertices();

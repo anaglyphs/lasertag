@@ -82,6 +82,7 @@ namespace Anaglyph.LaserTag
 			cr.SetMesh(mesh);
 			cr.materialCount = 1;
 			cr.SetMaterial(Graphic.defaultGraphicMaterial, 0);
+			cr.SetTexture(null);
 		}
 	}
 }
