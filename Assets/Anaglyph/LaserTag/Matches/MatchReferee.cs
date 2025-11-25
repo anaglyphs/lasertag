@@ -116,42 +116,9 @@ namespace Anaglyph.Lasertag
 		private void Awake()
 		{
 			Instance = this;
-			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
-		}
-
-		public override void OnDestroy()
-		{
-			base.OnDestroy();
-			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
-		}
-
-		private void OnNetcodeStateChanged(NetcodeState netcodeState)
-		{
-			switch (netcodeState)
-			{
-				case NetcodeState.Disconnected:
-					_ = SetStateLocally(MatchState.NotPlaying);
-					ResetScoresLocally();
-					break;
-			}
 		}
 
 		public static event Action<byte, int> TeamScored = delegate { };
-
-		public override void OnNetworkSpawn()
-		{
-			if (IsOwner)
-			{
-				SyncStateRpc(MatchState.NotPlaying);
-				SyncSettingsRpc(MatchSettings.Lobby());
-			}
-		}
-
-		[Rpc(SendTo.Everyone, AllowTargetOverride = true, InvokePermission = RpcInvokePermission.Owner)]
-		private void SyncSettingsRpc(MatchSettings settings, RpcParams rpcParams = default)
-		{
-			_settings = settings;
-		}
 
 		protected override void OnSynchronize<T>(ref BufferSerializer<T> serializer)
 		{
@@ -170,8 +137,29 @@ namespace Anaglyph.Lasertag
 				serializer.SerializeValue(ref timeLeft);
 				TimeMatchEnds = Time.time + timeLeft;
 			}
+		}
 
-			SetStateLocally(_state);
+		public override void OnNetworkSpawn()
+		{
+			if (IsOwner)
+			{
+				SyncStateRpc(MatchState.NotPlaying);
+				SyncSettingsRpc(MatchSettings.Lobby());
+			}
+
+			_ = SetStateLocally(_state);
+		}
+
+		public override void OnNetworkDespawn()
+		{
+			_ = SetStateLocally(MatchState.NotPlaying);
+			ResetScoresLocally();
+		}
+
+		[Rpc(SendTo.Everyone, AllowTargetOverride = true, InvokePermission = RpcInvokePermission.Owner)]
+		private void SyncSettingsRpc(MatchSettings settings, RpcParams rpcParams = default)
+		{
+			_settings = settings;
 		}
 
 		[Rpc(SendTo.Everyone)]
