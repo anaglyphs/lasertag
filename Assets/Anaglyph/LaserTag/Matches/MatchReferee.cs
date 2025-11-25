@@ -104,6 +104,7 @@ namespace Anaglyph.Lasertag
 		private CancellationTokenSource cancelSrc;
 
 		private static MatchState _state = MatchState.NotPlaying;
+		private MatchState _synchronizedState = _state;
 		public static MatchState State => _state;
 		public static event Action<MatchState> StateChanged = delegate { };
 		public static event Action MatchFinished = delegate { };
@@ -119,47 +120,29 @@ namespace Anaglyph.Lasertag
 		}
 
 		public static event Action<byte, int> TeamScored = delegate { };
-
+		
 		protected override void OnSynchronize<T>(ref BufferSerializer<T> serializer)
 		{
 			serializer.SerializeValue(ref _teamScores);
 			serializer.SerializeValue(ref _settings);
-			serializer.SerializeValue(ref _state);
-
-			float timeLeft = 0;
-			if (serializer.IsWriter)
-			{
-				timeLeft = GetTimeLeft();
-				serializer.SerializeValue(ref timeLeft);
-			}
-			else
-			{
-				serializer.SerializeValue(ref timeLeft);
-				TimeMatchEnds = Time.time + timeLeft;
-			}
+			
+			_synchronizedState = _state;
+			serializer.SerializeValue(ref _synchronizedState);
+			
+			var timeLeft = GetTimeLeft();
+			serializer.SerializeValue(ref timeLeft);
+			TimeMatchEnds = Time.time + timeLeft;
 		}
 
 		public override void OnNetworkSpawn()
 		{
-			if (IsOwner)
-			{
-				SyncStateRpc(MatchState.NotPlaying);
-				SyncSettingsRpc(MatchSettings.Lobby());
-			}
-
-			_ = SetStateLocally(_state);
+			_ = SetStateLocally(_synchronizedState);
 		}
 
 		public override void OnNetworkDespawn()
 		{
 			_ = SetStateLocally(MatchState.NotPlaying);
 			ResetScoresLocally();
-		}
-
-		[Rpc(SendTo.Everyone, AllowTargetOverride = true, InvokePermission = RpcInvokePermission.Owner)]
-		private void SyncSettingsRpc(MatchSettings settings, RpcParams rpcParams = default)
-		{
-			_settings = settings;
 		}
 
 		[Rpc(SendTo.Everyone)]

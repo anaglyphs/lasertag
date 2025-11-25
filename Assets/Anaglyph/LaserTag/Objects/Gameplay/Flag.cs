@@ -43,17 +43,19 @@ namespace Anaglyph.Lasertag
 		protected override void OnSynchronize<T>(ref BufferSerializer<T> serializer)
 		{
 			var id = ulong.MaxValue;
-			if (serializer.IsWriter)
+			if (FlagHolder)
 				id = FlagHolder.NetworkObjectId;
 
 			serializer.SerializeValue(ref id);
 
 			if (serializer.IsReader)
 			{
-				FlagHolder = null;
+				PlayerAvatar holder = null;
 				var netObjs = NetworkManager.SpawnManager.SpawnedObjects;
 				if (netObjs.TryGetValue(id, out var netObj))
-					FlagHolder = netObj.GetComponent<PlayerAvatar>();
+					holder = netObj.GetComponent<PlayerAvatar>();
+
+				FlagHolder = holder;
 			}
 		}
 
