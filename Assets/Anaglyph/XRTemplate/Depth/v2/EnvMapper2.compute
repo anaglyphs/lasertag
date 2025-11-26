@@ -1,17 +1,50 @@
-#include "EnvMapper2.cs.hlsl"
+#define BUCKET_LENGTH 4
+#define NUM_BUCKETS 1024
+#define BLOCK_LENGTH 8
+#define VOXEL_SIZE 0.1
+
+struct BlockEntry
+{
+    int3 pos_bs;
+    uint block_index;
+};
 
 Texture2D<float> depth_frame;
-
-int table[];
-RWStructuredBuffer<Block> blocks;
-int num_blocks;
+BlockEntry table[NUM_BUCKETS * BUCKET_LENGTH];
+int num_buckets;
+RWStructuredBuffer<float> blocks;
+uint block_count;
 
 #define PRIMES int3(73856093, 19349669, 83492791)
 
 int hash(const float3 pos_ws)
 {
     const int3 p = pos_ws * PRIMES;
-    return (p.x ^ p.y ^ p.z) % num_blocks;
+    return (p.x ^ p.y ^ p.z) % NUM_BUCKETS;
+}
+
+bool tryGetBlock(const float3 pos_ws, out BlockEntry block)
+{
+    int bucket_index = hash(pos_ws);
+    int table_index = bucket_index * BUCKET_LENGTH;
+    int3 pos_bs = pos_ws / (BLOCK_LENGTH * VOXEL_SIZE);
+
+    for (int i = 0; i < BLOCK_LENGTH; i++)
+    {
+        BlockEntry potential_match = table[table_index + i];
+        if (potential_match.pos_bs == pos_bs)
+        {
+            block = potential_match;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void writeBlock(const BlockEntry block)
+{
+    
 }
 
 #pragma kernel integrate

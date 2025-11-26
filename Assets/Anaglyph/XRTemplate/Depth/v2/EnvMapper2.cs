@@ -15,20 +15,18 @@ namespace Anaglyph.DepthKit
 		private ComputeBuffer blocks;
 
 		[GenerateHLSL(PackingRules.Exact, false)]
-		public struct Block
+		public struct BlockEntry
 		{
-			public int3 pos_ws; // 24
-			public uint offset; //  8
-			public uint ptr; //  8
-			public uint3 padding; // 24
-			public const int Size = 32;
+			public int3 pos_bs; // 24
+			public uint block_index; //  8
+			public const int ByteSize = 32;
 		}
 
 		private void Awake()
 		{
 			Instance = this;
 
-			blocks = new ComputeBuffer(512, Block.Size);
+			blocks = new ComputeBuffer(1024 * 1024, sizeof(float));
 
 			Integrate.Set("blocks", blocks);
 		}
@@ -50,10 +48,10 @@ namespace Anaglyph.DepthKit
 			if (result.hasError)
 				return;
 
-			var data = result.GetData<Block>();
+			var data = result.GetData<BlockEntry>();
 			var oldCount = blocks.count;
 			blocks.Dispose();
-			blocks = new ComputeBuffer(oldCount * 2, Block.Size);
+			blocks = new ComputeBuffer(oldCount * 2, BlockEntry.ByteSize);
 			blocks.SetData(data);
 
 			Integrate.Set("blocks", blocks);
