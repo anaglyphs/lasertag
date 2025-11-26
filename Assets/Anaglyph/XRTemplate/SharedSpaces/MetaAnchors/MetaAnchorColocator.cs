@@ -12,43 +12,38 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public event Action Colocated = delegate { };
 
-		private readonly NetworkVariable<ulong> currentAnchorId = new(ulong.MaxValue);
+		ulong anchorIdSync = ulong.MaxValue;
 		private ColocationAnchor _currentAnchor;
 		public ColocationAnchor CurrentAnchor => _currentAnchor;
 
 		private void Awake()
 		{
 			Instance = this;
-
-			currentAnchorId.OnValueChanged += delegate
-			{
-				// ensure there is only one anchor
-				if (_currentAnchor && _currentAnchor.IsOwner)
-					_currentAnchor.NetworkObject.Despawn(true);
-
-				GetCurrentAnchor();
-			};
 		}
 
-		private void GetCurrentAnchor()
+		protected override void OnSynchronize<T>(ref BufferSerializer<T> serializer)
+		{
+			serializer.SerializeValue(ref anchorIdSync);
+		}
+
+		public void StartColocation()
+		{
+			UpdateCurrentAnchor();
+			if (!CurrentAnchor)
+				RealignEveryone();
+		}
+		
+		private void UpdateCurrentAnchor()
 		{
 			var objs = NetworkManager.SpawnManager.SpawnedObjects;
-			if (!objs.TryGetValue(currentAnchorId.Value, out var anchorNetObj)) return;
+			if (!objs.TryGetValue(anchorIdSync, out var anchorNetObj)) return;
 
 			var anchor = anchorNetObj.GetComponent<ColocationAnchor>();
 			if (anchor != _currentAnchor)
 			{
 				_currentAnchor = anchor;
 				_currentAnchor.WorldLocker.Aligned += OnAligned;
-				_currentAnchor.WorldLocker.Align();
 			}
-		}
-
-		public void StartColocation()
-		{
-			GetCurrentAnchor();
-			if (!CurrentAnchor)
-				RealignEveryone();
 		}
 
 		public void RealignEveryone()
@@ -57,13 +52,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (localId != OwnerClientId)
 				NetworkObject.ChangeOwnership(NetworkManager.LocalClientId);
 
-			SpawnNewCurrentAnchor();
-		}
-
-		private void SpawnNewCurrentAnchor()
-		{
 			if (!IsOwner)
-				throw new Exception("Only the owner can spawn a new anchor!");
+				throw new Exception("Not owner! Can't spawn new anchor");
 
 			// spawn anchor
 			var head = MainXRRig.Camera.transform;
@@ -79,8 +69,20 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			var g = Instantiate(anchorPrefab.gameObject, spawnPos, spawnRot);
 			g.TryGetComponent(out NetworkObject netObj);
 			netObj.Spawn();
+			
+			anchorIdSync = netObj.NetworkObjectId;
+			SpawnedNewAnchorRpc(anchorIdSync);
+		}
 
-			currentAnchorId.Value = netObj.NetworkObjectId;
+		[Rpc(SendTo.Everyone)]
+		private void SpawnedNewAnchorRpc(ulong id)
+		{
+			if (_currentAnchor && _currentAnchor.IsOwner)
+				_currentAnchor.NetworkObject.Despawn(true);
+			
+			anchorIdSync = id;
+
+			UpdateCurrentAnchor();
 		}
 
 		private void OnAligned()
