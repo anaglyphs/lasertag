@@ -40,6 +40,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			{
 				_currentAnchor = anchor;
 				_currentAnchor.WorldLocker.Aligned += OnAligned;
+				_currentAnchor.WorldLocker.Align();
 			}
 		}
 

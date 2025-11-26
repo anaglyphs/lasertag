@@ -39,7 +39,7 @@ namespace Anaglyph.Lasertag
 			if (IsOwner) methodSync.Value = methodHostSetting;
 		}
 
-		protected override void OnNetworkSessionSynchronized()
+		protected override void OnNetworkPostSpawn()
 		{
 			switch (Method)
 			{

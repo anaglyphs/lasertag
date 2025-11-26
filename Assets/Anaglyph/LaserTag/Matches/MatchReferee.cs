@@ -2,7 +2,6 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Anaglyph.Lasertag.Networking;
-using Anaglyph.Netcode;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -104,7 +103,6 @@ namespace Anaglyph.Lasertag
 		private CancellationTokenSource cancelSrc;
 
 		private static MatchState _state = MatchState.NotPlaying;
-		private MatchState _synchronizedState = _state;
 		public static MatchState State => _state;
 		public static event Action<MatchState> StateChanged = delegate { };
 		public static event Action MatchFinished = delegate { };
@@ -120,23 +118,20 @@ namespace Anaglyph.Lasertag
 		}
 
 		public static event Action<byte, int> TeamScored = delegate { };
-		
+
+		// TODO: time is wrong, scores are wrong
 		protected override void OnSynchronize<T>(ref BufferSerializer<T> serializer)
 		{
 			serializer.SerializeValue(ref _teamScores);
 			serializer.SerializeValue(ref _settings);
-			
-			_synchronizedState = _state;
+
+			var _synchronizedState = _state;
 			serializer.SerializeValue(ref _synchronizedState);
-			
+			SetStateLocally(_synchronizedState);
+
 			var timeLeft = GetTimeLeft();
 			serializer.SerializeValue(ref timeLeft);
 			TimeMatchEnds = Time.time + timeLeft;
-		}
-
-		public override void OnNetworkSpawn()
-		{
-			_ = SetStateLocally(_synchronizedState);
 		}
 
 		public override void OnNetworkDespawn()
