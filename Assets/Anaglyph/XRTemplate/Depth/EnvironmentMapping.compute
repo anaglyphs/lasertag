@@ -9,7 +9,7 @@ SamplerState linearClampSampler;
 int numPlayers;
 float3 playerHeadsWorld[512];
 
-#define PLAYER_TOP 0.2 
+#define PLAYER_TOP 0.2
 #define PLAYER_BOTTOM 1.7
 #define PLAYER_RADIUS 0.5
 #define MIN_DOT 0.3
@@ -20,7 +20,7 @@ float3 voxelToWorld(uint3 indices)
 	pos += 0.5f;
 	pos -= volumeSize / 2.0f;
 	pos *= metersPerVoxel;
-	
+
 	return pos;
 }
 
@@ -28,19 +28,19 @@ uint3 worldToVoxel(float3 pos)
 {
 	pos /= metersPerVoxel;
 	pos += volumeSize / 2.0f;
-	
+
 	uint3 id = uint3(pos);
 	id = clamp(id, 0, volumeSize);
 	return id;
 }
 
 float3 worldToVoxelUVW(float3 pos)
-{	
+{
 	pos /= metersPerVoxel;
 	pos += volumeSize / 2.0f;
 	pos -= 0.5f;
 	pos /= volumeSize;
-	
+
 	return saturate(pos);
 }
 
@@ -49,59 +49,59 @@ float3 worldToVoxelUVW(float3 pos)
 [numthreads(4, 4, 4)]
 void Clear(uint3 id : SV_DispatchThreadID)
 {
-	volume[id] = 1; 
+	volume[id] = 1;
 }
 
 
 #pragma kernel Integrate
- 
+
 [numthreads(64, 1, 1)]
-void Integrate (uint i : SV_DispatchThreadID)
-{	
+void Integrate(uint i : SV_DispatchThreadID)
+{
 	float3 vLocalPos = frustumVolume[i];
 	float3 vWorldPos = mul(agDepthViewInv[0], float4(vLocalPos, 1)).xyz;
 	uint3 id = worldToVoxel(vWorldPos);
-	
+
 	float3 eyePos = agDepthEyePos();
 	float3 voxPos = voxelToWorld(id);
-	
+
 	float4 voxHCS = agDepthWorldToHCS(voxPos);
 	float3 voxNDC = agDepthHCStoNDC(voxHCS);
-	
+
 	float depth = agDepthSample(voxNDC.xy);
-	
+
 	float3 depthNDC = float3(voxNDC.xy, depth);
 	float3 depthPos = agDepthNDCtoWorld(depthNDC);
-	
+
 	float voxEyeDist = distance(voxPos, eyePos);
 	float depthEyeDist = distance(depthPos, eyePos);
-	
+
 	float3 eyeToVox = voxPos - eyePos;
 	float3 depthNorm = agDepthNormalSample(voxNDC.xy);
-	
+
 	float sDist = depthEyeDist - voxEyeDist;
 	float normDot = -dot(normalize(eyeToVox), depthNorm);
 	sDist *= saturate(normDot);
-	
+
 	half sDistNorm = sDist / metersPerVoxel;
 	sDistNorm = min(sDistNorm, 1);
-	
+
 	bool inPlayer = false;
-	
+
 	for (int i = 0; i < numPlayers; i++)
 	{
 		float3 playerPos = playerHeadsWorld[i];
-		
-		if (distance(vWorldPos.xz, playerPos.xz) < PLAYER_RADIUS && 
+
+		if (distance(vWorldPos.xz, playerPos.xz) < PLAYER_RADIUS &&
 			vWorldPos.y < playerPos.y + PLAYER_TOP &&
 			vWorldPos.y > playerPos.y - PLAYER_BOTTOM)
 		{
 			inPlayer = true;
 		}
 	}
-	
+
 	if (sDistNorm > -1 && !inPlayer && normDot > MIN_DOT)
-		volume[id] = sDistNorm;
+		volume[id.xyz] = sDistNorm;
 }
 
 /// Raymarch
@@ -130,30 +130,30 @@ half raymarchSample(float3 worldPos)
 void Raymarch(uint3 id : SV_DispatchThreadID)
 {
 	float result = -1;
-	
-	if(id.x >= numRaymarchRequests)
+
+	if (id.x >= numRaymarchRequests)
 		return;
-	
+
 	const float3 origin = raymarchRequests[id.x].origin;
 	const float3 direction = normalize(raymarchRequests[id.x].direction);
 	float maxDist = raymarchRequests[id.x].maxDistance;
-	
+
 	const uint maxSteps = maxDist / metersPerVoxel;
-	
+
 	float dist = 0;
-	
+
 	for (uint i = 0; i < maxSteps; i++)
 	{
 		float3 pos = origin + direction * dist;
 		float val = raymarchSample(pos);
 		dist += val;
-		
+
 		if (abs(val) < 0.01)
 		{
 			result = dist;
 			break;
 		}
 	}
-	
+
 	raymarchResults[id.x] = result;
 }

@@ -1,56 +1,170 @@
-#define BUCKET_LENGTH 4
-#define NUM_BUCKETS 1024
-#define BLOCK_LENGTH 8
-#define VOXEL_SIZE 0.1
+#include "../../Depth/DepthKit.hlsl"
 
-struct BlockEntry
+#define BUCKET_LENGTH 4
+#define CHUNK_SIDE 4
+#define VOXEL_SIZE 0.1
+#define MIN_DOT 0.3
+
+#define UNSET_STATE 0
+#define WRITING_STATE 2
+#define SET_STATE 1
+
+struct Chunk
 {
-    int3 pos_bs;
-    uint block_index;
+	int3 coords;
+	uint voxBufIndex;
+	uint state;
 };
 
-Texture2D<float> depth_frame;
-BlockEntry table[NUM_BUCKETS * BUCKET_LENGTH];
-int num_buckets;
-RWStructuredBuffer<float> blocks;
-uint block_count;
-
-#define PRIMES int3(73856093, 19349669, 83492791)
-
-int hash(const float3 pos_ws)
+int3 worldToChunkCoord(const float3 pos_ws)
 {
-    const int3 p = pos_ws * PRIMES;
-    return (p.x ^ p.y ^ p.z) % NUM_BUCKETS;
+	return int3(pos_ws / (CHUNK_SIDE * VOXEL_SIZE));
 }
 
-bool tryGetBlock(const float3 pos_ws, out BlockEntry block)
+float3 chunkToWorldPos(const Chunk chunk)
 {
-    int bucket_index = hash(pos_ws);
-    int table_index = bucket_index * BUCKET_LENGTH;
-    int3 pos_bs = pos_ws / (BLOCK_LENGTH * VOXEL_SIZE);
-
-    for (int i = 0; i < BLOCK_LENGTH; i++)
-    {
-        BlockEntry potential_match = table[table_index + i];
-        if (potential_match.pos_bs == pos_bs)
-        {
-            block = potential_match;
-            return true;
-        }
-    }
-
-    return false;
+	int3 pos = chunk.coords;
+	return float3(pos * CHUNK_SIDE * VOXEL_SIZE);
 }
 
-void writeBlock(const BlockEntry block)
+float3 getVoxelWorldPos(const Chunk chunk, const uint i)
 {
-    
+	float3 pos = chunkToWorldPos(chunk);
+
+	uint3 v;
+	uint s = CHUNK_SIDE;
+	v.x = i % s;
+	v.y = (i / s) % s;
+	v.z = i / (s * s);
+
+	float3 offs = v * VOXEL_SIZE;
+	return pos + offs;
 }
 
+RWStructuredBuffer<Chunk> table;
+uint bucketCount;
+// table length should be bucketCount * BUCKET_LENGTH
+
+RWStructuredBuffer<float> voxelBuffer;
+RWStructuredBuffer<uint> voxelChunkCount;
+// voxelBuffer length should be voxelChunkCount * CHUNK_SIDE * CHUNK_SIDE * CHUNK_SIDE
+
+StructuredBuffer<int3> visibleChunkCoords;
+RWStructuredBuffer<Chunk> visibleChunks;
+uint numVisibleChunks;
+
+uint hash(const int3 pos_ws)
+{
+	uint ux = asuint(pos_ws.x) * 73856093u;
+	uint uy = asuint(pos_ws.y) * 19349669u;
+	uint uz = asuint(pos_ws.z) * 83492791u; // or cast components appropriately
+	uint h = (ux ^ uy ^ uz) % bucketCount;
+	return h * BUCKET_LENGTH;
+}
+
+bool tryGetChunk(const int3 chunk_coords, out Chunk chunk)
+{
+	uint h = hash(chunk_coords);
+	for (int i = h; i < h + BUCKET_LENGTH; i++)
+	{
+		if (table[i].state == SET_STATE && table[i].coords == chunk_coords)
+		{
+			chunk = table[i];
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool tryInsertNewChunk(const int3 chunkCoords, out Chunk chunk)
+{
+	uint h = hash(chunkCoords);
+
+	for (uint i = h; i < h + BUCKET_LENGTH; i++)
+	{
+		uint originalState;
+		InterlockedCompareExchange(table[i].state, UNSET_STATE, WRITING_STATE, originalState);
+		if (originalState != UNSET_STATE)
+			continue;
+
+		table[i].coords = chunkCoords;
+
+		uint index;
+		InterlockedAdd(voxelChunkCount[0], 1u, index);
+		table[i].voxBufIndex = index * (CHUNK_SIDE * CHUNK_SIDE * CHUNK_SIDE);
+
+		AllMemoryBarrier();
+		table[i].state = SET_STATE;
+
+		chunk = table[i];
+
+		return true;
+	}
+
+	return false;
+}
+
+
+// thread per chunk
+// call before integrate
+#pragma kernel prepare
+[numthreads(64, 1, 1)]
+void prepare(uint id :SV_DispatchThreadID)
+{
+	if (id >= numVisibleChunks)
+		return;
+
+	int3 chunkCoords = visibleChunkCoords[id];
+	Chunk chunk;
+	bool found = tryGetChunk(chunkCoords, chunk);
+	if (!found)
+	{
+		tryInsertNewChunk(chunkCoords, chunk);
+	}
+
+	visibleChunks[id] = chunk;
+}
+
+// TODO: mark chunks with no surfaces as empty
+
+// front per chunk, thread per voxel
 #pragma kernel integrate
-
-[numthreads(8,8,1)]
-void integrate (uint3 id : SV_DispatchThreadID)
+[numthreads(64,1,1)]
+void integrate(uint thread : SV_DispatchThreadID)
 {
-    
+	uint chunkIndex = thread / 64;
+	uint voxIndex = thread % 64;
+	Chunk chunk = visibleChunks[chunkIndex];
+
+	if (chunk.state != SET_STATE)
+		return;
+
+	float3 eyePos = agDepthEyePos();
+	float3 voxPos = getVoxelWorldPos(chunk, voxIndex);
+	float4 voxHCS = agDepthWorldToHCS(voxPos);
+	float3 voxNDC = agDepthHCStoNDC(voxHCS);
+
+	float depth = agDepthSample(voxNDC.xy);
+
+	float3 depthNDC = float3(voxNDC.xy, depth);
+	float3 depthPos = agDepthNDCtoWorld(depthNDC);
+
+	float voxEyeDist = distance(voxPos, eyePos);
+	float depthEyeDist = distance(depthPos, eyePos);
+
+	float3 eyeToVox = voxPos - eyePos;
+	float3 depthNorm = agDepthNormalSample(voxNDC.xy);
+
+	float sDist = depthEyeDist - voxEyeDist;
+	float normDot = -dot(normalize(eyeToVox), depthNorm);
+	sDist *= saturate(normDot);
+
+	half sDistNorm = sDist / VOXEL_SIZE;
+	sDistNorm = min(sDistNorm, 1);
+
+	uint bufferIndex = chunk.voxBufIndex + voxIndex;
+
+	if (sDistNorm > -1 && normDot > MIN_DOT)
+		voxelBuffer[bufferIndex] = sDistNorm;
 }
