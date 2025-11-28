@@ -119,15 +119,16 @@ namespace Anaglyph.Lasertag
 
 		public static event Action<byte, int> TeamScored = delegate { };
 
-		// TODO: time is wrong, scores are wrong
+		// TODO: score sync not working
 		protected override void OnSynchronize<T>(ref BufferSerializer<T> serializer)
 		{
-			serializer.SerializeValue(ref _teamScores);
 			serializer.SerializeValue(ref _settings);
 
 			var _synchronizedState = _state;
 			serializer.SerializeValue(ref _synchronizedState);
 			SetStateLocally(_synchronizedState);
+
+			serializer.SerializeValue(ref _teamScores);
 
 			var timeLeft = GetTimeLeft();
 			serializer.SerializeValue(ref timeLeft);
@@ -201,14 +202,11 @@ namespace Anaglyph.Lasertag
 						ctn.ThrowIfCancellationRequested();
 
 						if (IsOwner)
-							SyncStateRpc(MatchState.Playing);
+							StartMatchRpc();
 
 						break;
 
 					case MatchState.Playing:
-						ResetScoresLocally();
-						TimeMatchEnds = Time.time + Settings.timerSeconds;
-
 						if (Settings.CheckWinByTimer())
 							while (State == MatchState.Playing)
 							{
@@ -220,7 +218,7 @@ namespace Anaglyph.Lasertag
 								if (timeLeft <= 0)
 								{
 									if (IsOwner)
-										FinishMatchEveryoneRpc();
+										EndMatchRpc();
 
 									break;
 								}
@@ -250,20 +248,24 @@ namespace Anaglyph.Lasertag
 				var canWinByScore = Settings.CheckWinByScore();
 				var isWinningScore = GetTeamScore(team) >= Settings.scoreTarget;
 
-				if (canWinByScore && isWinningScore) FinishMatchEveryoneRpc();
+				if (canWinByScore && isWinningScore) EndMatchRpc();
 			}
+		}
+
+		[Rpc(SendTo.Everyone)]
+		public void StartMatchRpc()
+		{
+			ResetScoresLocally();
+			TimeMatchEnds = Time.time + Settings.timerSeconds;
+
+			_ = SetStateLocally(MatchState.Playing);
 		}
 
 		[Rpc(SendTo.Everyone)]
 		public void EndMatchRpc()
 		{
-			_ = SetStateLocally(MatchState.NotPlaying);
-		}
-
-		[Rpc(SendTo.Everyone, InvokePermission = RpcInvokePermission.Owner)]
-		private void FinishMatchEveryoneRpc()
-		{
 			MatchFinished.Invoke();
+
 			_ = SetStateLocally(MatchState.NotPlaying);
 		}
 
