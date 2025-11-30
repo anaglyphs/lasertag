@@ -1,5 +1,6 @@
 using System;
 using Anaglyph.XRTemplate;
+using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -31,9 +32,20 @@ namespace Anaglyph.DepthKit
 			if (busy) return;
 			busy = true;
 			AsyncGPUReadbackRequest req = await AsyncGPUReadback.RequestAsync(mapper.Volume);
-			marcher.data = req.GetData<float>().ToArray();
-			marcher.TriangulateVoxelRange(new uint3(0, 0, 0), new uint3(50, 50, 50), mesh);
-			meshFilter.sharedMesh = mesh;
+
+			sbyte[] full = new sbyte[req.width * req.height * req.depth];
+			int sliceSize = req.width * req.height;
+
+			for (int z = 0; z < req.depth; z++)
+			{
+				NativeArray<sbyte> slice = req.GetData<sbyte>(z);
+
+				slice.ToArray().CopyTo(full, z * sliceSize);
+			}
+
+			marcher.data = full;
+			marcher.TriangulateVoxelRange(new uint3(0, 0, 0), new uint3(64, 64, 64), mesh);
+			meshFilter.mesh = mesh;
 			busy = false;
 		}
 
