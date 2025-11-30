@@ -94,7 +94,6 @@ bool tryInsertNewChunk(const int3 chunkCoords, out Chunk chunk)
 		InterlockedAdd(voxelChunkCount[0], 1u, index);
 		table[i].voxBufIndex = index * (CHUNK_SIDE * CHUNK_SIDE * CHUNK_SIDE);
 
-		AllMemoryBarrier();
 		table[i].state = SET_STATE;
 
 		chunk = table[i];
