@@ -20,33 +20,33 @@ namespace Anaglyph.DepthKit
 			marcher.metersPerVoxel = mapper.MetersPerVoxel;
 			marcher.voxelCount = (uint3)new int3(mapper.vWidth, mapper.vHeight, mapper.vDepth);
 
-			mapper.Integrated += OnIntegrate;
-
 			mesh = new Mesh();
+
+			IntegrateLoop();
 		}
 
-		private bool busy = false;
-
-		private async void OnIntegrate()
+		private async void IntegrateLoop()
 		{
-			if (busy) return;
-			busy = true;
-			AsyncGPUReadbackRequest req = await AsyncGPUReadback.RequestAsync(mapper.Volume);
-
-			sbyte[] full = new sbyte[req.width * req.height * req.depth];
-			int sliceSize = req.width * req.height;
-
-			for (int z = 0; z < req.depth; z++)
+			while (enabled)
 			{
-				NativeArray<sbyte> slice = req.GetData<sbyte>(z);
+				await Awaitable.WaitForSecondsAsync(1);
+				
+				AsyncGPUReadbackRequest req = await AsyncGPUReadback.RequestAsync(mapper.Volume);
 
-				slice.ToArray().CopyTo(full, z * sliceSize);
+				sbyte[] full = new sbyte[req.width * req.height * req.depth];
+				int sliceSize = req.width * req.height;
+
+				for (int z = 0; z < req.layerCount; z++)
+				{
+					NativeArray<sbyte> slice = req.GetData<sbyte>(z);
+
+					slice.ToArray().CopyTo(full, z * sliceSize);
+				}
+
+				marcher.data = full;
+				marcher.TriangulateVoxelRange(new uint3(0, 0, 0), new uint3(64, 64, 64), mesh);
+				meshFilter.mesh = mesh;
 			}
-
-			marcher.data = full;
-			marcher.TriangulateVoxelRange(new uint3(0, 0, 0), new uint3(64, 64, 64), mesh);
-			meshFilter.mesh = mesh;
-			busy = false;
 		}
 
 		private void OnDestroy()
