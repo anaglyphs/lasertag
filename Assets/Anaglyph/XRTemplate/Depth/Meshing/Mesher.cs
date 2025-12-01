@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Unity.Burst;
@@ -10,7 +11,7 @@ using UnityEngine.Rendering;
 
 namespace Anaglyph.DepthKit
 {
-	public class Mesher
+	public static class Mesher
 	{
 
 		private static readonly byte[] EdgeCornerA = {
@@ -42,7 +43,8 @@ namespace Anaglyph.DepthKit
 		private static readonly int3 Y = new(0, 1, 0);
 		private static readonly int3 Z = new(0, 0, 1);
 
-		public async Task CreateMesh(NativeArray<sbyte> volume, int3 volumeSize, float metersPerVoxel, Mesh mesh)
+		// todo: cancellation
+		public static async Task CreateMesh(NativeArray<sbyte> volume, int3 volumeSize, float metersPerVoxel, Mesh mesh)
 		{
 			int vertCountEstimate = volume.Length / 10;
 			NativeList<float3> verts = new(vertCountEstimate, Allocator.TempJob);
@@ -53,37 +55,44 @@ namespace Anaglyph.DepthKit
 			int triCountEstimate = vertCountEstimate * 6;
 			NativeList<uint> tris = new(triCountEstimate, Allocator.TempJob);
 
-			VertexJob vertexMaker = new()
+			try
 			{
-				Volume = volume,
-				VolumeSize = volumeSize,
-				MetersPerVoxel = metersPerVoxel,
-				
-				VertexIndices = vertexIndices,
-				Verts = verts.AsParallelWriter(),
-				VertCoords = vertCoords.AsParallelWriter(),
-			};
+				VertexJob vertexMaker = new()
+				{
+					Volume = volume,
+					VolumeSize = volumeSize,
+					MetersPerVoxel = metersPerVoxel,
 
-			JobHandle vertHandle = vertexMaker.ScheduleParallelByRef(volume.Length, 1, default);
-			while (!vertHandle.IsCompleted) await Awaitable.NextFrameAsync();
-			vertHandle.Complete();
-			
-			IndexJob triMaker = new()
+					VertexIndices = vertexIndices,
+					Verts = verts.AsParallelWriter(),
+					VertCoords = vertCoords.AsParallelWriter(),
+				};
+
+				JobHandle vertHandle = vertexMaker.ScheduleParallelByRef(volume.Length, 128, default);
+				while (!vertHandle.IsCompleted) await Awaitable.NextFrameAsync();
+				vertHandle.Complete();
+
+				IndexJob triMaker = new()
+				{
+					VertCoords = vertCoords.AsArray(),
+					VertIndices = vertexIndices,
+
+					Volume = volume,
+					VolumeSize = volumeSize,
+
+					Tris = tris.AsParallelWriter(),
+				};
+
+				JobHandle triHandle = triMaker.ScheduleParallelByRef(vertCoords.Length, 256, vertHandle);
+				while (!triHandle.IsCompleted) await Awaitable.NextFrameAsync();
+				triHandle.Complete();
+
+				ApplyToMesh(verts, tris, mesh);
+			}
+			catch (Exception e)
 			{
-				VertCoords = vertCoords.AsArray(),
-				VertIndices = vertexIndices,
-
-				Volume = volume,
-				VolumeSize = volumeSize,
-
-				Tris = tris.AsParallelWriter(),
-			};
-			
-			JobHandle triHandle = triMaker.ScheduleParallelByRef(vertCoords.Length, 1, vertHandle);
-			while (!triHandle.IsCompleted) await Awaitable.NextFrameAsync();
-			triHandle.Complete();
-
-			ApplyToMesh(verts, tris, mesh);
+				Debug.LogException(e);
+			}
 
 			vertexIndices.Dispose();
 			verts.Dispose();
@@ -91,7 +100,7 @@ namespace Anaglyph.DepthKit
 			tris.Dispose();
 		}
 
-		private void ApplyToMesh(NativeList<float3> verts, NativeList<uint> tris, Mesh mesh)
+		private static void ApplyToMesh(NativeList<float3> verts, NativeList<uint> tris, Mesh mesh)
 		{
 			const MeshUpdateFlags flags = MeshUpdateFlags.DontNotifyMeshUsers | MeshUpdateFlags.DontRecalculateBounds |
 			                              MeshUpdateFlags.DontNotifyMeshUsers;
@@ -106,8 +115,7 @@ namespace Anaglyph.DepthKit
 			mesh.subMeshCount = 1;
 			SubMeshDescriptor smd = new(0, tris.Length);
 			mesh.SetSubMesh(0, smd);
-
-			mesh.RecalculateTangents(flags);
+			
 			mesh.RecalculateNormals(flags);
 
 			mesh.RecalculateBounds();
@@ -131,7 +139,7 @@ namespace Anaglyph.DepthKit
 				if (coord.x == VolumeSize.x - 1 || coord.y == VolumeSize.y - 1 || coord.z == VolumeSize.z - 1)
 					return;
 
-				float* values = stackalloc float[8];
+				sbyte* values = stackalloc sbyte[8];
 				float3* positions = stackalloc  float3[8];
 
 				for (int i = 0; i < 8; i++)
@@ -149,13 +157,16 @@ namespace Anaglyph.DepthKit
 				{
 					byte a = EdgeCornerA[i];
 					byte b = EdgeCornerB[i];
-					
-					float fa = values[a] / 127f;
-					float fb = values[b] / 127f;
 
-					bool crosses = (fa < 0) != (fb < 0);
+					sbyte va = values[a];
+					sbyte vb = values[b];
+
+					bool crosses = (va < 0) != (vb < 0);
 					if (crosses)
 					{
+						float fa = va / 127f;
+						float fb = vb / 127f;
+						
 						numCrossings++;
 
 						float3 pa = positions[a];
@@ -230,14 +241,14 @@ namespace Anaglyph.DepthKit
 			private unsafe void TrisForAxis(int3 coord, int3 axis, int3 d1, int3 d2)
 			{
 				int ia = CoordToDataIndex(coord);
-				float fa = Volume[ia] / 127f;
+				sbyte va = Volume[ia];
 			
 				int3 ca = coord + axis;
 				int ib = CoordToDataIndex(ca);
-				float fb = Volume[ib] / 127f;
+				sbyte vb = Volume[ib];
 
-				bool negA = (fa < 0);
-				bool negB = (fb < 0);
+				bool negA = (va < 0);
+				bool negB = (vb < 0);
 
 				if (negA != negB)
 				{
