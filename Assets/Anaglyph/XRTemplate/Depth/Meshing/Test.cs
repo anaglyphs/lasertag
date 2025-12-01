@@ -4,21 +4,26 @@ using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Serialization;
 
 namespace Anaglyph.DepthKit
 {
 	public class Test : MonoBehaviour
 	{
 		[SerializeField] private EnvironmentMapper mapper;
-		[SerializeField] private Marcher marcher;
 		[SerializeField] private MeshFilter meshFilter;
 
+		[SerializeField] public int3 start;
+		[SerializeField] public int3 end;
+
 		private Mesh mesh;
+		
+		MesherPrototype mesher = new ();
 
 		private void Start()
 		{
-			marcher.metersPerVoxel = mapper.MetersPerVoxel;
-			marcher.voxelCount = (uint3)new int3(mapper.vWidth, mapper.vHeight, mapper.vDepth);
+			mesher.metersPerVoxel = mapper.MetersPerVoxel;
+			mesher.voxelCount = new int3(mapper.vWidth, mapper.vHeight, mapper.vDepth);
 
 			mesh = new Mesh();
 
@@ -43,8 +48,8 @@ namespace Anaglyph.DepthKit
 					slice.ToArray().CopyTo(full, z * sliceSize);
 				}
 
-				marcher.data = full;
-				marcher.TriangulateVoxelRange(new uint3(0, 0, 0), new uint3(64, 64, 64), mesh);
+				mesher.Data = full;
+				mesher.BuildMesh(start, end, mesh);
 				meshFilter.mesh = mesh;
 			}
 		}
