@@ -46,7 +46,7 @@ namespace Anaglyph.DepthKit
 		// todo: cancellation
 		public static async Task CreateMesh(NativeArray<sbyte> volume, int3 volumeSize, float metersPerVoxel, Mesh mesh)
 		{
-			int vertCountEstimate = volume.Length / 10;
+			int vertCountEstimate = volume.Length / 5;
 			NativeList<float3> verts = new(vertCountEstimate, Allocator.TempJob);
 			NativeList<int3> vertCoords = new(vertCountEstimate, Allocator.TempJob);
 			
