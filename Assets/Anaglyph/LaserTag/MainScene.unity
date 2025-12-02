@@ -468,7 +468,6 @@ GameObject:
   - component: {fileID: 1457040788}
   - component: {fileID: 1457040789}
   - component: {fileID: 1457040790}
-  - component: {fileID: 1457040791}
   m_Layer: 0
   m_Name: World Meshing
   m_TagString: Untagged
@@ -508,22 +507,9 @@ MonoBehaviour:
     y: 5
     z: 5
   chunkPrefab: {fileID: 5707654171926711959, guid: ebe1cd8f705d4ab4abc5b9f1778d536d, type: 3}
-  updateFrequency: 0.01
-  frustumMeshTriggerPoints:
-  - {x: -3, y: -3, z: 2}
-  - {x: 3, y: -3, z: 2}
-  - {x: 2, y: 4, z: 3}
-  - {x: -2, y: 4, z: 3}
-  - {x: 0, y: 0, z: 0}
-  - {x: 0, y: 0, z: 5}
-  - {x: 0, y: -4, z: 3}
-  - {x: -4, y: 0, z: 3}
-  - {x: 4, y: 0, z: 3}
-  - {x: 2, y: 0, z: 1.5}
-  - {x: -2, y: 0, z: 1.5}
-  - {x: 0, y: -2, z: 1.5}
-  - {x: 0, y: 0, z: 2}
-  - {x: 0, y: -2, z: 0}
+  updateFrequency: 0.03
+  updateDistance: 2
+  surface: {fileID: 1457040790}
 --- !u!114 &1457040790
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -543,32 +529,19 @@ MonoBehaviour:
   m_Center: {x: 0, y: 2, z: 0}
   m_LayerMask:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 64
   m_UseGeometry: 1
   m_DefaultArea: 0
-  m_GenerateLinks: 0
+  m_GenerateLinks: 1
   m_IgnoreNavMeshAgent: 1
   m_IgnoreNavMeshObstacle: 1
-  m_OverrideTileSize: 1
-  m_TileSize: 50
-  m_OverrideVoxelSize: 1
-  m_VoxelSize: 0.1
+  m_OverrideTileSize: 0
+  m_TileSize: 256
+  m_OverrideVoxelSize: 0
+  m_VoxelSize: 0.06666667
   m_MinRegionArea: 2
   m_NavMeshData: {fileID: 0}
   m_BuildHeightMesh: 0
---- !u!114 &1457040791
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1457040786}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e94a617e45607e3439268bc635e76580, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  updateEverySeconds: 1
 --- !u!1001 &3916737362139618993
 PrefabInstance:
   m_ObjectHideFlags: 0

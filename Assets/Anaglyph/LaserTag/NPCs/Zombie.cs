@@ -12,11 +12,19 @@ namespace Anaglyph.LaserTag.NPCs
 		[SerializeField] private float damageDist;
 
 		private NavMeshAgent agent;
+
+		private NetworkVariable<ulong> targetId = new(ulong.MaxValue);
+		
 		private PlayerAvatar target;
 	
 		private void Awake()
 		{
 			TryGetComponent(out agent);
+
+			targetId.OnValueChanged += delegate
+			{
+				PlayerAvatar.All.TryGetValue(targetId.Value, out target);
+			};
 		}
 
 		public override void OnNetworkSpawn()
@@ -38,8 +46,7 @@ namespace Anaglyph.LaserTag.NPCs
 		{
 			if (!IsOwner)
 				return;
-
-			target = null;
+			
 			float maxDist = float.MaxValue;
 			foreach (PlayerAvatar avatar in PlayerAvatar.All.Values)
 			{
@@ -49,26 +56,27 @@ namespace Anaglyph.LaserTag.NPCs
 				
 				if (dist < maxDist)
 				{
-					target = avatar;
+					targetId.Value = avatar.OwnerClientId;
 					maxDist = dist;
+				}
+			}
+
+			if (target)
+			{
+				agent.destination = target.HeadTransform.position - Vector3.up * 1.5f;
+
+				if (Vector3.Distance(head.position, target.HeadTransform.position) < damageDist)
+				{
+					target.DamageRpc(101, 0);
 				}
 			}
 		}
 
 		private void LateUpdate()
 		{
-			if (!IsOwner)
-				return;
-			
 			if (target)
 			{
 				head.LookAt(target.HeadTransform);
-				agent.destination = target.HeadTransform.position - Vector3.up * 1.5f;
-				
-				if (Vector3.Distance(head.position, target.HeadTransform.position) < damageDist)
-				{
-					target.DamageRpc(101, 0);
-				}
 			}
 		}
 	}

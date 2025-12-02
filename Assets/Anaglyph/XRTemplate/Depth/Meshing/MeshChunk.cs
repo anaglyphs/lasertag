@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Anaglyph.XRTemplate;
+using Unity.AI.Navigation;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -34,19 +35,20 @@ namespace Anaglyph.DepthKit.Meshing
 		public Vector3 extents = new float3(10, 10, 10);
 		private EnvironmentMapper mapper => EnvironmentMapper.Instance;
 
-		private MeshRenderer meshRenderer;
-		private MeshFilter meshFilter;
-		private MeshCollider meshCollider;
+		[SerializeField] private MeshRenderer meshRenderer;
+		[SerializeField] private MeshFilter meshFilter;
+		[SerializeField] private MeshCollider meshCollider;
+		// [SerializeField] private NavMeshSurface navMesh;
+		// public NavMeshSurface NavMesh => navMesh;
+		
 		private Mesh mesh;
 
 		private CancellationTokenSource ctkn;
 
+		public bool dirty;
+
 		private void Awake()
 		{
-			TryGetComponent(out meshFilter);
-			TryGetComponent(out meshRenderer);
-			TryGetComponent(out meshCollider);
-
 			mesh = new Mesh();
 
 			RenderingChanged += OnRenderingStateChanged;
@@ -133,9 +135,16 @@ namespace Anaglyph.DepthKit.Meshing
 			{
 				meshFilter.sharedMesh = mesh;
 				meshCollider.sharedMesh = mesh;
+
+				// navMesh.center = extents / 2f;
+				// navMesh.size = extents + Vector3.one;
+				// navMesh.BuildNavMesh();
+				//
+				// await navMesh.UpdateNavMesh(navMesh.navMeshData);
 			}
 			
 			meshCollider.enabled = meshExists;
+			dirty = false;
 		}
 
 		[BurstCompile]
@@ -156,7 +165,7 @@ namespace Anaglyph.DepthKit.Meshing
 #if UNITY_EDITOR
 		private void OnDrawGizmosSelected()
 		{
-			Gizmos.color = Color.green;
+			Gizmos.color = dirty ? Color.yellow : Color.green;
 			Vector3 areaHalf = extents / 2f;
 			Gizmos.DrawWireCube(transform.position + areaHalf, extents);
 		}

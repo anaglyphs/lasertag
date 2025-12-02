@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using Anaglyph.XRTemplate;
+using Unity.AI.Navigation;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.XR;
@@ -8,43 +10,92 @@ namespace Anaglyph.DepthKit.Meshing
 {
 	public class ChunkManager : MonoBehaviour
 	{
-		private EnvironmentMapper mapper => EnvironmentMapper.Instance;
+		public static ChunkManager Instance { get; private set; }
+		
+		private EnvironmentMapper Mapper => EnvironmentMapper.Instance;
 
 		[SerializeField] private float3 chunkSize = new(5, 5, 5);
 		[SerializeField] private GameObject chunkPrefab;
 
 		[SerializeField] private float updateFrequency = 0.1f;
+		[SerializeField] private float updateDistance = 4f;
 
-		[SerializeField] private Vector3[] frustumMeshTriggerPoints;
+		[SerializeField] private NavMeshSurface surface;
+		public NavMeshSurface Surface => surface;
+		private AsyncOperation surfaceUpdate;
 
-		private Dictionary<int3, MeshChunk> chunks = new();
-		private List<int3> updateList = new();
+		private readonly Dictionary<int3, MeshChunk> chunks = new();
+		private readonly Queue<int3> updateQueue = new();
+		
 		private Camera mainCamera;
+		
+		private readonly Vector3[] frustumCorners = new Vector3[8];
+		private readonly Plane[] frustumPlanes = new Plane[6];
+		private static readonly Rect FullRect = new Rect(0, 0, 1, 1);
+		private const Camera.MonoOrStereoscopicEye Eye = Camera.MonoOrStereoscopicEye.Left;
 
-		public void OnEnable()
+		private void Awake()
+		{
+			Instance = this;
+		}
+
+		private void Start()
 		{
 			if (!XRSettings.enabled)
 				return;
+			
+			mainCamera = Camera.main;
+			mainCamera.CalculateFrustumCorners(FullRect, updateDistance, Eye, frustumCorners);
+			
+			surface.BuildNavMesh();
 
 			UpdateLoop();
 		}
 
+		private void OnEnable()
+		{
+			if(didStart) UpdateLoop();
+		}
+		
 		private void FixedUpdate()
 		{
-			if (!mainCamera)
+			Transform camTrans = mainCamera.transform;
+			float3 boxMin = camTrans.position;
+			float3 boxMax = camTrans.position;
+			
+			foreach (Vector3 t in frustumCorners)
 			{
-				mainCamera = Camera.main;
-				return;
+				float3 globalCorner = camTrans.TransformPoint(t);
+				boxMin = math.min(boxMin, globalCorner);
+				boxMax = math.max(boxMax, globalCorner);
 			}
 
-			foreach (Vector3 local in frustumMeshTriggerPoints)
-			{
-				Transform camTrans = mainCamera.transform;
-				float3 global = camTrans.TransformPoint(local);
-				int3 coord = PosToChunkCoord(global);
+			int3 chunkCheckMin = (int3)math.floor(boxMin / chunkSize);
+			int3 chunkCheckMax = (int3)math.floor(boxMax / chunkSize);
 
-				if (!updateList.Contains(coord))
-					updateList.Add(coord);
+			GeometryUtility.CalculateFrustumPlanes(mainCamera, frustumPlanes);
+			
+			for (int x = chunkCheckMin.x; x <= chunkCheckMax.x; x++)
+			for (int y = chunkCheckMin.y; y <= chunkCheckMax.y; y++)
+			for (int z = chunkCheckMin.z; z <= chunkCheckMax.z; z++)
+			{
+				int3 coord = new(x, y, z);
+				
+				if(updateQueue.Contains(coord))
+					continue;
+				
+				float3 min = coord * chunkSize;
+				float3 center = min + chunkSize / 2f;
+				Bounds b = new(center, chunkSize);
+
+				if (GeometryUtility.TestPlanesAABB(frustumPlanes, b))
+				{
+					bool foundChunk = chunks.TryGetValue(coord, out MeshChunk chunk);
+					if (!foundChunk) chunk = InstantiateChunk(coord);
+					chunk.dirty = true;
+					
+					updateQueue.Enqueue(coord);
+				}
 			}
 		}
 
@@ -52,45 +103,28 @@ namespace Anaglyph.DepthKit.Meshing
 		{
 			while (enabled)
 			{
-				if (updateList.Count > 0)
+				if (updateQueue.Count > 0)
 				{
-					int3 coord = updateList[0];
-					updateList.RemoveAt(0);
+					int3 coord = updateQueue.Dequeue();
 
 					bool foundChunk = chunks.TryGetValue(coord, out MeshChunk chunk);
-
-					if (!foundChunk)
-						chunk = InstantiateChunk(coord);
+					if (!foundChunk) chunk = InstantiateChunk(coord);
 
 					await chunk.Mesh();
+					
+					await surface.UpdateNavMesh(surface.navMeshData);
 				}
 
 				await Awaitable.WaitForSecondsAsync(updateFrequency);
 			}
 		}
 
-#if UNITY_EDITOR
-		private void OnDrawGizmos()
-		{
-			Transform t = transform;
-			if (mainCamera) t = mainCamera.transform;
-
-			Gizmos.color = new Color(1f, 0.5f, 0f, 1f);
-
-			foreach (Vector3 local in frustumMeshTriggerPoints)
-			{
-				float3 global = t.TransformPoint(local);
-				Gizmos.DrawWireSphere(global, 0.1f);
-			}
-		}
-#endif
-
 		private MeshChunk InstantiateChunk(int3 chunkCoord)
 		{
 			GameObject g = Instantiate(chunkPrefab, transform);
 			g.TryGetComponent(out MeshChunk chunk);
 
-			float connectionPadding = 3 * mapper.MetersPerVoxel;
+			float connectionPadding = 3 * Mapper.MetersPerVoxel;
 			chunk.extents = chunkSize + connectionPadding;
 
 			chunk.transform.position = ChunkCoordToPos(chunkCoord);
