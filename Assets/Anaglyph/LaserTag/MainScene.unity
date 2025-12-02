@@ -504,11 +504,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   chunkSize:
-    x: 5
-    y: 5
-    z: 5
+    x: 4
+    y: 4
+    z: 4
   chunkPrefab: {fileID: 5707654171926711959, guid: ebe1cd8f705d4ab4abc5b9f1778d536d, type: 3}
-  updateFrequency: 0.1
+  updateFrequency: 0.03
   frustumMeshTriggerPoints:
   - {x: -3, y: -3, z: 2}
   - {x: 3, y: -3, z: 2}
