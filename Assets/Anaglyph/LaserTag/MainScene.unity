@@ -504,11 +504,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   chunkSize:
-    x: 4
-    y: 4
-    z: 4
+    x: 5
+    y: 5
+    z: 5
   chunkPrefab: {fileID: 5707654171926711959, guid: ebe1cd8f705d4ab4abc5b9f1778d536d, type: 3}
-  updateFrequency: 0.03
+  updateFrequency: 0.01
   frustumMeshTriggerPoints:
   - {x: -3, y: -3, z: 2}
   - {x: 3, y: -3, z: 2}
@@ -546,7 +546,7 @@ MonoBehaviour:
     m_Bits: 4294967295
   m_UseGeometry: 1
   m_DefaultArea: 0
-  m_GenerateLinks: 1
+  m_GenerateLinks: 0
   m_IgnoreNavMeshAgent: 1
   m_IgnoreNavMeshObstacle: 1
   m_OverrideTileSize: 1

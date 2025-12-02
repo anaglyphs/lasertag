@@ -2,6 +2,7 @@ using Anaglyph.XRTemplate;
 using System;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.InputSystem;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
 
@@ -124,7 +125,7 @@ namespace Anaglyph.Lasertag
 
 		private static readonly Type[] blacklistedPreviewComponents =
 		{
-			typeof(MonoBehaviour), typeof(Animator), typeof(Collider), typeof(Rigidbody)
+			typeof(MonoBehaviour), typeof(Animator), typeof(Collider), typeof(Rigidbody), typeof(NavMeshAgent)
 		};
 
 		private static readonly Type[] whiteListedPreviewComponents =

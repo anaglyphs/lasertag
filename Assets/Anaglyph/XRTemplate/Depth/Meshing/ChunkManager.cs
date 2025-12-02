@@ -55,7 +55,7 @@ namespace Anaglyph.DepthKit.Meshing
 				if (updateList.Count > 0)
 				{
 					int3 coord = updateList[0];
-					updateList.Remove(0);
+					updateList.RemoveAt(0);
 
 					bool foundChunk = chunks.TryGetValue(coord, out MeshChunk chunk);
 
