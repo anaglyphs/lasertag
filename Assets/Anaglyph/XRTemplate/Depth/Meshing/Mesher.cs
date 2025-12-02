@@ -103,7 +103,7 @@ namespace Anaglyph.DepthKit
 		private static void ApplyToMesh(NativeList<float3> verts, NativeList<uint> tris, Mesh mesh)
 		{
 			const MeshUpdateFlags flags = MeshUpdateFlags.DontNotifyMeshUsers | MeshUpdateFlags.DontRecalculateBounds |
-			                              MeshUpdateFlags.DontNotifyMeshUsers;
+			                              MeshUpdateFlags.DontValidateIndices;
 
 			VertexAttributeDescriptor vad = new (VertexAttribute.Position);
 			mesh.SetVertexBufferParams(verts.Length, vad);
@@ -162,6 +162,7 @@ namespace Anaglyph.DepthKit
 					sbyte vb = values[b];
 
 					bool crosses = (va < 0) != (vb < 0);
+					
 					if (crosses)
 					{
 						float fa = va / 127f;

@@ -64,8 +64,6 @@ namespace Anaglyph.XRTemplate
 			Instance = this;
 		}
 
-		private bool hasStarted = false;
-
 		private void Start()
 		{
 			clearKernel = new ComputeKernel(shader, "Clear");
@@ -85,8 +83,6 @@ namespace Anaglyph.XRTemplate
 			Clear();
 
 			ScanLoop();
-
-			hasStarted = true;
 		}
 
 		public void Clear()
@@ -96,7 +92,7 @@ namespace Anaglyph.XRTemplate
 
 		private void OnEnable()
 		{
-			if (!hasStarted)
+			if (didStart)
 				ScanLoop();
 		}
 

@@ -13,24 +13,55 @@ namespace Anaglyph.DepthKit.Meshing
 {
 	public class MeshChunk : MonoBehaviour
 	{
+		private static bool rendering = false;
+		private static event Action<bool> RenderingChanged = delegate { };
+
+		public static void SetRenderingEnabled(bool b)
+		{
+			rendering = b;
+			RenderingChanged.Invoke(b);
+		}
+
+#if UNITY_EDITOR
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+		private static async void StartWithRendering()
+		{
+			await Awaitable.WaitForSecondsAsync(0.5f);
+			SetRenderingEnabled(true);
+		}
+#endif
+
 		public Vector3 extents = new float3(10, 10, 10);
 		private EnvironmentMapper mapper => EnvironmentMapper.Instance;
 
+		private MeshRenderer meshRenderer;
 		private MeshFilter meshFilter;
+		private MeshCollider meshCollider;
 		private Mesh mesh;
 
 		private CancellationTokenSource ctkn;
-		
+
 		private void Awake()
 		{
 			TryGetComponent(out meshFilter);
+			TryGetComponent(out meshRenderer);
+			TryGetComponent(out meshCollider);
+
 			mesh = new Mesh();
-			meshFilter.sharedMesh = mesh;
+
+			RenderingChanged += OnRenderingStateChanged;
+			OnRenderingStateChanged(rendering);
 		}
 
 		private void OnDestroy()
 		{
 			Destroy(mesh);
+			RenderingChanged -= OnRenderingStateChanged;
+		}
+
+		private void OnRenderingStateChanged(bool b)
+		{
+			meshRenderer.enabled = b;
 		}
 
 		private int3 WorldToVoxel(float3 pos)
@@ -94,7 +125,17 @@ namespace Anaglyph.DepthKit.Meshing
 				Debug.LogException(e);
 			}
 
-			if(volumePiece.IsCreated) volumePiece.Dispose();
+			if (volumePiece.IsCreated) volumePiece.Dispose();
+
+			bool meshExists = mesh.GetIndexCount(0) > 0;
+
+			if (meshExists)
+			{
+				meshFilter.sharedMesh = mesh;
+				meshCollider.sharedMesh = mesh;
+			}
+			
+			meshCollider.enabled = meshExists;
 		}
 
 		[BurstCompile]
@@ -113,7 +154,7 @@ namespace Anaglyph.DepthKit.Meshing
 		}
 
 #if UNITY_EDITOR
-		private void OnDrawGizmos()
+		private void OnDrawGizmosSelected()
 		{
 			Gizmos.color = Color.green;
 			Vector3 areaHalf = extents / 2f;

@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Drawing.Drawing2D;
 using Anaglyph.XRTemplate;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Serialization;
+using UnityEngine.XR;
 
 namespace Anaglyph.DepthKit.Meshing
 {
@@ -17,15 +19,16 @@ namespace Anaglyph.DepthKit.Meshing
 		[SerializeField] private float updateFrequency = 0.1f;
 
 		[SerializeField] private Vector3[] frustumMeshTriggerPoints;
-		[SerializeField] private Camera mainCamera;
 		
 		private Dictionary<int3, MeshChunk> chunks = new();
-		
-		List<int3> updateList = new();
+		private List<int3> updateList = new();
+		private Camera mainCamera;
 		
 		public void OnEnable()
 		{
-			mainCamera = Camera.main;
+			if (!XRSettings.enabled)
+				return;
+			
 			UpdateLoop();
 		}
 
@@ -34,6 +37,12 @@ namespace Anaglyph.DepthKit.Meshing
 			while (enabled)
 			{
 				await Awaitable.WaitForSecondsAsync(updateFrequency);
+
+				if (!mainCamera)
+				{
+					mainCamera = Camera.main;
+					continue;
+				}
 				
 				Transform camTrans = mainCamera.transform;
 
@@ -62,15 +71,14 @@ namespace Anaglyph.DepthKit.Meshing
 #if UNITY_EDITOR
 		private void OnDrawGizmos()
 		{
-			if (!mainCamera)
-				return;
+			Transform t = transform;
+			if (mainCamera) t = mainCamera.transform;
 			
 			Gizmos.color = new Color(1f, 0.5f, 0f, 1f);
 			
-			Transform camTrans = mainCamera.transform;
 			foreach (Vector3 local in frustumMeshTriggerPoints)
 			{
-				float3 global = camTrans.TransformPoint(local);
+				float3 global = t.TransformPoint(local);
 				Gizmos.DrawWireSphere(global, 0.1f);
 			}
 		}
@@ -78,12 +86,12 @@ namespace Anaglyph.DepthKit.Meshing
 
 		private MeshChunk InstantiateChunk(int3 chunkCoord)
 		{
-			GameObject g = Instantiate(chunkPrefab);
+			GameObject g = Instantiate(chunkPrefab, transform);
 			g.TryGetComponent(out MeshChunk chunk);
 
 			float connectionPadding = 3 * mapper.MetersPerVoxel;
 			chunk.extents = chunkSize + connectionPadding;
-
+			
 			chunk.transform.position = ChunkCoordToPos(chunkCoord);
 
 			chunks.Add(chunkCoord, chunk);
@@ -93,12 +101,12 @@ namespace Anaglyph.DepthKit.Meshing
 
 		private int3 PosToChunkCoord(float3 pos)
 		{
-			return new int3((pos - chunkSize) / chunkSize);
+			return new int3(math.floor(pos / chunkSize));
 		}
 
 		private float3 ChunkCoordToPos(int3 chunkCoord)
 		{
-			return new float3(chunkCoord * chunkSize);
+			return chunkCoord * chunkSize;
 		}
 	}
 }
