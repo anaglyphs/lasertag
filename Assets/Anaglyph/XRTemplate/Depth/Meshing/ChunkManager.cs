@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Anaglyph.XRTemplate;
 using Unity.AI.Navigation;
@@ -19,10 +18,6 @@ namespace Anaglyph.DepthKit.Meshing
 
 		[SerializeField] private float updateFrequency = 0.1f;
 		[SerializeField] private float updateDistance = 4f;
-
-		[SerializeField] private NavMeshSurface surface;
-		public NavMeshSurface Surface => surface;
-		private AsyncOperation surfaceUpdate;
 
 		private readonly Dictionary<int3, MeshChunk> chunks = new();
 		private readonly Queue<int3> updateQueue = new();
@@ -46,8 +41,6 @@ namespace Anaglyph.DepthKit.Meshing
 			
 			mainCamera = Camera.main;
 			mainCamera.CalculateFrustumCorners(FullRect, updateDistance, Eye, frustumCorners);
-			
-			surface.BuildNavMesh();
 
 			UpdateLoop();
 		}
@@ -111,8 +104,6 @@ namespace Anaglyph.DepthKit.Meshing
 					if (!foundChunk) chunk = InstantiateChunk(coord);
 
 					await chunk.Mesh();
-					
-					await surface.UpdateNavMesh(surface.navMeshData);
 				}
 
 				await Awaitable.WaitForSecondsAsync(updateFrequency);
@@ -124,7 +115,7 @@ namespace Anaglyph.DepthKit.Meshing
 			GameObject g = Instantiate(chunkPrefab, transform);
 			g.TryGetComponent(out MeshChunk chunk);
 
-			float connectionPadding = 3 * Mapper.MetersPerVoxel;
+			float connectionPadding = 2 * Mapper.MetersPerVoxel;
 			chunk.extents = chunkSize + connectionPadding;
 
 			chunk.transform.position = ChunkCoordToPos(chunkCoord);

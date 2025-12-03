@@ -8,7 +8,9 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.Rendering;
+using UnityEngine.Serialization;
 
 namespace Anaglyph.DepthKit.Meshing
 {
@@ -38,8 +40,8 @@ namespace Anaglyph.DepthKit.Meshing
 		[SerializeField] private MeshRenderer meshRenderer;
 		[SerializeField] private MeshFilter meshFilter;
 		[SerializeField] private MeshCollider meshCollider;
-		// [SerializeField] private NavMeshSurface navMesh;
-		// public NavMeshSurface NavMesh => navMesh;
+		[FormerlySerializedAs("navMesh")] [SerializeField] private NavMeshSurface surface;
+		public NavMeshSurface Surface => surface;
 		
 		private Mesh mesh;
 
@@ -86,7 +88,7 @@ namespace Anaglyph.DepthKit.Meshing
 
 			try
 			{
-				int3 size = new(extents / mapper.MetersPerVoxel);
+				int3 size = new int3(extents / mapper.MetersPerVoxel) + 1;
 
 				int3 start = WorldToVoxel(transform.position);
 
@@ -135,12 +137,8 @@ namespace Anaglyph.DepthKit.Meshing
 			{
 				meshFilter.sharedMesh = mesh;
 				meshCollider.sharedMesh = mesh;
-
-				// navMesh.center = extents / 2f;
-				// navMesh.size = extents + Vector3.one;
-				// navMesh.BuildNavMesh();
-				//
-				// await navMesh.UpdateNavMesh(navMesh.navMeshData);
+				
+				surface.BuildNavMesh();
 			}
 			
 			meshCollider.enabled = meshExists;
