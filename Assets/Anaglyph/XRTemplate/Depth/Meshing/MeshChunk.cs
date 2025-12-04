@@ -40,8 +40,8 @@ namespace Anaglyph.DepthKit.Meshing
 		[SerializeField] private MeshRenderer meshRenderer;
 		[SerializeField] private MeshFilter meshFilter;
 		[SerializeField] private MeshCollider meshCollider;
-		[FormerlySerializedAs("navMesh")] [SerializeField] private NavMeshSurface surface;
-		public NavMeshSurface Surface => surface;
+		// [FormerlySerializedAs("navMesh")] [SerializeField] private NavMeshSurface surface;
+		// public NavMeshSurface Surface => surface;
 		
 		private Mesh mesh;
 
@@ -138,7 +138,7 @@ namespace Anaglyph.DepthKit.Meshing
 				meshFilter.sharedMesh = mesh;
 				meshCollider.sharedMesh = mesh;
 				
-				surface.BuildNavMesh();
+				// surface.BuildNavMesh();
 			}
 			
 			meshCollider.enabled = meshExists;
