@@ -69,7 +69,7 @@ namespace Anaglyph.DepthKit.Meshing
 		private int3 WorldToVoxel(float3 pos)
 		{
 			int3 volumeSize = new(mapper.vWidth, mapper.vHeight, mapper.vDepth);
-			pos /= mapper.MetersPerVoxel;
+			pos /= mapper.VoxelSize;
 			pos += (float3)volumeSize / 2.0f;
 
 			int3 id = new(pos);
@@ -86,7 +86,7 @@ namespace Anaglyph.DepthKit.Meshing
 
 			try
 			{
-				int3 size = new int3(extents / mapper.MetersPerVoxel) + 1;
+				int3 size = new int3(extents / mapper.VoxelSize) + 1;
 
 				int3 start = WorldToVoxel(transform.position);
 
@@ -119,7 +119,7 @@ namespace Anaglyph.DepthKit.Meshing
 					copier.ScheduleParallelByRef(sliceSize, 16, default).Complete();
 				}
 
-				await Mesher.CreateMesh(volumePiece, size, mapper.MetersPerVoxel,
+				await Mesher.CreateMesh(volumePiece, size, mapper.VoxelSize,
 					mesh);
 			}
 			catch (Exception e)

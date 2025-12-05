@@ -1,7 +1,9 @@
 #include "../Depth/DepthKit.hlsl"
 
 uniform uint3 volumeSize; // dimensions of volume texture
-uniform float metersPerVoxel;
+uniform float voxSize;
+uniform float truncMax;
+uniform float truncMin;
 RWTexture3D<half> volume; // tsdf
 StructuredBuffer<float3> frustumVolume;
 SamplerState linearClampSampler;
@@ -19,14 +21,14 @@ float3 voxelToWorld(uint3 indices)
 	float3 pos = indices;
 	pos += 0.5f;
 	pos -= volumeSize / 2.0f;
-	pos *= metersPerVoxel;
+	pos *= voxSize;
 
 	return pos;
 }
 
 uint3 worldToVoxel(float3 pos)
 {
-	pos /= metersPerVoxel;
+	pos /= voxSize;
 	pos += volumeSize / 2.0f;
 
 	uint3 id = uint3(pos);
@@ -36,7 +38,7 @@ uint3 worldToVoxel(float3 pos)
 
 float3 worldToVoxelUVW(float3 pos)
 {
-	pos /= metersPerVoxel;
+	pos /= voxSize;
 	pos += volumeSize / 2.0f;
 	pos -= 0.5f;
 	pos /= volumeSize;
@@ -56,14 +58,14 @@ void Clear(uint3 id : SV_DispatchThreadID)
 #pragma kernel Integrate
 
 [numthreads(64, 1, 1)]
-void Integrate(uint i : SV_DispatchThreadID)
+void Integrate(uint idx : SV_DispatchThreadID)
 {
-	float3 vLocalPos = frustumVolume[i];
+	float3 vLocalPos = frustumVolume[idx];
 	float3 vWorldPos = mul(agDepthViewInv[0], float4(vLocalPos, 1)).xyz;
-	uint3 id = worldToVoxel(vWorldPos);
+	uint3 coord = worldToVoxel(vWorldPos);
 
 	float3 eyePos = agDepthEyePos();
-	float3 voxPos = voxelToWorld(id);
+	float3 voxPos = voxelToWorld(coord);
 
 	float4 voxHCS = agDepthWorldToHCS(voxPos);
 	float3 voxNDC = agDepthHCStoNDC(voxHCS);
@@ -83,14 +85,14 @@ void Integrate(uint i : SV_DispatchThreadID)
 	float normDot = -dot(normalize(eyeToVox), depthNorm);
 	sDist *= saturate(normDot);
 
-	half sDistNorm = sDist / metersPerVoxel;
-	sDistNorm = min(sDistNorm, 1);
+	half distSNorm = sDist / truncMax;
+	distSNorm = min(distSNorm, 1);
 
 	bool inPlayer = false;
 
-	for (int i = 0; i < numPlayers; i++)
+	for (int p = 0; p < numPlayers; p++)
 	{
-		float3 playerPos = playerHeadsWorld[i];
+		float3 playerPos = playerHeadsWorld[p];
 
 		if (distance(vWorldPos.xz, playerPos.xz) < PLAYER_RADIUS &&
 			vWorldPos.y < playerPos.y + PLAYER_TOP &&
@@ -100,11 +102,13 @@ void Integrate(uint i : SV_DispatchThreadID)
 		}
 	}
 
-	if (sDistNorm > -1 && !inPlayer && normDot > MIN_DOT)
-		volume[id.xyz] = sDistNorm;
+	// todo use full sbyte range
+	half truncMinNorm = truncMin / truncMax;
+	if (distSNorm > truncMinNorm && !inPlayer && normDot > MIN_DOT)
+		volume[coord.xyz] = distSNorm;
 }
 
-/// Raymarch
+// Raymarch
 
 struct RaymarchRequest
 {
@@ -121,24 +125,24 @@ Texture3D<half> raymarchVolume;
 half raymarchSample(float3 worldPos)
 {
 	float3 uvw = worldToVoxelUVW(worldPos);
-	return raymarchVolume.SampleLevel(linearClampSampler, uvw, 0) * metersPerVoxel;
+	return raymarchVolume.SampleLevel(linearClampSampler, uvw, 0) * truncMax;
 }
 
 #pragma kernel Raymarch
 
 [numthreads(64, 1, 1)]
-void Raymarch(uint3 id : SV_DispatchThreadID)
+void Raymarch(uint3 idx : SV_DispatchThreadID)
 {
 	float result = -1;
 
-	if (id.x >= numRaymarchRequests)
+	if (idx.x >= numRaymarchRequests)
 		return;
 
-	const float3 origin = raymarchRequests[id.x].origin;
-	const float3 direction = normalize(raymarchRequests[id.x].direction);
-	float maxDist = raymarchRequests[id.x].maxDistance;
+	const float3 origin = raymarchRequests[idx.x].origin;
+	const float3 direction = normalize(raymarchRequests[idx.x].direction);
+	float maxDist = raymarchRequests[idx.x].maxDistance;
 
-	const uint maxSteps = maxDist / metersPerVoxel;
+	const uint maxSteps = maxDist / truncMax;
 
 	float dist = 0;
 
@@ -155,5 +159,60 @@ void Raymarch(uint3 id : SV_DispatchThreadID)
 		}
 	}
 
-	raymarchResults[id.x] = result;
+	raymarchResults[idx.x] = result;
+}
+
+#pragma kernel OcclusionMarch
+
+#define MAX_RAYMARCH_DIST 100
+
+float4x4 camView;
+float4x4 camProj;
+float4x4 camInvView;
+float4x4 camInvProj;
+
+RWTexture2D<float> occlusionTex;
+uint2 occlusionTexSize;
+
+[numthreads(8, 8, 1)]
+void OcclusionMarch(uint2 idx : SV_DispatchThreadID)
+{
+	if (idx.x >= occlusionTexSize.x || idx.y >= occlusionTexSize.y)
+		return;
+
+	float2 uv = float2(idx) / float2(occlusionTexSize);
+	float2 ndc = uv * 2.0 - 1.0;
+
+	float4 viewPos = mul(camInvProj, float4(ndc, 1.0, 1.0));
+	viewPos.xyz /= viewPos.w;
+
+	float3 origin = mul(camInvView, float4(0, 0, 0, 1)).xyz;
+	float3 farPoint = mul(camInvView, float4(viewPos.xyz, 1)).xyz;
+	float3 direction = normalize(farPoint - origin);
+
+	float dist = 0;
+	float stepScale = 1.0;
+	uint maxSteps = (uint)(MAX_RAYMARCH_DIST / stepScale);
+
+	float hitDist = MAX_RAYMARCH_DIST;
+
+	for (uint i = 0; i < maxSteps; i++)
+	{
+		float3 pos = origin + direction * dist;
+		float val = raymarchSample(pos);
+
+		dist += val;
+
+		if (abs(val) < 0.01)
+		{
+			hitDist = dist;
+			break;
+		}
+	}
+
+	float4 clip = mul(camProj, mul(camView, float4(origin + direction * hitDist, 1.0)));
+	float zdepth = clip.z / clip.w;
+	zdepth = saturate(zdepth * 0.5 + 0.5);
+
+	occlusionTex[idx] = zdepth;
 }

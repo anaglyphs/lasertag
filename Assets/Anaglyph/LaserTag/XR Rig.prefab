@@ -2836,6 +2836,9 @@ PrefabInstance:
       addedObject: {fileID: 176498960288544577}
     - targetCorrespondingSourceObject: {fileID: 7254734392762225021, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
+      addedObject: {fileID: 1879442865579333893}
+    - targetCorrespondingSourceObject: {fileID: 7254734392762225021, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
+      insertIndex: -1
       addedObject: {fileID: 7681910871548539734}
     - targetCorrespondingSourceObject: {fileID: 7254734392762225021, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
@@ -2896,12 +2899,28 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   shader: {fileID: 7200000, guid: acbd8d3a81f87044f9dc52fb3cc8d414, type: 3}
-  metersPerVoxel: 0.1
+  voxelSize: 0.1
+  truncationMax: 1
+  truncationMin: -0.1
   dispatchesPerSecond: 10
   volume: {fileID: 8400000, guid: 1b824cd65da368c4ba66330fd10e8ba2, type: 2}
-  maxEyeDist: 5
+  occlusionTex: {fileID: 8400000, guid: de57afc603ace431d9b72be8ce0b7ac8, type: 2}
+  maxEyeDist: 6
   minEyeDist: 1
   PlayerHeads: []
+--- !u!114 &1879442865579333893
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5922542169172391784}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9d7a47b87d99b46b49e5786bcb76084a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  compute: {fileID: 7200000, guid: acbd8d3a81f87044f9dc52fb3cc8d414, type: 3}
 --- !u!114 &7681910871548539734
 MonoBehaviour:
   m_ObjectHideFlags: 0
