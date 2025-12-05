@@ -54,7 +54,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Camera: {fileID: 5728646336010394143}
   m_OriginBaseGameObject: {fileID: 7254734392762225021}
-  m_CameraFloorOffsetObject: {fileID: 0}
+  m_CameraFloorOffsetObject: {fileID: 7254734392762225021}
   m_RequestedTrackingOriginMode: 2
   m_CameraYOffset: 0
 --- !u!114 &7302683130375540734
@@ -73,7 +73,6 @@ MonoBehaviour:
   _removeHands: 0
   CustomTrackingSpace: {fileID: 2038948978265102462}
   <MaskMeshFilters>k__BackingField: []
-  _cameraRig: {fileID: 0}
 --- !u!114 &5287327361013762756
 MonoBehaviour:
   m_ObjectHideFlags: 0

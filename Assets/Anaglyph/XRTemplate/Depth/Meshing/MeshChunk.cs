@@ -2,35 +2,32 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Anaglyph.XRTemplate;
-using Unity.AI.Navigation;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.AI;
 using UnityEngine.Rendering;
-using UnityEngine.Serialization;
 
 namespace Anaglyph.DepthKit.Meshing
 {
 	public class MeshChunk : MonoBehaviour
 	{
-		private static bool rendering = false;
-		private static event Action<bool> RenderingChanged = delegate { };
+		private static bool debugRendering = false;
+		private static event Action<bool> DebugRenderingChanged = delegate { };
 
-		public static void SetRenderingEnabled(bool b)
+		public static void SetDebugRenderingEnabled(bool b)
 		{
-			rendering = b;
-			RenderingChanged.Invoke(b);
+			debugRendering = b;
+			DebugRenderingChanged.Invoke(b);
 		}
 
 #if UNITY_EDITOR
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-		private static async void StartWithRendering()
+		private static async void StartWithDebugRendering()
 		{
 			await Awaitable.WaitForSecondsAsync(0.5f);
-			SetRenderingEnabled(true);
+			SetDebugRenderingEnabled(true);
 		}
 #endif
 
@@ -40,9 +37,10 @@ namespace Anaglyph.DepthKit.Meshing
 		[SerializeField] private MeshRenderer meshRenderer;
 		[SerializeField] private MeshFilter meshFilter;
 		[SerializeField] private MeshCollider meshCollider;
-		// [FormerlySerializedAs("navMesh")] [SerializeField] private NavMeshSurface surface;
-		// public NavMeshSurface Surface => surface;
-		
+
+		[SerializeField] private Material occlusionMaterial;
+		[SerializeField] private Material debugMaterial;
+
 		private Mesh mesh;
 
 		private CancellationTokenSource ctkn;
@@ -53,19 +51,19 @@ namespace Anaglyph.DepthKit.Meshing
 		{
 			mesh = new Mesh();
 
-			RenderingChanged += OnRenderingStateChanged;
-			OnRenderingStateChanged(rendering);
+			DebugRenderingChanged += OnDebugRenderingStateChanged;
+			OnDebugRenderingStateChanged(debugRendering);
 		}
 
 		private void OnDestroy()
 		{
 			Destroy(mesh);
-			RenderingChanged -= OnRenderingStateChanged;
+			DebugRenderingChanged -= OnDebugRenderingStateChanged;
 		}
 
-		private void OnRenderingStateChanged(bool b)
+		private void OnDebugRenderingStateChanged(bool b)
 		{
-			meshRenderer.enabled = b;
+			meshRenderer.material = debugRendering ? debugMaterial : occlusionMaterial;
 		}
 
 		private int3 WorldToVoxel(float3 pos)
@@ -137,10 +135,8 @@ namespace Anaglyph.DepthKit.Meshing
 			{
 				meshFilter.sharedMesh = mesh;
 				meshCollider.sharedMesh = mesh;
-				
-				// surface.BuildNavMesh();
 			}
-			
+
 			meshCollider.enabled = meshExists;
 			dirty = false;
 		}

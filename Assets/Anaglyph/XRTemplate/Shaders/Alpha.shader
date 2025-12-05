@@ -37,7 +37,7 @@ Shader "DepthMask"
 
             half4 frag(v2f i) : COLOR
             {
-                return float4(1,1,1,1);
+                return float4(1,1,1,0);
             }
             ENDCG
         }

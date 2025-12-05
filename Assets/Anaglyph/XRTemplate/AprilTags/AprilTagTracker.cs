@@ -3,6 +3,7 @@ using AprilTag;
 using System;
 using System.Collections.Generic;
 using Anaglyph.XRTemplate.DeviceCameras;
+using Unity.Collections;
 
 namespace Anaglyph.XRTemplate.AprilTags
 {
@@ -57,7 +58,7 @@ namespace Anaglyph.XRTemplate.AprilTags
 
 				worldPoses.Clear();
 
-				foreach (var tag in SimulatedTag.Visible)
+				foreach (SimulatedTag tag in SimulatedTag.Visible)
 					if (tag.isInView)
 						worldPoses.Add(tag.GetTagPoseInWorldSpace());
 
@@ -79,28 +80,31 @@ namespace Anaglyph.XRTemplate.AprilTags
 				if (detector == null)
 					detector = new TagDetector(tex.width, tex.height, 1);
 
-				var intrins = cameraReader.HardwareIntrinsics;
-				var fov = 2 * Mathf.Atan(intrins.Resolution.y / 2f / intrins.FocalLength.y);
-				var size = tagSizeMeters;
+				CameraReader.HardwareIntrinsics intrins = cameraReader.Intrinsics;
+
+				// fix for Meta OS v83 reporting wrong camera intrinsics
+				int realResolutionY = intrins.Resolution.x / tex.width * tex.height;
+				float fov = 2 * Mathf.Atan(realResolutionY / 2f / intrins.FocalLength.y);
+				float size = tagSizeMeters;
 
 				FrameTimestamp = cameraReader.TimestampNs * 0.000000001f;
-				var headPoseState = OVRPlugin.GetNodePoseStateAtTime(FrameTimestamp, OVRPlugin.Node.Head);
+				OVRPlugin.PoseStatef headPoseState =
+					OVRPlugin.GetNodePoseStateAtTime(FrameTimestamp, OVRPlugin.Node.Head);
 
-				var imgBytes = cameraReader.Texture.GetPixelData<byte>(0);
+				NativeArray<byte> imgBytes = cameraReader.Texture.GetPixelData<byte>(0);
 				await detector.Detect(imgBytes, fov, size);
 
 				worldPoses.Clear();
 
 				// nanoseconds to milliseconds
-				var headPose = headPoseState.Pose.ToOVRPose();
-				var viewMat = Matrix4x4.TRS(headPose.position, headPose.orientation, Vector3.one);
-				var lensPose = cameraReader.HardwarePose;
-				var cameraMat = Matrix4x4.TRS(lensPose.position, lensPose.rotation, Vector3.one);
-				var cameraRelativeToRig = viewMat * cameraMat;
+				OVRPose headPose = headPoseState.Pose.ToOVRPose();
+				Matrix4x4 viewMat = Matrix4x4.TRS(headPose.position, headPose.orientation, Vector3.one);
+				Pose lensPose = cameraReader.HardwarePose;
+				Matrix4x4 cameraMat = Matrix4x4.TRS(lensPose.position, lensPose.rotation, Vector3.one);
+				Matrix4x4 cameraRelativeToRig = viewMat * cameraMat;
 				viewMat = MainXRRig.TrackingSpace.localToWorldMatrix * cameraRelativeToRig;
 
-
-				foreach (var pose in detector.DetectedTags)
+				foreach (TagPose pose in detector.DetectedTags)
 				{
 					TagPose worldPose = new(
 						pose.ID,

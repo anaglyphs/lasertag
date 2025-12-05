@@ -14,11 +14,12 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 		private Pose hardwarePose;
 		public Pose HardwarePose => hardwarePose;
 
-		private Intrinsics hardwareIntrinsics;
-		public Intrinsics HardwareIntrinsics => hardwareIntrinsics;
+		private HardwareIntrinsics intrinsics;
+		public HardwareIntrinsics Intrinsics => intrinsics;
 
-		[SerializeField] private Vector2Int defaultTextureSize = new Vector2Int(1280, 960);
-		[SerializeField] private int defaultCameraIndex = 1;
+		[SerializeField] private Vector2Int defaultTextureSize = new(1280, 960);
+		[SerializeField] private int camID = 1;
+		public int CamID => camID;
 
 		public event Action DeviceOpened = delegate { };
 		public event Action DeviceClosed = delegate { };
@@ -45,7 +46,7 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 			ERROR_CAMERA_DISABLED = 0x00000003,
 			ERROR_CAMERA_IN_USE = 0x00000001,
 			ERROR_CAMERA_SERVICE = 0x00000005,
-			ERROR_MAX_CAMERAS_IN_USE = 0x00000002,
+			ERROR_MAX_CAMERAS_IN_USE = 0x00000002
 		}
 
 		/// In nanoseconds!
@@ -57,6 +58,7 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 			{
 			}
 		}
+
 		public class ConfiguredException : Exception
 		{
 			public ConfiguredException(string message) : base(message)
@@ -90,9 +92,15 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 				jniObj.Call("configure", index, width, height);
 			}
 
-			public void OpenCamera() => Call("open");
+			public void OpenCamera()
+			{
+				Call("open");
+			}
 
-			public void CloseCamera() => Call("close");
+			public void CloseCamera()
+			{
+				Call("close");
+			}
 
 			public unsafe sbyte* GetByteBuffer()
 			{
@@ -163,14 +171,17 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 			ImageAvailable = delegate { };
 		}
 
-		private async Task Configure() => await Configure(defaultCameraIndex, defaultTextureSize.x, defaultTextureSize.y);
+		private async Task Configure()
+		{
+			await Configure(camID, defaultTextureSize.x, defaultTextureSize.y);
+		}
 
 		public async Task Configure(int index, int width, int height)
 		{
-#if UNITY_EDITOR
-			IsConfigured = true;
-			return;
-#endif
+// #if UNITY_EDITOR
+// 			IsConfigured = true;
+// 			return;
+// #endif
 			if (DeviceIsOpen)
 				throw new ConfiguredException("Cannot configure camera while camera is open!");
 
@@ -179,23 +190,33 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 
 			androidInterface.Configure(index, width, height);
 			texture = new Texture2D(width, height, TextureFormat.R8, 1, false);
-			bufferSize = width * height;// * 4;
+			bufferSize = width * height; // * 4;
 
 			float[] vals;
 			vals = androidInterface.GetCamPoseOnDevice();
 			Vector3 pos = new(vals[0], vals[1], -vals[2]);
-			Quaternion rot = Quaternion.Inverse(new(-vals[3], -vals[4], vals[5], vals[6])) * Quaternion.Euler(180, 0, 0);
+			Quaternion rot = Quaternion.Inverse(new Quaternion(-vals[3], -vals[4], vals[5], vals[6])) *
+			                 Quaternion.Euler(180, 0, 0);
 			hardwarePose = new Pose(pos, rot);
 
 			vals = androidInterface.GetCamIntrinsics();
 
-			hardwareIntrinsics = new Intrinsics
+
+			HardwareIntrinsics intrins = new()
 			{
 				FocalLength = new Vector2(vals[0], vals[1]),
 				PrincipalPoint = new Vector2(vals[2], vals[3]),
 				Resolution = new Vector2Int((int)vals[5], (int)vals[6]),
 				Skew = vals[4]
 			};
+
+			Debug.Log($"[Camera Reader] Intrinsics:\n" +
+			          $"Focal Length: {intrins.FocalLength.ToString()}\n" +
+			          $"Resolution: {intrins.Resolution.ToString()}\n" +
+			          $"PrincipalPoint: {intrins.PrincipalPoint.ToString()}\n" +
+			          $"Skew: {intrins.Skew}");
+
+			intrinsics = intrins;
 
 			IsConfigured = true;
 		}
@@ -296,7 +317,7 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 			ImageAvailable.Invoke(texture);
 		}
 
-		public struct Intrinsics
+		public struct HardwareIntrinsics
 		{
 			public Vector2 FocalLength;
 			public Vector2 PrincipalPoint;

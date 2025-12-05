@@ -51,6 +51,8 @@ MonoBehaviour:
   meshRenderer: {fileID: 5610405286200268345}
   meshFilter: {fileID: 2427413909175206865}
   meshCollider: {fileID: 2845429502253480654}
+  occlusionMaterial: {fileID: 2100000, guid: 5011a7c4fa28a6440825134b0bb85188, type: 2}
+  debugMaterial: {fileID: 2100000, guid: 310a29ea1ddd36f488d0a59e600bc449, type: 2}
   dirty: 0
 --- !u!33 &2427413909175206865
 MeshFilter:

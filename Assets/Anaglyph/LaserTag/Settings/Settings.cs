@@ -14,7 +14,7 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private BoolObject damagedRedVision;
 		[SerializeField] private BoolObject lightEffects;
 		[SerializeField] private BoolObject relay;
-		
+
 		[SerializeField] private BoolObject drawScanMesh;
 		[SerializeField] private BoolObject pauseScanning;
 
@@ -51,16 +51,10 @@ namespace Anaglyph.Lasertag
 			// relay.AddChangeListenerAndCheck(b =>
 			// {
 			// });
-			
-			drawScanMesh.AddChangeListenerAndCheck(b =>
-			{
-				MeshChunk.SetRenderingEnabled(b);
-			});
 
-			pauseScanning.AddChangeListenerAndCheck(b =>
-			{
-				EnvironmentMapper.Instance.enabled = !b;
-			});
+			drawScanMesh.AddChangeListenerAndCheck(b => { MeshChunk.SetDebugRenderingEnabled(b); });
+
+			pauseScanning.AddChangeListenerAndCheck(b => { EnvironmentMapper.Instance.enabled = !b; });
 		}
 	}
 }
