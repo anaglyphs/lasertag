@@ -1,7 +1,7 @@
 Texture2DArray<float> agOcclusionTex;
 SamplerState linearClampSampler;
 
-void agEnvOcclusionTest_half(
+void agEnvOcclusion_half(
 	float3 WorldPos,
 	out float OutValue)
 {
@@ -18,11 +18,10 @@ void agEnvOcclusionTest_half(
 
 	float linearDepth = saturate(ndc.z * 0.5 + 0.5);
 
-	OutValue = linearDepth <= depthSample ? 1.0 : 0.0;
+	OutValue = linearDepth <= depthSample ? 0.0 : 1.0;
 }
 
-
-void agEnvOcclusionTest_float(
+void agEnvOcclusion_float(
 	float3 WorldPos,
 	out float OutValue)
 {
@@ -37,7 +36,17 @@ void agEnvOcclusionTest_float(
 
 	float depthSample = agOcclusionTex.Sample(linearClampSampler, float3(screenUV, eye)).r;
 
-	float linearDepth = saturate(ndc.z * 0.5 + 0.5);
+	float linearDepth = saturate(ndc.z);
 
-	OutValue = linearDepth <= depthSample ? 1.0 : 0.0;
+	OutValue = linearDepth <= depthSample ? 0.0 : 1.0;
+}
+
+void agEnvOcclusionSample_half(float2 uv, out float val)
+{
+	val = agOcclusionTex.Sample(linearClampSampler, float3(uv, 0)).r;
+}
+
+void agEnvOcclusionSample_float(float2 uv, out float val)
+{
+	val = agOcclusionTex.Sample(linearClampSampler, float3(uv, 0)).r;
 }
