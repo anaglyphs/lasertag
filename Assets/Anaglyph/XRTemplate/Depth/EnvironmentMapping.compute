@@ -166,31 +166,31 @@ void Raymarch(uint3 idx : SV_DispatchThreadID)
 
 #define MAX_RAYMARCH_DIST 100
 
-float4x4 camView;
-float4x4 camProj;
-float4x4 camInvView;
-float4x4 camInvProj;
+float4x4 camView[2];
+float4x4 camProj[2];
+float4x4 camInvView[2];
+float4x4 camInvProj[2];
 
-RWTexture2D<half> occlusionTex;
+RWTexture2DArray<half> agOcclusionTex;
 uint2 occlusionTexSize;
 
 [numthreads(8, 8, 1)]
-void OcclusionMarch(uint2 idx : SV_DispatchThreadID)
+void OcclusionMarch(uint3 idx : SV_DispatchThreadID)
 {
 	if (idx.x >= occlusionTexSize.x || idx.y >= occlusionTexSize.y)
 		return;
 
-	float2 uv = float2(idx) / float2(occlusionTexSize);
+	float2 uv = float2(idx.xy) / float2(occlusionTexSize);
 	// occlusionTex[idx.xy] = uv;
 	// return;
-	
+
 	float2 ndc = uv * 2.0 - 1.0;
 
-	float4 viewPos = mul(camInvProj, float4(ndc, 1.0, 1.0));
+	float4 viewPos = mul(camInvProj[idx.z], float4(ndc, 1.0, 1.0));
 	viewPos.xyz /= viewPos.w;
 
-	float3 origin = mul(camInvView, float4(0, 0, 0, 1)).xyz;
-	float3 farPoint = mul(camInvView, float4(viewPos.xyz, 1)).xyz;
+	float3 origin = mul(camInvView[idx.z], float4(0, 0, 0, 1)).xyz;
+	float3 farPoint = mul(camInvView[idx.z], float4(viewPos.xyz, 1)).xyz;
 	float3 direction = normalize(farPoint - origin);
 
 	float dist = 0;
@@ -215,10 +215,10 @@ void OcclusionMarch(uint2 idx : SV_DispatchThreadID)
 	// occlusionTex[idx] = dist / 10.0;
 	// return;
 
-	float4 clip = mul(camProj, mul(camView, float4(origin + direction * hitDist, 1.0)));
+	float4 clip = mul(camProj[idx.z], mul(camView[idx.z], float4(origin + direction * hitDist, 1.0)));
 	float zdepth = clip.z / clip.w;
 	zdepth = saturate(zdepth);
 
-	occlusionTex[idx] = zdepth;
+	agOcclusionTex[idx.xyz] = zdepth;
 	return;
 }

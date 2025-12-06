@@ -3,9 +3,7 @@ using Anaglyph.XRTemplate.DepthKit;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using Unity.Collections;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace Anaglyph.XRTemplate
 {
@@ -54,27 +52,27 @@ namespace Anaglyph.XRTemplate
 		private int DepthTexID => DepthKitDriver.agDepthTex_ID;
 		private int NormTexID => DepthKitDriver.agDepthNormTex_ID;
 
-		private readonly int numPlayersID = Shader.PropertyToID("numPlayers");
-		private readonly int playerHeadsWorldID = Shader.PropertyToID("playerHeadsWorld");
+		private static readonly int numPlayersID = Shader.PropertyToID("numPlayers");
+		private static readonly int playerHeadsWorldID = Shader.PropertyToID("playerHeadsWorld");
 
-		private readonly int numRaymarchRequestsID = Shader.PropertyToID("numRaymarchRequests");
-		private readonly int raymarchRequestsID = Shader.PropertyToID("raymarchRequests");
-		private readonly int raymarchResultsID = Shader.PropertyToID("raymarchResults");
-		private readonly int raymarchVolumeID = Shader.PropertyToID("raymarchVolume");
+		private static readonly int numRaymarchRequestsID = Shader.PropertyToID("numRaymarchRequests");
+		private static readonly int raymarchRequestsID = Shader.PropertyToID("raymarchRequests");
+		private static readonly int raymarchResultsID = Shader.PropertyToID("raymarchResults");
+		private static readonly int raymarchVolumeID = Shader.PropertyToID("raymarchVolume");
 
-		private readonly int volumeID = Shader.PropertyToID("volume");
-		private readonly int volumeSizeID = Shader.PropertyToID("volumeSize");
-		private readonly int voxSizeID = Shader.PropertyToID("voxSize");
-		private readonly int truncMaxID = Shader.PropertyToID("truncMax");
-		private readonly int truncMinID = Shader.PropertyToID("truncMin");
+		private static readonly int volumeID = Shader.PropertyToID("volume");
+		private static readonly int volumeSizeID = Shader.PropertyToID("volumeSize");
+		private static readonly int voxSizeID = Shader.PropertyToID("voxSize");
+		private static readonly int truncMaxID = Shader.PropertyToID("truncMax");
+		private static readonly int truncMinID = Shader.PropertyToID("truncMin");
 
-		private readonly int occlusionTexID = Shader.PropertyToID("occlusionTex");
-		private readonly int occlusionTexSizeID = Shader.PropertyToID("occlusionTexSize");
+		private static readonly int occlusionTexID = Shader.PropertyToID("agOcclusionTex");
+		private static readonly int occlusionTexSizeID = Shader.PropertyToID("occlusionTexSize");
 
-		private readonly int camViewID = Shader.PropertyToID("camView");
-		private readonly int camProjID = Shader.PropertyToID("camProj");
-		private readonly int camInvViewID = Shader.PropertyToID("camInvView");
-		private readonly int camInvProjID = Shader.PropertyToID("camInvProj");
+		private static readonly int camViewID = Shader.PropertyToID("camView");
+		private static readonly int camProjID = Shader.PropertyToID("camProj");
+		private static readonly int camInvViewID = Shader.PropertyToID("camInvView");
+		private static readonly int camInvProjID = Shader.PropertyToID("camInvProj");
 
 		// cached points within viewspace depth frustum 
 		// like a 3D lookup table
@@ -209,7 +207,6 @@ namespace Anaglyph.XRTemplate
 			}
 
 			frustumVolume = new ComputeBuffer(positions.Count, sizeof(float) * 3);
-			// lastIntegration = new ComputeBuffer(positions.Count, sizeof())
 
 			frustumVolume.SetData(positions);
 			integrateKernel.Set(nameof(frustumVolume), frustumVolume);
@@ -289,7 +286,6 @@ namespace Anaglyph.XRTemplate
 
 			raymarchKernel.DispatchGroups(count, 1, 1);
 
-
 			float[] results = new float[count];
 			resultBuffer.GetData(results);
 
@@ -297,57 +293,44 @@ namespace Anaglyph.XRTemplate
 			resultBuffer.Dispose();
 
 			return results;
-
-			//var tcs = new TaskCompletionSource<AsyncGPUReadbackRequest>();
-
-			//AsyncGPUReadback.Request(resultBuffer, (req) =>
-			//{
-			//	if (req.hasError)
-			//		tcs.SetException(new System.Exception("GPU readback failed"));
-			//	else
-			//		tcs.SetResult(req);
-
-			//	requestsBuffer.Dispose();
-			//	resultBuffer.Dispose();
-			//});
-
-			//AsyncGPUReadbackRequest result = await tcs.Task;
-			//return result.GetData<float>().ToArray();
 		}
 
-		public async Task ComputeOcclusionTexture(ushort[] results)
+		private void LateUpdate()
+		{
+			ComputeOcclusionTexture();
+		}
+
+		private Matrix4x4[] camViewMats = new Matrix4x4[2];
+		private Matrix4x4[] camInvViewMats = new Matrix4x4[2];
+		private Matrix4x4[] camProjMats = new Matrix4x4[2];
+		private Matrix4x4[] camInvProjMats = new Matrix4x4[2];
+
+		public void ComputeOcclusionTexture()
 		{
 			Camera cam = MainXRRig.Instance.camera;
 
-			shader.SetMatrix(camViewID, cam.worldToCameraMatrix);
-			shader.SetMatrix(camInvViewID, cam.cameraToWorldMatrix);
+			for (int i = 0; i < 2; i++)
+			{
+				Camera.StereoscopicEye eye = (Camera.StereoscopicEye)i;
+				Matrix4x4 viewMat = cam.GetStereoViewMatrix(eye);
+				camViewMats[i] = viewMat;
+				camInvViewMats[i] = viewMat.inverse;
 
-			Matrix4x4 projMat = GL.GetGPUProjectionMatrix(cam.projectionMatrix, false);
-			shader.SetMatrix(camProjID, projMat);
-			shader.SetMatrix(camInvProjID, projMat.inverse);
+				Matrix4x4 projMat = cam.GetStereoProjectionMatrix(eye);
+				Matrix4x4 projMatGL = GL.GetGPUProjectionMatrix(projMat, true);
+				camProjMats[i] = projMatGL;
+				camInvProjMats[i] = projMatGL.inverse;
+			}
+
+			shader.SetMatrixArray(camViewID, camViewMats);
+			shader.SetMatrixArray(camInvViewID, camInvViewMats);
+
+			shader.SetMatrixArray(camProjID, camProjMats);
+			shader.SetMatrixArray(camInvProjID, camInvProjMats);
 
 			occlusionMarchKernel.DispatchGroups(occlusionTex);
-			
-			AsyncGPUReadbackRequest request = await AsyncGPUReadback.RequestAsync(occlusionTex);
-			
-			if (request.hasError) throw new Exception("Readback error");
-			
-			request.GetData<ushort>().CopyTo(results);
+
+			Shader.SetGlobalTexture(occlusionTexID, occlusionTex);
 		}
-
-		//private static Task<AsyncGPUReadbackRequest> AwaitReadback(ComputeBuffer buffer)
-		//{
-		//	var tcs = new TaskCompletionSource<AsyncGPUReadbackRequest>();
-
-		//	AsyncGPUReadback.Request(buffer, (req) =>
-		//	{
-		//		if (req.hasError)
-		//			tcs.SetException(new System.Exception("GPU readback failed"));
-		//		else
-		//			tcs.SetResult(req);
-		//	});
-
-		//	return tcs.Task;
-		//}
 	}
 }
