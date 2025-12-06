@@ -1,6 +1,7 @@
 using System;
 using Anaglyph.XRTemplate;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace Anaglyph.DepthKit.Meshing
 {
@@ -8,16 +9,21 @@ namespace Anaglyph.DepthKit.Meshing
 	{
 		[SerializeField] private ComputeShader compute;
 
-		private float[] a;
+		private ushort[] a;
 
-		private static EnvironmentMapper mapper = EnvironmentMapper.Instance;
+		private static EnvironmentMapper mapper => EnvironmentMapper.Instance;
+
+		private void Start()
+		{
+			RenderTexture occlusionTex = mapper.OcclusionTex;
+			a = new ushort[occlusionTex.width * occlusionTex.height];
+			Loop();
+		}
 
 		private void OnEnable()
 		{
-			RenderTexture occlusionTex = mapper.OcclusionTex;
-			a = new float[occlusionTex.width * occlusionTex.height];
-
-			Loop();
+			if(didStart)
+				Loop();
 		}
 
 		private async void Loop()

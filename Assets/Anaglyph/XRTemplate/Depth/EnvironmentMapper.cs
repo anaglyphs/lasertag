@@ -315,25 +315,24 @@ namespace Anaglyph.XRTemplate
 			//return result.GetData<float>().ToArray();
 		}
 
-		public async Task ComputeOcclusionTexture(float[] results)
+		public async Task ComputeOcclusionTexture(ushort[] results)
 		{
 			Camera cam = MainXRRig.Instance.camera;
 
 			shader.SetMatrix(camViewID, cam.worldToCameraMatrix);
 			shader.SetMatrix(camInvViewID, cam.cameraToWorldMatrix);
 
-			Matrix4x4 projMat = GL.GetGPUProjectionMatrix(cam.projectionMatrix, true);
+			Matrix4x4 projMat = GL.GetGPUProjectionMatrix(cam.projectionMatrix, false);
 			shader.SetMatrix(camProjID, projMat);
-			shader.SetMatrix(camProjID, projMat.inverse);
+			shader.SetMatrix(camInvProjID, projMat.inverse);
 
-			occlusionMarchKernel.Dispatch(occlusionTex.width, occlusionTex.height, 1);
-
-			AsyncGPUReadbackRequest request = await AsyncGPUReadback.RequestAsync(occlusionTex, 1);
-
-			if (request.hasError)
-				throw new Exception("Readback error");
-
-			request.GetData<float>().CopyTo(results);
+			occlusionMarchKernel.DispatchGroups(occlusionTex);
+			
+			AsyncGPUReadbackRequest request = await AsyncGPUReadback.RequestAsync(occlusionTex);
+			
+			if (request.hasError) throw new Exception("Readback error");
+			
+			request.GetData<ushort>().CopyTo(results);
 		}
 
 		//private static Task<AsyncGPUReadbackRequest> AwaitReadback(ComputeBuffer buffer)
