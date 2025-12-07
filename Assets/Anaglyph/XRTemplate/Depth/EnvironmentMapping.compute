@@ -164,7 +164,7 @@ void Raymarch(uint3 idx : SV_DispatchThreadID)
 
 #pragma kernel OcclusionMarch
 
-#define MAX_RAYMARCH_DIST 100
+#define MAX_RAYMARCH_DIST 50
 
 float4x4 camView[2];
 float4x4 camProj[2];

@@ -4,10 +4,6 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.Rendering;
-using UnityEngine.Rendering.RenderGraphModule;
-using UnityEngine.Rendering.Universal;
-using UnityEngine.XR;
 
 namespace Anaglyph.XRTemplate
 {
@@ -112,12 +108,11 @@ namespace Anaglyph.XRTemplate
 			shader.SetFloat(truncMaxID, truncationMax);
 			shader.SetFloat(truncMinID, truncationMin);
 			shader.SetInts(occlusionTexSizeID, occlusionTex.width, occlusionTex.height);
-			
+
 			Clear();
 
 			ScanLoop();
-			
-			
+			OcclusionTextureLoop();
 		}
 
 		public void Clear()
@@ -217,8 +212,11 @@ namespace Anaglyph.XRTemplate
 			integrateKernel.Set(nameof(frustumVolume), frustumVolume);
 		}
 
+		private bool isDestroyed = false;
+
 		private void OnDestroy()
 		{
+			isDestroyed = true;
 			frustumVolume?.Release();
 		}
 
@@ -300,9 +298,14 @@ namespace Anaglyph.XRTemplate
 			return results;
 		}
 
-		private void LateUpdate()
+		private async void OcclusionTextureLoop()
 		{
-			ComputeOcclusionTexture();
+			while (!isDestroyed)
+			{
+				await Awaitable.NextFrameAsync();
+				await Awaitable.EndOfFrameAsync();
+				ComputeOcclusionTexture();
+			}
 		}
 
 		private Matrix4x4[] camViewMats = new Matrix4x4[2];
@@ -338,90 +341,4 @@ namespace Anaglyph.XRTemplate
 			Shader.SetGlobalTexture(occlusionTexID, occlusionTex);
 		}
 	}
-	
-	class OcclusionPass : ScriptableRenderPass
-    {
-        readonly ComputeShader shader;
-        readonly int kernel;
-        readonly int camViewID;
-        readonly int camInvViewID;
-        readonly int camProjID;
-        readonly int camInvProjID;
-        readonly int occlusionTexID;
-
-        readonly RenderTexture occlusionTex;
-
-        // scratch arrays
-        readonly Matrix4x4[] view = new Matrix4x4[2];
-        readonly Matrix4x4[] invView = new Matrix4x4[2];
-        readonly Matrix4x4[] proj = new Matrix4x4[2];
-        readonly Matrix4x4[] invProj = new Matrix4x4[2];
-
-        public OcclusionPass(
-            ComputeShader shader,
-            int kernel,
-            int camViewID,
-            int camInvViewID,
-            int camProjID,
-            int camInvProjID,
-            int occlusionTexID,
-            RenderTexture occlusionTex)
-        {
-            this.shader = shader;
-            this.kernel = kernel;
-            this.camViewID = camViewID;
-            this.camInvViewID = camInvViewID;
-            this.camProjID = camProjID;
-            this.camInvProjID = camInvProjID;
-            this.occlusionTexID = occlusionTexID;
-            this.occlusionTex = occlusionTex;
-
-            renderPassEvent = RenderPassEvent.BeforeRenderingOpaques;
-        }
-
-        public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
-        {
-            var cmd = CommandBufferPool.Get("OcclusionPass");
-            ref var cameraData = ref renderingData.cameraData;
-
-            if (!cameraData.xr.enabled)
-            {
-                CommandBufferPool.Release(cmd);
-                return;
-            }
-
-            var xr = cameraData.xr;
-            int eyeCount = xr.viewCount;
-
-            for (int i = 0; i < eyeCount; i++)
-            {
-                Matrix4x4 viewMatrix = xr.GetViewMatrix(i);
-                Matrix4x4 projMatrix = xr.GetProjMatrix(i);
-
-                view[i] = viewMatrix;
-                invView[i] = viewMatrix.inverse;
-
-                // GPU-corrected projection (URP matrices are already GPU-corrected)
-                proj[i] = projMatrix;
-                invProj[i] = projMatrix.inverse;
-            }
-
-            cmd.SetComputeMatrixArrayParam(shader, camViewID, view);
-            cmd.SetComputeMatrixArrayParam(shader, camInvViewID, invView);
-            cmd.SetComputeMatrixArrayParam(shader, camProjID, proj);
-            cmd.SetComputeMatrixArrayParam(shader, camInvProjID, invProj);
-
-            cmd.SetComputeTextureParam(shader, kernel, occlusionTexID, occlusionTex);
-
-            // Dispatch according to your texture resolution
-            int gx = Mathf.CeilToInt(occlusionTex.width / 8.0f);
-            int gy = Mathf.CeilToInt(occlusionTex.height / 8.0f);
-            cmd.DispatchCompute(shader, kernel, gx, gy, 1);
-
-            cmd.SetGlobalTexture(occlusionTexID, occlusionTex);
-
-            context.ExecuteCommandBuffer(cmd);
-            CommandBufferPool.Release(cmd);
-        }
-    }
 }

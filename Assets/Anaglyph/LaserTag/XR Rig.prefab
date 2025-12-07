@@ -2515,38 +2515,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 3086983956727299691}
     m_Modifications:
-    - target: {fileID: 312864404144055980, guid: ae9b9139235ae4d6c81805cfd8269f93, type: 3}
-      propertyPath: m_SizeDelta.x
-      value: 160
-      objectReference: {fileID: 0}
-    - target: {fileID: 312864404144055980, guid: ae9b9139235ae4d6c81805cfd8269f93, type: 3}
-      propertyPath: m_SizeDelta.y
-      value: 120
-      objectReference: {fileID: 0}
-    - target: {fileID: 312864404144055980, guid: ae9b9139235ae4d6c81805cfd8269f93, type: 3}
-      propertyPath: m_AnchoredPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 312864404144055980, guid: ae9b9139235ae4d6c81805cfd8269f93, type: 3}
-      propertyPath: m_AnchoredPosition.y
-      value: 160
-      objectReference: {fileID: 0}
-    - target: {fileID: 777060991554735569, guid: ae9b9139235ae4d6c81805cfd8269f93, type: 3}
-      propertyPath: m_SizeDelta.x
-      value: 160
-      objectReference: {fileID: 0}
-    - target: {fileID: 777060991554735569, guid: ae9b9139235ae4d6c81805cfd8269f93, type: 3}
-      propertyPath: m_SizeDelta.y
-      value: 160
-      objectReference: {fileID: 0}
-    - target: {fileID: 777060991554735569, guid: ae9b9139235ae4d6c81805cfd8269f93, type: 3}
-      propertyPath: m_AnchoredPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 777060991554735569, guid: ae9b9139235ae4d6c81805cfd8269f93, type: 3}
-      propertyPath: m_AnchoredPosition.y
-      value: 0
-      objectReference: {fileID: 0}
     - target: {fileID: 2617744685363544968, guid: ae9b9139235ae4d6c81805cfd8269f93, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -2626,10 +2594,6 @@ PrefabInstance:
     - target: {fileID: 2617744685363544968, guid: ae9b9139235ae4d6c81805cfd8269f93, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4393144391894179605, guid: ae9b9139235ae4d6c81805cfd8269f93, type: 3}
-      propertyPath: m_Name
-      value: depth march debug
       objectReference: {fileID: 0}
     - target: {fileID: 4995463198307502455, guid: ae9b9139235ae4d6c81805cfd8269f93, type: 3}
       propertyPath: m_Name
