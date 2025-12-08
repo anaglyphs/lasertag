@@ -52,10 +52,10 @@ namespace Anaglyph.Lasertag
 			// {
 			// });
 
-			drawScanMesh.AddChangeListenerAndCheck(b =>
-			{
-				ChunkManager.Instance.gameObject.SetActive(b);
-			});
+			// drawScanMesh.AddChangeListenerAndCheck(b =>
+			// {
+			// 	ChunkManager.Instance.gameObject.SetActive(b);
+			// });
 
 			pauseScanning.AddChangeListenerAndCheck(b =>
 			{

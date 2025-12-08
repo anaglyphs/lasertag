@@ -27,9 +27,6 @@ namespace Anaglyph.DepthKit.Meshing
 		public Vector3 extents = new float3(10, 10, 10);
 		private EnvironmentMapper mapper => EnvironmentMapper.Instance;
 
-		[SerializeField] private Material occlusionMaterial;
-		[SerializeField] private Material debugMaterial;
-
 		private Mesh mesh;
 		private CancellationTokenSource ctkn;
 		public bool dirty;

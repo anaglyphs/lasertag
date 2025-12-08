@@ -52,8 +52,8 @@ MonoBehaviour:
     probeSamplingDebugTexture: {fileID: 0}
     probeVolumeBlendStatesCS: {fileID: 0}
   m_RendererFeatures:
-  - {fileID: 3446055741050142}
-  m_RendererFeatureMap: 1e4d52602b3e0c00
+  - {fileID: 5655663737276501250}
+  m_RendererFeatureMap: 028d6c3d34f47c4e
   m_UseNativeRenderPass: 1
   xrSystemData: {fileID: 11400000, guid: 60e1133243b97e347b653163a8c01b64, type: 2}
   postProcessData: {fileID: 0}
@@ -79,7 +79,7 @@ MonoBehaviour:
   m_DepthTextureFormat: 0
   m_AccurateGbufferNormals: 0
   m_IntermediateTextureMode: 0
---- !u!114 &3446055741050142
+--- !u!114 &5655663737276501250
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -88,10 +88,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: cf1a311a7a9ca9b429447edd6a5bcfa6, type: 3}
-  m_Name: OcclusionRenderGraphFeature
+  m_Script: {fileID: 11500000, guid: 4fcba67de95ab1442bc8a59e0b5570bb, type: 3}
+  m_Name: OcclusionRenderFeature
   m_EditorClassIdentifier: 
   m_Active: 1
-  shader: {fileID: 7200000, guid: acbd8d3a81f87044f9dc52fb3cc8d414, type: 3}
-  volume: {fileID: 8400000, guid: 1b824cd65da368c4ba66330fd10e8ba2, type: 2}
   depthTexOut: {fileID: 8400000, guid: de57afc603ace431d9b72be8ce0b7ac8, type: 2}
+  depthMat: {fileID: 2100000, guid: bbab3a498c0287c4a910c2206bb1551d, type: 2}

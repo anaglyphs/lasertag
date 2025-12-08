@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 3159734015169137547}
   - component: {fileID: 2427413909175206865}
   - component: {fileID: 5610405286200268345}
+  - component: {fileID: 4388074283598305721}
   m_Layer: 6
   m_Name: Chunk
   m_TagString: Untagged
@@ -47,8 +48,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   extents: {x: 5, y: 5, z: 5}
-  occlusionMaterial: {fileID: 2100000, guid: 5011a7c4fa28a6440825134b0bb85188, type: 2}
-  debugMaterial: {fileID: 2100000, guid: 310a29ea1ddd36f488d0a59e600bc449, type: 2}
   dirty: 0
   onMeshInitialized:
     m_PersistentCalls:
@@ -96,7 +95,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: c71970ef34b9d954598fa14a0e1fc28a, type: 2}
+  - {fileID: -876546973899608171, guid: dc3258bcf69bfe64297ce2b59f0680dc, type: 3}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -118,3 +117,15 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!114 &4388074283598305721
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5707654171926711959}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fa4842e69a6e2df49beed0f58bab5b3e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 

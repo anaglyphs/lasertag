@@ -2775,6 +2775,10 @@ PrefabInstance:
       propertyPath: m_ClearFlags
       value: 2
       objectReference: {fileID: 0}
+    - target: {fileID: 5728646336010394143, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
+      propertyPath: m_CullingMask.m_Bits
+      value: 11455
+      objectReference: {fileID: 0}
     - target: {fileID: 7254734392762225021, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       propertyPath: m_Name
       value: XR Rig
@@ -2877,10 +2881,9 @@ MonoBehaviour:
   truncationMin: -0.1
   dispatchesPerSecond: 10
   volume: {fileID: 8400000, guid: 1b824cd65da368c4ba66330fd10e8ba2, type: 2}
-  occlusionTex: {fileID: 8400000, guid: de57afc603ace431d9b72be8ce0b7ac8, type: 2}
   maxEyeDist: 6
   minEyeDist: 1
-  PlayerHeads: []
+  playerHeads: []
 --- !u!114 &7681910871548539734
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3735,6 +3738,10 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3721433991501463923, guid: 3318c2be2cb272a40ba29ae4ed9ed046, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 3798316902488918026, guid: 3318c2be2cb272a40ba29ae4ed9ed046, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -3858,6 +3865,10 @@ PrefabInstance:
     - target: {fileID: 4027595822318579883, guid: 3318c2be2cb272a40ba29ae4ed9ed046, type: 3}
       propertyPath: m_AnchoredPosition.y
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4069308825302632797, guid: 3318c2be2cb272a40ba29ae4ed9ed046, type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4362076919348338486, guid: 3318c2be2cb272a40ba29ae4ed9ed046, type: 3}
       propertyPath: m_AnchorMax.y
@@ -4170,6 +4181,10 @@ PrefabInstance:
     - target: {fileID: 5149235022541113577, guid: 3318c2be2cb272a40ba29ae4ed9ed046, type: 3}
       propertyPath: m_AnchoredPosition.y
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5287882034515042277, guid: 3318c2be2cb272a40ba29ae4ed9ed046, type: 3}
+      propertyPath: scriptableBool
+      value: 
       objectReference: {fileID: 0}
     - target: {fileID: 5398067143663332656, guid: 3318c2be2cb272a40ba29ae4ed9ed046, type: 3}
       propertyPath: m_AnchorMax.y

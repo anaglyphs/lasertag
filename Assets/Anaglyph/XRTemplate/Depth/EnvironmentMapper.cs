@@ -26,8 +26,8 @@ namespace Anaglyph.XRTemplate
 		[SerializeField] private RenderTexture volume;
 		public RenderTexture Volume => volume;
 
-		[SerializeField] private RenderTexture occlusionTex;
-		public RenderTexture OcclusionTex => occlusionTex;
+		// [SerializeField] private RenderTexture occlusionTex;
+		// public RenderTexture OcclusionTex => occlusionTex;
 
 		public int VWidth => volume.width;
 		public int VHeight => volume.height;
@@ -99,15 +99,15 @@ namespace Anaglyph.XRTemplate
 			raymarchKernel = new ComputeKernel(shader, "Raymarch");
 			raymarchKernel.Set(RaymarchVolumeID, volume);
 
-			occlusionMarchKernel = new ComputeKernel(shader, "OcclusionMarch");
-			occlusionMarchKernel.Set(RaymarchVolumeID, volume);
-			occlusionMarchKernel.Set(OcclusionTexID, occlusionTex);
-
+			// occlusionMarchKernel = new ComputeKernel(shader, "OcclusionMarch");
+			// occlusionMarchKernel.Set(RaymarchVolumeID, volume);
+			// occlusionMarchKernel.Set(OcclusionTexID, occlusionTex);
+			//
 			shader.SetInts(VolumeSizeID, VWidth, VHeight, VDepth);
 			shader.SetFloat(VoxSizeID, voxelSize);
 			shader.SetFloat(TruncMaxID, truncationMax);
 			shader.SetFloat(TruncMinID, truncationMin);
-			shader.SetInts(OcclusionTexSizeID, occlusionTex.width, occlusionTex.height);
+			// shader.SetInts(OcclusionTexSizeID, occlusionTex.width, occlusionTex.height);
 
 			Clear();
 

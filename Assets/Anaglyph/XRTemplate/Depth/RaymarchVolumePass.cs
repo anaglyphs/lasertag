@@ -5,7 +5,7 @@ using UnityEngine.Rendering.RenderGraphModule;
 
 namespace Anaglyph.DepthKit
 {
-	public class OcclusionRenderGraphFeature : ScriptableRendererFeature
+	public class RaymarchVolumeFeature : ScriptableRendererFeature
 	{
 		public ComputeShader shader;
 		public RenderTexture volume;
