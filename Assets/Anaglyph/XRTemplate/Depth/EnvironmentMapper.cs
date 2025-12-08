@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Anaglyph.XRTemplate
 {
@@ -28,9 +29,9 @@ namespace Anaglyph.XRTemplate
 		[SerializeField] private RenderTexture occlusionTex;
 		public RenderTexture OcclusionTex => occlusionTex;
 
-		public int vWidth => volume.width;
-		public int vHeight => volume.height;
-		public int vDepth => volume.volumeDepth;
+		public int VWidth => volume.width;
+		public int VHeight => volume.height;
+		public int VDepth => volume.volumeDepth;
 
 		[SerializeField] private float maxEyeDist = 7f;
 		public float MaxEyeDist => maxEyeDist;
@@ -52,34 +53,33 @@ namespace Anaglyph.XRTemplate
 		private int DepthTexID => DepthKitDriver.agDepthTex_ID;
 		private int NormTexID => DepthKitDriver.agDepthNormTex_ID;
 
-		private static readonly int numPlayersID = Shader.PropertyToID("numPlayers");
-		private static readonly int playerHeadsWorldID = Shader.PropertyToID("playerHeadsWorld");
+		private static readonly int NumPlayersID = Shader.PropertyToID("numPlayers");
+		private static readonly int PlayerHeadsWorldID = Shader.PropertyToID("playerHeadsWorld");
 
-		private static readonly int numRaymarchRequestsID = Shader.PropertyToID("numRaymarchRequests");
-		private static readonly int raymarchRequestsID = Shader.PropertyToID("raymarchRequests");
-		private static readonly int raymarchResultsID = Shader.PropertyToID("raymarchResults");
-		private static readonly int raymarchVolumeID = Shader.PropertyToID("raymarchVolume");
+		private static readonly int NumRaymarchRequestsID = Shader.PropertyToID("numRaymarchRequests");
+		private static readonly int RaymarchRequestsID = Shader.PropertyToID("raymarchRequests");
+		private static readonly int RaymarchResultsID = Shader.PropertyToID("raymarchResults");
+		private static readonly int RaymarchVolumeID = Shader.PropertyToID("raymarchVolume");
 
-		private static readonly int volumeID = Shader.PropertyToID("volume");
-		private static readonly int volumeSizeID = Shader.PropertyToID("volumeSize");
-		private static readonly int voxSizeID = Shader.PropertyToID("voxSize");
-		private static readonly int truncMaxID = Shader.PropertyToID("truncMax");
-		private static readonly int truncMinID = Shader.PropertyToID("truncMin");
+		private static readonly int VolumeID = Shader.PropertyToID("volume");
+		private static readonly int VolumeSizeID = Shader.PropertyToID("volumeSize");
+		private static readonly int VoxSizeID = Shader.PropertyToID("voxSize");
+		private static readonly int TruncMaxID = Shader.PropertyToID("truncMax");
+		private static readonly int TruncMinID = Shader.PropertyToID("truncMin");
 
-		private static readonly int occlusionTexID = Shader.PropertyToID("agOcclusionTex");
-		private static readonly int occlusionTexSizeID = Shader.PropertyToID("occlusionTexSize");
+		private static readonly int OcclusionTexID = Shader.PropertyToID("agOcclusionTex");
+		private static readonly int OcclusionTexSizeID = Shader.PropertyToID("occlusionTexSize");
 
-		private static readonly int camViewID = Shader.PropertyToID("camView");
-		private static readonly int camProjID = Shader.PropertyToID("camProj");
-		private static readonly int camInvViewID = Shader.PropertyToID("camInvView");
-		private static readonly int camInvProjID = Shader.PropertyToID("camInvProj");
+		// private static readonly int camViewID = Shader.PropertyToID("camView");
+		// private static readonly int camProjID = Shader.PropertyToID("camProj");
+		// private static readonly int camInvViewID = Shader.PropertyToID("camInvView");
+		// private static readonly int camInvProjID = Shader.PropertyToID("camInvProj");
 
-		// cached points within viewspace depth frustum 
-		// like a 3D lookup table
+		// cached points within viewspace depth frustum for compute dispatch
 		private ComputeBuffer frustumVolume;
 
-		public List<Transform> PlayerHeads = new();
-		private Vector4[] headPositions = new Vector4[512];
+		public List<Transform> playerHeads = new();
+		private readonly Vector4[] headPositions = new Vector4[512];
 
 		private void Awake()
 		{
@@ -89,41 +89,41 @@ namespace Anaglyph.XRTemplate
 		private void Start()
 		{
 			clearKernel = new ComputeKernel(shader, "Clear");
-			clearKernel.Set(volumeID, volume);
+			clearKernel.Set(VolumeID, volume);
 
 			integrateKernel = new ComputeKernel(shader, "Integrate");
-			integrateKernel.Set(volumeID, volume);
+			integrateKernel.Set(VolumeID, volume);
 
 			integrateKernel = new ComputeKernel(shader, "Integrate");
 
 			raymarchKernel = new ComputeKernel(shader, "Raymarch");
-			raymarchKernel.Set(raymarchVolumeID, volume);
+			raymarchKernel.Set(RaymarchVolumeID, volume);
 
 			occlusionMarchKernel = new ComputeKernel(shader, "OcclusionMarch");
-			occlusionMarchKernel.Set(raymarchVolumeID, volume);
-			occlusionMarchKernel.Set(occlusionTexID, occlusionTex);
+			occlusionMarchKernel.Set(RaymarchVolumeID, volume);
+			occlusionMarchKernel.Set(OcclusionTexID, occlusionTex);
 
-			shader.SetInts(volumeSizeID, vWidth, vHeight, vDepth);
-			shader.SetFloat(voxSizeID, voxelSize);
-			shader.SetFloat(truncMaxID, truncationMax);
-			shader.SetFloat(truncMinID, truncationMin);
-			shader.SetInts(occlusionTexSizeID, occlusionTex.width, occlusionTex.height);
+			shader.SetInts(VolumeSizeID, VWidth, VHeight, VDepth);
+			shader.SetFloat(VoxSizeID, voxelSize);
+			shader.SetFloat(TruncMaxID, truncationMax);
+			shader.SetFloat(TruncMinID, truncationMin);
+			shader.SetInts(OcclusionTexSizeID, occlusionTex.width, occlusionTex.height);
 
 			Clear();
 
 			ScanLoop();
-			OcclusionTextureLoop();
+			//OcclusionTextureLoop();
+		}
+		
+		private void OnEnable()
+		{
+			if (didStart)
+				ScanLoop();
 		}
 
 		public void Clear()
 		{
 			clearKernel.DispatchGroups(volume);
-		}
-
-		private void OnEnable()
-		{
-			if (didStart)
-				ScanLoop();
 		}
 
 		private async void ScanLoop()
@@ -157,14 +157,14 @@ namespace Anaglyph.XRTemplate
 			shader.SetMatrixArray(ViewInvID, new[] { view.inverse, Matrix4x4.zero });
 			shader.SetMatrixArray(ProjInvID, new[] { proj.inverse, Matrix4x4.zero });
 
-			for (int i = 0; i < PlayerHeads.Count; i++)
+			for (int i = 0; i < playerHeads.Count; i++)
 			{
-				Vector3 playerHead = PlayerHeads[i].position;
+				Vector3 playerHead = playerHeads[i].position;
 				headPositions[i] = playerHead;
 			}
 
-			shader.SetInt(numPlayersID, PlayerHeads.Count);
-			shader.SetVectorArray(playerHeadsWorldID, headPositions);
+			shader.SetInt(NumPlayersID, playerHeads.Count);
+			shader.SetVectorArray(PlayerHeadsWorldID, headPositions);
 
 			integrateKernel.Set(DepthTexID, depthTex);
 			integrateKernel.Set(NormTexID, normTex);
@@ -212,11 +212,8 @@ namespace Anaglyph.XRTemplate
 			integrateKernel.Set(nameof(frustumVolume), frustumVolume);
 		}
 
-		private bool isDestroyed = false;
-
 		private void OnDestroy()
 		{
-			isDestroyed = true;
 			frustumVolume?.Release();
 		}
 
@@ -241,17 +238,17 @@ namespace Anaglyph.XRTemplate
 
 		public struct RaymarchResult
 		{
-			public Ray ray;
-			public Vector3 point;
-			public float distance;
-			public bool didHit;
+			public Ray Ray;
+			public Vector3 Point;
+			public readonly float Distance;
+			public readonly bool DidHit;
 
 			public RaymarchResult(Ray ray, float distance)
 			{
-				this.ray = ray;
-				point = ray.origin + ray.direction * distance;
-				this.distance = distance;
-				didHit = distance >= 0;
+				this.Ray = ray;
+				Point = ray.origin + ray.direction * distance;
+				this.Distance = distance;
+				DidHit = distance >= 0;
 			}
 		}
 
@@ -283,9 +280,9 @@ namespace Anaglyph.XRTemplate
 			ComputeBuffer resultBuffer = new(count, sizeof(float));
 			currentRaymarchBatch = null;
 
-			shader.SetInt(numRaymarchRequestsID, count);
-			raymarchKernel.Set(raymarchRequestsID, requestsBuffer);
-			raymarchKernel.Set(raymarchResultsID, resultBuffer);
+			shader.SetInt(NumRaymarchRequestsID, count);
+			raymarchKernel.Set(RaymarchRequestsID, requestsBuffer);
+			raymarchKernel.Set(RaymarchResultsID, resultBuffer);
 
 			raymarchKernel.DispatchGroups(count, 1, 1);
 
@@ -298,47 +295,37 @@ namespace Anaglyph.XRTemplate
 			return results;
 		}
 
-		private async void OcclusionTextureLoop()
-		{
-			while (!isDestroyed)
-			{
-				await Awaitable.NextFrameAsync();
-				await Awaitable.EndOfFrameAsync();
-				ComputeOcclusionTexture();
-			}
-		}
-
-		private Matrix4x4[] camViewMats = new Matrix4x4[2];
-		private Matrix4x4[] camInvViewMats = new Matrix4x4[2];
-		private Matrix4x4[] camProjMats = new Matrix4x4[2];
-		private Matrix4x4[] camInvProjMats = new Matrix4x4[2];
-
-		public void ComputeOcclusionTexture()
-		{
-			Camera cam = MainXRRig.Instance.camera;
-
-			for (int i = 0; i < 2; i++)
-			{
-				Camera.StereoscopicEye eye = (Camera.StereoscopicEye)i;
-				Matrix4x4 viewMat = cam.GetStereoViewMatrix(eye);
-				camViewMats[i] = viewMat;
-				camInvViewMats[i] = viewMat.inverse;
-
-				Matrix4x4 projMat = cam.GetStereoProjectionMatrix(eye);
-				Matrix4x4 projMatGL = GL.GetGPUProjectionMatrix(projMat, false);
-				camProjMats[i] = projMatGL;
-				camInvProjMats[i] = projMatGL.inverse;
-			}
-
-			shader.SetMatrixArray(camViewID, camViewMats);
-			shader.SetMatrixArray(camInvViewID, camInvViewMats);
-
-			shader.SetMatrixArray(camProjID, camProjMats);
-			shader.SetMatrixArray(camInvProjID, camInvProjMats);
-
-			occlusionMarchKernel.DispatchGroups(occlusionTex);
-
-			Shader.SetGlobalTexture(occlusionTexID, occlusionTex);
-		}
+		// private Matrix4x4[] camViewMats = new Matrix4x4[2];
+		// private Matrix4x4[] camInvViewMats = new Matrix4x4[2];
+		// private Matrix4x4[] camProjMats = new Matrix4x4[2];
+		// private Matrix4x4[] camInvProjMats = new Matrix4x4[2];
+		//
+		// public void ComputeOcclusionTexture()
+		// {
+		// 	Camera cam = MainXRRig.Instance.camera;
+		//
+		// 	for (int i = 0; i < 2; i++)
+		// 	{
+		// 		Camera.StereoscopicEye eye = (Camera.StereoscopicEye)i;
+		// 		Matrix4x4 viewMat = cam.GetStereoViewMatrix(eye);
+		// 		camViewMats[i] = viewMat;
+		// 		camInvViewMats[i] = viewMat.inverse;
+		//
+		// 		Matrix4x4 projMat = cam.GetStereoProjectionMatrix(eye);
+		// 		Matrix4x4 projMatGL = GL.GetGPUProjectionMatrix(projMat, false);
+		// 		camProjMats[i] = projMatGL;
+		// 		camInvProjMats[i] = projMatGL.inverse;
+		// 	}
+		//
+		// 	shader.SetMatrixArray(camViewID, camViewMats);
+		// 	shader.SetMatrixArray(camInvViewID, camInvViewMats);
+		//
+		// 	shader.SetMatrixArray(camProjID, camProjMats);
+		// 	shader.SetMatrixArray(camInvProjID, camInvProjMats);
+		//
+		// 	occlusionMarchKernel.DispatchGroups(occlusionTex);
+		//
+		// 	Shader.SetGlobalTexture(occlusionTexID, occlusionTex);
+		// }
 	}
 }

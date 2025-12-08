@@ -52,9 +52,15 @@ namespace Anaglyph.Lasertag
 			// {
 			// });
 
-			drawScanMesh.AddChangeListenerAndCheck(b => { MeshChunk.SetDebugRenderingEnabled(b); });
+			drawScanMesh.AddChangeListenerAndCheck(b =>
+			{
+				ChunkManager.Instance.gameObject.SetActive(b);
+			});
 
-			pauseScanning.AddChangeListenerAndCheck(b => { EnvironmentMapper.Instance.enabled = !b; });
+			pauseScanning.AddChangeListenerAndCheck(b =>
+			{
+				EnvironmentMapper.Instance.enabled = !b;
+			});
 		}
 	}
 }

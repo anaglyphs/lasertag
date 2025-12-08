@@ -1,4 +1,3 @@
-using Anaglyph.XRTemplate;
 using UnityEngine;
 
 namespace Anaglyph.XRTemplate.DepthKit
@@ -7,12 +6,12 @@ namespace Anaglyph.XRTemplate.DepthKit
 	{
 		private void Awake()
 		{
-			EnvironmentMapper.Instance?.PlayerHeads.Add(transform);
+			EnvironmentMapper.Instance?.playerHeads.Add(transform);
 		}
 
 		private void OnDestroy()
 		{
-			EnvironmentMapper.Instance?.PlayerHeads.Remove(transform);
+			EnvironmentMapper.Instance?.playerHeads.Remove(transform);
 		}
 	}
 }

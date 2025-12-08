@@ -12,7 +12,6 @@ GameObject:
   - component: {fileID: 3159734015169137547}
   - component: {fileID: 2427413909175206865}
   - component: {fileID: 5610405286200268345}
-  - component: {fileID: 2845429502253480654}
   m_Layer: 6
   m_Name: Chunk
   m_TagString: Untagged
@@ -48,12 +47,24 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   extents: {x: 5, y: 5, z: 5}
-  meshRenderer: {fileID: 5610405286200268345}
-  meshFilter: {fileID: 2427413909175206865}
-  meshCollider: {fileID: 2845429502253480654}
   occlusionMaterial: {fileID: 2100000, guid: 5011a7c4fa28a6440825134b0bb85188, type: 2}
   debugMaterial: {fileID: 2100000, guid: 310a29ea1ddd36f488d0a59e600bc449, type: 2}
   dirty: 0
+  onMeshInitialized:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 2427413909175206865}
+        m_TargetAssemblyTypeName: UnityEngine.MeshFilter, UnityEngine
+        m_MethodName: set_sharedMesh
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!33 &2427413909175206865
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -107,25 +118,3 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!64 &2845429502253480654
-MeshCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5707654171926711959}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 0
-  serializedVersion: 5
-  m_Convex: 0
-  m_CookingOptions: 30
-  m_Mesh: {fileID: 0}

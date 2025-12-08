@@ -1,7 +1,5 @@
-using System;
 using System.Collections.Generic;
 using Anaglyph.XRTemplate;
-using Unity.AI.Navigation;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.XR;

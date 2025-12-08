@@ -7,68 +7,49 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.Rendering;
+using UnityEngine.Serialization;
 
 namespace Anaglyph.DepthKit.Meshing
 {
 	public class MeshChunk : MonoBehaviour
 	{
-		private static bool debugRendering = false;
-		private static event Action<bool> DebugRenderingChanged = delegate { };
-
-		public static void SetDebugRenderingEnabled(bool b)
-		{
-			debugRendering = b;
-			DebugRenderingChanged.Invoke(b);
-		}
 
 #if UNITY_EDITOR
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
 		private static async void StartWithDebugRendering()
 		{
 			await Awaitable.WaitForSecondsAsync(0.5f);
-			SetDebugRenderingEnabled(true);
 		}
 #endif
 
 		public Vector3 extents = new float3(10, 10, 10);
 		private EnvironmentMapper mapper => EnvironmentMapper.Instance;
 
-		[SerializeField] private MeshRenderer meshRenderer;
-		[SerializeField] private MeshFilter meshFilter;
-		[SerializeField] private MeshCollider meshCollider;
-
 		[SerializeField] private Material occlusionMaterial;
 		[SerializeField] private Material debugMaterial;
 
 		private Mesh mesh;
-
 		private CancellationTokenSource ctkn;
-
 		public bool dirty;
+		
+		public UnityEvent<Mesh> onMeshInitialized = new();
 
 		private void Awake()
 		{
 			mesh = new Mesh();
-
-			DebugRenderingChanged += OnDebugRenderingStateChanged;
-			OnDebugRenderingStateChanged(debugRendering);
+			onMeshInitialized.Invoke(mesh);
 		}
 
 		private void OnDestroy()
 		{
 			Destroy(mesh);
-			DebugRenderingChanged -= OnDebugRenderingStateChanged;
-		}
-
-		private void OnDebugRenderingStateChanged(bool b)
-		{
-			meshRenderer.material = debugRendering ? debugMaterial : occlusionMaterial;
 		}
 
 		private int3 WorldToVoxel(float3 pos)
 		{
-			int3 volumeSize = new(mapper.vWidth, mapper.vHeight, mapper.vDepth);
+			int3 volumeSize = new(mapper.VWidth, mapper.VHeight, mapper.VDepth);
 			pos /= mapper.VoxelSize;
 			pos += (float3)volumeSize / 2.0f;
 
@@ -128,16 +109,7 @@ namespace Anaglyph.DepthKit.Meshing
 			}
 
 			if (volumePiece.IsCreated) volumePiece.Dispose();
-
-			bool meshExists = mesh.GetIndexCount(0) > 0;
-
-			if (meshExists)
-			{
-				meshFilter.sharedMesh = mesh;
-				meshCollider.sharedMesh = mesh;
-			}
-
-			meshCollider.enabled = meshExists;
+			
 			dirty = false;
 		}
 

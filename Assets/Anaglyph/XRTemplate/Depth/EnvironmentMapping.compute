@@ -194,8 +194,7 @@ void OcclusionMarch(uint3 idx : SV_DispatchThreadID)
 	float3 direction = normalize(farPoint - origin);
 
 	float dist = 0;
-	float stepScale = 1.0;
-	uint maxSteps = (uint)(MAX_RAYMARCH_DIST / stepScale);
+	uint maxSteps = (uint)(MAX_RAYMARCH_DIST / truncMax);
 
 	float hitDist = MAX_RAYMARCH_DIST;
 
@@ -212,8 +211,6 @@ void OcclusionMarch(uint3 idx : SV_DispatchThreadID)
 			break;
 		}
 	}
-	// occlusionTex[idx] = dist / 10.0;
-	// return;
 
 	float4 clip = mul(camProj[idx.z], mul(camView[idx.z], float4(origin + direction * hitDist, 1.0)));
 	float zdepth = clip.z / clip.w;

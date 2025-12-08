@@ -62,19 +62,19 @@ namespace Anaglyph.Lasertag
 				return;
 
 			var result = await EnvironmentMapper.Instance.RaymarchAsync(fireRay, MaxTravelDist);
-			if (NetworkObject.IsSpawned && result.didHit)
+			if (NetworkObject.IsSpawned && result.DidHit)
 			{
 				if (IsOwner)
 				{
-					envHitDist = result.distance;
+					envHitDist = result.Distance;
 				}
 				else
 				{
 					var headPos = MainPlayer.Instance.HeadTransform.position;
-					var hitDistFromHead = Vector3.Distance(headPos, result.point);
+					var hitDistFromHead = Vector3.Distance(headPos, result.Point);
 
 					if (hitDistFromHead < EnvironmentMapper.Instance.MaxEyeDist)
-						EnvironmentRaycastRpc(result.distance);
+						EnvironmentRaycastRpc(result.Distance);
 				}
 			}
 		}

@@ -68,14 +68,14 @@ namespace Anaglyph.Lasertag
 			if (!enabled)
 				return;
 
-			previewObject.SetActive(result.didHit);
-			boundsVisual.enabled = result.didHit;
+			previewObject.SetActive(result.DidHit);
+			boundsVisual.enabled = result.DidHit;
 
-			if (result.didHit)
+			if (result.DidHit)
 			{
-				lineRenderer.SetPosition(1, Vector3.forward * result.distance);
+				lineRenderer.SetPosition(1, Vector3.forward * result.Distance);
 
-				previewObject.transform.position = result.point;
+				previewObject.transform.position = result.Point;
 				previewObject.transform.eulerAngles = new Vector3(0, angle, 0);
 			}
 			else
