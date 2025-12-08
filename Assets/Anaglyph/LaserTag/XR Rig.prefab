@@ -2873,14 +2873,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   shader: {fileID: 7200000, guid: acbd8d3a81f87044f9dc52fb3cc8d414, type: 3}
   voxelSize: 0.1
-  truncationMax: 0.1
-  truncationMin: -0.1
+  truncationMax: 0.2
+  truncationMin: -0.2
   dispatchesPerSecond: 10
   volume: {fileID: 8400000, guid: 1b824cd65da368c4ba66330fd10e8ba2, type: 2}
   occlusionTex: {fileID: 8400000, guid: de57afc603ace431d9b72be8ce0b7ac8, type: 2}
   maxEyeDist: 6
   minEyeDist: 1
-  PlayerHeads: []
+  playerHeads: []
 --- !u!114 &7681910871548539734
 MonoBehaviour:
   m_ObjectHideFlags: 0
