@@ -533,11 +533,11 @@ MonoBehaviour:
   m_IgnoreNavMeshAgent: 1
   m_IgnoreNavMeshObstacle: 1
   m_OverrideTileSize: 1
-  m_TileSize: 20
+  m_TileSize: 100
   m_OverrideVoxelSize: 1
   m_VoxelSize: 0.1
   m_MinRegionArea: 1
-  m_NavMeshData: {fileID: 0}
+  m_NavMeshData: {fileID: 23800000, guid: 90dedb00dc791754b8ee01d3cf108a36, type: 2}
   m_BuildHeightMesh: 0
 --- !u!114 &1457040791
 MonoBehaviour:
@@ -551,7 +551,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 75e3122e01a0788458e7f12f3da9d698, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  updateFrequency: 1
+  updateFrequency: 5
 --- !u!114 &1457040792
 MonoBehaviour:
   m_ObjectHideFlags: 0
