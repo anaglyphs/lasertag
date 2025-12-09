@@ -30,13 +30,13 @@ namespace Anaglyph.DepthKit.Meshing
 		private Mesh mesh;
 		private CancellationTokenSource ctkn;
 		public bool dirty;
-		
-		public UnityEvent<Mesh> onMeshInitialized = new();
+
+		private bool isPopulated = false;
+		public UnityEvent<Mesh> onMeshFirstPopulated = new();
 
 		private void Awake()
 		{
 			mesh = new Mesh();
-			onMeshInitialized.Invoke(mesh);
 		}
 
 		private void OnDestroy()
@@ -46,7 +46,7 @@ namespace Anaglyph.DepthKit.Meshing
 
 		private int3 WorldToVoxel(float3 pos)
 		{
-			int3 volumeSize = new(mapper.VWidth, mapper.VHeight, mapper.VDepth);
+			int3 volumeSize = mapper.VolDimensions;
 			pos /= mapper.VoxelSize;
 			pos += (float3)volumeSize / 2.0f;
 
@@ -64,9 +64,22 @@ namespace Anaglyph.DepthKit.Meshing
 
 			try
 			{
-				int3 size = new int3(extents / mapper.VoxelSize) + 1;
-
 				int3 start = WorldToVoxel(transform.position);
+				int3 end = start + new int3(extents / mapper.VoxelSize) + 1;
+
+				for (int d = 0; d < 3; d++)
+				{
+					if (start[d] >= mapper.VolDimensions[d])
+						return;
+
+					if (end[d] <= 0)
+						return;
+				}
+				
+				start = math.max(start, 0);
+				end = math.min(end, mapper.VolDimensions - 1);
+
+				int3 size = end - start;
 
 				AsyncGPUReadbackRequest req = await AsyncGPUReadback.RequestAsync(
 					mapper.Volume, 0,
@@ -97,8 +110,14 @@ namespace Anaglyph.DepthKit.Meshing
 					copier.ScheduleParallelByRef(sliceSize, 16, default).Complete();
 				}
 
-				await Mesher.CreateMesh(volumePiece, size, mapper.VoxelSize,
+				bool justPopulated = await Mesher.CreateMesh(volumePiece, size, mapper.VoxelSize,
 					mesh);
+
+				if (justPopulated && !isPopulated)
+				{
+					onMeshFirstPopulated.Invoke(mesh);
+					isPopulated = true;
+				}
 			}
 			catch (Exception e)
 			{

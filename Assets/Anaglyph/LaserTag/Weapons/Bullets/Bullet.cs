@@ -32,6 +32,14 @@ namespace Anaglyph.Lasertag
 		public event Action OnFire = delegate { };
 		public event Action OnCollide = delegate { };
 
+		public struct DamageData
+		{
+			public ulong playerID;
+			public float damage;
+		}
+
+		private DamageData damageData;
+
 		private void Awake()
 		{
 			spawnPoseSync.OnValueChanged += OnSpawnPosChange;
@@ -120,14 +128,23 @@ namespace Anaglyph.Lasertag
 				{
 					HitRpc(physHit.point, physHit.normal);
 
-					var col = physHit.collider;
+					float damage = damageOverDistance.Evaluate(travelDist);
 
-					if (col.CompareTag(Networking.PlayerAvatar.Tag))
+					Collider col = physHit.collider;
+
+					damageData = new DamageData
 					{
-						var av = col.GetComponentInParent<Networking.PlayerAvatar>();
-						var damage = damageOverDistance.Evaluate(travelDist);
-						av.DamageRpc(damage, OwnerClientId);
-					}
+						playerID = OwnerClientId,
+						damage = damage,
+					};
+					
+					col.transform.root.BroadcastMessage("OnShot", damageData, SendMessageOptions.DontRequireReceiver);
+
+					// if (col.CompareTag(Networking.PlayerAvatar.Tag))
+					// {
+					// 	var av = col.GetComponentInParent<Networking.PlayerAvatar>();
+					// 	av.DamageRpc(damage, OwnerClientId);
+					// }
 				}
 				else if (didHitEnv)
 				{

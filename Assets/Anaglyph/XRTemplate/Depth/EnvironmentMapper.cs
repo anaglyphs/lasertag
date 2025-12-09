@@ -3,6 +3,7 @@ using Anaglyph.XRTemplate.DepthKit;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Serialization;
 
@@ -26,12 +27,11 @@ namespace Anaglyph.XRTemplate
 		[SerializeField] private RenderTexture volume;
 		public RenderTexture Volume => volume;
 
+		private int3 volDimensions;
+		public int3 VolDimensions => volDimensions; 
+
 		// [SerializeField] private RenderTexture occlusionTex;
 		// public RenderTexture OcclusionTex => occlusionTex;
-
-		public int VWidth => volume.width;
-		public int VHeight => volume.height;
-		public int VDepth => volume.volumeDepth;
 
 		[SerializeField] private float maxEyeDist = 7f;
 		public float MaxEyeDist => maxEyeDist;
@@ -102,8 +102,11 @@ namespace Anaglyph.XRTemplate
 			// occlusionMarchKernel = new ComputeKernel(shader, "OcclusionMarch");
 			// occlusionMarchKernel.Set(RaymarchVolumeID, volume);
 			// occlusionMarchKernel.Set(OcclusionTexID, occlusionTex);
-			//
-			shader.SetInts(VolumeSizeID, VWidth, VHeight, VDepth);
+
+			volDimensions = new int3(volume.width, volume.height, volume.volumeDepth);
+			var sz = volDimensions;
+			
+			shader.SetInts(VolumeSizeID, sz.x, sz.y, sz.z);
 			shader.SetFloat(VoxSizeID, voxelSize);
 			shader.SetFloat(TruncMaxID, truncationMax);
 			shader.SetFloat(TruncMinID, truncationMin);

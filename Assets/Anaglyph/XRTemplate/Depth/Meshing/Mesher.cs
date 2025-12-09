@@ -44,9 +44,11 @@ namespace Anaglyph.DepthKit
 		private static readonly int3 Z = new(0, 0, 1);
 
 		// todo: cancellation
-		public static async Task CreateMesh(NativeArray<sbyte> volume, int3 volumeSize, float metersPerVoxel, Mesh mesh)
+		public static async Task<bool> CreateMesh(NativeArray<sbyte> volume, int3 volumeSize, float metersPerVoxel, Mesh mesh)
 		{
-			int vertCountEstimate = volume.Length / 5;
+			bool hasTriangles = false;
+			
+			int vertCountEstimate = volume.Length / 3;
 			NativeList<float3> verts = new(vertCountEstimate, Allocator.TempJob);
 			NativeList<int3> vertCoords = new(vertCountEstimate, Allocator.TempJob);
 			
@@ -86,8 +88,10 @@ namespace Anaglyph.DepthKit
 				JobHandle triHandle = triMaker.ScheduleParallelByRef(vertCoords.Length, 256, vertHandle);
 				while (!triHandle.IsCompleted) await Awaitable.NextFrameAsync();
 				triHandle.Complete();
-
+				
 				ApplyToMesh(verts, tris, mesh);
+
+				hasTriangles = tris.Length > 0;
 			}
 			catch (Exception e)
 			{
@@ -98,6 +102,8 @@ namespace Anaglyph.DepthKit
 			verts.Dispose();
 			vertCoords.Dispose();
 			tris.Dispose();
+			
+			return hasTriangles;
 		}
 
 		private static void ApplyToMesh(NativeList<float3> verts, NativeList<uint> tris, Mesh mesh)

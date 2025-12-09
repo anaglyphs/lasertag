@@ -1,4 +1,4 @@
-using System;
+using Anaglyph.Lasertag;
 using Anaglyph.Lasertag.Networking;
 using Unity.Netcode;
 using UnityEngine;
@@ -13,7 +13,8 @@ namespace Anaglyph.LaserTag.NPCs
 
 		private NavMeshAgent agent;
 
-		private NetworkVariable<ulong> targetId = new(ulong.MaxValue);
+		private NetworkVariable<ulong> targetIdSync = new(ulong.MaxValue);
+		private float health = 100;
 		
 		private PlayerAvatar target;
 	
@@ -21,15 +22,16 @@ namespace Anaglyph.LaserTag.NPCs
 		{
 			TryGetComponent(out agent);
 
-			targetId.OnValueChanged += delegate
+			targetIdSync.OnValueChanged += delegate
 			{
-				PlayerAvatar.All.TryGetValue(targetId.Value, out target);
+				PlayerAvatar.All.TryGetValue(targetIdSync.Value, out target);
 			};
 		}
 
 		public override void OnNetworkSpawn()
 		{
 			UpdateAgent();
+			health = 100;
 		}
 
 		public override void OnGainedOwnership()
@@ -56,12 +58,12 @@ namespace Anaglyph.LaserTag.NPCs
 				
 				if (dist < maxDist)
 				{
-					targetId.Value = avatar.OwnerClientId;
+					targetIdSync.Value = avatar.OwnerClientId;
 					maxDist = dist;
 				}
 			}
 
-			if (target)
+			if (target && target.IsAlive)
 			{
 				agent.destination = target.HeadTransform.position - Vector3.up * 1.5f;
 
@@ -77,6 +79,22 @@ namespace Anaglyph.LaserTag.NPCs
 			if (target)
 			{
 				head.LookAt(target.HeadTransform);
+			}
+		}
+
+		public void OnShot(Bullet.DamageData damageData)
+		{
+			ShotRpc(damageData.damage);
+		}
+
+		[Rpc(SendTo.Everyone)]
+		private void ShotRpc(float damage)
+		{
+			health -= damage;
+
+			if (IsOwner && health <= 0)
+			{
+				NetworkObject.Despawn(true);
 			}
 		}
 	}
