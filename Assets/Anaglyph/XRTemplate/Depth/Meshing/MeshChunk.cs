@@ -125,7 +125,7 @@ namespace Anaglyph.DepthKit.Meshing
 			}
 
 			if (volumePiece.IsCreated) volumePiece.Dispose();
-			
+
 			dirty = false;
 		}
 

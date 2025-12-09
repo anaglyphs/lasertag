@@ -1,4 +1,3 @@
-using Anaglyph.DepthKit.Meshing;
 using Anaglyph.XRTemplate;
 using Anaglyph.XRTemplate.SharedSpaces;
 using UnityEngine;
@@ -52,15 +51,19 @@ namespace Anaglyph.Lasertag
 			// {
 			// });
 
-			// drawScanMesh.AddChangeListenerAndCheck(b =>
-			// {
-			// 	ChunkManager.Instance.gameObject.SetActive(b);
-			// });
-
-			pauseScanning.AddChangeListenerAndCheck(b =>
+			drawScanMesh.AddChangeListenerAndCheck(b =>
 			{
-				EnvironmentMapper.Instance.enabled = !b;
+				int layer = LayerMask.NameToLayer("Chunk");
+				int layerBit = 1 << layer;
+				Camera cam = MainXRRig.Camera;
+
+				if (b)
+					cam.cullingMask |= layerBit;
+				else
+					cam.cullingMask &= ~layerBit;
 			});
+
+			pauseScanning.AddChangeListenerAndCheck(b => { EnvironmentMapper.Instance.enabled = !b; });
 		}
 	}
 }

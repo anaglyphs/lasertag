@@ -114,7 +114,7 @@ namespace Anaglyph.DepthKit.Meshing
 			GameObject g = Instantiate(chunkPrefab, transform);
 			g.TryGetComponent(out MeshChunk chunk);
 
-			float connectionPadding = 2 * Mapper.VoxelSize;
+			float connectionPadding = 3 * Mapper.VoxelSize;
 			chunk.extents = chunkSize + connectionPadding;
 
 			chunk.transform.position = ChunkCoordToPos(chunkCoord);
