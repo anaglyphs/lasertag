@@ -2832,9 +2832,6 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 7254734392762225021, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 5561458322723720467}
-    - targetCorrespondingSourceObject: {fileID: 7254734392762225021, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 8505296288896673370}
   m_SourcePrefab: {fileID: 100100000, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
 --- !u!4 &3086983956727299691 stripped
 Transform:
@@ -3052,20 +3049,6 @@ MonoBehaviour:
   relay: {fileID: 11400000, guid: 8256b37a220cf5d4aa386e985d532dcb, type: 2}
   drawScanMesh: {fileID: 11400000, guid: 9f505c685ba6b2548abee1cfd889ec29, type: 2}
   pauseScanning: {fileID: 11400000, guid: fda2ed5b1ea38a1468d707ce53ffba4d, type: 2}
---- !u!114 &8505296288896673370
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5922542169172391784}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: deee090657ef98647b14e86c07f95b5c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  redBase: {fileID: 610518053514553518, guid: 9f38ed223dc9ead41a2a38e807eb4f63, type: 3}
-  blueBase: {fileID: 4375506185222234937, guid: a41f71a8e984b494097a21f11c3c8f3c, type: 3}
 --- !u!1001 &4861546251782076069
 PrefabInstance:
   m_ObjectHideFlags: 0

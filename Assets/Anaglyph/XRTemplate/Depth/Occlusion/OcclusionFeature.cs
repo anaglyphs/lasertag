@@ -9,7 +9,7 @@ namespace Anaglyph.DepthKit
 	public class MeshOcclusionFeature : ScriptableRendererFeature
 	{
 		public static readonly List<Renderer> AllRenderers = new();
-		
+
 		public RenderTexture depthTexOut;
 		public Material depthMat;
 
@@ -17,6 +17,7 @@ namespace Anaglyph.DepthKit
 
 		public override void Create()
 		{
+			depthTexOut.vrUsage = VRTextureUsage.TwoEyes;
 			pass = new Pass(depthTexOut, depthMat);
 		}
 
@@ -43,27 +44,22 @@ namespace Anaglyph.DepthKit
 			{
 				this.depthTexOut = depthTexOut;
 				this.depthMat = depthMat;
-				
+
 				renderPassEvent = RenderPassEvent.BeforeRenderingOpaques;
 			}
 
 			public override void RecordRenderGraph(RenderGraph graph, ContextContainer frameData)
 			{
-				// UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
-				// UniversalRenderingData renderingData = frameData.Get<UniversalRenderingData>();
-				// UniversalLightData lightData = frameData.Get<UniversalLightData>();
+				using IRasterRenderGraphBuilder builder =
+					graph.AddRasterRenderPass(PassName, out PassData passData);
 
-				using var builder = graph.AddRasterRenderPass<PassData>(PassName, out var passData);
-
-				builder.AllowGlobalStateModification(true);
-				
 				passData.DepthTexHandle = graph.ImportTexture(RTHandles.Alloc(depthTexOut));
-				
+
 				builder.SetRenderAttachmentDepth(passData.DepthTexHandle, AccessFlags.Write);
-				
+				builder.AllowGlobalStateModification(true);
 				builder.SetGlobalTextureAfterPass(passData.DepthTexHandle, OcclusionTexID);
 
-				builder.SetRenderFunc((PassData _, RasterGraphContext ctx) =>
+				builder.SetRenderFunc((PassData data, RasterGraphContext ctx) =>
 				{
 					ctx.cmd.ClearRenderTarget(true, true, Color.black);
 

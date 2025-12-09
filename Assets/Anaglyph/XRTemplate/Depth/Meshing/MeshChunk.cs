@@ -9,13 +9,11 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.Rendering;
-using UnityEngine.Serialization;
 
 namespace Anaglyph.DepthKit.Meshing
 {
 	public class MeshChunk : MonoBehaviour
 	{
-
 #if UNITY_EDITOR
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
 		private static async void StartWithDebugRendering()
@@ -30,7 +28,7 @@ namespace Anaglyph.DepthKit.Meshing
 		private Mesh mesh;
 		private CancellationTokenSource ctkn;
 		public bool dirty;
-		
+
 		public UnityEvent<Mesh> onMeshInitialized = new();
 
 		private void Awake()
@@ -106,7 +104,7 @@ namespace Anaglyph.DepthKit.Meshing
 			}
 
 			if (volumePiece.IsCreated) volumePiece.Dispose();
-			
+
 			dirty = false;
 		}
 
