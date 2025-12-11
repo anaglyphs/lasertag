@@ -464,7 +464,7 @@ GameObject:
   - component: {fileID: 1457040788}
   - component: {fileID: 1457040789}
   - component: {fileID: 1457040790}
-  - component: {fileID: 1457040791}
+  - component: {fileID: 1457040793}
   - component: {fileID: 1457040792}
   m_Layer: 0
   m_Name: World Meshing
@@ -533,25 +533,12 @@ MonoBehaviour:
   m_IgnoreNavMeshAgent: 1
   m_IgnoreNavMeshObstacle: 1
   m_OverrideTileSize: 1
-  m_TileSize: 100
+  m_TileSize: 50
   m_OverrideVoxelSize: 1
-  m_VoxelSize: 0.1
+  m_VoxelSize: 0.2
   m_MinRegionArea: 1
   m_NavMeshData: {fileID: 23800000, guid: 90dedb00dc791754b8ee01d3cf108a36, type: 2}
   m_BuildHeightMesh: 0
---- !u!114 &1457040791
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1457040786}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 75e3122e01a0788458e7f12f3da9d698, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  updateFrequency: 5
 --- !u!114 &1457040792
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -568,7 +555,7 @@ MonoBehaviour:
   onChange:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1457040791}
+      - m_Target: {fileID: 1457040793}
         m_TargetAssemblyTypeName: Anaglyph.LaserTag.NPCs.NavMeshUpdater, NPCs
         m_MethodName: set_enabled
         m_Mode: 0
@@ -583,6 +570,19 @@ MonoBehaviour:
   beforeChange:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &1457040793
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1457040786}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 75e3122e01a0788458e7f12f3da9d698, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  updateFrequency: 5
 --- !u!1001 &3916737362139618993
 PrefabInstance:
   m_ObjectHideFlags: 0

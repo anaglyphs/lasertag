@@ -86,7 +86,7 @@ public class CameraReader {
 				device = camera;
 
 				var format = ImageFormat.YUV_420_888;
-				reader = ImageReader.newInstance(imgWidth, imgHeight, format, 2);
+				reader = ImageReader.newInstance(imgWidth, imgHeight, format, 3);
 				reader.setOnImageAvailableListener(imageCallback, handler);
 
 				int bufferSize = imgWidth * imgHeight;
@@ -154,19 +154,44 @@ public class CameraReader {
 		@Override
 		public void onImageAvailable(@NonNull ImageReader imageReader) {
 			Image image = imageReader.acquireLatestImage();
-
-			if (image == null) return;
-
-			byteBuffer.clear();
-			ByteBuffer yBuffer = image.getPlanes()[0].getBuffer();
-			byteBuffer.put(yBuffer);
-
-			// in nanoseconds
-			timestamp = image.getTimestamp();
-
-			image.close();
-
-			unityInterface.OnImageAvailable();
+                if (image == null) return;
+            
+                Image.Plane yPlane = image.getPlanes()[0];
+                ByteBuffer yBuffer = yPlane.getBuffer();
+            
+                int rowStride = yPlane.getRowStride();
+                int pixelStride = yPlane.getPixelStride(); // usually 1
+            
+                int width = image.getWidth();
+                int height = image.getHeight();
+            
+                int expectedSize = width * height;
+            
+                if (byteBuffer == null || byteBuffer.capacity() < expectedSize) {
+                    byteBuffer = ByteBuffer.allocateDirect(expectedSize);
+                }
+            
+                byteBuffer.clear();
+            
+                byte[] row = new byte[rowStride];
+            
+                for (int y = 0; y < height; y++) {
+                    int rowStart = y * rowStride;
+                    yBuffer.position(rowStart);
+                    yBuffer.get(row, 0, rowStride);
+            
+                    // Copy only real pixels (skip padding)
+                    for (int x = 0; x < width; x++) {
+                        byteBuffer.put(row[x * pixelStride]);
+                    }
+                }
+            
+                byteBuffer.flip();
+            
+                timestamp = image.getTimestamp();
+                image.close();
+            
+                unityInterface.OnImageAvailable();
 		}
 	};
 

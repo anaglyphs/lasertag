@@ -140,6 +140,9 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 
 		private async Task<bool> CheckPermissions()
 		{
+			if (!await CheckPermission(Permission.Camera))
+				return false;
+
 			if (!await CheckPermission(MetaCameraPermission))
 				return false;
 
