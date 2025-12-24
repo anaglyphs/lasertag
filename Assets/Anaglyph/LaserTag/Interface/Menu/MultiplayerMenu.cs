@@ -5,7 +5,6 @@ using System;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
-using UnityEngine.AI;
 using UnityEngine.UI;
 using VariableObjects;
 
@@ -41,18 +40,18 @@ namespace Anaglyph.Lasertag
 		[Header(nameof(sessionPage))] [SerializeField]
 		private NavPage sessionPage = null;
 
-		[SerializeField] private Image sessionIcon = null;
+		// [SerializeField] private Image sessionIcon = null;
 		[SerializeField] private Text sessionStateText = null;
 		[SerializeField] private Text sessionIpText = null;
 		[SerializeField] private Button disconnectButton = null;
 		[SerializeField] private Button recalibrateButton = null;
 
-		[Header("Session icons")] [SerializeField]
-		private Sprite connectingSprite = null;
-
-		[SerializeField] private Sprite colocatingSprite = null;
-		[SerializeField] private Sprite connectedSprite = null;
-		[SerializeField] private Sprite hostingSprite = null;
+		// [Header("Session icons")] [SerializeField]
+		// private Sprite connectingSprite = null;
+		//
+		// [SerializeField] private Sprite colocatingSprite = null;
+		// [SerializeField] private Sprite connectedSprite = null;
+		// [SerializeField] private Sprite hostingSprite = null;
 
 		[Header("Host settings")] [SerializeField]
 		private BoolObject hostRelay = null;
@@ -113,12 +112,12 @@ namespace Anaglyph.Lasertag
 
 			recalibrateButton.gameObject.SetActive(false);
 
-			navView.onPageChange.AddListener(OnNavPageChange);
+			navView.Changed += OnNavPageChange;
 		}
 
 		private void OnNavPageChange(NavPage page)
 		{
-			var onManuallyConnectPage = page == manuallyConnectPage;
+			bool onManuallyConnectPage = page == manuallyConnectPage;
 			MetaSessionDiscovery.Instance.enabled = !onManuallyConnectPage;
 		}
 
@@ -151,8 +150,8 @@ namespace Anaglyph.Lasertag
 
 		private void UpdateIpText()
 		{
-			var transport = manager.NetworkConfig.NetworkTransport;
-			var transportType = transport.GetType();
+			NetworkTransport transport = manager.NetworkConfig.NetworkTransport;
+			Type transportType = transport.GetType();
 
 			if (string.Equals(transportType.Name, "DistributedAuthorityTransport"))
 				sessionIpText.text = $"Relay: {NetcodeManagement.CurrentSessionName}";
@@ -163,7 +162,7 @@ namespace Anaglyph.Lasertag
 		// TODO: move to colocation manager
 		private void RecalibrateColocation()
 		{
-			var colocation = ColocationManager.Instance;
+			ColocationManager colocation = ColocationManager.Instance;
 			colocation.RealignEveryone();
 		}
 
@@ -179,26 +178,21 @@ namespace Anaglyph.Lasertag
 			{
 				case SessionState.Connecting:
 					sessionStateText.text = "Connecting...";
-					sessionIcon.sprite = connectingSprite;
+					// sessionIcon.sprite = connectingSprite;
 					break;
 
 				case SessionState.Colocating:
 					sessionStateText.text = "Aligning...";
-					sessionIcon.sprite = colocatingSprite;
+					// sessionIcon.sprite = colocatingSprite;
 					break;
 
 				case SessionState.Connected:
 					if (manager.CurrentSessionOwner == manager.LocalClientId)
-					{
 						sessionStateText.text = "Hosting";
-						sessionIcon.sprite = hostingSprite;
-					}
+					// sessionIcon.sprite = hostingSprite;
 					else
-					{
 						sessionStateText.text = "Connected!";
-						sessionIcon.sprite = connectedSprite;
-					}
-
+					// sessionIcon.sprite = connectedSprite;
 					break;
 			}
 
@@ -209,7 +203,8 @@ namespace Anaglyph.Lasertag
 
 		private void Host()
 		{
-			var service = hostRelay.Value ? NetcodeManagement.Protocol.UnityService : NetcodeManagement.Protocol.LAN;
+			NetcodeManagement.Protocol service =
+				hostRelay.Value ? NetcodeManagement.Protocol.UnityService : NetcodeManagement.Protocol.LAN;
 			NetcodeManagement.Host(service);
 		}
 
