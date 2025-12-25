@@ -14,6 +14,8 @@ namespace Anaglyph.Lasertag
 		{
 			TryGetComponent(out rt);
 			pages.Changed += OnPageChanged;
+
+			OnPageChanged(pages.CurrentPage);
 		}
 
 		private Vector2 targetLerpFrom;
