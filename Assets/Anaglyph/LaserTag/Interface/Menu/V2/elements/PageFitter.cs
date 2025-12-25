@@ -1,3 +1,4 @@
+using System;
 using Anaglyph.Menu;
 using UnityEngine;
 
@@ -10,11 +11,14 @@ namespace Anaglyph.Lasertag
 
 		private RectTransform rt;
 
-		private void Start()
+		private void Awake()
 		{
 			TryGetComponent(out rt);
 			pages.Changed += OnPageChanged;
+		}
 
+		private void Start()
+		{
 			OnPageChanged(pages.CurrentPage);
 		}
 
@@ -24,15 +28,20 @@ namespace Anaglyph.Lasertag
 
 		private void OnPageChanged(NavPage page)
 		{
-			Rect pageRect = page.RectTransform.rect;
-
 			targetLerpFrom = targetLerpTo;
-			targetLerpTo = new Vector2(pageRect.width + padding, pageRect.height + padding);
 			changeTime = Time.time;
 		}
 
 		private void Update()
 		{
+			NavPage page = pages.CurrentPage;
+
+			if (!page)
+				return;
+			
+			Rect pageRect = page.RectTransform.rect;
+			targetLerpTo = new Vector2(pageRect.width + padding, pageRect.height + padding);
+			
 			AnimationCurve curve = pages.normalizedTransitionCurve;
 			float transitionLength = pages.transitionLengthSeconds;
 			float timeSince = Time.time - changeTime;
