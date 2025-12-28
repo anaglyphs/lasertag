@@ -29,18 +29,18 @@
       "hash": "11f09e231a903f2be3b429f2eaa4ffc575fa6810"
     },
     "com.meta.xr.sdk.core": {
-      "version": "81.0.0",
+      "version": "83.0.1",
       "depth": 0,
       "source": "registry",
       "dependencies": {},
       "url": "https://packages.unity.com"
     },
     "com.meta.xr.sdk.haptics": {
-      "version": "81.0.0",
+      "version": "83.0.1",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.meta.xr.sdk.core": "81.0.0"
+        "com.meta.xr.sdk.core": "83.0.1"
       },
       "url": "https://packages.unity.com"
     },
@@ -54,13 +54,6 @@
         "com.unity.ugui": "1.0.0"
       },
       "hash": "d3b89c847dbcff03d0e318e570785d149238ad80"
-    },
-    "com.meta.xr.simulator": {
-      "version": "81.0.0",
-      "depth": 0,
-      "source": "registry",
-      "dependencies": {},
-      "url": "https://packages.unity.com"
     },
     "com.strikervr.strikersdk": {
       "version": "0.9.0",
@@ -604,6 +597,15 @@
       "depth": 0,
       "source": "builtin",
       "dependencies": {}
+    },
+    "com.unity.modules.unitywebrequestaudio": {
+      "version": "1.0.0",
+      "depth": 0,
+      "source": "builtin",
+      "dependencies": {
+        "com.unity.modules.unitywebrequest": "1.0.0",
+        "com.unity.modules.audio": "1.0.0"
+      }
     },
     "com.unity.modules.vr": {
       "version": "1.0.0",
