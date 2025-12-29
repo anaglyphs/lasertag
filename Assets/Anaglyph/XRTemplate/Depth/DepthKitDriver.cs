@@ -1,9 +1,11 @@
+using System;
 using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.XR.ARSubsystems;
 using UnityEngine.XR.Management;
+using UnityEngine.XR.OpenXR.Features.Meta;
 
 namespace Anaglyph.XRTemplate.DepthKit
 {
@@ -12,7 +14,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 	{
 		public static DepthKitDriver Instance { get; private set; }
 		
-		private XROcclusionSubsystem depthSubsystem;
+		private MetaOpenXROcclusionSubsystem depthSubsystem;
 		private XRFov[]         depthFrameFOVs   = new XRFov[2];
 		private Pose[]          depthFramePoses  = new Pose[2];
 		private XRNearFarPlanes depthPlanes;
@@ -53,37 +55,44 @@ namespace Anaglyph.XRTemplate.DepthKit
 		{
 			Instance = this;
 		}
-		
+
+		private async void OnEnable()
+		{
+			// await Awaitable.EndOfFrameAsync();
+			Application.onBeforeRender += UpdateCurrentRenderingState;
+		}
+
+		private void OnDisable()
+		{
+			Application.onBeforeRender -= UpdateCurrentRenderingState;
+		}
+
 		private void Start()
 		{
-			normKernel = new(depthNormalCompute, "DepthNorm");
+			normKernel = new ComputeKernel(depthNormalCompute, "DepthNorm");
 		}
 		
-		private void GetDepthSubsystem()
+		private static bool GetDepthSubsystem(out MetaOpenXROcclusionSubsystem depthSubsystem)
 		{
-			var xrLoader = XRGeneralSettings.Instance.Manager.activeLoader;
-			if (!xrLoader)
-				return;
-			depthSubsystem = xrLoader.GetLoadedSubsystem<XROcclusionSubsystem>();
+			depthSubsystem = null;
+			
+			XRLoader xrLoader = XRGeneralSettings.Instance.Manager.activeLoader;
+			if (!xrLoader) return false;
+			
+			depthSubsystem = xrLoader.GetLoadedSubsystem<XROcclusionSubsystem>() as MetaOpenXROcclusionSubsystem;
+			return depthSubsystem != null;
 		}
 
-		private void Update()
+		private void UpdateCurrentRenderingState()
 		{
-			UpdateCurrentRenderingState();
-		}
-
-		public void UpdateCurrentRenderingState()
-		{
-			if (depthSubsystem == null)
-				GetDepthSubsystem();
-
-			if (depthSubsystem == null || !depthSubsystem.running)
+			if (depthSubsystem == null && !GetDepthSubsystem(out depthSubsystem))
 				return;
 			
+			if (!depthSubsystem.TryGetFrame(Allocator.Temp, out XROcclusionFrame frame))
+				return;
+
 			Texture depthTex = Shader.GetGlobalTexture(Meta_EnvironmentDepthTexture_ID);
-
-			DepthAvailable = depthTex;
-
+			DepthAvailable = depthTex != null;
 			if (!DepthAvailable)
 				return;
 
@@ -91,7 +100,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 			Shader.SetGlobalTexture(agDepthTex_ID, depthTex);
 
-			Shader.SetGlobalTexture(agDepthEdgeTex_ID,
+			Shader.SetGlobalTexture(agDepthEdgeTex_ID, 
 				Shader.GetGlobalTexture(Meta_PreprocessedEnvironmentDepthTexture_ID));
 
 			Shader.SetGlobalVector(agDepthZParams_ID,
@@ -102,12 +111,13 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 			if (normTex == null)
 			{
-				normTex = new(w, h, 0, GraphicsFormat.R8G8B8A8_SNorm, 1);
-
-				normTex.dimension = TextureDimension.Tex2DArray;
-				normTex.volumeDepth = 2;
-				normTex.useMipMap = false;
-				normTex.enableRandomWrite = true;
+				normTex = new RenderTexture(w, h, 0, GraphicsFormat.R8G8B8A8_SNorm, 1)
+				{
+					dimension = TextureDimension.Tex2DArray,
+					volumeDepth = 2,
+					useMipMap = false,
+					enableRandomWrite = true
+				};
 
 				normTex.Create();
 			}
@@ -117,13 +127,12 @@ namespace Anaglyph.XRTemplate.DepthKit
 			normKernel.DispatchGroups(normTex);
 
 			Shader.SetGlobalTexture(agDepthNormTex_ID, normTex);
-			
-			depthSubsystem.TryGetFrame(Allocator.Temp, out var frame);
-			frame.TryGetFovs(out var nativeFOVs);
+
+			frame.TryGetFovs(out NativeArray<XRFov> nativeFOVs);
 			nativeFOVs.CopyTo(depthFrameFOVs);
-			frame.TryGetPoses(out var nativePoses);
+			frame.TryGetPoses(out NativeArray<Pose> nativePoses);
 			nativePoses.CopyTo(depthFramePoses);
-			frame.TryGetNearFarPlanes(out var nearFarPlanes);
+			// frame.TryGetNearFarPlanes(out var nearFarPlanes);
 
 			for (int i = 0; i < agDepthProj.Length; i++)
 			{
@@ -145,12 +154,12 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		// private static readonly Vector3 _scalingVector3 = new(1, 1, -1);
 
-		private static Matrix4x4 CalculateDepthProjMatrix(XRFov FOVs, XRNearFarPlanes planes)
+		private static Matrix4x4 CalculateDepthProjMatrix(XRFov fov, XRNearFarPlanes planes)
 		{
-			float left = FOVs.angleLeft;
-			float right = FOVs.angleRight;
-			float bottom = FOVs.angleDown;
-			float top = FOVs.angleUp;
+			float left = fov.angleLeft;
+			float right = fov.angleRight;
+			float bottom = fov.angleDown;
+			float top = fov.angleUp;
 			float near = planes.nearZ;
 			float far = planes.farZ;
 
