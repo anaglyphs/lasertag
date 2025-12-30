@@ -50,24 +50,27 @@ namespace Anaglyph.XRTemplate.DepthKit
 		[SerializeField] private ComputeShader depthNormalCompute = null;
 		
 		private ComputeKernel normKernel;
-		private RenderTexture normTex = null;
+		[SerializeField] private Texture depthTex = null;
+		[SerializeField] private RenderTexture normTex = null;
 		private EnvironmentDepthManager depthManager;
+
+		public event Action Updated = delegate { };
 
 		private void Awake()
 		{
 			Instance = this;
 		}
 
-		// private async void OnEnable()
-		// {
-		// 	// await Awaitable.EndOfFrameAsync();
-		// 	Application.onBeforeRender += UpdateCurrentRenderingState;
-		// }
-		//
-		// private void OnDisable()
-		// {
-		// 	Application.onBeforeRender -= UpdateCurrentRenderingState;
-		// }
+		private async void OnEnable()
+		{
+			await Awaitable.EndOfFrameAsync();
+			Application.onBeforeRender += UpdateCurrentRenderingState;
+		}
+		
+		private void OnDisable()
+		{
+			Application.onBeforeRender -= UpdateCurrentRenderingState;
+		}
 
 		private void Start()
 		{
@@ -87,11 +90,6 @@ namespace Anaglyph.XRTemplate.DepthKit
 		// 	return depthSubsystem != null;
 		// }
 
-		private void Update()
-		{
-			UpdateCurrentRenderingState();
-		}
-
 		private void UpdateCurrentRenderingState()
 		{
 			// if (depthSubsystem == null && !GetDepthSubsystem(out depthSubsystem))
@@ -100,7 +98,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 			// if (!depthSubsystem.TryGetFrame(Allocator.Temp, out XROcclusionFrame frame))
 			// 	return;
 
-			Texture depthTex = Shader.GetGlobalTexture(Meta_EnvironmentDepthTexture_ID);
+			depthTex = Shader.GetGlobalTexture(Meta_EnvironmentDepthTexture_ID);
 			DepthAvailable = depthTex != null;
 			if (!DepthAvailable)
 				return;
@@ -143,10 +141,10 @@ namespace Anaglyph.XRTemplate.DepthKit
 				DepthFrameDesc d = depthManager.frameDescriptors[i];
 				
 				XRFov fov = new(
-					-Mathf.Atan(d.fovLeftAngleTangent),
-					 Mathf.Atan(d.fovRightAngleTangent),
-					 Mathf.Atan(d.fovTopAngleTangent),
-					-Mathf.Atan(d.fovDownAngleTangent));
+					d.fovLeftAngleTangent,
+					d.fovRightAngleTangent,
+					d.fovTopAngleTangent,
+					d.fovDownAngleTangent);
 
 				depthFrameFOVs[i] = fov;
 
@@ -179,6 +177,8 @@ namespace Anaglyph.XRTemplate.DepthKit
 			Shader.SetGlobalMatrixArray(nameof(agDepthProjInv), agDepthProjInv);
 			Shader.SetGlobalMatrixArray(nameof(agDepthView), agDepthView);
 			Shader.SetGlobalMatrixArray(nameof(agDepthViewInv), agDepthViewInv);
+			
+			Updated.Invoke();
 		}
 
 		// private static readonly Vector3 _scalingVector3 = new(1, 1, -1);

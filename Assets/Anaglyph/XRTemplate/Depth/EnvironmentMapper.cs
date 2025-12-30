@@ -1,7 +1,9 @@
+using System;
 using Anaglyph.XRTemplate.DepthKit;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using Unity.IntegerTime;
 using UnityEngine;
 
 namespace Anaglyph.XRTemplate
@@ -53,12 +55,13 @@ namespace Anaglyph.XRTemplate
 		public List<Transform> PlayerHeads = new();
 		private Vector4[] headPositions = new Vector4[512];
 
+		private float lastUpdateTime = 0;
+
 		private void Awake()
 		{
 			Instance = this;
 		}
-
-		private bool hasStarted = false;
+		
 		private void Start()
 		{
 			clearKernel = new(shader, "Clear");
@@ -77,9 +80,8 @@ namespace Anaglyph.XRTemplate
 
 			Clear();
 
-			ScanLoop();
-
-			hasStarted = true;
+			// ScanLoop();
+			DepthKitDriver.Instance.Updated += OnDepthUpdated;
 		}
 
 		public void Clear()
@@ -89,33 +91,65 @@ namespace Anaglyph.XRTemplate
 
 		private void OnEnable()
 		{
-			if(!hasStarted)
-				ScanLoop();
+			if (!didStart)
+				// ScanLoop();
+				DepthKitDriver.Instance.Updated += OnDepthUpdated;
 		}
-
-		private async void ScanLoop()
+		
+		private void OnDisable()
 		{
-			while (enabled)
-			{
-				await Awaitable.WaitForSecondsAsync(1f / dispatchesPerSecond);
-
-				var depthTex = Shader.GetGlobalTexture(depthTexID);
-				if (depthTex == null) continue;
-
-				var normTex = Shader.GetGlobalTexture(normTexID);
-
-				if (frustumVolume == null)
-				{
-					Setup();
-					continue;
-				}
-
-				Matrix4x4 view = Shader.GetGlobalMatrixArray(viewID)[0];
-				Matrix4x4 proj = Shader.GetGlobalMatrixArray(projID)[0];
-
-				ApplyScan(depthTex, normTex, view, proj);
-			}
+			DepthKitDriver.Instance.Updated -= OnDepthUpdated;
 		}
+
+		private void OnDepthUpdated()
+		{
+			float wait = 1f / dispatchesPerSecond;
+			if (Time.time < lastUpdateTime + wait)
+				return;
+
+			lastUpdateTime = Time.time;
+			
+			
+			var depthTex = Shader.GetGlobalTexture(depthTexID);
+			if (depthTex == null) return;
+
+			var normTex = Shader.GetGlobalTexture(normTexID);
+
+			if (frustumVolume == null)
+			{
+				Setup();
+				return;
+			}
+
+			Matrix4x4 view = Shader.GetGlobalMatrixArray(viewID)[0];
+			Matrix4x4 proj = Shader.GetGlobalMatrixArray(projID)[0];
+
+			ApplyScan(depthTex, normTex, view, proj);
+		}
+
+		// private async void ScanLoop()
+		// {
+		// 	while (enabled)
+		// 	{
+		// 		await Awaitable.WaitForSecondsAsync(1f / dispatchesPerSecond);
+		//
+		// 		var depthTex = Shader.GetGlobalTexture(depthTexID);
+		// 		if (depthTex == null) continue;
+		//
+		// 		var normTex = Shader.GetGlobalTexture(normTexID);
+		//
+		// 		if (frustumVolume == null)
+		// 		{
+		// 			Setup();
+		// 			continue;
+		// 		}
+		//
+		// 		Matrix4x4 view = Shader.GetGlobalMatrixArray(viewID)[0];
+		// 		Matrix4x4 proj = Shader.GetGlobalMatrixArray(projID)[0];
+		//
+		// 		ApplyScan(depthTex, normTex, view, proj);
+		// 	}
+		// }
 
 		public void ApplyScan(Texture depthTex, Texture normTex, Matrix4x4 view, Matrix4x4 proj)//, bool useDepthFrame)
 		{
