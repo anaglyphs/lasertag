@@ -192,8 +192,8 @@ namespace Anaglyph.XRTemplate.DepthKit
 				agDepthProj[i] = CalculateDepthProjMatrix(depthFrameFOVs[i], depthPlanes);
 				agDepthProjInv[i] = Matrix4x4.Inverse(agDepthProj[i]);
 				
-				var pose = depthFramePoses[i];
-				Matrix4x4 depthFrameMat = Matrix4x4.TRS(pose.position, pose.rotation, Vector3.one);
+				Pose pose = depthFramePoses[i];
+				Matrix4x4 depthFrameMat = Matrix4x4.TRS(pose.position, pose.rotation, _scalingVector3);
 
 				agDepthView[i] = depthFrameMat.inverse * MainXRRig.TrackingSpace.worldToLocalMatrix;
 				agDepthViewInv[i] = Matrix4x4.Inverse(agDepthView[i]);
@@ -207,7 +207,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 			Updated.Invoke();
 		}
 
-		// private static readonly Vector3 _scalingVector3 = new(1, 1, -1);
+		private static readonly Vector3 _scalingVector3 = new(1, 1, -1);
 
 		private static Matrix4x4 CalculateDepthProjMatrix(XRFov fov, XRNearFarPlanes planes)
 		{
