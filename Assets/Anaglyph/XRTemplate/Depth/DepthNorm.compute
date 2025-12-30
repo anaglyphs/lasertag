@@ -1,10 +1,20 @@
 // https://github.com/oculus-samples/Unity-DepthAPI/issues/16
 #include "DepthKit.hlsl"
 
+Texture2DArray<float> inputDepthTex;
+RWTexture2DArray<float> agDepthTexRW;
 RWTexture2DArray<float4> agDepthNormalTexRW;
 RWTexture2D<half> agDepthReadback;
 
 int eye = 0;
+
+#pragma kernel DepthCopy
+
+[numthreads(8, 8, 1)]
+void DepthCopy(uint3 id : SV_DispatchThreadID)
+{
+	agDepthTexRW[id] = inputDepthTex[id];
+}
 
 #pragma kernel DepthNorm
 

@@ -28,11 +28,14 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		private static int ID(string str) => Shader.PropertyToID(str);
 
-		public static readonly int Meta_PreprocessedEnvironmentDepthTexture_ID = ID("_PreprocessedEnvironmentDepthTexture");
+		// public static readonly int Meta_PreprocessedEnvironmentDepthTexture_ID = ID("_PreprocessedEnvironmentDepthTexture");
 		public static readonly int Meta_EnvironmentDepthTexture_ID = ID("_EnvironmentDepthTexture");
 		public static readonly int Meta_EnvironmentDepthZBufferParams_ID = ID("_EnvironmentDepthZBufferParams");
+		
+		public static readonly int inputDepthTex_ID = ID("inputDepthTex");
+		public static readonly int agDepthTexRW_ID = ID("agDepthTexRW");
 		public static readonly int agDepthTex_ID = ID("agDepthTex");
-		public static readonly int agDepthEdgeTex_ID = ID("agDepthEdgeTex");
+		// public static readonly int agDepthEdgeTex_ID = ID("agDepthEdgeTex");
 		public static readonly int agDepthNormTex_ID = ID("agDepthNormalTex");
 		public static readonly int agDepthNormalTexRW_ID = ID("agDepthNormalTexRW");
 		public static readonly int agDepthZParams_ID = ID("agDepthZParams");
@@ -48,9 +51,11 @@ namespace Anaglyph.XRTemplate.DepthKit
 		public static bool DepthAvailable { get; private set; }
 
 		[SerializeField] private ComputeShader depthNormalCompute = null;
-		
+
+
+		// private ComputeKernel copyKernel;
 		private ComputeKernel normKernel;
-		[SerializeField] private Texture depthTex = null;
+		// [SerializeField] private RenderTexture depthTex = null;
 		[SerializeField] private RenderTexture normTex = null;
 		private EnvironmentDepthManager depthManager;
 
@@ -75,7 +80,8 @@ namespace Anaglyph.XRTemplate.DepthKit
 		private void Start()
 		{
 			depthManager = FindFirstObjectByType<EnvironmentDepthManager>();
-			
+
+			// copyKernel = new ComputeKernel(depthNormalCompute, "DepthCopy");
 			normKernel = new ComputeKernel(depthNormalCompute, "DepthNorm");
 		}
 		
@@ -98,26 +104,28 @@ namespace Anaglyph.XRTemplate.DepthKit
 			// if (!depthSubsystem.TryGetFrame(Allocator.Temp, out XROcclusionFrame frame))
 			// 	return;
 
-			depthTex = Shader.GetGlobalTexture(Meta_EnvironmentDepthTexture_ID);
+			Texture depthTex = Shader.GetGlobalTexture(Meta_EnvironmentDepthTexture_ID);
+			
 			DepthAvailable = depthTex != null;
 			if (!DepthAvailable)
 				return;
-
-			Shader.SetGlobalVector(agDepthTexSize, new Vector2(depthTex.width, depthTex.height));
-
-			Shader.SetGlobalTexture(agDepthTex_ID, depthTex);
-
-			Shader.SetGlobalTexture(agDepthEdgeTex_ID, 
-				Shader.GetGlobalTexture(Meta_PreprocessedEnvironmentDepthTexture_ID));
-
-			Shader.SetGlobalVector(agDepthZParams_ID,
-				Shader.GetGlobalVector(Meta_EnvironmentDepthZBufferParams_ID));
-
+			
 			int w = depthTex.width;
 			int h = depthTex.height;
-
+			
 			if (normTex == null)
 			{
+				// depthTex = new RenderTexture(w, h, 0, GraphicsFormat.R16_UNorm, 1)
+				// {
+				// 	// depthStencilFormat = GraphicsFormat.D16_UNorm,
+				// 	dimension = TextureDimension.Tex2DArray,
+				// 	volumeDepth = 2,
+				// 	useMipMap = false,
+				// 	enableRandomWrite = true
+				// };
+				//
+				// depthTex.Create();
+				
 				normTex = new RenderTexture(w, h, 0, GraphicsFormat.R8G8B8A8_SNorm, 1)
 				{
 					dimension = TextureDimension.Tex2DArray,
@@ -128,7 +136,25 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 				normTex.Create();
 			}
+			
+			// copy meta depth tex into color format tex
 
+			// copyKernel.Set(inputDepthTex_ID, metaDepthTex);
+			// copyKernel.Set(agDepthTexRW_ID, depthTex);
+			//
+			// copyKernel.DispatchGroups(depthTex);
+			
+			Shader.SetGlobalTexture(agDepthTex_ID, depthTex);
+			Shader.SetGlobalVector(agDepthTexSize, new Vector2(depthTex.width, depthTex.height));
+			
+			Shader.SetGlobalVector(agDepthZParams_ID,
+				Shader.GetGlobalVector(Meta_EnvironmentDepthZBufferParams_ID));
+			
+			// Shader.SetGlobalTexture(agDepthEdgeTex_ID, 
+			// 	Shader.GetGlobalTexture(Meta_PreprocessedEnvironmentDepthTexture_ID));
+
+			// create normals from depth
+			
 			normKernel.Set(agDepthTex_ID, depthTex);
 			normKernel.Set(agDepthNormalTexRW_ID, normTex);
 			normKernel.DispatchGroups(normTex);
@@ -209,7 +235,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 				d = -(2.0F * far * near) / (far - near);
 			}
 			float e = -1.0F;
-			Matrix4x4 m = new Matrix4x4
+			Matrix4x4 m = new()
 			{
 				m00 = x,
 				m01 = 0,
