@@ -1,12 +1,9 @@
 using System;
 using Meta.XR.EnvironmentDepth;
-using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.XR.ARSubsystems;
-using UnityEngine.XR.Management;
-using UnityEngine.XR.OpenXR.Features.Meta;
 
 namespace Anaglyph.XRTemplate.DepthKit
 {
@@ -14,10 +11,10 @@ namespace Anaglyph.XRTemplate.DepthKit
 	public class DepthKitDriver : MonoBehaviour
 	{
 		public static DepthKitDriver Instance { get; private set; }
-		
+
 		// private MetaOpenXROcclusionSubsystem depthSubsystem;
-		private XRFov[]         depthFrameFOVs   = new XRFov[2];
-		private Pose[]          depthFramePoses  = new Pose[2];
+		private XRFov[] depthFrameFOVs = new XRFov[2];
+		private Pose[] depthFramePoses = new Pose[2];
 		private XRNearFarPlanes depthPlanes;
 
 		private Matrix4x4[] agDepthProj = new Matrix4x4[2];
@@ -26,15 +23,20 @@ namespace Anaglyph.XRTemplate.DepthKit
 		private Matrix4x4[] agDepthView = new Matrix4x4[2];
 		private Matrix4x4[] agDepthViewInv = new Matrix4x4[2];
 
-		private static int ID(string str) => Shader.PropertyToID(str);
+		private static int ID(string str)
+		{
+			return Shader.PropertyToID(str);
+		}
 
 		// public static readonly int Meta_PreprocessedEnvironmentDepthTexture_ID = ID("_PreprocessedEnvironmentDepthTexture");
 		public static readonly int Meta_EnvironmentDepthTexture_ID = ID("_EnvironmentDepthTexture");
 		public static readonly int Meta_EnvironmentDepthZBufferParams_ID = ID("_EnvironmentDepthZBufferParams");
-		
+
 		public static readonly int inputDepthTex_ID = ID("inputDepthTex");
 		public static readonly int agDepthTexRW_ID = ID("agDepthTexRW");
+
 		public static readonly int agDepthTex_ID = ID("agDepthTex");
+
 		// public static readonly int agDepthEdgeTex_ID = ID("agDepthEdgeTex");
 		public static readonly int agDepthNormTex_ID = ID("agDepthNormalTex");
 		public static readonly int agDepthNormalTexRW_ID = ID("agDepthNormalTexRW");
@@ -55,6 +57,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		// private ComputeKernel copyKernel;
 		private ComputeKernel normKernel;
+
 		// [SerializeField] private RenderTexture depthTex = null;
 		[SerializeField] private RenderTexture normTex = null;
 		private EnvironmentDepthManager depthManager;
@@ -71,7 +74,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 			await Awaitable.EndOfFrameAsync();
 			Application.onBeforeRender += UpdateCurrentRenderingState;
 		}
-		
+
 		private void OnDisable()
 		{
 			Application.onBeforeRender -= UpdateCurrentRenderingState;
@@ -84,7 +87,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 			// copyKernel = new ComputeKernel(depthNormalCompute, "DepthCopy");
 			normKernel = new ComputeKernel(depthNormalCompute, "DepthNorm");
 		}
-		
+
 		// private static bool GetDepthSubsystem(out MetaOpenXROcclusionSubsystem depthSubsystem)
 		// {
 		// 	depthSubsystem = null;
@@ -105,14 +108,14 @@ namespace Anaglyph.XRTemplate.DepthKit
 			// 	return;
 
 			Texture depthTex = Shader.GetGlobalTexture(Meta_EnvironmentDepthTexture_ID);
-			
+
 			DepthAvailable = depthTex != null;
 			if (!DepthAvailable)
 				return;
-			
+
 			int w = depthTex.width;
 			int h = depthTex.height;
-			
+
 			if (normTex == null)
 			{
 				// depthTex = new RenderTexture(w, h, 0, GraphicsFormat.R16_UNorm, 1)
@@ -125,7 +128,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 				// };
 				//
 				// depthTex.Create();
-				
+
 				normTex = new RenderTexture(w, h, 0, GraphicsFormat.R8G8B8A8_SNorm, 1)
 				{
 					dimension = TextureDimension.Tex2DArray,
@@ -136,25 +139,25 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 				normTex.Create();
 			}
-			
+
 			// copy meta depth tex into color format tex
 
 			// copyKernel.Set(inputDepthTex_ID, metaDepthTex);
 			// copyKernel.Set(agDepthTexRW_ID, depthTex);
 			//
 			// copyKernel.DispatchGroups(depthTex);
-			
+
 			Shader.SetGlobalTexture(agDepthTex_ID, depthTex);
 			Shader.SetGlobalVector(agDepthTexSize, new Vector2(depthTex.width, depthTex.height));
-			
+
 			Shader.SetGlobalVector(agDepthZParams_ID,
 				Shader.GetGlobalVector(Meta_EnvironmentDepthZBufferParams_ID));
-			
+
 			// Shader.SetGlobalTexture(agDepthEdgeTex_ID, 
 			// 	Shader.GetGlobalTexture(Meta_PreprocessedEnvironmentDepthTexture_ID));
 
 			// create normals from depth
-			
+
 			normKernel.Set(agDepthTex_ID, depthTex);
 			normKernel.Set(agDepthNormalTexRW_ID, normTex);
 			normKernel.DispatchGroups(normTex);
@@ -165,7 +168,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 			for (int i = 0; i < depthManager.frameDescriptors.Length; i++)
 			{
 				DepthFrameDesc d = depthManager.frameDescriptors[i];
-				
+
 				XRFov fov = new(
 					d.fovLeftAngleTangent,
 					d.fovRightAngleTangent,
@@ -177,7 +180,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 				Pose pose = new(d.createPoseLocation, d.createPoseRotation);
 
 				depthFramePoses[i] = pose;
-				
+
 				depthPlanes = new XRNearFarPlanes(d.nearZ, d.farZ);
 			}
 
@@ -191,7 +194,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 			{
 				agDepthProj[i] = CalculateDepthProjMatrix(depthFrameFOVs[i], depthPlanes);
 				agDepthProjInv[i] = Matrix4x4.Inverse(agDepthProj[i]);
-				
+
 				Pose pose = depthFramePoses[i];
 				Matrix4x4 depthFrameMat = Matrix4x4.TRS(pose.position, pose.rotation, _scalingVector3);
 
@@ -203,7 +206,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 			Shader.SetGlobalMatrixArray(nameof(agDepthProjInv), agDepthProjInv);
 			Shader.SetGlobalMatrixArray(nameof(agDepthView), agDepthView);
 			Shader.SetGlobalMatrixArray(nameof(agDepthViewInv), agDepthViewInv);
-			
+
 			Updated.Invoke();
 		}
 
@@ -234,6 +237,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 				c = -(far + near) / (far - near);
 				d = -(2.0F * far * near) / (far - near);
 			}
+
 			float e = -1.0F;
 			Matrix4x4 m = new()
 			{
@@ -253,12 +257,11 @@ namespace Anaglyph.XRTemplate.DepthKit
 				m31 = 0,
 				m32 = e,
 				m33 = 0
-
 			};
 
 			return m;
 		}
-		
+
 		// private static Matrix4x4 CalculateDepthViewMatrix(Utils.EnvironmentDepthFrameDesc frameDesc)
 		// {
 		// 	var createRotation = frameDesc.createPoseRotation;
