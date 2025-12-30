@@ -34,7 +34,7 @@ namespace Anaglyph.Lasertag
 
 			teamOwner = GetComponentInParent<TeamOwner>(true);
 			if(teamOwner)
-				teamOwner.OnTeamChange.AddListener(SetColor);
+				teamOwner.TeamChanged += SetColor;
 		}
 
 		private void Start() => UpdateColor();

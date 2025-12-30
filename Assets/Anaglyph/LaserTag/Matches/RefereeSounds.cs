@@ -6,12 +6,10 @@ namespace Anaglyph.Lasertag
 	{
 		private AudioSource audioSource;
 
-		[SerializeField] private MatchReferee matchManager;
-
-		[SerializeField] AudioClip queue;
-		[SerializeField] AudioClip countdown;
-		[SerializeField] AudioClip siren;
-		[SerializeField] AudioClip finish;
+		[SerializeField] private AudioClip queue;
+		[SerializeField] private AudioClip countdown;
+		[SerializeField] private AudioClip siren;
+		[SerializeField] private AudioClip finish;
 
 		private void Awake()
 		{

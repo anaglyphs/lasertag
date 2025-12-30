@@ -1,9 +1,8 @@
 #if UNITY_EDITOR
 
-using System;
 using Anaglyph.Netcode;
-using System.Net;
 using System.Text.RegularExpressions;
+using Anaglyph.XRTemplate.SharedSpaces;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEditor;
@@ -14,13 +13,18 @@ namespace Anaglyph.Lasertag.Operator
 {
 	public sealed class ServerWindow : EditorWindow
 	{
+		private new static DisplayStyle Show(bool show)
+		{
+			return show ? DisplayStyle.Flex : DisplayStyle.None;
+		}
+
 		[MenuItem("Lasertag/Server Menu")]
 		private static void ShowWindow()
 		{
 			var window = GetWindow<ServerWindow>("Server Menu");
 			window.minSize = new Vector2(320, 200);
 		}
-		
+
 		private const string TagSizeSaveKey = "operator.tagSize";
 		private float tagSizeCm = 10f;
 
@@ -39,7 +43,7 @@ namespace Anaglyph.Lasertag.Operator
 		private MatchSettings settings = MatchSettings.DemoGame();
 
 		private Label roomLabel;
-		
+
 		private PageGroup networkPages;
 		private PageGroup matchPages;
 
@@ -49,6 +53,11 @@ namespace Anaglyph.Lasertag.Operator
 
 		private VisualElement matchSettingsPage;
 		private VisualElement matchRunningPage;
+
+		private Label timerLabel;
+		private Label scoreGoalLabel;
+
+		private Label[] scoreLabels = new Label[Teams.NumTeams];
 
 		private void Awake()
 		{
@@ -62,12 +71,19 @@ namespace Anaglyph.Lasertag.Operator
 
 			NetcodeManagement.StateChanged += UpdateHostingPage;
 			MatchReferee.StateChanged += UpdateMatchPage;
+			MatchReferee.TeamScored += OnTeamScored;
+			MatchReferee.TimerTextChanged += OnTimerTextChanged;
+
+			UpdateHostingPage(NetcodeManagement.State);
+			UpdateMatchPage(MatchReferee.State);
 		}
 
 		private void OnDisable()
 		{
 			NetcodeManagement.StateChanged -= UpdateHostingPage;
 			MatchReferee.StateChanged -= UpdateMatchPage;
+			MatchReferee.TeamScored -= OnTeamScored;
+			MatchReferee.TimerTextChanged -= OnTimerTextChanged;
 		}
 
 		private void LoadPrefs()
@@ -93,7 +109,7 @@ namespace Anaglyph.Lasertag.Operator
 
 				case NetcodeState.Connected:
 					networkPages.SetActiveElement(connectedPage);
-					
+
 					var manager = NetworkManager.Singleton;
 					var transport = (UnityTransport)manager.NetworkConfig.NetworkTransport;
 
@@ -103,7 +119,7 @@ namespace Anaglyph.Lasertag.Operator
 						UnityTransport.ProtocolType.RelayUnityTransport => NetcodeManagement.CurrentSessionName,
 						_ => "ERROR"
 					};
-					
+
 					break;
 
 				default:
@@ -114,25 +130,48 @@ namespace Anaglyph.Lasertag.Operator
 
 		private void UpdateMatchPage(MatchState state)
 		{
-			var matchReferee = MatchReferee.Instance;
-			if (matchReferee == null)
+			if (state == MatchState.NotPlaying)
 			{
-				matchPages.SetActiveElement(null);
+				matchPages.SetActiveElement(matchSettingsPage);
 			}
 			else
 			{
-				if (state == MatchState.NotPlaying)
-					matchPages.SetActiveElement(matchSettingsPage);
-				else
-					matchPages.SetActiveElement(matchRunningPage);
+				matchPages.SetActiveElement(matchRunningPage);
+				UpdateGoalDisplay();
 			}
+		}
+
+		private void UpdateGoalDisplay()
+		{
+			var winByTimer = MatchReferee.Settings.CheckWinByTimer();
+			timerLabel.style.display = Show(winByTimer);
+
+			var winByScore = MatchReferee.Settings.CheckWinByScore();
+			scoreGoalLabel.style.display = Show(winByScore);
+			scoreGoalLabel.text = $"Playing to {MatchReferee.Settings.scoreTarget}";
+		}
+
+		private void OnTimerTextChanged(string timerString)
+		{
+			timerLabel.text = timerString;
+		}
+
+		private void OnTeamScored(byte team, int points)
+		{
+			var label = scoreLabels[team];
+			label.text = MatchReferee.GetTeamScore(team).ToString();
 		}
 
 		private void StartHost()
 		{
-			ColocationManager.Instance.HostAprilTagSize = tagSizeCm;
-			ColocationManager.Instance.HostColocationMethod = useAprilTags ? ColocationManager.Method.AprilTag : ColocationManager.Method.MetaSharedAnchor;
-			Player.Instance?.SetIsParticipating(false);
+			UpdateHostingPage(NetcodeManagement.State);
+			UpdateMatchPage(MatchReferee.State);
+
+			TagColocator.Instance.tagSizeCmHostSetting = tagSizeCm;
+			ColocationManager.Instance.methodHostSetting = useAprilTags
+				? ColocationManager.ColocationMethod.AprilTag
+				: ColocationManager.ColocationMethod.MetaSharedAnchor;
+			MainPlayer.Instance?.SetIsParticipating(false);
 
 			if (useRelay)
 			{
@@ -197,8 +236,8 @@ namespace Anaglyph.Lasertag.Operator
 						EditorPrefs.SetBool(UseRelaySaveKey, useRelay);
 					});
 					startServerPage.Add(useRelayField);
-					
-					
+
+
 					var protocolPages = new PageGroup();
 					{
 						var lanPage = new VisualElement();
@@ -216,7 +255,6 @@ namespace Anaglyph.Lasertag.Operator
 						var relayPage = new VisualElement();
 						protocolPages.Add(relayPage);
 						{
-
 							var roomNameField = new TextField("Room Name") { value = roomName };
 							roomNameField.RegisterValueChangedCallback(evt =>
 							{
@@ -226,7 +264,7 @@ namespace Anaglyph.Lasertag.Operator
 							});
 							relayPage.Add(roomNameField);
 						}
-						
+
 						// update visibility
 						protocolPages.SetActiveElement(useRelay ? relayPage : lanPage);
 						useRelayField.RegisterValueChangedCallback(evt =>
@@ -235,7 +273,6 @@ namespace Anaglyph.Lasertag.Operator
 						});
 					}
 					startServerPage.Add(protocolPages);
-
 
 					var hostButton = new Button(() =>
 					{
@@ -249,7 +286,7 @@ namespace Anaglyph.Lasertag.Operator
 						style = { height = 32 }
 					};
 					startServerPage.Add(hostButton);
-					
+
 					startServerPage.Add(
 						new Label(
 							"Don't forget to disable sleep on your server machine!")
@@ -257,7 +294,7 @@ namespace Anaglyph.Lasertag.Operator
 							style =
 							{
 								whiteSpace = WhiteSpace.Normal,
-								unityFontStyleAndWeight = FontStyle.Bold,
+								unityFontStyleAndWeight = FontStyle.Bold
 							}
 						});
 
@@ -267,7 +304,7 @@ namespace Anaglyph.Lasertag.Operator
 						{
 							style =
 							{
-								whiteSpace = WhiteSpace.Normal,
+								whiteSpace = WhiteSpace.Normal
 							}
 						});
 				}
@@ -278,7 +315,7 @@ namespace Anaglyph.Lasertag.Operator
 				{
 					connectingPage.Add(new Label("Connecting...")
 						{ style = { unityFontStyleAndWeight = FontStyle.Bold } });
-					
+
 					var stopButton = new Button(NetcodeManagement.Disconnect)
 					{
 						text = "Cancel",
@@ -310,7 +347,6 @@ namespace Anaglyph.Lasertag.Operator
 						// match settings menu
 						matchSettingsPage = new VisualElement();
 						{
-
 							var matchSettingsLabel = new Label("Match Settings")
 								{ style = { unityFontStyleAndWeight = FontStyle.Bold, marginTop = 10 } };
 							matchSettingsPage.Add(matchSettingsLabel);
@@ -329,7 +365,12 @@ namespace Anaglyph.Lasertag.Operator
 								settings.healthRegenPerSecond = Mathf.Max(0f, evt.newValue));
 							matchSettingsPage.Add(regen);
 
-							var ppk = new IntegerField("Points Per Kill") { value = settings.pointsPerKill };
+							var damage = new FloatField("Damage multiplier") { value = settings.damageMultiplier };
+							damage.RegisterValueChangedCallback(evt =>
+								settings.damageMultiplier = Mathf.Max(0f, evt.newValue));
+							matchSettingsPage.Add(damage);
+
+							var ppk = new IntegerField("Points / Kill") { value = settings.pointsPerKill };
 							ppk.RegisterValueChangedCallback(evt =>
 								settings.pointsPerKill = (byte)Mathf.Clamp(evt.newValue, 0, 255));
 							matchSettingsPage.Add(ppk);
@@ -339,6 +380,12 @@ namespace Anaglyph.Lasertag.Operator
 							pps.RegisterValueChangedCallback(evt =>
 								settings.pointsPerSecondHoldingPoint = (byte)Mathf.Clamp(evt.newValue, 0, 255));
 							matchSettingsPage.Add(pps);
+
+							var ppf = new IntegerField("Points / Flag capture")
+								{ value = settings.pointsPerFlagCapture };
+							ppf.RegisterValueChangedCallback(evt =>
+								settings.pointsPerFlagCapture = (byte)Mathf.Clamp(evt.newValue, 0, 255));
+							matchSettingsPage.Add(ppf);
 
 							var winDropdown = new EnumField("Win Condition", settings.winCondition);
 							winDropdown.RegisterValueChangedCallback(evt =>
@@ -356,7 +403,7 @@ namespace Anaglyph.Lasertag.Operator
 									(short)Mathf.Clamp(evt.newValue, short.MinValue, short.MaxValue));
 							matchSettingsPage.Add(score);
 
-							var startGame = new Button(() => { MatchReferee.Instance.StartMatchRpc(settings); })
+							var startGame = new Button(() => { MatchReferee.Instance.QueueMatchRpc(settings); })
 							{
 								text = "Start Game"
 							};
@@ -364,11 +411,9 @@ namespace Anaglyph.Lasertag.Operator
 							matchSettingsPage.Add(startGame);
 						}
 						matchPages.Add(matchSettingsPage);
-						
-						
+
 						matchRunningPage = new VisualElement();
 						{
-
 							var matchRunningLabel = new Label("Match Running")
 								{ style = { unityFontStyleAndWeight = FontStyle.Bold, marginTop = 10 } };
 							matchRunningPage.Add(matchRunningLabel);
@@ -382,10 +427,25 @@ namespace Anaglyph.Lasertag.Operator
 								}
 							};
 							matchRunningPage.Add(stopGame);
+
+							scoreGoalLabel = new Label("_");
+							matchRunningPage.Add(scoreGoalLabel);
+
+							timerLabel = new Label("00:00");
+							matchRunningPage.Add(timerLabel);
 						}
 						matchPages.Add(matchRunningPage);
 					}
 					connectedPage.Add(matchPages);
+
+					for (byte i = 0; i < Teams.NumTeams; i++)
+					{
+						var teamColor = new StyleColor(Teams.Colors[i]);
+						var score = MatchReferee.GetTeamScore(i);
+						scoreLabels[i] = new Label(score.ToString()) { style = { color = teamColor } };
+						if (i > 0)
+							connectedPage.Add(scoreLabels[i]);
+					}
 				}
 				networkPages.Add(connectedPage);
 			}

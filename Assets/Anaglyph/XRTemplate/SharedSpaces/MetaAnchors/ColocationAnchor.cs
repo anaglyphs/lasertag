@@ -1,53 +1,41 @@
-using System;
 using Unity.Netcode;
+using Unity.XR.CoreUtils;
 using UnityEngine;
 using UnityEngine.XR;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
-    public class ColocationAnchor : NetworkBehaviour
+	[RequireComponent(typeof(OVRSpatialAnchor), typeof(NetworkedAnchor), typeof(WorldLockAnchor))]
+	public class ColocationAnchor : NetworkBehaviour
 	{
-		public static Action<ColocationAnchor> ColocationAnchorLocalized = delegate { };
+		private readonly NetworkVariable<Pose> targetPoseSync = new();
 
-		public static ColocationAnchor Instance { get; private set; }
-		public NetworkedAnchor networkedAnchor { get; private set; }
-		public Pose DesiredPose => networkedAnchor.DesiredPose;
-		public bool IsLocalized => networkedAnchor.Anchor.Localized;
+		private OVRSpatialAnchor anchor;
+		public WorldLockAnchor WorldLocker { get; private set; }
 
 		private void Awake()
 		{
-			networkedAnchor = GetComponent<NetworkedAnchor>();
-			Instance = this;
+			anchor = GetComponent<OVRSpatialAnchor>();
+			WorldLocker = GetComponent<WorldLockAnchor>();
 		}
 
-		public async override void OnNetworkSpawn()
+		public override void OnNetworkSpawn()
 		{
-			if (!XRSettings.enabled)
-				return;
+			if (!XRSettings.enabled && !anchor.Localized)
+				MainXRRig.TrackingSpace.position = new Vector3(0, 1000, 0);
 
-			OVRManager.display.RecenteredPose += OnRecenter;
+			targetPoseSync.OnValueChanged += delegate { SetTargetPose(); };
+			if (IsOwner)
+				targetPoseSync.Value = transform.GetWorldPose();
 
-			bool localized = await networkedAnchor.Anchor.WhenLocalizedAsync();
-
-			if(localized)
-				MetaAnchorColocator.Current.AlignTo(this);
+			SetTargetPose();
 		}
 
-		public override void OnNetworkDespawn()
+		private void SetTargetPose()
 		{
-			if (OVRManager.display != null)
-				OVRManager.display.RecenteredPose -= OnRecenter;
-		}
-
-		private void OnRecenter()
-		{
-			MetaAnchorColocator.Current.AlignTo(this);
-		}
-
-		[Rpc(SendTo.Owner)]
-		public void DespawnAndDestroyRpc()
-		{
-			NetworkObject.Despawn(true);
+			var t = targetPoseSync.Value;
+			var mat = Matrix4x4.TRS(t.position, t.rotation, Vector3.one);
+			WorldLocker.SetTargetAndAlign(mat);
 		}
 	}
 }

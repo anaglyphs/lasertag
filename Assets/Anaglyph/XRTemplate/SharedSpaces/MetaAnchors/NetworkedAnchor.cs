@@ -1,4 +1,3 @@
-using Anaglyph.Netcode;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -10,17 +9,6 @@ using static OVRSpatialAnchor;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
-	[Serializable]
-	public struct NetworkGuid : INetworkSerializeByMemcpy
-	{
-		public NetworkGuid(Guid guid)
-		{
-			this.guid = guid;
-		}
-
-		public Guid guid;
-	}
-
 	public class NetworkedAnchorException : Exception
 	{
 		public NetworkedAnchorException()
@@ -41,17 +29,15 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	[RequireComponent(typeof(OVRSpatialAnchor))]
 	public class NetworkedAnchor : NetworkBehaviour
 	{
-		private void Log(string str) => Debug.Log($"[NetworkedAnchor] {str}");
+		private void Log(string str)
+		{
+			Debug.Log($"[NetworkedAnchor] {str}");
+		}
 
 		private OVRSpatialAnchor spatialAnchor;
 		public OVRSpatialAnchor Anchor => spatialAnchor;
 
-		//private Guid serverUuid;
-		public NetworkVariable<NetworkPose> OriginalPoseSync = new NetworkVariable<NetworkPose>();
-
-		public Pose DesiredPose => OriginalPoseSync.Value;
-
-		public NetworkVariable<NetworkGuid> Uuid = new NetworkVariable<NetworkGuid>(new(Guid.Empty));
+		public NetworkVariable<Guid> Uuid = new(Guid.Empty);
 
 		private void OnValidate()
 		{
@@ -66,25 +52,26 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			Uuid.OnValueChanged += OnGuidChanged;
 		}
 
-		private async void OnGuidChanged(NetworkGuid previous, NetworkGuid current)
+		private async void OnGuidChanged(Guid previous, Guid current)
 		{
-			if (IsOwner || Uuid.Value.guid == Guid.Empty)
+			if (IsOwner || Uuid.Value == Guid.Empty)
 				return;
 
-			await Load(Uuid.Value.guid);
+			await Load(Uuid.Value);
 		}
 
 		public override async void OnNetworkSpawn()
 		{
-			if(IsOwner)
+			if (IsOwner)
 			{
 				await Share();
-			} else
+			}
+			else
 			{
-				if (Uuid.Value.guid == Guid.Empty)
+				if (Uuid.Value == Guid.Empty)
 					return;
 
-				await Load(Uuid.Value.guid);
+				await Load(Uuid.Value);
 			}
 		}
 
@@ -99,15 +86,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			Redo:
 			try
 			{
-				OriginalPoseSync.Value = new NetworkPose(transform);
-
 				ExitIfBehaviorDisabled();
 
 				Log("Sharing new anchor");
 
 				spatialAnchor.enabled = true;
 
-				bool localizeSuccess = await spatialAnchor.WhenLocalizedAsync();
+				var localizeSuccess = await spatialAnchor.WhenLocalizedAsync();
 
 #if UNITY_EDITOR
 				await Awaitable.WaitForSecondsAsync(0.5f);
@@ -140,7 +125,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				else
 					throw new NetworkedAnchorException($"Failed to share anchor {spatialAnchor.Uuid}: {shareResult}");
 
-				Uuid.Value = new(spatialAnchor.Uuid);
+				Uuid.Value = spatialAnchor.Uuid;
 			}
 			catch (NetworkedAnchorException e)
 			{
@@ -176,7 +161,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				if (!localizeSuccess)
 					throw new NetworkedAnchorException($"Could not localize anchor {unboundAnchor.Uuid}");
 
-				bool gotAnchorPose = unboundAnchor.TryGetPose(out Pose anchorPose);
+				var gotAnchorPose = unboundAnchor.TryGetPose(out var anchorPose);
 				if (!gotAnchorPose)
 					throw new NetworkedAnchorException($"Couldn't get anchor {unboundAnchor.Uuid} pose");
 				spatialAnchor.transform.SetWorldPose(anchorPose);
@@ -210,7 +195,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				Debug.Log("Task cancelled");
 			}
 		}
-		
+
 		private async Task Load(Guid uuid)
 		{
 			if (!XRSettings.enabled)
@@ -222,8 +207,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				ExitIfBehaviorDisabled();
 
 				List<UnboundAnchor> loadedAnchors = new();
-
-				UnboundAnchor unboundAnchor = default;
+				UnboundAnchor unboundAnchor;
 
 				//Log($"Checking if anchor {uuid} is saved locally...");
 

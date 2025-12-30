@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -7,25 +8,23 @@ namespace Anaglyph.Lasertag.UI
 	{
 		public static DeathHUD Instance { get; private set; }
 
-		[Header("Death Popup")]
-		[SerializeField] private Text respawnText = null;
+		[Header("Death Popup")] [SerializeField]
+		private Text respawnText = null;
 
 		[SerializeField] private GameObject respawnPopup = null;
-
-		[SerializeField] private RectTransform menuMaskRectTransform = null;
-
-		private float maxMenuMaskHeight = 0;
 
 		private void Awake()
 		{
 			Instance = this;
+
+			MainPlayer.Died += OnDied;
+			MainPlayer.Respawned += OnRespawned;
 		}
 
-		private void Start()
+		private void OnDestroy()
 		{
-			maxMenuMaskHeight = menuMaskRectTransform.sizeDelta.y;
-			Player.Instance.Died += OnDied;
-			Player.Instance.Respawned += OnRespawned;
+			MainPlayer.Died -= OnDied;
+			MainPlayer.Respawned -= OnRespawned;
 		}
 
 		private void OnDied()
@@ -42,23 +41,23 @@ namespace Anaglyph.Lasertag.UI
 		private float EaseInOutCirc(float x)
 		{
 			return x < 0.5
-			  ? (1 - Mathf.Sqrt(1 - Mathf.Pow(2 * x, 2))) / 2
-			  : (Mathf.Sqrt(1 - Mathf.Pow(-2 * x + 2, 2)) + 1) / 2;
+				? (1 - Mathf.Sqrt(1 - Mathf.Pow(2 * x, 2))) / 2
+				: (Mathf.Sqrt(1 - Mathf.Pow(-2 * x + 2, 2)) + 1) / 2;
 		}
 
 		private void Update()
 		{
-			menuMaskRectTransform.sizeDelta = new Vector2(menuMaskRectTransform.sizeDelta.x, Mathf.Lerp(0, maxMenuMaskHeight, EaseInOutCirc(Mathf.Clamp01(Player.Instance.RespawnTimerSeconds))));
+			respawnPopup.SetActive(!MainPlayer.Instance.IsAlive);
 
-			respawnPopup.SetActive(!Player.Instance.IsAlive);
-
-			if (MatchReferee.Settings.respawnInBases && !Player.Instance.IsInFriendlyBase)
+			if (MatchReferee.Settings.respawnInBases && !MainPlayer.Instance.IsInFriendlyBase)
 			{
 				respawnText.text = $"GO TO:   BASE";
 			}
 			else
 			{
-				respawnText.text = $"RESPAWN: {(Player.Instance.RespawnTimerSeconds).ToString("F1")}s";
+				var timeSinceDeath = Time.time - MainPlayer.Instance.LastDeathTime;
+				var timeToRespawn = MatchReferee.Settings.respawnSeconds - timeSinceDeath;
+				respawnText.text = $"RESPAWN: {timeToRespawn:F1}s";
 			}
 		}
 	}

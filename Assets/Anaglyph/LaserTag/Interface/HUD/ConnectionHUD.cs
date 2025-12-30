@@ -1,6 +1,4 @@
 using Anaglyph.Netcode;
-using Anaglyph.XRTemplate.SharedSpaces;
-using System.Threading.Tasks;
 using UnityEngine;
 
 namespace Anaglyph.Lasertag
@@ -14,7 +12,7 @@ namespace Anaglyph.Lasertag
 		private void Awake()
 		{
 			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
-			Colocation.IsColocatedChange += OnColocationChanged;
+			ColocationManager.Colocated += OnColocationChanged;
 
 			UpdateVisibility();
 		}
@@ -22,20 +20,27 @@ namespace Anaglyph.Lasertag
 		private void OnDestroy()
 		{
 			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
-			Colocation.IsColocatedChange -= OnColocationChanged;
+			ColocationManager.Colocated -= OnColocationChanged;
 		}
 
-		private void OnColocationChanged(bool isColocated) => UpdateVisibility();
-		private void OnNetcodeStateChanged(NetcodeState state) => UpdateVisibility();
+		private void OnColocationChanged(bool b)
+		{
+			UpdateVisibility();
+		}
+
+		private void OnNetcodeStateChanged(NetcodeState state)
+		{
+			UpdateVisibility();
+		}
 
 		private async void UpdateVisibility()
 		{
 			var state = NetcodeManagement.State;
 			connecting.SetActive(state == NetcodeState.Connecting);
-			colocating.SetActive(state == NetcodeState.Connected && !Colocation.IsColocated);
-			bool isReady = state == NetcodeState.Connected && Colocation.IsColocated;
+			colocating.SetActive(state == NetcodeState.Connected && !ColocationManager.IsColocated);
+			var isReady = state == NetcodeState.Connected && ColocationManager.IsColocated;
 			ready.SetActive(isReady);
-			if(isReady)
+			if (isReady)
 			{
 				await Awaitable.WaitForSecondsAsync(1);
 				ready.SetActive(false);

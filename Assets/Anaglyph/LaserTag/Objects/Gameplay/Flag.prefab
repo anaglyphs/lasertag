@@ -155,18 +155,18 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  m_EditorClassIdentifier: 
   GlobalObjectIdHash: 2072223612
-  InScenePlacedSourceGlobalObjectIdHash: 2072223612
+  InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
-  Ownership: 7
+  Ownership: 3
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
   ActiveSceneSynchronization: 0
-  SceneMigrationSynchronization: 0
+  SceneMigrationSynchronization: 1
   SpawnWithObservers: 1
   DontDestroyWithOwner: 1
-  AutoObjectParentSync: 0
+  AutoObjectParentSync: 1
   SyncOwnerTransformWhenParented: 1
   AllowOwnerToParent: 0
 --- !u!114 &7780478572964825195
@@ -184,8 +184,8 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   radius: 0.5
   teamOwner: {fileID: 6353561666301253323}
-  flagVisualTransform: {fileID: 8548631218218697036}
-  headOffset: 0.2
+  visual: {fileID: 8548631218218697036}
+  holderHeadOffset: 0.2
 --- !u!114 &6307693311043116455
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -253,9 +253,9 @@ MonoBehaviour:
   SyncRotAngleX: 1
   SyncRotAngleY: 1
   SyncRotAngleZ: 1
-  SyncScaleX: 1
-  SyncScaleY: 1
-  SyncScaleZ: 1
+  SyncScaleX: 0
+  SyncScaleY: 0
+  SyncScaleZ: 0
   PositionThreshold: 0.001
   RotAngleThreshold: 0.01
   ScaleThreshold: 0.01

@@ -1,5 +1,7 @@
-namespace Anaglyph.Lasertag.Weapons {
-    public static class WeaponsManagement {
-        public static bool canFire = true;
-    }
+namespace Anaglyph.Lasertag.Weapons
+{
+	public static class WeaponsManagement
+	{
+		public static bool CanFire = true;
+	}
 }

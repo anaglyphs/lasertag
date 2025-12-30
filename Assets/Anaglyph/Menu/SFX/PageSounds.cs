@@ -18,7 +18,7 @@ namespace Anaglyph.Menu
 		private void OnNavigatingBack()
 		{
 			if (navBack != null)
-				AudioSource.PlayClipAtPoint(navBack, transform.position);
+				AudioPool.Play(navBack, transform.position);
 		}
 	}
 }

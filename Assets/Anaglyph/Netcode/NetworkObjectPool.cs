@@ -11,12 +11,12 @@ namespace Anaglyph.Lasertag.Logistics
 	{
 		public static NetworkObjectPool Instance { get; private set; }
 
-		[SerializeField]
-		List<PoolConfigObject> PooledPrefabsList;
+		[SerializeField] private List<PoolConfigObject> PooledPrefabsList;
 
-		HashSet<GameObject> m_Prefabs = new HashSet<GameObject>();
+		private HashSet<GameObject> m_Prefabs = new();
 
-		Dictionary<GameObject, ObjectPool<NetworkObject>> m_PooledObjects = new Dictionary<GameObject, ObjectPool<NetworkObject>>();
+		private Dictionary<GameObject, ObjectPool<NetworkObject>> m_PooledObjects = new();
+		private bool m_isShuttingDown = false;
 
 		private void Awake()
 		{
@@ -42,22 +42,23 @@ namespace Anaglyph.Lasertag.Logistics
 		{
 			// Registers all objects in PooledPrefabsList to the cache.
 			foreach (var configObject in PooledPrefabsList)
-			{
 				RegisterPrefabInternal(configObject.Prefab, configObject.PrewarmCount);
-			}
 		}
 
 		private void OnSessionStopped(bool b)
 		{
-			// Unregisters all objects in PooledPrefabsList from the cache.
+			m_isShuttingDown = true;
+
 			foreach (var prefab in m_Prefabs)
 			{
-				// Unregister Netcode Spawn handlers
 				NetworkManager.Singleton.PrefabHandler.RemoveHandler(prefab);
 				m_PooledObjects[prefab].Clear();
 			}
+
 			m_PooledObjects.Clear();
 			m_Prefabs.Clear();
+
+			m_isShuttingDown = false;
 		}
 
 		public void OnValidate()
@@ -66,9 +67,8 @@ namespace Anaglyph.Lasertag.Logistics
 			{
 				var prefab = PooledPrefabsList[i].Prefab;
 				if (prefab != null)
-				{
-					Assert.IsNotNull(prefab.GetComponent<NetworkObject>(), $"{nameof(NetworkObjectPool)}: Pooled prefab \"{prefab.name}\" at index {i.ToString()} has no {nameof(NetworkObject)} component.");
-				}
+					Assert.IsNotNull(prefab.GetComponent<NetworkObject>(),
+						$"{nameof(NetworkObjectPool)}: Pooled prefab \"{prefab.name}\" at index {i.ToString()} has no {nameof(NetworkObject)} component.");
 			}
 		}
 
@@ -100,13 +100,22 @@ namespace Anaglyph.Lasertag.Logistics
 		/// </summary>
 		public void ReturnNetworkObject(NetworkObject networkObject, GameObject prefab)
 		{
+			if (networkObject == null || prefab == null)
+				return;
+
+			if (m_isShuttingDown || NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening)
+			{
+				Destroy(networkObject.gameObject);
+				return;
+			}
+
 			m_PooledObjects[prefab].Release(networkObject);
 		}
 
 		/// <summary>
 		/// Builds up the cache for a prefab.
 		/// </summary>
-		void RegisterPrefabInternal(GameObject prefab, int prewarmCount)
+		private void RegisterPrefabInternal(GameObject prefab, int prewarmCount)
 		{
 			NetworkObject CreateFunc()
 			{
@@ -131,18 +140,13 @@ namespace Anaglyph.Lasertag.Logistics
 			m_Prefabs.Add(prefab);
 
 			// Create the pool
-			m_PooledObjects[prefab] = new ObjectPool<NetworkObject>(CreateFunc, ActionOnGet, ActionOnRelease, ActionOnDestroy, defaultCapacity: prewarmCount);
+			m_PooledObjects[prefab] = new ObjectPool<NetworkObject>(CreateFunc, ActionOnGet, ActionOnRelease,
+				ActionOnDestroy, defaultCapacity: prewarmCount);
 
 			// Populate the pool
 			var prewarmNetworkObjects = new List<NetworkObject>();
-			for (var i = 0; i < prewarmCount; i++)
-			{
-				prewarmNetworkObjects.Add(m_PooledObjects[prefab].Get());
-			}
-			foreach (var networkObject in prewarmNetworkObjects)
-			{
-				m_PooledObjects[prefab].Release(networkObject);
-			}
+			for (var i = 0; i < prewarmCount; i++) prewarmNetworkObjects.Add(m_PooledObjects[prefab].Get());
+			foreach (var networkObject in prewarmNetworkObjects) m_PooledObjects[prefab].Release(networkObject);
 
 			// Register Netcode Spawn handlers
 			NetworkManager.Singleton.PrefabHandler.AddHandler(prefab, new PooledPrefabInstanceHandler(prefab, this));
@@ -150,16 +154,16 @@ namespace Anaglyph.Lasertag.Logistics
 	}
 
 	[Serializable]
-	struct PoolConfigObject
+	internal struct PoolConfigObject
 	{
 		public GameObject Prefab;
 		public int PrewarmCount;
 	}
 
-	class PooledPrefabInstanceHandler : INetworkPrefabInstanceHandler
+	internal class PooledPrefabInstanceHandler : INetworkPrefabInstanceHandler
 	{
-		GameObject m_Prefab;
-		NetworkObjectPool m_Pool;
+		private GameObject m_Prefab;
+		private NetworkObjectPool m_Pool;
 
 		public PooledPrefabInstanceHandler(GameObject prefab, NetworkObjectPool pool)
 		{
@@ -167,15 +171,16 @@ namespace Anaglyph.Lasertag.Logistics
 			m_Pool = pool;
 		}
 
-		NetworkObject INetworkPrefabInstanceHandler.Instantiate(ulong ownerClientId, Vector3 position, Quaternion rotation)
+		NetworkObject INetworkPrefabInstanceHandler.Instantiate(ulong ownerClientId, Vector3 position,
+			Quaternion rotation)
 		{
 			return m_Pool.GetNetworkObject(m_Prefab, position, rotation);
 		}
 
 		void INetworkPrefabInstanceHandler.Destroy(NetworkObject networkObject)
 		{
+			if (!networkObject) return;
 			m_Pool.ReturnNetworkObject(networkObject, m_Prefab);
 		}
 	}
-
 }

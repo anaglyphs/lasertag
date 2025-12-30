@@ -13,7 +13,7 @@ namespace Anaglyph.Lasertag
 			material.SetVector(xrOriginID, MainXRRig.TrackingSpace.position);
 		}
 
-		private void OnDestroy()
+		private void OnDisable()
 		{
 			material.SetVector(xrOriginID, Vector3.zero);
 		}

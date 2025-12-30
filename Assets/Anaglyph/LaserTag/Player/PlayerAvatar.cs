@@ -10,21 +10,28 @@ namespace Anaglyph.Lasertag.Networking
 	public class PlayerAvatar : NetworkBehaviour
 	{
 		public const string Tag = "Player";
-		
+
 		public static PlayerAvatar Local { get; private set; }
 
 		[SerializeField] private Transform headTransform;
 		[SerializeField] private Transform leftHandTransform;
 		[SerializeField] private Transform rightHandTransform;
-		[SerializeField] private Transform torsoTransform;
+		[SerializeField] private GameObject[] deactivatedWhenDead = Array.Empty<GameObject>();
+
+		// [SerializeField] private Transform torsoTransform;
 		public Transform HeadTransform => headTransform;
 		public Transform LeftHandTransform => leftHandTransform;
 		public Transform RightHandTransform => rightHandTransform;
-		public Transform TorsoTransform => torsoTransform;
+		// public Transform TorsoTransform => torsoTransform;
 
-		public UnityEvent onRespawn = new();
-		public UnityEvent onKilled = new();
-		public UnityEvent onDamaged = new();
+		public UnityEvent OnRespawned = new();
+		public event Action Respawned = delegate { };
+
+		public UnityEvent OnKilled = new();
+		public event Action Killed = delegate { };
+
+		public UnityEvent OnDamaged = new();
+		public event Action Damaged = delegate { };
 
 		public bool IsAlive => isAliveSync.Value;
 		public NetworkVariable<bool> isAliveSync = new();
@@ -49,19 +56,25 @@ namespace Anaglyph.Lasertag.Networking
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
 		private static void Init()
 		{
-			All = new();
-			OtherPlayers = new();
+			All = new Dictionary<ulong, PlayerAvatar>();
+			OtherPlayers = new List<PlayerAvatar>();
 			OnPlayerKilledPlayer = delegate { };
 		}
 
 		private void Awake()
 		{
-			isAliveSync.OnValueChanged += delegate (bool wasAlive, bool isAlive)
+			Killed += OnKilled.Invoke;
+			Damaged += OnDamaged.Invoke;
+			Respawned += OnRespawned.Invoke;
+
+			isAliveSync.OnValueChanged += delegate(bool wasAlive, bool isAlive)
 			{
 				if (wasAlive && !isAlive)
-					onKilled.Invoke();
+					Killed.Invoke();
 				else if (!wasAlive && isAlive)
-					onRespawn.Invoke();
+					Respawned.Invoke();
+
+				foreach (var g in deactivatedWhenDead) g.SetActive(isAlive);
 			};
 		}
 
@@ -84,15 +97,14 @@ namespace Anaglyph.Lasertag.Networking
 
 		public override void OnNetworkDespawn()
 		{
-			onKilled.Invoke();
+			Killed.Invoke();
 			OtherPlayers.Remove(this);
 			All.Remove(OwnerClientId);
 		}
 
 		private void HandleBases()
 		{
-			foreach (Base b in Base.AllBases)
-			{
+			foreach (var b in Base.AllBases)
 				if (Geo.PointIsInCylinder(b.transform.position, Base.Radius, 3, headTransform.position))
 				{
 					IsInBase = true;
@@ -103,7 +115,6 @@ namespace Anaglyph.Lasertag.Networking
 
 					return;
 				}
-			}
 
 			InBase = null;
 			IsInBase = false;
@@ -119,15 +130,15 @@ namespace Anaglyph.Lasertag.Networking
 		public void DamageRpc(float damage, ulong damagedBy)
 		{
 			if (IsOwner)
-				Player.Instance.Damage(damage, damagedBy);
+				MainPlayer.Instance.Damage(damage, damagedBy);
 
-			onDamaged.Invoke();
+			Damaged.Invoke();
 		}
 
 		[Rpc(SendTo.Everyone)]
 		public void KilledByPlayerRpc(ulong killerId)
 		{
-			if (All.TryGetValue(killerId, out PlayerAvatar killer))
+			if (All.TryGetValue(killerId, out var killer))
 				OnPlayerKilledPlayer.Invoke(killer, this);
 		}
 

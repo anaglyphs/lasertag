@@ -1,116 +1,98 @@
 using System;
 using Unity.Netcode;
-using Unity.XR.CoreUtils;
 using UnityEngine;
-using UnityEngine.XR;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
-	public class MetaAnchorColocator : MonoBehaviour, IColocator
+	public class MetaAnchorColocator : NetworkBehaviour, IColocator
 	{
-		public static MetaAnchorColocator Current { get; private set; }
+		public static MetaAnchorColocator Instance { get; private set; }
 
-		//[SerializeField] private float anchorRespawnDistance = 10;
 		[SerializeField] private ColocationAnchor anchorPrefab;
 
-		private static bool _isColocated;
-		public event Action<bool> IsColocatedChange;
-		public bool IsColocated
-		{
-			get => _isColocated;
-			private set
-			{
-				bool changed = value != _isColocated;
-				_isColocated = value;
-				if (changed)
-					IsColocatedChange?.Invoke(_isColocated);
-			}
-		}
+		public event Action Colocated = delegate { };
+
+		ulong anchorIdSync = ulong.MaxValue;
+		private ColocationAnchor _currentAnchor;
+		public ColocationAnchor CurrentAnchor => _currentAnchor;
 
 		private void Awake()
 		{
-			Current = this;
+			Instance = this;
 		}
 
-		public void InstantiateNewAnchor()
+		protected override void OnSynchronize<T>(ref BufferSerializer<T> serializer)
 		{
-			if (ColocationAnchor.Instance != null)
-				ColocationAnchor.Instance.DespawnAndDestroyRpc();
+			serializer.SerializeValue(ref anchorIdSync);
+		}
 
-			Transform head = MainXRRig.Camera.transform;
+		public void StartColocation()
+		{
+			UpdateCurrentAnchor();
+			if (!CurrentAnchor)
+				RealignEveryone();
+		}
+		
+		private void UpdateCurrentAnchor()
+		{
+			var objs = NetworkManager.SpawnManager.SpawnedObjects;
+			if (!objs.TryGetValue(anchorIdSync, out var anchorNetObj)) return;
 
-			Vector3 spawnPos = head.position;
+			var anchor = anchorNetObj.GetComponent<ColocationAnchor>();
+			if (anchor != _currentAnchor)
+			{
+				_currentAnchor = anchor;
+				_currentAnchor.WorldLocker.Aligned += OnAligned;
+			}
+		}
+
+		public void RealignEveryone()
+		{
+			var localId = NetworkManager.LocalClientId;
+			if (localId != OwnerClientId)
+				NetworkObject.ChangeOwnership(NetworkManager.LocalClientId);
+
+			if (!IsOwner)
+				throw new Exception("Not owner! Can't spawn new anchor");
+
+			// spawn anchor
+			var head = MainXRRig.Camera.transform;
+
+			var spawnPos = head.position;
 			spawnPos.y -= 1.5f;
 
-			Vector3 flatForward = head.transform.forward;
+			var flatForward = head.transform.forward;
 			flatForward.y = 0;
 			flatForward.Normalize();
-			Quaternion spawnRot = Quaternion.LookRotation(flatForward, Vector3.up);
+			var spawnRot = Quaternion.LookRotation(flatForward, Vector3.up);
 
-			GameObject g = Instantiate(anchorPrefab.gameObject, spawnPos, spawnRot);
-			// Debug.Log($"Instantiated new anchor");
-
-			g.TryGetComponent(out NetworkObject networkObject);
-			networkObject.Spawn();
+			var g = Instantiate(anchorPrefab.gameObject, spawnPos, spawnRot);
+			g.TryGetComponent(out NetworkObject netObj);
+			netObj.Spawn();
+			
+			anchorIdSync = netObj.NetworkObjectId;
+			SpawnedNewAnchorRpc(anchorIdSync);
 		}
 
-		public async void Colocate()
+		[Rpc(SendTo.Everyone)]
+		private void SpawnedNewAnchorRpc(ulong id)
 		{
-			if (!XRSettings.enabled)
-				return;
+			if (_currentAnchor && _currentAnchor.IsOwner)
+				_currentAnchor.NetworkObject.Despawn(true);
+			
+			anchorIdSync = id;
 
-			IsColocated = false;
-
-			await Awaitable.EndOfFrameAsync();
-
-			if (ColocationAnchor.Instance == null)
-			{
-				// spawn anchor
-				InstantiateNewAnchor();
-
-				// try to bind with an existing saved anchor
-				// SavedAnchorGuids savedAnchors = LoadSavedGuids();
-
-				//if (savedAnchors.guidStrings != null && savedAnchors.guidStrings.Count > 0)
-				//{
-				//	List<UnboundAnchor> unboundAnchors = new();
-
-				//	List<Guid> guidStrings = new(savedAnchors.guidStrings.Count);
-				//	foreach (string uuidString in savedAnchors.guidStrings)
-				//		guidStrings.Add(new Guid(uuidString));
-
-				//	var loadResult = await LoadUnboundAnchorsAsync(guidStrings, unboundAnchors);
-				//	if (loadResult.Success && unboundAnchors.Count > 0)
-				//	{
-				//		await networkedAnchor.LocalizeAndBindAsync(unboundAnchors[0]);
-				//	}
-				//}
-			}
-			else
-			{
-				if(!IsColocated)
-					MainXRRig.TrackingSpace.position = new Vector3(0, 1000, 0);
-			}
+			UpdateCurrentAnchor();
 		}
 
-		public async void AlignTo(ColocationAnchor anchor)
+		private void OnAligned()
 		{
-			if (!XRSettings.enabled)
-				return;
-
-			await Awaitable.EndOfFrameAsync();
-
-			if (!anchor.IsLocalized)
-				return;
-
-			Pose anchorPose = anchor.transform.GetWorldPose();
-			MainXRRig.MatchPoseToTarget(anchorPose, anchor.DesiredPose);
-			IsColocated = true;
+			Colocated.Invoke();
 		}
 
 		public void StopColocation()
 		{
-			IsColocated = false;
+			// do nothing. world lock anchor naturally despawns
 		}
 	}
 }

@@ -1,9 +1,9 @@
 using System;
+using System.Threading;
+using System.Threading.Tasks;
+using Anaglyph.Lasertag.Networking;
 using Unity.Netcode;
 using UnityEngine;
-using System.Threading.Tasks;
-using System.Threading;
-using Anaglyph.Lasertag.Networking;
 
 namespace Anaglyph.Lasertag
 {
@@ -12,7 +12,7 @@ namespace Anaglyph.Lasertag
 	{
 		None = 0b00000000,
 		Timer = 0b00000001,
-		ReachScore = 0b00000010,
+		ReachScore = 0b00000010
 	}
 
 	[Flags]
@@ -21,7 +21,7 @@ namespace Anaglyph.Lasertag
 		NotPlaying = 0b00000001,
 		Mustering = 0b00000010,
 		Countdown = 0b00000100,
-		Playing = 0b00001000,
+		Playing = 0b00001000
 	}
 
 	[Serializable]
@@ -31,6 +31,7 @@ namespace Anaglyph.Lasertag
 		public bool respawnInBases;
 		public float respawnSeconds;
 		public float healthRegenPerSecond;
+		public float damageMultiplier;
 
 		public byte pointsPerKill;
 		public byte pointsPerSecondHoldingPoint;
@@ -40,338 +41,271 @@ namespace Anaglyph.Lasertag
 		public int timerSeconds;
 		public short scoreTarget;
 
-		public readonly bool CheckWinByTimer() => winCondition.HasFlag(WinCondition.Timer);
-		public readonly bool CheckWinByScore() => winCondition.HasFlag(WinCondition.ReachScore);
+		public readonly bool CheckWinByTimer()
+		{
+			return winCondition.HasFlag(WinCondition.Timer);
+		}
+
+		public readonly bool CheckWinByScore()
+		{
+			return winCondition.HasFlag(WinCondition.ReachScore);
+		}
 
 		public static MatchSettings DemoGame()
 		{
-			return new()
+			return new MatchSettings
 			{
 				teams = true,
 				respawnInBases = true,
-				respawnSeconds = 1,
+				respawnSeconds = 5,
 				healthRegenPerSecond = 5,
+				damageMultiplier = 1,
 
 				pointsPerKill = 1,
 				pointsPerSecondHoldingPoint = 1,
 				pointsPerFlagCapture = 10,
 
 				winCondition = WinCondition.Timer,
-				timerSeconds = 60 * 2,
+				timerSeconds = 60 * 2
 			};
 		}
 
 		public static MatchSettings Lobby()
 		{
-			return new()
+			return new MatchSettings
 			{
 				teams = false,
 				respawnInBases = false,
 				respawnSeconds = 5,
 				healthRegenPerSecond = 5,
+				damageMultiplier = 1,
 
 				pointsPerKill = 0,
 				pointsPerSecondHoldingPoint = 0,
 				pointsPerFlagCapture = 0,
 
 				winCondition = WinCondition.None,
-				timerSeconds = 0,
+				timerSeconds = 0
 			};
 		}
 	}
 
 	public class MatchReferee : NetworkBehaviour
 	{
-		private const string NotOwnerExceptionMessage = "Only the NGO owner should call this!";
-
 		public static MatchReferee Instance { get; private set; }
+		private static int[] _teamScores = new int[Teams.NumTeams];
 
-		private readonly NetworkVariable<MatchState> stateSync = new(MatchState.NotPlaying);
+		public static int GetTeamScore(byte team)
+		{
+			return _teamScores[team];
+		}
 
-		public static MatchState State { get; private set; } = MatchState.NotPlaying;
+		private CancellationTokenSource cancelSrc;
+
+		private static MatchState _state = MatchState.NotPlaying;
+		public static MatchState State => _state;
 		public static event Action<MatchState> StateChanged = delegate { };
 		public static event Action MatchFinished = delegate { };
+		public static event Action<string> TimerTextChanged = delegate { };
 
-		private readonly NetworkVariable<int> team0ScoreSync = new(0);
-		private readonly NetworkVariable<int> team1ScoreSync = new(0);
-		private readonly NetworkVariable<int> team2ScoreSync = new(0);
-
-		private NetworkVariable<int>[] teamScoresSync;
-		public int GetTeamScore(byte team) => teamScoresSync[team].Value;
-		
-		public static event Action<byte, int> TeamScored = delegate { };
-
-		public static MatchSettings Settings { get; private set; } = MatchSettings.Lobby();
-		private readonly NetworkVariable<MatchSettings> settingsSync = new();
-
-		private TaskCompletionSource<bool> winByScoreCompletion;
-		private CancellationTokenSource cancelTokenSrc;
-		
-		public float TimeMatchEnds { get; private set; } = 0;
+		private static MatchSettings _settings = MatchSettings.Lobby();
+		public static MatchSettings Settings => _settings;
+		public float TimeMatchEnds { get; private set; }
 
 		private void Awake()
 		{
 			Instance = this;
-
-			teamScoresSync = new NetworkVariable<int>[Teams.NumTeams];
-
-			teamScoresSync[0] = team0ScoreSync;
-			teamScoresSync[1] = team1ScoreSync;
-			teamScoresSync[2] = team2ScoreSync;
-			
-			for (byte i = 0; i < teamScoresSync.Length; i++)
-			{
-				var team = i;
-				teamScoresSync[i].OnValueChanged += (_, newValue) =>
-				{
-					TeamScored.Invoke(team, newValue);
-				};
-			}
-			
-			stateSync.OnValueChanged += OnStateChanged;
-			settingsSync.OnValueChanged += OnSettingsChanged;
 		}
 
-		public override void OnNetworkSpawn()
+		public static event Action<byte, int> TeamScored = delegate { };
+
+		// TODO: score sync not working
+		protected override void OnSynchronize<T>(ref BufferSerializer<T> serializer)
 		{
-			if (IsOwner)
-			{
-				stateSync.Value = MatchState.NotPlaying;
-				settingsSync.Value = MatchSettings.Lobby();
-				
-				Settings = settingsSync.Value;
-			}
+			serializer.SerializeValue(ref _settings);
 
-			OnStateChanged(MatchState.NotPlaying, MatchState.NotPlaying);
-		}
+			var _synchronizedState = _state;
+			serializer.SerializeValue(ref _synchronizedState);
+			SetStateLocally(_synchronizedState);
 
-		private void OnStateChanged(MatchState prev, MatchState state)
-		{
-			State = state;
+			serializer.SerializeValue(ref _teamScores);
 
-			switch (state)
-			{
-				case MatchState.Playing:
-					TimeMatchEnds = Time.time + Settings.timerSeconds;
-					break;
-
-				case MatchState.NotPlaying:
-					if (IsOwner)
-						settingsSync.Value = MatchSettings.Lobby();
-					break;
-			}
-
-			StateChanged.Invoke(state);
-		}
-
-		private void OnSettingsChanged(MatchSettings prev, MatchSettings settings)
-		{
-			Settings = settings;
-		}
-
-		public override void OnGainedOwnership()
-		{
-			CancellationToken ctn = CancelTaskAndPrepareNext();
-
-			switch (State)
-			{
-				case MatchState.Mustering:
-					_ = Muster(ctn);
-					break;
-
-				case MatchState.Playing:
-					_ = RunMatch(Settings, ctn);
-					break;
-
-				default:
-					stateSync.Value = MatchState.NotPlaying;
-					break;
-			}
-		}
-
-		public override void OnDestroy()
-		{
-			State = MatchState.NotPlaying;
-			base.OnDestroy();
-			cancelTokenSrc?.Cancel();
+			var timeLeft = GetTimeLeft();
+			serializer.SerializeValue(ref timeLeft);
+			TimeMatchEnds = Time.time + timeLeft;
 		}
 
 		public override void OnNetworkDespawn()
 		{
-			cancelTokenSrc?.Cancel();
-			OnStateChanged(stateSync.Value, MatchState.NotPlaying);
+			_ = SetStateLocally(MatchState.NotPlaying);
+			ResetScoresLocally();
 		}
 
-		private CancellationToken CancelTaskAndPrepareNext()
+		[Rpc(SendTo.Everyone)]
+		public void QueueMatchRpc(MatchSettings settings)
 		{
-			cancelTokenSrc?.Cancel();
-
-			cancelTokenSrc = new();
-			return cancelTokenSrc.Token;
+			ResetScoresLocally();
+			_settings = settings;
+			_ = SetStateLocally(MatchState.Mustering);
 		}
 
-		[Rpc(SendTo.Owner)]
-		public void StartMatchRpc(MatchSettings settings)
+		[Rpc(SendTo.Everyone, InvokePermission = RpcInvokePermission.Owner, AllowTargetOverride = true)]
+		private void SyncStateRpc(MatchState state, RpcParams rpcParams = default)
 		{
-			if (State != MatchState.NotPlaying)
+			_ = SetStateLocally(state);
+		}
+
+		private async Task SetStateLocally(MatchState state)
+		{
+			if (_state == state)
 				return;
 
-			settingsSync.Value = settings;
-			ResetScoresRpc();
+			_state = state;
 
-			_ = Muster(CancelTaskAndPrepareNext());
-		}
+			StateChanged.Invoke(State);
 
-		private async Task Muster(CancellationToken ctn)
-		{
+			cancelSrc?.Cancel();
+			cancelSrc = new CancellationTokenSource();
+			var ctn = cancelSrc.Token;
+
 			try
 			{
-				stateSync.Value = MatchState.Mustering;
-
-				while (State == MatchState.Mustering)
+				switch (_state)
 				{
-					int numPlayersInbase = 0;
-
-					foreach (PlayerAvatar player in PlayerAvatar.All.Values)
-					{
-						if (player.IsInBase)
-							numPlayersInbase++;
-					}
-
-					if (numPlayersInbase != 0 && numPlayersInbase == Networking.PlayerAvatar.All.Count)
-					{
-						_ = Countdown(ctn);
+					case MatchState.NotPlaying:
+						_settings = MatchSettings.Lobby();
 						break;
-					}
 
-					await Awaitable.NextFrameAsync(ctn);
+					case MatchState.Mustering:
+
+						UpdateTimerText(Settings.timerSeconds);
+						while (State == MatchState.Mustering)
+						{
+							var numPlayersInBase = 0;
+
+							foreach (var player in PlayerAvatar.All.Values)
+								if (player.IsInBase)
+									numPlayersInBase++;
+
+							if (numPlayersInBase != 0 && numPlayersInBase == PlayerAvatar.All.Count)
+								if (IsOwner)
+									SyncStateRpc(MatchState.Countdown);
+
+							await Awaitable.NextFrameAsync(ctn);
+							ctn.ThrowIfCancellationRequested();
+						}
+
+						break;
+
+					case MatchState.Countdown:
+						await Awaitable.WaitForSecondsAsync(3, ctn);
+						ctn.ThrowIfCancellationRequested();
+
+						if (IsOwner)
+							StartMatchRpc();
+
+						break;
+
+					case MatchState.Playing:
+						if (Settings.CheckWinByTimer())
+							while (State == MatchState.Playing)
+							{
+								await Awaitable.WaitForSecondsAsync(1, ctn);
+
+								var timeLeft = GetTimeLeft();
+								UpdateTimerText(timeLeft);
+
+								if (timeLeft <= 0)
+								{
+									if (IsOwner)
+										EndMatchRpc();
+
+									break;
+								}
+
+								ctn.ThrowIfCancellationRequested();
+							}
+
+						break;
 				}
-
 			}
 			catch (OperationCanceledException)
 			{
-				stateSync.Value = MatchState.NotPlaying;
-				throw;
 			}
 		}
 
-		private async Task Countdown(CancellationToken ctn)
+		[Rpc(SendTo.Everyone)]
+		public void ScoreRpc(byte team, int points)
 		{
-			try
-			{
-				stateSync.Value = MatchState.Countdown;
-				await Awaitable.WaitForSecondsAsync(3, ctn);
-				ctn.ThrowIfCancellationRequested();
-				_ = RunMatch(Settings, ctn);
-
-			}
-			catch (OperationCanceledException)
-			{
-				stateSync.Value = MatchState.NotPlaying;
-				throw;
-			}
-		}
-
-		private async Task RunMatch(MatchSettings settings, CancellationToken ctn)
-		{
-			try
-			{
-				// check if starting a new match
-				// this task could be run by a different client resuming a match
-				// i.e. if the original match starter leaves
-				bool startingNewMatch = stateSync.Value != MatchState.Playing;
-				if (startingNewMatch)
-				{
-					settingsSync.Value = settings;
-					stateSync.Value = MatchState.Playing;
-				}
-
-				Task timerTask = Task.CompletedTask;
-				Task scoreTask = Task.CompletedTask;
-
-				if (settings.CheckWinByTimer())
-				{
-					float secondsLeft = TimeMatchEnds - Time.time;
-					timerTask = Task.Delay(1000 * Mathf.RoundToInt(secondsLeft), ctn);
-				}
-
-				if (settings.CheckWinByScore())
-				{
-					winByScoreCompletion = new TaskCompletionSource<bool>();
-					ctn.Register(() => winByScoreCompletion.TrySetCanceled(ctn));
-					scoreTask = winByScoreCompletion.Task;
-				}
-
-				await Task.WhenAll(timerTask, scoreTask);
-			}
-			catch (OperationCanceledException) { }
-
-			stateSync.Value = MatchState.NotPlaying;
-			MatchFinishedRpc();
-
-			ctn.ThrowIfCancellationRequested();
-		}
-
-		[Rpc(SendTo.Owner)]
-		public void ScoreTeamRpc(byte team, int points)
-		{
-			if (State != MatchState.Playing) return;
 			if (team == 0 || points == 0) return;
 
-			teamScoresSync[team].Value += points;
+			_teamScores[team] += points;
 
-			bool canWinByScore = Settings.CheckWinByScore();
-			bool isPlaying = State == MatchState.Playing;
-			bool isWinningScore = GetTeamScore(team) >= Settings.scoreTarget;
+			TeamScored(team, points);
 
-			if (isPlaying && canWinByScore && isWinningScore)
+			if (IsOwner && State == MatchState.Playing)
 			{
-				winByScoreCompletion.SetResult(true);
+				var canWinByScore = Settings.CheckWinByScore();
+				var isWinningScore = GetTeamScore(team) >= Settings.scoreTarget;
+
+				if (canWinByScore && isWinningScore) EndMatchRpc();
 			}
 		}
 
 		[Rpc(SendTo.Everyone)]
-		public void ResetScoresRpc()
+		public void StartMatchRpc()
 		{
-			PlayerAvatar.Local.ResetScoreRpc();
-			
-			if (IsOwner)
-			{
-				for (byte i = 0; i < teamScoresSync.Length; i++)
-				{
-					teamScoresSync[i].Value = 0;
-				}
-			}
+			ResetScoresLocally();
+			TimeMatchEnds = Time.time + Settings.timerSeconds;
+
+			_ = SetStateLocally(MatchState.Playing);
 		}
 
-		public byte CalculateWinningTeam()
-		{
-			byte winningTeam = 0;
-			int highScore = 0;
-			for (byte i = 0; i < teamScoresSync.Length; i++)
-			{
-				int score = GetTeamScore(i);
-				if (score > highScore)
-				{
-					highScore = score;
-					winningTeam = i;
-				}
-			}
-			return winningTeam;
-		}
-
-		public float GetTimeLeft() => Mathf.Max(TimeMatchEnds - Time.time, 0);
-
-		[Rpc(SendTo.Owner)]
+		[Rpc(SendTo.Everyone)]
 		public void EndMatchRpc()
 		{
-			cancelTokenSrc?.Cancel();
+			MatchFinished.Invoke();
+
+			_ = SetStateLocally(MatchState.NotPlaying);
 		}
 
-		[Rpc(SendTo.Everyone)]
-		public void MatchFinishedRpc()
+		private void ResetScoresLocally()
 		{
-			MatchFinished.Invoke();
+			if (NetworkManager.IsConnectedClient)
+				PlayerAvatar.Local?.ResetScoreRpc();
+
+			for (byte i = 0; i < Teams.NumTeams; i++)
+			{
+				_teamScores[i] = 0;
+				TeamScored.Invoke(i, 0);
+			}
+		}
+
+		private void UpdateTimerText(float seconds)
+		{
+			var rounded = Mathf.RoundToInt(seconds);
+			var span = TimeSpan.FromSeconds(rounded);
+			TimerTextChanged.Invoke(span.ToString(@"m\:ss"));
+		}
+
+		public float GetTimeLeft()
+		{
+			float timeLeft;
+
+			switch (State)
+			{
+				case MatchState.NotPlaying:
+					timeLeft = 0;
+					break;
+				case MatchState.Playing:
+					timeLeft = timeLeft = Mathf.Max(0, TimeMatchEnds - Time.time);
+					break;
+				default:
+					timeLeft = Settings.timerSeconds;
+					break;
+			}
+
+			return timeLeft;
 		}
 	}
 }

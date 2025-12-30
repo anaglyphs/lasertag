@@ -1,3 +1,4 @@
+using Anaglyph.XRTemplate.SharedSpaces;
 using UnityEngine;
 using VariableObjects;
 
@@ -17,15 +18,17 @@ namespace Anaglyph.Lasertag
 			aprilTagColocation.AddChangeListenerAndCheck(b =>
 			{
 				if (b)
-					ColocationManager.Instance.HostColocationMethod = ColocationManager.Method.AprilTag;
+					ColocationManager.Instance.methodHostSetting =
+						ColocationManager.ColocationMethod.AprilTag;
 				else
-					ColocationManager.Instance.HostColocationMethod = ColocationManager.Method.MetaSharedAnchor;
+					ColocationManager.Instance.methodHostSetting =
+						ColocationManager.ColocationMethod.MetaSharedAnchor;
 			});
 
 			aprilTagSize.AddChangeListenerAndCheck(s =>
 			{
 				if (aprilTagColocation.Value)
-					ColocationManager.Instance.HostAprilTagSize = s;
+					TagColocator.Instance.tagSizeCmHostSetting = s;
 			});
 
 			// boundary.AddChangeListenerAndCheck(b =>
@@ -34,14 +37,11 @@ namespace Anaglyph.Lasertag
 
 			damagedRedVision.AddChangeListenerAndCheck(b =>
 			{
-				if(Player.Instance != null)
-					Player.Instance.redDamagedVision = b;
+				if (MainPlayer.Instance != null)
+					MainPlayer.Instance.redDamagedVision = b;
 			});
 
-			lightEffects.AddChangeListenerAndCheck(b =>
-			{
-				DepthLight.SetGloballyEnabled(b);
-			});
+			lightEffects.AddChangeListenerAndCheck(b => { DepthLight.SetGloballyEnabled(b); });
 
 			// relay.AddChangeListenerAndCheck(b =>
 			// {

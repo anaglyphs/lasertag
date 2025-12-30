@@ -1,3 +1,4 @@
+using System;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.VFX;
@@ -59,8 +60,16 @@ namespace Anaglyph.Lasertag
 		{
 			impactEffect.Play();
 
-			await Awaitable.NextFrameAsync();
-			depthLight.enabled = false;
+			try
+			{
+				await Awaitable.NextFrameAsync(destroyCancellationToken);
+				destroyCancellationToken.ThrowIfCancellationRequested();
+				depthLight.enabled = false;
+			}
+			catch (OperationCanceledException)
+			{
+				
+			}
 		}
 
 		private void LateUpdate()

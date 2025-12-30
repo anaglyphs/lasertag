@@ -12,17 +12,29 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	public class MetaSessionDiscovery : MonoBehaviour
 	{
 		public static MetaSessionDiscovery Instance { get; private set; }
+		private NetworkManager NetMan => NetworkManager.Singleton;
 
 		private const string LogHeader = "[SessionDiscovery] ";
-		private static void Log(string str) => Debug.Log(LogHeader + str);
-		private static void LogWarning(string str) => Debug.LogWarning(LogHeader + str);
+
+		private bool isListening;
+		private bool isAdvertising;
+
+		private static void Log(string str)
+		{
+			Debug.Log(LogHeader + str);
+		}
+
+		private static void LogWarning(string str)
+		{
+			Debug.LogWarning(LogHeader + str);
+		}
 
 		private const string LanPrefix = "IP:";
 		private const string RelayPrefix = "Relay:";
 
 		private void Awake()
 		{
-			if(Instance == null)
+			if (Instance == null)
 				Instance = this;
 			else
 				throw new Exception($"More than one instance of {typeof(MetaSessionDiscovery)}!");
@@ -50,6 +62,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		}
 
 		private bool isSubscribed = false;
+
 		private void SubscribeToEvents(bool shouldSubscribe)
 		{
 			if (shouldSubscribe == isSubscribed)
@@ -57,15 +70,23 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			if (shouldSubscribe)
 			{
+				NetMan.OnSessionOwnerPromoted += OnSessionOwnerPromoted;
 				NetcodeManagement.StateChanged += OnNetworkStateChange;
 				OVRColocationSession.ColocationSessionDiscovered += HandleColocationSessionDiscovered;
-			} else
+			}
+			else
 			{
+				NetMan.OnSessionOwnerPromoted -= OnSessionOwnerPromoted;
 				NetcodeManagement.StateChanged -= OnNetworkStateChange;
 				OVRColocationSession.ColocationSessionDiscovered -= HandleColocationSessionDiscovered;
 			}
 
 			isSubscribed = shouldSubscribe;
+		}
+
+		private void OnSessionOwnerPromoted(ulong clientId)
+		{
+			UpdateState();
 		}
 
 		private void OnNetworkStateChange(NetcodeState state)
@@ -74,10 +95,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		}
 
 		private bool isPaused = false;
-		private async void OnApplicationPause(bool isPaused) {
-			
+
+		private void OnApplicationPause(bool isPaused)
+		{
 			this.isPaused = isPaused;
-			
+
 			if (didStart)
 			{
 				SubscribeToEvents(!this.isPaused);
@@ -86,6 +108,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		}
 
 		private CancellationTokenSource taskCanceller = new();
+
 		private CancellationToken PrepareNextTask()
 		{
 			taskCanceller.Cancel();
@@ -93,39 +116,38 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			return taskCanceller.Token;
 		}
 
-		public enum State
+		private enum State
 		{
-			Disabled,
-			NetcodeDisconnected,
-			NetcodeConnecting,
-			NetcodeConnected,
+			Disable,
+			Listen,
+			Advertise
 		}
 
-		private State state = State.Disabled;
+		private State state = State.Disable;
+
 		private async void UpdateState()
 		{
-			State newState = State.Disabled;
+			State newState = default;
 
 			if (enabled && !isPaused)
-			{
 				switch (NetcodeManagement.State)
 				{
 					case NetcodeState.Disconnected:
-						newState = State.NetcodeDisconnected;
+						newState = State.Listen;
 						break;
 					case NetcodeState.Connecting:
-						newState = State.NetcodeConnecting;
+						newState = State.Disable;
 						break;
 					case NetcodeState.Connected:
-						newState = State.NetcodeConnected;
+						var isHost = NetMan.CurrentSessionOwner == NetMan.LocalClientId;
+						newState = isHost ? State.Advertise : State.Disable;
 						break;
 				}
-			}
+			else
+				newState = State.Disable;
 
 			// only update if state has changed
-			if (newState == state)
-				return;
-
+			if (newState == state) return;
 			state = newState;
 
 			try
@@ -134,67 +156,78 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 				switch (state)
 				{
-					case State.Disabled:
-						_ = HaltDiscovery(ctkn);
-						_ = HaltAdvertisement(ctkn);
-						break;
-
-					case State.NetcodeDisconnected:
+					case State.Listen:
 						await HaltAdvertisement(ctkn);
-						await Task.Delay(1000, ctkn);
-						await StartDiscovery(ctkn);
+						await Task.Delay(3000, ctkn);
+						await StartListening(ctkn);
 						break;
 
-					case State.NetcodeConnecting:
-						await HaltDiscovery(ctkn);
+					case State.Disable:
+						await HaltAdvertisement(ctkn);
+						await HaltListening(ctkn);
 						break;
 
-					case State.NetcodeConnected:
-						await HaltDiscovery(ctkn);
+					case State.Advertise:
+						await HaltListening(ctkn);
 						await StartAdvertisement(ctkn);
 						break;
 				}
-
 			}
-			catch (OperationCanceledException) { }
+			catch (OperationCanceledException)
+			{
+			}
 		}
 
-		private async Task StartDiscovery(CancellationToken cancelToken)
+		private async Task StartListening(CancellationToken cancelToken)
 		{
+			if (isListening) return;
+
 			cancelToken.ThrowIfCancellationRequested();
 
 			var result = await OVRColocationSession.StartDiscoveryAsync();
 
 			if (result.Success)
-				Log("Discovery started");
+			{
+				isListening = true;
+				Log("Listening started");
+			}
 			else
-				LogWarning("Couldn't start discovery");
+			{
+				LogWarning($"Couldn't start listening: {result.Status}");
+			}
 		}
 
-		private async Task HaltDiscovery(CancellationToken cancelToken)
+		private async Task HaltListening(CancellationToken cancelToken)
 		{
+			if (!isListening) return;
+
 			cancelToken.ThrowIfCancellationRequested();
 
 			var result = await OVRColocationSession.StopDiscoveryAsync();
 
 			if (result.Success)
-				Log("Discovery halted");
+			{
+				isListening = false;
+				Log("Listening halted");
+			}
 			else
-				LogWarning("Couldn't halt discovery");
+			{
+				LogWarning($"Couldn't halt listening: {result.Status}");
+			}
 		}
 
 		private async Task StartAdvertisement(CancellationToken cancelToken)
 		{
 			cancelToken.ThrowIfCancellationRequested();
 
-			string message = "";
+			var message = "";
 
-			UnityTransport transport = (UnityTransport)NetworkManager.Singleton.NetworkConfig.NetworkTransport;
+			var transport = (UnityTransport)NetworkManager.Singleton.NetworkConfig.NetworkTransport;
 
 			switch (transport.Protocol)
 			{
 				case UnityTransport.ProtocolType.UnityTransport:
-					string address = transport.ConnectionData.Address;
+					var address = transport.ConnectionData.Address;
 					message = LanPrefix + address;
 					break;
 
@@ -205,38 +238,49 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			var result = await OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(message));
 			if (result.Success)
+			{
+				isAdvertising = true;
 				Log($"Advertisement started '{message}'");
+			}
 			else
-				LogWarning($"Couldn't start advertisement '{message}'");
+			{
+				LogWarning($"Couldn't start advertisement '{message}', {result.Status}");
+			}
 		}
 
 		private async Task HaltAdvertisement(CancellationToken cancelToken)
 		{
+			if (!isAdvertising) return;
+
 			cancelToken.ThrowIfCancellationRequested();
 
 			var result = await OVRColocationSession.StopAdvertisementAsync();
 
 			if (result.Success)
+			{
+				isAdvertising = false;
 				Log("Advertisement halted");
+			}
 			else
-				LogWarning("Couldn't halt advertisement");
+			{
+				LogWarning($"Couldn't halt advertisement: {result.Status}");
+			}
 		}
 
 		private void HandleColocationSessionDiscovered(OVRColocationSession.Data data)
 		{
-			string message = Encoding.ASCII.GetString(data.Metadata);
+			if (state != State.Listen) LogWarning("State isn't listening. This shouldn't run!");
+
+			var message = Encoding.ASCII.GetString(data.Metadata);
 			Log($"Discovered {message}");
 
 			if (NetworkManager.Singleton.IsListening)
 				return;
 
-			if(message.StartsWith(LanPrefix))
-			{
+			if (message.StartsWith(LanPrefix))
 				NetcodeManagement.ConnectLAN(message.Remove(0, LanPrefix.Length));
-			} else if(message.StartsWith(RelayPrefix))
-			{
+			else if (message.StartsWith(RelayPrefix))
 				NetcodeManagement.ConnectUnityServices(message.Remove(0, RelayPrefix.Length));
-			}
 		}
 	}
 }

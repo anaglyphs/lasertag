@@ -11,13 +11,7 @@ GameObject:
   - component: {fileID: 8602809240530545973}
   - component: {fileID: 5291754562700660134}
   - component: {fileID: 672875215782764715}
-  - component: {fileID: 6911126833990273307}
-  - component: {fileID: 3770516394125647478}
-  - component: {fileID: 2017920904899384140}
-  - component: {fileID: 3794738929113082028}
   - component: {fileID: 5293559935730707558}
-  - component: {fileID: 2551285239359811888}
-  - component: {fileID: 8030733127724905774}
   - component: {fileID: 8525794981269805043}
   m_Layer: 0
   m_Name: GameManager
@@ -53,10 +47,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 959866492
+  GlobalObjectIdHash: 3184280641
   InScenePlacedSourceGlobalObjectIdHash: 3184280641
   DeferredDespawnTick: 0
-  Ownership: 3
+  Ownership: 8
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 0
   ActiveSceneSynchronization: 0
@@ -64,7 +58,7 @@ MonoBehaviour:
   SpawnWithObservers: 1
   DontDestroyWithOwner: 1
   AutoObjectParentSync: 1
-  SyncOwnerTransformWhenParented: 0
+  SyncOwnerTransformWhenParented: 1
   AllowOwnerToParent: 0
 --- !u!114 &672875215782764715
 MonoBehaviour:
@@ -79,73 +73,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
---- !u!114 &6911126833990273307
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5901269829941828840}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: defe13ac306e3604fb0c22897ab0891a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  ShowTopMostFoldoutHeaderGroup: 0
-  useAprilTagColocation: {fileID: 11400000, guid: 47b47a4c1dcf98e4a9c4022fa9722c2b, type: 2}
-  aprilTagSizeOption: {fileID: 11400000, guid: 82699730f4d9ee247857edb33a942db4, type: 2}
-  metaAnchorColocator: {fileID: 3770516394125647478}
-  aprilTagColocator: {fileID: 2017920904899384140}
---- !u!114 &3770516394125647478
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5901269829941828840}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 304bb6caa6bf4544f937804a6279a0b3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  anchorPrefab: {fileID: 5939109747704877450, guid: 1bafc8ec0e82426478635d59f4197f98, type: 3}
---- !u!114 &2017920904899384140
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5901269829941828840}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 57b4e9b1012013c4cabd8ad8b87de3f9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  ShowTopMostFoldoutHeaderGroup: 1
-  tagLerp: 0.1
-  lockDistanceScale: 15
-  maxHeadSpeed: 0.2
-  maxHeadAngSpeed: 0.2
-  cameraReader: {fileID: 2551285239359811888}
-  tagTracker: {fileID: 8030733127724905774}
-  tagSize: 0.1
---- !u!114 &3794738929113082028
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5901269829941828840}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a7d730b41df61f94c9d86576e9c5f2f9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  colocator: {fileID: 2017920904899384140}
-  indicatorMesh: {fileID: -5322466972774305626, guid: 3a88f3fb66ef78745a11363b74fe2cd4, type: 3}
-  indicatorMaterial: {fileID: 2100000, guid: 27f6747ba6952684fbfb2d2135976c96, type: 2}
-  debugPointMesh: {fileID: 289301614986012343, guid: fd00829a26dc9fc4280b779bc4e1a4b7, type: 3}
-  debugMaterial: {fileID: 2100000, guid: 0d26ad5852d65e9449287a73ea132e72, type: 2}
 --- !u!114 &5293559935730707558
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -158,39 +85,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1a196a31819ae204dae41eed03520a81, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  matchManager: {fileID: 672875215782764715}
   queue: {fileID: 8300000, guid: ff414655314b36348936d9fb2a7d4857, type: 3}
   countdown: {fileID: 8300000, guid: e7fa67c7cbc39524ba844f12a3521b63, type: 3}
   siren: {fileID: 8300000, guid: 82d954251f3bfd940ad606bd11c8a19a, type: 3}
   finish: {fileID: 8300000, guid: 3ee8e7dd95dc0284e9098437c664b92a, type: 3}
---- !u!114 &2551285239359811888
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5901269829941828840}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d78354083d4b19b479517e268a4fd2dc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  defaultTextureSize: {x: 1280, y: 960}
-  defaultCameraIndex: 1
---- !u!114 &8030733127724905774
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5901269829941828840}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3974b9aa56bda954c903adb0b1b1a236, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  cameraReader: {fileID: 2551285239359811888}
-  tagSizeMeters: 0.12
 --- !u!82 &8525794981269805043
 AudioSource:
   m_ObjectHideFlags: 0

@@ -205,6 +205,11 @@ namespace Anaglyph.Netcode
 
 			CurrentSessionName = id;
 			CurrentSession = await MultiplayerService.Instance.CreateOrJoinSessionAsync(id, options);
+			CurrentSession.RemovedFromSession += delegate
+			{
+				manager.Shutdown();
+				CurrentSession = null;
+			};
 		}
 
 		public static async void Disconnect()
@@ -217,14 +222,12 @@ namespace Anaglyph.Netcode
 			{
 				if (CurrentSession != null)
 					await CurrentSession.LeaveAsync();
-
-				CurrentSession = null;
 			}
 			catch (SessionException)
 			{
 
 			}
-
+			
 			manager.Shutdown();
 		}
 
@@ -253,5 +256,8 @@ namespace Anaglyph.Netcode
 
 			return null;
 		}
+
+		public static bool GetNetObjById(ulong id, out NetworkObject netObj) =>
+			NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(id, out netObj);
 	}
 }

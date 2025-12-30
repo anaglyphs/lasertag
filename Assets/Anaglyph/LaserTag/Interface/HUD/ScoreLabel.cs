@@ -15,17 +15,15 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			var matchRef = MatchReferee.Instance;
-			if (matchRef) UpdateScore(matchRef.GetTeamScore(team));
+			UpdateScore(MatchReferee.GetTeamScore(team));
 		}
 
 		private void OnEnable()
 		{
 			label.text = "0";
 			MatchReferee.TeamScored += OnTeamScored;
-
-			var matchRef = MatchReferee.Instance;
-			if (didStart && matchRef) UpdateScore(matchRef.GetTeamScore(team));  
+			
+			if (didStart) UpdateScore(MatchReferee.GetTeamScore(team));  
 		}
 
 		private void OnDisable()
@@ -33,10 +31,10 @@ namespace Anaglyph.Lasertag
 			MatchReferee.TeamScored -= OnTeamScored;
 		}
 
-		private void OnTeamScored(byte scoredTeam, int score)
+		private void OnTeamScored(byte scoredTeam, int points)
 		{
 			if (team == scoredTeam) 
-				UpdateScore(score);
+				UpdateScore(MatchReferee.GetTeamScore(scoredTeam));
 		}
 
 		private void UpdateScore(int score) => label.text = score.ToString();

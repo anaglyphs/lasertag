@@ -8,21 +8,23 @@ namespace Anaglyph.Lasertag
 	{
 		[SerializeField] private NavPagesParent navView;
 
-		[Header(nameof(startPage))]
-		[SerializeField] private NavPage startPage = null;
+		[Header(nameof(startPage))] [SerializeField]
+		private NavPage startPage = null;
+
 		[SerializeField] private Button startButton = null;
 
-		[Header(nameof(playingPage))]
-		[SerializeField] private NavPage playingPage = null;
+		[Header(nameof(playingPage))] [SerializeField]
+		private NavPage playingPage = null;
+
 		[SerializeField] private Button cancelButton = null;
 
 		private MatchReferee referee => MatchReferee.Instance;
 
 		private void Start()
 		{
-			MatchReferee.StateChanged += HandleStateChange;
-			HandleStateChange(MatchReferee.State);
-			
+			MatchReferee.StateChanged += OnMatchStateChanged;
+			OnMatchStateChanged(MatchReferee.State);
+
 			startPage.showBackButton = false;
 			startButton.onClick.AddListener(StartGame);
 
@@ -32,12 +34,12 @@ namespace Anaglyph.Lasertag
 
 		private void OnDestroy()
 		{
-			MatchReferee.StateChanged -= HandleStateChange;
+			MatchReferee.StateChanged -= OnMatchStateChanged;
 		}
 
 		private void StartGame()
 		{
-			referee?.StartMatchRpc(MatchSettings.DemoGame());
+			referee?.QueueMatchRpc(MatchSettings.DemoGame());
 		}
 
 		private void EndGame()
@@ -45,7 +47,7 @@ namespace Anaglyph.Lasertag
 			referee?.EndMatchRpc();
 		}
 
-		private void HandleStateChange(MatchState state)
+		private void OnMatchStateChanged(MatchState state)
 		{
 			if (state == MatchState.NotPlaying)
 				startPage.NavigateHere();

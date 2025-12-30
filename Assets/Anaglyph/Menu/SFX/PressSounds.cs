@@ -11,13 +11,13 @@ namespace Anaglyph.Menu
 		public void OnPointerDown(PointerEventData eventData)
 		{
 			if(press != null)
-				AudioSource.PlayClipAtPoint(press, transform.position);
+				AudioPool.Play(press, transform.position);
 		}
 
 		public void OnPointerClick(PointerEventData eventData)
 		{
 			if (click != null)
-				AudioSource.PlayClipAtPoint(click, transform.position);
+				AudioPool.Play(click, transform.position);
 		}
 	}
 }

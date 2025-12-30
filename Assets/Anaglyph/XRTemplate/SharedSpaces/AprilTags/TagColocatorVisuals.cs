@@ -5,9 +5,9 @@ using UnityEngine.Rendering;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
-	public class AprilTagColocationGraphics : MonoBehaviour
+	public class TagColocatorVisuals : MonoBehaviour
 	{
-		[SerializeField] private AprilTagColocator colocator;
+		[SerializeField] private TagColocator colocator;
 
 		[SerializeField] private Mesh indicatorMesh;
 		[SerializeField] private Material indicatorMaterial;
@@ -30,16 +30,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			colocator.TagTracker.OnDetectTags += OnTagsDetected;
 		}
 
-		//private void OnEnable()
-		//{
-		//	ProceduralDrawFeature.Draw += RenderFoundTags;
-		//}
-
-		//private void OnDisable()
-		//{
-		//	ProceduralDrawFeature.Draw -= RenderFoundTags;
-		//}
-
 		private void OnTagsDetected(IReadOnlyList<TagPose> tagPoses)
 		{
 			latestTagPoses = tagPoses;
@@ -47,23 +37,20 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private void LateUpdate()
 		{
-			if (!colocator.ColocationActive)
+			if (!colocator.IsActive)
 				return;
 
 			Vector3 scale;
 
 			if (latestTagPoses != null)
 			{
-				scale = Vector3.one * colocator.tagSize * 3;
-				Color color = Color.white;
+				scale = Vector3.one * (colocator.TagSizeCm * 0.03f);
+				var color = Color.white;
 
-				foreach (TagPose tagPose in latestTagPoses)
+				foreach (var tagPose in latestTagPoses)
 				{
-					if (colocator.IsOwner)
-					{
-						bool tagRegistered = colocator.CanonTags.ContainsKey(tagPose.ID);
-						color = tagRegistered ? Color.green : Color.yellow;
-					}
+					if (!colocator.CanonTags.ContainsKey(tagPose.ID))
+						color = Color.yellow;
 
 					mpb.SetColor(BaseColorID, color);
 
@@ -74,28 +61,22 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			if (Anaglyph.DebugMode)
 			{
-				scale = Vector3.one * 0.03f;
+				scale = Vector3.one * 0.02f;
 				mpb.SetColor(BaseColorID, Color.green);
-				foreach (Vector3 canonTagPos in colocator.CanonTags.Values)
+				foreach (var canonTag in colocator.CanonTags.Values)
 				{
-					var model = Matrix4x4.TRS(canonTagPos, Quaternion.identity, scale);
+					var model = Matrix4x4.TRS(canonTag.position, Quaternion.identity, scale);
 					Graphics.DrawMesh(debugPointMesh, model, debugMaterial, 0, MainXRRig.Camera, 0, mpb);
 				}
 
-				scale = Vector3.one * 0.02f;
-				mpb.SetColor(BaseColorID, Color.yellow);
-				foreach (Vector3 localTagPos in colocator.LocalTags.Values)
+				mpb.SetColor(BaseColorID, Color.white);
+				foreach (var localTagPos in colocator.LocalTags.Values)
 				{
 					var model = MainXRRig.TrackingSpace.localToWorldMatrix *
-						Matrix4x4.TRS(localTagPos, Quaternion.identity, scale);
+					            Matrix4x4.TRS(localTagPos, Quaternion.identity, scale);
 					Graphics.DrawMesh(debugPointMesh, model, debugMaterial, 0, MainXRRig.Camera, 0, mpb);
 				}
 			}
-		}
-
-		private void RenderFoundTags(RasterCommandBuffer cmd)
-		{
-
 		}
 	}
 }
