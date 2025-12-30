@@ -16,7 +16,7 @@ MonoBehaviour:
   m_StereoRenderingModeAndroid: 2
   SharedDepthBuffer: 0
   DepthSubmission: 0
-  DashSupport: 1
+  DashSupport: 0
   LowOverheadMode: 1
   OptimizeBufferDiscards: 1
   PhaseSync: 1
@@ -33,3 +33,4 @@ MonoBehaviour:
   TargetQuest3S: 1
   SystemSplashScreen: {fileID: 0}
   UseStickControlThumbsticks: 0
+  OptimizeMultiviewRenderRegions: 0
