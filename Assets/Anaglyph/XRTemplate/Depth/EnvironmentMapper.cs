@@ -103,9 +103,12 @@ namespace Anaglyph.XRTemplate
 				if (depthTex == null) continue;
 
 				var normTex = Shader.GetGlobalTexture(normTexID);
-				
+
 				if (frustumVolume == null)
+				{
 					Setup();
+					continue;
+				}
 
 				Matrix4x4 view = Shader.GetGlobalMatrixArray(viewID)[0];
 				Matrix4x4 proj = Shader.GetGlobalMatrixArray(projID)[0];
@@ -175,6 +178,9 @@ namespace Anaglyph.XRTemplate
 					}
 				}
 			}
+
+			if (positions.Count == 0)
+				return;
 
 			frustumVolume = new ComputeBuffer(positions.Count, sizeof(float) * 3);
 			// lastIntegration = new ComputeBuffer(positions.Count, sizeof())

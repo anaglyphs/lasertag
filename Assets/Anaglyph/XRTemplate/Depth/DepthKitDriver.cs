@@ -1,4 +1,5 @@
 using System;
+using Meta.XR.EnvironmentDepth;
 using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
@@ -14,7 +15,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 	{
 		public static DepthKitDriver Instance { get; private set; }
 		
-		private MetaOpenXROcclusionSubsystem depthSubsystem;
+		// private MetaOpenXROcclusionSubsystem depthSubsystem;
 		private XRFov[]         depthFrameFOVs   = new XRFov[2];
 		private Pose[]          depthFramePoses  = new Pose[2];
 		private XRNearFarPlanes depthPlanes;
@@ -50,46 +51,54 @@ namespace Anaglyph.XRTemplate.DepthKit
 		
 		private ComputeKernel normKernel;
 		private RenderTexture normTex = null;
+		private EnvironmentDepthManager depthManager;
 
 		private void Awake()
 		{
 			Instance = this;
 		}
 
-		private async void OnEnable()
-		{
-			// await Awaitable.EndOfFrameAsync();
-			Application.onBeforeRender += UpdateCurrentRenderingState;
-		}
-
-		private void OnDisable()
-		{
-			Application.onBeforeRender -= UpdateCurrentRenderingState;
-		}
+		// private async void OnEnable()
+		// {
+		// 	// await Awaitable.EndOfFrameAsync();
+		// 	Application.onBeforeRender += UpdateCurrentRenderingState;
+		// }
+		//
+		// private void OnDisable()
+		// {
+		// 	Application.onBeforeRender -= UpdateCurrentRenderingState;
+		// }
 
 		private void Start()
 		{
+			depthManager = FindFirstObjectByType<EnvironmentDepthManager>();
+			
 			normKernel = new ComputeKernel(depthNormalCompute, "DepthNorm");
 		}
 		
-		private static bool GetDepthSubsystem(out MetaOpenXROcclusionSubsystem depthSubsystem)
+		// private static bool GetDepthSubsystem(out MetaOpenXROcclusionSubsystem depthSubsystem)
+		// {
+		// 	depthSubsystem = null;
+		// 	
+		// 	XRLoader xrLoader = XRGeneralSettings.Instance.Manager.activeLoader;
+		// 	if (!xrLoader) return false;
+		// 	
+		// 	depthSubsystem = xrLoader.GetLoadedSubsystem<XROcclusionSubsystem>() as MetaOpenXROcclusionSubsystem;
+		// 	return depthSubsystem != null;
+		// }
+
+		private void Update()
 		{
-			depthSubsystem = null;
-			
-			XRLoader xrLoader = XRGeneralSettings.Instance.Manager.activeLoader;
-			if (!xrLoader) return false;
-			
-			depthSubsystem = xrLoader.GetLoadedSubsystem<XROcclusionSubsystem>() as MetaOpenXROcclusionSubsystem;
-			return depthSubsystem != null;
+			UpdateCurrentRenderingState();
 		}
 
 		private void UpdateCurrentRenderingState()
 		{
-			if (depthSubsystem == null && !GetDepthSubsystem(out depthSubsystem))
-				return;
-			
-			if (!depthSubsystem.TryGetFrame(Allocator.Temp, out XROcclusionFrame frame))
-				return;
+			// if (depthSubsystem == null && !GetDepthSubsystem(out depthSubsystem))
+			// 	return;
+			//
+			// if (!depthSubsystem.TryGetFrame(Allocator.Temp, out XROcclusionFrame frame))
+			// 	return;
 
 			Texture depthTex = Shader.GetGlobalTexture(Meta_EnvironmentDepthTexture_ID);
 			DepthAvailable = depthTex != null;
@@ -128,10 +137,30 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 			Shader.SetGlobalTexture(agDepthNormTex_ID, normTex);
 
-			frame.TryGetFovs(out NativeArray<XRFov> nativeFOVs);
-			nativeFOVs.CopyTo(depthFrameFOVs);
-			frame.TryGetPoses(out NativeArray<Pose> nativePoses);
-			nativePoses.CopyTo(depthFramePoses);
+
+			for (int i = 0; i < depthManager.frameDescriptors.Length; i++)
+			{
+				DepthFrameDesc d = depthManager.frameDescriptors[i];
+				
+				XRFov fov = new(
+					-Mathf.Atan(d.fovLeftAngleTangent),
+					 Mathf.Atan(d.fovRightAngleTangent),
+					 Mathf.Atan(d.fovTopAngleTangent),
+					-Mathf.Atan(d.fovDownAngleTangent));
+
+				depthFrameFOVs[i] = fov;
+
+				Pose pose = new(d.createPoseLocation, d.createPoseRotation);
+
+				depthFramePoses[i] = pose;
+				
+				depthPlanes = new XRNearFarPlanes(d.nearZ, d.farZ);
+			}
+
+			// frame.TryGetFovs(out NativeArray<XRFov> nativeFOVs);
+			// nativeFOVs.CopyTo(depthFrameFOVs);
+			// frame.TryGetPoses(out NativeArray<Pose> nativePoses);
+			// nativePoses.CopyTo(depthFramePoses);
 			// frame.TryGetNearFarPlanes(out var nearFarPlanes);
 
 			for (int i = 0; i < agDepthProj.Length; i++)

@@ -1,0 +1,37 @@
+{
+    "name": "Meta.XR.Editor.BuildingBlocks.AIBlocks",
+    "rootNamespace": "",
+    "references": [
+        "Meta.XR.BuildingBlocks.Editor",
+        "Unity.InferenceEngine",
+        "Oculus.VR.Editor",
+        "Meta.XR.BuildingBlocks",
+        "Meta.XR.Editor.RemoteContent",
+        "Meta.XR.Editor.UserInterface",
+        "Meta.XR.EnvironmentDepth",
+        "Meta.XR.ImmersiveDebugger",
+        "Meta.XR.BuildingBlocks.AIBlocks"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.ai.inference",
+            "expression": "2.2.1",
+            "define": "UNITY_INFERENCE_INSTALLED"
+        },
+        {
+            "define": "OVR_UNITY_PACKAGE_MANAGER",
+            "name": "com.meta.xr.sdk.core",
+            "expression": ""
+        }
+    ],
+    "noEngineReferences": false
+}

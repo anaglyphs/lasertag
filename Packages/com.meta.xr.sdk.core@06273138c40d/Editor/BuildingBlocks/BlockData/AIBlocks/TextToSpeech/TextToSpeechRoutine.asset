@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0e3709c4d49f59a4c9c2ccb79bc06f0a, type: 3}
+  m_Name: TextToSpeechRoutine
+  m_EditorClassIdentifier: Meta.XR.Editor.BuildingBlocks.AIBlocks::Meta.XR.BuildingBlocks.Editor.TextToSpeechInstallationRoutine
+  id: 0844a8bd-2bf8-4cfb-8d71-911f1f917314
+  targetBlockDataId: 89916747-a8be-4d3e-8563-65b00c7d2ffa
+  displayName: Text to Speech
+  description: 
+  prefab: {fileID: 5985253675965267123, guid: b0f33ef91ad99904687d8c1eb90a153e, type: 3}
+  packageDependencies: []
+  selectedGuidedSetupIndex: 0
+  guidedSetupName: 
+  inferenceType: 1
+  modelProvider: ElevenLabs - eleven_flash_v2_5

@@ -2787,10 +2787,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: XR Rig
       objectReference: {fileID: 0}
-    - target: {fileID: 7302683130375540734, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
-      propertyPath: m_Enabled
-      value: 1
-      objectReference: {fileID: 0}
     m_RemovedComponents:
     - {fileID: 0}
     - {fileID: 8522017887515668746, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
@@ -2823,10 +2819,10 @@ PrefabInstance:
       addedObject: {fileID: 2980743140624702808}
     - targetCorrespondingSourceObject: {fileID: 7254734392762225021, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 176498960288544577}
+      addedObject: {fileID: 7681910871548539734}
     - targetCorrespondingSourceObject: {fileID: 7254734392762225021, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 7681910871548539734}
+      addedObject: {fileID: 176498960288544577}
     - targetCorrespondingSourceObject: {fileID: 7254734392762225021, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 8642319686183551579}
@@ -2871,6 +2867,19 @@ MonoBehaviour:
   rightHandTransform: {fileID: 1734415797190317840}
   skeleton: {fileID: 8266524932598350829}
   redDamagedVision: 1
+--- !u!114 &7681910871548539734
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5922542169172391784}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4da2cc6f08414be49a8dd29eafdfeaa2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  depthNormalCompute: {fileID: 7200000, guid: 094ecfc2d2e1d984c9955562fea46b9d, type: 3}
 --- !u!114 &176498960288544577
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2890,19 +2899,6 @@ MonoBehaviour:
   maxEyeDist: 7
   minEyeDist: 1
   PlayerHeads: []
---- !u!114 &7681910871548539734
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5922542169172391784}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4da2cc6f08414be49a8dd29eafdfeaa2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  depthNormalCompute: {fileID: 7200000, guid: 094ecfc2d2e1d984c9955562fea46b9d, type: 3}
 --- !u!114 &8642319686183551579
 MonoBehaviour:
   m_ObjectHideFlags: 0

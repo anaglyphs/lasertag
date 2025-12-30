@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 48b269983467d7f4fab3a725d22bd882, type: 3}
+  m_Name: ObjectDetectionInstallationRoutine
+  m_EditorClassIdentifier: 
+  id: 7123b6da-f85f-47f4-be89-4f000efc24e8
+  targetBlockDataId: 6fe30b32-9c96-40d7-bf3b-17df4f960bf4
+  displayName: Object Detection
+  description: 
+  prefab: {fileID: 490905663961890433, guid: dbbfb66c80f0f3846a0be259389b2c78, type: 3}
+  packageDependencies:
+  - com.unity.ai.inference@>=2.2.1
+  selectedGuidedSetupIndex: 0
+  guidedSetupName: 
+  inferenceType: 1
+  modelProvider: Replicate
