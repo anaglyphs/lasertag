@@ -19,17 +19,17 @@ namespace Anaglyph.Lasertag
 		private GameObject scoreGoalHUD;
 
 		[SerializeField] private Text scoreTargetLabel;
-		[SerializeField] private Line scoreLine1;
-		[SerializeField] private Line scoreLine2;
+		[SerializeField] private LineGraphic scoreLine1;
+		[SerializeField] private LineGraphic scoreLine2;
 		private ScoreLine[] scoreLines;
 
 		private struct ScoreLine
 		{
-			public Line line;
+			public LineGraphic line;
 			public Vector2 start;
 			public Vector2 end;
 
-			public ScoreLine(Line line)
+			public ScoreLine(LineGraphic line)
 			{
 				this.line = line;
 				start = line.points[^2];
@@ -38,13 +38,13 @@ namespace Anaglyph.Lasertag
 
 			public void Update(int score)
 			{
-				var target = MatchReferee.Settings.scoreTarget;
-				var progress = 0f;
+				short target = MatchReferee.Settings.scoreTarget;
+				float progress = 0f;
 				if (target > 0)
 					progress = score / (float)target;
-				var v = Vector2.Lerp(start, end, progress);
+				Vector2 v = Vector2.Lerp(start, end, progress);
 				line.points[^1] = v;
-				line.PositionVertices();
+				line.SetVerticesDirty();
 			}
 		}
 
@@ -70,7 +70,7 @@ namespace Anaglyph.Lasertag
 
 		private void Update()
 		{
-			var playing = MatchReferee.State == MatchState.Playing;
+			bool playing = MatchReferee.State == MatchState.Playing;
 
 			if (!playing) return;
 
@@ -87,13 +87,13 @@ namespace Anaglyph.Lasertag
 
 		private void OnMatchStateChange(MatchState state)
 		{
-			var show = state != MatchState.NotPlaying;
+			bool show = state != MatchState.NotPlaying;
 
 			gameObject.SetActive(show);
 
 			if (show)
 			{
-				var settings = MatchReferee.Settings;
+				MatchSettings settings = MatchReferee.Settings;
 
 				timerHUD.SetActive(settings.winCondition == WinCondition.Timer);
 				scoreGoalHUD.SetActive(settings.winCondition == WinCondition.ReachScore);
@@ -121,7 +121,7 @@ namespace Anaglyph.Lasertag
 			if (team == 0)
 				return;
 
-			var score = MatchReferee.GetTeamScore(team);
+			int score = MatchReferee.GetTeamScore(team);
 			scoreLines[team].Update(score);
 		}
 
@@ -132,11 +132,11 @@ namespace Anaglyph.Lasertag
 
 		private void UpdateTimerSand()
 		{
-			var timeTotal = MatchReferee.Settings.timerSeconds;
-			var timeLeft = MatchReferee.Instance.GetTimeLeft();
+			int timeTotal = MatchReferee.Settings.timerSeconds;
+			float timeLeft = MatchReferee.Instance.GetTimeLeft();
 
-			var sh = sandHeight;
-			var tn = timeLeft / timeTotal;
+			float sh = sandHeight;
+			float tn = timeLeft / timeTotal;
 
 			SetRectHeight(topSand, sh * tn);
 			SetRectHeight(bottomSand, sh * (1 - tn));
@@ -144,7 +144,7 @@ namespace Anaglyph.Lasertag
 
 		private static void SetRectHeight(RectTransform rt, float height)
 		{
-			var v = rt.sizeDelta;
+			Vector2 v = rt.sizeDelta;
 			v.y = height;
 			rt.sizeDelta = v;
 		}

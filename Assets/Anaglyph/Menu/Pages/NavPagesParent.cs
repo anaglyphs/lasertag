@@ -26,12 +26,18 @@ namespace Anaglyph.Menu
 
 		[SerializeField] private NavPage firstPageActive;
 
-		public UnityEvent<NavPage> onPageChange = new();
+		public event Action<NavPage> Changed = delegate { };
+		[SerializeField] private UnityEvent<NavPage> onPageChange = new();
 
 		private void OnValidate()
 		{
 			rectTransform = GetComponent<RectTransform>();
 			firstPageActive = GetComponentInChildren<NavPage>(true);
+		}
+
+		private void Awake()
+		{
+			Changed += onPageChange.Invoke;
 		}
 
 		private void Start()
@@ -60,7 +66,7 @@ namespace Anaglyph.Menu
 				history.RemoveRange(targetPageHistoryIndex + 1, history.Count - targetPageHistoryIndex - 1);
 
 			StartTransition(targetPageIsInHistory, currentPage, targetPage);
-			onPageChange.Invoke(targetPage);
+			Changed.Invoke(targetPage);
 		}
 
 		public void GoBack()
@@ -110,10 +116,8 @@ namespace Anaglyph.Menu
 			int currentIndex = currentPage != null ? currentPage.transform.GetSiblingIndex() : -1;
 
 			for (int i = 0; i < transform.childCount; i++)
-			{
 				if (i != currentIndex)
 					transform.GetChild(i).gameObject.SetActive(false);
-			}
 		}
 
 		private void StopTransition()
