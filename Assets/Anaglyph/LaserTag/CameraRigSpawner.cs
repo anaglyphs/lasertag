@@ -3,7 +3,7 @@ using UnityEngine.XR;
 
 namespace Anaglyph.Lasertag
 {
-    public class RigSpawner : MonoBehaviour
+    public class CameraRigSpawner : MonoBehaviour
     {
 		[SerializeField] private GameObject xrRig;
 		[SerializeField] private GameObject desktopRig;

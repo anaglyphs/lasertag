@@ -290,7 +290,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &961643217
+--- !u!1 &982836773
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -298,22 +298,36 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 961643218}
-  - component: {fileID: 961643219}
+  - component: {fileID: 982836775}
+  - component: {fileID: 982836774}
   m_Layer: 0
-  m_Name: RigSpawner
+  m_Name: Rig Spawner
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &961643218
+--- !u!114 &982836774
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 982836773}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f24e0ebac2154004a90f7752c420a285, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  xrRig: {fileID: 5922542169172391784, guid: 273bd9666001ba74c97ca436668c4657, type: 3}
+  desktopRig: {fileID: 2918588115414685520, guid: 470fb36d558514380a685c508b1c6483, type: 3}
+--- !u!4 &982836775
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 961643217}
+  m_GameObject: {fileID: 982836773}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -322,20 +336,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &961643219
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 961643217}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f24e0ebac2154004a90f7752c420a285, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  xrRig: {fileID: 5922542169172391784, guid: 273bd9666001ba74c97ca436668c4657, type: 3}
-  desktopRig: {fileID: 1401932360062214987, guid: 357d8e6207e88994f8f1efaa9161e1aa, type: 3}
 --- !u!1 &1322057765
 GameObject:
   m_ObjectHideFlags: 0
@@ -491,8 +491,8 @@ SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 1322057768}
+  - {fileID: 866079856}
   - {fileID: 3916737362139618993}
   - {fileID: 287469081}
   - {fileID: 157543899}
-  - {fileID: 961643218}
-  - {fileID: 866079856}
+  - {fileID: 982836775}

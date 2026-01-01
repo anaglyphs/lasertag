@@ -59,7 +59,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_RaycastTarget: 1
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
@@ -175,7 +175,7 @@ PrefabInstance:
     m_RemovedGameObjects: []
     m_AddedGameObjects:
     - targetCorrespondingSourceObject: {fileID: 3644528285616215400, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
-      insertIndex: 0
+      insertIndex: -1
       addedObject: {fileID: 3583988944562759081}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 7505427476691352331, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}

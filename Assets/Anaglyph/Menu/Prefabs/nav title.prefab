@@ -52,7 +52,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   backButton: {fileID: 7689337143491668291}
-  titleRectTransform: {fileID: 1965332524783506572}
+  titleRect: {fileID: 1965332524783506572}
 --- !u!114 &3779191378803748417
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -310,7 +310,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 3724102548332734186, guid: 8031558441b4d2e4b9ab247d8ae036e7, type: 3}
       propertyPath: m_Text
-      value: nav page
+      value: title
       objectReference: {fileID: 0}
     - target: {fileID: 8811076581762715937, guid: 8031558441b4d2e4b9ab247d8ae036e7, type: 3}
       propertyPath: m_Pivot.x
@@ -338,7 +338,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8811076581762715937, guid: 8031558441b4d2e4b9ab247d8ae036e7, type: 3}
       propertyPath: m_SizeDelta.x
-      value: -160
+      value: -80
       objectReference: {fileID: 0}
     - target: {fileID: 8811076581762715937, guid: 8031558441b4d2e4b9ab247d8ae036e7, type: 3}
       propertyPath: m_SizeDelta.y

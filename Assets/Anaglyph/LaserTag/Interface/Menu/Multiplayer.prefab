@@ -465,15 +465,10 @@ MonoBehaviour:
   roomFieldLabel: {fileID: 1387760895646355012}
   connectButton: {fileID: 1322337661997427402}
   sessionPage: {fileID: 2087506262494237788}
-  sessionIcon: {fileID: 1257152168898523504}
   sessionStateText: {fileID: 2849203451518413744}
   sessionIpText: {fileID: 1454424998963041956}
   disconnectButton: {fileID: 1170704720660620921}
   recalibrateButton: {fileID: 1994566100525995650}
-  connectingSprite: {fileID: 21300000, guid: d3c9fefec1d2fa94a9e98735219d1497, type: 3}
-  colocatingSprite: {fileID: 21300000, guid: 9ad4ea9c3a4a52540b949569c3631105, type: 3}
-  connectedSprite: {fileID: 21300000, guid: 6c082bdc222d48d4cb056ce6ec9acab2, type: 3}
-  hostingSprite: {fileID: 21300000, guid: d74322c3a2fbe534bb8c68f9b2221842, type: 3}
   hostRelay: {fileID: 11400000, guid: 8256b37a220cf5d4aa386e985d532dcb, type: 2}
 --- !u!1 &2664180529475816430
 GameObject:
@@ -1239,6 +1234,10 @@ PrefabInstance:
     - target: {fileID: 8582009357128427199, guid: aecdcc02d2c826c45b769ee5cb28a24e, type: 3}
       propertyPath: m_AnchoredPosition.y
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8920722421351407536, guid: aecdcc02d2c826c45b769ee5cb28a24e, type: 3}
+      propertyPath: m_Text
+      value: title
       objectReference: {fileID: 0}
     - target: {fileID: 8990021219785381868, guid: aecdcc02d2c826c45b769ee5cb28a24e, type: 3}
       propertyPath: m_AnchorMax.y
@@ -2148,11 +2147,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6538265624741805446, guid: 8f1f588c4d54e2b46a2c771f32cf9336, type: 3}
       propertyPath: m_Color.g
-      value: 0.42745098
+      value: 0.4963966
       objectReference: {fileID: 0}
     - target: {fileID: 6538265624741805446, guid: 8f1f588c4d54e2b46a2c771f32cf9336, type: 3}
       propertyPath: m_Color.r
-      value: 0.078431375
+      value: 0.07843137
       objectReference: {fileID: 0}
     - target: {fileID: 8603140625864332293, guid: 8f1f588c4d54e2b46a2c771f32cf9336, type: 3}
       propertyPath: goToPage
@@ -2203,7 +2202,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2936999579187235762, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}
       propertyPath: m_Text
-      value: Manually Connect
+      value: title
       objectReference: {fileID: 0}
     - target: {fileID: 4171379311991927209, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}
       propertyPath: m_AnchorMax.y
@@ -2329,10 +2328,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 3822328502600371420}
     m_Modifications:
-    - target: {fileID: 8603140625864332293, guid: 8f1f588c4d54e2b46a2c771f32cf9336, type: 3}
-      propertyPath: goToPage
-      value: 
-      objectReference: {fileID: 0}
     - target: {fileID: 3820094644485124329, guid: 2b4b027e4a8434c448988c1d39a40151, type: 3}
       propertyPath: colorEntry
       value: 
@@ -2433,6 +2428,10 @@ PrefabInstance:
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: 21300000, guid: d74322c3a2fbe534bb8c68f9b2221842, type: 3}
+    - target: {fileID: 8603140625864332293, guid: 8f1f588c4d54e2b46a2c771f32cf9336, type: 3}
+      propertyPath: goToPage
+      value: 
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -2742,30 +2741,34 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2936999579187235762, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}
       propertyPath: m_Text
-      value: Connection
+      value: title
       objectReference: {fileID: 0}
     - target: {fileID: 4171379311991927209, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4171379311991927209, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}
       propertyPath: m_AnchorMin.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4171379311991927209, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: 590
       objectReference: {fileID: 0}
     - target: {fileID: 4171379311991927209, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 0
+      value: 10
       objectReference: {fileID: 0}
     - target: {fileID: 4171379311991927209, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 0
+      value: 325
       objectReference: {fileID: 0}
     - target: {fileID: 4171379311991927209, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}
       propertyPath: m_AnchoredPosition.y
+      value: -35
+      objectReference: {fileID: 0}
+    - target: {fileID: 4171379311991927214, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}
+      propertyPath: m_IsActive
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4239447829336590961, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}
@@ -3191,7 +3194,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2936999579187235762, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}
       propertyPath: m_Text
-      value: Lasertag
+      value: title
       objectReference: {fileID: 0}
     - target: {fileID: 4171379311991927209, guid: 48727b23857c0af43b7fa1ae668295fc, type: 3}
       propertyPath: m_AnchorMax.y
