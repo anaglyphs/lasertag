@@ -61,7 +61,7 @@ namespace Anaglyph.Lasertag
 			if (!MainPlayer.Instance)
 				return;
 
-			var result = await EnvironmentMapper.Instance.RaymarchAsync(fireRay, MaxTravelDist);
+			var result = await EnvironmentMapper.Instance.QueueRaymarchThisFrame(fireRay, MaxTravelDist);
 			if (NetworkObject.IsSpawned && result.didHit)
 			{
 				if (IsOwner)

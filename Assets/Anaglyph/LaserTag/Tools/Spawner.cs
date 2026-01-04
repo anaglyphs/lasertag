@@ -62,7 +62,7 @@ namespace Anaglyph.Lasertag
 			}
 
 			Ray ray = new(transform.position, transform.forward);
-			var result = await EnvironmentMapper.Instance.RaymarchAsync(ray, 50);
+			var result = await EnvironmentMapper.Instance.QueueRaymarchThisFrame(ray, 50);
 
 			if (!enabled)
 				return;
