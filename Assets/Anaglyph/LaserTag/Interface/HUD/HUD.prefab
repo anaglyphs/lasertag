@@ -141,7 +141,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: adece6b61671d3742b760d32b73d11d2, type: 3}
+    m_Font: {fileID: 12800000, guid: f96cad83c600241fa9503a984fdac99f, type: 3}
     m_FontSize: 30
     m_FontStyle: 0
     m_BestFit: 0
@@ -220,7 +220,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: d1753c3708305f04fbd3e83ce72d45f5, type: 3}
+    m_Font: {fileID: 12800000, guid: f96cad83c600241fa9503a984fdac99f, type: 3}
     m_FontSize: 30
     m_FontStyle: 0
     m_BestFit: 0
@@ -342,7 +342,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   respawnText: {fileID: 5901854019155512511}
   respawnPopup: {fileID: 1977528419013774398}
-  menuMaskRectTransform: {fileID: 7181855698455719301}
 --- !u!1 &2773401888495432745
 GameObject:
   m_ObjectHideFlags: 0
@@ -409,7 +408,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: d1753c3708305f04fbd3e83ce72d45f5, type: 3}
+    m_Font: {fileID: 12800000, guid: f96cad83c600241fa9503a984fdac99f, type: 3}
     m_FontSize: 140
     m_FontStyle: 0
     m_BestFit: 0
@@ -577,7 +576,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: d1753c3708305f04fbd3e83ce72d45f5, type: 3}
+    m_Font: {fileID: 12800000, guid: f96cad83c600241fa9503a984fdac99f, type: 3}
     m_FontSize: 60
     m_FontStyle: 0
     m_BestFit: 0
@@ -761,7 +760,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: adece6b61671d3742b760d32b73d11d2, type: 3}
+    m_Font: {fileID: 12800000, guid: f96cad83c600241fa9503a984fdac99f, type: 3}
     m_FontSize: 60
     m_FontStyle: 0
     m_BestFit: 0
@@ -787,7 +786,7 @@ GameObject:
   - component: {fileID: 7658358922292303389}
   - component: {fileID: 6034675946881582377}
   m_Layer: 0
-  m_Name: Ready!
+  m_Name: ' Ready!'
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -841,7 +840,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: d1753c3708305f04fbd3e83ce72d45f5, type: 3}
+    m_Font: {fileID: 12800000, guid: f96cad83c600241fa9503a984fdac99f, type: 3}
     m_FontSize: 45
     m_FontStyle: 0
     m_BestFit: 0
@@ -853,7 +852,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Ready!
+  m_Text: ' Ready!'
 --- !u!114 &6034675946881582377
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1037,7 +1036,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: d1753c3708305f04fbd3e83ce72d45f5, type: 3}
+    m_Font: {fileID: 12800000, guid: f96cad83c600241fa9503a984fdac99f, type: 3}
     m_FontSize: 60
     m_FontStyle: 0
     m_BestFit: 0
@@ -1184,7 +1183,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: d1753c3708305f04fbd3e83ce72d45f5, type: 3}
+    m_Font: {fileID: 12800000, guid: f96cad83c600241fa9503a984fdac99f, type: 3}
     m_FontSize: 60
     m_FontStyle: 0
     m_BestFit: 0
@@ -1210,7 +1209,7 @@ GameObject:
   - component: {fileID: 2232287165365963550}
   - component: {fileID: 8217179436118109287}
   m_Layer: 0
-  m_Name: Aligning...
+  m_Name: ' Aligning...'
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1264,7 +1263,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: d1753c3708305f04fbd3e83ce72d45f5, type: 3}
+    m_Font: {fileID: 12800000, guid: f96cad83c600241fa9503a984fdac99f, type: 3}
     m_FontSize: 45
     m_FontStyle: 0
     m_BestFit: 0
@@ -1276,7 +1275,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Aligning...
+  m_Text: ' Aligning...'
 --- !u!114 &8217179436118109287
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1302,7 +1301,7 @@ GameObject:
   - component: {fileID: 8460269685767277526}
   - component: {fileID: 6279976812393769556}
   m_Layer: 0
-  m_Name: Connecting...
+  m_Name: ' Connecting...'
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1356,7 +1355,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: d1753c3708305f04fbd3e83ce72d45f5, type: 3}
+    m_Font: {fileID: 12800000, guid: f96cad83c600241fa9503a984fdac99f, type: 3}
     m_FontSize: 45
     m_FontStyle: 0
     m_BestFit: 0
@@ -1368,7 +1367,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Connecting...
+  m_Text: ' Connecting...'
 --- !u!114 &6279976812393769556
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1449,7 +1448,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: d1753c3708305f04fbd3e83ce72d45f5, type: 3}
+    m_Font: {fileID: 12800000, guid: f96cad83c600241fa9503a984fdac99f, type: 3}
     m_FontSize: 60
     m_FontStyle: 0
     m_BestFit: 0
