@@ -465,11 +465,7 @@ MonoBehaviour:
   m_spacewarpMotionVectorTextureFormat: 0
   m_optimizeBufferDiscards: 0
   m_symmetricProjection: 0
-  m_optimizeMultiviewRenderRegions: 0
-  m_multiviewRenderRegionsOptimizationMode: 0
-  m_hasMigratedMultiviewRenderRegionSetting: 1
   m_foveatedRenderingApi: 0
-  m_useOpenXRPredictedTime: 0
 --- !u!114 &-4850867518922241203
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1182,8 +1178,6 @@ MonoBehaviour:
   lateLatchingMode: 0
   lateLatchingDebug: 0
   optimizeMultiviewRenderRegions: 0
-  m_multiviewRenderRegionsOptimizationMode: 0
-  m_hasMigratedMultiviewRenderRegions: 1
   spacewarpMotionVectorTextureFormat: 0
 --- !u!114 &2319055137071048382
 MonoBehaviour:
@@ -1488,11 +1482,7 @@ MonoBehaviour:
   m_spacewarpMotionVectorTextureFormat: 0
   m_optimizeBufferDiscards: 0
   m_symmetricProjection: 0
-  m_optimizeMultiviewRenderRegions: 0
-  m_multiviewRenderRegionsOptimizationMode: 0
-  m_hasMigratedMultiviewRenderRegionSetting: 1
   m_foveatedRenderingApi: 1
-  m_useOpenXRPredictedTime: 0
 --- !u!114 &6179131459333143846
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1762,7 +1752,6 @@ MonoBehaviour:
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
-  m_UseRightHandedNDC: 0
 --- !u!114 &8308317787786168465
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1777,8 +1766,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.XR.OpenXR::UnityEngine.XR.OpenXR.OpenXRSettings
   features:
   - {fileID: 2319055137071048382}
-  - {fileID: 8262137079292632069}
-  - {fileID: -5640822068620053087}
   - {fileID: -1086684074482315429}
   - {fileID: 3026716534433436068}
   - {fileID: 26228384039484596}
@@ -1823,11 +1810,7 @@ MonoBehaviour:
   m_spacewarpMotionVectorTextureFormat: 0
   m_optimizeBufferDiscards: 0
   m_symmetricProjection: 0
-  m_optimizeMultiviewRenderRegions: 0
-  m_multiviewRenderRegionsOptimizationMode: 0
-  m_hasMigratedMultiviewRenderRegionSetting: 1
   m_foveatedRenderingApi: 1
-  m_useOpenXRPredictedTime: 0
 --- !u!114 &8560049218649623623
 MonoBehaviour:
   m_ObjectHideFlags: 0
