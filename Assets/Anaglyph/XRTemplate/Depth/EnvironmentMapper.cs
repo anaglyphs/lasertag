@@ -53,9 +53,9 @@ namespace Anaglyph.XRTemplate
 		private ComputeBuffer frustumVolume;
 
 		public List<Transform> PlayerHeads = new();
-		private readonly Vector4[] headPositions = new Vector4[512];
+		private Vector4[] headPositions = new Vector4[512];
 
-		private float lastUpdateTime;
+		private float lastUpdateTime = 0;
 
 		private void Awake()
 		{
@@ -64,15 +64,15 @@ namespace Anaglyph.XRTemplate
 		
 		private void Start()
 		{
-			clearKernel = new ComputeKernel(shader, "Clear");
+			clearKernel = new(shader, "Clear");
 			clearKernel.Set(nameof(volume), volume);
 
-			integrateKernel = new ComputeKernel(shader, "Integrate");
+			integrateKernel = new(shader, "Integrate");
 			integrateKernel.Set(nameof(volume), volume);
 
-			integrateKernel = new ComputeKernel(shader, "Integrate");
+			integrateKernel = new(shader, "Integrate");
 
-			raymarchKernel = new ComputeKernel(shader, "Raymarch");
+			raymarchKernel = new(shader, "Raymarch");
 			raymarchKernel.Set("raymarchVolume", volume);
 
 			shader.SetInts("volumeSize", VWidth, VHeight, VDepth);
@@ -159,7 +159,7 @@ namespace Anaglyph.XRTemplate
 
 			List<Vector3> positions = new(200000);
 
-			FrustumPlanes f = frustum;
+			var f = frustum;
 			// slopes 
 			float ls = f.left / f.zNear;
 			float rs = f.right / f.zNear;
@@ -218,7 +218,7 @@ namespace Anaglyph.XRTemplate
 
 		private readonly int requestStride = Marshal.SizeOf<RaymarchRequest>();
 
-		private readonly List<RaymarchRequest> pendingRequests = new();
+		private List<RaymarchRequest> pendingRequests = new();
 
 		public struct RaymarchResult
 		{
@@ -236,18 +236,20 @@ namespace Anaglyph.XRTemplate
 			}
 		}
 
-		private Task<float[]> currentRaymarchBatch;
+		private Task<float[]> currentRaymarchBatch = null;
 
-		public async Task<RaymarchResult> QueueRaymarchThisFrame(Ray ray, float maxDistance)
+		public async Task<RaymarchResult> RaymarchAsync(Ray ray, float maxDistance)
 		{
-			RaymarchRequest request = new(ray, maxDistance);
+			RaymarchRequest request = new RaymarchRequest(ray, maxDistance);
 			int index = pendingRequests.Count;
 			pendingRequests.Add(request);
 
 			if(currentRaymarchBatch == null)
+			{
 				currentRaymarchBatch = DispatchRaymarches();
+			}
 
-			float[] data = await currentRaymarchBatch;
+			var data = await currentRaymarchBatch;
 			float dist = data[index];
 
 			RaymarchResult result = new(ray, dist);
