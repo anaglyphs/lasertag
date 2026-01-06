@@ -928,7 +928,7 @@ namespace Meta.XR.BuildingBlocks.Editor
             DragAndDrop.SetGenericData(DragAndDropBlockDataLabel, block);
             DragAndDrop.SetGenericData(DragAndDropBlockThumbnailLabel, block.Thumbnail);
             DragAndDrop.SetGenericData(DragAndDropStartMousePosition, CurrentMousePosition);
-            DragAndDrop.AddDropHandlerV2(SceneDropHandler);
+            DragAndDrop.AddDropHandler(SceneDropHandler);
             DragAndDrop.AddDropHandler(HierarchyDropHandler);
             DragAndDrop.StartDrag(DragAndDropLabel);
         }
@@ -938,7 +938,7 @@ namespace Meta.XR.BuildingBlocks.Editor
             DragAndDrop.SetGenericData(DragAndDropBlockDataLabel, null);
             DragAndDrop.SetGenericData(DragAndDropBlockThumbnailLabel, null);
             DragAndDrop.SetGenericData(DragAndDropStartMousePosition, null);
-            DragAndDrop.RemoveDropHandlerV2(SceneDropHandler);
+            DragAndDrop.RemoveDropHandler(SceneDropHandler);
             DragAndDrop.RemoveDropHandler(HierarchyDropHandler);
         }
 
