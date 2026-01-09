@@ -1,6 +1,5 @@
 apply plugin: 'com.android.library'
 apply from: '../shared/keepUnitySymbols.gradle'
-apply from: '../shared/common.gradle'
 **APPLY_PLUGINS**
 
 dependencies {
@@ -12,7 +11,7 @@ android {
     ndkPath "**NDKPATH**"
     ndkVersion "**NDKVERSION**"
 
-    compileSdk 33
+    compileSdk **APIVERSION**
     buildToolsVersion = "**BUILDTOOLS**"
 
     compileOptions {
