@@ -16,16 +16,13 @@ namespace Anaglyph
 		private void Awake()
 		{
 			Instance = this;
-			for (int i = 0; i < initialNumSources; i++)
-			{
-				InstantiateNewSource();
-			}
+			for (int i = 0; i < initialNumSources; i++) InstantiateNewSource();
 		}
 
 		private void InstantiateNewSource()
 		{
-			GameObject sourceObj = new GameObject($"Source {allSources.Count}");
-			var source = sourceObj.AddComponent<AudioSource>();
+			GameObject sourceObj = new($"Source {allSources.Count}");
+			AudioSource source = sourceObj.AddComponent<AudioSource>();
 			source.playOnAwake = false;
 			source.spatialBlend = 1.0f;
 			source.dopplerLevel = 0.0f;
@@ -33,8 +30,10 @@ namespace Anaglyph
 			allSources.Add(source);
 		}
 
-		public static void Play(AudioClip clip, Vector3 pos, float vol = 1) 
-			=> Instance._Play(clip, pos, vol);
+		public static void Play(AudioClip clip, Vector3 pos, float vol = 1)
+		{
+			Instance._Play(clip, pos, vol);
+		}
 
 		private async void _Play(AudioClip clip, Vector3 pos, float vol = 1)
 		{
@@ -48,14 +47,14 @@ namespace Anaglyph
 			else
 			{
 				// find next available AudioSource
-				foreach (var _ in allSources)
+				foreach (AudioSource _ in allSources)
 				{
 					poolIndex = (poolIndex + 1) % allSources.Count;
 					if (!allSources[poolIndex].isPlaying)
 						break;
 				}
 			}
-			
+
 			AudioSource player = allSources[poolIndex];
 
 			try
@@ -66,7 +65,7 @@ namespace Anaglyph
 
 				await Awaitable.WaitForSecondsAsync(clip.length, destroyCancellationToken);
 				destroyCancellationToken.ThrowIfCancellationRequested();
-				
+
 				numPlaying--;
 			}
 			catch (OperationCanceledException)

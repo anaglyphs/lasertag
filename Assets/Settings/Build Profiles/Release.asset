@@ -11,17 +11,16 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 15003, guid: 0000000000000000e000000000000000, type: 0}
   m_Name: Release
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: UnityEditor.dll::UnityEditor.Build.Profile.BuildProfile
   m_AssetVersion: 1
   m_BuildTarget: 13
   m_Subtarget: 0
-  m_PlatformId: b9b35072a6f44c2e863f17467ea3dc13
+  m_PlatformId: 80657fe557de4d17822398b3a01b8c9e
   m_PlatformBuildProfile:
-    rid: 246326936055578879
-  m_OverrideGlobalSceneList: 1
-  m_Scenes:
-  - m_enabled: 1
-    m_path: Assets/Anaglyph/LaserTag/MainScene.unity
+    rid: 3162090068575780864
+  m_OverrideGlobalSceneList: 0
+  m_Scenes: []
+  m_HasScriptingDefines: 0
   m_ScriptingDefines: []
   m_PlayerSettingsYaml:
     m_Settings:
@@ -37,7 +36,7 @@ MonoBehaviour:
     - line: '|   useOnDemandResources: 0'
     - line: '|   accelerometerFrequency: 60'
     - line: '|   companyName: Julian Triveri'
-    - line: '|   productName: Lasertag'
+    - line: '|   productName: Laser Tag'
     - line: '|   defaultCursor: {instanceID: 0}'
     - line: '|   cursorHotspot: {x: 0, y: 0}'
     - line: '|   m_SplashScreenBackgroundColor: {r: 0.12156863, g: 0.12156863, b:
@@ -94,10 +93,10 @@ MonoBehaviour:
     - line: '|   useOSAutorotation: 1'
     - line: '|   use32BitDisplayBuffer: 1'
     - line: '|   preserveFramebufferAlpha: 0'
-    - line: '|   disableDepthAndStencilBuffers: 1'
+    - line: '|   disableDepthAndStencilBuffers: 0'
     - line: '|   androidStartInFullscreen: 1'
     - line: '|   androidRenderOutsideSafeArea: 1'
-    - line: '|   androidUseSwappy: 0'
+    - line: '|   androidUseSwappy: 1'
     - line: '|   androidDisplayOptions: 1'
     - line: '|   androidBlitType: 1'
     - line: '|   androidResizeableActivity: 0'
@@ -121,7 +120,7 @@ MonoBehaviour:
     - line: '|   submitAnalytics: 1'
     - line: '|   usePlayerLog: 1'
     - line: '|   dedicatedServerOptimizations: 0'
-    - line: '|   bakeCollisionMeshes: 1'
+    - line: '|   bakeCollisionMeshes: 0'
     - line: '|   forceSingleInstance: 0'
     - line: '|   useFlipModelSwapchain: 1'
     - line: '|   resizableWindow: 0'
@@ -162,15 +161,16 @@ MonoBehaviour:
     - line: '|   switchNVNMaxPublicSamplerIDCount: 0'
     - line: '|   switchMaxWorkerMultiple: 8'
     - line: '|   switchNVNGraphicsFirmwareMemory: 32'
-    - line: '|   vulkanNumSwapchainBuffers: 2'
+    - line: '|   switchGraphicsJobsSyncAfterKick: 1'
+    - line: '|   vulkanNumSwapchainBuffers: 3'
     - line: '|   vulkanEnableSetSRGBWrite: 0'
     - line: '|   vulkanEnablePreTransform: 0'
-    - line: '|   vulkanEnableLateAcquireNextImage: 0'
+    - line: '|   vulkanEnableLateAcquireNextImage: 1'
     - line: '|   vulkanEnableCommandBufferRecycling: 1'
     - line: '|   loadStoreDebugModeEnabled: 0'
     - line: '|   visionOSBundleVersion: 1.0'
     - line: '|   tvOSBundleVersion: 1.0'
-    - line: '|   bundleVersion: 2.2.0a'
+    - line: '|   bundleVersion: 2.0.0a'
     - line: '|   preloadedAssets:'
     - line: '|   - {fileID: 11400000, guid: 45e3534b9d174724b806ead5a65249ad, type:
         2}'
@@ -209,12 +209,13 @@ MonoBehaviour:
     - line: '|     iPhone: 0'
     - line: '|     tvOS: 0'
     - line: '|   overrideDefaultApplicationIdentifier: 1'
-    - line: '|   AndroidBundleVersionCode: 460'
+    - line: '|   AndroidBundleVersionCode: 315'
     - line: '|   AndroidMinSdkVersion: 32'
     - line: '|   AndroidTargetSdkVersion: 32'
     - line: '|   AndroidPreferredInstallLocation: 0'
+    - line: '|   AndroidPreferredDataLocation: 1'
     - line: '|   aotOptions: '
-    - line: '|   stripEngineCode: 1'
+    - line: '|   stripEngineCode: 0'
     - line: '|   iPhoneStrippingLevel: 0'
     - line: '|   iPhoneScriptCallOptimization: 0'
     - line: '|   ForceInternetPermission: 0'
@@ -227,11 +228,11 @@ MonoBehaviour:
     - line: '|   VertexChannelCompressionMask: 4054'
     - line: '|   iPhoneSdkVersion: 988'
     - line: '|   iOSSimulatorArchitecture: 0'
-    - line: '|   iOSTargetOSVersionString: 13.0'
+    - line: '|   iOSTargetOSVersionString: 15.0'
     - line: '|   tvOSSdkVersion: 0'
     - line: '|   tvOSSimulatorArchitecture: 0'
     - line: '|   tvOSRequireExtendedGameController: 0'
-    - line: '|   tvOSTargetOSVersionString: 13.0'
+    - line: '|   tvOSTargetOSVersionString: 15.0'
     - line: '|   VisionOSSdkVersion: 0'
     - line: '|   VisionOSTargetOSVersionString: 1.0'
     - line: '|   uIPrerenderedIcon: 0'
@@ -294,13 +295,14 @@ MonoBehaviour:
     - line: '|   templateDefaultScene: Assets/Scenes/SampleScene.unity'
     - line: '|   useCustomMainManifest: 1'
     - line: '|   useCustomLauncherManifest: 0'
-    - line: '|   useCustomMainGradleTemplate: 0'
-    - line: '|   useCustomLauncherGradleManifest: 0'
+    - line: '|   useCustomMainGradleTemplate: 1'
+    - line: '|   useCustomLauncherGradleManifest: 1'
     - line: '|   useCustomBaseGradleTemplate: 0'
     - line: '|   useCustomGradlePropertiesTemplate: 0'
     - line: '|   useCustomGradleSettingsTemplate: 0'
     - line: '|   useCustomProguardFile: 0'
     - line: '|   AndroidTargetArchitectures: 2'
+    - line: '|   AndroidAllowedArchitectures: -1'
     - line: '|   AndroidSplashScreenScale: 0'
     - line: '|   androidSplashScreen: {instanceID: 0}'
     - line: '|   AndroidKeystoreName: /Users/jt/Library/Mobile Documents/com~apple~CloudDocs/auth/trev3d.keystore'
@@ -322,7 +324,7 @@ MonoBehaviour:
     - line: '|     height: 180'
     - line: '|     banner: {instanceID: 0}'
     - line: '|   androidGamepadSupportLevel: 0'
-    - line: '|   AndroidMinifyRelease: 0'
+    - line: '|   AndroidMinifyRelease: 1'
     - line: '|   AndroidMinifyDebug: 0'
     - line: '|   AndroidValidateAppBundleSize: 1'
     - line: '|   AndroidAppBundleSizeToValidate: 150'
@@ -433,7 +435,7 @@ MonoBehaviour:
     - line: '|   - m_BuildTarget: AndroidPlayer'
     - line: '|     m_GraphicsJobs: 1'
     - line: '|   - m_BuildTarget: MacStandaloneSupport'
-    - line: '|     m_GraphicsJobs: 1'
+    - line: '|     m_GraphicsJobs: 0'
     - line: '|   m_BuildTargetGraphicsJobMode:'
     - line: '|   - m_BuildTarget: AndroidPlayer'
     - line: '|     m_GraphicsJobMode: 0'
@@ -444,8 +446,8 @@ MonoBehaviour:
     - line: '|     m_APIs: 15000000'
     - line: '|     m_Automatic: 0'
     - line: '|   - m_BuildTarget: WindowsStandaloneSupport'
-    - line: '|     m_APIs: 02000000'
-    - line: '|     m_Automatic: 0'
+    - line: '|     m_APIs: 1200000002000000'
+    - line: '|     m_Automatic: 1'
     - line: '|   m_BuildTargetVRSettings: []'
     - line: '|   m_DefaultShaderChunkSizeInMB: 16'
     - line: '|   m_DefaultShaderChunkCount: 0'
@@ -487,7 +489,7 @@ MonoBehaviour:
     - line: '|   locationUsageDescription: '
     - line: '|   microphoneUsageDescription: '
     - line: '|   bluetoothUsageDescription: '
-    - line: '|   macOSTargetOSVersion: 11.0'
+    - line: '|   macOSTargetOSVersion: 12.0'
     - line: '|   switchNMETAOverride: '
     - line: '|   switchNetLibKey: '
     - line: '|   switchSocketMemoryPoolSize: 6144'
@@ -735,19 +737,18 @@ MonoBehaviour:
     - line: '|   webGLMemoryLinearGrowthStep: 16'
     - line: '|   webGLMemoryGeometricGrowthStep: 0.2'
     - line: '|   webGLMemoryGeometricGrowthCap: 96'
-    - line: '|   webGLEnableWebGPU: 0'
     - line: '|   webGLPowerPreference: 2'
     - line: '|   webGLWebAssemblyTable: 0'
     - line: '|   webGLWebAssemblyBigInt: 0'
     - line: '|   webGLCloseOnQuit: 0'
     - line: '|   webWasm2023: 0'
+    - line: '|   webEnableSubmoduleStrippingCompatibility: 0'
     - line: '|   scriptingDefineSymbols:'
-    - line: '|     Android: USE_INPUT_SYSTEM_POSE_CONTROL;USE_OCULUS_XR_PACKAGE;OVR_DISABLE_HAND_PINCH_BUTTON_MAPPING'
-    - line: '|     Standalone: USE_INPUT_SYSTEM_POSE_CONTROL;ISDK_OPENXR_HAND;OVR_DISABLE_HAND_PINCH_BUTTON_MAPPING'
-    - line: '|     Windows Store Apps: USE_INPUT_SYSTEM_POSE_CONTROL'
+    - line: '|     Android: USE_INPUT_SYSTEM_POSE_CONTROL;USE_STICK_CONTROL_THUMBSTICKS;OVR_DISABLE_HAND_PINCH_BUTTON_MAPPING'
+    - line: '|     Standalone: USE_INPUT_SYSTEM_POSE_CONTROL;ISDK_OPENXR_HAND;USE_STICK_CONTROL_THUMBSTICKS;OVR_DISABLE_HAND_PINCH_BUTTON_MAPPING'
+    - line: '|     Windows Store Apps: USE_INPUT_SYSTEM_POSE_CONTROL;USE_STICK_CONTROL_THUMBSTICKS'
     - line: '|   additionalCompilerArguments: {}'
-    - line: '|   platformArchitecture:'
-    - line: '|     Android: 1'
+    - line: '|   platformArchitecture: {}'
     - line: '|   scriptingBackend:'
     - line: '|     Android: 1'
     - line: '|   il2cppCompilerConfiguration:'
@@ -757,11 +758,11 @@ MonoBehaviour:
     - line: '|   il2cppStacktraceInformation:'
     - line: '|     Android: 0'
     - line: '|   managedStrippingLevel:'
-    - line: '|     Android: 3'
+    - line: '|     Android: 1'
     - line: '|   incrementalIl2cppBuild: {}'
     - line: '|   suppressCommonWarnings: 1'
     - line: '|   allowUnsafeCode: 0'
-    - line: '|   useDeterministicCompilation: 0'
+    - line: '|   useDeterministicCompilation: 1'
     - line: '|   additionalIl2CppArgs: --compiler-flags="     -flto=thin"'
     - line: '|   scriptingRuntimeVersion: 1'
     - line: '|   gcIncremental: 1'
@@ -863,11 +864,14 @@ MonoBehaviour:
     - line: '|   insecureHttpOption: 0'
     - line: '|   androidVulkanDenyFilterList: []'
     - line: '|   androidVulkanAllowFilterList: []'
+    - line: '|   androidVulkanDeviceFilterListAsset: {instanceID: 0}'
+    - line: '|   d3d12DeviceFilterListAsset: {instanceID: 0}'
+    - line: '|   allowedHttpConnections: 3'
     - line: '| '
   references:
     version: 2
     RefIds:
-    - rid: 246326936055578879
+    - rid: 3162090068575780864
       type: {class: AndroidPlatformBuildSettings, ns: UnityEditor.Android, asm: UnityEditor.Android.Extensions}
       data:
         m_Development: 0
@@ -881,13 +885,32 @@ MonoBehaviour:
         m_ExplicitArrayBoundsChecks: 0
         m_CompressionType: 2
         m_InstallInBuildFolder: 0
+        m_InsightsSettingsContainer:
+          m_BuildProfileEngineDiagnosticsState: 2
+        m_AdaptivePerformanceEnabled: 0
         m_BuildSubtarget: 0
         m_BuildSystem: 1
         m_ExportAsGoogleAndroidProject: 0
         m_DebugSymbolLevel: 1
         m_DebugSymbolFormat: 5
-        m_CurrentDeploymentTargetId: __builtin__target_all
+        m_CurrentDeploymentTargetId: __builtin__target_default
         m_BuildType: 2
+        m_LinkTimeOptimization: 1
         m_BuildAppBundle: 0
         m_IPAddressToConnect: 
         m_SymlinkSources: 0
+--- !u!114 &3008340972265480930
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 15010, guid: 0000000000000000e000000000000000, type: 0}
+  m_Name: Quality Settings
+  m_EditorClassIdentifier: UnityEditor.dll::UnityEditor.Build.Profile.BuildProfileQualitySettings
+  m_DefaultQualityLevel: Meta Quest (Build Profile)
+  m_QualityLevels:
+  - Meta Quest (Build Profile)

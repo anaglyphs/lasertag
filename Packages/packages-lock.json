@@ -28,18 +28,30 @@
       "dependencies": {},
       "hash": "11f09e231a903f2be3b429f2eaa4ffc575fa6810"
     },
+    "com.meta.xr.mrutilitykit": {
+      "version": "81.0.0",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {
+        "com.meta.xr.sdk.core": "81.0.0",
+        "com.unity.textmeshpro": "3.0.6",
+        "com.unity.ai.navigation": "1.1.4",
+        "com.unity.nuget.newtonsoft-json": "3.0.2"
+      },
+      "url": "https://packages.unity.com"
+    },
     "com.meta.xr.sdk.core": {
-      "version": "file:com.meta.xr.sdk.core@06273138c40d",
+      "version": "file:com.meta.xr.sdk.core",
       "depth": 0,
       "source": "embedded",
       "dependencies": {}
     },
     "com.meta.xr.sdk.haptics": {
-      "version": "83.0.1",
+      "version": "81.0.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.meta.xr.sdk.core": "83.0.1"
+        "com.meta.xr.sdk.core": "81.0.0"
       },
       "url": "https://packages.unity.com"
     },
@@ -53,6 +65,13 @@
         "com.unity.ugui": "1.0.0"
       },
       "hash": "d3b89c847dbcff03d0e318e570785d149238ad80"
+    },
+    "com.meta.xr.simulator": {
+      "version": "81.0.0",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {},
+      "url": "https://packages.unity.com"
     },
     "com.strikervr.strikersdk": {
       "version": "0.9.0",
@@ -69,6 +88,15 @@
       "depth": 0,
       "source": "builtin",
       "dependencies": {}
+    },
+    "com.unity.ai.navigation": {
+      "version": "2.0.9",
+      "depth": 1,
+      "source": "registry",
+      "dependencies": {
+        "com.unity.modules.ai": "1.0.0"
+      },
+      "url": "https://packages.unity.com"
     },
     "com.unity.burst": {
       "version": "1.8.26",
@@ -138,7 +166,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.inputsystem": {
-      "version": "1.17.0",
+      "version": "1.15.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {

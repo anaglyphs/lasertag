@@ -53,9 +53,9 @@ namespace Anaglyph.XRTemplate.DepthKit
 		public static bool DepthAvailable { get; private set; }
 
 		[SerializeField] private ComputeShader depthNormalCompute = null;
-		
+
 		private static readonly Vector3 NegZ = new(1, 1, -1);
-		
+
 		// private ComputeKernel copyKernel;
 		private ComputeKernel normKernel;
 
@@ -117,19 +117,8 @@ namespace Anaglyph.XRTemplate.DepthKit
 			int w = depthTex.width;
 			int h = depthTex.height;
 
-			if (normTex == null)
+			if (!normTex || normTex.width != w || normTex.height != h)
 			{
-				// depthTex = new RenderTexture(w, h, 0, GraphicsFormat.R16_UNorm, 1)
-				// {
-				// 	// depthStencilFormat = GraphicsFormat.D16_UNorm,
-				// 	dimension = TextureDimension.Tex2DArray,
-				// 	volumeDepth = 2,
-				// 	useMipMap = false,
-				// 	enableRandomWrite = true
-				// };
-				//
-				// depthTex.Create();
-
 				normTex = new RenderTexture(w, h, 0, GraphicsFormat.R8G8B8A8_SNorm, 1)
 				{
 					dimension = TextureDimension.Tex2DArray,
@@ -141,21 +130,11 @@ namespace Anaglyph.XRTemplate.DepthKit
 				normTex.Create();
 			}
 
-			// copy meta depth tex into color format tex
-
-			// copyKernel.Set(inputDepthTex_ID, metaDepthTex);
-			// copyKernel.Set(agDepthTexRW_ID, depthTex);
-			//
-			// copyKernel.DispatchGroups(depthTex);
-
 			Shader.SetGlobalTexture(agDepthTex_ID, depthTex);
 			Shader.SetGlobalVector(texSizeID, new Vector2(depthTex.width, depthTex.height));
 
 			Shader.SetGlobalVector(zParamsID,
 				Shader.GetGlobalVector(metaZParamsID));
-
-			// Shader.SetGlobalTexture(agDepthEdgeTex_ID, 
-			// 	Shader.GetGlobalTexture(Meta_PreprocessedEnvironmentDepthTexture_ID));
 
 			// create normals from depth
 
@@ -164,7 +143,6 @@ namespace Anaglyph.XRTemplate.DepthKit
 			normKernel.DispatchGroups(normTex);
 
 			Shader.SetGlobalTexture(normTexID, normTex);
-
 
 			for (int i = 0; i < depthManager.frameDescriptors.Length; i++)
 			{
