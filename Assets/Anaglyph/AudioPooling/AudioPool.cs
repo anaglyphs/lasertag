@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace Anaglyph
 {
+	[DefaultExecutionOrder(-50)]
 	public class AudioPool : MonoBehaviour
 	{
 		public static AudioPool Instance { get; private set; }
