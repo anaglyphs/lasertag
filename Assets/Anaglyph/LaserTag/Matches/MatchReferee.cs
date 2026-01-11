@@ -126,7 +126,7 @@ namespace Anaglyph.Lasertag
 
 			var _synchronizedState = _state;
 			serializer.SerializeValue(ref _synchronizedState);
-			SetStateLocally(_synchronizedState);
+			_ = SetStateLocally(_synchronizedState);
 
 			serializer.SerializeValue(ref _teamScores);
 

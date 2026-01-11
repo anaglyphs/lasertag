@@ -17,7 +17,7 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 		private Intrinsics hardwareIntrinsics;
 		public Intrinsics HardwareIntrinsics => hardwareIntrinsics;
 
-		[SerializeField] private Vector2Int defaultTextureSize = new Vector2Int(1280, 960);
+		[SerializeField] private Vector2Int defaultTextureSize = new(1280, 960);
 		[SerializeField] private int defaultCameraIndex = 1;
 
 		public event Action DeviceOpened = delegate { };
@@ -45,7 +45,7 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 			ERROR_CAMERA_DISABLED = 0x00000003,
 			ERROR_CAMERA_IN_USE = 0x00000001,
 			ERROR_CAMERA_SERVICE = 0x00000005,
-			ERROR_MAX_CAMERAS_IN_USE = 0x00000002,
+			ERROR_MAX_CAMERAS_IN_USE = 0x00000002
 		}
 
 		/// In nanoseconds!
@@ -57,6 +57,7 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 			{
 			}
 		}
+
 		public class ConfiguredException : Exception
 		{
 			public ConfiguredException(string message) : base(message)
@@ -90,9 +91,15 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 				jniObj.Call("configure", index, width, height);
 			}
 
-			public void OpenCamera() => Call("open");
+			public void OpenCamera()
+			{
+				Call("open");
+			}
 
-			public void CloseCamera() => Call("close");
+			public void CloseCamera()
+			{
+				Call("close");
+			}
 
 			public unsafe sbyte* GetByteBuffer()
 			{
@@ -135,6 +142,9 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 			if (!await CheckPermission(MetaCameraPermission))
 				return false;
 
+			if (!await CheckPermission(Permission.Camera))
+				return false;
+
 			return true;
 		}
 
@@ -163,7 +173,10 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 			ImageAvailable = delegate { };
 		}
 
-		private async Task Configure() => await Configure(defaultCameraIndex, defaultTextureSize.x, defaultTextureSize.y);
+		private async Task Configure()
+		{
+			await Configure(defaultCameraIndex, defaultTextureSize.x, defaultTextureSize.y);
+		}
 
 		public async Task Configure(int index, int width, int height)
 		{
@@ -179,12 +192,13 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 
 			androidInterface.Configure(index, width, height);
 			texture = new Texture2D(width, height, TextureFormat.R8, 1, false);
-			bufferSize = width * height;// * 4;
+			bufferSize = width * height; // * 4;
 
 			float[] vals;
 			vals = androidInterface.GetCamPoseOnDevice();
 			Vector3 pos = new(vals[0], vals[1], -vals[2]);
-			Quaternion rot = Quaternion.Inverse(new(-vals[3], -vals[4], vals[5], vals[6])) * Quaternion.Euler(180, 0, 0);
+			Quaternion rot = Quaternion.Inverse(new Quaternion(-vals[3], -vals[4], vals[5], vals[6])) *
+			                 Quaternion.Euler(180, 0, 0);
 			hardwarePose = new Pose(pos, rot);
 
 			vals = androidInterface.GetCamIntrinsics();

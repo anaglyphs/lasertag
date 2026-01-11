@@ -14,7 +14,6 @@ GameObject:
   - component: {fileID: 5287327361013762756}
   - component: {fileID: 1394363023484580083}
   - component: {fileID: 5339566166535882300}
-  - component: {fileID: 8246169409757483527}
   - component: {fileID: 8285261156524746950}
   m_Layer: 0
   m_Name: XR Origin
@@ -140,20 +139,6 @@ MonoBehaviour:
   m_VerticalAxis: Vertical
   m_SubmitButton: Submit
   m_CancelButton: Cancel
---- !u!114 &8246169409757483527
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7254734392762225021}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 017c5e3933235514c9520e1dace2a4b2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_ActionAssets:
-  - {fileID: -944628639613478452, guid: 79db32dae9e808443971c72edb6c30a9, type: 3}
 --- !u!114 &8285261156524746950
 MonoBehaviour:
   m_ObjectHideFlags: 0

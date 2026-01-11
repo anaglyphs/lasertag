@@ -69,9 +69,9 @@ Shader "Lasertag/DepthLight"
 				UNITY_SETUP_INSTANCE_ID(IN);
 				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(OUT);
 
-				OUT.positionHCS = TransformObjectToHClip(IN.positionOS);
+				OUT.positionHCS = TransformObjectToHClip(IN.positionOS.xyz);
 				OUT.positionHCSTexCoord = OUT.positionHCS;
-				OUT.positionWS = TransformObjectToWorld(IN.positionOS);
+				OUT.positionWS = TransformObjectToWorld(IN.positionOS.xyz);
 
 				return OUT;
 			}

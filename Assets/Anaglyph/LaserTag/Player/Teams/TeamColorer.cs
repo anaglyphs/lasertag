@@ -13,11 +13,11 @@ namespace Anaglyph.Lasertag
 
 		[SerializeField] private byte defaultTeam;
 		private TeamOwner teamOwner;
-		private new Renderer renderer;
+		private Renderer renderer;
 		private MaterialPropertyBlock propertyBlock;
 		private Graphic graphic;
 
-		[SerializeField] float multiply = 1;
+		[SerializeField] private float multiply = 1;
 
 		public Color Color { get; private set; }
 
@@ -27,18 +27,25 @@ namespace Anaglyph.Lasertag
 		{
 			propertyBlock = new MaterialPropertyBlock();
 
-			if(TryGetComponent(out renderer))
+			if (TryGetComponent(out renderer))
 				renderer.GetPropertyBlock(propertyBlock);
-			
+
 			TryGetComponent(out graphic);
 
 			teamOwner = GetComponentInParent<TeamOwner>(true);
-			if(teamOwner)
+			if (teamOwner)
 				teamOwner.TeamChanged += SetColor;
 		}
 
-		private void Start() => UpdateColor();
-		private void OnValidate() => UpdateColor();
+		private void Start()
+		{
+			UpdateColor();
+		}
+
+		private void OnValidate()
+		{
+			UpdateColor();
+		}
 
 		private void UpdateColor()
 		{
@@ -55,7 +62,7 @@ namespace Anaglyph.Lasertag
 				renderer.SetPropertyBlock(propertyBlock);
 			}
 
-			if(graphic)
+			if (graphic)
 				graphic.color = Color;
 
 			OnColorSet.Invoke(Color);
