@@ -34,31 +34,26 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private void Awake()
 		{
-			if (Instance == null)
-				Instance = this;
-			else
-				throw new Exception($"More than one instance of {typeof(MetaSessionDiscovery)}!");
+			Instance = this;
 		}
 
 		private void Start()
 		{
 			UpdateState();
-			SubscribeToEvents(enabled);
+			SubscribeToEvents(true);
 		}
 
 		private void OnEnable()
 		{
-			if (didStart)
-			{
-				UpdateState();
-				SubscribeToEvents(enabled);
-			}
+			if (!didStart) return;
+			UpdateState();
+			SubscribeToEvents(true);
 		}
 
 		private void OnDisable()
 		{
 			UpdateState();
-			SubscribeToEvents(enabled);
+			SubscribeToEvents(false);
 		}
 
 		private bool isSubscribed = false;
@@ -76,7 +71,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 			else
 			{
-				NetMan.OnSessionOwnerPromoted -= OnSessionOwnerPromoted;
+				if (NetMan)
+					NetMan.OnSessionOwnerPromoted -= OnSessionOwnerPromoted;
+
 				NetcodeManagement.StateChanged -= OnNetworkStateChange;
 				OVRColocationSession.ColocationSessionDiscovered -= HandleColocationSessionDiscovered;
 			}
@@ -139,7 +136,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 						newState = State.Disable;
 						break;
 					case NetcodeState.Connected:
-						var isHost = NetMan.CurrentSessionOwner == NetMan.LocalClientId;
+						bool isHost = NetMan.CurrentSessionOwner == NetMan.LocalClientId;
 						newState = isHost ? State.Advertise : State.Disable;
 						break;
 				}
@@ -152,7 +149,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			try
 			{
-				var ctkn = PrepareNextTask();
+				CancellationToken ctkn = PrepareNextTask();
 
 				switch (state)
 				{
@@ -184,7 +181,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			cancelToken.ThrowIfCancellationRequested();
 
-			var result = await OVRColocationSession.StartDiscoveryAsync();
+			OVRResult<OVRColocationSession.Result> result = await OVRColocationSession.StartDiscoveryAsync();
 
 			if (result.Success)
 			{
@@ -203,7 +200,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			cancelToken.ThrowIfCancellationRequested();
 
-			var result = await OVRColocationSession.StopDiscoveryAsync();
+			OVRResult<OVRColocationSession.Result> result = await OVRColocationSession.StopDiscoveryAsync();
 
 			if (result.Success)
 			{
@@ -220,14 +217,14 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			cancelToken.ThrowIfCancellationRequested();
 
-			var message = "";
+			string message = "";
 
-			var transport = (UnityTransport)NetworkManager.Singleton.NetworkConfig.NetworkTransport;
+			UnityTransport transport = (UnityTransport)NetworkManager.Singleton.NetworkConfig.NetworkTransport;
 
 			switch (transport.Protocol)
 			{
 				case UnityTransport.ProtocolType.UnityTransport:
-					var address = transport.ConnectionData.Address;
+					string address = transport.ConnectionData.Address;
 					message = LanPrefix + address;
 					break;
 
@@ -236,7 +233,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					break;
 			}
 
-			var result = await OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(message));
+			OVRResult<Guid, OVRColocationSession.Result> result =
+				await OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(message));
 			if (result.Success)
 			{
 				isAdvertising = true;
@@ -254,7 +252,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			cancelToken.ThrowIfCancellationRequested();
 
-			var result = await OVRColocationSession.StopAdvertisementAsync();
+			OVRResult<OVRColocationSession.Result> result = await OVRColocationSession.StopAdvertisementAsync();
 
 			if (result.Success)
 			{
@@ -271,7 +269,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			if (state != State.Listen) LogWarning("State isn't listening. This shouldn't run!");
 
-			var message = Encoding.ASCII.GetString(data.Metadata);
+			string message = Encoding.ASCII.GetString(data.Metadata);
 			Log($"Discovered {message}");
 
 			if (NetworkManager.Singleton.IsListening)
