@@ -33,7 +33,7 @@ namespace Anaglyph
 
 		public static void Play(AudioClip clip, Vector3 pos, float vol = 1)
 		{
-			Instance._Play(clip, pos, vol);
+			Instance?._Play(clip, pos, vol);
 		}
 
 		private async void _Play(AudioClip clip, Vector3 pos, float vol = 1)

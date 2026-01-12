@@ -1,8 +1,11 @@
 using System;
+using System.Linq;
 using Meta.XR.EnvironmentDepth;
+using Unity.XR.CoreUtils.Collections;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
+using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 
 namespace Anaglyph.XRTemplate.DepthKit
@@ -13,8 +16,8 @@ namespace Anaglyph.XRTemplate.DepthKit
 		public static DepthKitDriver Instance { get; private set; }
 
 		// private MetaOpenXROcclusionSubsystem depthSubsystem;
-		private readonly XRFov[] depthFrameFOVs = new XRFov[2];
-		private readonly Pose[] depthFramePoses = new Pose[2];
+		private XRFov[] depthFrameFOVs = new XRFov[2];
+		private Pose[] depthFramePoses = new Pose[2];
 		private XRNearFarPlanes depthPlanes;
 
 		private readonly Matrix4x4[] proj = new Matrix4x4[2];
@@ -23,17 +26,20 @@ namespace Anaglyph.XRTemplate.DepthKit
 		private readonly Matrix4x4[] view = new Matrix4x4[2];
 		private readonly Matrix4x4[] viewInv = new Matrix4x4[2];
 
-		private static int ID(string str) =>  Shader.PropertyToID(str);
-		
-		public static readonly int metaDepthTexID = ID("_EnvironmentDepthTexture");
-		public static readonly int metaZParamsID = ID("_EnvironmentDepthZBufferParams");
-		
+		private static int ID(string str)
+		{
+			return Shader.PropertyToID(str);
+		}
+
+		// public static readonly int metaDepthTexID = ID("_EnvironmentDepthTexture");
+		// public static readonly int metaZParamsID = ID("_EnvironmentDepthZBufferParams");
+
 		public static readonly int depthTexID = ID("agDepthTex");
 		public static readonly int texSizeID = ID("agDepthTexSize");
 		public static readonly int normTexID = ID("agDepthNormalTex");
 		public static readonly int rwNormTexID = ID("agDepthNormalTexRW");
 		public static readonly int zParamsID = ID("agDepthZParams");
-		
+
 		public static readonly int projID = ID("agDepthProj");
 		public static readonly int projInvID = ID("agDepthProjInv");
 		public static readonly int viewID = ID("agDepthView");
@@ -45,8 +51,14 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		private ComputeKernel normKernel;
 
+		private Camera mainCam;
+
+		[SerializeField] private Texture depthTex;
+		private RenderTexture stereoTex;
 		[SerializeField] private RenderTexture normTex = null;
-		private EnvironmentDepthManager depthManager;
+
+		// private EnvironmentDepthManager depthManager;
+		private AROcclusionManager arOcclusionManager = null;
 
 		public event Action Updated = delegate { };
 
@@ -57,8 +69,17 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		private void Start()
 		{
-			depthManager = FindFirstObjectByType<EnvironmentDepthManager>();
+			mainCam = Camera.main;
+			arOcclusionManager = FindFirstObjectByType<AROcclusionManager>();
+			arOcclusionManager.frameReceived += OnDepthFrame;
+			// depthManager = FindFirstObjectByType<EnvironmentDepthManager>();
 			normKernel = new ComputeKernel(depthNormalCompute, "DepthNorm");
+		}
+
+		private void OnDestroy()
+		{
+			if (arOcclusionManager)
+				arOcclusionManager.frameReceived -= OnDepthFrame;
 		}
 
 		// private static bool GetDepthSubsystem(out MetaOpenXROcclusionSubsystem depthSubsystem)
@@ -72,7 +93,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 		// 	return depthSubsystem != null;
 		// }
 
-		private void Update()
+		private void OnDepthFrame(AROcclusionFrameEventArgs args)
 		{
 			// if (depthSubsystem == null && !GetDepthSubsystem(out depthSubsystem))
 			// 	return;
@@ -80,13 +101,47 @@ namespace Anaglyph.XRTemplate.DepthKit
 			// if (!depthSubsystem.TryGetFrame(Allocator.Temp, out XROcclusionFrame frame))
 			// 	return;
 
-			Texture depthTex = Shader.GetGlobalTexture(metaDepthTexID);
+			//Texture depthTex = Shader.GetGlobalTexture(metaDepthTexID);
+			arOcclusionManager.TryGetEnvironmentDepthTexture(out Texture envDepthTex);
+
+			int w = 0;
+			int h = 0;
+
+			if (envDepthTex)
+			{
+				w = envDepthTex.width;
+				h = envDepthTex.height;
+
+				switch (envDepthTex.dimension)
+				{
+					case TextureDimension.Tex2DArray:
+						depthTex = envDepthTex;
+						break;
+
+					case TextureDimension.Tex2D:
+					{
+						if (stereoTex == null || w != stereoTex.width || h != stereoTex.height)
+							stereoTex = new RenderTexture(w, h, 0, GraphicsFormat.R16_UNorm, 1)
+							{
+								dimension = TextureDimension.Tex2DArray,
+								volumeDepth = 2,
+								enableRandomWrite = true
+							};
+
+						// for (int s = 0; s < 2; s++)
+						// 	Graphics.CopyTexture(depthTex, 0, 0, stereoTex, s, 0);
+
+						Graphics.Blit(envDepthTex, stereoTex, 0, 0); // slice 0
+						Graphics.Blit(envDepthTex, stereoTex, 0, 1); // slice 1
+
+						depthTex = stereoTex;
+						break;
+					}
+				}
+			}
 
 			DepthAvailable = depthTex != null;
 			if (!DepthAvailable) return;
-
-			int w = depthTex.width;
-			int h = depthTex.height;
 
 			if (normTex == null || normTex.width != w || normTex.height != h)
 			{
@@ -102,10 +157,10 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 				Shader.SetGlobalVector(texSizeID, new Vector2(w, h));
 			}
-			
+
 			Shader.SetGlobalTexture(depthTexID, depthTex);
 
-			Shader.SetGlobalVector(zParamsID, Shader.GetGlobalVector(metaZParamsID));
+			//Shader.SetGlobalVector(zParamsID, Shader.GetGlobalVector(metaZParamsID));
 
 			// create normals from depth
 			normKernel.Set(depthTexID, depthTex);
@@ -114,24 +169,67 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 			Shader.SetGlobalTexture(normTexID, normTex);
 
-			for (int i = 0; i < depthManager.frameDescriptors.Length; i++)
+			if (args.TryGetFovs(out ReadOnlyList<XRFov> fovs))
 			{
-				DepthFrameDesc d = depthManager.frameDescriptors[i];
-
-				XRFov fov = new(
-					d.fovLeftAngleTangent,
-					d.fovRightAngleTangent,
-					d.fovTopAngleTangent,
-					d.fovDownAngleTangent);
-
-				depthFrameFOVs[i] = fov;
-
-				Pose pose = new(d.createPoseLocation, d.createPoseRotation);
-
-				depthFramePoses[i] = pose;
-
-				depthPlanes = new XRNearFarPlanes(d.nearZ, d.farZ);
+				depthFrameFOVs = fovs.ToArray();
 			}
+			else if (mainCam.stereoEnabled)
+			{
+				XRFov left = FovFromProjection(mainCam.GetStereoProjectionMatrix(Camera.StereoscopicEye.Left));
+				XRFov right = FovFromProjection(mainCam.GetStereoProjectionMatrix(Camera.StereoscopicEye.Right));
+				depthFrameFOVs = new[] { left, right };
+			}
+			else
+			{
+				XRFov mono = FovFromProjection(mainCam.projectionMatrix);
+				depthFrameFOVs = new[] { mono, mono };
+			}
+
+			if (args.TryGetPoses(out ReadOnlyList<Pose> poses))
+			{
+				depthFramePoses = poses.ToArray();
+			}
+			else if (mainCam.stereoEnabled)
+			{
+				Matrix4x4 leftInv = mainCam.GetStereoProjectionMatrix(Camera.StereoscopicEye.Left).inverse;
+				Matrix4x4 rightInv = mainCam.GetStereoViewMatrix(Camera.StereoscopicEye.Right).inverse;
+
+				Pose left = new(leftInv.GetPosition(), leftInv.rotation);
+				Pose right = new(rightInv.GetPosition(), rightInv.rotation);
+
+				depthFramePoses = new[] { left, right };
+			}
+			else
+			{
+				Transform t = mainCam.transform;
+				Pose pose = new(t.position, t.rotation);
+				depthFramePoses = new[] { pose, pose };
+			}
+
+			if (!args.TryGetNearFarPlanes(out depthPlanes))
+				depthPlanes = new XRNearFarPlanes(mainCam.nearClipPlane, mainCam.farClipPlane);
+
+			Shader.SetGlobalVector(zParamsID, new Vector4(depthPlanes.nearZ, depthPlanes.farZ, 0, 0));
+
+			// for (int i = 0; i < depthManager.frameDescriptors.Length; i++)
+			// {
+			// 	
+			// 	DepthFrameDesc d = depthManager.frameDescriptors[i];
+			//
+			// 	XRFov fov = new(
+			// 		d.fovLeftAngleTangent,
+			// 		d.fovRightAngleTangent,
+			// 		d.fovTopAngleTangent,
+			// 		d.fovDownAngleTangent);
+			//
+			// 	depthFrameFOVs[i] = fov;
+			//
+			// 	Pose pose = new(d.createPoseLocation, d.createPoseRotation);
+			//
+			// 	depthFramePoses[i] = pose;
+			//
+			// 	depthPlanes = new XRNearFarPlanes(d.nearZ, d.farZ);
+			// }
 
 			// frame.TryGetFovs(out NativeArray<XRFov> nativeFOVs);
 			// nativeFOVs.CopyTo(depthFrameFOVs);
@@ -160,6 +258,16 @@ namespace Anaglyph.XRTemplate.DepthKit
 		}
 
 		private static readonly Vector3 _scalingVector3 = new(1, 1, -1);
+
+		private static XRFov FovFromProjection(Matrix4x4 proj)
+		{
+			float tanRight = (1f + proj.m02) / proj.m00;
+			float tanLeft = (1f + proj.m02) / proj.m00;
+			float tanTop = (1f + proj.m12) / proj.m11;
+			float tanBottom = (1f + proj.m12) / proj.m11;
+
+			return new XRFov(Mathf.Atan(tanLeft), Mathf.Atan(tanRight), Mathf.Atan(tanTop), Mathf.Atan(tanBottom));
+		}
 
 		private static Matrix4x4 CalculateDepthProjMatrix(XRFov fov, XRNearFarPlanes planes)
 		{

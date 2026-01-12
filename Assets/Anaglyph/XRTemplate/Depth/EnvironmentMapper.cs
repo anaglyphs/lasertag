@@ -13,14 +13,16 @@ namespace Anaglyph.XRTemplate
 
 		[SerializeField] private ComputeShader shader = null;
 		[SerializeField] private float metersPerVoxel = 0.1f;
-		[FormerlySerializedAs("dispatchesPerSecond")] [SerializeField] private float frequency = 5f;
+
+		[FormerlySerializedAs("dispatchesPerSecond")] [SerializeField]
+		private float frequency = 5f;
 
 		[SerializeField] private RenderTexture volume;
 
 		private int vWidth => volume.width;
 		private int vHeight => volume.height;
 		private int vDepth => volume.volumeDepth;
-		
+
 		[SerializeField] private float maxEyeDist = 7f;
 		public float MaxEyeDist => maxEyeDist;
 
@@ -39,8 +41,11 @@ namespace Anaglyph.XRTemplate
 
 		private static int depthTexID => DepthKitDriver.depthTexID;
 		private static int normTexID => DepthKitDriver.normTexID;
-		
-		private static int ID(string str) =>  Shader.PropertyToID(str);
+
+		private static int ID(string str)
+		{
+			return Shader.PropertyToID(str);
+		}
 
 		private static readonly int volumeID = ID("volume");
 		private static readonly int raymarchVolumeID = ID("raymarchVolume");
@@ -67,23 +72,23 @@ namespace Anaglyph.XRTemplate
 		{
 			Instance = this;
 		}
-		
+
 		private void Start()
 		{
-			clearKernel = new(shader, "Clear");
+			clearKernel = new ComputeKernel(shader, "Clear");
 			clearKernel.Set(volumeID, volume);
 
-			integrateKernel = new(shader, "Integrate");
+			integrateKernel = new ComputeKernel(shader, "Integrate");
 			integrateKernel.Set(volumeID, volume);
 
-			raymarchKernel = new(shader, "Raymarch");
+			raymarchKernel = new ComputeKernel(shader, "Raymarch");
 			raymarchKernel.Set(raymarchVolumeID, volume);
 
 			shader.SetInts(volumeSizeID, vWidth, vHeight, vDepth);
 			shader.SetFloat(metersPerVoxelID, metersPerVoxel);
 
 			Clear();
-			
+
 			DepthKitDriver.Instance.Updated += OnDepthUpdated;
 		}
 
@@ -97,7 +102,7 @@ namespace Anaglyph.XRTemplate
 			if (!didStart)
 				DepthKitDriver.Instance.Updated += OnDepthUpdated;
 		}
-		
+
 		private void OnDisable()
 		{
 			DepthKitDriver.Instance.Updated -= OnDepthUpdated;
@@ -109,11 +114,11 @@ namespace Anaglyph.XRTemplate
 			if (Time.time < lastUpdateTime + wait) return;
 
 			lastUpdateTime = Time.time;
-			
-			var depthTex = Shader.GetGlobalTexture(depthTexID);
+
+			Texture depthTex = Shader.GetGlobalTexture(depthTexID);
 			if (depthTex == null) return;
 
-			var normTex = Shader.GetGlobalTexture(normTexID);
+			Texture normTex = Shader.GetGlobalTexture(normTexID);
 
 			if (frustumVolume == null)
 			{
@@ -126,16 +131,16 @@ namespace Anaglyph.XRTemplate
 
 			ApplyScan(depthTex, normTex, view, proj);
 		}
-		
-		public void ApplyScan(Texture depthTex, Texture normTex, Matrix4x4 view, Matrix4x4 proj)//, bool useDepthFrame)
+
+		public void ApplyScan(Texture depthTex, Texture normTex, Matrix4x4 view, Matrix4x4 proj) //, bool useDepthFrame)
 		{
-			shader.SetMatrixArray(viewID, new[]{ view, Matrix4x4.zero });
-			shader.SetMatrixArray(projID, new[]{ proj, Matrix4x4.zero });
+			shader.SetMatrixArray(viewID, new[] { view, Matrix4x4.zero });
+			shader.SetMatrixArray(projID, new[] { proj, Matrix4x4.zero });
 
 			shader.SetMatrixArray(viewInvID, new[] { view.inverse, Matrix4x4.zero });
 			shader.SetMatrixArray(projInvID, new[] { proj.inverse, Matrix4x4.zero });
 
-			for(int i = 0; i < PlayerHeads.Count; i++)
+			for (int i = 0; i < PlayerHeads.Count; i++)
 			{
 				Vector3 playerHead = PlayerHeads[i].position;
 				headPositions[i] = playerHead;
@@ -154,7 +159,7 @@ namespace Anaglyph.XRTemplate
 		{
 			if (!DepthKitDriver.DepthAvailable)
 				return;
-			
+
 			Matrix4x4 depthProj = Shader.GetGlobalMatrixArray(DepthKitDriver.projID)[0];
 			FrustumPlanes frustum = depthProj.decomposeProjection;
 			//frustum.zNear = 0.2f;
@@ -162,7 +167,7 @@ namespace Anaglyph.XRTemplate
 
 			List<Vector3> positions = new(200000);
 
-			var f = frustum;
+			FrustumPlanes f = frustum;
 			// slopes 
 			float ls = f.left / f.zNear;
 			float rs = f.right / f.zNear;
@@ -178,14 +183,12 @@ namespace Anaglyph.XRTemplate
 				float yMax = ts * z - metersPerVoxel;
 
 				for (float x = xMin; x < xMax; x += metersPerVoxel)
+				for (float y = yMin; y < yMax; y += metersPerVoxel)
 				{
-					for (float y = yMin; y < yMax; y += metersPerVoxel)
-					{
-						Vector3 v = new Vector3(x, y, -z);
+					Vector3 v = new(x, y, -z);
 
-						if (v.magnitude > minEyeDist && v.magnitude < maxEyeDist)
-							positions.Add(v);
-					}
+					if (v.magnitude > minEyeDist && v.magnitude < maxEyeDist)
+						positions.Add(v);
 				}
 			}
 
@@ -233,9 +236,9 @@ namespace Anaglyph.XRTemplate
 			public RaymarchResult(Ray ray, float distance)
 			{
 				this.ray = ray;
-				this.point = ray.origin + ray.direction * distance;
+				point = ray.origin + ray.direction * distance;
 				this.distance = distance;
-				this.didHit = distance >= 0;
+				didHit = distance >= 0;
 			}
 		}
 
@@ -243,16 +246,13 @@ namespace Anaglyph.XRTemplate
 
 		public async Task<RaymarchResult> RaymarchAsync(Ray ray, float maxDistance)
 		{
-			RaymarchRequest request = new RaymarchRequest(ray, maxDistance);
+			RaymarchRequest request = new(ray, maxDistance);
 			int index = pendingRequests.Count;
 			pendingRequests.Add(request);
 
-			if(currentRaymarchBatch == null)
-			{
-				currentRaymarchBatch = DispatchRaymarches();
-			}
+			if (currentRaymarchBatch == null) currentRaymarchBatch = DispatchRaymarches();
 
-			var data = await currentRaymarchBatch;
+			float[] data = await currentRaymarchBatch;
 			float dist = data[index];
 
 			RaymarchResult result = new(ray, dist);
@@ -276,7 +276,7 @@ namespace Anaglyph.XRTemplate
 
 			raymarchKernel.DispatchGroups(count, 1, 1);
 
-			
+
 			float[] results = new float[count];
 			resultBuffer.GetData(results);
 
