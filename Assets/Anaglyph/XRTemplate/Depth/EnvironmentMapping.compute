@@ -2,7 +2,7 @@
 
 SamplerState linearClampSampler;
 
-RWTexture3D<half> volume; // tsdf
+RWTexture3D<float> volume; // tsdf
 uniform uint3 volumeSize; // dimensions of volume texture
 uniform float metersPerVoxel;
 StructuredBuffer<float3> frustumVolume;
@@ -53,7 +53,6 @@ void Clear(uint3 id : SV_DispatchThreadID)
 	volume[id] = 1;
 }
 
-
 #pragma kernel Integrate
 
 [numthreads(64, 1, 1)]
@@ -84,7 +83,7 @@ void Integrate(uint i : SV_DispatchThreadID)
 	// float normDot = -dot(normalize(eyeToVox), depthNorm);
 	// sDist *= saturate(normDot);
 
-	half sDistNorm = sDist / metersPerVoxel;
+	float sDistNorm = sDist / metersPerVoxel;
 	sDistNorm = min(sDistNorm, 1);
 
 	bool inPlayer = false;
@@ -101,7 +100,7 @@ void Integrate(uint i : SV_DispatchThreadID)
 		}
 	}
 
-	if (sDistNorm > -1 && !inPlayer)// && normDot > MIN_DOT)
+	if (sDistNorm > -1 && !inPlayer) // && normDot > MIN_DOT)
 		volume[id.xyz] = sDistNorm;
 }
 
