@@ -1,44 +1,27 @@
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.XR;
+using UnityEngine.InputSystem;
 
 namespace Anaglyph.XRTemplate
 {
-	public class DeactivateIfControllerDisconnected : MonoBehaviour
+	public class DeactivateIfControllerUntracked : MonoBehaviour
 	{
-		[SerializeField] private InputDeviceCharacteristics deviceCharacteristics;
+		[SerializeField] private InputActionProperty action;
 
 		private void Awake()
 		{
-			InputDevices.deviceConnected += HandleControllerConnection;
-			InputDevices.deviceDisconnected += HandleControllerConnection;
+			action.action.Enable();
+			action.action.performed += OnPerformed;
 		}
 
-		private void Start()
+		private void OnPerformed(InputAction.CallbackContext ctx)
 		{
-			var devices = new List<InputDevice>();
-			var c = deviceCharacteristics;
-			InputDevices.GetDevicesWithCharacteristics(c, devices);
-
-			foreach (InputDevice device in devices)
-			{
-				if (device.isValid)
-					return;
-			}
-
-			gameObject.SetActive(false);
+			bool b = ctx.ReadValueAsButton();
+			gameObject.SetActive(b);
 		}
 
 		private void OnDestroy()
 		{
-			InputDevices.deviceConnected -= HandleControllerConnection;
-			InputDevices.deviceDisconnected -= HandleControllerConnection;
-		}
-
-		private void HandleControllerConnection(InputDevice device)
-		{
-			if (device.characteristics.HasFlag(deviceCharacteristics))
-				gameObject.SetActive(device.isValid);
+			action.action.Disable();
 		}
 	}
 }

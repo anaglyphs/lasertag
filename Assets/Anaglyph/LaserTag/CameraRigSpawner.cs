@@ -1,16 +1,24 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.XR;
 
 namespace Anaglyph.Lasertag
 {
-    public class CameraRigSpawner : MonoBehaviour
-    {
+	[DefaultExecutionOrder(-10000)]
+	public class CameraRigSpawner : MonoBehaviour
+	{
+		[SerializeField] private bool xrSimulationInEditor;
+
 		[SerializeField] private GameObject xrRig;
 		[SerializeField] private GameObject desktopRig;
 
 		private void Awake()
 		{
-			Instantiate(XRSettings.enabled ? xrRig : desktopRig);
+			bool usingXR = XRSettings.enabled;
+#if UNITY_EDITOR
+			usingXR |= xrSimulationInEditor;
+#endif
+			Instantiate(usingXR ? xrRig : desktopRig);
 		}
 	}
 }

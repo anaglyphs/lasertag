@@ -54,13 +54,6 @@
       },
       "hash": "d3b89c847dbcff03d0e318e570785d149238ad80"
     },
-    "com.meta.xr.simulator": {
-      "version": "81.0.0",
-      "depth": 0,
-      "source": "registry",
-      "dependencies": {},
-      "url": "https://packages.unity.com"
-    },
     "com.strikervr.strikersdk": {
       "version": "0.9.0",
       "depth": 0,
@@ -431,6 +424,14 @@
         "com.unity.render-pipelines.core": "17.0.4"
       }
     },
+    "com.unity.xr-content.xr-sim-environments": {
+      "version": "file:../ContentPackages/com.unity.xr-content.xr-sim-environments-2.1.1.tgz",
+      "depth": 0,
+      "source": "local-tarball",
+      "dependencies": {
+        "com.unity.xr.arfoundation": "6.1.0-pre.1"
+      }
+    },
     "com.unity.xr.arfoundation": {
       "version": "6.4.1",
       "depth": 0,
@@ -517,6 +518,15 @@
         "com.unity.xr.management": "4.4.0",
         "com.unity.xr.arfoundation": "6.4.0",
         "com.unity.xr.compositionlayers": "2.2.0"
+      },
+      "url": "https://packages.unity.com"
+    },
+    "com.unity.xr.mock-hmd": {
+      "version": "1.5.0-exp.2",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {
+        "com.unity.xr.management": "4.5.3"
       },
       "url": "https://packages.unity.com"
     },

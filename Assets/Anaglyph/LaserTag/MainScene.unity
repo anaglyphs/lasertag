@@ -500,6 +500,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3500400683029334124, guid: 9e08950dc36ab4e65969d4a32538f215, type: 3}
+      propertyPath: xrSimulationInEditor
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 7473634511844936244, guid: 9e08950dc36ab4e65969d4a32538f215, type: 3}
       propertyPath: m_Name
       value: Rig Spawner
