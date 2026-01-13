@@ -32,6 +32,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 		}
 
 		public static readonly int depthTexID = ID("agDepthTex");
+		public static readonly int rwDepthTexID = ID("agDepthTexRW");
 		public static readonly int texSizeID = ID("agDepthTexSize");
 		public static readonly int normTexID = ID("agDepthNormalTex");
 		public static readonly int rwNormTexID = ID("agDepthNormalTexRW");
@@ -41,11 +42,14 @@ namespace Anaglyph.XRTemplate.DepthKit
 		public static readonly int projInvID = ID("agDepthProjInv");
 		public static readonly int viewID = ID("agDepthView");
 		public static readonly int viewInvID = ID("agDepthViewInv");
+		
+		public static readonly int inputRawMonoDepthID = ID("inputRawMonoDepth");
 
 		public static bool DepthAvailable { get; private set; }
 
 		[SerializeField] private ComputeShader depthNormalCompute = null;
 
+		private ComputeKernel monoRawDepthConvert;
 		private ComputeKernel normKernel;
 
 		private Camera mainCam;
@@ -70,6 +74,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 			arOcclusionManager = FindFirstObjectByType<AROcclusionManager>();
 			arOcclusionManager.frameReceived += OnDepthFrame;
 			normKernel = new ComputeKernel(depthNormalCompute, "DepthNorm");
+			monoRawDepthConvert = new ComputeKernel(depthNormalCompute, "MonoRawDepthToStereo");
 		}
 
 		private void OnDestroy()
@@ -123,13 +128,12 @@ namespace Anaglyph.XRTemplate.DepthKit
 								volumeDepth = 2,
 								enableRandomWrite = true
 							};
-
-						// for (int s = 0; s < 2; s++)
-						// 	Graphics.CopyTexture(depthTex, 0, 0, stereoTex, s, 0);
-
-						Graphics.Blit(envDepthTex, stereoTex, 0, 0); // slice 0
-						Graphics.Blit(envDepthTex, stereoTex, 0, 1); // slice 1
-
+						
+						Shader.SetGlobalVector(zParamsID, new Vector4(mainCam.nearClipPlane, mainCam.farClipPlane, 0, 0));
+						monoRawDepthConvert.Set(rwDepthTexID, stereoTex);
+						monoRawDepthConvert.Set(inputRawMonoDepthID, envDepthTex);
+						monoRawDepthConvert.DispatchGroups(envDepthTex.width, envDepthTex.height);
+						
 						depthTex = stereoTex;
 						break;
 					}
@@ -162,22 +166,22 @@ namespace Anaglyph.XRTemplate.DepthKit
 			normKernel.Set(depthTexID, depthTex);
 			normKernel.Set(rwNormTexID, normTex);
 			normKernel.DispatchGroups(normTex);
-
+			
 			Shader.SetGlobalTexture(normTexID, normTex);
 
 			if (args.TryGetFovs(out ReadOnlyList<XRFov> fovs))
 			{
 				depthFrameFOVs = fovs.ToArray();
 			}
-			else if (mainCam.stereoEnabled)
-			{
-				XRFov left = FovFromProjection(mainCam.GetStereoProjectionMatrix(Camera.StereoscopicEye.Left));
-				XRFov right = FovFromProjection(mainCam.GetStereoProjectionMatrix(Camera.StereoscopicEye.Right));
-				depthFrameFOVs = new[] { left, right };
-			}
+			// else if (mainCam.stereoEnabled)
+			// {
+			// 	XRFov left = FovFromProjection(mainCam.GetStereoProjectionMatrix(Camera.StereoscopicEye.Left));
+			// 	XRFov right = FovFromProjection(mainCam.GetStereoProjectionMatrix(Camera.StereoscopicEye.Right));
+			// 	depthFrameFOVs = new[] { left, right };
+			// }
 			else
 			{
-				XRFov mono = FovFromProjection(GL.GetGPUProjectionMatrix(mainCam.projectionMatrix, false));
+				XRFov mono = FovFromProjection(GL.GetGPUProjectionMatrix(mainCam.projectionMatrix, true));
 				depthFrameFOVs = new[] { mono, mono };
 			}
 
@@ -185,16 +189,16 @@ namespace Anaglyph.XRTemplate.DepthKit
 			{
 				depthFramePoses = poses.ToArray();
 			}
-			else if (mainCam.stereoEnabled)
-			{
-				Matrix4x4 leftInv = mainCam.GetStereoViewMatrix(Camera.StereoscopicEye.Left).inverse;
-				Matrix4x4 rightInv = mainCam.GetStereoViewMatrix(Camera.StereoscopicEye.Right).inverse;
-
-				Pose left = new(leftInv.GetPosition(), leftInv.rotation);
-				Pose right = new(rightInv.GetPosition(), rightInv.rotation);
-
-				depthFramePoses = new[] { left, right };
-			}
+			// else if (mainCam.stereoEnabled)
+			// {
+			// 	Matrix4x4 leftInv = mainCam.GetStereoViewMatrix(Camera.StereoscopicEye.Left).inverse;
+			// 	Matrix4x4 rightInv = mainCam.GetStereoViewMatrix(Camera.StereoscopicEye.Right).inverse;
+			//
+			// 	Pose left = new(leftInv.GetPosition(), leftInv.rotation);
+			// 	Pose right = new(rightInv.GetPosition(), rightInv.rotation);
+			//
+			// 	depthFramePoses = new[] { left, right };
+			// }
 			else
 			{
 				Transform t = mainCam.transform;
@@ -205,7 +209,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 			if (!args.TryGetNearFarPlanes(out depthPlanes))
 				depthPlanes = new XRNearFarPlanes(mainCam.nearClipPlane, mainCam.farClipPlane);
 
-			Shader.SetGlobalVector(zParamsID, new Vector4(depthPlanes.nearZ, depthPlanes.farZ, 0, 0));
+			Shader.SetGlobalVector(zParamsID, new Vector4(depthPlanes.nearZ, mainCam.farClipPlane, 0, 0));
 
 			// for (int i = 0; i < depthManager.frameDescriptors.Length; i++)
 			// {

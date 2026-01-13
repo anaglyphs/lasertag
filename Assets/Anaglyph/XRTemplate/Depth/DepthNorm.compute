@@ -5,6 +5,7 @@ Texture2DArray<float> inputDepthTex;
 RWTexture2DArray<float> agDepthTexRW;
 RWTexture2DArray<float4> agDepthNormalTexRW;
 RWTexture2D<half> agDepthReadback;
+Texture2D<float> inputRawMonoDepth;
 
 int eye = 0;
 
@@ -14,6 +15,18 @@ int eye = 0;
 void DepthCopy(uint3 id : SV_DispatchThreadID)
 {
 	agDepthTexRW[id] = inputDepthTex[id];
+}
+
+#pragma kernel MonoRawDepthToStereo
+
+[numthreads(8, 8, 1)]
+void MonoRawDepthToStereo(uint2 id : SV_DispatchThreadID)
+{
+	float depthMeters = inputRawMonoDepth[id.xy];
+	float deviceZ = saturate((depthMeters - agDepthZParams.x) / (agDepthZParams.y - agDepthZParams.x));
+
+	agDepthTexRW[uint3(id.xy, 0)] = deviceZ;
+	agDepthTexRW[uint3(id.xy, 1)] = deviceZ;
 }
 
 #pragma kernel DepthNorm

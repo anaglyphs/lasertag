@@ -38,7 +38,13 @@ float4 agDepthSampleEdge(float2 uv, int eye = 0)
 float agDepthNDCToLinear(float depthNDC)
 {
 	depthNDC = depthNDC * 2.0 - 1.0;
-	return (1.0f / (depthNDC + agDepthZParams.y)) * agDepthZParams.x;
+	return agDepthZParams.x / (depthNDC + agDepthZParams.y);
+}
+
+float agDepthLinearToNDC(float depthLinear)
+{
+	float ndc = agDepthZParams.x / depthLinear - agDepthZParams.y;
+	return (ndc + 1.0) * 0.5;
 }
 
 float4 agDepthNormalSample(float2 uv, int eye = 0)
