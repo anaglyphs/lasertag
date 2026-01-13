@@ -81,8 +81,8 @@ void Integrate(uint i : SV_DispatchThreadID)
 	float3 depthNorm = agDepthNormalSample(voxNDC.xy);
 
 	float sDist = depthEyeDist - voxEyeDist;
-	float normDot = -dot(normalize(eyeToVox), depthNorm);
-	sDist *= saturate(normDot);
+	// float normDot = -dot(normalize(eyeToVox), depthNorm);
+	// sDist *= saturate(normDot);
 
 	half sDistNorm = sDist / metersPerVoxel;
 	sDistNorm = min(sDistNorm, 1);
@@ -101,7 +101,7 @@ void Integrate(uint i : SV_DispatchThreadID)
 		}
 	}
 
-	if (sDistNorm > -1 && !inPlayer && normDot > MIN_DOT)
+	if (sDistNorm > -1 && !inPlayer)// && normDot > MIN_DOT)
 		volume[id.xyz] = sDistNorm;
 }
 

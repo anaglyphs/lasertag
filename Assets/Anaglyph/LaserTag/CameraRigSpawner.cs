@@ -11,6 +11,7 @@ namespace Anaglyph.Lasertag
 
 		[SerializeField] private GameObject xrRig;
 		[SerializeField] private GameObject desktopRig;
+		[SerializeField] private GameObject simulation;
 
 		private void Awake()
 		{
@@ -19,6 +20,11 @@ namespace Anaglyph.Lasertag
 			usingXR |= xrSimulationInEditor;
 #endif
 			Instantiate(usingXR ? xrRig : desktopRig);
+			
+#if UNITY_EDITOR
+			if (xrSimulationInEditor && !XRSettings.enabled)
+				Instantiate(simulation);
+#endif
 		}
 	}
 }

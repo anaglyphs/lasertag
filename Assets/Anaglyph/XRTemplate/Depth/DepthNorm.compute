@@ -22,11 +22,13 @@ void DepthCopy(uint3 id : SV_DispatchThreadID)
 [numthreads(8, 8, 1)]
 void MonoRawDepthToStereo(uint2 id : SV_DispatchThreadID)
 {
-	float depthMeters = inputRawMonoDepth[id.xy];
-	float deviceZ = saturate((depthMeters - agDepthZParams.x) / (agDepthZParams.y - agDepthZParams.x));
+	const float z = inputRawMonoDepth[id.xy];
+	const float near = agDepthZParams.x;
+	const float far = agDepthZParams.y;
+	const float depth = (far / (far - near)) - (far * near) / ((far - near) * z);
 
-	agDepthTexRW[uint3(id.xy, 0)] = deviceZ;
-	agDepthTexRW[uint3(id.xy, 1)] = deviceZ;
+	agDepthTexRW[uint3(id.xy, 0)] = depth;
+	agDepthTexRW[uint3(id.xy, 1)] = depth;
 }
 
 #pragma kernel DepthNorm
