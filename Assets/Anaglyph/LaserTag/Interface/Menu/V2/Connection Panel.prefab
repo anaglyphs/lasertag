@@ -155,13 +155,13 @@ PrefabInstance:
       addedObject: {fileID: 4913490022328545453}
     - targetCorrespondingSourceObject: {fileID: 2604420449151677833, guid: 93e7a7b5fd0c14143b191416120881c2, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 967872716341417755}
+      addedObject: {fileID: 3242815350022210873}
     - targetCorrespondingSourceObject: {fileID: 2604420449151677833, guid: 93e7a7b5fd0c14143b191416120881c2, type: 3}
       insertIndex: -1
       addedObject: {fileID: 3427382105481054738}
     - targetCorrespondingSourceObject: {fileID: 2604420449151677833, guid: 93e7a7b5fd0c14143b191416120881c2, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 3242815350022210873}
+      addedObject: {fileID: 967872716341417755}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 93e7a7b5fd0c14143b191416120881c2, type: 3}
 --- !u!224 &2719372014248818148 stripped
@@ -432,6 +432,18 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 8386573127325202258}
     m_Modifications:
+    - target: {fileID: 111035476340477064, guid: 6a76ed4572a6f41209e8e419f1a62595, type: 3}
+      propertyPath: m_ContentType
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 111035476340477064, guid: 6a76ed4572a6f41209e8e419f1a62595, type: 3}
+      propertyPath: m_KeyboardType
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 111035476340477064, guid: 6a76ed4572a6f41209e8e419f1a62595, type: 3}
+      propertyPath: m_CharacterValidation
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 125804421244463773, guid: 6a76ed4572a6f41209e8e419f1a62595, type: 3}
       propertyPath: m_Name
       value: tag size (cm)
@@ -2913,7 +2925,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 2496192917937467818, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
       propertyPath: m_Text
-      value: Recalibrate
+      value: Recalibrate Alignment
       objectReference: {fileID: 0}
     - target: {fileID: 7327414094806284449, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
       propertyPath: m_Pivot.x
@@ -2997,7 +3009,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7505427476691352331, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
       propertyPath: m_Name
-      value: Recalibrate
+      value: Recalibrate Alignment
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
