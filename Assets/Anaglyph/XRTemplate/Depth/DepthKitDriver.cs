@@ -31,9 +31,6 @@ namespace Anaglyph.XRTemplate.DepthKit
 			return Shader.PropertyToID(str);
 		}
 
-		// public static readonly int metaDepthTexID = ID("_EnvironmentDepthTexture");
-		// public static readonly int metaZParamsID = ID("_EnvironmentDepthZBufferParams");
-
 		public static readonly int depthTexID = ID("agDepthTex");
 		public static readonly int texSizeID = ID("agDepthTexSize");
 		public static readonly int normTexID = ID("agDepthNormalTex");
@@ -72,7 +69,6 @@ namespace Anaglyph.XRTemplate.DepthKit
 			mainCam = Camera.main;
 			arOcclusionManager = FindFirstObjectByType<AROcclusionManager>();
 			arOcclusionManager.frameReceived += OnDepthFrame;
-			// depthManager = FindFirstObjectByType<EnvironmentDepthManager>();
 			normKernel = new ComputeKernel(depthNormalCompute, "DepthNorm");
 		}
 
@@ -181,7 +177,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 			}
 			else
 			{
-				XRFov mono = FovFromProjection(mainCam.projectionMatrix);
+				XRFov mono = FovFromProjection(GL.GetGPUProjectionMatrix(mainCam.projectionMatrix, false));
 				depthFrameFOVs = new[] { mono, mono };
 			}
 
@@ -191,7 +187,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 			}
 			else if (mainCam.stereoEnabled)
 			{
-				Matrix4x4 leftInv = mainCam.GetStereoProjectionMatrix(Camera.StereoscopicEye.Left).inverse;
+				Matrix4x4 leftInv = mainCam.GetStereoViewMatrix(Camera.StereoscopicEye.Left).inverse;
 				Matrix4x4 rightInv = mainCam.GetStereoViewMatrix(Camera.StereoscopicEye.Right).inverse;
 
 				Pose left = new(leftInv.GetPosition(), leftInv.rotation);

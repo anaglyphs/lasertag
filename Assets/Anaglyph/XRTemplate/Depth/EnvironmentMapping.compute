@@ -1,10 +1,11 @@
 #include "../Depth/DepthKit.hlsl"
 
+SamplerState linearClampSampler;
+
+RWTexture3D<half> volume; // tsdf
 uniform uint3 volumeSize; // dimensions of volume texture
 uniform float metersPerVoxel;
-RWTexture3D<half> volume; // tsdf
 StructuredBuffer<float3> frustumVolume;
-SamplerState linearClampSampler;
 
 int numPlayers;
 float3 playerHeadsWorld[512];
@@ -113,10 +114,10 @@ struct RaymarchRequest
 	float maxDistance;
 };
 
+Texture3D<half> raymarchVolume;
 uint numRaymarchRequests;
 StructuredBuffer<RaymarchRequest> raymarchRequests;
 RWStructuredBuffer<float> raymarchResults;
-Texture3D<half> raymarchVolume;
 
 half raymarchSample(float3 worldPos)
 {

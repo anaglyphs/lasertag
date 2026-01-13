@@ -14,8 +14,7 @@ namespace Anaglyph.XRTemplate
 		[SerializeField] private ComputeShader shader = null;
 		[SerializeField] private float metersPerVoxel = 0.1f;
 
-		[FormerlySerializedAs("dispatchesPerSecond")] [SerializeField]
-		private float frequency = 5f;
+		[SerializeField] private float frequency = 5f;
 
 		[SerializeField] private RenderTexture volume;
 
@@ -48,13 +47,14 @@ namespace Anaglyph.XRTemplate
 		}
 
 		private static readonly int volumeID = ID("volume");
-		private static readonly int raymarchVolumeID = ID("raymarchVolume");
 		private static readonly int volumeSizeID = ID("volumeSize");
 		private static readonly int metersPerVoxelID = ID("metersPerVoxel");
+		private static readonly int frustumVolumeID = ID("frustumVolume");
 
 		private static readonly int numPlayersID = ID("numPlayers");
 		private static readonly int playerHeadsWorldID = ID("playerHeadsWorld");
 
+		private static readonly int raymarchVolumeID = ID("raymarchVolume");
 		private static readonly int numRaymarchRequestsID = ID("numRaymarchRequests");
 		private static readonly int raymarchRequestsID = ID("raymarchRequests");
 		private static readonly int raymarchResultsID = ID("raymarchResults");
@@ -199,7 +199,7 @@ namespace Anaglyph.XRTemplate
 			// lastIntegration = new ComputeBuffer(positions.Count, sizeof())
 
 			frustumVolume.SetData(positions);
-			integrateKernel.Set(nameof(frustumVolume), frustumVolume);
+			integrateKernel.Set(frustumVolumeID, frustumVolume);
 		}
 
 		private void OnDestroy()
