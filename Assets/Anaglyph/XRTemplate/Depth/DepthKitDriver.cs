@@ -41,7 +41,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 		public static readonly int projInvID = ID("agDepthProjInv");
 		public static readonly int viewID = ID("agDepthView");
 		public static readonly int viewInvID = ID("agDepthViewInv");
-		
+
 		public static readonly int inputRawDepthID = ID("inputDepthTex");
 		public static readonly int inputRawMonoDepthID = ID("inputRawMonoDepth");
 
@@ -57,7 +57,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		[SerializeField] private RenderTexture depthTex;
 		[SerializeField] private RenderTexture normTex = null;
-		
+
 		private AROcclusionManager arOcclusionManager = null;
 
 		public event Action Updated = delegate { };
@@ -85,11 +85,12 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		private void OnDepthFrame(AROcclusionFrameEventArgs args)
 		{
-			DepthAvailable = arOcclusionManager.TryGetEnvironmentDepthTexture(out Texture rawDepth);
+			arOcclusionManager.TryGetEnvironmentDepthTexture(out Texture rawDepth);
+			DepthAvailable = rawDepth != null;
 			if (!DepthAvailable) return;
-			
+
 			// populate frame data first
-			if (args.TryGetFovs(out ReadOnlyList<XRFov> fovs) && 
+			if (args.TryGetFovs(out ReadOnlyList<XRFov> fovs) &&
 			    args.TryGetPoses(out ReadOnlyList<Pose> poses) &&
 			    args.TryGetNearFarPlanes(out XRNearFarPlanes depthPlanes))
 			{
@@ -133,31 +134,29 @@ namespace Anaglyph.XRTemplate.DepthKit
 			Shader.SetGlobalMatrixArray(viewID, view);
 			Shader.SetGlobalMatrixArray(viewInvID, viewInv);
 			Shader.SetGlobalVector(zParamsID, planes);
-			
+
 			int w = rawDepth.width;
 			int h = rawDepth.height;
-				
+
 			Shader.SetGlobalVector(texSizeID, new Vector2(w, h));
 
 			if (depthTex == null || w != depthTex.width || h != depthTex.height)
-			{
 				depthTex = new RenderTexture(w, h, 0, GraphicsFormat.R16_UNorm, 1)
 				{
 					dimension = TextureDimension.Tex2DArray,
 					volumeDepth = 2,
 					enableRandomWrite = true
 				};
-			}
 
 			// process depth texture
 			switch (rawDepth.dimension)
 			{
 				case TextureDimension.Tex2DArray:
-					
+
 					depthCopyKernel.Set(rwDepthTexID, depthTex);
 					depthCopyKernel.Set(inputRawDepthID, rawDepth);
 					depthCopyKernel.DispatchGroups(depthTex);
-					
+
 					break;
 
 				case TextureDimension.Tex2D: // probably simulator. reprocess into fake stereo tex array
@@ -167,18 +166,17 @@ namespace Anaglyph.XRTemplate.DepthKit
 					monoRawDepthConvert.DispatchGroups(rawDepth.width, rawDepth.height);
 					break;
 				}
-					
+
 				default:
 					DepthAvailable = false;
 					throw new Exception("Unknown depth format!");
 			}
-			
+
 			Shader.SetGlobalTexture(depthTexID, depthTex);
-			
+
 			// create normals from depth
-			
+
 			if (normTex == null || normTex.width != w || normTex.height != h)
-			{
 				normTex = new RenderTexture(w, h, 0, GraphicsFormat.R8G8B8A8_SNorm, 1)
 				{
 					dimension = TextureDimension.Tex2DArray,
@@ -186,12 +184,11 @@ namespace Anaglyph.XRTemplate.DepthKit
 					useMipMap = false,
 					enableRandomWrite = true
 				};
-			}
-			
+
 			normKernel.Set(depthTexID, depthTex);
 			normKernel.Set(rwNormTexID, normTex);
 			normKernel.DispatchGroups(normTex);
-			
+
 			Shader.SetGlobalTexture(normTexID, normTex);
 
 			Updated.Invoke();

@@ -24,7 +24,7 @@ namespace Anaglyph.Lasertag
 		public bool redDamagedVision = true;
 
 		// todo move this into another component. this really doesn't belong here
-		private OVRPassthroughLayer passthroughLayer;
+		// private OVRPassthroughLayer passthroughLayer;
 		public static MainPlayer Instance { get; private set; }
 
 		public float Health { get; private set; } = MaxHealth;
@@ -42,7 +42,7 @@ namespace Anaglyph.Lasertag
 		{
 			Instance = this;
 
-			passthroughLayer = FindFirstObjectByType<OVRPassthroughLayer>();
+			// passthroughLayer = FindFirstObjectByType<OVRPassthroughLayer>();
 
 			NetcodeManagement.StateChanged += OnNetworkStateChange;
 			MatchReferee.StateChanged += OnMatchStateChange;
@@ -56,9 +56,9 @@ namespace Anaglyph.Lasertag
 			// health
 			if (redDamagedVision)
 			{
-				passthroughLayer.edgeRenderingEnabled = true;
-				var color = Color.Lerp(Color.red, Color.clear, Mathf.Clamp01(Health / MaxHealth));
-				passthroughLayer.edgeColor = color;
+				// passthroughLayer.edgeRenderingEnabled = true;
+				// Color color = Color.Lerp(Color.red, Color.clear, Mathf.Clamp01(Health / MaxHealth));
+				// passthroughLayer.edgeColor = color;
 			}
 			else
 			{
@@ -73,7 +73,7 @@ namespace Anaglyph.Lasertag
 
 			// bases
 			IsInFriendlyBase = false;
-			foreach (var teamBase in Base.AllBases)
+			foreach (Base teamBase in Base.AllBases)
 				if (Geo.PointIsInCylinder(teamBase.transform.position, Base.Radius, 3, headTransform.position))
 				{
 					if (MatchReferee.State != MatchState.Playing || PlayerAvatar.Local.Team == 0)
@@ -87,10 +87,10 @@ namespace Anaglyph.Lasertag
 			// respawn timer
 			if (!IsAlive)
 			{
-				var timeSinceDeath = Time.time - LastDeathTime;
-				var timeCheck = timeSinceDeath > MatchReferee.Settings.respawnSeconds;
+				float timeSinceDeath = Time.time - LastDeathTime;
+				bool timeCheck = timeSinceDeath > MatchReferee.Settings.respawnSeconds;
 
-				var baseCheck = IsInFriendlyBase || !MatchReferee.Settings.respawnInBases;
+				bool baseCheck = IsInFriendlyBase || !MatchReferee.Settings.respawnInBases;
 
 				if (timeCheck && baseCheck)
 					Respawn();
@@ -152,7 +152,7 @@ namespace Anaglyph.Lasertag
 
 		private void SpawnAvatar()
 		{
-			var manager = NetworkManager.Singleton;
+			NetworkManager manager = NetworkManager.Singleton;
 			if (!manager.IsConnectedClient)
 				return;
 
@@ -165,7 +165,7 @@ namespace Anaglyph.Lasertag
 		public void Damage(float damage, ulong damagedBy)
 		{
 			Damaged.Invoke();
-			var mult = MatchReferee.Settings.damageMultiplier;
+			float mult = MatchReferee.Settings.damageMultiplier;
 			if (mult == 0) mult = 1;
 			Health -= damage * mult;
 
@@ -187,13 +187,13 @@ namespace Anaglyph.Lasertag
 
 			Died.Invoke();
 
-			if (PlayerAvatar.All.TryGetValue(killerID, out var killer))
+			if (PlayerAvatar.All.TryGetValue(killerID, out PlayerAvatar killer))
 			{
 				PlayerAvatar.Local.KilledByPlayerRpc(killerID);
 
 				if (MatchReferee.State == MatchState.Playing && killer.Team != PlayerAvatar.Local.Team)
 				{
-					var referee = MatchReferee.Instance;
+					MatchReferee referee = MatchReferee.Instance;
 					referee.ScoreRpc(killer.Team, MatchReferee.Settings.pointsPerKill);
 				}
 			}
@@ -218,8 +218,8 @@ namespace Anaglyph.Lasertag
 
 		private void ClearPassthroughEffects()
 		{
-			passthroughLayer.edgeRenderingEnabled = false;
-			passthroughLayer.edgeColor = Color.clear;
+			// passthroughLayer.edgeRenderingEnabled = false;
+			// passthroughLayer.edgeColor = Color.clear;
 		}
 	}
 }
