@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 4685974481418243677}
   - component: {fileID: 2425337985288985396}
-  - component: {fileID: 5762181672867878454}
   - component: {fileID: 6558156966219747756}
   m_Layer: 0
   m_Name: Left Aim
@@ -129,19 +128,6 @@ MonoBehaviour:
     m_Interactions: 
     m_SingletonActionBindings: []
     m_Flags: 0
---- !u!114 &5762181672867878454
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 603982319059033611}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dd0cf55ed3466f640a7140a406d6dec2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _handedness: 1
 --- !u!114 &6558156966219747756
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -184,7 +170,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1195462185485028878}
   - component: {fileID: 7884688043262769849}
-  - component: {fileID: 3952164600730984232}
   - component: {fileID: 6719567646962728335}
   - component: {fileID: 2653058899222645203}
   m_Layer: 0
@@ -302,19 +287,6 @@ MonoBehaviour:
     m_Interactions: 
     m_SingletonActionBindings: []
     m_Flags: 0
---- !u!114 &3952164600730984232
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1805105538219129093}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dd0cf55ed3466f640a7140a406d6dec2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _handedness: 1
 --- !u!114 &6719567646962728335
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -407,7 +379,6 @@ GameObject:
   m_Component:
   - component: {fileID: 9110444837559371520}
   - component: {fileID: 879537409396232532}
-  - component: {fileID: 3293930238314961448}
   - component: {fileID: 2326071645154085115}
   m_Layer: 0
   m_Name: Right Aim
@@ -526,19 +497,6 @@ MonoBehaviour:
     m_Interactions: 
     m_SingletonActionBindings: []
     m_Flags: 0
---- !u!114 &3293930238314961448
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3320372390444132630}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dd0cf55ed3466f640a7140a406d6dec2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _handedness: 2
 --- !u!114 &2326071645154085115
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -581,7 +539,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1068842471522357230}
   - component: {fileID: 1749718957338282159}
-  - component: {fileID: 2904542931280803632}
   - component: {fileID: 8020841859074900826}
   - component: {fileID: 3232850999001106056}
   m_Layer: 0
@@ -699,19 +656,6 @@ MonoBehaviour:
     m_Interactions: 
     m_SingletonActionBindings: []
     m_Flags: 0
---- !u!114 &2904542931280803632
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3496596133031611796}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dd0cf55ed3466f640a7140a406d6dec2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _handedness: 2
 --- !u!114 &8020841859074900826
 MonoBehaviour:
   m_ObjectHideFlags: 0
