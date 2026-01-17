@@ -651,6 +651,14 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 5708129311068832725}
     m_Modifications:
+    - target: {fileID: 2535879303225498400, guid: ae9b9139235ae4d6c81805cfd8269f93, type: 3}
+      propertyPath: m_Color.g
+      value: 0.7490196
+      objectReference: {fileID: 0}
+    - target: {fileID: 2535879303225498400, guid: ae9b9139235ae4d6c81805cfd8269f93, type: 3}
+      propertyPath: m_Color.r
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 2617744685363544968, guid: ae9b9139235ae4d6c81805cfd8269f93, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -731,9 +739,33 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3600832172794983681, guid: ae9b9139235ae4d6c81805cfd8269f93, type: 3}
+      propertyPath: m_Color.b
+      value: 0.14901961
+      objectReference: {fileID: 0}
+    - target: {fileID: 3600832172794983681, guid: ae9b9139235ae4d6c81805cfd8269f93, type: 3}
+      propertyPath: m_Color.g
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 4995463198307502455, guid: ae9b9139235ae4d6c81805cfd8269f93, type: 3}
       propertyPath: m_Name
       value: Hand HUD
+      objectReference: {fileID: 0}
+    - target: {fileID: 5388102426054336115, guid: ae9b9139235ae4d6c81805cfd8269f93, type: 3}
+      propertyPath: m_Color.b
+      value: 0.14901961
+      objectReference: {fileID: 0}
+    - target: {fileID: 5388102426054336115, guid: ae9b9139235ae4d6c81805cfd8269f93, type: 3}
+      propertyPath: m_Color.g
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8843739364461240122, guid: ae9b9139235ae4d6c81805cfd8269f93, type: 3}
+      propertyPath: m_Color.g
+      value: 0.7490196
+      objectReference: {fileID: 0}
+    - target: {fileID: 8843739364461240122, guid: ae9b9139235ae4d6c81805cfd8269f93, type: 3}
+      propertyPath: m_Color.r
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -923,6 +955,10 @@ PrefabInstance:
       propertyPath: m_ClearFlags
       value: 2
       objectReference: {fileID: 0}
+    - target: {fileID: 5728646336010394143, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
+      propertyPath: m_OcclusionCulling
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 7254734392762225021, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       propertyPath: m_Name
       value: XR Rig
@@ -987,13 +1023,13 @@ PrefabInstance:
       addedObject: {fileID: 5467248365274046325}
     - targetCorrespondingSourceObject: {fileID: 8273645227207553632, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 5849398312846837597}
+      addedObject: {fileID: 2831727208372295353}
     - targetCorrespondingSourceObject: {fileID: 8273645227207553632, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 5464771423311028892}
     - targetCorrespondingSourceObject: {fileID: 8273645227207553632, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 4917844235949779032}
+      addedObject: {fileID: 3601635544139002348}
     - targetCorrespondingSourceObject: {fileID: 1805105538219129093, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 7841718770199961015}
@@ -1153,7 +1189,7 @@ MonoBehaviour:
   m_LightEstimation: 0
   m_FacingDirection: 1
   m_RenderMode: 0
---- !u!114 &5849398312846837597
+--- !u!114 &2831727208372295353
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1164,7 +1200,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 816b289ef451e094f9ae174fb4cf8db0, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Unity.XR.ARFoundation::UnityEngine.XR.ARFoundation.ARCameraBackground
   m_UseCustomMaterial: 0
   m_CustomMaterial: {fileID: 0}
 --- !u!114 &5464771423311028892
@@ -1181,10 +1217,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_HumanSegmentationStencilMode: 0
   m_HumanSegmentationDepthMode: 0
-  m_EnvironmentDepthMode: 1
-  m_EnvironmentDepthTemporalSmoothing: 1
+  m_EnvironmentDepthMode: 3
+  m_EnvironmentDepthTemporalSmoothing: 0
   m_OcclusionPreferenceMode: 0
---- !u!114 &4917844235949779032
+--- !u!114 &3601635544139002348
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1195,10 +1231,10 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3be8fb9835084b3f83d6d0ae1c6bd876, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Unity.XR.ARFoundation::UnityEngine.XR.ARFoundation.ARShaderOcclusion
   m_OcclusionManager: {fileID: 5464771423311028892}
-  m_OcclusionShaderMode: 2
-  m_SoftOcclusionPreprocessShader: {fileID: 4800000, guid: 0ad967c9b039c4c5db35830a2211d12b, type: 3}
+  m_OcclusionShaderMode: 1
+  m_SoftOcclusionPreprocessShader: {fileID: 0}
   m_AROcclusionSources: 1
   m_HandsOcclusionMaterial: {fileID: 0}
 --- !u!4 &5708129311068832725 stripped
@@ -1224,8 +1260,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   depthNormalCompute: {fileID: 7200000, guid: 094ecfc2d2e1d984c9955562fea46b9d, type: 3}
-  depthTex: {fileID: 0}
-  normTex: {fileID: 0}
 --- !u!114 &176498960288544577
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1536,6 +1570,10 @@ PrefabInstance:
     - target: {fileID: 5900662177950860014, guid: 3350b91e8b1d846c38a139d89f08044f, type: 3}
       propertyPath: m_Name
       value: Console Panel
+      objectReference: {fileID: 0}
+    - target: {fileID: 6543249079098212331, guid: 3350b91e8b1d846c38a139d89f08044f, type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7234389740997503913, guid: 3350b91e8b1d846c38a139d89f08044f, type: 3}
       propertyPath: m_Pivot.x

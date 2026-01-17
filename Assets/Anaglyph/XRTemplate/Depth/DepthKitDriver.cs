@@ -198,10 +198,10 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		private static Matrix4x4 CalculateDepthProjMatrix(XRFov fov, XRNearFarPlanes planes)
 		{
-			float left = fov.angleLeft;
-			float right = fov.angleRight;
-			float bottom = fov.angleDown;
-			float top = fov.angleUp;
+			float left = Mathf.Abs(fov.angleLeft);
+			float right = Mathf.Abs(fov.angleRight);
+			float bottom = Mathf.Abs(fov.angleDown);
+			float top = Mathf.Abs(fov.angleUp);
 			float near = planes.nearZ;
 			float far = planes.farZ;
 
