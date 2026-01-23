@@ -180,14 +180,6 @@ MonoBehaviour:
         2}'
     - line: '|   - {fileID: -944628639613478452, guid: 616e1c785ffcdf143b4e0c78a1535fad,
         type: 3}'
-    - line: '|   - {fileID: 11400000, guid: 16192c2774dbdcc4db267dfee3cea44b, type:
-        2}'
-    - line: '|   - {fileID: -5574393724243830966, guid: 568712877a5cd4080a229058df37ed7a,
-        type: 2}'
-    - line: '|   - {fileID: 11400000, guid: 86b4b3f4d648c43ad97869120f622fdd, type:
-        2}'
-    - line: '|   - {fileID: 8308317787786168465, guid: 39eb1620d1ea28241ae4d408867e1b94,
-        type: 2}'
     - line: '|   metroInputSource: 0'
     - line: '|   wsaTransparentSwapchain: 0'
     - line: '|   m_HolographicPauseOnTrackingLoss: 1'
@@ -217,7 +209,7 @@ MonoBehaviour:
     - line: '|     iPhone: 0'
     - line: '|     tvOS: 0'
     - line: '|   overrideDefaultApplicationIdentifier: 1'
-    - line: '|   AndroidBundleVersionCode: 408'
+    - line: '|   AndroidBundleVersionCode: 461'
     - line: '|   AndroidMinSdkVersion: 32'
     - line: '|   AndroidTargetSdkVersion: 32'
     - line: '|   AndroidPreferredInstallLocation: 0'
@@ -885,7 +877,7 @@ MonoBehaviour:
         m_ConnectProfiler: 0
         m_BuildWithDeepProfilingSupport: 0
         m_AllowDebugging: 1
-        m_WaitForManagedDebugger: 1
+        m_WaitForManagedDebugger: 0
         m_ManagedDebuggerFixedPort: 0
         m_ExplicitNullChecks: 0
         m_ExplicitDivideByZeroChecks: 0

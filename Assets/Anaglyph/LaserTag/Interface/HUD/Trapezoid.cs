@@ -4,85 +4,48 @@ using UnityEngine.UI;
 namespace Anaglyph.LaserTag
 {
 	[ExecuteAlways]
-	[RequireComponent(typeof(CanvasRenderer), typeof(RectTransform))]
-	public class Trapezoid : MonoBehaviour
+	[RequireComponent(typeof(RectTransform))]
+	public class Trapezoid : MaskableGraphic
 	{
-		public float slope = 0;
+		[SerializeField] public float slope = 0f;
 
-		private Mesh mesh;
-		private CanvasRenderer cr;
-		private RectTransform rt;
-
-		// Cache data so nothing must be reallocated
-		private Vector3[] verts = new Vector3[4];
-		private Vector2[] uvs = new Vector2[4];
-		private int[] tris = { 0, 1, 2, 2, 3, 0 };
-
-		private Color[] colors =
+		protected override void OnPopulateMesh(VertexHelper vh)
 		{
-			Color.white,
-			Color.white,
-			Color.white,
-			Color.white
-		};
+			vh.Clear();
 
-		private bool initialized = false;
+			Rect rect = rectTransform.rect;
 
-		private void Init()
-		{
-			cr = GetComponent<CanvasRenderer>();
-			rt = GetComponent<RectTransform>();
+			float topOff = rect.yMax * slope;
+			float bottomOff = rect.yMin * slope;
 
-			// UVs once
-			uvs[0] = new Vector2(0, 1);
-			uvs[1] = new Vector2(1, 1);
-			uvs[2] = new Vector2(1, 0);
-			uvs[3] = new Vector2(0, 0);
+			Vector3 v0 = new(rect.xMin - topOff, rect.yMax);
+			Vector3 v1 = new(rect.xMax + topOff, rect.yMax);
+			Vector3 v2 = new(rect.xMax + bottomOff, rect.yMin);
+			Vector3 v3 = new(rect.xMin - bottomOff, rect.yMin);
 
-			mesh = new Mesh
-			{
-				vertices = verts,
-				uv = uvs,
-				triangles = tris,
-				colors = colors
-			};
+			Color32 col = color;
 
-			initialized = true;
+			vh.AddVert(v0, col, new Vector2(0f, 1f));
+			vh.AddVert(v1, col, new Vector2(1f, 1f));
+			vh.AddVert(v2, col, new Vector2(1f, 0f));
+			vh.AddVert(v3, col, new Vector2(0f, 0f));
+
+			vh.AddTriangle(0, 1, 2);
+			vh.AddTriangle(2, 3, 0);
 		}
 
-		private void Awake()
+		protected override void OnRectTransformDimensionsChange()
 		{
-			Init();
-			UpdateShape();
+			base.OnRectTransformDimensionsChange();
+			SetVerticesDirty();
 		}
 
-		private void OnRectTransformDimensionsChange()
+#if UNITY_EDITOR
+		protected override void OnValidate()
 		{
-			if (!initialized)
-				Init();
-			UpdateShape();
+			base.OnValidate();
+			SetVerticesDirty();
 		}
-
-		private void UpdateShape()
-		{
-			var rect = rt.rect;
-
-			// top slope offset
-			var topOff = rect.yMax * slope;
-			var bottomOff = rect.yMin * slope;
-
-			verts[0] = new Vector3(rect.xMin - topOff, rect.yMax);
-			verts[1] = new Vector3(rect.xMax + topOff, rect.yMax);
-			verts[2] = new Vector3(rect.xMax + bottomOff, rect.yMin);
-			verts[3] = new Vector3(rect.xMin - bottomOff, rect.yMin);
-
-			mesh.vertices = verts;
-			mesh.RecalculateBounds();
-
-			cr.SetMesh(mesh);
-			cr.materialCount = 1;
-			cr.SetMaterial(Graphic.defaultGraphicMaterial, 0);
-			cr.SetTexture(null);
-		}
+#endif
 	}
 }

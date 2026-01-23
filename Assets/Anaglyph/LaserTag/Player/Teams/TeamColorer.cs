@@ -13,7 +13,7 @@ namespace Anaglyph.Lasertag
 
 		[SerializeField] private byte defaultTeam;
 		private TeamOwner teamOwner;
-		private Renderer renderer;
+		private new Renderer renderer;
 		private MaterialPropertyBlock propertyBlock;
 		private Graphic graphic;
 
