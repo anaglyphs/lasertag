@@ -77,11 +77,11 @@ void Integrate(uint i : SV_DispatchThreadID)
 	float depthEyeDist = distance(depthPos, eyePos);
 
 	float3 eyeToVox = voxPos - eyePos;
-	float3 depthNorm = agDepthNormalSample(voxNDC.xy);
+	float3 depthNorm = agDepthNormalSample(voxNDC.xy).xyz;
 
 	float sDist = depthEyeDist - voxEyeDist;
-	// float normDot = -dot(normalize(eyeToVox), depthNorm);
-	// sDist *= saturate(normDot);
+	float normDot = -dot(normalize(eyeToVox), depthNorm);
+	sDist *= saturate(normDot);
 
 	float sDistNorm = sDist / metersPerVoxel;
 	sDistNorm = min(sDistNorm, 1);
@@ -100,7 +100,7 @@ void Integrate(uint i : SV_DispatchThreadID)
 		}
 	}
 
-	if (sDistNorm > -1 && !inPlayer) // && normDot > MIN_DOT)
+	if (sDistNorm > -1 && !inPlayer && normDot > MIN_DOT)
 		volume[id.xyz] = sDistNorm;
 }
 
@@ -134,7 +134,7 @@ void Raymarch(uint3 id : SV_DispatchThreadID)
 	if (id.x >= numRaymarchRequests)
 		return;
 
-	const float3 origin = raymarchRequests[id.x].origin;
+	const float3 origin = raymarchRequests[id.x].origin.xyz;
 	const float3 direction = normalize(raymarchRequests[id.x].direction);
 	float maxDist = raymarchRequests[id.x].maxDistance;
 

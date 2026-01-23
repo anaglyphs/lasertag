@@ -5,38 +5,38 @@ using UnityEngine;
 namespace Anaglyph
 {
 	[DefaultExecutionOrder(-50)]
-	public class AudioPool : MonoBehaviour
+	public static class AudioPool
 	{
-		public static AudioPool Instance { get; private set; }
-		[SerializeField] private int initialNumSources = 10;
-		private readonly List<AudioSource> allSources = new();
+		private const int InitSourceCount = 10;
+		private static readonly List<AudioSource> allSources = new();
 
-		private int numPlaying = 0;
-		private int poolIndex = 0;
+		private static int numPlaying = 0;
+		private static int poolIndex = 0;
 
-		private void Awake()
+		[RuntimeInitializeOnLoadMethod]
+		private static void Init()
 		{
-			Instance = this;
-			for (int i = 0; i < initialNumSources; i++) InstantiateNewSource();
+			allSources.Clear();
+			for (int i = 0; i < InitSourceCount; i++) InstantiateNewSource();
 		}
 
-		private void InstantiateNewSource()
+		private static void InstantiateNewSource()
 		{
-			GameObject sourceObj = new($"Source {allSources.Count}");
+			GameObject sourceObj = new($"Audiosource {allSources.Count}");
 			AudioSource source = sourceObj.AddComponent<AudioSource>();
 			source.playOnAwake = false;
 			source.spatialBlend = 1.0f;
 			source.dopplerLevel = 0.0f;
-			source.gameObject.transform.SetParent(transform);
+			source.gameObject.SetActive(false);
 			allSources.Add(source);
 		}
 
 		public static void Play(AudioClip clip, Vector3 pos, float vol = 1)
 		{
-			Instance?._Play(clip, pos, vol);
+			_Play(clip, pos, vol);
 		}
 
-		private async void _Play(AudioClip clip, Vector3 pos, float vol = 1)
+		private static async void _Play(AudioClip clip, Vector3 pos, float vol = 1)
 		{
 			if (numPlaying == allSources.Count)
 			{
@@ -61,11 +61,12 @@ namespace Anaglyph
 			try
 			{
 				numPlaying++;
+				player.gameObject.SetActive(true);
 				player.transform.position = pos;
 				player.PlayOneShot(clip, vol);
 
-				await Awaitable.WaitForSecondsAsync(clip.length, destroyCancellationToken);
-				destroyCancellationToken.ThrowIfCancellationRequested();
+				await Awaitable.WaitForSecondsAsync(clip.length);
+				player.gameObject.SetActive(false);
 
 				numPlaying--;
 			}

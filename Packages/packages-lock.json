@@ -14,20 +14,6 @@
       "dependencies": {},
       "url": "https://package.openupm.com"
     },
-    "com.meta.xr.depthapi": {
-      "version": "https://github.com/oculus-samples/Unity-DepthAPI.git?path=/Packages/com.meta.xr.depthapi",
-      "depth": 0,
-      "source": "git",
-      "dependencies": {},
-      "hash": "11f09e231a903f2be3b429f2eaa4ffc575fa6810"
-    },
-    "com.meta.xr.depthapi.urp": {
-      "version": "https://github.com/oculus-samples/Unity-DepthAPI.git?path=/Packages/com.meta.xr.depthapi.urp",
-      "depth": 0,
-      "source": "git",
-      "dependencies": {},
-      "hash": "11f09e231a903f2be3b429f2eaa4ffc575fa6810"
-    },
     "com.meta.xr.sdk.core": {
       "version": "83.0.1",
       "depth": 0,
@@ -53,7 +39,7 @@
         "com.unity.textmeshpro": "3.0.6",
         "com.unity.ugui": "1.0.0"
       },
-      "hash": "d3b89c847dbcff03d0e318e570785d149238ad80"
+      "hash": "cc87d601514ac9e7000f592bc5ce27ed82ef669f"
     },
     "com.strikervr.strikersdk": {
       "version": "0.9.0",
@@ -72,7 +58,7 @@
       "dependencies": {}
     },
     "com.unity.burst": {
-      "version": "1.8.26",
+      "version": "1.8.27",
       "depth": 1,
       "source": "registry",
       "dependencies": {
@@ -251,7 +237,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.services.authentication": {
-      "version": "3.5.2",
+      "version": "3.6.0",
       "depth": 1,
       "source": "registry",
       "dependencies": {
@@ -414,14 +400,6 @@
         "com.unity.render-pipelines.core": "17.3.0"
       }
     },
-    "com.unity.xr-content.xr-sim-environments": {
-      "version": "file:../ContentPackages/com.unity.xr-content.xr-sim-environments-2.1.1.tgz",
-      "depth": 0,
-      "source": "local-tarball",
-      "dependencies": {
-        "com.unity.xr.arfoundation": "6.1.0-pre.1"
-      }
-    },
     "com.unity.xr.arfoundation": {
       "version": "6.4.1",
       "depth": 0,
@@ -441,7 +419,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.xr.compositionlayers": {
-      "version": "2.2.0",
+      "version": "2.3.0",
       "depth": 1,
       "source": "registry",
       "dependencies": {
@@ -508,15 +486,6 @@
         "com.unity.xr.management": "4.4.0",
         "com.unity.xr.arfoundation": "6.4.0",
         "com.unity.xr.compositionlayers": "2.2.0"
-      },
-      "url": "https://packages.unity.com"
-    },
-    "com.unity.xr.mock-hmd": {
-      "version": "1.5.0-exp.2",
-      "depth": 0,
-      "source": "registry",
-      "dependencies": {
-        "com.unity.xr.management": "4.5.3"
       },
       "url": "https://packages.unity.com"
     },

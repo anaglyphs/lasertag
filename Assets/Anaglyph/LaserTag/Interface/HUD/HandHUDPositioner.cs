@@ -1,6 +1,5 @@
 using Anaglyph.XRTemplate;
 using UnityEngine;
-using UnityEngine.Serialization;
 using UnityEngine.XR;
 
 namespace Anaglyph.Lasertag
