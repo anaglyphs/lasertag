@@ -89,8 +89,6 @@ namespace Anaglyph.Lasertag
 		{
 			bool show = state != MatchState.NotPlaying;
 
-			gameObject.SetActive(show);
-
 			if (show)
 			{
 				MatchSettings settings = MatchReferee.Settings;

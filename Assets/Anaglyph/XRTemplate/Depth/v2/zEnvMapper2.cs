@@ -5,9 +5,9 @@ using UnityEngine.Rendering;
 
 namespace Anaglyph.DepthKit
 {
-	public class EnvMapper2 : MonoBehaviour
+	public class zEnvMapper2 : MonoBehaviour
 	{
-		public EnvMapper2 Instance { get; private set; }
+		public zEnvMapper2 Instance { get; private set; }
 
 		[SerializeField] private ComputeShader comp;
 

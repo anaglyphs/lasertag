@@ -2,8 +2,8 @@ using Anaglyph.XRTemplate.DepthKit;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace Anaglyph.XRTemplate
 {
@@ -12,21 +12,25 @@ namespace Anaglyph.XRTemplate
 		public static EnvironmentMapper Instance { get; private set; }
 
 		[SerializeField] private ComputeShader shader = null;
-		[SerializeField] private float metersPerVoxel = 0.1f;
+		[SerializeField] private float voxSize = 0.1f;
+		public float VoxSize => voxSize;
 
 		[SerializeField] private float frequency = 5f;
 
 		[SerializeField] private RenderTexture volume;
+		public RenderTexture Volume => volume;
 
 		private int vWidth => volume.width;
 		private int vHeight => volume.height;
 		private int vDepth => volume.volumeDepth;
 
-		[SerializeField] private float maxEyeDist = 7f;
-		public float MaxEyeDist => maxEyeDist;
+		public int3 VolDimensions { get; private set; }
 
-		[SerializeField] private float minEyeDist = 1f;
-		public float MinEyeDist => minEyeDist;
+		[SerializeField] private float maxDist = 7f;
+		public float MaxDist => maxDist;
+
+		[SerializeField] private float minDist = 1f;
+		public float MinDist => minDist;
 
 		private ComputeKernel clearKernel;
 		private ComputeKernel integrateKernel;
@@ -71,6 +75,7 @@ namespace Anaglyph.XRTemplate
 		private void Awake()
 		{
 			Instance = this;
+			VolDimensions = new int3(vWidth, vHeight, vDepth);
 		}
 
 		private void Start()
@@ -85,7 +90,7 @@ namespace Anaglyph.XRTemplate
 			raymarchKernel.Set(raymarchVolumeID, volume);
 
 			shader.SetInts(volumeSizeID, vWidth, vHeight, vDepth);
-			shader.SetFloat(metersPerVoxelID, metersPerVoxel);
+			shader.SetFloat(metersPerVoxelID, voxSize);
 
 			Clear();
 
@@ -163,7 +168,7 @@ namespace Anaglyph.XRTemplate
 			Matrix4x4 depthProj = Shader.GetGlobalMatrixArray(DepthKitDriver.projID)[0];
 			FrustumPlanes frustum = depthProj.decomposeProjection;
 			//frustum.zNear = 0.2f;
-			frustum.zFar = maxEyeDist;
+			frustum.zFar = maxDist;
 
 			List<Vector3> positions = new(200000);
 
@@ -174,20 +179,20 @@ namespace Anaglyph.XRTemplate
 			float ts = f.top / f.zNear;
 			float bs = f.bottom / f.zNear;
 
-			for (float z = f.zNear; z < f.zFar; z += metersPerVoxel)
+			for (float z = f.zNear; z < f.zFar; z += voxSize)
 			{
-				float xMin = ls * z + metersPerVoxel;
-				float xMax = rs * z - metersPerVoxel;
+				float xMin = ls * z + voxSize;
+				float xMax = rs * z - voxSize;
 
-				float yMin = bs * z + metersPerVoxel;
-				float yMax = ts * z - metersPerVoxel;
+				float yMin = bs * z + voxSize;
+				float yMax = ts * z - voxSize;
 
-				for (float x = xMin; x < xMax; x += metersPerVoxel)
-				for (float y = yMin; y < yMax; y += metersPerVoxel)
+				for (float x = xMin; x < xMax; x += voxSize)
+				for (float y = yMin; y < yMax; y += voxSize)
 				{
 					Vector3 v = new(x, y, -z);
 
-					if (v.magnitude > minEyeDist && v.magnitude < maxEyeDist)
+					if (v.magnitude > minDist && v.magnitude < maxDist)
 						positions.Add(v);
 				}
 			}

@@ -51,7 +51,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   GlobalObjectIdHash: 341593032
-  InScenePlacedSourceGlobalObjectIdHash: 3184280641
+  InScenePlacedSourceGlobalObjectIdHash: 341593032
   DeferredDespawnTick: 0
   Ownership: 3
   AlwaysReplicateAsRoot: 0
@@ -143,8 +143,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d78354083d4b19b479517e268a4fd2dc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  defaultTextureSize: {x: 960, y: 640}
-  defaultCameraIndex: 1
+  defaultTextureSize: {x: 640, y: 640}
+  camID: 1
 --- !u!114 &8030733127724905774
 MonoBehaviour:
   m_ObjectHideFlags: 0

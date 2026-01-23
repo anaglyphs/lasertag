@@ -1,4 +1,3 @@
-using Anaglyph.XRTemplate;
 using UnityEngine;
 
 namespace Anaglyph.XRTemplate.DepthKit

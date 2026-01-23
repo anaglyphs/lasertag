@@ -1,3 +1,4 @@
+using Anaglyph.XRTemplate;
 using Anaglyph.XRTemplate.SharedSpaces;
 using UnityEngine;
 using VariableObjects;
@@ -12,6 +13,9 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private BoolObject damagedRedVision;
 		[SerializeField] private BoolObject lightEffects;
 		[SerializeField] private BoolObject relay;
+
+		[SerializeField] private BoolObject drawScanMesh;
+		[SerializeField] private BoolObject pauseScanning;
 
 		private void Start()
 		{
@@ -46,6 +50,20 @@ namespace Anaglyph.Lasertag
 			// relay.AddChangeListenerAndCheck(b =>
 			// {
 			// });
+
+			drawScanMesh.AddChangeListenerAndCheck(b =>
+			{
+				int layer = LayerMask.NameToLayer("Chunk");
+				int layerBit = 1 << layer;
+				Camera cam = MainXRRig.Camera;
+
+				if (b)
+					cam.cullingMask |= layerBit;
+				else
+					cam.cullingMask &= ~layerBit;
+			});
+
+			pauseScanning.AddChangeListenerAndCheck(b => { EnvironmentMapper.Instance.enabled = !b; });
 		}
 	}
 }

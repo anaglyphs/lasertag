@@ -126,6 +126,11 @@ namespace Anaglyph.Lasertag.Networking
 			HandleBases();
 		}
 
+		public void OnShot(Bullet.DamageData damageData)
+		{
+			DamageRpc(damageData.damage, damageData.playerID);
+		}
+
 		[Rpc(SendTo.Everyone)]
 		public void DamageRpc(float damage, ulong damagedBy)
 		{

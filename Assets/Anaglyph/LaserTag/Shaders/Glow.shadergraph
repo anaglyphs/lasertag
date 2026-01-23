@@ -63,6 +63,9 @@
         },
         {
             "m_Id": "2cde35179a10449bb1844dbf76834f96"
+        },
+        {
+            "m_Id": "a55af42e5bd94a30826d0d0871763366"
         }
     ],
     "m_GroupDatas": [],
@@ -183,6 +186,20 @@
         {
             "m_OutputSlot": {
                 "m_Node": {
+                    "m_Id": "a55af42e5bd94a30826d0d0871763366"
+                },
+                "m_SlotId": 1
+            },
+            "m_InputSlot": {
+                "m_Node": {
+                    "m_Id": "506fef9242504e95be06b2536a8ddf1b"
+                },
+                "m_SlotId": 1
+            }
+        },
+        {
+            "m_OutputSlot": {
+                "m_Node": {
                     "m_Id": "bcd9fabd99c24fa29709babd6f2c14bb"
                 },
                 "m_SlotId": 0
@@ -206,20 +223,6 @@
                     "m_Id": "86df6a4ffc2f4490876892988121c63d"
                 },
                 "m_SlotId": 0
-            }
-        },
-        {
-            "m_OutputSlot": {
-                "m_Node": {
-                    "m_Id": "f72863cba3864f8fafeb669e9ab3c1ab"
-                },
-                "m_SlotId": 2
-            },
-            "m_InputSlot": {
-                "m_Node": {
-                    "m_Id": "506fef9242504e95be06b2536a8ddf1b"
-                },
-                "m_SlotId": 1
             }
         }
     ],
@@ -354,8 +357,6 @@
     "overrideHLSLDeclaration": true,
     "hlslDeclarationOverride": 3,
     "m_Hidden": false,
-    "m_PerRendererData": false,
-    "m_customAttributes": [],
     "m_Value": {
         "r": 1.0,
         "g": 0.057037077844142917,
@@ -770,9 +771,9 @@
         "m_Expanded": true,
         "m_Position": {
             "serializedVersion": "2",
-            "x": 120.0,
-            "y": 611.0000610351563,
-            "width": 208.00003051757813,
+            "x": 214.00001525878907,
+            "y": 632.5,
+            "width": 207.9999237060547,
             "height": 302.0
         }
     },
@@ -939,6 +940,21 @@
     },
     "m_Labels": [],
     "m_Space": 0
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
+    "m_ObjectId": "77a51e0e62004c208e1e186a0860f0e1",
+    "m_Id": 1,
+    "m_DisplayName": "Out",
+    "m_SlotType": 1,
+    "m_Hidden": false,
+    "m_ShaderOutputName": "Out",
+    "m_StageCapability": 3,
+    "m_Value": 0.0,
+    "m_DefaultValue": 0.0,
+    "m_Labels": []
 }
 
 {
@@ -1447,6 +1463,44 @@
 
 {
     "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.SubGraphNode",
+    "m_ObjectId": "a55af42e5bd94a30826d0d0871763366",
+    "m_Group": {
+        "m_Id": ""
+    },
+    "m_Name": "Voxel Env Occlusion",
+    "m_DrawState": {
+        "m_Expanded": true,
+        "m_Position": {
+            "serializedVersion": "2",
+            "x": -254.00003051757813,
+            "y": 795.0,
+            "width": 208.0,
+            "height": 279.0
+        }
+    },
+    "m_Slots": [
+        {
+            "m_Id": "77a51e0e62004c208e1e186a0860f0e1"
+        }
+    ],
+    "synonyms": [],
+    "m_Precision": 0,
+    "m_PreviewExpanded": false,
+    "m_DismissedVersion": 0,
+    "m_PreviewMode": 0,
+    "m_CustomColors": {
+        "m_SerializableColors": []
+    },
+    "m_SerializedSubGraph": "{\n    \"subGraph\": {\n        \"fileID\": -5475051401550479605,\n        \"guid\": \"60bfc28cb9f164e959073aae831aa593\",\n        \"type\": 3\n    }\n}",
+    "m_PropertyGuids": [],
+    "m_PropertyIds": [],
+    "m_Dropdowns": [],
+    "m_DropdownSelectedEntries": []
+}
+
+{
+    "m_SGVersion": 0,
     "m_Type": "UnityEditor.ShaderGraph.BlockNode",
     "m_ObjectId": "aaaed0fa4b254cb9a794fe3e5e64b4b2",
     "m_Group": {
@@ -1838,14 +1892,14 @@
     "m_Group": {
         "m_Id": ""
     },
-    "m_Name": "OcclusionSubGraph",
+    "m_Name": "Occlusion Sub Graph",
     "m_DrawState": {
         "m_Expanded": true,
         "m_Position": {
             "serializedVersion": "2",
-            "x": -276.0000305175781,
-            "y": 611.0,
-            "width": 304.0,
+            "x": -342.49993896484377,
+            "y": 585.0,
+            "width": 302.9999084472656,
             "height": 95.0
         }
     },

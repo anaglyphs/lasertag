@@ -80,8 +80,11 @@ namespace Anaglyph.XRTemplate.AprilTags
 				if (detector == null)
 					detector = new TagDetector(tex.width, tex.height, 1);
 
-				CameraReader.Intrinsics intrins = cameraReader.HardwareIntrinsics;
-				float fov = 2 * Mathf.Atan(intrins.Resolution.y / 2f / intrins.FocalLength.y);
+				CameraReader.HardwareIntrinsics intrins = cameraReader.Intrinsics;
+
+				// fix for Meta OS v83 reporting wrong camera intrinsics
+				int realResolutionY = intrins.Resolution.x / tex.width * tex.height;
+				float fov = 2 * Mathf.Atan(realResolutionY / 2f / intrins.FocalLength.y);
 				float size = tagSizeMeters;
 
 				FrameTimestamp = cameraReader.TimestampNs * 0.000000001f;
@@ -100,7 +103,6 @@ namespace Anaglyph.XRTemplate.AprilTags
 				Matrix4x4 cameraMat = Matrix4x4.TRS(lensPose.position, lensPose.rotation, Vector3.one);
 				Matrix4x4 cameraRelativeToRig = viewMat * cameraMat;
 				viewMat = MainXRRig.TrackingSpace.localToWorldMatrix * cameraRelativeToRig;
-
 
 				foreach (TagPose pose in detector.DetectedTags)
 				{

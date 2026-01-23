@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Anaglyph.Lasertag.Networking;
+using Anaglyph.XRTemplate;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -124,13 +125,13 @@ namespace Anaglyph.Lasertag
 		{
 			serializer.SerializeValue(ref _settings);
 
-			var _synchronizedState = _state;
+			MatchState _synchronizedState = _state;
 			serializer.SerializeValue(ref _synchronizedState);
 			_ = SetStateLocally(_synchronizedState);
 
 			serializer.SerializeValue(ref _teamScores);
 
-			var timeLeft = GetTimeLeft();
+			float timeLeft = GetTimeLeft();
 			serializer.SerializeValue(ref timeLeft);
 			TimeMatchEnds = Time.time + timeLeft;
 		}
@@ -139,6 +140,9 @@ namespace Anaglyph.Lasertag
 		{
 			_ = SetStateLocally(MatchState.NotPlaying);
 			ResetScoresLocally();
+
+			// clear env mapper on disconnect
+			EnvironmentMapper.Instance.Clear();
 		}
 
 		[Rpc(SendTo.Everyone)]
@@ -166,7 +170,7 @@ namespace Anaglyph.Lasertag
 
 			cancelSrc?.Cancel();
 			cancelSrc = new CancellationTokenSource();
-			var ctn = cancelSrc.Token;
+			CancellationToken ctn = cancelSrc.Token;
 
 			try
 			{
@@ -181,9 +185,9 @@ namespace Anaglyph.Lasertag
 						UpdateTimerText(Settings.timerSeconds);
 						while (State == MatchState.Mustering)
 						{
-							var numPlayersInBase = 0;
+							int numPlayersInBase = 0;
 
-							foreach (var player in PlayerAvatar.All.Values)
+							foreach (PlayerAvatar player in PlayerAvatar.All.Values)
 								if (player.IsInBase)
 									numPlayersInBase++;
 
@@ -212,7 +216,7 @@ namespace Anaglyph.Lasertag
 							{
 								await Awaitable.WaitForSecondsAsync(1, ctn);
 
-								var timeLeft = GetTimeLeft();
+								float timeLeft = GetTimeLeft();
 								UpdateTimerText(timeLeft);
 
 								if (timeLeft <= 0)
@@ -245,8 +249,8 @@ namespace Anaglyph.Lasertag
 
 			if (IsOwner && State == MatchState.Playing)
 			{
-				var canWinByScore = Settings.CheckWinByScore();
-				var isWinningScore = GetTeamScore(team) >= Settings.scoreTarget;
+				bool canWinByScore = Settings.CheckWinByScore();
+				bool isWinningScore = GetTeamScore(team) >= Settings.scoreTarget;
 
 				if (canWinByScore && isWinningScore) EndMatchRpc();
 			}
@@ -283,8 +287,8 @@ namespace Anaglyph.Lasertag
 
 		private void UpdateTimerText(float seconds)
 		{
-			var rounded = Mathf.RoundToInt(seconds);
-			var span = TimeSpan.FromSeconds(rounded);
+			int rounded = Mathf.RoundToInt(seconds);
+			TimeSpan span = TimeSpan.FromSeconds(rounded);
 			TimerTextChanged.Invoke(span.ToString(@"m\:ss"));
 		}
 

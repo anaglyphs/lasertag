@@ -32,6 +32,14 @@ namespace Anaglyph.Lasertag
 		public event Action OnFire = delegate { };
 		public event Action OnCollide = delegate { };
 
+		public struct DamageData
+		{
+			public ulong playerID;
+			public float damage;
+		}
+
+		private DamageData damageData;
+
 		private void Awake()
 		{
 			spawnPoseSync.OnValueChanged += OnSpawnPosChange;
@@ -61,7 +69,8 @@ namespace Anaglyph.Lasertag
 			if (!MainPlayer.Instance)
 				return;
 
-			var result = await EnvironmentMapper.Instance.RaymarchAsync(fireRay, MaxTravelDist);
+			EnvironmentMapper.RaymarchResult result =
+				await EnvironmentMapper.Instance.RaymarchAsync(fireRay, MaxTravelDist);
 			if (NetworkObject.IsSpawned && result.didHit)
 			{
 				if (IsOwner)
@@ -70,10 +79,10 @@ namespace Anaglyph.Lasertag
 				}
 				else
 				{
-					var headPos = MainPlayer.Instance.HeadTransform.position;
-					var hitDistFromHead = Vector3.Distance(headPos, result.point);
+					Vector3 headPos = MainPlayer.Instance.HeadTransform.position;
+					float hitDistFromHead = Vector3.Distance(headPos, result.point);
 
-					if (hitDistFromHead < EnvironmentMapper.Instance.MaxEyeDist)
+					if (hitDistFromHead < EnvironmentMapper.Instance.MaxDist)
 						EnvironmentRaycastRpc(result.distance);
 				}
 			}
@@ -82,7 +91,7 @@ namespace Anaglyph.Lasertag
 		[Rpc(SendTo.Owner)]
 		private void EnvironmentRaycastRpc(float dist)
 		{
-			if (dist > EnvironmentMapper.Instance.MaxEyeDist)
+			if (dist > EnvironmentMapper.Instance.MaxDist)
 				envHitDist = Mathf.Min(envHitDist, dist);
 		}
 
@@ -99,39 +108,48 @@ namespace Anaglyph.Lasertag
 		private void Update()
 		{
 			if (!isAlive) return;
-			
-			var lifeTime = Time.time - spawnedTime;
-			var prevPos = transform.position;
+
+			float lifeTime = Time.time - spawnedTime;
+			Vector3 prevPos = transform.position;
 			travelDist = metersPerSecond * lifeTime;
 
 			transform.position = fireRay.GetPoint(travelDist);
 
 			if (IsOwner)
 			{
-				var didHitEnv = travelDist > envHitDist;
+				bool didHitEnv = travelDist > envHitDist;
 
 				if (didHitEnv)
 					transform.position = fireRay.GetPoint(envHitDist);
 
-				var didHitPhys = Physics.Linecast(prevPos, transform.position, out var physHit,
+				bool didHitPhys = Physics.Linecast(prevPos, transform.position, out RaycastHit physHit,
 					Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
 
 				if (didHitPhys)
 				{
 					HitRpc(physHit.point, physHit.normal);
 
-					var col = physHit.collider;
+					float damage = damageOverDistance.Evaluate(travelDist);
 
-					if (col.CompareTag(Networking.PlayerAvatar.Tag))
+					Collider col = physHit.collider;
+
+					damageData = new DamageData
 					{
-						var av = col.GetComponentInParent<Networking.PlayerAvatar>();
-						var damage = damageOverDistance.Evaluate(travelDist);
-						av.DamageRpc(damage, OwnerClientId);
-					}
+						playerID = OwnerClientId,
+						damage = damage
+					};
+
+					col.transform.root.BroadcastMessage("OnShot", damageData, SendMessageOptions.DontRequireReceiver);
+
+					// if (col.CompareTag(Networking.PlayerAvatar.Tag))
+					// {
+					// 	var av = col.GetComponentInParent<Networking.PlayerAvatar>();
+					// 	av.DamageRpc(damage, OwnerClientId);
+					// }
 				}
 				else if (didHitEnv)
 				{
-					var envHitPoint = fireRay.GetPoint(envHitDist);
+					Vector3 envHitPoint = fireRay.GetPoint(envHitDist);
 					HitRpc(envHitPoint, -transform.forward);
 				}
 			}
@@ -149,7 +167,7 @@ namespace Anaglyph.Lasertag
 
 			// if(IsOwner)
 			// 	NetworkObject.Despawn();
-			
+
 			// commented out to make sure this wasn't the problem
 
 			if (IsOwner)
@@ -159,7 +177,7 @@ namespace Anaglyph.Lasertag
 		private async void DelayedDespawn()
 		{
 			despawnCancelSrc = new CancellationTokenSource();
-			var ctn = despawnCancelSrc.Token;
+			CancellationToken ctn = despawnCancelSrc.Token;
 
 			try
 			{

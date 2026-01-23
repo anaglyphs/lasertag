@@ -14,11 +14,12 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 		private Pose hardwarePose;
 		public Pose HardwarePose => hardwarePose;
 
-		private Intrinsics hardwareIntrinsics;
-		public Intrinsics HardwareIntrinsics => hardwareIntrinsics;
+		private HardwareIntrinsics intrinsics;
+		public HardwareIntrinsics Intrinsics => intrinsics;
 
 		[SerializeField] private Vector2Int defaultTextureSize = new(1280, 960);
-		[SerializeField] private int defaultCameraIndex = 1;
+		[SerializeField] private int camID = 1;
+		public int CamID => camID;
 
 		public event Action DeviceOpened = delegate { };
 		public event Action DeviceClosed = delegate { };
@@ -139,10 +140,10 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 
 		private async Task<bool> CheckPermissions()
 		{
-			if (!await CheckPermission(MetaCameraPermission))
+			if (!await CheckPermission(Permission.Camera))
 				return false;
 
-			if (!await CheckPermission(Permission.Camera))
+			if (!await CheckPermission(MetaCameraPermission))
 				return false;
 
 			return true;
@@ -175,15 +176,15 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 
 		private async Task Configure()
 		{
-			await Configure(defaultCameraIndex, defaultTextureSize.x, defaultTextureSize.y);
+			await Configure(camID, defaultTextureSize.x, defaultTextureSize.y);
 		}
 
 		public async Task Configure(int index, int width, int height)
 		{
-#if UNITY_EDITOR
-			IsConfigured = true;
-			return;
-#endif
+// #if UNITY_EDITOR
+// 			IsConfigured = true;
+// 			return;
+// #endif
 			if (DeviceIsOpen)
 				throw new ConfiguredException("Cannot configure camera while camera is open!");
 
@@ -203,13 +204,22 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 
 			vals = androidInterface.GetCamIntrinsics();
 
-			hardwareIntrinsics = new Intrinsics
+
+			HardwareIntrinsics intrins = new()
 			{
 				FocalLength = new Vector2(vals[0], vals[1]),
 				PrincipalPoint = new Vector2(vals[2], vals[3]),
 				Resolution = new Vector2Int((int)vals[5], (int)vals[6]),
 				Skew = vals[4]
 			};
+
+			Debug.Log($"[Camera Reader] Intrinsics:\n" +
+			          $"Focal Length: {intrins.FocalLength.ToString()}\n" +
+			          $"Resolution: {intrins.Resolution.ToString()}\n" +
+			          $"PrincipalPoint: {intrins.PrincipalPoint.ToString()}\n" +
+			          $"Skew: {intrins.Skew}");
+
+			intrinsics = intrins;
 
 			IsConfigured = true;
 		}
@@ -310,7 +320,7 @@ namespace Anaglyph.XRTemplate.DeviceCameras
 			ImageAvailable.Invoke(texture);
 		}
 
-		public struct Intrinsics
+		public struct HardwareIntrinsics
 		{
 			public Vector2 FocalLength;
 			public Vector2 PrincipalPoint;
