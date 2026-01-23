@@ -1,6 +1,8 @@
+using Anaglyph.DepthKit.Meshing;
 using Anaglyph.XRTemplate;
 using Anaglyph.XRTemplate.SharedSpaces;
 using UnityEngine;
+using UnityEngine.Serialization;
 using VariableObjects;
 
 namespace Anaglyph.Lasertag
@@ -15,7 +17,7 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private BoolObject relay;
 
 		[SerializeField] private BoolObject drawScanMesh;
-		[SerializeField] private BoolObject pauseScanning;
+		[SerializeField] private BoolObject meshScanning;
 
 		private void Start()
 		{
@@ -63,7 +65,7 @@ namespace Anaglyph.Lasertag
 					cam.cullingMask &= ~layerBit;
 			});
 
-			pauseScanning.AddChangeListenerAndCheck(b => { EnvironmentMapper.Instance.enabled = !b; });
+			meshScanning.AddChangeListenerAndCheck(b => { ChunkManager.Instance.enabled = b; });
 		}
 	}
 }

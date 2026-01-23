@@ -21,7 +21,7 @@ namespace Anaglyph.DepthKit.Meshing
 		private readonly Dictionary<int3, MeshChunk> chunks = new();
 		private readonly Queue<int3> updateQueue = new();
 
-		private Camera mainCamera;
+		private Camera cam;
 
 		private readonly Vector3[] frustumCorners = new Vector3[8];
 		private readonly Plane[] frustumPlanes = new Plane[6];
@@ -35,11 +35,10 @@ namespace Anaglyph.DepthKit.Meshing
 
 		private void Start()
 		{
-			if (!XRSettings.enabled)
-				return;
+			if (!MainXRRig.Instance) return;
 
-			mainCamera = Camera.main;
-			mainCamera.CalculateFrustumCorners(FullRect, updateDistance, Eye, frustumCorners);
+			cam = MainXRRig.Camera;
+			cam.CalculateFrustumCorners(FullRect, updateDistance, Eye, frustumCorners);
 
 			UpdateLoop();
 		}
@@ -51,7 +50,7 @@ namespace Anaglyph.DepthKit.Meshing
 
 		private void FixedUpdate()
 		{
-			Transform camTrans = mainCamera.transform;
+			Transform camTrans = cam.transform;
 			float3 boxMin = camTrans.position;
 			float3 boxMax = camTrans.position;
 
@@ -65,7 +64,7 @@ namespace Anaglyph.DepthKit.Meshing
 			int3 chunkCheckMin = (int3)math.floor(boxMin / chunkSize);
 			int3 chunkCheckMax = (int3)math.floor(boxMax / chunkSize);
 
-			GeometryUtility.CalculateFrustumPlanes(mainCamera, frustumPlanes);
+			GeometryUtility.CalculateFrustumPlanes(cam, frustumPlanes);
 
 			for (int x = chunkCheckMin.x; x <= chunkCheckMax.x; x++)
 			for (int y = chunkCheckMin.y; y <= chunkCheckMax.y; y++)

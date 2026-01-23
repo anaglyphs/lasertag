@@ -13,8 +13,6 @@ GameObject:
   - component: {fileID: 2427413909175206865}
   - component: {fileID: 5610405286200268345}
   - component: {fileID: 4388074283598305721}
-  - component: {fileID: 8646929993000886922}
-  - component: {fileID: -1623376209784275036}
   m_Layer: 6
   m_Name: Chunk
   m_TagString: Untagged
@@ -66,7 +64,7 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-      - m_Target: {fileID: 8646929993000886922}
+      - m_Target: {fileID: 0}
         m_TargetAssemblyTypeName: UnityEngine.MeshCollider, UnityEngine
         m_MethodName: set_sharedMesh
         m_Mode: 0
@@ -106,6 +104,8 @@ MeshRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -127,9 +127,11 @@ MeshRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!114 &4388074283598305721
 MonoBehaviour:
@@ -143,56 +145,3 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fa4842e69a6e2df49beed0f58bab5b3e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!64 &8646929993000886922
-MeshCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5707654171926711959}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 5
-  m_Convex: 0
-  m_CookingOptions: 30
-  m_Mesh: {fileID: 0}
---- !u!114 &-1623376209784275036
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5707654171926711959}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bce009f3c9554aa4caeca764c4245fea, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  scriptableVariable: {fileID: 11400000, guid: 0be51d6a91fd1df43a0a1a6d0f0e1fa3, type: 2}
-  onChange:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 8646929993000886922}
-        m_TargetAssemblyTypeName: UnityEngine.MeshCollider, UnityEngine
-        m_MethodName: set_enabled
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-  beforeChange:
-    m_PersistentCalls:
-      m_Calls: []
