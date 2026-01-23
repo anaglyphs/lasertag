@@ -51,8 +51,8 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		private Camera mainCam;
 
-		private RenderTexture depthTex;
-		private RenderTexture normTex;
+		[SerializeField] private RenderTexture depthTex;
+		[SerializeField] private RenderTexture normTex;
 
 		private AROcclusionManager arOcclusionManager;
 
@@ -198,17 +198,23 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		private static Matrix4x4 CalculateDepthProjMatrix(XRFov fov, XRNearFarPlanes planes)
 		{
-			float left = Mathf.Abs(fov.angleLeft);
-			float right = Mathf.Abs(fov.angleRight);
-			float bottom = Mathf.Abs(fov.angleDown);
-			float top = Mathf.Abs(fov.angleUp);
+			float left = fov.angleLeft;
+			float right = fov.angleRight;
+			float bottom = fov.angleDown;
+			float top = fov.angleUp;
+			
+			left = Mathf.Tan(fov.angleLeft);
+			right = Mathf.Tan(fov.angleRight);
+			bottom = Mathf.Tan(fov.angleDown);
+			top = Mathf.Tan(fov.angleUp);
+    
 			float near = planes.nearZ;
 			float far = planes.farZ;
 
-			float x = 2.0F / (right + left);
-			float y = 2.0F / (top + bottom);
-			float a = (right - left) / (right + left);
-			float b = (top - bottom) / (top + bottom);
+			float x = 2.0F / (right - left);
+			float y = 2.0F / (top - bottom);
+			float a = (right + left) / (right - left);
+			float b = (top + bottom) / (top - bottom);
 			float c;
 			float d;
 			if (float.IsInfinity(far))
