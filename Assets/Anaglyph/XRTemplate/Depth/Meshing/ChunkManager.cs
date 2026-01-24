@@ -24,7 +24,7 @@ namespace Anaglyph.DepthKit.Meshing
 		private readonly Dictionary<int3, MeshChunk> chunks = new();
 		private readonly Queue<int3> updateQueue = new();
 
-		private readonly Vector3[] frustumCorners = new Vector3[8];
+		private readonly Vector3[] frustumCorners = new Vector3[4];
 		private readonly Plane[] frustumPlanes = new Plane[6];
 		private static readonly Rect FullRect = new(0, 0, 1, 1);
 
@@ -60,10 +60,28 @@ namespace Anaglyph.DepthKit.Meshing
 			new(1, 1, 1, 1), // top-right-far
 			new(-1, 1, 1, 1) // top-left-far
 		};
+		
+		public static Matrix4x4 WithFiniteFarPlane(Matrix4x4 infiniteProj, float far)
+		{
+			// Recover the near plane from the infinite projection
+			// For an infinite projection: m23 = -2 * near
+			float near = -infiniteProj.m23 * 0.5f;
 
-		private static void GetFrustumCorners(Matrix4x4 projInv, Matrix4x4 viewInv, float farPlane, float near,
-			float far,
-			Vector3[] results)
+			Matrix4x4 proj = infiniteProj;
+
+			// Replace the Z mapping terms with the finite-far equivalents
+			proj.m22 = -(far + near) / (far - near);
+			proj.m23 = -(2f * far * near) / (far - near);
+
+			// These are already correct for a standard perspective matrix,
+			// but we set them explicitly for clarity.
+			proj.m32 = -1f;
+			proj.m33 = 0f;
+
+			return proj;
+		}
+
+		private static void GetFrustumCorners(Matrix4x4 projInv, Matrix4x4 viewInv, Vector3[] results)
 		{
 			// Transform each corner from NDC to world space
 			for (int i = 0; i < 4; i++)
@@ -76,8 +94,7 @@ namespace Anaglyph.DepthKit.Meshing
 					localCorner.z / localCorner.w
 				);
 
-				results[i + 0] = viewInv.MultiplyPoint(farCorner * (near / farPlane));
-				results[i + 4] = viewInv.MultiplyPoint(farCorner * (far / farPlane));
+				results[i + 0] = viewInv.MultiplyPoint(farCorner);
 			}
 		}
 
@@ -85,11 +102,12 @@ namespace Anaglyph.DepthKit.Meshing
 		{
 			DepthKitDriver d = DepthKitDriver.Instance;
 			Matrix4x4 proj = d.GetProjMat();
+			proj = WithFiniteFarPlane(proj, updateDistance);
 			Matrix4x4 projInv = proj.inverse;
 			Matrix4x4 view = d.GetViewMat();
 			Matrix4x4 viewInv = view.inverse;
 
-			GetFrustumCorners(projInv, viewInv, d.Planes.y, 0.01f, updateDistance, frustumCorners);
+			GetFrustumCorners(projInv, viewInv, frustumCorners);
 
 			float3 boxMin = frustumCorners[0];
 			float3 boxMax = frustumCorners[0];
