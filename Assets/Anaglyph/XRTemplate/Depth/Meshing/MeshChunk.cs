@@ -27,7 +27,6 @@ namespace Anaglyph.DepthKit.Meshing
 		private EnvironmentMapper mapper => EnvironmentMapper.Instance;
 
 		private Mesh mesh;
-		private CancellationTokenSource ctkn;
 		public bool dirty;
 
 		private bool isPopulated = false;
@@ -54,11 +53,8 @@ namespace Anaglyph.DepthKit.Meshing
 			return id;
 		}
 
-		public async Task Mesh()
+		public async Task Mesh(CancellationToken ctkn = default)
 		{
-			ctkn?.Cancel();
-			ctkn = new CancellationTokenSource();
-
 			NativeArray<sbyte> volumePiece = default;
 
 			try
@@ -89,7 +85,7 @@ namespace Anaglyph.DepthKit.Meshing
 				if (req.hasError)
 					throw new Exception($"GPU readback error");
 
-				ctkn.Token.ThrowIfCancellationRequested();
+				ctkn.ThrowIfCancellationRequested();
 
 				int sliceSize = size.x * size.y;
 
@@ -110,7 +106,7 @@ namespace Anaglyph.DepthKit.Meshing
 				}
 
 				bool justPopulated = await Mesher.CreateMesh(volumePiece, size, mapper.VoxSize,
-					mesh);
+					mesh, ctkn);
 
 				if (justPopulated && !isPopulated)
 				{
@@ -118,14 +114,11 @@ namespace Anaglyph.DepthKit.Meshing
 					isPopulated = true;
 				}
 			}
-			catch (Exception e)
+			finally
 			{
-				Debug.LogException(e);
+				if (volumePiece.IsCreated) volumePiece.Dispose();
+				dirty = false;
 			}
-
-			if (volumePiece.IsCreated) volumePiece.Dispose();
-
-			dirty = false;
 		}
 
 		[BurstCompile]

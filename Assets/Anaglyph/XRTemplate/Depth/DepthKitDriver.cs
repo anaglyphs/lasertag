@@ -20,6 +20,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 		private readonly Matrix4x4[] viewInv = new Matrix4x4[2];
 
 		private Vector2 planes;
+		public Vector2 Planes => planes;
 
 		private static int ID(string str)
 		{
@@ -57,6 +58,16 @@ namespace Anaglyph.XRTemplate.DepthKit
 		private AROcclusionManager arOcclusionManager;
 
 		public event Action Updated = delegate { };
+
+		public Matrix4x4 GetProjMat(int eye = 0)
+		{
+			return proj[eye];
+		}
+
+		public Matrix4x4 GetViewMat(int eye = 0)
+		{
+			return view[eye];
+		}
 
 		private void Awake()
 		{
@@ -202,12 +213,12 @@ namespace Anaglyph.XRTemplate.DepthKit
 			float right = fov.angleRight;
 			float bottom = fov.angleDown;
 			float top = fov.angleUp;
-			
+
 			left = Mathf.Tan(fov.angleLeft);
 			right = Mathf.Tan(fov.angleRight);
 			bottom = Mathf.Tan(fov.angleDown);
 			top = Mathf.Tan(fov.angleUp);
-    
+
 			float near = planes.nearZ;
 			float far = planes.farZ;
 

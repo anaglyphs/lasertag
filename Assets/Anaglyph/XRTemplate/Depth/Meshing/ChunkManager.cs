@@ -1,5 +1,8 @@
+using System;
 using System.Collections.Generic;
+using System.Threading;
 using Anaglyph.XRTemplate;
+using Anaglyph.XRTemplate.DepthKit;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.XR;
@@ -21,12 +24,11 @@ namespace Anaglyph.DepthKit.Meshing
 		private readonly Dictionary<int3, MeshChunk> chunks = new();
 		private readonly Queue<int3> updateQueue = new();
 
-		private Camera cam;
-
 		private readonly Vector3[] frustumCorners = new Vector3[8];
 		private readonly Plane[] frustumPlanes = new Plane[6];
 		private static readonly Rect FullRect = new(0, 0, 1, 1);
-		private const Camera.MonoOrStereoscopicEye Eye = Camera.MonoOrStereoscopicEye.Left;
+
+		private CancellationTokenSource updateLoopCts;
 
 		private void Awake()
 		{
@@ -35,11 +37,9 @@ namespace Anaglyph.DepthKit.Meshing
 
 		private void Start()
 		{
-			if (!MainXRRig.Instance) return;
+			if (!EnvironmentMapper.Instance) return;
 
-			cam = MainXRRig.Camera;
-			cam.CalculateFrustumCorners(FullRect, updateDistance, Eye, frustumCorners);
-
+			EnvironmentMapper.Instance.Updated += OnDepthUpdate;
 			UpdateLoop();
 		}
 
@@ -48,23 +48,63 @@ namespace Anaglyph.DepthKit.Meshing
 			if (didStart) UpdateLoop();
 		}
 
-		private void FixedUpdate()
+		private void OnDisable()
 		{
-			Transform camTrans = cam.transform;
-			float3 boxMin = camTrans.position;
-			float3 boxMax = camTrans.position;
+			updateLoopCts?.Cancel();
+		}
 
-			foreach (Vector3 t in frustumCorners)
+		private static readonly Vector4[] ndcCorners =
+		{
+			new(-1, -1, 1, 1), // bottom-left-far
+			new(1, -1, 1, 1), // bottom-right-far
+			new(1, 1, 1, 1), // top-right-far
+			new(-1, 1, 1, 1) // top-left-far
+		};
+
+		private static void GetFrustumCorners(Matrix4x4 projInv, Matrix4x4 viewInv, float farPlane, float near,
+			float far,
+			Vector3[] results)
+		{
+			// Transform each corner from NDC to world space
+			for (int i = 0; i < 4; i++)
 			{
-				float3 globalCorner = camTrans.TransformPoint(t);
-				boxMin = math.min(boxMin, globalCorner);
-				boxMax = math.max(boxMax, globalCorner);
+				Vector4 localCorner = projInv * ndcCorners[i];
+
+				Vector3 farCorner = new(
+					localCorner.x / localCorner.w,
+					localCorner.y / localCorner.w,
+					localCorner.z / localCorner.w
+				);
+
+				results[i + 0] = viewInv.MultiplyPoint(farCorner * (near / farPlane));
+				results[i + 4] = viewInv.MultiplyPoint(farCorner * (far / farPlane));
+			}
+		}
+
+		private void OnDepthUpdate()
+		{
+			DepthKitDriver d = DepthKitDriver.Instance;
+			Matrix4x4 proj = d.GetProjMat();
+			Matrix4x4 projInv = proj.inverse;
+			Matrix4x4 view = d.GetViewMat();
+			Matrix4x4 viewInv = view.inverse;
+
+			GetFrustumCorners(projInv, viewInv, d.Planes.y, 0.01f, updateDistance, frustumCorners);
+
+			float3 boxMin = frustumCorners[0];
+			float3 boxMax = frustumCorners[0];
+
+			for (int i = 1; i < frustumCorners.Length; i++)
+			{
+				Vector3 t = frustumCorners[i];
+				boxMin = math.min(boxMin, t);
+				boxMax = math.max(boxMax, t);
 			}
 
 			int3 chunkCheckMin = (int3)math.floor(boxMin / chunkSize);
 			int3 chunkCheckMax = (int3)math.floor(boxMax / chunkSize);
 
-			GeometryUtility.CalculateFrustumPlanes(cam, frustumPlanes);
+			GeometryUtility.CalculateFrustumPlanes(proj * view, frustumPlanes);
 
 			for (int x = chunkCheckMin.x; x <= chunkCheckMax.x; x++)
 			for (int y = chunkCheckMin.y; y <= chunkCheckMax.y; y++)
@@ -92,19 +132,30 @@ namespace Anaglyph.DepthKit.Meshing
 
 		private async void UpdateLoop()
 		{
-			while (enabled)
+			updateLoopCts?.Cancel();
+			updateLoopCts = new CancellationTokenSource();
+
+			CancellationToken ctkn = updateLoopCts.Token;
+
+			try
 			{
-				if (updateQueue.Count > 0)
+				while (enabled)
 				{
-					int3 coord = updateQueue.Dequeue();
+					if (updateQueue.Count > 0)
+					{
+						int3 coord = updateQueue.Dequeue();
 
-					bool foundChunk = chunks.TryGetValue(coord, out MeshChunk chunk);
-					if (!foundChunk) chunk = InstantiateChunk(coord);
+						bool foundChunk = chunks.TryGetValue(coord, out MeshChunk chunk);
+						if (!foundChunk) chunk = InstantiateChunk(coord);
 
-					await chunk.Mesh();
+						await chunk.Mesh(ctkn);
+					}
+
+					await Awaitable.WaitForSecondsAsync(updateFrequency, ctkn);
 				}
-
-				await Awaitable.WaitForSecondsAsync(updateFrequency);
+			}
+			catch (OperationCanceledException _)
+			{
 			}
 		}
 

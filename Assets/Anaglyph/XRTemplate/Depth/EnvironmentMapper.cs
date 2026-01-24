@@ -1,3 +1,4 @@
+using System;
 using Anaglyph.XRTemplate.DepthKit;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -72,6 +73,8 @@ namespace Anaglyph.XRTemplate
 
 		private float lastUpdateTime = 0;
 
+		public event Action Updated = delegate { };
+
 		private void Awake()
 		{
 			Instance = this;
@@ -110,7 +113,8 @@ namespace Anaglyph.XRTemplate
 
 		private void OnDisable()
 		{
-			DepthKitDriver.Instance.Updated -= OnDepthUpdated;
+			if (DepthKitDriver.Instance)
+				DepthKitDriver.Instance.Updated -= OnDepthUpdated;
 		}
 
 		private void OnDepthUpdated()
@@ -135,6 +139,8 @@ namespace Anaglyph.XRTemplate
 			Matrix4x4 proj = Shader.GetGlobalMatrixArray(projID)[0];
 
 			ApplyScan(depthTex, normTex, view, proj);
+
+			Updated.Invoke();
 		}
 
 		public void ApplyScan(Texture depthTex, Texture normTex, Matrix4x4 view, Matrix4x4 proj) //, bool useDepthFrame)
