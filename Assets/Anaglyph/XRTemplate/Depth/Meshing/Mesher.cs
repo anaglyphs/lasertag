@@ -1,4 +1,3 @@
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Unity.Burst;
@@ -44,9 +43,9 @@ namespace Anaglyph.DepthKit
 		private static readonly int3 Y = new(0, 1, 0);
 		private static readonly int3 Z = new(0, 0, 1);
 
-		// todo: cancellation
-		public static async Task<bool> CreateMesh(NativeArray<sbyte> volume, int3 volumeSize, float metersPerVoxel,
-			Mesh mesh, CancellationToken ctkn = default)
+		public static async Task<bool> CreateMesh(
+			NativeArray<sbyte> volume, int3 volumeSize, float metersPerVoxel,
+			Mesh mesh, CancellationToken ctkn = default, float3 offset = default)
 		{
 			bool hasTriangles = false;
 
@@ -59,8 +58,6 @@ namespace Anaglyph.DepthKit
 			int triCountEstimate = vertCountEstimate * 6;
 			NativeList<uint> tris = new(triCountEstimate, Allocator.TempJob);
 
-			JobHandle vertHandle = new(), triHandle = new();
-
 			try
 			{
 				VertexJob vertexMaker = new()
@@ -68,13 +65,14 @@ namespace Anaglyph.DepthKit
 					Volume = volume,
 					VolumeSize = volumeSize,
 					MetersPerVoxel = metersPerVoxel,
+					Offset = offset,
 
 					VertexIndices = vertexIndices,
 					Verts = verts.AsParallelWriter(),
 					VertCoords = vertCoords.AsParallelWriter()
 				};
 
-				vertHandle = vertexMaker.ScheduleParallelByRef(volume.Length, 128, default);
+				JobHandle vertHandle = vertexMaker.ScheduleParallelByRef(volume.Length, 128, default);
 				while (!vertHandle.IsCompleted) await Task.Yield();
 
 				vertHandle.Complete();
@@ -91,7 +89,7 @@ namespace Anaglyph.DepthKit
 					Tris = tris.AsParallelWriter()
 				};
 
-				triHandle = triMaker.ScheduleParallelByRef(vertCoords.Length, 256, vertHandle);
+				JobHandle triHandle = triMaker.ScheduleParallelByRef(vertCoords.Length, 256, vertHandle);
 				while (!triHandle.IsCompleted) await Task.Yield();
 
 				triHandle.Complete();
@@ -114,7 +112,8 @@ namespace Anaglyph.DepthKit
 
 		private static void ApplyToMesh(NativeList<float3> verts, NativeList<uint> tris, Mesh mesh)
 		{
-			const MeshUpdateFlags flags = MeshUpdateFlags.DontNotifyMeshUsers | MeshUpdateFlags.DontRecalculateBounds |
+			const MeshUpdateFlags flags = MeshUpdateFlags.DontNotifyMeshUsers |
+			                              MeshUpdateFlags.DontRecalculateBounds |
 			                              MeshUpdateFlags.DontValidateIndices;
 
 			VertexAttributeDescriptor vad = new(VertexAttribute.Position);
@@ -139,6 +138,7 @@ namespace Anaglyph.DepthKit
 			[ReadOnly] public NativeArray<sbyte> Volume;
 			[ReadOnly] public int3 VolumeSize;
 			[ReadOnly] public float MetersPerVoxel;
+			[ReadOnly] public float3 Offset;
 
 			[WriteOnly] public NativeArray<uint> VertexIndices;
 			[WriteOnly] public NativeList<float3>.ParallelWriter Verts;
@@ -192,14 +192,18 @@ namespace Anaglyph.DepthKit
 
 				if (numCrossings == 0) return;
 
-				float inv = math.rcp(numCrossings);
-				pos *= inv;
+				pos /= numCrossings;
+				pos += Offset;
+
+				// float inv = math.rcp(numCrossings);
+				// pos *= inv;
 
 				UnsafeList<float3>* vertsUnsafe = Verts.ListData;
 				if (vertsUnsafe->m_length >= vertsUnsafe->Capacity) return;
 				int idx = Interlocked.Increment(ref vertsUnsafe->m_length) - 1;
 				if (vertsUnsafe->m_length >= vertsUnsafe->Capacity) return; // capacity exceeded
 				UnsafeUtility.WriteArrayElement(vertsUnsafe->Ptr, idx, pos);
+
 
 				VertCoords.AddNoResize(coord);
 				VertexIndices[threadIdx] = (uint)idx;
@@ -224,7 +228,7 @@ namespace Anaglyph.DepthKit
 
 			private float3 CoordToPos(int3 c)
 			{
-				return (float3)c * MetersPerVoxel;
+				return (float3)c * MetersPerVoxel + MetersPerVoxel;
 			}
 		}
 
@@ -263,36 +267,35 @@ namespace Anaglyph.DepthKit
 				bool negA = va < 0;
 				bool negB = vb < 0;
 
-				if (negA != negB)
+				if (negA == negB) return;
+
+				uint a = VertIndices[ia];
+				uint b = VertIndices[CoordToDataIndex(coord - d1)];
+				uint c = VertIndices[CoordToDataIndex(coord - (d1 + d2))];
+				uint d = VertIndices[CoordToDataIndex(coord - d2)];
+
+				UnsafeList<uint>* trisUnsafe = Tris.ListData;
+				if (trisUnsafe->m_length >= trisUnsafe->Capacity) return;
+				int idx = Interlocked.Add(ref trisUnsafe->m_length, 6) - 6;
+				if (trisUnsafe->m_length >= trisUnsafe->Capacity) return; // capacity exceeded
+
+				if (negA)
 				{
-					uint a = VertIndices[ia];
-					uint b = VertIndices[CoordToDataIndex(coord - d1)];
-					uint c = VertIndices[CoordToDataIndex(coord - (d1 + d2))];
-					uint d = VertIndices[CoordToDataIndex(coord - d2)];
-
-					UnsafeList<uint>* trisUnsafe = Tris.ListData;
-					if (trisUnsafe->m_length >= trisUnsafe->Capacity) return;
-					int idx = Interlocked.Add(ref trisUnsafe->m_length, 6) - 6;
-					if (trisUnsafe->m_length >= trisUnsafe->Capacity) return; // capacity exceeded
-
-					if (negA)
-					{
-						UnsafeUtility.WriteArrayElement(trisUnsafe->Ptr, idx + 0, c);
-						UnsafeUtility.WriteArrayElement(trisUnsafe->Ptr, idx + 1, b);
-						UnsafeUtility.WriteArrayElement(trisUnsafe->Ptr, idx + 2, a);
-						UnsafeUtility.WriteArrayElement(trisUnsafe->Ptr, idx + 3, d);
-						UnsafeUtility.WriteArrayElement(trisUnsafe->Ptr, idx + 4, c);
-						UnsafeUtility.WriteArrayElement(trisUnsafe->Ptr, idx + 5, a);
-					}
-					else
-					{
-						UnsafeUtility.WriteArrayElement(trisUnsafe->Ptr, idx + 0, a);
-						UnsafeUtility.WriteArrayElement(trisUnsafe->Ptr, idx + 1, c);
-						UnsafeUtility.WriteArrayElement(trisUnsafe->Ptr, idx + 2, d);
-						UnsafeUtility.WriteArrayElement(trisUnsafe->Ptr, idx + 3, a);
-						UnsafeUtility.WriteArrayElement(trisUnsafe->Ptr, idx + 4, b);
-						UnsafeUtility.WriteArrayElement(trisUnsafe->Ptr, idx + 5, c);
-					}
+					UnsafeUtility.WriteArrayElement(trisUnsafe->Ptr, idx + 0, c);
+					UnsafeUtility.WriteArrayElement(trisUnsafe->Ptr, idx + 1, b);
+					UnsafeUtility.WriteArrayElement(trisUnsafe->Ptr, idx + 2, a);
+					UnsafeUtility.WriteArrayElement(trisUnsafe->Ptr, idx + 3, d);
+					UnsafeUtility.WriteArrayElement(trisUnsafe->Ptr, idx + 4, c);
+					UnsafeUtility.WriteArrayElement(trisUnsafe->Ptr, idx + 5, a);
+				}
+				else
+				{
+					UnsafeUtility.WriteArrayElement(trisUnsafe->Ptr, idx + 0, a);
+					UnsafeUtility.WriteArrayElement(trisUnsafe->Ptr, idx + 1, c);
+					UnsafeUtility.WriteArrayElement(trisUnsafe->Ptr, idx + 2, d);
+					UnsafeUtility.WriteArrayElement(trisUnsafe->Ptr, idx + 3, a);
+					UnsafeUtility.WriteArrayElement(trisUnsafe->Ptr, idx + 4, b);
+					UnsafeUtility.WriteArrayElement(trisUnsafe->Ptr, idx + 5, c);
 				}
 			}
 

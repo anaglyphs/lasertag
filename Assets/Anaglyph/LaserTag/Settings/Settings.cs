@@ -2,7 +2,6 @@ using Anaglyph.DepthKit.Meshing;
 using Anaglyph.XRTemplate;
 using Anaglyph.XRTemplate.SharedSpaces;
 using UnityEngine;
-using UnityEngine.Serialization;
 using VariableObjects;
 
 namespace Anaglyph.Lasertag
@@ -65,7 +64,11 @@ namespace Anaglyph.Lasertag
 					cam.cullingMask &= ~layerBit;
 			});
 
-			meshScanning.AddChangeListenerAndCheck(b => { ChunkManager.Instance.enabled = b; });
+			meshScanning.AddChangeListenerAndCheck(b =>
+			{
+				if (ChunkManager.Instance)
+					ChunkManager.Instance.enabled = b;
+			});
 		}
 	}
 }

@@ -5,7 +5,6 @@ using Anaglyph.XRTemplate;
 using Anaglyph.XRTemplate.DepthKit;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.XR;
 
 namespace Anaglyph.DepthKit.Meshing
 {
@@ -26,7 +25,6 @@ namespace Anaglyph.DepthKit.Meshing
 
 		private readonly Vector3[] frustumCorners = new Vector3[4];
 		private readonly Plane[] frustumPlanes = new Plane[6];
-		private static readonly Rect FullRect = new(0, 0, 1, 1);
 
 		private CancellationTokenSource updateLoopCts;
 
@@ -40,6 +38,7 @@ namespace Anaglyph.DepthKit.Meshing
 			if (!EnvironmentMapper.Instance) return;
 
 			EnvironmentMapper.Instance.Updated += OnDepthUpdate;
+			EnvironmentMapper.Instance.Cleared += ClearAllChunks;
 			UpdateLoop();
 		}
 
@@ -60,7 +59,7 @@ namespace Anaglyph.DepthKit.Meshing
 			new(1, 1, 1, 1), // top-right-far
 			new(-1, 1, 1, 1) // top-left-far
 		};
-		
+
 		public static Matrix4x4 WithFiniteFarPlane(Matrix4x4 infiniteProj, float far)
 		{
 			// Recover the near plane from the infinite projection
@@ -200,6 +199,15 @@ namespace Anaglyph.DepthKit.Meshing
 		private float3 ChunkCoordToPos(int3 chunkCoord)
 		{
 			return chunkCoord * chunkSize;
+		}
+
+		public void ClearAllChunks()
+		{
+			updateLoopCts?.Cancel();
+			foreach (MeshChunk chunk in chunks.Values) Destroy(chunk.gameObject);
+			chunks.Clear();
+
+			if (enabled) UpdateLoop();
 		}
 	}
 }

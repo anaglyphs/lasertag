@@ -1471,8 +1471,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.XR.ARFoundation::UnityEngine.XR.ARFoundation.ARShaderOcclusion
   m_OcclusionManager: {fileID: 5464771423311028892}
-  m_OcclusionShaderMode: 2
-  m_SoftOcclusionPreprocessShader: {fileID: 4800000, guid: 0ad967c9b039c4c5db35830a2211d12b, type: 3}
+  m_OcclusionShaderMode: 1
+  m_SoftOcclusionPreprocessShader: {fileID: 0}
   m_AROcclusionSources: 1
   m_HandsOcclusionMaterial: {fileID: 0}
 --- !u!114 &4843601947986433743
@@ -1510,6 +1510,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   depthNormalCompute: {fileID: 7200000, guid: 094ecfc2d2e1d984c9955562fea46b9d, type: 3}
+  depthTex: {fileID: 0}
+  normTex: {fileID: 0}
 --- !u!114 &176498960288544577
 MonoBehaviour:
   m_ObjectHideFlags: 0

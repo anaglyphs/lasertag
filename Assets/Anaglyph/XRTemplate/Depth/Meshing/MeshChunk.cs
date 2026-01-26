@@ -9,7 +9,6 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.Rendering;
-using UnityEngine.Serialization;
 
 namespace Anaglyph.DepthKit.Meshing
 {
@@ -105,8 +104,11 @@ namespace Anaglyph.DepthKit.Meshing
 					copier.ScheduleParallelByRef(sliceSize, 16, default).Complete();
 				}
 
+				float3 pos = transform.position;
+				float3 posRemainder = pos % mapper.VoxSize;
+
 				bool justPopulated = await Mesher.CreateMesh(volumePiece, size, mapper.VoxSize,
-					mesh, ctkn);
+					mesh, ctkn, -posRemainder);
 
 				if (justPopulated && !isPopulated)
 				{

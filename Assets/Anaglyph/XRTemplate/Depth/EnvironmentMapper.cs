@@ -74,6 +74,7 @@ namespace Anaglyph.XRTemplate
 		private float lastUpdateTime = 0;
 
 		public event Action Updated = delegate { };
+		public event Action Cleared = delegate { };
 
 		private void Awake()
 		{
@@ -103,6 +104,7 @@ namespace Anaglyph.XRTemplate
 		public void Clear()
 		{
 			clearKernel.DispatchGroups(volume);
+			Cleared.Invoke();
 		}
 
 		private void OnEnable()
