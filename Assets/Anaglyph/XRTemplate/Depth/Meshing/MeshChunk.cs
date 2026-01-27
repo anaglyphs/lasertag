@@ -44,7 +44,7 @@ namespace Anaglyph.DepthKit.Meshing
 
 		private float3 WorldToVoxelFloat(float3 pos)
 		{
-			pos /= mapper.VoxSize;
+			pos /= mapper.VoxelSize;
 			pos += (float3)mapper.VolDimensions / 2.0f;
 			return pos;
 		}
@@ -65,7 +65,7 @@ namespace Anaglyph.DepthKit.Meshing
 			try
 			{
 				int3 start = WorldToVoxel(transform.position);
-				int3 end = start + new int3(extents / mapper.VoxSize);
+				int3 end = start + new int3(extents / mapper.VoxelSize);
 
 				for (int d = 0; d < 3; d++)
 				{
@@ -110,7 +110,7 @@ namespace Anaglyph.DepthKit.Meshing
 					copier.ScheduleParallelByRef(sliceSize, 16, default).Complete();
 				}
 
-				bool justPopulated = await Mesher.CreateMesh(volumePiece, size, mapper.VoxSize,
+				bool justPopulated = await Mesher.CreateMesh(volumePiece, size, mapper.VoxelSize,
 					mesh, ctkn);
 
 				if (justPopulated && !isPopulated)

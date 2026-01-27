@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Anaglyph.XRTemplate
 {
@@ -13,8 +14,10 @@ namespace Anaglyph.XRTemplate
 		public static EnvironmentMapper Instance { get; private set; }
 
 		[SerializeField] private ComputeShader shader = null;
-		[SerializeField] private float voxSize = 0.1f;
-		public float VoxSize => voxSize;
+		[SerializeField] private float voxelSize = 0.1f;
+		public float VoxelSize => voxelSize;
+		[SerializeField] private float voxelDistance = 0.2f;
+		public float VoxelDistance => voxelDistance;
 
 		[SerializeField] private float frequency = 5f;
 
@@ -52,12 +55,13 @@ namespace Anaglyph.XRTemplate
 		}
 
 		private static readonly int volumeID = ID("volume");
-		private static readonly int volumeSizeID = ID("volumeSize");
-		private static readonly int metersPerVoxelID = ID("metersPerVoxel");
+		private static readonly int voxelCountID = ID("voxCount");
+		private static readonly int voxelSizeID = ID("voxSize");
+		private static readonly int voxelDistanceID = ID("voxDist");
 		private static readonly int frustumVolumeID = ID("frustumVolume");
 
 		private static readonly int numPlayersID = ID("numPlayers");
-		private static readonly int playerHeadsWorldID = ID("playerHeadsWorld");
+		private static readonly int playerHeadsWorldID = ID("playerHeads");
 
 		private static readonly int raymarchVolumeID = ID("raymarchVolume");
 		private static readonly int numRaymarchRequestsID = ID("numRaymarchRequests");
@@ -93,8 +97,9 @@ namespace Anaglyph.XRTemplate
 			raymarchKernel = new ComputeKernel(shader, "Raymarch");
 			raymarchKernel.Set(raymarchVolumeID, volume);
 
-			shader.SetInts(volumeSizeID, vWidth, vHeight, vDepth);
-			shader.SetFloat(metersPerVoxelID, voxSize);
+			shader.SetInts(voxelCountID, vWidth, vHeight, vDepth);
+			shader.SetFloat(voxelSizeID, voxelSize);
+			shader.SetFloat(voxelDistanceID, voxelDistance);
 
 			Clear();
 
@@ -187,16 +192,16 @@ namespace Anaglyph.XRTemplate
 			float ts = f.top / f.zNear;
 			float bs = f.bottom / f.zNear;
 
-			for (float z = f.zNear; z < f.zFar; z += voxSize)
+			for (float z = f.zNear; z < f.zFar; z += voxelSize)
 			{
-				float xMin = ls * z + voxSize;
-				float xMax = rs * z - voxSize;
+				float xMin = ls * z + voxelSize;
+				float xMax = rs * z - voxelSize;
 
-				float yMin = bs * z + voxSize;
-				float yMax = ts * z - voxSize;
+				float yMin = bs * z + voxelSize;
+				float yMax = ts * z - voxelSize;
 
-				for (float x = xMin; x < xMax; x += voxSize)
-				for (float y = yMin; y < yMax; y += voxSize)
+				for (float x = xMin; x < xMax; x += voxelSize)
+				for (float y = yMin; y < yMax; y += voxelSize)
 				{
 					Vector3 v = new(x, y, -z);
 

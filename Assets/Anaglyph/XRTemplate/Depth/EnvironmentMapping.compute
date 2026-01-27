@@ -3,12 +3,13 @@
 SamplerState linearClampSampler;
 
 RWTexture3D<float> volume; // tsdf
-uniform uint3 volumeSize; // dimensions of volume texture
-uniform float metersPerVoxel;
+uint3 voxCount; // dimensions of volume texture
+float voxSize;
+float voxDist;
 StructuredBuffer<float3> frustumVolume;
 
 int numPlayers;
-float3 playerHeadsWorld[512];
+float3 playerHeads[512];
 
 #define PLAYER_TOP 0.2
 #define PLAYER_BOTTOM 1.7
@@ -19,16 +20,16 @@ float3 voxelToWorld(uint3 indices)
 {
 	float3 pos = indices;
 	pos += 0.5f; // voxel center
-	pos -= volumeSize / 2.0f;
-	pos *= metersPerVoxel;
+	pos -= voxCount / 2.0f;
+	pos *= voxSize;
 
 	return pos;
 }
 
 float3 worldToVoxelFloat(float3 pos)
 {
-	pos /= metersPerVoxel;
-	pos += (float3)volumeSize / 2.0f;
+	pos /= voxSize;
+	pos += (float3)voxCount / 2.0f;
 	// do not subtract half
 	return pos;
 }
@@ -38,14 +39,14 @@ uint3 worldToVoxel(float3 pos)
 	pos = worldToVoxelFloat(pos);
 
 	uint3 id = uint3(floor(pos));
-	id = clamp(id, 0, volumeSize);
+	id = clamp(id, 0, voxCount);
 	return id;
 }
 
 float3 worldToVoxelUVW(float3 pos)
 {
 	pos = worldToVoxelFloat(pos);
-	pos /= volumeSize;
+	pos /= voxCount;
 
 	return saturate(pos);
 }
@@ -88,14 +89,14 @@ void Integrate(uint i : SV_DispatchThreadID)
 	float normDot = -dot(normalize(eyeToVox), depthNorm);
 	sDist *= saturate(normDot);
 
-	float sDistNorm = sDist / metersPerVoxel;
+	float sDistNorm = sDist / voxDist;
 	sDistNorm = min(sDistNorm, 1);
 
 	bool inPlayer = false;
 
 	for (int i = 0; i < numPlayers; i++)
 	{
-		float3 playerPos = playerHeadsWorld[i];
+		float3 playerPos = playerHeads[i];
 
 		if (distance(vWorldPos.xz, playerPos.xz) < PLAYER_RADIUS &&
 			vWorldPos.y < playerPos.y + PLAYER_TOP &&
@@ -126,7 +127,7 @@ RWStructuredBuffer<float> raymarchResults;
 half raymarchSample(float3 worldPos)
 {
 	float3 uvw = worldToVoxelUVW(worldPos);
-	return raymarchVolume.SampleLevel(linearClampSampler, uvw, 0) * metersPerVoxel;
+	return raymarchVolume.SampleLevel(linearClampSampler, uvw, 0) * voxDist;
 }
 
 #pragma kernel Raymarch
@@ -141,9 +142,9 @@ void Raymarch(uint3 id : SV_DispatchThreadID)
 
 	const float3 origin = raymarchRequests[id.x].origin.xyz;
 	const float3 direction = normalize(raymarchRequests[id.x].direction);
-	float maxDist = raymarchRequests[id.x].maxDistance;
+	float maxRayDist = raymarchRequests[id.x].maxDistance;
 
-	const uint maxSteps = maxDist / metersPerVoxel;
+	const uint maxSteps = maxRayDist / voxDist;
 
 	float dist = 0;
 
