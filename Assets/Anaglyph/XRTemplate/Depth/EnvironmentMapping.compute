@@ -18,7 +18,7 @@ float3 playerHeadsWorld[512];
 float3 voxelToWorld(uint3 indices)
 {
 	float3 pos = indices;
-	pos += 0.5f;
+	pos += 0.5f; // voxel center
 	pos -= volumeSize / 2.0f;
 	pos *= metersPerVoxel;
 
@@ -29,6 +29,7 @@ uint3 worldToVoxel(float3 pos)
 {
 	pos /= metersPerVoxel;
 	pos += volumeSize / 2.0f;
+	pos -= 0.5f;
 
 	uint3 id = uint3(pos);
 	id = clamp(id, 0, volumeSize);

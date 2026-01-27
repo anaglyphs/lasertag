@@ -104,11 +104,8 @@ namespace Anaglyph.DepthKit.Meshing
 					copier.ScheduleParallelByRef(sliceSize, 16, default).Complete();
 				}
 
-				float3 pos = transform.position;
-				float3 posRemainder = pos % mapper.VoxSize;
-
 				bool justPopulated = await Mesher.CreateMesh(volumePiece, size, mapper.VoxSize,
-					mesh, ctkn, -posRemainder);
+					mesh, ctkn);
 
 				if (justPopulated && !isPopulated)
 				{

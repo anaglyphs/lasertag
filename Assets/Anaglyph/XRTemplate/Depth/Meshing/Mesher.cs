@@ -39,6 +39,8 @@ namespace Anaglyph.DepthKit
 			new(0, 1, 1)
 		};
 
+		private const float sbyteMax = sbyte.MaxValue;
+
 		private static readonly int3 X = new(1, 0, 0);
 		private static readonly int3 Y = new(0, 1, 0);
 		private static readonly int3 Z = new(0, 0, 1);
@@ -177,8 +179,8 @@ namespace Anaglyph.DepthKit
 
 					if (crosses)
 					{
-						float fa = va / 127f;
-						float fb = vb / 127f;
+						float fa = va / sbyteMax;
+						float fb = vb / sbyteMax;
 
 						numCrossings++;
 
@@ -193,7 +195,6 @@ namespace Anaglyph.DepthKit
 				if (numCrossings == 0) return;
 
 				pos /= numCrossings;
-				pos += Offset;
 
 				// float inv = math.rcp(numCrossings);
 				// pos *= inv;
@@ -203,7 +204,6 @@ namespace Anaglyph.DepthKit
 				int idx = Interlocked.Increment(ref vertsUnsafe->m_length) - 1;
 				if (vertsUnsafe->m_length >= vertsUnsafe->Capacity) return; // capacity exceeded
 				UnsafeUtility.WriteArrayElement(vertsUnsafe->Ptr, idx, pos);
-
 
 				VertCoords.AddNoResize(coord);
 				VertexIndices[threadIdx] = (uint)idx;
@@ -228,7 +228,7 @@ namespace Anaglyph.DepthKit
 
 			private float3 CoordToPos(int3 c)
 			{
-				return (float3)c * MetersPerVoxel + MetersPerVoxel;
+				return (float3)c * MetersPerVoxel + MetersPerVoxel / 2 + Offset;
 			}
 		}
 
