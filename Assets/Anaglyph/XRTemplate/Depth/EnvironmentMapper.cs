@@ -19,7 +19,7 @@ namespace Anaglyph.XRTemplate
 		[SerializeField] private float voxelDistance = 0.2f;
 		public float VoxelDistance => voxelDistance;
 
-		[SerializeField] private float frequency = 5f;
+		public float frequency = 5f;
 
 		[SerializeField] private RenderTexture volume;
 		public RenderTexture Volume => volume;
@@ -27,13 +27,11 @@ namespace Anaglyph.XRTemplate
 		private int vWidth => volume.width;
 		private int vHeight => volume.height;
 		private int vDepth => volume.volumeDepth;
-
-		public int3 VolDimensions { get; private set; }
+		public int3 VoxelCount { get; private set; }
 
 		[SerializeField] private float maxDist = 7f;
-		public float MaxDist => maxDist;
-
 		[SerializeField] private float minDist = 1f;
+		public float MaxDist => maxDist;
 		public float MinDist => minDist;
 
 		private ComputeKernel clearKernel;
@@ -83,7 +81,7 @@ namespace Anaglyph.XRTemplate
 		private void Awake()
 		{
 			Instance = this;
-			VolDimensions = new int3(vWidth, vHeight, vDepth);
+			VoxelCount = new int3(vWidth, vHeight, vDepth);
 		}
 
 		private void Start()

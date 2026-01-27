@@ -45,7 +45,7 @@ namespace Anaglyph.DepthKit.Meshing
 		private float3 WorldToVoxelFloat(float3 pos)
 		{
 			pos /= mapper.VoxelSize;
-			pos += (float3)mapper.VolDimensions / 2.0f;
+			pos += (float3)mapper.VoxelCount / 2.0f;
 			return pos;
 		}
 
@@ -54,7 +54,7 @@ namespace Anaglyph.DepthKit.Meshing
 			pos = WorldToVoxelFloat(pos);
 
 			int3 id = new(math.floor(pos));
-			id = math.clamp(id, 0, mapper.VolDimensions);
+			id = math.clamp(id, 0, mapper.VoxelCount);
 			return id;
 		}
 
@@ -69,7 +69,7 @@ namespace Anaglyph.DepthKit.Meshing
 
 				for (int d = 0; d < 3; d++)
 				{
-					if (start[d] >= mapper.VolDimensions[d])
+					if (start[d] >= mapper.VoxelCount[d])
 						return;
 
 					if (end[d] <= 0)
@@ -77,7 +77,7 @@ namespace Anaglyph.DepthKit.Meshing
 				}
 
 				start = math.max(start, 0);
-				end = math.min(end, mapper.VolDimensions - 1);
+				end = math.min(end, mapper.VoxelCount - 1);
 
 				int3 size = end - start;
 
