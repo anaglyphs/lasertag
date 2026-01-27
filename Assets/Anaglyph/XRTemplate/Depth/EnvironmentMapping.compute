@@ -25,22 +25,26 @@ float3 voxelToWorld(uint3 indices)
 	return pos;
 }
 
-uint3 worldToVoxel(float3 pos)
+float3 worldToVoxelFloat(float3 pos)
 {
 	pos /= metersPerVoxel;
-	pos += volumeSize / 2.0f;
-	pos -= 0.5f;
+	pos += (float3)volumeSize / 2.0f;
+	// do not subtract half
+	return pos;
+}
 
-	uint3 id = uint3(pos);
+uint3 worldToVoxel(float3 pos)
+{
+	pos = worldToVoxelFloat(pos);
+
+	uint3 id = uint3(floor(pos));
 	id = clamp(id, 0, volumeSize);
 	return id;
 }
 
 float3 worldToVoxelUVW(float3 pos)
 {
-	pos /= metersPerVoxel;
-	pos += volumeSize / 2.0f;
-	pos -= 0.5f;
+	pos = worldToVoxelFloat(pos);
 	pos /= volumeSize;
 
 	return saturate(pos);

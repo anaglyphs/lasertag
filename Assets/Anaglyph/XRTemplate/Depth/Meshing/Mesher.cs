@@ -12,21 +12,21 @@ namespace Anaglyph.DepthKit
 {
 	public static class Mesher
 	{
-		private static readonly byte[] EdgeCornerA =
+		private static readonly byte[] CrnrOffsIdxA =
 		{
 			0, 1, 2, 3,
 			4, 5, 6, 7,
 			0, 1, 2, 3
 		};
 
-		private static readonly byte[] EdgeCornerB =
+		private static readonly byte[] CrnrOffsIdxB =
 		{
 			1, 2, 3, 0,
 			5, 6, 7, 4,
 			4, 5, 6, 7
 		};
 
-		private static readonly int3[] CornerCoords =
+		private static readonly int3[] CornerOffs =
 		{
 			new(0, 0, 0),
 			new(1, 0, 0),
@@ -47,7 +47,7 @@ namespace Anaglyph.DepthKit
 
 		public static async Task<bool> CreateMesh(
 			NativeArray<sbyte> volume, int3 volumeSize, float metersPerVoxel,
-			Mesh mesh, CancellationToken ctkn = default, float3 offset = default)
+			Mesh mesh, CancellationToken ctkn = default)
 		{
 			bool hasTriangles = false;
 
@@ -67,7 +67,6 @@ namespace Anaglyph.DepthKit
 					Volume = volume,
 					VolumeSize = volumeSize,
 					MetersPerVoxel = metersPerVoxel,
-					Offset = offset,
 
 					VertexIndices = vertexIndices,
 					Verts = verts.AsParallelWriter(),
@@ -140,7 +139,6 @@ namespace Anaglyph.DepthKit
 			[ReadOnly] public NativeArray<sbyte> Volume;
 			[ReadOnly] public int3 VolumeSize;
 			[ReadOnly] public float MetersPerVoxel;
-			[ReadOnly] public float3 Offset;
 
 			[WriteOnly] public NativeArray<uint> VertexIndices;
 			[WriteOnly] public NativeList<float3>.ParallelWriter Verts;
@@ -150,54 +148,39 @@ namespace Anaglyph.DepthKit
 			{
 				int3 coord = ThreadIndexToCoord(threadIdx);
 
-				if (coord.x == VolumeSize.x - 1 || coord.y == VolumeSize.y - 1 || coord.z == VolumeSize.z - 1)
+				if (coord.x == VolumeSize.x - 1 ||
+				    coord.y == VolumeSize.y - 1 ||
+				    coord.z == VolumeSize.z - 1)
 					return;
 
-				sbyte* values = stackalloc sbyte[8];
-				float3* positions = stackalloc float3[8];
-
-				for (int i = 0; i < 8; i++)
-				{
-					int3 offs = coord + CornerCoords[i];
-					int dataIndex = CoordToDataIndex(offs);
-					values[i] = Volume[dataIndex];
-					positions[i] = CoordToPos(offs);
-				}
-
-				float3 pos = new();
+				float3 posCoord = new();
 				byte numCrossings = 0;
 
 				for (int i = 0; i < 12; i++)
 				{
-					byte a = EdgeCornerA[i];
-					byte b = EdgeCornerB[i];
+					int3 coordA = coord + CornerOffs[CrnrOffsIdxA[i]];
+					int3 coordB = coord + CornerOffs[CrnrOffsIdxB[i]];
 
-					sbyte va = values[a];
-					sbyte vb = values[b];
+					sbyte valA = Volume[CoordToIndex(coordA)];
+					sbyte valB = Volume[CoordToIndex(coordB)];
 
-					bool crosses = va < 0 != vb < 0;
-
-					if (crosses)
+					bool crossing = valA < 0 != valB < 0;
+					if (crossing)
 					{
-						float fa = va / sbyteMax;
-						float fb = vb / sbyteMax;
-
 						numCrossings++;
 
-						float3 pa = positions[a];
-						float3 pb = positions[b];
-
-						float t = fa / (fa - fb);
-						pos += pa + t * (pb - pa);
+						float fValA = valA / sbyteMax;
+						float fValB = valB / sbyteMax;
+						float t = fValA / (fValA - fValB);
+						posCoord += coordA + t * new float3(coordB - coordA);
 					}
 				}
 
 				if (numCrossings == 0) return;
 
-				pos /= numCrossings;
+				posCoord /= numCrossings;
 
-				// float inv = math.rcp(numCrossings);
-				// pos *= inv;
+				float3 pos = CoordToPos(posCoord);
 
 				UnsafeList<float3>* vertsUnsafe = Verts.ListData;
 				if (vertsUnsafe->m_length >= vertsUnsafe->Capacity) return;
@@ -219,16 +202,15 @@ namespace Anaglyph.DepthKit
 				return c;
 			}
 
-			private int CoordToDataIndex(int3 coord)
+			private int CoordToIndex(int3 c)
 			{
-				int3 c = coord;
 				int3 s = VolumeSize;
 				return c.x + c.y * s.x + c.z * s.x * s.y;
 			}
 
-			private float3 CoordToPos(int3 c)
+			private float3 CoordToPos(float3 c)
 			{
-				return (float3)c * MetersPerVoxel + MetersPerVoxel / 2 + Offset;
+				return c * MetersPerVoxel + MetersPerVoxel / 2f;
 			}
 		}
 

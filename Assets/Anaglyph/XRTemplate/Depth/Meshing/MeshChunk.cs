@@ -12,6 +12,7 @@ using UnityEngine.Rendering;
 
 namespace Anaglyph.DepthKit.Meshing
 {
+	// mesh & chunk origin are at bottom back left origin and extend along positive axiis
 	public class MeshChunk : MonoBehaviour
 	{
 #if UNITY_EDITOR
@@ -41,14 +42,19 @@ namespace Anaglyph.DepthKit.Meshing
 			Destroy(mesh);
 		}
 
+		private float3 WorldToVoxelFloat(float3 pos)
+		{
+			pos /= mapper.VoxSize;
+			pos += (float3)mapper.VolDimensions / 2.0f;
+			return pos;
+		}
+
 		private int3 WorldToVoxel(float3 pos)
 		{
-			int3 volumeSize = mapper.VolDimensions;
-			pos /= mapper.VoxSize;
-			pos += (float3)volumeSize / 2.0f;
+			pos = WorldToVoxelFloat(pos);
 
-			int3 id = new(pos);
-			id = math.clamp(id, 0, volumeSize);
+			int3 id = new(math.floor(pos));
+			id = math.clamp(id, 0, mapper.VolDimensions);
 			return id;
 		}
 
@@ -59,7 +65,7 @@ namespace Anaglyph.DepthKit.Meshing
 			try
 			{
 				int3 start = WorldToVoxel(transform.position);
-				int3 end = start + new int3(extents / mapper.VoxSize) + 1;
+				int3 end = start + new int3(extents / mapper.VoxSize);
 
 				for (int d = 0; d < 3; d++)
 				{
