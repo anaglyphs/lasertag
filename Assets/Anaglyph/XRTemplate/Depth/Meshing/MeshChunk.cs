@@ -110,7 +110,7 @@ namespace Anaglyph.DepthKit.Meshing
 					copier.ScheduleParallelByRef(sliceSize, 16, default).Complete();
 				}
 
-				bool justPopulated = await Mesher.CreateMesh(volumePiece, size, mapper.VoxelSize,
+				bool justPopulated = await NetMesher.CreateMesh(volumePiece, size, mapper.VoxelSize,
 					mesh, ctkn);
 
 				if (justPopulated && !isPopulated)

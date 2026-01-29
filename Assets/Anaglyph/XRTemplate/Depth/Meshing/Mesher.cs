@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Unity.Burst;
@@ -10,7 +11,7 @@ using UnityEngine.Rendering;
 
 namespace Anaglyph.DepthKit
 {
-	public static class Mesher
+	public static class NetMesher
 	{
 		private static readonly byte[] CrnrOffsIdxA =
 		{
@@ -52,7 +53,7 @@ namespace Anaglyph.DepthKit
 			bool hasTriangles = false;
 
 			int vertCountEstimate = volume.Length / 3;
-			NativeList<float3> verts = new(vertCountEstimate, Allocator.TempJob);
+			NativeList<Vertex> verts = new(vertCountEstimate, Allocator.TempJob);
 			NativeList<int3> vertCoords = new(vertCountEstimate, Allocator.TempJob);
 
 			NativeArray<uint> vertexIndices = new(volume.Length, Allocator.TempJob);
@@ -65,15 +66,15 @@ namespace Anaglyph.DepthKit
 				VertexJob vertexMaker = new()
 				{
 					Volume = volume,
-					VolumeSize = volumeSize,
-					MetersPerVoxel = metersPerVoxel,
+					VoxelCount = volumeSize,
+					VoxelSize = metersPerVoxel,
 
-					VertexIndices = vertexIndices,
-					Verts = verts.AsParallelWriter(),
-					VertCoords = vertCoords.AsParallelWriter()
+					VertIndices = vertexIndices,
+					Verts = verts, //.AsParallelWriter(),
+					VertCoords = vertCoords //.AsParallelWriter()
 				};
 
-				JobHandle vertHandle = vertexMaker.ScheduleParallelByRef(volume.Length, 128, default);
+				JobHandle vertHandle = vertexMaker.Schedule(); // .ScheduleParallelByRef(volume.Length, 128, default);
 				while (!vertHandle.IsCompleted) await Task.Yield();
 
 				vertHandle.Complete();
@@ -87,10 +88,10 @@ namespace Anaglyph.DepthKit
 					Volume = volume,
 					VolumeSize = volumeSize,
 
-					Tris = tris.AsParallelWriter()
+					Tris = tris //.AsParallelWriter()
 				};
 
-				JobHandle triHandle = triMaker.ScheduleParallelByRef(vertCoords.Length, 256, vertHandle);
+				JobHandle triHandle = triMaker.Schedule(); //.ScheduleParallelByRef(vertCoords.Length, 256, vertHandle);
 				while (!triHandle.IsCompleted) await Task.Yield();
 
 				triHandle.Complete();
@@ -111,29 +112,139 @@ namespace Anaglyph.DepthKit
 			return hasTriangles;
 		}
 
-		private static void ApplyToMesh(NativeList<float3> verts, NativeList<uint> tris, Mesh mesh)
+		private static void ApplyToMesh(NativeArray<Vertex> verts, NativeArray<uint> tris,
+			Mesh mesh)
 		{
 			const MeshUpdateFlags flags = MeshUpdateFlags.DontNotifyMeshUsers |
 			                              MeshUpdateFlags.DontRecalculateBounds |
 			                              MeshUpdateFlags.DontValidateIndices;
 
-			VertexAttributeDescriptor vad = new(VertexAttribute.Position);
-			mesh.SetVertexBufferParams(verts.Length, vad);
-			mesh.SetVertexBufferData(verts.AsArray(), 0, 0, verts.Length, 0, flags);
+			mesh.SetVertexBufferParams(verts.Length, Vertex.Layout);
+			mesh.SetVertexBufferData(verts, 0, 0, verts.Length, 0, flags);
 
 			mesh.SetIndexBufferParams(tris.Length, IndexFormat.UInt32);
-			mesh.SetIndexBufferData(tris.AsArray(), 0, 0, tris.Length, flags);
+			mesh.SetIndexBufferData(tris, 0, 0, tris.Length, flags);
 
 			mesh.subMeshCount = 1;
 			SubMeshDescriptor smd = new(0, tris.Length);
 			mesh.SetSubMesh(0, smd);
 
-			mesh.RecalculateNormals(flags);
+			// mesh.RecalculateNormals(flags);
 
 			mesh.RecalculateBounds();
 		}
 
+		[System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+		public struct Vertex
+		{
+			public Vertex(float3 position, float3 normal)
+			{
+				pos = position;
+				norm = normal;
+			}
+
+			public float3 pos;
+			public float3 norm;
+
+			public static readonly VertexAttributeDescriptor[] Layout =
+			{
+				new(VertexAttribute.Position),
+				new(VertexAttribute.Normal)
+			};
+		}
+
 		[BurstCompile]
+		private struct VertexJob : IJob
+		{
+			[ReadOnly] public NativeArray<sbyte> Volume;
+			[ReadOnly] public int3 VoxelCount;
+			[ReadOnly] public float VoxelSize;
+
+			[WriteOnly] public NativeArray<uint> VertIndices;
+			public NativeList<Vertex> Verts;
+			public NativeList<int3> VertCoords;
+
+			public void Execute()
+			{
+				int voxelCount = VoxelCount.x * VoxelCount.y * VoxelCount.z;
+
+				for (int i = 0; i < voxelCount; i++)
+				{
+					int3 coord = IndexToCoord(i);
+
+					if (coord.x == VoxelCount.x - 1 ||
+					    coord.y == VoxelCount.y - 1 ||
+					    coord.z == VoxelCount.z - 1)
+						continue;
+
+					float3 posCoord = default;
+					float3 dir = default;
+					byte numCrossings = 0;
+
+					for (int e = 0; e < 12; e++)
+					{
+						int3 coordA = coord + CornerOffs[CrnrOffsIdxA[e]];
+						int3 coordB = coord + CornerOffs[CrnrOffsIdxB[e]];
+
+						float valA = ValueForCoord(coordA);
+						float valB = ValueForCoord(coordB);
+
+						float change = valA - valB;
+						dir += new float3(coordA - coordB) * change;
+
+						bool doesCross = valA < 0 != valB < 0;
+						if (!doesCross) continue;
+
+						float t = valA / change;
+						float3 crossingCoord = coordA + t * new float3(coordB - coordA);
+
+						posCoord += crossingCoord;
+						numCrossings++;
+					}
+
+					if (numCrossings == 0)
+						continue;
+
+					posCoord /= numCrossings;
+					float3 pos = CoordToPos(posCoord);
+					float3 norm = math.normalize(dir);
+
+					Vertex vert = new(pos, norm);
+
+					VertIndices[i] = (uint)Verts.Length;
+					Verts.Add(vert);
+					VertCoords.Add(coord);
+				}
+			}
+
+			private int3 IndexToCoord(int i)
+			{
+				int3 s = VoxelCount;
+				return new int3(
+					i % s.x,
+					i / s.x % s.y,
+					i / (s.x * s.y)
+				);
+			}
+
+			private int CoordToIndex(int3 c)
+			{
+				int3 s = VoxelCount;
+				return c.x + c.y * s.x + c.z * s.x * s.y;
+			}
+
+			private float3 CoordToPos(float3 c)
+			{
+				return c * VoxelSize + VoxelSize * 0.5f;
+			}
+
+			private float ValueForCoord(int3 c)
+			{
+				return Volume[CoordToIndex(c)] / sbyteMax;
+			}
+		}
+
+		/*[BurstCompile]
 		private struct VertexJob : IJobFor
 		{
 			[ReadOnly] public NativeArray<sbyte> Volume;
@@ -212,9 +323,83 @@ namespace Anaglyph.DepthKit
 			{
 				return c * MetersPerVoxel + MetersPerVoxel / 2f;
 			}
-		}
+		}*/
 
 		[BurstCompile]
+		private struct IndexJob : IJob
+		{
+			[ReadOnly] public NativeArray<int3> VertCoords;
+			[ReadOnly] public NativeArray<uint> VertIndices;
+
+			[ReadOnly] public NativeArray<sbyte> Volume;
+			[ReadOnly] public int3 VolumeSize;
+
+			public NativeList<uint> Tris;
+
+			public void Execute()
+			{
+				int count = VertCoords.Length;
+
+				for (int i = 0; i < count; i++)
+				{
+					int3 coord = VertCoords[i];
+
+					if (coord.x == 0 || coord.y == 0 || coord.z == 0)
+						continue;
+
+					TrisForAxis(coord, X, Z, Y);
+					TrisForAxis(coord, Y, X, Z);
+					TrisForAxis(coord, Z, Y, X);
+				}
+			}
+
+			private void TrisForAxis(int3 coord, int3 axis, int3 d1, int3 d2)
+			{
+				int ia = CoordToIndex(coord);
+				sbyte va = Volume[ia];
+
+				int3 ca = coord + axis;
+				int ib = CoordToIndex(ca);
+				sbyte vb = Volume[ib];
+
+				if (va < 0 == vb < 0)
+					return;
+
+				uint a = VertIndices[ia];
+				uint b = VertIndices[CoordToIndex(coord - d1)];
+				uint c = VertIndices[CoordToIndex(coord - (d1 + d2))];
+				uint d = VertIndices[CoordToIndex(coord - d2)];
+
+				Tris.Resize(Tris.Length + 6, NativeArrayOptions.ClearMemory);
+
+				if (va < 0)
+				{
+					Tris.AddNoResize(c);
+					Tris.AddNoResize(b);
+					Tris.AddNoResize(a);
+					Tris.AddNoResize(d);
+					Tris.AddNoResize(c);
+					Tris.AddNoResize(a);
+				}
+				else
+				{
+					Tris.AddNoResize(a);
+					Tris.AddNoResize(c);
+					Tris.AddNoResize(d);
+					Tris.AddNoResize(a);
+					Tris.AddNoResize(b);
+					Tris.AddNoResize(c);
+				}
+			}
+
+			private int CoordToIndex(int3 c)
+			{
+				int3 s = VolumeSize;
+				return c.x + c.y * s.x + c.z * s.x * s.y;
+			}
+		}
+
+		/*[BurstCompile]
 		private struct IndexJob : IJobFor
 		{
 			[ReadOnly] public NativeArray<int3> VertCoords;
@@ -286,6 +471,6 @@ namespace Anaglyph.DepthKit
 				int3 s = VolumeSize;
 				return c.x + c.y * s.x + c.z * s.x * s.y;
 			}
-		}
+		}*/
 	}
 }
