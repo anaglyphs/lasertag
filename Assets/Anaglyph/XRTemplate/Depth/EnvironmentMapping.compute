@@ -1,102 +1,92 @@
 #include "../Depth/DepthKit.hlsl"
-
-SamplerState linearClampSampler;
-
-RWTexture3D<float> volume; // tsdf
-uint3 voxCount; // dimensions of volume texture
-float voxSize;
-float voxDist;
-StructuredBuffer<float3> frustumVolume;
-
-int numPlayers;
-float3 playerHeads[512];
-
-#define PLAYER_TOP 0.2
-#define PLAYER_BOTTOM 1.7
-#define PLAYER_RADIUS 0.5
-#define MIN_DOT 0.3
-
-float3 voxelToWorld(uint3 indices)
-{
-	float3 pos = indices;
-	pos += 0.5f; // voxel center
-	pos -= voxCount / 2.0f;
-	pos *= voxSize;
-
-	return pos;
-}
-
-float3 worldToVoxelFloat(float3 pos)
-{
-	pos /= voxSize;
-	pos += (float3)voxCount / 2.0f;
-	// do not subtract half
-	return pos;
-}
-
-uint3 worldToVoxel(float3 pos)
-{
-	pos = worldToVoxelFloat(pos);
-
-	uint3 id = uint3(floor(pos));
-	id = clamp(id, 0, voxCount);
-	return id;
-}
-
-float3 worldToVoxelUVW(float3 pos)
-{
-	pos = worldToVoxelFloat(pos);
-	pos /= voxCount;
-
-	return saturate(pos);
-}
+#include "../Depth/EnvMapper.hlsl"
 
 #pragma kernel Clear
 
 [numthreads(4, 4, 4)]
 void Clear(uint3 id : SV_DispatchThreadID)
 {
-	volume[id] = 1;
+	envVolumeRW[id] = 1;
 }
 
 #pragma kernel Integrate
 
+Texture2D<float4> envDepthDilated;
+
 [numthreads(64, 1, 1)]
-void Integrate(uint i : SV_DispatchThreadID)
+void Integrate(uint id : SV_DispatchThreadID)
 {
-	float3 vLocalPos = frustumVolume[i];
+	float3 vLocalPos = envFrustumVolume[id];
 	float3 vWorldPos = mul(agDepthViewInv[0], float4(vLocalPos, 1)).xyz;
-	uint3 id = worldToVoxel(vWorldPos);
+	uint3 coord = envWorldToVoxel(vWorldPos);
+	float3 voxPos = envVoxelToWorld(coord);
 
 	float3 eyePos = agDepthEyePos();
-	float3 voxPos = voxelToWorld(id);
+	float3 eyeRayDir = normalize(voxPos - eyePos);
 
-	float4 voxHCS = agDepthWorldToHCS(voxPos);
-	float3 voxNDC = agDepthHCStoNDC(voxHCS);
+	float3 voxNDC = agDepthWorldToNDC(voxPos);
+	float depthNDC = agDepthSample(voxNDC.xy);
 
-	float depth = agDepthSample(voxNDC.xy);
-
-	float3 depthNDC = float3(voxNDC.xy, depth);
-	float3 depthPos = agDepthNDCtoWorld(depthNDC);
+	float3 depthPos = agDepthNDCtoWorld(float3(voxNDC.xy, depthNDC));
+	float3 depthNorm = agDepthNormalSample(voxNDC.xy).xyz;
 
 	float voxEyeDist = distance(voxPos, eyePos);
 	float depthEyeDist = distance(depthPos, eyePos);
-
-	float3 eyeToVox = voxPos - eyePos;
-	float3 depthNorm = agDepthNormalSample(voxNDC.xy).xyz;
+	float normDot = -dot(eyeRayDir, depthNorm);
 
 	float sDist = depthEyeDist - voxEyeDist;
-	float normDot = -dot(normalize(eyeToVox), depthNorm);
 	sDist *= saturate(normDot);
 
-	float sDistNorm = sDist / voxDist;
+	float sDistNorm = sDist / envVoxDist;
 	sDistNorm = min(sDistNorm, 1);
 
-	bool inPlayer = false;
+	bool shouldWrite = true;
+	float3 voxView = mul(agDepthView[0], float4(voxPos, 1)).xyz;
+	float depthDilated = envDepthDilated[voxNDC.xy].x;
+	float depthDilatedLinear = agDepthNDCToLinear(depthDilated);
+	if (voxView.z > depthDilatedLinear)
+		shouldWrite = false;
 
-	for (int i = 0; i < numPlayers; i++)
+	// float z = agDepthNDCToLinear(depthNDC);
+	// float3 up = mul(agDepthViewInv[0], float4(0, 1, 0, 0)).xyz * envVoxDist;
+	// float3 right = mul(agDepthViewInv[0], float4(1, 0, 0, 0)).xyz * envVoxDist;
+	//
+	// float l = agDepthSampleWorldToLinear(voxPos - right);
+	// float lu = agDepthSampleWorldToLinear(voxPos - right + up);
+	// float u = agDepthSampleWorldToLinear(voxPos + up);
+	// float ru = agDepthSampleWorldToLinear(voxPos + right + up);
+	// float r = agDepthSampleWorldToLinear(voxPos + right);
+	// float rd = agDepthSampleWorldToLinear(voxPos + right - up);
+	// float d = agDepthSampleWorldToLinear(voxPos - up);
+	// float ld = agDepthSampleWorldToLinear(voxPos - right - up);
+	//
+	// bool shouldWrite = !(
+	// 	distance(z, l) > envVoxDist ||
+	// 	distance(z, lu) > envVoxDist ||
+	// 	distance(z, ld) > envVoxDist ||
+	// 	distance(z, r) > envVoxDist ||
+	// 	distance(z, ru) > envVoxDist ||
+	// 	distance(z, rd) > envVoxDist ||
+	// 	distance(z, u) > envVoxDist ||
+	// 	distance(z, d) > envVoxDist);
+
+	//
+	// bool shouldWrite = true;
+	// if (sDistNorm == 1.0)
+	// {
+	// 	// float val = envVolumeRW[coord];
+	// 	float3 posBehind = envVoxelToWorld(coord) + eyeRayDir * envVoxSize;
+	// 	uint3 voxCoordBehind = envWorldToVoxel(posBehind);
+	// 	float valBehind = envVolume[voxCoordBehind];
+	//
+	// 	if (valBehind < 1.0)
+	// 		shouldWrite = false;
+	// }
+
+	bool inPlayer = false;
+	for (int p = 0; p < envNumPlayers; p++)
 	{
-		float3 playerPos = playerHeads[i];
+		float3 playerPos = envPlayerHeads[p];
 
 		if (distance(vWorldPos.xz, playerPos.xz) < PLAYER_RADIUS &&
 			vWorldPos.y < playerPos.y + PLAYER_TOP &&
@@ -106,12 +96,144 @@ void Integrate(uint i : SV_DispatchThreadID)
 		}
 	}
 
-	if (sDistNorm > -1 && !inPlayer && normDot > MIN_DOT)
-		volume[id.xyz] = sDistNorm;
+	if (sDistNorm > -1 && !inPlayer && normDot > MIN_DOT && shouldWrite)
+		envVolumeRW[coord] = sDistNorm;
 }
 
-/// Raymarch
+// #pragma kernel SetCounts
+//
+// RWTexture2D<int> expandCount;
+//
+// void SetCounts(uint3 coord : SV_DispatchthreadID)
+// {
+// 	expandCount[coord] = 8;
+// }
 
+#pragma kernel InitDepthDilation
+
+RWTexture2D<float4> dilateSrc;
+RWTexture2D<float4> dilateDest;
+
+[numthreads(8, 8, 1)]
+void InitDepthDilation(uint2 coord : SV_DispatchThreadID)
+{
+	float depth = agDepthTex[uint3(coord.xy, 0)];
+	dilateSrc[coord] = float4(depth, coord.xy, 0);
+	dilateDest[coord] = float4(1.0, 0, 0, 0);
+}
+
+#pragma kernel DilateDepthStep
+
+int dilateStepSize = 512;
+
+void Pull(uint2 destCoord, int2 jump)
+{
+	// jump from source to target
+
+	uint2 srcCoord = destCoord + jump;
+
+	srcCoord = clamp(srcCoord, uint2(0, 0), agDepthTexSize);
+
+	float4 srcVal = dilateSrc[srcCoord];
+
+	float4 destVal = dilateDest[destCoord];
+
+	float srcDepth = srcVal.x;
+
+	if (srcDepth == 0)
+		return;
+
+	float destDepth = destVal.x;
+
+	// uint2 srcOriginCoord = srcVal.yz;
+
+	// float z = agDepthNDCToLinear(srcDepth);
+	// float4x4 proj = agDepthProj[0];
+	//
+	// float2 focalLengths = float2(proj._m00, proj._m11);
+	// float2 pixelSize = 2.0 * abs(z) / (focalLengths * agDepthTexSize);
+	//
+	// float dilateRadius = 64; //envVoxDist / pixelSize.x;
+	//
+	// if (distance(srcOriginCoord.xy, destCoord.xy) > dilateRadius)
+	// 	return;
+
+	if (srcDepth > destDepth)
+		return;
+
+	dilateDest[destCoord] = srcVal;
+}
+
+[numthreads(8, 8, 1)]
+void DilateDepthStep(uint2 coord : SV_DispatchThreadID)
+{
+	int s = dilateStepSize;
+
+	Pull(coord, int2(s, 0));
+	Pull(coord, int2(s, s));
+	Pull(coord, int2(0, s));
+	Pull(coord, int2(-s, s));
+	Pull(coord, int2(-s, 0));
+	Pull(coord, int2(-s, -s));
+	Pull(coord, int2(0, -s));
+	Pull(coord, int2(s, -s));
+}
+
+// #pragma kernel Correct
+//
+// [numthreads(64, 1, 1)]
+// void Correct(uint id : SV_DispatchThreadID)
+// {
+// 	// second distance pass
+// 	float3 vLocalPos = frustumVolume[id];
+// 	float3 vWorldPos = mul(agDepthViewInv[0], float4(vLocalPos, 1)).xyz;
+// 	uint3 coord = worldToVoxel(vWorldPos);
+//
+// 	float3 eyePos = agDepthEyePos();
+// 	float3 voxPos = voxelToWorld(coord);
+//
+// 	float4 voxHCS = agDepthWorldToHCS(voxPos);
+// 	float3 voxNDC = agDepthHCStoNDC(voxHCS);
+//
+// 	float depth = agDepthSample(voxNDC.xy);
+//
+// 	float3 depthNDC = float3(voxNDC.xy, depth);
+// 	float3 depthPos = agDepthNDCtoWorld(depthNDC);
+//
+// 	float voxEyeDist = distance(voxPos, eyePos);
+// 	float depthEyeDist = distance(depthPos, eyePos);
+//
+// 	float voxToDepthDist = depthEyeDist - voxEyeDist;
+//
+// 	// if (dist < voxDist) return;
+// 	if (voxToDepthDist < 0) return;
+//
+// 	int radius = ceil(voxDist / voxSize);
+// 	float normDist = 1.0;
+// 	float3 coordWorld = voxelToWorld(coord);
+//
+// 	for (int x = -radius; x < radius; x++)
+// 		for (int y = -radius; y < radius; y++)
+// 			for (int z = -radius; z < radius; z++)
+// 			{
+// 				int3 offs = int3(x, y, z);
+// 				int3 coordOffs = coord + offs;
+// 				float val = volumeRW[coordOffs];
+// 				if (val < 0)
+// 				{
+// 					float3 coordOffsWorld = voxelToWorld(coordOffs);
+// 					float3 dir = normalize(float3(offs));
+// 					float3 surfacePos = coordOffsWorld + dir * val * voxDist;
+// 					float newDist = distance(coordWorld, surfacePos) / voxDist;
+// 					normDist = min(normDist, newDist);
+// 				}
+// 			}
+//
+// 	if (normDist < 1.0)
+// 		volumeRW[coord] = saturate(normDist);
+// }
+
+/// Raymarch
 struct RaymarchRequest
 {
 	float4 origin;
@@ -126,8 +248,8 @@ RWStructuredBuffer<float> raymarchResults;
 
 half raymarchSample(float3 worldPos)
 {
-	float3 uvw = worldToVoxelUVW(worldPos);
-	return raymarchVolume.SampleLevel(linearClampSampler, uvw, 0) * voxDist;
+	float3 uvw = envWorldToVoxelUVW(worldPos);
+	return raymarchVolume.SampleLevel(linearClampSampler, uvw, 0) * envVoxDist;
 }
 
 #pragma kernel Raymarch
@@ -144,7 +266,7 @@ void Raymarch(uint3 id : SV_DispatchThreadID)
 	const float3 direction = normalize(raymarchRequests[id.x].direction);
 	float maxRayDist = raymarchRequests[id.x].maxDistance;
 
-	const uint maxSteps = maxRayDist / voxDist;
+	const uint maxSteps = maxRayDist / envVoxDist;
 
 	float dist = 0;
 

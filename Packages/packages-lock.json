@@ -15,18 +15,18 @@
       "url": "https://package.openupm.com"
     },
     "com.meta.xr.sdk.core": {
-      "version": "83.0.1",
+      "version": "83.0.4",
       "depth": 0,
       "source": "registry",
       "dependencies": {},
       "url": "https://packages.unity.com"
     },
     "com.meta.xr.sdk.haptics": {
-      "version": "83.0.1",
+      "version": "83.0.4",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.meta.xr.sdk.core": "83.0.1"
+        "com.meta.xr.sdk.core": "83.0.4"
       },
       "url": "https://packages.unity.com"
     },
@@ -98,7 +98,7 @@
       "depth": 0,
       "source": "builtin",
       "dependencies": {
-        "com.unity.ide.visualstudio": "2.0.26",
+        "com.unity.ide.visualstudio": "2.0.27",
         "com.unity.ide.rider": "3.0.38",
         "com.unity.editorcoroutines": "1.0.1",
         "com.unity.performance.profile-analyzer": "1.2.4",
@@ -116,7 +116,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.ide.visualstudio": {
-      "version": "2.0.26",
+      "version": "2.0.27",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -157,7 +157,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.netcode.gameobjects": {
-      "version": "2.8.1",
+      "version": "2.9.1",
       "depth": 0,
       "source": "registry",
       "dependencies": {

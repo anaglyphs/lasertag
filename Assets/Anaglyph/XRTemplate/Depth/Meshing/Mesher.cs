@@ -1,9 +1,7 @@
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Unity.Burst;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
@@ -175,11 +173,15 @@ namespace Anaglyph.DepthKit
 					if (coord.x == VoxelCount.x - 1 ||
 					    coord.y == VoxelCount.y - 1 ||
 					    coord.z == VoxelCount.z - 1)
+					{
+						VertIndices[i] = uint.MaxValue;
 						continue;
+					}
 
 					float3 posCoord = default;
 					float3 dir = default;
 					byte numCrossings = 0;
+					byte numBadCrossings = 0;
 
 					for (int e = 0; e < 12; e++)
 					{
@@ -193,17 +195,25 @@ namespace Anaglyph.DepthKit
 						dir += new float3(coordA - coordB) * change;
 
 						bool doesCross = valA < 0 != valB < 0;
-						if (!doesCross) continue;
+						if (doesCross)
+						{
+							// cull false isosurface sign changes
+							if (valA == 1f || valB == 1f)
+								numBadCrossings++;
 
-						float t = valA / change;
-						float3 crossingCoord = coordA + t * new float3(coordB - coordA);
+							float t = valA / change;
+							float3 crossingCoord = coordA + t * new float3(coordB - coordA);
 
-						posCoord += crossingCoord;
-						numCrossings++;
+							posCoord += crossingCoord;
+							numCrossings++;
+						}
 					}
 
-					if (numCrossings == 0)
+					if (numCrossings == numBadCrossings)
+					{
+						VertIndices[i] = uint.MaxValue;
 						continue;
+					}
 
 					posCoord /= numCrossings;
 					float3 pos = CoordToPos(posCoord);
@@ -338,9 +348,7 @@ namespace Anaglyph.DepthKit
 
 			public void Execute()
 			{
-				int count = VertCoords.Length;
-
-				for (int i = 0; i < count; i++)
+				for (int i = 0; i < VertCoords.Length; i++)
 				{
 					int3 coord = VertCoords[i];
 
@@ -356,19 +364,18 @@ namespace Anaglyph.DepthKit
 			private void TrisForAxis(int3 coord, int3 axis, int3 d1, int3 d2)
 			{
 				int ia = CoordToIndex(coord);
-				sbyte va = Volume[ia];
+				float va = ValueForCoord(coord);
+				float vb = ValueForCoord(coord + axis);
 
-				int3 ca = coord + axis;
-				int ib = CoordToIndex(ca);
-				sbyte vb = Volume[ib];
-
-				if (va < 0 == vb < 0)
-					return;
+				if (va < 0 == vb < 0) return;
 
 				uint a = VertIndices[ia];
 				uint b = VertIndices[CoordToIndex(coord - d1)];
 				uint c = VertIndices[CoordToIndex(coord - (d1 + d2))];
 				uint d = VertIndices[CoordToIndex(coord - d2)];
+
+				if (a == uint.MaxValue || b == uint.MaxValue || c == uint.MaxValue || d == uint.MaxValue)
+					return;
 
 				Tris.Resize(Tris.Length + 6, NativeArrayOptions.ClearMemory);
 
@@ -396,6 +403,11 @@ namespace Anaglyph.DepthKit
 			{
 				int3 s = VolumeSize;
 				return c.x + c.y * s.x + c.z * s.x * s.y;
+			}
+
+			private float ValueForCoord(int3 c)
+			{
+				return Volume[CoordToIndex(c)] / sbyteMax;
 			}
 		}
 

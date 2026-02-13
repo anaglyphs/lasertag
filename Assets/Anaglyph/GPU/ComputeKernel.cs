@@ -19,8 +19,10 @@ namespace Anaglyph
 			groupSize = ((int)x, (int)y, (int)z);
 		}
 
-		public ComputeKernel(ComputeShader shader, string kernel) 
-			: this(shader, shader.FindKernel(kernel)) { }
+		public ComputeKernel(ComputeShader shader, string kernel)
+			: this(shader, shader.FindKernel(kernel))
+		{
+		}
 
 		public void Set(int id, Texture texture)
 		{
@@ -43,7 +45,9 @@ namespace Anaglyph
 		}
 
 		public void Dispatch(int x, int y, int z)
-			=> shader.Dispatch(index, x, y, z);
+		{
+			shader.Dispatch(index, x, y, z);
+		}
 
 		public void DispatchGroups(int fillX, int fillY, int fillZ = 1)
 		{
@@ -54,7 +58,14 @@ namespace Anaglyph
 			Dispatch(numGroupsX, numGroupsY, numGroupsZ);
 		}
 
-		public void DispatchGroups(RenderTexture tex) =>
+		public void DispatchGroups(RenderTexture tex)
+		{
 			DispatchGroups(tex.width, tex.height, tex.volumeDepth);
+		}
+
+		public void DispatchGroups(Texture tex, int depth = 1)
+		{
+			DispatchGroups(tex.width, tex.height, depth);
+		}
 	}
 }

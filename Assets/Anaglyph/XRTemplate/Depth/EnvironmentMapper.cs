@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 using UnityEngine.Serialization;
 
 namespace Anaglyph.XRTemplate
@@ -13,7 +14,9 @@ namespace Anaglyph.XRTemplate
 	{
 		public static EnvironmentMapper Instance { get; private set; }
 
-		[SerializeField] private ComputeShader shader = null;
+		[FormerlySerializedAs("shader")] [SerializeField]
+		private ComputeShader compute = null;
+
 		[SerializeField] private float voxelSize = 0.1f;
 		public float VoxelSize => voxelSize;
 		[SerializeField] private float voxelDistance = 0.2f;
@@ -23,6 +26,9 @@ namespace Anaglyph.XRTemplate
 
 		[SerializeField] private RenderTexture volume;
 		public RenderTexture Volume => volume;
+
+		[SerializeField] private RenderTexture dilateSrc;
+		[SerializeField] private RenderTexture dilateDest;
 
 		private int vWidth => volume.width;
 		private int vHeight => volume.height;
@@ -35,7 +41,11 @@ namespace Anaglyph.XRTemplate
 		public float MinDist => minDist;
 
 		private ComputeKernel clearKernel;
+
 		private ComputeKernel integrateKernel;
+
+		private ComputeKernel initDepthDilationKernel;
+		private ComputeKernel dilateDepthKernel;
 		private ComputeKernel raymarchKernel;
 
 		private static int viewID => DepthKitDriver.viewID;
@@ -52,14 +62,21 @@ namespace Anaglyph.XRTemplate
 			return Shader.PropertyToID(str);
 		}
 
-		private static readonly int volumeID = ID("volume");
-		private static readonly int voxelCountID = ID("voxCount");
-		private static readonly int voxelSizeID = ID("voxSize");
-		private static readonly int voxelDistanceID = ID("voxDist");
-		private static readonly int frustumVolumeID = ID("frustumVolume");
+		private static readonly int volumeWritableID = ID("envVolumeRW");
+		private static readonly int volumeID = ID("envVolume");
+		private static readonly int voxelCountID = ID("envVoxCount");
+		private static readonly int voxelSizeID = ID("envVoxSize");
+		private static readonly int voxelDistanceID = ID("envVoxDist");
+		private static readonly int frustumVolumeID = ID("envFrustumVolume");
 
-		private static readonly int numPlayersID = ID("numPlayers");
-		private static readonly int playerHeadsWorldID = ID("playerHeads");
+		private static readonly int dilateSrcID = ID("dilateSrc");
+		private static readonly int dilateDestID = ID("dilateDest");
+
+		private static readonly int dilateStepSizeID = ID("dilateStepSize");
+		private static readonly int envDepthDilatedID = ID("envDepthDilated");
+
+		private static readonly int numPlayersID = ID("envNumPlayers");
+		private static readonly int playerHeadsWorldID = ID("envPlayerHeads");
 
 		private static readonly int raymarchVolumeID = ID("raymarchVolume");
 		private static readonly int numRaymarchRequestsID = ID("numRaymarchRequests");
@@ -86,18 +103,28 @@ namespace Anaglyph.XRTemplate
 
 		private void Start()
 		{
-			clearKernel = new ComputeKernel(shader, "Clear");
-			clearKernel.Set(volumeID, volume);
+			clearKernel = new ComputeKernel(compute, "Clear");
+			clearKernel.Set(volumeWritableID, volume);
 
-			integrateKernel = new ComputeKernel(shader, "Integrate");
-			integrateKernel.Set(volumeID, volume);
+			integrateKernel = new ComputeKernel(compute, "Integrate");
+			integrateKernel.Set(volumeWritableID, volume);
 
-			raymarchKernel = new ComputeKernel(shader, "Raymarch");
+			initDepthDilationKernel = new ComputeKernel(compute, "InitDepthDilation");
+			dilateDepthKernel = new ComputeKernel(compute, "DilateDepthStep");
+
+			raymarchKernel = new ComputeKernel(compute, "Raymarch");
 			raymarchKernel.Set(raymarchVolumeID, volume);
 
-			shader.SetInts(voxelCountID, vWidth, vHeight, vDepth);
-			shader.SetFloat(voxelSizeID, voxelSize);
-			shader.SetFloat(voxelDistanceID, voxelDistance);
+			Shader.SetGlobalTexture(volumeID, volume);
+
+			compute.SetInts(voxelCountID, vWidth, vHeight, vDepth);
+			Shader.SetGlobalVector(voxelCountID, new Vector4(vWidth, vHeight, vDepth, 0));
+
+			compute.SetFloat(voxelSizeID, voxelSize);
+			Shader.SetGlobalFloat(voxelSizeID, voxelSize);
+
+			compute.SetFloat(voxelDistanceID, voxelDistance);
+			Shader.SetGlobalFloat(voxelDistanceID, voxelDistance);
 
 			Clear();
 
@@ -129,10 +156,10 @@ namespace Anaglyph.XRTemplate
 
 			lastUpdateTime = Time.time;
 
-			Texture depthTex = Shader.GetGlobalTexture(depthTexID);
+			Texture depthTex = DepthKitDriver.Instance.DepthTex;
 			if (depthTex == null) return;
 
-			Texture normTex = Shader.GetGlobalTexture(normTexID);
+			Texture normTex = DepthKitDriver.Instance.NormTex;
 
 			if (frustumVolume == null)
 			{
@@ -148,33 +175,12 @@ namespace Anaglyph.XRTemplate
 			Updated.Invoke();
 		}
 
-		public void ApplyScan(Texture depthTex, Texture normTex, Matrix4x4 view, Matrix4x4 proj) //, bool useDepthFrame)
-		{
-			shader.SetMatrixArray(viewID, new[] { view, Matrix4x4.zero });
-			shader.SetMatrixArray(projID, new[] { proj, Matrix4x4.zero });
-
-			shader.SetMatrixArray(viewInvID, new[] { view.inverse, Matrix4x4.zero });
-			shader.SetMatrixArray(projInvID, new[] { proj.inverse, Matrix4x4.zero });
-
-			for (int i = 0; i < PlayerHeads.Count; i++)
-			{
-				Vector3 playerHead = PlayerHeads[i].position;
-				headPositions[i] = playerHead;
-			}
-
-			shader.SetInt(numPlayersID, PlayerHeads.Count);
-			shader.SetVectorArray(playerHeadsWorldID, headPositions);
-
-			integrateKernel.Set(depthTexID, depthTex);
-			integrateKernel.Set(normTexID, normTex);
-
-			integrateKernel.DispatchGroups(frustumVolume.count, 1, 1);
-		}
-
 		private void Setup()
 		{
 			if (!DepthKitDriver.DepthAvailable)
 				return;
+
+			// set up frustum volume
 
 			Matrix4x4 depthProj = Shader.GetGlobalMatrixArray(DepthKitDriver.projID)[0];
 			FrustumPlanes frustum = depthProj.decomposeProjection;
@@ -212,10 +218,77 @@ namespace Anaglyph.XRTemplate
 				return;
 
 			frustumVolume = new ComputeBuffer(positions.Count, sizeof(float) * 3);
-			// lastIntegration = new ComputeBuffer(positions.Count, sizeof())
 
 			frustumVolume.SetData(positions);
 			integrateKernel.Set(frustumVolumeID, frustumVolume);
+
+			// set up dilated depth tex
+
+			RenderTextureDescriptor dilateTexDesc = new()
+			{
+				width = DepthKitDriver.Instance.DepthTex.width,
+				height = DepthKitDriver.Instance.DepthTex.height,
+				volumeDepth = 1,
+				dimension = UnityEngine.Rendering.TextureDimension.Tex2D,
+				autoGenerateMips = false,
+				colorFormat = RenderTextureFormat.ARGBHalf,
+				enableRandomWrite = true,
+				graphicsFormat = GraphicsFormat.R16G16B16A16_SFloat,
+				msaaSamples = 1
+			};
+
+			dilateSrc = new RenderTexture(dilateTexDesc);
+			dilateDest = new RenderTexture(dilateTexDesc);
+		}
+
+		public void ApplyScan(Texture depthTex, Texture normTex, Matrix4x4 view, Matrix4x4 proj) //, bool useDepthFrame)
+		{
+			// dilate depth
+			initDepthDilationKernel.Set(depthTexID, depthTex);
+			initDepthDilationKernel.Set(dilateSrcID, dilateSrc);
+			initDepthDilationKernel.Set(dilateDestID, dilateDest);
+			initDepthDilationKernel.DispatchGroups(dilateSrc);
+
+			RenderTexture a = dilateSrc;
+			RenderTexture b = dilateDest;
+			bool switchAtEnd = false;
+
+			for (int step = 32; step >= 2; step /= 2)
+			{
+				dilateDepthKernel.Set(dilateSrcID, a);
+				dilateDepthKernel.Set(dilateDestID, b);
+				compute.SetInt(dilateStepSizeID, step);
+				dilateDepthKernel.DispatchGroups(dilateSrc);
+
+				(a, b) = (b, a);
+				switchAtEnd = !switchAtEnd;
+			}
+
+			if (switchAtEnd)
+			{
+				dilateSrc = b;
+				dilateDest = a;
+			}
+
+			compute.SetMatrixArray(viewID, new[] { view, Matrix4x4.zero });
+			compute.SetMatrixArray(projID, new[] { proj, Matrix4x4.zero });
+
+			compute.SetMatrixArray(viewInvID, new[] { view.inverse, Matrix4x4.zero });
+			compute.SetMatrixArray(projInvID, new[] { proj.inverse, Matrix4x4.zero });
+
+			for (int i = 0; i < PlayerHeads.Count; i++)
+			{
+				Vector3 playerHead = PlayerHeads[i].position;
+				headPositions[i] = playerHead;
+			}
+
+			compute.SetInt(numPlayersID, PlayerHeads.Count);
+			compute.SetVectorArray(playerHeadsWorldID, headPositions);
+
+			integrateKernel.Set(envDepthDilatedID, dilateDest);
+			integrateKernel.Set(depthTexID, depthTex);
+			integrateKernel.Set(normTexID, normTex);
+			integrateKernel.DispatchGroups(frustumVolume.count, 1);
 		}
 
 		private void OnDestroy()
@@ -286,7 +359,7 @@ namespace Anaglyph.XRTemplate
 			ComputeBuffer resultBuffer = new(count, sizeof(float));
 			currentRaymarchBatch = null;
 
-			shader.SetInt(numRaymarchRequestsID, count);
+			compute.SetInt(numRaymarchRequestsID, count);
 			raymarchKernel.Set(raymarchRequestsID, requestsBuffer);
 			raymarchKernel.Set(raymarchResultsID, resultBuffer);
 

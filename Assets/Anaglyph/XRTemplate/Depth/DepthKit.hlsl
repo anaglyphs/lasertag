@@ -21,7 +21,7 @@ float3 agDepthEyePos(int eye = 0)
 }
 
 float agDepthSample(float2 uv, int eye = 0)
-{	
+{
 	return agDepthTex.SampleLevel(pointClampSampler, float3(uv.xy, eye), 0);
 }
 
@@ -88,6 +88,28 @@ float3 agDepthNDCtoWorld(float3 ndc, int eye = 0)
 	float4 hcs = agDepthNDCtoHCS(ndc);
 	float4 worldH = agDepthHCStoWorldH(hcs, eye);
 	return worldH.xyz / worldH.w;
+}
+
+float3 agDepthSampleWorldToWorld(float3 worldPos, int eye = 0)
+{
+	float3 ndc = agDepthWorldToNDC(worldPos, eye);
+	float depth = agDepthSample(ndc.xy, eye);
+
+	return agDepthNDCtoWorld(float3(ndc.xy, depth), eye);
+}
+
+float agDepthSampleWorldToLinear(float3 worldPos, int eye = 0)
+{
+	float3 ndc = agDepthWorldToNDC(worldPos, eye);
+	float depthNDC = agDepthSample(ndc.xy, eye);
+
+	return agDepthNDCToLinear(depthNDC);
+}
+
+float3 agDepthSampleNDCtoWorld(float2 uv, int eye = 0)
+{
+	float3 ndc = float3(uv, agDepthSample(uv, eye));
+	return agDepthNDCtoWorld(ndc);
 }
 
 // todo linearz function
