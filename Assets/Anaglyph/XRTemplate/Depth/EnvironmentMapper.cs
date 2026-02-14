@@ -27,8 +27,8 @@ namespace Anaglyph.XRTemplate
 		[SerializeField] private RenderTexture volume;
 		public RenderTexture Volume => volume;
 
-		[SerializeField] private RenderTexture dilateSrc;
-		[SerializeField] private RenderTexture dilateDest;
+		private RenderTexture dilationA, dilationB;
+		[SerializeField] private RenderTexture dilatedDepth;
 
 		private int vWidth => volume.width;
 		private int vHeight => volume.height;
@@ -41,11 +41,11 @@ namespace Anaglyph.XRTemplate
 		public float MinDist => minDist;
 
 		private ComputeKernel clearKernel;
-
 		private ComputeKernel integrateKernel;
 
 		private ComputeKernel initDepthDilationKernel;
 		private ComputeKernel dilateDepthKernel;
+
 		private ComputeKernel raymarchKernel;
 
 		private static int viewID => DepthKitDriver.viewID;
@@ -68,12 +68,11 @@ namespace Anaglyph.XRTemplate
 		private static readonly int voxelSizeID = ID("envVoxSize");
 		private static readonly int voxelDistanceID = ID("envVoxDist");
 		private static readonly int frustumVolumeID = ID("envFrustumVolume");
+		private static readonly int dilatedDepthID = ID("dilatedDepth");
 
 		private static readonly int dilateSrcID = ID("dilateSrc");
 		private static readonly int dilateDestID = ID("dilateDest");
-
 		private static readonly int dilateStepSizeID = ID("dilateStepSize");
-		private static readonly int envDepthDilatedID = ID("envDepthDilated");
 
 		private static readonly int numPlayersID = ID("envNumPlayers");
 		private static readonly int playerHeadsWorldID = ID("envPlayerHeads");
@@ -231,63 +230,55 @@ namespace Anaglyph.XRTemplate
 				volumeDepth = 1,
 				dimension = UnityEngine.Rendering.TextureDimension.Tex2D,
 				autoGenerateMips = false,
-				colorFormat = RenderTextureFormat.ARGBHalf,
 				enableRandomWrite = true,
 				graphicsFormat = GraphicsFormat.R16G16B16A16_SFloat,
 				msaaSamples = 1
 			};
 
-			dilateSrc = new RenderTexture(dilateTexDesc);
-			dilateDest = new RenderTexture(dilateTexDesc);
+			dilationA = new RenderTexture(dilateTexDesc);
+			dilationB = new RenderTexture(dilateTexDesc);
 		}
 
 		public void ApplyScan(Texture depthTex, Texture normTex, Matrix4x4 view, Matrix4x4 proj) //, bool useDepthFrame)
 		{
-			// dilate depth
-			initDepthDilationKernel.Set(depthTexID, depthTex);
-			initDepthDilationKernel.Set(dilateSrcID, dilateSrc);
-			initDepthDilationKernel.Set(dilateDestID, dilateDest);
-			initDepthDilationKernel.DispatchGroups(dilateSrc);
-
-			RenderTexture a = dilateSrc;
-			RenderTexture b = dilateDest;
-			bool switchAtEnd = false;
-
-			for (int step = 32; step >= 2; step /= 2)
-			{
-				dilateDepthKernel.Set(dilateSrcID, a);
-				dilateDepthKernel.Set(dilateDestID, b);
-				compute.SetInt(dilateStepSizeID, step);
-				dilateDepthKernel.DispatchGroups(dilateSrc);
-
-				(a, b) = (b, a);
-				switchAtEnd = !switchAtEnd;
-			}
-
-			if (switchAtEnd)
-			{
-				dilateSrc = b;
-				dilateDest = a;
-			}
-
+			// set state
 			compute.SetMatrixArray(viewID, new[] { view, Matrix4x4.zero });
 			compute.SetMatrixArray(projID, new[] { proj, Matrix4x4.zero });
 
 			compute.SetMatrixArray(viewInvID, new[] { view.inverse, Matrix4x4.zero });
 			compute.SetMatrixArray(projInvID, new[] { proj.inverse, Matrix4x4.zero });
 
+			compute.SetInt(numPlayersID, PlayerHeads.Count);
+			compute.SetVectorArray(playerHeadsWorldID, headPositions);
+
+			// dilate depth tex
+			initDepthDilationKernel.Set(depthTexID, depthTex);
+			initDepthDilationKernel.Set(dilateSrcID, dilationA);
+			initDepthDilationKernel.Set(dilateDestID, dilationB);
+			initDepthDilationKernel.DispatchGroups(dilationA);
+
+			for (int step = 128; step >= 2; step /= 2)
+			{
+				dilateDepthKernel.Set(dilateSrcID, dilationA);
+				dilateDepthKernel.Set(dilateDestID, dilationB);
+				compute.SetInt(dilateStepSizeID, step);
+				dilateDepthKernel.DispatchGroups(dilationA);
+
+				(dilationA, dilationB) = (dilationB, dilationA);
+			}
+
+			dilatedDepth = dilationA;
+
+			// integrate depth into world
 			for (int i = 0; i < PlayerHeads.Count; i++)
 			{
 				Vector3 playerHead = PlayerHeads[i].position;
 				headPositions[i] = playerHead;
 			}
 
-			compute.SetInt(numPlayersID, PlayerHeads.Count);
-			compute.SetVectorArray(playerHeadsWorldID, headPositions);
-
-			integrateKernel.Set(envDepthDilatedID, dilateDest);
 			integrateKernel.Set(depthTexID, depthTex);
 			integrateKernel.Set(normTexID, normTex);
+			integrateKernel.Set(dilatedDepthID, dilatedDepth);
 			integrateKernel.DispatchGroups(frustumVolume.count, 1);
 		}
 
