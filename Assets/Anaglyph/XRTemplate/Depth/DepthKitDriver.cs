@@ -14,10 +14,14 @@ namespace Anaglyph.XRTemplate.DepthKit
 		public static DepthKitDriver Instance { get; private set; }
 
 		private readonly Matrix4x4[] proj = new Matrix4x4[2];
+		public Matrix4x4[] Proj => proj;
 		private readonly Matrix4x4[] projInv = new Matrix4x4[2];
+		public Matrix4x4[] ProjInv => projInv;
 
 		private readonly Matrix4x4[] view = new Matrix4x4[2];
+		public Matrix4x4[] View => view;
 		private readonly Matrix4x4[] viewInv = new Matrix4x4[2];
+		public Matrix4x4[] ViewInv => viewInv;
 
 		private Vector2 planes;
 		public Vector2 Planes => planes;

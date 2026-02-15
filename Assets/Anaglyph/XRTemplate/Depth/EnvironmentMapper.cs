@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
-using UnityEngine.Serialization;
 
 namespace Anaglyph.XRTemplate
 {
@@ -14,13 +13,14 @@ namespace Anaglyph.XRTemplate
 	{
 		public static EnvironmentMapper Instance { get; private set; }
 
-		[FormerlySerializedAs("shader")] [SerializeField]
-		private ComputeShader compute = null;
+		[SerializeField] private ComputeShader compute = null;
 
 		[SerializeField] private float voxelSize = 0.1f;
 		public float VoxelSize => voxelSize;
 		[SerializeField] private float voxelDistance = 0.2f;
 		public float VoxelDistance => voxelDistance;
+
+		[SerializeField] private int maxDepthMaskDilation = 64;
 
 		public float frequency = 5f;
 
@@ -158,18 +158,13 @@ namespace Anaglyph.XRTemplate
 			Texture depthTex = DepthKitDriver.Instance.DepthTex;
 			if (depthTex == null) return;
 
-			Texture normTex = DepthKitDriver.Instance.NormTex;
-
 			if (frustumVolume == null)
 			{
 				Setup();
 				return;
 			}
 
-			Matrix4x4 view = Shader.GetGlobalMatrixArray(viewID)[0];
-			Matrix4x4 proj = Shader.GetGlobalMatrixArray(projID)[0];
-
-			ApplyScan(depthTex, normTex, view, proj);
+			ApplyScan();
 
 			Updated.Invoke();
 		}
@@ -239,25 +234,28 @@ namespace Anaglyph.XRTemplate
 			dilationB = new RenderTexture(dilateTexDesc);
 		}
 
-		public void ApplyScan(Texture depthTex, Texture normTex, Matrix4x4 view, Matrix4x4 proj) //, bool useDepthFrame)
+		public void ApplyScan()
 		{
 			// set state
-			compute.SetMatrixArray(viewID, new[] { view, Matrix4x4.zero });
-			compute.SetMatrixArray(projID, new[] { proj, Matrix4x4.zero });
 
-			compute.SetMatrixArray(viewInvID, new[] { view.inverse, Matrix4x4.zero });
-			compute.SetMatrixArray(projInvID, new[] { proj.inverse, Matrix4x4.zero });
+			DepthKitDriver dkd = DepthKitDriver.Instance;
+
+			compute.SetMatrixArray(viewID, dkd.View);
+			compute.SetMatrixArray(projID, dkd.Proj);
+
+			compute.SetMatrixArray(viewInvID, dkd.ViewInv);
+			compute.SetMatrixArray(projInvID, dkd.ProjInv);
 
 			compute.SetInt(numPlayersID, PlayerHeads.Count);
 			compute.SetVectorArray(playerHeadsWorldID, headPositions);
 
 			// dilate depth tex
-			initDepthDilationKernel.Set(depthTexID, depthTex);
+			initDepthDilationKernel.Set(depthTexID, dkd.DepthTex);
 			initDepthDilationKernel.Set(dilateSrcID, dilationA);
 			initDepthDilationKernel.Set(dilateDestID, dilationB);
 			initDepthDilationKernel.DispatchGroups(dilationA);
 
-			for (int step = 128; step >= 2; step /= 2)
+			for (int step = maxDepthMaskDilation; step >= 2; step /= 2)
 			{
 				dilateDepthKernel.Set(dilateSrcID, dilationA);
 				dilateDepthKernel.Set(dilateDestID, dilationB);
@@ -276,8 +274,8 @@ namespace Anaglyph.XRTemplate
 				headPositions[i] = playerHead;
 			}
 
-			integrateKernel.Set(depthTexID, depthTex);
-			integrateKernel.Set(normTexID, normTex);
+			integrateKernel.Set(depthTexID, dkd.DepthTex);
+			integrateKernel.Set(normTexID, dkd.NormTex);
 			integrateKernel.Set(dilatedDepthID, dilatedDepth);
 			integrateKernel.DispatchGroups(frustumVolume.count, 1);
 		}

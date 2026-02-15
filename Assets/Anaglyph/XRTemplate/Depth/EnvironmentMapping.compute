@@ -42,10 +42,10 @@ void Integrate(uint id : SV_DispatchThreadID)
 	float dilatedDepthNDC = dilatedDepth.SampleLevel(pointClampSampler, float2(voxNDC.xy), 0).x;
 	float dilatedDepthLinear = agDepthNDCToLinear(dilatedDepthNDC);
 	float3 voxView = mul(agDepthView[0], float4(voxPos, 1)).xyz;
-	bool validEmpty = abs(voxView.z) < dilatedDepthLinear + envVoxDist * 2;
-	// bool validEmpty = true;
+	bool unmasked = abs(voxView.z) < dilatedDepthLinear + envVoxDist * 2;
+	bool notInvalidNormal = sDistNorm == 1.0 || normDot > MIN_DOT;
 
-	bool inPlayer = false;
+	bool notInPlayer = true;
 	for (int p = 0; p < envNumPlayers; p++)
 	{
 		float3 playerPos = envPlayerHeads[p];
@@ -54,11 +54,11 @@ void Integrate(uint id : SV_DispatchThreadID)
 			vWorldPos.y < playerPos.y + PLAYER_TOP &&
 			vWorldPos.y > playerPos.y - PLAYER_BOTTOM)
 		{
-			inPlayer = true;
+			notInPlayer = false;
 		}
 	}
 
-	if (sDistNorm > -1 && !inPlayer && normDot > MIN_DOT && validEmpty)
+	if (sDistNorm > -1 && notInPlayer && notInvalidNormal && unmasked)
 		envVolumeRW[coord] = sDistNorm;
 }
 
@@ -100,7 +100,7 @@ void Pull(uint2 destCoord, int2 jump)
 	float focalLength = agDepthProj[0]._m00;
 	float srcDepthLinear = agDepthNDCToLinear(srcDepth);
 	float pixelSize = 2.0 * abs(srcDepthLinear) / (focalLength * agDepthTexSize);
-	float radius = envVoxDist * 1.5 / pixelSize.x;
+	float radius = envVoxDist / pixelSize.x;
 
 	if (distance(srcOriginCoord.xy, destCoord.xy) > radius)
 		return;
