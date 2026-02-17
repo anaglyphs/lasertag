@@ -21,8 +21,6 @@ Shader "Custom/EnvDebug"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "EnvMapper.hlsl"
 
-            SamplerState pointClampSampler;
-
             struct Attributes
             {
                 float4 positionOS : POSITION;
@@ -50,17 +48,13 @@ Shader "Custom/EnvDebug"
 
             half4 frag(Varyings IN) : SV_Target
             {
-                // eturn half4(voxCount.xyz / 2000.0, 1.0);
                 float3 uvw = envWorldToVoxelUVW(IN.positionWS);
-                // return half4(uvw.xyz, 1.0);
-                float val = envVolume.Sample(pointClampSampler, uvw);
+                float val = envVolume.Sample(envPointClampSampler, uvw);
                 float r = -min(val, 0);
                 float g = val;
                 float b = val < 0;
                 half4 color = half4(r, g, b, 1.0);
                 return color;
-                // float val = SAMPLE_TEXTURE3D(_Volume, linearClampSampler, uvw);
-                // return half4(val, val, val, 1.0);
             }
             ENDHLSL
         }

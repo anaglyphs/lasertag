@@ -56,9 +56,9 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		private Camera mainCam;
 
-		private RenderTexture depthTex;
+		[SerializeField] private RenderTexture depthTex;
 		public RenderTexture DepthTex => depthTex;
-		private RenderTexture normTex;
+		[SerializeField] private RenderTexture normTex;
 		public RenderTexture NormTex => normTex;
 
 		private AROcclusionManager arOcclusionManager;
@@ -192,7 +192,6 @@ namespace Anaglyph.XRTemplate.DepthKit
 			Shader.SetGlobalTexture(depthTexID, depthTex);
 
 			// create normals from depth
-			// currently broken. oops!
 			if (normTex == null || normTex.width != w || normTex.height != h)
 				normTex = new RenderTexture(w, h, 0, GraphicsFormat.R8G8B8A8_SNorm, 1)
 				{

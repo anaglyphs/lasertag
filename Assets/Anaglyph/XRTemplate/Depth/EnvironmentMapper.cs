@@ -62,13 +62,13 @@ namespace Anaglyph.XRTemplate
 			return Shader.PropertyToID(str);
 		}
 
-		private static readonly int volumeWritableID = ID("envVolumeRW");
+		private static readonly int volumeWritableID = ID("volumeRW");
 		private static readonly int volumeID = ID("envVolume");
 		private static readonly int voxelCountID = ID("envVoxCount");
 		private static readonly int voxelSizeID = ID("envVoxSize");
 		private static readonly int voxelDistanceID = ID("envVoxDist");
 		private static readonly int frustumVolumeID = ID("envFrustumVolume");
-		private static readonly int dilatedDepthID = ID("dilatedDepth");
+		private static readonly int dilatedDepthID = ID("envDilatedDepth");
 
 		private static readonly int dilateSrcID = ID("dilateSrc");
 		private static readonly int dilateDestID = ID("dilateDest");
@@ -77,7 +77,6 @@ namespace Anaglyph.XRTemplate
 		private static readonly int numPlayersID = ID("envNumPlayers");
 		private static readonly int playerHeadsWorldID = ID("envPlayerHeads");
 
-		private static readonly int raymarchVolumeID = ID("raymarchVolume");
 		private static readonly int numRaymarchRequestsID = ID("numRaymarchRequests");
 		private static readonly int raymarchRequestsID = ID("raymarchRequests");
 		private static readonly int raymarchResultsID = ID("raymarchResults");
@@ -112,7 +111,7 @@ namespace Anaglyph.XRTemplate
 			dilateDepthKernel = new ComputeKernel(compute, "DilateDepthStep");
 
 			raymarchKernel = new ComputeKernel(compute, "Raymarch");
-			raymarchKernel.Set(raymarchVolumeID, volume);
+			raymarchKernel.Set(volumeID, volume);
 
 			Shader.SetGlobalTexture(volumeID, volume);
 
