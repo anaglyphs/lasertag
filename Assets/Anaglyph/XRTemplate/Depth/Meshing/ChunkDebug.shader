@@ -1,4 +1,4 @@
-Shader "Debug/PointVisualizer"
+Shader "Debug/ChunkDebug"
 {
     Properties
     {
@@ -32,7 +32,7 @@ Shader "Debug/PointVisualizer"
             struct v2f
             {
                 float4 pos : SV_POSITION;
-                float3 norm : TEXCOORD;
+                float3 worldPos : TEXCOORD0;
                 float size : PSIZE;
             };
 
@@ -40,14 +40,18 @@ Shader "Debug/PointVisualizer"
             {
                 v2f o;
                 o.pos = UnityObjectToClipPos(v.vertex);
-                o.norm = v.normal;
+                o.worldPos = mul(unity_ObjectToWorld, float4(v.vertex, 1)).xyz;
                 o.size = _PointSize;
                 return o;
             }
 
             half4 frag(v2f i) : SV_Target
             {
-                half3 rgb = i.norm.xyz / 2 + 0.5f;
+                float3 dx = ddx(i.worldPos);
+                float3 dy = ddy(i.worldPos);
+                float3 faceNormal = normalize(cross(dx, dy));
+
+                half3 rgb = faceNormal * 0.5 + 0.5;
                 return half4(rgb, 1);
             }
             ENDCG

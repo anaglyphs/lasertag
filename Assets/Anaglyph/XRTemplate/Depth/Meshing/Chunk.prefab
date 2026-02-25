@@ -67,9 +67,9 @@ MonoBehaviour:
   runDecimation: 1
   decimationTarget:
     Kind: 3
-    Value: 0.5
+    Value: 1
   decimationOptions:
-    PreserveBorderEdges: 1
+    PreserveBorderEdges: 0
     PreserveSurfaceCurvature: 0
     UseBarycentricCoordinateInterpolation: 0
     EnableSmartLink: 0

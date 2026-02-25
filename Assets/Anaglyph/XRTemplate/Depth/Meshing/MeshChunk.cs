@@ -145,9 +145,10 @@ namespace Anaglyph.DepthKit.Meshing
 
 				ctkn.ThrowIfCancellationRequested();
 
-				mesh = rawMesh;
 				if (runDecimation)
 					await MeshSimplifier.SimplifyAsync(rawMesh, decimationTarget, decimationOptions, mesh, ctkn);
+				else
+					mesh = rawMesh;
 
 				if (!isPopulated)
 				{

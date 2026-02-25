@@ -177,7 +177,6 @@ namespace Anaglyph.XRTemplate
 
 			Matrix4x4 depthProj = Shader.GetGlobalMatrixArray(DepthKitDriver.projID)[0];
 			FrustumPlanes frustum = depthProj.decomposeProjection;
-			//frustum.zNear = 0.2f;
 			frustum.zFar = maxDist;
 
 			List<Vector3> positions = new(200000);

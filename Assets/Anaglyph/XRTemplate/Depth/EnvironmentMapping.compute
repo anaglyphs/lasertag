@@ -31,7 +31,7 @@ void Integrate(uint id : SV_DispatchThreadID)
 	float voxEyeDist = length(eyeToVox);
 
 	float3 voxNDC = agDepthWorldToNDC(voxPos);
-	float depthNDC = sampleDilatedDepth(voxNDC.xy); // agDepthSample(voxNDC.xy); 
+	float depthNDC = agDepthSample(voxNDC.xy);
 	float3 depthNorm = agDepthNormalSample(voxNDC.xy).xyz;
 	float3 depthPos = agDepthNDCtoWorld(float3(voxNDC.xy, depthNDC));
 
@@ -49,8 +49,10 @@ void Integrate(uint id : SV_DispatchThreadID)
 	// TODO depth dilation test broken wtf
 	float dilatedDepthNDC = sampleDilatedDepth(voxNDC.xy);
 	float dilatedDepthLinear = agDepthNDCToLinear(dilatedDepthNDC);
+	float depthLinear = agDepthNDCToLinear(depthNDC);
 	float3 voxView = mul(agDepthView[0], float4(voxPos, 1)).xyz;
-	bool unmasked = abs(voxView.z) < dilatedDepthLinear + envVoxDist * 2;
+	bool acceptableDepthDisparity = depthLinear < dilatedDepthLinear + envVoxDist * 2;
+	bool unoccludedByDilation = abs(voxView.z) < dilatedDepthLinear || acceptableDepthDisparity;
 	bool validSurfaceNormal = empty || normDot > MIN_DOT;
 
 	bool outsidePlayers = true;
@@ -58,8 +60,8 @@ void Integrate(uint id : SV_DispatchThreadID)
 	{
 		float3 playerPos = envPlayerHeads[p];
 
-		float2 d = vWorldPos.xz - playerPos.xz;
-		if (dot(d, d) < PLAYER_RADIUS * PLAYER_RADIUS &&
+		float2 diff = vWorldPos.xz - playerPos.xz;
+		if (dot(diff, diff) < PLAYER_RADIUS * PLAYER_RADIUS &&
 			vWorldPos.y < playerPos.y + PLAYER_TOP &&
 			vWorldPos.y > playerPos.y - PLAYER_BOTTOM)
 		{
@@ -67,7 +69,7 @@ void Integrate(uint id : SV_DispatchThreadID)
 		}
 	}
 
-	bool valid = withinBand & outsidePlayers & validSurfaceNormal & unmasked;
+	bool valid = withinBand & outsidePlayers & validSurfaceNormal & unoccludedByDilation;
 	if (valid)
 		envVolumeRW[coord] = sDistNorm;
 }
@@ -124,10 +126,11 @@ void DilateDepthStep(uint2 coord : SV_DispatchThreadID)
 		float4 srcVal = dilateSrc[srcCoord];
 
 		float srcDepthLinear = agDepthNDCToLinear(srcVal.z);
-		float pixelSize = 2.0 * abs(srcDepthLinear) / (focalLength * agDepthTexSize.x);
+		float pixelSize = 2.0 * srcDepthLinear / (focalLength * agDepthTexSize.x);
 		float radius = envVoxDist / pixelSize.x;
 
-		bool withinRadius = distance(srcVal.xy, coord.xy) < radius;
+		float2 diff = srcVal.xy - coord.xy;
+		bool withinRadius = dot(diff, diff) < radius * radius;
 
 		bool newMinimum = srcVal.z < val.z;
 		bool notZero = srcVal.z != 0;

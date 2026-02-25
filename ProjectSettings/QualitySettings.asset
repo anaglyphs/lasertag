@@ -6,7 +6,7 @@ QualitySettings:
   serializedVersion: 5
   m_CurrentQuality: 0
   m_QualitySettings:
-  - serializedVersion: 4
+  - serializedVersion: 5
     name: Meta Quest (Build Profile)
     pixelLightCount: 1
     shadows: 0
@@ -34,6 +34,7 @@ QualitySettings:
     adaptiveVsyncExtraA: 0
     adaptiveVsyncExtraB: 0
     lodBias: 2
+    meshLodThreshold: 1
     maximumLODLevel: 0
     enableLODCrossFade: 0
     streamingMipmapsActive: 0
@@ -59,21 +60,4 @@ QualitySettings:
     terrainMaxTrees: 50
     excludedTargetPlatforms: []
   m_TextureMipmapLimitGroupNames: []
-  m_PerPlatformDefaultQuality:
-    Android: 0
-    GameCoreScarlett: 0
-    GameCoreXboxOne: 0
-    Lumin: 0
-    Nintendo 3DS: 0
-    Nintendo Switch: 0
-    Nintendo Switch 2: 0
-    PS4: 0
-    PS5: 0
-    Server: 0
-    Stadia: 0
-    Standalone: 0
-    WebGL: 0
-    Windows Store Apps: 0
-    XboxOne: 0
-    iPhone: 0
-    tvOS: 0
+  m_PerPlatformDefaultQuality: {}

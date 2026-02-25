@@ -470,7 +470,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!64 &1716785329
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -559,8 +559,8 @@ Transform:
   m_GameObject: {fileID: 1716785328}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1, z: 0}
-  m_LocalScale: {x: 4.1643, y: 4.1643, z: 4.1643}
+  m_LocalPosition: {x: 0, y: 0.5, z: 0}
+  m_LocalScale: {x: 10, y: 10, z: 10}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -631,8 +631,8 @@ MonoBehaviour:
     y: 5
     z: 5
   chunkPrefab: {fileID: 5707654171926711959, guid: ebe1cd8f705d4ab4abc5b9f1778d536d, type: 3}
-  updateFrequency: 0.03
-  updateDistance: 4
+  updateFrequency: 0.05
+  updateDistance: 5
 --- !u!1001 &3916737362139618993
 PrefabInstance:
   m_ObjectHideFlags: 0

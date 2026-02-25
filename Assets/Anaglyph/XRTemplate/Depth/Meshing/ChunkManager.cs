@@ -15,6 +15,7 @@ namespace Anaglyph.DepthKit.Meshing
 		private EnvironmentMapper Mapper => EnvironmentMapper.Instance;
 
 		[SerializeField] private float3 chunkSize = new(5, 5, 5);
+		public float overlap = 0.5f;
 		[SerializeField] private GameObject chunkPrefab;
 
 		[SerializeField] private float updateFrequency = 0.1f;
@@ -181,8 +182,7 @@ namespace Anaglyph.DepthKit.Meshing
 			GameObject g = Instantiate(chunkPrefab, transform);
 			g.TryGetComponent(out MeshChunk chunk);
 
-			float connectionPadding = 3 * Mapper.VoxelSize;
-			chunk.extents = chunkSize + connectionPadding;
+			chunk.extents = chunkSize + overlap;
 
 			chunk.transform.position = ChunkCoordToPos(chunkCoord);
 

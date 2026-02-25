@@ -39,8 +39,8 @@ float agDepthNDCToLinear(float depthNDC, int eye = 0)
 {
 	float z = depthNDC * 2.0 - 1.0;
 	float A = agDepthProj[eye][2][2];
-	float B = agDepthProj[eye][3][2];
-	return B / (z + A);
+	float B = agDepthProj[eye][2][3];
+	return abs(B / (z + A));
 }
 
 float4 agDepthNormalSample(float2 uv, int eye = 0)
