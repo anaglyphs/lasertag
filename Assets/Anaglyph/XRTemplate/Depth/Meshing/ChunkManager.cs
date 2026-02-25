@@ -165,7 +165,7 @@ namespace Anaglyph.DepthKit.Meshing
 						bool foundChunk = chunks.TryGetValue(coord, out MeshChunk chunk);
 						if (!foundChunk) chunk = InstantiateChunk(coord);
 
-						await chunk.Mesh(ctkn);
+						chunk.Mesh(ctkn);
 					}
 
 					await Awaitable.WaitForSecondsAsync(updateFrequency, ctkn);

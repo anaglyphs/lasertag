@@ -1,7 +1,7 @@
 #include "../Depth/DepthKit.hlsl"
 #include "../Depth/EnvMapper.hlsl"
 
-RWTexture3D<float> volumeRW; // tsdf
+RWTexture3D<float> envVolumeRW; // tsdf
 
 #define PLAYER_TOP 0.2
 #define PLAYER_BOTTOM 1.7
@@ -13,7 +13,7 @@ RWTexture3D<float> volumeRW; // tsdf
 [numthreads(4, 4, 4)]
 void Clear(uint3 id : SV_DispatchThreadID)
 {
-	volumeRW[id] = -1.0;
+	envVolumeRW[id] = -1.0;
 }
 
 #pragma kernel Integrate
@@ -31,7 +31,7 @@ void Integrate(uint id : SV_DispatchThreadID)
 	float voxEyeDist = length(eyeToVox);
 
 	float3 voxNDC = agDepthWorldToNDC(voxPos);
-	float depthNDC = agDepthSample(voxNDC.xy);
+	float depthNDC = sampleDilatedDepth(voxNDC.xy); // agDepthSample(voxNDC.xy); 
 	float3 depthNorm = agDepthNormalSample(voxNDC.xy).xyz;
 	float3 depthPos = agDepthNDCtoWorld(float3(voxNDC.xy, depthNDC));
 
@@ -46,6 +46,7 @@ void Integrate(uint id : SV_DispatchThreadID)
 	float sDistNorm = min(sDist / envVoxDist, 1);
 	bool withinBand = sDistNorm >= -1.0;
 
+	// TODO depth dilation test broken wtf
 	float dilatedDepthNDC = sampleDilatedDepth(voxNDC.xy);
 	float dilatedDepthLinear = agDepthNDCToLinear(dilatedDepthNDC);
 	float3 voxView = mul(agDepthView[0], float4(voxPos, 1)).xyz;
@@ -68,7 +69,7 @@ void Integrate(uint id : SV_DispatchThreadID)
 
 	bool valid = withinBand & outsidePlayers & validSurfaceNormal & unmasked;
 	if (valid)
-		volumeRW[coord] = sDistNorm;
+		envVolumeRW[coord] = sDistNorm;
 }
 
 #pragma kernel InitDepthDilation

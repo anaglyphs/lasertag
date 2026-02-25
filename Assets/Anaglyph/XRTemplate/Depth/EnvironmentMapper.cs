@@ -62,7 +62,7 @@ namespace Anaglyph.XRTemplate
 			return Shader.PropertyToID(str);
 		}
 
-		private static readonly int volumeWritableID = ID("volumeRW");
+		private static readonly int volumeWritableID = ID("envVolumeRW");
 		private static readonly int volumeID = ID("envVolume");
 		private static readonly int voxelCountID = ID("envVoxCount");
 		private static readonly int voxelSizeID = ID("envVoxSize");
@@ -273,6 +273,7 @@ namespace Anaglyph.XRTemplate
 				headPositions[i] = playerHead;
 			}
 
+			compute.SetMatrixArray(DepthKitDriver.projID, dkd.Proj);
 			integrateKernel.Set(depthTexID, dkd.DepthTex);
 			integrateKernel.Set(normTexID, dkd.NormTex);
 			integrateKernel.Set(dilatedDepthID, dilatedDepth);

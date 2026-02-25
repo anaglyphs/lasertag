@@ -2,22 +2,22 @@ Shader "Debug/PointVisualizer"
 {
     Properties
     {
-        _Color ("Color", Color) = (1,1,1,1)
-        _PointSize ("Point Size", Float) = 5.0
+        _PointSize ("Point Size", Float) = 5
     }
 
     SubShader
     {
-        Tags { "RenderType"="Opaque" }
+        Tags
+        {
+            "RenderType"="Opaque"
+        }
+
         Pass
         {
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
-            #pragma multi_compile_fog
-
-            // Needed on most platforms to allow programmable point size
-            #pragma geometry geom
+            #pragma target 4.5
             #include "UnityCG.cginc"
 
             float4 _Color;
@@ -26,40 +26,29 @@ Shader "Debug/PointVisualizer"
             struct appdata
             {
                 float3 vertex : POSITION;
+                float3 normal : NORMAL;
             };
 
-            struct v2g
-            {
-                float4 pos : POSITION;
-            };
-
-            struct g2f
+            struct v2f
             {
                 float4 pos : SV_POSITION;
-                float4 color : COLOR;
+                float3 norm : TEXCOORD;
                 float size : PSIZE;
             };
 
-            v2g vert (appdata v)
+            v2f vert(appdata v)
             {
-                v2g o;
+                v2f o;
                 o.pos = UnityObjectToClipPos(v.vertex);
+                o.norm = v.normal;
+                o.size = _PointSize;
                 return o;
             }
 
-            [maxvertexcount(1)]
-            void geom(point v2g input[1], inout PointStream<g2f> stream)
+            half4 frag(v2f i) : SV_Target
             {
-                g2f o;
-                o.pos = input[0].pos;
-                o.color = _Color;
-                o.size = _PointSize;
-                stream.Append(o);
-            }
-
-            fixed4 frag (g2f i) : SV_Target
-            {
-                return i.color;
+                half3 rgb = i.norm.xyz / 2 + 0.5f;
+                return half4(rgb, 1);
             }
             ENDCG
         }

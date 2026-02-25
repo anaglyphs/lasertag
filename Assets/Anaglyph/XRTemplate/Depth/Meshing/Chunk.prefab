@@ -64,27 +64,16 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-      - m_Target: {fileID: 0}
-        m_TargetAssemblyTypeName: UnityEngine.MeshCollider, UnityEngine
-        m_MethodName: set_sharedMesh
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+  runDecimation: 1
   decimationTarget:
     Kind: 3
-    Value: 10
+    Value: 0.5
   decimationOptions:
     PreserveBorderEdges: 1
     PreserveSurfaceCurvature: 0
     UseBarycentricCoordinateInterpolation: 0
     EnableSmartLink: 0
-    MinNormalDot: 0.5
+    MinNormalDot: 0.9
     VertexLinkDistance: 0.0001
     VertexLinkMinNormalDot: 0.95
     VertexLinkColorDistance: 0.01
@@ -122,7 +111,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: -876546973899608171, guid: 31712154f3d3e4baeae0a4361c1e4245, type: 3}
+  - {fileID: 2100000, guid: 722b63313a477418384b9422f8dccd45, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
