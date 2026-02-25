@@ -76,6 +76,19 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+  decimationTarget:
+    Kind: 3
+    Value: 10
+  decimationOptions:
+    PreserveBorderEdges: 1
+    PreserveSurfaceCurvature: 0
+    UseBarycentricCoordinateInterpolation: 0
+    EnableSmartLink: 0
+    MinNormalDot: 0.5
+    VertexLinkDistance: 0.0001
+    VertexLinkMinNormalDot: 0.95
+    VertexLinkColorDistance: 0.01
+    VertexLinkUvDistance: 0.001
 --- !u!33 &2427413909175206865
 MeshFilter:
   m_ObjectHideFlags: 0

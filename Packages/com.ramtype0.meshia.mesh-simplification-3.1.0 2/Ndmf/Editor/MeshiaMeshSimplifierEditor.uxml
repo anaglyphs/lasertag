@@ -1,0 +1,6 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="True">
+    <ui:HelpBox message-type="Warning" name="NdmfNotImportedWarning" text="This component has no effect without NDMF imported to the project." style="visibility: visible; display: none;" />
+    <uie:PropertyField name="Target" binding-path="target" label="Target" />
+    <uie:PropertyField name="Options" binding-path="options" label="Options" />
+    <ui:IMGUIContainer name="BakeMeshButtonContainer" />
+</ui:UXML>

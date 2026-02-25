@@ -1,0 +1,70 @@
+msgid ""
+msgstr ""
+"Language: ja\n"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.PreserveBorderEdges.label"
+msgstr "メッシュの端の辺を保持"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.PreserveBorderEdges.tooltip"
+msgstr ""
+"他の面に接していない辺(穴や切れ目の縁など)を削除しないようにします。\n"
+"軽量化後のメッシュに穴が目立つ場合、このオプションを有効にしてみてください。"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.PreserveSurfaceCurvature.label"
+msgstr "なだらかな曲面を保持"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.PreserveSurfaceCurvature.tooltip"
+msgstr "なだらかな曲面を保持する処理を用いるようにしますが、結果が悪化する場合もあります。"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.UseBarycentricCoordinateInterpolation.label"
+msgstr "重心座標系補間を使用する"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.UseBarycentricCoordinateInterpolation.tooltip"
+msgstr "UVなどの補間において、線形補間の代わりに重心座標系補間を用います。UVの歪みが目立つ場合、このオプションを切り替えてみてください。"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.MinNormalDot.label"
+msgstr "法線角度の許容誤差(cosθ)"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.MinNormalDot.tooltip"
+msgstr ""
+"軽量化後のポリゴンにおいて、頂点の法線方向のズレをどこまで許容するか指定します。\n"
+"0(=cos90°)を指定すると90°までのズレを、-1(=cos180°)を指定すると180°までのズレを許容します。"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.EnableSmartLink.label"
+msgstr "近くの頂点同士をマージ候補に含める(SmartLink)"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.EnableSmartLink.tooltip"
+msgstr "同一のポリゴンに含まれている頂点に加えて、近くにある頂点同士も初期のマージ候補に含めるようにします。"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.SmartLinkOptions"
+msgstr "SmartLink設定"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.VertexLinkDistance.label"
+msgstr "マージ候補に含める頂点同士の距離"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.VertexLinkDistance.tooltip"
+msgstr ""
+"この距離より近い頂点同士がマージ候補に含まれます。\n"
+"大きな値を設定すると処理時間が伸びる場合があります。\n"
+"また、4万頂点以上のメッシュで大きな値を指定するとクラッシュする場合があります。"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.VertexLinkColorDistance.label"
+msgstr "マージ候補に含める頂点同士の頂点カラーの距離"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.VertexLinkColorDistance.tooltip"
+msgstr "大きな値を設定すると軽量化後のポリゴンの形状が改善されることがありますが、代わりに頂点カラーが不自然になる場合があります。"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.VertexLinkUvDistance.label"
+msgstr "マージ候補に含める頂点同士のUV距離"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.VertexLinkUvDistance.tooltip"
+msgstr "大きな値を設定すると軽量化後のポリゴンの形状が改善されることがありますが、代わりにUVが不自然になる場合があります。"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.VertexLinkMinNormalDot.label"
+msgstr "法線角度の許容誤差(cosθ)"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.VertexLinkMinNormalDot.tooltip"
+msgstr "SmartLink処理時に、通常と異なる許容誤差を指定できます。2つのうち、厳しい方の値が適用されます。"
+
+msgid "locale:ja"
+msgstr "日本語"

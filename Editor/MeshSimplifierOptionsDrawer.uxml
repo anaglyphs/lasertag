@@ -1,0 +1,15 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="True">
+    <ui:DropdownField label="Language" name="LanguagePicker" />
+    <ui:Toggle label="Preserve Border Edges" binding-path="PreserveBorderEdges" />
+    <ui:Toggle label="Preserve Surface Curvature" binding-path="PreserveSurfaceCurvature" />
+    <ui:Toggle label="Use Barycentric Coordinate Interpolation" binding-path="UseBarycentricCoordinateInterpolation" />
+    <ui:Slider label="Min Normal Dot" high-value="1" binding-path="MinNormalDot" low-value="-1" show-input-field="true" />
+    <ui:Toggle label="Enable Smart Link" binding-path="EnableSmartLink" value="true" name="EnableSmartLinkToggle" />
+    <ui:GroupBox text="Smart Link Options" name="SmartLinkOptionsGroup">
+        <ui:FloatField label="Vertex Link Distance" value="0.001" binding-path="VertexLinkDistance" name="FloatField" />
+        <ui:Slider label="Vertex Link Min Normal Dot" high-value="1" binding-path="VertexLinkMinNormalDot" low-value="-1" show-input-field="true" />
+        <ui:FloatField label="Vertex Link Color Distance" value="0.01" binding-path="VertexLinkColorDistance" />
+        <ui:Slider label="Vertex Link UV Distance" high-value="1.414214" binding-path="VertexLinkUvDistance" low-value="0" show-input-field="true" />
+    </ui:GroupBox>
+    <ui:Button text="Reset Options" parse-escape-sequences="true" display-tooltip-when-elided="true" name="ResetOptionsButton" enable-rich-text="false" />
+</ui:UXML>

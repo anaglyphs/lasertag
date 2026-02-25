@@ -1,0 +1,38 @@
+{
+    "name": "Meshia.MeshSimplification.Ndmf.Runtime",
+    "rootNamespace": "Meshia.MeshSimplification.Ndmf",
+    "references": [
+        "Meshia.MeshSimplification.Runtime",
+        "VRC.SDKBase",
+        "nadena.dev.modular-avatar.core",
+        "nadena.dev.ndmf.runtime",
+        "Unity.Mathematics"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "VRCSDKBase.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.vrchat.base",
+            "expression": "",
+            "define": "ENABLE_VRCHAT_BASE"
+        },
+        {
+            "name": "com.vrchat.worlds",
+            "expression": "",
+            "define": "ENABLE_VRCHAT_WORLDS"
+        },
+        {
+            "name": "nadena.dev.modular-avatar",
+            "expression": "",
+            "define": "ENABLE_MODULAR_AVATAR"
+        }
+    ],
+    "noEngineReferences": false
+}

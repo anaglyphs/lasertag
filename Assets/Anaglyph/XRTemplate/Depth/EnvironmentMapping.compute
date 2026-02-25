@@ -41,7 +41,6 @@ void Integrate(uint id : SV_DispatchThreadID)
 
 	float sDist = depthEyeDist - voxEyeDist;
 	sDist *= saturate(normDot);
-	// coord = coord + depthNorm * sDist;
 
 	bool empty = sDist >= 1.0;
 	float sDistNorm = min(sDist / envVoxDist, 1);

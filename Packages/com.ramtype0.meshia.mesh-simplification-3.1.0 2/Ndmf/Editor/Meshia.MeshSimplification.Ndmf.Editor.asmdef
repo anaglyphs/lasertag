@@ -1,0 +1,37 @@
+{
+    "name": "Meshia.MeshSimplification.Ndmf.Editor",
+    "rootNamespace": "Meshia.MeshSimplification.Ndmf.Editor",
+    "references": [
+        "Meshia.MeshSimplification.Runtime",
+        "Meshia.MeshSimplification.Ndmf.Runtime",
+        "nadena.dev.ndmf",
+        "nadena.dev.ndmf.runtime",
+        "nadena.dev.modular-avatar.core"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "System.Collections.Immutable.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "ENABLE_NDMF"
+    ],
+    "versionDefines": [
+        {
+            "name": "nadena.dev.ndmf",
+            "expression": "",
+            "define": "ENABLE_NDMF"
+        },
+        {
+            "name": "nadena.dev.modular-avatar",
+            "expression": "",
+            "define": "ENABLE_MODULAR_AVATAR"
+        }
+    ],
+    "noEngineReferences": false
+}

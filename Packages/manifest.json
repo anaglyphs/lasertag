@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "com.adamgryu.inspectorhistory": "https://github.com/adamgryu/InspectorHistory-Unity.git",
+    "com.anatawa12.custom-localization-for-editor-extension": "1.2.1",
     "com.meta.xr.sdk.core": "83.0.4",
     "com.meta.xr.sdk.haptics": "83.0.4",
     "com.meta.xr.sdk.movement": "https://github.com/oculus-samples/Unity-Movement.git",
@@ -50,9 +51,9 @@
       "url": "https://package.openupm.com",
       "scopes": [
         "com.strikervr.strikersdk",
-        "com.malee.reorderablelist"
-      ],
-      "overrideBuiltIns": false
+        "com.malee.reorderablelist",
+        "com.anatawa12.custom-localization-for-editor-extension"
+      ]
     }
   ]
 }

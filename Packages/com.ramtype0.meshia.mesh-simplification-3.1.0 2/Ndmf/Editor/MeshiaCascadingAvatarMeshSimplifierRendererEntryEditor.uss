@@ -1,0 +1,38 @@
+#FixedToggle #unity-checkmark {
+    background-image: var(--unity-icons-lock);
+    width: 16px;
+    height: 16px;
+}
+
+#FixedToggle:checked #unity-checkmark {
+    background-image: var(--unity-icons-lock-checked);
+}
+
+#OptionsToggle #unity-checkmark {
+    background-image: resource('icons/Settings.png');
+}
+
+#OptionsToggle:checked #unity-checkmark {
+    background-image: resource('icons/d_MoreOptions.png');
+}
+
+SliderInt #unity-text-field {
+    width: auto;
+    min-width: 50px;
+}
+
+.missing #unity-text-input {
+    background-color: rgba(255, 0, 0, 0.13);
+    border-left-color: rgb(255, 0, 0);
+    border-right-color: rgb(255, 0, 0);
+    border-top-color: rgb(255, 0, 0);
+    border-bottom-color: rgb(255, 0, 0);
+}
+
+.editor-only VisualElement {
+    background-color: rgba(255, 0, 0, 0.13);
+    border-left-color: rgb(255, 0, 0);
+    border-right-color: rgb(255, 0, 0);
+    border-top-color: rgb(255, 0, 0);
+    border-bottom-color: rgb(255, 0, 0);
+}

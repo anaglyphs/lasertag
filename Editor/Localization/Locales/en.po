@@ -1,0 +1,75 @@
+msgid ""
+msgstr ""
+"Language: en\n"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.PreserveBorderEdges.label"
+msgstr "Preserve Border Edges"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.PreserveBorderEdges.tooltip"
+msgstr ""
+"Avoid removing edges that do not touch other surfaces, such as holes or cross sections.\n"
+"If you want to suppress hole generation during simplification, enable this option."
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.PreserveSurfaceCurvature.label"
+msgstr "Preserve Surface Curvature"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.PreserveSurfaceCurvature.tooltip"
+msgstr "Use a process that preserves gently curved surfaces, but sometimes the results can be worse."
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.UseBarycentricCoordinateInterpolation.label"
+msgstr "Use Barycentric Coordinate Interpolation"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.UseBarycentricCoordinateInterpolation.tooltip"
+msgstr ""
+"Use Barycentric Coordinate Interpolation instead of linear interpolation for interpolating UVs, etc.\n"
+"If you find that the texture is distorted, try toggling this option."
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.MinNormalDot.label"
+msgstr "Tolerance for Normal Angle (by cosθ)"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.MinNormalDot.tooltip"
+msgstr ""
+"Specifies how much normal misalignment to allow when generating lightweight polygons.\n"
+"For example, 0(=cos90°) allows up to 90° misalignment, and -1(=cos180°) allows up to 180° misalignment."
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.EnableSmartLink.label"
+msgstr "Enable Smart Link"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.EnableSmartLink.tooltip"
+msgstr "If this option is enabled, vertices that are not originally connected but are close to each other will be included in the first merge candidates. Increases the processing time."
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.SmartLinkOptions"
+msgstr "Smart Link Options"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.VertexLinkDistance.label"
+msgstr "Vertex Link Distance"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.VertexLinkDistance.tooltip"
+msgstr ""
+"This value is used to select candidates for merging vertices that are not originally connected to each other, based on their position proximity.\n"
+"Larger values may increase processing time and crashes with meshes having more than 40,000 vertices."
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.VertexLinkColorDistance.label"
+msgstr "Vertex Link Color Distance"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.VertexLinkColorDistance.tooltip"
+msgstr ""
+"This value is used to select candidates for merging vertices that are not originally connected to each other, based on their vertex color similarity.\n"
+"Larger values may improve the shape of the polygons after lightening, but sometimes result in unnatural vertex colors instead."
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.VertexLinkUvDistance.label"
+msgstr "Vertex Link UV Distance"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.VertexLinkUvDistance.tooltip"
+msgstr ""
+"This value is used to select candidates for merging vertices that are not originally connected to each other, based on their UV coordinate proximity.\n"
+"Larger values may improve the shape of the polygons after lightening, but sometimes result in unnatural UVs instead."
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.VertexLinkMinNormalDot.label"
+msgstr "Tolerance for Normal Angle (by cosθ)"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.VertexLinkMinNormalDot.tooltip"
+msgstr "Use different tolerance for normal angle for Smart Link. The stricter of the two is used for Smart Link."
+
+msgid "locale:en"
+msgstr "English"

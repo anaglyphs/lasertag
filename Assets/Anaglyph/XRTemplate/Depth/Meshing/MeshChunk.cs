@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Anaglyph.XRTemplate;
+using Meshia.MeshSimplification;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -26,20 +27,44 @@ namespace Anaglyph.DepthKit.Meshing
 		public Vector3 extents = new float3(10, 10, 10);
 		private EnvironmentMapper mapper => EnvironmentMapper.Instance;
 
+		private Mesh rawMesh;
 		private Mesh mesh;
 		public bool dirty;
 
 		private bool isPopulated = false;
 		public UnityEvent<Mesh> onMeshFirstPopulated = new();
 
+		[Header("Mesh decimation options")] public bool runDecimation = true;
+
+		public MeshSimplificationTarget decimationTarget = new()
+		{
+			Kind = MeshSimplificationTargetKind.ScaledTotalError,
+			Value = 0.5f
+		};
+
+		public MeshSimplifierOptions decimationOptions = new()
+		{
+			EnableSmartLink = false,
+			MinNormalDot = 0.8f,
+			PreserveBorderEdges = true,
+			PreserveSurfaceCurvature = false,
+			UseBarycentricCoordinateInterpolation = false,
+			VertexLinkDistance = 0.0001f,
+			VertexLinkMinNormalDot = 0.95f,
+			VertexLinkColorDistance = 0.01f,
+			VertexLinkUvDistance = 0.001f
+		};
+
 		private void Awake()
 		{
 			mesh = new Mesh();
+			rawMesh = new Mesh();
 		}
 
 		private void OnDestroy()
 		{
 			Destroy(mesh);
+			Destroy(rawMesh);
 		}
 
 		private float3 WorldToVoxelFloat(float3 pos)
@@ -111,9 +136,21 @@ namespace Anaglyph.DepthKit.Meshing
 				}
 
 				bool justPopulated = await NetMesher.CreateMesh(volumePiece, size, mapper.VoxelSize,
-					mesh, ctkn);
+					rawMesh, ctkn);
 
-				if (justPopulated && !isPopulated)
+				volumePiece.Dispose();
+
+				if (!justPopulated)
+					return;
+
+				ctkn.ThrowIfCancellationRequested();
+
+				mesh = rawMesh;
+
+				if (runDecimation)
+					await MeshSimplifier.SimplifyAsync(rawMesh, decimationTarget, decimationOptions, mesh, ctkn);
+
+				if (!isPopulated)
 				{
 					onMeshFirstPopulated.Invoke(mesh);
 					isPopulated = true;

@@ -33,6 +33,7 @@ void MonoRawDepthToStereo(uint2 id : SV_DispatchThreadID)
 
 #pragma kernel DepthNorm
 
+// todo https://wickedengine.net/2019/09/improved-normal-reconstruction-from-depth/
 [numthreads(8, 8, 1)]
 void DepthNorm(uint3 id : SV_DispatchThreadID)
 {
@@ -44,11 +45,11 @@ void DepthNorm(uint3 id : SV_DispatchThreadID)
 
 	float3 depthWorld = agDepthNDCtoWorld(float3(uv, agDepthTex[uint3(ind, eye)]), eye);
 
-	ind = id.xy + uint2(1, 0);
+	ind = id.xy + uint2(2, 0);
 	uv = ind / texSizeF;
 	float3 depthWorldH = agDepthNDCtoWorld(float3(uv, agDepthTex[uint3(ind, eye)]), eye);
 
-	ind = id.xy + uint2(0, 1);
+	ind = id.xy + uint2(0, 2);
 	uv = ind / texSizeF;
 	float3 depthWorldV = agDepthNDCtoWorld(float3(uv, agDepthTex[uint3(ind, eye)]), eye);
 
