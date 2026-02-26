@@ -40,6 +40,6 @@ namespace Meshia.MeshSimplification
 		AbsoluteTriangleCount,
 
 
-		MaximumErrorPerMerge
+		AbsoluteIndividualError
 	}
 }

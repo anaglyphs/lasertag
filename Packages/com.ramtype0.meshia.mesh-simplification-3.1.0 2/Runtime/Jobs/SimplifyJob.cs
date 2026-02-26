@@ -143,10 +143,10 @@ namespace Meshia.MeshSimplification
 					float maxTotalError = SimplificationTarget.Value * boundsScale * vertexCountScale;
 					float totalError = 0f;
 
-					while (VertexMerges.TryPeek(out VertexMerge merge))
+					while (VertexMerges.TryPeek(out VertexMerge merge) && totalError + merge.Cost < maxTotalError)
 					{
 						VertexMerges.Dequeue();
-						if (IsValidMerge(merge) && totalError + merge.Cost < maxTotalError)
+						if (IsValidMerge(merge))
 						{
 							ApplyMerge(merge);
 							totalError += merge.Cost;
@@ -159,10 +159,10 @@ namespace Meshia.MeshSimplification
 					float maxTotalError = SimplificationTarget.Value;
 					float totalError = 0f;
 
-					while (VertexMerges.TryPeek(out VertexMerge merge))
+					while (VertexMerges.TryPeek(out VertexMerge merge) && totalError + merge.Cost < maxTotalError)
 					{
 						VertexMerges.Dequeue();
-						if (IsValidMerge(merge) && totalError + merge.Cost < maxTotalError)
+						if (IsValidMerge(merge))
 						{
 							ApplyMerge(merge);
 							totalError += merge.Cost;
@@ -188,14 +188,15 @@ namespace Meshia.MeshSimplification
 				}
 					break;
 
-				case MeshSimplificationTargetKind.MaximumErrorPerMerge:
+				case MeshSimplificationTargetKind.AbsoluteIndividualError:
 				{
-					float maxTotalError = SimplificationTarget.Value;
+					float maxIndividualError = SimplificationTarget.Value;
 
-					while (VertexMerges.TryPeek(out VertexMerge merge))
+					while (VertexMerges.TryPeek(out VertexMerge merge) && merge.Cost < maxIndividualError)
 					{
 						VertexMerges.Dequeue();
-						if (IsValidMerge(merge) && merge.Cost < maxTotalError) ApplyMerge(merge);
+						if (IsValidMerge(merge))
+							ApplyMerge(merge);
 					}
 				}
 					break;
