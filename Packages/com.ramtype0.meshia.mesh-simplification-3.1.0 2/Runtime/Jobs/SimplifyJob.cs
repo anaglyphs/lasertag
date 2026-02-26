@@ -143,10 +143,10 @@ namespace Meshia.MeshSimplification
 					float maxTotalError = SimplificationTarget.Value * boundsScale * vertexCountScale;
 					float totalError = 0f;
 
-					while (VertexMerges.TryPeek(out VertexMerge merge) && totalError + merge.Cost < maxTotalError)
+					while (VertexMerges.TryPeek(out VertexMerge merge))
 					{
 						VertexMerges.Dequeue();
-						if (IsValidMerge(merge))
+						if (IsValidMerge(merge) && totalError + merge.Cost < maxTotalError)
 						{
 							ApplyMerge(merge);
 							totalError += merge.Cost;

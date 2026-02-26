@@ -58,7 +58,9 @@ namespace Anaglyph.DepthKit.Meshing
 		private void Awake()
 		{
 			mesh = new Mesh();
+			mesh.MarkDynamic();
 			rawMesh = new Mesh();
+			rawMesh.MarkDynamic();
 		}
 
 		private void OnDestroy()
@@ -146,9 +148,14 @@ namespace Anaglyph.DepthKit.Meshing
 				ctkn.ThrowIfCancellationRequested();
 
 				if (runDecimation)
+				{
 					await MeshSimplifier.SimplifyAsync(rawMesh, decimationTarget, decimationOptions, mesh, ctkn);
+				}
 				else
+				{
 					mesh = rawMesh;
+					mesh.MarkModified();
+				}
 
 				if (!isPopulated)
 				{

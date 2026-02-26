@@ -38,10 +38,6 @@ namespace Meshia.MeshSimplification
 			int2 edge = Edges[index];
 			VertexMerge merge;
 			if (mergeFactory.TryComputeMerge(edge, out float3 position, out float cost))
-			{
-				if (float.IsNaN(cost))
-					cost = float.PositiveInfinity;
-
 				merge = new VertexMerge
 				{
 					VertexAIndex = edge.x,
@@ -51,9 +47,7 @@ namespace Meshia.MeshSimplification
 					Position = position,
 					Cost = cost
 				};
-			}
 			else
-			{
 				merge = new VertexMerge
 				{
 					VertexAIndex = edge.x,
@@ -63,7 +57,6 @@ namespace Meshia.MeshSimplification
 					Position = float.NaN,
 					Cost = float.PositiveInfinity
 				};
-			}
 
 			UnorderedDirtyVertexMerges[index] = merge;
 		}

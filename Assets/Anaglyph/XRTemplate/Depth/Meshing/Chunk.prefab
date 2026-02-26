@@ -66,8 +66,8 @@ MonoBehaviour:
         m_CallState: 2
   runDecimation: 1
   decimationTarget:
-    Kind: 3
-    Value: 1
+    Kind: 6
+    Value: 0.02
   decimationOptions:
     PreserveBorderEdges: 0
     PreserveSurfaceCurvature: 0
@@ -111,7 +111,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 722b63313a477418384b9422f8dccd45, type: 2}
+  - {fileID: -876546973899608171, guid: 31712154f3d3e4baeae0a4361c1e4245, type: 3}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0

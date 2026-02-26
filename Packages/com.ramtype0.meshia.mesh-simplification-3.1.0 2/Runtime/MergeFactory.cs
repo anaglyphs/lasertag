@@ -40,6 +40,12 @@ namespace Meshia.MeshSimplification
 			using (ProfilerMarkers.TryComputeMerge.Auto())
 			{
 				ErrorQuadric q = VertexErrorQuadrics[vertices.x] + VertexErrorQuadrics[vertices.y];
+				if (float.IsNaN(q.Determinant1()))
+				{
+					position = float.NaN;
+					cost = float.PositiveInfinity;
+					return false;
+				}
 
 				float3 positionX = VertexPositionBuffer[vertices.x];
 				float3 positionY = VertexPositionBuffer[vertices.y];

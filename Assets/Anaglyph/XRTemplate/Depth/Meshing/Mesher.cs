@@ -128,7 +128,7 @@ namespace Anaglyph.DepthKit
 						}
 					}
 
-					if (numCrossings == 0 || numCrossings == numBadCrossings)
+					if (numCrossings < 3 || numCrossings == numBadCrossings)
 					{
 						CoordVertMap[i] = InvalidVertSentinel;
 						continue;
@@ -254,6 +254,7 @@ namespace Anaglyph.DepthKit
 			[ReadOnly] public int3 VoxCount;
 			[ReadOnly] public NativeList<int3> VertCoords;
 			[ReadOnly] public NativeArray<int> CoordVertMap;
+			// [ReadOnly] public NativeList<Vertex> Verts;
 
 			public NativeList<uint> Tris;
 
@@ -288,7 +289,24 @@ namespace Anaglyph.DepthKit
 				    d == InvalidVertSentinel)
 					return;
 
-				Tris.Resize(Tris.Length + 6, NativeArrayOptions.ClearMemory);
+				// if (a == b || b == c || a == c || c == d || d == b)
+				// 	return;
+
+				// avoid creating degen triangles
+				// because vertex creation creates duplicate verts for some reason wtf
+				// this should not be necessary but currently breaks decimation ugh
+				// todo: fix duplicate vert creation
+				// Vertex vertA = Verts[a];
+				// Vertex vertB = Verts[b];
+				// Vertex vertC = Verts[c];
+				// Vertex vertD = Verts[d];
+
+				// if (vertA.pos.Equals(vertB.pos) || vertB.pos.Equals(vertC.pos) || vertC.pos.Equals(vertA.pos) ||
+				//     vertC.pos.Equals(vertD.pos) || vertD.pos.Equals(vertA.pos))
+				// 	return;
+
+				Tris.SetCapacity(Tris.Length + 6);
+				// Tris.Resize(Tris.Length + 6, NativeArrayOptions.ClearMemory);
 
 				if (va < 0)
 				{
@@ -394,6 +412,7 @@ namespace Anaglyph.DepthKit
 
 					Volume = volume,
 					VoxCount = voxCount,
+					// Verts = verts,
 
 					Tris = tris
 				};
