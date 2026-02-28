@@ -1,45 +1,57 @@
-// "Invisible" Unity Occlusion Shader. Useful for AR, Masking, etc
-// Mark Johns / Doomlaser - https://twitter.com/Doomlaser
-
-Shader "DepthMask"
+Shader "Lasertag/Alpha"
 {
-    Properties
-    {
-    }
+    Properties {}
+
     SubShader
     {
         Tags
         {
-            "RenderType" = "Opaque"
-            "Queue" = "Geometry-1"
+            "RenderType" = "Opaque" "Queue"="Geometry-1"
         }
+        LOD 200
+        ZWrite On
+        ZTest LEqual
+        Cull Off
+
         Pass
         {
-            ColorMask 0
-
-            CGPROGRAM
+            HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
 
-            #include "UnityCG.cginc"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
-            struct v2f
+            struct Attributes
             {
-                float4 pos : SV_POSITION;
+                float4 positionOS : POSITION;
+
+                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
-            v2f vert(appdata_base v)
+            struct Varyings
             {
-                v2f o;
-                o.pos = UnityObjectToClipPos(v.vertex);
-                return o;
+                float4 positionHCS : SV_POSITION;
+
+                UNITY_VERTEX_OUTPUT_STEREO
+            };
+
+            Varyings vert(Attributes IN)
+            {
+                Varyings OUT;
+
+                UNITY_SETUP_INSTANCE_ID(IN);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(OUT);
+
+                OUT.positionHCS = TransformObjectToHClip(IN.positionOS.xyz);
+
+                return OUT;
             }
 
-            half4 frag(v2f i) : COLOR
+            half4 frag() : SV_Target
             {
-                return float4(1,1,1,0);
+                return half4(0, 0, 0, 0);
             }
-            ENDCG
+            ENDHLSL
         }
     }
 }

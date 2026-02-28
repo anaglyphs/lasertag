@@ -1,12 +1,13 @@
 using System;
+using System.Threading;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.VFX;
 
 namespace Anaglyph.Lasertag
 {
-    public class BulletVisuals : MonoBehaviour
-    {
+	public class BulletVisuals : MonoBehaviour
+	{
 		private Bullet bullet = null;
 		[SerializeField] private TrailRenderer trailRenderer = null;
 		[SerializeField] private DepthLight depthLight = null;
@@ -36,12 +37,12 @@ namespace Anaglyph.Lasertag
 			prevBulletPosition = bullet.transform.position;
 			depthLight.transform.position = prevBulletPosition;
 
-			var manager = NetworkManager.Singleton;
-			var playerObject = manager.ConnectedClients[bullet.OwnerClientId].PlayerObject;
-			var teamOwner = playerObject.GetComponent<Networking.PlayerAvatar>().TeamOwner;
-			var team = teamOwner.Team;
+			NetworkManager manager = NetworkManager.Singleton;
+			NetworkObject playerObject = manager.ConnectedClients[bullet.OwnerClientId].PlayerObject;
+			TeamOwner teamOwner = playerObject.GetComponent<Networking.PlayerAvatar>().TeamOwner;
+			byte team = teamOwner.Team;
 
-			var color = Teams.Colors[team];
+			Color color = Teams.Colors[team];
 
 			if (team == 0)
 				color = defaultColor;
@@ -52,7 +53,7 @@ namespace Anaglyph.Lasertag
 			trailRenderer.startColor = color;
 			trailRenderer.endColor = color;
 
-			var partMod = impactEffect.main;
+			ParticleSystem.MainModule partMod = impactEffect.main;
 			partMod.startColor = color;
 		}
 
@@ -60,22 +61,23 @@ namespace Anaglyph.Lasertag
 		{
 			impactEffect.Play();
 
+			CancellationToken ctkn = destroyCancellationToken;
+
 			try
 			{
-				await Awaitable.NextFrameAsync(destroyCancellationToken);
-				destroyCancellationToken.ThrowIfCancellationRequested();
+				await Awaitable.NextFrameAsync(ctkn);
+				ctkn.ThrowIfCancellationRequested();
 				depthLight.enabled = false;
 			}
 			catch (OperationCanceledException)
 			{
-				
 			}
 		}
 
 		private void LateUpdate()
 		{
-			var pos = bullet.transform.position;
-			var prevPos = prevBulletPosition;
+			Vector3 pos = bullet.transform.position;
+			Vector3 prevPos = prevBulletPosition;
 			depthLight.transform.position = Vector3.Lerp(pos, prevPos, 0.5f);
 			prevBulletPosition = pos;
 		}

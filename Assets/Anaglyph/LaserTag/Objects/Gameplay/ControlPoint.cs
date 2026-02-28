@@ -1,3 +1,4 @@
+using System.Threading;
 using Anaglyph.Lasertag.Networking;
 using System.Threading.Tasks;
 using Unity.Netcode;
@@ -89,13 +90,15 @@ namespace Anaglyph.Lasertag
 
 		private async Task ScoreLoop()
 		{
+			CancellationToken ctkn = destroyCancellationToken;
+
 			if (!IsOwner)
 				return;
 
 			while (MatchReferee.State == MatchState.Playing)
 			{
-				await Awaitable.WaitForSecondsAsync(1, destroyCancellationToken);
-				destroyCancellationToken.ThrowIfCancellationRequested();
+				await Awaitable.WaitForSecondsAsync(1, ctkn);
+				ctkn.ThrowIfCancellationRequested();
 
 				if (teamOwner.Team != 0)
 					referee.ScoreRpc(teamOwner.Team, MatchReferee.Settings.pointsPerSecondHoldingPoint);
@@ -108,7 +111,7 @@ namespace Anaglyph.Lasertag
 			if (!player.IsAlive)
 				return false;
 
-			var playerHeadPos = player.HeadTransform.position;
+			Vector3 playerHeadPos = player.HeadTransform.position;
 			return Geo.PointIsInCylinder(transform.position, Radius, 3, playerHeadPos);
 		}
 
@@ -116,14 +119,14 @@ namespace Anaglyph.Lasertag
 		{
 			if (IsOwner)
 			{
-				var isSecure = CapturingTeam == HoldingTeam;
-				var capturingTeamIsInside = false;
-				var isStalemated = false;
+				bool isSecure = CapturingTeam == HoldingTeam;
+				bool capturingTeamIsInside = false;
+				bool isStalemated = false;
 
 				if (isSecure)
 				{
 					// check for new capturing players
-					foreach (var player in PlayerAvatar.All.Values)
+					foreach (PlayerAvatar player in PlayerAvatar.All.Values)
 						if (player.Team != 0 && player.Team != HoldingTeam && CheckIfPlayerIsInside(player))
 						{
 							capturingTeamSync.Value = player.Team;
@@ -132,7 +135,7 @@ namespace Anaglyph.Lasertag
 				}
 				else
 				{
-					foreach (var player in PlayerAvatar.All.Values)
+					foreach (PlayerAvatar player in PlayerAvatar.All.Values)
 						if (CheckIfPlayerIsInside(player))
 						{
 							if (player.Team == CapturingTeam)

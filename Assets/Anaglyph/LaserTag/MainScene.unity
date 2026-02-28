@@ -632,8 +632,10 @@ MonoBehaviour:
     z: 5
   overlap: 0.5
   chunkPrefab: {fileID: 5707654171926711959, guid: ebe1cd8f705d4ab4abc5b9f1778d536d, type: 3}
-  updateFrequency: 0.08
-  updateDistance: 5
+  updateFrequency: 0.1
+  updateDistance: 4
+  occlusionMaterial: {fileID: 2100000, guid: 5011a7c4fa28a6440825134b0bb85188, type: 2}
+  debugMaterial: {fileID: -876546973899608171, guid: 31712154f3d3e4baeae0a4361c1e4245, type: 3}
 --- !u!1001 &3916737362139618993
 PrefabInstance:
   m_ObjectHideFlags: 0

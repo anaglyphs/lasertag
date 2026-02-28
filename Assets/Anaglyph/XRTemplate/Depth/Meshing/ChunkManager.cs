@@ -27,11 +27,17 @@ namespace Anaglyph.DepthKit.Meshing
 		private readonly Vector3[] frustumCorners = new Vector3[4];
 		private readonly Plane[] frustumPlanes = new Plane[6];
 
+		[SerializeField] private Material occlusionMaterial;
+		[SerializeField] private Material debugMaterial;
+
+		private Material activeMaterial;
+
 		private CancellationTokenSource updateLoopCts;
 
 		private void Awake()
 		{
 			Instance = this;
+			activeMaterial = occlusionMaterial;
 		}
 
 		private void Start()
@@ -186,6 +192,8 @@ namespace Anaglyph.DepthKit.Meshing
 
 			chunk.transform.position = ChunkCoordToPos(chunkCoord);
 
+			chunk.MeshRenderer.material = activeMaterial;
+
 			chunks.Add(chunkCoord, chunk);
 
 			return chunk;
@@ -199,6 +207,16 @@ namespace Anaglyph.DepthKit.Meshing
 		private float3 ChunkCoordToPos(int3 chunkCoord)
 		{
 			return chunkCoord * chunkSize;
+		}
+
+		public void EnableDebugMaterial(bool b)
+		{
+			Material newMat = b ? debugMaterial : occlusionMaterial;
+			if (newMat == activeMaterial) return;
+
+			activeMaterial = newMat;
+
+			foreach (MeshChunk chunk in chunks.Values) chunk.MeshRenderer.material = activeMaterial;
 		}
 
 		public void ClearAllChunks()

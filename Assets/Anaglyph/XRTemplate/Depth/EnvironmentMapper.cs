@@ -20,6 +20,9 @@ namespace Anaglyph.XRTemplate
 		[SerializeField] private float voxelDistance = 0.2f;
 		public float VoxelDistance => voxelDistance;
 
+		[SerializeField] private float depthDisparityThreshold = 1f;
+		public float DepthDisparityThreshold => depthDisparityThreshold;
+
 		[SerializeField] private int maxDepthMaskDilation = 64;
 
 		public float frequency = 5f;
@@ -66,6 +69,7 @@ namespace Anaglyph.XRTemplate
 		private static readonly int volumeID = ID("envVolume");
 		private static readonly int voxelCountID = ID("envVoxCount");
 		private static readonly int voxelSizeID = ID("envVoxSize");
+		private static readonly int depthDisparityThresholdID = ID("depthDispThresh");
 		private static readonly int voxelDistanceID = ID("envVoxDist");
 		private static readonly int frustumVolumeID = ID("envFrustumVolume");
 		private static readonly int dilatedDepthID = ID("envDilatedDepth");
@@ -123,6 +127,8 @@ namespace Anaglyph.XRTemplate
 
 			compute.SetFloat(voxelDistanceID, voxelDistance);
 			Shader.SetGlobalFloat(voxelDistanceID, voxelDistance);
+
+			compute.SetFloat(depthDisparityThresholdID, depthDisparityThreshold);
 
 			Clear();
 
@@ -352,7 +358,6 @@ namespace Anaglyph.XRTemplate
 			raymarchKernel.Set(raymarchResultsID, resultBuffer);
 
 			raymarchKernel.DispatchGroups(count, 1, 1);
-
 
 			float[] results = new float[count];
 			resultBuffer.GetData(results);

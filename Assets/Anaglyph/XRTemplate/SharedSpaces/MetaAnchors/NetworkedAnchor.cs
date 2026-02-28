@@ -92,7 +92,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 				spatialAnchor.enabled = true;
 
-				var localizeSuccess = await spatialAnchor.WhenLocalizedAsync();
+				bool localizeSuccess = await spatialAnchor.WhenLocalizedAsync();
 
 #if UNITY_EDITOR
 				await Awaitable.WaitForSecondsAsync(0.5f);
@@ -113,7 +113,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 				Log($"Sharing anchor {spatialAnchor.Uuid}...");
 
-				var shareResult = await spatialAnchor.ShareAsync(spatialAnchor.Uuid);
+				OVRResult<OVRAnchor.ShareResult> shareResult = await spatialAnchor.ShareAsync(spatialAnchor.Uuid);
 
 #if UNITY_EDITOR
 				await Awaitable.WaitForSecondsAsync(0.5f);
@@ -151,7 +151,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			{
 				ExitIfBehaviorDisabled();
 
-				var localizeSuccess = await unboundAnchor.LocalizeAsync();
+				bool localizeSuccess = await unboundAnchor.LocalizeAsync();
 
 #if UNITY_EDITOR
 				await Awaitable.WaitForSecondsAsync(0.5f);
@@ -161,7 +161,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				if (!localizeSuccess)
 					throw new NetworkedAnchorException($"Could not localize anchor {unboundAnchor.Uuid}");
 
-				var gotAnchorPose = unboundAnchor.TryGetPose(out var anchorPose);
+				bool gotAnchorPose = unboundAnchor.TryGetPose(out Pose anchorPose);
 				if (!gotAnchorPose)
 					throw new NetworkedAnchorException($"Couldn't get anchor {unboundAnchor.Uuid} pose");
 				spatialAnchor.transform.SetWorldPose(anchorPose);
@@ -227,7 +227,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				//		throw new NetworkedAnchorException($"Failed to download anchor {uuid}: {downloadResult}");
 				//}
 
-				var downloadResult = await LoadUnboundSharedAnchorsAsync(uuid, loadedAnchors);
+				OVRResult<List<UnboundAnchor>, OperationResult> downloadResult =
+					await LoadUnboundSharedAnchorsAsync(uuid, loadedAnchors);
 				ExitIfBehaviorDisabled();
 				if (!downloadResult.Success)
 					throw new NetworkedAnchorException($"Failed to download anchor {uuid}: {downloadResult}");

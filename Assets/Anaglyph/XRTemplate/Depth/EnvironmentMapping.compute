@@ -2,6 +2,7 @@
 #include "../Depth/EnvMapper.hlsl"
 
 RWTexture3D<float> envVolumeRW; // tsdf
+float depthDispThresh;
 
 #define PLAYER_TOP 0.2
 #define PLAYER_BOTTOM 1.7
@@ -51,7 +52,7 @@ void Integrate(uint id : SV_DispatchThreadID)
 	float dilatedDepthLinear = agDepthNDCToLinear(dilatedDepthNDC);
 	float depthLinear = agDepthNDCToLinear(depthNDC);
 	float3 voxView = mul(agDepthView[0], float4(voxPos, 1)).xyz;
-	bool acceptableDepthDisparity = depthLinear < dilatedDepthLinear + envVoxDist * 2;
+	bool acceptableDepthDisparity = depthLinear < dilatedDepthLinear + depthDispThresh;
 	bool unoccludedByDilation = abs(voxView.z) < dilatedDepthLinear || acceptableDepthDisparity;
 	bool validSurfaceNormal = empty || normDot > MIN_DOT;
 

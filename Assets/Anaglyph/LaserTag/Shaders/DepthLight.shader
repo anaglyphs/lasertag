@@ -10,11 +10,11 @@ Shader "Lasertag/DepthLight"
     {
         Tags
         {
-            "RenderType" = "Opaque" "Queue"="Geometry-1"
+            "RenderType" = "Opaque" "Queue"="Geometry"
         }
         LOD 200
         ZWrite Off
-        ZTest LEqual
+        ZTest Always
         Cull Front
         Blend One OneMinusSrcAlpha
 

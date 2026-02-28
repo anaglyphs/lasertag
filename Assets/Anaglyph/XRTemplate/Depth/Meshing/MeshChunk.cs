@@ -36,6 +36,9 @@ namespace Anaglyph.DepthKit.Meshing
 
 		[Header("Mesh decimation options")] public bool runDecimation = true;
 
+		private MeshRenderer meshRenderer;
+		public MeshRenderer MeshRenderer => meshRenderer;
+
 		public MeshSimplificationTarget decimationTarget = new()
 		{
 			Kind = MeshSimplificationTargetKind.ScaledTotalError,
@@ -61,6 +64,8 @@ namespace Anaglyph.DepthKit.Meshing
 			mesh.MarkDynamic();
 			rawMesh = new Mesh();
 			rawMesh.MarkDynamic();
+
+			TryGetComponent(out meshRenderer);
 		}
 
 		private void OnDestroy()

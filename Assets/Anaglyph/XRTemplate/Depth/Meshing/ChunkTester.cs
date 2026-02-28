@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using Anaglyph.DepthKit.Meshing;
 using UnityEngine;
 
@@ -16,13 +17,15 @@ namespace Anaglyph.DepthKit
 
 		private async void IntegrateLoop()
 		{
+			CancellationToken ctkn = destroyCancellationToken;
+
 			try
 			{
 				while (enabled)
 				{
-					await Awaitable.WaitForSecondsAsync(0.1f);
+					await Awaitable.WaitForSecondsAsync(0.1f, ctkn);
 
-					await chunk.Mesh(destroyCancellationToken);
+					await chunk.Mesh(ctkn);
 				}
 			}
 			catch (OperationCanceledException _)
