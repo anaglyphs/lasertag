@@ -10,7 +10,7 @@ Shader "Lasertag/DepthLight"
     {
         Tags
         {
-            "RenderType" = "Opaque" "Queue"="Geometry"
+            "RenderType" = "Opaque" "Queue"="Geometry-100"
         }
         LOD 200
         ZWrite Off

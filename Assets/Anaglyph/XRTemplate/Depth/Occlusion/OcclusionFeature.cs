@@ -1,8 +1,11 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.Rendering.RenderGraphModule;
+using UnityEngine.Serialization;
+using UnityEngine.XR;
 
 namespace Anaglyph.DepthKit
 {
@@ -10,15 +13,27 @@ namespace Anaglyph.DepthKit
 	{
 		public static readonly List<Renderer> AllRenderers = new();
 
-		public RenderTexture depthTexOut;
+		private RenderTexture occlusionTex;
 		public Material depthMat;
+		public float relativeTexSize = 0.5f;
 
 		private Pass pass;
 
 		public override void Create()
 		{
-			depthTexOut.vrUsage = VRTextureUsage.TwoEyes;
-			pass = new Pass(depthTexOut, depthMat);
+			int width = XRSettings.eyeTextureWidth;
+			int height = XRSettings.eyeTextureHeight;
+
+			width = Mathf.FloorToInt(width * relativeTexSize);
+			height = Mathf.FloorToInt(height * relativeTexSize);
+
+			occlusionTex = new RenderTexture(width, height, 0, GraphicsFormat.None, 1)
+			{
+				depthStencilFormat = GraphicsFormat.D16_UNorm,
+				dimension = TextureDimension.Tex2DArray,
+				volumeDepth = 2,
+				enableRandomWrite = true
+			};
 		}
 
 		public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
@@ -28,7 +43,7 @@ namespace Anaglyph.DepthKit
 
 		private class Pass : ScriptableRenderPass
 		{
-			private const string PassName = "Occlusion Feature (RenderGraph)";
+			private const string PassName = "Mesh Occlusion Feature (RenderGraph)";
 
 			private readonly RenderTexture depthTexOut;
 			private readonly Material depthMat;

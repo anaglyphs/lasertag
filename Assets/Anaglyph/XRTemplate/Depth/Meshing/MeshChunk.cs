@@ -32,14 +32,10 @@ namespace Anaglyph.DepthKit.Meshing
 		public bool dirty;
 
 		private bool isPopulated = false;
+		public bool IsPopulated => isPopulated;
 		public UnityEvent<Mesh> onMeshFirstPopulated = new();
 
-		[Header("Mesh decimation options")] public bool runDecimation = true;
-
-		private MeshRenderer meshRenderer;
-		public MeshRenderer MeshRenderer => meshRenderer;
-
-		public MeshSimplificationTarget decimationTarget = new()
+		[Header("Mesh decimation options")] public MeshSimplificationTarget decimationTarget = new()
 		{
 			Kind = MeshSimplificationTargetKind.ScaledTotalError,
 			Value = 0.5f
@@ -65,7 +61,7 @@ namespace Anaglyph.DepthKit.Meshing
 			rawMesh = new Mesh();
 			rawMesh.MarkDynamic();
 
-			TryGetComponent(out meshRenderer);
+			// TryGetComponent(out meshRenderer);
 		}
 
 		private void OnDestroy()
@@ -152,15 +148,8 @@ namespace Anaglyph.DepthKit.Meshing
 
 				ctkn.ThrowIfCancellationRequested();
 
-				if (runDecimation)
-				{
-					await MeshSimplifier.SimplifyAsync(rawMesh, decimationTarget, decimationOptions, mesh, ctkn);
-				}
-				else
-				{
-					mesh = rawMesh;
-					mesh.MarkModified();
-				}
+				mesh = rawMesh;
+				mesh.MarkModified();
 
 				if (!isPopulated)
 				{
@@ -173,6 +162,12 @@ namespace Anaglyph.DepthKit.Meshing
 				if (volumePiece.IsCreated) volumePiece.Dispose();
 				dirty = false;
 			}
+		}
+
+		public async Task Decimate(CancellationToken ctkn = default)
+		{
+			if (isPopulated)
+				await MeshSimplifier.SimplifyAsync(rawMesh, decimationTarget, decimationOptions, mesh, ctkn);
 		}
 
 		[BurstCompile]

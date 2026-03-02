@@ -1,10 +1,14 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Anaglyph.XRTemplate;
 using Anaglyph.XRTemplate.DepthKit;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Anaglyph.DepthKit.Meshing
 {
@@ -12,32 +16,28 @@ namespace Anaglyph.DepthKit.Meshing
 	{
 		public static ChunkManager Instance { get; private set; }
 
-		private EnvironmentMapper Mapper => EnvironmentMapper.Instance;
-
 		[SerializeField] private float3 chunkSize = new(5, 5, 5);
-		public float overlap = 0.5f;
+		[SerializeField] private float overlap = 0.5f;
 		[SerializeField] private GameObject chunkPrefab;
 
-		[SerializeField] private float updateFrequency = 0.1f;
+		[SerializeField] private int numMeshWorkers = 2;
+		[SerializeField] private int numDecimateWorkers = 1;
 		[SerializeField] private float updateDistance = 4f;
 
 		private readonly Dictionary<int3, MeshChunk> chunks = new();
-		private readonly Queue<int3> updateQueue = new();
+
+		private readonly ConcurrentQueue<int3> meshQueue = new();
+		private readonly SemaphoreSlim mesherSemaphore = new(0);
+		private readonly ConcurrentQueue<int3> decimateQueue = new();
+		private readonly SemaphoreSlim decimateSemaphore = new(0);
+		private CancellationTokenSource cancelSrc;
 
 		private readonly Vector3[] frustumCorners = new Vector3[4];
 		private readonly Plane[] frustumPlanes = new Plane[6];
 
-		[SerializeField] private Material occlusionMaterial;
-		[SerializeField] private Material debugMaterial;
-
-		private Material activeMaterial;
-
-		private CancellationTokenSource updateLoopCts;
-
 		private void Awake()
 		{
 			Instance = this;
-			activeMaterial = occlusionMaterial;
 		}
 
 		private void Start()
@@ -46,17 +46,17 @@ namespace Anaglyph.DepthKit.Meshing
 
 			EnvironmentMapper.Instance.Updated += OnDepthUpdate;
 			EnvironmentMapper.Instance.Cleared += ClearAllChunks;
-			UpdateLoop();
+			StartWorkers();
 		}
 
 		private void OnEnable()
 		{
-			if (didStart) UpdateLoop();
+			if (didStart) StartWorkers();
 		}
 
 		private void OnDisable()
 		{
-			updateLoopCts?.Cancel();
+			cancelSrc?.Cancel();
 		}
 
 		private static readonly Vector4[] ndcCorners =
@@ -69,27 +69,31 @@ namespace Anaglyph.DepthKit.Meshing
 
 		public static Matrix4x4 WithFiniteFarPlane(Matrix4x4 infiniteProj, float far)
 		{
-			// Recover the near plane from the infinite projection
-			// For an infinite projection: m23 = -2 * near
 			float near = -infiniteProj.m23 * 0.5f;
 
 			Matrix4x4 proj = infiniteProj;
 
-			// Replace the Z mapping terms with the finite-far equivalents
 			proj.m22 = -(far + near) / (far - near);
 			proj.m23 = -(2f * far * near) / (far - near);
 
-			// These are already correct for a standard perspective matrix,
-			// but we set them explicitly for clarity.
 			proj.m32 = -1f;
 			proj.m33 = 0f;
 
 			return proj;
 		}
 
-		private static void GetFrustumCorners(Matrix4x4 projInv, Matrix4x4 viewInv, Vector3[] results)
+		private void OnDepthUpdate()
 		{
-			// Transform each corner from NDC to world space
+			DepthKitDriver d = DepthKitDriver.Instance;
+
+			// depth matrices
+			Matrix4x4 proj = d.GetProjMat();
+			proj = WithFiniteFarPlane(proj, updateDistance);
+			Matrix4x4 projInv = proj.inverse;
+			Matrix4x4 view = d.GetViewMat();
+			Matrix4x4 viewInv = view.inverse;
+
+			// get frustum corners
 			for (int i = 0; i < 4; i++)
 			{
 				Vector4 localCorner = projInv * ndcCorners[i];
@@ -100,20 +104,8 @@ namespace Anaglyph.DepthKit.Meshing
 					localCorner.z / localCorner.w
 				);
 
-				results[i + 0] = viewInv.MultiplyPoint(farCorner);
+				frustumCorners[i + 0] = viewInv.MultiplyPoint(farCorner);
 			}
-		}
-
-		private void OnDepthUpdate()
-		{
-			DepthKitDriver d = DepthKitDriver.Instance;
-			Matrix4x4 proj = d.GetProjMat();
-			proj = WithFiniteFarPlane(proj, updateDistance);
-			Matrix4x4 projInv = proj.inverse;
-			Matrix4x4 view = d.GetViewMat();
-			Matrix4x4 viewInv = view.inverse;
-
-			GetFrustumCorners(projInv, viewInv, frustumCorners);
 
 			float3 boxMin = frustumCorners[0];
 			float3 boxMax = frustumCorners[0];
@@ -125,8 +117,8 @@ namespace Anaglyph.DepthKit.Meshing
 				boxMax = math.max(boxMax, t);
 			}
 
-			int3 chunkCheckMin = (int3)math.floor(boxMin / chunkSize);
-			int3 chunkCheckMax = (int3)math.floor(boxMax / chunkSize);
+			int3 chunkCheckMin = (int3)math.floor(boxMin / chunkSize - 1);
+			int3 chunkCheckMax = (int3)math.floor(boxMax / chunkSize + 1);
 
 			GeometryUtility.CalculateFrustumPlanes(proj * view, frustumPlanes);
 
@@ -136,7 +128,7 @@ namespace Anaglyph.DepthKit.Meshing
 			{
 				int3 coord = new(x, y, z);
 
-				if (updateQueue.Contains(coord))
+				if (meshQueue.Contains(coord))
 					continue;
 
 				float3 min = coord * chunkSize;
@@ -148,37 +140,72 @@ namespace Anaglyph.DepthKit.Meshing
 					bool foundChunk = chunks.TryGetValue(coord, out MeshChunk chunk);
 					if (!foundChunk) chunk = InstantiateChunk(coord);
 					chunk.dirty = true;
-
-					updateQueue.Enqueue(coord);
+					meshQueue.Enqueue(coord);
+					mesherSemaphore.Release();
 				}
 			}
 		}
 
-		private async void UpdateLoop()
+		private void StartWorkers()
 		{
-			updateLoopCts?.Cancel();
-			updateLoopCts = new CancellationTokenSource();
+			cancelSrc?.Cancel();
+			cancelSrc = new CancellationTokenSource();
 
-			CancellationToken ctkn = updateLoopCts.Token;
+			for (int i = 0; i < numMeshWorkers; i++)
+				_ = RunMesherWorker(cancelSrc.Token);
 
+			for (int i = 0; i < numDecimateWorkers; i++)
+				_ = RunDecimateWorker(cancelSrc.Token);
+		}
+
+		private async Task RunMesherWorker(CancellationToken ctkn)
+		{
 			try
 			{
-				while (enabled)
+				while (!ctkn.IsCancellationRequested)
 				{
-					if (updateQueue.Count > 0)
+					await mesherSemaphore.WaitAsync(ctkn);
+
+					if (!meshQueue.TryDequeue(out int3 coord))
+						continue;
+
+					if (!chunks.TryGetValue(coord, out MeshChunk chunk))
+						chunk = InstantiateChunk(coord);
+
+					await chunk.Mesh(ctkn);
+
+					if (chunk.IsPopulated && !decimateQueue.Contains(coord))
 					{
-						int3 coord = updateQueue.Dequeue();
-
-						bool foundChunk = chunks.TryGetValue(coord, out MeshChunk chunk);
-						if (!foundChunk) chunk = InstantiateChunk(coord);
-
-						chunk.Mesh(ctkn);
+						decimateQueue.Enqueue(coord);
+						decimateSemaphore.Release();
 					}
 
-					await Awaitable.WaitForSecondsAsync(updateFrequency, ctkn);
+					await Awaitable.NextFrameAsync(ctkn);
 				}
 			}
-			catch (OperationCanceledException _)
+			catch (OperationCanceledException)
+			{
+			}
+		}
+
+		private async Task RunDecimateWorker(CancellationToken ctkn)
+		{
+			try
+			{
+				while (!ctkn.IsCancellationRequested)
+				{
+					await decimateSemaphore.WaitAsync(ctkn);
+
+					if (!decimateQueue.TryDequeue(out int3 coord))
+						continue;
+
+					if (!chunks.TryGetValue(coord, out MeshChunk chunk))
+						continue;
+
+					await chunk.Decimate(ctkn);
+				}
+			}
+			catch (OperationCanceledException)
 			{
 			}
 		}
@@ -189,19 +216,11 @@ namespace Anaglyph.DepthKit.Meshing
 			g.TryGetComponent(out MeshChunk chunk);
 
 			chunk.extents = chunkSize + overlap;
-
 			chunk.transform.position = ChunkCoordToPos(chunkCoord);
-
-			chunk.MeshRenderer.material = activeMaterial;
 
 			chunks.Add(chunkCoord, chunk);
 
 			return chunk;
-		}
-
-		private int3 PosToChunkCoord(float3 pos)
-		{
-			return new int3(math.floor(pos / chunkSize));
 		}
 
 		private float3 ChunkCoordToPos(int3 chunkCoord)
@@ -209,23 +228,13 @@ namespace Anaglyph.DepthKit.Meshing
 			return chunkCoord * chunkSize;
 		}
 
-		public void EnableDebugMaterial(bool b)
-		{
-			Material newMat = b ? debugMaterial : occlusionMaterial;
-			if (newMat == activeMaterial) return;
-
-			activeMaterial = newMat;
-
-			foreach (MeshChunk chunk in chunks.Values) chunk.MeshRenderer.material = activeMaterial;
-		}
-
 		public void ClearAllChunks()
 		{
-			updateLoopCts?.Cancel();
+			cancelSrc?.Cancel();
 			foreach (MeshChunk chunk in chunks.Values) Destroy(chunk.gameObject);
 			chunks.Clear();
 
-			if (enabled) UpdateLoop();
+			if (enabled) StartWorkers();
 		}
 	}
 }

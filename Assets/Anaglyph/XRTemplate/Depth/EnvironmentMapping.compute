@@ -14,7 +14,7 @@ float depthDispThresh;
 [numthreads(4, 4, 4)]
 void Clear(uint3 id : SV_DispatchThreadID)
 {
-	envVolumeRW[id] = -1.0;
+	envVolumeRW[id] = EMPTY_VOXEL;
 }
 
 #pragma kernel Integrate
@@ -128,7 +128,7 @@ void DilateDepthStep(uint2 coord : SV_DispatchThreadID)
 
 		float srcDepthLinear = agDepthNDCToLinear(srcVal.z);
 		float pixelSize = 2.0 * srcDepthLinear / (focalLength * agDepthTexSize.x);
-		float radius = envVoxDist / pixelSize.x;
+		float radius = (envVoxDist + envVoxSize) / pixelSize.x;
 
 		float2 diff = srcVal.xy - coord.xy;
 		bool withinRadius = dot(diff, diff) < radius * radius;

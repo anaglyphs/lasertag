@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
+using UnityEngine.Serialization;
 
 namespace Anaglyph.XRTemplate
 {
@@ -23,7 +24,10 @@ namespace Anaglyph.XRTemplate
 		[SerializeField] private float depthDisparityThreshold = 1f;
 		public float DepthDisparityThreshold => depthDisparityThreshold;
 
-		[SerializeField] private int maxDepthMaskDilation = 64;
+		[FormerlySerializedAs("maxDepthDilationSteps")] [SerializeField]
+		private int depthDilationSteps = 8;
+
+		private int depthDilationMaxStep = 0;
 
 		public float frequency = 5f;
 
@@ -101,6 +105,11 @@ namespace Anaglyph.XRTemplate
 		{
 			Instance = this;
 			VoxelCount = new int3(vWidth, vHeight, vDepth);
+
+			depthDilationMaxStep = 1;
+
+			for (int i = 0; i < depthDilationSteps; i++)
+				depthDilationMaxStep *= 2;
 		}
 
 		private void Start()
@@ -259,13 +268,16 @@ namespace Anaglyph.XRTemplate
 			initDepthDilationKernel.Set(dilateDestID, dilationB);
 			initDepthDilationKernel.DispatchGroups(dilationA);
 
-			for (int step = maxDepthMaskDilation; step >= 2; step /= 2)
+			int stepSize = depthDilationMaxStep;
+
+			for (int i = 0; i < stepSize; i++)
 			{
 				dilateDepthKernel.Set(dilateSrcID, dilationA);
 				dilateDepthKernel.Set(dilateDestID, dilationB);
-				compute.SetInt(dilateStepSizeID, step);
+				compute.SetInt(dilateStepSizeID, stepSize);
 				dilateDepthKernel.DispatchGroups(dilationA);
 
+				stepSize /= 2;
 				(dilationA, dilationB) = (dilationB, dilationA);
 			}
 

@@ -17,7 +17,7 @@ Shader "Lasertag/DepthOnly"
             ZWrite On
             ZTest LEqual
             ColorMask 0
-            Cull Front
+            Cull Off
         }
     }
 }

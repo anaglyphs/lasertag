@@ -12,6 +12,8 @@ Texture2D<float4> envDilatedDepth;
 int envNumPlayers;
 float3 envPlayerHeads[512];
 
+#define EMPTY_VOXEL 0.0
+
 float3 envVoxelToWorld(uint3 indices)
 {
 	float3 pos = indices;
@@ -52,7 +54,7 @@ half envSampleVolumeDist(float3 worldPos)
 {
 	float3 uvw = envWorldToVoxelUVW(worldPos);
 	float rawVal = envVolume.SampleLevel(envLinearClampSampler, uvw, 0);
-	float val = rawVal == -1.0 ? 1.0 : rawVal;
+	float val = rawVal == EMPTY_VOXEL ? 1.0 : rawVal;
 	return val * envVoxDist;
 }
 

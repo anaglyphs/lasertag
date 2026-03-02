@@ -117,7 +117,7 @@ namespace Anaglyph.DepthKit
 						if (doesCross)
 						{
 							// cull false isosurface sign changes
-							if (valA == -1f || valB == -1f)
+							if (valA == 0 || valB == 0)
 								numBadCrossings++;
 
 							float t = valA / change;
