@@ -64,7 +64,6 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-  runDecimation: 1
   decimationTarget:
     Kind: 6
     Value: 0.01
@@ -111,7 +110,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: -876546973899608171, guid: 31712154f3d3e4baeae0a4361c1e4245, type: 3}
+  - {fileID: 2100000, guid: 828c90857d65740bdb3cf0d4567fae48, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0

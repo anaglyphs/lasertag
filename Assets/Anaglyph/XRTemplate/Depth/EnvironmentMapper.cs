@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering;
 using UnityEngine.Serialization;
 
 namespace Anaglyph.XRTemplate
@@ -24,8 +25,7 @@ namespace Anaglyph.XRTemplate
 		[SerializeField] private float depthDisparityThreshold = 1f;
 		public float DepthDisparityThreshold => depthDisparityThreshold;
 
-		[FormerlySerializedAs("maxDepthDilationSteps")] [SerializeField]
-		private int depthDilationSteps = 8;
+		[SerializeField] private int depthDilationSteps = 8;
 
 		private int depthDilationMaxStep = 0;
 
@@ -54,6 +54,7 @@ namespace Anaglyph.XRTemplate
 		private ComputeKernel dilateDepthKernel;
 
 		private ComputeKernel raymarchKernel;
+		private ComputeKernel crossingTestKernel;
 
 		private static int viewID => DepthKitDriver.viewID;
 		private static int projID => DepthKitDriver.projID;
@@ -88,6 +89,9 @@ namespace Anaglyph.XRTemplate
 		private static readonly int numRaymarchRequestsID = ID("numRaymarchRequests");
 		private static readonly int raymarchRequestsID = ID("raymarchRequests");
 		private static readonly int raymarchResultsID = ID("raymarchResults");
+
+		// private static readonly int crossingTestResultID = ID("crossingTestResult");
+		// private static readonly int crossingTestStartID = ID("crossingTestStart");
 
 		// cached points within viewspace depth frustum 
 		// like a 3D lookup table
@@ -126,6 +130,9 @@ namespace Anaglyph.XRTemplate
 			raymarchKernel = new ComputeKernel(compute, "Raymarch");
 			raymarchKernel.Set(volumeID, volume);
 
+			crossingTestKernel = new ComputeKernel(compute, "CrossingTest");
+			crossingTestKernel.Set(volumeID, volume);
+
 			Shader.SetGlobalTexture(volumeID, volume);
 
 			compute.SetInts(voxelCountID, vWidth, vHeight, vDepth);
@@ -146,7 +153,7 @@ namespace Anaglyph.XRTemplate
 
 		public void Clear()
 		{
-			clearKernel.DispatchGroups(volume);
+			clearKernel.DispatchFit(volume);
 			Cleared.Invoke();
 		}
 
@@ -236,7 +243,7 @@ namespace Anaglyph.XRTemplate
 				width = DepthKitDriver.Instance.DepthTex.width,
 				height = DepthKitDriver.Instance.DepthTex.height,
 				volumeDepth = 1,
-				dimension = UnityEngine.Rendering.TextureDimension.Tex2D,
+				dimension = TextureDimension.Tex2D,
 				autoGenerateMips = false,
 				enableRandomWrite = true,
 				graphicsFormat = GraphicsFormat.R16G16B16A16_SFloat,
@@ -266,7 +273,7 @@ namespace Anaglyph.XRTemplate
 			initDepthDilationKernel.Set(depthTexID, dkd.DepthTex);
 			initDepthDilationKernel.Set(dilateSrcID, dilationA);
 			initDepthDilationKernel.Set(dilateDestID, dilationB);
-			initDepthDilationKernel.DispatchGroups(dilationA);
+			initDepthDilationKernel.DispatchFit(dilationA);
 
 			int stepSize = depthDilationMaxStep;
 
@@ -275,13 +282,14 @@ namespace Anaglyph.XRTemplate
 				dilateDepthKernel.Set(dilateSrcID, dilationA);
 				dilateDepthKernel.Set(dilateDestID, dilationB);
 				compute.SetInt(dilateStepSizeID, stepSize);
-				dilateDepthKernel.DispatchGroups(dilationA);
+				dilateDepthKernel.DispatchFit(dilationA);
 
 				stepSize /= 2;
 				(dilationA, dilationB) = (dilationB, dilationA);
 			}
 
 			dilatedDepth = dilationA;
+			// Shader.SetGlobalTexture(dilatedDepthID, dilatedDepth);
 
 			// integrate depth into world
 			for (int i = 0; i < PlayerHeads.Count; i++)
@@ -294,7 +302,7 @@ namespace Anaglyph.XRTemplate
 			integrateKernel.Set(depthTexID, dkd.DepthTex);
 			integrateKernel.Set(normTexID, dkd.NormTex);
 			integrateKernel.Set(dilatedDepthID, dilatedDepth);
-			integrateKernel.DispatchGroups(frustumVolume.count, 1);
+			integrateKernel.DispatchFit(frustumVolume.count, 1);
 		}
 
 		private void OnDestroy()
@@ -369,7 +377,7 @@ namespace Anaglyph.XRTemplate
 			raymarchKernel.Set(raymarchRequestsID, requestsBuffer);
 			raymarchKernel.Set(raymarchResultsID, resultBuffer);
 
-			raymarchKernel.DispatchGroups(count, 1, 1);
+			raymarchKernel.DispatchFit(count, 1, 1);
 
 			float[] results = new float[count];
 			resultBuffer.GetData(results);
@@ -378,37 +386,64 @@ namespace Anaglyph.XRTemplate
 			resultBuffer.Dispose();
 
 			return results;
-
-			//var tcs = new TaskCompletionSource<AsyncGPUReadbackRequest>();
-
-			//AsyncGPUReadback.Request(resultBuffer, (req) =>
-			//{
-			//	if (req.hasError)
-			//		tcs.SetException(new System.Exception("GPU readback failed"));
-			//	else
-			//		tcs.SetResult(req);
-
-			//	requestsBuffer.Dispose();
-			//	resultBuffer.Dispose();
-			//});
-
-			//AsyncGPUReadbackRequest result = await tcs.Task;
-			//return result.GetData<float>().ToArray();
 		}
 
-		//private static Task<AsyncGPUReadbackRequest> AwaitReadback(ComputeBuffer buffer)
-		//{
-		//	var tcs = new TaskCompletionSource<AsyncGPUReadbackRequest>();
+		public float3 VoxelToWorld(uint3 indices)
+		{
+			float3 pos = indices;
+			pos += 0.5f; // voxel center
+			pos -= (float3)VoxelCount / 2.0f;
+			pos *= voxelSize;
 
-		//	AsyncGPUReadback.Request(buffer, (req) =>
-		//	{
-		//		if (req.hasError)
-		//			tcs.SetException(new System.Exception("GPU readback failed"));
-		//		else
-		//			tcs.SetResult(req);
-		//	});
+			return pos;
+		}
 
-		//	return tcs.Task;
-		//}
+		public float3 WorldToVoxelFloat(float3 pos)
+		{
+			pos /= VoxelSize;
+			pos += (float3)VoxelCount / 2.0f;
+			// do not subtract half
+			return pos;
+		}
+
+		public uint3 WorldToVoxel(float3 pos)
+		{
+			pos = WorldToVoxelFloat(pos);
+
+			uint3 id = new(math.floor(pos));
+			id = math.clamp(id, 0, (uint3)VoxelCount);
+			return id;
+		}
+
+		// public async Task<bool> TestForCrossings(float3 start, float3 size)
+		// {
+		// 	uint3 a = WorldToVoxel(start);
+		// 	int3 b = new(size / voxelSize);
+		//
+		// 	ComputeBuffer resultBuffer = new(2, sizeof(uint));
+		// 	crossingTestKernel.Set(crossingTestResultID, resultBuffer);
+		// 	compute.SetVector(crossingTestStartID, new Vector4(a.x, a.y, a.z, 0));
+		//
+		// 	crossingTestKernel.DispatchFit(b.x, b.y, b.z);
+		//
+		// 	AsyncGPUReadbackRequest req = await AwaitReadback(resultBuffer);
+		//
+		// 	if (req.hasError)
+		// 		return false;
+		//
+		// 	uint[] arr = new uint[2];
+		//
+		// 	resultBuffer.GetData(arr);
+		// 	return arr[0] == 1 && arr[1] == 1;
+		// }
+
+		// private static Task<AsyncGPUReadbackRequest> AwaitReadback(ComputeBuffer buffer)
+		// {
+		// 	TaskCompletionSource<AsyncGPUReadbackRequest> tcs = new();
+		//
+		// 	AsyncGPUReadback.Request(buffer, (req) => { tcs.SetResult(req); });
+		//
+		// 	return tcs.Task;
+		// }
 	}
 }

@@ -24,7 +24,7 @@ namespace Anaglyph
 					vertices.Add(vertex);
 
 			tree = new NativeArray<PointTree.Node>(vertices.Count, Allocator.Persistent);
-			NativeArray<float3> points = new NativeArray<float3>(vertices.ToArray(), Allocator.TempJob);
+			NativeArray<float3> points = new(vertices.ToArray(), Allocator.TempJob);
 
 			PointTree.BuildJob buildJob = new()
 			{

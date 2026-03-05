@@ -56,28 +56,25 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		private Camera mainCam;
 
-		[SerializeField] private RenderTexture depthTex;
-		public RenderTexture DepthTex => depthTex;
+		[SerializeField] private Texture depthTex;
+		public Texture DepthTex => depthTex;
 		[SerializeField] private RenderTexture normTex;
 		public RenderTexture NormTex => normTex;
+
+		private RenderTexture simulatedDepthTex;
 
 		private AROcclusionManager arOcclusionManager;
 
 		public event Action Updated = delegate { };
 
-		public Matrix4x4 GetProjMat(int eye = 0)
-		{
-			return proj[eye];
-		}
-
-		public Matrix4x4 GetViewMat(int eye = 0)
-		{
-			return view[eye];
-		}
-
 		private void Awake()
 		{
 			Instance = this;
+		}
+
+		private async void OnEnable()
+		{
+			await Awaitable.EndOfFrameAsync();
 		}
 
 		private void Start()
@@ -95,105 +92,98 @@ namespace Anaglyph.XRTemplate.DepthKit
 			if (arOcclusionManager)
 				arOcclusionManager.frameReceived -= OnDepthFrame;
 		}
+		//
+		// private void LateUpdate()
+		// {
+		// 	DepthAvailable = arOcclusionManager.TryGetEnvironmentDepthTexture(out Texture rawDepth);
+		// }
 
 		private void OnDepthFrame(AROcclusionFrameEventArgs args)
 		{
-			arOcclusionManager.TryGetEnvironmentDepthTexture(out Texture rawDepth);
-			DepthAvailable = rawDepth != null; // TryGet may return true even if rawDepth is null
+#if UNITY_EDITOR
+			Texture rawDepth = args.externalTextures[0].texture;
+
+			DepthAvailable = rawDepth != null;
 			if (!DepthAvailable) return;
 
-			// populate frame data first
-			// if getting any frame data fails, fall back to synthesizing data from Unity camera
-			if (args.TryGetFovs(out ReadOnlyList<XRFov> fovs) &&
-			    args.TryGetPoses(out ReadOnlyList<Pose> poses) &&
-			    args.TryGetNearFarPlanes(out XRNearFarPlanes depthPlanes))
+			if (simulatedDepthTex == null ||
+			    simulatedDepthTex.width != rawDepth.width ||
+			    simulatedDepthTex.height != rawDepth.height)
 			{
-				for (int i = 0; i < 2; i++)
+				simulatedDepthTex = new RenderTexture(rawDepth.width, rawDepth.height, 0,
+					GraphicsFormat.R16_UNorm, 1)
 				{
-					proj[i] = CalculateDepthProjMatrix(fovs[i], depthPlanes);
-					projInv[i] = Matrix4x4.Inverse(proj[i]);
-
-					Pose pose = poses[i];
-					Matrix4x4 depthFrameMat = Matrix4x4.TRS(pose.position, pose.rotation, _scalingVector3);
-
-					view[i] = depthFrameMat.inverse * MainXRRig.TrackingSpace.worldToLocalMatrix;
-					viewInv[i] = Matrix4x4.Inverse(view[i]);
-				}
-
-				planes = new Vector2(depthPlanes.nearZ, depthPlanes.farZ);
+					dimension = TextureDimension.Tex2DArray,
+					volumeDepth = 2,
+					enableRandomWrite = true
+				};
+				Shader.SetGlobalVector(texSizeID, new Vector2(rawDepth.width, rawDepth.height));
 			}
-			else // probably simulator. fall back to data synthesized from unity camera
+
+			monoRawDepthConvert.Set(rwDepthTexID, simulatedDepthTex);
+			monoRawDepthConvert.Set(inputRawMonoDepthID, rawDepth);
+			monoRawDepthConvert.DispatchFit(rawDepth.width, rawDepth.height);
+			depthTex = simulatedDepthTex;
+
+			if (!mainCam) mainCam = Camera.main;
+			Matrix4x4 p = mainCam.projectionMatrix;
+			Matrix4x4 pi = p.inverse;
+
+			Transform ct = mainCam.transform;
+			Matrix4x4 vi = Matrix4x4.TRS(ct.position, ct.rotation, _scalingVector3);
+			Matrix4x4 v = vi.inverse;
+
+			for (int i = 0; i < 2; i++)
 			{
-				if (!mainCam) mainCam = Camera.main;
-				Matrix4x4 p = mainCam.projectionMatrix;
-				Matrix4x4 pi = p.inverse;
-
-				Transform ct = mainCam.transform;
-				Matrix4x4 vi = Matrix4x4.TRS(ct.position, ct.rotation, _scalingVector3);
-				Matrix4x4 v = vi.inverse;
-
-				for (int i = 0; i < 2; i++)
-				{
-					proj[i] = p;
-					projInv[i] = pi;
-					view[i] = v;
-					viewInv[i] = vi;
-				}
-
-				planes = new Vector2(mainCam.nearClipPlane, mainCam.farClipPlane);
+				proj[i] = p;
+				projInv[i] = pi;
+				view[i] = v;
+				viewInv[i] = vi;
 			}
+
+			planes = new Vector2(mainCam.nearClipPlane, mainCam.farClipPlane);
+
+#elif UNITY_ANDROID
+			depthTex = args.externalTextures[0].texture;
+
+			ReadOnlyList<XRFov> fovs = null;
+			ReadOnlyList<Pose> poses = null;
+			XRNearFarPlanes depthPlanes = default;
+
+			DepthAvailable = depthTex != null &&
+			                 args.TryGetFovs(out fovs) &&
+			                 args.TryGetPoses(out poses) &&
+			                 args.TryGetNearFarPlanes(out depthPlanes);
+
+			if (!DepthAvailable) return;
+
+			for (int i = 0; i < 2; i++)
+			{
+				proj[i] = CalculateDepthProjMatrix(fovs[i], depthPlanes);
+				projInv[i] = Matrix4x4.Inverse(proj[i]);
+
+				Pose pose = poses[i];
+				Matrix4x4 depthFrameMat = Matrix4x4.TRS(pose.position, pose.rotation, _scalingVector3);
+
+				view[i] = depthFrameMat.inverse * MainXRRig.TrackingSpace.worldToLocalMatrix;
+				viewInv[i] = Matrix4x4.Inverse(view[i]);
+			}
+
+			planes = new Vector2(depthPlanes.nearZ, depthPlanes.farZ);
+#endif
 
 			Shader.SetGlobalMatrixArray(projID, proj);
 			Shader.SetGlobalMatrixArray(projInvID, projInv);
 			Shader.SetGlobalMatrixArray(viewID, view);
 			Shader.SetGlobalMatrixArray(viewInvID, viewInv);
 			Shader.SetGlobalVector(zParamsID, planes);
-
-			int w = rawDepth.width;
-			int h = rawDepth.height;
-
-			Shader.SetGlobalVector(texSizeID, new Vector2(w, h));
-
-			if (depthTex == null || w != depthTex.width || h != depthTex.height)
-				depthTex = new RenderTexture(w, h, 0, GraphicsFormat.R16_UNorm, 1)
-				{
-					dimension = TextureDimension.Tex2DArray,
-					volumeDepth = 2,
-					enableRandomWrite = true
-				};
-
-			// process depth texture
-			switch (rawDepth.dimension)
-			{
-				case TextureDimension.Tex2DArray:
-					// assuming this is a non-linear Z 16bit texture
-					// aka Meta Quest's depth api
-					depthCopyKernel.Set(rwDepthTexID, depthTex);
-					depthCopyKernel.Set(inputRawDepthID, rawDepth);
-					depthCopyKernel.DispatchGroups(depthTex);
-
-					break;
-
-				case TextureDimension.Tex2D:
-				{
-					// assuming this is a linear Z 32bit texture 
-					// aka AR Foundation simulation in editor
-					monoRawDepthConvert.Set(rwDepthTexID, depthTex);
-					monoRawDepthConvert.Set(inputRawMonoDepthID, rawDepth);
-					monoRawDepthConvert.DispatchGroups(rawDepth.width, rawDepth.height);
-					break;
-				}
-
-				default:
-					DepthAvailable = false;
-					throw new Exception("Unknown depth format!");
-			}
-
+			Shader.SetGlobalVector(texSizeID, new Vector2(depthTex.width, depthTex.height));
 			Shader.SetGlobalTexture(depthTexID, depthTex);
 
 			// create normals from depth
-			if (normTex == null || normTex.width != w || normTex.height != h)
-				normTex = new RenderTexture(w, h, 0, GraphicsFormat.R8G8B8A8_SNorm, 1)
+			if (normTex == null || normTex.width != depthTex.width || normTex.height != depthTex.height)
+
+				normTex = new RenderTexture(depthTex.width, depthTex.height, 0, GraphicsFormat.R8G8B8A8_SNorm, 1)
 				{
 					dimension = TextureDimension.Tex2DArray,
 					volumeDepth = 2,
@@ -203,8 +193,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 			normKernel.Set(depthTexID, depthTex);
 			normKernel.Set(rwNormTexID, normTex);
-			normKernel.DispatchGroups(normTex);
-
+			normKernel.DispatchFit(normTex);
 			Shader.SetGlobalTexture(normTexID, normTex);
 
 			Updated.Invoke();

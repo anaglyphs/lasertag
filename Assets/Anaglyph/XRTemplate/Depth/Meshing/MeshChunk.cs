@@ -10,11 +10,12 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.Rendering;
+using UnityEngine.Serialization;
 
 namespace Anaglyph.DepthKit.Meshing
 {
 	// mesh & chunk origin are at bottom back left origin and extend along positive axiis
-	public class MeshChunk : MonoBehaviour
+	public class MeshChunk : MonoBehaviour, IDisposable
 	{
 #if UNITY_EDITOR
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -27,13 +28,17 @@ namespace Anaglyph.DepthKit.Meshing
 		public Vector3 extents = new float3(10, 10, 10);
 		private EnvironmentMapper mapper => EnvironmentMapper.Instance;
 
-		private Mesh rawMesh;
 		private Mesh mesh;
 		public bool dirty;
+		private NativeArray<sbyte> volume;
 
 		private bool isPopulated = false;
 		public bool IsPopulated => isPopulated;
-		public UnityEvent<Mesh> onMeshFirstPopulated = new();
+
+		[FormerlySerializedAs("onMeshFirstPopulated")]
+		public UnityEvent<Mesh> onMeshPopulated = new();
+
+		private readonly NetMesher mesher = new();
 
 		[Header("Mesh decimation options")] public MeshSimplificationTarget decimationTarget = new()
 		{
@@ -58,16 +63,11 @@ namespace Anaglyph.DepthKit.Meshing
 		{
 			mesh = new Mesh();
 			mesh.MarkDynamic();
-			rawMesh = new Mesh();
-			rawMesh.MarkDynamic();
-
-			// TryGetComponent(out meshRenderer);
 		}
 
 		private void OnDestroy()
 		{
 			Destroy(mesh);
-			Destroy(rawMesh);
 		}
 
 		private float3 WorldToVoxelFloat(float3 pos)
@@ -88,8 +88,6 @@ namespace Anaglyph.DepthKit.Meshing
 
 		public async Task Mesh(CancellationToken ctkn = default)
 		{
-			NativeArray<sbyte> volumePiece = default;
-
 			try
 			{
 				int3 start = WorldToVoxel(transform.position);
@@ -122,7 +120,13 @@ namespace Anaglyph.DepthKit.Meshing
 
 				int sliceSize = size.x * size.y;
 
-				volumePiece = new NativeArray<sbyte>(sliceSize * req.depth, Allocator.TempJob);
+				if (!volume.IsCreated || volume.Length < sliceSize * req.depth)
+				{
+					if (volume.IsCreated)
+						volume.Dispose();
+
+					volume = new NativeArray<sbyte>(sliceSize * req.depth, Allocator.Persistent);
+				}
 
 				for (int z = 0; z < size.z; z++)
 				{
@@ -132,34 +136,21 @@ namespace Anaglyph.DepthKit.Meshing
 					CopySliceJob copier = new()
 					{
 						Source = slice,
-						Destination = volumePiece,
+						Destination = volume,
 						DestOffset = dstOffset
 					};
 					copier.ScheduleParallelByRef(sliceSize, 16, default).Complete();
 				}
 
-				bool justPopulated = await NetMesher.CreateMesh(volumePiece, size, mapper.VoxelSize,
-					rawMesh, ctkn);
-
-				volumePiece.Dispose();
-
-				if (!justPopulated)
-					return;
+				isPopulated = await mesher.CreateMesh(volume, size, mapper.VoxelSize, mesh, ctkn);
 
 				ctkn.ThrowIfCancellationRequested();
 
-				mesh = rawMesh;
+				onMeshPopulated.Invoke(mesh);
 				mesh.MarkModified();
-
-				if (!isPopulated)
-				{
-					onMeshFirstPopulated.Invoke(mesh);
-					isPopulated = true;
-				}
 			}
 			finally
 			{
-				if (volumePiece.IsCreated) volumePiece.Dispose();
 				dirty = false;
 			}
 		}
@@ -167,7 +158,7 @@ namespace Anaglyph.DepthKit.Meshing
 		public async Task Decimate(CancellationToken ctkn = default)
 		{
 			if (isPopulated)
-				await MeshSimplifier.SimplifyAsync(rawMesh, decimationTarget, decimationOptions, mesh, ctkn);
+				await MeshSimplifier.SimplifyAsync(mesh, decimationTarget, decimationOptions, mesh, ctkn);
 		}
 
 		[BurstCompile]
@@ -193,5 +184,10 @@ namespace Anaglyph.DepthKit.Meshing
 			Gizmos.DrawWireCube(transform.position + areaHalf, extents);
 		}
 #endif
+		public void Dispose()
+		{
+			volume.Dispose();
+			mesher?.Dispose();
+		}
 	}
 }

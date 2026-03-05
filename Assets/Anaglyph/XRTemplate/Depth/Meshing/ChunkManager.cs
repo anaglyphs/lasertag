@@ -8,7 +8,6 @@ using Anaglyph.XRTemplate;
 using Anaglyph.XRTemplate.DepthKit;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace Anaglyph.DepthKit.Meshing
 {
@@ -82,15 +81,28 @@ namespace Anaglyph.DepthKit.Meshing
 			return proj;
 		}
 
-		private void OnDepthUpdate()
+		private void Update()
 		{
+			Matrix4x4 proj = DepthKitDriver.Instance.Proj[0];
+			proj = WithFiniteFarPlane(proj, updateDistance);
+			Matrix4x4 view = DepthKitDriver.Instance.View[0];
+			GeometryUtility.CalculateFrustumPlanes(proj * view, frustumPlanes);
+		}
+
+		private bool busy = false;
+
+		private async void OnDepthUpdate()
+		{
+			if (busy) return;
+			busy = false;
+
 			DepthKitDriver d = DepthKitDriver.Instance;
 
 			// depth matrices
-			Matrix4x4 proj = d.GetProjMat();
+			Matrix4x4 proj = d.Proj[0];
 			proj = WithFiniteFarPlane(proj, updateDistance);
 			Matrix4x4 projInv = proj.inverse;
-			Matrix4x4 view = d.GetViewMat();
+			Matrix4x4 view = d.View[0];
 			Matrix4x4 viewInv = view.inverse;
 
 			// get frustum corners
@@ -120,8 +132,6 @@ namespace Anaglyph.DepthKit.Meshing
 			int3 chunkCheckMin = (int3)math.floor(boxMin / chunkSize - 1);
 			int3 chunkCheckMax = (int3)math.floor(boxMax / chunkSize + 1);
 
-			GeometryUtility.CalculateFrustumPlanes(proj * view, frustumPlanes);
-
 			for (int x = chunkCheckMin.x; x <= chunkCheckMax.x; x++)
 			for (int y = chunkCheckMin.y; y <= chunkCheckMax.y; y++)
 			for (int z = chunkCheckMin.z; z <= chunkCheckMax.z; z++)
@@ -131,11 +141,7 @@ namespace Anaglyph.DepthKit.Meshing
 				if (meshQueue.Contains(coord))
 					continue;
 
-				float3 min = coord * chunkSize;
-				float3 center = min + chunkSize / 2f;
-				Bounds b = new(center, chunkSize);
-
-				if (GeometryUtility.TestPlanesAABB(frustumPlanes, b))
+				if (CheckChunkWithinViewFrustum(coord))
 				{
 					bool foundChunk = chunks.TryGetValue(coord, out MeshChunk chunk);
 					if (!foundChunk) chunk = InstantiateChunk(coord);
@@ -144,6 +150,17 @@ namespace Anaglyph.DepthKit.Meshing
 					mesherSemaphore.Release();
 				}
 			}
+
+			busy = false;
+		}
+
+		private bool CheckChunkWithinViewFrustum(int3 coord)
+		{
+			float3 min = coord * chunkSize;
+			float3 center = min + chunkSize / 2f;
+			Bounds b = new(center, chunkSize);
+
+			return GeometryUtility.TestPlanesAABB(frustumPlanes, b);
 		}
 
 		private void StartWorkers()
@@ -174,13 +191,11 @@ namespace Anaglyph.DepthKit.Meshing
 
 					await chunk.Mesh(ctkn);
 
-					if (chunk.IsPopulated && !decimateQueue.Contains(coord))
+					if (!CheckChunkWithinViewFrustum(coord) && chunk.IsPopulated && !decimateQueue.Contains(coord))
 					{
 						decimateQueue.Enqueue(coord);
 						decimateSemaphore.Release();
 					}
-
-					await Awaitable.NextFrameAsync(ctkn);
 				}
 			}
 			catch (OperationCanceledException)

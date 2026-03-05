@@ -12,7 +12,7 @@ Texture2D<float4> envDilatedDepth;
 int envNumPlayers;
 float3 envPlayerHeads[512];
 
-#define EMPTY_VOXEL 0.0
+#define EMPTY_VOXEL -1.0
 
 float3 envVoxelToWorld(uint3 indices)
 {

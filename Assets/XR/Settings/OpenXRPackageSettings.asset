@@ -393,29 +393,6 @@ MonoBehaviour:
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
---- !u!114 &-5643905877508196907
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 82f326777f3104806af0a01dd4dcfbe3, type: 3}
-  m_Name: RecenterEventFeature Standalone
-  m_EditorClassIdentifier: Anaglyph.XRTemplate::ResetViewFeature
-  m_enabled: 0
-  <failedInitialization>k__BackingField: 0
-  nameUi: Reset View Feature
-  version: 0.0.1
-  featureIdInternal: com.unkonwn.resetview
-  openxrExtensionStrings: 
-  company: Unknown
-  priority: 0
-  targetOpenXRApiVersion: 
-  required: 0
-  customRuntimeLoaderName: 
 --- !u!114 &-5640822068620053087
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -785,7 +762,7 @@ MonoBehaviour:
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
-  enableSubsampledLayout: 0
+  enableSubsampledLayout: 1
 --- !u!114 &-1465281793000439134
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1246,29 +1223,6 @@ MonoBehaviour:
   featureIdInternal: com.meta.openxr.feature.spacewarp
   openxrExtensionStrings: XR_FB_space_warp
   company: Meta
-  priority: 0
-  targetOpenXRApiVersion: 
-  required: 0
-  customRuntimeLoaderName: 
---- !u!114 &2841474981630204518
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 82f326777f3104806af0a01dd4dcfbe3, type: 3}
-  m_Name: RecenterEventFeature Android
-  m_EditorClassIdentifier: Anaglyph.XRTemplate::ResetViewFeature
-  m_enabled: 0
-  <failedInitialization>k__BackingField: 0
-  nameUi: Reset View Feature
-  version: 0.0.1
-  featureIdInternal: com.unkonwn.resetview
-  openxrExtensionStrings: 
-  company: Unknown
   priority: 0
   targetOpenXRApiVersion: 
   required: 0

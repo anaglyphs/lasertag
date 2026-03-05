@@ -33,6 +33,11 @@ namespace Anaglyph.Lasertag
 			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
 		}
 
+		private void OnDestroy()
+		{
+			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
+		}
+
 		private void OnNetcodeStateChanged(NetcodeState state)
 		{
 			switch (state)
@@ -48,7 +53,7 @@ namespace Anaglyph.Lasertag
 			}
 		}
 
-		private async void TryInstantiateSelected()
+		private void TryInstantiateSelected()
 		{
 			if (NetcodeManagement.State != NetcodeState.Connected) return;
 

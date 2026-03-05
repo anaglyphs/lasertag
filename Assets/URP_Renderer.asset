@@ -62,7 +62,7 @@ MonoBehaviour:
     failOperation: 0
     zFailOperation: 0
   m_ShadowTransparentReceive: 0
-  m_RenderingMode: 2
+  m_RenderingMode: 0
   m_DepthPrimingMode: 0
   m_CopyDepthMode: 1
   m_DepthAttachmentFormat: 0
@@ -82,5 +82,5 @@ MonoBehaviour:
   m_Name: MeshOcclusionFeature
   m_EditorClassIdentifier: Anaglyph.DepthKit::Anaglyph.DepthKit.MeshOcclusionFeature
   m_Active: 1
-  depthTexOut: {fileID: 8400000, guid: de57afc603ace431d9b72be8ce0b7ac8, type: 2}
-  depthMat: {fileID: 2100000, guid: bbab3a498c0287c4a910c2206bb1551d, type: 2}
+  depthMat: {fileID: 2100000, guid: b7f918434356140fbbffe87629e27bb5, type: 2}
+  relativeTexSize: 0.5

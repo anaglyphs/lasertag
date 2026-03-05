@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Unity.Burst;
@@ -10,8 +11,18 @@ using UnityEngine.Rendering;
 
 namespace Anaglyph.DepthKit
 {
-	public static class NetMesher
+	public class NetMesher : IDisposable
 	{
+		private NativeList<Vertex> verts;
+		private NativeList<int3> vertCoords;
+		private NativeArray<int> coordVertMap;
+		private NativeList<uint> tris;
+
+		private NativeReference<MinMaxAABB> boundsRef;
+
+		private bool isBusy = false;
+		public bool IsIsBusy => isBusy;
+
 		private static readonly byte[] CrnrOffsIdxA =
 		{
 			0, 1, 2, 3,
@@ -40,6 +51,7 @@ namespace Anaglyph.DepthKit
 		};
 
 		private const int InvalidVertSentinel = -1;
+		private const float EmptyVoxel = -1.0f;
 		private const float sbyteMax = sbyte.MaxValue;
 
 		private static readonly int3 X = new(1, 0, 0);
@@ -117,7 +129,7 @@ namespace Anaglyph.DepthKit
 						if (doesCross)
 						{
 							// cull false isosurface sign changes
-							if (valA == 0 || valB == 0)
+							if (valA == EmptyVoxel || valB == EmptyVoxel)
 								numBadCrossings++;
 
 							float t = valA / change;
@@ -173,76 +185,9 @@ namespace Anaglyph.DepthKit
 
 			private float ValueForCoord(int3 c)
 			{
-				return Volume[CoordToIndex(c)] / sbyteMax;
-			}
-		}
-
-		[BurstCompile]
-		private struct SimplifyJob : IJob
-		{
-			[ReadOnly] public int3 VoxCount;
-
-			public NativeList<int3> VertCoords;
-			public NativeArray<int> CoordVertMap;
-			public NativeList<Vertex> Verts;
-
-			public void Execute()
-			{
-			}
-		}
-
-		[BurstCompile]
-		private struct NaivePruneOrphanedJob : IJob
-		{
-			public int3 VoxCount;
-
-			public NativeList<int3> VertCoords;
-			public NativeArray<int> CoordVertMap;
-			public NativeList<Vertex> Verts;
-
-			public void Execute()
-			{
-				int numRemoved = 0;
-
-				for (int i = 0; i < VertCoords.Length; i++)
-				{
-					int3 coord = VertCoords[i];
-					int flat = FlattenCoord(coord, VoxCount);
-
-					if (CheckInvalid(coord, 0, 1) && CheckInvalid(coord, 0, -1) &&
-					    CheckInvalid(coord, 1, 1) && CheckInvalid(coord, 1, -1) &&
-					    CheckInvalid(coord, 2, 1) && CheckInvalid(coord, 2, -1))
-					{
-						VertCoords.RemoveAt(i);
-						Verts.RemoveAt(CoordVertMap[flat]);
-						CoordVertMap[flat] = InvalidVertSentinel;
-
-						numRemoved++;
-
-						i--;
-					}
-				}
-
-				// Debug.Log("removed orphaned verts: " + numRemoved);
-			}
-
-			private bool CheckInvalid(int3 start, int axis, int dir)
-			{
-				int3 offs = new()
-				{
-					[axis] = 1
-				};
-
-				int3 coord = start + offs * dir;
-
-				int a = math.abs(axis);
-				if (coord[a] < 0 || coord[a] > VoxCount[a] - 1)
-					return true;
-
-				int flat = FlattenCoord(coord, VoxCount);
-				int vertIdx = CoordVertMap[flat];
-
-				return vertIdx == InvalidVertSentinel;
+				float val = Volume[CoordToIndex(c)] / sbyteMax;
+				if (val == EmptyVoxel) val = 0;
+				return val;
 			}
 		}
 
@@ -254,7 +199,6 @@ namespace Anaglyph.DepthKit
 			[ReadOnly] public int3 VoxCount;
 			[ReadOnly] public NativeList<int3> VertCoords;
 			[ReadOnly] public NativeArray<int> CoordVertMap;
-			// [ReadOnly] public NativeList<Vertex> Verts;
 
 			public NativeList<uint> Tris;
 
@@ -288,25 +232,6 @@ namespace Anaglyph.DepthKit
 				if (a == InvalidVertSentinel || b == InvalidVertSentinel || c == InvalidVertSentinel ||
 				    d == InvalidVertSentinel)
 					return;
-
-				// if (a == b || b == c || a == c || c == d || d == b)
-				// 	return;
-
-				// avoid creating degen triangles
-				// because vertex creation creates duplicate verts for some reason wtf
-				// this should not be necessary but currently breaks decimation ugh
-				// todo: fix duplicate vert creation
-				// Vertex vertA = Verts[a];
-				// Vertex vertB = Verts[b];
-				// Vertex vertC = Verts[c];
-				// Vertex vertD = Verts[d];
-
-				// if (vertA.pos.Equals(vertB.pos) || vertB.pos.Equals(vertC.pos) || vertC.pos.Equals(vertA.pos) ||
-				//     vertC.pos.Equals(vertD.pos) || vertD.pos.Equals(vertA.pos))
-				// 	return;
-
-				Tris.SetCapacity(Tris.Length + 6);
-				// Tris.Resize(Tris.Length + 6, NativeArrayOptions.ClearMemory);
 
 				if (va < 0)
 				{
@@ -345,24 +270,40 @@ namespace Anaglyph.DepthKit
 			return c.x + c.y * s.x + c.z * s.x * s.y;
 		}
 
-		public static async Task<bool> CreateMesh(
+		public async Task<bool> CreateMesh(
 			NativeArray<sbyte> volume,
 			int3 voxCount, float voxSize, Mesh mesh,
 			CancellationToken ctkn = default)
 		{
-			bool hasTriangles = false;
+			if (isBusy) throw new Exception("Mesher is busy");
+			isBusy = true;
 
-			int vertCountEstimate = volume.Length / 3;
-			NativeList<Vertex> verts = new(vertCountEstimate, Allocator.TempJob);
-			NativeList<int3> vertCoords = new(vertCountEstimate, Allocator.TempJob);
+			if (!verts.IsCreated)
+			{
+				int vertCountEstimate = volume.Length / 3;
+				int triCountEstimate = vertCountEstimate * 6;
 
-			NativeArray<int> coordVertMap = new(volume.Length, Allocator.TempJob);
+				verts = new NativeList<Vertex>(vertCountEstimate, Allocator.Persistent);
+				vertCoords = new NativeList<int3>(vertCountEstimate, Allocator.Persistent);
+				tris = new NativeList<uint>(triCountEstimate, Allocator.Persistent);
+				boundsRef = new NativeReference<MinMaxAABB>(Allocator.Persistent);
 
-			int triCountEstimate = vertCountEstimate * 6;
-			NativeList<uint> tris = new(triCountEstimate, Allocator.TempJob);
+				coordVertMap = new NativeArray<int>(volume.Length, Allocator.Persistent);
+			}
 
-			NativeReference<MinMaxAABB> boundsRef = new(Allocator.TempJob);
+			if (coordVertMap.IsCreated && coordVertMap.Length < volume.Length)
+			{
+				coordVertMap.Dispose();
+				coordVertMap = new NativeArray<int>(volume.Length, Allocator.Persistent);
+			}
+
+			verts.Clear();
+			vertCoords.Clear();
+			tris.Clear();
+
 			boundsRef.Value = new MinMaxAABB();
+
+			bool hasTriangles = false;
 
 			try
 			{
@@ -380,27 +321,10 @@ namespace Anaglyph.DepthKit
 				};
 
 				JobHandle vertHandle = vertexMaker.Schedule();
-				while (!vertHandle.IsCompleted) await Task.Yield();
+				while (!vertHandle.IsCompleted) await Awaitable.NextFrameAsync(ctkn);
 
 				vertHandle.Complete();
 				ctkn.ThrowIfCancellationRequested();
-
-				// prune orphaned verts
-
-				// PruneOrphanedJob orphanPruner = new()
-				// {
-				// 	CoordVertMap = coordVertMap,
-				// 	Verts = verts,
-				// 	VertCoords = vertCoords,
-				//
-				// 	VoxCount = voxCount
-				// };
-				//
-				// JobHandle orphanHandle = orphanPruner.Schedule();
-				// while (!orphanHandle.IsCompleted) await Task.Yield();
-
-				// orphanHandle.Complete();
-				// ctkn.ThrowIfCancellationRequested();
 
 				if (verts.Length < 3)
 					return false;
@@ -418,24 +342,21 @@ namespace Anaglyph.DepthKit
 				};
 
 				JobHandle triHandle = triMaker.Schedule();
-				while (!triHandle.IsCompleted) await Task.Yield();
+				while (!triHandle.IsCompleted) await Awaitable.NextFrameAsync(ctkn);
 
 				triHandle.Complete();
 				ctkn.ThrowIfCancellationRequested();
 
 				MinMaxAABB b = boundsRef.Value;
-				ApplyToMesh(verts.ToArray(Allocator.TempJob), tris.ToArray(Allocator.TempJob),
-					new Bounds(b.Center, b.Extents), mesh);
+
+				Bounds bounds = new(b.Center, b.Extents);
+				ApplyToMesh(verts.AsArray(), tris.AsArray(), bounds, mesh);
 
 				hasTriangles = tris.Length > 0;
 			}
 			finally
 			{
-				coordVertMap.Dispose();
-				verts.Dispose();
-				vertCoords.Dispose();
-				tris.Dispose();
-				boundsRef.Dispose();
+				isBusy = false;
 			}
 
 			return hasTriangles;
@@ -444,22 +365,39 @@ namespace Anaglyph.DepthKit
 		private static void ApplyToMesh(NativeArray<Vertex> verts, NativeArray<uint> tris,
 			Bounds bounds, Mesh mesh)
 		{
+			Mesh.MeshDataArray meshDataArray = Mesh.AllocateWritableMeshData(1);
+			Mesh.MeshData meshData = meshDataArray[0];
+
 			const MeshUpdateFlags flags = MeshUpdateFlags.DontNotifyMeshUsers |
 			                              MeshUpdateFlags.DontRecalculateBounds |
 			                              MeshUpdateFlags.DontValidateIndices;
 
-			mesh.SetVertexBufferParams(verts.Length, Vertex.Layout);
-			mesh.SetVertexBufferData(verts, 0, 0, verts.Length, 0, flags);
+			meshData.SetVertexBufferParams(verts.Length, Vertex.Layout);
+			meshData.SetIndexBufferParams(tris.Length, IndexFormat.UInt32);
 
-			mesh.SetIndexBufferParams(tris.Length, IndexFormat.UInt32);
-			mesh.SetIndexBufferData(tris, 0, 0, tris.Length, flags);
+			NativeArray<Vertex> vb = meshData.GetVertexData<Vertex>();
+			vb.CopyFrom(verts);
 
-			mesh.subMeshCount = 1;
-			SubMeshDescriptor smd = new(0, tris.Length);
-			mesh.SetSubMesh(0, smd);
+			NativeArray<uint> ib = meshData.GetIndexData<uint>();
+			ib.CopyFrom(tris);
+
+			meshData.subMeshCount = 1;
+			meshData.SetSubMesh(0, new SubMeshDescriptor(0, tris.Length), MeshUpdateFlags.DontRecalculateBounds |
+			                                                              MeshUpdateFlags.DontValidateIndices);
+
+			Mesh.ApplyAndDisposeWritableMeshData(meshDataArray, mesh);
 
 			mesh.bounds = bounds;
 			mesh.MarkModified();
+		}
+
+		public void Dispose()
+		{
+			verts.Dispose();
+			vertCoords.Dispose();
+			coordVertMap.Dispose();
+			tris.Dispose();
+			boundsRef.Dispose();
 		}
 	}
 }
