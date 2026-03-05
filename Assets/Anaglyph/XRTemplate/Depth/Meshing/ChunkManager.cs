@@ -89,13 +89,8 @@ namespace Anaglyph.DepthKit.Meshing
 			GeometryUtility.CalculateFrustumPlanes(proj * view, frustumPlanes);
 		}
 
-		private bool busy = false;
-
-		private async void OnDepthUpdate()
+		private void OnDepthUpdate()
 		{
-			if (busy) return;
-			busy = false;
-
 			DepthKitDriver d = DepthKitDriver.Instance;
 
 			// depth matrices
@@ -150,8 +145,6 @@ namespace Anaglyph.DepthKit.Meshing
 					mesherSemaphore.Release();
 				}
 			}
-
-			busy = false;
 		}
 
 		private bool CheckChunkWithinViewFrustum(int3 coord)

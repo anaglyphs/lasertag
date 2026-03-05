@@ -43,7 +43,6 @@ namespace Anaglyph.XRTemplate.DepthKit
 		public static readonly int viewID = ID("agDepthView");
 		public static readonly int viewInvID = ID("agDepthViewInv");
 
-		public static readonly int inputRawDepthID = ID("inputDepthTex");
 		public static readonly int inputRawMonoDepthID = ID("inputRawMonoDepth");
 
 		public static bool DepthAvailable { get; private set; }
@@ -92,11 +91,6 @@ namespace Anaglyph.XRTemplate.DepthKit
 			if (arOcclusionManager)
 				arOcclusionManager.frameReceived -= OnDepthFrame;
 		}
-		//
-		// private void LateUpdate()
-		// {
-		// 	DepthAvailable = arOcclusionManager.TryGetEnvironmentDepthTexture(out Texture rawDepth);
-		// }
 
 		private void OnDepthFrame(AROcclusionFrameEventArgs args)
 		{

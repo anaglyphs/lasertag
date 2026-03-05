@@ -368,10 +368,6 @@ namespace Anaglyph.DepthKit
 			Mesh.MeshDataArray meshDataArray = Mesh.AllocateWritableMeshData(1);
 			Mesh.MeshData meshData = meshDataArray[0];
 
-			const MeshUpdateFlags flags = MeshUpdateFlags.DontNotifyMeshUsers |
-			                              MeshUpdateFlags.DontRecalculateBounds |
-			                              MeshUpdateFlags.DontValidateIndices;
-
 			meshData.SetVertexBufferParams(verts.Length, Vertex.Layout);
 			meshData.SetIndexBufferParams(tris.Length, IndexFormat.UInt32);
 
@@ -381,9 +377,11 @@ namespace Anaglyph.DepthKit
 			NativeArray<uint> ib = meshData.GetIndexData<uint>();
 			ib.CopyFrom(tris);
 
+			const MeshUpdateFlags flags = MeshUpdateFlags.DontNotifyMeshUsers |
+			                              MeshUpdateFlags.DontRecalculateBounds |
+			                              MeshUpdateFlags.DontValidateIndices;
 			meshData.subMeshCount = 1;
-			meshData.SetSubMesh(0, new SubMeshDescriptor(0, tris.Length), MeshUpdateFlags.DontRecalculateBounds |
-			                                                              MeshUpdateFlags.DontValidateIndices);
+			meshData.SetSubMesh(0, new SubMeshDescriptor(0, tris.Length), flags);
 
 			Mesh.ApplyAndDisposeWritableMeshData(meshDataArray, mesh);
 
