@@ -29,7 +29,7 @@ namespace Anaglyph.DepthKit.Meshing
 		private readonly SemaphoreSlim mesherSemaphore = new(0);
 		private readonly ConcurrentQueue<int3> decimateQueue = new();
 		private readonly SemaphoreSlim decimateSemaphore = new(0);
-		private CancellationTokenSource cancelSrc;
+		private CancellationTokenSource workerCancelSrc;
 
 		private readonly Vector3[] frustumCorners = new Vector3[4];
 		private readonly Plane[] frustumPlanes = new Plane[6];
@@ -41,21 +41,89 @@ namespace Anaglyph.DepthKit.Meshing
 
 		private void Start()
 		{
-			if (!EnvironmentMapper.Instance) return;
+			if (!EnvironmentMapper.Instance) throw new Exception("EnvironmentMapper.Instance not set");
+			if (!DepthKitDriver.Instance) throw new Exception("DepthKitDriver.Instance not set");
 
-			EnvironmentMapper.Instance.Updated += OnDepthUpdate;
+			DepthKitDriver.Instance.Updated += OnDepthUpated;
+			EnvironmentMapper.Instance.Updated += OnEnvironmentUpdated;
 			EnvironmentMapper.Instance.Cleared += ClearAllChunks;
 			StartWorkers();
 		}
 
 		private void OnEnable()
 		{
-			if (didStart) StartWorkers();
+			if (didStart) Start();
 		}
 
 		private void OnDisable()
 		{
-			cancelSrc?.Cancel();
+			workerCancelSrc?.Cancel();
+
+			DepthKitDriver.Instance.Updated -= OnDepthUpated;
+			EnvironmentMapper.Instance.Updated -= OnEnvironmentUpdated;
+			EnvironmentMapper.Instance.Cleared -= ClearAllChunks;
+		}
+
+		private void StartWorkers()
+		{
+			workerCancelSrc?.Cancel();
+			workerCancelSrc = new CancellationTokenSource();
+
+			for (int i = 0; i < numMeshWorkers; i++)
+				_ = RunMesherWorker(workerCancelSrc.Token);
+
+			for (int i = 0; i < numDecimateWorkers; i++)
+				_ = RunDecimateWorker(workerCancelSrc.Token);
+		}
+
+		private async Task RunMesherWorker(CancellationToken ctkn)
+		{
+			try
+			{
+				while (!ctkn.IsCancellationRequested)
+				{
+					await mesherSemaphore.WaitAsync(ctkn);
+
+					if (!meshQueue.TryDequeue(out int3 coord))
+						continue;
+
+					if (!chunks.TryGetValue(coord, out MeshChunk chunk))
+						chunk = InstantiateChunk(coord);
+
+					await chunk.Mesh(ctkn);
+
+					if (!ChunkIsWithinFrustum(coord) && chunk.IsPopulated && !decimateQueue.Contains(coord))
+					{
+						decimateQueue.Enqueue(coord);
+						decimateSemaphore.Release();
+					}
+				}
+			}
+			catch (OperationCanceledException)
+			{
+			}
+		}
+
+		private async Task RunDecimateWorker(CancellationToken ctkn)
+		{
+			try
+			{
+				while (!ctkn.IsCancellationRequested)
+				{
+					await decimateSemaphore.WaitAsync(ctkn);
+
+					if (!decimateQueue.TryDequeue(out int3 coord))
+						continue;
+
+					if (!chunks.TryGetValue(coord, out MeshChunk chunk))
+						continue;
+
+					await chunk.Decimate(ctkn);
+				}
+			}
+			catch (OperationCanceledException)
+			{
+			}
 		}
 
 		private static readonly Vector4[] ndcCorners =
@@ -81,7 +149,7 @@ namespace Anaglyph.DepthKit.Meshing
 			return proj;
 		}
 
-		private void Update()
+		private void OnDepthUpated()
 		{
 			Matrix4x4 proj = DepthKitDriver.Instance.Proj[0];
 			proj = WithFiniteFarPlane(proj, updateDistance);
@@ -89,7 +157,7 @@ namespace Anaglyph.DepthKit.Meshing
 			GeometryUtility.CalculateFrustumPlanes(proj * view, frustumPlanes);
 		}
 
-		private void OnDepthUpdate()
+		private void OnEnvironmentUpdated()
 		{
 			DepthKitDriver d = DepthKitDriver.Instance;
 
@@ -136,7 +204,7 @@ namespace Anaglyph.DepthKit.Meshing
 				if (meshQueue.Contains(coord))
 					continue;
 
-				if (CheckChunkWithinViewFrustum(coord))
+				if (ChunkIsWithinFrustum(coord))
 				{
 					bool foundChunk = chunks.TryGetValue(coord, out MeshChunk chunk);
 					if (!foundChunk) chunk = InstantiateChunk(coord);
@@ -147,75 +215,13 @@ namespace Anaglyph.DepthKit.Meshing
 			}
 		}
 
-		private bool CheckChunkWithinViewFrustum(int3 coord)
+		private bool ChunkIsWithinFrustum(int3 coord)
 		{
 			float3 min = coord * chunkSize;
 			float3 center = min + chunkSize / 2f;
 			Bounds b = new(center, chunkSize);
 
 			return GeometryUtility.TestPlanesAABB(frustumPlanes, b);
-		}
-
-		private void StartWorkers()
-		{
-			cancelSrc?.Cancel();
-			cancelSrc = new CancellationTokenSource();
-
-			for (int i = 0; i < numMeshWorkers; i++)
-				_ = RunMesherWorker(cancelSrc.Token);
-
-			for (int i = 0; i < numDecimateWorkers; i++)
-				_ = RunDecimateWorker(cancelSrc.Token);
-		}
-
-		private async Task RunMesherWorker(CancellationToken ctkn)
-		{
-			try
-			{
-				while (!ctkn.IsCancellationRequested)
-				{
-					await mesherSemaphore.WaitAsync(ctkn);
-
-					if (!meshQueue.TryDequeue(out int3 coord))
-						continue;
-
-					if (!chunks.TryGetValue(coord, out MeshChunk chunk))
-						chunk = InstantiateChunk(coord);
-
-					await chunk.Mesh(ctkn);
-
-					if (!CheckChunkWithinViewFrustum(coord) && chunk.IsPopulated && !decimateQueue.Contains(coord))
-					{
-						decimateQueue.Enqueue(coord);
-						decimateSemaphore.Release();
-					}
-				}
-			}
-			catch (OperationCanceledException)
-			{
-			}
-		}
-
-		private async Task RunDecimateWorker(CancellationToken ctkn)
-		{
-			try
-			{
-				while (!ctkn.IsCancellationRequested)
-				{
-					await decimateSemaphore.WaitAsync(ctkn);
-
-					if (!decimateQueue.TryDequeue(out int3 coord))
-						continue;
-
-					if (!chunks.TryGetValue(coord, out MeshChunk chunk))
-						continue;
-
-					await chunk.Decimate(ctkn);
-				}
-			}
-			catch (OperationCanceledException)
-			{
-			}
 		}
 
 		private MeshChunk InstantiateChunk(int3 chunkCoord)
@@ -238,7 +244,7 @@ namespace Anaglyph.DepthKit.Meshing
 
 		public void ClearAllChunks()
 		{
-			cancelSrc?.Cancel();
+			workerCancelSrc?.Cancel();
 			foreach (MeshChunk chunk in chunks.Values) Destroy(chunk.gameObject);
 			chunks.Clear();
 

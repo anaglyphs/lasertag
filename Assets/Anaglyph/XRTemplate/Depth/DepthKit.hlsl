@@ -1,19 +1,20 @@
 // Anaglyph depth kit
 
 Texture2DArray<float> agDepthTex;
-Texture2DArray<float4> agDepthEdgeTex;
 Texture2DArray<float4> agDepthNormalTex;
+uniform uint2 agDepthTexSize;
+
 SamplerState agBilinearClampSampler;
 SamplerState agPointClampSampler;
-uint2 agDepthTexSize;
 
-float4x4 agDepthProj[2];
-float4x4 agDepthProjInv[2];
+uniform float4x4 agDepthProj[2];
+uniform float4x4 agDepthProjInv[2];
 
-float4x4 agDepthView[2];
-float4x4 agDepthViewInv[2];
+uniform float4x4 agDepthView[2];
+uniform float4x4 agDepthViewInv[2];
 
 uniform float4 agDepthZParams;
+
 
 float3 agDepthEyePos(int eye = 0)
 {
@@ -28,11 +29,6 @@ float agDepthSample(float2 uv, int eye = 0)
 float agDepthSample(float2 uv, int eye, SamplerState samplerState)
 {
 	return agDepthTex.SampleLevel(samplerState, float3(uv.xy, eye), 0);
-}
-
-float4 agDepthSampleEdge(float2 uv, int eye = 0)
-{
-	return agDepthEdgeTex.SampleLevel(agPointClampSampler, float3(uv.xy, eye), 0);
 }
 
 float agDepthNDCToLinear(float depthNDC, int eye = 0)
@@ -107,5 +103,3 @@ float3 agDepthSampleNDCtoWorld(float2 uv, int eye = 0)
 	float3 ndc = float3(uv, agDepthSample(uv, eye));
 	return agDepthNDCtoWorld(ndc);
 }
-
-// todo linearz function

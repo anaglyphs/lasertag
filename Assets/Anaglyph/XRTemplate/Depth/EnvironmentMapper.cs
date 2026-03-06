@@ -2,12 +2,12 @@ using System;
 using Anaglyph.XRTemplate.DepthKit;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
-using UnityEngine.Serialization;
 
 namespace Anaglyph.XRTemplate
 {
@@ -18,43 +18,29 @@ namespace Anaglyph.XRTemplate
 		[SerializeField] private ComputeShader compute = null;
 
 		[SerializeField] private float voxelSize = 0.1f;
-		public float VoxelSize => voxelSize;
 		[SerializeField] private float voxelDistance = 0.2f;
-		public float VoxelDistance => voxelDistance;
+		[SerializeField] private float voxelMin = 0.1f;
 
 		[SerializeField] private float depthDisparityThreshold = 1f;
-		public float DepthDisparityThreshold => depthDisparityThreshold;
-
 		[SerializeField] private int depthDilationSteps = 8;
-
 		private int depthDilationMaxStep = 0;
 
-		public float frequency = 5f;
+		public float updateFrequency = 5f;
 
 		[SerializeField] private RenderTexture volume;
-		public RenderTexture Volume => volume;
 
 		private RenderTexture dilationA, dilationB;
 		[SerializeField] private RenderTexture dilatedDepth;
 
-		private int vWidth => volume.width;
-		private int vHeight => volume.height;
-		private int vDepth => volume.volumeDepth;
 		public int3 VoxelCount { get; private set; }
 
-		[SerializeField] private float maxDist = 7f;
-		[SerializeField] private float minDist = 1f;
-		public float MaxDist => maxDist;
-		public float MinDist => minDist;
+		[SerializeField] private float maxUpdateDist = 6f;
+		[SerializeField] private float minUpdateDist = 1f;
 
-		private ComputeKernel clearKernel;
-		private ComputeKernel integrateKernel;
-
-		private ComputeKernel initDepthDilationKernel;
-		private ComputeKernel dilateDepthKernel;
-
-		private ComputeKernel raymarchKernel;
-		private ComputeKernel crossingTestKernel;
+		public float VoxelSize => voxelSize;
+		public float VoxelDistance => voxelDistance;
+		public float MaxUpdateDist => maxUpdateDist;
+		public RenderTexture Volume => volume;
 
 		private static int viewID => DepthKitDriver.viewID;
 		private static int projID => DepthKitDriver.projID;
@@ -65,42 +51,41 @@ namespace Anaglyph.XRTemplate
 		private static int depthTexID => DepthKitDriver.depthTexID;
 		private static int normTexID => DepthKitDriver.normTexID;
 
-		private static int ID(string str)
-		{
-			return Shader.PropertyToID(str);
-		}
+		private static readonly int volumeWritableID = Shader.PropertyToID("envVolumeRW");
+		private static readonly int volumeID = Shader.PropertyToID("envVolume");
+		private static readonly int voxelCountID = Shader.PropertyToID("envVoxCount");
+		private static readonly int voxelSizeID = Shader.PropertyToID("envVoxSize");
+		private static readonly int voxelMinID = Shader.PropertyToID("envVoxMin");
+		private static readonly int depthDisparityThresholdID = Shader.PropertyToID("depthDispThresh");
+		private static readonly int voxelDistanceID = Shader.PropertyToID("envVoxDist");
+		private static readonly int frustumVolumeID = Shader.PropertyToID("envFrustumVolume");
+		private static readonly int dilatedDepthID = Shader.PropertyToID("envDilatedDepth");
 
-		private static readonly int volumeWritableID = ID("envVolumeRW");
-		private static readonly int volumeID = ID("envVolume");
-		private static readonly int voxelCountID = ID("envVoxCount");
-		private static readonly int voxelSizeID = ID("envVoxSize");
-		private static readonly int depthDisparityThresholdID = ID("depthDispThresh");
-		private static readonly int voxelDistanceID = ID("envVoxDist");
-		private static readonly int frustumVolumeID = ID("envFrustumVolume");
-		private static readonly int dilatedDepthID = ID("envDilatedDepth");
+		private static readonly int dilateSrcID = Shader.PropertyToID("dilateSrc");
+		private static readonly int dilateDestID = Shader.PropertyToID("dilateDest");
+		private static readonly int dilateStepSizeID = Shader.PropertyToID("dilateStepSize");
 
-		private static readonly int dilateSrcID = ID("dilateSrc");
-		private static readonly int dilateDestID = ID("dilateDest");
-		private static readonly int dilateStepSizeID = ID("dilateStepSize");
+		private static readonly int numPlayersID = Shader.PropertyToID("envNumPlayers");
+		private static readonly int playerHeadsWorldID = Shader.PropertyToID("envPlayerHeads");
 
-		private static readonly int numPlayersID = ID("envNumPlayers");
-		private static readonly int playerHeadsWorldID = ID("envPlayerHeads");
+		private static readonly int numRaymarchRequestsID = Shader.PropertyToID("numRaymarchRequests");
+		private static readonly int raymarchRequestsID = Shader.PropertyToID("raymarchRequests");
+		private static readonly int raymarchResultsID = Shader.PropertyToID("raymarchResults");
 
-		private static readonly int numRaymarchRequestsID = ID("numRaymarchRequests");
-		private static readonly int raymarchRequestsID = ID("raymarchRequests");
-		private static readonly int raymarchResultsID = ID("raymarchResults");
+		private ComputeKernel clearKernel;
+		private ComputeKernel integrateKernel;
 
-		// private static readonly int crossingTestResultID = ID("crossingTestResult");
-		// private static readonly int crossingTestStartID = ID("crossingTestStart");
+		private ComputeKernel initDepthDilationKernel;
+		private ComputeKernel dilateDepthKernel;
 
-		// cached points within viewspace depth frustum 
-		// like a 3D lookup table
+		private ComputeKernel raymarchKernel;
+
+		// pre-computed points within depth sensor frustum
+		// to map gpu threads to voxels. like froxels
 		private ComputeBuffer frustumVolume;
 
 		public List<Transform> PlayerHeads = new();
 		private readonly Vector4[] headPositions = new Vector4[512];
-
-		private float lastUpdateTime = 0;
 
 		public event Action Updated = delegate { };
 		public event Action Cleared = delegate { };
@@ -108,7 +93,7 @@ namespace Anaglyph.XRTemplate
 		private void Awake()
 		{
 			Instance = this;
-			VoxelCount = new int3(vWidth, vHeight, vDepth);
+			VoxelCount = new int3(volume.width, volume.height, volume.volumeDepth);
 
 			depthDilationMaxStep = 1;
 
@@ -130,16 +115,16 @@ namespace Anaglyph.XRTemplate
 			raymarchKernel = new ComputeKernel(compute, "Raymarch");
 			raymarchKernel.Set(volumeID, volume);
 
-			crossingTestKernel = new ComputeKernel(compute, "CrossingTest");
-			crossingTestKernel.Set(volumeID, volume);
-
 			Shader.SetGlobalTexture(volumeID, volume);
 
-			compute.SetInts(voxelCountID, vWidth, vHeight, vDepth);
-			Shader.SetGlobalVector(voxelCountID, new Vector4(vWidth, vHeight, vDepth, 0));
+			int3 s = VoxelCount;
+			compute.SetInts(voxelCountID, s.x, s.y, s.z);
+			Shader.SetGlobalVector(voxelCountID, new Vector4(s.x, s.y, s.z, 0));
 
 			compute.SetFloat(voxelSizeID, voxelSize);
 			Shader.SetGlobalFloat(voxelSizeID, voxelSize);
+
+			compute.SetFloat(voxelMinID, voxelMin);
 
 			compute.SetFloat(voxelDistanceID, voxelDistance);
 			Shader.SetGlobalFloat(voxelDistanceID, voxelDistance);
@@ -148,8 +133,20 @@ namespace Anaglyph.XRTemplate
 
 			Clear();
 
-			DepthKitDriver.Instance.Updated += OnDepthUpdated;
+			UpdateLoop();
 		}
+
+		private void OnEnable()
+		{
+			if (!didStart)
+				UpdateLoop();
+		}
+
+		private void OnDestroy()
+		{
+			frustumVolume?.Release();
+		}
+
 
 		public void Clear()
 		{
@@ -157,49 +154,39 @@ namespace Anaglyph.XRTemplate
 			Cleared.Invoke();
 		}
 
-		private void OnEnable()
+		private async void UpdateLoop()
 		{
-			if (!didStart)
-				DepthKitDriver.Instance.Updated += OnDepthUpdated;
-		}
-
-		private void OnDisable()
-		{
-			if (DepthKitDriver.Instance)
-				DepthKitDriver.Instance.Updated -= OnDepthUpdated;
-		}
-
-		private void OnDepthUpdated()
-		{
-			float wait = 1f / frequency;
-			if (Time.time < lastUpdateTime + wait) return;
-
-			lastUpdateTime = Time.time;
-
-			Texture depthTex = DepthKitDriver.Instance.DepthTex;
-			if (depthTex == null) return;
-
-			if (frustumVolume == null)
+			try
 			{
-				Setup();
-				return;
+				CancellationToken ctkn = destroyCancellationToken;
+
+				while (enabled)
+				{
+					await Awaitable.WaitForSecondsAsync(1 / updateFrequency, ctkn);
+
+					if (!DepthKitDriver.DepthAvailable) continue;
+
+					if (frustumVolume == null) Setup();
+
+					ApplyScan();
+
+					Updated.Invoke();
+				}
 			}
-
-			ApplyScan();
-
-			Updated.Invoke();
+			catch (OperationCanceledException _)
+			{
+			}
 		}
 
 		private void Setup()
 		{
-			if (!DepthKitDriver.DepthAvailable)
-				return;
+			if (!DepthKitDriver.DepthAvailable) return;
 
 			// set up frustum volume
 
 			Matrix4x4 depthProj = Shader.GetGlobalMatrixArray(DepthKitDriver.projID)[0];
 			FrustumPlanes frustum = depthProj.decomposeProjection;
-			frustum.zFar = maxDist;
+			frustum.zFar = maxUpdateDist;
 
 			List<Vector3> positions = new(200000);
 
@@ -223,7 +210,7 @@ namespace Anaglyph.XRTemplate
 				{
 					Vector3 v = new(x, y, -z);
 
-					if (v.magnitude > minDist && v.magnitude < maxDist)
+					if (v.magnitude > minUpdateDist && v.magnitude < maxUpdateDist)
 						positions.Add(v);
 				}
 			}
@@ -260,6 +247,8 @@ namespace Anaglyph.XRTemplate
 
 			DepthKitDriver dkd = DepthKitDriver.Instance;
 
+			if (!DepthKitDriver.DepthAvailable) return;
+
 			compute.SetMatrixArray(viewID, dkd.View);
 			compute.SetMatrixArray(projID, dkd.Proj);
 
@@ -289,9 +278,8 @@ namespace Anaglyph.XRTemplate
 			}
 
 			dilatedDepth = dilationA;
-			// Shader.SetGlobalTexture(dilatedDepthID, dilatedDepth);
 
-			// integrate depth into world
+			// integrate depth into world volume
 			for (int i = 0; i < PlayerHeads.Count; i++)
 			{
 				Vector3 playerHead = PlayerHeads[i].position;
@@ -303,11 +291,6 @@ namespace Anaglyph.XRTemplate
 			integrateKernel.Set(normTexID, dkd.NormTex);
 			integrateKernel.Set(dilatedDepthID, dilatedDepth);
 			integrateKernel.DispatchFit(frustumVolume.count, 1);
-		}
-
-		private void OnDestroy()
-		{
-			frustumVolume?.Release();
 		}
 
 		[StructLayout(LayoutKind.Sequential)]
@@ -327,14 +310,14 @@ namespace Anaglyph.XRTemplate
 
 		private readonly int requestStride = Marshal.SizeOf<RaymarchRequest>();
 
-		private List<RaymarchRequest> pendingRequests = new();
+		private readonly List<RaymarchRequest> pendingRequests = new();
 
 		public struct RaymarchResult
 		{
-			public Ray ray;
-			public Vector3 point;
-			public float distance;
-			public bool didHit;
+			public readonly Ray ray;
+			public readonly Vector3 point;
+			public readonly float distance;
+			public readonly bool didHit;
 
 			public RaymarchResult(Ray ray, float distance)
 			{
@@ -353,7 +336,7 @@ namespace Anaglyph.XRTemplate
 			int index = pendingRequests.Count;
 			pendingRequests.Add(request);
 
-			if (currentRaymarchBatch == null) currentRaymarchBatch = DispatchRaymarches();
+			currentRaymarchBatch ??= DispatchRaymarches();
 
 			float[] data = await currentRaymarchBatch;
 			float dist = data[index];

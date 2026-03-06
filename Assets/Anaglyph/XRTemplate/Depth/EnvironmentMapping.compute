@@ -45,7 +45,7 @@ void Integrate(uint id : SV_DispatchThreadID)
 
 	bool empty = sDist >= 1.0;
 	float sDistNorm = min(sDist / envVoxDist, 1);
-	bool withinBand = sDistNorm >= -1.0;
+	bool withinBand = sDistNorm >= -envVoxMin / envVoxSize;
 
 	// TODO depth dilation test broken wtf
 	float dilatedDepthNDC = sampleDilatedDepth(voxNDC.xy);
@@ -189,24 +189,24 @@ void Raymarch(uint3 id : SV_DispatchThreadID)
 	raymarchResults[id.x] = result;
 }
 
-#pragma kernel CrossingTest
-
-RWStructuredBuffer<uint> crossingTestResult;
-// Result[0] = hasPositive
-// Result[1] = hasNegative
-
-uint3 crossingTestStart;
-
-[numthreads(8,8,8)]
-void CrossingTest(uint3 id : SV_DispatchThreadID)
-{
-	uint3 coord = id + crossingTestStart;
-
-	float v = envVolume[coord];
-
-	if (v > 0.0)
-		InterlockedOr(crossingTestResult[0], 1);
-
-	if (v < 0.0)
-		InterlockedOr(crossingTestResult[1], 1);
-}
+// #pragma kernel CrossingTest
+//
+// RWStructuredBuffer<uint> crossingTestResult;
+// // Result[0] = hasPositive
+// // Result[1] = hasNegative
+//
+// uint3 crossingTestStart;
+//
+// [numthreads(8,8,8)]
+// void CrossingTest(uint3 id : SV_DispatchThreadID)
+// {
+// 	uint3 coord = id + crossingTestStart;
+//
+// 	float v = envVolume[coord];
+//
+// 	if (v > 0.0)
+// 		InterlockedOr(crossingTestResult[0], 1);
+//
+// 	if (v < 0.0)
+// 		InterlockedOr(crossingTestResult[1], 1);
+// }

@@ -14,16 +14,15 @@ namespace Anaglyph.XRTemplate.DepthKit
 		public static DepthKitDriver Instance { get; private set; }
 
 		private readonly Matrix4x4[] proj = new Matrix4x4[2];
-		public Matrix4x4[] Proj => proj;
 		private readonly Matrix4x4[] projInv = new Matrix4x4[2];
-		public Matrix4x4[] ProjInv => projInv;
-
 		private readonly Matrix4x4[] view = new Matrix4x4[2];
-		public Matrix4x4[] View => view;
 		private readonly Matrix4x4[] viewInv = new Matrix4x4[2];
-		public Matrix4x4[] ViewInv => viewInv;
-
 		private Vector2 planes;
+
+		public Matrix4x4[] Proj => proj;
+		public Matrix4x4[] ProjInv => projInv;
+		public Matrix4x4[] View => view;
+		public Matrix4x4[] ViewInv => viewInv;
 		public Vector2 Planes => planes;
 
 		private static int ID(string str)
@@ -49,7 +48,6 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		[SerializeField] private ComputeShader depthNormalCompute = null;
 
-		private ComputeKernel depthCopyKernel;
 		private ComputeKernel monoRawDepthConvert;
 		private ComputeKernel normKernel;
 
@@ -71,22 +69,26 @@ namespace Anaglyph.XRTemplate.DepthKit
 			Instance = this;
 		}
 
-		private async void OnEnable()
-		{
-			await Awaitable.EndOfFrameAsync();
-		}
-
 		private void Start()
 		{
 			arOcclusionManager = FindFirstObjectByType<AROcclusionManager>();
-			arOcclusionManager.frameReceived += OnDepthFrame;
+
+			if (!arOcclusionManager)
+				throw new Exception("AROcclusionManager not found");
 
 			normKernel = new ComputeKernel(depthNormalCompute, "DepthNorm");
 			monoRawDepthConvert = new ComputeKernel(depthNormalCompute, "MonoRawDepthToStereo");
-			depthCopyKernel = new ComputeKernel(depthNormalCompute, "DepthCopy");
+
+			arOcclusionManager.frameReceived += OnDepthFrame;
 		}
 
-		private void OnDestroy()
+		private void OnEnable()
+		{
+			if (didStart && arOcclusionManager)
+				arOcclusionManager.frameReceived += OnDepthFrame;
+		}
+
+		private void OnDisable()
 		{
 			if (arOcclusionManager)
 				arOcclusionManager.frameReceived -= OnDepthFrame;
@@ -94,77 +96,82 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		private void OnDepthFrame(AROcclusionFrameEventArgs args)
 		{
-#if UNITY_EDITOR
-			Texture rawDepth = args.externalTextures[0].texture;
-
-			DepthAvailable = rawDepth != null;
-			if (!DepthAvailable) return;
-
-			if (simulatedDepthTex == null ||
-			    simulatedDepthTex.width != rawDepth.width ||
-			    simulatedDepthTex.height != rawDepth.height)
+			if (Application.isEditor)
 			{
-				simulatedDepthTex = new RenderTexture(rawDepth.width, rawDepth.height, 0,
-					GraphicsFormat.R16_UNorm, 1)
+				// AR foundation simulation
+				Texture rawDepth = args.externalTextures[0].texture;
+
+				DepthAvailable = rawDepth != null;
+				if (!DepthAvailable) return;
+
+				if (simulatedDepthTex == null ||
+				    simulatedDepthTex.width != rawDepth.width ||
+				    simulatedDepthTex.height != rawDepth.height)
 				{
-					dimension = TextureDimension.Tex2DArray,
-					volumeDepth = 2,
-					enableRandomWrite = true
-				};
-				Shader.SetGlobalVector(texSizeID, new Vector2(rawDepth.width, rawDepth.height));
+					simulatedDepthTex = new RenderTexture(rawDepth.width, rawDepth.height, 0,
+						GraphicsFormat.R16_UNorm, 1)
+					{
+						dimension = TextureDimension.Tex2DArray,
+						volumeDepth = 2,
+						enableRandomWrite = true
+					};
+					Shader.SetGlobalVector(texSizeID, new Vector2(rawDepth.width, rawDepth.height));
+				}
+
+				// Convert linear 32-bit depth texture to non-linear 16-bit
+				monoRawDepthConvert.Set(rwDepthTexID, simulatedDepthTex);
+				monoRawDepthConvert.Set(inputRawMonoDepthID, rawDepth);
+				monoRawDepthConvert.DispatchFit(rawDepth.width, rawDepth.height);
+				depthTex = simulatedDepthTex;
+
+				if (!mainCam) mainCam = Camera.main;
+				Matrix4x4 p = mainCam.projectionMatrix;
+				Matrix4x4 pi = p.inverse;
+
+				Transform ct = mainCam.transform;
+				Matrix4x4 vi = Matrix4x4.TRS(ct.position, ct.rotation, _scalingVector3);
+				Matrix4x4 v = vi.inverse;
+
+				for (int i = 0; i < 2; i++)
+				{
+					proj[i] = p;
+					projInv[i] = pi;
+					view[i] = v;
+					viewInv[i] = vi;
+				}
+
+				planes = new Vector2(mainCam.nearClipPlane, mainCam.farClipPlane);
 			}
-
-			monoRawDepthConvert.Set(rwDepthTexID, simulatedDepthTex);
-			monoRawDepthConvert.Set(inputRawMonoDepthID, rawDepth);
-			monoRawDepthConvert.DispatchFit(rawDepth.width, rawDepth.height);
-			depthTex = simulatedDepthTex;
-
-			if (!mainCam) mainCam = Camera.main;
-			Matrix4x4 p = mainCam.projectionMatrix;
-			Matrix4x4 pi = p.inverse;
-
-			Transform ct = mainCam.transform;
-			Matrix4x4 vi = Matrix4x4.TRS(ct.position, ct.rotation, _scalingVector3);
-			Matrix4x4 v = vi.inverse;
-
-			for (int i = 0; i < 2; i++)
+			else
 			{
-				proj[i] = p;
-				projInv[i] = pi;
-				view[i] = v;
-				viewInv[i] = vi;
+				// Likely hard-coded to only support Meta Quest for now...
+				depthTex = args.externalTextures[0].texture;
+
+				ReadOnlyList<XRFov> fovs = null;
+				ReadOnlyList<Pose> poses = null;
+				XRNearFarPlanes depthPlanes = default;
+
+				DepthAvailable = depthTex != null &&
+				                 args.TryGetFovs(out fovs) &&
+				                 args.TryGetPoses(out poses) &&
+				                 args.TryGetNearFarPlanes(out depthPlanes);
+
+				if (!DepthAvailable) return;
+
+				for (int i = 0; i < 2; i++)
+				{
+					proj[i] = CalculateDepthProjMatrix(fovs[i], depthPlanes);
+					projInv[i] = Matrix4x4.Inverse(proj[i]);
+
+					Pose pose = poses[i];
+					Matrix4x4 depthFrameMat = Matrix4x4.TRS(pose.position, pose.rotation, _scalingVector3);
+
+					view[i] = depthFrameMat.inverse * MainXRRig.TrackingSpace.worldToLocalMatrix;
+					viewInv[i] = Matrix4x4.Inverse(view[i]);
+				}
+
+				planes = new Vector2(depthPlanes.nearZ, depthPlanes.farZ);
 			}
-
-			planes = new Vector2(mainCam.nearClipPlane, mainCam.farClipPlane);
-
-#elif UNITY_ANDROID
-			depthTex = args.externalTextures[0].texture;
-
-			ReadOnlyList<XRFov> fovs = null;
-			ReadOnlyList<Pose> poses = null;
-			XRNearFarPlanes depthPlanes = default;
-
-			DepthAvailable = depthTex != null &&
-			                 args.TryGetFovs(out fovs) &&
-			                 args.TryGetPoses(out poses) &&
-			                 args.TryGetNearFarPlanes(out depthPlanes);
-
-			if (!DepthAvailable) return;
-
-			for (int i = 0; i < 2; i++)
-			{
-				proj[i] = CalculateDepthProjMatrix(fovs[i], depthPlanes);
-				projInv[i] = Matrix4x4.Inverse(proj[i]);
-
-				Pose pose = poses[i];
-				Matrix4x4 depthFrameMat = Matrix4x4.TRS(pose.position, pose.rotation, _scalingVector3);
-
-				view[i] = depthFrameMat.inverse * MainXRRig.TrackingSpace.worldToLocalMatrix;
-				viewInv[i] = Matrix4x4.Inverse(view[i]);
-			}
-
-			planes = new Vector2(depthPlanes.nearZ, depthPlanes.farZ);
-#endif
 
 			Shader.SetGlobalMatrixArray(projID, proj);
 			Shader.SetGlobalMatrixArray(projInvID, projInv);

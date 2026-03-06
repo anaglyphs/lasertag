@@ -407,6 +407,30 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 1818167001732638084, guid: 1a55ea070375b2c459df476de0e498ff, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1818167001732638084, guid: 1a55ea070375b2c459df476de0e498ff, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1818167001732638084, guid: 1a55ea070375b2c459df476de0e498ff, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1818167001732638084, guid: 1a55ea070375b2c459df476de0e498ff, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1818167001732638084, guid: 1a55ea070375b2c459df476de0e498ff, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1818167001732638084, guid: 1a55ea070375b2c459df476de0e498ff, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 2897494393674998855, guid: 1a55ea070375b2c459df476de0e498ff, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -1429,14 +1453,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   compute: {fileID: 7200000, guid: acbd8d3a81f87044f9dc52fb3cc8d414, type: 3}
   voxelSize: 0.1
-  voxelDistance: 0.15
+  voxelDistance: 0.2
   depthDisparityThreshold: 0.5
   depthDilationSteps: 8
-  frequency: 10
+  updateFrequency: 15
   volume: {fileID: 8400000, guid: 1b824cd65da368c4ba66330fd10e8ba2, type: 2}
   dilatedDepth: {fileID: 0}
-  maxDist: 6
-  minDist: 1
+  maxUpdateDist: 6
+  minUpdateDist: 1
   PlayerHeads: []
 --- !u!114 &2980743140624702808
 MonoBehaviour:
@@ -1637,7 +1661,7 @@ MonoBehaviour:
   resetTrackerOnLoad: 0
   AllowRecenter: 1
   LateControllerUpdate: 1
-  LateLatching: 0
+  LateLatching: 1
   controllerDrivenHandPosesType: 0
   SimultaneousHandsAndControllersEnabled: 0
   _readOnlyWideMotionModeHandPosesEnabled: 0

@@ -5,6 +5,7 @@ Texture3D<float> envVolume; // tsdf
 uint3 envVoxCount; // dimensions of volume texture
 float envVoxSize;
 float envVoxDist;
+float envVoxMin;
 StructuredBuffer<float3> envFrustumVolume;
 
 Texture2D<float4> envDilatedDepth;

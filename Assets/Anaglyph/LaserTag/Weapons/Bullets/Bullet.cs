@@ -82,7 +82,7 @@ namespace Anaglyph.Lasertag
 					Vector3 headPos = MainPlayer.Instance.HeadTransform.position;
 					float hitDistFromHead = Vector3.Distance(headPos, result.point);
 
-					if (hitDistFromHead < EnvironmentMapper.Instance.MaxDist)
+					if (hitDistFromHead < EnvironmentMapper.Instance.MaxUpdateDist)
 						EnvironmentRaycastRpc(result.distance);
 				}
 			}
@@ -91,7 +91,7 @@ namespace Anaglyph.Lasertag
 		[Rpc(SendTo.Owner)]
 		private void EnvironmentRaycastRpc(float dist)
 		{
-			if (dist > EnvironmentMapper.Instance.MaxDist)
+			if (dist > EnvironmentMapper.Instance.MaxUpdateDist)
 				envHitDist = Mathf.Min(envHitDist, dist);
 		}
 

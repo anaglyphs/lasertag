@@ -256,6 +256,7 @@ GameObject:
   - component: {fileID: 1073295471}
   - component: {fileID: 1073295470}
   - component: {fileID: 1073295469}
+  - component: {fileID: 1073295472}
   m_Layer: 0
   m_Name: Occlusion Debug Cube
   m_TagString: Untagged
@@ -335,6 +336,18 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1073295472
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1073295467}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dbaf3ea10ff843840841a8d631e8a8fc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph::Anaglyph.DestroyIfNotEditor
 --- !u!1 &1322057765
 GameObject:
   m_ObjectHideFlags: 0
@@ -473,6 +486,7 @@ GameObject:
   - component: {fileID: 1716785332}
   - component: {fileID: 1716785331}
   - component: {fileID: 1716785330}
+  - component: {fileID: 1716785333}
   m_Layer: 0
   m_Name: Env Volume Debug Plane
   m_TagString: Untagged
@@ -552,6 +566,18 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1716785333
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1716785328}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dbaf3ea10ff843840841a8d631e8a8fc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph::Anaglyph.DestroyIfNotEditor
 --- !u!1 &1797728586
 GameObject:
   m_ObjectHideFlags: 0
@@ -602,7 +628,7 @@ MonoBehaviour:
     z: 5
   overlap: 0.4
   chunkPrefab: {fileID: 5707654171926711959, guid: ebe1cd8f705d4ab4abc5b9f1778d536d, type: 3}
-  numMeshWorkers: 2
+  numMeshWorkers: 3
   numDecimateWorkers: 1
   updateDistance: 3
 --- !u!1001 &3916737362139618993
