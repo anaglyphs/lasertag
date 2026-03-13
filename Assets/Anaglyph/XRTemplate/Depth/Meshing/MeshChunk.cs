@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Anaglyph.XRTemplate;
@@ -118,7 +119,7 @@ namespace Anaglyph.DepthKit.Meshing
 
 				ctkn.ThrowIfCancellationRequested();
 
-				int sliceSize = size.x * size.y;
+				int sliceSize = size.x * NetMesher.Voxel.stride * size.y;
 
 				if (!volume.IsCreated || volume.Length < sliceSize * req.depth)
 				{
@@ -131,7 +132,7 @@ namespace Anaglyph.DepthKit.Meshing
 				for (int z = 0; z < size.z; z++)
 				{
 					NativeArray<sbyte> slice = req.GetData<sbyte>(z);
-					int dstOffset = z * req.width * req.height;
+					int dstOffset = z * req.width * NetMesher.Voxel.stride * req.height;
 
 					CopySliceJob copier = new()
 					{
@@ -142,7 +143,9 @@ namespace Anaglyph.DepthKit.Meshing
 					copier.ScheduleParallelByRef(sliceSize, 16, default).Complete();
 				}
 
-				isPopulated = await mesher.CreateMesh(volume, size, mapper.VoxelSize, mesh, ctkn);
+				NativeArray<NetMesher.Voxel> voxVol = volume.Reinterpret<NetMesher.Voxel>(1);
+
+				isPopulated = await mesher.CreateMesh(voxVol, size, mapper.VoxelSize, mesh, ctkn);
 
 				ctkn.ThrowIfCancellationRequested();
 

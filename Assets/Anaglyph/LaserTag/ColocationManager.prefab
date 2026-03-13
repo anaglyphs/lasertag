@@ -14,7 +14,6 @@ GameObject:
   - component: {fileID: 3770516394125647478}
   - component: {fileID: 2017920904899384140}
   - component: {fileID: 3794738929113082028}
-  - component: {fileID: 2551285239359811888}
   - component: {fileID: 8030733127724905774}
   m_Layer: 0
   m_Name: ColocationManager
@@ -50,7 +49,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 341593032
+  GlobalObjectIdHash: 2168036631
   InScenePlacedSourceGlobalObjectIdHash: 341593032
   DeferredDespawnTick: 0
   Ownership: 3
@@ -112,7 +111,6 @@ MonoBehaviour:
   maxHeadSpeed: 0.05
   maxHeadAngSpeed: 0.05
   worldLockAnchorPrefab: {fileID: 6151402896905020864, guid: 100b8bb6cd981b149b252913fceb49fe, type: 3}
-  cameraReader: {fileID: 2551285239359811888}
   tagTracker: {fileID: 8030733127724905774}
 --- !u!114 &3794738929113082028
 MonoBehaviour:
@@ -131,20 +129,6 @@ MonoBehaviour:
   indicatorMaterial: {fileID: 2100000, guid: 27f6747ba6952684fbfb2d2135976c96, type: 2}
   debugPointMesh: {fileID: 289301614986012343, guid: fd00829a26dc9fc4280b779bc4e1a4b7, type: 3}
   debugMaterial: {fileID: 2100000, guid: 0d26ad5852d65e9449287a73ea132e72, type: 2}
---- !u!114 &2551285239359811888
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5901269829941828840}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d78354083d4b19b479517e268a4fd2dc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  defaultTextureSize: {x: 640, y: 640}
-  camID: 1
 --- !u!114 &8030733127724905774
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -152,10 +136,9 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5901269829941828840}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3974b9aa56bda954c903adb0b1b1a236, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cameraReader: {fileID: 2551285239359811888}
   tagSizeMeters: 0.12

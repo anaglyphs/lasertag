@@ -49,7 +49,7 @@ Shader "Custom/EnvDebug"
             half4 frag(Varyings IN) : SV_Target
             {
                 float3 uvw = envWorldToVoxelUVW(IN.positionWS);
-                float val = envVolume.Sample(envPointClampSampler, uvw);
+                float val = envVolume.Sample(envPointClampSampler, uvw).r;
                 float r = -min(val, 0);
                 float g = val;
                 float b = val < 0;

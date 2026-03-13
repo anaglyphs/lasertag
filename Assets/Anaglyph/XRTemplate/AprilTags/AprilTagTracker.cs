@@ -2,21 +2,26 @@ using UnityEngine;
 using AprilTag;
 using System;
 using System.Collections.Generic;
-using Anaglyph.XRTemplate.DeviceCameras;
 using Unity.Collections;
+using Unity.XR.CoreUtils;
+using UnityEngine.XR;
+using UnityEngine.XR.ARFoundation;
+using UnityEngine.XR.ARSubsystems;
+using Pose = UnityEngine.Pose;
 
 namespace Anaglyph.XRTemplate.AprilTags
 {
 	[DefaultExecutionOrder(-1000)]
 	public class AprilTagTracker : MonoBehaviour
 	{
-		[SerializeField] private CameraReader cameraReader;
+		private static readonly int DebugCamTexID = Shader.PropertyToID("agDebugCamTex");
+		private ARCameraManager arCameraManager;
 
 		private TagDetector detector;
+		private Vector2Int detectorDimensions;
+		private Pose lensPose = Pose.identity;
 
 		public float tagSizeMeters = 0.12f;
-
-		private Texture2D tex;
 
 		private List<TagPose> worldPoses = new(10);
 		public IEnumerable<TagPose> WorldPoses => worldPoses;
@@ -24,82 +29,123 @@ namespace Anaglyph.XRTemplate.AprilTags
 
 		public double FrameTimestamp { get; private set; }
 
+		private void Start()
+		{
+			arCameraManager = FindFirstObjectByType<ARCameraManager>();
+
+			if (arCameraManager == null)
+				throw new Exception("No ARCameraManager found in scene");
+
+			arCameraManager.frameReceived += OnFrameReceived;
+		}
+
 		private void OnEnable()
 		{
-			cameraReader.ImageAvailable += OnReceivedNewFrame;
-			TrackingLoop();
+			if (didStart)
+				Start();
 		}
 
 		private void OnDisable()
 		{
-			cameraReader.ImageAvailable -= OnReceivedNewFrame;
-			newFrameAvailable = false;
+			if (arCameraManager)
+				arCameraManager.frameReceived -= OnFrameReceived;
 		}
 
-		// called on another thread so we do this
-		private bool newFrameAvailable = false;
+		private bool busy;
 
-		private void OnReceivedNewFrame(Texture2D t)
+		private async void OnFrameReceived(ARCameraFrameEventArgs args)
 		{
-			if (!Application.isFocused)
-				return;
+			if (busy) return;
+			busy = true;
 
-			tex = t;
-			newFrameAvailable = true;
-		}
+			XRCpuImage img = default;
+			XRCameraIntrinsics intrins = default;
 
-		private async void TrackingLoop()
-		{
-#if UNITY_EDITOR
-
-			while (enabled)
+			try
 			{
-				await Awaitable.FixedUpdateAsync();
+				// if (args.textures != null && args.textures.Count > 0)
+				// 	Shader.SetGlobalTexture(DebugCamTexID, args.textures[0]);
 
-				worldPoses.Clear();
+				bool gotIntrins = arCameraManager.TryGetIntrinsics(out intrins);
+				bool gotImg = arCameraManager.TryAcquireLatestCpuImage(out img);
 
-				foreach (SimulatedTag tag in SimulatedTag.Visible)
-					if (tag.isInView)
-						worldPoses.Add(tag.GetTagPoseInWorldSpace());
+				bool gotAll = gotImg && gotIntrins && args.timestampNs.HasValue;
+				if (!gotAll) return;
 
-				OnDetectTags.Invoke(worldPoses);
-			}
+				if (detector == null || detectorDimensions != img.dimensions)
+				{
+					detector = new TagDetector(img.width, img.height, 1);
+					detectorDimensions = img.dimensions;
+				}
 
-			return;
-#endif
+				switch (Application.platform)
+				{
+					case RuntimePlatform.Android:
 
-			while (enabled)
-			{
-				await Awaitable.NextFrameAsync();
+						if (lensPose.Equals(Pose.identity))
+							// assuming cam ID of one for arCameraManager?
+							lensPose = AndroidCamExtrinsicsHelper.GetCameraExtrinsics(50);
 
-				if (!newFrameAvailable)
-					continue;
+						break;
+				}
 
-				newFrameAvailable = false;
-
-				if (detector == null)
-					detector = new TagDetector(tex.width, tex.height, 1);
-
-				CameraReader.HardwareIntrinsics intrins = cameraReader.Intrinsics;
-
-				// fix for Meta OS v83 reporting wrong camera intrinsics
-				int realResolutionY = intrins.Resolution.x / tex.width * tex.height;
-				float fov = 2 * Mathf.Atan(realResolutionY / 2f / intrins.FocalLength.y);
-				float size = tagSizeMeters;
-
-				FrameTimestamp = cameraReader.TimestampNs * 0.000000001f;
+				float fov = 2 * Mathf.Atan(img.height / 2f / intrins.focalLength.y);
+				FrameTimestamp = args.timestampNs.Value * 0.000000001f; // nanoseconds to milliseconds
 				OVRPlugin.PoseStatef headPoseState =
 					OVRPlugin.GetNodePoseStateAtTime(FrameTimestamp, OVRPlugin.Node.Head);
 
-				NativeArray<byte> imgBytes = cameraReader.Texture.GetPixelData<byte>(0);
-				await detector.Detect(imgBytes, fov, size);
+				NativeArray<byte> imgGreyscale = default;
+
+				// on ARFoundation simulator, a plane holds BGRA data
+				// on android, the plane holds greyscale single-byte values.
+				// process the textures differently between platforms
+				switch (img.format)
+				{
+					case XRCpuImage.Format.AndroidYuv420_888:
+						// android conversion
+
+						RectInt rect = new(0, 0, img.width, img.height);
+						XRCpuImage.ConversionParams convParams = new()
+						{
+							inputRect = rect,
+							outputDimensions = img.dimensions,
+							outputFormat = TextureFormat.R8,
+							transformation = XRCpuImage.Transformation.MirrorY
+						};
+
+						int size = img.GetConvertedDataSize(convParams);
+						imgGreyscale = new NativeArray<byte>(size, Allocator.Temp);
+						img.Convert(convParams, imgGreyscale);
+
+						break;
+
+					case XRCpuImage.Format.BGRA32:
+						// probably unity editor simulator
+
+						throw new NotImplementedException();
+						break;
+
+					default:
+						throw new Exception("unsupported image format");
+				}
+
+				await detector.Detect(imgGreyscale, fov, tagSizeMeters);
+
+				img.Dispose();
+				imgGreyscale.Dispose();
 
 				worldPoses.Clear();
 
-				// nanoseconds to milliseconds
-				OVRPose headPose = headPoseState.Pose.ToOVRPose();
-				Matrix4x4 viewMat = Matrix4x4.TRS(headPose.position, headPose.orientation, Vector3.one);
-				Pose lensPose = cameraReader.HardwarePose;
+				Pose headPose = MainXRRig.Camera.transform.GetWorldPose();
+
+				if (XRSettings.enabled)
+				{
+					OVRPose ovrHeadPose = headPoseState.Pose.ToOVRPose();
+					headPose.position = ovrHeadPose.position;
+					headPose.rotation = ovrHeadPose.orientation;
+				}
+
+				Matrix4x4 viewMat = Matrix4x4.TRS(headPose.position, headPose.rotation, Vector3.one);
 				Matrix4x4 cameraMat = Matrix4x4.TRS(lensPose.position, lensPose.rotation, Vector3.one);
 				Matrix4x4 cameraRelativeToRig = viewMat * cameraMat;
 				viewMat = MainXRRig.TrackingSpace.localToWorldMatrix * cameraRelativeToRig;
@@ -114,10 +160,12 @@ namespace Anaglyph.XRTemplate.AprilTags
 					worldPoses.Add(worldPose);
 				}
 
-				if (worldPoses.Count == 0)
-					continue;
-
 				OnDetectTags.Invoke(worldPoses);
+			}
+			finally
+			{
+				img.Dispose();
+				busy = false;
 			}
 		}
 	}

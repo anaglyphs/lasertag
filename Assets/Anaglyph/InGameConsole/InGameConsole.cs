@@ -4,9 +4,9 @@ using UnityEngine.UI;
 
 public class InGameConsole : MonoBehaviour
 {
-	public static bool longMessagesEnabled = false;
+	public static bool longMessagesEnabled = true;
 
-	private const int MaxCharacters = 20000;
+	private const int MaxCharacters = 10000;
 	private const string logStart = "--- start ---";
 	private const string colorClosing = "</color>";
 
@@ -14,7 +14,7 @@ public class InGameConsole : MonoBehaviour
 	private static string log = logStart;
 
 	[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-	static void OnBeforeSceneLoadRuntimeMethod()
+	private static void OnBeforeSceneLoadRuntimeMethod()
 	{
 		Application.logMessageReceived += OnLog;
 	}
@@ -32,26 +32,20 @@ public class InGameConsole : MonoBehaviour
 		bool isError = type == LogType.Error || type == LogType.Exception;
 
 		if (type == LogType.Warning)
-		{
 			entryColor = new Color(1, 1, 0.5f);
-		}
-		else if (isError)
-		{
-			entryColor = new Color(1, 0.5f, 0.5f);
-		}
+		else if (isError) entryColor = new Color(1, 0.5f, 0.5f);
 
 		string entryBody = isError && longMessagesEnabled ? $"\n{trace}" : "";
 
-		string logEntry = $"\n\n<color=#{ColorUtility.ToHtmlStringRGB(entryColor)}><b>{condition}</b>{entryBody}</color>";
+		string logEntry =
+			$"\n\n<color=#{ColorUtility.ToHtmlStringRGB(entryColor)}><b>{condition}</b>{entryBody}</color>";
 
-		if(logEntry.Equals(lastLogEntry))
+		if (logEntry.Equals(lastLogEntry))
 			return;
 
 		lastLogEntry = logEntry;
 
 		log += logEntry;
-
-		bool wasTooLong = log.Length > MaxCharacters;
 
 		if (log.Length > MaxCharacters)
 		{

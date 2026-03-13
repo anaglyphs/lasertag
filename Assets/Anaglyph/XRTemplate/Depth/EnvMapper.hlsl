@@ -1,19 +1,14 @@
 SamplerState envLinearClampSampler;
 SamplerState envPointClampSampler;
 
-Texture3D<float> envVolume; // tsdf
+Texture3D<float2> envVolume; // tsdf
 uint3 envVoxCount; // dimensions of volume texture
 float envVoxSize;
 float envVoxDist;
 float envVoxMin;
-StructuredBuffer<float3> envFrustumVolume;
-
-Texture2D<float4> envDilatedDepth;
 
 int envNumPlayers;
 float3 envPlayerHeads[512];
-
-#define EMPTY_VOXEL -1.0
 
 float3 envVoxelToWorld(uint3 indices)
 {
@@ -54,12 +49,6 @@ float3 envWorldToVoxelUVW(float3 pos)
 half envSampleVolumeDist(float3 worldPos)
 {
 	float3 uvw = envWorldToVoxelUVW(worldPos);
-	float rawVal = envVolume.SampleLevel(envLinearClampSampler, uvw, 0);
-	float val = rawVal == EMPTY_VOXEL ? 1.0 : rawVal;
+	float val = envVolume.SampleLevel(envLinearClampSampler, uvw, 0).r;
 	return val * envVoxDist;
-}
-
-float sampleDilatedDepth(float2 uv)
-{
-	return envDilatedDepth.SampleLevel(envPointClampSampler, uv, 0).z;
 }

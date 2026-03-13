@@ -4,25 +4,25 @@ using System;
 using System.Collections.Generic;
 using Color32 = UnityEngine.Color32;
 using System.Threading.Tasks;
+using AprilTag.Interop;
 using UnityEngine;
 
 namespace AprilTag
 {
-
 	//
 	// Multithreaded tag detector and pose estimator
 	//
-	public sealed class TagDetector : System.IDisposable
+	public sealed class TagDetector : IDisposable
 	{
 		public Action OnDetect = delegate { };
 
 		#region Public properties
 
 		public IEnumerable<TagPose> DetectedTags
-		  => _detectedTags;
+			=> _detectedTags;
 
 		public IEnumerable<(string name, long time)> ProfileData
-		  => _profileData ?? (_profileData = GenerateProfileData());
+			=> _profileData ?? (_profileData = GenerateProfileData());
 
 		#endregion
 
@@ -31,9 +31,9 @@ namespace AprilTag
 		public TagDetector(int width, int height, int decimation)
 		{
 			// Object creation
-			_detector = Interop.Detector.Create();
-			_family = Interop.Family.CreateTagStandard41h12();
-			_image = Interop.ImageU8.CreateStride(width, height, width);
+			_detector = Detector.Create();
+			_family = Family.CreateTagStandard41h12();
+			_image = ImageU8.CreateStride(width, height, width);
 
 			// Detector configuration
 			_detector.ThreadCount = SystemConfig.PreferredThreadCount;
@@ -57,12 +57,12 @@ namespace AprilTag
 			_image = null;
 		}
 
-		//public void ProcessImage
-		//  (ReadOnlySpan<Color32> image, float fov, float tagSize)
-		//{
-		//	ImageConverter.Convert(image, _image);
-		//	RunDetectorAndEstimator(fov, tagSize);
-		//}
+		// public void ProcessImage
+		//   (ReadOnlySpan<Color32> image, float fov, float tagSize)
+		// {
+		// 	ImageConverter.Convert(image, _image);
+		// 	RunDetectorAndEstimator(fov, tagSize);
+		// }
 
 		public async Task Detect(NativeArray<byte> imgBytes, float fov, float tagSize)
 		{
@@ -72,33 +72,31 @@ namespace AprilTag
 
 			// Run the AprilTag detector.
 
-			Interop.DetectionArray tags = await Task.Run(() =>
+			DetectionArray tags = await Task.Run(() =>
 			{
+				// ImageConverter.Convert(image, _image);
 				// Thread-safety check: this assumes _detector is not accessed anywhere else concurrently
 				return _detector.Detect(_image);
 			});
 
-			var tagCount = tags.Length;
+			int tagCount = tags.Length;
 
 			// Convert the detector output into a NativeArray to make them
 			// accessible from the pose estimation job.
-			using var jobInput = new NativeArray<PoseEstimationJob.Input>
-			  (tagCount, Allocator.TempJob);
+			using NativeArray<PoseEstimationJob.Input> jobInput = new(tagCount, Allocator.TempJob);
 
-			var slice = new NativeSlice<PoseEstimationJob.Input>(jobInput);
+			NativeSlice<PoseEstimationJob.Input> slice = new(jobInput);
 
-			for (var i = 0; i < tagCount; i++)
+			for (int i = 0; i < tagCount; i++)
 				slice[i] = new PoseEstimationJob.Input(ref tags[i]);
 
 			// Pose estimation output buffer
-			using var jobOutput
-			  = new NativeArray<TagPose>(tagCount, Allocator.TempJob);
+			using NativeArray<TagPose> jobOutput = new(tagCount, Allocator.TempJob);
 
 			// Pose estimation job
-			var job = new PoseEstimationJob
-			  (jobInput, jobOutput, _image.Width, _image.Height, fov, tagSize);
+			PoseEstimationJob job = new(jobInput, jobOutput, _image.Width, _image.Height, fov, tagSize);
 
-			var handle = job.Schedule(tagCount, 1, default);
+			JobHandle handle = job.Schedule(tagCount, 1, default);
 
 			while (!handle.IsCompleted) await Awaitable.NextFrameAsync();
 
@@ -111,12 +109,12 @@ namespace AprilTag
 
 		#region Private objects
 
-		Interop.Detector _detector;
-		Interop.Family _family;
-		Interop.ImageU8 _image;
+		private Detector _detector;
+		private Family _family;
+		private ImageU8 _image;
 
-		List<TagPose> _detectedTags = new List<TagPose>();
-		List<(string, long)> _profileData;
+		private List<TagPose> _detectedTags = new();
+		private List<(string, long)> _profileData;
 
 		#endregion
 
@@ -170,21 +168,21 @@ namespace AprilTag
 
 		#region Profile data aggregation
 
-		List<(string, long)> GenerateProfileData()
+		private List<(string, long)> GenerateProfileData()
 		{
-			var list = new List<(string, long)>();
-			var stamps = _detector.TimeProfile.Stamps;
-			var time = _detector.TimeProfile.UTime;
-			for (var i = 0; i < stamps.Length; i++)
+			List<(string, long)> list = new();
+			Span<TimeProfileEntry> stamps = _detector.TimeProfile.Stamps;
+			long time = _detector.TimeProfile.UTime;
+			for (int i = 0; i < stamps.Length; i++)
 			{
-				var stamp = stamps[i];
+				TimeProfileEntry stamp = stamps[i];
 				list.Add((stamp.Name, stamp.UTime - time));
 				time = stamp.UTime;
 			}
+
 			return list;
 		}
 
 		#endregion
 	}
-
 } // namespace AprilTag

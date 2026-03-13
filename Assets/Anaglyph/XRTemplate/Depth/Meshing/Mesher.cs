@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Unity.Burst;
@@ -22,6 +23,19 @@ namespace Anaglyph.DepthKit
 
 		private bool isBusy = false;
 		public bool IsIsBusy => isBusy;
+
+		[StructLayout(LayoutKind.Sequential)]
+		public readonly struct Voxel
+		{
+			public readonly sbyte distNormRaw;
+			public readonly byte count;
+			public const int stride = 2;
+
+			public float CalcDistNorm()
+			{
+				return distNormRaw / (float)sbyte.MaxValue;
+			}
+		}
 
 		private static readonly byte[] CrnrOffsIdxA =
 		{
@@ -51,14 +65,12 @@ namespace Anaglyph.DepthKit
 		};
 
 		private const int InvalidVertSentinel = -1;
-		private const float EmptyVoxel = -1.0f;
-		private const float sbyteMax = sbyte.MaxValue;
 
 		private static readonly int3 X = new(1, 0, 0);
 		private static readonly int3 Y = new(0, 1, 0);
 		private static readonly int3 Z = new(0, 0, 1);
 
-		[System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+		[StructLayout(LayoutKind.Sequential)]
 		public struct Vertex
 		{
 			public Vertex(float3 position, float3 normal)
@@ -80,7 +92,7 @@ namespace Anaglyph.DepthKit
 		[BurstCompile]
 		private struct VertexJob : IJob
 		{
-			[ReadOnly] public NativeArray<sbyte> Volume;
+			[ReadOnly] public NativeArray<Voxel> Volume;
 			[ReadOnly] public int3 VoxCount;
 			[ReadOnly] public float VoxSize;
 
@@ -99,7 +111,7 @@ namespace Anaglyph.DepthKit
 
 				for (int i = 0; i < voxelCount; i++)
 				{
-					int3 coord = IndexToCoord(i);
+					int3 coord = IndexToCoord(i, VoxCount);
 
 					if (coord.x == VoxCount.x - 1 ||
 					    coord.y == VoxCount.y - 1 ||
@@ -119,20 +131,23 @@ namespace Anaglyph.DepthKit
 						int3 coordA = coord + CornerOffs[CrnrOffsIdxA[e]];
 						int3 coordB = coord + CornerOffs[CrnrOffsIdxB[e]];
 
-						float valA = ValueForCoord(coordA);
-						float valB = ValueForCoord(coordB);
+						Voxel voxA = VoxelForCoord(coordA, VoxCount, Volume);
+						Voxel voxB = VoxelForCoord(coordB, VoxCount, Volume);
 
-						float change = valA - valB;
+						float distA = voxA.CalcDistNorm();
+						float distB = voxB.CalcDistNorm();
+
+						float change = distA - distB;
 						dir += new float3(coordA - coordB) * change;
 
-						bool doesCross = valA < 0 != valB < 0;
+						bool doesCross = distA < 0 != distB < 0;
 						if (doesCross)
 						{
 							// cull false isosurface sign changes
-							if (valA == EmptyVoxel || valB == EmptyVoxel)
+							if (distA == 1 || distB == 1)
 								numBadCrossings++;
 
-							float t = valA / change;
+							float t = distA / change;
 							float3 crossingCoord = coordA + t * new float3(coordB - coordA);
 
 							posCoord += crossingCoord;
@@ -162,39 +177,16 @@ namespace Anaglyph.DepthKit
 				BoundsRef.Value = bounds;
 			}
 
-			private int3 IndexToCoord(int i)
-			{
-				int3 s = VoxCount;
-				return new int3(
-					i % s.x,
-					i / s.x % s.y,
-					i / (s.x * s.y)
-				);
-			}
-
-			private int CoordToIndex(int3 c)
-			{
-				int3 s = VoxCount;
-				return c.x + c.y * s.x + c.z * s.x * s.y;
-			}
-
 			private float3 CoordToPos(float3 c)
 			{
 				return c * VoxSize + VoxSize * 0.5f;
-			}
-
-			private float ValueForCoord(int3 c)
-			{
-				float val = Volume[CoordToIndex(c)] / sbyteMax;
-				if (val == EmptyVoxel) val = 0;
-				return val;
 			}
 		}
 
 		[BurstCompile]
 		private struct IndexJob : IJob
 		{
-			[ReadOnly] public NativeArray<sbyte> Volume;
+			[ReadOnly] public NativeArray<Voxel> Volume;
 
 			[ReadOnly] public int3 VoxCount;
 			[ReadOnly] public NativeList<int3> VertCoords;
@@ -218,22 +210,25 @@ namespace Anaglyph.DepthKit
 				    || math.any(coord - d2 < int3.zero))
 					return;
 
-				int ia = Flatten(coord);
-				float va = ValueForCoord(coord);
-				float vb = ValueForCoord(coord + axis);
+				int ia = FlattenCoord(coord, VoxCount);
+				Voxel voxA = VoxelForCoord(coord, VoxCount, Volume);
+				Voxel voxB = VoxelForCoord(coord + axis, VoxCount, Volume);
 
-				if (va < 0 == vb < 0) return;
+				float distA = voxA.CalcDistNorm();
+				float distB = voxB.CalcDistNorm();
+
+				if (distA < 0 == distB < 0) return;
 
 				int a = CoordVertMap[ia];
-				int b = CoordVertMap[Flatten(coord - d1)];
-				int c = CoordVertMap[Flatten(coord - (d1 + d2))];
-				int d = CoordVertMap[Flatten(coord - d2)];
+				int b = CoordVertMap[FlattenCoord(coord - d1, VoxCount)];
+				int c = CoordVertMap[FlattenCoord(coord - (d1 + d2), VoxCount)];
+				int d = CoordVertMap[FlattenCoord(coord - d2, VoxCount)];
 
 				if (a == InvalidVertSentinel || b == InvalidVertSentinel || c == InvalidVertSentinel ||
 				    d == InvalidVertSentinel)
 					return;
 
-				if (va < 0)
+				if (distA < 0)
 				{
 					AddTriangle(c, b, a);
 					AddTriangle(d, c, a);
@@ -251,16 +246,6 @@ namespace Anaglyph.DepthKit
 				Tris.AddNoResize((uint)b);
 				Tris.AddNoResize((uint)c);
 			}
-
-			private int Flatten(int3 c)
-			{
-				return FlattenCoord(c, VoxCount);
-			}
-
-			private float ValueForCoord(int3 c)
-			{
-				return Volume[Flatten(c)] / sbyteMax;
-			}
 		}
 
 		private static int FlattenCoord(int3 coord, int3 voxCount)
@@ -270,8 +255,23 @@ namespace Anaglyph.DepthKit
 			return c.x + c.y * s.x + c.z * s.x * s.y;
 		}
 
+		private static Voxel VoxelForCoord(int3 coord, int3 voxCount, NativeArray<Voxel> volume)
+		{
+			return volume[FlattenCoord(coord, voxCount)];
+		}
+
+		private static int3 IndexToCoord(int i, int3 voxCount)
+		{
+			int3 s = voxCount;
+			return new int3(
+				i % s.x,
+				i / s.x % s.y,
+				i / (s.x * s.y)
+			);
+		}
+
 		public async Task<bool> CreateMesh(
-			NativeArray<sbyte> volume,
+			NativeArray<Voxel> volume,
 			int3 voxCount, float voxSize, Mesh mesh,
 			CancellationToken ctkn = default)
 		{

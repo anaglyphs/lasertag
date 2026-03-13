@@ -1,7 +1,6 @@
-using System.Threading.Tasks;
-using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.Rendering;
+using UnityEngine.XR.ARFoundation;
+using UnityEngine.XR.ARSubsystems;
 
 namespace Anaglyph.DepthKit
 {
@@ -9,52 +8,43 @@ namespace Anaglyph.DepthKit
 	{
 		public zEnvMapper2 Instance { get; private set; }
 
+		private AROcclusionManager depthMan;
+
 		[SerializeField] private ComputeShader comp;
-
-		private ComputeKernel Integrate;
-		private ComputeBuffer blocks;
-
-		[GenerateHLSL(PackingRules.Exact, false)]
-		public struct BlockEntry
-		{
-			public int3 pos_bs; // 24
-			public uint block_index; //  8
-			public const int ByteSize = 32;
-		}
 
 		private void Awake()
 		{
 			Instance = this;
 
-			blocks = new ComputeBuffer(1024 * 1024, sizeof(float));
-
-			Integrate.Set("blocks", blocks);
+			depthMan = FindFirstObjectByType<AROcclusionManager>();
 		}
 
-		private async Task ExpandBuffer()
+		private void Start()
 		{
-			var tcs = new TaskCompletionSource<AsyncGPUReadbackRequest>();
+			// depthMan.frameReceived += OnDepthFrameReceived;
+		}
 
-			AsyncGPUReadback.Request(blocks, (req) =>
-			{
-				if (req.hasError)
-					tcs.SetException(new System.Exception("GPU readback failed"));
-				else
-					tcs.SetResult(req);
-			});
+		private void OnEnable()
+		{
+			if (didStart)
+				Start();
+		}
 
-			var result = await tcs.Task;
+		private void OnDisable()
+		{
+			// depthMan.frameReceived -= OnDepthFrameReceived;
+		}
 
-			if (result.hasError)
-				return;
+		private void Update()
+		{
+			bool got = depthMan.TryAcquireEnvironmentDepthCpuImage(out XRCpuImage img);
+			if (!got) return;
 
-			var data = result.GetData<BlockEntry>();
-			var oldCount = blocks.count;
-			blocks.Dispose();
-			blocks = new ComputeBuffer(oldCount * 2, BlockEntry.ByteSize);
-			blocks.SetData(data);
+			XRCpuImage.Plane plane = img.GetPlane(0);
 
-			Integrate.Set("blocks", blocks);
+			Debug.Log(plane.pixelStride);
+
+			img.Dispose();
 		}
 	}
 }

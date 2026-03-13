@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 41a7ae779ccaabc44a79a2db7f50fd71, type: 3}
+  m_Name: LLMInstallationRoutine
+  m_EditorClassIdentifier: 
+  id: fb956d38-811e-4622-b453-c21ac1f76ff0
+  targetBlockDataId: ef19cfd3-3bb7-4107-9044-33fecdb8a359
+  displayName: 
+  description: 
+  prefab: {fileID: 8894457130984475130, guid: d4de72023fffd964aae84c4e83bc1ec9, type: 3}
+  packageDependencies: []
+  selectedGuidedSetupIndex: 0
+  guidedSetupName: 
+  inferenceType: 2
+  modelProvider: LlamaAPI - Llama-4-Maverick-17B-128E-Instruct-FP8
+  includeDebuggingTools: 1

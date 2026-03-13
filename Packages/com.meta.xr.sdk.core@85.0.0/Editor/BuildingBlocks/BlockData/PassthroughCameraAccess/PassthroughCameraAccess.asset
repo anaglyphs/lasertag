@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e832c650a3423fe44affb07d4d81add0, type: 3}
+  m_Name: PassthroughCameraAccess
+  m_EditorClassIdentifier: 
+  id: 0792d3af-c7d9-4f9c-a6f0-fd580a051e48
+  version: 1
+  blockName: Passthrough Camera Access
+  description: Get direct access to your headset\'s camera feed and transform raw
+    visual data into intelligent mixed reality experiences that understand the world
+    around you.
+  tags:
+    array:
+    - name: Passthrough
+    - name: AI
+  thumbnail: {fileID: 2800000, guid: 3d78b5313ff178b429ea0d50d85486b0, type: 3}
+  remoteThumbnailContentId: 0
+  order: 0
+  prefab: {fileID: 0}
+  selectedGuidedSetupIndex: 0
+  externalBlockDependencies: []
+  dependencies:
+  - e47682b9-c270-40b1-b16d-90b627a5ce1b
+  guidedSetupName: 
+  packageDependencies:
+  - com.meta.xr.mrutilitykit
+  isSingleton: 0
+  usageInstructions: Import this Building Block to get access to the passthrough
+    camera feed.
+  featureDocumentationName: Passthrough Camera API
+  featureDocumentationUrl: https://developers.meta.com/horizon/documentation/unity/unity-pca-overview

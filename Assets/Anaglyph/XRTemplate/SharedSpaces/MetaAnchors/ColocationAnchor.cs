@@ -21,7 +21,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public override void OnNetworkSpawn()
 		{
-			if (!XRSettings.enabled && !anchor.Localized)
+			if (XRSettings.enabled && !anchor.Localized && !IsOwner)
 				MainXRRig.TrackingSpace.position = new Vector3(0, 1000, 0);
 
 			targetPoseSync.OnValueChanged += delegate { SetTargetPose(); };
@@ -33,8 +33,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private void SetTargetPose()
 		{
-			var t = targetPoseSync.Value;
-			var mat = Matrix4x4.TRS(t.position, t.rotation, Vector3.one);
+			Pose t = targetPoseSync.Value;
+			Matrix4x4 mat = Matrix4x4.TRS(t.position, t.rotation, Vector3.one);
 			WorldLocker.SetTargetAndAlign(mat);
 		}
 	}

@@ -40,7 +40,7 @@ namespace Anaglyph.Lasertag
 		}
 
 		protected override void OnNetworkSessionSynchronized()
-		//protected override void OnNetworkPostSpawn()
+			//protected override void OnNetworkPostSpawn()
 		{
 			switch (Method)
 			{
@@ -55,7 +55,7 @@ namespace Anaglyph.Lasertag
 
 			SetActiveColocator(activeColocator);
 
-			if (!XRSettings.enabled) return;
+			if (!MainXRRig.Instance) return;
 
 			activeColocator.StartColocation();
 		}
@@ -64,7 +64,7 @@ namespace Anaglyph.Lasertag
 		{
 			activeColocator.Colocated -= OnColocated;
 
-			if (!XRSettings.enabled) return;
+			if (!MainXRRig.Instance) return;
 
 			activeColocator.StopColocation();
 			SetColocated(false);
@@ -87,7 +87,7 @@ namespace Anaglyph.Lasertag
 
 		public void RealignEveryone()
 		{
-			var localID = NetworkManager.Singleton.LocalClientId;
+			ulong localID = NetworkManager.Singleton.LocalClientId;
 			if (OwnerClientId != localID)
 				NetworkObject.ChangeOwnership(localID);
 

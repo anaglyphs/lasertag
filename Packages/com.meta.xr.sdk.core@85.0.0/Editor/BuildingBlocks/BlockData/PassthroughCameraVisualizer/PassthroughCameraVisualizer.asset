@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 35843214b4c082b48a6f44ccefbe0185, type: 3}
+  m_Name: PassthroughCameraVisualizer
+  m_EditorClassIdentifier: 
+  id: 15e72970-0a71-4798-8064-2eb968d0ff69
+  version: 1
+  blockName: Passthrough Camera Visualizer
+  description: Visualize your camera feed in real-time, making it easy to fine-tune
+    your computer vision features with visual feedback.
+  tags:
+    array:
+    - name: Passthrough
+    - name: AI
+  thumbnail: {fileID: 2800000, guid: 5910d1cecce5f3f4a99b72631827a115, type: 3}
+  remoteThumbnailContentId: 0
+  order: 0
+  prefab: {fileID: 6660669315433655825, guid: 9614149e305d24c49898858975550173, type: 3}
+  selectedGuidedSetupIndex: 0
+  externalBlockDependencies: []
+  dependencies:
+  - e47682b9-c270-40b1-b16d-90b627a5ce1b
+  guidedSetupName: 
+  packageDependencies:
+  - com.meta.xr.mrutilitykit
+  isSingleton: 0
+  usageInstructions: To visualize the camera (left or right eye) on a surface, in
+    this case a quad, simply add a PassthroughCameraAccess component to your scene,
+    select the desired eye and assign a unique material. Assign this same material
+    to your mesh and at runtime the PassthroughCameraAccess component will display
+    the selected eye on that mesh.
+  featureDocumentationName: 
+  featureDocumentationUrl: 

@@ -17,6 +17,7 @@ namespace Anaglyph.XRTemplate
 
 		[SerializeField] private ComputeShader compute = null;
 
+		[SerializeField] private int3 volumeSize = new(1024, 256, 1024);
 		[SerializeField] private float voxelSize = 0.1f;
 		[SerializeField] private float voxelDistance = 0.2f;
 		[SerializeField] private float voxelMin = 0.1f;
@@ -103,6 +104,20 @@ namespace Anaglyph.XRTemplate
 
 		private void Start()
 		{
+			RenderTextureDescriptor volumeDesc = new()
+			{
+				width = volumeSize.x,
+				height = volumeSize.y,
+				volumeDepth = volumeSize.z,
+				msaaSamples = 1,
+				useMipMap = false,
+				graphicsFormat = GraphicsFormat.R8G8_SNorm,
+				dimension = TextureDimension.Tex3D,
+				enableRandomWrite = true
+			};
+
+			volume = new RenderTexture(volumeDesc);
+
 			clearKernel = new ComputeKernel(compute, "Clear");
 			clearKernel.Set(volumeWritableID, volume);
 

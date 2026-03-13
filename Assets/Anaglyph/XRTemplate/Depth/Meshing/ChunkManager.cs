@@ -21,6 +21,7 @@ namespace Anaglyph.DepthKit.Meshing
 
 		[SerializeField] private int numMeshWorkers = 2;
 		[SerializeField] private int numDecimateWorkers = 1;
+		[SerializeField] private float updateFov = 70f;
 		[SerializeField] private float updateDistance = 4f;
 
 		private readonly Dictionary<int3, MeshChunk> chunks = new();
@@ -134,25 +135,26 @@ namespace Anaglyph.DepthKit.Meshing
 			new(-1, 1, 1, 1) // top-left-far
 		};
 
-		public static Matrix4x4 WithFiniteFarPlane(Matrix4x4 infiniteProj, float far)
-		{
-			float near = -infiniteProj.m23 * 0.5f;
-
-			Matrix4x4 proj = infiniteProj;
-
-			proj.m22 = -(far + near) / (far - near);
-			proj.m23 = -(2f * far * near) / (far - near);
-
-			proj.m32 = -1f;
-			proj.m33 = 0f;
-
-			return proj;
-		}
+		// public static Matrix4x4 WithFiniteFarPlane(Matrix4x4 infiniteProj, float far)
+		// {
+		// 	float near = -infiniteProj.m23 * 0.5f;
+		//
+		// 	Matrix4x4 proj = infiniteProj;
+		//
+		// 	proj.m22 = -(far + near) / (far - near);
+		// 	proj.m23 = -(2f * far * near) / (far - near);
+		//
+		// 	proj.m32 = -1f;
+		// 	proj.m33 = 0f;
+		//
+		// 	return proj;
+		// }
 
 		private void OnDepthUpated()
 		{
-			Matrix4x4 proj = DepthKitDriver.Instance.Proj[0];
-			proj = WithFiniteFarPlane(proj, updateDistance);
+			Matrix4x4 proj = Matrix4x4.Perspective(updateFov, 1.0f, 1f, updateDistance);
+			// Matrix4x4 proj = DepthKitDriver.Instance.Proj[0];
+			// proj = WithFiniteFarPlane(proj, updateDistance);
 			Matrix4x4 view = DepthKitDriver.Instance.View[0];
 			GeometryUtility.CalculateFrustumPlanes(proj * view, frustumPlanes);
 		}
@@ -162,8 +164,10 @@ namespace Anaglyph.DepthKit.Meshing
 			DepthKitDriver d = DepthKitDriver.Instance;
 
 			// depth matrices
-			Matrix4x4 proj = d.Proj[0];
-			proj = WithFiniteFarPlane(proj, updateDistance);
+
+			Matrix4x4 proj = Matrix4x4.Perspective(updateFov, 1.0f, 1f, updateDistance);
+			// Matrix4x4 proj = d.Proj[0];
+			// proj = WithFiniteFarPlane(proj, updateDistance);
 			Matrix4x4 projInv = proj.inverse;
 			Matrix4x4 view = d.View[0];
 			Matrix4x4 viewInv = view.inverse;

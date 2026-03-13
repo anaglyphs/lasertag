@@ -137,13 +137,16 @@ namespace Anaglyph.Lasertag
 			TimeMatchEnds = Time.time + timeLeft;
 		}
 
+		public override void OnNetworkSpawn()
+		{
+			// clear env mapper
+			EnvironmentMapper.Instance.Clear();
+		}
+
 		public override void OnNetworkDespawn()
 		{
 			_ = SetStateLocally(MatchState.NotPlaying);
 			ResetScoresLocally();
-
-			// clear env mapper on disconnect
-			EnvironmentMapper.Instance.Clear();
 		}
 
 		[Rpc(SendTo.Everyone)]

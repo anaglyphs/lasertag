@@ -1243,11 +1243,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.WeaponSwitcher
   hand: 2
   selectedPrefab: {fileID: 3351604493564354878, guid: dc9d3a79025131f408102e10b2cea9d5, type: 3}
---- !u!4 &2741500583659907099 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 1195462185485028878, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
-  m_PrefabInstance: {fileID: 3935273918476871189}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &3427770566152052496 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 1805105538219129093, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
@@ -1325,11 +1320,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.WeaponSwitcher
   hand: 1
   selectedPrefab: {fileID: 3351604493564354878, guid: dc9d3a79025131f408102e10b2cea9d5, type: 3}
---- !u!4 &4055962433370237435 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 1068842471522357230, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
-  m_PrefabInstance: {fileID: 3935273918476871189}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &4921592961275499637 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 8273645227207553632, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
@@ -1452,15 +1442,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   compute: {fileID: 7200000, guid: acbd8d3a81f87044f9dc52fb3cc8d414, type: 3}
+  volumeSize:
+    x: 1024
+    y: 256
+    z: 1024
   voxelSize: 0.1
   voxelDistance: 0.2
-  depthDisparityThreshold: 0.5
+  voxelMin: 0.1
+  depthDisparityThreshold: 1
   depthDilationSteps: 8
   updateFrequency: 15
   volume: {fileID: 8400000, guid: 1b824cd65da368c4ba66330fd10e8ba2, type: 2}
   dilatedDepth: {fileID: 0}
   maxUpdateDist: 6
-  minUpdateDist: 1
+  minUpdateDist: 1.2
   PlayerHeads: []
 --- !u!114 &2980743140624702808
 MonoBehaviour:
@@ -1476,8 +1471,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   avatarPrefab: {fileID: 6958064522276107603, guid: e4f083ef36e807249952bb99ca629aa6, type: 3}
   headTransform: {fileID: 1532089469887111823}
-  leftHandTransform: {fileID: 2741500583659907099}
-  rightHandTransform: {fileID: 4055962433370237435}
   redDamagedVision: 1
 --- !u!114 &8642319686183551579
 MonoBehaviour:
@@ -1654,7 +1647,7 @@ MonoBehaviour:
   requestRecordAudioPermissionOnStartup: 0
   requestPassthroughCameraAccessPermissionOnStartup: 0
   _localDimming: 1
-  _trackingOriginType: 1
+  _trackingOriginType: 0
   usePositionTracking: 1
   useRotationTracking: 1
   useIPDInPositionTracking: 1

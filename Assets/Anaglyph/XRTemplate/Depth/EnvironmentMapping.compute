@@ -1,20 +1,42 @@
 #include "../Depth/DepthKit.hlsl"
 #include "../Depth/EnvMapper.hlsl"
 
-RWTexture3D<float> envVolumeRW; // tsdf
+RWTexture3D<float2> envVolumeRW; // tsdf
 float depthDispThresh;
 
-#define PLAYER_TOP 0.2
-#define PLAYER_BOTTOM 1.7
-#define PLAYER_RADIUS 0.5
-#define MIN_DOT 0.3
+StructuredBuffer<float3> envFrustumVolume;
+Texture2D<float4> envDilatedDepth;
+
+#define PLAYER_TOP 0.5
+#define PLAYER_BOTTOM 2
+#define PLAYER_RADIUS 1
+#define MIN_DOT 0.1
+#define CROP_MIN 0.2
+#define CROP_MAX 0.8
+
+uint snorm8_to_u8(float f)
+{
+	int i = int(round(clamp(f, -1.0, 1.0) * 127.0));
+	return uint(i + 128);
+}
+
+float u8_to_snorm8(uint u)
+{
+	int i = int(u) - 128;
+	return max(float(i) / 127.0, -1.0);
+}
+
+float sampleDilatedDepth(float2 uv)
+{
+	return envDilatedDepth.SampleLevel(envPointClampSampler, uv, 0).z;
+}
 
 #pragma kernel Clear
 
 [numthreads(4, 4, 4)]
 void Clear(uint3 id : SV_DispatchThreadID)
 {
-	envVolumeRW[id] = EMPTY_VOXEL;
+	envVolumeRW[id].rg = float2(1.0, u8_to_snorm8(1));
 }
 
 #pragma kernel Integrate
@@ -33,6 +55,8 @@ void Integrate(uint id : SV_DispatchThreadID)
 
 	float3 voxNDC = agDepthWorldToNDC(voxPos);
 	float depthNDC = agDepthSample(voxNDC.xy);
+	bool uvWithinCrop = voxNDC.x > CROP_MIN && voxNDC.y > CROP_MIN && voxNDC.x < CROP_MAX && voxNDC.y <
+		CROP_MAX;
 	float3 depthNorm = agDepthNormalSample(voxNDC.xy).xyz;
 	float3 depthPos = agDepthNDCtoWorld(float3(voxNDC.xy, depthNDC));
 
@@ -70,9 +94,21 @@ void Integrate(uint id : SV_DispatchThreadID)
 		}
 	}
 
-	bool valid = withinBand & outsidePlayers & validSurfaceNormal & unoccludedByDilation;
+	float2 prevVal = envVolumeRW[coord].rg;
+	float prevDist = prevVal.r;
+	uint prevSampleCount = snorm8_to_u8(prevVal.g);
+
+	float newDistWeight = 1.0 / prevSampleCount;
+	float oldDistWeight = 1.0 - newDistWeight;
+
+	float newDist = sDistNorm * newDistWeight + prevDist * oldDistWeight;
+	uint newSampleCount = min(prevSampleCount + 1, 127);
+
+	float2 newVal = float2(newDist, u8_to_snorm8(newSampleCount));
+
+	bool valid = withinBand & outsidePlayers & validSurfaceNormal & unoccludedByDilation & uvWithinCrop;
 	if (valid)
-		envVolumeRW[coord] = sDistNorm;
+		envVolumeRW[coord] = newVal;
 }
 
 #pragma kernel InitDepthDilation
@@ -188,25 +224,3 @@ void Raymarch(uint3 id : SV_DispatchThreadID)
 
 	raymarchResults[id.x] = result;
 }
-
-// #pragma kernel CrossingTest
-//
-// RWStructuredBuffer<uint> crossingTestResult;
-// // Result[0] = hasPositive
-// // Result[1] = hasNegative
-//
-// uint3 crossingTestStart;
-//
-// [numthreads(8,8,8)]
-// void CrossingTest(uint3 id : SV_DispatchThreadID)
-// {
-// 	uint3 coord = id + crossingTestStart;
-//
-// 	float v = envVolume[coord];
-//
-// 	if (v > 0.0)
-// 		InterlockedOr(crossingTestResult[0], 1);
-//
-// 	if (v < 0.0)
-// 		InterlockedOr(crossingTestResult[1], 1);
-// }

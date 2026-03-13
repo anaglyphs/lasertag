@@ -1,0 +1,100 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * All rights reserved.
+ *
+ * Licensed under the Oculus SDK License Agreement (the "License");
+ * you may not use the Oculus SDK except in compliance with the License,
+ * which is provided at the time of installation or download, or which
+ * otherwise accompanies this software in either electronic or hard copy form.
+ *
+ * You may obtain a copy of the License at
+ *
+ * https://developer.oculus.com/licenses/oculussdk/
+ *
+ * Unless required by applicable law or agreed to in writing, the Oculus SDK
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/* Meta XR Toolbar Styles for Unity 6.3+ */
+/* Matches Unity's #PlayMode .unity-editor-toolbar__button-strip > .unity-toolbar-button styles */
+
+/* Container styling */
+#MetaXRPlayCompanion {
+    flex-direction: row;
+    margin-left: 4px;
+    margin-right: 4px;
+}
+
+/* Button base styling - matches Unity's PlayMode buttons */
+#MetaXRPlayCompanion .unity-editor-toolbar-element {
+    background-color: var(--unity-theme-background-color-1);
+    border-width: 0;
+    margin: 0;
+    margin-right: 2px;
+    padding: 0;
+}
+
+#MetaXRPlayCompanion .unity-toolbar-toggle {
+    background-color: var(--unity-theme-background-color-1);
+    border-width: 0;
+    margin: 0;
+    margin-right: 2px;
+    padding: 0;
+}
+
+/* Hover state */
+#MetaXRPlayCompanion .unity-editor-toolbar-element:hover {
+    background-color: var(--unity-theme-background-color-2);
+}
+
+#MetaXRPlayCompanion .unity-toolbar-toggle:hover {
+    background-color: var(--unity-theme-background-color-2);
+}
+
+/* Active/pressed state */
+#MetaXRPlayCompanion .unity-editor-toolbar-element:active {
+    background-color: var(--unity-theme-background-color-3);
+}
+
+#MetaXRPlayCompanion .unity-toolbar-toggle:active {
+    background-color: var(--unity-theme-background-color-3);
+}
+
+/* Checked/selected state for toggles */
+#MetaXRPlayCompanion .unity-toolbar-toggle:checked {
+    background-color: var(--unity-theme-background-color-6);
+}
+
+#MetaXRPlayCompanion .unity-toolbar-toggle:checked:hover {
+    background-color: var(--unity-theme-background-color-7);
+}
+
+/* Focus state */
+#MetaXRPlayCompanion .unity-toolbar-toggle:focus {
+    background-color: var(--unity-theme-background-color-2);
+}
+
+/* Icon styling */
+#MetaXRPlayCompanion .unity-toolbar-toggle > .unity-image {
+    --unity-image-tint-color: var(--unity-theme-text-color-1);
+}
+
+#MetaXRPlayCompanion .unity-toolbar-toggle:hover > .unity-image {
+    --unity-image-tint-color: var(--unity-theme-text-color-0);
+}
+
+#MetaXRPlayCompanion .unity-toolbar-toggle:checked > .unity-image {
+    --unity-image-tint-color: var(--unity-theme-text-color-0);
+}
+
+/* Disabled state */
+#MetaXRPlayCompanion .unity-toolbar-toggle:disabled {
+    opacity: 0.5;
+}
+
+#MetaXRPlayCompanion .unity-toolbar-toggle:disabled > .unity-image {
+    --unity-image-tint-color: var(--unity-theme-text-color-3);
+}

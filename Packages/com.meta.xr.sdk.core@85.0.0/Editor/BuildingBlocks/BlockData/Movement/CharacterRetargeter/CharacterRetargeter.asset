@@ -1,0 +1,56 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3cd2a68d34d072a468517a80449fbe1d, type: 3}
+  m_Name: CharacterRetargeter
+  m_EditorClassIdentifier: 
+  id: 1735b3a5-6b02-42a3-bbee-e48234afe14b
+  version: 1
+  blockName: Character Retargeter
+  description: Creates a character retargeter which maps Movement SDK tracking data
+    to any animation rig, enabling full body tracking for custom character models.
+  tags:
+    array:
+    - name: Movement
+  thumbnail: {fileID: 2800000, guid: f2603281291aa4b47bdcb06bc9dbf3fe, type: 3}
+  remoteThumbnailContentId: 0
+  prefab: {fileID: 0}
+  selectedGuidedSetupIndex: 0
+  externalBlockDependencies: []
+  dependencies:
+  - e47682b9-c270-40b1-b16d-90b627a5ce1b
+  guidedSetupName: 
+  packageDependencies:
+  - com.meta.xr.sdk.movement
+  isSingleton: 0
+  usageInstructions: 'To use the Character Retargeter, the Unity-Movement package
+    is required: https://github.com/oculus-samples/Unity-Movement/
+
+
+    1. Create
+    a prefab for character model
+
+    2. Add the character prefab to the scene
+
+    3.
+    Add this building block to the character prefab
+
+    4. Go through the initial
+    retargeting editor tooling steps
+
+    5. Validate that there are no errors in
+    the configuration and test retargeting in the retargeting editor tool
+
+
+    The
+    full instructions can be found in https://developers.meta.com/horizon/documentation/unity/move-body-tracking/'
+  featureDocumentationName: Body Tracking for Movement SDK
+  featureDocumentationUrl: https://developers.meta.com/horizon/documentation/unity/move-body-tracking/

@@ -1,42 +1,43 @@
 using System;
 using Unity.Burst;
+using Unity.Collections;
 using Color32 = UnityEngine.Color32;
 using ImageU8 = AprilTag.Interop.ImageU8;
 
 namespace AprilTag
 {
+	//
+	// Burst-accelerated image convertion functions
+	//
+	[BurstCompile]
+	public static class ImageConverter
+	{
+		public static unsafe void Convert(NativeArray<Color32> data, NativeArray<byte> output, int width, int height)
+		{
+			fixed (Color32* src = &data.AsReadOnlySpan().GetPinnableReference())
+			fixed (byte* dst = &output.AsSpan().GetPinnableReference())
+			{
+				BurstConvert(src, dst, width, height, width);
+			}
+		}
 
-    //
-    // Burst-accelerated image convertion functions
-    //
-    [BurstCompile]
-    static class ImageConverter
-    {
-        public unsafe static void
-          Convert(ReadOnlySpan<Color32> data, ImageU8 image)
-        {
-            fixed (Color32* src = &data.GetPinnableReference())
-            fixed (byte* dst = &image.Buffer.GetPinnableReference())
-                BurstConvertColor(src, dst, image.Width, image.Height, image.Stride);
-        }
+		[BurstCompile]
+		private static unsafe void BurstConvert
+			(Color32* src, byte* dst, int width, int height, int stride, bool flip = true)
+		{
+			int offs_src = 0;
+			int offs_dst = flip ? stride * (height - 1) : 0;
 
-        [BurstCompile]
-        unsafe static void BurstConvertColor
-          (Color32* src, byte* dst, int width, int height, int stride)
-        {
-            var offs_src = 0;
-            //var offs_dst = stride * (height - 1);
-            var offs_dst = 0;
+			int strideSigned = stride * (flip ? -1 : 1);
 
-            for (var y = 0; y < height; y++)
-            {
-                for (var x = 0; x < width; x++)
-                    dst[offs_dst + x] = src[offs_src + x].g;
+			for (int y = 0; y < height; y++)
+			{
+				for (int x = 0; x < width; x++)
+					dst[offs_dst + x] = src[offs_src + x].g;
 
-                offs_src += width;
-                offs_dst += stride;
-            }
-        }
-    }
-
+				offs_src += width;
+				offs_dst += strideSigned;
+			}
+		}
+	}
 } // namespace AprilTag

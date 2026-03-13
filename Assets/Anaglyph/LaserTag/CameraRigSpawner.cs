@@ -1,8 +1,5 @@
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Serialization;
 using UnityEngine.XR;
-using UnityEngine.XR.Management;
 
 namespace Anaglyph.Lasertag
 {

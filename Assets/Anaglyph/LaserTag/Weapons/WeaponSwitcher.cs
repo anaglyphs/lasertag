@@ -1,6 +1,8 @@
 using Anaglyph.Netcode;
+using Oculus.Haptics;
 using UnityEngine;
 using UnityEngine.Serialization;
+using UnityEngine.XR;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
 
 namespace Anaglyph.Lasertag
@@ -15,7 +17,7 @@ namespace Anaglyph.Lasertag
 		[FormerlySerializedAs("selectedObject")] [SerializeField]
 		private GameObject selectedPrefab;
 
-		private GameObject instantiatedObject;
+		private GameObject instObj;
 		// private AsyncOperationHandle<GameObject> loadOp;
 
 		private void Awake()
@@ -47,8 +49,8 @@ namespace Anaglyph.Lasertag
 					break;
 
 				case NetcodeState.Disconnected:
-					if (instantiatedObject)
-						Destroy(instantiatedObject);
+					if (instObj)
+						Destroy(instObj);
 					break;
 			}
 		}
@@ -57,17 +59,24 @@ namespace Anaglyph.Lasertag
 		{
 			if (NetcodeManagement.State != NetcodeState.Connected) return;
 
-			if (instantiatedObject)
-				Destroy(instantiatedObject);
+			if (instObj)
+				Destroy(instObj);
 
 			//loadOp = selectedObject.InstantiateAsync(transform, false);
 			//instantiatedObject = await loadOp.Task;
-			instantiatedObject = Instantiate(selectedPrefab, transform);
+			instObj = Instantiate(selectedPrefab, transform);
 
-			if (instantiatedObject)
+			if (instObj)
 			{
-				instantiatedObject.transform.localPosition = Vector3.zero;
-				instantiatedObject.transform.localRotation = Quaternion.identity;
+				instObj.transform.localPosition = Vector3.zero;
+				instObj.transform.localRotation = Quaternion.identity;
+			}
+
+			if (XRSettings.enabled)
+			{
+				HapticSource hapt = instObj.GetComponentInChildren<HapticSource>();
+				if (hapt)
+					hapt.controller = this == Left ? Controller.Left : Controller.Right;
 			}
 		}
 

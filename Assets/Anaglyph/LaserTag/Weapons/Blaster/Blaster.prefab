@@ -132,6 +132,7 @@ GameObject:
   m_Component:
   - component: {fileID: 688607022222293911}
   - component: {fileID: 3078237939032684287}
+  - component: {fileID: 2782736456326036819}
   m_Layer: 0
   m_Name: body
   m_TagString: Untagged
@@ -174,8 +175,8 @@ MonoBehaviour:
   onFire:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 0}
-        m_TargetAssemblyTypeName: Anaglyph.Lasertag.Haptics.HapticPlayer, Lasertag.Haptics
+      - m_Target: {fileID: 2782736456326036819}
+        m_TargetAssemblyTypeName: Oculus.Haptics.HapticSource, Oculus.Haptics
         m_MethodName: Play
         m_Mode: 1
         m_Arguments:
@@ -186,6 +187,24 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+--- !u!114 &2782736456326036819
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5038214368092102238}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b9dc93c7e1ae142448d4a122be86ea8d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Oculus.Haptics::Oculus.Haptics.HapticSource
+  _clip: {fileID: 2460798210113038985, guid: 9e5280b4ce2eb7949b8975ab8c740090, type: 3}
+  _controller: 2
+  _loop: 0
+  _amplitude: 1
+  _frequencyShift: 0
+  _priority: 128
 --- !u!1 &5346163543719484584
 GameObject:
   m_ObjectHideFlags: 0
