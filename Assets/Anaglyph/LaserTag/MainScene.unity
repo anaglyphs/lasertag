@@ -139,6 +139,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ColocationManager
       objectReference: {fileID: 0}
+    - target: {fileID: 5901269829941828840, guid: 57180dbd717ca40378762d7930bec5a8, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 8602809240530545973, guid: 57180dbd717ca40378762d7930bec5a8, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -199,6 +203,10 @@ PrefabInstance:
     - target: {fileID: 5901269829941828840, guid: 6f643e8c0126ffc46b58e6cbae23abd0, type: 3}
       propertyPath: m_Name
       value: GameManager
+      objectReference: {fileID: 0}
+    - target: {fileID: 5901269829941828840, guid: 6f643e8c0126ffc46b58e6cbae23abd0, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8602809240530545973, guid: 6f643e8c0126ffc46b58e6cbae23abd0, type: 3}
       propertyPath: m_LocalPosition.x
@@ -642,6 +650,10 @@ PrefabInstance:
     - target: {fileID: 2459965662535751644, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
       propertyPath: m_Name
       value: Networking
+      objectReference: {fileID: 0}
+    - target: {fileID: 2459965662535751644, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 9038727052097006548, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
