@@ -13,7 +13,7 @@ PlayerSettings:
   useOnDemandResources: 0
   accelerometerFrequency: 60
   companyName: Julian Triveri
-  productName: Laser Tag
+  productName: Laser Tag - Standalone
   defaultCursor: {fileID: 0}
   cursorHotspot: {x: 0, y: 0}
   m_SplashScreenBackgroundColor: {r: 0.12156863, g: 0.12156863, b: 0.1254902, a: 0}
@@ -149,7 +149,6 @@ PlayerSettings:
   preloadedAssets:
   - {fileID: 11400000, guid: 45e3534b9d174724b806ead5a65249ad, type: 2}
   - {fileID: 11400000, guid: 98f64f4b2a2851449894736b3332276f, type: 2}
-  - {fileID: -944628639613478452, guid: 79db32dae9e808443971c72edb6c30a9, type: 3}
   - {fileID: -944628639613478452, guid: 616e1c785ffcdf143b4e0c78a1535fad, type: 3}
   metroInputSource: 0
   wsaTransparentSwapchain: 0
@@ -172,7 +171,7 @@ PlayerSettings:
   androidMaxAspectRatio: 2.1
   androidMinAspectRatio: 1
   applicationIdentifier:
-    Android: com.trev3d.lasertag
+    Android: com.monasha.lasertag_standalone
     Standalone: com.Purdue-Envision-Center.Radiation-Survey-Meter
   buildNumber:
     Standalone: 0
@@ -289,7 +288,7 @@ PlayerSettings:
   AndroidEnableTango: 0
   androidEnableBanner: 1
   androidUseLowAccuracyLocation: 0
-  androidUseCustomKeystore: 1
+  androidUseCustomKeystore: 0
   m_AndroidBanners:
   - width: 320
     height: 180
@@ -398,7 +397,7 @@ PlayerSettings:
   m_BuildTargetBatching:
   - m_BuildTarget: Android
     m_StaticBatching: 0
-    m_DynamicBatching: 1
+    m_DynamicBatching: 0
   m_BuildTargetShaderSettings: []
   m_BuildTargetGraphicsJobs:
   - m_BuildTarget: WindowsStandaloneSupport
@@ -734,7 +733,7 @@ PlayerSettings:
   suppressCommonWarnings: 1
   allowUnsafeCode: 0
   useDeterministicCompilation: 1
-  additionalIl2CppArgs: 
+  additionalIl2CppArgs: --compiler-flags="     -flto=thin"
   scriptingRuntimeVersion: 1
   gcIncremental: 1
   gcWBarrierValidation: 0
@@ -820,11 +819,11 @@ PlayerSettings:
   captureStartupLogs: {}
   activeInputHandler: 2
   windowsGamepadBackendHint: 0
-  cloudProjectId: d6cc0458-f206-4773-a3be-273f390dbb65
+  cloudProjectId: 05a37713-8105-4f8c-8bce-f4874a721a4d
   framebufferDepthMemorylessMode: 0
   qualitySettingsNames: []
-  projectName: Lasertag
-  organizationId: anagly-ph
+  projectName: Laser Tag
+  organizationId: monashaxd3
   cloudEnabled: 0
   legacyClampBlendShapeWeights: 0
   hmiLoadingImage: {fileID: 0}
