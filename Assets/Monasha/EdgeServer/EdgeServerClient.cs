@@ -23,10 +23,21 @@ namespace Monasha.EdgeServer
 		private ComputeKernel depthCopyKernel;
 		private RenderTexture depthCopy;
 
+		private byte[] recvHeaderBuf = new byte[5];
+		private byte[] recvPayloadBuf;
+		private int recvHeaderOffset;
+		private int recvPayloadOffset;
+		private int recvPayloadLength;
+		private bool readingPayload;
+
+		[SerializeField] private ComputeShader voxelWriterCompute;
+		private ComputeKernel writeVoxelsKernel;
+		private ComputeBuffer voxelBuffer;
 
 		private void Start()
 		{
 			depthCopyKernel = new ComputeKernel(depthCopyCompute, "CopyDepth");
+			writeVoxelsKernel = new ComputeKernel(voxelWriterCompute, "WriteVoxels");
 
 			try
 			{
@@ -48,16 +59,91 @@ namespace Monasha.EdgeServer
 					$"Volume: {mapper.VoxelCount}, voxelSize: {mapper.VoxelSize}, voxelDist: {mapper.VoxelDistance}");
 		}
 
+
 		private void Update()
 		{
-			if (stream == null) return;
+			if (stream == null || !stream.DataAvailable) return;
 
-			// Check if ack bytes arrived
-			if (!stream.DataAvailable) return;
+			if (!readingPayload)
+			{
+				// Read header
+				var needed = 5 - recvHeaderOffset;
+				var read = stream.Read(recvHeaderBuf, recvHeaderOffset, needed);
+				recvHeaderOffset += read;
 
-			var buffer = new byte[256];
-			var bytesRead = stream.Read(buffer, 0, buffer.Length);
-			Debug.Log($"[EdgeServerClient] Received ack: {bytesRead} bytes, type=0x{buffer[0]:X2}");
+				if (recvHeaderOffset < 5) return;
+
+				// Parse header
+				var type = recvHeaderBuf[0];
+				recvPayloadLength = (recvHeaderBuf[1] << 24) | (recvHeaderBuf[2] << 16) |
+				                    (recvHeaderBuf[3] << 8) | recvHeaderBuf[4];
+
+				recvPayloadBuf = new byte[recvPayloadLength];
+				recvPayloadOffset = 0;
+				readingPayload = true;
+				recvHeaderOffset = 0;
+			}
+
+			if (readingPayload)
+			{
+				var needed = recvPayloadLength - recvPayloadOffset;
+				var read = stream.Read(recvPayloadBuf, recvPayloadOffset, needed);
+				recvPayloadOffset += read;
+
+				if (recvPayloadOffset < recvPayloadLength) return;
+
+				// Full payload received
+				readingPayload = false;
+				ApplyVoxelData(recvPayloadBuf);
+			}
+		}
+
+		private struct VoxelData
+		{
+			public uint coordX, coordY, coordZ;
+			public float value;
+		}
+
+
+		private void ApplyVoxelData(byte[] data)
+		{
+			var offset = 0;
+			var voxelCount = (int)BitConverter.ToUInt32(data, offset);
+			offset += 4;
+
+			if (voxelCount == 0) return;
+
+			// Parse voxels
+			var voxels = new VoxelData[voxelCount];
+			for (var i = 0; i < voxelCount; i++)
+			{
+				voxels[i].coordX = BitConverter.ToUInt32(data, offset);
+				offset += 4;
+				voxels[i].coordY = BitConverter.ToUInt32(data, offset);
+				offset += 4;
+				voxels[i].coordZ = BitConverter.ToUInt32(data, offset);
+				offset += 4;
+				voxels[i].value = BitConverter.ToSingle(data, offset);
+				offset += 4;
+			}
+
+			// Upload to GPU
+			if (voxelBuffer == null || voxelBuffer.count < voxelCount)
+			{
+				voxelBuffer?.Release();
+				voxelBuffer = new ComputeBuffer(voxelCount, 16); // 4x uint/float = 16 bytes
+			}
+
+			voxelBuffer.SetData(voxels);
+
+			// Write into volume
+			var volume = EnvironmentMapper.Instance.Volume;
+			voxelWriterCompute.SetInt("voxelCount", voxelCount);
+			writeVoxelsKernel.Set("volume", volume);
+			writeVoxelsKernel.Set("voxels", voxelBuffer);
+			writeVoxelsKernel.DispatchFit(voxelCount, 1, 1);
+
+			Debug.Log($"Wrote {voxelCount} voxels to volume");
 		}
 
 		private void OnDepthUpdated()
@@ -117,38 +203,38 @@ namespace Monasha.EdgeServer
 
 		private byte[] SerializeFrameData()
 		{
-			DepthKitDriver dkd = DepthKitDriver.Instance;
-			EnvironmentMapper mapper = EnvironmentMapper.Instance;
+			var dkd = DepthKitDriver.Instance;
+			var mapper = EnvironmentMapper.Instance;
 
 			// 512 bytes matrices + 28 bytes volume config = 540 bytes
-			byte[] data = new byte[540];
-			int offset = 0;
+			var data = new byte[540];
+			var offset = 0;
 
 			void WriteFloat(float f)
 			{
-				byte[] b = BitConverter.GetBytes(f);
+				var b = BitConverter.GetBytes(f);
 				Buffer.BlockCopy(b, 0, data, offset, 4);
 				offset += 4;
 			}
 
 			void WriteInt(int i)
 			{
-				byte[] b = BitConverter.GetBytes(i);
+				var b = BitConverter.GetBytes(i);
 				Buffer.BlockCopy(b, 0, data, offset, 4);
 				offset += 4;
 			}
 
 			void WriteMatrix(Matrix4x4 m)
 			{
-				for (int i = 0; i < 16; i++)
+				for (var i = 0; i < 16; i++)
 					WriteFloat(m[i]);
 			}
 
 			// Matrices (512 bytes)
-			for (int eye = 0; eye < 2; eye++) WriteMatrix(dkd.View[eye]);
-			for (int eye = 0; eye < 2; eye++) WriteMatrix(dkd.Proj[eye]);
-			for (int eye = 0; eye < 2; eye++) WriteMatrix(dkd.ViewInv[eye]);
-			for (int eye = 0; eye < 2; eye++) WriteMatrix(dkd.ProjInv[eye]);
+			for (var eye = 0; eye < 2; eye++) WriteMatrix(dkd.View[eye]);
+			for (var eye = 0; eye < 2; eye++) WriteMatrix(dkd.Proj[eye]);
+			for (var eye = 0; eye < 2; eye++) WriteMatrix(dkd.ViewInv[eye]);
+			for (var eye = 0; eye < 2; eye++) WriteMatrix(dkd.ProjInv[eye]);
 
 			// Volume config (28 bytes)
 			WriteInt(mapper.VoxelCount.x);
@@ -167,6 +253,7 @@ namespace Monasha.EdgeServer
 		{
 			stream?.Close();
 			client?.Close();
+			voxelBuffer?.Release();
 		}
 	}
 }

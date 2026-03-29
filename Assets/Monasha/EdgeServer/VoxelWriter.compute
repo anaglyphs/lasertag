@@ -1,0 +1,21 @@
+#pragma kernel WriteVoxels
+
+RWTexture3D<float> volume;
+
+struct VoxelData
+{
+	uint3 coord;
+	float value;
+};
+
+StructuredBuffer<VoxelData> voxels;
+uint voxelCount;
+
+[numthreads(64, 1, 1)]
+void WriteVoxels(uint id : SV_DispatchThreadID)
+{
+	if (id >= voxelCount) return;
+
+	VoxelData v = voxels[id];
+	volume[v.coord] = v.value;
+}
