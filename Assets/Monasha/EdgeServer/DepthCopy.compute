@@ -1,0 +1,10 @@
+#pragma kernel CopyDepth
+
+Texture2DArray<float> _InputDepth;
+RWTexture2D<float> _OutputDepth;
+
+[numthreads(8, 8, 1)]
+void CopyDepth(uint2 id : SV_DispatchThreadID)
+{
+	_OutputDepth[id] = _InputDepth[uint3(id, 0)];
+}
