@@ -89,6 +89,8 @@ namespace Anaglyph.XRTemplate
 
 		public event Action Updated = delegate { };
 		public event Action Cleared = delegate { };
+		
+		public static bool UseEdgeServer { get; set; }
 
 		private void Awake()
 		{
@@ -167,6 +169,12 @@ namespace Anaglyph.XRTemplate
 					if (!DepthKitDriver.DepthAvailable) continue;
 
 					if (frustumVolume == null) Setup();
+
+					if (UseEdgeServer)
+					{
+						Updated.Invoke();
+						continue;
+					}
 
 					ApplyScan();
 

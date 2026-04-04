@@ -4,9 +4,7 @@ using System.Net.Sockets;
 using Anaglyph;
 using Anaglyph.XRTemplate;
 using Anaglyph.XRTemplate.DepthKit;
-using Unity.Collections;
 using UnityEngine.Rendering;
-
 
 namespace Monasha.EdgeServer
 {
@@ -29,10 +27,19 @@ namespace Monasha.EdgeServer
 		private int recvPayloadOffset;
 		private int recvPayloadLength;
 		private bool readingPayload;
+		private byte recvMessageType;
 
 		[SerializeField] private ComputeShader voxelWriterCompute;
 		private ComputeKernel writeVoxelsKernel;
 		private ComputeBuffer voxelBuffer;
+
+		[SerializeField] private MeshFilter meshFilter;
+		private Mesh receivedMesh;
+		
+		private bool waitingForMesh;
+		
+		private Vector3 sentHeadPos;
+		private Quaternion sentHeadRot;
 
 		private void Start()
 		{
@@ -43,6 +50,9 @@ namespace Monasha.EdgeServer
 			{
 				client = new TcpClient(serverIP, serverPort);
 				stream = client.GetStream();
+
+				EnvironmentMapper.UseEdgeServer = true;
+
 				Debug.Log($"[EdgeServerClient] Connected to edge server at {serverIP}:{serverPort}");
 			}
 			catch (Exception e)
@@ -75,6 +85,7 @@ namespace Monasha.EdgeServer
 
 				// Parse header
 				var type = recvHeaderBuf[0];
+				recvMessageType = type;
 				recvPayloadLength = (recvHeaderBuf[1] << 24) | (recvHeaderBuf[2] << 16) |
 				                    (recvHeaderBuf[3] << 8) | recvHeaderBuf[4];
 
@@ -94,7 +105,14 @@ namespace Monasha.EdgeServer
 
 				// Full payload received
 				readingPayload = false;
-				ApplyVoxelData(recvPayloadBuf);
+				if (recvMessageType == 0x03)
+				{
+					ApplyMeshData(recvPayloadBuf);
+				}
+				else
+				{
+					ApplyVoxelData(recvPayloadBuf);
+				}
 			}
 		}
 
@@ -146,9 +164,63 @@ namespace Monasha.EdgeServer
 			Debug.Log($"Wrote {voxelCount} voxels to volume");
 		}
 
+		private void ApplyMeshData(byte[] data)
+		{
+			waitingForMesh = false;
+			float posDelta = Vector3.Distance(Camera.main.transform.position, sentHeadPos);
+			float rotDelta = Quaternion.Angle(Camera.main.transform.rotation, sentHeadRot);
+			if (posDelta > 0.15f || rotDelta > 15f) return;
+
+			int offset = 0;
+			int vertCount = (int)BitConverter.ToUInt32(data, offset);
+			offset += 4;
+			int idxCount = (int)BitConverter.ToUInt32(data, offset);
+			offset += 4;
+
+			if (vertCount == 0) return;
+
+			var positions = new Vector3[vertCount];
+			var normals = new Vector3[vertCount];
+			for (int i = 0; i < vertCount; i++)
+			{
+				positions[i] = new Vector3(
+					BitConverter.ToSingle(data, offset), // x
+					BitConverter.ToSingle(data, offset + 4), // y
+					BitConverter.ToSingle(data, offset + 8) // z
+				);
+				normals[i] = new Vector3(
+					BitConverter.ToSingle(data, offset + 12),
+					BitConverter.ToSingle(data, offset + 16),
+					BitConverter.ToSingle(data, offset + 20)
+				);
+				offset += 24;
+			}
+
+			var indices = new int[idxCount];
+			for (int i = 0; i < idxCount; i++)
+			{
+				indices[i] = (int)BitConverter.ToUInt32(data, offset);
+				offset += 4;
+			}
+
+			if (receivedMesh == null)
+				receivedMesh = new Mesh { indexFormat = IndexFormat.UInt32 };
+			else
+				receivedMesh.Clear();
+
+			receivedMesh.SetVertices(positions);
+			receivedMesh.SetNormals(normals);
+			receivedMesh.SetTriangles(indices, 0);
+
+			if (meshFilter != null)
+				meshFilter.sharedMesh = receivedMesh;
+
+			Debug.Log($"[EdgeServerClient] Applied mesh: {vertCount} verts, {idxCount / 3} tris");
+		}
+
 		private void OnDepthUpdated()
 		{
-			if (stream == null || readbackPending) return;
+			if (stream == null || readbackPending || waitingForMesh) return;
 
 			var depthTex = DepthKitDriver.Instance.DepthTex;
 			if (depthTex == null) return;
@@ -194,6 +266,9 @@ namespace Monasha.EdgeServer
 				header[3] = (byte)(len >> 8);
 				header[4] = (byte)(len);
 
+				sentHeadPos = Camera.main.transform.position;
+				sentHeadRot = Camera.main.transform.rotation;
+				waitingForMesh = true;
 				stream.Write(header, 0, 5);
 				stream.Write(payload, 0, payload.Length);
 				Debug.Log($"Sent depth frame: {payload.Length} bytes");
@@ -248,12 +323,12 @@ namespace Monasha.EdgeServer
 			return data;
 		}
 
-
 		private void OnDestroy()
 		{
 			stream?.Close();
 			client?.Close();
 			voxelBuffer?.Release();
+			EnvironmentMapper.UseEdgeServer = false;
 		}
 	}
 }
