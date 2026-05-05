@@ -1588,6 +1588,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Oculus.VR::OVRManager
   _monoscopic: 0
   _sharpenType: 0
+  _disableRecording: 0
   _enableDynamicResolution: 0
   minDynamicResolutionScale: 1
   maxDynamicResolutionScale: 1
@@ -1659,6 +1660,10 @@ MonoBehaviour:
   SimultaneousHandsAndControllersEnabled: 0
   _readOnlyWideMotionModeHandPosesEnabled: 0
   wideMotionModeHandPosesEnabled: 0
+  _readOnlyFastMotionModeHandPosesEnabled: 0
+  fastMotionModeHandPosesEnabled: 0
+  _readOnlyWideMotionMode2HandPosesEnabled: 0
+  wideMotionMode2HandPosesEnabled: 0
   dynamicResolutionVersion: 1
 --- !u!1001 &6483264597744948053
 PrefabInstance:
