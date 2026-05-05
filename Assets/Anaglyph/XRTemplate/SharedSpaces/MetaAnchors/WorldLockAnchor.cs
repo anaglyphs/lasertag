@@ -51,7 +51,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			await anchor.WhenLocalizedAsync();
 			await Awaitable.EndOfFrameAsync();
 
-			anchor.UpdateTransform();
+			// anchor.UpdateTransform();
 
 			Matrix4x4 currentMat = transform.localToWorldMatrix;
 			MainXRRig.Instance.AlignSpace(currentMat, target);
