@@ -8,6 +8,7 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
+using UnityEngine.Serialization;
 
 namespace Anaglyph.XRTemplate
 {
@@ -17,7 +18,7 @@ namespace Anaglyph.XRTemplate
 
 		[SerializeField] private ComputeShader compute = null;
 
-		[SerializeField] private int3 volumeSize = new(1024, 256, 1024);
+		[SerializeField] private int3 voxelCount = new(1024, 256, 1024);
 		[SerializeField] private float voxelSize = 0.1f;
 		[SerializeField] private float voxelDistance = 0.2f;
 		[SerializeField] private float voxelMin = 0.1f;
@@ -28,16 +29,15 @@ namespace Anaglyph.XRTemplate
 
 		public float updateFrequency = 5f;
 
-		[SerializeField] private RenderTexture volume;
+		private RenderTexture volume;
 
 		private RenderTexture dilationA, dilationB;
-		[SerializeField] private RenderTexture dilatedDepth;
-
-		public int3 VoxelCount { get; private set; }
+		private RenderTexture dilatedDepth;
 
 		[SerializeField] private float maxUpdateDist = 6f;
 		[SerializeField] private float minUpdateDist = 1f;
 
+		public int3 VoxelCount => voxelCount;
 		public float VoxelSize => voxelSize;
 		public float VoxelDistance => voxelDistance;
 		public float MaxUpdateDist => maxUpdateDist;
@@ -94,7 +94,6 @@ namespace Anaglyph.XRTemplate
 		private void Awake()
 		{
 			Instance = this;
-			VoxelCount = new int3(volume.width, volume.height, volume.volumeDepth);
 
 			depthDilationMaxStep = 1;
 
@@ -106,9 +105,9 @@ namespace Anaglyph.XRTemplate
 		{
 			RenderTextureDescriptor volumeDesc = new()
 			{
-				width = volumeSize.x,
-				height = volumeSize.y,
-				volumeDepth = volumeSize.z,
+				width = voxelCount.x,
+				height = voxelCount.y,
+				volumeDepth = voxelCount.z,
 				msaaSamples = 1,
 				useMipMap = false,
 				graphicsFormat = GraphicsFormat.R8G8_SNorm,

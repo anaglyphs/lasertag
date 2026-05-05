@@ -22,19 +22,18 @@
       "url": "https://package.openupm.com"
     },
     "com.meta.xr.sdk.core": {
-      "version": "201.0.0",
-      "depth": 1,
-      "source": "registry",
+      "version": "file:com.meta.xr.sdk.core",
+      "depth": 0,
+      "source": "embedded",
       "dependencies": {
-        "com.unity.xr.hands": "1.7.2",
-        "com.unity.modules.ui": "1.0.0",
         "com.unity.modules.audio": "1.0.0",
-        "com.unity.modules.imgui": "1.0.0",
         "com.unity.modules.imageconversion": "1.0.0",
+        "com.unity.modules.imgui": "1.0.0",
+        "com.unity.modules.ui": "1.0.0",
         "com.unity.modules.unitywebrequest": "1.0.0",
-        "com.unity.modules.unitywebrequestaudio": "1.0.0"
-      },
-      "url": "https://packages.unity.com"
+        "com.unity.modules.unitywebrequestaudio": "1.0.0",
+        "com.unity.xr.hands": "1.7.2"
+      }
     },
     "com.meta.xr.sdk.haptics": {
       "version": "201.0.0",
@@ -465,7 +464,7 @@
     },
     "com.unity.xr.hands": {
       "version": "1.7.3",
-      "depth": 2,
+      "depth": 1,
       "source": "registry",
       "dependencies": {
         "com.unity.modules.xr": "1.0.0",

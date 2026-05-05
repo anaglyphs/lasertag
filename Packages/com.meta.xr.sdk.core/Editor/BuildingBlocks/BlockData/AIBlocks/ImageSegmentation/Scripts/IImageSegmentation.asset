@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 81d5758cfb47823489080981979f33be, type: 3}
+  m_Name: IImageSegmentation
+  m_EditorClassIdentifier: Meta.XR.BuildingBlocks.Editor::Meta.XR.BuildingBlocks.Editor.InterfaceBlockData
+  id: bab7917c-ca0e-403b-a870-f9bcec0197be
+  version: 1
+  blockName: Image Segmentation
+  description: Segment and identify objects in real-world environments with pixel-level
+    precision, enabling advanced scene understanding and interactive experiences.
+  tags:
+    array:
+    - name: Internal
+    - name: AI
+  thumbnail: {fileID: 0}
+  remoteThumbnailContentId: 25224662410495160
+  order: 0
+  prefab: {fileID: 0}
+  selectedGuidedSetupIndex: 0
+  externalBlockDependencies: []
+  dependencies:
+  - 0792d3af-c7d9-4f9c-a6f0-fd580a051e48
+  guidedSetupName:
+  packageDependencies: []
+  isSingleton: 1
+  usageInstructions:
+  featureDocumentationName:
+  featureDocumentationUrl:

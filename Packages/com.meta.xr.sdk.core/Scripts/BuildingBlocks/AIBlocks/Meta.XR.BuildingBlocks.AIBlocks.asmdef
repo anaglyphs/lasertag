@@ -1,0 +1,49 @@
+{
+    "name": "Meta.XR.BuildingBlocks.AIBlocks",
+    "rootNamespace": "",
+    "references": [
+        "Unity.InferenceEngine",
+        "meta.xr.mrutilitykit",
+        "Meta.XR.EnvironmentDepth",
+        "Oculus.VR",
+        "Unity.XR.Oculus",
+        "Meta.XR.ImmersiveDebugger.Interface",
+        "Unity.XR.OpenXR",
+        "Unity.XR.MetaOpenXR"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.ai.inference",
+            "expression": "2.2.1",
+            "define": "UNITY_INFERENCE_INSTALLED"
+        },
+        {
+            "name": "com.meta.xr.mrutilitykit",
+            "expression": "82",
+            "define": "MRUK_INSTALLED"
+        },
+        {
+            "name": "com.unity.xr.oculus",
+            "expression": "4.5.1",
+            "define": "XROCULUS_INSTALLED"
+        },
+        {
+            "name": "com.unity.xr.meta-openxr",
+            "expression": "2.2.0",
+            "define": "META_OPENXR_INSTALLED"
+        },
+        {
+            "define": "OVR_UNITY_PACKAGE_MANAGER",
+            "name": "com.meta.xr.sdk.core",
+            "expression": ""
+        }
+    ],
+    "noEngineReferences": false
+}

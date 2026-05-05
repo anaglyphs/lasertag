@@ -53,9 +53,9 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		private Camera mainCam;
 
-		[SerializeField] private Texture depthTex;
+		private Texture depthTex;
 		public Texture DepthTex => depthTex;
-		[SerializeField] private RenderTexture normTex;
+		private RenderTexture normTex;
 		public RenderTexture NormTex => normTex;
 
 		private RenderTexture simulatedDepthTex;

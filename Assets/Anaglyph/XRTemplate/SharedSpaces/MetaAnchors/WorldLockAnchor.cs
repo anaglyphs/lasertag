@@ -51,7 +51,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			await anchor.WhenLocalizedAsync();
 			await Awaitable.EndOfFrameAsync();
 
-			// anchor.UpdateTransform();
+			// This function is normally private in Meta's stock Core SDK, 
+			// Made public to fix pose update timing issue when using ARFoundation 
+			anchor.UpdateTransform();
 
 			Matrix4x4 currentMat = transform.localToWorldMatrix;
 			MainXRRig.Instance.AlignSpace(currentMat, target);
