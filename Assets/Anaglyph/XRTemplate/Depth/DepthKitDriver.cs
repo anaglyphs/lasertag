@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.Remoting.Messaging;
 using Unity.XR.CoreUtils.Collections;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
@@ -74,7 +75,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 			arOcclusionManager = FindFirstObjectByType<AROcclusionManager>();
 
 			if (!arOcclusionManager)
-				throw new Exception("AROcclusionManager not found");
+				throw new Exception("[DepthKitDriver] AROcclusionManager not found");
 
 			normKernel = new ComputeKernel(depthNormalCompute, "DepthNorm");
 			monoRawDepthConvert = new ComputeKernel(depthNormalCompute, "MonoRawDepthToStereo");
@@ -94,83 +95,125 @@ namespace Anaglyph.XRTemplate.DepthKit
 				arOcclusionManager.frameReceived -= OnDepthFrame;
 		}
 
+		private enum DepthFormatScenario
+		{
+			PhoneOrARFoundationSimulator,
+			StereoHeadset,
+			Unknown,
+		}
+
 		private void OnDepthFrame(AROcclusionFrameEventArgs args)
 		{
-			if (Application.isEditor)
+			var extTextures = args.externalTextures;
+			if(extTextures == null || extTextures.Count < 1 || extTextures[0].texture == null)
 			{
-				// AR foundation simulation
-				Texture rawDepth = args.externalTextures[0].texture;
-
-				DepthAvailable = rawDepth != null;
-				if (!DepthAvailable) return;
-
-				if (simulatedDepthTex == null ||
-				    simulatedDepthTex.width != rawDepth.width ||
-				    simulatedDepthTex.height != rawDepth.height)
-				{
-					simulatedDepthTex = new RenderTexture(rawDepth.width, rawDepth.height, 0,
-						GraphicsFormat.R16_UNorm, 1)
-					{
-						dimension = TextureDimension.Tex2DArray,
-						volumeDepth = 2,
-						enableRandomWrite = true
-					};
-					Shader.SetGlobalVector(texSizeID, new Vector2(rawDepth.width, rawDepth.height));
-				}
-
-				// Convert linear 32-bit depth texture to non-linear 16-bit
-				monoRawDepthConvert.Set(rwDepthTexID, simulatedDepthTex);
-				monoRawDepthConvert.Set(inputRawMonoDepthID, rawDepth);
-				monoRawDepthConvert.DispatchFit(rawDepth.width, rawDepth.height);
-				depthTex = simulatedDepthTex;
-
-				if (!mainCam) mainCam = Camera.main;
-				Matrix4x4 p = mainCam.projectionMatrix;
-				Matrix4x4 pi = p.inverse;
-
-				Transform ct = mainCam.transform;
-				Matrix4x4 vi = Matrix4x4.TRS(ct.position, ct.rotation, _scalingVector3);
-				Matrix4x4 v = vi.inverse;
-
-				for (int i = 0; i < 2; i++)
-				{
-					proj[i] = p;
-					projInv[i] = pi;
-					view[i] = v;
-					viewInv[i] = vi;
-				}
-
-				planes = new Vector2(mainCam.nearClipPlane, mainCam.farClipPlane);
+				DepthAvailable = false;
+				Debug.LogWarning("[DepthKitDriver] No depth texture!");
+				return;
 			}
-			else
+			Texture rawDepth = extTextures[0].texture;
+
+			DepthFormatScenario depthFormat = DepthFormatScenario.Unknown;
+			if (rawDepth.graphicsFormat == GraphicsFormat.R32_SFloat &&
+				rawDepth.dimension == TextureDimension.Tex2D)
 			{
-				// Likely hard-coded to only support Meta Quest for now...
-				depthTex = args.externalTextures[0].texture;
+				depthFormat = DepthFormatScenario.PhoneOrARFoundationSimulator;
+			}
+			else if (rawDepth is RenderTexture rawDepthRT &&
+				rawDepthRT.depthStencilFormat == GraphicsFormat.D16_UNorm &&
+				rawDepthRT.dimension == TextureDimension.Tex2DArray &&
+				rawDepthRT.volumeDepth == 2)
+			{
+				depthFormat = DepthFormatScenario.StereoHeadset;
+			}
 
-				ReadOnlyList<XRFov> fovs = null;
-				ReadOnlyList<Pose> poses = null;
-				XRNearFarPlanes depthPlanes = default;
+			switch(depthFormat)
+			{
+				case DepthFormatScenario.PhoneOrARFoundationSimulator:
 
-				DepthAvailable = depthTex != null &&
-				                 args.TryGetFovs(out fovs) &&
-				                 args.TryGetPoses(out poses) &&
-				                 args.TryGetNearFarPlanes(out depthPlanes);
+					if (simulatedDepthTex == null ||
+						simulatedDepthTex.width != rawDepth.width ||
+						simulatedDepthTex.height != rawDepth.height)
+					{
+						simulatedDepthTex = new RenderTexture(rawDepth.width, rawDepth.height, 0,
+							GraphicsFormat.R16_UNorm, 1)
+						{
+							dimension = TextureDimension.Tex2DArray,
+							volumeDepth = 2,
+							enableRandomWrite = true
+						};
+						Shader.SetGlobalVector(texSizeID, new Vector2(rawDepth.width, rawDepth.height));
+					}
 
-				if (!DepthAvailable) return;
+					// Convert mono linear 32-bit depth texture to (mock) stereo non-linear 16-bit
+					monoRawDepthConvert.Set(rwDepthTexID, simulatedDepthTex);
+					monoRawDepthConvert.Set(inputRawMonoDepthID, rawDepth);
+					monoRawDepthConvert.DispatchFit(rawDepth.width, rawDepth.height);
+					depthTex = simulatedDepthTex;
 
-				for (int i = 0; i < 2; i++)
-				{
-					proj[i] = CalculateDepthProjMatrix(fovs[i], depthPlanes);
-					projInv[i] = Matrix4x4.Inverse(proj[i]);
+					if (!mainCam) mainCam = Camera.main;
+					Matrix4x4 p = mainCam.projectionMatrix;
+					Matrix4x4 pi = p.inverse;
 
-					Pose pose = poses[i];
-					Matrix4x4 depthFrameMat = Matrix4x4.TRS(pose.position, pose.rotation, _scalingVector3);
+					Transform ct = mainCam.transform;
+					Matrix4x4 vi = Matrix4x4.TRS(ct.position, ct.rotation, _scalingVector3);
+					Matrix4x4 v = vi.inverse;
 
-					view[i] = depthFrameMat.inverse * MainXRRig.TrackingSpace.worldToLocalMatrix;
-					viewInv[i] = Matrix4x4.Inverse(view[i]);
-				}
+					for (int i = 0; i < 2; i++)
+					{
+						proj[i] = p;
+						projInv[i] = pi;
+						view[i] = v;
+						viewInv[i] = vi;
+					}
 
-				planes = new Vector2(depthPlanes.nearZ, depthPlanes.farZ);
+					planes = new Vector2(mainCam.nearClipPlane, mainCam.farClipPlane);
+
+					break;
+
+				case DepthFormatScenario.StereoHeadset:
+
+					// Likely hard-coded to only support Meta Quest for now...
+					depthTex = rawDepth;
+
+					ReadOnlyList<XRFov> fovs = null;
+					ReadOnlyList<Pose> poses = null;
+					XRNearFarPlanes depthPlanes = default;
+
+					bool gotMetadata = args.TryGetFovs(out fovs) &&
+									   args.TryGetPoses(out poses) &&
+									   args.TryGetNearFarPlanes(out depthPlanes);
+
+					if (!gotMetadata)
+					{
+						DepthAvailable = false;
+						Debug.LogWarning("[DepthKitDriver] couldn't get depth frame metadata!");
+						return;
+					}
+
+					for (int i = 0; i < 2; i++)
+					{
+						proj[i] = CalculateDepthProjMatrix(fovs[i], depthPlanes);
+						projInv[i] = Matrix4x4.Inverse(proj[i]);
+
+						Pose pose = poses[i];
+						Matrix4x4 depthFrameMat = Matrix4x4.TRS(pose.position, pose.rotation, _scalingVector3);
+
+						view[i] = depthFrameMat.inverse * MainXRRig.TrackingSpace.worldToLocalMatrix;
+						viewInv[i] = Matrix4x4.Inverse(view[i]);
+					}
+
+					planes = new Vector2(depthPlanes.nearZ, depthPlanes.farZ);
+
+					break;
+
+				default:
+
+					DepthAvailable = false;
+					Debug.LogWarning("[DepthKitDriver] Unrecognized texture format!");
+					return;
+
+					break;
 			}
 
 			Shader.SetGlobalMatrixArray(projID, proj);
@@ -196,6 +239,8 @@ namespace Anaglyph.XRTemplate.DepthKit
 			normKernel.Set(rwNormTexID, normTex);
 			normKernel.DispatchFit(normTex);
 			Shader.SetGlobalTexture(normTexID, normTex);
+
+			DepthAvailable = true;
 
 			Updated.Invoke();
 		}
