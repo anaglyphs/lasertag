@@ -1,0 +1,54 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &1927584124482312103
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6264381935254818813}
+  - component: {fileID: 1142637437142029954}
+  m_Layer: 0
+  m_Name: Settings
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &6264381935254818813
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1927584124482312103}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 1, z: 2}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1142637437142029954
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1927584124482312103}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 56e51b6268c654562bc102ac5c5e5b96, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  aprilTagColocation: {fileID: 11400000, guid: 47b47a4c1dcf98e4a9c4022fa9722c2b, type: 2}
+  aprilTagSize: {fileID: 11400000, guid: 82699730f4d9ee247857edb33a942db4, type: 2}
+  boundary: {fileID: 11400000, guid: c539fa1bb3492bd42a06694c6c4a2f23, type: 2}
+  damagedRedVision: {fileID: 11400000, guid: b813fbe3231576640b9402131ed4d833, type: 2}
+  lightEffects: {fileID: 11400000, guid: 5390df5bc7d02f14081ac7755da55437, type: 2}
+  relay: {fileID: 11400000, guid: 8256b37a220cf5d4aa386e985d532dcb, type: 2}
+  drawScanMesh: {fileID: 11400000, guid: ac26565275d37448fb16453ff7745650, type: 2}
+  meshScanning: {fileID: 11400000, guid: 9f505c685ba6b2548abee1cfd889ec29, type: 2}

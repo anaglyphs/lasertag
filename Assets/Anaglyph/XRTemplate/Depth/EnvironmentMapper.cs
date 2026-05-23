@@ -8,7 +8,6 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
-using UnityEngine.Serialization;
 
 namespace Anaglyph.XRTemplate
 {
