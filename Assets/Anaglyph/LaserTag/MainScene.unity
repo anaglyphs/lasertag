@@ -246,6 +246,29 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 6f643e8c0126ffc46b58e6cbae23abd0, type: 3}
+--- !u!1 &748785436 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 4094113051925314695, guid: e21c2fffdbb3b4277a3cd58690cdeb16, type: 3}
+  m_PrefabInstance: {fileID: 8804724609714969042}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &748785441
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 748785436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5a4cc29377bed40f4950872152c06c5f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.DepthKit::Anaglyph.XRTemplate.EnvMapper2
+  compute: {fileID: 7200000, guid: 41b220d3a9ac640c1a2cad5c44bc30f2, type: 3}
+  updateFrequency: 15
+  voxPerChunkRoot: 32
+  chunkAreaDims: {x: 64, y: 16, z: 64}
+  chunkDataDims: {x: 16, y: 16, z: 16}
+  chunkData: {fileID: 0}
 --- !u!1 &1322057765
 GameObject:
   m_ObjectHideFlags: 0
@@ -593,6 +616,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Environment Scanning
       objectReference: {fileID: 0}
+    - target: {fileID: 5488834362574978881, guid: e21c2fffdbb3b4277a3cd58690cdeb16, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 7876979465029721767, guid: e21c2fffdbb3b4277a3cd58690cdeb16, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -633,10 +660,17 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 8634111621438489807, guid: e21c2fffdbb3b4277a3cd58690cdeb16, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 4094113051925314695, guid: e21c2fffdbb3b4277a3cd58690cdeb16, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 748785441}
   m_SourcePrefab: {fileID: 100100000, guid: e21c2fffdbb3b4277a3cd58690cdeb16, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

@@ -7,8 +7,7 @@ static const float voxSize = 0.1; // voxel edge length in meters
 static const float voxSizeHalf = voxSize / 2;
 static const float distBand = 0.2; // greatest distance magnitude a voxel can hold
 
-static const uint voxPerChunkRoot = 32; // voxels per chunk
-static const uint voxPerChunk = pow(voxPerChunkRoot, 3);
+uint voxPerChunkRoot = 32; // voxels per chunk
 
 static const float minDist = 0.8; // min integration distance (meters)
 static const float maxDist = 6; // max integration distance (meters)
@@ -34,17 +33,16 @@ static const float depthTexCropMax = 0.8;
 
 RWStructuredBuffer<int> reservedChunkCounter; // single element buffer functioning as counter
 RWStructuredBuffer<int> chunkTable; // in concept a dense 3D grid spanning the desired max playspace
-uint3 tableDims; // num chunk entries per axis in table
-uint tableLength; // num chunk entries total
-
-AppendStructuredBuffer<int> visibleChunksAppend; // indexing the TABLE, not DATA
-StructuredBuffer<int> visibleChunks; // indexing the TABLE, not DATA
+uint3 chunkAreaDims; // num chunk entries per axis in table
+uint chunkTableLength; // num chunk entries total
 
 RWTexture3D<float> chunkData; // should be R8_SNorm
-uint3 perChunkDataDims; // chunks per axis in chunkData (NOT VOXELS PER AXIS. voxels on axis / voxChunkPerEdge)
+uint3 chunkDataDims; // chunks per axis in chunkData (NOT VOXELS PER AXIS. voxels on axis / voxChunkPerEdge)
 uint maxNumChunks; // maximum possible number of chunks allowed by data size
 
-#pragma kernel Mark
+AppendStructuredBuffer<int> visibleChunksAppend; // indexing the TABLE, not DATA
+RWStructuredBuffer<int> visibleChunks; // indexing the TABLE, not DATA
+// int maxVisibleChunks; // max size of the visible chunks buffer
 
 int3 worldPosToChunkCoord(const float3 world)
 {
@@ -53,7 +51,7 @@ int3 worldPosToChunkCoord(const float3 world)
 	const int3 quantized = floor(world / chunkSize);
 
 	// center so 0,0,0 is at corner
-	const int3 tableDimHalf = tableDims / 2;
+	const int3 tableDimHalf = chunkAreaDims / 2;
 	const int3 chunkCoord = quantized + tableDimHalf;
 
 	return chunkCoord;
@@ -61,7 +59,7 @@ int3 worldPosToChunkCoord(const float3 world)
 
 float3 chunkCoordToCornerWorldPos(const int3 chunkCoord)
 {
-	const int3 tableDimHalf = tableDims / 2;
+	const int3 tableDimHalf = chunkAreaDims / 2;
 	const int3 chunkCoordUncentered = chunkCoord - tableDimHalf;
 	const float chunkSizeRoot = voxPerChunkRoot * voxSize;
 
@@ -71,21 +69,21 @@ float3 chunkCoordToCornerWorldPos(const int3 chunkCoord)
 // DOES check for valid output index
 int chunkCoordToChunkIndex(const int3 coord)
 {
-	if (any(coord < 0) || any(coord >= (int3)tableDims))
+	if (any(coord < 0) || any(coord >= (int3)chunkAreaDims))
 		return (int)INVALID_INDEX;
 
 	return
 		coord.x +
-		coord.y * tableDims.x +
-		coord.z * tableDims.x * tableDims.y;
+		coord.y * chunkAreaDims.x +
+		coord.z * chunkAreaDims.x * chunkAreaDims.y;
 }
 
 int3 chunkIndexToChunkCoord(int chunkIndex)
 {
 	int3 coord;
-	coord.x = chunkIndex % (int)tableDims.x;
-	coord.y = chunkIndex / (int)tableDims.x % (int)tableDims.y;
-	coord.z = chunkIndex / (int)(tableDims.x * tableDims.y);
+	coord.x = chunkIndex % (int)chunkAreaDims.x;
+	coord.y = chunkIndex / (int)chunkAreaDims.x % (int)chunkAreaDims.y;
+	coord.z = chunkIndex / (int)(chunkAreaDims.x * chunkAreaDims.y);
 	return coord;
 }
 
@@ -99,9 +97,9 @@ int worldPosToChunkIndex(const float3 world)
 int3 dataIndexToDataStartCoord(int dataIndex)
 {
 	uint3 coord;
-	coord.x = dataIndex % perChunkDataDims.x;
-	coord.y = (dataIndex / perChunkDataDims.x) % perChunkDataDims.y;
-	coord.z = dataIndex / (perChunkDataDims.x * perChunkDataDims.y);
+	coord.x = dataIndex % chunkDataDims.x;
+	coord.y = (dataIndex / chunkDataDims.x) % chunkDataDims.y;
+	coord.z = dataIndex / (chunkDataDims.x * chunkDataDims.y);
 
 	return coord * voxPerChunkRoot;
 }
@@ -111,11 +109,9 @@ int3 dataIndexToDataStartCoord(int dataIndex)
 int readChunkDataIndex(int chunkIndex)
 {
 	return chunkTable[chunkIndex] & INDEX_MASK;
-
-	// const int chunkEntry = chunkTable[chunkIndex];
-	// if (chunkEntry & INVALID_BIT) return INVALID_INDEX;
-	// return chunkEntry & INDEX_MASK;
 }
+
+#pragma kernel Mark
 
 // input depth tex
 // thread per depth tex pix
@@ -162,14 +158,16 @@ void Mark(uint3 id : SV_DispatchThreadID)
 // X = visibleChunks count
 // Y = 64 (4 cubed) = num groups needed per chunk integration
 // Z = 1 
-StructuredBuffer<uint> integrationGroupDimensions;
+
+// Buffer<uint> integrateDispatchDims;
 
 // input depth tex
 // thread per pixel * num voxels within truncation band`
 
+#pragma kernel Integrate
+
 static const uint integrateGroupSizeRoot = 8;
-static const uint groupsPerChunkRoot = voxPerChunkRoot / integrateGroupSizeRoot;
-static const uint groupsPerChunk = groupsPerChunkRoot * groupsPerChunkRoot * groupsPerChunkRoot;
+// static const uint groupsPerChunkRoot = voxPerChunkRoot / integrateGroupSizeRoot;
 
 [numthreads(integrateGroupSizeRoot, integrateGroupSizeRoot, integrateGroupSizeRoot)]
 void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
@@ -193,6 +191,7 @@ void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 	uint perChunkGroupID = groupID.y;
 
 	uint3 groupLocalOffset; // local to chunk
+	uint groupsPerChunkRoot = voxPerChunkRoot / integrateGroupSizeRoot; // todo precalc
 	groupLocalOffset.x = perChunkGroupID % groupsPerChunkRoot;
 	groupLocalOffset.y = (perChunkGroupID / groupsPerChunkRoot) % groupsPerChunkRoot;
 	groupLocalOffset.z = perChunkGroupID / (groupsPerChunkRoot * groupsPerChunkRoot);

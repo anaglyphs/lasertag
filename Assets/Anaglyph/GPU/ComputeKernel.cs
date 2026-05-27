@@ -67,5 +67,10 @@ namespace Anaglyph
 		{
 			DispatchFit(tex.width, tex.height, depth);
 		}
+
+		public void DispatchIndirect(ComputeBuffer groupSizeArgBuffer)
+		{
+			shader.DispatchIndirect(index, groupSizeArgBuffer);
+		}
 	}
 }
