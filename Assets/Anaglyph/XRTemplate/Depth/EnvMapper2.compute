@@ -111,6 +111,14 @@ int readChunkDataIndex(int chunkIndex)
 	return chunkTable[chunkIndex] & INDEX_MASK;
 }
 
+#pragma kernel Clear
+
+[numthreads(4, 4, 4)]
+void Clear(uint3 id : SV_DispatchThreadID)
+{
+	chunkData[id] = 1.0;
+}
+
 #pragma kernel Mark
 
 // input depth tex

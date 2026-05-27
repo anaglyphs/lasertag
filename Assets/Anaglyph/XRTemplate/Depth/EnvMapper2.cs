@@ -41,6 +41,7 @@ namespace Anaglyph.XRTemplate
 		[SerializeField] private RenderTexture chunkData;
 		private static readonly int chunkDataID = Shader.PropertyToID(nameof(chunkData));
 
+		private ComputeKernel clearKernel;
 		private ComputeKernel markKernel;
 		private ComputeKernel integrateKernel;
 
@@ -85,6 +86,9 @@ namespace Anaglyph.XRTemplate
 			};
 			chunkData = new RenderTexture(dataDesc);
 
+			clearKernel = new ComputeKernel(compute, "Clear");
+			clearKernel.Set(chunkDataID, chunkData);
+
 			markKernel = new ComputeKernel(compute, "Mark");
 			markKernel.Set(reservedChunkCounterID, reservedChunkCounter);
 			markKernel.Set(chunkTableID, chunkTable);
@@ -104,6 +108,8 @@ namespace Anaglyph.XRTemplate
 
 		private void Start()
 		{
+			clearKernel.DispatchFit(chunkData);
+
 			UpdateLoop();
 		}
 
