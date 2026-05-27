@@ -1,7 +1,7 @@
 #include "../Depth/DepthKit.hlsl"
 #include "../Depth/EnvMapper.hlsl"
 
-RWTexture3D<float2> envVolumeRW; // tsdf
+RWTexture3D<float2> envVolumeRW; // tsdf R8G8_SNORM
 float depthDispThresh;
 
 StructuredBuffer<float3> envFrustumVolume;

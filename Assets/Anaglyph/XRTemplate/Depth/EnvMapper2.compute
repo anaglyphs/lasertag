@@ -1,0 +1,235 @@
+#include "../Depth/DepthKit.hlsl"
+
+#define INVALID_INDEX 0xFFFFFFFF
+#define INVALID_COORD int3(-1, -1, -1)
+
+static const float voxSize = 0.1; // voxel edge length in meters
+static const float voxSizeHalf = voxSize / 2;
+static const float distBand = 0.2; // greatest distance magnitude a voxel can hold
+
+static const uint voxPerChunkRoot = 32; // voxels per chunk
+static const uint voxPerChunk = pow(voxPerChunkRoot, 3);
+
+static const float minDist = 0.8; // min integration distance (meters)
+static const float maxDist = 6; // max integration distance (meters)
+
+static const float depthTexCropMin = 0.2;
+static const float depthTexCropMax = 0.8;
+
+// the chunk table maps 3D regions to a 1D 'chunk index' int
+// 1D chunk index indirectly points to chunk data within the data 3D texture
+// BUT, since chunk data is stored as a 3D texture, you must transform this 1D index
+// into a 3D coordinate pointing to the 'start' corner of a chunk in the 3D texture.
+// so, annoyingly, chunkTable is a linear buffer that i'm treating like a volumetric texture,
+// and chunkData is a volumetric texture that i'm treating like a linear buffer
+
+// remember, chunk index =/= chunk DATA index
+// 'chunk index' (indirectly) points to data index in the chunk table
+
+// a chunk table entry is a packed int representing:
+#define     INDEX_MASK 0x8FFFFFFF // first 28 bits: indirect chunk data index AND negative bit to indicate invalid
+#define VISIBILITY_BIT 0x10000000 // visibility bit, set atomically
+#define   RESERVED_BIT 0x20000000 // is reserved bit 
+#define    INVALID_BIT 0x80000000 // aka negative bit
+
+RWStructuredBuffer<int> reservedChunkCounter; // single element buffer functioning as counter
+RWStructuredBuffer<int> chunkTable; // in concept a dense 3D grid spanning the desired max playspace
+uint3 tableDims; // num chunk entries per axis in table
+uint tableLength; // num chunk entries total
+
+AppendStructuredBuffer<int> visibleChunksAppend; // indexing the TABLE, not DATA
+StructuredBuffer<int> visibleChunks; // indexing the TABLE, not DATA
+
+RWTexture3D<float> chunkData; // should be R8_SNorm
+uint3 perChunkDataDims; // chunks per axis in chunkData (NOT VOXELS PER AXIS. voxels on axis / voxChunkPerEdge)
+uint maxNumChunks; // maximum possible number of chunks allowed by data size
+
+#pragma kernel Mark
+
+int3 worldPosToChunkCoord(const float3 world)
+{
+	// quantize to chunk size
+	const float chunkSize = voxPerChunkRoot * voxSize;
+	const int3 quantized = floor(world / chunkSize);
+
+	// center so 0,0,0 is at corner
+	const int3 tableDimHalf = tableDims / 2;
+	const int3 chunkCoord = quantized + tableDimHalf;
+
+	return chunkCoord;
+}
+
+float3 chunkCoordToCornerWorldPos(const int3 chunkCoord)
+{
+	const int3 tableDimHalf = tableDims / 2;
+	const int3 chunkCoordUncentered = chunkCoord - tableDimHalf;
+	const float chunkSizeRoot = voxPerChunkRoot * voxSize;
+
+	return chunkCoordUncentered * chunkSizeRoot;
+}
+
+// DOES check for valid output index
+int chunkCoordToChunkIndex(const int3 coord)
+{
+	if (any(coord < 0) || any(coord >= (int3)tableDims))
+		return (int)INVALID_INDEX;
+
+	return
+		coord.x +
+		coord.y * tableDims.x +
+		coord.z * tableDims.x * tableDims.y;
+}
+
+int3 chunkIndexToChunkCoord(int chunkIndex)
+{
+	int3 coord;
+	coord.x = chunkIndex % (int)tableDims.x;
+	coord.y = chunkIndex / (int)tableDims.x % (int)tableDims.y;
+	coord.z = chunkIndex / (int)(tableDims.x * tableDims.y);
+	return coord;
+}
+
+// DOES check for valid output index
+int worldPosToChunkIndex(const float3 world)
+{
+	return chunkCoordToChunkIndex(worldPosToChunkCoord(world));
+}
+
+// does NOT check for valid index
+int3 dataIndexToDataStartCoord(int dataIndex)
+{
+	uint3 coord;
+	coord.x = dataIndex % perChunkDataDims.x;
+	coord.y = (dataIndex / perChunkDataDims.x) % perChunkDataDims.y;
+	coord.z = dataIndex / (perChunkDataDims.x * perChunkDataDims.y);
+
+	return coord * voxPerChunkRoot;
+}
+
+// does NOT check for valid index
+// negative values = invalid
+int readChunkDataIndex(int chunkIndex)
+{
+	return chunkTable[chunkIndex] & INDEX_MASK;
+
+	// const int chunkEntry = chunkTable[chunkIndex];
+	// if (chunkEntry & INVALID_BIT) return INVALID_INDEX;
+	// return chunkEntry & INDEX_MASK;
+}
+
+// input depth tex
+// thread per depth tex pix
+[numthreads(8, 8, 1)]
+void Mark(uint3 id : SV_DispatchThreadID)
+{
+	if (any(id.xy >= agDepthTexSize)) return;
+
+	const float3 worldPos = agDepthSampleIdxToWorld(id.xy);
+
+	// ignore surfaces outside of integration range. todo: use square dist
+	const float3 depthEyePos = agDepthEyePos();
+	const float dist = distance(worldPos, depthEyePos);
+	const bool inRange = dist >= minDist && dist <= maxDist; // to guard against NaN
+	if (!inRange) return;
+
+	const int chunkIdx = worldPosToChunkIndex(worldPos);
+	if (chunkIdx & INVALID_BIT) return;
+
+	// try claim visibility
+	int prevTableEntryValue;
+	InterlockedOr(chunkTable[chunkIdx], VISIBILITY_BIT, prevTableEntryValue);
+	// return if claim failed aka prev value already had vis flag
+	if (prevTableEntryValue & VISIBILITY_BIT) return;
+
+	// only the single thread that claimed visibility on this chunk continues
+	visibleChunksAppend.Append(chunkIdx);
+
+	// if chunk requires reservation, reserve it
+	if ((prevTableEntryValue & RESERVED_BIT) == 0)
+	{
+		int dataIndex;
+		InterlockedAdd(reservedChunkCounter[0], 1, dataIndex);
+		if (dataIndex >= (int)maxNumChunks) dataIndex |= INVALID_BIT;
+
+		// chunk is both visible and reserved at this point, so mark as such
+		chunkTable[chunkIdx] = dataIndex & INDEX_MASK | RESERVED_BIT | VISIBILITY_BIT;
+	}
+}
+
+// if each chunk is 32cubed voxels, and the integrate kernel group size is 8cubed,
+// it takes (32cubed/8cubed) = 64 (4cubed) groups per chunk.
+// so for the integration indirect dispatch dimension arg buffer
+// X = visibleChunks count
+// Y = 64 (4 cubed) = num groups needed per chunk integration
+// Z = 1 
+StructuredBuffer<uint> integrationGroupDimensions;
+
+// input depth tex
+// thread per pixel * num voxels within truncation band`
+
+static const uint integrateGroupSizeRoot = 8;
+static const uint groupsPerChunkRoot = voxPerChunkRoot / integrateGroupSizeRoot;
+static const uint groupsPerChunk = groupsPerChunkRoot * groupsPerChunkRoot * groupsPerChunkRoot;
+
+[numthreads(integrateGroupSizeRoot, integrateGroupSizeRoot, integrateGroupSizeRoot)]
+void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
+{
+	int chunkIdx = visibleChunks[groupID.x];
+
+	// filtering one thread per chunk
+	if (groupID.y == 0 && all(threadID == 0))
+	{
+		// clear visibility for the next cycle
+		InterlockedAnd(chunkTable[chunkIdx], ~VISIBILITY_BIT);
+	}
+
+	const int dataIdx = readChunkDataIndex(chunkIdx);
+
+	if (dataIdx & INVALID_BIT) return; //invalid test
+
+	// get data coordinate for this thread
+	const uint3 dataStartCoord = dataIndexToDataStartCoord(dataIdx);
+
+	uint perChunkGroupID = groupID.y;
+
+	uint3 groupLocalOffset; // local to chunk
+	groupLocalOffset.x = perChunkGroupID % groupsPerChunkRoot;
+	groupLocalOffset.y = (perChunkGroupID / groupsPerChunkRoot) % groupsPerChunkRoot;
+	groupLocalOffset.z = perChunkGroupID / (groupsPerChunkRoot * groupsPerChunkRoot);
+	groupLocalOffset *= integrateGroupSizeRoot;
+	const uint3 threadLocalOffset = threadID; // local to GROUP, not chunk
+	const uint3 threadChunkOffset = groupLocalOffset + threadLocalOffset; // local to CHUNK
+
+	// get data coord
+	const uint3 voxDataCoord = dataStartCoord + groupLocalOffset + threadLocalOffset;
+
+	// get world position for this thread (for depth tex sampling)
+
+	const int3 chunkCoord = chunkIndexToChunkCoord(chunkIdx);
+	const float3 chunkCornerWorldPos = chunkCoordToCornerWorldPos(chunkCoord);
+	const float3 voxCornerLocalPos = threadChunkOffset * voxSize;
+	const float3 voxCenterPos = chunkCornerWorldPos + voxCornerLocalPos + voxSizeHalf;
+
+	const float3 voxNDC = agDepthWorldToNDC(voxCenterPos);
+
+	// ignore any UV coord outside the cropped depth tex region
+	if (any(voxNDC.xy < depthTexCropMin) || any(voxNDC.xy > depthTexCropMax)) return;
+
+	const float depthNDC = agDepthSample(voxNDC.xy);
+	float3 depthPos = agDepthNDCtoWorld(float3(voxNDC.xy, depthNDC));
+
+	const float3 eyePos = agDepthEyePos();
+	const float3 eyeToVox = voxCenterPos - eyePos;
+	const float voxEyeDist = length(eyeToVox);
+
+	const float3 eyeToDepth = depthPos - eyePos;
+	const float depthEyeDist = length(eyeToDepth);
+
+	const float sDist = depthEyeDist - voxEyeDist;
+
+	const float sDistNorm = min(sDist / distBand, 1);
+	const bool withinBand = sDistNorm >= -1.0;
+
+	if (withinBand)
+		chunkData[voxDataCoord] = sDistNorm;
+}
