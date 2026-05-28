@@ -15,69 +15,43 @@ namespace Anaglyph.XRTemplate
 
 		[SerializeField] private float updateFrequency = 15.0f;
 
-		[SerializeField] private int voxPerChunkRoot = 32;
-		private static readonly int voxPerChunkRootID = Shader.PropertyToID("voxPerChunkRoot");
-
+		[SerializeField] private int voxPerChunkDim = 32;
 		[SerializeField] private Vector3Int chunkAreaDims = new(64, 16, 64);
-		private static readonly int chunkAreaDimsID = Shader.PropertyToID(nameof(chunkAreaDims));
-		private static readonly int chunkTableLengthID = Shader.PropertyToID("chunkTableLength");
-
 		[SerializeField] private Vector3Int chunkDataDims = new(8, 8, 8);
-		private static readonly int chunkDataDimsID = Shader.PropertyToID(nameof(chunkDataDims));
-		private static readonly int maxNumChunksID = Shader.PropertyToID("maxNumChunks");
 
 		private ComputeBuffer reservedChunkCounter;
-		private static readonly int reservedChunkCounterID = Shader.PropertyToID(nameof(reservedChunkCounter));
 		private ComputeBuffer chunkTable;
-		private static readonly int chunkTableID = Shader.PropertyToID(nameof(chunkTable));
 		private ComputeBuffer visibleChunks;
-		private static readonly int visibleChunksID = Shader.PropertyToID(nameof(visibleChunks));
-		private static readonly int visibleChunksAppendID = Shader.PropertyToID("visibleChunksAppend");
 
 		private ComputeBuffer integrateDispatchDims;
 
-		// private static readonly int integrateDispatchDimsID = Shader.PropertyToID(nameof(integrateDispatchDims));
-
 		[SerializeField] private RenderTexture chunkData;
-		private static readonly int chunkDataID = Shader.PropertyToID(nameof(chunkData));
 
 		private ComputeKernel clearKernel;
 		private ComputeKernel markKernel;
 		private ComputeKernel integrateKernel;
-
-		private static int viewID => DepthKitDriver.viewID;
-		private static int projID => DepthKitDriver.projID;
-
-		private static int viewInvID => DepthKitDriver.viewInvID;
-		private static int projInvID => DepthKitDriver.projInvID;
-
-		private static int depthTexID => DepthKitDriver.depthTexID;
-		private static int normTexID => DepthKitDriver.normTexID;
 
 		public event Action Updated = delegate { };
 
 		private void Awake()
 		{
 			Instance = this;
+		}
 
-			compute.SetInt(voxPerChunkRootID, voxPerChunkRoot);
-
+		private void Setup()
+		{
+			// buffers
 			reservedChunkCounter = new ComputeBuffer(1, sizeof(int));
 			visibleChunks = new ComputeBuffer(512, sizeof(int), ComputeBufferType.Append);
 
 			int chunkTableLength = chunkAreaDims.x * chunkAreaDims.y * chunkAreaDims.z;
-			compute.SetInts(chunkAreaDimsID, chunkAreaDims.x, chunkAreaDims.y, chunkAreaDims.z);
-			compute.SetInt(chunkTableLengthID, chunkTableLength);
 			chunkTable = new ComputeBuffer(chunkTableLength, sizeof(int));
 
-			int maxNumChunks = chunkDataDims.x * chunkDataDims.y * chunkDataDims.z;
-			compute.SetInts(chunkDataDimsID, chunkDataDims.x, chunkDataDims.y, chunkDataDims.z);
-			compute.SetInt(maxNumChunksID, maxNumChunks);
 			RenderTextureDescriptor dataDesc = new()
 			{
-				width = chunkDataDims.x * voxPerChunkRoot,
-				height = chunkDataDims.y * voxPerChunkRoot,
-				volumeDepth = chunkDataDims.z * voxPerChunkRoot,
+				width = chunkDataDims.x * voxPerChunkDim,
+				height = chunkDataDims.y * voxPerChunkDim,
+				volumeDepth = chunkDataDims.z * voxPerChunkDim,
 				msaaSamples = 1,
 				useMipMap = false,
 				graphicsFormat = GraphicsFormat.R8_SNorm,
@@ -86,30 +60,44 @@ namespace Anaglyph.XRTemplate
 			};
 			chunkData = new RenderTexture(dataDesc);
 
-			clearKernel = new ComputeKernel(compute, "Clear");
-			clearKernel.Set(chunkDataID, chunkData);
+			// uniform values
+			compute.SetInt(nameof(voxPerChunkDim), voxPerChunkDim);
+			compute.SetInts(nameof(chunkAreaDims), chunkAreaDims.x, chunkAreaDims.y, chunkAreaDims.z);
+			compute.SetInt(nameof(chunkTableLength), chunkTableLength);
+			compute.SetInts(nameof(chunkDataDims), chunkDataDims.x, chunkDataDims.y, chunkDataDims.z);
 
+			int maxNumChunks = chunkDataDims.x * chunkDataDims.y * chunkDataDims.z;
+			compute.SetInt(nameof(maxNumChunks), maxNumChunks);
+
+			// mark kernel
 			markKernel = new ComputeKernel(compute, "Mark");
-			markKernel.Set(reservedChunkCounterID, reservedChunkCounter);
-			markKernel.Set(chunkTableID, chunkTable);
-			markKernel.Set(chunkDataID, chunkData);
-			markKernel.Set(visibleChunksAppendID, visibleChunks);
+			markKernel.Set(nameof(reservedChunkCounter), reservedChunkCounter);
+			markKernel.Set(nameof(chunkTable), chunkTable);
+			markKernel.Set(nameof(chunkData), chunkData);
+			markKernel.Set("visibleChunksAppend", visibleChunks);
 
+			// integrate kernel
 			integrateKernel = new ComputeKernel(compute, "Integrate");
-			integrateKernel.Set(chunkTableID, chunkTable);
-			integrateKernel.Set(chunkDataID, chunkData);
-			integrateKernel.Set(visibleChunksID, visibleChunks);
+			integrateKernel.Set(nameof(chunkTable), chunkTable);
+			integrateKernel.Set(nameof(chunkData), chunkData);
+			integrateKernel.Set("visibleChunks", visibleChunks);
 
 			integrateDispatchDims = new ComputeBuffer(3, sizeof(uint), ComputeBufferType.IndirectArguments);
-			uint groupsPerChunkRoot = (uint)(voxPerChunkRoot / integrateKernel.groupSize.x);
-			uint groupsPerChunk = groupsPerChunkRoot * groupsPerChunkRoot * groupsPerChunkRoot;
-			integrateDispatchDims.SetData(new uint[] { 0, groupsPerChunk, 1 });
+			int groupsPerChunkDim = voxPerChunkDim / integrateKernel.groupSize.x;
+			compute.SetInt(nameof(groupsPerChunkDim), groupsPerChunkDim);
+			int groupsPerChunk = groupsPerChunkDim * groupsPerChunkDim * groupsPerChunkDim;
+			integrateDispatchDims.SetData(new uint[] { 0, (uint)groupsPerChunk, 1 });
+
+			// clear
+			clearKernel = new ComputeKernel(compute, "Clear");
+			clearKernel.Set(nameof(chunkData), chunkData);
+
+			clearKernel.DispatchFit(chunkData);
 		}
 
 		private void Start()
 		{
-			clearKernel.DispatchFit(chunkData);
-
+			Setup();
 			UpdateLoop();
 		}
 
@@ -129,9 +117,7 @@ namespace Anaglyph.XRTemplate
 				{
 					await Awaitable.WaitForSecondsAsync(1 / updateFrequency, ctkn);
 
-					if (!DepthKitDriver.DepthAvailable) continue;
-
-					ApplyScan();
+					Scan();
 
 					Updated.Invoke();
 				}
@@ -141,28 +127,28 @@ namespace Anaglyph.XRTemplate
 			}
 		}
 
-		public void ApplyScan()
+		public void Scan()
 		{
 			DepthKitDriver dkd = DepthKitDriver.Instance;
 
 			if (!DepthKitDriver.DepthAvailable) return;
 
-			compute.SetMatrixArray(viewID, dkd.View);
-			compute.SetMatrixArray(projID, dkd.Proj);
+			compute.SetMatrixArray(DepthKitDriver.viewID, dkd.View);
+			compute.SetMatrixArray(DepthKitDriver.projID, dkd.Proj);
 
-			compute.SetMatrixArray(viewInvID, dkd.ViewInv);
-			compute.SetMatrixArray(projInvID, dkd.ProjInv);
+			compute.SetMatrixArray(DepthKitDriver.viewInvID, dkd.ViewInv);
+			compute.SetMatrixArray(DepthKitDriver.projInvID, dkd.ProjInv);
 
 			// reset visible chunks counter
 			visibleChunks.SetCounterValue(0);
 
-			markKernel.Set(depthTexID, dkd.DepthTex);
+			// mark active chunks
+			markKernel.Set(DepthKitDriver.depthTexID, dkd.DepthTex);
 			markKernel.DispatchFit(dkd.DepthTex, 1);
 
+			// integrate into active chunks
+			integrateKernel.Set(DepthKitDriver.depthTexID, dkd.DepthTex);
 			ComputeBuffer.CopyCount(visibleChunks, integrateDispatchDims, 0);
-
-			integrateKernel.Set(depthTexID, dkd.DepthTex);
-
 			integrateKernel.DispatchIndirect(integrateDispatchDims);
 		}
 

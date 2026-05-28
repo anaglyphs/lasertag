@@ -3,11 +3,14 @@
 #define INVALID_INDEX 0xFFFFFFFF
 #define INVALID_COORD int3(-1, -1, -1)
 
-static const float voxSize = 0.1; // voxel edge length in meters
+static const float voxSize = 0.1; // voxel edge length (meters)
 static const float voxSizeHalf = voxSize / 2;
-static const float distBand = 0.2; // greatest distance magnitude a voxel can hold
+static const float distanceTruncationBand = 0.2; // greatest distance magnitude a voxel can hold
 
-uint voxPerChunkRoot = 32; // voxels per chunk
+// these aren't static const because CPU needs to know these
+// for indirectly dispatching integration
+uint voxPerChunkDim; // voxels per chunk edge
+uint groupsPerChunkDim; // groups per chunk edge
 
 static const float minDist = 0.8; // min integration distance (meters)
 static const float maxDist = 6; // max integration distance (meters)
@@ -47,7 +50,7 @@ RWStructuredBuffer<int> visibleChunks; // indexing the TABLE, not DATA
 int3 worldPosToChunkCoord(const float3 world)
 {
 	// quantize to chunk size
-	const float chunkSize = voxPerChunkRoot * voxSize;
+	const float chunkSize = voxPerChunkDim * voxSize;
 	const int3 quantized = floor(world / chunkSize);
 
 	// center so 0,0,0 is at corner
@@ -61,9 +64,9 @@ float3 chunkCoordToCornerWorldPos(const int3 chunkCoord)
 {
 	const int3 tableDimHalf = chunkAreaDims / 2;
 	const int3 chunkCoordUncentered = chunkCoord - tableDimHalf;
-	const float chunkSizeRoot = voxPerChunkRoot * voxSize;
+	const float chunkSizeDim = voxPerChunkDim * voxSize;
 
-	return chunkCoordUncentered * chunkSizeRoot;
+	return chunkCoordUncentered * chunkSizeDim;
 }
 
 // DOES check for valid output index
@@ -101,7 +104,7 @@ int3 dataIndexToDataStartCoord(int dataIndex)
 	coord.y = (dataIndex / chunkDataDims.x) % chunkDataDims.y;
 	coord.z = dataIndex / (chunkDataDims.x * chunkDataDims.y);
 
-	return coord * voxPerChunkRoot;
+	return coord * voxPerChunkDim;
 }
 
 // does NOT check for valid index
@@ -174,13 +177,12 @@ void Mark(uint3 id : SV_DispatchThreadID)
 
 #pragma kernel Integrate
 
-static const uint integrateGroupSizeRoot = 8;
-// static const uint groupsPerChunkRoot = voxPerChunkRoot / integrateGroupSizeRoot;
+static const uint integrateGroupDim = 8;
 
-[numthreads(integrateGroupSizeRoot, integrateGroupSizeRoot, integrateGroupSizeRoot)]
+[numthreads(integrateGroupDim, integrateGroupDim, integrateGroupDim)]
 void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 {
-	int chunkIdx = visibleChunks[groupID.x];
+	const int chunkIdx = visibleChunks[groupID.x];
 
 	// filtering one thread per chunk
 	if (groupID.y == 0 && all(threadID == 0))
@@ -196,14 +198,13 @@ void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 	// get data coordinate for this thread
 	const uint3 dataStartCoord = dataIndexToDataStartCoord(dataIdx);
 
-	uint perChunkGroupID = groupID.y;
+	const uint perChunkGroupID = groupID.y;
 
 	uint3 groupLocalOffset; // local to chunk
-	uint groupsPerChunkRoot = voxPerChunkRoot / integrateGroupSizeRoot; // todo precalc
-	groupLocalOffset.x = perChunkGroupID % groupsPerChunkRoot;
-	groupLocalOffset.y = (perChunkGroupID / groupsPerChunkRoot) % groupsPerChunkRoot;
-	groupLocalOffset.z = perChunkGroupID / (groupsPerChunkRoot * groupsPerChunkRoot);
-	groupLocalOffset *= integrateGroupSizeRoot;
+	groupLocalOffset.x = perChunkGroupID % groupsPerChunkDim;
+	groupLocalOffset.y = (perChunkGroupID / groupsPerChunkDim) % groupsPerChunkDim;
+	groupLocalOffset.z = perChunkGroupID / (groupsPerChunkDim * groupsPerChunkDim);
+	groupLocalOffset *= integrateGroupDim;
 	const uint3 threadLocalOffset = threadID; // local to GROUP, not chunk
 	const uint3 threadChunkOffset = groupLocalOffset + threadLocalOffset; // local to CHUNK
 
@@ -223,7 +224,7 @@ void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 	if (any(voxNDC.xy < depthTexCropMin) || any(voxNDC.xy > depthTexCropMax)) return;
 
 	const float depthNDC = agDepthSample(voxNDC.xy);
-	float3 depthPos = agDepthNDCtoWorld(float3(voxNDC.xy, depthNDC));
+	const float3 depthPos = agDepthNDCtoWorld(float3(voxNDC.xy, depthNDC));
 
 	const float3 eyePos = agDepthEyePos();
 	const float3 eyeToVox = voxCenterPos - eyePos;
@@ -234,9 +235,14 @@ void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 
 	const float sDist = depthEyeDist - voxEyeDist;
 
-	const float sDistNorm = min(sDist / distBand, 1);
-	const bool withinBand = sDistNorm >= -1.0;
+	const float sDistNorm = min(sDist / distanceTruncationBand, 1);
 
-	if (withinBand)
+	// all voxels in front of the band should be written to.
+	// the sensor knows everything in front of the surface is empty!
+	// I want to clear surfaces that e.g. might have moved.
+	// however, the sensor can't know what's behind the surface
+	// which is why I don't write past the truncation band's negative end
+	const bool isNotBehindTruncationBand = sDistNorm >= -1.0;
+	if (isNotBehindTruncationBand)
 		chunkData[voxDataCoord] = sDistNorm;
 }
