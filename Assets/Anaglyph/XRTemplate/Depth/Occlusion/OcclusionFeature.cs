@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Anaglyph.XRTemplate.DepthKit;
 using Unity.Mathematics;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -18,17 +19,55 @@ namespace Anaglyph.DepthKit
 
 		private EnvMeshOcclusionPass envMeshOcclusionPass;
 
+		private static readonly int OcclusionActiveID = Shader.PropertyToID("agOcclusionActive");
+
 		public override void Create()
 		{
+			SetOcclusionShaderActive(false);
+
 			envMeshOcclusionPass = new EnvMeshOcclusionPass(depthMat, relativeTexSize)
 			{
 				renderPassEvent = RenderPassEvent.BeforeRenderingOpaques
 			};
+
+#if UNITY_EDITOR
+			EditorApplication.playModeStateChanged -= OnPlayModeChanged;
+#endif
+		}
+
+		protected override void Dispose(bool disposing)
+		{
+			SetOcclusionShaderActive(false);
+#if UNITY_EDITOR
+			EditorApplication.playModeStateChanged -= OnPlayModeChanged;
+#endif
+			base.Dispose(disposing);
 		}
 
 		public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
 		{
 			renderer.EnqueuePass(envMeshOcclusionPass);
+		}
+
+#if UNITY_EDITOR
+		private void OnPlayModeChanged(PlayModeStateChange state)
+		{
+			switch (state)
+			{
+				case PlayModeStateChange.EnteredEditMode:
+					SetOcclusionShaderActive(false);
+					break;
+
+				case PlayModeStateChange.EnteredPlayMode:
+					SetOcclusionShaderActive(true);
+					break;
+			}
+		}
+#endif
+
+		private void SetOcclusionShaderActive(bool active)
+		{
+			Shader.SetGlobalFloat(OcclusionActiveID, active ? 1.0f : 0.0f);
 		}
 
 		private class EnvMeshOcclusionPass : ScriptableRenderPass

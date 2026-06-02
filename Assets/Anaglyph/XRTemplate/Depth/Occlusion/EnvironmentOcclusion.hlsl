@@ -3,6 +3,8 @@
 Texture2DArray<float> agOcclusionTex;
 SamplerState linearClampSampler;
 
+float agOcclusionActive = 1.0;
+
 #define NEAR_CUTOFF 5
 
 void agEnvOcclusion_float(

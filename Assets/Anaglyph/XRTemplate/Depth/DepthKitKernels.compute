@@ -9,6 +9,13 @@ Texture2D<float> inputRawMonoDepth;
 
 int eye = 0;
 
+#pragma kernel DepthClear
+[numthreads(8, 8, 1)]
+void DepthClear(uint3 id : SV_DispatchThreadID)
+{
+	agDepthTexRW[id] = 1.0;
+}
+
 #pragma kernel DepthCopy
 
 [numthreads(8, 8, 1)]

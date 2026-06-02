@@ -21,12 +21,12 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private static void Log(string str)
 		{
-			Debug.Log(LogHeader + str);
+			UnityEngine.Debug.Log(LogHeader + str);
 		}
 
 		private static void LogWarning(string str)
 		{
-			Debug.LogWarning(LogHeader + str);
+			UnityEngine.Debug.LogWarning(LogHeader + str);
 		}
 
 		private const string LanPrefix = "IP:";

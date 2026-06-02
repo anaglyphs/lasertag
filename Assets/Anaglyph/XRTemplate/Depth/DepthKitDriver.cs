@@ -1,5 +1,4 @@
 using System;
-using System.Runtime.Remoting.Messaging;
 using Unity.XR.CoreUtils.Collections;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
@@ -51,6 +50,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		private ComputeKernel monoRawDepthConvert;
 		private ComputeKernel normKernel;
+		private ComputeKernel clearKernel;
 
 		private Camera mainCam;
 
@@ -77,6 +77,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 			if (!arOcclusionManager)
 				throw new Exception("[DepthKitDriver] AROcclusionManager not found");
 
+			clearKernel = new ComputeKernel(depthNormalCompute, "DepthClear");
 			normKernel = new ComputeKernel(depthNormalCompute, "DepthNorm");
 			monoRawDepthConvert = new ComputeKernel(depthNormalCompute, "MonoRawDepthToStereo");
 
@@ -93,47 +94,55 @@ namespace Anaglyph.XRTemplate.DepthKit
 		{
 			if (arOcclusionManager)
 				arOcclusionManager.frameReceived -= OnDepthFrame;
+
+			ClearDepth();
 		}
 
 		private enum DepthFormatScenario
 		{
 			PhoneOrARFoundationSimulator,
 			StereoHeadset,
-			Unknown,
+			Unknown
+		}
+
+		private void ClearDepth()
+		{
+			if (!depthTex)
+				return;
+
+			clearKernel.Set(rwDepthTexID, depthTex);
+			clearKernel.DispatchFit(depthTex);
 		}
 
 		private void OnDepthFrame(AROcclusionFrameEventArgs args)
 		{
-			var extTextures = args.externalTextures;
-			if(extTextures == null || extTextures.Count < 1 || extTextures[0].texture == null)
+			ReadOnlyList<ARExternalTexture> extTextures = args.externalTextures;
+			if (extTextures == null || extTextures.Count < 1 || extTextures[0].texture == null)
 			{
 				DepthAvailable = false;
 				Debug.LogWarning("[DepthKitDriver] No depth texture!");
 				return;
 			}
+
 			Texture rawDepth = extTextures[0].texture;
 
 			DepthFormatScenario depthFormat = DepthFormatScenario.Unknown;
 			if (rawDepth.graphicsFormat == GraphicsFormat.R32_SFloat &&
-				rawDepth.dimension == TextureDimension.Tex2D)
-			{
+			    rawDepth.dimension == TextureDimension.Tex2D)
 				depthFormat = DepthFormatScenario.PhoneOrARFoundationSimulator;
-			}
 			else if (rawDepth is RenderTexture rawDepthRT &&
-				rawDepthRT.depthStencilFormat == GraphicsFormat.D16_UNorm &&
-				rawDepthRT.dimension == TextureDimension.Tex2DArray &&
-				rawDepthRT.volumeDepth == 2)
-			{
+			         rawDepthRT.depthStencilFormat == GraphicsFormat.D16_UNorm &&
+			         rawDepthRT.dimension == TextureDimension.Tex2DArray &&
+			         rawDepthRT.volumeDepth == 2)
 				depthFormat = DepthFormatScenario.StereoHeadset;
-			}
 
-			switch(depthFormat)
+			switch (depthFormat)
 			{
 				case DepthFormatScenario.PhoneOrARFoundationSimulator:
 
 					if (simulatedDepthTex == null ||
-						simulatedDepthTex.width != rawDepth.width ||
-						simulatedDepthTex.height != rawDepth.height)
+					    simulatedDepthTex.width != rawDepth.width ||
+					    simulatedDepthTex.height != rawDepth.height)
 					{
 						simulatedDepthTex = new RenderTexture(rawDepth.width, rawDepth.height, 0,
 							GraphicsFormat.R16_UNorm, 1)
@@ -181,8 +190,8 @@ namespace Anaglyph.XRTemplate.DepthKit
 					XRNearFarPlanes depthPlanes = default;
 
 					bool gotMetadata = args.TryGetFovs(out fovs) &&
-									   args.TryGetPoses(out poses) &&
-									   args.TryGetNearFarPlanes(out depthPlanes);
+					                   args.TryGetPoses(out poses) &&
+					                   args.TryGetNearFarPlanes(out depthPlanes);
 
 					if (!gotMetadata)
 					{

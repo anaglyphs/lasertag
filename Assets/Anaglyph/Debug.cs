@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Anaglyph
 {
-    public static class Anaglyph
+    public static class Debug
     {
 		private static bool _debugMode = false;
 		public static Action<bool> DebugModeChanged = delegate { };
@@ -26,7 +26,7 @@ namespace Anaglyph
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
 		private static void InitializeOnLoad()
 		{
-			DebugMode = Debug.isDebugBuild;
+			DebugMode = UnityEngine.Debug.isDebugBuild;
 		}
     }
 }

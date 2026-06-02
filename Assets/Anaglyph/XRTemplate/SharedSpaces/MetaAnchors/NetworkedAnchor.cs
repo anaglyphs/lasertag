@@ -31,7 +31,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	{
 		private void Log(string str)
 		{
-			Debug.Log($"[NetworkedAnchor] {str}");
+			UnityEngine.Debug.Log($"[NetworkedAnchor] {str}");
 		}
 
 		private OVRSpatialAnchor spatialAnchor;
@@ -129,15 +129,15 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 			catch (NetworkedAnchorException e)
 			{
-				Debug.LogException(e);
+				UnityEngine.Debug.LogException(e);
 
-				Debug.Log("Trying again in 5 seconds");
+				UnityEngine.Debug.Log("Trying again in 5 seconds");
 				await Awaitable.WaitForSecondsAsync(5);
 				goto Redo;
 			}
 			catch (TaskCanceledException)
 			{
-				Debug.Log("Task cancelled");
+				UnityEngine.Debug.Log("Task cancelled");
 			}
 		}
 
@@ -185,14 +185,14 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 			catch (NetworkedAnchorException e)
 			{
-				Debug.LogException(e);
-				Debug.Log("Trying again in 5 seconds");
+				UnityEngine.Debug.LogException(e);
+				UnityEngine.Debug.Log("Trying again in 5 seconds");
 				await Awaitable.WaitForSecondsAsync(5);
 				goto Redo;
 			}
 			catch (TaskCanceledException)
 			{
-				Debug.Log("Task cancelled");
+				UnityEngine.Debug.Log("Task cancelled");
 			}
 		}
 
@@ -240,14 +240,14 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 			catch (NetworkedAnchorException e)
 			{
-				Debug.LogException(e);
-				Debug.Log("Trying again in 5 seconds");
+				UnityEngine.Debug.LogException(e);
+				UnityEngine.Debug.Log("Trying again in 5 seconds");
 				await Awaitable.WaitForSecondsAsync(5);
 				goto Redo;
 			}
 			catch (TaskCanceledException)
 			{
-				Debug.Log("Task cancelled");
+				UnityEngine.Debug.Log("Task cancelled");
 			}
 		}
 

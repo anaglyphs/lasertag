@@ -35,7 +35,7 @@ Shader "Custom/NonlinearDepthValue"
             {
                 Varyings OUT;
 
-                UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_SETUP_INSTANCE_ID(IN);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(OUT);
 
                 OUT.positionHCS = TransformObjectToHClip(IN.positionOS.xyz);

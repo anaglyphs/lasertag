@@ -10,8 +10,8 @@ namespace Anaglyph.Menu
 		private void Awake()
 		{
 			toggle = GetComponent<Toggle>();
-			Anaglyph.DebugModeChanged += toggle.SetIsOnWithoutNotify;
-			toggle.onValueChanged.AddListener(Anaglyph.SetDebugMode);
+			Debug.DebugModeChanged += toggle.SetIsOnWithoutNotify;
+			toggle.onValueChanged.AddListener(Debug.SetDebugMode);
 		}
 	}
 }

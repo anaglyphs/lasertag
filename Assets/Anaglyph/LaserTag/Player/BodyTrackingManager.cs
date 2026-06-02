@@ -34,9 +34,9 @@ namespace Anaglyph.XRTemplate
 		{
 			bool didReset = OVRBody.ResetBodyTrackingCalibration();
 			if (didReset)
-				Debug.Log($"{LogPrefix} reset");
+				UnityEngine.Debug.Log($"{LogPrefix} reset");
 			else
-				Debug.LogError($"{LogPrefix} failed to reset!");
+				UnityEngine.Debug.LogError($"{LogPrefix} failed to reset!");
 		}
 	}
 }
