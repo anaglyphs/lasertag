@@ -1,4 +1,4 @@
-// https://github.com/oculus-samples/Unity-DepthAPI/issues/16
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 #include "DepthKit.hlsl"
 
 Texture2DArray<float> inputDepthTex;
@@ -32,7 +32,11 @@ void MonoRawDepthToStereo(uint2 id : SV_DispatchThreadID)
 	const float z = inputRawMonoDepth[id.xy];
 	const float near = agDepthZParams.x;
 	const float far = agDepthZParams.y;
-	const float depth = (far / (far - near)) - (far * near) / ((far - near) * z);
+	float depth = (far / (far - near)) - (far * near) / ((far - near) * z);
+
+	#if UNITY_REVERSED_Z
+	depth = 1.0 - depth;
+	#endif
 
 	agDepthTexRW[uint3(id.xy, 0)] = depth;
 	agDepthTexRW[uint3(id.xy, 1)] = depth;

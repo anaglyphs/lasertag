@@ -11,7 +11,12 @@ void agEnvOcclusion_float(
 	float3 WorldPos,
 	out float OutValue)
 {
-	// Unity sets this automatically per-eye in XR.
+	// if (agOcclusionActive < 0.5)
+	// {
+	// 	OutValue = 1;
+	// 	return;
+	// }
+
 	uint eye = unity_StereoEyeIndex;
 
 	const float4 clip = TransformWorldToHClip(WorldPos);
@@ -21,16 +26,21 @@ void agEnvOcclusion_float(
 	#if UNITY_UV_STARTS_AT_TOP
 	screenUV.y = 1.0 - screenUV.y;
 	#endif
-	float occlusionValue = agOcclusionTex.Sample(linearClampSampler, float3(screenUV, eye));
-	float distantOcclusionAlpha = ndc.z >= occlusionValue ? 1.0 : 0.0;
+
+	float envOcclusionResult = agOcclusionTex.SampleCmpLevelZero(agLinearClampCompareSampler,
+	                                                             float3(screenUV, eye),
+	                                                             ndc.z);
+	// float occlusionValue = agOcclusionTex.Sample(linearClampSampler, float3(screenUV, eye));
+	// float distantOcclusionAlpha = ndc.z >= occlusionValue ? 1.0 : 0.0;
 
 	float depthTexLinear = agDepthSampleWorldToLinear(WorldPos, eye);
 	float meshDepthLinear = abs(LinearEyeDepth(ndc.z, _ZBufferParams));
-	float nearOcclusionAlpha = meshDepthLinear < depthTexLinear ? 1.0 : 0.0;;
+	float depthOcclusionAlpha = agDepthCompare(ndc.z, screenUV, eye);
+	// float depthOcclusionAlpha = meshDepthLinear < depthTexLinear ? 1.0 : 0.0;
 
 	bool near = meshDepthLinear < NEAR_CUTOFF || depthTexLinear < NEAR_CUTOFF;
 
-	OutValue = near ? nearOcclusionAlpha : distantOcclusionAlpha;
+	OutValue = near ? depthOcclusionAlpha : envOcclusionResult;
 }
 
 void agEnvOcclusion_half(

@@ -6,6 +6,8 @@ uniform uint2 agDepthTexSize;
 
 SamplerState agBilinearClampSampler;
 SamplerState agPointClampSampler;
+SamplerComparisonState agLinearClampCompareSampler;
+
 
 uniform float4x4 agDepthProj[2];
 uniform float4x4 agDepthProjInv[2];
@@ -19,6 +21,11 @@ uniform float4 agDepthZParams;
 float3 agDepthEyePos(int eye = 0)
 {
 	return agDepthViewInv[eye]._m03_m13_m23;
+}
+
+float agDepthCompare(float compare, float2 uv, int eye = 0)
+{
+	return agDepthTex.SampleCmpLevelZero(agLinearClampCompareSampler, float3(uv, eye), compare);
 }
 
 float agDepthSample(float2 uv, int eye = 0)
@@ -88,6 +95,12 @@ float3 agDepthSampleWorldToWorld(float3 worldPos, int eye = 0)
 	float depth = agDepthSample(ndc.xy, eye);
 
 	return agDepthNDCtoWorld(float3(ndc.xy, depth), eye);
+}
+
+float agDepthCompareWorld(float3 worldPos, int eye = 0)
+{
+	float3 ndc = agDepthWorldToNDC(worldPos, eye);
+	float result = agDepthCompare(ndc.z, ndc.xy, eye);
 }
 
 float agDepthSampleWorldToLinear(float3 worldPos, int eye = 0)

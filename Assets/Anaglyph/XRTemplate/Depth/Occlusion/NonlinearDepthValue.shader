@@ -11,6 +11,9 @@ Shader "Custom/NonlinearDepthValue"
         Pass
         {
             Cull Off
+            ZWrite On
+            ZTest LEqual
+            ColorMask 0
 
             HLSLPROGRAM
             #pragma vertex vert

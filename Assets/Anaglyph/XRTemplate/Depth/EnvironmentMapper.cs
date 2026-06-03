@@ -186,7 +186,7 @@ namespace Anaglyph.XRTemplate
 					Updated.Invoke();
 				}
 			}
-			catch (OperationCanceledException _)
+			catch (OperationCanceledException)
 			{
 			}
 		}

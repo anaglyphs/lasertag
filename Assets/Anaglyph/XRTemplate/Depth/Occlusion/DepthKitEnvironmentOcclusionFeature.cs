@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using Anaglyph.XRTemplate.DepthKit;
 using Unity.Mathematics;
 using UnityEditor;
 using UnityEngine;
@@ -10,14 +8,13 @@ using UnityEngine.Rendering.RenderGraphModule;
 
 namespace Anaglyph.DepthKit
 {
-	public class EnvMeshOcclusionFeature : ScriptableRendererFeature
+	public class DepthKitEnvironmentOcclusionFeature : ScriptableRendererFeature
 	{
-		public static readonly List<Renderer> AllRenderers = new();
-
 		public Material depthMat;
 		public float relativeTexSize = 0.5f;
+		public LayerMask OcclusionMeshLayerMask;
 
-		private EnvMeshOcclusionPass envMeshOcclusionPass;
+		private DepthKitEnvironmentOcclusionPass depthKitEnvironmentOcclusionPass;
 
 		private static readonly int OcclusionActiveID = Shader.PropertyToID("agOcclusionActive");
 
@@ -25,10 +22,11 @@ namespace Anaglyph.DepthKit
 		{
 			SetOcclusionShaderActive(false);
 
-			envMeshOcclusionPass = new EnvMeshOcclusionPass(depthMat, relativeTexSize)
-			{
-				renderPassEvent = RenderPassEvent.BeforeRenderingOpaques
-			};
+			depthKitEnvironmentOcclusionPass =
+				new DepthKitEnvironmentOcclusionPass(depthMat, relativeTexSize, OcclusionMeshLayerMask.value)
+				{
+					renderPassEvent = RenderPassEvent.BeforeRenderingOpaques
+				};
 
 #if UNITY_EDITOR
 			EditorApplication.playModeStateChanged -= OnPlayModeChanged;
@@ -46,7 +44,7 @@ namespace Anaglyph.DepthKit
 
 		public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
 		{
-			renderer.EnqueuePass(envMeshOcclusionPass);
+			renderer.EnqueuePass(depthKitEnvironmentOcclusionPass);
 		}
 
 #if UNITY_EDITOR
@@ -70,20 +68,23 @@ namespace Anaglyph.DepthKit
 			Shader.SetGlobalFloat(OcclusionActiveID, active ? 1.0f : 0.0f);
 		}
 
-		private class EnvMeshOcclusionPass : ScriptableRenderPass
+		private class DepthKitEnvironmentOcclusionPass : ScriptableRenderPass
 		{
 			private const string PassName = "Environment Mesh Occlusion Feature (RenderGraph)";
 
 			private static readonly int OcclusionTexID = Shader.PropertyToID("agOcclusionTex");
+			private static readonly ShaderTagId ShaderTag = new("UniversalForward");
 
 			private readonly Material depthMat;
 			private readonly float relativeTexSize;
+			private readonly int layermask;
 			private readonly ComputeShader compute;
 
-			public EnvMeshOcclusionPass(Material depthMat, float relativeTexSize)
+			public DepthKitEnvironmentOcclusionPass(Material depthMat, float relativeTexSize, int layermask)
 			{
 				this.depthMat = depthMat;
 				this.relativeTexSize = relativeTexSize;
+				this.layermask = layermask;
 			}
 
 			private class PassData
@@ -99,11 +100,14 @@ namespace Anaglyph.DepthKit
 				using (IRasterRenderGraphBuilder builder = graph.AddRasterRenderPass(passName,
 					       out PassData data))
 				{
+					UniversalRenderingData renderingData = frameContext.Get<UniversalRenderingData>();
+					UniversalLightData lightData = frameContext.Get<UniversalLightData>();
 					UniversalCameraData cameraData = frameContext.Get<UniversalCameraData>();
 					RenderTextureDescriptor camDesc = cameraData.cameraTargetDescriptor;
 
 					data.texSize.x = Mathf.FloorToInt(camDesc.width * relativeTexSize);
 					data.texSize.y = Mathf.FloorToInt(camDesc.height * relativeTexSize);
+
 
 					TextureDesc occlusionTexDesc = new()
 					{
@@ -111,7 +115,7 @@ namespace Anaglyph.DepthKit
 						height = data.texSize.y,
 						anisoLevel = 0,
 						autoGenerateMips = false,
-						colorFormat = GraphicsFormat.R16_UNorm,
+						colorFormat = GraphicsFormat.None,
 						depthBufferBits = DepthBits.Depth16,
 						dimension = TextureDimension.Tex2DArray,
 						slices = 2,
@@ -121,16 +125,25 @@ namespace Anaglyph.DepthKit
 
 					data.occlusionTexHandle = graph.CreateTexture(occlusionTexDesc);
 
-					builder.SetRenderAttachmentDepth(data.occlusionTexHandle, AccessFlags.ReadWrite);
+					DrawingSettings drawSettings = RenderingUtils.CreateDrawingSettings(
+						ShaderTag, renderingData, cameraData, lightData, cameraData.defaultOpaqueSortFlags);
+					drawSettings.overrideMaterial = depthMat;
+					drawSettings.overrideMaterialPassIndex = 0;
+
+					FilteringSettings filterSettings = new(RenderQueueRange.opaque, layermask);
+
+					RendererListParams listParams = new(renderingData.cullResults, drawSettings, filterSettings);
+					data.rendererListHandle = graph.CreateRendererList(listParams);
+					builder.UseRendererList(data.rendererListHandle);
+
+					builder.SetRenderAttachmentDepth(data.occlusionTexHandle, AccessFlags.Write);
 					builder.AllowGlobalStateModification(true);
 					builder.SetGlobalTextureAfterPass(data.occlusionTexHandle, OcclusionTexID);
 
-					builder.SetRenderFunc((PassData data, RasterGraphContext ctx) =>
+					builder.SetRenderFunc((PassData passData, RasterGraphContext ctx) =>
 					{
-						ctx.cmd.ClearRenderTarget(true, true, Color.black);
-
-						foreach (Renderer r in AllRenderers)
-							ctx.cmd.DrawRenderer(r, depthMat);
+						ctx.cmd.ClearRenderTarget(RTClearFlags.Depth, Color.black, 1f, 0);
+						ctx.cmd.DrawRendererList(passData.rendererListHandle);
 					});
 				}
 			}

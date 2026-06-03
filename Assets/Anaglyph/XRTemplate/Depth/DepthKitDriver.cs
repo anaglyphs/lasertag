@@ -144,13 +144,22 @@ namespace Anaglyph.XRTemplate.DepthKit
 					    simulatedDepthTex.width != rawDepth.width ||
 					    simulatedDepthTex.height != rawDepth.height)
 					{
-						simulatedDepthTex = new RenderTexture(rawDepth.width, rawDepth.height, 0,
-							GraphicsFormat.R16_UNorm, 1)
+						RenderTextureDescriptor occlusionTexDesc = new()
 						{
+							width = rawDepth.width,
+							height = rawDepth.height,
+							autoGenerateMips = false,
+							graphicsFormat = GraphicsFormat.R16_UNorm,
+							depthStencilFormat = GraphicsFormat.None,
 							dimension = TextureDimension.Tex2DArray,
 							volumeDepth = 2,
+							msaaSamples = 1,
+							vrUsage = VRTextureUsage.TwoEyes,
 							enableRandomWrite = true
 						};
+
+						simulatedDepthTex = new RenderTexture(occlusionTexDesc);
+
 						Shader.SetGlobalVector(texSizeID, new Vector2(rawDepth.width, rawDepth.height));
 					}
 
@@ -221,8 +230,6 @@ namespace Anaglyph.XRTemplate.DepthKit
 					DepthAvailable = false;
 					Debug.LogWarning("[DepthKitDriver] Unrecognized texture format!");
 					return;
-
-					break;
 			}
 
 			Shader.SetGlobalMatrixArray(projID, proj);

@@ -4,7 +4,7 @@ Shader "Lasertag/DepthOnly"
     {
         Tags
         {
-            "RenderType" = "Opaque"
+            "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline"
         }
 
         Pass

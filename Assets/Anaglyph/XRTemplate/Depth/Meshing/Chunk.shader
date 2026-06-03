@@ -4,11 +4,13 @@ Shader "Custom/Chunk"
     {
         Tags
         {
-            "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" "LightMode" = "UniversalForward"
+            "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline"
         }
 
         Pass
         {
+            Tags { "LightMode" = "UniversalForward" }
+
             Cull Off
             ZWrite True
 
