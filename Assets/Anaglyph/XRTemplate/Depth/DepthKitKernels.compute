@@ -34,10 +34,6 @@ void MonoRawDepthToStereo(uint2 id : SV_DispatchThreadID)
 	const float far = agDepthZParams.y;
 	float depth = (far / (far - near)) - (far * near) / ((far - near) * z);
 
-	#if UNITY_REVERSED_Z
-	depth = 1.0 - depth;
-	#endif
-
 	agDepthTexRW[uint3(id.xy, 0)] = depth;
 	agDepthTexRW[uint3(id.xy, 1)] = depth;
 }

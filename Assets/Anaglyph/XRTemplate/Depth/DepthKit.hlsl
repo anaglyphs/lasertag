@@ -100,7 +100,8 @@ float3 agDepthSampleWorldToWorld(float3 worldPos, int eye = 0)
 float agDepthCompareWorld(float3 worldPos, int eye = 0)
 {
 	float3 ndc = agDepthWorldToNDC(worldPos, eye);
-	float result = agDepthCompare(ndc.z, ndc.xy, eye);
+	float result = agDepthCompare(-ndc.z, ndc.xy, eye);
+	return result;
 }
 
 float agDepthSampleWorldToLinear(float3 worldPos, int eye = 0)
