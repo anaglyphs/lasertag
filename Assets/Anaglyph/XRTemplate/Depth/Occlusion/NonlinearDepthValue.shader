@@ -1,4 +1,4 @@
-Shader "Custom/NonlinearDepthValue"
+Shader "DepthKit/NonlinearDepthToRed"
 {
 
     SubShader
