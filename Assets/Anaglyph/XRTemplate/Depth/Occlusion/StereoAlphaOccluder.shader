@@ -9,7 +9,7 @@ Shader "DepthKit/StereoAlphaOccluder"
     {
         Tags
         {
-            "RenderType" = "Opaque" "Queue"="Geometry-1"
+            "RenderType" = "Opaque" "Queue"="Geometry-1" "RenderPipeline" = "UniversalPipeline"
         }
         ZWrite On
         ZTest LEqual
@@ -20,6 +20,11 @@ Shader "DepthKit/StereoAlphaOccluder"
 
         Pass
         {
+            Tags
+            {
+                "LightMode" = "UniversalForward"
+            }
+
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
