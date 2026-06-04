@@ -1,6 +1,9 @@
-Shader "Lasertag/Alpha"
+Shader "DepthKit/StereoAlphaOccluder"
 {
-    Properties {}
+    Properties
+    {
+        _OcclusionColorMask ("Color Mask", Float) = 15
+    }
 
     SubShader
     {
@@ -8,10 +11,12 @@ Shader "Lasertag/Alpha"
         {
             "RenderType" = "Opaque" "Queue"="Geometry-1"
         }
-        LOD 200
         ZWrite On
         ZTest LEqual
         Cull Off
+        // does not work in simulation but does on AR headsets
+        // with pre-multiplied compositing (i.e. meta quest) 
+        ColorMask [_OcclusionColorMask]
 
         Pass
         {
@@ -24,14 +29,12 @@ Shader "Lasertag/Alpha"
             struct Attributes
             {
                 float4 positionOS : POSITION;
-
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             struct Varyings
             {
                 float4 positionHCS : SV_POSITION;
-
                 UNITY_VERTEX_OUTPUT_STEREO
             };
 
@@ -49,7 +52,7 @@ Shader "Lasertag/Alpha"
 
             half4 frag() : SV_Target
             {
-                return half4(0, 0, 0, 0);
+                return 0;
             }
             ENDHLSL
         }

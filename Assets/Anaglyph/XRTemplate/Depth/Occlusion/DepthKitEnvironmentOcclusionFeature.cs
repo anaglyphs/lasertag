@@ -10,7 +10,7 @@ namespace Anaglyph.DepthKit
 {
 	public class DepthKitEnvironmentOcclusionFeature : ScriptableRendererFeature
 	{
-		public Material depthMat;
+		public Shader zDepthShader;
 		public float relativeTexSize = 0.5f;
 		public LayerMask OcclusionMeshLayerMask;
 
@@ -21,6 +21,8 @@ namespace Anaglyph.DepthKit
 		public override void Create()
 		{
 			SetOcclusionShaderActive(false);
+
+			Material depthMat = new(zDepthShader);
 
 			depthKitEnvironmentOcclusionPass =
 				new DepthKitEnvironmentOcclusionPass(depthMat, relativeTexSize, OcclusionMeshLayerMask.value)

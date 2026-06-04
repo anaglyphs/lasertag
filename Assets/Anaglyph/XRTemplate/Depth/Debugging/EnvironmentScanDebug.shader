@@ -1,5 +1,10 @@
-Shader "Custom/DepthDebug"
+Shader "DepthKit/EnvironmentScanDebug"
 {
+    Properties
+    {
+        [MainTexture] _Volume("Base Map", 3D) = "white" {}
+    }
+
     SubShader
     {
         Tags
@@ -14,32 +19,41 @@ Shader "Custom/DepthDebug"
             #pragma fragment frag
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-            #include "Assets/ARFoundation/Occlusion/OcclusionComputation.hlsl"
-            #include "DepthKit.hlsl"
+            #include "EnvMapper.hlsl"
 
             struct Attributes
             {
                 float4 positionOS : POSITION;
-                float2 uv : TEXCOORD0;
             };
 
             struct Varyings
             {
                 float4 positionHCS : SV_POSITION;
-                float2 uv : TEXCOORD0;
+                float3 positionWS : TEXCOORD0;
             };
+
+            TEXTURE3D(_Volume);
+
+            CBUFFER_START(UnityPerMaterial)
+                half4 _Volume_ST;
+            CBUFFER_END
 
             Varyings vert(Attributes IN)
             {
                 Varyings OUT;
                 OUT.positionHCS = TransformObjectToHClip(IN.positionOS.xyz);
-                OUT.uv = IN.uv;
+                OUT.positionWS = TransformObjectToWorld(IN.positionOS.xyz);
                 return OUT;
             }
 
             half4 frag(Varyings IN) : SV_Target
             {
-                half4 color = half4(SampleEnvironmentDepthLinear(IN.uv) / 10, 0, 0, 1);
+                float3 uvw = envWorldToVoxelUVW(IN.positionWS);
+                float val = envVolume.Sample(envPointClampSampler, uvw).r;
+                float r = -min(val, 0);
+                float g = val;
+                float b = val < 0;
+                half4 color = half4(r, g, b, 1.0);
                 return color;
             }
             ENDHLSL

@@ -1,4 +1,4 @@
-Shader "Custom/Chunk"
+Shader "Custom/Normals"
 {
     SubShader
     {
@@ -9,7 +9,10 @@ Shader "Custom/Chunk"
 
         Pass
         {
-            Tags { "LightMode" = "UniversalForward" }
+            Tags
+            {
+                "LightMode" = "UniversalForward"
+            }
 
             Cull Off
             ZWrite True

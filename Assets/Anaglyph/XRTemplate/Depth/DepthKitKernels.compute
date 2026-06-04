@@ -1,4 +1,3 @@
-#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 #include "DepthKit.hlsl"
 
 Texture2DArray<float> inputDepthTex;

@@ -1,4 +1,4 @@
-#include "../Depth/DepthKit.hlsl"
+#include "../DepthKit.hlsl"
 
 #define INVALID_INDEX 0xFFFFFFFF
 #define INVALID_COORD int3(-1, -1, -1)

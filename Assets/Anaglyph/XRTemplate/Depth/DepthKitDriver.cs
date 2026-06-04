@@ -31,7 +31,6 @@ namespace Anaglyph.XRTemplate.DepthKit
 		}
 
 		public static readonly int depthTexID = ID("agDepthTex");
-		public static readonly int rwDepthTexID = ID("agDepthTexRW");
 		public static readonly int texSizeID = ID("agDepthTexSize");
 		public static readonly int normTexID = ID("agDepthNormalTex");
 		public static readonly int rwNormTexID = ID("agDepthNormalTexRW");
@@ -42,14 +41,13 @@ namespace Anaglyph.XRTemplate.DepthKit
 		public static readonly int viewID = ID("agDepthView");
 		public static readonly int viewInvID = ID("agDepthViewInv");
 
-		public static readonly int inputRawMonoDepthID = ID("inputRawMonoDepth");
-
 		public static bool DepthAvailable { get; private set; }
 
 		[SerializeField] private ComputeShader depthNormalCompute = null;
-		[SerializeField] private Material depthSimConversionMat;
+		[SerializeField] private Shader simDepthConversionShader;
 
-		private ComputeKernel monoRawDepthConvert;
+		private Material simDepthConversionMat;
+
 		private ComputeKernel normKernel;
 		private ComputeKernel clearKernel;
 
@@ -81,7 +79,6 @@ namespace Anaglyph.XRTemplate.DepthKit
 				throw new Exception("[DepthKitDriver] AROcclusionManager not found");
 
 			normKernel = new ComputeKernel(depthNormalCompute, "DepthNorm");
-			monoRawDepthConvert = new ComputeKernel(depthNormalCompute, "MonoRawDepthToStereo");
 
 			arOcclusionManager.frameReceived += OnDepthFrame;
 		}
@@ -131,6 +128,8 @@ namespace Anaglyph.XRTemplate.DepthKit
 			{
 				case DepthFormatScenario.PhoneOrARFoundationSimulator:
 
+					// Convert mono linear R32_SFloat depth texture to (mock) stereo non-linear D16_UNorm
+
 					if (simulatedDepthTex == null ||
 					    simulatedDepthTex.width != rawDepth.width ||
 					    simulatedDepthTex.height != rawDepth.height)
@@ -149,25 +148,18 @@ namespace Anaglyph.XRTemplate.DepthKit
 							// enableRandomWrite = true
 						};
 
+						simDepthConversionMat = new Material(simDepthConversionShader);
 						simulatedDepthTex = new RenderTexture(occlusionTexDesc);
 
 						Shader.SetGlobalVector(texSizeID, new Vector2(rawDepth.width, rawDepth.height));
 					}
 
-					// Convert mono linear 32-bit depth texture to (mock) stereo non-linear 16-bit
-
-					// monoRawDepthConvert.Set(rwDepthTexID, simulatedDepthTex);
-					// monoRawDepthConvert.Set(inputRawMonoDepthID, rawDepth);
-					// monoRawDepthConvert.DispatchFit(rawDepth.width, rawDepth.height);
-
-					depthSimConversionMat.SetTexture("rawDepth", rawDepth);
-					Shader.SetGlobalTexture("agDepthSimTex", rawDepth);
-
+					simDepthConversionMat.SetTexture("rawDepth", rawDepth);
 					CommandBuffer cmd = CommandBufferPool.Get("DepthKit Simulated Depth Conversion");
 					cmd.SetRenderTarget(simulatedDepthTex);
 					cmd.ClearRenderTarget(true, false, Color.white);
-					cmd.DrawProcedural(Matrix4x4.identity, depthSimConversionMat, 0, MeshTopology.Triangles,
-						3); // fullscreen triangle
+					// fullscreen triangle
+					cmd.DrawProcedural(Matrix4x4.identity, simDepthConversionMat, 0, MeshTopology.Triangles, 3);
 					Graphics.ExecuteCommandBuffer(cmd);
 					CommandBufferPool.Release(cmd);
 

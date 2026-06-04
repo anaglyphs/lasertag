@@ -7,7 +7,7 @@ using UnityEngine.XR.ARFoundation;
 namespace Anaglyph.DepthKit
 {
 	[DefaultExecutionOrder(-9999)]
-	public class MetaOcclusionPermissionManager : MonoBehaviour
+	public class MetaDepthPermissionManager : MonoBehaviour
 	{
 		private AROcclusionManager occlusionManager;
 		private ARShaderOcclusion shaderOcclusion;
