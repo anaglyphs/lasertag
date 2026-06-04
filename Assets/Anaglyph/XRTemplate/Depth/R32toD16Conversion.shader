@@ -18,7 +18,7 @@ Shader "DepthKit/Sim/R32toD16Blit"
             #pragma fragment frag
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-            #include "../DepthKit.hlsl"
+            #include "DepthKit.hlsl"
 
             Texture2D<float> rawDepth;
 

@@ -12,7 +12,7 @@ namespace Anaglyph.DepthKit
 		private void Start()
 		{
 #if UNITY_EDITOR
-			stereoAlphaOccluderMaterial.SetFloat("_OcclusionColorMask", XRSettings.enabled ? 15 : 0);
+			stereoAlphaOccluderMaterial.SetFloat("_OcclusionColorMask", XRSettings.enabled ? 15 : 15);
 #else
 			stereoAlphaOccluderMaterial.SetFloat("_OcclusionColorMask", 15);
 #endif

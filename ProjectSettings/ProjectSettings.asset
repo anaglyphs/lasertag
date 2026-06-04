@@ -116,6 +116,7 @@ PlayerSettings:
   xboxEnableGuest: 0
   xboxEnablePIXSampling: 0
   metalFramebufferOnly: 0
+  metalUseMetalDisplayLink: 0
   xboxOneResolution: 0
   xboxOneSResolution: 0
   xboxOneXResolution: 3
@@ -402,7 +403,7 @@ PlayerSettings:
   m_BuildTargetShaderSettings: []
   m_BuildTargetGraphicsJobs:
   - m_BuildTarget: WindowsStandaloneSupport
-    m_GraphicsJobs: 0
+    m_GraphicsJobs: 1
   - m_BuildTarget: AndroidPlayer
     m_GraphicsJobs: 1
   - m_BuildTarget: MacStandaloneSupport
@@ -411,6 +412,8 @@ PlayerSettings:
   - m_BuildTarget: AndroidPlayer
     m_GraphicsJobMode: 1
   - m_BuildTarget: MacStandaloneSupport
+    m_GraphicsJobMode: 1
+  - m_BuildTarget: WindowsStandaloneSupport
     m_GraphicsJobMode: 1
   m_BuildTargetGraphicsAPIs:
   - m_BuildTarget: AndroidPlayer
