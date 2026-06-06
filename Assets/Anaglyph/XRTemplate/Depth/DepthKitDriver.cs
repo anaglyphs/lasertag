@@ -247,8 +247,8 @@ namespace Anaglyph.XRTemplate.DepthKit
 					enableRandomWrite = true
 				};
 
-			normKernel.Set(depthTexID, depthTex);
-			normKernel.Set(rwNormTexID, normTex);
+			normKernel.Bind(depthTexID, depthTex);
+			normKernel.Bind(rwNormTexID, normTex);
 			normKernel.DispatchFit(normTex);
 			Shader.SetGlobalTexture(normTexID, normTex);
 

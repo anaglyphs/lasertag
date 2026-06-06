@@ -45,7 +45,7 @@ namespace Anaglyph.DepthKit.Meshing
 			if (!EnvironmentMapper.Instance) throw new Exception("EnvironmentMapper.Instance not set");
 			if (!DepthKitDriver.Instance) throw new Exception("DepthKitDriver.Instance not set");
 
-			DepthKitDriver.Instance.Updated += OnDepthUpated;
+			DepthKitDriver.Instance.Updated += OnDepthUpdated;
 			EnvironmentMapper.Instance.Updated += OnEnvironmentUpdated;
 			EnvironmentMapper.Instance.Cleared += ClearAllChunks;
 			StartWorkers();
@@ -60,7 +60,7 @@ namespace Anaglyph.DepthKit.Meshing
 		{
 			workerCancelSrc?.Cancel();
 
-			DepthKitDriver.Instance.Updated -= OnDepthUpated;
+			DepthKitDriver.Instance.Updated -= OnDepthUpdated;
 			EnvironmentMapper.Instance.Updated -= OnEnvironmentUpdated;
 			EnvironmentMapper.Instance.Cleared -= ClearAllChunks;
 		}
@@ -150,7 +150,7 @@ namespace Anaglyph.DepthKit.Meshing
 		// 	return proj;
 		// }
 
-		private void OnDepthUpated()
+		private void OnDepthUpdated()
 		{
 			Matrix4x4 proj = Matrix4x4.Perspective(updateFov, 1.0f, 1f, updateDistance);
 			// Matrix4x4 proj = DepthKitDriver.Instance.Proj[0];

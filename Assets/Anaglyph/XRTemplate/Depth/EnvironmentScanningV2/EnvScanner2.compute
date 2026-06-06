@@ -3,13 +3,18 @@
 #define INVALID_INDEX 0xFFFFFFFF
 #define INVALID_COORD int3(-1, -1, -1)
 
-static const float voxSize = 0.1; // voxel edge length (meters)
-static const float voxSizeHalf = voxSize / 2;
-static const float distanceTruncationBand = 0.2; // greatest distance magnitude a voxel can hold
+float voxSize; // voxel edge length (meters)
+float voxSizeHalf;
+float distanceTruncationBand; // greatest distance magnitude a voxel can hold
 
+
+// Chunks have a one voxel APRON that overlaps with all surrounding chunks
+// so while a chunk may have 32 voxels along its edge, it really represents an area of 30 voxels (3 meters)
+// since two voxels on each edge are apron voxels
+// this is for sampling interpolation for raymarching and surface-net meshing
 // these aren't static const because CPU needs to know these
 // for indirectly dispatching integration
-uint voxPerChunkDim; // voxels per chunk edge
+uint voxPerChunkDim; // voxels per chunk edge INCLUDING APRON
 uint groupsPerChunkDim; // groups per chunk edge
 
 static const float minDist = 0.8; // min integration distance (meters)
@@ -28,6 +33,7 @@ static const float depthTexCropMax = 0.8;
 // remember, chunk index =/= chunk DATA index
 // 'chunk index' (indirectly) points to data index in the chunk table
 
+
 // a chunk table entry is a packed int representing:
 #define     INDEX_MASK 0x8FFFFFFF // first 28 bits: indirect chunk data index AND negative bit to indicate invalid
 #define VISIBILITY_BIT 0x10000000 // visibility bit, set atomically
@@ -43,14 +49,15 @@ RWTexture3D<float> chunkData; // should be R8_SNorm
 uint3 chunkDataDims; // chunks per axis in chunkData (NOT VOXELS PER AXIS. voxels on axis / voxChunkPerEdge)
 uint maxNumChunks; // maximum possible number of chunks allowed by data size
 
-AppendStructuredBuffer<int> visibleChunksAppend; // indexing the TABLE, not DATA
+AppendStructuredBuffer<int> visibleChunksAppend;
 RWStructuredBuffer<int> visibleChunks; // indexing the TABLE, not DATA
-// int maxVisibleChunks; // max size of the visible chunks buffer
+int visibleChunksCount; // max size of the visible chunks buffer
 
 int3 worldPosToChunkCoord(const float3 world)
 {
-	// quantize to chunk size
-	const float chunkSize = voxPerChunkDim * voxSize;
+	// quantize to chunk size.
+	// subtract two from voxPerChunkDim to account for 1-vox apron
+	const float chunkSize = (voxPerChunkDim - 2) * voxSize;
 	const int3 quantized = floor(world / chunkSize);
 
 	// center so 0,0,0 is at corner
@@ -64,7 +71,9 @@ float3 chunkCoordToCornerWorldPos(const int3 chunkCoord)
 {
 	const int3 tableDimHalf = chunkAreaDims / 2;
 	const int3 chunkCoordUncentered = chunkCoord - tableDimHalf;
-	const float chunkSizeDim = voxPerChunkDim * voxSize;
+	// subtract one to account for 1-vox apron
+	// this makes the corner voxel overlap with another chunk's 'top' corner
+	const float chunkSizeDim = (voxPerChunkDim - 1) * voxSize;
 
 	return chunkCoordUncentered * chunkSizeDim;
 }
@@ -245,4 +254,49 @@ void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 	const bool isNotBehindTruncationBand = sDistNorm >= -1.0;
 	if (isNotBehindTruncationBand)
 		chunkData[voxDataCoord] = sDistNorm;
+}
+
+
+// kernel for reading back data to the CPU
+// no batched chunk readbacks for now, just single
+
+#pragma kernel ChunkReadback
+
+RWStructuredBuffer<int> readbackBuffer;
+int readbackChunkIndex;
+
+uint R8SNorm4ToPackedUInt(float4 R8_SNorm4)
+{
+	const int4 quantized = (int4)round(clamp(R8_SNorm4, -1.0, 1.0) * 127.0); // [-127, 127]
+	// for a negative value like q = -1 (0xFFFFFFFF), masking the low byte gives 0xFF
+	// which is what CPU expects. TODO: understand this lol. this came from ai sorry
+	const uint4 b = (uint4)(quantized & 0xFF);
+	return b.x | b.y << 8 | b.z << 16 | b.w << 24;
+}
+
+[numthreads(8, 8, 8)]
+void ChunkReadback(uint3 threadID : SV_DispatchThreadID)
+{
+	const int tableVal = chunkTable[readbackChunkIndex];
+	if ((tableVal & RESERVED_BIT) == 0) return;
+	const int dataIdx = tableVal & INDEX_MASK;
+
+	const uint3 dataCoordOffs = dataIndexToDataStartCoord(dataIdx);
+	// each thread reads FOUR voxels on the X axis for byte-packing
+	const uint3 threadCoordOffs = uint3(threadID.x * 4, threadID.y, threadID.z);
+	const uint3 coordOffs = dataCoordOffs + threadCoordOffs;
+
+	float4 data;
+	[unroll] for (int i = 0; i < 4; i++)
+	{
+		data[i] = chunkData[coordOffs + uint3(i, 0, 0)];
+	}
+
+	const uint threadsPerChunkX = voxPerChunkDim / 4;
+	const uint bufferIdx =
+		threadID.x +
+		threadID.y * threadsPerChunkX +
+		threadID.z * threadsPerChunkX * voxPerChunkDim;
+
+	readbackBuffer[bufferIdx] = R8SNorm4ToPackedUInt(data);
 }

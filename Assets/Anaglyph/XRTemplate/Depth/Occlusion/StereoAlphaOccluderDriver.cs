@@ -7,14 +7,15 @@ namespace Anaglyph.DepthKit
 	[ExecuteInEditMode]
 	public class StereoAlphaOccluderDriver : MonoBehaviour
 	{
+		private static readonly int OcclusionColorMaskID = Shader.PropertyToID("_OcclusionColorMask");
 		[SerializeField] private Material stereoAlphaOccluderMaterial;
 
 		private void Start()
 		{
 #if UNITY_EDITOR
-			stereoAlphaOccluderMaterial.SetFloat("_OcclusionColorMask", XRSettings.enabled ? 15 : 0);
+			stereoAlphaOccluderMaterial.SetFloat(OcclusionColorMaskID, XRSettings.enabled ? 15 : 0);
 #else
-			stereoAlphaOccluderMaterial.SetFloat("_OcclusionColorMask", 15);
+			stereoAlphaOccluderMaterial.SetFloat(OcclusionColorMaskID, 15);
 #endif
 		}
 	}

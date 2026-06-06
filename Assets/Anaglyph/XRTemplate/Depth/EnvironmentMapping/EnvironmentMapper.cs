@@ -117,16 +117,16 @@ namespace Anaglyph.XRTemplate
 			volume = new RenderTexture(volumeDesc);
 
 			clearKernel = new ComputeKernel(compute, "Clear");
-			clearKernel.Set(volumeWritableID, volume);
+			clearKernel.Bind(volumeWritableID, volume);
 
 			integrateKernel = new ComputeKernel(compute, "Integrate");
-			integrateKernel.Set(volumeWritableID, volume);
+			integrateKernel.Bind(volumeWritableID, volume);
 
 			initDepthDilationKernel = new ComputeKernel(compute, "InitDepthDilation");
 			dilateDepthKernel = new ComputeKernel(compute, "DilateDepthStep");
 
 			raymarchKernel = new ComputeKernel(compute, "Raymarch");
-			raymarchKernel.Set(volumeID, volume);
+			raymarchKernel.Bind(volumeID, volume);
 
 			Shader.SetGlobalTexture(volumeID, volume);
 
@@ -234,7 +234,7 @@ namespace Anaglyph.XRTemplate
 			frustumVolume = new ComputeBuffer(positions.Count, sizeof(float) * 3);
 
 			frustumVolume.SetData(positions);
-			integrateKernel.Set(frustumVolumeID, frustumVolume);
+			integrateKernel.Bind(frustumVolumeID, frustumVolume);
 
 			// set up dilated depth tex
 
@@ -272,17 +272,17 @@ namespace Anaglyph.XRTemplate
 			compute.SetVectorArray(playerHeadsWorldID, headPositions);
 
 			// dilate depth tex
-			initDepthDilationKernel.Set(depthTexID, dkd.DepthTex);
-			initDepthDilationKernel.Set(dilateSrcID, dilationA);
-			initDepthDilationKernel.Set(dilateDestID, dilationB);
+			initDepthDilationKernel.Bind(depthTexID, dkd.DepthTex);
+			initDepthDilationKernel.Bind(dilateSrcID, dilationA);
+			initDepthDilationKernel.Bind(dilateDestID, dilationB);
 			initDepthDilationKernel.DispatchFit(dilationA);
 
 			int stepSize = depthDilationMaxStep;
 
 			for (int i = 0; i < stepSize; i++)
 			{
-				dilateDepthKernel.Set(dilateSrcID, dilationA);
-				dilateDepthKernel.Set(dilateDestID, dilationB);
+				dilateDepthKernel.Bind(dilateSrcID, dilationA);
+				dilateDepthKernel.Bind(dilateDestID, dilationB);
 				compute.SetInt(dilateStepSizeID, stepSize);
 				dilateDepthKernel.DispatchFit(dilationA);
 
@@ -300,9 +300,9 @@ namespace Anaglyph.XRTemplate
 			}
 
 			compute.SetMatrixArray(DepthKitDriver.projID, dkd.Proj);
-			integrateKernel.Set(depthTexID, dkd.DepthTex);
-			integrateKernel.Set(normTexID, dkd.NormTex);
-			integrateKernel.Set(dilatedDepthID, dilatedDepth);
+			integrateKernel.Bind(depthTexID, dkd.DepthTex);
+			integrateKernel.Bind(normTexID, dkd.NormTex);
+			integrateKernel.Bind(dilatedDepthID, dilatedDepth);
 			integrateKernel.DispatchFit(frustumVolume.count, 1);
 		}
 
@@ -370,8 +370,8 @@ namespace Anaglyph.XRTemplate
 			currentRaymarchBatch = null;
 
 			compute.SetInt(numRaymarchRequestsID, count);
-			raymarchKernel.Set(raymarchRequestsID, requestsBuffer);
-			raymarchKernel.Set(raymarchResultsID, resultBuffer);
+			raymarchKernel.Bind(raymarchRequestsID, requestsBuffer);
+			raymarchKernel.Bind(raymarchResultsID, resultBuffer);
 
 			raymarchKernel.DispatchFit(count, 1, 1);
 

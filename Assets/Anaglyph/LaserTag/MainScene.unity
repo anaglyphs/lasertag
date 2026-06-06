@@ -487,6 +487,93 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: cacd1c251a05a4e19877c123e13d6006, type: 3}
+--- !u!1 &1822743959
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1822743960}
+  - component: {fileID: 1822743962}
+  - component: {fileID: 1822743961}
+  - component: {fileID: 1822743963}
+  m_Layer: 0
+  m_Name: Environment Scanning v2
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1822743960
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1822743959}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1822743961
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1822743959}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5a4cc29377bed40f4950872152c06c5f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.DepthKit::Anaglyph.XRTemplate.EnvMapper2
+  compute: {fileID: 7200000, guid: 41b220d3a9ac640c1a2cad5c44bc30f2, type: 3}
+  updateFrequency: 15
+  voxSize: 0.1
+  distanceTruncationBand: 0.2
+  voxPerChunkDim: 32
+  chunkAreaDims:
+    x: 64
+    y: 16
+    z: 64
+  chunkDataDims:
+    x: 8
+    y: 8
+    z: 8
+  maxNumVisibleChunks: 256
+--- !u!114 &1822743962
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1822743959}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4da2cc6f08414be49a8dd29eafdfeaa2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.DepthKit::Anaglyph.XRTemplate.DepthKit.DepthKitDriver
+  depthNormalCompute: {fileID: 7200000, guid: 094ecfc2d2e1d984c9955562fea46b9d, type: 3}
+  simDepthConversionShader: {fileID: 4800000, guid: 82205287c50174936b6864df5b631e7f, type: 3}
+--- !u!114 &1822743963
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1822743959}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dcb83a07e598b4f2a9c95ac5e2de414d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EnvScanning2::ChunkManager2
+  chunkPrefab: {fileID: 8545573707260339346, guid: de0df2db1268449c5be416e37e231c38, type: 3}
 --- !u!1001 &3916737362139618993
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -593,6 +680,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Environment Scanning
       objectReference: {fileID: 0}
+    - target: {fileID: 4094113051925314695, guid: e21c2fffdbb3b4277a3cd58690cdeb16, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 7876979465029721767, guid: e21c2fffdbb3b4277a3cd58690cdeb16, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -650,3 +741,4 @@ SceneRoots:
   - {fileID: 8804724609714969042}
   - {fileID: 1789293822}
   - {fileID: 1684159566}
+  - {fileID: 1822743960}

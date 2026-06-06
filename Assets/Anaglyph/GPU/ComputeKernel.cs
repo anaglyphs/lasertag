@@ -24,22 +24,22 @@ namespace Anaglyph
 		{
 		}
 
-		public void Set(int id, Texture texture)
+		public void Bind(int id, Texture texture)
 		{
 			shader.SetTexture(index, id, texture);
 		}
 
-		public void Set(int id, ComputeBuffer buffer)
+		public void Bind(int id, ComputeBuffer buffer)
 		{
 			shader.SetBuffer(index, id, buffer);
 		}
 
-		public void Set(string id, Texture texture)
+		public void Bind(string id, Texture texture)
 		{
 			shader.SetTexture(index, id, texture);
 		}
 
-		public void Set(string id, ComputeBuffer buffer)
+		public void Bind(string id, ComputeBuffer buffer)
 		{
 			shader.SetBuffer(index, id, buffer);
 		}
@@ -71,6 +71,11 @@ namespace Anaglyph
 		public void DispatchIndirect(ComputeBuffer groupSizeArgBuffer)
 		{
 			shader.DispatchIndirect(index, groupSizeArgBuffer);
+		}
+
+		public static void Bind(int id, Texture tex, ComputeKernel[] kernels)
+		{
+			foreach (ComputeKernel kernel in kernels) kernel.Bind(id, tex);
 		}
 	}
 }

@@ -1,4 +1,4 @@
-Shader "Custom/DebugCamTex"
+Shader "Custom/CamDebug"
 {
     SubShader
     {

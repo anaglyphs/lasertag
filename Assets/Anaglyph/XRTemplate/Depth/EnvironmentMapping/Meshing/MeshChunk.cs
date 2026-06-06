@@ -1,5 +1,4 @@
 using System;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Anaglyph.XRTemplate;
@@ -151,6 +150,9 @@ namespace Anaglyph.DepthKit.Meshing
 
 				onMeshPopulated.Invoke(mesh);
 				mesh.MarkModified();
+			}
+			catch (OperationCanceledException)
+			{
 			}
 			finally
 			{
