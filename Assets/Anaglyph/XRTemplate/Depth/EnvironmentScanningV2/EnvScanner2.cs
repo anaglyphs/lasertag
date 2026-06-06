@@ -18,9 +18,13 @@ namespace Anaglyph.XRTemplate
 		[SerializeField] private float updateFrequency = 15.0f;
 
 		[SerializeField] private float voxSize = 0.1f;
+		private float voxSizeHalf;
 		[SerializeField] private float distanceTruncationBand = 0.2f;
 		[SerializeField] private int voxPerChunkDim = 32;
+		private Vector3 chunkSize;
+		private Vector3 chunkSizeHalf;
 		[SerializeField] private int3 chunkAreaDims = new(64, 16, 64);
+		private int maxNumChunks;
 		[SerializeField] private int3 chunkDataDims = new(8, 8, 8);
 		[SerializeField] private int maxNumVisibleChunks = 256;
 
@@ -28,8 +32,9 @@ namespace Anaglyph.XRTemplate
 		public float DistanceTruncationBand => distanceTruncationBand;
 		public int VoxPerChunkDim => voxPerChunkDim;
 		public int3 ChunkAreaDims => chunkAreaDims;
-		public Vector3 ChunkSize { get; private set; }
-		public Vector3 ChunkSizeHalf { get; private set; }
+		public int MaxNumChunks => maxNumChunks;
+		public Vector3 ChunkSize => chunkSize;
+		public Vector3 ChunkSizeHalf => chunkSizeHalf;
 
 		private ComputeBuffer reservedChunkCounter;
 		private ComputeBuffer chunkTable;
@@ -51,15 +56,29 @@ namespace Anaglyph.XRTemplate
 
 		public event Action Updated = delegate { };
 
-		public struct VisibleChunksResult
+		public struct VisibleChunksReadbackResult
 		{
 			public int count { get; private set; }
 			public NativeArray<int> visibleChunks { get; private set; }
+			public bool valid { get; private set; }
 
-			public VisibleChunksResult(int count, NativeArray<int> visibleChunks)
+			public VisibleChunksReadbackResult(int count, NativeArray<int> visibleChunks)
 			{
 				this.count = count;
 				this.visibleChunks = visibleChunks;
+				valid = true;
+			}
+		}
+
+		public struct ChunkDataReadbackResult
+		{
+			public NativeArray<sbyte> data { get; private set; }
+			public bool valid { get; private set; }
+
+			public ChunkDataReadbackResult(NativeArray<sbyte> data)
+			{
+				this.data = data;
+				valid = true;
 			}
 		}
 
@@ -71,16 +90,22 @@ namespace Anaglyph.XRTemplate
 
 		private void Setup()
 		{
+			// helpful values
+			voxSizeHalf = voxSize * 0.5f;
+
 			float csd = voxSize * voxPerChunkDim;
-			ChunkSize = new Vector3(csd, csd, csd);
-			ChunkSizeHalf = ChunkSize / 2f;
+			chunkSize = new float3(csd, csd, csd);
+			chunkSizeHalf = ChunkSize / 2f;
+
+			int3 cad = chunkAreaDims;
+			maxNumChunks = cad.x * cad.y * cad.z;
 
 			// buffers
 			reservedChunkCounter = new ComputeBuffer(1, sizeof(int));
 			visibleChunks = new ComputeBuffer(maxNumVisibleChunks, sizeof(int), ComputeBufferType.Append);
 			compute.SetInt(nameof(maxNumVisibleChunks), maxNumVisibleChunks);
 
-			int chunkTableLength = chunkAreaDims.x * chunkAreaDims.y * chunkAreaDims.z;
+			int chunkTableLength = cad.x * cad.y * cad.z;
 			chunkTable = new ComputeBuffer(chunkTableLength, sizeof(int));
 
 			RenderTextureDescriptor dataDesc = new()
@@ -98,14 +123,15 @@ namespace Anaglyph.XRTemplate
 
 			// uniform values
 			compute.SetFloat(nameof(voxSize), voxSize);
-			compute.SetFloat("voxSizeHalf", voxSize * 0.5f);
+			compute.SetFloat(nameof(voxSizeHalf), voxSizeHalf);
+			compute.SetVector(nameof(chunkSize), (Vector3)chunkSize);
+			compute.SetVector(nameof(chunkSizeHalf), (Vector3)chunkSizeHalf);
 			compute.SetFloat(nameof(distanceTruncationBand), distanceTruncationBand);
 			compute.SetInt(nameof(voxPerChunkDim), voxPerChunkDim);
 			compute.SetInts(nameof(chunkAreaDims), chunkAreaDims.x, chunkAreaDims.y, chunkAreaDims.z);
 			compute.SetInt(nameof(chunkTableLength), chunkTableLength);
 			compute.SetInts(nameof(chunkDataDims), chunkDataDims.x, chunkDataDims.y, chunkDataDims.z);
 
-			int maxNumChunks = chunkDataDims.x * chunkDataDims.y * chunkDataDims.z;
 			compute.SetInt(nameof(maxNumChunks), maxNumChunks);
 
 			// mark kernel
@@ -197,7 +223,7 @@ namespace Anaglyph.XRTemplate
 		private static readonly int readbackBufferID = Shader.PropertyToID("readbackBuffer");
 		private static readonly int readbackChunkIndexID = Shader.PropertyToID("readbackChunkIndex");
 
-		public async Awaitable<VisibleChunksResult> ReadbackVisibleChunks()
+		public async Awaitable<VisibleChunksReadbackResult> ReadbackVisibleChunks()
 		{
 			Awaitable<AsyncGPUReadbackRequest> dataReqWait = AsyncGPUReadback.RequestAsync(visibleChunks);
 			Awaitable<AsyncGPUReadbackRequest> countReqWait = AsyncGPUReadback.RequestAsync(integrateDispatchDims);
@@ -206,18 +232,27 @@ namespace Anaglyph.XRTemplate
 			AsyncGPUReadbackRequest countReq = await countReqWait;
 
 			if (dataReq.hasError || countReq.hasError)
-				throw new Exception("Visible chunks readback failed");
+			{
+				Debug.LogWarning("[EnvScanner2] Visible chunks readback failed!");
+				return new VisibleChunksReadbackResult();
+			}
 
 			int count = countReq.GetData<int>()[0];
 			count = math.min(count, maxNumVisibleChunks);
 
 			NativeArray<int> visibleChunkData = dataReq.GetData<int>();
 
-			return new VisibleChunksResult(count, visibleChunkData);
+			return new VisibleChunksReadbackResult(count, visibleChunkData);
 		}
 
-		public async Awaitable<AsyncGPUReadbackRequest> ReadbackChunk(int chunkIndex)
+		public async Awaitable<ChunkDataReadbackResult> ReadbackChunk(int chunkIndex)
 		{
+			if (chunkIndex > maxNumChunks)
+			{
+				Debug.LogWarning("[EnvScanner2] Readback chunk index out of range!");
+				return new ChunkDataReadbackResult();
+			}
+
 			int d = voxPerChunkDim;
 			// uint = 4 sbytes packed
 			ComputeBuffer readbackBuffer = new(d / 4 * d * d, sizeof(uint));
@@ -231,9 +266,12 @@ namespace Anaglyph.XRTemplate
 			AsyncGPUReadbackRequest req = await AsyncGPUReadback.RequestAsync(readbackBuffer);
 
 			if (req.hasError)
-				throw new Exception("Chunk readback failed!");
+			{
+				Debug.LogWarning("[EnvScanner2] Readback chunk failed!");
+				return new ChunkDataReadbackResult();
+			}
 
-			return req;
+			return new ChunkDataReadbackResult(req.GetData<sbyte>());
 		}
 
 		public int3 ChunkIndexToChunkCoord(int chunkIndex)

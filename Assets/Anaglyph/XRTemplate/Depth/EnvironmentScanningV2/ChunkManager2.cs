@@ -65,38 +65,45 @@ public class ChunkManager2 : MonoBehaviour
 
 	private async void OnScanUpdate()
 	{
-		if (busy) return;
-		busy = true;
-
-		EnvScanner2 scanner = EnvScanner2.Instance;
-
-		EnvScanner2.VisibleChunksResult visResult = await scanner.ReadbackVisibleChunks();
-
-		for (int i = 0; i < visResult.count; i++)
+		try
 		{
-			int chunkIndex = visResult.visibleChunks[i];
+			if (busy) return;
+			busy = true;
 
-			bool gotChunk = chunks.TryGetValue(chunkIndex, out Chunk2 chunk);
+			EnvScanner2 scanner = EnvScanner2.Instance;
 
-			if (!gotChunk)
+			EnvScanner2.VisibleChunksReadbackResult visResult = await scanner.ReadbackVisibleChunks();
+
+			if (!visResult.valid) return;
+
+			for (int i = 0; i < visResult.count; i++)
 			{
-				int3 chunkCoord = scanner.ChunkIndexToChunkCoord(chunkIndex);
-				float3 newChunkPos = scanner.ChunkCoordToCornerWorldPos(chunkCoord);
+				int chunkIndex = visResult.visibleChunks[i];
 
-				GameObject g = Instantiate(chunkPrefab, newChunkPos, Quaternion.identity);
-				chunk = g.GetComponent<Chunk2>();
-				chunk.chunkIndex = chunkIndex;
-				chunks.Add(chunkIndex, chunk);
-			}
+				bool gotChunk = chunks.TryGetValue(chunkIndex, out Chunk2 chunk);
 
-			if (!meshQueue.Contains(chunk))
-			{
-				meshQueue.Enqueue(chunk);
-				mesherSemaphore.Release();
+				if (!gotChunk)
+				{
+					int3 chunkCoord = scanner.ChunkIndexToChunkCoord(chunkIndex);
+					float3 newChunkPos = scanner.ChunkCoordToCornerWorldPos(chunkCoord);
+
+					GameObject g = Instantiate(chunkPrefab, newChunkPos, Quaternion.identity);
+					chunk = g.GetComponent<Chunk2>();
+					chunk.chunkIndex = chunkIndex;
+					chunks.Add(chunkIndex, chunk);
+				}
+
+				if (!meshQueue.Contains(chunk))
+				{
+					meshQueue.Enqueue(chunk);
+					mesherSemaphore.Release();
+				}
 			}
 		}
-
-		busy = false;
+		finally
+		{
+			busy = false;
+		}
 	}
 
 	private async Task RunMesherWorker(CancellationToken ctkn)
@@ -119,12 +126,14 @@ public class ChunkManager2 : MonoBehaviour
 				if (!meshQueue.TryDequeue(out Chunk2 chunk))
 					continue;
 
-				AsyncGPUReadbackRequest req = await scanner.ReadbackChunk(chunk.chunkIndex);
+				EnvScanner2.ChunkDataReadbackResult req = await scanner.ReadbackChunk(chunk.chunkIndex);
+
+				if (!req.valid) continue;
 
 				ctkn.ThrowIfCancellationRequested();
 
-				NativeArray<uint> reqData = req.GetData<uint>();
-				reqData.Reinterpret<NetMesher2.Voxel>(sizeof(uint)).CopyTo(voxelData);
+				// NativeArray<uint> reqData = req.GetData<uint>();
+				req.data.Reinterpret<NetMesher2.Voxel>(sizeof(sbyte)).CopyTo(voxelData);
 
 				bool isPopulated = await mesher.CreateMesh(voxelData, chunkSize, 0.1f, chunk.mesh, ctkn);
 
