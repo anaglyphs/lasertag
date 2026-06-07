@@ -55,7 +55,7 @@ MonoBehaviour:
     PlayerPrefab: {fileID: 0}
     Prefabs:
       NetworkPrefabsLists:
-      - {fileID: 11400000, guid: 6dc0f37b7e0f53147a7c9c9adc804bf0, type: 2}
+      - {fileID: 11400000, guid: 7ffb252da57c546d8abe7f78f9068455, type: 2}
     TickRate: 72
     ClientConnectionBufferTimeout: 10
     ConnectionApproval: 0
@@ -157,6 +157,8 @@ MonoBehaviour:
     PrewarmCount: 20
   - Prefab: {fileID: 6335627118381249066, guid: adc581b48dccfb24ebccf6aaa9b8df75, type: 3}
     PrewarmCount: 50
+  - Prefab: {fileID: 2461548798482640612, guid: cdbc5f88494804658a46486164414247, type: 3}
+    PrewarmCount: 20
 --- !u!114 &8500694417332680183
 MonoBehaviour:
   m_ObjectHideFlags: 0

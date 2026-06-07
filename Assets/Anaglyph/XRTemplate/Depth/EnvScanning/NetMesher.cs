@@ -10,7 +10,7 @@ using Unity.Mathematics.Geometry;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Anaglyph.DepthKit
+namespace Anaglyph.DepthKit.EnvScanning
 {
 	public class NetMesher : IDisposable
 	{
@@ -22,14 +22,15 @@ namespace Anaglyph.DepthKit
 		private NativeReference<MinMaxAABB> boundsRef;
 
 		private bool isBusy = false;
-		public bool IsIsBusy => isBusy;
+		public bool IsBusy => isBusy;
 
 		[StructLayout(LayoutKind.Sequential)]
 		public readonly struct Voxel
 		{
 			public readonly sbyte distNormRaw;
-			public readonly byte count;
-			public const int stride = 2;
+
+			// public readonly byte count;
+			public const int stride = 1;
 
 			public float CalcDistNorm()
 			{
@@ -301,7 +302,10 @@ namespace Anaglyph.DepthKit
 			vertCoords.Clear();
 			tris.Clear();
 
-			boundsRef.Value = new MinMaxAABB();
+
+			float pi = float.PositiveInfinity;
+			float ni = float.NegativeInfinity;
+			boundsRef.Value = new MinMaxAABB(new float3(pi, pi, pi), new float3(ni, ni, ni));
 
 			bool hasTriangles = false;
 

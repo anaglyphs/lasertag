@@ -1,4 +1,3 @@
-using Anaglyph.XRTemplate;
 using System;
 using System.Threading;
 using Unity.Netcode;
@@ -26,7 +25,6 @@ namespace Anaglyph.Lasertag
 		private Ray fireRay;
 		private bool isAlive;
 		private float spawnedTime;
-		private float envHitDist;
 		private float travelDist;
 
 		public event Action OnFire = delegate { };
@@ -47,7 +45,6 @@ namespace Anaglyph.Lasertag
 
 		public override void OnNetworkSpawn()
 		{
-			envHitDist = MaxTravelDist;
 			isAlive = true;
 			spawnedTime = Time.time;
 
@@ -60,39 +57,6 @@ namespace Anaglyph.Lasertag
 			AudioPool.Play(fireSFX, transform.position);
 
 			fireRay = new Ray(transform.position, transform.forward);
-
-			EnvRaymarch();
-		}
-
-		private async void EnvRaymarch()
-		{
-			if (!MainPlayer.Instance)
-				return;
-
-			EnvironmentMapper.RaymarchResult result =
-				await EnvironmentMapper.Instance.RaymarchAsync(fireRay, MaxTravelDist);
-			if (NetworkObject.IsSpawned && result.didHit)
-			{
-				if (IsOwner)
-				{
-					envHitDist = result.distance;
-				}
-				else
-				{
-					Vector3 headPos = MainPlayer.Instance.HeadTransform.position;
-					float hitDistFromHead = Vector3.Distance(headPos, result.point);
-
-					if (hitDistFromHead < EnvironmentMapper.Instance.MaxUpdateDist)
-						EnvironmentRaycastRpc(result.distance);
-				}
-			}
-		}
-
-		[Rpc(SendTo.Owner)]
-		private void EnvironmentRaycastRpc(float dist)
-		{
-			if (dist > EnvironmentMapper.Instance.MaxUpdateDist)
-				envHitDist = Mathf.Min(envHitDist, dist);
 		}
 
 		private void OnSpawnPosChange(Pose p, Pose v)
@@ -117,15 +81,10 @@ namespace Anaglyph.Lasertag
 
 			if (IsOwner)
 			{
-				bool didHitEnv = travelDist > envHitDist;
-
-				if (didHitEnv)
-					transform.position = fireRay.GetPoint(envHitDist);
-
-				bool didHitPhys = Physics.Linecast(prevPos, transform.position, out RaycastHit physHit,
+				bool didHit = Physics.Linecast(prevPos, transform.position, out RaycastHit physHit,
 					Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
 
-				if (didHitPhys)
+				if (didHit)
 				{
 					HitRpc(physHit.point, physHit.normal);
 
@@ -147,11 +106,9 @@ namespace Anaglyph.Lasertag
 					// 	av.DamageRpc(damage, OwnerClientId);
 					// }
 				}
-				else if (didHitEnv)
-				{
-					Vector3 envHitPoint = fireRay.GetPoint(envHitDist);
-					HitRpc(envHitPoint, -transform.forward);
-				}
+
+				if (travelDist > MaxTravelDist)
+					NetworkObject.Despawn(true);
 			}
 		}
 

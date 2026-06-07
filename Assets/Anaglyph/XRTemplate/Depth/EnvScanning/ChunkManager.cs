@@ -8,13 +8,15 @@ using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
 
-namespace Anaglyph.DepthKit.EnvScanningV2
+namespace Anaglyph.DepthKit.EnvScanning
 {
 	/// <summary>
-	/// Instantiates and meshes visible chunks from <see cref="EnvScanner2"/>
+	/// Instantiates and meshes visible chunks from <see cref="EnvScanner"/>
 	/// </summary>
-	public class ChunkManager2 : MonoBehaviour
+	public class ChunkManager : MonoBehaviour
 	{
+		public static ChunkManager Instance { get; private set; }
+
 		[SerializeField] private GameObject chunkPrefab;
 		[SerializeField] private int numMeshWorkers = 2;
 		[SerializeField] private int numDecimateWorkers = 1;
@@ -38,15 +40,20 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 			VertexLinkUvDistance = 0.001f
 		};
 
-		private Dictionary<int, Chunk2> chunks = new();
+		private Dictionary<int, Chunk> chunks = new();
 
-		private readonly ConcurrentQueue<Chunk2> meshQueue = new();
+		private readonly ConcurrentQueue<Chunk> meshQueue = new();
 		private readonly SemaphoreSlim mesherSemaphore = new(0);
-		private readonly ConcurrentQueue<Chunk2> decimateQueue = new();
+		private readonly ConcurrentQueue<Chunk> decimateQueue = new();
 		private readonly SemaphoreSlim decimateSemaphore = new(0);
 		private CancellationTokenSource workerCancelSrc;
 
 		private bool busy = false;
+
+		private void Awake()
+		{
+			Instance = this;
+		}
 
 		private void Start()
 		{
@@ -60,7 +67,7 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 
 		private void Begin()
 		{
-			EnvScanner2.Instance.Updated += OnScanUpdate;
+			EnvScanner.Instance.Updated += OnScanUpdate;
 			StartWorkers();
 		}
 
@@ -68,8 +75,8 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 		{
 			workerCancelSrc?.Cancel();
 
-			if (EnvScanner2.Instance)
-				EnvScanner2.Instance.Updated -= OnScanUpdate;
+			if (EnvScanner.Instance)
+				EnvScanner.Instance.Updated -= OnScanUpdate;
 		}
 
 		private void StartWorkers()
@@ -91,8 +98,8 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 
 			try
 			{
-				EnvScanner2 scanner = EnvScanner2.Instance;
-				EnvScanner2.VisibleChunksReadbackResult visResult = await scanner.ReadbackVisibleChunks();
+				EnvScanner scanner = EnvScanner.Instance;
+				EnvScanner.VisibleChunksReadbackResult visResult = await scanner.ReadbackVisibleChunks();
 
 				if (!visResult.valid) return;
 
@@ -100,7 +107,7 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 				{
 					int chunkIndex = visResult.visibleChunks[i];
 
-					bool gotChunk = chunks.TryGetValue(chunkIndex, out Chunk2 chunk);
+					bool gotChunk = chunks.TryGetValue(chunkIndex, out Chunk chunk);
 
 					if (!gotChunk)
 					{
@@ -109,7 +116,8 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 
 						GameObject g = Instantiate(chunkPrefab, newChunkPos, Quaternion.identity, transform);
 						g.name = "Chunk " + chunkIndex;
-						chunk = g.GetComponent<Chunk2>();
+						chunk = g.GetComponent<Chunk>();
+						chunk.meshCollider.enabled = false;
 						chunk.chunkIndex = chunkIndex;
 						chunks.Add(chunkIndex, chunk);
 					}
@@ -130,14 +138,14 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 
 		private async Task RunMesherWorker(CancellationToken ctkn)
 		{
-			EnvScanner2 scanner = EnvScanner2.Instance;
+			EnvScanner scanner = EnvScanner.Instance;
 
 			int vpcd = scanner.VoxPerChunkDim;
 			int vpc = vpcd * vpcd * vpcd;
 			int3 chunkSize = new(vpcd, vpcd, vpcd);
 
-			NetMesher2 mesher = new();
-			NativeArray<NetMesher2.Voxel> voxelData = new(vpc, Allocator.Persistent);
+			NetMesher mesher = new();
+			NativeArray<NetMesher.Voxel> voxelData = new(vpc, Allocator.Persistent);
 
 			ComputeBuffer readbackBuffer = scanner.CreateChunkReadbackBuffer();
 
@@ -147,17 +155,17 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 				{
 					await mesherSemaphore.WaitAsync(ctkn);
 
-					if (!meshQueue.TryDequeue(out Chunk2 chunk))
+					if (!meshQueue.TryDequeue(out Chunk chunk))
 						continue;
 
-					EnvScanner2.ChunkDataReadbackResult req =
+					EnvScanner.ChunkDataReadbackResult req =
 						await scanner.ReadbackChunk(chunk.chunkIndex, readbackBuffer);
 
 					if (!req.valid) continue;
 
 					ctkn.ThrowIfCancellationRequested();
 
-					req.data.Reinterpret<NetMesher2.Voxel>(sizeof(sbyte)).CopyTo(voxelData);
+					req.data.Reinterpret<NetMesher.Voxel>(sizeof(sbyte)).CopyTo(voxelData);
 
 					bool isPopulated = await mesher.CreateMesh(voxelData, chunkSize, scanner.VoxSize, chunk.mesh, ctkn);
 
@@ -169,6 +177,7 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 					if (isPopulated && chunk.undecimated)
 					{
 						chunk.undecimated = true;
+						chunk.meshCollider.enabled = true;
 						decimateQueue.Enqueue(chunk);
 						decimateSemaphore.Release();
 					}
@@ -192,8 +201,9 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 				{
 					await decimateSemaphore.WaitAsync(ctkn);
 
-					if (!decimateQueue.TryDequeue(out Chunk2 c))
-						continue;
+					if (!decimateQueue.TryDequeue(out Chunk c)) continue;
+
+					if (c.dirty) continue;
 
 					await MeshSimplifier.SimplifyAsync(c.mesh, decimationTarget, decimationOptions, c.mesh, ctkn);
 

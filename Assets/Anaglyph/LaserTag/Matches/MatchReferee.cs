@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Anaglyph.DepthKit.EnvScanning;
 using Anaglyph.Lasertag.Networking;
 using Anaglyph.XRTemplate;
 using Unity.Netcode;
@@ -140,7 +141,7 @@ namespace Anaglyph.Lasertag
 		public override void OnNetworkSpawn()
 		{
 			// clear env mapper
-			EnvironmentMapper.Instance.Clear();
+			EnvScanner.Instance.Clear();
 		}
 
 		public override void OnNetworkDespawn()

@@ -5,10 +5,10 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 
-namespace Anaglyph.DepthKit.EnvScanningV2
+namespace Anaglyph.DepthKit.EnvScanning
 {
 	/// <summary>
-	/// Debug window for viewing <see cref="EnvScanner2.ChunkData"/>.
+	/// Debug window for viewing <see cref="EnvScanner.ChunkData"/>.
 	///
 	/// Both modes drive Unity's stock object preview via Editor.CreateEditor:
 	///  - Single chunk: one chunk's 32^3 TSDF copied into a Texture3D (via the existing ReadbackChunk
@@ -111,7 +111,7 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 
 		private void OnGUI()
 		{
-			EnvScanner2 scanner = Application.isPlaying ? EnvScanner2.Instance : null;
+			EnvScanner scanner = Application.isPlaying ? EnvScanner.Instance : null;
 
 			using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
 			{
@@ -158,10 +158,10 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 			previewEditor.OnInteractivePreviewGUI(r, GUIStyle.none);
 		}
 
-		private void DrawChunkControls(EnvScanner2 scanner)
+		private void DrawChunkControls(EnvScanner scanner)
 		{
 			if (followSelection && Selection.activeGameObject != null &&
-			    Selection.activeGameObject.TryGetComponent(out Chunk2 selected))
+			    Selection.activeGameObject.TryGetComponent(out Chunk selected))
 				chunkIndex = selected.chunkIndex;
 
 			using (new EditorGUILayout.HorizontalScope())
@@ -180,7 +180,7 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 			EditorGUILayout.LabelField("Chunk coord", coord.ToString());
 		}
 
-		private void DrawAtlasInfo(EnvScanner2 scanner)
+		private void DrawAtlasInfo(EnvScanner scanner)
 		{
 			RenderTexture cd = scanner.ChunkData;
 			EditorGUILayout.LabelField("Atlas",
@@ -192,7 +192,7 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 
 		// Lazily (re)creates the stock object preview for the active mode's texture. Keyed on the
 		// texture instance so swapping modes or rebuilding a texture gets a fresh, correctly-targeted editor.
-		private Editor GetActiveEditor(EnvScanner2 scanner)
+		private Editor GetActiveEditor(EnvScanner scanner)
 		{
 			if (mode == ViewMode.SingleChunk)
 				return GetEditor(chunkTex, ref chunkEditor);
@@ -219,7 +219,7 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 			// atlas mode previews the live RenderTexture directly, so only the chunk copy needs refreshing
 			if (mode != ViewMode.SingleChunk) return;
 
-			EnvScanner2 scanner = EnvScanner2.Instance;
+			EnvScanner scanner = EnvScanner.Instance;
 			if (scanner == null || scanner.ChunkData == null) return;
 
 			refreshing = true;
@@ -238,14 +238,14 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 			}
 		}
 
-		private async Task RefreshChunk(EnvScanner2 scanner)
+		private async Task RefreshChunk(EnvScanner scanner)
 		{
 			int vpcd = scanner.VoxPerChunkDim;
 			EnsureTex(ref chunkTex, vpcd, vpcd, vpcd, scanner.ChunkData.graphicsFormat);
 			chunkReadbackBuffer ??= scanner.CreateChunkReadbackBuffer();
 
 			// ReadbackChunk packs voxels as x + y*dim + z*dim^2, exactly Texture3D's expected order
-			EnvScanner2.ChunkDataReadbackResult res = await scanner.ReadbackChunk(chunkIndex, chunkReadbackBuffer);
+			EnvScanner.ChunkDataReadbackResult res = await scanner.ReadbackChunk(chunkIndex, chunkReadbackBuffer);
 			if (this == null || chunkTex == null) return; // window closed mid-readback
 			if (!res.valid)
 			{

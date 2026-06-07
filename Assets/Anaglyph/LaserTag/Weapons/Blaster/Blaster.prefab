@@ -9,6 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4399103225990605551}
+  - component: {fileID: 606668357417639695}
   m_Layer: 0
   m_Name: Blaster
   m_TagString: Untagged
@@ -32,6 +33,23 @@ Transform:
   - {fileID: 688607022222293911}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &606668357417639695
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3351604493564354878}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1011d3be1ca765c4caec76648e5f93ac, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  boltPrefab: {fileID: 1486168899473020810, guid: 24fe9491462961f4091217e62ff6ff84, type: 3}
+  emitFromTransform: {fileID: 22983884587725735}
+  onFire:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1 &4887429238262636947
 GameObject:
   m_ObjectHideFlags: 0
@@ -131,7 +149,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 688607022222293911}
-  - component: {fileID: 3078237939032684287}
   m_Layer: 0
   m_Name: body
   m_TagString: Untagged
@@ -157,23 +174,6 @@ Transform:
   - {fileID: 5089861978859824184}
   m_Father: {fileID: 4399103225990605551}
   m_LocalEulerAnglesHint: {x: 80, y: 0, z: 0}
---- !u!114 &3078237939032684287
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5038214368092102238}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1011d3be1ca765c4caec76648e5f93ac, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  boltPrefab: {fileID: 1486168899473020810, guid: 24fe9491462961f4091217e62ff6ff84, type: 3}
-  emitFromTransform: {fileID: 22983884587725735}
-  onFire:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!1 &5346163543719484584
 GameObject:
   m_ObjectHideFlags: 0

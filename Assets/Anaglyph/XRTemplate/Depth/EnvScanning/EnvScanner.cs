@@ -8,11 +8,11 @@ using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Serialization;
 
-namespace Anaglyph.DepthKit.EnvScanningV2
+namespace Anaglyph.DepthKit.EnvScanning
 {
-	public class EnvScanner2 : MonoBehaviour
+	public class EnvScanner : MonoBehaviour
 	{
-		public static EnvScanner2 Instance { get; private set; }
+		public static EnvScanner Instance { get; private set; }
 
 		[SerializeField] private ComputeShader compute = null;
 

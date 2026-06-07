@@ -45,18 +45,18 @@ namespace Anaglyph.Lasertag
 			}
 
 			Ray ray = new(transform.position, transform.forward);
-			EnvironmentMapper.RaymarchResult result = await EnvironmentMapper.Instance.RaymarchAsync(ray, 50);
+			bool didHit = Physics.Raycast(ray, out RaycastHit hitInfo, Mathf.Infinity);
 
 			if (!enabled)
 				return;
 
-			previewObject.SetActive(result.didHit);
+			previewObject.SetActive(didHit);
 
-			if (result.didHit)
+			if (didHit)
 			{
-				lineRenderer.SetPosition(1, Vector3.forward * result.distance);
+				lineRenderer.SetPosition(1, Vector3.forward * hitInfo.distance);
 
-				previewObject.transform.position = result.point;
+				previewObject.transform.position = hitInfo.point;
 				previewObject.transform.eulerAngles = new Vector3(0, angle, 0);
 			}
 			else

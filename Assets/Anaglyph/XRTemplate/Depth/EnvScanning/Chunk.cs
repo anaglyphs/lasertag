@@ -1,19 +1,19 @@
 using UnityEngine;
 
-namespace Anaglyph.DepthKit.EnvScanningV2
+namespace Anaglyph.DepthKit.EnvScanning
 {
 	/// <summary>
 	/// GameObject for environment scan mesh chunk
 	/// </summary>
-	public class Chunk2 : MonoBehaviour
+	public class Chunk : MonoBehaviour
 	{
 		public int chunkIndex;
 		public Mesh mesh;
 		public bool dirty;
 		public bool undecimated;
 
-		private MeshFilter meshFilter;
-		private MeshCollider meshCollider;
+		public MeshFilter meshFilter;
+		public MeshCollider meshCollider;
 
 		private void Awake()
 		{
@@ -37,7 +37,7 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 		{
 			if (dirty)
 			{
-				EnvScanner2 s = EnvScanner2.Instance;
+				EnvScanner s = EnvScanner.Instance;
 				Gizmos.color = Color.yellow;
 				DrawChunkFrame();
 			}
@@ -53,7 +53,7 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 
 		private void DrawChunkFrame()
 		{
-			EnvScanner2 s = EnvScanner2.Instance;
+			EnvScanner s = EnvScanner.Instance;
 			if (!s) return;
 			Gizmos.DrawWireCube(transform.position + s.ChunkSizeHalf, s.ChunkSize);
 		}
