@@ -6,19 +6,19 @@
 float voxSize; // voxel edge length (meters)
 float voxSizeHalf;
 float distanceTruncationBand; // greatest distance magnitude a voxel can hold
+float chunkWorldSizeDim;
 
 // Chunks have a one voxel APRON that overlaps with all surrounding chunks
 // so while a chunk may have 32 voxels along its edge, it really represents an area of 30 voxels (3 meters)
-// since two voxels on each edge are apron voxels
+// since two voxels on each row are apron voxels
 // this is for sampling interpolation for raymarching and surface-net meshing
-// these aren't static const because CPU needs to know these
-// for indirectly dispatching integration
 uint voxPerChunkDim; // voxels per chunk edge INCLUDING APRON
 uint groupsPerChunkDim; // groups per chunk edge
 
 static const float minDist = 0.8; // min integration distance (meters)
 static const float maxDist = 6; // max integration distance (meters)
 
+// crop out part of the depth texture to prevent artifacts when user turns head quickly
 static const float depthTexCropMin = 0.2;
 static const float depthTexCropMax = 0.8;
 
@@ -36,12 +36,13 @@ static const float depthTexCropMax = 0.8;
 // a chunk table entry is a packed int representing:
 #define     INDEX_MASK 0x8FFFFFFF // first 28 bits: indirect chunk data index AND negative bit to indicate invalid
 #define VISIBILITY_BIT 0x10000000 // visibility bit, set atomically
-#define   RESERVED_BIT 0x20000000 // is reserved bit 
+#define   RESERVED_BIT 0x20000000 // is reserved bit, also set atomically
 #define    INVALID_BIT 0x80000000 // aka negative bit
 
 RWStructuredBuffer<int> reservedChunkCounter; // single element buffer functioning as counter
 RWStructuredBuffer<int> chunkTable; // in concept a dense 3D grid spanning the desired max playspace
-uint3 chunkAreaDims; // num chunk entries per axis in table
+uint3 chunkTableDims; // num chunk entries per axis in table
+uint3 chunkTableDimsHalf;
 uint chunkTableLength; // num chunk entries total
 
 RWTexture3D<float> chunkData; // should be R8_SNorm
@@ -50,51 +51,47 @@ uint maxNumChunks; // maximum possible number of chunks allowed by data size
 
 AppendStructuredBuffer<int> visibleChunksAppend;
 RWStructuredBuffer<int> visibleChunks; // indexing the TABLE, not DATA
-int visibleChunksCount; // max size of the visible chunks buffer
+int maxNumVisibleChunks;
 
 int3 worldPosToChunkCoord(const float3 world)
 {
 	// quantize to chunk size.
 	// subtract two from voxPerChunkDim to account for 1-vox apron
-	const float chunkSize = (voxPerChunkDim - 2) * voxSize;
-	const int3 quantized = floor(world / chunkSize);
+	const int3 quantized = floor(world / chunkWorldSizeDim);
 
 	// center so 0,0,0 is at corner
-	const int3 tableDimHalf = chunkAreaDims / 2;
-	const int3 chunkCoord = quantized + tableDimHalf;
+	const int3 chunkCoord = quantized + chunkTableDimsHalf;
 
 	return chunkCoord;
 }
 
 float3 chunkCoordToCornerWorldPos(const int3 chunkCoord)
 {
-	const int3 tableDimHalf = chunkAreaDims / 2;
-	const int3 chunkCoordUncentered = chunkCoord - tableDimHalf;
-	// subtract one to account for 1-vox apron
+	const int3 chunkCoordUncentered = chunkCoord - chunkTableDimsHalf;
+	// subtract two to account for surrounding 1-vox apron
 	// this makes the corner voxel overlap with another chunk's 'top' corner
-	const float chunkSizeDim = (voxPerChunkDim - 1) * voxSize;
 
-	return chunkCoordUncentered * chunkSizeDim;
+	return chunkCoordUncentered * chunkWorldSizeDim - float3(voxSize, voxSize, voxSize);
 }
 
 // DOES check for valid output index
 int chunkCoordToChunkIndex(const int3 coord)
 {
-	if (any(coord < 0) || any(coord >= (int3)chunkAreaDims))
+	if (any(coord < 0) || any(coord >= (int3)chunkTableDims))
 		return (int)INVALID_INDEX;
 
 	return
 		coord.x +
-		coord.y * chunkAreaDims.x +
-		coord.z * chunkAreaDims.x * chunkAreaDims.y;
+		coord.y * chunkTableDims.x +
+		coord.z * chunkTableDims.x * chunkTableDims.y;
 }
 
 int3 chunkIndexToChunkCoord(int chunkIndex)
 {
 	int3 coord;
-	coord.x = chunkIndex % (int)chunkAreaDims.x;
-	coord.y = chunkIndex / (int)chunkAreaDims.x % (int)chunkAreaDims.y;
-	coord.z = chunkIndex / (int)(chunkAreaDims.x * chunkAreaDims.y);
+	coord.x = chunkIndex % (int)chunkTableDims.x;
+	coord.y = chunkIndex / (int)chunkTableDims.x % (int)chunkTableDims.y;
+	coord.z = chunkIndex / (int)(chunkTableDims.x * chunkTableDims.y);
 	return coord;
 }
 
@@ -194,6 +191,8 @@ static const uint integrateGroupDim = 8;
 [numthreads(integrateGroupDim, integrateGroupDim, integrateGroupDim)]
 void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 {
+	if (groupID.x >= maxNumVisibleChunks) return;
+
 	const int chunkIdx = visibleChunks[groupID.x];
 
 	// filtering one thread per chunk

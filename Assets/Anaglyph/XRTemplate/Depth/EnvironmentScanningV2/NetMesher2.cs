@@ -22,7 +22,7 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 		private NativeReference<MinMaxAABB> boundsRef;
 
 		private bool isBusy = false;
-		public bool IsIsBusy => isBusy;
+		public bool IsBusy => isBusy;
 
 		[StructLayout(LayoutKind.Sequential)]
 		public readonly struct Voxel
@@ -302,7 +302,10 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 			vertCoords.Clear();
 			tris.Clear();
 
-			boundsRef.Value = new MinMaxAABB();
+
+			float pi = float.PositiveInfinity;
+			float ni = float.NegativeInfinity;
+			boundsRef.Value = new MinMaxAABB(new float3(pi, pi, pi), new float3(ni, ni, ni));
 
 			bool hasTriangles = false;
 

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Unity.Collections;
@@ -67,13 +66,12 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 
 		private async void OnScanUpdate()
 		{
+			if (busy) return;
+			busy = true;
+
 			try
 			{
-				if (busy) return;
-				busy = true;
-
 				EnvScanner2 scanner = EnvScanner2.Instance;
-
 				EnvScanner2.VisibleChunksReadbackResult visResult = await scanner.ReadbackVisibleChunks();
 
 				if (!visResult.valid) return;
@@ -89,14 +87,16 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 						int3 chunkCoord = scanner.ChunkIndexToChunkCoord(chunkIndex);
 						float3 newChunkPos = scanner.ChunkCoordToCornerWorldPos(chunkCoord);
 
-						GameObject g = Instantiate(chunkPrefab, newChunkPos, Quaternion.identity);
+						GameObject g = Instantiate(chunkPrefab, newChunkPos, Quaternion.identity, transform);
+						g.name = "Chunk " + chunkIndex;
 						chunk = g.GetComponent<Chunk2>();
 						chunk.chunkIndex = chunkIndex;
 						chunks.Add(chunkIndex, chunk);
 					}
 
-					if (!meshQueue.Contains(chunk))
+					if (!chunk.dirty)
 					{
+						chunk.dirty = true;
 						meshQueue.Enqueue(chunk);
 						mesherSemaphore.Release();
 					}
@@ -119,6 +119,8 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 			NetMesher2 mesher = new();
 			NativeArray<NetMesher2.Voxel> voxelData = new(vpc, Allocator.Persistent);
 
+			ComputeBuffer readbackBuffer = scanner.CreateChunkReadbackBuffer();
+
 			try
 			{
 				while (!ctkn.IsCancellationRequested)
@@ -128,7 +130,8 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 					if (!meshQueue.TryDequeue(out Chunk2 chunk))
 						continue;
 
-					EnvScanner2.ChunkDataReadbackResult req = await scanner.ReadbackChunk(chunk.chunkIndex);
+					EnvScanner2.ChunkDataReadbackResult req =
+						await scanner.ReadbackChunk(chunk.chunkIndex, readbackBuffer);
 
 					if (!req.valid) continue;
 
@@ -137,7 +140,9 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 					// NativeArray<uint> reqData = req.GetData<uint>();
 					req.data.Reinterpret<NetMesher2.Voxel>(sizeof(sbyte)).CopyTo(voxelData);
 
-					bool isPopulated = await mesher.CreateMesh(voxelData, chunkSize, 0.1f, chunk.mesh, ctkn);
+					bool isPopulated = await mesher.CreateMesh(voxelData, chunkSize, scanner.VoxSize, chunk.mesh, ctkn);
+
+					chunk.dirty = false;
 
 					ctkn.ThrowIfCancellationRequested();
 
@@ -154,6 +159,7 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 			finally
 			{
 				mesher.Dispose();
+				readbackBuffer.Dispose();
 			}
 		}
 

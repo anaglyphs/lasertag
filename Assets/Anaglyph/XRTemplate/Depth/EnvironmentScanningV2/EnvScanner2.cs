@@ -6,6 +6,7 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
+using UnityEngine.Serialization;
 
 namespace Anaglyph.DepthKit.EnvScanningV2
 {
@@ -23,7 +24,15 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 		[SerializeField] private int voxPerChunkDim = 32;
 		private Vector3 chunkSize;
 		private Vector3 chunkSizeHalf;
-		[SerializeField] private int3 chunkAreaDims = new(64, 16, 64);
+		private float chunkWorldSizeDim;
+
+		[FormerlySerializedAs("chunkAreaDims")] [SerializeField]
+		private int3 chunkTableDims = new(64, 16, 64);
+
+		private int3 chunkTableDimsHalf;
+
+		private int chunkTableLength;
+
 		private int maxNumChunks;
 		[SerializeField] private int3 chunkDataDims = new(8, 8, 8);
 		[SerializeField] private int maxNumVisibleChunks = 256;
@@ -31,10 +40,13 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 		public float VoxSize => voxSize;
 		public float DistanceTruncationBand => distanceTruncationBand;
 		public int VoxPerChunkDim => voxPerChunkDim;
-		public int3 ChunkAreaDims => chunkAreaDims;
+		public int3 ChunkTableDims => chunkTableDims;
+		public int3 ChunkTableDimsHalf => chunkTableDimsHalf;
+		public int ChunkTableLength => chunkTableLength;
 		public int MaxNumChunks => maxNumChunks;
 		public Vector3 ChunkSize => chunkSize;
 		public Vector3 ChunkSizeHalf => chunkSizeHalf;
+		public float ChunkWorldSizeDim => chunkWorldSizeDim;
 
 		private ComputeBuffer reservedChunkCounter;
 		private ComputeBuffer chunkTable;
@@ -84,8 +96,8 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 
 		private void Awake()
 		{
-			Instance = this;
 			Setup();
+			Instance = this;
 		}
 
 		private void Setup()
@@ -97,15 +109,20 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 			chunkSize = new float3(csd, csd, csd);
 			chunkSizeHalf = ChunkSize / 2f;
 
-			int3 cad = chunkAreaDims;
-			maxNumChunks = cad.x * cad.y * cad.z;
+			chunkWorldSizeDim = voxSize * (voxPerChunkDim - 2);
+
+			int3 cdd = chunkDataDims;
+			maxNumChunks = cdd.x * cdd.y * cdd.z;
 
 			// buffers
 			reservedChunkCounter = new ComputeBuffer(1, sizeof(int));
 			visibleChunks = new ComputeBuffer(maxNumVisibleChunks, sizeof(int), ComputeBufferType.Append);
 			compute.SetInt(nameof(maxNumVisibleChunks), maxNumVisibleChunks);
 
-			int chunkTableLength = cad.x * cad.y * cad.z;
+			int3 ctd = chunkTableDims;
+			chunkTableLength = ctd.x * ctd.y * ctd.z;
+			chunkTableDimsHalf = chunkTableDims / 2;
+			int3 ctdh = chunkTableDimsHalf;
 			chunkTable = new ComputeBuffer(chunkTableLength, sizeof(int));
 
 			RenderTextureDescriptor dataDesc = new()
@@ -124,13 +141,15 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 			// uniform values
 			compute.SetFloat(nameof(voxSize), voxSize);
 			compute.SetFloat(nameof(voxSizeHalf), voxSizeHalf);
-			compute.SetVector(nameof(chunkSize), (Vector3)chunkSize);
-			compute.SetVector(nameof(chunkSizeHalf), (Vector3)chunkSizeHalf);
+			compute.SetVector(nameof(chunkSize), chunkSize);
+			compute.SetVector(nameof(chunkSizeHalf), chunkSizeHalf);
+			compute.SetFloat(nameof(chunkWorldSizeDim), chunkWorldSizeDim);
 			compute.SetFloat(nameof(distanceTruncationBand), distanceTruncationBand);
 			compute.SetInt(nameof(voxPerChunkDim), voxPerChunkDim);
-			compute.SetInts(nameof(chunkAreaDims), chunkAreaDims.x, chunkAreaDims.y, chunkAreaDims.z);
+			compute.SetInts(nameof(chunkTableDims), ctd.x, ctd.y, ctd.z);
+			compute.SetInts(nameof(chunkTableDimsHalf), ctdh.x, ctdh.y, ctdh.z);
 			compute.SetInt(nameof(chunkTableLength), chunkTableLength);
-			compute.SetInts(nameof(chunkDataDims), chunkDataDims.x, chunkDataDims.y, chunkDataDims.z);
+			compute.SetInts(nameof(chunkDataDims), cdd.x, cdd.y, cdd.z);
 
 			compute.SetInt(nameof(maxNumChunks), maxNumChunks);
 
@@ -171,7 +190,7 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 
 		private void OnEnable()
 		{
-			if (!didStart)
+			if (didStart)
 				UpdateLoop();
 		}
 
@@ -245,23 +264,26 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 			return new VisibleChunksReadbackResult(count, visibleChunkData);
 		}
 
-		public async Awaitable<ChunkDataReadbackResult> ReadbackChunk(int chunkIndex)
+		public ComputeBuffer CreateChunkReadbackBuffer()
 		{
-			if (chunkIndex > maxNumChunks)
+			int vpcd = voxPerChunkDim;
+			return new ComputeBuffer(vpcd / 4 * vpcd * vpcd, sizeof(uint));
+		}
+
+		public async Awaitable<ChunkDataReadbackResult> ReadbackChunk(int chunkIndex, ComputeBuffer readbackBuffer)
+		{
+			if (chunkIndex < 0 || chunkIndex >= chunkTableLength)
 			{
 				Debug.LogWarning("[EnvScanner2] Readback chunk index out of range!");
 				return new ChunkDataReadbackResult();
 			}
 
-			int d = voxPerChunkDim;
-			// uint = 4 sbytes packed
-			ComputeBuffer readbackBuffer = new(d / 4 * d * d, sizeof(uint));
-
 			compute.SetInt(readbackChunkIndexID, chunkIndex);
 			readbackKernel.Bind(readbackBufferID, readbackBuffer);
 
 			// each thread covers FOUR voxels on X axis for byte packing
-			readbackKernel.DispatchFit(d / 4, d, d);
+			int vpcd = voxPerChunkDim;
+			readbackKernel.DispatchFit(vpcd / 4, vpcd, vpcd);
 
 			AsyncGPUReadbackRequest req = await AsyncGPUReadback.RequestAsync(readbackBuffer);
 
@@ -277,35 +299,19 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 		public int3 ChunkIndexToChunkCoord(int chunkIndex)
 		{
 			int3 coord;
-			coord.x = chunkIndex % chunkAreaDims.x;
-			coord.y = chunkIndex / chunkAreaDims.x % chunkAreaDims.y;
-			coord.z = chunkIndex / (chunkAreaDims.x * chunkAreaDims.y);
+			coord.x = chunkIndex % chunkTableDims.x;
+			coord.y = chunkIndex / chunkTableDims.x % chunkTableDims.y;
+			coord.z = chunkIndex / (chunkTableDims.x * chunkTableDims.y);
 			return coord;
-		}
-
-		public int3 WorldPosToChunkCoord(float3 world)
-		{
-			// quantize to chunk size.
-			// subtract two from voxPerChunkDim to account for 1-vox apron
-			float chunkSize = (voxPerChunkDim - 2) * voxSize;
-			int3 quantized = (int3)math.floor(world / chunkSize);
-
-			// center so 0,0,0 is at corner
-			int3 tableDimHalf = chunkAreaDims / 2;
-			int3 chunkCoord = quantized + tableDimHalf;
-
-			return chunkCoord;
 		}
 
 		public float3 ChunkCoordToCornerWorldPos(int3 chunkCoord)
 		{
-			int3 tableDimHalf = chunkAreaDims / 2;
-			int3 chunkCoordUncentered = chunkCoord - tableDimHalf;
-			// subtract one to account for 1-vox apron
+			int3 chunkCoordUncentered = chunkCoord - chunkTableDimsHalf;
+			// subtract two to account for surrounding 1-vox apron
 			// this makes the corner voxel overlap with another chunk's 'top' corner
-			float chunkSizeDim = (voxPerChunkDim - 1) * voxSize;
 
-			return (float3)chunkCoordUncentered * chunkSizeDim;
+			return (float3)chunkCoordUncentered * chunkWorldSizeDim - new float3(voxSize, voxSize, voxSize);
 		}
 
 		private void OnDestroy()

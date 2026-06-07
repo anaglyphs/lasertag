@@ -9,6 +9,7 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 	{
 		public int chunkIndex;
 		public Mesh mesh;
+		public bool dirty;
 
 		private MeshFilter meshFilter;
 
