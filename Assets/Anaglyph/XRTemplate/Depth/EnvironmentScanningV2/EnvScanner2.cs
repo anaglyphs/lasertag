@@ -7,7 +7,7 @@ using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 
-namespace Anaglyph.XRTemplate
+namespace Anaglyph.DepthKit.EnvScanningV2
 {
 	public class EnvScanner2 : MonoBehaviour
 	{

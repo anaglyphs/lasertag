@@ -539,13 +539,13 @@ MonoBehaviour:
   distanceTruncationBand: 0.2
   voxPerChunkDim: 32
   chunkAreaDims:
-    x: 64
+    x: 128
     y: 16
-    z: 64
+    z: 128
   chunkDataDims:
-    x: 8
+    x: 16
     y: 8
-    z: 8
+    z: 16
   maxNumVisibleChunks: 256
 --- !u!114 &1822743962
 MonoBehaviour:
@@ -574,6 +574,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: EnvScanning2::ChunkManager2
   chunkPrefab: {fileID: 8545573707260339346, guid: de0df2db1268449c5be416e37e231c38, type: 3}
+  numMeshWorkers: 2
+  numDecimateWorkers: 1
 --- !u!1001 &3916737362139618993
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -1,8 +1,10 @@
-using Anaglyph.XRTemplate;
 using UnityEngine;
 
-namespace Anaglyph.DepthKit
+namespace Anaglyph.DepthKit.EnvScanningV2
 {
+	/// <summary>
+	/// GameObject for environment scan mesh chunk
+	/// </summary>
 	public class Chunk2 : MonoBehaviour
 	{
 		public int chunkIndex;

@@ -10,7 +10,7 @@ using Unity.Mathematics.Geometry;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Anaglyph.DepthKit
+namespace Anaglyph.DepthKit.EnvScanningV2
 {
 	public class NetMesher2 : IDisposable
 	{

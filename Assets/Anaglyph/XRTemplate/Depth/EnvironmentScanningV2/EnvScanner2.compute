@@ -7,7 +7,6 @@ float voxSize; // voxel edge length (meters)
 float voxSizeHalf;
 float distanceTruncationBand; // greatest distance magnitude a voxel can hold
 
-
 // Chunks have a one voxel APRON that overlaps with all surrounding chunks
 // so while a chunk may have 32 voxels along its edge, it really represents an area of 30 voxels (3 meters)
 // since two voxels on each edge are apron voxels
@@ -131,6 +130,8 @@ void Clear(uint3 id : SV_DispatchThreadID)
 	chunkData[id] = 1.0;
 }
 
+// reserves chunk data and marks chunks as visible for integration
+
 #pragma kernel Mark
 
 // input depth tex
@@ -183,6 +184,8 @@ void Mark(uint3 id : SV_DispatchThreadID)
 
 // input depth tex
 // thread per pixel * num voxels within truncation band`
+
+// TODO: smarter integration with edge & sample count filtering
 
 #pragma kernel Integrate
 
@@ -259,6 +262,7 @@ void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 
 // kernel for reading back data to the CPU
 // no batched chunk readbacks for now, just single
+// packs single chunk's sbyte voxel data into uint buffer 
 
 #pragma kernel ChunkReadback
 
