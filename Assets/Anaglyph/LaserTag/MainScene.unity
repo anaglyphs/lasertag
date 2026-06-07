@@ -576,6 +576,19 @@ MonoBehaviour:
   chunkPrefab: {fileID: 8545573707260339346, guid: de0df2db1268449c5be416e37e231c38, type: 3}
   numMeshWorkers: 2
   numDecimateWorkers: 1
+  decimationTarget:
+    Kind: 6
+    Value: 0.01
+  decimationOptions:
+    PreserveBorderEdges: 1
+    PreserveSurfaceCurvature: 0
+    UseBarycentricCoordinateInterpolation: 0
+    EnableSmartLink: 0
+    MinNormalDot: 0.9
+    VertexLinkDistance: 0.0001
+    VertexLinkMinNormalDot: 0.95
+    VertexLinkColorDistance: 0.01
+    VertexLinkUvDistance: 0.001
 --- !u!1001 &3916737362139618993
 PrefabInstance:
   m_ObjectHideFlags: 0

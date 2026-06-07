@@ -51,8 +51,6 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 		private ComputeBuffer reservedChunkCounter;
 		private ComputeBuffer chunkTable;
 		private ComputeBuffer visibleChunks;
-		private ComputeBuffer visibleChunksCount;
-
 		private ComputeBuffer integrateDispatchDims;
 
 		public ComputeBuffer ReservedChunkCounter => reservedChunkCounter;
@@ -63,6 +61,7 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 
 		/// <summary>Packed 3D atlas of every reserved chunk's TSDF (R8_SNorm). Allocated in play mode.</summary>
 		public RenderTexture ChunkData => chunkData;
+
 		public int3 ChunkDataDims => chunkDataDims;
 
 		private ComputeKernel clearKernel;
@@ -121,8 +120,6 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 			// buffers
 			reservedChunkCounter = new ComputeBuffer(1, sizeof(int));
 			visibleChunks = new ComputeBuffer(maxNumVisibleChunks, sizeof(int), ComputeBufferType.Append);
-			compute.SetInt(nameof(maxNumVisibleChunks), maxNumVisibleChunks);
-
 			int3 ctd = chunkTableDims;
 			chunkTableLength = ctd.x * ctd.y * ctd.z;
 			chunkTableDimsHalf = chunkTableDims / 2;
@@ -154,7 +151,7 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 			compute.SetInts(nameof(chunkTableDimsHalf), ctdh.x, ctdh.y, ctdh.z);
 			compute.SetInt(nameof(chunkTableLength), chunkTableLength);
 			compute.SetInts(nameof(chunkDataDims), cdd.x, cdd.y, cdd.z);
-
+			compute.SetInt(nameof(maxNumVisibleChunks), maxNumVisibleChunks);
 			compute.SetInt(nameof(maxNumChunks), maxNumChunks);
 
 			// mark kernel
@@ -179,12 +176,22 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 			// clear
 			clearKernel = new ComputeKernel(compute, "Clear");
 			clearKernel.Bind(nameof(chunkData), chunkData);
-			clearKernel.DispatchFit(chunkData);
 
 			// readback
 			readbackKernel = new ComputeKernel(compute, "ChunkReadback");
 			readbackKernel.Bind(nameof(chunkTable), chunkTable);
 			readbackKernel.Bind(nameof(chunkData), chunkData);
+
+			Clear();
+		}
+
+		public void Clear()
+		{
+			reservedChunkCounter.SetData(new int[1]);
+			chunkTable.SetData(new int[chunkTableLength]);
+			visibleChunks.SetData(new int[maxNumVisibleChunks]);
+
+			clearKernel.DispatchFit(chunkData);
 		}
 
 		private void Start()

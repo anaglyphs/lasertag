@@ -10,16 +10,20 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 		public int chunkIndex;
 		public Mesh mesh;
 		public bool dirty;
+		public bool undecimated;
 
 		private MeshFilter meshFilter;
+		private MeshCollider meshCollider;
 
 		private void Awake()
 		{
 			TryGetComponent(out meshFilter);
+			TryGetComponent(out meshCollider);
 
 			mesh = new Mesh();
 			mesh.MarkDynamic();
 			meshFilter.sharedMesh = mesh;
+			meshCollider.sharedMesh = mesh;
 		}
 
 		private void OnDestroy()
@@ -31,8 +35,26 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 
 		private void OnDrawGizmos()
 		{
+			if (dirty)
+			{
+				EnvScanner2 s = EnvScanner2.Instance;
+				Gizmos.color = Color.yellow;
+				DrawChunkFrame();
+			}
+		}
+
+		private void OnDrawGizmosSelected()
+		{
+			if (dirty) return;
+
+			Gizmos.color = Color.aliceBlue;
+			DrawChunkFrame();
+		}
+
+		private void DrawChunkFrame()
+		{
 			EnvScanner2 s = EnvScanner2.Instance;
-			Gizmos.color = Color.grey;
+			if (!s) return;
 			Gizmos.DrawWireCube(transform.position + s.ChunkSizeHalf, s.ChunkSize);
 		}
 

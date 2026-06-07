@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Meshia.MeshSimplification;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
@@ -17,6 +18,25 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 		[SerializeField] private GameObject chunkPrefab;
 		[SerializeField] private int numMeshWorkers = 2;
 		[SerializeField] private int numDecimateWorkers = 1;
+
+		[Header("Mesh decimation options")] public MeshSimplificationTarget decimationTarget = new()
+		{
+			Kind = MeshSimplificationTargetKind.ScaledTotalError,
+			Value = 0.5f
+		};
+
+		public MeshSimplifierOptions decimationOptions = new()
+		{
+			EnableSmartLink = false,
+			MinNormalDot = 0.8f,
+			PreserveBorderEdges = true,
+			PreserveSurfaceCurvature = false,
+			UseBarycentricCoordinateInterpolation = false,
+			VertexLinkDistance = 0.0001f,
+			VertexLinkMinNormalDot = 0.95f,
+			VertexLinkColorDistance = 0.01f,
+			VertexLinkUvDistance = 0.001f
+		};
 
 		private Dictionary<int, Chunk2> chunks = new();
 
@@ -60,8 +80,8 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 			for (int i = 0; i < numMeshWorkers; i++)
 				_ = RunMesherWorker(workerCancelSrc.Token);
 
-			// for (int i = 0; i < numDecimateWorkers; i++)
-			// 	_ = RunDecimateWorker(workerCancelSrc.Token);
+			for (int i = 0; i < numDecimateWorkers; i++)
+				_ = RunDecimateWorker(workerCancelSrc.Token);
 		}
 
 		private async void OnScanUpdate()
@@ -137,20 +157,21 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 
 					ctkn.ThrowIfCancellationRequested();
 
-					// NativeArray<uint> reqData = req.GetData<uint>();
 					req.data.Reinterpret<NetMesher2.Voxel>(sizeof(sbyte)).CopyTo(voxelData);
 
 					bool isPopulated = await mesher.CreateMesh(voxelData, chunkSize, scanner.VoxSize, chunk.mesh, ctkn);
 
 					chunk.dirty = false;
+					chunk.undecimated = true;
 
 					ctkn.ThrowIfCancellationRequested();
 
-					// if (!ChunkIsWithinFrustum(coord) && chunk.IsPopulated && !decimateQueue.Contains(coord))
-					// {
-					// 	decimateQueue.Enqueue(coord);
-					// 	decimateSemaphore.Release();
-					// }
+					if (isPopulated && chunk.undecimated)
+					{
+						chunk.undecimated = true;
+						decimateQueue.Enqueue(chunk);
+						decimateSemaphore.Release();
+					}
 				}
 			}
 			catch (OperationCanceledException)
@@ -163,26 +184,25 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 			}
 		}
 
-		// private async Task RunDecimateWorker(CancellationToken ctkn)
-		// {
-		// 	try
-		// 	{
-		// 		while (!ctkn.IsCancellationRequested)
-		// 		{
-		// 			await decimateSemaphore.WaitAsync(ctkn);
-		//
-		// 			if (!decimateQueue.TryDequeue(out int3 coord))
-		// 				continue;
-		//
-		// 			if (!chunks.TryGetValue(coord, out MeshChunk chunk))
-		// 				continue;
-		//
-		// 			await chunk.Decimate(ctkn);
-		// 		}
-		// 	}
-		// 	catch (OperationCanceledException)
-		// 	{
-		// 	}
-		// }
+		private async Task RunDecimateWorker(CancellationToken ctkn)
+		{
+			try
+			{
+				while (!ctkn.IsCancellationRequested)
+				{
+					await decimateSemaphore.WaitAsync(ctkn);
+
+					if (!decimateQueue.TryDequeue(out Chunk2 c))
+						continue;
+
+					await MeshSimplifier.SimplifyAsync(c.mesh, decimationTarget, decimationOptions, c.mesh, ctkn);
+
+					c.undecimated = false;
+				}
+			}
+			catch (OperationCanceledException)
+			{
+			}
+		}
 	}
 }

@@ -232,7 +232,7 @@ void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 	const float4 voxHCS = agDepthWorldToHCS(voxCenterPos);
 
 	// ignore any voxel BEHIND the depth eye
-	if (voxHCS.z < 0) return;
+	if (voxHCS.w < 0) return;
 
 	const float3 voxNDC = agDepthHCStoNDC(voxHCS);
 
