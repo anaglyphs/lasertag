@@ -18,7 +18,7 @@ namespace Anaglyph.Lasertag.Operator
 			return show ? DisplayStyle.Flex : DisplayStyle.None;
 		}
 
-		[MenuItem("Window/Lasertag Server Menu")]
+		[MenuItem("Window/Lasertag/Server Menu")]
 		private static void ShowWindow()
 		{
 			ServerWindow window = GetWindow<ServerWindow>("Server Menu");

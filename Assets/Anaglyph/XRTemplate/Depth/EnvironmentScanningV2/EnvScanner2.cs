@@ -61,6 +61,10 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 
 		private RenderTexture chunkData;
 
+		/// <summary>Packed 3D atlas of every reserved chunk's TSDF (R8_SNorm). Allocated in play mode.</summary>
+		public RenderTexture ChunkData => chunkData;
+		public int3 ChunkDataDims => chunkDataDims;
+
 		private ComputeKernel clearKernel;
 		private ComputeKernel markKernel;
 		private ComputeKernel integrateKernel;

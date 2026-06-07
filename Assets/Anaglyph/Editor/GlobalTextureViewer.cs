@@ -12,7 +12,7 @@ public class GlobalTextureViewer : EditorWindow
 
 	private RenderTexture previewRT;
 
-	[MenuItem("Window/Global Texture Viewer")]
+	[MenuItem("Window/Lasertag/Global Texture Viewer")]
 	public static void ShowWindow()
 	{
 		GetWindow<GlobalTextureViewer>("Global Texture Viewer");
@@ -58,7 +58,8 @@ public class GlobalTextureViewer : EditorWindow
 		// How many slices can we scrub through?
 		int sliceCount = SliceCount(globalTexture);
 		if (sliceCount > 1)
-			slice = EditorGUILayout.IntSlider($"Slice (0..{sliceCount - 1})", Mathf.Clamp(slice, 0, sliceCount - 1), 0, sliceCount - 1);
+			slice = EditorGUILayout.IntSlider($"Slice (0..{sliceCount - 1})", Mathf.Clamp(slice, 0, sliceCount - 1), 0,
+				sliceCount - 1);
 		else
 			slice = 0;
 
@@ -77,6 +78,7 @@ public class GlobalTextureViewer : EditorWindow
 			EditorGUILayout.HelpBox($"Could not preview this texture:\n{e.Message}", MessageType.Error);
 			return;
 		}
+
 		if (drawable == null)
 			return;
 
@@ -112,13 +114,14 @@ public class GlobalTextureViewer : EditorWindow
 		// GPU memory copy (no sampler/shader), so the formats must be identical or it fails.
 		GraphicsFormat fmt = tex.graphicsFormat;
 		if (previewRT == null || previewRT.width != tex.width || previewRT.height != tex.height
-			|| previewRT.graphicsFormat != fmt)
+		    || previewRT.graphicsFormat != fmt)
 		{
 			if (previewRT != null)
 			{
 				previewRT.Release();
 				DestroyImmediate(previewRT);
 			}
+
 			previewRT = new RenderTexture(tex.width, tex.height, 0, fmt, 1)
 			{
 				dimension = TextureDimension.Tex2D

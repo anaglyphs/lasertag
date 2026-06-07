@@ -138,15 +138,15 @@ void Mark(uint3 id : SV_DispatchThreadID)
 {
 	if (any(id.xy >= agDepthTexSize)) return;
 
-	const float3 worldPos = agDepthSampleIdxToWorld(id.xy);
+	const float3 depthPos = agDepthSampleIdxToWorld(id.xy);
 
 	// ignore surfaces outside of integration range. todo: use square dist
 	const float3 depthEyePos = agDepthEyePos();
-	const float dist = distance(worldPos, depthEyePos);
+	const float dist = distance(depthPos, depthEyePos);
 	const bool inRange = dist >= minDist && dist <= maxDist; // to guard against NaN
 	if (!inRange) return;
 
-	const int chunkIdx = worldPosToChunkIndex(worldPos);
+	const int chunkIdx = worldPosToChunkIndex(depthPos);
 	if (chunkIdx & INVALID_BIT) return;
 
 	// try claim visibility
@@ -229,7 +229,12 @@ void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 	const float3 voxCornerLocalPos = threadChunkOffset * voxSize;
 	const float3 voxCenterPos = chunkCornerWorldPos + voxCornerLocalPos + voxSizeHalf;
 
-	const float3 voxNDC = agDepthWorldToNDC(voxCenterPos);
+	const float4 voxHCS = agDepthWorldToHCS(voxCenterPos);
+
+	// ignore any voxel BEHIND the depth eye
+	if (voxHCS.z < 0) return;
+
+	const float3 voxNDC = agDepthHCStoNDC(voxHCS);
 
 	// ignore any UV coord outside the cropped depth tex region
 	if (any(voxNDC.xy < depthTexCropMin) || any(voxNDC.xy > depthTexCropMax)) return;

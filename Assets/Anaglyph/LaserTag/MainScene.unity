@@ -538,10 +538,10 @@ MonoBehaviour:
   voxSize: 0.1
   distanceTruncationBand: 0.2
   voxPerChunkDim: 32
-  chunkAreaDims:
-    x: 128
-    y: 16
-    z: 128
+  chunkTableDims:
+    x: 100
+    y: 15
+    z: 100
   chunkDataDims:
     x: 16
     y: 8
