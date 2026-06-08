@@ -50,6 +50,9 @@ namespace Anaglyph.DepthKit.EnvScanning
 
 		private bool busy = false;
 
+		public static Vector3 ChunkWorldSize { get; private set; }
+		public static Vector3 ChunkWorldSizeHalf { get; private set; }
+
 		private void Awake()
 		{
 			Instance = this;
@@ -57,6 +60,10 @@ namespace Anaglyph.DepthKit.EnvScanning
 
 		private void Start()
 		{
+			EnvScanner scanner = EnvScanner.Instance;
+			ChunkWorldSize = scanner.ChunkWorldSizeDim * Vector3.one;
+			ChunkWorldSizeHalf = ChunkWorldSize / 2f;
+
 			Begin();
 		}
 
@@ -170,14 +177,13 @@ namespace Anaglyph.DepthKit.EnvScanning
 					bool isPopulated = await mesher.CreateMesh(voxelData, chunkSize, scanner.VoxSize, chunk.mesh, ctkn);
 
 					chunk.dirty = false;
-					chunk.undecimated = true;
+					chunk.meshCollider.enabled = isPopulated;
 
 					ctkn.ThrowIfCancellationRequested();
 
-					if (isPopulated && chunk.undecimated)
+					if (isPopulated)
 					{
-						chunk.undecimated = true;
-						chunk.meshCollider.enabled = true;
+						chunk.meshCollider.sharedMesh = chunk.mesh;
 						decimateQueue.Enqueue(chunk);
 						decimateSemaphore.Release();
 					}
@@ -206,8 +212,6 @@ namespace Anaglyph.DepthKit.EnvScanning
 					if (c.dirty) continue;
 
 					await MeshSimplifier.SimplifyAsync(c.mesh, decimationTarget, decimationOptions, c.mesh, ctkn);
-
-					c.undecimated = false;
 				}
 			}
 			catch (OperationCanceledException)

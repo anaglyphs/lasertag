@@ -4,7 +4,6 @@
 #define INVALID_COORD int3(-1, -1, -1)
 
 float voxSize; // voxel edge length (meters)
-float voxSizeHalf;
 float distanceTruncationBand; // greatest distance magnitude a voxel can hold
 float chunkWorldSizeDim;
 
@@ -15,12 +14,13 @@ float chunkWorldSizeDim;
 uint voxPerChunkDim; // voxels per chunk edge INCLUDING APRON
 uint groupsPerChunkDim; // groups per chunk edge
 
-static const float minDist = 0.8; // min integration distance (meters)
-static const float maxDist = 6; // max integration distance (meters)
+float minDist = 0.8; // min integration distance (meters)
+float maxDist = 6; // max integration distance (meters)
+float minDot = 0.5; // min dot product between depth ray and surface normal
 
 // crop out part of the depth texture to prevent artifacts when user turns head quickly
-static const float depthTexCropMin = 0.2;
-static const float depthTexCropMax = 0.8;
+static const float depthTexCropMin = 0.1;
+static const float depthTexCropMax = 0.9;
 
 // the chunk table maps 3D regions to a 1D 'chunk index' int
 // 1D chunk index indirectly points to chunk data within the data 3D texture
@@ -42,10 +42,13 @@ static const float depthTexCropMax = 0.8;
 RWStructuredBuffer<int> reservedChunkCounter; // single element buffer functioning as counter
 RWStructuredBuffer<int> chunkTable; // in concept a dense 3D grid spanning the desired max playspace
 uint3 chunkTableDims; // num chunk entries per axis in table
-uint3 chunkTableDimsHalf;
 uint chunkTableLength; // num chunk entries total
 
-RWTexture3D<float> chunkData; // should be R8_SNorm
+// chunkData should be a R8G8_SNorm.
+// R -> TSDF value
+// G -> number of times this voxel has been integrated (up to 255)...
+// en/decoded as an unsigned byte and used for scan filtering over time
+RWTexture3D<float2> chunkData;
 uint3 chunkDataDims; // chunks per axis in chunkData (NOT VOXELS PER AXIS. voxels on axis / voxChunkPerEdge)
 uint maxNumChunks; // maximum possible number of chunks allowed by data size
 
@@ -60,14 +63,14 @@ int3 worldPosToChunkCoord(const float3 world)
 	const int3 quantized = floor(world / chunkWorldSizeDim);
 
 	// center so 0,0,0 is at corner
-	const int3 chunkCoord = quantized + chunkTableDimsHalf;
+	const int3 chunkCoord = quantized + chunkTableDims / 2;
 
 	return chunkCoord;
 }
 
 float3 chunkCoordToCornerWorldPos(const int3 chunkCoord)
 {
-	const int3 chunkCoordUncentered = chunkCoord - chunkTableDimsHalf;
+	const int3 chunkCoordUncentered = chunkCoord - chunkTableDims / 2;
 	// subtract two to account for surrounding 1-vox apron
 	// this makes the corner voxel overlap with another chunk's 'top' corner
 
@@ -119,12 +122,33 @@ int readChunkDataIndex(int chunkIndex)
 	return chunkTable[chunkIndex] & INDEX_MASK;
 }
 
+uint SNorm8toU8(float f)
+{
+	int i = int(round(clamp(f, -1.0, 1.0) * 127.0));
+	return uint(i + 128);
+}
+
+float U8toSNorm8(uint u)
+{
+	int i = int(u) - 128;
+	return max(float(i) / 127.0, -1.0);
+}
+
+uint PackR8SNorm4toUInt(float4 R8_SNorm4)
+{
+	const int4 quantized = (int4)round(clamp(R8_SNorm4, -1.0, 1.0) * 127.0); // [-127, 127]
+	// for a negative value like q = -1 (0xFFFFFFFF), masking the low byte gives 0xFF
+	// which is what CPU expects. TODO: understand this lol. this came from ai sorry
+	const uint4 b = (uint4)(quantized & 0xFF);
+	return b.x | b.y << 8 | b.z << 16 | b.w << 24;
+}
+
 #pragma kernel Clear
 
 [numthreads(4, 4, 4)]
 void Clear(uint3 id : SV_DispatchThreadID)
 {
-	chunkData[id] = 1.0;
+	chunkData[id].xy = float2(1.0, U8toSNorm8(1));
 }
 
 // reserves chunk data and marks chunks as visible for integration
@@ -177,8 +201,6 @@ void Mark(uint3 id : SV_DispatchThreadID)
 // Y = 64 (4 cubed) = num groups needed per chunk integration
 // Z = 1 
 
-// Buffer<uint> integrateDispatchDims;
-
 // input depth tex
 // thread per pixel * num voxels within truncation band`
 
@@ -227,7 +249,7 @@ void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 	const int3 chunkCoord = chunkIndexToChunkCoord(chunkIdx);
 	const float3 chunkCornerWorldPos = chunkCoordToCornerWorldPos(chunkCoord);
 	const float3 voxCornerLocalPos = threadChunkOffset * voxSize;
-	const float3 voxCenterPos = chunkCornerWorldPos + voxCornerLocalPos + voxSizeHalf;
+	const float3 voxCenterPos = chunkCornerWorldPos + voxCornerLocalPos + voxSize / 2;
 
 	const float4 voxHCS = agDepthWorldToHCS(voxCenterPos);
 
@@ -240,16 +262,22 @@ void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 	if (any(voxNDC.xy < depthTexCropMin) || any(voxNDC.xy > depthTexCropMax)) return;
 
 	const float depthNDC = agDepthSample(voxNDC.xy);
+	const float3 depthNorm = agDepthNormalSample(voxNDC.xy).xyz;
 	const float3 depthPos = agDepthNDCtoWorld(float3(voxNDC.xy, depthNDC));
 
 	const float3 eyePos = agDepthEyePos();
 	const float3 eyeToVox = voxCenterPos - eyePos;
 	const float voxEyeDist = length(eyeToVox);
+	const float normDot = -dot(eyeToVox, depthNorm) / voxEyeDist;
+
+	// if surface normal is too extreme, don't integrate
+	if (normDot < minDot) return;
 
 	const float3 eyeToDepth = depthPos - eyePos;
 	const float depthEyeDist = length(eyeToDepth);
 
-	const float sDist = depthEyeDist - voxEyeDist;
+	float sDist = depthEyeDist - voxEyeDist;
+	sDist *= saturate(normDot);
 
 	const float sDistNorm = min(sDist / distanceTruncationBand, 1);
 
@@ -258,9 +286,23 @@ void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 	// I want to clear surfaces that e.g. might have moved.
 	// however, the sensor can't know what's behind the surface
 	// which is why I don't write past the truncation band's negative end
-	const bool isNotBehindTruncationBand = sDistNorm >= -1.0;
-	if (isNotBehindTruncationBand)
-		chunkData[voxDataCoord] = sDistNorm;
+	const bool isBehindTruncationBand = sDistNorm < -1.0;
+	if (isBehindTruncationBand) return;
+
+	const float2 prevDataVal = chunkData[voxDataCoord].xy;
+
+	// decode num times this voxel has previously been integrated (up to 255)
+	const float prevDistVal = prevDataVal.r;
+	const uint prevIntegCount = SNorm8toU8(prevDataVal.g);
+
+	const float newDistWeight = 1.0 / prevIntegCount;
+	const float oldDistWeight = 1.0 - newDistWeight;
+
+	const float newDistVal = sDistNorm * newDistWeight + prevDistVal * oldDistWeight;
+	const uint newIntegCount = min(prevIntegCount + 1, 127);
+	const float2 newDataVal = float2(newDistVal, U8toSNorm8(newIntegCount));
+
+	chunkData[voxDataCoord] = newDataVal;
 }
 
 
@@ -272,15 +314,6 @@ void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 
 RWStructuredBuffer<int> readbackBuffer;
 int readbackChunkIndex;
-
-uint R8SNorm4ToPackedUInt(float4 R8_SNorm4)
-{
-	const int4 quantized = (int4)round(clamp(R8_SNorm4, -1.0, 1.0) * 127.0); // [-127, 127]
-	// for a negative value like q = -1 (0xFFFFFFFF), masking the low byte gives 0xFF
-	// which is what CPU expects. TODO: understand this lol. this came from ai sorry
-	const uint4 b = (uint4)(quantized & 0xFF);
-	return b.x | b.y << 8 | b.z << 16 | b.w << 24;
-}
 
 [numthreads(8, 8, 8)]
 void ChunkReadback(uint3 threadID : SV_DispatchThreadID)
@@ -297,7 +330,7 @@ void ChunkReadback(uint3 threadID : SV_DispatchThreadID)
 	float4 data;
 	[unroll] for (int i = 0; i < 4; i++)
 	{
-		data[i] = chunkData[coordOffs + uint3(i, 0, 0)];
+		data[i] = chunkData[coordOffs + uint3(i, 0, 0)].x;
 	}
 
 	const uint threadsPerChunkX = voxPerChunkDim / 4;
@@ -306,5 +339,5 @@ void ChunkReadback(uint3 threadID : SV_DispatchThreadID)
 		threadID.y * threadsPerChunkX +
 		threadID.z * threadsPerChunkX * voxPerChunkDim;
 
-	readbackBuffer[bufferIdx] = R8SNorm4ToPackedUInt(data);
+	readbackBuffer[bufferIdx] = PackR8SNorm4toUInt(data);
 }

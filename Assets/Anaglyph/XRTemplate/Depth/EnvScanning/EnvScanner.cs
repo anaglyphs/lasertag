@@ -17,19 +17,18 @@ namespace Anaglyph.DepthKit.EnvScanning
 		[SerializeField] private ComputeShader compute = null;
 
 		[SerializeField] private float updateFrequency = 15.0f;
+		[SerializeField] private float2 updateRange = new(1.0f, 6.0f);
+		[SerializeField] private float minDot = 0.5f;
+		private float minDist => updateRange.x;
+		private float maxDist => updateRange.y;
 
 		[SerializeField] private float voxSize = 0.1f;
-		private float voxSizeHalf;
 		[SerializeField] private float distanceTruncationBand = 0.2f;
 		[SerializeField] private int voxPerChunkDim = 32;
-		private Vector3 chunkSize;
-		private Vector3 chunkSizeHalf;
 		private float chunkWorldSizeDim;
 
 		[FormerlySerializedAs("chunkAreaDims")] [SerializeField]
 		private int3 chunkTableDims = new(64, 16, 64);
-
-		private int3 chunkTableDimsHalf;
 
 		private int chunkTableLength;
 
@@ -41,11 +40,8 @@ namespace Anaglyph.DepthKit.EnvScanning
 		public float DistanceTruncationBand => distanceTruncationBand;
 		public int VoxPerChunkDim => voxPerChunkDim;
 		public int3 ChunkTableDims => chunkTableDims;
-		public int3 ChunkTableDimsHalf => chunkTableDimsHalf;
 		public int ChunkTableLength => chunkTableLength;
 		public int MaxNumChunks => maxNumChunks;
-		public Vector3 ChunkSize => chunkSize;
-		public Vector3 ChunkSizeHalf => chunkSizeHalf;
 		public float ChunkWorldSizeDim => chunkWorldSizeDim;
 
 		private ComputeBuffer reservedChunkCounter;
@@ -106,14 +102,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 		private void Setup()
 		{
 			// helpful values
-			voxSizeHalf = voxSize * 0.5f;
-
-			float csd = voxSize * voxPerChunkDim;
-			chunkSize = new float3(csd, csd, csd);
-			chunkSizeHalf = ChunkSize / 2f;
-
 			chunkWorldSizeDim = voxSize * (voxPerChunkDim - 2);
-
 			int3 cdd = chunkDataDims;
 			maxNumChunks = cdd.x * cdd.y * cdd.z;
 
@@ -122,10 +111,12 @@ namespace Anaglyph.DepthKit.EnvScanning
 			visibleChunks = new ComputeBuffer(maxNumVisibleChunks, sizeof(int), ComputeBufferType.Append);
 			int3 ctd = chunkTableDims;
 			chunkTableLength = ctd.x * ctd.y * ctd.z;
-			chunkTableDimsHalf = chunkTableDims / 2;
-			int3 ctdh = chunkTableDimsHalf;
 			chunkTable = new ComputeBuffer(chunkTableLength, sizeof(int));
 
+			// chunkData should be a R8G8_SNorm.
+			// R -> TSDF value
+			// G -> number of times this voxel has been integrated (up to 255)...
+			// en/decoded as an unsigned byte and used for scan filtering over time
 			RenderTextureDescriptor dataDesc = new()
 			{
 				width = chunkDataDims.x * voxPerChunkDim,
@@ -133,22 +124,21 @@ namespace Anaglyph.DepthKit.EnvScanning
 				volumeDepth = chunkDataDims.z * voxPerChunkDim,
 				msaaSamples = 1,
 				useMipMap = false,
-				graphicsFormat = GraphicsFormat.R8_SNorm,
+				graphicsFormat = GraphicsFormat.R8G8_SNorm,
 				dimension = TextureDimension.Tex3D,
 				enableRandomWrite = true
 			};
 			chunkData = new RenderTexture(dataDesc);
 
 			// uniform values
+			compute.SetFloat(nameof(minDist), minDist);
+			compute.SetFloat(nameof(maxDist), maxDist);
+			compute.SetFloat(nameof(minDot), minDot);
 			compute.SetFloat(nameof(voxSize), voxSize);
-			compute.SetFloat(nameof(voxSizeHalf), voxSizeHalf);
-			compute.SetVector(nameof(chunkSize), chunkSize);
-			compute.SetVector(nameof(chunkSizeHalf), chunkSizeHalf);
 			compute.SetFloat(nameof(chunkWorldSizeDim), chunkWorldSizeDim);
 			compute.SetFloat(nameof(distanceTruncationBand), distanceTruncationBand);
 			compute.SetInt(nameof(voxPerChunkDim), voxPerChunkDim);
 			compute.SetInts(nameof(chunkTableDims), ctd.x, ctd.y, ctd.z);
-			compute.SetInts(nameof(chunkTableDimsHalf), ctdh.x, ctdh.y, ctdh.z);
 			compute.SetInt(nameof(chunkTableLength), chunkTableLength);
 			compute.SetInts(nameof(chunkDataDims), cdd.x, cdd.y, cdd.z);
 			compute.SetInt(nameof(maxNumVisibleChunks), maxNumVisibleChunks);
@@ -318,7 +308,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 
 		public float3 ChunkCoordToCornerWorldPos(int3 chunkCoord)
 		{
-			int3 chunkCoordUncentered = chunkCoord - chunkTableDimsHalf;
+			int3 chunkCoordUncentered = chunkCoord - chunkTableDims / 2;
 			// subtract two to account for surrounding 1-vox apron
 			// this makes the corner voxel overlap with another chunk's 'top' corner
 

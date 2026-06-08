@@ -1,0 +1,54 @@
+SamplerState envLinearClampSampler;
+SamplerState envPointClampSampler;
+
+Texture3D<float2> envVolume; // tsdf
+uint3 envVoxCount; // dimensions of volume texture
+float envVoxSize;
+float envVoxDist;
+float envVoxMin;
+
+int envNumPlayers;
+float3 envPlayerHeads[512];
+
+float3 envVoxelToWorld(uint3 indices)
+{
+	float3 pos = indices;
+	pos += 0.5f; // voxel center
+	pos -= envVoxCount / 2.0f;
+	pos *= envVoxSize;
+
+	return pos;
+}
+
+float3 envWorldToVoxelFloat(float3 pos)
+{
+	pos /= envVoxSize;
+	pos += (float3)envVoxCount / 2.0f;
+	// do not subtract half
+	return pos;
+}
+
+uint3 envWorldToVoxel(float3 pos)
+{
+	pos = envWorldToVoxelFloat(pos);
+
+	uint3 id = uint3(floor(pos));
+	id = clamp(id, 0, envVoxCount);
+	return id;
+}
+
+float3 envWorldToVoxelUVW(float3 pos)
+{
+	pos = envWorldToVoxelFloat(pos);
+	pos /= envVoxCount;
+
+	return saturate(pos);
+}
+
+
+half envSampleVolumeDist(float3 worldPos)
+{
+	float3 uvw = envWorldToVoxelUVW(worldPos);
+	float val = envVolume.SampleLevel(envLinearClampSampler, uvw, 0).r;
+	return val * envVoxDist;
+}

@@ -10,20 +10,27 @@ namespace Anaglyph.DepthKit.EnvScanning
 		public int chunkIndex;
 		public Mesh mesh;
 		public bool dirty;
-		public bool undecimated;
 
 		public MeshFilter meshFilter;
 		public MeshCollider meshCollider;
+
+		private Vector3 worldCenter;
 
 		private void Awake()
 		{
 			TryGetComponent(out meshFilter);
 			TryGetComponent(out meshCollider);
+			meshCollider.enabled = false;
 
 			mesh = new Mesh();
 			mesh.MarkDynamic();
 			meshFilter.sharedMesh = mesh;
 			meshCollider.sharedMesh = mesh;
+		}
+
+		private void Start()
+		{
+			worldCenter = transform.position + ChunkManager.ChunkWorldSizeHalf;
 		}
 
 		private void OnDestroy()
@@ -53,9 +60,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 
 		private void DrawChunkFrame()
 		{
-			EnvScanner s = EnvScanner.Instance;
-			if (!s) return;
-			Gizmos.DrawWireCube(transform.position + s.ChunkSizeHalf, s.ChunkSize);
+			Gizmos.DrawWireCube(worldCenter, ChunkManager.ChunkWorldSize);
 		}
 
 #endif
