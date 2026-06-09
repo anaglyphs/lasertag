@@ -1,65 +1,65 @@
 Shader "Anaglyph/DepthKit/StereoAlphaOccluder"
 {
-    Properties
-    {
-        _OcclusionColorMask ("Color Mask", Float) = 15
-    }
+	Properties
+	{
+		_OcclusionColorMask ("Color Mask", Float) = 15
+	}
 
-    SubShader
-    {
-        Tags
-        {
-            "RenderType" = "Opaque" "Queue"="Geometry-1" "RenderPipeline" = "UniversalPipeline"
-        }
-        ZWrite On
-        ZTest LEqual
-        Cull Off
-        // does not work in simulation but does on AR headsets
-        // with pre-multiplied compositing (i.e. meta quest) 
-        ColorMask [_OcclusionColorMask]
+	SubShader
+	{
+		Tags
+		{
+			"RenderType" = "Opaque" "Queue"="Geometry-1" "RenderPipeline" = "UniversalPipeline"
+		}
+		ZWrite On
+		ZTest LEqual
+		Cull Off
+		// does not work in simulation but does on AR headsets
+		// with pre-multiplied compositing (i.e. meta quest) 
+		ColorMask [_OcclusionColorMask]
 
-        Pass
-        {
-            Tags
-            {
-                "LightMode" = "UniversalForward"
-            }
+		Pass
+		{
+			Tags
+			{
+				"LightMode" = "UniversalForward"
+			}
 
-            HLSLPROGRAM
-            #pragma vertex vert
-            #pragma fragment frag
+			HLSLPROGRAM
+			#pragma vertex vert
+			#pragma fragment frag
 
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
-            struct Attributes
-            {
-                float4 positionOS : POSITION;
-                UNITY_VERTEX_INPUT_INSTANCE_ID
-            };
+			struct Attributes
+			{
+				float4 positionOS : POSITION;
+				UNITY_VERTEX_INPUT_INSTANCE_ID
+			};
 
-            struct Varyings
-            {
-                float4 positionHCS : SV_POSITION;
-                UNITY_VERTEX_OUTPUT_STEREO
-            };
+			struct Varyings
+			{
+				float4 positionHCS : SV_POSITION;
+				UNITY_VERTEX_OUTPUT_STEREO
+			};
 
-            Varyings vert(Attributes IN)
-            {
-                Varyings OUT;
+			Varyings vert(Attributes IN)
+			{
+				Varyings OUT;
 
-                UNITY_SETUP_INSTANCE_ID(IN);
-                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(OUT);
+				UNITY_SETUP_INSTANCE_ID(IN);
+				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(OUT);
 
-                OUT.positionHCS = TransformObjectToHClip(IN.positionOS.xyz);
+				OUT.positionHCS = TransformObjectToHClip(IN.positionOS.xyz);
 
-                return OUT;
-            }
+				return OUT;
+			}
 
-            half4 frag() : SV_Target
-            {
-                return 0;
-            }
-            ENDHLSL
-        }
-    }
+			half4 frag() : SV_Target
+			{
+				return 0;
+			}
+			ENDHLSL
+		}
+	}
 }
