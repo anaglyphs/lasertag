@@ -11,8 +11,6 @@ namespace Anaglyph.Lasertag.Networking
 	{
 		public const string Tag = "Player";
 
-		public static PlayerAvatar Local { get; private set; }
-
 		[SerializeField] private Transform headTransform;
 		[SerializeField] private Transform leftHandTransform;
 		[SerializeField] private Transform rightHandTransform;
@@ -36,9 +34,6 @@ namespace Anaglyph.Lasertag.Networking
 		public bool IsAlive => isAliveSync.Value;
 		public NetworkVariable<bool> isAliveSync = new();
 
-		public static Dictionary<ulong, PlayerAvatar> All { get; private set; } = new();
-		public static List<PlayerAvatar> OtherPlayers { get; private set; } = new();
-
 		[SerializeField] private TeamOwner teamOwner;
 		public TeamOwner TeamOwner => teamOwner;
 
@@ -48,10 +43,13 @@ namespace Anaglyph.Lasertag.Networking
 		public bool IsInBase { get; private set; }
 		public Base InBase { get; private set; }
 
-		public static event Action<PlayerAvatar, PlayerAvatar> OnPlayerKilledPlayer = delegate { };
-
 		public NetworkVariable<int> scoreSync;
 		public int Score => scoreSync.Value;
+
+		public static PlayerAvatar Local { get; private set; }
+		public static Dictionary<ulong, PlayerAvatar> All { get; private set; } = new();
+		public static List<PlayerAvatar> OtherPlayers { get; private set; } = new();
+		public static event Action<PlayerAvatar, PlayerAvatar> OnPlayerKilledPlayer = delegate { };
 
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
 		private static void Init()
@@ -74,7 +72,7 @@ namespace Anaglyph.Lasertag.Networking
 				else if (!wasAlive && isAlive)
 					Respawned.Invoke();
 
-				foreach (var g in deactivatedWhenDead) g.SetActive(isAlive);
+				foreach (GameObject g in deactivatedWhenDead) g.SetActive(isAlive);
 			};
 		}
 
@@ -90,9 +88,12 @@ namespace Anaglyph.Lasertag.Networking
 				isAliveSync.Value = true;
 				Local = this;
 			}
+			else
+			{
+				OtherPlayers.Add(this);
+			}
 
 			All.Add(OwnerClientId, this);
-			OtherPlayers.Add(this);
 		}
 
 		public override void OnNetworkDespawn()
@@ -104,7 +105,7 @@ namespace Anaglyph.Lasertag.Networking
 
 		private void HandleBases()
 		{
-			foreach (var b in Base.AllBases)
+			foreach (Base b in Base.AllBases)
 				if (Geo.PointIsInCylinder(b.transform.position, Base.Radius, 3, headTransform.position))
 				{
 					IsInBase = true;
@@ -143,7 +144,7 @@ namespace Anaglyph.Lasertag.Networking
 		[Rpc(SendTo.Everyone)]
 		public void KilledByPlayerRpc(ulong killerId)
 		{
-			if (All.TryGetValue(killerId, out var killer))
+			if (All.TryGetValue(killerId, out PlayerAvatar killer))
 				OnPlayerKilledPlayer.Invoke(killer, this);
 		}
 

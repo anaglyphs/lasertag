@@ -88,6 +88,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private void OnNetworkStateChange(NetcodeState state)
 		{
+			if (state == NetcodeState.Connected)
+				reconnectDelay = MinReconnectDelay;
+
 			UpdateState();
 		}
 
@@ -155,7 +158,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				{
 					case State.Listen:
 						await HaltAdvertisement(ctkn);
-						await Task.Delay(3000, ctkn);
+						await Awaitable.WaitForSecondsAsync(3, ctkn);
 						await StartListening(ctkn);
 						break;
 
@@ -265,15 +268,33 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 		}
 
+		// Reconnecting too aggressively after a disconnect can churn the
+		// session with rapid connect/disconnect cycles, leaving stale client
+		// ids behind. Back off exponentially until a connection sticks.
+		private const float MinReconnectDelay = 2;
+		private const float MaxReconnectDelay = 30;
+		private float reconnectDelay = MinReconnectDelay;
+		private float nextConnectAllowedTime = 0;
+
 		private void HandleColocationSessionDiscovered(OVRColocationSession.Data data)
 		{
-			if (state != State.Listen) LogWarning("State isn't listening. This shouldn't run!");
+			if (state != State.Listen)
+			{
+				LogWarning("State isn't listening. This shouldn't run!");
+				return;
+			}
 
 			string message = Encoding.ASCII.GetString(data.Metadata);
 			Log($"Discovered {message}");
 
 			if (NetworkManager.Singleton.IsListening)
 				return;
+
+			if (Time.time < nextConnectAllowedTime)
+				return;
+
+			nextConnectAllowedTime = Time.time + reconnectDelay;
+			reconnectDelay = Mathf.Min(reconnectDelay * 2, MaxReconnectDelay);
 
 			if (message.StartsWith(LanPrefix))
 				NetcodeManagement.ConnectLAN(message.Remove(0, LanPrefix.Length));

@@ -15,29 +15,32 @@ namespace Anaglyph.Netcode
 	{
 		Disconnected = 0,
 		Connecting,
-		Connected,
+		Connected
 	}
 
 	public static class NetcodeManagement
 	{
+		public enum Protocol
+		{
+			LAN,
+			UnityService
+		}
+
+		public const float cooldownSeconds = 8;
+
+		private static NetworkManager manager => NetworkManager.Singleton;
+
+		private static UnityTransport transport =>
+			(UnityTransport)NetworkManager.Singleton.NetworkConfig.NetworkTransport;
+
 		public static ushort port = 7777;
 		public static string contyp = "dtls";
 
 		private static float cooldownDoneTime = 0;
-		public const float cooldownSeconds = 8;
-
-		private static NetworkManager manager => NetworkManager.Singleton;
-		private static UnityTransport transport =>
-			(UnityTransport)NetworkManager.Singleton.NetworkConfig.NetworkTransport;
-
-		public enum Protocol
-		{
-			LAN,
-			UnityService,
-		}
 
 		private static NetcodeState _state = NetcodeState.Disconnected;
 		public static event Action<NetcodeState> StateChanged = delegate { };
+
 		public static NetcodeState State
 		{
 			get => _state;
@@ -50,11 +53,32 @@ namespace Anaglyph.Netcode
 			}
 		}
 
+		public static ISession CurrentSession { get; private set; }
+		public static string CurrentSessionName { get; private set; } = "";
+
+		// statics persist across play sessions while domain reload is disabled
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+		private static void Init()
+		{
+			taskCanceller?.Cancel();
+			taskCanceller = new CancellationTokenSource();
+
+			port = 7777;
+			contyp = "dtls";
+			cooldownDoneTime = 0;
+
+			_state = NetcodeState.Disconnected;
+			StateChanged = delegate { };
+
+			CurrentSession = null;
+			CurrentSessionName = "";
+		}
+
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
 		private static void OnSceneLoad()
 		{
 			if (!manager) return;
-			
+
 			manager.OnClientStarted += () => State = NetcodeState.Connecting;
 			manager.OnClientStopped += _ => State = NetcodeState.Disconnected;
 			manager.OnConnectionEvent += OnConnectionEvent;
@@ -64,13 +88,8 @@ namespace Anaglyph.Netcode
 		private static void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
 		{
 			if (ThisClientConnected(data))
-			{
 				State = NetcodeState.Connected;
-			}
-			else if (ThisClientDisconnected(data))
-			{
-				State = NetcodeState.Disconnected;
-			}
+			else if (ThisClientDisconnected(data)) State = NetcodeState.Disconnected;
 		}
 
 		private static CancellationTokenSource taskCanceller = new();
@@ -121,15 +140,13 @@ namespace Anaglyph.Netcode
 					manager.NetworkConfig.UseCMBService = false;
 
 					string localAddress = "";
-					var addresses = Dns.GetHostEntry(Dns.GetHostName()).AddressList;
-					foreach (var address in addresses)
-					{
+					IPAddress[] addresses = Dns.GetHostEntry(Dns.GetHostName()).AddressList;
+					foreach (IPAddress address in addresses)
 						if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
 						{
 							localAddress = address.ToString();
 							break;
 						}
-					}
 
 					transport.SetConnectionData(localAddress, port);
 					manager.StartHost();
@@ -137,7 +154,17 @@ namespace Anaglyph.Netcode
 
 				case Protocol.UnityService:
 
-					_ = ConnectUnityServices(DateTime.Now.ToString("HHmmssffff"), PrepareNextTask());
+					try
+					{
+						Task connectTask = ConnectUnityServices(DateTime.Now.ToString("HHmmssffff"), PrepareNextTask());
+					}
+					catch (Exception e)
+					{
+						State = NetcodeState.Disconnected;
+						Log($"Failed to connect to Unity services!", LogType.Error);
+						Debug.LogException(e);
+					}
+
 					break;
 			}
 		}
@@ -164,19 +191,25 @@ namespace Anaglyph.Netcode
 				await AuthenticationService.Instance.SignInAnonymouslyAsync();
 		}
 
-		public static ISession CurrentSession { get; private set; }
-		public static string CurrentSessionName { get; private set; } = "";
-
 		public static void ConnectUnityServices(string id)
 		{
-			_ = ConnectUnityServices(id, PrepareNextTask());
+			try
+			{
+				Task connectTask = ConnectUnityServices(id, PrepareNextTask());
+			}
+			catch (Exception e)
+			{
+				State = NetcodeState.Disconnected;
+				Log($"Failed to connect to Unity services!", LogType.Error);
+				Debug.LogException(e);
+			}
 		}
 
 		private static async Task ConnectUnityServices(string id, CancellationToken ct)
 		{
 			if (State != NetcodeState.Disconnected)
 				return;
-			
+
 			SetNetworkTransportType(Protocol.UnityService);
 
 			manager.NetworkConfig.UseCMBService = true;
@@ -197,10 +230,10 @@ namespace Anaglyph.Netcode
 
 			ct.ThrowIfCancellationRequested();
 
-			var options = new SessionOptions()
+			SessionOptions options = new SessionOptions
 			{
 				Name = id,
-				MaxPlayers = 20,
+				MaxPlayers = 20
 			}.WithDistributedAuthorityNetwork();
 
 			CurrentSessionName = id;
@@ -223,41 +256,44 @@ namespace Anaglyph.Netcode
 				if (CurrentSession != null)
 					await CurrentSession.LeaveAsync();
 			}
-			catch (SessionException)
+			catch (SessionException e)
 			{
-
+				Debug.LogException(e);
 			}
-			
+
 			manager.Shutdown();
 		}
 
 		public static bool ThisClientConnected(ConnectionEventData data)
 		{
 			return data.EventType == ConnectionEvent.ClientConnected &&
-				data.ClientId == NetworkManager.Singleton.LocalClientId;
+			       data.ClientId == NetworkManager.Singleton.LocalClientId;
 		}
 
 		public static bool ThisClientDisconnected(ConnectionEventData data)
 		{
 			return data.EventType == ConnectionEvent.ClientDisconnected &&
-				data.ClientId == NetworkManager.Singleton.LocalClientId;
+			       data.ClientId == NetworkManager.Singleton.LocalClientId;
 		}
 
 		public static string GetLocalIPv4()
 		{
-			var addresses = Dns.GetHostEntry(Dns.GetHostName()).AddressList;
-			foreach (var address in addresses)
-			{
+			IPAddress[] addresses = Dns.GetHostEntry(Dns.GetHostName()).AddressList;
+			foreach (IPAddress address in addresses)
 				if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-				{
 					return address.ToString();
-				}
-			}
 
 			return null;
 		}
 
-		public static bool GetNetObjById(ulong id, out NetworkObject netObj) =>
-			NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(id, out netObj);
+		public static bool GetNetObjById(ulong id, out NetworkObject netObj)
+		{
+			return NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(id, out netObj);
+		}
+
+		private static void Log(string str, LogType logType = LogType.Log)
+		{
+			Debug.unityLogger.Log($"[{nameof(NetcodeManagement)}] {str}", logType);
+		}
 	}
 }

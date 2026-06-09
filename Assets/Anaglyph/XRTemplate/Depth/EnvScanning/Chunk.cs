@@ -44,7 +44,6 @@ namespace Anaglyph.DepthKit.EnvScanning
 		{
 			if (dirty)
 			{
-				EnvScanner s = EnvScanner.Instance;
 				Gizmos.color = Color.yellow;
 				DrawChunkFrame();
 			}

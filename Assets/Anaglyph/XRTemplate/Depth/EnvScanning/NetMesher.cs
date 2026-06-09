@@ -108,7 +108,9 @@ namespace Anaglyph.DepthKit.EnvScanning
 			{
 				int voxelCount = VoxCount.x * VoxCount.y * VoxCount.z;
 
-				MinMaxAABB bounds = new();
+				float pi = float.PositiveInfinity;
+				float ni = float.NegativeInfinity;
+				MinMaxAABB bounds = new(new float3(pi, pi, pi), new float3(ni, ni, ni));
 
 				for (int i = 0; i < voxelCount; i++)
 				{

@@ -96,6 +96,11 @@ namespace Anaglyph.Lasertag
 	public class MatchReferee : NetworkBehaviour
 	{
 		public static MatchReferee Instance { get; private set; }
+
+		private static MatchState _state = MatchState.NotPlaying;
+		public static MatchState State => _state;
+		private static MatchSettings _settings = MatchSettings.Lobby();
+		public static MatchSettings Settings => _settings;
 		private static int[] _teamScores = new int[Teams.NumTeams];
 
 		public static int GetTeamScore(byte team)
@@ -103,39 +108,46 @@ namespace Anaglyph.Lasertag
 			return _teamScores[team];
 		}
 
-		private CancellationTokenSource cancelSrc;
-
-		private static MatchState _state = MatchState.NotPlaying;
-		public static MatchState State => _state;
 		public static event Action<MatchState> StateChanged = delegate { };
 		public static event Action MatchFinished = delegate { };
 		public static event Action<string> TimerTextChanged = delegate { };
+		public static event Action<byte, int> TeamScored = delegate { };
 
-		private static MatchSettings _settings = MatchSettings.Lobby();
-		public static MatchSettings Settings => _settings;
 		public float TimeMatchEnds { get; private set; }
+
+		private CancellationTokenSource cancelSrc;
+
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+		private static void Init()
+		{
+			_teamScores = new int[Teams.NumTeams];
+			_state = MatchState.NotPlaying;
+			StateChanged = delegate { };
+			MatchFinished = delegate { };
+			TimerTextChanged = delegate { };
+			TeamScored = delegate { };
+			_settings = MatchSettings.Lobby();
+		}
 
 		private void Awake()
 		{
 			Instance = this;
 		}
 
-		public static event Action<byte, int> TeamScored = delegate { };
-
 		// TODO: score sync not working
 		protected override void OnSynchronize<T>(ref BufferSerializer<T> serializer)
 		{
 			serializer.SerializeValue(ref _settings);
-
-			MatchState _synchronizedState = _state;
-			serializer.SerializeValue(ref _synchronizedState);
-			_ = SetStateLocally(_synchronizedState);
 
 			serializer.SerializeValue(ref _teamScores);
 
 			float timeLeft = GetTimeLeft();
 			serializer.SerializeValue(ref timeLeft);
 			TimeMatchEnds = Time.time + timeLeft;
+
+			MatchState _synchronizedState = _state;
+			serializer.SerializeValue(ref _synchronizedState);
+			_ = SetStateLocally(_synchronizedState);
 		}
 
 		public override void OnNetworkSpawn()
@@ -307,7 +319,7 @@ namespace Anaglyph.Lasertag
 					timeLeft = 0;
 					break;
 				case MatchState.Playing:
-					timeLeft = timeLeft = Mathf.Max(0, TimeMatchEnds - Time.time);
+					timeLeft = Mathf.Max(0, TimeMatchEnds - Time.time);
 					break;
 				default:
 					timeLeft = Settings.timerSeconds;

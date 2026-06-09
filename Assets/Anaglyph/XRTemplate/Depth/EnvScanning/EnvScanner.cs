@@ -27,8 +27,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 		[SerializeField] private int voxPerChunkDim = 32;
 		private float chunkWorldSizeDim;
 
-		[FormerlySerializedAs("chunkAreaDims")] [SerializeField]
-		private int3 chunkTableDims = new(64, 16, 64);
+		[SerializeField] private int3 chunkTableDims = new(64, 16, 64);
 
 		private int chunkTableLength;
 
@@ -54,16 +53,15 @@ namespace Anaglyph.DepthKit.EnvScanning
 		public ComputeBuffer VisibleChunks => visibleChunks;
 
 		private RenderTexture chunkData;
-
-		/// <summary>Packed 3D atlas of every reserved chunk's TSDF (R8_SNorm). Allocated in play mode.</summary>
 		public RenderTexture ChunkData => chunkData;
-
 		public int3 ChunkDataDims => chunkDataDims;
 
 		private ComputeKernel clearKernel;
 		private ComputeKernel markKernel;
 		private ComputeKernel integrateKernel;
 		private ComputeKernel readbackKernel;
+
+		private CancellationTokenSource updateLoopTknSrc;
 
 		public event Action Updated = delegate { };
 
@@ -195,15 +193,23 @@ namespace Anaglyph.DepthKit.EnvScanning
 				UpdateLoop();
 		}
 
+		private void OnDisable()
+		{
+			updateLoopTknSrc?.Cancel();
+		}
+
 		private async void UpdateLoop()
 		{
+			updateLoopTknSrc?.Cancel();
+			updateLoopTknSrc = new CancellationTokenSource();
+			CancellationToken ctkn = updateLoopTknSrc.Token;
+
 			try
 			{
-				CancellationToken ctkn = destroyCancellationToken;
-
-				while (enabled)
+				while (!ctkn.IsCancellationRequested)
 				{
 					await Awaitable.WaitForSecondsAsync(1 / updateFrequency, ctkn);
+					ctkn.ThrowIfCancellationRequested();
 
 					Scan();
 
@@ -253,7 +259,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 
 			if (dataReq.hasError || countReq.hasError)
 			{
-				Debug.LogWarning("[EnvScanner2] Visible chunks readback failed!");
+				LogDebug("Visible chunks readback failed!", LogType.Warning);
 				return new VisibleChunksReadbackResult();
 			}
 
@@ -275,7 +281,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 		{
 			if (chunkIndex < 0 || chunkIndex >= chunkTableLength)
 			{
-				Debug.LogWarning("[EnvScanner2] Readback chunk index out of range!");
+				LogDebug("Readback chunk index out of range!", LogType.Warning);
 				return new ChunkDataReadbackResult();
 			}
 
@@ -290,7 +296,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 
 			if (req.hasError)
 			{
-				Debug.LogWarning("[EnvScanner2] Readback chunk failed!");
+				LogDebug("Readback chunk failed!", LogType.Warning);
 				return new ChunkDataReadbackResult();
 			}
 
@@ -322,6 +328,13 @@ namespace Anaglyph.DepthKit.EnvScanning
 			visibleChunks?.Release();
 			integrateDispatchDims?.Release();
 			chunkData?.Release();
+		}
+
+		private static void LogDebug(string str, LogType logType = LogType.Log)
+		{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			Debug.unityLogger.Log($"[{nameof(EnvScanner)}] {str}", logType);
+#endif
 		}
 	}
 }
