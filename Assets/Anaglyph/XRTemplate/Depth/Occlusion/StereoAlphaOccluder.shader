@@ -1,4 +1,4 @@
-Shader "DepthKit/StereoAlphaOccluder"
+Shader "Anaglyph/DepthKit/StereoAlphaOccluder"
 {
     Properties
     {

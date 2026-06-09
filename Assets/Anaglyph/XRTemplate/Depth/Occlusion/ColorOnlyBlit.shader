@@ -5,7 +5,7 @@
 // or ARF...
 // this fixes by using ARCameraBackground's custom material field
 // to strip the depth buffer and only blit the background color
-Shader "DepthKit/Sim/ColorOnlyBlit"
+Shader "Anaglyph/DepthKit/Sim/ColorOnlyBlit"
 {
     Properties
     {

@@ -5,7 +5,7 @@ using VariableObjects;
 
 namespace Anaglyph.Lasertag
 {
-	public class Settings : MonoBehaviour
+	public class LasertagSettings : MonoBehaviour
 	{
 		[SerializeField] private BoolObject aprilTagColocation;
 		[SerializeField] private FloatObject aprilTagSize;
@@ -51,19 +51,7 @@ namespace Anaglyph.Lasertag
 			// {
 			// });
 
-			// drawScanMesh.AddChangeListenerAndCheck(b =>
-			// {
-			// 	int layer = LayerMask.NameToLayer("Chunk");
-			// 	int layerBit = 1 << layer;
-			// 	Camera cam = MainXRRig.Camera;
-			//
-			// 	if (b)
-			// 		cam.cullingMask |= layerBit;
-			// 	else
-			// 		cam.cullingMask &= ~layerBit;
-			//
-			// 	// ChunkManager.Instance.EnableDebugMaterial(b);
-			// });
+			drawScanMesh.AddChangeListenerAndCheck(b => { ChunkManager.Instance.ShowChunks(b); });
 
 			meshScanning.AddChangeListenerAndCheck(b =>
 			{

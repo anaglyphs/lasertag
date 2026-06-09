@@ -1,4 +1,4 @@
-Shader "DepthKit/Sim/R32toD16Blit"
+Shader "Anaglyph/DepthKit/Sim/R32toD16Blit"
 {
     SubShader
     {

@@ -1,4 +1,4 @@
-Shader "Lasertag/DepthLight"
+Shader "Anaglyph/Lasertag/DepthLight"
 {
     Properties
     {

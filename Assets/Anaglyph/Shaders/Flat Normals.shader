@@ -1,10 +1,10 @@
-Shader "Custom/Normals"
+Shader "Anaglyph/Debug/Flat Normals"
 {
     SubShader
     {
         Tags
         {
-            "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline"
+            "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" "Queue"="Geometry"
         }
 
         Pass
@@ -26,14 +26,13 @@ Shader "Custom/Normals"
             struct Attributes
             {
                 float4 positionOS : POSITION;
-                float3 normal : NORMAL;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             struct Varyings
             {
                 float4 positionHCS : SV_POSITION;
-                float4 color : TEXCOORD0;
+                float3 positionWS : TEXCOORD0;
                 UNITY_VERTEX_OUTPUT_STEREO
             };
 
@@ -41,13 +40,18 @@ Shader "Custom/Normals"
             {
                 Varyings OUT;
                 OUT.positionHCS = TransformObjectToHClip(IN.positionOS.xyz);
-                OUT.color = float4(IN.normal * 0.5 + 0.5, 1.0);
+                OUT.positionWS = TransformObjectToWorld(IN.positionOS.xyz);
+
                 return OUT;
             }
 
             half4 frag(Varyings IN) : SV_Target
             {
-                return IN.color;
+                float3 dp1 = ddx(IN.positionWS);
+                float3 dp2 = ddy(IN.positionWS);
+                float3 normalOS = normalize(cross(dp2, dp1));
+
+                return float4(normalOS * 0.5 + 0.5, 1.0);
             }
             ENDHLSL
         }

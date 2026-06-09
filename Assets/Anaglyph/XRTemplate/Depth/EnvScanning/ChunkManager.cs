@@ -7,6 +7,8 @@ using Meshia.MeshSimplification;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 namespace Anaglyph.DepthKit.EnvScanning
 {
@@ -17,9 +19,14 @@ namespace Anaglyph.DepthKit.EnvScanning
 	{
 		public static ChunkManager Instance { get; private set; }
 
+		public const string EnvironmentMeshLayerName = "EnvironmentMesh";
+		private LayerMask envMeshLayerMask;
+
 		[SerializeField] private GameObject chunkPrefab;
 		[SerializeField] private int numMeshWorkers = 2;
 		[SerializeField] private int numDecimateWorkers = 1;
+
+		[SerializeField] private UniversalRendererData rendererData;
 
 		[Header("Mesh decimation options")] public MeshSimplificationTarget decimationTarget = new()
 		{
@@ -56,15 +63,34 @@ namespace Anaglyph.DepthKit.EnvScanning
 		private void Awake()
 		{
 			Instance = this;
+			envMeshLayerMask = LayerMask.GetMask(EnvironmentMeshLayerName);
+
+			// hide EnvironmentMesh layer from rendering in normal camera
+			ShowChunks(false);
 		}
 
 		private void Start()
 		{
-			EnvScanner scanner = EnvScanner.Instance;
-			ChunkWorldSize = scanner.ChunkWorldSizeDim * Vector3.one;
+			ChunkWorldSize = EnvScanner.Instance.ChunkWorldSizeDim * Vector3.one;
 			ChunkWorldSizeHalf = ChunkWorldSize / 2f;
 
 			Begin();
+		}
+
+		public void ShowChunks(bool visible)
+		{
+			if (visible)
+			{
+				rendererData.prepassLayerMask |= envMeshLayerMask;
+				rendererData.opaqueLayerMask |= envMeshLayerMask;
+				rendererData.transparentLayerMask |= envMeshLayerMask;
+			}
+			else
+			{
+				rendererData.prepassLayerMask &= ~envMeshLayerMask;
+				rendererData.opaqueLayerMask &= ~envMeshLayerMask;
+				rendererData.transparentLayerMask &= ~envMeshLayerMask;
+			}
 		}
 
 		private void OnEnable()

@@ -18,6 +18,8 @@ float minDist = 0.8; // min integration distance (meters)
 float maxDist = 6; // max integration distance (meters)
 float minDot = 0.5; // min dot product between depth ray and surface normal
 
+static const uint maxIntegCountSettle = 32;
+
 // crop out part of the depth texture to prevent artifacts when user turns head quickly
 static const float depthTexCropMin = 0.1;
 static const float depthTexCropMax = 0.9;
@@ -138,7 +140,7 @@ uint PackR8SNorm4toUInt(float4 R8_SNorm4)
 {
 	const int4 quantized = (int4)round(clamp(R8_SNorm4, -1.0, 1.0) * 127.0); // [-127, 127]
 	// for a negative value like q = -1 (0xFFFFFFFF), masking the low byte gives 0xFF
-	// which is what CPU expects. TODO: understand this lol. this came from ai sorry
+	// which is what CPU expects
 	const uint4 b = (uint4)(quantized & 0xFF);
 	return b.x | b.y << 8 | b.z << 16 | b.w << 24;
 }
@@ -148,7 +150,7 @@ uint PackR8SNorm4toUInt(float4 R8_SNorm4)
 [numthreads(4, 4, 4)]
 void Clear(uint3 id : SV_DispatchThreadID)
 {
-	chunkData[id].xy = float2(1.0, U8toSNorm8(1));
+	chunkData[id].xy = float2(1.0, U8toSNorm8(0));
 }
 
 // reserves chunk data and marks chunks as visible for integration
@@ -268,6 +270,10 @@ void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 	const float3 eyePos = agDepthEyePos();
 	const float3 eyeToVox = voxCenterPos - eyePos;
 	const float voxEyeDist = length(eyeToVox);
+
+	// check that voxel is within integration range
+	if (voxEyeDist < minDist || voxEyeDist > maxDist) return;
+
 	const float normDot = -dot(eyeToVox, depthNorm) / voxEyeDist;
 
 	// if surface normal is too extreme, don't integrate
@@ -295,11 +301,11 @@ void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 	const float prevDistVal = prevDataVal.r;
 	const uint prevIntegCount = SNorm8toU8(prevDataVal.g);
 
-	const float newDistWeight = 1.0 / prevIntegCount;
+	const float newDistWeight = 1.0 / (prevIntegCount + 1);
 	const float oldDistWeight = 1.0 - newDistWeight;
 
 	const float newDistVal = sDistNorm * newDistWeight + prevDistVal * oldDistWeight;
-	const uint newIntegCount = min(prevIntegCount + 1, 127);
+	const uint newIntegCount = min(prevIntegCount + 1, maxIntegCountSettle);
 	const float2 newDataVal = float2(newDistVal, U8toSNorm8(newIntegCount));
 
 	chunkData[voxDataCoord] = newDataVal;
