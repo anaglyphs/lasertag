@@ -8,6 +8,7 @@ using UnityEngine.Experimental.Rendering;
 namespace Anaglyph.DepthKit.EnvScanning
 {
 	/// <summary>
+	/// Disclosure: fully written by Claude Code
 	/// Debug window for viewing <see cref="EnvScanner.ChunkData"/>.
 	///
 	/// Both modes drive Unity's stock object preview via Editor.CreateEditor:
@@ -18,9 +19,9 @@ namespace Anaglyph.DepthKit.EnvScanning
 	///    inspector's volume view - no copy needed, updates every scan. Note this is an ATLAS, not the
 	///    scene: up to MaxNumChunks independent 32^3 blobs gridded into the texture, not the room.
 	///
-	/// Play mode only; chunkData is allocated at runtime in EnvScanner2.Setup().
+	/// Play mode only; chunkData is allocated at runtime in EnvScanner.Setup().
 	/// </summary>
-	public class EnvScanner2DebugWindow : EditorWindow
+	public class EnvScannerDebugWindow : EditorWindow
 	{
 		private enum ViewMode
 		{
@@ -49,7 +50,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 		[MenuItem("Window/Lasertag/Scan Data Viewer")]
 		public static void ShowWindow()
 		{
-			GetWindow<EnvScanner2DebugWindow>("Scan Viewer");
+			GetWindow<EnvScannerDebugWindow>("Scan Viewer");
 		}
 
 		private void OnEnable()
