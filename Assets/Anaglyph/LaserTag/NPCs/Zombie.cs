@@ -6,7 +6,7 @@ using UnityEngine.AI;
 
 namespace Anaglyph.LaserTag.NPCs
 {
-	public class Zombie : NetworkBehaviour
+	public class Zombie : NetworkBehaviour, IDamageable
 	{
 		[SerializeField] private Transform head;
 		[SerializeField] private float damageDist;
@@ -15,17 +15,14 @@ namespace Anaglyph.LaserTag.NPCs
 
 		private NetworkVariable<ulong> targetIdSync = new(ulong.MaxValue);
 		private float health = 100;
-		
+
 		private PlayerAvatar target;
-	
+
 		private void Awake()
 		{
 			TryGetComponent(out agent);
 
-			targetIdSync.OnValueChanged += delegate
-			{
-				PlayerAvatar.All.TryGetValue(targetIdSync.Value, out target);
-			};
+			targetIdSync.OnValueChanged += delegate { PlayerAvatar.All.TryGetValue(targetIdSync.Value, out target); };
 		}
 
 		public override void OnNetworkSpawn()
@@ -48,14 +45,14 @@ namespace Anaglyph.LaserTag.NPCs
 		{
 			if (!IsOwner)
 				return;
-			
+
 			float maxDist = float.MaxValue;
 			foreach (PlayerAvatar avatar in PlayerAvatar.All.Values)
 			{
-				if(!avatar.IsAlive) continue;
-				
+				if (!avatar.IsAlive) continue;
+
 				float dist = Vector3.Distance(head.position, avatar.HeadTransform.position);
-				
+
 				if (dist < maxDist)
 				{
 					targetIdSync.Value = avatar.OwnerClientId;
@@ -68,23 +65,13 @@ namespace Anaglyph.LaserTag.NPCs
 				agent.destination = target.HeadTransform.position - Vector3.up * 1.5f;
 
 				if (Vector3.Distance(head.position, target.HeadTransform.position) < damageDist)
-				{
 					target.DamageRpc(101, 0);
-				}
 			}
 		}
 
 		private void LateUpdate()
 		{
-			if (target)
-			{
-				head.LookAt(target.HeadTransform);
-			}
-		}
-
-		public void OnShot(Bullet.DamageData damageData)
-		{
-			ShotRpc(damageData.damage);
+			if (target) head.LookAt(target.HeadTransform);
 		}
 
 		[Rpc(SendTo.Everyone)]
@@ -92,10 +79,12 @@ namespace Anaglyph.LaserTag.NPCs
 		{
 			health -= damage;
 
-			if (IsOwner && health <= 0)
-			{
-				NetworkObject.Despawn(true);
-			}
+			if (IsOwner && health <= 0) NetworkObject.Despawn(true);
+		}
+
+		public void Damage(IDamageable.Data data)
+		{
+			ShotRpc(data.damage);
 		}
 	}
 }

@@ -6,7 +6,7 @@ An Oculus game that turns any space into a laser tag arena for you and your frie
 ### [Website & video ➔](https://anagly.ph/)
 ### [Join the discord ➔](https://discord.com/invite/DgTqG5A6BD)
 
-# Credits
+## Credits
 
 - UI sounds from [Fourier](https://opengameart.org/users/fourier) on opengameart.org
 - "Level up sound effects" by Bart Kelsey. Commissioned by Will Corwin for OpenGameArt.org (http://opengameart.org)

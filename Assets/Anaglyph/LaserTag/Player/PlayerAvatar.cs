@@ -7,7 +7,7 @@ using UnityEngine.Events;
 namespace Anaglyph.Lasertag.Networking
 {
 	[DefaultExecutionOrder(-500)]
-	public class PlayerAvatar : NetworkBehaviour
+	public class PlayerAvatar : NetworkBehaviour, IDamageable
 	{
 		public const string Tag = "Player";
 
@@ -127,9 +127,9 @@ namespace Anaglyph.Lasertag.Networking
 			HandleBases();
 		}
 
-		public void OnShot(Bullet.DamageData damageData)
+		public void Damage(IDamageable.Data data)
 		{
-			DamageRpc(damageData.damage, damageData.playerID);
+			DamageRpc(data.damage, data.playerID);
 		}
 
 		[Rpc(SendTo.Everyone)]

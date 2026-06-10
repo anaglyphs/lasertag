@@ -30,13 +30,7 @@ namespace Anaglyph.Lasertag
 		public event Action OnFire = delegate { };
 		public event Action OnCollide = delegate { };
 
-		public struct DamageData
-		{
-			public ulong playerID;
-			public float damage;
-		}
-
-		private DamageData damageData;
+		private IDamageable.Data damageData;
 
 		private void Awake()
 		{
@@ -92,13 +86,13 @@ namespace Anaglyph.Lasertag
 
 					Collider col = physHit.collider;
 
-					damageData = new DamageData
+					damageData = new IDamageable.Data
 					{
 						playerID = OwnerClientId,
 						damage = damage
 					};
 
-					col.transform.root.BroadcastMessage("OnShot", damageData, SendMessageOptions.DontRequireReceiver);
+					IDamageable.DamageHierarchy(col.transform.root, damageData);
 
 					// if (col.CompareTag(Networking.PlayerAvatar.Tag))
 					// {
