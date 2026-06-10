@@ -1,3 +1,4 @@
+using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -56,6 +57,11 @@ namespace Anaglyph
 			int numGroupsZ = Mathf.CeilToInt(fillZ / (float)groupSize.z);
 
 			DispatchGroups(numGroupsX, numGroupsY, numGroupsZ);
+		}
+
+		public void DispatchFit(int3 fillXYZ)
+		{
+			DispatchFit(fillXYZ.x, fillXYZ.y, fillXYZ.z);
 		}
 
 		public void DispatchFit(RenderTexture tex)

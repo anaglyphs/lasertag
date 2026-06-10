@@ -94,6 +94,7 @@ MonoBehaviour:
   chunkPrefab: {fileID: 8545573707260339346, guid: de0df2db1268449c5be416e37e231c38, type: 3}
   numMeshWorkers: 2
   numDecimateWorkers: 1
+  meshSweptVoxelsThreshold: 8
   rendererData: {fileID: 11400000, guid: cf65c79082bdf4c4fb1ba1fd4ed52c18, type: 2}
   decimationTarget:
     Kind: 6

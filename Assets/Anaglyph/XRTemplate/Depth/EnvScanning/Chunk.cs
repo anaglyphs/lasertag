@@ -10,6 +10,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 		public int chunkIndex;
 		public Mesh mesh;
 		public bool dirty;
+		public uint lastMeshingChangeSum;
 
 		public MeshFilter meshFilter;
 		public MeshCollider meshCollider;

@@ -7,7 +7,6 @@ using Meshia.MeshSimplification;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
 namespace Anaglyph.DepthKit.EnvScanning
@@ -25,6 +24,8 @@ namespace Anaglyph.DepthKit.EnvScanning
 		[SerializeField] private GameObject chunkPrefab;
 		[SerializeField] private int numMeshWorkers = 2;
 		[SerializeField] private int numDecimateWorkers = 1;
+
+		[SerializeField] private int meshSweptVoxelsThreshold = 10;
 
 		[SerializeField] private UniversalRendererData rendererData;
 
@@ -155,8 +156,13 @@ namespace Anaglyph.DepthKit.EnvScanning
 						chunks.Add(chunkIndex, chunk);
 					}
 
-					if (!chunk.dirty)
+					uint changeSum = visResult.changeSums[i];
+
+					// subtraction guards against changeSum + changeSumMeshingThreshold becoming a long 
+					if (!chunk.dirty &&
+					    changeSum - chunk.lastMeshingChangeSum >= (uint)(meshSweptVoxelsThreshold * 254))
 					{
+						chunk.lastMeshingChangeSum = changeSum;
 						chunk.dirty = true;
 						meshQueue.Enqueue(chunk);
 						mesherSemaphore.Release();

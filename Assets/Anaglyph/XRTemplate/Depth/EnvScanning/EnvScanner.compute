@@ -18,7 +18,7 @@ float minDist = 0.8; // min integration distance (meters)
 float maxDist = 6; // max integration distance (meters)
 float minDot = 0.5; // min dot product between depth ray and surface normal
 
-static const uint maxIntegCountSettle = 32;
+static const uint maxIntegCountSettle = 16;
 
 // crop out part of the depth texture to prevent artifacts when user turns head quickly
 static const float depthTexCropMin = 0.1;
@@ -43,6 +43,8 @@ static const float depthTexCropMax = 0.9;
 
 RWStructuredBuffer<int> reservedChunkCounter; // single element buffer functioning as counter
 RWStructuredBuffer<int> chunkTable; // in concept a dense 3D grid spanning the desired max playspace
+RWStructuredBuffer<uint> chunkChangeSums; // absolute change odometer per chunk 
+
 uint3 chunkTableDims; // num chunk entries per axis in table
 uint chunkTableLength; // num chunk entries total
 
@@ -309,20 +311,37 @@ void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 	const float2 newDataVal = float2(newDistVal, U8toSNorm8(newIntegCount));
 
 	chunkData[voxDataCoord] = newDataVal;
+
+	const uint quantizedChange = abs(round(newDistVal * 127) - round(prevDistVal * 127));
+
+	InterlockedAdd(chunkChangeSums[chunkIdx], quantizedChange);
+}
+
+#pragma kernel VisibleChunkChangeSumsReadback
+
+RWStructuredBuffer<uint> visibleChangeSumsReadback;
+
+[numthreads(64, 1, 1)]
+void VisibleChunkChangeSumsReadback(uint3 threadID : SV_DispatchThreadID)
+{
+	if (threadID.x >= (uint)maxNumVisibleChunks) return;
+
+	const int chunkIdx = visibleChunks[threadID.x];
+	visibleChangeSumsReadback[threadID.x] = chunkChangeSums[chunkIdx];
 }
 
 
 // kernel for reading back data to the CPU
 // no batched chunk readbacks for now, just single
-// packs single chunk's sbyte voxel data into uint buffer 
+// packs single chunk's sbyte voxel data into uint buffer
 
-#pragma kernel ChunkReadback
+#pragma kernel ChunkDataReadback
 
 RWStructuredBuffer<int> readbackBuffer;
 int readbackChunkIndex;
 
 [numthreads(8, 8, 8)]
-void ChunkReadback(uint3 threadID : SV_DispatchThreadID)
+void ChunkDataReadback(uint3 threadID : SV_DispatchThreadID)
 {
 	const int tableVal = chunkTable[readbackChunkIndex];
 	if ((tableVal & RESERVED_BIT) == 0) return;

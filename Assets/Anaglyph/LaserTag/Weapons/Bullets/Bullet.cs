@@ -93,12 +93,6 @@ namespace Anaglyph.Lasertag
 					};
 
 					IDamageable.DamageHierarchy(col.transform.root, damageData);
-
-					// if (col.CompareTag(Networking.PlayerAvatar.Tag))
-					// {
-					// 	var av = col.GetComponentInParent<Networking.PlayerAvatar>();
-					// 	av.DamageRpc(damage, OwnerClientId);
-					// }
 				}
 
 				if (travelDist > MaxTravelDist)
@@ -115,11 +109,6 @@ namespace Anaglyph.Lasertag
 
 			OnCollide.Invoke();
 			AudioPool.Play(collideSFX, transform.position);
-
-			// if(IsOwner)
-			// 	NetworkObject.Despawn();
-
-			// commented out to make sure this wasn't the problem
 
 			if (IsOwner)
 				DelayedDespawn();
