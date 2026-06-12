@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
 using Anaglyph.XRTemplate.DepthKit;
@@ -27,6 +28,18 @@ namespace Anaglyph.DepthKit.EnvScanning
 		[SerializeField] private float distanceTruncationBand = 0.2f;
 		[SerializeField] private int voxPerChunkDim = 32;
 		private float chunkWorldSizeDim;
+
+		// cylinders encompassing player heads and extending down.
+		// depth samples inside them are ignored so players
+		// aren't integrated into the scan. radius is padded
+		// to absorb network interpolation lag on remote heads
+		[SerializeField] private float playerMaskRadius = 1.2f;
+		[SerializeField] private float playerMaskAbove = 0.5f;
+		[SerializeField] private float playerMaskBelow = 2.0f;
+
+		public static List<Transform> PlayerHeads { get; } = new();
+		private const int MaxPlayerHeads = 64;
+		private readonly Vector4[] playerHeads = new Vector4[MaxPlayerHeads];
 
 		[SerializeField] private int3 chunkTableDims = new(64, 16, 64);
 
@@ -154,6 +167,9 @@ namespace Anaglyph.DepthKit.EnvScanning
 			compute.SetInts(nameof(chunkDataDims), cdd.x, cdd.y, cdd.z);
 			compute.SetInt(nameof(maxNumVisibleChunks), maxNumVisibleChunks);
 			compute.SetInt(nameof(maxNumChunks), maxNumChunks);
+			compute.SetFloat(nameof(playerMaskRadius), playerMaskRadius);
+			compute.SetFloat(nameof(playerMaskAbove), playerMaskAbove);
+			compute.SetFloat(nameof(playerMaskBelow), playerMaskBelow);
 
 			// mark kernel
 			markKernel = new ComputeKernel(compute, "Mark");
@@ -266,6 +282,18 @@ namespace Anaglyph.DepthKit.EnvScanning
 
 			compute.SetMatrixArray(DepthKitDriver.viewInvID, dkd.ViewInv);
 			compute.SetMatrixArray(DepthKitDriver.projInvID, dkd.ProjInv);
+
+			// upload player head positions for masking
+			int numPlayerHeads = 0;
+			for (int i = 0; i < PlayerHeads.Count && numPlayerHeads < MaxPlayerHeads; i++)
+			{
+				Transform head = PlayerHeads[i];
+				if (head != null)
+					playerHeads[numPlayerHeads++] = head.position;
+			}
+
+			compute.SetInt(nameof(numPlayerHeads), numPlayerHeads);
+			compute.SetVectorArray(nameof(playerHeads), playerHeads);
 
 			// reset visible chunks counter
 			visibleChunks.SetCounterValue(0);

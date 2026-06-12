@@ -119,6 +119,7 @@ GameObject:
   - component: {fileID: 4861561073879411851}
   - component: {fileID: 1675067101662172221}
   - component: {fileID: 8556069954310410918}
+  - component: {fileID: 6643218790123456789}
   m_Layer: 0
   m_Name: Head
   m_TagString: Player
@@ -5012,6 +5013,18 @@ ParticleSystemRenderer:
   m_MeshWeighting1: 1
   m_MeshWeighting2: 1
   m_MeshWeighting3: 1
+--- !u!114 &6643218790123456789
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1746489447900163166}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e2ad3dbf83e51744781ec13b94d8c713, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1866142780104944628
 GameObject:
   m_ObjectHideFlags: 0
@@ -5577,7 +5590,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 2049764313
+  GlobalObjectIdHash: 2018407512
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 0

@@ -245,63 +245,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 6f643e8c0126ffc46b58e6cbae23abd0, type: 3}
---- !u!1 &1207151510
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1207151512}
-  - component: {fileID: 1207151511}
-  - component: {fileID: 1207151513}
-  m_Layer: 0
-  m_Name: Chunk Compression Tester
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 0
---- !u!114 &1207151511
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1207151510}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 55d363b6e21e24fdba05210e81000f12, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: EnvScanning::Anaglyph.DepthKit.EnvScanningV2.ChunkEncodingTester
---- !u!4 &1207151512
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1207151510}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 1, y: 1, z: 1}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1207151513
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1207151510}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dbaf3ea10ff843840841a8d631e8a8fc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Anaglyph::Anaglyph.DestroyIfNotEditor
 --- !u!1 &1322057765
 GameObject:
   m_ObjectHideFlags: 0
@@ -707,4 +650,3 @@ SceneRoots:
   - {fileID: 1789293822}
   - {fileID: 3109736614008989924}
   - {fileID: 1684159566}
-  - {fileID: 1207151512}

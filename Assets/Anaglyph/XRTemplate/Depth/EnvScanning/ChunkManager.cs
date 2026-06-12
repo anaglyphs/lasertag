@@ -274,7 +274,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 			{
 				mesher.Dispose();
 				readbackBuffer.Dispose();
-				Destroy(scratchMesh);
+				DestroyImmediate(scratchMesh);
 			}
 		}
 	}

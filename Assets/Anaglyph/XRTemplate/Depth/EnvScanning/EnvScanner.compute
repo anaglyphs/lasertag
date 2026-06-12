@@ -60,6 +60,33 @@ AppendStructuredBuffer<int> visibleChunksAppend;
 RWStructuredBuffer<int> visibleChunks; // indexing the TABLE, not DATA
 int maxNumVisibleChunks;
 
+// depth samples landing on player bodies are rejected so players
+// don't get integrated into the environment scan.
+// players are approximated as cylinders encompassing their head
+// and extending down to the floor
+#define MAX_PLAYER_HEADS 64
+float4 playerHeads[MAX_PLAYER_HEADS]; // xyz: head world position
+int numPlayerHeads;
+float playerMaskRadius;
+float playerMaskAbove; // mask extent above head
+float playerMaskBelow; // mask extent below head
+
+bool isOnPlayer(const float3 worldPos)
+{
+	[loop] for (int p = 0; p < numPlayerHeads; p++)
+	{
+		const float3 headPos = playerHeads[p].xyz;
+		const float2 diff = worldPos.xz - headPos.xz;
+
+		if (dot(diff, diff) < playerMaskRadius * playerMaskRadius &&
+			worldPos.y < headPos.y + playerMaskAbove &&
+			worldPos.y > headPos.y - playerMaskBelow)
+			return true;
+	}
+
+	return false;
+}
+
 int3 worldPosToChunkCoord(const float3 world)
 {
 	// quantize to chunk size.
@@ -173,6 +200,10 @@ void Mark(uint3 id : SV_DispatchThreadID)
 	const float dist = distance(depthPos, depthEyePos);
 	const bool inRange = dist >= minDist && dist <= maxDist; // to guard against NaN
 	if (!inRange) return;
+
+	// player depth samples must not mark chunks visible —
+	// especially not RESERVE them, since reservations are permanent
+	if (isOnPlayer(depthPos)) return;
 
 	const int chunkIdx = worldPosToChunkIndex(depthPos);
 	if (chunkIdx & INVALID_BIT) return;
@@ -296,6 +327,11 @@ void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 	// which is why I don't write past the truncation band's negative end
 	const bool isBehindTruncationBand = sDistNorm < -1.0;
 	if (isBehindTruncationBand) return;
+
+	// reject MEASUREMENTS of players (not voxels near them!)
+	// walls seen past a player still update voxels inside the mask,
+	// and free space in front of players still carves naturally
+	if (isOnPlayer(depthPos)) return;
 
 	const float2 prevDataVal = chunkData[voxDataCoord].xy;
 

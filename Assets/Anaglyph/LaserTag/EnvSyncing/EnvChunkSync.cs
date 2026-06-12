@@ -214,7 +214,7 @@ namespace Anaglyph.Lasertag
 			for (int i = 0; i < qIndices.Length; i++)
 				indices[i] = qIndices[i];
 
-			chunk.ApplyRemoteMesh(positions, indices);
+			chunk.ApplyMeshData(positions, indices);
 
 			if (indices.Length > 0)
 				RemoteMeshApplied.Invoke(chunk);

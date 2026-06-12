@@ -16,14 +16,6 @@ namespace Anaglyph.DepthKit.EnvScanning
 		public MeshFilter meshFilter;
 		public MeshCollider meshCollider;
 
-		// mesh synced from other players, kept alongside the local
-		// scan so drift correction can compare the two
-		public Mesh RemoteMesh { get; private set; }
-		public bool HasRemoteMesh => RemoteMesh != null;
-
-		private GameObject remoteMeshObject;
-		private MeshCollider remoteMeshCollider;
-
 		private Vector3 worldCenter;
 
 		private void Awake()
@@ -46,66 +38,24 @@ namespace Anaglyph.DepthKit.EnvScanning
 		private void OnDestroy()
 		{
 			Destroy(mesh);
-
-			if (RemoteMesh)
-				Destroy(RemoteMesh);
 		}
 
-		public void ApplyRemoteMesh(NativeArray<Vector3> positions, NativeArray<int> indices)
+		public void ApplyMeshData(NativeArray<Vector3> positions, NativeArray<int> indices)
 		{
-			if (RemoteMesh == null)
-				CreateRemoteMeshObject();
+			bool isPopulated = indices.Length >= 3;
 
-			RemoteMesh.Clear();
-
-			bool isPopulated = indices.Length > 0;
+			mesh.Clear();
 
 			if (isPopulated)
 			{
-				RemoteMesh.SetVertices(positions);
-				RemoteMesh.SetIndices(indices, MeshTopology.Triangles, 0);
-				RemoteMesh.RecalculateNormals();
+				mesh.SetVertices(positions);
+				mesh.SetIndices(indices, MeshTopology.Triangles, 0);
+				mesh.RecalculateNormals();
 
-				remoteMeshCollider.sharedMesh = RemoteMesh;
+				meshCollider.sharedMesh = mesh;
 			}
 
-			remoteMeshCollider.enabled = isPopulated;
-		}
-
-		public void ReleaseRemoteMesh()
-		{
-			if (RemoteMesh == null) return;
-
-			Destroy(remoteMeshObject);
-			Destroy(RemoteMesh);
-
-			remoteMeshObject = null;
-			remoteMeshCollider = null;
-			RemoteMesh = null;
-		}
-
-		private void CreateRemoteMeshObject()
-		{
-			RemoteMesh = new Mesh();
-			RemoteMesh.MarkDynamic();
-
-			remoteMeshObject = new GameObject("Remote Mesh")
-			{
-				layer = gameObject.layer
-			};
-			remoteMeshObject.transform.SetParent(transform, false);
-
-			MeshFilter filter = remoteMeshObject.AddComponent<MeshFilter>();
-			filter.sharedMesh = RemoteMesh;
-
-			if (TryGetComponent(out MeshRenderer localRenderer))
-			{
-				MeshRenderer remoteRenderer = remoteMeshObject.AddComponent<MeshRenderer>();
-				remoteRenderer.sharedMaterials = localRenderer.sharedMaterials;
-			}
-
-			remoteMeshCollider = remoteMeshObject.AddComponent<MeshCollider>();
-			remoteMeshCollider.enabled = false;
+			meshCollider.enabled = isPopulated;
 		}
 
 #if UNITY_EDITOR
