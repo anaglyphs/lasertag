@@ -46,7 +46,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public async void Align()
 		{
-			if (!XRSettings.enabled) return;
+			if (!XRSettings.enabled)
+			{
+				Aligned.Invoke();
+				return;
+			}
 
 			await anchor.WhenLocalizedAsync();
 			await Awaitable.EndOfFrameAsync();

@@ -22,7 +22,6 @@ namespace Anaglyph.DepthKit.EnvScanning
 
 		[SerializeField] private GameObject chunkPrefab;
 		[SerializeField] private int numMeshWorkers = 2;
-		[SerializeField] private int numDecimateWorkers = 1;
 
 		[SerializeField] private int meshSweptVoxelsThreshold = 10;
 
@@ -60,8 +59,6 @@ namespace Anaglyph.DepthKit.EnvScanning
 		private readonly Dictionary<int, Chunk> chunks = new();
 		private readonly ConcurrentQueue<Chunk> meshQueue = new();
 		private readonly SemaphoreSlim mesherSemaphore = new(0);
-		private readonly ConcurrentQueue<Chunk> decimateQueue = new();
-		private readonly SemaphoreSlim decimateSemaphore = new(0);
 		private CancellationTokenSource workerCancelSrc;
 
 		private bool busy = false;
@@ -139,7 +136,6 @@ namespace Anaglyph.DepthKit.EnvScanning
 
 			chunks.Clear();
 			meshQueue.Clear();
-			decimateQueue.Clear();
 
 			if (enabled)
 				StartWorkers();
@@ -153,9 +149,6 @@ namespace Anaglyph.DepthKit.EnvScanning
 
 			for (int i = 0; i < numMeshWorkers; i++)
 				_ = RunMesherWorker(workerCancelSrc.Token);
-
-			for (int i = 0; i < numDecimateWorkers; i++)
-				_ = RunDecimateWorker(workerCancelSrc.Token);
 		}
 
 		private async void OnScanUpdate()
@@ -228,6 +221,11 @@ namespace Anaglyph.DepthKit.EnvScanning
 
 			EnvScanner.ChunkReadbackBuffer readbackBuffer = scanner.CreateChunkReadbackBuffer();
 
+			// meshed into first, so the chunk mesh and collider only
+			// update once, after decimation is done
+			Mesh scratchMesh = new();
+			scratchMesh.MarkDynamic();
+
 			try
 			{
 				while (!ctkn.IsCancellationRequested)
@@ -244,19 +242,29 @@ namespace Anaglyph.DepthKit.EnvScanning
 					ctkn.ThrowIfCancellationRequested();
 
 					bool isPopulated = await mesher.CreateMesh(readbackBuffer.data, chunkSize, scanner.VoxSize,
-						chunk.mesh, ctkn);
-
-					chunk.dirty = false;
-					chunk.meshCollider.enabled = isPopulated;
+						scratchMesh, ctkn);
 
 					ctkn.ThrowIfCancellationRequested();
 
 					if (isPopulated)
 					{
+						await MeshSimplifier.SimplifyAsync(scratchMesh, decimationTarget, decimationOptions,
+							chunk.mesh, ctkn);
+
+						ctkn.ThrowIfCancellationRequested();
+
+						chunk.mesh.RecalculateBounds();
 						chunk.meshCollider.sharedMesh = chunk.mesh;
-						decimateQueue.Enqueue(chunk);
-						decimateSemaphore.Release();
 					}
+					else
+					{
+						chunk.mesh.Clear();
+					}
+
+					chunk.dirty = false;
+					chunk.meshCollider.enabled = isPopulated;
+
+					ChunkMeshUpdated.Invoke(chunk);
 				}
 			}
 			catch (OperationCanceledException)
@@ -266,32 +274,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 			{
 				mesher.Dispose();
 				readbackBuffer.Dispose();
-			}
-		}
-
-		private async Task RunDecimateWorker(CancellationToken ctkn)
-		{
-			try
-			{
-				while (!ctkn.IsCancellationRequested)
-				{
-					await decimateSemaphore.WaitAsync(ctkn);
-
-					if (!decimateQueue.TryDequeue(out Chunk c)) continue;
-
-					if (c.dirty) continue;
-
-					await MeshSimplifier.SimplifyAsync(c.mesh, decimationTarget, decimationOptions, c.mesh, ctkn);
-
-					ctkn.ThrowIfCancellationRequested();
-
-					// if dirty again, a newer mesh is on the way; it will invoke this instead
-					if (!c.dirty)
-						ChunkMeshUpdated.Invoke(c);
-				}
-			}
-			catch (OperationCanceledException)
-			{
+				Destroy(scratchMesh);
 			}
 		}
 	}

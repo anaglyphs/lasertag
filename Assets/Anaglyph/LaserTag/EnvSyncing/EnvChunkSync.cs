@@ -1,9 +1,11 @@
+using System;
 using System.Collections.Generic;
 using Anaglyph.DepthKit.EnvScanning;
 using Unity.Collections;
 using Unity.Mathematics;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.XR;
 
 namespace Anaglyph.Lasertag
 {
@@ -15,6 +17,12 @@ namespace Anaglyph.Lasertag
 	{
 		private const string MessageName = "EnvChunkSync";
 		private const NetworkDelivery Delivery = NetworkDelivery.ReliableFragmentedSequenced;
+
+		/// <summary>
+		/// Invoked after a populated chunk mesh received from another
+		/// player is applied to a chunk's remote mesh
+		/// </summary>
+		public static event Action<Chunk> RemoteMeshApplied = delegate { };
 
 		// a swept voxel is one voxel fully flipping sign (-127 to 127)
 		[SerializeField] private int syncSweptVoxelsThreshold = 100;
@@ -56,6 +64,7 @@ namespace Anaglyph.Lasertag
 		private void OnVisibleChunkPolled(int chunkIndex, uint changeSum)
 		{
 			// don't send scans until they're in the shared reference space
+
 			if (!ColocationManager.IsColocated) return;
 
 			lastSyncedChangeSums.TryGetValue(chunkIndex, out uint lastSynced);
@@ -189,37 +198,26 @@ namespace Anaglyph.Lasertag
 		private void ApplyReceivedMesh(int chunkIndex, NativeArray<ushort> qPositions, NativeArray<ushort> qIndices)
 		{
 			Chunk chunk = ChunkManager.Instance.GetOrCreateChunk(chunkIndex);
-			Mesh mesh = chunk.mesh;
 
-			bool isPopulated = qIndices.Length > 0;
+			int vertCount = qPositions.Length / 3;
+			NativeArray<Vector3> positions = new(vertCount, Allocator.Temp);
+			NativeArray<int> indices = new(qIndices.Length, Allocator.Temp);
 
-			mesh.Clear();
+			float dequantScale = chunkSpan / ushort.MaxValue;
 
-			if (isPopulated)
-			{
-				int vertCount = qPositions.Length / 3;
-				NativeArray<Vector3> positions = new(vertCount, Allocator.Temp);
-				NativeArray<int> indices = new(qIndices.Length, Allocator.Temp);
+			for (int v = 0; v < vertCount; v++)
+				positions[v] = new Vector3(
+					qPositions[v * 3 + 0] * dequantScale,
+					qPositions[v * 3 + 1] * dequantScale,
+					qPositions[v * 3 + 2] * dequantScale);
 
-				float dequantScale = chunkSpan / ushort.MaxValue;
+			for (int i = 0; i < qIndices.Length; i++)
+				indices[i] = qIndices[i];
 
-				for (int v = 0; v < vertCount; v++)
-					positions[v] = new Vector3(
-						qPositions[v * 3 + 0] * dequantScale,
-						qPositions[v * 3 + 1] * dequantScale,
-						qPositions[v * 3 + 2] * dequantScale);
+			chunk.ApplyRemoteMesh(positions, indices);
 
-				for (int i = 0; i < qIndices.Length; i++)
-					indices[i] = qIndices[i];
-
-				mesh.SetVertices(positions);
-				mesh.SetIndices(indices, MeshTopology.Triangles, 0);
-				mesh.RecalculateNormals();
-
-				chunk.meshCollider.sharedMesh = mesh;
-			}
-
-			chunk.meshCollider.enabled = isPopulated;
+			if (indices.Length > 0)
+				RemoteMeshApplied.Invoke(chunk);
 		}
 	}
 }
