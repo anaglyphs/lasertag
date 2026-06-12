@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 3966192772413791964}
   - component: {fileID: 4976647607938919449}
   - component: {fileID: 9147200356447112767}
+  - component: {fileID: 2386423160524462980}
   m_Layer: 0
   m_Name: XR Interaction Simulator
   m_TagString: Untagged
@@ -1161,3 +1162,15 @@ MonoBehaviour:
   - {fileID: -944628639613478452, guid: 7f59cc19636f04d5cbbc64e77a20787f, type: 3}
   - {fileID: -944628639613478452, guid: b6d5c44ebe3244b7692e81ae8265eb22, type: 3}
   - {fileID: -944628639613478452, guid: 1f7ec93f6b8c84f5981db5008b5859cd, type: 3}
+--- !u!114 &2386423160524462980
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8135023674665499069}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 914268a1201f544dfae15b2791f6794b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.XRTemplate::Anaglyph.XRTemplate.SimEnvironmentRigFollower

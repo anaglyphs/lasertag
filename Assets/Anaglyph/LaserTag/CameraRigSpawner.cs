@@ -23,7 +23,7 @@ namespace Anaglyph.Lasertag
 			if (xrSimulation && !XRSettings.enabled)
 			{
 				Instantiate(arFoundationSimulator);
-				g.transform.position = Vector3.up * 1.7f;
+				g.transform.position = Vector3.zero;
 			}
 #endif
 		}

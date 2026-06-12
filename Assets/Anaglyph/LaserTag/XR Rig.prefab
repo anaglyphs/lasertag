@@ -565,6 +565,30 @@ PrefabInstance:
       propertyPath: m_Name
       value: Settings Panel
       objectReference: {fileID: 0}
+    - target: {fileID: 6107863958373054987, guid: 1a55ea070375b2c459df476de0e498ff, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6107863958373054987, guid: 1a55ea070375b2c459df476de0e498ff, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6107863958373054987, guid: 1a55ea070375b2c459df476de0e498ff, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6107863958373054987, guid: 1a55ea070375b2c459df476de0e498ff, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6107863958373054987, guid: 1a55ea070375b2c459df476de0e498ff, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6107863958373054987, guid: 1a55ea070375b2c459df476de0e498ff, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6497377757351543980, guid: 1a55ea070375b2c459df476de0e498ff, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -1002,6 +1026,10 @@ PrefabInstance:
     - target: {fileID: 2038948978265102462, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2643811832658117967, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1.7
       objectReference: {fileID: 0}
     - target: {fileID: 2653058899222645203, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       propertyPath: behaviours.Array.size

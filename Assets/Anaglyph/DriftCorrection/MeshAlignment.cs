@@ -6,18 +6,17 @@ using Unity.Mathematics;
 namespace Anaglyph.DriftCorrection
 {
 	/// <summary>
-	/// Aligns sample points (with normals) against TSDF chunk volumes.
-	/// Solves 4DoF (translation + yaw) Gauss-Newton point-to-TSDF ICP:
-	/// pitch/roll drift is negligible because tracking observes gravity.
-	/// Residuals are trimmed each iteration and the normal-agreement
-	/// rejection anneals from lenient to strict. The result maps sample
-	/// points onto the TSDF's surfaces.
+	/// Mesh-on-mesh alignment: builds a k-d tree over target surface points
+	/// and registers source points against it with 4DoF (translation + yaw)
+	/// Gauss-Newton point-to-plane ICP. Pitch/roll drift is negligible
+	/// because tracking observes gravity. The result maps source points
+	/// onto the target surfaces.
 	/// </summary>
-	public static class TsdfAlignment
+	public static class MeshAlignment
 	{
 		public const int StatInlierFrac = 0;
 		public const int StatRmsMeters = 1;
-		// min eigenvalue of inlier normals' horizontal covariance.
+		// min eigenvalue of inlier target normals' horizontal covariance.
 		// near zero when all surfaces face one horizontal direction,
 		// which leaves yaw and tangential translation unconstrained
 		public const int StatHorizNormalMinEig = 2;
@@ -30,29 +29,134 @@ namespace Anaglyph.DriftCorrection
 		public const int StatYawRad = 7;
 		public const int StatCount = 8;
 
+		// median splits keep the tree balanced, so depth stays under
+		// log2(n) + 1; this comfortably covers any addressable size
+		private const int StackSize = 96;
+
+		public struct Node
+		{
+			public float3 point;
+			public float3 normal;
+			public int lesser;
+			public int greater;
+		}
+
+		[BurstCompile]
+		public struct BuildJob : IJob
+		{
+			// partitioned in place; normals are co-permuted with points
+			public NativeArray<float3> points;
+			public NativeArray<float3> normals;
+			public NativeArray<Node> nodes;
+
+			public void Execute()
+			{
+				int count = points.Length;
+				if (count == 0) return;
+
+				// x: start, y: end, z: depth, w: parent index << 1 | isLesser
+				NativeArray<int4> stack = new(StackSize, Allocator.Temp);
+				int top = 0;
+				stack[top++] = new int4(0, count - 1, 0, -1);
+
+				int numNodes = 0;
+
+				while (top > 0)
+				{
+					int4 range = stack[--top];
+					int start = range.x;
+					int end = range.y;
+					int depth = range.z;
+
+					int axis = depth % 3;
+					int mid = (start + end) / 2;
+
+					// quickselect: only the median needs to land in place,
+					// not a full sort of the range
+					SelectMedian(start, end, mid, axis);
+
+					int index = numNodes++;
+
+					Node node;
+					node.point = points[mid];
+					node.normal = normals[mid];
+					node.lesser = -1;
+					node.greater = -1;
+					nodes[index] = node;
+
+					int parentPacked = range.w;
+					if (parentPacked != -1)
+					{
+						int parentIndex = parentPacked >> 1;
+						Node parent = nodes[parentIndex];
+						if ((parentPacked & 1) == 1)
+							parent.lesser = index;
+						else
+							parent.greater = index;
+						nodes[parentIndex] = parent;
+					}
+
+					int childDepth = depth + 1;
+
+					if (mid - 1 >= start)
+						stack[top++] = new int4(start, mid - 1, childDepth, (index << 1) | 1);
+
+					if (mid + 1 <= end)
+						stack[top++] = new int4(mid + 1, end, childDepth, index << 1);
+				}
+			}
+
+			private void SelectMedian(int lo, int hi, int k, int axis)
+			{
+				while (lo < hi)
+				{
+					int j = Partition(lo, hi, axis);
+
+					if (k <= j) hi = j;
+					else lo = j + 1;
+				}
+			}
+
+			// hoare partition: [lo..j] <= pivot <= [j+1..hi], with j < hi
+			private int Partition(int lo, int hi, int axis)
+			{
+				float pivot = points[(lo + hi) / 2][axis];
+				int i = lo - 1;
+				int j = hi + 1;
+
+				while (true)
+				{
+					do i++; while (points[i][axis] < pivot);
+					do j--; while (points[j][axis] > pivot);
+
+					if (i >= j) return j;
+
+					(points[i], points[j]) = (points[j], points[i]);
+					(normals[i], normals[j]) = (normals[j], normals[i]);
+				}
+			}
+		}
+
 		[BurstCompile]
 		public struct AlignJob : IJob
 		{
-			// TSDF volumes of multiple chunks, concatenated per slot
-			[ReadOnly] public NativeArray<sbyte> volumes;
-			// world position of each slot's chunk volume corner
-			[ReadOnly] public NativeArray<float3> chunkCorners;
+			[ReadOnly] public NativeArray<Node> nodes;
 
-			// world-space sample points to align onto the TSDF surfaces
+			// world-space source points to align onto the tree's surfaces
 			[ReadOnly] public NativeArray<float3> points;
 			[ReadOnly] public NativeArray<float3> normals;
 
-			public int voxPerChunkDim;
-			public float voxSize;
-			public float truncationBand; // meters
 			public int iterations;
-			// |tsdf| at or above this fraction is clamped or unobserved
-			public float maxBandFrac;
-			// normal agreement anneals from lenient to strict
+			// correspondence radius anneals from max to final across
+			// iterations: wide for capture, tight for the final fit
+			public float maxCorrespondenceDist; // meters
+			public float finalCorrespondenceDist; // meters
+			// normal agreement anneals the opposite way: lenient to strict
 			public float minNormalAgreement;
 			public float finalNormalAgreement;
 			// fraction of matches kept by |residual| each iteration; the
-			// rest are outliers that would drag the solve and the stats
+			// rest are outliers (bodies, scan frontiers) that would drag
+			// both the solve and the rms stat
 			public float trimFraction;
 
 			[WriteOnly] public NativeArray<float4x4> result; // length 1
@@ -65,19 +169,21 @@ namespace Anaglyph.DriftCorrection
 					stats[i] = 0f;
 
 				int numPoints = points.Length;
-				if (numPoints == 0 || chunkCorners.Length == 0)
+				if (numPoints == 0 || nodes.Length == 0)
 					return;
 
-				NativeArray<float4> corrJ = new(numPoints, Allocator.Temp);
-				NativeArray<float> corrR = new(numPoints, Allocator.Temp);
-				NativeArray<float> corrAbsR = new(numPoints, Allocator.Temp);
+				NativeArray<int> stackNode = new(StackSize, Allocator.Temp);
+				NativeArray<int> stackDepth = new(StackSize, Allocator.Temp);
+				NativeArray<float> stackDistSqr = new(StackSize, Allocator.Temp);
 
 				float3 pivot = float3.zero;
 				for (int i = 0; i < numPoints; i++)
 					pivot += points[i];
 				pivot /= numPoints;
 
-				sbyte maxBandRaw = (sbyte)(sbyte.MaxValue * maxBandFrac);
+				NativeArray<float4> corrJ = new(numPoints, Allocator.Temp);
+				NativeArray<float> corrR = new(numPoints, Allocator.Temp);
+				NativeArray<float> corrAbsR = new(numPoints, Allocator.Temp);
 
 				float yaw = 0f;
 				float3 trans = float3.zero;
@@ -90,6 +196,9 @@ namespace Anaglyph.DriftCorrection
 				for (int iter = 0; iter < iterations; iter++)
 				{
 					float t = iterations > 1 ? iter / (float)(iterations - 1) : 0f;
+					float radius = maxCorrespondenceDist *
+						math.pow(finalCorrespondenceDist / maxCorrespondenceDist, t);
+					float radiusSqr = radius * radius;
 					float normalAgreement = math.lerp(minNormalAgreement, finalNormalAgreement, t);
 
 					math.sincos(yaw, out float s, out float c);
@@ -102,21 +211,25 @@ namespace Anaglyph.DriftCorrection
 						float3 q = RotateY(points[i] - pivot, s, c);
 						float3 p = q + pivot + trans;
 
-						if (!SampleTsdf(p, maxBandRaw, out float dist, out float3 grad))
-							continue;
+						int nearest = FindNearest(p, radiusSqr, stackNode, stackDepth, stackDistSqr);
+						if (nearest < 0) continue;
 
+						Node target = nodes[nearest];
+						float3 n = target.normal;
 						float3 srcNormal = RotateY(normals[i], s, c);
 
 						// abs() so mesh winding orientation can't reject everything
-						if (math.abs(math.dot(grad, srcNormal)) < normalAgreement)
+						if (math.abs(math.dot(n, srcNormal)) < normalAgreement)
 							continue;
+
+						float r = math.dot(n, p - target.point);
 
 						// d(RotY(yaw) v)/dyaw == cross(up, RotY(yaw) v)
 						float3 dYaw = math.cross(math.up(), q);
 
-						corrJ[matched] = new float4(grad, math.dot(grad, dYaw));
-						corrR[matched] = dist;
-						corrAbsR[matched] = math.abs(dist);
+						corrJ[matched] = new float4(n, math.dot(n, dYaw));
+						corrR[matched] = r;
+						corrAbsR[matched] = math.abs(r);
 						matched++;
 					}
 
@@ -197,85 +310,61 @@ namespace Anaglyph.DriftCorrection
 				}
 			}
 
-			// samples whichever slot's volume contains the point, so points
-			// near chunk borders are not tied to their own chunk's volume
-			private bool SampleTsdf(float3 worldPos, sbyte maxBandRaw, out float dist, out float3 grad)
+			// iterative nearest-neighbor search. seeding the best distance
+			// with the correspondence cap prunes subtrees beyond capture
+			// range; returns -1 when nothing is within it
+			private int FindNearest(float3 target, float maxDistSqr,
+				NativeArray<int> stackNode, NativeArray<int> stackDepth, NativeArray<float> stackDistSqr)
 			{
-				dist = 0f;
-				grad = float3.zero;
+				int best = -1;
+				float bestDistSqr = maxDistSqr;
 
-				int vpcd = voxPerChunkDim;
-				int sy = vpcd;
-				int sz = vpcd * vpcd;
-				int voxPerChunk = vpcd * sz;
+				int top = 0;
+				int node = 0;
+				int depth = 0;
 
-				for (int slot = 0; slot < chunkCorners.Length; slot++)
+				while (true)
 				{
-					// voxel centers sit at corner + (coord + 0.5) * voxSize
-					float3 g = (worldPos - chunkCorners[slot]) / voxSize - 0.5f;
-					int3 g0 = (int3)math.floor(g);
+					while (node != -1)
+					{
+						Node n = nodes[node];
 
-					if (math.any(g0 < 0) || math.any(g0 >= vpcd - 1))
-						continue;
+						float distSqr = math.distancesq(target, n.point);
+						if (distSqr < bestDistSqr)
+						{
+							bestDistSqr = distSqr;
+							best = node;
+						}
 
-					int idx = slot * voxPerChunk + g0.x + g0.y * sy + g0.z * sz;
+						int axis = depth % 3;
+						float diff = target[axis] - n.point[axis];
 
-					sbyte r000 = volumes[idx];
-					sbyte r100 = volumes[idx + 1];
-					sbyte r010 = volumes[idx + sy];
-					sbyte r110 = volumes[idx + 1 + sy];
-					sbyte r001 = volumes[idx + sz];
-					sbyte r101 = volumes[idx + 1 + sz];
-					sbyte r011 = volumes[idx + sy + sz];
-					sbyte r111 = volumes[idx + 1 + sy + sz];
+						int near = diff < 0 ? n.lesser : n.greater;
+						int far = diff < 0 ? n.greater : n.lesser;
 
-					// clamped or unobserved voxels have no usable distance
-					// or gradient; another slot may still cover this point
-					if (math.abs(r000) >= maxBandRaw || math.abs(r100) >= maxBandRaw ||
-					    math.abs(r010) >= maxBandRaw || math.abs(r110) >= maxBandRaw ||
-					    math.abs(r001) >= maxBandRaw || math.abs(r101) >= maxBandRaw ||
-					    math.abs(r011) >= maxBandRaw || math.abs(r111) >= maxBandRaw)
-						continue;
+						if (far != -1)
+						{
+							stackNode[top] = far;
+							stackDepth[top] = depth + 1;
+							stackDistSqr[top] = diff * diff;
+							top++;
+						}
 
-					const float toNorm = 1f / sbyte.MaxValue;
-					float c000 = r000 * toNorm, c100 = r100 * toNorm;
-					float c010 = r010 * toNorm, c110 = r110 * toNorm;
-					float c001 = r001 * toNorm, c101 = r101 * toNorm;
-					float c011 = r011 * toNorm, c111 = r111 * toNorm;
+						node = near;
+						depth++;
+					}
 
-					float3 f = g - g0;
+					// pop the nearest pending branch that can still win
+					do
+					{
+						if (top == 0)
+							return best;
+						top--;
+					} while (stackDistSqr[top] >= bestDistSqr);
 
-					float c00 = math.lerp(c000, c100, f.x);
-					float c10 = math.lerp(c010, c110, f.x);
-					float c01 = math.lerp(c001, c101, f.x);
-					float c11 = math.lerp(c011, c111, f.x);
-					float c0 = math.lerp(c00, c10, f.y);
-					float c1 = math.lerp(c01, c11, f.y);
-					float val = math.lerp(c0, c1, f.z);
-
-					// analytic gradient of the trilinear interpolant
-					float gx = math.lerp(
-						math.lerp(c100 - c000, c110 - c010, f.y),
-						math.lerp(c101 - c001, c111 - c011, f.y), f.z);
-					float gy = math.lerp(
-						math.lerp(c010 - c000, c110 - c100, f.x),
-						math.lerp(c011 - c001, c111 - c101, f.x), f.z);
-					float gz = math.lerp(
-						math.lerp(c001 - c000, c101 - c100, f.x),
-						math.lerp(c011 - c010, c111 - c110, f.x), f.y);
-
-					float3 gv = new float3(gx, gy, gz);
-					float len = math.length(gv);
-
-					if (len < 1e-6f)
-						continue;
-
-					grad = gv / len;
-					dist = val * truncationBand;
-					return true;
+					node = stackNode[top];
+					depth = stackDepth[top];
 				}
-
-				return false;
 			}
 
 			// matches Unity.Mathematics RotateY convention
