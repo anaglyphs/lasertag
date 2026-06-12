@@ -153,5 +153,10 @@ namespace Anaglyph.Lasertag.Networking
 		{
 			scoreSync.Value = 0;
 		}
+
+		public void ResetScoreLocally()
+		{
+			scoreSync.Value = 0;
+		}
 	}
 }

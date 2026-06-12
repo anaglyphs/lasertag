@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Threading;
 using Anaglyph.XRTemplate.DepthKit;
 using Unity.Collections;
@@ -6,6 +7,7 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
+using Action = System.Action;
 
 namespace Anaglyph.DepthKit.EnvScanning
 {
@@ -62,6 +64,27 @@ namespace Anaglyph.DepthKit.EnvScanning
 		private CancellationTokenSource updateLoopTknSrc;
 
 		public event Action Updated = delegate { };
+		public event Action Cleared = delegate { };
+
+		public struct ChunkReadbackBuffer : IDisposable
+		{
+			public ComputeBuffer gpuBuffer { get; private set; }
+			public NativeArray<Voxel> data { get; private set; }
+			public readonly int voxPerChunkDim;
+
+			public ChunkReadbackBuffer(ComputeBuffer gpuBuffer, NativeArray<Voxel> data, int voxPerChunkDim)
+			{
+				this.gpuBuffer = gpuBuffer;
+				this.data = data;
+				this.voxPerChunkDim = voxPerChunkDim;
+			}
+
+			public void Dispose()
+			{
+				gpuBuffer?.Dispose();
+				data.Dispose();
+			}
+		}
 
 		public struct VisibleChunksReadbackResult
 		{
@@ -75,18 +98,6 @@ namespace Anaglyph.DepthKit.EnvScanning
 				this.count = count;
 				this.visibleChunks = visibleChunks;
 				this.changeSums = changeSums;
-				valid = true;
-			}
-		}
-
-		public struct ChunkDataReadbackResult
-		{
-			public NativeArray<sbyte> data { get; private set; }
-			public bool valid { get; private set; }
-
-			public ChunkDataReadbackResult(NativeArray<sbyte> data)
-			{
-				this.data = data;
 				valid = true;
 			}
 		}
@@ -190,6 +201,8 @@ namespace Anaglyph.DepthKit.EnvScanning
 			visibleChunks.SetData(new int[maxNumVisibleChunks]);
 
 			clearKernel.DispatchFit(chunkData);
+
+			Cleared.Invoke();
 		}
 
 		private void Start()
@@ -298,36 +311,50 @@ namespace Anaglyph.DepthKit.EnvScanning
 			return new VisibleChunksReadbackResult(count, visibleChunkData, changesSums);
 		}
 
-		public ComputeBuffer CreateChunkReadbackBuffer()
+		public ChunkReadbackBuffer CreateChunkReadbackBuffer()
 		{
 			int vpcd = voxPerChunkDim;
-			return new ComputeBuffer(vpcd / 4 * vpcd * vpcd, sizeof(uint));
+
+			ComputeBuffer computeBuffer = new(vpcd / 4 * vpcd * vpcd, sizeof(uint));
+			NativeArray<Voxel> data = new(vpcd * vpcd * vpcd, Allocator.Persistent);
+
+			return new ChunkReadbackBuffer(computeBuffer, data, vpcd);
 		}
 
-		public async Awaitable<ChunkDataReadbackResult> ReadbackChunk(int chunkIndex, ComputeBuffer readbackBuffer)
+		public NativeArray<Voxel> CreateChunkReadbackContainer(Allocator allocator)
 		{
+			int vpcd = voxPerChunkDim;
+			return new NativeArray<Voxel>(vpcd * vpcd * vpcd, allocator);
+		}
+
+		public async Awaitable<bool> ReadbackChunkInto(int chunkIndex, ChunkReadbackBuffer readbackBuffer)
+		{
+			if (readbackBuffer.voxPerChunkDim != voxPerChunkDim)
+				throw new Exception("Readback chunk dimensions do not match scanner chunk dimensions");
+
 			if (chunkIndex < 0 || chunkIndex >= chunkTableLength)
 			{
 				LogDebug("Readback chunk index out of range!", LogType.Warning);
-				return new ChunkDataReadbackResult();
+				return false;
 			}
 
 			compute.SetInt(readbackChunkIndexID, chunkIndex);
-			dataReadbackKernel.Bind(readbackBufferID, readbackBuffer);
+			dataReadbackKernel.Bind(readbackBufferID, readbackBuffer.gpuBuffer);
 
 			// each thread covers FOUR voxels on X axis for byte packing
 			int vpcd = voxPerChunkDim;
 			dataReadbackKernel.DispatchFit(vpcd / 4, vpcd, vpcd);
 
-			AsyncGPUReadbackRequest req = await AsyncGPUReadback.RequestAsync(readbackBuffer);
+			AsyncGPUReadbackRequest req = await AsyncGPUReadback.RequestAsync(readbackBuffer.gpuBuffer);
 
 			if (req.hasError)
 			{
 				LogDebug("Readback chunk failed!", LogType.Warning);
-				return new ChunkDataReadbackResult();
+				return false;
 			}
 
-			return new ChunkDataReadbackResult(req.GetData<sbyte>());
+			req.GetData<byte>().Reinterpret<Voxel>(1).CopyTo(readbackBuffer.data);
+			return true;
 		}
 
 		public int3 ChunkIndexToChunkCoord(int chunkIndex)
@@ -348,11 +375,54 @@ namespace Anaglyph.DepthKit.EnvScanning
 			return (float3)chunkCoordUncentered * chunkWorldSizeDim - new float3(voxSize, voxSize, voxSize);
 		}
 
+		public int3 WorldPosToChunkCoord(float3 world)
+		{
+			// quantize to chunk size.
+			// subtract two from voxPerChunkDim to account for 1-vox apron
+			int3 quantized = (int3)math.floor(world / chunkWorldSizeDim);
+
+			// center so 0,0,0 is at corner
+			int3 chunkCoord = quantized + chunkTableDims / 2;
+
+			return chunkCoord;
+		}
+
+		public int ChunkCoordToChunkIndex(int3 coord)
+		{
+			if (math.any(coord < 0) || math.any(coord >= (int3)chunkTableDims))
+				return -1;
+
+			return
+				coord.x +
+				coord.y * chunkTableDims.x +
+				coord.z * chunkTableDims.x * chunkTableDims.y;
+		}
+
 		private static void LogDebug(string str, LogType logType = LogType.Log)
 		{
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 			Debug.unityLogger.Log($"[{nameof(EnvScanner)}] {str}", logType);
 #endif
+		}
+
+		[StructLayout(LayoutKind.Sequential)]
+		public readonly struct Voxel
+		{
+			public readonly sbyte value;
+			// public readonly byte count;
+
+			public const int stride = 1; //2;
+
+			public float CalcDistNorm()
+			{
+				return value / (float)sbyte.MaxValue;
+			}
+
+			public Voxel(sbyte value)
+			{
+				this.value = value;
+				// count = 0;
+			}
 		}
 	}
 }

@@ -94,7 +94,7 @@ MonoBehaviour:
   m_UseWebSockets: 0
   m_UseEncryption: 0
   m_MaxPacketQueueSize: 512
-  m_MaxPayloadSize: 6144
+  m_MaxPayloadSize: 65536
   m_HeartbeatTimeoutMS: 500
   m_ConnectTimeoutMS: 3000
   m_MaxConnectAttempts: 2
@@ -125,7 +125,7 @@ MonoBehaviour:
   m_UseWebSockets: 0
   m_UseEncryption: 0
   m_MaxPacketQueueSize: 512
-  m_MaxPayloadSize: 6144
+  m_MaxPayloadSize: 65536
   m_HeartbeatTimeoutMS: 500
   m_ConnectTimeoutMS: 3000
   m_MaxConnectAttempts: 2

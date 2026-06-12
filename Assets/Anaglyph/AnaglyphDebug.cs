@@ -3,17 +3,17 @@ using UnityEngine;
 
 namespace Anaglyph
 {
-    public static class Debug
-    {
+	public static class AnaglyphDebug
+	{
 		private static bool _debugMode = false;
 		public static Action<bool> DebugModeChanged = delegate { };
 
 		public static bool DebugMode
 		{
-			get { return _debugMode; }
+			get => _debugMode;
 			set
 			{
-				if(_debugMode != value)
+				if (_debugMode != value)
 				{
 					_debugMode = value;
 					DebugModeChanged.Invoke(_debugMode);
@@ -21,12 +21,15 @@ namespace Anaglyph
 			}
 		}
 
-		public static void SetDebugMode(bool on) => DebugMode = on;
+		public static void SetDebugMode(bool on)
+		{
+			DebugMode = on;
+		}
 
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
 		private static void InitializeOnLoad()
 		{
-			DebugMode = UnityEngine.Debug.isDebugBuild;
+			DebugMode = Debug.isDebugBuild;
 		}
-    }
+	}
 }

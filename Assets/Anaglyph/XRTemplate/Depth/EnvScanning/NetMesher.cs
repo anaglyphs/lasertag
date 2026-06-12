@@ -2,6 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Serialization;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -23,20 +24,6 @@ namespace Anaglyph.DepthKit.EnvScanning
 
 		private bool isBusy = false;
 		public bool IsBusy => isBusy;
-
-		[StructLayout(LayoutKind.Sequential)]
-		public readonly struct Voxel
-		{
-			public readonly sbyte distNormRaw;
-
-			// public readonly byte count;
-			public const int stride = 1;
-
-			public float CalcDistNorm()
-			{
-				return distNormRaw / (float)sbyte.MaxValue;
-			}
-		}
 
 		private static readonly byte[] CrnrOffsIdxA =
 		{
@@ -93,7 +80,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 		[BurstCompile]
 		private struct VertexJob : IJob
 		{
-			[ReadOnly] public NativeArray<Voxel> Volume;
+			[ReadOnly] public NativeArray<EnvScanner.Voxel> Volume;
 			[ReadOnly] public int3 VoxCount;
 			[ReadOnly] public float VoxSize;
 
@@ -134,8 +121,8 @@ namespace Anaglyph.DepthKit.EnvScanning
 						int3 coordA = coord + CornerOffs[CrnrOffsIdxA[e]];
 						int3 coordB = coord + CornerOffs[CrnrOffsIdxB[e]];
 
-						Voxel voxA = VoxelForCoord(coordA, VoxCount, Volume);
-						Voxel voxB = VoxelForCoord(coordB, VoxCount, Volume);
+						EnvScanner.Voxel voxA = VoxelForCoord(coordA, VoxCount, Volume);
+						EnvScanner.Voxel voxB = VoxelForCoord(coordB, VoxCount, Volume);
 
 						float distA = voxA.CalcDistNorm();
 						float distB = voxB.CalcDistNorm();
@@ -189,7 +176,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 		[BurstCompile]
 		private struct IndexJob : IJob
 		{
-			[ReadOnly] public NativeArray<Voxel> Volume;
+			[ReadOnly] public NativeArray<EnvScanner.Voxel> Volume;
 
 			[ReadOnly] public int3 VoxCount;
 			[ReadOnly] public NativeList<int3> VertCoords;
@@ -214,8 +201,8 @@ namespace Anaglyph.DepthKit.EnvScanning
 					return;
 
 				int ia = FlattenCoord(coord, VoxCount);
-				Voxel voxA = VoxelForCoord(coord, VoxCount, Volume);
-				Voxel voxB = VoxelForCoord(coord + axis, VoxCount, Volume);
+				EnvScanner.Voxel voxA = VoxelForCoord(coord, VoxCount, Volume);
+				EnvScanner.Voxel voxB = VoxelForCoord(coord + axis, VoxCount, Volume);
 
 				float distA = voxA.CalcDistNorm();
 				float distB = voxB.CalcDistNorm();
@@ -258,7 +245,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 			return c.x + c.y * s.x + c.z * s.x * s.y;
 		}
 
-		private static Voxel VoxelForCoord(int3 coord, int3 voxCount, NativeArray<Voxel> volume)
+		private static EnvScanner.Voxel VoxelForCoord(int3 coord, int3 voxCount, NativeArray<EnvScanner.Voxel> volume)
 		{
 			return volume[FlattenCoord(coord, voxCount)];
 		}
@@ -274,11 +261,11 @@ namespace Anaglyph.DepthKit.EnvScanning
 		}
 
 		public async Task<bool> CreateMesh(
-			NativeArray<Voxel> volume,
+			NativeArray<EnvScanner.Voxel> volume,
 			int3 voxCount, float voxSize, Mesh mesh,
 			CancellationToken ctkn = default)
 		{
-			if (isBusy) throw new Exception("Mesher is busy");
+			if (isBusy) return false;
 			isBusy = true;
 
 			if (!verts.IsCreated)
@@ -327,9 +314,11 @@ namespace Anaglyph.DepthKit.EnvScanning
 				};
 
 				JobHandle vertHandle = vertexMaker.Schedule();
-				while (!vertHandle.IsCompleted) await Awaitable.NextFrameAsync(ctkn);
-
+				// do NOT cancel until job is done!
+				// ReSharper disable once MethodSupportsCancellation
+				while (!vertHandle.IsCompleted) await Awaitable.NextFrameAsync();
 				vertHandle.Complete();
+
 				ctkn.ThrowIfCancellationRequested();
 
 				if (verts.Length < 3)
@@ -348,8 +337,9 @@ namespace Anaglyph.DepthKit.EnvScanning
 				};
 
 				JobHandle triHandle = triMaker.Schedule();
-				while (!triHandle.IsCompleted) await Awaitable.NextFrameAsync(ctkn);
-
+				// do NOT cancel until job is done!
+				// ReSharper disable once MethodSupportsCancellation
+				while (!triHandle.IsCompleted) await Awaitable.NextFrameAsync();
 				triHandle.Complete();
 				ctkn.ThrowIfCancellationRequested();
 
@@ -359,6 +349,9 @@ namespace Anaglyph.DepthKit.EnvScanning
 				ApplyToMesh(verts.AsArray(), tris.AsArray(), bounds, mesh);
 
 				hasTriangles = tris.Length > 0;
+			}
+			catch (OperationCanceledException)
+			{
 			}
 			finally
 			{

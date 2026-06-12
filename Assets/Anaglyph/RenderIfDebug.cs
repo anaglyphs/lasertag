@@ -2,8 +2,8 @@ using UnityEngine;
 
 namespace Anaglyph
 {
-    public class RenderIfDebug : MonoBehaviour
-    {
+	public class RenderIfDebug : MonoBehaviour
+	{
 		private new Renderer renderer;
 
 		private void Awake()
@@ -13,13 +13,13 @@ namespace Anaglyph
 
 		private void OnEnable()
 		{
-			Debug.DebugModeChanged += OnDebugModeChanged;
-			renderer.enabled = Debug.DebugMode;
+			AnaglyphDebug.DebugModeChanged += OnDebugModeChanged;
+			renderer.enabled = AnaglyphDebug.DebugMode;
 		}
 
 		private void OnDisable()
 		{
-			Debug.DebugModeChanged -= OnDebugModeChanged;
+			AnaglyphDebug.DebugModeChanged -= OnDebugModeChanged;
 		}
 
 		private void OnDebugModeChanged(bool on)

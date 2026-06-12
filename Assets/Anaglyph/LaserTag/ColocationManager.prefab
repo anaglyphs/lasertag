@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 8602809240530545973}
   - component: {fileID: 5291754562700660134}
   - component: {fileID: 6911126833990273307}
+  - component: {fileID: 2865989476549954882}
   - component: {fileID: 3770516394125647478}
   - component: {fileID: 2017920904899384140}
   - component: {fileID: 3794738929113082028}
@@ -78,6 +79,20 @@ MonoBehaviour:
   methodHostSetting: 0
   metaAnchorColocator: {fileID: 3770516394125647478}
   tagColocator: {fileID: 2017920904899384140}
+--- !u!114 &2865989476549954882
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5901269829941828840}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c1e3f149293645689d825af3599178c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.EnvChunkSync
+  ShowTopMostFoldoutHeaderGroup: 1
+  syncSweptVoxelsThreshold: 100
 --- !u!114 &3770516394125647478
 MonoBehaviour:
   m_ObjectHideFlags: 0

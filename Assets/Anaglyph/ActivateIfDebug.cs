@@ -6,13 +6,13 @@ namespace Anaglyph
 	{
 		private void Awake()
 		{
-			Debug.DebugModeChanged += gameObject.SetActive;
-			gameObject.SetActive(Debug.DebugMode);
+			AnaglyphDebug.DebugModeChanged += gameObject.SetActive;
+			gameObject.SetActive(AnaglyphDebug.DebugMode);
 		}
 
 		private void OnDestroy()
 		{
-			Debug.DebugModeChanged -= gameObject.SetActive;
+			AnaglyphDebug.DebugModeChanged -= gameObject.SetActive;
 		}
 	}
 }

@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Meshia.MeshSimplification;
-using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
@@ -48,8 +47,17 @@ namespace Anaglyph.DepthKit.EnvScanning
 			VertexLinkUvDistance = 0.001f
 		};
 
-		private Dictionary<int, Chunk> chunks = new();
+		/// <summary>
+		/// Invoked for every visible chunk each scan update with its cumulative change sum
+		/// </summary>
+		public event Action<int, uint> VisibleChunkPolled = delegate { };
 
+		/// <summary>
+		/// Invoked when a chunk's mesh has finished meshing and decimating
+		/// </summary>
+		public event Action<Chunk> ChunkMeshUpdated = delegate { };
+
+		private readonly Dictionary<int, Chunk> chunks = new();
 		private readonly ConcurrentQueue<Chunk> meshQueue = new();
 		private readonly SemaphoreSlim mesherSemaphore = new(0);
 		private readonly ConcurrentQueue<Chunk> decimateQueue = new();
@@ -74,6 +82,8 @@ namespace Anaglyph.DepthKit.EnvScanning
 		{
 			ChunkWorldSize = EnvScanner.Instance.ChunkWorldSizeDim * Vector3.one;
 			ChunkWorldSizeHalf = ChunkWorldSize / 2f;
+
+			EnvScanner.Instance.Cleared += OnClear;
 
 			Begin();
 		}
@@ -102,6 +112,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 		private void Begin()
 		{
 			EnvScanner.Instance.Updated += OnScanUpdate;
+
 			StartWorkers();
 		}
 
@@ -112,6 +123,28 @@ namespace Anaglyph.DepthKit.EnvScanning
 			if (EnvScanner.Instance)
 				EnvScanner.Instance.Updated -= OnScanUpdate;
 		}
+
+		private void OnDestroy()
+		{
+			if (EnvScanner.Instance)
+				EnvScanner.Instance.Cleared -= OnClear;
+		}
+
+		private void OnClear()
+		{
+			workerCancelSrc?.Cancel();
+
+			foreach (Chunk chunk in chunks.Values)
+				Destroy(chunk.gameObject);
+
+			chunks.Clear();
+			meshQueue.Clear();
+			decimateQueue.Clear();
+
+			if (enabled)
+				StartWorkers();
+		}
+
 
 		private void StartWorkers()
 		{
@@ -130,9 +163,10 @@ namespace Anaglyph.DepthKit.EnvScanning
 			if (busy) return;
 			busy = true;
 
+			EnvScanner scanner = EnvScanner.Instance;
+
 			try
 			{
-				EnvScanner scanner = EnvScanner.Instance;
 				EnvScanner.VisibleChunksReadbackResult visResult = await scanner.ReadbackVisibleChunks();
 
 				if (!visResult.valid) return;
@@ -141,24 +175,13 @@ namespace Anaglyph.DepthKit.EnvScanning
 				{
 					int chunkIndex = visResult.visibleChunks[i];
 
-					bool gotChunk = chunks.TryGetValue(chunkIndex, out Chunk chunk);
-
-					if (!gotChunk)
-					{
-						int3 chunkCoord = scanner.ChunkIndexToChunkCoord(chunkIndex);
-						float3 newChunkPos = scanner.ChunkCoordToCornerWorldPos(chunkCoord);
-
-						GameObject g = Instantiate(chunkPrefab, newChunkPos, Quaternion.identity, transform);
-						g.name = "Chunk " + chunkIndex;
-						chunk = g.GetComponent<Chunk>();
-						chunk.meshCollider.enabled = false;
-						chunk.chunkIndex = chunkIndex;
-						chunks.Add(chunkIndex, chunk);
-					}
+					Chunk chunk = GetOrCreateChunk(chunkIndex);
 
 					uint changeSum = visResult.changeSums[i];
 
-					// subtraction guards against changeSum + changeSumMeshingThreshold becoming a long 
+					VisibleChunkPolled.Invoke(chunkIndex, changeSum);
+
+					// subtraction guards against changeSum + changeSumMeshingThreshold becoming a long
 					if (!chunk.dirty &&
 					    changeSum - chunk.lastMeshingChangeSum >= (uint)(meshSweptVoxelsThreshold * 254))
 					{
@@ -175,18 +198,35 @@ namespace Anaglyph.DepthKit.EnvScanning
 			}
 		}
 
+		public Chunk GetOrCreateChunk(int chunkIndex)
+		{
+			if (chunks.TryGetValue(chunkIndex, out Chunk chunk))
+				return chunk;
+
+			EnvScanner scanner = EnvScanner.Instance;
+			int3 chunkCoord = scanner.ChunkIndexToChunkCoord(chunkIndex);
+			float3 newChunkPos = scanner.ChunkCoordToCornerWorldPos(chunkCoord);
+
+			GameObject g = Instantiate(chunkPrefab, newChunkPos, Quaternion.identity, transform);
+			g.name = "Chunk " + chunkIndex;
+			chunk = g.GetComponent<Chunk>();
+			chunk.meshCollider.enabled = false;
+			chunk.chunkIndex = chunkIndex;
+			chunks.Add(chunkIndex, chunk);
+
+			return chunk;
+		}
+
 		private async Task RunMesherWorker(CancellationToken ctkn)
 		{
 			EnvScanner scanner = EnvScanner.Instance;
 
 			int vpcd = scanner.VoxPerChunkDim;
-			int vpc = vpcd * vpcd * vpcd;
 			int3 chunkSize = new(vpcd, vpcd, vpcd);
 
 			NetMesher mesher = new();
-			NativeArray<NetMesher.Voxel> voxelData = new(vpc, Allocator.Persistent);
 
-			ComputeBuffer readbackBuffer = scanner.CreateChunkReadbackBuffer();
+			EnvScanner.ChunkReadbackBuffer readbackBuffer = scanner.CreateChunkReadbackBuffer();
 
 			try
 			{
@@ -197,16 +237,14 @@ namespace Anaglyph.DepthKit.EnvScanning
 					if (!meshQueue.TryDequeue(out Chunk chunk))
 						continue;
 
-					EnvScanner.ChunkDataReadbackResult req =
-						await scanner.ReadbackChunk(chunk.chunkIndex, readbackBuffer);
+					bool readbackSuccess = await scanner.ReadbackChunkInto(chunk.chunkIndex, readbackBuffer);
 
-					if (!req.valid) continue;
+					if (!readbackSuccess) continue;
 
 					ctkn.ThrowIfCancellationRequested();
 
-					req.data.Reinterpret<NetMesher.Voxel>(sizeof(sbyte)).CopyTo(voxelData);
-
-					bool isPopulated = await mesher.CreateMesh(voxelData, chunkSize, scanner.VoxSize, chunk.mesh, ctkn);
+					bool isPopulated = await mesher.CreateMesh(readbackBuffer.data, chunkSize, scanner.VoxSize,
+						chunk.mesh, ctkn);
 
 					chunk.dirty = false;
 					chunk.meshCollider.enabled = isPopulated;
@@ -244,6 +282,12 @@ namespace Anaglyph.DepthKit.EnvScanning
 					if (c.dirty) continue;
 
 					await MeshSimplifier.SimplifyAsync(c.mesh, decimationTarget, decimationOptions, c.mesh, ctkn);
+
+					ctkn.ThrowIfCancellationRequested();
+
+					// if dirty again, a newer mesh is on the way; it will invoke this instead
+					if (!c.dirty)
+						ChunkMeshUpdated.Invoke(c);
 				}
 			}
 			catch (OperationCanceledException)

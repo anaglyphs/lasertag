@@ -43,7 +43,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 		private Editor chunkEditor; // stock Texture3DInspector over chunkTex
 		private Editor atlasEditor; // stock RenderTextureEditor over the live scanner.ChunkData
 
-		private ComputeBuffer chunkReadbackBuffer;
+		private EnvScanner.ChunkReadbackBuffer readbackBuffer;
 		private bool refreshing;
 		private string status = "";
 
@@ -95,8 +95,11 @@ namespace Anaglyph.DepthKit.EnvScanning
 				chunkTex = null;
 			}
 
-			chunkReadbackBuffer?.Dispose();
-			chunkReadbackBuffer = null;
+			if (readbackBuffer.gpuBuffer != null)
+			{
+				readbackBuffer.Dispose();
+				readbackBuffer = default;
+			}
 		}
 
 		private void OnEditorUpdate()
@@ -242,19 +245,28 @@ namespace Anaglyph.DepthKit.EnvScanning
 		private async Task RefreshChunk(EnvScanner scanner)
 		{
 			int vpcd = scanner.VoxPerChunkDim;
-			EnsureTex(ref chunkTex, vpcd, vpcd, vpcd, scanner.ChunkData.graphicsFormat);
-			chunkReadbackBuffer ??= scanner.CreateChunkReadbackBuffer();
+			// the readback kernel packs only the TSDF channel (1 byte/voxel), so the preview texture
+			// must be R8 even though the live atlas is R8G8 (G = integration count, not read back)
+			EnsureTex(ref chunkTex, vpcd, vpcd, vpcd, GraphicsFormat.R8_SNorm);
+
+			// reuse the readback buffer across refreshes; recreate only if the chunk size changed
+			if (readbackBuffer.gpuBuffer == null || readbackBuffer.voxPerChunkDim != vpcd)
+			{
+				if (readbackBuffer.gpuBuffer != null)
+					readbackBuffer.Dispose();
+				readbackBuffer = scanner.CreateChunkReadbackBuffer();
+			}
 
 			// ReadbackChunk packs voxels as x + y*dim + z*dim^2, exactly Texture3D's expected order
-			EnvScanner.ChunkDataReadbackResult res = await scanner.ReadbackChunk(chunkIndex, chunkReadbackBuffer);
+			bool success = await scanner.ReadbackChunkInto(chunkIndex, readbackBuffer);
 			if (this == null || chunkTex == null) return; // window closed mid-readback
-			if (!res.valid)
+			if (!success)
 			{
 				status = "Readback invalid";
 				return;
 			}
 
-			chunkTex.SetPixelData(res.data, 0);
+			chunkTex.SetPixelData(readbackBuffer.data, 0);
 			chunkTex.Apply(false);
 			status = $"Chunk {chunkIndex}";
 		}
