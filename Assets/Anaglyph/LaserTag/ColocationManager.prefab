@@ -92,7 +92,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.EnvChunkSync
   ShowTopMostFoldoutHeaderGroup: 1
-  syncSweptVoxelsThreshold: 100
+  syncSweptVoxelsThreshold: 300
 --- !u!114 &3770516394125647478
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -106,7 +106,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
-  anchorPrefab: {fileID: 4743051768782511526, guid: 1bafc8ec0e82426478635d59f4197f98, type: 3}
+  spawnEveryMeters: 5
+  alignLerp: 1
 --- !u!114 &2017920904899384140
 MonoBehaviour:
   m_ObjectHideFlags: 0

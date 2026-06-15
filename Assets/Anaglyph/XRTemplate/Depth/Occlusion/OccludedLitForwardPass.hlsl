@@ -23,6 +23,7 @@ struct Attributes
 	float4 positionOS : POSITION;
 	float3 normalOS : NORMAL;
 	float4 tangentOS : TANGENT;
+	half4 color : COLOR;
 	float2 texcoord : TEXCOORD0;
 	float2 staticLightmapUV : TEXCOORD1;
 	float2 dynamicLightmapUV : TEXCOORD2;
@@ -32,6 +33,7 @@ struct Attributes
 struct Varyings
 {
 	float2 uv : TEXCOORD0;
+	half4 color : TEXCOORD4; // vertex color (TEXCOORD4 is unused by the base pass)
 
 	#if defined(REQUIRES_WORLD_SPACE_POS_INTERPOLATOR)
 	float3 positionWS : TEXCOORD1;
@@ -179,6 +181,7 @@ Varyings LitPassVertex(Attributes input)
 	#endif
 
 	output.uv = TRANSFORM_TEX(input.texcoord, _BaseMap);
+	output.color = input.color;
 
 	// already normalized from normal transform to WS.
 	output.normalWS = normalInput.normalWS;
@@ -245,6 +248,10 @@ void LitPassFragment(
 
 	SurfaceData surfaceData;
 	InitializeStandardLitSurfaceData(input.uv, surfaceData);
+
+	// vertex colors: tint albedo before lighting so it's lit/shadowed correctly
+	surfaceData.albedo *= input.color.rgb;
+	surfaceData.alpha *= input.color.a;
 
 	#ifdef LOD_FADE_CROSSFADE
 	LODFadeCrossFade(input.positionCS);

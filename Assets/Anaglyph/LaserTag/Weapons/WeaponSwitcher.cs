@@ -74,6 +74,7 @@ namespace Anaglyph.Lasertag
 
 			if (XRSettings.enabled)
 			{
+				// placeholder bullshit sry
 				HapticSource hapt = instObj.GetComponentInChildren<HapticSource>();
 				if (hapt)
 					hapt.controller = this == Left ? Controller.Left : Controller.Right;

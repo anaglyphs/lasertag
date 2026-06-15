@@ -20,27 +20,26 @@ namespace Anaglyph.XRTemplate
 
 		public void ForceGlobalUp()
 		{
-			var a = transform.eulerAngles;
-			if (a.x == 0 || a.z == 0)
+			if (Vector3.Angle(transform.up, Vector3.up) < 0.1f)
 				return;
 
-			var r = transform.rotation;
-			var flatRot = r.Flatten();
-			var delta = r.Inverse() * flatRot;
+			Quaternion r = transform.rotation;
+			Quaternion flatRot = r.Flatten();
+			Quaternion delta = r.Inverse() * flatRot;
 			transform.RotateAroundPoint(camera.transform.position, delta);
 		}
 
 		public void AlignSpace(Matrix4x4 current, Matrix4x4 target, float lerp = 1f)
 		{
-			var t = TrackingSpace;
+			Transform t = TrackingSpace;
 
-			var rigMat = t.localToWorldMatrix;
-			var targetMat = target * current.inverse * rigMat;
+			Matrix4x4 rigMat = t.localToWorldMatrix;
+			Matrix4x4 targetMat = target * current.inverse * rigMat;
 
-			var targetPos = targetMat.GetPosition();
-			var targetRot = targetMat.rotation;
-			var rigPos = t.position;
-			var rigRot = t.rotation;
+			Vector3 targetPos = targetMat.GetPosition();
+			Quaternion targetRot = targetMat.rotation;
+			Vector3 rigPos = t.position;
+			Quaternion rigRot = t.rotation;
 
 			t.position = Vector3.Lerp(rigPos, targetPos, lerp);
 			t.rotation = Quaternion.Slerp(rigRot, targetRot, lerp);

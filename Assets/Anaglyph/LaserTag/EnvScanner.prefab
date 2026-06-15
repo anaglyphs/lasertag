@@ -13,7 +13,6 @@ GameObject:
   - component: {fileID: 7635422210532366939}
   - component: {fileID: 8862733854877386027}
   - component: {fileID: 3181667627902939140}
-  - component: {fileID: 3342445390656401793}
   m_Layer: 0
   m_Name: EnvScanner
   m_TagString: Untagged
@@ -71,6 +70,9 @@ MonoBehaviour:
   voxSize: 0.1
   distanceTruncationBand: 0.2
   voxPerChunkDim: 32
+  playerMaskRadius: 1.2
+  playerMaskAbove: 0.5
+  playerMaskBelow: 2
   chunkTableDims:
     x: 100
     y: 15
@@ -94,7 +96,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: EnvScanning2::ChunkManager2
   chunkPrefab: {fileID: 8545573707260339346, guid: de0df2db1268449c5be416e37e231c38, type: 3}
   numMeshWorkers: 2
-  meshSweptVoxelsThreshold: 32
+  meshSweptVoxelsThreshold: 100
   rendererData: {fileID: 11400000, guid: cf65c79082bdf4c4fb1ba1fd4ed52c18, type: 2}
   decimationTarget:
     Kind: 6
@@ -122,33 +124,3 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.DepthKit::Anaglyph.DepthKit.StereoAlphaOccluderDriver
   stereoAlphaOccluderMaterial: {fileID: 2100000, guid: 5011a7c4fa28a6440825134b0bb85188, type: 2}
---- !u!114 &3342445390656401793
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4658663475596877275}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d3d99d7d7305c4e6cafa3006954eb985, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.DriftCorrector
-  solveInterval: 2
-  correctionLerp: 0.5
-  maxChunksPerSolve: 12
-  sourcePointBudget: 4096
-  maxPointsPerChunk: 512
-  minTotalPoints: 200
-  solverIterations: 10
-  trimFraction: 0.75
-  minNormalAgreement: 0.2
-  finalNormalAgreement: 0.8
-  minInlierFraction: 0.3
-  maxRmsMeters: 0.04
-  minHorizNormalEig: 0.05
-  minVertNormalFrac: 0.05
-  maxCorrectionMeters: 0.3
-  maxCorrectionDegrees: 3
-  minCorrectionMeters: 0.005
-  minCorrectionDegrees: 0.05
