@@ -72,7 +72,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 			envMeshLayerMask = LayerMask.GetMask(EnvironmentMeshLayerName);
 
 			// hide EnvironmentMesh layer from rendering in normal camera
-			ShowChunks(false);
+			SetChunksVisible(false);
 		}
 
 		private void Start()
@@ -85,7 +85,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 			Begin();
 		}
 
-		public void ShowChunks(bool visible)
+		public void SetChunksVisible(bool visible)
 		{
 			if (visible)
 			{

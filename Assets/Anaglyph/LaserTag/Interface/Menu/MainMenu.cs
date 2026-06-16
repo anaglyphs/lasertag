@@ -35,25 +35,21 @@ namespace Anaglyph.Lasertag
 		{
 			if (state == NetcodeState.Connecting)
 				menuPositioner.SetVisible(false);
-			else if(state == NetcodeState.Disconnected)
+			else if (state == NetcodeState.Disconnected)
 				menuPositioner.SetVisible(true);
-				
+
 			bool isConnected = state == NetcodeState.Connected;
 
-			foreach (var obj in onlyVisibleIfConnected)
+			foreach (GameObject obj in onlyVisibleIfConnected)
 				obj.SetActive(isConnected);
 
-			if(!isConnected)
-			{
+			if (!isConnected)
 				foreach (GameObject menu in menusOnlyVisibleIfConnected)
-				{
 					if (menu.activeSelf)
 					{
 						fallbackMenuOnDisconnect.SetActive(true);
 						break;
 					}
-				}
-			}
 		}
 	}
 }

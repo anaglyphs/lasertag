@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -13,13 +14,11 @@ namespace Anaglyph.Menu
 		private Transform camTransform => mainCamera.transform;
 
 		[SerializeField] private Vector3 offset;
+		[SerializeField] private float hideDistance = 5;
 
 		private void Awake()
 		{
-			showMenuAction.performed += delegate
-			{
-				ToggleVisible();
-			};
+			showMenuAction.performed += delegate { ToggleVisible(); };
 
 			showMenuAction.Enable();
 		}
@@ -34,6 +33,14 @@ namespace Anaglyph.Menu
 			await Awaitable.NextFrameAsync();
 			await Awaitable.EndOfFrameAsync();
 			SetPose();
+		}
+
+		private void Update()
+		{
+			float dist = Vector3.Distance(camTransform.position, transform.position);
+
+			if (dist > hideDistance)
+				SetVisible(false);
 		}
 
 		public void ToggleVisible()
@@ -55,20 +62,11 @@ namespace Anaglyph.Menu
 
 			gameObject.SetActive(visible);
 
-			if (visible)
-			{
-				SetPose();
-			}
+			if (visible) SetPose();
 
-			foreach (MonoBehaviour mb in componentsDisabledWhileVisible)
-			{
-				mb.enabled = !visible;
-			}
+			foreach (MonoBehaviour mb in componentsDisabledWhileVisible) mb.enabled = !visible;
 
-			foreach (GameObject go in objectsInactiveWhileVisible)
-			{
-				go.SetActive(!visible);
-			}
+			foreach (GameObject go in objectsInactiveWhileVisible) go.SetActive(!visible);
 		}
 
 		private void SetPose()
@@ -91,7 +89,6 @@ namespace Anaglyph.Menu
 				await Awaitable.NextFrameAsync();
 				await Awaitable.EndOfFrameAsync();
 				SetPose();
-
 			}
 		}
 

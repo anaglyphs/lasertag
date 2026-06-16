@@ -1,4 +1,3 @@
-using Anaglyph.DepthKit.EnvScanning;
 using Anaglyph.XRTemplate.SharedSpaces;
 using UnityEngine;
 using VariableObjects;
@@ -13,9 +12,6 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private BoolObject damagedRedVision;
 		[SerializeField] private BoolObject lightEffects;
 		[SerializeField] private BoolObject relay;
-
-		[SerializeField] private BoolObject drawScanMesh;
-		[SerializeField] private BoolObject meshScanning;
 
 		private void Start()
 		{
@@ -50,14 +46,6 @@ namespace Anaglyph.Lasertag
 			// relay.AddChangeListenerAndCheck(b =>
 			// {
 			// });
-
-			drawScanMesh.AddChangeListenerAndCheck(b => { ChunkManager.Instance.ShowChunks(b); });
-
-			meshScanning.AddChangeListenerAndCheck(b =>
-			{
-				if (ChunkManager.Instance)
-					ChunkManager.Instance.enabled = b;
-			});
 		}
 	}
 }

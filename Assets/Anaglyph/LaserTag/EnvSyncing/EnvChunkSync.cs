@@ -4,8 +4,10 @@ using Anaglyph.DepthKit.EnvScanning;
 using Unity.Collections;
 using Unity.Mathematics;
 using Unity.Netcode;
+using Unity.Properties;
 using UnityEngine;
 using UnityEngine.XR;
+using VariableObjects;
 
 namespace Anaglyph.Lasertag
 {
@@ -15,6 +17,8 @@ namespace Anaglyph.Lasertag
 	/// </summary>
 	public class EnvChunkSync : NetworkBehaviour
 	{
+		public static EnvChunkSync Instance { get; private set; }
+
 		private const string MessageName = "EnvChunkSync";
 		private const NetworkDelivery Delivery = NetworkDelivery.ReliableFragmentedSequenced;
 
@@ -37,6 +41,11 @@ namespace Anaglyph.Lasertag
 
 		// world size of the full chunk volume, for position quantization
 		private float chunkSpan;
+
+		private void Awake()
+		{
+			Instance = this;
+		}
 
 		public override void OnNetworkSpawn()
 		{
@@ -218,6 +227,12 @@ namespace Anaglyph.Lasertag
 
 			if (indices.Length > 0)
 				RemoteMeshApplied.Invoke(chunk);
+		}
+
+		[Rpc(SendTo.Everyone)]
+		public void SetEnvMeshVisibleEveryoneRpc(bool visible)
+		{
+			ChunkManager.Instance.SetChunksVisible(visible);
 		}
 	}
 }
