@@ -1,37 +1,20 @@
+using System.Collections.Generic;
+using Anaglyph.Input;
 using Anaglyph.Netcode;
 using Oculus.Haptics;
 using UnityEngine;
-using UnityEngine.Serialization;
 using UnityEngine.XR;
-using UnityEngine.XR.Interaction.Toolkit.Interactors;
 
 namespace Anaglyph.Lasertag
 {
 	public class WeaponSwitcher : MonoBehaviour
 	{
-		public static WeaponSwitcher Left { get; private set; }
-		public static WeaponSwitcher Right { get; private set; }
+		[SerializeField] private GameObject defaultWeapon;
 
-		[SerializeField] private InteractorHandedness hand;
-
-		[FormerlySerializedAs("selectedObject")] [SerializeField]
-		private GameObject selectedPrefab;
-
-		private GameObject instObj;
-		// private AsyncOperationHandle<GameObject> loadOp;
+		private readonly Dictionary<Handedness, GameObject> weapons = new();
 
 		private void Awake()
 		{
-			switch (hand)
-			{
-				case InteractorHandedness.Left:
-					Left = this;
-					break;
-				case InteractorHandedness.Right:
-					Right = this;
-					break;
-			}
-
 			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
 		}
 
@@ -45,61 +28,32 @@ namespace Anaglyph.Lasertag
 			switch (state)
 			{
 				case NetcodeState.Connected:
-					TryInstantiateSelected();
+
+					InstantiateSelected(defaultWeapon, Handedness.Left);
+					InstantiateSelected(defaultWeapon, Handedness.Right);
 					break;
 
 				case NetcodeState.Disconnected:
-					if (instObj)
-						Destroy(instObj);
+					foreach (KeyValuePair<Handedness, GameObject> pair in weapons) Destroy(pair.Value);
+					weapons.Clear();
+
 					break;
 			}
 		}
 
-		private void TryInstantiateSelected()
+		private void InstantiateSelected(GameObject prefab, Handedness handedness)
 		{
 			if (NetcodeManagement.State != NetcodeState.Connected) return;
 
-			if (instObj)
-				Destroy(instObj);
+			if (weapons.TryGetValue(handedness, out GameObject weaponObj))
+				Destroy(weaponObj);
 
-			//loadOp = selectedObject.InstantiateAsync(transform, false);
-			//instantiatedObject = await loadOp.Task;
-			instObj = Instantiate(selectedPrefab, transform);
+			weaponObj = Instantiate(prefab, transform);
 
-			if (instObj)
-			{
-				instObj.transform.localPosition = Vector3.zero;
-				instObj.transform.localRotation = Quaternion.identity;
-			}
 
-			if (XRSettings.enabled)
-			{
-				// placeholder bullshit sry
-				HapticSource hapt = instObj.GetComponentInChildren<HapticSource>();
-				if (hapt)
-					hapt.controller = this == Left ? Controller.Left : Controller.Right;
-			}
-		}
+			if (weaponObj.TryGetComponent(out HandSubject handSubject)) handSubject.Assign(HandInput.Get(handedness));
 
-		// public void Select(AssetReferenceGameObject prefab)
-		// {
-		// 	if (selectedObject == prefab)
-		// 		return;
-		//
-		// 	if (loadOp.IsValid() && !loadOp.IsDone)
-		// 		Addressables.Release(loadOp);
-		//
-		// 	selectedObject = prefab;
-		// 	TryInstantiateSelected();
-		// }
-
-		public void Select(GameObject prefab)
-		{
-			if (selectedPrefab == prefab)
-				return;
-
-			selectedPrefab = prefab;
-			TryInstantiateSelected();
+			weapons[handedness] = weaponObj;
 		}
 	}
 }

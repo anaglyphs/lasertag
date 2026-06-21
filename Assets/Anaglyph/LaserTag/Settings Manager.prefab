@@ -26,7 +26,7 @@ Transform:
   m_GameObject: {fileID: 1927584124482312103}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1, z: 2}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -50,5 +50,3 @@ MonoBehaviour:
   damagedRedVision: {fileID: 11400000, guid: b813fbe3231576640b9402131ed4d833, type: 2}
   lightEffects: {fileID: 11400000, guid: 5390df5bc7d02f14081ac7755da55437, type: 2}
   relay: {fileID: 11400000, guid: 8256b37a220cf5d4aa386e985d532dcb, type: 2}
-  drawScanMesh: {fileID: 11400000, guid: ac26565275d37448fb16453ff7745650, type: 2}
-  meshScanning: {fileID: 11400000, guid: 9f505c685ba6b2548abee1cfd889ec29, type: 2}

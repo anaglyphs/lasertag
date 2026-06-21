@@ -37,7 +37,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		[SerializeField] private AprilTagTracker tagTracker;
 		public AprilTagTracker TagTracker => tagTracker;
 
-		private WorldLockAnchor anchor;
+		// private WorldLockAnchor anchor;
 
 		private bool isActive;
 		public bool IsActive => isActive;
@@ -112,7 +112,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			tagTracker.OnDetectTags += OnDetectTags;
 			tagTracker.tagSizeMeters = TagSizeCm / 100f;
 
-			anchor = Instantiate(worldLockAnchorPrefab).GetComponent<WorldLockAnchor>();
+			// anchor = Instantiate(worldLockAnchorPrefab).GetComponent<WorldLockAnchor>();
 
 			tagTracker.enabled = true;
 		}
@@ -132,7 +132,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			canonTags.Clear();
 			localTags.Clear();
 
-			Destroy(anchor.gameObject);
+			// Destroy(anchor.gameObject);
 		}
 
 		public void RealignEveryone()
@@ -243,7 +243,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			isAligned = true;
 
 			await Awaitable.EndOfFrameAsync();
-			anchor.target = anchor.transform.localToWorldMatrix;
+			// anchor.target = anchor.transform.localToWorldMatrix;
 		}
 
 		[Rpc(SendTo.Everyone, InvokePermission = RpcInvokePermission.Owner)]

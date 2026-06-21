@@ -251,6 +251,8 @@ namespace Anaglyph.DepthKit.EnvScanning
 						await MeshSimplifier.SimplifyAsync(scratchMesh, decimationTarget, decimationOptions,
 							chunk.mesh, ctkn);
 
+						chunk.meshCollider.enabled = chunk.mesh.vertexCount > 0;
+
 						ctkn.ThrowIfCancellationRequested();
 
 						chunk.mesh.RecalculateBounds();
@@ -262,7 +264,6 @@ namespace Anaglyph.DepthKit.EnvScanning
 					}
 
 					chunk.dirty = false;
-					chunk.meshCollider.enabled = isPopulated;
 
 					ChunkMeshUpdated.Invoke(chunk);
 				}

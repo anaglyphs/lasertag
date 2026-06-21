@@ -22,38 +22,28 @@
       "url": "https://package.openupm.com"
     },
     "com.meta.xr.sdk.core": {
-      "version": "file:com.meta.xr.sdk.core",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.unity.modules.audio": "1.0.0",
-        "com.unity.modules.imageconversion": "1.0.0",
-        "com.unity.modules.imgui": "1.0.0",
-        "com.unity.modules.ui": "1.0.0",
-        "com.unity.modules.unitywebrequest": "1.0.0",
-        "com.unity.modules.unitywebrequestaudio": "1.0.0",
-        "com.unity.xr.hands": "1.7.2"
-      }
-    },
-    "com.meta.xr.sdk.haptics": {
-      "version": "201.0.0",
-      "depth": 0,
+      "version": "203.0.0",
+      "depth": 1,
       "source": "registry",
       "dependencies": {
-        "com.meta.xr.sdk.core": "201.0.0"
+        "com.unity.xr.hands": "1.7.2",
+        "com.unity.modules.ui": "1.0.0",
+        "com.unity.modules.audio": "1.0.0",
+        "com.unity.modules.imgui": "1.0.0",
+        "com.unity.modules.imageconversion": "1.0.0",
+        "com.unity.modules.unitywebrequest": "1.0.0",
+        "com.unity.modules.unitywebrequestaudio": "1.0.0"
       },
       "url": "https://packages.unity.com"
     },
-    "com.meta.xr.sdk.movement": {
-      "version": "https://github.com/oculus-samples/Unity-Movement.git",
+    "com.meta.xr.sdk.haptics": {
+      "version": "203.0.0",
       "depth": 0,
-      "source": "git",
+      "source": "registry",
       "dependencies": {
-        "com.unity.burst": "1.8.18",
-        "com.unity.textmeshpro": "3.0.6",
-        "com.unity.ugui": "1.0.0"
+        "com.meta.xr.sdk.core": "203.0.0"
       },
-      "hash": "2d2fe7d8ce451e69be0599eee2f597b5935f8e04"
+      "url": "https://packages.unity.com"
     },
     "com.ramtype0.meshia.mesh-simplification": {
       "version": "file:com.ramtype0.meshia.mesh-simplification-3.1.0 2",
@@ -386,14 +376,6 @@
         "com.unity.settings-manager": "2.0.0"
       },
       "url": "https://packages.unity.com"
-    },
-    "com.unity.textmeshpro": {
-      "version": "5.0.0",
-      "depth": 1,
-      "source": "builtin",
-      "dependencies": {
-        "com.unity.ugui": "2.0.0"
-      }
     },
     "com.unity.transport": {
       "version": "2.7.3",

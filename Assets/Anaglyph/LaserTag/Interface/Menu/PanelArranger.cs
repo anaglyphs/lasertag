@@ -39,11 +39,14 @@ namespace Anaglyph.Lasertag
 
 			float lerp = transitionCurve.Evaluate(transitionTime);
 
+
 			for (int i = 0; i < panels.Length; i++)
 			{
+				float radiusOffs = radius + Mathf.Abs(i - panels.Length / 2) * 0.2f + 0.2f;
+				float r = Mathf.Lerp(radiusOffs, radius, lerp);
 				float angle = Mathf.Lerp(0, angles[i] - angleOffs, lerp);
-				float x = Mathf.Sin(angle) * radius;
-				float z = Mathf.Cos(angle) * radius;
+				float x = Mathf.Sin(angle) * r;
+				float z = Mathf.Cos(angle) * r;
 				Vector3 pos = new(x, 0, z);
 
 				panels[i].localPosition = pos;
