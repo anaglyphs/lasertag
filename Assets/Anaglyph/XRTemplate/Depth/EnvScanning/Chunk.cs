@@ -32,7 +32,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 
 		private void Start()
 		{
-			worldCenter = transform.position + ChunkManager.ChunkWorldSizeHalf;
+			worldCenter = transform.position + EnvMesher.ChunkWorldSizeHalf;
 		}
 
 		private void OnDestroy()
@@ -79,7 +79,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 
 		private void DrawChunkFrame()
 		{
-			Gizmos.DrawWireCube(worldCenter, ChunkManager.ChunkWorldSize);
+			Gizmos.DrawWireCube(worldCenter, EnvMesher.ChunkWorldSize);
 		}
 
 #endif

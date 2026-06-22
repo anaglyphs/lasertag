@@ -2000,7 +2000,7 @@ MonoBehaviour:
   resetTrackerOnLoad: 0
   AllowRecenter: 1
   LateControllerUpdate: 1
-  LateLatching: 1
+  LateLatching: 0
   controllerDrivenHandPosesType: 0
   SimultaneousHandsAndControllersEnabled: 0
   _readOnlyWideMotionModeHandPosesEnabled: 0
@@ -2783,6 +2783,14 @@ PrefabInstance:
     - target: {fileID: 1943003036612024294, guid: d8d954da3a68147abbb923f5b184881c, type: 3}
       propertyPath: m_AnchoredPosition.y
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2027888024624335185, guid: d8d954da3a68147abbb923f5b184881c, type: 3}
+      propertyPath: transitionCurve.m_Curve.Array.data[0].inSlope
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 2027888024624335185, guid: d8d954da3a68147abbb923f5b184881c, type: 3}
+      propertyPath: transitionCurve.m_Curve.Array.data[0].outSlope
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 2042027157174398750, guid: d8d954da3a68147abbb923f5b184881c, type: 3}
       propertyPath: m_AnchorMax.y

@@ -33,7 +33,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		[Tooltip("In meters/second")] public float maxHeadSpeed = 2f;
 		[Tooltip("In radians/second")] public float maxHeadAngSpeed = 2f;
 
-		[SerializeField] private GameObject worldLockAnchorPrefab;
+		// [SerializeField] private GameObject worldLockAnchorPrefab;
 		[SerializeField] private AprilTagTracker tagTracker;
 		public AprilTagTracker TagTracker => tagTracker;
 

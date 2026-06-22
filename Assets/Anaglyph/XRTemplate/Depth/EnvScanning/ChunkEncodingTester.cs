@@ -72,10 +72,10 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 			int3 chunkCoord = scanner.WorldPosToChunkCoord(transform.position);
 			Vector3 cornerPos = scanner.ChunkCoordToCornerWorldPos(chunkCoord);
 
-			Vector3 center = cornerPos + ChunkManager.ChunkWorldSizeHalf;
+			Vector3 center = cornerPos + EnvMesher.ChunkWorldSizeHalf;
 
 			Gizmos.color = Color.red;
-			Gizmos.DrawWireCube(center, ChunkManager.ChunkWorldSize);
+			Gizmos.DrawWireCube(center, EnvMesher.ChunkWorldSize);
 		}
 	}
 }

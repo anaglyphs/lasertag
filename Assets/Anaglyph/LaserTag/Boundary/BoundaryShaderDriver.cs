@@ -8,9 +8,22 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private Material material;
 		private int xrOriginID = Shader.PropertyToID("_XROrigin");
 
+		private BoundaryPositioner positioner;
+
+		private void Awake()
+		{
+			positioner = GetComponent<BoundaryPositioner>();
+		}
+
 		private void Update()
 		{
-			material.SetVector(xrOriginID, MainXRRig.TrackingSpace.position);
+			// Align the shader's radial origin to the boundary's center (the last
+			// recenter point), falling back to the tracking-space origin.
+			Vector3 origin = positioner != null
+				? positioner.RecenterWorldPos
+				: MainXRRig.TrackingSpace.position;
+
+			material.SetVector(xrOriginID, origin);
 		}
 
 		private void OnDisable()

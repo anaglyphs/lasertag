@@ -13,9 +13,9 @@ namespace Anaglyph.DepthKit.EnvScanning
 	/// <summary>
 	/// Instantiates and meshes visible chunks from <see cref="EnvScanner"/>
 	/// </summary>
-	public class ChunkManager : MonoBehaviour
+	public class EnvMesher : MonoBehaviour
 	{
-		public static ChunkManager Instance { get; private set; }
+		public static EnvMesher Instance { get; private set; }
 
 		public const string EnvironmentMeshLayerName = "EnvironmentMesh";
 		private LayerMask envMeshLayerMask;

@@ -4,10 +4,7 @@ using Anaglyph.DepthKit.EnvScanning;
 using Unity.Collections;
 using Unity.Mathematics;
 using Unity.Netcode;
-using Unity.Properties;
 using UnityEngine;
-using UnityEngine.XR;
-using VariableObjects;
 
 namespace Anaglyph.Lasertag
 {
@@ -15,9 +12,9 @@ namespace Anaglyph.Lasertag
 	/// Broadcasts locally scanned chunk meshes to other players when chunks
 	/// pass a change threshold, and applies meshes received from other players
 	/// </summary>
-	public class EnvChunkSync : NetworkBehaviour
+	public class EnvMeshSync : NetworkBehaviour
 	{
-		public static EnvChunkSync Instance { get; private set; }
+		public static EnvMeshSync Instance { get; private set; }
 
 		private const string MessageName = "EnvChunkSync";
 		private const NetworkDelivery Delivery = NetworkDelivery.ReliableFragmentedSequenced;
@@ -52,16 +49,16 @@ namespace Anaglyph.Lasertag
 			chunkSpan = EnvScanner.Instance.VoxPerChunkDim * EnvScanner.Instance.VoxSize;
 
 			NetworkManager.CustomMessagingManager.RegisterNamedMessageHandler(MessageName, OnChunkMessage);
-			ChunkManager.Instance.VisibleChunkPolled += OnVisibleChunkPolled;
-			ChunkManager.Instance.ChunkMeshUpdated += OnChunkMeshUpdated;
+			EnvMesher.Instance.VisibleChunkPolled += OnVisibleChunkPolled;
+			EnvMesher.Instance.ChunkMeshUpdated += OnChunkMeshUpdated;
 		}
 
 		public override void OnNetworkDespawn()
 		{
-			if (ChunkManager.Instance)
+			if (EnvMesher.Instance)
 			{
-				ChunkManager.Instance.VisibleChunkPolled -= OnVisibleChunkPolled;
-				ChunkManager.Instance.ChunkMeshUpdated -= OnChunkMeshUpdated;
+				EnvMesher.Instance.VisibleChunkPolled -= OnVisibleChunkPolled;
+				EnvMesher.Instance.ChunkMeshUpdated -= OnChunkMeshUpdated;
 			}
 
 			NetworkManager?.CustomMessagingManager?.UnregisterNamedMessageHandler(MessageName);
@@ -83,7 +80,7 @@ namespace Anaglyph.Lasertag
 
 			lastSyncedChangeSums[chunkIndex] = changeSum;
 
-			Chunk chunk = ChunkManager.Instance.GetOrCreateChunk(chunkIndex);
+			Chunk chunk = EnvMesher.Instance.GetOrCreateChunk(chunkIndex);
 
 			if (chunk.dirty)
 			{
@@ -114,7 +111,7 @@ namespace Anaglyph.Lasertag
 
 			if (vertCount > ushort.MaxValue)
 			{
-				Debug.LogWarning($"[{nameof(EnvChunkSync)}] Chunk {chunk.chunkIndex} mesh too large to sync");
+				Debug.LogWarning($"[{nameof(EnvMeshSync)}] Chunk {chunk.chunkIndex} mesh too large to sync");
 				return;
 			}
 
@@ -206,7 +203,7 @@ namespace Anaglyph.Lasertag
 
 		private void ApplyReceivedMesh(int chunkIndex, NativeArray<ushort> qPositions, NativeArray<ushort> qIndices)
 		{
-			Chunk chunk = ChunkManager.Instance.GetOrCreateChunk(chunkIndex);
+			Chunk chunk = EnvMesher.Instance.GetOrCreateChunk(chunkIndex);
 
 			int vertCount = qPositions.Length / 3;
 			NativeArray<Vector3> positions = new(vertCount, Allocator.Temp);
@@ -232,7 +229,7 @@ namespace Anaglyph.Lasertag
 		[Rpc(SendTo.Everyone)]
 		public void SetEnvMeshVisibleEveryoneRpc(bool visible)
 		{
-			ChunkManager.Instance.SetChunksVisible(visible);
+			EnvMesher.Instance.SetChunksVisible(visible);
 		}
 	}
 }

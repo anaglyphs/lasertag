@@ -16,16 +16,16 @@ namespace Anaglyph.Lasertag
 		{
 			debugModeToggle.onValueChanged.AddListener(AnaglyphDebug.SetDebugMode);
 
-			showDebugMeshToggle.onValueChanged.AddListener(ChunkManager.Instance.SetChunksVisible);
+			showDebugMeshToggle.onValueChanged.AddListener(EnvMesher.Instance.SetChunksVisible);
 
 			showDebugMeshForEveryone.onClick.AddListener(delegate
 			{
-				EnvChunkSync.Instance?.SetEnvMeshVisibleEveryoneRpc(true);
+				EnvMeshSync.Instance?.SetEnvMeshVisibleEveryoneRpc(true);
 			});
 
 			hideDebugMeshForEveryone.onClick.AddListener(delegate
 			{
-				EnvChunkSync.Instance?.SetEnvMeshVisibleEveryoneRpc(false);
+				EnvMeshSync.Instance?.SetEnvMeshVisibleEveryoneRpc(false);
 			});
 		}
 	}
