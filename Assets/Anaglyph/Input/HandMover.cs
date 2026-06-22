@@ -1,4 +1,6 @@
+using UnityEditor;
 using UnityEngine;
+using UnityEngine.XR;
 
 namespace Anaglyph.Input
 {
@@ -6,6 +8,7 @@ namespace Anaglyph.Input
 	public class HandMover : MonoBehaviour
 	{
 		[SerializeField] private HandSubject handSubject;
+		[SerializeField] private bool usePointPose;
 
 		private void Awake()
 		{
@@ -25,8 +28,27 @@ namespace Anaglyph.Input
 
 		private void UpdatePosition()
 		{
-			transform.localPosition = handSubject.Position;
-			transform.localRotation = handSubject.Rotation;
+			if (handSubject.Current == null) return;
+
+			Vector3 pos;
+			Quaternion rot;
+
+			if (usePointPose)
+			{
+				pos = handSubject.PointPosition;
+				rot = handSubject.PointRotation;
+			}
+			else
+			{
+				pos = handSubject.Position;
+				rot = handSubject.Rotation;
+
+#if UNITY_EDITOR
+				if (!XRSettings.enabled) rot *= Quaternion.Euler(-90, 0, 0);
+#endif
+			}
+
+			transform.SetLocalPositionAndRotation(pos, rot);
 		}
 	}
 }

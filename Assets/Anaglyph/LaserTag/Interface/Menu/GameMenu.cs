@@ -1,6 +1,7 @@
 using Anaglyph.Menu;
 using Anaglyph.Netcode;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 namespace Anaglyph.Lasertag
@@ -9,21 +10,32 @@ namespace Anaglyph.Lasertag
 	{
 		[SerializeField] private NavPagesParent navView;
 
-		[Header(nameof(startPage))] [SerializeField]
-		private NavPage startPage;
+		[FormerlySerializedAs("startPage")] [Header("Start page")] [SerializeField]
+		private NavPage matchPage;
 
 		[SerializeField] private Toggle winByScoreToggle;
-
 		[SerializeField] private InputField timeField;
 		[SerializeField] private InputField scoreField;
 		[SerializeField] private InputField damageMultiplierField;
-
 		[SerializeField] private Button startButton;
 
-		[Header(nameof(playingPage))] [SerializeField]
+		[Header("Playing page")] [SerializeField]
 		private NavPage playingPage;
 
 		[SerializeField] private Button cancelButton;
+
+		[FormerlySerializedAs("mapEditorPage")]
+		[FormerlySerializedAs("editorPage")]
+		[Header("Map Editor Page")]
+		[SerializeField]
+		private NavPage mapManagerPage;
+
+		[SerializeField] private Button editMapButton;
+
+		[FormerlySerializedAs("mapEditingPage")] [Header("Map Editing page")] [SerializeField]
+		private NavPage editingMapPage;
+
+		[SerializeField] private Button finishEditingButton;
 
 		private MatchReferee referee => MatchReferee.Instance;
 
@@ -37,18 +49,22 @@ namespace Anaglyph.Lasertag
 			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
 			OnNetcodeStateChanged(NetcodeManagement.State);
 
-			// start page
-			startPage.showBackButton = false;
+			MapEditor.ActiveChanged += OnMapEditorStateChanged;
+			OnMapEditorStateChanged(MapEditor.IsActive);
+
+			// match page
 
 			winByScoreToggle.onValueChanged.AddListener(winByScore =>
 			{
 				timeField.gameObject.SetActive(!winByScore);
 				scoreField.gameObject.SetActive(winByScore);
+
+				matchSettings.winCondition = winByScore ? WinCondition.ReachScore : WinCondition.Timer;
 			});
 			winByScoreToggle.isOn = matchSettings.CheckWinByScore();
 			winByScoreToggle.onValueChanged.Invoke(winByScoreToggle.isOn);
 
-			timeField.SetTextWithoutNotify(matchSettings.timerSeconds.ToString());
+			timeField.SetTextWithoutNotify((matchSettings.timerSeconds / 60f).ToString());
 			timeField.onValueChanged.AddListener(str =>
 			{
 				if (float.TryParse(str, out float f))
@@ -74,20 +90,42 @@ namespace Anaglyph.Lasertag
 			// playing page
 			playingPage.showBackButton = false;
 			cancelButton.onClick.AddListener(() => referee?.EndMatchRpc());
+
+			// map manager page
+			editMapButton.onClick.AddListener(() => MapEditor.SetActive(true));
+
+			// editing map page
+			editingMapPage.showBackButton = false;
+			finishEditingButton.onClick.AddListener(() => MapEditor.SetActive(false));
 		}
 
 		private void OnDestroy()
 		{
 			MatchReferee.StateChanged -= OnMatchStateChanged;
 			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
+			MapEditor.ActiveChanged -= OnMapEditorStateChanged;
+		}
+
+		private void OnMapEditorStateChanged(bool state)
+		{
+			if (state)
+				editingMapPage.NavigateHere();
+			else if (navView.CurrentPage == editingMapPage)
+				mapManagerPage.NavigateHere();
 		}
 
 		private void OnMatchStateChanged(MatchState state)
 		{
 			if (state == MatchState.NotPlaying)
-				startPage.NavigateHere();
+			{
+				if (navView.CurrentPage == playingPage)
+					matchPage.NavigateHere();
+			}
 			else
+			{
 				playingPage.NavigateHere();
+				MapEditor.SetActive(false);
+			}
 		}
 
 		private void OnNetcodeStateChanged(NetcodeState state)

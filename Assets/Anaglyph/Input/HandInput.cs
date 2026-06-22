@@ -2,10 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.Serialization;
-using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
-using UnityEngine.XR.Interaction.Toolkit.UI;
 
 namespace Anaglyph.Input
 {
@@ -22,6 +19,9 @@ namespace Anaglyph.Input
 		[SerializeField] private InputActionProperty rotation; // pointerRotation
 		[SerializeField] private InputActionProperty trackingState;
 
+		[SerializeField] private InputActionProperty pointPosition;
+		[SerializeField] private InputActionProperty pointRotation;
+
 		[SerializeField] private XRRayInteractor interactor;
 
 		[SerializeField] private Handedness handedness;
@@ -34,6 +34,9 @@ namespace Anaglyph.Input
 		public Quaternion Rotation => rotation.action.ReadValue<Quaternion>();
 		public Vector3 Forward => Rotation * Vector3.forward;
 		public bool Tracked => trackingState.action.ReadValue<bool>();
+		public Vector3 PointPosition => pointPosition.action.ReadValue<Vector3>();
+		public Quaternion PointRotation => pointRotation.action.ReadValue<Quaternion>();
+		public Vector3 PointForward => PointRotation * Vector3.forward;
 
 		// True while this hand's ray is over UI; gameplay binds routed through
 		// HandSubject are suppressed while set (pose stays live). Computed live so
@@ -58,6 +61,8 @@ namespace Anaglyph.Input
 		{
 			position.action.Enable();
 			rotation.action.Enable();
+			pointPosition.action.Enable();
+			pointRotation.action.Enable();
 			trackingState.action.Enable();
 			actionMap.Enable();
 			Registered?.Invoke(this);
@@ -67,6 +72,8 @@ namespace Anaglyph.Input
 		{
 			position.action.Disable();
 			rotation.action.Disable();
+			pointPosition.action.Disable();
+			pointRotation.action.Disable();
 			trackingState.action.Disable();
 			actionMap.Disable();
 		}

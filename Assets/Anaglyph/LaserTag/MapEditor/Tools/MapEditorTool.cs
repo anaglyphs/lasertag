@@ -1,5 +1,5 @@
 using System;
-using Unity.Netcode;
+using Anaglyph.Input;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -7,28 +7,61 @@ namespace Anaglyph.Lasertag
 {
 	public class MapEditorTool : MonoBehaviour
 	{
-		[SerializeField] private Color placeColor;
-		[SerializeField] private Color deleteColor;
-		[SerializeField] private Color moveColor;
+		public static MapEditorTool DominantHand;
+
+		[SerializeField] private Color placeColor = Color.green;
+		[SerializeField] private Color deleteColor = Color.red;
+		[SerializeField] private Color moveColor = Color.white;
+
+		[SerializeField] private string rotateInputBinding = "OnAxis";
+		[SerializeField] private string moveInputBinding = "OnGrip";
+		[SerializeField] private string deleteInputBinding = "OnBack";
+		[SerializeField] private string placeInputBinding = "OnFire";
 
 		[SerializeField] private float rotationSpeed;
+		[SerializeField] private float distanceSpeed;
 
 		private MapObject currentSpawnObject;
 		private GameObject previewObject;
 		private float spawnRotation;
 
 		private MapObject grabbedObject;
-		private Vector3 grabLocalPosition;
+		private Vector3 grabOffset;
 		private float grabDistance;
 		private float grabRotation;
 
 		private float rotationDelta;
+		private float distanceDelta;
+
+		[SerializeField] private HandSubject handSubject;
 
 		[SerializeField] private LineRenderer lineRenderer;
 
 		private void Awake()
 		{
+			MapEditor.ActiveChanged += gameObject.SetActive;
+			gameObject.SetActive(MapEditor.IsActive);
+
 			lineRenderer.useWorldSpace = false;
+		}
+
+		private void Start()
+		{
+			if (!handSubject)
+				TryGetComponent(out handSubject);
+
+			if (handSubject.Current.Handedness == Handedness.Right)
+				DominantHand = this;
+
+			handSubject.Bind(rotateInputBinding, OnRotateInput);
+			handSubject.Bind(placeInputBinding, OnPlaceInput);
+			handSubject.Bind(deleteInputBinding, OnDeleteInput);
+			handSubject.Bind(moveInputBinding, OnMoveInput);
+		}
+
+		private void OnDestroy()
+		{
+			MapEditor.ActiveChanged -= gameObject.SetActive;
 		}
 
 		public void SetSpawnObject(MapObject spawnObject)
@@ -41,7 +74,7 @@ namespace Anaglyph.Lasertag
 			if (previewObject)
 				Destroy(previewObject);
 
-			if (spawnObject) previewObject = InstantiateObjectAsPreview(spawnObject.gameObject);
+			if (spawnObject != null) previewObject = InstantiateObjectAsPreview(spawnObject.gameObject);
 		}
 
 		private Quaternion GetSpawnRotation()
@@ -49,19 +82,10 @@ namespace Anaglyph.Lasertag
 			return Quaternion.Euler(0, spawnRotation, 0);
 		}
 
-		private void UpdatePreviewObjectVisibility()
-		{
-			previewObject.SetActive(enabled && grabbedObject == null);
-		}
-
-		private void OnEnable()
-		{
-			UpdatePreviewObjectVisibility();
-		}
-
 		private void OnDisable()
 		{
-			UpdatePreviewObjectVisibility();
+			if (previewObject != null)
+				previewObject.SetActive(false);
 		}
 
 		public bool TryDelete()
@@ -70,14 +94,14 @@ namespace Anaglyph.Lasertag
 				return false;
 
 			MapObject mapObj = hitObj.GetComponentInParent<MapObject>();
-			mapObj?.Delete();
+			mapObj?.TryDelete();
 
 			return mapObj != null;
 		}
 
 		public bool TryPlace()
 		{
-			if (!currentSpawnObject)
+			if (!CheckCanPlace())
 				return false;
 
 			if (!Raycast(out Vector3 hitPos))
@@ -95,11 +119,11 @@ namespace Anaglyph.Lasertag
 			grabbedObject = hit.collider.GetComponentInParent<MapObject>();
 			if (grabbedObject == null) return false;
 
-			grabLocalPosition = grabbedObject.transform.InverseTransformPoint(hit.point);
+			grabbedObject.TryTakeOwnership();
+
+			grabOffset = hit.point - grabbedObject.transform.position;
 			grabDistance = hit.distance;
 			grabRotation = grabbedObject.transform.eulerAngles.y;
-
-			UpdatePreviewObjectVisibility();
 
 			return true;
 		}
@@ -107,41 +131,101 @@ namespace Anaglyph.Lasertag
 		public void TryLetGo()
 		{
 			grabbedObject = null;
-			UpdatePreviewObjectVisibility();
+		}
+
+		private bool CheckCanPlace()
+		{
+			return currentSpawnObject != null && !handSubject.Current.InputBlocked && this == DominantHand;
 		}
 
 		private void LateUpdate()
 		{
-			Raycast(out RaycastHit hit);
+			bool didHit = Raycast(out RaycastHit hit);
 
-			float lineDist = hit.distance;
+			float lineDist = 1;
+			if (didHit) lineDist = hit.distance;
 
 			if (grabbedObject != null)
 			{
-				Vector3 targetWorldPos = transform.position + transform.forward * grabDistance;
-				Vector3 currentGrabWorldPos = grabbedObject.transform.TransformPoint(grabLocalPosition);
-				grabbedObject.transform.position += targetWorldPos - currentGrabWorldPos;
+				if (previewObject != null)
+					previewObject.SetActive(false);
 
-				grabRotation += rotationDelta * Time.deltaTime * rotationSpeed;
+				if (grabbedObject.CanManage())
+				{
+					Vector3 targetWorldPos = transform.position + transform.forward * grabDistance;
+					Vector3 currentGrabWorldPos = grabbedObject.transform.position + grabOffset;
+					grabbedObject.transform.position += targetWorldPos - currentGrabWorldPos;
 
-				grabbedObject.transform.rotation = Quaternion.Euler(0, grabRotation, 0);
+					grabDistance += distanceDelta * Time.deltaTime * distanceSpeed;
+					grabRotation += rotationDelta * Time.deltaTime * rotationSpeed;
 
-				lineDist = grabDistance;
+					grabbedObject.transform.rotation = Quaternion.Euler(0, grabRotation, 0);
+
+					lineDist = grabDistance;
+				}
 			}
 			else
 			{
 				if (previewObject != null)
+				{
+					spawnRotation += rotationDelta * Time.deltaTime * rotationSpeed;
+
 					previewObject.transform.position = hit.point;
+					previewObject.SetActive(didHit && CheckCanPlace());
+				}
 			}
 
+			lineRenderer.enabled = !handSubject.Current.InputBlocked;
 			lineRenderer.SetPosition(1, Vector3.forward * lineDist);
+			lineRenderer.SetPosition(0, Vector3.zero);
 		}
 
 		#region Input
 
-		private void OnAxis(InputAction.CallbackContext context)
+		public void OnPlaceInput(InputAction.CallbackContext context)
 		{
-			rotationDelta = -context.ReadValue<Vector2>().x;
+			if (!context.performed) return;
+
+			if (this == DominantHand)
+			{
+				if (grabbedObject != null) return;
+
+				TryPlace();
+			}
+			else
+			{
+				Handedness otherHand =
+					handSubject.Current.Handedness == Handedness.Left ? Handedness.Right : Handedness.Left;
+
+				DominantHand = this;
+				Palette.Instance?.SetHandSide(otherHand);
+			}
+		}
+
+		public void OnMoveInput(InputAction.CallbackContext context)
+		{
+			if (context.performed)
+				TryGrab();
+			else if (context.canceled && grabbedObject != null)
+				TryLetGo();
+		}
+
+		public void OnDeleteInput(InputAction.CallbackContext context)
+		{
+			TryDelete();
+		}
+
+		private void OnRotateInput(InputAction.CallbackContext context)
+		{
+			rotationDelta = 0;
+			distanceDelta = 0;
+
+			Vector2 axis = context.ReadValue<Vector2>();
+
+			if (Mathf.Abs(axis.x) > Mathf.Abs(axis.y))
+				rotationDelta = axis.x;
+			else
+				distanceDelta = axis.y;
 		}
 
 		#endregion
@@ -187,11 +271,7 @@ namespace Anaglyph.Lasertag
 		public static GameObject SpawnMapObject(MapObject prefab, Vector3 position,
 			Quaternion rotation = default)
 		{
-			NetworkObject netObj = NetworkObject.InstantiateAndSpawn(prefab.gameObject, NetworkManager.Singleton,
-				NetworkManager.Singleton.LocalClientId, false, false, false, position,
-				rotation);
-
-			return netObj.gameObject;
+			return Instantiate(prefab.gameObject, position, rotation);
 		}
 
 		private static GameObject InstantiateObjectAsPreview(GameObject obj)

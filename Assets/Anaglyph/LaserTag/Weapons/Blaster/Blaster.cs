@@ -20,7 +20,6 @@ namespace Anaglyph.Lasertag.Weapons
 		private void Awake()
 		{
 			TryGetComponent(out hand);
-
 			hand.Bind(nameof(OnFire), OnFire);
 		}
 

@@ -10,7 +10,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 2496192917937467818, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
       propertyPath: m_Text
-      value: Red base Variant
+      value: Placeholder Object Spawn Button
       objectReference: {fileID: 0}
     - target: {fileID: 7327414094806284449, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
       propertyPath: m_Pivot.x
@@ -94,7 +94,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7505427476691352331, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
       propertyPath: m_Name
-      value: Red base Variant
+      value: Placeholder Object Spawn Button
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -121,4 +121,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bd3dc4120eb1a462f8f4606cfa2f3b33, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.PlaceholderObjectButton
-  networkPrefab: {fileID: 6639849942621414895, guid: 9f38ed223dc9ead41a2a38e807eb4f63, type: 3}
+  mapObjPrefab: {fileID: 0}

@@ -8,7 +8,7 @@ namespace Anaglyph.Lasertag
 	{
 		[SerializeField] private float radius = 1;
 		[SerializeField] private RectTransform[] panels;
-		[SerializeField] private RectTransform center;
+		[SerializeField] private int centerIndex;
 
 		[SerializeField] private float transitionLength = 0.2f;
 		[SerializeField] private AnimationCurve transitionCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
@@ -42,7 +42,7 @@ namespace Anaglyph.Lasertag
 
 			for (int i = 0; i < panels.Length; i++)
 			{
-				float radiusOffs = radius + Mathf.Abs(i - panels.Length / 2) * 0.2f + 0.2f;
+				float radiusOffs = radius + Mathf.Abs(i - centerIndex) * 0.2f + 0.2f;
 				float r = Mathf.Lerp(radiusOffs, radius, lerp);
 				float angle = Mathf.Lerp(0, angles[i] - angleOffs, lerp);
 				float x = Mathf.Sin(angle) * r;
@@ -70,7 +70,7 @@ namespace Anaglyph.Lasertag
 				float angle = angleSum + span / 2;
 				angles[i] = angle;
 
-				if (panel == center)
+				if (i == centerIndex)
 					angleOffs = angle;
 
 				angleSum += span;

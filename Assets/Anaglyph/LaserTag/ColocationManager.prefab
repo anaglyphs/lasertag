@@ -50,7 +50,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 341593032
+  GlobalObjectIdHash: 2168036631
   InScenePlacedSourceGlobalObjectIdHash: 341593032
   DeferredDespawnTick: 0
   Ownership: 3
@@ -108,6 +108,12 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   spawnEveryMeters: 5
   alignLerp: 1
+  requireTracking: 1
+  stableFramesRequired: 8
+  stableMoveThreshold: 0.02
+  stableRotateThreshold: 1.5
+  reloadOnRevisit: 1
+  departMeters: 10
 --- !u!114 &2017920904899384140
 MonoBehaviour:
   m_ObjectHideFlags: 0

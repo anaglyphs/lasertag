@@ -1,20 +1,24 @@
 using System.Collections.Generic;
 using Anaglyph.Input;
 using Anaglyph.Netcode;
-using Oculus.Haptics;
 using UnityEngine;
-using UnityEngine.XR;
 
 namespace Anaglyph.Lasertag
 {
 	public class WeaponSwitcher : MonoBehaviour
 	{
+		public static WeaponSwitcher Instance { get; private set; }
+
 		[SerializeField] private GameObject defaultWeapon;
 
 		private readonly Dictionary<Handedness, GameObject> weapons = new();
 
+		private bool weaponsActive = true;
+
 		private void Awake()
 		{
+			Instance = this;
+
 			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
 		}
 
@@ -41,6 +45,14 @@ namespace Anaglyph.Lasertag
 			}
 		}
 
+		public void SetWeaponsActive(bool b)
+		{
+			weaponsActive = b;
+
+			foreach (GameObject weaponObj in weapons.Values)
+				weaponObj.SetActive(weaponsActive);
+		}
+
 		private void InstantiateSelected(GameObject prefab, Handedness handedness)
 		{
 			if (NetcodeManagement.State != NetcodeState.Connected) return;
@@ -50,10 +62,11 @@ namespace Anaglyph.Lasertag
 
 			weaponObj = Instantiate(prefab, transform);
 
-
 			if (weaponObj.TryGetComponent(out HandSubject handSubject)) handSubject.Assign(HandInput.Get(handedness));
 
 			weapons[handedness] = weaponObj;
+
+			weaponObj.SetActive(weaponsActive);
 		}
 	}
 }

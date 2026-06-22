@@ -69,8 +69,16 @@ namespace Anaglyph.Lasertag
 			activeColocator.StopColocation();
 			SetColocated(false);
 
-			MainXRRig.TrackingSpace.position = Vector3.zero;
-			MainXRRig.TrackingSpace.rotation = Quaternion.identity;
+			Vector3 p = MainXRRig.TrackingSpace.position;
+
+			if (p.magnitude > 10000f ||
+			    float.IsNaN(p.x) || float.IsInfinity(p.x) ||
+			    float.IsNaN(p.y) || float.IsInfinity(p.y) ||
+			    float.IsNaN(p.z) || float.IsInfinity(p.z))
+			{
+				MainXRRig.TrackingSpace.position = Vector3.zero;
+				MainXRRig.TrackingSpace.rotation = Quaternion.identity;
+			}
 		}
 
 		private void SetActiveColocator(IColocator colocator)

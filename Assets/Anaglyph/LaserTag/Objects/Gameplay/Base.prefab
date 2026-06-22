@@ -12,8 +12,8 @@ GameObject:
   - component: {fileID: 9142028406143682949}
   - component: {fileID: 6435377189782562929}
   - component: {fileID: 7923053713300863580}
-  - component: {fileID: 747991994927016620}
   - component: {fileID: 8086672029411800011}
+  - component: {fileID: 385665786503117213}
   m_Layer: 0
   m_Name: Base
   m_TagString: Untagged
@@ -123,19 +123,6 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   teamOwner: {fileID: 8086672029411800011}
   meshRenderer: {fileID: 1247770579426270712}
---- !u!114 &747991994927016620
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3063152390251463876}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 735876e89ca1df14cbcf5f22d3807ed5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!114 &8086672029411800011
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -157,6 +144,19 @@ MonoBehaviour:
   OnTeamChange:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &385665786503117213
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3063152390251463876}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 36e471233020d4242add50ecc6f5e27c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.MapObject
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!1 &3635300645810488308
 GameObject:
   m_ObjectHideFlags: 0

@@ -180,7 +180,7 @@ GameObject:
   - component: {fileID: 6307693311043116455}
   - component: {fileID: 6353561666301253323}
   - component: {fileID: -1167864813023738353}
-  - component: {fileID: 3260888679118471147}
+  - component: {fileID: 7175117416068663775}
   m_Layer: 0
   m_Name: Flag
   m_TagString: Untagged
@@ -330,7 +330,7 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 0
   SlerpPosition: 0
---- !u!114 &3260888679118471147
+--- !u!114 &7175117416068663775
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -339,9 +339,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 4553345046889136987}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 735876e89ca1df14cbcf5f22d3807ed5, type: 3}
+  m_Script: {fileID: 11500000, guid: 36e471233020d4242add50ecc6f5e27c, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.Deletable
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.MapObject
   ShowTopMostFoldoutHeaderGroup: 1
 --- !u!1 &8075183562880564433
 GameObject:

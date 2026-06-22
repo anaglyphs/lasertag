@@ -8,8 +8,8 @@ namespace Anaglyph.Lasertag
 	[ExecuteAlways]
 	public class TeamColorer : MonoBehaviour
 	{
-		public const string ColorPerObjectName = "_Color";
-		public static readonly int ColorID = Shader.PropertyToID(ColorPerObjectName);
+		public static readonly int ColorID = Shader.PropertyToID("_Color");
+		public static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
 
 		[SerializeField] private byte defaultTeam;
 		private TeamOwner teamOwner;
@@ -59,6 +59,7 @@ namespace Anaglyph.Lasertag
 			if (renderer)
 			{
 				propertyBlock?.SetColor(ColorID, Color);
+				propertyBlock?.SetColor(BaseColorID, Color);
 				renderer.SetPropertyBlock(propertyBlock);
 			}
 

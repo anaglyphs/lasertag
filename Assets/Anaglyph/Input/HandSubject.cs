@@ -25,6 +25,9 @@ namespace Anaglyph.Input
 		public Vector3 Position => current ? current.Position : Vector3.zero;
 		public Quaternion Rotation => current ? current.Rotation : Quaternion.identity;
 		public Vector3 Forward => current ? current.Forward : Vector3.forward;
+		public Vector3 PointPosition => current ? current.PointPosition : Vector3.zero;
+		public Quaternion PointRotation => current ? current.PointRotation : Quaternion.identity;
+		public Vector3 PointForward => current ? current.PointForward : Vector3.forward;
 
 		// Each Bind keeps the original callback (for Unbind matching) alongside the
 		// wrapper actually subscribed to the action.
@@ -35,6 +38,11 @@ namespace Anaglyph.Input
 			public string name;
 			public Action<InputAction.CallbackContext> callback;
 			public Action<InputAction.CallbackContext> dispatch;
+		}
+
+		private void Start()
+		{
+			if (current != null) Subscribe(current);
 		}
 
 		public void Assign(HandInput hand)
@@ -62,8 +70,7 @@ namespace Anaglyph.Input
 				{
 					// swallow presses while the hand is driving UI, but always let
 					// 'canceled' through so any in-progress hold releases cleanly
-					if (current && current.InputBlocked &&
-					    context.phase != InputActionPhase.Canceled)
+					if (!enabled || (current && current.InputBlocked))
 						return;
 
 					callback(context);
@@ -127,6 +134,16 @@ namespace Anaglyph.Input
 			action.started -= binding.dispatch;
 			action.performed -= binding.dispatch;
 			action.canceled -= binding.dispatch;
+		}
+
+		private void OnEnable()
+		{
+			Subscribe(current);
+		}
+
+		private void OnDisable()
+		{
+			Unsubscribe(current);
 		}
 
 		private void OnDestroy()
