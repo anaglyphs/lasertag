@@ -1804,7 +1804,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2131381759776298080, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
       propertyPath: m_AdditionalShaderChannelsFlag
-      value: 25
+      value: 31
       objectReference: {fileID: 0}
     - target: {fileID: 2251319833915112850, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
       propertyPath: m_SizeDelta.y
@@ -1932,6 +1932,14 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8763824545852786607, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
       propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8948814648683702003, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
+      propertyPath: m_Color.b
+      value: 0.08235294
+      objectReference: {fileID: 0}
+    - target: {fileID: 8948814648683702003, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
+      propertyPath: m_Color.g
       value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
@@ -2568,6 +2576,26 @@ PrefabInstance:
     - target: {fileID: 7505427476691352331, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
       propertyPath: m_Name
       value: Disconnect
+      objectReference: {fileID: 0}
+    - target: {fileID: 7543551178519372865, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
+      propertyPath: _fillColor.b
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7543551178519372865, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
+      propertyPath: _fillColor.g
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7543551178519372865, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
+      propertyPath: _fillColor.r
+      value: 0.084905684
+      objectReference: {fileID: 0}
+    - target: {fileID: 7543551178519372865, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
+      propertyPath: _strokeColor.b
+      value: 0.08235294
+      objectReference: {fileID: 0}
+    - target: {fileID: 7543551178519372865, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
+      propertyPath: _strokeColor.g
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

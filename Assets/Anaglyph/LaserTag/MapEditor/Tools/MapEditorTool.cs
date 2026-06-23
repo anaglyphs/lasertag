@@ -212,7 +212,8 @@ namespace Anaglyph.Lasertag
 
 		public void OnDeleteInput(InputAction.CallbackContext context)
 		{
-			TryDelete();
+			if (context.performed)
+				TryDelete();
 		}
 
 		private void OnRotateInput(InputAction.CallbackContext context)

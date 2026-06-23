@@ -11,7 +11,6 @@ GameObject:
   - component: {fileID: 2372818888588658488}
   - component: {fileID: 3610232557162512145}
   - component: {fileID: 7543551178519372865}
-  - component: {fileID: 9085176308036141203}
   m_Layer: 5
   m_Name: fill
   m_TagString: Untagged
@@ -59,36 +58,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5f58a19028e9d464985f847f7432b72f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.UIRect
---- !u!114 &9085176308036141203
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1118268800640397440}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
-  m_Material: {fileID: 2100000, guid: fcc5518588eef4135b5bcfa2abefe4ac, type: 2}
+  m_Material: {fileID: 2100000, guid: a7256542f5f5245c6b2a46d295a87a2e, type: 2}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_RaycastTarget: 0
+  m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
-  m_Type: 0
-  m_PreserveAspect: 0
-  m_FillCenter: 1
-  m_FillMethod: 4
-  m_FillAmount: 1
-  m_FillClockwise: 1
-  m_FillOrigin: 0
-  m_UseSpriteMesh: 0
-  m_PixelsPerUnitMultiplier: 1
+  _strokeColor: {r: 1, g: 1, b: 1, a: 1}
+  _fillColor: {r: 0.047169805, g: 0.047169805, b: 0.047169805, a: 1}
+  _strokeWidth: 1
+  _gap: 2
+  _edgePadding: 0
+  _cornerRadius: 1
+  _edgeSoftness: 1
 --- !u!1 &7505427476691352331
 GameObject:
   m_ObjectHideFlags: 0
@@ -178,7 +162,7 @@ MonoBehaviour:
     m_SelectedTrigger: Selected
     m_DisabledTrigger: Disabled
   m_Interactable: 1
-  m_TargetGraphic: {fileID: 2767816996610567672}
+  m_TargetGraphic: {fileID: 7543551178519372865}
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
@@ -359,6 +343,10 @@ PrefabInstance:
     - target: {fileID: 4610604118324831091, guid: b53f58f0f50af4c83baedde87c1afdf3, type: 3}
       propertyPath: m_FontData.m_FontStyle
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8672482706298125490, guid: b53f58f0f50af4c83baedde87c1afdf3, type: 3}
+      propertyPath: m_text
+      value: button
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

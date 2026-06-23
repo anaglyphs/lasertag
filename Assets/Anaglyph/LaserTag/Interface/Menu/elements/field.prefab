@@ -225,7 +225,6 @@ GameObject:
   m_Component:
   - component: {fileID: 2693603553013676277}
   - component: {fileID: 3420385839997062436}
-  - component: {fileID: 8559835943246825625}
   - component: {fileID: 2694969137793661446}
   m_Layer: 5
   m_Name: rect
@@ -261,36 +260,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1578716594987479046}
   m_CullTransparentMesh: 1
---- !u!114 &8559835943246825625
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1578716594987479046}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
-  m_Material: {fileID: 2100000, guid: a7256542f5f5245c6b2a46d295a87a2e, type: 2}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_RaycastTarget: 0
-  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
-  m_Maskable: 1
-  m_OnCullStateChanged:
-    m_PersistentCalls:
-      m_Calls: []
-  m_Sprite: {fileID: 0}
-  m_Type: 1
-  m_PreserveAspect: 0
-  m_FillCenter: 1
-  m_FillMethod: 4
-  m_FillAmount: 1
-  m_FillClockwise: 1
-  m_FillOrigin: 0
-  m_UseSpriteMesh: 0
-  m_PixelsPerUnitMultiplier: 1
 --- !u!114 &2694969137793661446
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -303,6 +272,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5f58a19028e9d464985f847f7432b72f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.UIRect
+  m_Material: {fileID: 2100000, guid: a7256542f5f5245c6b2a46d295a87a2e, type: 2}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  _strokeColor: {r: 1, g: 1, b: 1, a: 1}
+  _fillColor: {r: 0.05, g: 0.06, b: 0.1, a: 0}
+  _strokeWidth: 1
+  _gap: 1
+  _edgePadding: 1
+  _cornerRadius: 1
+  _edgeSoftness: 1
 --- !u!1001 &1027591579212527065
 PrefabInstance:
   m_ObjectHideFlags: 0

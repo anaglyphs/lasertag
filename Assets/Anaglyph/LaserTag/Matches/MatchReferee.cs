@@ -150,12 +150,6 @@ namespace Anaglyph.Lasertag
 			_ = SetStateLocally(_synchronizedState);
 		}
 
-		public override void OnNetworkSpawn()
-		{
-			// clear env mapper
-			EnvScanner.Instance.Clear();
-		}
-
 		public override void OnNetworkDespawn()
 		{
 			_ = SetStateLocally(MatchState.NotPlaying);

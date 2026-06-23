@@ -95,7 +95,7 @@ MonoBehaviour:
   - {fileID: 1619843969034019991}
   - {fileID: 6991951137597956403}
   centerIndex: 1
-  transitionLength: 0.1
+  transitionLength: 0.2
   transitionCurve:
     serializedVersion: 2
     m_Curve:
@@ -1879,6 +1879,26 @@ PrefabInstance:
     - target: {fileID: 5900662177950860014, guid: 6a45647e16b03b94abb82f3a7da0010d, type: 3}
       propertyPath: m_Name
       value: Game Panel
+      objectReference: {fileID: 0}
+    - target: {fileID: 5994140341775925884, guid: 6a45647e16b03b94abb82f3a7da0010d, type: 3}
+      propertyPath: _fillColor.b
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5994140341775925884, guid: 6a45647e16b03b94abb82f3a7da0010d, type: 3}
+      propertyPath: _fillColor.g
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5994140341775925884, guid: 6a45647e16b03b94abb82f3a7da0010d, type: 3}
+      propertyPath: _fillColor.r
+      value: 0.09433961
+      objectReference: {fileID: 0}
+    - target: {fileID: 5994140341775925884, guid: 6a45647e16b03b94abb82f3a7da0010d, type: 3}
+      propertyPath: _strokeColor.b
+      value: 0.08235294
+      objectReference: {fileID: 0}
+    - target: {fileID: 5994140341775925884, guid: 6a45647e16b03b94abb82f3a7da0010d, type: 3}
+      propertyPath: _strokeColor.g
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6144108987684123483, guid: 6a45647e16b03b94abb82f3a7da0010d, type: 3}
       propertyPath: m_AnchorMax.y

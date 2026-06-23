@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 3418692278415293302}
   - component: {fileID: 8263179300977549964}
-  - component: {fileID: 7429489947832967006}
   - component: {fileID: 231383600406112965}
   m_Layer: 5
   m_Name: rect
@@ -47,36 +46,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5913357840846760227}
   m_CullTransparentMesh: 1
---- !u!114 &7429489947832967006
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5913357840846760227}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
-  m_Material: {fileID: 2100000, guid: a7256542f5f5245c6b2a46d295a87a2e, type: 2}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_RaycastTarget: 0
-  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
-  m_Maskable: 1
-  m_OnCullStateChanged:
-    m_PersistentCalls:
-      m_Calls: []
-  m_Sprite: {fileID: 0}
-  m_Type: 1
-  m_PreserveAspect: 0
-  m_FillCenter: 1
-  m_FillMethod: 4
-  m_FillAmount: 1
-  m_FillClockwise: 1
-  m_FillOrigin: 0
-  m_UseSpriteMesh: 0
-  m_PixelsPerUnitMultiplier: 1
 --- !u!114 &231383600406112965
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -89,6 +58,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5f58a19028e9d464985f847f7432b72f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.UIRect
+  m_Material: {fileID: 2100000, guid: a7256542f5f5245c6b2a46d295a87a2e, type: 2}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  _strokeColor: {r: 1, g: 1, b: 1, a: 1}
+  _fillColor: {r: 0.05, g: 0.06, b: 0.1, a: 0}
+  _strokeWidth: 1
+  _gap: 1
+  _edgePadding: 1
+  _cornerRadius: 1
+  _edgeSoftness: 1
 --- !u!1 &6042105562172105418
 GameObject:
   m_ObjectHideFlags: 0
@@ -148,7 +132,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0.70597136, g: 1, b: 0, a: 1}
-  m_RaycastTarget: 0
+  m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
@@ -203,7 +187,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_SizeDelta: {x: 200, y: 36}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &8442060910490417781
 MonoBehaviour:
@@ -417,6 +401,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4610604118324831091, guid: b53f58f0f50af4c83baedde87c1afdf3, type: 3}
       propertyPath: m_Text
+      value: toggle
+      objectReference: {fileID: 0}
+    - target: {fileID: 8672482706298125490, guid: b53f58f0f50af4c83baedde87c1afdf3, type: 3}
+      propertyPath: m_text
       value: toggle
       objectReference: {fileID: 0}
     m_RemovedComponents: []

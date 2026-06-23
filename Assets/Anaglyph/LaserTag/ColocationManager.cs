@@ -1,6 +1,7 @@
 using Anaglyph.XRTemplate;
 using Anaglyph.XRTemplate.SharedSpaces;
 using System;
+using Anaglyph.DepthKit.EnvScanning;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.XR;
@@ -105,6 +106,8 @@ namespace Anaglyph.Lasertag
 		private void OnColocated()
 		{
 			SetColocated(true);
+
+			EnvScanner.Instance.Clear();
 		}
 
 		private void SetColocated(bool b)
