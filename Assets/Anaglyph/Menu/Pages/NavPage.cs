@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.Serialization;
 
 namespace Anaglyph.Menu
 {
@@ -8,6 +9,7 @@ namespace Anaglyph.Menu
 		[SerializeField] private RectTransform rectTransform;
 		[SerializeField] private CanvasGroup canvasGroup;
 		public bool showBackButton = true;
+		public bool modalUserDismissible = false;
 
 		private NavPagesParent parentView;
 
@@ -35,7 +37,14 @@ namespace Anaglyph.Menu
 			parentView = GetComponentInParent<NavPagesParent>(true);
 		}
 
-		public void NavigateHere() => parentView.GoToPage(this);
-		public void GoBack() => parentView.GoBack();
+		public void NavigateHere()
+		{
+			parentView.GoToPage(this);
+		}
+
+		public void GoBack()
+		{
+			parentView.GoBack();
+		}
 	}
 }

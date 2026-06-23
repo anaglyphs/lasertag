@@ -109,24 +109,17 @@ namespace Anaglyph.Lasertag
 
 		private void OnMapEditorStateChanged(bool state)
 		{
-			if (state)
-				editingMapPage.NavigateHere();
-			else if (navView.CurrentPage == editingMapPage)
-				mapManagerPage.NavigateHere();
+			navView.SetModalPresented(editingMapPage, state);
 		}
 
 		private void OnMatchStateChanged(MatchState state)
 		{
-			if (state == MatchState.NotPlaying)
-			{
-				if (navView.CurrentPage == playingPage)
-					matchPage.NavigateHere();
-			}
-			else
-			{
-				playingPage.NavigateHere();
+			bool playing = state != MatchState.NotPlaying;
+
+			navView.SetModalPresented(playingPage, playing);
+
+			if (playing)
 				MapEditor.SetActive(false);
-			}
 		}
 
 		private void OnNetcodeStateChanged(NetcodeState state)

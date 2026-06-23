@@ -62,7 +62,7 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			NetcodeManagement.StateChanged += IsNetworkRunningChanged;
+			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
 
 			// home page
 			hostButton.onClick.AddListener(Host);
@@ -124,17 +124,17 @@ namespace Anaglyph.Lasertag
 
 		private void OnDestroy()
 		{
-			NetcodeManagement.StateChanged -= IsNetworkRunningChanged;
+			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
 			ColocationManager.Colocated -= OnColocationChange;
 		}
 
-		private void IsNetworkRunningChanged(NetcodeState state)
+		private void OnNetcodeStateChanged(NetcodeState state)
 		{
 			switch (state)
 			{
 				case NetcodeState.Disconnected:
 					sessionIpText.text = "";
-					homePage.NavigateHere();
+					navView.SetModalPresented(sessionPage, false);
 					break;
 
 				case NetcodeState.Connecting:
@@ -199,7 +199,7 @@ namespace Anaglyph.Lasertag
 
 			recalibrateButton.gameObject.SetActive(state != SessionState.Connecting);
 
-			sessionPage.NavigateHere();
+			navView.SetModalPresented(sessionPage, true, returnTo: homePage);
 		}
 
 		private void Host()
@@ -211,8 +211,8 @@ namespace Anaglyph.Lasertag
 
 		private void Disconnect()
 		{
+			// State change to Disconnected dismisses the session modal back to home.
 			NetcodeManagement.Disconnect();
-			homePage.NavigateHere();
 		}
 	}
 }
