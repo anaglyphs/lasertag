@@ -1,5 +1,5 @@
+using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace Anaglyph.Menu
 {
@@ -8,7 +8,7 @@ namespace Anaglyph.Menu
 #if UNITY_EDITOR
 		private void OnValidate()
 		{
-			GetComponentInChildren<Text>().text = gameObject.name;
+			GetComponentInChildren<TMP_Text>().text = gameObject.name;
 		}
 #endif
 	}

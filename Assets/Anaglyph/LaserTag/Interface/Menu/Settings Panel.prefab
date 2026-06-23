@@ -591,6 +591,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Debugging
       objectReference: {fileID: 0}
+    - target: {fileID: 4572025749346993337, guid: 8b6b4f71c85804ba4b662c23010deb0b, type: 3}
+      propertyPath: m_text
+      value: Debugging
+      objectReference: {fileID: 0}
     - target: {fileID: 4594127177828684403, guid: 8b6b4f71c85804ba4b662c23010deb0b, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -777,6 +781,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4223983986464914832, guid: 93e7a7b5fd0c14143b191416120881c2, type: 3}
+      propertyPath: m_text
+      value: Boundary
+      objectReference: {fileID: 0}
     - target: {fileID: 4566712473101924995, guid: 93e7a7b5fd0c14143b191416120881c2, type: 3}
       propertyPath: m_Name
       value: Boundary
@@ -945,6 +953,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4223983986464914832, guid: 93e7a7b5fd0c14143b191416120881c2, type: 3}
+      propertyPath: m_text
+      value: Graphics
+      objectReference: {fileID: 0}
     - target: {fileID: 4566712473101924995, guid: 93e7a7b5fd0c14143b191416120881c2, type: 3}
       propertyPath: m_Name
       value: Graphics
@@ -1038,6 +1050,10 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1082741472723177590, guid: f82185f0f2caf4953a8d898ac5896e09, type: 3}
       propertyPath: m_Text
+      value: Show Debug Mesh
+      objectReference: {fileID: 0}
+    - target: {fileID: 5233282496482103223, guid: f82185f0f2caf4953a8d898ac5896e09, type: 3}
+      propertyPath: m_text
       value: Show Debug Mesh
       objectReference: {fileID: 0}
     - target: {fileID: 7050805975103920442, guid: f82185f0f2caf4953a8d898ac5896e09, type: 3}
@@ -1151,6 +1167,10 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1082741472723177590, guid: f82185f0f2caf4953a8d898ac5896e09, type: 3}
       propertyPath: m_Text
+      value: Red vision from damage
+      objectReference: {fileID: 0}
+    - target: {fileID: 5233282496482103223, guid: f82185f0f2caf4953a8d898ac5896e09, type: 3}
+      propertyPath: m_text
       value: Red vision from damage
       objectReference: {fileID: 0}
     - target: {fileID: 7050805975103920442, guid: f82185f0f2caf4953a8d898ac5896e09, type: 3}
@@ -1367,6 +1387,10 @@ PrefabInstance:
     - target: {fileID: 4610604118324831091, guid: b53f58f0f50af4c83baedde87c1afdf3, type: 3}
       propertyPath: m_Text
       value: Meshing
+      objectReference: {fileID: 0}
+    - target: {fileID: 8672482706298125490, guid: b53f58f0f50af4c83baedde87c1afdf3, type: 3}
+      propertyPath: m_text
+      value: meshing
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -1596,6 +1620,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4223983986464914832, guid: 93e7a7b5fd0c14143b191416120881c2, type: 3}
+      propertyPath: m_text
+      value: Console
+      objectReference: {fileID: 0}
     - target: {fileID: 4566712473101924995, guid: 93e7a7b5fd0c14143b191416120881c2, type: 3}
       propertyPath: m_Name
       value: Console
@@ -1687,6 +1715,10 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 3627940430727401945, guid: 8b6b4f71c85804ba4b662c23010deb0b, type: 3}
       propertyPath: m_Name
+      value: Boundary
+      objectReference: {fileID: 0}
+    - target: {fileID: 4572025749346993337, guid: 8b6b4f71c85804ba4b662c23010deb0b, type: 3}
+      propertyPath: m_text
       value: Boundary
       objectReference: {fileID: 0}
     - target: {fileID: 4594127177828684403, guid: 8b6b4f71c85804ba4b662c23010deb0b, type: 3}
@@ -1795,6 +1827,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 109233052283188619, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
+      propertyPath: m_text
+      value: Settings
+      objectReference: {fileID: 0}
     - target: {fileID: 322765091414618776, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
       propertyPath: m_Name
       value: Settings
@@ -1822,6 +1858,10 @@ PrefabInstance:
     - target: {fileID: 1906961844270225816, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
       propertyPath: m_Color.r
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2131381759776298080, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
+      propertyPath: m_AdditionalShaderChannelsFlag
+      value: 25
       objectReference: {fileID: 0}
     - target: {fileID: 5053852385252239946, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
       propertyPath: m_Text
@@ -2004,7 +2044,7 @@ PrefabInstance:
       addedObject: {fileID: 4368535728279274813}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 7833251142568902705, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
-      insertIndex: -1
+      insertIndex: 1
       addedObject: {fileID: 6087223054099714456}
   m_SourcePrefab: {fileID: 100100000, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
 --- !u!224 &2479332627751583565 stripped
@@ -2164,6 +2204,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Console
       objectReference: {fileID: 0}
+    - target: {fileID: 4572025749346993337, guid: 8b6b4f71c85804ba4b662c23010deb0b, type: 3}
+      propertyPath: m_text
+      value: Console
+      objectReference: {fileID: 0}
     - target: {fileID: 4594127177828684403, guid: 8b6b4f71c85804ba4b662c23010deb0b, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -2274,6 +2318,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Graphics
       objectReference: {fileID: 0}
+    - target: {fileID: 4572025749346993337, guid: 8b6b4f71c85804ba4b662c23010deb0b, type: 3}
+      propertyPath: m_text
+      value: Graphics
+      objectReference: {fileID: 0}
     - target: {fileID: 4594127177828684403, guid: 8b6b4f71c85804ba4b662c23010deb0b, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -2382,6 +2430,10 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 2496192917937467818, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
       propertyPath: m_Text
+      value: hide debug mesh for all
+      objectReference: {fileID: 0}
+    - target: {fileID: 7278576957156519531, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
+      propertyPath: m_text
       value: hide debug mesh for all
       objectReference: {fileID: 0}
     - target: {fileID: 7327414094806284449, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
@@ -2499,6 +2551,10 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1082741472723177590, guid: f82185f0f2caf4953a8d898ac5896e09, type: 3}
       propertyPath: m_Text
+      value: Light effects
+      objectReference: {fileID: 0}
+    - target: {fileID: 5233282496482103223, guid: f82185f0f2caf4953a8d898ac5896e09, type: 3}
+      propertyPath: m_text
       value: Light effects
       objectReference: {fileID: 0}
     - target: {fileID: 7050805975103920442, guid: f82185f0f2caf4953a8d898ac5896e09, type: 3}
@@ -2628,6 +2684,10 @@ PrefabInstance:
       propertyPath: m_Text
       value: show debug mesh for all
       objectReference: {fileID: 0}
+    - target: {fileID: 7278576957156519531, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
+      propertyPath: m_text
+      value: show debug mesh for all
+      objectReference: {fileID: 0}
     - target: {fileID: 7327414094806284449, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -2745,6 +2805,10 @@ PrefabInstance:
       propertyPath: m_Text
       value: Debug mode
       objectReference: {fileID: 0}
+    - target: {fileID: 5233282496482103223, guid: f82185f0f2caf4953a8d898ac5896e09, type: 3}
+      propertyPath: m_text
+      value: Debug mode
+      objectReference: {fileID: 0}
     - target: {fileID: 7050805975103920442, guid: f82185f0f2caf4953a8d898ac5896e09, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -2860,6 +2924,10 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1082741472723177590, guid: f82185f0f2caf4953a8d898ac5896e09, type: 3}
       propertyPath: m_Text
+      value: In-game boundary
+      objectReference: {fileID: 0}
+    - target: {fileID: 5233282496482103223, guid: f82185f0f2caf4953a8d898ac5896e09, type: 3}
+      propertyPath: m_text
       value: In-game boundary
       objectReference: {fileID: 0}
     - target: {fileID: 7050805975103920442, guid: f82185f0f2caf4953a8d898ac5896e09, type: 3}
@@ -3064,6 +3132,10 @@ PrefabInstance:
     - target: {fileID: 2604420449151677833, guid: 93e7a7b5fd0c14143b191416120881c2, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4223983986464914832, guid: 93e7a7b5fd0c14143b191416120881c2, type: 3}
+      propertyPath: m_text
+      value: Debugging
       objectReference: {fileID: 0}
     - target: {fileID: 4566712473101924995, guid: 93e7a7b5fd0c14143b191416120881c2, type: 3}
       propertyPath: m_Name

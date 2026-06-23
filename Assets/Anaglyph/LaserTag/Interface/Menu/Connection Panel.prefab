@@ -88,6 +88,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4223983986464914832, guid: 93e7a7b5fd0c14143b191416120881c2, type: 3}
+      propertyPath: m_text
+      value: Connection
+      objectReference: {fileID: 0}
     - target: {fileID: 4566712473101924995, guid: 93e7a7b5fd0c14143b191416120881c2, type: 3}
       propertyPath: m_Name
       value: Connection
@@ -190,6 +194,10 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1082741472723177590, guid: f82185f0f2caf4953a8d898ac5896e09, type: 3}
       propertyPath: m_Text
+      value: Use AprilTags
+      objectReference: {fileID: 0}
+    - target: {fileID: 5233282496482103223, guid: f82185f0f2caf4953a8d898ac5896e09, type: 3}
+      propertyPath: m_text
       value: Use AprilTags
       objectReference: {fileID: 0}
     - target: {fileID: 7050805975103920442, guid: f82185f0f2caf4953a8d898ac5896e09, type: 3}
@@ -321,7 +329,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 125804421244463773, guid: 6a76ed4572a6f41209e8e419f1a62595, type: 3}
       propertyPath: m_Name
-      value: Room Code
+      value: 'Room Code:'
       objectReference: {fileID: 0}
     - target: {fileID: 1036558033074911370, guid: 6a76ed4572a6f41209e8e419f1a62595, type: 3}
       propertyPath: m_Pivot.x
@@ -411,6 +419,10 @@ PrefabInstance:
       propertyPath: m_Text
       value: Room Code
       objectReference: {fileID: 0}
+    - target: {fileID: 7692942772614877165, guid: 6a76ed4572a6f41209e8e419f1a62595, type: 3}
+      propertyPath: m_text
+      value: 'Room Code:'
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -429,7 +441,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d199490a83bb2b844b9695cbf13b01ef, type: 3}
+  m_Script: {fileID: 11500000, guid: 2da0c512f12947e489f739169773d7ca, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
 --- !u!1001 &2661515678539274844
@@ -450,7 +462,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 111035476340477064, guid: 6a76ed4572a6f41209e8e419f1a62595, type: 3}
       propertyPath: m_CharacterValidation
-      value: 2
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 125804421244463773, guid: 6a76ed4572a6f41209e8e419f1a62595, type: 3}
       propertyPath: m_Name
@@ -546,6 +558,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3584466302226486954, guid: 6a76ed4572a6f41209e8e419f1a62595, type: 3}
       propertyPath: m_Text
+      value: tag size (cm)
+      objectReference: {fileID: 0}
+    - target: {fileID: 7692942772614877165, guid: 6a76ed4572a6f41209e8e419f1a62595, type: 3}
+      propertyPath: m_text
       value: tag size (cm)
       objectReference: {fileID: 0}
     m_RemovedComponents: []
@@ -799,6 +815,10 @@ PrefabInstance:
       propertyPath: m_Text
       value: Relay Server
       objectReference: {fileID: 0}
+    - target: {fileID: 5233282496482103223, guid: f82185f0f2caf4953a8d898ac5896e09, type: 3}
+      propertyPath: m_text
+      value: Relay Server
+      objectReference: {fileID: 0}
     - target: {fileID: 7050805975103920442, guid: f82185f0f2caf4953a8d898ac5896e09, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -982,6 +1002,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4223983986464914832, guid: 93e7a7b5fd0c14143b191416120881c2, type: 3}
+      propertyPath: m_text
+      value: Connection
+      objectReference: {fileID: 0}
     - target: {fileID: 4566712473101924995, guid: 93e7a7b5fd0c14143b191416120881c2, type: 3}
       propertyPath: m_Name
       value: Connection
@@ -1104,6 +1128,10 @@ PrefabInstance:
     - target: {fileID: 5798856303364646863, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
       propertyPath: m_PreferredHeight
       value: 48
+      objectReference: {fileID: 0}
+    - target: {fileID: 7278576957156519531, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
+      propertyPath: m_text
+      value: Connect
       objectReference: {fileID: 0}
     - target: {fileID: 7327414094806284449, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
       propertyPath: m_Pivot.x
@@ -1302,6 +1330,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4223983986464914832, guid: 93e7a7b5fd0c14143b191416120881c2, type: 3}
+      propertyPath: m_text
+      value: Connect
+      objectReference: {fileID: 0}
     - target: {fileID: 4566712473101924995, guid: 93e7a7b5fd0c14143b191416120881c2, type: 3}
       propertyPath: m_Name
       value: Connect
@@ -1407,7 +1439,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 125804421244463773, guid: 6a76ed4572a6f41209e8e419f1a62595, type: 3}
       propertyPath: m_Name
-      value: Ip Address
+      value: 'Ip Address:'
       objectReference: {fileID: 0}
     - target: {fileID: 1036558033074911370, guid: 6a76ed4572a6f41209e8e419f1a62595, type: 3}
       propertyPath: m_Pivot.x
@@ -1497,6 +1529,10 @@ PrefabInstance:
       propertyPath: m_Text
       value: Ip Address
       objectReference: {fileID: 0}
+    - target: {fileID: 7692942772614877165, guid: 6a76ed4572a6f41209e8e419f1a62595, type: 3}
+      propertyPath: m_text
+      value: 'Ip Address:'
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -1510,7 +1546,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d199490a83bb2b844b9695cbf13b01ef, type: 3}
+  m_Script: {fileID: 11500000, guid: 2da0c512f12947e489f739169773d7ca, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
 --- !u!224 &4314434354863195641 stripped
@@ -1766,6 +1802,10 @@ PrefabInstance:
       propertyPath: m_Color.g
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 2131381759776298080, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
+      propertyPath: m_AdditionalShaderChannelsFlag
+      value: 25
+      objectReference: {fileID: 0}
     - target: {fileID: 2251319833915112850, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
       propertyPath: m_SizeDelta.y
       value: 0
@@ -1958,8 +1998,8 @@ MonoBehaviour:
   roomFieldLabel: {fileID: 8696948980481682755}
   connectButton: {fileID: 4255065717643865941}
   sessionPage: {fileID: 8349345193218628869}
-  sessionStateText: {fileID: 9203214675765766955}
-  sessionIpText: {fileID: 7892221304542851309}
+  sessionStateText: {fileID: 4043832151635162346}
+  sessionIpText: {fileID: 3035492532518760236}
   disconnectButton: {fileID: 4848527708664130498}
   recalibrateButton: {fileID: 7144738954862983648}
   hostRelay: {fileID: 11400000, guid: 8256b37a220cf5d4aa386e985d532dcb, type: 2}
@@ -2059,27 +2099,31 @@ PrefabInstance:
       propertyPath: m_Text
       value: state
       objectReference: {fileID: 0}
+    - target: {fileID: 8672482706298125490, guid: b53f58f0f50af4c83baedde87c1afdf3, type: 3}
+      propertyPath: m_text
+      value: connection state
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: b53f58f0f50af4c83baedde87c1afdf3, type: 3}
---- !u!224 &6201059414946114411 stripped
-RectTransform:
-  m_CorrespondingSourceObject: {fileID: 1606338482508014387, guid: b53f58f0f50af4c83baedde87c1afdf3, type: 3}
-  m_PrefabInstance: {fileID: 4630908746461759576}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &9203214675765766955 stripped
+--- !u!114 &4043832151635162346 stripped
 MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 4610604118324831091, guid: b53f58f0f50af4c83baedde87c1afdf3, type: 3}
+  m_CorrespondingSourceObject: {fileID: 8672482706298125490, guid: b53f58f0f50af4c83baedde87c1afdf3, type: 3}
   m_PrefabInstance: {fileID: 4630908746461759576}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Unity.TextMeshPro::TMPro.TextMeshProUGUI
+--- !u!224 &6201059414946114411 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 1606338482508014387, guid: b53f58f0f50af4c83baedde87c1afdf3, type: 3}
+  m_PrefabInstance: {fileID: 4630908746461759576}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &4680676404067831166
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2095,6 +2139,10 @@ PrefabInstance:
     - target: {fileID: 5798856303364646863, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
       propertyPath: m_PreferredHeight
       value: 48
+      objectReference: {fileID: 0}
+    - target: {fileID: 7278576957156519531, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
+      propertyPath: m_text
+      value: Host new game
       objectReference: {fileID: 0}
     - target: {fileID: 7327414094806284449, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
       propertyPath: m_Pivot.x
@@ -2319,6 +2367,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Host settings
       objectReference: {fileID: 0}
+    - target: {fileID: 4572025749346993337, guid: 8b6b4f71c85804ba4b662c23010deb0b, type: 3}
+      propertyPath: m_text
+      value: Host settings
+      objectReference: {fileID: 0}
     - target: {fileID: 4594127177828684403, guid: 8b6b4f71c85804ba4b662c23010deb0b, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -2427,6 +2479,10 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 2496192917937467818, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
       propertyPath: m_Text
+      value: Disconnect
+      objectReference: {fileID: 0}
+    - target: {fileID: 7278576957156519531, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
+      propertyPath: m_text
       value: Disconnect
       objectReference: {fileID: 0}
     - target: {fileID: 7327414094806284449, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
@@ -2626,6 +2682,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4223983986464914832, guid: 93e7a7b5fd0c14143b191416120881c2, type: 3}
+      propertyPath: m_text
+      value: Host settings
+      objectReference: {fileID: 0}
     - target: {fileID: 4566712473101924995, guid: 93e7a7b5fd0c14143b191416120881c2, type: 3}
       propertyPath: m_Name
       value: Host settings
@@ -2811,27 +2871,31 @@ PrefabInstance:
       propertyPath: m_Text
       value: address
       objectReference: {fileID: 0}
+    - target: {fileID: 8672482706298125490, guid: b53f58f0f50af4c83baedde87c1afdf3, type: 3}
+      propertyPath: m_text
+      value: 127.0.0.1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: b53f58f0f50af4c83baedde87c1afdf3, type: 3}
---- !u!224 &4913490022328545453 stripped
-RectTransform:
-  m_CorrespondingSourceObject: {fileID: 1606338482508014387, guid: b53f58f0f50af4c83baedde87c1afdf3, type: 3}
-  m_PrefabInstance: {fileID: 5943314939056722846}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &7892221304542851309 stripped
+--- !u!114 &3035492532518760236 stripped
 MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 4610604118324831091, guid: b53f58f0f50af4c83baedde87c1afdf3, type: 3}
+  m_CorrespondingSourceObject: {fileID: 8672482706298125490, guid: b53f58f0f50af4c83baedde87c1afdf3, type: 3}
   m_PrefabInstance: {fileID: 5943314939056722846}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Unity.TextMeshPro::TMPro.TextMeshProUGUI
+--- !u!224 &4913490022328545453 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 1606338482508014387, guid: b53f58f0f50af4c83baedde87c1afdf3, type: 3}
+  m_PrefabInstance: {fileID: 5943314939056722846}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &6057718914790101856
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2846,6 +2910,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3627940430727401945, guid: 8b6b4f71c85804ba4b662c23010deb0b, type: 3}
       propertyPath: m_Name
+      value: connect manually
+      objectReference: {fileID: 0}
+    - target: {fileID: 4572025749346993337, guid: 8b6b4f71c85804ba4b662c23010deb0b, type: 3}
+      propertyPath: m_text
       value: connect manually
       objectReference: {fileID: 0}
     - target: {fileID: 4594127177828684403, guid: 8b6b4f71c85804ba4b662c23010deb0b, type: 3}
@@ -2956,6 +3024,10 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1082741472723177590, guid: f82185f0f2caf4953a8d898ac5896e09, type: 3}
       propertyPath: m_Text
+      value: Use Relay
+      objectReference: {fileID: 0}
+    - target: {fileID: 5233282496482103223, guid: f82185f0f2caf4953a8d898ac5896e09, type: 3}
+      propertyPath: m_text
       value: Use Relay
       objectReference: {fileID: 0}
     - target: {fileID: 7050805975103920442, guid: f82185f0f2caf4953a8d898ac5896e09, type: 3}
@@ -3181,6 +3253,10 @@ PrefabInstance:
       propertyPath: m_Text
       value: Recalibrate Alignment
       objectReference: {fileID: 0}
+    - target: {fileID: 7278576957156519531, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
+      propertyPath: m_text
+      value: Recalibrate Alignment
+      objectReference: {fileID: 0}
     - target: {fileID: 7327414094806284449, guid: 6000cd76e48a8439ab29a0986f6de484, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -3381,6 +3457,10 @@ PrefabInstance:
     - target: {fileID: 4610604118324831091, guid: b53f58f0f50af4c83baedde87c1afdf3, type: 3}
       propertyPath: m_Text
       value: Make sure your room code is unique!
+      objectReference: {fileID: 0}
+    - target: {fileID: 8672482706298125490, guid: b53f58f0f50af4c83baedde87c1afdf3, type: 3}
+      propertyPath: m_text
+      value: Use a unique room code!
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

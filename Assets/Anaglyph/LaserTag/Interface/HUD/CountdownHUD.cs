@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Threading.Tasks;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -8,7 +9,7 @@ namespace Anaglyph.Lasertag
 	public class CountdownHUD : MonoBehaviour
 	{
 		[SerializeField] private Graphic queued;
-		[SerializeField] private Text countdownText;
+		[SerializeField] private TMP_Text countdownText;
 
 		private MatchReferee matchReferee => MatchReferee.Instance;
 

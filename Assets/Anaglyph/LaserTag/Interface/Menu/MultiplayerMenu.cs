@@ -2,6 +2,7 @@ using Anaglyph.Menu;
 using Anaglyph.Netcode;
 using Anaglyph.XRTemplate.SharedSpaces;
 using System;
+using TMPro;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
@@ -32,8 +33,8 @@ namespace Anaglyph.Lasertag
 		private NavPage manuallyConnectPage = null;
 
 		[SerializeField] private Toggle useRelayToggle = null;
-		[SerializeField] private InputField ipField = null;
-		[SerializeField] private InputField roomField = null;
+		[SerializeField] private TMP_InputField ipField = null;
+		[SerializeField] private TMP_InputField roomField = null;
 		[SerializeField] private GameObject roomFieldLabel = null;
 		[SerializeField] private Button connectButton = null;
 
@@ -41,8 +42,8 @@ namespace Anaglyph.Lasertag
 		private NavPage sessionPage = null;
 
 		// [SerializeField] private Image sessionIcon = null;
-		[SerializeField] private Text sessionStateText = null;
-		[SerializeField] private Text sessionIpText = null;
+		[SerializeField] private TMP_Text sessionStateText = null;
+		[SerializeField] private TMP_Text sessionIpText = null;
 		[SerializeField] private Button disconnectButton = null;
 		[SerializeField] private Button recalibrateButton = null;
 

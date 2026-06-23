@@ -1,4 +1,5 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -58,7 +59,7 @@ public class InGameConsole : MonoBehaviour
 
 	private static Action onLogUpdated = delegate { };
 
-	[SerializeField] private Text consoleText;
+	[SerializeField] private TMP_Text consoleText;
 	[SerializeField] private ScrollRect rect;
 
 	private void OnEnable()

@@ -1,5 +1,6 @@
 using Anaglyph.Menu;
 using Anaglyph.Netcode;
+using TMPro;
 using UnityEngine;
 using UnityEngine.Serialization;
 using UnityEngine.UI;
@@ -14,9 +15,9 @@ namespace Anaglyph.Lasertag
 		private NavPage matchPage;
 
 		[SerializeField] private Toggle winByScoreToggle;
-		[SerializeField] private InputField timeField;
-		[SerializeField] private InputField scoreField;
-		[SerializeField] private InputField damageMultiplierField;
+		[SerializeField] private TMP_InputField timeField;
+		[SerializeField] private TMP_InputField scoreField;
+		[SerializeField] private TMP_InputField damageMultiplierField;
 		[SerializeField] private Button startButton;
 
 		[Header("Playing page")] [SerializeField]

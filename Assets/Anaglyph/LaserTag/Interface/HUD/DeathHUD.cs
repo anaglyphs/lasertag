@@ -1,4 +1,5 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -9,7 +10,7 @@ namespace Anaglyph.Lasertag.UI
 		public static DeathHUD Instance { get; private set; }
 
 		[Header("Death Popup")] [SerializeField]
-		private Text respawnText = null;
+		private TMP_Text respawnText = null;
 
 		[SerializeField] private GameObject respawnPopup = null;
 

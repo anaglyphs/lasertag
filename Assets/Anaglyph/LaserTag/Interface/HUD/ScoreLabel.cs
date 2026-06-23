@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -6,11 +7,11 @@ namespace Anaglyph.Lasertag
 	public class ScoreLabel : MonoBehaviour
 	{
 		[SerializeField] private byte team;
-		private Text label;
+		private TMP_Text label;
 
 		private void Awake()
 		{
-			label = GetComponent<Text>();
+			label = GetComponent<TMP_Text>();
 		}
 
 		private void Start()
@@ -22,8 +23,8 @@ namespace Anaglyph.Lasertag
 		{
 			label.text = "0";
 			MatchReferee.TeamScored += OnTeamScored;
-			
-			if (didStart) UpdateScore(MatchReferee.GetTeamScore(team));  
+
+			if (didStart) UpdateScore(MatchReferee.GetTeamScore(team));
 		}
 
 		private void OnDisable()
@@ -33,10 +34,13 @@ namespace Anaglyph.Lasertag
 
 		private void OnTeamScored(byte scoredTeam, int points)
 		{
-			if (team == scoredTeam) 
+			if (team == scoredTeam)
 				UpdateScore(MatchReferee.GetTeamScore(scoredTeam));
 		}
 
-		private void UpdateScore(int score) => label.text = score.ToString();
+		private void UpdateScore(int score)
+		{
+			label.text = score.ToString();
+		}
 	}
 }

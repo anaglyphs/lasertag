@@ -1,4 +1,5 @@
 using Anaglyph.Menu;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -9,7 +10,7 @@ namespace Anaglyph.Lasertag
 	{
 		[Header("Timer")] [SerializeField] private GameObject timerHUD;
 
-		[SerializeField] private Text timerLabel;
+		[SerializeField] private TMP_Text timerLabel;
 
 		[SerializeField] private RectTransform topSand;
 		[SerializeField] private RectTransform bottomSand;
@@ -18,7 +19,7 @@ namespace Anaglyph.Lasertag
 		[Header("Score goal")] [SerializeField]
 		private GameObject scoreGoalHUD;
 
-		[SerializeField] private Text scoreTargetLabel;
+		[SerializeField] private TMP_Text scoreTargetLabel;
 		[SerializeField] private LineGraphic scoreLine1;
 		[SerializeField] private LineGraphic scoreLine2;
 		private ScoreLine[] scoreLines;
