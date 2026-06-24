@@ -32,62 +32,53 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	{
 		public static MetaAnchorColocator Instance { get; private set; }
 
-		[Tooltip("The host drops a new anchor whenever it gets this far (m) from every existing anchor.")]
-		[SerializeField]
-		private float spawnEveryMeters = 2f;
+		[SerializeField] private float spawnEveryMeters = 2f;
 
-		[Tooltip("Per-frame lerp toward the fitted pose once colocated. 1 = snap. Lower smooths drift correction.")]
-		[Range(0f, 1f)]
-		[SerializeField]
-		private float alignLerp = 1f;
+		[Range(0f, 1f)] [SerializeField] private float alignLerp = 1f;
 
-		[Tooltip("Require the runtime to be actively tracking an anchor (TrackingState.Tracking) before it can drive the fit. Disable only if your provider never reports anything but Tracking.")]
-		[SerializeField]
-		private bool requireTracking = true;
+		[SerializeField] private bool requireTracking = true;
 
-		[Tooltip("An anchor must hold still for this many frames before it's first trusted in the fit (filters the load-time pose jump).")]
-		[SerializeField]
-		private int stableFramesRequired = 8;
+		[SerializeField] private int stableFramesRequired = 8;
+		[SerializeField] private float stableMoveThreshold = 0.02f;
+		[SerializeField] private float stableRotateThreshold = 1.5f;
 
-		[Tooltip("Max per-frame world movement (m) for an anchor to count as 'settled' for admission.")]
-		[SerializeField]
-		private float stableMoveThreshold = 0.02f;
+		[Header("Relocalization experiment")] [SerializeField]
+		private float unloadDistance = 0f;
 
-		[Tooltip("Max per-frame world rotation (deg) for an anchor to count as 'settled' for admission.")]
-		[SerializeField]
-		private float stableRotateThreshold = 1.5f;
+		[SerializeField] private float reloadDistance;
 
-		[Header("Relocalization experiment")]
-		[Tooltip("Experimental: save each anchor locally once it localizes, then after you leave it (departMeters) and return (within spawnEveryMeters), destroy and reload it to force a fresh load-time localization. Tests whether initial localization is more robust than continuous tracking.")]
-		[SerializeField]
-		private bool reloadOnRevisit = false;
-
-		[Tooltip("How far (m, horizontal) you must get from an anchor before a revisit will trigger a reload.")]
-		[SerializeField]
-		private float departMeters = 5f;
+		[Header("Debug")] [SerializeField] private GameObject canonMarkerPrefab;
 
 		public event Action Colocated = delegate { };
 
-		// Replicated: one entry per shared anchor (group GUID + canon pose).
-		// Host-authoritative writes; clients read.
-		private readonly NetworkList<AnchorEntry> entries = new();
+		public struct AnchorEntry : INetworkSerializeByMemcpy, IEquatable<AnchorEntry>
+		{
+			public Guid Group;
+			public Pose CanonPose;
 
-		// Local: group GUID -> live AR Foundation anchor (host-created or client-loaded).
+			public AnchorEntry(Guid group, Pose canonPose)
+			{
+				Group = group;
+				CanonPose = canonPose;
+			}
+
+			public bool Equals(AnchorEntry other)
+			{
+				return Group.Equals(other.Group);
+			}
+		}
+
+		private readonly NetworkList<AnchorEntry> anchorEntriesSync = new();
+
+		// GUID -> live AR Foundation anchor (host-created or client-loaded).
 		private readonly Dictionary<Guid, ARAnchor> liveAnchors = new();
-
-		// Local: per-anchor settle/admission state for the fit's reliability gate.
 		private readonly Dictionary<Guid, SettleState> settleStates = new();
+		private readonly Dictionary<Guid, GameObject> canonMarkers = new();
 
-		// Local: groups a client is currently loading, to dedupe concurrent reconciles.
 		private readonly HashSet<Guid> pendingLoads = new();
 		private readonly List<Guid> staleGroups = new();
+		private readonly List<Guid> toUnload = new();
 
-		// Local: relocalization-experiment bookkeeping (local save GUID + depart state).
-		private readonly Dictionary<Guid, RevisitState> revisitStates = new();
-		private readonly List<Guid> toSave = new();
-		private readonly List<Guid> toReload = new();
-
-		// Reused per-frame scratch for the fit.
 		private readonly List<Pose> trackedPoses = new();
 		private readonly List<Pose> canonPoses = new();
 		private float3[] trackedBuf = Array.Empty<float3>();
@@ -100,6 +91,22 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private bool hasColocated;
 		public bool HasColocated => hasColocated;
 
+		// Bumped whenever the live anchor set is invalidated (StopColocation, RealignEveryone).
+		// Async ops capture it before their first await and bail if it changed underneath them,
+		// so a load/save/reload that finishes after the session ended can't resurrect anchors.
+		private int epoch;
+
+		// True from the moment the app backgrounds until the headset has relocalized to an
+		// anchor that was live at that point. While suspended we suppress spawning, loading,
+		// and unloading: right after resume, tracking is briefly lost and the head can read
+		// as far from every anchor, which would otherwise spawn spurious anchors or unload
+		// good ones. We lean on the anchors that survived the background instead.
+		private bool suspended;
+
+		// Anchors the last RunFit admitted. >0 means at least one anchor is tracked + settled
+		// this frame — our signal that the headset has relocalized.
+		private int lastFitCount;
+
 		private void Awake()
 		{
 			Instance = this;
@@ -108,12 +115,24 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public override void OnNetworkSpawn()
 		{
-			entries.OnListChanged += OnEntriesChanged;
+			anchorEntriesSync.OnListChanged += OnAnchorEntriesSyncChanged;
 		}
 
 		public override void OnNetworkDespawn()
 		{
-			entries.OnListChanged -= OnEntriesChanged;
+			anchorEntriesSync.OnListChanged -= OnAnchorEntriesSyncChanged;
+		}
+
+		// Headset sleep / app background. Tracking is lost here and stays unreliable for a
+		// moment after resume, so flag ourselves suspended; LateUpdate then holds off
+		// spawning and (un)loading anchors until the fit relocalizes to one that was live
+		// when we paused.
+		private void OnApplicationPause(bool paused)
+		{
+			if (!paused || !isActive) return;
+
+			suspended = true;
+			lastFitCount = 0; // don't let a pre-sleep successful fit read as "relocalized"
 		}
 
 		// ---- IColocator -------------------------------------------------------
@@ -123,6 +142,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (isActive) return;
 			isActive = true;
 			hasColocated = false;
+			suspended = false;
 
 			// Late joiner: entries may already be populated — load them now.
 			ReconcileEntries();
@@ -133,10 +153,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (!isActive) return;
 			isActive = false;
 			hasColocated = false;
+			epoch++; // invalidate any in-flight loads/saves/reloads
 
 			// Owner drops the shared set; everyone removes its local anchors.
 			if (IsSpawned && IsOwner)
-				entries.Clear();
+				anchorEntriesSync.Clear();
 
 			RemoveAllLiveAnchors();
 			pendingLoads.Clear();
@@ -154,13 +175,14 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				NetworkObject.ChangeOwnership(NetworkManager.LocalClientId);
 
 			hasColocated = false;
-			entries.Clear();
+			epoch++; // invalidate any in-flight loads/saves/reloads from the old attempt
+			anchorEntriesSync.Clear();
 			RemoveAllLiveAnchors();
 		}
 
 		// ---- entry reconciliation --------------------------------------------
 
-		private void OnEntriesChanged(NetworkListEvent<AnchorEntry> _)
+		private void OnAnchorEntriesSyncChanged(NetworkListEvent<AnchorEntry> _)
 		{
 			ReconcileEntries();
 		}
@@ -171,13 +193,18 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			if (!isActive || !SharedAnchorsAvailable()) return;
 
-			foreach (AnchorEntry entry in entries)
-			{
-				Guid group = entry.Group;
-				if (liveAnchors.ContainsKey(group) || pendingLoads.Contains(group))
-					continue;
-				_ = LoadEntry(group);
-			}
+			// While suspended (post-resume, before we've relocalized) don't pull in new
+			// anchors — rely on the ones that were live when we backgrounded.
+			if (!suspended)
+				foreach (AnchorEntry entry in anchorEntriesSync)
+				{
+					Guid group = entry.Group;
+					if (liveAnchors.ContainsKey(group) || pendingLoads.Contains(group))
+						continue;
+					if (!WithinLoadRange(entry))
+						continue;
+					_ = LoadEntry(group);
+				}
 
 			staleGroups.Clear();
 			foreach (Guid group in liveAnchors.Keys)
@@ -189,7 +216,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private bool EntriesContain(Guid group)
 		{
-			foreach (AnchorEntry e in entries)
+			foreach (AnchorEntry e in anchorEntriesSync)
 				if (e.Group == group)
 					return true;
 			return false;
@@ -197,13 +224,15 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private async Task LoadEntry(Guid group)
 		{
+			int myEpoch = epoch;
+
 			pendingLoads.Add(group);
 			ARAnchor anchor = await MetaSharedAnchors.LoadAsync(anchorManager, group);
 			pendingLoads.Remove(group);
 
 			// Aborted, the entry was removed, or we raced another load — discard.
 			if (anchor == null) return;
-			if (!isActive || !EntriesContain(group) || liveAnchors.ContainsKey(group))
+			if (myEpoch != epoch || !isActive || !EntriesContain(group) || liveAnchors.ContainsKey(group))
 			{
 				DestroyAnchor(anchor);
 				return;
@@ -218,16 +247,27 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			if (!isActive) return;
 
-			if (IsOwner)
+			if (IsOwner && !suspended)
 			{
 				if (SharedAnchorsAvailable()) TrySpawnAnchor();
-				else if (entries.Count == 0) SeedEditorStub();
+				else if (anchorEntriesSync.Count == 0) SeedEditorStub();
 			}
 
 			RunFit();
 
-			if (reloadOnRevisit && SharedAnchorsAvailable())
-				UpdateRevisitReloads();
+			// Lift suspension once we've relocalized to an anchor that survived the
+			// background (the fit admitted one). If there are no live anchors, there's
+			// nothing to relocalize against, so don't get stuck waiting forever.
+			if (suspended && (lastFitCount > 0 || liveAnchors.Count == 0))
+			{
+				suspended = false;
+				ReconcileEntries(); // catch up on anything that arrived while suspended
+			}
+
+			if (unloadDistance > 0f && !suspended && SharedAnchorsAvailable())
+				UpdateAnchorStreaming();
+
+			SyncCanonMarkers();
 		}
 
 		private void TrySpawnAnchor()
@@ -253,6 +293,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private async Task SpawnAnchor()
 		{
+			int myEpoch = epoch;
 			isSpawning = true;
 			try
 			{
@@ -275,7 +316,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					return;
 				}
 
-				if (!isActive || !IsOwner)
+				if (myEpoch != epoch || !isActive || !IsOwner)
 				{
 					DestroyAnchor(anchor);
 					return;
@@ -283,7 +324,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 				// Host frame is the shared frame, so canon == tracked at creation.
 				liveAnchors[group] = anchor;
-				entries.Add(new AnchorEntry(group, anchor.transform.GetWorldPose()));
+				anchorEntriesSync.Add(new AnchorEntry(group, anchor.transform.GetWorldPose()));
 			}
 			finally
 			{
@@ -295,14 +336,16 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		// reaches "colocated" without hardware. RunFit treats this as an identity fit.
 		private void SeedEditorStub()
 		{
-			entries.Add(new AnchorEntry(Guid.NewGuid(), Pose.identity));
+			anchorEntriesSync.Add(new AnchorEntry(Guid.NewGuid(), Pose.identity));
 		}
 
 		private void RunFit()
 		{
+			lastFitCount = 0;
+
 			if (!SharedAnchorsAvailable())
 			{
-				if (entries.Count > 0 && !hasColocated)
+				if (anchorEntriesSync.Count > 0 && !hasColocated)
 				{
 					hasColocated = true;
 					Colocated.Invoke();
@@ -314,7 +357,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			trackedPoses.Clear();
 			canonPoses.Clear();
 
-			foreach (AnchorEntry entry in entries)
+			foreach (AnchorEntry entry in anchorEntriesSync)
 			{
 				if (!liveAnchors.TryGetValue(entry.Group, out ARAnchor anchor) || anchor == null)
 					continue;
@@ -331,6 +374,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 
 			int n = trackedPoses.Count;
+			lastFitCount = n;
 			if (n == 0) return;
 
 			float lerp = hasColocated ? alignLerp : 1f;
@@ -431,131 +475,113 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			return true;
 		}
 
-		// ---- relocalization experiment ---------------------------------------
+		// ---- distance-based streaming ----------------------------------------
 
-		// Hypothesis: an anchor's load-time localization is more accurate than the
-		// corrections it streams while continuously tracked, so a drifted anchor that
-		// fails to snap back will land correctly if we destroy it and load it fresh.
-		//
-		// We save each anchor locally once it first localizes (admitted to the fit). When
-		// the head leaves it by departMeters and then returns within spawnEveryMeters, we
-		// drop the live anchor and reload it from the local save, re-running the load-time
-		// localization path. Compare the post-reload alignment against the pre-reload drift.
-		private void UpdateRevisitReloads()
+		// Untrack + destroy anchors once you're beyond unloadDistance from their canon
+		// pose, and reload them (from the cloud, via ReconcileEntries' LoadEntry path) as
+		// you approach again. Distance is measured to the canon pose — a fixed world
+		// target — so it still works once an anchor is unloaded and has no live transform.
+		private void UpdateAnchorStreaming()
 		{
+			// Only stream once colocated: before that, world space isn't aligned to the
+			// shared frame, so head-to-canon distance is meaningless and could unload an
+			// anchor the fit still needs.
+			if (!hasColocated) return;
+
 			Vector3 head = MainXRRig.Camera.transform.position;
 
-			toSave.Clear();
-			toReload.Clear();
+			toUnload.Clear();
 
-			foreach (KeyValuePair<Guid, ARAnchor> kv in liveAnchors)
+			foreach (AnchorEntry entry in anchorEntriesSync)
 			{
-				Guid group = kv.Key;
-				ARAnchor anchor = kv.Value;
-				if (anchor == null) continue;
+				Guid group = entry.Group;
 
-				if (!revisitStates.TryGetValue(group, out RevisitState rs))
-					revisitStates[group] = rs = new RevisitState();
-
-				if (rs.Busy) continue;
-
-				// Save once the anchor has been admitted to the fit (i.e. localized + settled).
-				if (!rs.Saved)
-				{
-					bool admitted = settleStates.TryGetValue(group, out SettleState ss) && ss.Admitted;
-					if (admitted)
-						toSave.Add(group);
-					continue;
-				}
-
-				// Horizontal distance only, matching the spawn spacing metric.
-				Vector3 d = anchor.transform.position - head;
+				Vector3 d = entry.CanonPose.position - head;
 				d.y = 0;
 				float dist = d.magnitude;
 
-				if (dist > departMeters)
-					rs.Departed = true;
-				else if (rs.Departed && dist < spawnEveryMeters)
-					toReload.Add(group);
-			}
-
-			// Mutate liveAnchors only after the iteration above. Mark Busy up front so the
-			// next frame doesn't re-queue the same group while the op is in flight.
-			foreach (Guid group in toSave)
-			{
-				revisitStates[group].Busy = true;
-				_ = SaveAnchorLocally(group);
-			}
-
-			foreach (Guid group in toReload)
-			{
-				revisitStates[group].Busy = true;
-				_ = ReloadAnchorLocally(group);
-			}
-		}
-
-		private async Task SaveAnchorLocally(Guid group)
-		{
-			if (!revisitStates.TryGetValue(group, out RevisitState rs))
-				return;
-
-			try
-			{
-				if (!liveAnchors.TryGetValue(group, out ARAnchor anchor) || anchor == null)
-					return;
-
-				Result<SerializableGuid> result = await anchorManager.TrySaveAnchorAsync(anchor);
-
-				if (result.status.IsSuccess())
+				if (liveAnchors.ContainsKey(group))
 				{
-					rs.SavedGuid = result.value;
-					rs.Saved = true;
+					if (dist > unloadDistance)
+						toUnload.Add(group);
 				}
-				else
+				else if (!pendingLoads.Contains(group) && dist < reloadDistance)
 				{
-					Debug.LogWarning($"[MetaAnchorColocator] Local save failed for {group}: {result.status}");
+					// LoadEntry adds to pendingLoads synchronously, then awaits; safe to
+					// kick off mid-iteration since it doesn't touch entries/liveAnchors yet.
+					_ = LoadEntry(group);
 				}
 			}
-			finally
-			{
-				rs.Busy = false;
-			}
-		}
 
-		private async Task ReloadAnchorLocally(Guid group)
-		{
-			if (!revisitStates.TryGetValue(group, out RevisitState rs))
-				return;
-
-			// Block ReconcileEntries from cloud-loading this group while we swap it.
-			pendingLoads.Add(group);
-			try
-			{
-				// Drop the drifted anchor and its admission so the reloaded one must
-				// re-settle from its fresh load-time pose.
+			// Mutate liveAnchors only after the iteration above.
+			foreach (Guid group in toUnload)
 				RemoveLiveAnchor(group);
+		}
 
-				Result<ARAnchor> result = await anchorManager.TryLoadAnchorAsync(rs.SavedGuid);
+		// Whether ReconcileEntries should load this entry right now. With streaming on,
+		// hold off on distant entries (UpdateAnchorStreaming pulls them in as you approach);
+		// until colocated, load everything so the fit has anchors to work with.
+		private bool WithinLoadRange(AnchorEntry entry)
+		{
+			if (unloadDistance <= 0f || !hasColocated)
+				return true;
 
-				if (!isActive || !EntriesContain(group))
-				{
-					if (result.status.IsSuccess()) DestroyAnchor(result.value);
-					return;
-				}
+			Vector3 head = MainXRRig.Camera.transform.position;
+			Vector3 d = entry.CanonPose.position - head;
+			d.y = 0;
+			return d.magnitude < unloadDistance;
+		}
 
-				if (result.status.IsSuccess() && result.value != null)
-					liveAnchors[group] = result.value;
-				else
-					Debug.LogWarning($"[MetaAnchorColocator] Reload failed for {group}: {result.status}");
+		// ---- debug markers ----------------------------------------------------
 
-				// Must leave and return again before the next reload.
-				rs.Departed = false;
-			}
-			finally
+		// One marker per entry, pinned to that entry's canon pose. Canon poses are fixed
+		// world-space targets in the shared frame, so a marker never moves — the live
+		// anchor visual drifting away from its marker shows that anchor's displacement.
+		// (With a single anchor + alignLerp 1 the anchor is snapped onto its marker every
+		// frame; the gap is most visible with multiple anchors or a lower alignLerp.)
+		// Markers are always spawned; put a RenderIfDebug on the prefab to gate visibility.
+		private void SyncCanonMarkers()
+		{
+			if (canonMarkerPrefab == null)
 			{
-				pendingLoads.Remove(group);
-				rs.Busy = false;
+				if (canonMarkers.Count > 0)
+					ClearCanonMarkers();
+				return;
 			}
+
+			// Spawn a marker for any entry that lacks one. Canon pose is immutable per
+			// group, so we set the transform once at instantiation.
+			foreach (AnchorEntry entry in anchorEntriesSync)
+			{
+				if (canonMarkers.ContainsKey(entry.Group))
+					continue;
+
+				canonMarkers[entry.Group] = Instantiate(
+					canonMarkerPrefab, entry.CanonPose.position, entry.CanonPose.rotation);
+			}
+
+			// Drop markers whose entry is gone.
+			staleGroups.Clear();
+			foreach (Guid group in canonMarkers.Keys)
+				if (!EntriesContain(group))
+					staleGroups.Add(group);
+			foreach (Guid group in staleGroups)
+				DestroyCanonMarker(group);
+		}
+
+		private void DestroyCanonMarker(Guid group)
+		{
+			if (canonMarkers.TryGetValue(group, out GameObject marker) && marker != null)
+				Destroy(marker);
+			canonMarkers.Remove(group);
+		}
+
+		private void ClearCanonMarkers()
+		{
+			foreach (GameObject marker in canonMarkers.Values)
+				if (marker != null)
+					Destroy(marker);
+			canonMarkers.Clear();
 		}
 
 		// ---- cleanup ----------------------------------------------------------
@@ -576,9 +602,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			liveAnchors.Clear();
 			settleStates.Clear();
 
-			// Locally-saved anchors persist in Meta's store across this; the bookkeeping is
-			// per-session, so a re-seed starts the save/depart cycle over.
-			revisitStates.Clear();
+			ClearCanonMarkers();
 		}
 
 		// Get rid of an anchor we no longer want, making sure its GameObject is destroyed.
@@ -615,26 +639,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			return subsystem.isSharedAnchorsSupported == Supported.Supported;
 		}
 
-		// Replicated anchor entry: a Meta share-group GUID and its canonical pose.
-		// Blittable (unmanaged) so it rides NetworkList's memcpy path; identity is the
-		// group GUID.
-		public struct AnchorEntry : INetworkSerializeByMemcpy, IEquatable<AnchorEntry>
-		{
-			public Guid Group;
-			public Pose CanonPose;
-
-			public AnchorEntry(Guid group, Pose canonPose)
-			{
-				Group = group;
-				CanonPose = canonPose;
-			}
-
-			public bool Equals(AnchorEntry other)
-			{
-				return Group.Equals(other.Group);
-			}
-		}
-
 		// Per-anchor reliability bookkeeping for IsAnchorReliable. Reference type so the
 		// dictionary entry is mutated in place.
 		private sealed class SettleState
@@ -642,17 +646,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			public Pose LastPose;
 			public int StableFrames;
 			public bool Admitted;
-		}
-
-		// Per-anchor state for the reloadOnRevisit experiment. Saved holds whether we've
-		// captured a local persistent GUID; Departed latches once the head has left by
-		// departMeters; Busy guards an in-flight save/reload for this group.
-		private sealed class RevisitState
-		{
-			public bool Saved;
-			public SerializableGuid SavedGuid;
-			public bool Departed;
-			public bool Busy;
 		}
 	}
 

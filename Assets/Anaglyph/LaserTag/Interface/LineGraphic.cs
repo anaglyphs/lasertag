@@ -3,12 +3,31 @@ using UnityEngine.UI;
 
 namespace Anaglyph.Menu
 {
+	/// <summary>
+	/// A polyline drawn as an anti-aliased SDF stroke by the Anaglyph/UI/UILine
+	/// shader. The ribbon geometry is padded past the requested thickness so the
+	/// AA falloff has room to fade out inside the mesh; the signed cross-stroke
+	/// distance is written to TEXCOORD0 and the shader derives coverage from it.
+	///
+	/// Per-instance stroke params (halfStroke, softness) ride in TEXCOORD1, so
+	/// lines of different thickness still share ONE material and batch together.
+	/// Assign a material using the "Anaglyph/UI/UILine" shader to the Material
+	/// field.
+	/// </summary>
+	[RequireComponent(typeof(CanvasRenderer))]
 	[ExecuteAlways]
 	public class LineGraphic : MaskableGraphic
 	{
 		[Min(0)] public float thickness = 1f;
 
-		private int prevPointsLength = 0;
+		[Tooltip("Extra stroke-weight padding added to the ribbon so the AA edge " +
+		         "isn't clipped by the geometry. Keep it at least a pixel or two in " +
+		         "local units; increase if thin or scaled-down lines look cut off.")]
+		[Min(0f)] public float padding = 2f;
+
+		[Tooltip("AA edge softness multiplier on top of the screen-space derivative.")]
+		[Min(0.01f)] public float softness = 1f;
+
 		public Vector2[] points;
 
 		public float firstAngle = 0f;
@@ -22,6 +41,12 @@ namespace Anaglyph.Menu
 			return new Vector2(Mathf.Cos(a), Mathf.Sin(a));
 		}
 
+		protected override void OnEnable()
+		{
+			base.OnEnable();
+			EnsureCanvasChannels();
+		}
+
 		protected override void OnPopulateMesh(VertexHelper vh)
 		{
 			vh.Clear();
@@ -30,8 +55,13 @@ namespace Anaglyph.Menu
 				return;
 
 			int count = points.Length;
-			float halfThickness = thickness * 0.5f;
-			Color32 c = color;
+			float halfStroke = thickness * 0.5f;
+			float edge = halfStroke + padding; // padded rail: extra room for AA
+
+			UIVertex vert = UIVertex.simpleVert;
+			vert.color = color;
+			// TEXCOORD1 -> per-instance stroke params, constant along the line.
+			vert.uv1 = new Vector4(halfStroke, softness, 0f, 0f);
 
 			// Build vertices
 			for (int i = 0; i < count; i++)
@@ -80,10 +110,18 @@ namespace Anaglyph.Menu
 				if (!Mathf.Approximately(dot, 0f))
 					n /= dot;
 
-				Vector2 offset = n * halfThickness;
+				Vector2 offset = n * edge;
 
-				vh.AddVert(p + offset, c, Vector2.zero);
-				vh.AddVert(p - offset, c, Vector2.zero);
+				// TEXCOORD0.x -> signed cross-stroke distance from the centerline.
+				// The miter scaling above keeps each rail's perpendicular distance
+				// to its segment at exactly +/- edge, so |u| reads as that distance.
+				vert.position = p + offset;
+				vert.uv0 = new Vector4(edge, 0f, 0f, 0f);
+				vh.AddVert(vert);
+
+				vert.position = p - offset;
+				vert.uv0 = new Vector4(-edge, 0f, 0f, 0f);
+				vh.AddVert(vert);
 			}
 
 			// Build triangles
@@ -95,5 +133,35 @@ namespace Anaglyph.Menu
 				vh.AddTriangle(v + 2, v + 3, v + 1);
 			}
 		}
+
+		/// <summary>
+		/// The Canvas only emits the vertex streams listed in Additional Shader
+		/// Channels. This graphic packs stroke params into TexCoord1, so make sure
+		/// it's enabled or that data is stripped at batch time.
+		/// </summary>
+		private void EnsureCanvasChannels()
+		{
+			Canvas c = canvas;
+			if (c == null)
+				return;
+
+			const AdditionalCanvasShaderChannels need =
+				AdditionalCanvasShaderChannels.TexCoord1;
+
+			if ((c.additionalShaderChannels & need) != need)
+				c.additionalShaderChannels |= need;
+		}
+
+#if UNITY_EDITOR
+		protected override void OnValidate()
+		{
+			base.OnValidate();
+			thickness = Mathf.Max(0f, thickness);
+			padding = Mathf.Max(0f, padding);
+			softness = Mathf.Max(0.01f, softness);
+			EnsureCanvasChannels();
+			SetVerticesDirty();
+		}
+#endif
 	}
 }

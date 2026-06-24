@@ -50,7 +50,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 2168036631
+  GlobalObjectIdHash: 341593032
   InScenePlacedSourceGlobalObjectIdHash: 341593032
   DeferredDespawnTick: 0
   Ownership: 3
@@ -112,8 +112,9 @@ MonoBehaviour:
   stableFramesRequired: 8
   stableMoveThreshold: 0.02
   stableRotateThreshold: 1.5
-  reloadOnRevisit: 1
-  departMeters: 10
+  unloadDistance: 10
+  reloadDistance: 5
+  canonMarkerPrefab: {fileID: 9207545519972864484, guid: 7560c7f625ba64d33892a760707d544d, type: 3}
 --- !u!114 &2017920904899384140
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -132,7 +133,6 @@ MonoBehaviour:
   lockDistanceScale: 15
   maxHeadSpeed: 0.05
   maxHeadAngSpeed: 0.05
-  worldLockAnchorPrefab: {fileID: 6151402896905020864, guid: 100b8bb6cd981b149b252913fceb49fe, type: 3}
   tagTracker: {fileID: 8030733127724905774}
 --- !u!114 &3794738929113082028
 MonoBehaviour:

@@ -178,7 +178,7 @@ namespace Anaglyph.Menu
 			if (topModal != -1)
 				return modals[topModal].page;
 
-			return history.Count > 0 ? history[history.Count - 1] : null;
+			return history.Count > 0 ? history[^1] : null;
 		}
 
 		// Recompute what should be shown and transition to it if it changed.

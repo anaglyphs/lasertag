@@ -1733,37 +1733,17 @@ PrefabInstance:
       propertyPath: firstPageActive
       value: 
       objectReference: {fileID: 148186409768797531}
-    - target: {fileID: 1186658366691452477, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
-      propertyPath: m_Color.b
-      value: 0.08627451
-      objectReference: {fileID: 0}
-    - target: {fileID: 1186658366691452477, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
-      propertyPath: m_Color.g
-      value: 0.043137256
-      objectReference: {fileID: 0}
-    - target: {fileID: 1186658366691452477, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
-      propertyPath: m_Color.r
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1906961844270225816, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
-      propertyPath: m_Color.b
-      value: 0.6784314
-      objectReference: {fileID: 0}
-    - target: {fileID: 1906961844270225816, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
-      propertyPath: m_Color.g
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 1906961844270225816, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
-      propertyPath: m_Color.r
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2131381759776298080, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
-      propertyPath: m_AdditionalShaderChannelsFlag
-      value: 31
-      objectReference: {fileID: 0}
     - target: {fileID: 2251319833915112850, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
       propertyPath: m_SizeDelta.y
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6065502884556084283, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
+      propertyPath: _fillColor.b
+      value: 0.021
+      objectReference: {fileID: 0}
+    - target: {fileID: 6065502884556084283, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
+      propertyPath: _fillColor.g
+      value: 0.0056119408
       objectReference: {fileID: 0}
     - target: {fileID: 6427665494849153398, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
       propertyPath: m_Pivot.x
@@ -1889,24 +1869,7 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 8948814648683702003, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
-      propertyPath: m_Color.b
-      value: 0.6784314
-      objectReference: {fileID: 0}
-    - target: {fileID: 8948814648683702003, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
-      propertyPath: m_Color.g
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 8948814648683702003, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
-      propertyPath: m_Color.r
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8948814648683702003, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
-      propertyPath: m_Material
-      value: 
-      objectReference: {fileID: 2100000, guid: a7256542f5f5245c6b2a46d295a87a2e, type: 2}
-    m_RemovedComponents:
-    - {fileID: 1906961844270225816, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
+    m_RemovedComponents: []
     m_RemovedGameObjects:
     - {fileID: 322765091414618776, guid: 4d48d592ab33c4d09a7e44f53d3f08f3, type: 3}
     m_AddedGameObjects:
