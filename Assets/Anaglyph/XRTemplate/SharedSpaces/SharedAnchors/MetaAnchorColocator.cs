@@ -32,6 +32,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	{
 		public static MetaAnchorColocator Instance { get; private set; }
 
+		[SerializeField] private bool anchorBreadcrumb = false;
 		[SerializeField] private float spawnEveryMeters = 2f;
 
 		[Range(0f, 1f)] [SerializeField] private float alignLerp = 1f;
@@ -42,10 +43,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		[SerializeField] private float stableMoveThreshold = 0.02f;
 		[SerializeField] private float stableRotateThreshold = 1.5f;
 
-		[Header("Relocalization experiment")] [SerializeField]
-		private float unloadDistance = 0f;
-
-		[SerializeField] private float reloadDistance;
+		[SerializeField] private bool anchorStreaming = false;
+		[SerializeField] private float unloadDistance = 10f;
+		[SerializeField] private float reloadDistance = 5f;
 
 		[Header("Debug")] [SerializeField] private GameObject canonMarkerPrefab;
 
@@ -78,6 +78,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private readonly HashSet<Guid> pendingLoads = new();
 		private readonly List<Guid> staleGroups = new();
 		private readonly List<Guid> toUnload = new();
+
+		// Anchors saved to local disk (group -> persistent save GUID) when streaming unloads
+		// them, so re-activation loads from disk instead of re-downloading from the cloud.
+		private readonly Dictionary<Guid, SerializableGuid> diskSaves = new();
+
+		// Groups whose anchor is mid save-then-unload, to dedupe the unload across frames.
+		private readonly HashSet<Guid> pendingUnloads = new();
 
 		private readonly List<Pose> trackedPoses = new();
 		private readonly List<Pose> canonPoses = new();
@@ -161,6 +168,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			RemoveAllLiveAnchors();
 			pendingLoads.Clear();
+			pendingUnloads.Clear();
 		}
 
 		// Sent to every client by ColocationManager. Clearing the replicated set drops
@@ -203,7 +211,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 						continue;
 					if (!WithinLoadRange(entry))
 						continue;
-					_ = LoadEntry(group);
+					LoadGroup(group);
 				}
 
 			staleGroups.Clear();
@@ -241,6 +249,87 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			liveAnchors[group] = anchor;
 		}
 
+		// Bring a group's anchor in locally: from local disk if we saved it on a previous
+		// unload, otherwise download it from the cloud (the first time we ever see it).
+		private void LoadGroup(Guid group)
+		{
+			if (diskSaves.ContainsKey(group))
+				_ = LoadFromDisk(group);
+			else
+				_ = LoadEntry(group);
+		}
+
+		private async Task LoadFromDisk(Guid group)
+		{
+			if (!diskSaves.TryGetValue(group, out SerializableGuid savedGuid))
+				return;
+
+			int myEpoch = epoch;
+
+			pendingLoads.Add(group);
+			try
+			{
+				Result<ARAnchor> result = await anchorManager.TryLoadAnchorAsync(savedGuid);
+
+				if (!result.status.IsSuccess() || result.value == null)
+				{
+					// Disk copy unusable — drop it so the next approach re-downloads from cloud.
+					Debug.LogWarning(
+						$"[MetaAnchorColocator] Disk load failed for {group}: {result.status}; will fall back to cloud");
+					diskSaves.Remove(group);
+					return;
+				}
+
+				if (myEpoch != epoch || !isActive || !EntriesContain(group) || liveAnchors.ContainsKey(group))
+				{
+					DestroyAnchor(result.value);
+					return;
+				}
+
+				liveAnchors[group] = result.value;
+			}
+			finally
+			{
+				pendingLoads.Remove(group);
+			}
+		}
+
+		// Deactivation: save the anchor to local disk (so it can be re-activated without a
+		// cloud download), then untrack and destroy it.
+		private async Task UnloadToDisk(Guid group)
+		{
+			int myEpoch = epoch;
+
+			pendingUnloads.Add(group);
+			try
+			{
+				if (liveAnchors.TryGetValue(group, out ARAnchor anchor) && anchor != null)
+				{
+					Result<SerializableGuid> save = await anchorManager.TrySaveAnchorAsync(anchor);
+
+					// Session ended mid-save: RemoveAllLiveAnchors already tore the anchor down
+					// and erased known disk saves, so erase this late one rather than leak it.
+					if (myEpoch != epoch)
+					{
+						if (save.status.IsSuccess()) EraseDiskSave(save.value);
+						return;
+					}
+
+					if (save.status.IsSuccess())
+						diskSaves[group] = save.value;
+					else
+						Debug.LogWarning(
+							$"[MetaAnchorColocator] Disk save failed for {group}: {save.status} (will cloud-reload)");
+				}
+
+				RemoveLiveAnchor(group);
+			}
+			finally
+			{
+				pendingUnloads.Remove(group);
+			}
+		}
+
 		// ---- per-frame --------------------------------------------------------
 
 		private void LateUpdate()
@@ -264,7 +353,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				ReconcileEntries(); // catch up on anything that arrived while suspended
 			}
 
-			if (unloadDistance > 0f && !suspended && SharedAnchorsAvailable())
+			if (anchorStreaming && !suspended && SharedAnchorsAvailable())
 				UpdateAnchorStreaming();
 
 			SyncCanonMarkers();
@@ -274,38 +363,41 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			if (isSpawning) return; // one create/share in flight at a time
 
-			Vector3 head = MainXRRig.Camera.transform.position;
+			Transform head = MainXRRig.Camera.transform;
 
+			// Measure against canon poses, not live anchors: an entry exists from the moment
+			// it's shared, so a nearby anchor that's still downloading still counts as
+			// coverage. That way we wait for it to finish loading rather than spawn a
+			// duplicate in a spot an anchor already claims.
 			float nearestSqr = float.MaxValue;
-			foreach (ARAnchor anchor in liveAnchors.Values)
+			foreach (AnchorEntry entry in anchorEntriesSync)
 			{
-				if (anchor == null) continue;
-
-				// Horizontal distance only — anchors sit ~1.5m below the head.
-				Vector3 d = anchor.transform.position - head;
-				d.y = 0;
+				Vector3 d = entry.CanonPose.position - head.position;
+				d.y = 0; // horizontal only — anchors sit ~1.5m below the head
 				nearestSqr = Mathf.Min(nearestSqr, d.sqrMagnitude);
 			}
 
-			if (nearestSqr > spawnEveryMeters * spawnEveryMeters)
-				_ = SpawnAnchor();
+			if (anchorBreadcrumb)
+				if (nearestSqr > spawnEveryMeters * spawnEveryMeters)
+				{
+					Vector3 spawnPos = head.position;
+					spawnPos.y -= 1.5f;
+
+					Vector3 flatForward = head.forward;
+					flatForward.y = 0;
+					flatForward.Normalize();
+
+					_ = SpawnAnchor(new Pose(spawnPos, Quaternion.LookRotation(flatForward, Vector3.up)));
+				}
 		}
 
-		private async Task SpawnAnchor()
+		public async Task<Guid> SpawnAnchor(Pose pose)
 		{
 			int myEpoch = epoch;
 			isSpawning = true;
 			try
 			{
-				Transform head = MainXRRig.Camera.transform;
-
-				Vector3 spawnPos = head.position;
-				spawnPos.y -= 1.5f;
-
-				Vector3 flatForward = head.forward;
-				flatForward.y = 0;
-				flatForward.Normalize();
-				Pose spawnPose = new(spawnPos, Quaternion.LookRotation(flatForward, Vector3.up));
+				Pose spawnPose = new(pose.position, pose.rotation);
 
 				(bool ok, ARAnchor anchor, Guid group) =
 					await MetaSharedAnchors.CreateAndShareAsync(anchorManager, spawnPose);
@@ -313,18 +405,19 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				if (!ok || anchor == null)
 				{
 					DestroyAnchor(anchor);
-					return;
+					return Guid.Empty;
 				}
 
 				if (myEpoch != epoch || !isActive || !IsOwner)
 				{
 					DestroyAnchor(anchor);
-					return;
+					return Guid.Empty;
 				}
 
 				// Host frame is the shared frame, so canon == tracked at creation.
 				liveAnchors[group] = anchor;
 				anchorEntriesSync.Add(new AnchorEntry(group, anchor.transform.GetWorldPose()));
+				return group;
 			}
 			finally
 			{
@@ -477,10 +570,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		// ---- distance-based streaming ----------------------------------------
 
-		// Untrack + destroy anchors once you're beyond unloadDistance from their canon
-		// pose, and reload them (from the cloud, via ReconcileEntries' LoadEntry path) as
-		// you approach again. Distance is measured to the canon pose — a fixed world
-		// target — so it still works once an anchor is unloaded and has no live transform.
+		// Once you're beyond unloadDistance from an anchor's canon pose, save it to local
+		// disk and untrack it; as you approach again (within reloadDistance) load it back
+		// from that disk save, falling back to a cloud download only if it was never saved.
+		// Distance is measured to the canon pose — a fixed world target — so it still works
+		// once an anchor is unloaded and has no live transform.
 		private void UpdateAnchorStreaming()
 		{
 			// Only stream once colocated: before that, world space isn't aligned to the
@@ -502,20 +596,20 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 				if (liveAnchors.ContainsKey(group))
 				{
-					if (dist > unloadDistance)
+					if (dist > unloadDistance && !pendingUnloads.Contains(group))
 						toUnload.Add(group);
 				}
-				else if (!pendingLoads.Contains(group) && dist < reloadDistance)
+				else if (!pendingLoads.Contains(group) && !pendingUnloads.Contains(group) && dist < reloadDistance)
 				{
-					// LoadEntry adds to pendingLoads synchronously, then awaits; safe to
-					// kick off mid-iteration since it doesn't touch entries/liveAnchors yet.
-					_ = LoadEntry(group);
+					// Loaders add to pendingLoads synchronously, then await; safe to kick
+					// off mid-iteration since they don't touch entries/liveAnchors yet.
+					LoadGroup(group);
 				}
 			}
 
-			// Mutate liveAnchors only after the iteration above.
+			// Launch the (async) save-then-unload only after the iteration above.
 			foreach (Guid group in toUnload)
-				RemoveLiveAnchor(group);
+				_ = UnloadToDisk(group);
 		}
 
 		// Whether ReconcileEntries should load this entry right now. With streaming on,
@@ -523,7 +617,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		// until colocated, load everything so the fit has anchors to work with.
 		private bool WithinLoadRange(AnchorEntry entry)
 		{
-			if (unloadDistance <= 0f || !hasColocated)
+			if (!anchorStreaming || !hasColocated)
 				return true;
 
 			Vector3 head = MainXRRig.Camera.transform.position;
@@ -586,7 +680,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		// ---- cleanup ----------------------------------------------------------
 
-		private void RemoveLiveAnchor(Guid group)
+		public void RemoveLiveAnchor(Guid group)
 		{
 			if (liveAnchors.TryGetValue(group, out ARAnchor anchor))
 				DestroyAnchor(anchor);
@@ -602,7 +696,36 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			liveAnchors.Clear();
 			settleStates.Clear();
 
+			// Erase everything we saved to disk this session so saves don't pile up locally.
+			EraseAllDiskSaves();
+
 			ClearCanonMarkers();
+		}
+
+		private void EraseAllDiskSaves()
+		{
+			foreach (SerializableGuid saved in diskSaves.Values)
+				EraseDiskSave(saved);
+			diskSaves.Clear();
+		}
+
+		// Drop a persistent disk save from local storage. Deliberately NOT epoch-gated — it
+		// runs because the session is ending and must complete regardless. async void
+		// because it's fire-and-forget cleanup.
+		private async void EraseDiskSave(SerializableGuid savedGuid)
+		{
+			if (anchorManager == null) return;
+
+			try
+			{
+				XRResultStatus status = await anchorManager.TryEraseAnchorAsync(savedGuid);
+				if (status.IsError())
+					Debug.LogWarning($"[MetaAnchorColocator] Failed to erase disk save {savedGuid}: {status}");
+			}
+			catch (Exception e)
+			{
+				Debug.LogWarning($"[MetaAnchorColocator] Erase of disk save threw: {e.Message}");
+			}
 		}
 
 		// Get rid of an anchor we no longer want, making sure its GameObject is destroyed.

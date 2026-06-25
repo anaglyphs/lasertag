@@ -106,12 +106,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
-  spawnEveryMeters: 5
+  anchorBreadcrumb: 1
+  spawnEveryMeters: 6
   alignLerp: 1
   requireTracking: 1
   stableFramesRequired: 8
   stableMoveThreshold: 0.02
   stableRotateThreshold: 1.5
+  anchorStreaming: 0
   unloadDistance: 10
   reloadDistance: 5
   canonMarkerPrefab: {fileID: 9207545519972864484, guid: 7560c7f625ba64d33892a760707d544d, type: 3}
