@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Oculus.Haptics;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.XR;
@@ -81,13 +80,13 @@ namespace Anaglyph.Input
 			AddCallback(current, binding);
 
 			// todo: move this somewhere else
-			if (TryGetComponent(out HapticSource hapticSource))
-			{
-				hapticSource.enabled = XRSettings.enabled;
-				if (XRSettings.enabled)
-					hapticSource.controller =
-						current.Handedness == Handedness.Left ? Controller.Left : Controller.Right;
-			}
+			// if (TryGetComponent(out HapticSource hapticSource))
+			// {
+			// 	hapticSource.enabled = XRSettings.enabled;
+			// 	if (XRSettings.enabled)
+			// 		hapticSource.controller =
+			// 			current.Handedness == Handedness.Left ? Controller.Left : Controller.Right;
+			// }
 		}
 
 		public void Unbind(string actionName, Action<InputAction.CallbackContext> callback)
@@ -98,8 +97,8 @@ namespace Anaglyph.Input
 			RemoveCallback(current, bindings[index]);
 			bindings.RemoveAt(index);
 
-			if (TryGetComponent(out HapticSource hapticSource))
-				hapticSource.enabled = false;
+			// if (TryGetComponent(out HapticSource hapticSource))
+			// 	hapticSource.enabled = false;
 		}
 
 		private void Subscribe(HandInput hand)

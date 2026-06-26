@@ -1,122 +1,98 @@
-// using System;
-// using Unity.Collections;
-// using Unity.Netcode;
-//
-// namespace Anaglyph.Netcode
-// {
-// 	public class SyncVariable<T> where T : unmanaged
-// 	{
-// 		private readonly string ch; // data channel, e.g. "coloc.method"
-// 		private readonly string req; // snapshot-request channel, e.g. "coloc.method.req"
-// 		private readonly string set; // write-request channel, e.g. "coloc.method.set"
-// 		private T value;
-// 		public event Action<T, T> Changed = delegate { };
-//
-// 		// Optional authority-side gate for client-submitted writes (see Submit).
-// 		// (senderClientId, proposedValue) => accept? Null accepts everything.
-// 		public Func<ulong, T, bool> CanSet;
-//
-// 		private static NetworkManager Net => NetworkManager.Singleton;
-// 		private static CustomMessagingManager Msg => Net.CustomMessagingManager;
-//
-// 		public SyncVariable(string channel, T initial = default)
-// 		{
-// 			ch = channel;
-// 			req = channel + ".req";
-// 			set = channel + ".set";
-// 			value = initial;
-// 		}
-//
-// 		public T Value
-// 		{
-// 			get => value;
-// 			set
-// 			{
-// 				if (!NetSync.IsAuthority) throw new InvalidOperationException($"{ch}: authority-only write");
-// 				Apply(value);
-// 				Send(ch, value, null); // broadcast to all
-// 			}
-// 		}
-//
-// 		// Set from any peer. The authority writes directly; everyone else sends a
-// 		// request the authority validates (CanSet) and applies — which broadcasts
-// 		// it back. Last writer wins, serialized on the authority's thread.
-// 		public void Submit(T newValue)
-// 		{
-// 			if (NetSync.IsAuthority)
-// 			{
-// 				Value = newValue;
-// 				return;
-// 			}
-//
-// 			using FastBufferWriter w = new(NetSync.Size<T>(), Allocator.Temp);
-// 			NetSync.Write(w, newValue);
-// 			Msg.SendNamedMessage(set, NetSync.AuthorityClientId, w, NetworkDelivery.Reliable);
-// 		}
-//
-// 		public void Register()
-// 		{
-// 			Msg.RegisterNamedMessageHandler(ch, OnData);
-// 			if (NetSync.IsAuthority)
-// 			{
-// 				Msg.RegisterNamedMessageHandler(req, OnRequest); // authority answers pulls
-// 				Msg.RegisterNamedMessageHandler(set, OnSetRequest); // ...and write-requests
-// 			}
-// 			else
-// 			{
-// 				RequestSnapshot(); // non-authority pulls now
-// 			}
-// 		}
-//
-// 		public void Unregister()
-// 		{
-// 			if (Net == null || Msg == null) return;
-// 			Msg.UnregisterNamedMessageHandler(ch);
-// 			if (NetSync.IsAuthority)
-// 			{
-// 				Msg.UnregisterNamedMessageHandler(req);
-// 				Msg.UnregisterNamedMessageHandler(set);
-// 			}
-// 		}
-//
-// 		private void RequestSnapshot()
-// 		{
-// 			using FastBufferWriter w = new(0, Allocator.Temp);
-// 			Msg.SendNamedMessage(req, NetSync.AuthorityClientId, w, NetworkDelivery.Reliable);
-// 		}
-//
-// 		private void OnRequest(ulong sender, FastBufferReader _)
-// 		{
-// 			Send(ch, value, sender);
-// 		}
-//
-// 		private void OnSetRequest(ulong sender, FastBufferReader r)
-// 		{
-// 			T proposed = NetSync.Read<T>(r);
-// 			if (CanSet == null || CanSet(sender, proposed))
-// 				Value = proposed; // authority write → broadcast to all
-// 		}
-//
-// 		private void OnData(ulong _, FastBufferReader r)
-// 		{
-// 			T v = NetSync.Read<T>(r);
-// 			if (!NetSync.IsAuthority) Apply(v);
-// 		}
-//
-// 		private void Apply(T v)
-// 		{
-// 			T oldValue = value;
-// 			value = v;
-// 			Changed.Invoke(oldValue, value);
-// 		}
-//
-// 		private void Send(string channel, T v, ulong? target)
-// 		{
-// 			using FastBufferWriter w = new(NetSync.Size<T>(), Allocator.Temp);
-// 			NetSync.Write(w, v);
-// 			if (target.HasValue) Msg.SendNamedMessage(channel, target.Value, w, NetworkDelivery.ReliableSequenced);
-// 			else Msg.SendNamedMessageToAll(channel, w, NetworkDelivery.ReliableSequenced);
-// 		}
-// 	}
-// }
+using System;
+using System.Collections.Generic;
 
+namespace Anaglyph.Netcode
+{
+	// A single replicated value with no NetworkObject of its own — the drop-in for a
+	// NetworkVariable<T> on a plain MonoBehaviour singleton. Routed through SyncBus
+	// under a unique integer id; see SyncList<T> for the collection sibling.
+	//
+	// The authority is the single writer (Value setter). Other peers read, and may
+	// Submit a proposed value the authority validates via CanSet. Late joiners get
+	// the current value through SyncBus's snapshot handshake. Off-network it is just
+	// a local value.
+	//
+	// Construct one as a field, then Register() once the session is up and
+	// Unregister() when it drops — e.g. from a NetcodeManagement.StateChanged
+	// handler, NOT in Awake/field init (the bus may not be ready, and there's no
+	// deterministic teardown for a plain C# object otherwise).
+	public class SyncVariable<T> : ISyncEndpoint where T : unmanaged
+	{
+		private readonly int id;
+		private T current;
+
+		// (oldValue, newValue) after any change — local write or remote update —
+		// mirroring NetworkVariable<T>.OnValueChanged. Only fires on an actual change.
+		public event Action<T, T> OnValueChanged = delegate { };
+
+		// Authority-side gate for Submit()ed writes: (sender, proposed) => accept?
+		// Null accepts everything.
+		public Func<ulong, T, bool> CanSet;
+
+		public SyncVariable(int id, T initialValue = default)
+		{
+			this.id = id;
+			current = initialValue;
+		}
+
+		public void Register()
+		{
+			SyncBus.Register(id, this);
+		}
+
+		public void Unregister()
+		{
+			SyncBus.Unregister(id, this);
+		}
+
+		public T Value
+		{
+			get => current;
+			set
+			{
+				if (!SyncBus.IsAuthority)
+					throw new InvalidOperationException(
+						$"SyncVariable {id}: only the authority may set Value. Use Submit() from other peers.");
+
+				if (!Apply(value)) return;
+				SyncBus.Broadcast(id, SyncBytes.Of(value));
+			}
+		}
+
+		// Set from any peer. The authority writes directly; everyone else routes the
+		// value through the authority, which validates (CanSet) and broadcasts.
+		public void Submit(T newValue)
+		{
+			if (SyncBus.IsAuthority) Value = newValue;
+			else SyncBus.Submit(id, SyncBytes.Of(newValue));
+		}
+
+		private bool Apply(T v)
+		{
+			if (EqualityComparer<T>.Default.Equals(current, v)) return false;
+			T old = current;
+			current = v;
+			OnValueChanged.Invoke(old, v);
+			return true;
+		}
+
+		// ---- ISyncEndpoint ---------------------------------------------------
+
+		void ISyncEndpoint.ReceiveBroadcast(byte[] data)
+		{
+			Apply(SyncBytes.Read<T>(data, 0));
+		}
+
+		byte[] ISyncEndpoint.SerializeSnapshot()
+		{
+			return SyncBytes.Of(current);
+		}
+
+		void ISyncEndpoint.ReceiveSubmit(ulong sender, byte[] data)
+		{
+			T proposed = SyncBytes.Read<T>(data, 0);
+			if (CanSet == null || CanSet(sender, proposed))
+				Value = proposed; // authority write → applies + broadcasts
+		}
+	}
+}

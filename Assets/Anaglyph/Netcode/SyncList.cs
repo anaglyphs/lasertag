@@ -1,266 +1,200 @@
-// using System;
-// using System.Collections;
-// using System.Collections.Generic;
-// using Unity.Collections;
-// using Unity.Netcode;
-//
-// namespace Anaglyph.Netcode
-// {
-// 	// Host-authoritative replicated list with no NetworkObject, built on
-// 	// CustomMessagingManager named messages. The scalar sibling of SyncVariable<T>:
-// 	// the host mutates, every client receives the delta, and late joiners pull a
-// 	// full snapshot in Register(). See SyncVariable<T> for the value version.
-// 	//
-// 	// Snapshot replies and live deltas share the one data channel (ch) and go out
-// 	// ReliableSequenced, so a late joiner's snapshot and any concurrent Add/Clear
-// 	// stay correctly ordered relative to each other regardless of interleaving.
-// 	public class SyncList<T> : IReadOnlyList<T> where T : unmanaged
-// 	{
-// 		private enum Op : byte
-// 		{
-// 			Snapshot,
-// 			Add,
-// 			RemoveAt,
-// 			Clear
-// 		}
-//
-// 		private readonly string ch; // data channel, e.g. "coloc.anchors"
-// 		private readonly string req; // snapshot-request channel, e.g. "coloc.anchors.req"
-// 		private readonly string addCh; // add-request channel, e.g. "coloc.anchors.add"
-// 		private readonly string remCh; // remove-request channel, e.g. "coloc.anchors.rem"
-// 		private readonly List<T> items = new();
-//
-// 		// Fired after the list mutates from any source (local host write or an
-// 		// incoming message). Mirrors how NetworkList.OnListChanged was used:
-// 		// re-read the whole list, don't trust the delta.
-// 		public event Action Changed = delegate { };
-//
-// 		// Optional authority-side gates for client-submitted mutations (see
-// 		// SubmitAdd / SubmitRemove). (senderClientId, item) => accept? Null
-// 		// accepts everything.
-// 		public Func<ulong, T, bool> CanAdd;
-// 		public Func<ulong, T, bool> CanRemove;
-//
-// 		private static NetworkManager Net => NetworkManager.Singleton;
-// 		private static CustomMessagingManager Msg => Net.CustomMessagingManager;
-//
-// 		public SyncList(string channel)
-// 		{
-// 			ch = channel;
-// 			req = channel + ".req";
-// 			addCh = channel + ".add";
-// 			remCh = channel + ".rem";
-// 		}
-//
-// 		// ---- read access ------------------------------------------------------
-//
-// 		public int Count => items.Count;
-// 		public T this[int index] => items[index];
-//
-// 		public List<T>.Enumerator GetEnumerator()
-// 		{
-// 			return items.GetEnumerator();
-// 		}
-//
-// 		IEnumerator<T> IEnumerable<T>.GetEnumerator()
-// 		{
-// 			return items.GetEnumerator();
-// 		}
-//
-// 		IEnumerator IEnumerable.GetEnumerator()
-// 		{
-// 			return items.GetEnumerator();
-// 		}
-//
-// 		// ---- lifecycle --------------------------------------------------------
-//
-// 		public void Register()
-// 		{
-// 			Msg.RegisterNamedMessageHandler(ch, OnData);
-// 			if (NetSync.IsAuthority)
-// 			{
-// 				Msg.RegisterNamedMessageHandler(req, OnRequest); // authority answers pulls
-// 				Msg.RegisterNamedMessageHandler(addCh, OnAddRequest); // ...and add-requests
-// 				Msg.RegisterNamedMessageHandler(remCh, OnRemoveRequest); // ...and remove-requests
-// 			}
-// 			else RequestSnapshot(); // non-authority pulls now
-// 		}
-//
-// 		public void Unregister()
-// 		{
-// 			if (Net == null) return;
-// 			Msg.UnregisterNamedMessageHandler(ch);
-// 			if (NetSync.IsAuthority)
-// 			{
-// 				Msg.UnregisterNamedMessageHandler(req);
-// 				Msg.UnregisterNamedMessageHandler(addCh);
-// 				Msg.UnregisterNamedMessageHandler(remCh);
-// 			}
-// 		}
-//
-// 		// ---- client submit (any peer proposes, authority applies) ------------
-//
-// 		// Any peer adds an item. The authority adds directly; everyone else sends
-// 		// a request the authority validates (CanAdd) and applies — which then
-// 		// broadcasts the Add to all. Concurrent submits are serialized on the
-// 		// authority, so there's still one canonical list and order.
-// 		public void SubmitAdd(T item)
-// 		{
-// 			if (NetSync.IsAuthority)
-// 			{
-// 				Add(item);
-// 				return;
-// 			}
-//
-// 			using FastBufferWriter w = new(NetSync.Size<T>(), Allocator.Temp);
-// 			NetSync.Write(w, item);
-// 			Msg.SendNamedMessage(addCh, NetSync.AuthorityClientId, w, NetworkDelivery.Reliable);
-// 		}
-//
-// 		// Any peer removes an item by identity (EqualityComparer<T>.Default — give
-// 		// T an IEquatable<T> with identity semantics, like AnchorPoseEntry keyed by
-// 		// TrackableId). Routed through the authority so the index is resolved
-// 		// against the canonical list, never a stale local one.
-// 		public void SubmitRemove(T item)
-// 		{
-// 			if (NetSync.IsAuthority)
-// 			{
-// 				Remove(item);
-// 				return;
-// 			}
-//
-// 			using FastBufferWriter w = new(NetSync.Size<T>(), Allocator.Temp);
-// 			NetSync.Write(w, item);
-// 			Msg.SendNamedMessage(remCh, NetSync.AuthorityClientId, w, NetworkDelivery.Reliable);
-// 		}
-//
-// 		// ---- authority-only mutation -----------------------------------------
-//
-// 		public void Add(T item)
-// 		{
-// 			RequireAuthority();
-// 			items.Add(item);
-// 			Changed.Invoke();
-//
-// 			using FastBufferWriter w = new(sizeof(byte) + NetSync.Size<T>(), Allocator.Temp);
-// 			w.WriteValueSafe(Op.Add);
-// 			NetSync.Write(w, item);
-// 			Msg.SendNamedMessageToAll(ch, w, NetworkDelivery.ReliableSequenced);
-// 		}
-//
-// 		public void RemoveAt(int index)
-// 		{
-// 			RequireAuthority();
-// 			items.RemoveAt(index);
-// 			Changed.Invoke();
-//
-// 			using FastBufferWriter w = new(sizeof(byte) + sizeof(int), Allocator.Temp);
-// 			w.WriteValueSafe(Op.RemoveAt);
-// 			w.WriteValueSafe(index);
-// 			Msg.SendNamedMessageToAll(ch, w, NetworkDelivery.ReliableSequenced);
-// 		}
-//
-// 		public void Clear()
-// 		{
-// 			RequireAuthority();
-// 			items.Clear();
-// 			Changed.Invoke();
-//
-// 			using FastBufferWriter w = new(sizeof(byte), Allocator.Temp);
-// 			w.WriteValueSafe(Op.Clear);
-// 			Msg.SendNamedMessageToAll(ch, w, NetworkDelivery.ReliableSequenced);
-// 		}
-//
-// 		// Identity remove: resolve the item to an index on the canonical list, then
-// 		// RemoveAt (which broadcasts the index). Safe because every client's list
-// 		// mirrors the authority's, so the index means the same thing everywhere.
-// 		public void Remove(T item)
-// 		{
-// 			RequireAuthority();
-//
-// 			EqualityComparer<T> cmp = EqualityComparer<T>.Default;
-// 			for (int i = 0; i < items.Count; i++)
-// 				if (cmp.Equals(items[i], item))
-// 				{
-// 					RemoveAt(i);
-// 					return;
-// 				}
-// 		}
-//
-// 		// ---- snapshot handshake ----------------------------------------------
-//
-// 		private void RequestSnapshot()
-// 		{
-// 			using FastBufferWriter w = new(0, Allocator.Temp);
-// 			Msg.SendNamedMessage(req, NetSync.AuthorityClientId, w, NetworkDelivery.Reliable);
-// 		}
-//
-// 		private void OnRequest(ulong sender, FastBufferReader _)
-// 		{
-// 			int size = sizeof(byte) + sizeof(int) + items.Count * NetSync.Size<T>();
-// 			using FastBufferWriter w = new(size, Allocator.Temp);
-// 			w.WriteValueSafe(Op.Snapshot);
-// 			w.WriteValueSafe(items.Count);
-// 			foreach (T item in items)
-// 				NetSync.Write(w, item);
-// 			// Fragmented: a full snapshot can exceed a single MTU for large lists.
-// 			Msg.SendNamedMessage(ch, sender, w, NetworkDelivery.ReliableFragmentedSequenced);
-// 		}
-//
-// 		private void OnAddRequest(ulong sender, FastBufferReader r)
-// 		{
-// 			T item = NetSync.Read<T>(r);
-// 			if (CanAdd == null || CanAdd(sender, item)) Add(item);
-// 		}
-//
-// 		private void OnRemoveRequest(ulong sender, FastBufferReader r)
-// 		{
-// 			T item = NetSync.Read<T>(r);
-// 			if (CanRemove == null || CanRemove(sender, item)) Remove(item);
-// 		}
-//
-// 		// ---- incoming ---------------------------------------------------------
-//
-// 		private void OnData(ulong _, FastBufferReader r)
-// 		{
-// 			if (NetSync.IsAuthority) return; // authority is the source of truth; never apply remote ops
-//
-// 			r.ReadValueSafe(out Op op);
-// 			switch (op)
-// 			{
-// 				case Op.Snapshot:
-// 					r.ReadValueSafe(out int count);
-// 					items.Clear();
-// 					for (int i = 0; i < count; i++)
-// 					{
-// 						T item = NetSync.Read<T>(r);
-// 						items.Add(item);
-// 					}
-//
-// 					break;
-//
-// 				case Op.Add:
-// 					T added = NetSync.Read<T>(r);
-// 					items.Add(added);
-// 					break;
-//
-// 				case Op.RemoveAt:
-// 					r.ReadValueSafe(out int index);
-// 					if (index >= 0 && index < items.Count) items.RemoveAt(index);
-// 					break;
-//
-// 				case Op.Clear:
-// 					items.Clear();
-// 					break;
-// 			}
-//
-// 			Changed.Invoke();
-// 		}
-//
-// 		private static void RequireAuthority()
-// 		{
-// 			if (!NetSync.IsAuthority) throw new InvalidOperationException("SyncList: authority-only write");
-// 		}
-// 	}
-// }
+using System;
+using System.Collections;
+using System.Collections.Generic;
 
+namespace Anaglyph.Netcode
+{
+	// A replicated list with no NetworkObject of its own — the drop-in for a
+	// NetworkList<T> on a plain MonoBehaviour singleton, and the collection sibling
+	// of SyncVariable<T>. Routed through SyncBus under a unique integer id.
+	//
+	// The authority mutates (Add / RemoveAt / Clear / Remove) and every peer mirrors
+	// the change; non-authority peers may SubmitAdd / SubmitRemove, which the
+	// authority validates via CanAdd / CanRemove. Late joiners get the whole list
+	// through SyncBus's snapshot handshake. Off-network it is just a local list.
+	//
+	// OnChanged fires after any mutation from any source; re-read the list rather
+	// than trusting a delta, the way NetworkList<T>.OnListChanged is typically used.
+	// Register()/Unregister() like SyncVariable<T> (see there for timing).
+	public class SyncList<T> : ISyncEndpoint, IReadOnlyList<T> where T : unmanaged
+	{
+		// Wire ops. Snapshot/Add/RemoveAt/Clear travel authority -> everyone;
+		// Add/Remove (by value) travel non-authority -> authority as proposals.
+		private enum Op : byte
+		{
+			Snapshot = 0,
+			Add = 1,
+			RemoveAt = 2,
+			Clear = 3,
+			Remove = 4
+		}
+
+		private readonly int id;
+		private readonly List<T> items = new();
+
+		public event Action OnChanged = delegate { };
+
+		// Authority-side gates for SubmitAdd / SubmitRemove: (sender, item) => accept?
+		// Null accepts everything.
+		public Func<ulong, T, bool> CanAdd;
+		public Func<ulong, T, bool> CanRemove;
+
+		public SyncList(int id) => this.id = id;
+
+		public void Register() => SyncBus.Register(id, this);
+		public void Unregister() => SyncBus.Unregister(id, this);
+
+		// ---- read access -----------------------------------------------------
+
+		public int Count => items.Count;
+		public T this[int index] => items[index];
+
+		public int IndexOf(T item)
+		{
+			EqualityComparer<T> cmp = EqualityComparer<T>.Default;
+			for (int i = 0; i < items.Count; i++)
+				if (cmp.Equals(items[i], item))
+					return i;
+			return -1;
+		}
+
+		public List<T>.Enumerator GetEnumerator() => items.GetEnumerator();
+		IEnumerator<T> IEnumerable<T>.GetEnumerator() => items.GetEnumerator();
+		IEnumerator IEnumerable.GetEnumerator() => items.GetEnumerator();
+
+		// ---- authority-only mutation -----------------------------------------
+
+		public void Add(T item)
+		{
+			RequireAuthority();
+			items.Add(item);
+			OnChanged.Invoke();
+			SyncBus.Broadcast(id, EncodeItem(Op.Add, item));
+		}
+
+		public void RemoveAt(int index)
+		{
+			RequireAuthority();
+			items.RemoveAt(index);
+			OnChanged.Invoke();
+			SyncBus.Broadcast(id, EncodeRemoveAt(index));
+		}
+
+		public void Clear()
+		{
+			RequireAuthority();
+			items.Clear();
+			OnChanged.Invoke();
+			SyncBus.Broadcast(id, new[] { (byte)Op.Clear });
+		}
+
+		// Identity remove resolved against the canonical (authority) list; every peer
+		// mirrors that list, so the broadcast index means the same thing everywhere.
+		public void Remove(T item)
+		{
+			RequireAuthority();
+			int i = IndexOf(item);
+			if (i >= 0) RemoveAt(i);
+		}
+
+		// ---- any-peer submit -------------------------------------------------
+
+		// Authority adds directly; others send the item for the authority to validate
+		// (CanAdd) and add — which then broadcasts it to all.
+		public void SubmitAdd(T item)
+		{
+			if (SyncBus.IsAuthority) Add(item);
+			else SyncBus.Submit(id, EncodeItem(Op.Add, item));
+		}
+
+		// Remove by identity. Routed through the authority so the index is resolved
+		// against the canonical list, never a stale local one.
+		public void SubmitRemove(T item)
+		{
+			if (SyncBus.IsAuthority) Remove(item);
+			else SyncBus.Submit(id, EncodeItem(Op.Remove, item));
+		}
+
+		// ---- ISyncEndpoint ---------------------------------------------------
+
+		byte[] ISyncEndpoint.SerializeSnapshot()
+		{
+			int size = SyncBytes.Size<T>();
+			byte[] data = new byte[1 + sizeof(int) + items.Count * size];
+			data[0] = (byte)Op.Snapshot;
+			SyncBytes.Write(data, 1, items.Count);
+			for (int i = 0; i < items.Count; i++)
+				SyncBytes.Write(data, 1 + sizeof(int) + i * size, items[i]);
+			return data;
+		}
+
+		void ISyncEndpoint.ReceiveBroadcast(byte[] data)
+		{
+			int size = SyncBytes.Size<T>();
+			switch ((Op)data[0])
+			{
+				case Op.Snapshot:
+					int count = SyncBytes.Read<int>(data, 1);
+					items.Clear();
+					for (int i = 0; i < count; i++)
+						items.Add(SyncBytes.Read<T>(data, 1 + sizeof(int) + i * size));
+					break;
+
+				case Op.Add:
+					items.Add(SyncBytes.Read<T>(data, 1));
+					break;
+
+				case Op.RemoveAt:
+					int index = SyncBytes.Read<int>(data, 1);
+					if (index >= 0 && index < items.Count) items.RemoveAt(index);
+					break;
+
+				case Op.Clear:
+					items.Clear();
+					break;
+			}
+
+			OnChanged.Invoke();
+		}
+
+		void ISyncEndpoint.ReceiveSubmit(ulong sender, byte[] data)
+		{
+			T item = SyncBytes.Read<T>(data, 1);
+			switch ((Op)data[0])
+			{
+				case Op.Add:
+					if (CanAdd == null || CanAdd(sender, item)) Add(item);
+					break;
+
+				case Op.Remove:
+					if (CanRemove == null || CanRemove(sender, item)) Remove(item);
+					break;
+			}
+		}
+
+		// ---- payload encoding ------------------------------------------------
+
+		private static byte[] EncodeItem(Op op, T item)
+		{
+			byte[] data = new byte[1 + SyncBytes.Size<T>()];
+			data[0] = (byte)op;
+			SyncBytes.Write(data, 1, item);
+			return data;
+		}
+
+		private static byte[] EncodeRemoveAt(int index)
+		{
+			byte[] data = new byte[1 + sizeof(int)];
+			data[0] = (byte)Op.RemoveAt;
+			SyncBytes.Write(data, 1, index);
+			return data;
+		}
+
+		private static void RequireAuthority()
+		{
+			if (!SyncBus.IsAuthority)
+				throw new InvalidOperationException(
+					"SyncList: only the authority may mutate directly. Use SubmitAdd/SubmitRemove from other peers.");
+		}
+	}
+}

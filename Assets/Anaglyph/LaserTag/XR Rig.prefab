@@ -205,8 +205,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1838870478597641875}
   - component: {fileID: 7232000327332247853}
-  - component: {fileID: 1828964024776668357}
-  - component: {fileID: 8266524932598350829}
   m_Layer: 0
   m_Name: Body
   m_TagString: Untagged
@@ -241,36 +239,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 81274fef218033045a906f8f7fa4b200, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.XRTemplate.BodyTrackingManager
---- !u!114 &1828964024776668357
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2649719522529766854}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 274835e4e2feae04b87f0d000555f8a4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _providedSkeletonType: 0
---- !u!114 &8266524932598350829
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2649719522529766854}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2609c54f376cffc4da1ab9401cc1a36f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _skeletonType: 2
-  _updateRootPose: 0
-  _updateRootScale: 0
-  _enablePhysicsCapsules: 0
-  _applyBoneTranslations: 1
 --- !u!1 &3843012074147991100
 GameObject:
   m_ObjectHideFlags: 0
@@ -1257,9 +1225,6 @@ PrefabInstance:
       addedObject: {fileID: 6770820056701352025}
     - targetCorrespondingSourceObject: {fileID: 7254734392762225021, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 5324279471103180470}
-    - targetCorrespondingSourceObject: {fileID: 7254734392762225021, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
-      insertIndex: -1
       addedObject: {fileID: 3497364241422903451}
     - targetCorrespondingSourceObject: {fileID: 3220447487962168756, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
@@ -1279,6 +1244,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 8273645227207553632, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 4843601947986433743}
+    - targetCorrespondingSourceObject: {fileID: 8273645227207553632, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 9167943051378863151}
     - targetCorrespondingSourceObject: {fileID: 603982319059033611, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 7612118653768009084}
@@ -1828,6 +1796,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: eb842159802344c369eb8cabb70a7fa0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.DepthKit::Anaglyph.DepthKit.DumbOcclusionShaderFix
+--- !u!114 &9167943051378863151
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4921592961275499637}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 02889afd966904ede80f145b06f6ef3d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.XRTemplate::Anaglyph.XRTemplate.HeadPoseHistory
 --- !u!4 &5708129311068832725 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8767311771694048704, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
@@ -1923,95 +1903,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fa850fbd5b8aded44846f96e35f1a9f5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!114 &5324279471103180470
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5922542169172391784}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7e933e81d3c20c74ea6fdc708a67e3a5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Oculus.VR::OVRManager
-  _monoscopic: 0
-  _sharpenType: 0
-  _disableRecording: 0
-  _enableDynamicResolution: 0
-  minDynamicResolutionScale: 1
-  maxDynamicResolutionScale: 1
-  quest2MinDynamicResolutionScale: 0.7
-  quest2MaxDynamicResolutionScale: 1.3
-  quest3MinDynamicResolutionScale: 0.7
-  quest3MaxDynamicResolutionScale: 1.6
-  minRenderScale: 0.7
-  maxRenderScale: 1
-  _headPoseRelativeOffsetRotation: {x: 0, y: 0, z: 0}
-  _headPoseRelativeOffsetTranslation: {x: 0, y: 0, z: 0}
-  enableCoreMetricsRelease: 0
-  enableCoreMetricsDevelopment: 1
-  coreMetricVisibility:
-    visibleMemoryMetricStats: 0
-    visibleMemoryMetricGraphs: 0
-    visibleRenderMetricStats: 0
-    visibleRenderMetricGraphs: 0
-  enableMixedReality: 0
-  compositionMethod: 0
-  extraHiddenLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  extraVisibleLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  dynamicCullingMask: 1
-  externalCompositionBackdropColorRift: {r: 0, g: 1, b: 0, a: 1}
-  externalCompositionBackdropColorQuest: {r: 0, g: 0, b: 0, a: 0}
-  capturingCameraDevice: 0
-  flipCameraFrameHorizontally: 0
-  flipCameraFrameVertically: 0
-  handPoseStateLatency: 0
-  sandwichCompositionRenderLatency: 0
-  sandwichCompositionBufferedFrames: 8
-  chromaKeyColor: {r: 0, g: 1, b: 0, a: 1}
-  chromaKeySimilarity: 0.6
-  chromaKeySmoothRange: 0.03
-  chromaKeySpillRange: 0.06
-  useDynamicLighting: 0
-  depthQuality: 1
-  dynamicLightingSmoothFactor: 8
-  dynamicLightingDepthVariationClampingValue: 0.001
-  virtualGreenScreenType: 0
-  virtualGreenScreenTopY: 10
-  virtualGreenScreenBottomY: -10
-  virtualGreenScreenApplyDepthCulling: 0
-  virtualGreenScreenDepthTolerance: 0.2
-  mrcActivationMode: 0
-  launchSimultaneousHandsControllersOnStartup: 0
-  isInsightPassthroughEnabled: 0
-  shouldBoundaryVisibilityBeSuppressed: 0
-  requestBodyTrackingPermissionOnStartup: 0
-  requestFaceTrackingPermissionOnStartup: 0
-  requestEyeTrackingPermissionOnStartup: 0
-  requestScenePermissionOnStartup: 0
-  requestRecordAudioPermissionOnStartup: 0
-  requestPassthroughCameraAccessPermissionOnStartup: 0
-  _localDimming: 1
-  _trackingOriginType: 2
-  usePositionTracking: 1
-  useRotationTracking: 1
-  useIPDInPositionTracking: 1
-  resetTrackerOnLoad: 0
-  AllowRecenter: 1
-  LateControllerUpdate: 1
-  LateLatching: 0
-  controllerDrivenHandPosesType: 0
-  SimultaneousHandsAndControllersEnabled: 0
-  _readOnlyWideMotionModeHandPosesEnabled: 0
-  wideMotionModeHandPosesEnabled: 0
-  _readOnlyFastMotionModeHandPosesEnabled: 0
-  fastMotionModeHandPosesEnabled: 0
-  dynamicResolutionVersion: 1
 --- !u!114 &3497364241422903451
 MonoBehaviour:
   m_ObjectHideFlags: 0

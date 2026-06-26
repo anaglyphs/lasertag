@@ -3,8 +3,6 @@ using AprilTag;
 using System;
 using System.Collections.Generic;
 using Unity.Collections;
-using Unity.XR.CoreUtils;
-using UnityEngine.XR;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 using Pose = UnityEngine.Pose;
@@ -27,7 +25,9 @@ namespace Anaglyph.XRTemplate.AprilTags
 		public IEnumerable<TagPose> WorldPoses => worldPoses;
 		public event Action<IReadOnlyList<TagPose>> OnDetectTags = delegate { };
 
-		public double FrameTimestamp { get; private set; }
+		// CLOCK_MONOTONIC ns of the most recent processed frame (== XrTime on
+		// Quest). Valid during the OnDetectTags callback; feed to HeadPoseHistory.
+		public long FrameTimestampNs { get; private set; }
 
 		private void Start()
 		{
@@ -90,9 +90,8 @@ namespace Anaglyph.XRTemplate.AprilTags
 				}
 
 				float fov = 2 * Mathf.Atan(img.height / 2f / intrins.focalLength.y);
-				FrameTimestamp = args.timestampNs.Value * 0.000000001f; // nanoseconds to milliseconds
-				OVRPlugin.PoseStatef headPoseState =
-					OVRPlugin.GetNodePoseStateAtTime(FrameTimestamp, OVRPlugin.Node.Head);
+				long frameTimestampNs = args.timestampNs.Value;
+				FrameTimestampNs = frameTimestampNs;
 
 				NativeArray<byte> imgGreyscale = default;
 
@@ -136,13 +135,20 @@ namespace Anaglyph.XRTemplate.AprilTags
 
 				worldPoses.Clear();
 
-				Pose headPose = MainXRRig.Camera.transform.GetWorldPose();
+				// Head pose (tracking-space-local) at the instant the frame was
+				// captured -- not "now". Detection runs async and the camera
+				// pipeline has latency, so the head has moved since capture.
+				// Replaces OVRPlugin.GetNodePoseStateAtTime(FrameTimestamp, Head).
+				Pose headPose = default;
+				bool gotHistoricalPose = HeadPoseHistory.Instance != null &&
+				                         HeadPoseHistory.Instance.TryGetLocalPose(frameTimestampNs, out headPose);
 
-				if (XRSettings.enabled)
+				if (!gotHistoricalPose)
 				{
-					OVRPose ovrHeadPose = headPoseState.Pose.ToOVRPose();
-					headPose.position = ovrHeadPose.position;
-					headPose.rotation = ovrHeadPose.orientation;
+					// fallback: latest camera pose in tracking-space-local coords
+					Matrix4x4 camLocal = MainXRRig.TrackingSpace.worldToLocalMatrix *
+					                     MainXRRig.Camera.transform.localToWorldMatrix;
+					headPose = new Pose(camLocal.GetPosition(), camLocal.rotation);
 				}
 
 				Matrix4x4 viewMat = Matrix4x4.TRS(headPose.position, headPose.rotation, Vector3.one);

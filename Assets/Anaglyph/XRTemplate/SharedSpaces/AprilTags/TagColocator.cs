@@ -101,13 +101,16 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 		}
 
+		private readonly List<XRInputSubsystem> xrSubsystems = new();
+
 		public void StartColocation()
 		{
 			if (isActive) return;
 			isActive = true;
 
-			if (XRSettings.enabled)
-				OVRManager.display.RecenteredPose += OnRecentered;
+			SubsystemManager.GetSubsystems(xrSubsystems);
+			foreach (XRInputSubsystem sub in xrSubsystems)
+				sub.trackingOriginUpdated += OnTrackingOriginUpdated;
 
 			tagTracker.OnDetectTags += OnDetectTags;
 			tagTracker.tagSizeMeters = TagSizeCm / 100f;
@@ -123,8 +126,10 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			isActive = false;
 			isAligned = false;
 
-			if (XRSettings.enabled)
-				OVRManager.display.RecenteredPose -= OnRecentered;
+			foreach (XRInputSubsystem sub in xrSubsystems)
+				sub.trackingOriginUpdated -= OnTrackingOriginUpdated;
+			xrSubsystems.Clear();
+
 			tagTracker.OnDetectTags -= OnDetectTags;
 
 			tagTracker.enabled = false;
@@ -148,7 +153,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			isAligned = false;
 		}
 
-		private void OnRecentered()
+		private void OnTrackingOriginUpdated(XRInputSubsystem _)
 		{
 			localTags.Clear();
 		}
@@ -169,11 +174,19 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			// register canon tags
 			if (IsOwner)
 			{
-				double timestamp = tagTracker.FrameTimestamp;
-				OVRPlugin.PoseStatef head = OVRPlugin.GetNodePoseStateAtTime(timestamp, OVRPlugin.Node.Head);
-				float speed = head.Velocity.FromVector3f().magnitude;
-				float angSpeed = head.AngularVelocity.FromVector3f().magnitude;
-				bool headIsStable = speed < maxHeadSpeed && angSpeed < maxHeadAngSpeed;
+				// Head velocity at the frame's capture time, to avoid registering
+				// canon tags while moving fast (motion blur / pose-latency error).
+				// Replaces OVRPlugin head Velocity / AngularVelocity.
+				Vector3 headVel = default, headAngVel = default;
+				bool gotVel = HeadPoseHistory.Instance != null &&
+				              HeadPoseHistory.Instance.TryGetVelocity(tagTracker.FrameTimestampNs, out headVel,
+					              out headAngVel);
+
+				float speed = gotVel ? headVel.magnitude : 0f;
+				float angSpeed = gotVel ? headAngVel.magnitude : 0f;
+
+				// if velocity is unknown (no history yet), don't block registration
+				bool headIsStable = !gotVel || (speed < maxHeadSpeed && angSpeed < maxHeadAngSpeed);
 
 #if UNITY_EDITOR
 				headIsStable = true;

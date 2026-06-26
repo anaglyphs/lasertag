@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using Anaglyph.XRTemplate;
 using Unity.XR.CoreUtils;
 using UnityEngine;
+using UnityEngine.XR;
 
 namespace Anaglyph.Lasertag
 {
@@ -22,29 +24,29 @@ namespace Anaglyph.Lasertag
 		// align to the same center (e.g. the boundary shader's radial pattern).
 		public Vector3 RecenterWorldPos => MainXRRig.TrackingSpace.TransformPoint(recenterLocalPos);
 
+		private readonly List<XRInputSubsystem> xrSubsystems = new();
+
 		private void Awake()
 		{
 			cam = Camera.main;
+
+			SubsystemManager.GetSubsystems(xrSubsystems);
+			foreach (XRInputSubsystem sub in xrSubsystems)
+				sub.trackingOriginUpdated += OnRecenter;
 		}
 
-		private void OnEnable()
+		private void OnDestroy()
 		{
-			if (OVRManager.display != null)
-				OVRManager.display.RecenteredPose += OnRecenter;
+			foreach (XRInputSubsystem sub in xrSubsystems)
+				sub.trackingOriginUpdated -= OnRecenter;
 		}
 
-		private void OnDisable()
-		{
-			if (OVRManager.display != null)
-				OVRManager.display.RecenteredPose -= OnRecenter;
-		}
-
-		private void OnRecenter()
+		private void OnRecenter(XRInputSubsystem subsystem)
 		{
 			// On recenter the headset's current position becomes the new center
 			// of the allowed radius.
 			Vector3 camLocalPos = MainXRRig.TrackingSpace.InverseTransformPoint(cam.transform.position);
-			recenterLocalPos = new(camLocalPos.x, 0, camLocalPos.z);
+			recenterLocalPos = new Vector3(camLocalPos.x, 0, camLocalPos.z);
 		}
 
 		private void LateUpdate()

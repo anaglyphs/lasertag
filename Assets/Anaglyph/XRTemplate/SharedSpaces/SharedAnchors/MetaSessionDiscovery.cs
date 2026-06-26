@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
+using UnityEngine.XR.ARSubsystems;
+using UnityEngine.XR.OpenXR;
+using UnityEngine.XR.OpenXR.Features.Meta;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
@@ -19,14 +22,23 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private bool isListening;
 		private bool isAdvertising;
 
+		// Unity's Meta OpenXR colocation feature. Resolved lazily from the active
+		// OpenXR settings; null if the feature isn't enabled (e.g. in-editor play).
+		private ColocationDiscoveryFeature colocationFeature;
+
+		private ColocationDiscoveryFeature Colocation =>
+			colocationFeature ??= OpenXRSettings.Instance != null
+				? OpenXRSettings.Instance.GetFeature<ColocationDiscoveryFeature>()
+				: null;
+
 		private static void Log(string str)
 		{
-			UnityEngine.Debug.Log(LogHeader + str);
+			Debug.Log(LogHeader + str);
 		}
 
 		private static void LogWarning(string str)
 		{
-			UnityEngine.Debug.LogWarning(LogHeader + str);
+			Debug.LogWarning(LogHeader + str);
 		}
 
 		private const string LanPrefix = "IP:";
@@ -67,7 +79,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			{
 				NetMan.OnSessionOwnerPromoted += OnSessionOwnerPromoted;
 				NetcodeManagement.StateChanged += OnNetworkStateChange;
-				OVRColocationSession.ColocationSessionDiscovered += HandleColocationSessionDiscovered;
+				if (Colocation != null)
+					Colocation.messageDiscovered += HandleMessageDiscovered;
 			}
 			else
 			{
@@ -75,7 +88,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					NetMan.OnSessionOwnerPromoted -= OnSessionOwnerPromoted;
 
 				NetcodeManagement.StateChanged -= OnNetworkStateChange;
-				OVRColocationSession.ColocationSessionDiscovered -= HandleColocationSessionDiscovered;
+				if (Colocation != null)
+					Colocation.messageDiscovered -= HandleMessageDiscovered;
 			}
 
 			isSubscribed = shouldSubscribe;
@@ -184,16 +198,22 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			cancelToken.ThrowIfCancellationRequested();
 
-			OVRResult<OVRColocationSession.Result> result = await OVRColocationSession.StartDiscoveryAsync();
+			if (Colocation == null)
+			{
+				LogWarning("Couldn't start listening: colocation feature unavailable");
+				return;
+			}
 
-			if (result.Success)
+			XRResultStatus status = await Colocation.TryStartDiscoveryAsync();
+
+			if (status.IsSuccess())
 			{
 				isListening = true;
 				Log("Listening started");
 			}
 			else
 			{
-				LogWarning($"Couldn't start listening: {result.Status}");
+				LogWarning($"Couldn't start listening: {status}");
 			}
 		}
 
@@ -203,16 +223,22 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			cancelToken.ThrowIfCancellationRequested();
 
-			OVRResult<OVRColocationSession.Result> result = await OVRColocationSession.StopDiscoveryAsync();
+			if (Colocation == null)
+			{
+				isListening = false;
+				return;
+			}
 
-			if (result.Success)
+			XRResultStatus status = await Colocation.TryStopDiscoveryAsync();
+
+			if (status.IsSuccess())
 			{
 				isListening = false;
 				Log("Listening halted");
 			}
 			else
 			{
-				LogWarning($"Couldn't halt listening: {result.Status}");
+				LogWarning($"Couldn't halt listening: {status}");
 			}
 		}
 
@@ -236,16 +262,21 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					break;
 			}
 
-			OVRResult<Guid, OVRColocationSession.Result> result =
-				await OVRColocationSession.StartAdvertisementAsync(Encoding.ASCII.GetBytes(message));
-			if (result.Success)
+			if (Colocation == null)
+			{
+				LogWarning($"Couldn't start advertisement '{message}': colocation feature unavailable");
+				return;
+			}
+
+			var result = await Colocation.TryStartAdvertisementAsync(Encoding.ASCII.GetBytes(message));
+			if (result.status.IsSuccess())
 			{
 				isAdvertising = true;
 				Log($"Advertisement started '{message}'");
 			}
 			else
 			{
-				LogWarning($"Couldn't start advertisement '{message}', {result.Status}");
+				LogWarning($"Couldn't start advertisement '{message}', {result.status}");
 			}
 		}
 
@@ -255,16 +286,22 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			cancelToken.ThrowIfCancellationRequested();
 
-			OVRResult<OVRColocationSession.Result> result = await OVRColocationSession.StopAdvertisementAsync();
+			if (Colocation == null)
+			{
+				isAdvertising = false;
+				return;
+			}
 
-			if (result.Success)
+			XRResultStatus status = await Colocation.TryStopAdvertisementAsync();
+
+			if (status.IsSuccess())
 			{
 				isAdvertising = false;
 				Log("Advertisement halted");
 			}
 			else
 			{
-				LogWarning($"Couldn't halt advertisement: {result.Status}");
+				LogWarning($"Couldn't halt advertisement: {status}");
 			}
 		}
 
@@ -276,7 +313,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private float reconnectDelay = MinReconnectDelay;
 		private float nextConnectAllowedTime = 0;
 
-		private void HandleColocationSessionDiscovered(OVRColocationSession.Data data)
+		private void HandleMessageDiscovered(object sender, ColocationDiscoveryMessage discovered)
 		{
 			if (state != State.Listen)
 			{
@@ -284,7 +321,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				return;
 			}
 
-			string message = Encoding.ASCII.GetString(data.Metadata);
+			// discovered.data is a NativeArray<byte> allocated with Allocator.Temp and
+			// disposed at end of frame; copy it out before decoding.
+			string message = Encoding.ASCII.GetString(discovered.data.ToArray());
 			Log($"Discovered {message}");
 
 			if (NetworkManager.Singleton.IsListening)
