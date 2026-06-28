@@ -12,7 +12,6 @@ namespace Anaglyph.XRTemplate.AprilTags
 	[DefaultExecutionOrder(-1000)]
 	public class AprilTagTracker : MonoBehaviour
 	{
-		private static readonly int DebugCamTexID = Shader.PropertyToID("agDebugCamTex");
 		private ARCameraManager arCameraManager;
 
 		private TagDetector detector;
