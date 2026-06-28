@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using Anaglyph.Lasertag.Networking;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Anaglyph.Lasertag
 {
@@ -18,7 +20,8 @@ namespace Anaglyph.Lasertag
 
 		[SerializeField] private Transform visual;
 
-		[SerializeField] private float holderHeadOffset = 0.2f;
+		[SerializeField] private Vector3 heldOffsetGlobal = new(0, -1, 0);
+		[SerializeField] private Vector3 heldOffsetHeadRelative = new(0, 0, -0.2f);
 
 		private Vector3 visualRestPos;
 
@@ -42,7 +45,7 @@ namespace Anaglyph.Lasertag
 
 		protected override void OnSynchronize<T>(ref BufferSerializer<T> serializer)
 		{
-			var id = ulong.MaxValue;
+			ulong id = ulong.MaxValue;
 			if (FlagHolder)
 				id = FlagHolder.NetworkObjectId;
 
@@ -51,8 +54,8 @@ namespace Anaglyph.Lasertag
 			if (serializer.IsReader)
 			{
 				PlayerAvatar holder = null;
-				var netObjs = NetworkManager.SpawnManager.SpawnedObjects;
-				if (netObjs.TryGetValue(id, out var netObj))
+				Dictionary<ulong, NetworkObject> netObjs = NetworkManager.SpawnManager.SpawnedObjects;
+				if (netObjs.TryGetValue(id, out NetworkObject netObj))
 					holder = netObj.GetComponent<PlayerAvatar>();
 
 				FlagHolder = holder;
@@ -96,16 +99,16 @@ namespace Anaglyph.Lasertag
 				if (FlagHolder == PlayerAvatar.Local && PlayerAvatar.Local.IsInFriendlyBase &&
 				    PlayerAvatar.Local.IsAlive)
 				{
-					var referee = MatchReferee.Instance;
+					MatchReferee referee = MatchReferee.Instance;
 					referee.ScoreRpc(PlayerAvatar.Local.Team, MatchReferee.Settings.pointsPerFlagCapture);
 					CaptureRpc(NetworkManager.LocalClientId);
 				}
 			}
 			else
 			{
-				var playerHeadPos = MainPlayer.Instance.HeadTransform.position;
-				var isInside = Geo.PointIsInCylinder(transform.position, radius, 3, playerHeadPos);
-				var isOtherTeam = teamOwner.Team != PlayerAvatar.Local.Team;
+				Vector3 playerHeadPos = MainPlayer.Instance.HeadTransform.position;
+				bool isInside = Geo.PointIsInCylinder(transform.position, radius, 3, playerHeadPos);
+				bool isOtherTeam = teamOwner.Team != PlayerAvatar.Local.Team;
 
 				if (PlayerAvatar.Local.IsAlive && isInside && isOtherTeam)
 					TakeRpc(NetworkManager.LocalClientId);
@@ -114,17 +117,15 @@ namespace Anaglyph.Lasertag
 
 		private void LateUpdate()
 		{
-			if (!mainCamera)
-				return;
-
-			var camPos = mainCamera.transform.position;
-			var camLook = (visual.position - camPos).normalized;
-			visual.rotation = Quaternion.LookRotation(camLook, Vector3.up);
-
 			if (FlagHolder)
 			{
-				var headPos = FlagHolder.HeadTransform.position;
-				visual.position = headPos + Vector3.up * holderHeadOffset;
+				Vector3 heldPosHeadRelative = FlagHolder.HeadTransform.TransformPoint(heldOffsetHeadRelative);
+				visual.position = heldPosHeadRelative + heldOffsetGlobal;
+
+				Vector3 headForw = FlagHolder.HeadTransform.forward;
+				Vector3 headForwFlat = new Vector3(headForw.x, 0, headForw.z).normalized;
+
+				visual.rotation = Quaternion.LookRotation(headForwFlat, Vector3.up);
 			}
 			else
 			{
@@ -135,7 +136,7 @@ namespace Anaglyph.Lasertag
 		[Rpc(SendTo.Everyone, AllowTargetOverride = true)]
 		private void TakeRpc(ulong id, RpcParams rpcParams = default)
 		{
-			if (!PlayerAvatar.All.TryGetValue(id, out var player))
+			if (!PlayerAvatar.All.TryGetValue(id, out PlayerAvatar player))
 				return;
 
 			if (FlagHolder == PlayerAvatar.Local)
@@ -155,7 +156,7 @@ namespace Anaglyph.Lasertag
 		[Rpc(SendTo.Everyone)]
 		private void CaptureRpc(ulong id)
 		{
-			if (!PlayerAvatar.All.TryGetValue(id, out var player))
+			if (!PlayerAvatar.All.TryGetValue(id, out PlayerAvatar player))
 				return;
 
 			Captured.Invoke(player);
