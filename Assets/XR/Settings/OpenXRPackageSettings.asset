@@ -1252,14 +1252,13 @@ MonoBehaviour:
   m_enabled: 0
   nameUi: Hand Tracking Subsystem
   version: 0.0.1
-  featureIdInternal: com.unity.openxr.feature.input.handtrackingsubsystem
+  featureIdInternal: com.unity.openxr.feature.input.handtracking
   openxrExtensionStrings: XR_EXT_hand_tracking
   company: Unity
   priority: -100
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
-  m_AutoStartSubsystem: 1
 --- !u!114 &-1465281793000439134
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2213,14 +2212,13 @@ MonoBehaviour:
   m_enabled: 0
   nameUi: Hand Tracking Subsystem
   version: 0.0.1
-  featureIdInternal: com.unity.openxr.feature.input.handtrackingsubsystem
+  featureIdInternal: com.unity.openxr.feature.input.handtracking
   openxrExtensionStrings: XR_EXT_hand_tracking
   company: Unity
   priority: -100
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
-  m_AutoStartSubsystem: 1
 --- !u!114 &5636361688854927540
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2242,6 +2240,9 @@ MonoBehaviour:
   - {fileID: -3753885091088024026}
   - {fileID: 4848870179080630403}
   - {fileID: -536141678341479833}
+  - {fileID: 4610821554968310567}
+  - {fileID: -1815961199279318402}
+  - {fileID: 5944423476703785794}
   - {fileID: 9008831081384791271}
   - {fileID: 126188910211908015}
   - {fileID: -579154813977642624}
@@ -2264,10 +2265,15 @@ MonoBehaviour:
   - {fileID: -911462094246114949}
   - {fileID: 4585582955135974293}
   - {fileID: -7608101429141653322}
+  - {fileID: 8008120740542943007}
+  - {fileID: -8956458330795209322}
+  - {fileID: -6588146013031099680}
+  - {fileID: -867305113895232363}
   - {fileID: 4122427535814780274}
   - {fileID: -6007851161649864685}
   - {fileID: 699424720086421126}
   - {fileID: -8382436938653029015}
+  - {fileID: 8722050812737648334}
   - {fileID: -5341623790395643188}
   - {fileID: -7561953517453211534}
   - {fileID: 3881211247156265672}
@@ -2728,6 +2734,9 @@ MonoBehaviour:
   - {fileID: -1086684074482315429}
   - {fileID: 3026716534433436068}
   - {fileID: 1381611554717353164}
+  - {fileID: -7525195003374624945}
+  - {fileID: -520501629880605643}
+  - {fileID: -1727520778204246337}
   - {fileID: 26228384039484596}
   - {fileID: 9019991033195983723}
   - {fileID: -1537997945666509621}
@@ -2749,10 +2758,16 @@ MonoBehaviour:
   - {fileID: 7915100024662007548}
   - {fileID: 4278872309757626646}
   - {fileID: 8117766825705143673}
+  - {fileID: -4400957429373413487}
+  - {fileID: -6207909376833300876}
+  - {fileID: 708914200238915549}
+  - {fileID: 2510282606792866298}
+  - {fileID: 6606161220588850826}
   - {fileID: -4850867518922241203}
   - {fileID: -1465281793000439134}
   - {fileID: -8021958313781624874}
   - {fileID: -240650466311113532}
+  - {fileID: 3401956307267237202}
   - {fileID: -7029126930173112572}
   - {fileID: 2871824065499675393}
   - {fileID: 294085916756401724}

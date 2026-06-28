@@ -36,6 +36,15 @@ GraphicsSettings:
   m_PreloadedShaders:
   - {fileID: 20000000, guid: fe24bbcfce0e37c418dead3160214468, type: 2}
   m_PreloadShadersBatchTimeLimit: -1
+  m_GraphicsStateCollection: {fileID: 0}
+  m_CollectionStartupAction: 0
+  m_TraceSavePath: TracedCollection
+  m_TraceSendToEditor: 1
+  m_AdditionalWarmupCollections: []
+  m_WarmupAsync: 1
+  m_EnableCacheMissTracing: 0
+  m_WarmupProgressivelyLimit: -1
+  m_CacheMissCollectionPath: CacheMissCollection
   m_SpritesDefaultMaterial: {fileID: 10754, guid: 0000000000000000f000000000000000, type: 0}
   m_CustomRenderPipeline: {fileID: 11400000, guid: 56f7a3c289c6d4de58ea81641e22f553, type: 2}
   m_TransparencySortMode: 1
@@ -129,9 +138,11 @@ GraphicsSettings:
     UnityEngine.Rendering.Universal.UniversalRenderPipeline: {fileID: 11400000, guid: 87b2d80329dd24c0dacf0d2fabb3f9fc, type: 2}
   m_ShaderBuildSettings:
     keywordDeclarationOverrides: []
+    numInternalDefines: 0
+    defines: []
   m_LightsUseLinearIntensity: 1
   m_LightsUseColorTemperature: 1
-  m_LogWhenShaderIsCompiled: 0
+  m_LogWhenShaderIsCompiled: 1
   m_LightProbeOutsideHullStrategy: 1
   m_CameraRelativeLightCulling: 0
   m_CameraRelativeShadowCulling: 0

@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEditor;
 using UnityEngine.Rendering;
 using UnityEngine.Experimental.Rendering;
+using UnityEngine.UI;
 
 public class GlobalTextureViewer : EditorWindow
 {
@@ -112,7 +113,7 @@ public class GlobalTextureViewer : EditorWindow
 
 		// Build a 2D RenderTexture whose format MATCHES the source. CopyTexture is a raw
 		// GPU memory copy (no sampler/shader), so the formats must be identical or it fails.
-		GraphicsFormat fmt = tex.graphicsFormat;
+		GraphicsFormat fmt = CopyableColorFormat(SourceFormat(tex));
 		if (previewRT == null || previewRT.width != tex.width || previewRT.height != tex.height
 		    || previewRT.graphicsFormat != fmt)
 		{
@@ -134,6 +135,40 @@ public class GlobalTextureViewer : EditorWindow
 		// won't come back white/black.
 		Graphics.CopyTexture(tex, sliceIndex, 0, previewRT, 0, 0);
 		return previewRT;
+	}
+
+	// The format that actually backs a texture's data. A RenderTexture has two attachments:
+	// graphicsFormat (color) and depthStencilFormat (depth). A depth-only RT reports
+	// graphicsFormat == None because it has no color attachment, so fall back to the depth one.
+	private static GraphicsFormat SourceFormat(Texture tex)
+	{
+		if (tex.graphicsFormat != GraphicsFormat.None)
+			return tex.graphicsFormat;
+		if (tex is RenderTexture rt)
+			return rt.depthStencilFormat;
+		return GraphicsFormat.None;
+	}
+
+	// A color format we can raw-copy the source bits into for previewing. Depth formats have
+	// no color semantics, but they share a memory layout with a single-channel color format,
+	// so CopyTexture into that twin shows the bits faithfully.
+	private static GraphicsFormat CopyableColorFormat(GraphicsFormat fmt)
+	{
+		if (!GraphicsFormatUtility.IsDepthFormat(fmt))
+			return fmt;
+
+		switch (fmt)
+		{
+			case GraphicsFormat.D16_UNorm:  return GraphicsFormat.R16_UNorm;
+			case GraphicsFormat.D32_SFloat: return GraphicsFormat.R32_SFloat;
+			// Packed depth+stencil (D24_UNorm_S8_UInt, D32_SFloat_S8_UInt) has no clean
+			// single-channel twin; reinterpret by byte size so the copy at least succeeds.
+			// The preview won't be meaningful for these — they'd need a sampling Blit shader.
+			default:
+				return GraphicsFormatUtility.GetBlockSize(fmt) >= 4
+					? GraphicsFormat.R32_SFloat
+					: GraphicsFormat.R16_UNorm;
+		}
 	}
 
 	private void RefreshTexture()
