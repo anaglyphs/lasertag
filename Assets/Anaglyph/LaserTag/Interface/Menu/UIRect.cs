@@ -128,6 +128,16 @@ namespace Anaglyph.Lasertag
 			Color stroke = _strokeColor * color;
 			Color fill = _fillColor * color;
 
+			// In Linear color space the Canvas linearizes the COLOR vertex channel
+			// (the stroke) when it tessellates, but it passes the UV channels through
+			// untouched. The fill rides in TEXCOORD3, so it arrives still gamma-encoded
+			// while the shader treats it as linear -> the sRGB framebuffer encode then
+			// brightens it. Linearize it by hand to match the stroke path. (Only RGB is
+			// color-managed; alpha is left as-is. A white stroke hides the same bug
+			// because 1 maps to 1 under gamma<->linear, so it only shows on the fill.)
+			if (QualitySettings.activeColorSpace == ColorSpace.Linear)
+				fill = fill.linear;
+
 			// packed per-instance parameters
 			Vector4 sizeStrokeGap = new(size.x, size.y, _strokeWidth, _gap);
 			Vector4 padRadSoft = new(_edgePadding, _cornerRadius, _edgeSoftness, 0f);

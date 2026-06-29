@@ -9,6 +9,7 @@ namespace Anaglyph.Lasertag.Weapons
 	{
 		[SerializeField] private HandSubject hand;
 		[SerializeField] private HapticClip clip;
+		[SerializeField] private bool loop;
 
 		private HapticSource source;
 
@@ -32,6 +33,7 @@ namespace Anaglyph.Lasertag.Weapons
 			{
 				source = gameObject.AddComponent<HapticSource>();
 				source.clip = clip;
+				source.loop = loop;
 			}
 
 			source.controller = current.Handedness == Handedness.Left

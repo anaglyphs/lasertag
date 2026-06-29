@@ -1,5 +1,5 @@
-using System;
 using Anaglyph.DepthKit.EnvScanning;
+using Anaglyph.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -27,6 +27,24 @@ namespace Anaglyph.Lasertag
 			{
 				EnvMeshSync.Instance?.SetEnvMeshVisibleEveryoneRpc(false);
 			});
+		}
+
+		private void OnEnable()
+		{
+			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
+			OnNetcodeStateChanged(NetcodeManagement.State);
+		}
+
+		private void OnDisable()
+		{
+			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
+		}
+
+		private void OnNetcodeStateChanged(NetcodeState state)
+		{
+			bool c = state == NetcodeState.Connected;
+			showDebugMeshForEveryone.interactable = c;
+			hideDebugMeshForEveryone.interactable = c;
 		}
 	}
 }

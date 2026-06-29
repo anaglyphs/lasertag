@@ -1,3 +1,6 @@
+using System;
+using System.Threading;
+using Anaglyph.Input;
 using Anaglyph.Lasertag.Logistics;
 using Unity.Netcode;
 using UnityEngine;
@@ -8,53 +11,80 @@ namespace Anaglyph.Lasertag.Weapons
 {
 	public class Automatic : MonoBehaviour
 	{
-		[SerializeField] private int fixedUpdatesPerFire = 5;
-		private int fixedUpdateTilNextFire = 0;
+		private HandSubject hand;
+		[SerializeField] private string fireAction = "Activate";
 
 		[SerializeField] private GameObject boltPrefab = null;
 		[SerializeField] private Transform emitFromTransform = null;
 		public UnityEvent onFire = new();
 
+		[SerializeField] private float fireFrequency = 0.1f;
+		public float FireFrequency => fireFrequency;
+
+		private bool triggerDown;
 		private bool firing;
+		public bool IsFiring => firing;
+
+		public event Action<bool> IsFiringChanged = delegate { };
+
+		private void Awake()
+		{
+			TryGetComponent(out hand);
+			hand.Bind(nameof(OnFire), OnFire);
+		}
+
+		private void OnEnable()
+		{
+			hand.Bind(fireAction, OnFire);
+		}
+
+		private void OnDisable()
+		{
+			hand.Unbind(fireAction, OnFire);
+		}
 
 		public void OnFire(InputAction.CallbackContext context)
 		{
-			firing = context.ReadValueAsButton();
+			triggerDown = context.ReadValueAsButton();
+
+			if (triggerDown)
+				FireLoop();
 		}
 
-		private void FixedUpdate()
+		private async void FireLoop()
 		{
-			if (!NetworkManager.Singleton.IsConnectedClient || !WeaponsManagement.CanFire)
-				return;
+			CancellationToken ctkn = destroyCancellationToken;
 
-			if (firing)
+			if (firing) return;
+			firing = true;
+			IsFiringChanged?.Invoke(true);
+
+			try
 			{
-				fixedUpdateTilNextFire -= 1;
-
-				if(fixedUpdateTilNextFire <= 0)
+				while (triggerDown)
 				{
 					Fire();
-					fixedUpdateTilNextFire = fixedUpdatesPerFire;
+					await Awaitable.WaitForSecondsAsync(fireFrequency, ctkn);
 				}
-			} else {
-				fixedUpdateTilNextFire = 0;
 			}
-
+			catch (OperationCanceledException)
+			{
+			}
+			finally
+			{
+				firing = false;
+				IsFiringChanged?.Invoke(false);
+			}
 		}
 
 		public void Fire()
 		{
 			if (!NetworkManager.Singleton.IsConnectedClient || !WeaponsManagement.CanFire)
 				return;
-			
-			// var e = emitFromTransform;
-			// NetworkObject.InstantiateAndSpawn(boltPrefab, NetworkManager.Singleton,
-			// 	position: e.position, rotation: e.rotation,
-			// 	ownerClientId: NetworkManager.Singleton.LocalClientId);
 
 			NetworkObject n = NetworkObjectPool.Instance.GetNetworkObject(
 				boltPrefab, emitFromTransform.position, emitFromTransform.rotation);
-			
+
 			n.SpawnWithOwnership(NetworkManager.Singleton.LocalClientId);
 
 			onFire.Invoke();

@@ -8,7 +8,9 @@
 //   TEXCOORD0  -> uv (0..1) in .xy
 //   TEXCOORD1  -> (rectWidth, rectHeight, strokeWidth, gap)
 //   TEXCOORD2  -> (edgePadding, cornerRadius, edgeSoftness, unused)
-//   TEXCOORD3  -> fill color
+//   TEXCOORD3  -> fill color (UIRect pre-linearizes this in Linear color space,
+//                 since the Canvas only color-manages the COLOR channel -- don't
+//                 convert it again here)
 //
 // Requires the Canvas Additional Shader Channels to include TexCoord1/2/3
 // (UIRect enables these automatically).

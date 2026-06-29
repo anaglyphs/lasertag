@@ -12,6 +12,7 @@ namespace Anaglyph.XRTemplate.AprilTags
 	[DefaultExecutionOrder(-1000)]
 	public class AprilTagTracker : MonoBehaviour
 	{
+		private static readonly int DebugCamTexID = Shader.PropertyToID("agDebugCamTex");
 		private ARCameraManager arCameraManager;
 
 		private TagDetector detector;
@@ -23,6 +24,8 @@ namespace Anaglyph.XRTemplate.AprilTags
 		private List<TagPose> worldPoses = new(10);
 		public IEnumerable<TagPose> WorldPoses => worldPoses;
 		public event Action<IReadOnlyList<TagPose>> OnDetectTags = delegate { };
+
+		private NativeArray<byte> processedImg;
 
 		// CLOCK_MONOTONIC ns of the most recent processed frame (== XrTime on
 		// Quest). Valid during the OnDetectTags callback; feed to HeadPoseHistory.
@@ -92,8 +95,6 @@ namespace Anaglyph.XRTemplate.AprilTags
 				long frameTimestampNs = args.timestampNs.Value;
 				FrameTimestampNs = frameTimestampNs;
 
-				NativeArray<byte> imgGreyscale = default;
-
 				// on ARFoundation simulator, a plane holds BGRA data
 				// on android, the plane holds greyscale single-byte values.
 				// process the textures differently between platforms
@@ -112,8 +113,11 @@ namespace Anaglyph.XRTemplate.AprilTags
 						};
 
 						int size = img.GetConvertedDataSize(convParams);
-						imgGreyscale = new NativeArray<byte>(size, Allocator.Temp);
-						img.Convert(convParams, imgGreyscale);
+
+						if (!processedImg.IsCreated || processedImg.Length != size)
+							processedImg = new NativeArray<byte>(size, Allocator.Persistent);
+
+						img.Convert(convParams, processedImg);
 
 						break;
 
@@ -127,10 +131,9 @@ namespace Anaglyph.XRTemplate.AprilTags
 						throw new Exception("unsupported image format");
 				}
 
-				await detector.Detect(imgGreyscale, fov, tagSizeMeters);
+				await detector.Detect(processedImg, fov, tagSizeMeters);
 
 				img.Dispose();
-				imgGreyscale.Dispose();
 
 				worldPoses.Clear();
 
@@ -169,9 +172,14 @@ namespace Anaglyph.XRTemplate.AprilTags
 			}
 			finally
 			{
-				img.Dispose();
 				busy = false;
 			}
+		}
+
+		private void OnDestroy()
+		{
+			if (processedImg.IsCreated)
+				processedImg.Dispose();
 		}
 	}
 }

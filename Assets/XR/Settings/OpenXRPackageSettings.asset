@@ -428,7 +428,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 10e4854d42a94cccbb16cf9736c37576, type: 3}
   m_Name: OpenXRLifeCycleFeature Standalone
   m_EditorClassIdentifier: Unity.XR.AndroidOpenXR::UnityEngine.XR.OpenXR.Features.Android.OpenXRLifeCycleFeature
-  m_enabled: 0
+  m_enabled: 1
   nameUi: 
   version: 0.1.0
   featureIdInternal: AndroidXR-OpenXRLifeCycle
@@ -2007,7 +2007,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b8f7a7b4a7bf27d4d96b8eb673f5174e, type: 3}
   m_Name: OculusTouchControllerProximityProfile Android
   m_EditorClassIdentifier: Oculus.VR::Meta.XR.OculusTouchControllerProximityProfile
-  m_enabled: 0
+  m_enabled: 1
   nameUi: Oculus Touch Controller Proximity Interaction
   version: 0.0.1
   featureIdInternal: com.meta.openxr.feature.input.oculustouch.proximity
@@ -2233,8 +2233,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.XR.OpenXR::UnityEngine.XR.OpenXR.OpenXRSettings
   features:
   - {fileID: -1080518087508656658}
-  - {fileID: -5368592073143205190}
-  - {fileID: 3118507650251647520}
+  - {fileID: -6698003718294034547}
+  - {fileID: 2289910431507636567}
   - {fileID: -2790297879265800371}
   - {fileID: 8809654472023212493}
   - {fileID: -3753885091088024026}
@@ -2724,7 +2724,7 @@ MonoBehaviour:
   - {fileID: 7352262040445119043}
   - {fileID: -3250087245600256818}
   - {fileID: -7613261480007046749}
-  - {fileID: -721328381888794188}
+  - {fileID: -1741709665862286427}
   - {fileID: 7376677255761632801}
   - {fileID: 5989191297204106415}
   - {fileID: -5686734776877133623}
