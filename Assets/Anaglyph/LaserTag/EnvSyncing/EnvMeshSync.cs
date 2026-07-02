@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using Anaglyph.DepthKit.EnvScanning;
+using Anaglyph.Netcode;
 using Unity.Collections;
 using Unity.Mathematics;
-using Unity.Netcode;
 using UnityEngine;
 
 namespace Anaglyph.Lasertag
@@ -12,12 +12,19 @@ namespace Anaglyph.Lasertag
 	/// Broadcasts locally scanned chunk meshes to other players when chunks
 	/// pass a change threshold, and applies meshes received from other players
 	/// </summary>
-	public class EnvMeshSync : NetworkBehaviour
+	public class EnvMeshSync : MonoBehaviour
 	{
 		public static EnvMeshSync Instance { get; private set; }
 
-		private const string MessageName = "EnvChunkSync";
-		private const NetworkDelivery Delivery = NetworkDelivery.ReliableFragmentedSequenced;
+		// Direct events: chunk payloads are fire-and-forget and need no ordering
+		// against other synced state. NGO's proxy path fans them out server-side on
+		// both LAN (DAHost) and the CMB service — unlike the old named messages,
+		// which the CMB service cannot relay at all.
+		private readonly SyncEventBytes chunkEvent = new("env.chunks", EventRoute.Direct);
+		private readonly SyncEvent<bool> visibleEvent = new("env.visible", EventRoute.Direct);
+
+		// NGO caps fragmented messages at 64000 bytes; leave headroom for headers.
+		private const int MaxPayloadBytes = 60000;
 
 		/// <summary>
 		/// Invoked after a populated chunk mesh received from another
@@ -42,18 +49,34 @@ namespace Anaglyph.Lasertag
 		private void Awake()
 		{
 			Instance = this;
+
+			chunkEvent.Register();
+			visibleEvent.Register();
+			chunkEvent.Received += OnChunkReceived;
+			visibleEvent.Received += OnVisibleReceived;
+			SyncBus.Activated += OnBusActivated;
+			SyncBus.Deactivated += OnBusDeactivated;
 		}
 
-		public override void OnNetworkSpawn()
+		private void OnDestroy()
+		{
+			SyncBus.Activated -= OnBusActivated;
+			SyncBus.Deactivated -= OnBusDeactivated;
+			chunkEvent.Received -= OnChunkReceived;
+			visibleEvent.Received -= OnVisibleReceived;
+			visibleEvent.Unregister();
+			chunkEvent.Unregister();
+		}
+
+		private void OnBusActivated()
 		{
 			chunkSpan = EnvScanner.Instance.VoxPerChunkDim * EnvScanner.Instance.VoxSize;
 
-			NetworkManager.CustomMessagingManager.RegisterNamedMessageHandler(MessageName, OnChunkMessage);
 			EnvMesher.Instance.VisibleChunkPolled += OnVisibleChunkPolled;
 			EnvMesher.Instance.ChunkMeshUpdated += OnChunkMeshUpdated;
 		}
 
-		public override void OnNetworkDespawn()
+		private void OnBusDeactivated()
 		{
 			if (EnvMesher.Instance)
 			{
@@ -61,10 +84,18 @@ namespace Anaglyph.Lasertag
 				EnvMesher.Instance.ChunkMeshUpdated -= OnChunkMeshUpdated;
 			}
 
-			NetworkManager?.CustomMessagingManager?.UnregisterNamedMessageHandler(MessageName);
-
 			pendingSync.Clear();
 			lastSyncedChangeSums.Clear();
+		}
+
+		public void SetEnvMeshVisibleEveryone(bool visible)
+		{
+			visibleEvent.Raise(visible);
+		}
+
+		private void OnVisibleReceived(ulong sender, bool visible)
+		{
+			EnvMesher.Instance.SetChunksVisible(visible);
 		}
 
 		private void OnVisibleChunkPolled(int chunkIndex, uint changeSum)
@@ -101,7 +132,7 @@ namespace Anaglyph.Lasertag
 
 		private void SendChunkMesh(Chunk chunk)
 		{
-			if (!IsSpawned) return;
+			if (!SyncBus.Active) return;
 
 			using Mesh.MeshDataArray dataArray = Mesh.AcquireReadOnlyMeshData(chunk.mesh);
 			Mesh.MeshData data = dataArray[0];
@@ -115,6 +146,15 @@ namespace Anaglyph.Lasertag
 				return;
 			}
 
+			int payloadSize = sizeof(int) * 3 + (vertCount * 3 + indexCount) * sizeof(ushort);
+
+			if (payloadSize > MaxPayloadBytes)
+			{
+				Debug.LogWarning(
+					$"[{nameof(EnvMeshSync)}] Chunk {chunk.chunkIndex} payload ({payloadSize}B) exceeds the fragmented message cap");
+				return;
+			}
+
 			NativeArray<Vector3> positions = new(vertCount, Allocator.Temp);
 			NativeArray<int> indices = new(indexCount, Allocator.Temp);
 
@@ -122,114 +162,96 @@ namespace Anaglyph.Lasertag
 			if (indexCount > 0) data.GetIndices(indices, 0);
 
 			// quantize positions to 16 bits per axis in chunk-local space
-			NativeArray<ushort> qPositions = new(vertCount * 3, Allocator.Temp);
 			float quantScale = ushort.MaxValue / chunkSpan;
+
+			byte[] payload = new byte[payloadSize];
+			int offset = 0;
+
+			SyncBytes.Write(payload, offset, chunk.chunkIndex);
+			offset += sizeof(int);
+
+			SyncBytes.Write(payload, offset, vertCount);
+			offset += sizeof(int);
 
 			for (int v = 0; v < vertCount; v++)
 			{
 				Vector3 p = positions[v];
-				qPositions[v * 3 + 0] = (ushort)math.clamp(math.round(p.x * quantScale), 0, ushort.MaxValue);
-				qPositions[v * 3 + 1] = (ushort)math.clamp(math.round(p.y * quantScale), 0, ushort.MaxValue);
-				qPositions[v * 3 + 2] = (ushort)math.clamp(math.round(p.z * quantScale), 0, ushort.MaxValue);
+				SyncBytes.Write(payload, offset,
+					(ushort)math.clamp(math.round(p.x * quantScale), 0, ushort.MaxValue));
+				SyncBytes.Write(payload, offset + sizeof(ushort),
+					(ushort)math.clamp(math.round(p.y * quantScale), 0, ushort.MaxValue));
+				SyncBytes.Write(payload, offset + sizeof(ushort) * 2,
+					(ushort)math.clamp(math.round(p.z * quantScale), 0, ushort.MaxValue));
+				offset += sizeof(ushort) * 3;
 			}
 
-			NativeArray<ushort> qIndices = new(indexCount, Allocator.Temp);
+			SyncBytes.Write(payload, offset, indexCount);
+			offset += sizeof(int);
 
 			for (int i = 0; i < indexCount; i++)
-				qIndices[i] = (ushort)indices[i];
-
-			using FastBufferWriter writer = CreateChunkMessage(chunk.chunkIndex, qPositions, qIndices);
-
-			if (IsServer)
-				Broadcast(writer, NetworkManager.LocalClientId);
-			else
-				NetworkManager.CustomMessagingManager.SendNamedMessage(
-					MessageName, NetworkManager.ServerClientId, writer, Delivery);
-		}
-
-		private static FastBufferWriter CreateChunkMessage(int chunkIndex,
-			NativeArray<ushort> qPositions, NativeArray<ushort> qIndices)
-		{
-			int size = sizeof(int) * 3 + (qPositions.Length + qIndices.Length) * sizeof(ushort);
-			FastBufferWriter writer = new(size, Allocator.Temp);
-
-			writer.WriteValueSafe(chunkIndex);
-			writer.WriteValueSafe(qPositions);
-			writer.WriteValueSafe(qIndices);
-
-			return writer;
-		}
-
-		private void Broadcast(FastBufferWriter writer, ulong excludeClientId)
-		{
-			foreach (ulong clientId in NetworkManager.ConnectedClientsIds)
 			{
-				if (clientId == NetworkManager.LocalClientId) continue;
-				if (clientId == excludeClientId) continue;
-
-				NetworkManager.CustomMessagingManager.SendNamedMessage(MessageName, clientId, writer, Delivery);
+				SyncBytes.Write(payload, offset, (ushort)indices[i]);
+				offset += sizeof(ushort);
 			}
+
+			chunkEvent.Raise(payload);
 		}
 
-		private void OnChunkMessage(ulong senderClientId, FastBufferReader reader)
+		private void OnChunkReceived(ulong sender, byte[] payload)
 		{
-			reader.ReadValueSafe(out int chunkIndex);
+			// Direct events also invoke locally; the sender already has this mesh.
+			if (sender == SyncBus.LocalClientId) return;
+
+			// validate malformed or corrupt payloads
+			if (payload.Length < sizeof(int) * 2) return;
+
+			int offset = 0;
+
+			int chunkIndex = SyncBytes.Read<int>(payload, offset);
+			offset += sizeof(int);
 
 			if (chunkIndex < 0 || chunkIndex >= EnvScanner.Instance.ChunkTableLength)
 				return;
 
-			reader.ReadValueSafe(out NativeArray<ushort> qPositions, Allocator.Temp);
-			reader.ReadValueSafe(out NativeArray<ushort> qIndices, Allocator.Temp);
+			int vertCount = SyncBytes.Read<int>(payload, offset);
+			offset += sizeof(int);
 
-			int vertCount = qPositions.Length / 3;
-
-			// validate malformed or corrupt mesh data
-			if (qPositions.Length % 3 != 0 || qIndices.Length % 3 != 0)
+			if (vertCount < 0 || payload.Length < offset + vertCount * 3 * sizeof(ushort) + sizeof(int))
 				return;
 
-			for (int i = 0; i < qIndices.Length; i++)
-				if (qIndices[i] >= vertCount)
-					return;
+			int positionsOffset = offset;
+			offset += vertCount * 3 * sizeof(ushort);
 
-			// clients can't message each other directly; the server relays
-			if (IsServer)
-			{
-				using FastBufferWriter writer = CreateChunkMessage(chunkIndex, qPositions, qIndices);
-				Broadcast(writer, senderClientId);
-			}
+			int indexCount = SyncBytes.Read<int>(payload, offset);
+			offset += sizeof(int);
 
-			ApplyReceivedMesh(chunkIndex, qPositions, qIndices);
-		}
+			if (indexCount < 0 || indexCount % 3 != 0 ||
+			    payload.Length < offset + indexCount * sizeof(ushort))
+				return;
 
-		private void ApplyReceivedMesh(int chunkIndex, NativeArray<ushort> qPositions, NativeArray<ushort> qIndices)
-		{
-			Chunk chunk = EnvMesher.Instance.GetOrCreateChunk(chunkIndex);
-
-			int vertCount = qPositions.Length / 3;
 			NativeArray<Vector3> positions = new(vertCount, Allocator.Temp);
-			NativeArray<int> indices = new(qIndices.Length, Allocator.Temp);
+			NativeArray<int> indices = new(indexCount, Allocator.Temp);
 
 			float dequantScale = chunkSpan / ushort.MaxValue;
 
 			for (int v = 0; v < vertCount; v++)
 				positions[v] = new Vector3(
-					qPositions[v * 3 + 0] * dequantScale,
-					qPositions[v * 3 + 1] * dequantScale,
-					qPositions[v * 3 + 2] * dequantScale);
+					SyncBytes.Read<ushort>(payload, positionsOffset + (v * 3 + 0) * sizeof(ushort)) * dequantScale,
+					SyncBytes.Read<ushort>(payload, positionsOffset + (v * 3 + 1) * sizeof(ushort)) * dequantScale,
+					SyncBytes.Read<ushort>(payload, positionsOffset + (v * 3 + 2) * sizeof(ushort)) * dequantScale);
 
-			for (int i = 0; i < qIndices.Length; i++)
-				indices[i] = qIndices[i];
+			for (int i = 0; i < indexCount; i++)
+			{
+				int index = SyncBytes.Read<ushort>(payload, offset + i * sizeof(ushort));
+				if (index >= vertCount) return;
+				indices[i] = index;
+			}
 
+			Chunk chunk = EnvMesher.Instance.GetOrCreateChunk(chunkIndex);
 			chunk.ApplyMeshData(positions, indices);
 
 			if (indices.Length > 0)
 				RemoteMeshApplied.Invoke(chunk);
-		}
-
-		[Rpc(SendTo.Everyone)]
-		public void SetEnvMeshVisibleEveryoneRpc(bool visible)
-		{
-			EnvMesher.Instance.SetChunksVisible(visible);
 		}
 	}
 }

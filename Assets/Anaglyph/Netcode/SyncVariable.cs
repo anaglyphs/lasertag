@@ -5,44 +5,29 @@ namespace Anaglyph.Netcode
 {
 	// A single replicated value with no NetworkObject of its own — the drop-in for a
 	// NetworkVariable<T> on a plain MonoBehaviour singleton. Routed through SyncBus
-	// under a unique integer id; see SyncList<T> for the collection sibling.
+	// under the hash of its string name; see SyncEndpoint for the lifecycle contract.
 	//
 	// The authority is the single writer (Value setter). Other peers read, and may
-	// Submit a proposed value the authority validates via CanSet. Late joiners get
-	// the current value through SyncBus's snapshot handshake. Off-network it is just
-	// a local value.
-	//
-	// Construct one as a field, then Register() once the session is up and
-	// Unregister() when it drops — e.g. from a NetcodeManagement.StateChanged
-	// handler, NOT in Awake/field init (the bus may not be ready, and there's no
-	// deterministic teardown for a plain C# object otherwise).
-	public class SyncVariable<T> : ISyncEndpoint where T : unmanaged
+	// Request a value that the authority validates (Validate) and applies. Late
+	// joiners get the current value through the bus's snapshot handshake. Off-network
+	// it is just a local value.
+	public class SyncVariable<T> : SyncEndpoint where T : unmanaged
 	{
-		private readonly int id;
+		private readonly T initial;
 		private T current;
 
-		// (oldValue, newValue) after any change — local write or remote update —
-		// mirroring NetworkVariable<T>.OnValueChanged. Only fires on an actual change.
-		public event Action<T, T> OnValueChanged = delegate { };
+		// (oldValue, newValue) after any applied change — local write, remote update,
+		// snapshot, or reset. Only fires on an actual change.
+		public event Action<T, T> Changed = delegate { };
 
-		// Authority-side gate for Submit()ed writes: (sender, proposed) => accept?
-		// Null accepts everything.
-		public Func<ulong, T, bool> CanSet;
+		// Authority-side gate for requested writes: (sender, proposed) => accept?
+		// Null accepts everything. Also consulted for the authority's own Request.
+		public Func<ulong, T, bool> Validate;
 
-		public SyncVariable(int id, T initialValue = default)
+		public SyncVariable(string name, T initialValue = default) : base(name)
 		{
-			this.id = id;
+			initial = initialValue;
 			current = initialValue;
-		}
-
-		public void Register()
-		{
-			SyncBus.Register(id, this);
-		}
-
-		public void Unregister()
-		{
-			SyncBus.Unregister(id, this);
 		}
 
 		public T Value
@@ -50,49 +35,76 @@ namespace Anaglyph.Netcode
 			get => current;
 			set
 			{
-				if (!SyncBus.IsAuthority)
-					throw new InvalidOperationException(
-						$"SyncVariable {id}: only the authority may set Value. Use Submit() from other peers.");
-
+				RequireAuthority(Name);
 				if (!Apply(value)) return;
-				SyncBus.Broadcast(id, SyncBytes.Of(value));
+				SyncBus.SendBroadcast(Id, SyncBytes.Of(value));
 			}
 		}
 
-		// Set from any peer. The authority writes directly; everyone else routes the
-		// value through the authority, which validates (CanSet) and broadcasts.
-		public void Submit(T newValue)
+		// Set from any peer: the authority applies directly, everyone else routes the
+		// value through the authority. Never applied locally before the authority
+		// confirms, so there is nothing to roll back.
+		public void Request(T newValue)
 		{
-			if (SyncBus.IsAuthority) Value = newValue;
-			else SyncBus.Submit(id, SyncBytes.Of(newValue));
+			if (SyncBus.IsAuthority) ApplyRequestChecked(SyncBus.LocalClientId, newValue);
+			else SyncBus.SendRequest(Id, SyncBytes.Of(newValue));
 		}
 
-		private bool Apply(T v)
+		private bool Apply(T value)
 		{
-			if (EqualityComparer<T>.Default.Equals(current, v)) return false;
+			if (EqualityComparer<T>.Default.Equals(current, value)) return false;
 			T old = current;
-			current = v;
-			OnValueChanged.Invoke(old, v);
+			current = value;
+			Changed.Invoke(old, value);
 			return true;
 		}
 
-		// ---- ISyncEndpoint ---------------------------------------------------
+		private void ApplyRequestChecked(ulong sender, T proposed)
+		{
+			if (Validate == null || Validate(sender, proposed))
+				Value = proposed; // authority write: applies + broadcasts
+		}
 
-		void ISyncEndpoint.ReceiveBroadcast(byte[] data)
+		// ---- bus plumbing ------------------------------------------------------
+
+		private bool snapshotChanged;
+		private T snapshotOld;
+
+		internal override void ApplyBroadcast(byte[] data)
 		{
 			Apply(SyncBytes.Read<T>(data, 0));
 		}
 
-		byte[] ISyncEndpoint.SerializeSnapshot()
+		internal override void ApplyRequest(ulong sender, byte[] data)
+		{
+			ApplyRequestChecked(sender, SyncBytes.Read<T>(data, 0));
+		}
+
+		internal override byte[] SerializeSnapshot()
 		{
 			return SyncBytes.Of(current);
 		}
 
-		void ISyncEndpoint.ReceiveSubmit(ulong sender, byte[] data)
+		internal override void ApplySnapshot(byte[] data)
 		{
-			T proposed = SyncBytes.Read<T>(data, 0);
-			if (CanSet == null || CanSet(sender, proposed))
-				Value = proposed; // authority write → applies + broadcasts
+			T incoming = SyncBytes.Read<T>(data, 0);
+			if (EqualityComparer<T>.Default.Equals(current, incoming)) return;
+
+			snapshotOld = current;
+			snapshotChanged = true;
+			current = incoming;
+		}
+
+		internal override void FlushSnapshotEvents()
+		{
+			if (!snapshotChanged) return;
+			snapshotChanged = false;
+			Changed.Invoke(snapshotOld, current);
+		}
+
+		internal override void ResetState()
+		{
+			Apply(initial);
 		}
 	}
 }

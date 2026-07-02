@@ -20,12 +20,12 @@ namespace Anaglyph.Lasertag
 
 			showDebugMeshForEveryone.onClick.AddListener(delegate
 			{
-				EnvMeshSync.Instance?.SetEnvMeshVisibleEveryoneRpc(true);
+				EnvMeshSync.Instance?.SetEnvMeshVisibleEveryone(true);
 			});
 
 			hideDebugMeshForEveryone.onClick.AddListener(delegate
 			{
-				EnvMeshSync.Instance?.SetEnvMeshVisibleEveryoneRpc(false);
+				EnvMeshSync.Instance?.SetEnvMeshVisibleEveryone(false);
 			});
 		}
 

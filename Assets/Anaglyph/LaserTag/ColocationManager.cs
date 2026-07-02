@@ -1,14 +1,13 @@
+using Anaglyph.Netcode;
 using Anaglyph.XRTemplate;
 using Anaglyph.XRTemplate.SharedSpaces;
 using System;
 using Anaglyph.DepthKit.EnvScanning;
-using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.XR;
 
 namespace Anaglyph.Lasertag
 {
-	public class ColocationManager : NetworkBehaviour
+	public class ColocationManager : MonoBehaviour
 	{
 		public static ColocationManager Instance { get; private set; }
 
@@ -23,46 +22,72 @@ namespace Anaglyph.Lasertag
 		public static Action<bool> Colocated = delegate { };
 
 		public ColocationMethod methodHostSetting;
-		private readonly NetworkVariable<ColocationMethod> methodSync = new(0);
+		private readonly SyncVariable<ColocationMethod> methodSync = new("colo.method");
 		public ColocationMethod Method => methodSync.Value;
 
 		[SerializeField] private MetaAnchorColocator metaAnchorColocator;
 		[SerializeField] private TagColocator tagColocator;
 		private IColocator activeColocator;
 
+		// True from method-sync (session fully known) until the session ends.
+		private bool sessionStarted;
+
 		private void Awake()
 		{
 			Instance = this;
+
+			methodSync.Register();
+			methodSync.Synced += OnMethodSynced;
+			SyncBus.Activated += OnBusActivated;
+			SyncBus.Deactivated += OnBusDeactivated;
 		}
 
-		public override void OnNetworkSpawn()
+		private void OnDestroy()
 		{
-			if (IsOwner) methodSync.Value = methodHostSetting;
+			SyncBus.Activated -= OnBusActivated;
+			SyncBus.Deactivated -= OnBusDeactivated;
+			methodSync.Synced -= OnMethodSynced;
+			methodSync.Unregister();
 		}
 
-		protected override void OnNetworkSessionSynchronized()
-			//protected override void OnNetworkPostSpawn()
+		private void OnBusActivated()
 		{
+			// Written before any endpoint's Synced fires, so joiner and authority
+			// alike see the session's method in OnMethodSynced.
+			if (SyncBus.IsAuthority)
+				methodSync.Value = methodHostSetting;
+		}
+
+		// Full session state is in (authority: right after activation; joiners: after
+		// the combined snapshot) — the replacement for OnNetworkSessionSynchronized.
+		// Also re-fires after an authority change re-sync, hence the guard.
+		private void OnMethodSynced()
+		{
+			if (sessionStarted) return;
+			sessionStarted = true;
+
 			switch (Method)
 			{
 				case ColocationMethod.MetaSharedAnchor:
-					activeColocator = metaAnchorColocator;
+					SetActiveColocator(metaAnchorColocator);
 					break;
 
 				case ColocationMethod.AprilTag:
-					activeColocator = tagColocator;
+					SetActiveColocator(tagColocator);
 					break;
 			}
-
-			SetActiveColocator(activeColocator);
 
 			if (!MainXRRig.Instance) return;
 
 			activeColocator.StartColocation();
 		}
 
-		public override void OnNetworkDespawn()
+		private void OnBusDeactivated()
 		{
+			sessionStarted = false;
+
+			if (activeColocator == null) return;
+
 			activeColocator.Colocated -= OnColocated;
 
 			if (!MainXRRig.Instance) return;
@@ -94,13 +119,10 @@ namespace Anaglyph.Lasertag
 			activeColocator.Colocated += OnColocated;
 		}
 
+		// The colocators acquire bus authority themselves (see their RealignEveryone).
 		public void RealignEveryone()
 		{
-			ulong localID = NetworkManager.Singleton.LocalClientId;
-			if (OwnerClientId != localID)
-				NetworkObject.ChangeOwnership(localID);
-
-			activeColocator.RealignEveryone();
+			activeColocator?.RealignEveryone();
 		}
 
 		private void OnColocated()

@@ -1,9 +1,8 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Anaglyph.DepthKit.EnvScanning;
 using Anaglyph.Lasertag.Networking;
-using Anaglyph.XRTemplate;
+using Anaglyph.Netcode;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -17,17 +16,16 @@ namespace Anaglyph.Lasertag
 		ReachScore = 0b00000010
 	}
 
-	[Flags]
 	public enum MatchState : byte
 	{
-		NotPlaying = 0b00000001,
-		Mustering = 0b00000010,
-		Countdown = 0b00000100,
-		Playing = 0b00001000
+		NotPlaying,
+		Mustering,
+		Countdown,
+		Playing
 	}
 
 	[Serializable]
-	public struct MatchSettings : INetworkSerializeByMemcpy
+	public struct MatchSettings
 	{
 		public bool teams;
 		public bool respawnInBases;
@@ -93,19 +91,43 @@ namespace Anaglyph.Lasertag
 		}
 	}
 
-	public class MatchReferee : NetworkBehaviour
+	// Runs the match flow as a plain MonoBehaviour singleton: all replicated state
+	// rides the SyncBus. The bus authority is the single writer — it drives the
+	// state machine (mustering/countdown/timer) and accumulates scores; any peer
+	// may queue or end a match and submit score events.
+	public class MatchReferee : MonoBehaviour
 	{
-		public static MatchReferee Instance { get; private set; }
+		public static MatchReferee Current { get; private set; }
 
-		private static MatchState _state = MatchState.NotPlaying;
-		public static MatchState State => _state;
-		private static MatchSettings _settings = MatchSettings.Lobby();
-		public static MatchSettings Settings => _settings;
-		private static int[] _teamScores = new int[Teams.NumTeams];
+		public const float CountdownSeconds = 3;
+
+		private struct ScoreMsg
+		{
+			public byte team;
+			public int points;
+		}
+
+		// Static so the public static API (State, Settings, GetTeamScore) works
+		// independent of instance lifetime; the scene instance registers them with
+		// the bus. Writes: settings and state land in that order everywhere (same
+		// sequenced channel), and startTime is written before the flip to Playing,
+		// so a Playing state change can always trust startTime.
+		private static readonly SyncVariable<MatchSettings> settingsSync =
+			new("match.settings", MatchSettings.Lobby());
+
+		private static readonly SyncVariable<float> startTimeSync = new("match.startTime");
+		private static readonly SyncList<int> teamScoresSync = new("match.scores", new int[Teams.NumTeams]);
+		private static readonly SyncVariable<MatchState> stateSync = new("match.state");
+		private static readonly SyncEvent<ScoreMsg> scoreEvent = new("match.score", EventRoute.ToAuthority);
+
+		public static MatchState State => stateSync.Value;
+		public static MatchSettings Settings => settingsSync.Value;
+		public static float TimeMatchStarted => startTimeSync.Value;
+		private float ServerTime => NetworkManager.Singleton.ServerTime.TimeAsFloat;
 
 		public static int GetTeamScore(byte team)
 		{
-			return _teamScores[team];
+			return team < teamScoresSync.Count ? teamScoresSync[team] : 0;
 		}
 
 		public static event Action<MatchState> StateChanged = delegate { };
@@ -113,85 +135,144 @@ namespace Anaglyph.Lasertag
 		public static event Action<string> TimerTextChanged = delegate { };
 		public static event Action<byte, int> TeamScored = delegate { };
 
-		public float TimeMatchEnds { get; private set; }
-
+		private readonly int[] lastScores = new int[Teams.NumTeams];
 		private CancellationTokenSource cancelSrc;
 
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
 		private static void Init()
 		{
-			_teamScores = new int[Teams.NumTeams];
-			_state = MatchState.NotPlaying;
 			StateChanged = delegate { };
 			MatchFinished = delegate { };
 			TimerTextChanged = delegate { };
 			TeamScored = delegate { };
-			_settings = MatchSettings.Lobby();
+			// endpoint values reset when the instance re-registers them in Awake
 		}
 
 		private void Awake()
 		{
-			Instance = this;
+			Current = this;
+
+			settingsSync.Register();
+			startTimeSync.Register();
+			teamScoresSync.Register();
+			stateSync.Register();
+			scoreEvent.Register();
+
+			stateSync.Changed += OnStateChanged;
+			teamScoresSync.Changed += OnScoresChanged;
+			scoreEvent.Received += OnScoreSubmitted;
 		}
 
-		// TODO: score sync not working
-		protected override void OnSynchronize<T>(ref BufferSerializer<T> serializer)
+		private void OnDestroy()
 		{
-			serializer.SerializeValue(ref _settings);
+			stateSync.Changed -= OnStateChanged;
+			teamScoresSync.Changed -= OnScoresChanged;
+			scoreEvent.Received -= OnScoreSubmitted;
 
-			serializer.SerializeValue(ref _teamScores);
+			scoreEvent.Unregister();
+			stateSync.Unregister();
+			teamScoresSync.Unregister();
+			startTimeSync.Unregister();
+			settingsSync.Unregister();
 
-			float timeLeft = GetTimeLeft();
-			serializer.SerializeValue(ref timeLeft);
-			TimeMatchEnds = Time.time + timeLeft;
-
-			MatchState _synchronizedState = _state;
-			serializer.SerializeValue(ref _synchronizedState);
-			_ = SetStateLocally(_synchronizedState);
+			cancelSrc?.Cancel();
 		}
 
-		public override void OnNetworkDespawn()
+		// ---- any-peer commands -------------------------------------------------
+
+		// Settings land before the state flips everywhere: both requests ride the
+		// same sequenced channel through the authority.
+		public void QueueMatch(MatchSettings settings)
 		{
-			_ = SetStateLocally(MatchState.NotPlaying);
-			ResetScoresLocally();
+			settingsSync.Request(settings);
+			stateSync.Request(MatchState.Mustering);
 		}
 
-		[Rpc(SendTo.Everyone)]
-		public void QueueMatchRpc(MatchSettings settings)
+		public void EndMatch()
 		{
-			ResetScoresLocally();
-			_settings = settings;
-			_ = SetStateLocally(MatchState.Mustering);
+			stateSync.Request(MatchState.NotPlaying);
 		}
 
-		[Rpc(SendTo.Everyone, InvokePermission = RpcInvokePermission.Owner, AllowTargetOverride = true)]
-		private void SyncStateRpc(MatchState state, RpcParams rpcParams = default)
+		// Called by whoever detects the scoring (kill, point held, flag capture);
+		// only the authority receives it and accumulates into the replicated list.
+		public void Score(byte team, int points)
 		{
-			_ = SetStateLocally(state);
+			if (team == 0 || points == 0) return;
+			scoreEvent.Raise(new ScoreMsg { team = team, points = points });
 		}
 
-		private async Task SetStateLocally(MatchState state)
+		// ---- authority reactions -------------------------------------------------
+
+		private void OnScoreSubmitted(ulong sender, ScoreMsg msg)
 		{
-			if (_state == state)
-				return;
+			if (msg.team == 0 || msg.team >= Teams.NumTeams || msg.points == 0) return;
 
-			_state = state;
+			teamScoresSync.Set(msg.team, GetTeamScore(msg.team) + msg.points);
 
-			StateChanged.Invoke(State);
+			if (State == MatchState.Playing)
+			{
+				bool canWinByScore = Settings.CheckWinByScore();
+				bool isWinningScore = GetTeamScore(msg.team) >= Settings.scoreTarget;
 
+				if (canWinByScore && isWinningScore)
+					stateSync.Value = MatchState.NotPlaying;
+			}
+		}
+
+		private void ResetScores()
+		{
+			if (!SyncBus.IsAuthority) return;
+
+			for (byte i = 0; i < Teams.NumTeams; i++)
+				if (GetTeamScore(i) != 0)
+					teamScoresSync.Set(i, 0);
+		}
+
+		// ---- every-peer reactions ------------------------------------------------
+
+		private void OnScoresChanged()
+		{
+			for (byte i = 0; i < Teams.NumTeams; i++)
+			{
+				int score = GetTeamScore(i);
+				if (score == lastScores[i]) continue;
+
+				int delta = score - lastScores[i];
+				lastScores[i] = score;
+				TeamScored.Invoke(i, delta);
+			}
+		}
+
+		private void OnStateChanged(MatchState old, MatchState state)
+		{
+			if (old == MatchState.Playing && state == MatchState.NotPlaying)
+				MatchFinished.Invoke();
+
+			StateChanged.Invoke(state);
+
+			_ = RunStatePhase(state);
+		}
+
+		// The per-state loops run on every peer (timer text is local UI); only the
+		// authority advances the replicated state.
+		private async Task RunStatePhase(MatchState state)
+		{
 			cancelSrc?.Cancel();
 			cancelSrc = new CancellationTokenSource();
 			CancellationToken ctn = cancelSrc.Token;
 
 			try
 			{
-				switch (_state)
+				switch (state)
 				{
 					case MatchState.NotPlaying:
-						_settings = MatchSettings.Lobby();
+						if (SyncBus.IsAuthority)
+							settingsSync.Value = MatchSettings.Lobby();
 						break;
 
 					case MatchState.Mustering:
+						ResetScores();
+						PlayerAvatar.Local?.ResetScoreLocally();
 
 						UpdateTimerText(Settings.timerSeconds);
 						while (State == MatchState.Mustering)
@@ -203,8 +284,8 @@ namespace Anaglyph.Lasertag
 									numPlayersInBase++;
 
 							if (numPlayersInBase != 0 && numPlayersInBase == PlayerAvatar.All.Count)
-								if (IsOwner)
-									SyncStateRpc(MatchState.Countdown);
+								if (SyncBus.IsAuthority)
+									stateSync.Value = MatchState.Countdown;
 
 							await Awaitable.NextFrameAsync(ctn);
 							ctn.ThrowIfCancellationRequested();
@@ -213,15 +294,21 @@ namespace Anaglyph.Lasertag
 						break;
 
 					case MatchState.Countdown:
-						await Awaitable.WaitForSecondsAsync(3, ctn);
+						await Awaitable.WaitForSecondsAsync(CountdownSeconds, ctn);
 						ctn.ThrowIfCancellationRequested();
 
-						if (IsOwner)
-							StartMatchRpc();
+						if (SyncBus.IsAuthority)
+						{
+							ResetScores();
+							startTimeSync.Value = ServerTime;
+							stateSync.Value = MatchState.Playing;
+						}
 
 						break;
 
 					case MatchState.Playing:
+						PlayerAvatar.Local?.ResetScoreLocally();
+
 						if (Settings.CheckWinByTimer())
 							while (State == MatchState.Playing)
 							{
@@ -232,8 +319,8 @@ namespace Anaglyph.Lasertag
 
 								if (timeLeft <= 0)
 								{
-									if (IsOwner)
-										EndMatchRpc();
+									if (SyncBus.IsAuthority)
+										stateSync.Value = MatchState.NotPlaying;
 
 									break;
 								}
@@ -249,57 +336,16 @@ namespace Anaglyph.Lasertag
 			}
 		}
 
-		[Rpc(SendTo.Everyone)]
-		public void ScoreRpc(byte team, int points)
-		{
-			if (team == 0 || points == 0) return;
-
-			_teamScores[team] += points;
-
-			TeamScored(team, points);
-
-			if (IsOwner && State == MatchState.Playing)
-			{
-				bool canWinByScore = Settings.CheckWinByScore();
-				bool isWinningScore = GetTeamScore(team) >= Settings.scoreTarget;
-
-				if (canWinByScore && isWinningScore) EndMatchRpc();
-			}
-		}
-
-		[Rpc(SendTo.Everyone)]
-		public void StartMatchRpc()
-		{
-			ResetScoresLocally();
-			TimeMatchEnds = Time.time + Settings.timerSeconds;
-
-			_ = SetStateLocally(MatchState.Playing);
-		}
-
-		[Rpc(SendTo.Everyone)]
-		public void EndMatchRpc()
-		{
-			MatchFinished.Invoke();
-
-			_ = SetStateLocally(MatchState.NotPlaying);
-		}
-
-		private void ResetScoresLocally()
-		{
-			PlayerAvatar.Local?.ResetScoreLocally();
-
-			for (byte i = 0; i < Teams.NumTeams; i++)
-			{
-				_teamScores[i] = 0;
-				TeamScored.Invoke(i, 0);
-			}
-		}
-
 		private void UpdateTimerText(float seconds)
 		{
 			int rounded = Mathf.RoundToInt(seconds);
 			TimeSpan span = TimeSpan.FromSeconds(rounded);
 			TimerTextChanged.Invoke(span.ToString(@"m\:ss"));
+		}
+
+		public float GetTimeElapsed()
+		{
+			return TimeMatchStarted - ServerTime;
 		}
 
 		public float GetTimeLeft()
@@ -312,7 +358,8 @@ namespace Anaglyph.Lasertag
 					timeLeft = 0;
 					break;
 				case MatchState.Playing:
-					timeLeft = Mathf.Max(0, TimeMatchEnds - Time.time);
+					float endTime = TimeMatchStarted + Settings.timerSeconds;
+					timeLeft = Mathf.Max(0, endTime - ServerTime);
 					break;
 				default:
 					timeLeft = Settings.timerSeconds;

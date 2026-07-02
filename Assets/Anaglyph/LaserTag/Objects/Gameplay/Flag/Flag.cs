@@ -140,7 +140,7 @@ namespace Anaglyph.Lasertag
 		// by server processing order instead of each client evaluating its own copy
 		// of the take/drop logic and potentially disagreeing on the result.
 
-		[Rpc(SendTo.Server)]
+		[Rpc(SendTo.Owner)]
 		private void RequestTakeRpc(ulong id)
 		{
 			if (holderSync.Value.TryGet(out PlayerAvatar _))
@@ -152,13 +152,13 @@ namespace Anaglyph.Lasertag
 			holderSync.Value = new NetworkBehaviourReference(player);
 		}
 
-		[Rpc(SendTo.Server)]
+		[Rpc(SendTo.Owner)]
 		private void RequestDropRpc()
 		{
 			holderSync.Value = default;
 		}
 
-		[Rpc(SendTo.Server)]
+		[Rpc(SendTo.Owner)]
 		private void RequestCaptureRpc(ulong id)
 		{
 			if (!PlayerAvatar.All.TryGetValue(id, out PlayerAvatar player))

@@ -1,29 +1,31 @@
+using Anaglyph.Netcode;
 using Anaglyph.XRTemplate.AprilTags;
 using AprilTag;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Unity.Mathematics;
-using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
 using UnityEngine.XR;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
-	public class TagColocator : NetworkBehaviour, IColocator
+	public class TagColocator : MonoBehaviour, IColocator
 	{
 		public static TagColocator Instance { get; private set; }
 
 		public float tagSizeCmHostSetting;
-		private readonly NetworkVariable<float> tagSizeSync = new();
+		private readonly SyncVariable<float> tagSizeSync = new("tags.size");
 		public float TagSizeCm => tagSizeSync.Value;
 
-		private readonly Dictionary<int, Pose> canonTags = new();
+		// Canon tag poses live in the shared frame and are registered by the bus
+		// authority; local tag positions are per-peer only.
+		private readonly SyncDictionary<int, Pose> canonTags = new("tags.canon");
 		private readonly Dictionary<int, Vector3> localTags = new();
 
-		public ReadOnlyDictionary<int, Pose> CanonTags;
-		public ReadOnlyDictionary<int, Vector3> LocalTags;
+		public IReadOnlyDictionary<int, Pose> CanonTags => canonTags;
+		public ReadOnlyDictionary<int, Vector3> LocalTags { get; private set; }
 
 		private readonly List<float3> sharedLocalPositions = new();
 		private readonly List<float3> sharedCanonPositions = new();
@@ -33,15 +35,16 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		[Tooltip("In meters/second")] public float maxHeadSpeed = 2f;
 		[Tooltip("In radians/second")] public float maxHeadAngSpeed = 2f;
 
-		// [SerializeField] private GameObject worldLockAnchorPrefab;
 		[SerializeField] private AprilTagTracker tagTracker;
 		public AprilTagTracker TagTracker => tagTracker;
-
-		// private WorldLockAnchor anchor;
 
 		private bool isActive;
 		public bool IsActive => isActive;
 		private bool isAligned;
+
+		// Set when a non-authority peer realigns: the clear runs once bus authority
+		// actually lands on this peer (see OnAuthorityChanged).
+		private bool pendingRealign;
 
 		public event Action Colocated = delegate { };
 
@@ -51,8 +54,22 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			tagTracker = FindAnyObjectByType<AprilTagTracker>();
 
-			CanonTags = new ReadOnlyDictionary<int, Pose>(canonTags);
 			LocalTags = new ReadOnlyDictionary<int, Vector3>(localTags);
+
+			tagSizeSync.Register();
+			canonTags.Register();
+			canonTags.Changed += OnCanonTagsChanged;
+			SyncBus.Activated += OnBusActivated;
+			SyncBus.AuthorityChanged += OnAuthorityChanged;
+		}
+
+		private void OnDestroy()
+		{
+			SyncBus.AuthorityChanged -= OnAuthorityChanged;
+			SyncBus.Activated -= OnBusActivated;
+			canonTags.Changed -= OnCanonTagsChanged;
+			canonTags.Unregister();
+			tagSizeSync.Unregister();
 		}
 
 		private void Start()
@@ -60,45 +77,20 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			tagTracker.enabled = false;
 		}
 
-		public override void OnNetworkSpawn()
+		private void OnBusActivated()
 		{
-			if (IsOwner)
+			if (SyncBus.IsAuthority)
 				tagSizeSync.Value = tagSizeCmHostSetting;
 		}
 
-		protected override void OnSynchronize<T>(ref BufferSerializer<T> serializer)
+		// The canon set emptying (realign or session reset) invalidates every peer's
+		// local pairs and alignment.
+		private void OnCanonTagsChanged()
 		{
-			int count = 0;
-			int key = 0;
-			Pose value = default;
+			if (canonTags.Count != 0) return;
 
-			if (serializer.IsWriter)
-			{
-				count = canonTags.Count;
-				serializer.SerializeValue(ref count);
-
-				foreach (KeyValuePair<int, Pose> kvp in canonTags)
-				{
-					key = kvp.Key;
-					value = kvp.Value;
-					serializer.SerializeValue(ref key);
-					serializer.SerializeValue(ref value);
-				}
-			}
-			else
-			{
-				serializer.SerializeValue(ref count);
-
-				canonTags.EnsureCapacity(count);
-				canonTags.Clear();
-
-				for (int i = 0; i < count; i++)
-				{
-					serializer.SerializeValue(ref key);
-					serializer.SerializeValue(ref value);
-					canonTags[key] = value;
-				}
-			}
+			localTags.Clear();
+			isAligned = false;
 		}
 
 		private readonly List<XRInputSubsystem> xrSubsystems = new();
@@ -115,8 +107,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			tagTracker.OnDetectTags += OnDetectTags;
 			tagTracker.tagSizeMeters = TagSizeCm / 100f;
 
-			// anchor = Instantiate(worldLockAnchorPrefab).GetComponent<WorldLockAnchor>();
-
 			tagTracker.enabled = true;
 		}
 
@@ -125,6 +115,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (!isActive) return;
 			isActive = false;
 			isAligned = false;
+			pendingRealign = false;
 
 			foreach (XRInputSubsystem sub in xrSubsystems)
 				sub.trackingOriginUpdated -= OnTrackingOriginUpdated;
@@ -134,23 +125,41 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			tagTracker.enabled = false;
 
-			canonTags.Clear();
 			localTags.Clear();
-
-			// Destroy(anchor.gameObject);
 		}
 
+		// Clearing the canon set restarts alignment everywhere (each peer reacts in
+		// OnCanonTagsChanged). The realigner must be the bus authority first — it
+		// registers the new canon tags — so on a non-authority peer the clear waits
+		// for the ownership change to land instead of racing it.
 		public void RealignEveryone()
 		{
-			ClearAllTagsRpc();
+			if (!SyncBus.Active) return;
+
+			if (SyncBus.IsAuthority)
+			{
+				canonTags.Clear();
+			}
+			else
+			{
+				pendingRealign = true;
+				SyncBus.RequestAuthority();
+			}
 		}
 
-		[Rpc(SendTo.Everyone)]
-		private void ClearAllTagsRpc()
+		private void OnAuthorityChanged(bool isAuthority)
 		{
-			canonTags.Clear();
-			localTags.Clear();
-			isAligned = false;
+			if (!isAuthority)
+			{
+				pendingRealign = false; // someone else took over mid-request
+				return;
+			}
+
+			if (pendingRealign)
+			{
+				pendingRealign = false;
+				canonTags.Clear();
+			}
 		}
 
 		private void OnTrackingOriginUpdated(XRInputSubsystem _)
@@ -158,7 +167,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			localTags.Clear();
 		}
 
-		private async void OnDetectTags(IReadOnlyList<TagPose> results)
+		private void OnDetectTags(IReadOnlyList<TagPose> results)
 		{
 			Transform space = MainXRRig.TrackingSpace;
 			Matrix4x4 spaceMat = MainXRRig.TrackingSpace.localToWorldMatrix;
@@ -172,7 +181,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 
 			// register canon tags
-			if (IsOwner)
+			if (SyncBus.IsAuthority)
 			{
 				// Head velocity at the frame's capture time, to avoid registering
 				// canon tags while moving fast (motion blur / pose-latency error).
@@ -207,10 +216,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 						bool isCloseEnough = dist < TagSizeCm * lockDistanceScale;
 
 						if (isCloseEnough)
-						{
-							Pose pose = new(r.Position, r.Rotation);
-							RegisterCanonTagRpc(r.ID, pose);
-						}
+							canonTags.Set(r.ID, new Pose(r.Position, r.Rotation));
 					}
 				}
 			}
@@ -254,15 +260,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				Colocated.Invoke();
 
 			isAligned = true;
-
-			await Awaitable.EndOfFrameAsync();
-			// anchor.target = anchor.transform.localToWorldMatrix;
-		}
-
-		[Rpc(SendTo.Everyone, InvokePermission = RpcInvokePermission.Owner)]
-		private void RegisterCanonTagRpc(int id, Pose canonPose)
-		{
-			canonTags[id] = canonPose;
 		}
 	}
 }
