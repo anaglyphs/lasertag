@@ -53,6 +53,8 @@ namespace Anaglyph.Lasertag
 			if (!PlayerAvatar.Local)
 				return;
 
+			IsInFriendlyBase = PlayerAvatar.Local.IsInFriendlyBase;
+
 			// health
 			if (redDamagedVision)
 			{
@@ -70,19 +72,6 @@ namespace Anaglyph.Lasertag
 			WeaponsManagement.CanFire = IsAlive;
 
 			Health = Mathf.Clamp(Health, 0, MaxHealth);
-
-			// bases
-			IsInFriendlyBase = false;
-			foreach (Base teamBase in Base.AllBases)
-				if (Geo.PointIsInCylinder(teamBase.transform.position, Base.Radius, 3, headTransform.position))
-				{
-					if (MatchReferee.State != MatchState.Playing || PlayerAvatar.Local.Team == 0)
-						PlayerAvatar.Local.TeamOwner.teamSync.Value = teamBase.Team;
-					else if (PlayerAvatar.Local.Team != teamBase.Team) continue;
-
-					IsInFriendlyBase = true;
-					break;
-				}
 
 			// respawn timer
 			if (!IsAlive)
@@ -193,8 +182,8 @@ namespace Anaglyph.Lasertag
 
 				if (MatchReferee.State == MatchState.Playing && killer.Team != PlayerAvatar.Local.Team)
 				{
-					MatchReferee referee = MatchReferee.Instance;
-					referee.ScoreRpc(killer.Team, MatchReferee.Settings.pointsPerKill);
+					MatchReferee referee = MatchReferee.Current;
+					referee.Score(killer.Team, MatchReferee.Settings.pointsPerKill);
 				}
 			}
 		}

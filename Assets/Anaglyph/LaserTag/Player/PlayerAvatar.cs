@@ -39,9 +39,12 @@ namespace Anaglyph.Lasertag.Networking
 
 		public byte Team => teamOwner.Team;
 
+		private readonly HashSet<Base> basesInside = new();
+
+		public bool IsInBase => basesInside.Count > 0;
 		public bool IsInFriendlyBase { get; private set; }
-		public bool IsInBase { get; private set; }
-		public Base InBase { get; private set; }
+		public Action<bool> InFriendlyBaseChanged = delegate { };
+		public Base OccupiedBase { get; private set; }
 
 		public NetworkVariable<int> scoreSync;
 		public int Score => scoreSync.Value;
@@ -74,6 +77,8 @@ namespace Anaglyph.Lasertag.Networking
 
 				foreach (GameObject g in deactivatedWhenDead) g.SetActive(isAlive);
 			};
+
+			teamOwner.TeamChanged += delegate { RefreshBaseState(); };
 		}
 
 		private void OnValidate()
@@ -101,30 +106,47 @@ namespace Anaglyph.Lasertag.Networking
 			Killed.Invoke();
 			OtherPlayers.Remove(this);
 			All.Remove(OwnerClientId);
+
+			// A ControlPoint won't reliably get OnTriggerExit if this player despawns
+			// (e.g. disconnects) while standing inside its trigger, so proactively
+			// remove this player from any that might still be holding a reference.
+			foreach (ControlPoint cp in ControlPoint.AllControlPoints)
+				cp.RemovePlayer(this);
 		}
 
-		private void HandleBases()
+		internal void EnterBase(Base b)
 		{
-			foreach (Base b in Base.AllBases)
-				if (Geo.PointIsInCylinder(b.transform.position, Base.Radius, 3, headTransform.position))
-				{
-					IsInBase = true;
-					InBase = b;
+			basesInside.Add(b);
+			RefreshBaseState();
 
-					if (Team == b.Team)
-						IsInFriendlyBase = true;
-
-					return;
-				}
-
-			InBase = null;
-			IsInBase = false;
-			IsInFriendlyBase = false;
+			bool notPlaying = MatchReferee.State != MatchState.Playing;
+			if (IsOwner && IsInBase && (notPlaying || Team == 0))
+				TeamOwner.teamSync.Value = OccupiedBase.Team;
 		}
 
-		private void Update()
+		internal void ExitBase(Base b)
 		{
-			HandleBases();
+			basesInside.Remove(b);
+			RefreshBaseState();
+		}
+
+		private void RefreshBaseState()
+		{
+			bool inFriendly = false;
+			Base occupied = null;
+
+
+			foreach (Base b in basesInside)
+			{
+				if (b.Team == Team)
+					inFriendly = true;
+
+				occupied = b;
+				break;
+			}
+
+			OccupiedBase = occupied;
+			IsInFriendlyBase = inFriendly;
 		}
 
 		public void Damage(IDamageable.Data data)

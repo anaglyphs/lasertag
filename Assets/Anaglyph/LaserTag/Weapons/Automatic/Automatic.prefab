@@ -134,13 +134,13 @@ MonoBehaviour:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
-      inSlope: 2
-      outSlope: 2
+      value: 0.5
+      inSlope: 1.0109892
+      outSlope: 1.0109892
       tangentMode: 0
       weightedMode: 0
       inWeight: 0
-      outWeight: 0
+      outWeight: 0.108333334
     - serializedVersion: 3
       time: 1
       value: 1
@@ -164,7 +164,7 @@ AudioSource:
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
   m_audioClip: {fileID: 0}
-  m_Resource: {fileID: 8300000, guid: 078b342e142134f0c88f32a49925bbf7, type: 3}
+  m_Resource: {fileID: 8300000, guid: 57ce8ec7a9cb24db2b7b7c689700d013, type: 3}
   m_PlayOnAwake: 0
   m_Volume: 1
   m_Pitch: 1

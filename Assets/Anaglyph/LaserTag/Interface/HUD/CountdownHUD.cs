@@ -1,5 +1,4 @@
 using System.Threading;
-using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -10,8 +9,6 @@ namespace Anaglyph.Lasertag
 	{
 		[SerializeField] private Graphic queued;
 		[SerializeField] private TMP_Text countdownText;
-
-		private MatchReferee matchReferee => MatchReferee.Instance;
 
 		private CancellationTokenSource countdownCanceller = new();
 
@@ -34,40 +31,30 @@ namespace Anaglyph.Lasertag
 			countdownCanceller.Cancel();
 			countdownText.enabled = false;
 
-			switch (state)
+			if (state == MatchState.Countdown)
 			{
-				case MatchState.Countdown:
-					countdownCanceller = new();
-					_ = CountdownTask(countdownCanceller.Token);
-					break;
-
-				case MatchState.Playing:
-					countdownCanceller = new();
-					_ = GoTask(countdownCanceller.Token);
-					break;
+				countdownCanceller = new CancellationTokenSource();
+				_ = CountdownTask(countdownCanceller.Token);
 			}
 		}
 
-		private async Task CountdownTask(CancellationToken ctn)
+		private async Awaitable CountdownTask(CancellationToken ctn)
 		{
 			countdownText.enabled = true;
+
+			float timeElapsed = MatchReferee.Current.GetTimeElapsed();
 
 			countdownText.text = "3";
-			await Awaitable.WaitForSecondsAsync(1, ctn);
+			await Awaitable.WaitForSecondsAsync(Mathf.Max(0, 1 - timeElapsed), ctn);
 
 			countdownText.text = "2";
-			await Awaitable.WaitForSecondsAsync(1, ctn);
+			await Awaitable.WaitForSecondsAsync(Mathf.Max(0, 2 - timeElapsed), ctn);
 
 			countdownText.text = "1";
-			await Awaitable.WaitForSecondsAsync(1, ctn);
-		}
-
-		private async Task GoTask(CancellationToken ctn)
-		{
-			countdownText.enabled = true;
+			await Awaitable.WaitForSecondsAsync(Mathf.Max(0, 3 - timeElapsed), ctn);
 
 			countdownText.text = "Go!";
-			await Awaitable.WaitForSecondsAsync(1.5f, ctn);
+			await Awaitable.WaitForSecondsAsync(Mathf.Max(0, 4.5f - timeElapsed), ctn);
 
 			countdownText.enabled = false;
 		}

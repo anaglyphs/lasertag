@@ -38,7 +38,7 @@ namespace Anaglyph.Lasertag
 
 		[SerializeField] private Button finishEditingButton;
 
-		private MatchReferee referee => MatchReferee.Instance;
+		private MatchReferee referee => MatchReferee.Current;
 
 		private MatchSettings matchSettings = MatchSettings.DemoGame();
 
@@ -86,11 +86,11 @@ namespace Anaglyph.Lasertag
 					matchSettings.damageMultiplier = f;
 			});
 
-			startButton.onClick.AddListener(() => referee?.QueueMatchRpc(matchSettings));
+			startButton.onClick.AddListener(() => referee?.QueueMatch(matchSettings));
 
 			// playing page
 			playingPage.showBackButton = false;
-			cancelButton.onClick.AddListener(() => referee?.EndMatchRpc());
+			cancelButton.onClick.AddListener(() => referee?.EndMatch());
 
 			// map manager page
 			editMapButton.onClick.AddListener(() => MapEditor.SetActive(true));

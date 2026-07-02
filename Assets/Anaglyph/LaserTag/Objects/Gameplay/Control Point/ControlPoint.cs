@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using Anaglyph.Lasertag.Networking;
 using System.Threading.Tasks;
@@ -10,7 +11,6 @@ namespace Anaglyph.Lasertag
 {
 	public class ControlPoint : NetworkBehaviour
 	{
-		public const float Radius = 1.5f;
 		public const float MillisToTake = 10000;
 
 		public UnityEvent<byte> ControllingTeamChanged = new();
@@ -24,13 +24,22 @@ namespace Anaglyph.Lasertag
 		public float MillisCaptured => millisCapturedSync.Value;
 		private NetworkVariable<float> millisCapturedSync = new(0);
 
-		private MatchReferee referee => MatchReferee.Instance;
+		private MatchReferee referee => MatchReferee.Current;
 
 		[SerializeField] private Image conquerTimeIndicator;
+
+		private readonly HashSet<PlayerAvatar> playersInside = new();
+
+		public static List<ControlPoint> AllControlPoints { get; private set; } = new();
 
 		private void OnValidate()
 		{
 			TryGetComponent(out teamOwner);
+		}
+
+		private void Awake()
+		{
+			AllControlPoints.Add(this);
 		}
 
 		private void Start()
@@ -43,6 +52,12 @@ namespace Anaglyph.Lasertag
 		{
 			base.OnDestroy();
 			MatchReferee.StateChanged -= OnMatchStateChanged;
+			AllControlPoints.Remove(this);
+		}
+
+		internal void RemovePlayer(PlayerAvatar player)
+		{
+			playersInside.Remove(player);
 		}
 
 		private void OnTeamChanged(byte team)
@@ -101,18 +116,34 @@ namespace Anaglyph.Lasertag
 				ctkn.ThrowIfCancellationRequested();
 
 				if (teamOwner.Team != 0)
-					referee.ScoreRpc(teamOwner.Team, MatchReferee.Settings.pointsPerSecondHoldingPoint);
+					referee.Score(teamOwner.Team, MatchReferee.Settings.pointsPerSecondHoldingPoint);
 			}
 		}
 
 
+		private void OnTriggerEnter(Collider other)
+		{
+			if (!other.CompareTag(PlayerAvatar.Tag))
+				return;
+
+			PlayerAvatar player = other.GetComponentInParent<PlayerAvatar>();
+			if (player != null)
+				playersInside.Add(player);
+		}
+
+		private void OnTriggerExit(Collider other)
+		{
+			if (!other.CompareTag(PlayerAvatar.Tag))
+				return;
+
+			PlayerAvatar player = other.GetComponentInParent<PlayerAvatar>();
+			if (player != null)
+				playersInside.Remove(player);
+		}
+
 		private bool CheckIfPlayerIsInside(PlayerAvatar player)
 		{
-			if (!player.IsAlive)
-				return false;
-
-			Vector3 playerHeadPos = player.HeadTransform.position;
-			return Geo.PointIsInCylinder(transform.position, Radius, 3, playerHeadPos);
+			return player.IsAlive && playersInside.Contains(player);
 		}
 
 		private void Update()
