@@ -273,13 +273,14 @@ void LitPassFragment(
 
 	// positionCS here is WINDOW space: .xy = pixels, .z = depth-buffer value, .w = 1/clipW
 	float deviceDepth = input.positionCS.z; // the value to compare — no divide
-	float2 screenUV = inputData.normalizedScreenSpaceUV; // already positionCS.xy / scaledScreenParams
+
+	// agOcclusionTex is rasterized with this camera's matrices, so raw window
+	// coordinates already line up 1:1 with its rows on every platform. Don't use
+	// GetNormalizedScreenSpaceUV here: its _ScaleBiasRt y-flip depends on the
+	// current target's flip state (editor vs XR) and misaligns the sample.
+	float2 screenUV = input.positionCS.xy * rcp(GetScaledScreenParams().xy);
 
 	float3 uvEye = float3(screenUV, unity_StereoEyeIndex);
-
-	#if UNITY_UV_STARTS_AT_TOP
-	uvEye.y = 1.0 - uvEye.y;
-	#endif
 
 	float occlusion = agOcclusionTex.SampleCmpLevelZero(agLinearClampCompareSampler, uvEye, deviceDepth);
 	color *= occlusion;

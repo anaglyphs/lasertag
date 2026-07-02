@@ -1,3 +1,4 @@
+using Anaglyph.XRTemplate.DepthKit;
 using Unity.Mathematics;
 using UnityEditor;
 using UnityEngine;
@@ -11,7 +12,9 @@ namespace Anaglyph.DepthKit
 	public class DepthKitEnvironmentOcclusionFeature : ScriptableRendererFeature
 	{
 		public Shader zDepthShader;
+		public Shader depthPrimeShader;
 		public float relativeTexSize = 0.5f;
+		public float rawDepthMaxDistance = 6;
 		public LayerMask OcclusionMeshLayerMask;
 
 		private DepthKitEnvironmentOcclusionPass depthKitEnvironmentOcclusionPass;
@@ -23,9 +26,11 @@ namespace Anaglyph.DepthKit
 			SetOcclusionShaderActive(false);
 
 			Material depthMat = new(zDepthShader);
+			Material primeMat = new(depthPrimeShader);
 
 			depthKitEnvironmentOcclusionPass =
-				new DepthKitEnvironmentOcclusionPass(depthMat, relativeTexSize, OcclusionMeshLayerMask.value)
+				new DepthKitEnvironmentOcclusionPass(depthMat, primeMat, relativeTexSize, rawDepthMaxDistance,
+					OcclusionMeshLayerMask.value)
 				{
 					renderPassEvent = RenderPassEvent.BeforeRenderingOpaques
 				};
@@ -75,17 +80,23 @@ namespace Anaglyph.DepthKit
 			private const string PassName = "Environment Mesh Occlusion Feature (RenderGraph)";
 
 			private static readonly int OcclusionTexID = Shader.PropertyToID("agOcclusionTex");
+			private static readonly int MaxDistanceID = Shader.PropertyToID("_MaxDistance");
 			private static readonly ShaderTagId ShaderTag = new("UniversalForward");
 
 			private readonly Material depthMat;
+			private readonly Material rawDepthPrimeMat;
+			private readonly float rawDepthMaxDistance;
 			private readonly float relativeTexSize;
 			private readonly int layermask;
 			private readonly ComputeShader compute;
 
-			public DepthKitEnvironmentOcclusionPass(Material depthMat, float relativeTexSize, int layermask)
+			public DepthKitEnvironmentOcclusionPass(Material depthMat, Material rawDepthPrimeMat,
+				float relativeTexSize, float rawDepthMaxDistance, int layermask)
 			{
 				this.depthMat = depthMat;
+				this.rawDepthPrimeMat = rawDepthPrimeMat;
 				this.relativeTexSize = relativeTexSize;
+				this.rawDepthMaxDistance = rawDepthMaxDistance;
 				this.layermask = layermask;
 			}
 
@@ -93,6 +104,7 @@ namespace Anaglyph.DepthKit
 			{
 				public TextureHandle occlusionTexHandle;
 				public RendererListHandle rendererListHandle;
+				public Material primeMat;
 				public ComputeShader compute;
 				public int2 texSize;
 			}
@@ -138,6 +150,15 @@ namespace Anaglyph.DepthKit
 					data.rendererListHandle = graph.CreateRendererList(listParams);
 					builder.UseRendererList(data.rendererListHandle);
 
+					// composite the live sensor depth under the environment meshes.
+					// agDepthTex is external to the render graph (set via
+					// Shader.SetGlobalTexture on the CPU timeline), so it needs no
+					// UseTexture tracking; skip while no sensor depth is bound
+					bool primeRawDepth = rawDepthPrimeMat != null && DepthKitDriver.DepthAvailable;
+					if (primeRawDepth)
+						rawDepthPrimeMat.SetFloat(MaxDistanceID, rawDepthMaxDistance);
+					data.primeMat = primeRawDepth ? rawDepthPrimeMat : null;
+
 					builder.SetRenderAttachmentDepth(data.occlusionTexHandle, AccessFlags.Write);
 					builder.AllowGlobalStateModification(true);
 					builder.SetGlobalTextureAfterPass(data.occlusionTexHandle, OcclusionTexID);
@@ -145,6 +166,11 @@ namespace Anaglyph.DepthKit
 					builder.SetRenderFunc((PassData passData, RasterGraphContext ctx) =>
 					{
 						ctx.cmd.ClearRenderTarget(RTClearFlags.Depth, Color.black, 1f, 0);
+
+						if (passData.primeMat != null)
+							ctx.cmd.DrawProcedural(Matrix4x4.identity, passData.primeMat, 0,
+								MeshTopology.Triangles, 3, 1);
+
 						ctx.cmd.DrawRendererList(passData.rendererListHandle);
 					});
 				}
