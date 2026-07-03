@@ -570,6 +570,10 @@ PrefabInstance:
     m_TransformParent: {fileID: 8386573127325202258}
     m_Modifications:
     - target: {fileID: 111035476340477064, guid: 6a76ed4572a6f41209e8e419f1a62595, type: 3}
+      propertyPath: m_Text
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 111035476340477064, guid: 6a76ed4572a6f41209e8e419f1a62595, type: 3}
       propertyPath: m_ContentType
       value: 3
       objectReference: {fileID: 0}
@@ -669,6 +673,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 1486116178661421787, guid: 6a76ed4572a6f41209e8e419f1a62595, type: 3}
+      propertyPath: m_text
+      value: "10\u200B"
+      objectReference: {fileID: 0}
     - target: {fileID: 3270778430655041580, guid: 6a76ed4572a6f41209e8e419f1a62595, type: 3}
       propertyPath: m_Text
       value: tag size (cm)
@@ -680,6 +688,10 @@ PrefabInstance:
     - target: {fileID: 7692942772614877165, guid: 6a76ed4572a6f41209e8e419f1a62595, type: 3}
       propertyPath: m_text
       value: tag size (cm)
+      objectReference: {fileID: 0}
+    - target: {fileID: 8509661491517655403, guid: 6a76ed4572a6f41209e8e419f1a62595, type: 3}
+      propertyPath: m_Enabled
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -2269,6 +2281,8 @@ MonoBehaviour:
   disconnectButton: {fileID: 7856992057782605237}
   recalibrateButton: {fileID: 5807059345373594019}
   hostRelay: {fileID: 11400000, guid: 8256b37a220cf5d4aa386e985d532dcb, type: 2}
+  aprilTagColocation: {fileID: 0}
+  aprilTagSize: {fileID: 0}
 --- !u!1001 &4630908746461759576
 PrefabInstance:
   m_ObjectHideFlags: 0

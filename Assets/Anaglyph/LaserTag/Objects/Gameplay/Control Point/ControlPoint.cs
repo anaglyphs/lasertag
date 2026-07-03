@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using Anaglyph.Lasertag.Networking;
@@ -9,6 +10,14 @@ using UnityEngine.UI;
 
 namespace Anaglyph.Lasertag
 {
+	[Flags]
+	public enum ControlPointState
+	{
+		NotCapturing = 0b0000,
+		Capturing = 0b0001,
+		Contested = 0b0011
+	}
+
 	public class ControlPoint : NetworkBehaviour
 	{
 		public const float MillisToTake = 10000;
@@ -24,7 +33,7 @@ namespace Anaglyph.Lasertag
 		public float MillisCaptured => millisCapturedSync.Value;
 		private NetworkVariable<float> millisCapturedSync = new(0);
 
-		private MatchReferee referee => MatchReferee.Current;
+		private MatchReferee referee => MatchReferee.Instance;
 
 		[SerializeField] private Image conquerTimeIndicator;
 
@@ -107,11 +116,11 @@ namespace Anaglyph.Lasertag
 		{
 			CancellationToken ctkn = destroyCancellationToken;
 
-			if (!IsOwner)
-				return;
-
 			while (MatchReferee.State == MatchState.Playing)
 			{
+				if (!IsOwner)
+					return;
+
 				await Awaitable.WaitForSecondsAsync(1, ctkn);
 				ctkn.ThrowIfCancellationRequested();
 
@@ -179,7 +188,7 @@ namespace Anaglyph.Lasertag
 					{
 						if (!isStalemated)
 						{
-							millisCapturedSync.Value += Time.fixedDeltaTime * 1000;
+							millisCapturedSync.Value += Time.fixedTime * 1000;
 
 							if (millisCapturedSync.Value > MillisToTake)
 								CaptureOwnerRpc(CapturingTeam);

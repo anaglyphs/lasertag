@@ -12,7 +12,6 @@ namespace Anaglyph.Lasertag.Weapons
 	public class Automatic : MonoBehaviour
 	{
 		private HandSubject hand;
-		[SerializeField] private string fireAction = "Activate";
 
 		[SerializeField] private GameObject boltPrefab = null;
 		[SerializeField] private Transform emitFromTransform = null;
@@ -30,17 +29,16 @@ namespace Anaglyph.Lasertag.Weapons
 		private void Awake()
 		{
 			TryGetComponent(out hand);
-			hand.Bind(nameof(OnFire), OnFire);
 		}
 
 		private void OnEnable()
 		{
-			hand.Bind(fireAction, OnFire);
+			hand.Bind(nameof(OnFire), OnFire);
 		}
 
 		private void OnDisable()
 		{
-			hand.Unbind(fireAction, OnFire);
+			hand.Unbind(nameof(OnFire), OnFire);
 		}
 
 		public void OnFire(InputAction.CallbackContext context)

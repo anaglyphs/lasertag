@@ -1,5 +1,7 @@
 using System;
 using System.Net;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Unity.Netcode;
@@ -33,8 +35,8 @@ namespace Anaglyph.Netcode
 		private static UnityTransport transport =>
 			(UnityTransport)NetworkManager.Singleton.NetworkConfig.NetworkTransport;
 
-		public static ushort port = 7777;
-		public static string contyp = "dtls";
+		public const ushort port = 7777;
+		public const string DefaultIP = "0.0.0.0";
 
 		private static float cooldownDoneTime = 0;
 
@@ -62,9 +64,6 @@ namespace Anaglyph.Netcode
 		{
 			taskCanceller?.Cancel();
 			taskCanceller = new CancellationTokenSource();
-
-			port = 7777;
-			contyp = "dtls";
 			cooldownDoneTime = 0;
 
 			_state = NetcodeState.Disconnected;
@@ -131,24 +130,14 @@ namespace Anaglyph.Netcode
 			manager.NetworkConfig.NetworkTransport = newTransport;
 		}
 
-		public static void Host(Protocol protocol)
+		public static async void Host(Protocol protocol)
 		{
 			switch (protocol)
 			{
 				case Protocol.LAN:
 					SetNetworkTransportType(Protocol.LAN);
 					manager.NetworkConfig.UseCMBService = false;
-
-					string localAddress = "";
-					IPAddress[] addresses = Dns.GetHostEntry(Dns.GetHostName()).AddressList;
-					foreach (IPAddress address in addresses)
-						if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-						{
-							localAddress = address.ToString();
-							break;
-						}
-
-					transport.SetConnectionData(localAddress, port);
+					transport.SetConnectionData(DefaultIP, port, DefaultIP);
 					manager.StartHost();
 					break;
 
@@ -156,7 +145,7 @@ namespace Anaglyph.Netcode
 
 					try
 					{
-						Task connectTask = ConnectUnityServices(DateTime.Now.ToString("HHmmssffff"), PrepareNextTask());
+						await ConnectUnityServices(DateTime.Now.ToString("HHmmssffff"), PrepareNextTask());
 					}
 					catch (Exception e)
 					{
@@ -191,11 +180,11 @@ namespace Anaglyph.Netcode
 				await AuthenticationService.Instance.SignInAnonymouslyAsync();
 		}
 
-		public static void ConnectUnityServices(string id)
+		public static async void ConnectUnityServices(string id)
 		{
 			try
 			{
-				Task connectTask = ConnectUnityServices(id, PrepareNextTask());
+				await ConnectUnityServices(id, PrepareNextTask());
 			}
 			catch (Exception e)
 			{
@@ -278,10 +267,26 @@ namespace Anaglyph.Netcode
 
 		public static string GetLocalIPv4()
 		{
-			IPAddress[] addresses = Dns.GetHostEntry(Dns.GetHostName()).AddressList;
-			foreach (IPAddress address in addresses)
-				if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+			foreach (NetworkInterface netInterface in NetworkInterface.GetAllNetworkInterfaces())
+			{
+				if (netInterface.OperationalStatus != OperationalStatus.Up) continue;
+
+				NetworkInterfaceType netType = netInterface.NetworkInterfaceType;
+
+				if (netType != NetworkInterfaceType.Wireless80211 && netType != NetworkInterfaceType.Ethernet) continue;
+
+				foreach (UnicastIPAddressInformation addressInfo in netInterface.GetIPProperties().UnicastAddresses)
+				{
+					IPAddress address = addressInfo.Address;
+
+					if (address.AddressFamily != AddressFamily.InterNetwork) continue;
+
+					byte[] b = address.GetAddressBytes();
+					if (b[0] == 169 && b[1] == 254) continue; // link-local = no DHCP lease
+
 					return address.ToString();
+				}
+			}
 
 			return null;
 		}

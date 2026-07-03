@@ -1,0 +1,126 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &4658663475596877275
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8956859265145663598}
+  - component: {fileID: 2688926647115979517}
+  - component: {fileID: 7635422210532366939}
+  - component: {fileID: 8862733854877386027}
+  - component: {fileID: 3181667627902939140}
+  m_Layer: 0
+  m_Name: EnvironmentScanner
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8956859265145663598
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4658663475596877275}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2688926647115979517
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4658663475596877275}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4da2cc6f08414be49a8dd29eafdfeaa2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.DepthKit::Anaglyph.XRTemplate.DepthKit.DepthKitDriver
+  depthNormalCompute: {fileID: 7200000, guid: 094ecfc2d2e1d984c9955562fea46b9d, type: 3}
+  simDepthConversionShader: {fileID: 4800000, guid: 82205287c50174936b6864df5b631e7f, type: 3}
+--- !u!114 &7635422210532366939
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4658663475596877275}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5a4cc29377bed40f4950872152c06c5f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.DepthKit::Anaglyph.XRTemplate.EnvMapper2
+  compute: {fileID: 7200000, guid: 41b220d3a9ac640c1a2cad5c44bc30f2, type: 3}
+  updateFrequency: 15
+  updateRange:
+    x: 1
+    y: 6
+  minDot: 0.3
+  voxSize: 0.1
+  distanceTruncationBand: 0.2
+  voxPerChunkDim: 32
+  playerMaskRadius: 0.8
+  playerMaskAbove: 0.5
+  playerMaskBelow: 2
+  chunkTableDims:
+    x: 100
+    y: 15
+    z: 100
+  chunkDataDims:
+    x: 16
+    y: 8
+    z: 16
+  maxNumVisibleChunks: 256
+--- !u!114 &8862733854877386027
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4658663475596877275}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dcb83a07e598b4f2a9c95ac5e2de414d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EnvScanning2::ChunkManager2
+  chunkPrefab: {fileID: 8545573707260339346, guid: de0df2db1268449c5be416e37e231c38, type: 3}
+  numMeshWorkers: 2
+  meshSweptVoxelsThreshold: 50
+  rendererData: {fileID: 11400000, guid: cf65c79082bdf4c4fb1ba1fd4ed52c18, type: 2}
+  decimationTarget:
+    Kind: 6
+    Value: 0.01
+  decimationOptions:
+    PreserveBorderEdges: 1
+    PreserveSurfaceCurvature: 0
+    UseBarycentricCoordinateInterpolation: 0
+    EnableSmartLink: 0
+    MinNormalDot: 0.9
+    VertexLinkDistance: 0.0001
+    VertexLinkMinNormalDot: 0.95
+    VertexLinkColorDistance: 0.01
+    VertexLinkUvDistance: 0.001
+--- !u!114 &3181667627902939140
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4658663475596877275}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6aeac7489dee640b58f674f91a71e7f5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.DepthKit::Anaglyph.DepthKit.StereoAlphaOccluderDriver
+  stereoAlphaOccluderMaterial: {fileID: 2100000, guid: 5011a7c4fa28a6440825134b0bb85188, type: 2}

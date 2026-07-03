@@ -42,7 +42,7 @@ namespace Anaglyph.Lasertag
 		{
 			countdownText.enabled = true;
 
-			float timeElapsed = MatchReferee.Current.GetTimeElapsed();
+			float timeElapsed = MatchReferee.Instance.GetTimeElapsed();
 
 			countdownText.text = "3";
 			await Awaitable.WaitForSecondsAsync(Mathf.Max(0, 1 - timeElapsed), ctn);

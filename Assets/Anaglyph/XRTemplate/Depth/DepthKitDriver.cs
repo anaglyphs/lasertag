@@ -49,7 +49,6 @@ namespace Anaglyph.XRTemplate.DepthKit
 		private Material simDepthConversionMat;
 
 		private ComputeKernel normKernel;
-		private ComputeKernel clearKernel;
 
 		private Camera mainCam;
 
@@ -72,8 +71,6 @@ namespace Anaglyph.XRTemplate.DepthKit
 		private void Start()
 		{
 			arOcclusionManager = FindFirstObjectByType<AROcclusionManager>();
-			arOcclusionManager.requestedOcclusionPreferenceMode = OcclusionPreferenceMode.NoOcclusion;
-			arOcclusionManager.requestedEnvironmentDepthMode = EnvironmentDepthMode.Disabled;
 
 			if (!arOcclusionManager)
 				throw new Exception("[DepthKitDriver] AROcclusionManager not found");
@@ -134,6 +131,9 @@ namespace Anaglyph.XRTemplate.DepthKit
 					    simulatedDepthTex.width != rawDepth.width ||
 					    simulatedDepthTex.height != rawDepth.height)
 					{
+						if (simulatedDepthTex != null)
+							Destroy(simulatedDepthTex);
+
 						RenderTextureDescriptor occlusionTexDesc = new()
 						{
 							width = rawDepth.width,
@@ -238,6 +238,9 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 			// create normals from depth
 			if (normTex == null || normTex.width != depthTex.width || normTex.height != depthTex.height)
+			{
+				if (normTex != null)
+					Destroy(normTex);
 
 				normTex = new RenderTexture(depthTex.width, depthTex.height, 0, GraphicsFormat.R8G8B8A8_SNorm, 1)
 				{
@@ -246,6 +249,7 @@ namespace Anaglyph.XRTemplate.DepthKit
 					useMipMap = false,
 					enableRandomWrite = true
 				};
+			}
 
 			normKernel.Bind(depthTexID, depthTex);
 			normKernel.Bind(rwNormTexID, normTex);
@@ -261,15 +265,15 @@ namespace Anaglyph.XRTemplate.DepthKit
 
 		private static Matrix4x4 CalculateDepthProjMatrix(XRFov fov, XRNearFarPlanes planes)
 		{
-			float left = fov.angleLeft;
-			float right = fov.angleRight;
-			float bottom = fov.angleDown;
-			float top = fov.angleUp;
+			// float left = fov.angleLeft;
+			// float right = fov.angleRight;
+			// float bottom = fov.angleDown;
+			// float top = fov.angleUp;
 
-			left = Mathf.Tan(fov.angleLeft);
-			right = Mathf.Tan(fov.angleRight);
-			bottom = Mathf.Tan(fov.angleDown);
-			top = Mathf.Tan(fov.angleUp);
+			float left = Mathf.Tan(fov.angleLeft);
+			float right = Mathf.Tan(fov.angleRight);
+			float bottom = Mathf.Tan(fov.angleDown);
+			float top = Mathf.Tan(fov.angleUp);
 
 			float near = planes.nearZ;
 			float far = planes.farZ;

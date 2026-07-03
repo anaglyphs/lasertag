@@ -18,7 +18,7 @@ float minDist = 0.8; // min integration distance (meters)
 float maxDist = 6; // max integration distance (meters)
 float minDot = 0.5; // min dot product between depth ray and surface normal
 
-static const uint maxIntegCountSettle = 16;
+static const uint maxIntegCountSettle = 16; // max 255
 
 // crop out part of the depth texture to prevent artifacts when user turns head quickly
 static const float depthTexCropMin = 0.1;
@@ -36,7 +36,7 @@ static const float depthTexCropMax = 0.9;
 
 
 // a chunk table entry is a packed int representing:
-#define     INDEX_MASK 0x8FFFFFFF // first 28 bits: indirect chunk data index AND negative bit to indicate invalid
+#define     INDEX_MASK 0x8FFFFFFF // negative bit = invalid flag + first 28 bits = indirect chunk data index
 #define VISIBILITY_BIT 0x10000000 // visibility bit, set atomically
 #define   RESERVED_BIT 0x20000000 // is reserved bit, also set atomically
 #define    INVALID_BIT 0x80000000 // aka negative bit
@@ -50,7 +50,7 @@ uint chunkTableLength; // num chunk entries total
 
 // chunkData should be a R8G8_SNorm.
 // R -> TSDF value
-// G -> number of times this voxel has been integrated (up to 255)...
+// G -> number of times this voxel has been integrated (to maxIntegCountSettle, max 255)...
 // en/decoded as an unsigned byte and used for scan filtering over time
 RWTexture3D<float2> chunkData;
 uint3 chunkDataDims; // chunks per axis in chunkData (NOT VOXELS PER AXIS. voxels on axis / voxChunkPerEdge)

@@ -84,7 +84,8 @@ MonoBehaviour:
   m_Active: 1
   zDepthShader: {fileID: 4800000, guid: e81b00244d2e15c4cab88870c89fe9d1, type: 3}
   depthPrimeShader: {fileID: 4800000, guid: e101087c38b2a43389365ba0019c7d26, type: 3}
-  relativeTexSize: 0.3
+  relativeTexSize: 0.15
+  rawDepthMaxDistance: 6
   OcclusionMeshLayerMask:
     serializedVersion: 2
     m_Bits: 64

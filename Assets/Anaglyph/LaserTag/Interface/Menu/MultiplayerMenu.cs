@@ -57,9 +57,6 @@ namespace Anaglyph.Lasertag
 		[Header("Host settings")] [SerializeField]
 		private BoolObject hostRelay = null;
 
-		private const string IpPrefsKey = "Ip";
-		private const string RelayPrefsKey = "Relay";
-
 		private void Start()
 		{
 			NetcodeManagement.StateChanged += OnNetcodeStateChanged;

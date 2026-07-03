@@ -33,8 +33,8 @@ namespace Anaglyph.Lasertag
 			{
 				case NetcodeState.Connected:
 
-					InstantiateSelected(defaultWeapon, Handedness.Left);
-					InstantiateSelected(defaultWeapon, Handedness.Right);
+					SwitchWeapon(defaultWeapon, Handedness.Left);
+					SwitchWeapon(defaultWeapon, Handedness.Right);
 					break;
 
 				case NetcodeState.Disconnected:
@@ -53,7 +53,7 @@ namespace Anaglyph.Lasertag
 				weaponObj.SetActive(weaponsActive);
 		}
 
-		private void InstantiateSelected(GameObject prefab, Handedness handedness)
+		public void SwitchWeapon(GameObject prefab, Handedness handedness)
 		{
 			if (NetcodeManagement.State != NetcodeState.Connected) return;
 

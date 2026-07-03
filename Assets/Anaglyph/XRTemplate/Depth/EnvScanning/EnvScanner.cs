@@ -99,6 +99,10 @@ namespace Anaglyph.DepthKit.EnvScanning
 			}
 		}
 
+		/// <summary>
+		/// Readback result from environment scanner.
+		/// `visibleChunks` and `changeSums` MUST be used FRAME OF READBACK!
+		/// </summary>
 		public struct VisibleChunksReadbackResult
 		{
 			public int count { get; private set; }
@@ -119,6 +123,11 @@ namespace Anaglyph.DepthKit.EnvScanning
 		{
 			Setup();
 			Instance = this;
+		}
+
+		private void OnValidate()
+		{
+			updateFrequency = Mathf.Max(updateFrequency, 1.0f);
 		}
 
 		private void Setup()
@@ -209,12 +218,22 @@ namespace Anaglyph.DepthKit.EnvScanning
 			Clear();
 		}
 
+		private static readonly int[] EmptyCounterArray = new int[1];
+		private static int[] EmptyChunkTableArray;
+		private static int[] EmptyVisibleChunksArray;
+
 		public void Clear()
 		{
-			reservedChunkCounter.SetData(new int[1]);
-			chunkTable.SetData(new int[chunkTableLength]);
-			chunkChangeSums.SetData(new int[chunkTableLength]);
-			visibleChunks.SetData(new int[maxNumVisibleChunks]);
+			if (EmptyChunkTableArray == null || EmptyChunkTableArray.Length != chunkTableLength)
+				EmptyChunkTableArray = new int[chunkTableLength];
+
+			if (EmptyVisibleChunksArray == null || EmptyVisibleChunksArray.Length != maxNumVisibleChunks)
+				EmptyVisibleChunksArray = new int[maxNumVisibleChunks];
+
+			reservedChunkCounter.SetData(EmptyCounterArray);
+			chunkTable.SetData(EmptyChunkTableArray);
+			chunkChangeSums.SetData(EmptyChunkTableArray);
+			visibleChunks.SetData(EmptyVisibleChunksArray);
 
 			clearKernel.DispatchFit(chunkData);
 
@@ -310,6 +329,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 
 		private static readonly int readbackBufferID = Shader.PropertyToID("readbackBuffer");
 		private static readonly int readbackChunkIndexID = Shader.PropertyToID("readbackChunkIndex");
+
 
 		public async Awaitable<VisibleChunksReadbackResult> ReadbackVisibleChunks()
 		{

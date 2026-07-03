@@ -98,7 +98,7 @@ namespace Anaglyph.Lasertag.Networking
 				OtherPlayers.Add(this);
 			}
 
-			All.Add(OwnerClientId, this);
+			All[OwnerClientId] = this;
 		}
 
 		public override void OnNetworkDespawn()
@@ -137,13 +137,15 @@ namespace Anaglyph.Lasertag.Networking
 
 
 			foreach (Base b in basesInside)
-			{
 				if (b.Team == Team)
+				{
+					occupied = b;
 					inFriendly = true;
-
-				occupied = b;
-				break;
-			}
+				}
+				else if (!inFriendly)
+				{
+					occupied = b;
+				}
 
 			OccupiedBase = occupied;
 			IsInFriendlyBase = inFriendly;

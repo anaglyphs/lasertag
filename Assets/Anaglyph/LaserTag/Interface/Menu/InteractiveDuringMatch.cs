@@ -8,7 +8,7 @@ namespace Anaglyph.Lasertag
 		private Selectable selectable;
 		public bool invert;
 
-		private MatchReferee referee => MatchReferee.Current;
+		private MatchReferee referee => MatchReferee.Instance;
 
 		private void OnEnable()
 		{

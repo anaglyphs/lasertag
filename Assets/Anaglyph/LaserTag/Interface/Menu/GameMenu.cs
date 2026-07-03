@@ -38,7 +38,7 @@ namespace Anaglyph.Lasertag
 
 		[SerializeField] private Button finishEditingButton;
 
-		private MatchReferee referee => MatchReferee.Current;
+		private MatchReferee referee => MatchReferee.Instance;
 
 		private MatchSettings matchSettings = MatchSettings.DemoGame();
 

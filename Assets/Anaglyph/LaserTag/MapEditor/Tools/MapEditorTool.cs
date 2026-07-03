@@ -171,6 +171,7 @@ namespace Anaglyph.Lasertag
 					spawnRotation += rotationDelta * Time.deltaTime * rotationSpeed;
 
 					previewObject.transform.position = hit.point;
+					previewObject.transform.rotation = GetSpawnRotation();
 					previewObject.SetActive(didHit && CheckCanPlace());
 				}
 			}
@@ -218,15 +219,15 @@ namespace Anaglyph.Lasertag
 
 		private void OnRotateInput(InputAction.CallbackContext context)
 		{
-			rotationDelta = 0;
-			distanceDelta = 0;
-
 			Vector2 axis = context.ReadValue<Vector2>();
 
+			rotationDelta = -axis.x;
+			distanceDelta = axis.y;
+
 			if (Mathf.Abs(axis.x) > Mathf.Abs(axis.y))
-				rotationDelta = axis.x;
+				distanceDelta = 0;
 			else
-				distanceDelta = axis.y;
+				rotationDelta = 0;
 		}
 
 		#endregion

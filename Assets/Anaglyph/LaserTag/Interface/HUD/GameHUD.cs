@@ -132,7 +132,7 @@ namespace Anaglyph.Lasertag
 		private void UpdateTimerSand()
 		{
 			int timeTotal = MatchReferee.Settings.timerSeconds;
-			float timeLeft = MatchReferee.Current.GetTimeLeft();
+			float timeLeft = MatchReferee.Instance.GetTimeLeft();
 
 			float sh = sandHeight;
 			float tn = timeLeft / timeTotal;

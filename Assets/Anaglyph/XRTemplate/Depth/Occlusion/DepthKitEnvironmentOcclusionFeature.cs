@@ -167,6 +167,10 @@ namespace Anaglyph.DepthKit
 					{
 						ctx.cmd.ClearRenderTarget(RTClearFlags.Depth, Color.black, 1f, 0);
 
+						// instanceCount stays 1: URP wraps camera passes in
+						// XRPass.StartSinglePass, whose SetInstanceMultiplier(2) doubles
+						// this draw under Single Pass Instanced; the shader's stereo
+						// macros route each instance to its eye's array slice
 						if (passData.primeMat != null)
 							ctx.cmd.DrawProcedural(Matrix4x4.identity, passData.primeMat, 0,
 								MeshTopology.Triangles, 3, 1);

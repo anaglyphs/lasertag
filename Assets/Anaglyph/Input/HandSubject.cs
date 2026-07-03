@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.XR;
 
 namespace Anaglyph.Input
 {
@@ -69,7 +68,7 @@ namespace Anaglyph.Input
 				{
 					// swallow presses while the hand is driving UI, but always let
 					// 'canceled' through so any in-progress hold releases cleanly
-					if (!enabled || (current && current.InputBlocked))
+					if ((!enabled || (current && current.InputBlocked)) && context.phase != InputActionPhase.Canceled)
 						return;
 
 					callback(context);
@@ -137,7 +136,8 @@ namespace Anaglyph.Input
 
 		private void OnEnable()
 		{
-			Subscribe(current);
+			if (didStart)
+				Subscribe(current);
 		}
 
 		private void OnDisable()

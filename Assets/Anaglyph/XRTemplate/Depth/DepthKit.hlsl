@@ -109,13 +109,13 @@ float agDepthSampleWorldToLinear(float3 worldPos, int eye = 0)
 	float3 ndc = agDepthWorldToNDC(worldPos, eye);
 	float depthNDC = agDepthSample(ndc.xy, eye);
 
-	return agDepthNDCToLinear(depthNDC);
+	return agDepthNDCToLinear(depthNDC, eye);
 }
 
 float3 agDepthSampleNDCtoWorld(float2 uv, int eye = 0)
 {
 	float3 ndc = float3(uv, agDepthSample(uv, eye));
-	return agDepthNDCtoWorld(ndc);
+	return agDepthNDCtoWorld(ndc, eye);
 }
 
 float2 agIdxToUV(uint2 idx)

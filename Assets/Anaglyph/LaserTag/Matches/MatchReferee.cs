@@ -91,15 +91,16 @@ namespace Anaglyph.Lasertag
 		}
 	}
 
-	// Runs the match flow as a plain MonoBehaviour singleton: all replicated state
-	// rides the SyncBus. The bus authority is the single writer — it drives the
-	// state machine (mustering/countdown/timer) and accumulates scores; any peer
-	// may queue or end a match and submit score events.
+	/// <summary>
+	/// Manages 'matches' i.e. games and game mode settings
+	/// Singleton class
+	/// </summary>
 	public class MatchReferee : MonoBehaviour
 	{
-		public static MatchReferee Current { get; private set; }
+		public static MatchReferee Instance { get; private set; }
 
 		public const float CountdownSeconds = 3;
+
 
 		private struct ScoreMsg
 		{
@@ -107,17 +108,15 @@ namespace Anaglyph.Lasertag
 			public int points;
 		}
 
-		// Static so the public static API (State, Settings, GetTeamScore) works
-		// independent of instance lifetime; the scene instance registers them with
-		// the bus. Writes: settings and state land in that order everywhere (same
-		// sequenced channel), and startTime is written before the flip to Playing,
-		// so a Playing state change can always trust startTime.
+		// ALWAYS change state LAST after other match related variables.
+		// You wouldn't want e.g. scores or timer not reset before a match begins!
+		private static readonly SyncVariable<MatchState> stateSync = new("match.state");
+
 		private static readonly SyncVariable<MatchSettings> settingsSync =
 			new("match.settings", MatchSettings.Lobby());
 
 		private static readonly SyncVariable<float> startTimeSync = new("match.startTime");
 		private static readonly SyncList<int> teamScoresSync = new("match.scores", new int[Teams.NumTeams]);
-		private static readonly SyncVariable<MatchState> stateSync = new("match.state");
 		private static readonly SyncEvent<ScoreMsg> scoreEvent = new("match.score", EventRoute.ToAuthority);
 
 		public static MatchState State => stateSync.Value;
@@ -150,7 +149,7 @@ namespace Anaglyph.Lasertag
 
 		private void Awake()
 		{
-			Current = this;
+			Instance = this;
 
 			settingsSync.Register();
 			startTimeSync.Register();
@@ -243,14 +242,14 @@ namespace Anaglyph.Lasertag
 			}
 		}
 
-		private void OnStateChanged(MatchState old, MatchState state)
+		private async void OnStateChanged(MatchState old, MatchState state)
 		{
 			if (old == MatchState.Playing && state == MatchState.NotPlaying)
 				MatchFinished.Invoke();
 
 			StateChanged.Invoke(state);
 
-			_ = RunStatePhase(state);
+			await RunStatePhase(state);
 		}
 
 		// The per-state loops run on every peer (timer text is local UI); only the
@@ -345,7 +344,7 @@ namespace Anaglyph.Lasertag
 
 		public float GetTimeElapsed()
 		{
-			return TimeMatchStarted - ServerTime;
+			return ServerTime - TimeMatchStarted;
 		}
 
 		public float GetTimeLeft()

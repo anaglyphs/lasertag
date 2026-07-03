@@ -93,7 +93,7 @@ namespace Anaglyph.Lasertag
 
 			if (Holder == PlayerAvatar.Local && PlayerAvatar.Local.IsInFriendlyBase && PlayerAvatar.Local.IsAlive)
 			{
-				MatchReferee referee = MatchReferee.Current;
+				MatchReferee referee = MatchReferee.Instance;
 				referee.Score(PlayerAvatar.Local.Team, MatchReferee.Settings.pointsPerFlagCapture);
 				RequestCaptureRpc(NetworkManager.LocalClientId);
 			}

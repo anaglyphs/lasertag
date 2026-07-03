@@ -141,16 +141,6 @@ namespace Anaglyph.DepthKit.EnvScanning
 				StartWorkers();
 		}
 
-
-		private void StartWorkers()
-		{
-			workerCancelSrc?.Cancel();
-			workerCancelSrc = new CancellationTokenSource();
-
-			for (int i = 0; i < numMeshWorkers; i++)
-				_ = RunMesherWorker(workerCancelSrc.Token);
-		}
-
 		private async void OnScanUpdate()
 		{
 			if (busy) return;
@@ -210,6 +200,15 @@ namespace Anaglyph.DepthKit.EnvScanning
 			return chunk;
 		}
 
+		private void StartWorkers()
+		{
+			workerCancelSrc?.Cancel();
+			workerCancelSrc = new CancellationTokenSource();
+
+			for (int i = 0; i < numMeshWorkers; i++)
+				_ = RunMesherWorker(workerCancelSrc.Token);
+		}
+
 		private async Task RunMesherWorker(CancellationToken ctkn)
 		{
 			EnvScanner scanner = EnvScanner.Instance;
@@ -261,6 +260,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 					else
 					{
 						chunk.mesh.Clear();
+						chunk.meshCollider.enabled = false;
 					}
 
 					chunk.dirty = false;
@@ -270,6 +270,10 @@ namespace Anaglyph.DepthKit.EnvScanning
 			}
 			catch (OperationCanceledException)
 			{
+			}
+			catch (Exception e)
+			{
+				Debug.LogException(e);
 			}
 			finally
 			{
