@@ -1,5 +1,6 @@
 using Unity.Collections;
 using UnityEngine;
+using Utilities.XR;
 
 namespace Anaglyph.DepthKit.EnvScanning
 {
@@ -58,28 +59,29 @@ namespace Anaglyph.DepthKit.EnvScanning
 			meshCollider.enabled = isPopulated;
 		}
 
-#if UNITY_EDITOR
+		private void Update()
+		{
+			if (AnaglyphDebug.DebugMode)
+				DrawDebug();
+		}
 
-		private void OnDrawGizmos()
+		private void DrawDebug()
 		{
 			if (dirty)
-			{
-				Gizmos.color = Color.yellow;
-				DrawChunkFrame();
-			}
+				DrawChunkFrame(Color.yellow);
 		}
+
+		private void DrawChunkFrame(Color color)
+		{
+			XRGizmos.DrawWireCube(worldCenter, Quaternion.identity, EnvMesher.ChunkWorldSize,
+				color);
+		}
+
+#if UNITY_EDITOR
 
 		private void OnDrawGizmosSelected()
 		{
-			if (dirty) return;
-
-			Gizmos.color = Color.aliceBlue;
-			DrawChunkFrame();
-		}
-
-		private void DrawChunkFrame()
-		{
-			Gizmos.DrawWireCube(worldCenter, EnvMesher.ChunkWorldSize);
+			DrawChunkFrame(Color.aliceBlue);
 		}
 
 #endif

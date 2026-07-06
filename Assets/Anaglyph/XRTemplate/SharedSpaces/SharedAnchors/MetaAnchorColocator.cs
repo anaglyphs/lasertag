@@ -71,6 +71,16 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		// Groups whose anchor is mid save-then-unload, to dedupe the unload across frames.
 		private readonly HashSet<Guid> pendingUnloads = new();
 
+		// Groups whose last load failed, mapped to when the periodic reconcile may retry
+		// them. Without this, a failed load was silent and permanent for the session.
+		private readonly Dictionary<Guid, float> loadRetryAt = new();
+		private const float loadRetrySeconds = 5f;
+
+		// Reconciliation re-runs on a timer (not just on events) so a load window missed
+		// during subsystem warm-up, or a failed load, is retried instead of lost.
+		private const float reconcileEverySeconds = 1f;
+		private float nextReconcileAt;
+
 		private readonly List<Pose> trackedPoses = new();
 		private readonly List<Pose> canonPoses = new();
 		private float3[] trackedBuf = Array.Empty<float3>();
@@ -160,6 +170,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			RemoveAllLiveAnchors();
 			pendingLoads.Clear();
 			pendingUnloads.Clear();
+			loadRetryAt.Clear();
 		}
 
 		// Clearing the replicated set drops every client's local anchors (via
@@ -189,6 +200,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			epoch++; // invalidate any in-flight loads/saves/reloads from the old attempt
 			canonPosesSync.Clear();
 			RemoveAllLiveAnchors();
+			loadRetryAt.Clear();
 		}
 
 		private void OnAuthorityChanged(bool isAuthority)
@@ -226,6 +238,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				{
 					if (liveAnchors.ContainsKey(group) || pendingLoads.Contains(group))
 						continue;
+					if (loadRetryAt.TryGetValue(group, out float retryTime) && Time.time < retryTime)
+						continue;
 					if (!WithinLoadRange(canonPose))
 						continue;
 					LoadGroup(group);
@@ -247,14 +261,28 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			ARAnchor anchor = await MetaSharedAnchors.LoadAsync(anchorManager, group);
 			pendingLoads.Remove(group);
 
+			if (anchor == null)
+			{
+				// Error status, empty group, or materialization timeout — all likelier on a
+				// cold first run. Register for retry; the periodic reconcile picks it up.
+				if (myEpoch == epoch && isActive && canonPosesSync.ContainsKey(group))
+				{
+					Debug.LogWarning($"[MetaAnchorColocator] Load failed for {group}, retrying in {loadRetrySeconds}s");
+					loadRetryAt[group] = Time.time + loadRetrySeconds;
+				}
+
+				return;
+			}
+
 			// Aborted, the entry was removed, or we raced another load — discard.
-			if (anchor == null) return;
 			if (myEpoch != epoch || !isActive || !canonPosesSync.ContainsKey(group) || liveAnchors.ContainsKey(group))
 			{
 				DestroyAnchor(anchor);
 				return;
 			}
 
+			Debug.Log($"[MetaAnchorColocator] Loaded anchor {group}");
+			loadRetryAt.Remove(group);
 			liveAnchors[group] = anchor;
 		}
 
@@ -345,10 +373,25 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			if (!isActive) return;
 
+			AnchorAvailability availability = GetAvailability();
+
 			if (SyncBus.IsAuthority && !suspended)
 			{
-				if (SharedAnchorsAvailable()) TrySpawnAnchor();
-				else if (canonPosesSync.Count == 0) SeedEditorStub();
+				// While WarmingUp do neither: spawning is impossible, and seeding the
+				// editor stub on a device that's merely still starting up would poison
+				// the session with a fake entry.
+				if (availability == AnchorAvailability.Available)
+					TrySpawnAnchor();
+				else if (availability == AnchorAvailability.Unavailable && canonPosesSync.Count == 0)
+					SeedEditorStub();
+			}
+
+			// Event-driven reconciliation alone is lossy: a load window missed while the
+			// subsystem was warming up, or a failed load, would otherwise never retry.
+			if (Time.time >= nextReconcileAt)
+			{
+				nextReconcileAt = Time.time + reconcileEverySeconds;
+				ReconcileEntries();
 			}
 
 			RunFit();
@@ -445,9 +488,16 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			lastFitCount = 0;
 
-			if (!SharedAnchorsAvailable())
+			AnchorAvailability availability = GetAvailability();
+
+			// Only a device that can NEVER fit (editor, no Meta anchors) may fake
+			// colocation off the stub entry. During warm-up just wait — latching
+			// hasColocated here fired Colocated without the rig ever aligning, and
+			// flipped the streaming distance checks into the unaligned frame.
+			if (availability != AnchorAvailability.Available)
 			{
-				if (canonPosesSync.Count > 0 && !hasColocated)
+				if (availability == AnchorAvailability.Unavailable &&
+				    canonPosesSync.Count > 0 && !hasColocated)
 				{
 					hasColocated = true;
 					Colocated.Invoke();
@@ -574,6 +624,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				return false;
 
 			state.Admitted = true;
+			Debug.Log($"[MetaAnchorColocator] Anchor {group} admitted to fit");
 			return true;
 		}
 
@@ -608,6 +659,10 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				}
 				else if (!pendingLoads.Contains(group) && !pendingUnloads.Contains(group) && dist < reloadDistance)
 				{
+					// Respect the failure cooldown — this runs every frame.
+					if (loadRetryAt.TryGetValue(group, out float retryTime) && Time.time < retryTime)
+						continue;
+
 					// Loaders add to pendingLoads synchronously, then await; safe to kick
 					// off mid-iteration since they don't touch entries/liveAnchors yet.
 					LoadGroup(group);
@@ -758,16 +813,39 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				Destroy(go);
 		}
 
-		private bool SharedAnchorsAvailable()
+		// Distinguishes "the subsystem is still starting up" from "this device will never
+		// have shared anchors". isSharedAnchorsSupported reports Unknown until the OpenXR
+		// instance is created, which takes a moment after app launch — the FIRST colocation
+		// run of a process can land inside that window. Treating Unknown as Unavailable
+		// there made the fit fake "colocated" (rig never moves), seeded the editor stub on
+		// device, and consumed one-shot load triggers. WarmingUp instead means: wait.
+		private enum AnchorAvailability
+		{
+			WarmingUp,
+			Available,
+			Unavailable
+		}
+
+		private AnchorAvailability GetAvailability()
 		{
 			if (!XRSettings.enabled || anchorManager == null)
-				return false;
+				return AnchorAvailability.Unavailable;
+
+			if (anchorManager.subsystem == null)
+				return AnchorAvailability.WarmingUp; // manager not started yet
 
 			if (anchorManager.subsystem is not MetaOpenXRAnchorSubsystem subsystem)
-				return false;
+				return AnchorAvailability.Unavailable; // e.g. XR Simulation
 
-			return subsystem.isSharedAnchorsSupported == Supported.Supported;
+			return subsystem.isSharedAnchorsSupported switch
+			{
+				Supported.Supported => AnchorAvailability.Available,
+				Supported.Unknown => AnchorAvailability.WarmingUp, // OpenXR instance not created yet
+				_ => AnchorAvailability.Unavailable,
+			};
 		}
+
+		private bool SharedAnchorsAvailable() => GetAvailability() == AnchorAvailability.Available;
 
 		// Per-anchor reliability bookkeeping for IsAnchorReliable. Reference type so the
 		// dictionary entry is mutated in place.

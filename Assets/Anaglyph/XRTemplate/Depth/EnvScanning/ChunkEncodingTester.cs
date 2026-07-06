@@ -1,7 +1,9 @@
+using System.Text;
 using Anaglyph.DepthKit.EnvScanning;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
+using Utilities.XR;
 
 namespace Anaglyph.DepthKit.EnvScanningV2
 {
@@ -10,6 +12,12 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 		private EnvScanner.ChunkReadbackBuffer readbackBuffer;
 		private NativeArray<EnvScanner.Voxel> decodedVoxels;
 		private NativeList<sbyte> compressedData;
+
+		private int uncompressedSize;
+		private int compressedSize;
+		private int mismatches;
+
+		private readonly StringBuilder reportText = new();
 
 		private void Start()
 		{
@@ -52,30 +60,39 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 
 				if (!success) Debug.LogError("Chunk decode failed!");
 
-				int mismatches = 0;
+				int mismatchCount = 0;
 
 				for (int i = 0; i < decodedVoxels.Length; i++)
 					if (readbackBuffer.data[i].value != decodedVoxels[i].value)
-						mismatches++;
+						mismatchCount++;
 
-				Debug.Log(
-					$"Uncompressed: {readbackBuffer.data.Length} | Compressed: {compressedData.Length} | Mismatches: {mismatches}");
+				uncompressedSize = readbackBuffer.data.Length;
+				compressedSize = compressedData.Length;
+				mismatches = mismatchCount;
+				float ratio = compressedSize / (float)uncompressedSize;
+
+				reportText.Clear();
+				reportText.AppendLine($"Ratio -------- {ratio}");
+				reportText.AppendLine($"Compressed --- {compressedSize}");
+				reportText.AppendLine($"Uncompressed - {uncompressedSize}");
+				reportText.AppendLine($"Mismatches --- {mismatchCount}");
+
+				Debug.Log(reportText.ToString());
 			}
 		}
 
-		private void OnDrawGizmos()
+		private void Update()
 		{
 			EnvScanner scanner = EnvScanner.Instance;
 
 			if (!scanner) return;
 
 			int3 chunkCoord = scanner.WorldPosToChunkCoord(transform.position);
-			Vector3 cornerPos = scanner.ChunkCoordToCornerWorldPos(chunkCoord);
 
-			Vector3 center = cornerPos + EnvMesher.ChunkWorldSizeHalf;
+			scanner.DrawChunkBounds(chunkCoord, Color.red);
+			XRGizmos.DrawSphere(transform.position, 0.1f, Color.red);
 
-			Gizmos.color = Color.red;
-			Gizmos.DrawWireCube(center, EnvMesher.ChunkWorldSize);
+			XRGizmos.DrawString(reportText.ToString(), transform.position, transform.rotation, Color.red);
 		}
 	}
 }

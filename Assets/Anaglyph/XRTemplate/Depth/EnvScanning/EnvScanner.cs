@@ -5,9 +5,11 @@ using System.Threading;
 using Anaglyph.XRTemplate.DepthKit;
 using Unity.Collections;
 using Unity.Mathematics;
+using UnityEditor.Graphs;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
+using Utilities.XR;
 using Action = System.Action;
 
 namespace Anaglyph.DepthKit.EnvScanning
@@ -327,9 +329,12 @@ namespace Anaglyph.DepthKit.EnvScanning
 			integrateKernel.DispatchIndirect(integrateDispatchDims);
 		}
 
+		private void DrawDebug()
+		{
+		}
+
 		private static readonly int readbackBufferID = Shader.PropertyToID("readbackBuffer");
 		private static readonly int readbackChunkIndexID = Shader.PropertyToID("readbackChunkIndex");
-
 
 		public async Awaitable<VisibleChunksReadbackResult> ReadbackVisibleChunks()
 		{
@@ -367,12 +372,6 @@ namespace Anaglyph.DepthKit.EnvScanning
 			NativeArray<Voxel> data = new(vpcd * vpcd * vpcd, Allocator.Persistent);
 
 			return new ChunkReadbackBuffer(computeBuffer, data, vpcd);
-		}
-
-		public NativeArray<Voxel> CreateChunkReadbackContainer(Allocator allocator)
-		{
-			int vpcd = voxPerChunkDim;
-			return new NativeArray<Voxel>(vpcd * vpcd * vpcd, allocator);
 		}
 
 		public async Awaitable<bool> ReadbackChunkInto(int chunkIndex, ChunkReadbackBuffer readbackBuffer)
@@ -444,6 +443,21 @@ namespace Anaglyph.DepthKit.EnvScanning
 				coord.x +
 				coord.y * chunkTableDims.x +
 				coord.z * chunkTableDims.x * chunkTableDims.y;
+		}
+
+		public void DrawChunkBounds(int3 coord, Color color)
+		{
+			float h = chunkWorldSizeDim / 2f;
+
+			float3 corner = ChunkCoordToCornerWorldPos(coord);
+			float3 center = corner + h;
+
+			XRGizmos.DrawWireCube(center, Quaternion.identity, (float3)chunkWorldSizeDim, color);
+		}
+
+		public void DrawChunkBounds(int chunkIndex, Color color)
+		{
+			DrawChunkBounds(ChunkIndexToChunkCoord(chunkIndex), color);
 		}
 
 		private static void LogDebug(string str, LogType logType = LogType.Log)

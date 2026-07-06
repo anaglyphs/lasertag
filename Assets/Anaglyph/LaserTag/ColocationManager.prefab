@@ -49,7 +49,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: defe13ac306e3604fb0c22897ab0891a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ShowTopMostFoldoutHeaderGroup: 0
   methodHostSetting: 0
   metaAnchorColocator: {fileID: 3770516394125647478}
   tagColocator: {fileID: 2017920904899384140}
@@ -65,8 +64,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0c1e3f149293645689d825af3599178c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.EnvChunkSync
-  ShowTopMostFoldoutHeaderGroup: 1
-  syncSweptVoxelsThreshold: 300
+  syncSweptVoxelsThreshold: 500
 --- !u!114 &3770516394125647478
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -79,7 +77,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 304bb6caa6bf4544f937804a6279a0b3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ShowTopMostFoldoutHeaderGroup: 1
   anchorBreadcrumb: 1
   spawnEveryMeters: 6
   alignLerp: 1
@@ -103,7 +100,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 57b4e9b1012013c4cabd8ad8b87de3f9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ShowTopMostFoldoutHeaderGroup: 1
   tagSizeCmHostSetting: 0
   tagLerp: 0.3
   lockDistanceScale: 15

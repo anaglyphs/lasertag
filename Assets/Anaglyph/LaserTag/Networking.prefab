@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 7418599492549241868}
   - component: {fileID: 6413514653029965147}
   - component: {fileID: 8500694417332680183}
+  - component: {fileID: 3945362640107383451}
   m_Layer: 0
   m_Name: Networking
   m_TagString: Untagged
@@ -74,6 +75,7 @@ MonoBehaviour:
     NetworkTopology: 1
     UseCMBService: 0
     AutoSpawnPlayerPrefabClientSide: 0
+    NetworkMessageMetrics: 1
     NetworkProfilingMetrics: 0
     OldPrefabList: []
   RunInBackground: 1
@@ -171,3 +173,36 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 28ed39932787e4745ab5df6d52d1bc11, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.XRTemplate.SharedSpaces::Anaglyph.XRTemplate.SharedSpaces.MetaSessionDiscovery
+--- !u!114 &3945362640107383451
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2459965662535751644}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 98d9db9626104da59357651088226725, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Multiplayer.Tools.NetworkSimulator.Runtime::Unity.Multiplayer.Tools.NetworkSimulator.Runtime.NetworkSimulator
+  m_PresetAsset: {fileID: 0}
+  m_PresetReference:
+    rid: 2389570939798159581
+  m_Scenario:
+    rid: -2
+  m_IsScenarioSettingsFolded: 0
+  AutoRunScenario: 0
+  references:
+    version: 2
+    RefIds:
+    - rid: -2
+      type: {class: , ns: , asm: }
+    - rid: 2389570939798159581
+      type: {class: NetworkSimulatorPreset, ns: Unity.Multiplayer.Tools.NetworkSimulator.Runtime, asm: Unity.Multiplayer.Tools.NetworkSimulator.Runtime}
+      data:
+        <Name>k__BackingField: 
+        <Description>k__BackingField: 
+        <PacketDelayMs>k__BackingField: 0
+        <PacketJitterMs>k__BackingField: 0
+        <PacketLossInterval>k__BackingField: 0
+        <PacketLossPercent>k__BackingField: 0

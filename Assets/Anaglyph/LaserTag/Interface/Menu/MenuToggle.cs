@@ -26,6 +26,12 @@ namespace Anaglyph.Menu
 			mainCamera = Camera.main;
 		}
 
+		private void OnApplicationFocus(bool focus)
+		{
+			if (gameObject.activeInHierarchy)
+				SetPose();
+		}
+
 		private async void Start()
 		{
 			await Awaitable.WaitForSecondsAsync(0.5f);
