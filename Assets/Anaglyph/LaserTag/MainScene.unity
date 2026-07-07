@@ -442,6 +442,7 @@ GameObject:
   m_Component:
   - component: {fileID: 5146515205449476641}
   - component: {fileID: 6057741382313873991}
+  - component: {fileID: 6057741382313873992}
   m_Layer: 0
   m_Name: Rig Spawner
   m_TagString: Untagged
@@ -513,86 +514,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 40d9e00b7621740c28c4154b6376d77e, type: 3}
---- !u!23 &3512876286055699147
-MeshRenderer:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3893359374940394119}
-  m_Enabled: 1
-  m_CastShadows: 1
-  m_ReceiveShadows: 1
-  m_DynamicOccludee: 1
-  m_StaticShadowCaster: 0
-  m_MotionVectors: 1
-  m_LightProbeUsage: 1
-  m_ReflectionProbeUsage: 1
-  m_RayTracingMode: 2
-  m_RayTraceProcedural: 0
-  m_RayTracingAccelStructBuildFlagsOverride: 0
-  m_RayTracingAccelStructBuildFlags: 1
-  m_SmallMeshCulling: 1
-  m_ForceMeshLod: -1
-  m_MeshLodSelectionBias: 0
-  m_RenderingLayerMask: 1
-  m_RendererPriority: 0
-  m_Materials:
-  - {fileID: 2100000, guid: d49548bb5b7c24f7b8d1378ae0aa3349, type: 2}
-  m_StaticBatchInfo:
-    firstSubMesh: 0
-    subMeshCount: 0
-  m_StaticBatchRoot: {fileID: 0}
-  m_ProbeAnchor: {fileID: 0}
-  m_LightProbeVolumeOverride: {fileID: 0}
-  m_ScaleInLightmap: 1
-  m_ReceiveGI: 1
-  m_PreserveUVs: 0
-  m_IgnoreNormalsForChartDetection: 0
-  m_ImportantGI: 0
-  m_StitchLightmapSeams: 1
-  m_SelectedEditorRenderState: 3
-  m_MinimumChartSize: 4
-  m_AutoUVMaxDistance: 0.5
-  m_AutoUVMaxAngle: 89
-  m_LightmapParameters: {fileID: 0}
-  m_GlobalIlluminationMeshLod: 0
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
-  m_SortingOrder: 0
-  m_MaskInteraction: 0
-  m_AdditionalVertexStreams: {fileID: 0}
---- !u!114 &3584996472147649876
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3893359374940394119}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 50018297c8850064aa9aa8ac4cdbfbf3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Anaglyph::Anaglyph.RenderIfDebug
---- !u!1 &3893359374940394119
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 6732552198414194329}
-  - component: {fileID: 8674359668275260596}
-  - component: {fileID: 3512876286055699147}
-  - component: {fileID: 3584996472147649876}
-  m_Layer: 0
-  m_Name: Origin Debug Visual
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
 --- !u!1001 &3916737362139618993
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -607,7 +528,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
       propertyPath: m_PresetReference
-      value: 2389570950811353384
+      value: 2389570979218063563
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
       propertyPath: 'managedReferences[2389570939798159583]'
@@ -642,6 +563,10 @@ PrefabInstance:
       value: Unity.Multiplayer.Tools.NetworkSimulator.Runtime Unity.Multiplayer.Tools.NetworkSimulator.Runtime.NetworkSimulatorPreset
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
+      propertyPath: 'managedReferences[2389570979218063563]'
+      value: Unity.Multiplayer.Tools.NetworkSimulator.Runtime Unity.Multiplayer.Tools.NetworkSimulator.Runtime.NetworkSimulatorPreset
+      objectReference: {fileID: 0}
+    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
       propertyPath: managedReferences[2389570939798159583].<Name>k__BackingField
       value: 'Mobile 3.5G [HSDPA, H, ''06]'
       objectReference: {fileID: 0}
@@ -671,6 +596,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
       propertyPath: managedReferences[2389570950811353384].<Name>k__BackingField
+      value: Home Broadband with Congested Network
+      objectReference: {fileID: 0}
+    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
+      propertyPath: managedReferences[2389570979218063563].<Name>k__BackingField
       value: Home Broadband with Congested Network
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
@@ -719,6 +648,12 @@ PrefabInstance:
         bad jitter and little packet loss.
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
+      propertyPath: managedReferences[2389570979218063563].<Description>k__BackingField
+      value: Desktop and console platforms trough congested networks (multiple downloads
+        or streaming already using the network's maximum capacity). Medium ping,
+        bad jitter and little packet loss.
+      objectReference: {fileID: 0}
+    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
       propertyPath: managedReferences[2389570939798159583].<PacketDelayMs>k__BackingField
       value: 160
       objectReference: {fileID: 0}
@@ -748,6 +683,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
       propertyPath: managedReferences[2389570950811353384].<PacketDelayMs>k__BackingField
+      value: 50
+      objectReference: {fileID: 0}
+    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
+      propertyPath: managedReferences[2389570979218063563].<PacketDelayMs>k__BackingField
       value: 50
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
@@ -783,6 +722,10 @@ PrefabInstance:
       value: 50
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
+      propertyPath: managedReferences[2389570979218063563].<PacketJitterMs>k__BackingField
+      value: 50
+      objectReference: {fileID: 0}
+    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
       propertyPath: managedReferences[2389570939798159583].<PacketLossPercent>k__BackingField
       value: 6
       objectReference: {fileID: 0}
@@ -815,6 +758,10 @@ PrefabInstance:
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
+      propertyPath: managedReferences[2389570979218063563].<PacketLossPercent>k__BackingField
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
       propertyPath: managedReferences[2389570939798159583].<PacketLossInterval>k__BackingField
       value: 0
       objectReference: {fileID: 0}
@@ -844,6 +791,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
       propertyPath: managedReferences[2389570950811353384].<PacketLossInterval>k__BackingField
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
+      propertyPath: managedReferences[2389570979218063563].<PacketLossInterval>k__BackingField
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 9038727052097006548, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
@@ -894,6 +845,20 @@ MonoBehaviour:
   xrRig: {fileID: 5922542169172391784, guid: 273bd9666001ba74c97ca436668c4657, type: 3}
   desktopRig: {fileID: 2918588115414685520, guid: 470fb36d558514380a685c508b1c6483, type: 3}
   arFoundationSimulator: {fileID: 8135023674665499069, guid: 58d0a4ac86f2348deb02f3880c71378e, type: 3}
+--- !u!114 &6057741382313873992
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 231142275955101727}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 29396fc22be65454eaf9fb355c858512, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph::Anaglyph.Debugging.Visuals.DebugAxisVisual
+  color: {r: 0.5471698, g: 0.5471698, b: 0.5471698, a: 1}
+  scale: 1
 --- !u!4 &6264381937039358723
 Transform:
   m_ObjectHideFlags: 0
@@ -909,29 +874,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!4 &6732552198414194329
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3893359374940394119}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &8674359668275260596
-MeshFilter:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3893359374940394119}
-  m_Mesh: {fileID: -5847259206534200464, guid: 2bd90237e68f2b54785ae90028487592, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -943,5 +885,4 @@ SceneRoots:
   - {fileID: 287469081}
   - {fileID: 3109736614008989924}
   - {fileID: 6264381937039358723}
-  - {fileID: 6732552198414194329}
   - {fileID: 990915663}

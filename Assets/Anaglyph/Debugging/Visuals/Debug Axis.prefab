@@ -9,10 +9,9 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1490389012567447034}
-  - component: {fileID: 7390025011971587270}
-  - component: {fileID: 6202182287044431674}
+  - component: {fileID: 2946678283878635028}
   m_Layer: 0
-  m_Name: Anchor
+  m_Name: Debug Axis
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -33,7 +32,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &7390025011971587270
+--- !u!114 &2946678283878635028
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -42,19 +41,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 9207545519972864484}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 56e91f4c8dc64467d91b315cda54ebd3, type: 3}
+  m_Script: {fileID: 11500000, guid: 29396fc22be65454eaf9fb355c858512, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Anaglyph.XRTemplate.SharedSpaces::Anaglyph.XRTemplate.SharedSpaces.AnchorVisual
---- !u!114 &6202182287044431674
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9207545519972864484}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: eb898793194e03f4bb10dba03ec2cb70, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.XR.ARFoundation::UnityEngine.XR.ARFoundation.ARAnchor
-  m_DestroyOnRemoval: 0
+  m_EditorClassIdentifier: Anaglyph::Anaglyph.Debugging.Visuals.DebugAxisVisual
+  color: {r: 1, g: 1, b: 1, a: 1}

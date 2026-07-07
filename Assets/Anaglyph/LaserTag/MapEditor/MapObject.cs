@@ -1,10 +1,14 @@
 using Anaglyph.Netcode;
 using Unity.Netcode;
+using UnityEngine;
 
 namespace Anaglyph.Lasertag
 {
 	public class MapObject : NetworkBehaviour
 	{
+		[SerializeField] private bool movable = true;
+		public bool Movable => movable;
+
 		private bool shouldDelete;
 
 		private void Awake()

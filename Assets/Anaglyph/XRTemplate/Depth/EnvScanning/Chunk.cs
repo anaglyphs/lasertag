@@ -61,7 +61,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 
 		private void Update()
 		{
-			if (AnaglyphDebug.DebugMode)
+			if (AnaglyphDebugging.DebugMode)
 				DrawDebug();
 		}
 

@@ -66,7 +66,7 @@ namespace Anaglyph.Lasertag
 
 		private void Update()
 		{
-			if (AnaglyphDebug.DebugMode) XRGizmos.DrawWireSphere(transform.position, 0.1f, Color.white);
+			if (AnaglyphDebugging.DebugMode) DrawDebug();
 
 			if (!isAlive) return;
 
@@ -101,6 +101,14 @@ namespace Anaglyph.Lasertag
 				if (travelDist > MaxTravelDist)
 					NetworkObject.Despawn(true);
 			}
+		}
+
+		private void DrawDebug()
+		{
+			Color color = isAlive ? Color.white : Color.yellow;
+
+			XRGizmos.DrawWireSphere(transform.position, transform.rotation, 0.1f, color);
+			XRGizmos.DrawArrow(transform.position, transform.rotation, color);
 		}
 
 		[Rpc(SendTo.Everyone, InvokePermission = RpcInvokePermission.Owner)]

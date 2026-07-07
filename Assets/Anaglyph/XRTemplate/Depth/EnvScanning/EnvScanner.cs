@@ -328,10 +328,6 @@ namespace Anaglyph.DepthKit.EnvScanning
 			integrateKernel.DispatchIndirect(integrateDispatchDims);
 		}
 
-		private void DrawDebug()
-		{
-		}
-
 		private static readonly int readbackBufferID = Shader.PropertyToID("readbackBuffer");
 		private static readonly int readbackChunkIndexID = Shader.PropertyToID("readbackChunkIndex");
 

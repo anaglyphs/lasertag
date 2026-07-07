@@ -58,7 +58,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				}
 			}
 
-			if (AnaglyphDebug.DebugMode)
+			if (AnaglyphDebugging.DebugMode)
 			{
 				scale = Vector3.one * 0.02f;
 				mpb.SetColor(BaseColorID, Color.green);

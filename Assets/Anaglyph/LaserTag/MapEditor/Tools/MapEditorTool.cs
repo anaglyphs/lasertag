@@ -117,7 +117,7 @@ namespace Anaglyph.Lasertag
 			if (!Raycast(out RaycastHit hit)) return false;
 
 			grabbedObject = hit.collider.GetComponentInParent<MapObject>();
-			if (grabbedObject == null) return false;
+			if (grabbedObject == null || !grabbedObject.Movable) return false;
 
 			grabbedObject.TryTakeOwnership();
 

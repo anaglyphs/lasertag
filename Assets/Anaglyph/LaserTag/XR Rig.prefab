@@ -1364,13 +1364,7 @@ PrefabInstance:
       addedObject: {fileID: 7414007365660630831}
     - targetCorrespondingSourceObject: {fileID: 7254734392762225021, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 4940435891117884592}
-    - targetCorrespondingSourceObject: {fileID: 7254734392762225021, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 6272511971295513664}
-    - targetCorrespondingSourceObject: {fileID: 7254734392762225021, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 7851297891552219093}
+      addedObject: {fileID: 9183178701382868414}
     - targetCorrespondingSourceObject: {fileID: 3220447487962168756, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 6110903463456996318}
@@ -1410,6 +1404,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 603982319059033611, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1401967355754222709}
+    - targetCorrespondingSourceObject: {fileID: 603982319059033611, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4728148292770822496}
     - targetCorrespondingSourceObject: {fileID: 3320372390444132630, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1021046731231408886}
@@ -1428,6 +1425,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 3320372390444132630, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 6105612205333326300}
+    - targetCorrespondingSourceObject: {fileID: 3320372390444132630, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5953346072363105374}
   m_SourcePrefab: {fileID: 100100000, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
 --- !u!114 &1566182161945705153 stripped
 MonoBehaviour:
@@ -1733,6 +1733,20 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
+--- !u!114 &5953346072363105374
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1767860627101159171}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 29396fc22be65454eaf9fb355c858512, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph::Anaglyph.Debugging.Visuals.DebugAxisVisual
+  color: {r: 1, g: 1, b: 1, a: 1}
+  scale: 0.1
 --- !u!114 &1859463319553081786 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 3410002061892839343, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
@@ -2063,6 +2077,20 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
+--- !u!114 &4728148292770822496
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4538819731415447582}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 29396fc22be65454eaf9fb355c858512, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph::Anaglyph.Debugging.Visuals.DebugAxisVisual
+  color: {r: 1, g: 1, b: 1, a: 1}
+  scale: 0.1
 --- !u!1 &4921592961275499637 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 8273645227207553632, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
@@ -2289,64 +2317,7 @@ MonoBehaviour:
   m_EnvironmentTextureFilterMode: 2
   m_EnvironmentTextureHDR: 1
   m_DebugPrefab: {fileID: 0}
---- !u!33 &4940435891117884592
-MeshFilter:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5922542169172391784}
-  m_Mesh: {fileID: -5847259206534200464, guid: 2bd90237e68f2b54785ae90028487592, type: 3}
---- !u!23 &6272511971295513664
-MeshRenderer:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5922542169172391784}
-  m_Enabled: 1
-  m_CastShadows: 1
-  m_ReceiveShadows: 1
-  m_DynamicOccludee: 1
-  m_StaticShadowCaster: 0
-  m_MotionVectors: 1
-  m_LightProbeUsage: 1
-  m_ReflectionProbeUsage: 1
-  m_RayTracingMode: 2
-  m_RayTraceProcedural: 0
-  m_RayTracingAccelStructBuildFlagsOverride: 0
-  m_RayTracingAccelStructBuildFlags: 1
-  m_SmallMeshCulling: 1
-  m_ForceMeshLod: -1
-  m_MeshLodSelectionBias: 0
-  m_RenderingLayerMask: 1
-  m_RendererPriority: 0
-  m_Materials:
-  - {fileID: 2100000, guid: 7fb0c090b590e487c9e513ec5893c23b, type: 2}
-  m_StaticBatchInfo:
-    firstSubMesh: 0
-    subMeshCount: 0
-  m_StaticBatchRoot: {fileID: 0}
-  m_ProbeAnchor: {fileID: 0}
-  m_LightProbeVolumeOverride: {fileID: 0}
-  m_ScaleInLightmap: 1
-  m_ReceiveGI: 1
-  m_PreserveUVs: 0
-  m_IgnoreNormalsForChartDetection: 0
-  m_ImportantGI: 0
-  m_StitchLightmapSeams: 1
-  m_SelectedEditorRenderState: 3
-  m_MinimumChartSize: 4
-  m_AutoUVMaxDistance: 0.5
-  m_AutoUVMaxAngle: 89
-  m_LightmapParameters: {fileID: 0}
-  m_GlobalIlluminationMeshLod: 0
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
-  m_SortingOrder: 0
-  m_MaskInteraction: 0
-  m_AdditionalVertexStreams: {fileID: 0}
---- !u!114 &7851297891552219093
+--- !u!114 &9183178701382868414
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -2355,9 +2326,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 5922542169172391784}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 50018297c8850064aa9aa8ac4cdbfbf3, type: 3}
+  m_Script: {fileID: 11500000, guid: 29396fc22be65454eaf9fb355c858512, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Anaglyph::Anaglyph.RenderIfDebug
+  m_EditorClassIdentifier: Anaglyph::Anaglyph.Debugging.Visuals.DebugAxisVisual
+  color: {r: 0.7734461, g: 0, b: 1, a: 1}
+  scale: 1
 --- !u!1001 &4016957823946686662
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -13,13 +13,13 @@ namespace Anaglyph
 
 		private void OnEnable()
 		{
-			AnaglyphDebug.DebugModeChanged += OnDebugModeChanged;
-			renderer.enabled = AnaglyphDebug.DebugMode;
+			AnaglyphDebugging.DebugModeChanged += OnDebugModeChanged;
+			renderer.enabled = AnaglyphDebugging.DebugMode;
 		}
 
 		private void OnDisable()
 		{
-			AnaglyphDebug.DebugModeChanged -= OnDebugModeChanged;
+			AnaglyphDebugging.DebugModeChanged -= OnDebugModeChanged;
 		}
 
 		private void OnDebugModeChanged(bool on)

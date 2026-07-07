@@ -14,7 +14,7 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			debugModeToggle.onValueChanged.AddListener(AnaglyphDebug.SetDebugMode);
+			debugModeToggle.onValueChanged.AddListener(AnaglyphDebugging.SetDebugMode);
 
 			showDebugMeshToggle.onValueChanged.AddListener(EnvMesher.Instance.SetChunksVisible);
 

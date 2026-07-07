@@ -1,15 +1,14 @@
+using Anaglyph.Debugging.Visuals;
 using UnityEngine;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
+	[DefaultExecutionOrder(999999)]
 	public class AnchorVisual : MonoBehaviour
 	{
 		private ARAnchor anchor;
-		private MeshRenderer meshRenderer;
-
-		private Material material;
 
 		private static Color[] trackingStateColors;
 
@@ -23,18 +22,26 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			trackingStateColors[(int)TrackingState.Tracking] = Color.green;
 		}
 
-		private void Awake()
+		private void Start()
 		{
-			TryGetComponent(out anchor);
-			TryGetComponent(out meshRenderer);
-
-			material = new Material(meshRenderer.material);
-			meshRenderer.sharedMaterial = material;
+			AnaglyphDebugging.DebugModeChanged += OnDebugModeChange;
+			OnDebugModeChange(AnaglyphDebugging.DebugMode);
 		}
 
-		private void Update()
+		private void OnDestroy()
 		{
-			material.color = trackingStateColors[(int)anchor.trackingState];
+			AnaglyphDebugging.DebugModeChanged -= OnDebugModeChange;
+		}
+
+		private void OnDebugModeChange(bool on)
+		{
+			enabled = on;
+		}
+
+		private void LateUpdate()
+		{
+			DebugAxisVisual.DrawDebugAxis(transform.position, transform.rotation,
+				trackingStateColors[(int)anchor.trackingState]);
 		}
 	}
 }

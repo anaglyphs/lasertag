@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Anaglyph
 {
-	public static class AnaglyphDebug
+	public static class AnaglyphDebugging
 	{
 		private static bool _debugMode = false;
 		public static Action<bool> DebugModeChanged = delegate { };
