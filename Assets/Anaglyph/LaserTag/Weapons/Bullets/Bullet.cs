@@ -3,6 +3,7 @@ using System.Threading;
 using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
+using Utilities.XR;
 
 namespace Anaglyph.Lasertag
 {
@@ -65,6 +66,8 @@ namespace Anaglyph.Lasertag
 
 		private void Update()
 		{
+			if (AnaglyphDebug.DebugMode) XRGizmos.DrawWireSphere(transform.position, 0.1f, Color.white);
+
 			if (!isAlive) return;
 
 			float lifeTime = Time.time - spawnedTime;

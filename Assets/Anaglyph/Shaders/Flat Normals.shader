@@ -1,5 +1,12 @@
 Shader "Anaglyph/Debug/Flat Normals"
 {
+	Properties
+	{
+		// Passthrough compositor alpha only (premultiplied). The pass stays opaque:
+		// no blending, ZWrite on. This does not make the surface see-through in-scene.
+		_Opacity ("Opacity", Range(0, 1)) = 1
+	}
+
 	SubShader
 	{
 		Tags
@@ -22,6 +29,10 @@ Shader "Anaglyph/Debug/Flat Normals"
 			#pragma fragment frag
 
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+
+			CBUFFER_START(UnityPerMaterial)
+				half _Opacity;
+			CBUFFER_END
 
 			struct Attributes
 			{
@@ -51,7 +62,8 @@ Shader "Anaglyph/Debug/Flat Normals"
 				float3 dp2 = ddy(IN.positionWS);
 				float3 normalOS = normalize(cross(dp2, dp1));
 
-				return float4(normalOS * 0.5 + 0.5, 1.0);
+				// Premultiplied alpha for the passthrough compositor
+				return float4((normalOS * 0.5 + 0.5) * _Opacity, _Opacity);
 			}
 			ENDHLSL
 		}

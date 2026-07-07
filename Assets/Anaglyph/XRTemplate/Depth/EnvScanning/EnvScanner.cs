@@ -5,7 +5,6 @@ using System.Threading;
 using Anaglyph.XRTemplate.DepthKit;
 using Unity.Collections;
 using Unity.Mathematics;
-using UnityEditor.Graphs;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
