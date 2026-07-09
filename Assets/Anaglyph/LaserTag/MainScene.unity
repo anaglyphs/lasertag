@@ -176,6 +176,50 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 6f643e8c0126ffc46b58e6cbae23abd0, type: 3}
+--- !u!1 &552581825
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 552581827}
+  - component: {fileID: 552581826}
+  m_Layer: 0
+  m_Name: Compression Test
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &552581826
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 552581825}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 55d363b6e21e24fdba05210e81000f12, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EnvScanning::Anaglyph.DepthKit.EnvScanningV2.ChunkEncodingTester
+--- !u!4 &552581827
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 552581825}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &990915662
 GameObject:
   m_ObjectHideFlags: 0
@@ -528,273 +572,66 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
       propertyPath: m_PresetReference
-      value: 2389570979218063563
+      value: 2389571025284628491
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: 'managedReferences[2389570939798159583]'
+      propertyPath: 'managedReferences[2389571025284628480]'
       value: Unity.Multiplayer.Tools.NetworkSimulator.Runtime Unity.Multiplayer.Tools.NetworkSimulator.Runtime.NetworkSimulatorPreset
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: 'managedReferences[2389570939798159597]'
+      propertyPath: 'managedReferences[2389571025284628491]'
       value: Unity.Multiplayer.Tools.NetworkSimulator.Runtime Unity.Multiplayer.Tools.NetworkSimulator.Runtime.NetworkSimulatorPreset
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: 'managedReferences[2389570939798159606]'
-      value: Unity.Multiplayer.Tools.NetworkSimulator.Runtime Unity.Multiplayer.Tools.NetworkSimulator.Runtime.NetworkSimulatorPreset
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: 'managedReferences[2389570939798159607]'
-      value: Unity.Multiplayer.Tools.NetworkSimulator.Runtime Unity.Multiplayer.Tools.NetworkSimulator.Runtime.NetworkSimulatorPreset
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: 'managedReferences[2389570939798159622]'
-      value: Unity.Multiplayer.Tools.NetworkSimulator.Runtime Unity.Multiplayer.Tools.NetworkSimulator.Runtime.NetworkSimulatorPreset
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: 'managedReferences[2389570950811353088]'
-      value: Unity.Multiplayer.Tools.NetworkSimulator.Runtime Unity.Multiplayer.Tools.NetworkSimulator.Runtime.NetworkSimulatorPreset
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: 'managedReferences[2389570950811353338]'
-      value: Unity.Multiplayer.Tools.NetworkSimulator.Runtime Unity.Multiplayer.Tools.NetworkSimulator.Runtime.NetworkSimulatorPreset
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: 'managedReferences[2389570950811353384]'
-      value: Unity.Multiplayer.Tools.NetworkSimulator.Runtime Unity.Multiplayer.Tools.NetworkSimulator.Runtime.NetworkSimulatorPreset
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: 'managedReferences[2389570979218063563]'
-      value: Unity.Multiplayer.Tools.NetworkSimulator.Runtime Unity.Multiplayer.Tools.NetworkSimulator.Runtime.NetworkSimulatorPreset
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159583].<Name>k__BackingField
-      value: 'Mobile 3.5G [HSDPA, H, ''06]'
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159597].<Name>k__BackingField
-      value: 'Mobile 3.5G [HSDPA, H, ''06]'
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159606].<Name>k__BackingField
-      value: 'Mobile 3.5G [HSDPA, H, ''06]'
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159607].<Name>k__BackingField
+      propertyPath: managedReferences[2389571025284628480].<Name>k__BackingField
       value: Home Broadband with Congested Network
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159622].<Name>k__BackingField
+      propertyPath: managedReferences[2389571025284628491].<Name>k__BackingField
       value: Home Broadband with Congested Network
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570950811353088].<Name>k__BackingField
-      value: Home Broadband with Congested Network
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570950811353338].<Name>k__BackingField
-      value: Home Broadband with Congested Network
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570950811353384].<Name>k__BackingField
-      value: Home Broadband with Congested Network
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570979218063563].<Name>k__BackingField
-      value: Home Broadband with Congested Network
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159583].<Description>k__BackingField
-      value: This is the minimum supported mobile connection for synchronous gameplay.
-        Expect high pings, jitter, stuttering and packet loss.
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159597].<Description>k__BackingField
-      value: This is the minimum supported mobile connection for synchronous gameplay.
-        Expect high pings, jitter, stuttering and packet loss.
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159606].<Description>k__BackingField
-      value: This is the minimum supported mobile connection for synchronous gameplay.
-        Expect high pings, jitter, stuttering and packet loss.
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159607].<Description>k__BackingField
+      propertyPath: managedReferences[2389571025284628480].<Description>k__BackingField
       value: Desktop and console platforms trough congested networks (multiple downloads
         or streaming already using the network's maximum capacity). Medium ping,
         bad jitter and little packet loss.
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159622].<Description>k__BackingField
+      propertyPath: managedReferences[2389571025284628491].<Description>k__BackingField
       value: Desktop and console platforms trough congested networks (multiple downloads
         or streaming already using the network's maximum capacity). Medium ping,
         bad jitter and little packet loss.
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570950811353088].<Description>k__BackingField
-      value: Desktop and console platforms trough congested networks (multiple downloads
-        or streaming already using the network's maximum capacity). Medium ping,
-        bad jitter and little packet loss.
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570950811353338].<Description>k__BackingField
-      value: Desktop and console platforms trough congested networks (multiple downloads
-        or streaming already using the network's maximum capacity). Medium ping,
-        bad jitter and little packet loss.
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570950811353384].<Description>k__BackingField
-      value: Desktop and console platforms trough congested networks (multiple downloads
-        or streaming already using the network's maximum capacity). Medium ping,
-        bad jitter and little packet loss.
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570979218063563].<Description>k__BackingField
-      value: Desktop and console platforms trough congested networks (multiple downloads
-        or streaming already using the network's maximum capacity). Medium ping,
-        bad jitter and little packet loss.
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159583].<PacketDelayMs>k__BackingField
-      value: 160
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159597].<PacketDelayMs>k__BackingField
-      value: 160
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159606].<PacketDelayMs>k__BackingField
-      value: 160
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159607].<PacketDelayMs>k__BackingField
+      propertyPath: managedReferences[2389571025284628480].<PacketDelayMs>k__BackingField
       value: 50
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159622].<PacketDelayMs>k__BackingField
+      propertyPath: managedReferences[2389571025284628491].<PacketDelayMs>k__BackingField
       value: 50
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570950811353088].<PacketDelayMs>k__BackingField
+      propertyPath: managedReferences[2389571025284628480].<PacketJitterMs>k__BackingField
       value: 50
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570950811353338].<PacketDelayMs>k__BackingField
+      propertyPath: managedReferences[2389571025284628491].<PacketJitterMs>k__BackingField
       value: 50
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570950811353384].<PacketDelayMs>k__BackingField
-      value: 50
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570979218063563].<PacketDelayMs>k__BackingField
-      value: 50
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159583].<PacketJitterMs>k__BackingField
-      value: 30
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159597].<PacketJitterMs>k__BackingField
-      value: 30
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159606].<PacketJitterMs>k__BackingField
-      value: 30
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159607].<PacketJitterMs>k__BackingField
-      value: 50
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159622].<PacketJitterMs>k__BackingField
-      value: 50
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570950811353088].<PacketJitterMs>k__BackingField
-      value: 50
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570950811353338].<PacketJitterMs>k__BackingField
-      value: 50
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570950811353384].<PacketJitterMs>k__BackingField
-      value: 50
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570979218063563].<PacketJitterMs>k__BackingField
-      value: 50
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159583].<PacketLossPercent>k__BackingField
-      value: 6
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159597].<PacketLossPercent>k__BackingField
-      value: 6
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159606].<PacketLossPercent>k__BackingField
-      value: 6
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159607].<PacketLossPercent>k__BackingField
+      propertyPath: managedReferences[2389571025284628480].<PacketLossPercent>k__BackingField
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159622].<PacketLossPercent>k__BackingField
+      propertyPath: managedReferences[2389571025284628491].<PacketLossPercent>k__BackingField
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570950811353088].<PacketLossPercent>k__BackingField
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570950811353338].<PacketLossPercent>k__BackingField
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570950811353384].<PacketLossPercent>k__BackingField
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570979218063563].<PacketLossPercent>k__BackingField
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159583].<PacketLossInterval>k__BackingField
+      propertyPath: managedReferences[2389571025284628480].<PacketLossInterval>k__BackingField
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159597].<PacketLossInterval>k__BackingField
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159606].<PacketLossInterval>k__BackingField
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159607].<PacketLossInterval>k__BackingField
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570939798159622].<PacketLossInterval>k__BackingField
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570950811353088].<PacketLossInterval>k__BackingField
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570950811353338].<PacketLossInterval>k__BackingField
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570950811353384].<PacketLossInterval>k__BackingField
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[2389570979218063563].<PacketLossInterval>k__BackingField
+      propertyPath: managedReferences[2389571025284628491].<PacketLossInterval>k__BackingField
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 9038727052097006548, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
@@ -886,3 +723,4 @@ SceneRoots:
   - {fileID: 3109736614008989924}
   - {fileID: 6264381937039358723}
   - {fileID: 990915663}
+  - {fileID: 552581827}

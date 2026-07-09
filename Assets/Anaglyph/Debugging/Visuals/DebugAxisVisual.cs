@@ -32,8 +32,8 @@ namespace Anaglyph.Debugging.Visuals
 
 		public static void DrawDebugAxis(Vector3 position, Quaternion rotation, Color color, float scale = 1f)
 		{
-			Vector3 up = position + rotation * Vector3.up * 0.5f * scale;
-			Vector3 right = position + rotation * Vector3.right * 0.2f * scale;
+			Vector3 up = position + rotation * Vector3.up * 0.75f * scale;
+			Vector3 right = position + rotation * Vector3.right * 0.5f * scale;
 			Vector3 forward = position + rotation * Vector3.forward * scale;
 
 			XRGizmos.DrawLine(position, up, color);
