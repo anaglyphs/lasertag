@@ -125,7 +125,6 @@ namespace Anaglyph.XRTemplate.AprilTags
 						// probably unity editor simulator
 
 						throw new NotImplementedException();
-						break;
 
 					default:
 						throw new Exception("unsupported image format");
