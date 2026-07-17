@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Threading;
 using Unity.Netcode;
 using Unity.XR.CoreUtils;
@@ -10,6 +11,7 @@ namespace Anaglyph.Lasertag
 	public class Bullet : NetworkBehaviour
 	{
 		private const float MaxTravelDist = 50;
+		private static float ServerTime => NetworkManager.Singleton.ServerTime.TimeAsFloat;
 
 		[SerializeField] private float metersPerSecond;
 		[SerializeField] private AnimationCurve damageOverDistance = AnimationCurve.Constant(0, MaxTravelDist, 50f);
@@ -20,12 +22,27 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private AudioClip fireSFX;
 		[SerializeField] private AudioClip collideSFX;
 
-		private NetworkVariable<Pose> spawnPoseSync = new();
-		public Pose SpawnPose => spawnPoseSync.Value;
+		[Serializable, StructLayout(LayoutKind.Sequential)]
+		public struct ShotData
+		{
+			public Ray ray;
+			public float serverTimeShot;
 
-		private Ray fireRay;
+			public float GetFlightTime()
+			{
+				return ServerTime - serverTimeShot;
+			}
+
+			public Vector3 GetFlightPosition(float metersPerSecond)
+			{
+				return ray.GetPoint(GetFlightTime() * metersPerSecond);
+			}
+		}
+
+		private NetworkVariable<ShotData> shotSync = new();
+		public ShotData Shot => shotSync.Value;
+		
 		private bool isAlive;
-		private float spawnedTime;
 		private float travelDist;
 
 		public event Action OnFire = delegate { };
@@ -35,46 +52,60 @@ namespace Anaglyph.Lasertag
 
 		private void Awake()
 		{
-			spawnPoseSync.OnValueChanged += OnSpawnPosChange;
+			shotSync.OnValueChanged += OnShot;
 		}
 
 		public override void OnNetworkSpawn()
 		{
 			isAlive = true;
-			spawnedTime = Time.time;
 
 			if (IsOwner)
-				spawnPoseSync.Value = transform.GetWorldPose();
+			{
+				ShotData shotData = new()
+				{
+					ray = new Ray(transform.position, transform.forward),
+					serverTimeShot = ServerTime,
+				};
+				shotSync.Value = shotData;
+			}
 			else
-				SetPose(SpawnPose);
+			{
+				UpdatePosition(Shot);
+			}
 
 			OnFire.Invoke();
 			AudioPool.Play(fireSFX, transform.position);
-
-			fireRay = new Ray(transform.position, transform.forward);
 		}
 
-		private void OnSpawnPosChange(Pose p, Pose v)
+		private void OnShot(ShotData prev, ShotData curr)
 		{
-			SetPose(v);
+			Quaternion rot = Quaternion.LookRotation(curr.ray.direction);
+			Pose p = new(curr.ray.origin, rot);
+			
+			UpdatePosition(p);
 		}
 
-		private void SetPose(Pose pose)
+		private void UpdatePosition(ShotData shot)
+		{
+			Quaternion rot = Quaternion.LookRotation(shot.ray.direction);
+			Vector3 pos = shot.GetFlightPosition(metersPerSecond);
+			
+			Pose p = new(pos, rot);
+			
+			UpdatePosition(p);
+		}
+
+		private void UpdatePosition(Pose pose)
 		{
 			transform.SetPositionAndRotation(pose.position, pose.rotation);
 		}
 
 		private void Update()
 		{
-			if (AnaglyphDebugging.DebugMode) DrawDebug();
-
 			if (!isAlive) return;
-
-			float lifeTime = Time.time - spawnedTime;
+			
 			Vector3 prevPos = transform.position;
-			travelDist = metersPerSecond * lifeTime;
-
-			transform.position = fireRay.GetPoint(travelDist);
+			UpdatePosition(Shot);
 
 			if (IsOwner)
 			{
@@ -101,6 +132,8 @@ namespace Anaglyph.Lasertag
 				if (travelDist > MaxTravelDist)
 					NetworkObject.Despawn(true);
 			}
+			
+			if (AnaglyphDebugging.DebugMode) DrawDebug();
 		}
 
 		private void DrawDebug()

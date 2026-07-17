@@ -13,8 +13,15 @@ namespace Anaglyph.Lasertag
 		public event Action<PlayerAvatar> Taken = delegate { };
 		public event Action<PlayerAvatar> Captured = delegate { };
 
-		private NetworkVariable<NetworkBehaviourReference> holderSync = new();
+		private readonly NetworkVariable<NetworkBehaviourReference> holderSync = new();
+		// Changes every time the flag is successfully picked up. Capture requests
+		// carry this value so a late/repeated request cannot capture a later carry.
+		private readonly NetworkVariable<uint> carryEpochSync = new();
 		public PlayerAvatar Holder { get; private set; }
+
+		// This only prevents the local holder from sending the same request every
+		// frame. Correctness comes from the authority-side holder/epoch checks.
+		private bool captureRequested;
 
 		[SerializeField] private Transform visual;
 
@@ -41,6 +48,7 @@ namespace Anaglyph.Lasertag
 			MatchReferee.StateChanged += OnMatchStateChanged;
 
 			holderSync.OnValueChanged += OnHolderSyncChanged;
+			carryEpochSync.OnValueChanged += OnCarryEpochChanged;
 			ResolveHolder();
 		}
 
@@ -49,6 +57,7 @@ namespace Anaglyph.Lasertag
 			MainPlayer.Died -= OnDied;
 			MatchReferee.StateChanged -= OnMatchStateChanged;
 			holderSync.OnValueChanged -= OnHolderSyncChanged;
+			carryEpochSync.OnValueChanged -= OnCarryEpochChanged;
 
 			if (Holder == PlayerAvatar.Local)
 				RequestDropRpc();
@@ -57,9 +66,18 @@ namespace Anaglyph.Lasertag
 		private void OnHolderSyncChanged(NetworkBehaviourReference previous, NetworkBehaviourReference current)
 		{
 			ResolveHolder();
+			if (Holder != PlayerAvatar.Local)
+				captureRequested = false;
 
 			if (Holder != null)
 				Taken.Invoke(Holder);
+		}
+
+		private void OnCarryEpochChanged(uint previous, uint current)
+		{
+			// A holder update and its epoch can arrive independently. If this client
+			// tried with the previous epoch, let it retry once the current carry is known.
+			captureRequested = false;
 		}
 
 		private void ResolveHolder()
@@ -68,22 +86,21 @@ namespace Anaglyph.Lasertag
 			Holder = holder;
 		}
 
-		public override void OnGainedOwnership()
-		{
-			if (Holder)
-				RequestDropRpc();
-		}
-
 		private void OnDied()
 		{
 			if (Holder == PlayerAvatar.Local)
+			{
+				captureRequested = false;
 				RequestDropRpc();
+			}
 		}
 
 		private void OnMatchStateChanged(MatchState state)
 		{
+			captureRequested = false;
+
 			if (IsOwner)
-				RequestDropRpc();
+				holderSync.Value = default;
 		}
 
 		private void Update()
@@ -93,9 +110,15 @@ namespace Anaglyph.Lasertag
 
 			if (Holder == PlayerAvatar.Local && PlayerAvatar.Local.IsInFriendlyBase && PlayerAvatar.Local.IsAlive)
 			{
-				MatchReferee referee = MatchReferee.Instance;
-				referee.Score(PlayerAvatar.Local.Team, MatchReferee.Settings.pointsPerFlagCapture);
-				RequestCaptureRpc(NetworkManager.LocalClientId);
+				if (!captureRequested)
+				{
+					captureRequested = true;
+					RequestCaptureRpc(carryEpochSync.Value);
+				}
+			}
+			else
+			{
+				captureRequested = false;
 			}
 		}
 
@@ -114,7 +137,7 @@ namespace Anaglyph.Lasertag
 			bool isInBase = player.IsInBase; // prevent crazy flag take & score loop if flag is in base lol
 
 			if (isAlive && hasTeam && isOtherTeam && !isInBase)
-				RequestTakeRpc(NetworkManager.LocalClientId);
+				RequestTakeRpc();
 		}
 
 		private void LateUpdate()
@@ -135,41 +158,59 @@ namespace Anaglyph.Lasertag
 			}
 		}
 
-		// These are SendTo.Server (not SendTo.Everyone) so holderSync has a single
-		// writer. Two clients racing to take the flag now resolve deterministically
-		// by server processing order instead of each client evaluating its own copy
-		// of the take/drop logic and potentially disagreeing on the result.
+		// The flag owner is the single writer for holder state. Requests are validated
+		// against the RPC sender so clients cannot act on behalf of another player.
 
 		[Rpc(SendTo.Owner)]
-		private void RequestTakeRpc(ulong id)
+		private void RequestTakeRpc(RpcParams rpc = default)
 		{
 			if (holderSync.Value.TryGet(out PlayerAvatar _))
 				return; // already claimed - whichever request the server processes first wins
 
-			if (!PlayerAvatar.All.TryGetValue(id, out PlayerAvatar player))
+			ulong sender = rpc.Receive.SenderClientId;
+			if (!PlayerAvatar.All.TryGetValue(sender, out PlayerAvatar player))
 				return;
 
 			holderSync.Value = new NetworkBehaviourReference(player);
+			carryEpochSync.Value++;
 		}
 
 		[Rpc(SendTo.Owner)]
-		private void RequestDropRpc()
+		private void RequestDropRpc(RpcParams rpc = default)
 		{
-			holderSync.Value = default;
-		}
-
-		[Rpc(SendTo.Owner)]
-		private void RequestCaptureRpc(ulong id)
-		{
-			if (!PlayerAvatar.All.TryGetValue(id, out PlayerAvatar player))
+			if (!holderSync.Value.TryGet(out PlayerAvatar holder) ||
+			    holder.OwnerClientId != rpc.Receive.SenderClientId)
 				return;
 
 			holderSync.Value = default;
-
-			AnnounceCapturedRpc(id);
 		}
 
-		[Rpc(SendTo.Everyone)]
+		[Rpc(SendTo.Owner)]
+		private void RequestCaptureRpc(uint carryEpoch, RpcParams rpc = default)
+		{
+			ulong sender = rpc.Receive.SenderClientId;
+			if (!PlayerAvatar.All.TryGetValue(sender, out PlayerAvatar player))
+				return;
+
+			if (MatchReferee.State != MatchState.Playing ||
+			    carryEpoch != carryEpochSync.Value ||
+			    !holderSync.Value.TryGet(out PlayerAvatar holder) ||
+			    holder != player ||
+			    !player.IsAlive ||
+			    !player.IsInFriendlyBase ||
+			    player.Team == 0 ||
+			    player.Team == Team)
+				return;
+
+			// Clearing the holder before raising the score makes this transition
+			// idempotent: duplicate or delayed requests fail the holder/epoch checks.
+			holderSync.Value = default;
+
+			MatchReferee.Instance.Score(player.Team, MatchReferee.Settings.pointsPerFlagCapture);
+			AnnounceCapturedRpc(sender);
+		}
+
+		[Rpc(SendTo.Everyone, InvokePermission = RpcInvokePermission.Owner)]
 		private void AnnounceCapturedRpc(ulong id)
 		{
 			if (PlayerAvatar.All.TryGetValue(id, out PlayerAvatar player))

@@ -28,6 +28,7 @@ namespace Anaglyph.Netcode
 	// trusting a delta, the way NetworkList<T>.OnListChanged is typically used.
 	public class SyncList<T> : SyncEndpoint, IReadOnlyList<T> where T : unmanaged
 	{
+		private readonly T[] initial;
 		private readonly List<T> items = new();
 
 		public struct EventData
@@ -61,6 +62,8 @@ namespace Anaglyph.Netcode
 
 		public SyncList(string name, IEnumerable<T> initialItems = null) : base(name)
 		{
+			initial = initialItems != null ? new List<T>(initialItems).ToArray() : Array.Empty<T>();
+			items.AddRange(initial);
 		}
 
 		// ---- read access -------------------------------------------------------
@@ -282,7 +285,9 @@ namespace Anaglyph.Netcode
 
 		internal override void ResetState()
 		{
-			ClearLocally();
+			items.Clear();
+			items.AddRange(initial);
+			Changed.Invoke(new EventData(SyncListOp.Snapshot));
 		}
 
 		// ---- payload encoding ----------------------------------------------------
