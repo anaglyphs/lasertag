@@ -1365,9 +1365,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 7254734392762225021, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 9183178701382868414}
-    - targetCorrespondingSourceObject: {fileID: 3220447487962168756, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
+    - targetCorrespondingSourceObject: {fileID: 7254734392762225021, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 6110903463456996318}
+      addedObject: {fileID: 7321122391286215467}
     - targetCorrespondingSourceObject: {fileID: 8273645227207553632, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 5467248365274046325}
@@ -1597,22 +1597,30 @@ MonoBehaviour:
       m_Processors: 
       m_Interactions: 
       m_SingletonActionBindings:
-      - m_Name: 
-        m_Id: 89cc94d4-35c0-4bf4-8391-129a046d6209
+      - m_Name: Vector 3 Fallback
+        m_Id: 7b6da5f2-3260-4b97-b09d-103c19388885
+        m_Path: Vector3Fallback
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: Point Position
+        m_Flags: 4
+      - m_Name: first
+        m_Id: 96d5efe9-990f-45e4-8d84-2f73d94b8ba8
         m_Path: <XRController>{RightHand}/{pointerPosition}
         m_Interactions: 
         m_Processors: 
         m_Groups: 
         m_Action: Point Position
-        m_Flags: 0
-      - m_Name: 
-        m_Id: 0edca43a-3b4c-41bb-95c2-2cc9b669dac1
+        m_Flags: 8
+      - m_Name: second
+        m_Id: d665e0df-8839-4327-9581-daa24424f896
         m_Path: <XRController>{RightHand}/{devicePosition}
         m_Interactions: 
         m_Processors: 
         m_Groups: 
         m_Action: Point Position
-        m_Flags: 0
+        m_Flags: 8
       m_Flags: 0
     m_Reference: {fileID: 0}
   pointRotation:
@@ -1625,22 +1633,30 @@ MonoBehaviour:
       m_Processors: 
       m_Interactions: 
       m_SingletonActionBindings:
-      - m_Name: 
-        m_Id: e80e7ea7-e68e-4230-b8c4-49c90b81fe2b
+      - m_Name: Quaternion Fallback
+        m_Id: c953d29a-0484-4403-a307-71ff052cbead
+        m_Path: QuaternionFallback
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: Point Rotation
+        m_Flags: 4
+      - m_Name: First
+        m_Id: b744a14d-9744-4381-a4d3-1947a59da8d1
         m_Path: <XRController>{RightHand}/{pointerRotation}
         m_Interactions: 
         m_Processors: 
         m_Groups: 
         m_Action: Point Rotation
-        m_Flags: 0
-      - m_Name: 
-        m_Id: 3b55bfb4-723f-4994-8e7f-c5cd4bb6f025
+        m_Flags: 8
+      - m_Name: Second
+        m_Id: 4447175e-5365-4af5-9066-a98a5c57621b
         m_Path: <XRController>{RightHand}/{deviceRotation}
         m_Interactions: 
         m_Processors: 
         m_Groups: 
         m_Action: Point Rotation
-        m_Flags: 0
+        m_Flags: 8
       m_Flags: 0
     m_Reference: {fileID: 0}
   interactor: {fileID: 1566182161945705153}
@@ -1758,24 +1774,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6803edce0201f574f923fd9d10e5b30a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!1 &1886363011424508833 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 3220447487962168756, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
-  m_PrefabInstance: {fileID: 3935273918476871189}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &6110903463456996318
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1886363011424508833}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9503477a1b69044c9a8a78e953a803db, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.WeaponSwitcher
-  defaultWeapon: {fileID: 3351604493564354878, guid: dc9d3a79025131f408102e10b2cea9d5, type: 3}
 --- !u!1 &4538819731415447582 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 603982319059033611, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
@@ -1941,22 +1939,30 @@ MonoBehaviour:
       m_Processors: 
       m_Interactions: 
       m_SingletonActionBindings:
-      - m_Name: 
-        m_Id: 037df609-ba15-4c15-8a96-45a55e771069
+      - m_Name: Vector 3 Fallback
+        m_Id: 037bd831-cca6-4980-9186-83d16ff2193c
+        m_Path: Vector3Fallback
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: Point Position
+        m_Flags: 4
+      - m_Name: first
+        m_Id: b17c02a5-2bc8-4d3f-85f7-e1ef7e7b9d46
         m_Path: <XRController>{LeftHand}/{pointerPosition}
         m_Interactions: 
         m_Processors: 
         m_Groups: 
         m_Action: Point Position
-        m_Flags: 0
-      - m_Name: 
-        m_Id: df1d6cbf-1900-4a58-8569-a529618fe6f7
+        m_Flags: 8
+      - m_Name: second
+        m_Id: d90803bf-29d6-47fa-aaae-04cfe015a1c6
         m_Path: <XRController>{LeftHand}/{devicePosition}
         m_Interactions: 
         m_Processors: 
         m_Groups: 
         m_Action: Point Position
-        m_Flags: 0
+        m_Flags: 8
       m_Flags: 0
     m_Reference: {fileID: 0}
   pointRotation:
@@ -1969,22 +1975,30 @@ MonoBehaviour:
       m_Processors: 
       m_Interactions: 
       m_SingletonActionBindings:
-      - m_Name: 
-        m_Id: 3680123d-79b9-4194-87cf-35cc552062ae
+      - m_Name: Quaternion Fallback
+        m_Id: 9a4e0bbb-ac2b-42c2-8722-205d6ee4fa07
+        m_Path: QuaternionFallback
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: Point Rotation
+        m_Flags: 4
+      - m_Name: First
+        m_Id: 875e9a76-d799-4a01-894f-fd66393dd188
         m_Path: <XRController>{LeftHand}/{pointerRotation}
         m_Interactions: 
         m_Processors: 
         m_Groups: 
         m_Action: Point Rotation
-        m_Flags: 0
-      - m_Name: 
-        m_Id: e3a80f1c-9eea-4785-a7b8-ea1b9a07eec3
+        m_Flags: 8
+      - m_Name: Second
+        m_Id: 86931497-d737-49ef-a4f1-d4e09bc68543
         m_Path: <XRController>{LeftHand}/{deviceRotation}
         m_Interactions: 
         m_Processors: 
         m_Groups: 
         m_Action: Point Rotation
-        m_Flags: 0
+        m_Flags: 8
       m_Flags: 0
     m_Reference: {fileID: 0}
   interactor: {fileID: 1859463319553081786}
@@ -2331,6 +2345,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: Anaglyph::Anaglyph.Debugging.Visuals.DebugAxisVisual
   color: {r: 0.7734461, g: 0, b: 1, a: 1}
   scale: 1
+--- !u!114 &7321122391286215467
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5922542169172391784}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9503477a1b69044c9a8a78e953a803db, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.WeaponSwitcher
+  defaultWeapon: {fileID: 3351604493564354878, guid: dc9d3a79025131f408102e10b2cea9d5, type: 3}
 --- !u!1001 &4016957823946686662
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -4394,30 +4421,6 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 5530442561241440358, guid: d8d954da3a68147abbb923f5b184881c, type: 3}
-      propertyPath: m_AnchorMax.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5530442561241440358, guid: d8d954da3a68147abbb923f5b184881c, type: 3}
-      propertyPath: m_AnchorMin.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5530442561241440358, guid: d8d954da3a68147abbb923f5b184881c, type: 3}
-      propertyPath: m_SizeDelta.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5530442561241440358, guid: d8d954da3a68147abbb923f5b184881c, type: 3}
-      propertyPath: m_SizeDelta.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5530442561241440358, guid: d8d954da3a68147abbb923f5b184881c, type: 3}
-      propertyPath: m_AnchoredPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5530442561241440358, guid: d8d954da3a68147abbb923f5b184881c, type: 3}
-      propertyPath: m_AnchoredPosition.y
-      value: 0
-      objectReference: {fileID: 0}
     - target: {fileID: 5624883713578354801, guid: d8d954da3a68147abbb923f5b184881c, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -4695,30 +4698,6 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6562475689647085261, guid: d8d954da3a68147abbb923f5b184881c, type: 3}
-      propertyPath: m_AnchoredPosition.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6741855105215923500, guid: d8d954da3a68147abbb923f5b184881c, type: 3}
-      propertyPath: m_AnchorMax.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6741855105215923500, guid: d8d954da3a68147abbb923f5b184881c, type: 3}
-      propertyPath: m_AnchorMin.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6741855105215923500, guid: d8d954da3a68147abbb923f5b184881c, type: 3}
-      propertyPath: m_SizeDelta.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6741855105215923500, guid: d8d954da3a68147abbb923f5b184881c, type: 3}
-      propertyPath: m_SizeDelta.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6741855105215923500, guid: d8d954da3a68147abbb923f5b184881c, type: 3}
-      propertyPath: m_AnchoredPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6741855105215923500, guid: d8d954da3a68147abbb923f5b184881c, type: 3}
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
