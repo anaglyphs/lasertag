@@ -15,6 +15,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	/// ARFoundation anchor management functions are async and annoyingly do not support cancellation.
 	/// This handle class tries to make it easier to reconcile an anchor's desired state with its actual state
 	/// and uncancellable operations.
+	///
+	/// Despite writing this by hand, this is overly complicated slop that desperately needs a refactor.
 	/// </summary>
 	public class AnchorHandle : IDisposable
 	{
@@ -67,7 +69,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		}
 
 
-		// TODO move all these complicated logic paths into a state reconciliation loop
+		// TODO refactor all these complicated logic paths into a state reconciliation loop
 		// private static async void ReconciliationLoop(CancellationToken ctkn)
 		// {
 		// 	try
@@ -134,6 +136,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		// For when the handle should simultaneously dispose upon anchor removal
 		private bool markedForDisposal = false;
+		private bool downloadQueued = false;
 
 
 		private CancellationTokenSource shareCtknSrc;
@@ -249,6 +252,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		/// <exception cref="Exception"></exception>
 		public async Awaitable<State> DownloadSharedAnchor()
 		{
+			if (state != State.Active)
+				downloadQueued = true;
+
 			// cancel anchor removal if marked so
 			UnmarkForUnloadingAndDisposal();
 
@@ -261,7 +267,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			state = State.Loading;
 
 			float retryTime = 3;
-			bool successful = false;
 
 			// only one anchor per group. see `ShareAnchor()`
 			List<XRAnchor> downloaded = new(1);
@@ -294,6 +299,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					if (state == State.Loading)
 						state = State.AboutToBecomeActive;
 
+					downloadQueued = false;
+
 					break;
 				}
 			}
@@ -302,6 +309,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 			catch (Exception e)
 			{
+				downloadQueued = false;
 				Debug.LogException(e);
 			}
 			finally
@@ -309,6 +317,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				if (state == State.Loading)
 					OnAnchorRemoved();
 			}
+
+			if (downloadQueued && state == State.Unloaded)
+				return await DownloadSharedAnchor();
 
 			return state;
 		}
@@ -325,6 +336,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			state = State.Active;
 			anchor = loadedAnchor;
+			downloadQueued = false;
 
 			if (markedForUnloading)
 				RemoveAnchor();
@@ -354,6 +366,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (markedForUnloading || state == State.Unloaded)
 				return;
 
+			downloadQueued = false;
 			markedForUnloading = true;
 			shareCtknSrc?.Cancel();
 			downloadCtknSrc?.Cancel();

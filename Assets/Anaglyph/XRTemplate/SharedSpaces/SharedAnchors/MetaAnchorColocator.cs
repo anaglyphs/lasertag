@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using Anaglyph.Debugging.Visuals;
 using Anaglyph.Netcode;
 using Unity.Mathematics;
 using UnityEngine;
@@ -18,12 +19,16 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	/// Other devices download these anchors.
 	/// All devices find the best fit between anchor positions and known positions
 	/// and transform the XR rig pose (inversely transforming the virtual environment) to align that best fit.
+	///
+	/// I wrote this all manually, but it is currently total slop and I desperately need to refactor.
+	/// Fable did a better job... :(
 	/// </summary>
 	[DefaultExecutionOrder(999)]
 	public class MetaAnchorColocator : MonoBehaviour, IColocator
 	{
 		// Distance from all other anchors the session owner headset needs to be to spawn a new anchor
 		[SerializeField] private float newAnchorDist = 6f;
+		[SerializeField] private LayerMask anchorPlacementRaycastlayerMask = Physics.DefaultRaycastLayers;
 
 		public event Action Colocated = delegate { };
 
@@ -123,7 +128,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (handle.markedForUnloading)
 				handle.UnmarkForUnloadingAndDisposal();
 
-			if (handle.state == AnchorHandle.State.Unloaded)
+			if (handle.state != AnchorHandle.State.Active)
 				_ = handle.DownloadSharedAnchor();
 		}
 
@@ -314,8 +319,17 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			try
 			{
 				Pose playerFeetPos;
-				playerFeetPos.position = MainXRRig.Camera.transform.position - new Vector3(0, 1.5f, 0);
 				playerFeetPos.rotation = Quaternion.identity;
+
+				Vector3 headPos = MainXRRig.Camera.transform.position;
+
+				Ray ray = new(headPos, Vector3.down);
+
+				if (Physics.Raycast(ray, out RaycastHit hit, 2f, anchorPlacementRaycastlayerMask,
+					    QueryTriggerInteraction.Ignore))
+					playerFeetPos.position = hit.point;
+				else
+					playerFeetPos.position = headPos - Vector3.up * 1.5f;
 
 				await CreateAndShareNewAnchor(playerFeetPos, ctkn);
 			}
@@ -366,6 +380,15 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					anchors.Remove(handle.guid);
 				}
 			}
+		}
+
+		private void Update()
+		{
+			if (!AnaglyphDebugging.DebugMode)
+				return;
+
+			foreach (Pose pose in canonPoses.Values)
+				DebugAxisVisual.DrawDebugAxis(pose.position, pose.rotation, Color.cyan);
 		}
 	}
 }

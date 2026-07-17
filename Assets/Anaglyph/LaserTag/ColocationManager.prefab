@@ -11,10 +11,10 @@ GameObject:
   - component: {fileID: 8602809240530545973}
   - component: {fileID: 6911126833990273307}
   - component: {fileID: 2865989476549954882}
+  - component: {fileID: 8226459557597020392}
   - component: {fileID: 2017920904899384140}
   - component: {fileID: 3794738929113082028}
   - component: {fileID: 8030733127724905774}
-  - component: {fileID: 8226459557597020392}
   m_Layer: 0
   m_Name: ColocationManager
   m_TagString: Untagged
@@ -65,6 +65,22 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.EnvChunkSync
   syncSweptVoxelsThreshold: 500
+--- !u!114 &8226459557597020392
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5901269829941828840}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 304bb6caa6bf4544f937804a6279a0b3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.XRTemplate.SharedSpaces::Anaglyph.XRTemplate.SharedSpaces.MetaAnchorColocator
+  newAnchorDist: 6
+  anchorPlacementRaycastlayerMask:
+    serializedVersion: 2
+    m_Bits: 64
 --- !u!114 &2017920904899384140
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -113,16 +129,3 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   tagSizeMeters: 0.12
---- !u!114 &8226459557597020392
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5901269829941828840}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 304bb6caa6bf4544f937804a6279a0b3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Anaglyph.XRTemplate.SharedSpaces::Anaglyph.XRTemplate.SharedSpaces.MetaAnchorColocator
-  newAnchorDist: 6

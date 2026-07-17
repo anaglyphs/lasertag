@@ -528,14 +528,22 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
       propertyPath: m_PresetReference
-      value: 2389571204675797079
+      value: 2389571204675797080
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
       propertyPath: 'managedReferences[2389571204675797079]'
       value: Unity.Multiplayer.Tools.NetworkSimulator.Runtime Unity.Multiplayer.Tools.NetworkSimulator.Runtime.NetworkSimulatorPreset
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
+      propertyPath: 'managedReferences[2389571204675797080]'
+      value: Unity.Multiplayer.Tools.NetworkSimulator.Runtime Unity.Multiplayer.Tools.NetworkSimulator.Runtime.NetworkSimulatorPreset
+      objectReference: {fileID: 0}
+    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
       propertyPath: managedReferences[2389571204675797079].<Name>k__BackingField
+      value: Home Broadband with Congested Network
+      objectReference: {fileID: 0}
+    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
+      propertyPath: managedReferences[2389571204675797080].<Name>k__BackingField
       value: Home Broadband with Congested Network
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
@@ -545,7 +553,17 @@ PrefabInstance:
         bad jitter and little packet loss.
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
+      propertyPath: managedReferences[2389571204675797080].<Description>k__BackingField
+      value: Desktop and console platforms trough congested networks (multiple downloads
+        or streaming already using the network's maximum capacity). Medium ping,
+        bad jitter and little packet loss.
+      objectReference: {fileID: 0}
+    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
       propertyPath: managedReferences[2389571204675797079].<PacketDelayMs>k__BackingField
+      value: 50
+      objectReference: {fileID: 0}
+    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
+      propertyPath: managedReferences[2389571204675797080].<PacketDelayMs>k__BackingField
       value: 50
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
@@ -553,11 +571,23 @@ PrefabInstance:
       value: 50
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
+      propertyPath: managedReferences[2389571204675797080].<PacketJitterMs>k__BackingField
+      value: 50
+      objectReference: {fileID: 0}
+    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
       propertyPath: managedReferences[2389571204675797079].<PacketLossPercent>k__BackingField
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
+      propertyPath: managedReferences[2389571204675797080].<PacketLossPercent>k__BackingField
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
       propertyPath: managedReferences[2389571204675797079].<PacketLossInterval>k__BackingField
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3945362640107383451, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
+      propertyPath: managedReferences[2389571204675797080].<PacketLossInterval>k__BackingField
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 9038727052097006548, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
