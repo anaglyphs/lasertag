@@ -86,3 +86,12 @@ crashlytics-build.properties
 /[Aa]ssets/_Recovery/
 
 *.blob
+
+# Repository-local editor and Unity-generated metadata
+/.pi/
+/UIElementsSchema/
+/debug.log
+*.sln.DotSettings
+
+# Imported Unity content-package archives; imported assets remain under Assets/.
+/ContentPackages/

@@ -19,9 +19,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	/// Other devices download these anchors.
 	/// All devices find the best fit between anchor positions and known positions
 	/// and transform the XR rig pose (inversely transforming the virtual environment) to align that best fit.
-	///
-	/// I wrote this all manually, but it is currently total slop and I desperately need to refactor.
-	/// Fable did a better job... :(
 	/// </summary>
 	[DefaultExecutionOrder(999)]
 	public class MetaAnchorColocator : MonoBehaviour, IColocator
@@ -40,12 +37,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private CancellationTokenSource sessionCtknSrc;
 
 		private readonly SyncDictionary<SerializableGuid, Pose> canonPoses = new("colo.meta.poses");
-		private readonly Dictionary<SerializableGuid, AnchorHandle> anchors = new();
+		private readonly Dictionary<SerializableGuid, AnchorLease> anchors = new();
 
 		private readonly List<(float3 subject, float3 target)> positionPairs = new();
 
 		private ARAnchorManager anchorManager;
 		private MetaOpenXRAnchorSubsystem metaAnchorSubsystem;
+		private AnchorRegistry anchorRegistry;
 
 		public void Awake()
 		{
@@ -55,7 +53,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			canonPoses.Changed += OnCanonPosesChanged;
 			canonPoses.Register();
 
-			AnchorHandle.StartService(anchorManager, metaAnchorSubsystem);
+			anchorRegistry = new AnchorRegistry(anchorManager, metaAnchorSubsystem);
 		}
 
 		private void OnDestroy()
@@ -63,6 +61,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			StopColocation();
 			canonPoses.Unregister();
 			sessionCtknSrc?.Cancel();
+			anchorRegistry?.Dispose();
 		}
 
 		private void OnApplicationFocus(bool isFocused)
@@ -107,37 +106,24 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			sessionCtknSrc?.Cancel();
 
-			foreach (AnchorHandle handle in anchors.Values) handle.MarkForUnloadingAndDisposal();
+			foreach (AnchorLease lease in anchors.Values) lease.Dispose();
 			if (SyncBus.IsAuthority) canonPoses.Clear(); // already done when network ends but just to be safe
 			anchors.Clear();
 		}
 
 		private void TryRegisterNewHandle(SerializableGuid guid)
 		{
-			if (anchors.TryGetValue(guid, out AnchorHandle handle))
-			{
-				if (handle.state != AnchorHandle.State.Unloaded)
-					return; // already exists. this is probably the host
-			}
-			else
-			{
-				handle = AnchorHandle.GetHandle(guid);
-				anchors[handle.guid] = handle;
-			}
+			if (anchors.ContainsKey(guid))
+				return;
 
-			if (handle.markedForUnloading)
-				handle.UnmarkForUnloadingAndDisposal();
-
-			if (handle.state != AnchorHandle.State.Active)
-				_ = handle.DownloadSharedAnchor();
+			anchors.Add(guid, anchorRegistry.Acquire(guid));
 		}
 
 		private void QueueHandleRemoval(SerializableGuid guid)
 		{
-			if (anchors.TryGetValue(guid, out AnchorHandle handle))
+			if (anchors.Remove(guid, out AnchorLease lease))
 			{
-				handle.MarkForUnloadingAndDisposal();
-				anchors.Remove(guid);
+				lease.Dispose();
 			}
 		}
 
@@ -206,8 +192,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 					int correspondingCount = 0;
 
-					foreach ((SerializableGuid guid, AnchorHandle handle) in anchors)
+					foreach ((SerializableGuid guid, AnchorLease lease) in anchors)
 					{
+						AnchorHandle handle = lease.Handle;
 						if (handle.state != AnchorHandle.State.Active) continue;
 
 						bool isTracked = handle.anchor.trackingState == TrackingState.Tracking;
@@ -344,23 +331,24 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public async Awaitable CreateAndShareNewAnchor(Pose pose, CancellationToken ctkn)
 		{
-			AnchorHandle handle = null;
+			AnchorLease lease = null;
 			bool published = false;
 
 			try
 			{
 				Result<ARAnchor> result = await anchorManager.TryAddAnchorAsync(pose);
-				if (!result.status.IsSuccess())
+				if (!result.status.IsSuccess() || result.value == null)
 					throw new Exception("Failed to create new anchor!");
 
-				handle = AnchorHandle.GetHandle(result.value);
-				anchors[handle.guid] = handle;
+				lease = anchorRegistry.Acquire(result.value);
+				AnchorHandle handle = lease.Handle;
+				anchors[handle.guid] = lease;
 
 				ctkn.ThrowIfCancellationRequested();
 
-				AnchorHandle.ShareState shareState = await handle.ShareAnchor();
+				bool shared = await ShareAnchor(handle.anchor, ctkn);
 				ctkn.ThrowIfCancellationRequested();
-				if (shareState != AnchorHandle.ShareState.Shared) return;
+				if (!shared) return;
 
 				canonPoses.Set(handle.guid, pose);
 				published = true;
@@ -374,11 +362,37 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 			finally
 			{
-				if (handle != null && !published)
+				if (lease != null && !published)
 				{
-					handle.MarkForUnloadingAndDisposal();
-					anchors.Remove(handle.guid);
+					SerializableGuid guid = lease.Handle.guid;
+
+					if (anchors.TryGetValue(guid, out AnchorLease registered) &&
+					    ReferenceEquals(registered, lease))
+						anchors.Remove(guid);
+
+					lease.Dispose();
 				}
+			}
+		}
+
+		private async Awaitable<bool> ShareAnchor(ARAnchor anchor, CancellationToken ctkn)
+		{
+			const float retrySeconds = 3f;
+
+			while (true)
+			{
+				ctkn.ThrowIfCancellationRequested();
+
+				metaAnchorSubsystem.sharedAnchorsGroupId = anchor.trackableId;
+				XRResultStatus result = await anchorManager.TryShareAnchorAsync(anchor);
+
+				ctkn.ThrowIfCancellationRequested();
+
+				if (!result.IsError())
+					return true;
+
+				Debug.LogWarning($"Failed to share anchor {anchor.trackableId}: {result}");
+				await Awaitable.WaitForSecondsAsync(retrySeconds, ctkn);
 			}
 		}
 
