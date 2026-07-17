@@ -229,7 +229,7 @@ namespace Anaglyph.Lasertag
 
 		// ---- every-peer reactions ------------------------------------------------
 
-		private void OnScoresChanged()
+		private void OnScoresChanged(SyncList<int>.EventData eventData)
 		{
 			for (byte i = 0; i < Teams.NumTeams; i++)
 			{

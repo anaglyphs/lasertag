@@ -29,7 +29,7 @@ namespace Anaglyph.XRTemplate
 			transform.RotateAroundPoint(camera.transform.position, delta);
 		}
 
-		public void AlignSpace(Matrix4x4 current, Matrix4x4 target, float lerp = 1f)
+		public void AlignSpace(Matrix4x4 current, Matrix4x4 target, float lerp = 1f, bool forceGlobalUp = true)
 		{
 			Transform t = TrackingSpace;
 
@@ -44,7 +44,19 @@ namespace Anaglyph.XRTemplate
 			t.position = Vector3.Lerp(rigPos, targetPos, lerp);
 			t.rotation = Quaternion.Slerp(rigRot, targetRot, lerp);
 
-			ForceGlobalUp();
+			if (forceGlobalUp)
+				ForceGlobalUp();
+		}
+
+		public void ShiftSpace(Matrix4x4 shift)
+		{
+			Transform t = TrackingSpace;
+
+			Matrix4x4 rigMat = t.localToWorldMatrix;
+			Matrix4x4 targetMat = shift * rigMat;
+
+			t.position = targetMat.GetPosition();
+			t.rotation = targetMat.rotation;
 		}
 	}
 }

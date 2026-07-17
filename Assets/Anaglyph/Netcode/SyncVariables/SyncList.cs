@@ -4,6 +4,16 @@ using System.Collections.Generic;
 
 namespace Anaglyph.Netcode
 {
+	public enum SyncListOp : byte
+	{
+		Add = 0,
+		RemoveAt = 1,
+		Set = 2,
+		Clear = 3,
+		RemoveItem = 4, // request-only: remove by value, resolved on the authority
+		Snapshot = 5
+	}
+
 	// A replicated list with no NetworkObject of its own — the drop-in for a
 	// NetworkList<T> on a plain MonoBehaviour singleton, and the collection sibling
 	// of SyncVariable<T>. Routed through SyncBus under the hash of its string name.
@@ -18,19 +28,30 @@ namespace Anaglyph.Netcode
 	// trusting a delta, the way NetworkList<T>.OnListChanged is typically used.
 	public class SyncList<T> : SyncEndpoint, IReadOnlyList<T> where T : unmanaged
 	{
-		private enum Op : byte
-		{
-			Add = 0,
-			RemoveAt = 1,
-			Set = 2,
-			Clear = 3,
-			RemoveItem = 4 // request-only: remove by value, resolved on the authority
-		}
-
-		private readonly T[] initial;
 		private readonly List<T> items = new();
 
-		public event Action Changed = delegate { };
+		public struct EventData
+		{
+			public SyncListOp op;
+			public int eventIndex;
+			public T eventItem;
+
+			public EventData(SyncListOp op)
+			{
+				this.op = op;
+				eventIndex = -1;
+				eventItem = default;
+			}
+
+			public EventData(SyncListOp op, int eventIndex, T eventItem)
+			{
+				this.op = op;
+				this.eventIndex = eventIndex;
+				this.eventItem = eventItem;
+			}
+		}
+
+		public event Action<EventData> Changed = delegate { };
 
 		// Authority-side gates for requests: (sender, item) => accept? Null accepts
 		// everything. Also consulted for the authority's own Request calls.
@@ -40,8 +61,6 @@ namespace Anaglyph.Netcode
 
 		public SyncList(string name, IEnumerable<T> initialItems = null) : base(name)
 		{
-			initial = initialItems != null ? new List<T>(initialItems).ToArray() : Array.Empty<T>();
-			items.AddRange(initial);
 		}
 
 		// ---- read access -------------------------------------------------------
@@ -58,44 +77,54 @@ namespace Anaglyph.Netcode
 			return -1;
 		}
 
-		public bool Contains(T item) => IndexOf(item) >= 0;
+		public bool Contains(T item)
+		{
+			return IndexOf(item) >= 0;
+		}
 
-		public List<T>.Enumerator GetEnumerator() => items.GetEnumerator();
-		IEnumerator<T> IEnumerable<T>.GetEnumerator() => items.GetEnumerator();
-		IEnumerator IEnumerable.GetEnumerator() => items.GetEnumerator();
+		public List<T>.Enumerator GetEnumerator()
+		{
+			return items.GetEnumerator();
+		}
+
+		IEnumerator<T> IEnumerable<T>.GetEnumerator()
+		{
+			return items.GetEnumerator();
+		}
+
+		IEnumerator IEnumerable.GetEnumerator()
+		{
+			return items.GetEnumerator();
+		}
 
 		// ---- authority-only mutation -------------------------------------------
 
 		public void Add(T item)
 		{
 			RequireAuthority(Name);
-			items.Add(item);
-			Changed.Invoke();
-			SyncBus.SendBroadcast(Id, EncodeItem(Op.Add, item));
+			AddLocally(item);
+			SyncBus.SendBroadcast(Id, EncodeItem(SyncListOp.Add, item));
 		}
 
 		public void RemoveAt(int index)
 		{
 			RequireAuthority(Name);
-			items.RemoveAt(index);
-			Changed.Invoke();
-			SyncBus.SendBroadcast(Id, EncodeIndex(Op.RemoveAt, index));
+			RemoveAtLocally(index);
+			SyncBus.SendBroadcast(Id, EncodeIndex(SyncListOp.RemoveAt, index));
 		}
 
 		public void Set(int index, T item)
 		{
 			RequireAuthority(Name);
-			items[index] = item;
-			Changed.Invoke();
+			SetLocally(index, item);
 			SyncBus.SendBroadcast(Id, EncodeIndexedItem(index, item));
 		}
 
 		public void Clear()
 		{
 			RequireAuthority(Name);
-			items.Clear();
-			Changed.Invoke();
-			SyncBus.SendBroadcast(Id, new[] { (byte)Op.Clear });
+			ClearLocally();
+			SyncBus.SendBroadcast(Id, new[] { (byte)SyncListOp.Clear });
 		}
 
 		// Identity remove resolved against the canonical (authority) list.
@@ -106,24 +135,51 @@ namespace Anaglyph.Netcode
 			if (index >= 0) RemoveAt(index);
 		}
 
+		// ---- ungated local mutation -------------------------------------
+
+		private void AddLocally(T item)
+		{
+			items.Add(item);
+			Changed.Invoke(new EventData(SyncListOp.Add, items.Count - 1, item));
+		}
+
+		private void RemoveAtLocally(int index)
+		{
+			T item = items[index];
+			items.RemoveAt(index);
+			Changed.Invoke(new EventData(SyncListOp.RemoveAt, index, item));
+		}
+
+		private void SetLocally(int index, T item)
+		{
+			items[index] = item;
+			Changed.Invoke(new EventData(SyncListOp.Set, index, item));
+		}
+
+		private void ClearLocally()
+		{
+			items.Clear();
+			Changed.Invoke(new EventData(SyncListOp.Clear));
+		}
+
 		// ---- any-peer requests ---------------------------------------------------
 
 		public void RequestAdd(T item)
 		{
 			if (SyncBus.IsAuthority) RequestAddChecked(SyncBus.LocalClientId, item);
-			else SyncBus.SendRequest(Id, EncodeItem(Op.Add, item));
+			else SyncBus.SendRequest(Id, EncodeItem(SyncListOp.Add, item));
 		}
 
 		public void RequestRemove(T item)
 		{
 			if (SyncBus.IsAuthority) RequestRemoveChecked(SyncBus.LocalClientId, item);
-			else SyncBus.SendRequest(Id, EncodeItem(Op.RemoveItem, item));
+			else SyncBus.SendRequest(Id, EncodeItem(SyncListOp.RemoveItem, item));
 		}
 
 		public void RequestClear()
 		{
 			if (SyncBus.IsAuthority) RequestClearChecked(SyncBus.LocalClientId);
-			else SyncBus.SendRequest(Id, new[] { (byte)Op.Clear });
+			else SyncBus.SendRequest(Id, new[] { (byte)SyncListOp.Clear });
 		}
 
 		private void RequestAddChecked(ulong sender, T item)
@@ -145,44 +201,49 @@ namespace Anaglyph.Netcode
 
 		internal override void ApplyBroadcast(byte[] data)
 		{
-			switch ((Op)data[0])
+			int index;
+			T item;
+
+			switch ((SyncListOp)data[0])
 			{
-				case Op.Add:
-					items.Add(SyncBytes.Read<T>(data, 1));
+				case SyncListOp.Add:
+					item = SyncBytes.Read<T>(data, 1);
+					AddLocally(item);
 					break;
 
-				case Op.RemoveAt:
-					int removeIndex = SyncBytes.Read<int>(data, 1);
-					if (removeIndex >= 0 && removeIndex < items.Count) items.RemoveAt(removeIndex);
+				case SyncListOp.RemoveAt:
+					index = SyncBytes.Read<int>(data, 1);
+					if (index >= 0 && index < items.Count)
+						RemoveAtLocally(index);
 					break;
 
-				case Op.Set:
-					int setIndex = SyncBytes.Read<int>(data, 1);
-					if (setIndex >= 0 && setIndex < items.Count)
-						items[setIndex] = SyncBytes.Read<T>(data, 1 + sizeof(int));
+				case SyncListOp.Set:
+					index = SyncBytes.Read<int>(data, 1);
+					item = SyncBytes.Read<T>(data, 1 + sizeof(int));
+
+					if (index >= 0 && index < items.Count)
+						SetLocally(index, item);
 					break;
 
-				case Op.Clear:
-					items.Clear();
+				case SyncListOp.Clear:
+					ClearLocally();
 					break;
 			}
-
-			Changed.Invoke();
 		}
 
 		internal override void ApplyRequest(ulong sender, byte[] data)
 		{
-			switch ((Op)data[0])
+			switch ((SyncListOp)data[0])
 			{
-				case Op.Add:
+				case SyncListOp.Add:
 					RequestAddChecked(sender, SyncBytes.Read<T>(data, 1));
 					break;
 
-				case Op.RemoveItem:
+				case SyncListOp.RemoveItem:
 					RequestRemoveChecked(sender, SyncBytes.Read<T>(data, 1));
 					break;
 
-				case Op.Clear:
+				case SyncListOp.Clear:
 					RequestClearChecked(sender);
 					break;
 			}
@@ -216,19 +277,17 @@ namespace Anaglyph.Netcode
 		{
 			if (!snapshotApplied) return;
 			snapshotApplied = false;
-			Changed.Invoke();
+			Changed.Invoke(new EventData(SyncListOp.Snapshot));
 		}
 
 		internal override void ResetState()
 		{
-			items.Clear();
-			items.AddRange(initial);
-			Changed.Invoke();
+			ClearLocally();
 		}
 
 		// ---- payload encoding ----------------------------------------------------
 
-		private static byte[] EncodeItem(Op op, T item)
+		private static byte[] EncodeItem(SyncListOp op, T item)
 		{
 			byte[] data = new byte[1 + SyncBytes.Size<T>()];
 			data[0] = (byte)op;
@@ -236,7 +295,7 @@ namespace Anaglyph.Netcode
 			return data;
 		}
 
-		private static byte[] EncodeIndex(Op op, int index)
+		private static byte[] EncodeIndex(SyncListOp op, int index)
 		{
 			byte[] data = new byte[1 + sizeof(int)];
 			data[0] = (byte)op;
@@ -247,7 +306,7 @@ namespace Anaglyph.Netcode
 		private static byte[] EncodeIndexedItem(int index, T item)
 		{
 			byte[] data = new byte[1 + sizeof(int) + SyncBytes.Size<T>()];
-			data[0] = (byte)Op.Set;
+			data[0] = (byte)SyncListOp.Set;
 			SyncBytes.Write(data, 1, index);
 			SyncBytes.Write(data, 1 + sizeof(int), item);
 			return data;

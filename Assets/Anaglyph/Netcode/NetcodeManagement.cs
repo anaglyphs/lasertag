@@ -137,7 +137,7 @@ namespace Anaglyph.Netcode
 				case Protocol.LAN:
 					SetNetworkTransportType(Protocol.LAN);
 					manager.NetworkConfig.UseCMBService = false;
-					transport.SetConnectionData(DefaultIP, port, DefaultIP);
+					transport.SetConnectionData(GetLocalIPv4(), port, DefaultIP);
 					manager.StartHost();
 					break;
 
@@ -267,28 +267,51 @@ namespace Anaglyph.Netcode
 
 		public static string GetLocalIPv4()
 		{
+			IPAddress privateAddress = null;
+			IPAddress fallbackAddress = null;
+
 			foreach (NetworkInterface netInterface in NetworkInterface.GetAllNetworkInterfaces())
 			{
-				if (netInterface.OperationalStatus != OperationalStatus.Up) continue;
+				// Unity/Android may report Unknown for an active Wi-Fi interface.
+				if (netInterface.OperationalStatus != OperationalStatus.Up &&
+				    netInterface.OperationalStatus != OperationalStatus.Unknown) continue;
 
 				NetworkInterfaceType netType = netInterface.NetworkInterfaceType;
 
-				if (netType != NetworkInterfaceType.Wireless80211 && netType != NetworkInterfaceType.Ethernet) continue;
+				// Android may also report Wi-Fi as Unknown, so only reject interface
+				// types that definitely cannot provide a reachable LAN address.
+				if (netType == NetworkInterfaceType.Loopback || netType == NetworkInterfaceType.Tunnel) continue;
 
 				foreach (UnicastIPAddressInformation addressInfo in netInterface.GetIPProperties().UnicastAddresses)
 				{
 					IPAddress address = addressInfo.Address;
 
-					if (address.AddressFamily != AddressFamily.InterNetwork) continue;
+					if (address.AddressFamily != AddressFamily.InterNetwork ||
+					    IPAddress.IsLoopback(address) || address.Equals(IPAddress.Any)) continue;
 
 					byte[] b = address.GetAddressBytes();
 					if (b[0] == 169 && b[1] == 254) continue; // link-local = no DHCP lease
 
-					return address.ToString();
+					bool isPrivate = b[0] == 10 ||
+					                 (b[0] == 172 && b[1] >= 16 && b[1] <= 31) ||
+					                 (b[0] == 192 && b[1] == 168);
+
+					if (isPrivate)
+					{
+						// Prefer a positively identified physical LAN interface, but retain
+						// Unknown as the Android/Quest-compatible fallback.
+						if (netType == NetworkInterfaceType.Wireless80211 ||
+						    netType == NetworkInterfaceType.Ethernet)
+							return address.ToString();
+
+						privateAddress ??= address;
+					}
+
+					fallbackAddress ??= address;
 				}
 			}
 
-			return null;
+			return (privateAddress ?? fallbackAddress)?.ToString();
 		}
 
 		public static bool GetNetObjById(ulong id, out NetworkObject netObj)

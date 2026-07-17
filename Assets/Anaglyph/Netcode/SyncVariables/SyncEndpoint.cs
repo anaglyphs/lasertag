@@ -33,32 +33,55 @@ namespace Anaglyph.Netcode
 			Id = HashName(name);
 		}
 
-		public void Register() => SyncBus.Register(this);
-		public void Unregister() => SyncBus.Unregister(this);
+		public void Register()
+		{
+			SyncBus.Register(this);
+		}
+
+		public void Unregister()
+		{
+			SyncBus.Unregister(this);
+		}
 
 		// A delta (or event payload) the authority applied and broadcast.
 		internal abstract void ApplyBroadcast(byte[] data);
 
 		// A non-authority peer's proposed change, handled on the authority:
 		// validate, then apply + broadcast.
-		internal virtual void ApplyRequest(ulong sender, byte[] data) { }
+		internal virtual void ApplyRequest(ulong sender, byte[] data)
+		{
+		}
 
 		// Direct (non-serialized) event traffic from any peer, including ourselves.
-		internal virtual void ApplyDirect(ulong sender, byte[] data) { }
+		internal virtual void ApplyDirect(ulong sender, byte[] data)
+		{
+		}
 
 		// Full current state for a joiner's snapshot; null = stateless (events).
-		internal virtual byte[] SerializeSnapshot() => null;
+		internal virtual byte[] SerializeSnapshot()
+		{
+			return null;
+		}
 
 		// Applies WITHOUT firing change events; the bus applies every endpoint in a
 		// combined snapshot first, then calls FlushSnapshotEvents on each, so no
 		// handler can observe partially-applied cross-endpoint state.
-		internal virtual void ApplySnapshot(byte[] data) { }
+		internal virtual void ApplySnapshot(byte[] data)
+		{
+		}
 
-		internal virtual void FlushSnapshotEvents() { }
+		internal virtual void FlushSnapshotEvents()
+		{
+		}
 
-		internal virtual void ResetState() { }
+		internal virtual void ResetState()
+		{
+		}
 
-		internal void InvokeSynced() => Synced.Invoke();
+		internal void InvokeSynced()
+		{
+			Synced.Invoke();
+		}
 
 		protected static void RequireAuthority(string name)
 		{
@@ -90,16 +113,25 @@ namespace Anaglyph.Netcode
 	// Requires allowUnsafeCode (already set on this asmdef).
 	public static class SyncBytes
 	{
-		public static unsafe int Size<T>() where T : unmanaged => sizeof(T);
+		public static unsafe int Size<T>() where T : unmanaged
+		{
+			return sizeof(T);
+		}
 
 		public static unsafe void Write<T>(byte[] dst, int offset, T value) where T : unmanaged
 		{
-			fixed (byte* p = dst) *(T*)(p + offset) = value;
+			fixed (byte* p = dst)
+			{
+				*(T*)(p + offset) = value;
+			}
 		}
 
 		public static unsafe T Read<T>(byte[] src, int offset) where T : unmanaged
 		{
-			fixed (byte* p = src) return *(T*)(p + offset);
+			fixed (byte* p = src)
+			{
+				return *(T*)(p + offset);
+			}
 		}
 
 		public static byte[] Of<T>(T value) where T : unmanaged

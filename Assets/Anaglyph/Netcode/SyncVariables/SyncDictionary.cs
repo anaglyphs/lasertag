@@ -4,6 +4,14 @@ using System.Collections.Generic;
 
 namespace Anaglyph.Netcode
 {
+	public enum SyncDictionaryOp : byte
+	{
+		Set = 0,
+		Remove = 1,
+		Clear = 2,
+		Snapshot = 3
+	}
+
 	// A replicated dictionary with no NetworkObject of its own — the NetworkDictionary
 	// NGO never shipped, for plain MonoBehaviour singletons. Routed through SyncBus
 	// under the hash of its string name.
@@ -16,16 +24,30 @@ namespace Anaglyph.Netcode
 		where TKey : unmanaged
 		where TValue : unmanaged
 	{
-		private enum Op : byte
-		{
-			Set = 0,
-			Remove = 1,
-			Clear = 2
-		}
-
 		private readonly Dictionary<TKey, TValue> entries = new();
 
-		public event Action Changed = delegate { };
+		public struct EventData
+		{
+			public SyncDictionaryOp op;
+			public TKey eventKey;
+			public TValue eventValue;
+
+			public EventData(SyncDictionaryOp op)
+			{
+				this.op = op;
+				eventKey = default;
+				eventValue = default;
+			}
+
+			public EventData(SyncDictionaryOp op, TKey eventKey, TValue eventValue)
+			{
+				this.op = op;
+				this.eventKey = eventKey;
+				this.eventValue = eventValue;
+			}
+		}
+
+		public event Action<EventData> Changed = delegate { };
 
 		// Authority-side gates for requests: (sender, key, value) => accept? Null
 		// accepts everything. Also consulted for the authority's own Request calls.
@@ -41,42 +63,87 @@ namespace Anaglyph.Netcode
 
 		public int Count => entries.Count;
 		public TValue this[TKey key] => entries[key];
-		public bool ContainsKey(TKey key) => entries.ContainsKey(key);
-		public bool TryGetValue(TKey key, out TValue value) => entries.TryGetValue(key, out value);
+
+		public bool ContainsKey(TKey key)
+		{
+			return entries.ContainsKey(key);
+		}
+
+		public bool TryGetValue(TKey key, out TValue value)
+		{
+			return entries.TryGetValue(key, out value);
+		}
+
 		public IEnumerable<TKey> Keys => entries.Keys;
 		public IEnumerable<TValue> Values => entries.Values;
 
-		public Dictionary<TKey, TValue>.Enumerator GetEnumerator() => entries.GetEnumerator();
+		public Dictionary<TKey, TValue>.Enumerator GetEnumerator()
+		{
+			return entries.GetEnumerator();
+		}
 
-		IEnumerator<KeyValuePair<TKey, TValue>> IEnumerable<KeyValuePair<TKey, TValue>>.GetEnumerator() =>
-			entries.GetEnumerator();
+		IEnumerator<KeyValuePair<TKey, TValue>> IEnumerable<KeyValuePair<TKey, TValue>>.GetEnumerator()
+		{
+			return entries.GetEnumerator();
+		}
 
-		IEnumerator IEnumerable.GetEnumerator() => entries.GetEnumerator();
+		IEnumerator IEnumerable.GetEnumerator()
+		{
+			return entries.GetEnumerator();
+		}
 
 		// ---- authority-only mutation -------------------------------------------
 
 		public void Set(TKey key, TValue value)
 		{
 			RequireAuthority(Name);
-			entries[key] = value;
-			Changed.Invoke();
-			SyncBus.SendBroadcast(Id, EncodeEntry(Op.Set, key, value));
+
+			SetLocally(key, value);
+
+			SyncBus.SendBroadcast(Id, EncodeEntry(SyncDictionaryOp.Set, key, value));
 		}
 
 		public void Remove(TKey key)
 		{
 			RequireAuthority(Name);
-			if (!entries.Remove(key)) return;
-			Changed.Invoke();
-			SyncBus.SendBroadcast(Id, EncodeKey(Op.Remove, key));
+
+			if (!RemoveLocally(key)) return;
+
+			SyncBus.SendBroadcast(Id, EncodeKey(SyncDictionaryOp.Remove, key));
 		}
 
 		public void Clear()
 		{
 			RequireAuthority(Name);
+			ClearLocally();
+
+			SyncBus.SendBroadcast(Id, new[] { (byte)SyncDictionaryOp.Clear });
+		}
+
+		// ---- ungated local mutation -------------------------------------
+
+		private void SetLocally(TKey key, TValue value)
+		{
+			// bool isAdded = !entries.ContainsKey(key);
+			entries[key] = value;
+
+			Changed.Invoke(new EventData(SyncDictionaryOp.Set, key, value));
+		}
+
+		private bool RemoveLocally(TKey key)
+		{
+			if (!entries.Remove(key, out TValue removedValue)) return false;
+
+			Changed.Invoke(new EventData(SyncDictionaryOp.Remove, key, removedValue));
+
+			return true;
+		}
+
+		// Anchor values are still present in Changed event!
+		private void ClearLocally()
+		{
+			Changed.Invoke(new EventData(SyncDictionaryOp.Clear));
 			entries.Clear();
-			Changed.Invoke();
-			SyncBus.SendBroadcast(Id, new[] { (byte)Op.Clear });
 		}
 
 		// ---- any-peer requests ---------------------------------------------------
@@ -84,19 +151,19 @@ namespace Anaglyph.Netcode
 		public void RequestSet(TKey key, TValue value)
 		{
 			if (SyncBus.IsAuthority) RequestSetChecked(SyncBus.LocalClientId, key, value);
-			else SyncBus.SendRequest(Id, EncodeEntry(Op.Set, key, value));
+			else SyncBus.SendRequest(Id, EncodeEntry(SyncDictionaryOp.Set, key, value));
 		}
 
 		public void RequestRemove(TKey key)
 		{
 			if (SyncBus.IsAuthority) RequestRemoveChecked(SyncBus.LocalClientId, key);
-			else SyncBus.SendRequest(Id, EncodeKey(Op.Remove, key));
+			else SyncBus.SendRequest(Id, EncodeKey(SyncDictionaryOp.Remove, key));
 		}
 
 		public void RequestClear()
 		{
 			if (SyncBus.IsAuthority) RequestClearChecked(SyncBus.LocalClientId);
-			else SyncBus.SendRequest(Id, new[] { (byte)Op.Clear });
+			else SyncBus.SendRequest(Id, new[] { (byte)SyncDictionaryOp.Clear });
 		}
 
 		private void RequestSetChecked(ulong sender, TKey key, TValue value)
@@ -118,39 +185,42 @@ namespace Anaglyph.Netcode
 
 		internal override void ApplyBroadcast(byte[] data)
 		{
-			switch ((Op)data[0])
+			TKey key;
+			TValue value;
+
+			switch ((SyncDictionaryOp)data[0])
 			{
-				case Op.Set:
-					entries[SyncBytes.Read<TKey>(data, 1)] =
-						SyncBytes.Read<TValue>(data, 1 + SyncBytes.Size<TKey>());
+				case SyncDictionaryOp.Set:
+					key = SyncBytes.Read<TKey>(data, 1);
+					value = SyncBytes.Read<TValue>(data, 1 + SyncBytes.Size<TKey>());
+					SetLocally(key, value);
 					break;
 
-				case Op.Remove:
-					entries.Remove(SyncBytes.Read<TKey>(data, 1));
+				case SyncDictionaryOp.Remove:
+					key = SyncBytes.Read<TKey>(data, 1);
+					RemoveLocally(key);
 					break;
 
-				case Op.Clear:
-					entries.Clear();
+				case SyncDictionaryOp.Clear:
+					ClearLocally();
 					break;
 			}
-
-			Changed.Invoke();
 		}
 
 		internal override void ApplyRequest(ulong sender, byte[] data)
 		{
-			switch ((Op)data[0])
+			switch ((SyncDictionaryOp)data[0])
 			{
-				case Op.Set:
+				case SyncDictionaryOp.Set:
 					RequestSetChecked(sender, SyncBytes.Read<TKey>(data, 1),
 						SyncBytes.Read<TValue>(data, 1 + SyncBytes.Size<TKey>()));
 					break;
 
-				case Op.Remove:
+				case SyncDictionaryOp.Remove:
 					RequestRemoveChecked(sender, SyncBytes.Read<TKey>(data, 1));
 					break;
 
-				case Op.Clear:
+				case SyncDictionaryOp.Clear:
 					RequestClearChecked(sender);
 					break;
 			}
@@ -201,18 +271,17 @@ namespace Anaglyph.Netcode
 		{
 			if (!snapshotApplied) return;
 			snapshotApplied = false;
-			Changed.Invoke();
+			Changed.Invoke(new EventData(SyncDictionaryOp.Snapshot));
 		}
 
 		internal override void ResetState()
 		{
-			entries.Clear();
-			Changed.Invoke();
+			ClearLocally();
 		}
 
 		// ---- payload encoding ----------------------------------------------------
 
-		private static byte[] EncodeEntry(Op op, TKey key, TValue value)
+		private static byte[] EncodeEntry(SyncDictionaryOp op, TKey key, TValue value)
 		{
 			byte[] data = new byte[1 + SyncBytes.Size<TKey>() + SyncBytes.Size<TValue>()];
 			data[0] = (byte)op;
@@ -221,7 +290,7 @@ namespace Anaglyph.Netcode
 			return data;
 		}
 
-		private static byte[] EncodeKey(Op op, TKey key)
+		private static byte[] EncodeKey(SyncDictionaryOp op, TKey key)
 		{
 			byte[] data = new byte[1 + SyncBytes.Size<TKey>()];
 			data[0] = (byte)op;

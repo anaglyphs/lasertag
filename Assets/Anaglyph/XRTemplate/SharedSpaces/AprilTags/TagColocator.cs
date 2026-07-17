@@ -58,7 +58,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			tagSizeSync.Register();
 			canonTags.Register();
-			canonTags.Changed += OnCanonTagsChanged;
+			canonTags.Changed += OnCanonTagsValueChanged;
 			SyncBus.Activated += OnBusActivated;
 			SyncBus.AuthorityChanged += OnAuthorityChanged;
 		}
@@ -67,7 +67,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			SyncBus.AuthorityChanged -= OnAuthorityChanged;
 			SyncBus.Activated -= OnBusActivated;
-			canonTags.Changed -= OnCanonTagsChanged;
+			canonTags.Changed -= OnCanonTagsValueChanged;
 			canonTags.Unregister();
 			tagSizeSync.Unregister();
 		}
@@ -85,7 +85,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		// The canon set emptying (realign or session reset) invalidates every peer's
 		// local pairs and alignment.
-		private void OnCanonTagsChanged()
+		private void OnCanonTagsValueChanged(SyncDictionary<int, Pose>.EventData eventData)
 		{
 			if (canonTags.Count != 0) return;
 

@@ -7,6 +7,11 @@ float voxSize; // voxel edge length (meters)
 float distanceTruncationBand; // greatest distance magnitude a voxel can hold
 float chunkWorldSizeDim;
 
+// world-space offset applied to the whole chunk grid.
+// shifts where chunk boundaries land in the world so they can be kept
+// away from features like the floor (y = 0)
+float3 originOffset;
+
 // Chunks have a one voxel APRON that overlaps with all surrounding chunks
 // so while a chunk may have 32 voxels along its edge, it really represents an area of 30 voxels (3 meters)
 // since two voxels on each row are apron voxels
@@ -91,7 +96,7 @@ int3 worldPosToChunkCoord(const float3 world)
 {
 	// quantize to chunk size.
 	// subtract two from voxPerChunkDim to account for 1-vox apron
-	const int3 quantized = floor(world / chunkWorldSizeDim);
+	const int3 quantized = floor((world - originOffset) / chunkWorldSizeDim);
 
 	// center so 0,0,0 is at corner
 	const int3 chunkCoord = quantized + chunkTableDims / 2;
@@ -105,7 +110,7 @@ float3 chunkCoordToCornerWorldPos(const int3 chunkCoord)
 	// subtract two to account for surrounding 1-vox apron
 	// this makes the corner voxel overlap with another chunk's 'top' corner
 
-	return chunkCoordUncentered * chunkWorldSizeDim - float3(voxSize, voxSize, voxSize);
+	return chunkCoordUncentered * chunkWorldSizeDim - float3(voxSize, voxSize, voxSize) + originOffset;
 }
 
 // DOES check for valid output index

@@ -45,7 +45,7 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private TMP_Text sessionStateText = null;
 		[SerializeField] private TMP_Text sessionIpText = null;
 		[SerializeField] private Button disconnectButton = null;
-		[SerializeField] private Button recalibrateButton = null;
+		// [SerializeField] private Button recalibrateButton = null;
 
 		// [Header("Session icons")] [SerializeField]
 		// private Sprite connectingSprite = null;
@@ -104,11 +104,7 @@ namespace Anaglyph.Lasertag
 			sessionPage.showBackButton = false;
 			disconnectButton.onClick.AddListener(Disconnect);
 
-			recalibrateButton.onClick.AddListener(RecalibrateColocation);
-
 			ColocationManager.Colocated += OnColocationChange;
-
-			recalibrateButton.gameObject.SetActive(false);
 
 			navView.Changed += OnNavPageChange;
 		}
@@ -157,13 +153,6 @@ namespace Anaglyph.Lasertag
 				sessionIpText.text = ((UnityTransport)transport).ConnectionData.Address;
 		}
 
-		// TODO: move to colocation manager
-		private void RecalibrateColocation()
-		{
-			ColocationManager colocation = ColocationManager.Instance;
-			colocation.RealignEveryone();
-		}
-
 		private void OnColocationChange(bool isColocated)
 		{
 			if (NetcodeManagement.State == NetcodeState.Connected)
@@ -194,7 +183,7 @@ namespace Anaglyph.Lasertag
 					break;
 			}
 
-			recalibrateButton.gameObject.SetActive(state != SessionState.Connecting);
+			// recalibrateButton.gameObject.SetActive(state != SessionState.Connecting);
 
 			navView.SetModalPresented(sessionPage, true, returnTo: homePage);
 		}

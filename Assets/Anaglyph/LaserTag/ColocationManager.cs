@@ -119,12 +119,6 @@ namespace Anaglyph.Lasertag
 			activeColocator.Colocated += OnColocated;
 		}
 
-		// The colocators acquire bus authority themselves (see their RealignEveryone).
-		public void RealignEveryone()
-		{
-			activeColocator?.RealignEveryone();
-		}
-
 		private void OnColocated()
 		{
 			SetColocated(true);

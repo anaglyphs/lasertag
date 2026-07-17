@@ -30,6 +30,11 @@ namespace Anaglyph.DepthKit.EnvScanning
 		[SerializeField] private int voxPerChunkDim = 32;
 		private float chunkWorldSizeDim;
 
+		// world-space offset applied to the whole chunk grid.
+		// shifts where chunk boundaries land in the world so they can be kept
+		// away from features like the floor (y = 0)
+		[SerializeField] private float3 originOffset = float3.zero;
+
 		// cylinders encompassing player heads and extending down.
 		// depth samples inside them are ignored so players
 		// aren't integrated into the scan. radius is padded
@@ -53,6 +58,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 		public float VoxSize => voxSize;
 		public float DistanceTruncationBand => distanceTruncationBand;
 		public int VoxPerChunkDim => voxPerChunkDim;
+		public float3 OriginOffset => originOffset;
 		public int3 ChunkTableDims => chunkTableDims;
 		public int ChunkTableLength => chunkTableLength;
 		public int MaxNumChunks => maxNumChunks;
@@ -170,6 +176,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 			compute.SetFloat(nameof(minDot), minDot);
 			compute.SetFloat(nameof(voxSize), voxSize);
 			compute.SetFloat(nameof(chunkWorldSizeDim), chunkWorldSizeDim);
+			compute.SetVector(nameof(originOffset), new Vector4(originOffset.x, originOffset.y, originOffset.z, 0f));
 			compute.SetFloat(nameof(distanceTruncationBand), distanceTruncationBand);
 			compute.SetInt(nameof(voxPerChunkDim), voxPerChunkDim);
 			compute.SetInts(nameof(chunkTableDims), ctd.x, ctd.y, ctd.z);
@@ -414,14 +421,14 @@ namespace Anaglyph.DepthKit.EnvScanning
 			// subtract two to account for surrounding 1-vox apron
 			// this makes the corner voxel overlap with another chunk's 'top' corner
 
-			return (float3)chunkCoordUncentered * chunkWorldSizeDim - new float3(voxSize, voxSize, voxSize);
+			return (float3)chunkCoordUncentered * chunkWorldSizeDim - new float3(voxSize, voxSize, voxSize) + originOffset;
 		}
 
 		public int3 WorldPosToChunkCoord(float3 world)
 		{
 			// quantize to chunk size.
 			// subtract two from voxPerChunkDim to account for 1-vox apron
-			int3 quantized = (int3)math.floor(world / chunkWorldSizeDim);
+			int3 quantized = (int3)math.floor((world - originOffset) / chunkWorldSizeDim);
 
 			// center so 0,0,0 is at corner
 			int3 chunkCoord = quantized + chunkTableDims / 2;

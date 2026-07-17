@@ -22,6 +22,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			trackingStateColors[(int)TrackingState.Tracking] = Color.green;
 		}
 
+		private void Awake()
+		{
+			TryGetComponent(out anchor);
+		}
+
 		private void Start()
 		{
 			AnaglyphDebugging.DebugModeChanged += OnDebugModeChange;
