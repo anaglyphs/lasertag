@@ -95,3 +95,6 @@ crashlytics-build.properties
 
 # Imported Unity content-package archives; imported assets remain under Assets/.
 /ContentPackages/
+
+# Unity/Mono crash reports
+/mono_crash.*.json

@@ -10,7 +10,7 @@ namespace Anaglyph
 	{
 		[SerializeField] private GameObject environmentObject;
 		[SerializeField] private MeshFilter testDepthMesh;
-		[SerializeField] int icpIterations = 10;
+		// [SerializeField] int icpIterations = 10;
 
 		NativeArray<PointTree.Node> tree;
 

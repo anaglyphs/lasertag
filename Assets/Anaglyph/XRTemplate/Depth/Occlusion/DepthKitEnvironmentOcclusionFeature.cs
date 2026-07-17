@@ -1,11 +1,14 @@
 using Anaglyph.XRTemplate.DepthKit;
 using Unity.Mathematics;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.Rendering.RenderGraphModule;
+
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace Anaglyph.DepthKit
 {

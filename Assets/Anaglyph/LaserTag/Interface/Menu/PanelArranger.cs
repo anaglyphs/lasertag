@@ -57,7 +57,7 @@ namespace Anaglyph.Lasertag
 		private void PositionPanels()
 		{
 			float angleSum = 0;
-			float offs = 0;
+			// float offs = 0;
 			for (int i = 0; i < panels.Length; i++)
 			{
 				RectTransform panel = panels[i];

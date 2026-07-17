@@ -188,7 +188,7 @@ namespace Anaglyph.Lasertag
 					{
 						if (!isStalemated)
 						{
-							millisCapturedSync.Value += Time.fixedTime * 1000;
+							millisCapturedSync.Value += Time.deltaTime * 1000;
 
 							if (millisCapturedSync.Value > MillisToTake)
 								CaptureOwnerRpc(CapturingTeam);

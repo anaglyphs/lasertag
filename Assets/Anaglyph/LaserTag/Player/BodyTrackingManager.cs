@@ -7,7 +7,7 @@ namespace Anaglyph.XRTemplate
 {
 	public class BodyTrackingManager : MonoBehaviour
 	{
-		private static string LogPrefix = "[BodyTrackingManager]";
+		// private static string LogPrefix = "[BodyTrackingManager]";
 
 		private readonly List<XRInputSubsystem> xrSubsystems = new();
 

@@ -15,7 +15,7 @@ namespace Anaglyph.Lasertag
 		{
 			NetworkObject.DontDestroyWithOwner = true;
 			NetworkObject.DestroyWithScene = true;
-			NetworkObject.SetSceneObjectStatus(false);
+			// NetworkObject.SetSceneObjectStatus(false);
 
 			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
 		}
