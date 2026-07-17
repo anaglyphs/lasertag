@@ -5,7 +5,7 @@ namespace Anaglyph.Netcode
 {
 	public class DontRenderIfOwner : NetworkBehaviour
 	{
-		[SerializeField] private Renderer renderer;
+		[SerializeField] private new Renderer renderer;
 
 		private void OnValidate()
 		{

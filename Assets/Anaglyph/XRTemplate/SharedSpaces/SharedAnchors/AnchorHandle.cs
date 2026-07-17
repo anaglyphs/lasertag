@@ -12,14 +12,20 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	/// <summary>
 	/// Owns the local AR Foundation anchor handles for a process and routes trackable
 	/// materialization/removal events to them.
+	///
+	/// Annoyingly, AR Foundation anchor operations are not cancellable.
+	/// E.g. I can't stop an anchor download from completing and instantiating an ARAnchor
+	/// if I don't need the anchor anymore.
+	/// This system is here to make this limitation manageable.
 	/// </summary>
 	public sealed class AnchorRegistry : IDisposable
 	{
 		private readonly ARAnchorManager anchorManager;
 		private readonly MetaOpenXRAnchorSubsystem anchorSubsystem;
 		private readonly Dictionary<SerializableGuid, AnchorHandle> handles = new();
-		private readonly List<AnchorHandle> reconciliationSnapshot = new();
 		private readonly CancellationTokenSource lifetimeCtknSrc = new();
+		
+		private readonly List<AnchorHandle> reconciliationSnapshot = new();
 
 		private bool disposed;
 
@@ -192,6 +198,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	/// <summary>
 	/// Reconciles the desired local presence of one shared anchor with AR Foundation's
 	/// observed, asynchronously materialized anchor state.
+	///
+	/// 
 	/// </summary>
 	public sealed class AnchorHandle
 	{
@@ -215,8 +223,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private int failedLoadCount;
 		private float retryAt;
 
-		private bool reconciling;
-		private bool reconcileAgain;
+		private bool reconcilingCurrently;
+		private bool shouldReconcileAgain;
 
 		internal AnchorHandle(AnchorRegistry registry, SerializableGuid guid)
 		{
@@ -281,16 +289,16 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (registry.isDisposed)
 				return;
 
-			if (reconciling)
+			if (reconcilingCurrently)
 			{
-				reconcileAgain = true;
+				shouldReconcileAgain = true;
 				return;
 			}
 
 			do
 			{
-				reconcileAgain = false;
-				reconciling = true;
+				shouldReconcileAgain = false;
+				reconcilingCurrently = true;
 
 				try
 				{
@@ -298,9 +306,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				}
 				finally
 				{
-					reconciling = false;
+					reconcilingCurrently = false;
 				}
-			} while (reconcileAgain);
+			} while (shouldReconcileAgain);
 		}
 
 		private void ReconcileOnce()
