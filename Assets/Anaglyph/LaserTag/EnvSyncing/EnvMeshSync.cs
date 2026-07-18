@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Anaglyph.DepthKit.EnvScanning;
 using Anaglyph.Netcode;
+using Draco;
+using Draco.Encode;
 using Unity.Collections;
-using Unity.Mathematics;
 using UnityEngine;
 
 namespace Anaglyph.Lasertag
@@ -26,6 +28,10 @@ namespace Anaglyph.Lasertag
 		// NGO caps fragmented messages at 64000 bytes; leave headroom for headers.
 		private const int MaxPayloadBytes = 60000;
 
+		// "DRAC" in little-endian byte order, followed by chunk index and revision.
+		private const uint ChunkPayloadMagic = 0x43415244;
+		private const int ChunkPayloadHeaderBytes = sizeof(uint) + sizeof(int) + sizeof(uint);
+
 		/// <summary>
 		/// Invoked after a populated chunk mesh received from another
 		/// player is applied to a chunk's remote mesh
@@ -35,6 +41,11 @@ namespace Anaglyph.Lasertag
 		// a swept voxel is one voxel fully flipping sign (-127 to 127)
 		[SerializeField] private int syncSweptVoxelsThreshold = 100;
 
+		[Header("Draco compression")]
+		[SerializeField, Range(1, 30)] private int positionQuantizationBits = 10;
+		[SerializeField, Range(0, 10)] private int encodingSpeed;
+		[SerializeField, Range(0, 10)] private int decodingSpeed = 4;
+
 		// per-chunk change sum at last sync; chunks re-sync every
 		// time they accumulate a threshold's worth of new change
 		private readonly Dictionary<int, uint> lastSyncedChangeSums = new();
@@ -43,8 +54,18 @@ namespace Anaglyph.Lasertag
 		// to send until meshing and decimation finish
 		private readonly HashSet<int> pendingSync = new();
 
-		// world size of the full chunk volume, for position quantization
-		private float chunkSpan;
+		// Draco encoding is relatively expensive. Keep one sequential worker and
+		// coalesce repeated requests for the same chunk while it waits in the queue.
+		private readonly Queue<int> encodeQueue = new();
+		private readonly HashSet<int> queuedEncodes = new();
+		private bool encodeWorkerRunning;
+
+		// Revisions prevent asynchronous Draco decodes from applying out of order.
+		private readonly Dictionary<int, uint> sentRevisions = new();
+		private readonly Dictionary<(ulong sender, int chunkIndex), uint> receivedRevisions = new();
+
+		// Invalidates encoding/decoding work that outlives a network session.
+		private int syncGeneration;
 
 		private void Awake()
 		{
@@ -56,21 +77,39 @@ namespace Anaglyph.Lasertag
 			visibleEvent.Received += OnVisibleReceived;
 			SyncBus.Activated += OnBusActivated;
 			SyncBus.Deactivated += OnBusDeactivated;
+
+			ColocationManager.Colocated += OnColocated;
 		}
 
 		private void OnDestroy()
 		{
+			syncGeneration++;
+			encodeQueue.Clear();
+			queuedEncodes.Clear();
+
 			SyncBus.Activated -= OnBusActivated;
 			SyncBus.Deactivated -= OnBusDeactivated;
 			chunkEvent.Received -= OnChunkReceived;
 			visibleEvent.Received -= OnVisibleReceived;
 			visibleEvent.Unregister();
 			chunkEvent.Unregister();
+
+			ColocationManager.Colocated -= OnColocated;
+		}
+
+		private void Start()
+		{
+			EnvScanner.Instance.enabled = NetcodeManagement.State == NetcodeState.Connected;
+		}
+
+		private void OnColocated(bool isColocated)
+		{
+			EnvScanner.Instance.enabled = isColocated;
 		}
 
 		private void OnBusActivated()
 		{
-			chunkSpan = EnvScanner.Instance.VoxPerChunkDim * EnvScanner.Instance.VoxSize;
+			syncGeneration++;
 
 			EnvMesher.Instance.VisibleChunkPolled += OnVisibleChunkPolled;
 			EnvMesher.Instance.ChunkMeshUpdated += OnChunkMeshUpdated;
@@ -78,6 +117,8 @@ namespace Anaglyph.Lasertag
 
 		private void OnBusDeactivated()
 		{
+			syncGeneration++;
+
 			if (EnvMesher.Instance)
 			{
 				EnvMesher.Instance.VisibleChunkPolled -= OnVisibleChunkPolled;
@@ -86,6 +127,11 @@ namespace Anaglyph.Lasertag
 
 			pendingSync.Clear();
 			lastSyncedChangeSums.Clear();
+			encodeQueue.Clear();
+			queuedEncodes.Clear();
+			sentRevisions.Clear();
+			receivedRevisions.Clear();
+			EnvScanner.Instance.Clear();
 		}
 
 		public void SetEnvMeshVisibleEveryone(bool visible)
@@ -120,138 +166,289 @@ namespace Anaglyph.Lasertag
 			else
 			{
 				pendingSync.Remove(chunkIndex);
-				SendChunkMesh(chunk);
+				QueueChunkMesh(chunk);
 			}
 		}
 
 		private void OnChunkMeshUpdated(Chunk chunk)
 		{
 			if (pendingSync.Remove(chunk.chunkIndex))
-				SendChunkMesh(chunk);
+				QueueChunkMesh(chunk);
 		}
 
-		private void SendChunkMesh(Chunk chunk)
+		private void QueueChunkMesh(Chunk chunk)
 		{
 			if (!SyncBus.Active) return;
 
-			using Mesh.MeshDataArray dataArray = Mesh.AcquireReadOnlyMeshData(chunk.mesh);
-			Mesh.MeshData data = dataArray[0];
+			if (queuedEncodes.Add(chunk.chunkIndex))
+				encodeQueue.Enqueue(chunk.chunkIndex);
 
-			int vertCount = data.vertexCount;
-			int indexCount = data.subMeshCount > 0 ? data.GetSubMesh(0).indexCount : 0;
+			StartEncodeWorkerIfNeeded();
+		}
 
-			if (vertCount > ushort.MaxValue)
+		private void StartEncodeWorkerIfNeeded()
+		{
+			if (encodeWorkerRunning || encodeQueue.Count == 0 || !SyncBus.Active)
+				return;
+
+			encodeWorkerRunning = true;
+			ProcessEncodeQueue(syncGeneration);
+		}
+
+		private async void ProcessEncodeQueue(int generation)
+		{
+			try
 			{
-				Debug.LogWarning($"[{nameof(EnvMeshSync)}] Chunk {chunk.chunkIndex} mesh too large to sync");
+				while (generation == syncGeneration && SyncBus.Active && encodeQueue.Count > 0)
+				{
+					int chunkIndex = encodeQueue.Dequeue();
+					queuedEncodes.Remove(chunkIndex);
+
+					if (EnvMesher.Instance.TryGetChunk(chunkIndex, out Chunk chunk))
+						await EncodeAndSendChunk(chunk, generation);
+				}
+			}
+			catch (Exception e)
+			{
+				Debug.LogException(e, this);
+			}
+			finally
+			{
+				encodeWorkerRunning = false;
+				StartEncodeWorkerIfNeeded();
+			}
+		}
+
+		private async Task EncodeAndSendChunk(Chunk chunk, int generation)
+		{
+			if (generation != syncGeneration || !SyncBus.Active)
+				return;
+
+			int chunkIndex = chunk.chunkIndex;
+			Mesh mesh = chunk.mesh;
+
+			bool isPopulated = mesh != null &&
+			                   mesh.vertexCount > 0 &&
+			                   mesh.subMeshCount == 1 &&
+			                   mesh.GetIndexCount(0) >= 3;
+
+			if (!isPopulated)
+			{
+				RaiseChunkPayload(chunkIndex, NextRevision(chunkIndex), default);
 				return;
 			}
 
-			int payloadSize = sizeof(int) * 3 + (vertCount * 3 + indexCount) * sizeof(ushort);
+			EncodeResult[] results = null;
 
-			if (payloadSize > MaxPayloadBytes)
+			try
 			{
-				Debug.LogWarning(
-					$"[{nameof(EnvMeshSync)}] Chunk {chunk.chunkIndex} payload ({payloadSize}B) exceeds the fragmented message cap");
-				return;
+				using Mesh.MeshDataArray meshDataArray = Mesh.AcquireReadOnlyMeshData(mesh);
+
+				QuantizationSettings quantization = new(positionQuantizationBits);
+				SpeedSettings speed = new(encodingSpeed, decodingSpeed);
+				results = await DracoEncoder.EncodeMesh(mesh, meshDataArray[0], quantization, speed);
+
+				if (!this || generation != syncGeneration || !SyncBus.Active)
+					return;
+
+				if (results == null || results.Length != 1)
+				{
+					Debug.LogWarning(
+						$"[{nameof(EnvMeshSync)}] Draco failed to encode chunk {chunkIndex}");
+					return;
+				}
+
+				NativeArray<byte> encodedData = results[0].data;
+				int payloadSize = ChunkPayloadHeaderBytes + encodedData.Length;
+
+				if (payloadSize > MaxPayloadBytes)
+				{
+					Debug.LogWarning(
+						$"[{nameof(EnvMeshSync)}] Chunk {chunkIndex} Draco payload ({payloadSize}B) exceeds the fragmented message cap");
+					return;
+				}
+
+				RaiseChunkPayload(chunkIndex, NextRevision(chunkIndex), encodedData);
 			}
+			finally
+			{
+				if (results != null)
+				{
+					for (int i = 0; i < results.Length; i++)
+						results[i].Dispose();
+				}
+			}
+		}
 
-			NativeArray<Vector3> positions = new(vertCount, Allocator.Temp);
-			NativeArray<int> indices = new(indexCount, Allocator.Temp);
+		private uint NextRevision(int chunkIndex)
+		{
+			sentRevisions.TryGetValue(chunkIndex, out uint revision);
+			revision++;
 
-			if (vertCount > 0) data.GetVertices(positions);
-			if (indexCount > 0) data.GetIndices(indices, 0);
+			// Reserve zero for malformed/uninitialized packets.
+			if (revision == 0) revision = 1;
 
-			// quantize positions to 16 bits per axis in chunk-local space
-			float quantScale = ushort.MaxValue / chunkSpan;
+			sentRevisions[chunkIndex] = revision;
+			return revision;
+		}
 
+		private void RaiseChunkPayload(int chunkIndex, uint revision, NativeArray<byte> encodedData)
+		{
+			int payloadSize = ChunkPayloadHeaderBytes + (encodedData.IsCreated ? encodedData.Length : 0);
 			byte[] payload = new byte[payloadSize];
-			int offset = 0;
 
-			SyncBytes.Write(payload, offset, chunk.chunkIndex);
-			offset += sizeof(int);
+			SyncBytes.Write(payload, 0, ChunkPayloadMagic);
+			SyncBytes.Write(payload, sizeof(uint), chunkIndex);
+			SyncBytes.Write(payload, sizeof(uint) + sizeof(int), revision);
 
-			SyncBytes.Write(payload, offset, vertCount);
-			offset += sizeof(int);
-
-			for (int v = 0; v < vertCount; v++)
-			{
-				Vector3 p = positions[v];
-				SyncBytes.Write(payload, offset,
-					(ushort)math.clamp(math.round(p.x * quantScale), 0, ushort.MaxValue));
-				SyncBytes.Write(payload, offset + sizeof(ushort),
-					(ushort)math.clamp(math.round(p.y * quantScale), 0, ushort.MaxValue));
-				SyncBytes.Write(payload, offset + sizeof(ushort) * 2,
-					(ushort)math.clamp(math.round(p.z * quantScale), 0, ushort.MaxValue));
-				offset += sizeof(ushort) * 3;
-			}
-
-			SyncBytes.Write(payload, offset, indexCount);
-			offset += sizeof(int);
-
-			for (int i = 0; i < indexCount; i++)
-			{
-				SyncBytes.Write(payload, offset, (ushort)indices[i]);
-				offset += sizeof(ushort);
-			}
+			if (encodedData.IsCreated)
+				NativeArray<byte>.Copy(encodedData, 0, payload, ChunkPayloadHeaderBytes, encodedData.Length);
 
 			chunkEvent.Raise(payload);
 		}
 
-		private void OnChunkReceived(ulong sender, byte[] payload)
+		private async void OnChunkReceived(ulong sender, byte[] payload)
 		{
 			// Direct events also invoke locally; the sender already has this mesh.
 			if (sender == SyncBus.LocalClientId) return;
 
 			// validate malformed or corrupt payloads
-			if (payload.Length < sizeof(int) * 2) return;
+			if (payload.Length < ChunkPayloadHeaderBytes || payload.Length > MaxPayloadBytes)
+				return;
 
-			int offset = 0;
+			uint magic = SyncBytes.Read<uint>(payload, 0);
+			if (magic != ChunkPayloadMagic) return;
 
-			int chunkIndex = SyncBytes.Read<int>(payload, offset);
-			offset += sizeof(int);
+			int chunkIndex = SyncBytes.Read<int>(payload, sizeof(uint));
 
 			if (chunkIndex < 0 || chunkIndex >= EnvScanner.Instance.ChunkTableLength)
 				return;
 
-			int vertCount = SyncBytes.Read<int>(payload, offset);
-			offset += sizeof(int);
+			uint revision = SyncBytes.Read<uint>(payload, sizeof(uint) + sizeof(int));
+			if (revision == 0) return;
 
-			if (vertCount < 0 || payload.Length < offset + vertCount * 3 * sizeof(ushort) + sizeof(int))
+			(ulong sender, int chunkIndex) revisionKey = (sender, chunkIndex);
+			if (receivedRevisions.TryGetValue(revisionKey, out uint latestRevision) &&
+			    !IsNewerRevision(revision, latestRevision))
 				return;
 
-			int positionsOffset = offset;
-			offset += vertCount * 3 * sizeof(ushort);
+			receivedRevisions[revisionKey] = revision;
+			int generation = syncGeneration;
 
-			int indexCount = SyncBytes.Read<int>(payload, offset);
-			offset += sizeof(int);
-
-			if (indexCount < 0 || indexCount % 3 != 0 ||
-			    payload.Length < offset + indexCount * sizeof(ushort))
-				return;
-
-			NativeArray<Vector3> positions = new(vertCount, Allocator.Temp);
-			NativeArray<int> indices = new(indexCount, Allocator.Temp);
-
-			float dequantScale = chunkSpan / ushort.MaxValue;
-
-			for (int v = 0; v < vertCount; v++)
-				positions[v] = new Vector3(
-					SyncBytes.Read<ushort>(payload, positionsOffset + (v * 3 + 0) * sizeof(ushort)) * dequantScale,
-					SyncBytes.Read<ushort>(payload, positionsOffset + (v * 3 + 1) * sizeof(ushort)) * dequantScale,
-					SyncBytes.Read<ushort>(payload, positionsOffset + (v * 3 + 2) * sizeof(ushort)) * dequantScale);
-
-			for (int i = 0; i < indexCount; i++)
+			// A header-only packet clears the chunk without invoking Draco.
+			if (payload.Length == ChunkPayloadHeaderBytes)
 			{
-				int index = SyncBytes.Read<ushort>(payload, offset + i * sizeof(ushort));
-				if (index >= vertCount) return;
-				indices[i] = index;
+				ClearRemoteChunk(chunkIndex, revisionKey, revision, generation);
+				return;
 			}
 
-			Chunk chunk = EnvMesher.Instance.GetOrCreateChunk(chunkIndex);
-			chunk.ApplyMeshData(positions, indices);
+			NativeArray<byte> encodedData = new(
+				payload.Length - ChunkPayloadHeaderBytes,
+				Allocator.Persistent,
+				NativeArrayOptions.UninitializedMemory);
+			NativeArray<byte>.Copy(
+				payload,
+				ChunkPayloadHeaderBytes,
+				encodedData,
+				0,
+				encodedData.Length);
 
-			if (indices.Length > 0)
-				RemoteMeshApplied.Invoke(chunk);
+			Mesh.MeshDataArray meshDataArray = default;
+			bool meshDataAllocated = false;
+			BoneWeightData boneWeightData = null;
+
+			try
+			{
+				meshDataArray = Mesh.AllocateWritableMeshData(1);
+				meshDataAllocated = true;
+
+				DecodeSettings settings = DecodeSettings.Default | DecodeSettings.RequireNormals;
+				DecodeResult result = await DracoDecoder.DecodeMesh(
+					meshDataArray[0],
+					encodedData.AsReadOnly(),
+					settings);
+				boneWeightData = result.boneWeightData;
+
+				if (!result.success)
+				{
+					Debug.LogWarning(
+						$"[{nameof(EnvMeshSync)}] Draco failed to decode chunk {chunkIndex}");
+					return;
+				}
+
+				if (!this ||
+				    generation != syncGeneration ||
+				    !SyncBus.Active ||
+				    !receivedRevisions.TryGetValue(revisionKey, out uint currentRevision) ||
+				    currentRevision != revision)
+					return;
+
+				Chunk chunk = EnvMesher.Instance.GetOrCreateChunk(chunkIndex);
+
+				if (chunk.mesh == null)
+				{
+					chunk.mesh = new Mesh();
+					chunk.mesh.MarkDynamic();
+				}
+
+				chunk.meshCollider.enabled = false;
+				chunk.meshCollider.sharedMesh = null;
+
+				Mesh.ApplyAndDisposeWritableMeshData(
+					meshDataArray,
+					chunk.mesh,
+					DracoDecoder.defaultMeshUpdateFlags);
+				meshDataAllocated = false;
+
+				chunk.mesh.bounds = result.bounds;
+				if (result.calculateNormals)
+					chunk.mesh.RecalculateNormals();
+				chunk.mesh.MarkModified();
+
+				chunk.meshFilter.sharedMesh = chunk.mesh;
+				chunk.meshIsPopulated = chunk.mesh.vertexCount > 0 &&
+				                        chunk.mesh.subMeshCount > 0 &&
+				                        chunk.mesh.GetIndexCount(0) >= 3;
+				chunk.meshCollider.sharedMesh = chunk.mesh;
+				chunk.meshCollider.enabled = chunk.meshIsPopulated;
+
+				if (chunk.meshIsPopulated)
+					RemoteMeshApplied.Invoke(chunk);
+			}
+			catch (Exception e)
+			{
+				Debug.LogException(e, this);
+			}
+			finally
+			{
+				boneWeightData?.Dispose();
+				if (meshDataAllocated) meshDataArray.Dispose();
+				encodedData.Dispose();
+			}
+		}
+
+		private void ClearRemoteChunk(
+			int chunkIndex,
+			(ulong sender, int chunkIndex) revisionKey,
+			uint revision,
+			int generation)
+		{
+			if (generation != syncGeneration ||
+			    !SyncBus.Active ||
+			    !receivedRevisions.TryGetValue(revisionKey, out uint currentRevision) ||
+			    currentRevision != revision)
+				return;
+
+			Chunk chunk = EnvMesher.Instance.GetOrCreateChunk(chunkIndex);
+			chunk.mesh.Clear();
+			chunk.meshIsPopulated = false;
+			chunk.meshCollider.sharedMesh = null;
+			chunk.meshCollider.enabled = false;
+		}
+
+		private static bool IsNewerRevision(uint candidate, uint current)
+		{
+			return unchecked((int)(candidate - current)) > 0;
 		}
 	}
 }

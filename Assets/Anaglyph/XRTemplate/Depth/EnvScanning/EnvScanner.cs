@@ -261,6 +261,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 
 		private void OnDisable()
 		{
+			visibleChunks.SetData(EmptyVisibleChunksArray);
 			updateLoopTknSrc?.Cancel();
 		}
 

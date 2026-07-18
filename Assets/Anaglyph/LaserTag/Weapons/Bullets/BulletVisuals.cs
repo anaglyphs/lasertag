@@ -2,14 +2,18 @@ using System;
 using System.Threading;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.VFX;
 
 namespace Anaglyph.Lasertag
 {
 	public class BulletVisuals : MonoBehaviour
 	{
 		private Bullet bullet = null;
-		[SerializeField] private TrailRenderer trailRenderer = null;
+		[SerializeField] private LineRenderer lineRenderer = null;
+		[SerializeField, Min(0f), Tooltip("Maximum world-space length of the visible laser body.")]
+		private float bodyLength = 1f;
+		[SerializeField, Range(0.01f, 1f),
+		 Tooltip("Normalized percentage of the texture occupied by the laser body. For example, 62 / 112 = 0.554.")]
+		private float bodyTexturePercentage = 62f / 112f;
 		[SerializeField] private DepthLight depthLight = null;
 		[SerializeField] private ParticleSystem impactEffect = null;
 
@@ -22,6 +26,9 @@ namespace Anaglyph.Lasertag
 			//propertyBlock = new();
 
 			bullet = GetComponentInParent<Bullet>();
+			lineRenderer.positionCount = 2;
+			lineRenderer.useWorldSpace = true;
+			lineRenderer.enabled = false;
 
 			bullet.OnFire += HandleFire;
 			bullet.OnCollide += HandleCollision;
@@ -32,10 +39,11 @@ namespace Anaglyph.Lasertag
 		private void HandleFire()
 		{
 			depthLight.enabled = true;
-			trailRenderer.Clear();
+			lineRenderer.enabled = true;
 
 			prevBulletPosition = bullet.transform.position;
 			depthLight.transform.position = prevBulletPosition;
+			UpdateLineRenderer(prevBulletPosition);
 
 			NetworkManager manager = NetworkManager.Singleton;
 			NetworkObject playerObject = manager.ConnectedClients[bullet.OwnerClientId].PlayerObject;
@@ -49,9 +57,9 @@ namespace Anaglyph.Lasertag
 
 			depthLight.color = color;
 			//propertyBlock.SetColor(TeamColorer.ColorID, color);
-			//trailRenderer.SetPropertyBlock(propertyBlock);
-			trailRenderer.startColor = color;
-			trailRenderer.endColor = color;
+			//lineRenderer.SetPropertyBlock(propertyBlock);
+			lineRenderer.startColor = color;
+			lineRenderer.endColor = color;
 
 			ParticleSystem.MainModule partMod = impactEffect.main;
 			partMod.startColor = color;
@@ -59,6 +67,7 @@ namespace Anaglyph.Lasertag
 
 		private async void HandleCollision()
 		{
+			lineRenderer.enabled = false;
 			impactEffect.Play();
 
 			CancellationToken ctkn = destroyCancellationToken;
@@ -80,6 +89,32 @@ namespace Anaglyph.Lasertag
 			Vector3 prevPos = prevBulletPosition;
 			depthLight.transform.position = Vector3.Lerp(pos, prevPos, 0.5f);
 			prevBulletPosition = pos;
+
+			if (lineRenderer.enabled)
+				UpdateLineRenderer(pos);
+		}
+
+		private void UpdateLineRenderer(Vector3 bulletPosition)
+		{
+			Ray shotRay = bullet.Shot.ray;
+			Vector3 direction = shotRay.direction.normalized;
+
+			if (direction == Vector3.zero)
+				direction = bullet.transform.forward;
+
+			float travelDistance = Mathf.Max(
+				0f,
+				Vector3.Dot(bulletPosition - shotRay.origin, direction));
+			float visibleBodyLength = Mathf.Min(bodyLength, travelDistance);
+			float clampedBodyPercentage = Mathf.Clamp(bodyTexturePercentage, 0.01f, 1f);
+			float visibleLineLength = visibleBodyLength / clampedBodyPercentage;
+			float endMargin = (visibleLineLength - visibleBodyLength) * 0.5f;
+
+			Vector3 headPosition = bulletPosition + direction * endMargin;
+			Vector3 tailPosition = headPosition - direction * visibleLineLength;
+
+			lineRenderer.SetPosition(0, tailPosition);
+			lineRenderer.SetPosition(1, headPosition);
 		}
 	}
 }

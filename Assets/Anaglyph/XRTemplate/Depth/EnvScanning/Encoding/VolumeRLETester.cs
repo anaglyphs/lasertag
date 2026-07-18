@@ -1,13 +1,12 @@
 using System.Text;
-using Anaglyph.DepthKit.EnvScanning;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
 using Utilities.XR;
 
-namespace Anaglyph.DepthKit.EnvScanningV2
+namespace Anaglyph.DepthKit.EnvScanning.Encoding
 {
-	public class ChunkEncodingTester : MonoBehaviour
+	public class VolumeRLETester : MonoBehaviour
 	{
 		private EnvScanner.ChunkReadbackBuffer readbackBuffer;
 		private NativeArray<EnvScanner.Voxel> decodedVoxels;
@@ -54,9 +53,9 @@ namespace Anaglyph.DepthKit.EnvScanningV2
 				bool success = await scanner.ReadbackChunkInto(chunkIndex, readbackBuffer);
 				if (!success) Debug.LogError("Chunk readback failed!");
 
-				await ChunkCompression.EncodeChunk(readbackBuffer.data, compressedData);
+				await VolumeRLE.EncodeChunk(readbackBuffer.data, compressedData);
 
-				success = await ChunkCompression.DecodeChunk(compressedData.AsArray(), decodedVoxels);
+				success = await VolumeRLE.DecodeChunk(compressedData.AsArray(), decodedVoxels);
 
 				if (!success) Debug.LogError("Chunk decode failed!");
 

@@ -13,6 +13,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 		public Mesh mesh;
 		public bool dirty;
 		public uint lastMeshingChangeSum;
+		public bool meshIsPopulated;
 
 		public MeshFilter meshFilter;
 		public MeshCollider meshCollider;
@@ -45,7 +46,10 @@ namespace Anaglyph.DepthKit.EnvScanning
 		{
 			bool isPopulated = indices.Length >= 3;
 
-			mesh.Clear();
+			if(mesh == null)
+				mesh = new Mesh();
+			else
+				mesh.Clear();
 
 			if (isPopulated)
 			{
@@ -55,8 +59,9 @@ namespace Anaglyph.DepthKit.EnvScanning
 
 				meshCollider.sharedMesh = mesh;
 			}
-
-			meshCollider.enabled = isPopulated;
+			
+			meshIsPopulated = isPopulated;
+			meshCollider.enabled = meshIsPopulated;
 		}
 
 		private void Update()

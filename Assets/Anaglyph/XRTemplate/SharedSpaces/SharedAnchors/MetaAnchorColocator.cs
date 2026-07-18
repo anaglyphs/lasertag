@@ -47,11 +47,15 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public void Awake()
 		{
-			anchorManager = FindFirstObjectByType<ARAnchorManager>();
-			metaAnchorSubsystem = (MetaOpenXRAnchorSubsystem)anchorManager.subsystem;
-
 			canonPoses.Changed += OnCanonPosesChanged;
 			canonPoses.Register();
+			
+#if UNITY_EDITOR
+			return;
+#endif
+			
+			anchorManager = FindFirstObjectByType<ARAnchorManager>();
+			metaAnchorSubsystem = (MetaOpenXRAnchorSubsystem)anchorManager.subsystem;
 
 			anchorRegistry = new AnchorRegistry(anchorManager, metaAnchorSubsystem);
 		}
@@ -66,6 +70,10 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private void OnApplicationFocus(bool isFocused)
 		{
+			#if UNITY_EDITOR
+			return;
+			#endif
+			
 			// Device sleeping = tracking pauses = tracking lost
 			// This prevents the device from creating erroneous anchors when it wakes up
 			// until it aligns itself again
@@ -75,6 +83,14 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public void StartColocation()
 		{
+			#if UNITY_EDITOR
+			if (isAligned) return;
+			
+			Colocated.Invoke();
+			isAligned = true;
+			return;
+			#endif
+			
 			if (isActive) return;
 
 			Supported shareSupportState = metaAnchorSubsystem.isSharedAnchorsSupported;
@@ -99,6 +115,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public void StopColocation()
 		{
+			#if UNITY_EDITOR
+			isAligned = false;
+			return;
+			#endif
+			
 			if (!isActive) return;
 			isActive = false;
 

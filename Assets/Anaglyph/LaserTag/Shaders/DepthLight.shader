@@ -4,6 +4,7 @@ Shader "Anaglyph/Lasertag/DepthLight"
 	{
 		_Color ("Color", Color) = (1,1,1,1)
 		_Intensity ("Intensity", Float) = 1
+		[HideInInspector] _InvSqrRadius ("Inverse Square Radius", Float) = 1
 	}
 
 	SubShader
@@ -30,25 +31,13 @@ Shader "Anaglyph/Lasertag/DepthLight"
 			CBUFFER_START(UnityPerMaterial)
 				half3 _Color;
 				half _Intensity;
+				float _InvSqrRadius;
 			CBUFFER_END
 
 			float sqr(float x)
 			{
 				return x * x;
 			}
-
-			// float attenuate_cusp(float distance, float radius,
-			// 	float max_Intensity, float falloff)
-			// {
-			// 	float s = distance / radius;
-
-			// 	if (s >= 1.0)
-			// 		return 0.0;
-
-			// 	float s2 = sqr(s);
-
-			// 	return max_Intensity * sqr(1 - s2) / (1 + falloff * s);
-			// }
 
 			struct Attributes
 			{
@@ -94,18 +83,28 @@ Shader "Anaglyph/Lasertag/DepthLight"
 				float3 lightPos = mul(unity_ObjectToWorld, float4(0, 0, 0, 1)).xyz;
 				float3 depthWorld = agDepthNDCtoWorld(float3(uv, depthNDC), eye);
 
-				float3 worldNorm = agDepthNormalSample(uv, eye, agBilinearClampSampler);
-
 				float3 diff = lightPos - depthWorld;
+				float distanceSqr = dot(diff, diff);
+				float normalizedDistanceSqr = distanceSqr * _InvSqrRadius;
 
-				float3 lightDir = normalize(diff);
+				// The sphere bounds screen-space work; this also avoids sampling
+				// a normal when the reconstructed surface lies outside the light.
+				if (normalizedDistanceSqr >= 1.0)
+					return 0;
 
-				float dist = length(diff);
-				// float radius = length(mul(unity_ObjectToWorld, float4(1,0,0,0))) / 2;
+				float3 worldNorm = agDepthNormalSample(uv, eye, agBilinearClampSampler);
+				float3 lightDir = diff * rsqrt(max(distanceSqr, 1e-6));
 
 				float facingSurface = max(dot(worldNorm, lightDir), 0.0);
 
-				float intensity = facingSurface * max(0, 1.0 / (dist * dist)) * _Intensity;
+				// Preserve inverse-square falloff near the light, then smoothly
+				// window it to zero at the sphere radius. Squaring the window
+				// gives it a zero slope at the boundary, so the mesh edge cannot
+				// appear as a hard seam.
+				float rangeAttenuation = sqr(saturate(1.0 - sqr(normalizedDistanceSqr)));
+				float inverseSquareAttenuation = rcp(max(distanceSqr, 1e-4));
+				float intensity = facingSurface * rangeAttenuation
+					* inverseSquareAttenuation * _Intensity;
 
 				float luminance = dot(_Color, float3(0.2126, 0.7152, 0.0722));
 				float brightness = luminance * intensity;

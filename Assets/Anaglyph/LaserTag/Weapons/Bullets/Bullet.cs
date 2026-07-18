@@ -102,6 +102,8 @@ namespace Anaglyph.Lasertag
 
 		private void Update()
 		{
+			if (AnaglyphDebugging.DebugMode) DrawDebug();
+			
 			if (!isAlive) return;
 			
 			Vector3 prevPos = transform.position;
@@ -132,8 +134,6 @@ namespace Anaglyph.Lasertag
 				if (travelDist > MaxTravelDist)
 					NetworkObject.Despawn(true);
 			}
-			
-			if (AnaglyphDebugging.DebugMode) DrawDebug();
 		}
 
 		private void DrawDebug()

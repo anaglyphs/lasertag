@@ -181,9 +181,14 @@ namespace Anaglyph.DepthKit.EnvScanning
 			}
 		}
 
+		public bool TryGetChunk(int chunkIndex, out Chunk chunk)
+		{
+			return chunks.TryGetValue(chunkIndex, out chunk);
+		}
+
 		public Chunk GetOrCreateChunk(int chunkIndex)
 		{
-			if (chunks.TryGetValue(chunkIndex, out Chunk chunk))
+			if (TryGetChunk(chunkIndex, out Chunk chunk))
 				return chunk;
 
 			EnvScanner scanner = EnvScanner.Instance;
@@ -249,8 +254,11 @@ namespace Anaglyph.DepthKit.EnvScanning
 					{
 						await MeshSimplifier.SimplifyAsync(scratchMesh, decimationTarget, decimationOptions,
 							chunk.mesh, ctkn);
+						
+						// bad
 
-						chunk.meshCollider.enabled = chunk.mesh.vertexCount > 0;
+						chunk.meshIsPopulated = chunk.mesh.vertexCount > 0;
+						chunk.meshCollider.enabled = chunk.meshIsPopulated;
 
 						ctkn.ThrowIfCancellationRequested();
 
@@ -260,6 +268,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 					else
 					{
 						chunk.mesh.Clear();
+						chunk.meshIsPopulated = false;
 						chunk.meshCollider.enabled = false;
 					}
 

@@ -1,13 +1,12 @@
 using System.Threading.Tasks;
-using Anaglyph.DepthKit.EnvScanning;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using UnityEngine;
 
-namespace Anaglyph.DepthKit.EnvScanningV2
+namespace Anaglyph.DepthKit.EnvScanning.Encoding
 {
-	public static class ChunkCompression
+	public static class VolumeRLE
 	{
 		public static async Task EncodeChunk(NativeArray<EnvScanner.Voxel> volume, NativeList<sbyte> compressedData)
 		{
