@@ -38,23 +38,31 @@ namespace Anaglyph.Lasertag
 			}
 		}
 
-		private async Awaitable CountdownTask(CancellationToken ctn)
+		private float CountdownTime(float atTime, float forDuration)
 		{
+			return Mathf.Max(0, MatchReferee.Instance.GetTimeElapsed() - atTime + forDuration);
+		}
+
+		private async Awaitable CountdownTask(CancellationToken ctkn)
+		{
+			
 			countdownText.enabled = true;
-
-			float timeElapsed = MatchReferee.Instance.GetTimeElapsed();
-
+			
+			// time elapsed should be -3
 			countdownText.text = "3";
-			await Awaitable.WaitForSecondsAsync(Mathf.Max(0, 1 - timeElapsed), ctn);
+			await Awaitable.WaitForSecondsAsync(CountdownTime(-3, 1), ctkn);
 
+			// time elapsed should be -2
 			countdownText.text = "2";
-			await Awaitable.WaitForSecondsAsync(Mathf.Max(0, 2 - timeElapsed), ctn);
+			await Awaitable.WaitForSecondsAsync(CountdownTime(-2, 1), ctkn);
 
+			// time elapsed should be -1
 			countdownText.text = "1";
-			await Awaitable.WaitForSecondsAsync(Mathf.Max(0, 3 - timeElapsed), ctn);
-
+			await Awaitable.WaitForSecondsAsync(CountdownTime(-1, 1), ctkn);
+			
+			// always show for 1.5 seconds
 			countdownText.text = "Go!";
-			await Awaitable.WaitForSecondsAsync(Mathf.Max(0, 4.5f - timeElapsed), ctn);
+			await Awaitable.WaitForSecondsAsync(1.5f, ctkn);
 
 			countdownText.enabled = false;
 		}

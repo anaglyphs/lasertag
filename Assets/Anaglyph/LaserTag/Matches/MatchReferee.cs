@@ -284,7 +284,11 @@ namespace Anaglyph.Lasertag
 
 							if (numPlayersInBase != 0 && numPlayersInBase == PlayerAvatar.All.Count)
 								if (SyncBus.IsAuthority)
+								{
+									ResetScores();
+									startTimeSync.Value = ServerTime + CountdownSeconds;
 									stateSync.Value = MatchState.Countdown;
+								}
 
 							await Awaitable.NextFrameAsync(ctn);
 							ctn.ThrowIfCancellationRequested();
@@ -294,12 +298,9 @@ namespace Anaglyph.Lasertag
 
 					case MatchState.Countdown:
 						await Awaitable.WaitForSecondsAsync(CountdownSeconds, ctn);
-						ctn.ThrowIfCancellationRequested();
 
 						if (SyncBus.IsAuthority)
 						{
-							ResetScores();
-							startTimeSync.Value = ServerTime;
 							stateSync.Value = MatchState.Playing;
 						}
 
