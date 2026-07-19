@@ -1,4 +1,7 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.XR;
 
 namespace Anaglyph.XRTemplate
 {
@@ -12,10 +15,28 @@ namespace Anaglyph.XRTemplate
 
 		public static Camera Camera => Instance.camera;
 		public static Transform TrackingSpace => Instance.trackingSpace;
+		
+		public static event Action Recentered = delegate { };
+		private readonly List<XRInputSubsystem> xrSubsystems = new();
 
 		private void Awake()
 		{
 			Instance = this;
+			
+			SubsystemManager.GetSubsystems(xrSubsystems);
+			foreach (XRInputSubsystem sub in xrSubsystems)
+				sub.trackingOriginUpdated += HandleRecenter;
+		}
+
+		private void OnDestroy()
+		{
+			foreach (XRInputSubsystem sub in xrSubsystems)
+				sub.trackingOriginUpdated -= HandleRecenter;
+		}
+		
+		private void HandleRecenter(XRInputSubsystem obj)
+		{
+			Recentered.Invoke();
 		}
 
 		public void ForceGlobalUp()
