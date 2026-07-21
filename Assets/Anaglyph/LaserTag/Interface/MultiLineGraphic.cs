@@ -9,6 +9,7 @@ namespace Anaglyph.Menu
 	{
 		public Vector2[] points;
 
+		[Min(0f)]
 		public float thickness;
 		public Color32 color;
 
@@ -21,9 +22,23 @@ namespace Anaglyph.Menu
 		public bool overrideLastAngle;
 	}
 
+	/// <summary>
+	/// Multiple polylines drawn as anti-aliased SDF strokes by the
+	/// Anaglyph/UI/UILine shader. Each segment supplies its own stroke width and
+	/// color while padding and softness are shared by the graphic. Assign a
+	/// material using the "Anaglyph/UI/UILine" shader to the Material field.
+	/// </summary>
+	[RequireComponent(typeof(CanvasRenderer))]
 	[ExecuteAlways]
-	public class MultiLineGraphic : Graphic
+	public class MultiLineGraphic : MaskableGraphic
 	{
+		[Tooltip("Extra stroke-weight padding added to each ribbon so the AA edge " +
+		         "isn't clipped by the geometry.")]
+		[Min(0f)] public float padding = 2f;
+
+		[Tooltip("AA edge softness multiplier on top of the screen-space derivative.")]
+		[Min(0.01f)] public float softness = 1f;
+
 		public Segment[] segments;
 
 		public static Vector2 FromAngle(float a)
@@ -31,20 +46,34 @@ namespace Anaglyph.Menu
 			return new Vector2(Mathf.Cos(a), Mathf.Sin(a));
 		}
 
+		protected override void OnEnable()
+		{
+			base.OnEnable();
+			EnsureCanvasChannels();
+		}
+
 		protected override void OnPopulateMesh(VertexHelper vh)
 		{
 			vh.Clear();
+
+			if (segments == null)
+				return;
 
 			foreach (Segment seg in segments)
 			{
 				Vector2[] points = seg.points;
 
 				if (points == null || points.Length < 2)
-					return;
+					continue;
 
 				int count = points.Length;
-				float halfThickness = seg.thickness * 0.5f;
-				Color32 c = seg.color;
+				int firstVertex = vh.currentVertCount;
+				float halfStroke = seg.thickness * 0.5f;
+				float edge = halfStroke + padding;
+
+				UIVertex vert = UIVertex.simpleVert;
+				vert.color = seg.color;
+				vert.uv1 = new Vector4(halfStroke, softness, 0f, 0f);
 
 				// Build vertices
 				for (int i = 0; i < count; i++)
@@ -93,16 +122,21 @@ namespace Anaglyph.Menu
 					if (!Mathf.Approximately(dot, 0f))
 						n /= dot;
 
-					Vector2 offset = n * halfThickness;
+					Vector2 offset = n * edge;
 
-					vh.AddVert(p + offset, c, Vector2.zero);
-					vh.AddVert(p - offset, c, Vector2.zero);
+					vert.position = p + offset;
+					vert.uv0 = new Vector4(edge, 0f, 0f, 0f);
+					vh.AddVert(vert);
+
+					vert.position = p - offset;
+					vert.uv0 = new Vector4(-edge, 0f, 0f, 0f);
+					vh.AddVert(vert);
 				}
 
 				// Build triangles
 				for (int i = 0; i < count - 1; i++)
 				{
-					int v = i * 2;
+					int v = firstVertex + i * 2;
 
 					vh.AddTriangle(v + 2, v + 1, v + 0);
 					vh.AddTriangle(v + 2, v + 3, v + 1);
@@ -110,10 +144,48 @@ namespace Anaglyph.Menu
 
 				if (seg.closed)
 				{
-					vh.AddTriangle(0, count - 2, count - 1);
-					vh.AddTriangle(0, 1, count - 1);
+					int firstPlus = firstVertex;
+					int firstMinus = firstVertex + 1;
+					int lastPlus = firstVertex + (count - 1) * 2;
+					int lastMinus = lastPlus + 1;
+
+					vh.AddTriangle(firstPlus, lastMinus, lastPlus);
+					vh.AddTriangle(firstPlus, firstMinus, lastMinus);
 				}
 			}
 		}
+
+		private void EnsureCanvasChannels()
+		{
+			Canvas c = canvas;
+			if (c == null)
+				return;
+
+			const AdditionalCanvasShaderChannels need =
+				AdditionalCanvasShaderChannels.TexCoord1;
+
+			if ((c.additionalShaderChannels & need) != need)
+				c.additionalShaderChannels |= need;
+		}
+
+#if UNITY_EDITOR
+		protected override void OnValidate()
+		{
+			base.OnValidate();
+			padding = Mathf.Max(0f, padding);
+			softness = Mathf.Max(0.01f, softness);
+
+			if (segments != null)
+				for (int i = 0; i < segments.Length; i++)
+				{
+					Segment segment = segments[i];
+					segment.thickness = Mathf.Max(0f, segment.thickness);
+					segments[i] = segment;
+				}
+
+			EnsureCanvasChannels();
+			SetVerticesDirty();
+		}
+#endif
 	}
 }

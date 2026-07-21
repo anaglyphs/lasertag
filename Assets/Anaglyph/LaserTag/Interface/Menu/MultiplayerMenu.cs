@@ -2,6 +2,7 @@ using Anaglyph.Menu;
 using Anaglyph.Netcode;
 using Anaglyph.XRTemplate.SharedSpaces;
 using System;
+using System.Threading;
 using TMPro;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
@@ -54,8 +55,16 @@ namespace Anaglyph.Lasertag
 		// [SerializeField] private Sprite connectedSprite = null;
 		// [SerializeField] private Sprite hostingSprite = null;
 
+		[Header(nameof(networkErrorModal))] [SerializeField]
+		private NavPage networkErrorModal;
+		[SerializeField] private Button dismissNetworkErrorModal = null;
+		[SerializeField] private Button openWifiSettingsButton = null;
+		private bool networkWasConnected;
+
 		[Header("Host settings")] [SerializeField]
 		private BoolObject hostRelay = null;
+
+		private CancellationTokenSource networkPollCtknSrc;
 
 		private void Start()
 		{
@@ -107,7 +116,69 @@ namespace Anaglyph.Lasertag
 			ColocationManager.Colocated += OnColocationChange;
 
 			navView.Changed += OnNavPageChange;
+			
+			// network error modal
+			networkErrorModal.showBackButton = false;
+			dismissNetworkErrorModal.onClick.AddListener(delegate
+			{
+				navView.DismissModal(networkErrorModal);
+			});
+			openWifiSettingsButton.onClick.AddListener(OpenWifiSettings);
+			NetworkCheckLoop();
 		}
+
+		private static void OpenWifiSettings()
+		{
+#if UNITY_ANDROID
+			if (Application.isEditor)
+			{
+				Debug.LogWarning("Wi-Fi settings can only be opened from an Android player.");
+				return;
+			}
+
+			const string wifiSettingsAction = "android.settings.WIFI_SETTINGS";
+			const string systemSettingsAction = "android.settings.SETTINGS";
+
+			try
+			{
+				using AndroidJavaClass unityPlayer = new("com.unity3d.player.UnityPlayer");
+				using AndroidJavaObject activity =
+					unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
+				using AndroidJavaObject packageManager =
+					activity.Call<AndroidJavaObject>("getPackageManager");
+
+				if (TryStartAndroidActivity(activity, packageManager, wifiSettingsAction))
+					return;
+
+				if (!TryStartAndroidActivity(activity, packageManager, systemSettingsAction))
+					Debug.LogError("No Android system settings activity is available.");
+			}
+			catch (AndroidJavaException exception)
+			{
+				Debug.LogException(exception);
+			}
+#else
+			Debug.LogWarning("Wi-Fi settings can only be opened from an Android player.");
+#endif
+		}
+
+#if UNITY_ANDROID
+		private static bool TryStartAndroidActivity(
+			AndroidJavaObject activity,
+			AndroidJavaObject packageManager,
+			string action)
+		{
+			using AndroidJavaObject intent = new("android.content.Intent", action);
+			using AndroidJavaObject component =
+				intent.Call<AndroidJavaObject>("resolveActivity", packageManager);
+
+			if (component == null)
+				return false;
+
+			activity.Call("startActivity", intent);
+			return true;
+		}
+#endif
 
 		private void OnNavPageChange(NavPage page)
 		{
@@ -117,6 +188,8 @@ namespace Anaglyph.Lasertag
 
 		private void OnDestroy()
 		{
+			networkPollCtknSrc?.Cancel();
+			
 			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
 			ColocationManager.Colocated -= OnColocationChange;
 		}
@@ -193,6 +266,42 @@ namespace Anaglyph.Lasertag
 			NetcodeManagement.Protocol service =
 				hostRelay.Value ? NetcodeManagement.Protocol.UnityService : NetcodeManagement.Protocol.LAN;
 			NetcodeManagement.Host(service);
+		}
+
+		private async void NetworkCheckLoop()
+		{
+			networkPollCtknSrc?.Cancel();
+			networkPollCtknSrc = new CancellationTokenSource();
+			CancellationToken ctkn = networkPollCtknSrc.Token;
+
+			// assume network is connected at start
+			networkWasConnected = true;
+
+			try
+			{
+				while (!ctkn.IsCancellationRequested)
+				{
+					CheckNetworkConnection();
+					await Awaitable.WaitForSecondsAsync(0.5f, ctkn);
+				}
+			}
+			catch (OperationCanceledException)
+			{
+
+			}
+		}
+
+		private void CheckNetworkConnection()
+		{
+			NetworkingState networkState = NetworkConnectivityTest.GetNetworkState();
+
+			bool networkIsConnected = networkState != NetworkingState.NoConnection;
+			
+			if (networkWasConnected != networkIsConnected)
+			{
+				networkWasConnected = networkIsConnected;
+				navView.SetModalPresented(networkErrorModal, !networkIsConnected);
+			}
 		}
 
 		private void Disconnect()

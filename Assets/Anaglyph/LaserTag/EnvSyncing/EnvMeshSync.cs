@@ -77,7 +77,8 @@ namespace Anaglyph.Lasertag
 			visibleEvent.Received += OnVisibleReceived;
 			SyncBus.Activated += OnBusActivated;
 			SyncBus.Deactivated += OnBusDeactivated;
-
+			
+			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
 			ColocationManager.Colocated += OnColocated;
 		}
 
@@ -97,14 +98,20 @@ namespace Anaglyph.Lasertag
 			ColocationManager.Colocated -= OnColocated;
 		}
 
-		private void Start()
-		{
-			EnvScanner.Instance.enabled = NetcodeManagement.State == NetcodeState.Connected;
-		}
-
 		private void OnColocated(bool isColocated)
 		{
-			EnvScanner.Instance.enabled = isColocated;
+			HandleScannerActivity();
+		}
+		
+		private void OnNetcodeStateChanged(NetcodeState state)
+		{
+			HandleScannerActivity();
+		}
+
+		private void HandleScannerActivity()
+		{
+			// Scanner is only enabled if connected & collocated OR disconnected
+			EnvMesher.Instance.enabled = ColocationManager.IsColocated || NetcodeManagement.State == NetcodeState.Disconnected;
 		}
 
 		private void OnBusActivated()
@@ -113,6 +120,11 @@ namespace Anaglyph.Lasertag
 
 			EnvMesher.Instance.VisibleChunkPolled += OnVisibleChunkPolled;
 			EnvMesher.Instance.ChunkMeshUpdated += OnChunkMeshUpdated;
+			
+			// Don't reset if authority, because the authority determines the coordinate system
+			// so their scan will be aligned with the environment
+			if(!SyncBus.IsAuthority)
+				EnvScanner.Instance.Clear();
 		}
 
 		private void OnBusDeactivated()
@@ -131,7 +143,6 @@ namespace Anaglyph.Lasertag
 			queuedEncodes.Clear();
 			sentRevisions.Clear();
 			receivedRevisions.Clear();
-			EnvScanner.Instance.Clear();
 		}
 
 		public void SetEnvMeshVisibleEveryone(bool visible)
