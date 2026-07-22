@@ -2,6 +2,7 @@ using Anaglyph.Menu;
 using Anaglyph.Netcode;
 using Anaglyph.XRTemplate.SharedSpaces;
 using System;
+using System.Globalization;
 using System.Threading;
 using TMPro;
 using Unity.Netcode;
@@ -30,9 +31,19 @@ namespace Anaglyph.Lasertag
 
 		[SerializeField] private Button hostButton = null;
 
+		[Header(nameof(hostSettingsPage))] [SerializeField] private NavPage hostSettingsPage = null;
+		[SerializeField] private Toggle hostOnRelayToggle = null;
+		[SerializeField] private Graphic hostOnRelayWarningGraphic = null;
+		[SerializeField] private BoolObject hostOnRelaySetting = null;
+		[SerializeField] private Toggle useAprilTagsToggle = null;
+		[SerializeField] private Graphic useAprilTagsWarningGraphic = null;
+		[SerializeField] private BoolObject useAprilTagsSetting = null;
+		[SerializeField] private TMP_InputField aprilTagSizeField = null;
+		[SerializeField] private FloatObject aprilTagSizeSetting = null;
+
 		[Header(nameof(manuallyConnectPage))] [SerializeField]
 		private NavPage manuallyConnectPage = null;
-
+		
 		[SerializeField] private Toggle useRelayToggle = null;
 		[SerializeField] private TMP_InputField ipField = null;
 		[SerializeField] private TMP_InputField roomField = null;
@@ -59,12 +70,16 @@ namespace Anaglyph.Lasertag
 		private NavPage networkErrorModal;
 		[SerializeField] private Button dismissNetworkErrorModal = null;
 		[SerializeField] private Button openWifiSettingsButton = null;
-		private bool networkWasConnected;
 
-		[Header("Host settings")] [SerializeField]
-		private BoolObject hostRelay = null;
+		private NetworkState networkState;
+		private bool networkIsConnected;
+		private bool hasFullInternet;
 
 		private CancellationTokenSource networkPollCtknSrc;
+
+		[SerializeField] private Color warningColor;
+		
+		[SerializeField] private Graphic[] showWhenNoFullInternet = Array.Empty<Graphic>();
 
 		private void Start()
 		{
@@ -72,31 +87,34 @@ namespace Anaglyph.Lasertag
 
 			// home page
 			hostButton.onClick.AddListener(Host);
+			
+			// host settings page
+			hostOnRelayToggle.onValueChanged.AddListener(hostOnRelaySetting.Set);
+			hostOnRelaySetting.AddChangeListenerAndCheck(OnHostOnRelaySettingChange);
+			
+			useAprilTagsToggle.onValueChanged.AddListener(useAprilTagsSetting.Set);
+			useAprilTagsSetting.AddChangeListenerAndCheck(OnAprilTagsSettingChange);
+			
+			aprilTagSizeField.onValueChanged.AddListener(delegate(string str)
+			{
+				if (!float.TryParse(str, out float f))
+					f = 10;
+				
+				aprilTagSizeSetting.Value = f;
+			});
+			aprilTagSizeSetting.AddChangeListenerAndCheck(OnAprilTagSizeSettingChange);
+			
 
 			// manually connect page
 			manuallyConnectPage.showBackButton = true;
 
-			// #if UNITY_EDITOR
-			//             ip = "127.0.0.1";
-			// #endif
-
-			// int length = Mathf.Min(ip.Length, ip.LastIndexOf('.') + 1);
-
 			useRelayToggle.onValueChanged.AddListener(useRelay =>
 			{
-				if (useRelay)
-				{
-					ipField.gameObject.SetActive(false);
-					roomField.gameObject.SetActive(true);
-					roomFieldLabel.gameObject.SetActive(true);
-				}
-				else
-				{
-					ipField.gameObject.SetActive(true);
-					roomField.gameObject.SetActive(false);
-					roomFieldLabel.gameObject.SetActive(false);
-				}
+				ipField.gameObject.SetActive(!useRelay);
+				roomField.gameObject.SetActive(useRelay);
+				roomFieldLabel.gameObject.SetActive(useRelay);
 			});
+			
 			useRelayToggle.onValueChanged.Invoke(useRelayToggle.isOn);
 
 			ipField.text = NetcodeManagement.GetLocalIPv4();
@@ -124,7 +142,48 @@ namespace Anaglyph.Lasertag
 				navView.DismissModal(networkErrorModal);
 			});
 			openWifiSettingsButton.onClick.AddListener(OpenWifiSettings);
+			
 			NetworkCheckLoop();
+		}
+
+		private void OnEnable()
+		{
+			if(didStart)
+				NetworkCheckLoop();
+		}
+
+		private void OnDisable()
+		{
+			networkPollCtknSrc?.Cancel();
+		}
+		
+		private void OnAprilTagSizeSettingChange(float val)
+		{
+			aprilTagSizeField.SetTextWithoutNotify(val.ToString(CultureInfo.InvariantCulture));
+		}
+
+		private void OnAprilTagsSettingChange(bool val)
+		{
+			UpdateApriltagSettingWarnGraphic();
+			useAprilTagsToggle.SetIsOnWithoutNotify(val);
+		}
+
+		private void OnHostOnRelaySettingChange(bool val)
+		{
+			UpdateHostSettingWarnGraphic();
+			hostOnRelayToggle.SetIsOnWithoutNotify(val);
+		}
+
+		private void OnDestroy()
+		{
+			networkPollCtknSrc?.Cancel();
+			
+			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
+			ColocationManager.Colocated -= OnColocationChange;
+			
+			hostOnRelaySetting.Changed -= OnHostOnRelaySettingChange;
+			useAprilTagsSetting.Changed -= OnAprilTagsSettingChange;
+			aprilTagSizeSetting.Changed -= OnAprilTagSizeSettingChange;
 		}
 
 		private static void OpenWifiSettings()
@@ -184,14 +243,6 @@ namespace Anaglyph.Lasertag
 		{
 			bool onManuallyConnectPage = page == manuallyConnectPage;
 			MetaSessionDiscovery.Instance.enabled = !onManuallyConnectPage;
-		}
-
-		private void OnDestroy()
-		{
-			networkPollCtknSrc?.Cancel();
-			
-			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
-			ColocationManager.Colocated -= OnColocationChange;
 		}
 
 		private void OnNetcodeStateChanged(NetcodeState state)
@@ -264,7 +315,7 @@ namespace Anaglyph.Lasertag
 		private void Host()
 		{
 			NetcodeManagement.Protocol service =
-				hostRelay.Value ? NetcodeManagement.Protocol.UnityService : NetcodeManagement.Protocol.LAN;
+				hostOnRelaySetting.Value ? NetcodeManagement.Protocol.UnityService : NetcodeManagement.Protocol.LAN;
 			NetcodeManagement.Host(service);
 		}
 
@@ -273,16 +324,13 @@ namespace Anaglyph.Lasertag
 			networkPollCtknSrc?.Cancel();
 			networkPollCtknSrc = new CancellationTokenSource();
 			CancellationToken ctkn = networkPollCtknSrc.Token;
-
-			// assume network is connected at start
-			networkWasConnected = true;
-
+			
 			try
 			{
 				while (!ctkn.IsCancellationRequested)
 				{
 					CheckNetworkConnection();
-					await Awaitable.WaitForSecondsAsync(0.5f, ctkn);
+					await Awaitable.WaitForSecondsAsync(1f, ctkn);
 				}
 			}
 			catch (OperationCanceledException)
@@ -293,15 +341,53 @@ namespace Anaglyph.Lasertag
 
 		private void CheckNetworkConnection()
 		{
-			NetworkingState networkState = NetworkConnectivityTest.GetNetworkState();
+			NetworkState newNetworkState = NetworkConnectivityTest.GetNetworkState();
 
-			bool networkIsConnected = networkState != NetworkingState.NoConnection;
+			networkIsConnected = (newNetworkState & NetworkState.ConnectionLAN) != 0;
+			hasFullInternet = (newNetworkState & NetworkState.FullInternetFlag) != 0;
 			
-			if (networkWasConnected != networkIsConnected)
+			bool connectionChanged =
+				((newNetworkState ^ networkState) & NetworkState.ConnectionLAN) != 0;
+			
+			bool fullInternetChanged =
+				((newNetworkState ^ networkState) & NetworkState.FullInternetFlag) != 0;
+			
+			if (connectionChanged)
 			{
-				networkWasConnected = networkIsConnected;
+				// show network error modal
 				navView.SetModalPresented(networkErrorModal, !networkIsConnected);
 			}
+
+			if (fullInternetChanged)
+			{
+				foreach (Graphic graphic in showWhenNoFullInternet)
+				{
+					graphic.enabled = !hasFullInternet;
+					graphic.color = warningColor;
+				}
+
+				UpdateInternetWarnGraphics();
+			}
+			
+			networkState = newNetworkState;
+		}
+
+		private void UpdateInternetWarnGraphics()
+		{
+			UpdateHostSettingWarnGraphic();
+			UpdateApriltagSettingWarnGraphic();
+		}
+
+		private void UpdateHostSettingWarnGraphic()
+		{
+			bool warn = hostOnRelaySetting.Value && !hasFullInternet;
+			hostOnRelayWarningGraphic.color = warn ? warningColor : Color.white;
+		}
+
+		private void UpdateApriltagSettingWarnGraphic()
+		{
+			bool warn = !useAprilTagsSetting.Value && !hasFullInternet;
+			useAprilTagsWarningGraphic.color = warn ? warningColor : Color.white;
 		}
 
 		private void Disconnect()

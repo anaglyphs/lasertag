@@ -1,44 +1,49 @@
-using UnityEditor;
+using System;
 using UnityEngine;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
-public enum NetworkingState
+[Flags]
+public enum NetworkState
 {
 	NoConnection = 0,
 	ConnectionLAN = 1,
-	ConnectionFullInternet = 2
+	FullInternetFlag = 2,
+	ConnectionFullInternet = 3
 }
 
 public static class NetworkConnectivityTest
 {
 #if UNITY_EDITOR
 
-	private static NetworkingState simualtedNetworkingState = NetworkingState.ConnectionFullInternet;
+	private static NetworkState simualtedNetworkState = NetworkState.ConnectionFullInternet;
 
 	[MenuItem("Lasertag/Simulated Networking State/No Connection")]
 	private static void SimulatedNetworkingStateNoConnection()
 	{
-		simualtedNetworkingState = NetworkingState.NoConnection;
+		simualtedNetworkState = NetworkState.NoConnection;
 	}
 	
 	[MenuItem("Lasertag/Simulated Networking State/Only LAN")]
 	private static void SimulatedNetworkingStateLANConnection()
 	{
-		simualtedNetworkingState = NetworkingState.ConnectionLAN;
+		simualtedNetworkState = NetworkState.ConnectionLAN;
 	}
 
 	[MenuItem("Lasertag/Simulated Networking State/Full Internet")]
 	private static void SimulatedNetworkingStateInternetConnection()
 	{
-		simualtedNetworkingState = NetworkingState.ConnectionFullInternet;
+		simualtedNetworkState = NetworkState.ConnectionFullInternet;
 	}
 	
 #endif
 	
-	public static NetworkingState GetNetworkState()
+	public static NetworkState GetNetworkState()
 	{
 #if UNITY_EDITOR
 
-		return simualtedNetworkingState;
+		return simualtedNetworkState;
 
 #elif UNITY_ANDROID && !UNITY_EDITOR // Android API 23+
         const int NET_CAPABILITY_INTERNET = 12;
@@ -51,14 +56,14 @@ public static class NetworkConnectivityTest
         using AndroidJavaObject network = connectivityManager.Call<AndroidJavaObject>("getActiveNetwork");
 
         if (network == null)
-            return AndroidNetworkState.NoActiveNetwork;
+            return NetworkState.NoConnection;
 
         using AndroidJavaObject capabilities =
             connectivityManager.Call<AndroidJavaObject>(
                 "getNetworkCapabilities", network);
 
         if (capabilities == null)
-            return AndroidNetworkState.NoActiveNetwork;
+            return NetworkState.NoConnection;
 
         bool internetConfigured = capabilities.Call<bool>(
             "hasCapability", NET_CAPABILITY_INTERNET);
@@ -67,13 +72,13 @@ public static class NetworkConnectivityTest
             "hasCapability", NET_CAPABILITY_VALIDATED);
 
         return internetConfigured && internetValidated
-            ? AndroidNetworkState.ValidatedInternet
-            : AndroidNetworkState.LinkWithoutValidatedInternet;
+            ? NetworkState.ConnectionFullInternet
+            : NetworkState.ConnectionLAN;
 #else
 		return Application.internetReachability ==
 		       NetworkReachability.NotReachable
-			? AndroidNetworkState.NoActiveNetwork
-			: AndroidNetworkState.LinkWithoutValidatedInternet;
+			? NetworkState.NoConnection
+			: NetworkState.ConnectionLAN;
 #endif
 
 

@@ -19,7 +19,7 @@ namespace VariableObjects
 		private void OnDestroy()
 		{
 			if(toggle)
-				scriptableBool.onChange -= toggle.SetIsOnWithoutNotify;
+				scriptableBool.Changed -= toggle.SetIsOnWithoutNotify;
 		}
 	}
 }

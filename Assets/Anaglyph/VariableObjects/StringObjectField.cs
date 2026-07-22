@@ -19,7 +19,7 @@ namespace VariableObjects
 		private void OnDestroy()
 		{
 			if(field)
-				stringObject.onChange -= field.SetTextWithoutNotify;
+				stringObject.Changed -= field.SetTextWithoutNotify;
 		}
 	}
 }

@@ -16,7 +16,7 @@ namespace VariableObjects
 			else
 				val = PlayerPrefs.GetFloat(saveKey, defaultVal);
 
-			onChange += Save;
+			Changed += Save;
 		}
 
 		private void Save(float f)

@@ -20,7 +20,7 @@ namespace Anaglyph.VariableObjects
 
 		private void OnDestroy()
 		{
-			floatObject.onChange -= OnFloatObjectChanged;
+			floatObject.Changed -= OnFloatObjectChanged;
 		}
 
 		private void OnFieldChanged(string str)

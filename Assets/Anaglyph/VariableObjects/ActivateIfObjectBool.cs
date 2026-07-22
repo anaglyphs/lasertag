@@ -8,13 +8,13 @@ namespace VariableObjects
 
 		private void Awake()
 		{
-			boolObject.onChange += gameObject.SetActive;
+			boolObject.Changed += gameObject.SetActive;
 			gameObject.SetActive(boolObject.Value);
 		}
 
 		private void OnDestroy()
 		{
-			boolObject.onChange -= gameObject.SetActive;
+			boolObject.Changed -= gameObject.SetActive;
 		}
 	}
 }

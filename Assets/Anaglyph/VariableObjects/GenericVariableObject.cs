@@ -14,8 +14,8 @@ namespace VariableObjects
 		[SerializeField] protected T defaultVal;
 		protected T val;
 
-		public event Action<T> onChange = delegate { };
-		public event Action<T> beforeChange = delegate { };
+		public event Action<T> Changed = delegate { };
+		// public event Action<T> beforeChange = delegate { };
 
 		protected void OnValidate()
 		{
@@ -35,7 +35,7 @@ namespace VariableObjects
 		public void AddChangeListenerAndCheck(Action<T> f)
 		{
 			f.Invoke(Value);
-			onChange += f;
+			Changed += f;
 		}
 
 		public T Value
@@ -47,9 +47,9 @@ namespace VariableObjects
 				if (EqualityComparer<T>.Default.Equals(val, value))
 					return;
 
-				beforeChange.Invoke(val);
+				// beforeChange.Invoke(val);
 				val = value;
-				onChange.Invoke(val);
+				Changed.Invoke(val);
 			}
 		}
 	}
@@ -58,28 +58,28 @@ namespace VariableObjects
 	[MovedFrom("VariableObjects.GenericScriptableVariableEvents")]
 	public abstract class GenericVariableObjectEvents<T> : MonoBehaviour
 	{
-		[SerializeField] private GenericVariableObject<T> scriptableVariable;
+		[FormerlySerializedAs("scriptableVariable")] [SerializeField] private GenericVariableObject<T> variableObject;
 
 		public UnityEvent<T> onChange;
 		public UnityEvent<T> beforeChange;
 
 		private void Awake()
 		{
-			scriptableVariable.onChange += onChange.Invoke;
-			scriptableVariable.beforeChange += beforeChange.Invoke;
-			onChange.Invoke(scriptableVariable.Value);
+			variableObject.Changed += onChange.Invoke;
+			// variableObject.beforeChange += beforeChange.Invoke;
+			onChange.Invoke(variableObject.Value);
 		}
 
 		public void AddChangeListenerAndCheck(UnityAction<T> f)
 		{
-			f.Invoke(scriptableVariable.Value);
+			f.Invoke(variableObject.Value);
 			onChange.AddListener(f);
 		}
 
 		private void OnDestroy()
 		{
-			scriptableVariable.onChange -= onChange.Invoke;
-			scriptableVariable.beforeChange -= beforeChange.Invoke;
+			variableObject.Changed -= onChange.Invoke;
+			// variableObject.beforeChange -= beforeChange.Invoke;
 		}
 	}
 }

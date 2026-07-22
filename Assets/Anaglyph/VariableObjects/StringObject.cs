@@ -15,7 +15,7 @@ namespace VariableObjects
 			else
 				val = PlayerPrefs.GetString(saveKey, defaultVal);
 
-			onChange += Save;
+			Changed += Save;
 		}
 
 		private void Save(string str)
