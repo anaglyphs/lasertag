@@ -32,6 +32,12 @@ namespace VariableObjects
 			Value = t;
 		}
 
+		public void SetDefaultVal(T t)
+		{
+			defaultVal = t;
+			val = t;
+		}
+
 		public void AddChangeListenerAndCheck(Action<T> f)
 		{
 			f.Invoke(Value);
