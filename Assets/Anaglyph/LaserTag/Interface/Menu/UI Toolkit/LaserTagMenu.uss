@@ -30,9 +30,16 @@
 	margin-right: 10px;
 }
 
-.unity-toggle__checkmark {
+.unity-base-text-field > .unity-base-text-field__input,
+.unity-toggle > .unity-toggle__input > .unity-toggle__checkmark {
 	border-color: rgb(255, 255, 255);
 	background-color: rgba(0, 0, 0, 0);
+	border-width: 2px;
+}
+
+.unity-toggle > .unity-toggle__input:checked > .unity-toggle__checkmark {
+	background-image: none;
+	background-color: rgb(230, 230, 230);
 }
 
 .pages,
