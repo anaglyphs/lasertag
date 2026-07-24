@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UIElements;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
 
 namespace Anaglyph.Input
@@ -40,10 +41,22 @@ namespace Anaglyph.Input
 
 		// True while this hand's ray is over UI; gameplay binds routed through
 		// HandSubject are suppressed while set (pose stays live). Computed live so
-		// it reflects the UI module at the exact moment of the input callback and
-		// can't go stale or depend on Update order. OR in more gates here later
-		// (dead, menu open, …).
-		public bool InputBlocked => interactor && interactor.IsOverUIGameObject();
+		// it reflects the ray at the exact moment of the input callback and can't
+		// go stale or depend on Update order. OR in more gates here later (dead,
+		// menu open, …).
+		public bool InputBlocked => interactor &&
+			(interactor.IsOverUIGameObject() || IsOverWorldSpaceUIDocument());
+
+		private bool IsOverWorldSpaceUIDocument()
+		{
+			// UI Toolkit documents are 3D collider hits rather than EventSystem
+			// raycast results, so IsOverUIGameObject() does not include them.
+			return interactor.enableUIInteraction &&
+				interactor.TryGetCurrent3DRaycastHit(out RaycastHit hit) &&
+				hit.collider &&
+				hit.collider.TryGetComponent(out UIDocument document) &&
+				document.isActiveAndEnabled;
+		}
 
 		public static HandInput Get(Handedness h)
 		{

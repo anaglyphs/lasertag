@@ -26,9 +26,13 @@ namespace Anaglyph.Lasertag.Weapons
 
 		private void OnHandChanged(HandInput current)
 		{
+			#if UNITY_EDITOR
+			return;
+			#endif
+			
 			if (current == null || !XRSettings.isDeviceActive)
 				return;
-
+			
 			if (source == null)
 			{
 				source = gameObject.AddComponent<HapticSource>();
