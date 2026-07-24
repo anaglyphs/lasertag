@@ -1,72 +1,49 @@
-using Anaglyph.Menu;
-using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
+using UnityEngine.UIElements;
 
 namespace Anaglyph.Lasertag
 {
 	[DefaultExecutionOrder(9999)]
 	public class GameHUD : MonoBehaviour
 	{
-		[Header("Timer")] [SerializeField] private GameObject timerHUD;
+		private const float SandHeight = 20f;
 
-		[SerializeField] private TMP_Text timerLabel;
+		private VisualElement timerHUD;
+		private Label timerLabel;
+		private VisualElement topSand;
+		private VisualElement bottomSand;
 
-		[SerializeField] private RectTransform topSand;
-		[SerializeField] private RectTransform bottomSand;
-		private float sandHeight;
+		private VisualElement scoreGoalHUD;
+		private Label scoreTargetLabel;
 
-		[Header("Score goal")] [SerializeField]
-		private GameObject scoreGoalHUD;
+		// per-team score progress bars; replaced with SVG graphics later
+		private VisualElement[] scoreLines;
 
-		[SerializeField] private TMP_Text scoreTargetLabel;
-		[SerializeField] private LineGraphic scoreLine1;
-		[SerializeField] private LineGraphic scoreLine2;
-		private ScoreLine[] scoreLines;
-
-		private struct ScoreLine
+		private void OnEnable()
 		{
-			public LineGraphic line;
-			public Vector2 start;
-			public Vector2 end;
+			timerHUD = HUDElement.Require<VisualElement>(this, "timer-hud");
+			timerLabel = HUDElement.Require<Label>(this, "timer-label");
+			topSand = HUDElement.Require<VisualElement>(this, "top-sand");
+			bottomSand = HUDElement.Require<VisualElement>(this, "bottom-sand");
 
-			public ScoreLine(LineGraphic line)
-			{
-				this.line = line;
-				start = line.points[^2];
-				end = line.points[^1];
-			}
+			scoreGoalHUD = HUDElement.Require<VisualElement>(this, "score-hud");
+			scoreTargetLabel = HUDElement.Require<Label>(this, "target-score-label");
 
-			public void Update(int score)
-			{
-				short target = MatchReferee.Settings.scoreTarget;
-				float progress = 0f;
-				if (target > 0)
-					progress = score / (float)target;
-				Vector2 v = Vector2.Lerp(start, end, progress);
-				line.points[^1] = v;
-				line.SetVerticesDirty();
-			}
-		}
+			scoreLines = new VisualElement[Teams.NumTeams];
+			scoreLines[1] = HUDElement.Require<VisualElement>(this, "red-score-line");
+			scoreLines[2] = HUDElement.Require<VisualElement>(this, "blue-score-line");
 
-		private void Awake()
-		{
 			MatchReferee.StateChanged += OnMatchStateChange;
 			MatchReferee.TeamScored += OnTeamScored;
 			MatchReferee.TimerTextChanged += UpdateTimerText;
 			OnMatchStateChange(MatchReferee.State);
-
-			sandHeight = topSand.sizeDelta.y;
-
-			scoreLines = new ScoreLine[Teams.NumTeams];
-			scoreLines[1] = new ScoreLine(scoreLine1);
-			scoreLines[2] = new ScoreLine(scoreLine2);
 		}
 
-		private void OnDestroy()
+		private void OnDisable()
 		{
 			MatchReferee.StateChanged -= OnMatchStateChange;
 			MatchReferee.TeamScored -= OnTeamScored;
+			MatchReferee.TimerTextChanged -= UpdateTimerText;
 		}
 
 		private void Update()
@@ -94,8 +71,8 @@ namespace Anaglyph.Lasertag
 			{
 				MatchSettings settings = MatchReferee.Settings;
 
-				timerHUD.SetActive(settings.winCondition == WinCondition.Timer);
-				scoreGoalHUD.SetActive(settings.winCondition == WinCondition.ReachScore);
+				HUDElement.SetDisplayed(timerHUD, settings.winCondition == WinCondition.Timer);
+				HUDElement.SetDisplayed(scoreGoalHUD, settings.winCondition == WinCondition.ReachScore);
 
 				switch (settings.winCondition)
 				{
@@ -105,13 +82,15 @@ namespace Anaglyph.Lasertag
 
 					case WinCondition.ReachScore:
 						scoreTargetLabel.text = settings.scoreTarget.ToString();
+						UpdateScoreLine(1);
+						UpdateScoreLine(2);
 						break;
 				}
 			}
 			else
 			{
-				timerHUD.SetActive(false);
-				scoreGoalHUD.SetActive(false);
+				HUDElement.SetDisplayed(timerHUD, false);
+				HUDElement.SetDisplayed(scoreGoalHUD, false);
 			}
 		}
 
@@ -120,8 +99,17 @@ namespace Anaglyph.Lasertag
 			if (team == 0)
 				return;
 
-			int score = MatchReferee.GetTeamScore(team);
-			scoreLines[team].Update(score);
+			UpdateScoreLine(team);
+		}
+
+		private void UpdateScoreLine(byte team)
+		{
+			short target = MatchReferee.Settings.scoreTarget;
+			float progress = 0f;
+			if (target > 0)
+				progress = MatchReferee.GetTeamScore(team) / (float)target;
+
+			scoreLines[team].style.width = Length.Percent(Mathf.Clamp01(progress) * 100f);
 		}
 
 		private void UpdateTimerText(string timerString)
@@ -131,21 +119,13 @@ namespace Anaglyph.Lasertag
 
 		private void UpdateTimerSand()
 		{
-			int timeTotal = MatchReferee.Settings.timerSeconds;
+			int timeTotal = MatchReferee.Settings.roundTimeSeconds;
 			float timeLeft = MatchReferee.Instance.GetTimeLeft();
 
-			float sh = sandHeight;
-			float tn = timeLeft / timeTotal;
+			float tn = timeTotal > 0 ? Mathf.Clamp01(timeLeft / timeTotal) : 0f;
 
-			SetRectHeight(topSand, sh * tn);
-			SetRectHeight(bottomSand, sh * (1 - tn));
-		}
-
-		private static void SetRectHeight(RectTransform rt, float height)
-		{
-			Vector2 v = rt.sizeDelta;
-			v.y = height;
-			rt.sizeDelta = v;
+			topSand.style.height = SandHeight * tn;
+			bottomSand.style.height = SandHeight * (1 - tn);
 		}
 	}
 }

@@ -76,12 +76,20 @@ namespace Anaglyph.Lasertag
 			// respawn timer
 			if (!IsAlive)
 			{
+				MatchSettings settings = MatchReferee.Settings;
 				float timeSinceDeath = Time.time - LastDeathTime;
-				bool timeCheck = timeSinceDeath > MatchReferee.Settings.respawnSeconds;
+				bool timeCheck = timeSinceDeath > settings.respawnSeconds;
 
-				bool baseCheck = IsInFriendlyBase || !MatchReferee.Settings.respawnInBases;
+				// per-round deaths last until the round ends; every match state
+				// change already respawns everyone (OnMatchStateChange)
+				bool conditionCheck = settings.respawnCondition switch
+				{
+					RespawnCondition.InBases => IsInFriendlyBase,
+					RespawnCondition.NextRound => MatchReferee.State != MatchState.Playing,
+					_ => true,
+				};
 
-				if (timeCheck && baseCheck)
+				if (timeCheck && conditionCheck)
 					Respawn();
 			}
 		}

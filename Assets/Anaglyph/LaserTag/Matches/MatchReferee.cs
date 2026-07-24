@@ -5,6 +5,7 @@ using Anaglyph.Lasertag.Networking;
 using Anaglyph.Netcode;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Anaglyph.Lasertag
 {
@@ -16,19 +17,27 @@ namespace Anaglyph.Lasertag
 		ReachScore = 0b00000010
 	}
 
+	public enum RespawnCondition : byte
+	{
+		Timer,     // wait out respawnSeconds, then respawn anywhere
+		InBases,   // wait out respawnSeconds, then respawn in a friendly base
+		NextRound  // stay dead until the round ends
+	}
+
 	public enum MatchState : byte
 	{
 		NotPlaying,
 		Mustering,
 		Countdown,
-		Playing
+		Playing,
+		RoundBreak
 	}
 
 	[Serializable]
 	public struct MatchSettings
 	{
 		public bool teams;
-		public bool respawnInBases;
+		public RespawnCondition respawnCondition;
 		public float respawnSeconds;
 		public float healthRegenPerSecond;
 		public float damageMultiplier;
@@ -38,8 +47,9 @@ namespace Anaglyph.Lasertag
 		public byte pointsPerFlagCapture;
 
 		public WinCondition winCondition;
-		public int timerSeconds;
+		[FormerlySerializedAs("roundTime")] [FormerlySerializedAs("timerSeconds")] public int roundTimeSeconds;
 		public short scoreTarget;
+		public byte numRounds;
 
 		public readonly bool CheckWinByTimer()
 		{
@@ -51,12 +61,17 @@ namespace Anaglyph.Lasertag
 			return winCondition.HasFlag(WinCondition.ReachScore);
 		}
 
+		public readonly int GetNumRounds()
+		{
+			return Mathf.Max(1, numRounds);
+		}
+
 		public static MatchSettings DemoGame()
 		{
 			return new MatchSettings
 			{
 				teams = true,
-				respawnInBases = true,
+				respawnCondition = RespawnCondition.InBases,
 				respawnSeconds = 5,
 				healthRegenPerSecond = 5,
 				damageMultiplier = 1,
@@ -66,8 +81,9 @@ namespace Anaglyph.Lasertag
 				pointsPerFlagCapture = 10,
 
 				winCondition = WinCondition.Timer,
-				timerSeconds = 60 * 2,
-				scoreTarget = 10
+				roundTimeSeconds = 60 * 2,
+				scoreTarget = 10,
+				numRounds = 1
 			};
 		}
 
@@ -76,7 +92,7 @@ namespace Anaglyph.Lasertag
 			return new MatchSettings
 			{
 				teams = false,
-				respawnInBases = false,
+				respawnCondition = RespawnCondition.Timer,
 				respawnSeconds = 5,
 				healthRegenPerSecond = 5,
 				damageMultiplier = 1,
@@ -86,13 +102,16 @@ namespace Anaglyph.Lasertag
 				pointsPerFlagCapture = 0,
 
 				winCondition = WinCondition.None,
-				timerSeconds = 0
+				roundTimeSeconds = 0,
+				numRounds = 1
 			};
 		}
 	}
 
 	/// <summary>
-	/// Manages 'matches' i.e. games and game mode settings
+	/// Manages 'matches' i.e. games and game mode settings.
+	/// A match is one or more rounds; scores reset every round while
+	/// round wins accumulate for the whole match.
 	/// Singleton class
 	/// </summary>
 	public class MatchReferee : MonoBehaviour
@@ -100,6 +119,7 @@ namespace Anaglyph.Lasertag
 		public static MatchReferee Instance { get; private set; }
 
 		public const float CountdownSeconds = 3;
+		public const float RoundBreakSeconds = 5;
 
 
 		private struct ScoreMsg
@@ -116,12 +136,20 @@ namespace Anaglyph.Lasertag
 			new("match.settings", MatchSettings.Lobby());
 
 		private static readonly SyncVariable<float> startTimeSync = new("match.startTime");
+		private static readonly SyncVariable<int> roundsPlayedSync = new("match.roundsPlayed");
 		private static readonly SyncList<int> teamScoresSync = new("match.scores", new int[Teams.NumTeams]);
+		private static readonly SyncList<int> roundWinsSync = new("match.roundWins", new int[Teams.NumTeams]);
 		private static readonly SyncEvent<ScoreMsg> scoreEvent = new("match.score", EventRoute.ToAuthority);
 
 		public static MatchState State => stateSync.Value;
 		public static MatchSettings Settings => settingsSync.Value;
-		public static float TimeMatchStarted => startTimeSync.Value;
+		public static float TimeRoundStarted => startTimeSync.Value;
+		public static int RoundsPlayed => roundsPlayedSync.Value;
+
+		// 1-based round number for display; clamped so the final round reads
+		// e.g. "3/3" while its results show, not "4/3"
+		public static int CurrentRound => Mathf.Min(RoundsPlayed + 1, Settings.GetNumRounds());
+
 		private float ServerTime => NetworkManager.Singleton.ServerTime.TimeAsFloat;
 
 		public static int GetTeamScore(byte team)
@@ -129,12 +157,21 @@ namespace Anaglyph.Lasertag
 			return team < teamScoresSync.Count ? teamScoresSync[team] : 0;
 		}
 
+		public static int GetTeamRoundWins(byte team)
+		{
+			return team < roundWinsSync.Count ? roundWinsSync[team] : 0;
+		}
+
 		public static event Action<MatchState> StateChanged = delegate { };
 		public static event Action MatchFinished = delegate { };
+		public static event Action RoundFinished = delegate { };
 		public static event Action<string> TimerTextChanged = delegate { };
 		public static event Action<byte, int> TeamScored = delegate { };
+		public static event Action<byte, int> TeamWonRound = delegate { };
 
 		private readonly int[] lastScores = new int[Teams.NumTeams];
+		private readonly int[] lastRoundWins = new int[Teams.NumTeams];
+		private int lastTimerSeconds = int.MinValue;
 		private CancellationTokenSource cancelSrc;
 
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
@@ -142,8 +179,10 @@ namespace Anaglyph.Lasertag
 		{
 			StateChanged = delegate { };
 			MatchFinished = delegate { };
+			RoundFinished = delegate { };
 			TimerTextChanged = delegate { };
 			TeamScored = delegate { };
+			TeamWonRound = delegate { };
 			// endpoint values reset when the instance re-registers them in Awake
 		}
 
@@ -153,12 +192,15 @@ namespace Anaglyph.Lasertag
 
 			settingsSync.Register();
 			startTimeSync.Register();
+			roundsPlayedSync.Register();
 			teamScoresSync.Register();
+			roundWinsSync.Register();
 			stateSync.Register();
 			scoreEvent.Register();
 
 			stateSync.Changed += OnStateChanged;
 			teamScoresSync.Changed += OnScoresChanged;
+			roundWinsSync.Changed += OnRoundWinsChanged;
 			scoreEvent.Received += OnScoreSubmitted;
 		}
 
@@ -166,11 +208,14 @@ namespace Anaglyph.Lasertag
 		{
 			stateSync.Changed -= OnStateChanged;
 			teamScoresSync.Changed -= OnScoresChanged;
+			roundWinsSync.Changed -= OnRoundWinsChanged;
 			scoreEvent.Received -= OnScoreSubmitted;
 
 			scoreEvent.Unregister();
 			stateSync.Unregister();
+			roundWinsSync.Unregister();
 			teamScoresSync.Unregister();
+			roundsPlayedSync.Unregister();
 			startTimeSync.Unregister();
 			settingsSync.Unregister();
 
@@ -214,8 +259,88 @@ namespace Anaglyph.Lasertag
 				bool isWinningScore = GetTeamScore(msg.team) >= Settings.scoreTarget;
 
 				if (canWinByScore && isWinningScore)
-					stateSync.Value = MatchState.NotPlaying;
+					EndRound(msg.team);
 			}
+		}
+
+		// Close out the current round, then either muster the next one or finish
+		// the match. Winner 0 means a draw: nobody gets the round.
+		private void EndRound(byte winningTeam)
+		{
+			if (!SyncBus.IsAuthority || State != MatchState.Playing) return;
+
+			if (winningTeam != 0 && winningTeam < Teams.NumTeams)
+				roundWinsSync.Set(winningTeam, GetTeamRoundWins(winningTeam) + 1);
+
+			roundsPlayedSync.Value = RoundsPlayed + 1;
+
+			// state changes LAST, as always
+			if (RoundsPlayed >= Settings.GetNumRounds())
+				stateSync.Value = MatchState.NotPlaying;
+			else
+				stateSync.Value = MatchState.RoundBreak;
+		}
+
+		// A round is decided by elimination once every living player is on one
+		// team and somebody from another team is dead. Everybody dead is a draw.
+		private static bool TryGetEliminationWinner(out byte winner)
+		{
+			winner = 0;
+
+			if (PlayerAvatar.All.Count == 0) return false;
+
+			bool anyAlive = false;
+			byte aliveTeam = 0;
+
+			foreach (PlayerAvatar player in PlayerAvatar.All.Values)
+			{
+				if (!player.IsAlive) continue;
+
+				if (!anyAlive)
+				{
+					anyAlive = true;
+					aliveTeam = player.Team;
+				}
+				else if (player.Team != aliveTeam)
+				{
+					return false; // two or more teams still standing
+				}
+			}
+
+			if (!anyAlive) return true; // mutual elimination: draw
+
+			foreach (PlayerAvatar player in PlayerAvatar.All.Values)
+				if (player.Team != aliveTeam)
+				{
+					winner = aliveTeam;
+					return true;
+				}
+
+			return false; // only one team in the match; nobody to eliminate
+		}
+
+		// Timer-expiry rounds go to the leading team; ties are a draw.
+		private static byte GetRoundLeader()
+		{
+			byte leader = 0;
+			int best = 0;
+
+			for (byte team = 1; team < Teams.NumTeams; team++)
+			{
+				int score = GetTeamScore(team);
+
+				if (score > best)
+				{
+					best = score;
+					leader = team;
+				}
+				else if (score == best)
+				{
+					leader = 0;
+				}
+			}
+
+			return leader;
 		}
 
 		private void ResetScores()
@@ -225,6 +350,15 @@ namespace Anaglyph.Lasertag
 			for (byte i = 0; i < Teams.NumTeams; i++)
 				if (GetTeamScore(i) != 0)
 					teamScoresSync.Set(i, 0);
+		}
+
+		private void ResetRoundWins()
+		{
+			if (!SyncBus.IsAuthority) return;
+
+			for (byte i = 0; i < Teams.NumTeams; i++)
+				if (GetTeamRoundWins(i) != 0)
+					roundWinsSync.Set(i, 0);
 		}
 
 		// ---- every-peer reactions ------------------------------------------------
@@ -242,10 +376,34 @@ namespace Anaglyph.Lasertag
 			}
 		}
 
+		private void OnRoundWinsChanged(SyncList<int>.EventData eventData)
+		{
+			for (byte i = 0; i < Teams.NumTeams; i++)
+			{
+				int wins = GetTeamRoundWins(i);
+				if (wins == lastRoundWins[i]) continue;
+
+				lastRoundWins[i] = wins;
+				TeamWonRound.Invoke(i, wins);
+			}
+		}
+
 		private async void OnStateChanged(MatchState old, MatchState state)
 		{
-			if (old == MatchState.Playing && state == MatchState.NotPlaying)
-				MatchFinished.Invoke();
+			// a fresh match begins: round history belongs to the previous one
+			if (SyncBus.IsAuthority && old == MatchState.NotPlaying && state == MatchState.Mustering)
+			{
+				roundsPlayedSync.Value = 0;
+				ResetRoundWins();
+			}
+
+			if (old == MatchState.Playing)
+			{
+				if (state == MatchState.NotPlaying)
+					MatchFinished.Invoke();
+				else
+					RoundFinished.Invoke();
+			}
 
 			StateChanged.Invoke(state);
 
@@ -273,7 +431,7 @@ namespace Anaglyph.Lasertag
 						ResetScores();
 						PlayerAvatar.Local?.ResetScoreLocally();
 
-						UpdateTimerText(Settings.timerSeconds);
+						UpdateTimerText(Settings.roundTimeSeconds);
 						while (State == MatchState.Mustering)
 						{
 							int numPlayersInBase = 0;
@@ -309,24 +467,44 @@ namespace Anaglyph.Lasertag
 					case MatchState.Playing:
 						PlayerAvatar.Local?.ResetScoreLocally();
 
-						if (Settings.CheckWinByTimer())
-							while (State == MatchState.Playing)
-							{
-								await Awaitable.WaitForSecondsAsync(1, ctn);
+						bool timed = Settings.CheckWinByTimer();
+						bool eliminationEndsRound =
+							Settings.respawnCondition == RespawnCondition.NextRound;
 
+						while (State == MatchState.Playing)
+						{
+							if (timed)
+							{
 								float timeLeft = GetTimeLeft();
 								UpdateTimerText(timeLeft);
 
-								if (timeLeft <= 0)
+								if (SyncBus.IsAuthority && timeLeft <= 0)
 								{
-									if (SyncBus.IsAuthority)
-										stateSync.Value = MatchState.NotPlaying;
-
+									EndRound(GetRoundLeader());
 									break;
 								}
-
-								ctn.ThrowIfCancellationRequested();
 							}
+
+							if (SyncBus.IsAuthority && eliminationEndsRound
+							    && TryGetEliminationWinner(out byte winner))
+							{
+								EndRound(winner);
+								break;
+							}
+
+							await Awaitable.NextFrameAsync(ctn);
+							ctn.ThrowIfCancellationRequested();
+						}
+
+						break;
+
+					case MatchState.RoundBreak:
+						await Awaitable.WaitForSecondsAsync(RoundBreakSeconds, ctn);
+
+						if (SyncBus.IsAuthority)
+						{
+							stateSync.Value = MatchState.Mustering;
+						}
 
 						break;
 				}
@@ -339,13 +517,16 @@ namespace Anaglyph.Lasertag
 		private void UpdateTimerText(float seconds)
 		{
 			int rounded = Mathf.RoundToInt(seconds);
+			if (rounded == lastTimerSeconds) return;
+
+			lastTimerSeconds = rounded;
 			TimeSpan span = TimeSpan.FromSeconds(rounded);
 			TimerTextChanged.Invoke(span.ToString(@"m\:ss"));
 		}
 
 		public float GetTimeElapsed()
 		{
-			return ServerTime - TimeMatchStarted;
+			return ServerTime - TimeRoundStarted;
 		}
 
 		public float GetTimeLeft()
@@ -358,11 +539,11 @@ namespace Anaglyph.Lasertag
 					timeLeft = 0;
 					break;
 				case MatchState.Playing:
-					float endTime = TimeMatchStarted + Settings.timerSeconds;
+					float endTime = TimeRoundStarted + Settings.roundTimeSeconds;
 					timeLeft = Mathf.Max(0, endTime - ServerTime);
 					break;
 				default:
-					timeLeft = Settings.timerSeconds;
+					timeLeft = Settings.roundTimeSeconds;
 					break;
 			}
 

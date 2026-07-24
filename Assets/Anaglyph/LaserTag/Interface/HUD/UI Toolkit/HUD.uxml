@@ -1,0 +1,30 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/Menu/UI%20Toolkit/LaserTagMenu.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagMenu"/>
+    <ui:VisualElement picking-mode="Ignore" name="hud-root" class="hud-root">
+        <ui:VisualElement picking-mode="Ignore" name="death-hud" class="hud-overlay" style="display: none;">
+            <ui:VisualElement picking-mode="Ignore" class="you-died-row">
+                <ui:VisualElement picking-mode="Ignore" name="death-bar-left" class="death-bar"/>
+                <ui:Label picking-mode="Ignore" name="you-died-label" text="YOU DIED" class="you-died-label"/>
+                <ui:VisualElement picking-mode="Ignore" name="death-bar-right" class="death-bar"/>
+            </ui:VisualElement>
+            <ui:Label picking-mode="Ignore" name="respawn-label" text="" class="respawn-label"/>
+        </ui:VisualElement>
+        <ui:VisualElement picking-mode="Ignore" name="countdown-hud" class="hud-overlay">
+            <ui:Label picking-mode="Ignore" name="queue-label" text="Everyone must stand in a base&#10;for the game to start!" class="queue-label" style="display: none;"/>
+            <ui:Label picking-mode="Ignore" name="countdown-label" text="" class="countdown-label" style="display: none;"/>
+        </ui:VisualElement>
+        <ui:VisualElement picking-mode="Ignore" name="game-end-hud" class="hud-overlay" style="display: none;">
+            <ui:Label picking-mode="Ignore" name="game-end-title" text="Game Ended" class="game-end-title"/>
+            <ui:VisualElement picking-mode="Ignore" class="game-end-scores">
+                <ui:Label picking-mode="Ignore" name="game-end-red-score" text="0" class="game-end-score team-red" style="-unity-text-align: middle-right;"/>
+                <ui:Label picking-mode="Ignore" name="vs-label" text="vs" class="vs-label"/>
+                <ui:Label picking-mode="Ignore" name="game-end-blue-score" text="0" class="game-end-score team-blue" style="-unity-text-align: middle-left;"/>
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement picking-mode="Ignore" name="connection-hud" class="hud-overlay">
+            <ui:Label picking-mode="Ignore" name="connecting-label" text="Connecting..." class="connection-label" style="display: none;"/>
+            <ui:Label picking-mode="Ignore" name="aligning-label" text="Aligning..." class="connection-label" style="display: none;"/>
+            <ui:Label picking-mode="Ignore" name="ready-label" text="Ready!" class="connection-label" style="display: none;"/>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

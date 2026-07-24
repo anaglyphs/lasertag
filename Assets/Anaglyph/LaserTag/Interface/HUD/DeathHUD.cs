@@ -1,7 +1,5 @@
-using System;
-using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
+using UnityEngine.UIElements;
 
 namespace Anaglyph.Lasertag.UI
 {
@@ -9,10 +7,8 @@ namespace Anaglyph.Lasertag.UI
 	{
 		public static DeathHUD Instance { get; private set; }
 
-		[Header("Death Popup")] [SerializeField]
-		private TMP_Text respawnText = null;
-
-		[SerializeField] private GameObject respawnPopup = null;
+		private VisualElement deathPopup;
+		private Label respawnLabel;
 
 		private void Awake()
 		{
@@ -28,6 +24,21 @@ namespace Anaglyph.Lasertag.UI
 			MainPlayer.Respawned -= OnRespawned;
 		}
 
+		private void OnEnable()
+		{
+			deathPopup = HUDElement.Require<VisualElement>(this, "death-hud");
+			respawnLabel = HUDElement.Require<Label>(this, "respawn-label");
+
+			bool isDead = MainPlayer.Instance != null && !MainPlayer.Instance.IsAlive;
+			HUDElement.SetDisplayed(deathPopup, isDead);
+		}
+
+		private void OnDisable()
+		{
+			if (deathPopup != null)
+				HUDElement.SetDisplayed(deathPopup, false);
+		}
+
 		private void OnDied()
 		{
 			gameObject.SetActive(true);
@@ -38,27 +49,27 @@ namespace Anaglyph.Lasertag.UI
 			gameObject.SetActive(false);
 		}
 
-		// https://easings.net/#easeInOutCirc
-		private float EaseInOutCirc(float x)
-		{
-			return x < 0.5
-				? (1 - Mathf.Sqrt(1 - Mathf.Pow(2 * x, 2))) / 2
-				: (Mathf.Sqrt(1 - Mathf.Pow(-2 * x + 2, 2)) + 1) / 2;
-		}
-
 		private void Update()
 		{
-			respawnPopup.SetActive(!MainPlayer.Instance.IsAlive);
+			HUDElement.SetDisplayed(deathPopup, !MainPlayer.Instance.IsAlive);
 
-			if (MatchReferee.Settings.respawnInBases && !MainPlayer.Instance.IsInFriendlyBase)
+			MatchSettings settings = MatchReferee.Settings;
+
+			if (settings.respawnCondition == RespawnCondition.NextRound
+			    && MatchReferee.State == MatchState.Playing)
 			{
-				respawnText.text = $"GO TO:   BASE";
+				respawnLabel.text = "WAIT FOR NEXT ROUND";
+			}
+			else if (settings.respawnCondition == RespawnCondition.InBases
+			         && !MainPlayer.Instance.IsInFriendlyBase)
+			{
+				respawnLabel.text = $"GO TO:   BASE";
 			}
 			else
 			{
 				var timeSinceDeath = Time.time - MainPlayer.Instance.LastDeathTime;
-				var timeToRespawn = MatchReferee.Settings.respawnSeconds - timeSinceDeath;
-				respawnText.text = $"RESPAWN: {timeToRespawn:F1}s";
+				var timeToRespawn = settings.respawnSeconds - timeSinceDeath;
+				respawnLabel.text = $"RESPAWN: {timeToRespawn:F1}s";
 			}
 		}
 	}

@@ -39,7 +39,7 @@ using VariableObjects;
 		private Label hostOnRelayWarning;
 		private Toggle useAprilTagsToggle;
 		private Label useAprilTagsWarning;
-		private TextField aprilTagSizeField;
+		private FloatField aprilTagSizeField;
 
 		private Toggle useRelayToggle;
 		private VisualElement ipFieldRow;
@@ -83,7 +83,7 @@ using VariableObjects;
 			hostOnRelayWarning = Require<Label>(root, "host-on-relay-warning");
 			useAprilTagsToggle = Require<Toggle>(root, "use-april-tags-toggle");
 			useAprilTagsWarning = Require<Label>(root, "use-april-tags-warning");
-			aprilTagSizeField = Require<TextField>(root, "april-tag-size-field");
+			aprilTagSizeField = Require<FloatField>(root, "april-tag-size-field");
 
 			hostOnRelayToggle.RegisterValueChangedCallback(
 				change => hostOnRelaySetting.Value = change.newValue);
@@ -168,24 +168,14 @@ using VariableObjects;
 			}
 		}
 
-		private void OnAprilTagSizeFieldChanged(ChangeEvent<string> change)
+		private void OnAprilTagSizeFieldChanged(ChangeEvent<float> change)
 		{
-			if (!float.TryParse(
-				change.newValue,
-				NumberStyles.Float,
-				CultureInfo.InvariantCulture,
-				out float value))
-			{
-				value = 10;
-			}
-
-			aprilTagSizeSetting.Value = value;
+			aprilTagSizeSetting.Value = change.newValue;
 		}
 
 		private void OnAprilTagSizeSettingChange(float value)
 		{
-			aprilTagSizeField.SetValueWithoutNotify(
-				value.ToString(CultureInfo.InvariantCulture));
+			aprilTagSizeField.SetValueWithoutNotify(value);
 		}
 
 		private void OnAprilTagsSettingChange(bool value)

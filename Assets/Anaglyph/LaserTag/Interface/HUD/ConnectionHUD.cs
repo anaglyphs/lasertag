@@ -1,23 +1,28 @@
 using Anaglyph.Netcode;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace Anaglyph.Lasertag
 {
 	public class ConnectionHUD : MonoBehaviour
 	{
-		[SerializeField] private GameObject connecting;
-		[SerializeField] private GameObject colocating;
-		[SerializeField] private GameObject ready;
+		private Label connectingLabel;
+		private Label aligningLabel;
+		private Label readyLabel;
 
-		private void Awake()
+		private void OnEnable()
 		{
+			connectingLabel = HUDElement.Require<Label>(this, "connecting-label");
+			aligningLabel = HUDElement.Require<Label>(this, "aligning-label");
+			readyLabel = HUDElement.Require<Label>(this, "ready-label");
+
 			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
 			ColocationManager.Colocated += OnColocationChanged;
 
 			UpdateVisibility();
 		}
 
-		private void OnDestroy()
+		private void OnDisable()
 		{
 			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
 			ColocationManager.Colocated -= OnColocationChanged;
@@ -36,14 +41,16 @@ namespace Anaglyph.Lasertag
 		private async void UpdateVisibility()
 		{
 			var state = NetcodeManagement.State;
-			connecting.SetActive(state == NetcodeState.Connecting);
-			colocating.SetActive(state == NetcodeState.Connected && !ColocationManager.IsColocated);
+			HUDElement.SetDisplayed(connectingLabel, state == NetcodeState.Connecting);
+			HUDElement.SetDisplayed(aligningLabel,
+				state == NetcodeState.Connected && !ColocationManager.IsColocated);
 			var isReady = state == NetcodeState.Connected && ColocationManager.IsColocated;
-			ready.SetActive(isReady);
+			HUDElement.SetDisplayed(readyLabel, isReady);
 			if (isReady)
 			{
 				await Awaitable.WaitForSecondsAsync(1);
-				ready.SetActive(false);
+				if (this == null) return;
+				HUDElement.SetDisplayed(readyLabel, false);
 			}
 		}
 	}

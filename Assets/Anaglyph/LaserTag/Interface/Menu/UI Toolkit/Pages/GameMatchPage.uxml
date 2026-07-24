@@ -6,20 +6,14 @@
             <AttributeOverrides element-name="title" text="Play match"/>
         </ui:Instance>
         <ui:ScrollView>
-            <ui:Toggle name="win-by-score-toggle" text="Win by points" value="true" style="flex-direction: row;"/>
-            <ui:VisualElement name="time-field-row" class="field-row">
-                <ui:Label text="Time (minutes)"/>
-                <ui:TextField name="time-field" keyboard-type="DecimalPad"/>
-            </ui:VisualElement>
-            <ui:VisualElement name="score-field-row" class="field-row">
-                <ui:Label text="Score target"/>
-                <ui:TextField name="score-field" keyboard-type="NumberPad"/>
-            </ui:VisualElement>
-            <ui:VisualElement class="field-row">
-                <ui:Label text="Damage strength"/>
-                <ui:TextField name="damage-multiplier-field" keyboard-type="DecimalPad"/>
-            </ui:VisualElement>
-            <ui:Button name="start-button" text="Start game"/>
+            <ui:IntegerField label="Rounds" value="1" name="rounds-field"/>
+            <ui:FloatField label="Damage strength" value="1" name="damage-multiplier-field"/>
+            <ui:RadioButtonGroup label="Win by" choices="Time,Points,Either" name="win-by-radio"/>
+            <ui:FloatField label="Round time (mins)" value="3" name="round-time-field"/>
+            <ui:IntegerField label="Score target" value="10" name="score-target-field"/>
+            <ui:RadioButtonGroup label="Respawn&#10;" name="respawn-condition-radio" choices="After a timer,At home base,Only per round"/>
+            <ui:FloatField label="Respawn time (sec)" value="10" name="respawn-time-field"/>
         </ui:ScrollView>
+        <ui:Button name="start-button" text="Start game"/>
     </ui:VisualElement>
 </ui:UXML>

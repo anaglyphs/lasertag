@@ -1,46 +1,70 @@
-using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
+using UnityEngine.UIElements;
 
 namespace Anaglyph.Lasertag
 {
 	public class ScoreLabel : MonoBehaviour
 	{
-		[SerializeField] private byte team;
-		private TMP_Text label;
-
-		private void Awake()
+		public enum ScoreSource : byte
 		{
-			label = GetComponent<TMP_Text>();
+			TeamScore,
+			RoundWins
 		}
+
+		[SerializeField] private byte team;
+		[SerializeField] private ScoreSource source = ScoreSource.TeamScore;
+		[SerializeField] private string labelName;
+
+		private Label label;
 
 		private void Start()
 		{
-			UpdateScore(MatchReferee.GetTeamScore(team));
+			Refresh();
 		}
 
 		private void OnEnable()
 		{
+			label = HUDElement.Require<Label>(this, labelName);
 			label.text = "0";
 			MatchReferee.TeamScored += OnTeamScored;
+			MatchReferee.TeamWonRound += OnTeamWonRound;
 
-			if (didStart) UpdateScore(MatchReferee.GetTeamScore(team));
+			if (didStart) Refresh();
 		}
 
 		private void OnDisable()
 		{
 			MatchReferee.TeamScored -= OnTeamScored;
+			MatchReferee.TeamWonRound -= OnTeamWonRound;
+		}
+
+		public void SetSource(ScoreSource newSource)
+		{
+			source = newSource;
+
+			if (didStart && isActiveAndEnabled)
+				Refresh();
 		}
 
 		private void OnTeamScored(byte scoredTeam, int points)
 		{
-			if (team == scoredTeam)
-				UpdateScore(MatchReferee.GetTeamScore(scoredTeam));
+			if (source == ScoreSource.TeamScore && scoredTeam == team)
+				Refresh();
 		}
 
-		private void UpdateScore(int score)
+		private void OnTeamWonRound(byte winningTeam, int totalWins)
 		{
-			label.text = score.ToString();
+			if (source == ScoreSource.RoundWins && winningTeam == team)
+				Refresh();
+		}
+
+		private void Refresh()
+		{
+			int value = source == ScoreSource.RoundWins
+				? MatchReferee.GetTeamRoundWins(team)
+				: MatchReferee.GetTeamScore(team);
+
+			label.text = value.ToString();
 		}
 	}
 }

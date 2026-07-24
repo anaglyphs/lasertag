@@ -351,9 +351,10 @@ namespace Anaglyph.Lasertag.Operator
 								{ style = { unityFontStyleAndWeight = FontStyle.Bold, marginTop = 10 } };
 							matchSettingsPage.Add(matchSettingsLabel);
 
-							Toggle respawnToggle = new("Respawn In Bases") { value = settings.respawnInBases };
-							respawnToggle.RegisterValueChangedCallback(evt => settings.respawnInBases = evt.newValue);
-							matchSettingsPage.Add(respawnToggle);
+							EnumField respawnDropdown = new("Respawn", settings.respawnCondition);
+							respawnDropdown.RegisterValueChangedCallback(evt =>
+								settings.respawnCondition = (RespawnCondition)evt.newValue);
+							matchSettingsPage.Add(respawnDropdown);
 
 							FloatField respawnTime = new("Respawn Seconds") { value = settings.respawnSeconds };
 							respawnTime.RegisterValueChangedCallback(evt =>
@@ -392,9 +393,9 @@ namespace Anaglyph.Lasertag.Operator
 								settings.winCondition = (WinCondition)evt.newValue);
 							matchSettingsPage.Add(winDropdown);
 
-							IntegerField timer = new("Timer Seconds") { value = settings.timerSeconds };
+							IntegerField timer = new("Timer Seconds") { value = settings.roundTimeSeconds };
 							timer.RegisterValueChangedCallback(evt =>
-								settings.timerSeconds = Mathf.Max(0, evt.newValue));
+								settings.roundTimeSeconds = Mathf.Max(0, evt.newValue));
 							matchSettingsPage.Add(timer);
 
 							IntegerField score = new("Score Target") { value = settings.scoreTarget };
@@ -402,6 +403,11 @@ namespace Anaglyph.Lasertag.Operator
 								settings.scoreTarget =
 									(short)Mathf.Clamp(evt.newValue, short.MinValue, short.MaxValue));
 							matchSettingsPage.Add(score);
+
+							IntegerField rounds = new("Rounds") { value = settings.GetNumRounds() };
+							rounds.RegisterValueChangedCallback(evt =>
+								settings.numRounds = (byte)Mathf.Clamp(evt.newValue, 1, byte.MaxValue));
+							matchSettingsPage.Add(rounds);
 
 							Button startGame = new(() => { MatchReferee.Instance.QueueMatch(settings); })
 							{

@@ -16,12 +16,13 @@ namespace Anaglyph.Lasertag
 		private UIToolkitNavPage mapManagerPage;
 		private UIToolkitNavPage editingMapPage;
 
-		private Toggle winByScoreToggle;
-		private VisualElement timeFieldRow;
-		private TextField timeField;
-		private VisualElement scoreFieldRow;
-		private TextField scoreField;
-		private TextField damageMultiplierField;
+		private RadioButtonGroup winByRadio;
+		private FloatField roundTimeField;
+		private IntegerField scoreTargetField;
+		private FloatField damageMultiplierField;
+		private IntegerField roundsField;
+		private RadioButtonGroup respawnConditionRadio;
+		private FloatField respawnTimeField;
 		private Button startButton;
 
 		private MatchSettings matchSettings = MatchSettings.DemoGame();
@@ -46,40 +47,46 @@ namespace Anaglyph.Lasertag
 			Require<Button>(root, "play-match-button").clicked += matchPage.NavigateHere;
 			Require<Button>(root, "manage-map-button").clicked += mapManagerPage.NavigateHere;
 
-			winByScoreToggle = Require<Toggle>(root, "win-by-score-toggle");
-			timeFieldRow = Require<VisualElement>(root, "time-field-row");
-			timeField = Require<TextField>(root, "time-field");
-			scoreFieldRow = Require<VisualElement>(root, "score-field-row");
-			scoreField = Require<TextField>(root, "score-field");
-			damageMultiplierField = Require<TextField>(root, "damage-multiplier-field");
+			winByRadio = Require<RadioButtonGroup>(root, "win-by-radio");
+			roundTimeField = Require<FloatField>(root, "round-time-field");
+			scoreTargetField = Require<IntegerField>(root, "score-target-field");
+			damageMultiplierField = Require<FloatField>(root, "damage-multiplier-field");
+			roundsField = Require<IntegerField>(root, "rounds-field");
+			respawnConditionRadio = Require<RadioButtonGroup>(root, "respawn-condition-radio");
+			respawnTimeField = Require<FloatField>(root, "respawn-time-field");
 			startButton = Require<Button>(root, "start-button");
 
-			winByScoreToggle.RegisterValueChangedCallback(
-				change => SetWinByScore(change.newValue));
-			winByScoreToggle.SetValueWithoutNotify(matchSettings.CheckWinByScore());
-			SetWinByScore(winByScoreToggle.value);
+			// the UXML carries the menu's default field values
+			matchSettings.roundTimeSeconds = MinutesToSeconds(roundTimeField.value);
+			matchSettings.scoreTarget = (short)Mathf.Clamp(scoreTargetField.value, 1, short.MaxValue);
+			matchSettings.damageMultiplier = Mathf.Max(0f, damageMultiplierField.value);
+			matchSettings.numRounds = (byte)Mathf.Clamp(roundsField.value, 1, byte.MaxValue);
+			matchSettings.respawnSeconds = Mathf.Max(0f, respawnTimeField.value);
 
-			timeField.SetValueWithoutNotify((matchSettings.timerSeconds / 60f).ToString());
-			timeField.RegisterValueChangedCallback(change =>
-			{
-				if (float.TryParse(change.newValue, out float minutes))
-					matchSettings.timerSeconds = (int)(minutes * 60f);
-			});
+			roundTimeField.RegisterValueChangedCallback(change =>
+				matchSettings.roundTimeSeconds = MinutesToSeconds(change.newValue));
 
-			scoreField.SetValueWithoutNotify(matchSettings.scoreTarget.ToString());
-			scoreField.RegisterValueChangedCallback(change =>
-			{
-				if (short.TryParse(change.newValue, out short target))
-					matchSettings.scoreTarget = target;
-			});
+			scoreTargetField.RegisterValueChangedCallback(change =>
+				matchSettings.scoreTarget = (short)Mathf.Clamp(change.newValue, 1, short.MaxValue));
 
-			damageMultiplierField.SetValueWithoutNotify(
-				matchSettings.damageMultiplier.ToString());
 			damageMultiplierField.RegisterValueChangedCallback(change =>
-			{
-				if (float.TryParse(change.newValue, out float multiplier))
-					matchSettings.damageMultiplier = multiplier;
-			});
+				matchSettings.damageMultiplier = Mathf.Max(0f, change.newValue));
+
+			roundsField.RegisterValueChangedCallback(change =>
+				matchSettings.numRounds = (byte)Mathf.Clamp(change.newValue, 1, byte.MaxValue));
+
+			respawnTimeField.RegisterValueChangedCallback(change =>
+				matchSettings.respawnSeconds = Mathf.Max(0f, change.newValue));
+
+			winByRadio.RegisterValueChangedCallback(change => SetWinBy(change.newValue));
+			bool byScore = matchSettings.CheckWinByScore();
+			int winChoice = matchSettings.CheckWinByTimer() && byScore ? 2 : byScore ? 1 : 0;
+			winByRadio.SetValueWithoutNotify(winChoice);
+			SetWinBy(winChoice);
+
+			respawnConditionRadio.RegisterValueChangedCallback(change => SetRespawnCondition(change.newValue));
+			respawnConditionRadio.SetValueWithoutNotify((int)matchSettings.respawnCondition);
+			SetRespawnCondition((int)matchSettings.respawnCondition);
 
 			startButton.clicked += () => Referee?.QueueMatch(matchSettings);
 			Require<Button>(root, "stop-button").clicked += () => Referee?.EndMatch();
@@ -89,6 +96,11 @@ namespace Anaglyph.Lasertag
 				() => MapEditor.SetActive(false);
 
 			navView.Start(homePage);
+		}
+
+		private static int MinutesToSeconds(float minutes)
+		{
+			return Mathf.RoundToInt(minutes * 60f);
 		}
 
 		private void OnEnable()
@@ -113,14 +125,33 @@ namespace Anaglyph.Lasertag
 			navView = null;
 		}
 
-		private void SetWinByScore(bool winByScore)
+		// win-by-radio choices: 0 = Time, 1 = Points, 2 = Either
+		private void SetWinBy(int choice)
 		{
-			timeFieldRow.style.display =
-				winByScore ? DisplayStyle.None : DisplayStyle.Flex;
-			scoreFieldRow.style.display =
-				winByScore ? DisplayStyle.Flex : DisplayStyle.None;
-			matchSettings.winCondition =
-				winByScore ? WinCondition.ReachScore : WinCondition.Timer;
+			matchSettings.winCondition = choice switch
+			{
+				0 => WinCondition.Timer,
+				1 => WinCondition.ReachScore,
+				_ => WinCondition.Timer | WinCondition.ReachScore,
+			};
+
+			SetDisplayed(roundTimeField, matchSettings.CheckWinByTimer());
+			SetDisplayed(scoreTargetField, matchSettings.CheckWinByScore());
+		}
+
+		// respawn-radio choices follow the RespawnCondition enum order
+		private void SetRespawnCondition(int choice)
+		{
+			matchSettings.respawnCondition =
+				(RespawnCondition)Mathf.Clamp(choice, 0, (int)RespawnCondition.NextRound);
+
+			SetDisplayed(respawnTimeField,
+				matchSettings.respawnCondition == RespawnCondition.Timer);
+		}
+
+		private static void SetDisplayed(VisualElement element, bool displayed)
+		{
+			element.style.display = displayed ? DisplayStyle.Flex : DisplayStyle.None;
 		}
 
 		private void OnMapEditorStateChanged(bool active)

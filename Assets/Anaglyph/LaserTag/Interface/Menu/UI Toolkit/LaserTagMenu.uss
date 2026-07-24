@@ -6,7 +6,7 @@
     font-size: 20px;
     border-width: 2px;
     border-color: rgb(255, 255, 255);
-    -unity-font-definition: url("project://database/Assets/Playbeing/DInish/DINishExpanded-Regular%20SDF.asset");
+    -unity-font-definition: url("project://database/Assets/Playbeing/DInish/DINish-Regular SDF.asset");
     /*-unity-font-definition: url("project://database/Assets/Anaglyph/LaserTag/Interface/Fonts/zector/Zector SDF 1.asset");*/
 }
 
@@ -124,4 +124,211 @@ ScrollView {
 .back-button {
     aspect-ratio: 1;
     min-height: auto;
+}
+
+/* ================= HUD ================= */
+
+.hud-root {
+    flex-grow: 1;
+    color: rgb(255, 255, 255);
+    -unity-font-definition: url("project://database/Assets/Playbeing/DInish/DINishExpanded-Regular%20SDF.asset");
+}
+
+.hud-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+}
+
+.team-red {
+    color: rgb(255, 0, 38);
+}
+
+.team-blue {
+    color: rgb(0, 191, 255);
+}
+
+.team-red-bg {
+    background-color: rgb(255, 0, 38);
+}
+
+.team-blue-bg {
+    background-color: rgb(0, 191, 255);
+}
+
+/* death popup */
+
+.you-died-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+.you-died-label {
+    font-size: 60px;
+    color: rgb(255, 119, 119);
+    -unity-text-align: middle-center;
+}
+
+.death-bar {
+    width: 94px;
+    height: 30px;
+    background-color: rgb(255, 120, 120);
+}
+
+.respawn-label {
+    font-size: 30px;
+    -unity-text-align: middle-center;
+}
+
+/* countdown */
+
+.queue-label {
+    font-size: 30px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+}
+
+.countdown-label {
+    position: absolute;
+    font-size: 140px;
+    -unity-text-align: middle-center;
+}
+
+/* game end */
+
+.game-end-title {
+    font-size: 60px;
+    -unity-text-align: middle-center;
+    margin-bottom: 30px;
+}
+
+.game-end-scores {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+.game-end-score {
+    font-size: 60px;
+    width: 200px;
+}
+
+.vs-label {
+    font-size: 60px;
+    width: 100px;
+    -unity-text-align: middle-center;
+}
+
+/* connection status */
+
+.connection-label {
+    font-size: 45px;
+    -unity-text-align: middle-center;
+}
+
+/* ================= hand HUD ================= */
+
+.hand-hud-section {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+}
+
+.timer-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+.timer-score {
+    font-size: 32px;
+    width: 45px;
+}
+
+.hourglass {
+    align-items: center;
+    margin-left: 10px;
+    margin-right: 10px;
+}
+
+.hourglass-chamber {
+    width: 60px;
+    height: 20px;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.top-sand {
+    width: 30px;
+    background-color: rgb(255, 255, 255);
+}
+
+.bottom-sand {
+    width: 60px;
+    background-color: rgb(255, 255, 255);
+}
+
+.timer-label {
+    font-size: 24px;
+    -unity-text-align: middle-center;
+    margin-top: 1px;
+    margin-bottom: 1px;
+}
+
+/* score goal */
+
+.goal-carrot {
+    width: 12px;
+    height: 8px;
+    background-color: rgb(255, 255, 255);
+    margin-bottom: 2px;
+}
+
+.score-track {
+    flex-direction: row;
+    width: 180px;
+    height: 3px;
+    background-color: rgba(255, 255, 255, 0.35);
+}
+
+.score-track-half {
+    width: 50%;
+    height: 100%;
+    flex-direction: row;
+}
+
+.score-track-half.from-right {
+    justify-content: flex-end;
+}
+
+.score-line {
+    height: 100%;
+    width: 0;
+}
+
+.goal-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    margin-top: 8px;
+}
+
+.goal-score {
+    font-size: 32px;
+    width: 60px;
+}
+
+.goal-target-label {
+    font-size: 24px;
+    width: 70px;
+    -unity-text-align: middle-center;
 }
