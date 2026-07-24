@@ -1,6 +1,6 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Android;
 using UnityEngine.XR;
 using UnityEngine.XR.ARSubsystems;
 using UnityEngine.XR.Management;
@@ -10,9 +10,9 @@ using UnityEngine.XR.OpenXR.Features.Meta;
 namespace Anaglyph.Permissions
 {
 	/// <summary>
-	/// Read-only permission and capability checks for Meta Quest.
-	/// These methods do not request permissions, display UI, or start XR subsystems.
-	/// Call them from the Unity main thread after XR initialization.
+	/// Permission and capability checks for Meta Quest, plus explicit permission
+	/// request methods for caller-owned UI. No permission is requested automatically.
+	/// Call these methods from the Unity main thread after XR initialization.
 	/// </summary>
 	public static class MetaPermissionChecks
 	{
@@ -30,6 +30,12 @@ namespace Anaglyph.Permissions
 
 		private const string AndroidCameraSystemFeature = "android.hardware.camera";
 
+		private static readonly string[] passthroughCameraPermissionCandidates =
+		{
+			HeadsetCameraPermission,
+			AndroidCameraPermission
+		};
+
 		private static readonly List<XRAnchorSubsystem> anchorSubsystems = new();
 		private static VpsStatus observedVpsStatus;
 
@@ -42,7 +48,7 @@ namespace Anaglyph.Permissions
 			return new PermissionCheckResult(
 				GameCapability.Scene,
 				support,
-				CheckAndroidPermission(ScenePermission));
+				AndroidPermissionChecks.CheckPermission(ScenePermission).authorization);
 		}
 
 		public static PassthroughCameraCheckResult CheckPassthroughCamera()
@@ -51,22 +57,60 @@ namespace Anaglyph.Permissions
 			CapabilitySupport cameraHardwareSupport = CheckAndroidSystemFeature(AndroidCameraSystemFeature);
 
 			CapabilitySupport support = CombineRequiredSupport(openXRSupport, cameraHardwareSupport);
+			AndroidPermissionCheckResult headsetCamera =
+				AndroidPermissionChecks.CheckPermission(HeadsetCameraPermission);
+			AndroidPermissionCheckResult androidCamera =
+				AndroidPermissionChecks.CheckPermission(AndroidCameraPermission);
+			AndroidPermissionCheckResult requiredPermission =
+				AndroidPermissionChecks.CheckPreferredPermission(
+					passthroughCameraPermissionCandidates);
 
 			return new PassthroughCameraCheckResult(
 				support,
 				CheckPassthroughCameraConfiguration(),
-				CheckAndroidPermission(AndroidCameraPermission),
-				CheckAndroidPermission(HeadsetCameraPermission));
+				requiredPermission,
+				androidCamera,
+				headsetCamera);
+		}
+
+		/// <summary>
+		/// Requests USE_SCENE and reports the terminal Android permission callback.
+		/// This method never runs automatically.
+		/// </summary>
+		public static void RequestScenePermission(Action<PermissionRequestResult> completed)
+		{
+			AndroidPermissionChecks.RequestPermission(ScenePermission, completed);
+		}
+
+		/// <summary>
+		/// Requests HEADSET_CAMERA when the OS recognizes it. Android CAMERA is only
+		/// requested on systems where HEADSET_CAMERA is known to be unavailable.
+		/// An availability-query failure does not fall back to Android CAMERA.
+		/// </summary>
+		public static void RequestPassthroughCameraPermission(
+			Action<PermissionRequestResult> completed)
+		{
+			AndroidPermissionChecks.RequestPreferredPermission(
+				passthroughCameraPermissionCandidates,
+				completed);
 		}
 
 		public static SharedSpatialAnchorsCheckResult CheckSharedSpatialAnchors()
 		{
 			return new SharedSpatialAnchorsCheckResult(
 				CheckSharedSpatialAnchorsSupport(),
-				observedVpsStatus);
+				CheckVps());
 		}
 
-		public static VpsStatus CheckVps() => observedVpsStatus;
+		public static VpsStatus CheckVps()
+		{
+#if UNITY_EDITOR
+			if (EditorPermissionSimulation.enabled)
+				return EditorPermissionSimulation.vpsStatus;
+#endif
+
+			return observedVpsStatus;
+		}
 
 		/// <summary>
 		/// Updates the observable VPS state from a Meta shared-anchor load or share result.
@@ -97,6 +141,11 @@ namespace Anaglyph.Permissions
 
 		private static CapabilitySupport CheckSharedSpatialAnchorsSupport()
 		{
+#if UNITY_EDITOR
+			if (EditorPermissionSimulation.enabled)
+				return CapabilitySupport.Supported;
+#endif
+
 			if (!IsOpenXRInitialized())
 				return CapabilitySupport.Unknown;
 
@@ -123,6 +172,11 @@ namespace Anaglyph.Permissions
 
 		private static CapabilitySupport CheckAnyOpenXRExtension(params string[] extensionNames)
 		{
+#if UNITY_EDITOR
+			if (EditorPermissionSimulation.enabled)
+				return CapabilitySupport.Supported;
+#endif
+
 			if (!IsOpenXRInitialized())
 				return CapabilitySupport.Unknown;
 
@@ -135,6 +189,11 @@ namespace Anaglyph.Permissions
 
 		private static CapabilityConfiguration CheckPassthroughCameraConfiguration()
 		{
+#if UNITY_EDITOR
+			if (EditorPermissionSimulation.enabled)
+				return CapabilityConfiguration.Enabled;
+#endif
+
 			ARCameraFeature cameraFeature =
 				OpenXRSettings.Instance?.GetFeature<ARCameraFeature>();
 
@@ -168,19 +227,13 @@ namespace Anaglyph.Permissions
 			return CapabilitySupport.Unknown;
 		}
 
-		private static PermissionAuthorization CheckAndroidPermission(string permission)
-		{
-#if UNITY_ANDROID && !UNITY_EDITOR
-			return Permission.HasUserAuthorizedPermission(permission)
-				? PermissionAuthorization.Granted
-				: PermissionAuthorization.Denied;
-#else
-			return PermissionAuthorization.NotRequired;
-#endif
-		}
-
 		private static CapabilitySupport CheckAndroidSystemFeature(string feature)
 		{
+#if UNITY_EDITOR
+			if (EditorPermissionSimulation.enabled)
+				return CapabilitySupport.Supported;
+#endif
+
 #if UNITY_ANDROID && !UNITY_EDITOR
 			try
 			{
@@ -217,7 +270,16 @@ namespace Anaglyph.Permissions
 			return new PermissionCheckResult(
 				GameCapability.BodyTracking,
 				support,
-				CheckAndroidPermission("com.oculus.permission.BODY_TRACKING"));
+				AndroidPermissionChecks.CheckPermission(
+					"com.oculus.permission.BODY_TRACKING").authorization);
+		}
+
+		public static void RequestBodyTrackingPermission(
+			Action<PermissionRequestResult> completed)
+		{
+			AndroidPermissionChecks.RequestPermission(
+				"com.oculus.permission.BODY_TRACKING",
+				completed);
 		}
 		*/
 	}

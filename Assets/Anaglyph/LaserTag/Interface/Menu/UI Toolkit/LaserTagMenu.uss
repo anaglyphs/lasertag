@@ -1,9 +1,28 @@
 .menu-root {
 	flex-grow: 1;
 	padding: 16px;
-	background-color: rgba(20, 20, 20, 0.92);
+	background-color: rgb(20, 20, 20);
 	color: rgb(255, 255, 255);
 	font-size: 20px;
+	border-width: 2px;
+	border-color: rgb(255, 255, 255);
+
+	-unity-font-definition: url("/Assets/Playbeing/DInish/DINish-Regular SDF.asset");
+}
+
+.multiplayer-panel {
+	border-color: #FF0015;
+	background-color: #1B0021;
+}
+
+.game-panel {
+	border-color: #00FFAD;
+	background-color: #000E31;
+}
+
+.settings-panel {
+	border-color: #FF7400;
+	background-color: #182400;
 }
 
 .pages,
@@ -29,7 +48,7 @@
 
 .title {
 	flex-grow: 1;
-	-unity-text-align: middle-center;
+	-unity-text-align: middle-left;
 	font-size: 28px;
 	-unity-font-style: bold;
 }
@@ -56,6 +75,13 @@
 	white-space: normal;
 }
 
+Button {
+	-unity-text-align: middle-left;
+	border-width: 2px;
+	border-color: rgb(255, 255, 255);
+	background-color: rgb(100, 100, 100);
+}
+
 Button,
 Toggle,
 TextField {
@@ -67,7 +93,11 @@ TextField {
 
 Button,
 Toggle {
-	translate: 0 0 2px;
+	translate: 0 0 5px;
+}
+
+.permission-toggle.permission-granted:disabled {
+	opacity: 1;
 }
 
 ScrollView {

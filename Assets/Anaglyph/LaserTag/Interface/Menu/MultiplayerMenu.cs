@@ -200,10 +200,10 @@ using VariableObjects;
 			UpdateInternetWarnings();
 		}
 
-		private void UpdateManualConnectionFields(bool useRelay)
+		private void UpdateManualConnectionFields(bool usingRelay)
 		{
-			ipFieldRow.style.display = useRelay ? DisplayStyle.None : DisplayStyle.Flex;
-			roomFieldRow.style.display = useRelay ? DisplayStyle.Flex : DisplayStyle.None;
+			ipFieldRow.style.display = usingRelay ? DisplayStyle.None : DisplayStyle.Flex;
+			roomFieldRow.style.display = usingRelay ? DisplayStyle.Flex : DisplayStyle.None;
 		}
 
 		private void Connect()

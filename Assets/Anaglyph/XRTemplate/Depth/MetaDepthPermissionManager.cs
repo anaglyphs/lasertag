@@ -1,4 +1,3 @@
-using System;
 using System.Threading;
 using UnityEngine;
 using UnityEngine.Android;
@@ -24,23 +23,27 @@ namespace Anaglyph.DepthKit
 			SetOcclusionEnabled(false);
 		}
 
-		private void OnApplicationPause(bool isPaused)
+		private void OnEnable()
 		{
-			if (isPaused)
-				return;
-
-			bool hasPerm = Permission.HasUserAuthorizedPermission(permStr);
-			SetOcclusionEnabled(hasPerm);
-
-			if (!hasPerm)
-				RequestPermission();
+			RefreshPermission();
 		}
 
-		private void RequestPermission()
+		private void OnApplicationFocus(bool hasFocus)
 		{
-			PermissionCallbacks callbacks = new();
-			callbacks.PermissionGranted += _ => SetOcclusionEnabled(true);
-			Permission.RequestUserPermission(permStr, callbacks);
+			if (hasFocus)
+				RefreshPermission();
+		}
+
+		private void OnApplicationPause(bool isPaused)
+		{
+			if (!isPaused)
+				RefreshPermission();
+		}
+
+		private void RefreshPermission()
+		{
+			// Permission requests are owned by the menu gate.
+			SetOcclusionEnabled(Permission.HasUserAuthorizedPermission(permStr));
 		}
 
 		private async void SetOcclusionEnabled(bool b)
