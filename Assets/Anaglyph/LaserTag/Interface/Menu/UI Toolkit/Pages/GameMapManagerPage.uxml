@@ -1,0 +1,13 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+	<Style src="../LaserTagMenu.uss" />
+	<ui:Template name="NavHeader" src="../NavHeader.uxml" />
+	<ui:VisualElement class="page-template-root">
+		<ui:Instance template="NavHeader">
+			<ui:AttributeOverrides element-name="title" text="Map manager" />
+		</ui:Instance>
+		<ui:Label
+			text="Maps are not saved between sessions yet."
+			class="body-copy" />
+		<ui:Button name="edit-map-button" text="Edit map" />
+	</ui:VisualElement>
+</ui:UXML>

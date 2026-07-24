@@ -1,0 +1,14 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+	<Style src="../LaserTagMenu.uss" />
+	<ui:Template name="NavHeader" src="../NavHeader.uxml" />
+	<ui:VisualElement class="page-template-root">
+		<ui:Instance template="NavHeader">
+			<ui:AttributeOverrides element-name="title" text="Edit map" />
+			<ui:AttributeOverrides element-name="back-button" style="display: none;" />
+		</ui:Instance>
+		<ui:Label
+			text="Controls: Trigger places objects. Grip grabs and moves. Y/B deletes. Choose objects from the palette on your non-dominant hand; Trigger sets the dominant hand."
+			class="body-copy" />
+		<ui:Button name="finish-editing-button" text="Finish editing" />
+	</ui:VisualElement>
+</ui:UXML>

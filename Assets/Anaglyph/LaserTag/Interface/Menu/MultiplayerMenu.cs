@@ -1,18 +1,18 @@
-using Anaglyph.Menu;
+using Anaglyph.Menu.UIToolkit;
 using Anaglyph.Netcode;
 using Anaglyph.XRTemplate.SharedSpaces;
 using System;
 using System.Globalization;
 using System.Threading;
-using TMPro;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
-using UnityEngine.UI;
+using UnityEngine.UIElements;
 using VariableObjects;
 
-namespace Anaglyph.Lasertag
+	namespace Anaglyph.Lasertag
 {
+	[DefaultExecutionOrder(100)]
 	public class MultiplayerMenu : MonoBehaviour
 	{
 		private enum SessionState
@@ -22,168 +22,349 @@ namespace Anaglyph.Lasertag
 			Connected
 		}
 
-		private static NetworkManager manager => NetworkManager.Singleton;
+		private static NetworkManager Manager => NetworkManager.Singleton;
 
-		[SerializeField] private NavPagesParent navView;
+		[SerializeField] private BoolObject hostOnRelaySetting;
+		[SerializeField] private BoolObject useAprilTagsSetting;
+		[SerializeField] private FloatObject aprilTagSizeSetting;
+		[SerializeField] private StringObject buildNumber;
 
-		[Header(nameof(homePage))] [SerializeField]
-		private NavPage homePage = null;
+		private UIToolkitNavPages navView;
+		private UIToolkitNavPage homePage;
+		private UIToolkitNavPage manuallyConnectPage;
+		private UIToolkitNavPage sessionPage;
+		private UIToolkitNavPage networkErrorModal;
 
-		[SerializeField] private Button hostButton = null;
+		private Toggle hostOnRelayToggle;
+		private Label hostOnRelayWarning;
+		private Toggle useAprilTagsToggle;
+		private Label useAprilTagsWarning;
+		private TextField aprilTagSizeField;
 
-		[Header(nameof(hostSettingsPage))] [SerializeField] private NavPage hostSettingsPage = null;
-		[SerializeField] private Toggle hostOnRelayToggle = null;
-		[SerializeField] private Graphic hostOnRelayWarningGraphic = null;
-		[SerializeField] private BoolObject hostOnRelaySetting = null;
-		[SerializeField] private Toggle useAprilTagsToggle = null;
-		[SerializeField] private Graphic useAprilTagsWarningGraphic = null;
-		[SerializeField] private BoolObject useAprilTagsSetting = null;
-		[SerializeField] private TMP_InputField aprilTagSizeField = null;
-		[SerializeField] private FloatObject aprilTagSizeSetting = null;
+		private Toggle useRelayToggle;
+		private VisualElement ipFieldRow;
+		private TextField ipField;
+		private VisualElement roomFieldRow;
+		private TextField roomField;
+		private bool useRelay;
+		private string manualIp;
+		private string manualRoom = "";
 
-		[Header(nameof(manuallyConnectPage))] [SerializeField]
-		private NavPage manuallyConnectPage = null;
-		
-		[SerializeField] private Toggle useRelayToggle = null;
-		[SerializeField] private TMP_InputField ipField = null;
-		[SerializeField] private TMP_InputField roomField = null;
-		[SerializeField] private GameObject roomFieldLabel = null;
-		[SerializeField] private Button connectButton = null;
-
-		[Header(nameof(sessionPage))] [SerializeField]
-		private NavPage sessionPage = null;
-
-		// [SerializeField] private Image sessionIcon = null;
-		[SerializeField] private TMP_Text sessionStateText = null;
-		[SerializeField] private TMP_Text sessionIpText = null;
-		[SerializeField] private Button disconnectButton = null;
-		// [SerializeField] private Button recalibrateButton = null;
-
-		// [Header("Session icons")] [SerializeField]
-		// private Sprite connectingSprite = null;
-		//
-		// [SerializeField] private Sprite colocatingSprite = null;
-		// [SerializeField] private Sprite connectedSprite = null;
-		// [SerializeField] private Sprite hostingSprite = null;
-
-		[Header(nameof(networkErrorModal))] [SerializeField]
-		private NavPage networkErrorModal;
-		[SerializeField] private Button dismissNetworkErrorModal = null;
-		[SerializeField] private Button openWifiSettingsButton = null;
+		private Label sessionStateText;
+		private Label sessionIpText;
+		private Label noFullInternetWarning;
 
 		private NetworkState networkState;
-		private bool networkIsConnected;
+		private bool hasNetworkState;
 		private bool hasFullInternet;
+		private CancellationTokenSource networkPollCancellation;
 
-		private CancellationTokenSource networkPollCtknSrc;
-
-		[SerializeField] private Color warningColor;
-		
-		[SerializeField] private Graphic[] showWhenNoFullInternet = Array.Empty<Graphic>();
-
-		private void Start()
+		private void InitializeUI()
 		{
-			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
+			UIDocument document = GetComponent<UIDocument>();
+			VisualElement root = document?.rootVisualElement;
+			if (root == null)
+				throw new InvalidOperationException(
+					"MultiplayerMenu requires an enabled UIDocument with a visual tree.");
 
-			// home page
-			hostButton.onClick.AddListener(Host);
-			
-			// host settings page
-			hostOnRelayToggle.onValueChanged.AddListener(hostOnRelaySetting.Set);
-			hostOnRelaySetting.AddChangeListenerAndCheck(OnHostOnRelaySettingChange);
-			
-			useAprilTagsToggle.onValueChanged.AddListener(useAprilTagsSetting.Set);
-			useAprilTagsSetting.AddChangeListenerAndCheck(OnAprilTagsSettingChange);
-			
-			aprilTagSizeField.onValueChanged.AddListener(delegate(string str)
-			{
-				if (!float.TryParse(str, out float f))
-					f = 10;
-				
-				aprilTagSizeSetting.Value = f;
-			});
-			aprilTagSizeSetting.AddChangeListenerAndCheck(OnAprilTagSizeSettingChange);
-			
+			VisualElement pages = Require<VisualElement>(root, "pages");
+			navView = new UIToolkitNavPages(pages);
+			homePage = navView.AddPage("home-page", false);
+			UIToolkitNavPage hostSettingsPage = navView.AddPage("host-settings-page");
+			manuallyConnectPage = navView.AddPage("manual-connect-page");
+			sessionPage = navView.AddPage("session-page", false);
+			networkErrorModal = navView.AddPage("network-error-modal", false);
 
-			// manually connect page
-			manuallyConnectPage.showBackButton = true;
+			Require<Button>(root, "host-button").clicked += Host;
+			Require<Button>(root, "host-settings-button").clicked += hostSettingsPage.NavigateHere;
+			Require<Button>(root, "manual-connect-button").clicked += manuallyConnectPage.NavigateHere;
 
-			useRelayToggle.onValueChanged.AddListener(useRelay =>
-			{
-				ipField.gameObject.SetActive(!useRelay);
-				roomField.gameObject.SetActive(useRelay);
-				roomFieldLabel.gameObject.SetActive(useRelay);
-			});
-			
-			useRelayToggle.onValueChanged.Invoke(useRelayToggle.isOn);
+			hostOnRelayToggle = Require<Toggle>(root, "host-on-relay-toggle");
+			hostOnRelayWarning = Require<Label>(root, "host-on-relay-warning");
+			useAprilTagsToggle = Require<Toggle>(root, "use-april-tags-toggle");
+			useAprilTagsWarning = Require<Label>(root, "use-april-tags-warning");
+			aprilTagSizeField = Require<TextField>(root, "april-tag-size-field");
 
-			ipField.text = NetcodeManagement.GetLocalIPv4();
+			hostOnRelayToggle.RegisterValueChangedCallback(
+				change => hostOnRelaySetting.Value = change.newValue);
+			useAprilTagsToggle.RegisterValueChangedCallback(
+				change => useAprilTagsSetting.Value = change.newValue);
+			aprilTagSizeField.RegisterValueChangedCallback(OnAprilTagSizeFieldChanged);
 
-			connectButton.onClick.AddListener(delegate
-			{
-				if (useRelayToggle.isOn)
-					NetcodeManagement.ConnectUnityServices(roomField.text);
-				else
-					NetcodeManagement.ConnectLAN(ipField.text);
-			});
+			useRelayToggle = Require<Toggle>(root, "use-relay-toggle");
+			ipFieldRow = Require<VisualElement>(root, "ip-field-row");
+			ipField = Require<TextField>(root, "ip-field");
+			roomFieldRow = Require<VisualElement>(root, "room-field-row");
+			roomField = Require<TextField>(root, "room-field");
+			useRelayToggle.RegisterValueChangedCallback(
+				change =>
+				{
+					useRelay = change.newValue;
+					UpdateManualConnectionFields(useRelay);
+				});
+			ipField.RegisterValueChangedCallback(change => manualIp = change.newValue);
+			roomField.RegisterValueChangedCallback(change => manualRoom = change.newValue);
 
-			// connecting page
-			sessionPage.showBackButton = false;
-			disconnectButton.onClick.AddListener(Disconnect);
+			manualIp ??= NetcodeManagement.GetLocalIPv4();
+			useRelayToggle.SetValueWithoutNotify(useRelay);
+			ipField.SetValueWithoutNotify(manualIp);
+			roomField.SetValueWithoutNotify(manualRoom);
+			UpdateManualConnectionFields(useRelay);
 
-			ColocationManager.Colocated += OnColocationChange;
+			Require<Button>(root, "connect-button").clicked += Connect;
+
+			sessionStateText = Require<Label>(root, "session-state");
+			sessionIpText = Require<Label>(root, "session-address");
+			Require<Button>(root, "disconnect-button").clicked += Disconnect;
+
+			Require<Button>(root, "dismiss-network-error-button").clicked +=
+				() => navView.DismissModal(networkErrorModal);
+			Require<Button>(root, "open-wifi-settings-button").clicked += OpenWifiSettings;
+
+			noFullInternetWarning = Require<Label>(root, "no-full-internet-warning");
+			Label version = Require<Label>(root, "version");
+			version.text =
+				$"Version: {Application.version}\nBuild: {(buildNumber ? buildNumber.Value : "")}";
 
 			navView.Changed += OnNavPageChange;
-			
-			// network error modal
-			networkErrorModal.showBackButton = false;
-			dismissNetworkErrorModal.onClick.AddListener(delegate
-			{
-				navView.DismissModal(networkErrorModal);
-			});
-			openWifiSettingsButton.onClick.AddListener(OpenWifiSettings);
-			
-			NetworkCheckLoop();
+			navView.Start(homePage);
 		}
 
 		private void OnEnable()
 		{
-			if(didStart)
-				NetworkCheckLoop();
+			InitializeUI();
+
+			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
+			ColocationManager.Colocated += OnColocationChange;
+			hostOnRelaySetting.Changed += OnHostOnRelaySettingChange;
+			useAprilTagsSetting.Changed += OnAprilTagsSettingChange;
+			aprilTagSizeSetting.Changed += OnAprilTagSizeSettingChange;
+
+			OnHostOnRelaySettingChange(hostOnRelaySetting.Value);
+			OnAprilTagsSettingChange(useAprilTagsSetting.Value);
+			OnAprilTagSizeSettingChange(aprilTagSizeSetting.Value);
+			OnNetcodeStateChanged(NetcodeManagement.State);
+			hasNetworkState = false;
+			BeginNetworkCheckLoop();
 		}
 
 		private void OnDisable()
 		{
-			networkPollCtknSrc?.Cancel();
-		}
-		
-		private void OnAprilTagSizeSettingChange(float val)
-		{
-			aprilTagSizeField.SetTextWithoutNotify(val.ToString(CultureInfo.InvariantCulture));
-		}
+			networkPollCancellation?.Cancel();
+			networkPollCancellation?.Dispose();
+			networkPollCancellation = null;
 
-		private void OnAprilTagsSettingChange(bool val)
-		{
-			UpdateApriltagSettingWarnGraphic();
-			useAprilTagsToggle.SetIsOnWithoutNotify(val);
-		}
-
-		private void OnHostOnRelaySettingChange(bool val)
-		{
-			UpdateHostSettingWarnGraphic();
-			hostOnRelayToggle.SetIsOnWithoutNotify(val);
-		}
-
-		private void OnDestroy()
-		{
-			networkPollCtknSrc?.Cancel();
-			
 			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
 			ColocationManager.Colocated -= OnColocationChange;
-			
 			hostOnRelaySetting.Changed -= OnHostOnRelaySettingChange;
 			useAprilTagsSetting.Changed -= OnAprilTagsSettingChange;
 			aprilTagSizeSetting.Changed -= OnAprilTagSizeSettingChange;
+
+			if (navView != null)
+			{
+				navView.Changed -= OnNavPageChange;
+				navView.Dispose();
+				navView = null;
+			}
+		}
+
+		private void OnAprilTagSizeFieldChanged(ChangeEvent<string> change)
+		{
+			if (!float.TryParse(
+				change.newValue,
+				NumberStyles.Float,
+				CultureInfo.InvariantCulture,
+				out float value))
+			{
+				value = 10;
+			}
+
+			aprilTagSizeSetting.Value = value;
+		}
+
+		private void OnAprilTagSizeSettingChange(float value)
+		{
+			aprilTagSizeField.SetValueWithoutNotify(
+				value.ToString(CultureInfo.InvariantCulture));
+		}
+
+		private void OnAprilTagsSettingChange(bool value)
+		{
+			useAprilTagsToggle.SetValueWithoutNotify(value);
+			UpdateInternetWarnings();
+		}
+
+		private void OnHostOnRelaySettingChange(bool value)
+		{
+			hostOnRelayToggle.SetValueWithoutNotify(value);
+			UpdateInternetWarnings();
+		}
+
+		private void UpdateManualConnectionFields(bool useRelay)
+		{
+			ipFieldRow.style.display = useRelay ? DisplayStyle.None : DisplayStyle.Flex;
+			roomFieldRow.style.display = useRelay ? DisplayStyle.Flex : DisplayStyle.None;
+		}
+
+		private void Connect()
+		{
+			if (useRelayToggle.value)
+				NetcodeManagement.ConnectUnityServices(roomField.value);
+			else
+				NetcodeManagement.ConnectLAN(ipField.value);
+		}
+
+		private void OnNavPageChange(UIToolkitNavPage page)
+		{
+			MetaSessionDiscovery discovery = MetaSessionDiscovery.Instance;
+			if (discovery != null)
+				discovery.enabled = page != manuallyConnectPage;
+		}
+
+		private void OnNetcodeStateChanged(NetcodeState state)
+		{
+			switch (state)
+			{
+				case NetcodeState.Disconnected:
+					sessionIpText.text = "";
+					navView.SetModalPresented(sessionPage, false);
+					break;
+
+				case NetcodeState.Connecting:
+					UpdateIpText();
+					OpenSessionPage(SessionState.Connecting);
+					break;
+
+				case NetcodeState.Connected:
+					UpdateIpText();
+					OnColocationChange(ColocationManager.IsColocated);
+					break;
+			}
+		}
+
+		private void UpdateIpText()
+		{
+			NetworkTransport transport = Manager?.NetworkConfig?.NetworkTransport;
+			if (transport == null)
+			{
+				sessionIpText.text = "";
+				return;
+			}
+
+			Type transportType = transport.GetType();
+			if (string.Equals(transportType.Name, "DistributedAuthorityTransport"))
+			{
+				sessionIpText.text = $"Relay: {NetcodeManagement.CurrentSessionName}";
+			}
+			else if (transport is UnityTransport unityTransport)
+			{
+				sessionIpText.text = unityTransport.ConnectionData.Address;
+			}
+		}
+
+		private void OnColocationChange(bool isColocated)
+		{
+			if (NetcodeManagement.State == NetcodeState.Connected)
+			{
+				OpenSessionPage(
+					isColocated ? SessionState.Connected : SessionState.Colocating);
+			}
+		}
+
+		private void OpenSessionPage(SessionState state)
+		{
+			switch (state)
+			{
+				case SessionState.Connecting:
+					sessionStateText.text = "Connecting...";
+					break;
+
+				case SessionState.Colocating:
+					sessionStateText.text = "Aligning...";
+					break;
+
+				case SessionState.Connected:
+					sessionStateText.text =
+						Manager != null && Manager.CurrentSessionOwner == Manager.LocalClientId
+							? "Hosting"
+							: "Connected!";
+					break;
+			}
+
+			navView.SetModalPresented(sessionPage, true, 10, homePage);
+		}
+
+		private void Host()
+		{
+			NetcodeManagement.Protocol protocol = hostOnRelaySetting.Value
+				? NetcodeManagement.Protocol.UnityService
+				: NetcodeManagement.Protocol.LAN;
+			NetcodeManagement.Host(protocol);
+		}
+
+		private async void BeginNetworkCheckLoop()
+		{
+			networkPollCancellation?.Cancel();
+			networkPollCancellation?.Dispose();
+			networkPollCancellation = new CancellationTokenSource();
+			CancellationToken token = networkPollCancellation.Token;
+
+			try
+			{
+				while (!token.IsCancellationRequested)
+				{
+					CheckNetworkConnection();
+					await Awaitable.WaitForSecondsAsync(1f, token);
+				}
+			}
+			catch (OperationCanceledException)
+			{
+			}
+		}
+
+		private void CheckNetworkConnection()
+		{
+			NetworkState newState = NetworkConnectivityTest.GetNetworkState();
+			bool networkIsConnected = (newState & NetworkState.ConnectionLAN) != 0;
+			hasFullInternet = (newState & NetworkState.FullInternetFlag) != 0;
+
+			bool connectionChanged =
+				!hasNetworkState ||
+				((newState ^ networkState) & NetworkState.ConnectionLAN) != 0;
+			bool fullInternetChanged =
+				!hasNetworkState ||
+				((newState ^ networkState) & NetworkState.FullInternetFlag) != 0;
+
+			if (connectionChanged)
+				navView.SetModalPresented(networkErrorModal, !networkIsConnected, 100);
+
+			if (fullInternetChanged)
+				UpdateInternetWarnings();
+
+			networkState = newState;
+			hasNetworkState = true;
+		}
+
+		private void UpdateInternetWarnings()
+		{
+			if (noFullInternetWarning == null)
+				return;
+
+			noFullInternetWarning.style.display =
+				hasFullInternet ? DisplayStyle.None : DisplayStyle.Flex;
+			hostOnRelayWarning.style.display =
+				hostOnRelaySetting.Value && !hasFullInternet
+					? DisplayStyle.Flex
+					: DisplayStyle.None;
+			useAprilTagsWarning.style.display =
+				!useAprilTagsSetting.Value && !hasFullInternet
+					? DisplayStyle.Flex
+					: DisplayStyle.None;
+		}
+
+		private static void Disconnect()
+		{
+			NetcodeManagement.Disconnect();
 		}
 
 		private static void OpenWifiSettings()
@@ -239,161 +420,15 @@ namespace Anaglyph.Lasertag
 		}
 #endif
 
-		private void OnNavPageChange(NavPage page)
+		private static T Require<T>(VisualElement root, string name)
+			where T : VisualElement
 		{
-			bool onManuallyConnectPage = page == manuallyConnectPage;
-			MetaSessionDiscovery.Instance.enabled = !onManuallyConnectPage;
-		}
+			T element = root.Q<T>(name);
+			if (element == null)
+				throw new InvalidOperationException(
+					$"Required UI Toolkit element '{name}' ({typeof(T).Name}) was not found.");
 
-		private void OnNetcodeStateChanged(NetcodeState state)
-		{
-			switch (state)
-			{
-				case NetcodeState.Disconnected:
-					sessionIpText.text = "";
-					navView.SetModalPresented(sessionPage, false);
-					break;
-
-				case NetcodeState.Connecting:
-					UpdateIpText();
-					OpenSessionPage(SessionState.Connecting);
-					break;
-
-				case NetcodeState.Connected:
-					UpdateIpText();
-					OnColocationChange(ColocationManager.IsColocated);
-					break;
-			}
-		}
-
-		private void UpdateIpText()
-		{
-			NetworkTransport transport = manager.NetworkConfig.NetworkTransport;
-			Type transportType = transport.GetType();
-
-			if (string.Equals(transportType.Name, "DistributedAuthorityTransport"))
-				sessionIpText.text = $"Relay: {NetcodeManagement.CurrentSessionName}";
-			else if (transport.GetType() == typeof(UnityTransport))
-				sessionIpText.text = ((UnityTransport)transport).ConnectionData.Address;
-		}
-
-		private void OnColocationChange(bool isColocated)
-		{
-			if (NetcodeManagement.State == NetcodeState.Connected)
-				OpenSessionPage(ColocationManager.IsColocated ? SessionState.Connected : SessionState.Colocating);
-		}
-
-		private void OpenSessionPage(SessionState state)
-		{
-			switch (state)
-			{
-				case SessionState.Connecting:
-					sessionStateText.text = "Connecting...";
-					// sessionIcon.sprite = connectingSprite;
-					break;
-
-				case SessionState.Colocating:
-					sessionStateText.text = "Aligning...";
-					// sessionIcon.sprite = colocatingSprite;
-					break;
-
-				case SessionState.Connected:
-					if (manager.CurrentSessionOwner == manager.LocalClientId)
-						sessionStateText.text = "Hosting";
-					// sessionIcon.sprite = hostingSprite;
-					else
-						sessionStateText.text = "Connected!";
-					// sessionIcon.sprite = connectedSprite;
-					break;
-			}
-
-			// recalibrateButton.gameObject.SetActive(state != SessionState.Connecting);
-
-			navView.SetModalPresented(sessionPage, true, returnTo: homePage);
-		}
-
-		private void Host()
-		{
-			NetcodeManagement.Protocol service =
-				hostOnRelaySetting.Value ? NetcodeManagement.Protocol.UnityService : NetcodeManagement.Protocol.LAN;
-			NetcodeManagement.Host(service);
-		}
-
-		private async void NetworkCheckLoop()
-		{
-			networkPollCtknSrc?.Cancel();
-			networkPollCtknSrc = new CancellationTokenSource();
-			CancellationToken ctkn = networkPollCtknSrc.Token;
-			
-			try
-			{
-				while (!ctkn.IsCancellationRequested)
-				{
-					CheckNetworkConnection();
-					await Awaitable.WaitForSecondsAsync(1f, ctkn);
-				}
-			}
-			catch (OperationCanceledException)
-			{
-
-			}
-		}
-
-		private void CheckNetworkConnection()
-		{
-			NetworkState newNetworkState = NetworkConnectivityTest.GetNetworkState();
-
-			networkIsConnected = (newNetworkState & NetworkState.ConnectionLAN) != 0;
-			hasFullInternet = (newNetworkState & NetworkState.FullInternetFlag) != 0;
-			
-			bool connectionChanged =
-				((newNetworkState ^ networkState) & NetworkState.ConnectionLAN) != 0;
-			
-			bool fullInternetChanged =
-				((newNetworkState ^ networkState) & NetworkState.FullInternetFlag) != 0;
-			
-			if (connectionChanged)
-			{
-				// show network error modal
-				navView.SetModalPresented(networkErrorModal, !networkIsConnected);
-			}
-
-			if (fullInternetChanged)
-			{
-				foreach (Graphic graphic in showWhenNoFullInternet)
-				{
-					graphic.enabled = !hasFullInternet;
-					graphic.color = warningColor;
-				}
-
-				UpdateInternetWarnGraphics();
-			}
-			
-			networkState = newNetworkState;
-		}
-
-		private void UpdateInternetWarnGraphics()
-		{
-			UpdateHostSettingWarnGraphic();
-			UpdateApriltagSettingWarnGraphic();
-		}
-
-		private void UpdateHostSettingWarnGraphic()
-		{
-			bool warn = hostOnRelaySetting.Value && !hasFullInternet;
-			hostOnRelayWarningGraphic.color = warn ? warningColor : Color.white;
-		}
-
-		private void UpdateApriltagSettingWarnGraphic()
-		{
-			bool warn = !useAprilTagsSetting.Value && !hasFullInternet;
-			useAprilTagsWarningGraphic.color = warn ? warningColor : Color.white;
-		}
-
-		private void Disconnect()
-		{
-			// State change to Disconnected dismisses the session modal back to home.
-			NetcodeManagement.Disconnect();
+			return element;
 		}
 	}
 }

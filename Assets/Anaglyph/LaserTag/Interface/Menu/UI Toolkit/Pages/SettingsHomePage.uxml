@@ -1,0 +1,14 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+	<Style src="../LaserTagMenu.uss" />
+	<ui:Template name="NavHeader" src="../NavHeader.uxml" />
+	<ui:VisualElement class="page-template-root">
+		<ui:Instance template="NavHeader">
+			<ui:AttributeOverrides element-name="title" text="Settings" />
+			<ui:AttributeOverrides element-name="back-button" style="display: none;" />
+		</ui:Instance>
+		<ui:Button name="debugging-button" text="Debugging" />
+		<ui:Button name="graphics-button" text="Graphics" />
+		<ui:Button name="boundary-button" text="Boundary" />
+		<ui:Label name="version" class="version" />
+	</ui:VisualElement>
+</ui:UXML>

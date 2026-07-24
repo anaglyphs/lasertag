@@ -1,0 +1,7 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+	<Style src="LaserTagMenu.uss" />
+	<ui:VisualElement class="header">
+		<ui:Button name="back-button" text="Back" />
+		<ui:Label name="title" class="title" />
+	</ui:VisualElement>
+</ui:UXML>

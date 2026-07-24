@@ -1,0 +1,13 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+	<Style src="../LaserTagMenu.uss" />
+	<ui:Template name="NavHeader" src="../NavHeader.uxml" />
+	<ui:VisualElement class="page-template-root">
+		<ui:Instance template="NavHeader">
+			<ui:AttributeOverrides element-name="title" text="Connection" />
+			<ui:AttributeOverrides element-name="back-button" style="display: none;" />
+		</ui:Instance>
+		<ui:Label name="session-state" text="Connecting..." class="title" />
+		<ui:Label name="session-address" class="body-copy" />
+		<ui:Button name="disconnect-button" text="Disconnect" />
+	</ui:VisualElement>
+</ui:UXML>

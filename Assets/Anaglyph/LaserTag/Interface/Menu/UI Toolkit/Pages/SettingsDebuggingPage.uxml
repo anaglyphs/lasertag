@@ -1,0 +1,17 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+	<Style src="../LaserTagMenu.uss" />
+	<ui:Template name="NavHeader" src="../NavHeader.uxml" />
+	<ui:VisualElement class="page-template-root">
+		<ui:Instance template="NavHeader">
+			<ui:AttributeOverrides element-name="title" text="Debugging" />
+		</ui:Instance>
+		<ui:Toggle name="debug-mode-toggle" text="Debug mode" />
+		<ui:Toggle name="show-debug-mesh-toggle" text="Show debug mesh" />
+		<ui:Button
+			name="show-debug-mesh-for-everyone"
+			text="Show mesh for everyone" />
+		<ui:Button
+			name="hide-debug-mesh-for-everyone"
+			text="Hide mesh for everyone" />
+	</ui:VisualElement>
+</ui:UXML>

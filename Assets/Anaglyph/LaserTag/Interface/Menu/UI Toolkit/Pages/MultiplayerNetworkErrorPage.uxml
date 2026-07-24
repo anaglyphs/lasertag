@@ -1,0 +1,15 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+	<Style src="../LaserTagMenu.uss" />
+	<ui:Template name="NavHeader" src="../NavHeader.uxml" />
+	<ui:VisualElement class="page-template-root">
+		<ui:Instance template="NavHeader">
+			<ui:AttributeOverrides element-name="title" text="No network connection" />
+			<ui:AttributeOverrides element-name="back-button" style="display: none;" />
+		</ui:Instance>
+		<ui:Label
+			text="Connect this headset to a local network before hosting or joining a game."
+			class="body-copy" />
+		<ui:Button name="open-wifi-settings-button" text="Open Wi-Fi settings" />
+		<ui:Button name="dismiss-network-error-button" text="Ignore" />
+	</ui:VisualElement>
+</ui:UXML>

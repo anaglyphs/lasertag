@@ -1,0 +1,11 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+	<Style src="../LaserTagMenu.uss" />
+	<ui:Template name="NavHeader" src="../NavHeader.uxml" />
+	<ui:VisualElement class="page-template-root">
+		<ui:Instance template="NavHeader">
+			<ui:AttributeOverrides element-name="title" text="Playing match" />
+			<ui:AttributeOverrides element-name="back-button" style="display: none;" />
+		</ui:Instance>
+		<ui:Button name="stop-button" text="Stop match" />
+	</ui:VisualElement>
+</ui:UXML>

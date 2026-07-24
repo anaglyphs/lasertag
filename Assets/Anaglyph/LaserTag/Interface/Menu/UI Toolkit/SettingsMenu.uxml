@@ -1,0 +1,15 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+	<Style src="LaserTagMenu.uss" />
+	<ui:Template name="SettingsHomePage" src="Pages/SettingsHomePage.uxml" />
+	<ui:Template name="SettingsDebuggingPage" src="Pages/SettingsDebuggingPage.uxml" />
+	<ui:Template name="SettingsGraphicsPage" src="Pages/SettingsGraphicsPage.uxml" />
+	<ui:Template name="SettingsBoundaryPage" src="Pages/SettingsBoundaryPage.uxml" />
+	<ui:VisualElement class="menu-root" picking-mode="Ignore">
+		<ui:VisualElement name="pages" class="pages">
+			<ui:Instance name="home-page" template="SettingsHomePage" class="nav-page" />
+			<ui:Instance name="debugging-page" template="SettingsDebuggingPage" class="nav-page" />
+			<ui:Instance name="graphics-page" template="SettingsGraphicsPage" class="nav-page" />
+			<ui:Instance name="boundary-page" template="SettingsBoundaryPage" class="nav-page" />
+		</ui:VisualElement>
+	</ui:VisualElement>
+</ui:UXML>

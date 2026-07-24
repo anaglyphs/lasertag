@@ -1,0 +1,27 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+	<Style src="../LaserTagMenu.uss" />
+	<ui:Template name="NavHeader" src="../NavHeader.uxml" />
+	<ui:VisualElement class="page-template-root">
+		<ui:Instance template="NavHeader">
+			<ui:AttributeOverrides element-name="title" text="Host settings" />
+		</ui:Instance>
+		<ui:ScrollView>
+			<ui:Toggle name="host-on-relay-toggle" text="Relay server" />
+			<ui:Label
+				name="host-on-relay-warning"
+				text="Relay hosting requires a full internet connection."
+				class="warning"
+				style="display: none;" />
+			<ui:Toggle name="use-april-tags-toggle" text="Use AprilTags" />
+			<ui:Label
+				name="use-april-tags-warning"
+				text="Cloud alignment requires a full internet connection."
+				class="warning"
+				style="display: none;" />
+			<ui:VisualElement class="field-row">
+				<ui:Label text="AprilTag size (cm)" />
+				<ui:TextField name="april-tag-size-field" />
+			</ui:VisualElement>
+		</ui:ScrollView>
+	</ui:VisualElement>
+</ui:UXML>

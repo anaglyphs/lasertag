@@ -1,0 +1,20 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+	<Style src="../LaserTagMenu.uss" />
+	<ui:Template name="NavHeader" src="../NavHeader.uxml" />
+	<ui:VisualElement class="page-template-root">
+		<ui:Instance template="NavHeader">
+			<ui:AttributeOverrides element-name="title" text="Connect" />
+		</ui:Instance>
+		<ui:Toggle name="use-relay-toggle" text="Use relay" />
+		<ui:VisualElement name="ip-field-row" class="field-row">
+			<ui:Label text="IP address" />
+			<ui:TextField name="ip-field" />
+		</ui:VisualElement>
+		<ui:VisualElement name="room-field-row" class="field-row">
+			<ui:Label text="Room code" />
+			<ui:TextField name="room-field" />
+			<ui:Label text="Use a unique room code." class="body-copy" />
+		</ui:VisualElement>
+		<ui:Button name="connect-button" text="Connect" />
+	</ui:VisualElement>
+</ui:UXML>

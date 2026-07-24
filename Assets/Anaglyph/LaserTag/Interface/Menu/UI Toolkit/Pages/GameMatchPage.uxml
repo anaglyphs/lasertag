@@ -1,0 +1,25 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+	<Style src="../LaserTagMenu.uss" />
+	<ui:Template name="NavHeader" src="../NavHeader.uxml" />
+	<ui:VisualElement class="page-template-root">
+		<ui:Instance template="NavHeader">
+			<ui:AttributeOverrides element-name="title" text="Play match" />
+		</ui:Instance>
+		<ui:ScrollView>
+			<ui:Toggle name="win-by-score-toggle" text="Win by points" />
+			<ui:VisualElement name="time-field-row" class="field-row">
+				<ui:Label text="Time (minutes)" />
+				<ui:TextField name="time-field" />
+			</ui:VisualElement>
+			<ui:VisualElement name="score-field-row" class="field-row">
+				<ui:Label text="Score target" />
+				<ui:TextField name="score-field" />
+			</ui:VisualElement>
+			<ui:VisualElement class="field-row">
+				<ui:Label text="Damage strength" />
+				<ui:TextField name="damage-multiplier-field" />
+			</ui:VisualElement>
+			<ui:Button name="start-button" text="Start game" />
+		</ui:ScrollView>
+	</ui:VisualElement>
+</ui:UXML>

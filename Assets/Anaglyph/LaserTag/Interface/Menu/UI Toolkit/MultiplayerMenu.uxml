@@ -1,0 +1,17 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+	<Style src="LaserTagMenu.uss" />
+	<ui:Template name="MultiplayerHomePage" src="Pages/MultiplayerHomePage.uxml" />
+	<ui:Template name="MultiplayerHostSettingsPage" src="Pages/MultiplayerHostSettingsPage.uxml" />
+	<ui:Template name="MultiplayerManualConnectPage" src="Pages/MultiplayerManualConnectPage.uxml" />
+	<ui:Template name="MultiplayerSessionPage" src="Pages/MultiplayerSessionPage.uxml" />
+	<ui:Template name="MultiplayerNetworkErrorPage" src="Pages/MultiplayerNetworkErrorPage.uxml" />
+	<ui:VisualElement class="menu-root" picking-mode="Ignore">
+		<ui:VisualElement name="pages" class="pages">
+			<ui:Instance name="home-page" template="MultiplayerHomePage" class="nav-page" />
+			<ui:Instance name="host-settings-page" template="MultiplayerHostSettingsPage" class="nav-page" />
+			<ui:Instance name="manual-connect-page" template="MultiplayerManualConnectPage" class="nav-page" />
+			<ui:Instance name="session-page" template="MultiplayerSessionPage" class="nav-page" />
+			<ui:Instance name="network-error-modal" template="MultiplayerNetworkErrorPage" class="nav-page" />
+		</ui:VisualElement>
+	</ui:VisualElement>
+</ui:UXML>

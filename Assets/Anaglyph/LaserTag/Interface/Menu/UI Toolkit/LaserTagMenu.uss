@@ -1,0 +1,75 @@
+.menu-root {
+	flex-grow: 1;
+	padding: 16px;
+	background-color: rgba(20, 20, 20, 0.92);
+	color: rgb(255, 255, 255);
+	font-size: 20px;
+}
+
+.pages,
+.nav-page {
+	flex-grow: 1;
+}
+
+.nav-page {
+	justify-content: flex-start;
+}
+
+.page-template-root {
+	flex-grow: 1;
+	justify-content: flex-start;
+}
+
+.header {
+	flex-direction: row;
+	align-items: center;
+	min-height: 52px;
+	margin-bottom: 8px;
+}
+
+.title {
+	flex-grow: 1;
+	-unity-text-align: middle-center;
+	font-size: 28px;
+	-unity-font-style: bold;
+}
+
+.field-row {
+	margin-top: 4px;
+	margin-bottom: 4px;
+}
+
+.warning {
+	color: rgb(255, 210, 80);
+	white-space: normal;
+}
+
+.body-copy {
+	white-space: normal;
+	margin-top: 8px;
+	margin-bottom: 8px;
+}
+
+.version {
+	margin-top: auto;
+	font-size: 14px;
+	white-space: normal;
+}
+
+Button,
+Toggle,
+TextField {
+	min-height: 46px;
+	margin-top: 4px;
+	margin-bottom: 4px;
+	font-size: 20px;
+}
+
+Button,
+Toggle {
+	translate: 0 0 2px;
+}
+
+ScrollView {
+	flex-grow: 1;
+}

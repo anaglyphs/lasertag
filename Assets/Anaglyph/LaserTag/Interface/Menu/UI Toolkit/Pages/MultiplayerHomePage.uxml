@@ -1,0 +1,18 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+	<Style src="../LaserTagMenu.uss" />
+	<ui:Template name="NavHeader" src="../NavHeader.uxml" />
+	<ui:VisualElement class="page-template-root">
+		<ui:Instance template="NavHeader">
+			<ui:AttributeOverrides element-name="title" text="Connection" />
+			<ui:AttributeOverrides element-name="back-button" style="display: none;" />
+		</ui:Instance>
+		<ui:Label
+			name="no-full-internet-warning"
+			text="Some settings require a full internet connection."
+			class="warning" />
+		<ui:Button name="host-button" text="Host new game" />
+		<ui:Button name="host-settings-button" text="Host settings" />
+		<ui:Button name="manual-connect-button" text="Connect manually" />
+		<ui:Label name="version" class="version" />
+	</ui:VisualElement>
+</ui:UXML>
