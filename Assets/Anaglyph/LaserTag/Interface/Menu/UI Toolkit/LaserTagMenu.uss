@@ -1,105 +1,120 @@
 .menu-root {
-	flex-grow: 1;
-	padding: 16px;
-	background-color: rgb(20, 20, 20);
-	color: rgb(255, 255, 255);
-	font-size: 20px;
-	border-width: 2px;
-	border-color: rgb(255, 255, 255);
-
-	-unity-font-definition: url("/Assets/Playbeing/DInish/DINish-Regular SDF.asset");
+    flex-grow: 1;
+    padding: 16px;
+    background-color: rgb(20, 20, 20);
+    color: rgb(255, 255, 255);
+    font-size: 20px;
+    border-width: 2px;
+    border-color: rgb(255, 255, 255);
+    -unity-font-definition: url("project://database/Assets/Playbeing/DInish/DINishExpanded-Regular%20SDF.asset");
+    /*-unity-font-definition: url("project://database/Assets/Anaglyph/LaserTag/Interface/Fonts/zector/Zector SDF 1.asset");*/
 }
 
 .multiplayer-panel {
-	border-color: #FF0015;
-	background-color: #1B0021;
+    border-color: rgb(255, 0, 21);
+    background-color: rgb(27, 0, 33);
 }
 
 .game-panel {
-	border-color: #00FFAD;
-	background-color: #000E31;
+    border-color: rgb(0, 255, 173);
+    background-color: rgb(0, 14, 49);
 }
 
 .settings-panel {
-	border-color: #FF7400;
-	background-color: #182400;
+    border-color: rgb(255, 116, 0);
+    background-color: rgb(24, 36, 0);
+}
+
+.unity-toggle__checkmark,
+.back-button {
+	margin-right: 10px;
+}
+
+.unity-toggle__checkmark {
+	border-color: rgb(255, 255, 255);
+	background-color: rgba(0, 0, 0, 0);
 }
 
 .pages,
 .nav-page {
-	flex-grow: 1;
+    flex-grow: 1;
 }
 
 .nav-page {
-	justify-content: flex-start;
+    justify-content: flex-start;
 }
 
 .page-template-root {
-	flex-grow: 1;
-	justify-content: flex-start;
+    flex-grow: 1;
+    justify-content: flex-start;
 }
 
 .header {
-	flex-direction: row;
-	align-items: center;
-	min-height: 52px;
-	margin-bottom: 8px;
+    flex-direction: row;
+    align-items: center;
+    min-height: 52px;
+    margin-bottom: 8px;
 }
 
 .title {
-	flex-grow: 1;
-	-unity-text-align: middle-left;
-	font-size: 28px;
-	-unity-font-style: bold;
+    flex-grow: 1;
+    -unity-text-align: middle-left;
+    font-size: 28px;
+    -unity-font-style: bold;
 }
 
 .field-row {
-	margin-top: 4px;
-	margin-bottom: 4px;
+    margin-top: 4px;
+    margin-bottom: 4px;
 }
 
 .warning {
-	color: rgb(255, 210, 80);
-	white-space: normal;
+    color: rgb(255, 210, 80);
+    white-space: normal;
 }
 
 .body-copy {
-	white-space: normal;
-	margin-top: 8px;
-	margin-bottom: 8px;
+    white-space: normal;
+    margin-top: 8px;
+    margin-bottom: 8px;
 }
 
 .version {
-	margin-top: auto;
-	font-size: 14px;
-	white-space: normal;
+    margin-top: auto;
+    font-size: 14px;
+    white-space: normal;
 }
 
 Button {
-	-unity-text-align: middle-left;
-	border-width: 2px;
-	border-color: rgb(255, 255, 255);
-	background-color: rgb(100, 100, 100);
+    -unity-text-align: middle-left;
+    border-width: 2px;
+    border-color: rgb(255, 255, 255);
+    background-color: rgb(100, 100, 100);
 }
 
 Button,
 Toggle,
 TextField {
-	min-height: 46px;
-	margin-top: 4px;
-	margin-bottom: 4px;
-	font-size: 20px;
+    min-height: 46px;
+    margin-top: 4px;
+    margin-bottom: 4px;
+    font-size: 20px;
 }
 
 Button,
 Toggle {
-	translate: 0 0 5px;
+    translate: 0 0 5px;
 }
 
 .permission-toggle.permission-granted:disabled {
-	opacity: 1;
+    opacity: 1;
 }
 
 ScrollView {
-	flex-grow: 1;
+    flex-grow: 1;
+}
+
+.back-button {
+    aspect-ratio: 1;
+    min-height: auto;
 }

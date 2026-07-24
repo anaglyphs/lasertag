@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.TextCore;
 using UnityEngine.TextCore.LowLevel;
 using UnityEngine.TextCore.Text;
 
@@ -53,6 +54,10 @@ namespace Playbeing.DINish.Editor
                         unavailableGlyphCounts.Add(
                             $"{fontAsset.name}: {characterSet.Length - missingCharacters.Length}/{characterSet.Length} requested code points are present");
                     }
+                    
+                    FaceInfo faceInfo = fontAsset.faceInfo;
+                    faceInfo.baseline = 6;
+                    fontAsset.faceInfo = faceInfo;
 
                     EditorUtility.SetDirty(fontAsset);
                 }
