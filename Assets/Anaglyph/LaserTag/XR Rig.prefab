@@ -883,6 +883,8 @@ PrefabInstance:
     m_RemovedComponents:
     - {fileID: 2425337985288985396, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
     - {fileID: 879537409396232532, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
+    - {fileID: 6558156966219747756, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
+    - {fileID: 2326071645154085115, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
     m_RemovedGameObjects:
     - {fileID: 3496596133031611796, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
     - {fileID: 1805105538219129093, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
@@ -1135,26 +1137,6 @@ MonoBehaviour:
         m_Flags: 0
       m_Flags: 0
     m_Reference: {fileID: 0}
-  trackingState:
-    m_UseReference: 0
-    m_Action:
-      m_Name: Tracking State
-      m_Type: 0
-      m_ExpectedControlType: 
-      m_Id: 8f24498e-d175-4830-b6f7-c3f4d4ca2410
-      m_Processors: 
-      m_Interactions: 
-      m_SingletonActionBindings:
-      - m_Name: 
-        m_Id: f35469ae-434b-40eb-93d2-c30710a95c37
-        m_Path: <XRController>{RightHand}/trackingState
-        m_Interactions: 
-        m_Processors: 
-        m_Groups: 
-        m_Action: Tracking State
-        m_Flags: 0
-      m_Flags: 0
-    m_Reference: {fileID: 0}
   pointPosition:
     m_UseReference: 0
     m_Action:
@@ -1225,6 +1207,26 @@ MonoBehaviour:
         m_Groups: 
         m_Action: Point Rotation
         m_Flags: 8
+      m_Flags: 0
+    m_Reference: {fileID: 0}
+  trackingState:
+    m_UseReference: 0
+    m_Action:
+      m_Name: Tracking State
+      m_Type: 0
+      m_ExpectedControlType: 
+      m_Id: 8f24498e-d175-4830-b6f7-c3f4d4ca2410
+      m_Processors: 
+      m_Interactions: 
+      m_SingletonActionBindings:
+      - m_Name: 
+        m_Id: f35469ae-434b-40eb-93d2-c30710a95c37
+        m_Path: <XRController>{RightHand}/trackingState
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: Tracking State
+        m_Flags: 0
       m_Flags: 0
     m_Reference: {fileID: 0}
   interactor: {fileID: 1566182161945705153}
@@ -1477,26 +1479,6 @@ MonoBehaviour:
         m_Flags: 0
       m_Flags: 0
     m_Reference: {fileID: 0}
-  trackingState:
-    m_UseReference: 0
-    m_Action:
-      m_Name: Tracking State
-      m_Type: 0
-      m_ExpectedControlType: 
-      m_Id: 166befae-4419-43c4-af5b-8990cdf9d46a
-      m_Processors: 
-      m_Interactions: 
-      m_SingletonActionBindings:
-      - m_Name: 
-        m_Id: c74da838-b5ae-46f9-a0ec-99c628bdb26d
-        m_Path: <XRController>{LeftHand}/trackingState
-        m_Interactions: 
-        m_Processors: 
-        m_Groups: 
-        m_Action: Tracking State
-        m_Flags: 0
-      m_Flags: 0
-    m_Reference: {fileID: 0}
   pointPosition:
     m_UseReference: 0
     m_Action:
@@ -1567,6 +1549,26 @@ MonoBehaviour:
         m_Groups: 
         m_Action: Point Rotation
         m_Flags: 8
+      m_Flags: 0
+    m_Reference: {fileID: 0}
+  trackingState:
+    m_UseReference: 0
+    m_Action:
+      m_Name: Tracking State
+      m_Type: 0
+      m_ExpectedControlType: 
+      m_Id: 166befae-4419-43c4-af5b-8990cdf9d46a
+      m_Processors: 
+      m_Interactions: 
+      m_SingletonActionBindings:
+      - m_Name: 
+        m_Id: c74da838-b5ae-46f9-a0ec-99c628bdb26d
+        m_Path: <XRController>{LeftHand}/trackingState
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: Tracking State
+        m_Flags: 0
       m_Flags: 0
     m_Reference: {fileID: 0}
   interactor: {fileID: 1859463319553081786}

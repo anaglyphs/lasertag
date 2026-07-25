@@ -17,6 +17,7 @@ namespace Anaglyph.Input
 
 		// Raised whenever the assigned hand changes (null when cleared).
 		public event Action<HandInput> Changed;
+		public event Action<bool> IsTrackingChanged;
 
 		// Pose is reported in the rig's tracking space (see HandInput) — apply it
 		// as LOCAL position/rotation under the XR Origin, not world space.
@@ -26,6 +27,7 @@ namespace Anaglyph.Input
 		public Vector3 PointPosition => current ? current.PointPosition : Vector3.zero;
 		public Quaternion PointRotation => current ? current.PointRotation : Quaternion.identity;
 		public Vector3 PointForward => current ? current.PointForward : Vector3.forward;
+		public bool IsTracking => current && current.IsTracking;
 
 		// Each Bind keeps the original callback (for Unbind matching) alongside the
 		// wrapper actually subscribed to the action.
@@ -40,18 +42,38 @@ namespace Anaglyph.Input
 
 		private void Start()
 		{
-			if (current != null) Subscribe(current);
+			if(current != null) ReallyAssign(current);
 		}
 
 		public void Assign(HandInput hand)
 		{
-			if (hand == current) return;
+			if (hand != current) ReallyAssign(hand);
+		}
+
+		private void ReallyAssign(HandInput hand)
+		{
+			if (current != null)
+			{
+				current.IsTrackingChanged -= OnCurrentHandTrackingChanged;
+				OnCurrentHandTrackingChanged(false);
+			}
 
 			Unsubscribe(current);
 			current = hand;
 			Subscribe(current);
 
 			Changed?.Invoke(current);
+
+			if (current != null)
+			{
+				current.IsTrackingChanged += OnCurrentHandTrackingChanged;
+				OnCurrentHandTrackingChanged(current.IsTracking);
+			}
+		}
+
+		private void OnCurrentHandTrackingChanged(bool isTracking)
+		{
+			IsTrackingChanged?.Invoke(isTracking);
 		}
 
 		// Subscribe a callback to a named action on whichever hand is assigned,

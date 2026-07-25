@@ -18,10 +18,11 @@ namespace Anaglyph.Input
 		[SerializeField] private InputActionMap actionMap;
 		[SerializeField] private InputActionProperty position; // pointerPosition
 		[SerializeField] private InputActionProperty rotation; // pointerRotation
-		[SerializeField] private InputActionProperty trackingState;
 
 		[SerializeField] private InputActionProperty pointPosition;
 		[SerializeField] private InputActionProperty pointRotation;
+		
+		[SerializeField] private InputActionProperty trackingState;
 
 		[SerializeField] private XRRayInteractor interactor;
 
@@ -34,10 +35,10 @@ namespace Anaglyph.Input
 		public Vector3 Position => position.action.ReadValue<Vector3>();
 		public Quaternion Rotation => rotation.action.ReadValue<Quaternion>();
 		public Vector3 Forward => Rotation * Vector3.forward;
-		public bool Tracked => trackingState.action.ReadValue<bool>();
 		public Vector3 PointPosition => pointPosition.action.ReadValue<Vector3>();
 		public Quaternion PointRotation => pointRotation.action.ReadValue<Quaternion>();
 		public Vector3 PointForward => PointRotation * Vector3.forward;
+		public bool IsTracking => trackingState.action.ReadValue<int>() != 0;
 
 		// interactor.IsOverUIGameObject() is randomly returning true and I don't know why...
 		// I'm not using uGUI canvases anymore so I don't need it /shrug
@@ -63,10 +64,23 @@ namespace Anaglyph.Input
 		}
 
 		public static event Action<HandInput> Registered;
+		public event Action<bool> IsTrackingChanged;
 
 		private void Awake()
 		{
 			hands[handedness] = this;
+			
+			trackingState.action.performed += OnTrackingStateChanged;
+		}
+		
+		private void OnTrackingStateChanged(InputAction.CallbackContext tracked)
+		{
+			IsTrackingChanged?.Invoke(tracked.ReadValue<int>() != 0);
+		}
+
+		private void OnDestroy()
+		{
+			trackingState.action.performed -= OnTrackingStateChanged;
 		}
 
 		private void OnEnable()

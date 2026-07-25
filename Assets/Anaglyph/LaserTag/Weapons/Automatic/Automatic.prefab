@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 3363662374572483175}
   - component: {fileID: 3224451825713230129}
   - component: {fileID: 6145395271586537008}
+  - component: {fileID: 6249793188885382161}
   - component: {fileID: 1241323168102190078}
   m_Layer: 0
   m_Name: Automatic
@@ -77,7 +78,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 05b75b37666bc1641a6395ce12df8258, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  fireAction: Activate
   boltPrefab: {fileID: 6335627118381249066, guid: adc581b48dccfb24ebccf6aaa9b8df75, type: 3}
   emitFromTransform: {fileID: 2570423628254437316}
   onFire:
@@ -153,6 +153,19 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &6249793188885382161
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3351604493564354878}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 238bab5240b05ad459c0dd631822bf57, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Input::Anaglyph.Input.DeactivateUntracked
+  handSubject: {fileID: 0}
 --- !u!82 &1241323168102190078
 AudioSource:
   m_ObjectHideFlags: 0

@@ -67,8 +67,8 @@ namespace Anaglyph.Lasertag
 
 			InputDeviceCharacteristics chars = follow.characteristics;
 
-			if (chars.HasFlag(InputDeviceCharacteristics.HeldInHand
-			                  & InputDeviceCharacteristics.TrackedDevice))
+			if ((chars & InputDeviceCharacteristics.HeldInHand
+			           & InputDeviceCharacteristics.TrackedDevice) != 0)
 			{
 				Vector3 pos = Vector3.zero;
 				follow.TryGetFeatureValue(CommonUsages.devicePosition, out pos);

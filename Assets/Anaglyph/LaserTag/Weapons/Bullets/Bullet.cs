@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
 using Unity.Netcode;
@@ -21,6 +22,8 @@ namespace Anaglyph.Lasertag
 
 		[SerializeField] private AudioClip fireSFX;
 		[SerializeField] private AudioClip collideSFX;
+		
+		private List<IDamageable> damageableBuffer = new();
 
 		[Serializable, StructLayout(LayoutKind.Sequential)]
 		public struct ShotData : INetworkSerializeByMemcpy
@@ -128,7 +131,7 @@ namespace Anaglyph.Lasertag
 						damage = damage
 					};
 
-					IDamageable.DamageHierarchy(col.transform.root, damageData);
+					IDamageable.DamageHierarchy(col.transform.root, damageData, damageableBuffer);
 				}
 
 				if (travelDist > MaxTravelDist)

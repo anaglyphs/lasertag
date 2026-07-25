@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 4685974481418243677}
   - component: {fileID: 2425337985288985396}
-  - component: {fileID: 6558156966219747756}
   m_Layer: 0
   m_Name: Left Aim
   m_TagString: Untagged
@@ -128,38 +127,6 @@ MonoBehaviour:
     m_Interactions: 
     m_SingletonActionBindings: []
     m_Flags: 0
---- !u!114 &6558156966219747756
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 603982319059033611}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 238bab5240b05ad459c0dd631822bf57, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  action:
-    m_UseReference: 0
-    m_Action:
-      m_Name: Action
-      m_Type: 0
-      m_ExpectedControlType: 
-      m_Id: 39a38325-a979-4ee9-90a5-52acbfe41af8
-      m_Processors: 
-      m_Interactions: 
-      m_SingletonActionBindings:
-      - m_Name: 
-        m_Id: fbbcf346-71d9-4a61-86a1-e69ac1b921fd
-        m_Path: <XRController>{LeftHand}/isTracked
-        m_Interactions: 
-        m_Processors: 
-        m_Groups: 
-        m_Action: Action
-        m_Flags: 0
-      m_Flags: 0
-    m_Reference: {fileID: 0}
 --- !u!1 &1805105538219129093
 GameObject:
   m_ObjectHideFlags: 0
@@ -170,7 +137,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1195462185485028878}
   - component: {fileID: 7884688043262769849}
-  - component: {fileID: 6719567646962728335}
   - component: {fileID: 2653058899222645203}
   m_Layer: 0
   m_Name: Left Grip
@@ -287,38 +253,6 @@ MonoBehaviour:
     m_Interactions: 
     m_SingletonActionBindings: []
     m_Flags: 0
---- !u!114 &6719567646962728335
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1805105538219129093}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 238bab5240b05ad459c0dd631822bf57, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  action:
-    m_UseReference: 0
-    m_Action:
-      m_Name: Action
-      m_Type: 0
-      m_ExpectedControlType: 
-      m_Id: 39a38325-a979-4ee9-90a5-52acbfe41af8
-      m_Processors: 
-      m_Interactions: 
-      m_SingletonActionBindings:
-      - m_Name: 
-        m_Id: fbbcf346-71d9-4a61-86a1-e69ac1b921fd
-        m_Path: <XRController>{LeftHand}/isTracked
-        m_Interactions: 
-        m_Processors: 
-        m_Groups: 
-        m_Action: Action
-        m_Flags: 0
-      m_Flags: 0
-    m_Reference: {fileID: 0}
 --- !u!114 &2653058899222645203
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -379,7 +313,6 @@ GameObject:
   m_Component:
   - component: {fileID: 9110444837559371520}
   - component: {fileID: 879537409396232532}
-  - component: {fileID: 2326071645154085115}
   m_Layer: 0
   m_Name: Right Aim
   m_TagString: Untagged
@@ -497,38 +430,6 @@ MonoBehaviour:
     m_Interactions: 
     m_SingletonActionBindings: []
     m_Flags: 0
---- !u!114 &2326071645154085115
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3320372390444132630}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 238bab5240b05ad459c0dd631822bf57, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  action:
-    m_UseReference: 0
-    m_Action:
-      m_Name: Action
-      m_Type: 0
-      m_ExpectedControlType: 
-      m_Id: 39a38325-a979-4ee9-90a5-52acbfe41af8
-      m_Processors: 
-      m_Interactions: 
-      m_SingletonActionBindings:
-      - m_Name: 
-        m_Id: fbbcf346-71d9-4a61-86a1-e69ac1b921fd
-        m_Path: <XRController>{RightHand}/isTracked
-        m_Interactions: 
-        m_Processors: 
-        m_Groups: 
-        m_Action: Action
-        m_Flags: 0
-      m_Flags: 0
-    m_Reference: {fileID: 0}
 --- !u!1 &3496596133031611796
 GameObject:
   m_ObjectHideFlags: 0
@@ -539,7 +440,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1068842471522357230}
   - component: {fileID: 1749718957338282159}
-  - component: {fileID: 8020841859074900826}
   - component: {fileID: 3232850999001106056}
   m_Layer: 0
   m_Name: Right Grip
@@ -656,38 +556,6 @@ MonoBehaviour:
     m_Interactions: 
     m_SingletonActionBindings: []
     m_Flags: 0
---- !u!114 &8020841859074900826
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3496596133031611796}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 238bab5240b05ad459c0dd631822bf57, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  action:
-    m_UseReference: 0
-    m_Action:
-      m_Name: Action
-      m_Type: 0
-      m_ExpectedControlType: 
-      m_Id: 39a38325-a979-4ee9-90a5-52acbfe41af8
-      m_Processors: 
-      m_Interactions: 
-      m_SingletonActionBindings:
-      - m_Name: 
-        m_Id: fbbcf346-71d9-4a61-86a1-e69ac1b921fd
-        m_Path: <XRController>{RightHand}/isTracked
-        m_Interactions: 
-        m_Processors: 
-        m_Groups: 
-        m_Action: Action
-        m_Flags: 0
-      m_Flags: 0
-    m_Reference: {fileID: 0}
 --- !u!114 &3232850999001106056
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -990,6 +858,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   m_PhysicsTriggerInteraction: 1
+  m_SnapVolumeInteraction: 0
   m_UIDocumentTriggerInteraction: 1
   m_RequirePokeFilter: 1
   m_EnableUIInteraction: 1
@@ -1477,6 +1346,7 @@ MonoBehaviour:
     m_Bits: 32
   m_RaycastTriggerInteraction: 1
   m_RaycastSnapVolumeInteraction: 1
+  m_RaycastUIDocumentTriggerInteraction: 1
   m_HitClosestOnly: 1
   m_HoverToSelect: 0
   m_HoverTimeToSelect: 0.5
@@ -1723,6 +1593,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   m_PhysicsTriggerInteraction: 1
+  m_SnapVolumeInteraction: 0
   m_UIDocumentTriggerInteraction: 1
   m_RequirePokeFilter: 1
   m_EnableUIInteraction: 1
@@ -2210,6 +2081,7 @@ MonoBehaviour:
     m_Bits: 32
   m_RaycastTriggerInteraction: 1
   m_RaycastSnapVolumeInteraction: 1
+  m_RaycastUIDocumentTriggerInteraction: 1
   m_HitClosestOnly: 1
   m_HoverToSelect: 0
   m_HoverTimeToSelect: 0.5
@@ -2494,7 +2366,9 @@ MonoBehaviour:
   m_RepeatRate: 0.1
   m_TrackedDeviceDragThresholdMultiplier: 1.4
   m_TrackedScrollDeltaMultiplier: 5
+  m_NonTrackedScrollDeltaMultiplier: 6
   m_BypassUIToolkitEvents: 0
+  m_PrioritizeDistanceSorting: 0
   m_ActiveInputMode: 2
   m_EnableXRInput: 1
   m_EnableMouseInput: 1

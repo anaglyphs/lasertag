@@ -114,6 +114,7 @@ namespace Anaglyph.Netcode
 					break;
 
 				case Protocol.UnityService:
+					// DistributedAuthorityTransport is annoyingly marked internal
 					newTransport = manager.GetComponent("DistributedAuthorityTransport") as UnityTransport;
 					Debug.Log(newTransport.name);
 					break;
