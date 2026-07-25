@@ -1,17 +1,14 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
-	<Style src="../LaserTagMenu.uss" />
-	<ui:Template name="NavHeader" src="../NavHeader.uxml" />
-	<ui:VisualElement class="page-template-root">
-		<ui:Instance template="NavHeader">
-			<ui:AttributeOverrides element-name="title" text="Debugging" />
-		</ui:Instance>
-		<ui:Toggle name="debug-mode-toggle" text="Debug mode" />
-		<ui:Toggle name="show-debug-mesh-toggle" text="Show debug mesh" />
-		<ui:Button
-			name="show-debug-mesh-for-everyone"
-			text="Show mesh for everyone" />
-		<ui:Button
-			name="hide-debug-mesh-for-everyone"
-			text="Hide mesh for everyone" />
-	</ui:VisualElement>
+    <ui:Template name="NavHeader" src="project://database/Assets/Anaglyph/LaserTag/Interface/Menu/UI%20Toolkit/NavHeader.uxml?fileID=9197481963319205126&amp;guid=6fb045f52b6e5428ea70fca9635fe4c6&amp;type=3#NavHeader"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/Menu/UI%20Toolkit/LaserTagMenu.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagMenu"/>
+    <ui:VisualElement class="page-template-root">
+        <ui:Instance template="NavHeader">
+            <AttributeOverrides element-name="title" text="Debugging"/>
+        </ui:Instance>
+        <ui:Button name="console-button" text="Console"/>
+        <ui:Toggle name="debug-mode-toggle" text="Debug mode"/>
+        <ui:Toggle name="show-debug-mesh-toggle" text="Show debug mesh"/>
+        <ui:Button name="show-debug-mesh-for-everyone" text="Show mesh for everyone"/>
+        <ui:Button name="hide-debug-mesh-for-everyone" text="Hide mesh for everyone"/>
+    </ui:VisualElement>
 </ui:UXML>

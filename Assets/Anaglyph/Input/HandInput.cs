@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.UIElements;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
+using UnityEngine.XR.Interaction.Toolkit.UI;
 
 namespace Anaglyph.Input
 {
@@ -41,21 +41,24 @@ namespace Anaglyph.Input
 
 		// True while this hand's ray is over UI; gameplay binds routed through
 		// HandSubject are suppressed while set (pose stays live). Computed live so
-		// it reflects the ray at the exact moment of the input callback and can't
-		// go stale or depend on Update order. OR in more gates here later (dead,
-		// menu open, …).
+		// uGUI reflects the ray at the exact moment of the input callback. UI
+		// Toolkit hover is tracked from XRI's element-level hover events so blank
+		// areas of a world-space document collider do not block gameplay.
 		public bool InputBlocked => interactor &&
-			(interactor.IsOverUIGameObject() || IsOverWorldSpaceUIDocument());
+			(interactor.IsOverUIGameObject() || isOverWorldSpaceUIToolkit);
 
-		private bool IsOverWorldSpaceUIDocument()
+		private bool isOverWorldSpaceUIToolkit;
+
+		private void OnUIHoverEntered(UIHoverEventArgs args)
 		{
-			// UI Toolkit documents are 3D collider hits rather than EventSystem
-			// raycast results, so IsOverUIGameObject() does not include them.
-			return interactor.enableUIInteraction &&
-				interactor.TryGetCurrent3DRaycastHit(out RaycastHit hit) &&
-				hit.collider &&
-				hit.collider.TryGetComponent(out UIDocument document) &&
-				document.isActiveAndEnabled;
+			if (args.uiSystem == UIHoverEventArgs.UISystem.UIToolkit)
+				isOverWorldSpaceUIToolkit = true;
+		}
+
+		private void OnUIHoverExited(UIHoverEventArgs args)
+		{
+			if (args.uiSystem == UIHoverEventArgs.UISystem.UIToolkit)
+				isOverWorldSpaceUIToolkit = false;
 		}
 
 		public static HandInput Get(Handedness h)
@@ -72,6 +75,12 @@ namespace Anaglyph.Input
 
 		private void OnEnable()
 		{
+			if (interactor)
+			{
+				interactor.uiHoverEntered.AddListener(OnUIHoverEntered);
+				interactor.uiHoverExited.AddListener(OnUIHoverExited);
+			}
+
 			position.action.Enable();
 			rotation.action.Enable();
 			pointPosition.action.Enable();
@@ -83,6 +92,13 @@ namespace Anaglyph.Input
 
 		private void OnDisable()
 		{
+			if (interactor)
+			{
+				interactor.uiHoverEntered.RemoveListener(OnUIHoverEntered);
+				interactor.uiHoverExited.RemoveListener(OnUIHoverExited);
+			}
+			isOverWorldSpaceUIToolkit = false;
+
 			position.action.Disable();
 			rotation.action.Disable();
 			pointPosition.action.Disable();

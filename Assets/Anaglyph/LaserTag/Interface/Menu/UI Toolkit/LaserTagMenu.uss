@@ -36,10 +36,15 @@
 }
 
 .unity-base-text-field > .unity-base-text-field__input,
-.unity-toggle > .unity-toggle__input > .unity-toggle__checkmark {
-	border-color: rgb(255, 255, 255);
+.unity-toggle > .unity-toggle__input > .unity-toggle__checkmark,
+Button {
 	background-color: rgba(0, 0, 0, 0);
-	border-width: 2px;
+	border-width: 1px;
+	border-color: rgb(255, 255, 255);
+}
+
+Toggle {
+	min-height: 30px;
 }
 
 .unity-toggle > .unity-toggle__input:checked > .unity-toggle__checkmark {
@@ -99,9 +104,7 @@
 
 Button {
     -unity-text-align: middle-left;
-    border-width: 2px;
-    border-color: rgb(255, 255, 255);
-    background-color: rgb(100, 100, 100);
+    background-color: rgb(70, 70, 70);
 }
 
 Button,
@@ -111,11 +114,15 @@ TextField {
     margin-top: 4px;
     margin-bottom: 4px;
     font-size: 20px;
+	translate: 0 0 5px;
+	justify-content: center;
 }
 
-Button,
-Toggle {
-    translate: 0 0 5px;
+.unity-toggle__text {
+	padding-top: 0;
+	padding-bottom: 0;
+	margin-top: 0;
+	margin-bottom: 0;
 }
 
 .permission-toggle.permission-granted:disabled {
@@ -140,7 +147,7 @@ ScrollView {
     flex-basis: 0;
     min-height: 0;
     overflow: hidden;
-    border-width: 2px;
+    border-width: 1px;
     border-color: rgba(255, 255, 255, 0.4);
     background-color: rgba(0, 0, 0, 0.5);
     padding: 6px;

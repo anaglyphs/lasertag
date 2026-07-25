@@ -5,10 +5,9 @@
         <ui:Instance template="NavHeader">
             <AttributeOverrides element-name="title" text="Settings"/>
         </ui:Instance>
-        <ui:Button name="debugging-button" text="Debugging"/>
-        <ui:Button name="console-button" text="Console"/>
         <ui:Button name="graphics-button" text="Graphics"/>
         <ui:Button name="boundary-button" text="Boundary"/>
+        <ui:Button name="debugging-button" text="Debugging"/>
         <ui:Label name="version" class="version"/>
     </ui:VisualElement>
 </ui:UXML>
