@@ -21,6 +21,9 @@ namespace Anaglyph.Lasertag
 		{
 			MapEditor.ActiveChanged += gameObject.SetActive;
 			gameObject.SetActive(MapEditor.IsActive);
+
+			if (handSubject.Current == null)
+				handSubject.Assign(HandInput.Get(Handedness.Left));
 		}
 
 		private void OnDestroy()

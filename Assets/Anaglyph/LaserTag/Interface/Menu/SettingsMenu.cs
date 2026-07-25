@@ -16,6 +16,8 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private StringObject buildNumber;
 
 		private UIToolkitNavPages navView;
+		private UIToolkitNavPage consolePage;
+		private InGameConsoleView consoleView;
 		private Toggle debugModeToggle;
 		private Toggle showDebugMeshToggle;
 		private Button showDebugMeshForEveryone;
@@ -32,15 +34,24 @@ namespace Anaglyph.Lasertag
 				throw new InvalidOperationException(
 					"SettingsMenu requires an enabled UIDocument with a visual tree.");
 
+			// must happen before anything subscribes to Button.clicked
+			root.MakeButtonsActOnPress();
+
 			navView = new UIToolkitNavPages(Require<VisualElement>(root, "pages"));
 			UIToolkitNavPage homePage = navView.AddPage("home-page", false);
 			UIToolkitNavPage debuggingPage = navView.AddPage("debugging-page");
 			UIToolkitNavPage graphicsPage = navView.AddPage("graphics-page");
 			UIToolkitNavPage boundaryPage = navView.AddPage("boundary-page");
+			consolePage = navView.AddPage("console-page");
 
 			Require<Button>(root, "debugging-button").clicked += debuggingPage.NavigateHere;
 			Require<Button>(root, "graphics-button").clicked += graphicsPage.NavigateHere;
 			Require<Button>(root, "boundary-button").clicked += boundaryPage.NavigateHere;
+			Require<Button>(root, "console-button").clicked += consolePage.NavigateHere;
+
+			// the console only processes log messages while its page is on screen
+			consoleView = new InGameConsoleView(consolePage.Root);
+			navView.Changed += OnNavPageChanged;
 
 			debugModeToggle = Require<Toggle>(root, "debug-mode-toggle");
 			showDebugMeshToggle = Require<Toggle>(root, "show-debug-mesh-toggle");
@@ -101,6 +112,14 @@ namespace Anaglyph.Lasertag
 			boundarySetting.Changed -= OnBoundaryChanged;
 			navView?.Dispose();
 			navView = null;
+			consoleView?.Dispose();
+			consoleView = null;
+			consolePage = null;
+		}
+
+		private void OnNavPageChanged(UIToolkitNavPage page)
+		{
+			consoleView?.SetVisible(page == consolePage);
 		}
 
 		private void OnNetcodeStateChanged(NetcodeState state)

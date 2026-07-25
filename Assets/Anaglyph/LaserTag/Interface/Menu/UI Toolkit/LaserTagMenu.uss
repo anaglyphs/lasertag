@@ -1,3 +1,8 @@
+* {
+	-unity-font-definition: url("project://database/Assets/Fonts/DInish/DINish-Regular SDF.asset");
+	color: rgb(255, 255, 255);
+}
+
 .menu-root {
     flex-grow: 1;
     padding: 16px;
@@ -6,7 +11,7 @@
     font-size: 20px;
     border-width: 2px;
     border-color: rgb(255, 255, 255);
-    -unity-font-definition: url("project://database/Assets/Playbeing/DInish/DINish-Regular SDF.asset");
+    
     /*-unity-font-definition: url("project://database/Assets/Anaglyph/LaserTag/Interface/Fonts/zector/Zector SDF 1.asset");*/
 }
 
@@ -124,6 +129,52 @@ ScrollView {
 .back-button {
     aspect-ratio: 1;
     min-height: auto;
+}
+
+/* ================= console ================= */
+
+.console-scroll {
+    /* size from the space left over, never from the log inside it */
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    min-height: 0;
+    overflow: hidden;
+    border-width: 2px;
+    border-color: rgba(255, 255, 255, 0.4);
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 6px;
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+
+.console-entry {
+    font-size: 14px;
+    white-space: normal;
+    margin-bottom: 6px;
+}
+
+.console-entry.console-entry-warning {
+    color: rgb(255, 210, 80);
+}
+
+.console-entry.console-entry-error {
+    color: rgb(255, 130, 130);
+}
+
+.console-controls {
+    flex-direction: row;
+    align-items: center;
+}
+
+.console-controls > Toggle {
+    flex-grow: 1;
+}
+
+.console-clear-button {
+    width: 130px;
+    margin-left: 8px;
+    -unity-text-align: middle-center;
 }
 
 /* ================= HUD ================= */

@@ -1,5 +1,6 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
     <ui:Template name="SettingsBoundaryPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Menu/UI%20Toolkit/Pages/SettingsBoundaryPage.uxml?fileID=9197481963319205126&amp;guid=54dec3e4bde5b40b6a80b8536f876a81&amp;type=3#SettingsBoundaryPage"/>
+    <ui:Template name="SettingsConsolePage" src="Pages/SettingsConsolePage.uxml"/>
     <ui:Template name="SettingsDebuggingPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Menu/UI%20Toolkit/Pages/SettingsDebuggingPage.uxml?fileID=9197481963319205126&amp;guid=9bf826ccd1d164ad3b161157ee49f263&amp;type=3#SettingsDebuggingPage"/>
     <ui:Template name="SettingsGraphicsPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Menu/UI%20Toolkit/Pages/SettingsGraphicsPage.uxml?fileID=9197481963319205126&amp;guid=973da39e3ff984cecaae07976fa2d51e&amp;type=3#SettingsGraphicsPage"/>
     <ui:Template name="SettingsHomePage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Menu/UI%20Toolkit/Pages/SettingsHomePage.uxml?fileID=9197481963319205126&amp;guid=88766cfbe7d504cd799b5f088fbf7100&amp;type=3#SettingsHomePage"/>
@@ -8,6 +9,7 @@
         <ui:VisualElement name="pages" class="pages">
             <ui:Instance name="home-page" template="SettingsHomePage" class="nav-page"/>
             <ui:Instance name="debugging-page" template="SettingsDebuggingPage" class="nav-page"/>
+            <ui:Instance name="console-page" template="SettingsConsolePage" class="nav-page"/>
             <ui:Instance name="graphics-page" template="SettingsGraphicsPage" class="nav-page"/>
             <ui:Instance name="boundary-page" template="SettingsBoundaryPage" class="nav-page"/>
         </ui:VisualElement>

@@ -3,12 +3,12 @@
     <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/Menu/UI%20Toolkit/LaserTagMenu.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagMenu"/>
     <ui:VisualElement class="page-template-root">
         <ui:Instance template="NavHeader">
-            <AttributeOverrides element-name="title" text="Settings"/>
+            <AttributeOverrides element-name="title" text="Console"/>
         </ui:Instance>
-        <ui:Button name="debugging-button" text="Debugging"/>
-        <ui:Button name="console-button" text="Console"/>
-        <ui:Button name="graphics-button" text="Graphics"/>
-        <ui:Button name="boundary-button" text="Boundary"/>
-        <ui:Label name="version" class="version"/>
+        <ui:ScrollView name="console-scroll" class="console-scroll"/>
+        <ui:VisualElement class="console-controls">
+            <ui:Toggle name="console-stack-traces-toggle" text="Stack traces"/>
+            <ui:Button name="console-clear-button" text="Clear" class="console-clear-button"/>
+        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

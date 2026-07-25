@@ -1,104 +1,106 @@
 using System;
-using TMPro;
+using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UI;
 
-public class InGameConsole : MonoBehaviour
+namespace Anaglyph
 {
-	public static bool longMessagesEnabled = true;
-
-	private const int MaxCharacters = 10000;
-	private const string logStart = "--- start ---";
-	private const string colorClosing = "</color>";
-
-	private static string lastLogEntry = "";
-	private static string log = logStart;
-
-	[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-	private static void OnBeforeSceneLoadRuntimeMethod()
+	/// <summary>
+	/// Captures Unity log messages at runtime so they can be shown in-game.
+	/// Capturing is always on and cheap - nothing is formatted or drawn here.
+	/// Drawing is up to a listener such as <see cref="InGameConsoleView"/>.
+	/// </summary>
+	public static class InGameConsole
 	{
-		Application.logMessageReceived += OnLog;
-	}
-
-	private void OnApplicationQuit()
-	{
-		Application.logMessageReceived -= OnLog;
-		onLogUpdated = delegate { };
-	}
-
-	private static void OnLog(string condition, string trace, LogType type)
-	{
-		Color entryColor = Color.white;
-
-		bool isError = type == LogType.Error || type == LogType.Exception;
-
-		if (type == LogType.Warning)
-			entryColor = new Color(1, 1, 0.5f);
-		else if (isError) entryColor = new Color(1, 0.5f, 0.5f);
-
-		string entryBody = isError && longMessagesEnabled ? $"\n{trace}" : "";
-
-		string logEntry =
-			$"\n\n<color=#{ColorUtility.ToHtmlStringRGB(entryColor)}><b>{condition}</b>{entryBody}</color>";
-
-		if (logEntry.Equals(lastLogEntry))
-			return;
-
-		lastLogEntry = logEntry;
-
-		log += logEntry;
-
-		if (log.Length > MaxCharacters)
+		public readonly struct Entry
 		{
-			int firstColorClosingIndex = log.IndexOf(colorClosing, log.Length - MaxCharacters);
-			log = log.Substring(firstColorClosingIndex + colorClosing.Length);
+			public readonly string message;
+			public readonly string stackTrace;
+			public readonly LogType type;
+
+			/// <summary>How many times this message arrived in a row. 1 the first time.</summary>
+			public readonly int repeats;
+
+			public Entry(string message, string stackTrace, LogType type, int repeats)
+			{
+				this.message = message;
+				this.stackTrace = stackTrace;
+				this.type = type;
+				this.repeats = repeats;
+			}
+
+			public bool IsError => type is LogType.Error or LogType.Exception or LogType.Assert;
+
+			public Entry Repeated() => new(message, stackTrace, type, repeats + 1);
 		}
 
-		onLogUpdated.Invoke();
-	}
+		public const int MaxEntries = 256;
 
-	private static Action onLogUpdated = delegate { };
+		private static readonly List<Entry> entries = new(MaxEntries);
 
-	[SerializeField] private TMP_Text consoleText;
-	[SerializeField] private ScrollRect rect;
+		/// <summary>Oldest first. Only valid on the main thread.</summary>
+		public static IReadOnlyList<Entry> Entries => entries;
 
-	private void OnEnable()
-	{
-		UpdateText();
-		onLogUpdated += UpdateText;
-	}
+		/// <summary>
+		/// Bumped every time the log changes. A hidden view can compare this against
+		/// what it last drew to tell whether it needs to redraw at all.
+		/// </summary>
+		public static int Version { get; private set; }
 
-	private void Start()
-	{
-		onLogUpdated.Invoke();
-	}
+		/// <summary>Whether stack traces are appended to error entries.</summary>
+		public static bool StackTracesEnabled { get; set; } = true;
 
-	private void OnDisable()
-	{
-		onLogUpdated -= UpdateText;
-	}
+		/// <summary>
+		/// Invoked with the new entry and whether the oldest entry was dropped to make room for it.
+		/// </summary>
+		public static event Action<Entry, bool> EntryAdded = delegate { };
 
-	public void SetLongMessagesOn(bool enabled)
-	{
-		longMessagesEnabled = enabled;
-	}
+		/// <summary>Invoked with the newest entry when it repeats instead of a new entry being added.</summary>
+		public static event Action<Entry> LastEntryChanged = delegate { };
 
-	public void Clear()
-	{
-		log = logStart;
-		UpdateText();
-	}
+		public static event Action Cleared = delegate { };
 
-	private async void UpdateText()
-	{
-		bool atBottom = rect.verticalNormalizedPosition < 0.0001f;
-
-		consoleText.text = log;
-
-		if (atBottom)
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+		private static void Initialize()
 		{
-			await Awaitable.EndOfFrameAsync();
-			rect.verticalNormalizedPosition = 0;
+			// statics survive play sessions when domain reloading is off
+			entries.Clear();
+			Version = 0;
+
+			Application.logMessageReceived -= OnLogMessageReceived;
+			Application.logMessageReceived += OnLogMessageReceived;
+		}
+
+		private static void OnLogMessageReceived(string message, string stackTrace, LogType type)
+		{
+			Version++;
+
+			if (entries.Count > 0)
+			{
+				Entry last = entries[^1];
+
+				if (last.type == type && last.message == message)
+				{
+					Entry repeated = last.Repeated();
+					entries[^1] = repeated;
+					LastEntryChanged.Invoke(repeated);
+					return;
+				}
+			}
+
+			bool droppedOldest = entries.Count == MaxEntries;
+			if (droppedOldest)
+				entries.RemoveAt(0);
+
+			Entry entry = new(message, stackTrace, type, 1);
+			entries.Add(entry);
+			EntryAdded.Invoke(entry, droppedOldest);
+		}
+
+		public static void Clear()
+		{
+			entries.Clear();
+			Version++;
+			Cleared.Invoke();
 		}
 	}
 }

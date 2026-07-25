@@ -1092,8 +1092,8 @@
                 {
                     "name": "",
                     "id": "487f4f2e-9e9b-49aa-b0f2-4037a24624f5",
-                    "path": "<XRController>{LeftHand}/{TriggerButton}",
-                    "interactions": "",
+                    "path": "<XRController>{LeftHand}/{Trigger}",
+                    "interactions": "Press(pressPoint=0.15)",
                     "processors": "",
                     "groups": "",
                     "action": "Activate",
@@ -2185,8 +2185,8 @@
                 {
                     "name": "",
                     "id": "fa59aed1-ae0b-4074-a58c-294b85f46228",
-                    "path": "<XRController>{RightHand}/{TriggerButton}",
-                    "interactions": "",
+                    "path": "<XRController>{RightHand}/{Trigger}",
+                    "interactions": "Press(pressPoint=0.15)",
                     "processors": "",
                     "groups": "",
                     "action": "Activate",

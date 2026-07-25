@@ -30,6 +30,9 @@ namespace Anaglyph.Lasertag
 				throw new InvalidOperationException(
 					"PaletteMenu requires an enabled UIDocument with a visual tree.");
 
+			// must happen before anything subscribes to Button.clicked
+			root.MakeButtonsActOnPress();
+
 			navView = new UIToolkitNavPages(Require<VisualElement>(root, "pages"));
 			homePage = navView.AddPage("home-page", false);
 			debugPage = navView.AddPage("debug-page");

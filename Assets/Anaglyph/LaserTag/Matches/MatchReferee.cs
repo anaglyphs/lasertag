@@ -5,7 +5,6 @@ using Anaglyph.Lasertag.Networking;
 using Anaglyph.Netcode;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace Anaglyph.Lasertag
 {
@@ -47,7 +46,7 @@ namespace Anaglyph.Lasertag
 		public byte pointsPerFlagCapture;
 
 		public WinCondition winCondition;
-		[FormerlySerializedAs("roundTime")] [FormerlySerializedAs("timerSeconds")] public int roundTimeSeconds;
+		public int roundTimeSeconds;
 		public short scoreTarget;
 		public byte numRounds;
 

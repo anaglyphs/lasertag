@@ -119,6 +119,9 @@ namespace Anaglyph.Lasertag
 				throw new InvalidOperationException(
 					"PermissionGateMenu requires an enabled UIDocument with a visual tree.");
 
+			// must happen before anything subscribes to Button.clicked
+			root.MakeButtonsActOnPress();
+
 			navView = new UIToolkitNavPages(Require<VisualElement>(root, "pages"));
 			UIToolkitNavPage permissionPage =
 				navView.AddPage("permissions-page", false);

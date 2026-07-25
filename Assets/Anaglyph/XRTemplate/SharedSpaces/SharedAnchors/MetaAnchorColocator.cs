@@ -137,7 +137,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (anchors.ContainsKey(guid))
 				return;
 
-			anchors.Add(guid, anchorRegistry.Acquire(guid));
+			// Colocation anchors are never saved to this device, so the shared group is the only
+			// place they can come from.
+			anchors.Add(guid, anchorRegistry.Acquire(guid, AnchorSource.Shared));
 		}
 
 		private void QueueHandleRemoval(SerializableGuid guid)
@@ -361,7 +363,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				if (!result.status.IsSuccess() || result.value == null)
 					throw new Exception("Failed to create new anchor!");
 
-				lease = anchorRegistry.Acquire(result.value);
+				lease = anchorRegistry.Acquire(result.value, AnchorSource.Shared);
 				AnchorHandle handle = lease.Handle;
 				anchors[handle.guid] = lease;
 

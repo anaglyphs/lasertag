@@ -67,6 +67,9 @@ using VariableObjects;
 				throw new InvalidOperationException(
 					"MultiplayerMenu requires an enabled UIDocument with a visual tree.");
 
+			// must happen before anything subscribes to Button.clicked
+			root.MakeButtonsActOnPress();
+
 			VisualElement pages = Require<VisualElement>(root, "pages");
 			navView = new UIToolkitNavPages(pages);
 			homePage = navView.AddPage("home-page", false);

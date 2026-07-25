@@ -37,6 +37,9 @@ namespace Anaglyph.Lasertag
 				throw new InvalidOperationException(
 					"GameMenu requires an enabled UIDocument with a visual tree.");
 
+			// must happen before anything subscribes to Button.clicked
+			root.MakeButtonsActOnPress();
+
 			navView = new UIToolkitNavPages(Require<VisualElement>(root, "pages"));
 			homePage = navView.AddPage("home-page", false);
 			matchPage = navView.AddPage("match-page");
