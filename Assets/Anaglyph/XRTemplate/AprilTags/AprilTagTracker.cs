@@ -21,6 +21,10 @@ namespace Anaglyph.XRTemplate.AprilTags
 
 		public float tagSizeMeters = 0.12f;
 
+		[Tooltip("XR Simulation feeds us a GPU readback, whose first row is the " +
+		         "bottom of the image. Turn off if editor tags stop being detected.")]
+		[SerializeField] private bool simulatorMirrorY = true;
+
 		private List<TagPose> worldPoses = new(10);
 		public IEnumerable<TagPose> WorldPoses => worldPoses;
 		public event Action<IReadOnlyList<TagPose>> OnDetectTags = delegate { };
@@ -112,19 +116,22 @@ namespace Anaglyph.XRTemplate.AprilTags
 							transformation = XRCpuImage.Transformation.MirrorY
 						};
 
-						int size = img.GetConvertedDataSize(convParams);
-
-						if (!processedImg.IsCreated || processedImg.Length != size)
-							processedImg = new NativeArray<byte>(size, Allocator.Persistent);
+						EnsureProcessedImgSize(img.GetConvertedDataSize(convParams));
 
 						img.Convert(convParams, processedImg);
 
 						break;
 
 					case XRCpuImage.Format.BGRA32:
-						// probably unity editor simulator
+					case XRCpuImage.Format.RGBA32:
+						// probably unity editor simulator. XRCpuImage.Convert() has no
+						// color -> R8 path, so run our own Burst conversion instead.
 
-						throw new NotImplementedException();
+						EnsureProcessedImgSize(img.GetGrayscaleDataSize());
+
+						img.ConvertToGrayscale(processedImg, simulatorMirrorY);
+
+						break;
 
 					default:
 						throw new Exception("unsupported image format");
@@ -173,6 +180,17 @@ namespace Anaglyph.XRTemplate.AprilTags
 			{
 				busy = false;
 			}
+		}
+
+		private void EnsureProcessedImgSize(int size)
+		{
+			if (processedImg.IsCreated && processedImg.Length == size)
+				return;
+
+			if (processedImg.IsCreated)
+				processedImg.Dispose();
+
+			processedImg = new NativeArray<byte>(size, Allocator.Persistent);
 		}
 
 		private void OnDestroy()
