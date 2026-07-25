@@ -39,13 +39,9 @@ namespace Anaglyph.Input
 		public Quaternion PointRotation => pointRotation.action.ReadValue<Quaternion>();
 		public Vector3 PointForward => PointRotation * Vector3.forward;
 
-		// True while this hand's ray is over UI; gameplay binds routed through
-		// HandSubject are suppressed while set (pose stays live). Computed live so
-		// uGUI reflects the ray at the exact moment of the input callback. UI
-		// Toolkit hover is tracked from XRI's element-level hover events so blank
-		// areas of a world-space document collider do not block gameplay.
-		public bool InputBlocked => interactor &&
-			(interactor.IsOverUIGameObject() || isOverWorldSpaceUIToolkit);
+		// interactor.IsOverUIGameObject() is randomly returning true and I don't know why...
+		// I'm not using uGUI canvases anymore so I don't need it /shrug
+		public bool InputBlocked => isOverWorldSpaceUIToolkit; // || interactor.IsOverUIGameObject();
 
 		private bool isOverWorldSpaceUIToolkit;
 
