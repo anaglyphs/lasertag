@@ -48,7 +48,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 				foreach (TagPose tagPose in latestTagPoses)
 				{
-					if (!colocator.CanonTags.ContainsKey(tagPose.ID))
+					// CanonTags is injected by the game layer and may not be wired yet.
+					if (colocator.CanonTags == null || !colocator.CanonTags.ContainsKey(tagPose.ID))
 						color = Color.yellow;
 
 					mpb.SetColor(BaseColorID, color);
@@ -58,7 +59,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				}
 			}
 
-			if (AnaglyphDebugging.DebugMode)
+			if (AnaglyphDebugging.DebugMode && colocator.CanonTags != null)
 			{
 				scale = Vector3.one * 0.02f;
 				mpb.SetColor(BaseColorID, Color.green);

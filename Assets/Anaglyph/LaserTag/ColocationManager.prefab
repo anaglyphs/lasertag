@@ -15,6 +15,7 @@ GameObject:
   - component: {fileID: 2017920904899384140}
   - component: {fileID: 3794738929113082028}
   - component: {fileID: 8030733127724905774}
+  - component: {fileID: 8956260993336716548}
   m_Layer: 0
   m_Name: ColocationManager
   m_TagString: Untagged
@@ -65,6 +66,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.EnvChunkSync
   syncSweptVoxelsThreshold: 500
+  positionQuantizationBits: 10
+  encodingSpeed: 0
+  decodingSpeed: 4
 --- !u!114 &8226459557597020392
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -77,10 +81,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 304bb6caa6bf4544f937804a6279a0b3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.XRTemplate.SharedSpaces::Anaglyph.XRTemplate.SharedSpaces.MetaAnchorColocator
-  newAnchorDist: 6
-  anchorPlacementRaycastlayerMask:
-    serializedVersion: 2
-    m_Bits: 64
 --- !u!114 &2017920904899384140
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -129,3 +129,32 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   tagSizeMeters: 0.12
+  simulatorMirrorY: 1
+--- !u!114 &8956260993336716548
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5901269829941828840}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5a74eb28e4d5e4fb0b882f535ea6dad8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.MapManager
+  objectPrefabs:
+  - {fileID: 1396190181075967584, guid: a41f71a8e984b494097a21f11c3c8f3c, type: 3}
+  - {fileID: 2855377600944756215, guid: 9f38ed223dc9ead41a2a38e807eb4f63, type: 3}
+  - {fileID: 6797909664841775682, guid: 5a37dcb5ba0e707478906978c7dcd0ca, type: 3}
+  - {fileID: 6797909664841775682, guid: 09550731d948e3b4b867b662e681b59b, type: 3}
+  - {fileID: 817168843049134554, guid: 5f246ade89ff64940aaa55e503fdd7f7, type: 3}
+  - {fileID: 6798071415338603818, guid: 82bf6a83110c3417cbd1eaf175435329, type: 3}
+  - {fileID: 7063072412994454556, guid: 901145a346bfd4e05b05ae98543fd712, type: 3}
+  - {fileID: 8038744278586735497, guid: f324c7323ecc14d8a8e5a985103ab75a, type: 3}
+  newAnchorDist: 6
+  anchorPlacementRaycastLayerMask:
+    serializedVersion: 2
+    m_Bits: 64
+  probeTimeoutSeconds: 8
+  agreementMaxError: 0.3
+  tagCorrectionSamples: 30

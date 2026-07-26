@@ -88,7 +88,7 @@ MonoBehaviour:
   Ownership: 3
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
-  <InScenePlaced>k__BackingField: 0
+  m_InScenePlaced: 0
   ActiveSceneSynchronization: 0
   SceneMigrationSynchronization: 1
   SpawnWithObservers: 1
@@ -191,6 +191,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.MapObject
   ShowTopMostFoldoutHeaderGroup: 1
+  movable: 1
+  prefabId: Blaster Pickup
 --- !u!1001 &496202979204801533
 PrefabInstance:
   m_ObjectHideFlags: 0

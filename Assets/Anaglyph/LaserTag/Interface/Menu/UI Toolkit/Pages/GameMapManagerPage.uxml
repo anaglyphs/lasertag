@@ -5,9 +5,10 @@
 		<ui:Instance template="NavHeader">
 			<ui:AttributeOverrides element-name="title" text="Map manager" />
 		</ui:Instance>
-		<ui:Label
-			text="Maps are not saved between sessions yet."
-			class="body-copy" />
+		<ui:Label name="current-map-label" text="No map loaded" class="body-copy" />
 		<ui:Button name="edit-map-button" text="Edit map" />
+		<ui:Button name="new-map-button" text="Start new map" />
+		<ui:Button name="probe-maps-button" text="Scan room for maps" />
+		<ui:ScrollView name="map-list" />
 	</ui:VisualElement>
 </ui:UXML>

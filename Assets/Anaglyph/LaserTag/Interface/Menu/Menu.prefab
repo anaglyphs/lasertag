@@ -553,6 +553,7 @@ GameObject:
   - component: {fileID: 5203524519921335397}
   - component: {fileID: 1075698427333703147}
   - component: {fileID: 5471789696194625456}
+  - component: {fileID: 5345525076357511453}
   m_Layer: 5
   m_Name: Game Panel
   m_TagString: Untagged
@@ -740,6 +741,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 42b0d42330e36fc4884910f0b4f0304d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.GameMenu
+--- !u!114 &5345525076357511453
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7831272810532019032}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1251e1f40ba9b4e43ac4af0937749608, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.MapManagerUI
 --- !u!1 &8627892836725830402
 GameObject:
   m_ObjectHideFlags: 0

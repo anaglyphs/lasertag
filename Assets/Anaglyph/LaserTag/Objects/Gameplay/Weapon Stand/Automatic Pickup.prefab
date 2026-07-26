@@ -70,6 +70,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 817168843049134554, guid: 5f246ade89ff64940aaa55e503fdd7f7, type: 3}
+      propertyPath: prefabId
+      value: Automatic Pickup
+      objectReference: {fileID: 0}
     - target: {fileID: 2943212583340504007, guid: 5f246ade89ff64940aaa55e503fdd7f7, type: 3}
       propertyPath: weaponPrefab
       value: 

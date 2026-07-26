@@ -11,7 +11,6 @@ GameObject:
   - component: {fileID: 25497713715926513}
   - component: {fileID: 6988671283536947429}
   - component: {fileID: 8038744278586735497}
-  - component: {fileID: 637291322098461354}
   - component: {fileID: 6824805826654644850}
   - component: {fileID: 7857593693710323155}
   m_Layer: 0
@@ -76,19 +75,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.MapObject
   ShowTopMostFoldoutHeaderGroup: 1
   movable: 0
---- !u!114 &637291322098461354
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 274572868241587510}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d048690b107164b2c98fc32e3afa33e1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Anaglyph.XRTemplate.SharedSpaces::Anaglyph.XRTemplate.SharedSpaces.AnchorHandle
-  ShowTopMostFoldoutHeaderGroup: 1
+  prefabId: AnchorHandle
 --- !u!135 &6824805826654644850
 SphereCollider:
   m_ObjectHideFlags: 0

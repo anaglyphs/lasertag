@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 5734146499930248188}
   - component: {fileID: 6947183705341542980}
   - component: {fileID: 7151539148833430239}
+  - component: {fileID: 3967854186509908666}
   m_Layer: 0
   m_Name: Mapper tool right
   m_TagString: Untagged
@@ -195,6 +196,24 @@ LineRenderer:
   m_UseWorldSpace: 0
   m_Loop: 0
   m_ApplyActiveColorSpace: 1
+--- !u!114 &3967854186509908666
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2413739485044164065}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 89b435f0902f44f22b1da6908a6e79cf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.TagRegistrationTool
+  editorTool: {fileID: 6947183705341542980}
+  handSubject: {fileID: 4690625453757267056}
+  registerInputBinding: OnFire
+  unregisterInputBinding: OnBack
+  aimMaxAngleDegrees: 10
+  observationLifetime: 5
 --- !u!1 &2649719522529766854
 GameObject:
   m_ObjectHideFlags: 0
@@ -252,6 +271,7 @@ GameObject:
   - component: {fileID: 6675638073733871782}
   - component: {fileID: 4844445657937473355}
   - component: {fileID: 6259261133466939747}
+  - component: {fileID: 6213062919748770353}
   m_Layer: 0
   m_Name: Mapper tool left
   m_TagString: Untagged
@@ -434,6 +454,24 @@ LineRenderer:
   m_UseWorldSpace: 0
   m_Loop: 0
   m_ApplyActiveColorSpace: 1
+--- !u!114 &6213062919748770353
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3843012074147991100}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 89b435f0902f44f22b1da6908a6e79cf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.TagRegistrationTool
+  editorTool: {fileID: 4844445657937473355}
+  handSubject: {fileID: 4269192228584513475}
+  registerInputBinding: OnFire
+  unregisterInputBinding: OnBack
+  aimMaxAngleDegrees: 10
+  observationLifetime: 5
 --- !u!1 &6068603553251517084
 GameObject:
   m_ObjectHideFlags: 0

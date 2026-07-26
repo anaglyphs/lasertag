@@ -17,6 +17,15 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		public static MetaSessionDiscovery Instance { get; private set; }
 		private NetworkManager NetMan => NetworkManager.Singleton;
 
+		/// <summary>
+		/// Extra host-side condition for advertising, injected by the game layer (assembly
+		/// direction prevents referencing it here). Null means no extra condition. Whoever
+		/// owns the gate calls <see cref="RefreshState"/> when its answer changes.
+		/// </summary>
+		public Func<bool> AdvertisementGate;
+
+		public void RefreshState() => UpdateState();
+
 		private const string LogHeader = "[SessionDiscovery] ";
 
 		private bool isListening;
@@ -154,7 +163,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 						break;
 					case NetcodeState.Connected:
 						bool isHost = NetMan.CurrentSessionOwner == NetMan.LocalClientId;
-						newState = isHost ? State.Advertise : State.Disable;
+						// A host that isn't ready to be joined (e.g. not yet localized to its
+						// map) stays quiet: joiners arriving early would have nothing to
+						// align to. Manual connections are unaffected.
+						bool gateOpen = AdvertisementGate?.Invoke() ?? true;
+						newState = isHost && gateOpen ? State.Advertise : State.Disable;
 						break;
 				}
 			else

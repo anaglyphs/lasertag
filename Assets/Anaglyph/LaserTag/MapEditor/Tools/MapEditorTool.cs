@@ -96,6 +96,9 @@ namespace Anaglyph.Lasertag
 			MapObject mapObj = hitObj.GetComponentInParent<MapObject>();
 			mapObj?.TryDelete();
 
+			if (mapObj != null)
+				MapObject.NotifyLocalEdit();
+
 			return mapObj != null;
 		}
 
@@ -108,6 +111,7 @@ namespace Anaglyph.Lasertag
 				return false;
 
 			SpawnMapObject(currentSpawnObject, hitPos, GetSpawnRotation());
+			MapObject.NotifyLocalEdit();
 
 			return true;
 		}
@@ -130,6 +134,9 @@ namespace Anaglyph.Lasertag
 
 		public void TryLetGo()
 		{
+			if (grabbedObject != null)
+				MapObject.NotifyLocalEdit();
+
 			grabbedObject = null;
 		}
 

@@ -38,6 +38,12 @@ namespace Anaglyph.Lasertag
 			debugPage = navView.AddPage("debug-page");
 
 			BindSpawnButton(root, "nothing-button", null);
+			Require<Button>(root, "register-tags-button").clicked += () =>
+			{
+				// Tag registration and object placement are mutually exclusive tools.
+				SetSpawnObject(null);
+				TagRegistrationTool.SetRegistrationMode(true);
+			};
 			BindSpawnButton(root, "blue-base-button", blueBasePrefab);
 			BindSpawnButton(root, "red-base-button", redBasePrefab);
 			BindSpawnButton(root, "blue-flag-button", blueFlagPrefab);
@@ -76,6 +82,9 @@ namespace Anaglyph.Lasertag
 
 		private static void SetSpawnObject(MapObject mapObjPrefab)
 		{
+			// Picking anything to place leaves tag-registration mode.
+			TagRegistrationTool.SetRegistrationMode(false);
+
 			MapEditorTool[] tools = FindObjectsByType<MapEditorTool>(
 				FindObjectsInactive.Include, FindObjectsSortMode.None);
 

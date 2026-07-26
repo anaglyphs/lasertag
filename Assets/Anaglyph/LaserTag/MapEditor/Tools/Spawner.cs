@@ -94,6 +94,8 @@ namespace Anaglyph.Lasertag
 				NetworkObject.InstantiateAndSpawn(objectToSpawn, NetworkManager.Singleton,
 					position: position, rotation: rotation,
 					ownerClientId: NetworkManager.Singleton.LocalClientId);
+
+				MapObject.NotifyLocalEdit();
 			}
 		}
 

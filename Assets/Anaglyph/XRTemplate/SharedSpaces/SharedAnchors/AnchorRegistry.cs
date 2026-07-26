@@ -336,6 +336,80 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				savedGuidSet.Add(id);
 		}
 
+		/// <summary>
+		/// Which of these saved anchors localize in the physical space the headset is standing
+		/// in right now — with NO AR Foundation trackables materialized. This is the cheap
+		/// first phase of map discovery: probing through Meta's locatable API leaves the scene
+		/// untouched, and only the chosen map's anchors ever get committed to real ARAnchors.
+		///
+		/// Anchors saved in one space occasionally localize in another; a non-empty result is
+		/// a strong hint, not proof, of which room this is.
+		/// </summary>
+		public async Awaitable<HashSet<SerializableGuid>> ProbeLocalizableAsync(
+			IReadOnlyCollection<SerializableGuid> guids, float timeoutSeconds,
+			CancellationToken ctkn = default)
+		{
+			ThrowIfDisposed();
+
+			HashSet<SerializableGuid> localized = new();
+
+			if (guids.Count == 0 || !metaDiscoveryAvailable)
+				return localized;
+
+			List<Guid> uuids = new(guids.Count);
+			foreach (SerializableGuid guid in guids)
+				uuids.Add(guid.guid);
+
+			List<OVRAnchor> fetched = new();
+			OVRResult<List<OVRAnchor>, OVRAnchor.FetchResult> fetchResult =
+				await OVRAnchor.FetchAnchorsAsync(fetched, new OVRAnchor.FetchOptions
+				{
+					Uuids = uuids
+				});
+
+			if (ctkn.IsCancellationRequested || disposed)
+				return localized;
+
+			if (!fetchResult.Success)
+			{
+				Debug.LogWarning($"Anchor probe fetch failed: {fetchResult.Status}");
+				return localized;
+			}
+
+			// Enable every locatable first so the runtime searches for them all concurrently,
+			// then collect the results.
+			List<(OVRAnchor anchor, OVRLocatable locatable, OVRTask<bool> enable)> probes = new();
+
+			foreach (OVRAnchor anchor in fetched)
+			{
+				if (!anchor.TryGetComponent(out OVRLocatable locatable))
+					continue;
+
+				probes.Add((anchor, locatable, locatable.SetEnabledAsync(true, timeoutSeconds)));
+			}
+
+			foreach ((OVRAnchor anchor, OVRLocatable locatable, OVRTask<bool> enable) in probes)
+			{
+				bool enabled = await enable;
+
+				if (enabled &&
+				    locatable.TryGetSpatialAnchorPose(out OVRLocatable.TrackingSpacePose pose) &&
+				    pose.IsPositionTracked)
+					localized.Add(new SerializableGuid(anchor.Uuid));
+
+				// Leave nothing running behind the probe: an enabled locatable keeps the
+				// runtime tracking it, and the same UUID may be loaded through AR Foundation
+				// afterwards. (Whether the two stacks interfere at all is still unverified on
+				// device; disabling here minimizes the surface either way.)
+				locatable.SetEnabledAsync(false);
+			}
+
+			if (ctkn.IsCancellationRequested || disposed)
+				localized.Clear();
+
+			return localized;
+		}
+
 		// ------- internals -----------------------------------------
 
 		internal bool isDisposed => disposed;
