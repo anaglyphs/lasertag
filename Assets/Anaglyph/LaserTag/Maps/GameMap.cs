@@ -95,6 +95,11 @@ namespace Anaglyph.Lasertag
 			for (int i = 0; i < anchors.Count; i++)
 				if (anchors[i].guid == guid)
 				{
+					// Republishing an unchanged anchor is common (every session start);
+					// don't churn the list or the file for it.
+					if (anchors[i].canonPose == canonPose && anchors[i].tagId == tagId)
+						return;
+
 					anchors[i] = new MapAnchorEntry { guid = guid, canonPose = canonPose, tagId = tagId };
 					return;
 				}

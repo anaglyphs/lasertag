@@ -96,6 +96,10 @@ namespace Anaglyph.Lasertag
 		private float meanReferenceError;
 		private readonly List<ColocationReference> referenceScratch = new();
 
+		// Snapshots for loops whose bodies can write back into the map's own lists.
+		private readonly List<MapAnchorEntry> publishScratch = new();
+		private readonly List<MapTagEntry> tagPublishScratch = new();
+
 		private class TagCorrection
 		{
 			public Vector3 positionSum;
@@ -143,7 +147,10 @@ namespace Anaglyph.Lasertag
 
 		private void OnDestroy()
 		{
-			SaveCurrentMap();
+			// Never snapshot here: teardown destroys objects in arbitrary order, and the
+			// pause/quit callbacks already saved while the world was intact. This only
+			// flushes non-object state (anchor records) accrued since.
+			SaveCurrentMapQuietly();
 
 			MainXRRig.Recentered -= OnRecentered;
 			MapObject.LocalEditOccurred -= OnLocalEdit;
@@ -161,6 +168,20 @@ namespace Anaglyph.Lasertag
 			lifetimeCtknSrc?.Cancel();
 			ReleaseAllLeases();
 			registry?.Dispose();
+		}
+
+		// Once the app starts quitting, scene objects die in arbitrary order — MapObject.All
+		// may already be empty by the time any later save runs. Snapshotting that emptiness
+		// over the real object list is how a map gets silently wiped, so no snapshot may be
+		// taken past this point.
+		private bool isQuitting;
+
+		private void OnApplicationQuit()
+		{
+			// The last moment every object is reliably still alive: take the final snapshot
+			// here, then freeze it.
+			SaveCurrentMap();
+			isQuitting = true;
 		}
 
 		private void OnApplicationPause(bool paused)
@@ -399,7 +420,11 @@ namespace Anaglyph.Lasertag
 			if (CurrentMap == null)
 				return;
 
-			SnapshotObjects(CurrentMap);
+			// During quit teardown the world is half-destroyed; keep the last good snapshot
+			// (taken in OnApplicationQuit) instead of overwriting it with what's left.
+			if (!isQuitting)
+				SnapshotObjects(CurrentMap);
+
 			MapStore.Save(CurrentMap);
 
 			if (SyncBus.Active && SyncBus.IsAuthority)
@@ -428,6 +453,9 @@ namespace Anaglyph.Lasertag
 
 			foreach (MapObject obj in MapObject.All)
 			{
+				if (!obj)
+					continue; // destroyed this frame (session or scene teardown in progress)
+
 				if (string.IsNullOrEmpty(obj.PrefabId))
 				{
 					Debug.LogWarning($"Map object '{obj.name}' has no prefab id; not saving it.");
@@ -537,7 +565,12 @@ namespace Anaglyph.Lasertag
 			if (CurrentMap == null)
 				return;
 
-			foreach (MapTagEntry tag in CurrentMap.tags)
+			// Snapshot for the same reason as PublishAndShareAnchors: writing to a synced
+			// endpoint can come back around into the list being read.
+			tagPublishScratch.Clear();
+			tagPublishScratch.AddRange(CurrentMap.tags);
+
+			foreach (MapTagEntry tag in tagPublishScratch)
 				canonTags.Set(tag.id, tag.canonPose);
 		}
 
@@ -566,7 +599,13 @@ namespace Anaglyph.Lasertag
 				}
 			}
 
-			foreach (MapAnchorEntry entry in CurrentMap.anchors)
+			// Publishing feeds straight back into the map: the authority applies its own
+			// write immediately, and AdoptCanonAnchor records it. Iterate a snapshot so
+			// that write-back can't invalidate this enumeration.
+			publishScratch.Clear();
+			publishScratch.AddRange(CurrentMap.anchors);
+
+			foreach (MapAnchorEntry entry in publishScratch)
 			{
 				SerializableGuid guid = GuidFromString(entry.guid);
 
