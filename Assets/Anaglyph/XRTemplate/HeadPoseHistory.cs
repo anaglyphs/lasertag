@@ -169,7 +169,7 @@ namespace Anaglyph.XRTemplate
 		// won't line up with this, but AprilTag detection isn't functional there
 		// anyway (BGRA path throws), so it doesn't matter in practice.
 		private static long MonotonicNs() =>
-			(long)(Time.realtimeSinceStartupAsDouble * 1e9);
+			(long)(Time.timeAsDouble * 1e9);
 #endif
 	}
 }

@@ -145,12 +145,14 @@ namespace Anaglyph.DepthKit.EnvScanning
 		{
 			if (busy) return;
 			busy = true;
+			CancellationToken ctkn = workerCancelSrc.Token;
 
 			EnvScanner scanner = EnvScanner.Instance;
 
 			try
 			{
 				EnvScanner.VisibleChunksReadbackResult visResult = await scanner.ReadbackVisibleChunks();
+				ctkn.ThrowIfCancellationRequested();
 
 				if (!visResult.valid) return;
 
@@ -174,6 +176,10 @@ namespace Anaglyph.DepthKit.EnvScanning
 						mesherSemaphore.Release();
 					}
 				}
+			}
+			catch (OperationCanceledException)
+			{
+				
 			}
 			finally
 			{

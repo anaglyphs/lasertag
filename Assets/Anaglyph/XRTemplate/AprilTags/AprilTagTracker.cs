@@ -2,6 +2,7 @@ using UnityEngine;
 using AprilTag;
 using System;
 using System.Collections.Generic;
+using Anaglyph.Debugging.Visuals;
 using Unity.Collections;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
@@ -12,7 +13,6 @@ namespace Anaglyph.XRTemplate.AprilTags
 	[DefaultExecutionOrder(-1000)]
 	public class AprilTagTracker : MonoBehaviour
 	{
-		private static readonly int DebugCamTexID = Shader.PropertyToID("agDebugCamTex");
 		private ARCameraManager arCameraManager;
 
 		private TagDetector detector;
@@ -49,6 +49,13 @@ namespace Anaglyph.XRTemplate.AprilTags
 		{
 			if (didStart)
 				Start();
+		}
+
+		private void LateUpdate()
+		{
+			if(AnaglyphDebugging.DebugMode)
+				foreach (TagPose worldPose in worldPoses)
+					DebugAxisVisual.DrawDebugAxis(worldPose.Position, worldPose.Rotation, Color.orange, tagSizeMeters);
 		}
 
 		private void OnDisable()
@@ -88,14 +95,21 @@ namespace Anaglyph.XRTemplate.AprilTags
 				{
 					case RuntimePlatform.Android:
 
+						// TODO: get cam id programmatically
 						if (lensPose.Equals(Pose.identity))
-							// assuming cam ID of one for arCameraManager?
 							lensPose = AndroidCamExtrinsicsHelper.GetCameraExtrinsics(50);
 
 						break;
 				}
 
-				float fov = 2 * Mathf.Atan(img.height / 2f / intrins.focalLength.y);
+				// XR Simulation's camera subsystem returns true from TryGetIntrinsics
+				// but never populates the struct, so focalLength is 0 and the naive
+				// fov works out to 180 degrees -- which makes the tag pose solver
+				// spit out garbage. Fall back to the XR camera's projection, which
+				// is what the simulation camera renders with anyway.
+				float fov = intrins.focalLength.y > 0
+					? 2 * Mathf.Atan(img.height / 2f / intrins.focalLength.y)
+					: 2 * Mathf.Atan(1f / MainXRRig.Camera.projectionMatrix.m11);
 				long frameTimestampNs = args.timestampNs.Value;
 				FrameTimestampNs = frameTimestampNs;
 
@@ -124,8 +138,7 @@ namespace Anaglyph.XRTemplate.AprilTags
 
 					case XRCpuImage.Format.BGRA32:
 					case XRCpuImage.Format.RGBA32:
-						// probably unity editor simulator. XRCpuImage.Convert() has no
-						// color -> R8 path, so run our own Burst conversion instead.
+						// probably unity editor simulator.
 
 						EnsureProcessedImgSize(img.GetGrayscaleDataSize());
 
@@ -142,27 +155,21 @@ namespace Anaglyph.XRTemplate.AprilTags
 				img.Dispose();
 
 				worldPoses.Clear();
-
-				// Head pose (tracking-space-local) at the instant the frame was
-				// captured -- not "now". Detection runs async and the camera
-				// pipeline has latency, so the head has moved since capture.
-				// Replaces OVRPlugin.GetNodePoseStateAtTime(FrameTimestamp, Head).
+				
 				Pose headPose = default;
 				bool gotHistoricalPose = HeadPoseHistory.Instance != null &&
 				                         HeadPoseHistory.Instance.TryGetLocalPose(frameTimestampNs, out headPose);
 
 				if (!gotHistoricalPose)
 				{
-					// fallback: latest camera pose in tracking-space-local coords
-					Matrix4x4 camLocal = MainXRRig.TrackingSpace.worldToLocalMatrix *
-					                     MainXRRig.Camera.transform.localToWorldMatrix;
-					headPose = new Pose(camLocal.GetPosition(), camLocal.rotation);
+					Debug.LogWarning($"AprilTagTracker: Frame {frameTimestampNs} has no historical pose");
+					return;
 				}
 
-				Matrix4x4 viewMat = Matrix4x4.TRS(headPose.position, headPose.rotation, Vector3.one);
-				Matrix4x4 cameraMat = Matrix4x4.TRS(lensPose.position, lensPose.rotation, Vector3.one);
-				Matrix4x4 cameraRelativeToRig = viewMat * cameraMat;
-				viewMat = MainXRRig.TrackingSpace.localToWorldMatrix * cameraRelativeToRig;
+				Matrix4x4 headMat = Matrix4x4.TRS(headPose.position, headPose.rotation, Vector3.one);
+				Matrix4x4 lensMat = Matrix4x4.TRS(lensPose.position, lensPose.rotation, Vector3.one);
+				Matrix4x4 localViewMat = headMat * lensMat;
+				Matrix4x4 viewMat = MainXRRig.TrackingSpace.localToWorldMatrix * localViewMat;
 
 				foreach (TagPose pose in detector.DetectedTags)
 				{
