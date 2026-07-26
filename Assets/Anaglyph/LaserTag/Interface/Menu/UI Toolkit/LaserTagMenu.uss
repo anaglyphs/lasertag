@@ -90,6 +90,13 @@ Toggle {
     white-space: normal;
 }
 
+.error-subject {
+    flex-grow: 0;
+    -unity-font-style: bold;
+    white-space: normal;
+    margin-bottom: 4px;
+}
+
 .body-copy {
     white-space: normal;
     margin-top: 8px;

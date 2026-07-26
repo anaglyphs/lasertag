@@ -95,7 +95,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			Supported shareSupportState = metaAnchorSubsystem.isSharedAnchorsSupported;
 			if (shareSupportState != Supported.Supported)
+			{
 				Debug.LogWarning($"Shared anchors are not enabled/supported! {shareSupportState}");
+
+				UserErrors.Raise("Shared spatial anchors unavailable",
+					$"This headset reports shared anchor support as '{shareSupportState}'. " +
+					"Alignment will not work. Try AprilTag colocation instead.");
+			}
 
 			sessionCtknSrc = new CancellationTokenSource();
 			CancellationToken ctkn = sessionCtknSrc.Token;
@@ -401,6 +407,10 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private async Awaitable<bool> ShareAnchor(ARAnchor anchor, CancellationToken ctkn)
 		{
 			const float retrySeconds = 3f;
+			// Retries are silent until it's clear this isn't a transient hiccup
+			const int attemptsBeforeTellingUser = 3;
+
+			int attempts = 0;
 
 			while (true)
 			{
@@ -415,6 +425,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					return true;
 
 				Debug.LogWarning($"Failed to share anchor {anchor.trackableId}: {result}");
+
+				if (++attempts == attemptsBeforeTellingUser)
+					UserErrors.Raise("Couldn't share spatial anchor",
+						"Shared spatial anchors are uploaded through Meta's servers, so this headset " +
+						"needs a working internet connection. Check its Wi-Fi, or use AprilTag " +
+						"colocation instead.");
+
 				await Awaitable.WaitForSecondsAsync(retrySeconds, ctkn);
 			}
 		}

@@ -22,6 +22,8 @@ using VariableObjects;
 			Connected
 		}
 
+		private const int ErrorModalPriority = 200;
+
 		private static NetworkManager Manager => NetworkManager.Singleton;
 
 		[SerializeField] private BoolObject hostOnRelaySetting;
@@ -34,6 +36,7 @@ using VariableObjects;
 		private UIToolkitNavPage manuallyConnectPage;
 		private UIToolkitNavPage sessionPage;
 		private UIToolkitNavPage networkErrorModal;
+		private UIToolkitNavPage errorModal;
 
 		private Toggle hostOnRelayToggle;
 		private Label hostOnRelayWarning;
@@ -53,6 +56,12 @@ using VariableObjects;
 		private Label sessionStateText;
 		private Label sessionIpText;
 		private Label noFullInternetWarning;
+
+		private Label errorSubjectText;
+		private Label errorDetailsText;
+		private string errorSubject;
+		private string errorDetails;
+		private bool hasUnacknowledgedError;
 
 		private NetworkState networkState;
 		private bool hasNetworkState;
@@ -77,6 +86,7 @@ using VariableObjects;
 			manuallyConnectPage = navView.AddPage("manual-connect-page");
 			sessionPage = navView.AddPage("session-page", false);
 			networkErrorModal = navView.AddPage("network-error-modal", false);
+			errorModal = navView.AddPage("error-modal", false);
 
 			Require<Button>(root, "host-button").clicked += Host;
 			Require<Button>(root, "host-settings-button").clicked += hostSettingsPage.NavigateHere;
@@ -124,6 +134,10 @@ using VariableObjects;
 				() => navView.DismissModal(networkErrorModal);
 			Require<Button>(root, "open-wifi-settings-button").clicked += OpenWifiSettings;
 
+			errorSubjectText = Require<Label>(root, "error-subject");
+			errorDetailsText = Require<Label>(root, "error-details");
+			Require<Button>(root, "dismiss-error-button").clicked += DismissError;
+
 			noFullInternetWarning = Require<Label>(root, "no-full-internet-warning");
 			Label version = Require<Label>(root, "version");
 			version.text =
@@ -131,6 +145,23 @@ using VariableObjects;
 
 			navView.Changed += OnNavPageChange;
 			navView.Start(homePage);
+		}
+
+		// Subscribed for the component's whole lifetime, not just while enabled —
+		// an error raised while this panel is hidden still has to reach the user.
+		private void Awake()
+		{
+			UserErrors.Raised += OnUserErrorRaised;
+		}
+
+		private void OnDestroy()
+		{
+			UserErrors.Raised -= OnUserErrorRaised;
+		}
+
+		private void OnUserErrorRaised(UserError error)
+		{
+			ShowError(error.subject, error.details);
 		}
 
 		private void OnEnable()
@@ -149,6 +180,10 @@ using VariableObjects;
 			OnNetcodeStateChanged(NetcodeManagement.State);
 			hasNetworkState = false;
 			BeginNetworkCheckLoop();
+
+			// an error may have arrived while this menu was disabled
+			if (hasUnacknowledgedError)
+				ShowError(errorSubject, errorDetails);
 		}
 
 		private void OnDisable()
@@ -285,6 +320,26 @@ using VariableObjects;
 			}
 
 			navView.SetModalPresented(sessionPage, true, 10, homePage);
+		}
+
+		public void ShowError(string subject, string details)
+		{
+			errorSubject = subject;
+			errorDetails = details;
+			hasUnacknowledgedError = true;
+
+			if (navView == null)
+				return;
+
+			errorSubjectText.text = subject;
+			errorDetailsText.text = details;
+			navView.SetModalPresented(errorModal, true, ErrorModalPriority);
+		}
+
+		public void DismissError()
+		{
+			hasUnacknowledgedError = false;
+			navView?.DismissModal(errorModal);
 		}
 
 		private void Host()

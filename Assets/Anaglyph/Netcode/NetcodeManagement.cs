@@ -153,6 +153,7 @@ namespace Anaglyph.Netcode
 						State = NetcodeState.Disconnected;
 						Log($"Failed to connect to Unity services!", LogType.Error);
 						Debug.LogException(e);
+						RaiseServicesError();
 					}
 
 					break;
@@ -192,7 +193,15 @@ namespace Anaglyph.Netcode
 				State = NetcodeState.Disconnected;
 				Log($"Failed to connect to Unity services!", LogType.Error);
 				Debug.LogException(e);
+				RaiseServicesError();
 			}
+		}
+
+		private static void RaiseServicesError()
+		{
+			UserErrors.Raise("Couldn't reach the relay service",
+				"Hosting or joining over the internet needs a working internet connection. " +
+				"Check this headset's Wi-Fi, or host over the local network instead.");
 		}
 
 		private static async Task ConnectUnityServices(string id, CancellationToken ct)

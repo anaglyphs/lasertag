@@ -18,6 +18,7 @@ namespace Anaglyph.XRTemplate.AprilTags
 		private TagDetector detector;
 		private Vector2Int detectorDimensions;
 		private Pose lensPose = Pose.identity;
+		private bool lookedForLens;
 
 		public float tagSizeMeters = 0.12f;
 
@@ -73,17 +74,40 @@ namespace Anaglyph.XRTemplate.AprilTags
 
 			XRCpuImage img = default;
 			XRCameraIntrinsics intrins = default;
+			bool gotImg = false;
 
 			try
 			{
 				// if (args.textures != null && args.textures.Count > 0)
 				// 	Shader.SetGlobalTexture(DebugCamTexID, args.textures[0]);
 
-				bool gotIntrins = arCameraManager.TryGetIntrinsics(out intrins);
-				bool gotImg = arCameraManager.TryAcquireLatestCpuImage(out img);
+				long frameTimestampNs;
+				LensPosition lensPosition;
 
-				bool gotAll = gotImg && gotIntrins && args.timestampNs.HasValue;
-				if (!gotAll) return;
+				// Prefer Meta's per-eye API where it exists: it tells us which
+				// physical camera the image came from, which the cross-platform
+				// AR Foundation API can't express, and hands back that camera's
+				// own intrinsics and capture time.
+				if (MetaPassthroughCamera.TryAcquireFrame(arCameraManager,
+					    out MetaPassthroughCamera.Frame metaFrame))
+				{
+					img = metaFrame.image;
+					gotImg = true;
+					intrins = metaFrame.intrinsics;
+					frameTimestampNs = metaFrame.timestampNs;
+					lensPosition = metaFrame.lensPosition;
+				}
+				else
+				{
+					bool gotIntrins = arCameraManager.TryGetIntrinsics(out intrins);
+					gotImg = arCameraManager.TryAcquireLatestCpuImage(out img);
+
+					if (!gotImg || !gotIntrins || !args.timestampNs.HasValue)
+						return;
+
+					frameTimestampNs = args.timestampNs.Value;
+					lensPosition = LensPosition.Unknown;
+				}
 
 				if (detector == null || detectorDimensions != img.dimensions)
 				{
@@ -91,31 +115,29 @@ namespace Anaglyph.XRTemplate.AprilTags
 					detectorDimensions = img.dimensions;
 				}
 
-				switch (Application.platform)
+				// The lens pose is fixed hardware geometry, so look it up once.
+				if (Application.platform == RuntimePlatform.Android && !lookedForLens)
 				{
-					case RuntimePlatform.Android:
+					lookedForLens = true;
 
-						// TODO: get cam id programmatically
-						if (lensPose.Equals(Pose.identity))
-							lensPose = AndroidCamExtrinsicsHelper.GetCameraExtrinsics(50);
+					bool foundLens = AndroidCamExtrinsicsHelper.TryFindCameraExtrinsics(
+						arCameraManager.currentFacingDirection, img.dimensions, lensPosition,
+						out lensPose, out _);
 
-						break;
+					if (!foundLens)
+						Debug.LogError("AprilTagTracker: no camera extrinsics found, " +
+						               "tag poses will be offset by the lens to head distance");
 				}
 
-				// XR Simulation's camera subsystem returns true from TryGetIntrinsics
-				// but never populates the struct, so focalLength is 0 and the naive
-				// fov works out to 180 degrees -- which makes the tag pose solver
-				// spit out garbage. Fall back to the XR camera's projection, which
-				// is what the simulation camera renders with anyway.
+				// XR Simulation's camera subsystem lies and
+				// always returns true from TryGetIntrinsics
+				// despite not filling anything in :/
 				float fov = intrins.focalLength.y > 0
 					? 2 * Mathf.Atan(img.height / 2f / intrins.focalLength.y)
 					: 2 * Mathf.Atan(1f / MainXRRig.Camera.projectionMatrix.m11);
-				long frameTimestampNs = args.timestampNs.Value;
-				FrameTimestampNs = frameTimestampNs;
 
-				// on ARFoundation simulator, a plane holds BGRA data
-				// on android, the plane holds greyscale single-byte values.
-				// process the textures differently between platforms
+				FrameTimestampNs = frameTimestampNs;
+				
 				switch (img.format)
 				{
 					case XRCpuImage.Format.AndroidYuv420_888:
@@ -152,8 +174,6 @@ namespace Anaglyph.XRTemplate.AprilTags
 
 				await detector.Detect(processedImg, fov, tagSizeMeters);
 
-				img.Dispose();
-
 				worldPoses.Clear();
 				
 				Pose headPose = default;
@@ -185,6 +205,9 @@ namespace Anaglyph.XRTemplate.AprilTags
 			}
 			finally
 			{
+				if (gotImg)
+					img.Dispose();
+
 				busy = false;
 			}
 		}

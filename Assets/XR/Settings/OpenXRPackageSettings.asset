@@ -1475,6 +1475,28 @@ MonoBehaviour:
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
+--- !u!114 &-635018127009920661
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2002edc7e2e284850a735691141e7a19, type: 3}
+  m_Name: HeadPoseAtTimeFeature Standalone
+  m_EditorClassIdentifier: Anaglyph.XRTemplate::Anaglyph.XRTemplate.HeadPoseAtTimeFeature
+  m_enabled: 0
+  nameUi: Head Pose At Time
+  version: 1.0.0
+  featureIdInternal: com.anaglyph.xrtemplate.headposeattime
+  openxrExtensionStrings: 
+  company: Anaglyph
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
 --- !u!114 &-579154813977642624
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1828,6 +1850,28 @@ MonoBehaviour:
   customRuntimeLoaderName: 
   m_MessageSeverity: 4369
   m_MessageType: 15
+--- !u!114 &1880733663943405685
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2002edc7e2e284850a735691141e7a19, type: 3}
+  m_Name: HeadPoseAtTimeFeature Android
+  m_EditorClassIdentifier: Anaglyph.XRTemplate::Anaglyph.XRTemplate.HeadPoseAtTimeFeature
+  m_enabled: 0
+  nameUi: Head Pose At Time
+  version: 1.0.0
+  featureIdInternal: com.anaglyph.xrtemplate.headposeattime
+  openxrExtensionStrings: 
+  company: Anaglyph
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
 --- !u!114 &2289910431507636567
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2260,6 +2304,7 @@ MonoBehaviour:
   - {fileID: -579154813977642624}
   - {fileID: -7691106447333290480}
   - {fileID: -1719201123039390586}
+  - {fileID: -635018127009920661}
   - {fileID: 6998787134607015996}
   - {fileID: 6235357049987290984}
   - {fileID: 3818734468323615166}
@@ -2744,6 +2789,7 @@ MonoBehaviour:
   - {fileID: -1537997945666509621}
   - {fileID: -8740570589999268939}
   - {fileID: -1123005114789158673}
+  - {fileID: 1880733663943405685}
   - {fileID: 8847336203912328183}
   - {fileID: -7878468771966122589}
   - {fileID: 953413412058863585}
