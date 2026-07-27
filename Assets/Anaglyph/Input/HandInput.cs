@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UIElements;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
-using UnityEngine.XR.Interaction.Toolkit.UI;
 
 namespace Anaglyph.Input
 {
@@ -40,22 +40,22 @@ namespace Anaglyph.Input
 		public Vector3 PointForward => PointRotation * Vector3.forward;
 		public bool IsTracking => trackingState.action.ReadValue<int>() != 0;
 
-		// interactor.IsOverUIGameObject() is randomly returning true and I don't know why...
-		// I'm not using uGUI canvases anymore so I don't need it /shrug
-		public bool InputBlocked => isOverWorldSpaceUIToolkit; // || interactor.IsOverUIGameObject();
+		// Polled rather than latched off interactor.uiHoverEntered/Exited: the exit event is only
+		// raised while the interactor keeps ticking, so a UIDocument that disappears out from under
+		// the ray (menu closing, interactor disabled the same frame) can leave the latch stuck on.
+		// This is the same test XRI runs internally (XRUIToolkitHandler.HasUIDocument): the world
+		// space panel collider lives on the UIDocument GameObject.
+		public bool InputBlocked => IsOverWorldSpaceUIToolkit();
 
-		private bool isOverWorldSpaceUIToolkit;
-
-		private void OnUIHoverEntered(UIHoverEventArgs args)
+		private bool IsOverWorldSpaceUIToolkit()
 		{
-			if (args.uiSystem == UIHoverEventArgs.UISystem.UIToolkit)
-				isOverWorldSpaceUIToolkit = true;
-		}
+			if (interactor == null || !interactor.isActiveAndEnabled)
+				return false;
 
-		private void OnUIHoverExited(UIHoverEventArgs args)
-		{
-			if (args.uiSystem == UIHoverEventArgs.UISystem.UIToolkit)
-				isOverWorldSpaceUIToolkit = false;
+			return interactor.TryGetCurrent3DRaycastHit(out var hit) &&
+			       hit.collider != null &&
+			       hit.collider.TryGetComponent(out UIDocument document) &&
+			       document.isActiveAndEnabled;
 		}
 
 		public static HandInput Get(Handedness h)
@@ -85,12 +85,6 @@ namespace Anaglyph.Input
 
 		private void OnEnable()
 		{
-			if (interactor)
-			{
-				interactor.uiHoverEntered.AddListener(OnUIHoverEntered);
-				interactor.uiHoverExited.AddListener(OnUIHoverExited);
-			}
-
 			position.action.Enable();
 			rotation.action.Enable();
 			pointPosition.action.Enable();
@@ -102,13 +96,6 @@ namespace Anaglyph.Input
 
 		private void OnDisable()
 		{
-			if (interactor)
-			{
-				interactor.uiHoverEntered.RemoveListener(OnUIHoverEntered);
-				interactor.uiHoverExited.RemoveListener(OnUIHoverExited);
-			}
-			isOverWorldSpaceUIToolkit = false;
-
 			position.action.Disable();
 			rotation.action.Disable();
 			pointPosition.action.Disable();

@@ -1,0 +1,55 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ccf74227d5935454f971beccd95c4ac0, type: 3}
+  m_Name: Map Objects
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.MapObjectDatabase
+  categories:
+  - name: Bases
+    icon: {fileID: 0}
+    debugOnly: 0
+    objects:
+    - displayName: Blue base
+      icon: {fileID: 0}
+      prefab: {fileID: 1396190181075967584, guid: a41f71a8e984b494097a21f11c3c8f3c, type: 3}
+    - displayName: Red base
+      icon: {fileID: 0}
+      prefab: {fileID: 2855377600944756215, guid: 9f38ed223dc9ead41a2a38e807eb4f63, type: 3}
+  - name: Flags
+    icon: {fileID: 0}
+    debugOnly: 0
+    objects:
+    - displayName: Blue flag
+      icon: {fileID: 0}
+      prefab: {fileID: 6797909664841775682, guid: 5a37dcb5ba0e707478906978c7dcd0ca, type: 3}
+    - displayName: Red flag
+      icon: {fileID: 0}
+      prefab: {fileID: 6797909664841775682, guid: 09550731d948e3b4b867b662e681b59b, type: 3}
+  - name: Pickups
+    icon: {fileID: 0}
+    debugOnly: 0
+    objects:
+    - displayName: Blaster
+      icon: {fileID: 0}
+      prefab: {fileID: 817168843049134554, guid: 5f246ade89ff64940aaa55e503fdd7f7, type: 3}
+    - displayName: Automatic
+      icon: {fileID: 0}
+      prefab: {fileID: 6798071415338603818, guid: 82bf6a83110c3417cbd1eaf175435329, type: 3}
+  - name: Debug
+    icon: {fileID: 0}
+    debugOnly: 1
+    objects:
+    - displayName: Wall
+      icon: {fileID: 0}
+      prefab: {fileID: 7063072412994454556, guid: 901145a346bfd4e05b05ae98543fd712, type: 3}
+    - displayName: Anchor handle
+      icon: {fileID: 0}
+      prefab: {fileID: 8038744278586735497, guid: f324c7323ecc14d8a8e5a985103ab75a, type: 3}

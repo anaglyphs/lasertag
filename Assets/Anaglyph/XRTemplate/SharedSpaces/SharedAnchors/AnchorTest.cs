@@ -11,7 +11,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	/// For visually evaluating the performance of anchors.
 	/// I.E. I place these down manually and observe how they drift
 	/// </summary>
-	public class AnchorEvaluationObject : NetworkBehaviour
+	public class AnchorTest : NetworkBehaviour
 	{
 		private static AnchorRegistry anchorRegistry;
 		

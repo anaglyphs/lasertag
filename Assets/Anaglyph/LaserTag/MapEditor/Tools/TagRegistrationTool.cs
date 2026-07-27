@@ -35,7 +35,9 @@ namespace Anaglyph.Lasertag
 			if (RegistrationMode == on) return;
 			RegistrationMode = on;
 
-			TagColocator.Instance?.SetObserving(on && MapEditor.IsActive);
+			// Registration needs tag detection even with no map loaded, which is otherwise
+			// exactly when colocation would leave it off.
+			ColocationManager.Instance?.SetTagDetectionOverride(on && MapEditor.IsActive);
 			RegistrationModeChanged.Invoke(on);
 		}
 
@@ -72,11 +74,11 @@ namespace Anaglyph.Lasertag
 
 		private void OnEnable()
 		{
-			if (TagColocator.Instance != null)
-			{
-				TagColocator.Instance.TagObserved += OnTagObserved;
-				TagColocator.Instance.SetObserving(RegistrationMode && MapEditor.IsActive);
-			}
+			if (TagReferenceSource.Instance != null)
+				TagReferenceSource.Instance.TagObserved += OnTagObserved;
+
+			ColocationManager.Instance?.SetTagDetectionOverride(
+				RegistrationMode && MapEditor.IsActive);
 		}
 
 		private void OnDisable()
@@ -84,15 +86,13 @@ namespace Anaglyph.Lasertag
 			observations.Clear();
 			aimedTagId = -1;
 
-			if (TagColocator.Instance != null)
-			{
-				TagColocator.Instance.TagObserved -= OnTagObserved;
+			if (TagReferenceSource.Instance != null)
+				TagReferenceSource.Instance.TagObserved -= OnTagObserved;
 
-				// Leaving the map editor ends observation; colocation-driven detection is
-				// unaffected (SetObserving only gates the extra, tool-driven case).
-				if (!MapEditor.IsActive)
-					TagColocator.Instance.SetObserving(false);
-			}
+			// Leaving the map editor drops the override; colocation decides again whether
+			// tag detection stays on.
+			if (!MapEditor.IsActive)
+				ColocationManager.Instance?.SetTagDetectionOverride(false);
 		}
 
 		private void OnTagObserved(int id, Pose pose)

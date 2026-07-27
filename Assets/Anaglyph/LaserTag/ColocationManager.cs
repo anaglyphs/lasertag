@@ -24,9 +24,9 @@ namespace Anaglyph.Lasertag
 		private readonly SyncVariable<ColocationMethod> methodSync = new("colo.method");
 		public ColocationMethod Method => methodSync.Value;
 
-		[SerializeField] private MetaAnchorColocator metaAnchorColocator;
-		[SerializeField] private TagColocator tagColocator;
-		private IColocator activeColocator;
+		[SerializeField] private ReferenceColocator colocator;
+		[SerializeField] private AnchorReferenceProvider anchorSource;
+		[SerializeField] private TagReferenceSource tagSource;
 
 		// True from method-sync (session fully known) until the session ends.
 		private bool sessionStarted;
@@ -45,12 +45,12 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			// Colocators consume the map system's references; the wiring points this way
-			// because their assembly cannot see the game layer.
-			metaAnchorColocator.ReferenceSource = MapManager.Instance;
-			tagColocator.AnchorReferenceSource = MapManager.Instance;
-			tagColocator.CanonTags = MapManager.Instance.CanonTags;
-			tagColocator.TagObserved += MapManager.Instance.OnTagObserved;
+			if (!colocator) colocator = FindFirstObjectByType<ReferenceColocator>();
+			if (!anchorSource) anchorSource = AnchorReferenceProvider.Instance;
+			if (!tagSource) tagSource = TagReferenceSource.Instance;
+
+			tagSource.CanonTags = MapManager.Instance.CanonTags;
+			tagSource.TagObserved += MapManager.Instance.OnTagObserved;
 
 			MapManager.Instance.CurrentMapChanged += OnCurrentMapChanged;
 
@@ -61,7 +61,7 @@ namespace Anaglyph.Lasertag
 				discovery.AdvertisementGate = () =>
 					MapManager.Instance != null && MapManager.Instance.WorldFrameTrusted;
 
-			UpdateActiveColocator();
+			UpdateSources();
 		}
 
 		private void OnDestroy()
@@ -69,7 +69,9 @@ namespace Anaglyph.Lasertag
 			if (MapManager.Instance != null)
 			{
 				MapManager.Instance.CurrentMapChanged -= OnCurrentMapChanged;
-				tagColocator.TagObserved -= MapManager.Instance.OnTagObserved;
+
+				if (tagSource)
+					tagSource.TagObserved -= MapManager.Instance.OnTagObserved;
 			}
 
 			SyncBus.Activated -= OnBusActivated;
@@ -108,7 +110,7 @@ namespace Anaglyph.Lasertag
 			if (sessionStarted) return;
 			sessionStarted = true;
 
-			UpdateActiveColocator();
+			UpdateSources();
 		}
 
 		private void OnBusDeactivated()
@@ -116,7 +118,7 @@ namespace Anaglyph.Lasertag
 			sessionStarted = false;
 
 			// Colocation does not end with the session — a loaded map keeps localizing.
-			UpdateActiveColocator();
+			UpdateSources();
 
 			Vector3 p = MainXRRig.TrackingSpace.position;
 
@@ -132,64 +134,70 @@ namespace Anaglyph.Lasertag
 
 		private void OnCurrentMapChanged(GameMap map)
 		{
-			// In a session the method sync dictates the colocator regardless of the map.
-			if (!sessionStarted)
-				UpdateActiveColocator();
+			UpdateSources();
 		}
 
 		/// <summary>
-		/// In a session, the synced method decides. Outside one, a loaded map localizes with
-		/// whatever it has: tag maps go through the tag colocator (which also consumes the
-		/// map's anchors), plain maps through the anchor colocator. No map and no session
-		/// means nothing to localize against.
+		/// Decides which reference sources feed the fit.
+		///
+		/// Anchors are always a source — they are what a map is pinned to in every mode, and
+		/// what restores alignment after a recenter or sleep. Tags are a source whenever the
+		/// loaded map has any: their corrections keep the anchors honest regardless of which
+		/// colocation method a session was hosted with, so a tag map does not go blind just
+		/// because it is being hosted over shared anchors.
+		///
+		/// The session's method decides what gets *shared*, which is the map system's
+		/// business, not the colocator's.
 		/// </summary>
-		private void UpdateActiveColocator()
+		private void UpdateSources()
 		{
-			IColocator target = null;
+			GameMap map = MapManager.Instance != null ? MapManager.Instance.CurrentMap : null;
 
-			if (sessionStarted)
+			bool wantAnchors = map != null;
+			bool wantTags = map != null &&
+				(map.HasTags ||
+				 // A session hosted in tag mode registers its canon tags as it goes, so the
+				 // source has to be live before this peer's map has any of its own.
+				 (sessionStarted && Method == ColocationMethod.AprilTag));
+
+			colocator.ClearSources();
+
+			if (wantAnchors && anchorSource)
+				colocator.AddSource(anchorSource);
+
+			if (wantTags && tagSource)
+				colocator.AddSource(tagSource);
+
+			// Tag detection is independent of colocation: the map editor's registration tool
+			// turns it on with nothing loaded at all (see TagRegistrationTool).
+			if (tagSource && !TagRegistrationTool.RegistrationMode)
+				tagSource.SetRunning(wantTags);
+
+			if (!wantAnchors && !wantTags)
 			{
-				target = Method == ColocationMethod.AprilTag
-					? tagColocator
-					: (IColocator)metaAnchorColocator;
-			}
-			else
-			{
-				GameMap map = MapManager.Instance != null ? MapManager.Instance.CurrentMap : null;
-
-				if (map != null)
-					target = map.HasTags ? tagColocator : (IColocator)metaAnchorColocator;
-			}
-
-			SetActiveColocator(target);
-		}
-
-		private void SetActiveColocator(IColocator colocator)
-		{
-			if (activeColocator != colocator)
-			{
-				if (activeColocator != null)
-				{
-					activeColocator.StopColocation();
-					activeColocator.StateChanged -= OnColocatorStateChanged;
-				}
-
-				activeColocator = colocator;
-
-				if (activeColocator != null)
-					activeColocator.StateChanged += OnColocatorStateChanged;
-			}
-
-			if (activeColocator == null)
-			{
+				colocator.StopColocation();
 				SetColocated(false);
 				return;
 			}
 
 			if (!MainXRRig.Instance) return;
 
-			activeColocator.StartColocation(); // no-op when already running
-			OnColocatorStateChanged(activeColocator.State);
+			colocator.StateChanged -= OnColocatorStateChanged;
+			colocator.StateChanged += OnColocatorStateChanged;
+
+			colocator.StartColocation(); // no-op when already running
+			OnColocatorStateChanged(colocator.State);
+		}
+
+		/// <summary>Lets the registration tool drive tag detection while authoring.</summary>
+		public void SetTagDetectionOverride(bool on)
+		{
+			if (!tagSource) return;
+
+			if (on)
+				tagSource.SetRunning(true);
+			else
+				UpdateSources();
 		}
 
 		// Only Localized counts as colocated. Lost keeps the stale alignment applied but stops

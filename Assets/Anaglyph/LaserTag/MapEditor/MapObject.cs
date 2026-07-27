@@ -86,6 +86,33 @@ namespace Anaglyph.Lasertag
 
 		public bool IsLocalOnly => !NetworkObject.IsSpawned;
 
+		/// <summary>
+		/// Removes this object as far as this device is permitted to, for teardown flows that
+		/// clear the world (unloading a map, adopting a session's map). Local-only objects —
+		/// and anything left over once the session is gone — are destroyed outright; a spawned
+		/// object in a live session is despawned, which removes it for everyone. An object
+		/// spawned by someone else is left alone: under distributed authority destroying it
+		/// here is invalid, and it disappears when its owner despawns it.
+		/// </summary>
+		/// <returns>Whether the object was removed.</returns>
+		public bool RemoveIfPermitted()
+		{
+			NetworkManager manager = NetworkManager.Singleton;
+			bool sessionLive = manager != null && manager.IsListening && !manager.ShutdownInProgress;
+
+			if (!sessionLive || !NetworkObject.IsSpawned)
+			{
+				Destroy(gameObject);
+				return true;
+			}
+
+			if (!NetworkObject.HasAuthority)
+				return false;
+
+			NetworkObject.Despawn();
+			return true;
+		}
+
 		public void TryTakeOwnership()
 		{
 			if (NetworkManager.IsConnectedClient)

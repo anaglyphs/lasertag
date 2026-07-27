@@ -1,33 +1,17 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
-    <ui:Template name="NavHeader" src="project://database/Assets/Anaglyph/LaserTag/Interface/Menu/UI%20Toolkit/NavHeader.uxml?fileID=9197481963319205126&amp;guid=6fb045f52b6e5428ea70fca9635fe4c6&amp;type=3#NavHeader"/>
     <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/Menu/UI%20Toolkit/LaserTagMenu.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagMenu"/>
-    <ui:VisualElement picking-mode="Ignore" class="menu-root game-panel">
-        <ui:VisualElement name="pages" class="pages">
-            <ui:VisualElement name="home-page" class="nav-page">
-                <ui:Instance template="NavHeader">
-                    <AttributeOverrides element-name="title" text="Map Editor"/>
-                </ui:Instance>
-                <ui:ScrollView>
-                    <ui:Button name="nothing-button" text="Nothing"/>
-                    <ui:Button name="register-tags-button" text="Register tags"/>
-                    <ui:Button name="blue-base-button" text="Blue base"/>
-                    <ui:Button name="red-base-button" text="Red base"/>
-                    <ui:Button name="blue-flag-button" text="Blue flag"/>
-                    <ui:Button name="red-flag-button" text="Red flag"/>
-                    <ui:Button name="blaster-pickup-button" text="Blaster pickup"/>
-                    <ui:Button name="automatic-pickup-button" text="Automatic pickup"/>
-                    <ui:Button name="debug-objects-button" text="Debug objects" style="display: none;"/>
-                </ui:ScrollView>
-            </ui:VisualElement>
-            <ui:VisualElement name="debug-page" class="nav-page">
-                <ui:Instance template="NavHeader">
-                    <AttributeOverrides element-name="title" text="Debug Objects"/>
-                </ui:Instance>
-                <ui:ScrollView>
-                    <ui:Button name="debug-wall-button" text="Wall"/>
-                    <ui:Button name="debug-anchor-button" text="Anchor handle"/>
-                </ui:ScrollView>
+    <ui:VisualElement picking-mode="Ignore" class="menu-root game-panel palette-root">
+        <ui:VisualElement picking-mode="Ignore" class="palette-body">
+            <ui:ScrollView name="category-rail" mode="Vertical" vertical-scroller-visibility="Hidden" class="palette-rail"/>
+            <ui:VisualElement picking-mode="Ignore" class="palette-content">
+                <ui:Label name="category-title" text="Palette" class="palette-title"/>
+                <ui:VisualElement picking-mode="Ignore" class="palette-tools">
+                    <ui:Button name="move-tool-button" text="Move" class="palette-tool"/>
+                    <ui:Button name="tag-tool-button" text="Tags" class="palette-tool"/>
+                </ui:VisualElement>
+                <ui:ScrollView name="object-grid" mode="Vertical" class="palette-grid"/>
             </ui:VisualElement>
         </ui:VisualElement>
+        <ui:Button name="done-button" text="Done" class="palette-done"/>
     </ui:VisualElement>
 </ui:UXML>

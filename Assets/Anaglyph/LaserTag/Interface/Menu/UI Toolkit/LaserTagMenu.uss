@@ -191,6 +191,135 @@ ScrollView {
     -unity-text-align: middle-center;
 }
 
+/* ================= map editor palette ================= */
+
+.palette-body {
+    flex-grow: 1;
+    flex-direction: row;
+    min-height: 0;
+}
+
+/* category tabs down the left, objects of that category beside them */
+.palette-rail {
+    flex-grow: 0;
+    flex-shrink: 0;
+    width: 84px;
+    margin-right: 8px;
+}
+
+.palette-content {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.palette-title {
+    font-size: 26px;
+    -unity-text-align: middle-left;
+    margin-bottom: 2px;
+}
+
+.palette-tools {
+    flex-direction: row;
+}
+
+.palette-tool {
+    flex-grow: 1;
+    flex-basis: 0;
+    min-height: 38px;
+    font-size: 16px;
+    margin-left: 2px;
+    margin-right: 2px;
+    -unity-text-align: middle-center;
+}
+
+.palette-grid {
+    flex-grow: 1;
+    min-height: 0;
+}
+
+/* the grid is a wrapping row of thumbnails, not the default column of rows */
+.palette-grid .unity-scroll-view__content-container {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-content: flex-start;
+}
+
+.palette-tab,
+.palette-item {
+    align-items: center;
+    justify-content: flex-start;
+    min-height: auto;
+    padding: 4px;
+    background-color: rgba(0, 0, 0, 0.35);
+}
+
+.palette-tab {
+    margin: 0 0 6px 0;
+}
+
+/* percentage widths so a narrower panel drops to fewer columns instead of clipping */
+.palette-item {
+    width: 30%;
+    margin: 4px;
+}
+
+.palette-tab-icon,
+.palette-item-icon {
+    background-color: rgba(255, 255, 255, 0.07);
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+/* a tab is a small badge, so plenty of categories fit the rail without scrolling */
+.palette-tab-icon {
+    width: 44px;
+    height: 44px;
+}
+
+.palette-item-icon {
+    width: 100%;
+    aspect-ratio: 1;
+}
+
+.palette-tab-label,
+.palette-item-label {
+    white-space: normal;
+    -unity-text-align: middle-center;
+    margin-top: 2px;
+}
+
+.palette-tab-label {
+    font-size: 11px;
+}
+
+.palette-item-label {
+    font-size: 14px;
+}
+
+.palette-tab.selected,
+.palette-item.selected,
+.palette-tool.selected {
+    background-color: rgb(230, 230, 230);
+}
+
+.palette-tool.selected,
+.palette-tab.selected .palette-tab-label,
+.palette-item.selected .palette-item-label {
+    color: rgb(0, 14, 49);
+}
+
+.palette-tab.selected .palette-tab-icon,
+.palette-item.selected .palette-item-icon {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.palette-done {
+    align-self: center;
+    min-width: 140px;
+    -unity-text-align: middle-center;
+}
+
 /* ================= HUD ================= */
 
 .hud-root {

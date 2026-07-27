@@ -8,10 +8,6 @@ using Anaglyph.XRTemplate.SharedSpaces;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.XR.ARFoundation;
-using UnityEngine.XR.ARSubsystems;
-using UnityEngine.XR.OpenXR.Features.Meta;
-using SerializableGuid = UnityEngine.XR.ARSubsystems.SerializableGuid;
 
 namespace Anaglyph.Lasertag
 {
@@ -29,9 +25,10 @@ namespace Anaglyph.Lasertag
 	}
 
 	/// <summary>
-	/// Owns maps at runtime: the current map, its anchors, and every flow that reads or
-	/// writes them. Colocators consume anchors from here (via
-	/// <see cref="IColocationReferenceSource"/>); they no longer own them.
+	/// Owns maps at runtime: which map is loaded, what belongs to it, and every flow that
+	/// reads or writes that. Anchor plumbing lives in <see cref="AnchorReferenceProvider"/>;
+	/// this class decides *which* anchors a map holds and *where* they belong, and the
+	/// provider handles creating, saving, sharing, and presenting them to colocators.
 	///
 	/// Shared anchors are transport, not storage: every anchor this device ends up with —
 	/// minted locally or downloaded from a peer — is saved to local storage and recorded in
@@ -39,11 +36,14 @@ namespace Anaglyph.Lasertag
 	/// the first time.
 	/// </summary>
 	[DefaultExecutionOrder(-100)]
-	public class MapManager : MonoBehaviour, IColocationReferenceSource
+	public class MapManager : MonoBehaviour
 	{
 		public static MapManager Instance { get; private set; }
 
-		[SerializeField] private MapObject[] objectPrefabs = Array.Empty<MapObject>();
+		[SerializeField] private AnchorReferenceProvider anchorProvider;
+
+		[Tooltip("Every placeable map object; also how a saved map's prefab ids resolve")]
+		[SerializeField] private MapObjectDatabase objectDatabase;
 
 		[Tooltip("Distance from all other anchors the headset needs to be to mint a new one")]
 		[SerializeField] private float newAnchorDist = 6f;
@@ -69,21 +69,14 @@ namespace Anaglyph.Lasertag
 
 		// ------- runtime state -------------------------------------
 
-		private AnchorRegistry registry;
-		private ARAnchorManager anchorManager;
-		private MetaOpenXRAnchorSubsystem metaAnchorSubsystem;
-
-		private readonly Dictionary<SerializableGuid, AnchorLease> leases = new();
-
 		private readonly SyncVariable<MapIdentity> mapIdentity = new("map.identity");
-		private readonly SyncDictionary<SerializableGuid, Pose> canonAnchors = new("map.anchors.canon");
+		private readonly SyncDictionary<Guid, Pose> canonAnchors = new("map.anchors.canon");
 		private readonly SyncDictionary<int, Pose> canonTags = new("map.tags.canon");
 
 		public SyncDictionary<int, Pose> CanonTags => canonTags;
 
 		private CancellationTokenSource lifetimeCtknSrc;
 
-		private bool mintInFlight;
 		private bool savePending;
 
 		// The frame a map was authored in stays trustworthy as long as tracking has been
@@ -117,6 +110,13 @@ namespace Anaglyph.Lasertag
 			Instance = this;
 			lifetimeCtknSrc = new CancellationTokenSource();
 
+			if (!anchorProvider)
+				anchorProvider = FindFirstObjectByType<AnchorReferenceProvider>();
+
+			if (!objectDatabase)
+				Debug.LogError("MapManager has no map object database — saved maps cannot " +
+					"restore their objects.", this);
+
 			mapIdentity.Register();
 			canonAnchors.Register();
 			canonTags.Register();
@@ -130,18 +130,15 @@ namespace Anaglyph.Lasertag
 			MapObject.LocalEditOccurred += OnLocalEdit;
 			MainXRRig.Recentered += OnRecentered;
 
-#if !UNITY_EDITOR
-			anchorManager = FindFirstObjectByType<ARAnchorManager>();
-			metaAnchorSubsystem = (MetaOpenXRAnchorSubsystem)anchorManager.subsystem;
-			registry = new AnchorRegistry(anchorManager, metaAnchorSubsystem);
-#endif
+			if (anchorProvider)
+				anchorProvider.AnchorPersisted += OnAnchorPersisted;
 		}
 
 		private void Start()
 		{
 			MintLoop(lifetimeCtknSrc.Token);
 
-			if (registry != null)
+			if (anchorProvider && anchorProvider.IsAvailable)
 				StartupProbe(lifetimeCtknSrc.Token);
 		}
 
@@ -151,6 +148,9 @@ namespace Anaglyph.Lasertag
 			// pause/quit callbacks already saved while the world was intact. This only
 			// flushes non-object state (anchor records) accrued since.
 			SaveCurrentMapQuietly();
+
+			if (anchorProvider)
+				anchorProvider.AnchorPersisted -= OnAnchorPersisted;
 
 			MainXRRig.Recentered -= OnRecentered;
 			MapObject.LocalEditOccurred -= OnLocalEdit;
@@ -166,8 +166,6 @@ namespace Anaglyph.Lasertag
 			mapIdentity.Unregister();
 
 			lifetimeCtknSrc?.Cancel();
-			ReleaseAllLeases();
-			registry?.Dispose();
 		}
 
 		// Once the app starts quitting, scene objects die in arbitrary order — MapObject.All
@@ -256,7 +254,9 @@ namespace Anaglyph.Lasertag
 		private void UpdateAgreement()
 		{
 			referenceScratch.Clear();
-			GetColocationReferences(referenceScratch);
+
+			if (anchorProvider)
+				anchorProvider.GetColocationReferences(referenceScratch);
 
 			agreeingReferenceCount = referenceScratch.Count;
 
@@ -275,33 +275,12 @@ namespace Anaglyph.Lasertag
 			meanReferenceError = errorSum / referenceScratch.Count;
 		}
 
-		// ------- colocation references -----------------------------
-
-		public void GetColocationReferences(List<ColocationReference> results)
-		{
-			if (CurrentMap == null)
-				return;
-
-			foreach ((SerializableGuid guid, AnchorLease lease) in leases)
-			{
-				AnchorHandle handle = lease.Handle;
-				if (handle.state != AnchorHandle.State.Active) continue;
-				if (handle.anchor.trackingState != TrackingState.Tracking) continue;
-				if (!CurrentMap.TryGetAnchor(GuidToString(guid), out MapAnchorEntry entry)) continue;
-
-				Transform anchorTransform = handle.anchor.transform;
-				Pose observed = new(anchorTransform.position, anchorTransform.rotation);
-
-				results.Add(new ColocationReference(observed, entry.canonPose));
-			}
-		}
-
 		// ------- current map lifecycle -----------------------------
 
 		/// <summary>
 		/// Loads a map, adopting its frame: existing map objects are torn down and the map's
 		/// own are instantiated at their canon poses, and its anchors are committed to real
-		/// ARAnchors for the per-frame fit. Only callable while disconnected — in a session
+		/// anchors for the per-frame fit. Only callable while disconnected — in a session
 		/// the map is dictated by the session.
 		/// </summary>
 		public bool LoadMap(string id)
@@ -323,8 +302,10 @@ namespace Anaglyph.Lasertag
 
 			InstantiateMapObjects(map);
 
-			foreach (MapAnchorEntry entry in map.anchors)
-				EnsureLease(GuidFromString(entry.guid), AnchorSource.Local);
+			if (anchorProvider)
+				foreach (MapAnchorEntry entry in map.anchors)
+					anchorProvider.Adopt(GuidFromString(entry.guid), entry.canonPose,
+						AnchorSource.Local);
 
 			MirrorTagsToCanon();
 
@@ -341,8 +322,11 @@ namespace Anaglyph.Lasertag
 			CurrentMap = null;
 			frameContinuous = false;
 			tagCorrections.Clear();
-			ReleaseAllLeases();
-			DestroyMapObjects(localOnly: false);
+
+			if (anchorProvider)
+				anchorProvider.ReleaseAll();
+
+			RemoveMapObjects();
 			MirrorTagsToCanon();
 
 			CurrentMapChanged.Invoke(null);
@@ -358,21 +342,9 @@ namespace Anaglyph.Lasertag
 
 			// Erase local saves nothing references anymore — but only those; an anchor a
 			// surviving map (e.g. a fork) still uses must stay on the device.
-			if (registry != null)
+			if (anchorProvider)
 				foreach (string orphan in orphanedAnchors)
-					EraseAnchorQuietly(GuidFromString(orphan));
-		}
-
-		private async void EraseAnchorQuietly(SerializableGuid guid)
-		{
-			try
-			{
-				await registry.TryEraseSavedAsync(guid);
-			}
-			catch (Exception e)
-			{
-				Debug.LogException(e);
-			}
+					_ = anchorProvider.EraseAsync(GuidFromString(orphan));
 		}
 
 		private void OnLocalEdit()
@@ -489,24 +461,26 @@ namespace Anaglyph.Lasertag
 
 		private MapObject FindPrefab(string prefabId)
 		{
-			foreach (MapObject prefab in objectPrefabs)
-				if (prefab != null && prefab.PrefabId == prefabId)
-					return prefab;
-
-			return null;
+			return objectDatabase != null ? objectDatabase.FindPrefab(prefabId) : null;
 		}
 
-		private static void DestroyMapObjects(bool localOnly)
+		/// <summary>
+		/// Clears the world of map objects, as far as this device is permitted to: everything
+		/// this device controls goes — local-only objects and ones it spawned alike, the latter
+		/// by despawn so they leave every peer. Objects another peer spawned are that peer's to
+		/// remove; see <see cref="MapObject.RemoveIfPermitted"/>.
+		/// </summary>
+		private static void RemoveMapObjects()
 		{
-			// Copy: destroying mutates MapObject.All.
+			// Copy: removing mutates MapObject.All.
 			List<MapObject> objects = new(MapObject.All);
 
 			foreach (MapObject obj in objects)
 			{
-				if (localOnly && !obj.IsLocalOnly)
+				if (!obj)
 					continue;
 
-				Destroy(obj.gameObject);
+				obj.RemoveIfPermitted();
 			}
 		}
 
@@ -514,6 +488,11 @@ namespace Anaglyph.Lasertag
 
 		// Set once the authority-side session start ran; adoption uses its own idempotence.
 		private bool authoritySessionStarted;
+
+		// Whether this peer has taken the session's map over its own yet. The first adopt of a
+		// session is the one that clears the local world; later identity updates are just the
+		// host saving content and must leave live session objects alone.
+		private bool sessionMapAdopted;
 
 		// Runs on the Synced phase, not Activated: Synced fires after every Activated handler,
 		// so the session's colocation method (written by ColocationManager on Activated) is
@@ -552,8 +531,8 @@ namespace Anaglyph.Lasertag
 		/// The canon-tags dictionary always reflects the current map's registered tags from
 		/// wherever this peer may write them: the session authority publishes its map's tags
 		/// to everyone, and offline every peer is its own authority, which is what lets the
-		/// tag colocator read one dictionary in both worlds. Non-authority peers never write
-		/// — their canon tags arrive through the sync.
+		/// tag reference source read one dictionary in both worlds. Non-authority peers never
+		/// write — their canon tags arrive through the sync.
 		/// </summary>
 		private void MirrorTagsToCanon()
 		{
@@ -586,18 +565,10 @@ namespace Anaglyph.Lasertag
 		/// </summary>
 		private void PublishAndShareAnchors()
 		{
-			if (metaAnchorSubsystem != null)
-			{
-				Supported shareSupport = metaAnchorSubsystem.isSharedAnchorsSupported;
-				if (shareSupport != Supported.Supported)
-				{
-					Debug.LogWarning($"Shared anchors are not enabled/supported! {shareSupport}");
+			if (!anchorProvider)
+				return;
 
-					UserErrors.Raise("Shared spatial anchors unavailable",
-						$"This headset reports shared anchor support as '{shareSupport}'. " +
-						"Joiners will not be able to align. Try AprilTag colocation instead.");
-				}
-			}
+			anchorProvider.WarnIfSharingUnsupported();
 
 			// Publishing feeds straight back into the map: the authority applies its own
 			// write immediately, and AdoptCanonAnchor records it. Iterate a snapshot so
@@ -607,84 +578,18 @@ namespace Anaglyph.Lasertag
 
 			foreach (MapAnchorEntry entry in publishScratch)
 			{
-				SerializableGuid guid = GuidFromString(entry.guid);
+				Guid guid = GuidFromString(entry.guid);
 
 				canonAnchors.RequestSet(guid, entry.canonPose);
-				EnsureLease(guid, AnchorSource.Local);
-				ShareWhenActive(guid);
+				anchorProvider.Adopt(guid, entry.canonPose, AnchorSource.Local);
+				_ = anchorProvider.ShareAsync(guid, lifetimeCtknSrc.Token);
 			}
-		}
-
-		private async void ShareWhenActive(SerializableGuid guid)
-		{
-			try
-			{
-				CancellationToken ctkn = lifetimeCtknSrc.Token;
-
-				if (!leases.TryGetValue(guid, out AnchorLease lease))
-					return;
-
-				while (lease.Handle.state != AnchorHandle.State.Active)
-				{
-					await Awaitable.NextFrameAsync(ctkn);
-
-					if (!leases.TryGetValue(guid, out AnchorLease current) || current != lease)
-						return; // released or replaced while waiting
-				}
-
-				await ShareAnchor(lease.Handle.anchor, ctkn);
-			}
-			catch (OperationCanceledException)
-			{
-			}
-			catch (Exception e)
-			{
-				Debug.LogException(e);
-			}
-		}
-
-		private async Awaitable<bool> ShareAnchor(ARAnchor anchor, CancellationToken ctkn)
-		{
-			const float retrySeconds = 3f;
-			// Retries are silent until it's clear this isn't a transient hiccup
-			const int attemptsBeforeTellingUser = 3;
-			// A rejected write retries identically to a network failure, so don't hang on it
-			// forever — the canon pose is already published and the local save already exists.
-			const int maxAttempts = 5;
-
-			for (int attempt = 1; attempt <= maxAttempts; attempt++)
-			{
-				ctkn.ThrowIfCancellationRequested();
-
-				metaAnchorSubsystem.sharedAnchorsGroupId = anchor.trackableId;
-				XRResultStatus result = await anchorManager.TryShareAnchorAsync(anchor);
-
-				ctkn.ThrowIfCancellationRequested();
-
-				if (!result.IsError())
-					return true;
-
-				// nativeStatusCode is the raw XrResult — the only place a network failure and
-				// a rejected write (e.g. re-sharing into a group another device created) are
-				// distinguishable.
-				Debug.LogWarning($"Failed to share anchor {anchor.trackableId}: {result} " +
-					$"(native {result.nativeStatusCode})");
-
-				if (attempt == attemptsBeforeTellingUser)
-					UserErrors.Raise("Couldn't share a spatial anchor",
-						"Shared spatial anchors are uploaded through Meta's servers, so this " +
-						"headset needs a working internet connection. Joiners that have " +
-						"played this map before are unaffected.");
-
-				await Awaitable.WaitForSecondsAsync(retrySeconds, ctkn);
-			}
-
-			return false;
 		}
 
 		private void OnBusDeactivated()
 		{
 			authoritySessionStarted = false;
+			sessionMapAdopted = false;
 
 			// NGO tears the session's objects down around now; persist what we saw last and
 			// rebuild the world locally so the map survives the session ending.
@@ -708,11 +613,11 @@ namespace Anaglyph.Lasertag
 			if (CurrentMap == null || SyncBus.Active)
 				return;
 
-			DestroyMapObjects(localOnly: false);
+			RemoveMapObjects();
 			InstantiateMapObjects(CurrentMap);
 
 			// Session teardown reset the sync endpoints; restore the offline mirror so the
-			// tag colocator keeps its canon poses.
+			// tag reference source keeps its canon poses.
 			MirrorTagsToCanon();
 		}
 
@@ -742,6 +647,9 @@ namespace Anaglyph.Lasertag
 			string version = identity.version.ToString("N");
 			string name = identity.name.ToString();
 
+			bool firstAdopt = !sessionMapAdopted;
+			sessionMapAdopted = true;
+
 			// Same map already adopted: an identity update mid-session is the host saving new
 			// content. The session mirrors it into us continuously, so it is a sync point:
 			// move the baseline forward and stay clean.
@@ -752,6 +660,15 @@ namespace Anaglyph.Lasertag
 				CurrentMap.name = name;
 				CurrentMap.dirty = false;
 				SaveCurrentMapQuietly();
+
+				// Matching ids do not make our objects the session's objects: ours were
+				// instantiated locally, the host's arrive spawned, and keeping both is how the
+				// map comes up doubled. The session's copies are the real ones — drop ours on
+				// the way in. Only on the way in: past the first adopt, live objects are
+				// session content (including anything this peer placed) and must survive.
+				if (firstAdopt)
+					RemoveMapObjects();
+
 				return;
 			}
 
@@ -759,7 +676,7 @@ namespace Anaglyph.Lasertag
 			if (CurrentMap != null)
 				UnloadCurrentMap();
 			else
-				DestroyMapObjects(localOnly: true); // never inject stale local objects into a session
+				RemoveMapObjects(); // never inject stale local objects into a session
 
 			GameMap adopted;
 
@@ -800,7 +717,7 @@ namespace Anaglyph.Lasertag
 
 		// ------- canon anchor transport ----------------------------
 
-		private void OnCanonAnchorsChanged(SyncDictionary<SerializableGuid, Pose>.EventData data)
+		private void OnCanonAnchorsChanged(SyncDictionary<Guid, Pose>.EventData data)
 		{
 			if (CurrentMap == null)
 				return;
@@ -825,11 +742,11 @@ namespace Anaglyph.Lasertag
 
 		private void ReconcileCanonAnchors()
 		{
-			foreach ((SerializableGuid guid, Pose pose) in canonAnchors)
+			foreach ((Guid guid, Pose pose) in canonAnchors)
 				AdoptCanonAnchor(guid, pose);
 		}
 
-		private void AdoptCanonAnchor(SerializableGuid guid, Pose canonPose)
+		private void AdoptCanonAnchor(Guid guid, Pose canonPose)
 		{
 			if (CurrentMap == null)
 				return;
@@ -838,7 +755,14 @@ namespace Anaglyph.Lasertag
 
 			// Local storage is tried first; the cloud download only happens for anchors this
 			// device has never saved.
-			EnsureLease(guid, AnchorSource.Any);
+			if (anchorProvider)
+				anchorProvider.Adopt(guid, canonPose, AnchorSource.Any);
+		}
+
+		// An anchor became durable on this device — make sure the map file records it.
+		private void OnAnchorPersisted(Guid guid)
+		{
+			SaveCurrentMapQuietly();
 		}
 
 		private void OnCanonTagsChanged(SyncDictionary<int, Pose>.EventData data)
@@ -859,62 +783,6 @@ namespace Anaglyph.Lasertag
 			}
 		}
 
-		// ------- anchor leases -------------------------------------
-
-		private void EnsureLease(SerializableGuid guid, AnchorSource source)
-		{
-			if (registry == null || leases.ContainsKey(guid))
-				return;
-
-			AnchorLease lease = registry.Acquire(guid, source);
-			leases[guid] = lease;
-			SaveAndRecordWhenActive(guid, lease);
-		}
-
-		// Downloading a shared anchor does not save it: it arrives as a live trackable and
-		// nothing more. The local save is what makes the map durable — without it the map can
-		// only be re-entered while its host is present and online.
-		private async void SaveAndRecordWhenActive(SerializableGuid guid, AnchorLease lease)
-		{
-			try
-			{
-				CancellationToken ctkn = lifetimeCtknSrc.Token;
-
-				while (lease.Handle.state != AnchorHandle.State.Active)
-				{
-					await Awaitable.NextFrameAsync(ctkn);
-
-					if (!leases.TryGetValue(guid, out AnchorLease current) || current != lease)
-						return;
-				}
-
-				if (!registry.IsSaved(guid))
-				{
-					bool saved = await registry.TrySaveAsync(guid, ctkn);
-					if (!saved)
-						Debug.LogWarning($"Downloaded anchor {guid} could not be saved; " +
-							"this map will need its host again to re-enter this room.");
-				}
-
-				SaveCurrentMapQuietly();
-			}
-			catch (OperationCanceledException)
-			{
-			}
-			catch (Exception e)
-			{
-				Debug.LogException(e);
-			}
-		}
-
-		private void ReleaseAllLeases()
-		{
-			foreach (AnchorLease lease in leases.Values)
-				lease.Dispose();
-
-			leases.Clear();
-		}
-
 		// ------- anchor minting ------------------------------------
 
 		private async void MintLoop(CancellationToken ctkn)
@@ -925,7 +793,8 @@ namespace Anaglyph.Lasertag
 				{
 					await Awaitable.FixedUpdateAsync(ctkn);
 
-					if (registry == null || CurrentMap == null || mintInFlight) continue;
+					if (!anchorProvider || !anchorProvider.IsAvailable) continue;
+					if (CurrentMap == null || anchorProvider.IsMinting) continue;
 					if (!WorldFrameTrusted) continue;
 
 					// Roaming anchors accompany shared-anchor colocation. Tag maps get one
@@ -975,80 +844,37 @@ namespace Anaglyph.Lasertag
 			else
 				feetPose.position = headPos - Vector3.up * 1.5f;
 
-			await MintAnchor(feetPose, -1, ctkn);
+			// A roaming anchor defines its own canon pose: it is created where it is, and
+			// where it is IS where it belongs.
+			await MintAnchor(feetPose, feetPose, -1, ctkn);
 		}
 
 		/// <summary>
-		/// Creates an anchor at a world pose, saves it to local storage, and records it in the
-		/// current map with that pose as canon. In a shared-anchor session it is also uploaded
-		/// and its canon pose published — publication does not wait on the upload.
+		/// Mints an anchor and records it in the current map. In a shared-anchor session it is
+		/// also uploaded and its canon pose published — neither waits on the upload.
 		/// </summary>
-		public async Awaitable MintAnchor(Pose pose, int tagId, CancellationToken ctkn)
+		private async Awaitable MintAnchor(Pose createAt, Pose canon, int tagId,
+			CancellationToken ctkn)
 		{
-			if (registry == null || CurrentMap == null || mintInFlight)
+			if (!anchorProvider || CurrentMap == null)
 				return;
 
-			mintInFlight = true;
+			Guid guid = await anchorProvider.MintAsync(createAt, canon, ctkn);
 
-			AnchorLease lease = null;
-			bool established = false;
+			if (guid == Guid.Empty || CurrentMap == null)
+				return;
 
-			try
+			CurrentMap.SetAnchorWithTag(GuidToString(guid), canon, tagId);
+			SaveCurrentMapQuietly();
+
+			bool sharedSession = SyncBus.Active &&
+				ColocationManager.Instance.Method ==
+				ColocationManager.ColocationMethod.MetaSharedAnchor;
+
+			if (sharedSession)
 			{
-				Result<ARAnchor> result = await anchorManager.TryAddAnchorAsync(pose);
-				if (!result.status.IsSuccess() || result.value == null)
-					throw new Exception("Failed to create new anchor!");
-
-				lease = registry.Acquire(result.value, AnchorSource.Local);
-				SerializableGuid guid = lease.Handle.guid;
-
-				ctkn.ThrowIfCancellationRequested();
-
-				// An anchor that can't be saved is useless to the map — it would be a record
-				// no later session can load.
-				bool saved = await registry.TrySaveAsync(result.value, ctkn);
-				if (!saved)
-					return;
-
-				ctkn.ThrowIfCancellationRequested();
-
-				leases[guid] = lease;
-
-				CurrentMap.SetAnchorWithTag(GuidToString(guid), pose, tagId);
-				SaveCurrentMapQuietly();
-
-				bool sharedSession = SyncBus.Active &&
-					ColocationManager.Instance.Method ==
-					ColocationManager.ColocationMethod.MetaSharedAnchor;
-
-				if (sharedSession)
-				{
-					canonAnchors.RequestSet(guid, pose);
-					_ = ShareAnchor(result.value, ctkn);
-				}
-
-				established = true;
-			}
-			catch (OperationCanceledException)
-			{
-			}
-			catch (Exception e)
-			{
-				Debug.LogException(e);
-			}
-			finally
-			{
-				mintInFlight = false;
-
-				if (lease != null && !established)
-				{
-					SerializableGuid guid = lease.Handle.guid;
-
-					if (leases.TryGetValue(guid, out AnchorLease registered) && registered == lease)
-						leases.Remove(guid);
-
-					lease.Dispose();
-				}
+				canonAnchors.RequestSet(guid, canon);
+				_ = anchorProvider.ShareAsync(guid, ctkn);
 			}
 		}
 
@@ -1108,57 +934,41 @@ namespace Anaglyph.Lasertag
 		/// </summary>
 		public void OnTagObserved(int tagId, Pose observedTagPose)
 		{
-			if (registry == null || CurrentMap == null) return;
+			if (!anchorProvider || CurrentMap == null) return;
 			if (!CurrentMap.TryGetTag(tagId, out MapTagEntry tag)) return;
 			if (!WorldFrameTrusted) return;
 
-			MapAnchorEntry? tagAnchor = null;
-			foreach (MapAnchorEntry entry in CurrentMap.anchors)
-				if (entry.tagId == tagId)
-				{
-					tagAnchor = entry;
-					break;
-				}
-
-			if (tagAnchor == null)
+			if (!CurrentMap.TryGetAnchorByTag(tagId, out MapAnchorEntry tagAnchor))
 			{
 				MintTagAnchor(tagId, observedTagPose, tag.canonPose);
 				return;
 			}
 
-			CorrectTagAnchor(tagId, tag.canonPose, observedTagPose, tagAnchor.Value);
+			CorrectTagAnchor(tagId, tag.canonPose, observedTagPose, tagAnchor);
 		}
 
 		private async void MintTagAnchor(int tagId, Pose observedTagPose, Pose canonTagPose)
 		{
-			if (mintInFlight || !tagAnchorMintsInFlight.Add(tagId))
+			if (anchorProvider.IsMinting || !tagAnchorMintsInFlight.Add(tagId))
 				return;
 
 			try
 			{
-				// The anchor is created AT the observed tag, so its canon pose is exactly the
-				// tag's canon pose: the relative term of the correction formula is identity at
-				// creation time. Note the anchor is minted at the observed pose but recorded
-				// at canon — if the fit has residual error here, the first correction absorbs
-				// it.
-				await MintAnchorAt(observedTagPose, canonTagPose, tagId, lifetimeCtknSrc.Token);
+				// Created AT the observed tag, but its canon pose is the tag's canon pose —
+				// so the relative term of the correction formula is identity at creation
+				// time. Any residual fit error gets absorbed by the first correction.
+				await MintAnchor(observedTagPose, canonTagPose, tagId, lifetimeCtknSrc.Token);
+			}
+			catch (OperationCanceledException)
+			{
+			}
+			catch (Exception e)
+			{
+				Debug.LogException(e);
 			}
 			finally
 			{
 				tagAnchorMintsInFlight.Remove(tagId);
-			}
-		}
-
-		private async Awaitable MintAnchorAt(Pose observedPose, Pose canonPose, int tagId,
-			CancellationToken ctkn)
-		{
-			await MintAnchor(observedPose, tagId, ctkn);
-
-			// MintAnchor records canon = observed; for tag anchors canon comes from the tag.
-			if (CurrentMap != null && CurrentMap.TryGetAnchorByTag(tagId, out MapAnchorEntry entry))
-			{
-				CurrentMap.SetAnchorWithTag(entry.guid, canonPose, tagId);
-				SaveCurrentMapQuietly();
 			}
 		}
 
@@ -1171,21 +981,17 @@ namespace Anaglyph.Lasertag
 		private void CorrectTagAnchor(int tagId, Pose canonTag, Pose observedTag,
 			MapAnchorEntry anchorEntry)
 		{
-			if (!leases.TryGetValue(GuidFromString(anchorEntry.guid), out AnchorLease lease))
+			Guid anchorGuid = GuidFromString(anchorEntry.guid);
+
+			if (!anchorProvider.TryGetObserved(anchorGuid, out Pose observedAnchor))
 				return;
-
-			AnchorHandle handle = lease.Handle;
-			if (handle.state != AnchorHandle.State.Active) return;
-			if (handle.anchor.trackingState != TrackingState.Tracking) return;
-
-			Transform anchorTransform = handle.anchor.transform;
 
 			// Both observations in the same frame; any rig alignment cancels in the relative
 			// term.
 			Matrix4x4 observedTagMat = Matrix4x4.TRS(
 				observedTag.position, observedTag.rotation, Vector3.one);
 			Matrix4x4 observedAnchorMat = Matrix4x4.TRS(
-				anchorTransform.position, anchorTransform.rotation, Vector3.one);
+				observedAnchor.position, observedAnchor.rotation, Vector3.one);
 			Matrix4x4 canonTagMat = Matrix4x4.TRS(
 				canonTag.position, canonTag.rotation, Vector3.one);
 
@@ -1219,7 +1025,10 @@ namespace Anaglyph.Lasertag
 
 			tagCorrections.Remove(tagId);
 
-			CurrentMap.SetAnchorWithTag(anchorEntry.guid, new Pose(averagePos, averageRot), tagId);
+			Pose correctedCanon = new(averagePos, averageRot);
+
+			CurrentMap.SetAnchorWithTag(anchorEntry.guid, correctedCanon, tagId);
+			anchorProvider.SetCanon(anchorGuid, correctedCanon);
 			SaveCurrentMapQuietly();
 
 			bool sharedSession = SyncBus.Active &&
@@ -1227,8 +1036,7 @@ namespace Anaglyph.Lasertag
 				ColocationManager.ColocationMethod.MetaSharedAnchor;
 
 			if (sharedSession)
-				canonAnchors.RequestSet(GuidFromString(anchorEntry.guid),
-					new Pose(averagePos, averageRot));
+				canonAnchors.RequestSet(anchorGuid, correctedCanon);
 		}
 
 		// ------- probe ---------------------------------------------
@@ -1257,7 +1065,7 @@ namespace Anaglyph.Lasertag
 		/// </summary>
 		public async Awaitable ProbeAndAutoLoad(CancellationToken ctkn = default)
 		{
-			if (registry == null)
+			if (!anchorProvider || !anchorProvider.IsAvailable)
 				return;
 
 			foreach (GameMap map in MapStore.GetByLastUsed())
@@ -1267,12 +1075,8 @@ namespace Anaglyph.Lasertag
 				if (map.anchors.Count == 0)
 					continue;
 
-				List<SerializableGuid> guids = new(map.anchors.Count);
-				foreach (MapAnchorEntry entry in map.anchors)
-					guids.Add(GuidFromString(entry.guid));
-
-				HashSet<SerializableGuid> localized =
-					await registry.ProbeLocalizableAsync(guids, probeTimeoutSeconds, ctkn);
+				HashSet<Guid> localized =
+					await anchorProvider.ProbeAsync(AnchorGuidsOf(map), probeTimeoutSeconds, ctkn);
 
 				probeResults[map.id] = localized.Count;
 				ProbeResultsChanged.Invoke();
@@ -1294,7 +1098,7 @@ namespace Anaglyph.Lasertag
 		/// <summary>Re-probes every map, for the picker's "found in this room" badges.</summary>
 		public async Awaitable ProbeAllMaps(CancellationToken ctkn = default)
 		{
-			if (registry == null)
+			if (!anchorProvider || !anchorProvider.IsAvailable)
 				return;
 
 			foreach (GameMap map in MapStore.GetByLastUsed())
@@ -1307,16 +1111,22 @@ namespace Anaglyph.Lasertag
 					continue;
 				}
 
-				List<SerializableGuid> guids = new(map.anchors.Count);
-				foreach (MapAnchorEntry entry in map.anchors)
-					guids.Add(GuidFromString(entry.guid));
-
-				HashSet<SerializableGuid> localized =
-					await registry.ProbeLocalizableAsync(guids, probeTimeoutSeconds, ctkn);
+				HashSet<Guid> localized =
+					await anchorProvider.ProbeAsync(AnchorGuidsOf(map), probeTimeoutSeconds, ctkn);
 
 				probeResults[map.id] = localized.Count;
 				ProbeResultsChanged.Invoke();
 			}
+		}
+
+		private static List<Guid> AnchorGuidsOf(GameMap map)
+		{
+			List<Guid> guids = new(map.anchors.Count);
+
+			foreach (MapAnchorEntry entry in map.anchors)
+				guids.Add(GuidFromString(entry.guid));
+
+			return guids;
 		}
 
 		// ------- identity ------------------------------------------
@@ -1340,14 +1150,14 @@ namespace Anaglyph.Lasertag
 
 		// ------- helpers -------------------------------------------
 
-		private static string GuidToString(SerializableGuid guid)
+		private static string GuidToString(Guid guid)
 		{
-			return guid.guid.ToString("N");
+			return guid.ToString("N");
 		}
 
-		private static SerializableGuid GuidFromString(string s)
+		private static Guid GuidFromString(string s)
 		{
-			return new SerializableGuid(Guid.ParseExact(s, "N"));
+			return Guid.ParseExact(s, "N");
 		}
 	}
 }

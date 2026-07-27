@@ -105,7 +105,7 @@ Transform:
   m_GameObject: {fileID: 4911773725507866215}
   serializedVersion: 2
   m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 0.02, z: 0}
   m_LocalScale: {x: 0.05, y: 0.05, z: 0.05}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -129,7 +129,7 @@ MonoBehaviour:
   m_SortingOrder: 0
   m_Position: 0
   m_WorldSpaceSizeMode: 1
-  m_WorldSpaceWidth: 300
+  m_WorldSpaceWidth: 420
   m_WorldSpaceHeight: 500
   m_PivotReferenceSize: 1
   m_Pivot: 0
@@ -153,7 +153,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 3, y: 5, z: 0.02}
+  m_Size: {x: 4.2, y: 5, z: 0.02}
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!114 &7577370694763536411
 MonoBehaviour:
@@ -276,11 +276,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e9414520b52b14b79ae54b1960d624e7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.PaletteMenu
-  blueBasePrefab: {fileID: 1396190181075967584, guid: a41f71a8e984b494097a21f11c3c8f3c, type: 3}
-  redBasePrefab: {fileID: 2855377600944756215, guid: 9f38ed223dc9ead41a2a38e807eb4f63, type: 3}
-  blueFlagPrefab: {fileID: 6797909664841775682, guid: 5a37dcb5ba0e707478906978c7dcd0ca, type: 3}
-  redFlagPrefab: {fileID: 6797909664841775682, guid: 09550731d948e3b4b867b662e681b59b, type: 3}
-  blasterPickupPrefab: {fileID: 817168843049134554, guid: 5f246ade89ff64940aaa55e503fdd7f7, type: 3}
-  automaticPickupPrefab: {fileID: 6798071415338603818, guid: 82bf6a83110c3417cbd1eaf175435329, type: 3}
-  debugWallPrefab: {fileID: 7063072412994454556, guid: 901145a346bfd4e05b05ae98543fd712, type: 3}
-  debugAnchorHandlePrefab: {fileID: 8038744278586735497, guid: f324c7323ecc14d8a8e5a985103ab75a, type: 3}
+  database: {fileID: 11400000, guid: 93790f38bf42f48f9baa20fd8c0411a3, type: 2}
