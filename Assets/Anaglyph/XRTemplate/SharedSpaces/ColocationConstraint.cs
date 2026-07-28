@@ -8,21 +8,19 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	/// (pre-correction) world coordinates, paired with the canon pose that same reference has
 	/// in the map's world frame. The fit moves tracking space so observed lands on canon.
 	/// </summary>
-	public struct ColocationReference
+	public struct ColocationConstraint
 	{
 		public Pose observed;
 		public Pose canon;
 
 		/// <summary>
 		/// Whether this reference's observed rotation is trustworthy enough to align with on
-		/// its own. Anchors are (the runtime tracks a full pose); a tag's rotation comes from
-		/// a single noisy image estimate, so several tags must be triangulated by position
-		/// instead. One rotation-bearing reference fully constrains a fit; positions alone
-		/// need three.
+		/// its own. Runtime anchors are; a vision-only source may instead expose position-only
+		/// references that require multiple correspondences.
 		/// </summary>
 		public bool hasReliableRotation;
 
-		public ColocationReference(Pose observed, Pose canon, bool hasReliableRotation = false)
+		public ColocationConstraint(Pose observed, Pose canon, bool hasReliableRotation = false)
 		{
 			this.observed = observed;
 			this.canon = canon;
@@ -32,15 +30,26 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 	/// <summary>
 	/// Supplies a colocator with references each frame. A colocator consumes references from
-	/// any number of sources and does not care where they come from — anchors, tags, or
-	/// anything added later. Sources own their own references' lifecycles.
+	/// a source without caring how its physical references were established. Sources own their
+	/// references' lifecycles.
 	/// </summary>
-	public interface IColocationReferenceSource
+	public interface IColocationConstraintSource
 	{
 		/// <summary>
 		/// Appends every reference that is trustworthy right now (tracked/visible, with a
 		/// known canon pose). Called every frame; implementations should not allocate.
 		/// </summary>
-		void GetColocationReferences(List<ColocationReference> results);
+		void GetColocationReferences(List<ColocationConstraint> results);
+	}
+
+	/// <summary>
+	/// A self-contained source that owns the lifecycle of the physical references it exposes.
+	/// Exactly one provider is activated by <see cref="ReferenceColocator"/> at a time.
+	/// </summary>
+	public interface IColocationConstraintProvider : IColocationConstraintSource
+	{
+		bool IsRunning { get; }
+		void StartProviding();
+		void StopProviding();
 	}
 }

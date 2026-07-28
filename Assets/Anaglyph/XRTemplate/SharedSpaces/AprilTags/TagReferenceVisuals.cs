@@ -1,12 +1,13 @@
 using AprilTag;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
 	public class TagReferenceVisuals : MonoBehaviour
 	{
-		[SerializeField] private TagReferenceSource source;
+		[FormerlySerializedAs("source")] [SerializeField] private TagConstraintProvider provider;
 
 		[SerializeField] private Mesh indicatorMesh;
 		[SerializeField] private Material indicatorMaterial;
@@ -18,6 +19,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private MaterialPropertyBlock mpb;
 
 		private IReadOnlyList<TagPose> latestTagPoses;
+		private readonly List<TaggedAnchorReferenceData> anchorScratch = new();
 
 		private void Awake()
 		{
@@ -26,7 +28,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private void Start()
 		{
-			source.TagTracker.OnDetectTags += OnTagsDetected;
+			provider.TagTracker.OnDetectTags += OnTagsDetected;
 		}
 
 		private void OnTagsDetected(IReadOnlyList<TagPose> tagPoses)
@@ -36,21 +38,20 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private void LateUpdate()
 		{
-			if (!source.IsRunning)
+			if (!provider.IsDetecting)
 				return;
 
 			Vector3 scale;
 
 			if (latestTagPoses != null)
 			{
-				scale = Vector3.one * (source.TagSizeCm * 0.03f);
-				Color color = Color.white;
+				scale = Vector3.one * (provider.TagSizeCm * 0.03f);
 
 				foreach (TagPose tagPose in latestTagPoses)
 				{
-					// CanonTags is injected by the game layer and may not be wired yet.
-					if (source.CanonTags == null || !source.CanonTags.ContainsKey(tagPose.ID))
-						color = Color.yellow;
+					Color color = provider.RegisteredTags.ContainsKey(tagPose.ID)
+						? Color.white
+						: Color.yellow;
 
 					mpb.SetColor(BaseColorID, color);
 
@@ -59,21 +60,23 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				}
 			}
 
-			if (AnaglyphDebugging.DebugMode && source.CanonTags != null)
+			if (AnaglyphDebugging.DebugMode)
 			{
 				scale = Vector3.one * 0.02f;
 				mpb.SetColor(BaseColorID, Color.green);
-				foreach (Pose canonTag in source.CanonTags.Values)
+				foreach (Pose canonTag in provider.RegisteredTags.Values)
 				{
 					Matrix4x4 model = Matrix4x4.TRS(canonTag.position, Quaternion.identity, scale);
 					Graphics.DrawMesh(debugPointMesh, model, debugMaterial, 0, MainXRRig.Camera, 0, mpb);
 				}
 
 				mpb.SetColor(BaseColorID, Color.white);
-				foreach (Vector3 localTagPos in source.LocalTags.Values)
+				anchorScratch.Clear();
+				provider.GetLocalAnchorReferences(anchorScratch);
+				foreach (TaggedAnchorReferenceData anchor in anchorScratch)
 				{
-					Matrix4x4 model = MainXRRig.TrackingSpace.localToWorldMatrix *
-					                  Matrix4x4.TRS(localTagPos, Quaternion.identity, scale);
+					Matrix4x4 model = Matrix4x4.TRS(
+						anchor.canonPose.position, anchor.canonPose.rotation, scale);
 					Graphics.DrawMesh(debugPointMesh, model, debugMaterial, 0, MainXRRig.Camera, 0, mpb);
 				}
 			}

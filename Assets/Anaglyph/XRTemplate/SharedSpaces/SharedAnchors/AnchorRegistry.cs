@@ -51,10 +51,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	/// if I don't need the anchor anymore.
 	/// This system is here to make this limitation manageable.
 	/// </summary>
-	public sealed class AnchorRegistry : IDisposable
+	[DefaultExecutionOrder(-300)]
+	public sealed class AnchorRegistry : MonoBehaviour, IDisposable
 	{
-		private readonly ARAnchorManager anchorManager;
-		private readonly MetaOpenXRAnchorSubsystem anchorSubsystem;
+		public static AnchorRegistry Instance { get; private set; }
+
+		private ARAnchorManager anchorManager;
+		private MetaOpenXRAnchorSubsystem anchorSubsystem;
 		private readonly Dictionary<SerializableGuid, AnchorHandle> handles = new();
 		private readonly HashSet<SerializableGuid> savedGuidSet = new();
 		private readonly CancellationTokenSource lifetimeCtknSrc = new();
@@ -63,14 +66,46 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private bool disposed;
 
-		public AnchorRegistry(ARAnchorManager anchorManager, MetaOpenXRAnchorSubsystem anchorSubsystem)
+		/// <summary>False where the configured anchor runtime is unavailable.</summary>
+		public bool IsAvailable => anchorManager != null && anchorSubsystem != null && !disposed;
+
+		private void Awake()
 		{
-			this.anchorManager = anchorManager ?? throw new ArgumentNullException(nameof(anchorManager));
-			this.anchorSubsystem =
-				anchorSubsystem ?? throw new ArgumentNullException(nameof(anchorSubsystem));
+			if (Instance != null && Instance != this)
+			{
+				Debug.LogError("Only one AnchorRegistry may own AR anchor handles.", this);
+				enabled = false;
+				return;
+			}
+
+			Instance = this;
+
+			#if !UNITY_EDITOR
+			anchorManager = FindFirstObjectByType<ARAnchorManager>();
+			if (anchorManager == null)
+			{
+				Debug.LogError("AnchorRegistry requires an ARAnchorManager.", this);
+				return;
+			}
+
+			anchorSubsystem = anchorManager.subsystem as MetaOpenXRAnchorSubsystem;
+			if (anchorSubsystem == null)
+			{
+				Debug.LogError("AnchorRegistry requires the Meta OpenXR anchor subsystem.", this);
+				return;
+			}
 
 			anchorManager.trackablesChanged.AddListener(OnTrackablesChanged);
 			ReconciliationLoop(lifetimeCtknSrc.Token);
+			#endif
+		}
+
+		private void OnDestroy()
+		{
+			Dispose();
+
+			if (Instance == this)
+				Instance = null;
 		}
 
 		public AnchorLease Acquire(SerializableGuid guid, AnchorSource source)
@@ -105,6 +140,73 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			handle.Retain(anchor, source);
 			return new AnchorLease(handle, source);
+		}
+
+		/// <summary>
+		/// Creates a brand-new anchor at <paramref name="pose"/> and starts holding it. This does
+		/// not load an anchor from local storage or a shared group, and it does not persist the new
+		/// anchor; call <see cref="TrySaveAsync(ARAnchor, CancellationToken)"/> separately if it
+		/// should survive this session.
+		///
+		/// The returned lease permits local recovery if the runtime later removes the anchor. Returns
+		/// null when the runtime cannot create the anchor. Although creation itself is not cancellable,
+		/// cancellation while it is in flight removes the resulting anchor instead of registering it.
+		/// </summary>
+		public async Awaitable<AnchorLease> TryMintAsync(Pose pose, CancellationToken ctkn = default)
+		{
+			ThrowIfDisposed();
+			ctkn.ThrowIfCancellationRequested();
+
+			Result<ARAnchor> result = await anchorManager.TryAddAnchorAsync(pose);
+
+			if (!result.status.IsSuccess() || result.value == null)
+			{
+				if (result.value != null)
+					RemoveAnchor(result.value);
+
+				Debug.LogWarning($"Failed to mint anchor at {pose}: {result.status}");
+				return null;
+			}
+
+			ARAnchor mintedAnchor = result.value;
+
+			if (disposed || ctkn.IsCancellationRequested)
+			{
+				RemoveAnchor(mintedAnchor);
+				ctkn.ThrowIfCancellationRequested();
+				return null;
+			}
+
+			return Acquire(mintedAnchor, AnchorSource.Local);
+		}
+
+		// ------- sharing ------------------------------------------
+
+		public Supported sharedAnchorsSupport =>
+			anchorSubsystem != null ? anchorSubsystem.isSharedAnchorsSupported : Supported.Unknown;
+
+		/// <summary>Shares one loaded anchor into the Meta group addressed by its guid.</summary>
+		public async Awaitable<XRResultStatus> TryShareAsync(SerializableGuid guid,
+			CancellationToken ctkn = default)
+		{
+			ThrowIfDisposed();
+			ctkn.ThrowIfCancellationRequested();
+
+			ARAnchor anchor =
+				handles.TryGetValue(guid, out AnchorHandle handle) && handle.anchor != null
+					? handle.anchor
+					: anchorManager.GetAnchor(guid);
+
+			if (anchor == null)
+			{
+				Debug.LogWarning($"Cannot share anchor {guid}: it is not loaded.");
+				return new XRResultStatus(XRResultStatus.StatusCode.UnknownError);
+			}
+
+			anchorSubsystem.sharedAnchorsGroupId = guid;
+			XRResultStatus result = await anchorManager.TryShareAnchorAsync(anchor);
+			ctkn.ThrowIfCancellationRequested();
+			return result;
 		}
 
 		// ------- local persistence ---------------------------------
@@ -563,7 +665,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			disposed = true;
 			lifetimeCtknSrc.Cancel();
-			anchorManager.trackablesChanged.RemoveListener(OnTrackablesChanged);
+			if (anchorManager != null)
+				anchorManager.trackablesChanged.RemoveListener(OnTrackablesChanged);
 			lifetimeCtknSrc.Dispose();
 		}
 	}

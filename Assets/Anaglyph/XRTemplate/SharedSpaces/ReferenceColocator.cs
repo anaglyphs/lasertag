@@ -7,49 +7,45 @@ using UnityEngine;
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
 	/// <summary>
-	/// Aligns the rig against every reference its sources hand it, whatever they are —
-	/// spatial anchors, AprilTags, or anything added later. There is only one fitting
-	/// implementation because there is only one thing to do: move tracking space so the
-	/// observed references land on their canon poses.
-	///
-	/// A colocation "method" is therefore a choice of which sources are active, not a choice
-	/// of colocator. Sources compose: a tag map hosted with shared anchors runs both, and
-	/// every reference feeds the same fit.
+	/// Aligns the rig against the references supplied by the selected provider. Providers own
+	/// discovery, persistence, and synchronization; this class only fits their observed anchor
+	/// poses to their canon poses. Selecting a provider stops the previous one, so two anchor
+	/// strategies can never manipulate the same runtime concurrently.
 	/// </summary>
 	[DefaultExecutionOrder(999)]
 	public class ReferenceColocator : MonoBehaviour, IColocator
 	{
+		public const int MinimumPositionOnlyReferenceCount = 2;
+
 		public ColocationState State { get; private set; } = ColocationState.Stopped;
 		public event Action<ColocationState> StateChanged = delegate { };
 
 		[Tooltip("How quickly to ease onto a new fit once already localized. 1 = snap")]
 		[SerializeField] private float fitLerp = 0.1f;
 
-		private readonly List<IColocationReferenceSource> sources = new();
+		private IColocationConstraintProvider provider;
+		public IColocationConstraintProvider Provider => provider;
 
 		private CancellationTokenSource ctknSrc;
 
-		private readonly List<ColocationReference> references = new();
+		private readonly List<ColocationConstraint> references = new();
 		private readonly List<(float3 subject, float3 target)> positionPairs = new();
 
-		/// <summary>
-		/// Adds a source. Sources may come and go while colocation runs; the fit simply uses
-		/// whatever references exist each frame.
-		/// </summary>
-		public void AddSource(IColocationReferenceSource source)
+		public void SetProvider(IColocationConstraintProvider next)
 		{
-			if (source != null && !sources.Contains(source))
-				sources.Add(source);
+			if (ReferenceEquals(provider, next))
+				return;
+
+			if (State != ColocationState.Stopped)
+				StopColocation();
+
+			provider = next;
 		}
 
-		public void RemoveSource(IColocationReferenceSource source)
+		/// <summary>Appends the references currently used by the fit.</summary>
+		public void GetCurrentReferences(List<ColocationConstraint> results)
 		{
-			sources.Remove(source);
-		}
-
-		public void ClearSources()
-		{
-			sources.Clear();
+			provider?.GetColocationReferences(results);
 		}
 
 		private void SetState(ColocationState next)
@@ -87,14 +83,17 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public void StartColocation()
 		{
+			if (State != ColocationState.Stopped || provider == null)
+				return;
+
+			provider.StartProviding();
+
 			#if UNITY_EDITOR
 			// No anchor runtime in-editor. Report an identity frame as localized so map
 			// editing and everything else gated on colocation is testable off-device.
 			SetState(ColocationState.Localized);
 			return;
 			#endif
-
-			if (State != ColocationState.Stopped) return;
 
 			ctknSrc = new CancellationTokenSource();
 			SetState(ColocationState.Searching);
@@ -103,10 +102,12 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public void StopColocation()
 		{
-			if (State == ColocationState.Stopped) return;
+			if (State == ColocationState.Stopped)
+				return;
 
 			ctknSrc?.Cancel();
 			ctknSrc = null;
+			provider?.StopProviding();
 			SetState(ColocationState.Stopped);
 		}
 
@@ -119,8 +120,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					await Awaitable.NextFrameAsync(ctkn);
 
 					references.Clear();
-					foreach (IColocationReferenceSource source in sources)
-						source.GetColocationReferences(references);
+					provider?.GetColocationReferences(references);
 
 					if (!TryFit())
 						Delocalize();
@@ -144,13 +144,15 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				return false;
 
 			// A reference with a trustworthy rotation (an anchor) fully constrains the fit on
-			// its own. Position-only references (tags) have to triangulate, which takes three.
+			// its own. Position-only references (tags) need two horizontally separated points
+			// to constrain yaw as well as translation.
 			int rotationBearing = 0;
-			foreach (ColocationReference reference in references)
+			foreach (ColocationConstraint reference in references)
 				if (reference.hasReliableRotation)
 					rotationBearing++;
 
-			if (rotationBearing == 0 && references.Count < 3)
+			if (rotationBearing == 0 &&
+			    references.Count < MinimumPositionOnlyReferenceCount)
 				return false;
 
 			// First fit after Searching or Lost snaps, so the world arrives where it belongs
@@ -175,7 +177,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			else
 			{
 				positionPairs.Clear();
-				foreach (ColocationReference reference in references)
+				foreach (ColocationConstraint reference in references)
 					positionPairs.Add((reference.observed.position, reference.canon.position));
 
 				Matrix4x4 delta = BestFit.Find4DOF(positionPairs);

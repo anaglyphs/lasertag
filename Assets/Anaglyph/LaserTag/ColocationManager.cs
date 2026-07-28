@@ -3,6 +3,7 @@ using Anaglyph.XRTemplate;
 using Anaglyph.XRTemplate.SharedSpaces;
 using System;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Anaglyph.Lasertag
 {
@@ -23,10 +24,15 @@ namespace Anaglyph.Lasertag
 		public ColocationMethod methodHostSetting;
 		private readonly SyncVariable<ColocationMethod> methodSync = new("colo.method");
 		public ColocationMethod Method => methodSync.Value;
+		public ColocationMethod SelectedMethod => SyncBus.Active ? Method : methodHostSetting;
 
 		[SerializeField] private ReferenceColocator colocator;
-		[SerializeField] private AnchorReferenceProvider anchorSource;
-		[SerializeField] private TagReferenceSource tagSource;
+
+		[SerializeField] private SpatialAnchorConstraintProvider spatialAnchorProvider;
+		[SerializeField] private TagConstraintProvider tagProvider;
+
+		public bool UsingTagProvider => colocator != null &&
+			ReferenceEquals(colocator.Provider, tagProvider);
 
 		// True from method-sync (session fully known) until the session ends.
 		private bool sessionStarted;
@@ -46,11 +52,12 @@ namespace Anaglyph.Lasertag
 		private void Start()
 		{
 			if (!colocator) colocator = FindFirstObjectByType<ReferenceColocator>();
-			if (!anchorSource) anchorSource = AnchorReferenceProvider.Instance;
-			if (!tagSource) tagSource = TagReferenceSource.Instance;
+			if (!spatialAnchorProvider) spatialAnchorProvider = SpatialAnchorConstraintProvider.Instance;
+			if (!tagProvider) tagProvider = TagConstraintProvider.Instance;
 
-			tagSource.CanonTags = MapManager.Instance.CanonTags;
-			tagSource.TagObserved += MapManager.Instance.OnTagObserved;
+			if (spatialAnchorProvider)
+				spatialAnchorProvider.MintingGate = () =>
+					MapManager.Instance == null || MapManager.Instance.WorldFrameTrusted;
 
 			MapManager.Instance.CurrentMapChanged += OnCurrentMapChanged;
 
@@ -58,10 +65,9 @@ namespace Anaglyph.Lasertag
 			// who arrive earlier would download nothing they can align to.
 			MetaSessionDiscovery discovery = MetaSessionDiscovery.Instance;
 			if (discovery != null)
-				discovery.AdvertisementGate = () =>
-					MapManager.Instance != null && MapManager.Instance.WorldFrameTrusted;
+				discovery.AdvertisementGate = CanAdvertiseSession;
 
-			UpdateSources();
+			UpdateProvider();
 		}
 
 		private void OnDestroy()
@@ -69,10 +75,10 @@ namespace Anaglyph.Lasertag
 			if (MapManager.Instance != null)
 			{
 				MapManager.Instance.CurrentMapChanged -= OnCurrentMapChanged;
-
-				if (tagSource)
-					tagSource.TagObserved -= MapManager.Instance.OnTagObserved;
 			}
+
+			if (colocator)
+				colocator.SetProvider(null);
 
 			SyncBus.Activated -= OnBusActivated;
 			SyncBus.Deactivated -= OnBusDeactivated;
@@ -87,11 +93,27 @@ namespace Anaglyph.Lasertag
 			MetaSessionDiscovery discovery = MetaSessionDiscovery.Instance;
 			if (discovery == null) return;
 
-			bool open = MapManager.Instance != null && MapManager.Instance.WorldFrameTrusted;
+			bool open = CanAdvertiseSession();
 			if (open == advertiseGateOpen) return;
 
 			advertiseGateOpen = open;
 			discovery.RefreshState();
+		}
+
+		private bool CanAdvertiseSession()
+		{
+			MapManager mapManager = MapManager.Instance;
+			if (mapManager == null || !mapManager.WorldFrameTrusted)
+				return false;
+
+			ColocationMethod hostMethod = sessionStarted ? Method : methodHostSetting;
+			if (hostMethod != ColocationMethod.AprilTag)
+				return true;
+
+			// Tag mode is only meaningful when the provider has at least one registered tag
+			// from which each peer can create its own private anchor.
+			GameMap map = mapManager.CurrentMap;
+			return map != null && map.HasTags;
 		}
 
 		private void OnBusActivated()
@@ -99,7 +121,17 @@ namespace Anaglyph.Lasertag
 			// Written before any endpoint's Synced fires, so joiner and authority
 			// alike see the session's method in OnMethodSynced.
 			if (SyncBus.IsAuthority)
+			{
 				methodSync.Value = methodHostSetting;
+				UpdateProvider();
+			}
+			else
+			{
+				// Do not align even briefly against the previous offline map while the
+				// authority's combined provider/map snapshot is being applied.
+				colocator?.StopColocation();
+				SetColocated(false);
+			}
 		}
 
 		// Full session state is in (authority: right after activation; joiners: after
@@ -110,7 +142,7 @@ namespace Anaglyph.Lasertag
 			if (sessionStarted) return;
 			sessionStarted = true;
 
-			UpdateSources();
+			UpdateProvider();
 		}
 
 		private void OnBusDeactivated()
@@ -118,7 +150,7 @@ namespace Anaglyph.Lasertag
 			sessionStarted = false;
 
 			// Colocation does not end with the session — a loaded map keeps localizing.
-			UpdateSources();
+			UpdateProvider();
 
 			Vector3 p = MainXRRig.TrackingSpace.position;
 
@@ -134,46 +166,38 @@ namespace Anaglyph.Lasertag
 
 		private void OnCurrentMapChanged(GameMap map)
 		{
-			UpdateSources();
+			UpdateProvider();
 		}
 
 		/// <summary>
-		/// Decides which reference sources feed the fit.
-		///
-		/// Anchors are always a source — they are what a map is pinned to in every mode, and
-		/// what restores alignment after a recenter or sleep. Tags are a source whenever the
-		/// loaded map has any: their corrections keep the anchors honest regardless of which
-		/// colocation method a session was hosted with, so a tag map does not go blind just
-		/// because it is being hosted over shared anchors.
-		///
-		/// The session's method decides what gets *shared*, which is the map system's
-		/// business, not the colocator's.
+		/// Selects exactly one self-contained provider. Tag mode is valid only for a map that
+		/// contains registered tags. A tag-enabled map may instead use shared-anchor mode, but
+		/// roaming minting remains disabled so every saved anchor keeps a parent tag.
 		/// </summary>
-		private void UpdateSources()
+		private void UpdateProvider()
 		{
 			GameMap map = MapManager.Instance != null ? MapManager.Instance.CurrentMap : null;
+			IColocationConstraintProvider next = null;
 
-			bool wantAnchors = map != null;
-			bool wantTags = map != null &&
-				(map.HasTags ||
-				 // A session hosted in tag mode registers its canon tags as it goes, so the
-				 // source has to be live before this peer's map has any of its own.
-				 (sessionStarted && Method == ColocationMethod.AprilTag));
+			if (spatialAnchorProvider)
+				spatialAnchorProvider.RoamingMintEnabled = map != null && !map.HasTags;
 
-			colocator.ClearSources();
+			if (map != null)
+			{
+				if (SelectedMethod == ColocationMethod.AprilTag)
+				{
+					if (map.HasTags)
+						next = tagProvider;
+				}
+				else
+				{
+					next = spatialAnchorProvider;
+				}
+			}
 
-			if (wantAnchors && anchorSource)
-				colocator.AddSource(anchorSource);
+			colocator.SetProvider(next);
 
-			if (wantTags && tagSource)
-				colocator.AddSource(tagSource);
-
-			// Tag detection is independent of colocation: the map editor's registration tool
-			// turns it on with nothing loaded at all (see TagRegistrationTool).
-			if (tagSource && !TagRegistrationTool.RegistrationMode)
-				tagSource.SetRunning(wantTags);
-
-			if (!wantAnchors && !wantTags)
+			if (next == null)
 			{
 				colocator.StopColocation();
 				SetColocated(false);
@@ -185,19 +209,16 @@ namespace Anaglyph.Lasertag
 			colocator.StateChanged -= OnColocatorStateChanged;
 			colocator.StateChanged += OnColocatorStateChanged;
 
-			colocator.StartColocation(); // no-op when already running
+			colocator.StartColocation();
 			OnColocatorStateChanged(colocator.State);
 		}
 
 		/// <summary>Lets the registration tool drive tag detection while authoring.</summary>
 		public void SetTagDetectionOverride(bool on)
 		{
-			if (!tagSource) return;
+			if (!tagProvider) return;
 
-			if (on)
-				tagSource.SetRunning(true);
-			else
-				UpdateSources();
+			tagProvider.SetDetectionOverride(on);
 		}
 
 		// Only Localized counts as colocated. Lost keeps the stale alignment applied but stops

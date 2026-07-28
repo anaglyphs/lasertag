@@ -1,9 +1,6 @@
-using System;
+using System.Threading;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.XR.ARFoundation;
-using UnityEngine.XR.ARSubsystems;
-using UnityEngine.XR.OpenXR.Features.Meta;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
@@ -13,32 +10,31 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	/// </summary>
 	public class AnchorTest : NetworkBehaviour
 	{
-		private static AnchorRegistry anchorRegistry;
-		
-		private void Start()
-		{
-			if (anchorRegistry == null)
-			{
-				ARAnchorManager anchorManager = FindFirstObjectByType<ARAnchorManager>();
-				MetaOpenXRAnchorSubsystem metaAnchorSubsystem = (MetaOpenXRAnchorSubsystem)anchorManager.subsystem;
-				anchorRegistry = new AnchorRegistry(anchorManager, metaAnchorSubsystem);
-			}
-		}
-
 		private AnchorLease anchorLease;
 
 		public override void OnNetworkSpawn()
 		{
 			if (IsOwner)
-			{
-				anchorLease = anchorRegistry.Acquire(new SerializableGuid(Guid.NewGuid()), AnchorSource.Local);
-			}
+				MintAnchor();
+		}
+
+		private async void MintAnchor()
+		{
+			AnchorRegistry anchorRegistry = AnchorRegistry.Instance;
+			if (anchorRegistry == null || !anchorRegistry.IsAvailable)
+				return;
+
+			CancellationToken ctkn = destroyCancellationToken;
+			Pose p;
+			p.position = transform.position;
+			p.rotation = transform.rotation;
+			anchorLease = await anchorRegistry.TryMintAsync(p, ctkn);
 		}
 
 		public override void OnNetworkDespawn()
 		{
-			anchorLease.Dispose();
+			anchorLease?.Dispose();
+			anchorLease = null;
 		}
 	}
 }
-

@@ -74,8 +74,8 @@ namespace Anaglyph.Lasertag
 
 		private void OnEnable()
 		{
-			if (TagReferenceSource.Instance != null)
-				TagReferenceSource.Instance.TagObserved += OnTagObserved;
+			if (TagConstraintProvider.Instance != null)
+				TagConstraintProvider.Instance.TagObserved += OnTagObserved;
 
 			ColocationManager.Instance?.SetTagDetectionOverride(
 				RegistrationMode && MapEditor.IsActive);
@@ -86,8 +86,8 @@ namespace Anaglyph.Lasertag
 			observations.Clear();
 			aimedTagId = -1;
 
-			if (TagReferenceSource.Instance != null)
-				TagReferenceSource.Instance.TagObserved -= OnTagObserved;
+			if (TagConstraintProvider.Instance != null)
+				TagConstraintProvider.Instance.TagObserved -= OnTagObserved;
 
 			// Leaving the map editor drops the override; colocation decides again whether
 			// tag detection stays on.

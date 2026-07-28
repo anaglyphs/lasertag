@@ -9,16 +9,16 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8602809240530545973}
-  - component: {fileID: 6911126833990273307}
+  - component: {fileID: 8956260993336716548}
   - component: {fileID: 2865989476549954882}
+  - component: {fileID: 6911126833990273307}
+  - component: {fileID: 9142721848964367083}
+  - component: {fileID: 219892528580798013}
+  - component: {fileID: 1088323605287642758}
   - component: {fileID: 3794738929113082028}
   - component: {fileID: 8030733127724905774}
-  - component: {fileID: 8956260993336716548}
-  - component: {fileID: 7104776755499435366}
-  - component: {fileID: 4742819206951552376}
-  - component: {fileID: 9142721848964367083}
   m_Layer: 0
-  m_Name: ColocationManager
+  m_Name: MapManager
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -39,7 +39,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &6911126833990273307
+--- !u!114 &8956260993336716548
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -48,13 +48,15 @@ MonoBehaviour:
   m_GameObject: {fileID: 5901269829941828840}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: defe13ac306e3604fb0c22897ab0891a, type: 3}
+  m_Script: {fileID: 11500000, guid: 5a74eb28e4d5e4fb0b882f535ea6dad8, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: 
-  methodHostSetting: 0
-  colocator: {fileID: 9142721848964367083}
-  anchorSource: {fileID: 7104776755499435366}
-  tagSource: {fileID: 4742819206951552376}
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.MapManager
+  spatialAnchorProvider: {fileID: 219892528580798013}
+  tagProvider: {fileID: 1088323605287642758}
+  referenceColocator: {fileID: 9142721848964367083}
+  objectDatabase: {fileID: 11400000, guid: 93790f38bf42f48f9baa20fd8c0411a3, type: 2}
+  probeTimeoutSeconds: 8
+  agreementMaxError: 0.3
 --- !u!114 &2865989476549954882
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -71,6 +73,69 @@ MonoBehaviour:
   positionQuantizationBits: 10
   encodingSpeed: 0
   decodingSpeed: 4
+--- !u!114 &6911126833990273307
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5901269829941828840}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: defe13ac306e3604fb0c22897ab0891a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  methodHostSetting: 0
+  colocator: {fileID: 9142721848964367083}
+  spatialAnchorProvider: {fileID: 219892528580798013}
+  tagProvider: {fileID: 1088323605287642758}
+--- !u!114 &9142721848964367083
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5901269829941828840}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c9754b4a58eb44757be9b67ea0de0119, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.XRTemplate.SharedSpaces::Anaglyph.XRTemplate.SharedSpaces.ReferenceColocator
+  fitLerp: 0.3
+--- !u!114 &219892528580798013
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5901269829941828840}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d28f806f7533c4f5594d5849a0da7b76, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.XRTemplate.SharedSpaces::Anaglyph.XRTemplate.SharedSpaces.SpatialAnchorConstraintProvider
+  newAnchorDistance: 6
+  placementRaycastLayerMask:
+    serializedVersion: 2
+    m_Bits: 64
+--- !u!114 &1088323605287642758
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5901269829941828840}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 957d6c28a25734df4b30a5e6455a7ef6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.XRTemplate.SharedSpaces::Anaglyph.XRTemplate.SharedSpaces.TagConstraintProvider
+  tagSizeCmHostSetting: 0
+  lockDistanceScale: 10
+  maxHeadSpeed: 2
+  maxHeadAngSpeed: 2
+  correctionSamples: 30
+  tagTracker: {fileID: 8030733127724905774}
 --- !u!114 &3794738929113082028
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -83,7 +148,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a7d730b41df61f94c9d86576e9c5f2f9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  source: {fileID: 4742819206951552376}
+  provider: {fileID: 0}
   indicatorMesh: {fileID: -5322466972774305626, guid: 3a88f3fb66ef78745a11363b74fe2cd4, type: 3}
   indicatorMaterial: {fileID: 2100000, guid: 27f6747ba6952684fbfb2d2135976c96, type: 2}
   debugPointMesh: {fileID: 289301614986012343, guid: fd00829a26dc9fc4280b779bc4e1a4b7, type: 3}
@@ -102,66 +167,3 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   tagSizeMeters: 0.12
   simulatorMirrorY: 1
---- !u!114 &8956260993336716548
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5901269829941828840}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5a74eb28e4d5e4fb0b882f535ea6dad8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.MapManager
-  anchorProvider: {fileID: 7104776755499435366}
-  objectDatabase: {fileID: 11400000, guid: 93790f38bf42f48f9baa20fd8c0411a3, type: 2}
-  newAnchorDist: 6
-  anchorPlacementRaycastLayerMask:
-    serializedVersion: 2
-    m_Bits: 64
-  probeTimeoutSeconds: 8
-  agreementMaxError: 0.3
-  tagCorrectionSamples: 30
---- !u!114 &7104776755499435366
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5901269829941828840}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d28f806f7533c4f5594d5849a0da7b76, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Anaglyph.XRTemplate.SharedSpaces::Anaglyph.XRTemplate.SharedSpaces.AnchorReferenceProvider
---- !u!114 &4742819206951552376
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5901269829941828840}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 957d6c28a25734df4b30a5e6455a7ef6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Anaglyph.XRTemplate.SharedSpaces::Anaglyph.XRTemplate.SharedSpaces.TagReferenceSource
-  tagSizeCmHostSetting: 0
-  lockDistanceScale: 15
-  maxHeadSpeed: 0.05
-  maxHeadAngSpeed: 0.05
-  tagTracker: {fileID: 8030733127724905774}
---- !u!114 &9142721848964367083
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5901269829941828840}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c9754b4a58eb44757be9b67ea0de0119, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Anaglyph.XRTemplate.SharedSpaces::Anaglyph.XRTemplate.SharedSpaces.ReferenceColocator
-  fitLerp: 0.3

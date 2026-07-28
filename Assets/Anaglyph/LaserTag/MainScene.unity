@@ -129,7 +129,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 5901269829941828840, guid: 6f643e8c0126ffc46b58e6cbae23abd0, type: 3}
       propertyPath: m_Name
-      value: GameManager
+      value: MatchReferee
       objectReference: {fileID: 0}
     - target: {fileID: 8602809240530545973, guid: 6f643e8c0126ffc46b58e6cbae23abd0, type: 3}
       propertyPath: m_LocalPosition.x
@@ -258,7 +258,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 5901269829941828840, guid: 57180dbd717ca40378762d7930bec5a8, type: 3}
       propertyPath: m_Name
-      value: ColocationManager
+      value: MapManager
       objectReference: {fileID: 0}
     - target: {fileID: 8602809240530545973, guid: 57180dbd717ca40378762d7930bec5a8, type: 3}
       propertyPath: m_LocalPosition.x
@@ -459,15 +459,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 1927584122978771801}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 56e51b6268c654562bc102ac5c5e5b96, type: 3}
+  m_Script: {fileID: 11500000, guid: 5cd6c41ffb5954a1f8bd81308dfa2b7c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  aprilTagColocation: {fileID: 11400000, guid: 47b47a4c1dcf98e4a9c4022fa9722c2b, type: 2}
-  aprilTagSize: {fileID: 11400000, guid: 82699730f4d9ee247857edb33a942db4, type: 2}
-  boundary: {fileID: 11400000, guid: c539fa1bb3492bd42a06694c6c4a2f23, type: 2}
-  damagedRedVision: {fileID: 11400000, guid: b813fbe3231576640b9402131ed4d833, type: 2}
-  lightEffects: {fileID: 11400000, guid: 5390df5bc7d02f14081ac7755da55437, type: 2}
-  relay: {fileID: 11400000, guid: 8256b37a220cf5d4aa386e985d532dcb, type: 2}
+  settings: {fileID: 11400000, guid: 8e63a85c45b254014a56c31d2c3f04ec, type: 2}
 --- !u!1 &1927584122978771801
 GameObject:
   m_ObjectHideFlags: 0
