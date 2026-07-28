@@ -36,7 +36,7 @@ namespace Anaglyph.Lasertag
 
 		[SerializeField] private SpatialAnchorConstraintProvider spatialAnchorProvider;
 		[SerializeField] private TagConstraintProvider tagProvider;
-		[SerializeField] private ReferenceColocator referenceColocator;
+		[FormerlySerializedAs("referenceColocator")] [SerializeField] private ConstraintColocator constraintColocator;
 
 		[Tooltip("Every placeable map object; also how a saved map's prefab ids resolve")]
 		[SerializeField] private MapObjectDatabase objectDatabase;
@@ -63,9 +63,9 @@ namespace Anaglyph.Lasertag
 		private int agreeingReferenceCount;
 		private float meanReferenceError;
 		private readonly List<ColocationConstraint> referenceScratch = new();
-		private readonly List<AnchorReferenceData> anchorImportScratch = new();
-		private readonly List<TagReferenceData> tagImportScratch = new();
-		private readonly List<TaggedAnchorReferenceData> taggedAnchorScratch = new();
+		private readonly List<AnchorConstraintData> anchorImportScratch = new();
+		private readonly List<TagConstraintData> tagImportScratch = new();
+		private readonly List<TaggedAnchorConstraintData> taggedAnchorScratch = new();
 
 		private bool authoritySessionStarted;
 		private bool sessionMapAdopted;
@@ -79,8 +79,8 @@ namespace Anaglyph.Lasertag
 				spatialAnchorProvider = FindFirstObjectByType<SpatialAnchorConstraintProvider>();
 			if (!tagProvider)
 				tagProvider = FindFirstObjectByType<TagConstraintProvider>();
-			if (!referenceColocator)
-				referenceColocator = FindFirstObjectByType<ReferenceColocator>();
+			if (!constraintColocator)
+				constraintColocator = FindFirstObjectByType<ConstraintColocator>();
 
 			if (!objectDatabase)
 				Debug.LogError("MapManager has no map object database.", this);
@@ -91,7 +91,7 @@ namespace Anaglyph.Lasertag
 
 			if (spatialAnchorProvider)
 			{
-				spatialAnchorProvider.ReferencesChanged += OnSpatialAnchorReferencesChanged;
+				spatialAnchorProvider.ConstraintsChanged += OnSpatialAnchorConstraintsChanged;
 				spatialAnchorProvider.AnchorPersisted += OnSpatialAnchorPersisted;
 			}
 
@@ -125,7 +125,7 @@ namespace Anaglyph.Lasertag
 			if (spatialAnchorProvider)
 			{
 				spatialAnchorProvider.AnchorPersisted -= OnSpatialAnchorPersisted;
-				spatialAnchorProvider.ReferencesChanged -= OnSpatialAnchorReferencesChanged;
+				spatialAnchorProvider.ConstraintsChanged -= OnSpatialAnchorConstraintsChanged;
 			}
 
 			MainXRRig.Recentered -= OnRecentered;
@@ -201,7 +201,7 @@ namespace Anaglyph.Lasertag
 		private void UpdateAgreement()
 		{
 			referenceScratch.Clear();
-			referenceColocator?.GetCurrentReferences(referenceScratch);
+			constraintColocator?.GetCurrentConstraints(referenceScratch);
 			agreeingReferenceCount = referenceScratch.Count;
 
 			if (referenceScratch.Count == 0)
@@ -383,18 +383,18 @@ namespace Anaglyph.Lasertag
 			foreach (MapAnchorEntry entry in map.anchors)
 			{
 				Guid guid = GuidFromString(entry.guid);
-				anchorImportScratch.Add(new AnchorReferenceData(
+				anchorImportScratch.Add(new AnchorConstraintData(
 					guid, entry.canonPose, entry.tagId));
 				if (entry.tagId >= 0)
-					taggedAnchorScratch.Add(new TaggedAnchorReferenceData(
+					taggedAnchorScratch.Add(new TaggedAnchorConstraintData(
 						guid, entry.tagId, entry.canonPose));
 			}
 
 			foreach (MapTagEntry entry in map.tags)
-				tagImportScratch.Add(new TagReferenceData(entry.id, entry.canonPose));
+				tagImportScratch.Add(new TagConstraintData(entry.id, entry.canonPose));
 
-			spatialAnchorProvider?.SetReferences(anchorImportScratch);
-			tagProvider?.SetReferences(tagImportScratch, taggedAnchorScratch);
+			spatialAnchorProvider?.SetConstraints(anchorImportScratch);
+			tagProvider?.SetConstraints(tagImportScratch, taggedAnchorScratch);
 		}
 
 		private void InjectAnchorsIntoAnchorProvider()
@@ -404,10 +404,10 @@ namespace Anaglyph.Lasertag
 
 			anchorImportScratch.Clear();
 			foreach (MapAnchorEntry entry in CurrentMap.anchors)
-				anchorImportScratch.Add(new AnchorReferenceData(
+				anchorImportScratch.Add(new AnchorConstraintData(
 					GuidFromString(entry.guid), entry.canonPose, entry.tagId));
 
-			spatialAnchorProvider.SetReferences(anchorImportScratch);
+			spatialAnchorProvider.SetConstraints(anchorImportScratch);
 		}
 
 		private void ClearProviderStateForNoMap()
@@ -418,8 +418,8 @@ namespace Anaglyph.Lasertag
 
 			if (SyncBus.IsAuthority)
 			{
-				spatialAnchorProvider?.SetReferences(anchorImportScratch);
-				tagProvider?.SetReferences(tagImportScratch, taggedAnchorScratch);
+				spatialAnchorProvider?.SetConstraints(anchorImportScratch);
+				tagProvider?.SetConstraints(tagImportScratch, taggedAnchorScratch);
 			}
 			else
 			{
@@ -456,7 +456,7 @@ namespace Anaglyph.Lasertag
 			}
 		}
 
-		private void OnSpatialAnchorReferencesChanged()
+		private void OnSpatialAnchorConstraintsChanged()
 		{
 			if (!AnchorProviderOwnsCurrentState)
 				return;
@@ -471,7 +471,7 @@ namespace Anaglyph.Lasertag
 				return;
 
 			CurrentMap.anchors.Clear();
-			foreach ((Guid guid, AnchorReferenceState state) in spatialAnchorProvider.References)
+			foreach ((Guid guid, AnchorConstraintState state) in spatialAnchorProvider.Constraints)
 			{
 				CurrentMap.SetAnchorWithTag(
 					GuidToString(guid), state.canonPose, state.bindingId);
@@ -514,10 +514,10 @@ namespace Anaglyph.Lasertag
 				return;
 
 			taggedAnchorScratch.Clear();
-			tagProvider.GetLocalAnchorReferences(taggedAnchorScratch);
+			tagProvider.GetLocalAnchorConstraints(taggedAnchorScratch);
 			CurrentMap.anchors.Clear();
 
-			foreach (TaggedAnchorReferenceData entry in taggedAnchorScratch)
+			foreach (TaggedAnchorConstraintData entry in taggedAnchorScratch)
 				CurrentMap.SetAnchorWithTag(
 					GuidToString(entry.guid), entry.canonPose, entry.tagId);
 		}
@@ -669,7 +669,7 @@ namespace Anaglyph.Lasertag
 				taggedAnchorScratch.Clear();
 				foreach (MapAnchorEntry entry in CurrentMap.anchors)
 					if (entry.tagId >= 0)
-						taggedAnchorScratch.Add(new TaggedAnchorReferenceData(
+						taggedAnchorScratch.Add(new TaggedAnchorConstraintData(
 							GuidFromString(entry.guid), entry.tagId, entry.canonPose));
 
 				tagProvider?.SetLocalAnchors(taggedAnchorScratch);
@@ -732,7 +732,7 @@ namespace Anaglyph.Lasertag
 		{
 			tagImportScratch.Clear();
 			foreach (MapTagEntry entry in CurrentMap.tags)
-				tagImportScratch.Add(new TagReferenceData(entry.id, entry.canonPose));
+				tagImportScratch.Add(new TagConstraintData(entry.id, entry.canonPose));
 
 			tagProvider?.SetRegisteredTags(tagImportScratch);
 		}

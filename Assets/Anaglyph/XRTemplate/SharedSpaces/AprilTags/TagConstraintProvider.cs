@@ -10,9 +10,9 @@ using SerializableGuid = UnityEngine.XR.ARSubsystems.SerializableGuid;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
-	public readonly struct TagReferenceData
+	public readonly struct TagConstraintData
 	{
-		public TagReferenceData(int tagId, Pose canonPose)
+		public TagConstraintData(int tagId, Pose canonPose)
 		{
 			this.tagId = tagId;
 			this.canonPose = canonPose;
@@ -22,9 +22,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		public readonly Pose canonPose;
 	}
 
-	public readonly struct TaggedAnchorReferenceData
+	public readonly struct TaggedAnchorConstraintData
 	{
-		public TaggedAnchorReferenceData(Guid guid, int tagId, Pose canonPose)
+		public TaggedAnchorConstraintData(Guid guid, int tagId, Pose canonPose)
 		{
 			this.guid = guid;
 			this.tagId = tagId;
@@ -40,8 +40,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	/// A complete AprilTag colocation strategy. The authority synchronizes registered
 	/// tag/canon-pose pairs; each peer creates and persists its own local anchor at each tag it
 	/// sees. The colocator receives only those anchor/canon-pose pairs, never raw tag readings,
-	/// so alignment survives when a tag leaves view. Later readings correct the anchor's canon
-	/// pose by preserving its currently observed offset from the physical tag.
+	/// so alignment roughly survives when the device loses & regains tracking.
+	/// Later readings correct for anchor drift
+	/// by preserving its currently observed offset from the physical tag.
 	/// </summary>
 	[DefaultExecutionOrder(-200)]
 	public class TagConstraintProvider : MonoBehaviour, IColocationConstraintProvider
@@ -94,8 +95,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private readonly Dictionary<int, TagCorrection> corrections = new();
 		private readonly HashSet<int> mintsInFlight = new();
 		private readonly List<int> tagIdScratch = new();
-		private readonly List<TagReferenceData> tagScratch = new();
-		private readonly List<TaggedAnchorReferenceData> anchorScratch = new();
+		private readonly List<TagConstraintData> tagScratch = new();
+		private readonly List<TaggedAnchorConstraintData> anchorScratch = new();
 
 		private AnchorRegistry registry;
 		private CancellationTokenSource lifetimeCtknSrc;
@@ -221,7 +222,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				// Tag anchors are private realizations of one map. A joining peer must not
 				// carry an unrelated offline map's same-numbered tags into the new session;
 				// a persistence adapter may restore matching local anchors after map identity.
-				SetLocalAnchors(Array.Empty<TaggedAnchorReferenceData>());
+				SetLocalAnchors(Array.Empty<TaggedAnchorConstraintData>());
 			}
 		}
 
@@ -242,14 +243,14 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		/// Replaces registered tags and this device's private tag anchors. Only an offline peer
 		/// or session authority may inject registered tags; clients receive them from provider sync.
 		/// </summary>
-		public void SetReferences(IEnumerable<TagReferenceData> tags,
-			IEnumerable<TaggedAnchorReferenceData> anchors)
+		public void SetConstraints(IEnumerable<TagConstraintData> tags,
+			IEnumerable<TaggedAnchorConstraintData> anchors)
 		{
 			SetRegisteredTags(tags);
 			SetLocalAnchors(anchors);
 		}
 
-		public void SetRegisteredTags(IEnumerable<TagReferenceData> tags)
+		public void SetRegisteredTags(IEnumerable<TagConstraintData> tags)
 		{
 			if (!SyncBus.IsAuthority)
 				return;
@@ -261,7 +262,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			foreach (int tagId in registeredTags.Keys)
 			{
 				bool retained = false;
-				foreach (TagReferenceData entry in tagScratch)
+				foreach (TagConstraintData entry in tagScratch)
 					if (entry.tagId == tagId)
 					{
 						retained = true;
@@ -275,14 +276,14 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			foreach (int tagId in tagIdScratch)
 				registeredTags.Remove(tagId);
 
-			foreach (TagReferenceData entry in tagScratch)
+			foreach (TagConstraintData entry in tagScratch)
 				if (!registeredTags.TryGetValue(entry.tagId, out Pose existing) ||
 				    existing != entry.canonPose)
 					registeredTags.Set(entry.tagId, entry.canonPose);
 		}
 
 		/// <summary>Replaces only this device's private tag-to-anchor realizations.</summary>
-		public void SetLocalAnchors(IEnumerable<TaggedAnchorReferenceData> anchors)
+		public void SetLocalAnchors(IEnumerable<TaggedAnchorConstraintData> anchors)
 		{
 			anchorScratch.Clear();
 			anchorScratch.AddRange(anchors);
@@ -293,7 +294,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			foreach ((int tagId, LocalAnchor existing) in localAnchors)
 			{
 				bool retained = false;
-				foreach (TaggedAnchorReferenceData entry in anchorScratch)
+				foreach (TaggedAnchorConstraintData entry in anchorScratch)
 					if (entry.tagId == tagId && entry.guid == existing.guid)
 					{
 						retained = true;
@@ -310,7 +311,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				localAnchors.Remove(tagId);
 			}
 
-			foreach (TaggedAnchorReferenceData entry in anchorScratch)
+			foreach (TaggedAnchorConstraintData entry in anchorScratch)
 			{
 				if (entry.tagId < 0)
 					continue;
@@ -335,10 +336,10 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			AnchorsChanged.Invoke();
 		}
 
-		public void GetLocalAnchorReferences(List<TaggedAnchorReferenceData> results)
+		public void GetLocalAnchorConstraints(List<TaggedAnchorConstraintData> results)
 		{
 			foreach (LocalAnchor anchor in localAnchors.Values)
-				results.Add(new TaggedAnchorReferenceData(
+				results.Add(new TaggedAnchorConstraintData(
 					anchor.guid, anchor.tagId, anchor.canon));
 		}
 
@@ -351,7 +352,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			TagsChanged.Invoke();
 		}
 
-		// ------- anchor references -------------------------------
+		// ------- anchor constraints -------------------------------
 
 		private void ReconcileAnchors()
 		{
@@ -372,7 +373,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 		}
 
-		public void GetColocationReferences(List<ColocationConstraint> results)
+		public void GetColocationConstraints(List<ColocationConstraint> results)
 		{
 			if (!IsRunning)
 				return;

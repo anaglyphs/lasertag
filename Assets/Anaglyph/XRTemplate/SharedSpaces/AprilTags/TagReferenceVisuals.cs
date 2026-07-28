@@ -19,7 +19,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private MaterialPropertyBlock mpb;
 
 		private IReadOnlyList<TagPose> latestTagPoses;
-		private readonly List<TaggedAnchorReferenceData> anchorScratch = new();
+		private readonly List<TaggedAnchorConstraintData> anchorScratch = new();
 
 		private void Awake()
 		{
@@ -72,8 +72,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 				mpb.SetColor(BaseColorID, Color.white);
 				anchorScratch.Clear();
-				provider.GetLocalAnchorReferences(anchorScratch);
-				foreach (TaggedAnchorReferenceData anchor in anchorScratch)
+				provider.GetLocalAnchorConstraints(anchorScratch);
+				foreach (TaggedAnchorConstraintData anchor in anchorScratch)
 				{
 					Matrix4x4 model = Matrix4x4.TRS(
 						anchor.canonPose.position, anchor.canonPose.rotation, scale);

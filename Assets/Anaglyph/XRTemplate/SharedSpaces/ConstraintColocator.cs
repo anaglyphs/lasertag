@@ -7,15 +7,15 @@ using UnityEngine;
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
 	/// <summary>
-	/// Aligns the rig against the references supplied by the selected provider. Providers own
+	/// Aligns the rig against the constraints supplied by the selected provider. Providers own
 	/// discovery, persistence, and synchronization; this class only fits their observed anchor
 	/// poses to their canon poses. Selecting a provider stops the previous one, so two anchor
 	/// strategies can never manipulate the same runtime concurrently.
 	/// </summary>
 	[DefaultExecutionOrder(999)]
-	public class ReferenceColocator : MonoBehaviour, IColocator
+	public class ConstraintColocator : MonoBehaviour, IColocator
 	{
-		public const int MinimumPositionOnlyReferenceCount = 2;
+		public const int MinimumPositionOnlyConstraintCount = 2;
 
 		public ColocationState State { get; private set; } = ColocationState.Stopped;
 		public event Action<ColocationState> StateChanged = delegate { };
@@ -28,7 +28,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private CancellationTokenSource ctknSrc;
 
-		private readonly List<ColocationConstraint> references = new();
+		private readonly List<ColocationConstraint> constraints = new();
 		private readonly List<(float3 subject, float3 target)> positionPairs = new();
 
 		public void SetProvider(IColocationConstraintProvider next)
@@ -43,9 +43,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		}
 
 		/// <summary>Appends the references currently used by the fit.</summary>
-		public void GetCurrentReferences(List<ColocationConstraint> results)
+		public void GetCurrentConstraints(List<ColocationConstraint> results)
 		{
-			provider?.GetColocationReferences(results);
+			provider?.GetColocationConstraints(results);
 		}
 
 		private void SetState(ColocationState next)
@@ -76,7 +76,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			// Device sleeping = tracking pauses = tracking lost. Prevents trusting a stale
 			// frame (and everything downstream that writes world-space data) on wake, until
-			// the references align it again.
+			// the constraints align it again.
 			if (!isFocused)
 				Delocalize();
 		}
@@ -119,8 +119,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				{
 					await Awaitable.NextFrameAsync(ctkn);
 
-					references.Clear();
-					provider?.GetColocationReferences(references);
+					constraints.Clear();
+					provider?.GetColocationConstraints(constraints);
 
 					if (!TryFit())
 						Delocalize();
@@ -140,19 +140,19 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private bool TryFit()
 		{
-			if (references.Count == 0)
+			if (constraints.Count == 0)
 				return false;
 
-			// A reference with a trustworthy rotation (an anchor) fully constrains the fit on
-			// its own. Position-only references (tags) need two horizontally separated points
+			// A constraint with a trustworthy rotation (an anchor) fully constrains the fit on
+			// its own. Position-only constraints (tags) need two horizontally separated points
 			// to constrain yaw as well as translation.
 			int rotationBearing = 0;
-			foreach (ColocationConstraint reference in references)
-				if (reference.hasReliableRotation)
+			foreach (ColocationConstraint constraint in constraints)
+				if (constraint.hasReliableRotation)
 					rotationBearing++;
 
 			if (rotationBearing == 0 &&
-			    references.Count < MinimumPositionOnlyReferenceCount)
+			    constraints.Count < MinimumPositionOnlyConstraintCount)
 				return false;
 
 			// First fit after Searching or Lost snaps, so the world arrives where it belongs
@@ -162,12 +162,12 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			Transform space = MainXRRig.TrackingSpace;
 			Matrix4x4 spaceMat = space.localToWorldMatrix;
 
-			if (references.Count == 1)
+			if (constraints.Count == 1)
 			{
 				// Single pose-to-pose alignment. Only reachable with a rotation-bearing
-				// reference, per the check above.
-				Pose s = references[0].observed;
-				Pose t = references[0].canon;
+				// constraint, per the check above.
+				Pose s = constraints[0].observed;
+				Pose t = constraints[0].canon;
 
 				MainXRRig.Instance.AlignSpace(
 					Matrix4x4.TRS(s.position, s.rotation, Vector3.one),
@@ -177,14 +177,14 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			else
 			{
 				positionPairs.Clear();
-				foreach (ColocationConstraint reference in references)
-					positionPairs.Add((reference.observed.position, reference.canon.position));
+				foreach (ColocationConstraint constraint in constraints)
+					positionPairs.Add((constraint.observed.position, constraint.canon.position));
 
 				Matrix4x4 delta = BestFit.Find4DOF(positionPairs);
 				MainXRRig.Instance.AlignSpace(spaceMat, delta * spaceMat, lerp);
 			}
 
-			// A degenerate fit (coincident references, NaN input) can throw tracking space
+			// A degenerate fit (coincident constraints, NaN input) can throw tracking space
 			// somewhere unusable; reset rather than leave the player lost in space.
 			Vector3 spacePos = space.position;
 			if (spacePos.magnitude > 10000f ||

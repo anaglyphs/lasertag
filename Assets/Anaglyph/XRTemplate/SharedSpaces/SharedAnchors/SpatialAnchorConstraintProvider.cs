@@ -9,9 +9,9 @@ using SerializableGuid = UnityEngine.XR.ARSubsystems.SerializableGuid;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
-	public readonly struct AnchorReferenceData
+	public readonly struct AnchorConstraintData
 	{
-		public AnchorReferenceData(Guid guid, Pose canonPose, int bindingId = -1)
+		public AnchorConstraintData(Guid guid, Pose canonPose, int bindingId = -1)
 		{
 			this.guid = guid;
 			this.canonPose = canonPose;
@@ -24,7 +24,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		public readonly int bindingId;
 	}
 
-	public struct AnchorReferenceState
+	public struct AnchorConstraintState
 	{
 		public Pose canonPose;
 		public int bindingId;
@@ -33,8 +33,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	/// <summary>
 	/// A complete shared-anchor colocation strategy. It owns the synchronized guid/canon-pose
 	/// set, loads and persists those anchors through <see cref="AnchorRegistry"/>, shares them
-	/// from the session authority, and mints additional references as the authority explores.
-	/// A game-specific map system may import and export <see cref="References"/>, but is not
+	/// from the session authority, and mints additional constraints as the authority explores.
+	/// A game-specific map system may import and export <see cref="Constraints"/>, but is not
 	/// required for the provider to align a session.
 	/// </summary>
 	[DefaultExecutionOrder(-200)]
@@ -49,10 +49,10 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			public AnchorSource source;
 		}
 
-		private readonly SyncDictionary<Guid, AnchorReferenceState> references =
+		private readonly SyncDictionary<Guid, AnchorConstraintState> constraints =
 			new("colocation.anchors.canon");
-		public IReadOnlyDictionary<Guid, AnchorReferenceState> References => references;
-		public event Action ReferencesChanged = delegate { };
+		public IReadOnlyDictionary<Guid, AnchorConstraintState> Constraints => constraints;
+		public event Action ConstraintsChanged = delegate { };
 		public event Action<Guid> AnchorPersisted = delegate { };
 
 		[Tooltip("Distance from every existing anchor required before minting another")]
@@ -95,10 +95,10 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			lifetimeCtknSrc = new CancellationTokenSource();
 
-			references.ResetOnDeactivate = false;
-			references.Register();
-			references.Changed += OnReferencesChanged;
-			references.Synced += OnReferencesSynced;
+			constraints.ResetOnDeactivate = false;
+			constraints.Register();
+			constraints.Changed += OnConstraintsChanged;
+			constraints.Synced += OnConstraintsSynced;
 
 			SyncBus.Activated += OnBusActivated;
 			SyncBus.Deactivated += OnBusDeactivated;
@@ -114,9 +114,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			SyncBus.Deactivated -= OnBusDeactivated;
 			SyncBus.Activated -= OnBusActivated;
 
-			references.Synced -= OnReferencesSynced;
-			references.Changed -= OnReferencesChanged;
-			references.Unregister();
+			constraints.Synced -= OnConstraintsSynced;
+			constraints.Changed -= OnConstraintsChanged;
+			constraints.Unregister();
 
 			if (Instance == this)
 				Instance = null;
@@ -198,42 +198,42 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				ShareAll();
 		}
 
-		private void OnReferencesSynced()
+		private void OnConstraintsSynced()
 		{
 			if (IsRunning)
 				ReconcileHeld();
 		}
 
-		private void OnReferencesChanged(SyncDictionary<Guid, AnchorReferenceState>.EventData _)
+		private void OnConstraintsChanged(SyncDictionary<Guid, AnchorConstraintState>.EventData _)
 		{
 			stateGeneration++;
 			if (IsRunning)
 				ReconcileHeld();
 
-			ReferencesChanged.Invoke();
+			ConstraintsChanged.Invoke();
 		}
 
 		// ------- state import/export ------------------------------
 
 		/// <summary>
-		/// Replaces the provider's canonical reference state. Only the offline peer or session
+		/// Replaces the provider's canonical constraint state. Only the offline peer or session
 		/// authority may inject state; clients receive the same data from this provider's sync.
 		/// </summary>
-		public void SetReferences(IEnumerable<AnchorReferenceData> next)
+		public void SetConstraints(IEnumerable<AnchorConstraintData> next)
 		{
 			if (!SyncBus.IsAuthority)
 				return;
 
-			// Removing an entry fires references.Changed synchronously, which can call
+			// Removing an entry fires constraints.Changed synchronously, which can call
 			// ReconcileHeld. Keep this public operation's snapshots local so that reentrant
-			// reconciliation cannot modify a collection SetReferences is enumerating.
-			List<AnchorReferenceData> nextReferences = new(next);
-			List<Guid> referencesToRemove = new();
+			// reconciliation cannot modify a collection SetConstraints is enumerating.
+			List<AnchorConstraintData> nextConstraints = new(next);
+			List<Guid> constraintsToRemove = new();
 
-			foreach (Guid guid in references.Keys)
+			foreach (Guid guid in constraints.Keys)
 			{
 				bool retained = false;
-				foreach (AnchorReferenceData entry in nextReferences)
+				foreach (AnchorConstraintData entry in nextConstraints)
 					if (entry.guid == guid)
 					{
 						retained = true;
@@ -241,29 +241,29 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					}
 
 				if (!retained)
-					referencesToRemove.Add(guid);
+					constraintsToRemove.Add(guid);
 			}
 
-			foreach (Guid guid in referencesToRemove)
-				references.Remove(guid);
+			foreach (Guid guid in constraintsToRemove)
+				constraints.Remove(guid);
 
-			foreach (AnchorReferenceData entry in nextReferences)
+			foreach (AnchorConstraintData entry in nextConstraints)
 			{
-				AnchorReferenceState state = new()
+				AnchorConstraintState state = new()
 				{
 					canonPose = entry.canonPose,
 					bindingId = entry.bindingId,
 				};
 
-				if (!references.TryGetValue(entry.guid, out AnchorReferenceState existing) ||
+				if (!constraints.TryGetValue(entry.guid, out AnchorConstraintState existing) ||
 				    existing.canonPose != state.canonPose || existing.bindingId != state.bindingId)
-					references.Set(entry.guid, state);
+					constraints.Set(entry.guid, state);
 			}
 		}
 
-		// ------- references and leases ----------------------------
+		// ------- constraints and leases ----------------------------
 
-		public void GetColocationReferences(List<ColocationConstraint> results)
+		public void GetColocationConstraints(List<ColocationConstraint> results)
 		{
 			if (!IsRunning)
 				return;
@@ -290,7 +290,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			AnchorSource source = CurrentSource;
 
-			foreach ((Guid guid, AnchorReferenceState state) in references)
+			foreach ((Guid guid, AnchorConstraintState state) in constraints)
 			{
 				Pose canon = state.canonPose;
 				if (held.TryGetValue(guid, out HeldAnchor existing))
@@ -321,7 +321,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			heldRemovalScratch.Clear();
 			foreach (Guid guid in held.Keys)
-				if (!references.ContainsKey(guid))
+				if (!constraints.ContainsKey(guid))
 					heldRemovalScratch.Add(guid);
 
 			foreach (Guid guid in heldRemovalScratch)
@@ -390,7 +390,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 						continue;
 					if (MintingGate != null && !MintingGate())
 						continue;
-					if (MintingGate == null && references.Count > 0 &&
+					if (MintingGate == null && constraints.Count > 0 &&
 					    ColocationManagerState() != ColocationState.Localized)
 						continue;
 					if (MainXRRig.Camera == null)
@@ -398,7 +398,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 					float3 headPosition = MainXRRig.Camera.transform.position;
 					float closestDistanceSq = float.MaxValue;
-					foreach (AnchorReferenceState state in references.Values)
+					foreach (AnchorConstraintState state in constraints.Values)
 						closestDistanceSq = math.min(closestDistanceSq,
 							math.distancesq((float3)state.canonPose.position, headPosition));
 
@@ -417,7 +417,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private static ColocationState ColocationManagerState()
 		{
-			ReferenceColocator colocator = FindFirstObjectByType<ReferenceColocator>();
+			ConstraintColocator colocator = FindFirstObjectByType<ConstraintColocator>();
 			return colocator != null ? colocator.State : ColocationState.Stopped;
 		}
 
@@ -462,7 +462,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				    generation != stateGeneration || !SyncBus.IsAuthority)
 					return;
 
-				references.Set(guid, new AnchorReferenceState
+				constraints.Set(guid, new AnchorConstraintState
 				{
 					canonPose = pose,
 					bindingId = -1,
@@ -511,7 +511,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				return;
 
 			WarnIfSharingUnsupported();
-			foreach (Guid guid in references.Keys)
+			foreach (Guid guid in constraints.Keys)
 				Share(guid);
 		}
 
