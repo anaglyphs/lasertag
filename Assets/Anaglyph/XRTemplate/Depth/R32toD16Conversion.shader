@@ -38,7 +38,7 @@ Shader "Anaglyph/DepthKit/Sim/R32toD16Blit"
 
 			float frag(Varyings IN) : SV_Depth
 			{
-				const float z = rawDepth.SampleLevel(agPointClampSampler, float3(IN.uv, 0), 0);
+				const float z = rawDepth.SampleLevel(agPointClampSampler, float3(IN.uv, 0), 0).r;
 				const float near = agDepthZParams.x;
 				const float far = agDepthZParams.y;
 				float depth = (far / (far - near)) - (far * near) / ((far - near) * z);

@@ -73,8 +73,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		public Func<bool> MintingGate { get; set; }
 
 		private readonly Dictionary<Guid, HeldAnchor> held = new();
-		private readonly List<Guid> guidScratch = new();
-		private readonly List<AnchorReferenceData> referenceScratch = new();
+		private readonly List<Guid> heldRemovalScratch = new();
 		private readonly HashSet<Guid> sharesInFlight = new();
 
 		private AnchorRegistry registry;
@@ -90,6 +89,10 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			Instance = this;
 			registry = AnchorRegistry.Instance ?? FindFirstObjectByType<AnchorRegistry>();
+			if (registry == null)
+				Debug.LogError(
+					"SpatialAnchorConstraintProvider requires an AnchorRegistry in the scene.", this);
+
 			lifetimeCtknSrc = new CancellationTokenSource();
 
 			references.ResetOnDeactivate = false;
@@ -221,14 +224,16 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (!SyncBus.IsAuthority)
 				return;
 
-			referenceScratch.Clear();
-			referenceScratch.AddRange(next);
+			// Removing an entry fires references.Changed synchronously, which can call
+			// ReconcileHeld. Keep this public operation's snapshots local so that reentrant
+			// reconciliation cannot modify a collection SetReferences is enumerating.
+			List<AnchorReferenceData> nextReferences = new(next);
+			List<Guid> referencesToRemove = new();
 
-			guidScratch.Clear();
 			foreach (Guid guid in references.Keys)
 			{
 				bool retained = false;
-				foreach (AnchorReferenceData entry in referenceScratch)
+				foreach (AnchorReferenceData entry in nextReferences)
 					if (entry.guid == guid)
 					{
 						retained = true;
@@ -236,13 +241,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					}
 
 				if (!retained)
-					guidScratch.Add(guid);
+					referencesToRemove.Add(guid);
 			}
 
-			foreach (Guid guid in guidScratch)
+			foreach (Guid guid in referencesToRemove)
 				references.Remove(guid);
 
-			foreach (AnchorReferenceData entry in referenceScratch)
+			foreach (AnchorReferenceData entry in nextReferences)
 			{
 				AnchorReferenceState state = new()
 				{
@@ -314,12 +319,12 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				PersistWhenActive(guid, added);
 			}
 
-			guidScratch.Clear();
+			heldRemovalScratch.Clear();
 			foreach (Guid guid in held.Keys)
 				if (!references.ContainsKey(guid))
-					guidScratch.Add(guid);
+					heldRemovalScratch.Add(guid);
 
-			foreach (Guid guid in guidScratch)
+			foreach (Guid guid in heldRemovalScratch)
 				Release(guid);
 		}
 

@@ -503,7 +503,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				// runtime tracking it, and the same UUID may be loaded through AR Foundation
 				// afterwards. (Whether the two stacks interfere at all is still unverified on
 				// device; disabling here minimizes the surface either way.)
-				locatable.SetEnabledAsync(false);
+				_ = locatable.SetEnabledAsync(false);
 			}
 
 			if (ctkn.IsCancellationRequested || disposed)

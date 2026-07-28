@@ -9,6 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8602809240530545973}
+  - component: {fileID: 5227507271294134687}
   - component: {fileID: 8956260993336716548}
   - component: {fileID: 2865989476549954882}
   - component: {fileID: 6911126833990273307}
@@ -39,6 +40,18 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5227507271294134687
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5901269829941828840}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8207fbfb35514602b8a0d22665607680, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Anaglyph.XRTemplate.SharedSpaces::Anaglyph.XRTemplate.SharedSpaces.AnchorRegistry
 --- !u!114 &8956260993336716548
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -148,7 +161,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a7d730b41df61f94c9d86576e9c5f2f9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  provider: {fileID: 0}
+  provider: {fileID: 1088323605287642758}
   indicatorMesh: {fileID: -5322466972774305626, guid: 3a88f3fb66ef78745a11363b74fe2cd4, type: 3}
   indicatorMaterial: {fileID: 2100000, guid: 27f6747ba6952684fbfb2d2135976c96, type: 2}
   debugPointMesh: {fileID: 289301614986012343, guid: fd00829a26dc9fc4280b779bc4e1a4b7, type: 3}

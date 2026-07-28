@@ -4,7 +4,7 @@ namespace Anaglyph
 {
 	public class RenderIfDebug : MonoBehaviour
 	{
-		private new Renderer renderer;
+		private Renderer renderer;
 
 		private void Awake()
 		{

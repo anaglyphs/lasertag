@@ -4,8 +4,7 @@ using VariableObjects;
 
 namespace Anaglyph.Lasertag
 {
-	[CreateAssetMenu(fileName = "Lasertag Settings", menuName = "Lasertag/Settings")]
-	public class LasertagSettings : ScriptableObject
+	public class LasertagSettings : MonoBehaviour
 	{
 		[SerializeField] private BoolObject aprilTagColocation;
 		[SerializeField] private FloatObject aprilTagSize;
@@ -14,62 +13,39 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private BoolObject lightEffects;
 		[SerializeField] private BoolObject relay;
 
-		/// <summary>Applies these settings and listens for subsequent changes.</summary>
-		public void Apply()
+		private void Start()
 		{
-			RemoveChangeListeners();
+			aprilTagColocation.AddChangeListenerAndCheck(b =>
+			{
+				if (b)
+					ColocationManager.Instance.methodHostSetting =
+						ColocationManager.ColocationMethod.AprilTag;
+				else
+					ColocationManager.Instance.methodHostSetting =
+						ColocationManager.ColocationMethod.MetaSharedAnchor;
+			});
 
-			OnAprilTagColocationChanged(aprilTagColocation.Value);
-			aprilTagColocation.Changed += OnAprilTagColocationChanged;
+			aprilTagSize.AddChangeListenerAndCheck(s =>
+			{
+				if (aprilTagColocation.Value)
+					TagConstraintProvider.Instance.tagSizeCmHostSetting = s;
+			});
 
-			OnAprilTagSizeChanged(aprilTagSize.Value);
-			aprilTagSize.Changed += OnAprilTagSizeChanged;
+			// boundary.AddChangeListenerAndCheck(b =>
+			// {
+			// });
 
-			OnDamagedRedVisionChanged(damagedRedVision.Value);
-			damagedRedVision.Changed += OnDamagedRedVisionChanged;
+			damagedRedVision.AddChangeListenerAndCheck(b =>
+			{
+				if (MainPlayer.Instance != null)
+					MainPlayer.Instance.redDamagedVision = b;
+			});
 
-			OnLightEffectsChanged(lightEffects.Value);
-			lightEffects.Changed += OnLightEffectsChanged;
-		}
+			lightEffects.AddChangeListenerAndCheck(b => { DepthLight.SetGloballyEnabled(b); });
 
-		/// <summary>Stops this settings asset from responding to variable changes.</summary>
-		public void RemoveChangeListeners()
-		{
-			if (aprilTagColocation != null)
-				aprilTagColocation.Changed -= OnAprilTagColocationChanged;
-
-			if (aprilTagSize != null)
-				aprilTagSize.Changed -= OnAprilTagSizeChanged;
-
-			if (damagedRedVision != null)
-				damagedRedVision.Changed -= OnDamagedRedVisionChanged;
-
-			if (lightEffects != null)
-				lightEffects.Changed -= OnLightEffectsChanged;
-		}
-
-		private static void OnAprilTagColocationChanged(bool enabled)
-		{
-			ColocationManager.Instance.methodHostSetting = enabled
-				? ColocationManager.ColocationMethod.AprilTag
-				: ColocationManager.ColocationMethod.MetaSharedAnchor;
-		}
-
-		private void OnAprilTagSizeChanged(float size)
-		{
-			if (aprilTagColocation.Value)
-				TagConstraintProvider.Instance.tagSizeCmHostSetting = size;
-		}
-
-		private static void OnDamagedRedVisionChanged(bool enabled)
-		{
-			if (MainPlayer.Instance != null)
-				MainPlayer.Instance.redDamagedVision = enabled;
-		}
-
-		private static void OnLightEffectsChanged(bool enabled)
-		{
-			DepthLight.SetGloballyEnabled(enabled);
+			// relay.AddChangeListenerAndCheck(b =>
+			// {
+			// });
 		}
 	}
 }

@@ -110,6 +110,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			Instance = this;
 			registry = AnchorRegistry.Instance ?? FindFirstObjectByType<AnchorRegistry>();
+			if (registry == null)
+				Debug.LogError("TagConstraintProvider requires an AnchorRegistry in the scene.", this);
+
 			lifetimeCtknSrc = new CancellationTokenSource();
 
 			if (!tagTracker)

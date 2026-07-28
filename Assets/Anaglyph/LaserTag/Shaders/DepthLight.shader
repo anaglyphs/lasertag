@@ -92,7 +92,7 @@ Shader "Anaglyph/Lasertag/DepthLight"
 				if (normalizedDistanceSqr >= 1.0)
 					return 0;
 
-				float3 worldNorm = agDepthNormalSample(uv, eye, agBilinearClampSampler);
+				float3 worldNorm = agDepthNormalSample(uv, eye, agBilinearClampSampler).xyz;
 				float3 lightDir = diff * rsqrt(max(distanceSqr, 1e-6));
 
 				float facingSurface = max(dot(worldNorm, lightDir), 0.0);
