@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 315554789493696762}
   - component: {fileID: 8685711132137151260}
   - component: {fileID: 8126320780041645419}
+  - component: {fileID: 254785804442083658}
   m_Layer: 5
   m_Name: Menu
   m_TagString: Untagged
@@ -125,6 +126,50 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1c7dbc144a0774805a6986c5d8cba496, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.UIToolkitMenuInputSetup
+--- !u!114 &254785804442083658
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 344261913376298918}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 96d78928ebc5b4d76b91b82f4eb01cad, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.PanelArranger
+  radius: 2
+  panels:
+  - {fileID: 5676502434384603877}
+  - {fileID: 5303867393154814340}
+  - {fileID: 6735076080040087814}
+  panelWidth: 0.6
+  centerIndex: 1
+  transitionLength: 0.1
+  transitionCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 2
+      outSlope: 2
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
 --- !u!1 &1493847234382081523
 GameObject:
   m_ObjectHideFlags: 0

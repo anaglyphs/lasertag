@@ -5,7 +5,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Composites;
 using System.ComponentModel;
 
-namespace EnvisionCenter
+namespace Anaglyph.LaserTag
 {
 #if UNITY_EDITOR
 	[InitializeOnLoad] // Automatically register in editor.

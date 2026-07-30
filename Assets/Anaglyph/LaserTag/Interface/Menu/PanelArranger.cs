@@ -7,7 +7,8 @@ namespace Anaglyph.Lasertag
 	public class PanelArranger : MonoBehaviour
 	{
 		[SerializeField] private float radius = 1;
-		[SerializeField] private RectTransform[] panels;
+		[SerializeField] private Transform[] panels;
+		[SerializeField] private float panelWidth = 0.6f;
 		[SerializeField] private int centerIndex;
 
 		[SerializeField] private float transitionLength = 0.2f;
@@ -60,13 +61,7 @@ namespace Anaglyph.Lasertag
 			// float offs = 0;
 			for (int i = 0; i < panels.Length; i++)
 			{
-				RectTransform panel = panels[i];
-				if (!panel.gameObject.activeSelf)
-					continue;
-
-				float width = panel.rect.width * panel.localScale.x;
-
-				float span = width / radius;
+				float span = panelWidth / radius;
 				float angle = angleSum + span / 2;
 				angles[i] = angle;
 

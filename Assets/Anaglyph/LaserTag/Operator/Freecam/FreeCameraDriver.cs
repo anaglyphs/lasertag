@@ -3,7 +3,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
-namespace EnvisionCenter.Freecam
+namespace Anaglyph.Freecam
 {
 	[RequireComponent (typeof (Camera))]
 	public class FreeCameraDriver : MonoBehaviour
