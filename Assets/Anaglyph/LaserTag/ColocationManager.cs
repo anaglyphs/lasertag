@@ -26,7 +26,7 @@ namespace Anaglyph.Lasertag
 		public ColocationMethod Method => methodSync.Value;
 		public ColocationMethod SelectedMethod => SyncBus.Active ? Method : methodHostSetting;
 
-		[SerializeField] private ConstraintColocator colocator;
+		[SerializeField] private Colocator colocator;
 
 		[SerializeField] private SpatialAnchorConstraintProvider spatialAnchorProvider;
 		[SerializeField] private TagConstraintProvider tagProvider;
@@ -51,7 +51,7 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			if (!colocator) colocator = FindFirstObjectByType<ConstraintColocator>();
+			if (!colocator) colocator = FindFirstObjectByType<Colocator>();
 			if (!spatialAnchorProvider) spatialAnchorProvider = SpatialAnchorConstraintProvider.Instance;
 			if (!tagProvider) tagProvider = TagConstraintProvider.Instance;
 

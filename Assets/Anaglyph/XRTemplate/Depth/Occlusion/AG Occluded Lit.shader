@@ -109,7 +109,10 @@ Shader "Anaglyph/AR Occlusion/AG Lit Occluded"
 			AlphaToMask[_AlphaToMask]
 
 			HLSLPROGRAM
-			#pragma target 2.0
+			// 4.5, not URP Lit's stock 2.0: the occlusion sample is a
+			// SampleCmpLevelZero on a Texture2DArray, and D3D can't emit
+			// sample_c_lz against an array resource below ps_4_1.
+			#pragma target 4.5
 
 			// -------------------------------------
 			// Shader Stages

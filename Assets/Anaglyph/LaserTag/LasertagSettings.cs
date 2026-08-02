@@ -15,6 +15,12 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
+			// Keep the provider's offline/host setting current even while shared-anchor
+			// colocation is selected. Enabling AprilTags later must not inherit the
+			// provider prefab's unconfigured zero value.
+			aprilTagSize.AddChangeListenerAndCheck(s =>
+				TagConstraintProvider.Instance.HostTagSizeCm = s);
+
 			aprilTagColocation.AddChangeListenerAndCheck(b =>
 			{
 				if (b)
@@ -24,13 +30,6 @@ namespace Anaglyph.Lasertag
 					ColocationManager.Instance.methodHostSetting =
 						ColocationManager.ColocationMethod.MetaSharedAnchor;
 			});
-
-			aprilTagSize.AddChangeListenerAndCheck(s =>
-			{
-				if (aprilTagColocation.Value)
-					TagConstraintProvider.Instance.tagSizeCmHostSetting = s;
-			});
-
 			// boundary.AddChangeListenerAndCheck(b =>
 			// {
 			// });

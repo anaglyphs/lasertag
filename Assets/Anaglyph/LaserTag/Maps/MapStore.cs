@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using UnityEngine;
 
 namespace Anaglyph.Lasertag
@@ -35,6 +36,8 @@ namespace Anaglyph.Lasertag
 
 		private static string DirectoryPath => Path.Combine(Application.persistentDataPath, "maps");
 		private static string PathFor(string id) => Path.Combine(DirectoryPath, id + ".json");
+		private static string TempPathFor(string id) => PathFor(id) + ".tmp";
+		private static string BackupPathFor(string id) => PathFor(id) + ".bak";
 
 		public static IReadOnlyCollection<GameMap> Maps
 		{
@@ -154,9 +157,11 @@ namespace Anaglyph.Lasertag
 
 			try
 			{
-				string path = PathFor(id);
-				if (File.Exists(path))
-					File.Delete(path);
+				// Recovery artifacts must go first so an interrupted delete never resurrects a
+				// map whose primary file was already removed.
+				DeleteIfExists(TempPathFor(id));
+				DeleteIfExists(BackupPathFor(id));
+				DeleteIfExists(PathFor(id));
 			}
 			catch (Exception e)
 			{
@@ -218,24 +223,42 @@ namespace Anaglyph.Lasertag
 				if (!Directory.Exists(DirectoryPath))
 					return;
 
-				foreach (string file in Directory.GetFiles(DirectoryPath, "*.json"))
+				HashSet<string> primaryFiles = new(Directory.GetFiles(DirectoryPath, "*.json"));
+
+				foreach (string file in Directory.GetFiles(DirectoryPath, "*.json.bak"))
+					primaryFiles.Add(file.Substring(0, file.Length - ".bak".Length));
+
+				foreach (string file in Directory.GetFiles(DirectoryPath, "*.json.tmp"))
+					primaryFiles.Add(file.Substring(0, file.Length - ".tmp".Length));
+
+				foreach (string primaryPath in primaryFiles)
 				{
-					try
+					if (TryReadMap(primaryPath, out GameMap map, out string primaryError))
 					{
-						GameMap map = JsonUtility.FromJson<GameMap>(File.ReadAllText(file));
-
-						if (map == null || string.IsNullOrEmpty(map.id))
-						{
-							Debug.LogWarning($"Ignoring malformed map file {file}");
-							continue;
-						}
-
 						maps[map.id] = map;
+						continue;
 					}
-					catch (Exception e)
+
+					string backupPath = primaryPath + ".bak";
+					if (TryReadMap(backupPath, out map, out string backupError))
 					{
-						Debug.LogWarning($"Ignoring unreadable map file {file}: {e.Message}");
+						maps[map.id] = map;
+						Debug.LogWarning($"Recovered map {map.id} from {backupPath} because " +
+							$"the primary file could not be read: {primaryError}");
+						continue;
 					}
+
+					string tempPath = primaryPath + ".tmp";
+					if (TryReadMap(tempPath, out map, out string tempError))
+					{
+						maps[map.id] = map;
+						Debug.LogWarning($"Recovered map {map.id} from {tempPath} because no " +
+							"committed copy could be read.");
+						continue;
+					}
+
+					Debug.LogWarning($"Ignoring unreadable map files for {primaryPath}. " +
+						$"Primary: {primaryError}; backup: {backupError}; temporary: {tempError}");
 				}
 			}
 			catch (Exception e)
@@ -249,12 +272,112 @@ namespace Anaglyph.Lasertag
 			try
 			{
 				Directory.CreateDirectory(DirectoryPath);
-				File.WriteAllText(PathFor(map.id), JsonUtility.ToJson(map, prettyPrint: true));
+
+				string path = PathFor(map.id);
+				string tempPath = TempPathFor(map.id);
+				string backupPath = BackupPathFor(map.id);
+				string json = JsonUtility.ToJson(map, prettyPrint: true);
+
+				using (FileStream stream = new(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+				using (StreamWriter writer = new(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+				{
+					writer.Write(json);
+					writer.Flush();
+					stream.Flush(flushToDisk: true);
+				}
+
+				CommitTempFile(tempPath, path, backupPath);
 			}
 			catch (Exception e)
 			{
 				Debug.LogException(e);
 			}
+		}
+
+		private static void CommitTempFile(string tempPath, string path, string backupPath)
+		{
+			if (!File.Exists(path))
+			{
+				File.Move(tempPath, path);
+				return;
+			}
+
+			// File.Replace is atomic on filesystems that support it and also preserves the
+			// previous committed map as a backup. Some Unity target runtimes do not implement
+			// it, so fall back to same-directory renames with equivalent recovery states.
+			DeleteIfExists(backupPath);
+
+			try
+			{
+				File.Replace(tempPath, path, backupPath);
+				return;
+			}
+			catch (PlatformNotSupportedException)
+			{
+			}
+			catch (NotSupportedException)
+			{
+			}
+			catch (IOException) when (File.Exists(tempPath) && File.Exists(path))
+			{
+				// Some Mono/Android filesystem combinations report an unsupported replacement
+				// as IOException rather than PlatformNotSupportedException. Only fall back while
+				// both unmodified inputs are still present.
+			}
+
+			File.Move(path, backupPath);
+
+			try
+			{
+				File.Move(tempPath, path);
+			}
+			catch
+			{
+				// Restore the last committed version when possible. If restoration itself fails,
+				// EnsureLoaded will still find the backup on the next launch.
+				if (!File.Exists(path) && File.Exists(backupPath))
+					File.Move(backupPath, path);
+
+				throw;
+			}
+		}
+
+		private static bool TryReadMap(string path, out GameMap map, out string error)
+		{
+			map = null;
+
+			if (!File.Exists(path))
+			{
+				error = "file does not exist";
+				return false;
+			}
+
+			try
+			{
+				map = JsonUtility.FromJson<GameMap>(File.ReadAllText(path));
+
+				if (map == null || string.IsNullOrEmpty(map.id))
+				{
+					map = null;
+					error = "malformed map JSON";
+					return false;
+				}
+
+				error = null;
+				return true;
+			}
+			catch (Exception e)
+			{
+				map = null;
+				error = e.Message;
+				return false;
+			}
+		}
+
+		private static void DeleteIfExists(string path)
+		{
+			if (File.Exists(path))
+				File.Delete(path);
 		}
 
 		private static string GenerateName()

@@ -167,7 +167,7 @@ namespace Anaglyph.Lasertag.Operator
 			UpdateHostingPage(NetcodeManagement.State);
 			UpdateMatchPage(MatchReferee.State);
 
-			TagConstraintProvider.Instance.tagSizeCmHostSetting = tagSizeCm;
+			TagConstraintProvider.Instance.HostTagSizeCm = tagSizeCm;
 			ColocationManager.Instance.methodHostSetting = useAprilTags
 				? ColocationManager.ColocationMethod.AprilTag
 				: ColocationManager.ColocationMethod.MetaSharedAnchor;

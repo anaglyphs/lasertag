@@ -1,4 +1,3 @@
-using System;
 using Anaglyph.Input;
 using Anaglyph.Lasertag.Logistics;
 using Unity.Netcode;
@@ -8,12 +7,13 @@ using UnityEngine.InputSystem;
 
 namespace Anaglyph.Lasertag.Weapons
 {
+	[RequireComponent(typeof(HandSubject))]
 	public class Blaster : MonoBehaviour, IWeapon
 	{
 		private HandSubject hand;
 
 		[SerializeField] private GameObject boltPrefab;
-		[SerializeField] private Transform emitFromTransform;
+		[SerializeField] private WeaponView view;
 		public UnityEvent onFire = new();
 
 		private void Awake()
@@ -42,16 +42,13 @@ namespace Anaglyph.Lasertag.Weapons
 			if (!NetworkManager.Singleton.IsConnectedClient || !WeaponsManagement.CanFire)
 				return;
 
-			// var e = emitFromTransform;
-			// NetworkObject.InstantiateAndSpawn(boltPrefab, NetworkManager.Singleton,
-			// 	position: e.position, rotation: e.rotation,
-			// 	ownerClientId: NetworkManager.Singleton.LocalClientId);
-
+			Transform muzzle = view.Muzzle;
 			NetworkObject n = NetworkObjectPool.Instance.GetNetworkObject(
-				boltPrefab, emitFromTransform.position, emitFromTransform.rotation);
+				boltPrefab, muzzle.position, muzzle.rotation);
 
 			n.SpawnWithOwnership(NetworkManager.Singleton.LocalClientId);
 
+			view.PlayFire();
 			onFire.Invoke();
 		}
 	}

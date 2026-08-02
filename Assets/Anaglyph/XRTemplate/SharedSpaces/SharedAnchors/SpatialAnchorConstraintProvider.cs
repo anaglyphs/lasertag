@@ -47,6 +47,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			public AnchorLease lease;
 			public Pose canon;
 			public AnchorSource source;
+			/// <summary>Cancels the entry's in-flight <see cref="PersistWhenActive"/> loop.</summary>
+			public CancellationTokenSource persistCtknSrc;
 		}
 
 		private readonly SyncDictionary<Guid, AnchorConstraintState> constraints =
@@ -222,7 +224,10 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		public void SetConstraints(IEnumerable<AnchorConstraintData> next)
 		{
 			if (!SyncBus.IsAuthority)
+			{
+				Debug.LogWarning($"Trying to set constraints from anchors while not the authority!");
 				return;
+			}
 
 			// Removing an entry fires constraints.Changed synchronously, which can call
 			// ReconcileHeld. Keep this public operation's snapshots local so that reentrant
@@ -304,7 +309,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					existing.lease = replacement;
 					existing.source = source;
 					previous.Dispose();
-					PersistWhenActive(guid, existing);
+					RestartPersist(guid, existing);
 					continue;
 				}
 
@@ -316,7 +321,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				};
 
 				held.Add(guid, added);
-				PersistWhenActive(guid, added);
+				RestartPersist(guid, added);
 			}
 
 			heldRemovalScratch.Clear();
@@ -333,29 +338,51 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (!held.Remove(guid, out HeldAnchor entry))
 				return;
 
+			CancelPersist(entry);
 			entry.lease.Dispose();
 		}
 
 		private void ReleaseAll()
 		{
 			foreach (HeldAnchor entry in held.Values)
+			{
+				CancelPersist(entry);
 				entry.lease.Dispose();
+			}
 
 			held.Clear();
 		}
 
-		private async void PersistWhenActive(Guid guid, HeldAnchor entry)
+		/// <summary>
+		/// Cancels any persist loop already running for the entry before starting a new one, so
+		/// that re-acquiring a lease (a source change) cannot stack loops on the same anchor.
+		/// </summary>
+		private void RestartPersist(Guid guid, HeldAnchor entry)
+		{
+			CancelPersist(entry);
+			entry.persistCtknSrc =
+				CancellationTokenSource.CreateLinkedTokenSource(lifetimeCtknSrc.Token);
+			PersistWhenActive(guid, entry, entry.persistCtknSrc);
+		}
+
+		private static void CancelPersist(HeldAnchor entry)
+		{
+			// The loop itself disposes the source once it has finished unwinding.
+			entry.persistCtknSrc?.Cancel();
+			entry.persistCtknSrc = null;
+		}
+
+		private async void PersistWhenActive(Guid guid, HeldAnchor entry,
+			CancellationTokenSource ctknSrc)
 		{
 			try
 			{
-				CancellationToken ctkn = lifetimeCtknSrc.Token;
+				CancellationToken ctkn = ctknSrc.Token;
 
+				// An anchor that cannot localize here keeps retrying by design; cancellation is
+				// the only exit, and it arrives when the entry is released or re-acquired.
 				while (entry.lease.Handle.state != AnchorHandle.State.Active)
-				{
 					await Awaitable.NextFrameAsync(ctkn);
-					if (!held.TryGetValue(guid, out HeldAnchor current) || current != entry)
-						return;
-				}
 
 				SerializableGuid serializableGuid = ToSerializable(guid);
 				if (!registry.IsSaved(serializableGuid) &&
@@ -373,6 +400,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			catch (Exception e)
 			{
 				Debug.LogException(e);
+			}
+			finally
+			{
+				if (entry.persistCtknSrc == ctknSrc)
+					entry.persistCtknSrc = null;
+
+				ctknSrc.Dispose();
 			}
 		}
 
@@ -417,7 +451,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private static ColocationState ColocationManagerState()
 		{
-			ConstraintColocator colocator = FindFirstObjectByType<ConstraintColocator>();
+			Colocator colocator = FindFirstObjectByType<Colocator>();
 			return colocator != null ? colocator.State : ColocationState.Stopped;
 		}
 

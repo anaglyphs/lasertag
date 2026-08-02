@@ -37,6 +37,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	}
 
 	/// <summary>
+	/// Annoyingly, AR Foundation anchor operations are not cancellable.
+	/// E.g. I can't stop an anchor download from completing and instantiating an ARAnchor
+	/// if I don't need the anchor anymore.
+	/// This system is here to make these limitations manageable. 
+	/// 
 	/// Owns the local AR Foundation anchor handles for a process and routes trackable
 	/// materialization/removal events to them. Also fronts AR Foundation's persistent anchor
 	/// storage, so an anchor can be saved to this device and loaded back in a later session
@@ -45,11 +50,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	/// Everything here is keyed by trackable id. Meta's runtime guarantees that the guid returned
 	/// when saving or sharing an anchor *is* that anchor's trackable id, so one guid addresses an
 	/// anchor locally, in the shared group, and in this registry.
-	///
-	/// Annoyingly, AR Foundation anchor operations are not cancellable.
-	/// E.g. I can't stop an anchor download from completing and instantiating an ARAnchor
-	/// if I don't need the anchor anymore.
-	/// This system is here to make this limitation manageable.
 	/// </summary>
 	[DefaultExecutionOrder(-300)]
 	public sealed class AnchorRegistry : MonoBehaviour, IDisposable
@@ -80,7 +80,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			Instance = this;
 
-			#if !UNITY_EDITOR
+#if !UNITY_EDITOR
 			anchorManager = FindFirstObjectByType<ARAnchorManager>();
 			if (anchorManager == null)
 			{
@@ -95,9 +95,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				return;
 			}
 
+			TryRefreshSavedGuidsAsync(lifetimeCtknSrc.Token);
+
 			anchorManager.trackablesChanged.AddListener(OnTrackablesChanged);
 			ReconciliationLoop(lifetimeCtknSrc.Token);
-			#endif
+#endif
 		}
 
 		private void OnDestroy()

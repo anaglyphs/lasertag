@@ -50,6 +50,12 @@ Shader "Anaglyph/Debug/Flat Normals"
 			Varyings vert(Attributes IN)
 			{
 				Varyings OUT;
+
+				UNITY_SETUP_INSTANCE_ID(IN);
+				// writes the SV_RenderTargetArrayIndex that UNITY_VERTEX_OUTPUT_STEREO
+				// declares; d3d11 rejects the shader if it is left unwritten
+				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(OUT);
+
 				OUT.positionHCS = TransformObjectToHClip(IN.positionOS.xyz);
 				OUT.positionWS = TransformObjectToWorld(IN.positionOS.xyz);
 
@@ -58,6 +64,8 @@ Shader "Anaglyph/Debug/Flat Normals"
 
 			half4 frag(Varyings IN) : SV_Target
 			{
+				UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(IN);
+
 				float3 dp1 = ddx(IN.positionWS);
 				float3 dp2 = ddy(IN.positionWS);
 				float3 normalOS = normalize(cross(dp2, dp1));

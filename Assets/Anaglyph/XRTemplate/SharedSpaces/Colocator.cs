@@ -7,13 +7,43 @@ using UnityEngine;
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
 	/// <summary>
+	/// How far a colocator currently trusts the alignment it has produced between tracking
+	/// space and the canon (world) frame.
+	/// </summary>
+	public enum ColocationState
+	{
+		/// <summary>Not running.</summary>
+		Stopped,
+
+		/// <summary>
+		/// Running, but has not yet found enough references to align. There is no meaningful
+		/// world frame at all.
+		/// </summary>
+		Searching,
+
+		/// <summary>Aligned. World space can be trusted.</summary>
+		Localized,
+
+		/// <summary>
+		/// Was localized and isn't anymore — recenter, sleep/wake, tracking loss, or the
+		/// references went out of view. The last alignment is still applied, so the world
+		/// doesn't visibly jump, but it is stale: anything that writes durable world-space
+		/// data (anchor canon poses, map object poses) must stop until this clears.
+		///
+		/// Distinct from <see cref="Searching"/> because a stale frame is still worth drawing
+		/// and worth keeping a map loaded against; no frame at all is not.
+		/// </summary>
+		Lost
+	}
+	
+	/// <summary>
 	/// Aligns the rig against the constraints supplied by the selected provider. Providers own
 	/// discovery, persistence, and synchronization; this class only fits their observed anchor
 	/// poses to their canon poses. Selecting a provider stops the previous one, so two anchor
 	/// strategies can never manipulate the same runtime concurrently.
 	/// </summary>
 	[DefaultExecutionOrder(999)]
-	public class ConstraintColocator : MonoBehaviour, IColocator
+	public class Colocator : MonoBehaviour
 	{
 		public const int MinimumPositionOnlyConstraintCount = 2;
 
@@ -23,29 +53,28 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		[Tooltip("How quickly to ease onto a new fit once already localized. 1 = snap")]
 		[SerializeField] private float fitLerp = 0.1f;
 
-		private IColocationConstraintProvider provider;
-		public IColocationConstraintProvider Provider => provider;
+		public IColocationConstraintProvider Provider { get; private set; }
 
 		private CancellationTokenSource ctknSrc;
 
 		private readonly List<ColocationConstraint> constraints = new();
-		private readonly List<(float3 subject, float3 target)> positionPairs = new();
+		private readonly List<(float3 subject, float3 target)> posConstraints = new();
 
 		public void SetProvider(IColocationConstraintProvider next)
 		{
-			if (ReferenceEquals(provider, next))
+			if (ReferenceEquals(Provider, next))
 				return;
 
 			if (State != ColocationState.Stopped)
 				StopColocation();
 
-			provider = next;
+			Provider = next;
 		}
 
 		/// <summary>Appends the references currently used by the fit.</summary>
 		public void GetCurrentConstraints(List<ColocationConstraint> results)
 		{
-			provider?.GetColocationConstraints(results);
+			Provider?.GetColocationConstraints(results);
 		}
 
 		private void SetState(ColocationState next)
@@ -83,10 +112,10 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public void StartColocation()
 		{
-			if (State != ColocationState.Stopped || provider == null)
+			if (State != ColocationState.Stopped || Provider == null)
 				return;
 
-			provider.StartProviding();
+			Provider.StartProviding();
 
 			#if UNITY_EDITOR
 			// No anchor runtime in-editor. Report an identity frame as localized so map
@@ -107,7 +136,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			ctknSrc?.Cancel();
 			ctknSrc = null;
-			provider?.StopProviding();
+			Provider?.StopProviding();
 			SetState(ColocationState.Stopped);
 		}
 
@@ -120,7 +149,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					await Awaitable.NextFrameAsync(ctkn);
 
 					constraints.Clear();
-					provider?.GetColocationConstraints(constraints);
+					Provider?.GetColocationConstraints(constraints);
 
 					if (!TryFit())
 						Delocalize();
@@ -176,11 +205,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 			else
 			{
-				positionPairs.Clear();
+				posConstraints.Clear();
 				foreach (ColocationConstraint constraint in constraints)
-					positionPairs.Add((constraint.observed.position, constraint.canon.position));
+					posConstraints.Add((constraint.observed.position, constraint.canon.position));
 
-				Matrix4x4 delta = BestFit.Find4DOF(positionPairs);
+				Matrix4x4 delta = BestFit.Find4DOF(posConstraints);
 				MainXRRig.Instance.AlignSpace(spaceMat, delta * spaceMat, lerp);
 			}
 

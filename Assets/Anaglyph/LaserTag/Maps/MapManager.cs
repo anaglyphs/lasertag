@@ -20,7 +20,6 @@ namespace Anaglyph.Lasertag
 		public Guid id;
 		public Guid version;
 		public FixedString64Bytes name;
-		public bool hasTags;
 	}
 
 	/// <summary>
@@ -36,7 +35,7 @@ namespace Anaglyph.Lasertag
 
 		[SerializeField] private SpatialAnchorConstraintProvider spatialAnchorProvider;
 		[SerializeField] private TagConstraintProvider tagProvider;
-		[FormerlySerializedAs("referenceColocator")] [SerializeField] private ConstraintColocator constraintColocator;
+		[SerializeField] private Colocator colocator;
 
 		[Tooltip("Every placeable map object; also how a saved map's prefab ids resolve")]
 		[SerializeField] private MapObjectDatabase objectDatabase;
@@ -44,7 +43,7 @@ namespace Anaglyph.Lasertag
 		[Tooltip("How long the room probe lets each anchor try to localize")]
 		[SerializeField] private float probeTimeoutSeconds = 8f;
 
-		[Tooltip("Mean reference error above which the fit does not count as agreeing")]
+		[Tooltip("Reference error above which a constraint does not count as agreeing with the fit")]
 		[SerializeField] private float agreementMaxError = 0.3f;
 
 		public GameMap CurrentMap { get; private set; }
@@ -66,6 +65,8 @@ namespace Anaglyph.Lasertag
 		private readonly List<AnchorConstraintData> anchorImportScratch = new();
 		private readonly List<TagConstraintData> tagImportScratch = new();
 		private readonly List<TaggedAnchorConstraintData> taggedAnchorScratch = new();
+		private readonly HashSet<string> anchorGuidScratch = new();
+		private readonly List<string> droppedAnchorScratch = new();
 
 		private bool authoritySessionStarted;
 		private bool sessionMapAdopted;
@@ -79,8 +80,8 @@ namespace Anaglyph.Lasertag
 				spatialAnchorProvider = FindFirstObjectByType<SpatialAnchorConstraintProvider>();
 			if (!tagProvider)
 				tagProvider = FindFirstObjectByType<TagConstraintProvider>();
-			if (!constraintColocator)
-				constraintColocator = FindFirstObjectByType<ConstraintColocator>();
+			if (!colocator)
+				colocator = FindFirstObjectByType<Colocator>();
 
 			if (!objectDatabase)
 				Debug.LogError("MapManager has no map object database.", this);
@@ -114,6 +115,8 @@ namespace Anaglyph.Lasertag
 
 		private void OnDestroy()
 		{
+			Instance = null;
+			
 			SaveCurrentMapQuietly();
 
 			if (tagProvider)
@@ -192,7 +195,17 @@ namespace Anaglyph.Lasertag
 				if (!ColocationManager.IsColocated)
 					return false;
 
-				int required = Mathf.Min(2, CurrentMap.anchors.Count);
+				// Tag mode can only realize this device's tag-backed anchors. Roaming anchors
+				// remain in the map for shared-anchor mode, but must not raise the agreement
+				// threshold for a provider that can never expose them.
+				bool usingTagProvider = ColocationManager.Instance != null &&
+				                        ColocationManager.Instance.UsingTagProvider;
+				int availableAnchorCount = 0;
+				foreach (MapAnchorEntry anchor in CurrentMap.anchors)
+					if (!usingTagProvider || anchor.tagId >= 0)
+						availableAnchorCount++;
+
+				int required = Mathf.Min(2, availableAnchorCount);
 				return agreeingReferenceCount >= required &&
 				       meanReferenceError <= agreementMaxError;
 			}
@@ -201,19 +214,31 @@ namespace Anaglyph.Lasertag
 		private void UpdateAgreement()
 		{
 			referenceScratch.Clear();
-			constraintColocator?.GetCurrentConstraints(referenceScratch);
-			agreeingReferenceCount = referenceScratch.Count;
+			colocator?.GetCurrentConstraints(referenceScratch);
 
 			if (referenceScratch.Count == 0)
 			{
+				agreeingReferenceCount = 0;
 				meanReferenceError = 0f;
 				return;
 			}
 
+			// Agreement is per constraint: a reference agrees only if the fit lands it on its own
+			// canon pose. Counting the available constraints instead would let a single reference
+			// that is metres out hide inside a mean taken over many good ones.
+			int agreeing = 0;
 			float errorSum = 0f;
 			foreach (ColocationConstraint reference in referenceScratch)
-				errorSum += Vector3.Distance(reference.observed.position, reference.canon.position);
+			{
+				float error = Vector3.Distance(
+					reference.observed.position, reference.canon.position);
 
+				errorSum += error;
+				if (error <= agreementMaxError)
+					agreeing++;
+			}
+
+			agreeingReferenceCount = agreeing;
 			meanReferenceError = errorSum / referenceScratch.Count;
 		}
 
@@ -308,15 +333,21 @@ namespace Anaglyph.Lasertag
 			if (!isQuitting)
 				SnapshotObjects(CurrentMap);
 
-			MapStore.Save(CurrentMap);
-
 			if (SyncBus.Active && SyncBus.IsAuthority)
 			{
+				// MapStore owns content-version generation. Commit the dirty state first so
+				// the identity advertises that newly minted version, then persist the final
+				// clean/base state below. Offline saves deliberately remain dirty and keep
+				// their existing fork-on-conflict semantics.
+				if (CurrentMap.dirty)
+					MapStore.Save(CurrentMap);
+
 				PublishIdentity();
 				CurrentMap.baseVersion = CurrentMap.version;
 				CurrentMap.dirty = false;
-				MapStore.Save(CurrentMap);
 			}
+
+			MapStore.Save(CurrentMap);
 		}
 
 		private void SaveCurrentMapQuietly()
@@ -470,7 +501,17 @@ namespace Anaglyph.Lasertag
 			if (CurrentMap == null || spatialAnchorProvider == null)
 				return;
 
-			CurrentMap.anchors.Clear();
+			// The map's anchor list is the union of both providers' realizations, so this
+			// snapshot may only prune what this provider itself dropped. Tag anchors are
+			// private per device: on a joiner the authority's constraints never describe
+			// this headset's own, and clearing here would erase them from its copy.
+			anchorGuidScratch.Clear();
+			foreach (Guid guid in spatialAnchorProvider.Constraints.Keys)
+				anchorGuidScratch.Add(GuidToString(guid));
+
+			CurrentMap.anchors.RemoveAll(entry =>
+				entry.tagId < 0 && !anchorGuidScratch.Contains(entry.guid));
+
 			foreach ((Guid guid, AnchorConstraintState state) in spatialAnchorProvider.Constraints)
 			{
 				CurrentMap.SetAnchorWithTag(
@@ -515,11 +556,42 @@ namespace Anaglyph.Lasertag
 
 			taggedAnchorScratch.Clear();
 			tagProvider.GetLocalAnchorConstraints(taggedAnchorScratch);
-			CurrentMap.anchors.Clear();
+
+			// Mirror of SnapshotAnchorProviderToMap: this provider owns only the tag
+			// realizations. Roaming anchors (tagId -1) belong to the anchor provider and
+			// survive a map being tagged later, so they must not be swept up here.
+			anchorGuidScratch.Clear();
+			foreach (TaggedAnchorConstraintData entry in taggedAnchorScratch)
+				anchorGuidScratch.Add(GuidToString(entry.guid));
+
+			droppedAnchorScratch.Clear();
+			foreach (MapAnchorEntry entry in CurrentMap.anchors)
+				if (entry.tagId >= 0 && !anchorGuidScratch.Contains(entry.guid))
+					droppedAnchorScratch.Add(entry.guid);
+
+			CurrentMap.anchors.RemoveAll(entry => droppedAnchorScratch.Contains(entry.guid));
 
 			foreach (TaggedAnchorConstraintData entry in taggedAnchorScratch)
 				CurrentMap.SetAnchorWithTag(
 					GuidToString(entry.guid), entry.canonPose, entry.tagId);
+
+			// The provider stopped realizing these — their tag was unregistered, here or by the
+			// session authority — so nothing will ask the device for them again.
+			foreach (string guid in droppedAnchorScratch)
+				EraseTagAnchorSaveIfOrphaned(guid);
+		}
+
+		/// <summary>
+		/// Erases a dropped tag anchor's local save. A guid some other map still references — a
+		/// fork keeps its parent's anchors — has to stay on the device. Call this only once the
+		/// current map no longer lists the anchor, so it does not veto its own erase.
+		/// </summary>
+		private void EraseTagAnchorSaveIfOrphaned(string guid)
+		{
+			if (tagProvider == null || MapStore.IsAnchorReferenced(guid))
+				return;
+
+			_ = tagProvider.EraseAsync(GuidFromString(guid));
 		}
 
 		private void OnSpatialAnchorPersisted(Guid _)
@@ -720,7 +792,19 @@ namespace Anaglyph.Lasertag
 			if (!removed)
 				return false;
 
+			// Collected before the prune, erased after it: the orphan check has to run against
+			// the map that no longer lists them. Both happen before the providers are re-injected,
+			// which is what can re-enter the snapshot that shares this scratch.
+			droppedAnchorScratch.Clear();
+			foreach (MapAnchorEntry entry in CurrentMap.anchors)
+				if (entry.tagId == tagId)
+					droppedAnchorScratch.Add(entry.guid);
+
 			CurrentMap.anchors.RemoveAll(entry => entry.tagId == tagId);
+
+			foreach (string guid in droppedAnchorScratch)
+				EraseTagAnchorSaveIfOrphaned(guid);
+
 			MapStore.MarkEdited(CurrentMap);
 			InjectMapIntoProviders(CurrentMap);
 			SaveCurrentMap();
@@ -824,7 +908,6 @@ namespace Anaglyph.Lasertag
 				id = Guid.ParseExact(CurrentMap.id, "N"),
 				version = Guid.ParseExact(CurrentMap.version, "N"),
 				name = name,
-				hasTags = CurrentMap.HasTags,
 			};
 		}
 

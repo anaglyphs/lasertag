@@ -1150,6 +1150,28 @@ MonoBehaviour:
   Values:
   - {fileID: 9205790515618713437}
   - {fileID: 555580867254668633}
+--- !u!114 &2738398249348749
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e0842d4e0053444e492cbb993ea2ef9a, type: 3}
+  m_Name: PassthroughStylingFeature Android
+  m_EditorClassIdentifier: Anaglyph.XRTemplate::Anaglyph.XRTemplate.PassthroughStylingFeature
+  m_enabled: 1
+  nameUi: AR Foundation Passthrough Styling
+  version: 1.0.0
+  featureIdInternal: com.anaglyph.xrtemplate.passthrough-styling
+  openxrExtensionStrings: XR_FB_passthrough
+  company: Anaglyph
+  priority: 100
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
 --- !u!114 &332891376993921087
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1231,6 +1253,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.XR.OpenXR::UnityEngine.XR.OpenXR.OpenXRSettings
   features:
   - {fileID: 4798971253150502064}
+  - {fileID: 2052078794122380359}
   - {fileID: 5939529736605967557}
   - {fileID: 5844978535824305906}
   - {fileID: 3906585089133384722}
@@ -1444,6 +1467,28 @@ MonoBehaviour:
   openxrExtensionStrings: 
   company: Anaglyph
   priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
+--- !u!114 &2052078794122380359
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e0842d4e0053444e492cbb993ea2ef9a, type: 3}
+  m_Name: PassthroughStylingFeature Standalone
+  m_EditorClassIdentifier: Anaglyph.XRTemplate::Anaglyph.XRTemplate.PassthroughStylingFeature
+  m_enabled: 1
+  nameUi: AR Foundation Passthrough Styling
+  version: 1.0.0
+  featureIdInternal: com.anaglyph.xrtemplate.passthrough-styling
+  openxrExtensionStrings: XR_FB_passthrough
+  company: Anaglyph
+  priority: 100
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
@@ -2595,6 +2640,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.XR.OpenXR::UnityEngine.XR.OpenXR.OpenXRSettings
   features:
   - {fileID: 8848267643514683081}
+  - {fileID: 2738398249348749}
   - {fileID: 7137091904547191494}
   - {fileID: 6300161332524357933}
   - {fileID: -6312088525957327066}

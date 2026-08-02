@@ -18,7 +18,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		/// its own. Runtime anchors are; a vision-only source may instead expose position-only
 		/// constraints that require multiple correspondences.
 		/// </summary>
-		public bool hasReliableRotation;
+		public readonly bool hasReliableRotation;
 
 		public ColocationConstraint(Pose observed, Pose canon, bool hasReliableRotation = false)
 		{
@@ -44,7 +44,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 	/// <summary>
 	/// A self-contained source that owns the lifecycle of the physical references it exposes.
-	/// Exactly one provider is activated by <see cref="ConstraintColocator"/> at a time.
+	/// Exactly one provider is activated by <see cref="Colocator"/> at a time.
 	/// </summary>
 	public interface IColocationConstraintProvider : IColocationConstraintSource
 	{

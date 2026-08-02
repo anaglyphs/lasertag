@@ -64,9 +64,26 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			public int samples;
 		}
 
-		public float tagSizeCmHostSetting;
+		[SerializeField] private float tagSizeCmHostSetting;
+		public float HostTagSizeCm
+		{
+			get => tagSizeCmHostSetting;
+			set
+			{
+				tagSizeCmHostSetting = Mathf.Max(0f, value);
+
+				// A host may change this after the session is already running. Keep the
+				// canonical session value and the local tracker in step immediately.
+				if (SyncBus.Active && SyncBus.IsAuthority)
+					tagSizeSync.Value = tagSizeCmHostSetting;
+
+				UpdateTrackerEnabled();
+			}
+		}
 		private readonly SyncVariable<float> tagSizeSync = new("colocation.tags.size");
-		public float TagSizeCm => tagSizeSync.Value;
+		public float TagSizeCm => tagSizeSync.Value > 0f
+			? tagSizeSync.Value
+			: tagSizeCmHostSetting;
 
 		private readonly SyncDictionary<int, Pose> registeredTags =
 			new("colocation.tags.canon");
@@ -95,6 +112,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private readonly Dictionary<int, TagCorrection> corrections = new();
 		private readonly HashSet<int> mintsInFlight = new();
 		private readonly List<int> tagIdScratch = new();
+		// Reconciliation runs reentrantly from tag removals, so it cannot share tagIdScratch
+		// with the import operations that trigger it.
+		private readonly List<int> anchorRemovalScratch = new();
 		private readonly List<TagConstraintData> tagScratch = new();
 		private readonly List<TaggedAnchorConstraintData> anchorScratch = new();
 
@@ -207,8 +227,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private float EffectiveTagSizeMeters()
 		{
-			float cm = TagSizeCm > 0f ? TagSizeCm : tagSizeCmHostSetting;
-			return cm / 100f;
+			return TagSizeCm / 100f;
 		}
 
 		private void OnBusActivated()
@@ -253,7 +272,10 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		public void SetRegisteredTags(IEnumerable<TagConstraintData> tags)
 		{
 			if (!SyncBus.IsAuthority)
+			{
+				Debug.LogWarning("Trying to set tag constraints while not the authority!");
 				return;
+			}
 
 			tagScratch.Clear();
 			tagScratch.AddRange(tags);
@@ -356,21 +378,47 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private void ReconcileAnchors()
 		{
-			if (!IsRunning || !IsAvailable)
+			if (!IsRunning)
 				return;
 
-			foreach (LocalAnchor anchor in localAnchors.Values)
-			{
-				if (!registeredTags.ContainsKey(anchor.tagId))
-				{
-					anchor.lease?.Dispose();
-					anchor.lease = null;
-					continue;
-				}
+			bool dropped = DropUnregisteredAnchors();
 
-				anchor.lease ??= registry.Acquire(
-					new SerializableGuid(anchor.guid), AnchorSource.Local);
+			if (IsAvailable)
+				foreach (LocalAnchor anchor in localAnchors.Values)
+					anchor.lease ??= registry.Acquire(
+						new SerializableGuid(anchor.guid), AnchorSource.Local);
+
+			if (dropped)
+				AnchorsChanged.Invoke();
+		}
+
+		/// <summary>
+		/// Forgets the anchors of tags that are no longer registered — bookkeeping, so it happens
+		/// with or without an anchor runtime. An unregistered tag's anchor realizes nothing:
+		/// keeping the entry would keep exporting a constraint whose tag is gone, and would hold
+		/// the tag id against a fresh mint if the tag comes back. The device's saved anchor is
+		/// deliberately left alone; only the embedding map layer knows whether some other map
+		/// still needs it.
+		/// </summary>
+		private bool DropUnregisteredAnchors()
+		{
+			anchorRemovalScratch.Clear();
+			foreach (LocalAnchor anchor in localAnchors.Values)
+				if (!registeredTags.ContainsKey(anchor.tagId))
+					anchorRemovalScratch.Add(anchor.tagId);
+
+			foreach (int tagId in anchorRemovalScratch)
+			{
+				if (!localAnchors.Remove(tagId, out LocalAnchor dropped))
+					continue;
+
+				dropped.lease?.Dispose();
+				// A half-averaged correction must not carry over onto a later anchor for the
+				// same tag.
+				corrections.Remove(tagId);
 			}
+
+			return anchorRemovalScratch.Count > 0;
 		}
 
 		public void GetColocationConstraints(List<ColocationConstraint> results)
@@ -438,7 +486,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private async void MintTagAnchor(int tagId, Pose observedTag, Pose canonTag)
 		{
-			if (!mintsInFlight.Add(tagId) || !IsAvailable)
+			if (!IsAvailable || !mintsInFlight.Add(tagId))
 				return;
 
 			int generation = stateGeneration;
@@ -549,6 +597,19 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			corrections.Remove(anchor.tagId);
 			AnchorsChanged.Invoke();
+		}
+
+		// ------- persistence utilities ---------------------------
+
+		/// <summary>
+		/// Deletes an anchor's local save. Dropping a tag anchor never does this on its own,
+		/// because whether the anchor is really unwanted is a question about maps, which this
+		/// provider knows nothing about.
+		/// </summary>
+		public async Awaitable<bool> EraseAsync(Guid guid, CancellationToken ctkn = default)
+		{
+			return IsAvailable &&
+			       await registry.TryEraseSavedAsync(new SerializableGuid(guid), ctkn);
 		}
 	}
 }
