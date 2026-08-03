@@ -36,6 +36,15 @@ namespace Anaglyph.XRTemplate.AprilTags
 		// Quest). Valid during the OnDetectTags callback; feed to HeadPoseHistory.
 		public long FrameTimestampNs { get; private set; }
 
+		/// <summary>
+		/// Whether the frame these detections came from was rendered rather than captured.
+		/// XR Simulation hands back a readback of a rendered camera, which has none of a
+		/// physical sensor's motion blur or exposure lag, so consumers that distrust readings
+		/// taken while the head moves have nothing to distrust here. Valid during the
+		/// <see cref="OnDetectTags"/> callback.
+		/// </summary>
+		public bool FrameIsRendered { get; private set; }
+
 		private void Start()
 		{
 			arCameraManager = FindFirstObjectByType<ARCameraManager>();
@@ -137,7 +146,12 @@ namespace Anaglyph.XRTemplate.AprilTags
 					: 2 * Mathf.Atan(1f / MainXRRig.Camera.projectionMatrix.m11);
 
 				FrameTimestampNs = frameTimestampNs;
-				
+
+				// A passthrough sensor delivers YUV; the RGB formats below are the simulator's
+				// rendered readback.
+				FrameIsRendered = img.format is
+					XRCpuImage.Format.BGRA32 or XRCpuImage.Format.RGBA32;
+
 				switch (img.format)
 				{
 					case XRCpuImage.Format.AndroidYuv420_888:

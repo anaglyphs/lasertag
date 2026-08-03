@@ -50,24 +50,76 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	/// Everything here is keyed by trackable id. Meta's runtime guarantees that the guid returned
 	/// when saving or sharing an anchor *is* that anchor's trackable id, so one guid addresses an
 	/// anchor locally, in the shared group, and in this registry.
+	///
+	/// Nothing here assumes a particular runtime. Whichever anchor subsystem is running is used
+	/// for as much as it implements, and every capability past creating and tracking anchors is
+	/// asked about at runtime: AR Foundation's XR Simulation tracks anchors but persists none of
+	/// them, and only Meta's runtime — a headset, or the Meta XR Simulator in-editor — shares
+	/// anchors or enumerates what this device has saved.
+	///
+	/// Where the running runtime has no shared anchors, the editor stands in for that transport
+	/// here (see <see cref="simulatingSharedAnchors"/>) so a second peer can align without a
+	/// headset. Everything above this class then behaves identically in the editor and on a
+	/// device, and the fiction stays in one place — this one.
 	/// </summary>
 	[DefaultExecutionOrder(-300)]
 	public sealed class AnchorRegistry : MonoBehaviour, IDisposable
 	{
 		public static AnchorRegistry Instance { get; private set; }
 
+		[Tooltip("In the editor only, stand in for Meta's shared-anchor transport so a second " +
+		         "peer can align without a headset. Never has any effect in a build.")]
+		[SerializeField] private bool simulateSharedAnchorsInEditor = true;
+
 		private ARAnchorManager anchorManager;
-		private MetaOpenXRAnchorSubsystem anchorSubsystem;
 		private readonly Dictionary<SerializableGuid, AnchorHandle> handles = new();
+
+		/// <summary>
+		/// Handles indexed by the id of the local anchor standing in for them while shared
+		/// anchors are simulated, so trackable events for a stand-in reach the handle that
+		/// is addressed by the anchor's real guid.
+		/// </summary>
+		private readonly Dictionary<SerializableGuid, AnchorHandle> simulatedAnchorHandles = new();
 		private readonly HashSet<SerializableGuid> savedGuidSet = new();
 		private readonly CancellationTokenSource lifetimeCtknSrc = new();
 
 		private readonly List<AnchorHandle> reconciliationSnapshot = new();
 
 		private bool disposed;
+		private bool loggedNoSharedAnchors;
+		private bool loggedSimulatedSharing;
 
-		/// <summary>False where the configured anchor runtime is unavailable.</summary>
-		public bool IsAvailable => anchorManager != null && anchorSubsystem != null && !disposed;
+		/// <summary>
+		/// Where a simulated download finds the pose to put an anchor at. The registry knows
+		/// nothing about where anchors belong — that is the colocation layer's synchronized
+		/// data — so it asks. Null, or a null answer, fails the download like a real one.
+		/// Set by whichever provider owns the session's canon poses.
+		/// </summary>
+		public Func<SerializableGuid, Pose?> SimulatedSharedAnchorPose { get; set; }
+
+		/// <summary>
+		/// Whichever anchor subsystem is running, resolved live rather than cached: the manager
+		/// creates it when it is enabled, which can be after this component wakes.
+		/// </summary>
+		private XRAnchorSubsystem anchorSubsystem =>
+			anchorManager != null ? anchorManager.subsystem : null;
+
+		/// <summary>
+		/// Meta's anchor subsystem, when Meta's runtime is the one providing anchors — on a
+		/// headset, and in-editor under the Meta XR Simulator. Null under AR Foundation's XR
+		/// Simulation, which tracks anchors but implements none of Meta's extensions
+		/// (sharing, local persistence, discovery).
+		/// </summary>
+		private MetaOpenXRAnchorSubsystem metaAnchorSubsystem =>
+			anchorSubsystem as MetaOpenXRAnchorSubsystem;
+
+		/// <summary>
+		/// False where this process has no anchor runtime at all, which is a normal state
+		/// rather than a failure — a rig with no AR managers, or an editor session with no
+		/// simulation running. Individual capabilities (saving, sharing, enumerating) vary
+		/// between runtimes and are reported separately.
+		/// </summary>
+		public bool IsAvailable => anchorSubsystem != null && !disposed;
 
 		private void Awake()
 		{
@@ -80,18 +132,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			Instance = this;
 
-#if !UNITY_EDITOR
 			anchorManager = FindFirstObjectByType<ARAnchorManager>();
 			if (anchorManager == null)
 			{
-				Debug.LogError("AnchorRegistry requires an ARAnchorManager.", this);
-				return;
-			}
-
-			anchorSubsystem = anchorManager.subsystem as MetaOpenXRAnchorSubsystem;
-			if (anchorSubsystem == null)
-			{
-				Debug.LogError("AnchorRegistry requires the Meta OpenXR anchor subsystem.", this);
+				// Not an error: a rig without AR managers simply has no anchors to hand out,
+				// and everything downstream is written to run without them.
+				Debug.LogWarning("AnchorRegistry found no ARAnchorManager. " +
+					"Anchors are unavailable for this session.", this);
 				return;
 			}
 
@@ -99,7 +146,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			anchorManager.trackablesChanged.AddListener(OnTrackablesChanged);
 			ReconciliationLoop(lifetimeCtknSrc.Token);
-#endif
 		}
 
 		private void OnDestroy()
@@ -112,7 +158,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		public AnchorLease Acquire(SerializableGuid guid, AnchorSource source)
 		{
-			ThrowIfDisposed();
+			ThrowIfUnavailable();
 			ThrowIfNoSource(source);
 
 			if (!handles.TryGetValue(guid, out AnchorHandle handle))
@@ -130,7 +176,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (anchor == null)
 				throw new ArgumentNullException(nameof(anchor));
 
-			ThrowIfDisposed();
+			ThrowIfUnavailable();
 			ThrowIfNoSource(source);
 
 			SerializableGuid guid = anchor.trackableId;
@@ -156,7 +202,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		/// </summary>
 		public async Awaitable<AnchorLease> TryMintAsync(Pose pose, CancellationToken ctkn = default)
 		{
-			ThrowIfDisposed();
+			ThrowIfUnavailable();
 			ctkn.ThrowIfCancellationRequested();
 
 			Result<ARAnchor> result = await anchorManager.TryAddAnchorAsync(pose);
@@ -184,8 +230,51 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		// ------- sharing ------------------------------------------
 
-		public Supported sharedAnchorsSupport =>
-			anchorSubsystem != null ? anchorSubsystem.isSharedAnchorsSupported : Supported.Unknown;
+		/// <summary>
+		/// Whether Meta's runtime really implements shared anchors here. This is the only
+		/// question a build ever asks; everything below it is editor scaffolding.
+		/// </summary>
+		private bool CheckMetaSharingSupport()
+		{
+			MetaOpenXRAnchorSubsystem meta = metaAnchorSubsystem;
+			return meta != null && meta.isSharedAnchorsSupported == Supported.Supported;
+		}
+
+		/// <summary>
+		/// Whether this registry is standing in for Meta's shared-anchor transport rather than
+		/// using it.
+		///
+		/// Editor only, and deliberately a runtime check rather than <c>#if UNITY_EDITOR</c>:
+		/// the simulation then compiles and type-checks in every build and is simply never
+		/// true in one. That distinction matters here more than anywhere else in this class —
+		/// a simulated download hands back an anchor placed where a peer *said* it was, with
+		/// nothing measured, so on a headset it would report two players as colocated while
+		/// they stand metres apart. A runtime that can really share is always preferred.
+		/// </summary>
+		private bool simulatingSharedAnchors =>
+			Application.isEditor && simulateSharedAnchorsInEditor &&
+			IsAvailable && !CheckMetaSharingSupport();
+
+		/// <summary>
+		/// What the running runtime says about sharing. Meta's runtime answers for itself;
+		/// anything else (XR Simulation, no runtime at all) cannot share — unless the editor
+		/// is simulating the transport, in which case the answer is yes and this class is the
+		/// one implementing it.
+		/// </summary>
+		public Supported sharedAnchorsSupport
+		{
+			get
+			{
+				if (simulatingSharedAnchors)
+					return Supported.Supported;
+
+				MetaOpenXRAnchorSubsystem meta = metaAnchorSubsystem;
+				return meta != null ? meta.isSharedAnchorsSupported : Supported.Unsupported;
+			}
+		}
+
+		/// <summary>Whether an anchor can be shared or downloaded at all right now.</summary>
+		public bool canShareAnchors => sharedAnchorsSupport == Supported.Supported;
 
 		/// <summary>Shares one loaded anchor into the Meta group addressed by its guid.</summary>
 		public async Awaitable<XRResultStatus> TryShareAsync(SerializableGuid guid,
@@ -193,6 +282,21 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			ThrowIfDisposed();
 			ctkn.ThrowIfCancellationRequested();
+
+			if (simulatingSharedAnchors)
+			{
+				// Nothing to upload: a simulated download reads the anchor's pose from the
+				// colocation layer's synchronized set, which every peer already has.
+				LogSimulatingSharedAnchorsOnce();
+				return new XRResultStatus(XRResultStatus.StatusCode.UnqualifiedSuccess);
+			}
+
+			MetaOpenXRAnchorSubsystem meta = metaAnchorSubsystem;
+			if (meta == null)
+			{
+				LogNoSharedAnchorsOnce();
+				return new XRResultStatus(XRResultStatus.StatusCode.Unsupported);
+			}
 
 			ARAnchor anchor =
 				handles.TryGetValue(guid, out AnchorHandle handle) && handle.anchor != null
@@ -205,10 +309,24 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				return new XRResultStatus(XRResultStatus.StatusCode.UnknownError);
 			}
 
-			anchorSubsystem.sharedAnchorsGroupId = guid;
+			meta.sharedAnchorsGroupId = guid;
 			XRResultStatus result = await anchorManager.TryShareAnchorAsync(anchor);
 			ctkn.ThrowIfCancellationRequested();
 			return result;
+		}
+
+		/// <summary>
+		/// Callers retry sharing and downloading on a timer, so a runtime that will never
+		/// support either is worth saying once rather than once per attempt.
+		/// </summary>
+		private void LogNoSharedAnchorsOnce()
+		{
+			if (loggedNoSharedAnchors)
+				return;
+
+			loggedNoSharedAnchors = true;
+			Debug.LogWarning("This anchor runtime has no shared anchors. They need Meta's " +
+				"runtime: a headset, or the Meta XR Simulator in-editor.");
 		}
 
 		// ------- local persistence ---------------------------------
@@ -223,12 +341,20 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		/// </summary>
 		public IReadOnlyCollection<SerializableGuid> savedGuids => savedGuidSet;
 
-		public bool canSaveAnchors => anchorManager.descriptor?.supportsSaveAnchor ?? false;
-		public bool canLoadSavedAnchors => anchorManager.descriptor?.supportsLoadAnchor ?? false;
-		public bool canEraseSavedAnchors => anchorManager.descriptor?.supportsEraseAnchor ?? false;
+		/// <summary>
+		/// Anchor storage is a per-runtime capability, not a given: Meta's runtime has it,
+		/// AR Foundation's XR Simulation tracks anchors but keeps none of them past the
+		/// session. Callers that mint anchors should treat saving as best-effort.
+		/// </summary>
+		public bool canSaveAnchors => descriptor?.supportsSaveAnchor ?? false;
+		public bool canLoadSavedAnchors => descriptor?.supportsLoadAnchor ?? false;
+		public bool canEraseSavedAnchors => descriptor?.supportsEraseAnchor ?? false;
 
 		public bool canEnumerateSavedAnchors =>
-			metaDiscoveryAvailable || (anchorManager.descriptor?.supportsGetSavedAnchorIds ?? false);
+			metaDiscoveryAvailable || (descriptor?.supportsGetSavedAnchorIds ?? false);
+
+		private XRAnchorSubsystemDescriptor descriptor =>
+			anchorManager != null ? anchorManager.descriptor : null;
 
 		/// <summary>
 		/// Whether anchor discovery can go through Meta's SDK. AR Foundation's provider leaves
@@ -271,10 +397,21 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			ThrowIfDisposed();
 
-			ARAnchor anchorToSave =
-				handles.TryGetValue(guid, out AnchorHandle handle) && handle.anchor != null
-					? handle.anchor
-					: anchorManager.GetAnchor(guid);
+			if (!IsAvailable)
+				return false;
+
+			handles.TryGetValue(guid, out AnchorHandle handle);
+
+			// A simulated stand-in is a different anchor wearing this guid's name; saving it
+			// would write a fiction into real storage under the wrong id. The simulation says
+			// this device has the anchor, so report the save as done and keep callers on their
+			// normal path — nothing outlives the session here anyway.
+			if (handle != null && handle.isSimulated)
+				return true;
+
+			ARAnchor anchorToSave = handle != null && handle.anchor != null
+				? handle.anchor
+				: anchorManager.GetAnchor(guid);
 
 			if (anchorToSave == null)
 			{
@@ -356,8 +493,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		/// Repopulates <see cref="savedGuids"/> by asking the device what it has persisted, so a
 		/// fresh process can find anchors it saved in an earlier one without being told their guids.
 		///
-		/// Discovery is scoped to this app, not to the room you happen to be standing in: it
-		/// returns everything Lasertag ever saved on this headset, including anchors belonging to
+		/// Returns everything Lasertag ever saved on this headset, including anchors belonging to
 		/// somewhere else entirely. Which of them actually localize is the test for where you are.
 		/// </summary>
 		public async Awaitable<bool> TryRefreshSavedGuidsAsync(CancellationToken ctkn = default)
@@ -369,7 +505,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			// Anywhere that isn't a Quest, take AR Foundation's own enumeration if the provider
 			// happens to implement it.
-			if (!(anchorManager.descriptor?.supportsGetSavedAnchorIds ?? false))
+			if (!(descriptor?.supportsGetSavedAnchorIds ?? false))
 				return false;
 
 			Result<NativeArray<SerializableGuid>> result =
@@ -412,8 +548,14 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				SingleComponentType = typeof(OVRStorable)
 			};
 
-			OVRResult<List<OVRAnchor>, OVRAnchor.FetchResult> result =
-				await OVRAnchor.FetchAnchorsAsync(discovered, options);
+			(bool answered, OVRResult<List<OVRAnchor>, OVRAnchor.FetchResult> result) =
+				await WaitOrGiveUp(OVRAnchor.FetchAnchorsAsync(discovered, options), ctkn);
+
+			if (!answered)
+			{
+				Debug.LogWarning("Anchor discovery never answered; treating it as unavailable.");
+				return false;
+			}
 
 			if (!result.Success)
 			{
@@ -433,6 +575,49 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			return true;
 		}
 
+		/// <summary>
+		/// How long an OVR request may go unanswered before the registry stops waiting on it.
+		/// </summary>
+		private const float OvrRequestTimeoutSeconds = 5f;
+
+		/// <summary>
+		/// Awaits an OVR request, giving up if the runtime never answers. Measured under the
+		/// Meta XR Simulator: discovery and probe fetches simply never complete there, and
+		/// since OVR tasks ignore cancellation, awaiting one directly wedges the caller — which
+		/// took map discovery with it. Returns whether the request answered in time; the task
+		/// itself is left to finish whenever it likes.
+		/// </summary>
+		private async Awaitable<(bool answered, T result)> WaitOrGiveUp<T>(
+			OVRTask<T> task, CancellationToken ctkn)
+		{
+			bool answered = false;
+			T value = default;
+
+			async void Await()
+			{
+				try
+				{
+					value = await task;
+				}
+				catch (Exception e)
+				{
+					Debug.LogException(e);
+				}
+				finally
+				{
+					answered = true;
+				}
+			}
+
+			Await();
+
+			float deadline = time + OvrRequestTimeoutSeconds;
+			while (!answered && time < deadline)
+				await Awaitable.NextFrameAsync(ctkn);
+
+			return (answered, value);
+		}
+
 		private void ReplaceSavedGuids(NativeArray<SerializableGuid> ids)
 		{
 			savedGuidSet.Clear();
@@ -442,9 +627,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		/// <summary>
 		/// Which of these saved anchors localize in the physical space the headset is standing
-		/// in right now — with NO AR Foundation trackables materialized. This is the cheap
-		/// first phase of map discovery: probing through Meta's locatable API leaves the scene
-		/// untouched, and only the chosen map's anchors ever get committed to real ARAnchors.
+		/// in right now. This is the cheap first phase of map discovery:
+		/// probing through Meta's locatable API leaves the scene untouched,
+		/// and only the chosen map's anchors ever get committed to real ARAnchors.
 		///
 		/// Anchors saved in one space occasionally localize in another; a non-empty result is
 		/// a strong hint, not proof, of which room this is.
@@ -465,14 +650,20 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				uuids.Add(guid.guid);
 
 			List<OVRAnchor> fetched = new();
-			OVRResult<List<OVRAnchor>, OVRAnchor.FetchResult> fetchResult =
-				await OVRAnchor.FetchAnchorsAsync(fetched, new OVRAnchor.FetchOptions
+			(bool answered, OVRResult<List<OVRAnchor>, OVRAnchor.FetchResult> fetchResult) =
+				await WaitOrGiveUp(OVRAnchor.FetchAnchorsAsync(fetched, new OVRAnchor.FetchOptions
 				{
 					Uuids = uuids
-				});
+				}), ctkn);
 
 			if (ctkn.IsCancellationRequested || disposed)
 				return localized;
+
+			if (!answered)
+			{
+				Debug.LogWarning("Anchor probe fetch never answered; probing nothing.");
+				return localized;
+			}
 
 			if (!fetchResult.Success)
 			{
@@ -494,16 +685,16 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			foreach ((OVRAnchor anchor, OVRLocatable locatable, OVRTask<bool> enable) in probes)
 			{
-				bool enabled = await enable;
+				(bool answeredEnable, bool enabled) = await WaitOrGiveUp(enable, ctkn);
 
-				if (enabled &&
+				if (answeredEnable && enabled &&
 				    locatable.TryGetSpatialAnchorPose(out OVRLocatable.TrackingSpacePose pose) &&
 				    pose.IsPositionTracked)
 					localized.Add(new SerializableGuid(anchor.Uuid));
 
 				// Leave nothing running behind the probe: an enabled locatable keeps the
 				// runtime tracking it, and the same UUID may be loaded through AR Foundation
-				// afterwards. (Whether the two stacks interfere at all is still unverified on
+				// afterward. (Whether the two stacks interfere at all is still unverified on
 				// device; disabling here minimizes the surface either way.)
 				_ = locatable.SetEnabledAsync(false);
 			}
@@ -571,9 +762,19 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		internal async Awaitable<AnchorLoadResult> TryLoadSharedAnchorAsync(SerializableGuid guid)
 		{
+			if (simulatingSharedAnchors)
+				return await SimulateSharedAnchorDownloadAsync(guid);
+
+			MetaOpenXRAnchorSubsystem meta = metaAnchorSubsystem;
+			if (meta == null)
+			{
+				LogNoSharedAnchorsOnce();
+				return AnchorLoadResult.Failed;
+			}
+
 			List<XRAnchor> downloaded = new(1);
 
-			anchorSubsystem.sharedAnchorsGroupId = guid;
+			meta.sharedAnchorsGroupId = guid;
 			XRResultStatus result =
 				await anchorManager.TryLoadAllSharedAnchorsAsync(downloaded, null);
 
@@ -592,12 +793,82 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			return AnchorLoadResult.Pending;
 		}
 
+		/// <summary>
+		/// The editor's stand-in for downloading a shared anchor: mint a local anchor where the
+		/// colocation layer says this one belongs, and let the handle hold it under the guid
+		/// that was asked for. A minted anchor cannot be given someone else's trackable id, so
+		/// the handle keeps its own guid as its address and remembers the stand-in's id.
+		///
+		/// Nothing physical is measured: the peer ends up agreeing with whoever published the
+		/// pose. That is all two editors sharing no room can do, and precisely why
+		/// <see cref="simulatingSharedAnchors"/> never opens in a build.
+		/// </summary>
+		private async Awaitable<AnchorLoadResult> SimulateSharedAnchorDownloadAsync(
+			SerializableGuid guid)
+		{
+			Pose? pose = SimulatedSharedAnchorPose?.Invoke(guid);
+			if (pose == null)
+			{
+				Debug.LogWarning($"Nothing knows where anchor {guid} belongs, so its download " +
+					"cannot be simulated.");
+				return AnchorLoadResult.Failed;
+			}
+
+			Result<ARAnchor> result = await anchorManager.TryAddAnchorAsync(pose.Value);
+
+			if (!result.status.IsSuccess() || result.value == null)
+			{
+				if (result.value != null)
+					RemoveAnchor(result.value);
+
+				Debug.LogWarning($"Failed to mint a stand-in for shared anchor {guid}: " +
+					$"{result.status}");
+				return AnchorLoadResult.Failed;
+			}
+
+			// The handle is created before the load starts, so its absence means the lease was
+			// released while the runtime was busy — nothing wants this anymore.
+			if (disposed || !handles.TryGetValue(guid, out AnchorHandle handle))
+			{
+				RemoveAnchor(result.value);
+				return AnchorLoadResult.Failed;
+			}
+
+			LogSimulatingSharedAnchorsOnce();
+			handle.BindSimulatedAnchor(result.value.trackableId);
+			simulatedAnchorHandles[result.value.trackableId] = handle;
+			return AnchorLoadResult.Materialized(result.value);
+		}
+
+		private void LogSimulatingSharedAnchorsOnce()
+		{
+			if (loggedSimulatedSharing)
+				return;
+
+			loggedSimulatedSharing = true;
+			Debug.LogWarning("Simulating Meta's shared anchors for editor testing. Downloaded " +
+				"anchors are minted locally at the poses the session publishes, so alignment " +
+				"between peers is assumed rather than measured. Never happens in a build.", this);
+		}
+
+		/// <summary>Forgets a handle's simulated stand-in, if it has one.</summary>
+		internal void UnbindSimulatedAnchor(AnchorHandle handle)
+		{
+			if (!handle.isSimulated)
+				return;
+
+			simulatedAnchorHandles.Remove(handle.simulatedAnchorId);
+			handle.ClearSimulatedAnchor();
+		}
+
 		internal void RemoveAnchor(ARAnchor anchor)
 		{
 			if (anchor == null)
 				return;
 
-			anchorManager.TryRemoveAnchor(anchor);
+			if (anchorManager != null)
+				anchorManager.TryRemoveAnchor(anchor);
+
 			if (anchor.gameObject != null)
 				Object.Destroy(anchor.gameObject);
 		}
@@ -607,6 +878,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (!handle.canEvict)
 				return;
 
+			UnbindSimulatedAnchor(handle);
+
 			if (handles.TryGetValue(handle.guid, out AnchorHandle registered) &&
 			    ReferenceEquals(registered, handle))
 				handles.Remove(handle.guid);
@@ -615,13 +888,21 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private void OnTrackablesChanged(ARTrackablesChangedEventArgs<ARAnchor> eventData)
 		{
 			foreach (ARAnchor anchor in eventData.added)
-				if (handles.TryGetValue(anchor.trackableId, out AnchorHandle handle))
+				if (TryGetHandleFor(anchor.trackableId, out AnchorHandle handle))
 					handle.OnAnchorAdded(anchor);
 
 			foreach ((SerializableGuid guid, ARAnchor _) in eventData.removed)
-				if (handles.TryGetValue(guid, out AnchorHandle handle))
+				if (TryGetHandleFor(guid, out AnchorHandle handle))
 					handle.OnAnchorRemoved();
 		}
+
+		/// <summary>
+		/// The handle addressed by this id, or the one a simulated stand-in with this id is
+		/// standing in for.
+		/// </summary>
+		private bool TryGetHandleFor(SerializableGuid id, out AnchorHandle handle) =>
+			handles.TryGetValue(id, out handle) ||
+			simulatedAnchorHandles.TryGetValue(id, out handle);
 
 		private async void ReconciliationLoop(CancellationToken ctkn)
 		{
@@ -653,6 +934,19 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				throw new ObjectDisposedException(nameof(AnchorRegistry));
 		}
 
+		/// <summary>
+		/// For the operations that cannot degrade — there is no anchor to hand back without a
+		/// runtime to create it. Callers ask <see cref="IsAvailable"/> first.
+		/// </summary>
+		private void ThrowIfUnavailable()
+		{
+			ThrowIfDisposed();
+
+			if (anchorSubsystem == null)
+				throw new InvalidOperationException(
+					"No anchor runtime is available in this session.");
+		}
+
 		private static void ThrowIfNoSource(AnchorSource source)
 		{
 			if (source == AnchorSource.None)
@@ -669,6 +963,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			lifetimeCtknSrc.Cancel();
 			if (anchorManager != null)
 				anchorManager.trackablesChanged.RemoveListener(OnTrackablesChanged);
+			simulatedAnchorHandles.Clear();
+			SimulatedSharedAnchorPose = null;
 			lifetimeCtknSrc.Dispose();
 		}
 	}
@@ -771,6 +1067,33 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		public ARAnchor anchor { get; private set; }
 		public bool desiredLoaded => localLeaseCount > 0 || sharedLeaseCount > 0;
 
+		/// <summary>
+		/// Whether the anchor this handle holds is a locally minted stand-in for the one its
+		/// <see cref="guid"/> names, which the editor's shared-anchor simulation produces.
+		/// The handle keeps its own guid as its address either way.
+		/// </summary>
+		public bool isSimulated { get; private set; }
+
+		/// <summary>The stand-in's own trackable id. Meaningless unless <see cref="isSimulated"/>.</summary>
+		internal SerializableGuid simulatedAnchorId { get; private set; }
+
+		internal void BindSimulatedAnchor(SerializableGuid standInId)
+		{
+			isSimulated = true;
+			simulatedAnchorId = standInId;
+		}
+
+		internal void ClearSimulatedAnchor()
+		{
+			isSimulated = false;
+			simulatedAnchorId = default;
+		}
+
+		/// <summary>Whether an observed anchor is the one this handle is waiting for.</summary>
+		private bool Matches(ARAnchor observedAnchor) =>
+			observedAnchor.trackableId == (TrackableId)guid ||
+			(isSimulated && observedAnchor.trackableId == (TrackableId)simulatedAnchorId);
+
 		/// <summary>Everywhere the current leases collectively allow this anchor to load from.</summary>
 		public AnchorSource source =>
 			(localLeaseCount > 0 ? AnchorSource.Local : AnchorSource.None) |
@@ -819,7 +1142,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		internal void OnAnchorAdded(ARAnchor addedAnchor)
 		{
-			if (addedAnchor.trackableId != (TrackableId)guid)
+			if (!Matches(addedAnchor))
 				return;
 
 			ObserveAnchor(addedAnchor);
@@ -829,6 +1152,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		internal void OnAnchorRemoved()
 		{
 			anchor = null;
+			registry.UnbindSimulatedAnchor(this);
 			SetState(State.Unloaded);
 			Reconcile();
 		}
@@ -948,7 +1272,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private void ObserveAnchor(ARAnchor observedAnchor)
 		{
-			if (observedAnchor.trackableId != (TrackableId)guid)
+			if (!Matches(observedAnchor))
 				throw new ArgumentException("The observed anchor does not match this handle.", nameof(observedAnchor));
 
 			if (loadInFlight)
@@ -966,6 +1290,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			SetState(State.Removing);
 			anchor = null;
+			registry.UnbindSimulatedAnchor(this);
 			registry.RemoveAnchor(anchorToRemove);
 			SetState(State.Unloaded);
 

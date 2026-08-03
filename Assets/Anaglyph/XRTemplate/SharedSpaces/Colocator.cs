@@ -69,6 +69,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				StopColocation();
 
 			Provider = next;
+			loggedNoReferenceRuntime = false;
 		}
 
 		/// <summary>Appends the references currently used by the fit.</summary>
@@ -99,10 +100,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private void OnApplicationFocus(bool isFocused)
 		{
-			#if UNITY_EDITOR
-			return;
-			#endif
-
 			// Device sleeping = tracking pauses = tracking lost. Prevents trusting a stale
 			// frame (and everything downstream that writes world-space data) on wake, until
 			// the constraints align it again.
@@ -116,13 +113,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				return;
 
 			Provider.StartProviding();
-
-			#if UNITY_EDITOR
-			// No anchor runtime in-editor. Report an identity frame as localized so map
-			// editing and everything else gated on colocation is testable off-device.
-			SetState(ColocationState.Localized);
-			return;
-			#endif
 
 			ctknSrc = new CancellationTokenSource();
 			SetState(ColocationState.Searching);
@@ -148,6 +138,20 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				{
 					await Awaitable.NextFrameAsync(ctkn);
 
+					// Nothing behind the provider to observe references with — a rig without
+					// an anchor runtime, or an editor session with no simulation running.
+					// There is then no discrepancy between tracking space and the world to
+					// correct, so the current frame *is* the canon frame: report that instead
+					// of searching forever, and everything gated on colocation (map editing
+					// especially) stays testable. A headset always has the runtime, so this
+					// never stands in for a real alignment.
+					if (Provider != null && !Provider.IsAvailable)
+					{
+						WarnNoReferenceRuntimeOnce();
+						SetState(ColocationState.Localized);
+						continue;
+					}
+
 					constraints.Clear();
 					Provider?.GetColocationConstraints(constraints);
 
@@ -165,6 +169,18 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				Debug.LogException(e);
 				AlignLoop(ctkn);
 			}
+		}
+
+		private bool loggedNoReferenceRuntime;
+
+		private void WarnNoReferenceRuntimeOnce()
+		{
+			if (loggedNoReferenceRuntime)
+				return;
+
+			loggedNoReferenceRuntime = true;
+			Debug.LogWarning($"{Provider.GetType().Name} has no reference runtime available. " +
+				"Treating tracking space as the world frame.", this);
 		}
 
 		private bool TryFit()

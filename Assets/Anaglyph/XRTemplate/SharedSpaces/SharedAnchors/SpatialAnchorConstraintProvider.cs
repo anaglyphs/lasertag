@@ -97,6 +97,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			lifetimeCtknSrc = new CancellationTokenSource();
 
+			// The registry has no idea where any anchor belongs — that is this set, and only
+			// this set. It asks when it is simulating shared anchors for editor testing.
+			if (registry != null)
+				registry.SimulatedSharedAnchorPose = SimulatedSharedAnchorPose;
+
 			constraints.ResetOnDeactivate = false;
 			constraints.Register();
 			constraints.Changed += OnConstraintsChanged;
@@ -107,10 +112,18 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			SyncBus.AuthorityChanged += OnAuthorityChanged;
 		}
 
+		private Pose? SimulatedSharedAnchorPose(SerializableGuid guid) =>
+			constraints.TryGetValue(guid.guid, out AnchorConstraintState state)
+				? state.canonPose
+				: null;
+
 		private void OnDestroy()
 		{
 			StopProviding();
 			lifetimeCtknSrc?.Cancel();
+
+			if (registry != null && registry.SimulatedSharedAnchorPose == SimulatedSharedAnchorPose)
+				registry.SimulatedSharedAnchorPose = null;
 
 			SyncBus.AuthorityChanged -= OnAuthorityChanged;
 			SyncBus.Deactivated -= OnBusDeactivated;
@@ -384,6 +397,12 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				while (entry.lease.Handle.state != AnchorHandle.State.Active)
 					await Awaitable.NextFrameAsync(ctkn);
 
+				// Asked once the anchor is live, so the answer is the running runtime's and not
+				// a not-yet-started subsystem's. Nowhere to persist to is not a failure: the
+				// anchor still tracks for this session, it just won't be there for the next one.
+				if (!registry.canSaveAnchors)
+					return;
+
 				SerializableGuid serializableGuid = ToSerializable(guid);
 				if (!registry.IsSaved(serializableGuid) &&
 				    !await registry.TrySaveAsync(serializableGuid, ctkn))
@@ -487,9 +506,16 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					return;
 
 				guid = minted.Handle.guid.guid;
-				saved = await registry.TrySaveAsync(minted.Handle.anchor, ctkn);
-				if (!saved)
-					return;
+
+				// Persist where the runtime can. Where it can't, the anchor is still a valid
+				// reference for this session — a session-scoped map is worth more than no map,
+				// and it is what makes colocation testable against a simulator.
+				if (registry.canSaveAnchors)
+				{
+					saved = await registry.TrySaveAsync(minted.Handle.anchor, ctkn);
+					if (!saved)
+						return;
+				}
 
 				ctkn.ThrowIfCancellationRequested();
 				if (!IsRunning || !RoamingMintEnabled ||
@@ -502,7 +528,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					bindingId = -1,
 				});
 				established = true;
-				AnchorPersisted.Invoke(guid);
+
+				if (saved)
+					AnchorPersisted.Invoke(guid);
 
 				if (SyncBus.Active)
 					Share(guid);
@@ -528,15 +556,24 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		// ------- sharing ------------------------------------------
 
-		public void WarnIfSharingUnsupported()
+		/// <summary>
+		/// Reports whether anchors can be shared at all, telling the user when they can't.
+		/// Only Meta's runtime really shares anchors; the registry answers for itself when it
+		/// is simulating the transport for editor testing.
+		/// </summary>
+		public bool WarnIfSharingUnsupported()
 		{
-			if (!IsAvailable || registry.sharedAnchorsSupport == Supported.Supported)
-				return;
+			if (!IsAvailable)
+				return false;
 
 			Supported support = registry.sharedAnchorsSupport;
+			if (support == Supported.Supported)
+				return true;
+
 			Debug.LogWarning($"Shared anchors are unavailable: {support}");
 			UserErrors.Raise("Shared spatial anchors unavailable",
-				$"This headset reports shared anchor support as '{support}'.");
+				$"This runtime reports shared anchor support as '{support}'.");
+			return false;
 		}
 
 		private void ShareAll()
@@ -544,13 +581,19 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (!IsRunning || !SyncBus.Active || !SyncBus.IsAuthority)
 				return;
 
-			WarnIfSharingUnsupported();
+			if (!WarnIfSharingUnsupported())
+				return;
+
 			foreach (Guid guid in constraints.Keys)
 				Share(guid);
 		}
 
 		private async void Share(Guid guid)
 		{
+			// Retrying an upload the runtime has no API for only produces noise.
+			if (!IsAvailable || !registry.canShareAnchors)
+				return;
+
 			if (!sharesInFlight.Add(guid))
 				return;
 

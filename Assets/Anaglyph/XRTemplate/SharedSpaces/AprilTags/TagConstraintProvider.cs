@@ -123,7 +123,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private int stateGeneration;
 		private bool detectionOverride;
 
-		public bool IsAvailable => registry != null && registry.IsAvailable;
+		/// <summary>
+		/// Tag colocation needs both halves: a detector to see the tags with, and an anchor
+		/// runtime to realize what it sees. Without either, no reference can ever be observed.
+		/// </summary>
+		public bool IsAvailable => AnchorsAvailable && tagTracker != null;
+
+		private bool AnchorsAvailable => registry != null && registry.IsAvailable;
 		public bool IsRunning { get; private set; }
 		public bool IsDetecting => tagTracker != null && tagTracker.enabled;
 
@@ -383,7 +389,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			bool dropped = DropUnregisteredAnchors();
 
-			if (IsAvailable)
+			if (AnchorsAvailable)
 				foreach (LocalAnchor anchor in localAnchors.Values)
 					anchor.lease ??= registry.Acquire(
 						new SerializableGuid(anchor.guid), AnchorSource.Local);
@@ -451,13 +457,12 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				HeadPoseHistory.Instance.TryGetVelocity(tagTracker.FrameTimestampNs,
 					out headVelocity, out headAngularVelocity);
 
-			bool headIsStable = !gotVelocity ||
+			// The speed limits exist because a moving head smears the camera image and shifts
+			// the pose the reading is paired with. A rendered simulator frame has neither
+			// problem, so gating on it would only make authoring against a simulator harder.
+			bool headIsStable = !gotVelocity || tagTracker.FrameIsRendered ||
 				(headVelocity.magnitude < maxHeadSpeed &&
 				 headAngularVelocity.magnitude < maxHeadAngSpeed);
-
-			#if UNITY_EDITOR
-			headIsStable = true;
-			#endif
 
 			if (!headIsStable || MainXRRig.Camera == null)
 				return;
@@ -486,7 +491,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		private async void MintTagAnchor(int tagId, Pose observedTag, Pose canonTag)
 		{
-			if (!IsAvailable || !mintsInFlight.Add(tagId))
+			if (!AnchorsAvailable || !mintsInFlight.Add(tagId))
 				return;
 
 			int generation = stateGeneration;
@@ -503,9 +508,16 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					return;
 
 				guid = minted.Handle.guid.guid;
-				saved = await registry.TrySaveAsync(minted.Handle.anchor, ctkn);
-				if (!saved)
-					return;
+
+				// Persist where the runtime can. Where it can't, this realization lasts only
+				// as long as the session — still enough to align against the tag now, which
+				// is what makes tag colocation testable against a simulator.
+				if (registry.canSaveAnchors)
+				{
+					saved = await registry.TrySaveAsync(minted.Handle.anchor, ctkn);
+					if (!saved)
+						return;
+				}
 
 				if (!IsRunning || generation != stateGeneration ||
 				    !registeredTags.ContainsKey(tagId) || localAnchors.ContainsKey(tagId))
@@ -608,7 +620,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		/// </summary>
 		public async Awaitable<bool> EraseAsync(Guid guid, CancellationToken ctkn = default)
 		{
-			return IsAvailable &&
+			return AnchorsAvailable &&
 			       await registry.TryEraseSavedAsync(new SerializableGuid(guid), ctkn);
 		}
 	}

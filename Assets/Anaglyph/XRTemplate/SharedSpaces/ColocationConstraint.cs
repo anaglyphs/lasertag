@@ -48,6 +48,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	/// </summary>
 	public interface IColocationConstraintProvider : IColocationConstraintSource
 	{
+		/// <summary>
+		/// Whether the runtime this provider observes its references through exists in this
+		/// process at all. False means no reference can ever be observed — not that none
+		/// happens to be visible right now.
+		/// </summary>
+		bool IsAvailable { get; }
+
 		bool IsRunning { get; }
 		void StartProviding();
 		void StopProviding();

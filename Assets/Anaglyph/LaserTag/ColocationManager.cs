@@ -57,7 +57,7 @@ namespace Anaglyph.Lasertag
 
 			if (spatialAnchorProvider)
 				spatialAnchorProvider.MintingGate = () =>
-					MapManager.Instance == null || MapManager.Instance.WorldFrameTrusted;
+					MapManager.Instance == null || MapManager.Instance.CheckWorldFrameIsTrusted();
 
 			MapManager.Instance.CurrentMapChanged += OnCurrentMapChanged;
 
@@ -103,7 +103,7 @@ namespace Anaglyph.Lasertag
 		private bool CanAdvertiseSession()
 		{
 			MapManager mapManager = MapManager.Instance;
-			if (mapManager == null || !mapManager.WorldFrameTrusted)
+			if (mapManager == null || !mapManager.CheckWorldFrameIsTrusted())
 				return false;
 
 			ColocationMethod hostMethod = sessionStarted ? Method : methodHostSetting;

@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System.Threading;
 using Unity.Collections;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace Anaglyph.Lasertag
 {
@@ -182,33 +181,30 @@ namespace Anaglyph.Lasertag
 
 		// ------- world-frame trust -------------------------------
 
-		public bool WorldFrameTrusted
+		public bool CheckWorldFrameIsTrusted()
 		{
-			get
-			{
-				if (CurrentMap == null)
-					return false;
-				if (frameContinuous)
-					return true;
-				if (CurrentMap.anchors.Count == 0 && CurrentMap.tags.Count == 0)
-					return true;
-				if (!ColocationManager.IsColocated)
-					return false;
+			if (CurrentMap == null)
+				return false;
+			if (frameContinuous)
+				return true;
+			if (CurrentMap.anchors.Count == 0 && CurrentMap.tags.Count == 0)
+				return true;
+			if (!ColocationManager.IsColocated)
+				return false;
 
-				// Tag mode can only realize this device's tag-backed anchors. Roaming anchors
-				// remain in the map for shared-anchor mode, but must not raise the agreement
-				// threshold for a provider that can never expose them.
-				bool usingTagProvider = ColocationManager.Instance != null &&
-				                        ColocationManager.Instance.UsingTagProvider;
-				int availableAnchorCount = 0;
-				foreach (MapAnchorEntry anchor in CurrentMap.anchors)
-					if (!usingTagProvider || anchor.tagId >= 0)
-						availableAnchorCount++;
+			// Tag mode can only realize this device's tag-backed anchors. Roaming anchors
+			// remain in the map for shared-anchor mode, but must not raise the agreement
+			// threshold for a provider that can never expose them.
+			bool usingTagProvider = ColocationManager.Instance != null &&
+			                        ColocationManager.Instance.UsingTagProvider;
+			int availableAnchorCount = 0;
+			foreach (MapAnchorEntry anchor in CurrentMap.anchors)
+				if (!usingTagProvider || anchor.tagId >= 0)
+					availableAnchorCount++;
 
-				int required = Mathf.Min(2, availableAnchorCount);
-				return agreeingReferenceCount >= required &&
-				       meanReferenceError <= agreementMaxError;
-			}
+			int required = Mathf.Min(2, availableAnchorCount);
+			return agreeingReferenceCount >= required &&
+			       meanReferenceError <= agreementMaxError;
 		}
 
 		private void UpdateAgreement()
@@ -772,7 +768,7 @@ namespace Anaglyph.Lasertag
 				CurrentMapChanged.Invoke(CurrentMap);
 			}
 
-			if (!WorldFrameTrusted)
+			if (!CheckWorldFrameIsTrusted())
 				return false;
 
 			CurrentMap.SetTag(tagId, worldPose);
