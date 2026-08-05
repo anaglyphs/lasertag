@@ -1042,12 +1042,9 @@ namespace Anaglyph.Lasertag
 			map.lastUsed = DateTime.UtcNow.Ticks;
 			SaveCurrentMap();
 
-			objectRemovalScratch.Clear();
-			objectRemovalScratch.AddRange(MapObject.All);
-			foreach (MapObject obj in objectRemovalScratch)
+			foreach (MapObject obj in new List<MapObject>(MapObject.All))
 				if (obj)
 					obj.SpawnIfLocal();
-			objectRemovalScratch.Clear();
 		}
 
 		private void OnBusDeactivated()
