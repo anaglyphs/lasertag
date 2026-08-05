@@ -59,6 +59,17 @@ namespace Anaglyph.Lasertag
 		public bool IsChangingMap => mapChanging.Value;
 		public event Action ChangingMapChanged = delegate { };
 
+		/// <summary>
+		/// World space has been re-based onto a different map's references. Every pose this
+		/// device holds shifts by a rigid transform, so anything storing world-space data
+		/// measured in the outgoing frame — a scanned environment above all — now describes the
+		/// room in the wrong place and has to be dropped.
+		///
+		/// Deliberately not raised for a map created in place: that map adopts the frame the
+		/// device is already in, so nothing moves.
+		/// </summary>
+		public event Action WorldFrameRebased = delegate { };
+
 		public IReadOnlyDictionary<string, int> ProbeResults => probeResults;
 		private readonly Dictionary<string, int> probeResults = new();
 		public event Action ProbeResultsChanged = delegate { };
@@ -93,8 +104,7 @@ namespace Anaglyph.Lasertag
 		{
 			if (Instance != null && Instance != this)
 			{
-				Debug.LogError("A second MapManager is in the scene; destroying the duplicate. " +
-					"Its map identity endpoint would displace the live one's.", this);
+				Debug.LogError("A second MapManager is in the scene; destroying the duplicate.", this);
 				Destroy(this);
 				return;
 			}
@@ -348,6 +358,8 @@ namespace Anaglyph.Lasertag
 			CurrentMap = map;
 			frameContinuous = false;
 			ClearPendingProviderSnapshots();
+			InvalidateFrameAgreement();
+			WorldFrameRebased.Invoke();
 			MapStore.MarkUsed(map);
 			InstantiateMapObjects(map);
 			InjectMapIntoProviders(map);
@@ -428,6 +440,7 @@ namespace Anaglyph.Lasertag
 			frameContinuous = false;
 			ClearPendingProviderSnapshots();
 			InvalidateFrameAgreement();
+			WorldFrameRebased.Invoke();
 			target.lastUsed = DateTime.UtcNow.Ticks;
 
 			InjectMapIntoProviders(target);
@@ -1165,6 +1178,7 @@ namespace Anaglyph.Lasertag
 			frameContinuous = false;
 			ClearPendingProviderSnapshots();
 			InvalidateFrameAgreement();
+			WorldFrameRebased.Invoke();
 			AdoptProviderStateIntoMap();
 			MapStore.Save(adopted);
 			CurrentMapChanged.Invoke(adopted);

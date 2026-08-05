@@ -82,8 +82,17 @@ namespace Anaglyph.Lasertag
 			ColocationManager.Colocated += OnColocated;
 		}
 
+		private void Start()
+		{
+			if (MapManager.Instance != null)
+				MapManager.Instance.WorldFrameRebased += OnWorldFrameRebased;
+		}
+
 		private void OnDestroy()
 		{
+			if (MapManager.Instance != null)
+				MapManager.Instance.WorldFrameRebased -= OnWorldFrameRebased;
+
 			syncGeneration++;
 			encodeQueue.Clear();
 			queuedEncodes.Clear();
@@ -96,6 +105,30 @@ namespace Anaglyph.Lasertag
 			chunkEvent.Unregister();
 
 			ColocationManager.Colocated -= OnColocated;
+		}
+
+		/// <summary>
+		/// The map changed under us, so world space now sits somewhere else and the scan
+		/// describes the room in the wrong place. Every peer drops its own — including the
+		/// meshes it received, which were measured in that same outgoing frame.
+		/// </summary>
+		private void OnWorldFrameRebased()
+		{
+			// Invalidates encodes and decodes of pre-change meshes still in flight.
+			syncGeneration++;
+
+			pendingSync.Clear();
+			lastSyncedChangeSums.Clear();
+			encodeQueue.Clear();
+			queuedEncodes.Clear();
+
+			// Revisions deliberately survive. They order a chunk's payloads rather than
+			// describing its coordinates, and IsNewerRevision only ever moves forward: a peer
+			// that restarted its numbering would look stale to one that had not cleared yet,
+			// and everything it sent next would be dropped.
+
+			if (EnvScanner.Instance != null)
+				EnvScanner.Instance.Clear();
 		}
 
 		private void OnColocated(bool isColocated)
