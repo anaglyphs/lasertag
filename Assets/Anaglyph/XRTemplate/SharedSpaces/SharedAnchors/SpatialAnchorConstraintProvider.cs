@@ -97,11 +97,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			lifetimeCtknSrc = new CancellationTokenSource();
 
-			// The registry has no idea where any anchor belongs — that is this set, and only
-			// this set. It asks when it is simulating shared anchors for editor testing.
-			if (registry != null)
-				registry.SimulatedSharedAnchorPose = SimulatedSharedAnchorPose;
-
 			constraints.ResetOnDeactivate = false;
 			constraints.Register();
 			constraints.Changed += OnConstraintsChanged;
@@ -112,18 +107,10 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			SyncBus.AuthorityChanged += OnAuthorityChanged;
 		}
 
-		private Pose? SimulatedSharedAnchorPose(SerializableGuid guid) =>
-			constraints.TryGetValue(guid.guid, out AnchorConstraintState state)
-				? state.canonPose
-				: null;
-
 		private void OnDestroy()
 		{
 			StopProviding();
 			lifetimeCtknSrc?.Cancel();
-
-			if (registry != null && registry.SimulatedSharedAnchorPose == SimulatedSharedAnchorPose)
-				registry.SimulatedSharedAnchorPose = null;
 
 			SyncBus.AuthorityChanged -= OnAuthorityChanged;
 			SyncBus.Deactivated -= OnBusDeactivated;
@@ -277,6 +264,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				    existing.canonPose != state.canonPose || existing.bindingId != state.bindingId)
 					constraints.Set(entry.guid, state);
 			}
+
+			// Sharing otherwise only happens as a session comes up, which is enough while the
+			// constraint set is fixed for the session's lifetime. State injected into a live
+			// session — the embedding game changing which map is loaded — has to be uploaded
+			// too, or peers receive guids they have no way to localize.
+			if (SyncBus.Active)
+				ShareAll();
 		}
 
 		// ------- constraints and leases ----------------------------
@@ -392,10 +386,16 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			{
 				CancellationToken ctkn = ctknSrc.Token;
 
-				// An anchor that cannot localize here keeps retrying by design; cancellation is
-				// the only exit, and it arrives when the entry is released or re-acquired.
+				// The registry keeps retrying an anchor that will not load yet, so this waits with
+				// it. Failed means the registry itself is gone. Cancellation is the other exit,
+				// and it arrives when the entry is released or re-acquired.
 				while (entry.lease.Handle.state != AnchorHandle.State.Active)
+				{
+					if (entry.lease.Handle.state == AnchorHandle.State.Failed)
+						return;
+
 					await Awaitable.NextFrameAsync(ctkn);
+				}
 
 				// Asked once the anchor is live, so the answer is the running runtime's and not
 				// a not-yet-started subsystem's. Nowhere to persist to is not a failure: the
@@ -404,8 +404,17 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					return;
 
 				SerializableGuid serializableGuid = ToSerializable(guid);
-				if (!registry.IsSaved(serializableGuid) &&
-				    !await registry.TrySaveAsync(serializableGuid, ctkn))
+				if (registry.IsSaved(serializableGuid))
+				{
+					AnchorPersisted.Invoke(guid);
+					return;
+				}
+
+				// A lease of its own, because releasing the entry mid-save would destroy the
+				// anchor out from under a write the runtime cannot be told to abandon.
+				using AnchorLease saveLease = registry.Acquire(serializableGuid, entry.source);
+
+				if (!await registry.TrySaveAsync(saveLease, ctkn))
 				{
 					Debug.LogWarning($"Anchor {guid} could not be saved locally.");
 					return;
@@ -512,7 +521,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				// and it is what makes colocation testable against a simulator.
 				if (registry.canSaveAnchors)
 				{
-					saved = await registry.TrySaveAsync(minted.Handle.anchor, ctkn);
+					saved = await registry.TrySaveAsync(minted, ctkn);
 					if (!saved)
 						return;
 				}
@@ -558,8 +567,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		/// <summary>
 		/// Reports whether anchors can be shared at all, telling the user when they can't.
-		/// Only Meta's runtime really shares anchors; the registry answers for itself when it
-		/// is simulating the transport for editor testing.
+		/// Only Meta's runtime shares anchors.
 		/// </summary>
 		public bool WarnIfSharingUnsupported()
 		{
@@ -606,18 +614,29 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				if (!held.TryGetValue(guid, out HeldAnchor entry))
 					return;
 
+				// Only a loaded anchor can be uploaded, so this waits for one. Failed means the
+				// registry is gone; every other way out is checked each frame below.
 				while (entry.lease.Handle.state != AnchorHandle.State.Active)
 				{
+					if (entry.lease.Handle.state == AnchorHandle.State.Failed)
+					{
+						Debug.LogWarning($"Not sharing anchor {guid}: it never loaded locally.");
+						return;
+					}
+
 					await Awaitable.NextFrameAsync(ctkn);
 					if (!IsRunning || !SyncBus.Active || !SyncBus.IsAuthority ||
 					    !held.TryGetValue(guid, out HeldAnchor current) || current != entry)
 						return;
 				}
 
+				// A lease of its own, because releasing the entry between attempts would destroy
+				// the anchor out from under an upload the runtime cannot be told to abandon.
+				using AnchorLease shareLease = registry.Acquire(ToSerializable(guid), entry.source);
+
 				for (int attempt = 1; attempt <= maxAttempts; attempt++)
 				{
-					XRResultStatus result =
-						await registry.TryShareAsync(ToSerializable(guid), ctkn);
+					XRResultStatus result = await registry.TryShareAsync(shareLease, ctkn);
 					if (!result.IsError())
 						return;
 

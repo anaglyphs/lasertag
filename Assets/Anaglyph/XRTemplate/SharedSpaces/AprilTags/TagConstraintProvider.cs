@@ -514,7 +514,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				// is what makes tag colocation testable against a simulator.
 				if (registry.canSaveAnchors)
 				{
-					saved = await registry.TrySaveAsync(minted.Handle.anchor, ctkn);
+					saved = await registry.TrySaveAsync(minted, ctkn);
 					if (!saved)
 						return;
 				}
