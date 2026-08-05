@@ -47,6 +47,7 @@ namespace Anaglyph.Lasertag
 			{
 				MapManager.Instance.CurrentMapChanged += OnCurrentMapChanged;
 				MapManager.Instance.ProbeResultsChanged += Rebuild;
+				MapManager.Instance.ChangingMapChanged += Rebuild;
 			}
 
 			Rebuild();
@@ -56,6 +57,7 @@ namespace Anaglyph.Lasertag
 		{
 			if (MapManager.Instance != null)
 			{
+				MapManager.Instance.ChangingMapChanged -= Rebuild;
 				MapManager.Instance.ProbeResultsChanged -= Rebuild;
 				MapManager.Instance.CurrentMapChanged -= OnCurrentMapChanged;
 			}
@@ -109,9 +111,11 @@ namespace Anaglyph.Lasertag
 			GameMap current = manager != null ? manager.CurrentMap : null;
 			bool inSession = SyncBus.Active;
 
-			currentMapLabel.text = current != null
-				? $"Current map: {current.name}"
-				: "No map loaded";
+			bool changing = manager != null && manager.IsChangingMap;
+
+			currentMapLabel.text = current == null ? "No map loaded"
+				: changing ? $"Changing to {current.name} — hold still…"
+				: $"Current map: {current.name}";
 
 			newMapButton.SetEnabled(!inSession);
 
@@ -145,12 +149,18 @@ namespace Anaglyph.Lasertag
 			label.style.flexGrow = 1;
 			row.Add(label);
 
+			// The host may change the session's map between rounds; MapManager owns the rules,
+			// and reports the one that blocks so the disabled button can say why.
+			string blocker = manager != null
+				? manager.DescribeChangeBlocker(map.id)
+				: "No map manager in the scene";
+
 			Button loadButton = new(() =>
 			{
-				if (MapManager.Instance != null && MapManager.Instance.LoadMap(map.id))
+				if (MapManager.Instance != null && MapManager.Instance.ChangeMap(map.id))
 					armedDeleteId = null;
-			}) { text = "Load" };
-			loadButton.SetEnabled(!inSession && !isCurrent);
+			}) { text = inSession ? "Switch" : "Load", tooltip = blocker ?? string.Empty };
+			loadButton.SetEnabled(blocker == null);
 			row.Add(loadButton);
 
 			Button deleteButton = new() { text = armedDeleteId == map.id ? "Really?" : "Delete" };

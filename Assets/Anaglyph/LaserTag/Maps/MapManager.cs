@@ -49,14 +49,22 @@ namespace Anaglyph.Lasertag
 		[Tooltip("How long an edit or provider change waits before it reaches disk")]
 		[SerializeField] private float saveDebounceSeconds = 2f;
 
+		[Tooltip("How long a map change waits for the new references to align before giving up")]
+		[SerializeField] private float switchTimeoutSeconds = 20f;
+
 		public GameMap CurrentMap { get; private set; }
 		public event Action<GameMap> CurrentMapChanged = delegate { };
+
+		/// <summary>Whether the session is mid-map-change, and so has no trustworthy frame.</summary>
+		public bool IsChangingMap => mapChanging.Value;
+		public event Action ChangingMapChanged = delegate { };
 
 		public IReadOnlyDictionary<string, int> ProbeResults => probeResults;
 		private readonly Dictionary<string, int> probeResults = new();
 		public event Action ProbeResultsChanged = delegate { };
 
 		private readonly SyncVariable<MapIdentity> mapIdentity = new("map.identity");
+		private readonly SyncVariable<bool> mapChanging = new("map.changing");
 		private readonly SyncEvent<MapObjectPlacement> placeRequest =
 			new("map.object.place", EventRoute.ToAuthority);
 		private readonly SyncEvent<ulong> removeRequest =
@@ -79,6 +87,7 @@ namespace Anaglyph.Lasertag
 
 		private bool authoritySessionStarted;
 		private bool sessionMapAdopted;
+		private float mapChangeStartedTime;
 
 		private void Awake()
 		{
@@ -106,6 +115,9 @@ namespace Anaglyph.Lasertag
 			mapIdentity.Register();
 			mapIdentity.Changed += OnMapIdentityChanged;
 			mapIdentity.Synced += OnMapIdentitySynced;
+
+			mapChanging.Register();
+			mapChanging.Changed += OnMapChangingChanged;
 
 			placeRequest.Register();
 			placeRequest.Received += OnPlaceRequested;
@@ -173,6 +185,9 @@ namespace Anaglyph.Lasertag
 			placeRequest.Received -= OnPlaceRequested;
 			placeRequest.Unregister();
 
+			mapChanging.Changed -= OnMapChangingChanged;
+			mapChanging.Unregister();
+
 			mapIdentity.Synced -= OnMapIdentitySynced;
 			mapIdentity.Changed -= OnMapIdentityChanged;
 			mapIdentity.Unregister();
@@ -226,11 +241,23 @@ namespace Anaglyph.Lasertag
 		private void LateUpdate()
 		{
 			ApplyPendingProviderSnapshots();
+			UpdateMapChange();
 		}
 
 		// ------- world-frame trust -------------------------------
 
 		public bool CheckWorldFrameIsTrusted()
+		{
+			// Every peer distrusts the frame for the whole of a map change. Until the incoming
+			// references have been fitted, world space still describes the map being left, and
+			// anything that writes durable world-space data would write it in the wrong frame.
+			if (mapChanging.Value)
+				return false;
+
+			return CheckFrameAgreement();
+		}
+
+		private bool CheckFrameAgreement()
 		{
 			if (CurrentMap == null)
 				return false;
@@ -293,6 +320,17 @@ namespace Anaglyph.Lasertag
 			meanReferenceError = errorSum / referenceScratch.Count;
 		}
 
+		/// <summary>
+		/// Discards the agreement measured against references that are being replaced. Without
+		/// this, a check running later in the same frame as the swap answers from the outgoing
+		/// map's fit — which is exactly when a map change asks whether it can stop holding.
+		/// </summary>
+		private void InvalidateFrameAgreement()
+		{
+			agreeingReferenceCount = 0;
+			meanReferenceError = float.MaxValue;
+		}
+
 		// ------- current map lifecycle ---------------------------
 
 		public bool LoadMap(string id)
@@ -316,6 +354,118 @@ namespace Anaglyph.Lasertag
 			CurrentMapChanged.Invoke(map);
 			return true;
 		}
+
+		/// <summary>
+		/// Loads a map offline, or changes the session's map in place while hosting one.
+		/// </summary>
+		public bool ChangeMap(string id) => SyncBus.Active ? SwitchMap(id) : LoadMap(id);
+
+		/// <summary>
+		/// Why <see cref="ChangeMap"/> would refuse right now, or null if it would proceed. The
+		/// UI uses this to disable and explain the control rather than duplicate the rules.
+		/// </summary>
+		public string DescribeChangeBlocker(string id)
+		{
+			if (!MapStore.TryGet(id, out GameMap map))
+				return "Map is missing";
+			if (CurrentMap != null && CurrentMap.id == id)
+				return "Already loaded";
+
+			if (!SyncBus.Active)
+				return null;
+
+			if (!SyncBus.IsAuthority)
+				return "Only the host can change the map";
+			if (mapChanging.Value)
+				return "Already changing map";
+			if (MatchReferee.State == MatchState.Playing ||
+			    MatchReferee.State == MatchState.Countdown)
+				return "Not during a round";
+
+			// Tag mode has no provider to select for a map with no registered tags, so
+			// switching to one would end colocation for the whole session.
+			if (ColocationManager.Instance != null &&
+			    ColocationManager.Instance.Method == ColocationManager.ColocationMethod.AprilTag &&
+			    !map.HasTags)
+				return "Session uses tags; this map has none";
+
+			return null;
+		}
+
+		/// <summary>
+		/// Changes the session's map without ending the session. Every peer re-aligns onto the
+		/// incoming map's references, so this is only for another map of the same physical room:
+		/// the world frame shifts by whatever rigid transform separates the two maps' canon
+		/// frames, and the session holds until that fit lands.
+		///
+		/// Order is the contract. The providers' constraints are broadcast before the identity
+		/// that commits the change, and SyncBus applies every endpoint in the authority's own
+		/// order, so a peer reacting to the new identity already holds the references it names.
+		/// </summary>
+		public bool SwitchMap(string id)
+		{
+			string blocker = DescribeChangeBlocker(id);
+			if (blocker != null)
+			{
+				Debug.LogWarning($"Cannot change map: {blocker}.");
+				return false;
+			}
+
+			if (!SyncBus.Active)
+				return LoadMap(id);
+
+			if (!MapStore.TryGet(id, out GameMap target))
+				return false;
+
+			SaveCurrentMap();
+
+			mapChanging.Value = true;
+			mapChangeStartedTime = Time.time;
+
+			RemoveMapObjects();
+
+			CurrentMap = target;
+			frameContinuous = false;
+			ClearPendingProviderSnapshots();
+			InvalidateFrameAgreement();
+			target.lastUsed = DateTime.UtcNow.Ticks;
+
+			InjectMapIntoProviders(target);
+			InstantiateMapObjects(target);
+
+			// Deliberately without an object snapshot: the outgoing objects are destroyed but
+			// not collected until the end of the frame, so MapObject.All still lists them. The
+			// debounced save that the spawns and despawns schedule records what actually
+			// resulted. This call is here for the version commit and the identity publish.
+			SaveCurrentMap(snapshotObjects: false);
+
+			CurrentMapChanged.Invoke(target);
+			return true;
+		}
+
+		private void UpdateMapChange()
+		{
+			if (!SyncBus.Active || !SyncBus.IsAuthority || !mapChanging.Value)
+				return;
+
+			if (CheckFrameAgreement())
+			{
+				mapChanging.Value = false;
+				return;
+			}
+
+			if (Time.time - mapChangeStartedTime < switchTimeoutSeconds)
+				return;
+
+			// Releasing the hold is not a claim that the frame is good — CheckWorldFrameIsTrusted
+			// still fails on its own terms, and everything gated on it stays gated. It stops the
+			// session sitting in a state it has no way out of.
+			Debug.LogWarning($"Map change did not align within {switchTimeoutSeconds}s. " +
+				"Releasing the hold; the world frame remains untrusted.");
+			mapChanging.Value = false;
+		}
+
+		private void OnMapChangingChanged(bool _, bool __) => ChangingMapChanged.Invoke();
 
 		public void UnloadCurrentMap()
 		{
@@ -1017,6 +1167,7 @@ namespace Anaglyph.Lasertag
 			CurrentMap = adopted;
 			frameContinuous = false;
 			ClearPendingProviderSnapshots();
+			InvalidateFrameAgreement();
 			AdoptProviderStateIntoMap();
 			MapStore.Save(adopted);
 			CurrentMapChanged.Invoke(adopted);
