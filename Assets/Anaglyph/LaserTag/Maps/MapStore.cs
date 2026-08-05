@@ -10,9 +10,10 @@ namespace Anaglyph.Lasertag
 	/// Disk store and in-memory catalog of every map this device knows. One JSON file per map
 	/// under persistentDataPath/maps/.
 	///
-	/// Also owns the reverse index (anchor guid → maps using it). The index is derivable from
-	/// the maps' own anchor lists, so it is rebuilt in memory rather than persisted as a second
-	/// source of truth. It is genuinely many-to-many: a fork keeps its parent's anchors.
+	/// Also answers which maps use a given anchor guid, by scanning the loaded catalog rather
+	/// than keeping an index — the relation is derivable from the maps' own anchor lists, and a
+	/// second copy of it would be a second source of truth to keep correct. It is genuinely
+	/// many-to-many: a fork keeps its parent's anchors.
 	///
 	/// The store never touches the anchor runtime — deleting a map reports which anchor guids
 	/// became orphaned so the caller can erase their local saves.

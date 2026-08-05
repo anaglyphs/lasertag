@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using Unity.Collections;
+using Unity.Netcode;
 using UnityEngine;
 
 namespace Anaglyph.Lasertag
@@ -45,6 +46,9 @@ namespace Anaglyph.Lasertag
 		[Tooltip("Reference error above which a constraint does not count as agreeing with the fit")]
 		[SerializeField] private float agreementMaxError = 0.3f;
 
+		[Tooltip("How long an edit or provider change waits before it reaches disk")]
+		[SerializeField] private float saveDebounceSeconds = 2f;
+
 		public GameMap CurrentMap { get; private set; }
 		public event Action<GameMap> CurrentMapChanged = delegate { };
 
@@ -55,23 +59,32 @@ namespace Anaglyph.Lasertag
 		private readonly SyncVariable<MapIdentity> mapIdentity = new("map.identity");
 		private CancellationTokenSource lifetimeCtknSrc;
 		private bool savePending;
+		private bool quietSavePending;
 		private bool frameContinuous;
 		private bool isQuitting;
 
 		private int agreeingReferenceCount;
 		private float meanReferenceError;
 		private readonly List<ColocationConstraint> referenceScratch = new();
-		private readonly List<AnchorConstraintData> anchorImportScratch = new();
-		private readonly List<TagConstraintData> tagImportScratch = new();
-		private readonly List<TaggedAnchorConstraintData> taggedAnchorScratch = new();
-		private readonly HashSet<string> anchorGuidScratch = new();
-		private readonly List<string> droppedAnchorScratch = new();
+		private readonly List<MapObject> objectRemovalScratch = new();
+
+		private bool anchorSnapshotPending;
+		private bool tagSnapshotPending;
+		private bool taggedAnchorSnapshotPending;
 
 		private bool authoritySessionStarted;
 		private bool sessionMapAdopted;
 
 		private void Awake()
 		{
+			if (Instance != null && Instance != this)
+			{
+				Debug.LogError("A second MapManager is in the scene; destroying the duplicate. " +
+					"Its map identity endpoint would displace the live one's.", this);
+				Destroy(this);
+				return;
+			}
+
 			Instance = this;
 			lifetimeCtknSrc = new CancellationTokenSource();
 
@@ -102,7 +115,10 @@ namespace Anaglyph.Lasertag
 			}
 
 			SyncBus.Deactivated += OnBusDeactivated;
+			SyncBus.AuthorityChanged += OnAuthorityChanged;
 			MapObject.LocalEditOccurred += OnLocalEdit;
+			MapObject.Added += OnMapObjectAdded;
+			MapObject.Removed += OnMapObjectRemoved;
 			MainXRRig.Recentered += OnRecentered;
 		}
 
@@ -114,9 +130,21 @@ namespace Anaglyph.Lasertag
 
 		private void OnDestroy()
 		{
+			// The duplicate rejected in Awake registered nothing; unwinding here would tear
+			// down the live instance's subscriptions.
+			if (Instance != this)
+				return;
+
 			Instance = null;
-			
+
 			SaveCurrentMapQuietly();
+
+			MainXRRig.Recentered -= OnRecentered;
+			MapObject.Removed -= OnMapObjectRemoved;
+			MapObject.Added -= OnMapObjectAdded;
+			MapObject.LocalEditOccurred -= OnLocalEdit;
+			SyncBus.AuthorityChanged -= OnAuthorityChanged;
+			SyncBus.Deactivated -= OnBusDeactivated;
 
 			if (tagProvider)
 			{
@@ -130,20 +158,21 @@ namespace Anaglyph.Lasertag
 				spatialAnchorProvider.ConstraintsChanged -= OnSpatialAnchorConstraintsChanged;
 			}
 
-			MainXRRig.Recentered -= OnRecentered;
-			MapObject.LocalEditOccurred -= OnLocalEdit;
-			SyncBus.Deactivated -= OnBusDeactivated;
 			mapIdentity.Synced -= OnMapIdentitySynced;
 			mapIdentity.Changed -= OnMapIdentityChanged;
 			mapIdentity.Unregister();
 
 			lifetimeCtknSrc?.Cancel();
+			lifetimeCtknSrc?.Dispose();
+			lifetimeCtknSrc = null;
 		}
 
 		private void OnApplicationQuit()
 		{
-			SaveCurrentMap();
+			// Map objects are still alive during OnApplicationQuit, so this is the last save
+			// that can record them; every save after it runs against a world being torn down.
 			isQuitting = true;
+			SaveCurrentMap(snapshotObjects: true);
 		}
 
 		private void OnApplicationPause(bool paused)
@@ -179,6 +208,11 @@ namespace Anaglyph.Lasertag
 					mapTag.canonPose.position, mapTag.canonPose.rotation, Color.magenta);
 		}
 
+		private void LateUpdate()
+		{
+			ApplyPendingProviderSnapshots();
+		}
+
 		// ------- world-frame trust -------------------------------
 
 		public bool CheckWorldFrameIsTrusted()
@@ -202,7 +236,11 @@ namespace Anaglyph.Lasertag
 				if (!usingTagProvider || anchor.tagId >= 0)
 					availableAnchorCount++;
 
-			int required = Mathf.Min(2, availableAnchorCount);
+			// Never zero. A map that references anything at all has to be held up by at least
+			// one agreeing constraint — with a floor of zero, a device that has realized none
+			// of a tag map's anchors yet would report the frame it happens to be standing in
+			// as trustworthy, and mint anchors into the map against it.
+			int required = Mathf.Clamp(availableAnchorCount, 1, 2);
 			return agreeingReferenceCount >= required &&
 			       meanReferenceError <= agreementMaxError;
 		}
@@ -210,7 +248,9 @@ namespace Anaglyph.Lasertag
 		private void UpdateAgreement()
 		{
 			referenceScratch.Clear();
-			colocator?.GetCurrentConstraints(referenceScratch);
+
+			if (colocator)
+				colocator.GetCurrentConstraints(referenceScratch);
 
 			if (referenceScratch.Count == 0)
 			{
@@ -254,6 +294,7 @@ namespace Anaglyph.Lasertag
 			UnloadCurrentMap();
 			CurrentMap = map;
 			frameContinuous = false;
+			ClearPendingProviderSnapshots();
 			MapStore.MarkUsed(map);
 			InstantiateMapObjects(map);
 			InjectMapIntoProviders(map);
@@ -268,6 +309,7 @@ namespace Anaglyph.Lasertag
 
 			CurrentMap = null;
 			frameContinuous = false;
+			ClearPendingProviderSnapshots();
 			ClearProviderStateForNoMap();
 			RemoveMapObjects();
 			CurrentMapChanged.Invoke(null);
@@ -275,39 +317,75 @@ namespace Anaglyph.Lasertag
 
 		public void DeleteMap(string id)
 		{
+			if (SyncBus.Active && CurrentMap != null && CurrentMap.id == id)
+			{
+				Debug.LogWarning("Cannot delete the session's map while in a session.");
+				return;
+			}
+
 			if (CurrentMap != null && CurrentMap.id == id)
 				UnloadCurrentMap();
 
 			List<string> orphanedAnchors = new();
 			MapStore.Delete(id, orphanedAnchors);
+			probeResults.Remove(id);
+			ProbeResultsChanged.Invoke();
 
 			if (spatialAnchorProvider)
 				foreach (string orphan in orphanedAnchors)
-					_ = spatialAnchorProvider.EraseAsync(GuidFromString(orphan));
+					if (TryGuidFromString(orphan, out Guid guid))
+						_ = spatialAnchorProvider.EraseAsync(guid);
+		}
+
+		/// <summary>
+		/// The current map, minting one if this device is allowed to. A joiner that has not yet
+		/// adopted the session's map must not: its copy would be replaced moments later, and
+		/// injecting it clears the tag anchors this device has already realized.
+		/// </summary>
+		private GameMap EnsureCurrentMap()
+		{
+			if (CurrentMap != null)
+				return CurrentMap;
+
+			if (SyncBus.Active && !SyncBus.IsAuthority)
+				return null;
+
+			CurrentMap = MapStore.CreateNew();
+			frameContinuous = true;
+			ClearPendingProviderSnapshots();
+			InjectMapIntoProviders(CurrentMap);
+			CurrentMapChanged.Invoke(CurrentMap);
+			return CurrentMap;
 		}
 
 		private void OnLocalEdit()
 		{
-			if (CurrentMap == null)
-			{
-				CurrentMap = MapStore.CreateNew();
-				frameContinuous = true;
-				InjectMapIntoProviders(CurrentMap);
-				CurrentMapChanged.Invoke(CurrentMap);
-			}
+			if (EnsureCurrentMap() == null)
+				return;
 
-			MapStore.MarkEdited(CurrentMap);
+			// Dirty means "diverged from the version the authority published", which drives
+			// fork-on-conflict. A client's in-session edits are replicated rather than
+			// divergent, and TryAdopt discards any version they mint.
+			if (!SyncBus.Active || SyncBus.IsAuthority)
+				MapStore.MarkEdited(CurrentMap);
+
 			ScheduleSave();
 		}
 
+		// Map objects arrive and leave without a local edit — a peer placed one, or a map
+		// finished loading. Keeping the map's object list current as they do is what stops
+		// session teardown from being the only chance to record them.
+		private void OnMapObjectAdded(MapObject _) => ScheduleQuietSave();
+		private void OnMapObjectRemoved(MapObject _) => ScheduleQuietSave();
+
 		private async void ScheduleSave()
 		{
-			if (savePending) return;
+			if (savePending || lifetimeCtknSrc == null) return;
 			savePending = true;
 
 			try
 			{
-				await Awaitable.WaitForSecondsAsync(2f, lifetimeCtknSrc.Token);
+				await Awaitable.WaitForSecondsAsync(saveDebounceSeconds, lifetimeCtknSrc.Token);
 			}
 			catch (OperationCanceledException)
 			{
@@ -321,12 +399,41 @@ namespace Anaglyph.Lasertag
 			SaveCurrentMap();
 		}
 
-		public void SaveCurrentMap()
+		private async void ScheduleQuietSave()
+		{
+			if (quietSavePending || lifetimeCtknSrc == null) return;
+			quietSavePending = true;
+
+			try
+			{
+				await Awaitable.WaitForSecondsAsync(saveDebounceSeconds, lifetimeCtknSrc.Token);
+			}
+			catch (OperationCanceledException)
+			{
+				return;
+			}
+			finally
+			{
+				quietSavePending = false;
+			}
+
+			if (CurrentMap == null)
+				return;
+
+			if (CanSnapshotObjects)
+				SnapshotObjects(CurrentMap);
+
+			MapStore.Save(CurrentMap);
+		}
+
+		public void SaveCurrentMap() => SaveCurrentMap(CanSnapshotObjects);
+
+		private void SaveCurrentMap(bool snapshotObjects)
 		{
 			if (CurrentMap == null)
 				return;
 
-			if (!isQuitting)
+			if (snapshotObjects)
 				SnapshotObjects(CurrentMap);
 
 			if (SyncBus.Active && SyncBus.IsAuthority)
@@ -350,6 +457,24 @@ namespace Anaglyph.Lasertag
 		{
 			if (CurrentMap != null)
 				MapStore.Save(CurrentMap);
+		}
+
+		/// <summary>
+		/// Whether <see cref="MapObject.All"/> currently describes the world. It does not while
+		/// the app is quitting or a network shutdown is despawning objects: the list empties
+		/// through teardown rather than through an edit, and snapshotting it then would persist
+		/// a map with no objects in it.
+		/// </summary>
+		private bool CanSnapshotObjects
+		{
+			get
+			{
+				if (isQuitting)
+					return false;
+
+				NetworkManager manager = NetworkManager.Singleton;
+				return manager == null || !manager.ShutdownInProgress;
+			}
 		}
 
 		private static void SnapshotObjects(GameMap map)
@@ -392,65 +517,84 @@ namespace Anaglyph.Lasertag
 			}
 		}
 
-		private static void RemoveMapObjects()
+		private void RemoveMapObjects()
 		{
-			foreach (MapObject obj in new List<MapObject>(MapObject.All))
+			objectRemovalScratch.Clear();
+			objectRemovalScratch.AddRange(MapObject.All);
+
+			foreach (MapObject obj in objectRemovalScratch)
 				if (obj)
 					obj.RemoveIfPermitted();
+
+			objectRemovalScratch.Clear();
 		}
 
 		// ------- provider persistence adapter --------------------
 
 		private void InjectMapIntoProviders(GameMap map)
 		{
-			anchorImportScratch.Clear();
-			tagImportScratch.Clear();
-			taggedAnchorScratch.Clear();
+			List<AnchorConstraintData> anchors = new(map.anchors.Count);
+			List<TaggedAnchorConstraintData> taggedAnchors = new();
+			List<TagConstraintData> tags = new(map.tags.Count);
 
 			foreach (MapAnchorEntry entry in map.anchors)
 			{
-				Guid guid = GuidFromString(entry.guid);
-				anchorImportScratch.Add(new AnchorConstraintData(
-					guid, entry.canonPose, entry.tagId));
+				if (!TryGuidFromString(entry.guid, out Guid guid))
+					continue;
+
+				anchors.Add(new AnchorConstraintData(guid, entry.canonPose, entry.tagId));
 				if (entry.tagId >= 0)
-					taggedAnchorScratch.Add(new TaggedAnchorConstraintData(
+					taggedAnchors.Add(new TaggedAnchorConstraintData(
 						guid, entry.tagId, entry.canonPose));
 			}
 
 			foreach (MapTagEntry entry in map.tags)
-				tagImportScratch.Add(new TagConstraintData(entry.id, entry.canonPose));
+				tags.Add(new TagConstraintData(entry.id, entry.canonPose));
 
-			spatialAnchorProvider?.SetConstraints(anchorImportScratch);
-			tagProvider?.SetConstraints(tagImportScratch, taggedAnchorScratch);
+			if (spatialAnchorProvider)
+				spatialAnchorProvider.SetConstraints(anchors);
+			if (tagProvider)
+				tagProvider.SetConstraints(tags, taggedAnchors);
 		}
 
 		private void InjectAnchorsIntoAnchorProvider()
 		{
-			if (CurrentMap == null || spatialAnchorProvider == null)
+			if (CurrentMap == null || !spatialAnchorProvider)
 				return;
 
-			anchorImportScratch.Clear();
+			List<AnchorConstraintData> anchors = new(CurrentMap.anchors.Count);
 			foreach (MapAnchorEntry entry in CurrentMap.anchors)
-				anchorImportScratch.Add(new AnchorConstraintData(
-					GuidFromString(entry.guid), entry.canonPose, entry.tagId));
+				if (TryGuidFromString(entry.guid, out Guid guid))
+					anchors.Add(new AnchorConstraintData(guid, entry.canonPose, entry.tagId));
 
-			spatialAnchorProvider.SetConstraints(anchorImportScratch);
+			spatialAnchorProvider.SetConstraints(anchors);
+		}
+
+		private void InjectTagsIntoProvider()
+		{
+			if (CurrentMap == null || !tagProvider)
+				return;
+
+			List<TagConstraintData> tags = new(CurrentMap.tags.Count);
+			foreach (MapTagEntry entry in CurrentMap.tags)
+				tags.Add(new TagConstraintData(entry.id, entry.canonPose));
+
+			tagProvider.SetRegisteredTags(tags);
 		}
 
 		private void ClearProviderStateForNoMap()
 		{
-			anchorImportScratch.Clear();
-			tagImportScratch.Clear();
-			taggedAnchorScratch.Clear();
-
 			if (SyncBus.IsAuthority)
 			{
-				spatialAnchorProvider?.SetConstraints(anchorImportScratch);
-				tagProvider?.SetConstraints(tagImportScratch, taggedAnchorScratch);
+				if (spatialAnchorProvider)
+					spatialAnchorProvider.SetConstraints(Array.Empty<AnchorConstraintData>());
+				if (tagProvider)
+					tagProvider.SetConstraints(Array.Empty<TagConstraintData>(),
+						Array.Empty<TaggedAnchorConstraintData>());
 			}
-			else
+			else if (tagProvider)
 			{
-				tagProvider?.SetLocalAnchors(taggedAnchorScratch);
+				tagProvider.SetLocalAnchors(Array.Empty<TaggedAnchorConstraintData>());
 			}
 		}
 
@@ -459,14 +603,14 @@ namespace Anaglyph.Lasertag
 			(SyncBus.Active
 				? ColocationManager.Instance != null &&
 				  ColocationManager.Instance.Method == ColocationManager.ColocationMethod.MetaSharedAnchor
-				: spatialAnchorProvider != null && spatialAnchorProvider.IsRunning);
+				: spatialAnchorProvider && spatialAnchorProvider.IsRunning);
 
 		private bool TagProviderOwnsCurrentState => CurrentMap != null &&
 			SessionReferencesBelongToCurrentMap &&
 			(SyncBus.Active
 				? ColocationManager.Instance != null &&
 				  ColocationManager.Instance.Method == ColocationManager.ColocationMethod.AprilTag
-				: tagProvider != null && tagProvider.IsRunning);
+				: tagProvider && tagProvider.IsRunning);
 
 		private bool SessionReferencesBelongToCurrentMap
 		{
@@ -483,30 +627,77 @@ namespace Anaglyph.Lasertag
 			}
 		}
 
-		private void OnSpatialAnchorConstraintsChanged()
-		{
-			if (!AnchorProviderOwnsCurrentState)
-				return;
+		// Providers raise a change per entry, so injecting a map raises one per anchor. Record
+		// which snapshots are stale and take them once at the end of the frame: reacting per
+		// entry would both re-serialize the map to disk once per anchor and let a snapshot
+		// observe a provider halfway through an import.
 
-			SnapshotAnchorProviderToMap();
-			SaveCurrentMapQuietly();
+		private void OnSpatialAnchorConstraintsChanged() => anchorSnapshotPending = true;
+		private void OnTagReferencesChanged() => tagSnapshotPending = true;
+		private void OnTaggedAnchorsChanged() => taggedAnchorSnapshotPending = true;
+
+		private void ClearPendingProviderSnapshots()
+		{
+			anchorSnapshotPending = false;
+			tagSnapshotPending = false;
+			taggedAnchorSnapshotPending = false;
+		}
+
+		private void ApplyPendingProviderSnapshots()
+		{
+			bool changed = false;
+
+			if (anchorSnapshotPending)
+			{
+				anchorSnapshotPending = false;
+				if (AnchorProviderOwnsCurrentState)
+				{
+					SnapshotAnchorProviderToMap();
+					changed = true;
+				}
+			}
+
+			if (tagSnapshotPending)
+			{
+				tagSnapshotPending = false;
+				if (TagProviderOwnsCurrentState)
+				{
+					SnapshotTagProviderToMap();
+					changed = true;
+				}
+			}
+
+			if (taggedAnchorSnapshotPending)
+			{
+				taggedAnchorSnapshotPending = false;
+				if (TagProviderOwnsCurrentState)
+				{
+					SnapshotTaggedAnchorsToMap();
+					if (!SyncBus.Active)
+						InjectAnchorsIntoAnchorProvider();
+					changed = true;
+				}
+			}
+
+			if (changed)
+				ScheduleQuietSave();
 		}
 
 		private void SnapshotAnchorProviderToMap()
 		{
-			if (CurrentMap == null || spatialAnchorProvider == null)
+			if (CurrentMap == null || !spatialAnchorProvider)
 				return;
 
 			// The map's anchor list is the union of both providers' realizations, so this
 			// snapshot may only prune what this provider itself dropped. Tag anchors are
 			// private per device: on a joiner the authority's constraints never describe
 			// this headset's own, and clearing here would erase them from its copy.
-			anchorGuidScratch.Clear();
+			HashSet<string> present = new();
 			foreach (Guid guid in spatialAnchorProvider.Constraints.Keys)
-				anchorGuidScratch.Add(GuidToString(guid));
+				present.Add(GuidToString(guid));
 
 			CurrentMap.anchors.RemoveAll(entry =>
-				entry.tagId < 0 && !anchorGuidScratch.Contains(entry.guid));
+				entry.tagId < 0 && !present.Contains(entry.guid));
 
 			foreach ((Guid guid, AnchorConstraintState state) in spatialAnchorProvider.Constraints)
 			{
@@ -515,18 +706,9 @@ namespace Anaglyph.Lasertag
 			}
 		}
 
-		private void OnTagReferencesChanged()
-		{
-			if (!TagProviderOwnsCurrentState)
-				return;
-
-			SnapshotTagProviderToMap();
-			SaveCurrentMapQuietly();
-		}
-
 		private void SnapshotTagProviderToMap()
 		{
-			if (CurrentMap == null || tagProvider == null)
+			if (CurrentMap == null || !tagProvider)
 				return;
 
 			CurrentMap.tags.Clear();
@@ -534,46 +716,35 @@ namespace Anaglyph.Lasertag
 				CurrentMap.SetTag(tagId, canon);
 		}
 
-		private void OnTaggedAnchorsChanged()
-		{
-			if (!TagProviderOwnsCurrentState)
-				return;
-
-			SnapshotTaggedAnchorsToMap();
-			if (!SyncBus.Active)
-				InjectAnchorsIntoAnchorProvider();
-			SaveCurrentMapQuietly();
-		}
-
 		private void SnapshotTaggedAnchorsToMap()
 		{
-			if (CurrentMap == null || tagProvider == null)
+			if (CurrentMap == null || !tagProvider)
 				return;
 
-			taggedAnchorScratch.Clear();
-			tagProvider.GetLocalAnchorConstraints(taggedAnchorScratch);
+			List<TaggedAnchorConstraintData> realized = new();
+			tagProvider.GetLocalAnchorConstraints(realized);
 
 			// Mirror of SnapshotAnchorProviderToMap: this provider owns only the tag
 			// realizations. Roaming anchors (tagId -1) belong to the anchor provider and
 			// survive a map being tagged later, so they must not be swept up here.
-			anchorGuidScratch.Clear();
-			foreach (TaggedAnchorConstraintData entry in taggedAnchorScratch)
-				anchorGuidScratch.Add(GuidToString(entry.guid));
+			HashSet<string> present = new();
+			foreach (TaggedAnchorConstraintData entry in realized)
+				present.Add(GuidToString(entry.guid));
 
-			droppedAnchorScratch.Clear();
+			List<string> dropped = new();
 			foreach (MapAnchorEntry entry in CurrentMap.anchors)
-				if (entry.tagId >= 0 && !anchorGuidScratch.Contains(entry.guid))
-					droppedAnchorScratch.Add(entry.guid);
+				if (entry.tagId >= 0 && !present.Contains(entry.guid))
+					dropped.Add(entry.guid);
 
-			CurrentMap.anchors.RemoveAll(entry => droppedAnchorScratch.Contains(entry.guid));
+			CurrentMap.anchors.RemoveAll(entry => dropped.Contains(entry.guid));
 
-			foreach (TaggedAnchorConstraintData entry in taggedAnchorScratch)
+			foreach (TaggedAnchorConstraintData entry in realized)
 				CurrentMap.SetAnchorWithTag(
 					GuidToString(entry.guid), entry.canonPose, entry.tagId);
 
 			// The provider stopped realizing these — their tag was unregistered, here or by the
 			// session authority — so nothing will ask the device for them again.
-			foreach (string guid in droppedAnchorScratch)
+			foreach (string guid in dropped)
 				EraseTagAnchorSaveIfOrphaned(guid);
 		}
 
@@ -584,15 +755,16 @@ namespace Anaglyph.Lasertag
 		/// </summary>
 		private void EraseTagAnchorSaveIfOrphaned(string guid)
 		{
-			if (tagProvider == null || MapStore.IsAnchorReferenced(guid))
+			if (!tagProvider || MapStore.IsAnchorReferenced(guid))
 				return;
 
-			_ = tagProvider.EraseAsync(GuidFromString(guid));
+			if (TryGuidFromString(guid, out Guid parsed))
+				_ = tagProvider.EraseAsync(parsed);
 		}
 
 		private void OnSpatialAnchorPersisted(Guid _)
 		{
-			SaveCurrentMapQuietly();
+			ScheduleQuietSave();
 		}
 
 		// ------- session flows -----------------------------------
@@ -602,19 +774,19 @@ namespace Anaglyph.Lasertag
 			if (authoritySessionStarted) return;
 			authoritySessionStarted = true;
 
-			if (CurrentMap == null)
-			{
-				CurrentMap = MapStore.CreateNew();
-				frameContinuous = true;
-				InjectMapIntoProviders(CurrentMap);
-				CurrentMapChanged.Invoke(CurrentMap);
-			}
+			GameMap map = EnsureCurrentMap();
+			if (map == null)
+				return;
 
-			CurrentMap.lastUsed = DateTime.UtcNow.Ticks;
+			map.lastUsed = DateTime.UtcNow.Ticks;
 			SaveCurrentMap();
 
-			foreach (MapObject obj in new List<MapObject>(MapObject.All))
-				obj.SpawnIfLocal();
+			objectRemovalScratch.Clear();
+			objectRemovalScratch.AddRange(MapObject.All);
+			foreach (MapObject obj in objectRemovalScratch)
+				if (obj)
+					obj.SpawnIfLocal();
+			objectRemovalScratch.Clear();
 		}
 
 		private void OnBusDeactivated()
@@ -625,6 +797,23 @@ namespace Anaglyph.Lasertag
 			if (CurrentMap != null)
 				InjectMapIntoProviders(CurrentMap);
 			RebuildLocalObjectsAfterSession();
+		}
+
+		/// <summary>
+		/// Authority moved. A promoted peer has to run the flow it skipped when it joined as a
+		/// client; a demoted one goes back to following the published identity, which it must
+		/// re-adopt before its provider snapshots count as describing the session's map.
+		/// </summary>
+		private void OnAuthorityChanged(bool isAuthority)
+		{
+			if (!SyncBus.Active)
+				return;
+
+			authoritySessionStarted = false;
+			sessionMapAdopted = false;
+
+			if (isAuthority)
+				AuthoritySessionStart();
 		}
 
 		private async void RebuildLocalObjectsAfterSession()
@@ -686,17 +875,13 @@ namespace Anaglyph.Lasertag
 				return;
 			}
 
-			GameMap previousMap = CurrentMap;
-			if (previousMap != null)
+			if (CurrentMap != null)
 			{
 				SaveCurrentMap();
 				CurrentMap = null;
-				RemoveMapObjects();
 			}
-			else
-			{
-				RemoveMapObjects();
-			}
+
+			RemoveMapObjects();
 
 			GameMap adopted;
 			if (MapStore.TryGet(id, out GameMap local))
@@ -720,6 +905,7 @@ namespace Anaglyph.Lasertag
 
 			CurrentMap = adopted;
 			frameContinuous = false;
+			ClearPendingProviderSnapshots();
 			AdoptProviderStateIntoMap();
 			MapStore.Save(adopted);
 			CurrentMapChanged.Invoke(adopted);
@@ -734,13 +920,15 @@ namespace Anaglyph.Lasertag
 			{
 				// Tag anchors are private per device. Restore this headset's saved realizations,
 				// while registered tag poses come from the authority's provider snapshot.
-				taggedAnchorScratch.Clear();
+				List<TaggedAnchorConstraintData> saved = new();
 				foreach (MapAnchorEntry entry in CurrentMap.anchors)
-					if (entry.tagId >= 0)
-						taggedAnchorScratch.Add(new TaggedAnchorConstraintData(
-							GuidFromString(entry.guid), entry.tagId, entry.canonPose));
+					if (entry.tagId >= 0 && TryGuidFromString(entry.guid, out Guid guid))
+						saved.Add(new TaggedAnchorConstraintData(
+							guid, entry.tagId, entry.canonPose));
 
-				tagProvider?.SetLocalAnchors(taggedAnchorScratch);
+				if (tagProvider)
+					tagProvider.SetLocalAnchors(saved);
+
 				SnapshotTagProviderToMap();
 				SnapshotTaggedAnchorsToMap();
 			}
@@ -751,6 +939,10 @@ namespace Anaglyph.Lasertag
 				// selected; the inactive tag provider still owns/synchronizes its registered data.
 				SnapshotTagProviderToMap();
 			}
+
+			// The snapshots above are this adoption's, taken deliberately; anything the
+			// providers queued while they were being replaced describes the map we just left.
+			ClearPendingProviderSnapshots();
 		}
 
 		// ------- tag authoring -----------------------------------
@@ -760,13 +952,8 @@ namespace Anaglyph.Lasertag
 			if (SyncBus.Active)
 				return false;
 
-			if (CurrentMap == null)
-			{
-				CurrentMap = MapStore.CreateNew();
-				frameContinuous = true;
-				InjectMapIntoProviders(CurrentMap);
-				CurrentMapChanged.Invoke(CurrentMap);
-			}
+			if (EnsureCurrentMap() == null)
+				return false;
 
 			if (!CheckWorldFrameIsTrusted())
 				return false;
@@ -789,16 +976,15 @@ namespace Anaglyph.Lasertag
 				return false;
 
 			// Collected before the prune, erased after it: the orphan check has to run against
-			// the map that no longer lists them. Both happen before the providers are re-injected,
-			// which is what can re-enter the snapshot that shares this scratch.
-			droppedAnchorScratch.Clear();
+			// the map that no longer lists them.
+			List<string> dropped = new();
 			foreach (MapAnchorEntry entry in CurrentMap.anchors)
 				if (entry.tagId == tagId)
-					droppedAnchorScratch.Add(entry.guid);
+					dropped.Add(entry.guid);
 
 			CurrentMap.anchors.RemoveAll(entry => entry.tagId == tagId);
 
-			foreach (string guid in droppedAnchorScratch)
+			foreach (string guid in dropped)
 				EraseTagAnchorSaveIfOrphaned(guid);
 
 			MapStore.MarkEdited(CurrentMap);
@@ -806,15 +992,6 @@ namespace Anaglyph.Lasertag
 			SaveCurrentMap();
 			CurrentMapChanged.Invoke(CurrentMap);
 			return true;
-		}
-
-		private void InjectTagsIntoProvider()
-		{
-			tagImportScratch.Clear();
-			foreach (MapTagEntry entry in CurrentMap.tags)
-				tagImportScratch.Add(new TagConstraintData(entry.id, entry.canonPose));
-
-			tagProvider?.SetRegisteredTags(tagImportScratch);
 		}
 
 		// ------- probe -------------------------------------------
@@ -886,7 +1063,8 @@ namespace Anaglyph.Lasertag
 		{
 			List<Guid> guids = new(map.anchors.Count);
 			foreach (MapAnchorEntry entry in map.anchors)
-				guids.Add(GuidFromString(entry.guid));
+				if (TryGuidFromString(entry.guid, out Guid guid))
+					guids.Add(guid);
 			return guids;
 		}
 
@@ -897,17 +1075,38 @@ namespace Anaglyph.Lasertag
 			if (!SyncBus.Active || !SyncBus.IsAuthority || CurrentMap == null)
 				return;
 
+			if (!TryGuidFromString(CurrentMap.id, out Guid id) ||
+			    !TryGuidFromString(CurrentMap.version, out Guid version))
+			{
+				Debug.LogError($"Map '{CurrentMap.name}' has an unusable id or version; " +
+					"peers cannot be told which map this session is using.");
+				return;
+			}
+
 			FixedString64Bytes name = default;
 			name.CopyFromTruncated(CurrentMap.name ?? "");
 			mapIdentity.Value = new MapIdentity
 			{
-				id = Guid.ParseExact(CurrentMap.id, "N"),
-				version = Guid.ParseExact(CurrentMap.version, "N"),
+				id = id,
+				version = version,
 				name = name,
 			};
 		}
 
 		private static string GuidToString(Guid guid) => guid.ToString("N");
-		private static Guid GuidFromString(string value) => Guid.ParseExact(value, "N");
+
+		/// <summary>
+		/// Parses a persisted guid. Map files can be hand-edited or half-written, and MapStore
+		/// goes to some trouble to keep a damaged one loadable — throwing here mid-import would
+		/// undo that and leave the providers holding half a map.
+		/// </summary>
+		private static bool TryGuidFromString(string value, out Guid guid)
+		{
+			if (Guid.TryParseExact(value, "N", out guid))
+				return true;
+
+			Debug.LogWarning($"Ignoring malformed anchor guid '{value}' in a saved map.");
+			return false;
+		}
 	}
 }

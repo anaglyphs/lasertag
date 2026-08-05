@@ -59,7 +59,8 @@ namespace Anaglyph.Lasertag
 				spatialAnchorProvider.MintingGate = () =>
 					MapManager.Instance == null || MapManager.Instance.CheckWorldFrameIsTrusted();
 
-			MapManager.Instance.CurrentMapChanged += OnCurrentMapChanged;
+			if (MapManager.Instance != null)
+				MapManager.Instance.CurrentMapChanged += OnCurrentMapChanged;
 
 			// Hosts only become discoverable once their world frame is trustworthy: joiners
 			// who arrive earlier would download nothing they can align to.
