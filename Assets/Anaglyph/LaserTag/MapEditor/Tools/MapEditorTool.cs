@@ -135,7 +135,10 @@ namespace Anaglyph.Lasertag
 		public void TryLetGo()
 		{
 			if (grabbedObject != null)
+			{
+				grabbedObject.ReleaseOwnership();
 				MapObject.NotifyLocalEdit();
+			}
 
 			grabbedObject = null;
 		}
@@ -277,10 +280,11 @@ namespace Anaglyph.Lasertag
 			typeof(TeamColorer), typeof(TeamOwner)
 		};
 
-		public static GameObject SpawnMapObject(MapObject prefab, Vector3 position,
+		public static void SpawnMapObject(MapObject prefab, Vector3 position,
 			Quaternion rotation = default)
 		{
-			return Instantiate(prefab.gameObject, position, rotation);
+			if (MapManager.Instance != null)
+				MapManager.Instance.RequestPlaceObject(prefab, position, rotation);
 		}
 
 		private static GameObject InstantiateObjectAsPreview(GameObject obj)

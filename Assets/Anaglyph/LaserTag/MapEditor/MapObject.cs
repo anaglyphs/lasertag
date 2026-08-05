@@ -1,3 +1,4 @@
+using Anaglyph.Netcode;
 using System;
 using System.Collections.Generic;
 using Unity.Netcode;
@@ -70,11 +71,13 @@ namespace Anaglyph.Lasertag
 			TrySpawn();
 		}
 
-		// Objects placed while a session is up network-spawn immediately. Objects placed
-		// offline stay local; MapManager spawns them when this device starts hosting.
+		// Map objects belong to the session authority, so that one peer can clear and repopulate
+		// the world when the map changes. Objects placed offline stay local; MapManager spawns
+		// them when this device starts hosting. A client never spawns one of its own — its
+		// placements are requests, and the object it gets back is the authority's.
 		private void TrySpawn()
 		{
-			if (!NetworkObject.IsSpawned && NetworkManager.IsConnectedClient)
+			if (!NetworkObject.IsSpawned && NetworkManager.IsConnectedClient && SyncBus.IsAuthority)
 				NetworkObject.Spawn();
 		}
 
@@ -88,13 +91,16 @@ namespace Anaglyph.Lasertag
 
 		/// <summary>
 		/// Removes this object as far as this device is permitted to, for teardown flows that
-		/// clear the world (unloading a map, adopting a session's map). Local-only objects —
-		/// and anything left over once the session is gone — are destroyed outright; a spawned
-		/// object in a live session is despawned, which removes it for everyone. An object
-		/// spawned by someone else is left alone: under distributed authority destroying it
-		/// here is invalid, and it disappears when its owner despawns it.
+		/// clear the world (unloading a map, adopting or switching the session's map).
+		/// Local-only objects — and anything left over once the session is gone — are destroyed
+		/// outright; a spawned object this peer has authority over is despawned, which removes
+		/// it for everyone.
+		///
+		/// The one object the authority does not already own is one a peer is currently holding,
+		/// since a grab takes ownership for its duration. Those are claimed back and despawned
+		/// when ownership lands, so a clear still finishes — just not within this call.
 		/// </summary>
-		/// <returns>Whether the object was removed.</returns>
+		/// <returns>Whether the object was removed by the time this returned.</returns>
 		public bool RemoveIfPermitted()
 		{
 			NetworkManager manager = NetworkManager.Singleton;
@@ -106,11 +112,19 @@ namespace Anaglyph.Lasertag
 				return true;
 			}
 
-			if (!NetworkObject.HasAuthority)
-				return false;
+			if (NetworkObject.HasAuthority)
+			{
+				NetworkObject.Despawn();
+				return true;
+			}
 
-			NetworkObject.Despawn();
-			return true;
+			if (SyncBus.IsAuthority)
+			{
+				shouldDelete = true;
+				TryTakeOwnership();
+			}
+
+			return false;
 		}
 
 		public void TryTakeOwnership()
@@ -124,6 +138,25 @@ namespace Anaglyph.Lasertag
 			}
 		}
 
+		/// <summary>
+		/// Hands a held object back to the session authority. Ownership only leaves the
+		/// authority for the duration of a grab; leaving it with the grabber would mean the
+		/// authority could no longer clear the world to load a different map.
+		/// </summary>
+		public void ReleaseOwnership()
+		{
+			if (!NetworkObject.IsSpawned || !SyncBus.Active || !NetworkObject.IsOwner)
+				return;
+
+			ulong authority = SyncBus.Current.OwnerClientId;
+			if (NetworkObject.OwnerClientId != authority)
+				NetworkObject.ChangeOwnership(authority);
+		}
+
+		/// <summary>
+		/// Removes this object for everyone. Offline that is a plain destroy; in a session it
+		/// is a request to the authority, which owns every spawned map object.
+		/// </summary>
 		public void TryDelete()
 		{
 			if (!NetworkManager.IsConnectedClient)
@@ -132,12 +165,8 @@ namespace Anaglyph.Lasertag
 				return;
 			}
 
-			shouldDelete = true;
-
-			if (NetworkObject.IsOwner)
-				NetworkObject.Despawn();
-			else
-				TryTakeOwnership();
+			if (MapManager.Instance != null)
+				MapManager.Instance.RequestRemoveObject(this);
 		}
 
 		public bool CanManage()

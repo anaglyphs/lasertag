@@ -57,6 +57,11 @@ namespace Anaglyph.Lasertag
 		public event Action ProbeResultsChanged = delegate { };
 
 		private readonly SyncVariable<MapIdentity> mapIdentity = new("map.identity");
+		private readonly SyncEvent<MapObjectPlacement> placeRequest =
+			new("map.object.place", EventRoute.ToAuthority);
+		private readonly SyncEvent<ulong> removeRequest =
+			new("map.object.remove", EventRoute.ToAuthority);
+
 		private CancellationTokenSource lifetimeCtknSrc;
 		private bool savePending;
 		private bool quietSavePending;
@@ -101,6 +106,11 @@ namespace Anaglyph.Lasertag
 			mapIdentity.Register();
 			mapIdentity.Changed += OnMapIdentityChanged;
 			mapIdentity.Synced += OnMapIdentitySynced;
+
+			placeRequest.Register();
+			placeRequest.Received += OnPlaceRequested;
+			removeRequest.Register();
+			removeRequest.Received += OnRemoveRequested;
 
 			if (spatialAnchorProvider)
 			{
@@ -157,6 +167,11 @@ namespace Anaglyph.Lasertag
 				spatialAnchorProvider.AnchorPersisted -= OnSpatialAnchorPersisted;
 				spatialAnchorProvider.ConstraintsChanged -= OnSpatialAnchorConstraintsChanged;
 			}
+
+			removeRequest.Received -= OnRemoveRequested;
+			removeRequest.Unregister();
+			placeRequest.Received -= OnPlaceRequested;
+			placeRequest.Unregister();
 
 			mapIdentity.Synced -= OnMapIdentitySynced;
 			mapIdentity.Changed -= OnMapIdentityChanged;
@@ -358,7 +373,9 @@ namespace Anaglyph.Lasertag
 			return CurrentMap;
 		}
 
-		private void OnLocalEdit()
+		private void OnLocalEdit() => MarkMapContentChanged();
+
+		private void MarkMapContentChanged()
 		{
 			if (EnsureCurrentMap() == null)
 				return;
@@ -527,6 +544,100 @@ namespace Anaglyph.Lasertag
 					obj.RemoveIfPermitted();
 
 			objectRemovalScratch.Clear();
+		}
+
+		// ------- map object placement ----------------------------
+
+		private struct MapObjectPlacement
+		{
+			public FixedString64Bytes prefabId;
+			public Pose pose;
+		}
+
+		/// <summary>
+		/// Places a map object. Only the session authority spawns them — that is what lets one
+		/// peer clear and repopulate the world when the map changes — so in a session this is a
+		/// request, and offline it is a plain instantiate.
+		/// </summary>
+		public void RequestPlaceObject(MapObject prefab, Vector3 position, Quaternion rotation)
+		{
+			if (prefab == null)
+				return;
+
+			if (!SyncBus.Active)
+			{
+				Instantiate(prefab.gameObject, position, rotation);
+				return;
+			}
+
+			if (string.IsNullOrEmpty(prefab.PrefabId))
+			{
+				Debug.LogError($"Map object prefab '{prefab.name}' has no prefab id, so no peer " +
+					"can resolve it.", prefab);
+				return;
+			}
+
+			MapObjectPlacement placement = new() { pose = new Pose(position, rotation) };
+			placement.prefabId.CopyFromTruncated(prefab.PrefabId);
+			placeRequest.Raise(placement);
+		}
+
+		/// <summary>Removes a map object, through the authority while a session is up.</summary>
+		public void RequestRemoveObject(MapObject obj)
+		{
+			if (obj == null)
+				return;
+
+			// Local-only leftovers never reached the network, so no peer has to be told.
+			if (!SyncBus.Active || !obj.NetworkObject.IsSpawned)
+			{
+				Destroy(obj.gameObject);
+				return;
+			}
+
+			removeRequest.Raise(obj.NetworkObject.NetworkObjectId);
+		}
+
+		private void OnPlaceRequested(ulong sender, MapObjectPlacement placement)
+		{
+			if (objectDatabase == null || NetworkManager.Singleton == null)
+				return;
+
+			string prefabId = placement.prefabId.ToString();
+			MapObject prefab = objectDatabase.FindPrefab(prefabId);
+			if (prefab == null)
+			{
+				Debug.LogWarning($"Peer {sender} asked to place unknown prefab '{prefabId}'.");
+				return;
+			}
+
+			NetworkObject.InstantiateAndSpawn(prefab.gameObject, NetworkManager.Singleton,
+				ownerClientId: SyncBus.LocalClientId,
+				position: placement.pose.position, rotation: placement.pose.rotation);
+
+			MarkMapContentChanged();
+		}
+
+		private void OnRemoveRequested(ulong sender, ulong networkObjectId)
+		{
+			NetworkManager manager = NetworkManager.Singleton;
+			if (manager == null || manager.SpawnManager == null)
+				return;
+
+			if (!manager.SpawnManager.SpawnedObjects.TryGetValue(
+				    networkObjectId, out NetworkObject spawned))
+				return;
+
+			// Only map objects are removable this way; the id arrives from a peer and would
+			// otherwise be a despawn primitive for any NetworkObject in the session.
+			if (!spawned.TryGetComponent(out MapObject mapObject))
+			{
+				Debug.LogWarning($"Peer {sender} asked to remove a non-map object.");
+				return;
+			}
+
+			mapObject.RemoveIfPermitted();
+			MarkMapContentChanged();
 		}
 
 		// ------- provider persistence adapter --------------------
