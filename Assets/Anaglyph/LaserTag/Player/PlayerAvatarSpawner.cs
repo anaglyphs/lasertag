@@ -7,7 +7,7 @@ namespace Anaglyph.Lasertag
 {
 	/// <summary>
 	/// Owns the local player's avatar lifecycle: one exists exactly while we are
-	/// connected and taking part.
+	/// connected, taking part, and have aligned with everyone else at least once.
 	/// </summary>
 	public class PlayerAvatarSpawner : MonoBehaviour
 	{
@@ -17,6 +17,11 @@ namespace Anaglyph.Lasertag
 
 		private NetworkObject spawned;
 
+		// Latched for the session. Colocation drops out transiently (recentering, sleep,
+		// references out of view) and the avatar carries the player's team and score, so
+		// losing alignment must not cost them either.
+		private bool hasAligned;
+
 		public bool IsParticipating { get; private set; } = true;
 
 		private void Awake()
@@ -24,11 +29,13 @@ namespace Anaglyph.Lasertag
 			Instance = this;
 
 			NetcodeManagement.StateChanged += OnNetworkStateChange;
+			ColocationManager.Colocated += OnColocated;
 		}
 
 		private void OnDestroy()
 		{
 			NetcodeManagement.StateChanged -= OnNetworkStateChange;
+			ColocationManager.Colocated -= OnColocated;
 
 			if (Instance == this)
 				Instance = null;
@@ -36,6 +43,18 @@ namespace Anaglyph.Lasertag
 
 		private void OnNetworkStateChange(NetcodeState state)
 		{
+			if (state == NetcodeState.Disconnected)
+				hasAligned = false;
+
+			Handle();
+		}
+
+		private void OnColocated(bool isColocated)
+		{
+			if (!isColocated)
+				return;
+
+			hasAligned = true;
 			Handle();
 		}
 
@@ -52,7 +71,8 @@ namespace Anaglyph.Lasertag
 
 		private void Handle()
 		{
-			bool shouldExist = NetcodeManagement.State == NetcodeState.Connected && IsParticipating;
+			bool shouldExist = NetcodeManagement.State == NetcodeState.Connected
+				&& IsParticipating && hasAligned;
 
 			if (shouldExist && spawned == null)
 				Spawn();

@@ -6,8 +6,10 @@ using UnityEngine;
 namespace Anaglyph.Lasertag.Networking
 {
 	/// <summary>
-	/// Shows what one of this avatar's hands is holding to everyone else. Only visuals
-	/// travel - the owner fires its own weapon, and bolts are networked in their own right.
+	/// One hand's weapon. Every player spawns the same weapon into the same hand from the
+	/// same synced id - the owner gets the working weapon, everyone else gets its visuals.
+	/// A hand only exists to fire from once the avatar does. Bolts are networked in their
+	/// own right; only the presentation travels through this.
 	/// </summary>
 	public class AvatarWeapon : NetworkBehaviour
 	{
@@ -16,18 +18,17 @@ namespace Anaglyph.Lasertag.Networking
 
 		private NetworkVariable<int> weaponIdSync = new(WeaponDatabase.NoWeapon);
 
-		// hidden while the hand is untracked or weapons are switched off
+		// hidden while the hand is untracked or weapons are put away
 		private NetworkVariable<bool> shownSync = new();
 		private NetworkVariable<bool> firingSync = new();
 
-		// owner: the local weapon being relayed
-		private GameObject relayedPrefab;
-		private WeaponView relayedView;
-		private int relayedId = WeaponDatabase.NoWeapon;
-
-		// everyone else: the visuals spawned for it
+		private GameObject instance;
 		private WeaponView view;
-		private int viewId = WeaponDatabase.NoWeapon;
+		private int id = WeaponDatabase.NoWeapon;
+
+		// owner only
+		private GameObject selectedPrefab;
+		private bool weaponsActive = true;
 
 		public override void OnNetworkSpawn()
 		{
@@ -38,16 +39,20 @@ namespace Anaglyph.Lasertag.Networking
 			shownSync.OnValueChanged += OnShownChanged;
 			firingSync.OnValueChanged += OnFiringChanged;
 
-			Refresh();
+			Show(weaponIdSync.Value);
 		}
 
 		public override void OnNetworkDespawn()
 		{
+			if (IsOwner)
+			{
+				Show(WeaponDatabase.NoWeapon);
+				return;
+			}
+
 			weaponIdSync.OnValueChanged -= OnWeaponIdChanged;
 			shownSync.OnValueChanged -= OnShownChanged;
 			firingSync.OnValueChanged -= OnFiringChanged;
-
-			Relay(null);
 		}
 
 		private void Update()
@@ -60,36 +65,85 @@ namespace Anaglyph.Lasertag.Networking
 			if (switcher == null)
 				return;
 
-			GameObject prefab = switcher.GetHeldPrefab(handedness);
+			GameObject prefab = switcher.GetSelected(handedness);
 
-			if (prefab != relayedPrefab)
+			if (prefab != selectedPrefab)
 			{
-				relayedPrefab = prefab;
-				relayedId = database.IndexOf(prefab);
+				selectedPrefab = prefab;
+				Show(database.IndexOf(prefab));
 			}
 
-			Relay(switcher.GetHeldView(handedness));
+			// only on change - DeactivateUntracked owns this flag the rest of the time
+			if (switcher.WeaponsActive != weaponsActive)
+			{
+				weaponsActive = switcher.WeaponsActive;
 
-			weaponIdSync.Value = relayedId;
-			shownSync.Value = switcher.IsHeldWeaponShown(handedness);
-			firingSync.Value = relayedView != null && relayedView.IsFiring;
+				if (instance != null)
+					instance.SetActive(weaponsActive);
+			}
+
+			weaponIdSync.Value = id;
+			shownSync.Value = instance != null && instance.activeInHierarchy;
+			firingSync.Value = view != null && view.IsFiring;
 		}
 
-		private void Relay(WeaponView weaponView)
+		private void Show(int weaponId)
 		{
-			if (weaponView == relayedView)
+			if (weaponId == id)
 				return;
 
-			if (relayedView != null)
-				relayedView.Fired -= OnRelayedViewFired;
+			id = weaponId;
 
-			relayedView = weaponView;
+			if (view != null)
+				view.Fired -= OnFired;
 
-			if (relayedView != null)
-				relayedView.Fired += OnRelayedViewFired;
+			if (instance != null)
+				Destroy(instance);
+
+			instance = null;
+			view = null;
+
+			GameObject prefab = IsOwner ? database.GetWeapon(id) : database.GetView(id);
+
+			if (prefab == null)
+				return;
+
+			instance = Instantiate(prefab, transform, false);
+			instance.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+			view = instance.GetComponentInChildren<WeaponView>(true);
+
+			if (!IsOwner)
+			{
+				ApplySyncedState();
+				return;
+			}
+
+			if (instance.TryGetComponent(out HandSubject handSubject))
+				handSubject.Assign(HandInput.Get(handedness));
+
+			instance.SetActive(weaponsActive);
+
+			if (view != null)
+				view.Fired += OnFired;
 		}
 
-		private void OnRelayedViewFired()
+		// what the owner's own weapon does for itself, applied to everyone else's copy
+		private void ApplySyncedState()
+		{
+			if (instance == null)
+				return;
+
+			instance.SetActive(shownSync.Value);
+
+			if (view != null)
+				view.SetFiring(firingSync.Value);
+		}
+
+		private void OnWeaponIdChanged(int previous, int current) => Show(current);
+		private void OnShownChanged(bool previous, bool current) => ApplySyncedState();
+		private void OnFiringChanged(bool previous, bool current) => ApplySyncedState();
+
+		private void OnFired()
 		{
 			PlayFireRpc();
 		}
@@ -100,34 +154,6 @@ namespace Anaglyph.Lasertag.Networking
 		{
 			if (view != null && view.isActiveAndEnabled)
 				view.PlayFire();
-		}
-
-		private void OnWeaponIdChanged(int previous, int current) => Refresh();
-		private void OnShownChanged(bool previous, bool current) => Refresh();
-		private void OnFiringChanged(bool previous, bool current) => Refresh();
-
-		private void Refresh()
-		{
-			if (viewId != weaponIdSync.Value)
-			{
-				viewId = weaponIdSync.Value;
-
-				if (view != null)
-					Destroy(view.gameObject);
-
-				WeaponView viewPrefab = database.GetViewPrefab(viewId);
-
-				view = viewPrefab == null ? null : Instantiate(viewPrefab, transform, false);
-
-				if (view != null)
-					view.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
-			}
-
-			if (view == null)
-				return;
-
-			view.gameObject.SetActive(shownSync.Value);
-			view.SetFiring(firingSync.Value);
 		}
 	}
 }

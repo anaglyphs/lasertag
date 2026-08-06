@@ -28,18 +28,21 @@ namespace Anaglyph.Lasertag.Weapons
 			return index;
 		}
 
-		/// <summary>The visuals-only part of a weapon, for showing in someone else's hand.</summary>
-		public WeaponView GetViewPrefab(int id)
-		{
-			if (id < 0 || id >= weapons.Count)
-				return null;
+		/// <summary>The whole weapon, for the player actually holding it.</summary>
+		public GameObject GetWeapon(int id) =>
+			id < 0 || id >= weapons.Count ? null : weapons[id];
 
-			GameObject weapon = weapons[id];
+		/// <summary>The visuals-only part of it, for showing in someone else's hand.</summary>
+		public GameObject GetView(int id)
+		{
+			GameObject weapon = GetWeapon(id);
 
 			if (weapon == null)
 				return null;
 
-			return weapon.GetComponentInChildren<WeaponView>(true);
+			WeaponView view = weapon.GetComponentInChildren<WeaponView>(true);
+
+			return view == null ? null : view.gameObject;
 		}
 	}
 }

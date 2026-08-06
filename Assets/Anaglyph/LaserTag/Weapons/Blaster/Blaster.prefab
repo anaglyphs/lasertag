@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 4399103225990605551}
   - component: {fileID: 3410202955308774989}
-  - component: {fileID: 3509467823155476891}
   - component: {fileID: 606668357417639695}
   - component: {fileID: 1698842043490978982}
   - component: {fileID: 8483065358018640194}
@@ -50,20 +49,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Input::Anaglyph.Input.HandSubject
   current: {fileID: 0}
---- !u!114 &3509467823155476891
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3351604493564354878}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: cf9136896eb004e9b80a6c6503365f95, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Anaglyph.Input::Anaglyph.Input.HandMover
-  handSubject: {fileID: 3410202955308774989}
-  usePointPose: 0
 --- !u!114 &606668357417639695
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -187,7 +172,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 28eae13bae57d4e5cbb0ba997ece46cd, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.Weapons.WeaponView
 --- !u!4 &7486743840108051142 stripped
 Transform:
