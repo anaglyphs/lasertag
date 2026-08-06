@@ -29,10 +29,13 @@ namespace Anaglyph.Lasertag.Networking
 		public event Action Killed = delegate { };
 
 		public UnityEvent OnDamaged = new();
-		public event Action Damaged = delegate { };
+		public event Action<float, ulong> Damaged = delegate { };
 
 		public bool IsAlive => isAliveSync.Value;
-		public NetworkVariable<bool> isAliveSync = new();
+		private readonly NetworkVariable<bool> isAliveSync = new(true);
+
+		/// <summary>Owner only - the local player's life is the source of truth.</summary>
+		internal void SetAlive(bool isAlive) => isAliveSync.Value = isAlive;
 
 		[SerializeField] private TeamOwner teamOwner;
 		public TeamOwner TeamOwner => teamOwner;
@@ -65,7 +68,7 @@ namespace Anaglyph.Lasertag.Networking
 		private void Awake()
 		{
 			Killed += OnKilled.Invoke;
-			Damaged += OnDamaged.Invoke;
+			Damaged += delegate { OnDamaged.Invoke(); };
 			Respawned += OnRespawned.Invoke;
 
 			isAliveSync.OnValueChanged += delegate(bool wasAlive, bool isAlive)
@@ -75,7 +78,7 @@ namespace Anaglyph.Lasertag.Networking
 				else if (!wasAlive && isAlive)
 					Respawned.Invoke();
 
-				foreach (GameObject g in deactivatedWhenDead) g.SetActive(isAlive);
+				ApplyAliveState();
 			};
 
 			teamOwner.TeamChanged += delegate { RefreshBaseState(); };
@@ -89,16 +92,14 @@ namespace Anaglyph.Lasertag.Networking
 		public override void OnNetworkSpawn()
 		{
 			if (IsOwner)
-			{
-				isAliveSync.Value = true;
 				Local = this;
-			}
 			else
-			{
 				OtherPlayers.Add(this);
-			}
 
 			All[OwnerClientId] = this;
+
+			// the synced value arrives before spawn, so nothing raises OnValueChanged for it
+			ApplyAliveState();
 		}
 
 		public override void OnNetworkDespawn()
@@ -106,6 +107,10 @@ namespace Anaglyph.Lasertag.Networking
 			Killed.Invoke();
 			OtherPlayers.Remove(this);
 			All.Remove(OwnerClientId);
+
+			// leaving this pointing at a destroyed avatar makes every `Local?.` call throw
+			if (Local == this)
+				Local = null;
 
 			// A ControlPoint won't reliably get OnTriggerExit if this player despawns
 			// (e.g. disconnects) while standing inside its trigger, so proactively
@@ -148,7 +153,17 @@ namespace Anaglyph.Lasertag.Networking
 				}
 
 			OccupiedBase = occupied;
+
+			if (IsInFriendlyBase == inFriendly)
+				return;
+
 			IsInFriendlyBase = inFriendly;
+			InFriendlyBaseChanged.Invoke(inFriendly);
+		}
+
+		private void ApplyAliveState()
+		{
+			foreach (GameObject g in deactivatedWhenDead) g.SetActive(IsAlive);
 		}
 
 		public void Damage(IDamageable.Data data)
@@ -159,10 +174,7 @@ namespace Anaglyph.Lasertag.Networking
 		[Rpc(SendTo.Everyone)]
 		public void DamageRpc(float damage, ulong damagedBy)
 		{
-			if (IsOwner)
-				MainPlayer.Instance.Damage(damage, damagedBy);
-
-			Damaged.Invoke();
+			Damaged.Invoke(damage, damagedBy);
 		}
 
 		[Rpc(SendTo.Everyone)]

@@ -1099,6 +1099,12 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 7254734392762225021, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 7321122391286215467}
+    - targetCorrespondingSourceObject: {fileID: 7254734392762225021, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1317580895142989813}
+    - targetCorrespondingSourceObject: {fileID: 7254734392762225021, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 454994331677340201}
     - targetCorrespondingSourceObject: {fileID: 8273645227207553632, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 5467248365274046325}
@@ -1959,10 +1965,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6e977948e9590bc47bc62003d88117a8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  avatarPrefab: {fileID: 6958064522276107603, guid: e4f083ef36e807249952bb99ca629aa6, type: 3}
-  headTransform: {fileID: 1532089469887111823}
-  leftHandTransform: {fileID: 6269851850407494933}
-  rightHandTransform: {fileID: 2028083025063900193}
   redDamagedVision: 1
 --- !u!114 &7958624712871393461
 MonoBehaviour:
@@ -2077,6 +2079,34 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.WeaponSwitcher
   defaultWeapon: {fileID: 3351604493564354878, guid: dc9d3a79025131f408102e10b2cea9d5, type: 3}
+--- !u!114 &1317580895142989813
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5922542169172391784}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9f266463587ec4e8eacbf033b4d032c3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.LocalRig
+  head: {fileID: 1532089469887111823}
+  leftHand: {fileID: 6269851850407494933}
+  rightHand: {fileID: 2028083025063900193}
+--- !u!114 &454994331677340201
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5922542169172391784}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fba011e4b9d9c47a4905a34f13777cda, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.PlayerAvatarSpawner
+  avatarPrefab: {fileID: 6958064522276107603, guid: e4f083ef36e807249952bb99ca629aa6, type: 3}
 --- !u!1001 &7298045355582600610
 PrefabInstance:
   m_ObjectHideFlags: 0

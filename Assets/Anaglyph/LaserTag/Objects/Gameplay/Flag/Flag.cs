@@ -86,7 +86,7 @@ namespace Anaglyph.Lasertag
 			Holder = holder;
 		}
 
-		private void OnDied()
+		private void OnDied(ulong killerId)
 		{
 			if (Holder == PlayerAvatar.Local)
 			{

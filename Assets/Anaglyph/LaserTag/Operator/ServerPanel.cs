@@ -171,7 +171,7 @@ namespace Anaglyph.Lasertag.Operator
 			ColocationManager.Instance.methodHostSetting = useAprilTags
 				? ColocationManager.ColocationMethod.AprilTag
 				: ColocationManager.ColocationMethod.MetaSharedAnchor;
-			MainPlayer.Instance?.SetIsParticipating(false);
+			PlayerAvatarSpawner.Instance?.SetIsParticipating(false);
 
 			if (useRelay)
 			{

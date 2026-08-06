@@ -1,42 +1,38 @@
 using System;
-using Anaglyph.Lasertag.Networking;
 using Anaglyph.Lasertag.Weapons;
-using Anaglyph.Netcode;
-using Unity.Netcode;
-using Unity.XR.CoreUtils;
 using UnityEngine;
 
 namespace Anaglyph.Lasertag
 {
+	/// <summary>
+	/// The local player's own state - health, life and respawn rules. It knows nothing
+	/// about the networked avatar; LocalAvatarMirror owns that seam and feeds this.
+	/// </summary>
 	[DefaultExecutionOrder(-100)]
 	public class MainPlayer : MonoBehaviour
 	{
 		private const float MaxHealth = 100;
 
-		[SerializeField] private GameObject avatarPrefab;
-
-		[SerializeField] private Transform headTransform;
-		[SerializeField] private Transform leftHandTransform;
-		[SerializeField] private Transform rightHandTransform;
-
-		// [SerializeField] private OVRSkeleton skeleton;
-		public bool redDamagedVision = true;
-
 		// todo move this into another component. this really doesn't belong here
 		// private OVRPassthroughLayer passthroughLayer;
+		public bool redDamagedVision = true;
+
 		public static MainPlayer Instance { get; private set; }
 
 		public float Health { get; private set; } = MaxHealth;
 		public bool IsAlive { get; private set; } = true;
 		public bool IsInFriendlyBase { get; private set; }
+		public byte Team { get; private set; }
 
-		public Transform HeadTransform => headTransform;
-		public Transform LeftHandTransform => leftHandTransform;
-		public Transform RightHandTransform => rightHandTransform;
-		// public OVRSkeleton Skeleton => skeleton;
+		/// <summary>Whether the player currently has an avatar in the match.</summary>
+		public bool IsInPlay { get; private set; }
 
 		public float LastDeathTime { get; private set; }
-		public bool isParticipating { get; private set; } = true;
+
+		public static event Action<ulong> Died = delegate { };
+		public static event Action Respawned = delegate { };
+		public static event Action Damaged = delegate { };
+		public static event Action<byte> TeamChanged = delegate { };
 
 		private void Awake()
 		{
@@ -44,16 +40,21 @@ namespace Anaglyph.Lasertag
 
 			// passthroughLayer = FindFirstObjectByType<OVRPassthroughLayer>();
 
-			NetcodeManagement.StateChanged += OnNetworkStateChange;
 			MatchReferee.StateChanged += OnMatchStateChange;
+		}
+
+		private void OnDestroy()
+		{
+			MatchReferee.StateChanged -= OnMatchStateChange;
+
+			if (Instance == this)
+				Instance = null;
 		}
 
 		private void Update()
 		{
-			if (!PlayerAvatar.Local)
+			if (!IsInPlay)
 				return;
-
-			IsInFriendlyBase = PlayerAvatar.Local.IsInFriendlyBase;
 
 			// health
 			if (redDamagedVision)
@@ -94,69 +95,34 @@ namespace Anaglyph.Lasertag
 			}
 		}
 
-		private void LateUpdate()
-		{
-			if (!PlayerAvatar.Local) return;
-
-			// network player transforms
-			PlayerAvatar.Local.HeadTransform.SetWorldPose(headTransform.GetWorldPose());
-			PlayerAvatar.Local.LeftHandTransform.SetWorldPose(leftHandTransform.GetWorldPose());
-			PlayerAvatar.Local.RightHandTransform.SetWorldPose(rightHandTransform.GetWorldPose());
-
-			// var spineMid = skeleton.Bones[(int)OVRSkeleton.BoneId.Body_SpineMiddle].Transform;
-			// PlayerAvatar.Local.TorsoTransform.SetWorldPose(spineMid.GetWorldPose());
-		}
-
-		private void OnDestroy()
-		{
-			NetcodeManagement.StateChanged -= OnNetworkStateChange;
-			MatchReferee.StateChanged -= OnMatchStateChange;
-		}
-
-		public static event Action Died = delegate { };
-		public static event Action Respawned = delegate { };
-		public static event Action Damaged = delegate { };
-		public static event Action<byte> TeamChanged = delegate { };
-
-		private void OnNetworkStateChange(NetcodeState state)
-		{
-			if (state == NetcodeState.Connected)
-				HandleAvatar();
-		}
-
 		private void OnMatchStateChange(MatchState state)
 		{
 			Respawn();
 		}
 
-		public void SetIsParticipating(bool isParticipating)
+		public void SetInPlay(bool inPlay)
 		{
-			this.isParticipating = isParticipating;
-			HandleAvatar();
-			Respawn();
+			IsInPlay = inPlay;
 
-			if (!isParticipating) WeaponsManagement.CanFire = false;
-		}
-
-		private void HandleAvatar()
-		{
-			if (NetcodeManagement.State == NetcodeState.Connected && isParticipating && PlayerAvatar.Local == null)
-				SpawnAvatar();
-			else if (NetcodeManagement.State != NetcodeState.Connected ||
-			         (!isParticipating && PlayerAvatar.Local != null))
-				PlayerAvatar.Local?.NetworkObject.Despawn();
-		}
-
-		private void SpawnAvatar()
-		{
-			NetworkManager manager = NetworkManager.Singleton;
-			if (!manager.IsConnectedClient)
+			if (inPlay)
 				return;
 
-			NetworkObject.InstantiateAndSpawn(avatarPrefab,
-				manager, manager.LocalClientId, true, true);
+			IsInFriendlyBase = false;
+			WeaponsManagement.CanFire = false;
+		}
 
-			PlayerAvatar.Local.TeamOwner.TeamChanged += TeamChanged.Invoke;
+		public void SetInFriendlyBase(bool inFriendlyBase)
+		{
+			IsInFriendlyBase = inFriendlyBase;
+		}
+
+		public void SetTeam(byte team)
+		{
+			if (Team == team)
+				return;
+
+			Team = team;
+			TeamChanged.Invoke(team);
 		}
 
 		public void Damage(float damage, ulong damagedBy)
@@ -170,30 +136,17 @@ namespace Anaglyph.Lasertag
 				Kill(damagedBy);
 		}
 
-		public void Kill(ulong killerID)
+		public void Kill(ulong killerId)
 		{
 			if (!IsAlive) return;
 
 			WeaponsManagement.CanFire = false;
 
-			PlayerAvatar.Local.isAliveSync.Value = false;
-
 			IsAlive = false;
 			Health = 0;
 			LastDeathTime = Time.time;
 
-			Died.Invoke();
-
-			if (PlayerAvatar.All.TryGetValue(killerID, out PlayerAvatar killer))
-			{
-				PlayerAvatar.Local.KilledByPlayerRpc(killerID);
-
-				if (MatchReferee.State == MatchState.Playing && killer.Team != PlayerAvatar.Local.Team)
-				{
-					MatchReferee referee = MatchReferee.Instance;
-					referee.Score(killer.Team, MatchReferee.Settings.pointsPerKill);
-				}
-			}
+			Died.Invoke(killerId);
 		}
 
 		public void Respawn()
@@ -203,9 +156,6 @@ namespace Anaglyph.Lasertag
 			ClearPassthroughEffects();
 
 			WeaponsManagement.CanFire = true;
-
-			if (PlayerAvatar.Local)
-				PlayerAvatar.Local.isAliveSync.Value = true;
 
 			IsAlive = true;
 			Health = MaxHealth;

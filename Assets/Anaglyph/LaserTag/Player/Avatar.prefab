@@ -5648,6 +5648,8 @@ GameObject:
   - component: {fileID: 6746067594132514514}
   - component: {fileID: -5693910488107663892}
   - component: {fileID: 2387703453467970642}
+  - component: {fileID: 7938537173093428324}
+  - component: {fileID: 2472858853429679913}
   m_Layer: 0
   m_Name: Avatar
   m_TagString: Player
@@ -5763,11 +5765,6 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-  isAliveSync:
-    UpdateTraits:
-      MinSecondsBetweenUpdates: 0
-      MaxSecondsBetweenUpdates: 0
-    m_InternalValue: 1
   teamOwner: {fileID: 2387703453467970642}
   scoreSync:
     UpdateTraits:
@@ -5795,6 +5792,34 @@ MonoBehaviour:
   OnTeamChange:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &7938537173093428324
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6958064522276107603}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ea49e1ed897e44a2a31a1f531fd7df9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.Networking.AvatarPose
+  ShowTopMostFoldoutHeaderGroup: 1
+  avatar: {fileID: -5693910488107663892}
+--- !u!114 &2472858853429679913
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6958064522276107603}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80136ea714b334f2886fe99f721145e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.Networking.LocalAvatarMirror
+  ShowTopMostFoldoutHeaderGroup: 1
+  avatar: {fileID: -5693910488107663892}
 --- !u!1 &8576566119580979477
 GameObject:
   m_ObjectHideFlags: 0

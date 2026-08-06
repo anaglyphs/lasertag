@@ -39,7 +39,7 @@ namespace Anaglyph.Lasertag.UI
 				HUDElement.SetDisplayed(deathPopup, false);
 		}
 
-		private void OnDied()
+		private void OnDied(ulong killerId)
 		{
 			gameObject.SetActive(true);
 		}
