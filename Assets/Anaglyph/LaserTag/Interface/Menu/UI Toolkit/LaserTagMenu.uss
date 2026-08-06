@@ -1,5 +1,5 @@
 * {
-	-unity-font-definition: url("project://database/Assets/Fonts/Zector SDF.asset");
+	-unity-font-definition: url("/Assets/Fonts/Zector SDF.asset");
 	color: rgb(255, 255, 255);
 }
 
@@ -11,8 +11,6 @@
     font-size: 20px;
     border-width: 2px;
     border-color: rgb(255, 255, 255);
-    
-    /*-unity-font-definition: url("project://database/Assets/Anaglyph/LaserTag/Interface/Fonts/zector/Zector SDF 1.asset");*/
 }
 
 .multiplayer-panel {
@@ -325,7 +323,6 @@ ScrollView {
 .hud-root {
     flex-grow: 1;
     color: rgb(255, 255, 255);
-    -unity-font-definition: url("project://database/Assets/Playbeing/DInish/DINishExpanded-Regular%20SDF.asset");
 }
 
 .hud-overlay {
