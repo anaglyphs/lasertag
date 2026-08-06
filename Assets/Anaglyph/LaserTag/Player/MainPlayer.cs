@@ -16,8 +16,8 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private GameObject avatarPrefab;
 
 		[SerializeField] private Transform headTransform;
-		// [SerializeField] private Transform leftHandTransform;
-		// [SerializeField] private Transform rightHandTransform;
+		[SerializeField] private Transform leftHandTransform;
+		[SerializeField] private Transform rightHandTransform;
 
 		// [SerializeField] private OVRSkeleton skeleton;
 		public bool redDamagedVision = true;
@@ -31,8 +31,8 @@ namespace Anaglyph.Lasertag
 		public bool IsInFriendlyBase { get; private set; }
 
 		public Transform HeadTransform => headTransform;
-		// public Transform LeftHandTransform => leftHandTransform;
-		// public Transform RightHandTransform => rightHandTransform;
+		public Transform LeftHandTransform => leftHandTransform;
+		public Transform RightHandTransform => rightHandTransform;
 		// public OVRSkeleton Skeleton => skeleton;
 
 		public float LastDeathTime { get; private set; }
@@ -100,8 +100,8 @@ namespace Anaglyph.Lasertag
 
 			// network player transforms
 			PlayerAvatar.Local.HeadTransform.SetWorldPose(headTransform.GetWorldPose());
-			// PlayerAvatar.Local.LeftHandTransform.SetWorldPose(leftHandTransform.GetWorldPose());
-			// PlayerAvatar.Local.RightHandTransform.SetWorldPose(rightHandTransform.GetWorldPose());
+			PlayerAvatar.Local.LeftHandTransform.SetWorldPose(leftHandTransform.GetWorldPose());
+			PlayerAvatar.Local.RightHandTransform.SetWorldPose(rightHandTransform.GetWorldPose());
 
 			// var spineMid = skeleton.Bones[(int)OVRSkeleton.BoneId.Body_SpineMiddle].Transform;
 			// PlayerAvatar.Local.TorsoTransform.SetWorldPose(spineMid.GetWorldPose());
