@@ -18,6 +18,7 @@ GameObject:
   - component: {fileID: 1088323605287642758}
   - component: {fileID: 3794738929113082028}
   - component: {fileID: 8030733127724905774}
+  - component: {fileID: 6247691024657539827}
   m_Layer: 0
   m_Name: MapManager
   m_TagString: Untagged
@@ -66,10 +67,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.MapManager
   spatialAnchorProvider: {fileID: 219892528580798013}
   tagProvider: {fileID: 1088323605287642758}
-  referenceColocator: {fileID: 9142721848964367083}
+  colocator: {fileID: 9142721848964367083}
   objectDatabase: {fileID: 11400000, guid: 93790f38bf42f48f9baa20fd8c0411a3, type: 2}
   probeTimeoutSeconds: 8
-  agreementMaxError: 0.3
+  saveDebounceSeconds: 2
+  switchTimeoutSeconds: 20
 --- !u!114 &2865989476549954882
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -115,6 +117,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.XRTemplate.SharedSpaces::Anaglyph.XRTemplate.SharedSpaces.ReferenceColocator
   fitLerp: 1
+  agreementMaxError: 0.3
 --- !u!114 &219892528580798013
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -180,3 +183,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   tagSizeMeters: 0.12
   simulatorMirrorY: 1
+--- !u!114 &6247691024657539827
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5901269829941828840}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d0ca1501b32184f499f70771b6e9b8e1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.MapDebugVisuals
+  anchorColor: {r: 0, g: 1, b: 1, a: 1}
+  tagColor: {r: 1, g: 0, b: 1, a: 1}

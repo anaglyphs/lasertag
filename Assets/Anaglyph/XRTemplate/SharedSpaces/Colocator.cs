@@ -37,6 +37,30 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	}
 	
 	/// <summary>
+	/// How closely the applied alignment lands each constraint on its own canon pose.
+	///
+	/// Counted per constraint as well as averaged: a single reference metres out would
+	/// otherwise hide inside a mean taken over many good ones.
+	/// </summary>
+	public readonly struct FitAgreement
+	{
+		public FitAgreement(int constraintCount, int agreeingCount, float meanError)
+		{
+			this.constraintCount = constraintCount;
+			this.agreeingCount = agreeingCount;
+			this.meanError = meanError;
+		}
+
+		/// <summary>How many constraints the provider is currently observing.</summary>
+		public readonly int constraintCount;
+
+		/// <summary>How many of them land within <see cref="Colocator.AgreementMaxError"/>.</summary>
+		public readonly int agreeingCount;
+
+		public readonly float meanError;
+	}
+
+	/// <summary>
 	/// Aligns the rig against the constraints supplied by the selected provider. Providers own
 	/// discovery, persistence, and synchronization; this class only fits their observed anchor
 	/// poses to their canon poses. Selecting a provider stops the previous one, so two anchor
@@ -52,6 +76,18 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		[Tooltip("How quickly to ease onto a new fit once already localized. 1 = snap")]
 		[SerializeField] private float fitLerp = 0.1f;
+
+		[Tooltip("Reference error above which a constraint does not count as agreeing with the fit")]
+		[SerializeField] private float agreementMaxError = 0.3f;
+
+		public float AgreementMaxError => agreementMaxError;
+
+		/// <summary>
+		/// How well the alignment currently applied fits the references being observed. Measured
+		/// before each new fit, so it describes the alignment the rest of the frame is standing in
+		/// rather than the one about to replace it. Zeroed whenever there is nothing to measure.
+		/// </summary>
+		public FitAgreement Agreement { get; private set; }
 
 		public IColocationConstraintProvider Provider { get; private set; }
 
@@ -69,6 +105,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				StopColocation();
 
 			Provider = next;
+			Agreement = default;
 			loggedNoReferenceRuntime = false;
 		}
 
@@ -127,6 +164,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			ctknSrc?.Cancel();
 			ctknSrc = null;
 			Provider?.StopProviding();
+			Agreement = default;
 			SetState(ColocationState.Stopped);
 		}
 
@@ -148,12 +186,14 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					if (Provider != null && !Provider.IsAvailable)
 					{
 						WarnNoReferenceRuntimeOnce();
+						Agreement = default;
 						SetState(ColocationState.Localized);
 						continue;
 					}
 
 					constraints.Clear();
 					Provider?.GetColocationConstraints(constraints);
+					MeasureAgreement();
 
 					if (!TryFit())
 						Delocalize();
@@ -181,6 +221,31 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			loggedNoReferenceRuntime = true;
 			Debug.LogWarning($"{Provider.GetType().Name} has no reference runtime available. " +
 				"Treating tracking space as the world frame.", this);
+		}
+
+		private void MeasureAgreement()
+		{
+			if (constraints.Count == 0)
+			{
+				Agreement = default;
+				return;
+			}
+
+			int agreeing = 0;
+			float errorSum = 0f;
+
+			foreach (ColocationConstraint constraint in constraints)
+			{
+				float error = Vector3.Distance(
+					constraint.observed.position, constraint.canon.position);
+
+				errorSum += error;
+				if (error <= agreementMaxError)
+					agreeing++;
+			}
+
+			Agreement = new FitAgreement(
+				constraints.Count, agreeing, errorSum / constraints.Count);
 		}
 
 		private bool TryFit()

@@ -132,7 +132,7 @@ namespace Anaglyph.Lasertag
 			EnsureLoaded();
 
 			if (map.dirty)
-				map.version = Guid.NewGuid().ToString("N");
+				MintVersion(map);
 
 			maps[map.id] = map;
 			WriteFile(map);
@@ -201,6 +201,16 @@ namespace Anaglyph.Lasertag
 		{
 			map.lastUsed = DateTime.UtcNow.Ticks;
 			Save(map);
+		}
+
+		/// <summary>
+		/// Mints a new content version, so a peer receiving this copy can tell it apart from the
+		/// version it derives from. <see cref="Save"/> does this itself for a dirty map; call it
+		/// directly only to settle the version before something else advertises it.
+		/// </summary>
+		public static void MintVersion(GameMap map)
+		{
+			map.version = Guid.NewGuid().ToString("N");
 		}
 
 		/// <summary>Stamp a local edit: sets dirty, so this copy forks instead of being replaced.</summary>

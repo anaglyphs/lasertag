@@ -79,6 +79,43 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		/// </summary>
 		private readonly HashSet<SerializableGuid> provenSavedGuids = new();
 
+		/// <summary>
+		/// When a guid whose local load failed may be asked of local storage again. A lease that may
+		/// also download stops paying for a load that just failed — but not for long: an anchor this
+		/// device holds fails to load until the headset localizes the space it was saved in, and that
+		/// is a wall-clock wait rather than a number of attempts.
+		/// </summary>
+		private readonly Dictionary<SerializableGuid, float> localRetryAt = new();
+
+		/// <summary>How long a failed local load defers the next one.</summary>
+		private const float LocalRecheckSeconds = 20f;
+
+		/// <summary>
+		/// Anchors this registry erased while an enumeration was in flight. A listing gathered before
+		/// one of those no longer describes it, so it is subtracted from the result rather than the
+		/// whole listing being dropped: the other anchors it names are still good.
+		/// </summary>
+		private readonly HashSet<SerializableGuid> unsavedDuringRefresh = new();
+
+		private bool refreshInFlight;
+		private bool lastRefreshSucceeded;
+
+		/// <summary>
+		/// Anchors handed back to the runtime whose removal it has not reported yet, against the
+		/// time each stops being waited on. Until a removal is reported the anchor is still in the
+		/// manager's trackables and the guid is still taken: handing that anchor to a handle would
+		/// report one that is on its way out, and loading the guid again hands back the same anchor
+		/// only for the pending removal to destroy it.
+		/// </summary>
+		private readonly Dictionary<TrackableId, float> removalsInFlight = new();
+
+		/// <summary>
+		/// How long a removal may go unreported before the registry stops holding the guid for it.
+		/// The manager reports on its next update, so this only covers a runtime that stops
+		/// answering — without it, an unreported removal locks its guid out for the session.
+		/// </summary>
+		private const float RemovalTimeoutSeconds = 5f;
+
 		private readonly List<AnchorHandle> reconciliationSnapshot = new();
 
 		private bool disposed;
@@ -147,7 +184,8 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			try
 			{
-				await TryRefreshSavedGuidsAsync(ctkn);
+				if (await WaitForAnchorRuntimeAsync(ctkn))
+					await TryRefreshSavedGuidsAsync(ctkn);
 			}
 			catch (OperationCanceledException)
 			{
@@ -156,6 +194,33 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			{
 				Debug.LogException(e);
 			}
+		}
+
+		/// <summary>How long the registry waits at startup for an anchor runtime to come up.</summary>
+		private const float RuntimeStartTimeoutSeconds = 30f;
+
+		/// <summary>
+		/// Waits until the anchor subsystem is running, which is what makes storage reachable:
+		/// this early OVRPlugin still reports uninitialized and AR Foundation's descriptor is not
+		/// populated yet, so an enumeration run from Awake finds nothing and never retries. Neither
+		/// stack raises an event for it, so the subsystem is polled.
+		/// </summary>
+		private async Awaitable<bool> WaitForAnchorRuntimeAsync(CancellationToken ctkn)
+		{
+			float deadline = time + RuntimeStartTimeoutSeconds;
+
+			while (anchorSubsystem is not { running: true })
+			{
+				if (time >= deadline)
+				{
+					Debug.LogWarning("No anchor runtime started; not reading saved anchors.", this);
+					return false;
+				}
+
+				await Awaitable.NextFrameAsync(ctkn);
+			}
+
+			return !disposed;
 		}
 
 		/// <summary>
@@ -175,9 +240,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		///
 		/// A guid always resolves to the same <see cref="AnchorHandle"/>, for as long as this
 		/// registry lives. Releasing every lease unloads the anchor but does not replace the handle,
-		/// so a cached handle reference and anything subscribed to its
-		/// <see cref="AnchorHandle.StateChanged"/> keep working across a release and a later
-		/// re-acquisition.
+		/// so a cached handle reference keeps working across a release and a later re-acquisition.
 		/// </summary>
 		public AnchorLease Acquire(SerializableGuid guid, AnchorSource source)
 		{
@@ -185,12 +248,24 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			ThrowIfNoSource(source);
 
 			AnchorHandle handle = GetOrCreateHandle(guid);
-			handle.Retain(anchorManager.GetAnchor(guid), source);
+			handle.Retain(FindAdoptableAnchor(guid), source);
 			return new AnchorLease(handle, source);
 		}
 
+		/// <summary>
+		/// The manager's anchor for this guid, unless it is one this registry has handed back and is
+		/// still waiting to see gone — see <see cref="removalsInFlight"/>.
+		/// </summary>
+		private ARAnchor FindAdoptableAnchor(SerializableGuid guid) =>
+			IsRemovalInFlight(guid) ? null : anchorManager.GetAnchor(guid);
+
+		/// <summary>
+		/// Takes a lease on an anchor the caller already has, handing it to the registry: once the
+		/// last lease is released the registry gives it back to the runtime and destroys its
+		/// GameObject, exactly as it would one it loaded itself.
+		/// </summary>
 		/// <inheritdoc cref="Acquire(SerializableGuid, AnchorSource)"/>
-		public AnchorLease Acquire(ARAnchor anchor, AnchorSource source)
+		private AnchorLease Acquire(ARAnchor anchor, AnchorSource source)
 		{
 			if (anchor == null)
 				throw new ArgumentNullException(nameof(anchor));
@@ -242,7 +317,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			ARAnchor mintedAnchor = result.value;
 
-			if (disposed || ctkn.IsCancellationRequested)
+			// Checked rather than left to Acquire: throwing past this point would strand an anchor
+			// nothing has a lease on and nothing else knows to give back.
+			if (!IsAvailable || ctkn.IsCancellationRequested)
 			{
 				RemoveAnchor(mintedAnchor);
 				ctkn.ThrowIfCancellationRequested();
@@ -264,10 +341,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		/// <summary>Whether an anchor can be shared or downloaded at all right now.</summary>
 		public bool canShareAnchors => sharedAnchorsSupport == Supported.Supported;
 
-		/// <summary>
-		/// Shares one loaded anchor into the Meta group addressed by its guid. The lease must
-		/// outlive the call — see <see cref="ValidateLease"/>.
-		/// </summary>
+		/// <summary>Shares one loaded anchor into the Meta group addressed by its guid.</summary>
 		public async Awaitable<XRResultStatus> TryShareAsync(AnchorLease lease,
 			CancellationToken ctkn = default)
 		{
@@ -292,19 +366,29 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				return new XRResultStatus(XRResultStatus.StatusCode.UnknownError);
 			}
 
-			// MetaOpenXRAnchorSubsystem reads sharedAnchorsGroupId synchronously inside the share
-			// call, before it returns its Awaitable, so group-scoped operations may overlap.
-			meta.sharedAnchorsGroupId = guid;
-			XRResultStatus result = await anchorManager.TryShareAnchorAsync(anchor);
-			ctkn.ThrowIfCancellationRequested();
-			return result;
+			handle.BeginOperation();
+
+			try
+			{
+				// MetaOpenXRAnchorSubsystem reads sharedAnchorsGroupId synchronously inside the
+				// share call, before it returns its Awaitable, so group-scoped operations may
+				// overlap.
+				meta.sharedAnchorsGroupId = guid;
+				XRResultStatus result = await anchorManager.TryShareAnchorAsync(anchor);
+				ctkn.ThrowIfCancellationRequested();
+				return result;
+			}
+			finally
+			{
+				handle.EndOperation();
+			}
 		}
 
 		/// <summary>
-		/// A lease is how a caller proves the anchor will still exist when the operation lands.
-		/// AR Foundation cannot be told to abandon a save or a share, and an anchor whose last lease
-		/// goes away is destroyed on the spot — so the lease has to be held for the whole call, and
-		/// it has to be one nothing else can release underneath it.
+		/// A lease is a caller's authorization to operate on an anchor: it proves the caller has a
+		/// claim on this registry's handle for that guid. It is not what keeps the anchor alive for
+		/// the operation — the registry pins the handle itself, since AR Foundation cannot be told
+		/// to abandon a save or a share once it has started.
 		/// </summary>
 		private AnchorHandle ValidateLease(AnchorLease lease)
 		{
@@ -313,7 +397,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			if (lease.isDisposed)
 				throw new ObjectDisposedException(nameof(AnchorLease),
-					"Hold the lease until the operation completes; its anchor may already be gone.");
+					"A disposed lease no longer authorizes anything.");
 
 			if (lease.Handle.owner != this)
 				throw new ArgumentException(
@@ -360,8 +444,21 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		///
 		/// Without a refresh this is a cache, not a manifest — a fresh process starts out knowing
 		/// nothing.
+		///
+		/// A snapshot, since a refresh rewrites the set from under an iteration. It is reused, so it
+		/// holds only until the next read.
 		/// </summary>
-		public IReadOnlyCollection<SerializableGuid> savedGuids => savedGuidSet;
+		public IReadOnlyList<SerializableGuid> savedGuids
+		{
+			get
+			{
+				savedGuidSnapshot.Clear();
+				savedGuidSnapshot.AddRange(savedGuidSet);
+				return savedGuidSnapshot;
+			}
+		}
+
+		private readonly List<SerializableGuid> savedGuidSnapshot = new();
 
 		/// <summary>
 		/// Anchor storage is a per-runtime capability, not a given: Meta's runtime has it,
@@ -414,12 +511,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		/// <see cref="Acquire(SerializableGuid, AnchorSource)"/> it with
 		/// <see cref="AnchorSource.Local"/>. The anchor stays loaded; this only writes it to the
 		/// device. Fails if the anchor isn't loaded right now — there is nothing for the runtime to
-		/// save. The lease must outlive the call — see <see cref="ValidateLease"/>.
+		/// save.
 		/// </summary>
-		public async Awaitable<bool> TrySaveAsync(AnchorLease lease, CancellationToken ctkn = default)
-		{
-			AnchorHandle handle = ValidateLease(lease);
+		public Awaitable<bool> TrySaveAsync(AnchorLease lease, CancellationToken ctkn = default) =>
+			TrySaveHandleAsync(ValidateLease(lease), ctkn);
 
+		private async Awaitable<bool> TrySaveHandleAsync(AnchorHandle handle, CancellationToken ctkn)
+		{
 			ThrowIfDisposed();
 
 			if (!canSaveAnchors)
@@ -437,68 +535,73 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				return false;
 			}
 
-			Result<SerializableGuid> result = await anchorManager.TrySaveAnchorAsync(anchor, ctkn);
+			// The write cannot be called off part way, so the anchor has to outlive it however
+			// briefly nothing else wants it.
+			handle.BeginOperation();
 
-			if (!result.status.IsSuccess())
+			try
 			{
-				Debug.LogWarning($"Failed to save anchor {guid} locally: {result.status}");
-				return false;
-			}
+				Result<SerializableGuid> result = await anchorManager.TrySaveAnchorAsync(anchor, ctkn);
 
-			// The registry addresses saved anchors by trackable id, which Meta's runtime promises is
-			// the same value it hands back here. An anchor that landed anywhere else is unreachable
-			// from here, so give the storage back rather than leave it holding something nothing can
-			// ever ask for again.
-			if (result.value != guid)
+				if (!result.status.IsSuccess())
+				{
+					Debug.LogWarning($"Failed to save anchor {guid} locally: {result.status}");
+					return false;
+				}
+
+				// The registry addresses saved anchors by trackable id, which Meta's runtime
+				// promises is the same value it hands back here. An anchor that landed anywhere else
+				// is unreachable from here, so give the storage back rather than leave it holding
+				// something nothing can ever ask for again.
+				if (result.value != guid)
+				{
+					Debug.LogError($"Anchor {guid} saved under a different guid ({result.value}); " +
+						"erasing it, as it cannot be loaded back by trackable id.");
+
+					if (canEraseSavedAnchors)
+						await anchorManager.TryEraseAnchorAsync(result.value, CancellationToken.None);
+
+					return false;
+				}
+
+				if (!disposed)
+					MarkSaved(guid);
+
+				return true;
+			}
+			finally
 			{
-				Debug.LogError($"Anchor {guid} saved under a different guid ({result.value}); " +
-					"erasing it, as it cannot be loaded back by trackable id.");
-
-				if (canEraseSavedAnchors)
-					await anchorManager.TryEraseAnchorAsync(result.value, CancellationToken.None);
-
-				return false;
+				handle.EndOperation();
 			}
-
-			if (!disposed)
-				MarkSaved(guid);
-
-			return true;
 		}
 
 		/// <summary>
 		/// Writes a just-downloaded anchor to this device, so the next session loads it from local
 		/// storage instead of paying for the group again. Best-effort and unawaited: nothing
 		/// downstream depends on it, and a runtime with no anchor storage simply skips it.
+		///
+		/// Runs whether or not anything still wants the anchor: the round trip is already paid for,
+		/// and the write pins the anchor for its own duration.
 		/// </summary>
 		internal async void SaveDownloadedAnchor(AnchorHandle handle)
 		{
 			if (disposed || !canSaveAnchors || IsSaved(handle.guid))
 				return;
 
-			AnchorLease pin = null;
-
 			try
 			{
-				// The save has to outlive the leases that wanted the download, and there is no way
-				// to call it off part way, so hold the anchor for the duration.
-				AnchorSource pinSource = handle.source;
-				if (pinSource == AnchorSource.None)
-					return;
-
-				pin = Acquire(handle.guid, pinSource);
-				await TrySaveAsync(pin, destroyCancellationToken);
+				await TrySaveHandleAsync(handle, destroyCancellationToken);
 			}
 			catch (OperationCanceledException)
 			{
 			}
+			catch (ObjectDisposedException)
+			{
+				// The registry tore down while the write was in flight.
+			}
 			catch (Exception e)
 			{
 				Debug.LogException(e);
-			}
-			finally
-			{
-				pin?.Dispose();
 			}
 		}
 
@@ -524,8 +627,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				return false;
 			}
 
-			savedGuidSet.Remove(guid);
-			provenSavedGuids.Remove(guid);
+			MarkNotSaved(guid);
 			return true;
 		}
 
@@ -534,6 +636,22 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			savedGuidSet.Add(guid);
 			provenSavedGuids.Add(guid);
+			localRetryAt.Remove(guid);
+		}
+
+		/// <summary>
+		/// Drops the claim that local storage holds this anchor. Only for anchors this registry
+		/// erased: a load failing is not evidence of absence, since an anchor saved in a space the
+		/// headset is not standing in fails to load every time and is still there.
+		/// <see cref="TryRefreshSavedGuidsAsync"/> is what answers that question.
+		/// </summary>
+		private void MarkNotSaved(SerializableGuid guid)
+		{
+			savedGuidSet.Remove(guid);
+			provenSavedGuids.Remove(guid);
+
+			if (refreshInFlight)
+				unsavedDuringRefresh.Add(guid);
 		}
 
 		/// <summary>
@@ -547,6 +665,40 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			ThrowIfDisposed();
 
+			// Two concurrent enumerations would each clear the other's record of what changed
+			// underneath it, and the second round trip fetches what the first is already fetching.
+			if (refreshInFlight)
+				return await AwaitRefreshInFlightAsync(ctkn);
+
+			refreshInFlight = true;
+			lastRefreshSucceeded = false;
+			unsavedDuringRefresh.Clear();
+
+			try
+			{
+				lastRefreshSucceeded = await EnumerateSavedGuidsAsync(ctkn);
+				return lastRefreshSucceeded;
+			}
+			finally
+			{
+				refreshInFlight = false;
+			}
+		}
+
+		/// <summary>
+		/// Rides along with the enumeration already running instead of starting a second one.
+		/// Unity awaitables are single-consumption, so this waits on the flag rather than the task.
+		/// </summary>
+		private async Awaitable<bool> AwaitRefreshInFlightAsync(CancellationToken ctkn)
+		{
+			while (refreshInFlight)
+				await Awaitable.NextFrameAsync(ctkn);
+
+			return lastRefreshSucceeded && !disposed;
+		}
+
+		private async Awaitable<bool> EnumerateSavedGuidsAsync(CancellationToken ctkn)
+		{
 			if (metaDiscoveryAvailable)
 				return await TryDiscoverSavedGuidsAsync(ctkn);
 
@@ -619,7 +771,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			foreach (OVRAnchor anchor in discovered)
 				savedGuidSet.Add(new SerializableGuid(anchor.Uuid));
 
-			savedGuidSet.UnionWith(provenSavedGuids);
+			ApplyRefreshCorrections();
 			return true;
 		}
 
@@ -640,8 +792,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		/// here returns its empty result on cancellation instead of some throwing and some not.
 		/// </summary>
 		private async Awaitable<(bool answered, T result)> WaitOrGiveUp<T>(
-			OVRTask<T> task, CancellationToken ctkn,
-			float timeoutSeconds = OvrRequestTimeoutSeconds)
+			OVRTask<T> task, CancellationToken ctkn)
 		{
 			bool answered = false;
 			T value = default;
@@ -664,7 +815,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			Await();
 
-			float deadline = time + timeoutSeconds;
+			float deadline = time + OvrRequestTimeoutSeconds;
 
 			try
 			{
@@ -685,6 +836,17 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			foreach (SerializableGuid id in ids)
 				savedGuidSet.Add(id);
 
+			ApplyRefreshCorrections();
+		}
+
+		/// <summary>
+		/// Corrects a listing with what this process learned first-hand while it was being fetched.
+		/// Subtracting comes first so that an anchor which missed a load and was then saved during
+		/// the same fetch ends up saved.
+		/// </summary>
+		private void ApplyRefreshCorrections()
+		{
+			savedGuidSet.ExceptWith(unsavedDuringRefresh);
 			savedGuidSet.UnionWith(provenSavedGuids);
 		}
 
@@ -738,43 +900,76 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				return localized;
 			}
 
-			// Enable every locatable first so the runtime searches for them all concurrently,
-			// then collect the results.
-			List<(OVRAnchor anchor, OVRLocatable locatable, OVRTask<bool> enable)> probes = new();
+			// Anything the fetch returned is in this device's storage by definition, which is better
+			// evidence than a discovery pass that may have run before it was written.
+			foreach (OVRAnchor anchor in fetched)
+				MarkSaved(new SerializableGuid(anchor.Uuid));
+
+			// Enable every locatable first so the runtime searches for them all concurrently.
+			int outstanding = 0;
+			bool counting = true;
 
 			foreach (OVRAnchor anchor in fetched)
 			{
 				if (!anchor.TryGetComponent(out OVRLocatable locatable))
 					continue;
 
-				probes.Add((anchor, locatable, locatable.SetEnabledAsync(true, timeoutSeconds)));
+				outstanding++;
+				Probe(anchor, locatable, locatable.SetEnabledAsync(true, timeoutSeconds));
 			}
 
 			// The probes run concurrently, so timeoutSeconds bounds the phase, not each one —
 			// waiting that long per probe would multiply the caller's budget by the anchor count.
 			float probeDeadline = time + timeoutSeconds;
 
-			foreach ((OVRAnchor anchor, OVRLocatable locatable, OVRTask<bool> enable) in probes)
+			try
 			{
-				(bool answeredEnable, bool enabled) =
-					await WaitOrGiveUp(enable, ctkn, probeDeadline - time);
-
-				if (answeredEnable && enabled &&
-				    locatable.TryGetSpatialAnchorPose(out OVRLocatable.TrackingSpacePose pose) &&
-				    pose.IsPositionTracked)
-					localized.Add(new SerializableGuid(anchor.Uuid));
-
-				// Leave nothing running behind the probe: an enabled locatable keeps the
-				// runtime tracking it, and the same UUID may be loaded through AR Foundation
-				// afterward. (Whether the two stacks interfere at all is still unverified on
-				// device; disabling here minimizes the surface either way.)
-				_ = locatable.SetEnabledAsync(false);
+				while (outstanding > 0 && time < probeDeadline)
+					await Awaitable.NextFrameAsync(ctkn);
 			}
+			catch (OperationCanceledException)
+			{
+			}
+
+			// Anything still outstanding answers on its own time and still cleans up after itself;
+			// it just no longer counts towards a result the caller is about to be handed.
+			counting = false;
 
 			if (ctkn.IsCancellationRequested || disposed)
 				localized.Clear();
 
 			return localized;
+
+			async void Probe(OVRAnchor probed, OVRLocatable locatable, OVRTask<bool> enable)
+			{
+				try
+				{
+					bool enabled = await enable;
+
+					if (counting && enabled &&
+					    locatable.TryGetSpatialAnchorPose(out OVRLocatable.TrackingSpacePose pose) &&
+					    pose.IsPositionTracked)
+						localized.Add(new SerializableGuid(probed.Uuid));
+				}
+				catch (Exception e)
+				{
+					Debug.LogException(e);
+				}
+				finally
+				{
+					outstanding--;
+
+					// Leave nothing running behind the probe: an enabled locatable keeps the
+					// runtime tracking it, and the same UUID may be loaded through AR Foundation
+					// afterward. (Whether the two stacks interfere at all is still unverified on
+					// device; disabling here minimizes the surface either way.)
+					//
+					// Runs however long the enable took, so a probe that outlived the phase
+					// deadline still turns itself off, and never across a pending enable — the
+					// runtime does not define which of those two wins.
+					_ = locatable.SetEnabledAsync(false);
+				}
+			}
 		}
 
 		// ------- internals -----------------------------------------
@@ -784,15 +979,17 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		/// <summary>
 		/// Brings an anchor in from whichever of <paramref name="source"/>'s origins works, local
-		/// storage first. Local loads hand back a materialized anchor; shared downloads only report
-		/// that the request landed, and the anchor shows up later through trackablesChanged.
+		/// storage first — and also ahead of a download this device does not need, see
+		/// <see cref="ShouldTryLocal"/>. Local loads hand back a materialized anchor; shared
+		/// downloads only report that the request landed, and the anchor shows up later through
+		/// trackablesChanged.
 		/// </summary>
 		internal async Awaitable<AnchorLoadResult> TryLoadAsync(SerializableGuid guid, AnchorSource source)
 		{
 			bool localRequested = source.HasFlag(AnchorSource.Local);
 			string localFailure = null;
 
-			if (localRequested && canLoadSavedAnchors)
+			if (ShouldTryLocal(guid, source))
 			{
 				AnchorLoadResult local = await TryLoadSavedAnchorAsync(guid);
 				if (local.succeeded)
@@ -827,12 +1024,41 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			return AnchorLoadResult.Failure("this runtime cannot load saved anchors");
 		}
 
+		/// <summary>
+		/// Whether this attempt should ask local storage before the shared group.
+		/// </summary>
+		private bool ShouldTryLocal(SerializableGuid guid, AnchorSource source)
+		{
+			if (!canLoadSavedAnchors)
+				return false;
+
+			// A copy this device already holds beats the group round trip whatever the lease
+			// permits: it materializes immediately and needs no network.
+			if (!IsSaved(guid) && !source.HasFlag(AnchorSource.Local))
+				return false;
+
+			// Nothing else to fall back on, so keep asking however often it has failed.
+			if (!source.HasFlag(AnchorSource.Shared))
+				return true;
+
+			// A saved anchor that belongs to another space fails forever here, so a download still
+			// gets its turn — the anchor is asked for again once the wait lapses, in case the only
+			// thing missing was the headset localizing the space it was saved in.
+			return !localRetryAt.TryGetValue(guid, out float retryAt) || time >= retryAt;
+		}
+
 		internal async Awaitable<AnchorLoadResult> TryLoadSavedAnchorAsync(SerializableGuid guid)
 		{
 			Result<ARAnchor> result = await anchorManager.TryLoadAnchorAsync(guid);
 
 			if (!result.status.IsSuccess() || result.value == null)
+			{
+				// Not evidence that this device lacks the anchor — an anchor saved somewhere else
+				// fails to load here every time and is still in storage — so this defers the next
+				// local load without touching what the registry believes is saved.
+				localRetryAt[guid] = time + LocalRecheckSeconds;
 				return AnchorLoadResult.Failure($"local storage: {result.status}");
+			}
 
 			// Unlike a shared download, this materialized an ARAnchor synchronously. If nothing
 			// wants it anymore there's no reconciliation left to sweep it up, so do it here.
@@ -857,7 +1083,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		internal async Awaitable<AnchorLoadResult> TryLoadSharedAnchorAsync(SerializableGuid guid)
 		{
 			MetaOpenXRAnchorSubsystem meta = metaAnchorSubsystem;
-			if (meta == null)
+			if (meta == null || sharedAnchorsSupport == Supported.Unsupported)
 			{
 				LogNoSharedAnchorsOnce();
 				return AnchorLoadResult.Failure("this runtime has no shared anchors");
@@ -877,7 +1103,27 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (downloaded.Count == 0)
 				return AnchorLoadResult.Failure("shared group was empty");
 
-			return AnchorLoadResult.Downloading;
+			// A group holds the one anchor its id names. Anything else was written by something that
+			// does not share that convention, and waiting on an anchor that is not coming would
+			// spend the whole materialize timeout learning nothing.
+			foreach (XRAnchor candidate in downloaded)
+				if (candidate.trackableId == (TrackableId)guid)
+					return AnchorLoadResult.Downloading;
+
+			return AnchorLoadResult.Failure("shared group held a different anchor");
+		}
+
+		/// <summary>Whether the runtime still owes this registry a removal for this guid.</summary>
+		internal bool IsRemovalInFlight(SerializableGuid guid)
+		{
+			if (!removalsInFlight.TryGetValue(guid, out float deadline))
+				return false;
+
+			if (time < deadline)
+				return true;
+
+			removalsInFlight.Remove(guid);
+			return false;
 		}
 
 		internal void RemoveAnchor(ARAnchor anchor)
@@ -885,25 +1131,47 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			if (anchor == null)
 				return;
 
-			// ARTrackableManager destroys a trackable's GameObject itself once the subsystem reports
-			// the removal, so only clean up after it where it won't — destroying the object out from
-			// under it hands the removal event a dead ARAnchor.
-			bool managerWillDestroy = anchorManager != null &&
-				anchorManager.TryRemoveAnchor(anchor) && anchor.destroyOnRemoval;
+			// Read before removing: a pending anchor is destroyed inside the call below.
+			TrackableId id = anchor.trackableId;
+			bool wasPending = anchor.pending;
+			bool destroyOnRemoval = anchor.destroyOnRemoval;
 
-			if (!managerWillDestroy && anchor != null && anchor.gameObject != null)
+			// A disabled manager throws rather than degrading, and this runs during teardown.
+			bool removalRequested = anchorManager != null && anchorManager.enabled &&
+				anchorManager.TryRemoveAnchor(anchor);
+
+			// An anchor the manager had already reported is announced removed some frames later; one
+			// it had not is dropped synchronously above and never reported at all. Past teardown
+			// there is no handle left to hold the guid for, and nothing to clear the entry.
+			if (removalRequested && !wasPending && !disposed)
+				removalsInFlight[id] = time + RemovalTimeoutSeconds;
+
+			// ARTrackableManager destroys a trackable's GameObject itself, so only clean up after it
+			// where it won't — destroying the object out from under it hands the removal event a
+			// dead ARAnchor.
+			if (!(removalRequested && destroyOnRemoval) && anchor != null && anchor.gameObject != null)
 				Object.Destroy(anchor.gameObject);
 		}
 
 		private void OnTrackablesChanged(ARTrackablesChangedEventArgs<ARAnchor> eventData)
 		{
+			// Either report settles what the runtime owed for a guid: a removal is the confirmation
+			// asked for, and an add means the runtime re-established the anchor regardless.
 			foreach (ARAnchor anchor in eventData.added)
+			{
+				removalsInFlight.Remove(anchor.trackableId);
+
 				if (TryGetHandleFor(anchor.trackableId, out AnchorHandle handle))
 					handle.OnAnchorAdded(anchor);
+			}
 
 			foreach ((SerializableGuid guid, ARAnchor _) in eventData.removed)
+			{
+				removalsInFlight.Remove(guid);
+
 				if (TryGetHandleFor(guid, out AnchorHandle handle))
 					handle.OnAnchorRemoved();
+			}
 		}
 
 		private bool TryGetHandleFor(SerializableGuid id, out AnchorHandle handle) =>
@@ -987,14 +1255,28 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				anchorManager.trackablesChanged.RemoveListener(OnTrackablesChanged);
 
 			// Nothing reconciles these handles again, so an anchor left loaded is one no lease can
-			// ever release and only this registry knew how to find.
+			// ever release and only this registry knew how to find. Contained per handle: giving one
+			// back can fail, and the rest still have to be given back and left terminal.
 			foreach (AnchorHandle handle in handles.Values)
 			{
-				RemoveAnchor(handle.anchor);
+				try
+				{
+					// An anchor under a save or a share the runtime cannot be told to abandon has to
+					// outlive it here too; Abandon keeps it aside and gives it back when the last
+					// operation ends.
+					if (!handle.hasOperationInFlight)
+						RemoveAnchor(handle.anchor);
+				}
+				catch (Exception e)
+				{
+					Debug.LogException(e);
+				}
+
 				handle.Abandon();
 			}
 
 			handles.Clear();
+			removalsInFlight.Clear();
 		}
 	}
 
@@ -1056,10 +1338,14 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		/// A dropped lease pins its anchor for the rest of the session with nothing left able to
 		/// release it, and the symptom — an anchor that never unloads — points nowhere near the
 		/// holder that lost it.
+		///
+		/// Quiet once the registry is gone: it has already given every anchor back, so a lease
+		/// collected after that pins nothing, and holders are not expected to outlive it.
+		/// Reads nothing but plain fields — this runs off the main thread.
 		/// </summary>
 		~AnchorLease()
 		{
-			if (!disposed)
+			if (!disposed && !Handle.owner.isDisposed)
 				Debug.LogError($"An anchor lease on {Handle.guid} was collected without being " +
 					"disposed. Its anchor can no longer be released.");
 		}
@@ -1096,7 +1382,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	/// anchor whose owner has not uploaded it yet is a wait, not a verdict.
 	///
 	/// One handle serves a guid for the whole life of its registry, leased or not, so a handle
-	/// reference and its <see cref="StateChanged"/> subscriptions are safe to hold onto.
+	/// reference is safe to hold onto. Holders read <see cref="state"/> when they need it rather
+	/// than being notified: the handle never calls out, which is what keeps reconciliation free of
+	/// re-entrancy.
 	/// </summary>
 	public sealed class AnchorHandle
 	{
@@ -1106,6 +1394,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			Loading,
 			Materializing,
 			Active,
+
+			/// <summary>
+			/// The anchor has been handed back and the runtime has not confirmed it gone. The guid
+			/// is still taken until it does, so the handle cannot load one either.
+			/// </summary>
 			Removing,
 
 			/// <summary>
@@ -1132,19 +1425,41 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		/// </summary>
 		private const float MaterializeTimeoutSeconds = 10f;
 
+		/// <summary>
+		/// How long a handle waits for a load request to answer at all. AR Foundation's anchor calls
+		/// carry no timeout and the Meta provider ignores cancellation, so a request that never comes
+		/// back would otherwise hold the handle in <see cref="State.Loading"/> for the session.
+		/// Expiring it abandons the request and lets the handle retry — a duplicate request is worth
+		/// more than a guid that can never load again.
+		/// </summary>
+		private const float LoadTimeoutSeconds = 30f;
+
 		private readonly AnchorRegistry registry;
 
 		private int localLeaseCount;
 		private int sharedLeaseCount;
+		private int operationCount;
 		private bool loadInFlight;
 		private bool materializedDuringLoad;
+
+		/// <summary>
+		/// Which load attempt the handle is currently waiting on. Bumping it disowns whatever is
+		/// still outstanding, so a request that answers after its wait expired settles nothing and
+		/// cannot back off on behalf of the attempt that replaced it.
+		/// </summary>
+		private int loadGeneration;
+
 		private bool warnedAboutFailures;
 		private bool saveWhenActive;
 		private float retryAt;
 		private float materializeDeadline;
+		private float loadDeadline;
 
-		private bool reconcilingCurrently;
-		private bool shouldReconcileAgain;
+		/// <summary>
+		/// An anchor <see cref="Abandon"/> could not give back because an operation was still
+		/// running against it. Held only between teardown and that operation ending.
+		/// </summary>
+		private ARAnchor pinnedThroughTeardown;
 
 		internal AnchorHandle(AnchorRegistry registry, SerializableGuid guid)
 		{
@@ -1152,8 +1467,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			this.guid = guid;
 			state = State.Unloaded;
 		}
-
-		public event Action<AnchorHandle> StateChanged = delegate { };
 
 		public SerializableGuid guid { get; }
 		public State state { get; private set; }
@@ -1182,8 +1495,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		/// <summary>
 		/// Nothing left to reconcile: no lease wants the anchor, none is held, and nothing is in
-		/// flight. Only a new lease or an observed anchor moves the handle out of this, and both
-		/// reconcile it directly, so the registry's sweep can pass over it.
+		/// flight. Anything that gives the handle work to do — a new lease, an observed anchor —
+		/// makes this false in the same call, so the sweep picks the handle up on the next frame
+		/// and can pass over it until then.
 		/// </summary>
 		internal bool isIdle =>
 			!desiredLoaded &&
@@ -1191,24 +1505,74 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			(state == State.Unloaded || state == State.Failed) &&
 			anchor == null;
 
+		/// <summary>
+		/// Whether an operation the runtime cannot be told to abandon is running against this
+		/// handle's anchor. The anchor has to outlive it, so unloading waits.
+		/// </summary>
+		internal bool hasOperationInFlight => operationCount > 0;
+
+		internal void BeginOperation() => operationCount++;
+
+		internal void EndOperation()
+		{
+			if (operationCount == 0)
+			{
+				Debug.LogError($"Anchor handle {guid} ended more operations than it began.");
+				return;
+			}
+
+			operationCount--;
+
+			// Nothing reconciles an abandoned handle, so an anchor the registry left pinned for this
+			// operation has to be given back from here.
+			if (operationCount == 0 && pinnedThroughTeardown != null)
+			{
+				ARAnchor pinned = pinnedThroughTeardown;
+				pinnedThroughTeardown = null;
+				registry.RemoveAnchor(pinned);
+			}
+		}
+
+		/// <summary>
+		/// Waits until this handle holds an anchor. A lease is a standing ask and the handle retries
+		/// for as long as one is held, so the ways out are the anchor arriving, cancellation, and
+		/// <see cref="State.Failed"/> — terminal, and reported as false.
+		/// </summary>
+		public async Awaitable<bool> WaitForAnchorAsync(CancellationToken ctkn = default)
+		{
+			while (anchor == null)
+			{
+				if (state == State.Failed)
+					return false;
+
+				await Awaitable.NextFrameAsync(ctkn);
+			}
+
+			return true;
+		}
+
 		internal void Retain(ARAnchor observedAnchor, AnchorSource leaseSource)
 		{
+			AnchorSource before = source;
+
 			if (leaseSource.HasFlag(AnchorSource.Local))
 				localLeaseCount++;
 
 			if (leaseSource.HasFlag(AnchorSource.Shared))
 				sharedLeaseCount++;
 
-			// A new lease is a new ask, so whatever the last one was backing off from is worth
-			// trying again now rather than at the end of its wait.
-			ClearLoadFailures();
-			if (state == State.Failed)
-				SetState(State.Unloaded);
+			// A lease that opens an origin nothing has tried yet is a new ask, so whatever the last
+			// attempt was backing off from is worth trying again now rather than at the end of its
+			// wait. One that adds nothing new is not: letting it clear the streak lets two holders
+			// polling the same guid erase the backoff between them.
+			if ((source & ~before) != AnchorSource.None)
+				ClearLoadFailures();
 
-			if (observedAnchor != null)
-				ObserveAnchor(observedAnchor);
-
-			Reconcile();
+			// A refused anchor belongs to the caller or the manager, not to the registry, so it is
+			// reported rather than given back. The handle then has to load its own, and should not
+			// sit out a backoff first.
+			if (observedAnchor != null && !ObserveAnchor(observedAnchor))
+				ClearLoadFailures();
 		}
 
 		internal void Release(AnchorSource leaseSource)
@@ -1228,8 +1592,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				else
 					sharedLeaseCount--;
 			}
-
-			Reconcile();
 		}
 
 		internal void OnAnchorAdded(ARAnchor addedAnchor)
@@ -1238,62 +1600,67 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				return;
 
 			ObserveAnchor(addedAnchor);
-			Reconcile();
 		}
 
 		internal void OnAnchorRemoved()
 		{
-			// A removal for a guid this handle isn't currently holding is one of its own past
-			// unloads catching up. Acting on it would knock a freshly re-leased handle out of
-			// Loading or Materializing and start a second, redundant load.
-			if (anchor == null)
-				return;
-
-			anchor = null;
-			SetState(State.Unloaded);
-			Reconcile();
+			// A removal for a guid this handle isn't currently holding is the confirmation of one of
+			// its own past unloads: it frees the guid for the next load, but must not knock a
+			// freshly re-leased handle out of Loading or Materializing.
+			if (anchor != null)
+			{
+				anchor = null;
+				SetState(State.Unloaded);
+			}
 		}
 
 		/// <summary>
 		/// The registry has given this handle's anchor back and will not reconcile it again, so the
 		/// handle stops reporting one. Terminal, so callers waiting on an anchor stop waiting; leases
 		/// stay counted, so releasing one afterwards is still balanced.
+		///
+		/// An anchor still under an uncancellable operation was not given back — destroying it would
+		/// hand that operation a dead anchor — so it is kept aside for
+		/// <see cref="EndOperation"/> to release.
 		/// </summary>
 		internal void Abandon()
 		{
+			if (hasOperationInFlight)
+				pinnedThroughTeardown = anchor;
+
 			anchor = null;
 			SetState(State.Failed);
 		}
 
+		/// <summary>
+		/// Brings the anchor this handle holds in line with what its leases want.
+		///
+		/// The registry's per-frame sweep is the only caller. Everything else — taking a lease,
+		/// releasing one, an anchor arriving or going — just leaves the handle in a state
+		/// <see cref="isIdle"/> rejects, and the sweep picks it up on the next frame.
+		/// </summary>
 		internal void Reconcile()
 		{
 			if (registry.isDisposed)
 				return;
 
-			if (reconcilingCurrently)
+			// A request that never answers would otherwise hold the handle in Loading for the
+			// session, never failing and never idle. The request itself cannot be called off, so it
+			// is disowned instead and left to arrive whenever it likes.
+			if (loadInFlight && registry.time >= loadDeadline)
 			{
-				shouldReconcileAgain = true;
-				return;
+				loadInFlight = false;
+				loadGeneration++;
+
+				// Unless the anchor turned up on its own while the request hung, in which case the
+				// request had nothing left to answer and this is no failure.
+				if (state == State.Loading)
+				{
+					SetState(State.Unloaded);
+					ScheduleRetry();
+				}
 			}
 
-			do
-			{
-				shouldReconcileAgain = false;
-				reconcilingCurrently = true;
-
-				try
-				{
-					ReconcileOnce();
-				}
-				finally
-				{
-					reconcilingCurrently = false;
-				}
-			} while (shouldReconcileAgain);
-		}
-
-		private void ReconcileOnce()
-		{
 			// A requested anchor that never surfaces would otherwise hold the handle in
 			// Materializing forever, unable to retry and never idle.
 			if (state == State.Materializing && registry.time >= materializeDeadline)
@@ -1301,6 +1668,15 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				SetState(State.Unloaded);
 				ScheduleRetry();
 			}
+
+			// A removal the runtime has not confirmed still owns the guid: the anchor is in the
+			// manager's trackables, and a load would be handed that same anchor only for the pending
+			// removal to destroy it. There is nothing to do but wait for the confirmation.
+			if (registry.IsRemovalInFlight(guid))
+				return;
+
+			if (state == State.Removing)
+				SetState(State.Unloaded);
 
 			if (desiredLoaded)
 			{
@@ -1321,7 +1697,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			if (anchor != null)
 			{
-				RemoveAnchor();
+				// A save or a share cannot be called off, so the anchor it runs against outlives it
+				// however briefly nothing wants it.
+				if (!hasOperationInFlight)
+					RemoveAnchor();
+
 				return;
 			}
 
@@ -1340,11 +1720,12 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			loadInFlight = true;
 			materializedDuringLoad = false;
+			loadDeadline = registry.time + LoadTimeoutSeconds;
 			SetState(State.Loading);
-			RunLoadAsync(source);
+			RunLoadAsync(source, ++loadGeneration);
 		}
 
-		private async void RunLoadAsync(AnchorSource loadSource)
+		private async void RunLoadAsync(AnchorSource loadSource, int generation)
 		{
 			AnchorLoadResult result = AnchorLoadResult.Failed;
 
@@ -1352,66 +1733,104 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			{
 				result = await registry.TryLoadAsync(guid, loadSource);
 			}
+			catch (OperationCanceledException)
+			{
+				// The provider cancelled everything it had in flight as it shut down.
+			}
 			catch (Exception e)
 			{
 				Debug.LogException(e);
 			}
-			finally
+
+			try
 			{
+				// The wait for this one expired and the handle moved on. Its state belongs to
+				// whatever replaced this attempt, so all that is left is not to strand an anchor it
+				// produced on the way.
+				if (generation != loadGeneration)
+				{
+					DiscardOrAdopt(result.anchor);
+					return;
+				}
+
 				loadInFlight = false;
 				lastFailureReason = result.reason;
+				SettleLoad(result, loadSource);
+			}
+			catch (Exception e)
+			{
+				Debug.LogException(e);
+			}
+		}
 
-				// The registry tore down mid-load and already abandoned this handle. Anything that
-				// arrived is orphaned, and the terminal state stands.
-				if (registry.isDisposed)
-				{
-					registry.RemoveAnchor(result.anchor);
-				}
-				else
-				{
-					// A download only reports that the request landed, so record where the anchor
-					// will have come from before it arrives — saving it is what spares the next
-					// session the same round trip.
-					if (result.origin.HasFlag(AnchorSource.Shared))
-						saveWhenActive = true;
+		/// <summary>
+		/// Takes an anchor produced by a disowned load if the handle still has none, and gives it
+		/// back otherwise. Nothing else knows the anchor exists, so it cannot simply be dropped.
+		/// </summary>
+		private void DiscardOrAdopt(ARAnchor loaded)
+		{
+			// The anchor the disowned request eventually returned may be the one already adopted
+			// through trackablesChanged while it hung.
+			if (loaded == null || loaded == anchor)
+				return;
 
-					// A local load hands the anchor straight back rather than routing it through
-					// trackablesChanged, so adopt it here. A refused anchor leaves this a failed
-					// attempt, since nothing else is going to arrive for it.
-					if (result.anchor != null)
-						ObserveAnchor(result.anchor);
+			if (registry.isDisposed || anchor != null || !ObserveAnchor(loaded))
+				registry.RemoveAnchor(loaded);
+		}
 
-					if (anchor != null)
-					{
-						ClearLoadFailures();
-						SetState(State.Active);
+		/// <summary>
+		/// Takes the handle from <see cref="State.Loading"/> to whatever the attempt actually
+		/// produced. Runs however the attempt ended, including after the wait for it timed out.
+		/// </summary>
+		private void SettleLoad(AnchorLoadResult result, AnchorSource loadSource)
+		{
+			// The registry tore down mid-load and already abandoned this handle. Anything that
+			// arrived is orphaned, and the terminal state stands.
+			if (registry.isDisposed)
+			{
+				registry.RemoveAnchor(result.anchor);
+				return;
+			}
 
-						// The download can materialize its anchor before the request that asked
-						// for it resolves, in which case this is the first point that knows the
-						// anchor is worth saving.
-						SaveIfDownloaded();
-					}
-					else if (result.succeeded && result.anchor == null && !materializedDuringLoad)
-					{
-						ClearLoadFailures();
-						SetState(State.Materializing);
-						materializeDeadline = registry.time + MaterializeTimeoutSeconds;
-					}
-					else if ((source & ~loadSource) != AnchorSource.None)
-					{
-						// A lease acquired mid-load widened where this handle may look. Backing off
-						// now would sit out the wait on an origin nothing has tried yet.
-						SetState(State.Unloaded);
-						retryAt = 0;
-					}
-					else
-					{
-						SetState(State.Unloaded);
-						ScheduleRetry();
-					}
+			// A download only reports that the request landed, so record where the anchor will have
+			// come from before it arrives — saving it is what spares the next session the same round
+			// trip.
+			if (result.origin.HasFlag(AnchorSource.Shared))
+				saveWhenActive = true;
 
-					Reconcile();
-				}
+			// A local load hands the anchor straight back rather than routing it through
+			// trackablesChanged, so adopt it here. A refused anchor leaves this a failed attempt,
+			// since nothing else is going to arrive for it — and it came from a request this handle
+			// made, so nothing but this will give it back.
+			if (result.anchor != null && !ObserveAnchor(result.anchor))
+				registry.RemoveAnchor(result.anchor);
+
+			if (anchor != null)
+			{
+				ClearLoadFailures();
+				SetState(State.Active);
+
+				// The download can materialize its anchor before the request that asked for it
+				// resolves, in which case this is the first point that knows it is worth saving.
+				SaveIfDownloaded();
+			}
+			else if (result.succeeded && result.anchor == null && !materializedDuringLoad)
+			{
+				ClearLoadFailures();
+				SetState(State.Materializing);
+				materializeDeadline = registry.time + MaterializeTimeoutSeconds;
+			}
+			else if ((source & ~loadSource) != AnchorSource.None)
+			{
+				// A lease acquired mid-load widened where this handle may look. Backing off now
+				// would sit out the wait on an origin nothing has tried yet.
+				SetState(State.Unloaded);
+				retryAt = 0;
+			}
+			else
+			{
+				SetState(State.Unloaded);
+				ScheduleRetry();
 			}
 		}
 
@@ -1456,22 +1875,12 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private void RemoveAnchor()
 		{
 			ARAnchor anchorToRemove = anchor;
-
-			SetState(State.Removing);
-
-			// Removal destroys an anchor that may cost a network round trip to get back, so a
-			// consumer that leased during the notification keeps the one already here.
-			if (desiredLoaded)
-			{
-				SetState(State.Active);
-				return;
-			}
-
 			anchor = null;
 			registry.RemoveAnchor(anchorToRemove);
-			SetState(State.Unloaded);
 
-			Reconcile();
+			// Stays Removing until the runtime confirms: until then the guid is still taken, and
+			// anything that loaded it would be handed the anchor on its way out.
+			SetState(registry.IsRemovalInFlight(guid) ? State.Removing : State.Unloaded);
 		}
 
 		/// <summary>
@@ -1510,23 +1919,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			warnedAboutFailures = false;
 		}
 
-		private void SetState(State next)
-		{
-			if (state == next)
-				return;
-
-			state = next;
-
-			// Contained, so that a subscriber throwing cannot unwind the state machine that just
-			// invoked it and leave the handle inconsistent with the anchor it holds.
-			try
-			{
-				StateChanged.Invoke(this);
-			}
-			catch (Exception e)
-			{
-				Debug.LogException(e);
-			}
-		}
+		private void SetState(State next) => state = next;
 	}
 }

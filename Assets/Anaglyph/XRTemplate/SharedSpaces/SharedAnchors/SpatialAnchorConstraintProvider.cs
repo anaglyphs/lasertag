@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Threading;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 using SerializableGuid = UnityEngine.XR.ARSubsystems.SerializableGuid;
 
@@ -282,11 +283,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			foreach (HeldAnchor entry in held.Values)
 			{
-				AnchorHandle handle = entry.lease.Handle;
-				if (handle.state != AnchorHandle.State.Active) continue;
-				if (handle.anchor.trackingState != TrackingState.Tracking) continue;
+				ARAnchor anchor = entry.lease.Handle.anchor;
+				if (anchor == null || anchor.trackingState != TrackingState.Tracking)
+					continue;
 
-				Transform t = handle.anchor.transform;
+				Transform t = anchor.transform;
 				results.Add(new ColocationConstraint(
 					new Pose(t.position, t.rotation), entry.canon, hasReliableRotation: true));
 			}
@@ -387,15 +388,10 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				CancellationToken ctkn = ctknSrc.Token;
 
 				// The registry keeps retrying an anchor that will not load yet, so this waits with
-				// it. Failed means the registry itself is gone. Cancellation is the other exit,
-				// and it arrives when the entry is released or re-acquired.
-				while (entry.lease.Handle.state != AnchorHandle.State.Active)
-				{
-					if (entry.lease.Handle.state == AnchorHandle.State.Failed)
-						return;
-
-					await Awaitable.NextFrameAsync(ctkn);
-				}
+				// it. False means the registry itself is gone. Cancellation is the other exit, and
+				// it arrives when the entry is released or re-acquired.
+				if (!await entry.lease.Handle.WaitForAnchorAsync(ctkn))
+					return;
 
 				// Asked once the anchor is live, so the answer is the running runtime's and not
 				// a not-yet-started subsystem's. Nowhere to persist to is not a failure: the
@@ -403,18 +399,15 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				if (!registry.canSaveAnchors)
 					return;
 
-				SerializableGuid serializableGuid = ToSerializable(guid);
-				if (registry.IsSaved(serializableGuid))
+				if (registry.IsSaved(ToSerializable(guid)))
 				{
 					AnchorPersisted.Invoke(guid);
 					return;
 				}
 
-				// A lease of its own, because releasing the entry mid-save would destroy the
-				// anchor out from under a write the runtime cannot be told to abandon.
-				using AnchorLease saveLease = registry.Acquire(serializableGuid, entry.source);
-
-				if (!await registry.TrySaveAsync(saveLease, ctkn))
+				// The registry holds the anchor for the write, which it cannot be told to abandon,
+				// so releasing the entry underneath this is safe.
+				if (!await registry.TrySaveAsync(entry.lease, ctkn))
 				{
 					Debug.LogWarning($"Anchor {guid} could not be saved locally.");
 					return;
@@ -614,11 +607,15 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				if (!held.TryGetValue(guid, out HeldAnchor entry))
 					return;
 
+				// A source change replaces the entry's lease, but a guid keeps one handle for the
+				// registry's lifetime, so this stays the right one to watch.
+				AnchorHandle handle = entry.lease.Handle;
+
 				// Only a loaded anchor can be uploaded, so this waits for one. Failed means the
 				// registry is gone; every other way out is checked each frame below.
-				while (entry.lease.Handle.state != AnchorHandle.State.Active)
+				while (handle.anchor == null)
 				{
-					if (entry.lease.Handle.state == AnchorHandle.State.Failed)
+					if (handle.state == AnchorHandle.State.Failed)
 					{
 						Debug.LogWarning($"Not sharing anchor {guid}: it never loaded locally.");
 						return;
@@ -630,13 +627,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 						return;
 				}
 
-				// A lease of its own, because releasing the entry between attempts would destroy
-				// the anchor out from under an upload the runtime cannot be told to abandon.
-				using AnchorLease shareLease = registry.Acquire(ToSerializable(guid), entry.source);
-
 				for (int attempt = 1; attempt <= maxAttempts; attempt++)
 				{
-					XRResultStatus result = await registry.TryShareAsync(shareLease, ctkn);
+					// The registry holds the anchor for each upload, which it cannot be told to
+					// abandon; the entry's lease is what keeps it loaded between attempts.
+					XRResultStatus result = await registry.TryShareAsync(entry.lease, ctkn);
 					if (!result.IsError())
 						return;
 
@@ -648,6 +643,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 							"Shared anchors require a working internet connection.");
 
 					await Awaitable.WaitForSecondsAsync(3f, ctkn);
+
+					// Nothing is waiting on an upload for a constraint that is gone.
+					if (!IsRunning || !SyncBus.Active || !SyncBus.IsAuthority ||
+					    !held.TryGetValue(guid, out HeldAnchor stillHeld) || stillHeld != entry)
+						return;
 				}
 			}
 			catch (OperationCanceledException)
@@ -669,6 +669,24 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			return IsAvailable && await registry.TryEraseSavedAsync(ToSerializable(guid), ctkn);
 		}
+
+		/// <summary>
+		/// Asks the device which anchors it holds in persistent storage. Returns whether the answer
+		/// arrived — a runtime that cannot enumerate, or one that did not answer, leaves
+		/// <see cref="IsAnchorSaved"/> reporting only what this process has seen first-hand, which
+		/// is not enough to conclude an anchor is absent.
+		/// </summary>
+		public async Awaitable<bool> RefreshSavedAnchorsAsync(CancellationToken ctkn = default)
+		{
+			return IsAvailable && await registry.TryRefreshSavedGuidsAsync(ctkn);
+		}
+
+		/// <summary>
+		/// Whether this device is known to hold an anchor locally. Only as complete as the last
+		/// <see cref="RefreshSavedAnchorsAsync"/>; treat a false without one as "not known".
+		/// </summary>
+		public bool IsAnchorSaved(Guid guid) =>
+			IsAvailable && registry.IsSaved(ToSerializable(guid));
 
 		public async Awaitable<HashSet<Guid>> ProbeAsync(IReadOnlyCollection<Guid> guids,
 			float timeoutSeconds, CancellationToken ctkn = default)

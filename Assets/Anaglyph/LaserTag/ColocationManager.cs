@@ -30,9 +30,15 @@ namespace Anaglyph.Lasertag
 
 		[SerializeField] private SpatialAnchorConstraintProvider spatialAnchorProvider;
 		[SerializeField] private TagConstraintProvider tagProvider;
+		
+		public IColocationConstraintProvider ActiveProvider =>
+			colocator != null ? colocator.Provider : null;
 
-		public bool UsingTagProvider => colocator != null &&
-			ReferenceEquals(colocator.Provider, tagProvider);
+		public bool UsingTagProvider =>
+			tagProvider != null && ReferenceEquals(ActiveProvider, tagProvider);
+
+		public bool UsingAnchorProvider =>
+			spatialAnchorProvider != null && ReferenceEquals(ActiveProvider, spatialAnchorProvider);
 
 		// True from method-sync (session fully known) until the session ends.
 		private bool sessionStarted;
