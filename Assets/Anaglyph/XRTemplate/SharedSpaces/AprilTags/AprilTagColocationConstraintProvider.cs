@@ -45,9 +45,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	/// by preserving its currently observed offset from the physical tag.
 	/// </summary>
 	[DefaultExecutionOrder(-200)]
-	public class TagConstraintProvider : MonoBehaviour, IColocationConstraintProvider
+	public class AprilTagColocationConstraintProvider : MonoBehaviour, IColocationConstraintProvider
 	{
-		public static TagConstraintProvider Instance { get; private set; }
+		public static AprilTagColocationConstraintProvider Instance { get; private set; }
 
 		private sealed class LocalAnchor
 		{

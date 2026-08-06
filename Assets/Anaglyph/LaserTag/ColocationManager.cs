@@ -7,6 +7,14 @@ using UnityEngine.Serialization;
 
 namespace Anaglyph.Lasertag
 {
+	/// <summary>
+	/// Selects which colocation strategy this device runs, and fronts the XRTemplate colocation
+	/// stack for the rest of the game — so nothing else has to hold its own references to the
+	/// providers or the colocator, or reason about which of them is live.
+	/// </summary>
+	// Before MapManager (-100), so the providers it hands out are resolved by the time the map
+	// layer builds against them. After the providers themselves (-200), which set their instances.
+	[DefaultExecutionOrder(-150)]
 	public class ColocationManager : MonoBehaviour
 	{
 		public static ColocationManager Instance { get; private set; }
@@ -28,17 +36,57 @@ namespace Anaglyph.Lasertag
 
 		[SerializeField] private Colocator colocator;
 
-		[SerializeField] private SpatialAnchorConstraintProvider spatialAnchorProvider;
-		[SerializeField] private TagConstraintProvider tagProvider;
+		[FormerlySerializedAs("spatialAnchorProvider")] [SerializeField] private SpatialAnchorColocationConstraintProvider spatialAnchorColocationProvider;
+		[FormerlySerializedAs("tagProvider")] [SerializeField] private AprilTagColocationConstraintProvider aprilTagColocationProvider;
 		
+		/// <summary>
+		/// The provider actually driving colocation, or null when none is selected. This is the
+		/// only trustworthy answer to "which strategy is live": <see cref="Method"/> says what the
+		/// session asked for, and <see cref="UpdateProvider"/> selects nothing at all when that
+		/// method cannot serve the current map.
+		/// </summary>
 		public IColocationConstraintProvider ActiveProvider =>
 			colocator != null ? colocator.Provider : null;
 
 		public bool UsingTagProvider =>
-			tagProvider != null && ReferenceEquals(ActiveProvider, tagProvider);
+			aprilTagColocationProvider != null && ReferenceEquals(ActiveProvider, aprilTagColocationProvider);
 
 		public bool UsingAnchorProvider =>
-			spatialAnchorProvider != null && ReferenceEquals(ActiveProvider, spatialAnchorProvider);
+			spatialAnchorColocationProvider != null && ReferenceEquals(ActiveProvider, spatialAnchorColocationProvider);
+
+		public SpatialAnchorColocationConstraintProvider AnchorProvider => spatialAnchorColocationProvider;
+		public AprilTagColocationConstraintProvider TagProvider => aprilTagColocationProvider;
+
+		/// <summary>How well the applied alignment currently fits the references being observed.</summary>
+		public FitAgreement Agreement => colocator != null ? colocator.Agreement : default;
+
+		/// <summary>
+		/// How many of a map's references the active provider could currently produce a constraint
+		/// from. Zero means there is nothing to verify the world frame against, so the frame the
+		/// device is standing in is that map's frame by definition — the same reasoning
+		/// <see cref="Colocator"/> applies to a session with no reference runtime at all.
+		/// </summary>
+		public int CountRealizableReferences(GameMap map)
+		{
+			if (map == null)
+				return 0;
+
+			IColocationConstraintProvider active = ActiveProvider;
+			if (active == null || !active.IsAvailable)
+				return 0;
+
+			// Tag mode can only realize this device's tag-backed anchors. Roaming anchors stay in
+			// the map for shared-anchor mode, but must not raise the bar for a provider that can
+			// never expose them.
+			bool tagMode = UsingTagProvider;
+
+			int count = 0;
+			foreach (MapAnchorEntry anchor in map.anchors)
+				if (!tagMode || anchor.tagId >= 0)
+					count++;
+
+			return count;
+		}
 
 		// True from method-sync (session fully known) until the session ends.
 		private bool sessionStarted;
@@ -49,6 +97,12 @@ namespace Anaglyph.Lasertag
 		{
 			Instance = this;
 
+			// Resolved here rather than in Start: the map layer builds against these references
+			// while it wakes, so they have to be settled before anything downstream runs.
+			if (!colocator) colocator = FindFirstObjectByType<Colocator>();
+			if (!spatialAnchorColocationProvider) spatialAnchorColocationProvider = SpatialAnchorColocationConstraintProvider.Instance;
+			if (!aprilTagColocationProvider) aprilTagColocationProvider = AprilTagColocationConstraintProvider.Instance;
+
 			methodSync.Register();
 			methodSync.Synced += OnMethodSynced;
 			SyncBus.Activated += OnBusActivated;
@@ -57,12 +111,8 @@ namespace Anaglyph.Lasertag
 
 		private void Start()
 		{
-			if (!colocator) colocator = FindFirstObjectByType<Colocator>();
-			if (!spatialAnchorProvider) spatialAnchorProvider = SpatialAnchorConstraintProvider.Instance;
-			if (!tagProvider) tagProvider = TagConstraintProvider.Instance;
-
-			if (spatialAnchorProvider)
-				spatialAnchorProvider.MintingGate = () =>
+			if (spatialAnchorColocationProvider)
+				spatialAnchorColocationProvider.MintingGate = () =>
 					MapManager.Instance == null || MapManager.Instance.CheckWorldFrameIsTrusted();
 
 			if (MapManager.Instance != null)
@@ -186,19 +236,19 @@ namespace Anaglyph.Lasertag
 			GameMap map = MapManager.Instance != null ? MapManager.Instance.CurrentMap : null;
 			IColocationConstraintProvider next = null;
 
-			if (spatialAnchorProvider)
-				spatialAnchorProvider.RoamingMintEnabled = map != null && !map.HasTags;
+			if (spatialAnchorColocationProvider)
+				spatialAnchorColocationProvider.RoamingMintEnabled = map != null && !map.HasTags;
 
 			if (map != null)
 			{
 				if (SelectedMethod == ColocationMethod.AprilTag)
 				{
 					if (map.HasTags)
-						next = tagProvider;
+						next = aprilTagColocationProvider;
 				}
 				else
 				{
-					next = spatialAnchorProvider;
+					next = spatialAnchorColocationProvider;
 				}
 			}
 
@@ -223,9 +273,9 @@ namespace Anaglyph.Lasertag
 		/// <summary>Lets the registration tool drive tag detection while authoring.</summary>
 		public void SetTagDetectionOverride(bool on)
 		{
-			if (!tagProvider) return;
+			if (!aprilTagColocationProvider) return;
 
-			tagProvider.SetDetectionOverride(on);
+			aprilTagColocationProvider.SetDetectionOverride(on);
 		}
 
 		// Only Localized counts as colocated. Lost keeps the stale alignment applied but stops

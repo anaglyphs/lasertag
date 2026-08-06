@@ -44,11 +44,12 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	/// </summary>
 	public readonly struct FitAgreement
 	{
-		public FitAgreement(int constraintCount, int agreeingCount, float meanError)
+		public FitAgreement(int constraintCount, int agreeingCount, float meanError, bool meanAgrees)
 		{
 			this.constraintCount = constraintCount;
 			this.agreeingCount = agreeingCount;
 			this.meanError = meanError;
+			this.meanAgrees = meanAgrees;
 		}
 
 		/// <summary>How many constraints the provider is currently observing.</summary>
@@ -58,6 +59,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		public readonly int agreeingCount;
 
 		public readonly float meanError;
+
+		/// <summary>
+		/// Whether <see cref="meanError"/> is within tolerance. Carried here so a caller can judge
+		/// the fit without also having to hold the threshold that produced
+		/// <see cref="agreeingCount"/>. False when there is nothing to measure.
+		/// </summary>
+		public readonly bool meanAgrees;
 	}
 
 	/// <summary>
@@ -244,8 +252,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 					agreeing++;
 			}
 
+			float meanError = errorSum / constraints.Count;
 			Agreement = new FitAgreement(
-				constraints.Count, agreeing, errorSum / constraints.Count);
+				constraints.Count, agreeing, meanError, meanError <= agreementMaxError);
 		}
 
 		private bool TryFit()

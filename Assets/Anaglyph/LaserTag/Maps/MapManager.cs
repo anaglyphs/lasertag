@@ -1,11 +1,9 @@
 using Anaglyph.Netcode;
-using Anaglyph.XRTemplate;
 using Anaglyph.XRTemplate.SharedSpaces;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace Anaglyph.Lasertag
 {
@@ -25,10 +23,8 @@ namespace Anaglyph.Lasertag
 	{
 		public static MapManager Instance { get; private set; }
 
-		[SerializeField] private SpatialAnchorConstraintProvider spatialAnchorProvider;
-		[SerializeField] private TagConstraintProvider tagProvider;
-		[FormerlySerializedAs("referenceColocator")]
-		[SerializeField] private Colocator colocator;
+		[Tooltip("Fronts the colocation providers and the colocator; the map layer wires through it")]
+		[SerializeField] private ColocationManager colocationManager;
 
 		[Tooltip("Every placeable map object; also how a saved map's prefab ids resolve")]
 		[SerializeField] private MapObjectDatabase objectDatabase;
@@ -68,9 +64,6 @@ namespace Anaglyph.Lasertag
 		internal MapObjectDirector Objects => objects;
 		internal MapColocationAdapter Colocation => colocation;
 
-		internal bool SessionMapAdopted => sessionSync.SessionMapAdopted;
-		internal string SessionMapId => sessionSync.SessionMapId;
-
 		public bool IsChangingMap => sessionSync.IsChangingMap;
 		public event Action ChangingMapChanged
 		{
@@ -97,12 +90,13 @@ namespace Anaglyph.Lasertag
 			Instance = this;
 			lifetimeCtknSrc = new CancellationTokenSource();
 
-			if (!spatialAnchorProvider)
-				spatialAnchorProvider = FindFirstObjectByType<SpatialAnchorConstraintProvider>();
-			if (!tagProvider)
-				tagProvider = FindFirstObjectByType<TagConstraintProvider>();
-			if (!colocator)
-				colocator = FindFirstObjectByType<Colocator>();
+			// ColocationManager wakes first (-150) and owns the provider references, so the map
+			// layer takes them from it rather than keeping a second set of its own to drift.
+			if (!colocationManager)
+				colocationManager = FindFirstObjectByType<ColocationManager>();
+
+			if (!colocationManager)
+				Debug.LogError("MapManager found no ColocationManager; maps cannot colocate.", this);
 
 			if (!objectDatabase)
 				Debug.LogError("MapManager has no map object database.", this);
@@ -110,9 +104,11 @@ namespace Anaglyph.Lasertag
 			autosave = new MapAutosave(saveDebounceSeconds, SaveCurrentMap);
 			objects = new MapObjectDirector(objectDatabase, MarkMapContentChanged);
 			colocation = new MapColocationAdapter(
-				spatialAnchorProvider, tagProvider, () => CurrentMap, autosave.Schedule);
+				colocationManager, () => CurrentMap, MapIsSessionMap, autosave.Schedule);
 			sessionSync = new MapSessionSync(this, switchTimeoutSeconds);
-			discovery = new MapDiscovery(spatialAnchorProvider, probeTimeoutSeconds);
+			discovery = new MapDiscovery(
+				colocationManager != null ? colocationManager.AnchorProvider : null,
+				probeTimeoutSeconds);
 
 			objects.Register();
 			colocation.Register();
@@ -200,23 +196,38 @@ namespace Anaglyph.Lasertag
 			if (Time.frameCount == frameRebasedOn)
 				return false;
 
-			// Nothing the selected provider can realize means there is nothing to check the frame
+			if (!colocationManager)
+				return false;
+
+			// Nothing the active provider can realize means there is nothing to check the frame
 			// against, so the frame the device is standing in is this map's frame.
-			int realizable = colocation.CountRealizableReferences(CurrentMap);
+			int realizable = colocationManager.CountRealizableReferences(CurrentMap);
 			if (realizable == 0)
 				return true;
 
-			if (!ColocationManager.IsColocated || !colocator)
+			if (!ColocationManager.IsColocated)
 				return false;
 
 			// Two references pin a frame; asking for more would stall a map that only ever had
 			// one. Never zero: a map held up by nothing would report whichever frame the device
 			// happens to be standing in as trustworthy, and mint anchors into it.
 			int required = Mathf.Min(realizable, 2);
-			FitAgreement agreement = colocator.Agreement;
+			FitAgreement agreement = colocationManager.Agreement;
 
-			return agreement.agreeingCount >= required &&
-			       agreement.meanError <= colocator.AgreementMaxError;
+			return agreement.agreeingCount >= required && agreement.meanAgrees;
+		}
+
+		/// <summary>
+		/// Whether the colocation providers hold this map because the session published it, rather
+		/// than because this joiner had it loaded before it arrived.
+		/// </summary>
+		private bool MapIsSessionMap(GameMap map)
+		{
+			if (!SyncBus.Active || SyncBus.IsAuthority)
+				return true;
+
+			return sessionSync.SessionMapAdopted && map != null &&
+			       map.id == sessionSync.SessionMapId;
 		}
 
 		// ------- current map lifecycle ---------------------------
@@ -270,8 +281,8 @@ namespace Anaglyph.Lasertag
 
 			// Tag mode has no provider to select for a map with no registered tags, so switching
 			// to one would end colocation for the whole session.
-			if (ColocationManager.Instance != null &&
-			    ColocationManager.Instance.Method == ColocationManager.ColocationMethod.AprilTag &&
+			if (colocationManager != null &&
+			    colocationManager.Method == ColocationManager.ColocationMethod.AprilTag &&
 			    !map.HasTags)
 				return "Session uses tags; this map has none";
 

@@ -19,7 +19,7 @@ namespace Anaglyph.Lasertag
 			// colocation is selected. Enabling AprilTags later must not inherit the
 			// provider prefab's unconfigured zero value.
 			aprilTagSize.AddChangeListenerAndCheck(s =>
-				TagConstraintProvider.Instance.HostTagSizeCm = s);
+				AprilTagColocationConstraintProvider.Instance.HostTagSizeCm = s);
 
 			aprilTagColocation.AddChangeListenerAndCheck(b =>
 			{

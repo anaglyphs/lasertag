@@ -18,20 +18,20 @@ namespace Anaglyph.Lasertag
 	/// </summary>
 	internal sealed class MapDiscovery
 	{
-		private readonly SpatialAnchorConstraintProvider anchorProvider;
+		private readonly SpatialAnchorColocationConstraintProvider anchorColocationProvider;
 		private readonly float probeTimeoutSeconds;
 		private readonly Dictionary<string, int> results = new();
 
-		public MapDiscovery(SpatialAnchorConstraintProvider anchorProvider, float probeTimeoutSeconds)
+		public MapDiscovery(SpatialAnchorColocationConstraintProvider anchorColocationProvider, float probeTimeoutSeconds)
 		{
-			this.anchorProvider = anchorProvider;
+			this.anchorColocationProvider = anchorColocationProvider;
 			this.probeTimeoutSeconds = probeTimeoutSeconds;
 		}
 
 		public IReadOnlyDictionary<string, int> Results => results;
 		public event Action ResultsChanged = delegate { };
 
-		public bool IsAvailable => anchorProvider && anchorProvider.IsAvailable;
+		public bool IsAvailable => anchorColocationProvider && anchorColocationProvider.IsAvailable;
 
 		public void Forget(string mapId)
 		{
@@ -54,7 +54,7 @@ namespace Anaglyph.Lasertag
 
 			// Without a successful enumeration, absence from the device's saved set means "not
 			// known" rather than "not there", and every anchor has to stay a candidate.
-			bool savedAnchorsKnown = await anchorProvider.RefreshSavedAnchorsAsync(ctkn);
+			bool savedAnchorsKnown = await anchorColocationProvider.RefreshSavedAnchorsAsync(ctkn);
 
 			foreach (GameMap map in MapStore.GetByLastUsed())
 			{
@@ -70,7 +70,7 @@ namespace Anaglyph.Lasertag
 					continue;
 				}
 
-				HashSet<Guid> localized = await anchorProvider.ProbeAsync(
+				HashSet<Guid> localized = await anchorColocationProvider.ProbeAsync(
 					candidates, probeTimeoutSeconds, ctkn);
 
 				Record(map.id, localized.Count);
@@ -109,7 +109,7 @@ namespace Anaglyph.Lasertag
 				if (!MapGuid.TryParse(entry.guid, out Guid guid))
 					continue;
 
-				if (savedAnchorsKnown && !anchorProvider.IsAnchorSaved(guid))
+				if (savedAnchorsKnown && !anchorColocationProvider.IsAnchorSaved(guid))
 					continue;
 
 				candidates.Add(guid);

@@ -7,7 +7,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 {
 	public class TagReferenceVisuals : MonoBehaviour
 	{
-		[FormerlySerializedAs("source")] [SerializeField] private TagConstraintProvider provider;
+		[FormerlySerializedAs("source")] [SerializeField] private AprilTagColocationConstraintProvider provider;
 
 		[SerializeField] private Mesh indicatorMesh;
 		[SerializeField] private Material indicatorMaterial;

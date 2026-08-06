@@ -20,9 +20,11 @@ namespace Anaglyph.Lasertag
 	/// </summary>
 	internal sealed class MapColocationAdapter
 	{
-		private readonly SpatialAnchorConstraintProvider anchorProvider;
-		private readonly TagConstraintProvider tagProvider;
+		private readonly ColocationManager colocation;
+		private readonly SpatialAnchorColocationConstraintProvider anchorColocationProvider;
+		private readonly AprilTagColocationConstraintProvider aprilTagColocationProvider;
 		private readonly Func<GameMap> currentMap;
+		private readonly Func<GameMap, bool> mapIsSessionMap;
 		private readonly Action changed;
 
 		// Providers raise a change per entry, so injecting a map raises one per anchor. Record
@@ -33,43 +35,48 @@ namespace Anaglyph.Lasertag
 		private bool tagSnapshotPending;
 		private bool taggedAnchorSnapshotPending;
 
+		/// <param name="mapIsSessionMap">Whether the providers hold the session's map rather than
+		/// one this joiner had loaded before it arrived.</param>
 		/// <param name="changed">Raised once per frame in which a snapshot altered the map.</param>
-		public MapColocationAdapter(SpatialAnchorConstraintProvider anchorProvider,
-			TagConstraintProvider tagProvider, Func<GameMap> currentMap, Action changed)
+		public MapColocationAdapter(ColocationManager colocation, Func<GameMap> currentMap,
+			Func<GameMap, bool> mapIsSessionMap, Action changed)
 		{
-			this.anchorProvider = anchorProvider;
-			this.tagProvider = tagProvider;
+			this.colocation = colocation;
+			anchorColocationProvider = colocation != null ? colocation.AnchorProvider : null;
+			aprilTagColocationProvider = colocation != null ? colocation.TagProvider : null;
+
 			this.currentMap = currentMap ?? throw new ArgumentNullException(nameof(currentMap));
+			this.mapIsSessionMap = mapIsSessionMap ?? throw new ArgumentNullException(nameof(mapIsSessionMap));
 			this.changed = changed ?? throw new ArgumentNullException(nameof(changed));
 		}
 
 		public void Register()
 		{
-			if (anchorProvider)
+			if (anchorColocationProvider)
 			{
-				anchorProvider.ConstraintsChanged += OnAnchorConstraintsChanged;
-				anchorProvider.AnchorPersisted += OnAnchorPersisted;
+				anchorColocationProvider.ConstraintsChanged += OnAnchorColocationConstraintsChanged;
+				anchorColocationProvider.AnchorPersisted += OnAnchorColocationPersisted;
 			}
 
-			if (tagProvider)
+			if (aprilTagColocationProvider)
 			{
-				tagProvider.TagsChanged += OnTagsChanged;
-				tagProvider.AnchorsChanged += OnTaggedAnchorsChanged;
+				aprilTagColocationProvider.TagsChanged += OnAprilTagsColocationChanged;
+				aprilTagColocationProvider.AnchorsChanged += OnTaggedAnchorsChanged;
 			}
 		}
 
 		public void Unregister()
 		{
-			if (tagProvider)
+			if (aprilTagColocationProvider)
 			{
-				tagProvider.AnchorsChanged -= OnTaggedAnchorsChanged;
-				tagProvider.TagsChanged -= OnTagsChanged;
+				aprilTagColocationProvider.AnchorsChanged -= OnTaggedAnchorsChanged;
+				aprilTagColocationProvider.TagsChanged -= OnAprilTagsColocationChanged;
 			}
 
-			if (anchorProvider)
+			if (anchorColocationProvider)
 			{
-				anchorProvider.AnchorPersisted -= OnAnchorPersisted;
-				anchorProvider.ConstraintsChanged -= OnAnchorConstraintsChanged;
+				anchorColocationProvider.AnchorPersisted -= OnAnchorColocationPersisted;
+				anchorColocationProvider.ConstraintsChanged -= OnAnchorColocationConstraintsChanged;
 			}
 		}
 
@@ -95,27 +102,27 @@ namespace Anaglyph.Lasertag
 			foreach (MapTagEntry entry in map.tags)
 				tags.Add(new TagConstraintData(entry.id, entry.canonPose));
 
-			if (anchorProvider)
-				anchorProvider.SetConstraints(anchors);
-			if (tagProvider)
-				tagProvider.SetConstraints(tags, taggedAnchors);
+			if (anchorColocationProvider)
+				anchorColocationProvider.SetConstraints(anchors);
+			if (aprilTagColocationProvider)
+				aprilTagColocationProvider.SetConstraints(tags, taggedAnchors);
 		}
 
 		public void InjectTags(GameMap map)
 		{
-			if (map == null || !tagProvider)
+			if (map == null || !aprilTagColocationProvider)
 				return;
 
 			List<TagConstraintData> tags = new(map.tags.Count);
 			foreach (MapTagEntry entry in map.tags)
 				tags.Add(new TagConstraintData(entry.id, entry.canonPose));
 
-			tagProvider.SetRegisteredTags(tags);
+			aprilTagColocationProvider.SetRegisteredTags(tags);
 		}
 
 		private void InjectAnchors(GameMap map)
 		{
-			if (map == null || !anchorProvider)
+			if (map == null || !anchorColocationProvider)
 				return;
 
 			List<AnchorConstraintData> anchors = new(map.anchors.Count);
@@ -123,64 +130,31 @@ namespace Anaglyph.Lasertag
 				if (MapGuid.TryParse(entry.guid, out Guid guid))
 					anchors.Add(new AnchorConstraintData(guid, entry.canonPose, entry.tagId));
 
-			anchorProvider.SetConstraints(anchors);
+			anchorColocationProvider.SetConstraints(anchors);
 		}
 
 		public void ClearForNoMap()
 		{
 			if (SyncBus.IsAuthority)
 			{
-				if (anchorProvider)
-					anchorProvider.SetConstraints(Array.Empty<AnchorConstraintData>());
-				if (tagProvider)
-					tagProvider.SetConstraints(Array.Empty<TagConstraintData>(),
+				if (anchorColocationProvider)
+					anchorColocationProvider.SetConstraints(Array.Empty<AnchorConstraintData>());
+				if (aprilTagColocationProvider)
+					aprilTagColocationProvider.SetConstraints(Array.Empty<TagConstraintData>(),
 						Array.Empty<TaggedAnchorConstraintData>());
 			}
-			else if (tagProvider)
+			else if (aprilTagColocationProvider)
 			{
-				tagProvider.SetLocalAnchors(Array.Empty<TaggedAnchorConstraintData>());
+				aprilTagColocationProvider.SetLocalAnchors(Array.Empty<TaggedAnchorConstraintData>());
 			}
-		}
-
-		// ------- frame trust -------------------------------------
-
-		/// <summary>
-		/// How many of a map's references the selected provider could currently produce a
-		/// constraint from. Zero means there is nothing to verify the world frame against, so the
-		/// frame the device is standing in is the map's frame by definition — the same reasoning
-		/// <see cref="Colocator"/> applies to a session with no reference runtime at all.
-		/// </summary>
-		public int CountRealizableReferences(GameMap map)
-		{
-			if (map == null)
-				return 0;
-
-			IColocationConstraintProvider active = ColocationManager.Instance != null
-				? ColocationManager.Instance.ActiveProvider
-				: null;
-
-			if (active == null || !active.IsAvailable)
-				return 0;
-
-			// Tag mode can only realize this device's tag-backed anchors. Roaming anchors stay in
-			// the map for shared-anchor mode, but must not raise the bar for a provider that can
-			// never expose them.
-			bool tagMode = ReferenceEquals(active, tagProvider);
-
-			int count = 0;
-			foreach (MapAnchorEntry anchor in map.anchors)
-				if (!tagMode || anchor.tagId >= 0)
-					count++;
-
-			return count;
 		}
 
 		// ------- export ------------------------------------------
 
-		private void OnAnchorConstraintsChanged() => anchorSnapshotPending = true;
-		private void OnTagsChanged() => tagSnapshotPending = true;
+		private void OnAnchorColocationConstraintsChanged() => anchorSnapshotPending = true;
+		private void OnAprilTagsColocationChanged() => tagSnapshotPending = true;
 		private void OnTaggedAnchorsChanged() => taggedAnchorSnapshotPending = true;
-		private void OnAnchorPersisted(Guid _) => changed();
+		private void OnAnchorColocationPersisted(Guid _) => changed();
 
 		public void ClearPendingSnapshots()
 		{
@@ -249,66 +223,50 @@ namespace Anaglyph.Lasertag
 		/// provider realizes nothing worth recording.
 		/// </summary>
 		private bool AnchorProviderOwnsState(GameMap map) =>
-			SessionReferencesBelongTo(map) && (SyncBus.Active
-				? ColocationManager.Instance != null &&
-				  ColocationManager.Instance.UsingAnchorProvider
-				: anchorProvider && anchorProvider.IsRunning);
+			mapIsSessionMap(map) && (SyncBus.Active
+				? colocation != null && colocation.UsingAnchorProvider
+				: anchorColocationProvider && anchorColocationProvider.IsRunning);
 
 		private bool TagProviderOwnsState(GameMap map) =>
-			SessionReferencesBelongTo(map) && (SyncBus.Active
-				? ColocationManager.Instance != null &&
-				  ColocationManager.Instance.UsingTagProvider
-				: tagProvider && tagProvider.IsRunning);
-
-		/// <summary>
-		/// Whether the providers hold the session's map rather than one this joiner had loaded
-		/// before it arrived.
-		/// </summary>
-		private static bool SessionReferencesBelongTo(GameMap map)
-		{
-			if (!SyncBus.Active || SyncBus.IsAuthority)
-				return true;
-
-			MapManager manager = MapManager.Instance;
-			return manager != null && manager.SessionMapAdopted && map != null &&
-			       map.id == manager.SessionMapId;
-		}
+			mapIsSessionMap(map) && (SyncBus.Active
+				? colocation != null && colocation.UsingTagProvider
+				: aprilTagColocationProvider && aprilTagColocationProvider.IsRunning);
 
 		private void SnapshotAnchors(GameMap map)
 		{
-			if (!anchorProvider)
+			if (!anchorColocationProvider)
 				return;
 
 			// May only prune what this provider itself dropped. Tag anchors are private per
 			// device: on a joiner the authority's constraints never describe this headset's own,
 			// and clearing here would erase them from its copy.
 			HashSet<string> present = new();
-			foreach (Guid guid in anchorProvider.Constraints.Keys)
+			foreach (Guid guid in anchorColocationProvider.Constraints.Keys)
 				present.Add(MapGuid.ToString(guid));
 
 			map.anchors.RemoveAll(entry => entry.tagId < 0 && !present.Contains(entry.guid));
 
-			foreach ((Guid guid, AnchorConstraintState state) in anchorProvider.Constraints)
+			foreach ((Guid guid, AnchorConstraintState state) in anchorColocationProvider.Constraints)
 				map.SetAnchorWithTag(MapGuid.ToString(guid), state.canonPose, state.bindingId);
 		}
 
 		private void SnapshotTags(GameMap map)
 		{
-			if (!tagProvider)
+			if (!aprilTagColocationProvider)
 				return;
 
 			map.tags.Clear();
-			foreach ((int tagId, Pose canon) in tagProvider.RegisteredTags)
+			foreach ((int tagId, Pose canon) in aprilTagColocationProvider.RegisteredTags)
 				map.SetTag(tagId, canon);
 		}
 
 		private void SnapshotTaggedAnchors(GameMap map)
 		{
-			if (!tagProvider)
+			if (!aprilTagColocationProvider)
 				return;
 
 			List<TaggedAnchorConstraintData> realized = new();
-			tagProvider.GetLocalAnchorConstraints(realized);
+			aprilTagColocationProvider.GetLocalAnchorConstraints(realized);
 
 			// Mirror of SnapshotAnchors: this provider owns only the tag realizations. Roaming
 			// anchors (tagId -1) belong to the anchor provider and survive a map being tagged
@@ -340,20 +298,20 @@ namespace Anaglyph.Lasertag
 		/// </summary>
 		public void EraseTagAnchorSaveIfOrphaned(string guid)
 		{
-			if (!tagProvider || MapStore.IsAnchorReferenced(guid))
+			if (!aprilTagColocationProvider || MapStore.IsAnchorReferenced(guid))
 				return;
 
 			if (MapGuid.TryParse(guid, out Guid parsed))
-				_ = tagProvider.EraseAsync(parsed);
+				_ = aprilTagColocationProvider.EraseAsync(parsed);
 		}
 
 		public void EraseAnchorSave(string guid)
 		{
-			if (!anchorProvider)
+			if (!anchorColocationProvider)
 				return;
 
 			if (MapGuid.TryParse(guid, out Guid parsed))
-				_ = anchorProvider.EraseAsync(parsed);
+				_ = anchorColocationProvider.EraseAsync(parsed);
 		}
 
 		// ------- adoption ----------------------------------------
@@ -367,10 +325,10 @@ namespace Anaglyph.Lasertag
 		/// </summary>
 		public void AdoptProviderState(GameMap map)
 		{
-			if (map == null || ColocationManager.Instance == null)
+			if (map == null || colocation == null)
 				return;
 
-			if (ColocationManager.Instance.Method == ColocationManager.ColocationMethod.AprilTag)
+			if (colocation.Method == ColocationManager.ColocationMethod.AprilTag)
 			{
 				// Tag anchors are private per device. Restore this headset's saved realizations,
 				// while registered tag poses come from the authority's provider snapshot.
@@ -379,8 +337,8 @@ namespace Anaglyph.Lasertag
 					if (entry.tagId >= 0 && MapGuid.TryParse(entry.guid, out Guid guid))
 						saved.Add(new TaggedAnchorConstraintData(guid, entry.tagId, entry.canonPose));
 
-				if (tagProvider)
-					tagProvider.SetLocalAnchors(saved);
+				if (aprilTagColocationProvider)
+					aprilTagColocationProvider.SetLocalAnchors(saved);
 
 				SnapshotTags(map);
 				SnapshotTaggedAnchors(map);

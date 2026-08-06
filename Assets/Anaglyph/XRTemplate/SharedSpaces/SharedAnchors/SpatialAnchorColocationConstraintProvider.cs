@@ -39,9 +39,9 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 	/// required for the provider to align a session.
 	/// </summary>
 	[DefaultExecutionOrder(-200)]
-	public class SpatialAnchorConstraintProvider : MonoBehaviour, IColocationConstraintProvider
+	public class SpatialAnchorColocationConstraintProvider : MonoBehaviour, IColocationConstraintProvider
 	{
-		public static SpatialAnchorConstraintProvider Instance { get; private set; }
+		public static SpatialAnchorColocationConstraintProvider Instance { get; private set; }
 
 		private sealed class HeldAnchor
 		{

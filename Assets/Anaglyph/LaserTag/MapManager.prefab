@@ -65,9 +65,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5a74eb28e4d5e4fb0b882f535ea6dad8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.MapManager
-  spatialAnchorProvider: {fileID: 219892528580798013}
-  tagProvider: {fileID: 1088323605287642758}
-  colocator: {fileID: 9142721848964367083}
+  colocationManager: {fileID: 6911126833990273307}
   objectDatabase: {fileID: 11400000, guid: 93790f38bf42f48f9baa20fd8c0411a3, type: 2}
   probeTimeoutSeconds: 8
   saveDebounceSeconds: 2
@@ -102,8 +100,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   methodHostSetting: 0
   colocator: {fileID: 9142721848964367083}
-  spatialAnchorProvider: {fileID: 219892528580798013}
-  tagProvider: {fileID: 1088323605287642758}
+  spatialAnchorColocationProvider: {fileID: 219892528580798013}
+  aprilTagColocationProvider: {fileID: 1088323605287642758}
 --- !u!114 &9142721848964367083
 MonoBehaviour:
   m_ObjectHideFlags: 0
