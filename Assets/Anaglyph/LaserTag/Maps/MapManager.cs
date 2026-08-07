@@ -438,15 +438,20 @@ namespace Anaglyph.Lasertag
 			if (CurrentMap == null)
 				return;
 
-			// MapStore mints a content version whenever it saves a dirty map, so the version has
-			// to be settled before the identity that advertises it goes out. Offline saves
-			// deliberately stay dirty and keep their fork-on-conflict semantics.
-			if (SyncBus.Active && SyncBus.IsAuthority && CurrentMap.dirty)
+			if (SyncBus.Active && SyncBus.IsAuthority)
 			{
-				MapStore.MintVersion(CurrentMap);
+				// Settle the version before the identity that advertises it goes out. Only a
+				// diverged map earns a new one; offline saves deliberately stay dirty and keep
+				// their fork-on-conflict semantics.
+				if (CurrentMap.dirty)
+					MapStore.MintVersion(CurrentMap);
+
+				// Unconditional. This is the only signal that tells a joiner which map the session
+				// is using, and nothing starts its adoption without it — so a host whose map was
+				// never edited has to publish too.
+				sessionSync.PublishIdentity();
 				CurrentMap.baseVersion = CurrentMap.version;
 				CurrentMap.dirty = false;
-				sessionSync.PublishIdentity();
 			}
 
 			MapStore.Save(CurrentMap);
