@@ -25,6 +25,14 @@ float minDot = 0.5; // min dot product between depth ray and surface normal
 
 static const uint maxIntegCountSettle = 16; // max 255
 
+// half width of a dead zone around the isosurface. a voxel has to traverse the whole
+// zone to count as surface change, so noise dithering about zero reads as no change
+static const float surfaceDeadband = 2.0 / 127.0;
+
+// a voxel this far into the truncation band is near enough to the surface
+// that first seeing it counts as discovering geometry. free space saturates at 1
+static const float newCoverageBand = 0.99;
+
 // crop out part of the depth texture to prevent artifacts when user turns head quickly
 static const float depthTexCropMin = 0.1;
 static const float depthTexCropMax = 0.9;
@@ -48,7 +56,15 @@ static const float depthTexCropMax = 0.9;
 
 RWStructuredBuffer<int> reservedChunkCounter; // single element buffer functioning as counter
 RWStructuredBuffer<int> chunkTable; // in concept a dense 3D grid spanning the desired max playspace
-RWStructuredBuffer<uint> chunkChangeSums; // absolute change odometer per chunk 
+RWStructuredBuffer<uint> chunkChangeSums; // absolute change odometer per chunk
+
+// odometer of voxels the isosurface actually crossed. refinement that never moves
+// the zero crossing doesn't change the mesh, so it doesn't count here
+RWStructuredBuffer<uint> chunkSurfaceChanges;
+
+// odometer of near-surface voxels observed for the first time.
+// this is newly discovered geometry rather than refinement of known geometry
+RWStructuredBuffer<uint> chunkNewCoverage;
 
 uint3 chunkTableDims; // num chunk entries per axis in table
 uint chunkTableLength; // num chunk entries total
@@ -356,19 +372,34 @@ void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 	const uint quantizedChange = abs(round(newDistVal * 127) - round(prevDistVal * 127));
 
 	InterlockedAdd(chunkChangeSums[chunkIdx], quantizedChange);
+
+	const bool wasSolid = prevDistVal < -surfaceDeadband;
+	const bool wasEmpty = prevDistVal > surfaceDeadband;
+	const bool isSolid = newDistVal < -surfaceDeadband;
+	const bool isEmpty = newDistVal > surfaceDeadband;
+
+	if (prevIntegCount > 0 && ((wasSolid && isEmpty) || (wasEmpty && isSolid)))
+		InterlockedAdd(chunkSurfaceChanges[chunkIdx], 1);
+
+	if (prevIntegCount == 0 && abs(newDistVal) < newCoverageBand)
+		InterlockedAdd(chunkNewCoverage[chunkIdx], 1);
 }
 
-#pragma kernel VisibleChunkChangeSumsReadback
+#pragma kernel VisibleChunkStatsReadback
 
-RWStructuredBuffer<uint> visibleChangeSumsReadback;
+// x: change sum, y: surface changes, z: new coverage
+RWStructuredBuffer<uint3> visibleChunkStatsReadback;
 
 [numthreads(64, 1, 1)]
-void VisibleChunkChangeSumsReadback(uint3 threadID : SV_DispatchThreadID)
+void VisibleChunkStatsReadback(uint3 threadID : SV_DispatchThreadID)
 {
 	if (threadID.x >= (uint)maxNumVisibleChunks) return;
 
 	const int chunkIdx = visibleChunks[threadID.x];
-	visibleChangeSumsReadback[threadID.x] = chunkChangeSums[chunkIdx];
+	visibleChunkStatsReadback[threadID.x] = uint3(
+		chunkChangeSums[chunkIdx],
+		chunkSurfaceChanges[chunkIdx],
+		chunkNewCoverage[chunkIdx]);
 }
 
 
