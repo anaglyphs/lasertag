@@ -82,8 +82,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0c1e3f149293645689d825af3599178c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.EnvChunkSync
-  syncSweptVoxelsThreshold: 500
-  positionQuantizationBits: 10
+  initialSurfaceSendThreshold: 0.1
+  updatedSurfaceSendThreshold: 1.1
+  newSurfaceWeight: 2
+  initialSendSettleSeconds: 0.5
+  settleSeconds: 1.5
+  maxDeferSeconds: 8
+  ownerTakeoverSeconds: 15
+  selectInterval: 0.25
+  firstSendPriority: 4
+  maxSettleBoost: 3
+  observeVerticalFov: 90
+  observeAspect: 1
+  sendBytesPerSecond: 40000
+  sendBurstBytes: 90000
+  minSendBudgetBytes: 8000
+  positionPrecisionVoxelFraction: 0.25
   encodingSpeed: 0
   decodingSpeed: 4
 --- !u!114 &6911126833990273307

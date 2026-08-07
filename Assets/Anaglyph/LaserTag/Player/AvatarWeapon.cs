@@ -23,7 +23,7 @@ namespace Anaglyph.Lasertag.Networking
 		private NetworkVariable<bool> firingSync = new();
 
 		private GameObject instance;
-		private WeaponView view;
+		private WeaponVisual visual;
 		private int id = WeaponDatabase.NoWeapon;
 
 		// owner only
@@ -84,7 +84,7 @@ namespace Anaglyph.Lasertag.Networking
 
 			weaponIdSync.Value = id;
 			shownSync.Value = instance != null && instance.activeInHierarchy;
-			firingSync.Value = view != null && view.IsFiring;
+			firingSync.Value = visual != null && visual.IsFiring;
 		}
 
 		private void Show(int weaponId)
@@ -94,14 +94,14 @@ namespace Anaglyph.Lasertag.Networking
 
 			id = weaponId;
 
-			if (view != null)
-				view.Fired -= OnFired;
+			if (visual != null)
+				visual.Fired -= OnFired;
 
 			if (instance != null)
 				Destroy(instance);
 
 			instance = null;
-			view = null;
+			visual = null;
 
 			GameObject prefab = IsOwner ? database.GetWeapon(id) : database.GetView(id);
 
@@ -110,7 +110,7 @@ namespace Anaglyph.Lasertag.Networking
 
 			instance = Instantiate(prefab, transform, false);
 			instance.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
-			view = instance.GetComponentInChildren<WeaponView>(true);
+			visual = instance.GetComponentInChildren<WeaponVisual>(true);
 
 			if (!IsOwner)
 			{
@@ -123,8 +123,8 @@ namespace Anaglyph.Lasertag.Networking
 
 			instance.SetActive(weaponsActive);
 
-			if (view != null)
-				view.Fired += OnFired;
+			if (visual != null)
+				visual.Fired += OnFired;
 		}
 
 		// what the owner's own weapon does for itself, applied to everyone else's copy
@@ -135,8 +135,8 @@ namespace Anaglyph.Lasertag.Networking
 
 			instance.SetActive(shownSync.Value);
 
-			if (view != null)
-				view.SetFiring(firingSync.Value);
+			if (visual != null)
+				visual.SetFiring(firingSync.Value);
 		}
 
 		private void OnWeaponIdChanged(int previous, int current) => Show(current);
@@ -152,8 +152,8 @@ namespace Anaglyph.Lasertag.Networking
 		[Rpc(SendTo.NotOwner, Delivery = RpcDelivery.Unreliable)]
 		private void PlayFireRpc()
 		{
-			if (view != null && view.isActiveAndEnabled)
-				view.PlayFire();
+			if (visual != null && visual.isActiveAndEnabled)
+				visual.PlayFire();
 		}
 	}
 }

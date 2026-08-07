@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Anaglyph.Lasertag
 {
@@ -15,6 +16,10 @@ namespace Anaglyph.Lasertag
 		// identically in every build. It is how a map file refers to this object's prefab.
 		[SerializeField] private string prefabId;
 		public string PrefabId => prefabId;
+
+		// Child object hierarchy that only contains visual components
+		[SerializeField] private GameObject visuals;
+		public GameObject Visuals => visuals;
 
 		/// <summary>Every live map object, local-only or network-spawned alike.</summary>
 		public static IReadOnlyList<MapObject> All => all;

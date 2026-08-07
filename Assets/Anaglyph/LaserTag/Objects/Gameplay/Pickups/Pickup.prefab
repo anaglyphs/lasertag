@@ -9,6 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4836978722681523195}
+  - component: {fileID: 8262405676359883225}
   m_Layer: 0
   m_Name: View Holder
   m_TagString: Untagged
@@ -29,8 +30,25 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 5552269451384066021}
+  m_Father: {fileID: 1587837298356135125}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8262405676359883225
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2715419115656621503}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 74e1f66f1f9a74f88831c6f2c1f37635, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.WeaponPickupVisual
+  previewObject: {fileID: 0}
+  spinSpeed: 60
+  bobHeight: 0.05
+  bobFrequency: 0.5
+  basePosition: {x: 0, y: 1, z: 0}
 --- !u!1 &6135838225578493482
 GameObject:
   m_ObjectHideFlags: 0
@@ -42,9 +60,9 @@ GameObject:
   - component: {fileID: 5552269451384066021}
   - component: {fileID: 4184017568709617797}
   - component: {fileID: 2943212583340504007}
+  - component: {fileID: 817168843049134554}
   - component: {fileID: 3327497804181599718}
   - component: {fileID: 7448900807798098010}
-  - component: {fileID: 817168843049134554}
   m_Layer: 0
   m_Name: Pickup
   m_TagString: Weapon Pickup
@@ -65,8 +83,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 101441520338682902}
-  - {fileID: 4836978722681523195}
+  - {fileID: 1587837298356135125}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &4184017568709617797
@@ -81,7 +98,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 241170086
+  GlobalObjectIdHash: 534722823
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 3
@@ -108,10 +125,22 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.WeaponPickup
   weaponPrefab: {fileID: 0}
-  viewHolder: {fileID: 4836978722681523195}
-  spinSpeed: 30
-  bobHeight: 0.05
-  bobFrequency: 0.5
+--- !u!114 &817168843049134554
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6135838225578493482}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 36e471233020d4242add50ecc6f5e27c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.MapObject
+  ShowTopMostFoldoutHeaderGroup: 1
+  movable: 1
+  prefabId: Empty Pickup
+  visuals: {fileID: 6353880407191418879}
 --- !u!136 &3327497804181599718
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -181,28 +210,46 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
---- !u!114 &817168843049134554
-MonoBehaviour:
+--- !u!1 &6353880407191418879
+GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6135838225578493482}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 36e471233020d4242add50ecc6f5e27c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.MapObject
-  ShowTopMostFoldoutHeaderGroup: 1
-  movable: 1
-  prefabId: Empty Pickup
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1587837298356135125}
+  m_Layer: 0
+  m_Name: Visuals
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1587837298356135125
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6353880407191418879}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 101441520338682902}
+  - {fileID: 4836978722681523195}
+  m_Father: {fileID: 5552269451384066021}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &496202979204801533
 PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Modification:
     serializedVersion: 3
-    m_TransformParent: {fileID: 5552269451384066021}
+    m_TransformParent: {fileID: 1587837298356135125}
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: a29e9b93336a8489da32f80101fbcbd9, type: 3}
       propertyPath: m_LocalScale.x
@@ -258,7 +305,7 @@ PrefabInstance:
       objectReference: {fileID: -876546973899608171, guid: 675c217b2f486324dad66c29faa9ec36, type: 3}
     - target: {fileID: 919132149155446097, guid: a29e9b93336a8489da32f80101fbcbd9, type: 3}
       propertyPath: m_Name
-      value: base mesh
+      value: Glow
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

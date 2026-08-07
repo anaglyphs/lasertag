@@ -76,6 +76,14 @@ PrefabInstance:
       propertyPath: SyncScaleZ
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 8262405676359883225, guid: 5f246ade89ff64940aaa55e503fdd7f7, type: 3}
+      propertyPath: previewObject
+      value: 
+      objectReference: {fileID: 6108592194076046928, guid: b99dcd3e630accd47b278cc090ef9c71, type: 3}
+    - target: {fileID: 8262405676359883225, guid: 5f246ade89ff64940aaa55e503fdd7f7, type: 3}
+      propertyPath: basePosition.y
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects:
     - {fileID: 6403008042207272490, guid: 5f246ade89ff64940aaa55e503fdd7f7, type: 3}

@@ -1,5 +1,6 @@
 using Anaglyph.Lasertag.Weapons;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Anaglyph.Lasertag
 {
@@ -9,7 +10,7 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private Vector3 rotationAxis = Vector3.forward;
 		[SerializeField] private float maxRotationSpeed = 10800;
 		[SerializeField] private float falloff;
-		[SerializeField] private WeaponView view;
+		[FormerlySerializedAs("view")] [SerializeField] private WeaponVisual visual;
 		[SerializeField] private AudioSource spinSFX;
 
 		[SerializeField] private AnimationCurve spinSFXPitch = new(new Keyframe(0, 0), new Keyframe(1, 1));
@@ -20,14 +21,14 @@ namespace Anaglyph.Lasertag
 		{
 			rotationAxis.Normalize();
 
-			view.Fired += OnFired;
-			view.IsFiringChanged += OnIsFiringChanged;
+			visual.Fired += OnFired;
+			visual.IsFiringChanged += OnIsFiringChanged;
 		}
 
 		private void OnDisable()
 		{
-			view.Fired -= OnFired;
-			view.IsFiringChanged -= OnIsFiringChanged;
+			visual.Fired -= OnFired;
+			visual.IsFiringChanged -= OnIsFiringChanged;
 			spinSFX.Stop();
 		}
 
@@ -49,7 +50,7 @@ namespace Anaglyph.Lasertag
 
 		private void Update()
 		{
-			if (view.IsFiring)
+			if (visual.IsFiring)
 				rotSpeed = maxRotationSpeed;
 			else
 				rotSpeed = Mathf.Max(0, rotSpeed - Time.deltaTime * falloff * 360);

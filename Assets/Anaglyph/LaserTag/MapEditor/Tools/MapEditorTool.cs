@@ -5,6 +5,7 @@ using UnityEngine.InputSystem;
 
 namespace Anaglyph.Lasertag
 {
+	
 	public class MapEditorTool : MonoBehaviour
 	{
 		public static MapEditorTool DominantHand;
@@ -74,7 +75,7 @@ namespace Anaglyph.Lasertag
 			if (previewObject)
 				Destroy(previewObject);
 
-			if (spawnObject != null) previewObject = InstantiateObjectAsPreview(spawnObject.gameObject);
+			if (spawnObject != null) previewObject = InstantiateObjectAsPreview(spawnObject);
 		}
 
 		private Quaternion GetSpawnRotation()
@@ -287,52 +288,9 @@ namespace Anaglyph.Lasertag
 				MapManager.Instance.RequestPlaceObject(prefab, position, rotation);
 		}
 
-		private static GameObject InstantiateObjectAsPreview(GameObject obj)
+		private static GameObject InstantiateObjectAsPreview(MapObject obj)
 		{
-			GameObject preview = Instantiate(obj);
-			preview.SetActive(false);
-
-			Component[] components = preview.GetComponentsInChildren<Component>(true);
-
-			for (int i = 0; i < 100; i++)
-			{
-				// Because you can't force destroy components that others depend on >:(
-				bool allBlacklistedDestroyed = true;
-
-				foreach (Component c in components)
-				{
-					Type componentType = c.GetType();
-
-					if (c == null)
-						continue;
-
-					bool whiteListed = false;
-					foreach (Type t in whiteListedPreviewComponents)
-						if (componentType == t || componentType.IsSubclassOf(t))
-						{
-							whiteListed = true;
-							break;
-						}
-
-					if (whiteListed)
-						continue;
-
-					foreach (Type t in blacklistedPreviewComponents)
-						if (componentType == t || componentType.IsSubclassOf(t))
-						{
-							DestroyImmediate(c, false);
-							if (c != null)
-								allBlacklistedDestroyed = false;
-							break;
-						}
-				}
-
-				if (allBlacklistedDestroyed)
-					break;
-			}
-
-			preview.SetActive(true);
-
+			GameObject preview = Instantiate(obj.Visuals);
 			return preview;
 		}
 

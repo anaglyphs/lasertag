@@ -12,9 +12,33 @@ PrefabInstance:
       propertyPath: prefabId
       value: Blaster Pickup
       objectReference: {fileID: 0}
+    - target: {fileID: 2943212583340504007, guid: 5f246ade89ff64940aaa55e503fdd7f7, type: 3}
+      propertyPath: weaponPrefab
+      value: 
+      objectReference: {fileID: 3351604493564354878, guid: dc9d3a79025131f408102e10b2cea9d5, type: 3}
     - target: {fileID: 4184017568709617797, guid: 5f246ade89ff64940aaa55e503fdd7f7, type: 3}
       propertyPath: GlobalObjectIdHash
       value: 1968368178
+      objectReference: {fileID: 0}
+    - target: {fileID: 4836978722681523195, guid: 5f246ade89ff64940aaa55e503fdd7f7, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.9745155
+      objectReference: {fileID: 0}
+    - target: {fileID: 4836978722681523195, guid: 5f246ade89ff64940aaa55e503fdd7f7, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: -0.8180892
+      objectReference: {fileID: 0}
+    - target: {fileID: 4836978722681523195, guid: 5f246ade89ff64940aaa55e503fdd7f7, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4836978722681523195, guid: 5f246ade89ff64940aaa55e503fdd7f7, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0.57509136
+      objectReference: {fileID: 0}
+    - target: {fileID: 4836978722681523195, guid: 5f246ade89ff64940aaa55e503fdd7f7, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5552269451384066021, guid: 5f246ade89ff64940aaa55e503fdd7f7, type: 3}
       propertyPath: m_LocalPosition.x
@@ -59,6 +83,14 @@ PrefabInstance:
     - target: {fileID: 6135838225578493482, guid: 5f246ade89ff64940aaa55e503fdd7f7, type: 3}
       propertyPath: m_Name
       value: Blaster Pickup
+      objectReference: {fileID: 0}
+    - target: {fileID: 8262405676359883225, guid: 5f246ade89ff64940aaa55e503fdd7f7, type: 3}
+      propertyPath: previewObject
+      value: 
+      objectReference: {fileID: 6564266517920806634, guid: dc9d3a79025131f408102e10b2cea9d5, type: 3}
+    - target: {fileID: 8262405676359883225, guid: 5f246ade89ff64940aaa55e503fdd7f7, type: 3}
+      propertyPath: basePosition.y
+      value: 0.9745155
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 5995751210731375321}
   - component: {fileID: 7063072412994454556}
   - component: {fileID: 7878356517388112179}
+  - component: {fileID: 142788324240339824}
   m_Layer: 0
   m_Name: Debug Wall
   m_TagString: Untagged
@@ -76,6 +77,7 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   movable: 1
   prefabId: Debug Wall
+  visuals: {fileID: 8527516705943218161}
 --- !u!114 &7878356517388112179
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -122,6 +124,27 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
+--- !u!65 &142788324240339824
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 63206341851692119}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 2, z: 0.1}
+  m_Center: {x: 0, y: 1, z: 0}
 --- !u!1 &8527516705943218161
 GameObject:
   m_ObjectHideFlags: 0
@@ -133,7 +156,6 @@ GameObject:
   - component: {fileID: 6512497037729286747}
   - component: {fileID: 8544073224489334147}
   - component: {fileID: 3627468285691643063}
-  - component: {fileID: 128928603992407213}
   m_Layer: 0
   m_Name: wall
   m_TagString: Untagged
@@ -213,24 +235,3 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &128928603992407213
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8527516705943218161}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}

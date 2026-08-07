@@ -6,6 +6,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.InputSystem;
+using UnityEngine.Serialization;
 
 namespace Anaglyph.Lasertag.Weapons
 {
@@ -16,7 +17,8 @@ namespace Anaglyph.Lasertag.Weapons
 		private CancellationTokenSource fireLoopCancellation;
 
 		[SerializeField] private GameObject boltPrefab = null;
-		[SerializeField] private WeaponView view = null;
+		[FormerlySerializedAs("view")] [SerializeField] private WeaponVisual visual = null;
+		public GameObject VisualObject => visual.gameObject;
 		public UnityEvent onFire = new();
 
 		[SerializeField] private float fireFrequency = 0.1f;
@@ -39,7 +41,7 @@ namespace Anaglyph.Lasertag.Weapons
 			hand.Unbind(nameof(OnFire), OnFire);
 			triggerDown = false;
 			fireLoopCancellation?.Cancel();
-			view.SetFiring(false);
+			visual.SetFiring(false);
 		}
 
 		public void OnFire(InputAction.CallbackContext context)
@@ -62,7 +64,7 @@ namespace Anaglyph.Lasertag.Weapons
 			{
 				while (triggerDown)
 				{
-					view.SetFiring(TryFire());
+					visual.SetFiring(TryFire());
 					await Awaitable.WaitForSecondsAsync(fireFrequency, fireLoopCancellation.Token);
 				}
 			}
@@ -74,7 +76,7 @@ namespace Anaglyph.Lasertag.Weapons
 				fireLoopCancellation?.Dispose();
 				fireLoopCancellation = null;
 				firing = false;
-				view.SetFiring(false);
+				visual.SetFiring(false);
 			}
 		}
 
@@ -88,13 +90,13 @@ namespace Anaglyph.Lasertag.Weapons
 			if (!NetworkManager.Singleton.IsConnectedClient || !WeaponsManagement.CanFire)
 				return false;
 
-			Transform muzzle = view.Muzzle;
+			Transform muzzle = visual.Muzzle;
 			NetworkObject n = NetworkObjectPool.Instance.GetNetworkObject(
 				boltPrefab, muzzle.position, muzzle.rotation);
 
 			n.SpawnWithOwnership(NetworkManager.Singleton.LocalClientId);
 
-			view.PlayFire();
+			visual.PlayFire();
 			onFire.Invoke();
 			return true;
 		}

@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Anaglyph.Lasertag.Weapons
 {
-	public class WeaponView : MonoBehaviour
+	public class WeaponVisual : MonoBehaviour
 	{
 		[SerializeField] private Transform muzzle;
 

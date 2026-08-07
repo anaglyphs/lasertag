@@ -11,7 +11,7 @@ namespace Anaglyph.Lasertag
 		public static readonly int ColorID = Shader.PropertyToID("_Color");
 		public static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
 
-		[SerializeField] private byte defaultTeam;
+		[SerializeField] internal byte defaultTeam;
 		private TeamOwner teamOwner;
 		private new Renderer renderer;
 		private MaterialPropertyBlock propertyBlock;
@@ -44,6 +44,10 @@ namespace Anaglyph.Lasertag
 
 		private void OnValidate()
 		{
+			teamOwner = GetComponentInParent<TeamOwner>(true);
+			if (teamOwner)
+				defaultTeam = teamOwner.Team;
+			
 			UpdateColor();
 		}
 

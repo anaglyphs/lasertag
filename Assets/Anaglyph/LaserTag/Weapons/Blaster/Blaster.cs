@@ -4,6 +4,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.InputSystem;
+using UnityEngine.Serialization;
 
 namespace Anaglyph.Lasertag.Weapons
 {
@@ -13,7 +14,8 @@ namespace Anaglyph.Lasertag.Weapons
 		private HandSubject hand;
 
 		[SerializeField] private GameObject boltPrefab;
-		[SerializeField] private WeaponView view;
+		[FormerlySerializedAs("view")] [SerializeField] private WeaponVisual visual;
+		public GameObject VisualObject => visual.gameObject;
 		public UnityEvent onFire = new();
 
 		private void Awake()
@@ -42,13 +44,13 @@ namespace Anaglyph.Lasertag.Weapons
 			if (!NetworkManager.Singleton.IsConnectedClient || !WeaponsManagement.CanFire)
 				return;
 
-			Transform muzzle = view.Muzzle;
+			Transform muzzle = visual.Muzzle;
 			NetworkObject n = NetworkObjectPool.Instance.GetNetworkObject(
 				boltPrefab, muzzle.position, muzzle.rotation);
 
 			n.SpawnWithOwnership(NetworkManager.Singleton.LocalClientId);
 
-			view.PlayFire();
+			visual.PlayFire();
 			onFire.Invoke();
 		}
 	}

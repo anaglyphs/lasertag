@@ -7,7 +7,7 @@ namespace Anaglyph.Lasertag
 {
     public class TeamOwner : NetworkBehaviour
     {
-        public NetworkVariable<byte> teamSync;
+        public NetworkVariable<byte> teamSync = new();
 
         public byte Team => teamSync.Value;
 

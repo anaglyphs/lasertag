@@ -40,9 +40,9 @@ namespace Anaglyph.Lasertag.Weapons
 			if (weapon == null)
 				return null;
 
-			WeaponView view = weapon.GetComponentInChildren<WeaponView>(true);
+			WeaponVisual visual = weapon.GetComponentInChildren<WeaponVisual>(true);
 
-			return view == null ? null : view.gameObject;
+			return visual == null ? null : visual.gameObject;
 		}
 	}
 }
