@@ -4,7 +4,6 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using Anaglyph.Netcode;
 using Unity.Netcode;
-using Unity.XR.CoreUtils;
 using UnityEngine;
 using Utilities.XR;
 
@@ -24,7 +23,7 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private AudioClip fireSFX;
 		[SerializeField] private AudioClip collideSFX;
 		
-		private List<IDamageable> damageableBuffer = new();
+		private readonly List<IDamageable> damageableBuffer = new();
 
 		[Serializable, StructLayout(LayoutKind.Sequential)]
 		public struct ShotData : INetworkSerializeByMemcpy
@@ -35,11 +34,6 @@ namespace Anaglyph.Lasertag
 			public float GetFlightTime()
 			{
 				return ServerTime - serverTimeShot;
-			}
-
-			public Vector3 GetFlightPosition(float metersPerSecond)
-			{
-				return ray.GetPoint(GetFlightTime() * metersPerSecond);
 			}
 		}
 
@@ -92,7 +86,8 @@ namespace Anaglyph.Lasertag
 		private void UpdatePosition(ShotData shot)
 		{
 			Quaternion rot = Quaternion.LookRotation(shot.ray.direction);
-			Vector3 pos = shot.GetFlightPosition(metersPerSecond);
+			travelDist = metersPerSecond * shot.GetFlightTime();
+			Vector3 pos = shot.ray.GetPoint(travelDist);
 			
 			Pose p = new(pos, rot);
 			
@@ -121,8 +116,10 @@ namespace Anaglyph.Lasertag
 				if (didHit)
 				{
 					HitRpc(physHit.point, physHit.normal);
+					
+					float dist = Vector3.Distance(Shot.ray.origin, physHit.point);
 
-					float damage = damageOverDistance.Evaluate(travelDist);
+					float damage = damageOverDistance.Evaluate(dist);
 
 					Collider col = physHit.collider;
 
