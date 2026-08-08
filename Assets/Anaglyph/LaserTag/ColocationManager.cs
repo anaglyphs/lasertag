@@ -4,6 +4,7 @@ using Anaglyph.XRTemplate.SharedSpaces;
 using System;
 using UnityEngine;
 using UnityEngine.Serialization;
+using UnityEngine.XR;
 
 namespace Anaglyph.Lasertag
 {
@@ -283,6 +284,14 @@ namespace Anaglyph.Lasertag
 		// IsColocated can go false mid-session rather than only when the session ends.
 		private void OnColocatorStateChanged(ColocationState state)
 		{
+#if UNITY_EDITOR
+			if (!XRSettings.isDeviceActive)
+			{
+				SetColocated(true);
+				return;
+			}
+#endif
+			
 			SetColocated(state == ColocationState.Localized);
 		}
 

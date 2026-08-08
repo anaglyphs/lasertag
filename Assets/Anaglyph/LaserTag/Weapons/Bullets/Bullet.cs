@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
+using Anaglyph.Netcode;
 using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
@@ -12,7 +13,7 @@ namespace Anaglyph.Lasertag
 	public class Bullet : NetworkBehaviour
 	{
 		private const float MaxTravelDist = 50;
-		private static float ServerTime => NetworkManager.Singleton.ServerTime.TimeAsFloat;
+		private static float ServerTime => SharedNetworkTime.TimeAsFloat;
 
 		[SerializeField] private float metersPerSecond;
 		[SerializeField] private AnimationCurve damageOverDistance = AnimationCurve.Constant(0, MaxTravelDist, 50f);

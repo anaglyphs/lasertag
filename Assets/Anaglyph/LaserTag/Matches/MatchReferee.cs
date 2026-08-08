@@ -3,7 +3,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Anaglyph.Lasertag.Networking;
 using Anaglyph.Netcode;
-using Unity.Netcode;
 using UnityEngine;
 
 namespace Anaglyph.Lasertag
@@ -149,7 +148,7 @@ namespace Anaglyph.Lasertag
 		// e.g. "3/3" while its results show, not "4/3"
 		public static int CurrentRound => Mathf.Min(RoundsPlayed + 1, Settings.GetNumRounds());
 
-		private float ServerTime => NetworkManager.Singleton.ServerTime.TimeAsFloat;
+		private float ServerTime => SharedNetworkTime.TimeAsFloat;
 
 		public static int GetTeamScore(byte team)
 		{
@@ -278,6 +277,19 @@ namespace Anaglyph.Lasertag
 				stateSync.Value = MatchState.NotPlaying;
 			else
 				stateSync.Value = MatchState.RoundBreak;
+		}
+
+		// Everyone has to be in a base to start, and to stay there for the whole
+		// countdown.
+		private static bool AllPlayersInBase()
+		{
+			if (PlayerAvatar.All.Count == 0) return false;
+
+			foreach (PlayerAvatar player in PlayerAvatar.All.Values)
+				if (!player.IsInBase)
+					return false;
+
+			return true;
 		}
 
 		// A round is decided by elimination once every living player is on one
@@ -433,19 +445,12 @@ namespace Anaglyph.Lasertag
 						UpdateTimerText(Settings.roundTimeSeconds);
 						while (State == MatchState.Mustering)
 						{
-							int numPlayersInBase = 0;
-
-							foreach (PlayerAvatar player in PlayerAvatar.All.Values)
-								if (player.IsInBase)
-									numPlayersInBase++;
-
-							if (numPlayersInBase != 0 && numPlayersInBase == PlayerAvatar.All.Count)
-								if (SyncBus.IsAuthority)
-								{
-									ResetScores();
-									startTimeSync.Value = ServerTime + CountdownSeconds;
-									stateSync.Value = MatchState.Countdown;
-								}
+							if (SyncBus.IsAuthority && AllPlayersInBase())
+							{
+								ResetScores();
+								startTimeSync.Value = ServerTime + CountdownSeconds;
+								stateSync.Value = MatchState.Countdown;
+							}
 
 							await Awaitable.NextFrameAsync(ctn);
 							ctn.ThrowIfCancellationRequested();
@@ -454,11 +459,26 @@ namespace Anaglyph.Lasertag
 						break;
 
 					case MatchState.Countdown:
-						await Awaitable.WaitForSecondsAsync(CountdownSeconds, ctn);
-
-						if (SyncBus.IsAuthority)
+						// startTime is when play begins, i.e. the countdown deadline
+						while (State == MatchState.Countdown)
 						{
-							stateSync.Value = MatchState.Playing;
+							if (SyncBus.IsAuthority)
+							{
+								if (!AllPlayersInBase())
+								{
+									stateSync.Value = MatchState.Mustering;
+									break;
+								}
+
+								if (ServerTime >= TimeRoundStarted)
+								{
+									stateSync.Value = MatchState.Playing;
+									break;
+								}
+							}
+
+							await Awaitable.NextFrameAsync(ctn);
+							ctn.ThrowIfCancellationRequested();
 						}
 
 						break;
