@@ -42,9 +42,7 @@ namespace Anaglyph.Lasertag.Networking
 
 		public byte Team => teamOwner.Team;
 
-		private readonly HashSet<Base> basesInside = new();
-
-		public bool IsInBase => basesInside.Count > 0;
+		public bool IsInBase => OccupiedBase != null;
 		public bool IsInFriendlyBase { get; private set; }
 		public Action<bool> InFriendlyBaseChanged = delegate { };
 		public Base OccupiedBase { get; private set; }
@@ -80,8 +78,6 @@ namespace Anaglyph.Lasertag.Networking
 
 				ApplyAliveState();
 			};
-
-			teamOwner.TeamChanged += delegate { RefreshBaseState(); };
 		}
 
 		private void OnValidate()
@@ -119,20 +115,10 @@ namespace Anaglyph.Lasertag.Networking
 				cp.RemovePlayer(this);
 		}
 
-		internal void EnterBase(Base b)
+		private void Update()
 		{
-			basesInside.Add(b);
-			RefreshBaseState();
-
-			bool notPlaying = MatchReferee.State != MatchState.Playing;
-			if (IsOwner && IsInBase && (notPlaying || Team == 0))
-				TeamOwner.teamSync.Value = OccupiedBase.Team;
-		}
-
-		internal void ExitBase(Base b)
-		{
-			basesInside.Remove(b);
-			RefreshBaseState();
+			if (IsSpawned)
+				RefreshBaseState();
 		}
 
 		private void RefreshBaseState()
@@ -140,19 +126,27 @@ namespace Anaglyph.Lasertag.Networking
 			bool inFriendly = false;
 			Base occupied = null;
 
+			foreach (Base b in Base.AllBases)
+			{
+				if (!b.Contains(headTransform.position))
+					continue;
 
-			foreach (Base b in basesInside)
 				if (b.Team == Team)
 				{
 					occupied = b;
 					inFriendly = true;
-				}
-				else if (!inFriendly)
-				{
-					occupied = b;
+					break;
 				}
 
+				occupied ??= b;
+			}
+
+			Base previous = OccupiedBase;
 			OccupiedBase = occupied;
+
+			bool notPlaying = MatchReferee.State != MatchState.Playing;
+			if (IsOwner && occupied != null && occupied != previous && (notPlaying || Team == 0))
+				TeamOwner.teamSync.Value = occupied.Team;
 
 			if (IsInFriendlyBase == inFriendly)
 				return;

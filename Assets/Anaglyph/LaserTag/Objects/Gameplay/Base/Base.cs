@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -7,6 +8,7 @@ namespace Anaglyph.Lasertag.Networking
 	public class Base : NetworkBehaviour
 	{
 		public const float Radius = 1;
+		public const float Height = 3;
 
 		[SerializeField] private TeamOwner teamOwner;
 		public TeamOwner TeamOwner => teamOwner;
@@ -16,6 +18,11 @@ namespace Anaglyph.Lasertag.Networking
 
 		public const string Tag = "Base";
 
+		public static List<Base> AllBases { get; private set; } = new();
+
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+		private static void Init() => AllBases = new List<Base>();
+
 		private void OnValidate()
 		{
 			TryGetComponent(out teamOwner);
@@ -24,35 +31,25 @@ namespace Anaglyph.Lasertag.Networking
 		private void Awake()
 		{
 			gameObject.tag = Tag;
+			AllBases.Add(this);
 		}
 
 		public override void OnDestroy()
 		{
 			base.OnDestroy();
-
-			// OnTriggerExit isn't guaranteed to fire when a collider is destroyed
-			// (e.g. this base gets deleted via the map editor), so proactively evict
-			// this base from any player that's still holding a reference to it.
-			foreach (PlayerAvatar player in PlayerAvatar.All.Values)
-				player.ExitBase(this);
+			AllBases.Remove(this);
 		}
 
-		private void OnTriggerEnter(Collider other)
+		/// <summary>Bases are volumes, not colliders - a dead player has no hitbox but
+		/// still has to be able to walk into one to respawn.</summary>
+		public bool Contains(Vector3 point)
 		{
-			if (!other.CompareTag(PlayerAvatar.Tag)) return;
+			Vector3 local = point - transform.position;
 
-			PlayerAvatar player = other.GetComponentInParent<PlayerAvatar>();
-			if (player != null)
-				player.EnterBase(this);
-		}
+			if (local.y < 0 || local.y > Height)
+				return false;
 
-		private void OnTriggerExit(Collider other)
-		{
-			if (!other.CompareTag(PlayerAvatar.Tag)) return;
-
-			PlayerAvatar player = other.GetComponentInParent<PlayerAvatar>();
-			if (player != null)
-				player.ExitBase(this);
+			return new Vector2(local.x, local.z).sqrMagnitude < Radius * Radius;
 		}
 	}
 }

@@ -29,12 +29,14 @@ namespace Anaglyph.Lasertag
 			Instance = this;
 
 			NetcodeManagement.StateChanged += OnNetworkStateChange;
+			SyncBus.Activated += OnSessionStarted;
 			ColocationManager.Colocated += OnColocated;
 		}
 
 		private void OnDestroy()
 		{
 			NetcodeManagement.StateChanged -= OnNetworkStateChange;
+			SyncBus.Activated -= OnSessionStarted;
 			ColocationManager.Colocated -= OnColocated;
 
 			if (Instance == this)
@@ -46,6 +48,12 @@ namespace Anaglyph.Lasertag
 			if (state == NetcodeState.Disconnected)
 				hasAligned = false;
 
+			Handle();
+		}
+
+		private void OnSessionStarted()
+		{
+			hasAligned = ColocationManager.IsColocated;
 			Handle();
 		}
 
