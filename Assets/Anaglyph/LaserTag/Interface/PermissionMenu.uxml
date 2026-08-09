@@ -1,0 +1,9 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:Template name="PermissionGatePage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Pages/PermissionGatePage.uxml?fileID=9197481963319205126&amp;guid=2eedb5aaabfa4d8bb347e3eb55e860cf&amp;type=3#PermissionGatePage"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+    <ui:VisualElement picking-mode="Ignore" class="menu-root">
+        <ui:VisualElement name="pages" class="pages">
+            <ui:Instance name="permissions-page" template="PermissionGatePage" class="nav-page"/>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

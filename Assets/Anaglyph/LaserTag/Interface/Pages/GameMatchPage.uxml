@@ -1,0 +1,19 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:Template name="NavHeader" src="project://database/Assets/Anaglyph/LaserTag/Interface/NavHeader.uxml?fileID=9197481963319205126&amp;guid=6fb045f52b6e5428ea70fca9635fe4c6&amp;type=3#NavHeader"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+    <ui:VisualElement class="page-template-root">
+        <ui:Instance template="NavHeader">
+            <AttributeOverrides element-name="title" text="Play match"/>
+        </ui:Instance>
+        <ui:ScrollView>
+            <ui:Slider label="Damage strength" value="1" high-value="2" name="damage-multiplier-slider" low-value="0.1" show-input-field="true" fill="true" class="stacked-field"/>
+            <ui:SliderInt label="Rounds" value="3" high-value="10" show-input-field="true" name="rounds-slider" low-value="1" fill="false" class="stacked-field"/>
+            <ui:RadioButtonGroup label="Win condition" choices="Time,Points,Either" name="win-by-radio" class="stacked-field"/>
+            <ui:Slider label="Minutes per round" value="2" high-value="10" low-value="0.5" name="round-time-slider" show-input-field="true" class="stacked-field"/>
+            <ui:SliderInt label="Winning score" value="5" high-value="20" name="score-target-slider" show-input-field="true" class="stacked-field"/>
+            <ui:RadioButtonGroup label="Respawn&#10;" name="respawn-condition-radio" choices="After a timer,At home base,Only per round" class="stacked-field"/>
+            <ui:SliderInt label="Respawn seconds" value="5" high-value="10" name="respawn-time-slider" show-input-field="true" class="stacked-field"/>
+        </ui:ScrollView>
+        <ui:Button name="start-button" text="Start game"/>
+    </ui:VisualElement>
+</ui:UXML>

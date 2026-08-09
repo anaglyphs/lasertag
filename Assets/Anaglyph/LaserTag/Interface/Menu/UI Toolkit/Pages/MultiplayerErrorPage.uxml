@@ -1,8 +1,0 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
-	<Style src="../LaserTagMenu.uss" />
-	<ui:VisualElement class="page-template-root">
-		<ui:Label name="error-subject" text="Something went wrong" class="title error-subject" />
-		<ui:Label name="error-details" class="body-copy" />
-		<ui:Button name="dismiss-error-button" text="Dismiss" />
-	</ui:VisualElement>
-</ui:UXML>

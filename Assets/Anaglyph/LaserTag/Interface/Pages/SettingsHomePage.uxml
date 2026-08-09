@@ -1,0 +1,12 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:Template name="NavHeader" src="project://database/Assets/Anaglyph/LaserTag/Interface/NavHeader.uxml?fileID=9197481963319205126&amp;guid=6fb045f52b6e5428ea70fca9635fe4c6&amp;type=3#NavHeader"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+    <ui:VisualElement class="page-template-root">
+        <ui:Instance template="NavHeader">
+            <AttributeOverrides element-name="title" text="Settings"/>
+        </ui:Instance>
+        <ui:Button name="graphics-button" text="Graphics"/>
+        <ui:Button name="debugging-button" text="Debugging"/>
+        <ui:Label name="version" class="version"/>
+    </ui:VisualElement>
+</ui:UXML>
