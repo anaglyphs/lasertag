@@ -56,8 +56,6 @@ namespace Anaglyph.DepthKit.EnvScanning
 		[SerializeField] private int maxNumVisibleChunks = 256;
 
 		public float VoxSize => voxSize;
-		public float MinScanDistance => minDist;
-		public float MaxScanDistance => maxDist;
 		public float DistanceTruncationBand => distanceTruncationBand;
 		public int VoxPerChunkDim => voxPerChunkDim;
 		public float3 OriginOffset => originOffset;
@@ -69,10 +67,8 @@ namespace Anaglyph.DepthKit.EnvScanning
 		private ComputeBuffer reservedChunkCounter;
 		private ComputeBuffer chunkTable;
 		private ComputeBuffer chunkChangeSums;
-		private ComputeBuffer chunkSurfaceChanges;
-		private ComputeBuffer chunkNewCoverage;
 		private ComputeBuffer visibleChunks;
-		private ComputeBuffer visibleChunkStatsReadback;
+		private ComputeBuffer visibleChangeSumsReadback;
 		private ComputeBuffer integrateDispatchDims;
 
 		private RenderTexture chunkData;
@@ -82,7 +78,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 		private ComputeKernel clearKernel;
 		private ComputeKernel markKernel;
 		private ComputeKernel integrateKernel;
-		private ComputeKernel visStatsReadbackKernel;
+		private ComputeKernel visChangeSumsReadbackKernel;
 		private ComputeKernel dataReadbackKernel;
 
 		private CancellationTokenSource updateLoopTknSrc;
@@ -111,41 +107,21 @@ namespace Anaglyph.DepthKit.EnvScanning
 		}
 
 		/// <summary>
-		/// Per chunk change odometers. All three wrap; compare with unsigned
-		/// subtraction against a previous reading rather than reading absolutely.
-		/// </summary>
-		[StructLayout(LayoutKind.Sequential)]
-		public readonly struct ChunkStats
-		{
-			/// <summary>Summed magnitude of every voxel value change. Includes sensor noise.</summary>
-			public readonly uint changeSum;
-
-			/// <summary>Voxels the isosurface crossed, i.e. change that moves the mesh.</summary>
-			public readonly uint surfaceChange;
-
-			/// <summary>Near-surface voxels observed for the first time.</summary>
-			public readonly uint newCoverage;
-
-			public const int stride = sizeof(uint) * 3;
-		}
-
-		/// <summary>
 		/// Readback result from environment scanner.
-		/// `visibleChunks` and `stats` MUST be used FRAME OF READBACK!
+		/// `visibleChunks` and `changeSums` MUST be used FRAME OF READBACK!
 		/// </summary>
 		public struct VisibleChunksReadbackResult
 		{
 			public int count { get; private set; }
 			public NativeArray<int> visibleChunks { get; private set; }
-			public NativeArray<ChunkStats> stats { get; private set; }
+			public NativeArray<uint> changeSums { get; private set; }
 			public bool valid { get; private set; }
 
-			public VisibleChunksReadbackResult(int count, NativeArray<int> visibleChunks,
-				NativeArray<ChunkStats> stats)
+			public VisibleChunksReadbackResult(int count, NativeArray<int> visibleChunks, NativeArray<uint> changeSums)
 			{
 				this.count = count;
 				this.visibleChunks = visibleChunks;
-				this.stats = stats;
+				this.changeSums = changeSums;
 				valid = true;
 			}
 		}
@@ -171,13 +147,11 @@ namespace Anaglyph.DepthKit.EnvScanning
 			// buffers
 			reservedChunkCounter = new ComputeBuffer(1, sizeof(int));
 			visibleChunks = new ComputeBuffer(maxNumVisibleChunks, sizeof(int), ComputeBufferType.Append);
-			visibleChunkStatsReadback = new ComputeBuffer(maxNumVisibleChunks, ChunkStats.stride);
+			visibleChangeSumsReadback = new ComputeBuffer(maxNumVisibleChunks, sizeof(uint));
 			int3 ctd = chunkTableDims;
 			chunkTableLength = ctd.x * ctd.y * ctd.z;
 			chunkTable = new ComputeBuffer(chunkTableLength, sizeof(int));
 			chunkChangeSums = new ComputeBuffer(chunkTableLength, sizeof(uint));
-			chunkSurfaceChanges = new ComputeBuffer(chunkTableLength, sizeof(uint));
-			chunkNewCoverage = new ComputeBuffer(chunkTableLength, sizeof(uint));
 
 			// chunkData should be a R8G8_SNorm.
 			// R -> TSDF value
@@ -226,8 +200,6 @@ namespace Anaglyph.DepthKit.EnvScanning
 			integrateKernel.Bind(nameof(chunkTable), chunkTable);
 			integrateKernel.Bind(nameof(chunkData), chunkData);
 			integrateKernel.Bind(nameof(chunkChangeSums), chunkChangeSums);
-			integrateKernel.Bind(nameof(chunkSurfaceChanges), chunkSurfaceChanges);
-			integrateKernel.Bind(nameof(chunkNewCoverage), chunkNewCoverage);
 			integrateKernel.Bind(nameof(visibleChunks), visibleChunks);
 
 			integrateDispatchDims = new ComputeBuffer(3, sizeof(uint), ComputeBufferType.IndirectArguments);
@@ -245,13 +217,11 @@ namespace Anaglyph.DepthKit.EnvScanning
 			dataReadbackKernel.Bind(nameof(chunkTable), chunkTable);
 			dataReadbackKernel.Bind(nameof(chunkData), chunkData);
 
-			// visible chunk stats readback
-			visStatsReadbackKernel = new ComputeKernel(compute, "VisibleChunkStatsReadback");
-			visStatsReadbackKernel.Bind(nameof(visibleChunks), visibleChunks);
-			visStatsReadbackKernel.Bind(nameof(chunkChangeSums), chunkChangeSums);
-			visStatsReadbackKernel.Bind(nameof(chunkSurfaceChanges), chunkSurfaceChanges);
-			visStatsReadbackKernel.Bind(nameof(chunkNewCoverage), chunkNewCoverage);
-			visStatsReadbackKernel.Bind(nameof(visibleChunkStatsReadback), visibleChunkStatsReadback);
+			// visible chunk change sums readback
+			visChangeSumsReadbackKernel = new ComputeKernel(compute, "VisibleChunkChangeSumsReadback");
+			visChangeSumsReadbackKernel.Bind(nameof(visibleChunks), visibleChunks);
+			visChangeSumsReadbackKernel.Bind(nameof(chunkChangeSums), chunkChangeSums);
+			visChangeSumsReadbackKernel.Bind(nameof(visibleChangeSumsReadback), visibleChangeSumsReadback);
 
 			Clear();
 		}
@@ -271,8 +241,6 @@ namespace Anaglyph.DepthKit.EnvScanning
 			reservedChunkCounter.SetData(EmptyCounterArray);
 			chunkTable.SetData(EmptyChunkTableArray);
 			chunkChangeSums.SetData(EmptyChunkTableArray);
-			chunkSurfaceChanges.SetData(EmptyChunkTableArray);
-			chunkNewCoverage.SetData(EmptyChunkTableArray);
 			visibleChunks.SetData(EmptyVisibleChunksArray);
 
 			clearKernel.DispatchFit(chunkData);
@@ -302,12 +270,10 @@ namespace Anaglyph.DepthKit.EnvScanning
 			reservedChunkCounter?.Release();
 			chunkTable?.Release();
 			chunkChangeSums?.Release();
-			chunkSurfaceChanges?.Release();
-			chunkNewCoverage?.Release();
 			visibleChunks?.Release();
 			integrateDispatchDims?.Release();
 			chunkData?.Release();
-			visibleChunkStatsReadback?.Release();
+			visibleChangeSumsReadback?.Release();
 		}
 
 		private async void UpdateLoop()
@@ -375,18 +341,18 @@ namespace Anaglyph.DepthKit.EnvScanning
 
 		public async Awaitable<VisibleChunksReadbackResult> ReadbackVisibleChunks()
 		{
-			visStatsReadbackKernel.DispatchFit(maxNumVisibleChunks, 1, 1);
+			visChangeSumsReadbackKernel.DispatchFit(maxNumVisibleChunks, 1, 1);
 
 			Awaitable<AsyncGPUReadbackRequest> dataReqWait = AsyncGPUReadback.RequestAsync(visibleChunks);
 			Awaitable<AsyncGPUReadbackRequest> countReqWait = AsyncGPUReadback.RequestAsync(integrateDispatchDims);
 			Awaitable<AsyncGPUReadbackRequest>
-				statsWait = AsyncGPUReadback.RequestAsync(visibleChunkStatsReadback);
+				changeSumsWait = AsyncGPUReadback.RequestAsync(visibleChangeSumsReadback);
 
 			AsyncGPUReadbackRequest dataReq = await dataReqWait;
 			AsyncGPUReadbackRequest countReq = await countReqWait;
-			AsyncGPUReadbackRequest statsReq = await statsWait;
+			AsyncGPUReadbackRequest changeSumsReq = await changeSumsWait;
 
-			if (dataReq.hasError || countReq.hasError || statsReq.hasError)
+			if (dataReq.hasError || countReq.hasError || changeSumsReq.hasError)
 			{
 				LogDebug("Visible chunks readback failed!", LogType.Warning);
 				return new VisibleChunksReadbackResult();
@@ -396,9 +362,9 @@ namespace Anaglyph.DepthKit.EnvScanning
 			count = math.min(count, maxNumVisibleChunks);
 
 			NativeArray<int> visibleChunkData = dataReq.GetData<int>();
-			NativeArray<ChunkStats> stats = statsReq.GetData<ChunkStats>();
+			NativeArray<uint> changesSums = changeSumsReq.GetData<uint>();
 
-			return new VisibleChunksReadbackResult(count, visibleChunkData, stats);
+			return new VisibleChunksReadbackResult(count, visibleChunkData, changesSums);
 		}
 
 		public ChunkReadbackBuffer CreateChunkReadbackBuffer()

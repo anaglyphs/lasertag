@@ -47,9 +47,9 @@ namespace Anaglyph.DepthKit.EnvScanning
 		};
 
 		/// <summary>
-		/// Invoked for every visible chunk each scan update with its change odometers
+		/// Invoked for every visible chunk each scan update with its cumulative change sum
 		/// </summary>
-		public event Action<int, EnvScanner.ChunkStats> VisibleChunkPolled = delegate { };
+		public event Action<int, uint> VisibleChunkPolled = delegate { };
 
 		/// <summary>
 		/// Invoked when a chunk's mesh has finished meshing and decimating
@@ -162,15 +162,15 @@ namespace Anaglyph.DepthKit.EnvScanning
 
 					Chunk chunk = GetOrCreateChunk(chunkIndex);
 
-					EnvScanner.ChunkStats stats = visResult.stats[i];
+					uint changeSum = visResult.changeSums[i];
 
-					VisibleChunkPolled.Invoke(chunkIndex, stats);
+					VisibleChunkPolled.Invoke(chunkIndex, changeSum);
 
 					// subtraction guards against changeSum + changeSumMeshingThreshold becoming a long
 					if (!chunk.dirty &&
-					    stats.changeSum - chunk.lastMeshingChangeSum >= (uint)(meshSweptVoxelsThreshold * 254))
+					    changeSum - chunk.lastMeshingChangeSum >= (uint)(meshSweptVoxelsThreshold * 254))
 					{
-						chunk.lastMeshingChangeSum = stats.changeSum;
+						chunk.lastMeshingChangeSum = changeSum;
 						chunk.dirty = true;
 						meshQueue.Enqueue(chunk);
 						mesherSemaphore.Release();
