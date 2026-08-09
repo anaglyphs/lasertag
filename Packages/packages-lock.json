@@ -15,11 +15,10 @@
       "url": "https://package.openupm.com"
     },
     "com.darktable.xrgizmos": {
-      "version": "https://github.com/darktable/XRGizmos.git",
+      "version": "file:com.darktable.xrgizmos",
       "depth": 0,
-      "source": "git",
-      "dependencies": {},
-      "hash": "558f23b6ed48f7aabca66e190dac1a6bcb37bce8"
+      "source": "embedded",
+      "dependencies": {}
     },
     "com.malee.reorderablelist": {
       "version": "1.0.1",

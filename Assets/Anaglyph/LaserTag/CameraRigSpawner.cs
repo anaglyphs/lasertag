@@ -12,6 +12,10 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private GameObject desktopRig;
 
 		[SerializeField] private GameObject arFoundationSimulator;
+		
+		#if UNITY_EDITOR
+		
+		#endif
 
 		private void Awake()
 		{
@@ -25,6 +29,8 @@ namespace Anaglyph.Lasertag
 				Instantiate(arFoundationSimulator);
 				g.transform.position = Vector3.zero;
 			}
+			
+			
 #endif
 		}
 	}
