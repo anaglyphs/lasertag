@@ -5,6 +5,7 @@
 		<ui:Instance template="NavHeader">
 			<ui:AttributeOverrides element-name="title" text="Graphics" />
 		</ui:Instance>
+		<ui:Toggle name="health-passthrough-tint-toggle" text="Health passthrough tint" />
 		<ui:Toggle name="light-effects-toggle" text="Light effects" />
 	</ui:VisualElement>
 </ui:UXML>

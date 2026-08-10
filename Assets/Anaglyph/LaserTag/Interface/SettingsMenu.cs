@@ -11,6 +11,7 @@ namespace Anaglyph.Lasertag
 	[DefaultExecutionOrder(100)]
 	public class SettingsMenu : MonoBehaviour
 	{
+		[SerializeField] private BoolObject healthPassthroughTintSetting;
 		[SerializeField] private BoolObject lightEffectsSetting;
 		[SerializeField] private StringObject buildNumber;
 
@@ -21,6 +22,7 @@ namespace Anaglyph.Lasertag
 		private Toggle showDebugMeshToggle;
 		private Button showDebugMeshForEveryone;
 		private Button hideDebugMeshForEveryone;
+		private Toggle healthPassthroughTintToggle;
 		private Toggle lightEffectsToggle;
 		private bool showDebugMesh;
 
@@ -70,8 +72,12 @@ namespace Anaglyph.Lasertag
 			hideDebugMeshForEveryone.clicked +=
 				() => EnvMeshSync.Instance?.SetEnvMeshVisibleEveryone(false);
 
+			healthPassthroughTintToggle =
+				Require<Toggle>(root, "health-passthrough-tint-toggle");
 			lightEffectsToggle = Require<Toggle>(root, "light-effects-toggle");
 
+			healthPassthroughTintToggle.RegisterValueChangedCallback(
+				change => healthPassthroughTintSetting.Value = change.newValue);
 			lightEffectsToggle.RegisterValueChangedCallback(
 				change => lightEffectsSetting.Value = change.newValue);
 
@@ -88,10 +94,12 @@ namespace Anaglyph.Lasertag
 
 			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
 			AnaglyphDebugging.DebugModeChanged += OnDebugModeChanged;
+			healthPassthroughTintSetting.Changed += OnHealthPassthroughTintChanged;
 			lightEffectsSetting.Changed += OnLightEffectsChanged;
 
 			OnNetcodeStateChanged(NetcodeManagement.State);
 			OnDebugModeChanged(AnaglyphDebugging.DebugMode);
+			OnHealthPassthroughTintChanged(healthPassthroughTintSetting.Value);
 			OnLightEffectsChanged(lightEffectsSetting.Value);
 		}
 
@@ -99,6 +107,7 @@ namespace Anaglyph.Lasertag
 		{
 			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
 			AnaglyphDebugging.DebugModeChanged -= OnDebugModeChanged;
+			healthPassthroughTintSetting.Changed -= OnHealthPassthroughTintChanged;
 			lightEffectsSetting.Changed -= OnLightEffectsChanged;
 			navView?.Dispose();
 			navView = null;
@@ -127,6 +136,11 @@ namespace Anaglyph.Lasertag
 		private void OnLightEffectsChanged(bool enabled)
 		{
 			lightEffectsToggle.SetValueWithoutNotify(enabled);
+		}
+
+		private void OnHealthPassthroughTintChanged(bool enabled)
+		{
+			healthPassthroughTintToggle.SetValueWithoutNotify(enabled);
 		}
 
 		private static T Require<T>(VisualElement root, string name)

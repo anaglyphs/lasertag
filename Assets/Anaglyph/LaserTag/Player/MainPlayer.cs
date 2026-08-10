@@ -1,5 +1,6 @@
 using System;
 using Anaglyph.Lasertag.Weapons;
+using Anaglyph.XRTemplate;
 using UnityEngine;
 
 namespace Anaglyph.Lasertag
@@ -59,9 +60,16 @@ namespace Anaglyph.Lasertag
 			// health
 			if (redDamagedVision)
 			{
-				// passthroughLayer.edgeRenderingEnabled = true;
-				// Color color = Color.Lerp(Color.red, Color.clear, Mathf.Clamp01(Health / MaxHealth));
-				// passthroughLayer.edgeColor = color;
+				float healthNormalized = 1f - Mathf.Clamp01(Health / MaxHealth);
+
+				Color col = Color.red;
+				col.a = healthNormalized;
+				
+				PassthroughStylingFeature.SetStyle(
+					tint: col,
+					tintAmount: healthNormalized,
+					newEdgeTint: col
+					);
 			}
 			else
 			{
@@ -165,8 +173,7 @@ namespace Anaglyph.Lasertag
 
 		private void ClearPassthroughEffects()
 		{
-			// passthroughLayer.edgeRenderingEnabled = false;
-			// passthroughLayer.edgeColor = Color.clear;
+			PassthroughStylingFeature.ClearStyle();
 		}
 	}
 }
