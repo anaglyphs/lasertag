@@ -671,41 +671,36 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		}
 
 		/// <summary>
-		/// Asks the device which anchors it holds in persistent storage. Returns whether the answer
-		/// arrived — a runtime that cannot enumerate, or one that did not answer, leaves
-		/// <see cref="IsAnchorSaved"/> reporting only what this process has seen first-hand, which
-		/// is not enough to conclude an anchor is absent.
+		/// Asks the device which anchors it holds around the headset, and which of those localize in
+		/// the physical space it is standing in. Null where the runtime could not answer, which
+		/// leaves <see cref="IsAnchorSaved"/> reporting only what this process has seen first-hand
+		/// — not enough to conclude an anchor is absent.
 		/// </summary>
-		public async Awaitable<bool> RefreshSavedAnchorsAsync(CancellationToken ctkn = default)
+		public async Awaitable<HashSet<Guid>> RefreshLocalizableAsync(float probeTimeoutSeconds,
+			CancellationToken ctkn = default)
 		{
-			return IsAvailable && await registry.TryRefreshSavedGuidsAsync(ctkn);
-		}
-
-		/// <summary>
-		/// Whether this device is known to hold an anchor locally. Only as complete as the last
-		/// <see cref="RefreshSavedAnchorsAsync"/>; treat a false without one as "not known".
-		/// </summary>
-		public bool IsAnchorSaved(Guid guid) =>
-			IsAvailable && registry.IsSaved(ToSerializable(guid));
-
-		public async Awaitable<HashSet<Guid>> ProbeAsync(IReadOnlyCollection<Guid> guids,
-			float timeoutSeconds, CancellationToken ctkn = default)
-		{
-			HashSet<Guid> localized = new();
-			if (!IsAvailable || guids.Count == 0)
-				return localized;
-
-			List<SerializableGuid> serializableGuids = new(guids.Count);
-			foreach (Guid guid in guids)
-				serializableGuids.Add(ToSerializable(guid));
+			if (!IsAvailable)
+				return null;
 
 			HashSet<SerializableGuid> found =
-				await registry.ProbeLocalizableAsync(serializableGuids, timeoutSeconds, ctkn);
+				await registry.TryRefreshLocalizableAsync(probeTimeoutSeconds, ctkn);
+
+			if (found == null)
+				return null;
+
+			HashSet<Guid> localized = new(found.Count);
 			foreach (SerializableGuid guid in found)
 				localized.Add(guid.guid);
 
 			return localized;
 		}
+
+		/// <summary>
+		/// Whether this device is known to hold an anchor locally. Only as complete as the last
+		/// <see cref="RefreshLocalizableAsync"/>; treat a false without one as "not known".
+		/// </summary>
+		public bool IsAnchorSaved(Guid guid) =>
+			IsAvailable && registry.IsSaved(ToSerializable(guid));
 
 		private static SerializableGuid ToSerializable(Guid guid) => new(guid);
 	}

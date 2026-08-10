@@ -101,6 +101,12 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		private bool lastRefreshSucceeded;
 
 		/// <summary>
+		/// What the last pass found localizable. Held here rather than returned up through the
+		/// probe so that a caller riding along with a pass already in flight gets its result too.
+		/// </summary>
+		private readonly HashSet<SerializableGuid> lastLocalized = new();
+
+		/// <summary>
 		/// Anchors handed back to the runtime whose removal it has not reported yet, against the
 		/// time each stops being waited on. Until a removal is reported the anchor is still in the
 		/// manager's trackables and the guid is still taken: handing that anchor to a handle would
@@ -167,60 +173,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				return;
 			}
 
-			// Unity cancels this token as the component is destroyed, so the loops started here end
-			// with the registry and there is no source of our own to dispose of underneath them.
-			RefreshSavedGuidsOnStartup(destroyCancellationToken);
-
 			anchorManager.trackablesChanged.AddListener(OnTrackablesChanged);
+
+			// Unity cancels this token as the component is destroyed, so the loop started here ends
+			// with the registry and there is no source of our own to dispose of underneath it.
 			ReconciliationLoop(destroyCancellationToken);
-		}
-
-		/// <summary>
-		/// Seeds <see cref="savedGuids"/> as the registry comes up. Nothing waits on the result, so
-		/// this owns the failure: an unobserved fault here would otherwise surface as a bare
-		/// exception with no indication of what asked for it.
-		/// </summary>
-		private async void RefreshSavedGuidsOnStartup(CancellationToken ctkn)
-		{
-			try
-			{
-				if (await WaitForAnchorRuntimeAsync(ctkn))
-					await TryRefreshSavedGuidsAsync(ctkn);
-			}
-			catch (OperationCanceledException)
-			{
-			}
-			catch (Exception e)
-			{
-				Debug.LogException(e);
-			}
-		}
-
-		/// <summary>How long the registry waits at startup for an anchor runtime to come up.</summary>
-		private const float RuntimeStartTimeoutSeconds = 30f;
-
-		/// <summary>
-		/// Waits until the anchor subsystem is running, which is what makes storage reachable:
-		/// this early OVRPlugin still reports uninitialized and AR Foundation's descriptor is not
-		/// populated yet, so an enumeration run from Awake finds nothing and never retries. Neither
-		/// stack raises an event for it, so the subsystem is polled.
-		/// </summary>
-		private async Awaitable<bool> WaitForAnchorRuntimeAsync(CancellationToken ctkn)
-		{
-			float deadline = time + RuntimeStartTimeoutSeconds;
-
-			while (anchorSubsystem is not { running: true })
-			{
-				if (time >= deadline)
-				{
-					Debug.LogWarning("No anchor runtime started; not reading saved anchors.", this);
-					return false;
-				}
-
-				await Awaitable.NextFrameAsync(ctkn);
-			}
-
-			return !disposed;
 		}
 
 		/// <summary>
@@ -439,7 +396,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		/// <summary>
 		/// Anchors this device is known to hold in persistent storage: whatever the registry saved
 		/// or loaded this process, plus whatever the last
-		/// <see cref="TryRefreshSavedGuidsAsync"/> discovered. A refresh replaces what it enumerated
+		/// <see cref="TryRefreshLocalizableAsync"/> discovered. A refresh replaces what it enumerated
 		/// but never drops an anchor this process saved or loaded itself.
 		///
 		/// Without a refresh this is a cache, not a manifest — a fresh process starts out knowing
@@ -476,28 +433,13 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			anchorManager != null ? anchorManager.descriptor : null;
 
 		/// <summary>
-		/// Whether anchor discovery can go through Meta's SDK. AR Foundation's provider leaves
+		/// Whether anchor discovery can go through Meta's runtime. AR Foundation's provider leaves
 		/// <see cref="XRAnchorSubsystemDescriptor.supportsGetSavedAnchorIds"/> false on Quest, but
 		/// the runtime underneath it does support discovery (XR_META_spatial_entity_discovery) and
-		/// OVRPlugin reaches it — this project enables MetaXRFeature alongside Unity's OpenXR stack.
-		///
-		/// OVRPlugin p/invokes a native library that only exists where the Meta runtime does, so
-		/// treat a missing entry point as "not a Quest" rather than letting it escape.
+		/// <see cref="MetaSpatialEntities"/> reaches it — this project enables MetaXRFeature
+		/// alongside Unity's OpenXR stack.
 		/// </summary>
-		private static bool metaDiscoveryAvailable
-		{
-			get
-			{
-				try
-				{
-					return OVRPlugin.initialized;
-				}
-				catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException)
-				{
-					return false;
-				}
-			}
-		}
+		private static bool metaDiscoveryAvailable => MetaSpatialEntities.IsAvailable;
 
 		/// <summary>
 		/// Whether this device is known to have <paramref name="guid"/> in persistent storage.
@@ -643,7 +585,7 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		/// Drops the claim that local storage holds this anchor. Only for anchors this registry
 		/// erased: a load failing is not evidence of absence, since an anchor saved in a space the
 		/// headset is not standing in fails to load every time and is still there.
-		/// <see cref="TryRefreshSavedGuidsAsync"/> is what answers that question.
+		/// <see cref="TryRefreshLocalizableAsync"/> is what answers that question.
 		/// </summary>
 		private void MarkNotSaved(SerializableGuid guid)
 		{
@@ -656,28 +598,45 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 		/// <summary>
 		/// Repopulates <see cref="savedGuids"/> by asking the device what it has persisted, so a
-		/// fresh process can find anchors it saved in an earlier one without being told their guids.
+		/// fresh process can find anchors it saved in an earlier one without being told their guids,
+		/// and reports which of those anchors localize in the physical space the headset is standing
+		/// in right now.
 		///
-		/// Returns everything Lasertag ever saved on this headset, including anchors belonging to
-		/// somewhere else entirely. Which of them actually localize is the test for where you are.
+		/// Both answers come out of one pass because the runtime only surfaces what it can find
+		/// around the headset: enumerating and then asking about the same anchors by guid was
+		/// putting the same question twice. Probing leaves the scene untouched — only the chosen
+		/// map's anchors ever get committed to real ARAnchors.
+		///
+		/// Anchors saved in one space occasionally localize in another; a non-empty result is a
+		/// strong hint, not proof, of which room this is.
+		///
+		/// Null where the runtime could not answer at all, which is not the same as nothing being
+		/// here — <see cref="savedGuids"/> then still reports only what this process saw first-hand,
+		/// which is not enough to conclude an anchor is absent. Cancellation returns null rather
+		/// than throwing.
 		/// </summary>
-		public async Awaitable<bool> TryRefreshSavedGuidsAsync(CancellationToken ctkn = default)
+		/// <param name="probeTimeoutSeconds">Bounds how long the runtime is given to localize the
+		/// whole set. The discovery that precedes it carries
+		/// <see cref="DiscoveryTimeoutSeconds"/> on top.</param>
+		public async Awaitable<HashSet<SerializableGuid>> TryRefreshLocalizableAsync(
+			float probeTimeoutSeconds, CancellationToken ctkn = default)
 		{
 			ThrowIfDisposed();
 
-			// Two concurrent enumerations would each clear the other's record of what changed
-			// underneath it, and the second round trip fetches what the first is already fetching.
+			// Two concurrent passes would each clear the other's record of what changed underneath
+			// it, and the second round trip fetches what the first is already fetching.
 			if (refreshInFlight)
 				return await AwaitRefreshInFlightAsync(ctkn);
 
 			refreshInFlight = true;
 			lastRefreshSucceeded = false;
+			lastLocalized.Clear();
 			unsavedDuringRefresh.Clear();
 
 			try
 			{
-				lastRefreshSucceeded = await EnumerateSavedGuidsAsync(ctkn);
-				return lastRefreshSucceeded;
+				lastRefreshSucceeded = await EnumerateSavedGuidsAsync(probeTimeoutSeconds, ctkn);
+				return lastRefreshSucceeded ? new HashSet<SerializableGuid>(lastLocalized) : null;
 			}
 			finally
 			{
@@ -686,24 +645,36 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		}
 
 		/// <summary>
-		/// Rides along with the enumeration already running instead of starting a second one.
-		/// Unity awaitables are single-consumption, so this waits on the flag rather than the task.
+		/// Rides along with the pass already running instead of starting a second one. Unity
+		/// awaitables are single-consumption, so this waits on the flag rather than the task.
 		/// </summary>
-		private async Awaitable<bool> AwaitRefreshInFlightAsync(CancellationToken ctkn)
+		private async Awaitable<HashSet<SerializableGuid>> AwaitRefreshInFlightAsync(
+			CancellationToken ctkn)
 		{
-			while (refreshInFlight)
-				await Awaitable.NextFrameAsync(ctkn);
+			try
+			{
+				while (refreshInFlight)
+					await Awaitable.NextFrameAsync(ctkn);
+			}
+			catch (OperationCanceledException)
+			{
+				return null;
+			}
 
-			return lastRefreshSucceeded && !disposed;
+			return lastRefreshSucceeded && !disposed
+				? new HashSet<SerializableGuid>(lastLocalized)
+				: null;
 		}
 
-		private async Awaitable<bool> EnumerateSavedGuidsAsync(CancellationToken ctkn)
+		private async Awaitable<bool> EnumerateSavedGuidsAsync(float probeTimeoutSeconds,
+			CancellationToken ctkn)
 		{
 			if (metaDiscoveryAvailable)
-				return await TryDiscoverSavedGuidsAsync(ctkn);
+				return await DiscoverAndProbeAsync(probeTimeoutSeconds, ctkn);
 
 			// Anywhere that isn't a Quest, take AR Foundation's own enumeration if the provider
-			// happens to implement it.
+			// happens to implement it. Nothing localizes: only Meta's runtime can be asked whether
+			// an anchor is findable from here without materializing it.
 			if (!(descriptor?.supportsGetSavedAnchorIds ?? false))
 				return false;
 
@@ -730,192 +701,73 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 		}
 
+		/// <summary>How long the runtime is given to finish enumerating what it has stored.</summary>
+		private const float DiscoveryTimeoutSeconds = 10f;
+
 		/// <summary>
-		/// Discovery through Meta's SDK. The anchors come back as OVR handles, but their UUIDs are
-		/// the same guids AR Foundation addresses anchors by on this runtime, so the results feed
+		/// Discovery through Meta's runtime. The entities come back as runtime handles, but their
+		/// uuids are the same guids AR Foundation addresses anchors by here, so the results feed
 		/// straight into <see cref="Acquire(SerializableGuid, AnchorSource)"/> with
-		/// <see cref="AnchorSource.Local"/> — nothing needs to touch OVR again.
+		/// <see cref="AnchorSource.Local"/> — nothing needs to touch the handles again.
 		/// </summary>
-		private async Awaitable<bool> TryDiscoverSavedGuidsAsync(CancellationToken ctkn)
+		private async Awaitable<bool> DiscoverAndProbeAsync(float probeTimeoutSeconds,
+			CancellationToken ctkn)
 		{
-			List<OVRAnchor> discovered = new();
+			List<SpatialEntity> discovered = new();
 
-			// Storable is what makes an anchor persistable in the first place, so it filters out
-			// the system's own scene entities (room mesh, planes) that discovery also surfaces.
-			OVRAnchor.FetchOptions options = new()
+			if (!await MetaSpatialEntities.TryDiscoverAsync(
+				    discovered, null, DiscoveryTimeoutSeconds, ctkn))
 			{
-				SingleComponentType = typeof(OVRStorable)
-			};
-
-			(bool answered, OVRResult<List<OVRAnchor>, OVRAnchor.FetchResult> result) =
-				await WaitOrGiveUp(OVRAnchor.FetchAnchorsAsync(discovered, options), ctkn);
-
-			if (!answered)
-			{
-				Debug.LogWarning("Anchor discovery never answered; treating it as unavailable.");
+				Debug.LogWarning("Failed to discover saved anchors.");
+				ReleaseAll(discovered);
 				return false;
 			}
 
-			if (!result.Success)
-			{
-				Debug.LogWarning($"Failed to discover saved anchors: {result.Status}");
-				return false;
-			}
-
-			// OVR ignores cancellation tokens outright, so this is the only place the request can
-			// honour one — and by now the work is already done.
 			if (ctkn.IsCancellationRequested || disposed)
+			{
+				ReleaseAll(discovered);
 				return false;
+			}
 
+			// An unfiltered discovery surfaces the system's own scene entities (room mesh, planes)
+			// alongside saved anchors. Storable is what makes an anchor persistable in the first
+			// place, so it is what tells the two apart. Handles are kept only for what gets probed.
+			List<SpatialEntity> anchors = new(discovered.Count);
 			savedGuidSet.Clear();
-			foreach (OVRAnchor anchor in discovered)
-				savedGuidSet.Add(new SerializableGuid(anchor.Uuid));
+
+			foreach (SpatialEntity entity in discovered)
+			{
+				if (!MetaSpatialEntities.IsStorable(entity.handle))
+				{
+					MetaSpatialEntities.Release(entity.handle);
+					continue;
+				}
+
+				anchors.Add(entity);
+				savedGuidSet.Add(new SerializableGuid(entity.uuid));
+			}
 
 			ApplyRefreshCorrections();
+			await ProbeAsync(anchors, probeTimeoutSeconds, ctkn);
 			return true;
 		}
 
 		/// <summary>
-		/// How long an OVR request may go unanswered before the registry stops waiting on it.
+		/// Records which of these anchors the runtime can locate from where the headset is standing,
+		/// into <see cref="lastLocalized"/>. Takes ownership of every handle: each is given back as
+		/// its probe finishes, however long after this returns that is.
 		/// </summary>
-		private const float OvrRequestTimeoutSeconds = 5f;
-
-		/// <summary>
-		/// Awaits an OVR request, giving up if the runtime never answers. Measured under the
-		/// Meta XR Simulator: discovery and probe fetches simply never complete there, and
-		/// since OVR tasks ignore cancellation, awaiting one directly wedges the caller — which
-		/// took map discovery with it. Returns whether the request answered in time; the task
-		/// itself is left to finish whenever it likes.
-		///
-		/// A request that already completed still counts, however long the wait it was given.
-		/// Cancellation reads as unanswered rather than throwing, so that every OVR-backed query
-		/// here returns its empty result on cancellation instead of some throwing and some not.
-		/// </summary>
-		private async Awaitable<(bool answered, T result)> WaitOrGiveUp<T>(
-			OVRTask<T> task, CancellationToken ctkn)
+		private async Awaitable ProbeAsync(List<SpatialEntity> anchors, float timeoutSeconds,
+			CancellationToken ctkn)
 		{
-			bool answered = false;
-			T value = default;
-
-			async void Await()
-			{
-				try
-				{
-					value = await task;
-				}
-				catch (Exception e)
-				{
-					Debug.LogException(e);
-				}
-				finally
-				{
-					answered = true;
-				}
-			}
-
-			Await();
-
-			float deadline = time + OvrRequestTimeoutSeconds;
-
-			try
-			{
-				while (!answered && time < deadline)
-					await Awaitable.NextFrameAsync(ctkn);
-			}
-			catch (OperationCanceledException)
-			{
-				return (false, default);
-			}
-
-			return (answered, value);
-		}
-
-		private void ReplaceSavedGuids(NativeArray<SerializableGuid> ids)
-		{
-			savedGuidSet.Clear();
-			foreach (SerializableGuid id in ids)
-				savedGuidSet.Add(id);
-
-			ApplyRefreshCorrections();
-		}
-
-		/// <summary>
-		/// Corrects a listing with what this process learned first-hand while it was being fetched.
-		/// Subtracting comes first so that an anchor which missed a load and was then saved during
-		/// the same fetch ends up saved.
-		/// </summary>
-		private void ApplyRefreshCorrections()
-		{
-			savedGuidSet.ExceptWith(unsavedDuringRefresh);
-			savedGuidSet.UnionWith(provenSavedGuids);
-		}
-
-		/// <summary>
-		/// Which of these saved anchors localize in the physical space the headset is standing
-		/// in right now. This is the cheap first phase of map discovery:
-		/// probing through Meta's locatable API leaves the scene untouched,
-		/// and only the chosen map's anchors ever get committed to real ARAnchors.
-		///
-		/// Anchors saved in one space occasionally localize in another; a non-empty result is
-		/// a strong hint, not proof, of which room this is.
-		///
-		/// Cancellation returns an empty set rather than throwing.
-		/// </summary>
-		/// <param name="timeoutSeconds">Bounds how long the runtime is given to localize the whole
-		/// set. The metadata fetch that precedes it carries its own short bound on top.</param>
-		public async Awaitable<HashSet<SerializableGuid>> ProbeLocalizableAsync(
-			IReadOnlyCollection<SerializableGuid> guids, float timeoutSeconds,
-			CancellationToken ctkn = default)
-		{
-			ThrowIfDisposed();
-
-			HashSet<SerializableGuid> localized = new();
-
-			if (guids.Count == 0 || !metaDiscoveryAvailable)
-				return localized;
-
-			List<Guid> uuids = new(guids.Count);
-			foreach (SerializableGuid guid in guids)
-				uuids.Add(guid.guid);
-
-			List<OVRAnchor> fetched = new();
-			(bool answered, OVRResult<List<OVRAnchor>, OVRAnchor.FetchResult> fetchResult) =
-				await WaitOrGiveUp(OVRAnchor.FetchAnchorsAsync(fetched, new OVRAnchor.FetchOptions
-				{
-					Uuids = uuids
-				}), ctkn);
-
-			if (ctkn.IsCancellationRequested || disposed)
-				return localized;
-
-			if (!answered)
-			{
-				Debug.LogWarning("Anchor probe fetch never answered; probing nothing.");
-				return localized;
-			}
-
-			if (!fetchResult.Success)
-			{
-				Debug.LogWarning($"Anchor probe fetch failed: {fetchResult.Status}");
-				return localized;
-			}
-
-			// Anything the fetch returned is in this device's storage by definition, which is better
-			// evidence than a discovery pass that may have run before it was written.
-			foreach (OVRAnchor anchor in fetched)
-				MarkSaved(new SerializableGuid(anchor.Uuid));
-
 			// Enable every locatable first so the runtime searches for them all concurrently.
 			int outstanding = 0;
 			bool counting = true;
 
-			foreach (OVRAnchor anchor in fetched)
+			foreach (SpatialEntity entity in anchors)
 			{
-				if (!anchor.TryGetComponent(out OVRLocatable locatable))
-					continue;
-
 				outstanding++;
-				Probe(anchor, locatable, locatable.SetEnabledAsync(true, timeoutSeconds));
+				Probe(entity);
 			}
 
 			// The probes run concurrently, so timeoutSeconds bounds the phase, not each one —
@@ -936,20 +788,25 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			counting = false;
 
 			if (ctkn.IsCancellationRequested || disposed)
-				localized.Clear();
+				lastLocalized.Clear();
 
-			return localized;
-
-			async void Probe(OVRAnchor probed, OVRLocatable locatable, OVRTask<bool> enable)
+			async void Probe(SpatialEntity entity)
 			{
 				try
 				{
-					bool enabled = await enable;
+					bool enabled = await MetaSpatialEntities.TrySetLocatableAsync(
+						entity.handle, true, timeoutSeconds, ctkn);
 
-					if (counting && enabled &&
-					    locatable.TryGetSpatialAnchorPose(out OVRLocatable.TrackingSpacePose pose) &&
-					    pose.IsPositionTracked)
-						localized.Add(new SerializableGuid(probed.Uuid));
+					if (counting && enabled && MetaSpatialEntities.IsPositionTracked(entity.handle))
+					{
+						SerializableGuid guid = new(entity.uuid);
+						lastLocalized.Add(guid);
+
+						// The runtime just found this anchor, so whatever made its last local load
+						// fail has passed. Waiting out the rest of the backoff would hold up the
+						// load of a map this probe is about to recommend.
+						localRetryAt.Remove(guid);
+					}
 				}
 				catch (Exception e)
 				{
@@ -959,17 +816,41 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				{
 					outstanding--;
 
-					// Leave nothing running behind the probe: an enabled locatable keeps the
-					// runtime tracking it, and the same UUID may be loaded through AR Foundation
-					// afterward. (Whether the two stacks interfere at all is still unverified on
-					// device; disabling here minimizes the surface either way.)
-					//
-					// Runs however long the enable took, so a probe that outlived the phase
-					// deadline still turns itself off, and never across a pending enable — the
-					// runtime does not define which of those two wins.
-					_ = locatable.SetEnabledAsync(false);
+					// Leave nothing running behind the probe: a discovered entity holds a runtime
+					// handle and, while locatable, keeps the runtime tracking it — and the same
+					// uuid may be loaded through AR Foundation afterward. Giving the handle back
+					// ends both. Runs however long the enable took, so a probe that outlived the
+					// phase deadline still cleans up, and never across a pending enable, which the
+					// runtime does not define an outcome for.
+					MetaSpatialEntities.Release(entity.handle);
 				}
 			}
+		}
+
+		private static void ReleaseAll(List<SpatialEntity> entities)
+		{
+			foreach (SpatialEntity entity in entities)
+				MetaSpatialEntities.Release(entity.handle);
+		}
+
+		private void ReplaceSavedGuids(NativeArray<SerializableGuid> ids)
+		{
+			savedGuidSet.Clear();
+			foreach (SerializableGuid id in ids)
+				savedGuidSet.Add(id);
+
+			ApplyRefreshCorrections();
+		}
+
+		/// <summary>
+		/// Corrects a listing with what this process learned first-hand while it was being fetched.
+		/// Subtracting comes first so that an anchor which missed a load and was then saved during
+		/// the same fetch ends up saved.
+		/// </summary>
+		private void ApplyRefreshCorrections()
+		{
+			savedGuidSet.ExceptWith(unsavedDuringRefresh);
+			savedGuidSet.UnionWith(provenSavedGuids);
 		}
 
 		// ------- internals -----------------------------------------

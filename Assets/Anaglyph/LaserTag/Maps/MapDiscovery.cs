@@ -8,9 +8,10 @@ namespace Anaglyph.Lasertag
 {
 	/// <summary>
 	/// Works out which saved maps belong to the physical space the headset is standing in, by
-	/// asking the runtime which of each map's anchors localize here. A non-empty result is a
-	/// strong hint rather than proof — anchors saved in one room occasionally localize in
-	/// another — so the answer feeds auto-load and the map picker, not a hard gate.
+	/// asking the runtime once which of this device's anchors localize here and scoring each map
+	/// against that set. A non-empty result is a strong hint rather than proof — anchors saved in
+	/// one room occasionally localize in another — so the answer feeds auto-load and the map
+	/// picker, not a hard gate.
 	///
 	/// A map with no anchors cannot be tested this way and always scores zero. That covers a tag
 	/// map on a device that has never realized any of its tags: nothing about it is knowable from
@@ -40,82 +41,57 @@ namespace Anaglyph.Lasertag
 		}
 
 		/// <summary>
-		/// Probes saved maps most-recently-used first and returns the first one that localized,
-		/// or null if none did.
+		/// Scores every saved map against the anchors that localize here, and returns the most
+		/// recently used map that scored, or null if none did.
 		///
-		/// With <paramref name="stopAtFirstLocalized"/> the walk ends at that map, so the maps
-		/// behind it keep whatever <see cref="Results"/> they already had — a full pass is what
-		/// refreshes every entry.
+		/// One pass answers for all maps at once: the runtime is asked which of this device's
+		/// anchors it can find, and each map is scored by how many of its own anchors that set
+		/// contains. <paramref name="stopAtFirstLocalized"/> only decides whether a map comes back
+		/// to be auto-loaded — <see cref="Results"/> is refreshed for every map either way.
+		///
+		/// Nothing is recorded where the runtime could not answer: no score is not a score of zero.
 		/// </summary>
 		public async Awaitable<GameMap> ProbeAsync(bool stopAtFirstLocalized, CancellationToken ctkn)
 		{
 			if (!IsAvailable)
 				return null;
 
-			// Without a successful enumeration, absence from the device's saved set means "not
-			// known" rather than "not there", and every anchor has to stay a candidate.
-			bool savedAnchorsKnown = await anchorColocationProvider.RefreshSavedAnchorsAsync(ctkn);
+			HashSet<Guid> localized = await anchorColocationProvider.RefreshLocalizableAsync(
+				probeTimeoutSeconds, ctkn);
+
+			if (localized == null)
+				return null;
+
+			ctkn.ThrowIfCancellationRequested();
+
+			GameMap best = null;
 
 			foreach (GameMap map in MapStore.GetByLastUsed())
 			{
-				ctkn.ThrowIfCancellationRequested();
+				Record(map.id, CountLocalized(map, localized));
 
-				// A fresh list per map: it outlives this frame inside the probe, so a reused
-				// buffer would depend on when the provider happens to copy it.
-				List<Guid> candidates = CollectCandidates(map, savedAnchorsKnown);
-
-				if (candidates.Count == 0)
-				{
-					Record(map.id, 0);
-					continue;
-				}
-
-				HashSet<Guid> localized = await anchorColocationProvider.ProbeAsync(
-					candidates, probeTimeoutSeconds, ctkn);
-
-				Record(map.id, localized.Count);
-
-				if (localized.Count == 0)
-					continue;
-
-				if (stopAtFirstLocalized)
-					return map;
+				if (best == null && stopAtFirstLocalized && results[map.id] > 0)
+					best = map;
 			}
 
-			return null;
+			return best;
+		}
+
+		private static int CountLocalized(GameMap map, HashSet<Guid> localized)
+		{
+			int count = 0;
+
+			foreach (MapAnchorEntry entry in map.anchors)
+				if (MapGuid.TryParse(entry.guid, out Guid guid) && localized.Contains(guid))
+					count++;
+
+			return count;
 		}
 
 		private void Record(string mapId, int localizedCount)
 		{
 			results[mapId] = localizedCount;
 			ResultsChanged.Invoke();
-		}
-
-		/// <summary>
-		/// Which of a map's anchors are worth asking the runtime about. An anchor this device has
-		/// no local save of cannot localize, and filtering it out spares the metadata fetch that
-		/// would otherwise be spent per map learning that — a map authored on another headset
-		/// costs a round trip before discovery moves on.
-		///
-		/// Only a filter where the device could actually be enumerated; see
-		/// <c>savedAnchorsKnown</c> above.
-		/// </summary>
-		private List<Guid> CollectCandidates(GameMap map, bool savedAnchorsKnown)
-		{
-			List<Guid> candidates = new(map.anchors.Count);
-
-			foreach (MapAnchorEntry entry in map.anchors)
-			{
-				if (!MapGuid.TryParse(entry.guid, out Guid guid))
-					continue;
-
-				if (savedAnchorsKnown && !anchorColocationProvider.IsAnchorSaved(guid))
-					continue;
-
-				candidates.Add(guid);
-			}
-
-			return candidates;
 		}
 	}
 }
