@@ -226,45 +226,21 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		{
 			if (!SyncBus.IsAuthority)
 			{
-				Debug.LogWarning($"Trying to set constraints from anchors while not the authority!");
+				Debug.LogWarning("Trying to set constraints from anchors while not the authority!");
 				return;
 			}
 
-			// Removing an entry fires constraints.Changed synchronously, which can call
-			// ReconcileHeld. Keep this public operation's snapshots local so that reentrant
-			// reconciliation cannot modify a collection SetConstraints is enumerating.
-			List<AnchorConstraintData> nextConstraints = new(next);
-			List<Guid> constraintsToRemove = new();
-
-			foreach (Guid guid in constraints.Keys)
-			{
-				bool retained = false;
-				foreach (AnchorConstraintData entry in nextConstraints)
-					if (entry.guid == guid)
+			List<KeyValuePair<Guid, AnchorConstraintState>> replacement = new();
+			foreach (AnchorConstraintData entry in next)
+				replacement.Add(new KeyValuePair<Guid, AnchorConstraintState>(entry.guid,
+					new AnchorConstraintState
 					{
-						retained = true;
-						break;
-					}
+						canonPose = entry.canonPose,
+						bindingId = entry.bindingId,
+					}));
 
-				if (!retained)
-					constraintsToRemove.Add(guid);
-			}
-
-			foreach (Guid guid in constraintsToRemove)
-				constraints.Remove(guid);
-
-			foreach (AnchorConstraintData entry in nextConstraints)
-			{
-				AnchorConstraintState state = new()
-				{
-					canonPose = entry.canonPose,
-					bindingId = entry.bindingId,
-				};
-
-				if (!constraints.TryGetValue(entry.guid, out AnchorConstraintState existing) ||
-				    existing.canonPose != state.canonPose || existing.bindingId != state.bindingId)
-					constraints.Set(entry.guid, state);
-			}
+			constraints.ReplaceAll(replacement,
+				(a, b) => a.canonPose == b.canonPose && a.bindingId == b.bindingId);
 
 			// Sharing otherwise only happens as a session comes up, which is enough while the
 			// constraint set is fixed for the session's lifetime. State injected into a live
@@ -496,64 +472,43 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 
 			IsMinting = true;
 			int generation = stateGeneration;
-			AnchorLease minted = null;
-			Guid guid = Guid.Empty;
-			bool saved = false;
-			bool established = false;
 
 			try
 			{
-				minted = await registry.TryMintAsync(pose, ctkn);
-				if (minted == null)
-					return;
-
-				guid = minted.Handle.guid.guid;
-
-				// Persist where the runtime can. Where it can't, the anchor is still a valid
-				// reference for this session — a session-scoped map is worth more than no map,
-				// and it is what makes colocation testable against a simulator.
-				if (registry.canSaveAnchors)
-				{
-					saved = await registry.TrySaveAsync(minted, ctkn);
-					if (!saved)
-						return;
-				}
-
-				ctkn.ThrowIfCancellationRequested();
-				if (!IsRunning || !RoamingMintEnabled ||
-				    generation != stateGeneration || !SyncBus.IsAuthority)
-					return;
-
-				constraints.Set(guid, new AnchorConstraintState
-				{
-					canonPose = pose,
-					bindingId = -1,
-				});
-				established = true;
-
-				if (saved)
-					AnchorPersisted.Invoke(guid);
-
-				if (SyncBus.Active)
-					Share(guid);
+				await AnchorMinting.TryMintAsync(registry, pose,
+					minted => CommitMintedConstraint(pose, generation, minted),
+					commitTakesLease: false, ctkn);
 			}
 			finally
 			{
-				minted?.Dispose();
 				IsMinting = false;
-
-				if (saved && !established && registry != null && registry.IsAvailable)
-				{
-					try
-					{
-						await registry.TryEraseSavedAsync(
-							ToSerializable(guid), CancellationToken.None);
-					}
-					catch (ObjectDisposedException)
-					{
-					}
-				}
 			}
+		}
+
+		/// <summary>
+		/// Registers a minted anchor as a constraint, unless the state it was minted for has moved
+		/// on. The lease is not kept: registering the constraint is what has
+		/// <see cref="ReconcileHeld"/> acquire this provider's own.
+		/// </summary>
+		private bool CommitMintedConstraint(Pose pose, int generation, MintedAnchor minted)
+		{
+			if (!IsRunning || !RoamingMintEnabled ||
+			    generation != stateGeneration || !SyncBus.IsAuthority)
+				return false;
+
+			constraints.Set(minted.guid, new AnchorConstraintState
+			{
+				canonPose = pose,
+				bindingId = -1,
+			});
+
+			if (minted.saved)
+				AnchorPersisted.Invoke(minted.guid);
+
+			if (SyncBus.Active)
+				Share(minted.guid);
+
+			return true;
 		}
 
 		// ------- sharing ------------------------------------------

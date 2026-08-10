@@ -22,6 +22,7 @@ namespace Anaglyph.Lasertag
 		private readonly SpatialAnchorColocationConstraintProvider anchorColocationProvider;
 		private readonly float probeTimeoutSeconds;
 		private readonly Dictionary<string, int> results = new();
+		private bool probeInFlight;
 
 		public MapDiscovery(SpatialAnchorColocationConstraintProvider anchorColocationProvider, float probeTimeoutSeconds)
 		{
@@ -50,14 +51,26 @@ namespace Anaglyph.Lasertag
 		/// to be auto-loaded — <see cref="Results"/> is refreshed for every map either way.
 		///
 		/// Nothing is recorded where the runtime could not answer: no score is not a score of zero.
+		/// The runtime answers one pass at a time, so a probe started while another is running does
+		/// nothing rather than throwing away the answer the first one is about to produce.
 		/// </summary>
 		public async Awaitable<GameMap> ProbeAsync(bool stopAtFirstLocalized, CancellationToken ctkn)
 		{
-			if (!IsAvailable)
+			if (!IsAvailable || probeInFlight)
 				return null;
 
-			HashSet<Guid> localized = await anchorColocationProvider.RefreshLocalizableAsync(
-				probeTimeoutSeconds, ctkn);
+			probeInFlight = true;
+
+			HashSet<Guid> localized;
+			try
+			{
+				localized = await anchorColocationProvider.RefreshLocalizableAsync(
+					probeTimeoutSeconds, ctkn);
+			}
+			finally
+			{
+				probeInFlight = false;
+			}
 
 			if (localized == null)
 				return null;

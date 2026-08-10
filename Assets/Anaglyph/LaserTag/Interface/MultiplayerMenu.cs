@@ -251,6 +251,11 @@ using VariableObjects;
 
 		private void OnNetcodeStateChanged(NetcodeState state)
 		{
+			// another subscriber may have disabled this menu earlier in the same
+			// event invocation; unsubscribing does not remove us from it
+			if (navView == null)
+				return;
+
 			switch (state)
 			{
 				case NetcodeState.Disconnected:
@@ -292,6 +297,9 @@ using VariableObjects;
 
 		private void OnColocationChange(bool isColocated)
 		{
+			if (navView == null)
+				return;
+
 			if (NetcodeManagement.State == NetcodeState.Connected)
 			{
 				OpenSessionPage(

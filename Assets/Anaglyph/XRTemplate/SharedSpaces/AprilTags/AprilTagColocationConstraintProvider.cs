@@ -115,7 +115,6 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 		// Reconciliation runs reentrantly from tag removals, so it cannot share tagIdScratch
 		// with the import operations that trigger it.
 		private readonly List<int> anchorRemovalScratch = new();
-		private readonly List<TagConstraintData> tagScratch = new();
 		private readonly List<TaggedAnchorConstraintData> anchorScratch = new();
 
 		private AnchorRegistry registry;
@@ -283,31 +282,11 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				return;
 			}
 
-			tagScratch.Clear();
-			tagScratch.AddRange(tags);
+			List<KeyValuePair<int, Pose>> next = new();
+			foreach (TagConstraintData entry in tags)
+				next.Add(new KeyValuePair<int, Pose>(entry.tagId, entry.canonPose));
 
-			tagIdScratch.Clear();
-			foreach (int tagId in registeredTags.Keys)
-			{
-				bool retained = false;
-				foreach (TagConstraintData entry in tagScratch)
-					if (entry.tagId == tagId)
-					{
-						retained = true;
-						break;
-					}
-
-				if (!retained)
-					tagIdScratch.Add(tagId);
-			}
-
-			foreach (int tagId in tagIdScratch)
-				registeredTags.Remove(tagId);
-
-			foreach (TagConstraintData entry in tagScratch)
-				if (!registeredTags.TryGetValue(entry.tagId, out Pose existing) ||
-				    existing != entry.canonPose)
-					registeredTags.Set(entry.tagId, entry.canonPose);
+			registeredTags.ReplaceAll(next, (a, b) => a == b);
 		}
 
 		/// <summary>Replaces only this device's private tag-to-anchor realizations.</summary>
@@ -495,45 +474,12 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 				return;
 
 			int generation = stateGeneration;
-			AnchorLease minted = null;
-			Guid guid = Guid.Empty;
-			bool saved = false;
-			bool established = false;
 
 			try
 			{
-				CancellationToken ctkn = lifetimeCtknSrc.Token;
-				minted = await registry.TryMintAsync(observedTag, ctkn);
-				if (minted == null)
-					return;
-
-				guid = minted.Handle.guid.guid;
-
-				// Persist where the runtime can. Where it can't, this realization lasts only
-				// as long as the session — still enough to align against the tag now, which
-				// is what makes tag colocation testable against a simulator.
-				if (registry.canSaveAnchors)
-				{
-					saved = await registry.TrySaveAsync(minted, ctkn);
-					if (!saved)
-						return;
-				}
-
-				if (!IsRunning || generation != stateGeneration ||
-				    !registeredTags.ContainsKey(tagId) || localAnchors.ContainsKey(tagId))
-					return;
-
-				localAnchors.Add(tagId, new LocalAnchor
-				{
-					guid = guid,
-					tagId = tagId,
-					canon = canonTag,
-					lease = minted,
-				});
-				minted = null;
-				established = true;
-				stateGeneration++;
-				AnchorsChanged.Invoke();
+				await AnchorMinting.TryMintAsync(registry, observedTag,
+					minted => CommitTagAnchor(tagId, canonTag, generation, minted),
+					commitTakesLease: true, lifetimeCtknSrc.Token);
 			}
 			catch (OperationCanceledException)
 			{
@@ -544,21 +490,31 @@ namespace Anaglyph.XRTemplate.SharedSpaces
 			}
 			finally
 			{
-				minted?.Dispose();
 				mintsInFlight.Remove(tagId);
-
-				if (saved && !established && registry != null && registry.IsAvailable)
-				{
-					try
-					{
-						await registry.TryEraseSavedAsync(
-							new SerializableGuid(guid), CancellationToken.None);
-					}
-					catch (ObjectDisposedException)
-					{
-					}
-				}
 			}
+		}
+
+		/// <summary>
+		/// Takes a minted anchor as this tag's realization, unless the state it was minted for has
+		/// moved on. Refusing it erases the save, so the tag is minted again next time it is seen.
+		/// </summary>
+		private bool CommitTagAnchor(int tagId, Pose canonTag, int generation, MintedAnchor minted)
+		{
+			if (!IsRunning || generation != stateGeneration ||
+			    !registeredTags.ContainsKey(tagId) || localAnchors.ContainsKey(tagId))
+				return false;
+
+			localAnchors.Add(tagId, new LocalAnchor
+			{
+				guid = minted.guid,
+				tagId = tagId,
+				canon = canonTag,
+				lease = minted.lease,
+			});
+
+			stateGeneration++;
+			AnchorsChanged.Invoke();
+			return true;
 		}
 
 		/// <summary>

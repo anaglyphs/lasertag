@@ -120,6 +120,35 @@ namespace Anaglyph.Netcode
 			SyncBus.SendBroadcast(Id, new[] { (byte)SyncDictionaryOp.Clear });
 		}
 
+		// Makes the dictionary hold exactly next: keys it does not name are removed, and keys
+		// whose value valuesEqual rejects are set. A key repeated in next resolves to the last.
+		//
+		// Every mutation fires Changed synchronously and handlers commonly read the dictionary
+		// back, so the incoming entries and the keys to remove are both gathered before anything
+		// is written.
+		public void ReplaceAll(IEnumerable<KeyValuePair<TKey, TValue>> next,
+			Func<TValue, TValue, bool> valuesEqual)
+		{
+			RequireAuthority(Name);
+
+			Dictionary<TKey, TValue> incoming = new();
+			foreach (KeyValuePair<TKey, TValue> entry in next)
+				incoming[entry.Key] = entry.Value;
+
+			List<TKey> removals = new();
+			foreach (TKey key in entries.Keys)
+				if (!incoming.ContainsKey(key))
+					removals.Add(key);
+
+			foreach (TKey key in removals)
+				Remove(key);
+
+			foreach (KeyValuePair<TKey, TValue> entry in incoming)
+				if (!entries.TryGetValue(entry.Key, out TValue existing) ||
+				    !valuesEqual(existing, entry.Value))
+					Set(entry.Key, entry.Value);
+		}
+
 		// ---- ungated local mutation -------------------------------------
 
 		private void SetLocally(TKey key, TValue value)
