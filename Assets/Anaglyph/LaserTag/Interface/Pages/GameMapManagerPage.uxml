@@ -9,12 +9,12 @@
         <ui:VisualElement style="flex-grow: 0; flex-direction: row; align-self: stretch;">
             <ui:Button name="edit-map-button" text="Edit"/>
             <ui:Button name="new-map-button" text="New"/>
-            <ui:Button name="probe-maps-button" text="check"/>
+            <ui:Button name="probe-maps-button" text="Check"/>
         </ui:VisualElement>
         <ui:ScrollView name="map-list"/>
         <ui:VisualElement style="flex-grow: 0; flex-direction: row; align-self: stretch;">
             <ui:Button name="load-map-button" text="Load" style="flex-grow: 1;"/>
-            <ui:Button name="delete-map-button" text="Delete" style="flex-grow: 1;"/>
+            <ui:Button name="delete-map-button" text="Delete" class="destructive" style="flex-grow: 1;"/>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

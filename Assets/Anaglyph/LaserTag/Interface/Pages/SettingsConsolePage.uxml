@@ -8,7 +8,7 @@
         <ui:ScrollView name="console-scroll" class="console-scroll"/>
         <ui:VisualElement class="console-controls">
             <ui:Toggle name="console-stack-traces-toggle" text="Stack traces"/>
-            <ui:Button name="console-clear-button" text="Clear" class="console-clear-button"/>
+            <ui:Button name="console-clear-button" text="Clear" class="console-clear-button destructive"/>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

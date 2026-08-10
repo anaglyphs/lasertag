@@ -131,6 +131,11 @@ Button {
     background-color: rgb(70, 70, 70);
 }
 
+Button.destructive {
+	background-color: rgb(60, 14, 0);
+	border-color: rgb(255, 0, 0);
+}
+
 Button,
 Toggle,
 TextField {
