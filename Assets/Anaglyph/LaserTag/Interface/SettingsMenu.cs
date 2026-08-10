@@ -25,6 +25,12 @@ namespace Anaglyph.Lasertag
 		private Toggle healthPassthroughTintToggle;
 		private Toggle lightEffectsToggle;
 		private bool showDebugMesh;
+		private UIToolkitPanelXRSetup panel;
+
+		private void Awake()
+		{
+			panel = GetComponent<UIToolkitPanelXRSetup>();
+		}
 
 		private void InitializeUI()
 		{
@@ -49,7 +55,7 @@ namespace Anaglyph.Lasertag
 
 			// the console only processes log messages while its page is on screen
 			consoleView = new InGameConsoleView(consolePage.Root);
-			navView.Changed += OnNavPageChanged;
+			navView.Changed += _ => UpdateConsoleVisible();
 
 			debugModeToggle = Require<Toggle>(root, "debug-mode-toggle");
 			showDebugMeshToggle = Require<Toggle>(root, "show-debug-mesh-toggle");
@@ -96,7 +102,9 @@ namespace Anaglyph.Lasertag
 			AnaglyphDebugging.DebugModeChanged += OnDebugModeChanged;
 			healthPassthroughTintSetting.Changed += OnHealthPassthroughTintChanged;
 			lightEffectsSetting.Changed += OnLightEffectsChanged;
+			panel.VisibleChanged += OnPanelVisibleChanged;
 
+			UpdateConsoleVisible();
 			OnNetcodeStateChanged(NetcodeManagement.State);
 			OnDebugModeChanged(AnaglyphDebugging.DebugMode);
 			OnHealthPassthroughTintChanged(healthPassthroughTintSetting.Value);
@@ -109,6 +117,7 @@ namespace Anaglyph.Lasertag
 			AnaglyphDebugging.DebugModeChanged -= OnDebugModeChanged;
 			healthPassthroughTintSetting.Changed -= OnHealthPassthroughTintChanged;
 			lightEffectsSetting.Changed -= OnLightEffectsChanged;
+			panel.VisibleChanged -= OnPanelVisibleChanged;
 			navView?.Dispose();
 			navView = null;
 			consoleView?.Dispose();
@@ -116,9 +125,15 @@ namespace Anaglyph.Lasertag
 			consolePage = null;
 		}
 
-		private void OnNavPageChanged(UIToolkitNavPage page)
+		private void OnPanelVisibleChanged(bool visible)
 		{
-			consoleView?.SetVisible(page == consolePage);
+			UpdateConsoleVisible();
+		}
+
+		// redrawing the log is expensive, so the console only listens while it is on screen
+		private void UpdateConsoleVisible()
+		{
+			consoleView?.SetVisible(panel.IsVisible && navView?.CurrentPage == consolePage);
 		}
 
 		private void OnNetcodeStateChanged(NetcodeState state)

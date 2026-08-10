@@ -10,17 +10,21 @@ namespace Anaglyph.Lasertag.Interface
 	public class MenuVisibility : MonoBehaviour
 	{
 		[SerializeField] private InputAction showMenuAction;
-		[SerializeField] private MonoBehaviour[] componentsDisabledWhileVisible;
-		[SerializeField] private GameObject[] objectsInactiveWhileVisible;
 
 		[SerializeField] private float verticalOffset;
 
-		private Camera mainCamera;
-		private Transform camTransform => mainCamera.transform;
-		private bool IsActive => gameObject.activeSelf;
+		private Transform camTransform => MainXRRig.Camera.transform;
+
+		private UIToolkitPanelXRSetup[] panels;
+		private PanelArranger panelArranger;
+
+		public bool IsVisible { get; private set; } = true;
 
 		private void Awake()
 		{
+			panels = GetComponentsInChildren<UIToolkitPanelXRSetup>(true);
+			panelArranger = GetComponent<PanelArranger>();
+
 			showMenuAction.performed += delegate { SmartToggleVisible(); };
 
 			showMenuAction.Enable();
@@ -47,16 +51,11 @@ namespace Anaglyph.Lasertag.Interface
 			MainXRRig.Recentered -= SetPose;
 		}
 
-		private void OnEnable()
-		{
-			mainCamera = Camera.main;
-		}
-
 		private void OnApplicationPause(bool paused)
 		{
 			if (paused) return;
-			
-			if (gameObject.activeInHierarchy)
+
+			if (IsVisible)
 				SetPose();
 		}
 
@@ -74,33 +73,39 @@ namespace Anaglyph.Lasertag.Interface
 		}
 
 		/// <summary>
-		/// Toggles visibility *on screen*, not active state. If the menu is enabled but *off-screen*
-		/// the menu is repositioned on-screen rather than disabled. 
+		/// Toggles visibility *on screen*. If the menu is visible but *off-screen*
+		/// the menu is repositioned on-screen rather than hidden.
 		/// </summary>
 		public void SmartToggleVisible()
 		{
 			bool isInView = CheckIsInView();
-			
-			if (!isInView && gameObject.activeSelf)
+
+			if (!isInView && IsVisible)
 				SetPose();
 			else
-				SetVisible(!gameObject.activeSelf);
+				SetVisible(!IsVisible);
 		}
 
+		/// <summary>
+		/// Hides the panels rather than deactivating them, so each menu keeps its
+		/// visual tree, its navigation history and its typed-in state while closed.
+		/// </summary>
 		public void SetVisible(bool shouldBeVisible)
 		{
 			bool isInView = CheckIsInView();
-			
-			if (shouldBeVisible && (!IsActive || !isInView)) SetPose();
-			
-			if (IsActive == shouldBeVisible)
+
+			if (shouldBeVisible && (!IsVisible || !isInView)) SetPose();
+
+			if (IsVisible == shouldBeVisible)
 				return;
-			
-			gameObject.SetActive(shouldBeVisible);
 
-			foreach (MonoBehaviour mb in componentsDisabledWhileVisible) mb.enabled = !shouldBeVisible;
+			IsVisible = shouldBeVisible;
 
-			foreach (GameObject go in objectsInactiveWhileVisible) go.SetActive(!shouldBeVisible);
+			foreach (UIToolkitPanelXRSetup panel in panels)
+				panel.SetVisible(shouldBeVisible);
+
+			// re-enabling replays its fly-in transition
+			panelArranger.enabled = shouldBeVisible;
 		}
 
 		private async void SetPose()
