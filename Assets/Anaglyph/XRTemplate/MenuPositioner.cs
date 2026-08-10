@@ -29,9 +29,9 @@ namespace Anaglyph.XRTemplate
 			MainXRRig.Recentered -= SetPose;
 		}
 		
-		private async void OnApplicationFocus(bool focus)
+		private async void OnApplicationPause(bool paused)
 		{
-			if (!focus) return;
+			if (paused) return;
 			
 			await Awaitable.NextFrameAsync();
 			SetPose();
