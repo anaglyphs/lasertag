@@ -1,9 +1,36 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
-    <ui:Template name="ScoreHUD" src="project://database/Assets/Anaglyph/LaserTag/Interface/HUD/ScoreHUD.uxml?fileID=9197481963319205126&amp;guid=b30ddeae02fe34359ae92beb97438236&amp;type=3#ScoreHUD"/>
-    <ui:Template name="TimerHUD" src="project://database/Assets/Anaglyph/LaserTag/Interface/HUD/TimerHUD.uxml?fileID=9197481963319205126&amp;guid=962fa21abda2c41398403055066f4022&amp;type=3#TimerHUD"/>
-    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/Menu/UI%20Toolkit/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagMenu"/>
     <ui:VisualElement picking-mode="Ignore" name="hand-hud-root" class="hud-root">
-        <ui:Instance template="TimerHUD" name="timer-hud" style="position: absolute; right: 0; bottom: 0; left: 0; top: 0;"/>
-        <ui:Instance template="ScoreHUD" name="score-hud" style="right: 0; position: absolute; top: 0; left: 0; bottom: 0;"/>
+        <ui:VisualElement picking-mode="Ignore" name="timer-hud" class="hand-hud-section" style="display: none;">
+            <ui:VisualElement picking-mode="Ignore" class="timer-row">
+                <ui:Label picking-mode="Ignore" name="timer-red-score" text="0" class="timer-score team-red" style="-unity-text-align: middle-right;"/>
+                <ui:VisualElement picking-mode="Ignore" name="hourglass" class="hourglass">
+                    <ui:VisualElement picking-mode="Ignore" name="top-line" class="hourglass-chamber">
+                        <ui:VisualElement picking-mode="Ignore" name="top-sand" class="top-sand"/>
+                    </ui:VisualElement>
+                    <ui:Label picking-mode="Ignore" name="timer-label" text="0:00" class="timer-label"/>
+                    <ui:VisualElement picking-mode="Ignore" name="bottom-line" class="hourglass-chamber">
+                        <ui:VisualElement picking-mode="Ignore" name="bottom-sand" class="bottom-sand"/>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:Label picking-mode="Ignore" name="timer-blue-score" text="0" class="timer-score team-blue" style="-unity-text-align: middle-left;"/>
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement picking-mode="Ignore" name="score-hud" class="hand-hud-section" style="display: none;">
+            <ui:VisualElement picking-mode="Ignore" name="carrot" class="goal-carrot"/>
+            <ui:VisualElement picking-mode="Ignore" name="score-track" class="score-track">
+                <ui:VisualElement picking-mode="Ignore" class="score-track-half from-right">
+                    <ui:VisualElement picking-mode="Ignore" name="red-score-line" class="score-line team-red-bg"/>
+                </ui:VisualElement>
+                <ui:VisualElement picking-mode="Ignore" class="score-track-half">
+                    <ui:VisualElement picking-mode="Ignore" name="blue-score-line" class="score-line team-blue-bg"/>
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement picking-mode="Ignore" class="goal-row">
+                <ui:Label picking-mode="Ignore" name="goal-red-score" text="0" class="goal-score team-red" style="-unity-text-align: middle-right;"/>
+                <ui:Label picking-mode="Ignore" name="target-score-label" text="100" class="goal-target-label"/>
+                <ui:Label picking-mode="Ignore" name="goal-blue-score" text="0" class="goal-score team-blue" style="-unity-text-align: middle-left;"/>
+            </ui:VisualElement>
+        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>
