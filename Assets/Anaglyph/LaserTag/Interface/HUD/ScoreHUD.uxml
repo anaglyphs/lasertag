@@ -1,0 +1,9 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+    <ui:VisualElement picking-mode="Ignore" name="score-hud" class="hand-hud-section" style="display: flex;">
+        <ui:Label picking-mode="Ignore" name="goal-red-score" text="0" class="goal-score team-red" style="-unity-text-align: middle-right; position: absolute;"/>
+        <ui:Label picking-mode="Ignore" name="target-score-label" text="100" class="goal-target-label" style="position: absolute;"/>
+        <ui:Label picking-mode="Ignore" name="goal-blue-score" text="0" class="goal-score team-blue" style="-unity-text-align: middle-left; position: absolute;"/>
+        <ui:Image source="project://database/Assets/Anaglyph/LaserTag/Interface/HUD/Vectors/mountain.svg?fileID=7388822144124034973&amp;guid=6850c0624c30c478fb17000e596b15b1&amp;type=3#mountain" style="position: absolute; height: 40px; width: 103px;"/>
+    </ui:VisualElement>
+</ui:UXML>

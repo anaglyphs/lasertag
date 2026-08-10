@@ -1,0 +1,12 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3"/>
+    <ui:VisualElement picking-mode="Ignore" name="timer-hud" class="hand-hud-section" style="display: flex;">
+        <ui:VisualElement picking-mode="Ignore" class="timer-row">
+            <ui:Label picking-mode="Ignore" name="timer-red-score" text="0" class="timer-score team-red" style="-unity-text-align: middle-right;"/>
+            <ui:Image source="project://database/Assets/Anaglyph/LaserTag/Interface/HUD/Vectors/hourglass.svg?fileID=7388822144124034973&amp;guid=f32afdc5d41e147379a5b3c6ccfeb013&amp;type=3#hourglass" name="hourglass" scale-mode="ScaleToFit" style="position: relative; top: 0; left: 0; bottom: 0; right: 0; align-content: center; justify-content: center; height: 87px; width: 102px; margin-left: -20px; margin-right: -20px;">
+                <ui:Label picking-mode="Ignore" name="timer-label" text="0:00" class="timer-label"/>
+            </ui:Image>
+            <ui:Label picking-mode="Ignore" name="timer-blue-score" text="0" class="timer-score team-blue" style="-unity-text-align: middle-left;"/>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
