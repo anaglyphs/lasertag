@@ -504,39 +504,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 2244273354393204491, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: m_PresetReference
-      value: 8642264956610020102
-      objectReference: {fileID: 0}
-    - target: {fileID: 2244273354393204491, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: 'managedReferences[8642264956610020102]'
-      value: Unity.Multiplayer.Tools.NetworkSimulator.Runtime Unity.Multiplayer.Tools.NetworkSimulator.Runtime.NetworkSimulatorPreset
-      objectReference: {fileID: 0}
-    - target: {fileID: 2244273354393204491, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[8642264956610020102].<Name>k__BackingField
-      value: 'Home Broadband [WIFI, Cable, Console, PC]'
-      objectReference: {fileID: 0}
-    - target: {fileID: 2244273354393204491, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[8642264956610020102].<Description>k__BackingField
-      value: Typical of desktop and console platforms (and generally speaking most
-        mobile players too).
-      objectReference: {fileID: 0}
-    - target: {fileID: 2244273354393204491, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[8642264956610020102].<PacketDelayMs>k__BackingField
-      value: 32
-      objectReference: {fileID: 0}
-    - target: {fileID: 2244273354393204491, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[8642264956610020102].<PacketJitterMs>k__BackingField
-      value: 12
-      objectReference: {fileID: 0}
-    - target: {fileID: 2244273354393204491, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[8642264956610020102].<PacketLossPercent>k__BackingField
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 2244273354393204491, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
-      propertyPath: managedReferences[8642264956610020102].<PacketLossInterval>k__BackingField
-      value: 0
-      objectReference: {fileID: 0}
     - target: {fileID: 2459965662535751644, guid: ba88e2a7f879c439fb8421479dd720a7, type: 3}
       propertyPath: m_Name
       value: Networking
