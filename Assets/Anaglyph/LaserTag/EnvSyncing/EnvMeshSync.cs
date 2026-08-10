@@ -567,9 +567,6 @@ namespace Anaglyph.Lasertag
 					chunk.mesh.MarkDynamic();
 				}
 
-				chunk.meshCollider.enabled = false;
-				chunk.meshCollider.sharedMesh = null;
-
 				Mesh.ApplyAndDisposeWritableMeshData(
 					meshDataArray,
 					chunk.mesh,
@@ -585,6 +582,11 @@ namespace Anaglyph.Lasertag
 				chunk.meshIsPopulated = chunk.mesh.vertexCount > 0 &&
 				                        chunk.mesh.subMeshCount > 0 &&
 				                        chunk.mesh.GetIndexCount(0) >= 3;
+
+				// a MeshCollider only recooks when sharedMesh changes value, so editing the
+				// mesh it already holds needs the reference cleared and reassigned. the two
+				// stay adjacent so nothing failing in between can strand the collider empty
+				chunk.meshCollider.sharedMesh = null;
 				chunk.meshCollider.sharedMesh = chunk.mesh;
 				chunk.meshCollider.enabled = chunk.meshIsPopulated;
 
@@ -615,7 +617,9 @@ namespace Anaglyph.Lasertag
 			    currentRevision != revision)
 				return;
 
-			Chunk chunk = EnvMesher.Instance.GetOrCreateChunk(chunkIndex);
+			// nothing to clear if the chunk was never built here
+			if (!EnvMesher.Instance.TryGetChunk(chunkIndex, out Chunk chunk)) return;
+
 			chunk.mesh.Clear();
 			chunk.meshIsPopulated = false;
 			chunk.meshCollider.sharedMesh = null;

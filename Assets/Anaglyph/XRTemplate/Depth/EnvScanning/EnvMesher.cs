@@ -316,16 +316,17 @@ namespace Anaglyph.DepthKit.EnvScanning
 					{
 						await MeshSimplifier.SimplifyAsync(scratchMesh, decimationTarget, decimationOptions,
 							chunk.mesh, ctkn);
-						
-						// bad
-
-						chunk.meshIsPopulated = chunk.mesh.vertexCount > 0;
-						chunk.meshCollider.enabled = chunk.meshIsPopulated;
 
 						ctkn.ThrowIfCancellationRequested();
 
 						chunk.mesh.RecalculateBounds();
+						chunk.meshIsPopulated = chunk.mesh.vertexCount > 0;
+
+						// a MeshCollider only recooks when sharedMesh changes value, so editing
+						// the mesh it already holds needs the reference cleared and reassigned
+						chunk.meshCollider.sharedMesh = null;
 						chunk.meshCollider.sharedMesh = chunk.mesh;
+						chunk.meshCollider.enabled = chunk.meshIsPopulated;
 					}
 					else
 					{
