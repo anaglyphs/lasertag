@@ -14,6 +14,8 @@ namespace Anaglyph.DepthKit.EnvScanning
 		public bool dirty;
 		public uint lastMeshingChangeSum;
 		public bool meshIsPopulated;
+		
+		public NativeArray<uint> voxelSignBits;
 
 		public MeshFilter meshFilter;
 		public MeshCollider meshCollider;
@@ -40,6 +42,9 @@ namespace Anaglyph.DepthKit.EnvScanning
 		private void OnDestroy()
 		{
 			Destroy(mesh);
+
+			if (voxelSignBits.IsCreated)
+				voxelSignBits.Dispose();
 		}
 
 		public void ApplyMeshData(NativeArray<Vector3> positions, NativeArray<int> indices)

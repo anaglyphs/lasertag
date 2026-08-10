@@ -6,7 +6,9 @@ using Anaglyph.Netcode;
 using Draco;
 using Draco.Encode;
 using Unity.Collections;
+using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Anaglyph.Lasertag
 {
@@ -38,21 +40,35 @@ namespace Anaglyph.Lasertag
 		/// </summary>
 		public static event Action<Chunk> RemoteMeshApplied = delegate { };
 
-		// a swept voxel is one voxel fully flipping sign (-127 to 127)
-		[SerializeField] private int syncSweptVoxelsThreshold = 100;
+		// How many voxels the surface must sweep past, relative to the state peers already
+		// have, before a chunk is worth re-sending. Measured against the last transmission
+		// rather than accumulated over time, so depth noise around a stationary surface
+		// cancels out instead of eventually crossing any threshold on its own.
+		[SerializeField] private int syncFlippedVoxelsThreshold = 32;
+
+		// Floor on how often a single chunk may occupy the encoder and the wire. A chunk
+		// held back here keeps accumulating divergence and sends as soon as it expires.
+		[SerializeField] private float minSecondsBetweenChunkSends = 2f;
 
 		[Header("Draco compression")]
 		[SerializeField, Range(1, 30)] private int positionQuantizationBits = 10;
 		[SerializeField, Range(0, 10)] private int encodingSpeed;
 		[SerializeField, Range(0, 10)] private int decodingSpeed = 4;
 
-		// per-chunk change sum at last sync; chunks re-sync every
-		// time they accumulate a threshold's worth of new change
-		private readonly Dictionary<int, uint> lastSyncedChangeSums = new();
+		// Chunk.voxelSignBits as of each chunk's last transmission. Absence means peers have
+		// never seen the chunk at all.
+		private readonly Dictionary<int, NativeArray<uint>> lastSentSignBits = new();
+		private readonly Dictionary<int, float> lastSendTimes = new();
 
-		// chunks that crossed the threshold mid-mesh, waiting
-		// to send until meshing and decimation finish
+		// chunks whose mesh changed since they were last weighed against the threshold
 		private readonly HashSet<int> pendingSync = new();
+		private readonly List<int> pendingSyncDrain = new();
+
+		// Draco encodes every vertex attribute a mesh declares and offers no way to skip one,
+		// so positions are restaged through a mesh carrying no normal stream — normals are
+		// roughly half the vertex payload and peers recalculate them on decode anyway.
+		private static readonly VertexAttributeDescriptor[] PositionOnlyLayout = { new(VertexAttribute.Position) };
+		private Mesh positionOnlyMesh;
 
 		// Draco encoding is relatively expensive. Keep one sequential worker and
 		// coalesce repeated requests for the same chunk while it waits in the queue.
@@ -71,6 +87,9 @@ namespace Anaglyph.Lasertag
 		{
 			Instance = this;
 
+			positionOnlyMesh = new Mesh { name = "Draco encode staging" };
+			positionOnlyMesh.MarkDynamic();
+
 			chunkEvent.Register();
 			visibleEvent.Register();
 			chunkEvent.Received += OnChunkReceived;
@@ -86,6 +105,20 @@ namespace Anaglyph.Lasertag
 		{
 			if (MapManager.Instance != null)
 				MapManager.Instance.WorldFrameRebased += OnWorldFrameRebased;
+
+			if (EnvScanner.Instance != null)
+				EnvScanner.Instance.Cleared += OnScanCleared;
+		}
+
+		/// <summary>
+		/// A cleared scan destroys and rebuilds chunks, so anything remembered
+		/// about them describes voxels that no longer exist
+		/// </summary>
+		private void OnScanCleared()
+		{
+			pendingSync.Clear();
+			lastSendTimes.Clear();
+			ClearSentSignBits();
 		}
 
 		private void OnDestroy()
@@ -93,9 +126,15 @@ namespace Anaglyph.Lasertag
 			if (MapManager.Instance != null)
 				MapManager.Instance.WorldFrameRebased -= OnWorldFrameRebased;
 
+			if (EnvScanner.Instance != null)
+				EnvScanner.Instance.Cleared -= OnScanCleared;
+
 			syncGeneration++;
 			encodeQueue.Clear();
 			queuedEncodes.Clear();
+			ClearSentSignBits();
+
+			Destroy(positionOnlyMesh);
 
 			SyncBus.Activated -= OnBusActivated;
 			SyncBus.Deactivated -= OnBusDeactivated;
@@ -118,7 +157,8 @@ namespace Anaglyph.Lasertag
 			syncGeneration++;
 
 			pendingSync.Clear();
-			lastSyncedChangeSums.Clear();
+			lastSendTimes.Clear();
+			ClearSentSignBits();
 			encodeQueue.Clear();
 			queuedEncodes.Clear();
 
@@ -151,9 +191,8 @@ namespace Anaglyph.Lasertag
 		{
 			syncGeneration++;
 
-			EnvMesher.Instance.VisibleChunkPolled += OnVisibleChunkPolled;
 			EnvMesher.Instance.ChunkMeshUpdated += OnChunkMeshUpdated;
-			
+
 			// Don't reset if authority, because the authority determines the coordinate system
 			// so their scan will be aligned with the environment
 			if(!SyncBus.IsAuthority)
@@ -165,13 +204,11 @@ namespace Anaglyph.Lasertag
 			syncGeneration++;
 
 			if (EnvMesher.Instance)
-			{
-				EnvMesher.Instance.VisibleChunkPolled -= OnVisibleChunkPolled;
 				EnvMesher.Instance.ChunkMeshUpdated -= OnChunkMeshUpdated;
-			}
 
 			pendingSync.Clear();
-			lastSyncedChangeSums.Clear();
+			lastSendTimes.Clear();
+			ClearSentSignBits();
 			encodeQueue.Clear();
 			queuedEncodes.Clear();
 			sentRevisions.Clear();
@@ -188,36 +225,95 @@ namespace Anaglyph.Lasertag
 			EnvMesher.Instance.SetChunksVisible(visible);
 		}
 
-		private void OnVisibleChunkPolled(int chunkIndex, uint changeSum)
+		private void OnChunkMeshUpdated(Chunk chunk)
 		{
+			pendingSync.Add(chunk.chunkIndex);
+		}
+
+		private void Update()
+		{
+			if (pendingSync.Count == 0) return;
+
 			// don't send scans until they're in the shared reference space
+			if (!SyncBus.Active || !ColocationManager.IsColocated) return;
 
-			if (!ColocationManager.IsColocated) return;
+			pendingSyncDrain.Clear();
+			pendingSyncDrain.AddRange(pendingSync);
 
-			lastSyncedChangeSums.TryGetValue(chunkIndex, out uint lastSynced);
-
-			// subtraction guards against overflow, like the meshing threshold
-			if (changeSum - lastSynced < (uint)(syncSweptVoxelsThreshold * 254)) return;
-
-			lastSyncedChangeSums[chunkIndex] = changeSum;
-
-			Chunk chunk = EnvMesher.Instance.GetOrCreateChunk(chunkIndex);
-
-			if (chunk.dirty)
+			foreach (int chunkIndex in pendingSyncDrain)
 			{
-				pendingSync.Add(chunkIndex); // send once it finishes meshing
-			}
-			else
-			{
+				if (!EnvMesher.Instance.TryGetChunk(chunkIndex, out Chunk chunk) ||
+				    !chunk.voxelSignBits.IsCreated)
+				{
+					pendingSync.Remove(chunkIndex);
+					continue;
+				}
+
+				// leave it pending: re-meshing will fire ChunkMeshUpdated again
+				if (chunk.dirty) continue;
+
+				if (lastSendTimes.TryGetValue(chunkIndex, out float lastSendTime) &&
+				    Time.time - lastSendTime < minSecondsBetweenChunkSends)
+					continue;
+
 				pendingSync.Remove(chunkIndex);
+
+				if (!HasDivergedFromPeers(chunk)) continue;
+
+				lastSendTimes[chunkIndex] = Time.time;
 				QueueChunkMesh(chunk);
 			}
 		}
 
-		private void OnChunkMeshUpdated(Chunk chunk)
+		private bool HasDivergedFromPeers(Chunk chunk)
 		{
-			if (pendingSync.Remove(chunk.chunkIndex))
-				QueueChunkMesh(chunk);
+			// peers have never seen this chunk, so anything in it is news
+			if (!lastSentSignBits.TryGetValue(chunk.chunkIndex, out NativeArray<uint> sentSignBits))
+				return chunk.meshIsPopulated;
+
+			NativeArray<uint> signBits = chunk.voxelSignBits;
+			int flippedVoxels = 0;
+
+			for (int i = 0; i < signBits.Length; i++)
+				flippedVoxels += math.countbits(signBits[i] ^ sentSignBits[i]);
+
+			return flippedVoxels >= syncFlippedVoxelsThreshold;
+		}
+
+		/// <summary>
+		/// Records the surface peers are about to receive, so the next threshold
+		/// test measures divergence from what they hold rather than from scratch
+		/// </summary>
+		private void RememberSentSurface(Chunk chunk)
+		{
+			if (!chunk.voxelSignBits.IsCreated) return;
+
+			if (!lastSentSignBits.TryGetValue(chunk.chunkIndex, out NativeArray<uint> sentSignBits))
+			{
+				sentSignBits = new NativeArray<uint>(chunk.voxelSignBits.Length, Allocator.Persistent);
+				lastSentSignBits[chunk.chunkIndex] = sentSignBits;
+			}
+
+			sentSignBits.CopyFrom(chunk.voxelSignBits);
+		}
+
+		/// <summary>
+		/// The send never landed, so peers hold nothing for this chunk
+		/// and its next mesh update should go out unconditionally
+		/// </summary>
+		private void ForgetSentSurface(int chunkIndex)
+		{
+			if (!lastSentSignBits.Remove(chunkIndex, out NativeArray<uint> sentSignBits)) return;
+
+			sentSignBits.Dispose();
+		}
+
+		private void ClearSentSignBits()
+		{
+			foreach (NativeArray<uint> sentSignBits in lastSentSignBits.Values)
+				sentSignBits.Dispose();
+
+			lastSentSignBits.Clear();
 		}
 
 		private void QueueChunkMesh(Chunk chunk)
@@ -278,19 +374,26 @@ namespace Anaglyph.Lasertag
 
 			if (!isPopulated)
 			{
+				RememberSentSurface(chunk);
 				RaiseChunkPayload(chunkIndex, NextRevision(chunkIndex), default);
 				return;
 			}
+
+			CopyPositionsOnly(mesh, positionOnlyMesh);
+
+			// snapshot alongside the geometry being staged, not after the encode —
+			// the chunk may re-mesh while Draco is working
+			RememberSentSurface(chunk);
 
 			EncodeResult[] results = null;
 
 			try
 			{
-				using Mesh.MeshDataArray meshDataArray = Mesh.AcquireReadOnlyMeshData(mesh);
+				using Mesh.MeshDataArray meshDataArray = Mesh.AcquireReadOnlyMeshData(positionOnlyMesh);
 
 				QuantizationSettings quantization = new(positionQuantizationBits);
 				SpeedSettings speed = new(encodingSpeed, decodingSpeed);
-				results = await DracoEncoder.EncodeMesh(mesh, meshDataArray[0], quantization, speed);
+				results = await DracoEncoder.EncodeMesh(positionOnlyMesh, meshDataArray[0], quantization, speed);
 
 				if (!this || generation != syncGeneration || !SyncBus.Active)
 					return;
@@ -299,6 +402,7 @@ namespace Anaglyph.Lasertag
 				{
 					Debug.LogWarning(
 						$"[{nameof(EnvMeshSync)}] Draco failed to encode chunk {chunkIndex}");
+					ForgetSentSurface(chunkIndex);
 					return;
 				}
 
@@ -309,6 +413,7 @@ namespace Anaglyph.Lasertag
 				{
 					Debug.LogWarning(
 						$"[{nameof(EnvMeshSync)}] Chunk {chunkIndex} Draco payload ({payloadSize}B) exceeds the fragmented message cap");
+					ForgetSentSurface(chunkIndex);
 					return;
 				}
 
@@ -322,6 +427,33 @@ namespace Anaglyph.Lasertag
 						results[i].Dispose();
 				}
 			}
+		}
+
+		private const MeshUpdateFlags EncodeStagingFlags = MeshUpdateFlags.DontNotifyMeshUsers |
+		                                                   MeshUpdateFlags.DontRecalculateBounds |
+		                                                   MeshUpdateFlags.DontValidateIndices;
+
+		private static void CopyPositionsOnly(Mesh source, Mesh destination)
+		{
+			using Mesh.MeshDataArray sourceArray = Mesh.AcquireReadOnlyMeshData(source);
+			Mesh.MeshData sourceData = sourceArray[0];
+
+			int vertexCount = sourceData.vertexCount;
+			int indexCount = (int)source.GetIndexCount(0);
+
+			Mesh.MeshDataArray destinationArray = Mesh.AllocateWritableMeshData(1);
+			Mesh.MeshData destinationData = destinationArray[0];
+
+			destinationData.SetVertexBufferParams(vertexCount, PositionOnlyLayout);
+			destinationData.SetIndexBufferParams(indexCount, IndexFormat.UInt32);
+
+			sourceData.GetVertices(destinationData.GetVertexData<Vector3>());
+			sourceData.GetIndices(destinationData.GetIndexData<int>(), 0);
+
+			destinationData.subMeshCount = 1;
+			destinationData.SetSubMesh(0, new SubMeshDescriptor(0, indexCount), EncodeStagingFlags);
+
+			Mesh.ApplyAndDisposeWritableMeshData(destinationArray, destination, EncodeStagingFlags);
 		}
 
 		private uint NextRevision(int chunkIndex)

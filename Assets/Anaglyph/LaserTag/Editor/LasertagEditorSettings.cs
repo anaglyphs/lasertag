@@ -1,19 +1,22 @@
 #if UNITY_EDITOR
+using System;
 using Anaglyph.DepthKit.EnvScanning;
 using Anaglyph.Netcode;
 using Unity.Multiplayer.PlayMode;
 using Unity.Netcode;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.XR.Interaction.Toolkit.Inputs.Simulation;
 
 namespace Anaglyph.Editor
 {
 	/// Controls for driving the game from the editor while in play mode.
-	public class PlayModeControlWindow : EditorWindow
+	public class LasertagEditorSettings : EditorWindow
 	{
 		[MenuItem("Tools/Play Mode Control")]
 		private static void Open() =>
-			GetWindow<PlayModeControlWindow>("Play Mode Control");
+			GetWindow<LasertagEditorSettings>("Play Mode Control");
 
 		private void OnEnable() => EditorApplication.update += Repaint;
 		private void OnDisable() => EditorApplication.update -= Repaint;
@@ -36,6 +39,11 @@ namespace Anaglyph.Editor
 			EditorGUILayout.LabelField("Environment", EditorStyles.boldLabel);
 
 			DrawToggle("Show scanned meshes", PlayModeChunkVisibility.Setting);
+
+			EditorGUILayout.Space();
+			EditorGUILayout.LabelField("Simulation", EditorStyles.boldLabel);
+
+			DrawToggle("Hide simulation rig from scene view", PlayModeSimulationVisibility.Setting);
 		}
 
 		private static void DrawToggle(string label, PlayModeSetting setting)
@@ -192,6 +200,75 @@ namespace Anaglyph.Editor
 			appliedTo = mesher;
 			appliedValue = visible;
 			mesher.SetChunksVisible(visible);
+		}
+	}
+
+	/// Takes XR Simulation's environment and the interaction simulator out of the
+	/// scene view, where the simulator's UI panel covers everything behind it.
+	/// Scene visibility does not affect the game view.
+	[InitializeOnLoad]
+	public static class PlayModeSimulationVisibility
+	{
+		public static readonly PlayModeSetting Setting = new("Anaglyph.PlayMode.HideSimulation");
+
+		// AR Foundation keeps the name internal, so it can only be matched by string.
+		// Each environment gets a fresh GUID appended, hence the prefix match.
+		private const string EnvironmentSceneNamePrefix = "Simulated Environment Scene";
+
+		private static int appliedSceneHandle;
+		private static XRInteractionSimulator appliedSimulator;
+		private static bool appliedValue;
+
+		static PlayModeSimulationVisibility()
+		{
+			Setting.Changed += Apply;
+		}
+
+		private static Scene FindEnvironmentScene()
+		{
+			for (int i = 0; i < SceneManager.sceneCount; i++)
+			{
+				Scene scene = SceneManager.GetSceneAt(i);
+
+				if (scene.name.StartsWith(EnvironmentSceneNamePrefix, StringComparison.Ordinal))
+					return scene;
+			}
+
+			return default;
+		}
+
+		private static void Apply(bool hide)
+		{
+			Scene scene = Application.isPlaying ? FindEnvironmentScene() : default;
+
+			XRInteractionSimulator simulator = Application.isPlaying
+				? GameObject.FindFirstObjectByType<XRInteractionSimulator>()
+				: null;
+
+			// Both are spawned during play, so re-apply whenever a new one shows up
+			bool unchanged = hide == appliedValue &&
+			                 scene.handle == appliedSceneHandle &&
+			                 simulator == appliedSimulator;
+
+			if (unchanged) return;
+
+			appliedValue = hide;
+			appliedSceneHandle = scene.handle;
+			appliedSimulator = simulator;
+
+			SceneVisibilityManager visibility = SceneVisibilityManager.instance;
+
+			if (scene.IsValid() && scene.isLoaded)
+			{
+				if (hide) visibility.Hide(scene);
+				else visibility.Show(scene);
+			}
+
+			if (simulator != null)
+			{
+				if (hide) visibility.Hide(simulator.gameObject, true);
+				else visibility.Show(simulator.gameObject, true);
+			}
 		}
 	}
 }

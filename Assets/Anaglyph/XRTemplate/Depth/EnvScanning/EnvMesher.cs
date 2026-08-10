@@ -4,6 +4,9 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Meshia.MeshSimplification;
+using Unity.Burst;
+using Unity.Collections;
+using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
@@ -24,6 +27,10 @@ namespace Anaglyph.DepthKit.EnvScanning
 		[SerializeField] private int numMeshWorkers = 2;
 
 		[SerializeField] private int meshSweptVoxelsThreshold = 10;
+
+		// how far a voxel's distance must move past zero before Chunk.voxelSignBits accepts
+		// that the surface crossed it. sized to swallow depth sensor noise, not real motion
+		[SerializeField] private float voxelSignDeadbandMeters = 0.04f;
 
 		[SerializeField] private UniversalRendererData rendererData;
 
@@ -47,12 +54,8 @@ namespace Anaglyph.DepthKit.EnvScanning
 		};
 
 		/// <summary>
-		/// Invoked for every visible chunk each scan update with its cumulative change sum
-		/// </summary>
-		public event Action<int, uint> VisibleChunkPolled = delegate { };
-
-		/// <summary>
-		/// Invoked when a chunk's mesh has finished meshing and decimating
+		/// Invoked when a chunk's mesh has finished meshing and decimating.
+		/// <see cref="Chunk.voxelSignBits"/> is up to date when this fires.
 		/// </summary>
 		public event Action<Chunk> ChunkMeshUpdated = delegate { };
 
@@ -164,8 +167,6 @@ namespace Anaglyph.DepthKit.EnvScanning
 
 					uint changeSum = visResult.changeSums[i];
 
-					VisibleChunkPolled.Invoke(chunkIndex, changeSum);
-
 					// subtraction guards against changeSum + changeSumMeshingThreshold becoming a long
 					if (!chunk.dirty &&
 					    changeSum - chunk.lastMeshingChangeSum >= (uint)(meshSweptVoxelsThreshold * 254))
@@ -220,6 +221,56 @@ namespace Anaglyph.DepthKit.EnvScanning
 				_ = RunMesherWorker(workerCancelSrc.Token);
 		}
 
+		private static void UpdateVoxelSignBits(Chunk chunk, NativeArray<EnvScanner.Voxel> voxels, sbyte deadband)
+		{
+			if (!chunk.voxelSignBits.IsCreated)
+				chunk.voxelSignBits = new NativeArray<uint>(voxels.Length / VoxelsPerSignWord,
+					Allocator.Persistent, NativeArrayOptions.ClearMemory);
+
+			new VoxelSignBitsJob
+			{
+				voxels = voxels,
+				deadband = deadband,
+				signBits = chunk.voxelSignBits
+			}.Run();
+		}
+
+		private const int VoxelsPerSignWord = 32;
+
+		/// <summary>
+		/// Schmitt trigger per voxel: a bit only sets once the voxel reads solidly behind the
+		/// surface and only clears once it reads solidly in front, so values hovering around
+		/// zero — every voxel the surface actually passes through — hold their last state
+		/// </summary>
+		[BurstCompile]
+		private struct VoxelSignBitsJob : IJob
+		{
+			[ReadOnly] public NativeArray<EnvScanner.Voxel> voxels;
+			public sbyte deadband;
+			public NativeArray<uint> signBits;
+
+			public void Execute()
+			{
+				for (int word = 0; word < signBits.Length; word++)
+				{
+					uint bits = signBits[word];
+					int voxelBase = word * VoxelsPerSignWord;
+
+					for (int bit = 0; bit < VoxelsPerSignWord; bit++)
+					{
+						sbyte value = voxels[voxelBase + bit].value;
+
+						if (value < -deadband)
+							bits |= 1u << bit;
+						else if (value > deadband)
+							bits &= ~(1u << bit);
+					}
+
+					signBits[word] = bits;
+				}
+			}
+		}
+
 		private async Task RunMesherWorker(CancellationToken ctkn)
 		{
 			EnvScanner scanner = EnvScanner.Instance;
@@ -228,6 +279,9 @@ namespace Anaglyph.DepthKit.EnvScanning
 			int3 chunkSize = new(vpcd, vpcd, vpcd);
 
 			NetMesher mesher = new();
+
+			sbyte signBitDeadband = (sbyte)math.clamp(
+				voxelSignDeadbandMeters / scanner.DistanceTruncationBand * sbyte.MaxValue, 1, sbyte.MaxValue - 1);
 
 			EnvScanner.ChunkReadbackBuffer readbackBuffer = scanner.CreateChunkReadbackBuffer();
 
@@ -250,6 +304,8 @@ namespace Anaglyph.DepthKit.EnvScanning
 					if (!readbackSuccess) continue;
 
 					ctkn.ThrowIfCancellationRequested();
+
+					UpdateVoxelSignBits(chunk, readbackBuffer.data, signBitDeadband);
 
 					bool isPopulated = await mesher.CreateMesh(readbackBuffer.data, chunkSize, scanner.VoxSize,
 						scratchMesh, ctkn);
