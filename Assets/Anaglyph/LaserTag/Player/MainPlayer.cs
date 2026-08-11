@@ -12,7 +12,7 @@ namespace Anaglyph.Lasertag
 	[DefaultExecutionOrder(-100)]
 	public class MainPlayer : MonoBehaviour
 	{
-		private const float MaxHealth = 100;
+		private const float MaxHealth = MatchSettings.MaxHealth;
 
 		// todo move this into another component. this really doesn't belong here
 		// private OVRPassthroughLayer passthroughLayer;
@@ -136,9 +136,7 @@ namespace Anaglyph.Lasertag
 		public void Damage(float damage, ulong damagedBy)
 		{
 			Damaged.Invoke();
-			float mult = MatchReferee.Settings.damageMultiplier;
-			if (mult == 0) mult = 1;
-			Health -= damage * mult;
+			Health -= MatchReferee.Settings.ApplyDamageMultiplier(damage);
 
 			if (Health <= 0)
 				Kill(damagedBy);

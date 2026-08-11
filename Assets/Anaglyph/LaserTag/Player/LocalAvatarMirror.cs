@@ -34,6 +34,7 @@ namespace Anaglyph.Lasertag.Networking
 			avatar.TeamOwner.TeamChanged += OnTeamChanged;
 
 			avatar.SetAlive(player.IsAlive);
+			avatar.SetHealth(player.Health);
 			player.SetInFriendlyBase(avatar.IsInFriendlyBase);
 			player.SetTeam(avatar.Team);
 			player.SetInPlay(true);
@@ -53,6 +54,14 @@ namespace Anaglyph.Lasertag.Networking
 
 			if (player != null)
 				player.SetInPlay(false);
+		}
+
+		private void Update()
+		{
+			// regen and damage both move health continuously; the NetworkVariable only
+			// goes out when the value actually changes, so a full-health player costs nothing
+			if (IsSpawned && IsOwner && player != null)
+				avatar.SetHealth(player.Health);
 		}
 
 		private void OnDamaged(float damage, ulong damagedBy) => player.Damage(damage, damagedBy);

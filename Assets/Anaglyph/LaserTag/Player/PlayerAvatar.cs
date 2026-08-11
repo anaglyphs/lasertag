@@ -37,6 +37,20 @@ namespace Anaglyph.Lasertag.Networking
 		/// <summary>Owner only - the local player's life is the source of truth.</summary>
 		internal void SetAlive(bool isAlive) => isAliveSync.Value = isAlive;
 
+		private readonly NetworkVariable<float> healthSync = new(MatchSettings.MaxHealth);
+
+		/// <summary>
+		/// Follows the owner's authoritative health, but drops the instant a hit lands here so
+		/// hit feedback doesn't wait a round trip. Weapons fire faster than the owner can answer,
+		/// so reading the synced value alone would report several bullets in a row as the same hit.
+		/// </summary>
+		public float Health { get; private set; } = MatchSettings.MaxHealth;
+
+		public float NormalizedHealth => Health / MatchSettings.MaxHealth;
+
+		/// <summary>Owner only - the local player's health is the source of truth.</summary>
+		internal void SetHealth(float health) => healthSync.Value = health;
+
 		[SerializeField] private TeamOwner teamOwner;
 		public TeamOwner TeamOwner => teamOwner;
 
@@ -69,6 +83,8 @@ namespace Anaglyph.Lasertag.Networking
 			Damaged += delegate { OnDamaged.Invoke(); };
 			Respawned += OnRespawned.Invoke;
 
+			healthSync.OnValueChanged += delegate(float _, float health) { Health = health; };
+
 			isAliveSync.OnValueChanged += delegate(bool wasAlive, bool isAlive)
 			{
 				if (wasAlive && !isAlive)
@@ -94,7 +110,8 @@ namespace Anaglyph.Lasertag.Networking
 
 			All[OwnerClientId] = this;
 
-			// the synced value arrives before spawn, so nothing raises OnValueChanged for it
+			// synced values arrive before spawn, so nothing raises OnValueChanged for them
+			Health = healthSync.Value;
 			ApplyAliveState();
 		}
 
@@ -168,6 +185,8 @@ namespace Anaglyph.Lasertag.Networking
 		[Rpc(SendTo.Everyone)]
 		public void DamageRpc(float damage, ulong damagedBy)
 		{
+			Health = Mathf.Max(0, Health - MatchReferee.Settings.ApplyDamageMultiplier(damage));
+
 			Damaged.Invoke(damage, damagedBy);
 		}
 

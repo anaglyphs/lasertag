@@ -129,7 +129,7 @@ namespace Anaglyph.Lasertag
 						damage = damage
 					};
 
-					IDamageable.DamageHierarchy(col.transform.root, damageData, damageableBuffer);
+					IDamageable.DamageHierarchy(col.transform.root, physHit.point, damageData, damageableBuffer);
 				}
 
 				if (travelDist > MaxTravelDist)

@@ -34,6 +34,8 @@ namespace Anaglyph.Lasertag
 	[Serializable]
 	public struct MatchSettings
 	{
+		public const float MaxHealth = 100;
+
 		public bool teams;
 		public RespawnCondition respawnCondition;
 		public float respawnSeconds;
@@ -48,6 +50,12 @@ namespace Anaglyph.Lasertag
 		public int roundTimeSeconds;
 		public short scoreTarget;
 		public byte numRounds;
+
+		/// <summary>A zero multiplier means the settings were never filled in, not "no damage".</summary>
+		public readonly float ApplyDamageMultiplier(float damage)
+		{
+			return damage * (damageMultiplier == 0 ? 1 : damageMultiplier);
+		}
 
 		public readonly bool CheckWinByTimer()
 		{

@@ -1,13 +1,12 @@
 using AprilTag;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace Anaglyph.XRTemplate.SharedSpaces
 {
 	public class TagReferenceVisuals : MonoBehaviour
 	{
-		[FormerlySerializedAs("source")] [SerializeField] private AprilTagColocationConstraintProvider provider;
+		[SerializeField] private AprilTagColocationConstraintProvider provider;
 
 		[SerializeField] private Mesh indicatorMesh;
 		[SerializeField] private Material indicatorMaterial;
