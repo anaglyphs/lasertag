@@ -13,6 +13,7 @@
             <ui:SliderInt label="Winning score" value="5" high-value="20" name="score-target-slider" show-input-field="true" class="stacked-field"/>
             <ui:RadioButtonGroup label="Respawn&#10;" name="respawn-condition-radio" choices="After a timer,At home base,Only per round" class="stacked-field"/>
             <ui:SliderInt label="Respawn seconds" value="5" high-value="10" name="respawn-time-slider" show-input-field="true" class="stacked-field"/>
+            <ui:Toggle name="spawn-zombies-toggle" text="Spawn zombies (experimental)"/>
         </ui:ScrollView>
         <ui:Button name="start-button" text="Start game"/>
     </ui:VisualElement>

@@ -14,7 +14,8 @@ namespace Anaglyph.LaserTag.NPCs
 		private NavMeshAgent agent;
 
 		private NetworkVariable<ulong> targetIdSync = new(ulong.MaxValue);
-		private float health = 100;
+		private NetworkVariable<float> healthSync = new(MatchSettings.MaxHealth);
+		public float Health => healthSync.Value;
 
 		private PlayerAvatar target;
 
@@ -28,7 +29,18 @@ namespace Anaglyph.LaserTag.NPCs
 		public override void OnNetworkSpawn()
 		{
 			UpdateAgent();
-			health = 100;
+			healthSync.Value = MatchSettings.MaxHealth;
+			
+			MatchReferee.StateChanged += OnMatchStateChange;
+		}
+
+		private void OnMatchStateChange(MatchState state)
+		{
+			if (!IsOwner)
+				return;
+			
+			if (state != MatchState.Playing)
+				NetworkObject.Despawn(true);
 		}
 
 		public override void OnGainedOwnership()
@@ -74,12 +86,12 @@ namespace Anaglyph.LaserTag.NPCs
 			if (target) head.LookAt(target.HeadTransform);
 		}
 
-		[Rpc(SendTo.Everyone)]
+		[Rpc(SendTo.Owner)]
 		private void ShotRpc(float damage)
 		{
-			health -= damage;
+			healthSync.Value -= damage;
 
-			if (IsOwner && health <= 0) NetworkObject.Despawn(true);
+			if (IsOwner && Health <= 0) NetworkObject.Despawn(true);
 		}
 
 		public void Damage(IDamageable.Data data)

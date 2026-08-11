@@ -23,6 +23,7 @@ namespace Anaglyph.Lasertag
 		private SliderInt roundsSlider;
 		private RadioButtonGroup respawnConditionRadio;
 		private SliderInt respawnTimeSlider;
+		private Toggle spawnZombiesToggle;
 		private Button startButton;
 
 		private MatchSettings matchSettings = MatchSettings.DemoGame();
@@ -57,6 +58,7 @@ namespace Anaglyph.Lasertag
 			roundsSlider = Require<SliderInt>(root, "rounds-slider");
 			respawnConditionRadio = Require<RadioButtonGroup>(root, "respawn-condition-radio");
 			respawnTimeSlider = Require<SliderInt>(root, "respawn-time-slider");
+			spawnZombiesToggle = Require<Toggle>(root, "spawn-zombies-toggle");
 			startButton = Require<Button>(root, "start-button");
 
 			// the UXML carries the menu's default slider values
@@ -65,6 +67,7 @@ namespace Anaglyph.Lasertag
 			matchSettings.damageMultiplier = Mathf.Max(0f, damageMultiplierSlider.value);
 			matchSettings.numRounds = (byte)Mathf.Clamp(roundsSlider.value, 1, byte.MaxValue);
 			matchSettings.respawnSeconds = Mathf.Max(0, respawnTimeSlider.value);
+			matchSettings.spawnZombies = spawnZombiesToggle.value;
 
 			roundTimeSlider.RegisterValueChangedCallback(change =>
 				matchSettings.roundTimeSeconds = MinutesToSeconds(change.newValue));
@@ -80,6 +83,9 @@ namespace Anaglyph.Lasertag
 
 			respawnTimeSlider.RegisterValueChangedCallback(change =>
 				matchSettings.respawnSeconds = Mathf.Max(0, change.newValue));
+
+			spawnZombiesToggle.RegisterValueChangedCallback(change =>
+				matchSettings.spawnZombies = change.newValue);
 
 			winByRadio.RegisterValueChangedCallback(change => SetWinBy(change.newValue));
 			bool byScore = matchSettings.CheckWinByScore();

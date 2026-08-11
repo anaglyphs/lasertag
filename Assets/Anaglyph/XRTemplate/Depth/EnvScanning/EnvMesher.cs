@@ -188,6 +188,8 @@ namespace Anaglyph.DepthKit.EnvScanning
 			}
 		}
 
+		public IReadOnlyCollection<Chunk> Chunks => chunks.Values;
+
 		public bool TryGetChunk(int chunkIndex, out Chunk chunk)
 		{
 			return chunks.TryGetValue(chunkIndex, out chunk);

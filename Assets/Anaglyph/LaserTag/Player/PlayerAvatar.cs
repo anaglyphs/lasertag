@@ -46,8 +46,6 @@ namespace Anaglyph.Lasertag.Networking
 		/// </summary>
 		public float Health { get; private set; } = MatchSettings.MaxHealth;
 
-		public float NormalizedHealth => Health / MatchSettings.MaxHealth;
-
 		/// <summary>Owner only - the local player's health is the source of truth.</summary>
 		internal void SetHealth(float health) => healthSync.Value = health;
 

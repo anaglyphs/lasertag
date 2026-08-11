@@ -12,6 +12,8 @@ namespace Anaglyph.Lasertag
 			public float damage;
 		}
 
+		public float Health { get; }
+
 		public void Damage(Data data);
 
 		// Raised once per damageable hit, on the client dealing the damage.

@@ -1,4 +1,5 @@
-using System.Collections;
+using System;
+using System.Threading;
 using Anaglyph.XRTemplate;
 using Unity.Netcode;
 using UnityEngine;
@@ -6,7 +7,7 @@ using UnityEngine.AI;
 
 namespace Anaglyph.LaserTag.NPCs
 {
-	public class Spawner : MonoBehaviour
+	public class MonsterSpawner : MonoBehaviour
 	{
 		[Header("Spawn Settings")] public GameObject[] prefabsToSpawn;
 		public float minRadius = 10f;
@@ -15,18 +16,28 @@ namespace Anaglyph.LaserTag.NPCs
 
 		[Header("NavMesh Sampling")] public int maxSampleAttempts = 30; // attempts per spawn to find a valid point
 
-		private void Start()
+		private void OnEnable()
 		{
 			SpawnLoop();
 		}
 
 		private async void SpawnLoop()
 		{
-			while (enabled)
+			CancellationToken ctkn = destroyCancellationToken;
+			
+			try
 			{
-				await Awaitable.WaitForSecondsAsync(spawnEverySeconds);
+				while (enabled)
+				{
+					await Awaitable.WaitForSecondsAsync(spawnEverySeconds, ctkn);
 
-				TrySpawnPrefab();
+					if (!enabled) return;
+
+					TrySpawnPrefab();
+				}
+			}
+			catch (OperationCanceledException)
+			{
 			}
 		}
 
@@ -36,9 +47,9 @@ namespace Anaglyph.LaserTag.NPCs
 
 			for (int attempt = 0; attempt < maxSampleAttempts; attempt++)
 			{
-				Vector2 randCirc = Random.insideUnitCircle;
+				Vector2 randCirc = UnityEngine.Random.insideUnitCircle;
 				Vector3 randDir = new(randCirc.x, 0, randCirc.y);
-				Vector3 samplePos = playerHead.position + randDir * Random.Range(minRadius, maxRadius);
+				Vector3 samplePos = playerHead.position + randDir * UnityEngine.Random.Range(minRadius, maxRadius);
 
 				if (NavMesh.SamplePosition(samplePos, out NavMeshHit hit, 2f, NavMesh.AllAreas))
 				{
@@ -56,7 +67,7 @@ namespace Anaglyph.LaserTag.NPCs
 
 		private void SpawnAtPosition(Vector3 position)
 		{
-			GameObject prefab = prefabsToSpawn[Random.Range(0, prefabsToSpawn.Length)];
+			GameObject prefab = prefabsToSpawn[UnityEngine.Random.Range(0, prefabsToSpawn.Length)];
 			GameObject g = Instantiate(prefab, position, Quaternion.identity);
 			g.GetComponent<NetworkObject>().Spawn();
 		}

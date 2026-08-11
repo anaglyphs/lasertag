@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 8602809240530545973}
   - component: {fileID: 672875215782764715}
+  - component: {fileID: 3909942722840673789}
   - component: {fileID: 5293559935730707558}
   - component: {fileID: 8525794981269805043}
   - component: {fileID: 6738048705288902862}
@@ -49,6 +50,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 858eafa75daee0d418ca2674299e4eca, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &3909942722840673789
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5901269829941828840}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8025cc398920d4125905437e25663171, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.NPCs.Spawner
+  prefabsToSpawn:
+  - {fileID: 1881905762339889209, guid: bf414b72be169c04aa2f5798f2e09a45, type: 3}
+  minRadius: 10
+  maxRadius: 50
+  spawnEverySeconds: 1
+  maxSampleAttempts: 30
 --- !u!114 &5293559935730707558
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -177,7 +196,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.HitMarkers
   material: {fileID: 2100000, guid: 165adeccfa9d44dd690c720b349c90da, type: 2}
   lifetimeSeconds: 0.1
-  sizeAtOneMeter: 0.5
+  sizeAtOneMeter: 0.2
   distanceScaling: 0.6
   sizeOverLifetime:
     serializedVersion: 2

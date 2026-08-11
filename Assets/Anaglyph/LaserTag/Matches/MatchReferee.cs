@@ -1,6 +1,8 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Anaglyph.DepthKit.EnvScanning;
+using Anaglyph.LaserTag.NPCs;
 using Anaglyph.Lasertag.Networking;
 using Anaglyph.Netcode;
 using UnityEngine;
@@ -37,6 +39,7 @@ namespace Anaglyph.Lasertag
 		public const float MaxHealth = 100;
 
 		public bool teams;
+		public bool spawnZombies;
 		public RespawnCondition respawnCondition;
 		public float respawnSeconds;
 		public float healthRegenPerSecond;
@@ -77,6 +80,7 @@ namespace Anaglyph.Lasertag
 			return new MatchSettings
 			{
 				teams = true,
+				spawnZombies = false,
 				respawnCondition = RespawnCondition.InBases,
 				respawnSeconds = 5,
 				healthRegenPerSecond = 5,
@@ -98,6 +102,7 @@ namespace Anaglyph.Lasertag
 			return new MatchSettings
 			{
 				teams = false,
+				spawnZombies = false,
 				respawnCondition = RespawnCondition.Timer,
 				respawnSeconds = 5,
 				healthRegenPerSecond = 5,
@@ -179,6 +184,7 @@ namespace Anaglyph.Lasertag
 		private readonly int[] lastRoundWins = new int[Teams.NumTeams];
 		private int lastTimerSeconds = int.MinValue;
 		private CancellationTokenSource cancelSrc;
+		private MonsterSpawner[] monsterSpawners;
 
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
 		private static void Init()
@@ -196,6 +202,8 @@ namespace Anaglyph.Lasertag
 		{
 			Instance = this;
 
+			monsterSpawners = GetComponents<MonsterSpawner>();
+
 			settingsSync.Register();
 			startTimeSync.Register();
 			roundsPlayedSync.Register();
@@ -205,17 +213,23 @@ namespace Anaglyph.Lasertag
 			scoreEvent.Register();
 
 			stateSync.Changed += OnStateChanged;
+			settingsSync.Changed += OnSettingsChanged;
 			teamScoresSync.Changed += OnScoresChanged;
 			roundWinsSync.Changed += OnRoundWinsChanged;
 			scoreEvent.Received += OnScoreSubmitted;
+			SyncBus.AuthorityChanged += OnAuthorityChanged;
+
+			ApplyZombieSpawning();
 		}
 
 		private void OnDestroy()
 		{
 			stateSync.Changed -= OnStateChanged;
+			settingsSync.Changed -= OnSettingsChanged;
 			teamScoresSync.Changed -= OnScoresChanged;
 			roundWinsSync.Changed -= OnRoundWinsChanged;
 			scoreEvent.Received -= OnScoreSubmitted;
+			SyncBus.AuthorityChanged -= OnAuthorityChanged;
 
 			scoreEvent.Unregister();
 			stateSync.Unregister();
@@ -407,6 +421,32 @@ namespace Anaglyph.Lasertag
 			}
 		}
 
+		private void OnSettingsChanged(MatchSettings old, MatchSettings settings)
+		{
+			ApplyZombieSpawning();
+		}
+
+		private void OnAuthorityChanged(bool isAuthority)
+		{
+			ApplyZombieSpawning();
+		}
+
+		// Zombies path around the scanned room, so the navmesh has to be built wherever
+		// one might be simulated. Only the authority spawns them, so the session gets a
+		// single stream of monsters rather than one per peer.
+		private void ApplyZombieSpawning()
+		{
+			bool zombiesInMatch = Settings.spawnZombies && State != MatchState.NotPlaying;
+
+			if (EnvNavMesher.Instance != null)
+				EnvNavMesher.Instance.enabled = zombiesInMatch;
+
+			bool spawning = zombiesInMatch && SyncBus.IsAuthority && State == MatchState.Playing;
+
+			foreach (MonsterSpawner spawner in monsterSpawners)
+				spawner.enabled = spawning;
+		}
+
 		private async void OnStateChanged(MatchState old, MatchState state)
 		{
 			// a fresh match begins: round history belongs to the previous one
@@ -423,6 +463,8 @@ namespace Anaglyph.Lasertag
 				else
 					RoundFinished.Invoke();
 			}
+
+			ApplyZombieSpawning();
 
 			StateChanged.Invoke(state);
 

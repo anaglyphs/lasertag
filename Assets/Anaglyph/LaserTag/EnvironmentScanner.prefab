@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 7635422210532366939}
   - component: {fileID: 8862733854877386027}
   - component: {fileID: 3181667627902939140}
+  - component: {fileID: 3443407413656384531}
   m_Layer: 0
   m_Name: EnvironmentScanner
   m_TagString: Untagged
@@ -101,6 +102,7 @@ MonoBehaviour:
   chunkPrefab: {fileID: 8545573707260339346, guid: de0df2db1268449c5be416e37e231c38, type: 3}
   numMeshWorkers: 2
   meshSweptVoxelsThreshold: 50
+  voxelSignDeadbandMeters: 0.04
   rendererData: {fileID: 11400000, guid: cf65c79082bdf4c4fb1ba1fd4ed52c18, type: 2}
   decimationTarget:
     Kind: 6
@@ -128,3 +130,23 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.DepthKit::Anaglyph.DepthKit.StereoAlphaOccluderDriver
   stereoAlphaOccluderMaterial: {fileID: 2100000, guid: 5011a7c4fa28a6440825134b0bb85188, type: 2}
+--- !u!114 &3443407413656384531
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4658663475596877275}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f3db77d67f51848499d769db0d6d35ab, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EnvScanning::Anaglyph.DepthKit.EnvScanning.EnvNavMesher
+  agentTypeID: 0
+  navMeshArea: 0
+  maxJobWorkers: 3
+  tileSizeVoxels: 32
+  voxelSize: 0.1
+  minSecondsBetweenUpdates: 1
+  boundsPadding: 1
+  maxUpdateTilesPerAxis: 4

@@ -24,12 +24,11 @@ namespace Anaglyph.Lasertag
 
 		private void OnDamageDealt(Vector3 position, IDamageable target, IDamageable.Data data)
 		{
-			if (target is not PlayerAvatar avatar)
-				return;
-
+			float normalizedHealth = target.Health / MatchSettings.MaxHealth;
+			
 			// already reflects this hit - the avatar drops its health locally before this fires
 			// pitch lives on the source, so this retunes shots that are still ringing out
-			audioSource.pitch = Mathf.Lerp(pitchAtNoHealth, pitchAtFullHealth, avatar.NormalizedHealth);
+			audioSource.pitch = Mathf.Lerp(pitchAtNoHealth, pitchAtFullHealth, normalizedHealth);
 			
 			int i = Random.Range(0, hitClips.Length);
 			
