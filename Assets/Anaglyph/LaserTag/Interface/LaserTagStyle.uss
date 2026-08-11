@@ -445,21 +445,27 @@ ScrollView {
     -unity-text-align: middle-center;
 }
 
-/* game end */
+/* round / match results */
 
-.game-end-title {
+.results-title {
     font-size: 60px;
     -unity-text-align: middle-center;
-    margin-bottom: 30px;
+    margin-bottom: 10px;
 }
 
-.game-end-scores {
+.results-round-label {
+    font-size: 30px;
+    -unity-text-align: middle-center;
+    margin-bottom: 20px;
+}
+
+.results-scores {
     flex-direction: row;
     align-items: center;
     justify-content: center;
 }
 
-.game-end-score {
+.results-score {
     font-size: 60px;
     width: 200px;
 }
@@ -487,6 +493,15 @@ ScrollView {
     bottom: 0;
     align-items: center;
     justify-content: center;
+}
+
+.hand-round-label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    font-size: 22px;
+    -unity-text-align: middle-center;
 }
 
 .timer-row {

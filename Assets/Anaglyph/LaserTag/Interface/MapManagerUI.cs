@@ -156,8 +156,10 @@ namespace Anaglyph.Lasertag
 
 			bool changing = manager != null && manager.IsChangingMap;
 
+			// The hold names the way out: a map whose references are not in this room never
+			// finishes aligning, and picking another one is what ends it.
 			currentMapLabel.text = current == null ? "No map loaded"
-				: changing ? $"Changing to {current.name} — hold still…"
+				: changing ? $"Aligning to {current.name} — hold still, or pick another map"
 				: $"Current map: {current.name}";
 
 			newMapButton.SetEnabled(!inSession);

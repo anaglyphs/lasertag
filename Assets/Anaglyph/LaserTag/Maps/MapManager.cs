@@ -273,8 +273,6 @@ namespace Anaglyph.Lasertag
 
 			if (!SyncBus.IsAuthority)
 				return "Only the host can change the map";
-			if (sessionSync.IsChangingMap)
-				return "Already changing map";
 			if (MatchReferee.State == MatchState.Playing ||
 			    MatchReferee.State == MatchState.Countdown)
 				return "Not during a round";
@@ -298,6 +296,10 @@ namespace Anaglyph.Lasertag
 		/// Order is the contract. The providers' constraints are broadcast before the identity
 		/// that commits the change, and SyncBus applies every endpoint in the authority's own
 		/// order, so a peer reacting to the new identity already holds the references it names.
+		///
+		/// A change already in flight is superseded rather than refused. The hold is exactly when
+		/// a host discovers the incoming map's references will never localize here, and that is
+		/// the moment they need to pick a different map.
 		/// </summary>
 		public bool SwitchMap(string id)
 		{
@@ -314,7 +316,11 @@ namespace Anaglyph.Lasertag
 			if (!MapStore.TryGet(id, out GameMap target))
 				return false;
 
-			SaveCurrentMap();
+			// A map still being aligned to has nothing worth recording: its objects and references
+			// were injected moments ago, and every world pose since is measured in a frame that was
+			// never fitted. Saving would write that frame into the map being abandoned.
+			if (!sessionSync.IsChangingMap)
+				SaveCurrentMap();
 
 			sessionSync.BeginMapChange();
 			objects.RemoveAll();

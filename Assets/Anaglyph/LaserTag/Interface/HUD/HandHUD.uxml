@@ -1,5 +1,5 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
-    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/Menu/UI%20Toolkit/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagMenu"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
     <ui:VisualElement picking-mode="Ignore" name="hand-hud-root" class="hud-root">
         <ui:VisualElement picking-mode="Ignore" name="timer-hud" class="hand-hud-section" style="display: none;">
             <ui:VisualElement picking-mode="Ignore" class="timer-row">
@@ -32,5 +32,6 @@
                 <ui:Label picking-mode="Ignore" name="goal-blue-score" text="0" class="goal-score team-blue" style="-unity-text-align: middle-left;"/>
             </ui:VisualElement>
         </ui:VisualElement>
+        <ui:Label picking-mode="Ignore" name="round-label" text="" class="hand-round-label" style="display: none;"/>
     </ui:VisualElement>
 </ui:UXML>
