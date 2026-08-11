@@ -184,10 +184,10 @@ MonoBehaviour:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
-      inSlope: 2
-      outSlope: 2
-      tangentMode: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 34
       weightedMode: 0
       inWeight: 0
       outWeight: 0
@@ -196,7 +196,7 @@ MonoBehaviour:
       value: 1
       inSlope: 0
       outSlope: 0
-      tangentMode: 0
+      tangentMode: 34
       weightedMode: 0
       inWeight: 0
       outWeight: 0
@@ -217,9 +217,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.HitSounds
   hitClips:
-  - {fileID: 8300000, guid: a9010cb4f6f2c224c8a8e17f06d4e6cb, type: 3}
-  pitchAtFullHealth: 1.3
-  pitchAtNoHealth: 0.7
+  - {fileID: 8300000, guid: ff0f4269cb98148eb973dae24357cc29, type: 3}
+  - {fileID: 8300000, guid: 0b6c8d45cf5304d7f931cdf41c454b64, type: 3}
+  - {fileID: 8300000, guid: b9e5928cf77d743f4890564fb5774074, type: 3}
+  - {fileID: 8300000, guid: ac4db73af2d5b4c08a58bc1cd5ce93f7, type: 3}
+  pitchAtFullHealth: 5
+  pitchAtNoHealth: 1
   audioSource: {fileID: 1857034540609150071}
 --- !u!82 &1857034540609150071
 AudioSource:
