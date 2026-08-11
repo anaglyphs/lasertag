@@ -1,3 +1,4 @@
+using Anaglyph.Input;
 using StrikerLink.Shared.Client;
 using StrikerLink.Shared.Devices.DeviceFeatures;
 using StrikerLink.Shared.Devices.Types;
@@ -15,6 +16,8 @@ using UnityEngine.InputSystem.Utilities;
 
 public class StrikerInputDevice : MonoBehaviour
 {
+	[SerializeField] private HandPeripheral peripheral;
+
 	private MavrikDevice inputDevice;
 
 	private StrikerClient strikerClient;
@@ -31,6 +34,8 @@ public class StrikerInputDevice : MonoBehaviour
 	{
 		InputSystem.RemoveDevice(inputDevice);
 		InputSystem.onBeforeUpdate -= OnBeforeInputUpdate;
+
+		MountedPeripheral.Set(null);
 	}
 
 	public void OnBeforeInputUpdate()
@@ -50,7 +55,10 @@ public class StrikerInputDevice : MonoBehaviour
 				triggerAxis = strikerDevice.GetAxis(DeviceAxis.TriggerAxis);
 			}
 		}
-		
+
+		bool mounted = strikerDevice != null && strikerDevice.Connected;
+		MountedPeripheral.Set(mounted ? peripheral : null);
+
 		if(triggerAxis != inputDevice.trigger.value)
 			inputDevice.trigger.QueueValueChange(triggerAxis);
 	}

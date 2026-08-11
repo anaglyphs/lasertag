@@ -11,7 +11,7 @@ namespace Anaglyph.Lasertag.Networking
 	/// A hand only exists to fire from once the avatar does. Bolts are networked in their
 	/// own right; only the presentation travels through this.
 	/// </summary>
-	public class AvatarWeapon : NetworkBehaviour
+	public class AvatarWeaponVisual : NetworkBehaviour
 	{
 		[SerializeField] private Handedness handedness;
 		[SerializeField] private WeaponDatabase database;
@@ -83,7 +83,9 @@ namespace Anaglyph.Lasertag.Networking
 			}
 
 			weaponIdSync.Value = id;
-			shownSync.Value = instance != null && instance.activeInHierarchy;
+			// the visual, not the weapon - that is the object everyone else instantiates,
+			// and it also goes away on its own when a peripheral replaces it
+			shownSync.Value = visual != null && visual.gameObject.activeInHierarchy;
 			firingSync.Value = visual != null && visual.IsFiring;
 		}
 

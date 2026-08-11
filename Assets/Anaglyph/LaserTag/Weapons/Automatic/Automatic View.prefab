@@ -45,9 +45,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 28eae13bae57d4e5cbb0ba997ece46cd, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.Weapons.WeaponView
-  muzzle: {fileID: 2388223740367061111}
 --- !u!82 &6784572964739453842
 AudioSource:
   m_ObjectHideFlags: 0
@@ -155,13 +154,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d134f58130e8b4d6d8e29ddfb1b0174c, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.AutomaticAnimator
   cylinder: {fileID: 5047879905343240195}
   rotationAxis: {x: 0, y: 0, z: 1}
   maxRotationSpeed: 10800
   falloff: 30
-  view: {fileID: 8242900615192415701}
+  visual: {fileID: 8242900615192415701}
   spinSFX: {fileID: 6784572964739453842}
   spinSFXPitch:
     serializedVersion: 2
@@ -219,7 +218,6 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 5047879905343240195}
-  - {fileID: 2388223740367061111}
   m_Father: {fileID: 8848838727438283639}
   m_LocalEulerAnglesHint: {x: 80, y: 0, z: 0}
 --- !u!33 &5760661657346058903
@@ -279,37 +277,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!1 &4415844410828413920
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2388223740367061111}
-  m_Layer: 0
-  m_Name: laser bolt emitter
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &2388223740367061111
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4415844410828413920}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.0157, z: 0.1032}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 4845373868858630595}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &7289614115251318986
 GameObject:
   m_ObjectHideFlags: 0

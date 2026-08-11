@@ -5,9 +5,6 @@ namespace Anaglyph.Lasertag.Weapons
 {
 	public class WeaponVisual : MonoBehaviour
 	{
-		[SerializeField] private Transform muzzle;
-
-		public Transform Muzzle => muzzle;
 		public bool IsFiring { get; private set; }
 
 		public event Action Fired = delegate { };

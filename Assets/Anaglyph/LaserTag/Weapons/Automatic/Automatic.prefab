@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 3363662374572483175}
   - component: {fileID: 3224451825713230129}
   - component: {fileID: 6249793188885382161}
+  - component: {fileID: 8047496168634747406}
   m_Layer: 0
   m_Name: Automatic
   m_TagString: Untagged
@@ -34,6 +35,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3322211164545831381}
+  - {fileID: 7516498228259297965}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &8630987626134736732
@@ -62,7 +64,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   boltPrefab: {fileID: 6335627118381249066, guid: adc581b48dccfb24ebccf6aaa9b8df75, type: 3}
-  view: {fileID: 2788595600187092855}
+  muzzle: {fileID: 7516498228259297965}
+  visual: {fileID: 2788595600187092855}
   onFire:
     m_PersistentCalls:
       m_Calls:
@@ -107,6 +110,51 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Input::Anaglyph.Input.DeactivateUntracked
   handSubject: {fileID: 8630987626134736732}
+--- !u!114 &8047496168634747406
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3351604493564354878}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 45292a157dd91406c997164dff5eccc7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.Weapons.WeaponPeripheralMount
+  muzzle: {fileID: 7516498228259297965}
+  visual: {fileID: 2788595600187092855}
+--- !u!1 &5274937646440037775
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7516498228259297965}
+  m_Layer: 0
+  m_Name: Muzzle
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7516498228259297965
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5274937646440037775}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.64278764, y: 0, z: 0, w: 0.7660445}
+  m_LocalPosition: {x: 0, y: -0.122206, z: 0.079782}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 4399103225990605551}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &6113564492052488866
 PrefabInstance:
   m_ObjectHideFlags: 0

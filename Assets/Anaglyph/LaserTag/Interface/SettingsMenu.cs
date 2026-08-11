@@ -98,14 +98,16 @@ namespace Anaglyph.Lasertag
 		{
 			InitializeUI();
 
-			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
+			SyncBus.Activated += UpdateDebugMeshForEveryoneEnabled;
+			SyncBus.Deactivated += UpdateDebugMeshForEveryoneEnabled;
+			SyncBus.AuthorityChanged += OnAuthorityChanged;
 			AnaglyphDebugging.DebugModeChanged += OnDebugModeChanged;
 			healthPassthroughTintSetting.Changed += OnHealthPassthroughTintChanged;
 			lightEffectsSetting.Changed += OnLightEffectsChanged;
 			panel.VisibleChanged += OnPanelVisibleChanged;
 
 			UpdateConsoleVisible();
-			OnNetcodeStateChanged(NetcodeManagement.State);
+			UpdateDebugMeshForEveryoneEnabled();
 			OnDebugModeChanged(AnaglyphDebugging.DebugMode);
 			OnHealthPassthroughTintChanged(healthPassthroughTintSetting.Value);
 			OnLightEffectsChanged(lightEffectsSetting.Value);
@@ -113,7 +115,9 @@ namespace Anaglyph.Lasertag
 
 		private void OnDisable()
 		{
-			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
+			SyncBus.Activated -= UpdateDebugMeshForEveryoneEnabled;
+			SyncBus.Deactivated -= UpdateDebugMeshForEveryoneEnabled;
+			SyncBus.AuthorityChanged -= OnAuthorityChanged;
 			AnaglyphDebugging.DebugModeChanged -= OnDebugModeChanged;
 			healthPassthroughTintSetting.Changed -= OnHealthPassthroughTintChanged;
 			lightEffectsSetting.Changed -= OnLightEffectsChanged;
@@ -136,11 +140,17 @@ namespace Anaglyph.Lasertag
 			consoleView?.SetVisible(panel.IsVisible && navView?.CurrentPage == consolePage);
 		}
 
-		private void OnNetcodeStateChanged(NetcodeState state)
+		private void OnAuthorityChanged(bool hasAuthority)
 		{
-			bool connected = state == NetcodeState.Connected;
-			showDebugMeshForEveryone.SetEnabled(connected);
-			hideDebugMeshForEveryone.SetEnabled(connected);
+			UpdateDebugMeshForEveryoneEnabled();
+		}
+
+		// only the host may change the debug mesh for everyone mid-game
+		private void UpdateDebugMeshForEveryoneEnabled()
+		{
+			bool canSetForEveryone = SyncBus.Active && SyncBus.IsAuthority;
+			showDebugMeshForEveryone.SetEnabled(canSetForEveryone);
+			hideDebugMeshForEveryone.SetEnabled(canSetForEveryone);
 		}
 
 		private void OnDebugModeChanged(bool enabled)

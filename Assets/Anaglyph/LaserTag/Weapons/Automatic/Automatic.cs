@@ -17,6 +17,7 @@ namespace Anaglyph.Lasertag.Weapons
 		private CancellationTokenSource fireLoopCancellation;
 
 		[SerializeField] private GameObject boltPrefab = null;
+		[SerializeField] private Transform muzzle = null;
 		[FormerlySerializedAs("view")] [SerializeField] private WeaponVisual visual = null;
 		public GameObject VisualObject => visual.gameObject;
 		public UnityEvent onFire = new();
@@ -90,7 +91,6 @@ namespace Anaglyph.Lasertag.Weapons
 			if (!NetworkManager.Singleton.IsConnectedClient || !WeaponsManagement.CanFire)
 				return false;
 
-			Transform muzzle = visual.Muzzle;
 			NetworkObject n = NetworkObjectPool.Instance.GetNetworkObject(
 				boltPrefab, muzzle.position, muzzle.rotation);
 

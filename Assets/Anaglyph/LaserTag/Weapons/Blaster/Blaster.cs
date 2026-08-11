@@ -14,6 +14,7 @@ namespace Anaglyph.Lasertag.Weapons
 		private HandSubject hand;
 
 		[SerializeField] private GameObject boltPrefab;
+		[SerializeField] private Transform muzzle;
 		[FormerlySerializedAs("view")] [SerializeField] private WeaponVisual visual;
 		public GameObject VisualObject => visual.gameObject;
 		public UnityEvent onFire = new();
@@ -44,7 +45,6 @@ namespace Anaglyph.Lasertag.Weapons
 			if (!NetworkManager.Singleton.IsConnectedClient || !WeaponsManagement.CanFire)
 				return;
 
-			Transform muzzle = visual.Muzzle;
 			NetworkObject n = NetworkObjectPool.Instance.GetNetworkObject(
 				boltPrefab, muzzle.position, muzzle.rotation);
 

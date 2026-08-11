@@ -35,9 +35,19 @@ namespace Anaglyph.Input
 		public Vector3 Position => position.action.ReadValue<Vector3>();
 		public Quaternion Rotation => rotation.action.ReadValue<Quaternion>();
 		public Vector3 Forward => Rotation * Vector3.forward;
-		public Vector3 PointPosition => pointPosition.action.ReadValue<Vector3>();
-		public Quaternion PointRotation => pointRotation.action.ReadValue<Quaternion>();
+		public Vector3 PointPosition => PointsFromPeripheral
+			? Position + Rotation * MountedPeripheral.Current.BarrelFromController.position
+			: pointPosition.action.ReadValue<Vector3>();
+
+		public Quaternion PointRotation => PointsFromPeripheral
+			? Rotation * MountedPeripheral.Current.BarrelFromController.rotation
+			: pointRotation.action.ReadValue<Quaternion>();
+
 		public Vector3 PointForward => PointRotation * Vector3.forward;
+
+		// The runtime's aim pose describes a controller held in a hand. Mounted in a cradle it
+		// describes nothing, so the peripheral's barrel replaces it rather than offsetting it.
+		private bool PointsFromPeripheral => MountedPeripheral.IsMountedOn(handedness);
 		public bool IsTracking => trackingState.action.ReadValue<int>() != 0;
 
 		// Polled rather than latched off interactor.uiHoverEntered/Exited: the exit event is only
