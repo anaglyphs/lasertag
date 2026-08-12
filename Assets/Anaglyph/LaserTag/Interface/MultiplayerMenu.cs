@@ -152,6 +152,12 @@ using VariableObjects;
 		private void Awake()
 		{
 			UserErrors.Raised += OnUserErrorRaised;
+
+			// this component owns the build number asset, so it tells netcode
+			// what to compare when a client joins
+			NetcodeManagement.GameVersion = buildNumber && !string.IsNullOrEmpty(buildNumber.Value)
+				? $"{Application.version} ({buildNumber.Value})"
+				: Application.version;
 		}
 
 		private void OnDestroy()

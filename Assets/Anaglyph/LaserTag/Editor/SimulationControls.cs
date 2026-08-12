@@ -2,6 +2,7 @@
 using System;
 using Anaglyph.DepthKit.EnvScanning;
 using Anaglyph.Netcode;
+using Anaglyph.Permissions;
 using Unity.Multiplayer.PlayMode;
 using Unity.Netcode;
 using UnityEditor;
@@ -9,20 +10,25 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.XR.Interaction.Toolkit.Inputs.Simulation;
 
-namespace Anaglyph.Editor
+namespace Anaglyph.Lasertag.Editor
 {
 	/// Controls for driving the game from the editor while in play mode.
-	public class LasertagEditorSettings : EditorWindow
+	public class SimulationControls : EditorWindow
 	{
-		[MenuItem("Tools/Play Mode Control")]
+		[MenuItem("Window/Lasertag/Simulation Controls")]
 		private static void Open() =>
-			GetWindow<LasertagEditorSettings>("Play Mode Control");
+			GetWindow<SimulationControls>("Lasertag Simulation Controls");
+
+		private Vector2 scroll;
 
 		private void OnEnable() => EditorApplication.update += Repaint;
 		private void OnDisable() => EditorApplication.update -= Repaint;
 
 		private void OnGUI()
 		{
+			using EditorGUILayout.ScrollViewScope scrollView = new(scroll);
+			scroll = scrollView.scrollPosition;
+
 			EditorGUILayout.LabelField("Networking", EditorStyles.boldLabel);
 
 			DrawToggle("Autoconnect", PlayModeAutoConnect.Setting);
@@ -32,8 +38,43 @@ namespace Anaglyph.Editor
 				$"virtual players connect to {PlayModeAutoConnect.LoopbackIP}.",
 				MessageType.None);
 
+			SimulatedConnectivity.State = (NetworkState)EditorGUILayout.IntPopup(
+				"Simulated connectivity",
+				(int)SimulatedConnectivity.State,
+				SimulatedConnectivity.Labels,
+				SimulatedConnectivity.Values);
+
 			if (Application.isPlaying)
 				EditorGUILayout.LabelField("State", NetcodeManagement.State.ToString());
+
+			EditorGUILayout.Space();
+			EditorGUILayout.LabelField("Permissions", EditorStyles.boldLabel);
+
+			SimulatedPermissions.Enabled = EditorGUILayout.ToggleLeft(
+				"Simulate permissions", SimulatedPermissions.Enabled);
+
+			using (new EditorGUI.DisabledScope(!SimulatedPermissions.Enabled))
+			{
+				SimulatedPermissions.GrantRequests = EditorGUILayout.ToggleLeft(
+					"Grant requests", SimulatedPermissions.GrantRequests);
+
+				foreach (SimulatedPermissions.Permission permission in SimulatedPermissions.All)
+				{
+					EditorGUILayout.LabelField(permission.label);
+					EditorGUI.indentLevel++;
+
+					SimulatedPermissions.SetAvailable(permission, EditorGUILayout.ToggleLeft(
+						"Available", SimulatedPermissions.IsAvailable(permission)));
+
+					SimulatedPermissions.SetGranted(permission, EditorGUILayout.ToggleLeft(
+						"Granted", SimulatedPermissions.IsGranted(permission)));
+
+					EditorGUI.indentLevel--;
+				}
+
+				SimulatedPermissions.Vps = (VpsStatus)EditorGUILayout.EnumPopup(
+					"VPS", SimulatedPermissions.Vps);
+			}
 
 			EditorGUILayout.Space();
 			EditorGUILayout.LabelField("Environment", EditorStyles.boldLabel);
@@ -52,6 +93,141 @@ namespace Anaglyph.Editor
 			if (value != setting.Value)
 				setting.Value = value;
 		}
+	}
+
+	/// Simulated connectivity for NetworkConnectivityTest, kept in SessionState so
+	/// it survives domain reloads.
+	[InitializeOnLoad]
+	public static class SimulatedConnectivity
+	{
+		public static readonly string[] Labels = { "No connection", "LAN only", "Full internet" };
+
+		public static readonly int[] Values =
+		{
+			(int)NetworkState.NoConnection,
+			(int)NetworkState.ConnectionLAN,
+			(int)NetworkState.ConnectionFullInternet
+		};
+
+		private const string Key = "Anaglyph.Lasertag.SimulatedNetworkState";
+
+		static SimulatedConnectivity() => Apply();
+
+		public static NetworkState State
+		{
+			get => (NetworkState)SessionState.GetInt(
+				Key, (int)NetworkState.ConnectionFullInternet);
+			set
+			{
+				SessionState.SetInt(Key, (int)value);
+				Apply();
+			}
+		}
+
+		private static void Apply() =>
+			NetworkConnectivityTest.SimulatedNetworkState = State;
+	}
+
+	/// Simulated permission state, kept in SessionState so it survives domain
+	/// reloads. Runtime permission requests write their result back.
+	[InitializeOnLoad]
+	public static class SimulatedPermissions
+	{
+		public readonly struct Permission
+		{
+			public readonly string label;
+			public readonly string id;
+
+			public Permission(string label, string id)
+			{
+				this.label = label;
+				this.id = id;
+			}
+		}
+
+		public static readonly Permission[] All =
+		{
+			new("Scene", MetaPermissionChecks.ScenePermission),
+			new("Headset camera", MetaPermissionChecks.HeadsetCameraPermission),
+			new("Android camera fallback", MetaPermissionChecks.AndroidCameraPermission)
+		};
+
+		private const string KeyRoot = "Anaglyph.Lasertag.SimulatedPermissions.";
+		private const string EnabledKey = KeyRoot + "Enabled";
+		private const string GrantRequestsKey = KeyRoot + "GrantRequests";
+		private const string VpsKey = KeyRoot + "Vps";
+
+		static SimulatedPermissions()
+		{
+			EditorPermissionSimulation.permissionGrantedChanged += OnGrantedChanged;
+
+			EditorPermissionSimulation.enabled = Enabled;
+			EditorPermissionSimulation.grantRequests = GrantRequests;
+			EditorPermissionSimulation.vpsStatus = Vps;
+
+			foreach (Permission permission in All)
+			{
+				SetAvailable(permission, IsAvailable(permission));
+				SetGranted(permission, IsGranted(permission));
+			}
+		}
+
+		public static bool Enabled
+		{
+			get => SessionState.GetBool(EnabledKey, false);
+			set
+			{
+				SessionState.SetBool(EnabledKey, value);
+				EditorPermissionSimulation.enabled = value;
+			}
+		}
+
+		public static bool GrantRequests
+		{
+			get => SessionState.GetBool(GrantRequestsKey, true);
+			set
+			{
+				SessionState.SetBool(GrantRequestsKey, value);
+				EditorPermissionSimulation.grantRequests = value;
+			}
+		}
+
+		public static VpsStatus Vps
+		{
+			get => (VpsStatus)SessionState.GetInt(VpsKey, (int)VpsStatus.Disabled);
+			set
+			{
+				SessionState.SetInt(VpsKey, (int)value);
+				EditorPermissionSimulation.vpsStatus = value;
+			}
+		}
+
+		public static bool IsAvailable(Permission permission) =>
+			SessionState.GetBool(AvailableKey(permission.id), true);
+
+		public static void SetAvailable(Permission permission, bool available)
+		{
+			SessionState.SetBool(AvailableKey(permission.id), available);
+			EditorPermissionSimulation.SetPermissionAvailable(permission.id, available);
+		}
+
+		public static bool IsGranted(Permission permission) =>
+			SessionState.GetBool(GrantedKey(permission.id), false);
+
+		public static void SetGranted(Permission permission, bool granted)
+		{
+			SessionState.SetBool(GrantedKey(permission.id), granted);
+			EditorPermissionSimulation.SetPermissionGranted(permission.id, granted);
+		}
+
+		private static void OnGrantedChanged(string permission, bool granted) =>
+			SessionState.SetBool(GrantedKey(permission), granted);
+
+		private static string AvailableKey(string permission) =>
+			KeyRoot + permission + ".Available";
+
+		private static string GrantedKey(string permission) =>
+			KeyRoot + permission + ".Granted";
 	}
 
 	/// An EditorPrefs bool shared with Multiplayer Play Mode virtual players, which

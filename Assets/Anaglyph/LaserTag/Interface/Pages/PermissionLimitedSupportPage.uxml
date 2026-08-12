@@ -1,0 +1,12 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:Template name="NavHeader" src="project://database/Assets/Anaglyph/LaserTag/Interface/NavHeader.uxml?fileID=9197481963319205126&amp;guid=6fb045f52b6e5428ea70fca9635fe4c6&amp;type=3#NavHeader"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+    <ui:VisualElement class="page-template-root">
+        <ui:Instance template="NavHeader">
+            <AttributeOverrides element-name="title" text="Limited support"/>
+        </ui:Instance>
+        <ui:Label text="This headset cannot scan your surroundings. LaserTag only has limited support for it." class="warning body-copy"/>
+        <ui:Label text="Play with at least one Quest 3, 3S or newer nearby. That player maps the room and shares it with you over the local network." class="body-copy"/>
+        <ui:Button name="acknowledge-limited-support-button" text="Continue"/>
+    </ui:VisualElement>
+</ui:UXML>

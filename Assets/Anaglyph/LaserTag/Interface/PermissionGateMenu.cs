@@ -18,9 +18,11 @@ namespace Anaglyph.Lasertag
 		private bool gateOpen;
 		private bool sceneRequestInFlight;
 		private bool cameraRequestInFlight;
+		private bool limitedSupportAcknowledged;
 		private string statusMessage;
 
 		private UIToolkitNavPages navView;
+		private UIToolkitNavPage limitedSupportModal;
 		private Toggle scenePermissionToggle;
 		private Toggle cameraPermissionToggle;
 		private Label statusLabel;
@@ -66,7 +68,11 @@ namespace Anaglyph.Lasertag
 			PermissionAuthorization cameraAuthorization =
 				MetaPermissionChecks.CheckPassthroughCamera().authorization;
 
-			if (IsSatisfied(sceneAuthorization) && IsSatisfied(cameraAuthorization))
+			bool permissionsSatisfied =
+				IsSatisfied(sceneAuthorization) && IsSatisfied(cameraAuthorization);
+			bool warnLimitedSupport = permissionsSatisfied && NeedsLimitedSupportWarning();
+
+			if (permissionsSatisfied && !warnLimitedSupport)
 			{
 				OpenGate();
 				return;
@@ -82,6 +88,21 @@ namespace Anaglyph.Lasertag
 				cameraAuthorization,
 				cameraRequestInFlight);
 			UpdateStatus();
+			navView.SetModalPresented(limitedSupportModal, warnLimitedSupport, 100);
+		}
+
+		// Quest 2 and Quest Pro cannot measure depth, so they cannot map a room
+		// themselves and depend on another player's headset streaming one to them.
+		private bool NeedsLimitedSupportWarning()
+		{
+			return !limitedSupportAcknowledged &&
+				MetaPermissionChecks.CheckEnvironmentDepth() == CapabilitySupport.Unsupported;
+		}
+
+		private void OnLimitedSupportAcknowledged()
+		{
+			limitedSupportAcknowledged = true;
+			RefreshGate();
 		}
 
 		private void OpenGate()
@@ -125,6 +146,10 @@ namespace Anaglyph.Lasertag
 			navView = new UIToolkitNavPages(Require<VisualElement>(root, "pages"));
 			UIToolkitNavPage permissionPage =
 				navView.AddPage("permissions-page", false);
+			limitedSupportModal = navView.AddPage("limited-support-modal", false);
+
+			Require<Button>(root, "acknowledge-limited-support-button").clicked +=
+				OnLimitedSupportAcknowledged;
 
 			scenePermissionToggle =
 				Require<Toggle>(root, "scene-permission-toggle");
@@ -151,6 +176,7 @@ namespace Anaglyph.Lasertag
 
 			navView?.Dispose();
 			navView = null;
+			limitedSupportModal = null;
 			scenePermissionToggle = null;
 			cameraPermissionToggle = null;
 			statusLabel = null;

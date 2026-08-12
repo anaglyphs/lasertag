@@ -1,8 +1,5 @@
 using System;
 using UnityEngine;
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
 
 [Flags]
 public enum NetworkState
@@ -17,33 +14,17 @@ public static class NetworkConnectivityTest
 {
 #if UNITY_EDITOR
 
-	private static NetworkState simualtedNetworkState = NetworkState.ConnectionFullInternet;
+	/// Set from the Lasertag Simulation Settings window.
+	public static NetworkState SimulatedNetworkState { get; set; } =
+		NetworkState.ConnectionFullInternet;
 
-	[MenuItem("Lasertag/Simulated Networking State/No Connection")]
-	private static void SimulatedNetworkingStateNoConnection()
-	{
-		simualtedNetworkState = NetworkState.NoConnection;
-	}
-	
-	[MenuItem("Lasertag/Simulated Networking State/Only LAN")]
-	private static void SimulatedNetworkingStateLANConnection()
-	{
-		simualtedNetworkState = NetworkState.ConnectionLAN;
-	}
-
-	[MenuItem("Lasertag/Simulated Networking State/Full Internet")]
-	private static void SimulatedNetworkingStateInternetConnection()
-	{
-		simualtedNetworkState = NetworkState.ConnectionFullInternet;
-	}
-	
 #endif
-	
+
 	public static NetworkState GetNetworkState()
 	{
 #if UNITY_EDITOR
 
-		return simualtedNetworkState;
+		return SimulatedNetworkState;
 
 #elif UNITY_ANDROID && !UNITY_EDITOR // Android API 23+
         const int NET_CAPABILITY_INTERNET = 12;

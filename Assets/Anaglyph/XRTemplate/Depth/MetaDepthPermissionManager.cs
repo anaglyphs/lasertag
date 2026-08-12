@@ -9,7 +9,7 @@ namespace Anaglyph.DepthKit
 	public class MetaDepthPermissionManager : MonoBehaviour
 	{
 		private AROcclusionManager occlusionManager;
-		private ARShaderOcclusion shaderOcclusion;
+		// private ARShaderOcclusion shaderOcclusion;
 
 		private const string permStr = "com.oculus.permission.USE_SCENE";
 
@@ -18,7 +18,7 @@ namespace Anaglyph.DepthKit
 		private void Awake()
 		{
 			TryGetComponent(out occlusionManager);
-			TryGetComponent(out shaderOcclusion);
+			// TryGetComponent(out shaderOcclusion);
 
 			SetOcclusionEnabled(false);
 		}
@@ -61,7 +61,7 @@ namespace Anaglyph.DepthKit
 				if (ctkn.Token.IsCancellationRequested) return;
 			}
 
-			shaderOcclusion.enabled = b;
+			// shaderOcclusion.enabled = b;
 		}
 	}
 }

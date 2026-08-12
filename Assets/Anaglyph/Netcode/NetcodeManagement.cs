@@ -2,6 +2,7 @@ using System;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Unity.Netcode;
@@ -29,6 +30,11 @@ namespace Anaglyph.Netcode
 		}
 
 		public const float cooldownSeconds = 8;
+
+		// Marks a rejection as a version mismatch and carries the host's version.
+		// Sent as the netcode disconnect reason, so the client can say which
+		// version it needs instead of just "couldn't connect".
+		private const string versionMismatchPrefix = "VERSION_MISMATCH:";
 
 		private static NetworkManager manager => NetworkManager.Singleton;
 
@@ -58,6 +64,15 @@ namespace Anaglyph.Netcode
 		public static ISession CurrentSession { get; private set; }
 		public static string CurrentSessionName { get; private set; } = "";
 
+		/// <summary>
+		/// Identifies this build to hosts and joiners. Two headsets can only play
+		/// together if these match. Set by whoever owns the build number asset.
+		/// </summary>
+		public static string GameVersion { get; set; } = Application.version;
+
+		// A disconnect only means "couldn't join" while an attempt is in flight.
+		private static bool isAttemptingConnection;
+
 		// statics persist across play sessions while domain reload is disabled
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
 		private static void Init()
@@ -71,6 +86,8 @@ namespace Anaglyph.Netcode
 
 			CurrentSession = null;
 			CurrentSessionName = "";
+			GameVersion = Application.version;
+			isAttemptingConnection = false;
 		}
 
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -79,16 +96,77 @@ namespace Anaglyph.Netcode
 			if (!manager) return;
 
 			manager.OnClientStarted += () => State = NetcodeState.Connecting;
-			manager.OnClientStopped += _ => State = NetcodeState.Disconnected;
+			manager.OnClientStopped += _ => EndAttempt();
 			manager.OnConnectionEvent += OnConnectionEvent;
-			manager.OnTransportFailure += () => State = NetcodeState.Disconnected;
+			manager.OnTransportFailure += EndAttempt;
+
+			if (manager.ConnectionApprovalCallback == null)
+				manager.ConnectionApprovalCallback = ApproveJoiningClient;
 		}
 
 		private static void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
 		{
 			if (ThisClientConnected(data))
+			{
+				isAttemptingConnection = false;
 				State = NetcodeState.Connected;
-			else if (ThisClientDisconnected(data)) State = NetcodeState.Disconnected;
+			}
+			else if (ThisClientDisconnected(data)) EndAttempt();
+		}
+
+		private static void EndAttempt()
+		{
+			bool failedToJoin = isAttemptingConnection;
+			isAttemptingConnection = false;
+
+			// closes the session page before the error page opens over the menu
+			State = NetcodeState.Disconnected;
+
+			if (failedToJoin)
+				RaiseJoinFailureError();
+		}
+
+		/// <summary>
+		/// Rejects joiners built from a different version of the game. Only runs on
+		/// a LAN host — relay sessions are approved by the multiplayer service.
+		/// </summary>
+		private static void ApproveJoiningClient(NetworkManager.ConnectionApprovalRequest request,
+			NetworkManager.ConnectionApprovalResponse response)
+		{
+			string joinerVersion = request.Payload == null
+				? ""
+				: Encoding.UTF8.GetString(request.Payload);
+
+			if (joinerVersion != GameVersion)
+			{
+				response.Approved = false;
+				response.Reason = versionMismatchPrefix + GameVersion;
+				return;
+			}
+
+			response.Approved = true;
+			response.CreatePlayerObject = manager.NetworkConfig.PlayerPrefab != null;
+		}
+
+		private static void RaiseJoinFailureError()
+		{
+			string reason = manager == null ? "" : manager.DisconnectReason;
+			int prefixIndex = reason == null ? -1 : reason.IndexOf(versionMismatchPrefix, StringComparison.Ordinal);
+
+			if (prefixIndex >= 0)
+			{
+				string hostVersion = reason.Substring(prefixIndex + versionMismatchPrefix.Length).Trim();
+
+				UserErrors.Raise("Different version of the game",
+					$"This host is running version {hostVersion} and you're running {GameVersion}. " +
+					"Both headsets need the same version to play together.");
+
+				return;
+			}
+
+			UserErrors.Raise("Couldn't join",
+				"The host didn't accept the connection. It may be running a different version " +
+				"of the game, may have stopped hosting, or may be at a different address.");
 		}
 
 		private static CancellationTokenSource taskCanceller = new();
@@ -138,6 +216,7 @@ namespace Anaglyph.Netcode
 				case Protocol.LAN:
 					SetNetworkTransportType(Protocol.LAN);
 					manager.NetworkConfig.UseCMBService = false;
+					EnableVersionCheck(true);
 					transport.SetConnectionData(GetLocalIPv4(), port, DefaultIP);
 					manager.StartHost();
 					break;
@@ -166,11 +245,26 @@ namespace Anaglyph.Netcode
 
 			manager.NetworkConfig.UseCMBService = false;
 
+			EnableVersionCheck(true);
+
 			transport.SetConnectionData(ip, port);
 
 			State = NetcodeState.Connecting;
+			isAttemptingConnection = true;
 
 			manager.StartClient();
+		}
+
+		/// <summary>
+		/// Netcode's approval handshake carries the version between the two ends.
+		/// The multiplayer service performs its own approval, so relay sessions
+		/// leave it off and rely on the joiner reporting an unexplained failure.
+		/// </summary>
+		private static void EnableVersionCheck(bool enabled)
+		{
+			manager.NetworkConfig.ConnectionApproval = enabled;
+			manager.NetworkConfig.ConnectionData =
+				enabled ? Encoding.UTF8.GetBytes(GameVersion) : Array.Empty<byte>();
 		}
 
 		private static async Task SetupServices()
@@ -199,6 +293,9 @@ namespace Anaglyph.Netcode
 
 		private static void RaiseServicesError()
 		{
+			// this error explains the failure, so don't also report it as a failed join
+			isAttemptingConnection = false;
+
 			UserErrors.Raise("Couldn't reach the relay service",
 				"Hosting or joining over the internet needs a working internet connection. " +
 				"Check this headset's Wi-Fi, or host over the local network instead.");
@@ -213,7 +310,10 @@ namespace Anaglyph.Netcode
 
 			manager.NetworkConfig.UseCMBService = true;
 
+			EnableVersionCheck(false);
+
 			State = NetcodeState.Connecting;
+			isAttemptingConnection = true;
 
 			if (Time.time < cooldownDoneTime)
 			{
@@ -248,6 +348,7 @@ namespace Anaglyph.Netcode
 		{
 			taskCanceller?.Cancel();
 
+			isAttemptingConnection = false;
 			State = NetcodeState.Disconnected;
 
 			try

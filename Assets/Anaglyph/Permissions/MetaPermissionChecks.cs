@@ -51,6 +51,16 @@ namespace Anaglyph.Permissions
 				AndroidPermissionChecks.CheckPermission(ScenePermission).authorization);
 		}
 
+		/// <summary>
+		/// Whether this headset can measure environment depth itself. Quest 2 and
+		/// Quest Pro cannot, and can only receive an environment mesh from a player
+		/// on a depth-capable headset.
+		/// </summary>
+		public static CapabilitySupport CheckEnvironmentDepth()
+		{
+			return CheckAnyOpenXRExtension(EnvironmentDepthExtension);
+		}
+
 		public static PassthroughCameraCheckResult CheckPassthroughCamera()
 		{
 			CapabilitySupport openXRSupport = CheckAnyOpenXRExtension(PassthroughExtension);
