@@ -87,16 +87,22 @@ namespace Anaglyph.LaserTag.NPCs
 		}
 
 		[Rpc(SendTo.Owner)]
-		private void ShotRpc(float damage)
+		private void ShotRpc(IDamageable.Data data)
 		{
-			healthSync.Value -= damage;
+			healthSync.Value -= data.damage;
 
-			if (IsOwner && Health <= 0) NetworkObject.Despawn(true);
+			if (Health <= 0)
+			{
+				NetworkObject.Despawn(true);
+				
+				if(PlayerAvatar.All.TryGetValue(data.playerID, out PlayerAvatar killer))
+					MatchReferee.Instance.Score(killer.Team, MatchReferee.Settings.pointsPerZombieKill);
+			}
 		}
 
 		public void Damage(IDamageable.Data data)
 		{
-			ShotRpc(data.damage);
+			ShotRpc(data);
 		}
 	}
 }

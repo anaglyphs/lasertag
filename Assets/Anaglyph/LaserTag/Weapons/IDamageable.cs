@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
+using Unity.Netcode;
 using UnityEngine;
 
 namespace Anaglyph.Lasertag
 {
 	public interface IDamageable
 	{
-		public struct Data
+		
+		public struct Data : INetworkSerializeByMemcpy
 		{
 			public ulong playerID;
 			public float damage;

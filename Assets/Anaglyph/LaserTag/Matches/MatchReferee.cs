@@ -48,6 +48,7 @@ namespace Anaglyph.Lasertag
 		public byte pointsPerKill;
 		public byte pointsPerSecondHoldingPoint;
 		public byte pointsPerFlagCapture;
+		public byte pointsPerZombieKill;
 
 		public WinCondition winCondition;
 		public int roundTimeSeconds;
@@ -89,6 +90,7 @@ namespace Anaglyph.Lasertag
 				pointsPerKill = 1,
 				pointsPerSecondHoldingPoint = 1,
 				pointsPerFlagCapture = 10,
+				pointsPerZombieKill = 1,
 
 				winCondition = WinCondition.Timer,
 				roundTimeSeconds = 60 * 2,
@@ -111,6 +113,7 @@ namespace Anaglyph.Lasertag
 				pointsPerKill = 0,
 				pointsPerSecondHoldingPoint = 0,
 				pointsPerFlagCapture = 0,
+				pointsPerZombieKill = 0,
 
 				winCondition = WinCondition.None,
 				roundTimeSeconds = 0,
