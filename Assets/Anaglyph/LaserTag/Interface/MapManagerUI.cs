@@ -1,10 +1,12 @@
-using Anaglyph.Netcode;
 using System;
 using System.Collections.Generic;
+using Anaglyph.LaserTag.Maps;
+using Anaglyph.Netcode;
+using Anaglyph.Netcode.SyncVariables;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Interface
 {
 	/// <summary>
 	/// The manual map picker. Required, not optional: optimistic loading will occasionally
@@ -222,9 +224,9 @@ namespace Anaglyph.Lasertag
 
 			text += $"  ·  {DescribeAge(map.lastUsed)}";
 
-			if (manager != null &&
-			    manager.ProbeResults.TryGetValue(map.id, out int localized) && localized > 0)
-				text += "  ·  in this room";
+			// if (manager != null &&
+			//     manager.ProbeResults.TryGetValue(map.id, out int localized) && localized > 0)
+			// 	text += "  ·  in this room";
 
 			if (isCurrent)
 				text += "  ·  loaded";

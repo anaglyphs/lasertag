@@ -1,10 +1,10 @@
-using Anaglyph.Menu.UIToolkit;
-using Anaglyph.Permissions;
 using System;
+using Anaglyph.Menu;
+using Anaglyph.Permissions;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Interface
 {
 	// UIDocument builds its visual tree at the default execution order, while the
 	// three normal menu controllers initialize at 100.
@@ -21,8 +21,8 @@ namespace Anaglyph.Lasertag
 		private bool limitedSupportAcknowledged;
 		private string statusMessage;
 
-		private UIToolkitNavPages navView;
-		private UIToolkitNavPage limitedSupportModal;
+		private NavView navView;
+		private NavPage limitedSupportModal;
 		private Toggle scenePermissionToggle;
 		private Toggle cameraPermissionToggle;
 		private Label statusLabel;
@@ -143,8 +143,8 @@ namespace Anaglyph.Lasertag
 			// must happen before anything subscribes to Button.clicked
 			root.MakeButtonsActOnPress();
 
-			navView = new UIToolkitNavPages(Require<VisualElement>(root, "pages"));
-			UIToolkitNavPage permissionPage =
+			navView = new NavView(Require<VisualElement>(root, "pages"));
+			NavPage permissionPage =
 				navView.AddPage("permissions-page", false);
 			limitedSupportModal = navView.AddPage("limited-support-modal", false);
 

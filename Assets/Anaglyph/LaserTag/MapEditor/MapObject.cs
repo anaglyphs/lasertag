@@ -1,11 +1,11 @@
-using Anaglyph.Netcode;
 using System;
 using System.Collections.Generic;
+using Anaglyph.LaserTag.Maps;
+using Anaglyph.Netcode.SyncVariables;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.Serialization;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.MapEditor
 {
 	public class MapObject : NetworkBehaviour
 	{

@@ -25,7 +25,7 @@ Shader "Anaglyph/Lasertag/DepthLight"
 			#pragma vertex vert
 			#pragma fragment frag
 
-			#include "Assets/Anaglyph/XRTemplate/Depth/DepthKit.hlsl"
+			#include "Assets/Anaglyph/XR/DepthKit/DepthKit.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
 			CBUFFER_START(UnityPerMaterial)

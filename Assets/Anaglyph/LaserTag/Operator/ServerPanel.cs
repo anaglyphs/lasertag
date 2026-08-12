@@ -1,15 +1,18 @@
 #if UNITY_EDITOR
 
-using Anaglyph.Netcode;
 using System.Text.RegularExpressions;
-using Anaglyph.XRTemplate.SharedSpaces;
+using Anaglyph.LaserTag.Matches;
+using Anaglyph.LaserTag.Player;
+using Anaglyph.LaserTag.Player.Teams;
+using Anaglyph.Netcode;
+using Anaglyph.XR.SharedSpaces.AprilTags;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Anaglyph.Lasertag.Operator
+namespace Anaglyph.LaserTag.Operator
 {
 	public sealed class ServerWindow : EditorWindow
 	{

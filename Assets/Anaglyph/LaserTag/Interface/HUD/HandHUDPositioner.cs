@@ -1,8 +1,8 @@
-using Anaglyph.XRTemplate;
+using Anaglyph.XR;
 using UnityEngine;
 using UnityEngine.XR;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Interface.HUD
 {
 	public class HandHUDPositioner : MonoBehaviour
 	{

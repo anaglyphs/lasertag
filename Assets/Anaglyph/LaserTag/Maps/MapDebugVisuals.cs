@@ -1,7 +1,8 @@
+using Anaglyph.Debugging;
 using Anaglyph.Debugging.Visuals;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Maps
 {
 	/// <summary>Draws the current map's canon reference poses while debug mode is on.</summary>
 	public class MapDebugVisuals : MonoBehaviour

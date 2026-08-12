@@ -2,7 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
-namespace Anaglyph.Netcode
+namespace Anaglyph.Netcode.SyncVariables
 {
 	public enum SyncListOp : byte
 	{

@@ -1,13 +1,15 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Anaglyph.DepthKit.EnvScanning;
 using Anaglyph.LaserTag.NPCs;
-using Anaglyph.Lasertag.Networking;
+using Anaglyph.LaserTag.Player;
+using Anaglyph.LaserTag.Player.Teams;
 using Anaglyph.Netcode;
+using Anaglyph.Netcode.SyncVariables;
+using Anaglyph.XR.DepthKit.EnvScanning;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Matches
 {
 	[Flags]
 	public enum WinCondition : byte

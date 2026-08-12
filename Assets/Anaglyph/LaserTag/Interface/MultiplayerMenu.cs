@@ -1,16 +1,15 @@
-using Anaglyph.Menu.UIToolkit;
-using Anaglyph.Netcode;
-using Anaglyph.XRTemplate.SharedSpaces;
 using System;
-using System.Globalization;
 using System.Threading;
+using Anaglyph.Menu;
+using Anaglyph.Netcode;
+using Anaglyph.VariableObjects;
+using Anaglyph.XR.SharedSpaces.SharedAnchors;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
 using UnityEngine.UIElements;
-using VariableObjects;
 
-	namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Interface
 {
 	[DefaultExecutionOrder(100)]
 	public class MultiplayerMenu : MonoBehaviour
@@ -31,12 +30,12 @@ using VariableObjects;
 		[SerializeField] private FloatObject aprilTagSizeSetting;
 		[SerializeField] private StringObject buildNumber;
 
-		private UIToolkitNavPages navView;
-		private UIToolkitNavPage homePage;
-		private UIToolkitNavPage manuallyConnectPage;
-		private UIToolkitNavPage sessionPage;
-		private UIToolkitNavPage networkErrorModal;
-		private UIToolkitNavPage errorModal;
+		private NavView navView;
+		private NavPage homePage;
+		private NavPage manuallyConnectPage;
+		private NavPage sessionPage;
+		private NavPage networkErrorModal;
+		private NavPage errorModal;
 
 		private Toggle hostOnRelayToggle;
 		private Label hostOnRelayWarning;
@@ -80,9 +79,9 @@ using VariableObjects;
 			root.MakeButtonsActOnPress();
 
 			VisualElement pages = Require<VisualElement>(root, "pages");
-			navView = new UIToolkitNavPages(pages);
+			navView = new NavView(pages);
 			homePage = navView.AddPage("home-page", false);
-			UIToolkitNavPage hostSettingsPage = navView.AddPage("host-settings-page");
+			NavPage hostSettingsPage = navView.AddPage("host-settings-page");
 			manuallyConnectPage = navView.AddPage("manual-connect-page");
 			sessionPage = navView.AddPage("session-page", false);
 			networkErrorModal = navView.AddPage("network-error-modal", false);
@@ -248,7 +247,7 @@ using VariableObjects;
 				NetcodeManagement.ConnectLAN(ipField.value);
 		}
 
-		private void OnNavPageChange(UIToolkitNavPage page)
+		private void OnNavPageChange(NavPage page)
 		{
 			MetaSessionDiscovery discovery = MetaSessionDiscovery.Instance;
 			if (discovery != null)

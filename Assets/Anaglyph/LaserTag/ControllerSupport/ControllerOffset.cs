@@ -1,7 +1,7 @@
 using StrikerLink.Unity.Runtime.Core;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag.ControllerSupport
+namespace Anaglyph.LaserTag.ControllerSupport
 {
     public class ControllerOffset : MonoBehaviour
     {

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Anaglyph.Netcode
+namespace Anaglyph.Netcode.SyncVariables
 {
 	// A single replicated value with no NetworkObject of its own — the drop-in for a
 	// NetworkVariable<T> on a plain MonoBehaviour singleton. Routed through SyncBus

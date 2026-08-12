@@ -1,8 +1,7 @@
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.Rendering;
 
-namespace Anaglyph
+namespace Anaglyph.GPU
 {
 	public struct ComputeKernel
 	{

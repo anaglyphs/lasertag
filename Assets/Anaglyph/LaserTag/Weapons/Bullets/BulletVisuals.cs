@@ -1,9 +1,12 @@
 using System;
 using System.Threading;
+using Anaglyph.LaserTag.Player;
+using Anaglyph.LaserTag.Player.Teams;
+using Anaglyph.LaserTag.Shaders;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Weapons.Bullets
 {
 	public class BulletVisuals : MonoBehaviour
 	{
@@ -47,7 +50,7 @@ namespace Anaglyph.Lasertag
 
 			NetworkManager manager = NetworkManager.Singleton;
 			NetworkObject playerObject = manager.ConnectedClients[bullet.OwnerClientId].PlayerObject;
-			TeamOwner teamOwner = playerObject.GetComponent<Networking.PlayerAvatar>().TeamOwner;
+			TeamOwner teamOwner = playerObject.GetComponent<PlayerAvatar>().TeamOwner;
 			byte team = teamOwner.Team;
 
 			Color color = Teams.Colors[team];

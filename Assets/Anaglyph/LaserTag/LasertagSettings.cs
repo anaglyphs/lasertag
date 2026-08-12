@@ -1,8 +1,10 @@
-using Anaglyph.XRTemplate.SharedSpaces;
+using Anaglyph.LaserTag.Player;
+using Anaglyph.LaserTag.Shaders;
+using Anaglyph.VariableObjects;
+using Anaglyph.XR.SharedSpaces.AprilTags;
 using UnityEngine;
-using VariableObjects;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag
 {
 	public class LasertagSettings : MonoBehaviour
 	{

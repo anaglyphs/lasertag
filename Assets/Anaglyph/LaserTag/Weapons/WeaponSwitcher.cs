@@ -1,9 +1,9 @@
 using System.Collections.Generic;
-using Anaglyph.Input;
 using Anaglyph.Netcode;
+using Anaglyph.XR.Input;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Weapons
 {
 	/// <summary>
 	/// Which weapon each hand has chosen. The avatar is what actually holds one, so a player

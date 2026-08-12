@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Player
 {
 	/// <summary>
 	/// The local player's tracked transforms. Whoever needs to follow the player reads

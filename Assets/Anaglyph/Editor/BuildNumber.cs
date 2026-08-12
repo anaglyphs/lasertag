@@ -1,10 +1,10 @@
 #if UNITY_EDITOR
+using Anaglyph.VariableObjects;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
-using VariableObjects;
 
-namespace Anaglyph
+namespace Anaglyph.Editor
 {
 	public class BuildProcess : IPreprocessBuildWithReport
 	{

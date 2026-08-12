@@ -1,10 +1,13 @@
-using Anaglyph.Menu.UIToolkit;
 using System;
 using System.Collections.Generic;
+using Anaglyph.Debugging;
+using Anaglyph.LaserTag.MapEditor.Tools;
+using Anaglyph.LaserTag.Maps;
+using Anaglyph.Menu;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.MapEditor
 {
 	/// <summary>
 	/// The map editor's palette. A rail of categories from <see cref="MapObjectDatabase"/> runs

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag.Weapons
+namespace Anaglyph.LaserTag.Weapons
 {
 	/// <summary>
 	/// Every weapon players can hold. A weapon's id is its index here, and that id is

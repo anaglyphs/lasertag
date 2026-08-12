@@ -1,7 +1,9 @@
+using Anaglyph.LaserTag.Matches;
+using Anaglyph.LaserTag.Player.Teams;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Interface.HUD
 {
 	/// <summary>
 	/// Hand-mounted HUD showing how the current round is going. One section is

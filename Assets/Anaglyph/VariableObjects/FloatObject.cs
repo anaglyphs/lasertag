@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace VariableObjects
+namespace Anaglyph.VariableObjects
 {
 	[CreateAssetMenu(fileName = "Float", menuName = "Variable Objects/Float")]
 	public class FloatObject : GenericVariableObject<float>

@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace VariableObjects
+namespace Anaglyph.VariableObjects
 {
 	public class StringObjectField : MonoBehaviour
 	{

@@ -1,8 +1,8 @@
-using System;
-using Anaglyph.Lasertag.Networking;
+using Anaglyph.Audio;
+using Anaglyph.LaserTag.Player;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Objects.Gameplay.Flag
 {
 	public class FlagSFX : MonoBehaviour
 	{

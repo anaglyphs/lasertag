@@ -1,5 +1,6 @@
-using Anaglyph.Lasertag;
-using Anaglyph.Lasertag.Networking;
+using Anaglyph.LaserTag.Matches;
+using Anaglyph.LaserTag.Player;
+using Anaglyph.LaserTag.Weapons;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;

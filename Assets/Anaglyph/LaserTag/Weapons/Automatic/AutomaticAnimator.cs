@@ -1,8 +1,7 @@
-using Anaglyph.Lasertag.Weapons;
 using UnityEngine;
 using UnityEngine.Serialization;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Weapons.Automatic
 {
 	public class AutomaticAnimator : MonoBehaviour
 	{

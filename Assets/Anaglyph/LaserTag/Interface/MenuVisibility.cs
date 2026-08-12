@@ -1,11 +1,11 @@
 using System;
 using System.Threading;
 using Anaglyph.Netcode;
-using Anaglyph.XRTemplate;
+using Anaglyph.XR;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-namespace Anaglyph.Lasertag.Interface
+namespace Anaglyph.LaserTag.Interface
 {
 	public class MenuVisibility : MonoBehaviour
 	{

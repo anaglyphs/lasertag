@@ -1,10 +1,10 @@
-using Anaglyph.XRTemplate.SharedSpaces;
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using Anaglyph.XR.SharedSpaces.SharedAnchors;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Maps
 {
 	/// <summary>
 	/// Works out which saved maps belong to the physical space the headset is standing in, by

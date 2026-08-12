@@ -1,8 +1,6 @@
-using System;
-using StrikerLink.Shared.Utils;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Interface
 {
 	public class PanelArranger : MonoBehaviour
 	{

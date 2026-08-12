@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Anaglyph.Menu.UIToolkit
+namespace Anaglyph.Menu
 {
 	/// <summary>
 	/// UI Toolkit counterpart to <see cref="ButtonActOnPress"/>. Clicks on

@@ -1,7 +1,7 @@
-using Anaglyph.Input;
+using Anaglyph.XR.Input;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag.Weapons
+namespace Anaglyph.LaserTag.Weapons
 {
 	/// <summary>
 	/// While a peripheral is mounted the player is holding a physical blaster, so the virtual

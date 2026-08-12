@@ -1,9 +1,10 @@
 using System;
-using Anaglyph.Lasertag.Weapons;
-using Anaglyph.XRTemplate;
+using Anaglyph.LaserTag.Matches;
+using Anaglyph.LaserTag.Weapons;
+using Anaglyph.XR;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Player
 {
 	/// <summary>
 	/// The local player's own state - health, life and respawn rules. It knows nothing

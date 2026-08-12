@@ -4,7 +4,7 @@ using UnityEngine.UIElements;
 using UnityEngine.XR.Interaction.Toolkit.Filtering;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Interface
 {
 	/// <summary>
 	/// Wires a world-space <see cref="UIDocument"/> up for XR poking, and hides it without

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace VariableObjects
+namespace Anaglyph.VariableObjects
 {
 	[CreateAssetMenu(fileName = "String", menuName = "Variable Objects/String")]
 	public class StringObject : GenericVariableObject<string>

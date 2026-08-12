@@ -1,6 +1,6 @@
 using UnityEngine.Scripting.APIUpdating;
 
-namespace VariableObjects
+namespace Anaglyph.VariableObjects
 {
 	[MovedFrom("VariableObjects.ScriptableFloatEvents")]
 	public class FloatObjectEvents : GenericVariableObjectEvents<float> { }

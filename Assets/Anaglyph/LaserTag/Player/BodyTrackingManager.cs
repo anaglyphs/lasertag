@@ -3,7 +3,7 @@ using Anaglyph.Netcode;
 using UnityEngine;
 using UnityEngine.XR;
 
-namespace Anaglyph.XRTemplate
+namespace Anaglyph.LaserTag.Player
 {
 	public class BodyTrackingManager : MonoBehaviour
 	{

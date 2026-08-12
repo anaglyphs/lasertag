@@ -2,7 +2,7 @@ using System;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Anaglyph
+namespace Anaglyph.Netcode
 {
 	public static class GuidSerialization
 	{

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Anaglyph
+namespace Anaglyph.LaserTag.Interface
 {
 	[DefaultExecutionOrder(30000)]
 	public class FaceCamera : MonoBehaviour

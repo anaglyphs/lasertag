@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.Pool;
 
-namespace Anaglyph.Lasertag.Logistics
+namespace Anaglyph.Netcode
 {
 	public class NetworkObjectPool : MonoBehaviour
 	{

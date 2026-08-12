@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Anaglyph.DepthKit.EnvScanning;
+using Anaglyph.LaserTag.Maps;
 using Anaglyph.Netcode;
+using Anaglyph.Netcode.SyncVariables;
+using Anaglyph.XR.DepthKit.EnvScanning;
 using Draco;
 using Draco.Encode;
 using Unity.Collections;
@@ -10,7 +12,7 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.EnvSyncing
 {
 	/// <summary>
 	/// Broadcasts locally scanned chunk meshes to other players when chunks

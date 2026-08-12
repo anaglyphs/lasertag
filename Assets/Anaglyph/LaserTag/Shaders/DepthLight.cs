@@ -1,9 +1,9 @@
-using UnityEngine;
 using System;
-using Anaglyph.XRTemplate.DepthKit;
+using Anaglyph.XR.DepthKit;
+using UnityEngine;
 using UnityEngine.Serialization;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Shaders
 {
 	public class DepthLight : MonoBehaviour
 	{

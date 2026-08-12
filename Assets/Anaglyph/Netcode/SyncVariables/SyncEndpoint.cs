@@ -1,6 +1,6 @@
 using System;
 
-namespace Anaglyph.Netcode
+namespace Anaglyph.Netcode.SyncVariables
 {
 	// Base of every replicated object carried by the SyncBus (SyncVariable, SyncList,
 	// SyncDictionary, SyncEvent). An endpoint is a plain C# object owned by a stable

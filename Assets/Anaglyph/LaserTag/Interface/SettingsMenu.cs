@@ -1,12 +1,15 @@
-using Anaglyph.DepthKit.EnvScanning;
-using Anaglyph.Menu.UIToolkit;
-using Anaglyph.Netcode;
 using System;
+using Anaglyph.Debugging;
+using Anaglyph.InGameConsole;
+using Anaglyph.LaserTag.EnvSyncing;
+using Anaglyph.Menu;
+using Anaglyph.Netcode.SyncVariables;
+using Anaglyph.VariableObjects;
+using Anaglyph.XR.DepthKit.EnvScanning;
 using UnityEngine;
 using UnityEngine.UIElements;
-using VariableObjects;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Interface
 {
 	[DefaultExecutionOrder(100)]
 	public class SettingsMenu : MonoBehaviour
@@ -15,8 +18,8 @@ namespace Anaglyph.Lasertag
 		[SerializeField] private BoolObject lightEffectsSetting;
 		[SerializeField] private StringObject buildNumber;
 
-		private UIToolkitNavPages navView;
-		private UIToolkitNavPage consolePage;
+		private NavView navView;
+		private NavPage consolePage;
 		private InGameConsoleView consoleView;
 		private Toggle debugModeToggle;
 		private Toggle showDebugMeshToggle;
@@ -43,10 +46,10 @@ namespace Anaglyph.Lasertag
 			// must happen before anything subscribes to Button.clicked
 			root.MakeButtonsActOnPress();
 
-			navView = new UIToolkitNavPages(Require<VisualElement>(root, "pages"));
-			UIToolkitNavPage homePage = navView.AddPage("home-page", false);
-			UIToolkitNavPage debuggingPage = navView.AddPage("debugging-page");
-			UIToolkitNavPage graphicsPage = navView.AddPage("graphics-page");
+			navView = new NavView(Require<VisualElement>(root, "pages"));
+			NavPage homePage = navView.AddPage("home-page", false);
+			NavPage debuggingPage = navView.AddPage("debugging-page");
+			NavPage graphicsPage = navView.AddPage("graphics-page");
 			consolePage = navView.AddPage("console-page");
 
 			Require<Button>(root, "debugging-button").clicked += debuggingPage.NavigateHere;

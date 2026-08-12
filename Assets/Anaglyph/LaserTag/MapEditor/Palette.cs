@@ -1,8 +1,7 @@
-using System;
-using Anaglyph.Input;
+using Anaglyph.XR.Input;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.MapEditor
 {
 	public class Palette : MonoBehaviour
 	{

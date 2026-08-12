@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.Scripting.APIUpdating;
 
-namespace VariableObjects
+namespace Anaglyph.VariableObjects
 {
 	[CreateAssetMenu(fileName = "Bool", menuName = "Variable Objects/Bool")]
 	[MovedFrom("VariableObjects.ScriptableBool")]

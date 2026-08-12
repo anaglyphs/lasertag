@@ -1,8 +1,9 @@
 using System.Collections.Generic;
+using Anaglyph.LaserTag.Player.Teams;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag.Networking
+namespace Anaglyph.LaserTag.Objects.Gameplay.Base
 {
 	[DefaultExecutionOrder(500)]
 	public class Base : NetworkBehaviour

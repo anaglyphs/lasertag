@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Anaglyph
+namespace Anaglyph.Audio
 {
 	[DefaultExecutionOrder(-50)]
 	public static class AudioPool

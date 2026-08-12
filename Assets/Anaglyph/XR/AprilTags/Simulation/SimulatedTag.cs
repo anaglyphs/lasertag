@@ -1,0 +1,53 @@
+using System.Collections.Generic;
+using AprilTag;
+using UnityEngine;
+
+namespace Anaglyph.XR.AprilTags.Simulation
+{
+	[SelectionBase]
+    public class SimulatedTag : MonoBehaviour
+    {
+        public int tagId = 0;
+
+		public bool isInView { get; private set; }
+
+		public static List<SimulatedTag> Visible = new();
+
+		private Camera mainCamera;
+
+		private void OnEnable()
+		{
+			if(didStart)
+				mainCamera = Camera.main;
+			Visible.Add(this);
+		}
+
+		private void Start()
+		{
+			mainCamera = Camera.main;
+
+#if !UNITY_EDITOR
+			gameObject.SetActive(false);
+#endif
+		}
+
+		private void OnDisable()
+		{
+			Visible.Remove(this);
+		}
+
+		private void FixedUpdate()
+		{
+			Vector2 viewportPoint = mainCamera.WorldToViewportPoint(transform.position);
+			float x = viewportPoint.x;
+			float y = viewportPoint.y;
+
+			isInView = x > 0f && x < 1f && y > 0f && y < 1f;
+		}
+
+		public TagPose GetTagPoseInWorldSpace()
+		{
+			return new(tagId, transform.position, transform.rotation);
+		}
+	}
+}

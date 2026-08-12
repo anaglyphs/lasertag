@@ -1,10 +1,11 @@
-using Anaglyph.Netcode;
-using Anaglyph.XRTemplate.SharedSpaces;
 using System;
 using System.Collections.Generic;
+using Anaglyph.Netcode.SyncVariables;
+using Anaglyph.XR.SharedSpaces.AprilTags;
+using Anaglyph.XR.SharedSpaces.SharedAnchors;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Maps
 {
 	/// <summary>
 	/// Adapts a map's saved reference records to the reusable XRTemplate colocation providers, in

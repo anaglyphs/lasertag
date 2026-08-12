@@ -2,7 +2,7 @@ using Unity.Netcode;
 using Unity.XR.CoreUtils;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag.Networking
+namespace Anaglyph.LaserTag.Player
 {
 	/// <summary>
 	/// Copies the local rig onto the owner's avatar. onBeforeRender has the last word because

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Anaglyph
+namespace Anaglyph.InGameConsole
 {
 	/// <summary>
 	/// Draws <see cref="InGameConsole"/> into a UI Toolkit hierarchy containing a

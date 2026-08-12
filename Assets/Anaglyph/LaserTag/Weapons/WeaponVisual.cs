@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag.Weapons
+namespace Anaglyph.LaserTag.Weapons
 {
 	public class WeaponVisual : MonoBehaviour
 	{

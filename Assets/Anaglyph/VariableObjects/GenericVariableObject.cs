@@ -5,7 +5,7 @@ using UnityEngine.Events;
 using UnityEngine.Scripting.APIUpdating;
 using UnityEngine.Serialization;
 
-namespace VariableObjects
+namespace Anaglyph.VariableObjects
 {
 	[MovedFrom("VariableObjects.GenericScriptableVariable")]
 	public abstract class GenericVariableObject<T> : ScriptableObject

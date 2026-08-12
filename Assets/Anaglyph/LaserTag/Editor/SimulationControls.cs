@@ -1,8 +1,8 @@
 #if UNITY_EDITOR
 using System;
-using Anaglyph.DepthKit.EnvScanning;
 using Anaglyph.Netcode;
 using Anaglyph.Permissions;
+using Anaglyph.XR.DepthKit.EnvScanning;
 using Unity.Multiplayer.PlayMode;
 using Unity.Netcode;
 using UnityEditor;
@@ -10,7 +10,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.XR.Interaction.Toolkit.Inputs.Simulation;
 
-namespace Anaglyph.Lasertag.Editor
+namespace Anaglyph.LaserTag.Editor
 {
 	/// Controls for driving the game from the editor while in play mode.
 	public class SimulationControls : EditorWindow

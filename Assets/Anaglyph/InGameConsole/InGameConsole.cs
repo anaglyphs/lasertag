@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Anaglyph
+namespace Anaglyph.InGameConsole
 {
 	/// <summary>
 	/// Captures Unity log messages at runtime so they can be shown in-game.

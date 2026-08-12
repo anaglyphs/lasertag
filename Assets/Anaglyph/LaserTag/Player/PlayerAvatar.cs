@@ -1,10 +1,15 @@
 using System;
 using System.Collections.Generic;
+using Anaglyph.LaserTag.Matches;
+using Anaglyph.LaserTag.Objects.Gameplay.Base;
+using Anaglyph.LaserTag.Objects.Gameplay.Control_Point;
+using Anaglyph.LaserTag.Player.Teams;
+using Anaglyph.LaserTag.Weapons;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
 
-namespace Anaglyph.Lasertag.Networking
+namespace Anaglyph.LaserTag.Player
 {
 	[DefaultExecutionOrder(-500)]
 	public class PlayerAvatar : NetworkBehaviour, IDamageable

@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace Anaglyph
+namespace Anaglyph.Debugging
 {
 	public static class AnaglyphDebugging
 	{

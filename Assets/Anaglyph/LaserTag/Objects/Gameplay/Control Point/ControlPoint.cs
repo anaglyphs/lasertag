@@ -1,14 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
-using Anaglyph.Lasertag.Networking;
 using System.Threading.Tasks;
+using Anaglyph.LaserTag.Matches;
+using Anaglyph.LaserTag.Player;
+using Anaglyph.LaserTag.Player.Teams;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Objects.Gameplay.Control_Point
 {
 	[Flags]
 	public enum ControlPointState

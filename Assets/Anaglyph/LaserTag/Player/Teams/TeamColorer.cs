@@ -1,9 +1,8 @@
-using System;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Player.Teams
 {
 	[ExecuteAlways]
 	public class TeamColorer : MonoBehaviour

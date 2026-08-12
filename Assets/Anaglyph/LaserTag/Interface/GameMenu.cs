@@ -1,20 +1,21 @@
-using Anaglyph.Menu.UIToolkit;
-using Anaglyph.Netcode;
 using System;
+using Anaglyph.LaserTag.Matches;
+using Anaglyph.Menu;
+using Anaglyph.Netcode;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Interface
 {
 	[DefaultExecutionOrder(100)]
 	public class GameMenu : MonoBehaviour
 	{
-		private UIToolkitNavPages navView;
-		private UIToolkitNavPage homePage;
-		private UIToolkitNavPage matchPage;
-		private UIToolkitNavPage playingPage;
-		private UIToolkitNavPage mapManagerPage;
-		private UIToolkitNavPage editingMapPage;
+		private NavView navView;
+		private NavPage homePage;
+		private NavPage matchPage;
+		private NavPage playingPage;
+		private NavPage mapManagerPage;
+		private NavPage editingMapPage;
 
 		private RadioButtonGroup winByRadio;
 		private Slider roundTimeSlider;
@@ -41,7 +42,7 @@ namespace Anaglyph.Lasertag
 			// must happen before anything subscribes to Button.clicked
 			root.MakeButtonsActOnPress();
 
-			navView = new UIToolkitNavPages(Require<VisualElement>(root, "pages"));
+			navView = new NavView(Require<VisualElement>(root, "pages"));
 			homePage = navView.AddPage("home-page", false);
 			matchPage = navView.AddPage("match-page");
 			mapManagerPage = navView.AddPage("map-manager-page");
@@ -100,9 +101,9 @@ namespace Anaglyph.Lasertag
 			startButton.clicked += () => Referee?.QueueMatch(matchSettings);
 			Require<Button>(root, "stop-button").clicked += () => Referee?.EndMatch();
 			Require<Button>(root, "edit-map-button").clicked +=
-				() => MapEditor.SetActive(true);
+				() => MapEditor.MapEditor.SetActive(true);
 			Require<Button>(root, "finish-editing-button").clicked +=
-				() => MapEditor.SetActive(false);
+				() => MapEditor.MapEditor.SetActive(false);
 
 			navView.Start(homePage);
 		}
@@ -118,18 +119,18 @@ namespace Anaglyph.Lasertag
 
 			MatchReferee.StateChanged += OnMatchStateChanged;
 			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
-			MapEditor.ActiveChanged += OnMapEditorStateChanged;
+			MapEditor.MapEditor.ActiveChanged += OnMapEditorStateChanged;
 
 			OnMatchStateChanged(MatchReferee.State);
 			OnNetcodeStateChanged(NetcodeManagement.State);
-			OnMapEditorStateChanged(MapEditor.IsActive);
+			OnMapEditorStateChanged(MapEditor.MapEditor.IsActive);
 		}
 
 		private void OnDisable()
 		{
 			MatchReferee.StateChanged -= OnMatchStateChanged;
 			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
-			MapEditor.ActiveChanged -= OnMapEditorStateChanged;
+			MapEditor.MapEditor.ActiveChanged -= OnMapEditorStateChanged;
 			navView?.Dispose();
 			navView = null;
 		}
@@ -174,7 +175,7 @@ namespace Anaglyph.Lasertag
 			navView.SetModalPresented(playingPage, playing, 20);
 
 			if (playing)
-				MapEditor.SetActive(false);
+				MapEditor.MapEditor.SetActive(false);
 		}
 
 		private void OnNetcodeStateChanged(NetcodeState state)

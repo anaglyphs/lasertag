@@ -1,7 +1,7 @@
-using Anaglyph.Lasertag.Networking;
+using Anaglyph.LaserTag.Matches;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Weapons
 {
 	// Plays a hit confirmation for the local player's own shots, pitched by how much health
 	// the target has left. Nobody else hears it.

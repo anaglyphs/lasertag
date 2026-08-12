@@ -1,6 +1,6 @@
 using System;
 using System.Threading;
-using Anaglyph.XRTemplate;
+using Anaglyph.XR;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;

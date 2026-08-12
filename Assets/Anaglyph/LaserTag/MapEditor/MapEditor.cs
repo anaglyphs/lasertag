@@ -1,7 +1,8 @@
 using System;
+using Anaglyph.LaserTag.Weapons;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.MapEditor
 {
 	public static class MapEditor
 	{

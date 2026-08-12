@@ -1,6 +1,6 @@
 using UnityEngine.Scripting.APIUpdating;
 
-namespace VariableObjects
+namespace Anaglyph.VariableObjects
 {
 	[MovedFrom("VariableObjects.ScriptableBoolEvents")]
 	public class BoolObjectEvents : GenericVariableObjectEvents<bool> { }

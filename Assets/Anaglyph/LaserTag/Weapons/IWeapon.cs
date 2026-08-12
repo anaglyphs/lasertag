@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Weapons
 {
 	public interface IWeapon
 	{

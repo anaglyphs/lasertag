@@ -1,6 +1,6 @@
 using System;
 
-namespace Anaglyph.Netcode
+namespace Anaglyph.Netcode.SyncVariables
 {
 	// How an event travels; pick per event based on the ordering you need.
 	public enum EventRoute : byte

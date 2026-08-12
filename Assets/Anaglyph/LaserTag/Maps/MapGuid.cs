@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Maps
 {
 	/// <summary>
 	/// How maps write guids. One format, "N", used for anchor ids, map ids and content versions

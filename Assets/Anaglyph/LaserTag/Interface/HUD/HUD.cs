@@ -1,8 +1,11 @@
+using Anaglyph.LaserTag.Matches;
+using Anaglyph.LaserTag.Player;
+using Anaglyph.LaserTag.Player.Teams;
 using Anaglyph.Netcode;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Interface.HUD
 {
 	/// <summary>
 	/// Head-locked HUD. At most one overlay is on screen at a time; which one is

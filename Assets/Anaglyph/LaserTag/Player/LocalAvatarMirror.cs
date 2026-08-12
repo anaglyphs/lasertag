@@ -1,7 +1,8 @@
+using Anaglyph.LaserTag.Matches;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag.Networking
+namespace Anaglyph.LaserTag.Player
 {
 	/// <summary>
 	/// The one place that knows both the local player and their networked avatar exist.

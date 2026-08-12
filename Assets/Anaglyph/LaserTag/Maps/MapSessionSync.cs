@@ -1,9 +1,9 @@
-using Anaglyph.Netcode;
 using System;
+using Anaglyph.Netcode.SyncVariables;
 using Unity.Collections;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Maps
 {
 	/// <summary>
 	/// The session's map identity. Colocation providers synchronize their own state and map

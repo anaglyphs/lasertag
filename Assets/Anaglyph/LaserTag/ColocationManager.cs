@@ -1,12 +1,15 @@
-using Anaglyph.Netcode;
-using Anaglyph.XRTemplate;
-using Anaglyph.XRTemplate.SharedSpaces;
 using System;
+using Anaglyph.LaserTag.Maps;
+using Anaglyph.Netcode.SyncVariables;
+using Anaglyph.XR;
+using Anaglyph.XR.SharedSpaces;
+using Anaglyph.XR.SharedSpaces.AprilTags;
+using Anaglyph.XR.SharedSpaces.SharedAnchors;
 using UnityEngine;
 using UnityEngine.Serialization;
 using UnityEngine.XR;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag
 {
 	/// <summary>
 	/// Selects which colocation strategy this device runs, and fronts the XRTemplate colocation

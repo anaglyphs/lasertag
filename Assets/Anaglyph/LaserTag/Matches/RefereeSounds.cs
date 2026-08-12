@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Matches
 {
 	public class RefereeSounds : MonoBehaviour
 	{

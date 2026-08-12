@@ -1,7 +1,6 @@
-using Anaglyph.Lasertag.Weapons;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Weapons
 {
 	public class WeaponPickup : MonoBehaviour
 	{

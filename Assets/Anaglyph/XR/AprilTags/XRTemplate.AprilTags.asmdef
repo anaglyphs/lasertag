@@ -1,0 +1,31 @@
+{
+    "name": "Anaglyph.XR.AprilTags",
+    "rootNamespace": "",
+    "references": [
+        "GUID:c85f558502c2ed74fb418fe9c223ef02",
+        "GUID:b15d637c0fbcf754497e9b970b408481",
+        "GUID:dc960734dc080426fa6612f1c5fe95f3",
+        "GUID:a9420e37d7990b54abdef6688edbe313",
+        "GUID:92703082f92b41ba80f0d6912de66115",
+        "GUID:2665a8d13d1b3f18800f46e256720795",
+        "GUID:e0cd26848372d4e5c891c569017e11f1",
+        "GUID:d8b63aba1907145bea998dd612889d6b",
+        "GUID:44fc387820bf51b4299bdac5cb35540e",
+        "GUID:8efef0e48627b4af5a28950b21575514"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.xr.meta-openxr",
+            "expression": "2.6.0-pre.1",
+            "define": "META_OPENXR_2_6_OR_NEWER"
+        }
+    ],
+    "noEngineReferences": false
+}

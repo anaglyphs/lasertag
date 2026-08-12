@@ -1,7 +1,7 @@
-using Anaglyph.XRTemplate;
+using Anaglyph.XR;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag
 {
 	public class EditorSimulatedAprilTags : MonoBehaviour
 	{

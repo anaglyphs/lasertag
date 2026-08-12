@@ -1,11 +1,11 @@
+using System.ComponentModel;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.InputSystem.Utilities;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Composites;
-using System.ComponentModel;
+using UnityEngine.InputSystem.Utilities;
 
-namespace Anaglyph.LaserTag
+namespace Anaglyph.LaserTag.Input
 {
 #if UNITY_EDITOR
 	[InitializeOnLoad] // Automatically register in editor.

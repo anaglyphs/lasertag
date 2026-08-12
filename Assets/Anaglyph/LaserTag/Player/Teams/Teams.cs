@@ -1,7 +1,6 @@
-using System;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Player.Teams
 {
 	public static class Teams
 	{

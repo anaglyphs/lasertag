@@ -1,59 +1,62 @@
 using System.Collections.Generic;
-using UnityEngine;
 using Unity.Collections;
-using Unity.Mathematics;
 using Unity.Jobs;
+using Unity.Mathematics;
+using UnityEngine;
 
-public class PointTreeBurstTest : MonoBehaviour
+namespace Anaglyph.DriftCorrection
 {
-	NativeArray<PointTree.Node> tree;
-
-	public Transform target;
-	public Transform pointIndicator;
-
-	private void Start()
+	public class PointTreeBurstTest : MonoBehaviour
 	{
-		List<float3> vertices = new();
-		MeshFilter[] meshFilters = GetComponentsInChildren<MeshFilter>();
+		NativeArray<PointTree.Node> tree;
 
-		foreach (var meshFilter in meshFilters)
+		public Transform target;
+		public Transform pointIndicator;
+
+		private void Start()
+		{
+			List<float3> vertices = new();
+			MeshFilter[] meshFilters = GetComponentsInChildren<MeshFilter>();
+
+			foreach (var meshFilter in meshFilters)
 			foreach (var vertex in meshFilter.mesh.vertices)
 				vertices.Add(vertex);
 
-		tree = new NativeArray<PointTree.Node>(vertices.Count, Allocator.Persistent);
-		NativeArray<float3> points = new NativeArray<float3>(vertices.ToArray(), Allocator.TempJob);
+			tree = new NativeArray<PointTree.Node>(vertices.Count, Allocator.Persistent);
+			NativeArray<float3> points = new NativeArray<float3>(vertices.ToArray(), Allocator.TempJob);
 
-		PointTree.BuildJob buildJob = new()
+			PointTree.BuildJob buildJob = new()
+			{
+				points = points,
+				nodes = tree,
+			};
+
+			// buildJob.Run();
+			buildJob.Schedule().Complete();
+
+			points.Dispose();
+		}
+
+		private void Update()
 		{
-			points = points,
-			nodes = tree,
-		};
+			NativeArray<float3> results = new(1, Allocator.TempJob);
+			NativeArray<float3> points = new(1, Allocator.TempJob);
+			points[0] = target.position;
 
-		// buildJob.Run();
-		buildJob.Schedule().Complete();
+			PointTree.FindClosestPoints findJob = new()
+			{
+				pointTransform = float4x4.identity,
+				points = points,
+				nodes = tree,
+				found = results,
+			};
 
-		points.Dispose();
-	}
+			findJob.ScheduleParallelByRef(results.Length, 0, default).Complete();
 
-	private void Update()
-	{
-		NativeArray<float3> results = new(1, Allocator.TempJob);
-		NativeArray<float3> points = new(1, Allocator.TempJob);
-		points[0] = target.position;
+			pointIndicator.position = results[0];
 
-		PointTree.FindClosestPoints findJob = new()
-		{
-			pointTransform = float4x4.identity,
-			points = points,
-			nodes = tree,
-			found = results,
-		};
-
-		findJob.ScheduleParallelByRef(results.Length, 0, default).Complete();
-
-		pointIndicator.position = results[0];
-
-		points.Dispose();
-		results.Dispose();
+			points.Dispose();
+			results.Dispose();
+		}
 	}
 }

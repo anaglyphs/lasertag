@@ -1,9 +1,9 @@
-using Anaglyph.Input;
-using Anaglyph.Lasertag.Weapons;
+using Anaglyph.LaserTag.Weapons;
+using Anaglyph.XR.Input;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag.Networking
+namespace Anaglyph.LaserTag.Player
 {
 	/// <summary>
 	/// One hand's weapon. Every player spawns the same weapon into the same hand from the

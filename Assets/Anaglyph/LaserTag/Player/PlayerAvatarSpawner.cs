@@ -1,9 +1,10 @@
-using Anaglyph.Lasertag.Weapons;
+using Anaglyph.LaserTag.Weapons;
 using Anaglyph.Netcode;
+using Anaglyph.Netcode.SyncVariables;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Player
 {
 	/// <summary>
 	/// Owns the local player's avatar lifecycle: one exists exactly while we are

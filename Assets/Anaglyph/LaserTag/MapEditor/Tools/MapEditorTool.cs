@@ -1,9 +1,11 @@
 using System;
-using Anaglyph.Input;
+using Anaglyph.LaserTag.Maps;
+using Anaglyph.LaserTag.Player.Teams;
+using Anaglyph.XR.Input;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.MapEditor.Tools
 {
 	
 	public class MapEditorTool : MonoBehaviour

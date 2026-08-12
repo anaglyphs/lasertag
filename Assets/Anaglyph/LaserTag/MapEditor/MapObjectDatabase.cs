@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.MapEditor
 {
 	/// <summary>
 	/// Every map object the game can place, grouped into the categories the palette shows.

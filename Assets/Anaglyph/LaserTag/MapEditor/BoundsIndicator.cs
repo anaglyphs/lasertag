@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.MapEditor
 {
 	/// <summary>
 	/// Drives a skinned box mesh — eight bones, one per corner, every vertex weighted rigidly

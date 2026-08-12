@@ -1,11 +1,12 @@
-using Anaglyph.Netcode;
 using System;
 using System.Collections.Generic;
+using Anaglyph.LaserTag.MapEditor;
+using Anaglyph.Netcode.SyncVariables;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Maps
 {
 	/// <summary>
 	/// The map's gameplay objects: placing and removing them across the session, populating the

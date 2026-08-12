@@ -1,4 +1,4 @@
-namespace Anaglyph.Lasertag.Weapons
+namespace Anaglyph.LaserTag.Weapons
 {
 	public static class WeaponsManagement
 	{

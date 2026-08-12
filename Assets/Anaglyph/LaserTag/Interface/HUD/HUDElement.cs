@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Interface.HUD
 {
 	/// <summary>
 	/// Helpers for HUD behaviours that drive named elements of a UIDocument

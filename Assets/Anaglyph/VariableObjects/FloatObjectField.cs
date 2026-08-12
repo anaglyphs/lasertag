@@ -1,7 +1,6 @@
 using System.Globalization;
 using TMPro;
 using UnityEngine;
-using VariableObjects;
 
 namespace Anaglyph.VariableObjects
 {

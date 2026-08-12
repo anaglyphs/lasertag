@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+// ReSharper disable once RedundantUsingDirective
 using UnityEngine.Android;
 
 namespace Anaglyph.Permissions

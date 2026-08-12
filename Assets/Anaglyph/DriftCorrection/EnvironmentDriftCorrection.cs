@@ -4,7 +4,7 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 
-namespace Anaglyph
+namespace Anaglyph.DriftCorrection
 {
 	public class EnvironmentDriftCorrection : MonoBehaviour
 	{

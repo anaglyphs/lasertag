@@ -1,8 +1,8 @@
-using Anaglyph.Input;
+using Anaglyph.XR.Input;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Weapons
 {
 	public class WeaponSwitchInteractor : MonoBehaviour
 	{

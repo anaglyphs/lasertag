@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
 using Anaglyph.Debugging.Visuals;
-using Anaglyph.Input;
-using Anaglyph.XRTemplate.SharedSpaces;
+using Anaglyph.LaserTag.Maps;
+using Anaglyph.XR.Input;
+using Anaglyph.XR.SharedSpaces.AprilTags;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.MapEditor.Tools
 {
 	/// <summary>
 	/// Registers tags into the current map — a deliberate authoring act, before hosting:

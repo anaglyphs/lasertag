@@ -1,12 +1,10 @@
-using Anaglyph.Input;
+using System.Runtime.InteropServices;
+using Anaglyph.XR.Input;
 using StrikerLink.Shared.Client;
 using StrikerLink.Shared.Devices.DeviceFeatures;
 using StrikerLink.Shared.Devices.Types;
 using StrikerLink.Unity.Runtime.Core;
-using System.Runtime.InteropServices;
-#if UNITY_EDITOR
 using UnityEditor;
-#endif
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
@@ -14,88 +12,91 @@ using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.InputSystem.Utilities;
 
-public class StrikerInputDevice : MonoBehaviour
+namespace Anaglyph.StrikerSupport
 {
-	[SerializeField] private HandPeripheral peripheral;
-
-	private MavrikDevice inputDevice;
-
-	private StrikerClient strikerClient;
-	private DeviceBase strikerDevice;
-
-	private void Awake()
+	public class StrikerInputDevice : MonoBehaviour
 	{
-		inputDevice = InputSystem.AddDevice<MavrikDevice>();
-		
-		InputSystem.onBeforeUpdate += OnBeforeInputUpdate;
-	}
+		[SerializeField] private HandPeripheral peripheral;
 
-	private void OnDestroy()
-	{
-		InputSystem.RemoveDevice(inputDevice);
-		InputSystem.onBeforeUpdate -= OnBeforeInputUpdate;
+		private MavrikDevice inputDevice;
 
-		MountedPeripheral.Set(null);
-	}
+		private StrikerClient strikerClient;
+		private DeviceBase strikerDevice;
 
-	public void OnBeforeInputUpdate()
-	{
-		float triggerAxis = 0;
-
-		var strikerClient = StrikerController.Controller.GetClient();
-
-		if (strikerClient != null && strikerClient.IsConnected)
+		private void Awake()
 		{
-			if (strikerDevice == null || !strikerDevice.Connected)
-			{
-				strikerDevice = strikerClient.GetDevice(0);
-			}
-			else if(strikerDevice.Connected)
-			{
-				triggerAxis = strikerDevice.GetAxis(DeviceAxis.TriggerAxis);
-			}
+			inputDevice = InputSystem.AddDevice<MavrikDevice>();
+		
+			InputSystem.onBeforeUpdate += OnBeforeInputUpdate;
 		}
 
-		bool mounted = strikerDevice != null && strikerDevice.Connected;
-		MountedPeripheral.Set(mounted ? peripheral : null);
+		private void OnDestroy()
+		{
+			InputSystem.RemoveDevice(inputDevice);
+			InputSystem.onBeforeUpdate -= OnBeforeInputUpdate;
 
-		if(triggerAxis != inputDevice.trigger.value)
-			inputDevice.trigger.QueueValueChange(triggerAxis);
+			MountedPeripheral.Set(null);
+		}
+
+		public void OnBeforeInputUpdate()
+		{
+			float triggerAxis = 0;
+
+			var strikerClient = StrikerController.Controller.GetClient();
+
+			if (strikerClient != null && strikerClient.IsConnected)
+			{
+				if (strikerDevice == null || !strikerDevice.Connected)
+				{
+					strikerDevice = strikerClient.GetDevice(0);
+				}
+				else if(strikerDevice.Connected)
+				{
+					triggerAxis = strikerDevice.GetAxis(DeviceAxis.TriggerAxis);
+				}
+			}
+
+			bool mounted = strikerDevice != null && strikerDevice.Connected;
+			MountedPeripheral.Set(mounted ? peripheral : null);
+
+			if(triggerAxis != inputDevice.trigger.value)
+				inputDevice.trigger.QueueValueChange(triggerAxis);
+		}
 	}
-}
 
 
 
-[StructLayout(LayoutKind.Explicit, Size = 32)]
-public struct MavrikState : IInputStateTypeInfo
-{
-	public FourCC format => new FourCC('M', 'V', 'R', 'K');
+	[StructLayout(LayoutKind.Explicit, Size = 32)]
+	public struct MavrikState : IInputStateTypeInfo
+	{
+		public FourCC format => new FourCC('M', 'V', 'R', 'K');
 
-	[FieldOffset(5)] 
-	[InputControl(layout = "Button")]
-	public ushort trigger;
-}
+		[FieldOffset(5)] 
+		[InputControl(layout = "Button")]
+		public ushort trigger;
+	}
 
 #if UNITY_EDITOR
-[InitializeOnLoad]
+	[InitializeOnLoad]
 #endif
-[InputControlLayout(displayName = "StrikerVR Mavrik", stateType = typeof(MavrikState))]
-public class MavrikDevice : InputDevice
-{
-	static MavrikDevice()
+	[InputControlLayout(displayName = "StrikerVR Mavrik", stateType = typeof(MavrikState))]
+	public class MavrikDevice : InputDevice
 	{
-		InputSystem.RegisterLayout<MavrikDevice>();
-	}
+		static MavrikDevice()
+		{
+			InputSystem.RegisterLayout<MavrikDevice>();
+		}
 
-	[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-	private static void InitializeInPlayer() { }
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+		private static void InitializeInPlayer() { }
 
-	public AxisControl trigger { get; private set; }
+		public AxisControl trigger { get; private set; }
 
 
-	protected override void FinishSetup()
-	{
-		base.FinishSetup();
-		trigger = GetChildControl<AxisControl>(nameof(MavrikState.trigger));
+		protected override void FinishSetup()
+		{
+			base.FinishSetup();
+			trigger = GetChildControl<AxisControl>(nameof(MavrikState.trigger));
+		}
 	}
 }

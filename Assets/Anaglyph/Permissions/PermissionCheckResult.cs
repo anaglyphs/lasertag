@@ -1,5 +1,3 @@
-using System;
-
 namespace Anaglyph.Permissions
 {
 	public interface IGameCapabilityCheckResult

@@ -1,9 +1,9 @@
-using Anaglyph.Input;
+using Anaglyph.XR.Input;
 using Oculus.Haptics;
 using UnityEngine;
 using UnityEngine.XR;
 
-namespace Anaglyph.Lasertag.Weapons
+namespace Anaglyph.LaserTag.Weapons
 {
 	public class WeaponHaptics : MonoBehaviour
 	{

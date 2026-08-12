@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Anaglyph.Lasertag.Tools
+namespace Anaglyph.LaserTag.MapEditor.Tools
 {
 	public static class Helpers
 	{

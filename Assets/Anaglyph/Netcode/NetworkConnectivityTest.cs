@@ -1,32 +1,35 @@
 using System;
 using UnityEngine;
 
-[Flags]
-public enum NetworkState
+namespace Anaglyph.Netcode
 {
-	NoConnection = 0,
-	ConnectionLAN = 1,
-	FullInternetFlag = 2,
-	ConnectionFullInternet = 3
-}
+	[Flags]
+	public enum NetworkState
+	{
+		NoConnection = 0,
+		ConnectionLAN = 1,
+		FullInternetFlag = 2,
+		ConnectionFullInternet = 3
+	}
 
-public static class NetworkConnectivityTest
-{
-#if UNITY_EDITOR
-
-	/// Set from the Lasertag Simulation Settings window.
-	public static NetworkState SimulatedNetworkState { get; set; } =
-		NetworkState.ConnectionFullInternet;
-
-#endif
-
-	public static NetworkState GetNetworkState()
+	public static class NetworkConnectivityTest
 	{
 #if UNITY_EDITOR
 
-		return SimulatedNetworkState;
+		/// Set from the Lasertag Simulation Settings window.
+		public static NetworkState SimulatedNetworkState { get; set; } =
+			NetworkState.ConnectionFullInternet;
 
-#elif UNITY_ANDROID && !UNITY_EDITOR // Android API 23+
+#endif
+
+		public static NetworkState GetNetworkState()
+		{
+#if UNITY_EDITOR
+
+			return SimulatedNetworkState;
+
+#endif
+			
         const int NET_CAPABILITY_INTERNET = 12;
         const int NET_CAPABILITY_VALIDATED = 16;
 
@@ -55,13 +58,6 @@ public static class NetworkConnectivityTest
         return internetConfigured && internetValidated
             ? NetworkState.ConnectionFullInternet
             : NetworkState.ConnectionLAN;
-#else
-		return Application.internetReachability ==
-		       NetworkReachability.NotReachable
-			? NetworkState.NoConnection
-			: NetworkState.ConnectionLAN;
-#endif
-
-
+		}
 	}
 }

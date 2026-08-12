@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Objects.Gameplay.Flag
 {
 	[ExecuteAlways]
 	public class FlagAnimator : MonoBehaviour

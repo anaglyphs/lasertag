@@ -1,8 +1,10 @@
-using StrikerLink.Unity.Runtime.Core;
+using Anaglyph.LaserTag.Player;
+using Anaglyph.LaserTag.Player.Teams;
 using StrikerLink.Shared.Devices.Types;
+using StrikerLink.Unity.Runtime.Core;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.ControllerSupport
 {
 	public class StrikerLEDColorer : MonoBehaviour
 	{

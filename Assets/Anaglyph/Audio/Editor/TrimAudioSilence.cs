@@ -4,7 +4,7 @@ using System.IO;
 using UnityEditor;
 using UnityEngine;
 
-namespace Anaglyph.Editor
+namespace Anaglyph.Audio.Editor
 {
 	/// Right-click an AudioClip and trim the silence off its head and tail.
 	/// Always writes 16-bit PCM WAV next to the source; a compressed source is

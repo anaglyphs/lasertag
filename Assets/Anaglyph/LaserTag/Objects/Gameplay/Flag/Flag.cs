@@ -1,9 +1,11 @@
 using System;
-using Anaglyph.Lasertag.Networking;
+using Anaglyph.LaserTag.Matches;
+using Anaglyph.LaserTag.Player;
+using Anaglyph.LaserTag.Player.Teams;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Objects.Gameplay.Flag
 {
 	public class Flag : NetworkBehaviour
 	{

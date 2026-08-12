@@ -1,14 +1,14 @@
 using System;
 using System.Threading;
-using Anaglyph.Input;
-using Anaglyph.Lasertag.Logistics;
+using Anaglyph.Netcode;
+using Anaglyph.XR.Input;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.InputSystem;
 using UnityEngine.Serialization;
 
-namespace Anaglyph.Lasertag.Weapons
+namespace Anaglyph.LaserTag.Weapons.Automatic
 {
 	[RequireComponent(typeof(HandSubject))]
 	public class Automatic : MonoBehaviour, IWeapon

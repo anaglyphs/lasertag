@@ -1,11 +1,13 @@
-using Anaglyph.Netcode;
-using Anaglyph.XRTemplate.SharedSpaces;
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using Anaglyph.LaserTag.MapEditor;
+using Anaglyph.LaserTag.Matches;
+using Anaglyph.Netcode.SyncVariables;
+using Anaglyph.XR.SharedSpaces;
 using UnityEngine;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Maps
 {
 	/// <summary>
 	/// Owns the map this device currently has loaded: which one it is, when it is persisted, and

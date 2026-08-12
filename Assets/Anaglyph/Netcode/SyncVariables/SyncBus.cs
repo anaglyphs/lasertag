@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Anaglyph.Netcode
+namespace Anaglyph.Netcode.SyncVariables
 {
 	// A single NetworkObject-backed relay that lets ordinary MonoBehaviour singletons
 	// replicate state without each becoming a NetworkBehaviour (whose GameObjects the

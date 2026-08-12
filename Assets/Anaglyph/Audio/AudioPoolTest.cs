@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Anaglyph
+namespace Anaglyph.Audio
 {
 	public class AudioPoolTest : MonoBehaviour
 	{

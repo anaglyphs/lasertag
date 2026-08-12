@@ -2,12 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
+using Anaglyph.Audio;
+using Anaglyph.Debugging;
 using Anaglyph.Netcode;
 using Unity.Netcode;
 using UnityEngine;
 using Utilities.XR;
 
-namespace Anaglyph.Lasertag
+namespace Anaglyph.LaserTag.Weapons.Bullets
 {
 	public class Bullet : NetworkBehaviour
 	{

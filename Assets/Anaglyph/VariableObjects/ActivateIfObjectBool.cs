@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace VariableObjects
+namespace Anaglyph.VariableObjects
 {
 	public class ActivateIfObjectBool : MonoBehaviour
 	{
