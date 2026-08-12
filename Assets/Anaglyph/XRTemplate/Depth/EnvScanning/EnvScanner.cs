@@ -109,6 +109,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 		/// <summary>
 		/// Readback result from environment scanner.
 		/// `visibleChunks` and `changeSums` MUST be used FRAME OF READBACK!
+		/// TODO: enforce this somehow
 		/// </summary>
 		public struct VisibleChunksReadbackResult
 		{
@@ -128,7 +129,7 @@ namespace Anaglyph.DepthKit.EnvScanning
 
 		private void Awake()
 		{
-			Setup();
+			CalculateDimensions();
 			Instance = this;
 		}
 
@@ -136,20 +137,26 @@ namespace Anaglyph.DepthKit.EnvScanning
 		{
 			updateFrequency = Mathf.Max(updateFrequency, 1.0f);
 		}
-
-		private void Setup()
+		
+		private void CalculateDimensions()
 		{
-			// helpful values
 			chunkWorldSizeDim = voxSize * (voxPerChunkDim - 2);
 			int3 cdd = chunkDataDims;
 			maxNumChunks = cdd.x * cdd.y * cdd.z;
+			chunkTableLength = chunkTableDims.x * chunkTableDims.y * chunkTableDims.z;
+		}
+
+		private bool GpuResourcesCreated => chunkData != null;
+		
+		private void CreateGpuResources()
+		{
+			int3 cdd = chunkDataDims;
 
 			// buffers
 			reservedChunkCounter = new ComputeBuffer(1, sizeof(int));
 			visibleChunks = new ComputeBuffer(maxNumVisibleChunks, sizeof(int), ComputeBufferType.Append);
 			visibleChangeSumsReadback = new ComputeBuffer(maxNumVisibleChunks, sizeof(uint));
 			int3 ctd = chunkTableDims;
-			chunkTableLength = ctd.x * ctd.y * ctd.z;
 			chunkTable = new ComputeBuffer(chunkTableLength, sizeof(int));
 			chunkChangeSums = new ComputeBuffer(chunkTableLength, sizeof(uint));
 
@@ -223,14 +230,16 @@ namespace Anaglyph.DepthKit.EnvScanning
 			visChangeSumsReadbackKernel.Bind(nameof(chunkChangeSums), chunkChangeSums);
 			visChangeSumsReadbackKernel.Bind(nameof(visibleChangeSumsReadback), visibleChangeSumsReadback);
 
-			Clear();
+			// freshly allocated GPU memory holds whatever was there before. listeners are not
+			// told about this — they hold chunks meshed from peers, which no local scan owns
+			ClearGpuResources();
 		}
 
 		private static readonly int[] EmptyCounterArray = new int[1];
 		private static int[] EmptyChunkTableArray;
 		private static int[] EmptyVisibleChunksArray;
 
-		public void Clear()
+		private void ClearGpuResources()
 		{
 			if (EmptyChunkTableArray == null || EmptyChunkTableArray.Length != chunkTableLength)
 				EmptyChunkTableArray = new int[chunkTableLength];
@@ -244,25 +253,52 @@ namespace Anaglyph.DepthKit.EnvScanning
 			visibleChunks.SetData(EmptyVisibleChunksArray);
 
 			clearKernel.DispatchFit(chunkData);
+		}
+
+		public void Clear()
+		{
+			if (GpuResourcesCreated)
+				ClearGpuResources();
 
 			Cleared.Invoke();
 		}
 
 		private void Start()
 		{
-			UpdateLoop();
+			OnDepthAvailabilityChanged(DepthKitDriver.DepthAvailable);
+			DepthKitDriver.AvailabilityChanged += OnDepthAvailabilityChanged;
 		}
 
 		private void OnEnable()
 		{
-			if (didStart)
-				UpdateLoop();
+			if (!didStart) return;
+
+			OnDepthAvailabilityChanged(DepthKitDriver.DepthAvailable);
+			DepthKitDriver.AvailabilityChanged += OnDepthAvailabilityChanged;
 		}
 
 		private void OnDisable()
 		{
-			visibleChunks.SetData(EmptyVisibleChunksArray);
+			DepthKitDriver.AvailabilityChanged -= OnDepthAvailabilityChanged;
+
+			if (GpuResourcesCreated)
+				visibleChunks.SetData(EmptyVisibleChunksArray);
+
 			updateLoopTknSrc?.Cancel();
+		}
+
+		private void OnDepthAvailabilityChanged(bool depthAvailable)
+		{
+			if (!depthAvailable)
+			{
+				updateLoopTknSrc?.Cancel();
+				return;
+			}
+
+			if (!GpuResourcesCreated)
+				CreateGpuResources();
+
+			UpdateLoop();
 		}
 
 		private void OnDestroy()
@@ -301,9 +337,9 @@ namespace Anaglyph.DepthKit.EnvScanning
 
 		public void Scan()
 		{
-			DepthKitDriver dkd = DepthKitDriver.Instance;
+			if (!GpuResourcesCreated || !DepthKitDriver.DepthAvailable) return;
 
-			if (!DepthKitDriver.DepthAvailable) return;
+			DepthKitDriver dkd = DepthKitDriver.Instance;
 
 			compute.SetMatrixArray(DepthKitDriver.viewID, dkd.View);
 			compute.SetMatrixArray(DepthKitDriver.projID, dkd.Proj);

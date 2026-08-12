@@ -1,4 +1,3 @@
-using System.Threading;
 using UnityEngine;
 using UnityEngine.Android;
 using UnityEngine.XR.ARFoundation;
@@ -9,16 +8,12 @@ namespace Anaglyph.DepthKit
 	public class MetaDepthPermissionManager : MonoBehaviour
 	{
 		private AROcclusionManager occlusionManager;
-		// private ARShaderOcclusion shaderOcclusion;
 
 		private const string permStr = "com.oculus.permission.USE_SCENE";
-
-		private CancellationTokenSource ctkn;
 
 		private void Awake()
 		{
 			TryGetComponent(out occlusionManager);
-			// TryGetComponent(out shaderOcclusion);
 
 			SetOcclusionEnabled(false);
 		}
@@ -46,22 +41,9 @@ namespace Anaglyph.DepthKit
 			SetOcclusionEnabled(Permission.HasUserAuthorizedPermission(permStr));
 		}
 
-		private async void SetOcclusionEnabled(bool b)
+		private void SetOcclusionEnabled(bool b)
 		{
-			ctkn?.Cancel();
-			ctkn = new CancellationTokenSource();
-
 			occlusionManager.enabled = b;
-
-			// stupid bullshit I need to do for some reason
-			if (b)
-			{
-				await Awaitable.NextFrameAsync();
-				await Awaitable.NextFrameAsync();
-				if (ctkn.Token.IsCancellationRequested) return;
-			}
-
-			// shaderOcclusion.enabled = b;
 		}
 	}
 }

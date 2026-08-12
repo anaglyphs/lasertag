@@ -40,8 +40,30 @@ namespace Anaglyph.XRTemplate.DepthKit
 		public static readonly int projInvID = ID("agDepthProjInv");
 		public static readonly int viewID = ID("agDepthView");
 		public static readonly int viewInvID = ID("agDepthViewInv");
+		
+		public static event Action<bool> AvailabilityChanged = delegate { };
 
-		public static bool DepthAvailable { get; private set; }
+		private static bool depthAvailable;
+		
+		public static bool DepthAvailable
+		{
+			get => depthAvailable;
+
+			private set
+			{
+				if (depthAvailable == value) return;
+
+				depthAvailable = value;
+				AvailabilityChanged.Invoke(value);
+			}
+		}
+
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+		private static void ResetStatics()
+		{
+			depthAvailable = false;
+			AvailabilityChanged = delegate { };
+		}
 
 		[SerializeField] private ComputeShader depthNormalCompute = null;
 		[SerializeField] private Shader simDepthConversionShader;
@@ -90,6 +112,9 @@ namespace Anaglyph.XRTemplate.DepthKit
 		{
 			if (arOcclusionManager)
 				arOcclusionManager.frameReceived -= OnDepthFrame;
+
+			// no more frames are coming, so the globals stop tracking the headset
+			DepthAvailable = false;
 		}
 
 		private enum DepthFormatScenario

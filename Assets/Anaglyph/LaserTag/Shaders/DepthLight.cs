@@ -1,5 +1,6 @@
 using UnityEngine;
 using System;
+using Anaglyph.XRTemplate.DepthKit;
 using UnityEngine.Serialization;
 
 namespace Anaglyph.Lasertag
@@ -43,23 +44,36 @@ namespace Anaglyph.Lasertag
 
 		private void OnEnable()
 		{
-			OnGloballyEnabledChanged();
-			globallyEnabledChanged += OnGloballyEnabledChanged;
+			RefreshRendererEnabled();
+			globallyEnabledChanged += RefreshRendererEnabled;
+			DepthKitDriver.AvailabilityChanged += OnDepthAvailabilityChanged;
 		}
 
-		private void OnGloballyEnabledChanged()
+		private void OnDepthAvailabilityChanged(bool depthAvailable)
 		{
-			meshRenderer.enabled = globallyEnabled;
+			RefreshRendererEnabled();
+		}
+
+		/// <summary>
+		/// The shader lights the reconstructed depth surface, so without a depth frame it has
+		/// no surface to light — and the unbound agDepth* matrices make it read NaN.
+		/// </summary>
+		private void RefreshRendererEnabled()
+		{
+			meshRenderer.enabled = globallyEnabled && DepthKitDriver.DepthAvailable;
 		}
 
 		private void OnDisable()
 		{
 			meshRenderer.enabled = false;
-			globallyEnabledChanged -= OnGloballyEnabledChanged;
+			globallyEnabledChanged -= RefreshRendererEnabled;
+			DepthKitDriver.AvailabilityChanged -= OnDepthAvailabilityChanged;
 		}
 
 		private void LateUpdate()
 		{
+			if (!meshRenderer.enabled) return;
+
 			// Unity's built-in sphere has a radius of 0.5, so use its actual
 			// bounds instead of treating the transform scale as the radius.
 			float radius = meshRenderer.localBounds.extents.x * Mathf.Abs(transform.lossyScale.x);
