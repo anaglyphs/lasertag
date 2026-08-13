@@ -105,8 +105,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 
 		private void Start()
 		{
-			if (MapManager.Instance != null)
-				MapManager.Instance.WorldFrameRebased += OnWorldFrameRebased;
+			MapManager.WorldFrameRebased += OnWorldFrameRebased;
 
 			if (EnvScanner.Instance != null)
 				EnvScanner.Instance.Cleared += OnScanCleared;
@@ -125,8 +124,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 
 		private void OnDestroy()
 		{
-			if (MapManager.Instance != null)
-				MapManager.Instance.WorldFrameRebased -= OnWorldFrameRebased;
+			MapManager.WorldFrameRebased -= OnWorldFrameRebased;
 
 			if (EnvScanner.Instance != null)
 				EnvScanner.Instance.Cleared -= OnScanCleared;

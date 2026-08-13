@@ -86,10 +86,9 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		/// <paramref name="results"/>.
 		///
 		/// With no uuids this returns everything discoverable in the space the headset is standing
-		/// in — saved anchors and the system's own scene entities alike, so callers after anchors
-		/// filter with <see cref="IsStorable"/>. Note that the runtime rejects a discovery filtered
-		/// by the storable component itself: storable is a status set on an anchor, not something
-		/// it indexes entities by, and asking for it fails the whole call with a validation error.
+		/// in — saved anchors and the system's own scene entities alike. Pass the uuids of the
+		/// anchors actually wanted: it is the only way to tell one from the other, and it keeps the
+		/// runtime from handing over entities that are in use.
 		///
 		/// Cancellation reports the request as unanswered rather than throwing.
 		/// </summary>
@@ -148,14 +147,6 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		}
 
 		/// <summary>
-		/// Whether this entity is one an app persisted, which is what separates a saved anchor from
-		/// the scene entities discovery also surfaces.
-		/// </summary>
-		public static bool IsStorable(ulong handle) =>
-			OVRPlugin.GetSpaceComponentStatus(handle, OVRPlugin.SpaceComponentType.Storable,
-				out bool enabled, out _) && enabled;
-
-		/// <summary>
 		/// Turns tracking for this entity on or off. An entity has to be locatable before
 		/// <see cref="IsPositionTracked"/> can say anything about it, and enabling it is what makes
 		/// the runtime go looking for the entity in the current space.
@@ -196,6 +187,17 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		public static bool IsPositionTracked(ulong handle) =>
 			OVRPlugin.TryLocateSpace(handle, OVRPlugin.GetTrackingOriginType(), out _,
 				out OVRPlugin.SpaceLocationFlags flags) && flags.IsPositionTracked();
+
+		/// <summary>
+		/// What the runtime says about locating this entity, in its own terms. A probe that finds
+		/// nothing looks identical whether the locate call is failing outright or the anchors
+		/// really are in another room, and those want opposite fixes.
+		/// </summary>
+		public static string DescribeLocation(ulong handle) =>
+			OVRPlugin.TryLocateSpace(handle, OVRPlugin.GetTrackingOriginType(), out _,
+				out OVRPlugin.SpaceLocationFlags flags)
+				? $"flags {flags}"
+				: "the runtime refused to locate it";
 
 		/// <summary>
 		/// Gives a discovered entity's handle back. The entity itself is untouched — this only ends

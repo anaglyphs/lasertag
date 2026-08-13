@@ -162,16 +162,20 @@ namespace Anaglyph.LaserTag.MapEditor
 		/// Removes this object for everyone. Offline that is a plain destroy; in a session it
 		/// is a request to the authority, which owns every spawned map object.
 		/// </summary>
-		public void TryDelete()
+		public bool TryDelete()
 		{
+			// Routed through the manager offline as well as in a session: it owns the rule about
+			// when the map may be edited, and a local destroy is just as much of an edit.
+			if (MapManager.Instance != null)
+				return MapManager.Instance.RequestRemoveObject(this);
+
 			if (!NetworkManager.IsConnectedClient)
 			{
 				Destroy(gameObject);
-				return;
+				return true;
 			}
 
-			if (MapManager.Instance != null)
-				MapManager.Instance.RequestRemoveObject(this);
+			return false;
 		}
 
 		public bool CanManage()

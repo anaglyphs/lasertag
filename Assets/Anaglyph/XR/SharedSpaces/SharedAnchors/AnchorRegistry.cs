@@ -528,10 +528,15 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		}
 
 		/// <summary>
-		/// Repopulates what <see cref="IsSaved"/> reports by asking the device what it has
-		/// persisted, and reports which of those anchors localize in the space the headset is
-		/// standing in right now. One pass answers both, since the runtime only surfaces what it can
-		/// find around the headset. Probing commits no ARAnchors.
+		/// Reports which of <paramref name="guids"/> localize in the space the headset is standing
+		/// in right now, and refreshes what <see cref="IsSaved"/> reports about them. Probing
+		/// commits no ARAnchors.
+		///
+		/// Only the anchors asked about are touched. An unfiltered pass would take a runtime handle
+		/// to every entity the device holds — including the ones this process already has loaded —
+		/// and giving those handles back ends the runtime's tracking of anchors that are in use.
+		/// An anchor this registry already holds is therefore answered from the anchor itself and
+		/// left out of the discovery entirely.
 		///
 		/// Anchors saved in one space occasionally localize in another, so a non-empty result is a
 		/// strong hint rather than proof of which room this is.
@@ -543,7 +548,8 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		/// whole set. The discovery that precedes it carries
 		/// <see cref="DiscoveryTimeoutSeconds"/> on top.</param>
 		public async Awaitable<HashSet<SerializableGuid>> TryRefreshLocalizableAsync(
-			float probeTimeoutSeconds, CancellationToken ctkn = default)
+			IReadOnlyCollection<SerializableGuid> guids, float probeTimeoutSeconds,
+			CancellationToken ctkn = default)
 		{
 			ThrowIfDisposed();
 
@@ -558,7 +564,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 
 			try
 			{
-				return await EnumerateSavedGuidsAsync(probeTimeoutSeconds, ctkn)
+				return await EnumerateSavedGuidsAsync(guids, probeTimeoutSeconds, ctkn)
 					? new HashSet<SerializableGuid>(lastLocalized)
 					: null;
 			}
@@ -568,11 +574,19 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 			}
 		}
 
-		private async Awaitable<bool> EnumerateSavedGuidsAsync(float probeTimeoutSeconds,
-			CancellationToken ctkn)
+		/// <summary>
+		/// An anchor this process holds with a tracking ARAnchor is being located in this space
+		/// right now, which is the question the probe asks. Nothing about it needs the runtime.
+		/// </summary>
+		private bool IsHeldAndTracking(SerializableGuid guid) =>
+			handles.TryGetValue(guid, out AnchorHandle handle) && handle.anchor != null &&
+			handle.anchor.trackingState == TrackingState.Tracking;
+
+		private async Awaitable<bool> EnumerateSavedGuidsAsync(IReadOnlyCollection<SerializableGuid> guids,
+			float probeTimeoutSeconds, CancellationToken ctkn)
 		{
 			if (metaDiscoveryAvailable)
-				return await DiscoverAndProbeAsync(probeTimeoutSeconds, ctkn);
+				return await DiscoverAndProbeAsync(guids, probeTimeoutSeconds, ctkn);
 
 			// Off Quest, take AR Foundation's own enumeration where the provider implements it.
 			// Nothing localizes: only Meta's runtime can be asked whether an anchor is findable
@@ -615,13 +629,31 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		/// are the same guids AR Foundation addresses anchors by, so results feed straight into
 		/// <see cref="Acquire(SerializableGuid, AnchorSource)"/>.
 		/// </summary>
-		private async Awaitable<bool> DiscoverAndProbeAsync(float probeTimeoutSeconds,
-			CancellationToken ctkn)
+		private async Awaitable<bool> DiscoverAndProbeAsync(IReadOnlyCollection<SerializableGuid> guids,
+			float probeTimeoutSeconds, CancellationToken ctkn)
 		{
+			List<Guid> toDiscover = new(guids.Count);
+
+			foreach (SerializableGuid guid in guids)
+			{
+				if (IsHeldAndTracking(guid))
+				{
+					lastLocalized.Add(guid);
+					continue;
+				}
+
+				toDiscover.Add(guid.guid);
+			}
+
+			// Discovery reads an empty filter as "everything", which is the one thing this must not
+			// ask for. Nothing left to look up is a complete answer, not a failed one.
+			if (toDiscover.Count == 0)
+				return true;
+
 			List<SpatialEntity> discovered = new();
 
 			if (!await MetaSpatialEntities.TryDiscoverAsync(
-				    discovered, null, DiscoveryTimeoutSeconds, ctkn))
+				    discovered, toDiscover, DiscoveryTimeoutSeconds, ctkn))
 			{
 				Debug.LogWarning("Failed to discover saved anchors.");
 				ReleaseAll(discovered);
@@ -634,26 +666,20 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 				return false;
 			}
 
-			// An unfiltered discovery surfaces the system's own scene entities (room mesh, planes)
-			// alongside saved anchors. Storable is what makes an anchor persistable, so it is what
-			// tells the two apart. Handles are kept only for what gets probed.
-			List<SpatialEntity> anchors = new(discovered.Count);
-			savedGuidSet.Clear();
+			// Everything discovered is one of the anchors asked for: discovery enumerates what the
+			// device has persisted, and this one was filtered to ids taken from saved maps. A
+			// uuid that comes back is on this device; one that does not, is not.
+			//
+			// Only the anchors this pass re-answers may be forgotten; the rest of what the device
+			// is known to hold was learned by other passes and is not being retested.
+			foreach (Guid guid in toDiscover)
+				savedGuidSet.Remove(new SerializableGuid(guid));
 
 			foreach (SpatialEntity entity in discovered)
-			{
-				if (!MetaSpatialEntities.IsStorable(entity.handle))
-				{
-					MetaSpatialEntities.Release(entity.handle);
-					continue;
-				}
-
-				anchors.Add(entity);
 				savedGuidSet.Add(new SerializableGuid(entity.uuid));
-			}
 
 			ApplyRefreshCorrections();
-			await ProbeAsync(anchors, probeTimeoutSeconds, ctkn);
+			await ProbeAsync(discovered, probeTimeoutSeconds, ctkn);
 			return true;
 		}
 
@@ -669,14 +695,15 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 			// is why timeoutSeconds bounds the phase rather than each probe.
 			int outstanding = 0;
 			bool counting = true;
+			float probeDeadline = time + timeoutSeconds;
+			List<string> report = new(anchors.Count);
+			int alreadyLocalized = lastLocalized.Count;
 
 			foreach (SpatialEntity entity in anchors)
 			{
 				outstanding++;
 				Probe(entity);
 			}
-
-			float probeDeadline = time + timeoutSeconds;
 
 			try
 			{
@@ -694,30 +721,62 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 			if (ctkn.IsCancellationRequested || disposed)
 				lastLocalized.Clear();
 
+			// A probe that locates nothing is the failure worth explaining, and the runtime's own
+			// account of each anchor is what separates a locate that cannot work at all from a room
+			// that genuinely holds none of them. Anything else is one line.
+			int located = lastLocalized.Count - alreadyLocalized;
+
+			Debug.Log($"Anchor probe: located {located} of {anchors.Count} looked up" +
+				(located == 0 && report.Count > 0 ? "\n  " + string.Join("\n  ", report) : ""));
+
 			async void Probe(SpatialEntity entity)
 			{
+				string outcome = "gave up waiting";
+
 				try
 				{
-					bool enabled = await MetaSpatialEntities.TrySetLocatableAsync(
-						entity.handle, true, timeoutSeconds, ctkn);
-
-					if (counting && enabled && MetaSpatialEntities.IsPositionTracked(entity.handle))
+					if (!await MetaSpatialEntities.TrySetLocatableAsync(
+						    entity.handle, true, timeoutSeconds, ctkn))
 					{
-						SerializableGuid guid = new(entity.uuid);
-						lastLocalized.Add(guid);
-
-						// The runtime just found this anchor, so whatever made its last local load
-						// fail has passed. Waiting out the rest of the backoff would hold up the
-						// load of a map this probe is about to recommend.
-						localRetryAt.Remove(guid);
+						outcome = "could not be made locatable";
+						return;
 					}
+
+					// Enabling locatable only sets the runtime looking; the pose becomes valid
+					// whenever it finds the anchor in this space, which is the whole answer being
+					// waited for. Read once, at the moment the enable resolves, and an anchor
+					// standing in the room reports untracked along with every anchor that is not.
+					while (counting && time < probeDeadline)
+					{
+						if (MetaSpatialEntities.IsPositionTracked(entity.handle))
+						{
+							SerializableGuid guid = new(entity.uuid);
+							lastLocalized.Add(guid);
+
+							// The runtime just found this anchor, so whatever made its last local
+							// load fail has passed. Waiting out the rest of the backoff would hold
+							// up the load of a map this probe is about to recommend.
+							localRetryAt.Remove(guid);
+							outcome = "located";
+							return;
+						}
+
+						outcome = MetaSpatialEntities.DescribeLocation(entity.handle);
+						await Awaitable.NextFrameAsync(ctkn);
+					}
+				}
+				catch (OperationCanceledException)
+				{
+					outcome = "cancelled";
 				}
 				catch (Exception e)
 				{
+					outcome = e.Message;
 					Debug.LogException(e);
 				}
 				finally
 				{
+					report.Add($"{entity.uuid}: {outcome}");
 					outstanding--;
 
 					// A discovered entity holds a runtime handle and, while locatable, keeps the

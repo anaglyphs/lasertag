@@ -87,13 +87,25 @@ namespace Anaglyph.LaserTag.Maps
 			if (!IsAvailable || probeInFlight)
 				return null;
 
+			// Only the anchors the saved maps actually name are asked about. Anything else the
+			// device holds cannot change which map belongs here, and reaching for it would have the
+			// runtime hand over entities that are in use.
+			HashSet<Guid> toTest = new();
+			foreach (GameMap map in MapStore.Maps)
+				foreach (MapAnchorEntry entry in map.anchors)
+					if (MapGuid.TryParse(entry.guid, out Guid guid))
+						toTest.Add(guid);
+
+			if (toTest.Count == 0)
+				return null;
+
 			probeInFlight = true;
 
 			HashSet<Guid> localized;
 			try
 			{
 				localized = await anchorColocationProvider.RefreshLocalizableAsync(
-					probeTimeoutSeconds, ctkn);
+					toTest, probeTimeoutSeconds, ctkn);
 			}
 			finally
 			{
@@ -101,7 +113,13 @@ namespace Anaglyph.LaserTag.Maps
 			}
 
 			if (localized == null)
+			{
+				// Distinct from finding nothing, and the scores are deliberately left untouched:
+				// an unanswered probe must not read as every map being somewhere else.
+				Debug.LogWarning("The anchor runtime could not answer which anchors are in this " +
+					"space; map presence is unchanged.");
 				return null;
+			}
 
 			ctkn.ThrowIfCancellationRequested();
 
@@ -135,15 +153,15 @@ namespace Anaglyph.LaserTag.Maps
 		/// </summary>
 		private void LogResults()
 		{
-			StringBuilder report = new("Map probe — anchors localizing in this space:");
+			StringBuilder report = new("Map probe:");
 
 			foreach (GameMap map in MapStore.GetByLastUsed())
-				report.Append($"\n  {map.name}: ")
+				report.Append($" {map.name} ")
 					.Append(results.TryGetValue(map.id, out int localized)
-						? $"{localized}/{map.anchors.Count}"
-						: "untestable (no anchors)");
+						? $"{localized}/{map.anchors.Count},"
+						: "untestable,");
 
-			Debug.Log(report.ToString());
+			Debug.Log(report.ToString().TrimEnd(','));
 		}
 
 		private static int CountLocalized(GameMap map, HashSet<Guid> localized)

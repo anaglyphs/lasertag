@@ -21,26 +21,38 @@ namespace Anaglyph.LaserTag.NPCs
 		private float noiseSeed;
 		private float baseSpeed;
 
-		private NetworkVariable<ulong> targetIdSync = new(ulong.MaxValue);
-		private NetworkVariable<float> healthSync = new(MatchSettings.MaxHealth);
+		private readonly NetworkVariable<ulong> targetIdSync = new(ulong.MaxValue);
+		private readonly NetworkVariable<float> healthSync = new(MatchSettings.MaxHealth);
 		public float Health => healthSync.Value;
 
-		private PlayerAvatar target;
+		private PlayerAvatar cachedTarget;
+		private ulong cachedTargetId = ulong.MaxValue;
+
+		// re-resolves only when the synced id changes or the cached avatar despawns
+		private PlayerAvatar Target
+		{
+			get
+			{
+				if (cachedTargetId == targetIdSync.Value && cachedTarget)
+					return cachedTarget;
+
+				cachedTargetId = targetIdSync.Value;
+				PlayerAvatar.All.TryGetValue(cachedTargetId, out cachedTarget);
+				return cachedTarget;
+			}
+		}
 
 		private void Awake()
 		{
 			TryGetComponent(out agent);
 			baseSpeed = agent.speed;
 			noiseSeed = Random.Range(0f, 1000f);
-
-			targetIdSync.OnValueChanged += delegate { PlayerAvatar.All.TryGetValue(targetIdSync.Value, out target); };
 		}
 
 		public override void OnNetworkSpawn()
 		{
 			UpdateAgent();
-			healthSync.Value = MatchSettings.MaxHealth;
-			
+
 			MatchReferee.StateChanged += OnMatchStateChange;
 		}
 
@@ -73,20 +85,24 @@ namespace Anaglyph.LaserTag.NPCs
 			if (!IsOwner)
 				return;
 
-			float maxDist = float.MaxValue;
+			ulong nearestId = ulong.MaxValue;
+			float nearestDist = float.MaxValue;
 			foreach (PlayerAvatar avatar in PlayerAvatar.All.Values)
 			{
 				if (!avatar.IsAlive) continue;
 
 				float dist = Vector3.Distance(head.position, avatar.HeadTransform.position);
 
-				if (dist < maxDist)
+				if (dist < nearestDist)
 				{
-					targetIdSync.Value = avatar.OwnerClientId;
-					maxDist = dist;
+					nearestId = avatar.OwnerClientId;
+					nearestDist = dist;
 				}
 			}
 
+			targetIdSync.Value = nearestId;
+
+			PlayerAvatar target = Target;
 			if (target && target.IsAlive)
 			{
 				Vector3 targetPos = target.HeadTransform.position - Vector3.up * 1.5f;
@@ -110,6 +126,7 @@ namespace Anaglyph.LaserTag.NPCs
 
 		private void LateUpdate()
 		{
+			PlayerAvatar target = Target;
 			if (target) head.LookAt(target.HeadTransform);
 		}
 

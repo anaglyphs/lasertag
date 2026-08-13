@@ -119,8 +119,7 @@ namespace Anaglyph.LaserTag
 				spatialAnchorColocationProvider.MintingGate = () =>
 					MapManager.Instance == null || MapManager.Instance.CheckWorldFrameIsTrusted();
 
-			if (MapManager.Instance != null)
-				MapManager.Instance.CurrentMapChanged += OnCurrentMapChanged;
+			MapManager.CurrentMapChanged += OnCurrentMapChanged;
 
 			// Hosts only become discoverable once their world frame is trustworthy: joiners
 			// who arrive earlier would download nothing they can align to.
@@ -133,10 +132,7 @@ namespace Anaglyph.LaserTag
 
 		private void OnDestroy()
 		{
-			if (MapManager.Instance != null)
-			{
-				MapManager.Instance.CurrentMapChanged -= OnCurrentMapChanged;
-			}
+			MapManager.CurrentMapChanged -= OnCurrentMapChanged;
 
 			if (colocator)
 				colocator.SetProvider(null);

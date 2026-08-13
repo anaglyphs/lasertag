@@ -41,7 +41,13 @@ namespace Anaglyph.LaserTag.Maps
 		[SerializeField] private float switchTimeoutSeconds = 20f;
 
 		public GameMap CurrentMap { get; private set; }
-		public event Action<GameMap> CurrentMapChanged = delegate { };
+
+		// Static, all four of them, because they are subscribed to across a scene's wake-up order.
+		// As instance events every subscriber had to guard on Instance already existing, and a
+		// component that woke first silently subscribed to nothing and never heard from the map
+		// layer again. There is only ever one MapManager, so there is nothing an instance event
+		// expressed that these do not.
+		public static event Action<GameMap> CurrentMapChanged = delegate { };
 
 		/// <summary>
 		/// World space has been re-based onto a different map's references. Every pose this
@@ -52,7 +58,24 @@ namespace Anaglyph.LaserTag.Maps
 		/// Deliberately not raised for a map created in place: that map adopts the frame the
 		/// device is already in, so nothing moves.
 		/// </summary>
-		public event Action WorldFrameRebased = delegate { };
+		public static event Action WorldFrameRebased = delegate { };
+
+		/// <summary>Raised as a map change starts and as it finishes.</summary>
+		public static event Action ChangingMapChanged = delegate { };
+
+		/// <summary>Raised when a probe has finished scoring every saved map.</summary>
+		public static event Action ProbeResultsChanged = delegate { };
+
+		// Statics outlive a play session while domain reload is disabled, so subscriptions from
+		// the last one would still be here — pointing at destroyed objects.
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+		private static void ResetStatics()
+		{
+			CurrentMapChanged = delegate { };
+			WorldFrameRebased = delegate { };
+			ChangingMapChanged = delegate { };
+			ProbeResultsChanged = delegate { };
+		}
 
 		private MapObjectDirector objects;
 		private MapColocationAdapter colocation;
@@ -67,11 +90,6 @@ namespace Anaglyph.LaserTag.Maps
 		internal MapColocationAdapter Colocation => colocation;
 
 		public bool IsChangingMap => sessionSync.IsChangingMap;
-		public event Action ChangingMapChanged
-		{
-			add => sessionSync.ChangingMapChanged += value;
-			remove => sessionSync.ChangingMapChanged -= value;
-		}
 
 		public IReadOnlyDictionary<string, int> ProbeResults => discovery.Results;
 
@@ -82,11 +100,6 @@ namespace Anaglyph.LaserTag.Maps
 		/// answers <see cref="MapPresence.Here"/> for.
 		/// </summary>
 		public MapPresence GetMapPresence(string id) => discovery.GetPresence(id);
-		public event Action ProbeResultsChanged
-		{
-			add => discovery.ResultsChanged += value;
-			remove => discovery.ResultsChanged -= value;
-		}
 
 		private void Awake()
 		{
@@ -124,17 +137,30 @@ namespace Anaglyph.LaserTag.Maps
 			colocation.Register();
 			sessionSync.Register();
 
+			sessionSync.ChangingMapChanged += RaiseChangingMapChanged;
+			discovery.ResultsChanged += RaiseProbeResultsChanged;
+
 			SyncBus.Deactivated += OnBusDeactivated;
 			MapObject.LocalEditOccurred += MarkMapContentChanged;
 			MapObject.Added += OnMapObjectChanged;
 			MapObject.Removed += OnMapObjectChanged;
 		}
 
-		private void Start()
-		{
-			if (discovery.IsAvailable)
-				StartupProbe(lifetimeCtknSrc.Token);
-		}
+		// Deliberately ungated. The anchor subsystem is often not created yet this early — which is
+		// what the wait inside is for — and asking here whether a probe is possible would answer
+		// for a frame the probe does not run in. ProbeAndAutoLoad decides, after the wait.
+		private void Start() => StartupProbe(lifetimeCtknSrc.Token);
+
+		/// <summary>
+		/// Which saved map belongs in this room is only this device's question to ask while it is
+		/// on its own: in a session the map is the host's either way. A probe also sets the runtime
+		/// looking for anchors, so staying out of a session keeps it away from the ones that
+		/// session is aligned to.
+		/// </summary>
+		private bool CanProbe => discovery.IsAvailable && !SyncBus.Active;
+
+		private static void RaiseChangingMapChanged() => ChangingMapChanged.Invoke();
+		private static void RaiseProbeResultsChanged() => ProbeResultsChanged.Invoke();
 
 		private void OnDestroy()
 		{
@@ -152,6 +178,9 @@ namespace Anaglyph.LaserTag.Maps
 			MapObject.Added -= OnMapObjectChanged;
 			MapObject.LocalEditOccurred -= MarkMapContentChanged;
 			SyncBus.Deactivated -= OnBusDeactivated;
+
+			discovery.ResultsChanged -= RaiseProbeResultsChanged;
+			sessionSync.ChangingMapChanged -= RaiseChangingMapChanged;
 
 			sessionSync.Unregister();
 			colocation.Unregister();
@@ -194,6 +223,17 @@ namespace Anaglyph.LaserTag.Maps
 
 			return CheckFrameAgreement();
 		}
+
+		/// <summary>
+		/// Whether an edit may be written into the current map right now. An edit records a world
+		/// pose, so it is only meaningful once world space is this map's frame — mid-alignment, or
+		/// on a map whose references are not in this room, every pose would be recorded against a
+		/// frame that was never fitted.
+		///
+		/// With no map loaded there is nothing to disagree with: the map the edit mints adopts the
+		/// frame the device is already standing in, which is what makes the first placement work.
+		/// </summary>
+		public bool CheckCanEditMap() => CurrentMap == null || CheckWorldFrameIsTrusted();
 
 		private bool CheckFrameAgreement()
 		{
@@ -250,6 +290,15 @@ namespace Anaglyph.LaserTag.Maps
 				return false;
 			}
 
+			// The same rules the UI greys the button with. Enforced here too, because the button
+			// is not the only caller and a rule that only a disabled control upholds is not a rule.
+			string blocker = DescribeChangeBlocker(id);
+			if (blocker != null)
+			{
+				Debug.LogWarning($"Cannot load map: {blocker}.");
+				return false;
+			}
+
 			if (!MapStore.TryGet(id, out GameMap map))
 				return false;
 
@@ -277,6 +326,13 @@ namespace Anaglyph.LaserTag.Maps
 				return "Map is missing";
 			if (CurrentMap != null && CurrentMap.id == id)
 				return "Already loaded";
+
+			// Loading a map means adopting its frame, and a map the probe found in a different
+			// physical space has no frame to adopt here: its references never localize, so the
+			// device holds in an untrusted frame indefinitely. Only a positive answer blocks —
+			// an untested map is not known to be anywhere.
+			if (GetMapPresence(id) == MapPresence.Elsewhere)
+				return "Map belongs to another room";
 
 			if (!SyncBus.Active)
 				return null;
@@ -511,10 +567,27 @@ namespace Anaglyph.LaserTag.Maps
 
 		// ------- map objects -------------------------------------
 
-		public void RequestPlaceObject(MapObject prefab, Vector3 position, Quaternion rotation) =>
-			objects.RequestPlace(prefab, position, rotation);
+		public bool RequestPlaceObject(MapObject prefab, Vector3 position, Quaternion rotation)
+		{
+			if (!CheckCanEditMap())
+				return false;
 
-		public void RequestRemoveObject(MapObject obj) => objects.RequestRemove(obj);
+			objects.RequestPlace(prefab, position, rotation);
+			return true;
+		}
+
+		/// <summary>
+		/// Held to the same rule as placing: the save that follows a removal snapshots every
+		/// object that survived it, so an untrusted frame would be written into all of them.
+		/// </summary>
+		public bool RequestRemoveObject(MapObject obj)
+		{
+			if (!CheckCanEditMap())
+				return false;
+
+			objects.RequestRemove(obj);
+			return true;
+		}
 
 		// ------- tag authoring -----------------------------------
 
@@ -570,7 +643,7 @@ namespace Anaglyph.LaserTag.Maps
 		{
 			try
 			{
-				await Awaitable.WaitForSecondsAsync(5f, ctkn);
+				await Awaitable.WaitForSecondsAsync(1f, ctkn);
 				await ProbeAndAutoLoad(ctkn);
 			}
 			catch (OperationCanceledException)
@@ -585,6 +658,11 @@ namespace Anaglyph.LaserTag.Maps
 		/// <summary>Loads the most recently used map that localizes in this physical space.</summary>
 		public async Awaitable ProbeAndAutoLoad(CancellationToken ctkn = default)
 		{
+			// The only place this is asked, and only once the wait is over: before it the anchor
+			// subsystem may not exist yet, and a session may have started since.
+			if (!CanProbe)
+				return;
+
 			GameMap found = await discovery.ProbeAsync(stopAtFirstLocalized: true, ctkn);
 
 			if (found != null && CurrentMap == null && !SyncBus.Active)
@@ -594,6 +672,9 @@ namespace Anaglyph.LaserTag.Maps
 		/// <summary>Refreshes <see cref="ProbeResults"/> for every saved map.</summary>
 		public async Awaitable ProbeAllMaps(CancellationToken ctkn = default)
 		{
+			if (!CanProbe)
+				return;
+
 			await discovery.ProbeAsync(stopAtFirstLocalized: false, ctkn);
 		}
 	}

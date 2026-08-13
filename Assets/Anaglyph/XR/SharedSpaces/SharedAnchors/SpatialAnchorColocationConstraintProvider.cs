@@ -626,19 +626,23 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		}
 
 		/// <summary>
-		/// Asks the device which anchors it holds around the headset, and which of those localize in
-		/// the physical space it is standing in. Null where the runtime could not answer, which
-		/// leaves <see cref="IsAnchorSaved"/> reporting only what this process has seen first-hand
-		/// — not enough to conclude an anchor is absent.
+		/// Asks the device which of <paramref name="guids"/> localize in the physical space it is
+		/// standing in. Null where the runtime could not answer, which leaves
+		/// <see cref="IsAnchorSaved"/> reporting only what this process has seen first-hand — not
+		/// enough to conclude an anchor is absent.
 		/// </summary>
-		public async Awaitable<HashSet<Guid>> RefreshLocalizableAsync(float probeTimeoutSeconds,
-			CancellationToken ctkn = default)
+		public async Awaitable<HashSet<Guid>> RefreshLocalizableAsync(IReadOnlyCollection<Guid> guids,
+			float probeTimeoutSeconds, CancellationToken ctkn = default)
 		{
-			if (!IsAvailable)
+			if (!IsAvailable || guids == null || guids.Count == 0)
 				return null;
 
+			List<SerializableGuid> requested = new(guids.Count);
+			foreach (Guid guid in guids)
+				requested.Add(ToSerializable(guid));
+
 			HashSet<SerializableGuid> found =
-				await registry.TryRefreshLocalizableAsync(probeTimeoutSeconds, ctkn);
+				await registry.TryRefreshLocalizableAsync(requested, probeTimeoutSeconds, ctkn);
 
 			if (found == null)
 				return null;

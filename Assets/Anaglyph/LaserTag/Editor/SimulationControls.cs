@@ -1,5 +1,7 @@
 #if UNITY_EDITOR
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Anaglyph.Netcode;
 using Anaglyph.Permissions;
 using Anaglyph.XR.DepthKit.EnvScanning;
@@ -7,6 +9,7 @@ using Unity.Multiplayer.PlayMode;
 using Unity.Netcode;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.SceneManagement;
 using UnityEngine.XR.Interaction.Toolkit.Inputs.Simulation;
 
@@ -85,6 +88,11 @@ namespace Anaglyph.LaserTag.Editor
 			EditorGUILayout.LabelField("Simulation", EditorStyles.boldLabel);
 
 			DrawToggle("Hide simulation rig from scene view", PlayModeSimulationVisibility.Setting);
+			
+			EditorGUILayout.Space();
+			EditorGUILayout.LabelField("Map", EditorStyles.boldLabel);
+			
+			DrawToggle("Spawn red & blue bases", BaseSpawner.Setting);
 		}
 
 		private static void DrawToggle(string label, PlayModeSetting setting)
@@ -444,6 +452,37 @@ namespace Anaglyph.LaserTag.Editor
 			{
 				if (hide) visibility.Hide(simulator.gameObject, true);
 				else visibility.Show(simulator.gameObject, true);
+			}
+		}
+	}
+
+	// [InitializeOnLoad]
+	public static class BaseSpawner
+	{
+		public static readonly PlayModeSetting Setting = new("Anaglyph.PlayMode.SpawnBases");
+		
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+		static void Init()
+		{
+			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
+		}
+
+		private static void OnNetcodeStateChanged(NetcodeState state)
+		{
+			if (!Setting.Value)
+				return;
+			
+			NetworkManager manager = NetworkManager.Singleton;
+
+			if (manager.IsConnectedClient && manager.IsHost)
+			{
+				IReadOnlyList<NetworkPrefab> prefabList = manager.NetworkConfig.Prefabs.NetworkPrefabsLists[0].PrefabList;
+				
+				GameObject blueBase = prefabList.FirstOrDefault(x => x.Prefab.name.Equals("Base Blue")).Prefab;
+				GameObject redBase = prefabList.FirstOrDefault(x => x.Prefab.name.Equals("Base Red")).Prefab;
+				
+				NetworkObject.InstantiateAndSpawn(blueBase, manager, manager.LocalClientId, true, false, false, Vector3.right, Quaternion.identity);
+				NetworkObject.InstantiateAndSpawn(redBase, manager, manager.LocalClientId, true, false, false, Vector3.left, Quaternion.identity);
 			}
 		}
 	}

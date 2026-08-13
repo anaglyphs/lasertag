@@ -79,7 +79,7 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   head: {fileID: 7436447841320324849}
   damageDist: 0.5
-  strafeDistance: 2
+  strafeDistance: 10
   strafeFrequency: 1
   speedVariation: 0.5
 --- !u!195 &5269422346085259457
@@ -92,7 +92,7 @@ NavMeshAgent:
   m_Enabled: 1
   m_AgentTypeID: 0
   m_Radius: 0.2
-  m_Speed: 3.5
+  m_Speed: 4
   m_Acceleration: 16
   avoidancePriority: 50
   m_AngularSpeed: 270

@@ -97,12 +97,11 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 				return false;
 
 			MapObject mapObj = hitObj.GetComponentInParent<MapObject>();
-			mapObj?.TryDelete();
+			if (mapObj == null || !mapObj.TryDelete())
+				return false;
 
-			if (mapObj != null)
-				MapObject.NotifyLocalEdit();
-
-			return mapObj != null;
+			MapObject.NotifyLocalEdit();
+			return true;
 		}
 
 		public bool TryPlace()
@@ -113,7 +112,9 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			if (!Raycast(out Vector3 hitPos))
 				return false;
 
-			SpawnMapObject(currentSpawnObject, hitPos, GetSpawnRotation());
+			if (!SpawnMapObject(currentSpawnObject, hitPos, GetSpawnRotation()))
+				return false;
+
 			MapObject.NotifyLocalEdit();
 
 			return true;
@@ -121,6 +122,11 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 
 		public bool TryGrab()
 		{
+			// Moving an object records a new world pose, so it is held to the same rule as
+			// placing one.
+			if (MapManager.Instance != null && !MapManager.Instance.CheckCanEditMap())
+				return false;
+
 			if (!Raycast(out RaycastHit hit)) return false;
 
 			grabbedObject = hit.collider.GetComponentInParent<MapObject>();
@@ -146,9 +152,13 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			grabbedObject = null;
 		}
 
+		// Also drives the placement preview, so an edit the map manager would refuse shows as
+		// nothing to place rather than as a press that does nothing.
 		private bool CheckCanPlace()
 		{
-			return currentSpawnObject != null && !handSubject.Current.InputBlocked && this == DominantHand;
+			return currentSpawnObject != null && !handSubject.Current.InputBlocked &&
+				this == DominantHand &&
+				(MapManager.Instance == null || MapManager.Instance.CheckCanEditMap());
 		}
 
 		private void LateUpdate()
@@ -283,10 +293,10 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			typeof(TeamColorer), typeof(TeamOwner)
 		};
 
-		public static void SpawnMapObject(MapObject prefab, Vector3 position,
+		public static bool SpawnMapObject(MapObject prefab, Vector3 position,
 			Quaternion rotation = default)
 		{
-			if (MapManager.Instance != null)
+			return MapManager.Instance != null &&
 				MapManager.Instance.RequestPlaceObject(prefab, position, rotation);
 		}
 

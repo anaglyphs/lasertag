@@ -21,6 +21,7 @@ namespace Anaglyph.LaserTag.Interface
 		private Label currentMapLabel;
 		private Button newMapButton;
 		private Button probeButton;
+		private Button openPageButton;
 		private Button loadButton;
 		private Button deleteButton;
 		private ScrollView mapList;
@@ -30,10 +31,6 @@ namespace Anaglyph.LaserTag.Interface
 
 		// Deleting is destructive; the first press only arms the button.
 		private bool armedDelete;
-
-		// Maps the probe placed in another room are hidden. Deleting one is the reason to be able
-		// to see it anyway, so the line that says how many are hidden is also what reveals them.
-		private bool showMapsFromOtherRooms;
 
 		private void OnEnable()
 		{
@@ -50,6 +47,12 @@ namespace Anaglyph.LaserTag.Interface
 			deleteButton = Require<Button>(root, "delete-map-button");
 			mapList = Require<ScrollView>(root, "map-list");
 
+			// Opening the page is the moment the answer is wanted, and the startup probe may not
+			// have run yet or may be describing a room the headset has since left.
+			openPageButton = root.Q<Button>("manage-map-button");
+			if (openPageButton != null)
+				openPageButton.clicked += OnProbeClicked;
+
 			newMapButton.clicked += OnNewMapClicked;
 			probeButton.clicked += OnProbeClicked;
 			loadButton.clicked += OnLoadClicked;
@@ -57,28 +60,24 @@ namespace Anaglyph.LaserTag.Interface
 
 			MapStore.Changed += Rebuild;
 			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
-
-			if (MapManager.Instance != null)
-			{
-				MapManager.Instance.CurrentMapChanged += OnCurrentMapChanged;
-				MapManager.Instance.ProbeResultsChanged += Rebuild;
-				MapManager.Instance.ChangingMapChanged += Rebuild;
-			}
+			MapManager.CurrentMapChanged += OnCurrentMapChanged;
+			MapManager.ProbeResultsChanged += Rebuild;
+			MapManager.ChangingMapChanged += Rebuild;
 
 			Rebuild();
 		}
 
 		private void OnDisable()
 		{
-			if (MapManager.Instance != null)
-			{
-				MapManager.Instance.ChangingMapChanged -= Rebuild;
-				MapManager.Instance.ProbeResultsChanged -= Rebuild;
-				MapManager.Instance.CurrentMapChanged -= OnCurrentMapChanged;
-			}
+			MapManager.ChangingMapChanged -= Rebuild;
+			MapManager.ProbeResultsChanged -= Rebuild;
+			MapManager.CurrentMapChanged -= OnCurrentMapChanged;
 
 			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
 			MapStore.Changed -= Rebuild;
+
+			if (openPageButton != null)
+				openPageButton.clicked -= OnProbeClicked;
 
 			newMapButton.clicked -= OnNewMapClicked;
 			probeButton.clicked -= OnProbeClicked;
@@ -135,7 +134,11 @@ namespace Anaglyph.LaserTag.Interface
 			if (MapManager.Instance == null)
 				return;
 
+			// The probe takes tens of seconds, and until it answers the list is showing every saved
+			// map because none of them are known to be anywhere. Say so, rather than let that read
+			// as the filter being broken.
 			probeButton.SetEnabled(false);
+			probeButton.text = "Checking…";
 
 			try
 			{
@@ -150,7 +153,11 @@ namespace Anaglyph.LaserTag.Interface
 			}
 			finally
 			{
-				probeButton?.SetEnabled(true);
+				if (probeButton != null)
+				{
+					probeButton.text = "Check";
+					probeButton.SetEnabled(true);
+				}
 			}
 		}
 
@@ -179,13 +186,11 @@ namespace Anaglyph.LaserTag.Interface
 			// space cannot be loaded here, so offering it is offering a load that never aligns.
 			// Only a map actually tested and placed elsewhere is hidden — an untested one is not
 			// known to be anywhere.
-			if (!showMapsFromOtherRooms && manager != null)
-				maps.RemoveAll(m => m.id != selectedMapId && !(current != null && current.id == m.id)
-					&& manager.GetMapPresence(m.id) == MapPresence.Elsewhere);
+			if (manager != null)
+				maps.RemoveAll(m => manager.GetMapPresence(m.id) == MapPresence.Elsewhere);
 
-			int hidden = total - maps.Count;
-
-			// A deleted map leaves the selection dangling.
+			// Deleted, or hidden as belonging to another room: either way the selection is now
+			// naming a row nobody can see, and every control below acts on the selection.
 			if (selectedMapId != null && !maps.Exists(m => m.id == selectedMapId))
 			{
 				selectedMapId = null;
@@ -219,21 +224,6 @@ namespace Anaglyph.LaserTag.Interface
 				mapList.Add(row);
 			}
 
-			if (hidden > 0 || showMapsFromOtherRooms)
-			{
-				Button toggle = new(() =>
-				{
-					showMapsFromOtherRooms = !showMapsFromOtherRooms;
-					Rebuild();
-				})
-				{
-					text = showMapsFromOtherRooms
-						? "Hide maps from other rooms"
-						: $"{hidden} map{(hidden == 1 ? "" : "s")} from other rooms — show"
-				};
-				toggle.AddToClassList("map-row");
-				mapList.Add(toggle);
-			}
 
 			// The host may change the session's map between rounds; MapManager owns the rules,
 			// and reports the one that blocks so the disabled button can say why.
@@ -261,16 +251,10 @@ namespace Anaglyph.LaserTag.Interface
 
 			text += $"  ·  {DescribeAge(map.lastUsed)}";
 
-			switch (manager != null ? manager.GetMapPresence(map.id) : MapPresence.Unknown)
-			{
-				case MapPresence.Here:
-					text += "  ·  in this room";
-					break;
-
-				case MapPresence.Elsewhere:
-					text += "  ·  another room";
-					break;
-			}
+			// Only the positive answer is worth saying: a map found in another room is not in the
+			// list to be labelled, and an untested one has nothing to report.
+			// if (manager != null && manager.GetMapPresence(map.id) == MapPresence.Here)
+			// 	text += "  ·  in this room";
 
 			if (isCurrent)
 				text += "  ·  loaded";
