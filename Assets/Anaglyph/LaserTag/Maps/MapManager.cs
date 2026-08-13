@@ -74,6 +74,14 @@ namespace Anaglyph.LaserTag.Maps
 		}
 
 		public IReadOnlyDictionary<string, int> ProbeResults => discovery.Results;
+
+		/// <summary>
+		/// Whether a saved map's references were found in the space this device is standing in.
+		/// The one rule for "belongs here": the map list hides what it answers
+		/// <see cref="MapPresence.Elsewhere"/> for, and the startup auto-load only takes a map it
+		/// answers <see cref="MapPresence.Here"/> for.
+		/// </summary>
+		public MapPresence GetMapPresence(string id) => discovery.GetPresence(id);
 		public event Action ProbeResultsChanged
 		{
 			add => discovery.ResultsChanged += value;
@@ -562,7 +570,7 @@ namespace Anaglyph.LaserTag.Maps
 		{
 			try
 			{
-				await Awaitable.WaitForSecondsAsync(3f, ctkn);
+				await Awaitable.WaitForSecondsAsync(5f, ctkn);
 				await ProbeAndAutoLoad(ctkn);
 			}
 			catch (OperationCanceledException)

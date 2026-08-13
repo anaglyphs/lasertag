@@ -31,6 +31,10 @@ namespace Anaglyph.LaserTag.Interface
 		// Deleting is destructive; the first press only arms the button.
 		private bool armedDelete;
 
+		// Maps the probe placed in another room are hidden. Deleting one is the reason to be able
+		// to see it anyway, so the line that says how many are hidden is also what reveals them.
+		private bool showMapsFromOtherRooms;
+
 		private void OnEnable()
 		{
 			UIDocument document = GetComponent<UIDocument>();
@@ -169,6 +173,17 @@ namespace Anaglyph.LaserTag.Interface
 			mapList.Clear();
 
 			List<GameMap> maps = MapStore.GetByLastUsed();
+			int total = maps.Count;
+
+			// The point of the list: a map whose references the probe found in a different physical
+			// space cannot be loaded here, so offering it is offering a load that never aligns.
+			// Only a map actually tested and placed elsewhere is hidden — an untested one is not
+			// known to be anywhere.
+			if (!showMapsFromOtherRooms && manager != null)
+				maps.RemoveAll(m => m.id != selectedMapId && !(current != null && current.id == m.id)
+					&& manager.GetMapPresence(m.id) == MapPresence.Elsewhere);
+
+			int hidden = total - maps.Count;
 
 			// A deleted map leaves the selection dangling.
 			if (selectedMapId != null && !maps.Exists(m => m.id == selectedMapId))
@@ -177,9 +192,15 @@ namespace Anaglyph.LaserTag.Interface
 				armedDelete = false;
 			}
 
-			if (maps.Count == 0)
+			if (total == 0)
 			{
 				Label empty = new("No saved maps yet. Place an object to start one.");
+				empty.AddToClassList("body-copy");
+				mapList.Add(empty);
+			}
+			else if (maps.Count == 0)
+			{
+				Label empty = new("No saved maps belong to this room. Place an object to start one.");
 				empty.AddToClassList("body-copy");
 				mapList.Add(empty);
 			}
@@ -196,6 +217,22 @@ namespace Anaglyph.LaserTag.Interface
 				row.AddToClassList("map-row");
 				row.EnableInClassList("selected", selectedMapId == id);
 				mapList.Add(row);
+			}
+
+			if (hidden > 0 || showMapsFromOtherRooms)
+			{
+				Button toggle = new(() =>
+				{
+					showMapsFromOtherRooms = !showMapsFromOtherRooms;
+					Rebuild();
+				})
+				{
+					text = showMapsFromOtherRooms
+						? "Hide maps from other rooms"
+						: $"{hidden} map{(hidden == 1 ? "" : "s")} from other rooms — show"
+				};
+				toggle.AddToClassList("map-row");
+				mapList.Add(toggle);
 			}
 
 			// The host may change the session's map between rounds; MapManager owns the rules,
@@ -224,9 +261,16 @@ namespace Anaglyph.LaserTag.Interface
 
 			text += $"  ·  {DescribeAge(map.lastUsed)}";
 
-			// if (manager != null &&
-			//     manager.ProbeResults.TryGetValue(map.id, out int localized) && localized > 0)
-			// 	text += "  ·  in this room";
+			switch (manager != null ? manager.GetMapPresence(map.id) : MapPresence.Unknown)
+			{
+				case MapPresence.Here:
+					text += "  ·  in this room";
+					break;
+
+				case MapPresence.Elsewhere:
+					text += "  ·  another room";
+					break;
+			}
 
 			if (isCurrent)
 				text += "  ·  loaded";

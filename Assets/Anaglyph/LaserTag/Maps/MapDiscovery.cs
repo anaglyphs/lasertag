@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading;
 using Anaglyph.XR.SharedSpaces.SharedAnchors;
 using UnityEngine;
@@ -7,15 +8,29 @@ using UnityEngine;
 namespace Anaglyph.LaserTag.Maps
 {
 	/// <summary>
+	/// Where a map stands relative to the space the headset is in. <see cref="Unknown"/> is a
+	/// third answer, not a soft no: a map nothing has been able to test — never probed, no
+	/// anchors to test with, or no runtime that can answer — must not be treated as belonging
+	/// somewhere else.
+	/// </summary>
+	public enum MapPresence
+	{
+		Unknown,
+		Here,
+		Elsewhere,
+	}
+
+	/// <summary>
 	/// Works out which saved maps belong to the physical space the headset is standing in, by
 	/// asking the runtime once which of this device's anchors localize here and scoring each map
 	/// against that set. A non-empty result is a strong hint rather than proof — anchors saved in
 	/// one room occasionally localize in another — so the answer feeds auto-load and the map
 	/// picker, not a hard gate.
 	///
-	/// A map with no anchors cannot be tested this way and always scores zero. That covers a tag
-	/// map on a device that has never realized any of its tags: nothing about it is knowable from
-	/// here until it sees one.
+	/// A map with no anchors cannot be tested this way at all, and comes back
+	/// <see cref="MapPresence.Unknown"/> rather than scored. That covers a tag map on a device
+	/// that has never realized any of its tags: nothing about it is knowable from here until it
+	/// sees one, and a zero would read as a positive answer that it is somewhere else.
 	/// </summary>
 	internal sealed class MapDiscovery
 	{
@@ -34,6 +49,19 @@ namespace Anaglyph.LaserTag.Maps
 		public event Action ResultsChanged = delegate { };
 
 		public bool IsAvailable => anchorColocationProvider && anchorColocationProvider.IsAvailable;
+
+		/// <summary>
+		/// What the last probe says about this map. Only a map that was actually tested — one with
+		/// anchors, scored by a pass that completed — gets an answer other than
+		/// <see cref="MapPresence.Unknown"/>.
+		/// </summary>
+		public MapPresence GetPresence(string mapId)
+		{
+			if (mapId == null || !results.TryGetValue(mapId, out int localized))
+				return MapPresence.Unknown;
+
+			return localized > 0 ? MapPresence.Here : MapPresence.Elsewhere;
+		}
 
 		public void Forget(string mapId)
 		{
@@ -81,13 +109,41 @@ namespace Anaglyph.LaserTag.Maps
 
 			foreach (GameMap map in MapStore.GetByLastUsed())
 			{
-				Record(map.id, CountLocalized(map, localized));
+				// Nothing to test with means nothing was learned. Recording a zero would read as
+				// "not in this room" and hide the map everywhere the score is consulted.
+				if (map.anchors.Count == 0)
+				{
+					results.Remove(map.id);
+					continue;
+				}
 
-				if (best == null && stopAtFirstLocalized && results[map.id] > 0)
+				int localizedCount = CountLocalized(map, localized);
+				results[map.id] = localizedCount;
+
+				if (best == null && stopAtFirstLocalized && localizedCount > 0)
 					best = map;
 			}
 
+			LogResults();
+			ResultsChanged.Invoke();
 			return best;
+		}
+
+		/// <summary>
+		/// The probe decides which map the device loads on its own, so what it found has to be
+		/// readable from a device log when it picks the wrong one.
+		/// </summary>
+		private void LogResults()
+		{
+			StringBuilder report = new("Map probe — anchors localizing in this space:");
+
+			foreach (GameMap map in MapStore.GetByLastUsed())
+				report.Append($"\n  {map.name}: ")
+					.Append(results.TryGetValue(map.id, out int localized)
+						? $"{localized}/{map.anchors.Count}"
+						: "untestable (no anchors)");
+
+			Debug.Log(report.ToString());
 		}
 
 		private static int CountLocalized(GameMap map, HashSet<Guid> localized)
@@ -99,12 +155,6 @@ namespace Anaglyph.LaserTag.Maps
 					count++;
 
 			return count;
-		}
-
-		private void Record(string mapId, int localizedCount)
-		{
-			results[mapId] = localizedCount;
-			ResultsChanged.Invoke();
 		}
 	}
 }
