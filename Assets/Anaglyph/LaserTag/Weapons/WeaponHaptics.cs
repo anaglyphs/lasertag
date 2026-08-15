@@ -1,53 +1,50 @@
 using Anaglyph.XR.Input;
 using Oculus.Haptics;
+using StrikerLink.Unity.Runtime.HapticEngine;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.XR;
 
 namespace Anaglyph.LaserTag.Weapons
 {
 	public class WeaponHaptics : MonoBehaviour
 	{
+		// matches the device StrikerInputDevice reads input from
+		private const int StrikerDeviceIndex = 0;
+
 		[SerializeField] private HandSubject hand;
-		[SerializeField] private HapticClip clip;
-		[SerializeField] private bool loop;
+		[FormerlySerializedAs("clip")] [SerializeField] private HapticClip controllerClip;
+		[SerializeField] private HapticEffectAsset strikerClip;
 
-		private HapticSource source;
+		private HapticSource controllerHapticSource;
 
-		private void OnEnable()
+		private void Awake()
 		{
-			hand.Changed += OnHandChanged;
-			OnHandChanged(hand.Current);
-		}
+			if (Application.isEditor || !XRSettings.isDeviceActive) return;
 
-		private void OnDisable()
-		{
-			hand.Changed -= OnHandChanged;
-		}
-
-		private void OnHandChanged(HandInput current)
-		{
-			#if UNITY_EDITOR
-			return;
-			#endif
-			
-			if (current == null || !XRSettings.isDeviceActive)
-				return;
-			
-			if (source == null)
-			{
-				source = gameObject.AddComponent<HapticSource>();
-				source.clip = clip;
-				source.loop = loop;
-			}
-
-			source.controller = current.Handedness == Handedness.Left
-				? Controller.Left
-				: Controller.Right;
+			controllerHapticSource = gameObject.AddComponent<HapticSource>();
+			controllerHapticSource.clip = controllerClip;
 		}
 
 		public void Play()
 		{
-			source?.Play();
+			if (hand.Current == null) return;
+
+			Handedness handedness = hand.Current.Handedness;
+
+			if (MountedPeripheral.IsMountedOn(handedness))
+			{
+				strikerClip.Fire(StrikerDeviceIndex);
+				return;
+			}
+
+			if (controllerHapticSource == null) return;
+
+			controllerHapticSource.controller = handedness == Handedness.Left
+				? Controller.Left
+				: Controller.Right;
+
+			controllerHapticSource.Play();
 		}
 	}
 }

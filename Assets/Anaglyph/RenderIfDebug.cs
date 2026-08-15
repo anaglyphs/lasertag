@@ -5,17 +5,17 @@ namespace Anaglyph
 {
 	public class RenderIfDebug : MonoBehaviour
 	{
-		private Renderer renderer;
+		private Renderer rend;
 
 		private void Awake()
 		{
-			renderer = GetComponent<Renderer>();
+			rend = GetComponent<Renderer>();
 		}
 
 		private void OnEnable()
 		{
 			AnaglyphDebugging.DebugModeChanged += OnDebugModeChanged;
-			renderer.enabled = AnaglyphDebugging.DebugMode;
+			rend.enabled = AnaglyphDebugging.DebugMode;
 		}
 
 		private void OnDisable()
@@ -25,7 +25,7 @@ namespace Anaglyph
 
 		private void OnDebugModeChanged(bool on)
 		{
-			renderer.enabled = on;
+			rend.enabled = on;
 		}
 	}
 }

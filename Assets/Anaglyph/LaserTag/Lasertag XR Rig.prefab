@@ -1044,7 +1044,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7254734392762225021, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       propertyPath: m_Name
-      value: XR Rig
+      value: Lasertag XR Rig
       objectReference: {fileID: 0}
     m_RemovedComponents:
     - {fileID: 2425337985288985396, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
@@ -1092,6 +1092,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 7254734392762225021, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 8927098807350067556}
+    - targetCorrespondingSourceObject: {fileID: 7254734392762225021, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 466837788018021897}
     - targetCorrespondingSourceObject: {fileID: 7254734392762225021, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 4467235513011152622}
@@ -1993,6 +1996,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.StrikerSupport::StrikerInputDevice
   peripheral: {fileID: 11400000, guid: e4bfeda9ad4574075b10c91f9e503acb, type: 2}
+--- !u!114 &466837788018021897
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5922542169172391784}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7afe265a0a5a7dc46bd253a40d148180, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Lasertag.ControllerSupport::Anaglyph.LaserTag.ControllerSupport.StrikerLEDColorer
 --- !u!114 &4467235513011152622
 MonoBehaviour:
   m_ObjectHideFlags: 0
