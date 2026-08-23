@@ -1,19 +1,101 @@
-#if UNITY_EDITOR
-
-using System.Text.RegularExpressions;
+using System;
 using Anaglyph.LaserTag.Matches;
 using Anaglyph.LaserTag.Player;
 using Anaglyph.LaserTag.Player.Teams;
 using Anaglyph.Netcode;
-using Anaglyph.XR.SharedSpaces.AprilTags;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
-using UnityEditor;
 using UnityEngine;
+
+#if UNITY_EDITOR
+using UnityEditor;
 using UnityEngine.UIElements;
+#endif
 
 namespace Anaglyph.LaserTag.Operator
 {
+	/// <summary>
+	/// Runtime-compatible operations used by the desktop host UI. Keeping these
+	/// outside the EditorWindow lets a future desktop player UI use the same host
+	/// path without depending on UnityEditor.
+	/// </summary>
+	public static class DesktopHostController
+	{
+		public static bool TryStartHost(bool useRelay, bool useAprilTags,
+			float aprilTagSizeCm, out string error)
+		{
+			error = "";
+
+			if (NetcodeManagement.State != NetcodeState.Disconnected)
+			{
+				error = "The network session is already starting or connected.";
+				return false;
+			}
+
+			if (NetworkManager.Singleton == null)
+			{
+				error = "The NetworkManager has not been created yet.";
+				return false;
+			}
+
+			ColocationManager colocation = ColocationManager.Instance;
+			if (colocation == null)
+			{
+				error = "The ColocationManager has not been created yet.";
+				return false;
+			}
+
+			if (colocation.TagProvider != null)
+				colocation.TagProvider.HostTagSizeCm = Mathf.Max(0f, aprilTagSizeCm);
+			else if (useAprilTags)
+			{
+				error = "AprilTag colocation is selected, but no AprilTag provider is configured.";
+				return false;
+			}
+
+			colocation.methodHostSetting = useAprilTags
+				? ColocationManager.ColocationMethod.AprilTag
+				: ColocationManager.ColocationMethod.MetaSharedAnchor;
+
+			PlayerAvatarSpawner.Instance?.SetIsParticipating(false);
+
+			try
+			{
+				NetcodeManagement.Host(useRelay
+					? NetcodeManagement.Protocol.UnityService
+					: NetcodeManagement.Protocol.LAN);
+				return true;
+			}
+			catch (Exception exception)
+			{
+				error = $"Could not start the host: {exception.Message}";
+				Debug.LogException(exception);
+				return false;
+			}
+		}
+
+		public static string GetSessionAddress()
+		{
+			NetworkTransport currentTransport =
+				NetworkManager.Singleton?.NetworkConfig?.NetworkTransport;
+
+			if (currentTransport == null)
+				return "";
+
+			// DistributedAuthorityTransport is internal, so identify it the same
+			// way as MultiplayerMenu rather than casting to an inaccessible type.
+			if (string.Equals(currentTransport.GetType().Name,
+				    "DistributedAuthorityTransport", StringComparison.Ordinal))
+				return $"Relay: {NetcodeManagement.CurrentSessionName}";
+
+			if (currentTransport is UnityTransport unityTransport)
+				return $"LAN: {unityTransport.ConnectionData.Address}";
+
+			return currentTransport.GetType().Name;
+		}
+	}
+
+#if UNITY_EDITOR
 	public sealed class ServerWindow : EditorWindow
 	{
 		private new static DisplayStyle Show(bool show)
@@ -37,11 +119,7 @@ namespace Anaglyph.LaserTag.Operator
 		private const string UseAprilTagsSaveKey = "operator.useAprilTags";
 		private bool useAprilTags = false;
 
-		private const string RoomNameSaveKey = "operator.roomName";
-		private string roomName = "";
-
-		//private const string IpSaveKey = "operator.ip";
-		private string ipAddress = "127.0.0.1";
+		private const string PendingHostSaveKey = "operator.pendingHost";
 
 		private MatchSettings settings = MatchSettings.DemoGame();
 
@@ -62,11 +140,6 @@ namespace Anaglyph.LaserTag.Operator
 
 		private Label[] scoreLabels = new Label[Teams.NumTeams];
 
-		private void Awake()
-		{
-			string addresses = NetcodeManagement.GetLocalIPv4();
-		}
-
 		private void OnEnable()
 		{
 			LoadPrefs();
@@ -76,6 +149,7 @@ namespace Anaglyph.LaserTag.Operator
 			MatchReferee.StateChanged += UpdateMatchPage;
 			MatchReferee.TeamScored += OnTeamScored;
 			MatchReferee.TimerTextChanged += OnTimerTextChanged;
+			EditorApplication.update += StartPendingHost;
 
 			UpdateHostingPage(NetcodeManagement.State);
 			UpdateMatchPage(MatchReferee.State);
@@ -87,6 +161,7 @@ namespace Anaglyph.LaserTag.Operator
 			MatchReferee.StateChanged -= UpdateMatchPage;
 			MatchReferee.TeamScored -= OnTeamScored;
 			MatchReferee.TimerTextChanged -= OnTimerTextChanged;
+			EditorApplication.update -= StartPendingHost;
 		}
 
 		private void LoadPrefs()
@@ -94,8 +169,6 @@ namespace Anaglyph.LaserTag.Operator
 			tagSizeCm = EditorPrefs.GetFloat(TagSizeSaveKey, tagSizeCm);
 			useRelay = EditorPrefs.GetBool(UseRelaySaveKey, useRelay);
 			useAprilTags = EditorPrefs.GetBool(UseAprilTagsSaveKey, useAprilTags);
-			roomName = EditorPrefs.GetString(RoomNameSaveKey, roomName);
-			// ipAddress = EditorPrefs.GetString(IpSaveKey, ipAddress);
 		}
 
 		private void UpdateHostingPage(NetcodeState state)
@@ -112,16 +185,7 @@ namespace Anaglyph.LaserTag.Operator
 
 				case NetcodeState.Connected:
 					networkPages.SetActiveElement(connectedPage);
-
-					NetworkManager manager = NetworkManager.Singleton;
-					UnityTransport transport = (UnityTransport)manager.NetworkConfig.NetworkTransport;
-
-					roomLabel.text = "Room: " + transport.Protocol switch
-					{
-						UnityTransport.ProtocolType.UnityTransport => transport.ConnectionData.Address,
-						UnityTransport.ProtocolType.RelayUnityTransport => NetcodeManagement.CurrentSessionName,
-						_ => "ERROR"
-					};
+					roomLabel.text = DesktopHostController.GetSessionAddress();
 
 					break;
 
@@ -167,27 +231,20 @@ namespace Anaglyph.LaserTag.Operator
 
 		private void StartHost()
 		{
-			UpdateHostingPage(NetcodeManagement.State);
-			UpdateMatchPage(MatchReferee.State);
+			if (!DesktopHostController.TryStartHost(
+				    useRelay, useAprilTags, tagSizeCm, out string error))
+				Debug.LogError($"[{nameof(ServerWindow)}] {error}");
+		}
 
-			AprilTagColocationConstraintProvider.Instance.HostTagSizeCm = tagSizeCm;
-			ColocationManager.Instance.methodHostSetting = useAprilTags
-				? ColocationManager.ColocationMethod.AprilTag
-				: ColocationManager.ColocationMethod.MetaSharedAnchor;
-			PlayerAvatarSpawner.Instance?.SetIsParticipating(false);
+		private void StartPendingHost()
+		{
+			if (!EditorApplication.isPlaying ||
+			    !SessionState.GetBool(PendingHostSaveKey, false) ||
+			    NetworkManager.Singleton == null)
+				return;
 
-			if (useRelay)
-			{
-				NetcodeManagement.ConnectUnityServices(roomName);
-			}
-			else
-			{
-				NetworkManager manager = NetworkManager.Singleton;
-				UnityTransport transport = manager.GetComponent<UnityTransport>();
-				transport.SetConnectionData(ipAddress, NetcodeManagement.port);
-
-				NetcodeManagement.Host(NetcodeManagement.Protocol.LAN);
-			}
+			SessionState.SetBool(PendingHostSaveKey, false);
+			StartHost();
 		}
 
 		private void CreateUI()
@@ -240,49 +297,15 @@ namespace Anaglyph.LaserTag.Operator
 					});
 					startServerPage.Add(useRelayField);
 
-
-					PageGroup protocolPages = new();
-					{
-						VisualElement lanPage = new();
-						protocolPages.Add(lanPage);
-						{
-							TextField ipField = new("IP") { value = ipAddress };
-							ipField.RegisterValueChangedCallback(evt =>
-							{
-								ipAddress = evt.newValue;
-								// EditorPrefs.SetString(IpSaveKey, ipAddress);
-							});
-							lanPage.Add(ipField);
-						}
-
-						VisualElement relayPage = new();
-						protocolPages.Add(relayPage);
-						{
-							TextField roomNameField = new("Room Name") { value = roomName };
-							roomNameField.RegisterValueChangedCallback(evt =>
-							{
-								roomName = Regex.Replace(evt.newValue, @"[^a-zA-Z0-9]", "");
-								roomNameField.SetValueWithoutNotify(roomName);
-								EditorPrefs.SetString(RoomNameSaveKey, roomName);
-							});
-							relayPage.Add(roomNameField);
-						}
-
-						// update visibility
-						protocolPages.SetActiveElement(useRelay ? relayPage : lanPage);
-						useRelayField.RegisterValueChangedCallback(evt =>
-						{
-							protocolPages.SetActiveElement(useRelay ? relayPage : lanPage);
-						});
-					}
-					startServerPage.Add(protocolPages);
-
 					Button hostButton = new(() =>
 					{
 						if (EditorApplication.isPlaying)
 							StartHost();
 						else
+						{
+							SessionState.SetBool(PendingHostSaveKey, true);
 							EditorApplication.EnterPlaymode();
+						}
 					})
 					{
 						text = "Host",
@@ -374,6 +397,11 @@ namespace Anaglyph.LaserTag.Operator
 								settings.damageMultiplier = Mathf.Max(0f, evt.newValue));
 							matchSettingsPage.Add(damage);
 
+							Toggle spawnZombies = new("Spawn zombies") { value = settings.spawnZombies };
+							spawnZombies.RegisterValueChangedCallback(evt =>
+								settings.spawnZombies = evt.newValue);
+							matchSettingsPage.Add(spawnZombies);
+
 							IntegerField ppk = new("Points / Kill") { value = settings.pointsPerKill };
 							ppk.RegisterValueChangedCallback(evt =>
 								settings.pointsPerKill = (byte)Mathf.Clamp(evt.newValue, 0, 255));
@@ -390,6 +418,12 @@ namespace Anaglyph.LaserTag.Operator
 							ppf.RegisterValueChangedCallback(evt =>
 								settings.pointsPerFlagCapture = (byte)Mathf.Clamp(evt.newValue, 0, 255));
 							matchSettingsPage.Add(ppf);
+
+							IntegerField ppz = new("Points / Zombie kill")
+								{ value = settings.pointsPerZombieKill };
+							ppz.RegisterValueChangedCallback(evt =>
+								settings.pointsPerZombieKill = (byte)Mathf.Clamp(evt.newValue, 0, 255));
+							matchSettingsPage.Add(ppz);
 
 							EnumField winDropdown = new("Win Condition", settings.winCondition);
 							winDropdown.RegisterValueChangedCallback(evt =>
@@ -412,7 +446,7 @@ namespace Anaglyph.LaserTag.Operator
 								settings.numRounds = (byte)Mathf.Clamp(evt.newValue, 1, byte.MaxValue));
 							matchSettingsPage.Add(rounds);
 
-							Button startGame = new(() => { MatchReferee.Instance.QueueMatch(settings); })
+							Button startGame = new(() => { MatchReferee.Instance?.QueueMatch(settings); })
 							{
 								text = "Start Game"
 							};
@@ -427,7 +461,7 @@ namespace Anaglyph.LaserTag.Operator
 								{ style = { unityFontStyleAndWeight = FontStyle.Bold, marginTop = 10 } };
 							matchRunningPage.Add(matchRunningLabel);
 
-							Button stopGame = new(() => { MatchReferee.Instance.EndMatch(); })
+							Button stopGame = new(() => { MatchReferee.Instance?.EndMatch(); })
 							{
 								text = "Stop Game",
 								style =
@@ -465,6 +499,5 @@ namespace Anaglyph.LaserTag.Operator
 			UpdateMatchPage(MatchReferee.State);
 		}
 	}
-}
-
 #endif
+}

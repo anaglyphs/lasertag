@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 6162367082864675672}
   - component: {fileID: 1967294690579604867}
   - component: {fileID: 5269422346085259457}
+  - component: {fileID: 3901284610248357281}
   - component: {fileID: 6295529625387875746}
   m_Layer: 0
   m_Name: Zombie
@@ -78,10 +79,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
   head: {fileID: 7436447841320324849}
-  damageDist: 0.5
-  strafeDistance: 1
-  strafeFrequency: 1
-  speedVariation: 0.2
+  damageTrigger: {fileID: 3901284610248357281}
+  targetRefreshInterval: 0.25
+  nearRepathInterval: 0.1
+  farRepathInterval: 0.75
+  nearRepathDistance: 2
+  farRepathDistance: 10
+  targetMoveThreshold: 0.2
 --- !u!195 &5269422346085259457
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -104,6 +108,29 @@ NavMeshAgent:
   m_BaseOffset: -0.1
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
+--- !u!136 &3901284610248357281
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1881905762339889209}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.2
+  m_Height: 1.7
+  m_Direction: 1
+  m_Center: {x: 0, y: 1, z: 0}
 --- !u!114 &6295529625387875746
 MonoBehaviour:
   m_ObjectHideFlags: 0

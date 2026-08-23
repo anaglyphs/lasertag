@@ -64,9 +64,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.NPCs.Spawner
   prefabsToSpawn:
   - {fileID: 1881905762339889209, guid: bf414b72be169c04aa2f5798f2e09a45, type: 3}
-  minRadius: 10
-  maxRadius: 50
+  spawnOrigin: {fileID: 0}
+  spawnAttemptRadius: 100
+  minSpawnRadius: 10
   spawnEverySeconds: 1
+  spawnsPerCluster: 6
+  clusterArcDegrees: 30
   maxSampleAttempts: 30
 --- !u!114 &5293559935730707558
 MonoBehaviour:

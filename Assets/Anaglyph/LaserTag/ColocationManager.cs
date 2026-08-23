@@ -267,7 +267,7 @@ namespace Anaglyph.LaserTag
 			colocator.StateChanged += OnColocatorStateChanged;
 
 			colocator.StartColocation();
-			OnColocatorStateChanged(colocator.State);
+			OnColocatorStateChanged(colocator.AlignmentState);
 		}
 
 		/// <summary>Lets the registration tool drive tag detection while authoring.</summary>
@@ -281,7 +281,7 @@ namespace Anaglyph.LaserTag
 		// Only Localized counts as colocated. Lost keeps the stale alignment applied but stops
 		// anything downstream from treating world space as trustworthy — which means
 		// IsColocated can go false mid-session rather than only when the session ends.
-		private void OnColocatorStateChanged(ColocationState state)
+		private void OnColocatorStateChanged(ColocationAlignmentState alignmentState)
 		{
 #if UNITY_EDITOR
 			if (!XRSettings.isDeviceActive)
@@ -291,7 +291,7 @@ namespace Anaglyph.LaserTag
 			}
 #endif
 			
-			SetColocated(state == ColocationState.Localized);
+			SetColocated(alignmentState == ColocationAlignmentState.Localized);
 		}
 
 		private void SetColocated(bool b)

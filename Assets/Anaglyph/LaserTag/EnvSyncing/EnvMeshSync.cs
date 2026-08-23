@@ -52,6 +52,10 @@ namespace Anaglyph.LaserTag.EnvSyncing
 		// held back here keeps accumulating divergence and sends as soon as it expires.
 		[SerializeField] private float minSecondsBetweenChunkSends = 2f;
 
+		// A below-threshold divergence is still sent after this long without another
+		// completed mesh update, so the last small changes converge once a chunk settles.
+		[SerializeField, Min(0f)] private float secondsUntilChunkStable = 2f;
+
 		[Header("Draco compression")]
 		[SerializeField, Range(1, 30)] private int positionQuantizationBits = 10;
 		[SerializeField, Range(0, 10)] private int encodingSpeed;
@@ -62,9 +66,12 @@ namespace Anaglyph.LaserTag.EnvSyncing
 		private readonly Dictionary<int, NativeArray<uint>> lastSentSignBits = new();
 		private readonly Dictionary<int, float> lastSendTimes = new();
 
-		// chunks whose mesh changed since they were last weighed against the threshold
+		// Chunks whose mesh changed since they were last weighed against the threshold.
+		// Below-threshold chunks stay pending until another update or the stability timeout.
 		private readonly HashSet<int> pendingSync = new();
 		private readonly List<int> pendingSyncDrain = new();
+		private readonly Dictionary<int, float> lastMeshUpdateTimes = new();
+		private readonly HashSet<int> waitingForStability = new();
 
 		// Draco encodes every vertex attribute a mesh declares and offers no way to skip one,
 		// so positions are restaged through a mesh carrying no normal stream — normals are
@@ -117,7 +124,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 		/// </summary>
 		private void OnScanCleared()
 		{
-			pendingSync.Clear();
+			ClearPendingSync();
 			lastSendTimes.Clear();
 			ClearSentSignBits();
 		}
@@ -156,7 +163,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			// Invalidates encodes and decodes of pre-change meshes still in flight.
 			syncGeneration++;
 
-			pendingSync.Clear();
+			ClearPendingSync();
 			lastSendTimes.Clear();
 			ClearSentSignBits();
 			encodeQueue.Clear();
@@ -206,7 +213,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			if (EnvMesher.Instance)
 				EnvMesher.Instance.ChunkMeshUpdated -= OnChunkMeshUpdated;
 
-			pendingSync.Clear();
+			ClearPendingSync();
 			lastSendTimes.Clear();
 			ClearSentSignBits();
 			encodeQueue.Clear();
@@ -228,6 +235,8 @@ namespace Anaglyph.LaserTag.EnvSyncing
 		private void OnChunkMeshUpdated(Chunk chunk)
 		{
 			pendingSync.Add(chunk.chunkIndex);
+			lastMeshUpdateTimes[chunk.chunkIndex] = Time.time;
+			waitingForStability.Remove(chunk.chunkIndex);
 		}
 
 		private void Update()
@@ -245,7 +254,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 				if (!EnvMesher.Instance.TryGetChunk(chunkIndex, out Chunk chunk) ||
 				    !chunk.voxelSignBits.IsCreated)
 				{
-					pendingSync.Remove(chunkIndex);
+					RemovePendingSync(chunkIndex);
 					continue;
 				}
 
@@ -256,16 +265,32 @@ namespace Anaglyph.LaserTag.EnvSyncing
 				    Time.time - lastSendTime < minSecondsBetweenChunkSends)
 					continue;
 
-				pendingSync.Remove(chunkIndex);
+				bool hasStabilized = !lastMeshUpdateTimes.TryGetValue(chunkIndex, out float lastMeshUpdateTime) ||
+				                     Time.time - lastMeshUpdateTime >= secondsUntilChunkStable;
 
-				if (!HasDivergedFromPeers(chunk)) continue;
+				// The threshold was already checked for this exact mesh. Avoid recounting its
+				// voxel bits every frame while only the stability timer is advancing.
+				if (waitingForStability.Contains(chunkIndex) && !hasStabilized)
+					continue;
 
+				int flippedVoxelsThreshold = hasStabilized ? 1 : Math.Max(1, syncFlippedVoxelsThreshold);
+				if (!HasDivergedFromPeers(chunk, flippedVoxelsThreshold))
+				{
+					if (hasStabilized)
+						RemovePendingSync(chunkIndex);
+					else
+						waitingForStability.Add(chunkIndex);
+
+					continue;
+				}
+
+				RemovePendingSync(chunkIndex);
 				lastSendTimes[chunkIndex] = Time.time;
 				QueueChunkMesh(chunk);
 			}
 		}
 
-		private bool HasDivergedFromPeers(Chunk chunk)
+		private bool HasDivergedFromPeers(Chunk chunk, int flippedVoxelsThreshold)
 		{
 			// peers have never seen this chunk, so anything in it is news
 			if (!lastSentSignBits.TryGetValue(chunk.chunkIndex, out NativeArray<uint> sentSignBits))
@@ -275,9 +300,26 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			int flippedVoxels = 0;
 
 			for (int i = 0; i < signBits.Length; i++)
+			{
 				flippedVoxels += math.countbits(signBits[i] ^ sentSignBits[i]);
+				if (flippedVoxels >= flippedVoxelsThreshold) return true;
+			}
 
-			return flippedVoxels >= syncFlippedVoxelsThreshold;
+			return false;
+		}
+
+		private void RemovePendingSync(int chunkIndex)
+		{
+			pendingSync.Remove(chunkIndex);
+			lastMeshUpdateTimes.Remove(chunkIndex);
+			waitingForStability.Remove(chunkIndex);
+		}
+
+		private void ClearPendingSync()
+		{
+			pendingSync.Clear();
+			lastMeshUpdateTimes.Clear();
+			waitingForStability.Clear();
 		}
 
 		/// <summary>

@@ -10,6 +10,7 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.Serialization;
 
 namespace Anaglyph.XR.DepthKit.EnvScanning
 {
@@ -26,7 +27,8 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		[SerializeField] private GameObject chunkPrefab;
 		[SerializeField] private int numMeshWorkers = 2;
 
-		[SerializeField] private int meshSweptVoxelsThreshold = 10;
+		[FormerlySerializedAs("meshSweptVoxelsThreshold")]
+		[SerializeField] private int meshFlippedVoxelsThreshold = 10;
 
 		// how far a voxel's distance must move past zero before Chunk.voxelSignBits accepts
 		// that the surface crossed it. sized to swallow depth sensor noise, not real motion
@@ -60,6 +62,8 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		public event Action<Chunk> ChunkMeshUpdated = delegate { };
 
 		private readonly Dictionary<int, Chunk> chunks = new();
+		private readonly List<Chunk> chunksList = new();
+		public IReadOnlyList<Chunk> ChunksList => chunksList;
 		private readonly ConcurrentQueue<Chunk> meshQueue = new();
 		private readonly SemaphoreSlim mesherSemaphore = new(0);
 		private CancellationTokenSource workerCancelSrc;
@@ -138,6 +142,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 				Destroy(chunk.gameObject);
 
 			chunks.Clear();
+			chunksList.Clear();
 			meshQueue.Clear();
 
 			if (enabled)
@@ -151,6 +156,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			CancellationToken ctkn = workerCancelSrc.Token;
 
 			EnvScanner scanner = EnvScanner.Instance;
+			
 
 			try
 			{
@@ -167,11 +173,11 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 
 					uint changeSum = visResult.changeSums[i];
 
-					// subtraction guards against changeSum + changeSumMeshingThreshold becoming a long
-					if (!chunk.dirty &&
-					    changeSum - chunk.lastMeshingChangeSum >= (uint)(meshSweptVoxelsThreshold * 254))
+					// The GPU change sum is only a cheap dirty signal. The worker decides whether
+					// to remesh by comparing voxel signs against the last completed mesh.
+					if (!chunk.dirty && changeSum != chunk.lastMeshingChangeSum)
 					{
-						chunk.lastMeshingChangeSum = changeSum;
+						chunk.pendingMeshingChangeSum = changeSum;
 						chunk.dirty = true;
 						meshQueue.Enqueue(chunk);
 						mesherSemaphore.Release();
@@ -187,8 +193,6 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 				busy = false;
 			}
 		}
-
-		public IReadOnlyCollection<Chunk> Chunks => chunks.Values;
 
 		public bool TryGetChunk(int chunkIndex, out Chunk chunk)
 		{
@@ -210,6 +214,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			chunk.meshCollider.enabled = false;
 			chunk.chunkIndex = chunkIndex;
 			chunks.Add(chunkIndex, chunk);
+			chunksList.Add(chunk);
 
 			return chunk;
 		}
@@ -223,18 +228,68 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 				_ = RunMesherWorker(workerCancelSrc.Token);
 		}
 
-		private static void UpdateVoxelSignBits(Chunk chunk, NativeArray<EnvScanner.Voxel> voxels, sbyte deadband)
+		private bool IsCurrentChunkWork(Chunk chunk, uint pendingChangeSum)
 		{
-			if (!chunk.voxelSignBits.IsCreated)
-				chunk.voxelSignBits = new NativeArray<uint>(voxels.Length / VoxelsPerSignWord,
-					Allocator.Persistent, NativeArrayOptions.ClearMemory);
+			return chunk != null &&
+			       chunks.TryGetValue(chunk.chunkIndex, out Chunk currentChunk) &&
+			       ReferenceEquals(currentChunk, chunk) &&
+			       chunk.dirty &&
+			       chunk.pendingMeshingChangeSum == pendingChangeSum;
+		}
+
+		private bool CommitChunkWork(Chunk chunk, uint pendingChangeSum)
+		{
+			if (!IsCurrentChunkWork(chunk, pendingChangeSum)) return false;
+
+			chunk.lastMeshingChangeSum = pendingChangeSum;
+			chunk.dirty = false;
+			return true;
+		}
+
+		private void AbortChunkWork(Chunk chunk, uint pendingChangeSum)
+		{
+			if (!IsCurrentChunkWork(chunk, pendingChangeSum)) return;
+
+			// The completed change sum stays untouched, so the next visibility readback
+			// schedules this chunk again even if the GPU signal has not changed.
+			chunk.pendingMeshingChangeSum = chunk.lastMeshingChangeSum;
+			chunk.dirty = false;
+		}
+
+		private static void UpdateVoxelSignBits(NativeArray<EnvScanner.Voxel> voxels, sbyte deadband,
+			NativeArray<uint> previousSignBits, NativeArray<uint> updatedSignBits)
+		{
+			for (int i = 0; i < updatedSignBits.Length; i++)
+				updatedSignBits[i] = previousSignBits.IsCreated ? previousSignBits[i] : 0u;
 
 			new VoxelSignBitsJob
 			{
 				voxels = voxels,
 				deadband = deadband,
-				signBits = chunk.voxelSignBits
+				signBits = updatedSignBits
 			}.Run();
+		}
+
+		private static int CountFlippedVoxels(NativeArray<uint> previousSignBits,
+			NativeArray<uint> updatedSignBits)
+		{
+			int flippedVoxels = 0;
+
+			for (int i = 0; i < updatedSignBits.Length; i++)
+			{
+				uint previousBits = previousSignBits.IsCreated ? previousSignBits[i] : 0u;
+				flippedVoxels += math.countbits(updatedSignBits[i] ^ previousBits);
+			}
+
+			return flippedVoxels;
+		}
+
+		private static void RememberMeshedSurface(Chunk chunk, NativeArray<uint> updatedSignBits)
+		{
+			if (!chunk.voxelSignBits.IsCreated)
+				chunk.voxelSignBits = new NativeArray<uint>(updatedSignBits.Length, Allocator.Persistent);
+
+			chunk.voxelSignBits.CopyFrom(updatedSignBits);
 		}
 
 		private const int VoxelsPerSignWord = 32;
@@ -286,11 +341,15 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 				voxelSignDeadbandMeters / scanner.DistanceTruncationBand * sbyte.MaxValue, 1, sbyte.MaxValue - 1);
 
 			EnvScanner.ChunkReadbackBuffer readbackBuffer = scanner.CreateChunkReadbackBuffer();
+			NativeArray<uint> updatedSignBits = new(readbackBuffer.data.Length / VoxelsPerSignWord,
+				Allocator.Persistent);
 
 			// meshed into first, so the chunk mesh and collider only
 			// update once, after decimation is done
 			Mesh scratchMesh = new();
 			scratchMesh.MarkDynamic();
+			Chunk activeChunk = null;
+			uint activePendingChangeSum = 0;
 
 			try
 			{
@@ -298,16 +357,39 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 				{
 					await mesherSemaphore.WaitAsync(ctkn);
 
-					if (!meshQueue.TryDequeue(out Chunk chunk))
+					if (!meshQueue.TryDequeue(out activeChunk))
 						continue;
 
-					bool readbackSuccess = await scanner.ReadbackChunkInto(chunk.chunkIndex, readbackBuffer);
+					activePendingChangeSum = activeChunk.pendingMeshingChangeSum;
 
-					if (!readbackSuccess) continue;
+					// Clear() may have removed this queue entry while a worker was waking.
+					if (!IsCurrentChunkWork(activeChunk, activePendingChangeSum))
+					{
+						activeChunk = null;
+						continue;
+					}
+
+					bool readbackSuccess = await scanner.ReadbackChunkInto(activeChunk.chunkIndex, readbackBuffer);
+
+					if (!readbackSuccess)
+					{
+						AbortChunkWork(activeChunk, activePendingChangeSum);
+						activeChunk = null;
+						continue;
+					}
 
 					ctkn.ThrowIfCancellationRequested();
 
-					UpdateVoxelSignBits(chunk, readbackBuffer.data, signBitDeadband);
+					UpdateVoxelSignBits(readbackBuffer.data, signBitDeadband, activeChunk.voxelSignBits,
+						updatedSignBits);
+
+					int flippedVoxels = CountFlippedVoxels(activeChunk.voxelSignBits, updatedSignBits);
+					if (flippedVoxels < meshFlippedVoxelsThreshold)
+					{
+						CommitChunkWork(activeChunk, activePendingChangeSum);
+						activeChunk = null;
+						continue;
+					}
 
 					bool isPopulated = await mesher.CreateMesh(readbackBuffer.data, chunkSize, scanner.VoxSize,
 						scratchMesh, ctkn);
@@ -317,29 +399,32 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 					if (isPopulated)
 					{
 						await MeshSimplifier.SimplifyAsync(scratchMesh, decimationTarget, decimationOptions,
-							chunk.mesh, ctkn);
+							activeChunk.mesh, ctkn);
 
 						ctkn.ThrowIfCancellationRequested();
 
-						chunk.mesh.RecalculateBounds();
-						chunk.meshIsPopulated = chunk.mesh.vertexCount > 0;
+						activeChunk.mesh.RecalculateBounds();
+						activeChunk.meshIsPopulated = activeChunk.mesh.vertexCount > 0;
 
 						// a MeshCollider only recooks when sharedMesh changes value, so editing
 						// the mesh it already holds needs the reference cleared and reassigned
-						chunk.meshCollider.sharedMesh = null;
-						chunk.meshCollider.sharedMesh = chunk.mesh;
-						chunk.meshCollider.enabled = chunk.meshIsPopulated;
+						activeChunk.meshCollider.sharedMesh = null;
+						activeChunk.meshCollider.sharedMesh = activeChunk.mesh;
+						activeChunk.meshCollider.enabled = activeChunk.meshIsPopulated;
 					}
 					else
 					{
-						chunk.mesh.Clear();
-						chunk.meshIsPopulated = false;
-						chunk.meshCollider.enabled = false;
+						activeChunk.mesh.Clear();
+						activeChunk.meshIsPopulated = false;
+						activeChunk.meshCollider.enabled = false;
 					}
 
-					chunk.dirty = false;
+					RememberMeshedSurface(activeChunk, updatedSignBits);
 
-					ChunkMeshUpdated.Invoke(chunk);
+					if (CommitChunkWork(activeChunk, activePendingChangeSum))
+						ChunkMeshUpdated.Invoke(activeChunk);
+
+					activeChunk = null;
 				}
 			}
 			catch (OperationCanceledException)
@@ -351,8 +436,12 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			}
 			finally
 			{
+				if (activeChunk != null)
+					AbortChunkWork(activeChunk, activePendingChangeSum);
+
 				mesher.Dispose();
 				readbackBuffer.Dispose();
+				updatedSignBits.Dispose();
 				DestroyImmediate(scratchMesh);
 			}
 		}

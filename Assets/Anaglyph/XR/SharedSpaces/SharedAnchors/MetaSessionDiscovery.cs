@@ -18,18 +18,39 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		private NetworkManager NetMan => NetworkManager.Singleton;
 
 		/// <summary>
+		/// Extra client-side condition for listening, injected by the game layer. Null means
+		/// listening is allowed. Whoever owns the gate calls <see cref="RefreshState"/> when
+		/// its answer changes.
+		/// </summary>
+		public Func<bool> ListeningGate;
+
+		/// <summary>
 		/// Extra host-side condition for advertising, injected by the game layer (assembly
 		/// direction prevents referencing it here). Null means no extra condition. Whoever
 		/// owns the gate calls <see cref="RefreshState"/> when its answer changes.
 		/// </summary>
 		public Func<bool> AdvertisementGate;
 
-		public void RefreshState() => UpdateState();
+		public void RefreshState()
+		{
+			State newState = GetDesiredState();
+			if (!hasDesiredState || newState != desiredState)
+			{
+				bool isInitialState = !hasDesiredState;
+				hasDesiredState = true;
+				desiredState = newState;
+				listenStartDelayPending = !isInitialState && newState == State.Listen;
+				stateRetryDelay = MinStateRetryDelay;
+			}
+
+			stateRefreshRequested = true;
+			stateDelayCancellation?.Cancel();
+
+			if (!stateLoopRunning)
+				ReconcileStateLoop(stateLifetimeCancellation.Token);
+		}
 
 		private const string LogHeader = "[SessionDiscovery] ";
-
-		private bool isListening;
-		private bool isAdvertising;
 
 		// Unity's Meta OpenXR colocation feature. Resolved lazily from the active
 		// OpenXR settings; null if the feature isn't enabled (e.g. in-editor play).
@@ -60,53 +81,88 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 
 		private void Start()
 		{
-			UpdateState();
 			SubscribeToEvents(true);
+			RefreshState();
 		}
 
 		private void OnEnable()
 		{
 			if (!didStart) return;
-			UpdateState();
 			SubscribeToEvents(true);
+			RefreshState();
 		}
 
 		private void OnDisable()
 		{
-			UpdateState();
 			SubscribeToEvents(false);
+			RefreshState();
+		}
+
+		private void OnDestroy()
+		{
+			SubscribeToEvents(false);
+			stateLifetimeCancellation.Cancel();
+			stateDelayCancellation?.Cancel();
+
+			if (Instance == this)
+				Instance = null;
 		}
 
 		private bool isSubscribed = false;
+		private ColocationDiscoveryFeature subscribedColocation;
 
 		private void SubscribeToEvents(bool shouldSubscribe)
 		{
-			if (shouldSubscribe == isSubscribed)
-				return;
-
 			if (shouldSubscribe)
 			{
-				NetMan.OnSessionOwnerPromoted += OnSessionOwnerPromoted;
-				NetcodeManagement.StateChanged += OnNetworkStateChange;
-				if (Colocation != null)
-					Colocation.messageDiscovered += HandleMessageDiscovered;
+				if (!isSubscribed)
+				{
+					NetMan.OnSessionOwnerPromoted += OnSessionOwnerPromoted;
+					NetcodeManagement.StateChanged += OnNetworkStateChange;
+					isSubscribed = true;
+				}
+
+				ColocationDiscoveryFeature feature = Colocation;
+				if (feature != null && feature != subscribedColocation)
+				{
+					if (subscribedColocation != null)
+						UnsubscribeFromColocation(subscribedColocation);
+
+					subscribedColocation = feature;
+					feature.discoveryStateChanged += HandleDiscoveryStateChanged;
+					feature.advertisementStateChanged += HandleAdvertisementStateChanged;
+					feature.messageDiscovered += HandleMessageDiscovered;
+				}
 			}
 			else
 			{
-				if (NetMan)
-					NetMan.OnSessionOwnerPromoted -= OnSessionOwnerPromoted;
+				if (isSubscribed)
+				{
+					if (NetMan)
+						NetMan.OnSessionOwnerPromoted -= OnSessionOwnerPromoted;
 
-				NetcodeManagement.StateChanged -= OnNetworkStateChange;
-				if (Colocation != null)
-					Colocation.messageDiscovered -= HandleMessageDiscovered;
+					NetcodeManagement.StateChanged -= OnNetworkStateChange;
+					isSubscribed = false;
+				}
+
+				if (subscribedColocation != null)
+				{
+					UnsubscribeFromColocation(subscribedColocation);
+					subscribedColocation = null;
+				}
 			}
+		}
 
-			isSubscribed = shouldSubscribe;
+		private void UnsubscribeFromColocation(ColocationDiscoveryFeature feature)
+		{
+			feature.discoveryStateChanged -= HandleDiscoveryStateChanged;
+			feature.advertisementStateChanged -= HandleAdvertisementStateChanged;
+			feature.messageDiscovered -= HandleMessageDiscovered;
 		}
 
 		private void OnSessionOwnerPromoted(ulong clientId)
 		{
-			UpdateState();
+			RefreshState();
 		}
 
 		private void OnNetworkStateChange(NetcodeState state)
@@ -114,7 +170,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 			if (state == NetcodeState.Connected)
 				reconnectDelay = MinReconnectDelay;
 
-			UpdateState();
+			RefreshState();
 		}
 
 		private bool isPaused = false;
@@ -126,17 +182,8 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 			if (didStart)
 			{
 				SubscribeToEvents(!this.isPaused);
-				UpdateState();
+				RefreshState();
 			}
-		}
-
-		private CancellationTokenSource taskCanceller = new();
-
-		private CancellationToken PrepareNextTask()
-		{
-			taskCanceller.Cancel();
-			taskCanceller = new CancellationTokenSource();
-			return taskCanceller.Token;
 		}
 
 		private enum State
@@ -146,117 +193,286 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 			Advertise
 		}
 
-		private State state = State.Disable;
+		private const float ListenStartDelaySeconds = 2;
+		private const float MinStateRetryDelay = 1;
+		private const float MaxStateRetryDelay = 10;
 
-		private async void UpdateState()
+		private readonly CancellationTokenSource stateLifetimeCancellation = new();
+		private CancellationTokenSource stateDelayCancellation;
+		private State desiredState = State.Disable;
+		private bool hasDesiredState;
+		private bool listenStartDelayPending;
+		private bool stateLoopRunning;
+		private bool stateRefreshRequested;
+		private bool nativeOperationInFlight;
+		private bool loggedUnavailableFeature;
+		private float stateRetryDelay = MinStateRetryDelay;
+
+		private State GetDesiredState()
 		{
-			State newState = default;
-
 			if (enabled && !isPaused)
 				switch (NetcodeManagement.State)
 				{
 					case NetcodeState.Disconnected:
-						newState = State.Listen;
-						break;
+						return ListeningGate?.Invoke() ?? true
+							? State.Listen
+							: State.Disable;
 					case NetcodeState.Connecting:
-						newState = State.Disable;
-						break;
+						return State.Disable;
 					case NetcodeState.Connected:
 						bool isHost = NetMan.CurrentSessionOwner == NetMan.LocalClientId;
 						// A host that isn't ready to be joined (e.g. not yet localized to its
 						// map) stays quiet: joiners arriving early would have nothing to
 						// align to. Manual connections are unaffected.
 						bool gateOpen = AdvertisementGate?.Invoke() ?? true;
-						newState = isHost && gateOpen ? State.Advertise : State.Disable;
-						break;
+						return isHost && gateOpen ? State.Advertise : State.Disable;
 				}
-			else
-				newState = State.Disable;
 
-			// only update if state has changed
-			if (newState == state) return;
-			state = newState;
+			return State.Disable;
+		}
+
+		private async void ReconcileStateLoop(CancellationToken cancelToken)
+		{
+			if (stateLoopRunning) return;
+			stateLoopRunning = true;
 
 			try
 			{
-				CancellationToken ctkn = PrepareNextTask();
-
-				switch (state)
+				while (!cancelToken.IsCancellationRequested)
 				{
-					case State.Listen:
-						await HaltAdvertisement(ctkn);
-						await Awaitable.WaitForSecondsAsync(3, ctkn);
-						await StartListening(ctkn);
-						break;
+					stateRefreshRequested = false;
+					State targetState = desiredState;
+					bool operationSucceeded;
 
-					case State.Disable:
-						await HaltAdvertisement(ctkn);
-						await HaltListening(ctkn);
-						break;
+					try
+					{
+						operationSucceeded = await ReconcileState(targetState, cancelToken);
+					}
+					catch (OperationCanceledException) when (cancelToken.IsCancellationRequested)
+					{
+						throw;
+					}
+					catch (Exception exception)
+					{
+						LogWarning($"State transition to {targetState} threw an exception; retrying");
+						Debug.LogException(exception);
+						operationSucceeded = false;
+					}
 
-					case State.Advertise:
-						await HaltListening(ctkn);
-						await StartAdvertisement(ctkn);
+					cancelToken.ThrowIfCancellationRequested();
+
+					// A UI, pause, ownership, or network change superseded the operation. Native
+					// calls cannot be cancelled, so reconcile their completed side effects now.
+					if (targetState != desiredState || stateRefreshRequested)
+						continue;
+
+					if (operationSucceeded && StateIsSatisfied(targetState))
+					{
+						stateRetryDelay = MinStateRetryDelay;
 						break;
+					}
+
+					float delay = stateRetryDelay;
+					stateRetryDelay = Mathf.Min(stateRetryDelay * 2, MaxStateRetryDelay);
+					await WaitForInterruptibleDelay(delay, cancelToken);
 				}
 			}
 			catch (OperationCanceledException)
 			{
 			}
+			finally
+			{
+				stateLoopRunning = false;
+				if (stateRefreshRequested && !cancelToken.IsCancellationRequested)
+					ReconcileStateLoop(cancelToken);
+			}
 		}
 
-		private async Task StartListening(CancellationToken cancelToken)
+		private async Task<bool> ReconcileState(State targetState, CancellationToken cancelToken)
 		{
-			if (isListening) return;
+			ColocationDiscoveryFeature feature = Colocation;
+			if (isSubscribed && feature != null && feature != subscribedColocation)
+				SubscribeToEvents(true);
+
+			if (feature == null || !feature.enabled)
+			{
+				if (!loggedUnavailableFeature)
+				{
+					LogWarning("Colocation feature unavailable");
+					loggedUnavailableFeature = true;
+				}
+
+				return targetState == State.Disable;
+			}
+
+			loggedUnavailableFeature = false;
+
+			switch (targetState)
+			{
+				case State.Listen:
+					if (!await EnsureAdvertisementStopped(feature, cancelToken))
+						return false;
+
+					if (targetState != desiredState)
+						return true;
+
+					if (listenStartDelayPending &&
+					    feature.discoveryState != ColocationState.Active)
+					{
+						bool delayCompleted = await WaitForInterruptibleDelay(
+							ListenStartDelaySeconds, cancelToken);
+						if (!delayCompleted || targetState != desiredState)
+							return true;
+
+						listenStartDelayPending = false;
+					}
+
+					return await EnsureListeningStarted(feature, cancelToken);
+
+				case State.Disable:
+					if (!await EnsureAdvertisementStopped(feature, cancelToken))
+						return false;
+
+					if (targetState != desiredState)
+						return true;
+
+					return await EnsureListeningStopped(feature, cancelToken);
+
+				case State.Advertise:
+					if (!await EnsureListeningStopped(feature, cancelToken))
+						return false;
+
+					if (targetState != desiredState)
+						return true;
+
+					return await EnsureAdvertisementStarted(feature, cancelToken);
+
+				default:
+					return false;
+			}
+		}
+
+		private bool StateIsSatisfied(State targetState)
+		{
+			ColocationDiscoveryFeature feature = Colocation;
+			if (feature == null || !feature.enabled)
+				return targetState == State.Disable;
+
+			return targetState switch
+			{
+				State.Disable =>
+					feature.discoveryState == ColocationState.Inactive &&
+					feature.advertisementState == ColocationState.Inactive,
+				State.Listen =>
+					feature.discoveryState == ColocationState.Active &&
+					feature.advertisementState == ColocationState.Inactive,
+				State.Advertise =>
+					feature.discoveryState == ColocationState.Inactive &&
+					feature.advertisementState == ColocationState.Active,
+				_ => false
+			};
+		}
+
+		private async Task<bool> WaitForInterruptibleDelay(float seconds,
+			CancellationToken cancelToken)
+		{
+			CancellationTokenSource delayCancellation =
+				CancellationTokenSource.CreateLinkedTokenSource(cancelToken);
+			stateDelayCancellation = delayCancellation;
+
+			try
+			{
+				await Awaitable.WaitForSecondsAsync(seconds, delayCancellation.Token);
+				return true;
+			}
+			catch (OperationCanceledException) when (!cancelToken.IsCancellationRequested)
+			{
+				return false;
+			}
+			finally
+			{
+				if (ReferenceEquals(stateDelayCancellation, delayCancellation))
+					stateDelayCancellation = null;
+
+				delayCancellation.Dispose();
+			}
+		}
+
+		private async Task<bool> EnsureListeningStarted(ColocationDiscoveryFeature feature,
+			CancellationToken cancelToken)
+		{
+			if (feature.discoveryState == ColocationState.Active)
+				return true;
+
+			if (feature.discoveryState != ColocationState.Inactive)
+				return false;
+
+			cancelToken.ThrowIfCancellationRequested();
+			nativeOperationInFlight = true;
+			XRResultStatus status;
+			try
+			{
+				status = await feature.TryStartDiscoveryAsync();
+			}
+			finally
+			{
+				nativeOperationInFlight = false;
+			}
 
 			cancelToken.ThrowIfCancellationRequested();
 
-			if (Colocation == null)
-			{
-				LogWarning("Couldn't start listening: colocation feature unavailable");
-				return;
-			}
-
-			XRResultStatus status = await Colocation.TryStartDiscoveryAsync();
-
 			if (status.IsSuccess())
 			{
-				isListening = true;
 				Log("Listening started");
+				return true;
 			}
-			else
-			{
-				LogWarning($"Couldn't start listening: {status}");
-			}
+
+			LogWarning($"Couldn't start listening: {status}");
+			return false;
 		}
 
-		private async Task HaltListening(CancellationToken cancelToken)
+		private async Task<bool> EnsureListeningStopped(ColocationDiscoveryFeature feature,
+			CancellationToken cancelToken)
 		{
-			if (!isListening) return;
+			if (feature.discoveryState == ColocationState.Inactive)
+				return true;
+
+			if (feature.discoveryState != ColocationState.Active)
+				return false;
+
+			cancelToken.ThrowIfCancellationRequested();
+			nativeOperationInFlight = true;
+			XRResultStatus status;
+			try
+			{
+				status = await feature.TryStopDiscoveryAsync();
+			}
+			finally
+			{
+				nativeOperationInFlight = false;
+			}
 
 			cancelToken.ThrowIfCancellationRequested();
 
-			if (Colocation == null)
-			{
-				isListening = false;
-				return;
-			}
-
-			XRResultStatus status = await Colocation.TryStopDiscoveryAsync();
-
 			if (status.IsSuccess())
 			{
-				isListening = false;
 				Log("Listening halted");
+				return true;
 			}
-			else
-			{
-				LogWarning($"Couldn't halt listening: {status}");
-			}
+
+			LogWarning($"Couldn't halt listening: {status}");
+			return false;
 		}
 
-		private async Task StartAdvertisement(CancellationToken cancelToken)
+		private async Task<bool> EnsureAdvertisementStarted(ColocationDiscoveryFeature feature,
+			CancellationToken cancelToken)
 		{
+			if (feature.advertisementState == ColocationState.Active)
+				return true;
+
+			if (feature.advertisementState != ColocationState.Inactive)
+				return false;
+
 			cancelToken.ThrowIfCancellationRequested();
 
 			string message = "";
@@ -275,47 +491,72 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 					break;
 			}
 
-			if (Colocation == null)
+			nativeOperationInFlight = true;
+			Result<SerializableGuid> result;
+			try
 			{
-				LogWarning($"Couldn't start advertisement '{message}': colocation feature unavailable");
-				return;
+				result = await feature.TryStartAdvertisementAsync(Encoding.ASCII.GetBytes(message));
 			}
-
-			var result = await Colocation.TryStartAdvertisementAsync(Encoding.ASCII.GetBytes(message));
-			if (result.status.IsSuccess())
+			finally
 			{
-				isAdvertising = true;
-				Log($"Advertisement started '{message}'");
+				nativeOperationInFlight = false;
 			}
-			else
-			{
-				LogWarning($"Couldn't start advertisement '{message}', {result.status}");
-			}
-		}
-
-		private async Task HaltAdvertisement(CancellationToken cancelToken)
-		{
-			if (!isAdvertising) return;
 
 			cancelToken.ThrowIfCancellationRequested();
 
-			if (Colocation == null)
+			if (result.status.IsSuccess())
 			{
-				isAdvertising = false;
-				return;
+				Log($"Advertisement started '{message}'");
+				return true;
 			}
 
-			XRResultStatus status = await Colocation.TryStopAdvertisementAsync();
+			LogWarning($"Couldn't start advertisement '{message}', {result.status}");
+			return false;
+		}
+
+		private async Task<bool> EnsureAdvertisementStopped(ColocationDiscoveryFeature feature,
+			CancellationToken cancelToken)
+		{
+			if (feature.advertisementState == ColocationState.Inactive)
+				return true;
+
+			if (feature.advertisementState != ColocationState.Active)
+				return false;
+
+			cancelToken.ThrowIfCancellationRequested();
+			nativeOperationInFlight = true;
+			XRResultStatus status;
+			try
+			{
+				status = await feature.TryStopAdvertisementAsync();
+			}
+			finally
+			{
+				nativeOperationInFlight = false;
+			}
+
+			cancelToken.ThrowIfCancellationRequested();
 
 			if (status.IsSuccess())
 			{
-				isAdvertising = false;
 				Log("Advertisement halted");
+				return true;
 			}
-			else
-			{
-				LogWarning($"Couldn't halt advertisement: {status}");
-			}
+
+			LogWarning($"Couldn't halt advertisement: {status}");
+			return false;
+		}
+
+		private void HandleDiscoveryStateChanged(object sender, Result<ColocationState> result)
+		{
+			if (!nativeOperationInFlight)
+				RefreshState();
+		}
+
+		private void HandleAdvertisementStateChanged(object sender, Result<ColocationState> result)
+		{
+			if (!nativeOperationInFlight)
+				RefreshState();
 		}
 
 		// Reconnecting too aggressively after a disconnect can churn the
@@ -328,7 +569,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 
 		private void HandleMessageDiscovered(object sender, ColocationDiscoveryMessage discovered)
 		{
-			if (state != State.Listen)
+			if (desiredState != State.Listen)
 			{
 				LogWarning("State isn't listening. This shouldn't run!");
 				return;

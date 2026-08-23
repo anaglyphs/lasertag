@@ -14,6 +14,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		public Mesh mesh;
 		public bool dirty;
 		public uint lastMeshingChangeSum;
+		internal uint pendingMeshingChangeSum;
 		public bool meshIsPopulated;
 		
 		public NativeArray<uint> voxelSignBits;

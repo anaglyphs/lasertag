@@ -63,6 +63,8 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 
 		[SerializeField] private LayerMask placementRaycastLayerMask = Physics.DefaultRaycastLayers;
 
+		private Colocator colocator;
+
 		/// <summary>
 		/// The embedding game may suppress automatic minting, for example when a tag-enabled map
 		/// requires every anchor to have a parent tag.
@@ -91,6 +93,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		private void Awake()
 		{
 			Instance = this;
+			colocator = GetComponent<Colocator>() ?? FindFirstObjectByType<Colocator>();
 			registry = AnchorRegistry.Instance ?? FindFirstObjectByType<AnchorRegistry>();
 			if (registry == null)
 				Debug.LogError(
@@ -422,7 +425,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 					if (MintingGate != null && !MintingGate())
 						continue;
 					if (MintingGate == null && constraints.Count > 0 &&
-					    ColocationManagerState() != ColocationState.Localized)
+					    ColocationManagerState() != ColocationAlignmentState.Localized)
 						continue;
 					if (MainXRRig.Camera == null)
 						continue;
@@ -446,10 +449,9 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 			}
 		}
 
-		private static ColocationState ColocationManagerState()
+		private ColocationAlignmentState ColocationManagerState()
 		{
-			Colocator colocator = FindFirstObjectByType<Colocator>();
-			return colocator != null ? colocator.State : ColocationState.Stopped;
+			return colocator != null ? colocator.AlignmentState : ColocationAlignmentState.Stopped;
 		}
 
 		private async Awaitable MintUnderPlayer(CancellationToken ctkn)

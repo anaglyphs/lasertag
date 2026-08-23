@@ -82,9 +82,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0c1e3f149293645689d825af3599178c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.EnvMeshSync
-  syncFlippedVoxelsThreshold: 512
-  minSecondsBetweenChunkSends: 0.1
-  positionQuantizationBits: 8
+  syncFlippedVoxelsThreshold: 1000
+  minSecondsBetweenChunkSends: 0.2
+  secondsUntilChunkStable: 0.25
+  positionQuantizationBits: 5
   encodingSpeed: 0
   decodingSpeed: 4
 --- !u!114 &6911126833990273307

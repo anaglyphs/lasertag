@@ -80,7 +80,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 
 			// meshing that happened while disabled was never reported, and a chunk first meshed
 			// back then isn't in the source list at all, so every chunk is taken in from scratch
-			foreach (Chunk chunk in EnvMesher.Instance.Chunks)
+			foreach (Chunk chunk in EnvMesher.Instance.ChunksList)
 				MarkChunkDirty(chunk);
 
 			CreateData();

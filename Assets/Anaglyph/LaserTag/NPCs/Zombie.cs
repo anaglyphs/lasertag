@@ -10,16 +10,21 @@ namespace Anaglyph.LaserTag.NPCs
 	public class Zombie : NetworkBehaviour, IDamageable
 	{
 		[SerializeField] private Transform head;
-		[SerializeField] private float damageDist;
+		[SerializeField] private CapsuleCollider damageTrigger;
 
-		[Header("Erratic movement")]
-		[SerializeField] private float strafeDistance = 2f;
-		[SerializeField] private float strafeFrequency = 0.6f;
-		[SerializeField] private float speedVariation = 0.35f;
+		[Header("Navigation")]
+		[SerializeField, Min(0f)] private float targetRefreshInterval = 0.25f;
+		[SerializeField, Min(0f)] private float nearRepathInterval = 0.1f;
+		[SerializeField, Min(0f)] private float farRepathInterval = 0.75f;
+		[SerializeField, Min(0f)] private float nearRepathDistance = 2f;
+		[SerializeField, Min(0f)] private float farRepathDistance = 10f;
+		[SerializeField, Min(0f)] private float targetMoveThreshold = 0.2f;
 
 		private NavMeshAgent agent;
-		private float noiseSeed;
-		private float baseSpeed;
+		private float nextTargetRefreshTime;
+		private float nextRepathTime;
+		private Vector3 lastPathTarget;
+		private ulong lastPathTargetId = ulong.MaxValue;
 
 		private readonly NetworkVariable<ulong> targetIdSync = new(ulong.MaxValue);
 		private readonly NetworkVariable<float> healthSync = new(MatchSettings.MaxHealth);
@@ -45,8 +50,11 @@ namespace Anaglyph.LaserTag.NPCs
 		private void Awake()
 		{
 			TryGetComponent(out agent);
-			baseSpeed = agent.speed;
-			noiseSeed = Random.Range(0f, 1000f);
+
+			if (!damageTrigger)
+				TryGetComponent(out damageTrigger);
+
+			damageTrigger.enabled = false;
 		}
 
 		public override void OnNetworkSpawn()
@@ -75,53 +83,133 @@ namespace Anaglyph.LaserTag.NPCs
 			UpdateAgent();
 		}
 
+		public override void OnLostOwnership()
+		{
+			UpdateAgent();
+		}
+
 		private void UpdateAgent()
 		{
 			agent.enabled = IsOwner;
+			damageTrigger.enabled = IsOwner;
+
+			if (IsOwner)
+			{
+				nextTargetRefreshTime = 0f;
+				nextRepathTime = 0f;
+				lastPathTargetId = ulong.MaxValue;
+			}
 		}
 
-		private void FixedUpdate()
+		private void Update()
 		{
 			if (!IsOwner)
 				return;
 
+			if (Time.time >= nextTargetRefreshTime)
+				RefreshTarget();
+
+			PlayerAvatar target = Target;
+			if (target && target.IsAlive)
+				UpdatePath(target);
+			else
+				ClearPath();
+		}
+
+		private void RefreshTarget()
+		{
+			nextTargetRefreshTime = Time.time + targetRefreshInterval;
+
 			ulong nearestId = ulong.MaxValue;
-			float nearestDist = float.MaxValue;
+			float nearestDistSqr = float.MaxValue;
 			foreach (PlayerAvatar avatar in PlayerAvatar.All.Values)
 			{
 				if (!avatar.IsAlive) continue;
 
-				float dist = Vector3.Distance(head.position, avatar.HeadTransform.position);
+				float distSqr = (head.position - avatar.HeadTransform.position).sqrMagnitude;
 
-				if (dist < nearestDist)
+				if (distSqr < nearestDistSqr)
 				{
 					nearestId = avatar.OwnerClientId;
-					nearestDist = dist;
+					nearestDistSqr = distSqr;
 				}
 			}
 
-			targetIdSync.Value = nearestId;
-
-			PlayerAvatar target = Target;
-			if (target && target.IsAlive)
+			if (targetIdSync.Value != nearestId)
 			{
-				Vector3 targetPos = target.HeadTransform.position - Vector3.up * 1.5f;
-				Vector3 toTarget = targetPos - transform.position;
-				Vector3 sideways = Vector3.Cross(Vector3.up, toTarget).normalized;
-
-				float noiseTime = Time.time * strafeFrequency;
-				float strafe = Mathf.PerlinNoise(noiseTime, noiseSeed) * 2f - 1f;
-				float speedNoise = Mathf.PerlinNoise(noiseSeed, noiseTime) * 2f - 1f;
-
-				// taper the weaving as it closes in so it can still land a hit
-				float strafeFalloff = Mathf.Clamp01((toTarget.magnitude - damageDist) / strafeDistance);
-
-				agent.destination = targetPos + sideways * (strafe * strafeDistance * strafeFalloff);
-				agent.speed = baseSpeed * (1f + speedNoise * speedVariation);
-
-				if (Vector3.Distance(head.position, target.HeadTransform.position) < damageDist)
-					target.DamageRpc(101, 0);
+				targetIdSync.Value = nearestId;
+				nextRepathTime = 0f;
 			}
+		}
+
+		private void UpdatePath(PlayerAvatar target)
+		{
+			if (!agent.enabled || !agent.isOnNavMesh)
+				return;
+
+			Vector3 targetPos = target.HeadTransform.position - Vector3.up * 1.5f;
+			bool targetChanged = lastPathTargetId != target.OwnerClientId;
+
+			if (!targetChanged && Time.time < nextRepathTime)
+				return;
+
+			if (agent.pathPending)
+				return;
+
+			float targetDistance = GetTargetDistance(targetPos, targetChanged);
+			float distanceFactor = Mathf.InverseLerp(
+				nearRepathDistance,
+				farRepathDistance,
+				targetDistance);
+			float repathInterval = Mathf.Lerp(
+				nearRepathInterval,
+				farRepathInterval,
+				distanceFactor);
+			nextRepathTime = Time.time + repathInterval;
+
+			bool targetMoved = (targetPos - lastPathTarget).sqrMagnitude
+				>= targetMoveThreshold * targetMoveThreshold;
+			bool pathNeedsRefresh = !agent.hasPath || agent.isPathStale;
+
+			if (!targetChanged && !targetMoved && !pathNeedsRefresh)
+				return;
+
+			if (agent.SetDestination(targetPos))
+			{
+				lastPathTarget = targetPos;
+				lastPathTargetId = target.OwnerClientId;
+			}
+		}
+
+		private float GetTargetDistance(Vector3 targetPos, bool targetChanged)
+		{
+			if (!targetChanged && agent.hasPath && !agent.isPathStale)
+			{
+				float pathDistance = agent.remainingDistance;
+				if (!float.IsNaN(pathDistance) && !float.IsInfinity(pathDistance))
+					return pathDistance;
+			}
+
+			return Vector3.Distance(transform.position, targetPos);
+		}
+
+		private void ClearPath()
+		{
+			if (agent.enabled && agent.isOnNavMesh && agent.hasPath)
+				agent.ResetPath();
+
+			lastPathTargetId = ulong.MaxValue;
+			nextRepathTime = 0f;
+		}
+
+		private void OnTriggerEnter(Collider other)
+		{
+			if (!IsOwner || !other.CompareTag(PlayerAvatar.Tag))
+				return;
+
+			PlayerAvatar player = other.GetComponentInParent<PlayerAvatar>();
+			if (player && player.IsAlive)
+				player.DamageRpc(101, 0);
 		}
 
 		private void LateUpdate()

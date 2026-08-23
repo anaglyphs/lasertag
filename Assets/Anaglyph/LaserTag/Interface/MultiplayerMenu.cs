@@ -36,6 +36,9 @@ namespace Anaglyph.LaserTag.Interface
 		private NavPage sessionPage;
 		private NavPage networkErrorModal;
 		private NavPage errorModal;
+		private UIToolkitPanelXRSetup panel;
+		private MetaSessionDiscovery sessionDiscovery;
+		private Func<bool> listeningGate;
 
 		private Toggle hostOnRelayToggle;
 		private Label hostOnRelayWarning;
@@ -151,6 +154,7 @@ namespace Anaglyph.LaserTag.Interface
 		private void Awake()
 		{
 			UserErrors.Raised += OnUserErrorRaised;
+			listeningGate = AutomaticDiscoveryAllowed;
 
 			// this component owns the build number asset, so it tells netcode
 			// what to compare when a client joins
@@ -161,6 +165,7 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void OnDestroy()
 		{
+			ReleaseSessionDiscoveryGate();
 			UserErrors.Raised -= OnUserErrorRaised;
 		}
 
@@ -172,12 +177,19 @@ namespace Anaglyph.LaserTag.Interface
 		private void OnEnable()
 		{
 			InitializeUI();
+			panel = GetComponent<UIToolkitPanelXRSetup>();
+			if (panel == null)
+				throw new InvalidOperationException(
+					"MultiplayerMenu requires UIToolkitPanelXRSetup on the same object.");
+
+			panel.VisibleChanged += OnPanelVisibilityChanged;
 
 			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
 			ColocationManager.Colocated += OnColocationChange;
 			hostOnRelaySetting.Changed += OnHostOnRelaySettingChange;
 			useAprilTagsSetting.Changed += OnAprilTagsSettingChange;
 			aprilTagSizeSetting.Changed += OnAprilTagSizeSettingChange;
+			RefreshSessionDiscoveryState();
 
 			OnHostOnRelaySettingChange(hostOnRelaySetting.Value);
 			OnAprilTagsSettingChange(useAprilTagsSetting.Value);
@@ -202,6 +214,9 @@ namespace Anaglyph.LaserTag.Interface
 			hostOnRelaySetting.Changed -= OnHostOnRelaySettingChange;
 			useAprilTagsSetting.Changed -= OnAprilTagsSettingChange;
 			aprilTagSizeSetting.Changed -= OnAprilTagSizeSettingChange;
+			if (panel != null)
+				panel.VisibleChanged -= OnPanelVisibilityChanged;
+			ReleaseSessionDiscoveryGate();
 
 			if (navView != null)
 			{
@@ -249,9 +264,45 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void OnNavPageChange(NavPage page)
 		{
-			MetaSessionDiscovery discovery = MetaSessionDiscovery.Instance;
-			if (discovery != null)
-				discovery.enabled = page != manuallyConnectPage;
+			RefreshSessionDiscoveryState();
+		}
+
+		private void OnPanelVisibilityChanged(bool visible)
+		{
+			RefreshSessionDiscoveryState();
+		}
+
+		private bool AutomaticDiscoveryAllowed()
+		{
+			// A disabled/hidden panel is equivalent to the menu being closed. While it is
+			// visible, automatic joining is only allowed from the multiplayer home page.
+			return !isActiveAndEnabled || panel == null || !panel.IsVisible ||
+			       navView == null || navView.CurrentPage == homePage;
+		}
+
+		private void RefreshSessionDiscoveryState()
+		{
+			MetaSessionDiscovery current = MetaSessionDiscovery.Instance;
+			if (current != sessionDiscovery)
+			{
+				ReleaseSessionDiscoveryGate();
+				sessionDiscovery = current;
+				if (sessionDiscovery != null)
+					sessionDiscovery.ListeningGate = listeningGate;
+			}
+
+			sessionDiscovery?.RefreshState();
+		}
+
+		private void ReleaseSessionDiscoveryGate()
+		{
+			if (sessionDiscovery == null) return;
+
+			if (sessionDiscovery.ListeningGate == listeningGate)
+				sessionDiscovery.ListeningGate = null;
+
+			sessionDiscovery.RefreshState();
+			sessionDiscovery = null;
 		}
 
 		private void OnNetcodeStateChanged(NetcodeState state)

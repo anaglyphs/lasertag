@@ -10,7 +10,7 @@ namespace Anaglyph.XR.SharedSpaces
 	/// How far a colocator currently trusts the alignment it has produced between tracking
 	/// space and the canon (world) frame.
 	/// </summary>
-	public enum ColocationState
+	public enum ColocationAlignmentState
 	{
 		/// <summary>Not running.</summary>
 		Stopped,
@@ -79,8 +79,8 @@ namespace Anaglyph.XR.SharedSpaces
 	{
 		public const int MinimumPositionOnlyConstraintCount = 2;
 
-		public ColocationState State { get; private set; } = ColocationState.Stopped;
-		public event Action<ColocationState> StateChanged = delegate { };
+		public ColocationAlignmentState AlignmentState { get; private set; } = ColocationAlignmentState.Stopped;
+		public event Action<ColocationAlignmentState> StateChanged = delegate { };
 
 		[Tooltip("How quickly to ease onto a new fit once already localized. 1 = snap")]
 		[SerializeField] private float fitLerp = 0.1f;
@@ -109,7 +109,7 @@ namespace Anaglyph.XR.SharedSpaces
 			if (ReferenceEquals(Provider, next))
 				return;
 
-			if (State != ColocationState.Stopped)
+			if (AlignmentState != ColocationAlignmentState.Stopped)
 				StopColocation();
 
 			Provider = next;
@@ -123,10 +123,10 @@ namespace Anaglyph.XR.SharedSpaces
 			Provider?.GetColocationConstraints(results);
 		}
 
-		private void SetState(ColocationState next)
+		private void SetState(ColocationAlignmentState next)
 		{
-			if (State == next) return;
-			State = next;
+			if (AlignmentState == next) return;
+			AlignmentState = next;
 			StateChanged.Invoke(next);
 		}
 
@@ -134,8 +134,8 @@ namespace Anaglyph.XR.SharedSpaces
 		// Searching. Never demotes a colocator that was never aligned in the first place.
 		private void Delocalize()
 		{
-			if (State == ColocationState.Localized)
-				SetState(ColocationState.Lost);
+			if (AlignmentState == ColocationAlignmentState.Localized)
+				SetState(ColocationAlignmentState.Lost);
 		}
 
 		private void OnDestroy()
@@ -154,26 +154,26 @@ namespace Anaglyph.XR.SharedSpaces
 
 		public void StartColocation()
 		{
-			if (State != ColocationState.Stopped || Provider == null)
+			if (AlignmentState != ColocationAlignmentState.Stopped || Provider == null)
 				return;
 
 			Provider.StartProviding();
 
 			ctknSrc = new CancellationTokenSource();
-			SetState(ColocationState.Searching);
+			SetState(ColocationAlignmentState.Searching);
 			AlignLoop(ctknSrc.Token);
 		}
 
 		public void StopColocation()
 		{
-			if (State == ColocationState.Stopped)
+			if (AlignmentState == ColocationAlignmentState.Stopped)
 				return;
 
 			ctknSrc?.Cancel();
 			ctknSrc = null;
 			Provider?.StopProviding();
 			Agreement = default;
-			SetState(ColocationState.Stopped);
+			SetState(ColocationAlignmentState.Stopped);
 		}
 
 		private async void AlignLoop(CancellationToken ctkn)
@@ -195,7 +195,7 @@ namespace Anaglyph.XR.SharedSpaces
 					{
 						WarnNoReferenceRuntimeOnce();
 						Agreement = default;
-						SetState(ColocationState.Localized);
+						SetState(ColocationAlignmentState.Localized);
 						continue;
 					}
 
@@ -206,7 +206,7 @@ namespace Anaglyph.XR.SharedSpaces
 					if (!TryFit())
 						Delocalize();
 					else
-						SetState(ColocationState.Localized);
+						SetState(ColocationAlignmentState.Localized);
 				}
 			}
 			catch (OperationCanceledException)
@@ -276,7 +276,7 @@ namespace Anaglyph.XR.SharedSpaces
 
 			// First fit after Searching or Lost snaps, so the world arrives where it belongs
 			// immediately; later ones ease in, so drift corrections don't pop.
-			float lerp = State == ColocationState.Localized ? fitLerp : 1f;
+			float lerp = AlignmentState == ColocationAlignmentState.Localized ? fitLerp : 1f;
 
 			Transform space = MainXRRig.TrackingSpace;
 			Matrix4x4 spaceMat = space.localToWorldMatrix;
