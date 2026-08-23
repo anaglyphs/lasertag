@@ -3,7 +3,6 @@ using System.Threading;
 using Anaglyph.Menu;
 using Anaglyph.Netcode;
 using Anaglyph.VariableObjects;
-using Anaglyph.XR.SharedSpaces.SharedAnchors;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
@@ -37,8 +36,7 @@ namespace Anaglyph.LaserTag.Interface
 		private NavPage networkErrorModal;
 		private NavPage errorModal;
 		private UIToolkitPanelXRSetup panel;
-		private MetaSessionDiscovery sessionDiscovery;
-		private Func<bool> listeningGate;
+		private SessionDiscoveryController sessionDiscoveryController;
 
 		private Toggle hostOnRelayToggle;
 		private Label hostOnRelayWarning;
@@ -154,7 +152,11 @@ namespace Anaglyph.LaserTag.Interface
 		private void Awake()
 		{
 			UserErrors.Raised += OnUserErrorRaised;
-			listeningGate = AutomaticDiscoveryAllowed;
+			sessionDiscoveryController =
+				GetComponentInParent<SessionDiscoveryController>();
+			if (sessionDiscoveryController == null)
+				throw new InvalidOperationException(
+					"MultiplayerMenu requires SessionDiscoveryController in its parent hierarchy.");
 
 			// this component owns the build number asset, so it tells netcode
 			// what to compare when a client joins
@@ -165,7 +167,7 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void OnDestroy()
 		{
-			ReleaseSessionDiscoveryGate();
+			sessionDiscoveryController?.SetMenuAllowsListening(true);
 			UserErrors.Raised -= OnUserErrorRaised;
 		}
 
@@ -216,7 +218,7 @@ namespace Anaglyph.LaserTag.Interface
 			aprilTagSizeSetting.Changed -= OnAprilTagSizeSettingChange;
 			if (panel != null)
 				panel.VisibleChanged -= OnPanelVisibilityChanged;
-			ReleaseSessionDiscoveryGate();
+			sessionDiscoveryController?.SetMenuAllowsListening(true);
 
 			if (navView != null)
 			{
@@ -282,27 +284,8 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void RefreshSessionDiscoveryState()
 		{
-			MetaSessionDiscovery current = MetaSessionDiscovery.Instance;
-			if (current != sessionDiscovery)
-			{
-				ReleaseSessionDiscoveryGate();
-				sessionDiscovery = current;
-				if (sessionDiscovery != null)
-					sessionDiscovery.ListeningGate = listeningGate;
-			}
-
-			sessionDiscovery?.RefreshState();
-		}
-
-		private void ReleaseSessionDiscoveryGate()
-		{
-			if (sessionDiscovery == null) return;
-
-			if (sessionDiscovery.ListeningGate == listeningGate)
-				sessionDiscovery.ListeningGate = null;
-
-			sessionDiscovery.RefreshState();
-			sessionDiscovery = null;
+			sessionDiscoveryController?.SetMenuAllowsListening(
+				AutomaticDiscoveryAllowed());
 		}
 
 		private void OnNetcodeStateChanged(NetcodeState state)

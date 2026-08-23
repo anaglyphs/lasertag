@@ -95,8 +95,6 @@ namespace Anaglyph.LaserTag
 		// True from method-sync (session fully known) until the session ends.
 		private bool sessionStarted;
 
-		private bool advertiseGateOpen;
-
 		private void Awake()
 		{
 			Instance = this;
@@ -121,12 +119,6 @@ namespace Anaglyph.LaserTag
 
 			MapManager.CurrentMapChanged += OnCurrentMapChanged;
 
-			// Hosts only become discoverable once their world frame is trustworthy: joiners
-			// who arrive earlier would download nothing they can align to.
-			MetaSessionDiscovery discovery = MetaSessionDiscovery.Instance;
-			if (discovery != null)
-				discovery.AdvertisementGate = CanAdvertiseSession;
-
 			UpdateProvider();
 		}
 
@@ -141,36 +133,6 @@ namespace Anaglyph.LaserTag
 			SyncBus.Deactivated -= OnBusDeactivated;
 			methodSync.Synced -= OnMethodSynced;
 			methodSync.Unregister();
-		}
-
-		private void Update()
-		{
-			// The advertisement gate has no event of its own (agreement shifts every frame);
-			// poke the discovery only on transitions.
-			MetaSessionDiscovery discovery = MetaSessionDiscovery.Instance;
-			if (discovery == null) return;
-
-			bool open = CanAdvertiseSession();
-			if (open == advertiseGateOpen) return;
-
-			advertiseGateOpen = open;
-			discovery.RefreshState();
-		}
-
-		private bool CanAdvertiseSession()
-		{
-			MapManager mapManager = MapManager.Instance;
-			if (mapManager == null || !mapManager.CheckWorldFrameIsTrusted())
-				return false;
-
-			ColocationMethod hostMethod = sessionStarted ? Method : methodHostSetting;
-			if (hostMethod != ColocationMethod.AprilTag)
-				return true;
-
-			// Tag mode is only meaningful when the provider has at least one registered tag
-			// from which each peer can create its own private anchor.
-			GameMap map = mapManager.CurrentMap;
-			return map != null && map.HasTags;
 		}
 
 		private void OnBusActivated()

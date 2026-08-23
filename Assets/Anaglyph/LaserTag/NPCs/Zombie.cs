@@ -13,17 +13,13 @@ namespace Anaglyph.LaserTag.NPCs
 		[SerializeField] private CapsuleCollider damageTrigger;
 
 		[Header("Navigation")]
-		[SerializeField, Min(0f)] private float targetRefreshInterval = 0.25f;
-		[SerializeField, Min(0f)] private float nearRepathInterval = 0.1f;
-		[SerializeField, Min(0f)] private float farRepathInterval = 0.75f;
-		[SerializeField, Min(0f)] private float nearRepathDistance = 2f;
-		[SerializeField, Min(0f)] private float farRepathDistance = 10f;
-		[SerializeField, Min(0f)] private float targetMoveThreshold = 0.2f;
+		[SerializeField, Min(0f)] private float targetRefreshInterval = 0.5f;
+
+		[SerializeField] private float immediateUpdateWithinDist = 5f;
 
 		private NavMeshAgent agent;
 		private float nextTargetRefreshTime;
-		private float nextRepathTime;
-		private Vector3 lastPathTarget;
+		private Vector3 lastRepathStartPosition;
 		private ulong lastPathTargetId = ulong.MaxValue;
 
 		private readonly NetworkVariable<ulong> targetIdSync = new(ulong.MaxValue);
@@ -96,7 +92,6 @@ namespace Anaglyph.LaserTag.NPCs
 			if (IsOwner)
 			{
 				nextTargetRefreshTime = 0f;
-				nextRepathTime = 0f;
 				lastPathTargetId = ulong.MaxValue;
 			}
 		}
@@ -108,12 +103,6 @@ namespace Anaglyph.LaserTag.NPCs
 
 			if (Time.time >= nextTargetRefreshTime)
 				RefreshTarget();
-
-			PlayerAvatar target = Target;
-			if (target && target.IsAlive)
-				UpdatePath(target);
-			else
-				ClearPath();
 		}
 
 		private void RefreshTarget()
@@ -136,10 +125,7 @@ namespace Anaglyph.LaserTag.NPCs
 			}
 
 			if (targetIdSync.Value != nearestId)
-			{
 				targetIdSync.Value = nearestId;
-				nextRepathTime = 0f;
-			}
 		}
 
 		private void UpdatePath(PlayerAvatar target)
@@ -149,48 +135,24 @@ namespace Anaglyph.LaserTag.NPCs
 
 			Vector3 targetPos = target.HeadTransform.position - Vector3.up * 1.5f;
 			bool targetChanged = lastPathTargetId != target.OwnerClientId;
+			bool pathNeedsRefresh = !agent.hasPath || agent.isPathStale;
 
-			if (!targetChanged && Time.time < nextRepathTime)
-				return;
+			if (!targetChanged && !pathNeedsRefresh)
+			{
+				float distanceTraveled = Vector3.Distance(lastRepathStartPosition, transform.position);
+				float distanceToTarget = Vector3.Distance(lastRepathStartPosition, targetPos);
+				if (distanceTraveled < distanceToTarget * 0.5f || distanceTraveled < immediateUpdateWithinDist)
+					return;
+			}
 
 			if (agent.pathPending)
 				return;
 
-			float targetDistance = GetTargetDistance(targetPos, targetChanged);
-			float distanceFactor = Mathf.InverseLerp(
-				nearRepathDistance,
-				farRepathDistance,
-				targetDistance);
-			float repathInterval = Mathf.Lerp(
-				nearRepathInterval,
-				farRepathInterval,
-				distanceFactor);
-			nextRepathTime = Time.time + repathInterval;
-
-			bool targetMoved = (targetPos - lastPathTarget).sqrMagnitude
-				>= targetMoveThreshold * targetMoveThreshold;
-			bool pathNeedsRefresh = !agent.hasPath || agent.isPathStale;
-
-			if (!targetChanged && !targetMoved && !pathNeedsRefresh)
-				return;
-
 			if (agent.SetDestination(targetPos))
 			{
-				lastPathTarget = targetPos;
+				lastRepathStartPosition = transform.position;
 				lastPathTargetId = target.OwnerClientId;
 			}
-		}
-
-		private float GetTargetDistance(Vector3 targetPos, bool targetChanged)
-		{
-			if (!targetChanged && agent.hasPath && !agent.isPathStale)
-			{
-				float pathDistance = agent.remainingDistance;
-				if (!float.IsNaN(pathDistance) && !float.IsInfinity(pathDistance))
-					return pathDistance;
-			}
-
-			return Vector3.Distance(transform.position, targetPos);
 		}
 
 		private void ClearPath()
@@ -199,7 +161,6 @@ namespace Anaglyph.LaserTag.NPCs
 				agent.ResetPath();
 
 			lastPathTargetId = ulong.MaxValue;
-			nextRepathTime = 0f;
 		}
 
 		private void OnTriggerEnter(Collider other)
@@ -216,6 +177,14 @@ namespace Anaglyph.LaserTag.NPCs
 		{
 			PlayerAvatar target = Target;
 			if (target) head.LookAt(target.HeadTransform);
+
+			if (!IsOwner)
+				return;
+
+			if (target && target.IsAlive)
+				UpdatePath(target);
+			else
+				ClearPath();
 		}
 
 		[Rpc(SendTo.Owner)]

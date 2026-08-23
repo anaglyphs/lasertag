@@ -80,12 +80,8 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   head: {fileID: 7436447841320324849}
   damageTrigger: {fileID: 3901284610248357281}
-  targetRefreshInterval: 0.25
-  nearRepathInterval: 0.1
-  farRepathInterval: 0.75
-  nearRepathDistance: 2
-  farRepathDistance: 10
-  targetMoveThreshold: 0.2
+  targetRefreshInterval: 0.5
+  immediateUpdateWithinDist: 10
 --- !u!195 &5269422346085259457
 NavMeshAgent:
   m_ObjectHideFlags: 0
