@@ -25,6 +25,13 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		public Func<bool> ListeningGate;
 
 		/// <summary>
+		/// Application-level readiness condition for all automatic discovery activity,
+		/// injected by the game layer. Null means the application is ready. Whoever owns
+		/// the gate calls <see cref="RefreshState"/> when its answer changes.
+		/// </summary>
+		public Func<bool> ApplicationReadyGate;
+
+		/// <summary>
 		/// Extra host-side condition for advertising, injected by the game layer (assembly
 		/// direction prevents referencing it here). Null means no extra condition. Whoever
 		/// owns the gate calls <see cref="RefreshState"/> when its answer changes.
@@ -36,10 +43,11 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 			State newState = GetDesiredState();
 			if (!hasDesiredState || newState != desiredState)
 			{
-				bool isInitialState = !hasDesiredState;
 				hasDesiredState = true;
 				desiredState = newState;
-				listenStartDelayPending = !isInitialState && newState == State.Listen;
+				listenStartDelayPending = newState == State.Listen && hasEnteredListen;
+				if (newState == State.Listen)
+					hasEnteredListen = true;
 				stateRetryDelay = MinStateRetryDelay;
 			}
 
@@ -201,6 +209,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		private CancellationTokenSource stateDelayCancellation;
 		private State desiredState = State.Disable;
 		private bool hasDesiredState;
+		private bool hasEnteredListen;
 		private bool listenStartDelayPending;
 		private bool stateLoopRunning;
 		private bool stateRefreshRequested;
@@ -210,6 +219,9 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 
 		private State GetDesiredState()
 		{
+			if (!(ApplicationReadyGate?.Invoke() ?? true))
+				return State.Disable;
+
 			if (enabled && !isPaused)
 				switch (NetcodeManagement.State)
 				{

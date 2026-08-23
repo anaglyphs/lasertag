@@ -1,6 +1,7 @@
 using System;
 using Anaglyph.Menu;
 using Anaglyph.Permissions;
+using Anaglyph.XR.SharedSpaces.SharedAnchors;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -20,6 +21,8 @@ namespace Anaglyph.LaserTag.Interface
 		private bool cameraRequestInFlight;
 		private bool limitedSupportAcknowledged;
 		private string statusMessage;
+		private MetaSessionDiscovery sessionDiscovery;
+		private Func<bool> sessionDiscoveryGate;
 
 		private NavView navView;
 		private NavPage limitedSupportModal;
@@ -29,6 +32,8 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void Awake()
 		{
+			sessionDiscoveryGate = () => gateOpen;
+
 			if (permissionDocument == null)
 				throw new InvalidOperationException(
 					"PermissionGateMenu requires a permission UIDocument.");
@@ -37,6 +42,12 @@ namespace Anaglyph.LaserTag.Interface
 			CacheGatedPanelStates();
 			SetGatedPanelsActive(false);
 			permissionDocument.gameObject.SetActive(true);
+			AttachSessionDiscoveryGate();
+		}
+
+		private void Start()
+		{
+			RefreshSessionDiscoveryState();
 		}
 
 		private void OnEnable()
@@ -47,6 +58,11 @@ namespace Anaglyph.LaserTag.Interface
 		private void OnDisable()
 		{
 			DisposeUI();
+		}
+
+		private void OnDestroy()
+		{
+			ReleaseSessionDiscoveryGate();
 		}
 
 		private void OnApplicationFocus(bool hasFocus)
@@ -108,12 +124,16 @@ namespace Anaglyph.LaserTag.Interface
 		private void OpenGate()
 		{
 			if (gateOpen)
+			{
+				RefreshSessionDiscoveryState();
 				return;
+			}
 
 			gateOpen = true;
 			DisposeUI();
 			permissionDocument.gameObject.SetActive(false);
 			RestoreGatedPanelStates();
+			RefreshSessionDiscoveryState();
 		}
 
 		private void CloseGate()
@@ -128,6 +148,47 @@ namespace Anaglyph.LaserTag.Interface
 				permissionDocument.gameObject.SetActive(true);
 
 			InitializeUI();
+			RefreshSessionDiscoveryState();
+		}
+
+		private void AttachSessionDiscoveryGate()
+		{
+			MetaSessionDiscovery current = MetaSessionDiscovery.Instance;
+			if (current == null)
+				current = FindFirstObjectByType<MetaSessionDiscovery>();
+
+			if (current == sessionDiscovery)
+				return;
+
+			ReleaseSessionDiscoveryGate();
+			sessionDiscovery = current;
+			if (sessionDiscovery != null)
+				sessionDiscovery.ApplicationReadyGate = sessionDiscoveryGate;
+		}
+
+		private void RefreshSessionDiscoveryState()
+		{
+			AttachSessionDiscoveryGate();
+
+			// The rig is instantiated very early, before the scene's discovery component
+			// necessarily receives Awake. Assign its gate now, but let its own Start perform
+			// the first reconciliation once its dependencies have initialized.
+			if (sessionDiscovery != null && MetaSessionDiscovery.Instance == sessionDiscovery)
+				sessionDiscovery.RefreshState();
+		}
+
+		private void ReleaseSessionDiscoveryGate()
+		{
+			if (sessionDiscovery == null)
+				return;
+
+			if (sessionDiscovery.ApplicationReadyGate == sessionDiscoveryGate)
+				sessionDiscovery.ApplicationReadyGate = null;
+
+			if (MetaSessionDiscovery.Instance == sessionDiscovery)
+				sessionDiscovery.RefreshState();
+
+			sessionDiscovery = null;
 		}
 
 		private void InitializeUI()

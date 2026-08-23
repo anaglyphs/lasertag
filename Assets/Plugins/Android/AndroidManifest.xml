@@ -42,7 +42,7 @@
         <uses-native-library android:name="libopenxr.google.so" android:required="false"/>
 
         <!-- Meta-specific metadata -->
-        <meta-data android:name="unityplayer.SkipPermissionsDialog" android:value="false"/>
+        <meta-data android:name="unityplayer.SkipPermissionsDialog" android:value="true"/>
         <meta-data android:name="com.samsung.android.vr.application.mode" android:value="vr_only"/>
         <meta-data android:name="com.oculus.ossplash.background" android:value="passthrough-contextual"/>
         <meta-data android:name="com.oculus.supportedDevices" android:value="quest2|questpro|quest3|eureka"/>
