@@ -34,6 +34,7 @@ namespace Anaglyph.LaserTag.Interface
 		private NavPage manuallyConnectPage;
 		private NavPage sessionPage;
 		private NavPage networkErrorModal;
+		private NavPage bluetoothErrorModal;
 		private NavPage errorModal;
 		private UIToolkitPanelXRSetup panel;
 		private SessionDiscoveryController sessionDiscoveryController;
@@ -66,6 +67,9 @@ namespace Anaglyph.LaserTag.Interface
 		private NetworkState networkState;
 		private bool hasNetworkState;
 		private bool hasFullInternet;
+		private bool bluetoothIsEnabled;
+		private bool hasBluetoothState;
+		private bool hasLoggedBluetoothCheckFailure;
 		private CancellationTokenSource networkPollCancellation;
 
 		private void InitializeUI()
@@ -86,6 +90,7 @@ namespace Anaglyph.LaserTag.Interface
 			manuallyConnectPage = navView.AddPage("manual-connect-page");
 			sessionPage = navView.AddPage("session-page", false);
 			networkErrorModal = navView.AddPage("network-error-modal", false);
+			bluetoothErrorModal = navView.AddPage("bluetooth-error-modal", false);
 			errorModal = navView.AddPage("error-modal", false);
 
 			Require<Button>(root, "host-button").clicked += Host;
@@ -133,6 +138,10 @@ namespace Anaglyph.LaserTag.Interface
 			Require<Button>(root, "dismiss-network-error-button").clicked +=
 				() => navView.DismissModal(networkErrorModal);
 			Require<Button>(root, "open-wifi-settings-button").clicked += OpenWifiSettings;
+			Require<Button>(root, "dismiss-bluetooth-error-button").clicked +=
+				() => navView.DismissModal(bluetoothErrorModal);
+			Require<Button>(root, "open-bluetooth-settings-button").clicked +=
+				OpenBluetoothSettings;
 
 			errorSubjectText = Require<Label>(root, "error-subject");
 			errorDetailsText = Require<Label>(root, "error-details");
@@ -198,6 +207,7 @@ namespace Anaglyph.LaserTag.Interface
 			OnAprilTagSizeSettingChange(aprilTagSizeSetting.Value);
 			OnNetcodeStateChanged(NetcodeManagement.State);
 			hasNetworkState = false;
+			hasBluetoothState = false;
 			BeginNetworkCheckLoop();
 
 			// an error may have arrived while this menu was disabled
@@ -401,6 +411,7 @@ namespace Anaglyph.LaserTag.Interface
 				while (!token.IsCancellationRequested)
 				{
 					CheckNetworkConnection();
+					CheckBluetoothConnection();
 					await Awaitable.WaitForSecondsAsync(1f, token);
 				}
 			}
@@ -430,6 +441,69 @@ namespace Anaglyph.LaserTag.Interface
 
 			networkState = newState;
 			hasNetworkState = true;
+		}
+
+		private void CheckBluetoothConnection()
+		{
+			if (!TryGetBluetoothEnabled(out bool newBluetoothIsEnabled))
+				return;
+
+			bool bluetoothChanged =
+				!hasBluetoothState || newBluetoothIsEnabled != bluetoothIsEnabled;
+			if (bluetoothChanged)
+				navView.SetModalPresented(
+					bluetoothErrorModal, !newBluetoothIsEnabled, 100);
+
+			bluetoothIsEnabled = newBluetoothIsEnabled;
+			hasBluetoothState = true;
+		}
+
+		private bool TryGetBluetoothEnabled(out bool isEnabled)
+		{
+#if UNITY_ANDROID
+			if (Application.isEditor)
+			{
+				isEnabled = true;
+				return true;
+			}
+
+			try
+			{
+				using AndroidJavaClass unityPlayer =
+					new("com.unity3d.player.UnityPlayer");
+				using AndroidJavaObject activity =
+					unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
+				using AndroidJavaObject contentResolver =
+					activity.Call<AndroidJavaObject>("getContentResolver");
+				using AndroidJavaClass globalSettings =
+					new("android.provider.Settings$Global");
+
+				int bluetoothState = globalSettings.CallStatic<int>(
+					"getInt", contentResolver, "bluetooth_on", -1);
+				if (bluetoothState < 0)
+					throw new InvalidOperationException(
+						"Android did not report a Bluetooth setting.");
+
+				isEnabled = bluetoothState != 0;
+				hasLoggedBluetoothCheckFailure = false;
+				return true;
+			}
+			catch (Exception exception)
+			{
+				isEnabled = false;
+				if (!hasLoggedBluetoothCheckFailure)
+				{
+					hasLoggedBluetoothCheckFailure = true;
+					Debug.LogWarning("Could not check whether Bluetooth is enabled.");
+					Debug.LogException(exception);
+				}
+
+				return false;
+			}
+#else
+			isEnabled = true;
+			return true;
+#endif
 		}
 
 		private void UpdateInternetWarnings()
@@ -486,6 +560,45 @@ namespace Anaglyph.LaserTag.Interface
 			}
 #else
 			Debug.LogWarning("Wi-Fi settings can only be opened from an Android player.");
+#endif
+		}
+
+		private static void OpenBluetoothSettings()
+		{
+#if UNITY_ANDROID
+			if (Application.isEditor)
+			{
+				Debug.LogWarning(
+					"Bluetooth settings can only be opened from an Android player.");
+				return;
+			}
+
+			const string bluetoothSettingsAction =
+				"android.settings.BLUETOOTH_SETTINGS";
+			const string systemSettingsAction = "android.settings.SETTINGS";
+
+			try
+			{
+				using AndroidJavaClass unityPlayer = new("com.unity3d.player.UnityPlayer");
+				using AndroidJavaObject activity =
+					unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
+				using AndroidJavaObject packageManager =
+					activity.Call<AndroidJavaObject>("getPackageManager");
+
+				if (TryStartAndroidActivity(
+					    activity, packageManager, bluetoothSettingsAction))
+					return;
+
+				if (!TryStartAndroidActivity(activity, packageManager, systemSettingsAction))
+					Debug.LogError("No Android system settings activity is available.");
+			}
+			catch (AndroidJavaException exception)
+			{
+				Debug.LogException(exception);
+			}
+#else
+			Debug.LogWarning(
+				"Bluetooth settings can only be opened from an Android player.");
 #endif
 		}
 

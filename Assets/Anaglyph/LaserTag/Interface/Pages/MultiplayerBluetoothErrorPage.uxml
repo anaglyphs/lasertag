@@ -1,0 +1,12 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+	<ui:Template name="NavHeader" src="project://database/Assets/Anaglyph/LaserTag/Interface/NavHeader.uxml?fileID=9197481963319205126&amp;guid=6fb045f52b6e5428ea70fca9635fe4c6&amp;type=3#NavHeader"/>
+	<Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+	<ui:VisualElement name="VisualElement" class="page-template-root">
+		<ui:Instance template="NavHeader">
+			<AttributeOverrides element-name="title" text="Bluetooth is off"/>
+		</ui:Instance>
+		<ui:Label text="Turn on Bluetooth to automatically discover nearby games. You can still connect manually." class="body-copy"/>
+		<ui:Button name="open-bluetooth-settings-button" text="Open Bluetooth settings"/>
+		<ui:Button name="dismiss-bluetooth-error-button" text="Ignore" class="destructive"/>
+	</ui:VisualElement>
+</ui:UXML>
