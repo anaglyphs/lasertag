@@ -5,6 +5,7 @@ using UnityEngine.XR;
 
 namespace Anaglyph.LaserTag.Interface.HUD
 {
+	[DefaultExecutionOrder(-999999)]
 	public class HandHUDPositioner : MonoBehaviour
 	{
 		[SerializeField] public float horizontalOffset = 0.15f;
@@ -20,21 +21,31 @@ namespace Anaglyph.LaserTag.Interface.HUD
 		private void OnEnable()
 		{
 			mainCamera = Camera.main;
+
+			foreach (HandInput handInput in HandInput.Hands.Values)
+			{
+				handInput.IsTrackingChanged += OnHandTrackingChanged;
+			}
 			
-			InputDevices.deviceConnected += OnDeviceEvent;
-			InputDevices.deviceDisconnected += OnDeviceEvent;
 			if(didStart) FindController();
 		}
-
+		
 		private void Start()
+		{
+			FindController();
+		}
+
+		private void OnHandTrackingChanged(bool obj)
 		{
 			FindController();
 		}
 
 		private void OnDisable()
 		{
-			InputDevices.deviceConnected -= OnDeviceEvent;
-			InputDevices.deviceDisconnected -= OnDeviceEvent;
+			foreach (HandInput handInput in HandInput.Hands.Values)
+			{
+				handInput.IsTrackingChanged -= OnHandTrackingChanged;
+			}
 		}
 
 		private void OnDeviceEvent(InputDevice obj)
