@@ -41,6 +41,40 @@ Button {
 	border-color: rgb(255, 255, 255);
 }
 
+.unity-base-slider #unity-tracker {
+	background-color: transparent;
+	border-width: 1px;
+	border-color: white;
+	height:10px;
+	margin-top:-5px;
+}
+
+.unity-base-slider #unity-dragger {
+	background-color: white;
+	border-width: 0;
+	margin-top: -20px;
+	height:40px;
+}
+
+.unity-base-slider #unity-fill {
+	background-color: white;
+}
+
+RadioButton .unity-radio-button__checkmark-background {
+	background-color: transparent;
+	border-width: 1px;
+	border-color: white;
+	padding:0;
+}
+
+RadioButton #unity-checkmark {
+	width: 100%;
+	height: 100%;
+	background-color: white;
+	border-radius: 100%;
+}
+
+
 Toggle {
 	min-height: 30px;
 }
@@ -67,7 +101,6 @@ Toggle {
 .header {
     flex-direction: row;
     align-items: center;
-    min-height: 52px;
     margin-bottom: 8px;
 }
 
@@ -76,6 +109,7 @@ Toggle {
     -unity-text-align: middle-left;
     font-size: 28px;
     -unity-font-style: bold;
+	-unity-font-definition: url("/Assets/Resources/Fonts/DINishExpanded-Regular SDF.asset");
 }
 
 .field-row {
@@ -147,6 +181,11 @@ TextField {
 	justify-content: center;
 }
 
+.unity-label {
+	margin: 4px;
+	padding: 0px;
+}
+
 .unity-toggle__text {
 	padding-top: 0;
 	padding-bottom: 0;
@@ -172,17 +211,25 @@ ScrollView {
     align-items: stretch;
 }
 
-.stacked-field > .unity-base-field__label {
+.stacked-field .unity-base-field__label {
     min-width: auto;
     width: auto;
-    margin-bottom: 4px;
+}
+
+.unity-base-field {
+	margin: 4px;
+}
+
+.stacked-field .unity-base-field__label {
+	margin: 0;
 }
 
 /* sliders only - a radio group's input holds every radio button.
    46px matches the TextField touch target above */
-.stacked-field > .unity-base-slider__input {
-    height: 46px;
+.stacked-field .unity-base-slider__input {
+    max-height: 46px;
     flex-grow: 0;
+	margin:0;
 }
 
 /* the slider's built-in field would otherwise add TextField's 4px margins */
@@ -191,6 +238,7 @@ ScrollView {
     width: 72px;
     margin-top: 0;
     margin-bottom: 0;
+	margin-right: 0;
 }
 
 .stacked-field .unity-radio-button-group__container {

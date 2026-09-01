@@ -12,20 +12,13 @@ namespace Anaglyph.LaserTag.Interface.HUD
 	[DefaultExecutionOrder(9999)]
 	public class HandHUD : MonoBehaviour
 	{
-		private const float SandHeight = 20f;
-
 		private VisualElement timerHUD;
 		private Label timerLabel;
-		private VisualElement topSand;
-		private VisualElement bottomSand;
 		private Label[] timerScores;
 
 		private VisualElement scoreGoalHUD;
 		private Label scoreTargetLabel;
 		private Label[] goalScores;
-
-		// per-team score progress bars; replaced with SVG graphics later
-		private VisualElement[] scoreLines;
 
 		private Label roundLabel;
 
@@ -38,8 +31,6 @@ namespace Anaglyph.LaserTag.Interface.HUD
 		{
 			timerHUD = HUDElement.Require<VisualElement>(this, "timer-hud");
 			timerLabel = HUDElement.Require<Label>(this, "timer-label");
-			topSand = HUDElement.Require<VisualElement>(this, "top-sand");
-			bottomSand = HUDElement.Require<VisualElement>(this, "bottom-sand");
 
 			timerScores = new Label[Teams.NumTeams];
 			timerScores[1] = HUDElement.Require<Label>(this, "timer-red-score");
@@ -51,10 +42,6 @@ namespace Anaglyph.LaserTag.Interface.HUD
 			goalScores = new Label[Teams.NumTeams];
 			goalScores[1] = HUDElement.Require<Label>(this, "goal-red-score");
 			goalScores[2] = HUDElement.Require<Label>(this, "goal-blue-score");
-
-			scoreLines = new VisualElement[Teams.NumTeams];
-			scoreLines[1] = HUDElement.Require<VisualElement>(this, "red-score-line");
-			scoreLines[2] = HUDElement.Require<VisualElement>(this, "blue-score-line");
 
 			roundLabel = HUDElement.Require<Label>(this, "round-label");
 
@@ -127,7 +114,7 @@ namespace Anaglyph.LaserTag.Interface.HUD
 		{
 			float progress = target > 0 ? score / (float)target : 0f;
 
-			scoreLines[team].style.width = Length.Percent(Mathf.Clamp01(progress) * 100f);
+			// scoreLines[team].style.width = Length.Percent(Mathf.Clamp01(progress) * 100f);
 		}
 
 		private void UpdateTimerText(string timerString)
@@ -141,9 +128,6 @@ namespace Anaglyph.LaserTag.Interface.HUD
 			float timeLeft = MatchReferee.Instance.GetTimeLeft();
 
 			float tn = timeTotal > 0 ? Mathf.Clamp01(timeLeft / timeTotal) : 0f;
-
-			topSand.style.height = SandHeight * tn;
-			bottomSand.style.height = SandHeight * (1 - tn);
 		}
 
 		private void InvalidateShownValues()

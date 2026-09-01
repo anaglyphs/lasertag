@@ -8,13 +8,13 @@ namespace Anaglyph.XR.Input
 
 		private void Awake()
 		{
-			if (!handSubject)
+			if (handSubject == null)
 				handSubject = GetComponent<HandSubject>();
 		}
 
 		private void Start()
 		{
-			if (!handSubject)
+			if (handSubject == null)
 			{
 				Debug.LogError("DeactivateUntracked requires a HandSubject.", this);
 				return;
@@ -26,7 +26,7 @@ namespace Anaglyph.XR.Input
 
 		private void OnDestroy()
 		{
-			if (handSubject)
+			if (handSubject != null)
 				handSubject.IsTrackingChanged -= gameObject.SetActive;
 		}
 	}

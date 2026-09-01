@@ -4,28 +4,28 @@
         <ui:VisualElement picking-mode="Ignore" name="death-hud" class="hud-overlay" style="display: none;">
             <ui:VisualElement picking-mode="Ignore" class="you-died-row">
                 <ui:VisualElement picking-mode="Ignore" class="death-bar"/>
-                <ui:Label picking-mode="Ignore" text="YOU DIED" class="you-died-label"/>
+                <ui:Label picking-mode="Ignore" text="YOU DIED" class="you-died-label" style="-unity-font-definition: resource(&quot;Fonts/DINishExpanded-Bold SDF&quot;);"/>
                 <ui:VisualElement picking-mode="Ignore" class="death-bar"/>
             </ui:VisualElement>
             <ui:Label picking-mode="Ignore" name="respawn-label" text="" class="respawn-label"/>
         </ui:VisualElement>
         <ui:VisualElement picking-mode="Ignore" name="countdown-hud" class="hud-overlay" style="display: none;">
-            <ui:Label picking-mode="Ignore" name="countdown-label" text="" class="countdown-label"/>
+            <ui:Label picking-mode="Ignore" name="countdown-label" text="3" class="countdown-label" style="-unity-font-definition: resource(&quot;Fonts/DINishExpanded-Bold SDF&quot;);"/>
         </ui:VisualElement>
-        <ui:VisualElement picking-mode="Ignore" name="muster-hud" class="hud-overlay" style="display: none;">
-            <ui:Label picking-mode="Ignore" text="Everyone must stand in a base&#10;for the game to start!" class="queue-label"/>
+        <ui:VisualElement picking-mode="Ignore" name="muster-hud" class="hud-overlay" style="display: none; -unity-font-definition: resource(&quot;Fonts/DINish-Regular SDF&quot;); -unity-font-style: normal;">
+            <ui:Label picking-mode="Ignore" text="Everyone must stand in a base&#10;for the game to start!" class="queue-label" style="-unity-font-style: bold;"/>
         </ui:VisualElement>
         <ui:VisualElement picking-mode="Ignore" name="results-hud" class="hud-overlay" style="display: none;">
-            <ui:Label picking-mode="Ignore" name="results-title" text="GAME OVER" class="results-title"/>
+            <ui:Label picking-mode="Ignore" name="results-title" text="GAME OVER" class="results-title" style="-unity-font-definition: resource(&quot;Fonts/DINishExpanded-Regular SDF&quot;); -unity-font-style: bold;"/>
             <ui:Label picking-mode="Ignore" name="results-round-label" text="" class="results-round-label" style="display: none;"/>
             <ui:VisualElement picking-mode="Ignore" class="results-scores">
-                <ui:Label picking-mode="Ignore" name="results-red-score" text="0" class="results-score team-red" style="-unity-text-align: middle-right;"/>
+                <ui:Label picking-mode="Ignore" name="results-red-score" text="0" class="results-score team-red" style="-unity-text-align: middle-right; -unity-font-style: bold;"/>
                 <ui:Label picking-mode="Ignore" name="vs-label" text="vs" class="vs-label"/>
-                <ui:Label picking-mode="Ignore" name="results-blue-score" text="0" class="results-score team-blue" style="-unity-text-align: middle-left;"/>
+                <ui:Label picking-mode="Ignore" name="results-blue-score" text="0" class="results-score team-blue" style="-unity-text-align: middle-left; -unity-font-style: bold;"/>
             </ui:VisualElement>
         </ui:VisualElement>
-        <ui:VisualElement picking-mode="Ignore" name="connection-hud" class="hud-overlay" style="display: none;">
-            <ui:Label picking-mode="Ignore" name="connection-label" text="" class="connection-label"/>
+        <ui:VisualElement picking-mode="Ignore" name="connection-hud" class="hud-overlay" style="display: flex;">
+            <ui:Label picking-mode="Ignore" name="connection-label" text="Connecting..." class="connection-label" style="-unity-font-definition: resource(&quot;Fonts/DINishExpanded-Bold SDF&quot;);"/>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

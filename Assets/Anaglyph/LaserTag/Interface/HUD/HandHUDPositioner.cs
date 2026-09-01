@@ -1,4 +1,5 @@
 using Anaglyph.XR;
+using Anaglyph.XR.Input;
 using UnityEngine;
 using UnityEngine.XR;
 
@@ -11,26 +12,22 @@ namespace Anaglyph.LaserTag.Interface.HUD
 		[SerializeField] private float handSwapThresh = 0.02f;
 
 		private Camera mainCamera;
-		private InputDevice follow;
+		private HandInput follow;
 
-		private enum HandSide
-		{
-			Left = -1,
-			None = 0,
-			Right = 1
-		}
-
-		private HandSide side = HandSide.None;
+		private int side;
 		private float swapTimer = float.MaxValue;
-
-		private readonly XRNode[] nodesToCheck = { XRNode.RightHand, XRNode.LeftHand };
 
 		private void OnEnable()
 		{
 			mainCamera = Camera.main;
-
+			
 			InputDevices.deviceConnected += OnDeviceEvent;
 			InputDevices.deviceDisconnected += OnDeviceEvent;
+			if(didStart) FindController();
+		}
+
+		private void Start()
+		{
 			FindController();
 		}
 
@@ -47,12 +44,11 @@ namespace Anaglyph.LaserTag.Interface.HUD
 
 		private void FindController()
 		{
-			foreach (XRNode node in nodesToCheck)
+			foreach (HandInput handInput in HandInput.Hands.Values)
 			{
-				InputDevice controller = InputDevices.GetDeviceAtXRNode(node);
-				if (controller.isValid)
+				if (handInput.IsTracking)
 				{
-					follow = controller;
+					follow = handInput;
 					break;
 				}
 			}
@@ -60,51 +56,46 @@ namespace Anaglyph.LaserTag.Interface.HUD
 
 		private void LateUpdate()
 		{
-			if (!follow.isValid) return;
+			if (follow == null || !follow.IsTracking) return;
 
 			Transform camTrans = mainCamera.transform;
 			Vector3 camPos = camTrans.position;
 
-			InputDeviceCharacteristics chars = follow.characteristics;
+			Vector3 pos = follow.Position;
+			pos = MainXRRig.TrackingSpace.TransformPoint(pos);
 
-			InputDeviceCharacteristics requiredChars = InputDeviceCharacteristics.HeldInHand
-			                                             | InputDeviceCharacteristics.TrackedDevice;
-			if ((chars & requiredChars) == requiredChars)
+			// determine side
+			// controller handedness DOES NOT always equal side the controller is ACTUALLY on
+			// e.g. when using the Striker Mavrik, the left controller is in the blaster's cradle
+			// for tracking, but the user can hold the blaster on their right side
+			Vector3 posCamSpace = camTrans.InverseTransformPoint(pos);
+			int currSide = posCamSpace.x >= 0 ? -1 : 1;
+			bool farEnough = Mathf.Abs(posCamSpace.x) > handSwapThresh;
+			if (farEnough && currSide != side)
 			{
-				Vector3 pos = Vector3.zero;
-				follow.TryGetFeatureValue(CommonUsages.devicePosition, out pos);
-				pos = MainXRRig.TrackingSpace.TransformPoint(pos);
-
-				// determine side
-				Vector3 posCamSpace = camTrans.InverseTransformPoint(pos);
-				HandSide currSide = posCamSpace.x >= 0 ? HandSide.Left : HandSide.Right;
-				bool farEnough = Mathf.Abs(posCamSpace.x) > handSwapThresh;
-				if (farEnough && currSide != side)
-				{
-					swapTimer += Time.deltaTime;
-					if (swapTimer > handSwapTime)
-						side = currSide;
-				}
-				else
-				{
-					swapTimer = 0;
-				}
-
-				Vector3 camToHand = (pos - camPos).normalized * (int)side;
-				Vector3 offs = Vector3.Cross(camTrans.up, camToHand);
-				offs.y = 0;
-				offs = offs.normalized * horizontalOffset;
-				transform.position = pos + offs;
-
-				Vector3 lookDir = (transform.position - camPos).normalized;
-				Vector3 camForw = camTrans.forward;
-				float upLerp = Mathf.Abs(Vector3.Dot(camForw, Vector3.up));
-				Vector3 lookUpDir = Vector3.Lerp(Vector3.up, camTrans.up, upLerp);
-
-				Quaternion rot = Quaternion.LookRotation(lookDir, lookUpDir);
-
-				transform.rotation = rot;
+				swapTimer += Time.deltaTime;
+				if (swapTimer > handSwapTime)
+					side = currSide;
 			}
+			else
+			{
+				swapTimer = 0;
+			}
+			
+			Vector3 camToHand = (pos - camPos).normalized * side;
+			Vector3 offs = Vector3.Cross(camTrans.up, camToHand);
+			offs.y = 0;
+			offs = offs.normalized * horizontalOffset;
+			transform.position = pos + offs;
+
+			Vector3 lookDir = (transform.position - camPos).normalized;
+			Vector3 camForw = camTrans.forward;
+			float upLerp = Mathf.Abs(Vector3.Dot(camForw, Vector3.up));
+			Vector3 lookUpDir = Vector3.Lerp(Vector3.up, camTrans.up, upLerp);
+
+			Quaternion rot = Quaternion.LookRotation(lookDir, lookUpDir);
+
+			transform.rotation = rot;
 		}
 	}
 }

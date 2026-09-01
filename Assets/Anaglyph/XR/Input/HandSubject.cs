@@ -5,17 +5,12 @@ using UnityEngine.InputSystem;
 
 namespace Anaglyph.XR.Input
 {
-	// A swappable handle to whichever physical hand currently fills a role
-	// (e.g. "the tool hand" or "the palette hand"). Components reference the
-	// subject rather than a specific HandInput, so they keep working when the
-	// hands are reassigned. Pose is read straight through; button callbacks are
-	// automatically re-pointed at the new hand on Assign.
+	// A swappable handle to a physical hand controller & its inputs 
 	public class HandSubject : MonoBehaviour
 	{
 		[SerializeField] private HandInput current;
 		public HandInput Current => current;
-
-		// Raised whenever the assigned hand changes (null when cleared).
+		
 		public event Action<HandInput> Changed;
 		public event Action<bool> IsTrackingChanged;
 

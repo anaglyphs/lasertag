@@ -1,0 +1,8 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+    <ui:Image source="project://database/Assets/Anaglyph/LaserTag/Interface/HUD/Graphics/mountain.svg?fileID=7388822144124034973&amp;guid=f4f9b78a62ecd4501bea149ca4d080ed&amp;type=3#mountain" name="Image" style="width: 200px; height: 100px; top: 50%; left: 50%; translate: -50% -50%; position: absolute;">
+        <ui:Label picking-mode="Ignore" name="goal-blue-score" text="00" class="goal-score team-blue" style="-unity-text-align: lower-left; margin-top: 0; margin-right: 0; margin-bottom: 0; margin-left: 0; top: 50%; left: 0; translate: 0% -65%; position: absolute; -unity-font-definition: resource(&quot;Fonts/DINish-Bold SDF&quot;); font-size: 53px;"/>
+        <ui:Label picking-mode="Ignore" name="goal-red-score" text="00" class="goal-score team-red" style="-unity-text-align: lower-right; margin-top: 0; margin-right: 0; margin-bottom: 0; margin-left: 0; right: 0; position: absolute; top: 50%; translate: 0% -63%; -unity-font-definition: resource(&quot;Fonts/DINish-Bold SDF&quot;); font-size: 48px;"/>
+        <ui:Label picking-mode="Ignore" name="target-score-label" text="000" class="goal-target-label" style="margin-top: 0; margin-right: 0; margin-bottom: 0; margin-left: 0; position: absolute; left: 50%; translate: -50% 10px; top: 50%; -unity-font-definition: resource(&quot;Fonts/DINishExpanded-Bold SDF&quot;);"/>
+    </ui:Image>
+</ui:UXML>

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
@@ -30,6 +31,7 @@ namespace Anaglyph.XR.Input
 		public Handedness Handedness => handedness;
 
 		private static readonly Dictionary<Handedness, HandInput> hands = new();
+		public static readonly ReadOnlyDictionary<Handedness, HandInput> Hands = new(hands);
 
 		public InputActionMap Actions => actionMap;
 		public Vector3 Position => position.action.ReadValue<Vector3>();
