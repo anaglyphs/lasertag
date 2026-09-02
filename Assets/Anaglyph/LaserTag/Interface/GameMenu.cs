@@ -11,23 +11,10 @@ namespace Anaglyph.LaserTag.Interface
 	public class GameMenu : MonoBehaviour
 	{
 		private NavView navView;
-		private NavPage homePage;
-		private NavPage matchPage;
 		private NavPage playingPage;
-		private NavPage mapManagerPage;
 		private NavPage editingMapPage;
 
-		private RadioButtonGroup winByRadio;
-		private Slider roundTimeSlider;
-		private SliderInt scoreTargetSlider;
-		private Slider damageMultiplierSlider;
-		private SliderInt roundsSlider;
-		private RadioButtonGroup respawnConditionRadio;
-		private SliderInt respawnTimeSlider;
-		private Toggle spawnZombiesToggle;
-		private Button startButton;
-
-		private MatchSettings matchSettings = MatchSettings.DemoGame();
+		private MatchSettingsBinder matchSettings;
 
 		private MatchReferee Referee => MatchReferee.Instance;
 
@@ -42,75 +29,18 @@ namespace Anaglyph.LaserTag.Interface
 			// must happen before anything subscribes to Button.clicked
 			root.MakeButtonsActOnPress();
 
-			navView = new NavView(Require<VisualElement>(root, "pages"));
-			homePage = navView.AddPage("home-page", false);
-			matchPage = navView.AddPage("match-page");
-			mapManagerPage = navView.AddPage("map-manager-page");
-			playingPage = navView.AddPage("playing-page", false);
-			editingMapPage = navView.AddPage("editing-map-page", false);
+			navView = NavView.RequireIn(root);
+			playingPage = navView.GetPage("playing-page");
+			editingMapPage = navView.GetPage("editing-map-page");
 
-			Require<Button>(root, "play-match-button").clicked += matchPage.NavigateHere;
-			Require<Button>(root, "manage-map-button").clicked += mapManagerPage.NavigateHere;
+			matchSettings = new MatchSettingsBinder(root);
 
-			winByRadio = Require<RadioButtonGroup>(root, "win-by-radio");
-			roundTimeSlider = Require<Slider>(root, "round-time-slider");
-			scoreTargetSlider = Require<SliderInt>(root, "score-target-slider");
-			damageMultiplierSlider = Require<Slider>(root, "damage-multiplier-slider");
-			roundsSlider = Require<SliderInt>(root, "rounds-slider");
-			respawnConditionRadio = Require<RadioButtonGroup>(root, "respawn-condition-radio");
-			respawnTimeSlider = Require<SliderInt>(root, "respawn-time-slider");
-			spawnZombiesToggle = Require<Toggle>(root, "spawn-zombies-toggle");
-			startButton = Require<Button>(root, "start-button");
-
-			// the UXML carries the menu's default slider values
-			matchSettings.roundTimeSeconds = MinutesToSeconds(roundTimeSlider.value);
-			matchSettings.scoreTarget = (short)Mathf.Clamp(scoreTargetSlider.value, 1, short.MaxValue);
-			matchSettings.damageMultiplier = Mathf.Max(0f, damageMultiplierSlider.value);
-			matchSettings.numRounds = (byte)Mathf.Clamp(roundsSlider.value, 1, byte.MaxValue);
-			matchSettings.respawnSeconds = Mathf.Max(0, respawnTimeSlider.value);
-			matchSettings.spawnZombies = spawnZombiesToggle.value;
-
-			roundTimeSlider.RegisterValueChangedCallback(change =>
-				matchSettings.roundTimeSeconds = MinutesToSeconds(change.newValue));
-
-			scoreTargetSlider.RegisterValueChangedCallback(change =>
-				matchSettings.scoreTarget = (short)Mathf.Clamp(change.newValue, 1, short.MaxValue));
-
-			damageMultiplierSlider.RegisterValueChangedCallback(change =>
-				matchSettings.damageMultiplier = Mathf.Max(0f, change.newValue));
-
-			roundsSlider.RegisterValueChangedCallback(change =>
-				matchSettings.numRounds = (byte)Mathf.Clamp(change.newValue, 1, byte.MaxValue));
-
-			respawnTimeSlider.RegisterValueChangedCallback(change =>
-				matchSettings.respawnSeconds = Mathf.Max(0, change.newValue));
-
-			spawnZombiesToggle.RegisterValueChangedCallback(change =>
-				matchSettings.spawnZombies = change.newValue);
-
-			winByRadio.RegisterValueChangedCallback(change => SetWinBy(change.newValue));
-			bool byScore = matchSettings.CheckWinByScore();
-			int winChoice = matchSettings.CheckWinByTimer() && byScore ? 2 : byScore ? 1 : 0;
-			winByRadio.SetValueWithoutNotify(winChoice);
-			SetWinBy(winChoice);
-
-			respawnConditionRadio.RegisterValueChangedCallback(change => SetRespawnCondition(change.newValue));
-			respawnConditionRadio.SetValueWithoutNotify((int)matchSettings.respawnCondition);
-			SetRespawnCondition((int)matchSettings.respawnCondition);
-
-			startButton.clicked += () => Referee?.QueueMatch(matchSettings);
+			matchSettings.StartButton.clicked += () => Referee?.QueueMatch(matchSettings.Settings);
 			Require<Button>(root, "stop-button").clicked += () => Referee?.EndMatch();
 			Require<Button>(root, "edit-map-button").clicked +=
 				() => MapEditor.MapEditor.SetActive(true);
 			Require<Button>(root, "finish-editing-button").clicked +=
 				() => MapEditor.MapEditor.SetActive(false);
-
-			navView.Start(homePage);
-		}
-
-		private static int MinutesToSeconds(float minutes)
-		{
-			return Mathf.RoundToInt(minutes * 60f);
 		}
 
 		private void OnEnable()
@@ -131,37 +61,7 @@ namespace Anaglyph.LaserTag.Interface
 			MatchReferee.StateChanged -= OnMatchStateChanged;
 			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
 			MapEditor.MapEditor.ActiveChanged -= OnMapEditorStateChanged;
-			navView?.Dispose();
 			navView = null;
-		}
-
-		// win-by-radio choices: 0 = Time, 1 = Points, 2 = Either
-		private void SetWinBy(int choice)
-		{
-			matchSettings.winCondition = choice switch
-			{
-				0 => WinCondition.Timer,
-				1 => WinCondition.ReachScore,
-				_ => WinCondition.Timer | WinCondition.ReachScore,
-			};
-
-			SetDisplayed(roundTimeSlider, matchSettings.CheckWinByTimer());
-			SetDisplayed(scoreTargetSlider, matchSettings.CheckWinByScore());
-		}
-
-		// respawn-radio choices follow the RespawnCondition enum order
-		private void SetRespawnCondition(int choice)
-		{
-			matchSettings.respawnCondition =
-				(RespawnCondition)Mathf.Clamp(choice, 0, (int)RespawnCondition.NextRound);
-
-			SetDisplayed(respawnTimeSlider,
-				matchSettings.respawnCondition == RespawnCondition.Timer);
-		}
-
-		private static void SetDisplayed(VisualElement element, bool displayed)
-		{
-			element.style.display = displayed ? DisplayStyle.Flex : DisplayStyle.None;
 		}
 
 		private void OnMapEditorStateChanged(bool active)
@@ -180,7 +80,7 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void OnNetcodeStateChanged(NetcodeState state)
 		{
-			startButton.SetEnabled(state == NetcodeState.Connected);
+			matchSettings.StartButton.SetEnabled(state == NetcodeState.Connected);
 		}
 
 		private static T Require<T>(VisualElement root, string name)

@@ -1,0 +1,20 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+    <ui:VisualElement picking-mode="Ignore" class="page-template-root">
+        <Anaglyph.Menu.NavHeader title="Map editor"/>
+        <ui:VisualElement picking-mode="Ignore" class="palette-mode-grid">
+            <Anaglyph.Menu.NavButton name="objects-mode-button" target="objects-page" class="palette-mode" style="flex-grow: 1;">
+                <ui:VisualElement picking-mode="Ignore" class="palette-mode-icon"/>
+                <ui:Label text="Objects" picking-mode="Ignore" class="palette-mode-label"/>
+            </Anaglyph.Menu.NavButton>
+            <Anaglyph.Menu.NavButton name="tags-mode-button" target="tags-page" class="palette-mode" style="flex-grow: 1;">
+                <ui:VisualElement picking-mode="Ignore" class="palette-mode-icon"/>
+                <ui:Label text="Tags" picking-mode="Ignore" class="palette-mode-label"/>
+            </Anaglyph.Menu.NavButton>
+            <Anaglyph.Menu.NavButton name="map-settings-mode-button" target="map-settings-page" class="palette-mode" style="flex-grow: 1;">
+                <ui:VisualElement picking-mode="Ignore" class="palette-mode-icon"/>
+                <ui:Label text="Map" picking-mode="Ignore" class="palette-mode-label"/>
+            </Anaglyph.Menu.NavButton>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

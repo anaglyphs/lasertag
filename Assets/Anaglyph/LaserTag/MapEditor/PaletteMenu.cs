@@ -10,21 +10,40 @@ using UnityEngine.UIElements;
 namespace Anaglyph.LaserTag.MapEditor
 {
 	/// <summary>
-	/// The map editor's palette. A rail of categories from <see cref="MapObjectDatabase"/> runs
-	/// down the left; the selected category's objects fill the grid beside it as thumbnails.
-	/// The whole thing is built at runtime — the database is the only place objects are listed,
-	/// so adding one there is all it takes to be able to place it.
+	/// The map editor's palette. A home page of mode tiles leads to one page per mode: objects
+	/// (a category rail from <see cref="MapObjectDatabase"/> beside a thumbnail grid), tags, and
+	/// the map's own settings.
+	///
+	/// The page IS the mode — navigating somewhere puts <see cref="MapEditorTool"/> in the mode
+	/// that page authors, so the two can never disagree. Home is Move: with no page open the
+	/// hands still reposition what is already placed.
+	///
+	/// The object grid is built at runtime; the database is the only place objects are listed, so
+	/// adding one there is all it takes to be able to place it.
 	/// </summary>
 	[RequireComponent(typeof(UIDocument))]
 	public class PaletteMenu : MonoBehaviour
 	{
 		[SerializeField] private MapObjectDatabase database;
 
+		private NavView navView;
+		private NavPage homePage;
+		private NavPage objectsPage;
+		private NavPage tagsPage;
+		private NavPage mapSettingsPage;
+
 		private VisualElement categoryRail;
 		private Label categoryTitle;
 		private ScrollView objectGrid;
-		private Button moveToolButton;
-		private Button tagToolButton;
+
+		private Slider tagSizeSlider;
+		private Label tagSizeNote;
+		private Label tagStatus;
+
+		private TextField mapNameField;
+		private Label mapNameNote;
+		private Label mapSummary;
+
 		private Button doneButton;
 
 		private readonly List<(MapObjectDatabase.Category category, Button button)> categoryButtons = new();
@@ -44,35 +63,53 @@ namespace Anaglyph.LaserTag.MapEditor
 			// must happen before anything subscribes to Button.clicked
 			root.MakeButtonsActOnPress();
 
+			navView = NavView.RequireIn(root);
+			homePage = navView.GetPage("home-page");
+			objectsPage = navView.GetPage("objects-page");
+			tagsPage = navView.GetPage("tags-page");
+			mapSettingsPage = navView.GetPage("map-settings-page");
+
 			categoryRail = Require<VisualElement>(root, "category-rail");
 			categoryTitle = Require<Label>(root, "category-title");
 			objectGrid = Require<ScrollView>(root, "object-grid");
-			moveToolButton = Require<Button>(root, "move-tool-button");
-			tagToolButton = Require<Button>(root, "tag-tool-button");
-			doneButton = Require<Button>(root, "done-button");
 
-			moveToolButton.clicked += SelectMoveTool;
-			tagToolButton.clicked += SelectTagTool;
+			tagSizeSlider = Require<Slider>(root, "tag-size-slider");
+			tagSizeNote = Require<Label>(root, "tag-size-note");
+			tagStatus = Require<Label>(root, "tag-status");
+
+			mapNameField = Require<TextField>(root, "map-name-field");
+			mapNameNote = Require<Label>(root, "map-name-note");
+			mapSummary = Require<Label>(root, "map-summary");
+
+			doneButton = Require<Button>(root, "done-button");
 			doneButton.clicked += FinishEditing;
 
-			AnaglyphDebugging.DebugModeChanged += OnDebugModeChanged;
-			TagRegistrationTool.RegistrationModeChanged += OnRegistrationModeChanged;
+			tagSizeSlider.RegisterValueChangedCallback(OnTagSizeChanged);
+			mapNameField.RegisterCallback<FocusOutEvent>(OnMapNameCommitted);
 
-			// The editor opens in move mode: a placement armed by a previous session would
-			// otherwise be invisible until the first trigger pull placed something.
-			SelectMoveTool();
+			navView.Changed += OnNavPageChanged;
+			AnaglyphDebugging.DebugModeChanged += OnDebugModeChanged;
 
 			RebuildRail();
+
+			// The view may have resolved its first page before this subscribed, so the mode the
+			// current page authors is applied here rather than waited for.
+			OnNavPageChanged(navView.CurrentPage);
 		}
 
 		private void OnDisable()
 		{
-			TagRegistrationTool.RegistrationModeChanged -= OnRegistrationModeChanged;
 			AnaglyphDebugging.DebugModeChanged -= OnDebugModeChanged;
 
+			if (navView != null)
+			{
+				navView.Changed -= OnNavPageChanged;
+				navView = null;
+			}
+
+			mapNameField.UnregisterCallback<FocusOutEvent>(OnMapNameCommitted);
+			tagSizeSlider.UnregisterValueChangedCallback(OnTagSizeChanged);
 			doneButton.clicked -= FinishEditing;
-			tagToolButton.clicked -= SelectTagTool;
-			moveToolButton.clicked -= SelectMoveTool;
 
 			categoryButtons.Clear();
 			objectButtons.Clear();
@@ -80,9 +117,115 @@ namespace Anaglyph.LaserTag.MapEditor
 
 		private void OnDebugModeChanged(bool debugMode) => RebuildRail();
 
-		private void OnRegistrationModeChanged(bool on) => RefreshHighlights();
+		// ------- navigation is the mode ------------------------------
 
-		// ------- building -------------------------------------------
+		private void OnNavPageChanged(NavPage page)
+		{
+			ApplyModeFor(page);
+
+			if (page == tagsPage)
+				RefreshTagPage();
+			else if (page == mapSettingsPage)
+				RefreshMapSettingsPage();
+		}
+
+		/// <summary>
+		/// Every page names the mode it authors in. The objects page only arms placement once a
+		/// prefab is picked; until then it stays in Move, so the hands still do something.
+		/// </summary>
+		private void ApplyModeFor(NavPage page)
+		{
+			if (page == tagsPage)
+				MapEditorTool.SetMode(MapEditorTool.Mode.Tags);
+			else if (page == objectsPage && selectedPrefab != null)
+				MapEditorTool.SetMode(MapEditorTool.Mode.Place, selectedPrefab);
+			else
+				MapEditorTool.SetMode(MapEditorTool.Mode.Move);
+		}
+
+		// A blocker turns on alignment and on what a mode just did, neither of which raises an
+		// event this menu could subscribe to.
+		private void Update()
+		{
+			if (navView == null)
+				return;
+
+			if (navView.CurrentPage == tagsPage)
+				RefreshTagPage();
+			else if (navView.CurrentPage == mapSettingsPage)
+				RefreshMapSettingsPage();
+		}
+
+		// ------- tags page -------------------------------------------
+
+		private void OnTagSizeChanged(ChangeEvent<float> change)
+		{
+			MapManager manager = MapManager.Instance;
+			if (manager == null || manager.SetTagSize(change.newValue))
+				return;
+
+			// Refused — put the slider back rather than leaving it showing a size nothing uses.
+			RefreshTagPage();
+		}
+
+		private void RefreshTagPage()
+		{
+			MapManager manager = MapManager.Instance;
+			if (manager == null)
+			{
+				tagStatus.text = "Map system unavailable.";
+				return;
+			}
+
+			string sizeBlocker = manager.DescribeTagSizeBlocker();
+			tagSizeSlider.SetEnabled(sizeBlocker == null);
+			SetMessage(tagSizeNote, sizeBlocker);
+
+			// Refreshed every frame, so a value being dragged or typed must survive the refresh.
+			if (!IsBeingEdited(tagSizeSlider))
+				tagSizeSlider.SetValueWithoutNotify(manager.EffectiveTagSizeCm);
+
+			int registered = manager.CurrentMap != null ? manager.CurrentMap.tags.Count : 0;
+			string registrationBlocker = manager.DescribeTagRegistrationBlocker();
+
+			tagStatus.text = registrationBlocker != null
+				? $"{registered} registered — {registrationBlocker}."
+				: $"{registered} registered.";
+		}
+
+		// ------- map settings page -----------------------------------
+
+		private void OnMapNameCommitted(FocusOutEvent _)
+		{
+			MapManager manager = MapManager.Instance;
+			if (manager == null || !manager.RenameMap(mapNameField.value))
+				RefreshMapSettingsPage();
+		}
+
+		private void RefreshMapSettingsPage()
+		{
+			MapManager manager = MapManager.Instance;
+			if (manager == null)
+			{
+				mapSummary.text = "Map system unavailable.";
+				return;
+			}
+
+			string renameBlocker = manager.DescribeRenameBlocker();
+			mapNameField.SetEnabled(renameBlocker == null);
+			SetMessage(mapNameNote, renameBlocker);
+
+			GameMap map = manager.CurrentMap;
+
+			if (!IsBeingEdited(mapNameField))
+				mapNameField.SetValueWithoutNotify(map != null ? map.name : "");
+
+			mapSummary.text = map == null
+				? "No map loaded. One is created as soon as you place something."
+				: $"{map.objects.Count} objects, {map.tags.Count} tags, {map.anchors.Count} anchors.";
+		}
+
+		// ------- building --------------------------------------------
 
 		private void RebuildRail()
 		{
@@ -185,7 +328,7 @@ namespace Anaglyph.LaserTag.MapEditor
 			return button;
 		}
 
-		// ------- selection ------------------------------------------
+		// ------- selection -------------------------------------------
 
 		private void SelectCategory(MapObjectDatabase.Category category)
 		{
@@ -196,36 +339,19 @@ namespace Anaglyph.LaserTag.MapEditor
 			RebuildGrid();
 		}
 
-		// Tag registration and object placement are mutually exclusive tools, so each of
-		// these three sets both halves of the mode rather than only its own.
-
 		private void SelectObject(MapObject prefab)
 		{
 			selectedPrefab = prefab;
-			TagRegistrationTool.SetRegistrationMode(false);
-			SetSpawnObject(prefab);
-			RefreshHighlights();
-		}
-
-		private void SelectMoveTool()
-		{
-			selectedPrefab = null;
-			TagRegistrationTool.SetRegistrationMode(false);
-			SetSpawnObject(null);
-			RefreshHighlights();
-		}
-
-		private void SelectTagTool()
-		{
-			selectedPrefab = null;
-			SetSpawnObject(null);
-			TagRegistrationTool.SetRegistrationMode(true);
+			MapEditorTool.SetMode(MapEditorTool.Mode.Place, prefab);
 			RefreshHighlights();
 		}
 
 		private void FinishEditing()
 		{
-			SelectMoveTool();
+			// Leaving arms nothing: the hands are about to become weapons again.
+			MapEditorTool.SetMode(MapEditorTool.Mode.Move);
+			selectedPrefab = null;
+			homePage.NavigateHere();
 
 			// Edits already save on a debounce; this makes leaving the editor the sync point.
 			MapManager.Instance?.SaveCurrentMap();
@@ -235,16 +361,11 @@ namespace Anaglyph.LaserTag.MapEditor
 
 		private void RefreshHighlights()
 		{
-			bool registering = TagRegistrationTool.RegistrationMode;
-
-			SetSelected(moveToolButton, !registering && selectedPrefab == null);
-			SetSelected(tagToolButton, registering);
-
 			foreach ((MapObjectDatabase.Category category, Button button) in categoryButtons)
 				SetSelected(button, category == selectedCategory);
 
 			foreach ((MapObject prefab, Button button) in objectButtons)
-				SetSelected(button, !registering && prefab == selectedPrefab);
+				SetSelected(button, prefab == selectedPrefab);
 		}
 
 		private static void SetSelected(VisualElement element, bool selected)
@@ -252,13 +373,17 @@ namespace Anaglyph.LaserTag.MapEditor
 			element.EnableInClassList("selected", selected);
 		}
 
-		private static void SetSpawnObject(MapObject mapObjPrefab)
+		private static bool IsBeingEdited(VisualElement field)
 		{
-			MapEditorTool[] tools = FindObjectsByType<MapEditorTool>(
-				FindObjectsInactive.Include, FindObjectsSortMode.None);
+			Focusable focused = field.panel?.focusController?.focusedElement;
+			return focused is VisualElement element &&
+			       (element == field || field.Contains(element));
+		}
 
-			foreach (MapEditorTool tool in tools)
-				tool.SetSpawnObject(mapObjPrefab);
+		private static void SetMessage(Label label, string message)
+		{
+			label.text = message ?? "";
+			label.style.display = message == null ? DisplayStyle.None : DisplayStyle.Flex;
 		}
 
 		private static T Require<T>(VisualElement root, string name)

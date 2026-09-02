@@ -29,13 +29,13 @@
 }
 
 .unity-toggle__checkmark,
-.back-button {
+.nav-header__back-button {
 	margin-right: 10px;
 }
 
 .unity-base-text-field > .unity-base-text-field__input,
 .unity-toggle > .unity-toggle__input > .unity-toggle__checkmark,
-Button {
+.unity-button {
 	background-color: rgba(0, 0, 0, 0);
 	border-width: 1px;
 	border-color: rgb(255, 255, 255);
@@ -84,8 +84,9 @@ Toggle {
 	background-color: rgb(230, 230, 230);
 }
 
-.pages,
-.nav-page {
+.nav-view,
+.nav-page,
+.nav-page > TemplateContainer {
     flex-grow: 1;
 }
 
@@ -98,13 +99,14 @@ Toggle {
     justify-content: flex-start;
 }
 
-.header {
+.nav-header {
     flex-direction: row;
     align-items: center;
     margin-bottom: 8px;
 }
 
-.title {
+.title,
+.nav-header__title {
     flex-grow: 1;
     -unity-text-align: middle-left;
     font-size: 28px;
@@ -160,17 +162,17 @@ Toggle {
     white-space: normal;
 }
 
-Button {
+.unity-button {
     -unity-text-align: middle-left;
     background-color: rgb(70, 70, 70);
 }
 
-Button.destructive {
+.unity-button.destructive {
 	background-color: rgb(60, 14, 0);
 	border-color: rgb(255, 0, 0);
 }
 
-Button,
+.unity-button,
 Toggle,
 TextField {
     min-height: 46px;
@@ -201,7 +203,7 @@ ScrollView {
     flex-grow: 1;
 }
 
-.back-button {
+.nav-header__back-button {
     aspect-ratio: 1;
     min-height: auto;
 }
@@ -413,6 +415,48 @@ ScrollView {
 .palette-tab.selected .palette-tab-icon,
 .palette-item.selected .palette-item-icon {
     background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* a settings page fills the same space the object grid does, stacked rather than wrapped */
+.palette-form {
+    padding: 4px 2px;
+}
+
+.palette-hint {
+    opacity: 0.7;
+}
+
+/* the home page's mode tiles: same thumbnail language as the object grid, wider */
+.palette-mode-grid {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-content: flex-start;
+}
+
+.palette-mode {
+    width: 30%;
+    margin: 4px;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: auto;
+    padding: 4px;
+    background-color: rgba(0, 0, 0, 0.35);
+}
+
+.palette-mode-icon {
+    width: 100%;
+    aspect-ratio: 1;
+    background-color: rgba(255, 255, 255, 0.07);
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.palette-mode-label {
+    font-size: 14px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+    margin-top: 2px;
 }
 
 .palette-done {

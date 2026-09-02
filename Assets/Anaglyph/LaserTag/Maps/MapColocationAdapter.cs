@@ -62,6 +62,7 @@ namespace Anaglyph.LaserTag.Maps
 			if (aprilTagColocationProvider)
 			{
 				aprilTagColocationProvider.TagsChanged += OnAprilTagsColocationChanged;
+				aprilTagColocationProvider.TagSizeChanged += OnAprilTagsColocationChanged;
 				aprilTagColocationProvider.AnchorsChanged += OnTaggedAnchorsChanged;
 			}
 		}
@@ -71,6 +72,7 @@ namespace Anaglyph.LaserTag.Maps
 			if (aprilTagColocationProvider)
 			{
 				aprilTagColocationProvider.AnchorsChanged -= OnTaggedAnchorsChanged;
+				aprilTagColocationProvider.TagSizeChanged -= OnAprilTagsColocationChanged;
 				aprilTagColocationProvider.TagsChanged -= OnAprilTagsColocationChanged;
 			}
 
@@ -105,8 +107,25 @@ namespace Anaglyph.LaserTag.Maps
 
 			if (anchorColocationProvider)
 				anchorColocationProvider.SetConstraints(anchors);
+
+			// Before the tags themselves: the size is what their poses were solved at, so the
+			// detector must already be running at it when they land.
+			InjectTagSize(map);
+
 			if (aprilTagColocationProvider)
 				aprilTagColocationProvider.SetConstraints(tags, taggedAnchors);
+		}
+
+		/// <summary>
+		/// Makes the map's tag size the one this device solves at. A map that never recorded one
+		/// leaves the device's own setting alone rather than overwriting it with nothing.
+		/// </summary>
+		public void InjectTagSize(GameMap map)
+		{
+			if (map == null || !aprilTagColocationProvider || map.tagSizeCm <= 0f)
+				return;
+
+			aprilTagColocationProvider.HostTagSizeCm = map.tagSizeCm;
 		}
 
 		public void InjectTags(GameMap map)
@@ -119,6 +138,34 @@ namespace Anaglyph.LaserTag.Maps
 				tags.Add(new TagConstraintData(entry.id, entry.canonPose));
 
 			aprilTagColocationProvider.SetRegisteredTags(tags);
+		}
+
+		/// <summary>
+		/// Proposes one tag registration. On the authority the provider applies it directly; from a
+		/// client it travels to the authority, which broadcasts it back — so either way the map is
+		/// written by <see cref="SnapshotTags"/> from the provider's own state.
+		/// </summary>
+		public bool RequestRegisterTag(int tagId, Pose canonPose)
+		{
+			if (!aprilTagColocationProvider)
+				return false;
+
+			aprilTagColocationProvider.RequestRegisterTag(tagId, canonPose);
+			return true;
+		}
+
+		/// <summary>
+		/// Proposes removing one registered tag. The provider drops that tag's realized anchor on
+		/// every peer once the removal lands, and <see cref="SnapshotTaggedAnchors"/> takes it out
+		/// of each device's own map from there.
+		/// </summary>
+		public bool RequestUnregisterTag(int tagId)
+		{
+			if (!aprilTagColocationProvider)
+				return false;
+
+			aprilTagColocationProvider.RequestUnregisterTag(tagId);
+			return true;
 		}
 
 		private void InjectAnchors(GameMap map)
@@ -259,6 +306,12 @@ namespace Anaglyph.LaserTag.Maps
 			map.tags.Clear();
 			foreach ((int tagId, Pose canon) in aprilTagColocationProvider.RegisteredTags)
 				map.SetTag(tagId, canon);
+
+			// The map is written from the provider on a joiner, and the size is half of what a
+			// registered pose means — a copy that recorded the poses but not the size they were
+			// solved at would be unusable on its own later.
+			if (aprilTagColocationProvider.TagSizeCm > 0f)
+				map.tagSizeCm = aprilTagColocationProvider.TagSizeCm;
 		}
 
 		private void SnapshotTaggedAnchors(GameMap map)

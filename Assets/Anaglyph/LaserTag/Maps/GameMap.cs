@@ -45,6 +45,14 @@ namespace Anaglyph.LaserTag.Maps
 		public List<MapTagEntry> tags = new();
 
 		/// <summary>
+		/// The physical edge length of this map's AprilTags, in centimeters. Solving a tag's pose
+		/// scales with it, so a registered pose only means anything at the size it was registered
+		/// at — which is why this travels with the map rather than being a device setting. Zero on
+		/// a map authored before sizes were recorded; the device's default stands in.
+		/// </summary>
+		public float tagSizeCm;
+
+		/// <summary>
 		/// A map records whether it has tags rather than being bound to a colocation method:
 		/// a tag map can be hosted in shared-anchor mode, but not the other way around.
 		/// </summary>

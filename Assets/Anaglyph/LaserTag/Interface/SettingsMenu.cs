@@ -46,19 +46,12 @@ namespace Anaglyph.LaserTag.Interface
 			// must happen before anything subscribes to Button.clicked
 			root.MakeButtonsActOnPress();
 
-			navView = new NavView(Require<VisualElement>(root, "pages"));
-			NavPage homePage = navView.AddPage("home-page", false);
-			NavPage debuggingPage = navView.AddPage("debugging-page");
-			NavPage graphicsPage = navView.AddPage("graphics-page");
-			consolePage = navView.AddPage("console-page");
-
-			Require<Button>(root, "debugging-button").clicked += debuggingPage.NavigateHere;
-			Require<Button>(root, "graphics-button").clicked += graphicsPage.NavigateHere;
-			Require<Button>(root, "console-button").clicked += consolePage.NavigateHere;
+			navView = NavView.RequireIn(root);
+			consolePage = navView.GetPage("console-page");
 
 			// the console only processes log messages while its page is on screen
-			consoleView = new InGameConsoleView(consolePage.Root);
-			navView.Changed += _ => UpdateConsoleVisible();
+			consoleView = new InGameConsoleView(consolePage);
+			navView.Changed += OnNavPageChange;
 
 			debugModeToggle = Require<Toggle>(root, "debug-mode-toggle");
 			showDebugMeshToggle = Require<Toggle>(root, "show-debug-mesh-toggle");
@@ -93,8 +86,6 @@ namespace Anaglyph.LaserTag.Interface
 			Label version = Require<Label>(root, "version");
 			version.text =
 				$"Version: {Application.version}\nBuild: {(buildNumber ? buildNumber.Value : "")}";
-
-			navView.Start(homePage);
 		}
 
 		private void OnEnable()
@@ -125,14 +116,23 @@ namespace Anaglyph.LaserTag.Interface
 			healthPassthroughTintSetting.Changed -= OnHealthPassthroughTintChanged;
 			lightEffectsSetting.Changed -= OnLightEffectsChanged;
 			panel.VisibleChanged -= OnPanelVisibleChanged;
-			navView?.Dispose();
-			navView = null;
+			if (navView != null)
+			{
+				navView.Changed -= OnNavPageChange;
+				navView = null;
+			}
+
 			consoleView?.Dispose();
 			consoleView = null;
 			consolePage = null;
 		}
 
 		private void OnPanelVisibleChanged(bool visible)
+		{
+			UpdateConsoleVisible();
+		}
+
+		private void OnNavPageChange(NavPage page)
 		{
 			UpdateConsoleVisible();
 		}

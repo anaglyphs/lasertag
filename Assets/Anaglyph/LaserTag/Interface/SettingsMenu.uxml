@@ -5,11 +5,19 @@
     <ui:Template name="SettingsHomePage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Pages/SettingsHomePage.uxml?fileID=9197481963319205126&amp;guid=88766cfbe7d504cd799b5f088fbf7100&amp;type=3#SettingsHomePage"/>
     <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
     <ui:VisualElement picking-mode="Ignore" class="menu-root settings-panel">
-        <ui:VisualElement name="pages" class="pages">
-            <ui:Instance name="home-page" template="SettingsHomePage" class="nav-page"/>
-            <ui:Instance name="debugging-page" template="SettingsDebuggingPage" class="nav-page"/>
-            <ui:Instance name="console-page" template="SettingsConsolePage" class="nav-page"/>
-            <ui:Instance name="graphics-page" template="SettingsGraphicsPage" class="nav-page"/>
-        </ui:VisualElement>
+        <Anaglyph.Menu.NavView first-page="home-page">
+            <Anaglyph.Menu.NavPage name="home-page" show-back-button="false">
+                <ui:Instance template="SettingsHomePage"/>
+            </Anaglyph.Menu.NavPage>
+            <Anaglyph.Menu.NavPage name="debugging-page">
+                <ui:Instance template="SettingsDebuggingPage"/>
+            </Anaglyph.Menu.NavPage>
+            <Anaglyph.Menu.NavPage name="console-page">
+                <ui:Instance template="SettingsConsolePage"/>
+            </Anaglyph.Menu.NavPage>
+            <Anaglyph.Menu.NavPage name="graphics-page">
+                <ui:Instance template="SettingsGraphicsPage"/>
+            </Anaglyph.Menu.NavPage>
+        </Anaglyph.Menu.NavView>
     </ui:VisualElement>
 </ui:UXML>

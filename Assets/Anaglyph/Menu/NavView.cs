@@ -4,7 +4,12 @@ using UnityEngine.UIElements;
 
 namespace Anaglyph.Menu
 {
-	public sealed class NavView : IDisposable
+	/// <summary>
+	/// Container for <see cref="NavPage"/> children. Shows one page at a time,
+	/// keeps a back history, and stacks modals on top by priority.
+	/// </summary>
+	[UxmlElement]
+	public sealed partial class NavView : VisualElement
 	{
 		private readonly struct ModalEntry
 		{
@@ -20,15 +25,22 @@ namespace Anaglyph.Menu
 			}
 		}
 
-		private readonly VisualElement pageContainer;
+		public static readonly string ussClassName = "nav-view";
+
 		private readonly List<NavPage> pages = new();
 		private readonly List<NavPage> history = new(5);
 		private readonly List<ModalEntry> modals = new();
+		private bool built;
 
-		public NavView(VisualElement pageContainer)
+		/// <summary>Name of the page shown when this view attaches to a panel.</summary>
+		[UxmlAttribute("first-page")]
+		public string FirstPageName { get; set; }
+
+		public NavView()
 		{
-			this.pageContainer = pageContainer ??
-				throw new ArgumentNullException(nameof(pageContainer));
+			AddToClassList(ussClassName);
+			RegisterCallback<AttachToPanelEvent>(_ => Build());
+			RegisterCallback<DetachFromPanelEvent>(_ => Teardown());
 		}
 
 		public IReadOnlyList<NavPage> History => history;
@@ -36,40 +48,35 @@ namespace Anaglyph.Menu
 
 		public event Action<NavPage> Changed = delegate { };
 
-		public NavPage AddPage(
-			string elementName,
-			bool showBackButton = true,
-			bool modalUserDismissible = false)
+		/// <summary>Finds the single navigation view in a menu's visual tree.</summary>
+		public static NavView RequireIn(VisualElement root)
 		{
-			VisualElement element = pageContainer.Q<VisualElement>(elementName);
-			if (element == null)
+			NavView view = root.Q<NavView>();
+			if (view == null)
 				throw new InvalidOperationException(
-					$"Navigation page '{elementName}' was not found below '{pageContainer.name}'.");
+					"A NavView was not found in the visual tree.");
 
-			if (element.parent != pageContainer)
+			return view;
+		}
+
+		public NavPage GetPage(string pageName)
+		{
+			NavPage page = this.Q<NavPage>(pageName);
+			if (page == null)
 				throw new InvalidOperationException(
-					$"Navigation page '{elementName}' must be a direct child of '{pageContainer.name}'.");
+					$"Navigation page '{pageName}' was not found below '{name}'.");
 
-			NavPage page =
-				new(this, element, showBackButton, modalUserDismissible);
-			pages.Add(page);
-			SetPageVisible(page, false);
 			return page;
 		}
 
-		public void Start(NavPage firstPage)
+		public void GoToPage(string pageName)
 		{
-			ValidatePage(firstPage);
-
-			if (history.Count != 0)
-				throw new InvalidOperationException("This navigation view has already been started.");
-
-			history.Add(firstPage);
-			Resolve(false);
+			GoToPage(GetPage(pageName));
 		}
 
 		public void GoToPage(NavPage targetPage)
 		{
+			EnsureBuilt();
 			ValidatePage(targetPage);
 			bool targetPageIsInHistory = PushOrTruncateHistory(targetPage);
 			Resolve(targetPageIsInHistory);
@@ -77,6 +84,8 @@ namespace Anaglyph.Menu
 
 		public void GoBack()
 		{
+			EnsureBuilt();
+
 			int topModal = TopModalIndex();
 			if (topModal != -1)
 			{
@@ -95,6 +104,7 @@ namespace Anaglyph.Menu
 			int priority = 0,
 			NavPage returnTo = null)
 		{
+			EnsureBuilt();
 			ValidatePage(page);
 			if (returnTo != null)
 				ValidatePage(returnTo);
@@ -106,6 +116,8 @@ namespace Anaglyph.Menu
 
 		public void DismissModal(NavPage page)
 		{
+			EnsureBuilt();
+
 			int index = modals.FindIndex(entry => entry.page == page);
 			if (index == -1)
 				return;
@@ -131,11 +143,53 @@ namespace Anaglyph.Menu
 				DismissModal(page);
 		}
 
-		public void Dispose()
+		private void EnsureBuilt()
+		{
+			if (!built)
+				Build();
+		}
+
+		// Collects the pages and validates every navigation target in one pass, so
+		// a page or button that names something missing fails at startup rather
+		// than the first time somebody presses it.
+		private void Build()
+		{
+			Teardown();
+			built = true;
+
+			this.Query<NavPage>().ForEach(page =>
+			{
+				if (page.GetFirstAncestorOfType<NavView>() != this)
+					return;
+
+				if (page.hierarchy.parent != this)
+					throw new InvalidOperationException(
+						$"Navigation page '{page.name}' must be a direct child of '{name}'.");
+
+				page.Initialize(this);
+				pages.Add(page);
+				SetPageVisible(page, false);
+			});
+
+			this.Query<NavButton>().ForEach(button =>
+			{
+				if (button.GetFirstAncestorOfType<NavView>() == this)
+					button.ValidateTarget(this);
+			});
+
+			if (!string.IsNullOrEmpty(FirstPageName))
+			{
+				history.Add(GetPage(FirstPageName));
+				Resolve(false);
+			}
+		}
+
+		private void Teardown()
 		{
 			foreach (NavPage page in pages)
-				page.Dispose();
+				page.Initialize(null);
 
+			built = false;
 			pages.Clear();
 			history.Clear();
 			modals.Clear();
@@ -218,13 +272,13 @@ namespace Anaglyph.Menu
 			foreach (NavPage page in pages)
 			{
 				SetPageVisible(page, page == CurrentPage);
-				page.UpdateBackButton(history.Count > 1);
+				page.UpdateBackButtons(history.Count > 1);
 			}
 		}
 
 		private static void SetPageVisible(NavPage page, bool visible)
 		{
-			page.Root.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+			page.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
 		}
 	}
 }

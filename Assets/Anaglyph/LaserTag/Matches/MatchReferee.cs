@@ -55,6 +55,8 @@ namespace Anaglyph.LaserTag.Matches
 		public WinCondition winCondition;
 		public int roundTimeSeconds;
 		public short scoreTarget;
+
+		/// <summary>Zero rounds means the match runs until somebody ends it.</summary>
 		public byte numRounds;
 
 		/// <summary>A zero multiplier means the settings were never filled in, not "no damage".</summary>
@@ -73,6 +75,12 @@ namespace Anaglyph.LaserTag.Matches
 			return winCondition.HasFlag(WinCondition.ReachScore);
 		}
 
+		public readonly bool HasInfiniteRounds()
+		{
+			return numRounds == 0;
+		}
+
+		/// <summary>Only meaningful for a finite match; check <see cref="HasInfiniteRounds"/> first.</summary>
 		public readonly int GetNumRounds()
 		{
 			return Mathf.Max(1, numRounds);
@@ -162,9 +170,11 @@ namespace Anaglyph.LaserTag.Matches
 		public static float TimeRoundStarted => startTimeSync.Value;
 		public static int RoundsPlayed => roundsPlayedSync.Value;
 
-		// 1-based round number for display; clamped so the final round reads
-		// e.g. "3/3" while its results show, not "4/3"
-		public static int CurrentRound => Mathf.Min(RoundsPlayed + 1, Settings.GetNumRounds());
+		// 1-based round number for display; a finite match clamps so its final
+		// round reads e.g. "3/3" while the results show, not "4/3"
+		public static int CurrentRound => Settings.HasInfiniteRounds()
+			? RoundsPlayed + 1
+			: Mathf.Min(RoundsPlayed + 1, Settings.GetNumRounds());
 
 		private float ServerTime => SharedNetworkTime.TimeAsFloat;
 
@@ -300,7 +310,7 @@ namespace Anaglyph.LaserTag.Matches
 			roundsPlayedSync.Value = RoundsPlayed + 1;
 
 			// state changes LAST, as always
-			if (RoundsPlayed >= Settings.GetNumRounds())
+			if (!Settings.HasInfiniteRounds() && RoundsPlayed >= Settings.GetNumRounds())
 				stateSync.Value = MatchState.NotPlaying;
 			else
 				stateSync.Value = MatchState.RoundBreak;

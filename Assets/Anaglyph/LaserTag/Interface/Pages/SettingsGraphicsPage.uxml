@@ -1,10 +1,7 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
 	<Style src="../LaserTagStyle.uss" />
-	<ui:Template name="NavHeader" src="../NavHeader.uxml" />
 	<ui:VisualElement class="page-template-root">
-		<ui:Instance template="NavHeader">
-			<ui:AttributeOverrides element-name="title" text="Graphics" />
-		</ui:Instance>
+		<Anaglyph.Menu.NavHeader title="Graphics"/>
 		<ui:Toggle name="health-passthrough-tint-toggle" text="Health passthrough tint" />
 		<ui:Toggle name="light-effects-toggle" text="Light effects" />
 	</ui:VisualElement>

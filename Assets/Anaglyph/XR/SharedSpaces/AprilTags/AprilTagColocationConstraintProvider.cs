@@ -71,7 +71,11 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			get => tagSizeCmHostSetting;
 			set
 			{
-				tagSizeCmHostSetting = Mathf.Max(0f, value);
+				float next = Mathf.Max(0f, value);
+				if (Mathf.Approximately(next, tagSizeCmHostSetting))
+					return;
+
+				tagSizeCmHostSetting = next;
 
 				// A host may change this after the session is already running. Keep the
 				// canonical session value and the local tracker in step immediately.
@@ -79,6 +83,7 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 					tagSizeSync.Value = tagSizeCmHostSetting;
 
 				UpdateTrackerEnabled();
+				TagSizeChanged.Invoke();
 			}
 		}
 		private readonly SyncVariable<float> tagSizeSync = new("colocation.tags.size");
@@ -91,6 +96,13 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		public IReadOnlyDictionary<int, Pose> RegisteredTags => registeredTags;
 
 		public event Action TagsChanged = delegate { };
+
+		/// <summary>
+		/// The size tags are being solved at has changed, from either half of
+		/// <see cref="TagSizeCm"/>. Registered poses are only valid at the size they were solved
+		/// at, so whatever persists them has to hear about this.
+		/// </summary>
+		public event Action TagSizeChanged = delegate { };
 		public event Action AnchorsChanged = delegate { };
 		public event Action<int, Pose> TagObserved = delegate { };
 
@@ -146,6 +158,7 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 				tagTracker = FindAnyObjectByType<AprilTagTracker>();
 
 			registeredTags.ResetOnDeactivate = false;
+			registeredTags.ValidateSet = ValidateTagRegistration;
 			registeredTags.Register();
 			registeredTags.Changed += OnTagsChanged;
 
@@ -254,6 +267,7 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		private void OnTagSizeChanged(float _, float __)
 		{
 			UpdateTrackerEnabled();
+			TagSizeChanged.Invoke();
 		}
 
 		private void OnApplicationFocus(bool focused)
@@ -274,6 +288,44 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			SetRegisteredTags(tags);
 			SetLocalAnchors(anchors);
 		}
+
+		/// <summary>
+		/// Proposes one tag registration from any peer. The authority validates it, applies it and
+		/// broadcasts, so every peer's registered set stays the authority's — including the
+		/// requester's, which is written by the broadcast rather than optimistically.
+		/// </summary>
+		public void RequestRegisterTag(int tagId, Pose canonPose)
+		{
+			registeredTags.RequestSet(tagId, canonPose);
+		}
+
+		/// <summary>
+		/// Proposes removing one registered tag, from any peer. Every peer then drops the anchor it
+		/// had realized for it — see <see cref="DropUnregisteredAnchors"/> — so no peer keeps
+		/// aligning to a reference the session no longer has.
+		/// </summary>
+		public void RequestUnregisterTag(int tagId)
+		{
+			registeredTags.RequestRemove(tagId);
+		}
+
+		/// <summary>
+		/// A registered pose becomes every peer's alignment target and is written into their maps,
+		/// so a garbage one would take the whole session's frame with it.
+		/// </summary>
+		private static bool ValidateTagRegistration(ulong sender, int tagId, Pose canonPose)
+		{
+			Quaternion rotation = canonPose.rotation;
+
+			return tagId >= 0 &&
+			       IsFinite(canonPose.position.x) && IsFinite(canonPose.position.y) &&
+			       IsFinite(canonPose.position.z) &&
+			       IsFinite(rotation.x) && IsFinite(rotation.y) &&
+			       IsFinite(rotation.z) && IsFinite(rotation.w);
+		}
+
+		private static bool IsFinite(float value) =>
+			!float.IsNaN(value) && !float.IsInfinity(value);
 
 		public void SetRegisteredTags(IEnumerable<TagConstraintData> tags)
 		{

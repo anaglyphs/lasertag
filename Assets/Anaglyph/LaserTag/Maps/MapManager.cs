@@ -5,6 +5,7 @@ using Anaglyph.LaserTag.MapEditor;
 using Anaglyph.LaserTag.Matches;
 using Anaglyph.Netcode.SyncVariables;
 using Anaglyph.XR.SharedSpaces;
+using Anaglyph.XR.SharedSpaces.AprilTags;
 using UnityEngine;
 
 namespace Anaglyph.LaserTag.Maps
@@ -591,16 +592,51 @@ namespace Anaglyph.LaserTag.Maps
 
 		// ------- tag authoring -----------------------------------
 
+		/// <summary>
+		/// Why <see cref="RegisterTag"/> would refuse right now, or null if it would proceed. The
+		/// palette shows this rather than restating the rules.
+		/// </summary>
+		public string DescribeTagRegistrationBlocker()
+		{
+			// Nothing to disagree with yet — the map this mints adopts the frame the device is
+			// already standing in, which is what makes the first registration work.
+			if (CurrentMap == null)
+				return SyncBus.Active && !SyncBus.IsAuthority
+					? "Waiting for the session's map"
+					: null;
+
+			// A map that already has tags defines a frame. A device that has not realized any of
+			// them reads as having nothing to disagree with, and would define the new tag in
+			// whatever frame it happens to be standing in.
+			if (CurrentMap.HasTags && !ColocationManager.IsColocated)
+				return "Align to this map's tags first";
+
+			if (!CheckWorldFrameIsTrusted())
+				return "Waiting for alignment";
+
+			return null;
+		}
+
+		/// <summary>
+		/// Registers a tag into the current map. Any peer may register — a client's registration
+		/// travels to the authority, which broadcasts it back, and the map is written from that
+		/// rather than optimistically.
+		///
+		/// Recovering a tag that was physically moved goes through
+		/// <see cref="UnregisterTag"/> first: unregistering is not held to alignment, so dropping
+		/// the moved tag is always possible, and registering it again then measures it against
+		/// whatever tags remain.
+		/// </summary>
 		public bool RegisterTag(int tagId, Pose worldPose)
 		{
-			if (SyncBus.Active)
+			if (DescribeTagRegistrationBlocker() != null)
 				return false;
 
 			if (EnsureCurrentMap() == null)
 				return false;
 
-			if (!CheckWorldFrameIsTrusted())
-				return false;
+			if (!SyncBus.IsAuthority)
+				return colocation.RequestRegisterTag(tagId, worldPose);
 
 			CurrentMap.SetTag(tagId, worldPose);
 			MapStore.MarkEdited(CurrentMap);
@@ -610,13 +646,23 @@ namespace Anaglyph.LaserTag.Maps
 			return true;
 		}
 
+		/// <summary>
+		/// Drops a tag from the current map. Any peer may unregister — a client's removal travels
+		/// to the authority, and every peer's provider then forgets the anchor it had realized for
+		/// that tag, which is what takes it out of their maps.
+		///
+		/// Deliberately not held to alignment: a tag that has been physically moved is exactly the
+		/// one nobody can align to, so requiring alignment would trap the map with it.
+		/// </summary>
 		public bool UnregisterTag(int tagId)
 		{
-			if (SyncBus.Active || CurrentMap == null)
+			if (CurrentMap == null || !CurrentMap.TryGetTag(tagId, out _))
 				return false;
 
-			if (CurrentMap.tags.RemoveAll(entry => entry.id == tagId) == 0)
-				return false;
+			if (!SyncBus.IsAuthority)
+				return colocation.RequestUnregisterTag(tagId);
+
+			CurrentMap.tags.RemoveAll(entry => entry.id == tagId);
 
 			// Collected before the prune, erased after it: the orphan check has to run against
 			// the map that no longer lists them.
@@ -634,6 +680,95 @@ namespace Anaglyph.LaserTag.Maps
 			colocation.Inject(CurrentMap);
 			SaveCurrentMap();
 			CurrentMapChanged.Invoke(CurrentMap);
+			return true;
+		}
+
+		/// <summary>
+		/// The tag size this device is currently solving at, which is the current map's once it
+		/// has one and the device default before that.
+		/// </summary>
+		public float EffectiveTagSizeCm
+		{
+			get
+			{
+				if (CurrentMap != null && CurrentMap.tagSizeCm > 0f)
+					return CurrentMap.tagSizeCm;
+
+				AprilTagColocationConstraintProvider provider =
+					colocationManager != null ? colocationManager.TagProvider : null;
+				return provider != null ? provider.TagSizeCm : 0f;
+			}
+		}
+
+		/// <summary>Why <see cref="SetTagSize"/> would refuse right now, or null.</summary>
+		public string DescribeTagSizeBlocker()
+		{
+			// Every registered pose was solved at the current size, so a new one would shift all
+			// of them at once. Unregistering is the way out, and it says so.
+			if (CurrentMap != null && CurrentMap.HasTags)
+				return "Unregister this map's tags to change their size";
+
+			if (SyncBus.Active && !SyncBus.IsAuthority)
+				return "Only the host can set tag size";
+
+			return null;
+		}
+
+		/// <summary>
+		/// Records the physical size of the tags this map is registered against. It travels with
+		/// the map because a registered pose only means anything at the size it was solved at.
+		/// </summary>
+		public bool SetTagSize(float centimeters)
+		{
+			if (centimeters <= 0f || DescribeTagSizeBlocker() != null)
+				return false;
+
+			GameMap map = EnsureCurrentMap();
+			if (map == null || Mathf.Approximately(map.tagSizeCm, centimeters))
+				return false;
+
+			map.tagSizeCm = centimeters;
+			MapStore.MarkEdited(map);
+			colocation.InjectTagSize(map);
+			SaveCurrentMap();
+			CurrentMapChanged.Invoke(map);
+			return true;
+		}
+
+		/// <summary>How long a map name may be; the session identity truncates past this.</summary>
+		public const int MaxMapNameLength = 40;
+
+		/// <summary>Why <see cref="RenameMap"/> would refuse right now, or null.</summary>
+		public string DescribeRenameBlocker()
+		{
+			// The name rides along on the session's map identity, which only the authority
+			// publishes — a client's rename would be overwritten by the next one it received.
+			if (SyncBus.Active && !SyncBus.IsAuthority)
+				return "Only the host can rename the map";
+
+			return null;
+		}
+
+		public bool RenameMap(string name)
+		{
+			if (DescribeRenameBlocker() != null)
+				return false;
+
+			name = name?.Trim();
+			if (string.IsNullOrEmpty(name))
+				return false;
+
+			if (name.Length > MaxMapNameLength)
+				name = name.Substring(0, MaxMapNameLength);
+
+			GameMap map = EnsureCurrentMap();
+			if (map == null || map.name == name)
+				return false;
+
+			map.name = name;
+			MapStore.MarkEdited(map);
+			SaveCurrentMap();
+			CurrentMapChanged.Invoke(map);
 			return true;
 		}
 

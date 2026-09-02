@@ -171,10 +171,8 @@ namespace Anaglyph.LaserTag.Interface
 			// must happen before anything subscribes to Button.clicked
 			root.MakeButtonsActOnPress();
 
-			navView = new NavView(Require<VisualElement>(root, "pages"));
-			NavPage permissionPage =
-				navView.AddPage("permissions-page", false);
-			limitedSupportModal = navView.AddPage("limited-support-modal", false);
+			navView = NavView.RequireIn(root);
+			limitedSupportModal = navView.GetPage("limited-support-modal");
 
 			Require<Button>(root, "acknowledge-limited-support-button").clicked +=
 				OnLimitedSupportAcknowledged;
@@ -189,8 +187,6 @@ namespace Anaglyph.LaserTag.Interface
 				OnScenePermissionToggleChanged);
 			cameraPermissionToggle.RegisterValueChangedCallback(
 				OnCameraPermissionToggleChanged);
-
-			navView.Start(permissionPage);
 		}
 
 		private void DisposeUI()
@@ -202,7 +198,6 @@ namespace Anaglyph.LaserTag.Interface
 				cameraPermissionToggle.UnregisterValueChangedCallback(
 					OnCameraPermissionToggleChanged);
 
-			navView?.Dispose();
 			navView = null;
 			limitedSupportModal = null;
 			scenePermissionToggle = null;

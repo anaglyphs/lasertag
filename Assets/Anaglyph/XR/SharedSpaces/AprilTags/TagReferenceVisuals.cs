@@ -18,6 +18,16 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		private static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
 		private MaterialPropertyBlock mpb;
 
+		/// <summary>
+		/// The tag being aimed at, or -1. Written by whatever is authoring tags; kept here so the
+		/// highlight travels with the indicator it belongs to rather than being a second overlay.
+		/// </summary>
+		public static int HighlightedTagId { get; set; } = -1;
+
+		// Statics persist across play sessions while domain reload is disabled.
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+		private static void ResetStatics() => HighlightedTagId = -1;
+
 		private IReadOnlyList<TagPose> latestTagPoses;
 		private readonly List<TaggedAnchorConstraintData> anchorScratch = new();
 
@@ -52,6 +62,9 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 					Color color = provider.RegisteredTags.ContainsKey(tagPose.ID)
 						? Color.white
 						: Color.yellow;
+
+					if (tagPose.ID == HighlightedTagId)
+						color = Color.green;
 
 					mpb.SetColor(BaseColorID, color);
 

@@ -2,15 +2,75 @@ using System;
 using Anaglyph.LaserTag.Maps;
 using Anaglyph.LaserTag.Player.Teams;
 using Anaglyph.XR.Input;
+using Anaglyph.XR.SharedSpaces.AprilTags;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 namespace Anaglyph.LaserTag.MapEditor.Tools
 {
-	
+	/// <summary>
+	/// The map editor's hand tool. One of these per hand, activated with the editor.
+	///
+	/// It has one mode at a time and the buttons mean whatever that mode says: the trigger places
+	/// an object or registers a tag, the back button deletes one or unregisters one. Mode is
+	/// static because both hands are always in the same one — the palette sets it.
+	/// </summary>
 	public class MapEditorTool : MonoBehaviour
 	{
+		public enum Mode
+		{
+			/// <summary>Grab and reposition what is already placed.</summary>
+			Move,
+
+			/// <summary>Place copies of the palette's selected object.</summary>
+			Place,
+
+			/// <summary>Register the map's AprilTags.</summary>
+			Tags
+		}
+
+		public static Mode CurrentMode { get; private set; }
+		public static event Action<Mode> ModeChanged = delegate { };
+
 		public static MapEditorTool DominantHand;
+
+		// Statics persist across play sessions while domain reload is disabled.
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+		private static void ResetStatics()
+		{
+			CurrentMode = Mode.Move;
+			ModeChanged = delegate { };
+			DominantHand = null;
+		}
+
+		/// <summary>
+		/// Switches both hands to a mode. <paramref name="spawnObject"/> is what
+		/// <see cref="Mode.Place"/> places, and is ignored by every other mode — so a mode and the
+		/// thing it acts on can never disagree.
+		/// </summary>
+		public static void SetMode(Mode mode, MapObject spawnObject = null)
+		{
+			CurrentMode = mode;
+
+			MapEditorTool[] tools = FindObjectsByType<MapEditorTool>(
+				FindObjectsInactive.Include, FindObjectsSortMode.None);
+
+			foreach (MapEditorTool tool in tools)
+				tool.ApplyMode(mode, spawnObject);
+
+			UpdateTagDetection();
+			ModeChanged.Invoke(mode);
+		}
+
+		/// <summary>
+		/// Registering needs tag detection even with no map loaded, which is otherwise exactly
+		/// when colocation would leave it off.
+		/// </summary>
+		private static void UpdateTagDetection()
+		{
+			ColocationManager.Instance?.SetTagDetectionOverride(
+				CurrentMode == Mode.Tags && MapEditor.IsActive);
+		}
 
 		[SerializeField] private Color placeColor = Color.green;
 		[SerializeField] private Color deleteColor = Color.red;
@@ -24,6 +84,12 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		[SerializeField] private float rotationSpeed;
 		[SerializeField] private float distanceSpeed;
 
+		[Tooltip("How far off the hand ray a tag can be and still count as aimed at")]
+		[SerializeField] private float aimMaxAngleDegrees = 10f;
+
+		[Tooltip("Seconds a tag observation stays valid; stale poses must not be registered")]
+		[SerializeField] private float observationLifetime = 5f;
+
 		private MapObject currentSpawnObject;
 		private GameObject previewObject;
 		private float spawnRotation;
@@ -35,6 +101,15 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 
 		private float rotationDelta;
 		private float distanceDelta;
+
+		private TagAimer tagAimer;
+
+		/// <summary>
+		/// Built on demand: a mode change reaches every tool including ones on still-inactive
+		/// hands, whose Awake has not run yet. Serialized fields are already deserialized by
+		/// then, so the settings below are the authored ones either way.
+		/// </summary>
+		private TagAimer Aimer => tagAimer ??= new TagAimer(observationLifetime, aimMaxAngleDegrees);
 
 		[SerializeField] private HandSubject handSubject;
 
@@ -57,14 +132,43 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 				DominantHand = this;
 
 			handSubject.Bind(rotateInputBinding, OnRotateInput);
-			handSubject.Bind(placeInputBinding, OnPlaceInput);
-			handSubject.Bind(deleteInputBinding, OnDeleteInput);
-			handSubject.Bind(moveInputBinding, OnMoveInput);
+			handSubject.Bind(placeInputBinding, OnFireInput);
+			handSubject.Bind(deleteInputBinding, OnBackInput);
+			handSubject.Bind(moveInputBinding, OnGripInput);
 		}
 
 		private void OnDestroy()
 		{
 			MapEditor.ActiveChanged -= gameObject.SetActive;
+		}
+
+		private void OnEnable()
+		{
+			Aimer.Register();
+			UpdateTagDetection();
+		}
+
+		private void OnDisable()
+		{
+			Aimer.Unregister();
+			Aimer.Clear();
+			ReleaseTagHighlight();
+
+			if (previewObject != null)
+				previewObject.SetActive(false);
+
+			// Leaving the map editor drops the override; colocation decides again whether tag
+			// detection stays on.
+			UpdateTagDetection();
+		}
+
+		/// <summary>Whatever the outgoing mode was holding is not the incoming one's to keep.</summary>
+		private void ApplyMode(Mode mode, MapObject spawnObject)
+		{
+			SetSpawnObject(mode == Mode.Place ? spawnObject : null);
+			TryLetGo();
+			Aimer.Clear();
+			ReleaseTagHighlight();
 		}
 
 		public void SetSpawnObject(MapObject spawnObject)
@@ -85,11 +189,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			return Quaternion.Euler(0, spawnRotation, 0);
 		}
 
-		private void OnDisable()
-		{
-			if (previewObject != null)
-				previewObject.SetActive(false);
-		}
+		// ------- map objects -------------------------------------
 
 		public bool TryDelete()
 		{
@@ -156,18 +256,83 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		// nothing to place rather than as a press that does nothing.
 		private bool CheckCanPlace()
 		{
-			return currentSpawnObject != null && !handSubject.Current.InputBlocked &&
+			return CurrentMode == Mode.Place && currentSpawnObject != null &&
+				!handSubject.Current.InputBlocked &&
 				this == DominantHand &&
 				(MapManager.Instance == null || MapManager.Instance.CheckCanEditMap());
 		}
 
+		// ------- tags --------------------------------------------
+
+		private bool CanActOnTag()
+		{
+			return CurrentMode == Mode.Tags &&
+			       this == DominantHand &&
+			       Aimer.AimedTagId >= 0 &&
+			       !handSubject.Current.InputBlocked &&
+			       MapManager.Instance != null;
+		}
+
+		public bool TryRegisterTag()
+		{
+			if (!CanActOnTag())
+				return false;
+
+			int tagId = Aimer.AimedTagId;
+
+			string blocker = MapManager.Instance.DescribeTagRegistrationBlocker();
+			if (blocker != null)
+			{
+				Debug.LogWarning($"Couldn't register tag {tagId} — {blocker}.");
+				return false;
+			}
+
+			return Aimer.TryGetObservation(tagId, out Pose pose) &&
+			       MapManager.Instance.RegisterTag(tagId, pose);
+		}
+
+		public bool TryUnregisterTag()
+		{
+			return CanActOnTag() && MapManager.Instance.UnregisterTag(Aimer.AimedTagId);
+		}
+
+		private void ReleaseTagHighlight()
+		{
+			// Only the hand that set the highlight may clear it, or the off hand would wipe the
+			// dominant one's every frame.
+			if (this == DominantHand)
+				TagReferenceVisuals.HighlightedTagId = -1;
+		}
+
+		// ------- per-frame ---------------------------------------
+
 		private void LateUpdate()
 		{
 			bool didHit = Raycast(out RaycastHit hit);
+			float lineDist = didHit ? hit.distance : 1f;
 
-			float lineDist = 1;
-			if (didHit) lineDist = hit.distance;
+			if (CurrentMode == Mode.Tags)
+				UpdateTagAim();
+			else
+				lineDist = UpdateObjectTools(didHit, hit, lineDist);
 
+			lineRenderer.enabled = !handSubject.Current.InputBlocked;
+			lineRenderer.SetPosition(0, Vector3.zero);
+			lineRenderer.SetPosition(1, Vector3.forward * lineDist);
+		}
+
+		private void UpdateTagAim()
+		{
+			if (this != DominantHand)
+				return;
+
+			// The indicator drawn at every visible tag is the one visual; aiming just recolors it.
+			TagReferenceVisuals.HighlightedTagId =
+				Aimer.Aim(transform.position, transform.forward);
+		}
+
+		private float UpdateObjectTools(bool didHit, RaycastHit hit, float lineDist)
+		{
 			if (grabbedObject != null)
 			{
 				if (previewObject != null)
@@ -187,57 +352,66 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 					lineDist = grabDistance;
 				}
 			}
-			else
+			else if (previewObject != null)
 			{
-				if (previewObject != null)
-				{
-					spawnRotation += rotationDelta * Time.deltaTime * rotationSpeed;
+				spawnRotation += rotationDelta * Time.deltaTime * rotationSpeed;
 
-					previewObject.transform.position = hit.point;
-					previewObject.transform.rotation = GetSpawnRotation();
-					previewObject.SetActive(didHit && CheckCanPlace());
-				}
+				previewObject.transform.position = hit.point;
+				previewObject.transform.rotation = GetSpawnRotation();
+				previewObject.SetActive(didHit && CheckCanPlace());
 			}
 
-			lineRenderer.enabled = !handSubject.Current.InputBlocked;
-			lineRenderer.SetPosition(1, Vector3.forward * lineDist);
-			lineRenderer.SetPosition(0, Vector3.zero);
+			return lineDist;
 		}
 
 		#region Input
 
-		public void OnPlaceInput(InputAction.CallbackContext context)
+		private void OnFireInput(InputAction.CallbackContext context)
 		{
 			if (!context.performed) return;
 
-			if (this == DominantHand)
-			{
-				if (grabbedObject != null) return;
-
-				TryPlace();
-			}
-			else
+			// Every mode: the off hand's trigger is how the palette swaps sides, so it has to be
+			// answered before whatever the current mode would do with the press.
+			if (this != DominantHand)
 			{
 				Handedness otherHand =
 					handSubject.Current.Handedness == Handedness.Left ? Handedness.Right : Handedness.Left;
 
 				DominantHand = this;
 				Palette.Instance?.SetHandSide(otherHand);
+				return;
 			}
+
+			if (CurrentMode == Mode.Tags)
+			{
+				TryRegisterTag();
+				return;
+			}
+
+			if (grabbedObject != null) return;
+
+			TryPlace();
 		}
 
-		public void OnMoveInput(InputAction.CallbackContext context)
+		private void OnBackInput(InputAction.CallbackContext context)
 		{
+			if (!context.performed) return;
+
+			if (CurrentMode == Mode.Tags)
+				TryUnregisterTag();
+			else
+				TryDelete();
+		}
+
+		private void OnGripInput(InputAction.CallbackContext context)
+		{
+			if (CurrentMode == Mode.Tags)
+				return;
+
 			if (context.performed)
 				TryGrab();
 			else if (context.canceled && grabbedObject != null)
 				TryLetGo();
-		}
-
-		public void OnDeleteInput(InputAction.CallbackContext context)
-		{
-			if (context.performed)
-				TryDelete();
 		}
 
 		private void OnRotateInput(InputAction.CallbackContext context)

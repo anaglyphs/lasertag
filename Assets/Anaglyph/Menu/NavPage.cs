@@ -1,32 +1,34 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine.UIElements;
 
 namespace Anaglyph.Menu
 {
-	public sealed class NavPage
+	/// <summary>
+	/// One screen of a <see cref="NavView"/>. Must be a direct child of the view
+	/// it belongs to.
+	/// </summary>
+	[UxmlElement]
+	public sealed partial class NavPage : VisualElement
 	{
-		private readonly Button backButton;
+		public static readonly string ussClassName = "nav-page";
 
-		internal NavPage(
-			NavView parentView,
-			VisualElement root,
-			bool showBackButton,
-			bool modalUserDismissible)
+		private readonly List<NavButton> backButtons = new();
+
+		public NavPage()
 		{
-			ParentView = parentView;
-			Root = root;
-			ShowBackButton = showBackButton;
-			ModalUserDismissible = modalUserDismissible;
-
-			backButton = root.Q<Button>("back-button");
-			if (backButton != null)
-				backButton.clicked += GoBack;
+			AddToClassList(ussClassName);
 		}
 
-		public VisualElement Root { get; }
-		public NavView ParentView { get; }
-		public bool ShowBackButton { get; set; }
+		/// <summary>Whether this page's back buttons appear once there is history to go back to.</summary>
+		[UxmlAttribute("show-back-button")]
+		public bool ShowBackButton { get; set; } = true;
+
+		/// <summary>Whether a back press dismisses this page while it is presented as a modal.</summary>
+		[UxmlAttribute("modal-user-dismissible")]
 		public bool ModalUserDismissible { get; set; }
+
+		public NavView ParentView { get; private set; }
 
 		public event Action NavigatingHere = delegate { };
 		public event Action NavigatingAway = delegate { };
@@ -34,12 +36,27 @@ namespace Anaglyph.Menu
 
 		public void NavigateHere()
 		{
-			ParentView.GoToPage(this);
+			RequireParentView().GoToPage(this);
 		}
 
 		public void GoBack()
 		{
-			ParentView.GoBack();
+			RequireParentView().GoBack();
+		}
+
+		internal void Initialize(NavView parentView)
+		{
+			ParentView = parentView;
+			backButtons.Clear();
+
+			if (parentView == null)
+				return;
+
+			this.Query<NavButton>().ForEach(button =>
+			{
+				if (button.IsBackButton)
+					backButtons.Add(button);
+			});
 		}
 
 		internal void InvokeNavigatingHere()
@@ -57,17 +74,23 @@ namespace Anaglyph.Menu
 			NavigatingBack.Invoke();
 		}
 
-		internal void UpdateBackButton(bool hasHistory)
+		internal void UpdateBackButtons(bool hasHistory)
 		{
-			if (backButton != null)
-				backButton.style.display =
-					ShowBackButton && hasHistory ? DisplayStyle.Flex : DisplayStyle.None;
+			DisplayStyle display = ShowBackButton && hasHistory
+				? DisplayStyle.Flex
+				: DisplayStyle.None;
+
+			foreach (NavButton button in backButtons)
+				button.style.display = display;
 		}
 
-		internal void Dispose()
+		private NavView RequireParentView()
 		{
-			if (backButton != null)
-				backButton.clicked -= GoBack;
+			if (ParentView == null)
+				throw new InvalidOperationException(
+					$"Navigation page '{name}' does not belong to a NavView.");
+
+			return ParentView;
 		}
 	}
 }

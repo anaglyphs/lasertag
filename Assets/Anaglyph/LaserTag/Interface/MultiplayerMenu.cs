@@ -26,12 +26,10 @@ namespace Anaglyph.LaserTag.Interface
 
 		[SerializeField] private BoolObject hostOnRelaySetting;
 		[SerializeField] private BoolObject useAprilTagsSetting;
-		[SerializeField] private FloatObject aprilTagSizeSetting;
 		[SerializeField] private StringObject buildNumber;
 
 		private NavView navView;
 		private NavPage homePage;
-		private NavPage manuallyConnectPage;
 		private NavPage sessionPage;
 		private NavPage networkErrorModal;
 		private NavPage bluetoothErrorModal;
@@ -43,7 +41,6 @@ namespace Anaglyph.LaserTag.Interface
 		private Label hostOnRelayWarning;
 		private Toggle useAprilTagsToggle;
 		private Label useAprilTagsWarning;
-		private FloatField aprilTagSizeField;
 
 		private Toggle useRelayToggle;
 		private VisualElement ipFieldRow;
@@ -83,31 +80,24 @@ namespace Anaglyph.LaserTag.Interface
 			// must happen before anything subscribes to Button.clicked
 			root.MakeButtonsActOnPress();
 
-			VisualElement pages = Require<VisualElement>(root, "pages");
-			navView = new NavView(pages);
-			homePage = navView.AddPage("home-page", false);
-			NavPage hostSettingsPage = navView.AddPage("host-settings-page");
-			manuallyConnectPage = navView.AddPage("manual-connect-page");
-			sessionPage = navView.AddPage("session-page", false);
-			networkErrorModal = navView.AddPage("network-error-modal", false);
-			bluetoothErrorModal = navView.AddPage("bluetooth-error-modal", false);
-			errorModal = navView.AddPage("error-modal", false);
+			navView = NavView.RequireIn(root);
+			homePage = navView.GetPage("home-page");
+			sessionPage = navView.GetPage("session-page");
+			networkErrorModal = navView.GetPage("network-error-modal");
+			bluetoothErrorModal = navView.GetPage("bluetooth-error-modal");
+			errorModal = navView.GetPage("error-modal");
 
 			Require<Button>(root, "host-button").clicked += Host;
-			Require<Button>(root, "host-settings-button").clicked += hostSettingsPage.NavigateHere;
-			Require<Button>(root, "manual-connect-button").clicked += manuallyConnectPage.NavigateHere;
 
 			hostOnRelayToggle = Require<Toggle>(root, "host-on-relay-toggle");
 			hostOnRelayWarning = Require<Label>(root, "host-on-relay-warning");
 			useAprilTagsToggle = Require<Toggle>(root, "use-april-tags-toggle");
 			useAprilTagsWarning = Require<Label>(root, "use-april-tags-warning");
-			aprilTagSizeField = Require<FloatField>(root, "april-tag-size-field");
 
 			hostOnRelayToggle.RegisterValueChangedCallback(
 				change => hostOnRelaySetting.Value = change.newValue);
 			useAprilTagsToggle.RegisterValueChangedCallback(
 				change => useAprilTagsSetting.Value = change.newValue);
-			aprilTagSizeField.RegisterValueChangedCallback(OnAprilTagSizeFieldChanged);
 
 			useRelayToggle = Require<Toggle>(root, "use-relay-toggle");
 			ipFieldRow = Require<VisualElement>(root, "ip-field-row");
@@ -153,7 +143,6 @@ namespace Anaglyph.LaserTag.Interface
 				$"Version: {Application.version}\nBuild: {(buildNumber ? buildNumber.Value : "")}";
 
 			navView.Changed += OnNavPageChange;
-			navView.Start(homePage);
 		}
 
 		// Subscribed for the component's whole lifetime, not just while enabled —
@@ -199,12 +188,10 @@ namespace Anaglyph.LaserTag.Interface
 			ColocationManager.Colocated += OnColocationChange;
 			hostOnRelaySetting.Changed += OnHostOnRelaySettingChange;
 			useAprilTagsSetting.Changed += OnAprilTagsSettingChange;
-			aprilTagSizeSetting.Changed += OnAprilTagSizeSettingChange;
 			RefreshSessionDiscoveryState();
 
 			OnHostOnRelaySettingChange(hostOnRelaySetting.Value);
 			OnAprilTagsSettingChange(useAprilTagsSetting.Value);
-			OnAprilTagSizeSettingChange(aprilTagSizeSetting.Value);
 			OnNetcodeStateChanged(NetcodeManagement.State);
 			hasNetworkState = false;
 			hasBluetoothState = false;
@@ -225,7 +212,6 @@ namespace Anaglyph.LaserTag.Interface
 			ColocationManager.Colocated -= OnColocationChange;
 			hostOnRelaySetting.Changed -= OnHostOnRelaySettingChange;
 			useAprilTagsSetting.Changed -= OnAprilTagsSettingChange;
-			aprilTagSizeSetting.Changed -= OnAprilTagSizeSettingChange;
 			if (panel != null)
 				panel.VisibleChanged -= OnPanelVisibilityChanged;
 			sessionDiscoveryController?.SetMenuAllowsListening(true);
@@ -233,19 +219,8 @@ namespace Anaglyph.LaserTag.Interface
 			if (navView != null)
 			{
 				navView.Changed -= OnNavPageChange;
-				navView.Dispose();
 				navView = null;
 			}
-		}
-
-		private void OnAprilTagSizeFieldChanged(ChangeEvent<float> change)
-		{
-			aprilTagSizeSetting.Value = change.newValue;
-		}
-
-		private void OnAprilTagSizeSettingChange(float value)
-		{
-			aprilTagSizeField.SetValueWithoutNotify(value);
 		}
 
 		private void OnAprilTagsSettingChange(bool value)

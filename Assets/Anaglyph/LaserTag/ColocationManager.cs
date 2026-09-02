@@ -189,9 +189,11 @@ namespace Anaglyph.LaserTag
 		}
 
 		/// <summary>
-		/// Selects exactly one self-contained provider. Tag mode is valid only for a map that
-		/// contains registered tags. A tag-enabled map may instead use shared-anchor mode, but
-		/// roaming minting remains disabled so every saved anchor keeps a parent tag.
+		/// Selects exactly one self-contained provider. Offline, tag mode is valid only for a map
+		/// that contains registered tags; in a session it is selected regardless, so an empty map
+		/// can still receive its first registration. A tag-enabled map may instead use
+		/// shared-anchor mode, but roaming minting remains disabled so every saved anchor keeps a
+		/// parent tag.
 		/// </summary>
 		private void UpdateProvider()
 		{
@@ -205,7 +207,11 @@ namespace Anaglyph.LaserTag
 			{
 				if (SelectedMethod == ColocationMethod.AprilTag)
 				{
-					if (map.HasTags)
+					// In a session the method is the session's contract, so tag mode selects the
+					// tag provider even for a map with no tags yet. That is what lets a peer
+					// register the first one into an empty map: the provider has to be the one
+					// holding tag state for anybody's registration to reach the map.
+					if (map.HasTags || SyncBus.Active)
 						next = aprilTagColocationProvider;
 				}
 				else
