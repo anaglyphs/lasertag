@@ -3,6 +3,7 @@ using Anaglyph.Debugging;
 using Anaglyph.InGameConsole;
 using Anaglyph.LaserTag.EnvSyncing;
 using Anaglyph.Menu;
+using Anaglyph.Netcode;
 using Anaglyph.Netcode.SyncVariables;
 using Anaglyph.VariableObjects;
 using Anaglyph.XR.DepthKit.EnvScanning;
@@ -16,7 +17,6 @@ namespace Anaglyph.LaserTag.Interface
 	{
 		[SerializeField] private BoolObject healthPassthroughTintSetting;
 		[SerializeField] private BoolObject lightEffectsSetting;
-		[SerializeField] private StringObject buildNumber;
 
 		private NavView navView;
 		private NavPage consolePage;
@@ -84,8 +84,7 @@ namespace Anaglyph.LaserTag.Interface
 				change => lightEffectsSetting.Value = change.newValue);
 
 			Label version = Require<Label>(root, "version");
-			version.text =
-				$"Version: {Application.version}\nBuild: {(buildNumber ? buildNumber.Value : "")}";
+			version.text = $"Version: {NetcodeManagement.GameVersion}";
 		}
 
 		private void OnEnable()

@@ -170,17 +170,6 @@ namespace Anaglyph.LaserTag
 
 			// Colocation does not end with the session — a loaded map keeps localizing.
 			UpdateProvider();
-
-			Vector3 p = MainXRRig.TrackingSpace.position;
-
-			if (p.magnitude > 10000f ||
-			    float.IsNaN(p.x) || float.IsInfinity(p.x) ||
-			    float.IsNaN(p.y) || float.IsInfinity(p.y) ||
-			    float.IsNaN(p.z) || float.IsInfinity(p.z))
-			{
-				MainXRRig.TrackingSpace.position = Vector3.zero;
-				MainXRRig.TrackingSpace.rotation = Quaternion.identity;
-			}
 		}
 
 		private void OnCurrentMapChanged(GameMap map)
@@ -236,6 +225,17 @@ namespace Anaglyph.LaserTag
 
 			colocator.StartColocation();
 			OnColocatorStateChanged(colocator.AlignmentState);
+			
+			Vector3 p = MainXRRig.TrackingSpace.position;
+
+			if (p.magnitude > 10000f ||
+			    float.IsNaN(p.x) || float.IsInfinity(p.x) ||
+			    float.IsNaN(p.y) || float.IsInfinity(p.y) ||
+			    float.IsNaN(p.z) || float.IsInfinity(p.z))
+			{
+				MainXRRig.TrackingSpace.position = Vector3.zero;
+				MainXRRig.TrackingSpace.rotation = Quaternion.identity;
+			}
 		}
 
 		/// <summary>Lets the registration tool drive tag detection while authoring.</summary>

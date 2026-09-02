@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Anaglyph.VariableObjects;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using Unity.Services.Authentication;
@@ -64,11 +65,27 @@ namespace Anaglyph.Netcode
 		public static ISession CurrentSession { get; private set; }
 		public static string CurrentSessionName { get; private set; } = "";
 
+		// Written into the asset at build time, so every build of the game reports
+		// the same version no matter which rig or menu is running.
+		private const string buildNumberResourceName = "BuildNumber";
+		private static StringObject buildNumber;
+
 		/// <summary>
-		/// Identifies this build to hosts and joiners. Two headsets can only play
-		/// together if these match. Set by whoever owns the build number asset.
+		/// Identifies this build to hosts and joiners. Two players can only play
+		/// together if these match.
 		/// </summary>
-		public static string GameVersion { get; set; } = Application.version;
+		public static string GameVersion
+		{
+			get
+			{
+				if (buildNumber == null)
+					buildNumber = Resources.Load<StringObject>(buildNumberResourceName);
+
+				return buildNumber != null && !string.IsNullOrEmpty(buildNumber.Value)
+					? $"{Application.version} ({buildNumber.Value})"
+					: Application.version;
+			}
+		}
 
 		// A disconnect only means "couldn't join" while an attempt is in flight.
 		private static bool isAttemptingConnection;
@@ -86,7 +103,6 @@ namespace Anaglyph.Netcode
 
 			CurrentSession = null;
 			CurrentSessionName = "";
-			GameVersion = Application.version;
 			isAttemptingConnection = false;
 		}
 

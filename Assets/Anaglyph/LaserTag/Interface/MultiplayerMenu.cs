@@ -26,7 +26,6 @@ namespace Anaglyph.LaserTag.Interface
 
 		[SerializeField] private BoolObject hostOnRelaySetting;
 		[SerializeField] private BoolObject useAprilTagsSetting;
-		[SerializeField] private StringObject buildNumber;
 
 		private NavView navView;
 		private NavPage homePage;
@@ -139,8 +138,7 @@ namespace Anaglyph.LaserTag.Interface
 
 			noFullInternetWarning = Require<Label>(root, "no-full-internet-warning");
 			Label version = Require<Label>(root, "version");
-			version.text =
-				$"Version: {Application.version}\nBuild: {(buildNumber ? buildNumber.Value : "")}";
+			version.text = $"Version: {NetcodeManagement.GameVersion}";
 
 			navView.Changed += OnNavPageChange;
 		}
@@ -155,12 +153,6 @@ namespace Anaglyph.LaserTag.Interface
 			if (sessionDiscoveryController == null)
 				throw new InvalidOperationException(
 					"MultiplayerMenu requires SessionDiscoveryController in its parent hierarchy.");
-
-			// this component owns the build number asset, so it tells netcode
-			// what to compare when a client joins
-			NetcodeManagement.GameVersion = buildNumber && !string.IsNullOrEmpty(buildNumber.Value)
-				? $"{Application.version} ({buildNumber.Value})"
-				: Application.version;
 		}
 
 		private void OnDestroy()

@@ -383,7 +383,8 @@ namespace Anaglyph.LaserTag.Editor
 
 			appliedTo = mesher;
 			appliedValue = visible;
-			mesher.SetChunksVisible(visible);
+			if(visible)
+				mesher.SetChunksVisible(true);
 		}
 	}
 

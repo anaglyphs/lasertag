@@ -422,6 +422,12 @@ ScrollView {
     padding: 4px 2px;
 }
 
+/* reuses palette-grid, which forces a wrapping row; restore the vertical stack */
+.palette-form .unity-scroll-view__content-container {
+    flex-direction: column;
+    flex-wrap: nowrap;
+}
+
 .palette-hint {
     opacity: 0.7;
 }

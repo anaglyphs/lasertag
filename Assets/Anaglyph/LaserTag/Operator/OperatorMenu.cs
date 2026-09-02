@@ -6,6 +6,7 @@ using Anaglyph.LaserTag.Player;
 using Anaglyph.Menu;
 using Anaglyph.Netcode;
 using Anaglyph.VariableObjects;
+using Anaglyph.XR.DepthKit.EnvScanning;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -39,6 +40,15 @@ namespace Anaglyph.LaserTag.Operator
 
 		private MatchSettingsBinder matchSettings;
 
+		private VisualElement viewport;
+		private Camera viewportCamera;
+
+		private const string sidebarWidthPref = "OperatorMenu.SidebarWidth";
+		private const string tabsHeightPref = "OperatorMenu.TabsHeight";
+
+		private TwoPaneSplitView sidebarSplit;
+		private TwoPaneSplitView mainSplit;
+
 		private void OnEnable()
 		{
 			UIDocument document = GetComponent<UIDocument>();
@@ -54,7 +64,6 @@ namespace Anaglyph.LaserTag.Operator
 			// looked up under the one it belongs to rather than across the document.
 			VisualElement networkNav = Require<NavView>(root, "network-nav");
 			matchNav = Require<NavView>(root, "match-nav");
-			VisualElement clientsNav = Require<NavView>(root, "clients-nav");
 
 			playingPage = matchNav.GetPage("playing-page");
 
@@ -64,10 +73,13 @@ namespace Anaglyph.LaserTag.Operator
 			hostButton = Require<Button>(networkNav, "host-button");
 			disconnectButton = Require<Button>(networkNav, "disconnect-button");
 
-			clientCountLabel = Require<Label>(clientsNav, "client-count");
-			clientList = Require<ScrollView>(clientsNav, "client-list");
+			clientCountLabel = Require<Label>(networkNav, "client-count");
+			clientList = Require<ScrollView>(networkNav, "client-list");
 
 			matchSettings = new MatchSettingsBinder(matchNav);
+
+			BindViewportToCamera(root);
+			RestoreSplitSizes(root);
 
 			hostButton.clicked += StartHosting;
 			disconnectButton.clicked += NetcodeManagement.Disconnect;
@@ -88,6 +100,8 @@ namespace Anaglyph.LaserTag.Operator
 		{
 			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
 			MatchReferee.StateChanged -= OnMatchStateChanged;
+			SaveSplitSizes();
+			UnbindViewportFromCamera();
 			matchNav = null;
 		}
 
@@ -105,6 +119,8 @@ namespace Anaglyph.LaserTag.Operator
 			}
 
 			StartHosting();
+			
+			EnvMesher.Instance.SetChunksVisible(true);
 		}
 
 		private void StartHosting()
@@ -135,6 +151,96 @@ namespace Anaglyph.LaserTag.Operator
 
 			matchSettings.StartButton.SetEnabled(state == NetcodeState.Connected);
 			Refresh();
+		}
+
+		/// <summary>
+		/// Renders the 3D scene inside the "viewport" element by shrinking the camera's
+		/// normalized viewport rect to match it, instead of going through a render texture.
+		/// </summary>
+		private void BindViewportToCamera(VisualElement root)
+		{
+			viewport = Require<VisualElement>(root, "viewport");
+			viewportCamera = GetComponentInParent<Camera>();
+
+			if (viewportCamera == null)
+				throw new InvalidOperationException(
+					$"{nameof(OperatorMenu)} found no Camera on itself or a parent to fit " +
+					"to the viewport element.");
+
+			// The viewport is sized by flex, so it lays out again whenever the window
+			// or the panel scale changes.
+			viewport.RegisterCallback<GeometryChangedEvent>(OnViewportGeometryChanged);
+			MatchCameraRectToViewport();
+		}
+
+		private void UnbindViewportFromCamera()
+		{
+			viewport?.UnregisterCallback<GeometryChangedEvent>(OnViewportGeometryChanged);
+
+			if (viewportCamera != null)
+				viewportCamera.rect = new Rect(0, 0, 1, 1);
+
+			viewport = null;
+			viewportCamera = null;
+		}
+
+		private void OnViewportGeometryChanged(GeometryChangedEvent _) =>
+			MatchCameraRectToViewport();
+
+		private void MatchCameraRectToViewport()
+		{
+			if (viewportCamera == null || viewport == null)
+				return;
+
+			// Layout is in panel points rather than pixels, so the rect is taken as a
+			// fraction of the panel. That stays correct at any scale or resolution.
+			Rect panel = viewport.panel?.visualTree.layout ?? default;
+			if (panel.width <= 0 || panel.height <= 0)
+				return;
+
+			Rect bounds = viewport.worldBound;
+			if (bounds.width <= 0 || bounds.height <= 0 || float.IsNaN(bounds.x))
+				return;
+
+			// Panel space runs downwards from the top left; camera rects run upwards
+			// from the bottom left.
+			viewportCamera.rect = new Rect(
+				(bounds.x - panel.x) / panel.width,
+				1f - (bounds.yMax - panel.y) / panel.height,
+				bounds.width / panel.width,
+				bounds.height / panel.height);
+		}
+
+		/// <summary>
+		/// Applies the operator's last sidebar width and tab height. The panel has not
+		/// laid out yet, so the stored sizes are what the split views start from.
+		/// </summary>
+		private void RestoreSplitSizes(VisualElement root)
+		{
+			sidebarSplit = Require<TwoPaneSplitView>(root, "sidebar-split");
+			mainSplit = Require<TwoPaneSplitView>(root, "main-split");
+
+			if (PlayerPrefs.HasKey(sidebarWidthPref))
+				sidebarSplit.fixedPaneInitialDimension = PlayerPrefs.GetFloat(sidebarWidthPref);
+
+			if (PlayerPrefs.HasKey(tabsHeightPref))
+				mainSplit.fixedPaneInitialDimension = PlayerPrefs.GetFloat(tabsHeightPref);
+		}
+
+		private void SaveSplitSizes()
+		{
+			StoreDimension(sidebarWidthPref, sidebarSplit?.fixedPane?.resolvedStyle.width ?? 0);
+			StoreDimension(tabsHeightPref, mainSplit?.fixedPane?.resolvedStyle.height ?? 0);
+			PlayerPrefs.Save();
+
+			sidebarSplit = null;
+			mainSplit = null;
+		}
+
+		private static void StoreDimension(string key, float dimension)
+		{
+			if (dimension > 0 && !float.IsNaN(dimension))
+				PlayerPrefs.SetFloat(key, dimension);
 		}
 
 		private void OnMatchStateChanged(MatchState state)
