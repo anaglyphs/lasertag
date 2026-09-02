@@ -25,14 +25,14 @@ namespace Anaglyph.LaserTag.Operator
 
 		[SerializeField] private FloatObject aprilTagSizeSetting;
 
-		private NavView navView;
-		private NavPage playingPage;
-
 		private Label sessionStateLabel;
 		private Label sessionAddressLabel;
 		private Label localAddressLabel;
 		private Button hostButton;
 		private Button disconnectButton;
+
+		private NavView matchNav;
+		private NavPage playingPage;
 
 		private Label clientCountLabel;
 		private ScrollView clientList;
@@ -50,24 +50,30 @@ namespace Anaglyph.LaserTag.Operator
 			// must happen before anything subscribes to Button.clicked
 			root.MakeButtonsActOnPress();
 
-			navView = NavView.RequireIn(root);
-			playingPage = navView.GetPage("playing-page");
+			// The panel shows several navigation views at once, so every element is
+			// looked up under the one it belongs to rather than across the document.
+			VisualElement networkNav = Require<NavView>(root, "network-nav");
+			matchNav = Require<NavView>(root, "match-nav");
+			VisualElement clientsNav = Require<NavView>(root, "clients-nav");
 
-			sessionStateLabel = Require<Label>(root, "session-state");
-			sessionAddressLabel = Require<Label>(root, "session-address");
-			localAddressLabel = Require<Label>(root, "local-address");
-			hostButton = Require<Button>(root, "host-button");
-			disconnectButton = Require<Button>(root, "disconnect-button");
-			clientCountLabel = Require<Label>(root, "client-count");
-			clientList = Require<ScrollView>(root, "client-list");
+			playingPage = matchNav.GetPage("playing-page");
 
-			matchSettings = new MatchSettingsBinder(root);
+			sessionStateLabel = Require<Label>(networkNav, "session-state");
+			sessionAddressLabel = Require<Label>(networkNav, "session-address");
+			localAddressLabel = Require<Label>(networkNav, "local-address");
+			hostButton = Require<Button>(networkNav, "host-button");
+			disconnectButton = Require<Button>(networkNav, "disconnect-button");
+
+			clientCountLabel = Require<Label>(clientsNav, "client-count");
+			clientList = Require<ScrollView>(clientsNav, "client-list");
+
+			matchSettings = new MatchSettingsBinder(matchNav);
 
 			hostButton.clicked += StartHosting;
 			disconnectButton.clicked += NetcodeManagement.Disconnect;
 			matchSettings.StartButton.clicked +=
 				() => MatchReferee.Instance?.QueueMatch(matchSettings.Settings);
-			Require<Button>(root, "stop-button").clicked +=
+			Require<Button>(matchNav, "stop-button").clicked +=
 				() => MatchReferee.Instance?.EndMatch();
 
 			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
@@ -82,7 +88,7 @@ namespace Anaglyph.LaserTag.Operator
 		{
 			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
 			MatchReferee.StateChanged -= OnMatchStateChanged;
-			navView = null;
+			matchNav = null;
 		}
 
 		private async void Start()
@@ -133,7 +139,7 @@ namespace Anaglyph.LaserTag.Operator
 
 		private void OnMatchStateChanged(MatchState state)
 		{
-			navView.SetModalPresented(playingPage, state != MatchState.NotPlaying, 20);
+			matchNav.SetModalPresented(playingPage, state != MatchState.NotPlaying, 20);
 		}
 
 		private async void BeginRefreshLoop()
