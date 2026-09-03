@@ -5,7 +5,7 @@
         <ui:ScrollView>
             <ui:Slider label="Damage strength" value="1" high-value="2" name="damage-multiplier-slider" low-value="0.1" show-input-field="true" fill="true" class="stacked-field"/>
             <ui:SliderInt label="Rounds" value="3" high-value="10" show-input-field="true" name="rounds-slider" low-value="1" fill="false" class="stacked-field"/>
-            <ui:Toggle name="infinite-rounds-toggle" text="Play until stopped"/>
+            <ui:Toggle name="infinite-rounds-toggle" text="Infinite rounds"/>
             <ui:RadioButtonGroup label="Win condition" choices="Time,Points,Either" name="win-by-radio" class="stacked-field"/>
             <ui:Slider label="Minutes per round" value="2" high-value="10" low-value="0.5" name="round-time-slider" show-input-field="true" class="stacked-field"/>
             <ui:SliderInt label="Winning score" value="5" high-value="20" name="score-target-slider" show-input-field="true" class="stacked-field"/>

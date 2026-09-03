@@ -121,7 +121,7 @@ namespace Anaglyph.XR.AprilTags
 
 				if (detector == null || detectorDimensions != img.dimensions)
 				{
-					detector = new TagDetector(img.width, img.height, 1);
+					detector = new TagDetector(img.width, img.height, 3);
 					detectorDimensions = img.dimensions;
 				}
 
@@ -164,7 +164,7 @@ namespace Anaglyph.XR.AprilTags
 							inputRect = rect,
 							outputDimensions = img.dimensions,
 							outputFormat = TextureFormat.R8,
-							transformation = XRCpuImage.Transformation.MirrorY
+							transformation = XRCpuImage.Transformation.None
 						};
 
 						EnsureProcessedImgSize(img.GetConvertedDataSize(convParams));
@@ -242,6 +242,8 @@ namespace Anaglyph.XR.AprilTags
 		{
 			if (processedImg.IsCreated)
 				processedImg.Dispose();
+
+			detector?.Dispose();
 		}
 	}
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Anaglyph.LaserTag.Interface;
+using Anaglyph.LaserTag.Maps;
 using Anaglyph.LaserTag.Matches;
 using Anaglyph.LaserTag.Player;
 using Anaglyph.Menu;
@@ -44,7 +45,7 @@ namespace Anaglyph.LaserTag.Operator
 		private Camera viewportCamera;
 
 		private const string sidebarWidthPref = "OperatorMenu.SidebarWidth";
-		private const string tabsHeightPref = "OperatorMenu.TabsHeight";
+		private const string tabsWidthPref = "OperatorMenu.TabsWidth";
 
 		private TwoPaneSplitView sidebarSplit;
 		private TwoPaneSplitView mainSplit;
@@ -110,7 +111,8 @@ namespace Anaglyph.LaserTag.Operator
 			// Nothing to host with until the networking prefabs have spawned.
 			try
 			{
-				while (NetworkManager.Singleton == null || ColocationManager.Instance == null)
+				while (NetworkManager.Singleton == null || ColocationManager.Instance == null ||
+				       MapManager.Instance == null)
 					await Awaitable.NextFrameAsync(destroyCancellationToken);
 			}
 			catch (OperationCanceledException)
@@ -118,9 +120,23 @@ namespace Anaglyph.LaserTag.Operator
 				return;
 			}
 
+			LoadLastAprilTagMap();
 			StartHosting();
 			
 			EnvMesher.Instance.SetChunksVisible(true);
+		}
+
+		private static void LoadLastAprilTagMap()
+		{
+			if (MapManager.Instance.CurrentMap != null)
+				return;
+
+			foreach (GameMap map in MapStore.GetByLastUsed())
+				if (map.HasTags)
+				{
+					MapManager.Instance.LoadMap(map.id);
+					return;
+				}
 		}
 
 		private void StartHosting()
@@ -212,7 +228,7 @@ namespace Anaglyph.LaserTag.Operator
 		}
 
 		/// <summary>
-		/// Applies the operator's last sidebar width and tab height. The panel has not
+		/// Applies the operator's last sidebar and tab widths. The panel has not
 		/// laid out yet, so the stored sizes are what the split views start from.
 		/// </summary>
 		private void RestoreSplitSizes(VisualElement root)
@@ -223,14 +239,14 @@ namespace Anaglyph.LaserTag.Operator
 			if (PlayerPrefs.HasKey(sidebarWidthPref))
 				sidebarSplit.fixedPaneInitialDimension = PlayerPrefs.GetFloat(sidebarWidthPref);
 
-			if (PlayerPrefs.HasKey(tabsHeightPref))
-				mainSplit.fixedPaneInitialDimension = PlayerPrefs.GetFloat(tabsHeightPref);
+			if (PlayerPrefs.HasKey(tabsWidthPref))
+				mainSplit.fixedPaneInitialDimension = PlayerPrefs.GetFloat(tabsWidthPref);
 		}
 
 		private void SaveSplitSizes()
 		{
 			StoreDimension(sidebarWidthPref, sidebarSplit?.fixedPane?.resolvedStyle.width ?? 0);
-			StoreDimension(tabsHeightPref, mainSplit?.fixedPane?.resolvedStyle.height ?? 0);
+			StoreDimension(tabsWidthPref, mainSplit?.fixedPane?.resolvedStyle.width ?? 0);
 			PlayerPrefs.Save();
 
 			sidebarSplit = null;

@@ -708,8 +708,10 @@ namespace Anaglyph.LaserTag.Maps
 			if (CurrentMap != null && CurrentMap.HasTags)
 				return "Unregister this map's tags to change their size";
 
-			if (SyncBus.Active && !SyncBus.IsAuthority)
-				return "Only the host can set tag size";
+			// A joiner's own copy is about to be replaced by the session's, and so is any size
+			// it set in the meantime.
+			if (SyncBus.Active && !SyncBus.IsAuthority && CurrentMap == null)
+				return "Waiting for the session's map";
 
 			return null;
 		}
@@ -717,11 +719,18 @@ namespace Anaglyph.LaserTag.Maps
 		/// <summary>
 		/// Records the physical size of the tags this map is registered against. It travels with
 		/// the map because a registered pose only means anything at the size it was solved at.
+		///
+		/// Any peer may set it, for the same reason any peer may register: the device holding the
+		/// tape measure is not necessarily the one hosting. A client's size travels to the
+		/// authority and comes back as the session's, which is what writes it into every map.
 		/// </summary>
 		public bool SetTagSize(float centimeters)
 		{
 			if (centimeters <= 0f || DescribeTagSizeBlocker() != null)
 				return false;
+
+			if (!SyncBus.IsAuthority)
+				return colocation.RequestTagSize(centimeters);
 
 			GameMap map = EnsureCurrentMap();
 			if (map == null || Mathf.Approximately(map.tagSizeCm, centimeters))

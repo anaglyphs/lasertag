@@ -48,20 +48,22 @@
         <meta-data android:name="com.oculus.supportedDevices" android:value="quest2|questpro|quest3|eureka"/>
 
         <activity
-                android:name="com.unity3d.player.UnityPlayerGameActivity"
+                android:name="com.unity3d.player.UnityPlayerActivity"
                 android:screenOrientation="landscape"
                 android:launchMode="singleTask"
                 android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|uiMode|density"
                 android:hardwareAccelerated="true"
                 android:resizeableActivity="false"
                 android:exported="true"
-                android:theme="@style/BaseUnityGameActivityTheme">
+                android:theme="@style/UnityThemeSelector">
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
                 <category android:name="com.oculus.intent.category.VR"/>
             </intent-filter>
+
+            <meta-data android:name="unityplayer.UnityActivity" android:value="true"/>
 
             <meta-data android:name="com.oculus.vr.focusaware" android:value="true"/>
         </activity>

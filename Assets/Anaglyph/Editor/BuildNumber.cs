@@ -12,10 +12,13 @@ namespace Anaglyph.Editor
 
 		public void OnPreprocessBuild(BuildReport report)
 		{
-			string[] result = AssetDatabase.FindAssets("BuildNumber", new[] { "Assets/Anaglyph/" });
+			string[] result = AssetDatabase.FindAssets("BuildNumber t:StringObject", new[] { "Assets/Anaglyph/" });
+
+			if (result.Length == 0)
+				throw new BuildFailedException("Could not find BuildNumber StringObject asset under Assets/Anaglyph/");
 
 			string path = AssetDatabase.GUIDToAssetPath(result[0]);
-			StringObject config = (StringObject)AssetDatabase.LoadAssetAtPath(path, typeof(StringObject));
+			StringObject config = AssetDatabase.LoadAssetAtPath<StringObject>(path);
 
 			config.SetDefaultVal(report.summary.platform == BuildTarget.iOS
 				? PlayerSettings.iOS.buildNumber

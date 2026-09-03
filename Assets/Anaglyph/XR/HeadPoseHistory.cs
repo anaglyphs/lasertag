@@ -12,6 +12,14 @@ namespace Anaglyph.XR
 	/// densely in onBeforeRender and interpolating between the two samples
 	/// bracketing the requested time.
 	///
+	/// The fallback is approximate and biased: the camera transform holds the
+	/// pose the runtime predicted for the frame's display time, but the sample
+	/// is stamped with the time it was read, so every sample describes a moment
+	/// one prediction interval later than its own timestamp. Looking up a camera
+	/// frame therefore returns a head pose that is too new by that interval,
+	/// which puts tag poses ahead of where the image saw them and makes them
+	/// swim with head motion. Keep the OpenXR feature enabled.
+	///
 	/// Poses are stored relative to <see cref="MainXRRig.TrackingSpace"/> (the
 	/// same space OVR head poses were expressed in), so they stay valid across
 	/// rig realignment (e.g. drift correction's AlignSpace).
@@ -103,8 +111,10 @@ namespace Anaglyph.XR
 				if (!loggedMissingFeature)
 				{
 					loggedMissingFeature = true;
-					Debug.Log("HeadPoseHistory: interpolating samples. Enable the " +
-					          "\"Head Pose At Time\" OpenXR feature for exact runtime poses.");
+					Debug.LogWarning("HeadPoseHistory: falling back to interpolated samples, " +
+					                 "which lead reality by the runtime's prediction interval. " +
+					                 "Enable the \"Head Pose At Time\" OpenXR feature under " +
+					                 "Project Settings > XR Plug-in Management > OpenXR.");
 				}
 
 				return false;

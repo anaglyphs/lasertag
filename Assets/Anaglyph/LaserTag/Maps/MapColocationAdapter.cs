@@ -168,6 +168,20 @@ namespace Anaglyph.LaserTag.Maps
 			return true;
 		}
 
+		/// <summary>
+		/// Proposes the size tags are solved at. Like a registration it goes through the provider,
+		/// so the session agrees on one size and <see cref="SnapshotTags"/> records it into every
+		/// peer's map.
+		/// </summary>
+		public bool RequestTagSize(float centimeters)
+		{
+			if (!aprilTagColocationProvider)
+				return false;
+
+			aprilTagColocationProvider.RequestTagSize(centimeters);
+			return true;
+		}
+
 		private void InjectAnchors(GameMap map)
 		{
 			if (map == null || !anchorColocationProvider)

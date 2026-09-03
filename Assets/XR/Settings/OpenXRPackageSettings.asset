@@ -547,8 +547,8 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2002edc7e2e284850a735691141e7a19, type: 3}
   m_Name: HeadPoseAtTimeFeature Android
-  m_EditorClassIdentifier: Anaglyph.XRTemplate::Anaglyph.XRTemplate.HeadPoseAtTimeFeature
-  m_enabled: 0
+  m_EditorClassIdentifier: Anaglyph.XR::Anaglyph.XR.HeadPoseAtTimeFeature
+  m_enabled: 1
   nameUi: Head Pose At Time
   version: 1.0.0
   featureIdInternal: com.anaglyph.xrtemplate.headposeattime
@@ -881,8 +881,8 @@ MonoBehaviour:
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
-  m_CameraImageSupport: 0
-  m_PassthroughPreSplashScreen: 0
+  m_CameraImageSupport: 1
+  m_PassthroughPreSplashScreen: 1
 --- !u!114 &-1570983979355131520
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1045,6 +1045,7 @@ MonoBehaviour:
   required: 0
   customRuntimeLoaderName: 
   enableSubsampledLayout: 0
+  useEyeTracking: 1
 --- !u!114 &-666709021505325714
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1298,6 +1299,7 @@ MonoBehaviour:
   - {fileID: 4118321385384196143}
   - {fileID: -5750116646164557699}
   - {fileID: -8703573684439564615}
+  - {fileID: 935038549282622359}
   customLoaderName: 
   m_renderMode: 1
   m_latencyOptimization: 0
@@ -1358,6 +1360,29 @@ MonoBehaviour:
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
+--- !u!114 &935038549282622359
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 726b8292bd60ba7429f3d2818eb4298d, type: 3}
+  m_Name: MetaSocialEyeGazeFeature Standalone
+  m_EditorClassIdentifier: Unity.XR.MetaOpenXR::UnityEngine.XR.OpenXR.Features.Meta.MetaSocialEyeGazeFeature
+  m_enabled: 0
+  nameUi: 'Meta Quest: Social Eye Gaze'
+  version: 0.1.0
+  featureIdInternal: com.unity.openxr.feature.meta-social-eye-gaze
+  openxrExtensionStrings: XR_FB_eye_tracking_social
+  company: Unity Technologies
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
+  m_EyeTrackingRequired: 0
 --- !u!114 &1203289977450712560
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1459,8 +1484,8 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2002edc7e2e284850a735691141e7a19, type: 3}
   m_Name: HeadPoseAtTimeFeature Standalone
-  m_EditorClassIdentifier: Anaglyph.XRTemplate::Anaglyph.XRTemplate.HeadPoseAtTimeFeature
-  m_enabled: 0
+  m_EditorClassIdentifier: Anaglyph.XR::Anaglyph.XR.HeadPoseAtTimeFeature
+  m_enabled: 1
   nameUi: Head Pose At Time
   version: 1.0.0
   featureIdInternal: com.anaglyph.xrtemplate.headposeattime
@@ -2383,6 +2408,29 @@ MonoBehaviour:
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
+--- !u!114 &7270933090212177214
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 726b8292bd60ba7429f3d2818eb4298d, type: 3}
+  m_Name: MetaSocialEyeGazeFeature Android
+  m_EditorClassIdentifier: Unity.XR.MetaOpenXR::UnityEngine.XR.OpenXR.Features.Meta.MetaSocialEyeGazeFeature
+  m_enabled: 0
+  nameUi: 'Meta Quest: Social Eye Gaze'
+  version: 0.1.0
+  featureIdInternal: com.unity.openxr.feature.meta-social-eye-gaze
+  openxrExtensionStrings: XR_FB_eye_tracking_social
+  company: Unity Technologies
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
+  m_EyeTrackingRequired: 0
 --- !u!114 &7537014708496559066
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2477,6 +2525,7 @@ MonoBehaviour:
   required: 0
   customRuntimeLoaderName: 
   enableSubsampledLayout: 0
+  useEyeTracking: 1
 --- !u!114 &8034267771770814774
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2687,6 +2736,7 @@ MonoBehaviour:
   - {fileID: 1211459534502115177}
   - {fileID: 3244171108143141480}
   - {fileID: 6731089131151305288}
+  - {fileID: 7270933090212177214}
   customLoaderName: 
   m_renderMode: 1
   m_latencyOptimization: 1

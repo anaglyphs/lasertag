@@ -6,7 +6,7 @@
     <Style src="project://database/Assets/Anaglyph/LaserTag/Operator/style.uss?fileID=7433441132597879392&amp;guid=50e7e683e56714de0b0ad7967c86b879&amp;type=3#style"/>
     <ui:VisualElement name="root" style="flex-grow: 1;">
         <ui:TwoPaneSplitView name="sidebar-split" orientation="Horizontal" fixed-pane-index="0" fixed-pane-initial-dimension="400">
-            <ui:VisualElement name="sidebar" style="width: auto;">
+            <ui:VisualElement name="sidebar" style="width: auto; min-width: 300px;">
                 <Anaglyph.Menu.NavView first-page="network-page" name="network-nav" class="menu-root">
                     <Anaglyph.Menu.NavPage name="network-page" show-back-button="false">
                         <ui:VisualElement class="page-template-root">
@@ -22,8 +22,8 @@
                     </Anaglyph.Menu.NavPage>
                 </Anaglyph.Menu.NavView>
             </ui:VisualElement>
-            <ui:TwoPaneSplitView name="main-split" orientation="Vertical" fixed-pane-index="0" fixed-pane-initial-dimension="360">
-                <ui:TabView name="tabs" class="menu-root">
+            <ui:TwoPaneSplitView name="main-split" orientation="Horizontal" fixed-pane-index="0" fixed-pane-initial-dimension="360">
+                <ui:TabView name="tabs" class="menu-root" style="min-width: 300px; width: auto;">
                     <ui:Tab label="Maps" name="maps-tab">
                         <Anaglyph.Menu.NavView name="maps-nav" first-page="maps-page">
                             <Anaglyph.Menu.NavPage name="maps-page">

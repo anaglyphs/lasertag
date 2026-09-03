@@ -18,7 +18,11 @@ namespace Anaglyph.LaserTag.Interface
 	[RequireComponent(typeof(UIDocument))]
 	public class MapManagerUI : MonoBehaviour
 	{
+		[Tooltip("PC operator mode: list AprilTag maps without probing/filtering by physical space")]
+		[SerializeField] private bool operatorMode;
+
 		private Label currentMapLabel;
+		private Button editMapButton;
 		private Button newMapButton;
 		private Button probeButton;
 		private Button openPageButton;
@@ -41,11 +45,15 @@ namespace Anaglyph.LaserTag.Interface
 					"MapManagerUI requires an enabled UIDocument with a visual tree.");
 
 			currentMapLabel = Require<Label>(root, "current-map-label");
+			editMapButton = Require<Button>(root, "edit-map-button");
 			newMapButton = Require<Button>(root, "new-map-button");
 			probeButton = Require<Button>(root, "probe-maps-button");
 			loadButton = Require<Button>(root, "load-map-button");
 			deleteButton = Require<Button>(root, "delete-map-button");
 			mapList = Require<ScrollView>(root, "map-list");
+
+			SetDisplayed(editMapButton, !operatorMode);
+			SetDisplayed(probeButton, !operatorMode);
 
 			// Opening the page is the moment the answer is wanted, and the startup probe may not
 			// have run yet or may be describing a room the headset has since left.
@@ -131,7 +139,7 @@ namespace Anaglyph.LaserTag.Interface
 
 		private async void OnProbeClicked()
 		{
-			if (MapManager.Instance == null)
+			if (operatorMode || MapManager.Instance == null)
 				return;
 
 			// The probe takes tens of seconds, and until it answers the list is showing every saved
@@ -182,11 +190,13 @@ namespace Anaglyph.LaserTag.Interface
 			List<GameMap> maps = MapStore.GetByLastUsed();
 			int total = maps.Count;
 
-			// The point of the list: a map whose references the probe found in a different physical
-			// space cannot be loaded here, so offering it is offering a load that never aligns.
-			// Only a map actually tested and placed elsewhere is hidden — an untested one is not
-			// known to be anywhere.
-			if (manager != null)
+			// A PC operator has no physical-space signal to probe. Its useful catalog is every map
+			// that can participate in the AprilTag session it hosts. Headsets keep the spatial-anchor
+			// probe filter: only a map actually tested and placed elsewhere is hidden, while an
+			// untested one is not known to be anywhere.
+			if (operatorMode)
+				maps.RemoveAll(m => !m.HasTags);
+			else if (manager != null)
 				maps.RemoveAll(m => manager.GetMapPresence(m.id) == MapPresence.Elsewhere);
 
 			// Deleted, or hidden as belonging to another room: either way the selection is now
@@ -197,15 +207,14 @@ namespace Anaglyph.LaserTag.Interface
 				armedDelete = false;
 			}
 
-			if (total == 0)
+			if (maps.Count == 0)
 			{
-				Label empty = new("No saved maps yet. Place an object to start one.");
-				empty.AddToClassList("body-copy");
-				mapList.Add(empty);
-			}
-			else if (maps.Count == 0)
-			{
-				Label empty = new("No saved maps belong to this room. Place an object to start one.");
+				string message = operatorMode
+					? "No saved maps contain AprilTags."
+					: total == 0
+						? "No saved maps yet. Place an object to start one."
+						: "No saved maps belong to this room. Place an object to start one.";
+				Label empty = new(message);
 				empty.AddToClassList("body-copy");
 				mapList.Add(empty);
 			}
@@ -270,6 +279,11 @@ namespace Anaglyph.LaserTag.Interface
 			if (age.TotalHours < 1) return $"{(int)age.TotalMinutes}m ago";
 			if (age.TotalDays < 1) return $"{(int)age.TotalHours}h ago";
 			return $"{(int)age.TotalDays}d ago";
+		}
+
+		private static void SetDisplayed(VisualElement element, bool displayed)
+		{
+			element.style.display = displayed ? DisplayStyle.Flex : DisplayStyle.None;
 		}
 
 		private static T Require<T>(VisualElement root, string name)

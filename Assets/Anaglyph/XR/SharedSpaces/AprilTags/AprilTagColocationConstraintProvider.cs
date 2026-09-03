@@ -162,6 +162,7 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			registeredTags.Register();
 			registeredTags.Changed += OnTagsChanged;
 
+			tagSizeSync.Validate = ValidateTagSize;
 			tagSizeSync.Register();
 			tagSizeSync.Changed += OnTagSizeChanged;
 			SyncBus.Activated += OnBusActivated;
@@ -307,6 +308,28 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		public void RequestUnregisterTag(int tagId)
 		{
 			registeredTags.RequestRemove(tagId);
+		}
+
+		/// <summary>
+		/// Sets the size tags are solved at, from any peer. The authority writes it directly;
+		/// everyone else proposes it and receives the result like any other peer.
+		/// </summary>
+		public void RequestTagSize(float centimeters)
+		{
+			if (SyncBus.IsAuthority)
+				HostTagSizeCm = centimeters;
+			else
+				tagSizeSync.Request(Mathf.Max(0f, centimeters));
+		}
+
+		/// <summary>
+		/// Every registered pose was solved at the session's current size, so changing it would
+		/// move all of them at once. The authority's own writes are exempt: loading a map has to
+		/// restore the size its poses were solved at.
+		/// </summary>
+		private bool ValidateTagSize(ulong sender, float centimeters)
+		{
+			return centimeters > 0f && IsFinite(centimeters) && registeredTags.Count == 0;
 		}
 
 		/// <summary>

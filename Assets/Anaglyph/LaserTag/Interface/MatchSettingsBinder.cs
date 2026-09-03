@@ -104,9 +104,9 @@ namespace Anaglyph.LaserTag.Interface
 				1 => WinCondition.ReachScore,
 				_ => WinCondition.Timer | WinCondition.ReachScore,
 			};
-
-			SetDisplayed(roundTimeSlider, matchSettings.CheckWinByTimer());
-			SetDisplayed(scoreTargetSlider, matchSettings.CheckWinByScore());
+			
+			roundTimeSlider.SetEnabled(matchSettings.CheckWinByTimer());
+			scoreTargetSlider.SetEnabled(matchSettings.CheckWinByScore());
 		}
 
 		// respawn-radio choices follow the RespawnCondition enum order
@@ -114,15 +114,14 @@ namespace Anaglyph.LaserTag.Interface
 		{
 			matchSettings.respawnCondition =
 				(RespawnCondition)Mathf.Clamp(choice, 0, (int)RespawnCondition.NextRound);
-
-			SetDisplayed(respawnTimeSlider,
-				matchSettings.respawnCondition == RespawnCondition.Timer);
+			
+			// respawnTimeSlider.SetEnabled(matchSettings.respawnCondition == RespawnCondition.Timer);
 		}
 
-		private static void SetDisplayed(VisualElement element, bool displayed)
-		{
-			element.style.display = displayed ? DisplayStyle.Flex : DisplayStyle.None;
-		}
+		// private static void SetDisplayed(VisualElement element, bool displayed)
+		// {
+		// 	element.style.display = displayed ? DisplayStyle.Flex : DisplayStyle.None;
+		// }
 
 		private static T Require<T>(VisualElement root, string name)
 			where T : VisualElement

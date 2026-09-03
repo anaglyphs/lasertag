@@ -96,7 +96,9 @@ namespace Anaglyph.XR
 			if ((location.locationFlags & required) != required)
 				return false;
 
-			pose = location.pose.ToSessionSpacePose();
+			pose = new Pose(
+				location.pose.Position.AsVector3(),
+				location.pose.Orientation.AsQuaternion());
 			return true;
 		}
 

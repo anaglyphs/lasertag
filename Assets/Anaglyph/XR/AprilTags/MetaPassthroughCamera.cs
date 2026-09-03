@@ -1,6 +1,7 @@
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 #if META_OPENXR_2_6_OR_NEWER
+using UnityEngine;
 using UnityEngine.XR.OpenXR.Features.Meta;
 #endif
 

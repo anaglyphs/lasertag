@@ -40,6 +40,11 @@ namespace Anaglyph.LaserTag.MapEditor
 		private Label tagSizeNote;
 		private Label tagStatus;
 
+		// The size the slider is passing through, held back until it settles.
+		private const float tagSizeSettleSeconds = 0.25f;
+		private float? pendingTagSizeCm;
+		private float pendingTagSizeTime;
+
 		private TextField mapNameField;
 		private Label mapNameNote;
 		private Label mapSummary;
@@ -84,6 +89,11 @@ namespace Anaglyph.LaserTag.MapEditor
 			doneButton = Require<Button>(root, "done-button");
 			doneButton.clicked += FinishEditing;
 
+			// A typed size commits on Enter or on leaving the field, not per keystroke.
+			TextField tagSizeInput = tagSizeSlider.Q<TextField>();
+			if (tagSizeInput != null)
+				tagSizeInput.isDelayed = true;
+
 			tagSizeSlider.RegisterValueChangedCallback(OnTagSizeChanged);
 			mapNameField.RegisterCallback<FocusOutEvent>(OnMapNameCommitted);
 
@@ -106,6 +116,9 @@ namespace Anaglyph.LaserTag.MapEditor
 				navView.Changed -= OnNavPageChanged;
 				navView = null;
 			}
+
+			// Closing the palette is as much a "done" as letting go of the slider.
+			FlushPendingTagSize();
 
 			mapNameField.UnregisterCallback<FocusOutEvent>(OnMapNameCommitted);
 			tagSizeSlider.UnregisterValueChangedCallback(OnTagSizeChanged);
@@ -150,6 +163,12 @@ namespace Anaglyph.LaserTag.MapEditor
 			if (navView == null)
 				return;
 
+			// Ticked wherever the palette is, so a size set and then navigated away from still
+			// lands.
+			if (pendingTagSizeCm.HasValue &&
+			    Time.unscaledTime - pendingTagSizeTime >= tagSizeSettleSeconds)
+				FlushPendingTagSize();
+
 			if (navView.CurrentPage == tagsPage)
 				RefreshTagPage();
 			else if (navView.CurrentPage == mapSettingsPage)
@@ -158,10 +177,27 @@ namespace Anaglyph.LaserTag.MapEditor
 
 		// ------- tags page -------------------------------------------
 
+		// A drag reports a new size every frame it moves, and each one would be a separate size for
+		// the whole session to agree on. Only the size it settles on is. The slider reports no
+		// drag start or end and does not take focus, so settling is measured rather than observed.
 		private void OnTagSizeChanged(ChangeEvent<float> change)
 		{
+			pendingTagSizeCm = change.newValue;
+			pendingTagSizeTime = Time.unscaledTime;
+		}
+
+		private void FlushPendingTagSize()
+		{
+			if (pendingTagSizeCm.HasValue)
+				CommitTagSize(pendingTagSizeCm.Value);
+		}
+
+		private void CommitTagSize(float centimeters)
+		{
+			pendingTagSizeCm = null;
+
 			MapManager manager = MapManager.Instance;
-			if (manager == null || manager.SetTagSize(change.newValue))
+			if (manager == null || manager.SetTagSize(centimeters))
 				return;
 
 			// Refused — put the slider back rather than leaving it showing a size nothing uses.
@@ -182,7 +218,8 @@ namespace Anaglyph.LaserTag.MapEditor
 			SetMessage(tagSizeNote, sizeBlocker);
 
 			// Refreshed every frame, so a value being dragged or typed must survive the refresh.
-			if (!IsBeingEdited(tagSizeSlider))
+			// A slider drag is only visible as an uncommitted value: it never takes focus.
+			if (!pendingTagSizeCm.HasValue && !IsBeingEdited(tagSizeSlider))
 				tagSizeSlider.SetValueWithoutNotify(manager.EffectiveTagSizeCm);
 
 			int registered = manager.CurrentMap != null ? manager.CurrentMap.tags.Count : 0;

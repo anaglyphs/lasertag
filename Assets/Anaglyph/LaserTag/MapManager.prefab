@@ -85,7 +85,7 @@ MonoBehaviour:
   syncFlippedVoxelsThreshold: 1000
   minSecondsBetweenChunkSends: 0.2
   secondsUntilChunkStable: 0.25
-  positionQuantizationBits: 5
+  positionQuantizationBits: 6
   encodingSpeed: 0
   decodingSpeed: 4
 --- !u!114 &6911126833990273307
@@ -147,7 +147,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.XRTemplate.SharedSpaces::Anaglyph.XRTemplate.SharedSpaces.TagConstraintProvider
   tagSizeCmHostSetting: 0
-  lockDistanceScale: 10
+  lockDistanceScale: 50
   maxHeadSpeed: 2
   maxHeadAngSpeed: 2
   correctionSamples: 30

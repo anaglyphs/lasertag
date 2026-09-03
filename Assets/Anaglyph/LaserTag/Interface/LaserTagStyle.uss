@@ -1,7 +1,11 @@
+/* Global defaults */
+
 * {
-	-unity-font-definition: url("/Assets/Resources/Fonts/DINish-Regular SDF.asset");
-	color: rgb(255, 255, 255);
+    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINish-Regular%20SDF.asset?fileID=11400000&guid=8605ad9ed578841b0960a34a3cc63844&type=2#DINish-Regular SDF");
+    color: rgb(255, 255, 255);
 }
+
+/* Menu shell and panel themes */
 
 .menu-root {
     flex-grow: 1;
@@ -28,61 +32,60 @@
     background-color: rgb(24, 36, 0);
 }
 
+/* Control visuals */
+
 .unity-toggle__checkmark,
 .nav-header__back-button {
-	margin-right: 10px;
+    margin-right: 10px;
 }
 
 .unity-base-text-field > .unity-base-text-field__input,
 .unity-toggle > .unity-toggle__input > .unity-toggle__checkmark,
 .unity-button {
-	background-color: rgba(0, 0, 0, 0);
-	border-width: 1px;
-	border-color: rgb(255, 255, 255);
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 1px;
+    border-color: rgb(255, 255, 255);
 }
 
 .unity-base-slider #unity-tracker {
-	background-color: transparent;
-	border-width: 1px;
-	border-color: white;
-	height:10px;
-	margin-top:-5px;
+    background-color: transparent;
+    border-width: 1px;
+    border-color: white;
+    height: 10px;
+    margin-top: -5px;
 }
 
 .unity-base-slider #unity-dragger {
-	background-color: white;
-	border-width: 0;
-	margin-top: -20px;
-	height:40px;
+    background-color: white;
+    border-width: 0;
+    margin-top: -20px;
+    height: 40px;
 }
 
 .unity-base-slider #unity-fill {
-	background-color: white;
+    background-color: white;
 }
 
 RadioButton .unity-radio-button__checkmark-background {
-	background-color: transparent;
-	border-width: 1px;
-	border-color: white;
-	padding:0;
+    background-color: transparent;
+    border-width: 1px;
+    border-color: white;
+    padding: 0;
 }
 
 RadioButton #unity-checkmark {
-	width: 100%;
-	height: 100%;
-	background-color: white;
-	border-radius: 100%;
-}
-
-
-Toggle {
-	min-height: 30px;
+    width: 100%;
+    height: 100%;
+    background-color: white;
+    border-radius: 100%;
 }
 
 .unity-toggle > .unity-toggle__input:checked > .unity-toggle__checkmark {
-	background-image: none;
-	background-color: rgb(230, 230, 230);
+    background-image: none;
+    background-color: rgb(230, 230, 230);
 }
+
+/* Navigation and page layout */
 
 .nav-view,
 .nav-page,
@@ -111,8 +114,10 @@ Toggle {
     -unity-text-align: middle-left;
     font-size: 28px;
     -unity-font-style: bold;
-	-unity-font-definition: url("/Assets/Resources/Fonts/DINishExpanded-Regular SDF.asset");
+    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishExpanded-Regular%20SDF.asset?fileID=11400000&guid=7dfaad12b4ec34f0bbdc86faea4b3721&type=2#DINishExpanded-Regular SDF");
 }
+
+/* Shared page content */
 
 .field-row {
     margin-top: 4px;
@@ -149,11 +154,11 @@ Toggle {
 }
 
 #map-list {
-	flex-grow: 1;
-	flex-shrink: 1;
-	flex-basis: 0;
-	min-height: 0;
-	overflow: hidden;
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .version {
@@ -162,14 +167,16 @@ Toggle {
     white-space: normal;
 }
 
+/* Shared control sizing and spacing */
+
 .unity-button {
     -unity-text-align: middle-left;
     background-color: rgb(70, 70, 70);
 }
 
 .unity-button.destructive {
-	background-color: rgb(60, 14, 0);
-	border-color: rgb(255, 0, 0);
+    background-color: rgb(60, 14, 0);
+    border-color: rgb(255, 0, 0);
 }
 
 .unity-button,
@@ -179,20 +186,20 @@ TextField {
     margin-top: 4px;
     margin-bottom: 4px;
     font-size: 20px;
-	translate: 0 0 5px;
-	justify-content: center;
+    translate: 0 0 5px;
+    justify-content: center;
 }
 
 .unity-label {
-	margin: 4px;
-	padding: 0px;
+    margin: 4px;
+    padding: 0;
 }
 
 .unity-toggle__text {
-	padding-top: 0;
-	padding-bottom: 0;
-	margin-top: 0;
-	margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: 0;
+    margin-bottom: 0;
 }
 
 .permission-toggle.permission-granted:disabled {
@@ -208,6 +215,8 @@ ScrollView {
     min-height: auto;
 }
 
+/* Stacked form fields */
+
 .stacked-field {
     flex-direction: column;
     align-items: stretch;
@@ -216,42 +225,80 @@ ScrollView {
 .stacked-field .unity-base-field__label {
     min-width: auto;
     width: auto;
+    margin: 0;
 }
 
 .unity-base-field {
-	margin: 4px;
+    margin: 4px;
 }
 
-.stacked-field .unity-base-field__label {
-	margin: 0;
-}
-
-/* sliders only - a radio group's input holds every radio button.
-   46px matches the TextField touch target above */
 .stacked-field .unity-base-slider__input {
     max-height: 46px;
     flex-grow: 0;
-	margin:0;
+    margin: 0;
 }
 
-/* the slider's built-in field would otherwise add TextField's 4px margins */
 .stacked-field .unity-base-slider__text-field {
     flex-grow: 0;
     width: 72px;
     margin-top: 0;
     margin-bottom: 0;
-	margin-right: 0;
+    margin-right: 0;
 }
 
 .stacked-field .unity-radio-button-group__container {
-	flex-direction: row;
-	flex-wrap: wrap;
+    flex-direction: row;
+    flex-wrap: wrap;
 }
 
-/* ================= console ================= */
+/* Tab view */
+
+.unity-tab__header {
+    background-color: rgb(70, 70, 70);
+    border-width: 1px 1px 0 1px;
+    border-color: rgb(255, 255, 255);
+    min-height: 46px;
+    font-size: 20px;
+    padding: 0 12px;
+    margin-right: 4px;
+    justify-content: center;
+}
+
+.unity-tab__header:hover {
+    background-color: rgb(90, 90, 90);
+}
+
+.unity-tab__header:checked {
+    background-color: rgb(230, 230, 230);
+}
+
+.unity-tab__header:checked .unity-tab__header-label {
+    color: rgb(0, 14, 49);
+}
+
+.unity-tab__header-label {
+    -unity-text-align: middle-center;
+    margin: 0;
+}
+
+.unity-tab__header-underline {
+    display: none;
+}
+
+.unity-tab-view__header-container {
+    background-color: rgba(0, 0, 0, 0);
+    border-bottom-width: 1px;
+    border-bottom-color: rgb(255, 255, 255);
+}
+
+.unity-tab__content-container {
+    flex-grow: 1;
+    padding-top: 8px;
+}
+
+/* Console */
 
 .console-scroll {
-    /* size from the space left over, never from the log inside it */
     flex-grow: 1;
     flex-shrink: 1;
     flex-basis: 0;
@@ -294,7 +341,7 @@ ScrollView {
     -unity-text-align: middle-center;
 }
 
-/* ================= map editor palette ================= */
+/* Map editor palette */
 
 .palette-body {
     flex-grow: 1;
@@ -302,7 +349,6 @@ ScrollView {
     min-height: 0;
 }
 
-/* category tabs down the left, objects of that category beside them */
 .palette-rail {
     flex-grow: 0;
     flex-shrink: 0;
@@ -320,6 +366,8 @@ ScrollView {
     -unity-text-align: middle-left;
     margin-bottom: 2px;
 }
+
+/* Palette tools and object grid */
 
 .palette-tools {
     flex-direction: row;
@@ -340,7 +388,6 @@ ScrollView {
     min-height: 0;
 }
 
-/* the grid is a wrapping row of thumbnails, not the default column of rows */
 .palette-grid .unity-scroll-view__content-container {
     flex-direction: row;
     flex-wrap: wrap;
@@ -360,7 +407,6 @@ ScrollView {
     margin: 0 0 6px 0;
 }
 
-/* percentage widths so a narrower panel drops to fewer columns instead of clipping */
 .palette-item {
     width: 30%;
     margin: 4px;
@@ -374,7 +420,6 @@ ScrollView {
     background-repeat: no-repeat;
 }
 
-/* a tab is a small badge, so plenty of categories fit the rail without scrolling */
 .palette-tab-icon {
     width: 44px;
     height: 44px;
@@ -417,12 +462,12 @@ ScrollView {
     background-color: rgba(0, 0, 0, 0.1);
 }
 
-/* a settings page fills the same space the object grid does, stacked rather than wrapped */
+/* Palette forms */
+
 .palette-form {
     padding: 4px 2px;
 }
 
-/* reuses palette-grid, which forces a wrapping row; restore the vertical stack */
 .palette-form .unity-scroll-view__content-container {
     flex-direction: column;
     flex-wrap: nowrap;
@@ -432,7 +477,8 @@ ScrollView {
     opacity: 0.7;
 }
 
-/* the home page's mode tiles: same thumbnail language as the object grid, wider */
+/* Game mode picker */
+
 .palette-mode-grid {
     flex-direction: row;
     flex-wrap: wrap;
@@ -471,7 +517,7 @@ ScrollView {
     -unity-text-align: middle-center;
 }
 
-/* ================= HUD ================= */
+/* Full-screen HUD */
 
 .hud-root {
     flex-grow: 1;
@@ -504,7 +550,7 @@ ScrollView {
     background-color: rgb(0, 191, 255);
 }
 
-/* death popup */
+/* Death and respawn */
 
 .you-died-row {
     flex-direction: row;
@@ -529,7 +575,7 @@ ScrollView {
     -unity-text-align: middle-center;
 }
 
-/* countdown */
+/* Queue and countdown */
 
 .queue-label {
     font-size: 30px;
@@ -543,7 +589,7 @@ ScrollView {
     -unity-text-align: middle-center;
 }
 
-/* round / match results */
+/* Round results */
 
 .results-title {
     font-size: 60px;
@@ -574,14 +620,14 @@ ScrollView {
     -unity-text-align: middle-center;
 }
 
-/* connection status */
+/* Connection status */
 
 .connection-label {
     font-size: 45px;
     -unity-text-align: middle-center;
 }
 
-/* ================= hand HUD ================= */
+/* Hand HUD */
 
 .hand-hud-section {
     position: absolute;
@@ -601,6 +647,8 @@ ScrollView {
     font-size: 22px;
     -unity-text-align: middle-center;
 }
+
+/* Timer */
 
 .timer-row {
     flex-direction: row;
@@ -643,7 +691,7 @@ ScrollView {
     margin-bottom: 1px;
 }
 
-/* score goal */
+/* Score goal */
 
 .goal-carrot {
     width: 12px;
