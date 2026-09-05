@@ -12,10 +12,10 @@ namespace Anaglyph.LaserTag.Maps
 
 		private void Update()
 		{
-			if (!AnaglyphDebugging.DebugMode || MapManager.Instance == null)
+			if (!AnaglyphDebugging.DebugMode || LaserTagMapCoordinator.Instance == null)
 				return;
 
-			GameMap map = MapManager.Instance.CurrentMap;
+			GameMap map = LaserTagMapCoordinator.Instance.CurrentMap;
 			if (map == null)
 				return;
 

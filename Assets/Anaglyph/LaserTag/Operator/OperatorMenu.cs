@@ -1,16 +1,13 @@
 using System;
-using System.Collections.Generic;
 using Anaglyph.LaserTag.Interface;
-using Anaglyph.LaserTag.Maps;
 using Anaglyph.LaserTag.Matches;
 using Anaglyph.LaserTag.Player;
 using Anaglyph.Menu;
 using Anaglyph.Netcode;
-using Anaglyph.VariableObjects;
-using Anaglyph.XR.DepthKit.EnvScanning;
-using Unity.Netcode;
+using Anaglyph.XR.SharedSpaces;
 using UnityEngine;
 using UnityEngine.UIElements;
+using UnityEngine.XR;
 
 namespace Anaglyph.LaserTag.Operator
 {
@@ -24,8 +21,6 @@ namespace Anaglyph.LaserTag.Operator
 	public class OperatorMenu : MonoBehaviour
 	{
 		private const float refreshIntervalSeconds = 1f;
-
-		[SerializeField] private FloatObject aprilTagSizeSetting;
 
 		private Label sessionStateLabel;
 		private Label sessionAddressLabel;
@@ -73,9 +68,10 @@ namespace Anaglyph.LaserTag.Operator
 			localAddressLabel = Require<Label>(networkNav, "local-address");
 			hostButton = Require<Button>(networkNav, "host-button");
 			disconnectButton = Require<Button>(networkNav, "disconnect-button");
-
-			clientCountLabel = Require<Label>(networkNav, "client-count");
-			clientList = Require<ScrollView>(networkNav, "client-list");
+			
+			VisualElement clientListPanel = Require<VisualElement>(root, "client-list-panel");
+			clientList = Require<ScrollView>(clientListPanel, "client-list");
+			clientCountLabel = Require<Label>(clientListPanel, "client-count");
 
 			matchSettings = new MatchSettingsBinder(matchNav);
 
@@ -108,48 +104,33 @@ namespace Anaglyph.LaserTag.Operator
 
 		private async void Start()
 		{
-			// Nothing to host with until the networking prefabs have spawned.
+			string error;
 			try
 			{
-				while (NetworkManager.Singleton == null || ColocationManager.Instance == null ||
-				       MapManager.Instance == null)
-					await Awaitable.NextFrameAsync(destroyCancellationToken);
+				error = await OperatorHost.StartSessionAsync(destroyCancellationToken);
 			}
 			catch (OperationCanceledException)
 			{
 				return;
 			}
 
-			LoadLastAprilTagMap();
-			StartHosting();
-			
-			EnvMesher.Instance.SetChunksVisible(true);
-		}
-
-		private static void LoadLastAprilTagMap()
-		{
-			if (MapManager.Instance.CurrentMap != null)
-				return;
-
-			foreach (GameMap map in MapStore.GetByLastUsed())
-				if (map.HasTags)
-				{
-					MapManager.Instance.LoadMap(map.id);
-					return;
-				}
+			ShowHostError(error);
 		}
 
 		private void StartHosting()
 		{
-			float tagSizeCm = aprilTagSizeSetting != null ? aprilTagSizeSetting.Value : 10f;
+			OperatorHost.TryStartHosting(out string error);
+			ShowHostError(error);
+		}
 
-			if (!DesktopHostController.TryStartHost(
-				    useRelay: false, useAprilTags: true, tagSizeCm, out string error))
-			{
-				sessionStateLabel.text = "Could not host";
-				sessionAddressLabel.text = error;
-				Debug.LogError($"[{nameof(OperatorMenu)}] {error}");
-			}
+		private void ShowHostError(string error)
+		{
+			if (string.IsNullOrEmpty(error))
+				return;
+
+			sessionStateLabel.text = "Could not host";
+			sessionAddressLabel.text = error;
+			Debug.LogError($"[{nameof(OperatorMenu)}] {error}");
 		}
 
 		private void OnNetcodeStateChanged(NetcodeState state)
@@ -176,12 +157,7 @@ namespace Anaglyph.LaserTag.Operator
 		private void BindViewportToCamera(VisualElement root)
 		{
 			viewport = Require<VisualElement>(root, "viewport");
-			viewportCamera = GetComponentInParent<Camera>();
-
-			if (viewportCamera == null)
-				throw new InvalidOperationException(
-					$"{nameof(OperatorMenu)} found no Camera on itself or a parent to fit " +
-					"to the viewport element.");
+			viewportCamera = Camera.main;
 
 			// The viewport is sized by flex, so it lays out again whenever the window
 			// or the panel scale changes.
@@ -284,11 +260,9 @@ namespace Anaglyph.LaserTag.Operator
 		{
 			// The IP is what an operator reads out to the room, so it is shown whether or
 			// not the session is up.
-			localAddressLabel.text = $"This machine: {NetcodeManagement.GetLocalIPv4()}";
+			localAddressLabel.text = $"This machine: {OperatorHost.LocalAddress}";
 
-			sessionAddressLabel.text = NetcodeManagement.State == NetcodeState.Connected
-				? DesktopHostController.GetSessionAddress()
-				: "";
+			sessionAddressLabel.text = OperatorHost.SessionAddress;
 
 			RefreshClientList();
 		}
@@ -297,25 +271,20 @@ namespace Anaglyph.LaserTag.Operator
 		{
 			clientList.Clear();
 
-			NetworkManager manager = NetworkManager.Singleton;
-			if (manager == null || !manager.IsListening)
+			if (!OperatorHost.IsHosting)
 			{
 				clientCountLabel.text = "Not hosting";
 				return;
 			}
 
-			IReadOnlyList<ulong> clientIds = manager.ConnectedClientsIds;
 			int playerCount = 0;
 
-			foreach (ulong clientId in clientIds)
+			foreach (OperatorHost.ConnectedClient client in OperatorHost.GetConnectedClients())
 			{
-				bool isThisServer = clientId == manager.LocalClientId;
-				if (!isThisServer)
+				if (!client.isThisServer)
 					playerCount++;
 
-				Label row = new(DescribeClient(clientId, isThisServer));
-				row.AddToClassList("client-row");
-				clientList.Add(row);
+				clientList.Add(BuildClientRow(client));
 			}
 
 			clientCountLabel.text = playerCount == 1
@@ -323,19 +292,160 @@ namespace Anaglyph.LaserTag.Operator
 				: $"{playerCount} players connected";
 		}
 
-		private static string DescribeClient(ulong clientId, bool isThisServer)
+		private static VisualElement BuildClientRow(OperatorHost.ConnectedClient client)
 		{
-			string text = isThisServer ? $"Client {clientId} · this server" : $"Client {clientId}";
+			VisualElement row = new();
+			row.AddToClassList("client-row");
+			AddLabel(row, $"Client {client.clientId}", "client-row__name");
 
-			if (!PlayerAvatar.All.TryGetValue(clientId, out PlayerAvatar avatar) || avatar == null)
-				return text;
+			if (client.isThisServer)
+			{
+				AddLabel(row, "this server", "client-row__detail");
+				return row;
+			}
 
-			text += $" · team {avatar.Team} · {avatar.Score} pts";
+			PlayerAvatar avatar = client.avatar;
 
+			// A client is listed the moment it connects; its avatar spawns a beat later.
+			if (avatar == null)
+			{
+				AddLabel(row, "joining", "client-row__detail");
+				return row;
+			}
+
+			HeadsetTelemetry telemetry = avatar.Telemetry;
+			AddChip(row, DescribeBattery(telemetry), BatteryChipClass(telemetry));
+			AddChip(row, DescribeAlignment(telemetry), AlignmentChipClass(telemetry));
+			AddHandChip(row, "L", telemetry.leftHandTracking);
+			AddHandChip(row, "R", telemetry.rightHandTracking);
+
+			string detail = $"team {avatar.Team} · {avatar.Score} pts";
 			if (!avatar.IsAlive)
-				text += " · down";
+				detail += " · down";
 
-			return text;
+			AddLabel(row, detail, "client-row__detail");
+
+			return row;
+		}
+
+		private static void AddLabel(VisualElement row, string text, string className)
+		{
+			Label label = new(text);
+			label.AddToClassList(className);
+			row.Add(label);
+		}
+
+		private static void AddChip(VisualElement row, string text, string severityClass)
+		{
+			Label chip = new(text);
+			chip.AddToClassList("chip");
+			chip.AddToClassList(severityClass);
+			row.Add(chip);
+		}
+
+		private static void AddHandChip(VisualElement row, string hand, byte tracking)
+		{
+			Label chip = new($"{hand} {DescribeTracking(tracking)}");
+			chip.AddToClassList("chip");
+			chip.AddToClassList(TrackingChipClass(tracking));
+			row.Add(chip);
+		}
+
+		/// <summary>
+		/// "rot" is a controller the headset can still orient but has lost the position of -
+		/// out of camera view, or in the dark. It aims wrong long before it stops responding.
+		/// </summary>
+		private static string DescribeTracking(byte tracking)
+		{
+			if (tracking == HeadsetTelemetry.TrackingUnavailable)
+				return "n/a";
+
+			InputTrackingState state = (InputTrackingState)tracking;
+			bool hasPosition = (state & InputTrackingState.Position) != 0;
+			bool hasRotation = (state & InputTrackingState.Rotation) != 0;
+
+			if (hasPosition && hasRotation)
+				return "ok";
+
+			if (hasRotation)
+				return "rot";
+
+			if (hasPosition)
+				return "pos";
+
+			return "lost";
+		}
+
+		private static string TrackingChipClass(byte tracking)
+		{
+			if (tracking == HeadsetTelemetry.TrackingUnavailable)
+				return "chip--unknown";
+
+			InputTrackingState state = (InputTrackingState)tracking;
+			InputTrackingState pose = InputTrackingState.Position | InputTrackingState.Rotation;
+
+			if ((state & pose) == pose)
+				return "chip--good";
+
+			return state == InputTrackingState.None ? "chip--critical" : "chip--fair";
+		}
+
+		private static string DescribeBattery(HeadsetTelemetry telemetry)
+		{
+			if (!telemetry.BatteryIsKnown)
+				return "battery ?";
+
+			return telemetry.isCharging
+				? $"{telemetry.batteryPercent}% chg"
+				: $"{telemetry.batteryPercent}%";
+		}
+
+		private static string BatteryChipClass(HeadsetTelemetry telemetry)
+		{
+			if (!telemetry.BatteryIsKnown)
+				return "chip--unknown";
+
+			return telemetry.batteryPercent switch
+			{
+				>= 60 => "chip--good",
+				>= 35 => "chip--fair",
+				>= 15 => "chip--low",
+				_ => "chip--critical",
+			};
+		}
+
+		/// <summary>
+		/// Reads as "aligned 3/4": how many of the references that headset can see agree with
+		/// the alignment it is standing in.
+		/// </summary>
+		private static string DescribeAlignment(HeadsetTelemetry telemetry) => telemetry.alignment switch
+		{
+			ColocationAlignmentState.Localized => telemetry.constraintCount > 0
+				? $"aligned {telemetry.agreeingConstraintCount}/{telemetry.constraintCount}"
+				: "aligned",
+			ColocationAlignmentState.Searching => "aligning",
+			ColocationAlignmentState.Lost => "lost alignment",
+			_ => "not aligning",
+		};
+
+		private static string AlignmentChipClass(HeadsetTelemetry telemetry)
+		{
+			switch (telemetry.alignment)
+			{
+				case ColocationAlignmentState.Localized:
+					// Aligned, but not every reference it can see agrees with where it stands.
+					bool allAgree = telemetry.agreeingConstraintCount == telemetry.constraintCount;
+					return allAgree ? "chip--good" : "chip--fair";
+
+				case ColocationAlignmentState.Searching:
+					return "chip--fair";
+
+				case ColocationAlignmentState.Lost:
+					return "chip--critical";
+
+				default:
+					return "chip--unknown";
+			}
 		}
 
 		private static void SetDisplayed(VisualElement element, bool displayed)

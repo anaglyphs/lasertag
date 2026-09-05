@@ -15,6 +15,9 @@
         <ui:VisualElement picking-mode="Ignore" name="muster-hud" class="hud-overlay" style="display: none; -unity-font-definition: resource(&quot;Fonts/DINish-Regular SDF&quot;); -unity-font-style: normal;">
             <ui:Label picking-mode="Ignore" text="Everyone must stand in a base&#10;for the game to start!" class="queue-label" style="-unity-font-style: bold;"/>
         </ui:VisualElement>
+        <ui:VisualElement picking-mode="Ignore" name="teamless-hud" class="hud-overlay" style="display: none; -unity-font-definition: resource(&quot;Fonts/DINish-Regular SDF&quot;); -unity-font-style: normal;">
+            <ui:Label picking-mode="Ignore" text="Stand in a base&#10;to join a team!" class="queue-label" style="-unity-font-style: bold;"/>
+        </ui:VisualElement>
         <ui:VisualElement picking-mode="Ignore" name="results-hud" class="hud-overlay" style="display: none;">
             <ui:Label picking-mode="Ignore" name="results-title" text="GAME OVER" class="results-title" style="-unity-font-definition: resource(&quot;Fonts/DINishExpanded-Regular SDF&quot;); -unity-font-style: bold;"/>
             <ui:Label picking-mode="Ignore" name="results-round-label" text="" class="results-round-label" style="display: none;"/>

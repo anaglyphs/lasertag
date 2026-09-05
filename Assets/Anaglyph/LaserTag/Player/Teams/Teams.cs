@@ -6,6 +6,9 @@ namespace Anaglyph.LaserTag.Player.Teams
 	{
 		public const byte NumTeams = 3;
 
+		public const byte Red = 1;
+		public const byte Blue = 2;
+
 		public static readonly Color[] Colors = new Color[]
 		{
 			Color.white, // blank team	

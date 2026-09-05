@@ -22,15 +22,8 @@ namespace Anaglyph.LaserTag.Maps
 
 		public string name;
 
-		/// <summary>Revision of this copy's content. Re-minted on every save while dirty.</summary>
+		/// <summary>Revision of authored content. Storage and local anchor maintenance do not change it.</summary>
 		public string version;
-
-		/// <summary>
-		/// The received version this copy derives from — the host's <see cref="version"/> at
-		/// the moment this device adopted the map. Empty on maps created on this device.
-		/// Together with <see cref="dirty"/> this drives fork-on-edit.
-		/// </summary>
-		public string baseVersion;
 
 		/// <summary>Set on the first local edit; a dirty copy forks instead of being replaced.</summary>
 		public bool dirty;
@@ -44,11 +37,15 @@ namespace Anaglyph.LaserTag.Maps
 		public List<MapAnchorEntry> anchors = new();
 		public List<MapTagEntry> tags = new();
 
+		/// <summary>The size a map starts life at, until someone measures their tags.</summary>
+		public const float DefaultTagSizeCm = 10f;
+
 		/// <summary>
 		/// The physical edge length of this map's AprilTags, in centimeters. Solving a tag's pose
 		/// scales with it, so a registered pose only means anything at the size it was registered
-		/// at — which is why this travels with the map rather than being a device setting. Zero on
-		/// a map authored before sizes were recorded; the device's default stands in.
+		/// at — which is why this travels with the map rather than being a device setting. Zero
+		/// only on a map authored before sizes were recorded, whose tags are of unknown size; the
+		/// last size this device adopted stands in.
 		/// </summary>
 		public float tagSizeCm;
 
@@ -57,6 +54,18 @@ namespace Anaglyph.LaserTag.Maps
 		/// a tag map can be hosted in shared-anchor mode, but not the other way around.
 		/// </summary>
 		public bool HasTags => tags.Count > 0;
+
+		/// <summary>Nothing has been authored into it yet, so starting another blank map
+		/// would just mint a second one of these.</summary>
+		public bool IsEmpty => objects.Count == 0 && anchors.Count == 0 && tags.Count == 0;
+
+		/// <summary>A detached document; callers never receive the owner's mutable lists.</summary>
+		public GameMap Clone() => new()
+		{
+			id = id, name = name, version = version, dirty = dirty,
+			lastUsed = lastUsed, lastEdited = lastEdited, tagSizeCm = tagSizeCm,
+			objects = new(objects), anchors = new(anchors), tags = new(tags)
+		};
 
 		public bool TryGetAnchor(string guid, out MapAnchorEntry entry)
 		{
@@ -84,20 +93,6 @@ namespace Anaglyph.LaserTag.Maps
 			return false;
 		}
 
-		public void SetAnchor(string guid, Pose canonPose)
-		{
-			for (int i = 0; i < anchors.Count; i++)
-				if (anchors[i].guid == guid)
-				{
-					// Preserve an existing tag association: updating a canon pose must not
-					// orphan a per-tag anchor.
-					SetAnchorWithTag(guid, canonPose, anchors[i].tagId);
-					return;
-				}
-
-			anchors.Add(new MapAnchorEntry { guid = guid, canonPose = canonPose, tagId = -1 });
-		}
-
 		public void SetAnchorWithTag(string guid, Pose canonPose, int tagId)
 		{
 			for (int i = 0; i < anchors.Count; i++)
@@ -113,19 +108,6 @@ namespace Anaglyph.LaserTag.Maps
 				}
 
 			anchors.Add(new MapAnchorEntry { guid = guid, canonPose = canonPose, tagId = tagId });
-		}
-
-		public bool TryGetAnchorByTag(int tagId, out MapAnchorEntry entry)
-		{
-			foreach (MapAnchorEntry anchor in anchors)
-				if (anchor.tagId == tagId)
-				{
-					entry = anchor;
-					return true;
-				}
-
-			entry = default;
-			return false;
 		}
 
 		public void SetTag(int tagId, Pose canonPose)

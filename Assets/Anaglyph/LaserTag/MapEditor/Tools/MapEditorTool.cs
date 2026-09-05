@@ -197,7 +197,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 				return false;
 
 			MapObject mapObj = hitObj.GetComponentInParent<MapObject>();
-			if (mapObj == null || !mapObj.TryDelete())
+			if (mapObj == null || LaserTagMapCoordinator.Instance == null || !LaserTagMapCoordinator.Instance.RequestRemoveObject(mapObj))
 				return false;
 
 			MapObject.NotifyLocalEdit();
@@ -224,7 +224,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		{
 			// Moving an object records a new world pose, so it is held to the same rule as
 			// placing one.
-			if (MapManager.Instance != null && !MapManager.Instance.CheckCanEditMap())
+			if (LaserTagMapCoordinator.Instance != null && !LaserTagMapCoordinator.Instance.CheckCanEditMap())
 				return false;
 
 			if (!Raycast(out RaycastHit hit)) return false;
@@ -245,6 +245,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		{
 			if (grabbedObject != null)
 			{
+				LaserTagMapCoordinator.Instance?.CommitObjectMove(grabbedObject);
 				grabbedObject.ReleaseOwnership();
 				MapObject.NotifyLocalEdit();
 			}
@@ -259,7 +260,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			return CurrentMode == Mode.Place && currentSpawnObject != null &&
 				!handSubject.Current.InputBlocked &&
 				this == DominantHand &&
-				(MapManager.Instance == null || MapManager.Instance.CheckCanEditMap());
+				(LaserTagMapCoordinator.Instance == null || LaserTagMapCoordinator.Instance.CheckCanEditMap());
 		}
 
 		// ------- tags --------------------------------------------
@@ -270,7 +271,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			       this == DominantHand &&
 			       Aimer.AimedTagId >= 0 &&
 			       !handSubject.Current.InputBlocked &&
-			       MapManager.Instance != null;
+			       LaserTagMapCoordinator.Instance != null;
 		}
 
 		public bool TryRegisterTag()
@@ -280,7 +281,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 
 			int tagId = Aimer.AimedTagId;
 
-			string blocker = MapManager.Instance.DescribeTagRegistrationBlocker();
+			string blocker = LaserTagMapCoordinator.Instance.DescribeTagRegistrationBlocker();
 			if (blocker != null)
 			{
 				Debug.LogWarning($"Couldn't register tag {tagId} — {blocker}.");
@@ -288,12 +289,12 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			}
 
 			return Aimer.TryGetObservation(tagId, out Pose pose) &&
-			       MapManager.Instance.RegisterTag(tagId, pose);
+			       LaserTagMapCoordinator.Instance.RegisterTag(tagId, pose);
 		}
 
 		public bool TryUnregisterTag()
 		{
-			return CanActOnTag() && MapManager.Instance.UnregisterTag(Aimer.AimedTagId);
+			return CanActOnTag() && LaserTagMapCoordinator.Instance.UnregisterTag(Aimer.AimedTagId);
 		}
 
 		private void ReleaseTagHighlight()
@@ -470,8 +471,8 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		public static bool SpawnMapObject(MapObject prefab, Vector3 position,
 			Quaternion rotation = default)
 		{
-			return MapManager.Instance != null &&
-				MapManager.Instance.RequestPlaceObject(prefab, position, rotation);
+			return LaserTagMapCoordinator.Instance != null &&
+				LaserTagMapCoordinator.Instance.RequestPlaceObject(prefab, position, rotation);
 		}
 
 		private static GameObject InstantiateObjectAsPreview(MapObject obj)

@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using Anaglyph.LaserTag.Maps;
+using Anaglyph.LaserTag.Matches;
 using Anaglyph.Netcode;
-using Anaglyph.Netcode.SyncVariables;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -66,23 +66,25 @@ namespace Anaglyph.LaserTag.Interface
 			loadButton.clicked += OnLoadClicked;
 			deleteButton.clicked += OnDeleteClicked;
 
-			MapStore.Changed += Rebuild;
+			MapStore.Default.Changed += Rebuild;
 			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
-			MapManager.CurrentMapChanged += OnCurrentMapChanged;
-			MapManager.ProbeResultsChanged += Rebuild;
-			MapManager.ChangingMapChanged += Rebuild;
+			LaserTagMapCoordinator.CurrentMapChanged += OnCurrentMapChanged;
+			LaserTagMapCoordinator.ProbeResultsChanged += Rebuild;
+			LaserTagMapCoordinator.ChangingMapChanged += Rebuild;
+			MatchReferee.StateChanged += OnMatchStateChanged;
 
 			Rebuild();
 		}
 
 		private void OnDisable()
 		{
-			MapManager.ChangingMapChanged -= Rebuild;
-			MapManager.ProbeResultsChanged -= Rebuild;
-			MapManager.CurrentMapChanged -= OnCurrentMapChanged;
+			MatchReferee.StateChanged -= OnMatchStateChanged;
+			LaserTagMapCoordinator.ChangingMapChanged -= Rebuild;
+			LaserTagMapCoordinator.ProbeResultsChanged -= Rebuild;
+			LaserTagMapCoordinator.CurrentMapChanged -= OnCurrentMapChanged;
 
 			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
-			MapStore.Changed -= Rebuild;
+			MapStore.Default.Changed -= Rebuild;
 
 			if (openPageButton != null)
 				openPageButton.clicked -= OnProbeClicked;
@@ -105,8 +107,8 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void OnLoadClicked()
 		{
-			if (selectedMapId != null && MapManager.Instance != null)
-				MapManager.Instance.ChangeMap(selectedMapId);
+			if (selectedMapId != null && LaserTagMapCoordinator.Instance != null)
+				LaserTagMapCoordinator.Instance.ChangeMap(selectedMapId);
 		}
 
 		private void OnDeleteClicked()
@@ -122,24 +124,21 @@ namespace Anaglyph.LaserTag.Interface
 			}
 
 			armedDelete = false;
-			MapManager.Instance?.DeleteMap(selectedMapId);
+			LaserTagMapCoordinator.Instance?.DeleteMap(selectedMapId);
 		}
 
 		private void OnCurrentMapChanged(GameMap _) => Rebuild();
+		private void OnMatchStateChanged(MatchState _) => Rebuild();
 		private void OnNetcodeStateChanged(NetcodeState _) => Rebuild();
 
 		private void OnNewMapClicked()
 		{
-			if (SyncBus.Active || MapManager.Instance == null)
-				return;
-
-			// A blank slate: the next placed object (or registered tag) creates the map.
-			MapManager.Instance.UnloadCurrentMap();
+			LaserTagMapCoordinator.Instance?.NewMap();
 		}
 
 		private async void OnProbeClicked()
 		{
-			if (operatorMode || MapManager.Instance == null)
+			if (operatorMode || LaserTagMapCoordinator.Instance == null)
 				return;
 
 			// The probe takes tens of seconds, and until it answers the list is showing every saved
@@ -150,7 +149,7 @@ namespace Anaglyph.LaserTag.Interface
 
 			try
 			{
-				await MapManager.Instance.ProbeAllMaps(destroyCancellationToken);
+				await LaserTagMapCoordinator.Instance.ProbeAllMaps(destroyCancellationToken);
 			}
 			catch (OperationCanceledException)
 			{
@@ -171,9 +170,9 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void Rebuild()
 		{
-			MapManager manager = MapManager.Instance;
+			LaserTagMapCoordinator manager = LaserTagMapCoordinator.Instance;
 			GameMap current = manager != null ? manager.CurrentMap : null;
-			bool inSession = SyncBus.Active;
+			bool inSession = manager != null && manager.Phase != MapPhase.Local;
 
 			bool changing = manager != null && manager.IsChangingMap;
 
@@ -183,11 +182,15 @@ namespace Anaglyph.LaserTag.Interface
 				: changing ? $"Aligning to {current.name} — hold still, or pick another map"
 				: $"Current map: {current.name}";
 
-			newMapButton.SetEnabled(!inSession);
+			string newMapBlocker = manager == null ? "No map manager in the scene"
+				: manager.DescribeNewMapBlocker();
+
+			newMapButton.tooltip = newMapBlocker ?? string.Empty;
+			newMapButton.SetEnabled(newMapBlocker == null);
 
 			mapList.Clear();
 
-			List<GameMap> maps = MapStore.GetByLastUsed();
+			List<GameMap> maps = MapStore.Default.GetByLastUsed();
 			int total = maps.Count;
 
 			// A PC operator has no physical-space signal to probe. Its useful catalog is every map
@@ -234,7 +237,7 @@ namespace Anaglyph.LaserTag.Interface
 			}
 
 
-			// The host may change the session's map between rounds; MapManager owns the rules,
+			// The host may change the session's map between rounds; LaserTagMapCoordinator owns the rules,
 			// and reports the one that blocks so the disabled button can say why.
 			string blocker = selectedMapId == null ? "No map selected"
 				: manager == null ? "No map manager in the scene"
@@ -244,14 +247,14 @@ namespace Anaglyph.LaserTag.Interface
 			loadButton.tooltip = blocker ?? string.Empty;
 			loadButton.SetEnabled(blocker == null);
 
-			bool selectedIsCurrent = selectedMapId != null && current != null
-				&& current.id == selectedMapId;
-
+			string deleteBlocker = manager == null ? "No map manager in the scene"
+				: manager.DescribeDeleteBlocker(selectedMapId);
 			deleteButton.text = armedDelete ? "Really?" : "Delete";
-			deleteButton.SetEnabled(selectedMapId != null && (!inSession || !selectedIsCurrent));
+			deleteButton.tooltip = deleteBlocker ?? string.Empty;
+			deleteButton.SetEnabled(deleteBlocker == null);
 		}
 
-		private static string DescribeMap(GameMap map, MapManager manager, bool isCurrent)
+		private static string DescribeMap(GameMap map, LaserTagMapCoordinator manager, bool isCurrent)
 		{
 			string text = map.name;
 

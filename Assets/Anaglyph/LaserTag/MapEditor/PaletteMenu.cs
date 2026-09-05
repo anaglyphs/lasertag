@@ -41,7 +41,7 @@ namespace Anaglyph.LaserTag.MapEditor
 		private Label tagStatus;
 
 		// The size the slider is passing through, held back until it settles.
-		private const float tagSizeSettleSeconds = 0.25f;
+		private const float tagSizeSettleSeconds = 0.1f;
 		private float? pendingTagSizeCm;
 		private float pendingTagSizeTime;
 
@@ -99,6 +99,7 @@ namespace Anaglyph.LaserTag.MapEditor
 
 			navView.Changed += OnNavPageChanged;
 			AnaglyphDebugging.DebugModeChanged += OnDebugModeChanged;
+			MapEditor.TagRegistrationRequested += ShowTagsPage;
 
 			RebuildRail();
 
@@ -109,6 +110,7 @@ namespace Anaglyph.LaserTag.MapEditor
 
 		private void OnDisable()
 		{
+			MapEditor.TagRegistrationRequested -= ShowTagsPage;
 			AnaglyphDebugging.DebugModeChanged -= OnDebugModeChanged;
 
 			if (navView != null)
@@ -129,6 +131,8 @@ namespace Anaglyph.LaserTag.MapEditor
 		}
 
 		private void OnDebugModeChanged(bool debugMode) => RebuildRail();
+
+		private void ShowTagsPage() => tagsPage.NavigateHere();
 
 		// ------- navigation is the mode ------------------------------
 
@@ -196,7 +200,7 @@ namespace Anaglyph.LaserTag.MapEditor
 		{
 			pendingTagSizeCm = null;
 
-			MapManager manager = MapManager.Instance;
+			LaserTagMapCoordinator manager = LaserTagMapCoordinator.Instance;
 			if (manager == null || manager.SetTagSize(centimeters))
 				return;
 
@@ -206,7 +210,7 @@ namespace Anaglyph.LaserTag.MapEditor
 
 		private void RefreshTagPage()
 		{
-			MapManager manager = MapManager.Instance;
+			LaserTagMapCoordinator manager = LaserTagMapCoordinator.Instance;
 			if (manager == null)
 			{
 				tagStatus.text = "Map system unavailable.";
@@ -225,23 +229,26 @@ namespace Anaglyph.LaserTag.MapEditor
 			int registered = manager.CurrentMap != null ? manager.CurrentMap.tags.Count : 0;
 			string registrationBlocker = manager.DescribeTagRegistrationBlocker();
 
-			tagStatus.text = registrationBlocker != null
-				? $"{registered} registered — {registrationBlocker}."
-				: $"{registered} registered.";
+			if (registrationBlocker != null)
+				tagStatus.text = $"{registered} registered — {registrationBlocker}.";
+			else if (manager.SessionIsWaitingOnFirstTag)
+				tagStatus.text = "No tags registered — register one to align this session.";
+			else
+				tagStatus.text = $"{registered} registered.";
 		}
 
 		// ------- map settings page -----------------------------------
 
 		private void OnMapNameCommitted(FocusOutEvent _)
 		{
-			MapManager manager = MapManager.Instance;
+			LaserTagMapCoordinator manager = LaserTagMapCoordinator.Instance;
 			if (manager == null || !manager.RenameMap(mapNameField.value))
 				RefreshMapSettingsPage();
 		}
 
 		private void RefreshMapSettingsPage()
 		{
-			MapManager manager = MapManager.Instance;
+			LaserTagMapCoordinator manager = LaserTagMapCoordinator.Instance;
 			if (manager == null)
 			{
 				mapSummary.text = "Map system unavailable.";
@@ -391,7 +398,7 @@ namespace Anaglyph.LaserTag.MapEditor
 			homePage.NavigateHere();
 
 			// Edits already save on a debounce; this makes leaving the editor the sync point.
-			MapManager.Instance?.SaveCurrentMap();
+			LaserTagMapCoordinator.Instance?.SaveCurrentMap();
 
 			MapEditor.SetActive(false);
 		}

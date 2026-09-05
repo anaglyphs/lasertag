@@ -1,15 +1,16 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.XR;
 
 namespace Anaglyph.LaserTag
 {
 	[DefaultExecutionOrder(-10000)]
-	public class CameraRigSpawner : MonoBehaviour
+	public class ModeSpawner : MonoBehaviour
 	{
 		[SerializeField] private bool xrSimulation;
 
-		[SerializeField] private GameObject xrRig;
-		[SerializeField] private GameObject desktopRig;
+		[FormerlySerializedAs("xrRig")] [SerializeField] private GameObject xrModePrefab;
+		[FormerlySerializedAs("desktopRig")] [SerializeField] private GameObject desktopOperatorModePrefab;
 
 		[SerializeField] private GameObject arFoundationSimulator;
 
@@ -30,7 +31,7 @@ namespace Anaglyph.LaserTag
 		{
 			bool simulateXR = xrSimulation || ShouldSimulateXR;
 			bool usingXR = XRSettings.enabled || simulateXR;
-			GameObject g = Instantiate(usingXR ? xrRig : desktopRig);
+			GameObject g = Instantiate(usingXR ? xrModePrefab : desktopOperatorModePrefab);
 
 #if UNITY_EDITOR
 

@@ -65,31 +65,35 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			public int samples;
 		}
 
-		[SerializeField] private float tagSizeCmHostSetting;
-		public float HostTagSizeCm
-		{
-			get => tagSizeCmHostSetting;
-			set
-			{
-				float next = Mathf.Max(0f, value);
-				if (Mathf.Approximately(next, tagSizeCmHostSetting))
-					return;
-
-				tagSizeCmHostSetting = next;
-
-				// A host may change this after the session is already running. Keep the
-				// canonical session value and the local tracker in step immediately.
-				if (SyncBus.Active && SyncBus.IsAuthority)
-					tagSizeSync.Value = tagSizeCmHostSetting;
-
-				UpdateTrackerEnabled();
-				TagSizeChanged.Invoke();
-			}
-		}
+		// Whatever registered the tags owns their size, so this is only the last size handed to
+		// this device. It stands in until a session publishes one, and is what an authority
+		// publishes when it opens the session.
+		private float adoptedTagSizeCm;
 		private readonly SyncVariable<float> tagSizeSync = new("colocation.tags.size");
 		public float TagSizeCm => tagSizeSync.Value > 0f
 			? tagSizeSync.Value
-			: tagSizeCmHostSetting;
+			: adoptedTagSizeCm;
+
+		/// <summary>
+		/// Adopts the size the tags being loaded were registered at. The session authority also
+		/// publishes it, so every peer solves at the size the session's references were solved at.
+		/// </summary>
+		public void AdoptTagSize(float centimeters)
+		{
+			float next = Mathf.Max(0f, centimeters);
+			if (Mathf.Approximately(next, adoptedTagSizeCm))
+				return;
+
+			adoptedTagSizeCm = next;
+
+			// References may be swapped after the session is already running. Keep the canonical
+			// session value and the local tracker in step immediately.
+			if (SyncBus.Active && SyncBus.IsAuthority)
+				tagSizeSync.Value = adoptedTagSizeCm;
+
+			UpdateTrackerEnabled();
+			TagSizeChanged.Invoke();
+		}
 
 		private readonly SyncDictionary<int, Pose> registeredTags =
 			new("colocation.tags.canon");
@@ -254,7 +258,8 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		{
 			if (SyncBus.IsAuthority)
 			{
-				tagSizeSync.Value = tagSizeCmHostSetting;
+				if (adoptedTagSizeCm > 0f)
+					tagSizeSync.Value = adoptedTagSizeCm;
 			}
 			else
 			{
@@ -311,21 +316,19 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		}
 
 		/// <summary>
-		/// Sets the size tags are solved at, from any peer. The authority writes it directly;
-		/// everyone else proposes it and receives the result like any other peer.
+		/// Proposes the size tags are solved at, from any peer. Validated like any other request,
+		/// including on the authority: this is a deliberate change to what the references mean,
+		/// unlike <see cref="AdoptTagSize"/> restoring the size they were already solved at.
 		/// </summary>
 		public void RequestTagSize(float centimeters)
 		{
-			if (SyncBus.IsAuthority)
-				HostTagSizeCm = centimeters;
-			else
-				tagSizeSync.Request(Mathf.Max(0f, centimeters));
+			tagSizeSync.Request(Mathf.Max(0f, centimeters));
 		}
 
 		/// <summary>
 		/// Every registered pose was solved at the session's current size, so changing it would
-		/// move all of them at once. The authority's own writes are exempt: loading a map has to
-		/// restore the size its poses were solved at.
+		/// move all of them at once. Adoption is exempt: loading references has to restore the
+		/// size they were solved at.
 		/// </summary>
 		private bool ValidateTagSize(ulong sender, float centimeters)
 		{
@@ -537,14 +540,15 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 				    !registeredTags.TryGetValue(observed.ID, out Pose canonTag))
 					continue;
 
-				if (!localAnchors.TryGetValue(observed.ID, out LocalAnchor anchor))
-					MintTagAnchor(observed.ID, observedPose, canonTag);
+				localAnchors.TryGetValue(observed.ID, out LocalAnchor anchor);
+				if (!IsTracking(anchor))
+					MintTagAnchor(observed.ID, observedPose, canonTag, anchor);
 				else
 					CorrectAnchor(anchor, observedPose, canonTag);
 			}
 		}
 
-		private async void MintTagAnchor(int tagId, Pose observedTag, Pose canonTag)
+		private async void MintTagAnchor(int tagId, Pose observedTag, Pose canonTag, LocalAnchor replacing)
 		{
 			if (!AnchorsAvailable || !mintsInFlight.Add(tagId))
 				return;
@@ -554,7 +558,7 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			try
 			{
 				await AnchorMinting.TryMintAsync(registry, observedTag,
-					minted => CommitTagAnchor(tagId, canonTag, generation, minted),
+					minted => CommitTagAnchor(tagId, canonTag, generation, minted, replacing),
 					commitTakesLease: true, lifetimeCtknSrc.Token);
 			}
 			catch (OperationCanceledException)
@@ -574,23 +578,39 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		/// Takes a minted anchor as this tag's realization, unless the state it was minted for has
 		/// moved on. Refusing it erases the save, so the tag is minted again next time it is seen.
 		/// </summary>
-		private bool CommitTagAnchor(int tagId, Pose canonTag, int generation, MintedAnchor minted)
+		private bool CommitTagAnchor(int tagId, Pose canonTag, int generation, MintedAnchor minted, LocalAnchor replacing)
 		{
 			if (!IsRunning || generation != stateGeneration ||
-			    !registeredTags.ContainsKey(tagId) || localAnchors.ContainsKey(tagId))
+			    !registeredTags.ContainsKey(tagId))
 				return false;
 
-			localAnchors.Add(tagId, new LocalAnchor
+			localAnchors.TryGetValue(tagId, out LocalAnchor current);
+			if (!ReferenceEquals(current, replacing) || IsTracking(current))
+				return false;
+
+			// A saved UUID can fail to restore indefinitely. Keep it until a fresh observation
+			// has produced a replacement, and reject that replacement if the old anchor
+			// recovered while minting. The map layer owns cleanup of orphaned saves.
+			localAnchors[tagId] = new LocalAnchor
 			{
 				guid = minted.guid,
 				tagId = tagId,
 				canon = canonTag,
 				lease = minted.lease,
-			});
+			};
+			replacing?.lease?.Dispose();
+			corrections.Remove(tagId);
 
 			stateGeneration++;
 			AnchorsChanged.Invoke();
 			return true;
+		}
+
+		private static bool IsTracking(LocalAnchor anchor)
+		{
+			AnchorHandle handle = anchor?.lease?.Handle;
+			return handle != null && handle.state == AnchorHandle.State.Active &&
+				handle.anchor != null && handle.anchor.trackingState == TrackingState.Tracking;
 		}
 
 		/// <summary>
@@ -599,12 +619,10 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		/// </summary>
 		private void CorrectAnchor(LocalAnchor anchor, Pose observedTag, Pose canonTag)
 		{
-			AnchorHandle handle = anchor.lease?.Handle;
-			if (handle == null || handle.state != AnchorHandle.State.Active ||
-			    handle.anchor.trackingState != TrackingState.Tracking)
+			if (!IsTracking(anchor))
 				return;
 
-			Transform anchorTransform = handle.anchor.transform;
+			Transform anchorTransform = anchor.lease.Handle.anchor.transform;
 			Matrix4x4 observedTagMatrix = Matrix4x4.TRS(
 				observedTag.position, observedTag.rotation, Vector3.one);
 			Matrix4x4 observedAnchorMatrix = Matrix4x4.TRS(

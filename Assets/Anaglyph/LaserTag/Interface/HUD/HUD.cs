@@ -34,7 +34,8 @@ namespace Anaglyph.LaserTag.Interface.HUD
 			Results,
 			Death,
 			Countdown,
-			Muster
+			Muster,
+			Teamless
 		}
 
 		private VisualElement connectionHUD;
@@ -42,6 +43,7 @@ namespace Anaglyph.LaserTag.Interface.HUD
 		private VisualElement deathHUD;
 		private VisualElement countdownHUD;
 		private VisualElement musterHUD;
+		private VisualElement teamlessHUD;
 
 		private Label connectionLabel;
 		private Label respawnLabel;
@@ -72,6 +74,7 @@ namespace Anaglyph.LaserTag.Interface.HUD
 			deathHUD = HUDElement.Require<VisualElement>(this, "death-hud");
 			countdownHUD = HUDElement.Require<VisualElement>(this, "countdown-hud");
 			musterHUD = HUDElement.Require<VisualElement>(this, "muster-hud");
+			teamlessHUD = HUDElement.Require<VisualElement>(this, "teamless-hud");
 
 			connectionLabel = HUDElement.Require<Label>(this, "connection-label");
 			respawnLabel = HUDElement.Require<Label>(this, "respawn-label");
@@ -151,7 +154,14 @@ namespace Anaglyph.LaserTag.Interface.HUD
 			// connecting and aligning block play, so they outrank everything
 			if (GetBlockingConnectionText() != null) return Overlay.Connection;
 			if (Time.time < resultsHideTime) return Overlay.Results;
-			if (MainPlayer.Instance != null && !MainPlayer.Instance.IsAlive) return Overlay.Death;
+
+			// a teamless player cannot play or respawn, so this outranks death
+			if (MainPlayer.Instance != null)
+			{
+				if (MainPlayer.Instance.IsTeamlessDuringMatch) return Overlay.Teamless;
+				if (!MainPlayer.Instance.IsAlive) return Overlay.Death;
+			}
+
 			if (GetCountdown() != NoCountdown) return Overlay.Countdown;
 			if (MatchReferee.State == MatchState.Mustering) return Overlay.Muster;
 			if (Time.time < readyHideTime) return Overlay.Connection;
@@ -303,6 +313,7 @@ namespace Anaglyph.LaserTag.Interface.HUD
 				Overlay.Death => deathHUD,
 				Overlay.Countdown => countdownHUD,
 				Overlay.Muster => musterHUD,
+				Overlay.Teamless => teamlessHUD,
 				_ => null
 			};
 

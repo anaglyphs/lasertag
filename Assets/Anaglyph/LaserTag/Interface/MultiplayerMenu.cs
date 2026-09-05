@@ -137,8 +137,6 @@ namespace Anaglyph.LaserTag.Interface
 			Require<Button>(root, "dismiss-error-button").clicked += DismissError;
 
 			noFullInternetWarning = Require<Label>(root, "no-full-internet-warning");
-			Label version = Require<Label>(root, "version");
-			version.text = $"Version: {NetcodeManagement.GameVersion}";
 
 			navView.Changed += OnNavPageChange;
 		}

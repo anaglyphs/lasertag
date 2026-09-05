@@ -1,10 +1,7 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
-    <ui:Template name="ScoreHUD" src="project://database/Assets/Anaglyph/LaserTag/Interface/HUD/ScoreHUD.uxml?fileID=9197481963319205126&amp;guid=98575a664293c453590a57a1869593b6&amp;type=3#ScoreHUD"/>
-    <ui:Template name="TimerHUD" src="project://database/Assets/Anaglyph/LaserTag/Interface/HUD/TimerHUD.uxml?fileID=9197481963319205126&amp;guid=8584c65277b9a4bc58f86819c221036a&amp;type=3#TimerHUD"/>
     <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+    <Style src="/Assets/Anaglyph/LaserTag/Interface/HUD/ScoreDisplay.uss"/>
     <ui:VisualElement picking-mode="Ignore" name="hand-hud-root" class="hud-root">
-        <ui:Instance template="ScoreHUD" name="score-hud" style="width: 100%; height: 100%; position: absolute;"/>
-        <ui:Instance template="TimerHUD" name="timer-hud" style="width: 100%; height: 100%; position: absolute;"/>
-        <ui:Label picking-mode="Ignore" name="round-label" text="Round 1/3" class="hand-round-label" style="display: flex; left: 50%; top: 50%; translate: -50% 55px; -unity-font-definition: resource(&quot;Fonts/DINishExpanded-Bold SDF&quot;); margin-top: 0; margin-right: 0; margin-bottom: 0; margin-left: 0;"/>
+        <Anaglyph.LaserTag.Interface.HUD.ScoreDisplay class="score-display--fill"/>
     </ui:VisualElement>
 </ui:UXML>

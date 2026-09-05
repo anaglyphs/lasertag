@@ -9,7 +9,7 @@
 
 .menu-root {
     flex-grow: 1;
-    padding: 16px;
+    padding: 4px;
     background-color: rgb(20, 20, 20);
     color: rgb(255, 255, 255);
     font-size: 20px;
@@ -47,7 +47,7 @@
     border-color: rgb(255, 255, 255);
 }
 
-.unity-base-slider #unity-tracker {
+.stacked-field.unity-base-slider #unity-tracker {
     background-color: transparent;
     border-width: 1px;
     border-color: white;
@@ -55,14 +55,14 @@
     margin-top: -5px;
 }
 
-.unity-base-slider #unity-dragger {
+.stacked-field.unity-base-slider #unity-dragger {
     background-color: white;
     border-width: 0;
-    margin-top: -20px;
-    height: 40px;
+    margin-top: -18px;
+    height: 36px;
 }
 
-.unity-base-slider #unity-fill {
+.stacked-field.unity-base-slider #unity-fill {
     background-color: white;
 }
 
@@ -182,7 +182,6 @@ RadioButton #unity-checkmark {
 .unity-button,
 Toggle,
 TextField {
-    min-height: 46px;
     margin-top: 4px;
     margin-bottom: 4px;
     font-size: 20px;
@@ -210,6 +209,89 @@ ScrollView {
     flex-grow: 1;
 }
 
+/* Scroll bars */
+
+ScrollView .unity-scroll-view__vertical-scroller {
+    width: 24px;
+    margin-left: 4px;
+	margin-right: 4px;
+}
+
+ScrollView .unity-scroll-view__horizontal-scroller {
+    height: 24px;
+    margin-top: 4px;
+	margin-bottom: 4px;
+}
+
+ScrollView #unity-low-button,
+ScrollView #unity-high-button {
+    min-width: 24px;
+    max-width: 24px;
+    min-height: 24px;
+    max-height: 24px;
+    flex-shrink: 0;
+    margin: 0;
+    padding: 0;
+    translate: 0 0 0;
+    background-color: rgb(70, 70, 70);
+    -unity-background-image-tint-color: rgb(255, 255, 255);
+    border-width: 1px;
+    border-color: rgb(255, 255, 255);
+}
+
+ScrollView #unity-low-button:hover,
+ScrollView #unity-high-button:hover {
+    background-color: rgb(90, 90, 90);
+}
+
+ScrollView .unity-scroller--vertical > .unity-scroller__slider {
+    margin: 28px 0;
+}
+
+ScrollView .unity-scroller--horizontal > .unity-scroller__slider {
+    margin: 0 28px;
+}
+
+ScrollView .unity-scroller__slider #unity-tracker {
+    margin: 0;
+    background-color: transparent;
+    border-width: 1;
+	border-color: rgb(255, 255, 255);
+}
+
+ScrollView .unity-scroller__slider #unity-dragger {
+    margin: 0;
+    background-color: rgb(255, 255, 255);
+    border-width: 0;
+}
+
+ScrollView .unity-scroller__slider #unity-dragger-border {
+    background-color: transparent;
+    border-width: 0;
+}
+
+ScrollView .unity-scroll-view__vertical-scroller #unity-drag-container,
+ScrollView .unity-scroll-view__vertical-scroller #unity-dragger {
+    min-width: 24px;
+    max-width: 24px;
+    align-self: center;
+}
+
+ScrollView .unity-scroll-view__vertical-scroller #unity-dragger {
+    left: 0;
+}
+
+ScrollView .unity-scroll-view__horizontal-scroller #unity-drag-container,
+ScrollView .unity-scroll-view__horizontal-scroller #unity-dragger {
+    min-height: 8px;
+    max-height: 8px;
+    align-self: center;
+}
+
+ScrollView .unity-scroll-view__horizontal-scroller #unity-dragger {
+    top: 0;
+}
+
 .nav-header__back-button {
     aspect-ratio: 1;
     min-height: auto;
@@ -233,7 +315,7 @@ ScrollView {
 }
 
 .stacked-field .unity-base-slider__input {
-    max-height: 46px;
+    max-height: 36px;
     flex-grow: 0;
     margin: 0;
 }
@@ -264,12 +346,8 @@ ScrollView {
     justify-content: center;
 }
 
-.unity-tab__header:hover {
-    background-color: rgb(90, 90, 90);
-}
-
 .unity-tab__header:checked {
-    background-color: rgb(230, 230, 230);
+    background-color: rgb(255, 255, 255);
 }
 
 .unity-tab__header:checked .unity-tab__header-label {
@@ -289,6 +367,7 @@ ScrollView {
     background-color: rgba(0, 0, 0, 0);
     border-bottom-width: 1px;
     border-bottom-color: rgb(255, 255, 255);
+	width: 100%;
 }
 
 .unity-tab__content-container {
@@ -624,118 +703,5 @@ ScrollView {
 
 .connection-label {
     font-size: 45px;
-    -unity-text-align: middle-center;
-}
-
-/* Hand HUD */
-
-.hand-hud-section {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    align-items: center;
-    justify-content: center;
-}
-
-.hand-round-label {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    font-size: 22px;
-    -unity-text-align: middle-center;
-}
-
-/* Timer */
-
-.timer-row {
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-}
-
-.timer-score {
-    font-size: 32px;
-    width: 45px;
-}
-
-.hourglass {
-    align-items: center;
-    margin-left: 10px;
-    margin-right: 10px;
-}
-
-.hourglass-chamber {
-    width: 60px;
-    height: 20px;
-    justify-content: flex-end;
-    align-items: center;
-}
-
-.top-sand {
-    width: 30px;
-    background-color: rgb(255, 255, 255);
-}
-
-.bottom-sand {
-    width: 60px;
-    background-color: rgb(255, 255, 255);
-}
-
-.timer-label {
-    font-size: 24px;
-    -unity-text-align: middle-center;
-    margin-top: 1px;
-    margin-bottom: 1px;
-}
-
-/* Score goal */
-
-.goal-carrot {
-    width: 12px;
-    height: 8px;
-    background-color: rgb(255, 255, 255);
-    margin-bottom: 2px;
-}
-
-.score-track {
-    flex-direction: row;
-    width: 180px;
-    height: 3px;
-    background-color: rgba(255, 255, 255, 0.35);
-}
-
-.score-track-half {
-    width: 50%;
-    height: 100%;
-    flex-direction: row;
-}
-
-.score-track-half.from-right {
-    justify-content: flex-end;
-}
-
-.score-line {
-    height: 100%;
-    width: 0;
-}
-
-.goal-row {
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    margin-top: 8px;
-}
-
-.goal-score {
-    font-size: 32px;
-    width: 60px;
-}
-
-.goal-target-label {
-    font-size: 24px;
-    width: 70px;
     -unity-text-align: middle-center;
 }

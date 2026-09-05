@@ -18,38 +18,36 @@ namespace Anaglyph.LaserTag.Maps
 	/// The store never touches the anchor runtime — deleting a map reports which anchor guids
 	/// became orphaned so the caller can erase their local saves.
 	/// </summary>
-	public static class MapStore
+	public sealed class MapStore
 	{
-		private static readonly Dictionary<string, GameMap> maps = new();
+		private readonly Dictionary<string, GameMap> maps = new();
 
-		private static bool loaded;
+		private bool loaded;
 
-		public static event Action Changed = delegate { };
+		public event Action Changed = delegate { };
 
-		// Statics persist across play sessions while domain reload is disabled.
+		public static MapStore Default { get; private set; } =
+			new(Path.Combine(Application.persistentDataPath, "maps"));
+
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-		private static void Init()
-		{
-			maps.Clear();
-			loaded = false;
-			Changed = delegate { };
-		}
+		private static void Init() => Default = new MapStore(Path.Combine(Application.persistentDataPath, "maps"));
 
-		private static string DirectoryPath => Path.Combine(Application.persistentDataPath, "maps");
-		private static string PathFor(string id) => Path.Combine(DirectoryPath, id + ".json");
-		private static string TempPathFor(string id) => PathFor(id) + ".tmp";
-		private static string BackupPathFor(string id) => PathFor(id) + ".bak";
+		private readonly string directoryPath;
+		public MapStore(string directoryPath) => this.directoryPath = directoryPath;
+		private string PathFor(string id) => Path.Combine(directoryPath, id + ".json");
+		private string TempPathFor(string id) => PathFor(id) + ".tmp";
+		private string BackupPathFor(string id) => PathFor(id) + ".bak";
 
-		public static IReadOnlyCollection<GameMap> Maps
+		public IReadOnlyCollection<GameMap> Maps
 		{
 			get
 			{
 				EnsureLoaded();
-				return maps.Values;
+				return GetByLastUsed();
 			}
 		}
 
-		public static bool TryGet(string id, out GameMap map)
+		public bool TryGet(string id, out GameMap map)
 		{
 			EnsureLoaded();
 
@@ -59,84 +57,37 @@ namespace Anaglyph.LaserTag.Maps
 				return false;
 			}
 
-			return maps.TryGetValue(id, out map);
+			if (maps.TryGetValue(id, out GameMap stored))
+			{
+				map = stored.Clone();
+				return true;
+			}
+			map = null;
+			return false;
 		}
 
 		/// <summary>Maps ordered most recently used first — the probe and load order.</summary>
-		public static List<GameMap> GetByLastUsed()
+		public List<GameMap> GetByLastUsed()
 		{
 			EnsureLoaded();
 
-			List<GameMap> ordered = new(maps.Values);
+			List<GameMap> ordered = new();
+			foreach (GameMap map in maps.Values) ordered.Add(map.Clone());
 			ordered.Sort((a, b) => b.lastUsed.CompareTo(a.lastUsed));
 			return ordered;
 		}
 
-		public static GameMap CreateNew()
+		/// <summary>Writes an exact snapshot. A failure leaves the catalog unchanged.</summary>
+		public bool Save(GameMap map)
 		{
 			EnsureLoaded();
-
-			GameMap map = new()
-			{
-				id = Guid.NewGuid().ToString("N"),
-				name = GenerateName(),
-				version = Guid.NewGuid().ToString("N"),
-				baseVersion = "",
-				dirty = false,
-				lastUsed = DateTime.UtcNow.Ticks,
-				lastEdited = DateTime.UtcNow.Ticks,
-			};
-
-			maps[map.id] = map;
-			WriteFile(map);
+			if (map == null || !Guid.TryParseExact(map.id, "N", out _))
+				return false;
+			GameMap snapshot = map.Clone();
+			if (!WriteFile(snapshot)) return false;
+			maps[snapshot.id] = snapshot;
 			Changed.Invoke();
-			return map;
-		}
-
-		/// <summary>
-		/// Clones a locally edited copy under a new id before its original id is replaced by a
-		/// received version. The fork keeps its parent's anchors (so both localize in the same
-		/// room and most-recently-used picks between them), keeps its lineage's baseVersion, and
-		/// stays dirty — it IS the local edits.
-		/// </summary>
-		public static GameMap Fork(GameMap source)
-		{
-			EnsureLoaded();
-
-			GameMap fork = new()
-			{
-				id = Guid.NewGuid().ToString("N"),
-				name = source.name + " (fork)",
-				version = Guid.NewGuid().ToString("N"),
-				baseVersion = source.baseVersion,
-				dirty = source.dirty,
-				lastUsed = source.lastUsed,
-				lastEdited = source.lastEdited,
-				objects = new List<MapObjectEntry>(source.objects),
-				anchors = new List<MapAnchorEntry>(source.anchors),
-				tags = new List<MapTagEntry>(source.tags),
-			};
-
-			maps[fork.id] = fork;
-			WriteFile(fork);
-			Changed.Invoke();
-			return fork;
-		}
-
-		/// <summary>
-		/// Persists the map. A dirty save mints a new content version, so a peer that later
-		/// receives this copy can tell it apart from the version it derives from.
-		/// </summary>
-		public static void Save(GameMap map)
-		{
-			EnsureLoaded();
-
-			if (map.dirty)
-				MintVersion(map);
-
-			maps[map.id] = map;
-			WriteFile(map);
-			Changed.Invoke();
+			return true;
 		}
 
 		/// <summary>
@@ -144,17 +95,12 @@ namespace Anaglyph.LaserTag.Maps
 		/// <paramref name="orphanedAnchorGuids"/> (when provided) so the caller can erase their
 		/// local saves — anchors referenced by any surviving map must stay.
 		/// </summary>
-		public static void Delete(string id, List<string> orphanedAnchorGuids = null)
+		public bool Delete(string id, List<string> orphanedAnchorGuids = null)
 		{
 			EnsureLoaded();
 
-			if (!maps.Remove(id, out GameMap removed))
-				return;
-
-			if (orphanedAnchorGuids != null)
-				foreach (MapAnchorEntry anchor in removed.anchors)
-					if (!IsAnchorReferenced(anchor.guid))
-						orphanedAnchorGuids.Add(anchor.guid);
+			if (id == null || !maps.TryGetValue(id, out GameMap removed))
+				return false;
 
 			try
 			{
@@ -167,13 +113,19 @@ namespace Anaglyph.LaserTag.Maps
 			catch (Exception e)
 			{
 				Debug.LogException(e);
+				return false;
 			}
 
+			maps.Remove(id);
+			if (orphanedAnchorGuids != null)
+				foreach (MapAnchorEntry anchor in removed.anchors)
+					if (!IsAnchorReferenced(anchor.guid)) orphanedAnchorGuids.Add(anchor.guid);
 			Changed.Invoke();
+			return true;
 		}
 
 		/// <summary>Whether any known map references this anchor guid.</summary>
-		public static bool IsAnchorReferenced(string anchorGuid)
+		public bool IsAnchorReferenced(string anchorGuid)
 		{
 			EnsureLoaded();
 
@@ -184,45 +136,9 @@ namespace Anaglyph.LaserTag.Maps
 			return false;
 		}
 
-		/// <summary>All maps that reference this anchor guid — the reverse index lookup.</summary>
-		public static List<GameMap> MapsUsingAnchor(string anchorGuid)
-		{
-			EnsureLoaded();
-
-			List<GameMap> result = new();
-			foreach (GameMap map in maps.Values)
-				if (map.TryGetAnchor(anchorGuid, out _))
-					result.Add(map);
-
-			return result;
-		}
-
-		public static void MarkUsed(GameMap map)
-		{
-			map.lastUsed = DateTime.UtcNow.Ticks;
-			Save(map);
-		}
-
-		/// <summary>
-		/// Mints a new content version, so a peer receiving this copy can tell it apart from the
-		/// version it derives from. <see cref="Save"/> does this itself for a dirty map; call it
-		/// directly only to settle the version before something else advertises it.
-		/// </summary>
-		public static void MintVersion(GameMap map)
-		{
-			map.version = Guid.NewGuid().ToString("N");
-		}
-
-		/// <summary>Stamp a local edit: sets dirty, so this copy forks instead of being replaced.</summary>
-		public static void MarkEdited(GameMap map)
-		{
-			map.dirty = true;
-			map.lastEdited = DateTime.UtcNow.Ticks;
-		}
-
 		// ------- disk ----------------------------------------------
 
-		private static void EnsureLoaded()
+		private void EnsureLoaded()
 		{
 			if (loaded) return;
 			loaded = true;
@@ -231,15 +147,15 @@ namespace Anaglyph.LaserTag.Maps
 
 			try
 			{
-				if (!Directory.Exists(DirectoryPath))
+				if (!Directory.Exists(directoryPath))
 					return;
 
-				HashSet<string> primaryFiles = new(Directory.GetFiles(DirectoryPath, "*.json"));
+				HashSet<string> primaryFiles = new(Directory.GetFiles(directoryPath, "*.json"));
 
-				foreach (string file in Directory.GetFiles(DirectoryPath, "*.json.bak"))
+				foreach (string file in Directory.GetFiles(directoryPath, "*.json.bak"))
 					primaryFiles.Add(file.Substring(0, file.Length - ".bak".Length));
 
-				foreach (string file in Directory.GetFiles(DirectoryPath, "*.json.tmp"))
+				foreach (string file in Directory.GetFiles(directoryPath, "*.json.tmp"))
 					primaryFiles.Add(file.Substring(0, file.Length - ".tmp".Length));
 
 				foreach (string primaryPath in primaryFiles)
@@ -278,11 +194,11 @@ namespace Anaglyph.LaserTag.Maps
 			}
 		}
 
-		private static void WriteFile(GameMap map)
+		private bool WriteFile(GameMap map)
 		{
 			try
 			{
-				Directory.CreateDirectory(DirectoryPath);
+				Directory.CreateDirectory(directoryPath);
 
 				string path = PathFor(map.id);
 				string tempPath = TempPathFor(map.id);
@@ -298,14 +214,16 @@ namespace Anaglyph.LaserTag.Maps
 				}
 
 				CommitTempFile(tempPath, path, backupPath);
+				return true;
 			}
 			catch (Exception e)
 			{
 				Debug.LogException(e);
+				return false;
 			}
 		}
 
-		private static void CommitTempFile(string tempPath, string path, string backupPath)
+		private void CommitTempFile(string tempPath, string path, string backupPath)
 		{
 			if (!File.Exists(path))
 			{
@@ -353,7 +271,7 @@ namespace Anaglyph.LaserTag.Maps
 			}
 		}
 
-		private static bool TryReadMap(string path, out GameMap map, out string error)
+		private bool TryReadMap(string path, out GameMap map, out string error)
 		{
 			map = null;
 
@@ -367,13 +285,17 @@ namespace Anaglyph.LaserTag.Maps
 			{
 				map = JsonUtility.FromJson<GameMap>(File.ReadAllText(path));
 
-				if (map == null || string.IsNullOrEmpty(map.id))
+				if (map == null || !Guid.TryParseExact(map.id, "N", out _))
 				{
 					map = null;
 					error = "malformed map JSON";
 					return false;
 				}
 
+				map.objects ??= new();
+				map.tags ??= new();
+				map.anchors ??= new();
+				if (!Guid.TryParseExact(map.version, "N", out _)) map.version = Guid.NewGuid().ToString("N");
 				error = null;
 				return true;
 			}
@@ -385,16 +307,15 @@ namespace Anaglyph.LaserTag.Maps
 			}
 		}
 
-		private static void DeleteIfExists(string path)
+		private void DeleteIfExists(string path)
 		{
-			if (File.Exists(path))
-				File.Delete(path);
+			File.Delete(path);
 		}
 
-		private static string GenerateName()
+		public string GenerateName()
 		{
-			// "Map N", where N clears every number any existing map ever used — deletes must
-			// not cause reuse.
+			// Choose a name beyond the maps currently in the catalog.
+			EnsureLoaded();
 			int highest = 0;
 
 			foreach (GameMap map in maps.Values)

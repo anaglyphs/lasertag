@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
+using UnityEngine.XR;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
 
 namespace Anaglyph.XR.Input
@@ -50,7 +51,11 @@ namespace Anaglyph.XR.Input
 		// The runtime's aim pose describes a controller held in a hand. Mounted in a cradle it
 		// describes nothing, so the peripheral's barrel replaces it rather than offsetting it.
 		private bool PointsFromPeripheral => MountedPeripheral.IsMountedOn(handedness);
-		public bool IsTracking => trackingState.action.ReadValue<int>() != 0;
+		/// <summary>Which parts of the pose the runtime currently vouches for.</summary>
+		public InputTrackingState TrackingState =>
+			(InputTrackingState)trackingState.action.ReadValue<int>();
+
+		public bool IsTracking => TrackingState != InputTrackingState.None;
 
 		// Polled rather than latched off interactor.uiHoverEntered/Exited: the exit event is only
 		// raised while the interactor keeps ticking, so a UIDocument that disappears out from under

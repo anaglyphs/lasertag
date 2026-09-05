@@ -67,6 +67,13 @@ namespace Anaglyph.LaserTag.Player
 		public NetworkVariable<int> scoreSync;
 		public int Score => scoreSync.Value;
 
+		/// <summary>Device diagnostics for the operator panel. Sampled by the owner.</summary>
+		public HeadsetTelemetry Telemetry => telemetrySync.Value;
+		private readonly NetworkVariable<HeadsetTelemetry> telemetrySync = new();
+
+		private const float telemetryIntervalSeconds = 1f;
+		private float nextTelemetrySampleTime;
+
 		public static PlayerAvatar Local { get; private set; }
 		public static Dictionary<ulong, PlayerAvatar> All { get; private set; } = new();
 		public static List<PlayerAvatar> OtherPlayers { get; private set; } = new();
@@ -137,8 +144,22 @@ namespace Anaglyph.LaserTag.Player
 
 		private void Update()
 		{
-			if (IsSpawned)
-				RefreshBaseState();
+			if (!IsSpawned)
+				return;
+
+			RefreshBaseState();
+			SampleTelemetry();
+		}
+
+		// Battery and alignment move slowly, and the NetworkVariable only goes out when the
+		// sample differs from the last one, so a settled headset costs nothing.
+		private void SampleTelemetry()
+		{
+			if (!IsOwner || Time.unscaledTime < nextTelemetrySampleTime)
+				return;
+
+			nextTelemetrySampleTime = Time.unscaledTime + telemetryIntervalSeconds;
+			telemetrySync.Value = HeadsetTelemetry.Sample();
 		}
 
 		private void RefreshBaseState()

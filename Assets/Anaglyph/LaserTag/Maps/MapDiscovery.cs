@@ -34,13 +34,15 @@ namespace Anaglyph.LaserTag.Maps
 	/// </summary>
 	internal sealed class MapDiscovery
 	{
+		private readonly MapStore store;
 		private readonly SpatialAnchorColocationConstraintProvider anchorColocationProvider;
 		private readonly float probeTimeoutSeconds;
 		private readonly Dictionary<string, int> results = new();
 		private bool probeInFlight;
 
-		public MapDiscovery(SpatialAnchorColocationConstraintProvider anchorColocationProvider, float probeTimeoutSeconds)
+		public MapDiscovery(MapStore store, SpatialAnchorColocationConstraintProvider anchorColocationProvider, float probeTimeoutSeconds)
 		{
+			this.store = store;
 			this.anchorColocationProvider = anchorColocationProvider;
 			this.probeTimeoutSeconds = probeTimeoutSeconds;
 		}
@@ -91,7 +93,7 @@ namespace Anaglyph.LaserTag.Maps
 			// device holds cannot change which map belongs here, and reaching for it would have the
 			// runtime hand over entities that are in use.
 			HashSet<Guid> toTest = new();
-			foreach (GameMap map in MapStore.Maps)
+			foreach (GameMap map in store.Maps)
 				foreach (MapAnchorEntry entry in map.anchors)
 					if (MapGuid.TryParse(entry.guid, out Guid guid))
 						toTest.Add(guid);
@@ -125,7 +127,7 @@ namespace Anaglyph.LaserTag.Maps
 
 			GameMap best = null;
 
-			foreach (GameMap map in MapStore.GetByLastUsed())
+			foreach (GameMap map in store.GetByLastUsed())
 			{
 				// Nothing to test with means nothing was learned. Recording a zero would read as
 				// "not in this room" and hide the map everywhere the score is consulted.
@@ -155,7 +157,7 @@ namespace Anaglyph.LaserTag.Maps
 		{
 			StringBuilder report = new("Map probe:");
 
-			foreach (GameMap map in MapStore.GetByLastUsed())
+			foreach (GameMap map in store.GetByLastUsed())
 				report.Append($" {map.name} ")
 					.Append(results.TryGetValue(map.id, out int localized)
 						? $"{localized}/{map.anchors.Count},"

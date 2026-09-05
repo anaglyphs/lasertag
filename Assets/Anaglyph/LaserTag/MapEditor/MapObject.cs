@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Anaglyph.LaserTag.Maps;
 using Anaglyph.Netcode.SyncVariables;
 using Unity.Netcode;
 using UnityEngine;
@@ -77,7 +76,7 @@ namespace Anaglyph.LaserTag.MapEditor
 		}
 
 		// Map objects belong to the session authority, so that one peer can clear and repopulate
-		// the world when the map changes. Objects placed offline stay local; MapManager spawns
+		// the world when the map changes. Objects placed offline stay local; LaserTagMapCoordinator spawns
 		// them when this device starts hosting. A client never spawns one of its own — its
 		// placements are requests, and the object it gets back is the authority's.
 		private void TrySpawn()
@@ -156,26 +155,6 @@ namespace Anaglyph.LaserTag.MapEditor
 			ulong authority = SyncBus.Current.OwnerClientId;
 			if (NetworkObject.OwnerClientId != authority)
 				NetworkObject.ChangeOwnership(authority);
-		}
-
-		/// <summary>
-		/// Removes this object for everyone. Offline that is a plain destroy; in a session it
-		/// is a request to the authority, which owns every spawned map object.
-		/// </summary>
-		public bool TryDelete()
-		{
-			// Routed through the manager offline as well as in a session: it owns the rule about
-			// when the map may be edited, and a local destroy is just as much of an edit.
-			if (MapManager.Instance != null)
-				return MapManager.Instance.RequestRemoveObject(this);
-
-			if (!NetworkManager.IsConnectedClient)
-			{
-				Destroy(gameObject);
-				return true;
-			}
-
-			return false;
 		}
 
 		public bool CanManage()

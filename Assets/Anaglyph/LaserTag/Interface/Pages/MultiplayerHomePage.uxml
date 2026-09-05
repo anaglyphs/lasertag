@@ -6,6 +6,6 @@
         <ui:Button name="host-button" text="Host new game"/>
         <Anaglyph.Menu.NavButton name="host-settings-button" text="Host settings" target="host-settings-page" />
         <Anaglyph.Menu.NavButton name="manual-connect-button" text="Connect manually" target="manual-connect-page" />
-        <ui:Label name="version" class="version"/>
+        <!-- <ui:Label name="version" class="version"/> -->
     </ui:VisualElement>
 </ui:UXML>

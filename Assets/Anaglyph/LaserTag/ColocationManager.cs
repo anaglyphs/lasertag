@@ -1,5 +1,4 @@
 using System;
-using Anaglyph.LaserTag.Maps;
 using Anaglyph.Netcode.SyncVariables;
 using Anaglyph.XR;
 using Anaglyph.XR.SharedSpaces;
@@ -7,7 +6,6 @@ using Anaglyph.XR.SharedSpaces.AprilTags;
 using Anaglyph.XR.SharedSpaces.SharedAnchors;
 using UnityEngine;
 using UnityEngine.Serialization;
-using UnityEngine.XR;
 
 namespace Anaglyph.LaserTag
 {
@@ -16,7 +14,7 @@ namespace Anaglyph.LaserTag
 	/// stack for the rest of the game — so nothing else has to hold its own references to the
 	/// providers or the colocator, or reason about which of them is live.
 	/// </summary>
-	// Before MapManager (-100), so the providers it hands out are resolved by the time the map
+	// Before LaserTagMapCoordinator (-100), so the providers it hands out are resolved by the time the map
 	// layer builds against them. After the providers themselves (-200), which set their instances.
 	[DefaultExecutionOrder(-150)]
 	public class ColocationManager : MonoBehaviour
@@ -65,31 +63,33 @@ namespace Anaglyph.LaserTag
 		public FitAgreement Agreement => colocator != null ? colocator.Agreement : default;
 
 		/// <summary>
+		/// How far this device currently trusts its own alignment. Finer grained than
+		/// <see cref="IsColocated"/>, which collapses everything but Localized into false.
+		/// </summary>
+		public ColocationAlignmentState AlignmentState =>
+			colocator != null ? colocator.AlignmentState : ColocationAlignmentState.Stopped;
+
+		/// <summary>
 		/// How many of a map's references the active provider could currently produce a constraint
 		/// from. Zero means there is nothing to verify the world frame against, so the frame the
 		/// device is standing in is that map's frame by definition — the same reasoning
 		/// <see cref="Colocator"/> applies to a session with no reference runtime at all.
 		/// </summary>
-		public int CountRealizableReferences(GameMap map)
+		public int CountRealizableReferences(int anchorCount, int taggedAnchorCount)
 		{
-			if (map == null)
-				return 0;
+			if (ActiveProvider == null || !ActiveProvider.IsAvailable) return 0;
+			return UsingTagProvider ? taggedAnchorCount : anchorCount;
+		}
 
-			IColocationConstraintProvider active = ActiveProvider;
-			if (active == null || !active.IsAvailable)
-				return 0;
+		private bool mapLoaded;
+		private bool mapHasTags;
 
-			// Tag mode can only realize this device's tag-backed anchors. Roaming anchors stay in
-			// the map for shared-anchor mode, but must not raise the bar for a provider that can
-			// never expose them.
-			bool tagMode = UsingTagProvider;
-
-			int count = 0;
-			foreach (MapAnchorEntry anchor in map.anchors)
-				if (!tagMode || anchor.tagId >= 0)
-					count++;
-
-			return count;
+		public void ConfigureMap(bool loaded, bool hasTags, Func<bool> mintingGate)
+		{
+			mapLoaded = loaded;
+			mapHasTags = hasTags;
+			if (spatialAnchorColocationProvider) spatialAnchorColocationProvider.MintingGate = mintingGate;
+			UpdateProvider();
 		}
 
 		// True from method-sync (session fully known) until the session ends.
@@ -111,20 +111,10 @@ namespace Anaglyph.LaserTag
 			SyncBus.Deactivated += OnBusDeactivated;
 		}
 
-		private void Start()
-		{
-			if (spatialAnchorColocationProvider)
-				spatialAnchorColocationProvider.MintingGate = () =>
-					MapManager.Instance == null || MapManager.Instance.CheckWorldFrameIsTrusted();
-
-			MapManager.CurrentMapChanged += OnCurrentMapChanged;
-
-			UpdateProvider();
-		}
+		private void Start() => UpdateProvider();
 
 		private void OnDestroy()
 		{
-			MapManager.CurrentMapChanged -= OnCurrentMapChanged;
 
 			if (colocator)
 				colocator.SetProvider(null);
@@ -172,11 +162,6 @@ namespace Anaglyph.LaserTag
 			UpdateProvider();
 		}
 
-		private void OnCurrentMapChanged(GameMap map)
-		{
-			UpdateProvider();
-		}
-
 		/// <summary>
 		/// Selects exactly one self-contained provider. Offline, tag mode is valid only for a map
 		/// that contains registered tags; in a session it is selected regardless, so an empty map
@@ -186,13 +171,12 @@ namespace Anaglyph.LaserTag
 		/// </summary>
 		private void UpdateProvider()
 		{
-			GameMap map = MapManager.Instance != null ? MapManager.Instance.CurrentMap : null;
 			IColocationConstraintProvider next = null;
 
 			if (spatialAnchorColocationProvider)
-				spatialAnchorColocationProvider.RoamingMintEnabled = map != null && !map.HasTags;
+				spatialAnchorColocationProvider.RoamingMintEnabled = mapLoaded && !mapHasTags;
 
-			if (map != null)
+			if (mapLoaded)
 			{
 				if (SelectedMethod == ColocationMethod.AprilTag)
 				{
@@ -200,7 +184,7 @@ namespace Anaglyph.LaserTag
 					// tag provider even for a map with no tags yet. That is what lets a peer
 					// register the first one into an empty map: the provider has to be the one
 					// holding tag state for anybody's registration to reach the map.
-					if (map.HasTags || SyncBus.Active)
+					if (mapHasTags || SyncBus.Active)
 						next = aprilTagColocationProvider;
 				}
 				else
@@ -251,14 +235,8 @@ namespace Anaglyph.LaserTag
 		// IsColocated can go false mid-session rather than only when the session ends.
 		private void OnColocatorStateChanged(ColocationAlignmentState alignmentState)
 		{
-#if UNITY_EDITOR
-			if (!XRSettings.isDeviceActive)
-			{
-				SetColocated(true);
-				return;
-			}
-#endif
-			
+			// The solver already handles runtimes without reference support. Simulated XR
+			// must satisfy the same alignment state that telemetry reports to the operator.
 			SetColocated(alignmentState == ColocationAlignmentState.Localized);
 		}
 

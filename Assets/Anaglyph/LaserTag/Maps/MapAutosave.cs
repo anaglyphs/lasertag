@@ -10,7 +10,7 @@ namespace Anaglyph.LaserTag.Maps
 	/// through here, so a drag that touches an object every frame costs one write rather than
 	/// one per frame.
 	///
-	/// Trailing edge: the first schedule starts the window and later ones ride it, so a
+	/// The first schedule starts the window and later ones ride it, so a
 	/// continuous stream of edits still reaches disk every <c>debounceSeconds</c>.
 	/// </summary>
 	internal sealed class MapAutosave : IDisposable

@@ -1,7 +1,9 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
     <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+    <Style src="/Assets/Anaglyph/LaserTag/Interface/HUD/ScoreDisplay.uss"/>
     <ui:VisualElement class="page-template-root">
         <Anaglyph.Menu.NavHeader title="Playing match"/>
+        <Anaglyph.LaserTag.Interface.HUD.ScoreDisplay/>
         <ui:Button name="stop-button" text="Stop match" class="destructive"/>
     </ui:VisualElement>
 </ui:UXML>

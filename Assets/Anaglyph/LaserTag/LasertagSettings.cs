@@ -9,7 +9,6 @@ namespace Anaglyph.LaserTag
 	public class LasertagSettings : MonoBehaviour
 	{
 		[SerializeField] private BoolObject aprilTagColocation;
-		[SerializeField] private FloatObject aprilTagSize;
 		[SerializeField] private BoolObject boundary;
 		[SerializeField] private BoolObject damagedRedVision;
 		[SerializeField] private BoolObject lightEffects;
@@ -17,12 +16,6 @@ namespace Anaglyph.LaserTag
 
 		private void Start()
 		{
-			// Keep the provider's offline/host setting current even while shared-anchor
-			// colocation is selected. Enabling AprilTags later must not inherit the
-			// provider prefab's unconfigured zero value.
-			aprilTagSize.AddChangeListenerAndCheck(s =>
-				AprilTagColocationConstraintProvider.Instance.HostTagSizeCm = s);
-
 			aprilTagColocation.AddChangeListenerAndCheck(b =>
 			{
 				if (b)

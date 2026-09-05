@@ -64,7 +64,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5a74eb28e4d5e4fb0b882f535ea6dad8, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.MapManager
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.LaserTagMapCoordinator
   colocationManager: {fileID: 6911126833990273307}
   objectDatabase: {fileID: 11400000, guid: 93790f38bf42f48f9baa20fd8c0411a3, type: 2}
   probeTimeoutSeconds: 8
@@ -146,7 +146,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 957d6c28a25734df4b30a5e6455a7ef6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.XRTemplate.SharedSpaces::Anaglyph.XRTemplate.SharedSpaces.TagConstraintProvider
-  tagSizeCmHostSetting: 0
   lockDistanceScale: 50
   maxHeadSpeed: 2
   maxHeadAngSpeed: 2

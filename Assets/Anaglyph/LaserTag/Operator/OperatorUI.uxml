@@ -5,15 +5,13 @@
     <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
     <Style src="project://database/Assets/Anaglyph/LaserTag/Operator/style.uss?fileID=7433441132597879392&amp;guid=50e7e683e56714de0b0ad7967c86b879&amp;type=3#style"/>
     <ui:VisualElement name="root" style="flex-grow: 1;">
-        <ui:TwoPaneSplitView name="sidebar-split" orientation="Horizontal" fixed-pane-index="0" fixed-pane-initial-dimension="400">
-            <ui:VisualElement name="sidebar" style="width: auto; min-width: 300px;">
-                <Anaglyph.Menu.NavView first-page="network-page" name="network-nav" class="menu-root">
+        <ui:TwoPaneSplitView name="root-split" orientation="Horizontal" fixed-pane-index="0" fixed-pane-initial-dimension="400">
+            <ui:TwoPaneSplitView name="sidebar-split" orientation="Vertical" fixed-pane-index="0" fixed-pane-initial-dimension="400">
+                <Anaglyph.Menu.NavView first-page="network-page" name="network-nav" class="menu-root" style="height: auto; min-height: 400px;">
                     <Anaglyph.Menu.NavPage name="network-page" show-back-button="false">
                         <ui:VisualElement class="page-template-root">
                             <Anaglyph.Menu.NavHeader title="Operator"/>
                             <ui:Label name="session-state" text="Starting..."/>
-                            <ui:Label name="client-count" text="Not hosting" class="body-copy"/>
-                            <ui:ScrollView name="client-list"/>
                             <ui:Label name="session-address" class="body-copy"/>
                             <ui:Label name="local-address" class="body-copy"/>
                             <ui:Button name="host-button" text="Start hosting"/>
@@ -21,16 +19,7 @@
                         </ui:VisualElement>
                     </Anaglyph.Menu.NavPage>
                 </Anaglyph.Menu.NavView>
-            </ui:VisualElement>
-            <ui:TwoPaneSplitView name="main-split" orientation="Horizontal" fixed-pane-index="0" fixed-pane-initial-dimension="360">
-                <ui:TabView name="tabs" class="menu-root" style="min-width: 300px; width: auto;">
-                    <ui:Tab label="Maps" name="maps-tab">
-                        <Anaglyph.Menu.NavView name="maps-nav" first-page="maps-page">
-                            <Anaglyph.Menu.NavPage name="maps-page">
-                                <ui:Instance template="GameMapManagerPage"/>
-                            </Anaglyph.Menu.NavPage>
-                        </Anaglyph.Menu.NavView>
-                    </ui:Tab>
+                <ui:TabView name="tabs" class="menu-root" style="min-width: auto; width: auto; top: 0; min-height: 400px;">
                     <ui:Tab label="Match page" name="match-tab">
                         <Anaglyph.Menu.NavView name="match-nav" first-page="match-page">
                             <Anaglyph.Menu.NavPage name="match-page">
@@ -41,8 +30,21 @@
                             </Anaglyph.Menu.NavPage>
                         </Anaglyph.Menu.NavView>
                     </ui:Tab>
+                    <ui:Tab label="Maps" name="maps-tab">
+                        <Anaglyph.Menu.NavView name="maps-nav" first-page="maps-page">
+                            <Anaglyph.Menu.NavPage name="maps-page">
+                                <ui:Instance template="GameMapManagerPage"/>
+                            </Anaglyph.Menu.NavPage>
+                        </Anaglyph.Menu.NavView>
+                    </ui:Tab>
                 </ui:TabView>
-                <ui:VisualElement name="viewport"/>
+            </ui:TwoPaneSplitView>
+            <ui:TwoPaneSplitView name="main-split" orientation="Vertical" fixed-pane-index="0" fixed-pane-initial-dimension="360">
+                <ui:VisualElement name="viewport" style="height: auto; min-width: 400px; min-height: 400px;"/>
+                <ui:VisualElement name="client-list-panel" class="menu-root" style="flex-grow: 1; min-height: 100px; min-width: 400px;">
+                    <ui:Label name="client-count" text="Not hosting" class="body-copy"/>
+                    <ui:ScrollView name="client-list"/>
+                </ui:VisualElement>
             </ui:TwoPaneSplitView>
         </ui:TwoPaneSplitView>
     </ui:VisualElement>

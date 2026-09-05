@@ -9,243 +9,220 @@ using UnityEngine;
 namespace Anaglyph.LaserTag.Maps
 {
 	/// <summary>
-	/// The map's gameplay objects: placing and removing them across the session, populating the
-	/// world from a loaded map, and snapshotting the world back into one.
-	///
-	/// Only the session authority spawns map objects — that is what lets one peer clear and
-	/// repopulate the world when the map changes — so in a session a placement is a request, and
-	/// offline it is a plain instantiate.
+	/// Projects object placements into the scene and captures the authority's authored world.
+	/// Retired objects are excluded immediately, even when NGO ownership delays their despawn.
+	/// Clients persist the complete document from MapSessionSync, never a partial spawned scene.
 	/// </summary>
 	internal sealed class MapObjectDirector
 	{
-		private struct MapObjectPlacement
+		private struct Placement
 		{
+			public Guid mapId;
 			public FixedString64Bytes prefabId;
+			public Pose pose;
+		}
+
+		private struct ObjectRequest
+		{
+			public Guid mapId;
+			public ulong objectId;
 			public Pose pose;
 		}
 
 		private readonly MapObjectDatabase database;
 		private readonly Action contentChanged;
+		private readonly Func<bool> canEdit;
+		private readonly SyncEvent<Placement> placeRequest = new("map.object.place", EventRoute.ToAuthority);
+		private readonly SyncEvent<ObjectRequest> removeRequest = new("map.object.remove", EventRoute.ToAuthority);
+		private readonly SyncEvent<ObjectRequest> moveRequest = new("map.object.move", EventRoute.ToAuthority);
+		private readonly HashSet<MapObject> retired = new();
+		private readonly List<MapObjectEntry> unresolved = new();
+		private Guid mapId;
 
-		private readonly SyncEvent<MapObjectPlacement> placeRequest =
-			new("map.object.place", EventRoute.ToAuthority);
-		private readonly SyncEvent<ulong> removeRequest =
-			new("map.object.remove", EventRoute.ToAuthority);
-
-		private readonly List<MapObject> objectScratch = new();
-
-		private bool isQuitting;
-
-		/// <param name="contentChanged">Raised when this device's authority acts on a peer's
-		/// place or remove request, which diverges the authority's copy of the map.</param>
-		public MapObjectDirector(MapObjectDatabase database, Action contentChanged)
+		public MapObjectDirector(MapObjectDatabase database, Action contentChanged, Func<bool> canEdit)
 		{
 			this.database = database;
-			this.contentChanged = contentChanged ?? throw new ArgumentNullException(nameof(contentChanged));
+			this.contentChanged = contentChanged;
+			this.canEdit = canEdit;
 		}
 
+		public void SetMapId(string id) => Guid.TryParse(id, out mapId);
+		public bool IsReplacementComplete => retired.Count == 0;
 		public void Register()
 		{
 			placeRequest.Register();
-			placeRequest.Received += OnPlaceRequested;
 			removeRequest.Register();
+			moveRequest.Register();
+			placeRequest.Received += OnPlaceRequested;
 			removeRequest.Received += OnRemoveRequested;
+			moveRequest.Received += OnMoveRequested;
+			MapObject.Removed += OnRemoved;
 		}
 
 		public void Unregister()
 		{
-			removeRequest.Received -= OnRemoveRequested;
-			removeRequest.Unregister();
+			MapObject.Removed -= OnRemoved;
 			placeRequest.Received -= OnPlaceRequested;
+			removeRequest.Received -= OnRemoveRequested;
+			moveRequest.Received -= OnMoveRequested;
 			placeRequest.Unregister();
+			removeRequest.Unregister();
+			moveRequest.Unregister();
 		}
 
-		/// <summary>
-		/// Map objects are still alive during OnApplicationQuit, so that is the last save which
-		/// can record them; every save after it runs against a world being torn down.
-		/// </summary>
-		public void MarkQuitting() => isQuitting = true;
-
-		// ------- placement ---------------------------------------
-
-		public void RequestPlace(MapObject prefab, Vector3 position, Quaternion rotation)
+		private void OnRemoved(MapObject obj) => retired.Remove(obj);
+		public bool RequestPlace(MapObject prefab, Vector3 position, Quaternion rotation)
 		{
-			if (prefab == null)
-				return;
-
+			if (!prefab || string.IsNullOrEmpty(prefab.PrefabId))
+				return false;
 			if (!SyncBus.Active)
 			{
 				UnityEngine.Object.Instantiate(prefab.gameObject, position, rotation);
-				return;
+				contentChanged();
+				return true;
 			}
-
-			if (string.IsNullOrEmpty(prefab.PrefabId))
-			{
-				Debug.LogError($"Map object prefab '{prefab.name}' has no prefab id, so no peer " +
-					"can resolve it.", prefab);
-				return;
-			}
-
-			MapObjectPlacement placement = new() { pose = new Pose(position, rotation) };
+			Placement placement = new() { mapId = mapId, pose = new Pose(position, rotation) };
 			placement.prefabId.CopyFromTruncated(prefab.PrefabId);
 			placeRequest.Raise(placement);
+			return true;
 		}
 
-		public void RequestRemove(MapObject obj)
+		public bool RequestRemove(MapObject obj)
 		{
-			if (obj == null)
-				return;
-
-			// Local-only leftovers never reached the network, so no peer has to be told.
+			if (!obj || retired.Contains(obj))
+				return false;
 			if (!SyncBus.Active || !obj.NetworkObject.IsSpawned)
 			{
-				UnityEngine.Object.Destroy(obj.gameObject);
-				return;
+				Retire(obj);
+				contentChanged();
+				return true;
 			}
-
-			removeRequest.Raise(obj.NetworkObject.NetworkObjectId);
+			removeRequest.Raise(new ObjectRequest { mapId = mapId, objectId = obj.NetworkObject.NetworkObjectId });
+			return true;
 		}
 
-		private void OnPlaceRequested(ulong sender, MapObjectPlacement placement)
+		public void RequestMove(MapObject obj)
 		{
-			if (database == null || NetworkManager.Singleton == null)
+			if (!obj || retired.Contains(obj))
 				return;
-
-			string prefabId = placement.prefabId.ToString();
-			MapObject prefab = database.FindPrefab(prefabId);
-			if (prefab == null)
+			if (!SyncBus.Active)
 			{
-				Debug.LogWarning($"Peer {sender} asked to place unknown prefab '{prefabId}'.");
+				contentChanged();
 				return;
 			}
+			moveRequest.Raise(new ObjectRequest
+			{
+				mapId = mapId, objectId = obj.NetworkObject.NetworkObjectId,
+				pose = new Pose(obj.transform.position, obj.transform.rotation)
+			});
+		}
 
+		private void OnPlaceRequested(ulong sender, Placement placement)
+		{
+			if (placement.mapId != mapId || !canEdit() || !Finite(placement.pose))
+				return;
+			MapObject prefab = database ? database.FindPrefab(placement.prefabId.ToString()) : null;
+			if (!prefab || !NetworkManager.Singleton)
+				return;
 			NetworkObject.InstantiateAndSpawn(prefab.gameObject, NetworkManager.Singleton,
-				ownerClientId: SyncBus.LocalClientId,
-				position: placement.pose.position, rotation: placement.pose.rotation);
-
+				ownerClientId: SyncBus.LocalClientId, position: placement.pose.position, rotation: placement.pose.rotation);
 			contentChanged();
 		}
 
-		private void OnRemoveRequested(ulong sender, ulong networkObjectId)
+		private bool TryResolve(ObjectRequest request, out MapObject obj)
 		{
+			obj = null;
 			NetworkManager manager = NetworkManager.Singleton;
-			if (manager == null || manager.SpawnManager == null)
-				return;
+			return request.mapId == mapId && canEdit() && manager && manager.SpawnManager != null &&
+				manager.SpawnManager.SpawnedObjects.TryGetValue(request.objectId, out NetworkObject spawned) &&
+				spawned.TryGetComponent(out obj) && !retired.Contains(obj);
+		}
 
-			if (!manager.SpawnManager.SpawnedObjects.TryGetValue(
-				    networkObjectId, out NetworkObject spawned))
+		private void OnRemoveRequested(ulong sender, ObjectRequest request)
+		{
+			if (!TryResolve(request, out MapObject obj))
 				return;
-
-			// Only map objects are removable this way; the id arrives from a peer and would
-			// otherwise be a despawn primitive for any NetworkObject in the session.
-			if (!spawned.TryGetComponent(out MapObject mapObject))
-			{
-				Debug.LogWarning($"Peer {sender} asked to remove a non-map object.");
-				return;
-			}
-
-			mapObject.RemoveIfPermitted();
+			Retire(obj);
 			contentChanged();
 		}
 
-		// ------- world <-> map -----------------------------------
-
-		/// <summary>
-		/// Whether <see cref="MapObject.All"/> currently describes the world. It does not while
-		/// the app is quitting or a network shutdown is despawning objects: the list empties
-		/// through teardown rather than through an edit, and snapshotting it then would persist
-		/// a map with no objects in it.
-		/// </summary>
-		public bool CanSnapshot
+		private void OnMoveRequested(ulong sender, ObjectRequest request)
 		{
-			get
-			{
-				if (isQuitting)
-					return false;
-
-				NetworkManager manager = NetworkManager.Singleton;
-				return manager == null || !manager.ShutdownInProgress;
-			}
+			if (!TryResolve(request, out MapObject obj) || !Finite(request.pose))
+				return;
+			obj.transform.SetPositionAndRotation(request.pose.position, request.pose.rotation);
+			contentChanged();
 		}
 
-		public void Snapshot(GameMap map)
+		private static bool Finite(Pose pose) =>
+			Finite(pose.position.x) && Finite(pose.position.y) && Finite(pose.position.z) &&
+			Finite(pose.rotation.x) && Finite(pose.rotation.y) && Finite(pose.rotation.z) && Finite(pose.rotation.w);
+		private static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
+
+		public bool TryCapture(out List<MapObjectEntry> result)
 		{
-			if (map == null)
-				return;
+			result = null;
+			NetworkManager manager = NetworkManager.Singleton;
+			if (manager && manager.ShutdownInProgress)
+				return false;
+			result = Capture(false);
+			return true;
+		}
 
-			// A client's world is populated entirely by the authority's spawns, so an empty one
-			// nearly always means they have not arrived yet — during a join above all, where the
-			// world is deliberately cleared first. Overwriting a saved list with that would empty
-			// this device's copy of the map. The next snapshot with objects in it corrects a map
-			// the host really did empty.
-			if (MapObject.All.Count == 0 && map.objects.Count > 0 &&
-			    SyncBus.Active && !SyncBus.IsAuthority)
-				return;
+		public List<MapObjectEntry> CaptureLocal() => Capture(localOnly: true);
 
-			map.objects.Clear();
+		private List<MapObjectEntry> Capture(bool localOnly)
+		{
+			List<MapObjectEntry> result = new(unresolved);
 			foreach (MapObject obj in MapObject.All)
 			{
-				if (!obj)
+				if (!obj || retired.Contains(obj) || (localOnly && !obj.IsLocalOnly) || string.IsNullOrEmpty(obj.PrefabId))
 					continue;
-
-				if (string.IsNullOrEmpty(obj.PrefabId))
-				{
-					Debug.LogWarning($"Map object '{obj.name}' has no prefab id; not saving it.");
-					continue;
-				}
-
-				Transform transform = obj.transform;
-				map.objects.Add(new MapObjectEntry
-				{
-					prefabId = obj.PrefabId,
-					pose = new Pose(transform.position, transform.rotation),
-				});
+				result.Add(new MapObjectEntry { prefabId = obj.PrefabId, pose = new Pose(obj.transform.position, obj.transform.rotation) });
 			}
+			return result;
 		}
 
-		public void Instantiate(GameMap map)
+		public void Replace(IReadOnlyList<MapObjectEntry> placements)
 		{
-			if (map == null)
-				return;
-
-			foreach (MapObjectEntry entry in map.objects)
-			{
-				MapObject prefab = database != null ? database.FindPrefab(entry.prefabId) : null;
-
-				if (prefab == null)
-				{
-					Debug.LogWarning($"Map references unknown prefab '{entry.prefabId}'.");
-					continue;
-				}
-
-				UnityEngine.Object.Instantiate(
-					prefab.gameObject, entry.pose.position, entry.pose.rotation);
-			}
-		}
-
-		public void RemoveAll()
-		{
-			objectScratch.Clear();
-			objectScratch.AddRange(MapObject.All);
-
-			foreach (MapObject obj in objectScratch)
+			// Retire before instantiating so callbacks cannot capture a mixture of both maps.
+			foreach (MapObject obj in new List<MapObject>(MapObject.All))
 				if (obj)
-					obj.RemoveIfPermitted();
-
-			objectScratch.Clear();
+					Retire(obj);
+			unresolved.Clear();
+			foreach (MapObjectEntry entry in placements)
+			{
+				MapObject prefab = database ? database.FindPrefab(entry.prefabId) : null;
+				if (!prefab)
+				{
+					unresolved.Add(entry);
+					Debug.LogWarning($"Map references unknown prefab '{entry.prefabId}'; preserving its saved placement.");
+					continue;
+				}
+				UnityEngine.Object.Instantiate(prefab.gameObject, entry.pose.position, entry.pose.rotation);
+			}
 		}
 
-		/// <summary>Network-spawns the objects placed offline, as this device starts hosting.</summary>
+		public void RemoveLocalObjects()
+		{
+			unresolved.Clear();
+			foreach (MapObject obj in new List<MapObject>(MapObject.All))
+				if (obj && obj.IsLocalOnly)
+					Retire(obj);
+		}
+
+		private void Retire(MapObject obj)
+		{
+			if (!retired.Add(obj))
+				return;
+			obj.RemoveIfPermitted();
+		}
+
 		public void SpawnLocalObjects()
 		{
-			objectScratch.Clear();
-			objectScratch.AddRange(MapObject.All);
-
-			foreach (MapObject obj in objectScratch)
-				if (obj)
+			foreach (MapObject obj in new List<MapObject>(MapObject.All))
+				if (obj && !retired.Contains(obj))
 					obj.SpawnIfLocal();
-
-			objectScratch.Clear();
 		}
 	}
 }

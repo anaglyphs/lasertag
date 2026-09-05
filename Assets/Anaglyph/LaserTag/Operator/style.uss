@@ -5,10 +5,55 @@
 }
 
 .client-row {
-    white-space: normal;
-    -unity-text-align: middle-left;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
     margin-top: 2px;
     margin-bottom: 2px;
+}
+
+.client-row__name {
+    -unity-font-style: bold;
+    margin-right: 6px;
+}
+
+.client-row__detail {
+    margin-left: 4px;
+    opacity: 0.7;
+}
+
+/* Status pill. The fill carries the reading, so the text sits dark on top of it. */
+.chip {
+    margin-right: 4px;
+    padding-left: 6px;
+    padding-right: 6px;
+    padding-top: 1px;
+    padding-bottom: 1px;
+    /*border-radius: 7px;*/
+    color: rgb(0, 12, 24);
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.chip--good {
+    background-color: rgb(76, 196, 112);
+}
+
+.chip--fair {
+    background-color: rgb(226, 199, 74);
+}
+
+.chip--low {
+    background-color: rgb(238, 148, 58);
+}
+
+.chip--critical {
+    background-color: rgb(228, 79, 70);
+}
+
+.chip--unknown {
+    background-color: rgb(86, 102, 118);
+    color: rgb(214, 229, 245);
 }
 
 #sidebar {
@@ -53,4 +98,12 @@
     height: 12px;
     width: 100%;
     top: -4px;
+}
+
+/* A tab and the strip that holds it size to their content, so a page inside one
+   never gets a height to divide up and any flex-basis:0 list in it collapses. */
+.unity-tab-view__content-container,
+.unity-tab {
+    flex-grow: 1;
+    min-height: 0;
 }

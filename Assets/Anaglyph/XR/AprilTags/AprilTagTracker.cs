@@ -187,7 +187,9 @@ namespace Anaglyph.XR.AprilTags
 						throw new Exception("unsupported image format");
 				}
 
-				await detector.Detect(processedImg, fov, tagSizeMeters);
+				float tagSizeMetersClamped = Mathf.Max(tagSizeMeters, 0.01f);
+
+				await detector.Detect(processedImg, fov, tagSizeMetersClamped);
 
 				worldPoses.Clear();
 				

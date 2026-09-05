@@ -1,0 +1,129 @@
+/* Everything below is authored against ScoreDisplay's 200x130 design box and
+   scaled to fit at runtime, so these lengths are design units, not screen px. */
+
+.score-display {
+    width: 200px;
+    height: 130px;
+    align-self: center;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Fill the parent instead of holding the design size, for panels that are
+   sized by something other than this element. */
+.score-display--fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    height: auto;
+}
+
+.score-display__content {
+    width: 200px;
+    height: 130px;
+    flex-shrink: 0;
+}
+
+.score-display__mode {
+    position: absolute;
+    top: 0;
+    height: 100px;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+
+.score-display__mode--score {
+    left: 0;
+    width: 200px;
+    background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/HUD/Graphics/mountain.svg?fileID=7388822144124034973&guid=f4f9b78a62ecd4501bea149ca4d080ed&type=3#mountain");
+}
+
+.score-display__mode--timer {
+    left: 50px;
+    width: 100px;
+    background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/HUD/Graphics/hourglass.svg?fileID=7388822144124034973&guid=d076fd1c710a34cfdaf4b1a4108a24ed&type=3#hourglass");
+}
+
+/* Score goal: scores sit on the mountain's two slopes */
+
+.score-display__goal-score {
+    position: absolute;
+    top: 50%;
+    margin: 0;
+    font-size: 53px;
+    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINish-Bold%20SDF.asset?fileID=11400000&guid=8f12ac5503c834d83955609ac10517a8&type=2#DINish-Bold SDF");
+}
+
+.score-display__goal-score--blue {
+    left: 0;
+    translate: 0 -65%;
+    -unity-text-align: lower-left;
+}
+
+.score-display__goal-score--red {
+    right: 0;
+    translate: 0 -63%;
+    font-size: 48px;
+    -unity-text-align: lower-right;
+}
+
+.score-display__goal-target {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% 10px;
+    width: 70px;
+    margin: 0;
+    font-size: 24px;
+    -unity-text-align: middle-center;
+    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishExpanded-Bold%20SDF.asset?fileID=11400000&guid=4bacbaffe155141a4a77227946fea209&type=2#DINishExpanded-Bold SDF");
+}
+
+/* Timer: scores flank the hourglass and may overhang the mode box */
+
+.score-display__timer-score {
+    position: absolute;
+    top: 50%;
+    width: auto;
+    margin: 0;
+    font-size: 52px;
+    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINish-Bold%20SDF.asset?fileID=11400000&guid=8f12ac5503c834d83955609ac10517a8&type=2#DINish-Bold SDF");
+}
+
+.score-display__timer-score--blue {
+    right: 50%;
+    translate: -40px -50%;
+    -unity-text-align: middle-left;
+}
+
+.score-display__timer-score--red {
+    left: 50%;
+    translate: 40px -50%;
+    -unity-text-align: middle-right;
+}
+
+.score-display__timer-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    margin: 0;
+    font-size: 30px;
+    -unity-text-align: middle-center;
+    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishExpanded-Bold%20SDF.asset?fileID=11400000&guid=4bacbaffe155141a4a77227946fea209&type=2#DINishExpanded-Bold SDF");
+}
+
+.score-display__round {
+    position: absolute;
+    top: 105px;
+    left: 0;
+    right: 0;
+    margin: 0;
+    font-size: 22px;
+    -unity-text-align: middle-center;
+    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishExpanded-Bold%20SDF.asset?fileID=11400000&guid=4bacbaffe155141a4a77227946fea209&type=2#DINishExpanded-Bold SDF");
+}
