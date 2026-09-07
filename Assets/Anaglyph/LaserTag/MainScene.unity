@@ -609,9 +609,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f24e0ebac2154004a90f7752c420a285, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  xrSimulation: 0
-  xrRig: {fileID: 5922542169172391784, guid: 273bd9666001ba74c97ca436668c4657, type: 3}
-  desktopRig: {fileID: 6129090928959498420, guid: 470fb36d558514380a685c508b1c6483, type: 3}
+  xrSimulation: 1
+  xrModePrefab: {fileID: 5922542169172391784, guid: 273bd9666001ba74c97ca436668c4657, type: 3}
+  desktopOperatorModePrefab: {fileID: 6129090928959498420, guid: 470fb36d558514380a685c508b1c6483, type: 3}
   arFoundationSimulator: {fileID: 8135023674665499069, guid: 58d0a4ac86f2348deb02f3880c71378e, type: 3}
 --- !u!114 &6057741382313873992
 MonoBehaviour:
@@ -654,7 +654,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 56e51b6268c654562bc102ac5c5e5b96, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.LasertagSettings
-  aprilTagColocation: {fileID: 11400000, guid: 47b47a4c1dcf98e4a9c4022fa9722c2b, type: 2}
   boundary: {fileID: 11400000, guid: c539fa1bb3492bd42a06694c6c4a2f23, type: 2}
   damagedRedVision: {fileID: 11400000, guid: b813fbe3231576640b9402131ed4d833, type: 2}
   lightEffects: {fileID: 11400000, guid: 5390df5bc7d02f14081ac7755da55437, type: 2}

@@ -283,7 +283,8 @@ namespace Anaglyph.LaserTag.Maps
 
 			try
 			{
-				map = JsonUtility.FromJson<GameMap>(File.ReadAllText(path));
+				string json = File.ReadAllText(path);
+				map = JsonUtility.FromJson<GameMap>(json);
 
 				if (map == null || !Guid.TryParseExact(map.id, "N", out _))
 				{
@@ -295,6 +296,12 @@ namespace Anaglyph.LaserTag.Maps
 				map.objects ??= new();
 				map.tags ??= new();
 				map.anchors ??= new();
+				// Old maps had capability but no preference. Preserve tag maps' authoring flow.
+				if (!json.Contains("\"preferredColocationMethod\"") ||
+					(map.preferredColocationMethod != ColocationManager.ColocationMethod.MetaSharedAnchor &&
+					 map.preferredColocationMethod != ColocationManager.ColocationMethod.AprilTag))
+					map.preferredColocationMethod = map.HasTags
+						? ColocationManager.ColocationMethod.AprilTag : ColocationManager.ColocationMethod.MetaSharedAnchor;
 				if (!Guid.TryParseExact(map.version, "N", out _)) map.version = Guid.NewGuid().ToString("N");
 				error = null;
 				return true;

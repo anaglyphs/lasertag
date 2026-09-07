@@ -1,0 +1,10 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+    <ui:VisualElement class="page-template-root">
+        <Anaglyph.Menu.NavHeader title="Host settings"/>
+        <ui:ScrollView>
+            <!-- <ui:Toggle name="host-on-relay-toggle" text="Relay server"/> -->
+            <!-- <ui:Label name="host-on-relay-warning" text="Relay hosting requires a full internet connection." class="warning" style="display: none;"/> -->
+        </ui:ScrollView>
+    </ui:VisualElement>
+</ui:UXML>

@@ -98,6 +98,8 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		private readonly SyncDictionary<int, Pose> registeredTags =
 			new("colocation.tags.canon");
 		public IReadOnlyDictionary<int, Pose> RegisteredTags => registeredTags;
+		public int LocalAnchorCount => localAnchors.Count;
+		public Func<ulong, int, Pose, bool> RegistrationGate { get; set; }
 
 		public event Action TagsChanged = delegate { };
 
@@ -339,11 +341,11 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		/// A registered pose becomes every peer's alignment target and is written into their maps,
 		/// so a garbage one would take the whole session's frame with it.
 		/// </summary>
-		private static bool ValidateTagRegistration(ulong sender, int tagId, Pose canonPose)
+		private bool ValidateTagRegistration(ulong sender, int tagId, Pose canonPose)
 		{
 			Quaternion rotation = canonPose.rotation;
 
-			return tagId >= 0 &&
+			return (RegistrationGate == null || RegistrationGate(sender, tagId, canonPose)) && tagId >= 0 &&
 			       IsFinite(canonPose.position.x) && IsFinite(canonPose.position.y) &&
 			       IsFinite(canonPose.position.z) &&
 			       IsFinite(rotation.x) && IsFinite(rotation.y) &&

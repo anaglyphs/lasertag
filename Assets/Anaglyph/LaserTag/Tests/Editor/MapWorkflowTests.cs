@@ -6,6 +6,60 @@ namespace Anaglyph.LaserTag.Tests
 {
 	public class MapWorkflowTests
 	{
+		[Test]
+		public void AnchorOnlyMapCannotBootstrapANewFrameThroughAnEmptyTagProvider()
+		{
+			Assert.That(MapPolicy.CanBootstrapFrame(false, 1, false, true, false), Is.False);
+			Assert.That(MapPolicy.CanBootstrapFrame(false, 1, false, true, true), Is.False);
+			Assert.That(MapPolicy.CanBootstrapFrame(false, 0, false, true, false), Is.False);
+		}
+
+		[Test]
+		public void BlankMapsCanRegisterTheirFirstTagButRegisteredTagsMustBeLocalized()
+		{
+			Assert.That(MapPolicy.CanBootstrapFrame(false, 0, true, true, false), Is.True);
+			Assert.That(MapPolicy.CanBootstrapFrame(false, 0, true, true, true), Is.True);
+			Assert.That(MapPolicy.CanBootstrapFrame(true, 0, false, true, true), Is.False);
+			// Placing the first object must not prevent an offline author minting its first anchor.
+			Assert.That(MapPolicy.CanBootstrapFrame(false, 0, false, false, true), Is.True);
+		}
+
+		[TestCase(MapPhase.Hosting)]
+		[TestCase(MapPhase.FollowingSession)]
+		public void AnySessionPeerCanRequestAMethodChangeBetweenRounds(MapPhase phase)
+		{
+			Assert.That(Policy(phase).ColocationMethodBlocker(true), Is.Null);
+			Assert.That(Policy(phase, playing: true).ColocationMethodBlocker(false), Is.Not.Null);
+			Assert.That(Policy(phase, holding: true).ColocationMethodBlocker(false), Is.Not.Null);
+			Assert.That(Policy(phase, hasTags: false).ColocationMethodBlocker(true), Is.Not.Null);
+			// An unaligned client can request a working alternative rather than being locked out.
+			Assert.That(Policy(phase, aligned: false).ColocationMethodBlocker(false), Is.Null);
+		}
+
+		[TestCase(MapPhase.Local)]
+		[TestCase(MapPhase.Hosting)]
+		[TestCase(MapPhase.FollowingSession)]
+		public void PreferenceCanBeSavedBeforeTagsExistOrAlignmentCompletes(MapPhase phase)
+		{
+			Assert.That(Policy(phase, hasTags: false, aligned: false).ColocationPreferenceBlocker, Is.Null);
+			Assert.That(Policy(phase, playing: true).ColocationPreferenceBlocker, Is.Not.Null);
+			Assert.That(Policy(phase, holding: true).ColocationPreferenceBlocker, Is.Not.Null);
+			Assert.That(Policy(phase, hasTags: false, empty: true).ColocationMethodBlocker(true), Is.Null);
+		}
+
+		[Test]
+		public void InitialMethodUsesExistingReferencesWithoutRedefiningTheMap()
+		{
+			Assert.That(ColocationManager.CompatibleMethod(ColocationManager.ColocationMethod.AprilTag,
+				false, true, true), Is.EqualTo(ColocationManager.ColocationMethod.MetaSharedAnchor));
+			Assert.That(ColocationManager.CompatibleMethod(ColocationManager.ColocationMethod.MetaSharedAnchor,
+				true, true, false), Is.EqualTo(ColocationManager.ColocationMethod.AprilTag));
+			Assert.That(ColocationManager.CompatibleMethod(ColocationManager.ColocationMethod.AprilTag,
+				false, false, false), Is.EqualTo(ColocationManager.ColocationMethod.AprilTag));
+			Assert.That(ColocationManager.CompatibleMethod(ColocationManager.ColocationMethod.MetaSharedAnchor,
+				true, true, true), Is.EqualTo(ColocationManager.ColocationMethod.MetaSharedAnchor));
+		}
+
 		private static MapPolicy Policy(MapPhase phase, bool aligned = true, bool hasMap = true,
 			bool empty = false, bool hasTags = true, bool holding = false,
 			bool playing = false, bool usesTags = true) => new(
@@ -116,13 +170,13 @@ namespace Anaglyph.LaserTag.Tests
 		}
 
 		[Test]
-		public void ChangingMapsRespectsRoundsRoomPresenceAndSessionTagRequirements()
+		public void ChangingMapsRespectsRoundsAndRoomPresenceButAllowsDifferentMethods()
 		{
 			var target = new GameMap();
 			Assert.That(Policy(MapPhase.Hosting, playing: true).ChangeMapBlocker(target, false, MapPresence.Unknown),
 				Is.EqualTo("Not during a round"));
 			Assert.That(Policy(MapPhase.Hosting).ChangeMapBlocker(target, false, MapPresence.Unknown),
-				Is.EqualTo("Session uses tags; this map has none"));
+				Is.Null);
 			Assert.That(Policy(MapPhase.Local).ChangeMapBlocker(target, false, MapPresence.Unknown), Is.Null);
 			Assert.That(Policy(MapPhase.Local).ChangeMapBlocker(target, false, MapPresence.Elsewhere), Is.Not.Null);
 		}

@@ -15,6 +15,7 @@ namespace Anaglyph.LaserTag.Interface
 		private NavPage editingMapPage;
 
 		private MatchSettingsBinder matchSettings;
+		private MapEditingMenuBinder mapEditing;
 
 		private MatchReferee Referee => MatchReferee.Instance;
 
@@ -34,6 +35,8 @@ namespace Anaglyph.LaserTag.Interface
 			editingMapPage = navView.GetPage("editing-map-page");
 
 			matchSettings = new MatchSettingsBinder(root);
+			mapEditing = new MapEditingMenuBinder(editingMapPage);
+			navView.Changed += OnNavPageChanged;
 
 			matchSettings.StartButton.clicked += () => Referee?.QueueMatch(matchSettings.Settings);
 			Require<Button>(root, "stop-button").clicked += () => Referee?.EndMatch();
@@ -50,6 +53,7 @@ namespace Anaglyph.LaserTag.Interface
 			MatchReferee.StateChanged += OnMatchStateChanged;
 			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
 			MapEditor.MapEditor.ActiveChanged += OnMapEditorStateChanged;
+			MapEditor.MapEditor.TagRegistrationRequested += ShowTagsPage;
 
 			OnMatchStateChanged(MatchReferee.State);
 			OnNetcodeStateChanged(NetcodeManagement.State);
@@ -61,7 +65,20 @@ namespace Anaglyph.LaserTag.Interface
 			MatchReferee.StateChanged -= OnMatchStateChanged;
 			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
 			MapEditor.MapEditor.ActiveChanged -= OnMapEditorStateChanged;
+			MapEditor.MapEditor.TagRegistrationRequested -= ShowTagsPage;
+			navView.Changed -= OnNavPageChanged;
+			mapEditing.Dispose();
+			mapEditing = null;
 			navView = null;
+		}
+
+		private void Update() => mapEditing?.Refresh();
+
+		private void ShowTagsPage() => mapEditing.ShowTagsPage();
+
+		private void OnNavPageChanged(NavPage page)
+		{
+			mapEditing.SetPresented(MapEditor.MapEditor.IsActive && page == editingMapPage);
 		}
 
 		private void OnMapEditorStateChanged(bool active)

@@ -31,10 +31,27 @@ namespace Anaglyph.LaserTag
 		public static bool IsColocated { get; private set; }
 		public static Action<bool> Colocated = delegate { };
 
-		public ColocationMethod methodHostSetting;
+		private ColocationMethod mapPreference;
+		private ColocationMethod offlineMethod;
 		private readonly SyncVariable<ColocationMethod> methodSync = new("colo.method");
 		public ColocationMethod Method => methodSync.Value;
-		public ColocationMethod SelectedMethod => SyncBus.Active ? Method : methodHostSetting;
+		public ColocationMethod SelectedMethod => SyncBus.Active ? Method : offlineMethod;
+		public ColocationMethod PreferredAvailableMethod => CompatibleMethod(mapPreference, mapHasTags,
+			mapHasContent, mapHasAnchors);
+		public ColocationMethod PreferredSessionMethod => mapHasTags && spatialAnchorColocationProvider != null &&
+			!spatialAnchorColocationProvider.CanShareAnchors ? ColocationMethod.AprilTag : PreferredAvailableMethod;
+
+		public static ColocationMethod CompatibleMethod(ColocationMethod requested, bool hasTags,
+			bool hasContent, bool hasAnchors)
+		{
+			if (!hasTags && hasContent) return ColocationMethod.MetaSharedAnchor;
+			if (hasTags && !hasAnchors) return ColocationMethod.AprilTag;
+			return requested;
+		}
+		public event Action MethodChanged = delegate { };
+
+		// The map coordinator prepares reference state before committing a live change.
+		internal void CommitMethod(ColocationMethod method) => methodSync.Value = method;
 
 		[SerializeField] private Colocator colocator;
 
@@ -70,24 +87,31 @@ namespace Anaglyph.LaserTag
 			colocator != null ? colocator.AlignmentState : ColocationAlignmentState.Stopped;
 
 		/// <summary>
-		/// How many of a map's references the active provider could currently produce a constraint
-		/// from. Zero means there is nothing to verify the world frame against, so the frame the
-		/// device is standing in is that map's frame by definition — the same reasoning
-		/// <see cref="Colocator"/> applies to a session with no reference runtime at all.
+		/// How many references the active provider can try to realize. Count its own set rather
+		/// than the map's union of private and shared UUIDs for the same physical references.
+		/// The map coordinator decides whether zero references allows a blank-world bootstrap.
 		/// </summary>
-		public int CountRealizableReferences(int anchorCount, int taggedAnchorCount)
+		public int CountRealizableReferences()
 		{
 			if (ActiveProvider == null || !ActiveProvider.IsAvailable) return 0;
-			return UsingTagProvider ? taggedAnchorCount : anchorCount;
+			return UsingTagProvider ? aprilTagColocationProvider.LocalAnchorCount
+				: spatialAnchorColocationProvider.Constraints.Count;
 		}
 
 		private bool mapLoaded;
 		private bool mapHasTags;
+		private bool mapHasContent;
+		private bool mapHasAnchors;
 
-		public void ConfigureMap(bool loaded, bool hasTags, Func<bool> mintingGate)
+		public void ConfigureMap(bool loaded, bool hasTags, bool hasContent, bool hasAnchors,
+			ColocationMethod preference, Func<bool> mintingGate)
 		{
 			mapLoaded = loaded;
 			mapHasTags = hasTags;
+			mapHasContent = hasContent;
+			mapHasAnchors = hasAnchors;
+			mapPreference = preference;
+			if (!SyncBus.Active) offlineMethod = PreferredAvailableMethod;
 			if (spatialAnchorColocationProvider) spatialAnchorColocationProvider.MintingGate = mintingGate;
 			UpdateProvider();
 		}
@@ -107,6 +131,9 @@ namespace Anaglyph.LaserTag
 
 			methodSync.Register();
 			methodSync.Synced += OnMethodSynced;
+			methodSync.Changed += OnMethodChanged;
+			// Clients must use the coordinator's preparation command, not a raw enum write.
+			methodSync.Validate = (_, _) => false;
 			SyncBus.Activated += OnBusActivated;
 			SyncBus.Deactivated += OnBusDeactivated;
 		}
@@ -122,7 +149,9 @@ namespace Anaglyph.LaserTag
 			SyncBus.Activated -= OnBusActivated;
 			SyncBus.Deactivated -= OnBusDeactivated;
 			methodSync.Synced -= OnMethodSynced;
+			methodSync.Changed -= OnMethodChanged;
 			methodSync.Unregister();
+			if (Instance == this) Instance = null;
 		}
 
 		private void OnBusActivated()
@@ -131,7 +160,11 @@ namespace Anaglyph.LaserTag
 			// alike see the session's method in OnMethodSynced.
 			if (SyncBus.IsAuthority)
 			{
-				methodSync.Value = methodHostSetting;
+				// An existing tagless map must first be aligned through its anchors before a
+				// first tag can be registered in that frame. Blank maps can bootstrap with tags.
+				// A desktop authority cannot upload anchors; use the map's tags without
+				// rewriting its saved preference.
+				methodSync.Value = PreferredSessionMethod;
 				UpdateProvider();
 			}
 			else
@@ -152,6 +185,15 @@ namespace Anaglyph.LaserTag
 			sessionStarted = true;
 
 			UpdateProvider();
+			MethodChanged.Invoke();
+		}
+
+		private void OnMethodChanged(ColocationMethod _, ColocationMethod __)
+		{
+			// Join snapshots are applied before map adoption. Wait for Synced on that path.
+			if (!SyncBus.Active || !sessionStarted) return;
+			UpdateProvider();
+			MethodChanged.Invoke();
 		}
 
 		private void OnBusDeactivated()
@@ -160,6 +202,7 @@ namespace Anaglyph.LaserTag
 
 			// Colocation does not end with the session — a loaded map keeps localizing.
 			UpdateProvider();
+			MethodChanged.Invoke();
 		}
 
 		/// <summary>

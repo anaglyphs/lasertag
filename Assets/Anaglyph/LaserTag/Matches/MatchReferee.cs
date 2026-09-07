@@ -320,10 +320,11 @@ namespace Anaglyph.LaserTag.Matches
 		// countdown.
 		private static bool AllPlayersInBase()
 		{
+			if (LaserTagMapCoordinator.Instance != null && LaserTagMapCoordinator.Instance.IsChangingColocation) return false;
 			if (PlayerAvatar.All.Count == 0) return false;
 
 			foreach (PlayerAvatar player in PlayerAvatar.All.Values)
-				if (!player.IsInBase)
+				if (!player.IsAligned || !player.IsInBase)
 					return false;
 
 			return true;

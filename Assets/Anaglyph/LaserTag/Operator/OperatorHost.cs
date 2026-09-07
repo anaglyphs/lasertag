@@ -115,8 +115,6 @@ namespace Anaglyph.LaserTag.Operator
 				return false;
 			}
 
-			colocation.methodHostSetting = ColocationManager.ColocationMethod.AprilTag;
-
 			PlayerAvatarSpawner.Instance?.SetIsParticipating(false);
 
 			try

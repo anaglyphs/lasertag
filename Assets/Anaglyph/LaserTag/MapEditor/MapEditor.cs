@@ -1,4 +1,5 @@
 using System;
+using Anaglyph.LaserTag.MapEditor.Tools;
 using Anaglyph.LaserTag.Weapons;
 using UnityEngine;
 
@@ -25,8 +26,7 @@ namespace Anaglyph.LaserTag.MapEditor
 		/// </summary>
 		public static void RequestTagRegistration()
 		{
-			// Opening the editor is what puts the palette on screen to hear the request, so it
-			// has to happen before the request goes out.
+			// Present the editing menu before asking it to navigate to the tags submenu.
 			SetActive(true);
 			TagRegistrationRequested?.Invoke();
 		}
@@ -35,6 +35,11 @@ namespace Anaglyph.LaserTag.MapEditor
 		{
 			if (active == IsActive) return;
 			IsActive = active;
+			if (!active)
+			{
+				MapEditorTool.SetMode(MapEditorTool.Mode.Move);
+				LaserTagMapCoordinator.Instance?.SaveCurrentMap();
+			}
 
 			WeaponSwitcher.Instance?.SetWeaponsActive(!IsActive);
 

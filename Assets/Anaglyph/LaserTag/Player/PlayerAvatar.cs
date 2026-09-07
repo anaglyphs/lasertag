@@ -38,6 +38,15 @@ namespace Anaglyph.LaserTag.Player
 
 		public bool IsAlive => isAliveSync.Value;
 		private readonly NetworkVariable<bool> isAliveSync = new(true);
+		private struct AlignmentStatus : INetworkSerializeByMemcpy
+		{
+			public bool aligned;
+			public ColocationManager.ColocationMethod method;
+		}
+		private readonly NetworkVariable<AlignmentStatus> alignmentSync = new();
+		public bool IsAligned => !(LaserTagMapCoordinator.Instance != null && LaserTagMapCoordinator.Instance.IsChangingColocation) &&
+			(IsOwner ? ColocationManager.IsColocated : alignmentSync.Value.aligned &&
+				ColocationManager.Instance != null && alignmentSync.Value.method == ColocationManager.Instance.SelectedMethod);
 
 		/// <summary>Owner only - the local player's life is the source of truth.</summary>
 		internal void SetAlive(bool isAlive) => isAliveSync.Value = isAlive;
@@ -147,6 +156,11 @@ namespace Anaglyph.LaserTag.Player
 			if (!IsSpawned)
 				return;
 
+			if (IsOwner) alignmentSync.Value = new AlignmentStatus
+			{
+				aligned = IsAligned,
+				method = ColocationManager.Instance != null ? ColocationManager.Instance.SelectedMethod : default
+			};
 			RefreshBaseState();
 			SampleTelemetry();
 		}
@@ -169,6 +183,7 @@ namespace Anaglyph.LaserTag.Player
 
 			foreach (Base b in Base.AllBases)
 			{
+				if (!IsAligned) break;
 				if (!b.Contains(headTransform.position))
 					continue;
 
@@ -203,12 +218,14 @@ namespace Anaglyph.LaserTag.Player
 
 		public void Damage(IDamageable.Data data)
 		{
+			if (!IsAligned) return;
 			DamageRpc(data.damage, data.playerID);
 		}
 
 		[Rpc(SendTo.Everyone)]
 		public void DamageRpc(float damage, ulong damagedBy)
 		{
+			if (!IsAligned) return;
 			Health = Mathf.Max(0, Health - MatchReferee.Settings.ApplyDamageMultiplier(damage));
 
 			Damaged.Invoke(damage, damagedBy);

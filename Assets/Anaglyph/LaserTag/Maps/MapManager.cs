@@ -97,6 +97,16 @@ namespace Anaglyph.LaserTag.Maps
 			return true;
 		}
 
+		public bool SetPreferredColocationMethod(ColocationManager.ColocationMethod method)
+		{
+			if (method != ColocationManager.ColocationMethod.MetaSharedAnchor &&
+				method != ColocationManager.ColocationMethod.AprilTag) return false;
+			if (current == null || current.preferredColocationMethod == method) return false;
+			current.preferredColocationMethod = method;
+			ContentChanged();
+			return true;
+		}
+
 		/// <summary>Local realization maintenance never creates a shared content revision.</summary>
 		public bool SetAnchors(IReadOnlyList<MapAnchorEntry> anchors)
 		{

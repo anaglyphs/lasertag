@@ -11,7 +11,7 @@ using UnityEngine.UIElements;
 namespace Anaglyph.LaserTag.Interface
 {
 	[DefaultExecutionOrder(100)]
-	public class MultiplayerMenu : MonoBehaviour
+	public class ConnectionMenu : MonoBehaviour
 	{
 		private enum SessionState
 		{
@@ -21,11 +21,11 @@ namespace Anaglyph.LaserTag.Interface
 		}
 
 		private const int ErrorModalPriority = 200;
+		private const float DiscoveryFlashInterval = 0.6f;
 
 		private static NetworkManager Manager => NetworkManager.Singleton;
 
 		[SerializeField] private BoolObject hostOnRelaySetting;
-		[SerializeField] private BoolObject useAprilTagsSetting;
 
 		private NavView navView;
 		private NavPage homePage;
@@ -38,8 +38,7 @@ namespace Anaglyph.LaserTag.Interface
 
 		private Toggle hostOnRelayToggle;
 		private Label hostOnRelayWarning;
-		private Toggle useAprilTagsToggle;
-		private Label useAprilTagsWarning;
+		private Label sessionDiscoveryStatus;
 
 		private Toggle useRelayToggle;
 		private VisualElement ipFieldRow;
@@ -85,18 +84,16 @@ namespace Anaglyph.LaserTag.Interface
 			networkErrorModal = navView.GetPage("network-error-modal");
 			bluetoothErrorModal = navView.GetPage("bluetooth-error-modal");
 			errorModal = navView.GetPage("error-modal");
+			sessionDiscoveryStatus = Require<Label>(root, "session-discovery-status");
+			sessionDiscoveryStatus.style.visibility = Visibility.Visible;
 
 			Require<Button>(root, "host-button").clicked += Host;
 
 			hostOnRelayToggle = Require<Toggle>(root, "host-on-relay-toggle");
 			hostOnRelayWarning = Require<Label>(root, "host-on-relay-warning");
-			useAprilTagsToggle = Require<Toggle>(root, "use-april-tags-toggle");
-			useAprilTagsWarning = Require<Label>(root, "use-april-tags-warning");
 
 			hostOnRelayToggle.RegisterValueChangedCallback(
 				change => hostOnRelaySetting.Value = change.newValue);
-			useAprilTagsToggle.RegisterValueChangedCallback(
-				change => useAprilTagsSetting.Value = change.newValue);
 
 			useRelayToggle = Require<Toggle>(root, "use-relay-toggle");
 			ipFieldRow = Require<VisualElement>(root, "ip-field-row");
@@ -177,11 +174,9 @@ namespace Anaglyph.LaserTag.Interface
 			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
 			ColocationManager.Colocated += OnColocationChange;
 			hostOnRelaySetting.Changed += OnHostOnRelaySettingChange;
-			useAprilTagsSetting.Changed += OnAprilTagsSettingChange;
 			RefreshSessionDiscoveryState();
 
 			OnHostOnRelaySettingChange(hostOnRelaySetting.Value);
-			OnAprilTagsSettingChange(useAprilTagsSetting.Value);
 			OnNetcodeStateChanged(NetcodeManagement.State);
 			hasNetworkState = false;
 			hasBluetoothState = false;
@@ -194,6 +189,9 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void OnDisable()
 		{
+			if (sessionDiscoveryStatus != null)
+				sessionDiscoveryStatus.style.visibility = Visibility.Hidden;
+
 			networkPollCancellation?.Cancel();
 			networkPollCancellation?.Dispose();
 			networkPollCancellation = null;
@@ -201,7 +199,6 @@ namespace Anaglyph.LaserTag.Interface
 			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
 			ColocationManager.Colocated -= OnColocationChange;
 			hostOnRelaySetting.Changed -= OnHostOnRelaySettingChange;
-			useAprilTagsSetting.Changed -= OnAprilTagsSettingChange;
 			if (panel != null)
 				panel.VisibleChanged -= OnPanelVisibilityChanged;
 			sessionDiscoveryController?.SetMenuAllowsListening(true);
@@ -213,10 +210,21 @@ namespace Anaglyph.LaserTag.Interface
 			}
 		}
 
-		private void OnAprilTagsSettingChange(bool value)
+		private void Update()
 		{
-			useAprilTagsToggle.SetValueWithoutNotify(value);
-			UpdateInternetWarnings();
+			if (sessionDiscoveryStatus == null)
+				return;
+
+			sessionDiscoveryStatus.text = hasBluetoothState && !bluetoothIsEnabled
+				? "Bluetooth is off. Can't find host automatically!"
+				: sessionDiscoveryController != null && sessionDiscoveryController.IsListening
+					? "Searching for nearby host"
+					: "Preparing to search for nearby host";
+
+			float phase = (Time.unscaledTime) %
+					(DiscoveryFlashInterval * 2);
+			sessionDiscoveryStatus.style.opacity =
+				phase < DiscoveryFlashInterval ? 1f : 0.35f;
 		}
 
 		private void OnHostOnRelaySettingChange(bool value)
@@ -480,10 +488,6 @@ namespace Anaglyph.LaserTag.Interface
 				hasFullInternet ? DisplayStyle.None : DisplayStyle.Flex;
 			hostOnRelayWarning.style.display =
 				hostOnRelaySetting.Value && !hasFullInternet
-					? DisplayStyle.Flex
-					: DisplayStyle.None;
-			useAprilTagsWarning.style.display =
-				!useAprilTagsSetting.Value && !hasFullInternet
 					? DisplayStyle.Flex
 					: DisplayStyle.None;
 		}

@@ -28,7 +28,7 @@ namespace Anaglyph.Menu
 		{
 			AddToClassList(ussClassName);
 
-			NavButton backButton = new() { text = "‹" };
+			NavButton backButton = new();// { text = "‹" };
 			backButton.AddToClassList(backButtonUssClassName);
 			titleLabel.AddToClassList(titleUssClassName);
 

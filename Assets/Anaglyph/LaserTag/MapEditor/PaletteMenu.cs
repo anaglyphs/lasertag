@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Anaglyph.Debugging;
 using Anaglyph.LaserTag.MapEditor.Tools;
-using Anaglyph.LaserTag.Maps;
 using Anaglyph.Menu;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -10,46 +9,17 @@ using UnityEngine.UIElements;
 namespace Anaglyph.LaserTag.MapEditor
 {
 	/// <summary>
-	/// The map editor's palette. A home page of mode tiles leads to one page per mode: objects
-	/// (a category rail from <see cref="MapObjectDatabase"/> beside a thumbnail grid), tags, and
-	/// the map's own settings.
-	///
-	/// The page IS the mode — navigating somewhere puts <see cref="MapEditorTool"/> in the mode
-	/// that page authors, so the two can never disagree. Home is Move: with no page open the
-	/// hands still reposition what is already placed.
-	///
-	/// The object grid is built at runtime; the database is the only place objects are listed, so
-	/// adding one there is all it takes to be able to place it.
+	/// Object categories and thumbnails built from the map object database.
+	/// Tag registration and map options live in the game menu.
 	/// </summary>
 	[RequireComponent(typeof(UIDocument))]
 	public class PaletteMenu : MonoBehaviour
 	{
 		[SerializeField] private MapObjectDatabase database;
 
-		private NavView navView;
-		private NavPage homePage;
-		private NavPage objectsPage;
-		private NavPage tagsPage;
-		private NavPage mapSettingsPage;
-
 		private VisualElement categoryRail;
 		private Label categoryTitle;
 		private ScrollView objectGrid;
-
-		private Slider tagSizeSlider;
-		private Label tagSizeNote;
-		private Label tagStatus;
-
-		// The size the slider is passing through, held back until it settles.
-		private const float tagSizeSettleSeconds = 0.1f;
-		private float? pendingTagSizeCm;
-		private float pendingTagSizeTime;
-
-		private TextField mapNameField;
-		private Label mapNameNote;
-		private Label mapSummary;
-
-		private Button doneButton;
 
 		private readonly List<(MapObjectDatabase.Category category, Button button)> categoryButtons = new();
 		private readonly List<(MapObject prefab, Button button)> objectButtons = new();
@@ -68,205 +38,33 @@ namespace Anaglyph.LaserTag.MapEditor
 			// must happen before anything subscribes to Button.clicked
 			root.MakeButtonsActOnPress();
 
-			navView = NavView.RequireIn(root);
-			homePage = navView.GetPage("home-page");
-			objectsPage = navView.GetPage("objects-page");
-			tagsPage = navView.GetPage("tags-page");
-			mapSettingsPage = navView.GetPage("map-settings-page");
-
 			categoryRail = Require<VisualElement>(root, "category-rail");
 			categoryTitle = Require<Label>(root, "category-title");
 			objectGrid = Require<ScrollView>(root, "object-grid");
 
-			tagSizeSlider = Require<Slider>(root, "tag-size-slider");
-			tagSizeNote = Require<Label>(root, "tag-size-note");
-			tagStatus = Require<Label>(root, "tag-status");
-
-			mapNameField = Require<TextField>(root, "map-name-field");
-			mapNameNote = Require<Label>(root, "map-name-note");
-			mapSummary = Require<Label>(root, "map-summary");
-
-			doneButton = Require<Button>(root, "done-button");
-			doneButton.clicked += FinishEditing;
-
-			// A typed size commits on Enter or on leaving the field, not per keystroke.
-			TextField tagSizeInput = tagSizeSlider.Q<TextField>();
-			if (tagSizeInput != null)
-				tagSizeInput.isDelayed = true;
-
-			tagSizeSlider.RegisterValueChangedCallback(OnTagSizeChanged);
-			mapNameField.RegisterCallback<FocusOutEvent>(OnMapNameCommitted);
-
-			navView.Changed += OnNavPageChanged;
 			AnaglyphDebugging.DebugModeChanged += OnDebugModeChanged;
-			MapEditor.TagRegistrationRequested += ShowTagsPage;
-
+			MapEditorTool.ModeChanged += OnToolModeChanged;
 			RebuildRail();
-
-			// The view may have resolved its first page before this subscribed, so the mode the
-			// current page authors is applied here rather than waited for.
-			OnNavPageChanged(navView.CurrentPage);
+			OnToolModeChanged(MapEditorTool.CurrentMode);
 		}
 
 		private void OnDisable()
 		{
-			MapEditor.TagRegistrationRequested -= ShowTagsPage;
 			AnaglyphDebugging.DebugModeChanged -= OnDebugModeChanged;
-
-			if (navView != null)
-			{
-				navView.Changed -= OnNavPageChanged;
-				navView = null;
-			}
-
-			// Closing the palette is as much a "done" as letting go of the slider.
-			FlushPendingTagSize();
-
-			mapNameField.UnregisterCallback<FocusOutEvent>(OnMapNameCommitted);
-			tagSizeSlider.UnregisterValueChangedCallback(OnTagSizeChanged);
-			doneButton.clicked -= FinishEditing;
-
+			MapEditorTool.ModeChanged -= OnToolModeChanged;
 			categoryButtons.Clear();
 			objectButtons.Clear();
 		}
 
 		private void OnDebugModeChanged(bool debugMode) => RebuildRail();
 
-		private void ShowTagsPage() => tagsPage.NavigateHere();
-
-		// ------- navigation is the mode ------------------------------
-
-		private void OnNavPageChanged(NavPage page)
+		private void OnToolModeChanged(MapEditorTool.Mode mode)
 		{
-			ApplyModeFor(page);
-
-			if (page == tagsPage)
-				RefreshTagPage();
-			else if (page == mapSettingsPage)
-				RefreshMapSettingsPage();
-		}
-
-		/// <summary>
-		/// Every page names the mode it authors in. The objects page only arms placement once a
-		/// prefab is picked; until then it stays in Move, so the hands still do something.
-		/// </summary>
-		private void ApplyModeFor(NavPage page)
-		{
-			if (page == tagsPage)
-				MapEditorTool.SetMode(MapEditorTool.Mode.Tags);
-			else if (page == objectsPage && selectedPrefab != null)
-				MapEditorTool.SetMode(MapEditorTool.Mode.Place, selectedPrefab);
-			else
-				MapEditorTool.SetMode(MapEditorTool.Mode.Move);
-		}
-
-		// A blocker turns on alignment and on what a mode just did, neither of which raises an
-		// event this menu could subscribe to.
-		private void Update()
-		{
-			if (navView == null)
-				return;
-
-			// Ticked wherever the palette is, so a size set and then navigated away from still
-			// lands.
-			if (pendingTagSizeCm.HasValue &&
-			    Time.unscaledTime - pendingTagSizeTime >= tagSizeSettleSeconds)
-				FlushPendingTagSize();
-
-			if (navView.CurrentPage == tagsPage)
-				RefreshTagPage();
-			else if (navView.CurrentPage == mapSettingsPage)
-				RefreshMapSettingsPage();
-		}
-
-		// ------- tags page -------------------------------------------
-
-		// A drag reports a new size every frame it moves, and each one would be a separate size for
-		// the whole session to agree on. Only the size it settles on is. The slider reports no
-		// drag start or end and does not take focus, so settling is measured rather than observed.
-		private void OnTagSizeChanged(ChangeEvent<float> change)
-		{
-			pendingTagSizeCm = change.newValue;
-			pendingTagSizeTime = Time.unscaledTime;
-		}
-
-		private void FlushPendingTagSize()
-		{
-			if (pendingTagSizeCm.HasValue)
-				CommitTagSize(pendingTagSizeCm.Value);
-		}
-
-		private void CommitTagSize(float centimeters)
-		{
-			pendingTagSizeCm = null;
-
-			LaserTagMapCoordinator manager = LaserTagMapCoordinator.Instance;
-			if (manager == null || manager.SetTagSize(centimeters))
-				return;
-
-			// Refused — put the slider back rather than leaving it showing a size nothing uses.
-			RefreshTagPage();
-		}
-
-		private void RefreshTagPage()
-		{
-			LaserTagMapCoordinator manager = LaserTagMapCoordinator.Instance;
-			if (manager == null)
-			{
-				tagStatus.text = "Map system unavailable.";
-				return;
-			}
-
-			string sizeBlocker = manager.DescribeTagSizeBlocker();
-			tagSizeSlider.SetEnabled(sizeBlocker == null);
-			SetMessage(tagSizeNote, sizeBlocker);
-
-			// Refreshed every frame, so a value being dragged or typed must survive the refresh.
-			// A slider drag is only visible as an uncommitted value: it never takes focus.
-			if (!pendingTagSizeCm.HasValue && !IsBeingEdited(tagSizeSlider))
-				tagSizeSlider.SetValueWithoutNotify(manager.EffectiveTagSizeCm);
-
-			int registered = manager.CurrentMap != null ? manager.CurrentMap.tags.Count : 0;
-			string registrationBlocker = manager.DescribeTagRegistrationBlocker();
-
-			if (registrationBlocker != null)
-				tagStatus.text = $"{registered} registered — {registrationBlocker}.";
-			else if (manager.SessionIsWaitingOnFirstTag)
-				tagStatus.text = "No tags registered — register one to align this session.";
-			else
-				tagStatus.text = $"{registered} registered.";
-		}
-
-		// ------- map settings page -----------------------------------
-
-		private void OnMapNameCommitted(FocusOutEvent _)
-		{
-			LaserTagMapCoordinator manager = LaserTagMapCoordinator.Instance;
-			if (manager == null || !manager.RenameMap(mapNameField.value))
-				RefreshMapSettingsPage();
-		}
-
-		private void RefreshMapSettingsPage()
-		{
-			LaserTagMapCoordinator manager = LaserTagMapCoordinator.Instance;
-			if (manager == null)
-			{
-				mapSummary.text = "Map system unavailable.";
-				return;
-			}
-
-			string renameBlocker = manager.DescribeRenameBlocker();
-			mapNameField.SetEnabled(renameBlocker == null);
-			SetMessage(mapNameNote, renameBlocker);
-
-			GameMap map = manager.CurrentMap;
-
-			if (!IsBeingEdited(mapNameField))
-				mapNameField.SetValueWithoutNotify(map != null ? map.name : "");
-
-			mapSummary.text = map == null
-				? "No map loaded. One is created as soon as you place something."
-				: $"{map.objects.Count} objects, {map.tags.Count} tags, {map.anchors.Count} anchors.";
+			// The tags submenu owns the tools until the user goes back.
+			categoryRail.SetEnabled(mode != MapEditorTool.Mode.Tags);
+			objectGrid.SetEnabled(mode != MapEditorTool.Mode.Tags);
+			selectedPrefab = MapEditorTool.SelectedObject;
+			RefreshHighlights();
 		}
 
 		// ------- building --------------------------------------------
@@ -385,22 +183,12 @@ namespace Anaglyph.LaserTag.MapEditor
 
 		private void SelectObject(MapObject prefab)
 		{
+			if (MapEditorTool.CurrentMode == MapEditorTool.Mode.Tags)
+				return;
+
 			selectedPrefab = prefab;
 			MapEditorTool.SetMode(MapEditorTool.Mode.Place, prefab);
 			RefreshHighlights();
-		}
-
-		private void FinishEditing()
-		{
-			// Leaving arms nothing: the hands are about to become weapons again.
-			MapEditorTool.SetMode(MapEditorTool.Mode.Move);
-			selectedPrefab = null;
-			homePage.NavigateHere();
-
-			// Edits already save on a debounce; this makes leaving the editor the sync point.
-			LaserTagMapCoordinator.Instance?.SaveCurrentMap();
-
-			MapEditor.SetActive(false);
 		}
 
 		private void RefreshHighlights()
@@ -415,19 +203,6 @@ namespace Anaglyph.LaserTag.MapEditor
 		private static void SetSelected(VisualElement element, bool selected)
 		{
 			element.EnableInClassList("selected", selected);
-		}
-
-		private static bool IsBeingEdited(VisualElement field)
-		{
-			Focusable focused = field.panel?.focusController?.focusedElement;
-			return focused is VisualElement element &&
-			       (element == field || field.Contains(element));
-		}
-
-		private static void SetMessage(Label label, string message)
-		{
-			label.text = message ?? "";
-			label.style.display = message == null ? DisplayStyle.None : DisplayStyle.Flex;
 		}
 
 		private static T Require<T>(VisualElement root, string name)

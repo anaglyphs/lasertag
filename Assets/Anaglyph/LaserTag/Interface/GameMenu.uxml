@@ -13,11 +13,11 @@
             <Anaglyph.Menu.NavPage name="match-page">
                 <ui:Instance template="GameMatchPage"/>
             </Anaglyph.Menu.NavPage>
-            <Anaglyph.Menu.NavPage name="map-manager-page">
-                <ui:Instance template="GameMapManagerPage"/>
-            </Anaglyph.Menu.NavPage>
             <Anaglyph.Menu.NavPage name="playing-page" show-back-button="false">
                 <ui:Instance template="GamePlayingPage"/>
+            </Anaglyph.Menu.NavPage>
+            <Anaglyph.Menu.NavPage name="map-manager-page">
+                <ui:Instance template="GameMapManagerPage"/>
             </Anaglyph.Menu.NavPage>
             <Anaglyph.Menu.NavPage name="editing-map-page" show-back-button="false">
                 <ui:Instance template="GameEditingMapPage"/>

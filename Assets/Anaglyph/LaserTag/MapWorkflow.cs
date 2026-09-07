@@ -148,6 +148,17 @@ namespace Anaglyph.LaserTag
 		public bool PublishesContent => phase is MapPhase.Hosting or MapPhase.SwitchingMap;
 
 		public bool FrameIsTrusted => TransitionBlocker == null && hasMap && frameAgrees;
+
+		public static bool CanBootstrapFrame(bool hasTags, int anchorCount, bool empty,
+			bool inSession, bool isAuthority) => !hasTags && anchorCount == 0 &&
+			(!inSession || isAuthority || empty);
+
+		public string ColocationMethodBlocker(bool useTags) => TransitionBlocker ??
+			(!hasMap ? "Load a map first" : roundInProgress ? "Wait until the round ends" :
+			 useTags && !hasTags && !empty ? "Register a tag while aligned to this map first" : null);
+
+		public string ColocationPreferenceBlocker => TransitionBlocker ??
+			(roundInProgress ? "Wait until the round ends" : null);
 		public bool CanProbe => phase == MapPhase.Local;
 		public bool NeedsFirstTag => (phase is MapPhase.Hosting or MapPhase.FollowingSession) &&
 			TransitionBlocker == null && hasMap && !hasTags && sessionUsesTags;
@@ -210,8 +221,6 @@ namespace Anaglyph.LaserTag
 				return "Already loaded";
 			if (presence == MapPresence.Elsewhere)
 				return "Map belongs to another room";
-			if (phase != MapPhase.Local && sessionUsesTags && !target.HasTags)
-				return "Session uses tags; this map has none";
 
 			return null;
 		}

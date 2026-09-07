@@ -82,6 +82,7 @@ namespace Anaglyph.LaserTag.Maps
 			List<AnchorConstraintData> anchors = new(map.anchors.Count);
 			List<TaggedAnchorConstraintData> taggedAnchors = new();
 			List<TagConstraintData> tags = new(map.tags.Count);
+			HashSet<int> restoredTags = new();
 
 			foreach (MapAnchorEntry entry in map.anchors)
 			{
@@ -89,7 +90,7 @@ namespace Anaglyph.LaserTag.Maps
 					continue;
 
 				anchors.Add(new AnchorConstraintData(guid, entry.canonPose, entry.tagId));
-				if (entry.tagId >= 0)
+				if (entry.tagId >= 0 && restoredTags.Add(entry.tagId))
 					taggedAnchors.Add(new TaggedAnchorConstraintData(
 						guid, entry.tagId, entry.canonPose));
 			}
@@ -301,18 +302,20 @@ namespace Anaglyph.LaserTag.Maps
 			if (map == null || colocation == null)
 				return map;
 
+			// Restore private realizations before adding the authority's shared UUIDs to the
+			// document, even when tags are inactive. A later method change can then reuse them.
+			if (restoreLocalAnchors && aprilTagColocationProvider)
+			{
+				List<TaggedAnchorConstraintData> saved = new();
+				HashSet<int> restored = new();
+				foreach (MapAnchorEntry entry in map.anchors)
+					if (entry.tagId >= 0 && MapGuid.TryParse(entry.guid, out Guid guid) && restored.Add(entry.tagId))
+						saved.Add(new TaggedAnchorConstraintData(guid, entry.tagId, entry.canonPose));
+				aprilTagColocationProvider.SetLocalAnchors(saved);
+			}
+
 			if (colocation.Method == ColocationManager.ColocationMethod.AprilTag)
 			{
-				// Tag anchors are private per device. Restore this headset's saved realizations,
-				// while registered tag poses come from the authority's provider snapshot.
-				List<TaggedAnchorConstraintData> saved = new();
-				foreach (MapAnchorEntry entry in map.anchors)
-					if (entry.tagId >= 0 && MapGuid.TryParse(entry.guid, out Guid guid))
-						saved.Add(new TaggedAnchorConstraintData(guid, entry.tagId, entry.canonPose));
-
-				if (restoreLocalAnchors && aprilTagColocationProvider)
-					aprilTagColocationProvider.SetLocalAnchors(saved);
-
 				SnapshotTags(map);
 				SnapshotTaggedAnchors(map);
 			}

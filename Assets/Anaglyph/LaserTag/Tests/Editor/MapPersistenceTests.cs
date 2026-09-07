@@ -34,6 +34,46 @@ namespace Anaglyph.LaserTag.Tests
 			prefabId = "Base", pose = new Pose(new Vector3(x, 0, 0), Quaternion.identity)
 		};
 
+		[TestCase(ColocationManager.ColocationMethod.MetaSharedAnchor)]
+		[TestCase(ColocationManager.ColocationMethod.AprilTag)]
+		public void PreferenceSurvivesCloningSavingAndReopening(ColocationManager.ColocationMethod preference)
+		{
+			manager.SetTags(new[] { new MapTagEntry { id = 7, canonPose = Pose.identity } }, 10f);
+			manager.SetPreferredColocationMethod(preference);
+			Assert.That(manager.CurrentMap.Clone().preferredColocationMethod, Is.EqualTo(preference));
+			Assert.That(manager.Save(), Is.True);
+			Assert.That(new MapStore(directory).TryGet(manager.CurrentId, out GameMap loaded), Is.True);
+			Assert.That(loaded.preferredColocationMethod, Is.EqualTo(preference));
+		}
+
+		[Test]
+		public void PreferenceIsVersionedContentEvenWithoutRegisteredTags()
+		{
+			manager.Save(true);
+			string revision = manager.CurrentMap.version;
+			Assert.That(manager.SetPreferredColocationMethod(ColocationManager.ColocationMethod.AprilTag), Is.True);
+			Assert.That(manager.CurrentMap.version, Is.Not.EqualTo(revision));
+			Assert.That(manager.CurrentMap.dirty, Is.True);
+			revision = manager.CurrentMap.version;
+			Assert.That(manager.SetPreferredColocationMethod(ColocationManager.ColocationMethod.AprilTag), Is.False);
+			Assert.That(manager.SetPreferredColocationMethod((ColocationManager.ColocationMethod)99), Is.False);
+			Assert.That(manager.CurrentMap.version, Is.EqualTo(revision));
+		}
+
+		[TestCase(false)]
+		[TestCase(true)]
+		public void LegacyMapsInferPreferenceFromRegisteredTags(bool hasTags)
+		{
+			if (hasTags) manager.SetTags(new[] { new MapTagEntry { id = 7, canonPose = Pose.identity } }, 10f);
+			manager.Save();
+			string path = Path.Combine(directory, manager.CurrentId + ".json");
+			string json = File.ReadAllText(path).Replace("preferredColocationMethod", "unusedLegacyField");
+			File.WriteAllText(path, json);
+			Assert.That(new MapStore(directory).TryGet(manager.CurrentId, out GameMap loaded), Is.True);
+			Assert.That(loaded.preferredColocationMethod, Is.EqualTo(hasTags
+				? ColocationManager.ColocationMethod.AprilTag : ColocationManager.ColocationMethod.MetaSharedAnchor));
+		}
+
 		[Test]
 		public void DocumentAndCatalogReadsAreDetached()
 		{

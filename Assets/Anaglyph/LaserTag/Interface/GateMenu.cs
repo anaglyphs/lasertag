@@ -9,7 +9,7 @@ namespace Anaglyph.LaserTag.Interface
 	// UIDocument builds its visual tree at the default execution order, while the
 	// three normal menu controllers initialize at 100.
 	[DefaultExecutionOrder(50)]
-	public sealed class PermissionGateMenu : MonoBehaviour
+	public sealed class GateMenu : MonoBehaviour
 	{
 		[SerializeField] private UIDocument permissionDocument;
 		[SerializeField] private GameObject[] gatedPanels;

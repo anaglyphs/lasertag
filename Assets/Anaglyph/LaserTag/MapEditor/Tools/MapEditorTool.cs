@@ -13,7 +13,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 	///
 	/// It has one mode at a time and the buttons mean whatever that mode says: the trigger places
 	/// an object or registers a tag, the back button deletes one or unregisters one. Mode is
-	/// static because both hands are always in the same one — the palette sets it.
+	/// static because both hands share the palette selection and the game menu's tag mode.
 	/// </summary>
 	public class MapEditorTool : MonoBehaviour
 	{
@@ -30,6 +30,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		}
 
 		public static Mode CurrentMode { get; private set; }
+		public static MapObject SelectedObject { get; private set; }
 		public static event Action<Mode> ModeChanged = delegate { };
 
 		public static MapEditorTool DominantHand;
@@ -39,6 +40,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		private static void ResetStatics()
 		{
 			CurrentMode = Mode.Move;
+			SelectedObject = null;
 			ModeChanged = delegate { };
 			DominantHand = null;
 		}
@@ -51,6 +53,9 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		public static void SetMode(Mode mode, MapObject spawnObject = null)
 		{
 			CurrentMode = mode;
+			// Keep the object selection while the tags submenu temporarily owns the tools.
+			if (mode != Mode.Tags)
+				SelectedObject = mode == Mode.Place ? spawnObject : null;
 
 			MapEditorTool[] tools = FindObjectsByType<MapEditorTool>(
 				FindObjectsInactive.Include, FindObjectsSortMode.None);

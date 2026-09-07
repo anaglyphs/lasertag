@@ -515,6 +515,30 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 
 		// ------- sharing ------------------------------------------
 
+		public bool CanShareAnchors => IsAvailable && registry.canShareAnchors;
+
+		/// <summary>
+		/// Uploads currently tracked local realizations while the old strategy keeps aligning.
+		/// Does not replace constraints or start this provider. The caller commits only the
+		/// successfully uploaded UUIDs, with their latest canonical poses, after preparation.
+		/// </summary>
+		public async Awaitable PrepareSharingAsync(IReadOnlyList<AnchorConstraintData> candidates,
+			ISet<Guid> shared, CancellationToken token)
+		{
+			if (!SyncBus.Active || !SyncBus.IsAuthority || !CanShareAnchors) return;
+			foreach (AnchorConstraintData candidate in candidates)
+			{
+				token.ThrowIfCancellationRequested();
+				using AnchorLease lease = registry.Acquire(ToSerializable(candidate.guid), AnchorSource.Local);
+				ARAnchor anchor = lease.Handle.anchor;
+				if (anchor == null || anchor.trackingState != TrackingState.Tracking) continue;
+				XRResultStatus result = await registry.TryShareAsync(lease, token);
+				token.ThrowIfCancellationRequested();
+				if (!SyncBus.Active || !SyncBus.IsAuthority) return;
+				if (!result.IsError()) shared.Add(candidate.guid);
+			}
+		}
+
 		/// <summary>
 		/// Reports whether anchors can be shared at all, telling the user when they can't.
 		/// Only Meta's runtime shares anchors.

@@ -1,10 +1,19 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
-	<Style src="../LaserTagStyle.uss" />
-	<ui:VisualElement class="page-template-root">
-		<Anaglyph.Menu.NavHeader title="Edit map"/>
-		<ui:Label
-			text="Controls: Trigger places objects. Grip grabs and moves. Y/B deletes. Choose objects from the palette on your non-dominant hand; Trigger sets the dominant hand."
-			class="body-copy" />
-		<ui:Button name="finish-editing-button" text="Finish editing" />
-	</ui:VisualElement>
+    <ui:Template name="MapEditorTagsPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Pages/GameMapAlignmentPage.uxml?fileID=9197481963319205126&amp;guid=ed92c43d12f68469096f4eccf3dc248b&amp;type=3#GameMapAlignmentPage"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+    <Anaglyph.Menu.NavView name="map-editing-nav" first-page="map-options-page">
+        <Anaglyph.Menu.NavPage name="map-options-page" show-back-button="false">
+            <ui:VisualElement class="page-template-root">
+                <Anaglyph.Menu.NavHeader title="Edit map"/>
+                <ui:TextField name="map-name-field" label="Name" max-length="40" class="stacked-field"/>
+                <ui:Label name="map-name-note" class="warning"/>
+                <Anaglyph.Menu.NavButton name="tags-mode-button" target="alignment-settings-page" text="Alignment Settings"/>
+                <ui:Label text="Controls: Trigger places objects. Grip grabs and moves. Y/B deletes. Choose objects from the palette on your non-dominant hand; Trigger sets the dominant hand." class="body-copy"/>
+                <ui:Button name="finish-editing-button" text="Finish editing"/>
+            </ui:VisualElement>
+        </Anaglyph.Menu.NavPage>
+        <Anaglyph.Menu.NavPage name="alignment-settings-page">
+            <ui:Instance template="MapEditorTagsPage"/>
+        </Anaglyph.Menu.NavPage>
+    </Anaglyph.Menu.NavView>
 </ui:UXML>

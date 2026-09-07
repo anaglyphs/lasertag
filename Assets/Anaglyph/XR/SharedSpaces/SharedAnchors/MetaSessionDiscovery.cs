@@ -44,6 +44,11 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 			Advertising
 		}
 
+		public bool IsListening =>
+			isActiveAndEnabled && GetDesiredActivity() == Activity.Listening &&
+			Colocation != null && Colocation.enabled &&
+			Colocation.discoveryState == MetaColocationState.Active;
+
 		public void SetActivity(Activity activity)
 		{
 			if (requestedActivity == activity)

@@ -40,6 +40,7 @@
 }
 
 .unity-base-text-field > .unity-base-text-field__input,
+.unity-popup-field > .unity-popup-field__input,
 .unity-toggle > .unity-toggle__input > .unity-toggle__checkmark,
 .unity-button {
     background-color: rgba(0, 0, 0, 0);
@@ -117,6 +118,17 @@ RadioButton #unity-checkmark {
     -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishExpanded-Regular%20SDF.asset?fileID=11400000&guid=7dfaad12b4ec34f0bbdc86faea4b3721&type=2#DINishExpanded-Regular SDF");
 }
 
+.nav-button {
+	background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/HUD/Graphics/chevron.svg");
+	background-size: auto 16px;
+	background-position-x: right 12px;
+	background-position-y: center;
+	background-repeat: no-repeat;
+	-unity-background-image-tint-color: white;
+	
+	padding-right: 40px;
+}
+
 /* Shared page content */
 
 .field-row {
@@ -181,12 +193,81 @@ RadioButton #unity-checkmark {
 
 .unity-button,
 Toggle,
-TextField {
+TextField,
+.unity-popup-field {
     margin-top: 4px;
     margin-bottom: 4px;
     font-size: 20px;
-    translate: 0 0 5px;
+    /*translate: 0 0 5px;*/
     justify-content: center;
+}
+
+/* Popup fields (including DropdownField) */
+
+.unity-popup-field > .unity-popup-field__input {
+    min-height: 46px;
+    padding: 0 8px;
+    background-color: rgb(70, 70, 70);
+}
+
+.unity-popup-field:hover:enabled > .unity-popup-field__input,
+.unity-popup-field:focus:enabled > .unity-popup-field__input {
+    background-color: rgb(90, 90, 90);
+}
+
+.unity-popup-field .unity-base-popup-field__text {
+    font-size: 20px;
+    color: rgb(255, 255, 255);
+    -unity-text-align: middle-left;
+    margin: 0;
+    padding: 0;
+}
+
+.unity-popup-field .unity-base-popup-field__arrow {
+    -unity-background-image-tint-color: rgb(255, 255, 255);
+    flex-shrink: 0;
+    margin-left: 8px;
+}
+
+/* Open dropdowns are panel overlays, not children of their popup fields. */
+
+.unity-base-dropdown .unity-base-dropdown__container-outer {
+    background-color: rgb(20, 20, 20);
+    border-width: 1px;
+    border-color: rgb(255, 255, 255);
+    padding: 4px;
+}
+
+.unity-base-dropdown .unity-base-dropdown__container-inner {
+    background-color: rgb(20, 20, 20);
+}
+
+.unity-base-dropdown .unity-base-dropdown__item {
+    min-height: 46px;
+    background-color: rgb(20, 20, 20);
+}
+
+.unity-base-dropdown .unity-base-dropdown__item:checked {
+    background-color: rgb(70, 70, 70);
+}
+
+.unity-base-dropdown .unity-base-dropdown__item:hover:enabled,
+.unity-base-dropdown .unity-base-dropdown__item:focus:enabled {
+    background-color: rgb(90, 90, 90);
+}
+
+.unity-base-dropdown .unity-base-dropdown__label {
+    font-size: 20px;
+    color: rgb(255, 255, 255);
+    -unity-text-align: middle-left;
+}
+
+.unity-base-dropdown .unity-base-dropdown__checkmark {
+    -unity-background-image-tint-color: rgb(255, 255, 255);
+}
+
+.unity-base-dropdown .unity-base-dropdown__separator {
+    background-color: rgba(255, 255, 255, 0.4);
 }
 
 .unity-label {
@@ -255,7 +336,7 @@ ScrollView .unity-scroller--horizontal > .unity-scroller__slider {
 ScrollView .unity-scroller__slider #unity-tracker {
     margin: 0;
     background-color: transparent;
-    border-width: 1;
+    border-width: 1px;
 	border-color: rgb(255, 255, 255);
 }
 
@@ -293,6 +374,9 @@ ScrollView .unity-scroll-view__horizontal-scroller #unity-dragger {
 }
 
 .nav-header__back-button {
+	background-position-x: center;
+	background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/HUD/Graphics/back chevron.svg");
+	padding:18px;
     aspect-ratio: 1;
     min-height: auto;
 }

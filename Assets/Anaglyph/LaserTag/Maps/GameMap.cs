@@ -50,9 +50,12 @@ namespace Anaglyph.LaserTag.Maps
 		public float tagSizeCm;
 
 		/// <summary>
-		/// A map records whether it has tags rather than being bound to a colocation method:
-		/// a tag map can be hosted in shared-anchor mode, but not the other way around.
+		/// The authored preference, independent of the method currently able to align a device.
+		/// Selecting AprilTags is allowed before registering the first tag.
 		/// </summary>
+		public ColocationManager.ColocationMethod preferredColocationMethod;
+
+		/// <summary>Tag capability is independent of the preferred alignment method.</summary>
 		public bool HasTags => tags.Count > 0;
 
 		/// <summary>Nothing has been authored into it yet, so starting another blank map
@@ -64,6 +67,7 @@ namespace Anaglyph.LaserTag.Maps
 		{
 			id = id, name = name, version = version, dirty = dirty,
 			lastUsed = lastUsed, lastEdited = lastEdited, tagSizeCm = tagSizeCm,
+			preferredColocationMethod = preferredColocationMethod,
 			objects = new(objects), anchors = new(anchors), tags = new(tags)
 		};
 

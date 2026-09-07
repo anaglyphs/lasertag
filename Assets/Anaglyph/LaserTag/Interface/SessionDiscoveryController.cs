@@ -11,6 +11,9 @@ namespace Anaglyph.LaserTag
 		private bool menuAllowsListening = true;
 		private MetaSessionDiscovery sessionDiscovery;
 
+		public bool IsListening =>
+			isActiveAndEnabled && sessionDiscovery != null && sessionDiscovery.IsListening;
+
 		private void OnEnable()
 		{
 			NetcodeManagement.StateChanged += OnNetworkStateChanged;

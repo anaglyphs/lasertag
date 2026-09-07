@@ -54,7 +54,7 @@ namespace Anaglyph.Menu
 
 			this.Query<NavButton>().ForEach(button =>
 			{
-				if (button.IsBackButton)
+				if (button.IsBackButton && button.GetFirstAncestorOfType<NavPage>() == this)
 					backButtons.Add(button);
 			});
 		}

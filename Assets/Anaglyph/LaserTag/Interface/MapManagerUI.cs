@@ -72,12 +72,14 @@ namespace Anaglyph.LaserTag.Interface
 			LaserTagMapCoordinator.ProbeResultsChanged += Rebuild;
 			LaserTagMapCoordinator.ChangingMapChanged += Rebuild;
 			MatchReferee.StateChanged += OnMatchStateChanged;
+			LaserTagMapCoordinator.ColocationSettingsChanged += Rebuild;
 
 			Rebuild();
 		}
 
 		private void OnDisable()
 		{
+			LaserTagMapCoordinator.ColocationSettingsChanged -= Rebuild;
 			MatchReferee.StateChanged -= OnMatchStateChanged;
 			LaserTagMapCoordinator.ChangingMapChanged -= Rebuild;
 			LaserTagMapCoordinator.ProbeResultsChanged -= Rebuild;
@@ -130,7 +132,6 @@ namespace Anaglyph.LaserTag.Interface
 		private void OnCurrentMapChanged(GameMap _) => Rebuild();
 		private void OnMatchStateChanged(MatchState _) => Rebuild();
 		private void OnNetcodeStateChanged(NetcodeState _) => Rebuild();
-
 		private void OnNewMapClicked()
 		{
 			LaserTagMapCoordinator.Instance?.NewMap();

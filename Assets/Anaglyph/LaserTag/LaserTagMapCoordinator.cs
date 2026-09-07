@@ -6,6 +6,8 @@ using Anaglyph.LaserTag.Maps;
 using Anaglyph.LaserTag.Matches;
 using Anaglyph.Netcode.SyncVariables;
 using Anaglyph.XR.SharedSpaces;
+using Anaglyph.XR.SharedSpaces.SharedAnchors;
+using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -29,6 +31,7 @@ namespace Anaglyph.LaserTag
 		public static event Action WorldFrameRebased = delegate { };
 		public static event Action ChangingMapChanged = delegate { };
 		public static event Action ProbeResultsChanged = delegate { };
+		public static event Action ColocationSettingsChanged = delegate { };
 
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
 		private static void ResetStatics()
@@ -38,6 +41,7 @@ namespace Anaglyph.LaserTag
 			WorldFrameRebased = delegate { };
 			ChangingMapChanged = delegate { };
 			ProbeResultsChanged = delegate { };
+			ColocationSettingsChanged = delegate { };
 		}
 
 		private MapManager maps;
@@ -51,6 +55,28 @@ namespace Anaglyph.LaserTag
 		private readonly MapWorkflow workflow = new();
 		private int frameRebasedOn = -1;
 		private string registrationRequestedFor;
+
+		private struct MethodRequest
+		{
+			public Guid mapId;
+			public ColocationManager.ColocationMethod method;
+		}
+
+		private struct MethodRejection
+		{
+			public ulong requester;
+			public FixedString128Bytes reason;
+		}
+
+		private readonly SyncEvent<MethodRequest> methodRequest = new("map.colocation.request", EventRoute.ToAuthority);
+		private readonly SyncEvent<MethodRejection> methodRejection = new("map.colocation.rejected", EventRoute.ViaAuthority);
+		private readonly SyncVariable<bool> preparingMethod = new("map.colocation.preparing");
+		private CancellationTokenSource methodPreparation;
+		private double methodPreparationDeadline;
+		private ulong methodRequester;
+		private bool applyMapPreference;
+		private ulong preferenceRequester;
+		public bool IsChangingColocation => preparingMethod.Value;
 
 		public MapPhase Phase => workflow.Phase;
 		public GameMap CurrentMap => maps?.CurrentMap;
@@ -78,6 +104,17 @@ namespace Anaglyph.LaserTag
 
 			objects.Register();
 			colocation.Register();
+			colocationManager.MethodChanged += OnColocationMethodChanged;
+			if (colocationManager.TagProvider)
+				colocationManager.TagProvider.RegistrationGate = ValidateTagRegistration;
+			methodRequest.Register();
+			methodRequest.Received += OnMethodRequested;
+			methodRejection.Register();
+			methodRejection.Validate = (sender, _) => sender == SyncBus.LocalClientId;
+			methodRejection.Received += OnMethodRejected;
+			preparingMethod.Register();
+			preparingMethod.Validate = (_, _) => false;
+			preparingMethod.Changed += OnPreparingMethodChanged;
 			colocation.Changed += autosave.Schedule;
 			session.AuthorityReady += OnAuthorityReady;
 			session.Received += OnSessionMapReceived;
@@ -110,6 +147,15 @@ namespace Anaglyph.LaserTag
 			if (Instance != this)
 				return;
 			maps.Save(); // Preserve the last document; teardown is not an authored deletion.
+			CancelMethodPreparation();
+			colocationManager.MethodChanged -= OnColocationMethodChanged;
+			if (colocationManager.TagProvider) colocationManager.TagProvider.RegistrationGate = null;
+			preparingMethod.Changed -= OnPreparingMethodChanged;
+			preparingMethod.Unregister();
+			methodRequest.Received -= OnMethodRequested;
+			methodRequest.Unregister();
+			methodRejection.Received -= OnMethodRejected;
+			methodRejection.Unregister();
 			workflow.Stop();
 			Instance = null;
 			lifetime.Cancel();
@@ -147,7 +193,23 @@ namespace Anaglyph.LaserTag
 
 		private void LateUpdate()
 		{
+			// Native uploads cannot be interrupted. Release the session hold at the deadline;
+			// cancellation and the operation identity reject any eventual native completion.
+			if (methodPreparation != null && Time.realtimeSinceStartupAsDouble >= methodPreparationDeadline)
+			{
+				CancelMethodPreparation();
+				if (SyncBus.Active && SyncBus.IsAuthority)
+				{
+					preparingMethod.Value = false;
+					RejectMethod(methodRequester, "Anchor preparation timed out; the previous method is still active");
+				}
+			}
 			ApplyReferenceChanges();
+			if (applyMapPreference && workflow.Phase == MapPhase.Hosting && !IsChangingColocation && !RoundInProgress)
+			{
+				applyMapPreference = false;
+				ApplyPreferredMethod(preferenceRequester);
+			}
 			if (workflow.Phase != MapPhase.SwitchingMap)
 				return;
 
@@ -174,7 +236,21 @@ namespace Anaglyph.LaserTag
 		{
 			GameMap map = CurrentMap;
 			objects.SetMapId(map?.id);
-			colocationManager?.ConfigureMap(map != null, map != null && map.HasTags, CheckWorldFrameIsTrusted);
+			var previousAvailableMethod = colocationManager != null ? colocationManager.PreferredSessionMethod : default;
+			colocationManager?.ConfigureMap(map != null, map != null && map.HasTags,
+				map != null && !map.IsEmpty, map != null && map.anchors.Count > 0,
+				map != null ? map.preferredColocationMethod : default, CheckWorldFrameIsTrusted);
+			if (SyncBus.Active && SyncBus.IsAuthority && map != null && colocationManager != null)
+			{
+				if (workflow.Phase == MapPhase.SwitchingMap)
+					colocationManager.CommitMethod(colocationManager.PreferredSessionMethod);
+				else if (previousAvailableMethod != colocationManager.PreferredSessionMethod)
+				{
+					// Retry when references make another method available, not on every pose correction.
+					applyMapPreference = true;
+					preferenceRequester = SyncBus.LocalClientId;
+				}
+			}
 			CurrentMapChanged.Invoke(map);
 		}
 
@@ -193,7 +269,7 @@ namespace Anaglyph.LaserTag
 			empty: maps.IsEmpty,
 			hasTags: maps.HasTags,
 			frameAgrees: CheckFrameAgreement(),
-			sessionHolding: IsChangingMap,
+			sessionHolding: IsChangingMap || IsChangingColocation,
 			roundInProgress: RoundInProgress,
 			sessionUsesTags: SessionUsesTags);
 
@@ -204,19 +280,21 @@ namespace Anaglyph.LaserTag
 		{
 			if (!maps.HasMap || Time.frameCount == frameRebasedOn || !colocationManager)
 				return false;
-			int realizable = colocationManager.CountRealizableReferences(maps.AnchorCount, maps.TaggedAnchorCount);
+			int realizable = colocationManager.CountRealizableReferences();
 			// Registered tags define a frame even before this headset has realized an anchor.
 			if (colocationManager.UsingTagProvider && colocationManager.ActiveProvider.IsAvailable &&
 			    maps.HasTags && !ColocationManager.IsColocated)
 				return false;
 			if (realizable == 0)
-				return true;
+				return (colocationManager.ActiveProvider != null && !colocationManager.ActiveProvider.IsAvailable) ||
+					MapPolicy.CanBootstrapFrame(maps.HasTags, maps.AnchorCount, maps.IsEmpty, SyncBus.Active, SyncBus.IsAuthority);
 			FitAgreement agreement = colocationManager.Agreement;
 			return ColocationManager.IsColocated && agreement.agreeingCount >= Mathf.Min(realizable, 2) && agreement.meanAgrees;
 		}
 
 		public string DescribeChangeBlocker(string id)
 		{
+			if (IsChangingColocation) return "Preparing the colocation method";
 			MapStore.Default.TryGet(id, out GameMap target);
 			return Policy.ChangeMapBlocker(target, maps.CurrentId == id, GetMapPresence(id));
 		}
@@ -259,7 +337,7 @@ namespace Anaglyph.LaserTag
 			session.SetChanging(true);
 		}
 
-		public string DescribeNewMapBlocker() => Policy.NewMapBlocker;
+		public string DescribeNewMapBlocker() => IsChangingColocation ? "Preparing the colocation method" : Policy.NewMapBlocker;
 		public bool NewMap()
 		{
 			if (DescribeNewMapBlocker() != null)
@@ -362,7 +440,7 @@ namespace Anaglyph.LaserTag
 
 			bool anchorsChanged = maps.SetAnchors(snapshot.anchors);
 			QueueDroppedAnchors(before, snapshot);
-			if (contentChanged)
+			if (contentChanged || (before.anchors.Count == 0) != (snapshot.anchors.Count == 0))
 				NotifyMapChanged();
 			if (contentChanged || anchorsChanged)
 				autosave.Schedule();
@@ -466,6 +544,8 @@ namespace Anaglyph.LaserTag
 
 		private void OnAuthorityChanged(bool isAuthority)
 		{
+			CancelMethodPreparation();
+			if (isAuthority) preparingMethod.Value = false;
 			if (!isAuthority)
 				workflow.EnterSession(authority: false);
 		}
@@ -483,6 +563,7 @@ namespace Anaglyph.LaserTag
 			GameMap received = sameMap ? current : ReadLocalCopy(id);
 			received.name = identity.name.ToString();
 			received.version = version;
+			received.preferredColocationMethod = identity.preferredColocationMethod;
 			received.objects = placements;
 			bool changesFrame = !workflow.HasSessionFrame || !sameMap;
 			received = colocation.AdoptProviderState(received, changesFrame);
@@ -534,6 +615,8 @@ namespace Anaglyph.LaserTag
 
 		private void OnBusDeactivated()
 		{
+			applyMapPreference = false;
+			CancelMethodPreparation();
 			if (workflow.Phase == MapPhase.Stopped)
 				return;
 
@@ -576,6 +659,175 @@ namespace Anaglyph.LaserTag
 			}
 		}
 
+		// ------- session colocation method -------------------------------------
+
+		public string DescribeColocationMethodBlocker(ColocationManager.ColocationMethod method)
+		{
+			if (method != ColocationManager.ColocationMethod.AprilTag &&
+				method != ColocationManager.ColocationMethod.MetaSharedAnchor) return "Unknown colocation method";
+			string blocker = Policy.ColocationMethodBlocker(method == ColocationManager.ColocationMethod.AprilTag);
+			if (blocker != null) return blocker;
+			if (!colocationManager) return "No colocation manager";
+			if (method == ColocationManager.ColocationMethod.MetaSharedAnchor)
+			{
+				if (!colocationManager.AnchorProvider) return "No shared-anchor provider";
+				// A requester cannot judge the authority's runtime or private realizations.
+				if (SyncBus.IsAuthority && SyncBus.Active && !colocationManager.AnchorProvider.CanShareAnchors)
+					return "The host cannot share spatial anchors";
+				if (SyncBus.IsAuthority && maps.AnchorCount == 0) return "Align to a registered tag first to create an anchor";
+			}
+			else if (!colocationManager.TagProvider) return "No AprilTag provider";
+			return null;
+		}
+
+		public string DescribeColocationPreferenceBlocker() => Policy.ColocationPreferenceBlocker;
+
+		public bool SetPreferredColocationMethod(ColocationManager.ColocationMethod method)
+		{
+			if ((method != ColocationManager.ColocationMethod.AprilTag &&
+				method != ColocationManager.ColocationMethod.MetaSharedAnchor) ||
+				DescribeColocationPreferenceBlocker() != null || !EnsureMap()) return false;
+			if (SyncBus.Active)
+			{
+				methodRequest.Raise(new MethodRequest { mapId = Guid.Parse(maps.CurrentId), method = method });
+				return true;
+			}
+			ApplyReferenceChanges();
+			maps.SetPreferredColocationMethod(method);
+			NotifyMapChanged();
+			return SaveCurrentMap();
+		}
+
+		private void OnMethodRequested(ulong sender, MethodRequest request)
+		{
+			if (!SyncBus.Active || !SyncBus.IsAuthority) return;
+			string blocker = DescribeColocationPreferenceBlocker();
+			if (maps.CurrentId != request.mapId.ToString("N")) blocker = "The session map changed; try again";
+			if (request.method != ColocationManager.ColocationMethod.AprilTag &&
+				request.method != ColocationManager.ColocationMethod.MetaSharedAnchor) blocker = "Unknown colocation method";
+			if (blocker != null) { RejectMethod(sender, blocker); return; }
+			ApplyReferenceChanges();
+			maps.SetPreferredColocationMethod(request.method);
+			if (!SaveCurrentMap()) { RejectMethod(sender, "The map preference could not be saved"); return; }
+			NotifyMapChanged();
+			preferenceRequester = sender;
+			applyMapPreference = true;
+		}
+
+		private async void ApplyPreferredMethod(ulong sender)
+		{
+			if (!SyncBus.Active || !SyncBus.IsAuthority || !maps.HasMap) return;
+			GameMap map = CurrentMap;
+			MethodRequest request = new()
+			{
+				mapId = Guid.Parse(map.id),
+				method = ColocationManager.CompatibleMethod(map.preferredColocationMethod,
+					map.HasTags, !map.IsEmpty, map.anchors.Count > 0)
+			};
+			if (request.method == colocationManager.Method) return;
+			string blocker = DescribeColocationMethodBlocker(request.method);
+			if (blocker != null) { RejectMethod(sender, "Preference saved. " + blocker); return; }
+
+			ColocationManager.ColocationMethod previous = colocationManager.Method;
+			CancellationTokenSource operation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
+			methodPreparation = operation;
+			methodPreparationDeadline = Time.realtimeSinceStartupAsDouble + 20;
+			methodRequester = sender;
+			preparingMethod.Value = true;
+			try
+			{
+				if (request.method == ColocationManager.ColocationMethod.MetaSharedAnchor)
+				{
+					HashSet<Guid> shared = new();
+					await colocationManager.AnchorProvider.PrepareSharingAsync(SharedAnchorCandidates(), shared, operation.Token);
+					operation.Token.ThrowIfCancellationRequested();
+					if (!SyncBus.Active || !SyncBus.IsAuthority || methodPreparation != operation ||
+						maps.CurrentId != request.mapId.ToString("N") || colocationManager.Method != previous) return;
+					if (RoundInProgress) { RejectMethod(sender, "Wait until the round ends"); return; }
+					// Tags keep correcting while uploads run. Commit the current poses and only
+					// UUIDs that still belong to this map and were successfully shared.
+					ApplyReferenceChanges();
+					List<AnchorConstraintData> prepared = SharedAnchorCandidates();
+					prepared.RemoveAll(entry => !shared.Contains(entry.guid));
+					if (prepared.Count == 0)
+					{
+						RejectMethod(sender, "No tracked anchor could be shared. Check the host's alignment and internet connection");
+						return;
+					}
+					// These dictionary writes precede the method commit on SyncBus's ordered
+					// channel; late joiners receive both together in the combined snapshot.
+					colocationManager.AnchorProvider.SetConstraints(prepared);
+				}
+				else ApplyReferenceChanges();
+
+				colocationManager.CommitMethod(request.method);
+			}
+			catch (OperationCanceledException)
+			{
+				if (SyncBus.Active && SyncBus.IsAuthority && methodPreparation == operation)
+					RejectMethod(sender, "Anchor preparation timed out; the previous method is still active");
+			}
+			catch (Exception exception)
+			{
+				Debug.LogException(exception);
+				if (SyncBus.Active && SyncBus.IsAuthority && methodPreparation == operation)
+					RejectMethod(sender, "Could not prepare the colocation method; try again");
+			}
+			finally
+			{
+				if (methodPreparation == operation)
+				{
+					methodPreparation = null;
+					if (SyncBus.Active && SyncBus.IsAuthority) preparingMethod.Value = false;
+				}
+				operation.Dispose();
+			}
+		}
+
+		private List<AnchorConstraintData> SharedAnchorCandidates()
+		{
+			List<AnchorConstraintData> result = new();
+			foreach (MapAnchorEntry entry in CurrentMap.anchors)
+				if (MapGuid.TryParse(entry.guid, out Guid guid))
+					result.Add(new AnchorConstraintData(guid, entry.canonPose, entry.tagId));
+			return result;
+		}
+
+		private void CancelMethodPreparation()
+		{
+			CancellationTokenSource operation = methodPreparation;
+			methodPreparation = null;
+			operation?.Cancel();
+		}
+
+		private void RejectMethod(ulong requester, string reason)
+		{
+			MethodRejection rejection = new() { requester = requester };
+			rejection.reason.CopyFromTruncated(reason);
+			methodRejection.Raise(rejection);
+		}
+
+		private void OnMethodRejected(ulong _, MethodRejection rejection)
+		{
+			if (rejection.requester == SyncBus.LocalClientId)
+				UserErrors.Raise("Colocation preference", rejection.reason.ToString());
+		}
+
+		private void OnPreparingMethodChanged(bool _, bool __) => ColocationSettingsChanged.Invoke();
+
+		private void OnColocationMethodChanged()
+		{
+			if (SyncBus.Active && maps.HasMap && Policy.CanRecordReferences)
+			{
+				GameMap before = CurrentMap;
+				GameMap after = colocation.AdoptProviderState(before.Clone(), restoreLocalAnchors: false);
+				maps.SetAnchors(after.anchors);
+				QueueDroppedAnchors(before, after);
+				autosave.Schedule();
+			}
+			ColocationSettingsChanged.Invoke();
+		}
+
 		public bool RequestPlaceObject(MapObject prefab, Vector3 position, Quaternion rotation)
 		{
 			if (!CheckCanEditMap() || prefab == null || !EnsureMap())
@@ -600,6 +852,17 @@ namespace Anaglyph.LaserTag
 		}
 
 		public string DescribeTagRegistrationBlocker() => Policy.TagRegistrationBlocker;
+
+		private bool ValidateTagRegistration(ulong sender, int tagId, Pose pose)
+		{
+			if (!SyncBus.Active || sender == SyncBus.LocalClientId)
+				return DescribeTagRegistrationBlocker() == null;
+			if (workflow.Phase != MapPhase.Hosting || IsChangingMap || IsChangingColocation) return false;
+			// A first tag can define a genuinely blank world. Once content exists, the
+			// registering headset must already have aligned to that content's frame.
+			return maps.IsEmpty ||
+				(Player.PlayerAvatar.All.TryGetValue(sender, out Player.PlayerAvatar player) && player.IsAligned);
+		}
 		public bool RegisterTag(int tagId, Pose worldPose)
 		{
 			if (DescribeTagRegistrationBlocker() != null || !EnsureMap())

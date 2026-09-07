@@ -11,6 +11,7 @@ namespace Anaglyph.LaserTag.Maps
 		public Guid id;
 		public Guid version;
 		public FixedString64Bytes name;
+		public ColocationManager.ColocationMethod preferredColocationMethod;
 	}
 
 	/// <summary>
@@ -79,7 +80,11 @@ namespace Anaglyph.LaserTag.Maps
 			}
 			FixedString64Bytes name = default;
 			name.CopyFromTruncated(map.name ?? "");
-			identity.Value = new MapIdentity { id = id, version = version, name = name };
+			identity.Value = new MapIdentity
+			{
+				id = id, version = version, name = name,
+				preferredColocationMethod = map.preferredColocationMethod
+			};
 		}
 
 		private void OnChangingChanged(bool _, bool __) => ChangingMapChanged.Invoke();
