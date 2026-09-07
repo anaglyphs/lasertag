@@ -215,6 +215,10 @@ TextField,
     background-color: rgb(90, 90, 90);
 }
 
+.unity-popup-field .unity-base-popup-field__input {
+	margin-left: 0px;
+}
+
 .unity-popup-field .unity-base-popup-field__text {
     font-size: 20px;
     color: rgb(255, 255, 255);
@@ -623,21 +627,6 @@ ScrollView .unity-scroll-view__horizontal-scroller #unity-dragger {
 .palette-tab.selected .palette-tab-icon,
 .palette-item.selected .palette-item-icon {
     background-color: rgba(0, 0, 0, 0.1);
-}
-
-/* Palette forms */
-
-.palette-form {
-    padding: 4px 2px;
-}
-
-.palette-form .unity-scroll-view__content-container {
-    flex-direction: column;
-    flex-wrap: nowrap;
-}
-
-.palette-hint {
-    opacity: 0.7;
 }
 
 /* Game mode picker */

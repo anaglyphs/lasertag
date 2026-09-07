@@ -18,6 +18,9 @@ namespace Anaglyph.LaserTag.Player
 		// todo move this into another component. this really doesn't belong here
 		// private OVRPassthroughLayer passthroughLayer;
 		public bool redDamagedVision = true;
+		[SerializeField, Min(0.01f)] private float damageFlashDuration = 0.25f;
+		[SerializeField, Range(0f, 1f)] private float damageFlashStrength = 0.75f;
+		private float damageFlash;
 
 		public static MainPlayer Instance { get; private set; }
 
@@ -72,15 +75,19 @@ namespace Anaglyph.LaserTag.Player
 			if (redDamagedVision)
 			{
 				float healthNormalized = 1f - Mathf.Clamp01(Health / MaxHealth);
+				float tintAmount = Mathf.Lerp(healthNormalized, 1f, damageFlash * damageFlashStrength);
 
 				Color col = Color.red;
-				col.a = healthNormalized;
+				col.a = tintAmount;
 				
 				PassthroughStylingFeature.SetStyle(
 					tint: col,
-					tintAmount: healthNormalized,
+					tintAmount: tintAmount,
 					newEdgeTint: col
 					);
+
+				damageFlash = Mathf.MoveTowards(damageFlash, 0f,
+					Time.deltaTime / Mathf.Max(0.01f, damageFlashDuration));
 			}
 			else
 			{
@@ -128,6 +135,7 @@ namespace Anaglyph.LaserTag.Player
 
 			IsInFriendlyBase = false;
 			WeaponsManagement.CanFire = false;
+			ClearPassthroughEffects();
 		}
 
 		public void SetInFriendlyBase(bool inFriendlyBase)
@@ -147,7 +155,10 @@ namespace Anaglyph.LaserTag.Player
 		public void Damage(float damage, ulong damagedBy)
 		{
 			Damaged.Invoke();
-			Health -= MatchReferee.Settings.ApplyDamageMultiplier(damage);
+			float appliedDamage = MatchReferee.Settings.ApplyDamageMultiplier(damage);
+			if (IsAlive && appliedDamage > 0f)
+				damageFlash = 1f;
+			Health -= appliedDamage;
 
 			if (Health <= 0)
 				Kill(damagedBy);
@@ -182,6 +193,7 @@ namespace Anaglyph.LaserTag.Player
 
 		private void ClearPassthroughEffects()
 		{
+			damageFlash = 0f;
 			PassthroughStylingFeature.ClearStyle();
 		}
 	}

@@ -164,7 +164,7 @@ namespace Anaglyph.LaserTag.Interface
 			if (manager != null && manager.IsChangingColocation)
 				status = "Preference saved. Preparing shared anchors before switching.";
 			else if (useTags && (map == null || !map.HasTags))
-				status ??= "Register a tag to use AprilTag alignment. Existing anchors keep the map aligned while you register it.";
+				status ??= "Register a tag to use AprilTag alignment.";
 			else if (ColocationManager.Instance != null && ColocationManager.Instance.SelectedMethod != preference)
 				status ??= "Preference saved. The current method remains active until the preferred method is available.";
 			SetMessage(colocationMethodStatus, status);

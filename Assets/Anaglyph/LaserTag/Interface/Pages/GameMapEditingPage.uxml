@@ -8,7 +8,8 @@
                 <ui:TextField name="map-name-field" label="Name" max-length="40" class="stacked-field"/>
                 <ui:Label name="map-name-note" class="warning"/>
                 <Anaglyph.Menu.NavButton name="tags-mode-button" target="alignment-settings-page" text="Alignment Settings"/>
-                <ui:Label text="Controls: Trigger places objects. Grip grabs and moves. Y/B deletes. Choose objects from the palette on your non-dominant hand; Trigger sets the dominant hand." class="body-copy"/>
+                <ui:Label text="- Trigger: place objects / set dominant hand\n- Grip: grab and move object\n- Y/B: delete object" parse-escape-sequences="true" class="body-copy"/>
+                <ui:VisualElement style="flex-grow: 1;"/>
                 <ui:Button name="finish-editing-button" text="Finish editing"/>
             </ui:VisualElement>
         </Anaglyph.Menu.NavPage>
