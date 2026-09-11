@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Localization;
 
 namespace Anaglyph.LaserTag.MapEditor
 {
@@ -15,8 +16,9 @@ namespace Anaglyph.LaserTag.MapEditor
 		[Serializable]
 		public class Entry
 		{
-			[Tooltip("Shown under the thumbnail. Falls back to the prefab's name.")]
+			[Tooltip("Fallback caption when no localized name is assigned. Falls back to the prefab's name.")]
 			[SerializeField] private string displayName;
+			[SerializeField] private LocalizedString localizedName;
 
 			[Tooltip("Thumbnail on the palette button")]
 			[SerializeField] private Sprite icon;
@@ -27,6 +29,7 @@ namespace Anaglyph.LaserTag.MapEditor
 			public MapObject Prefab => prefab;
 
 			public string DisplayName =>
+				localizedName != null && !localizedName.IsEmpty ? localizedName.GetLocalizedString() :
 				!string.IsNullOrWhiteSpace(displayName) ? displayName :
 				prefab != null ? prefab.name : "Missing";
 		}
@@ -35,6 +38,7 @@ namespace Anaglyph.LaserTag.MapEditor
 		public class Category
 		{
 			[SerializeField] private string name = "Category";
+			[SerializeField] private LocalizedString localizedName;
 
 			[Tooltip("Icon on the category tab")]
 			[SerializeField] private Sprite icon;
@@ -44,7 +48,7 @@ namespace Anaglyph.LaserTag.MapEditor
 
 			[SerializeField] private List<Entry> objects = new();
 
-			public string Name => name;
+			public string Name => localizedName != null && !localizedName.IsEmpty ? localizedName.GetLocalizedString() : name;
 			public Sprite Icon => icon;
 			public bool DebugOnly => debugOnly;
 			public IReadOnlyList<Entry> Objects => objects;

@@ -7,8 +7,6 @@ namespace Anaglyph.LaserTag
 	[DefaultExecutionOrder(-10000)]
 	public class ModeSpawner : MonoBehaviour
 	{
-		[SerializeField] private bool xrSimulation;
-
 		[FormerlySerializedAs("xrRig")] [SerializeField] private GameObject xrModePrefab;
 		[FormerlySerializedAs("desktopRig")] [SerializeField] private GameObject desktopOperatorModePrefab;
 
@@ -20,7 +18,8 @@ namespace Anaglyph.LaserTag
 			{
 #if UNITY_EDITOR
 				// Multiplayer Play Mode virtual players have no headset
-				return !Unity.Multiplayer.PlayMode.CurrentPlayer.IsMainEditor;
+				return Editor.PlayModeXRSimulation.Setting.Value ||
+				       !Unity.Multiplayer.PlayMode.CurrentPlayer.IsMainEditor;
 #else
 				return false;
 #endif
@@ -29,7 +28,7 @@ namespace Anaglyph.LaserTag
 
 		private void Awake()
 		{
-			bool simulateXR = xrSimulation || ShouldSimulateXR;
+			bool simulateXR = ShouldSimulateXR;
 			bool usingXR = XRSettings.enabled || simulateXR;
 			GameObject g = Instantiate(usingXR ? xrModePrefab : desktopOperatorModePrefab);
 

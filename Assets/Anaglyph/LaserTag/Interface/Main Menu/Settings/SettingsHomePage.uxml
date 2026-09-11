@@ -1,0 +1,36 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle" />
+    <ui:VisualElement class="page-template-root">
+        <Anaglyph.Menu.NavHeader>
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="Title" table="SettingsMenu" entry="SettingsHomePage.navheader-2.title" />
+            </Bindings>
+        </Anaglyph.Menu.NavHeader>
+        <Anaglyph.Menu.NavButton name="graphics-button" target="graphics-page">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsHomePage.graphics-button.text" />
+            </Bindings>
+        </Anaglyph.Menu.NavButton>
+        <Anaglyph.Menu.NavButton name="debugging-button" target="debugging-page">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsHomePage.debugging-button.text" />
+            </Bindings>
+        </Anaglyph.Menu.NavButton>
+        <Anaglyph.Menu.NavButton name="operator-provisioning-button" target="operator-provisioning-page" style="display: none;">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsHomePage.operator-provisioning-button.text" />
+            </Bindings>
+        </Anaglyph.Menu.NavButton>
+        <ui:Label name="version" class="version">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="version">
+                    <variables>
+                        <UnityEngine.Localization.LocalVariable name="version">
+                            <UnityEngine.Localization.SmartFormat.PersistentVariables.StringVariable value="" />
+                        </UnityEngine.Localization.LocalVariable>
+                    </variables>
+                </UnityEngine.Localization.LocalizedString>
+            </Bindings>
+        </ui:Label>
+    </ui:VisualElement>
+</ui:UXML>

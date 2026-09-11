@@ -114,32 +114,40 @@ namespace Anaglyph.LaserTag
 		private readonly bool hasMap;
 		private readonly bool empty;
 		private readonly bool hasTags;
+		private readonly bool hasAnchors;
+		private readonly bool systemDeterminedFrame;
 		private readonly bool frameAgrees;
 		private readonly bool sessionHolding;
 		private readonly bool roundInProgress;
 		private readonly bool sessionUsesTags;
+		private readonly bool operatorManagedSession;
 
 		public MapPolicy(MapPhase phase, bool hasMap, bool empty, bool hasTags,
-			bool frameAgrees, bool sessionHolding, bool roundInProgress, bool sessionUsesTags)
+			bool frameAgrees, bool sessionHolding, bool roundInProgress, bool sessionUsesTags,
+			bool operatorManagedSession = false, bool hasAnchors = true, bool systemDeterminedFrame = false)
 		{
 			this.phase = phase;
 			this.hasMap = hasMap;
 			this.empty = empty;
 			this.hasTags = hasTags;
+			this.hasAnchors = hasAnchors && !empty;
+			this.systemDeterminedFrame = systemDeterminedFrame && !empty;
 			this.frameAgrees = frameAgrees;
 			this.sessionHolding = sessionHolding;
 			this.roundInProgress = roundInProgress;
 			this.sessionUsesTags = sessionUsesTags;
+			this.operatorManagedSession = operatorManagedSession;
 		}
 
+		// Blockers are stable copy keys; null means the action is available.
 		private string TransitionBlocker => phase switch
 		{
-			MapPhase.AwaitingSessionMap => "Waiting for the session's map",
-			MapPhase.AdoptingSessionMap => "Saving the incoming map",
-			MapPhase.RestoringLocalMap => "Waiting for the session to end",
-			MapPhase.SwitchingMap => "Waiting for the map change",
-			MapPhase.Stopped => "Map system is stopped",
-			_ => sessionHolding ? "Waiting for the map change" : null
+			MapPhase.AwaitingSessionMap => "blocker.waiting-for-the-session-s-map",
+			MapPhase.AdoptingSessionMap => "blocker.saving-the-incoming-map",
+			MapPhase.RestoringLocalMap => "blocker.waiting-for-the-session-to-end",
+			MapPhase.SwitchingMap => "blocker.waiting-for-the-map-change",
+			MapPhase.Stopped => "blocker.map-system-is-stopped",
+			_ => sessionHolding ? "blocker.waiting-for-the-map-change" : null
 		};
 
 		public bool CanCaptureScene => phase is MapPhase.Local or MapPhase.Hosting or MapPhase.SwitchingMap;
@@ -153,36 +161,47 @@ namespace Anaglyph.LaserTag
 			bool inSession, bool isAuthority) => !hasTags && anchorCount == 0 &&
 			(!inSession || isAuthority || empty);
 
-		public string ColocationMethodBlocker(bool useTags) => TransitionBlocker ??
-			(!hasMap ? "Load a map first" : roundInProgress ? "Wait until the round ends" :
-			 useTags && !hasTags && !empty ? "Register a tag while aligned to this map first" : null);
+		public bool HasAlignmentReferences => hasTags || hasAnchors || systemDeterminedFrame;
 
-		public string ColocationPreferenceBlocker => TransitionBlocker ??
-			(roundInProgress ? "Wait until the round ends" : null);
+		public string ReferenceSetupBlocker => TransitionBlocker ??
+			(hasMap && HasAlignmentReferences && !frameAgrees ? "alignment.align-before-reference-setup" : null);
+
+		public string ColocationMethodBlocker(bool targetHasReferences) => TransitionBlocker ??
+			(!hasMap ? "blocker.load-a-map-first" : roundInProgress ? "blocker.wait-until-the-round-ends" :
+			 HasAlignmentReferences && !targetHasReferences
+				? ReferenceSetupBlocker ?? "alignment.target-needs-reference" : null);
+
+		public string ColocationPreferenceBlocker => ColocationPreferenceBlockerFor(operatorRequest: false);
+
+		// The operator owns this choice in managed sessions. The authority checks the actual
+		// requester too, so receiving a headset's request does not give it operator privileges.
+		public string ColocationPreferenceBlockerFor(bool operatorRequest) => TransitionBlocker ??
+			(operatorManagedSession && !operatorRequest ? "blocker.the-operator-sets-the-alignment-method" :
+			 roundInProgress ? "blocker.wait-until-the-round-ends" : null);
 		public bool CanProbe => phase == MapPhase.Local;
 		public bool NeedsFirstTag => (phase is MapPhase.Hosting or MapPhase.FollowingSession) &&
 			TransitionBlocker == null && hasMap && !hasTags && sessionUsesTags;
 
 		public string EditBlocker => TransitionBlocker ??
-			(hasMap && !frameAgrees ? "Waiting for alignment" : null);
+			(hasMap && !frameAgrees ? "blocker.waiting-for-alignment" : null);
 
 		public string TagRegistrationBlocker => TransitionBlocker ??
-			(hasTags && !frameAgrees ? "Align to this map's tags first" : EditBlocker);
+			(hasTags && !frameAgrees ? "blocker.align-to-this-map-s-tags-first" : EditBlocker);
 
 		// Removing a moved tag must remain possible while alignment is lost.
 		public string TagRemovalBlocker => TransitionBlocker;
 		public string TagSizeBlocker => TransitionBlocker ??
-			(hasTags ? "Unregister this map's tags to change their size" : null);
+			(hasTags ? "blocker.unregister-this-map-s-tags-to-change-their-size" : null);
 
 		public string RenameBlocker => TransitionBlocker ??
-			(phase == MapPhase.FollowingSession ? "Only the host can rename the map" : null);
+			(phase == MapPhase.FollowingSession ? "blocker.only-the-host-can-rename-the-map" : null);
 
 		private string ManageMapsBlocker => phase switch
 		{
 			MapPhase.Local => null,
-			MapPhase.Hosting or MapPhase.SwitchingMap => roundInProgress ? "Not during a round" : null,
+			MapPhase.Hosting or MapPhase.SwitchingMap => roundInProgress ? "blocker.not-during-a-round" : null,
 			MapPhase.AwaitingSessionMap or MapPhase.AdoptingSessionMap or MapPhase.FollowingSession =>
-				"Only the host can change the map",
+				"blocker.only-the-host-can-change-the-map",
 			_ => TransitionBlocker
 		};
 
@@ -193,9 +212,9 @@ namespace Anaglyph.LaserTag
 				if (ManageMapsBlocker != null)
 					return ManageMapsBlocker;
 				if (roundInProgress)
-					return "Not during a round";
+					return "blocker.not-during-a-round";
 				if (!hasMap || empty)
-					return "Already a blank map";
+					return "blocker.already-a-blank-map";
 
 				return null;
 			}
@@ -206,7 +225,7 @@ namespace Anaglyph.LaserTag
 			if (phase == MapPhase.Stopped)
 				return TransitionBlocker;
 			if (isCurrent && phase != MapPhase.Local)
-				return "Cannot delete the active session map";
+				return "blocker.cannot-delete-the-active-session-map";
 
 			return null;
 		}
@@ -216,11 +235,11 @@ namespace Anaglyph.LaserTag
 			if (ManageMapsBlocker != null)
 				return ManageMapsBlocker;
 			if (target == null)
-				return "Map is missing";
+				return "blocker.map-is-missing";
 			if (alreadyLoaded)
-				return "Already loaded";
+				return "blocker.already-loaded";
 			if (presence == MapPresence.Elsewhere)
-				return "Map belongs to another room";
+				return "blocker.map-belongs-to-another-room";
 
 			return null;
 		}

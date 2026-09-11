@@ -1,0 +1,179 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b11a58205ec3474ca216360e9fa74a8, type: 3}
+  m_Name: HUDMenu Shared Data
+  m_EditorClassIdentifier: Unity.Localization::UnityEngine.Localization.Tables.SharedTableData
+  m_TableCollectionName: HUDMenu
+  m_TableCollectionNameGuidString: 2cb10e2673f844566a9e0da797152e49
+  m_Entries:
+  - m_Id: 1034936320
+    m_Key: static-1.text
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169083
+  - m_Id: 1039130624
+    m_Key: muster-label.text
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169084
+  - m_Id: 1039130625
+    m_Key: teamless-label.text
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169085
+  - m_Id: 1039130626
+    m_Key: vs-label.text
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169086
+  - m_Id: 1039130627
+    m_Key: ConnectingText
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169087
+  - m_Id: 1039130628
+    m_Key: AligningText
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169088
+  - m_Id: 1039130629
+    m_Key: ReadyText
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169089
+  - m_Id: 1039130630
+    m_Key: countdown.go
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169090
+  - m_Id: 1039130631
+    m_Key: results.match
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169091
+  - m_Id: 1039130632
+    m_Key: results.round
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169092
+  - m_Id: 1039130633
+    m_Key: match.round
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169093
+  - m_Id: 1039130634
+    m_Key: respawn.next-round
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169094
+  - m_Id: 1039130635
+    m_Key: respawn.base
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169095
+  - m_Id: 1039130636
+    m_Key: respawn.countdown
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169096
+  - m_Id: 1039130637
+    m_Key: tag-registration-label.text
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169097
+  m_Metadata:
+    m_Items: []
+  m_KeyGenerator:
+    rid: 533178725424169067
+  references:
+    version: 2
+    RefIds:
+    - rid: 533178725424169067
+      type: {class: DistributedUIDGenerator, ns: UnityEngine.Localization.Tables, asm: Unity.Localization}
+      data:
+        m_CustomEpoch: 1789082531344
+    - rid: 533178725424169083
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Headset gameplay HUD. Preserve emphasis; countdown does not
+          flash.
+    - rid: 533178725424169084
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Headset gameplay HUD. Preserve emphasis; countdown does not
+          flash.
+    - rid: 533178725424169085
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Headset gameplay HUD. Preserve emphasis; countdown does not
+          flash.
+    - rid: 533178725424169086
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Headset gameplay HUD. Preserve emphasis; countdown does not
+          flash.
+    - rid: 533178725424169087
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Headset gameplay HUD. Preserve emphasis; countdown does not
+          flash.
+    - rid: 533178725424169088
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Headset gameplay HUD. Preserve emphasis; countdown does not
+          flash.
+    - rid: 533178725424169089
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Headset gameplay HUD. Preserve emphasis; countdown does not
+          flash.
+    - rid: 533178725424169090
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Headset gameplay HUD. Preserve emphasis; countdown does not
+          flash.
+    - rid: 533178725424169091
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Headset gameplay HUD. Preserve emphasis; countdown does not
+          flash.
+    - rid: 533178725424169092
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Headset gameplay HUD. Preserve emphasis; countdown does not
+          flash.
+    - rid: 533178725424169093
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: 'Headset gameplay HUD. Preserve emphasis; countdown does not
+          flash. Arguments 0/1: current round and total rounds; also used on wrist
+          HUD.'
+    - rid: 533178725424169094
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Headset gameplay HUD. Preserve emphasis; countdown does not
+          flash.
+    - rid: 533178725424169095
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Headset gameplay HUD. Preserve emphasis; countdown does not
+          flash.
+    - rid: 533178725424169096
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: 'Headset gameplay HUD. Preserve emphasis; countdown does not
+          flash. Argument 0: seconds until respawn, one decimal.'
+    - rid: 533178725424169097
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Headset gameplay HUD. Flashing setup prompt shown only when
+          the loaded map prefers AprilTags and has none registered.

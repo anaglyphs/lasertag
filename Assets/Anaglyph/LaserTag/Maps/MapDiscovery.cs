@@ -59,6 +59,10 @@ namespace Anaglyph.LaserTag.Maps
 		/// </summary>
 		public MapPresence GetPresence(string mapId)
 		{
+			// An old anchor probe cannot locate a map now using the system's origin.
+			if (mapId != null && store.TryGet(mapId, out GameMap map) &&
+				(map.systemFrameForTagSetup || map.preferredColocationMethod == ColocationManager.ColocationMethod.SystemDetermined))
+				return MapPresence.Unknown;
 			if (mapId == null || !results.TryGetValue(mapId, out int localized))
 				return MapPresence.Unknown;
 
@@ -94,9 +98,14 @@ namespace Anaglyph.LaserTag.Maps
 			// runtime hand over entities that are in use.
 			HashSet<Guid> toTest = new();
 			foreach (GameMap map in store.Maps)
+			{
+				// Retained anchor records do not locate a map that delegates its frame to the system.
+				if (map.systemFrameForTagSetup || map.preferredColocationMethod == ColocationManager.ColocationMethod.SystemDetermined)
+					continue;
 				foreach (MapAnchorEntry entry in map.anchors)
 					if (MapGuid.TryParse(entry.guid, out Guid guid))
 						toTest.Add(guid);
+			}
 
 			if (toTest.Count == 0)
 				return null;
@@ -131,7 +140,8 @@ namespace Anaglyph.LaserTag.Maps
 			{
 				// Nothing to test with means nothing was learned. Recording a zero would read as
 				// "not in this room" and hide the map everywhere the score is consulted.
-				if (map.anchors.Count == 0)
+				if (map.anchors.Count == 0 || map.systemFrameForTagSetup ||
+					map.preferredColocationMethod == ColocationManager.ColocationMethod.SystemDetermined)
 				{
 					results.Remove(map.id);
 					continue;

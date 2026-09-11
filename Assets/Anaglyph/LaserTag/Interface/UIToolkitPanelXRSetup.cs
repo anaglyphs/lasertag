@@ -23,6 +23,7 @@ namespace Anaglyph.LaserTag.Interface
 		private const float PixelsPerUnit = 100f;
 
 		public bool IsVisible { get; private set; } = true;
+		private bool isRendered = true;
 
 		public event Action<bool> VisibleChanged = delegate { };
 
@@ -36,17 +37,22 @@ namespace Anaglyph.LaserTag.Interface
 			ApplyVisibility();
 		}
 
-		public void SetVisible(bool visible)
+		// Closing can retain the image after input and logical visibility are off.
+		public void SetVisible(bool visible) => SetVisible(visible, false);
+
+		public void SetVisible(bool visible, bool keepRendered)
 		{
-			if (IsVisible == visible)
-				return;
+			bool visibilityChanged = IsVisible != visible;
+			bool rendered = visible || keepRendered;
+			if (!visibilityChanged && isRendered == rendered) return;
 
 			IsVisible = visible;
+			isRendered = rendered;
 			ApplyVisibility();
-			VisibleChanged.Invoke(visible);
+			if (visibilityChanged) VisibleChanged.Invoke(visible);
 		}
 
-		// may run before Awake, on a panel deactivated by PermissionGateMenu
+		// MainMenuController may set visibility before this component's Awake.
 		private void ApplyVisibility()
 		{
 			GetComponent<BoxCollider>().enabled = IsVisible;
@@ -54,7 +60,9 @@ namespace Anaglyph.LaserTag.Interface
 			// null until the panel is active and UIDocument has built its tree
 			VisualElement root = GetComponent<UIDocument>().rootVisualElement;
 			if (root != null)
-				root.style.display = IsVisible ? DisplayStyle.Flex : DisplayStyle.None;
+			{
+				root.style.display = isRendered ? DisplayStyle.Flex : DisplayStyle.None;
+			}
 		}
 
 		public void Configure()

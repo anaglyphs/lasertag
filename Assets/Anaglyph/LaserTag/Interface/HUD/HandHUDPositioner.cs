@@ -1,7 +1,6 @@
 using Anaglyph.XR;
 using Anaglyph.XR.Input;
 using UnityEngine;
-using UnityEngine.XR;
 
 namespace Anaglyph.LaserTag.Interface.HUD
 {
@@ -12,68 +11,34 @@ namespace Anaglyph.LaserTag.Interface.HUD
 		[SerializeField] private float handSwapTime = 0.3f;
 		[SerializeField] private float handSwapThresh = 0.02f;
 
-		private Camera mainCamera;
 		private HandInput follow;
 
-		private int side;
+		private int side = 1;
 		private float swapTimer = float.MaxValue;
 
-		private void OnEnable()
+		// Stick with the hand being followed while it still tracks, so a HUD on the hand you are
+		// holding the blaster in doesn't jump when the other controller wakes up.
+		private HandInput FindHandToFollow()
 		{
-			mainCamera = Camera.main;
+			if (follow != null && follow.IsTracking)
+				return follow;
 
 			foreach (HandInput handInput in HandInput.Hands.Values)
-			{
-				handInput.IsTrackingChanged += OnHandTrackingChanged;
-			}
-			
-			if(didStart) FindController();
-		}
-		
-		private void Start()
-		{
-			FindController();
-		}
-
-		private void OnHandTrackingChanged(bool obj)
-		{
-			FindController();
-		}
-
-		private void OnDisable()
-		{
-			foreach (HandInput handInput in HandInput.Hands.Values)
-			{
-				handInput.IsTrackingChanged -= OnHandTrackingChanged;
-			}
-		}
-
-		private void OnDeviceEvent(InputDevice obj)
-		{
-			FindController();
-		}
-
-		private void FindController()
-		{
-			foreach (HandInput handInput in HandInput.Hands.Values)
-			{
 				if (handInput.IsTracking)
-				{
-					follow = handInput;
-					break;
-				}
-			}
+					return handInput;
+
+			return null;
 		}
 
 		private void LateUpdate()
 		{
-			if (follow == null || !follow.IsTracking) return;
+			follow = FindHandToFollow();
+			if (follow == null || MainXRRig.Instance == null) return;
 
-			Transform camTrans = mainCamera.transform;
+			Transform camTrans = MainXRRig.Camera.transform;
 			Vector3 camPos = camTrans.position;
 
-			Vector3 pos = follow.Position;
-			pos = MainXRRig.TrackingSpace.TransformPoint(pos);
+			Vector3 pos = MainXRRig.TrackingSpace.TransformPoint(follow.Position);
 
 			// determine side
 			// controller handedness DOES NOT always equal side the controller is ACTUALLY on
@@ -81,32 +46,26 @@ namespace Anaglyph.LaserTag.Interface.HUD
 			// for tracking, but the user can hold the blaster on their right side
 			Vector3 posCamSpace = camTrans.InverseTransformPoint(pos);
 			int currSide = posCamSpace.x >= 0 ? -1 : 1;
-			bool farEnough = Mathf.Abs(posCamSpace.x) > handSwapThresh;
-			if (farEnough && currSide != side)
+			if (currSide == side || Mathf.Abs(posCamSpace.x) < handSwapThresh)
+			{
+				swapTimer = 0;
+			}
+			else
 			{
 				swapTimer += Time.deltaTime;
 				if (swapTimer > handSwapTime)
 					side = currSide;
 			}
-			else
-			{
-				swapTimer = 0;
-			}
-			
-			Vector3 camToHand = (pos - camPos).normalized * side;
-			Vector3 offs = Vector3.Cross(camTrans.up, camToHand);
-			offs.y = 0;
-			offs = offs.normalized * horizontalOffset;
+
+			Vector3 camToHandFlat = Vector3.ProjectOnPlane(pos - camPos, Vector3.up);
+			Vector3 offs = Vector3.Cross(Vector3.up, camToHandFlat).normalized * (horizontalOffset * side);
 			transform.position = pos + offs;
 
 			Vector3 lookDir = (transform.position - camPos).normalized;
-			Vector3 camForw = camTrans.forward;
-			float upLerp = Mathf.Abs(Vector3.Dot(camForw, Vector3.up));
+			float upLerp = Mathf.Abs(Vector3.Dot(camTrans.forward, Vector3.up));
 			Vector3 lookUpDir = Vector3.Lerp(Vector3.up, camTrans.up, upLerp);
 
-			Quaternion rot = Quaternion.LookRotation(lookDir, lookUpDir);
-
-			transform.rotation = rot;
+			transform.rotation = Quaternion.LookRotation(lookDir, lookUpDir);
 		}
 	}
 }

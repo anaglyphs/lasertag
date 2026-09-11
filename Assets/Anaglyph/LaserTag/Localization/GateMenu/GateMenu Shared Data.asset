@@ -1,0 +1,100 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b11a58205ec3474ca216360e9fa74a8, type: 3}
+  m_Name: GateMenu Shared Data
+  m_EditorClassIdentifier: Unity.Localization::UnityEngine.Localization.Tables.SharedTableData
+  m_TableCollectionName: GateMenu
+  m_TableCollectionNameGuidString: 446b4e2ebf1c24a29bf22738c196a58a
+  m_Entries:
+  - m_Id: 556785664
+    m_Key: permission.request-room
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174272
+    m_Key: permission.request-camera
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174273
+    m_Key: permission.denied
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174274
+    m_Key: permission.unavailable
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174275
+    m_Key: permission.unknown
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174276
+    m_Key: GateLimitedSupportPage.navheader-2.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174277
+    m_Key: GateLimitedSupportPage.label-3.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174278
+    m_Key: GateLimitedSupportPage.label-4.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174279
+    m_Key: GateLimitedSupportPage.acknowledge-limited-support-button.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174280
+    m_Key: GatePasswordPage.navheader-2.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174281
+    m_Key: GatePasswordPage.label-3.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174282
+    m_Key: GatePasswordPage.menu-password-field.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174283
+    m_Key: GatePasswordPage.menu-password-error.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174284
+    m_Key: GatePasswordPage.unlock-menu-button.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174285
+    m_Key: GatePermissionPage.navheader-2.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174286
+    m_Key: GatePermissionPage.label-3.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174287
+    m_Key: GatePermissionPage.scene-permission-toggle.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174288
+    m_Key: GatePermissionPage.camera-permission-toggle.text
+    m_Metadata:
+      m_Items: []
+  m_Metadata:
+    m_Items: []
+  m_KeyGenerator:
+    rid: 533178702104363352
+  references:
+    version: 2
+    RefIds:
+    - rid: 533178702104363352
+      type: {class: DistributedUIDGenerator, ns: UnityEngine.Localization.Tables, asm: Unity.Localization}
+      data:
+        m_CustomEpoch: 1789027660120

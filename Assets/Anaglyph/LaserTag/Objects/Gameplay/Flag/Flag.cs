@@ -60,9 +60,6 @@ namespace Anaglyph.LaserTag.Objects.Gameplay.Flag
 			MatchReferee.StateChanged -= OnMatchStateChanged;
 			holderSync.OnValueChanged -= OnHolderSyncChanged;
 			carryEpochSync.OnValueChanged -= OnCarryEpochChanged;
-
-			if (Holder == PlayerAvatar.Local)
-				RequestDropRpc();
 		}
 
 		private void OnHolderSyncChanged(NetworkBehaviourReference previous, NetworkBehaviourReference current)
@@ -162,6 +159,8 @@ namespace Anaglyph.LaserTag.Objects.Gameplay.Flag
 
 		// The flag owner is the single writer for holder state. Requests are validated
 		// against the RPC sender so clients cannot act on behalf of another player.
+		// A player's own position is only accurate on its own device, so the holder
+		// decides when it stands in its base - the same way it owns its own health.
 
 		[Rpc(SendTo.Owner)]
 		private void RequestTakeRpc(RpcParams rpc = default)
@@ -199,7 +198,6 @@ namespace Anaglyph.LaserTag.Objects.Gameplay.Flag
 			    !holderSync.Value.TryGet(out PlayerAvatar holder) ||
 			    holder != player ||
 			    !player.IsAlive ||
-			    !player.IsInFriendlyBase ||
 			    player.Team == 0 ||
 			    player.Team == Team)
 				return;

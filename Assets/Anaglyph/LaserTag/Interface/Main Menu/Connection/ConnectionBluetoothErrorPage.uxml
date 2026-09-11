@@ -1,0 +1,25 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle" />
+    <ui:VisualElement name="VisualElement" class="page-template-root">
+        <Anaglyph.Menu.NavHeader>
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="Title" table="ConnectionMenu" entry="ConnectionBluetoothErrorPage.navheader-2.title" />
+            </Bindings>
+        </Anaglyph.Menu.NavHeader>
+        <ui:Label class="body-copy">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="ConnectionMenu" entry="ConnectionBluetoothErrorPage.label-3.text" />
+            </Bindings>
+        </ui:Label>
+        <ui:Button name="open-bluetooth-settings-button">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="ConnectionMenu" entry="ConnectionBluetoothErrorPage.open-bluetooth-settings-button.text" />
+            </Bindings>
+        </ui:Button>
+        <ui:Button name="dismiss-bluetooth-error-button">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="ConnectionMenu" entry="ConnectionBluetoothErrorPage.dismiss-bluetooth-error-button.text" />
+            </Bindings>
+        </ui:Button>
+    </ui:VisualElement>
+</ui:UXML>

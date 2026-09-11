@@ -2,7 +2,12 @@
   "name": "Anaglyph.LaserTag.MapTests",
   "references": [
     "Anaglyph.Lasertag",
-    "Anaglyph.XR.SharedSpaces"
+    "Anaglyph.XR.SharedSpaces",
+    "Anaglyph",
+    "Anaglyph.Menu",
+    "Unity.Localization",
+    "Unity.ResourceManager",
+    "Anaglyph.Netcode"
   ],
   "includePlatforms": [
     "Editor"

@@ -1,0 +1,138 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e9620f8c34305754d8cc9a7e49e852d9, type: 3}
+  m_Name: SettingsMenu_en
+  m_EditorClassIdentifier: Unity.Localization::UnityEngine.Localization.Tables.StringTable
+  m_LocaleId:
+    m_Code: en
+  m_SharedData: {fileID: 11400000, guid: 1ff938b82113d474f9756c0460badcac, type: 2}
+  m_Metadata:
+    m_Items:
+    - rid: 533178702104363358
+  m_TableData:
+  - m_Id: 217047040
+    m_Localized: 'Version: {version}'
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363358
+  - m_Id: 217047041
+    m_Localized: This headset automatically connects to {0}. Its menu is password
+      protected.
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363358
+  - m_Id: 217047042
+    m_Localized: This headset automatically connects to {0}.
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363358
+  - m_Id: 217047043
+    m_Localized: "This headset\u2019s menu is password protected by an operator."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047044
+    m_Localized: This headset has no operator setup.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047045
+    m_Localized: Console
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047046
+    m_Localized: Stack traces
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047047
+    m_Localized: Clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047048
+    m_Localized: Debugging
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047049
+    m_Localized: Console
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047050
+    m_Localized: Debug mode
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047051
+    m_Localized: Show debug mesh
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047052
+    m_Localized: Graphics
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047053
+    m_Localized: Health passthrough tint
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047054
+    m_Localized: Light effects
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047055
+    m_Localized: Settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047056
+    m_Localized: Graphics
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047057
+    m_Localized: Debugging
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047058
+    m_Localized: Operator setup
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047059
+    m_Localized: Operator setup
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047060
+    m_Localized: Unprovisioning removes the menu password and stops automatic connections
+      to the operator host.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047061
+    m_Localized: Unprovision this headset
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047062
+    m_Localized: Remove the menu password and stop automatically connecting to the
+      operator host.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 5851698946048
+    m_Localized: Show mesh for everyone
+    m_Metadata:
+      m_Items: []
+  - m_Id: 5851707334656
+    m_Localized: Hide mesh for everyone
+    m_Metadata:
+      m_Items: []
+  references:
+    version: 2
+    RefIds:
+    - rid: 533178702104363358
+      type: {class: SmartFormatTag, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_Entries: 
+        m_SharedEntries:
+        - id: 217047040
+        - id: 217047041
+        - id: 217047042

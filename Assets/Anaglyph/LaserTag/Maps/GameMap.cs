@@ -55,6 +55,9 @@ namespace Anaglyph.LaserTag.Maps
 		/// </summary>
 		public ColocationManager.ColocationMethod preferredColocationMethod;
 
+		/// <summary>Retains the system origin while a requested AprilTag method gets its first tag.</summary>
+		public bool systemFrameForTagSetup;
+
 		/// <summary>Tag capability is independent of the preferred alignment method.</summary>
 		public bool HasTags => tags.Count > 0;
 
@@ -68,6 +71,7 @@ namespace Anaglyph.LaserTag.Maps
 			id = id, name = name, version = version, dirty = dirty,
 			lastUsed = lastUsed, lastEdited = lastEdited, tagSizeCm = tagSizeCm,
 			preferredColocationMethod = preferredColocationMethod,
+			systemFrameForTagSetup = systemFrameForTagSetup,
 			objects = new(objects), anchors = new(anchors), tags = new(tags)
 		};
 

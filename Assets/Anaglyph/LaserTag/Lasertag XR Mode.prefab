@@ -1109,6 +1109,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 8273645227207553632, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 4782126345167559609}
+    - targetCorrespondingSourceObject: {fileID: 8273645227207553632, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6019041182422304548}
     - targetCorrespondingSourceObject: {fileID: 603982319059033611, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 7612118653768009084}
@@ -1878,7 +1881,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4921592961275499637}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b15f82cc229284894964d2d30806969d, type: 3}
   m_Name: 
@@ -1914,6 +1917,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Anaglyph.XR.DepthKit::Anaglyph.XR.DepthKit.DepthKitDriver
   depthNormalCompute: {fileID: 7200000, guid: 094ecfc2d2e1d984c9955562fea46b9d, type: 3}
   simDepthConversionShader: {fileID: 4800000, guid: 82205287c50174936b6864df5b631e7f, type: 3}
+--- !u!114 &6019041182422304548
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4921592961275499637}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1f3341a9a1dd40bf88522a84e26a835, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.DepthPermissionController
 --- !u!4 &5708129311068832725 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8767311771694048704, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}

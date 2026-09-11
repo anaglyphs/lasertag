@@ -1,0 +1,619 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b11a58205ec3474ca216360e9fa74a8, type: 3}
+  m_Name: OperatorMenu Shared Data
+  m_EditorClassIdentifier: Unity.Localization::UnityEngine.Localization.Tables.SharedTableData
+  m_TableCollectionName: OperatorMenu
+  m_TableCollectionNameGuidString: b632bd10a66ac40a6afd2fb0d4cbaf80
+  m_Entries:
+  - m_Id: 233824256
+    m_Key: static-1.title
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169114
+  - m_Id: 233824257
+    m_Key: host-button.text
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169115
+  - m_Id: 233824258
+    m_Key: disconnect-button.text
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169116
+  - m_Id: 233824259
+    m_Key: match-tab.label
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169117
+  - m_Id: 233824260
+    m_Key: maps-tab.label
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169118
+  - m_Id: 233824261
+    m_Key: column.client
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169119
+  - m_Id: 233824262
+    m_Key: column.battery
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169120
+  - m_Id: 233824263
+    m_Key: column.alignment
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169121
+  - m_Id: 233824264
+    m_Key: column.left-hand
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169122
+  - m_Id: 233824265
+    m_Key: column.right-hand
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169123
+  - m_Id: 233824266
+    m_Key: column.team
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169124
+  - m_Id: 233824267
+    m_Key: column.score
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169125
+  - m_Id: 233824268
+    m_Key: column.status
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169126
+  - m_Id: 233824269
+    m_Key: static-14.text
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169127
+  - m_Id: 233824270
+    m_Key: require-menu-password-toggle.label
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169128
+  - m_Id: 233824271
+    m_Key: static-16.text
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169129
+  - m_Id: 233824272
+    m_Key: menu-password-field.label
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169130
+  - m_Id: 233824273
+    m_Key: pin-headsets-to-host-toggle.label
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169131
+  - m_Id: 233824274
+    m_Key: apply-headset-configuration-button.text
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169132
+  - m_Id: 233824275
+    m_Key: session.failed
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169133
+  - m_Id: 233824276
+    m_Key: configuration.sent
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169134
+  - m_Id: 233824277
+    m_Key: configuration.saved
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169135
+  - m_Id: 233824278
+    m_Key: address.unavailable
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169136
+  - m_Id: 233824279
+    m_Key: configuration.password-set
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169137
+  - m_Id: 233824280
+    m_Key: configuration.no-password
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169138
+  - m_Id: 233824281
+    m_Key: session.starting
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169139
+  - m_Id: 233824282
+    m_Key: session.hosting
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169140
+  - m_Id: 233824283
+    m_Key: session.stopped
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169141
+  - m_Id: 233824284
+    m_Key: client.server
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169142
+  - m_Id: 233824285
+    m_Key: client.joining
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169143
+  - m_Id: 233824286
+    m_Key: client.down
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169144
+  - m_Id: 233824287
+    m_Key: tracking.unavailable
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169145
+  - m_Id: 233824288
+    m_Key: tracking.ok
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169146
+  - m_Id: 233824289
+    m_Key: tracking.rotation
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169147
+  - m_Id: 233824290
+    m_Key: tracking.position
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169148
+  - m_Id: 233824291
+    m_Key: tracking.lost
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169149
+  - m_Id: 233824292
+    m_Key: battery.unknown
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169150
+  - m_Id: 233824293
+    m_Key: alignment.aligned
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169151
+  - m_Id: 233824294
+    m_Key: alignment.searching
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169152
+  - m_Id: 233824295
+    m_Key: alignment.lost
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169153
+  - m_Id: 233824296
+    m_Key: alignment.inactive
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169154
+  - m_Id: 233824297
+    m_Key: address.pinned
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169155
+  - m_Id: 233824298
+    m_Key: address.local
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169156
+  - m_Id: 233824299
+    m_Key: client.name
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169157
+  - m_Id: 233824300
+    m_Key: client.score
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169158
+  - m_Id: 233824301
+    m_Key: battery.charging
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169159
+  - m_Id: 233824302
+    m_Key: battery.percent
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169160
+  - m_Id: 233824303
+    m_Key: alignment.count
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169161
+  - m_Id: 233824304
+    m_Key: client.count
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169162
+  - m_Id: 233824305
+    m_Key: error.already-hosting
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169163
+  - m_Id: 233824306
+    m_Key: error.network-unavailable
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169164
+  - m_Id: 233824307
+    m_Key: error.colocation-unavailable
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169165
+  - m_Id: 233824308
+    m_Key: error.tags-unavailable
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169166
+  - m_Id: 233824309
+    m_Key: error.host-start
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169167
+  - m_Id: 233824310
+    m_Key: address.relay
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169168
+  - m_Id: 233824311
+    m_Key: address.lan
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169169
+  - m_Id: 233824312
+    m_Key: configuration.operator-only
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169170
+  - m_Id: 233824313
+    m_Key: configuration.password-required
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169171
+  - m_Id: 233824314
+    m_Key: configuration.address-required
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169172
+  m_Metadata:
+    m_Items: []
+  m_KeyGenerator:
+    rid: 533178725424169068
+  references:
+    version: 2
+    RefIds:
+    - rid: 533178725424169068
+      type: {class: DistributedUIDGenerator, ns: UnityEngine.Localization.Tables, asm: Unity.Localization}
+      data:
+        m_CustomEpoch: 1789082531592
+    - rid: 533178725424169114
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169115
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169116
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169117
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169118
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169119
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169120
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169121
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169122
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169123
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169124
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169125
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169126
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169127
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169128
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169129
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169130
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169131
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169132
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169133
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169134
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169135
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169136
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169137
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169138
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169139
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169140
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169141
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169142
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169143
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169144
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169145
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169146
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169147
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169148
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169149
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169150
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169151
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169152
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169153
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169154
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169155
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169156
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169157
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169158
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169159
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169160
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169161
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169162
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: 'Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short. Argument 0: connected player count, excluding
+          server. Use plural forms.'
+    - rid: 533178725424169163
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169164
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169165
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169166
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169167
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169168
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169169
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169170
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169171
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.
+    - rid: 533178725424169172
+      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_CommentText: Desktop operator UI. Tracking rot/pos means rotation-only/position-only.
+          Keep telemetry labels short.

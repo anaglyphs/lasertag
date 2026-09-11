@@ -12,6 +12,7 @@ namespace Anaglyph.LaserTag.Maps
 		public Guid version;
 		public FixedString64Bytes name;
 		public ColocationManager.ColocationMethod preferredColocationMethod;
+		public bool systemFrameForTagSetup;
 	}
 
 	/// <summary>
@@ -83,7 +84,8 @@ namespace Anaglyph.LaserTag.Maps
 			identity.Value = new MapIdentity
 			{
 				id = id, version = version, name = name,
-				preferredColocationMethod = map.preferredColocationMethod
+				preferredColocationMethod = map.preferredColocationMethod,
+				systemFrameForTagSetup = map.systemFrameForTagSetup
 			};
 		}
 

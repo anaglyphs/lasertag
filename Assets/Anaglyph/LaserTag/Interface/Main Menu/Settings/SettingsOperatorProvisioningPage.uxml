@@ -1,0 +1,22 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle" />
+    <ui:VisualElement class="page-template-root">
+        <Anaglyph.Menu.NavHeader>
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="Title" table="SettingsMenu" entry="SettingsOperatorProvisioningPage.navheader-2.title" />
+            </Bindings>
+        </Anaglyph.Menu.NavHeader>
+        <ui:Label name="provisioning-status" class="body-copy" />
+        <ui:Label class="body-copy">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsOperatorProvisioningPage.label-4.text" />
+            </Bindings>
+        </ui:Label>
+        <ui:Button name="unprovision-headset-button" class="destructive">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsOperatorProvisioningPage.unprovision-headset-button.text" />
+                <UnityEngine.Localization.LocalizedString property="tooltip" table="SettingsMenu" entry="SettingsOperatorProvisioningPage.unprovision-headset-button.tooltip" />
+            </Bindings>
+        </ui:Button>
+    </ui:VisualElement>
+</ui:UXML>

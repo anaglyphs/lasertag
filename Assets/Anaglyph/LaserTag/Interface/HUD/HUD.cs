@@ -1,6 +1,7 @@
 using Anaglyph.LaserTag.Matches;
 using Anaglyph.LaserTag.Player;
 using Anaglyph.LaserTag.Player.Teams;
+using Anaglyph.Menu;
 using Anaglyph.Netcode;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -20,9 +21,9 @@ namespace Anaglyph.LaserTag.Interface.HUD
 		private const float ReadyFlashSeconds = 1;
 		private const float GoSeconds = 1.5f;
 
-		private const string ConnectingText = "Connecting...";
-		private const string AligningText = "Aligning...";
-		private const string ReadyText = "Ready!";
+		private const string ConnectingText = "ConnectingText";
+		private const string AligningText = "AligningText";
+		private const string ReadyText = "ReadyText";
 
 		private const int NoCountdown = -1;
 		private const int GoCountdown = 0;
@@ -35,7 +36,8 @@ namespace Anaglyph.LaserTag.Interface.HUD
 			Death,
 			Countdown,
 			Muster,
-			Teamless
+			Teamless,
+			TagRegistration
 		}
 
 		private VisualElement connectionHUD;
@@ -44,10 +46,13 @@ namespace Anaglyph.LaserTag.Interface.HUD
 		private VisualElement countdownHUD;
 		private VisualElement musterHUD;
 		private VisualElement teamlessHUD;
+		private VisualElement tagRegistrationHUD;
 
 		private Label connectionLabel;
-		private Label respawnLabel;
+		private FlashingLabel respawnLabel;
 		private Label countdownLabel;
+		private FlashingLabel musterLabel;
+		private FlashingLabel teamlessLabel;
 		private Label resultsTitle;
 		private Label resultsRoundLabel;
 		private Label[] resultsScores;
@@ -69,16 +74,20 @@ namespace Anaglyph.LaserTag.Interface.HUD
 
 		private void OnEnable()
 		{
+			MenuCopy.Changed += InvalidateShownText;
 			connectionHUD = HUDElement.Require<VisualElement>(this, "connection-hud");
 			resultsHUD = HUDElement.Require<VisualElement>(this, "results-hud");
 			deathHUD = HUDElement.Require<VisualElement>(this, "death-hud");
 			countdownHUD = HUDElement.Require<VisualElement>(this, "countdown-hud");
 			musterHUD = HUDElement.Require<VisualElement>(this, "muster-hud");
 			teamlessHUD = HUDElement.Require<VisualElement>(this, "teamless-hud");
+			tagRegistrationHUD = HUDElement.Require<VisualElement>(this, "tag-registration-hud");
 
 			connectionLabel = HUDElement.Require<Label>(this, "connection-label");
-			respawnLabel = HUDElement.Require<Label>(this, "respawn-label");
+			respawnLabel = HUDElement.Require<FlashingLabel>(this, "respawn-label");
 			countdownLabel = HUDElement.Require<Label>(this, "countdown-label");
+			musterLabel = HUDElement.Require<FlashingLabel>(this, "muster-label");
+			teamlessLabel = HUDElement.Require<FlashingLabel>(this, "teamless-label");
 			resultsTitle = HUDElement.Require<Label>(this, "results-title");
 			resultsRoundLabel = HUDElement.Require<Label>(this, "results-round-label");
 
@@ -98,6 +107,7 @@ namespace Anaglyph.LaserTag.Interface.HUD
 
 		private void OnDisable()
 		{
+			MenuCopy.Changed -= InvalidateShownText;
 			foreach (Overlay overlay in System.Enum.GetValues(typeof(Overlay)))
 				Display(overlay, false);
 
@@ -151,6 +161,8 @@ namespace Anaglyph.LaserTag.Interface.HUD
 
 		private Overlay ResolveOverlay()
 		{
+			if (NeedsFirstAprilTag()) return Overlay.TagRegistration;
+
 			// connecting and aligning block play, so they outrank everything
 			if (GetBlockingConnectionText() != null) return Overlay.Connection;
 			if (Time.time < resultsHideTime) return Overlay.Results;
@@ -167,6 +179,13 @@ namespace Anaglyph.LaserTag.Interface.HUD
 			if (Time.time < readyHideTime) return Overlay.Connection;
 
 			return Overlay.None;
+		}
+
+		private static bool NeedsFirstAprilTag()
+		{
+			Maps.GameMap map = LaserTagMapCoordinator.Instance?.CurrentMap;
+			return map != null && !map.HasTags &&
+				map.preferredColocationMethod == ColocationManager.ColocationMethod.AprilTag;
 		}
 
 		private void RefreshContent(Overlay overlay)
@@ -192,7 +211,7 @@ namespace Anaglyph.LaserTag.Interface.HUD
 					{
 						shownCountdown = countdown;
 						countdownLabel.text = countdown == GoCountdown
-							? "Go!"
+							? MenuCopy.Get("HUD", "countdown.go")
 							: countdown.ToString();
 					}
 
@@ -207,8 +226,8 @@ namespace Anaglyph.LaserTag.Interface.HUD
 			bool multiRound = numRounds > 1;
 
 			resultsTitle.text = MatchReferee.State == MatchState.NotPlaying
-				? "GAME OVER"
-				: "ROUND OVER";
+				? MenuCopy.Get("HUD", "results.match")
+				: MenuCopy.Get("HUD", "results.round");
 
 			HUDElement.SetDisplayed(resultsRoundLabel, multiRound);
 
@@ -219,7 +238,7 @@ namespace Anaglyph.LaserTag.Interface.HUD
 				if (round != shownRound)
 				{
 					shownRound = round;
-					resultsRoundLabel.text = $"ROUND {round} / {numRounds}";
+					resultsRoundLabel.text = MenuCopy.Format("HUD", "match.round", round, numRounds);
 				}
 			}
 
@@ -239,24 +258,27 @@ namespace Anaglyph.LaserTag.Interface.HUD
 		{
 			MatchSettings settings = MatchReferee.Settings;
 			string text;
+			bool promptToMove = false;
 
 			if (settings.respawnCondition == RespawnCondition.NextRound
 			    && MatchReferee.State == MatchState.Playing)
 			{
-				text = "WAIT FOR NEXT ROUND";
+				text = MenuCopy.Get("HUD", "respawn.next-round");
 			}
 			else if (settings.respawnCondition == RespawnCondition.InBases
 			         && !MainPlayer.Instance.IsInFriendlyBase)
 			{
-				text = "GO TO:   BASE";
+				text = MenuCopy.Get("HUD", "respawn.base");
+				promptToMove = true;
 			}
 			else
 			{
 				float timeSinceDeath = Time.time - MainPlayer.Instance.LastDeathTime;
 				float timeToRespawn = settings.respawnSeconds - timeSinceDeath;
-				text = $"RESPAWN: {timeToRespawn:F1}s";
+				text = MenuCopy.Format("HUD", "respawn.countdown", timeToRespawn);
 			}
 
+			respawnLabel.Flashing = promptToMove;
 			if (text != shownRespawnText)
 			{
 				shownRespawnText = text;
@@ -314,11 +336,23 @@ namespace Anaglyph.LaserTag.Interface.HUD
 				Overlay.Countdown => countdownHUD,
 				Overlay.Muster => musterHUD,
 				Overlay.Teamless => teamlessHUD,
+				Overlay.TagRegistration => tagRegistrationHUD,
 				_ => null
 			};
 
 			if (element != null)
 				HUDElement.SetDisplayed(element, displayed);
+
+			FlashingLabel prompt = overlay switch
+			{
+				Overlay.Death => respawnLabel,
+				Overlay.Muster => musterLabel,
+				Overlay.Teamless => teamlessLabel,
+				_ => null
+			};
+			if (prompt != null)
+				prompt.Flashing = displayed &&
+					(overlay == Overlay.Muster || overlay == Overlay.Teamless);
 		}
 
 		private void InvalidateShownText()
@@ -337,7 +371,7 @@ namespace Anaglyph.LaserTag.Interface.HUD
 			if (shown == text) return;
 
 			shown = text;
-			label.text = text;
+			label.text = MenuCopy.Get("HUD", text);
 		}
 
 		private static void SetInt(Label label, ref int shown, int value)

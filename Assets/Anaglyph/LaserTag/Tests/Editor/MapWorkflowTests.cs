@@ -6,6 +6,31 @@ namespace Anaglyph.LaserTag.Tests
 {
 	public class MapWorkflowTests
 	{
+		[TestCase(true, false)]
+		[TestCase(false, true)]
+		public void ReferenceProtectionDoesNotDependOnWhichMethodOwnsTheReferences(bool tags, bool anchors)
+		{
+			var policy = new MapPolicy(MapPhase.Hosting, true, false, tags,
+				false, false, false, false, hasAnchors: anchors);
+			Assert.That(policy.ReferenceSetupBlocker, Is.EqualTo("alignment.align-before-reference-setup"));
+			Assert.That(policy.ColocationMethodBlocker(targetHasReferences: false),
+				Is.EqualTo(policy.ReferenceSetupBlocker));
+			Assert.That(policy.ColocationMethodBlocker(targetHasReferences: true), Is.Null);
+		}
+
+		[Test]
+		public void ObjectsWithoutAnchorsDoNotPreventTheFirstTagOrTagMode()
+		{
+			var policy = new MapPolicy(MapPhase.Hosting, hasMap: true, empty: false, hasTags: false,
+				frameAgrees: true, sessionHolding: false, roundInProgress: false,
+				sessionUsesTags: false, hasAnchors: false);
+			Assert.That(policy.TagRegistrationBlocker, Is.Null);
+			Assert.That(policy.ColocationMethodBlocker(targetHasReferences: false), Is.Null);
+			Assert.That(MapPolicy.CanBootstrapFrame(false, 0, false, true, true), Is.True);
+			Assert.That(ColocationManager.CompatibleMethod(ColocationManager.ColocationMethod.AprilTag,
+				false, true, false), Is.EqualTo(ColocationManager.ColocationMethod.AprilTag));
+		}
+
 		[Test]
 		public void AnchorOnlyMapCannotBootstrapANewFrameThroughAnEmptyTagProvider()
 		{
@@ -31,9 +56,9 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(Policy(phase).ColocationMethodBlocker(true), Is.Null);
 			Assert.That(Policy(phase, playing: true).ColocationMethodBlocker(false), Is.Not.Null);
 			Assert.That(Policy(phase, holding: true).ColocationMethodBlocker(false), Is.Not.Null);
-			Assert.That(Policy(phase, hasTags: false).ColocationMethodBlocker(true), Is.Not.Null);
+			Assert.That(Policy(phase, hasTags: false).ColocationMethodBlocker(targetHasReferences: false), Is.Not.Null);
 			// An unaligned client can request a working alternative rather than being locked out.
-			Assert.That(Policy(phase, aligned: false).ColocationMethodBlocker(false), Is.Null);
+			Assert.That(Policy(phase, aligned: false).ColocationMethodBlocker(targetHasReferences: true), Is.Null);
 		}
 
 		[TestCase(MapPhase.Local)]
@@ -44,7 +69,7 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(Policy(phase, hasTags: false, aligned: false).ColocationPreferenceBlocker, Is.Null);
 			Assert.That(Policy(phase, playing: true).ColocationPreferenceBlocker, Is.Not.Null);
 			Assert.That(Policy(phase, holding: true).ColocationPreferenceBlocker, Is.Not.Null);
-			Assert.That(Policy(phase, hasTags: false, empty: true).ColocationMethodBlocker(true), Is.Null);
+			Assert.That(Policy(phase, hasTags: false, empty: true).ColocationMethodBlocker(targetHasReferences: false), Is.Null);
 		}
 
 		[Test]
@@ -174,7 +199,7 @@ namespace Anaglyph.LaserTag.Tests
 		{
 			var target = new GameMap();
 			Assert.That(Policy(MapPhase.Hosting, playing: true).ChangeMapBlocker(target, false, MapPresence.Unknown),
-				Is.EqualTo("Not during a round"));
+				Is.EqualTo("blocker.not-during-a-round"));
 			Assert.That(Policy(MapPhase.Hosting).ChangeMapBlocker(target, false, MapPresence.Unknown),
 				Is.Null);
 			Assert.That(Policy(MapPhase.Local).ChangeMapBlocker(target, false, MapPresence.Unknown), Is.Null);

@@ -25,8 +25,12 @@ namespace Anaglyph.LaserTag
 		public enum ColocationMethod
 		{
 			MetaSharedAnchor = 0,
-			AprilTag = 1
+			AprilTag = 1,
+			SystemDetermined = 2
 		}
+
+		public static bool IsValidMethod(ColocationMethod method) =>
+			method is ColocationMethod.MetaSharedAnchor or ColocationMethod.AprilTag or ColocationMethod.SystemDetermined;
 
 		public static bool IsColocated { get; private set; }
 		public static Action<bool> Colocated = delegate { };
@@ -37,14 +41,24 @@ namespace Anaglyph.LaserTag
 		public ColocationMethod Method => methodSync.Value;
 		public ColocationMethod SelectedMethod => SyncBus.Active ? Method : offlineMethod;
 		public ColocationMethod PreferredAvailableMethod => CompatibleMethod(mapPreference, mapHasTags,
-			mapHasContent, mapHasAnchors);
-		public ColocationMethod PreferredSessionMethod => mapHasTags && spatialAnchorColocationProvider != null &&
+			mapHasContent, mapHasAnchors, systemFrameForTagSetup);
+		public bool IsSettingUpTags => mapLoaded && systemFrameForTagSetup &&
+			mapPreference == ColocationMethod.AprilTag && !mapHasTags &&
+			SelectedMethod == ColocationMethod.SystemDetermined;
+
+		public static bool RequiresTagSetup(ColocationMethod current, ColocationMethod requested, bool hasTags) =>
+			current == ColocationMethod.SystemDetermined && requested == ColocationMethod.AprilTag && !hasTags;
+		public ColocationMethod PreferredSessionMethod => PreferredAvailableMethod == ColocationMethod.SystemDetermined
+			? ColocationMethod.SystemDetermined : (mapHasTags || !mapHasAnchors) && spatialAnchorColocationProvider != null &&
 			!spatialAnchorColocationProvider.CanShareAnchors ? ColocationMethod.AprilTag : PreferredAvailableMethod;
 
 		public static ColocationMethod CompatibleMethod(ColocationMethod requested, bool hasTags,
-			bool hasContent, bool hasAnchors)
+			bool hasContent, bool hasAnchors, bool systemFrameForTagSetup = false)
 		{
-			if (!hasTags && hasContent) return ColocationMethod.MetaSharedAnchor;
+			if (systemFrameForTagSetup && requested == ColocationMethod.AprilTag && !hasTags)
+				return ColocationMethod.SystemDetermined;
+			if (requested == ColocationMethod.SystemDetermined) return requested;
+			if (!hasTags && hasAnchors) return ColocationMethod.MetaSharedAnchor;
 			if (hasTags && !hasAnchors) return ColocationMethod.AprilTag;
 			return requested;
 		}
@@ -54,6 +68,7 @@ namespace Anaglyph.LaserTag
 		internal void CommitMethod(ColocationMethod method) => methodSync.Value = method;
 
 		[SerializeField] private Colocator colocator;
+		private SystemDeterminedColocationConstraintProvider systemDeterminedProvider;
 
 		[FormerlySerializedAs("spatialAnchorProvider")] [SerializeField] private SpatialAnchorColocationConstraintProvider spatialAnchorColocationProvider;
 		[FormerlySerializedAs("tagProvider")] [SerializeField] private AprilTagColocationConstraintProvider aprilTagColocationProvider;
@@ -73,6 +88,9 @@ namespace Anaglyph.LaserTag
 		public bool UsingAnchorProvider =>
 			spatialAnchorColocationProvider != null && ReferenceEquals(ActiveProvider, spatialAnchorColocationProvider);
 
+		public bool UsingSystemDeterminedProvider =>
+			systemDeterminedProvider != null && ReferenceEquals(ActiveProvider, systemDeterminedProvider);
+
 		public SpatialAnchorColocationConstraintProvider AnchorProvider => spatialAnchorColocationProvider;
 		public AprilTagColocationConstraintProvider TagProvider => aprilTagColocationProvider;
 
@@ -89,11 +107,13 @@ namespace Anaglyph.LaserTag
 		/// <summary>
 		/// How many references the active provider can try to realize. Count its own set rather
 		/// than the map's union of private and shared UUIDs for the same physical references.
+		/// System-determined alignment contributes the one origin guaranteed by that contract.
 		/// The map coordinator decides whether zero references allows a blank-world bootstrap.
 		/// </summary>
 		public int CountRealizableReferences()
 		{
 			if (ActiveProvider == null || !ActiveProvider.IsAvailable) return 0;
+			if (UsingSystemDeterminedProvider) return 1;
 			return UsingTagProvider ? aprilTagColocationProvider.LocalAnchorCount
 				: spatialAnchorColocationProvider.Constraints.Count;
 		}
@@ -102,15 +122,17 @@ namespace Anaglyph.LaserTag
 		private bool mapHasTags;
 		private bool mapHasContent;
 		private bool mapHasAnchors;
+		private bool systemFrameForTagSetup;
 
 		public void ConfigureMap(bool loaded, bool hasTags, bool hasContent, bool hasAnchors,
-			ColocationMethod preference, Func<bool> mintingGate)
+			ColocationMethod preference, Func<bool> mintingGate, bool systemFrameForTagSetup = false)
 		{
 			mapLoaded = loaded;
 			mapHasTags = hasTags;
 			mapHasContent = hasContent;
 			mapHasAnchors = hasAnchors;
 			mapPreference = preference;
+			this.systemFrameForTagSetup = systemFrameForTagSetup;
 			if (!SyncBus.Active) offlineMethod = PreferredAvailableMethod;
 			if (spatialAnchorColocationProvider) spatialAnchorColocationProvider.MintingGate = mintingGate;
 			UpdateProvider();
@@ -128,6 +150,8 @@ namespace Anaglyph.LaserTag
 			if (!colocator) colocator = FindFirstObjectByType<Colocator>();
 			if (!spatialAnchorColocationProvider) spatialAnchorColocationProvider = SpatialAnchorColocationConstraintProvider.Instance;
 			if (!aprilTagColocationProvider) aprilTagColocationProvider = AprilTagColocationConstraintProvider.Instance;
+			systemDeterminedProvider = new SystemDeterminedColocationConstraintProvider(
+				MainXRRig.Instance != null ? MainXRRig.TrackingSpace : null);
 
 			methodSync.Register();
 			methodSync.Synced += OnMethodSynced;
@@ -206,7 +230,8 @@ namespace Anaglyph.LaserTag
 		}
 
 		/// <summary>
-		/// Selects exactly one self-contained provider. Offline, tag mode is valid only for a map
+		/// Selects exactly one self-contained provider. System-determined mode uses the runtime's
+		/// origin directly, regardless of any retained anchors or tags. Offline, tag mode is valid only for a map
 		/// that contains registered tags; in a session it is selected regardless, so an empty map
 		/// can still receive its first registration. A tag-enabled map may instead use
 		/// shared-anchor mode, but roaming minting remains disabled so every saved anchor keeps a
@@ -221,7 +246,11 @@ namespace Anaglyph.LaserTag
 
 			if (mapLoaded)
 			{
-				if (SelectedMethod == ColocationMethod.AprilTag)
+				if (SelectedMethod == ColocationMethod.SystemDetermined)
+				{
+					next = systemDeterminedProvider;
+				}
+				else if (SelectedMethod == ColocationMethod.AprilTag)
 				{
 					// In a session the method is the session's contract, so tag mode selects the
 					// tag provider even for a map with no tags yet. That is what lets a peer
@@ -230,7 +259,7 @@ namespace Anaglyph.LaserTag
 					if (mapHasTags || SyncBus.Active)
 						next = aprilTagColocationProvider;
 				}
-				else
+				else if (SelectedMethod == ColocationMethod.MetaSharedAnchor)
 				{
 					next = spatialAnchorColocationProvider;
 				}

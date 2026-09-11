@@ -32,10 +32,8 @@ namespace Anaglyph.Netcode
 
 		public const float cooldownSeconds = 8;
 
-		// Marks a rejection as a version mismatch and carries the host's version.
-		// Sent as the netcode disconnect reason, so the client can say which
-		// version it needs instead of just "couldn't connect".
-		private const string versionMismatchPrefix = "VERSION_MISMATCH:";
+		// Older hosts send this reason when enforcing an exact build match.
+		private const string legacyVersionMismatchPrefix = "VERSION_MISMATCH:";
 
 		private static NetworkManager manager => NetworkManager.Singleton;
 
@@ -71,8 +69,8 @@ namespace Anaglyph.Netcode
 		private static StringObject buildNumber;
 
 		/// <summary>
-		/// Identifies this build to hosts and joiners. Two players can only play
-		/// together if these match.
+		/// Identifies this build for display and diagnostics. Multiplayer compatibility
+		/// is determined by NetworkConfig.ProtocolVersion and NGO's configuration checks.
 		/// </summary>
 		public static string GameVersion
 		{
@@ -143,23 +141,12 @@ namespace Anaglyph.Netcode
 		}
 
 		/// <summary>
-		/// Rejects joiners built from a different version of the game. Only runs on
-		/// a LAN host — relay sessions are approved by the multiplayer service.
+		/// NGO has already checked protocol and configuration compatibility before
+		/// this LAN approval callback. Build numbers do not need to match.
 		/// </summary>
 		private static void ApproveJoiningClient(NetworkManager.ConnectionApprovalRequest request,
 			NetworkManager.ConnectionApprovalResponse response)
 		{
-			string joinerVersion = request.Payload == null
-				? ""
-				: Encoding.UTF8.GetString(request.Payload);
-
-			if (joinerVersion != GameVersion)
-			{
-				response.Approved = false;
-				response.Reason = versionMismatchPrefix + GameVersion;
-				return;
-			}
-
 			response.Approved = true;
 			response.CreatePlayerObject = manager.NetworkConfig.PlayerPrefab != null;
 		}
@@ -167,22 +154,20 @@ namespace Anaglyph.Netcode
 		private static void RaiseJoinFailureError()
 		{
 			string reason = manager == null ? "" : manager.DisconnectReason;
-			int prefixIndex = reason == null ? -1 : reason.IndexOf(versionMismatchPrefix, StringComparison.Ordinal);
+			int prefixIndex = reason == null ? -1 : reason.IndexOf(legacyVersionMismatchPrefix, StringComparison.Ordinal);
 
 			if (prefixIndex >= 0)
 			{
-				string hostVersion = reason.Substring(prefixIndex + versionMismatchPrefix.Length).Trim();
+				string hostVersion = reason.Substring(prefixIndex + legacyVersionMismatchPrefix.Length).Trim();
 
-				UserErrors.Raise("Different version of the game",
-					$"This host is running version {hostVersion} and you're running {GameVersion}. " +
-					"Both headsets need the same version to play together.");
+				UserErrors.RaiseLocalized(UserErrorArea.Connection, "error.build-title", "error.build-details", hostVersion, GameVersion);
 
 				return;
 			}
 
-			UserErrors.Raise("Couldn't join",
-				"The host didn't accept the connection. It may be running a different version " +
-				"of the game, may have stopped hosting, or may be at a different address.");
+			// NGO can reject a protocol/configuration mismatch before approval without
+			// sending a reason or the host's protocol version. Do not invent either.
+			UserErrors.RaiseLocalized(UserErrorArea.Connection, "error.join-title", "error.join-details");
 		}
 
 		private static CancellationTokenSource taskCanceller = new();
@@ -232,7 +217,7 @@ namespace Anaglyph.Netcode
 				case Protocol.LAN:
 					SetNetworkTransportType(Protocol.LAN);
 					manager.NetworkConfig.UseCMBService = false;
-					EnableVersionCheck(true);
+					ConfigureConnectionApproval(true);
 					transport.SetConnectionData(GetLocalIPv4(), port, DefaultIP);
 					manager.StartHost();
 					break;
@@ -261,7 +246,7 @@ namespace Anaglyph.Netcode
 
 			manager.NetworkConfig.UseCMBService = false;
 
-			EnableVersionCheck(true);
+			ConfigureConnectionApproval(true);
 
 			transport.SetConnectionData(ip, port);
 
@@ -272,11 +257,11 @@ namespace Anaglyph.Netcode
 		}
 
 		/// <summary>
-		/// Netcode's approval handshake carries the version between the two ends.
-		/// The multiplayer service performs its own approval, so relay sessions
-		/// leave it off and rely on the joiner reporting an unexplained failure.
+		/// Keep LAN approval and the build payload for interoperability with older
+		/// builds. New hosts ignore the payload; older hosts may still require it.
+		/// The multiplayer service performs its own approval for relay sessions.
 		/// </summary>
-		private static void EnableVersionCheck(bool enabled)
+		private static void ConfigureConnectionApproval(bool enabled)
 		{
 			manager.NetworkConfig.ConnectionApproval = enabled;
 			manager.NetworkConfig.ConnectionData =
@@ -312,9 +297,7 @@ namespace Anaglyph.Netcode
 			// this error explains the failure, so don't also report it as a failed join
 			isAttemptingConnection = false;
 
-			UserErrors.Raise("Couldn't reach the relay service",
-				"Hosting or joining over the internet needs a working internet connection. " +
-				"Check this headset's Wi-Fi, or host over the local network instead.");
+			UserErrors.RaiseLocalized(UserErrorArea.Connection, "error.relay-title", "error.relay-details");
 		}
 
 		private static async Task ConnectUnityServices(string id, CancellationToken ct)
@@ -326,7 +309,7 @@ namespace Anaglyph.Netcode
 
 			manager.NetworkConfig.UseCMBService = true;
 
-			EnableVersionCheck(false);
+			ConfigureConnectionApproval(false);
 
 			State = NetcodeState.Connecting;
 			isAttemptingConnection = true;

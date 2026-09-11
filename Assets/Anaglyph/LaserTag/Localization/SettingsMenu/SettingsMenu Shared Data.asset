@@ -1,0 +1,128 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b11a58205ec3474ca216360e9fa74a8, type: 3}
+  m_Name: SettingsMenu Shared Data
+  m_EditorClassIdentifier: Unity.Localization::UnityEngine.Localization.Tables.SharedTableData
+  m_TableCollectionName: SettingsMenu
+  m_TableCollectionNameGuidString: 1ff938b82113d474f9756c0460badcac
+  m_Entries:
+  - m_Id: 217047040
+    m_Key: version
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047041
+    m_Key: provisioning.host-locked
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047042
+    m_Key: provisioning.host
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047043
+    m_Key: provisioning.locked
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047044
+    m_Key: provisioning.none
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047045
+    m_Key: SettingsConsolePage.navheader-2.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047046
+    m_Key: SettingsConsolePage.console-stack-traces-toggle.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047047
+    m_Key: SettingsConsolePage.console-clear-button.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047048
+    m_Key: SettingsDebuggingPage.navheader-2.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047049
+    m_Key: SettingsDebuggingPage.console-button.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047050
+    m_Key: SettingsDebuggingPage.debug-mode-toggle.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047051
+    m_Key: SettingsDebuggingPage.show-debug-mesh-toggle.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047052
+    m_Key: SettingsGraphicsPage.navheader-2.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047053
+    m_Key: SettingsGraphicsPage.health-passthrough-tint-toggle.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047054
+    m_Key: SettingsGraphicsPage.light-effects-toggle.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047055
+    m_Key: SettingsHomePage.navheader-2.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047056
+    m_Key: SettingsHomePage.graphics-button.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047057
+    m_Key: SettingsHomePage.debugging-button.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047058
+    m_Key: SettingsHomePage.operator-provisioning-button.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047059
+    m_Key: SettingsOperatorProvisioningPage.navheader-2.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047060
+    m_Key: SettingsOperatorProvisioningPage.label-4.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047061
+    m_Key: SettingsOperatorProvisioningPage.unprovision-headset-button.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047062
+    m_Key: SettingsOperatorProvisioningPage.unprovision-headset-button.tooltip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 5851698946048
+    m_Key: SettingsDebuggingPage.show-debug-mesh-for-everyone.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 5851707334656
+    m_Key: SettingsDebuggingPage.hide-debug-mesh-for-everyone.text
+    m_Metadata:
+      m_Items: []
+  m_Metadata:
+    m_Items: []
+  m_KeyGenerator:
+    rid: 533178702104363354
+  references:
+    version: 2
+    RefIds:
+    - rid: 533178702104363354
+      type: {class: DistributedUIDGenerator, ns: UnityEngine.Localization.Tables, asm: Unity.Localization}
+      data:
+        m_CustomEpoch: 1789027660403

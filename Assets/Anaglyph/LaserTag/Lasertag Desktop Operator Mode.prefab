@@ -234,6 +234,7 @@ GameObject:
   - component: {fileID: 1392542242085548444}
   - component: {fileID: 9156886986194771208}
   - component: {fileID: 6142177953051970980}
+  - component: {fileID: 7301948502376401124}
   m_Layer: 0
   m_Name: Lasertag Desktop Operator Mode
   m_TagString: Untagged
@@ -306,6 +307,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.Interface.MapManagerUI
   operatorMode: 1
+--- !u!114 &7301948502376401124
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6129090928959498420}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9db43ec77dff4f1aaa25fb01e40eb2a2, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.HeadsetConfiguration
+  role: 1
 --- !u!1 &6878443684019454957
 GameObject:
   m_ObjectHideFlags: 0

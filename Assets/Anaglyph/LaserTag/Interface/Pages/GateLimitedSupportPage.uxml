@@ -1,9 +1,0 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
-    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
-    <ui:VisualElement class="page-template-root">
-        <Anaglyph.Menu.NavHeader title="Limited support"/>
-        <ui:Label text="This headset model cannot scan your surroundings!" class="warning body-copy" style="font-size: 24px; -unity-font-style: bold;"/>
-        <ui:Label text="Play with at least one Quest 3, 3S or newer nearby. That player maps the room and shares it with you over the local network." class="body-copy"/>
-        <ui:Button name="acknowledge-limited-support-button" text="Continue with limited support"/>
-    </ui:VisualElement>
-</ui:UXML>

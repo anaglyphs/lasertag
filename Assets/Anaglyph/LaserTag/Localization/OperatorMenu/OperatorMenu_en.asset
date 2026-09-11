@@ -1,0 +1,287 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e9620f8c34305754d8cc9a7e49e852d9, type: 3}
+  m_Name: OperatorMenu_en
+  m_EditorClassIdentifier: Unity.Localization::UnityEngine.Localization.Tables.StringTable
+  m_LocaleId:
+    m_Code: en
+  m_SharedData: {fileID: 11400000, guid: b632bd10a66ac40a6afd2fb0d4cbaf80, type: 2}
+  m_Metadata:
+    m_Items:
+    - rid: 533178725424169070
+  m_TableData:
+  - m_Id: 233824256
+    m_Localized: Operator
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824257
+    m_Localized: Start hosting
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824258
+    m_Localized: Stop hosting
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824259
+    m_Localized: Match page
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824260
+    m_Localized: Maps
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824261
+    m_Localized: Client
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824262
+    m_Localized: Battery
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824263
+    m_Localized: Alignment
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824264
+    m_Localized: Left hand
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824265
+    m_Localized: Right hand
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824266
+    m_Localized: Team
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824267
+    m_Localized: Score
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824268
+    m_Localized: Status
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824269
+    m_Localized: Headset configuration
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824270
+    m_Localized: Require password to open the game menu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824271
+    m_Localized: Protected menus open with a triple-click of the menu or stick button.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824272
+    m_Localized: New password
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824273
+    m_Localized: Always connect headsets to this host
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824274
+    m_Localized: Apply to headsets
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824275
+    m_Localized: Could not host
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824276
+    m_Localized: Saved and sent to connected headsets.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824277
+    m_Localized: Saved. New settings will be sent when hosting starts.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824278
+    m_Localized: This machine has no usable IP address.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824279
+    m_Localized: A password is set. Leave the field blank to keep it.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824280
+    m_Localized: No menu password is set.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824281
+    m_Localized: Starting...
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824282
+    m_Localized: Hosting
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824283
+    m_Localized: Not hosting
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824284
+    m_Localized: this server
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824285
+    m_Localized: joining
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824286
+    m_Localized: down
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824287
+    m_Localized: n/a
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824288
+    m_Localized: ok
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824289
+    m_Localized: rot
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824290
+    m_Localized: pos
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824291
+    m_Localized: lost
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824292
+    m_Localized: battery ?
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824293
+    m_Localized: aligned
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824294
+    m_Localized: aligning
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824295
+    m_Localized: lost alignment
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824296
+    m_Localized: not aligning
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824297
+    m_Localized: Headsets will remember {0}.
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169070
+  - m_Id: 233824298
+    m_Localized: 'This machine: {0}'
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169070
+  - m_Id: 233824299
+    m_Localized: Client {0}
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169070
+  - m_Id: 233824300
+    m_Localized: '{0} pts'
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169070
+  - m_Id: 233824301
+    m_Localized: '{0}% chg'
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169070
+  - m_Id: 233824302
+    m_Localized: '{0}%'
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169070
+  - m_Id: 233824303
+    m_Localized: aligned {0}/{1}
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169070
+  - m_Id: 233824304
+    m_Localized: '{0:plural:1 player connected|{} players connected}'
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169070
+  - m_Id: 233824305
+    m_Localized: The network session is already starting or connected.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824306
+    m_Localized: The NetworkManager has not been created yet.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824307
+    m_Localized: The ColocationManager has not been created yet.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824308
+    m_Localized: AprilTag colocation is selected, but no AprilTag provider is configured.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824309
+    m_Localized: 'Could not start the host: {0}'
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169070
+  - m_Id: 233824310
+    m_Localized: 'Relay: {0}'
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169070
+  - m_Id: 233824311
+    m_Localized: 'LAN: {0}'
+    m_Metadata:
+      m_Items:
+      - rid: 533178725424169070
+  - m_Id: 233824312
+    m_Localized: Headset settings can only be changed from the operator host.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824313
+    m_Localized: Enter a password before requiring one.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 233824314
+    m_Localized: This machine does not currently have a usable IP address.
+    m_Metadata:
+      m_Items: []
+  references:
+    version: 2
+    RefIds:
+    - rid: 533178725424169070
+      type: {class: SmartFormatTag, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_Entries: 
+        m_SharedEntries:
+        - id: 233824297
+        - id: 233824298
+        - id: 233824299
+        - id: 233824300
+        - id: 233824301
+        - id: 233824302
+        - id: 233824303
+        - id: 233824304
+        - id: 233824309
+        - id: 233824310
+        - id: 233824311

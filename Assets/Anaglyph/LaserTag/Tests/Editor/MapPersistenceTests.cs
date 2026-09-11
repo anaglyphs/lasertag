@@ -36,6 +36,7 @@ namespace Anaglyph.LaserTag.Tests
 
 		[TestCase(ColocationManager.ColocationMethod.MetaSharedAnchor)]
 		[TestCase(ColocationManager.ColocationMethod.AprilTag)]
+		[TestCase(ColocationManager.ColocationMethod.SystemDetermined)]
 		public void PreferenceSurvivesCloningSavingAndReopening(ColocationManager.ColocationMethod preference)
 		{
 			manager.SetTags(new[] { new MapTagEntry { id = 7, canonPose = Pose.identity } }, 10f);
@@ -44,6 +45,57 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(manager.Save(), Is.True);
 			Assert.That(new MapStore(directory).TryGet(manager.CurrentId, out GameMap loaded), Is.True);
 			Assert.That(loaded.preferredColocationMethod, Is.EqualTo(preference));
+		}
+
+		[Test]
+		public void PendingTagSetupSurvivesSaveReloadAndAdoptionWithoutChangingTheFrame()
+		{
+			manager.SetObjects(new[] { Placement(1), Placement(2) });
+			manager.SetAnchors(new[] { new MapAnchorEntry { guid = Guid.NewGuid().ToString("N"), canonPose = Pose.identity } });
+			manager.SetPreferredColocationMethod(ColocationManager.ColocationMethod.SystemDetermined);
+			manager.SetPreferredColocationMethod(ColocationManager.ColocationMethod.AprilTag, true);
+			Assert.That(manager.CurrentMap.Clone().systemFrameForTagSetup, Is.True);
+			Assert.That(manager.Save(), Is.True);
+			Assert.That(new MapStore(directory).TryGet(manager.CurrentId, out GameMap loaded), Is.True);
+			manager.Create();
+			Assert.That(manager.TryAdopt(loaded), Is.True);
+			GameMap adopted = manager.CurrentMap;
+			Assert.That(adopted.systemFrameForTagSetup, Is.True);
+			Assert.That(adopted.preferredColocationMethod, Is.EqualTo(ColocationManager.ColocationMethod.AprilTag));
+			Assert.That(adopted.objects.Select(entry => entry.pose.position.x), Is.EqualTo(new[] { 1f, 2f }));
+			Assert.That(adopted.anchors.Count, Is.EqualTo(1));
+			Assert.That(adopted.tags, Is.Empty);
+			Assert.That(ColocationManager.CompatibleMethod(adopted.preferredColocationMethod,
+				adopted.HasTags, !adopted.IsEmpty, true, adopted.systemFrameForTagSetup),
+				Is.EqualTo(ColocationManager.ColocationMethod.SystemDetermined));
+			Assert.That(Operator.OperatorHost.CanHostMap(adopted), Is.True);
+		}
+
+		[Test]
+		public void FirstRegisteredTagCompletesSetupAndRemovingItDoesNotRestoreSystemAlignment()
+		{
+			manager.SetPreferredColocationMethod(ColocationManager.ColocationMethod.AprilTag, true);
+			manager.SetTags(new[] { new MapTagEntry { id = 7, canonPose = Pose.identity } }, 10f);
+			Assert.That(manager.CurrentMap.systemFrameForTagSetup, Is.False);
+			Assert.That(manager.CurrentMap.preferredColocationMethod, Is.EqualTo(ColocationManager.ColocationMethod.AprilTag));
+			Assert.That(manager.Save(), Is.True);
+			Assert.That(new MapStore(directory).TryGet(manager.CurrentId, out GameMap loaded), Is.True);
+			Assert.That(loaded.systemFrameForTagSetup, Is.False);
+			manager.SetTags(Array.Empty<MapTagEntry>(), 10f);
+			Assert.That(manager.CurrentMap.systemFrameForTagSetup, Is.False);
+		}
+
+		[Test]
+		public void SelectingSystemDeterminedCancelsPendingTagSetup()
+		{
+			Assert.That(manager.CurrentMap.systemFrameForTagSetup, Is.False);
+			manager.SetPreferredColocationMethod(ColocationManager.ColocationMethod.AprilTag, true);
+			Assert.That(manager.SetPreferredColocationMethod(ColocationManager.ColocationMethod.SystemDetermined), Is.True);
+			Assert.That(manager.CurrentMap.systemFrameForTagSetup, Is.False);
+			Assert.That(manager.Save(), Is.True);
+			Assert.That(new MapStore(directory).TryGet(manager.CurrentId, out GameMap loaded), Is.True);
+			Assert.That(loaded.systemFrameForTagSetup, Is.False);
+			Assert.That(loaded.preferredColocationMethod, Is.EqualTo(ColocationManager.ColocationMethod.SystemDetermined));
 		}
 
 		[Test]

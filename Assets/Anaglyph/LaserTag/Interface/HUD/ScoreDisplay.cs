@@ -147,12 +147,14 @@ namespace Anaglyph.LaserTag.Interface.HUD
 		{
 			InvalidateShownValues();
 			MatchReferee.TimerTextChanged += SetTimerText;
+			MenuCopy.Changed += InvalidateShownValues;
 			refreshTick.Resume();
 		}
 
 		private void OnDetachFromPanel(DetachFromPanelEvent evt)
 		{
 			MatchReferee.TimerTextChanged -= SetTimerText;
+			MenuCopy.Changed -= InvalidateShownValues;
 			refreshTick.Pause();
 		}
 
@@ -200,7 +202,7 @@ namespace Anaglyph.LaserTag.Interface.HUD
 
 			shownRound = round;
 			shownNumRounds = numRounds;
-			roundLabel.text = $"ROUND {round} / {numRounds}";
+			roundLabel.text = MenuCopy.Format("HUD", "match.round", round, numRounds);
 		}
 
 		private void SetTimerText(string timerString)

@@ -1,0 +1,18 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:Template name="MapCatalog" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/MapCatalog.uxml?fileID=9197481963319205126&amp;guid=ce2e7102fea4416f95a518eff902c79b&amp;type=3#MapCatalog"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/MapFields.uss?fileID=7433441132597879392&amp;guid=f4c687285f094fca87062d2e41ca92d4&amp;type=3#MapFields"/>
+    <ui:VisualElement class="page-template-root">
+        <Anaglyph.Menu.NavHeader>
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="Title" table="GameMenu" entry="GameMapsPage.navheader-2.title"/>
+            </Bindings>
+        </Anaglyph.Menu.NavHeader>
+        <ui:Button name="edit-map-button">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMapsPage.edit-map-button.text"/>
+            </Bindings>
+        </ui:Button>
+        <ui:Instance template="MapCatalog" class="map-catalog-instance"/>
+    </ui:VisualElement>
+</ui:UXML>

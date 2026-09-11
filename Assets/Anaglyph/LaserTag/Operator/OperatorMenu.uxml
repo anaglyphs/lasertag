@@ -1,0 +1,124 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:Template name="OperatorMapSettingsPage" src="project://database/Assets/Anaglyph/LaserTag/Operator/OperatorMapSettingsPage.uxml?fileID=9197481963319205126&amp;guid=d51249ce67904b63a9732b67a419ef61&amp;type=3#OperatorMapSettingsPage"/>
+    <ui:Template name="OperatorMapsPage" src="project://database/Assets/Anaglyph/LaserTag/Operator/OperatorMapsPage.uxml?fileID=9197481963319205126&amp;guid=7e3af4252ef249ed8ae61e7784be2de2&amp;type=3#OperatorMapsPage"/>
+    <ui:Template name="GameMatchPlayingPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Game/GameMatchPlayingPage.uxml?fileID=9197481963319205126&amp;guid=617e74b6016424210b1d97fb28257683&amp;type=3#GameMatchPlayingPage"/>
+    <ui:Template name="GameMatchSettingsPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/GameMatchSettingsPage.uxml?fileID=9197481963319205126&amp;guid=f28cafb4354a24f018772c69222a55ef&amp;type=3#GameMatchSettingsPage"/>
+    <ui:Template name="MenuErrorPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/MenuErrorPage.uxml?fileID=9197481963319205126&amp;guid=07ab6142193414ebda335d8f277b3ead&amp;type=3#MenuErrorPage"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Operator/OperatorStyle.uss?fileID=7433441132597879392&amp;guid=50e7e683e56714de0b0ad7967c86b879&amp;type=3#OperatorStyle"/>
+    <ui:VisualElement name="root" style="flex-grow: 1;">
+        <ui:TwoPaneSplitView name="root-split" orientation="Horizontal" fixed-pane-index="0" fixed-pane-initial-dimension="400">
+            <ui:TwoPaneSplitView name="sidebar-split" orientation="Vertical" fixed-pane-index="0" fixed-pane-initial-dimension="400">
+                <Anaglyph.Menu.NavView first-page="network-page" name="network-nav" class="menu-root" style="height: auto; min-height: 400px;">
+                    <Anaglyph.Menu.NavPage name="network-page" show-back-button="false">
+                        <ui:VisualElement class="page-template-root">
+                            <Anaglyph.Menu.NavHeader>
+                                <Bindings>
+                                    <UnityEngine.Localization.LocalizedString property="Title" table="OperatorMenu" entry="static-1.title"/>
+                                </Bindings>
+                            </Anaglyph.Menu.NavHeader>
+                            <ui:Label name="session-state"/>
+                            <ui:Label name="session-address" class="body-copy"/>
+                            <ui:Label name="local-address" class="body-copy"/>
+                            <ui:Button name="host-button">
+                                <Bindings>
+                                    <UnityEngine.Localization.LocalizedString property="text" table="OperatorMenu" entry="host-button.text"/>
+                                </Bindings>
+                            </ui:Button>
+                            <ui:Button name="disconnect-button" class="destructive">
+                                <Bindings>
+                                    <UnityEngine.Localization.LocalizedString property="text" table="OperatorMenu" entry="disconnect-button.text"/>
+                                </Bindings>
+                            </ui:Button>
+                        </ui:VisualElement>
+                    </Anaglyph.Menu.NavPage>
+                </Anaglyph.Menu.NavView>
+                <ui:TabView name="tabs" class="menu-root" style="min-width: auto; width: auto; top: 0; min-height: 400px;">
+                    <ui:Tab name="match-tab">
+                        <Bindings>
+                            <UnityEngine.Localization.LocalizedString property="label" table="OperatorMenu" entry="match-tab.label"/>
+                        </Bindings>
+                        <Anaglyph.Menu.NavView name="match-nav" first-page="match-page">
+                            <Anaglyph.Menu.NavPage name="match-page">
+                                <ui:Instance template="GameMatchSettingsPage"/>
+                            </Anaglyph.Menu.NavPage>
+                            <Anaglyph.Menu.NavPage name="playing-page" show-back-button="false">
+                                <ui:Instance template="GameMatchPlayingPage"/>
+                            </Anaglyph.Menu.NavPage>
+                        </Anaglyph.Menu.NavView>
+                    </ui:Tab>
+                    <ui:Tab name="maps-tab">
+                        <Bindings>
+                            <UnityEngine.Localization.LocalizedString property="label" table="OperatorMenu" entry="maps-tab.label"/>
+                        </Bindings>
+                        <Anaglyph.Menu.NavView name="maps-nav" first-page="maps-page">
+                            <Anaglyph.Menu.NavPage name="maps-page">
+                                <ui:Instance template="OperatorMapsPage"/>
+                            </Anaglyph.Menu.NavPage>
+                            <Anaglyph.Menu.NavPage name="map-editing-page">
+                                <ui:Instance template="OperatorMapSettingsPage"/>
+                            </Anaglyph.Menu.NavPage>
+                            <Anaglyph.Menu.NavPage name="error-modal" show-back-button="false">
+                                <ui:Instance template="MenuErrorPage"/>
+                            </Anaglyph.Menu.NavPage>
+                        </Anaglyph.Menu.NavView>
+                    </ui:Tab>
+                </ui:TabView>
+            </ui:TwoPaneSplitView>
+            <ui:TwoPaneSplitView name="main-split" orientation="Vertical" fixed-pane-index="0" fixed-pane-initial-dimension="600">
+                <ui:VisualElement name="viewport" style="height: auto; min-width: 400px; min-height: 400px;"/>
+                <ui:TwoPaneSplitView name="client-list-panel" orientation="Horizontal" fixed-pane-index="0" fixed-pane-initial-dimension="1000" style="flex-grow: 1; min-height: 100px; min-width: 400px;">
+                    <ui:VisualElement name="client-list-content" class="client-list-content menu-root" style="width: auto; min-width: auto; flex-grow: 1; flex-basis: auto;">
+                        <ui:Label name="client-count" class="body-copy title"/>
+                        <ui:MultiColumnListView name="client-list" fixed-item-height="32" selection-type="None" sorting-mode="None" show-alternating-row-backgrounds="ContentOnly">
+                            <ui:Columns stretch-mode="Grow">
+                                <ui:Column name="client" width="110" min-width="90"/>
+                                <ui:Column name="battery" width="110" min-width="100"/>
+                                <ui:Column name="alignment" width="160" min-width="140"/>
+                                <ui:Column name="left-hand" width="110" min-width="100"/>
+                                <ui:Column name="right-hand" width="110" min-width="100"/>
+                                <ui:Column name="team" width="80" min-width="70"/>
+                                <ui:Column name="score" width="80" min-width="70"/>
+                                <ui:Column name="status" width="130" min-width="120" stretchable="true"/>
+                            </ui:Columns>
+                        </ui:MultiColumnListView>
+                    </ui:VisualElement>
+                    <ui:VisualElement name="headset-configuration-panel" class="headset-configuration-panel menu-root" style="min-width: auto; flex-grow: 0; width: auto;">
+                        <ui:Label class="headset-configuration-title title">
+                            <Bindings>
+                                <UnityEngine.Localization.LocalizedString property="text" table="OperatorMenu" entry="static-14.text"/>
+                            </Bindings>
+                        </ui:Label>
+                        <ui:Toggle name="require-menu-password-toggle">
+                            <Bindings>
+                                <UnityEngine.Localization.LocalizedString property="label" table="OperatorMenu" entry="require-menu-password-toggle.label"/>
+                            </Bindings>
+                        </ui:Toggle>
+                        <ui:Label class="body-copy">
+                            <Bindings>
+                                <UnityEngine.Localization.LocalizedString property="text" table="OperatorMenu" entry="static-16.text"/>
+                            </Bindings>
+                        </ui:Label>
+                        <ui:TextField name="menu-password-field" keyboard-type="Default">
+                            <Bindings>
+                                <UnityEngine.Localization.LocalizedString property="label" table="OperatorMenu" entry="menu-password-field.label"/>
+                            </Bindings>
+                        </ui:TextField>
+                        <ui:Toggle name="pin-headsets-to-host-toggle">
+                            <Bindings>
+                                <UnityEngine.Localization.LocalizedString property="label" table="OperatorMenu" entry="pin-headsets-to-host-toggle.label"/>
+                            </Bindings>
+                        </ui:Toggle>
+                        <ui:Label name="pin-host-address" class="body-copy"/>
+                        <ui:Button name="apply-headset-configuration-button">
+                            <Bindings>
+                                <UnityEngine.Localization.LocalizedString property="text" table="OperatorMenu" entry="apply-headset-configuration-button.text"/>
+                            </Bindings>
+                        </ui:Button>
+                        <ui:Label name="headset-configuration-status" class="body-copy"/>
+                    </ui:VisualElement>
+                </ui:TwoPaneSplitView>
+            </ui:TwoPaneSplitView>
+        </ui:TwoPaneSplitView>
+    </ui:VisualElement>
+</ui:UXML>

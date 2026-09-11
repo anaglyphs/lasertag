@@ -1,0 +1,195 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e9620f8c34305754d8cc9a7e49e852d9, type: 3}
+  m_Name: ConnectionMenu_en
+  m_EditorClassIdentifier: Unity.Localization::UnityEngine.Localization.Tables.StringTable
+  m_LocaleId:
+    m_Code: en
+  m_SharedData: {fileID: 11400000, guid: 10f44029c9f6549a0b185a98637a95f2, type: 2}
+  m_Metadata:
+    m_Items:
+    - rid: 533178702104363356
+  m_TableData:
+  - m_Id: 217047040
+    m_Localized: Bluetooth is off. Can't find host automatically!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047041
+    m_Localized: Searching for nearby host
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047042
+    m_Localized: Preparing to search for nearby host
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047043
+    m_Localized: Connecting...
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047044
+    m_Localized: Hosting
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047045
+    m_Localized: Connected
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047046
+    m_Localized: 'Room code: {0}'
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363356
+  - m_Id: 221241344
+    m_Localized: Incompatible versions
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241345
+    m_Localized: "Host's app version: {0}; \nThis device's version: {1}. \nUpdate
+      the devices to support compatible builds, or install the host\u2019s exact
+      build on this headset."
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363356
+  - m_Id: 221241346
+    m_Localized: Couldn't join
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241347
+    m_Localized: Check that the host is hosting and the address is correct. Both
+      devices need compatible multiplayer versions.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241348
+    m_Localized: Couldn't reach the relay service
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241349
+    m_Localized: "Hosting or joining over the internet needs an internet connection.
+      Check this headset\u2019s Wi-Fi, or host over the local network."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241350
+    m_Localized: "Aligning\u2026"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241351
+    m_Localized: Bluetooth is off
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241352
+    m_Localized: Automatic connection requires bluetooth. You can still connect manually
+      without bluetooth if you want.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241353
+    m_Localized: Open Bluetooth settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241354
+    m_Localized: Dismiss
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241355
+    m_Localized: Dismiss
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241356
+    m_Localized: Connect
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241357
+    m_Localized: Connect manually
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241358
+    m_Localized: Host session
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241359
+    m_Localized: Host over the internet
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241360
+    m_Localized: Relay hosting requires a full internet connection.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241361
+    m_Localized: Host settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241362
+    m_Localized: Relay server
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241363
+    m_Localized: Relay hosting requires a full internet connection.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241364
+    m_Localized: Connect manually
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241365
+    m_Localized: Connect over the internet
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241366
+    m_Localized: IP address
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241367
+    m_Localized: Room code
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241368
+    m_Localized: Enter the room code shown on the host.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241369
+    m_Localized: Connect
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241370
+    m_Localized: No connection
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241371
+    m_Localized: Connect this headset to a local network before hosting or joining
+      a session.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241372
+    m_Localized: Open Wi-Fi settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241373
+    m_Localized: Dismiss
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241374
+    m_Localized: Connection
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241375
+    m_Localized: Disconnect
+    m_Metadata:
+      m_Items: []
+  references:
+    version: 2
+    RefIds:
+    - rid: 533178702104363356
+      type: {class: SmartFormatTag, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_Entries: 
+        m_SharedEntries:
+        - id: 217047046
+        - id: 221241345

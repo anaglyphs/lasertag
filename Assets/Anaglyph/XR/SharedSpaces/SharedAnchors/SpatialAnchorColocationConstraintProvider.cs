@@ -432,12 +432,18 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 
 					float3 headPosition = MainXRRig.Camera.transform.position;
 					float closestDistanceSq = float.MaxValue;
+					float newAnchorDistSq = newAnchorDistance * newAnchorDistance;
 					foreach (AnchorConstraintState state in constraints.Values)
+					{
 						closestDistanceSq = math.min(closestDistanceSq,
 							math.distancesq((float3)state.canonPose.position, headPosition));
 
-					if (closestDistanceSq > newAnchorDistance * newAnchorDistance)
-						await MintUnderPlayer(ctkn);
+						if (closestDistanceSq > newAnchorDistSq)
+						{
+							await MintUnderPlayer(ctkn);
+							break;
+						}
+					}
 				}
 			}
 			catch (OperationCanceledException)
@@ -553,8 +559,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 				return true;
 
 			Debug.LogWarning($"Shared anchors are unavailable: {support}");
-			UserErrors.Raise("Shared spatial anchors unavailable",
-				$"This runtime reports shared anchor support as '{support}'.");
+			UserErrors.RaiseLocalized(UserErrorArea.Game, "error.anchors-title", "error.anchors-details");
 			return false;
 		}
 
@@ -620,8 +625,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 						$"(native {result.nativeStatusCode})");
 
 					if (attempt == attemptsBeforeTellingUser)
-						UserErrors.Raise("Couldn't share a spatial anchor",
-							"Shared anchors require a working internet connection.");
+						UserErrors.RaiseLocalized(UserErrorArea.Game, "error.share-title", "error.share-details");
 
 					await Awaitable.WaitForSecondsAsync(3f, ctkn);
 

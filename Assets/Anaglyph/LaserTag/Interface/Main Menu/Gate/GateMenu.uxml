@@ -1,0 +1,19 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:Template name="GatePermissionPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Gate/GatePermissionPage.uxml?fileID=9197481963319205126&amp;guid=2eedb5aaabfa4d8bb347e3eb55e860cf&amp;type=3#GatePermissionPage"/>
+    <ui:Template name="GateLimitedSupportPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Gate/GateLimitedSupportPage.uxml?fileID=9197481963319205126&amp;guid=56711a81e3a5c4c6da3da84afb2821f0&amp;type=3#GateLimitedSupportPage"/>
+    <ui:Template name="GatePasswordPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Gate/GatePasswordPage.uxml?fileID=9197481963319205126&amp;guid=1e9c0a657dfd4a79949d2c567e3e355d&amp;type=3#GatePasswordPage"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+    <ui:VisualElement picking-mode="Ignore" class="menu-root">
+        <Anaglyph.Menu.NavView first-page="permissions-page">
+            <Anaglyph.Menu.NavPage name="permissions-page" show-back-button="false">
+                <ui:Instance template="GatePermissionPage"/>
+            </Anaglyph.Menu.NavPage>
+            <Anaglyph.Menu.NavPage name="limited-support-modal" show-back-button="false">
+                <ui:Instance template="GateLimitedSupportPage"/>
+            </Anaglyph.Menu.NavPage>
+			<Anaglyph.Menu.NavPage name="password-page" show-back-button="false">
+				<ui:Instance template="GatePasswordPage"/>
+			</Anaglyph.Menu.NavPage>
+        </Anaglyph.Menu.NavView>
+    </ui:VisualElement>
+</ui:UXML>

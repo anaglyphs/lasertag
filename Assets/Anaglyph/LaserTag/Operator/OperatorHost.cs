@@ -9,12 +9,13 @@ using Anaglyph.XR.SharedSpaces;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
+using UnityEngine.Localization;
 
 namespace Anaglyph.LaserTag.Operator
 {
 	/// <summary>
 	/// What the operator machine does whether or not a panel is showing it: host a LAN
-	/// session on an AprilTag map, and report the session and the headsets on it.
+	/// session using AprilTags or the system's origin, and report the session and the headsets on it.
 	/// The operator machine does not play.
 	/// </summary>
 	public static class OperatorHost
@@ -57,61 +58,62 @@ namespace Anaglyph.LaserTag.Operator
 				// way as MultiplayerMenu rather than casting to an inaccessible type.
 				if (string.Equals(currentTransport.GetType().Name,
 					    "DistributedAuthorityTransport", StringComparison.Ordinal))
-					return $"Relay: {NetcodeManagement.CurrentSessionName}";
+					return MenuCopy.Format("Operator", "address.relay", NetcodeManagement.CurrentSessionName);
 
 				if (currentTransport is UnityTransport unityTransport)
-					return $"LAN: {unityTransport.ConnectionData.Address}";
+					return MenuCopy.Format("Operator", "address.lan", unityTransport.ConnectionData.Address);
 
 				return currentTransport.GetType().Name;
 			}
 		}
 
 		/// <summary>
-		/// Waits for the networking prefabs to spawn, then hosts on the last AprilTag map.
+		/// Waits for the networking prefabs to spawn, then hosts on the last supported map.
 		/// Returns the reason hosting failed, or an empty string.
 		/// </summary>
-		public static async Awaitable<string> StartSessionAsync(CancellationToken cancellationToken)
+		public static async Awaitable<LocalizedString> StartSessionAsync(CancellationToken cancellationToken)
 		{
 			while (NetworkManager.Singleton == null || ColocationManager.Instance == null ||
 			       LaserTagMapCoordinator.Instance == null)
 				await Awaitable.NextFrameAsync(cancellationToken);
 
-			LoadLastAprilTagMap();
-			TryStartHosting(out string error);
+			LoadLastSupportedMap();
+			TryStartHosting(out LocalizedString error);
 
 			EnvMesher.Instance.SetChunksVisible(true);
 
 			return error;
 		}
 
-		public static bool TryStartHosting(out string error)
+		public static bool TryStartHosting(out LocalizedString error)
 		{
-			error = "";
+			error = null;
 
 			if (NetcodeManagement.State != NetcodeState.Disconnected)
 			{
-				error = "The network session is already starting or connected.";
+				error = MenuCopy.String("Operator", "error.already-hosting");
 				return false;
 			}
 
 			if (NetworkManager.Singleton == null)
 			{
-				error = "The NetworkManager has not been created yet.";
+				error = MenuCopy.String("Operator", "error.network-unavailable");
 				return false;
 			}
 
 			ColocationManager colocation = ColocationManager.Instance;
 			if (colocation == null)
 			{
-				error = "The ColocationManager has not been created yet.";
+				error = MenuCopy.String("Operator", "error.colocation-unavailable");
 				return false;
 			}
 
 			// The tag size is not a hosting choice: it belongs to the map whose tags are being
 			// used, and reaches the provider when that map is loaded.
-			if (colocation.TagProvider == null)
+			if (colocation.PreferredSessionMethod == ColocationManager.ColocationMethod.AprilTag &&
+				colocation.TagProvider == null)
 			{
-				error = "AprilTag colocation is selected, but no AprilTag provider is configured.";
+				error = MenuCopy.String("Operator", "error.tags-unavailable");
 				return false;
 			}
 
@@ -124,19 +126,24 @@ namespace Anaglyph.LaserTag.Operator
 			}
 			catch (Exception exception)
 			{
-				error = $"Could not start the host: {exception.Message}";
+				error = MenuCopy.String("Operator", "error.host-start", exception.Message);
 				Debug.LogException(exception);
 				return false;
 			}
 		}
 
-		private static void LoadLastAprilTagMap()
+		/// <summary>The same catalog is used for startup restoration and the operator's map picker.</summary>
+		public static bool CanHostMap(GameMap map) => map != null &&
+			(map.HasTags || map.systemFrameForTagSetup || map.preferredColocationMethod == ColocationManager.ColocationMethod.SystemDetermined ||
+			 (map.preferredColocationMethod == ColocationManager.ColocationMethod.AprilTag && map.anchors.Count == 0));
+
+		private static void LoadLastSupportedMap()
 		{
 			if (LaserTagMapCoordinator.Instance.CurrentMap != null)
 				return;
 
 			foreach (GameMap map in MapStore.Default.GetByLastUsed())
-				if (map.HasTags)
+				if (CanHostMap(map))
 				{
 					LaserTagMapCoordinator.Instance.LoadMap(map.id);
 					return;

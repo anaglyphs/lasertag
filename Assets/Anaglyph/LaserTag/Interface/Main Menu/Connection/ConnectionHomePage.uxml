@@ -1,0 +1,32 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:Style src="project://database/Assets/Anaglyph/Menu/FlashingLabel.uss?fileID=7433441132597879392&amp;guid=44eea67dbe71743bb8f435927b744ae8&amp;type=3#FlashingLabel" />
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle" />
+    <ui:VisualElement class="page-template-root">
+        <Anaglyph.Menu.NavHeader>
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="Title" table="ConnectionMenu" entry="ConnectionHomePage.navheader-2.title" />
+            </Bindings>
+        </Anaglyph.Menu.NavHeader>
+        <Anaglyph.Menu.FlashingLabel name="session-discovery-status" class="body-copy session-discovery-status" />
+        <Anaglyph.Menu.NavButton name="manual-connect-button" target="manual-connect-page">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="ConnectionMenu" entry="ConnectionHomePage.manual-connect-button.text" />
+            </Bindings>
+        </Anaglyph.Menu.NavButton>
+        <ui:Button name="host-button">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="ConnectionMenu" entry="ConnectionHomePage.host-button.text" />
+            </Bindings>
+        </ui:Button>
+        <ui:Toggle name="host-on-relay-toggle">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="ConnectionMenu" entry="ConnectionHomePage.host-on-relay-toggle.text" />
+            </Bindings>
+        </ui:Toggle>
+        <ui:Label name="host-on-relay-warning" class="warning" style="display: none;">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="ConnectionMenu" entry="ConnectionHomePage.host-on-relay-warning.text" />
+            </Bindings>
+        </ui:Label>
+    </ui:VisualElement>
+</ui:UXML>

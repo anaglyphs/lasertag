@@ -1,0 +1,96 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e9620f8c34305754d8cc9a7e49e852d9, type: 3}
+  m_Name: GateMenu_en
+  m_EditorClassIdentifier: Unity.Localization::UnityEngine.Localization.Tables.StringTable
+  m_LocaleId:
+    m_Code: en
+  m_SharedData: {fileID: 11400000, guid: 446b4e2ebf1c24a29bf22738c196a58a, type: 2}
+  m_Metadata:
+    m_Items: []
+  m_TableData:
+  - m_Id: 556785664
+    m_Localized: Requesting room-scanning permission...
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174272
+    m_Localized: Requesting passthrough-camera permission...
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174273
+    m_Localized: Permission was not granted. Select it to try again.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174274
+    m_Localized: This permission is not available on this device.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174275
+    m_Localized: Could not determine whether this permission is available. Try again.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174276
+    m_Localized: Limited support
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174277
+    m_Localized: This headset model cannot scan your surroundings!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174278
+    m_Localized: Play with at least one Quest 3, 3S or newer nearby. That player
+      maps the room and shares it with you over the local network.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174279
+    m_Localized: Continue with limited support
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174280
+    m_Localized: Menu locked
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174281
+    m_Localized: Enter the operator password to access this headset's game menu.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174282
+    m_Localized: Password
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174283
+    m_Localized: Incorrect password. Try again.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174284
+    m_Localized: Unlock menu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174285
+    m_Localized: Permissions
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174286
+    m_Localized: LaserTag needs these permissions before you can continue.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174287
+    m_Localized: Room scanning
+    m_Metadata:
+      m_Items: []
+  - m_Id: 565174288
+    m_Localized: Passthrough camera
+    m_Metadata:
+      m_Items: []
+  references:
+    version: 2
+    RefIds: []

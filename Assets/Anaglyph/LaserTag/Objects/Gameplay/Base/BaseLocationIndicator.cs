@@ -43,8 +43,11 @@ namespace Anaglyph.LaserTag.Objects.Gameplay.Base
 				return MatchReferee.State is MatchState.Mustering or MatchState.Playing;
 			}
 
-			// white stays visible through the red filter over a dead player's vision
-			return local.Team == homeBase.Team && !local.IsAlive;
+			// Guide assigned players home until they reach a friendly base for mustering.
+			bool needsToMuster = MatchReferee.State == MatchState.Mustering && !local.IsInFriendlyBase;
+
+			// White also stays visible through the red filter over a dead player's vision.
+			return local.Team == homeBase.Team && (needsToMuster || !local.IsAlive);
 		}
 
 		private void LateUpdate()
@@ -53,8 +56,8 @@ namespace Anaglyph.LaserTag.Objects.Gameplay.Base
 
 			if (show)
 			{
-				float flash = Mathf.PingPong(Time.time * 2 * flashesPerSecond, 1);
-				color.a = Mathf.Lerp(minFlashAlpha, 1, flash);
+				bool phase = Mathf.Repeat(Time.time * flashesPerSecond, 1f) > 0.5f;
+				color.a = phase ? minFlashAlpha : 1;
 			}
 
 			foreach (SpriteRenderer sprite in sprites)

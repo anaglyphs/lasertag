@@ -1,4 +1,6 @@
 using System;
+using System.Threading;
+using System.Collections.Generic;
 using Anaglyph.LaserTag.Interface;
 using Anaglyph.LaserTag.Matches;
 using Anaglyph.LaserTag.Player;
@@ -6,22 +8,27 @@ using Anaglyph.Menu;
 using Anaglyph.Netcode;
 using Anaglyph.XR.SharedSpaces;
 using UnityEngine;
+using UnityEngine.Localization;
 using UnityEngine.UIElements;
 using UnityEngine.XR;
+using static Anaglyph.Menu.UIQuery;
 
 namespace Anaglyph.LaserTag.Operator
 {
 	/// <summary>
 	/// The desktop server panel. The operator does not play: this machine hosts over
-	/// LAN with AprilTag colocation as soon as the game starts, and the panel is there
+	/// LAN with the map's supported alignment method as soon as the game starts, and the panel is there
 	/// to run maps and matches for the headsets that join.
 	/// </summary>
 	[DefaultExecutionOrder(100)]
 	[RequireComponent(typeof(UIDocument))]
+	[RequireComponent(typeof(HeadsetConfiguration))]
 	public class OperatorMenu : MonoBehaviour
 	{
 		private const float refreshIntervalSeconds = 1f;
 
+		private LocalizedString hostError;
+		private LocalizedString configurationMessage;
 		private Label sessionStateLabel;
 		private Label sessionAddressLabel;
 		private Label localAddressLabel;
@@ -31,19 +38,45 @@ namespace Anaglyph.LaserTag.Operator
 		private NavView matchNav;
 		private NavPage playingPage;
 
-		private Label clientCountLabel;
-		private ScrollView clientList;
+		private NavView mapsNav;
+		private NavPage mapEditingPage;
+		private MapNameBinder mapName;
+		private AlignmentMethodBinder alignmentMethod;
+		private TagConfigurationBinder tagConfiguration;
+		private VisualElement tagConfigurationSection;
+		private bool mapSettingsPresented;
+		private MenuErrorPresenter mapErrors;
 
+		private Label clientCountLabel;
+		private MultiColumnListView clientList;
+		private readonly List<OperatorHost.ConnectedClient> clients = new();
+		private HeadsetConfiguration headsetConfiguration;
+		private Toggle requireMenuPasswordToggle;
+		private TextField menuPasswordField;
+		private Toggle pinHeadsetsToHostToggle;
+		private Label pinHostAddressLabel;
+		private Label headsetConfigurationStatus;
+
+		private readonly UIEventBindings bindings = new();
+		private CancellationTokenSource refreshCancellation;
+		private MapManagerUI mapManager;
 		private MatchSettingsBinder matchSettings;
 
 		private VisualElement viewport;
 		private Camera viewportCamera;
 
 		private const string sidebarWidthPref = "OperatorMenu.SidebarWidth";
-		private const string tabsWidthPref = "OperatorMenu.TabsWidth";
+		private const string networkHeightPref = "OperatorMenu.NetworkHeight";
+		private const string viewportHeightPref = "OperatorMenu.ViewportHeight";
+		private const string clientListWidthPref = "OperatorMenu.ClientListWidth";
 
+		private TwoPaneSplitView rootSplit;
 		private TwoPaneSplitView sidebarSplit;
 		private TwoPaneSplitView mainSplit;
+		private TwoPaneSplitView clientConfigSplit;
+
+		private void Awake() => mapErrors = new MenuErrorPresenter(UserErrorArea.Game);
+		private void OnDestroy() => mapErrors?.Dispose();
 
 		private void OnEnable()
 		{
@@ -68,25 +101,43 @@ namespace Anaglyph.LaserTag.Operator
 			localAddressLabel = Require<Label>(networkNav, "local-address");
 			hostButton = Require<Button>(networkNav, "host-button");
 			disconnectButton = Require<Button>(networkNav, "disconnect-button");
-			
-			VisualElement clientListPanel = Require<VisualElement>(root, "client-list-panel");
-			clientList = Require<ScrollView>(clientListPanel, "client-list");
-			clientCountLabel = Require<Label>(clientListPanel, "client-count");
+
+			VisualElement clientPanel = Require<VisualElement>(root, "client-list-panel");
+			clientList = Require<MultiColumnListView>(clientPanel, "client-list");
+			ConfigureClientList();
+			clientCountLabel = Require<Label>(clientPanel, "client-count");
+
+			headsetConfiguration = GetComponent<HeadsetConfiguration>();
+			requireMenuPasswordToggle =
+				Require<Toggle>(clientPanel, "require-menu-password-toggle");
+			menuPasswordField = Require<TextField>(clientPanel, "menu-password-field");
+			menuPasswordField.isPasswordField = true;
+			pinHeadsetsToHostToggle =
+				Require<Toggle>(clientPanel, "pin-headsets-to-host-toggle");
+			pinHostAddressLabel = Require<Label>(clientPanel, "pin-host-address");
+			headsetConfigurationStatus =
+				Require<Label>(clientPanel, "headset-configuration-status");
+			bindings.Click(Require<Button>(clientPanel, "apply-headset-configuration-button"),
+				ApplyHeadsetConfiguration);
+			RefreshHeadsetConfigurationControls();
 
 			matchSettings = new MatchSettingsBinder(matchNav);
+			BindMapEditing(root);
 
 			BindViewportToCamera(root);
 			RestoreSplitSizes(root);
 
-			hostButton.clicked += StartHosting;
-			disconnectButton.clicked += NetcodeManagement.Disconnect;
-			matchSettings.StartButton.clicked +=
-				() => MatchReferee.Instance?.QueueMatch(matchSettings.Settings);
-			Require<Button>(matchNav, "stop-button").clicked +=
-				() => MatchReferee.Instance?.EndMatch();
+			bindings.Click(hostButton, StartHosting);
+			bindings.Click(disconnectButton, NetcodeManagement.Disconnect);
+			bindings.Click(matchSettings.StartButton,
+				() => MatchReferee.Instance?.QueueMatch(matchSettings.Settings));
+			bindings.Click(Require<Button>(matchNav, "stop-button"),
+				() => MatchReferee.Instance?.EndMatch());
 
+			MenuCopy.Changed += RefreshLocalizedCopy;
 			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
 			MatchReferee.StateChanged += OnMatchStateChanged;
+			HeadsetConfiguration.Changed += RefreshHeadsetConfigurationControls;
 
 			OnNetcodeStateChanged(NetcodeManagement.State);
 			OnMatchStateChanged(MatchReferee.State);
@@ -95,16 +146,91 @@ namespace Anaglyph.LaserTag.Operator
 
 		private void OnDisable()
 		{
+			refreshCancellation?.Cancel();
+			refreshCancellation?.Dispose();
+			refreshCancellation = null;
+			bindings.Dispose();
+			mapManager?.Unbind();
+			matchSettings?.Dispose();
+			matchSettings = null;
+			MenuCopy.Changed -= RefreshLocalizedCopy;
 			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
 			MatchReferee.StateChanged -= OnMatchStateChanged;
+			HeadsetConfiguration.Changed -= RefreshHeadsetConfigurationControls;
+			if (mapsNav != null) mapsNav.Changed -= OnMapsPageChanged;
+			mapErrors?.Unbind();
+			if (alignmentMethod != null)
+			{
+				alignmentMethod.Changing -= tagConfiguration.FlushPendingSize;
+				alignmentMethod.Changed -= RefreshMapSettings;
+			}
+			tagConfiguration?.Dispose();
+			alignmentMethod?.Dispose();
+			mapName?.Dispose();
+			tagConfiguration = null;
+			alignmentMethod = null;
+			mapName = null;
+			tagConfigurationSection = null;
+			mapSettingsPresented = false;
+			mapsNav = null;
 			SaveSplitSizes();
 			UnbindViewportFromCamera();
 			matchNav = null;
 		}
 
+		private void Update() => RefreshMapSettings();
+
+		/// <summary>
+		/// The operator edits a map's name and alignment settings without an editing mode:
+		/// placing objects needs a headset, so the page is reached by navigating to it.
+		/// </summary>
+		private void BindMapEditing(VisualElement root)
+		{
+			mapsNav = Require<NavView>(root, "maps-nav");
+			mapManager = GetComponent<MapManagerUI>();
+			if (mapManager == null)
+				throw new InvalidOperationException("OperatorMenu requires MapManagerUI on the same object.");
+			mapManager.Bind(Require<VisualElement>(mapsNav, "map-catalog-section"));
+			mapEditingPage = mapsNav.GetPage("map-editing-page");
+			mapName = new MapNameBinder(Require<VisualElement>(mapEditingPage, "map-name-section"));
+			alignmentMethod = new AlignmentMethodBinder(
+				Require<VisualElement>(mapEditingPage, "alignment-method-section"));
+			tagConfigurationSection = Require<VisualElement>(mapEditingPage, "tag-configuration-section");
+			tagConfiguration = new TagConfigurationBinder(tagConfigurationSection);
+			alignmentMethod.Changing += tagConfiguration.FlushPendingSize;
+			alignmentMethod.Changed += RefreshMapSettings;
+
+			bindings.Click(Require<Button>(mapEditingPage, "finish-editing-button"), mapsNav.GoBack);
+			bindings.Click(Require<Button>(mapsNav, "edit-map-button"),
+				() => mapsNav.GoToPage(mapEditingPage));
+
+			mapsNav.Changed += OnMapsPageChanged;
+			mapErrors.Bind(mapsNav);
+			OnMapsPageChanged(mapsNav.CurrentPage);
+		}
+
+		private void OnMapsPageChanged(NavPage page)
+		{
+			if (mapSettingsPresented && page != mapEditingPage)
+				tagConfiguration.FlushPendingSize();
+			mapSettingsPresented = page == mapEditingPage;
+			RefreshMapSettings();
+		}
+
+		private void RefreshMapSettings()
+		{
+			if (!mapSettingsPresented)
+				return;
+
+			mapName.Refresh();
+			alignmentMethod.Refresh();
+			SetDisplayed(tagConfigurationSection, alignmentMethod.UsesTags);
+			tagConfiguration.Refresh(alignmentStatus: alignmentMethod.Status);
+		}
+
 		private async void Start()
 		{
-			string error;
+			LocalizedString error;
 			try
 			{
 				error = await OperatorHost.StartSessionAsync(destroyCancellationToken);
@@ -119,28 +245,61 @@ namespace Anaglyph.LaserTag.Operator
 
 		private void StartHosting()
 		{
-			OperatorHost.TryStartHosting(out string error);
+			OperatorHost.TryStartHosting(out LocalizedString error);
 			ShowHostError(error);
 		}
 
-		private void ShowHostError(string error)
+		private void ShowHostError(LocalizedString error)
 		{
-			if (string.IsNullOrEmpty(error))
+			if (error == null)
 				return;
 
-			sessionStateLabel.text = "Could not host";
-			sessionAddressLabel.text = error;
-			Debug.LogError($"[{nameof(OperatorMenu)}] {error}");
+			hostError = error;
+			RefreshLocalizedCopy();
+			Debug.LogError($"[{nameof(OperatorMenu)}] {error.GetLocalizedString()}");
+		}
+
+		private void ApplyHeadsetConfiguration()
+		{
+			if (headsetConfiguration.TrySetOperatorSettings(
+				    requireMenuPasswordToggle.value,
+				    menuPasswordField.value,
+				    pinHeadsetsToHostToggle.value,
+				    out LocalizedString error))
+			{
+				menuPasswordField.SetValueWithoutNotify("");
+				configurationMessage = MenuCopy.String("Operator", OperatorHost.IsHosting ? "configuration.sent" : "configuration.saved");
+				RefreshConfigurationMessage();
+				headsetConfigurationStatus.RemoveFromClassList("warning");
+				return;
+			}
+
+			configurationMessage = error;
+			RefreshConfigurationMessage();
+			headsetConfigurationStatus.AddToClassList("warning");
+		}
+
+		private void RefreshHeadsetConfigurationControls()
+		{
+			if (headsetConfiguration == null || requireMenuPasswordToggle == null)
+				return;
+
+			HeadsetConfiguration.OperatorSettings settings =
+				headsetConfiguration.GetOperatorSettings();
+			requireMenuPasswordToggle.SetValueWithoutNotify(settings.requireMenuPassword);
+			pinHeadsetsToHostToggle.SetValueWithoutNotify(settings.pinHeadsetsToHost);
+			pinHostAddressLabel.text = string.IsNullOrEmpty(settings.hostAddress)
+				? MenuCopy.Get("Operator", "address.unavailable")
+				: MenuCopy.Format("Operator", "address.pinned", settings.hostAddress);
+			configurationMessage = null;
+			RefreshConfigurationMessage();
+			headsetConfigurationStatus.RemoveFromClassList("warning");
 		}
 
 		private void OnNetcodeStateChanged(NetcodeState state)
 		{
-			sessionStateLabel.text = state switch
-			{
-				NetcodeState.Connecting => "Starting...",
-				NetcodeState.Connected => "Hosting",
-				_ => "Not hosting",
-			};
+			hostError = null;
+			RefreshLocalizedCopy();
 
 			bool hosting = state != NetcodeState.Disconnected;
 			SetDisplayed(hostButton, !hosting);
@@ -204,29 +363,43 @@ namespace Anaglyph.LaserTag.Operator
 		}
 
 		/// <summary>
-		/// Applies the operator's last sidebar and tab widths. The panel has not
+		/// Applies the operator's last split dimensions. The panel has not
 		/// laid out yet, so the stored sizes are what the split views start from.
 		/// </summary>
 		private void RestoreSplitSizes(VisualElement root)
 		{
+			rootSplit = Require<TwoPaneSplitView>(root, "root-split");
 			sidebarSplit = Require<TwoPaneSplitView>(root, "sidebar-split");
 			mainSplit = Require<TwoPaneSplitView>(root, "main-split");
+			clientConfigSplit = Require<TwoPaneSplitView>(root, "client-list-panel");
 
 			if (PlayerPrefs.HasKey(sidebarWidthPref))
-				sidebarSplit.fixedPaneInitialDimension = PlayerPrefs.GetFloat(sidebarWidthPref);
+				rootSplit.fixedPaneInitialDimension = PlayerPrefs.GetFloat(sidebarWidthPref);
 
-			if (PlayerPrefs.HasKey(tabsWidthPref))
-				mainSplit.fixedPaneInitialDimension = PlayerPrefs.GetFloat(tabsWidthPref);
+			if (PlayerPrefs.HasKey(networkHeightPref))
+				sidebarSplit.fixedPaneInitialDimension = PlayerPrefs.GetFloat(networkHeightPref);
+
+			if (PlayerPrefs.HasKey(viewportHeightPref))
+				mainSplit.fixedPaneInitialDimension = PlayerPrefs.GetFloat(viewportHeightPref);
+
+			if (PlayerPrefs.HasKey(clientListWidthPref))
+				clientConfigSplit.fixedPaneInitialDimension =
+					PlayerPrefs.GetFloat(clientListWidthPref);
 		}
 
 		private void SaveSplitSizes()
 		{
-			StoreDimension(sidebarWidthPref, sidebarSplit?.fixedPane?.resolvedStyle.width ?? 0);
-			StoreDimension(tabsWidthPref, mainSplit?.fixedPane?.resolvedStyle.width ?? 0);
+			StoreDimension(sidebarWidthPref, rootSplit?.fixedPane?.resolvedStyle.width ?? 0);
+			StoreDimension(networkHeightPref, sidebarSplit?.fixedPane?.resolvedStyle.height ?? 0);
+			StoreDimension(viewportHeightPref, mainSplit?.fixedPane?.resolvedStyle.height ?? 0);
+			StoreDimension(clientListWidthPref,
+				clientConfigSplit?.fixedPane?.resolvedStyle.width ?? 0);
 			PlayerPrefs.Save();
 
+			rootSplit = null;
 			sidebarSplit = null;
 			mainSplit = null;
+			clientConfigSplit = null;
 		}
 
 		private static void StoreDimension(string key, float dimension)
@@ -242,13 +415,17 @@ namespace Anaglyph.LaserTag.Operator
 
 		private async void BeginRefreshLoop()
 		{
+			refreshCancellation?.Cancel();
+			refreshCancellation?.Dispose();
+			refreshCancellation = new CancellationTokenSource();
+			CancellationToken token = refreshCancellation.Token;
 			try
 			{
-				while (isActiveAndEnabled)
+				while (!token.IsCancellationRequested)
 				{
 					Refresh();
 					await Awaitable.WaitForSecondsAsync(
-						refreshIntervalSeconds, destroyCancellationToken);
+						refreshIntervalSeconds, token);
 				}
 			}
 			catch (OperationCanceledException)
@@ -256,99 +433,121 @@ namespace Anaglyph.LaserTag.Operator
 			}
 		}
 
+		private void RefreshConfigurationMessage()
+		{
+			headsetConfigurationStatus.text = configurationMessage?.GetLocalizedString() ??
+				MenuCopy.Get("Operator", headsetConfiguration.GetOperatorSettings().hasMenuPassword
+					? "configuration.password-set" : "configuration.no-password");
+		}
+
+		private void RefreshLocalizedCopy()
+		{
+			foreach (Column column in clientList.columns)
+				column.title = MenuCopy.Get("Operator", "column." + column.name);
+			sessionStateLabel.text = MenuCopy.Get("Operator", hostError != null ? "session.failed" :
+				NetcodeManagement.State == NetcodeState.Connecting ? "session.starting" :
+				NetcodeManagement.State == NetcodeState.Connected ? "session.hosting" : "session.stopped");
+			RefreshConfigurationMessage();
+			Refresh();
+		}
+
 		private void Refresh()
 		{
 			// The IP is what an operator reads out to the room, so it is shown whether or
 			// not the session is up.
-			localAddressLabel.text = $"This machine: {OperatorHost.LocalAddress}";
+			localAddressLabel.text = MenuCopy.Format("Operator", "address.local", OperatorHost.LocalAddress);
+			if (pinHostAddressLabel != null)
+			{
+				string address = OperatorHost.LocalAddress;
+				pinHostAddressLabel.text = string.IsNullOrEmpty(address)
+					? MenuCopy.Get("Operator", "address.unavailable")
+					: MenuCopy.Format("Operator", "address.pinned", address);
+			}
 
-			sessionAddressLabel.text = OperatorHost.SessionAddress;
+			sessionAddressLabel.text = hostError?.GetLocalizedString() ?? OperatorHost.SessionAddress;
 
 			RefreshClientList();
 		}
 
+		private void ConfigureClientList()
+		{
+			foreach (Column column in clientList.columns)
+			{
+				string columnName = column.name;
+				column.makeCell = () =>
+				{
+					Label label = new();
+					label.AddToClassList("client-cell");
+					label.EnableInClassList("client-cell--name", columnName == "client");
+					label.EnableInClassList("client-cell--status", columnName == "status");
+					return label;
+				};
+				column.bindCell = (element, index) =>
+					BindClientCell((Label)element, clients[index], columnName);
+			}
+
+			clientList.itemsSource = clients;
+		}
+
 		private void RefreshClientList()
 		{
-			clientList.Clear();
-
-			if (!OperatorHost.IsHosting)
-			{
-				clientCountLabel.text = "Not hosting";
-				return;
-			}
-
+			clients.Clear();
 			int playerCount = 0;
 
-			foreach (OperatorHost.ConnectedClient client in OperatorHost.GetConnectedClients())
+			if (OperatorHost.IsHosting)
 			{
-				if (!client.isThisServer)
-					playerCount++;
-
-				clientList.Add(BuildClientRow(client));
+				foreach (OperatorHost.ConnectedClient client in OperatorHost.GetConnectedClients())
+				{
+					clients.Add(client);
+					if (!client.isThisServer)
+						playerCount++;
+				}
 			}
 
-			clientCountLabel.text = playerCount == 1
-				? "1 player connected"
-				: $"{playerCount} players connected";
+			clientList.RefreshItems();
+			clientCountLabel.text = !OperatorHost.IsHosting
+				? MenuCopy.Get("Operator", "session.stopped")
+				: MenuCopy.Format("Operator", "client.count", playerCount);
 		}
 
-		private static VisualElement BuildClientRow(OperatorHost.ConnectedClient client)
+		private static void BindClientCell(
+			Label label, OperatorHost.ConnectedClient client, string columnName)
 		{
-			VisualElement row = new();
-			row.AddToClassList("client-row");
-			AddLabel(row, $"Client {client.clientId}", "client-row__name");
-
-			if (client.isThisServer)
-			{
-				AddLabel(row, "this server", "client-row__detail");
-				return row;
-			}
+			if (label.userData is string previousSeverity)
+				label.RemoveFromClassList(previousSeverity);
 
 			PlayerAvatar avatar = client.avatar;
+			string text = "";
+			string severity = null;
 
-			// A client is listed the moment it connects; its avatar spawns a beat later.
-			if (avatar == null)
+			if (columnName == "client")
+				text = MenuCopy.Format("Operator", "client.name", client.clientId);
+			else if (columnName == "status")
+				text = client.isThisServer ? MenuCopy.Get("Operator", "client.server")
+					: avatar == null ? MenuCopy.Get("Operator", "client.joining") : avatar.IsAlive ? "" : MenuCopy.Get("Operator", "client.down");
+			else if (!client.isThisServer && avatar != null)
 			{
-				AddLabel(row, "joining", "client-row__detail");
-				return row;
+				HeadsetTelemetry telemetry = avatar.Telemetry;
+				(text, severity) = columnName switch
+				{
+					"battery" => (DescribeBattery(telemetry), BatteryChipClass(telemetry)),
+					"alignment" => (DescribeAlignment(telemetry), AlignmentChipClass(telemetry)),
+					"left-hand" => (DescribeTracking(telemetry.leftHandTracking),
+						TrackingChipClass(telemetry.leftHandTracking)),
+					"right-hand" => (DescribeTracking(telemetry.rightHandTracking),
+						TrackingChipClass(telemetry.rightHandTracking)),
+					"team" => ($"{avatar.Team}", null),
+					"score" => (MenuCopy.Format("Operator", "client.score", avatar.Score), null),
+					_ => ("", null),
+				};
 			}
 
-			HeadsetTelemetry telemetry = avatar.Telemetry;
-			AddChip(row, DescribeBattery(telemetry), BatteryChipClass(telemetry));
-			AddChip(row, DescribeAlignment(telemetry), AlignmentChipClass(telemetry));
-			AddHandChip(row, "L", telemetry.leftHandTracking);
-			AddHandChip(row, "R", telemetry.rightHandTracking);
-
-			string detail = $"team {avatar.Team} · {avatar.Score} pts";
-			if (!avatar.IsAlive)
-				detail += " · down";
-
-			AddLabel(row, detail, "client-row__detail");
-
-			return row;
-		}
-
-		private static void AddLabel(VisualElement row, string text, string className)
-		{
-			Label label = new(text);
-			label.AddToClassList(className);
-			row.Add(label);
-		}
-
-		private static void AddChip(VisualElement row, string text, string severityClass)
-		{
-			Label chip = new(text);
-			chip.AddToClassList("chip");
-			chip.AddToClassList(severityClass);
-			row.Add(chip);
-		}
-
-		private static void AddHandChip(VisualElement row, string hand, byte tracking)
-		{
-			Label chip = new($"{hand} {DescribeTracking(tracking)}");
-			chip.AddToClassList("chip");
-			chip.AddToClassList(TrackingChipClass(tracking));
-			row.Add(chip);
+			label.text = text;
+			label.tooltip = text;
+			label.EnableInClassList("chip", severity != null);
+			if (severity != null)
+				label.AddToClassList(severity);
+			label.userData = severity;
 		}
 
 		/// <summary>
@@ -358,22 +557,22 @@ namespace Anaglyph.LaserTag.Operator
 		private static string DescribeTracking(byte tracking)
 		{
 			if (tracking == HeadsetTelemetry.TrackingUnavailable)
-				return "n/a";
+				return MenuCopy.Get("Operator", "tracking.unavailable");
 
 			InputTrackingState state = (InputTrackingState)tracking;
 			bool hasPosition = (state & InputTrackingState.Position) != 0;
 			bool hasRotation = (state & InputTrackingState.Rotation) != 0;
 
 			if (hasPosition && hasRotation)
-				return "ok";
+				return MenuCopy.Get("Operator", "tracking.ok");
 
 			if (hasRotation)
-				return "rot";
+				return MenuCopy.Get("Operator", "tracking.rotation");
 
 			if (hasPosition)
-				return "pos";
+				return MenuCopy.Get("Operator", "tracking.position");
 
-			return "lost";
+			return MenuCopy.Get("Operator", "tracking.lost");
 		}
 
 		private static string TrackingChipClass(byte tracking)
@@ -393,11 +592,11 @@ namespace Anaglyph.LaserTag.Operator
 		private static string DescribeBattery(HeadsetTelemetry telemetry)
 		{
 			if (!telemetry.BatteryIsKnown)
-				return "battery ?";
+				return MenuCopy.Get("Operator", "battery.unknown");
 
 			return telemetry.isCharging
-				? $"{telemetry.batteryPercent}% chg"
-				: $"{telemetry.batteryPercent}%";
+				? MenuCopy.Format("Operator", "battery.charging", telemetry.batteryPercent)
+				: MenuCopy.Format("Operator", "battery.percent", telemetry.batteryPercent);
 		}
 
 		private static string BatteryChipClass(HeadsetTelemetry telemetry)
@@ -421,11 +620,11 @@ namespace Anaglyph.LaserTag.Operator
 		private static string DescribeAlignment(HeadsetTelemetry telemetry) => telemetry.alignment switch
 		{
 			ColocationAlignmentState.Localized => telemetry.constraintCount > 0
-				? $"aligned {telemetry.agreeingConstraintCount}/{telemetry.constraintCount}"
-				: "aligned",
-			ColocationAlignmentState.Searching => "aligning",
-			ColocationAlignmentState.Lost => "lost alignment",
-			_ => "not aligning",
+				? MenuCopy.Format("Operator", "alignment.count", telemetry.agreeingConstraintCount, telemetry.constraintCount)
+				: MenuCopy.Get("Operator", "alignment.aligned"),
+			ColocationAlignmentState.Searching => MenuCopy.Get("Operator", "alignment.searching"),
+			ColocationAlignmentState.Lost => MenuCopy.Get("Operator", "alignment.lost"),
+			_ => MenuCopy.Get("Operator", "alignment.inactive"),
 		};
 
 		private static string AlignmentChipClass(HeadsetTelemetry telemetry)
@@ -451,17 +650,6 @@ namespace Anaglyph.LaserTag.Operator
 		private static void SetDisplayed(VisualElement element, bool displayed)
 		{
 			element.style.display = displayed ? DisplayStyle.Flex : DisplayStyle.None;
-		}
-
-		private static T Require<T>(VisualElement root, string name)
-			where T : VisualElement
-		{
-			T element = root.Q<T>(name);
-			if (element == null)
-				throw new InvalidOperationException(
-					$"Required UI Toolkit element '{name}' ({typeof(T).Name}) was not found.");
-
-			return element;
 		}
 	}
 }

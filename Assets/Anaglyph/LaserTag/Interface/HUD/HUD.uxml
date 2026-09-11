@@ -1,34 +1,58 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:Style src="project://database/Assets/Anaglyph/Menu/FlashingLabel.uss?fileID=7433441132597879392&amp;guid=44eea67dbe71743bb8f435927b744ae8&amp;type=3#FlashingLabel"/>
     <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
     <ui:VisualElement picking-mode="Ignore" name="hud-root" class="hud-root">
         <ui:VisualElement picking-mode="Ignore" name="death-hud" class="hud-overlay" style="display: none;">
             <ui:VisualElement picking-mode="Ignore" class="you-died-row">
                 <ui:VisualElement picking-mode="Ignore" class="death-bar"/>
-                <ui:Label picking-mode="Ignore" text="YOU DIED" class="you-died-label" style="-unity-font-definition: resource(&quot;Fonts/DINishExpanded-Bold SDF&quot;);"/>
+                <ui:Label picking-mode="Ignore"  class="you-died-label" style="-unity-font-definition: resource(&quot;Fonts/DINishExpanded-Bold SDF&quot;);">
+                    <Bindings>
+                        <UnityEngine.Localization.LocalizedString property="text" table="HUDMenu" entry="static-1.text" />
+                    </Bindings>
+                </ui:Label>
                 <ui:VisualElement picking-mode="Ignore" class="death-bar"/>
             </ui:VisualElement>
-            <ui:Label picking-mode="Ignore" name="respawn-label" text="" class="respawn-label"/>
+            <Anaglyph.Menu.FlashingLabel picking-mode="Ignore" name="respawn-label" text="" class="respawn-label" flashing="false"/>
         </ui:VisualElement>
         <ui:VisualElement picking-mode="Ignore" name="countdown-hud" class="hud-overlay" style="display: none;">
             <ui:Label picking-mode="Ignore" name="countdown-label" text="3" class="countdown-label" style="-unity-font-definition: resource(&quot;Fonts/DINishExpanded-Bold SDF&quot;);"/>
         </ui:VisualElement>
         <ui:VisualElement picking-mode="Ignore" name="muster-hud" class="hud-overlay" style="display: none; -unity-font-definition: resource(&quot;Fonts/DINish-Regular SDF&quot;); -unity-font-style: normal;">
-            <ui:Label picking-mode="Ignore" text="Everyone must stand in a base&#10;for the game to start!" class="queue-label" style="-unity-font-style: bold;"/>
+            <Anaglyph.Menu.FlashingLabel picking-mode="Ignore" name="muster-label"  class="queue-label" flashing="false" style="-unity-font-style: bold;">
+                <Bindings>
+                    <UnityEngine.Localization.LocalizedString property="text" table="HUDMenu" entry="muster-label.text" />
+                </Bindings>
+            </Anaglyph.Menu.FlashingLabel>
         </ui:VisualElement>
         <ui:VisualElement picking-mode="Ignore" name="teamless-hud" class="hud-overlay" style="display: none; -unity-font-definition: resource(&quot;Fonts/DINish-Regular SDF&quot;); -unity-font-style: normal;">
-            <ui:Label picking-mode="Ignore" text="Stand in a base&#10;to join a team!" class="queue-label" style="-unity-font-style: bold;"/>
+            <Anaglyph.Menu.FlashingLabel picking-mode="Ignore" name="teamless-label"  class="queue-label" flashing="false" style="-unity-font-style: bold;">
+                <Bindings>
+                    <UnityEngine.Localization.LocalizedString property="text" table="HUDMenu" entry="teamless-label.text" />
+                </Bindings>
+            </Anaglyph.Menu.FlashingLabel>
         </ui:VisualElement>
         <ui:VisualElement picking-mode="Ignore" name="results-hud" class="hud-overlay" style="display: none;">
-            <ui:Label picking-mode="Ignore" name="results-title" text="GAME OVER" class="results-title" style="-unity-font-definition: resource(&quot;Fonts/DINishExpanded-Regular SDF&quot;); -unity-font-style: bold;"/>
+            <ui:Label picking-mode="Ignore" name="results-title"  class="results-title" style="-unity-font-definition: resource(&quot;Fonts/DINishExpanded-Regular SDF&quot;); -unity-font-style: bold;"/>
             <ui:Label picking-mode="Ignore" name="results-round-label" text="" class="results-round-label" style="display: none;"/>
             <ui:VisualElement picking-mode="Ignore" class="results-scores">
                 <ui:Label picking-mode="Ignore" name="results-red-score" text="0" class="results-score team-red" style="-unity-text-align: middle-right; -unity-font-style: bold;"/>
-                <ui:Label picking-mode="Ignore" name="vs-label" text="vs" class="vs-label"/>
+                <ui:Label picking-mode="Ignore" name="vs-label"  class="vs-label">
+                    <Bindings>
+                        <UnityEngine.Localization.LocalizedString property="text" table="HUDMenu" entry="vs-label.text" />
+                    </Bindings>
+                </ui:Label>
                 <ui:Label picking-mode="Ignore" name="results-blue-score" text="0" class="results-score team-blue" style="-unity-text-align: middle-left; -unity-font-style: bold;"/>
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement picking-mode="Ignore" name="connection-hud" class="hud-overlay" style="display: flex;">
-            <ui:Label picking-mode="Ignore" name="connection-label" text="Connecting..." class="connection-label" style="-unity-font-definition: resource(&quot;Fonts/DINishExpanded-Bold SDF&quot;);"/>
+            <ui:Label picking-mode="Ignore" name="connection-label"  class="connection-label" style="-unity-font-definition: resource(&quot;Fonts/DINishExpanded-Bold SDF&quot;);"/>
+        </ui:VisualElement>
+        <ui:VisualElement picking-mode="Ignore" name="tag-registration-hud" class="hud-overlay" style="display: none;">
+            <Anaglyph.Menu.FlashingLabel picking-mode="Ignore" name="tag-registration-label" class="connection-label" flashing="true" style="-unity-font-definition: resource(&quot;Fonts/DINishExpanded-Bold SDF&quot;);">
+                <Bindings>
+                    <UnityEngine.Localization.LocalizedString property="text" table="HUDMenu" entry="tag-registration-label.text" />
+                </Bindings>
+            </Anaglyph.Menu.FlashingLabel>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

@@ -1,7 +1,5 @@
 #if UNITY_EDITOR
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using Anaglyph.Netcode;
 using Anaglyph.Permissions;
 using Anaglyph.XR.DepthKit.EnvScanning;
@@ -9,7 +7,6 @@ using Unity.Multiplayer.PlayMode;
 using Unity.Netcode;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.AI;
 using UnityEngine.SceneManagement;
 using UnityEngine.XR.Interaction.Toolkit.Inputs.Simulation;
 
@@ -31,7 +28,13 @@ namespace Anaglyph.LaserTag.Editor
 		{
 			using EditorGUILayout.ScrollViewScope scrollView = new(scroll);
 			scroll = scrollView.scrollPosition;
+			
+			EditorGUILayout.LabelField("Simulation", EditorStyles.boldLabel);
 
+			DrawToggle("Simulate XR", PlayModeXRSimulation.Setting);
+			DrawToggle("Hide simulation environment from scene view", PlayModeSimulationVisibility.Setting);
+
+			EditorGUILayout.Space();
 			EditorGUILayout.LabelField("Networking", EditorStyles.boldLabel);
 
 			DrawToggle("Autoconnect", PlayModeAutoConnect.Setting);
@@ -83,11 +86,6 @@ namespace Anaglyph.LaserTag.Editor
 			EditorGUILayout.LabelField("Environment", EditorStyles.boldLabel);
 
 			DrawToggle("Show scanned meshes", PlayModeChunkVisibility.Setting);
-
-			EditorGUILayout.Space();
-			EditorGUILayout.LabelField("Simulation", EditorStyles.boldLabel);
-
-			DrawToggle("Hide simulation environment from scene view", PlayModeSimulationVisibility.Setting);
 			
 			// EditorGUILayout.Space();
 			// EditorGUILayout.LabelField("Map", EditorStyles.boldLabel);
@@ -276,6 +274,13 @@ namespace Anaglyph.LaserTag.Editor
 		}
 	}
 
+	/// Selects the XR mode and simulation environment for the main editor.
+	/// Multiplayer Play Mode virtual players always use XR mode.
+	public static class PlayModeXRSimulation
+	{
+		public static readonly PlayModeSetting Setting = new("Anaglyph.PlayMode.SimulateXR");
+	}
+
 	/// Hosts or connects on entering play mode. Runs in every editor process,
 	/// including virtual players.
 	[InitializeOnLoad]
@@ -335,6 +340,8 @@ namespace Anaglyph.LaserTag.Editor
 
 			if (CurrentPlayer.IsMainEditor)
 			{
+				if (LaserTagMapCoordinator.Instance == null) return;
+				if (!LaserTagMapCoordinator.Instance.RestoreLastMapForSimulation()) return;
 				NetcodeManagement.Host(NetcodeManagement.Protocol.LAN);
 				EditorApplication.update -= Tick;
 			}

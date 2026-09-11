@@ -76,6 +76,14 @@ infer map permissions from the network role.
 All participants in a session must use the updated build: object-list replication
 and map-scoped edit requests change the session wire format.
 
+Choosing AprilTags from System determined without registered tags stages setup:
+the saved preference becomes AprilTags, while `systemFrameForTagSetup` keeps the
+system origin active. This flag travels with the map identity and survives reloads
+and late joins. Headsets can register the first tag in that frame without a session
+hold or preparation timeout. Registering it clears the flag and schedules the normal
+authority handoff to AprilTags. Choosing System determined cancels setup. Removing
+tags after a completed handoff does not restore the system frame automatically.
+
 # Validation
 
 Run the `Anaglyph.LaserTag.MapTests` Edit Mode test assembly in Unity's Test Runner.

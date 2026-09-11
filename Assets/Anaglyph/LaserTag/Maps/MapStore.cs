@@ -298,10 +298,10 @@ namespace Anaglyph.LaserTag.Maps
 				map.anchors ??= new();
 				// Old maps had capability but no preference. Preserve tag maps' authoring flow.
 				if (!json.Contains("\"preferredColocationMethod\"") ||
-					(map.preferredColocationMethod != ColocationManager.ColocationMethod.MetaSharedAnchor &&
-					 map.preferredColocationMethod != ColocationManager.ColocationMethod.AprilTag))
+					!ColocationManager.IsValidMethod(map.preferredColocationMethod))
 					map.preferredColocationMethod = map.HasTags
 						? ColocationManager.ColocationMethod.AprilTag : ColocationManager.ColocationMethod.MetaSharedAnchor;
+				map.systemFrameForTagSetup &= map.preferredColocationMethod == ColocationManager.ColocationMethod.AprilTag && !map.HasTags;
 				if (!Guid.TryParseExact(map.version, "N", out _)) map.version = Guid.NewGuid().ToString("N");
 				error = null;
 				return true;

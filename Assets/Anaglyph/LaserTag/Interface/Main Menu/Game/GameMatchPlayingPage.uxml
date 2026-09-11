@@ -1,0 +1,17 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle" />
+    <Style src="/Assets/Anaglyph/LaserTag/Interface/HUD/ScoreDisplay.uss" />
+    <ui:VisualElement class="page-template-root">
+        <Anaglyph.Menu.NavHeader>
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="Title" table="GameMenu" entry="GameMatchPlayingPage.navheader-2.title" />
+            </Bindings>
+        </Anaglyph.Menu.NavHeader>
+        <Anaglyph.LaserTag.Interface.HUD.ScoreDisplay />
+        <ui:Button name="stop-button" class="destructive">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchPlayingPage.stop-button.text" />
+            </Bindings>
+        </ui:Button>
+    </ui:VisualElement>
+</ui:UXML>

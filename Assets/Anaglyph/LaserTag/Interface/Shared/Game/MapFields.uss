@@ -1,0 +1,23 @@
+/* Shared sections fill their host without imposing navigation or panel styling. */
+.map-catalog-instance,
+.map-catalog-section {
+    flex-grow: 1;
+}
+
+.map-actions {
+    flex-direction: row;
+    flex-shrink: 0;
+}
+
+.map-actions > Button {
+    flex-grow: 1;
+}
+
+.map-field-section {
+    flex-shrink: 0;
+}
+
+.map-settings-spacer,
+.map-settings-scroll {
+    flex-grow: 1;
+}

@@ -9,8 +9,8 @@ using UnityEngine.UIElements;
 namespace Anaglyph.LaserTag.MapEditor
 {
 	/// <summary>
-	/// Object categories and thumbnails built from the map object database.
-	/// Tag registration and map options live in the game menu.
+	/// Maps the editor tool's mode to the palette's pages, and builds the object
+	/// categories and thumbnails from the map object database.
 	/// </summary>
 	[RequireComponent(typeof(UIDocument))]
 	public class PaletteMenu : MonoBehaviour
@@ -20,12 +20,27 @@ namespace Anaglyph.LaserTag.MapEditor
 		private VisualElement categoryRail;
 		private Label categoryTitle;
 		private ScrollView objectGrid;
+		private NavView navView;
+		private NavPage objectsPage;
+		private NavPage tagsPage;
+		private NavPage measureTagSizePage;
+		private Slider tagSizeSlider;
+		private Label tagSizeNote;
+		private Label tagStatus;
+		private Label measurementHint;
+		private Button measureTagSizeButton;
+		private Button unregisterAllTagsButton;
+		private Button doneButton;
 
 		private readonly List<(MapObjectDatabase.Category category, Button button)> categoryButtons = new();
 		private readonly List<(MapObject prefab, Button button)> objectButtons = new();
 
 		private MapObjectDatabase.Category selectedCategory;
 		private MapObject selectedPrefab;
+		private float? pendingTagSizeCm;
+		private float pendingTagSizeTime;
+		private bool navigatingForMode;
+		private const float tagSizeSettleSeconds = 0.1f;
 
 		private void OnEnable()
 		{
@@ -38,33 +53,227 @@ namespace Anaglyph.LaserTag.MapEditor
 			// must happen before anything subscribes to Button.clicked
 			root.MakeButtonsActOnPress();
 
+			navView = NavView.RequireIn(root);
+			objectsPage = navView.GetPage("objects-page");
+			tagsPage = navView.GetPage("tags-page");
+			measureTagSizePage = navView.GetPage("measure-tag-size-page");
 			categoryRail = Require<VisualElement>(root, "category-rail");
 			categoryTitle = Require<Label>(root, "category-title");
 			objectGrid = Require<ScrollView>(root, "object-grid");
+			tagSizeSlider = Require<Slider>(root, "tag-size-slider");
+			tagSizeNote = Require<Label>(root, "tag-size-note");
+			tagStatus = Require<Label>(root, "tag-status");
+			measurementHint = Require<Label>(root, "tag-measurement-hint");
+			measureTagSizeButton = Require<Button>(root, "measure-tag-size-button");
+			unregisterAllTagsButton = Require<Button>(root, "unregister-all-tags-button");
+			doneButton = Require<Button>(root, "done-button");
 
+			MenuCopy.Changed += OnCopyChanged;
 			AnaglyphDebugging.DebugModeChanged += OnDebugModeChanged;
 			MapEditorTool.ModeChanged += OnToolModeChanged;
+			navView.Changed += OnNavigationChanged;
+			tagSizeSlider.RegisterValueChangedCallback(OnTagSizeChanged);
+			measureTagSizeButton.clicked += OnMeasureTagSizeClicked;
+			unregisterAllTagsButton.clicked += OnUnregisterAllTagsClicked;
+			doneButton.clicked += OnDoneClicked;
 			RebuildRail();
 			OnToolModeChanged(MapEditorTool.CurrentMode);
 		}
 
 		private void OnDisable()
 		{
+			FlushPendingTagSize();
+			MenuCopy.Changed -= OnCopyChanged;
 			AnaglyphDebugging.DebugModeChanged -= OnDebugModeChanged;
 			MapEditorTool.ModeChanged -= OnToolModeChanged;
+			if (navView != null) navView.Changed -= OnNavigationChanged;
+			tagSizeSlider?.UnregisterValueChangedCallback(OnTagSizeChanged);
+			if (measureTagSizeButton != null) measureTagSizeButton.clicked -= OnMeasureTagSizeClicked;
+			if (unregisterAllTagsButton != null) unregisterAllTagsButton.clicked -= OnUnregisterAllTagsClicked;
+			if (doneButton != null) doneButton.clicked -= OnDoneClicked;
 			categoryButtons.Clear();
 			objectButtons.Clear();
+			navView = null;
 		}
 
 		private void OnDebugModeChanged(bool debugMode) => RebuildRail();
+		private void OnCopyChanged()
+		{
+			RebuildRail();
+			RefreshTagSettings();
+			RefreshMeasurementHint();
+		}
+
+		private static void OnDoneClicked() => MapEditor.SetActive(false);
 
 		private void OnToolModeChanged(MapEditorTool.Mode mode)
 		{
-			// The tags submenu owns the tools until the user goes back.
-			categoryRail.SetEnabled(mode != MapEditorTool.Mode.Tags);
-			objectGrid.SetEnabled(mode != MapEditorTool.Mode.Tags);
+			if (mode != MapEditorTool.Mode.Tags && mode != MapEditorTool.Mode.MeasureTagSize)
+				FlushPendingTagSize();
+
+			// Move is the editor's initial state. Keep the catalog available there so selecting its
+			// first object can enter Place mode; tag modes alone replace the catalog.
+			bool selectingObjects = mode is MapEditorTool.Mode.Move or MapEditorTool.Mode.Place;
+			categoryRail.SetEnabled(selectingObjects);
+			objectGrid.SetEnabled(selectingObjects);
 			selectedPrefab = MapEditorTool.SelectedObject;
 			RefreshHighlights();
+			ShowPageForMode(mode);
+			RefreshTagSettings();
+			RefreshMeasurementHint();
+		}
+
+		private void ShowPageForMode(MapEditorTool.Mode mode)
+		{
+			if (navView == null)
+				return;
+
+			navView.style.display = DisplayStyle.Flex;
+			navigatingForMode = true;
+			try
+			{
+				// Rebuild the short, mode-shaped history. Palette navigation never changes the tool;
+				// a mode transition is the only way to expose one of these pages.
+				string targetPageName = PageNameForMode(mode);
+				GoToPage(objectsPage);
+				if (targetPageName != objectsPage.name)
+					GoToPage(tagsPage);
+				if (targetPageName == measureTagSizePage.name)
+					GoToPage(measureTagSizePage);
+			}
+			finally
+			{
+				navigatingForMode = false;
+			}
+		}
+
+		private static string PageNameForMode(MapEditorTool.Mode mode) => mode switch
+		{
+			MapEditorTool.Mode.Move or MapEditorTool.Mode.Place => "objects-page",
+			MapEditorTool.Mode.Tags => "tags-page",
+			MapEditorTool.Mode.MeasureTagSize => "measure-tag-size-page",
+			_ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null)
+		};
+
+		private void GoToPage(NavPage page)
+		{
+			if (navView.CurrentPage != page)
+				navView.GoToPage(page);
+		}
+
+		private void OnNavigationChanged(NavPage page)
+		{
+			if (navigatingForMode)
+				return;
+
+			ShowPageForMode(MapEditorTool.CurrentMode);
+		}
+
+		private void Update()
+		{
+			if (pendingTagSizeCm.HasValue && Time.unscaledTime - pendingTagSizeTime >= tagSizeSettleSeconds)
+				FlushPendingTagSize();
+
+			if (MapEditorTool.CurrentMode == MapEditorTool.Mode.Tags)
+				RefreshTagSettings();
+			else if (MapEditorTool.CurrentMode == MapEditorTool.Mode.MeasureTagSize)
+				RefreshMeasurementHint();
+		}
+
+		// ------- tag settings ----------------------------------------
+
+		private void OnTagSizeChanged(ChangeEvent<float> change)
+		{
+			pendingTagSizeCm = change.newValue;
+			pendingTagSizeTime = Time.unscaledTime;
+		}
+
+		private void FlushPendingTagSize()
+		{
+			if (!pendingTagSizeCm.HasValue)
+				return;
+
+			float centimeters = pendingTagSizeCm.Value;
+			pendingTagSizeCm = null;
+			LaserTagMapCoordinator.Instance?.SetTagSize(centimeters);
+		}
+
+		private void OnMeasureTagSizeClicked()
+		{
+			LaserTagMapCoordinator manager = LaserTagMapCoordinator.Instance;
+			if (MapEditorTool.DominantHand == null || manager?.DescribeTagSizeBlocker() != null)
+				return;
+
+			FlushPendingTagSize();
+			MapEditorTool.SetMode(MapEditorTool.Mode.MeasureTagSize);
+		}
+
+		private void OnUnregisterAllTagsClicked()
+		{
+			LaserTagMapCoordinator.Instance?.UnregisterAllTags();
+			RefreshTagSettings();
+		}
+
+		private void RefreshTagSettings()
+		{
+			if (tagSizeSlider == null)
+				return;
+
+			LaserTagMapCoordinator manager = LaserTagMapCoordinator.Instance;
+			if (manager == null)
+			{
+				tagSizeSlider.SetEnabled(false);
+				unregisterAllTagsButton.SetEnabled(false);
+				measureTagSizeButton.SetEnabled(false);
+				SetMessage(tagSizeNote, null);
+				SetMessage(tagStatus, null);
+				return;
+			}
+
+			string sizeBlocker = manager.DescribeTagSizeBlocker();
+			tagSizeSlider.SetEnabled(sizeBlocker == null);
+			measureTagSizeButton.SetEnabled(MapEditorTool.DominantHand != null && sizeBlocker == null);
+			SetMessage(tagSizeNote, sizeBlocker);
+
+			// A slider drag is an uncommitted local value until it settles; do not overwrite it
+			// while the user is dragging or typing merely to reflect the current map value.
+			if (!pendingTagSizeCm.HasValue && !IsBeingEdited(tagSizeSlider))
+			{
+				tagSizeSlider.highValue = Mathf.Max(50f, manager.EffectiveTagSizeCm);
+				tagSizeSlider.SetValueWithoutNotify(manager.EffectiveTagSizeCm);
+			}
+
+			int registered = manager.CurrentMap != null ? manager.CurrentMap.tags.Count : 0;
+			string registrationBlocker = manager.DescribeTagRegistrationBlocker();
+			unregisterAllTagsButton.SetEnabled(registered > 0 && manager.DescribeTagRemovalBlocker() == null);
+
+			if (registrationBlocker != null && registrationBlocker != sizeBlocker)
+				tagStatus.text = MenuCopy.Format("Game", "alignment.tag-blocked", registered, registrationBlocker);
+			else if (manager.SessionIsWaitingOnFirstTag)
+				tagStatus.text = MenuCopy.Get("Game", "alignment.no-tags");
+			else
+				tagStatus.text = MenuCopy.Format("Game", "alignment.tag-count", registered);
+		}
+
+		private void RefreshMeasurementHint()
+		{
+			if (measurementHint == null)
+				return;
+
+			measurementHint.text = MenuCopy.Get("Game", MapEditorTool.MeasurementHint ?? "ruler.first-point");
+		}
+
+		private static bool IsBeingEdited(VisualElement field)
+		{
+			Focusable focused = field.panel?.focusController?.focusedElement;
+			return focused is VisualElement element &&
+			       (element == field || field.Contains(element));
+		}
+
+		private static void SetMessage(Label label, string message)
+		{
+			label.text = message ?? "";
+			label.style.display = message == null ? DisplayStyle.None : DisplayStyle.Flex;
 		}
 
 		// ------- building --------------------------------------------
@@ -76,7 +285,7 @@ namespace Anaglyph.LaserTag.MapEditor
 
 			if (database == null)
 			{
-				ShowGridMessage("No map object database assigned.", "warning");
+					ShowGridMessage(MenuCopy.Get("Palette", "error.no-database"), "warning");
 				return;
 			}
 
@@ -109,11 +318,11 @@ namespace Anaglyph.LaserTag.MapEditor
 			objectGrid.Clear();
 			objectButtons.Clear();
 
-			categoryTitle.text = selectedCategory != null ? selectedCategory.Name : "Palette";
+			categoryTitle.text = selectedCategory != null ? selectedCategory.Name : MenuCopy.Get("Palette", "title");
 
 			if (selectedCategory == null)
 			{
-				ShowGridMessage("No object categories to show.", "body-copy");
+				ShowGridMessage(MenuCopy.Get("Palette", "empty.categories"), "body-copy");
 				return;
 			}
 
@@ -132,7 +341,7 @@ namespace Anaglyph.LaserTag.MapEditor
 			}
 
 			if (objectButtons.Count == 0)
-				ShowGridMessage("Nothing in this category yet.", "body-copy");
+				ShowGridMessage(MenuCopy.Get("Palette", "empty.objects"), "body-copy");
 
 			RefreshHighlights();
 		}
@@ -183,7 +392,8 @@ namespace Anaglyph.LaserTag.MapEditor
 
 		private void SelectObject(MapObject prefab)
 		{
-			if (MapEditorTool.CurrentMode == MapEditorTool.Mode.Tags)
+			if (MapEditorTool.CurrentMode == MapEditorTool.Mode.Tags ||
+				MapEditorTool.CurrentMode == MapEditorTool.Mode.MeasureTagSize)
 				return;
 
 			selectedPrefab = prefab;

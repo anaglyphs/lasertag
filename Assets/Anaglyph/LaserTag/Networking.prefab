@@ -50,7 +50,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   NetworkManagerExpanded: 0
   NetworkConfig:
-    ProtocolVersion: 6
+    ProtocolVersion: 7
     NetworkTransport: {fileID: 6448117670786824747}
     PlayerPrefab: {fileID: 0}
     Prefabs:
@@ -74,7 +74,6 @@ MonoBehaviour:
     NetworkTopology: 1
     UseCMBService: 0
     AutoSpawnPlayerPrefabClientSide: 0
-    NetworkMessageMetrics: 1
     NetworkProfilingMetrics: 0
     OldPrefabList: []
   RunInBackground: 1

@@ -1,0 +1,146 @@
+.operator-panel {
+    align-self: flex-start;
+    width: 620px;
+    background-color: rgb(0, 12, 24);
+}
+
+#client-list {
+    flex-grow: 1;
+    min-height: 0;
+    /*font-size: 20px;*/
+	margin: 0;
+}
+
+.unity-multi-column-header { 
+	min-height: auto;
+}
+
+.unity-multi-column-header,
+.unity-multi-column-header__column,
+.unity-multi-column-header__column__content-container {
+    background-color: rgb(40, 40, 40);
+    border-color: rgb(70, 70, 70);
+}
+
+.unity-multi-column-header__column:hover,
+.unity-multi-column-header__column:hover .unity-multi-column-header__column__content-container {
+    background-color: rgb(55, 55, 55);
+}
+
+.unity-multi-column-header__column__title {
+    color: rgb(255, 255, 255);
+}
+
+.client-cell {
+    flex-grow: 1;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    padding-left: 6px;
+    padding-right: 6px;
+    -unity-text-align: middle-left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.client-cell--name {
+    -unity-font-style: bold;
+}
+
+.client-cell--status {
+    opacity: 0.7;
+}
+
+.client-list-content {
+    min-width: 300px;
+}
+
+.headset-configuration-panel {
+    min-width: 340px;
+}
+
+/* Status pill. The fill carries the reading, so the text sits dark on top of it. */
+.chip {
+    margin-right: 4px;
+    padding-left: 6px;
+    padding-right: 6px;
+    padding-top: 1px;
+    padding-bottom: 1px;
+    /*border-radius: 7px;*/
+    color: rgb(0, 12, 24);
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.chip--good {
+    background-color: rgb(76, 196, 112);
+}
+
+.chip--fair {
+    background-color: rgb(226, 199, 74);
+}
+
+.chip--low {
+    background-color: rgb(238, 148, 58);
+}
+
+.chip--critical {
+    background-color: rgb(228, 79, 70);
+}
+
+.chip--unknown {
+    background-color: rgb(86, 102, 118);
+    color: rgb(214, 229, 245);
+}
+
+#sidebar {
+    min-width: 260px;
+}
+
+#tabs {
+    min-height: 160px;
+}
+
+#viewport {
+    min-height: 160px;
+    min-width: 200px;
+}
+
+/* The divider is a bare, near-invisible element until it is given a size. The
+   anchor is the line; the dragline is the wider strip that catches the pointer. */
+.unity-two-pane-split-view__dragline-anchor {
+    position: absolute;
+    background-color: rgb(0, 40, 70);
+}
+
+.unity-two-pane-split-view__dragline-anchor--horizontal {
+    width: 4px;
+    height: 100%;
+}
+
+.unity-two-pane-split-view__dragline-anchor--vertical {
+    height: 4px;
+    width: 100%;
+}
+
+.unity-two-pane-split-view__dragline--horizontal {
+    position: absolute;
+    width: 12px;
+    height: 100%;
+    left: -4px;
+}
+
+.unity-two-pane-split-view__dragline--vertical {
+    position: absolute;
+    height: 12px;
+    width: 100%;
+    top: -4px;
+}
+
+/* A tab and the strip that holds it size to their content, so a page inside one
+   never gets a height to divide up and any flex-basis:0 list in it collapses. */
+.unity-tab-view__content-container,
+.unity-tab {
+    flex-grow: 1;
+    min-height: 0;
+}

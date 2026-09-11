@@ -1,4 +1,5 @@
 using UnityEngine.UIElements;
+using Unity.Properties;
 
 namespace Anaglyph.Menu
 {
@@ -17,7 +18,7 @@ namespace Anaglyph.Menu
 
 		private readonly Label titleLabel = new();
 
-		[UxmlAttribute("title")]
+		[UxmlAttribute("title"), CreateProperty]
 		public string Title
 		{
 			get => titleLabel.text;

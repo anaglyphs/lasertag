@@ -1,0 +1,20 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle" />
+    <ui:VisualElement class="page-template-root">
+        <Anaglyph.Menu.NavHeader>
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="Title" table="GameMenu" entry="GameHomePage.navheader-2.title" />
+            </Bindings>
+        </Anaglyph.Menu.NavHeader>
+        <Anaglyph.Menu.NavButton name="play-match-button" target="match-page">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameHomePage.play-match-button.text" />
+            </Bindings>
+        </Anaglyph.Menu.NavButton>
+        <Anaglyph.Menu.NavButton name="manage-map-button" target="map-manager-page">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameHomePage.manage-map-button.text" />
+            </Bindings>
+        </Anaglyph.Menu.NavButton>
+    </ui:VisualElement>
+</ui:UXML>

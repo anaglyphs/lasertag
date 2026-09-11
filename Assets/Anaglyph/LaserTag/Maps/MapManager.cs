@@ -47,10 +47,20 @@ namespace Anaglyph.LaserTag.Maps
 			{
 				id = Guid.NewGuid().ToString("N"), version = Guid.NewGuid().ToString("N"),
 				name = store.GenerateName(), tagSizeCm = GameMap.DefaultTagSizeCm,
-				lastUsed = DateTime.UtcNow.Ticks, lastEdited = DateTime.UtcNow.Ticks
+				lastUsed = DateTime.UtcNow.Ticks, lastEdited = DateTime.UtcNow.Ticks,
+				preferredColocationMethod = DefaultColocationMethod
 			};
 			return CurrentMap;
 		}
+
+		/// <summary>
+		/// An operator machine has no Meta runtime, so shared anchors can never align anything it
+		/// authors. Its maps are tag maps from the moment they exist.
+		/// </summary>
+		private static ColocationManager.ColocationMethod DefaultColocationMethod =>
+			HeadsetConfiguration.IsOperatorDevice
+				? ColocationManager.ColocationMethod.AprilTag
+				: ColocationManager.ColocationMethod.MetaSharedAnchor;
 
 		public void MarkUsed()
 		{
@@ -93,16 +103,21 @@ namespace Anaglyph.LaserTag.Maps
 				return false;
 			current.tags = new List<MapTagEntry>(tags);
 			current.tagSizeCm = sizeCm;
+			if (current.HasTags) current.systemFrameForTagSetup = false;
 			ContentChanged();
 			return true;
 		}
 
-		public bool SetPreferredColocationMethod(ColocationManager.ColocationMethod method)
+		public bool SetPreferredColocationMethod(ColocationManager.ColocationMethod method,
+			bool systemFrameForTagSetup = false)
 		{
-			if (method != ColocationManager.ColocationMethod.MetaSharedAnchor &&
-				method != ColocationManager.ColocationMethod.AprilTag) return false;
-			if (current == null || current.preferredColocationMethod == method) return false;
+			if (!ColocationManager.IsValidMethod(method)) return false;
+			if (current == null) return false;
+			systemFrameForTagSetup &= method == ColocationManager.ColocationMethod.AprilTag && !current.HasTags;
+			if (current.preferredColocationMethod == method &&
+				current.systemFrameForTagSetup == systemFrameForTagSetup) return false;
 			current.preferredColocationMethod = method;
+			current.systemFrameForTagSetup = systemFrameForTagSetup;
 			ContentChanged();
 			return true;
 		}

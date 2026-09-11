@@ -1,0 +1,32 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:Template name="MapNameField" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/MapNameField.uxml?fileID=9197481963319205126&amp;guid=f1770343a2d44d249f7bd97421e2e230&amp;type=3#MapNameField"/>
+    <ui:Template name="GameMapAlignmentPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Game/GameMapAlignmentPage.uxml?fileID=9197481963319205126&amp;guid=ed92c43d12f68469096f4eccf3dc248b&amp;type=3#GameMapAlignmentPage"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/MapFields.uss?fileID=7433441132597879392&amp;guid=f4c687285f094fca87062d2e41ca92d4&amp;type=3#MapFields"/>
+    <Anaglyph.Menu.NavView name="map-editing-nav" first-page="map-options-page">
+        <Anaglyph.Menu.NavPage name="map-options-page" show-back-button="false">
+            <ui:VisualElement class="page-template-root">
+        <Anaglyph.Menu.NavHeader>
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="Title" table="GameMenu" entry="GameMapEditingPage.navheader-4.title"/>
+            </Bindings>
+        </Anaglyph.Menu.NavHeader>
+                <ui:Instance template="MapNameField"/>
+                <Anaglyph.Menu.NavButton name="tags-mode-button" target="alignment-settings-page">
+                    <Bindings>
+                        <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMapEditingPage.tags-mode-button.text"/>
+                    </Bindings>
+                </Anaglyph.Menu.NavButton>
+                <ui:VisualElement class="map-settings-spacer"/>
+                <ui:Button name="finish-editing-button">
+                    <Bindings>
+                        <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMapEditingPage.finish-editing-button.text"/>
+                    </Bindings>
+                </ui:Button>
+            </ui:VisualElement>
+        </Anaglyph.Menu.NavPage>
+        <Anaglyph.Menu.NavPage name="alignment-settings-page">
+            <ui:Instance template="GameMapAlignmentPage"/>
+        </Anaglyph.Menu.NavPage>
+    </Anaglyph.Menu.NavView>
+</ui:UXML>

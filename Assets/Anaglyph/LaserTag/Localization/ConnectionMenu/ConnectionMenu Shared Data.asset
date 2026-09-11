@@ -1,0 +1,184 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b11a58205ec3474ca216360e9fa74a8, type: 3}
+  m_Name: ConnectionMenu Shared Data
+  m_EditorClassIdentifier: Unity.Localization::UnityEngine.Localization.Tables.SharedTableData
+  m_TableCollectionName: ConnectionMenu
+  m_TableCollectionNameGuidString: 10f44029c9f6549a0b185a98637a95f2
+  m_Entries:
+  - m_Id: 217047040
+    m_Key: discovery.bluetooth-off
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047041
+    m_Key: discovery.searching
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047042
+    m_Key: discovery.preparing
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047043
+    m_Key: session.connecting
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047044
+    m_Key: session.hosting
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047045
+    m_Key: session.connected
+    m_Metadata:
+      m_Items: []
+  - m_Id: 217047046
+    m_Key: session.relay
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241344
+    m_Key: error.build-title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241345
+    m_Key: error.build-details
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241346
+    m_Key: error.join-title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241347
+    m_Key: error.join-details
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241348
+    m_Key: error.relay-title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241349
+    m_Key: error.relay-details
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241350
+    m_Key: session.aligning
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241351
+    m_Key: ConnectionBluetoothErrorPage.navheader-2.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241352
+    m_Key: ConnectionBluetoothErrorPage.label-3.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241353
+    m_Key: ConnectionBluetoothErrorPage.open-bluetooth-settings-button.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241354
+    m_Key: ConnectionBluetoothErrorPage.dismiss-bluetooth-error-button.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241355
+    m_Key: ConnectionErrorPage.dismiss-error-button.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241356
+    m_Key: ConnectionHomePage.navheader-2.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241357
+    m_Key: ConnectionHomePage.manual-connect-button.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241358
+    m_Key: ConnectionHomePage.host-button.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241359
+    m_Key: ConnectionHomePage.host-on-relay-toggle.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241360
+    m_Key: ConnectionHomePage.host-on-relay-warning.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241361
+    m_Key: ConnectionHostSettingsPage.navheader-2.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241362
+    m_Key: ConnectionHostSettingsPage.host-on-relay-toggle.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241363
+    m_Key: ConnectionHostSettingsPage.host-on-relay-warning.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241364
+    m_Key: ConnectionManualConnectPage.navheader-2.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241365
+    m_Key: ConnectionManualConnectPage.use-relay-toggle.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241366
+    m_Key: ConnectionManualConnectPage.label-5.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241367
+    m_Key: ConnectionManualConnectPage.label-8.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241368
+    m_Key: ConnectionManualConnectPage.label-10.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241369
+    m_Key: ConnectionManualConnectPage.connect-button.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241370
+    m_Key: ConnectionNetworkErrorPage.navheader-2.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241371
+    m_Key: ConnectionNetworkErrorPage.label-3.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241372
+    m_Key: ConnectionNetworkErrorPage.open-wifi-settings-button.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241373
+    m_Key: ConnectionNetworkErrorPage.dismiss-network-error-button.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241374
+    m_Key: ConnectionSessionPage.navheader-2.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 221241375
+    m_Key: ConnectionSessionPage.disconnect-button.text
+    m_Metadata:
+      m_Items: []
+  m_Metadata:
+    m_Items: []
+  m_KeyGenerator:
+    rid: 533178702104363353
+  references:
+    version: 2
+    RefIds:
+    - rid: 533178702104363353
+      type: {class: DistributedUIDGenerator, ns: UnityEngine.Localization.Tables, asm: Unity.Localization}
+      data:
+        m_CustomEpoch: 1789027660303

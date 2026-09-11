@@ -1,0 +1,26 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle" />
+    <ui:VisualElement class="page-template-root">
+        <Anaglyph.Menu.NavHeader>
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="Title" table="GateMenu" entry="GatePermissionPage.navheader-2.title" />
+            </Bindings>
+        </Anaglyph.Menu.NavHeader>
+        <ui:Label class="body-copy">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="GateMenu" entry="GatePermissionPage.label-3.text" />
+            </Bindings>
+        </ui:Label>
+        <ui:Toggle name="scene-permission-toggle" class="permission-toggle">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="GateMenu" entry="GatePermissionPage.scene-permission-toggle.text" />
+            </Bindings>
+        </ui:Toggle>
+        <ui:Toggle name="camera-permission-toggle" class="permission-toggle">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="GateMenu" entry="GatePermissionPage.camera-permission-toggle.text" />
+            </Bindings>
+        </ui:Toggle>
+        <ui:Label name="permission-status" class="warning body-copy" style="display: none;" />
+    </ui:VisualElement>
+</ui:UXML>

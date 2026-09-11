@@ -1,8 +1,0 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
-	<Style src="../LaserTagStyle.uss" />
-	<ui:VisualElement class="page-template-root">
-		<Anaglyph.Menu.NavHeader title="Game"/>
-		<Anaglyph.Menu.NavButton name="play-match-button" text="Play match" target="match-page" />
-		<Anaglyph.Menu.NavButton name="manage-map-button" text="Manage map" target="map-manager-page" />
-	</ui:VisualElement>
-</ui:UXML>

@@ -14,6 +14,14 @@ The Netcode for GameObjects configuration is unusual: Lasertag uses NGO's Distri
 
 Lasertag features a custom live environment scanning system that progressively scans and meshes the environment during play. The environment scan is used for physics collision and visual occlusion.
 
+The map's alignment settings offer **Shared spatial anchors**, **AprilTags**, and **System determined**.
+System determined resets the XR tracking origin to world position zero and identity rotation, leaving
+localization to the XR system. It needs no anchor saving, loading, or sharing and works in the Editor
+and player builds. Select it for XR Interaction Toolkit / AR Foundation simulation, or when an external
+system already supplies a common origin across devices. The selection is saved with the map and
+coordinated across the multiplayer session; existing anchor and tag records are retained for later use.
+This method trusts the system's origin; it does not verify physical alignment between devices.
+
 ## License
 
 Lasertag uses the PolyForm Noncommercial License 1.0.0. If you would like to license Lasertag code for commercial projects, please reach out to me!
@@ -23,4 +31,3 @@ Lasertag uses the PolyForm Noncommercial License 1.0.0. If you would like to lic
 - UI sounds from [Fourier](https://opengameart.org/users/fourier) on [opengameart.org](opengameart.org)
 - "Level up sound effects" by [Bart Kelsey](https://opengameart.org/users/bart). Commissioned by Will Corwin for [OpenGameArt.org](http://opengameart.org)
 - [Meshia Mesh Simplification](https://github.com/RamType0/Meshia.MeshSimplification) — called by the environment scanner system for mesh simplification. Excellent package!
-

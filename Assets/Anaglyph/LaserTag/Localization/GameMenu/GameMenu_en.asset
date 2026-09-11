@@ -1,0 +1,553 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e9620f8c34305754d8cc9a7e49e852d9, type: 3}
+  m_Name: GameMenu_en
+  m_EditorClassIdentifier: Unity.Localization::UnityEngine.Localization.Tables.StringTable
+  m_LocaleId:
+    m_Code: en
+  m_SharedData: {fileID: 11400000, guid: 185dc149adec9474995d0157d2ca1851, type: 2}
+  m_Metadata:
+    m_Items:
+    - rid: 533178702104363357
+  m_TableData:
+  - m_Id: 212852736
+    m_Localized: "Checking\u2026"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852737
+    m_Localized: Check room
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852738
+    m_Localized: No map loaded
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852739
+    m_Localized: Map system unavailable.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852740
+    m_Localized: No saved maps use AprilTags or System determined alignment.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852741
+    m_Localized: No saved maps yet. Select Edit to place objects and create one.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852742
+    m_Localized: No saved maps were found in this room. Select Edit to create one.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852743
+    m_Localized: Select a map first.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852744
+    m_Localized: Switch
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852745
+    m_Localized: Load
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852746
+    m_Localized: Confirm
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852747
+    m_Localized: Delete
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852748
+    m_Localized: just now
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852749
+    m_Localized: Aligning to {0}. Hold still, or choose another map.
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363357
+  - m_Id: 212852750
+    m_Localized: 'Current map: {0}'
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363357
+  - m_Id: 212852751
+    m_Localized: '{0}m ago'
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363357
+  - m_Id: 212852752
+    m_Localized: '{0}h ago'
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363357
+  - m_Id: 212852753
+    m_Localized: '{0}d ago'
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363357
+  - m_Id: 212852754
+    m_Localized: "{0}  \xB7  {1}"
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363357
+  - m_Id: 212852755
+    m_Localized: "{0}  \xB7  {1}  \xB7  loaded"
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363357
+  - m_Id: 212852756
+    m_Localized: "{0}  \u2317{2}  \xB7  {1}"
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363357
+  - m_Id: 212852757
+    m_Localized: "{0}  \u2317{2}  \xB7  {1}  \xB7  loaded"
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363357
+  - m_Id: 212852758
+    m_Localized: Shared spatial anchors
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852759
+    m_Localized: AprilTags
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852760
+    m_Localized: Saved with this map; applies to everyone in its session.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852761
+    m_Localized: Preparing shared anchors before switching alignment methods.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852762
+    m_Localized: Register a tag to use AprilTag alignment.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852763
+    m_Localized: Preference saved. The current method remains active until the preferred
+      method is available.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852764
+    m_Localized: "No tags registered \u2014 register one to align this session."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852765
+    m_Localized: 'Tags registered: {0}. {1}'
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363357
+  - m_Id: 212852766
+    m_Localized: 'Tags registered: {0}'
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363357
+  - m_Id: 212852767
+    m_Localized: Waiting for the session's map
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852768
+    m_Localized: Saving the incoming map
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852769
+    m_Localized: Waiting for the session to end
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852770
+    m_Localized: Waiting for the map change
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852771
+    m_Localized: Map system is stopped
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852772
+    m_Localized: Load a map first
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852773
+    m_Localized: Wait until the round ends
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852774
+    m_Localized: Register a tag while aligned to this map first
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852775
+    m_Localized: The operator sets the alignment method
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852776
+    m_Localized: Waiting for alignment
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852777
+    m_Localized: Align to this map's tags first
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852778
+    m_Localized: Unregister this map's tags to change their size
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852779
+    m_Localized: Only the host can rename the map
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852780
+    m_Localized: Not during a round
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852781
+    m_Localized: Only the host can change the map
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852782
+    m_Localized: Already a blank map
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852783
+    m_Localized: Cannot delete the active session map
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852784
+    m_Localized: Map is missing
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852785
+    m_Localized: Already loaded
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852786
+    m_Localized: Map belongs to another room
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852787
+    m_Localized: Preparing the colocation method
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852788
+    m_Localized: No map selected
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852789
+    m_Localized: Unknown colocation method
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852790
+    m_Localized: No colocation manager
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852791
+    m_Localized: No shared-anchor provider
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852792
+    m_Localized: The host cannot share spatial anchors
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852793
+    m_Localized: Align to a registered tag first to create an anchor
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852794
+    m_Localized: No AprilTag provider
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852795
+    m_Localized: Shared spatial anchors unavailable
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852796
+    m_Localized: "This headset cannot currently use shared spatial anchors. Check
+      the map\u2019s alignment settings."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852797
+    m_Localized: Couldn't share a spatial anchor
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852798
+    m_Localized: Check the internet connection. Shared spatial anchors need internet
+      access to be shared.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852799
+    m_Localized: Alignment change unavailable
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852800
+    m_Localized: Game
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852801
+    m_Localized: Play match
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852802
+    m_Localized: Manage map
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852803
+    m_Localized: Alignment settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852804
+    m_Localized: Preferred alignment
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852805
+    m_Localized: Tag size (cm)
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852806
+    m_Localized: Unregister all tags
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852807
+    m_Localized: Edit map
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852808
+    m_Localized: Name
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852809
+    m_Localized: Alignment settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852811
+    m_Localized: Done
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852816
+    m_Localized: Maps
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852817
+    m_Localized: Edit
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852818
+    m_Localized: New
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852819
+    m_Localized: Playing match
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852820
+    m_Localized: Stop match
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852821
+    m_Localized: Play match
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852822
+    m_Localized: Damage strength
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852823
+    m_Localized: Rounds
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852824
+    m_Localized: Infinite rounds
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852825
+    m_Localized: Win condition
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852826
+    m_Localized: Minutes per round
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852827
+    m_Localized: Winning score
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852828
+    m_Localized: Respawn
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852829
+    m_Localized: Respawn seconds
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852830
+    m_Localized: Spawn zombies (experimental)
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852831
+    m_Localized: Start match
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852832
+    m_Localized: Time
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852833
+    m_Localized: Points
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852834
+    m_Localized: Either
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852835
+    m_Localized: After a timer
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852836
+    m_Localized: At home base
+    m_Metadata:
+      m_Items: []
+  - m_Id: 212852837
+    m_Localized: Only per round
+    m_Metadata:
+      m_Items: []
+  - m_Id: 992274800640
+    m_Localized: The session map changed; try again
+    m_Metadata:
+      m_Items: []
+  - m_Id: 992278994944
+    m_Localized: The map preference could not be saved
+    m_Metadata:
+      m_Items: []
+  - m_Id: 992278994945
+    m_Localized: No tracked anchor could be shared. Check the host's alignment and
+      internet connection
+    m_Metadata:
+      m_Items: []
+  - m_Id: 992278994946
+    m_Localized: Anchor preparation timed out; the previous method is still active
+    m_Metadata:
+      m_Items: []
+  - m_Id: 992278994947
+    m_Localized: Could not prepare the colocation method; try again
+    m_Metadata:
+      m_Items: []
+  - m_Id: 992278994948
+    m_Localized: Preference saved. {0}
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363357
+  - m_Id: 2287702368256
+    m_Localized: '{0}'
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363357
+  - m_Id: 10906611212288
+    m_Localized: Active alignment
+    m_Metadata:
+      m_Items: []
+  - m_Id: 10906615406592
+    m_Localized: Preferred alignment
+    m_Metadata:
+      m_Items: []
+  - m_Id: 10906615406593
+    m_Localized: Changes alignment for everyone. Successful changes are saved with
+      this map.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 10906615406594
+    m_Localized: 'Map preference: {0}'
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363357
+  - m_Id: 13550985666560
+    m_Localized: Set up AprilTags
+    m_Metadata:
+      m_Items: []
+  - m_Id: 198935174963200
+    m_Localized: Measure size
+    m_Metadata:
+      m_Items: []
+  - m_Id: 198935179157504
+    m_Localized: Cancel measurement
+    m_Metadata:
+      m_Items: []
+  - m_Id: 198935179157505
+    m_Localized: Place the controller dot at a corner of the tag's inner white square
+      and press the trigger. Back cancels.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 198935179157506
+    m_Localized: Place the dot at the adjacent corner of the same edge and press
+      the trigger to apply its length. Back restarts.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 198935179157507
+    m_Localized: The tag edge must be at least 1 cm. Select an adjacent corner, or
+      press Back to restart.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 198935179157508
+    m_Localized: '{0:0.0} cm'
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363357
+  - m_Id: 281266782986240
+    m_Localized: This map already has alignment references. Align to them before
+      adding a new reference. If this device cannot recover them, open the map on
+      a headset that can.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 281266782986241
+    m_Localized: Set up a reference for the selected alignment method while aligned
+      to this map, then switch methods.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 291267517865984
+    m_Localized: System determined
+    m_Metadata:
+      m_Items: []
+  - m_Id: 291267517865985
+    m_Localized: Uses the system's origin with no game alignment offset. Each device's
+      system must provide the same shared origin.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 367666723282944
+    m_Localized: System determined remains active. Register the first AprilTag on
+      a headset to finish switching to AprilTags, or select System determined to
+      cancel.
+    m_Metadata:
+      m_Items: []
+  references:
+    version: 2
+    RefIds:
+    - rid: 533178702104363357
+      type: {class: SmartFormatTag, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_Entries: 
+        m_SharedEntries:
+        - id: 212852749
+        - id: 212852750
+        - id: 212852751
+        - id: 212852752
+        - id: 212852753
+        - id: 212852754
+        - id: 212852755
+        - id: 212852756
+        - id: 212852757
+        - id: 212852765
+        - id: 212852766
+        - id: 992278994948
+        - id: 2287702368256
+        - id: 10906615406594
+        - id: 198935179157508

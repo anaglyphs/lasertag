@@ -50,8 +50,13 @@ namespace Anaglyph.XR.AprilTags
 		{
 			arCameraManager = FindFirstObjectByType<ARCameraManager>();
 
-			if (arCameraManager == null)
-				throw new Exception("No ARCameraManager found in scene");
+			// Desktop operators have no camera feed or tracked space to scan in.
+			// Check scene capabilities so XR Simulation can still scan in the Editor.
+			if (arCameraManager == null || MainXRRig.Instance == null)
+			{
+				enabled = false;
+				return;
+			}
 
 			arCameraManager.frameReceived += OnFrameReceived;
 		}

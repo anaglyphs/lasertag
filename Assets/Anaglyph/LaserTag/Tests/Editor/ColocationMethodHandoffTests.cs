@@ -40,6 +40,74 @@ namespace Anaglyph.LaserTag.Tests
 
 		private GameMap Adopt(GameMap map, bool restore) => (GameMap)adopt.Invoke(adapter, new object[] { map, restore });
 
+		[TestCase(false, false, ColocationManager.ColocationMethod.AprilTag)]
+		[TestCase(true, true, ColocationManager.ColocationMethod.AprilTag)]
+		[TestCase(false, true, ColocationManager.ColocationMethod.MetaSharedAnchor)]
+		public void UnsupportedHostUsesTagsForBlankOrTaggedMapsButPreservesExistingTaglessFrames(
+			bool hasTags, bool hasContent, ColocationManager.ColocationMethod expected)
+		{
+			typeof(ColocationManager).GetField("mapHasTags", PrivateInstance).SetValue(manager, hasTags);
+			typeof(ColocationManager).GetField("mapHasContent", PrivateInstance).SetValue(manager, hasContent);
+			typeof(ColocationManager).GetField("mapHasAnchors", PrivateInstance).SetValue(manager, hasContent);
+			Assert.That(anchors.CanShareAnchors, Is.False);
+			Assert.That(manager.PreferredSessionMethod, Is.EqualTo(expected));
+		}
+
+		[Test]
+		public void SystemOriginAllowsFirstTagSetupButAnEmptyAnchorTargetRemainsBlocked()
+		{
+			var coordinator = owner.AddComponent<LaserTagMapCoordinator>();
+			var maps = new MapManager(new MapStore(System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString("N"))));
+			maps.Create();
+			maps.SetObjects(new[] { new MapObjectEntry { prefabId = "Base", pose = Pose.identity } });
+			maps.SetPreferredColocationMethod(ColocationManager.ColocationMethod.SystemDetermined);
+			typeof(LaserTagMapCoordinator).GetField("maps", PrivateInstance).SetValue(coordinator, maps);
+			typeof(LaserTagMapCoordinator).GetField("colocationManager", PrivateInstance).SetValue(coordinator, manager);
+			typeof(ColocationManager).GetField("offlineMethod", PrivateInstance).SetValue(manager, ColocationManager.ColocationMethod.SystemDetermined);
+			Assert.That(coordinator.DescribeColocationMethodBlocker(ColocationManager.ColocationMethod.AprilTag), Is.Null);
+			Assert.That(coordinator.DescribeColocationMethodBlocker(ColocationManager.ColocationMethod.MetaSharedAnchor), Is.Not.Null);
+		}
+
+		[Test]
+		public void AlignmentRejectionModalIsScopedToTheLatestRequestAndMap()
+		{
+			var coordinator = owner.AddComponent<LaserTagMapCoordinator>();
+			var maps = new MapManager(new MapStore(System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString("N"))));
+			maps.Create();
+			var type = typeof(LaserTagMapCoordinator);
+			type.GetField("maps", PrivateInstance).SetValue(coordinator, maps);
+			Guid latest = Guid.NewGuid();
+			type.GetField("latestMethodRequest", PrivateInstance).SetValue(coordinator, latest);
+			var rejectionType = type.GetNestedType("MethodRejection", BindingFlags.NonPublic);
+			object Rejection(Guid requestId, Guid mapId)
+			{
+				object rejection = Activator.CreateInstance(rejectionType);
+				rejectionType.GetField("requestId").SetValue(rejection, requestId);
+				rejectionType.GetField("mapId").SetValue(rejection, mapId);
+				var reason = rejectionType.GetField("reason");
+				reason.SetValue(rejection, Activator.CreateInstance(reason.FieldType, new object[] { "Sharing unavailable" }));
+				return rejection;
+			}
+			var receive = type.GetMethod("OnMethodRejected", PrivateInstance);
+			int modalErrors = 0;
+			void OnError(UserError _) => modalErrors++;
+			UserErrors.Raised += OnError;
+			try
+			{
+				receive.Invoke(coordinator, new[] { (object)0UL, Rejection(Guid.NewGuid(), Guid.Parse(maps.CurrentId)) });
+				receive.Invoke(coordinator, new[] { (object)0UL, Rejection(latest, Guid.NewGuid()) });
+				Assert.That(modalErrors, Is.Zero);
+				receive.Invoke(coordinator, new[] { (object)0UL, Rejection(latest, Guid.Parse(maps.CurrentId)) });
+				Assert.That(modalErrors, Is.EqualTo(1));
+				maps.Create();
+				receive.Invoke(coordinator, new[] { (object)0UL, Rejection(latest, Guid.NewGuid()) });
+				Assert.That(modalErrors, Is.EqualTo(1));
+				type.GetMethod("OnColocationMethodChanged", PrivateInstance).Invoke(coordinator, null);
+				Assert.That(type.GetField("latestMethodRequest", PrivateInstance).GetValue(coordinator), Is.EqualTo(Guid.Empty));
+			}
+			finally { UserErrors.Raised -= OnError; }
+		}
+
 		[Test]
 		public void JoiningThroughSharedAnchorsRetainsPrivateTagRealizationForALaterSwitch()
 		{

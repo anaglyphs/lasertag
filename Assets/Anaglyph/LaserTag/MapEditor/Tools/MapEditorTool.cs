@@ -1,10 +1,12 @@
 using System;
 using Anaglyph.LaserTag.Maps;
 using Anaglyph.LaserTag.Player.Teams;
+using Anaglyph.XR;
 using Anaglyph.XR.Input;
 using Anaglyph.XR.SharedSpaces.AprilTags;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.XR;
 
 namespace Anaglyph.LaserTag.MapEditor.Tools
 {
@@ -26,7 +28,10 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			Place,
 
 			/// <summary>Register the map's AprilTags.</summary>
-			Tags
+			Tags,
+
+			/// <summary>Measure an AprilTag edge with two controller points.</summary>
+			MeasureTagSize
 		}
 
 		public static Mode CurrentMode { get; private set; }
@@ -43,6 +48,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			SelectedObject = null;
 			ModeChanged = delegate { };
 			DominantHand = null;
+			MeasurementHint = null;
 		}
 
 		/// <summary>
@@ -54,7 +60,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		{
 			CurrentMode = mode;
 			// Keep the object selection while the tags submenu temporarily owns the tools.
-			if (mode != Mode.Tags)
+			if (mode != Mode.Tags && mode != Mode.MeasureTagSize)
 				SelectedObject = mode == Mode.Place ? spawnObject : null;
 
 			MapEditorTool[] tools = FindObjectsByType<MapEditorTool>(
@@ -94,6 +100,12 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 
 		[Tooltip("Seconds a tag observation stays valid; stale poses must not be registered")]
 		[SerializeField] private float observationLifetime = 5f;
+
+		[Tooltip("Distance in meters from the controller's pointing pose to the ruler tip")]
+		[SerializeField] private float measurementTipDistance = 0.08f;
+		private TagSizeRuler ruler;
+		private string measurementMapId;
+		public static string MeasurementHint { get; private set; }
 
 		private MapObject currentSpawnObject;
 		private GameObject previewObject;
@@ -145,16 +157,20 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		private void OnDestroy()
 		{
 			MapEditor.ActiveChanged -= gameObject.SetActive;
+			ruler?.Dispose();
 		}
 
 		private void OnEnable()
 		{
+			MainXRRig.Recentered += ResetMeasurement;
 			Aimer.Register();
 			UpdateTagDetection();
 		}
 
 		private void OnDisable()
 		{
+			MainXRRig.Recentered -= ResetMeasurement;
+			ResetMeasurement();
 			Aimer.Unregister();
 			Aimer.Clear();
 			ReleaseTagHighlight();
@@ -170,6 +186,8 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		/// <summary>Whatever the outgoing mode was holding is not the incoming one's to keep.</summary>
 		private void ApplyMode(Mode mode, MapObject spawnObject)
 		{
+			ResetMeasurement();
+			measurementMapId = LaserTagMapCoordinator.Instance?.CurrentMap?.id;
 			SetSpawnObject(mode == Mode.Place ? spawnObject : null);
 			TryLetGo();
 			Aimer.Clear();
@@ -310,10 +328,91 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 				TagReferenceVisuals.HighlightedTagId = -1;
 		}
 
+		// ------- tag size ruler ----------------------------------
+
+		// Read the current input pose at the trigger callback, before HandMover's next Update.
+		private Vector3 MeasurementTip
+		{
+			get
+			{
+				Vector3 localTip = handSubject.PointPosition + handSubject.PointForward * measurementTipDistance;
+				return transform.parent != null ? transform.parent.TransformPoint(localTip) : localTip;
+			}
+		}
+
+		private bool CanSampleMeasurement => MainXRRig.Instance != null && MainXRRig.Camera != null &&
+			handSubject.Current != null &&
+			(handSubject.Current.TrackingState & (InputTrackingState.Position | InputTrackingState.Rotation)) ==
+			(InputTrackingState.Position | InputTrackingState.Rotation);
+
+		private bool MeasurementAllowed => MapEditor.IsActive &&
+			LaserTagMapCoordinator.Instance != null &&
+			measurementMapId != null && LaserTagMapCoordinator.Instance.CurrentMap?.id == measurementMapId &&
+			LaserTagMapCoordinator.Instance.DescribeTagSizeBlocker() == null;
+
+		private void ResetMeasurement()
+		{
+			ruler?.Reset();
+			if (this == DominantHand)
+				MeasurementHint = "ruler.first-point";
+		}
+
+		private void UpdateMeasurement()
+		{
+			if (this != DominantHand) return;
+			if (!MeasurementAllowed)
+			{
+				SetMode(Mode.Tags);
+				return;
+			}
+
+			// A lost/recentered tracking origin invalidates an unfinished physical measurement.
+			if (!CanSampleMeasurement)
+			{
+				ResetMeasurement();
+				return;
+			}
+
+			ruler ??= new TagSizeRuler(MainXRRig.TrackingSpace, gameObject.layer);
+			ruler.Update(MeasurementTip, MainXRRig.Camera, !handSubject.Current.InputBlocked);
+		}
+
+		private void SelectMeasurementPoint()
+		{
+			if (!MeasurementAllowed || !CanSampleMeasurement || handSubject.Current.InputBlocked)
+				return;
+			UpdateMeasurement();
+			if (ruler == null) return;
+			if (!ruler.HasStart)
+			{
+				ruler.SetStart(MeasurementTip);
+				MeasurementHint = "ruler.second-point";
+				return;
+			}
+
+			float centimeters = ruler.LengthCm(MeasurementTip);
+			// AprilTagTracker clamps its input to one centimeter.
+			if (!float.IsFinite(centimeters) || centimeters < 1f)
+			{
+				MeasurementHint = "ruler.too-short";
+				return;
+			}
+
+			if (LaserTagMapCoordinator.Instance.SetTagSize(centimeters))
+				SetMode(Mode.Tags);
+		}
+
 		// ------- per-frame ---------------------------------------
 
 		private void LateUpdate()
 		{
+			if (CurrentMode == Mode.MeasureTagSize)
+			{
+				lineRenderer.enabled = false;
+				UpdateMeasurement();
+				return;
+			}
+
 			bool didHit = Raycast(out RaycastHit hit);
 			float lineDist = didHit ? hit.distance : 1f;
 
@@ -374,7 +473,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 
 		private void OnFireInput(InputAction.CallbackContext context)
 		{
-			if (!context.performed) return;
+			if (!isActiveAndEnabled || !context.performed) return;
 
 			// Every mode: the off hand's trigger is how the palette swaps sides, so it has to be
 			// answered before whatever the current mode would do with the press.
@@ -384,7 +483,15 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 					handSubject.Current.Handedness == Handedness.Left ? Handedness.Right : Handedness.Left;
 
 				DominantHand = this;
+				if (CurrentMode == Mode.MeasureTagSize)
+					SetMode(Mode.MeasureTagSize);
 				Palette.Instance?.SetHandSide(otherHand);
+				return;
+			}
+
+			if (CurrentMode == Mode.MeasureTagSize)
+			{
+				SelectMeasurementPoint();
 				return;
 			}
 
@@ -401,7 +508,17 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 
 		private void OnBackInput(InputAction.CallbackContext context)
 		{
-			if (!context.performed) return;
+			if (!isActiveAndEnabled || !context.performed) return;
+
+			if (CurrentMode == Mode.MeasureTagSize)
+			{
+				if (this == DominantHand)
+				{
+					if (ruler != null && ruler.HasStart) ResetMeasurement();
+					else SetMode(Mode.Tags);
+				}
+				return;
+			}
 
 			if (CurrentMode == Mode.Tags)
 				TryUnregisterTag();
@@ -411,7 +528,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 
 		private void OnGripInput(InputAction.CallbackContext context)
 		{
-			if (CurrentMode == Mode.Tags)
+			if (!isActiveAndEnabled || CurrentMode == Mode.Tags || CurrentMode == Mode.MeasureTagSize)
 				return;
 
 			if (context.performed)

@@ -111,7 +111,7 @@ RadioButton #unity-checkmark {
 
 .title,
 .nav-header__title {
-    flex-grow: 1;
+    /*flex-grow: 1;*/
     -unity-text-align: middle-left;
     font-size: 28px;
     -unity-font-style: bold;
@@ -119,7 +119,7 @@ RadioButton #unity-checkmark {
 }
 
 .nav-button {
-	background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/HUD/Graphics/chevron.svg");
+	background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/chevron.svg");
 	background-size: auto 16px;
 	background-position-x: right 12px;
 	background-position-y: center;
@@ -152,6 +152,14 @@ RadioButton #unity-checkmark {
     white-space: normal;
     margin-top: 8px;
     margin-bottom: 8px;
+}
+
+.session-discovery-status {
+    -unity-font-style: bold;
+    -unity-font-definition: resource("Fonts/DINishExpanded-Regular SDF");
+    font-size: 18px;
+    flex-grow: 1;
+    -unity-text-align: middle-left;
 }
 
 .map-row {
@@ -368,8 +376,8 @@ ScrollView .unity-scroll-view__vertical-scroller #unity-dragger {
 
 ScrollView .unity-scroll-view__horizontal-scroller #unity-drag-container,
 ScrollView .unity-scroll-view__horizontal-scroller #unity-dragger {
-    min-height: 8px;
-    max-height: 8px;
+    min-height: 24px;
+    max-height: 24px;
     align-self: center;
 }
 
@@ -379,7 +387,7 @@ ScrollView .unity-scroll-view__horizontal-scroller #unity-dragger {
 
 .nav-header__back-button {
 	background-position-x: center;
-	background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/HUD/Graphics/back chevron.svg");
+	background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/back chevron.svg");
 	padding:18px;
     aspect-ratio: 1;
     min-height: auto;

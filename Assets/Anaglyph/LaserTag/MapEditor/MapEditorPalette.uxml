@@ -1,0 +1,24 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:Template name="MapEditorObjectsPage" src="project://database/Assets/Anaglyph/LaserTag/MapEditor/MapEditorObjectsPage.uxml?fileID=9197481963319205126&amp;guid=319b1949f04e543a5bc9ea6862887d2e&amp;type=3#MapEditorObjectsPage" />
+    <ui:Template name="MapEditorTagsPage" src="project://database/Assets/Anaglyph/LaserTag/MapEditor/MapEditorTagsPage.uxml?fileID=9197481963319205126&amp;guid=5db37da8972944459a63f0901b3c15c8&amp;type=3#MapEditorTagsPage" />
+    <ui:Template name="MapEditorMeasureTagSizePage" src="project://database/Assets/Anaglyph/LaserTag/MapEditor/MapEditorMeasureTagSizePage.uxml?fileID=9197481963319205126&amp;guid=4c2f8b6017d9477fa7b01d6fef1b9b26&amp;type=3#MapEditorMeasureTagSizePage" />
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle" />
+    <ui:VisualElement picking-mode="Ignore" class="page-template-root">
+        <Anaglyph.Menu.NavView name="palette-nav">
+            <Anaglyph.Menu.NavPage name="objects-page" show-back-button="false">
+                <ui:Instance template="MapEditorObjectsPage" />
+            </Anaglyph.Menu.NavPage>
+            <Anaglyph.Menu.NavPage name="tags-page" show-back-button="false">
+                <ui:Instance template="MapEditorTagsPage" />
+            </Anaglyph.Menu.NavPage>
+            <Anaglyph.Menu.NavPage name="measure-tag-size-page" show-back-button="false">
+                <ui:Instance template="MapEditorMeasureTagSizePage" />
+            </Anaglyph.Menu.NavPage>
+        </Anaglyph.Menu.NavView>
+        <ui:Button name="done-button" class="palette-done">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMapEditingPage.finish-editing-button.text" />
+            </Bindings>
+        </ui:Button>
+    </ui:VisualElement>
+</ui:UXML>
