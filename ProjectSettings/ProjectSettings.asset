@@ -150,8 +150,8 @@ PlayerSettings:
   preloadedAssets:
   - {fileID: 11400000, guid: 45e3534b9d174724b806ead5a65249ad, type: 2}
   - {fileID: 11400000, guid: 98f64f4b2a2851449894736b3332276f, type: 2}
-  - {fileID: -944628639613478452, guid: 79db32dae9e808443971c72edb6c30a9, type: 3}
   - {fileID: -944628639613478452, guid: 616e1c785ffcdf143b4e0c78a1535fad, type: 3}
+  - {fileID: 11400000, guid: 510ae0971ce604da894d836185af0a26, type: 2}
   metroInputSource: 0
   wsaTransparentSwapchain: 0
   m_HolographicPauseOnTrackingLoss: 1
@@ -400,6 +400,9 @@ PlayerSettings:
   - m_BuildTarget: Android
     m_StaticBatching: 0
     m_DynamicBatching: 1
+  - m_BuildTarget: Standalone
+    m_StaticBatching: 1
+    m_DynamicBatching: 0
   m_BuildTargetShaderSettings: []
   m_BuildTargetGraphicsJobs:
   - m_BuildTarget: WindowsStandaloneSupport
@@ -461,7 +464,8 @@ PlayerSettings:
   enableCrashReportAPI: 0
   cameraUsageDescription: 
   locationUsageDescription: 
-  microphoneUsageDescription: 
+  microphoneUsageDescription: Lasertag uses the microphone for voice input when microphone
+    features are enabled.
   bluetoothUsageDescription: 
   macOSTargetOSVersion: 12.0
   switchNMETAOverride: 

@@ -21,6 +21,7 @@ namespace Anaglyph.LaserTag
 		private string attemptedAddress;
 		private float nextAttemptTime;
 		private MetaSessionDiscovery sessionDiscovery;
+		private NetworkManager subscribedNetworkManager;
 
 		public bool IsListening =>
 			isActiveAndEnabled && sessionDiscovery != null && sessionDiscovery.IsListening;
@@ -43,6 +44,7 @@ namespace Anaglyph.LaserTag
 			NetcodeManagement.StateChanged -= OnNetworkStateChanged;
 			HeadsetConfiguration.Changed -= ApplyConnectionPolicy;
 			CancelPinnedAttempt();
+			SetNetworkManager(null);
 			SetDiscoveryActivity(MetaSessionDiscovery.Activity.Disabled);
 		}
 
@@ -89,6 +91,9 @@ namespace Anaglyph.LaserTag
 
 		private void ApplyConnectionPolicy()
 		{
+			NetworkManager manager = isActiveAndEnabled ? NetworkManager.Singleton : null;
+			SetNetworkManager(manager);
+
 			if (!PinnedConnectionAllowed || attemptedAddress != HeadsetConfiguration.PinnedHostAddress)
 				CancelPinnedAttempt();
 
@@ -100,7 +105,12 @@ namespace Anaglyph.LaserTag
 					NetcodeState.Disconnected when menuAllowsListening &&
 					                               !HeadsetConfiguration.PinnedHostEnabled =>
 						MetaSessionDiscovery.Activity.Listening,
-					NetcodeState.Connected => MetaSessionDiscovery.Activity.Advertising,
+					// The LAN host advertises its IP; the relay session owner advertises its name.
+					NetcodeState.Connected when manager != null &&
+					                            (manager.NetworkConfig.UseCMBService
+					                             ? manager.LocalClient.IsSessionOwner
+					                             : manager.IsHost) =>
+						MetaSessionDiscovery.Activity.Advertising,
 					_ => MetaSessionDiscovery.Activity.Disabled
 				};
 			}
@@ -109,6 +119,9 @@ namespace Anaglyph.LaserTag
 
 		private void Update()
 		{
+			if (NetworkManager.Singleton != subscribedNetworkManager)
+				ApplyConnectionPolicy();
+
 			// Polling readiness also handles a late NetworkManager and asynchronous
 			// shutdown, without abandoning retries when the transport is still busy.
 			if (!PinnedConnectionAllowed || Time.unscaledTime < nextAttemptTime ||
@@ -133,6 +146,18 @@ namespace Anaglyph.LaserTag
 				Debug.LogException(exception);
 			}
 		}
+
+		private void SetNetworkManager(NetworkManager manager)
+		{
+			if (ReferenceEquals(manager, subscribedNetworkManager)) return;
+			if (!ReferenceEquals(subscribedNetworkManager, null))
+				subscribedNetworkManager.OnSessionOwnerPromoted -= OnSessionOwnerPromoted;
+			subscribedNetworkManager = manager;
+			if (subscribedNetworkManager != null)
+				subscribedNetworkManager.OnSessionOwnerPromoted += OnSessionOwnerPromoted;
+		}
+
+		private void OnSessionOwnerPromoted(ulong sessionOwner) => ApplyConnectionPolicy();
 
 		private void CancelPinnedAttempt()
 		{
