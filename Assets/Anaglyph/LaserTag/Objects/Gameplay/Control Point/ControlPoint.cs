@@ -154,7 +154,7 @@ namespace Anaglyph.LaserTag.Objects.Gameplay.Control_Point
 
 		private bool CheckIfPlayerIsInside(PlayerAvatar player)
 		{
-			return player.IsAlive && playersInside.Contains(player);
+			return player != null && player.CanInteract && playersInside.Contains(player);
 		}
 
 		private void Update()

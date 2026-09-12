@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using Anaglyph.Netcode.SyncVariables;
-using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
@@ -34,12 +33,12 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 	/// <summary>
 	/// A complete shared-anchor colocation strategy. It owns the synchronized guid/canon-pose
 	/// set, loads and persists those anchors through <see cref="AnchorRegistry"/>, shares them
-	/// from the session authority, and mints additional constraints as the authority explores.
+	/// from the designated headset, and mints additional constraints as that headset explores.
 	/// A game-specific map system may import and export <see cref="Constraints"/>, but is not
 	/// required for the provider to align a session.
 	/// </summary>
 	[DefaultExecutionOrder(-200)]
-	public class SpatialAnchorColocationConstraintProvider : MonoBehaviour, IColocationConstraintProvider
+	public partial class SpatialAnchorColocationConstraintProvider : MonoBehaviour, IColocationConstraintProvider
 	{
 		public static SpatialAnchorColocationConstraintProvider Instance { get; private set; }
 
@@ -102,7 +101,11 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 			lifetimeCtknSrc = new CancellationTokenSource();
 
 			constraints.ResetOnDeactivate = false;
+			constraints.ValidateSet = (_, _, _) => false;
+			constraints.ValidateRemove = (_, _) => false;
+			constraints.ValidateClear = _ => false;
 			constraints.Register();
+			RegisterSession();
 			constraints.Changed += OnConstraintsChanged;
 			constraints.Synced += OnConstraintsSynced;
 
@@ -115,6 +118,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		{
 			StopProviding();
 			lifetimeCtknSrc?.Cancel();
+			UnregisterSession();
 
 			SyncBus.AuthorityChanged -= OnAuthorityChanged;
 			SyncBus.Deactivated -= OnBusDeactivated;
@@ -136,12 +140,13 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 				return;
 
 			IsRunning = true;
+			InvalidateReferenceContext();
 			stateGeneration++;
 			runCtknSrc = CancellationTokenSource.CreateLinkedTokenSource(lifetimeCtknSrc.Token);
 			ReconcileHeld();
 			MintLoop(runCtknSrc.Token);
 
-			if (SyncBus.Active && SyncBus.IsAuthority)
+			if (SyncBus.Active && IsLocalMinter)
 				ShareAll();
 		}
 
@@ -151,6 +156,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 				return;
 
 			IsRunning = false;
+			InvalidateReferenceContext();
 			stateGeneration++;
 			runCtknSrc?.Cancel();
 			runCtknSrc?.Dispose();
@@ -160,6 +166,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 
 		private void OnBusActivated()
 		{
+			InvalidateReferenceContext();
 			if (!IsRunning)
 				return;
 
@@ -190,17 +197,20 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 
 		private void OnBusDeactivated()
 		{
+			InvalidateLocalFrame();
+			ReleasePreparation();
 			if (IsRunning)
 				ReconcileHeld();
 		}
 
 		private void OnAuthorityChanged(bool isAuthority)
 		{
+			InvalidateReferenceContext();
 			if (!IsRunning)
 				return;
 
 			ReconcileHeld();
-			if (isAuthority)
+			if (IsLocalMinter)
 				ShareAll();
 		}
 
@@ -212,9 +222,14 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 
 		private void OnConstraintsChanged(SyncDictionary<Guid, AnchorConstraintState>.EventData _)
 		{
+			foreach (Guid guid in preparationSaves)
+				if (constraints.ContainsKey(guid)) publishedPreparationSaves.Add(guid);
 			stateGeneration++;
 			if (IsRunning)
+			{
 				ReconcileHeld();
+				if (IsLocalMinter) ShareAll();
+			}
 
 			ConstraintsChanged.Invoke();
 		}
@@ -233,6 +248,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 				return;
 			}
 
+			InvalidateReferenceContext();
 			List<KeyValuePair<Guid, AnchorConstraintState>> replacement = new();
 			foreach (AnchorConstraintData entry in next)
 				replacement.Add(new KeyValuePair<Guid, AnchorConstraintState>(entry.guid,
@@ -273,7 +289,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		}
 
 		private AnchorSource CurrentSource =>
-			SyncBus.Active && !SyncBus.IsAuthority ? AnchorSource.Any : AnchorSource.Local;
+			SyncBus.Active ? AnchorSource.Any : AnchorSource.Local;
 
 		private void ReconcileHeld()
 		{
@@ -410,7 +426,19 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 			}
 		}
 
-		// ------- authority minting -------------------------------
+		// ------- designated headset minting -----------------------
+
+		private bool CanMintNow => IsRunning && RoamingMintEnabled && IsLocalMinter && LocallyReady &&
+			(!SyncBus.Active || CanShareAnchors) && (MintingGate?.Invoke() ??
+			(constraints.Count == 0 || ColocationManagerState() == ColocationAlignmentState.Localized));
+
+		public static bool HasNearbyAnchor(IEnumerable<AnchorConstraintState> anchors, Vector3 position, float distance)
+		{
+			float distanceSq = distance * distance;
+			foreach (AnchorConstraintState anchor in anchors)
+				if ((anchor.canonPose.position - position).sqrMagnitude <= distanceSq) return true;
+			return false;
+		}
 
 		private async void MintLoop(CancellationToken ctkn)
 		{
@@ -419,109 +447,86 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 				while (!ctkn.IsCancellationRequested)
 				{
 					await Awaitable.FixedUpdateAsync(ctkn);
-
-					if (!RoamingMintEnabled || !SyncBus.IsAuthority || IsMinting || !IsAvailable)
-						continue;
-					if (MintingGate != null && !MintingGate())
-						continue;
-					if (MintingGate == null && constraints.Count > 0 &&
-					    ColocationManagerState() != ColocationAlignmentState.Localized)
-						continue;
-					if (MainXRRig.Camera == null)
-						continue;
-
-					float3 headPosition = MainXRRig.Camera.transform.position;
-					float closestDistanceSq = float.MaxValue;
-					float newAnchorDistSq = newAnchorDistance * newAnchorDistance;
-					foreach (AnchorConstraintState state in constraints.Values)
-					{
-						closestDistanceSq = math.min(closestDistanceSq,
-							math.distancesq((float3)state.canonPose.position, headPosition));
-
-						if (closestDistanceSq > newAnchorDistSq)
-						{
-							await MintUnderPlayer(ctkn);
-							break;
-						}
-					}
+					if (!CanMintNow || IsMinting || pendingMints.Count > 0 ||
+						MainXRRig.Instance == null || MainXRRig.Camera == null) continue;
+					if (HasNearbyAnchor(constraints.Values, MainXRRig.Camera.transform.position, newAnchorDistance)) continue;
+					try { await MintAsync(PoseUnderPlayer(), ctkn); }
+					catch (OperationCanceledException) when (ctkn.IsCancellationRequested) { throw; }
+					catch (Exception e) { Debug.LogException(e); }
+					// Native failures should not cause a mint/save/upload attempt every physics tick.
+					await Awaitable.WaitForSecondsAsync(1f, ctkn);
 				}
 			}
-			catch (OperationCanceledException)
-			{
-			}
-			catch (Exception e)
-			{
-				Debug.LogException(e);
-			}
+			catch (OperationCanceledException) { }
+			catch (Exception e) { Debug.LogException(e); }
 		}
 
-		private ColocationAlignmentState ColocationManagerState()
-		{
-			return colocator != null ? colocator.AlignmentState : ColocationAlignmentState.Stopped;
-		}
+		private ColocationAlignmentState ColocationManagerState() =>
+			colocator != null ? colocator.AlignmentState : ColocationAlignmentState.Stopped;
 
-		private async Awaitable MintUnderPlayer(CancellationToken ctkn)
+		private Pose PoseUnderPlayer()
 		{
 			Vector3 headPosition = MainXRRig.Camera.transform.position;
 			Pose pose = new(headPosition - Vector3.up * 1.5f, Quaternion.identity);
-			Ray ray = new(headPosition, Vector3.down);
-
-			if (Physics.Raycast(ray, out RaycastHit hit, 2f, placementRaycastLayerMask,
-				    QueryTriggerInteraction.Ignore))
-				pose.position = hit.point;
-
-			await MintAsync(pose, ctkn);
+			if (Physics.Raycast(new Ray(headPosition, Vector3.down), out RaycastHit hit, 2f,
+				placementRaycastLayerMask, QueryTriggerInteraction.Ignore)) pose.position = hit.point;
+			return pose;
 		}
 
 		private async Awaitable MintAsync(Pose pose, CancellationToken ctkn)
 		{
-			if (IsMinting)
-				return;
-
+			if (IsMinting) return;
 			IsMinting = true;
 			int generation = stateGeneration;
-
+			int frame = localFrameGeneration;
+			bool inSession = SyncBus.Active;
+			AnchorOperation operation = NewOperation();
+			bool Current() => generation == stateGeneration && frame == localFrameGeneration && CanMintNow &&
+				inSession == SyncBus.Active && (!inSession || OperationIsCurrent(operation));
 			try
 			{
-				await AnchorMinting.TryMintAsync(registry, pose,
-					minted => CommitMintedConstraint(pose, generation, minted),
-					commitTakesLease: false, ctkn);
+				await AnchorMinting.TryMintWithAsyncCommit(registry, pose, async minted =>
+				{
+					if (!Current()) return false;
+					if (!inSession)
+					{
+						constraints.Set(minted.guid, new AnchorConstraintState { canonPose = pose, bindingId = -1 });
+						if (minted.saved) AnchorPersisted.Invoke(minted.guid);
+						minted.lease.Dispose(); // ReconcileHeld owns the accepted reference now.
+						return true;
+					}
+					if (!await ShareBeforePublishing(minted.lease, Current, ctkn)) return false;
+					pendingMints.Add(minted.guid, new PendingMint
+					{
+						lease = minted.lease, operation = operation, deadline = Time.realtimeSinceStartupAsDouble + 20
+					});
+					mintProposal.Raise(new AnchorProposal { operation = operation, guid = minted.guid, canon = pose, bindingId = -1 });
+					return true; // PendingMint owns the lease until the ordered reply arrives.
+				}, commitTakesLease: true, ctkn);
 			}
-			finally
-			{
-				IsMinting = false;
-			}
-		}
-
-		/// <summary>
-		/// Registers a minted anchor as a constraint, unless the state it was minted for has moved
-		/// on. The lease is not kept: registering the constraint is what has
-		/// <see cref="ReconcileHeld"/> acquire this provider's own.
-		/// </summary>
-		private bool CommitMintedConstraint(Pose pose, int generation, MintedAnchor minted)
-		{
-			if (!IsRunning || !RoamingMintEnabled ||
-			    generation != stateGeneration || !SyncBus.IsAuthority)
-				return false;
-
-			constraints.Set(minted.guid, new AnchorConstraintState
-			{
-				canonPose = pose,
-				bindingId = -1,
-			});
-
-			if (minted.saved)
-				AnchorPersisted.Invoke(minted.guid);
-
-			if (SyncBus.Active)
-				Share(minted.guid);
-
-			return true;
+			finally { IsMinting = false; }
 		}
 
 		// ------- sharing ------------------------------------------
 
 		public bool CanShareAnchors => IsAvailable && registry.canShareAnchors;
+
+		private async Awaitable<bool> ShareBeforePublishing(AnchorLease lease, Func<bool> stillCurrent,
+			CancellationToken token)
+		{
+			for (int attempt = 1; attempt <= 5; attempt++)
+			{
+				if (!stillCurrent()) return false;
+				XRResultStatus result = await registry.TryShareAsync(lease, token);
+				if (!stillCurrent()) return false;
+				if (!result.IsError()) return true;
+				Debug.LogWarning($"Failed to share anchor {lease.Handle.guid}: {result} (attempt {attempt}).");
+				if (attempt == 3)
+					UserErrors.RaiseLocalized(UserErrorArea.Game, "error.share-title", "error.share-details");
+				if (attempt < 5) await Awaitable.WaitForSecondsAsync(3f, token);
+			}
+			return false;
+		}
 
 		/// <summary>
 		/// Uploads currently tracked local realizations while the old strategy keeps aligning.
@@ -531,7 +536,9 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		public async Awaitable PrepareSharingAsync(IReadOnlyList<AnchorConstraintData> candidates,
 			ISet<Guid> shared, CancellationToken token)
 		{
-			if (!SyncBus.Active || !SyncBus.IsAuthority || !CanShareAnchors) return;
+			if (!SyncBus.Active || !IsLocalMinter || !CanShareAnchors) return;
+			AnchorOperation operation = NewOperation();
+			int frame = localFrameGeneration;
 			foreach (AnchorConstraintData candidate in candidates)
 			{
 				token.ThrowIfCancellationRequested();
@@ -540,7 +547,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 				if (anchor == null || anchor.trackingState != TrackingState.Tracking) continue;
 				XRResultStatus result = await registry.TryShareAsync(lease, token);
 				token.ThrowIfCancellationRequested();
-				if (!SyncBus.Active || !SyncBus.IsAuthority) return;
+				if (!IsLocalMinter || !OperationIsCurrent(operation) || frame != localFrameGeneration) return;
 				if (!result.IsError()) shared.Add(candidate.guid);
 			}
 		}
@@ -565,7 +572,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 
 		private void ShareAll()
 		{
-			if (!IsRunning || !SyncBus.Active || !SyncBus.IsAuthority)
+			if (!IsRunning || !SyncBus.Active || !IsLocalMinter)
 				return;
 
 			if (!WarnIfSharingUnsupported())
@@ -584,6 +591,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 			if (!sharesInFlight.Add(guid))
 				return;
 
+			AnchorOperation operation = NewOperation();
 			const int maxAttempts = 5;
 			const int attemptsBeforeTellingUser = 3;
 
@@ -608,13 +616,14 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 					}
 
 					await Awaitable.NextFrameAsync(ctkn);
-					if (!IsRunning || !SyncBus.Active || !SyncBus.IsAuthority ||
+					if (!IsRunning || !IsLocalMinter || !OperationIsCurrent(operation) ||
 					    !held.TryGetValue(guid, out HeldAnchor current) || current != entry)
 						return;
 				}
 
 				for (int attempt = 1; attempt <= maxAttempts; attempt++)
 				{
+					if (!IsRunning || !IsLocalMinter || !OperationIsCurrent(operation)) return;
 					// The registry holds the anchor for each upload, which it cannot be told to
 					// abandon; the entry's lease is what keeps it loaded between attempts.
 					XRResultStatus result = await registry.TryShareAsync(entry.lease, ctkn);
@@ -630,7 +639,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 					await Awaitable.WaitForSecondsAsync(3f, ctkn);
 
 					// Nothing is waiting on an upload for a constraint that is gone.
-					if (!IsRunning || !SyncBus.Active || !SyncBus.IsAuthority ||
+					if (!IsRunning || !IsLocalMinter || !OperationIsCurrent(operation) ||
 					    !held.TryGetValue(guid, out HeldAnchor stillHeld) || stillHeld != entry)
 						return;
 				}
@@ -645,6 +654,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 			finally
 			{
 				sharesInFlight.Remove(guid);
+				if (IsRunning && IsLocalMinter && SyncBus.Active && !OperationIsCurrent(operation)) Share(guid);
 			}
 		}
 

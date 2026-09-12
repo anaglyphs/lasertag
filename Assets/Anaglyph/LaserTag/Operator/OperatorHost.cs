@@ -15,7 +15,7 @@ namespace Anaglyph.LaserTag.Operator
 {
 	/// <summary>
 	/// What the operator machine does whether or not a panel is showing it: host a LAN
-	/// session using AprilTags or the system's origin, and report the session and the headsets on it.
+	/// session, delegate shared-anchor creation to a headset, and report connected headsets.
 	/// The operator machine does not play.
 	/// </summary>
 	public static class OperatorHost
@@ -134,8 +134,7 @@ namespace Anaglyph.LaserTag.Operator
 
 		/// <summary>The same catalog is used for startup restoration and the operator's map picker.</summary>
 		public static bool CanHostMap(GameMap map) => map != null &&
-			(map.HasTags || map.systemFrameForTagSetup || map.preferredColocationMethod == ColocationManager.ColocationMethod.SystemDetermined ||
-			 (map.preferredColocationMethod == ColocationManager.ColocationMethod.AprilTag && map.anchors.Count == 0));
+			ColocationManager.IsValidMethod(map.preferredColocationMethod);
 
 		private static void LoadLastSupportedMap()
 		{

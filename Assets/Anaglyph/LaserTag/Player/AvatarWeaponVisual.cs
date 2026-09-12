@@ -8,7 +8,7 @@ namespace Anaglyph.LaserTag.Player
 	/// <summary>
 	/// One hand's weapon. Every player spawns the same weapon into the same hand from the
 	/// same synced id - the owner gets the working weapon, everyone else gets its visuals.
-	/// A hand only exists to fire from once the avatar does. Bolts are networked in their
+	/// Weapons are present only while the player can interact. Bolts are networked in their
 	/// own right; only the presentation travels through this.
 	/// </summary>
 	public class AvatarWeaponVisual : NetworkBehaviour
@@ -23,12 +23,24 @@ namespace Anaglyph.LaserTag.Player
 		private NetworkVariable<bool> firingSync = new();
 
 		private GameObject instance;
+		private GameObject presentationRoot;
+		private PlayerAvatar avatar;
 		private WeaponVisual visual;
 		private int id = WeaponDatabase.NoWeapon;
 
 		// owner only
 		private GameObject selectedPrefab;
 		private bool weaponsActive = true;
+
+		private void Awake()
+		{
+			avatar = GetComponentInParent<PlayerAvatar>(true);
+			// Tracking controls the weapon instance itself. A separate parent lets presence
+			// hide it without a tracking callback accidentally making it active again.
+			presentationRoot = new GameObject("Weapon Presentation");
+			presentationRoot.transform.SetParent(transform, false);
+			presentationRoot.SetActive(false);
+		}
 
 		public override void OnNetworkSpawn()
 		{
@@ -44,6 +56,7 @@ namespace Anaglyph.LaserTag.Player
 
 		public override void OnNetworkDespawn()
 		{
+			presentationRoot.SetActive(false);
 			if (IsOwner)
 			{
 				Show(WeaponDatabase.NoWeapon);
@@ -57,13 +70,12 @@ namespace Anaglyph.LaserTag.Player
 
 		private void Update()
 		{
-			if (!IsSpawned || !IsOwner)
-				return;
+			if (!IsSpawned) return;
+			if (!IsOwner) { ApplySyncedState(); return; }
 
 			WeaponSwitcher switcher = WeaponSwitcher.Instance;
 
-			if (switcher == null)
-				return;
+			if (switcher == null) { presentationRoot.SetActive(false); return; }
 
 			GameObject prefab = switcher.GetSelected(handedness);
 
@@ -73,14 +85,8 @@ namespace Anaglyph.LaserTag.Player
 				Show(database.IndexOf(prefab));
 			}
 
-			// only on change - DeactivateUntracked owns this flag the rest of the time
-			if (switcher.WeaponsActive != weaponsActive)
-			{
-				weaponsActive = switcher.WeaponsActive;
-
-				if (instance != null)
-					instance.SetActive(weaponsActive);
-			}
+			weaponsActive = switcher.WeaponsActive;
+			presentationRoot.SetActive(avatar.CanInteract && weaponsActive);
 
 			weaponIdSync.Value = id;
 			// the visual, not the weapon - that is the object everyone else instantiates,
@@ -110,7 +116,8 @@ namespace Anaglyph.LaserTag.Player
 			if (prefab == null)
 				return;
 
-			instance = Instantiate(prefab, transform, false);
+			presentationRoot.SetActive(false);
+			instance = Instantiate(prefab, presentationRoot.transform, false);
 			instance.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
 			visual = instance.GetComponentInChildren<WeaponVisual>(true);
 
@@ -123,7 +130,7 @@ namespace Anaglyph.LaserTag.Player
 			if (instance.TryGetComponent(out HandSubject handSubject))
 				handSubject.Assign(HandInput.Get(handedness));
 
-			instance.SetActive(weaponsActive);
+			presentationRoot.SetActive(avatar.CanInteract && weaponsActive);
 
 			if (visual != null)
 				visual.Fired += OnFired;
@@ -132,13 +139,12 @@ namespace Anaglyph.LaserTag.Player
 		// what the owner's own weapon does for itself, applied to everyone else's copy
 		private void ApplySyncedState()
 		{
+			presentationRoot.SetActive(IsSpawned && avatar.CanInteract && shownSync.Value);
 			if (instance == null)
 				return;
 
-			instance.SetActive(shownSync.Value);
-
 			if (visual != null)
-				visual.SetFiring(firingSync.Value);
+				visual.SetFiring(avatar.CanInteract && firingSync.Value);
 		}
 
 		private void OnWeaponIdChanged(int previous, int current) => Show(current);

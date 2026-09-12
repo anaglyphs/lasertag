@@ -116,6 +116,7 @@ namespace Anaglyph.LaserTag
 		private readonly bool hasTags;
 		private readonly bool hasAnchors;
 		private readonly bool systemDeterminedFrame;
+		private readonly bool twoTagFrame;
 		private readonly bool frameAgrees;
 		private readonly bool sessionHolding;
 		private readonly bool roundInProgress;
@@ -124,7 +125,8 @@ namespace Anaglyph.LaserTag
 
 		public MapPolicy(MapPhase phase, bool hasMap, bool empty, bool hasTags,
 			bool frameAgrees, bool sessionHolding, bool roundInProgress, bool sessionUsesTags,
-			bool operatorManagedSession = false, bool hasAnchors = true, bool systemDeterminedFrame = false)
+			bool operatorManagedSession = false, bool hasAnchors = true, bool systemDeterminedFrame = false,
+			bool twoTagFrame = false)
 		{
 			this.phase = phase;
 			this.hasMap = hasMap;
@@ -132,6 +134,7 @@ namespace Anaglyph.LaserTag
 			this.hasTags = hasTags;
 			this.hasAnchors = hasAnchors && !empty;
 			this.systemDeterminedFrame = systemDeterminedFrame && !empty;
+			this.twoTagFrame = twoTagFrame;
 			this.frameAgrees = frameAgrees;
 			this.sessionHolding = sessionHolding;
 			this.roundInProgress = roundInProgress;
@@ -161,7 +164,7 @@ namespace Anaglyph.LaserTag
 			bool inSession, bool isAuthority) => !hasTags && anchorCount == 0 &&
 			(!inSession || isAuthority || empty);
 
-		public bool HasAlignmentReferences => hasTags || hasAnchors || systemDeterminedFrame;
+		public bool HasAlignmentReferences => hasTags || hasAnchors || systemDeterminedFrame || twoTagFrame;
 
 		public string ReferenceSetupBlocker => TransitionBlocker ??
 			(hasMap && HasAlignmentReferences && !frameAgrees ? "alignment.align-before-reference-setup" : null);

@@ -41,8 +41,8 @@ namespace Anaglyph.LaserTag.Maps
 		public const float DefaultTagSizeCm = 10f;
 
 		/// <summary>
-		/// The physical edge length of this map's AprilTags, in centimeters. Solving a tag's pose
-		/// scales with it, so a registered pose only means anything at the size it was registered
+		/// The physical edge length shared by registered-tag and two-tag alignment, in centimeters.
+		/// Solving a tag's pose scales with it, so a registered pose only means anything at the size it was registered
 		/// at — which is why this travels with the map rather than being a device setting. Zero
 		/// only on a map authored before sizes were recorded, whose tags are of unknown size; the
 		/// last size this device adopted stands in.

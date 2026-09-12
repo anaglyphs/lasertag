@@ -10,8 +10,9 @@ namespace Anaglyph.LaserTag.Tests
 {
 	public class TagSizeRulerTests
 	{
-		[Test]
-		public void MeasurementSurvivesDetachedMapSnapshotsButStopsWhenTheMapChanges()
+		[TestCase(ColocationManager.ColocationMethod.AprilTag)]
+		[TestCase(ColocationManager.ColocationMethod.TwoAprilTags)]
+		public void MeasurementSurvivesDetachedMapSnapshotsButStopsWhenTheMapChanges(ColocationManager.ColocationMethod method)
 		{
 			var owner = new GameObject("Measurement state test");
 			owner.SetActive(false);
@@ -23,6 +24,7 @@ namespace Anaglyph.LaserTag.Tests
 				var coordinator = owner.AddComponent<LaserTagMapCoordinator>();
 				var maps = new MapManager(new MapStore(System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString("N"))));
 				maps.Create();
+				maps.SetPreferredColocationMethod(method);
 				typeof(LaserTagMapCoordinator).GetField("maps", flags).SetValue(coordinator, maps);
 				typeof(LaserTagMapCoordinator).GetProperty("Instance").SetValue(null, coordinator);
 				typeof(MapEditor.MapEditor).GetProperty("IsActive").SetValue(null, true);

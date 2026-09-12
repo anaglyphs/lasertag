@@ -79,6 +79,7 @@ namespace Anaglyph.LaserTag.Maps
 
 		public void Inject(GameMap map)
 		{
+			colocation?.TwoTagProvider?.ResetReferences();
 			List<AnchorConstraintData> anchors = new(map.anchors.Count);
 			List<TaggedAnchorConstraintData> taggedAnchors = new();
 			List<TagConstraintData> tags = new(map.tags.Count);
@@ -301,6 +302,9 @@ namespace Anaglyph.LaserTag.Maps
 		{
 			if (map == null || colocation == null)
 				return map;
+
+			if (restoreLocalAnchors)
+				colocation.TwoTagProvider?.ResetReferences();
 
 			// Restore private realizations before adding the authority's shared UUIDs to the
 			// document, even when tags are inactive. A later method change can then reuse them.

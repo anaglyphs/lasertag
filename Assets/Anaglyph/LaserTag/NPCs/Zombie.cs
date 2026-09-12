@@ -113,7 +113,7 @@ namespace Anaglyph.LaserTag.NPCs
 			float nearestDistSqr = float.MaxValue;
 			foreach (PlayerAvatar avatar in PlayerAvatar.All.Values)
 			{
-				if (!avatar.IsAlive) continue;
+				if (!avatar.CanInteract) continue;
 
 				float distSqr = (head.position - avatar.HeadTransform.position).sqrMagnitude;
 
@@ -169,19 +169,19 @@ namespace Anaglyph.LaserTag.NPCs
 				return;
 
 			PlayerAvatar player = other.GetComponentInParent<PlayerAvatar>();
-			if (player && player.IsAlive)
+			if (player && player.CanInteract)
 				player.DamageRpc(101, 0);
 		}
 
 		private void LateUpdate()
 		{
 			PlayerAvatar target = Target;
-			if (target) head.LookAt(target.HeadTransform);
+			if (target && target.CanInteract) head.LookAt(target.HeadTransform);
 
 			if (!IsOwner)
 				return;
 
-			if (target && target.IsAlive)
+			if (target && target.CanInteract)
 				UpdatePath(target);
 			else
 				ClearPath();

@@ -232,13 +232,60 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(secondChanges, Is.EqualTo(1), "Disposing one fragment must not unbind another instance.");
 		}
 
+		[TestCase(ColocationManager.ColocationMethod.AprilTag)]
+		[TestCase(ColocationManager.ColocationMethod.TwoAprilTags)]
+		public void BothTagMethodsExposeThePaletteSliderAndMeasurementPage(ColocationManager.ColocationMethod method)
+		{
+			Assert.That(LaserTagMapCoordinator.Instance, Is.Null);
+			Assert.That(ColocationManager.Instance, Is.Null);
+			var owner = new GameObject("Tag palette test");
+			owner.SetActive(false);
+			bool wasEditing = MapEditor.MapEditor.IsActive;
+			var previousMode = MapEditorTool.CurrentMode;
+			const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+			try
+			{
+				var coordinator = owner.AddComponent<LaserTagMapCoordinator>();
+				var maps = new MapManager(new MapStore(System.IO.Path.Combine(System.IO.Path.GetTempPath(), System.Guid.NewGuid().ToString("N"))));
+				maps.Create();
+				maps.SetTags(System.Array.Empty<MapTagEntry>(), 18f);
+				maps.SetPreferredColocationMethod(method);
+				typeof(LaserTagMapCoordinator).GetField("maps", flags).SetValue(coordinator, maps);
+				typeof(LaserTagMapCoordinator).GetProperty("Instance").SetValue(null, coordinator);
+				typeof(MapEditor.MapEditor).GetProperty("IsActive").SetValue(null, true);
+				var headset = Load("Assets/Anaglyph/LaserTag/Interface/Main Menu/Game/GameMenu.uxml");
+				using var editing = new MapEditingMenuBinder(headset);
+				editing.SetPresented(true);
+				headset.Q<NavView>("map-editing-nav").GoToPage("alignment-settings-page");
+				Assert.That(MapEditorTool.CurrentMode, Is.EqualTo(MapEditorTool.Mode.Tags));
+				using var alignment = new AlignmentMethodBinder(headset.Q("alignment-method-section"));
+				alignment.Refresh();
+				Assert.That(alignment.UsesTags, Is.True);
+				Assert.That(headset.Q("two-tag-instructions").ClassListContains("map-field-hidden"),
+					Is.EqualTo(method != ColocationManager.ColocationMethod.TwoAprilTags));
+				var palette = Load("Assets/Anaglyph/LaserTag/MapEditor/MapEditorPalette.uxml");
+				Assert.That(palette.Q<NavPage>("tags-page").Q<Slider>("tag-size-slider"), Is.Not.Null);
+				Assert.That(palette.Q<NavPage>("tags-page").Q<Button>("measure-tag-size-button"), Is.Not.Null);
+				Assert.That(palette.Q<NavPage>("measure-tag-size-page"), Is.Not.Null);
+				Assert.That(coordinator.EffectiveTagSizeCm, Is.EqualTo(18f));
+			}
+			finally
+			{
+				typeof(LaserTagMapCoordinator).GetProperty("Instance").SetValue(null, null);
+				typeof(MapEditor.MapEditor).GetProperty("IsActive").SetValue(null, wasEditing);
+				MapEditorTool.SetMode(previousMode);
+				Object.DestroyImmediate(owner);
+			}
+		}
+
 		private static void AssertChoices(DropdownField field)
 		{
 			Assert.That(field.choices, Is.EqualTo(new[]
 			{
 				MenuCopy.Get("Game", "alignment.anchors"),
 				MenuCopy.Get("Game", "alignment.tags"),
-				MenuCopy.Get("Game", "alignment.system")
+				MenuCopy.Get("Game", "alignment.system"),
+				MenuCopy.Get("Game", "alignment.two-tags")
 			}));
 		}
 	}

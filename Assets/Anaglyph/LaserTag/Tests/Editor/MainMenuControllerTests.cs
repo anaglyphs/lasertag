@@ -38,7 +38,7 @@ namespace Anaglyph.LaserTag.Tests
 			Set(controller, "gateMenu", gate);
 			Set(controller, "gatePanel", gatePanel);
 			Set(controller, "menuPanels", panels);
-			Set(controller, "sessionConnectionController", root.GetComponent<SessionConnectionController>());
+			Set(controller, "sessionConnectionController", root.GetComponent<SessionDiscoveryController>());
 			Set(controller, "initializedVisibility", true);
 			Set(controller, "lastAccess", GateMenu.AccessState.Granted);
 			Set(controller, "transitionProgress", 0.5f);

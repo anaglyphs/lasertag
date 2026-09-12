@@ -36,7 +36,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 212852740
-    m_Localized: No saved maps use AprilTags or System determined alignment.
+    m_Localized: No saved maps yet.
     m_Metadata:
       m_Items: []
   - m_Id: 212852741
@@ -526,6 +526,25 @@ MonoBehaviour:
     m_Localized: System determined remains active. Register the first AprilTag on
       a headset to finish switching to AprilTags, or select System determined to
       cancel.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 569645063987200
+    m_Localized: Two AprilTags
+    m_Metadata:
+      m_Items: []
+  - m_Id: 569645068181504
+    m_Localized: Scan two different AprilTags on each headset. The lower ID is the
+      origin; the higher ID sets forward, with gravity defining up. Keep them at
+      least 10 cm apart horizontally. No registration is needed. If more IDs are
+      seen, the two lowest are used; show the same pair to every headset.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 577596147359744
+    m_Localized: Waiting for a ready headset to create and share anchors.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 577596151554048
+    m_Localized: 'Anchor minter: headset {0}.'
     m_Metadata:
       m_Items: []
   references:

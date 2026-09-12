@@ -12,6 +12,7 @@ using UnityEngine.Events;
 namespace Anaglyph.LaserTag.Player
 {
 	[DefaultExecutionOrder(-500)]
+	[RequireComponent(typeof(PlayerHeadsetStatus))]
 	public class PlayerAvatar : NetworkBehaviour, IDamageable
 	{
 		public const string Tag = "Player";
@@ -19,7 +20,6 @@ namespace Anaglyph.LaserTag.Player
 		[SerializeField] private Transform headTransform;
 		[SerializeField] private Transform leftHandTransform;
 		[SerializeField] private Transform rightHandTransform;
-		[SerializeField] private GameObject[] deactivatedWhenDead = Array.Empty<GameObject>();
 
 		// [SerializeField] private Transform torsoTransform;
 		public Transform HeadTransform => headTransform;
@@ -38,15 +38,24 @@ namespace Anaglyph.LaserTag.Player
 
 		public bool IsAlive => isAliveSync.Value;
 		private readonly NetworkVariable<bool> isAliveSync = new(true);
-		private struct AlignmentStatus : INetworkSerializeByMemcpy
+		private struct ParticipationState : INetworkSerializeByMemcpy
 		{
-			public bool aligned;
-			public ColocationManager.ColocationMethod method;
+			public bool participating;
+			public bool enteredPlay;
 		}
-		private readonly NetworkVariable<AlignmentStatus> alignmentSync = new();
-		public bool IsAligned => !(LaserTagMapCoordinator.Instance != null && LaserTagMapCoordinator.Instance.IsChangingColocation) &&
-			(IsOwner ? ColocationManager.IsColocated : alignmentSync.Value.aligned &&
-				ColocationManager.Instance != null && alignmentSync.Value.method == ColocationManager.Instance.SelectedMethod);
+		private readonly NetworkVariable<ParticipationState> participationSync = new();
+		public PlayerHeadsetStatus HeadsetStatus { get; private set; }
+		public bool IsAligned => HeadsetStatus != null && HeadsetStatus.IsAligned;
+		public bool IsParticipating => IsSpawned && (IsOwner
+			? PlayerAvatarSpawner.Instance != null && PlayerAvatarSpawner.Instance.IsParticipating
+			: participationSync.Value.participating);
+		/// <summary>World-space features are valid even when dead, for base-based respawning.</summary>
+		public bool HasSpatialPresence => IsParticipating && IsAligned;
+		public bool CanInteract => HasSpatialPresence && IsAlive;
+		/// <summary>Alignment loss does not remove an established player from elimination accounting.</summary>
+		public bool IsRoundParticipant => IsParticipating && participationSync.Value.enteredPlay && Team != 0;
+		public event Action<bool> SpatialPresenceChanged = delegate { };
+		private bool hadSpatialPresence;
 
 		/// <summary>Owner only - the local player's life is the source of truth.</summary>
 		internal void SetAlive(bool isAlive) => isAliveSync.Value = isAlive;
@@ -77,11 +86,7 @@ namespace Anaglyph.LaserTag.Player
 		public int Score => scoreSync.Value;
 
 		/// <summary>Device diagnostics for the operator panel. Sampled by the owner.</summary>
-		public HeadsetTelemetry Telemetry => telemetrySync.Value;
-		private readonly NetworkVariable<HeadsetTelemetry> telemetrySync = new();
-
-		private const float telemetryIntervalSeconds = 1f;
-		private float nextTelemetrySampleTime;
+		public HeadsetTelemetry Telemetry => HeadsetStatus != null ? HeadsetStatus.Telemetry : HeadsetTelemetry.Unknown;
 
 		public static PlayerAvatar Local { get; private set; }
 		public static Dictionary<ulong, PlayerAvatar> All { get; private set; } = new();
@@ -93,14 +98,16 @@ namespace Anaglyph.LaserTag.Player
 		{
 			All = new Dictionary<ulong, PlayerAvatar>();
 			OtherPlayers = new List<PlayerAvatar>();
+			Local = null;
 			OnPlayerKilledPlayer = delegate { };
 		}
 
 		private void Awake()
 		{
-			Killed += OnKilled.Invoke;
-			Damaged += delegate { OnDamaged.Invoke(); };
-			Respawned += OnRespawned.Invoke;
+			HeadsetStatus = GetComponent<PlayerHeadsetStatus>();
+			Killed += delegate { if (HasSpatialPresence) OnKilled.Invoke(); };
+			Damaged += delegate { if (HasSpatialPresence) OnDamaged.Invoke(); };
+			Respawned += delegate { if (HasSpatialPresence) OnRespawned.Invoke(); };
 
 			healthSync.OnValueChanged += delegate(float _, float health) { Health = health; };
 
@@ -110,8 +117,6 @@ namespace Anaglyph.LaserTag.Player
 					Killed.Invoke();
 				else if (!wasAlive && isAlive)
 					Respawned.Invoke();
-
-				ApplyAliveState();
 			};
 		}
 
@@ -131,12 +136,12 @@ namespace Anaglyph.LaserTag.Player
 
 			// synced values arrive before spawn, so nothing raises OnValueChanged for them
 			Health = healthSync.Value;
-			ApplyAliveState();
+			RefreshParticipation();
 		}
 
 		public override void OnNetworkDespawn()
 		{
-			Killed.Invoke();
+			SetSpatialPresence(false);
 			OtherPlayers.Remove(this);
 			All.Remove(OwnerClientId);
 
@@ -156,24 +161,36 @@ namespace Anaglyph.LaserTag.Player
 			if (!IsSpawned)
 				return;
 
-			if (IsOwner) alignmentSync.Value = new AlignmentStatus
-			{
-				aligned = IsAligned,
-				method = ColocationManager.Instance != null ? ColocationManager.Instance.SelectedMethod : default
-			};
+			RefreshParticipation();
 			RefreshBaseState();
-			SampleTelemetry();
 		}
 
-		// Battery and alignment move slowly, and the NetworkVariable only goes out when the
-		// sample differs from the last one, so a settled headset costs nothing.
-		private void SampleTelemetry()
+		internal void RefreshParticipation()
 		{
-			if (!IsOwner || Time.unscaledTime < nextTelemetrySampleTime)
-				return;
+			if (!IsSpawned) return;
+			if (IsOwner) participationSync.Value = new ParticipationState
+			{
+				participating = IsParticipating,
+				enteredPlay = participationSync.Value.enteredPlay || HasSpatialPresence
+			};
+			SetSpatialPresence(HasSpatialPresence);
+		}
 
-			nextTelemetrySampleTime = Time.unscaledTime + telemetryIntervalSeconds;
-			telemetrySync.Value = HeadsetTelemetry.Sample();
+		private void SetSpatialPresence(bool present)
+		{
+			if (hadSpatialPresence == present) return;
+			hadSpatialPresence = present;
+			if (!present)
+			{
+				OccupiedBase = null;
+				if (IsInFriendlyBase)
+				{
+					IsInFriendlyBase = false;
+					InFriendlyBaseChanged.Invoke(false);
+				}
+				foreach (ControlPoint cp in ControlPoint.AllControlPoints) cp.RemovePlayer(this);
+			}
+			SpatialPresenceChanged.Invoke(present);
 		}
 
 		private void RefreshBaseState()
@@ -183,7 +200,7 @@ namespace Anaglyph.LaserTag.Player
 
 			foreach (Base b in Base.AllBases)
 			{
-				if (!IsAligned) break;
+				if (!HasSpatialPresence) break;
 				if (!b.Contains(headTransform.position))
 					continue;
 
@@ -211,21 +228,16 @@ namespace Anaglyph.LaserTag.Player
 			InFriendlyBaseChanged.Invoke(inFriendly);
 		}
 
-		private void ApplyAliveState()
-		{
-			foreach (GameObject g in deactivatedWhenDead) g.SetActive(IsAlive);
-		}
-
 		public void Damage(IDamageable.Data data)
 		{
-			if (!IsAligned) return;
+			if (!CanInteract) return;
 			DamageRpc(data.damage, data.playerID);
 		}
 
 		[Rpc(SendTo.Everyone)]
 		public void DamageRpc(float damage, ulong damagedBy)
 		{
-			if (!IsAligned) return;
+			if (!CanInteract) return;
 			Health = Mathf.Max(0, Health - MatchReferee.Settings.ApplyDamageMultiplier(damage));
 
 			Damaged.Invoke(damage, damagedBy);

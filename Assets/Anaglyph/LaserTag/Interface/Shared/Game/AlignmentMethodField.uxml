@@ -5,5 +5,10 @@
         <ui:DropdownField name="colocation-method-field" class="stacked-field"/>
         <ui:Label name="colocation-method-status" class="body-copy"/>
         <ui:Label name="colocation-preference-status" class="body-copy"/>
+        <ui:Label name="two-tag-instructions" class="body-copy map-field-hidden">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="alignment.two-tags-description"/>
+            </Bindings>
+        </ui:Label>
     </ui:VisualElement>
 </ui:UXML>

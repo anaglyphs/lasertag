@@ -140,6 +140,7 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		private CancellationTokenSource lifetimeCtknSrc;
 		private int stateGeneration;
 		private bool detectionOverride;
+		private readonly HashSet<object> detectionRequests = new();
 
 		/// <summary>
 		/// Tag colocation needs both halves: a detector to see the tags with, and an anchor
@@ -242,13 +243,22 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			UpdateTrackerEnabled();
 		}
 
+		/// <summary>Shares filtered observations without activating registered-tag alignment.</summary>
+		public void SetDetectionRequest(object owner, bool enabled)
+		{
+			if (owner == null) throw new ArgumentNullException(nameof(owner));
+			if (enabled) detectionRequests.Add(owner);
+			else detectionRequests.Remove(owner);
+			UpdateTrackerEnabled();
+		}
+
 		private void UpdateTrackerEnabled()
 		{
 			if (tagTracker == null)
 				return;
 
 			tagTracker.tagSizeMeters = EffectiveTagSizeMeters();
-			tagTracker.enabled = IsRunning || detectionOverride;
+			tagTracker.enabled = IsRunning || detectionOverride || detectionRequests.Count > 0;
 		}
 
 		private float EffectiveTagSizeMeters()

@@ -31,7 +31,7 @@ namespace Anaglyph.LaserTag.Interface
 			// origins do not depend on a room's anchors, and untested maps stay visible.
 			LaserTagMapCoordinator manager = LaserTagMapCoordinator.Instance;
 			return manager == null || map.systemFrameForTagSetup ||
-				map.preferredColocationMethod == ColocationManager.ColocationMethod.SystemDetermined ||
+				!ColocationManager.UsesSavedReferences(map.preferredColocationMethod) ||
 				manager.GetMapPresence(map.id) != MapPresence.Elsewhere;
 		}
 

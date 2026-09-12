@@ -7,8 +7,8 @@ using UnityEngine;
 namespace Anaglyph.LaserTag.Player
 {
 	/// <summary>
-	/// Owns the local player's avatar lifecycle: one exists exactly while we are
-	/// connected, taking part, and have aligned with everyone else at least once.
+	/// Keeps one player NetworkObject for the connection. Participation and alignment
+	/// control its spatial presence, not its lifetime or synchronized attributes.
 	/// </summary>
 	public class PlayerAvatarSpawner : MonoBehaviour
 	{
@@ -18,12 +18,8 @@ namespace Anaglyph.LaserTag.Player
 
 		private NetworkObject spawned;
 
-		// Latched for the session. Colocation drops out transiently (recentering, sleep,
-		// references out of view) and the avatar carries the player's team and score, so
-		// losing alignment must not cost them either.
-		private bool hasAligned;
-
-		public bool IsParticipating { get; private set; } = true;
+		private bool participating = true;
+		public bool IsParticipating => participating && !HeadsetConfiguration.IsOperatorDevice;
 
 		private void Awake()
 		{
@@ -31,57 +27,32 @@ namespace Anaglyph.LaserTag.Player
 
 			NetcodeManagement.StateChanged += OnNetworkStateChange;
 			SyncBus.Activated += OnSessionStarted;
-			ColocationManager.Colocated += OnColocated;
 		}
 
 		private void OnDestroy()
 		{
 			NetcodeManagement.StateChanged -= OnNetworkStateChange;
 			SyncBus.Activated -= OnSessionStarted;
-			ColocationManager.Colocated -= OnColocated;
 
 			if (Instance == this)
 				Instance = null;
 		}
 
-		private void OnNetworkStateChange(NetcodeState state)
-		{
-			if (state == NetcodeState.Disconnected)
-				hasAligned = false;
-
-			Handle();
-		}
-
-		private void OnSessionStarted()
-		{
-			hasAligned = ColocationManager.IsColocated;
-			Handle();
-		}
-
-		private void OnColocated(bool isColocated)
-		{
-			if (!isColocated)
-				return;
-
-			hasAligned = true;
-			Handle();
-		}
+		private void OnNetworkStateChange(NetcodeState state) => Handle();
+		private void OnSessionStarted() => Handle();
+		private void Start() => Handle();
 
 		public void SetIsParticipating(bool isParticipating)
 		{
-			IsParticipating = isParticipating;
-
-			Handle();
-
-			MainPlayer.Instance.Respawn();
+			participating = isParticipating;
+			PlayerAvatar.Local?.RefreshParticipation();
 
 			if (!isParticipating) WeaponsManagement.CanFire = false;
 		}
 
 		private void Handle()
 		{
-			bool shouldExist = NetcodeManagement.State == NetcodeState.Connected
-				&& IsParticipating && hasAligned;
+			bool shouldExist = NetcodeManagement.State == NetcodeState.Connected;
 
 			if (shouldExist && spawned == null)
 				Spawn();

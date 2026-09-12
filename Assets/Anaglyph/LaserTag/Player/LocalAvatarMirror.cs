@@ -26,6 +26,7 @@ namespace Anaglyph.LaserTag.Player
 				return;
 
 			player = MainPlayer.Instance;
+			if (player == null) return;
 
 			MainPlayer.Died += OnDied;
 			MainPlayer.Respawned += OnRespawned;
@@ -33,17 +34,18 @@ namespace Anaglyph.LaserTag.Player
 			avatar.Damaged += OnDamaged;
 			avatar.InFriendlyBaseChanged += OnInFriendlyBaseChanged;
 			avatar.TeamOwner.TeamChanged += OnTeamChanged;
+			avatar.SpatialPresenceChanged += OnSpatialPresenceChanged;
 
 			avatar.SetAlive(player.IsAlive);
 			avatar.SetHealth(player.Health);
 			player.SetInFriendlyBase(avatar.IsInFriendlyBase);
 			player.SetTeam(avatar.Team);
-			player.SetInPlay(true);
+			player.SetInPlay(avatar.HasSpatialPresence);
 		}
 
 		public override void OnNetworkDespawn()
 		{
-			if (!IsOwner)
+			if (!IsOwner || player == null)
 				return;
 
 			MainPlayer.Died -= OnDied;
@@ -52,6 +54,7 @@ namespace Anaglyph.LaserTag.Player
 			avatar.Damaged -= OnDamaged;
 			avatar.InFriendlyBaseChanged -= OnInFriendlyBaseChanged;
 			avatar.TeamOwner.TeamChanged -= OnTeamChanged;
+			avatar.SpatialPresenceChanged -= OnSpatialPresenceChanged;
 
 			if (player != null)
 				player.SetInPlay(false);
@@ -68,6 +71,7 @@ namespace Anaglyph.LaserTag.Player
 		private void OnDamaged(float damage, ulong damagedBy) => player.Damage(damage, damagedBy);
 		private void OnInFriendlyBaseChanged(bool inFriendlyBase) => player.SetInFriendlyBase(inFriendlyBase);
 		private void OnTeamChanged(byte team) => player.SetTeam(team);
+		private void OnSpatialPresenceChanged(bool present) => player.SetInPlay(present);
 		private void OnRespawned() => avatar.SetAlive(true);
 
 		private void OnDied(ulong killerId)

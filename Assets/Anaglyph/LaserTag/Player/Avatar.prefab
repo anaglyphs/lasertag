@@ -5650,6 +5650,8 @@ GameObject:
   - component: {fileID: 2387703453467970642}
   - component: {fileID: 7938537173093428324}
   - component: {fileID: 2472858853429679913}
+  - component: {fileID: 4974279414999085115}
+  - component: {fileID: 6848734177875025052}
   m_Layer: 0
   m_Name: Avatar
   m_TagString: Player
@@ -5690,6 +5692,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   GlobalObjectIdHash: 2018407512
   InScenePlacedSourceGlobalObjectIdHash: 0
+  m_InScenePlacedDisabledByDefault: 0
   DeferredDespawnTick: 0
   Ownership: 0
   AlwaysReplicateAsRoot: 0
@@ -5718,8 +5721,6 @@ MonoBehaviour:
   headTransform: {fileID: 1420149355333452064}
   leftHandTransform: {fileID: 7101617277615030970}
   rightHandTransform: {fileID: 3726543627519253456}
-  deactivatedWhenDead:
-  - {fileID: 1866142780104944628}
   OnRespawned:
     m_PersistentCalls:
       m_Calls: []
@@ -5820,6 +5821,31 @@ MonoBehaviour:
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.Networking.LocalAvatarMirror
   ShowTopMostFoldoutHeaderGroup: 1
   avatar: {fileID: -5693910488107663892}
+--- !u!114 &4974279414999085115
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6958064522276107603}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 51d320917aa1e44908d7bbf21cafffec, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.Player.PlayerHeadsetStatus
+  ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &6848734177875025052
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6958064522276107603}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 91567d4dc536e4ae2a64acb4d3a775eb, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.Player.AvatarPresentation
 --- !u!1 &8576566119580979477
 GameObject:
   m_ObjectHideFlags: 0

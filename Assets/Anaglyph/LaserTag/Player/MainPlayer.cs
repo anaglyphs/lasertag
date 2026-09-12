@@ -29,14 +29,14 @@ namespace Anaglyph.LaserTag.Player
 		public bool IsInFriendlyBase { get; private set; }
 		public byte Team { get; private set; }
 
-		/// <summary>Whether the player currently has an avatar in the match.</summary>
-		public bool IsInPlay => hasAvatar && !IsTeamlessDuringMatch;
+		/// <summary>Whether the participating player has a valid spatial presence in the match.</summary>
+		public bool IsInPlay => hasSpatialPresence && !IsTeamlessDuringMatch;
 
 		/// <summary>A player who has not joined a team sits out until they do.</summary>
 		public bool IsTeamlessDuringMatch =>
 			Team == 0 && MatchReferee.State != MatchState.NotPlaying;
 
-		private bool hasAvatar;
+		private bool hasSpatialPresence;
 
 		public float LastDeathTime { get; private set; }
 
@@ -128,7 +128,7 @@ namespace Anaglyph.LaserTag.Player
 
 		public void SetInPlay(bool inPlay)
 		{
-			hasAvatar = inPlay;
+			hasSpatialPresence = inPlay;
 
 			if (inPlay)
 				return;
@@ -183,7 +183,7 @@ namespace Anaglyph.LaserTag.Player
 
 			ClearPassthroughEffects();
 
-			WeaponsManagement.CanFire = true;
+			WeaponsManagement.CanFire = IsInPlay;
 
 			IsAlive = true;
 			Health = MaxHealth;

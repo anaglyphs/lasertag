@@ -1128,8 +1128,17 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		/// <param name="commitTakesLease">Whether a successful <paramref name="commit"/> keeps the
 		/// lease. Providers that store it pass true; those that register a constraint and let their
 		/// own reconciliation acquire a lease from it pass false.</param>
-		public static async Awaitable<bool> TryMintAsync(AnchorRegistry registry, Pose pose,
-			Func<MintedAnchor, bool> commit, bool commitTakesLease, CancellationToken ctkn)
+		public static Awaitable<bool> TryMintAsync(AnchorRegistry registry, Pose pose,
+			Func<MintedAnchor, bool> commit, bool commitTakesLease, CancellationToken ctkn) =>
+			TryMintWithAsyncCommit(registry, pose, minted =>
+			{
+				var result = new AwaitableCompletionSource<bool>();
+				result.SetResult(commit(minted));
+				return result.Awaitable;
+			}, commitTakesLease, ctkn);
+
+		public static async Awaitable<bool> TryMintWithAsyncCommit(AnchorRegistry registry, Pose pose,
+			Func<MintedAnchor, Awaitable<bool>> commit, bool commitTakesLease, CancellationToken ctkn)
 		{
 			AnchorLease minted = null;
 			Guid guid = Guid.Empty;
@@ -1155,7 +1164,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 
 				ctkn.ThrowIfCancellationRequested();
 
-				committed = commit(new MintedAnchor(minted, guid, saved));
+				committed = await commit(new MintedAnchor(minted, guid, saved));
 				return committed;
 			}
 			finally

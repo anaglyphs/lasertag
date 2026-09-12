@@ -247,7 +247,11 @@ namespace Anaglyph.LaserTag.MapEditor
 			string registrationBlocker = manager.DescribeTagRegistrationBlocker();
 			unregisterAllTagsButton.SetEnabled(registered > 0 && manager.DescribeTagRemovalBlocker() == null);
 
-			if (registrationBlocker != null && registrationBlocker != sizeBlocker)
+			bool twoTags = (ColocationManager.Instance != null ? ColocationManager.Instance.SelectedMethod :
+				manager.CurrentMap?.preferredColocationMethod) == ColocationManager.ColocationMethod.TwoAprilTags;
+			if (twoTags)
+				tagStatus.text = MenuCopy.Get("Game", "alignment.two-tags-description");
+			else if (registrationBlocker != null && registrationBlocker != sizeBlocker)
 				tagStatus.text = MenuCopy.Format("Game", "alignment.tag-blocked", registered, registrationBlocker);
 			else if (manager.SessionIsWaitingOnFirstTag)
 				tagStatus.text = MenuCopy.Get("Game", "alignment.no-tags");

@@ -8,7 +8,7 @@ namespace Anaglyph.LaserTag
 {
 	/// <summary>Owns discovery and automatic LAN joining for a headset.</summary>
 	[DefaultExecutionOrder(-50)]
-	public sealed class SessionConnectionController : MonoBehaviour
+	public sealed class SessionDiscoveryController : MonoBehaviour
 	{
 		private const float InitialConnectDelaySeconds = 0.5f;
 		private const float ReconnectDelaySeconds = 5f;
@@ -107,13 +107,12 @@ namespace Anaglyph.LaserTag
 						MetaSessionDiscovery.Activity.Listening,
 					// The LAN host advertises its IP; the relay session owner advertises its name.
 					NetcodeState.Connected when manager != null &&
-					                            (manager.NetworkConfig.UseCMBService
-					                             ? manager.LocalClient.IsSessionOwner
-					                             : manager.IsHost) =>
+					                            manager.LocalClient.IsSessionOwner =>
 						MetaSessionDiscovery.Activity.Advertising,
 					_ => MetaSessionDiscovery.Activity.Disabled
 				};
 			}
+
 			SetDiscoveryActivity(activity);
 		}
 

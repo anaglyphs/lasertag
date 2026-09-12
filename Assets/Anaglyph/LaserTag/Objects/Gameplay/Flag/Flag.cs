@@ -104,10 +104,15 @@ namespace Anaglyph.LaserTag.Objects.Gameplay.Flag
 
 		private void Update()
 		{
+			// A hidden or disconnected player cannot keep carrying an objective. Return it
+			// through the same authority state used for ordinary drops.
+			if (IsSpawned && IsOwner && Holder != null && !Holder.CanInteract)
+				holderSync.Value = default;
+
 			if (!PlayerAvatar.Local)
 				return;
 
-			if (Holder == PlayerAvatar.Local && PlayerAvatar.Local.IsInFriendlyBase && PlayerAvatar.Local.IsAlive)
+			if (Holder == PlayerAvatar.Local && PlayerAvatar.Local.IsInFriendlyBase && PlayerAvatar.Local.CanInteract)
 			{
 				if (!captureRequested)
 				{
@@ -130,18 +135,18 @@ namespace Anaglyph.LaserTag.Objects.Gameplay.Flag
 			if (player == null || player != PlayerAvatar.Local)
 				return;
 
-			bool isAlive = player.IsAlive;
+			bool canInteract = player.CanInteract;
 			bool hasTeam = player.Team != 0;
 			bool isOtherTeam = teamOwner.Team != player.Team;
 			bool isInBase = player.IsInBase; // prevent crazy flag take & score loop if flag is in base lol
 
-			if (isAlive && hasTeam && isOtherTeam && !isInBase)
+			if (canInteract && hasTeam && isOtherTeam && !isInBase)
 				RequestTakeRpc();
 		}
 
 		private void LateUpdate()
 		{
-			if (Holder)
+			if (Holder && Holder.CanInteract)
 			{
 				Vector3 heldPosHeadRelative = Holder.HeadTransform.TransformPoint(heldOffsetHeadRelative);
 				visual.position = heldPosHeadRelative + heldOffsetGlobal;
@@ -169,7 +174,8 @@ namespace Anaglyph.LaserTag.Objects.Gameplay.Flag
 				return; // already claimed - whichever request the server processes first wins
 
 			ulong sender = rpc.Receive.SenderClientId;
-			if (!PlayerAvatar.All.TryGetValue(sender, out PlayerAvatar player))
+			if (!PlayerAvatar.All.TryGetValue(sender, out PlayerAvatar player) ||
+				!player.CanInteract || player.Team == 0 || player.Team == Team || player.IsInBase)
 				return;
 
 			holderSync.Value = new NetworkBehaviourReference(player);
@@ -197,7 +203,7 @@ namespace Anaglyph.LaserTag.Objects.Gameplay.Flag
 			    carryEpoch != carryEpochSync.Value ||
 			    !holderSync.Value.TryGet(out PlayerAvatar holder) ||
 			    holder != player ||
-			    !player.IsAlive ||
+			    !player.CanInteract ||
 			    player.Team == 0 ||
 			    player.Team == Team)
 				return;

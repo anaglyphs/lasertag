@@ -33,7 +33,7 @@ namespace Anaglyph.LaserTag.Objects.Gameplay.Base
 			color = Color.white;
 
 			PlayerAvatar local = PlayerAvatar.Local;
-			if (local == null)
+			if (local == null || !local.HasSpatialPresence)
 				return false;
 
 			// teamless players need to find a base to join one

@@ -17,6 +17,10 @@
     flex-shrink: 0;
 }
 
+.map-field-hidden {
+    display: none;
+}
+
 .map-settings-spacer,
 .map-settings-scroll {
     flex-grow: 1;

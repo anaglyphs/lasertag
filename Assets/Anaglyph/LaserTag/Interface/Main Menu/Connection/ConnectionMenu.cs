@@ -25,13 +25,14 @@ namespace Anaglyph.LaserTag.Interface
 		[SerializeField] private BoolObject hostOnRelaySetting;
 
 		private NavView navView;
+		private VisualElement multiplayerPanel;
 		private NavPage homePage;
 		private NavPage sessionPage;
 		private NavPage networkErrorModal;
 		private NavPage bluetoothErrorModal;
 		private MenuErrorPresenter errors;
 		private UIToolkitPanelXRSetup panel;
-		private SessionConnectionController sessionConnectionController;
+		private SessionDiscoveryController sessionDiscoveryController;
 
 		private Toggle hostOnRelayToggle;
 		private Label hostOnRelayWarning;
@@ -65,6 +66,7 @@ namespace Anaglyph.LaserTag.Interface
 			// must happen before anything subscribes to Button.clicked
 			root.MakeButtonsActOnPress();
 
+			multiplayerPanel = root.Q<VisualElement>(className: "multiplayer-panel");
 			navView = NavView.RequireIn(root);
 			homePage = navView.GetPage("home-page");
 			sessionPage = navView.GetPage("session-page");
@@ -122,16 +124,16 @@ namespace Anaglyph.LaserTag.Interface
 		private void Awake()
 		{
 			errors = new MenuErrorPresenter(UserErrorArea.Connection);
-			sessionConnectionController =
-				GetComponentInParent<SessionConnectionController>();
-			if (sessionConnectionController == null)
+			sessionDiscoveryController =
+				GetComponentInParent<SessionDiscoveryController>();
+			if (sessionDiscoveryController == null)
 				throw new InvalidOperationException(
 					"ConnectionMenu requires SessionConnectionController in its parent hierarchy.");
 		}
 
 		private void OnDestroy()
 		{
-			sessionConnectionController?.SetMenuAllowsListening(true);
+			sessionDiscoveryController?.SetMenuAllowsListening(true);
 			errors?.Dispose();
 			connectivity.Dispose();
 		}
@@ -180,7 +182,7 @@ namespace Anaglyph.LaserTag.Interface
 			hostOnRelaySetting.Changed -= OnHostOnRelaySettingChange;
 			if (panel != null)
 				panel.VisibleChanged -= OnPanelVisibilityChanged;
-			sessionConnectionController?.SetMenuAllowsListening(true);
+			sessionDiscoveryController?.SetMenuAllowsListening(true);
 
 			if (navView != null)
 			{
@@ -202,7 +204,7 @@ namespace Anaglyph.LaserTag.Interface
 
 			string key = connectivity.HasBluetoothState && !connectivity.BluetoothIsEnabled
 				? "discovery.bluetooth-off"
-				: sessionConnectionController != null && sessionConnectionController.IsListening
+				: sessionDiscoveryController != null && sessionDiscoveryController.IsListening
 					? "discovery.searching"
 					: "discovery.preparing";
 			if (key == shownDiscoveryKey) return;
@@ -250,7 +252,7 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void RefreshSessionConnectionState()
 		{
-			sessionConnectionController?.SetMenuAllowsListening(
+			sessionDiscoveryController?.SetMenuAllowsListening(
 				AutomaticDiscoveryAllowed());
 			if (sessionDiscoveryStatus != null)
 				sessionDiscoveryStatus.Flashing = isActiveAndEnabled &&
@@ -259,6 +261,8 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void OnNetcodeStateChanged(NetcodeState state)
 		{
+			multiplayerPanel.EnableInClassList("session-connected", state == NetcodeState.Connected);
+
 			switch (state)
 			{
 				case NetcodeState.Disconnected:

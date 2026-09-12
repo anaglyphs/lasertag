@@ -60,6 +60,7 @@ namespace Anaglyph.LaserTag.Player
 
 		private void Apply()
 		{
+			if (!driving || !avatar.HasSpatialPresence) return;
 			LocalRig rig = LocalRig.Instance;
 
 			if (rig == null)

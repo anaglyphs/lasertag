@@ -37,6 +37,7 @@ namespace Anaglyph.LaserTag.Tests
 		[TestCase(ColocationManager.ColocationMethod.MetaSharedAnchor)]
 		[TestCase(ColocationManager.ColocationMethod.AprilTag)]
 		[TestCase(ColocationManager.ColocationMethod.SystemDetermined)]
+		[TestCase(ColocationManager.ColocationMethod.TwoAprilTags)]
 		public void PreferenceSurvivesCloningSavingAndReopening(ColocationManager.ColocationMethod preference)
 		{
 			manager.SetTags(new[] { new MapTagEntry { id = 7, canonPose = Pose.identity } }, 10f);
@@ -45,6 +46,22 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(manager.Save(), Is.True);
 			Assert.That(new MapStore(directory).TryGet(manager.CurrentId, out GameMap loaded), Is.True);
 			Assert.That(loaded.preferredColocationMethod, Is.EqualTo(preference));
+			Assert.That(loaded.tagSizeCm, Is.EqualTo(10f));
+		}
+
+		[Test]
+		public void SwitchingBetweenTagMethodsKeepsOneSharedSizeAndRetainsRegistrations()
+		{
+			manager.SetTags(new[] { new MapTagEntry { id = 37, canonPose = Pose.identity } }, 18f);
+			foreach (var method in new[] { ColocationManager.ColocationMethod.TwoAprilTags, ColocationManager.ColocationMethod.AprilTag })
+			{
+				manager.SetPreferredColocationMethod(method);
+				Assert.That(manager.Save(), Is.True);
+				Assert.That(new MapStore(directory).TryGet(manager.CurrentId, out GameMap loaded), Is.True);
+				Assert.That(loaded.tagSizeCm, Is.EqualTo(18f));
+				Assert.That(loaded.tags.Count, Is.EqualTo(1));
+				Assert.That(loaded.tags[0].id, Is.EqualTo(37));
+			}
 		}
 
 		[Test]

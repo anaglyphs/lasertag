@@ -26,11 +26,16 @@ namespace Anaglyph.LaserTag
 		{
 			MetaSharedAnchor = 0,
 			AprilTag = 1,
-			SystemDetermined = 2
+			SystemDetermined = 2,
+			TwoAprilTags = 3
 		}
 
 		public static bool IsValidMethod(ColocationMethod method) =>
-			method is ColocationMethod.MetaSharedAnchor or ColocationMethod.AprilTag or ColocationMethod.SystemDetermined;
+			method is ColocationMethod.MetaSharedAnchor or ColocationMethod.AprilTag or
+				ColocationMethod.SystemDetermined or ColocationMethod.TwoAprilTags;
+
+		public static bool UsesSavedReferences(ColocationMethod method) =>
+			method is ColocationMethod.MetaSharedAnchor or ColocationMethod.AprilTag;
 
 		public static bool IsColocated { get; private set; }
 		public static Action<bool> Colocated = delegate { };
@@ -48,16 +53,17 @@ namespace Anaglyph.LaserTag
 
 		public static bool RequiresTagSetup(ColocationMethod current, ColocationMethod requested, bool hasTags) =>
 			current == ColocationMethod.SystemDetermined && requested == ColocationMethod.AprilTag && !hasTags;
-		public ColocationMethod PreferredSessionMethod => PreferredAvailableMethod == ColocationMethod.SystemDetermined
-			? ColocationMethod.SystemDetermined : (mapHasTags || !mapHasAnchors) && spatialAnchorColocationProvider != null &&
-			!spatialAnchorColocationProvider.CanShareAnchors ? ColocationMethod.AprilTag : PreferredAvailableMethod;
+		public ColocationMethod PreferredSessionMethod => !UsesSavedReferences(PreferredAvailableMethod)
+			? PreferredAvailableMethod : (mapHasTags || !mapHasAnchors) && spatialAnchorColocationProvider != null &&
+			!HeadsetConfiguration.SessionIsOperatorManaged && !spatialAnchorColocationProvider.CanShareAnchors
+			? ColocationMethod.AprilTag : PreferredAvailableMethod;
 
 		public static ColocationMethod CompatibleMethod(ColocationMethod requested, bool hasTags,
 			bool hasContent, bool hasAnchors, bool systemFrameForTagSetup = false)
 		{
 			if (systemFrameForTagSetup && requested == ColocationMethod.AprilTag && !hasTags)
 				return ColocationMethod.SystemDetermined;
-			if (requested == ColocationMethod.SystemDetermined) return requested;
+			if (!UsesSavedReferences(requested)) return requested;
 			if (!hasTags && hasAnchors) return ColocationMethod.MetaSharedAnchor;
 			if (hasTags && !hasAnchors) return ColocationMethod.AprilTag;
 			return requested;
@@ -65,10 +71,16 @@ namespace Anaglyph.LaserTag
 		public event Action MethodChanged = delegate { };
 
 		// The map coordinator prepares reference state before committing a live change.
-		internal void CommitMethod(ColocationMethod method) => methodSync.Value = method;
+		internal void CommitMethod(ColocationMethod method)
+		{
+			if (methodSync.Value == method) return;
+			spatialAnchorColocationProvider?.InvalidateReferenceContext();
+			methodSync.Value = method;
+		}
 
 		[SerializeField] private Colocator colocator;
 		private SystemDeterminedColocationConstraintProvider systemDeterminedProvider;
+		private TwoAprilTagColocationConstraintProvider twoAprilTagProvider;
 
 		[FormerlySerializedAs("spatialAnchorProvider")] [SerializeField] private SpatialAnchorColocationConstraintProvider spatialAnchorColocationProvider;
 		[FormerlySerializedAs("tagProvider")] [SerializeField] private AprilTagColocationConstraintProvider aprilTagColocationProvider;
@@ -91,8 +103,12 @@ namespace Anaglyph.LaserTag
 		public bool UsingSystemDeterminedProvider =>
 			systemDeterminedProvider != null && ReferenceEquals(ActiveProvider, systemDeterminedProvider);
 
+		public bool UsingTwoAprilTagProvider =>
+			twoAprilTagProvider != null && ReferenceEquals(ActiveProvider, twoAprilTagProvider);
+
 		public SpatialAnchorColocationConstraintProvider AnchorProvider => spatialAnchorColocationProvider;
 		public AprilTagColocationConstraintProvider TagProvider => aprilTagColocationProvider;
+		public TwoAprilTagColocationConstraintProvider TwoTagProvider => twoAprilTagProvider;
 
 		/// <summary>How well the applied alignment currently fits the references being observed.</summary>
 		public FitAgreement Agreement => colocator != null ? colocator.Agreement : default;
@@ -107,13 +123,15 @@ namespace Anaglyph.LaserTag
 		/// <summary>
 		/// How many references the active provider can try to realize. Count its own set rather
 		/// than the map's union of private and shared UUIDs for the same physical references.
-		/// System-determined alignment contributes the one origin guaranteed by that contract.
+		/// System-determined alignment contributes one origin; two-tag alignment always waits
+		/// for two physical points, including on an empty map before either has been seen.
 		/// The map coordinator decides whether zero references allows a blank-world bootstrap.
 		/// </summary>
 		public int CountRealizableReferences()
 		{
 			if (ActiveProvider == null || !ActiveProvider.IsAvailable) return 0;
 			if (UsingSystemDeterminedProvider) return 1;
+			if (UsingTwoAprilTagProvider) return 2;
 			return UsingTagProvider ? aprilTagColocationProvider.LocalAnchorCount
 				: spatialAnchorColocationProvider.Constraints.Count;
 		}
@@ -152,6 +170,8 @@ namespace Anaglyph.LaserTag
 			if (!aprilTagColocationProvider) aprilTagColocationProvider = AprilTagColocationConstraintProvider.Instance;
 			systemDeterminedProvider = new SystemDeterminedColocationConstraintProvider(
 				MainXRRig.Instance != null ? MainXRRig.TrackingSpace : null);
+			twoAprilTagProvider = new TwoAprilTagColocationConstraintProvider(aprilTagColocationProvider,
+				AnchorRegistry.Instance, MainXRRig.Instance != null ? MainXRRig.TrackingSpace : null);
 
 			methodSync.Register();
 			methodSync.Synced += OnMethodSynced;
@@ -168,7 +188,11 @@ namespace Anaglyph.LaserTag
 		{
 
 			if (colocator)
+			{
+				colocator.Provider?.StopProviding();
 				colocator.SetProvider(null);
+			}
+			twoAprilTagProvider?.StopProviding();
 
 			SyncBus.Activated -= OnBusActivated;
 			SyncBus.Deactivated -= OnBusDeactivated;
@@ -186,8 +210,8 @@ namespace Anaglyph.LaserTag
 			{
 				// An existing tagless map must first be aligned through its anchors before a
 				// first tag can be registered in that frame. Blank maps can bootstrap with tags.
-				// A desktop authority cannot upload anchors; use the map's tags without
-				// rewriting its saved preference.
+				// An operator delegates native anchor work to a headset; its own runtime
+				// does not restrict the session method.
 				methodSync.Value = PreferredSessionMethod;
 				UpdateProvider();
 			}
@@ -230,8 +254,8 @@ namespace Anaglyph.LaserTag
 		}
 
 		/// <summary>
-		/// Selects exactly one self-contained provider. System-determined mode uses the runtime's
-		/// origin directly, regardless of any retained anchors or tags. Offline, tag mode is valid only for a map
+		/// Selects exactly one self-contained provider. System and two-tag modes ignore retained
+		/// map references. Offline, registered-tag mode is valid only for a map
 		/// that contains registered tags; in a session it is selected regardless, so an empty map
 		/// can still receive its first registration. A tag-enabled map may instead use
 		/// shared-anchor mode, but roaming minting remains disabled so every saved anchor keeps a
@@ -250,6 +274,10 @@ namespace Anaglyph.LaserTag
 				{
 					next = systemDeterminedProvider;
 				}
+				else if (SelectedMethod == ColocationMethod.TwoAprilTags)
+				{
+					next = twoAprilTagProvider;
+				}
 				else if (SelectedMethod == ColocationMethod.AprilTag)
 				{
 					// In a session the method is the session's contract, so tag mode selects the
@@ -265,6 +293,7 @@ namespace Anaglyph.LaserTag
 				}
 			}
 
+			if (!ReferenceEquals(colocator.Provider, next)) colocator.Provider?.StopProviding();
 			colocator.SetProvider(next);
 
 			if (next == null)
@@ -274,7 +303,12 @@ namespace Anaglyph.LaserTag
 				return;
 			}
 
-			if (!MainXRRig.Instance) return;
+			if (!MainXRRig.Instance)
+			{
+				// The operator still receives and validates provider state without a local XR rig.
+				next.StartProviding();
+				return;
+			}
 
 			colocator.StateChanged -= OnColocatorStateChanged;
 			colocator.StateChanged += OnColocatorStateChanged;
@@ -307,6 +341,8 @@ namespace Anaglyph.LaserTag
 		// IsColocated can go false mid-session rather than only when the session ends.
 		private void OnColocatorStateChanged(ColocationAlignmentState alignmentState)
 		{
+			if (alignmentState != ColocationAlignmentState.Localized)
+				spatialAnchorColocationProvider?.InvalidateLocalFrame();
 			// The solver already handles runtimes without reference support. Simulated XR
 			// must satisfy the same alignment state that telemetry reports to the operator.
 			SetColocated(alignmentState == ColocationAlignmentState.Localized);

@@ -103,6 +103,7 @@ namespace Anaglyph.LaserTag.Interface
 			if (presented && navView.CurrentPage == alignmentSettingsPage)
 			{
 				alignmentMethod.Refresh();
+				UpdateToolForPage();
 				setupTagsButton.SetEnabled(LaserTagMapCoordinator.Instance?.DescribeTagSetupBlocker() == null);
 			}
 			if (presented && navView.CurrentPage != alignmentSettingsPage)

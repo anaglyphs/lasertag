@@ -13,6 +13,7 @@ namespace Anaglyph.LaserTag.Interface
 		private readonly DropdownField methodField;
 		private readonly Label methodStatus;
 		private readonly Label preferenceStatus;
+		private readonly Label twoTagInstructions;
 		private readonly UIEventBindings bindings = new();
 		private string contextStatus;
 
@@ -20,7 +21,8 @@ namespace Anaglyph.LaserTag.Interface
 		private bool SettingUpTags => ColocationManager.Instance != null && ColocationManager.Instance.IsSettingUpTags;
 		public ColocationManager.ColocationMethod DisplayedMethod => InSession && !SettingUpTags
 			? ColocationManager.Instance.Method : Preference;
-		public bool UsesTags => DisplayedMethod == ColocationManager.ColocationMethod.AprilTag;
+		public bool UsesTags => DisplayedMethod is ColocationManager.ColocationMethod.AprilTag or
+			ColocationManager.ColocationMethod.TwoAprilTags;
 		public string Status { get; private set; }
 
 		private static ColocationManager.ColocationMethod Preference =>
@@ -35,6 +37,7 @@ namespace Anaglyph.LaserTag.Interface
 			methodField = Require<DropdownField>(root, "colocation-method-field");
 			methodStatus = Require<Label>(root, "colocation-method-status");
 			preferenceStatus = Require<Label>(root, "colocation-preference-status");
+			twoTagInstructions = Require<Label>(root, "two-tag-instructions");
 			RefreshChoices();
 			bindings.Value(methodField, OnMethodChanged);
 			MenuCopy.Changed += OnCopyChanged;
@@ -51,7 +54,7 @@ namespace Anaglyph.LaserTag.Interface
 			methodField.choices = new List<string>
 			{
 				MenuCopy.Get("Game", "alignment.anchors"), MenuCopy.Get("Game", "alignment.tags"),
-				MenuCopy.Get("Game", "alignment.system")
+				MenuCopy.Get("Game", "alignment.system"), MenuCopy.Get("Game", "alignment.two-tags")
 			};
 		}
 
@@ -89,11 +92,21 @@ namespace Anaglyph.LaserTag.Interface
 			Status = blocker ?? contextStatus;
 			if (manager != null && manager.IsChangingColocation)
 				Status = MenuCopy.Get("Game", "alignment.preparing");
+			else if (inSession && displayed == ColocationManager.ColocationMethod.MetaSharedAnchor &&
+				ColocationManager.Instance.AnchorProvider != null)
+			{
+				var anchors = ColocationManager.Instance.AnchorProvider;
+				Status ??= anchors.HasMinter
+					? MenuCopy.Format("Game", "alignment.anchor-minter", anchors.Minter.clientId)
+					: MenuCopy.Get("Game", "alignment.waiting-for-anchor-headset");
+			}
 			else if (SettingUpTags)
 				Status ??= MenuCopy.Get("Game", "alignment.system-tag-setup");
 			else if (displayed == ColocationManager.ColocationMethod.SystemDetermined)
 				Status ??= MenuCopy.Get("Game", "alignment.system-description");
 			SetMessage(methodStatus, Status);
+			twoTagInstructions.EnableInClassList("map-field-hidden",
+				displayed != ColocationManager.ColocationMethod.TwoAprilTags);
 		}
 
 		private static void SetMessage(Label label, string message)

@@ -25,7 +25,7 @@ namespace Anaglyph.LaserTag.Interface
 		private bool cameraRequestInFlight;
 		private bool limitedSupportAcknowledged;
 		private string statusKey;
-		private SessionConnectionController sessionConnectionController;
+		private SessionDiscoveryController sessionDiscoveryController;
 		private UIToolkitPanelXRSetup gatePanel;
 
 		private NavView navView;
@@ -45,9 +45,9 @@ namespace Anaglyph.LaserTag.Interface
 				throw new InvalidOperationException(
 					"GateMenu requires a permission UIDocument.");
 
-			sessionConnectionController =
-				GetComponentInParent<SessionConnectionController>();
-			if (sessionConnectionController == null)
+			sessionDiscoveryController =
+				GetComponentInParent<SessionDiscoveryController>();
+			if (sessionDiscoveryController == null)
 				throw new InvalidOperationException(
 					"GateMenu requires SessionConnectionController in its parent hierarchy.");
 			gatePanel = GetComponent<UIToolkitPanelXRSetup>();
@@ -74,7 +74,7 @@ namespace Anaglyph.LaserTag.Interface
 		private void OnDestroy()
 		{
 			if (gatePanel != null) gatePanel.VisibleChanged -= OnPanelVisibilityChanged;
-			sessionConnectionController?.SetRequiredPermissionsGranted(false);
+			sessionDiscoveryController?.SetRequiredPermissionsGranted(false);
 		}
 
 		private void OnApplicationFocus(bool hasFocus)
@@ -108,7 +108,7 @@ namespace Anaglyph.LaserTag.Interface
 			UpdatePermissionToggle(cameraPermissionToggle, cameraAuthorization, cameraRequestInFlight);
 			UpdateStatus();
 			navView.SetModalPresented(limitedSupportModal, warnLimitedSupport, 100);
-			sessionConnectionController.SetRequiredPermissionsGranted(requiredPermissionsGranted);
+			sessionDiscoveryController.SetRequiredPermissionsGranted(requiredPermissionsGranted);
 			RefreshAccess(firstCheck);
 		}
 

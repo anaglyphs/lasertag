@@ -8,8 +8,8 @@ namespace Anaglyph.LaserTag.Player
 {
 	/// <summary>
 	/// What an operator needs to know about a connected headset that the game itself
-	/// doesn't care about. Sampled by the owner and replicated on
-	/// <see cref="PlayerAvatar"/>, so it arrives and leaves with the headset.
+	/// doesn't care about. Sampled by <see cref="PlayerHeadsetStatus"/> on the player's
+	/// network object, so it is available before alignment and while sitting out.
 	///
 	/// Controllers report tracking rather than battery because nothing on this stack reports
 	/// their battery: OpenXR exposes no battery at all, and Meta deprecated the OVRInput reads
@@ -39,6 +39,13 @@ namespace Anaglyph.LaserTag.Player
 		public byte rightHandTracking;
 
 		public const byte TrackingUnavailable = 255;
+
+		public static HeadsetTelemetry Unknown => new()
+		{
+			batteryPercent = UnknownBatteryPercent,
+			leftHandTracking = TrackingUnavailable,
+			rightHandTracking = TrackingUnavailable
+		};
 
 		public bool BatteryIsKnown => batteryPercent != UnknownBatteryPercent;
 

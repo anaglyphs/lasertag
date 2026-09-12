@@ -321,13 +321,16 @@ namespace Anaglyph.LaserTag.Matches
 		private static bool AllPlayersInBase()
 		{
 			if (LaserTagMapCoordinator.Instance != null && LaserTagMapCoordinator.Instance.IsChangingColocation) return false;
-			if (PlayerAvatar.All.Count == 0) return false;
-
+			bool anyParticipating = false;
 			foreach (PlayerAvatar player in PlayerAvatar.All.Values)
-				if (!player.IsAligned || !player.IsInBase)
+			{
+				if (!player.IsParticipating) continue;
+				anyParticipating = true;
+				if (!player.HasSpatialPresence || !player.IsInBase)
 					return false;
+			}
 
-			return true;
+			return anyParticipating;
 		}
 
 		// A round is decided by elimination once every living player is on one
@@ -336,13 +339,14 @@ namespace Anaglyph.LaserTag.Matches
 		{
 			winner = 0;
 
-			if (PlayerAvatar.All.Count == 0) return false;
-
+			bool anyParticipant = false;
 			bool anyAlive = false;
 			byte aliveTeam = 0;
 
 			foreach (PlayerAvatar player in PlayerAvatar.All.Values)
 			{
+				if (!player.IsRoundParticipant) continue;
+				anyParticipant = true;
 				if (!player.IsAlive) continue;
 
 				if (!anyAlive)
@@ -356,10 +360,11 @@ namespace Anaglyph.LaserTag.Matches
 				}
 			}
 
+			if (!anyParticipant) return false;
 			if (!anyAlive) return true; // mutual elimination: draw
 
 			foreach (PlayerAvatar player in PlayerAvatar.All.Values)
-				if (player.Team != aliveTeam)
+				if (player.IsRoundParticipant && player.Team != aliveTeam)
 				{
 					winner = aliveTeam;
 					return true;

@@ -10,11 +10,15 @@ namespace Anaglyph.LaserTag.Tests
 		[TestCase(ColocationManager.ColocationMethod.SystemDetermined, false, false, true)]
 		[TestCase(ColocationManager.ColocationMethod.SystemDetermined, false, true, true)]
 		[TestCase(ColocationManager.ColocationMethod.SystemDetermined, true, true, true)]
+		[TestCase(ColocationManager.ColocationMethod.TwoAprilTags, false, false, true)]
+		[TestCase(ColocationManager.ColocationMethod.TwoAprilTags, false, true, true)]
+		[TestCase(ColocationManager.ColocationMethod.TwoAprilTags, true, true, true)]
 		[TestCase(ColocationManager.ColocationMethod.AprilTag, false, false, true)]
-		[TestCase(ColocationManager.ColocationMethod.AprilTag, false, true, false)]
+		[TestCase(ColocationManager.ColocationMethod.AprilTag, false, true, true)]
 		[TestCase(ColocationManager.ColocationMethod.MetaSharedAnchor, true, true, true)]
-		[TestCase(ColocationManager.ColocationMethod.MetaSharedAnchor, false, true, false)]
-		public void StartupAndPickerAcceptSystemMapsWithoutRequiringTags(
+		[TestCase(ColocationManager.ColocationMethod.MetaSharedAnchor, false, false, true)]
+		[TestCase(ColocationManager.ColocationMethod.MetaSharedAnchor, false, true, true)]
+		public void StartupAndPickerAcceptEverySupportedAlignmentMethod(
 			ColocationManager.ColocationMethod method, bool tags, bool anchors, bool expected)
 		{
 			GameMap map = new() { preferredColocationMethod = method };

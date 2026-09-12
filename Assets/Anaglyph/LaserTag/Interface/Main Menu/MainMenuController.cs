@@ -30,7 +30,7 @@ namespace Anaglyph.LaserTag.Interface
 		private GateMenu gateMenu;
 		private UIToolkitPanelXRSetup gatePanel;
 		private UIToolkitPanelXRSetup[] menuPanels;
-		private SessionConnectionController sessionConnectionController;
+		private SessionDiscoveryController sessionDiscoveryController;
 		private GateMenu.AccessState lastAccess;
 		private GateMenu.AccessState displayedAccess;
 		private bool initializedVisibility;
@@ -48,8 +48,8 @@ namespace Anaglyph.LaserTag.Interface
 					"MainMenuController requires a GateMenu in its child hierarchy.");
 
 			gatePanel = gateMenu.GetComponent<UIToolkitPanelXRSetup>();
-			sessionConnectionController = GetComponent<SessionConnectionController>();
-			if (gatePanel == null || sessionConnectionController == null)
+			sessionDiscoveryController = GetComponent<SessionDiscoveryController>();
+			if (gatePanel == null || sessionDiscoveryController == null)
 				throw new InvalidOperationException(
 					"MainMenuController requires a gate panel and SessionConnectionController.");
 			menuPanels = new UIToolkitPanelXRSetup[panels.Length];
@@ -254,7 +254,7 @@ namespace Anaglyph.LaserTag.Interface
 			ApplyPanelLayout();
 			ApplyPanelVisibility();
 			if (!visible) gateMenu.ResetPasswordAccess();
-			sessionConnectionController.SetRecoveryMenuOpen(visible && recoveryRequested);
+			sessionDiscoveryController.SetRecoveryMenuOpen(visible && recoveryRequested);
 		}
 
 		private void ApplyPanelVisibility()
