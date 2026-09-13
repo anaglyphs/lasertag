@@ -100,6 +100,20 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		public IReadOnlyDictionary<int, Pose> RegisteredTags => registeredTags;
 		public int LocalAnchorCount => localAnchors.Count;
 		public Func<ulong, int, Pose, bool> RegistrationGate { get; set; }
+		public Guid ReferenceContext { get; set; }
+		public Func<ulong, bool> ReferenceEditGate { get; set; }
+		private struct ReferenceEdit { public Guid context; public byte action; public int id; public Pose pose; public float size; }
+		private readonly SyncEvent<ReferenceEdit> referenceEdit = new("colocation.tags.edit", EventRoute.ToAuthority);
+		private void OnReferenceEdit(ulong sender, ReferenceEdit edit)
+		{
+			if (edit.context != ReferenceContext || !(ReferenceEditGate?.Invoke(sender) ?? true)) return;
+			switch (edit.action)
+			{
+				case 0: if (ValidateTagRegistration(sender, edit.id, edit.pose)) registeredTags.Set(edit.id, edit.pose); break;
+				case 1: registeredTags.Remove(edit.id); break;
+				case 2: if (ValidateTagSize(sender, edit.size)) tagSizeSync.Value = edit.size; break;
+			}
+		}
 
 		public event Action TagsChanged = delegate { };
 
@@ -165,14 +179,18 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 				tagTracker = FindAnyObjectByType<AprilTagTracker>();
 
 			registeredTags.ResetOnDeactivate = false;
-			registeredTags.ValidateSet = ValidateTagRegistration;
+			registeredTags.ValidateSet = (_, _, _) => false;
+			registeredTags.ValidateRemove = (_, _) => false;
+			registeredTags.ValidateClear = _ => false;
+			referenceEdit.Register(); referenceEdit.Received += OnReferenceEdit;
 			registeredTags.Register();
 			registeredTags.Changed += OnTagsChanged;
 
-			tagSizeSync.Validate = ValidateTagSize;
+			tagSizeSync.Validate = (_, _) => false;
 			tagSizeSync.Register();
 			tagSizeSync.Changed += OnTagSizeChanged;
 			SyncBus.Activated += OnBusActivated;
+			MainXRRig.Recentered += InvalidatePendingObservations;
 
 			if (tagTracker != null)
 				tagTracker.OnDetectTags += OnDetectTags;
@@ -192,11 +210,13 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 				tagTracker.OnDetectTags -= OnDetectTags;
 
 			SyncBus.Activated -= OnBusActivated;
+			MainXRRig.Recentered -= InvalidatePendingObservations;
 			tagSizeSync.Changed -= OnTagSizeChanged;
 			tagSizeSync.Unregister();
 
 			registeredTags.Changed -= OnTagsChanged;
 			registeredTags.Unregister();
+			referenceEdit.Received -= OnReferenceEdit; referenceEdit.Unregister();
 
 			if (Instance == this)
 				Instance = null;
@@ -291,8 +311,10 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		private void OnApplicationFocus(bool focused)
 		{
 			if (!focused)
-				corrections.Clear();
+				InvalidatePendingObservations();
 		}
+		private void OnApplicationPause(bool paused) { if (paused) InvalidatePendingObservations(); }
+		private void InvalidatePendingObservations() { stateGeneration++; corrections.Clear(); }
 
 		// ------- state import/export ------------------------------
 
@@ -314,7 +336,7 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		/// </summary>
 		public void RequestRegisterTag(int tagId, Pose canonPose)
 		{
-			registeredTags.RequestSet(tagId, canonPose);
+			referenceEdit.Raise(new() { context = ReferenceContext, action = 0, id = tagId, pose = canonPose });
 		}
 
 		/// <summary>
@@ -324,7 +346,7 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		/// </summary>
 		public void RequestUnregisterTag(int tagId)
 		{
-			registeredTags.RequestRemove(tagId);
+			referenceEdit.Raise(new() { context = ReferenceContext, action = 1, id = tagId });
 		}
 
 		/// <summary>
@@ -334,7 +356,7 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		/// </summary>
 		public void RequestTagSize(float centimeters)
 		{
-			tagSizeSync.Request(Mathf.Max(0f, centimeters));
+			referenceEdit.Raise(new() { context = ReferenceContext, action = 2, size = centimeters });
 		}
 
 		/// <summary>
@@ -562,15 +584,18 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 
 		private async void MintTagAnchor(int tagId, Pose observedTag, Pose canonTag, LocalAnchor replacing)
 		{
-			if (!AnchorsAvailable || !mintsInFlight.Add(tagId))
+			if (!AnchorsAvailable || !MainXRRig.Instance || !MainXRRig.TrackingSpace || !mintsInFlight.Add(tagId))
 				return;
 
 			int generation = stateGeneration;
+			Transform trackingSpace = MainXRRig.TrackingSpace;
+			Pose trackingTag = new(trackingSpace.InverseTransformPoint(observedTag.position),
+				Quaternion.Inverse(trackingSpace.rotation) * observedTag.rotation);
 
 			try
 			{
 				await AnchorMinting.TryMintAsync(registry, observedTag,
-					minted => CommitTagAnchor(tagId, canonTag, generation, minted, replacing),
+					minted => CommitTagAnchor(tagId, canonTag, trackingTag, trackingSpace, generation, minted, replacing),
 					commitTakesLease: true, lifetimeCtknSrc.Token);
 			}
 			catch (OperationCanceledException)
@@ -590,15 +615,24 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		/// Takes a minted anchor as this tag's realization, unless the state it was minted for has
 		/// moved on. Refusing it erases the save, so the tag is minted again next time it is seen.
 		/// </summary>
-		private bool CommitTagAnchor(int tagId, Pose canonTag, int generation, MintedAnchor minted, LocalAnchor replacing)
+		private bool CommitTagAnchor(int tagId, Pose canonTag, Pose trackingTag, Transform trackingSpace,
+			int generation, MintedAnchor minted, LocalAnchor replacing)
 		{
 			if (!IsRunning || generation != stateGeneration ||
-			    !registeredTags.ContainsKey(tagId))
+			    !registeredTags.ContainsKey(tagId) || !trackingSpace)
 				return false;
 
 			localAnchors.TryGetValue(tagId, out LocalAnchor current);
 			if (!ReferenceEquals(current, replacing) || IsTracking(current))
 				return false;
+			AnchorHandle handle = minted.lease?.Handle;
+			if (handle == null || handle.state != AnchorHandle.State.Active || !handle.anchor || handle.anchor.trackingState != TrackingState.Tracking)
+				return false;
+
+			// Native creation need not preserve the requested tag pose. Relate the actual
+			// anchor to the tag in one current frame, even if the rig moved during the await.
+			Pose observedTag = new(trackingSpace.TransformPoint(trackingTag.position), trackingSpace.rotation * trackingTag.rotation);
+			Pose canonAnchor = CanonicalAnchorPose(canonTag, observedTag, handle.anchor.transform);
 
 			// A saved UUID can fail to restore indefinitely. Keep it until a fresh observation
 			// has produced a replacement, and reject that replacement if the old anchor
@@ -607,7 +641,7 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			{
 				guid = minted.guid,
 				tagId = tagId,
-				canon = canonTag,
+				canon = canonAnchor,
 				lease = minted.lease,
 			};
 			replacing?.lease?.Dispose();
@@ -624,6 +658,12 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			return handle != null && handle.state == AnchorHandle.State.Active &&
 				handle.anchor != null && handle.anchor.trackingState == TrackingState.Tracking;
 		}
+		private static Pose CanonicalAnchorPose(Pose canonTag, Pose observedTag, Transform observedAnchor)
+		{
+			Quaternion rotation = canonTag.rotation * Quaternion.Inverse(observedTag.rotation);
+			return new Pose(canonTag.position + rotation * (observedAnchor.position - observedTag.position),
+				rotation * observedAnchor.rotation);
+		}
 
 		/// <summary>
 		/// canonAnchor := canonTag * inverse(observedTag) * observedAnchor. The relative
@@ -634,17 +674,8 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			if (!IsTracking(anchor))
 				return;
 
-			Transform anchorTransform = anchor.lease.Handle.anchor.transform;
-			Matrix4x4 observedTagMatrix = Matrix4x4.TRS(
-				observedTag.position, observedTag.rotation, Vector3.one);
-			Matrix4x4 observedAnchorMatrix = Matrix4x4.TRS(
-				anchorTransform.position, anchorTransform.rotation, Vector3.one);
-			Matrix4x4 canonTagMatrix = Matrix4x4.TRS(
-				canonTag.position, canonTag.rotation, Vector3.one);
-			Matrix4x4 correctedMatrix =
-				canonTagMatrix * (observedTagMatrix.inverse * observedAnchorMatrix);
-
-			Quaternion correctedRotation = correctedMatrix.rotation;
+			Pose corrected = CanonicalAnchorPose(canonTag, observedTag, anchor.lease.Handle.anchor.transform);
+			Quaternion correctedRotation = corrected.rotation;
 			if (!corrections.TryGetValue(anchor.tagId, out TagCorrection correction))
 			{
 				correction = new TagCorrection();
@@ -656,7 +687,7 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			if (correction.samples > 0 && Vector4.Dot(correction.rotationSum, rotationVector) < 0f)
 				rotationVector = -rotationVector;
 
-			correction.positionSum += correctedMatrix.GetPosition();
+			correction.positionSum += corrected.position;
 			correction.rotationSum += rotationVector;
 			correction.samples++;
 

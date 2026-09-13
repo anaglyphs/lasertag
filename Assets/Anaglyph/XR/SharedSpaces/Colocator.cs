@@ -35,7 +35,7 @@ namespace Anaglyph.XR.SharedSpaces
 		/// </summary>
 		Lost
 	}
-	
+
 	/// <summary>
 	/// How closely the applied alignment lands each constraint on its own canon pose.
 	///
@@ -102,7 +102,7 @@ namespace Anaglyph.XR.SharedSpaces
 		private CancellationTokenSource ctknSrc;
 
 		private readonly List<ColocationConstraint> constraints = new();
-		private readonly List<(float3 subject, float3 target)> posConstraints = new();
+
 
 		public void SetProvider(IColocationConstraintProvider next)
 		{
@@ -132,6 +132,7 @@ namespace Anaglyph.XR.SharedSpaces
 
 		// Alignment we already had is stale but still applied, so this is Lost rather than
 		// Searching. Never demotes a colocator that was never aligned in the first place.
+		public void InvalidateTracking() => Delocalize();
 		private void Delocalize()
 		{
 			if (AlignmentState == ColocationAlignmentState.Localized)
@@ -184,18 +185,12 @@ namespace Anaglyph.XR.SharedSpaces
 				{
 					await Awaitable.NextFrameAsync(ctkn);
 
-					// Nothing behind the provider to observe references with — a rig without
-					// an anchor runtime, or an editor session with no simulation running.
-					// There is then no discrepancy between tracking space and the world to
-					// correct, so the current frame *is* the canon frame: report that instead
-					// of searching forever, and everything gated on colocation (map editing
-					// especially) stays testable. A headset always has the runtime, so this
-					// never stands in for a real alignment.
+					// An unavailable reference runtime supplies no alignment evidence.
 					if (Provider != null && !Provider.IsAvailable)
 					{
 						WarnNoReferenceRuntimeOnce();
 						Agreement = default;
-						SetState(ColocationAlignmentState.Localized);
+						Delocalize();
 						continue;
 					}
 
@@ -228,7 +223,7 @@ namespace Anaglyph.XR.SharedSpaces
 
 			loggedNoReferenceRuntime = true;
 			Debug.LogWarning($"{Provider.GetType().Name} has no reference runtime available. " +
-				"Treating tracking space as the world frame.", this);
+				"Waiting for an available reference runtime.", this);
 		}
 
 		private void MeasureAgreement()
@@ -257,61 +252,24 @@ namespace Anaglyph.XR.SharedSpaces
 				constraints.Count, agreeing, meanError, meanError <= agreementMaxError);
 		}
 
+		/// <summary>Transfers one rig writer after external validation; it retains the current alignment state.</summary>
+		public void Handoff(IColocationConstraintProvider next)
+		{
+			if (ReferenceEquals(Provider, next)) return;
+			if (AlignmentState != ColocationAlignmentState.Localized) { SetProvider(next); StartColocation(); return; }
+			next.StartProviding();
+			var previous = Provider;
+			Provider = next;
+			Agreement = default;
+			previous?.StopProviding();
+		}
+
 		private bool TryFit()
 		{
-			if (constraints.Count == 0)
-				return false;
-
-			// A constraint with a trustworthy rotation (an anchor) fully constrains the fit on
-			// its own. Position-only constraints (tags) need two horizontally separated points
-			// to constrain yaw as well as translation.
-			int rotationBearing = 0;
-			foreach (ColocationConstraint constraint in constraints)
-				if (constraint.hasReliableRotation)
-					rotationBearing++;
-
-			if (rotationBearing == 0 &&
-			    constraints.Count < MinimumPositionOnlyConstraintCount)
-				return false;
-
-			// First fit after Searching or Lost snaps, so the world arrives where it belongs
-			// immediately; later ones ease in, so drift corrections don't pop.
+			if (!MainXRRig.Instance || !ColocationFit.TryEvaluate(constraints, out Pose delta, out _, out _)) return false;
 			float lerp = AlignmentState == ColocationAlignmentState.Localized ? fitLerp : 1f;
-
-			Transform space = MainXRRig.TrackingSpace;
-			Matrix4x4 spaceMat = space.localToWorldMatrix;
-
-			if (constraints.Count == 1)
-			{
-				// Single pose-to-pose alignment. Only reachable with a rotation-bearing
-				// constraint, per the check above.
-				Pose s = constraints[0].observed;
-				Pose t = constraints[0].canon;
-
-				MainXRRig.Instance.AlignSpace(
-					Matrix4x4.TRS(s.position, s.rotation, Vector3.one),
-					Matrix4x4.TRS(t.position, t.rotation, Vector3.one),
-					lerp);
-			}
-			else
-			{
-				posConstraints.Clear();
-				foreach (ColocationConstraint constraint in constraints)
-					posConstraints.Add((constraint.observed.position, constraint.canon.position));
-
-				Matrix4x4 delta = BestFit.Find4DOF(posConstraints);
-				MainXRRig.Instance.AlignSpace(spaceMat, delta * spaceMat, lerp);
-			}
-
-			// A degenerate fit (coincident constraints, NaN input) can throw tracking space
-			// somewhere unusable; reset rather than leave the player lost in space.
-			Vector3 spacePos = space.position;
-			if (spacePos.magnitude > 10000f ||
-			    float.IsNaN(spacePos.x) || float.IsInfinity(spacePos.x) ||
-			    float.IsNaN(spacePos.y) || float.IsInfinity(spacePos.y) ||
-			    float.IsNaN(spacePos.z) || float.IsInfinity(spacePos.z))
-				space.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
-
+			Matrix4x4 current = MainXRRig.TrackingSpace.localToWorldMatrix;
+			MainXRRig.Instance.AlignSpace(current, Matrix4x4.TRS(delta.position, delta.rotation, Vector3.one) * current, lerp);
 			return true;
 		}
 	}

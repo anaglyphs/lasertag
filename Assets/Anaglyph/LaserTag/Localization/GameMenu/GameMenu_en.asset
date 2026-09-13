@@ -20,11 +20,11 @@ MonoBehaviour:
     - rid: 533178702104363357
   m_TableData:
   - m_Id: 212852736
-    m_Localized: "Checking\u2026"
+    m_Localized: "Scanning\u2026"
     m_Metadata:
       m_Items: []
   - m_Id: 212852737
-    m_Localized: Check room
+    m_Localized: Scan for spaces
     m_Metadata:
       m_Items: []
   - m_Id: 212852738
@@ -36,15 +36,15 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 212852740
-    m_Localized: No saved maps yet.
+    m_Localized: Create or load a space to manage its maps.
     m_Metadata:
       m_Items: []
   - m_Id: 212852741
-    m_Localized: No saved maps yet. Select Edit to place objects and create one.
+    m_Localized: No maps in this space.
     m_Metadata:
       m_Items: []
   - m_Id: 212852742
-    m_Localized: No saved maps were found in this room. Select Edit to create one.
+    m_Localized: No maps in this space.
     m_Metadata:
       m_Items: []
   - m_Id: 212852743
@@ -125,7 +125,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 212852760
-    m_Localized: Saved with this map; applies to everyone in its session.
+    m_Localized: Alignment is shared by all maps in this space.
     m_Metadata:
       m_Items: []
   - m_Id: 212852761
@@ -200,7 +200,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 212852778
-    m_Localized: Unregister this map's tags to change their size
+    m_Localized: Unregister this space's tags before changing their size.
     m_Metadata:
       m_Items: []
   - m_Id: 212852779
@@ -302,7 +302,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 212852803
-    m_Localized: Alignment settings
+    m_Localized: Space alignment
     m_Metadata:
       m_Items: []
   - m_Id: 212852804
@@ -334,7 +334,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 212852816
-    m_Localized: Maps
+    m_Localized: Spaces and maps
     m_Metadata:
       m_Items: []
   - m_Id: 212852817
@@ -342,7 +342,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 212852818
-    m_Localized: New
+    m_Localized: New map
     m_Metadata:
       m_Items: []
   - m_Id: 212852819
@@ -453,20 +453,20 @@ MonoBehaviour:
       m_Items:
       - rid: 533178702104363357
   - m_Id: 10906611212288
-    m_Localized: Active alignment
+    m_Localized: Session alignment
     m_Metadata:
       m_Items: []
   - m_Id: 10906615406592
-    m_Localized: Preferred alignment
+    m_Localized: Space alignment
     m_Metadata:
       m_Items: []
   - m_Id: 10906615406593
     m_Localized: Changes alignment for everyone. Successful changes are saved with
-      this map.
+      this space.
     m_Metadata:
       m_Items: []
   - m_Id: 10906615406594
-    m_Localized: 'Map preference: {0}'
+    m_Localized: 'Space preference: {0}'
     m_Metadata:
       m_Items:
       - rid: 533178702104363357
@@ -503,9 +503,8 @@ MonoBehaviour:
       m_Items:
       - rid: 533178702104363357
   - m_Id: 281266782986240
-    m_Localized: This map already has alignment references. Align to them before
-      adding a new reference. If this device cannot recover them, open the map on
-      a headset that can.
+    m_Localized: Align using saved space references before registering tags or creating
+      anchors.
     m_Metadata:
       m_Items: []
   - m_Id: 281266782986241
@@ -518,8 +517,8 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 291267517865985
-    m_Localized: Uses the system's origin with no game alignment offset. Each device's
-      system must provide the same shared origin.
+    m_Localized: Uses the system's origin. Each device's system must provide the
+      same shared origin.
     m_Metadata:
       m_Items: []
   - m_Id: 367666723282944
@@ -533,10 +532,8 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 569645068181504
-    m_Localized: Scan two different AprilTags on each headset. The lower ID is the
-      origin; the higher ID sets forward, with gravity defining up. Keep them at
-      least 10 cm apart horizontally. No registration is needed. If more IDs are
-      seen, the two lowest are used; show the same pair to every headset.
+    m_Localized: Set two AprilTags in your space. Tags must be at least 10 cm apart
+      horizontally.
     m_Metadata:
       m_Items: []
   - m_Id: 577596147359744
@@ -547,6 +544,196 @@ MonoBehaviour:
     m_Localized: 'Anchor minter: headset {0}.'
     m_Metadata:
       m_Items: []
+  - m_Id: 648730498818048
+    m_Localized: Space
+    m_Metadata:
+      m_Items: []
+  - m_Id: 648730507206656
+    m_Localized: Space name
+    m_Metadata:
+      m_Items: []
+  - m_Id: 648730507206657
+    m_Localized: 'Current space: {0}'
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363357
+  - m_Id: 648730507206658
+    m_Localized: "Looking for this space\u2026"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 648730507206659
+    m_Localized: Load space
+    m_Metadata:
+      m_Items: []
+  - m_Id: 648730507206660
+    m_Localized: New space
+    m_Metadata:
+      m_Items: []
+  - m_Id: 648730507206661
+    m_Localized: Rename space
+    m_Metadata:
+      m_Items: []
+  - m_Id: 648730507206662
+    m_Localized: Waiting for a space.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 648730511400960
+    m_Localized: Finish the current space operation first.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 648730511400961
+    m_Localized: Playing in the session space. Local layout reconciliation is waiting
+      for references.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 648730511400962
+    m_Localized: Duplicate
+    m_Metadata:
+      m_Items: []
+  - m_Id: 648730511400963
+    m_Localized: '{0}; aligned using {1}'
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363357
+  - m_Id: 648730511400964
+    m_Localized: '{0}; waiting for alignment'
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363357
+  - m_Id: 648730511400965
+    m_Localized: Preparing alignment
+    m_Metadata:
+      m_Items: []
+  - m_Id: 648730511400966
+    m_Localized: Validating references
+    m_Metadata:
+      m_Items: []
+  - m_Id: 648730511400967
+    m_Localized: Saving references
+    m_Metadata:
+      m_Items: []
+  - m_Id: 648730511400968
+    m_Localized: Switching alignment
+    m_Metadata:
+      m_Items: []
+  - m_Id: 648730511400969
+    m_Localized: Cancel setup
+    m_Metadata:
+      m_Items: []
+  - m_Id: 648730511400971
+    m_Localized: This alignment method does not use anchors.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 670773017567232
+    m_Localized: That alignment request is no longer valid. Check the active space
+      and alignment, then try again.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 670773021761536
+    m_Localized: Choose another pair
+    m_Metadata:
+      m_Items: []
+  - m_Id: 670773021761537
+    m_Localized: 'Selected tags: {0} and {1}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 670773021761538
+    m_Localized: Scan two distinct tags to choose a pair.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 670773021761539
+    m_Localized: Active space settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 670773021761540
+    m_Localized: Delete this space and its maps
+    m_Metadata:
+      m_Items: []
+  - m_Id: 670773021761541
+    m_Localized: 'Confirm: delete this space and its maps'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 670773021761542
+    m_Localized: Reset this space's alignment
+    m_Metadata:
+      m_Items: []
+  - m_Id: 670773021761543
+    m_Localized: 'Confirm: remove all saved alignment'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 670773021761544
+    m_Localized: Undo last rebase
+    m_Metadata:
+      m_Items: []
+  - m_Id: 670773021761545
+    m_Localized: Here
+    m_Metadata:
+      m_Items: []
+  - m_Id: 670773021761546
+    m_Localized: Not checked
+    m_Metadata:
+      m_Items: []
+  - m_Id: 670773021761547
+    m_Localized: Elsewhere
+    m_Metadata:
+      m_Items: []
+  - m_Id: 670773021761548
+    m_Localized: 'Space: {0}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 670773021761549
+    m_Localized: 'Map: {0}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 931907054329856
+    m_Localized: Active
+    m_Metadata:
+      m_Items: []
+  - m_Id: 931907058524160
+    m_Localized: Edit space
+    m_Metadata:
+      m_Items: []
+  - m_Id: 931907058524161
+    m_Localized: Edit map
+    m_Metadata:
+      m_Items: []
+  - m_Id: 931907058524162
+    m_Localized: Loaded
+    m_Metadata:
+      m_Items: []
+  - m_Id: 931907058524163
+    m_Localized: Loading
+    m_Metadata:
+      m_Items: []
+  - m_Id: 948188629426176
+    m_Localized: Waiting for a headset with tracking and focus to set up this alignment
+      method.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 948188633620480
+    m_Localized: Waiting for a headset aligned to this space's saved references before
+      setting up this method.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 983255229652992
+    m_Localized: Delete {0}?
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363357
+  - m_Id: 983255233847296
+    m_Localized: This deletes the space, its alignment data, and all of its saved
+      maps. This cannot be undone.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 983255233847297
+    m_Localized: Cancel
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1001490419277824
+    m_Localized: '{0}: {1}'
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363357
   references:
     version: 2
     RefIds:
@@ -570,3 +757,8 @@ MonoBehaviour:
         - id: 2287702368256
         - id: 10906615406594
         - id: 198935179157508
+        - id: 648730507206657
+        - id: 648730511400963
+        - id: 648730511400964
+        - id: 983255229652992
+        - id: 1001490419277824

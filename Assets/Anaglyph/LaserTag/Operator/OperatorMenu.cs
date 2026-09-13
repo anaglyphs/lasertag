@@ -41,9 +41,8 @@ namespace Anaglyph.LaserTag.Operator
 		private NavView mapsNav;
 		private NavPage mapEditingPage;
 		private MapNameBinder mapName;
-		private AlignmentMethodBinder alignmentMethod;
-		private TagConfigurationBinder tagConfiguration;
-		private VisualElement tagConfigurationSection;
+		private SpaceDetailsBinder spaceDetails;
+		private NavPage spaceDetailsPage;
 		private bool mapSettingsPresented;
 		private MenuErrorPresenter mapErrors;
 
@@ -159,18 +158,10 @@ namespace Anaglyph.LaserTag.Operator
 			HeadsetConfiguration.Changed -= RefreshHeadsetConfigurationControls;
 			if (mapsNav != null) mapsNav.Changed -= OnMapsPageChanged;
 			mapErrors?.Unbind();
-			if (alignmentMethod != null)
-			{
-				alignmentMethod.Changing -= tagConfiguration.FlushPendingSize;
-				alignmentMethod.Changed -= RefreshMapSettings;
-			}
-			tagConfiguration?.Dispose();
-			alignmentMethod?.Dispose();
+			spaceDetails?.Dispose();
 			mapName?.Dispose();
-			tagConfiguration = null;
-			alignmentMethod = null;
+			spaceDetails = null;
 			mapName = null;
-			tagConfigurationSection = null;
 			mapSettingsPresented = false;
 			mapsNav = null;
 			SaveSplitSizes();
@@ -181,7 +172,7 @@ namespace Anaglyph.LaserTag.Operator
 		private void Update() => RefreshMapSettings();
 
 		/// <summary>
-		/// The operator edits a map's name and alignment settings without an editing mode:
+		/// The operator edits map names and space alignment without an editing mode:
 		/// placing objects needs a headset, so the page is reached by navigating to it.
 		/// </summary>
 		private void BindMapEditing(VisualElement root)
@@ -190,19 +181,14 @@ namespace Anaglyph.LaserTag.Operator
 			mapManager = GetComponent<MapManagerUI>();
 			if (mapManager == null)
 				throw new InvalidOperationException("OperatorMenu requires MapManagerUI on the same object.");
-			mapManager.Bind(Require<VisualElement>(mapsNav, "map-catalog-section"));
 			mapEditingPage = mapsNav.GetPage("map-editing-page");
+			spaceDetailsPage = mapsNav.GetPage("space-details");
+			spaceDetails = new SpaceDetailsBinder(spaceDetailsPage, operatorMode: true);
+			mapManager.Bind(Require<VisualElement>(mapsNav, "map-catalog-section"), spaceDetailsPage,
+				() => mapsNav.GoToPage(mapEditingPage));
 			mapName = new MapNameBinder(Require<VisualElement>(mapEditingPage, "map-name-section"));
-			alignmentMethod = new AlignmentMethodBinder(
-				Require<VisualElement>(mapEditingPage, "alignment-method-section"));
-			tagConfigurationSection = Require<VisualElement>(mapEditingPage, "tag-configuration-section");
-			tagConfiguration = new TagConfigurationBinder(tagConfigurationSection);
-			alignmentMethod.Changing += tagConfiguration.FlushPendingSize;
-			alignmentMethod.Changed += RefreshMapSettings;
 
 			bindings.Click(Require<Button>(mapEditingPage, "finish-editing-button"), mapsNav.GoBack);
-			bindings.Click(Require<Button>(mapsNav, "edit-map-button"),
-				() => mapsNav.GoToPage(mapEditingPage));
 
 			mapsNav.Changed += OnMapsPageChanged;
 			mapErrors.Bind(mapsNav);
@@ -211,21 +197,14 @@ namespace Anaglyph.LaserTag.Operator
 
 		private void OnMapsPageChanged(NavPage page)
 		{
-			if (mapSettingsPresented && page != mapEditingPage)
-				tagConfiguration.FlushPendingSize();
 			mapSettingsPresented = page == mapEditingPage;
 			RefreshMapSettings();
 		}
 
 		private void RefreshMapSettings()
 		{
-			if (!mapSettingsPresented)
-				return;
-
-			mapName.Refresh();
-			alignmentMethod.Refresh();
-			SetDisplayed(tagConfigurationSection, alignmentMethod.UsesTags);
-			tagConfiguration.Refresh(alignmentStatus: alignmentMethod.Status);
+			if (mapSettingsPresented) mapName.Refresh();
+			if (mapsNav?.CurrentPage == spaceDetailsPage) spaceDetails?.Refresh();
 		}
 
 		private async void Start()
@@ -532,6 +511,7 @@ namespace Anaglyph.LaserTag.Operator
 				{
 					"battery" => (DescribeBattery(telemetry), BatteryChipClass(telemetry)),
 					"alignment" => (DescribeAlignment(telemetry), AlignmentChipClass(telemetry)),
+					"source" => (DescribeActiveSource(avatar), null),
 					"left-hand" => (DescribeTracking(telemetry.leftHandTracking),
 						TrackingChipClass(telemetry.leftHandTracking)),
 					"right-hand" => (DescribeTracking(telemetry.rightHandTracking),
@@ -617,6 +597,18 @@ namespace Anaglyph.LaserTag.Operator
 		/// Reads as "aligned 3/4": how many of the references that headset can see agree with
 		/// the alignment it is standing in.
 		/// </summary>
+		private static string DescribeActiveSource(PlayerAvatar avatar)
+		{
+			if (!avatar.HeadsetStatus) return "";
+			var state = avatar.HeadsetStatus.Readiness;
+			string key = state.activeMethod switch {
+				ColocationManager.ColocationMethod.AprilTag => "alignment.tags",
+				ColocationManager.ColocationMethod.TwoAprilTags => "alignment.two-tags",
+				ColocationManager.ColocationMethod.SystemDetermined => "alignment.system", _ => "alignment.anchors" };
+			string source = MenuCopy.Get("Game", key);
+			return state.transition is Maps.ReferenceTransitionPhase.Preparing or Maps.ReferenceTransitionPhase.Validating or Maps.ReferenceTransitionPhase.Persisting or Maps.ReferenceTransitionPhase.HandingOver
+				? MenuCopy.Format("Game", "alignment.transition", MenuCopy.Get("Game", "alignment.phase." + state.transition), source) : source;
+		}
 		private static string DescribeAlignment(HeadsetTelemetry telemetry) => telemetry.alignment switch
 		{
 			ColocationAlignmentState.Localized => telemetry.constraintCount > 0

@@ -10,7 +10,7 @@ namespace Anaglyph.LaserTag.MapEditor
 		public static bool IsActive { get; private set; }
 		public static event Action<bool> ActiveChanged;
 
-		/// <summary>Someone asked the editor to show its tag registration page.</summary>
+		/// <summary>Someone asked the editor to show space alignment and its tag tools.</summary>
 		public static event Action TagRegistrationRequested;
 
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
@@ -21,13 +21,13 @@ namespace Anaglyph.LaserTag.MapEditor
 		}
 
 		/// <summary>
-		/// Opens the editor on its tags page. The session asks for this when its host has no
+		/// Opens space alignment with tag tools. The session asks for this when its host has no
 		/// registered tags and no way to register any itself.
 		/// </summary>
 		public static void RequestTagRegistration()
 		{
-			// Present the editing menu before asking it to navigate to the tags submenu.
 			SetActive(true);
+			MapEditorTool.SetMode(MapEditorTool.Mode.Tags);
 			TagRegistrationRequested?.Invoke();
 		}
 

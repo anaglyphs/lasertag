@@ -18,6 +18,7 @@ namespace Anaglyph.LaserTag.Interface
 		{
 			this.probeButton = probeButton ?? throw new ArgumentNullException(nameof(probeButton));
 			probeButton.MakeActOnPress();
+			probeButton.EnableInClassList("map-field-hidden", false);
 			probeButton.clicked += Probe;
 			MenuCopy.Changed += Refresh;
 			Refresh();
@@ -64,6 +65,7 @@ namespace Anaglyph.LaserTag.Interface
 			bindingCancellation.Cancel();
 			bindingCancellation.Dispose();
 			probeButton.clicked -= Probe;
+			probeButton.EnableInClassList("map-field-hidden", true);
 			MenuCopy.Changed -= Refresh;
 		}
 

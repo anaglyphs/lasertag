@@ -1,0 +1,10 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+    <ui:VisualElement class="page-template-root">
+        <ui:Label name="delete-space-subject" class="title"/>
+        <ui:Label name="delete-space-details" class="body-copy"/>
+        <ui:Label name="delete-space-blocker" class="warning"/>
+        <ui:Button name="cancel-delete-space-button"/>
+        <ui:Button name="confirm-delete-space-button" class="destructive"/>
+    </ui:VisualElement>
+</ui:UXML>

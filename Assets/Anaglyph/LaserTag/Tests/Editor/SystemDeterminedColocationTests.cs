@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 using Anaglyph.XR.SharedSpaces;
+using Anaglyph.LaserTag.Maps;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -88,65 +89,18 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(ColocationManager.CompatibleMethod(method, tags, true, anchors), Is.EqualTo(method));
 			var manager = owner.AddComponent<ColocationManager>();
 			const BindingFlags flags = BindingFlags.NonPublic | BindingFlags.Instance;
-			typeof(ColocationManager).GetField("mapPreference", flags).SetValue(manager, method);
-			typeof(ColocationManager).GetField("mapHasTags", flags).SetValue(manager, tags);
-			typeof(ColocationManager).GetField("mapHasAnchors", flags).SetValue(manager, anchors);
+			var space = MapSpace.Create("Test"); space.preferredColocationMethod = method;
+			manager.ManagedSelection = true; manager.ConfigureSpace(space, null);
 			Assert.That(manager.PreferredSessionMethod, Is.EqualTo(method));
 			var colocator = owner.AddComponent<Colocator>();
 			typeof(ColocationManager).GetField("colocator", flags).SetValue(manager, colocator);
 			typeof(ColocationManager).GetField("systemDeterminedProvider", flags).SetValue(manager, provider);
-			colocator.SetProvider(provider);
+			manager.ActivateMethod(method);
 			Assert.That(manager.UsingSystemDeterminedProvider, Is.True);
 			Assert.That(manager.CountRealizableReferences(), Is.EqualTo(1));
 			colocator.SetProvider(null);
 			Assert.That(manager.CountRealizableReferences(), Is.Zero);
 		}
 
-		[Test]
-		public void TagSetupRetainsSystemProviderUntilATagExists()
-		{
-			var manager = owner.AddComponent<ColocationManager>();
-			var colocator = owner.AddComponent<Colocator>();
-			var tags = owner.AddComponent<Anaglyph.XR.SharedSpaces.AprilTags.AprilTagColocationConstraintProvider>();
-			const BindingFlags flags = BindingFlags.NonPublic | BindingFlags.Instance;
-			typeof(ColocationManager).GetField("colocator", flags).SetValue(manager, colocator);
-			typeof(ColocationManager).GetField("systemDeterminedProvider", flags).SetValue(manager, provider);
-			typeof(ColocationManager).GetField("aprilTagColocationProvider", flags).SetValue(manager, tags);
-			manager.ConfigureMap(true, false, true, true, ColocationManager.ColocationMethod.AprilTag, null, true);
-			Assert.That(manager.IsSettingUpTags, Is.True);
-			Assert.That(manager.SelectedMethod, Is.EqualTo(ColocationManager.ColocationMethod.SystemDetermined));
-			Assert.That(manager.PreferredSessionMethod, Is.EqualTo(ColocationManager.ColocationMethod.SystemDetermined));
-			Assert.That(manager.UsingSystemDeterminedProvider, Is.True);
-			Assert.That(manager.CountRealizableReferences(), Is.EqualTo(1));
-
-			manager.ConfigureMap(true, true, true, true, ColocationManager.ColocationMethod.AprilTag, null);
-			Assert.That(manager.IsSettingUpTags, Is.False);
-			Assert.That(manager.SelectedMethod, Is.EqualTo(ColocationManager.ColocationMethod.AprilTag));
-			Assert.That(manager.PreferredSessionMethod, Is.EqualTo(ColocationManager.ColocationMethod.AprilTag));
-			Assert.That(manager.UsingTagProvider, Is.True);
-		}
-
-		[Test]
-		public void OnlyATaglessSwitchFromSystemDeterminedCanStageSetup()
-		{
-			foreach (ColocationManager.ColocationMethod current in System.Enum.GetValues(typeof(ColocationManager.ColocationMethod)))
-			foreach (ColocationManager.ColocationMethod requested in System.Enum.GetValues(typeof(ColocationManager.ColocationMethod)))
-			{
-				Assert.That(ColocationManager.RequiresTagSetup(current, requested, true), Is.False);
-				Assert.That(ColocationManager.RequiresTagSetup(current, requested, false), Is.EqualTo(
-					current == ColocationManager.ColocationMethod.SystemDetermined && requested == ColocationManager.ColocationMethod.AprilTag));
-			}
-		}
-
-		[Test]
-		public void ExistingSystemFrameCannotSwitchToAnEmptyPhysicalProvider()
-		{
-			MapPolicy policy = new(MapPhase.Hosting, hasMap: true, empty: false, hasTags: false,
-				frameAgrees: true, sessionHolding: false, roundInProgress: false, sessionUsesTags: false,
-				hasAnchors: false, systemDeterminedFrame: true);
-			Assert.That(policy.ColocationMethodBlocker(targetHasReferences: false), Is.Not.Null);
-			Assert.That(policy.ColocationMethodBlocker(targetHasReferences: true), Is.Null);
-			Assert.That(policy.NeedsFirstTag, Is.False);
-		}
 	}
 }

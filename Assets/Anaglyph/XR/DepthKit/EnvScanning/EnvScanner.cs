@@ -84,6 +84,8 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		private CancellationTokenSource updateLoopTknSrc;
 
 		public event Action Updated = delegate { };
+		/// <summary>Embedding policy pauses depth integration without discarding the scan.</summary>
+		public Func<bool> IntegrationGate { get; set; }
 		public event Action Cleared = delegate { };
 
 		public struct ChunkReadbackBuffer : IDisposable
@@ -325,6 +327,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 					await Awaitable.WaitForSecondsAsync(1 / updateFrequency, ctkn);
 					ctkn.ThrowIfCancellationRequested();
 
+					if (!(IntegrationGate?.Invoke() ?? true)) continue;
 					Scan();
 
 					Updated.Invoke();
@@ -337,7 +340,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 
 		public void Scan()
 		{
-			if (!GpuResourcesCreated || !DepthKitDriver.DepthAvailable) return;
+			if (!GpuResourcesCreated || !DepthKitDriver.DepthAvailable || !(IntegrationGate?.Invoke() ?? true)) return;
 
 			DepthKitDriver dkd = DepthKitDriver.Instance;
 

@@ -1,66 +1,40 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace Anaglyph.LaserTag.Maps
 {
 	/// <summary>
 	/// Owns the editable map document. Reads return detached snapshots; only these operations
 	/// change the document. Networking, scene objects, alignment and UI are coordinated above it.
-	/// The flat GameMap file format is retained for existing saves, but authored content and
-	/// device anchor records have separate update paths and revision rules.
+	/// Alignment and membership are owned by MapSpaceManager; this document contains only layout data.
 	/// </summary>
 	public sealed class MapManager
 	{
 		private readonly MapStore store;
 		private GameMap current;
-		private string preservedConflict;
-		private string preservedForkId;
+		private string savedJson;
 
 		public MapManager(MapStore store) => this.store = store;
 		public GameMap CurrentMap => current?.Clone();
 		public string CurrentId => current?.id;
 		public bool HasMap => current != null;
 		public bool IsEmpty => current == null || current.IsEmpty;
-		public bool HasTags => current != null && current.HasTags;
-		public int AnchorCount => current?.anchors.Count ?? 0;
-		public int TaggedAnchorCount
-		{
-			get
-			{
-				int count = 0;
-				if (current == null)
-					return count;
 
-				foreach (MapAnchorEntry anchor in current.anchors)
-					if (anchor.tagId >= 0)
-						count++;
-				return count;
-			}
-		}
-
-		public void Load(GameMap map) => current = map?.Clone();
+		public void Load(GameMap map) { current = map?.Clone(); savedJson = current == null ? null : JsonUtility.ToJson(current); }
 		public void Unload() => current = null;
 
-		public GameMap Create()
+		public GameMap Create(string storageFrameId)
 		{
+			savedJson = null;
 			current = new GameMap
 			{
 				id = Guid.NewGuid().ToString("N"), version = Guid.NewGuid().ToString("N"),
-				name = store.GenerateName(), tagSizeCm = GameMap.DefaultTagSizeCm,
-				lastUsed = DateTime.UtcNow.Ticks, lastEdited = DateTime.UtcNow.Ticks,
-				preferredColocationMethod = DefaultColocationMethod
+				name = store.GenerateName(), storageFrameId = storageFrameId,
+				lastUsed = DateTime.UtcNow.Ticks, lastEdited = DateTime.UtcNow.Ticks
 			};
 			return CurrentMap;
 		}
-
-		/// <summary>
-		/// An operator machine has no Meta runtime, so shared anchors can never align anything it
-		/// authors. Its maps are tag maps from the moment they exist.
-		/// </summary>
-		private static ColocationManager.ColocationMethod DefaultColocationMethod =>
-			HeadsetConfiguration.IsOperatorDevice
-				? ColocationManager.ColocationMethod.AprilTag
-				: ColocationManager.ColocationMethod.MetaSharedAnchor;
 
 		public void MarkUsed()
 		{
@@ -86,48 +60,10 @@ namespace Anaglyph.LaserTag.Maps
 
 		public bool SetObjects(IReadOnlyList<MapObjectEntry> objects)
 		{
-			if (current == null || Equal(current.objects, objects))
+			if (current == null || SamePlacements(current.objects, objects))
 				return false;
 			current.objects = new List<MapObjectEntry>(objects);
 			ContentChanged();
-			return true;
-		}
-
-		public bool SetTags(IReadOnlyList<MapTagEntry> tags, float sizeCm)
-		{
-			if (current == null)
-				return false;
-			if (sizeCm <= 0f)
-				sizeCm = current.tagSizeCm;
-			if (Equal(current.tags, tags) && current.tagSizeCm == sizeCm)
-				return false;
-			current.tags = new List<MapTagEntry>(tags);
-			current.tagSizeCm = sizeCm;
-			if (current.HasTags) current.systemFrameForTagSetup = false;
-			ContentChanged();
-			return true;
-		}
-
-		public bool SetPreferredColocationMethod(ColocationManager.ColocationMethod method,
-			bool systemFrameForTagSetup = false)
-		{
-			if (!ColocationManager.IsValidMethod(method)) return false;
-			if (current == null) return false;
-			systemFrameForTagSetup &= method == ColocationManager.ColocationMethod.AprilTag && !current.HasTags;
-			if (current.preferredColocationMethod == method &&
-				current.systemFrameForTagSetup == systemFrameForTagSetup) return false;
-			current.preferredColocationMethod = method;
-			current.systemFrameForTagSetup = systemFrameForTagSetup;
-			ContentChanged();
-			return true;
-		}
-
-		/// <summary>Local realization maintenance never creates a shared content revision.</summary>
-		public bool SetAnchors(IReadOnlyList<MapAnchorEntry> anchors)
-		{
-			if (current == null || Equal(current.anchors, anchors))
-				return false;
-			current.anchors = new List<MapAnchorEntry>(anchors);
 			return true;
 		}
 
@@ -139,61 +75,19 @@ namespace Anaglyph.LaserTag.Maps
 			GameMap snapshot = current.Clone();
 			if (commitSharedContent)
 				snapshot.dirty = false;
+			string json = JsonUtility.ToJson(snapshot);
+			if (json == savedJson) return true;
 			if (!store.Save(snapshot))
 				return false;
-			current.dirty = snapshot.dirty;
+			current.dirty = snapshot.dirty; savedJson = json;
 			return true;
 		}
 
-		/// <summary>
-		/// Preserves divergent local work before adopting a received document, including when
-		/// the same map is already open. Failure to save the fork aborts adoption.
-		/// </summary>
-		public bool TryAdopt(GameMap incoming)
+		private static bool SamePlacements(IReadOnlyList<MapObjectEntry> a, IReadOnlyList<MapObjectEntry> b)
 		{
-			if (!TryPreserveLocalEdits(incoming))
-				return false;
-
-			GameMap adopted = incoming.Clone();
-			adopted.dirty = false;
-			adopted.lastUsed = DateTime.UtcNow.Ticks;
-			if (!store.Save(adopted))
-				return false;
-			current = adopted;
-			return true;
-		}
-
-		private bool TryPreserveLocalEdits(GameMap incoming)
-		{
-			GameMap local = current;
-			if (local == null || local.id != incoming.id)
-				store.TryGet(incoming.id, out local);
-			if (local == null || !local.dirty || local.version == incoming.version)
-				return true;
-
-			string conflict = local.id + ":" + local.version;
-			if (preservedConflict == conflict && store.TryGet(preservedForkId, out _))
-				return true;
-
-			GameMap fork = local.Clone();
-			fork.id = Guid.NewGuid().ToString("N");
-			fork.name += " (fork)";
-			if (!store.Save(fork))
-				return false;
-
-			preservedConflict = conflict;
-			preservedForkId = fork.id;
-			return true;
-		}
-
-		private static bool Equal<T>(IReadOnlyList<T> a, IReadOnlyList<T> b)
-		{
-			if (a.Count != b.Count)
-				return false;
-			var comparer = EqualityComparer<T>.Default;
+			if (a.Count != b.Count) return false;
 			for (int i = 0; i < a.Count; i++)
-				if (!comparer.Equals(a[i], b[i]))
-					return false;
+				if (a[i].prefabId != b[i].prefabId || !MapSpaceFrame.Near(a[i].pose, b[i].pose, .00001f, .001f)) return false;
 			return true;
 		}
 	}

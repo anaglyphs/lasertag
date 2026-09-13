@@ -34,7 +34,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 
 		// "DRAC" in little-endian byte order, followed by chunk index and revision.
 		private const uint ChunkPayloadMagic = 0x43415244;
-		private const int ChunkPayloadHeaderBytes = sizeof(uint) + sizeof(int) + sizeof(uint);
+		private const int ChunkPayloadHeaderBytes = sizeof(uint) + sizeof(int) + sizeof(uint) + 48;
 
 		/// <summary>
 		/// Invoked after a populated chunk mesh received from another
@@ -91,6 +91,24 @@ namespace Anaglyph.LaserTag.EnvSyncing
 
 		// Invalidates encoding/decoding work that outlives a network session.
 		private int syncGeneration;
+		private readonly SyncEvent<MapSpaceScanContext> snapshotRequest = new("env.snapshot", EventRoute.Direct);
+		private Guid requestedScan;
+		private bool CanShareScan => ColocationManager.Instance != null && ColocationManager.Instance.SelectedMethod != ColocationManager.ColocationMethod.SystemDetermined &&
+			ColocationManager.Instance.ActiveMethod != ColocationManager.ColocationMethod.SystemDetermined &&
+			(ColocationManager.UsesSavedReferences(ColocationManager.Instance.ActiveMethod) && ColocationManager.UsesSavedReferences(ColocationManager.Instance.SelectedMethod) ||
+			 ColocationManager.Instance.ActiveMethod == ColocationManager.Instance.SelectedMethod);
+		private bool CanSendScan => CanShareScan && LaserTagMapCoordinator.Instance != null && LaserTagMapCoordinator.Instance.CanIntegrateEnvironment;
+		private readonly Dictionary<ulong, float> lastSnapshotRequest = new();
+		private MapSpaceScanContext CurrentFrame => new() { space = LaserTagMapCoordinator.Instance?.SessionSpaceId ?? Guid.Empty,
+			frame = LaserTagMapCoordinator.Instance?.CanonicalFrameId ?? Guid.Empty, scan = LaserTagMapCoordinator.Instance?.ScanContext ?? Guid.Empty };
+		private bool FrameMatches(MapSpaceScanContext frame) => frame.Matches(CurrentFrame);
+		private void OnSnapshotRequested(ulong sender, MapSpaceScanContext frame)
+		{
+			if (!CanShareScan || sender == SyncBus.LocalClientId || !FrameMatches(frame) || !EnvMesher.Instance) return;
+			if (lastSnapshotRequest.TryGetValue(sender, out float time) && Time.unscaledTime - time < 5) return;
+			lastSnapshotRequest[sender] = Time.unscaledTime;
+			foreach (var chunk in EnvMesher.Instance.ChunksList) if (chunk.meshIsPopulated) QueueChunkMesh(chunk);
+		}
 
 		private void Awake()
 		{
@@ -100,6 +118,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			positionOnlyMesh.MarkDynamic();
 
 			chunkEvent.Register();
+			snapshotRequest.Register(); snapshotRequest.Received += OnSnapshotRequested;
 			visibleEvent.Register();
 			chunkEvent.Received += OnChunkReceived;
 			visibleEvent.Received += OnVisibleReceived;
@@ -115,7 +134,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			LaserTagMapCoordinator.WorldFrameRebased += OnWorldFrameRebased;
 
 			if (EnvScanner.Instance != null)
-				EnvScanner.Instance.Cleared += OnScanCleared;
+				{ EnvScanner.Instance.Cleared += OnScanCleared; EnvScanner.Instance.IntegrationGate = () => LaserTagMapCoordinator.Instance != null && LaserTagMapCoordinator.Instance.CanIntegrateEnvironment; }
 		}
 
 		/// <summary>
@@ -124,7 +143,9 @@ namespace Anaglyph.LaserTag.EnvSyncing
 		/// </summary>
 		private void OnScanCleared()
 		{
+			syncGeneration++; encodeQueue.Clear(); queuedEncodes.Clear(); receivedRevisions.Clear(); requestedScan = Guid.Empty;
 			ClearPendingSync();
+			lastSnapshotRequest.Clear();
 			lastSendTimes.Clear();
 			ClearSentSignBits();
 		}
@@ -134,7 +155,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			LaserTagMapCoordinator.WorldFrameRebased -= OnWorldFrameRebased;
 
 			if (EnvScanner.Instance != null)
-				EnvScanner.Instance.Cleared -= OnScanCleared;
+				{ EnvScanner.Instance.Cleared -= OnScanCleared; EnvScanner.Instance.IntegrationGate = null; }
 
 			syncGeneration++;
 			encodeQueue.Clear();
@@ -149,6 +170,8 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			visibleEvent.Received -= OnVisibleReceived;
 			visibleEvent.Unregister();
 			chunkEvent.Unregister();
+			snapshotRequest.Received -= OnSnapshotRequested; snapshotRequest.Unregister();
+			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
 
 			ColocationManager.Colocated -= OnColocated;
 		}
@@ -164,6 +187,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			syncGeneration++;
 
 			ClearPendingSync();
+			lastSnapshotRequest.Clear();
 			lastSendTimes.Clear();
 			ClearSentSignBits();
 			encodeQueue.Clear();
@@ -181,17 +205,19 @@ namespace Anaglyph.LaserTag.EnvSyncing
 		private void OnColocated(bool isColocated)
 		{
 			HandleScannerActivity();
+			StartEncodeWorkerIfNeeded();
 		}
 		
 		private void OnNetcodeStateChanged(NetcodeState state)
 		{
 			HandleScannerActivity();
+			StartEncodeWorkerIfNeeded();
 		}
 
 		private void HandleScannerActivity()
 		{
 			// Scanner is only enabled if connected & collocated OR disconnected
-			EnvMesher.Instance.enabled = ColocationManager.IsColocated || NetcodeManagement.State == NetcodeState.Disconnected;
+			if (EnvMesher.Instance) EnvMesher.Instance.enabled = LaserTagMapCoordinator.Instance != null && LaserTagMapCoordinator.Instance.CanIntegrateEnvironment;
 		}
 
 		private void OnBusActivated()
@@ -214,12 +240,13 @@ namespace Anaglyph.LaserTag.EnvSyncing
 				EnvMesher.Instance.ChunkMeshUpdated -= OnChunkMeshUpdated;
 
 			ClearPendingSync();
+			lastSnapshotRequest.Clear();
 			lastSendTimes.Clear();
 			ClearSentSignBits();
 			encodeQueue.Clear();
 			queuedEncodes.Clear();
 			sentRevisions.Clear();
-			receivedRevisions.Clear();
+			receivedRevisions.Clear(); requestedScan = Guid.Empty; lastSnapshotRequest.Clear();
 		}
 
 		public void SetEnvMeshVisibleEveryone(bool visible)
@@ -241,10 +268,15 @@ namespace Anaglyph.LaserTag.EnvSyncing
 
 		private void Update()
 		{
+			HandleScannerActivity();
+			StartEncodeWorkerIfNeeded();
+			var frame = CurrentFrame;
+			if (SyncBus.Active && frame.space != Guid.Empty && requestedScan != frame.scan && LaserTagMapCoordinator.Instance.Phase is MapPhase.Hosting or MapPhase.FollowingSession)
+			{ requestedScan = frame.scan; snapshotRequest.Raise(frame); }
 			if (pendingSync.Count == 0) return;
 
 			// don't send scans until they're in the shared reference space
-			if (!SyncBus.Active || !ColocationManager.IsColocated) return;
+			if (!SyncBus.Active || !CanShareScan || !ColocationManager.IsColocated) return;
 
 			pendingSyncDrain.Clear();
 			pendingSyncDrain.AddRange(pendingSync);
@@ -370,7 +402,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 
 		private void StartEncodeWorkerIfNeeded()
 		{
-			if (encodeWorkerRunning || encodeQueue.Count == 0 || !SyncBus.Active)
+			if (encodeWorkerRunning || encodeQueue.Count == 0 || !SyncBus.Active || !CanSendScan)
 				return;
 
 			encodeWorkerRunning = true;
@@ -381,7 +413,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 		{
 			try
 			{
-				while (generation == syncGeneration && SyncBus.Active && encodeQueue.Count > 0)
+				while (generation == syncGeneration && SyncBus.Active && CanSendScan && encodeQueue.Count > 0)
 				{
 					int chunkIndex = encodeQueue.Dequeue();
 					queuedEncodes.Remove(chunkIndex);
@@ -403,7 +435,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 
 		private async Task EncodeAndSendChunk(Chunk chunk, int generation)
 		{
-			if (generation != syncGeneration || !SyncBus.Active)
+			if (generation != syncGeneration || !SyncBus.Active || !CanSendScan)
 				return;
 
 			int chunkIndex = chunk.chunkIndex;
@@ -437,8 +469,8 @@ namespace Anaglyph.LaserTag.EnvSyncing
 				SpeedSettings speed = new(encodingSpeed, decodingSpeed);
 				results = await DracoEncoder.EncodeMesh(positionOnlyMesh, meshDataArray[0], quantization, speed);
 
-				if (!this || generation != syncGeneration || !SyncBus.Active)
-					return;
+				if (!this || generation != syncGeneration || !SyncBus.Active) return;
+				if (!CanSendScan) { ForgetSentSurface(chunkIndex); QueueChunkMesh(chunk); return; }
 
 				if (results == null || results.Length != 1)
 				{
@@ -518,6 +550,8 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			SyncBytes.Write(payload, 0, ChunkPayloadMagic);
 			SyncBytes.Write(payload, sizeof(uint), chunkIndex);
 			SyncBytes.Write(payload, sizeof(uint) + sizeof(int), revision);
+			var frame = CurrentFrame;
+			SyncBytes.Write(payload, 12, frame.space); SyncBytes.Write(payload, 28, frame.frame); SyncBytes.Write(payload, 44, frame.scan);
 
 			if (encodedData.IsCreated)
 				NativeArray<byte>.Copy(encodedData, 0, payload, ChunkPayloadHeaderBytes, encodedData.Length);
@@ -528,7 +562,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 		private async void OnChunkReceived(ulong sender, byte[] payload)
 		{
 			// Direct events also invoke locally; the sender already has this mesh.
-			if (sender == SyncBus.LocalClientId) return;
+			if (!CanShareScan || sender == SyncBus.LocalClientId) return;
 
 			// validate malformed or corrupt payloads
 			if (payload.Length < ChunkPayloadHeaderBytes || payload.Length > MaxPayloadBytes)
@@ -536,6 +570,8 @@ namespace Anaglyph.LaserTag.EnvSyncing
 
 			uint magic = SyncBytes.Read<uint>(payload, 0);
 			if (magic != ChunkPayloadMagic) return;
+			var frame = new MapSpaceScanContext { space = SyncBytes.Read<Guid>(payload, 12), frame = SyncBytes.Read<Guid>(payload, 28), scan = SyncBytes.Read<Guid>(payload, 44) };
+			if (!FrameMatches(frame) || !EnvScanner.Instance || !EnvMesher.Instance) return;
 
 			int chunkIndex = SyncBytes.Read<int>(payload, sizeof(uint));
 
@@ -595,7 +631,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 				}
 
 				if (!this ||
-				    generation != syncGeneration ||
+				    generation != syncGeneration || !CanShareScan || !FrameMatches(frame) ||
 				    !SyncBus.Active ||
 				    !receivedRevisions.TryGetValue(revisionKey, out uint currentRevision) ||
 				    currentRevision != revision)
@@ -632,8 +668,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 				chunk.meshCollider.sharedMesh = chunk.mesh;
 				chunk.meshCollider.enabled = chunk.meshIsPopulated;
 
-				if (chunk.meshIsPopulated)
-					RemoteMeshApplied.Invoke(chunk);
+				EnvNavMesher.Instance?.MarkChunkDirty(chunk); RemoteMeshApplied.Invoke(chunk);
 			}
 			catch (Exception e)
 			{
@@ -666,6 +701,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			chunk.meshIsPopulated = false;
 			chunk.meshCollider.sharedMesh = null;
 			chunk.meshCollider.enabled = false;
+			EnvNavMesher.Instance?.MarkChunkDirty(chunk); RemoteMeshApplied.Invoke(chunk);
 		}
 
 		private static bool IsNewerRevision(uint candidate, uint current)

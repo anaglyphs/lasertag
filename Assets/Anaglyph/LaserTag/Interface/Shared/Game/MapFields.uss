@@ -25,3 +25,116 @@
 .map-settings-scroll {
     flex-grow: 1;
 }
+
+#space-details {
+    min-height: 0;
+}
+
+.layout-actions > Button {
+    flex-basis: 0;
+    min-width: 0;
+}
+
+.catalog-space {
+    margin-top: 4px;
+    margin-bottom: 12px;
+    flex-shrink: 0;
+}
+
+.catalog-space-row,
+.catalog-map-row {
+    flex-direction: row;
+    align-items: center;
+}
+
+.catalog-space-name {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    font-size: 22px;
+    -unity-font-style: bold;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-left: 4px;
+}
+
+.catalog-space-row {
+    min-height: 48px;
+}
+
+.catalog-maps {
+    margin-left: 12px;
+    padding-left: 12px;
+    border-left-width: 1px;
+    border-left-color: rgba(255, 255, 255, 0.25);
+}
+
+.catalog-map-row > .map-row,
+.catalog-space-row > .map-row {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    height: 48px;
+    min-height: 48px;
+    flex-direction: row;
+    align-items: center;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.catalog-map-name {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.catalog-row-status {
+    font-size: 14px;
+    margin-left: 10px;
+    margin-right: 6px;
+    flex-shrink: 0;
+    opacity: 0.75;
+}
+
+.map-row.selected Label {
+    color: rgb(0, 14, 49);
+}
+
+.catalog-row-action {
+    width: 48px;
+    min-width: 48px;
+    height: 48px;
+    min-height: 48px;
+    flex-grow: 0;
+    flex-shrink: 0;
+    padding: 0;
+    background-position: center;
+    background-size: 24px 24px;
+    background-repeat: no-repeat;
+    -unity-background-image-tint-color: white;
+}
+
+.catalog-edit {
+    background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/edit.svg");
+}
+
+.catalog-load {
+    background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/chevron.svg");
+    background-size: 14px 24px;
+}
+
+.catalog-delete {
+    background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/trash.svg");
+}
+
+.catalog-confirm-delete {
+    width: auto;
+    padding-left: 8px;
+    padding-right: 8px;
+    background-image: none;
+}

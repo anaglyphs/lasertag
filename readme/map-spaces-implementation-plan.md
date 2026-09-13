@@ -10,8 +10,9 @@ The central change is to give a physical coordinate frame its own lifetime. A `G
 | --- | --- |
 | Membership | Each map belongs to exactly one MapSpace. Reusing a layout creates a new map. |
 | Existing saves | No legacy migration is required. The new catalog starts fresh. |
+| File layout | Keep GameMaps in separate JSON files. MapSpaces list map IDs; prune invalid or missing references. |
 | Environment meshes | Retain the scan across maps in the active space; clear it on leaving the space. No disk persistence or inactive-space cache. |
-| Headset startup | Probe automatically. Load a matching space, or automatically initialize a space with spatial anchors when no match is found. No manual New space command for headsets. |
+| Headset startup | Probe automatically. Load a matching space, or automatically initialize a space when no match is found: shared spatial anchors when sharing is available, otherwise registered AprilTags. No manual New space command for headsets. |
 | Optional setup | Shared spatial anchors are the default. Choosing/configuring other methods is optional. The PC operator retains explicit space creation. |
 | Two AprilTags and System determined | Both may be selected in an established space. Treat their alignment as provisional; it does not prove alignment to the saved reference frame. |
 | Reference authoring | If any persistent reference-based alignment data exists, new registered tags or shared anchors require current alignment to that frame through reference-based evidence. A provisional method cannot authorize this work. |
@@ -25,7 +26,7 @@ Two proposed defaults remain for review: allow gameplay layout edits during prov
 
 **1. Separate the documents and the identities**
 
-Add `Maps/MapSpace.cs`. Keep it serializable and independent of scene objects, providers, networking, and UI. Its storage document owns the space's ID/name, stable storage-frame identity, current canonical-frame identity and rigid offset, alignment configuration, and collection of maps. The recommended first storage format embeds `List<GameMap>`: one map has one parent, and membership can be committed atomically with the space.
+Add `Maps/MapSpace.cs`. Keep it serializable and independent of scene objects, providers, networking, and UI. Its storage document owns the space's ID/name, stable storage-frame identity, current canonical-frame identity and rigid offset, alignment configuration, and a list of map IDs (`List<string> mapIds`). Each GameMap remains a separate JSON file resolved by its ID through `MapStore`; do not embed layouts or store arbitrary file paths. Each map belongs to one space.
 
 Because session adoption transfers one active map at a time, this collection means the maps this device knows belong to the space. It is not an exhaustive catalog shared by every headset. Shared space settings and child map revisions have separate update paths; learning a new child map does not create a conflicting alignment revision. Serialize explicit session DTOs rather than broadcasting the entire storage document.
 
@@ -63,13 +64,22 @@ Persist the first two in `MapSpace` in storage coordinates; keep the third in a 
 
 **2. Give storage and document editing clear owners**
 
-Add `MapSpaceManager` as the plain document owner for space settings and membership. Keep [MapManager.cs](/Users/jt/source/lasertag/Assets/Anaglyph/LaserTag/Maps/MapManager.cs:12) as the API for editing the selected child map. A map change is submitted back to the space owner as a child replacement; do not maintain two independently writable copies of the membership list. Continue returning detached snapshots, including deep copies of the child maps.
+Add `MapSpaceManager` as the plain document owner for space settings and membership. Keep [MapManager.cs](/Users/jt/source/lasertag/Assets/Anaglyph/LaserTag/Maps/MapManager.cs:12) as the API for editing the selected child map. MapManager saves layout changes through MapStore; MapSpaceManager saves membership/settings through MapSpaceStore. The space owns the membership list, with a derived reverse index enforcing one space per map. Continue returning detached document snapshots; resolve child maps by ID when needed.
 
-Replace the flat-file persistence responsibility in [MapStore.cs](/Users/jt/source/lasertag/Assets/Anaglyph/LaserTag/Maps/MapStore.cs) with `MapSpaceStore`, using one versioned storage envelope per space under `persistentDataPath/map-spaces/`. A map lookup index can be derived from those envelopes. Retain the existing exact-snapshot writes, temporary-file commit, backup recovery, and failure behavior: an unsuccessful write must leave the committed catalog unchanged.
+Keep [MapStore.cs](/Users/jt/source/lasertag/Assets/Anaglyph/LaserTag/Maps/MapStore.cs) for separate GameMap JSON files and add `MapSpaceStore` for space JSON files. Use a fresh versioned catalog root with sibling `maps/<mapId>.json` and `spaces/<spaceId>.json` directories, so legacy map files cannot be mistaken for the new schema. No legacy migration or grouping is required. Preserve temporary-file replacement and backup recovery for each document.
 
-This removes the need for a transaction spanning a map file and a separate membership file. It does increase the size of an individual save, so coalesce changes with the existing [MapAutosave.cs](/Users/jt/source/lasertag/Assets/Anaglyph/LaserTag/Maps/MapAutosave.cs) pattern and measure save cost with a representative space. Serialization frequency must not increase because references moved out of maps.
+Saving a layout writes only its GameMap file. Updating the offset, alignment settings, or membership writes only its MapSpace file. Keep [MapAutosave.cs](/Users/jt/source/lasertag/Assets/Anaglyph/LaserTag/Maps/MapAutosave.cs) coalescing, with independent dirty tracking for maps and spaces.
 
-The old `maps/` catalog is not imported or read as the new schema. Use an explicit schema version; malformed or unsupported space documents must not deserialize into apparently blank, editable spaces. No migration code or automatic grouping of old maps is planned.
+Validate space membership after map-file recovery on catalog load and refresh. Remove duplicate/malformed IDs and references to missing or invalid map documents, including ID/filename mismatches. Persist the cleaned list without deleting the underlying files. A transient I/O failure is not proof of a missing or corrupt map: leave that reference pending for retry. Enforce one-parent membership through the catalog index; reject conflicting additions rather than assigning an existing map to another space implicitly. Pruning the last reference leaves an empty space with its alignment data intact. Remote catalogs advertising maps not downloaded yet are discovery metadata, not dangling local membership entries.
+
+Separate files need ordered, recoverable operations rather than an assumed atomic save across files:
+
+- Create/import/fork: save the complete map first, then add its ID to the space. A failed membership save leaves a recoverable unreferenced map and a retryable operation, not a broken reference. Preserve its intended space/storage-frame context in recovery metadata; do not guess a new parent for an orphan.
+- Delete a map: remove and save membership before deleting its map file. A crash can leave an unreferenced file; an externally missing map is cleaned up by membership pruning. Do not automatically delete orphan files during reference pruning.
+- Session adoption involving several documents: stage incoming data and record a recoverable operation before replacing existing files. Commit all required writes before activating the new runtime context. Resume or roll back incomplete operations on startup; do not treat files staged by an unfinished operation as invalid references.
+- Pure rebasing changes only the space file: existing map files and stored reference poses remain untouched. Offset, frame identity, and association metadata still commit together in that one file.
+
+An individual failed file write preserves its previous committed contents. Multi-file operation failures remain pending/recoverable; do not claim the whole catalog update is atomic merely because each file replacement is.
 
 Preserve conflict handling at the correct scope, after resolving identities and normalizing coordinate frames:
 
@@ -128,13 +138,43 @@ Update [PlayerHeadsetStatus.cs](/Users/jt/source/lasertag/Assets/Anaglyph/LaserT
 
 Generalize `systemFrameForTagSetup` into requested method, active source, and setup operation state. Rename/rework [MapColocationAdapter.cs](/Users/jt/source/lasertag/Assets/Anaglyph/LaserTag/Maps/MapColocationAdapter.cs) as `MapSpaceColocationAdapter`. A same-space map switch must not reset provider snapshots, a tag pair, anchor leases, or the minter. In [ColocationManager.cs](/Users/jt/source/lasertag/Assets/Anaglyph/LaserTag/ColocationManager.cs), continue distinguishing saved preference, committed session method, active provider, and actual localization state.
 
-Use one reference-setup sequence offline and in sessions: retain the usable source; prepare target references; revalidate after every await; persist; then publish/commit. Failure retains the prior usable configuration. Late native results cannot commit after space exit, tracking/recenter changes, source-method replacement, or authority/minter loss.
+Use an explicit reference-alignment transition controller for both setup and method switching, as detailed below. Retain the usable source until the target has been validated and the handoff completes. Failure retains the prior usable configuration. Late native results cannot commit after space exit, tracking/recenter changes, source-method replacement, or authority/minter loss.
 
 Keep [Colocator.cs](/Users/jt/source/lasertag/Assets/Anaglyph/XR/SharedSpaces/Colocator.cs) independent of map classes. Add a non-mutating fit evaluation seam for handoff and reconciliation. Check sufficient, nondegenerate geometry, stability, and residuals; use measured translation/yaw tolerances rather than relying on the current general agreement threshold or a boolean localized flag. Reference-based method handoffs should preserve the canonical frame within those tolerances.
 
 Selecting a configured reference-based method to recover alignment remains allowed. Selecting a provisional method is also allowed in an established space, but can change physical placement. It preserves the saved references for later recovery and disables reference authoring. Proposed default: allow gameplay layout editing under provisional alignment; the resulting saved positions may appear differently in the room after reference-based alignment resumes. Reference protection must not accidentally become a ban on playing or editing.
 
 Audit the no-reference-runtime fallback in `Colocator`: it cannot prove a physical headset is aligned. Explicit simulation must not overwrite real reference records merely because a native provider is unavailable.
+
+**4a. Share an explicit transition lifecycle between setup and switching**
+
+Implement a `ReferenceAlignmentTransition` state machine owned by the proposed `MapSpaceAlignmentController`. It serves setup-only operations, setup followed by switching, and switching between already configured reference-based methods. Setup-only completes after validating and saving the new references while leaving the source method active. Switching skips reference creation when the target is already configured, but still validates its live alignment before handoff.
+
+| Phase | Source alignment | Target work |
+| --- | --- | --- |
+| Preparing | Keep the previous reference-based source live and driving the rig | Observe/register tags, acquire anchors, or prepare sharing; stage changes separately |
+| Validating | Continue aligning from the source | Evaluate the target fit without applying it; require fresh stable observations, adequate geometry, and agreement with the established frame |
+| Persisting | Keep source ownership of the rig | Save validated target configuration and prepare the committed session context |
+| Handing over, if requested | Retain source observations/leases for recovery | Transfer the single rig-driving role to the validated target; finish only after target alignment is confirmed |
+| Completed / canceled / failed | Keep the chosen usable source or target | Release operation-owned resources; preserve committed references |
+
+Keep source method/context, target method, intent (setup-only or activate-target), phase, operation ID, canonical frame/offset revision, source/target reference revisions, authoring client, and session/authority/tracking generations explicit. Live phases, fit evidence, and native leases are runtime state, not proof restored from JSON. Persist durable configuration and any resumable setup intent separately; restart observation/validation after reload.
+
+The invariant is one rig-writing solver, with potentially two reference observation sources. Do not run two normal `Colocator` loops against the rig or combine unvalidated target constraints into the source fit. A frozen last rig transform is not a live reference-based source. The target must support observation/preparation independently of selection; evaluating its proposed transform must not switch the active provider.
+
+Extend the existing handoff in [LaserTagMapCoordinator.ApplyPreferredMethod](/Users/jt/source/lasertag/Assets/Anaglyph/LaserTag/LaserTagMapCoordinator.cs:823) instead of keeping separate special cases for anchors and initial tag setup. Move its operation ownership into this controller and use it offline too. Change [ColocationManager.UpdateProvider](/Users/jt/source/lasertag/Assets/Anaglyph/LaserTag/ColocationManager.cs:264) and the lifecycle around `Colocator.SetProvider` so selecting a requested target cannot prematurely stop the source. Add an explicit validated handoff path that transfers solver ownership without an intermediate origin reset or uncontrolled first-fit snap.
+
+Providers need independently owned observation/preparation handles, with shared native resources retained until their last user releases them. Stopping a staged target or retiring the old source must not tear down resources used by the other. This also covers extending the currently active method: stage added tags/anchors against the old reference revision, and admit them to the active constraint set only after validation. Source tracking continues while the target is prepared; unrelated source-definition edits invalidate/revalidate the operation.
+
+During target setup, capture in the live source's canonical frame and inverse-project through the existing space offset when saving. Validate against subsequent observations as well as those used to author the targets. An ordinary reference-based transition changes neither `canonicalFrameId` nor `canonicalFromStorage`; it must not hide a disagreeing target by rebasing the space.
+
+If source tracking is lost, pause reference authoring and target commit; retain the recoverable source configuration and invalidate stale measurement evidence. Resume with fresh evidence or cancel cleanly. Cancellation, preparation/save failure, authority change, or space/frame exit leaves the source active if it is still usable, and never reports stale alignment as valid. Release only uncommitted operation-owned resources. If failure occurs after a session method commit, rollback is an explicit new coordinated commit; individual peers cannot silently rewrite session selection.
+
+Keep initialization and recovery distinct from a normal handoff. A space with no persistent references uses the existing single-author bootstrap exception and may seed its first method from a provisional frame. If persistent references exist but the active method is provisional, recover a saved reference-based method before authoring anything. If the old source cannot localize, switching to an already configured target is still allowed as recovery; do not require two localized methods to escape lost alignment. Recovery supplies no permission to mint/register references until reference-based alignment is established.
+
+Session authority coordinates target configuration and the method commit; every headset independently validates its local handoff. A peer still localizing the target retains its usable source in the same canonical frame and reports that actual source/phase, rather than claiming the requested target is active. A slow peer need not block all other peers indefinitely. Readiness must distinguish committed session method from each headset's actual reference-based source and frame evidence during overlap. Source retention alone does not authorize a local session-method rollback.
+
+Scope holds to conflicting reference/frame operations, while allowing the registration/measurement actions needed by this setup. Waiting for a person to scan tags is not the existing fixed native-operation timeout: bound native calls, expose cancellation, and keep setup waiting without freezing all interaction. Same-space map changes do not invalidate this space-scoped transition. UI can report, for example, “Preparing AprilTags; aligned using shared anchors,” using the actual source and phase. Preserve the scan during a valid handoff; pause integration if alignment becomes unresolved.
 
 **5. Define durable references and recoverable provisional methods**
 
@@ -165,15 +205,15 @@ The current native path, through `RefreshLocalizableAsync` and the anchor regist
 
 An empty catalog, or a catalog with no probeable candidates, may initialize a new space once native readiness is established; it need not wait for a nonexistent query. Any unprobeable saved spaces remain unknown. Distinguish this case from an attempted query that failed or timed out inconclusively.
 
-Remove the current preferred-method filter from discovery. Retained persistent anchors can locate a space even while its preferred method is Two AprilTags or System determined. Transient two-tag helper anchors do not count. Spaces without accessible persistent anchor realizations can remain unknown; default headset creation avoids making new anchorless spaces.
+Remove the current preferred-method filter from discovery. Retained persistent anchors can locate a space even while its preferred method is Two AprilTags or System determined. Transient two-tag helper anchors do not count. Spaces without accessible persistent anchor realizations can remain unknown; shared-anchor startup normally avoids new anchorless spaces, while devices without sharing access use registered AprilTags and their local anchor realizations when available.
 
 Replace `StartupProbe`'s fixed initial delay with a cancelable lifecycle in the coordinator/alignment controller:
 
-1. Wait for native anchor/tracking readiness and load the local space catalog.
+1. Wait for tracking and a known sharing capability, and load the local space catalog. Probe local anchors whenever the runtime supports them, including on managed headsets that cannot share anchors. If anchor support is definitively unavailable, activate the AprilTag path without treating that as a successful room probe.
 2. Probe all candidates. If several match, choose the most recently used, with a stable ID tie-breaker. Keep every match available in the picker.
 3. Load that space's saved references and use its configured preferred method. When the preferred method is unconfigured or cannot be prepared, retain usable anchor alignment and surface recovery status rather than creating another space. Keep active method and saved preference distinct.
-4. If a usable probe finds no match, automatically create one draft space with shared spatial anchors as its default, initialize and save its first persistent anchor, and select/create its baseline map as needed. No user setup step or manual New space command is required. Use normal session sharing when required; standalone initialization must still persist a usable local reference.
-5. Reuse the same draft while creation/save/sharing work retries. An unavailable runtime or canceled/inconclusive probe shows progress/recovery and retries; it must not manufacture a fresh durable space each time. If a previous space is subsequently rediscovered, reconcile through section 8 when the relationship is verified.
+4. If a usable probe finds no match, automatically create one draft space and select/create its baseline map. Shared spatial anchors are the default only when sharing is available; confirm an upload before committing the initial reference, including standalone. If sharing is unsupported or denied (for example on a managed headset without a Meta account), activate registered AprilTags and open the existing first-tag registration flow. Persist that setup intent and grant one tracked headset permission to initialize tags independently of the shared-anchor minter. No manual New space command is required.
+5. Reuse the same draft while creation/save/sharing work retries or AprilTag setup is interrupted. A definitive sharing denial retargets only an unfinished automatic draft; it never replaces an established reference frame. Unknown runtime capability or a canceled/inconclusive probe shows progress/recovery and retries; it must not manufacture a fresh durable space each time. If a previous space is subsequently rediscovered, reconcile through section 8 when the relationship is verified.
 
 Session selection wins over startup. Cancel outstanding probing/bootstrap work when a session or explicit selection takes control. An empty, uncommitted draft can be discarded or adopted; late native results cannot attach anchors to the selected session space. This prevents startup/join races from leaving unnecessary spaces behind.
 
@@ -189,7 +229,7 @@ Define a committed session selection containing the advertised space ID, `canoni
 
 For same-space map updates, adopt only the layout while preserving local references and the active solver. For a different space/frame, stage references and layout together and resolve the space offset before permanent adoption. Save-before-adoption, retries, conflict preservation, and stale-disconnect rejection continue to apply to the coherent context. If reconciliation lacks evidence, keep a session snapshot keyed by remote identity without changing the local offset or adding a new normal catalog entry on each join.
 
-Preserve current adoption scope: joiners save the active map plus the space configuration and their own realizations; other locally known maps in that space remain intact. Merge the incoming active child into the local space collection. Missing maps in a partial update are not deletions, and the host's other layouts are not downloaded until they become active. This keeps space membership meaningful without requiring every device to have the same catalog.
+Preserve current adoption scope: joiners save the active map plus the space configuration and their own realizations; other locally known maps in that space remain intact. Save the incoming active child as a separate map file, then add its ID to the local space membership list through the recoverable adoption operation. Missing maps in a partial update are not deletions, and the host's other layouts are not downloaded until they become active. This keeps space membership meaningful without requiring every device to have the same catalog.
 
 Session map/reference DTOs carry poses in the committed canonical frame. On publishing, project the active stored map through `canonicalFromStorage`; on permanent adoption, convert incoming poses through its inverse. This walks only the incoming/exported content, never every cached map during a rebase. Native spawned scene objects and edit requests already use canonical/world coordinates, so do not transform those network poses again. Extend `MapSessionSync.Publish`'s map-ID/version early-out to include canonical frame/context: unchanged authored content can need a new projected payload after the frame changes.
 
@@ -216,7 +256,7 @@ The earlier proposal would have walked every object in every saved map and rewri
 
 Use the same `MapSpaceFrame` helper in these paths and in debug visualizations. This does not require parenting all networked objects under a scene root or transforming every object each frame. Activating a changed offset still updates the currently loaded scene and reference targets; loading, capturing, and exporting naturally visit the active map's objects. A rebase itself does not visit poses in inactive maps.
 
-Add a `MapSpaceReconciler` beside the document/store classes. It resolves associations and verified offsets and produces an atomic metadata/adoption transaction. The coordinator owns observations and activation. Keep provider-level fitting and anchor observation independent of map classes.
+Add a `MapSpaceReconciler` beside the document/store classes. It resolves associations and verified offsets and produces an atomic space-metadata update plus a recoverable multi-file adoption operation when map files also change. The coordinator owns observations and activation. Keep provider-level fitting and anchor observation independent of map classes.
 
 **Resolve the local entry before changing coordinates.** Reuse an existing foreign-space association first. Recognize an already adopted canonical frame and its recorded reconciliation lineage without creating another entry or estimating a new transform. Otherwise, the proposed default is to use the currently active local space once the relationship is verified. If there is no unambiguous candidate, defer association or request a choice. Localization in the same room alone does not prove two intentionally distinct spaces should be combined; other local matches remain separate. Frame compatibility alone is not a blanket instruction to merge catalog membership. Check the map-ID index before importing a child so a known map cannot acquire two parents.
 
@@ -231,7 +271,7 @@ Use the project's gravity-preserving translation/yaw convention, with no scaling
 
 **Commit offset and identity together.** Adopt B's `canonicalFrameId`, retain the local storage frame/catalog ID, and record the new offset and foreign identity association. Existing maps, reference targets, and conflict baselines remain numerically unchanged in storage coordinates. Convert only incoming host map/reference data through the new inverse offset when inserting it into this local document. Native anchor UUIDs and physical anchors do not change or require reminting.
 
-Capture outstanding local edits using the old offset before committing the new one; pause conflicting captures and invalidate old operation contexts. Keep map IDs, authored content revisions, and local dirty/fork state. Track the offset/frame change separately, and publish/swap live state only after the save succeeds. Backups and an idempotent operation ID prevent failed retries from composing the delta twice. Updating the geometric mapping is constant-size work; the proposed aggregate JSON file may still serialize all maps when saving. A separate metadata persistence optimization is not required for correctness.
+Capture outstanding local edits using the old offset before committing the new one; pause conflicting captures and invalidate old operation contexts. Keep map IDs, authored content revisions, and local dirty/fork state. Track the offset/frame change separately, and publish/swap live state only after the save succeeds. Backups and an idempotent operation ID prevent failed retries from composing the delta twice. Pure rebasing saves only the MapSpace JSON, including offset/frame/association metadata; it neither loads nor rewrites inactive GameMap files. Incoming map files are saved separately under the ordered adoption/recovery rules in section 2.
 
 **Keep rebasing separate from reference adoption.** A rebase changes only coordinate mapping and associated frame metadata. It does not replace, delete, or re-register the client's alignment data. Joining also imports the host's published definitions in a separate source-aware adoption step, expressed in local storage coordinates through the inverse offset. The host's definitions and active method govern the session; the client's existing references remain saved for future probing/localization and may be used where compatible with that frame.
 
@@ -296,10 +336,10 @@ Duplicating a map within a space copies only the layout and creates a new map ID
 
 **11. Implement in reviewable stages**
 
-1. **Documents and persistence:** introduce the serializable space/local-state envelope, stable storage basis, rigid offset/helper, child-map ownership, independent revisions, identity associations, fresh catalog, CRUD, and conflict behavior. Add document/store and frame-conversion tests.
+1. **Documents and persistence:** introduce separate space/map JSON stores, ID-based membership and pruning, recoverable multi-file operations, stable storage basis, rigid offset/helper, child-map ownership, independent revisions, identity associations, fresh catalog, CRUD, and conflict behavior. Add document/store and frame-conversion tests.
 2. **Space and map lifecycle:** add active-space state, split transitions/events, adapt workflow/policy, project layouts and provider references at document boundaries, and preserve same-space alignment. Keep the existing scene coordinator GUID and prefab references.
-3. **Alignment policy:** distinguish reference-based and provisional evidence, keep two-tag poses transient, allow provisional selection, and move minter/readiness/request validation to space/frame context. Validate initialization, continuity between reference-based methods, and stale-operation behavior.
-4. **Discovery and automatic setup:** add explicit probe outcomes, readiness-based startup, MRU selection, automatic anchor-backed creation, and cancellation when session selection wins. Keep the operator/simulation paths distinct.
+3. **Alignment policy and transitions:** distinguish reference-based and provisional evidence, implement the shared setup/switch state machine with retained source observations and one rig writer, keep two-tag poses transient, and move minter/readiness/request validation to space/frame context. Validate initialization, recovery, handoff continuity, and stale-operation behavior.
+4. **Discovery and automatic setup:** add explicit probe outcomes, readiness-based startup, MRU selection, capability-aware automatic creation, and cancellation when session selection wins. Keep the operator/simulation paths distinct.
 5. **Session reconciliation:** stage coherent space/map adoption, verify frame relationships, atomically update offsets and identity associations, preserve client references separately from host imports, and support offset undo. Normalize incoming/exported content, defer unresolved adoption without duplicate entries, and update request payloads/readiness and protocol version.
 6. **Scan and UI integration:** add effective-frame/scan tokens and late-join mesh transfer; verify A → B → A isolation. Split space/map catalogs and settings across headset/operator/palette, remove manual headset creation, and update localization and documentation.
 7. **Integrated verification:** complete Unity Edit Mode/composed-UI checks, then real headset and operator sessions. Intermediate stages are not a playable release until their dependent changes are integrated.
@@ -313,7 +353,9 @@ Extend the existing tests under [Tests/Editor](/Users/jt/source/lasertag/Assets/
 | Scenario | Required result |
 | --- | --- |
 | Create/switch/delete maps in one space | References, provider selection, trusted frame, and live scan survive; only the intended layout changes. |
-| Fresh headset with a ready runtime and no matching space | Automatically creates one space, saves spatial anchors, and provides a usable map without manual space setup. |
+| Fresh headset with sharing access and no matching space | Automatically creates one space, saves and shares spatial anchors, and provides a usable map without manual space setup. |
+| Managed headset without sharing access and no matching space | Automatically creates/reuses one draft, activates registered AprilTags and opens first-tag registration without requiring a cloud-anchor minter. |
+| Unknown capability or inconclusive probe | Waits/retries without creating another space; confirmed lack of sharing does not disable local anchor probing. |
 | Probe unavailable, canceled, or inconclusive; native initialization/save retries | Status/retry preserves one pending operation; no repeated durable-space creation. |
 | Session join races with startup probe or anchor creation | Session selection wins; late results cannot overwrite it or create orphan references. |
 | Blank layout in a space with reference-based data | Cannot authorize new references from an unaligned or provisional headset. |
@@ -324,13 +366,21 @@ Extend the existing tests under [Tests/Editor](/Users/jt/source/lasertag/Assets/
 | Provisional method selected while saved tags/anchors exist | Selection/play allowed; persistent reference authoring and automatic minting blocked; saved references survive. |
 | Return from provisional to reference-based alignment | Saved reference frame is recovered; incompatible scan is cleared. |
 | Method setup interrupted by tracking loss, recenter, timeout, space change, or minter/authority loss | No stale result is committed; prior usable state remains recoverable. |
+| Setup-only, setup-and-switch, or switching configured reference-based methods | Source continues live alignment through preparation/validation; setup-only retains it, while switching transfers one rig-writing role after validation. |
+| Target fit disagrees, or its observation session is canceled | No target-driven rig movement or offset rebase; source resources and committed references survive. |
+| Adding references to the currently active method | Staged references cannot contaminate their own validating source fit; commit only after fresh validation. |
+| Source unavailable, target already configured | Recovery can select/localize the target without inventing new references or requiring the unavailable source to align first. |
+| Different peers complete handoff at different times | Each reports its actual source/phase and frame readiness; retained-source peers do not falsely claim target activation. |
 | Several spaces localize in one room | All remain candidates with independent scores and maps. |
 | No probeable anchors or no conclusive native answer | Space remains unknown rather than being silently classified elsewhere. |
 | Late join or delayed provider/object data | Only a coherent committed space/frame/map is adopted; empty layouts are valid. |
 | A joins B with separately created spaces and both reference frames observable | One offset projects all A layouts/reference targets into B's basis while preserving physical placement; existing stored poses stay unchanged. |
 | Loading, editing, or importing a map under a nonidentity offset | Pose composition/inversion round-trips correctly; imported content shares the stable storage basis; unresolved prefab placements survive. |
 | Provider injection/capture and host-reference import under a nonidentity offset | Targets convert exactly once in each direction; UUIDs, tag IDs, sizes, and existing local saved definitions remain intact. |
-| Pure rebase with no reference import | No reference membership or saved target pose changes; only offset/frame/association metadata changes. |
+| Pure rebase with no reference import | Only the space JSON changes; every GameMap file, reference membership, and stored target pose remains unchanged. |
+| Missing, invalid, or duplicate map references | Recover backups first, prune bad membership, and save the space; retain unrelated map files and space alignment. |
+| Transient map-read failure or incomplete adoption | Retry/recover before pruning; do not discard valid membership or local edits. |
+| Failure between map-file and space-file writes | Recover the staged operation or preserve a retryable orphan; no partial runtime adoption or unintended reparenting. |
 | Undo one of several rebases, or return to the original basis | Restore the previous offset/frame pair or the original identity basis deliberately; no saved-map rewrite and no stale session/scan context. |
 | Canonical frame changes with unchanged map ID/content revision | Publish the newly projected payload; the content-version early-out cannot suppress it. |
 | Repeated joins, host alternation, or already shared canonical frame | No duplicate space and no fresh estimated rebase for a known unchanged basis. |
@@ -348,4 +398,4 @@ In Unity, import and clone the actual composed UXML documents, check named/type 
 
 Device validation needs at least two Quests and a PC operator: automatic fresh/reloaded startup, same-space map changes, cross-space changes, every method handoff, independent space creation followed by repeated joins in both hosting directions, simultaneous initialization, minter replacement, sleep/wake/recenter, and late joining a stable scan. Exercise LAN and relay separately. Measure physical position/yaw continuity at multiple points in the room before choosing handoff/reconciliation tolerances. Editor tests do not prove these device behaviors.
 
-The proposed defaults for review are: one aggregate file per space; an active space may have no map; deleting its last map keeps the space; full alignment reset remains explicit; provisional alignment permits layout editing; and a new host association uses the verified active local candidate. Physical tolerances need hardware measurements. No runtime behavior has been changed or claimed validated by this planning task.
+The proposed defaults for review are: an active space may have no map; deleting its last map keeps the space; full alignment reset remains explicit; provisional alignment permits layout editing; and a new host association uses the verified active local candidate. Physical tolerances need hardware measurements. No runtime behavior has been changed or claimed validated by this planning task.

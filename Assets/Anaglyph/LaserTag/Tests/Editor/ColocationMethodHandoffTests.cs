@@ -2,174 +2,109 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Anaglyph.LaserTag.Maps;
+using Anaglyph.XR.SharedSpaces;
 using Anaglyph.XR.SharedSpaces.AprilTags;
 using Anaglyph.XR.SharedSpaces.SharedAnchors;
 using NUnit.Framework;
 using UnityEngine;
+using Method = Anaglyph.LaserTag.ColocationManager.ColocationMethod;
 
 namespace Anaglyph.LaserTag.Tests
 {
 	public class ColocationMethodHandoffTests
 	{
-		private const BindingFlags PrivateInstance = BindingFlags.NonPublic | BindingFlags.Instance;
-		private GameObject owner;
-		private ColocationManager manager;
-		private AprilTagColocationConstraintProvider tags;
-		private SpatialAnchorColocationConstraintProvider anchors;
-		private object adapter;
-		private MethodInfo adopt;
-
-		[SetUp]
-		public void SetUp()
+		private static MapSpace Established()
+		{ var space = MapSpace.Create("Room"); space.SetAnchorWithTag(Guid.NewGuid().ToString("N"), Pose.identity, -1); return space; }
+		private static ReferenceAlignmentTransition Transition(bool creates = true, bool bootstrap = false) =>
+			new(Guid.NewGuid(), bootstrap ? MapSpace.Create("New") : Established(), Method.MetaSharedAnchor, Method.AprilTag, ReferenceTransitionIntent.ActivateTarget, creates);
+		private static bool Observe(ReferenceAlignmentTransition t, double now, bool source = true, int generation = 1, float error = 0) =>
+			t.Observe(now, generation, source, true, true, Pose.identity, error, 0);
+		[Test] public void CandidateNeedsFreshStableEvidenceAndLossOfSourceInvalidatesIt()
 		{
-			// Exercise the real import/export paths without a scene, bus, or native anchor runtime.
-			owner = new GameObject("Colocation method handoff test");
-			owner.SetActive(false);
-			manager = owner.AddComponent<ColocationManager>();
-			tags = owner.AddComponent<AprilTagColocationConstraintProvider>();
-			anchors = owner.AddComponent<SpatialAnchorColocationConstraintProvider>();
-			typeof(ColocationManager).GetField("aprilTagColocationProvider", PrivateInstance).SetValue(manager, tags);
-			typeof(ColocationManager).GetField("spatialAnchorColocationProvider", PrivateInstance).SetValue(manager, anchors);
-			Type adapterType = typeof(GameMap).Assembly.GetType("Anaglyph.LaserTag.Maps.MapColocationAdapter", true);
-			adapter = Activator.CreateInstance(adapterType, new object[] { manager });
-			adopt = adapterType.GetMethod("AdoptProviderState");
+			var t = Transition(); t.SetCandidate(Guid.NewGuid()); Assert.That(Observe(t, 0), Is.False);
+			Assert.That(Observe(t, .7), Is.True); Assert.That(Observe(t, .8, source: false), Is.False);
+			Assert.That(Observe(t, .9), Is.False); Assert.That(Observe(t, 1.6), Is.True);
 		}
-
-		[TearDown]
-		public void TearDown() => UnityEngine.Object.DestroyImmediate(owner);
-
-		private GameMap Adopt(GameMap map, bool restore) => (GameMap)adopt.Invoke(adapter, new object[] { map, restore });
-
-		[TestCase(false, false, ColocationManager.ColocationMethod.AprilTag)]
-		[TestCase(true, true, ColocationManager.ColocationMethod.AprilTag)]
-		[TestCase(false, true, ColocationManager.ColocationMethod.MetaSharedAnchor)]
-		public void UnsupportedHostUsesTagsForBlankOrTaggedMapsButPreservesExistingTaglessFrames(
-			bool hasTags, bool hasContent, ColocationManager.ColocationMethod expected)
+		[Test] public void TrackingOrCandidateRevisionChangeRequiresNewEvidence()
 		{
-			typeof(ColocationManager).GetField("mapHasTags", PrivateInstance).SetValue(manager, hasTags);
-			typeof(ColocationManager).GetField("mapHasContent", PrivateInstance).SetValue(manager, hasContent);
-			typeof(ColocationManager).GetField("mapHasAnchors", PrivateInstance).SetValue(manager, hasContent);
-			Assert.That(anchors.CanShareAnchors, Is.False);
-			Assert.That(manager.PreferredSessionMethod, Is.EqualTo(expected));
+			var t = Transition(); t.SetCandidate(Guid.NewGuid()); Observe(t, 0); Assert.That(Observe(t, 1), Is.True);
+			Assert.That(Observe(t, 2, generation: 2), Is.False); Assert.That(Observe(t, 3, generation: 2), Is.True);
+			t.SetCandidate(Guid.NewGuid()); Assert.That(t.Ready, Is.False); Assert.That(Observe(t, 4, generation: 2), Is.False);
 		}
-
-		[Test]
-		public void SystemOriginAllowsFirstTagSetupButAnEmptyAnchorTargetRemainsBlocked()
+		[Test] public void BadFitCannotBecomePermanentAndOrdinaryHandoffCannotHideOffset()
 		{
-			var coordinator = owner.AddComponent<LaserTagMapCoordinator>();
-			var maps = new MapManager(new MapStore(System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString("N"))));
-			maps.Create();
-			maps.SetObjects(new[] { new MapObjectEntry { prefabId = "Base", pose = Pose.identity } });
-			maps.SetPreferredColocationMethod(ColocationManager.ColocationMethod.SystemDetermined);
-			typeof(LaserTagMapCoordinator).GetField("maps", PrivateInstance).SetValue(coordinator, maps);
-			typeof(LaserTagMapCoordinator).GetField("colocationManager", PrivateInstance).SetValue(coordinator, manager);
-			typeof(ColocationManager).GetField("offlineMethod", PrivateInstance).SetValue(manager, ColocationManager.ColocationMethod.SystemDetermined);
-			Assert.That(coordinator.DescribeColocationMethodBlocker(ColocationManager.ColocationMethod.AprilTag), Is.Null);
-			Assert.That(coordinator.DescribeColocationMethodBlocker(ColocationManager.ColocationMethod.MetaSharedAnchor), Is.Not.Null);
+			var t = Transition(); t.SetCandidate(Guid.NewGuid()); Observe(t, 0);
+			Assert.That(Observe(t, 1, error: .2f), Is.False);
+			Assert.That(t.Observe(2, 1, true, true, true, new Pose(Vector3.right, Quaternion.identity), 0, 0), Is.False);
 		}
-
-		[Test]
-		public void AlignmentRejectionModalIsScopedToTheLatestRequestAndMap()
+		[Test] public void ConfiguredTargetRecoveryDoesNotRequireUnavailableOldSource()
 		{
-			var coordinator = owner.AddComponent<LaserTagMapCoordinator>();
-			var maps = new MapManager(new MapStore(System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString("N"))));
-			maps.Create();
-			var type = typeof(LaserTagMapCoordinator);
-			type.GetField("maps", PrivateInstance).SetValue(coordinator, maps);
-			Guid latest = Guid.NewGuid();
-			type.GetField("latestMethodRequest", PrivateInstance).SetValue(coordinator, latest);
-			var rejectionType = type.GetNestedType("MethodRejection", BindingFlags.NonPublic);
-			object Rejection(Guid requestId, Guid mapId)
+			var t = Transition(creates: false); t.SetCandidate(Guid.NewGuid()); Observe(t, 0, false);
+			Assert.That(Observe(t, 1, false), Is.True);
+			var setup = Transition(creates: true); setup.SetCandidate(Guid.NewGuid()); Observe(setup, 0, false);
+			Assert.That(Observe(setup, 1, false), Is.False);
+		}
+		[Test] public void FirstReferenceMayBootstrapButProvisionalCannotAuthorizeLaterReferences()
+		{
+			var t = Transition(bootstrap: true); t.SetCandidate(Guid.NewGuid()); Observe(t, 0, false); Assert.That(Observe(t, 1, false), Is.True);
+			foreach (var provisional in new[] { Method.SystemDetermined, Method.TwoAprilTags })
 			{
-				object rejection = Activator.CreateInstance(rejectionType);
-				rejectionType.GetField("requestId").SetValue(rejection, requestId);
-				rejectionType.GetField("mapId").SetValue(rejection, mapId);
-				var reason = rejectionType.GetField("reason");
-				reason.SetValue(rejection, Activator.CreateInstance(reason.FieldType, new object[] { "Sharing unavailable" }));
-				return rejection;
+				Assert.That(MapPolicy.CanAuthorReferences(true, provisional, true, true), Is.False);
+				Assert.That(MapPolicy.CanAuthorReferences(false, provisional, true, false), Is.False);
+				Assert.That(MapPolicy.CanAuthorReferences(false, provisional, true, true), Is.True);
 			}
-			var receive = type.GetMethod("OnMethodRejected", PrivateInstance);
-			int modalErrors = 0;
-			void OnError(UserError _) => modalErrors++;
-			UserErrors.Raised += OnError;
+		}
+		[Test] public void ImportProjectsAnchorAndTagTargetsThroughTheSameOffsetAndKeepsPrivateUuid()
+		{
+			var owner = new GameObject("Space adapter test"); owner.SetActive(false);
 			try
 			{
-				receive.Invoke(coordinator, new[] { (object)0UL, Rejection(Guid.NewGuid(), Guid.Parse(maps.CurrentId)) });
-				receive.Invoke(coordinator, new[] { (object)0UL, Rejection(latest, Guid.NewGuid()) });
-				Assert.That(modalErrors, Is.Zero);
-				receive.Invoke(coordinator, new[] { (object)0UL, Rejection(latest, Guid.Parse(maps.CurrentId)) });
-				Assert.That(modalErrors, Is.EqualTo(1));
-				maps.Create();
-				receive.Invoke(coordinator, new[] { (object)0UL, Rejection(latest, Guid.NewGuid()) });
-				Assert.That(modalErrors, Is.EqualTo(1));
-				type.GetMethod("OnColocationMethodChanged", PrivateInstance).Invoke(coordinator, null);
-				Assert.That(type.GetField("latestMethodRequest", PrivateInstance).GetValue(coordinator), Is.EqualTo(Guid.Empty));
+				var manager = owner.AddComponent<ColocationManager>(); var tags = owner.AddComponent<AprilTagColocationConstraintProvider>();
+				var anchors = owner.AddComponent<SpatialAnchorColocationConstraintProvider>(); const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+				typeof(ColocationManager).GetField("aprilTagColocationProvider", flags).SetValue(manager, tags);
+				typeof(ColocationManager).GetField("spatialAnchorColocationProvider", flags).SetValue(manager, anchors);
+				var adapterType = typeof(MapSpace).Assembly.GetType("Anaglyph.LaserTag.Maps.MapSpaceColocationAdapter", true);
+				var adapter = Activator.CreateInstance(adapterType, new object[] { manager });
+				var space = MapSpaceReconciler.Rebase(Established(), Guid.NewGuid().ToString("N"), new Pose(Vector3.right * 5, Quaternion.Euler(0, 90, 0)));
+				space.SetTag(7, Pose.identity); string privateId = Guid.NewGuid().ToString("N");
+				space.localAnchors.Add(new() { guid = privateId, tagId = 7, canonPose = Pose.identity, tagCanonPose = Pose.identity, tagSizeCm = 10 });
+				adapterType.GetMethod("Inject").Invoke(adapter, new object[] { space });
+				Assert.That(Vector3.Distance(tags.RegisteredTags[7].position, space.canonicalFromStorage.position), Is.LessThan(.0001f));
+				var realized = new List<TaggedAnchorConstraintData>(); tags.GetLocalAnchorConstraints(realized);
+				Assert.That(realized.Count, Is.EqualTo(1)); Assert.That(realized[0].guid.ToString("N"), Is.EqualTo(privateId));
+				Assert.That(realized[0].canonPose, Is.EqualTo(tags.RegisteredTags[7]));
 			}
-			finally { UserErrors.Raised -= OnError; }
+			finally { UnityEngine.Object.DestroyImmediate(owner); }
 		}
-
-		[Test]
-		public void JoiningThroughSharedAnchorsRetainsPrivateTagRealizationForALaterSwitch()
+		[Test] public void FitRejectsDegeneratePositionsButCanUseOneOrientedAnchor()
 		{
-			Guid local = Guid.NewGuid();
-			Guid authority = Guid.NewGuid();
-			Pose localCanon = new(new Vector3(1, 2, 3), Quaternion.Euler(0, 30, 0));
-			Pose sharedCanon = new(new Vector3(4, 5, 6), Quaternion.identity);
-			GameMap map = new();
-			map.SetTag(7, Pose.identity);
-			map.SetAnchorWithTag(local.ToString("N"), localCanon, 7);
-			tags.SetRegisteredTags(new[] { new TagConstraintData(7, Pose.identity) });
-			anchors.SetConstraints(new[] { new AnchorConstraintData(authority, sharedCanon, 7) });
-
-			GameMap joined = Adopt(map, true);
-			List<TaggedAnchorConstraintData> restored = new();
-			tags.GetLocalAnchorConstraints(restored);
-			Assert.That(restored.Count, Is.EqualTo(1));
-			Assert.That(restored[0].guid, Is.EqualTo(local));
-			Assert.That(restored[0].canonPose, Is.EqualTo(localCanon));
-			Assert.That(joined.TryGetAnchor(authority.ToString("N"), out _), Is.True);
-
-			// The method commit changes which realization is captured, without another map load.
-			object method = typeof(ColocationManager).GetField("methodSync", PrivateInstance).GetValue(manager);
-			method.GetType().GetProperty("Value").SetValue(method, ColocationManager.ColocationMethod.AprilTag);
-			GameMap switched = Adopt(joined, false);
-			Assert.That(switched.anchors.Count, Is.EqualTo(1));
-			Assert.That(switched.anchors[0].guid, Is.EqualTo(local.ToString("N")));
-			Assert.That(switched.anchors[0].canonPose, Is.EqualTo(localCanon));
+			var constraints = new List<ColocationConstraint> { new(Pose.identity, Pose.identity), new(Pose.identity, Pose.identity) };
+			Assert.That(ColocationFit.TryEvaluate(constraints, out _, out _, out _), Is.False);
+			constraints.Clear(); constraints.Add(new(Pose.identity, new Pose(Vector3.one, Quaternion.Euler(0, 60, 0)), true));
+			Assert.That(ColocationFit.TryEvaluate(constraints, out var fit, out var residual, out _), Is.True);
+			Assert.That(residual, Is.LessThan(.001f)); Assert.That(fit.position, Is.EqualTo(Vector3.one));
 		}
-
-		[Test]
-		public void DuplicateRealizationsForOneTagDoNotReplaceTheRestoredPrivateUuid()
+		private sealed class Source : IColocationConstraintProvider
 		{
-			Guid local = Guid.NewGuid();
-			GameMap saved = new();
-			saved.SetTag(7, Pose.identity);
-			saved.SetAnchorWithTag(local.ToString("N"), Pose.identity, 7);
-			saved.SetAnchorWithTag(Guid.NewGuid().ToString("N"), Pose.identity, 7);
-			tags.SetRegisteredTags(new[] { new TagConstraintData(7, Pose.identity) });
-			Adopt(saved, true);
-			List<TaggedAnchorConstraintData> restored = new();
-			tags.GetLocalAnchorConstraints(restored);
-			Assert.That(restored.Count, Is.EqualTo(1));
-			Assert.That(restored[0].guid, Is.EqualTo(local));
+			private readonly List<string> events; private readonly string name;
+			public Source(List<string> events, string name) { this.events = events; this.name = name; }
+			public bool IsAvailable => true; public bool IsRunning { get; private set; }
+			public void StartProviding() { IsRunning = true; events.Add(name + ":start"); }
+			public void StopProviding() { IsRunning = false; events.Add(name + ":stop"); }
+			public void GetColocationConstraints(List<ColocationConstraint> result) { }
 		}
-
-		[Test]
-		public void OfflineImportKeepsTheCanonicalPosePairedWithItsOwnUuid()
+		[Test] public void ValidatedHandoffStartsTargetBeforeRetiringSourceWithoutResettingAlignment()
 		{
-			Guid local = Guid.NewGuid();
-			Pose localCanon = new(new Vector3(1, 2, 3), Quaternion.identity);
-			GameMap saved = new();
-			saved.SetTag(7, Pose.identity);
-			saved.SetAnchorWithTag(local.ToString("N"), localCanon, 7);
-			saved.SetAnchorWithTag(Guid.NewGuid().ToString("N"), Pose.identity, 7);
-			adapter.GetType().GetMethod("Inject").Invoke(adapter, new object[] { saved });
-			List<TaggedAnchorConstraintData> restored = new();
-			tags.GetLocalAnchorConstraints(restored);
-			Assert.That(restored.Count, Is.EqualTo(1));
-			Assert.That(restored[0].guid, Is.EqualTo(local));
-			Assert.That(restored[0].canonPose, Is.EqualTo(localCanon));
-			Assert.That(anchors.Constraints.Count, Is.EqualTo(2));
+			var owner = new GameObject("Handoff test"); owner.SetActive(false);
+			try
+			{
+				var solver = owner.AddComponent<Colocator>(); List<string> events = new(); var old = new Source(events, "old"); var next = new Source(events, "new");
+				solver.SetProvider(old); old.StartProviding(); events.Clear();
+				typeof(Colocator).GetMethod("SetState", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(solver, new object[] { ColocationAlignmentState.Localized });
+				solver.Handoff(next); Assert.That(events, Is.EqualTo(new[] { "new:start", "old:stop" }));
+				Assert.That(solver.Provider, Is.SameAs(next)); Assert.That(solver.AlignmentState, Is.EqualTo(ColocationAlignmentState.Localized));
+			}
+			finally { UnityEngine.Object.DestroyImmediate(owner); }
 		}
 	}
 }

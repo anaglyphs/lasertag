@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Anaglyph.LaserTag.Matches;
+using Anaglyph.LaserTag.Maps;
 using Anaglyph.LaserTag.Objects.Gameplay.Control_Point;
 using Anaglyph.LaserTag.Player;
 using Anaglyph.LaserTag.Player.Teams;
@@ -39,6 +40,8 @@ namespace Anaglyph.LaserTag.Tests
 			Set(colocation, "offlineMethod", ColocationManager.ColocationMethod.SystemDetermined);
 			SetStatic(typeof(ColocationManager), "Instance", colocation);
 			var coordinator = context.AddComponent<LaserTagMapCoordinator>();
+			var spaces = new MapSpaceManager(new MapSpaceStore(System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString("N"))));
+			spaces.Load(MapSpace.Create("Presence test")); Set(coordinator, "spaces", spaces);
 			((MapWorkflow)Get(coordinator, "workflow")).BeginHosting(false, 0);
 			SetStatic(typeof(LaserTagMapCoordinator), "Instance", coordinator);
 		}
@@ -86,7 +89,7 @@ namespace Anaglyph.LaserTag.Tests
 		{
 			var readiness = Ready(false);
 			Assert.That(readiness.CanMintSharedAnchors, Is.True);
-			Assert.That(readiness.IsAlignedTo(mapId, readiness.method), Is.False);
+			Assert.That(readiness.IsAlignedTo(mapId, LaserTagMapCoordinator.Instance.CanonicalFrameId, LaserTagMapCoordinator.Instance.ReferenceContext), Is.False);
 			readiness.isOperator = true;
 			Assert.That(readiness.CanMintSharedAnchors, Is.False);
 			readiness.isOperator = false;
@@ -110,7 +113,7 @@ namespace Anaglyph.LaserTag.Tests
 			NetworkValue(player.HeadsetStatus, "readinessSync", readiness);
 			Assert.That(player.HasSpatialPresence, Is.False);
 			readiness = Ready(true);
-			readiness.method = ColocationManager.ColocationMethod.AprilTag;
+			readiness.frameId = Guid.NewGuid();
 			NetworkValue(player.HeadsetStatus, "readinessSync", readiness);
 			Assert.That(player.HasSpatialPresence, Is.False);
 		}
@@ -288,7 +291,7 @@ namespace Anaglyph.LaserTag.Tests
 		private HeadsetReadiness Ready(bool aligned) => new()
 		{
 			hasAnchorRuntime = true, supportsSharedAnchors = true, isHeadTracked = true,
-			isFocused = true, aligned = aligned, mapId = mapId,
+			isFocused = true, aligned = aligned, mapId = mapId, frameId = LaserTagMapCoordinator.Instance.CanonicalFrameId, referenceContext = LaserTagMapCoordinator.Instance.ReferenceContext,
 			method = ColocationManager.ColocationMethod.SystemDetermined
 		};
 

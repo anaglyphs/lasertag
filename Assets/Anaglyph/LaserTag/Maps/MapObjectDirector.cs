@@ -18,6 +18,7 @@ namespace Anaglyph.LaserTag.Maps
 		private struct Placement
 		{
 			public Guid mapId;
+			public Guid context;
 			public FixedString64Bytes prefabId;
 			public Pose pose;
 		}
@@ -25,6 +26,7 @@ namespace Anaglyph.LaserTag.Maps
 		private struct ObjectRequest
 		{
 			public Guid mapId;
+			public Guid context;
 			public ulong objectId;
 			public Pose pose;
 		}
@@ -38,15 +40,18 @@ namespace Anaglyph.LaserTag.Maps
 		private readonly HashSet<MapObject> retired = new();
 		private readonly List<MapObjectEntry> unresolved = new();
 		private Guid mapId;
+		private Guid context;
+		private readonly Func<MapSpaceFrame> frame;
 
-		public MapObjectDirector(MapObjectDatabase database, Action contentChanged, Func<bool> canEdit)
+		public MapObjectDirector(MapObjectDatabase database, Action contentChanged, Func<bool> canEdit, Func<MapSpaceFrame> frame)
 		{
 			this.database = database;
 			this.contentChanged = contentChanged;
 			this.canEdit = canEdit;
+			this.frame = frame;
 		}
 
-		public void SetMapId(string id) => Guid.TryParse(id, out mapId);
+		public void SetContext(string id, Guid operation) { Guid.TryParse(id, out mapId); context = operation; }
 		public bool IsReplacementComplete => retired.Count == 0;
 		public void Register()
 		{
@@ -81,7 +86,7 @@ namespace Anaglyph.LaserTag.Maps
 				contentChanged();
 				return true;
 			}
-			Placement placement = new() { mapId = mapId, pose = new Pose(position, rotation) };
+			Placement placement = new() { mapId = mapId, context = context, pose = new Pose(position, rotation) };
 			placement.prefabId.CopyFromTruncated(prefab.PrefabId);
 			placeRequest.Raise(placement);
 			return true;
@@ -97,7 +102,7 @@ namespace Anaglyph.LaserTag.Maps
 				contentChanged();
 				return true;
 			}
-			removeRequest.Raise(new ObjectRequest { mapId = mapId, objectId = obj.NetworkObject.NetworkObjectId });
+			removeRequest.Raise(new ObjectRequest { mapId = mapId, context = context, objectId = obj.NetworkObject.NetworkObjectId });
 			return true;
 		}
 
@@ -112,14 +117,14 @@ namespace Anaglyph.LaserTag.Maps
 			}
 			moveRequest.Raise(new ObjectRequest
 			{
-				mapId = mapId, objectId = obj.NetworkObject.NetworkObjectId,
+				mapId = mapId, context = context, objectId = obj.NetworkObject.NetworkObjectId,
 				pose = new Pose(obj.transform.position, obj.transform.rotation)
 			});
 		}
 
 		private void OnPlaceRequested(ulong sender, Placement placement)
 		{
-			if (placement.mapId != mapId || !canEdit() || !Finite(placement.pose))
+			if (placement.mapId != mapId || placement.context != context || !canEdit() || !Finite(placement.pose))
 				return;
 			MapObject prefab = database ? database.FindPrefab(placement.prefabId.ToString()) : null;
 			if (!prefab || !NetworkManager.Singleton)
@@ -133,7 +138,7 @@ namespace Anaglyph.LaserTag.Maps
 		{
 			obj = null;
 			NetworkManager manager = NetworkManager.Singleton;
-			return request.mapId == mapId && canEdit() && manager && manager.SpawnManager != null &&
+			return request.mapId == mapId && request.context == context && canEdit() && manager && manager.SpawnManager != null &&
 				manager.SpawnManager.SpawnedObjects.TryGetValue(request.objectId, out NetworkObject spawned) &&
 				spawned.TryGetComponent(out obj) && !retired.Contains(obj);
 		}
@@ -178,7 +183,7 @@ namespace Anaglyph.LaserTag.Maps
 			{
 				if (!obj || retired.Contains(obj) || (localOnly && !obj.IsLocalOnly) || string.IsNullOrEmpty(obj.PrefabId))
 					continue;
-				result.Add(new MapObjectEntry { prefabId = obj.PrefabId, pose = new Pose(obj.transform.position, obj.transform.rotation) });
+				result.Add(new MapObjectEntry { prefabId = obj.PrefabId, pose = frame().ToStorage(new Pose(obj.transform.position, obj.transform.rotation)) });
 			}
 			return result;
 		}
@@ -199,7 +204,8 @@ namespace Anaglyph.LaserTag.Maps
 					Debug.LogWarning($"Map references unknown prefab '{entry.prefabId}'; preserving its saved placement.");
 					continue;
 				}
-				UnityEngine.Object.Instantiate(prefab.gameObject, entry.pose.position, entry.pose.rotation);
+				Pose pose = frame().ToCanonical(entry.pose);
+				UnityEngine.Object.Instantiate(prefab.gameObject, pose.position, pose.rotation);
 			}
 		}
 

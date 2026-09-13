@@ -1,5 +1,6 @@
 using System;
 using Anaglyph.LaserTag.Matches;
+using Anaglyph.LaserTag.MapEditor.Tools;
 using Anaglyph.Menu;
 using Anaglyph.Netcode;
 using UnityEngine;
@@ -20,7 +21,10 @@ namespace Anaglyph.LaserTag.Interface
 		private MapManagerUI mapManager;
 		private MapProbeBinder mapProbe;
 		private MatchSettingsBinder matchSettings;
-		private MapEditingMenuBinder mapEditing;
+		private MapNameBinder mapName;
+		private SpaceDetailsBinder spaceDetails;
+		private NavPage spaceDetailsPage;
+		private bool editingSpace;
 
 		private MatchReferee Referee => MatchReferee.Instance;
 
@@ -41,21 +45,24 @@ namespace Anaglyph.LaserTag.Interface
 			navView = NavView.RequireIn(root);
 			playingPage = navView.GetPage("playing-page");
 			editingMapPage = navView.GetPage("editing-map-page");
+			spaceDetailsPage = navView.GetPage("space-details");
 
 			mapManager = GetComponent<MapManagerUI>();
 			if (mapManager == null)
 				throw new InvalidOperationException("GameMenu requires MapManagerUI on the same object.");
-			mapManager.Bind(Require<VisualElement>(root, "map-catalog-section"));
+			mapManager.Bind(Require<VisualElement>(root, "map-catalog-section"), spaceDetailsPage,
+				() => MapEditor.MapEditor.SetActive(true));
 			mapProbe = new MapProbeBinder(Require<Button>(root, "probe-maps-button"));
 			bindings.Click(Require<Button>(root, "manage-map-button"), mapProbe.Probe);
 			matchSettings = new MatchSettingsBinder(root);
-			mapEditing = new MapEditingMenuBinder(editingMapPage);
+			mapName = new MapNameBinder(Require<VisualElement>(editingMapPage, "map-name-section"));
+			spaceDetails = new SpaceDetailsBinder(spaceDetailsPage);
+			spaceDetails.Alignment.Changing += OnAlignmentChanging;
+			spaceDetails.Alignment.Changed += OnAlignmentChanged;
 			navView.Changed += OnNavPageChanged;
 
 			bindings.Click(matchSettings.StartButton, () => Referee?.QueueMatch(matchSettings.Settings));
 			bindings.Click(Require<Button>(root, "stop-button"), () => Referee?.EndMatch());
-			bindings.Click(Require<Button>(root, "edit-map-button"),
-				() => MapEditor.MapEditor.SetActive(true));
 			bindings.Click(Require<Button>(root, "finish-editing-button"),
 				() => MapEditor.MapEditor.SetActive(false));
 		}
@@ -67,11 +74,13 @@ namespace Anaglyph.LaserTag.Interface
 			MatchReferee.StateChanged += OnMatchStateChanged;
 			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
 			MapEditor.MapEditor.ActiveChanged += OnMapEditorStateChanged;
-			MapEditor.MapEditor.TagRegistrationRequested += ShowTagsPage;
+			MapEditor.MapEditor.TagRegistrationRequested += ShowSpaceAlignment;
 
 			OnMatchStateChanged(MatchReferee.State);
 			OnNetcodeStateChanged(NetcodeManagement.State);
-			OnMapEditorStateChanged(MapEditor.MapEditor.IsActive);
+			if (MapEditor.MapEditor.IsActive && MapEditorTool.CurrentMode is MapEditorTool.Mode.Tags or MapEditorTool.Mode.MeasureTagSize)
+				ShowSpaceAlignment();
+			else OnMapEditorStateChanged(MapEditor.MapEditor.IsActive);
 			errors.Bind(navView);
 			// Rebinding a surviving tree may leave the same page selected, with no Changed event.
 			OnNavPageChanged(navView.CurrentPage);
@@ -89,26 +98,90 @@ namespace Anaglyph.LaserTag.Interface
 			MatchReferee.StateChanged -= OnMatchStateChanged;
 			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
 			MapEditor.MapEditor.ActiveChanged -= OnMapEditorStateChanged;
-			MapEditor.MapEditor.TagRegistrationRequested -= ShowTagsPage;
+			MapEditor.MapEditor.TagRegistrationRequested -= ShowSpaceAlignment;
 			if (navView != null) navView.Changed -= OnNavPageChanged;
-			mapEditing?.Dispose();
-			mapEditing = null;
+			if (spaceDetails != null)
+			{
+				spaceDetails.Alignment.Changing -= OnAlignmentChanging;
+				spaceDetails.Alignment.Changed -= OnAlignmentChanged;
+				spaceDetails.Dispose();
+			}
+			spaceDetails = null;
+			mapName?.Dispose();
+			mapName = null;
 			navView = null;
 		}
 
-		private void Update() => mapEditing?.Refresh();
+		private void Update()
+		{
+			if (navView?.CurrentPage == spaceDetailsPage)
+			{
+				spaceDetails?.Refresh();
+				UpdateSpaceTools();
+			}
+			if (navView?.CurrentPage == editingMapPage) mapName?.Refresh();
+		}
 
-		private void ShowTagsPage() => mapEditing.ShowTagsPage();
+		private void ShowSpaceAlignment()
+		{
+			editingSpace = false;
+			navView.DismissModal(editingMapPage);
+			navView.GoToPage("map-manager-page");
+			navView.GoToPage(spaceDetailsPage);
+			StartSpaceTools();
+		}
+
+		private void OnAlignmentChanging()
+		{
+			if (editingSpace && MapEditorTool.CurrentMode == MapEditorTool.Mode.MeasureTagSize)
+				MapEditorTool.SetMode(MapEditorTool.Mode.Tags);
+		}
+
+		private void OnAlignmentChanged()
+		{
+			if (navView.CurrentPage == spaceDetailsPage) UpdateSpaceTools();
+		}
+
+		private void UpdateSpaceTools()
+		{
+			if (spaceDetails.Alignment.UsesTags) StartSpaceTools();
+			else StopSpaceTools();
+		}
+
+		private void StartSpaceTools()
+		{
+			editingSpace = true;
+			MapEditor.MapEditor.SetActive(true);
+			if (MapEditorTool.CurrentMode is not (MapEditorTool.Mode.Tags or MapEditorTool.Mode.MeasureTagSize))
+				MapEditorTool.SetMode(MapEditorTool.Mode.Tags);
+		}
+
+		private void StopSpaceTools()
+		{
+			if (!editingSpace) return;
+			editingSpace = false;
+			MapEditor.MapEditor.SetActive(false);
+		}
 
 		private void OnNavPageChanged(NavPage page)
 		{
-			mapEditing.SetPresented(MapEditor.MapEditor.IsActive && page == editingMapPage);
+			if (page == spaceDetailsPage)
+			{
+				spaceDetails.Refresh();
+				UpdateSpaceTools();
+			}
+			else if (page?.name != "error-modal") StopSpaceTools();
+			if (page == editingMapPage) mapName.Refresh();
 		}
 
 		private void OnMapEditorStateChanged(bool active)
 		{
-			if (active) mapEditing.ResetForEditingSession();
-			navView.SetModalPresented(editingMapPage, active, 10);
+			if (!active && editingSpace)
+			{
+				editingSpace = false;
+				navView.GoToPage("map-manager-page");
+			}
+			navView.SetModalPresented(editingMapPage, active && !editingSpace, 10);
 		}
 
 		private void OnMatchStateChanged(MatchState state)

@@ -47,6 +47,17 @@ namespace Anaglyph.LaserTag.Tests
 			return tree;
 		}
 
+		[Test]
+		public void SavedSpacePreferenceCopyDoesNotDescribeAPendingMethodSwitch()
+		{
+			Assert.That(MenuCopy.Format("Game", "alignment.saved-preference", "Shared spatial anchors"),
+				Is.EqualTo("Space preference: Shared spatial anchors"));
+			Assert.That(MenuCopy.Format("Game", "alignment.saved-preference", "TEST-METHOD"),
+				Is.EqualTo("Space preference: TEST-METHOD"));
+			Assert.That(MenuCopy.Get("Game", "alignment.session-scope"),
+				Is.EqualTo("Changes alignment for everyone. Successful changes are saved with this space."));
+		}
+
 		[UnityTest]
 		public IEnumerator RemainingDocumentsAndSmartStringsFollowLocaleChanges()
 		{
@@ -89,37 +100,27 @@ namespace Anaglyph.LaserTag.Tests
 		}
 
 		[UnityTest]
-		public IEnumerator DismissingWarningsReturnsToTheSameMapEditingSubpage()
+		public IEnumerator DismissingWarningsReturnsToSpaceAlignment()
 		{
 			var root = Load("GameMenu");
 			for (int i = 0; i < 2; i++) yield return null;
 			var nav = NavView.RequireIn(root);
-			var editing = nav.GetPage("editing-map-page");
-			using var binder = new MapEditingMenuBinder(editing);
-			void OnPageChanged(NavPage page) => binder.SetPresented(page == editing);
-			nav.Changed += OnPageChanged;
+			var space = nav.GetPage("space-details");
+			using var binder = new SpaceDetailsBinder(space);
+			nav.GoToPage("map-manager-page");
+			nav.GoToPage(space);
 			using var errors = new MenuErrorPresenter(UserErrorArea.Game);
 			errors.Bind(nav);
-			try
-			{
-				binder.ResetForEditingSession();
-				nav.SetModalPresented(editing, true, 10);
-				binder.ShowTagsPage();
-				var nested = editing.Q<NavView>("map-editing-nav");
-				UserErrors.Raise(UserErrorArea.Game, "Alignment change unavailable", "Cannot share anchors");
-				UserErrors.Raise(UserErrorArea.Game, "Another warning", "Details");
-				Assert.That(nav.CurrentPage.name, Is.EqualTo("error-modal"));
-				Assert.That(nested.CurrentPage.name, Is.EqualTo("alignment-settings-page"));
-				for (int i = 0; i < 2; i++) yield return null;
-				Submit(root.Q<Button>("dismiss-error-button"));
-				Assert.That(nav.CurrentPage.name, Is.EqualTo("error-modal"));
-				Submit(root.Q<Button>("dismiss-error-button"));
-				Assert.That(nav.CurrentPage, Is.SameAs(editing));
-				Assert.That(nested.CurrentPage.name, Is.EqualTo("alignment-settings-page"));
-				binder.ResetForEditingSession();
-				Assert.That(nested.CurrentPage.name, Is.EqualTo("map-options-page"));
-			}
-			finally { nav.Changed -= OnPageChanged; }
+			UserErrors.Raise(UserErrorArea.Game, "Alignment change unavailable", "Cannot share anchors");
+			UserErrors.Raise(UserErrorArea.Game, "Another warning", "Details");
+			Assert.That(nav.CurrentPage.name, Is.EqualTo("error-modal"));
+			for (int i = 0; i < 2; i++) yield return null;
+			Submit(root.Q<Button>("dismiss-error-button"));
+			Assert.That(nav.CurrentPage.name, Is.EqualTo("error-modal"));
+			Submit(root.Q<Button>("dismiss-error-button"));
+			Assert.That(nav.CurrentPage, Is.SameAs(space));
+			nav.GoBack();
+			Assert.That(nav.CurrentPage.name, Is.EqualTo("map-manager-page"));
 		}
 
 		[UnityTest]
@@ -134,7 +135,8 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(root.Q<Button>("graphics-button").text, Is.EqualTo("Graphics"));
 			Assert.That(root.Q<Button>("show-debug-mesh-for-everyone").text, Is.EqualTo("Show mesh for everyone"));
 			MenuCopy.SetVariable(version, "version", "next-build");
-			for (int i = 0; i < 5; i++) yield return null;
+			double deadline = EditorApplication.timeSinceStartup + 2;
+			while (version.text != "Version: next-build" && EditorApplication.timeSinceStartup < deadline) yield return null;
 			Assert.That(version.text, Is.EqualTo("Version: next-build"));
 
 			var pseudo = PseudoLocale.CreatePseudoLocale();

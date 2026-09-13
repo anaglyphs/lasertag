@@ -61,23 +61,47 @@ namespace Anaglyph.LaserTag.Tests
 			foreach (var root in new[] { desktop, headset })
 			{
 				Assert.That(root.Q("map-name-section")?.Q<TextField>("map-name-field"), Is.Not.Null);
-				Assert.That(root.Q("alignment-method-section")?.Q<DropdownField>("colocation-method-field"), Is.Not.Null);
+				Assert.That(root.Q("alignment-settings-section")?.Q<DropdownField>("colocation-method-field"), Is.Not.Null);
 				var catalog = root.Q("map-catalog-section");
 				Assert.That(catalog, Is.Not.Null);
 				Assert.That(catalog.Q<ScrollView>("map-list"), Is.Not.Null);
-				foreach (string action in new[] { "new-map-button", "load-map-button", "delete-map-button" })
+				Assert.That(catalog.Q("load-map-button"), Is.Null);
+				Assert.That(catalog.Q("probe-maps-button").ClassListContains("map-field-hidden"), Is.True);
+				foreach (string action in new[] { "new-map-button", "probe-maps-button", "new-space-button" })
 					Assert.That(catalog.Q<Button>(action), Is.Not.Null, action);
+				foreach (string removed in new[] { "space-picker", "load-space-button", "duplicate-map-button", "current-space-label", "undo-space-rebase" })
+					Assert.That(root.Q(removed), Is.Null, removed);
+				var details = root.Q<NavPage>("space-details");
+				Assert.That(details, Is.Not.Null);
+				Assert.That(details.hierarchy.parent, Is.TypeOf<NavView>());
+				Assert.That(details.Q<TextField>("space-name-field"), Is.Not.Null);
+				Assert.That(catalog.Q("space-name-field"), Is.Null);
+				Assert.That(details.Q("delete-space-button"), Is.Null);
+				var deletion = root.Q<NavPage>("delete-space-modal");
+				Assert.That(deletion, Is.Not.Null);
+				Assert.That(deletion.hierarchy.parent, Is.SameAs(details.hierarchy.parent));
+				Assert.That(deletion.ModalUserDismissible, Is.True);
+				Assert.That(deletion.Q<Button>("confirm-delete-space-button"), Is.Not.Null);
+				Assert.That(deletion.Q<Button>("cancel-delete-space-button"), Is.Not.Null);
 			}
 
 			var editing = desktop.Q<NavPage>("map-editing-page");
 			Assert.That(editing, Is.Not.Null);
-			foreach (string section in new[] { "map-name-section", "alignment-method-section", "tag-configuration-section" })
-				Assert.That(editing.Q(section), Is.Not.Null, "Desktop settings share a single page: " + section);
+			Assert.That(editing.Q("map-name-section"), Is.Not.Null);
+			Assert.That(editing.Q("alignment-settings-section"), Is.Null);
+			Assert.That(editing.Q("tag-configuration-section"), Is.Null);
+			foreach (var root in new[] { desktop, headset })
+			{
+				Assert.That(root.Q<NavPage>("space-details").Q("alignment-settings-section"), Is.Not.Null);
+				Assert.That(root.Q("map-editing-nav"), Is.Null);
+				Assert.That(root.Q("tags-mode-button"), Is.Null);
+				Assert.That(root.Q("alignment-settings-page"), Is.Null);
+				Assert.That(root.Q("setup-tags-button"), Is.Null);
+			}
 			Assert.That(desktop.Q("tag-configuration-section")?.Q<Slider>("tag-size-slider"), Is.Not.Null);
 			Assert.That(desktop.Q("tag-configuration-section")?.Q<Button>("unregister-all-tags-button"), Is.Not.Null);
-			Assert.That(headset.Q("tag-configuration-section"), Is.Null);
-			Assert.That(headset.Q("setup-tags-button"), Is.Not.Null);
-			foreach (string control in new[] { "probe-maps-button", "measure-tag-size-button", "tag-measurement-hint", "map-editing-nav" })
+			Assert.That(headset.Q("tag-configuration-section").ClassListContains("map-field-hidden"), Is.True);
+			foreach (string control in new[] { "measure-tag-size-button", "tag-measurement-hint", "map-editing-nav" })
 				Assert.That(desktop.Q(control), Is.Null, "Desktop must not instantiate " + control);
 			Assert.That(palette.Q<Slider>("tag-size-slider"), Is.Not.Null);
 			Assert.That(palette.Q<Button>("measure-tag-size-button"), Is.Not.Null);
@@ -86,6 +110,28 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(done, Is.Not.Null);
 			Assert.That(done.GetFirstAncestorOfType<NavView>(), Is.Null,
 				"Done remains visible outside the mode-specific navigation pages.");
+		}
+
+		[UnityTest]
+		public IEnumerator OperatorCatalogKeepsMapsReachableInAShortSidebar()
+		{
+			window.position = new Rect(100, 100, 1280, 800);
+			window.rootVisualElement.styleSheets.Add(AssetDatabase.LoadAssetAtPath<ThemeStyleSheet>("Assets/Anaglyph/LaserTag/Interface/LaserTagRuntimeTheme.tss"));
+			var root = Load("Assets/Anaglyph/LaserTag/Operator/OperatorMenu.uxml");
+			root.Q<TabView>("tabs").activeTab = root.Q<Tab>("maps-tab");
+			using var picker = new MapPickerBinder(true);
+			picker.Bind(root.Q("map-catalog-section"), () => { }, () => { });
+			for (int i = 0; i < 8; i++) root.Q<ScrollView>("map-list").Add(new Button { text = "Layout " + i });
+			for (int i = 0; i < 4; i++) yield return null;
+			Assert.That(root.Q("map-list").resolvedStyle.height, Is.GreaterThanOrEqualTo(180));
+			Assert.That(root.Q("space-details").resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
+			Assert.That(root.Q("new-map-button").resolvedStyle.width, Is.GreaterThanOrEqualTo(110));
+			Assert.That(root.Q("new-space-button").resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+			Assert.That(root.Q<MultiColumnListView>("client-list").columns["source"], Is.Not.Null);
+			var mapList = root.Q<ScrollView>("map-list");
+			Assert.That(root.Q<ScrollView>(className: "operator-map-catalog-scroll"), Is.Null);
+			Assert.That(mapList.contentContainer.layout.height, Is.GreaterThan(mapList.contentViewport.layout.height));
+			Assert.That(root.Q("new-map-button").worldBound.yMax, Is.LessThanOrEqualTo(root.Q<NavPage>("maps-page").worldBound.yMax + 1));
 		}
 
 		[TestCase(MapEditorTool.Mode.Move, "objects-page")]
@@ -101,23 +147,23 @@ namespace Anaglyph.LaserTag.Tests
 		}
 
 		[UnityTest]
-		public IEnumerator SharedMapFieldsBindAloneAndOperatorErrorsReturnToFlatSettings()
+		public IEnumerator SharedMapFieldsBindAloneAndOperatorErrorsReturnToSpaceSettings()
 		{
 			Assert.That(LaserTagMapCoordinator.Instance, Is.Null, "This test must not change an active map.");
 			var catalog = Load(sharedPath + "MapCatalog.uxml");
 			var name = Load(sharedPath + "MapNameField.uxml");
-			var tags = Load(sharedPath + "TagConfiguration.uxml");
+			var tags = Load(sharedPath + "AlignmentSettings.uxml");
 			foreach (var fragment in new[] { catalog, name, tags })
 			{
 				Assert.That(fragment.Q<NavView>(), Is.Null);
-				foreach (string tool in new[] { "probe-maps-button", "setup-tags-button", "measure-tag-size-button", "tag-measurement-hint" })
+				foreach (string tool in new[] { "setup-tags-button", "measure-tag-size-button", "tag-measurement-hint" })
 					Assert.That(fragment.Q(tool), Is.Null, tool);
 			}
 			for (int i = 0; i < 2; i++) yield return null;
 			for (int binding = 0; binding < 2; binding++)
 			{
 				using var nameBinder = new MapNameBinder(name.Q("map-name-section"));
-				using var tagBinder = new TagConfigurationBinder(tags.Q("tag-configuration-section"));
+				using var tagBinder = new AlignmentSettingsBinder(tags.Q("alignment-settings-section"), operatorMode: true);
 				nameBinder.Refresh();
 				tagBinder.Refresh();
 				Assert.That(name.Q<TextField>("map-name-field").enabledSelf, Is.False);
@@ -132,7 +178,8 @@ namespace Anaglyph.LaserTag.Tests
 			desktop.MakeButtonsActOnPress();
 			desktop.Q<TabView>("tabs").activeTab = desktop.Q<Tab>("maps-tab");
 			var navigation = desktop.Q<NavView>("maps-nav");
-			var settings = navigation.GetPage("map-editing-page");
+			var settings = navigation.GetPage("space-details");
+			using var spaceBinder = new SpaceDetailsBinder(settings, operatorMode: true);
 			navigation.GoToPage(settings);
 			using var errors = new MenuErrorPresenter(UserErrorArea.Game);
 			errors.Bind(navigation);
@@ -148,28 +195,99 @@ namespace Anaglyph.LaserTag.Tests
 				dismiss.SendEvent(up);
 			Assert.That(navigation.CurrentPage, Is.SameAs(settings));
 			Assert.That(settings.Q<NavView>(), Is.Null);
-			foreach (string section in new[] { "map-name-section", "alignment-method-section", "tag-configuration-section" })
+			foreach (string section in new[] { "space-name-field", "alignment-settings-section", "tag-configuration-section" })
 				Assert.That(settings.Q(section), Is.Not.Null, section);
 		}
 
 		[UnityTest]
-		public IEnumerator IsolatedAlignmentFieldRebindsAndFollowsLocaleChanges()
+		public IEnumerator SpaceDetailsShowsTagValidationSeparatelyFromTheSavedAnchorPreference()
+		{
+			Assert.That(LaserTagMapCoordinator.Instance, Is.Null);
+			Assert.That(ColocationManager.Instance, Is.Null);
+			Assert.That(Anaglyph.Netcode.SyncVariables.SyncBus.Current, Is.Null);
+			var owner = new GameObject("Alignment status test");
+			owner.SetActive(false);
+			string directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "lasertag-status-" + System.Guid.NewGuid().ToString("N"));
+			bool wasColocated = ColocationManager.IsColocated;
+			const BindingFlags fields = BindingFlags.Instance | BindingFlags.NonPublic;
+			var coordinator = owner.AddComponent<LaserTagMapCoordinator>();
+			var manager = owner.AddComponent<ColocationManager>();
+			owner.AddComponent<Unity.Netcode.NetworkObject>();
+			var bus = owner.AddComponent<Anaglyph.Netcode.SyncVariables.SyncBus>();
+			System.IDisposable alignment = null;
+			try
+			{
+				var space = MapSpace.Create("Status test");
+				space.preferredColocationMethod = ColocationManager.ColocationMethod.MetaSharedAnchor;
+				var spaces = new MapSpaceManager(new MapSpaceStore(directory)); spaces.Load(space);
+				var transition = new ReferenceAlignmentTransition(System.Guid.NewGuid(), space,
+					ColocationManager.ColocationMethod.MetaSharedAnchor, ColocationManager.ColocationMethod.AprilTag,
+					ReferenceTransitionIntent.ActivateTarget, true);
+				transition.SetCandidate(System.Guid.NewGuid());
+				var alignmentType = typeof(LaserTagMapCoordinator).Assembly.GetType("Anaglyph.LaserTag.Maps.MapSpaceAlignmentController", true);
+				alignment = (System.IDisposable)System.Activator.CreateInstance(alignmentType, manager, (System.Func<bool>)(() => false));
+				alignmentType.GetProperty("Transition").SetValue(alignment, transition);
+				typeof(LaserTagMapCoordinator).GetField("spaces", fields).SetValue(coordinator, spaces);
+				typeof(LaserTagMapCoordinator).GetField("alignment", fields).SetValue(coordinator, alignment);
+				typeof(LaserTagMapCoordinator).GetProperty("Instance").SetValue(null, coordinator);
+				typeof(ColocationManager).GetProperty("Instance").SetValue(null, manager);
+				typeof(ColocationManager).GetProperty("IsColocated").SetValue(null, true);
+				typeof(Unity.Netcode.NetworkBehaviour).GetProperty("IsSpawned").SetValue(bus, true);
+				typeof(Anaglyph.Netcode.SyncVariables.SyncBus).GetProperty("Current").SetValue(null, bus);
+
+				foreach (string path in new[] { "Assets/Anaglyph/LaserTag/Operator/OperatorMenu.uxml",
+					"Assets/Anaglyph/LaserTag/Interface/Main Menu/Game/GameMenu.uxml" })
+				{
+					var root = Load(path);
+					var details = root.Q<NavPage>("space-details");
+					if (root.Q<TabView>("tabs") is TabView tabs) tabs.activeTab = root.Q<Tab>("maps-tab");
+					details.GetFirstAncestorOfType<NavView>().GoToPage(details);
+					using var binder = new AlignmentSettingsBinder(details.Q("alignment-settings-section"));
+					binder.Refresh();
+					for (int i = 0; i < 2; i++) yield return null;
+					var status = details.Q<Label>("colocation-status");
+					Assert.That(status.text, Is.EqualTo("AprilTags: Validating references; aligned using Shared spatial anchors"));
+					Assert.That(status.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+					Assert.That(status.worldBound.height, Is.GreaterThan(0));
+					Assert.That(details.Q<Label>("colocation-preference-status").text, Is.EqualTo("Space preference: Shared spatial anchors"));
+					typeof(ColocationManager).GetProperty("IsColocated").SetValue(null, false);
+					binder.Refresh();
+					Assert.That(status.text, Is.EqualTo("AprilTags: Validating references; waiting for alignment"));
+					typeof(ColocationManager).GetProperty("IsColocated").SetValue(null, true);
+					root.RemoveFromHierarchy();
+				}
+			}
+			finally
+			{
+				typeof(Unity.Netcode.NetworkBehaviour).GetProperty("IsSpawned").SetValue(bus, false);
+				typeof(Anaglyph.Netcode.SyncVariables.SyncBus).GetProperty("Current").SetValue(null, null);
+				alignment?.Dispose();
+				typeof(LaserTagMapCoordinator).GetProperty("Instance").SetValue(null, null);
+				typeof(ColocationManager).GetProperty("Instance").SetValue(null, null);
+				typeof(ColocationManager).GetProperty("IsColocated").SetValue(null, wasColocated);
+				Object.DestroyImmediate(owner);
+				if (System.IO.Directory.Exists(directory)) System.IO.Directory.Delete(directory, true);
+			}
+		}
+
+		[UnityTest]
+		public IEnumerator AlignmentSettingsRebindAndFollowLocaleChanges()
 		{
 			Assert.That(LaserTagMapCoordinator.Instance, Is.Null, "This test must not change an active map.");
-			var fragment = Load(sharedPath + "AlignmentMethodField.uxml");
+			var fragment = Load(sharedPath + "AlignmentSettings.uxml");
 			Assert.That(fragment.Q<NavView>(), Is.Null);
-			Assert.That(fragment.Q<Slider>("tag-size-slider"), Is.Null);
-			var section = fragment.Q("alignment-method-section");
+			Assert.That(fragment.Q<Slider>("tag-size-slider"), Is.Not.Null);
+			var section = fragment.Q("alignment-settings-section");
 			var field = section.Q<DropdownField>("colocation-method-field");
 			int staleChanges = 0;
 			int changing = 0;
 			int changes = 0;
-			using var previous = new AlignmentMethodBinder(section);
+			using var previous = new AlignmentSettingsBinder(section);
 			previous.Changed += () => staleChanges++;
 			previous.Refresh();
 			previous.Dispose();
 			previous.Dispose();
-			using var current = new AlignmentMethodBinder(section);
+			using var current = new AlignmentSettingsBinder(section);
 			current.Changing += () => changing++;
 			current.Changed += () => changes++;
 			current.Refresh();
@@ -207,10 +325,10 @@ namespace Anaglyph.LaserTag.Tests
 		public IEnumerator SeparateAlignmentFragmentsKeepTheirBindingsIndependent()
 		{
 			Assert.That(LaserTagMapCoordinator.Instance, Is.Null, "This test must not change an active map.");
-			var first = Load(sharedPath + "AlignmentMethodField.uxml").Q("alignment-method-section");
-			var second = Load(sharedPath + "AlignmentMethodField.uxml").Q("alignment-method-section");
-			using var firstBinder = new AlignmentMethodBinder(first);
-			using var secondBinder = new AlignmentMethodBinder(second);
+			var first = Load(sharedPath + "AlignmentSettings.uxml").Q("alignment-settings-section");
+			var second = Load(sharedPath + "AlignmentSettings.uxml").Q("alignment-settings-section");
+			using var firstBinder = new AlignmentSettingsBinder(first);
+			using var secondBinder = new AlignmentSettingsBinder(second);
 			firstBinder.Refresh();
 			secondBinder.Refresh();
 			for (int i = 0; i < 2; i++) yield return null;
@@ -247,21 +365,20 @@ namespace Anaglyph.LaserTag.Tests
 			{
 				var coordinator = owner.AddComponent<LaserTagMapCoordinator>();
 				var maps = new MapManager(new MapStore(System.IO.Path.Combine(System.IO.Path.GetTempPath(), System.Guid.NewGuid().ToString("N"))));
-				maps.Create();
-				maps.SetTags(System.Array.Empty<MapTagEntry>(), 18f);
-				maps.SetPreferredColocationMethod(method);
+				var space = MapSpace.Create("Test"); space.tagSizeCm = 18f; space.preferredColocationMethod = method;
+				var spaces = new MapSpaceManager(new MapSpaceStore(System.IO.Path.Combine(System.IO.Path.GetTempPath(), System.Guid.NewGuid().ToString("N")))); spaces.Load(space);
+				maps.Create(space.storageFrameId);
 				typeof(LaserTagMapCoordinator).GetField("maps", flags).SetValue(coordinator, maps);
+				typeof(LaserTagMapCoordinator).GetField("spaces", flags).SetValue(coordinator, spaces);
 				typeof(LaserTagMapCoordinator).GetProperty("Instance").SetValue(null, coordinator);
 				typeof(MapEditor.MapEditor).GetProperty("IsActive").SetValue(null, true);
 				var headset = Load("Assets/Anaglyph/LaserTag/Interface/Main Menu/Game/GameMenu.uxml");
-				using var editing = new MapEditingMenuBinder(headset);
-				editing.SetPresented(true);
-				headset.Q<NavView>("map-editing-nav").GoToPage("alignment-settings-page");
-				Assert.That(MapEditorTool.CurrentMode, Is.EqualTo(MapEditorTool.Mode.Tags));
-				using var alignment = new AlignmentMethodBinder(headset.Q("alignment-method-section"));
-				alignment.Refresh();
-				Assert.That(alignment.UsesTags, Is.True);
-				Assert.That(headset.Q("two-tag-instructions").ClassListContains("map-field-hidden"),
+				var page = headset.Q<NavPage>("space-details");
+				using var details = new SpaceDetailsBinder(page);
+				headset.Q<NavView>().GoToPage(page);
+				Assert.That(details.Alignment.UsesTags, Is.True);
+				Assert.That(headset.Q("tag-configuration-section").ClassListContains("map-field-hidden"), Is.True);
+				Assert.That(headset.Q("choose-two-tag-pair").ClassListContains("map-field-hidden"),
 					Is.EqualTo(method != ColocationManager.ColocationMethod.TwoAprilTags));
 				var palette = Load("Assets/Anaglyph/LaserTag/MapEditor/MapEditorPalette.uxml");
 				Assert.That(palette.Q<NavPage>("tags-page").Q<Slider>("tag-size-slider"), Is.Not.Null);

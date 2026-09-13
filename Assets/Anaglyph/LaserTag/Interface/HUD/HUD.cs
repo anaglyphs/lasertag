@@ -183,9 +183,7 @@ namespace Anaglyph.LaserTag.Interface.HUD
 
 		private static bool NeedsFirstAprilTag()
 		{
-			Maps.GameMap map = LaserTagMapCoordinator.Instance?.CurrentMap;
-			return map != null && !map.HasTags &&
-				map.preferredColocationMethod == ColocationManager.ColocationMethod.AprilTag;
+			return LaserTagMapCoordinator.Instance != null && LaserTagMapCoordinator.Instance.SessionIsWaitingOnFirstTag;
 		}
 
 		private void RefreshContent(Overlay overlay)

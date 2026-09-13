@@ -24,16 +24,19 @@ systems. The menus submit requests and display eligibility/blocker messages.
 
 XR and Operator own their page layouts. The headset's map pages live in `Game/`;
 `OperatorMapsPage` and `OperatorMapSettingsPage` live beside `OperatorMenu`. The
-operator settings page combines name and alignment in one scrollable form, while
-XR retains nested settings navigation and physical setup tools.
+map editing pages contain layout settings. Both menus use `SpaceDetailsPage` for
+space naming and alignment; the operator also edits tag size and registrations there.
+Headset tag configuration and measurement remain in the physical tool palette.
 
 `../Shared/Game` contains the reusable sections and their binders:
 
 - `MapCatalog` / `MapPickerBinder`: saved-map selection, creation, loading, and deletion.
+- `SpaceDetailsPage` / `SpaceDetailsBinder`: current-space naming, alignment and
+  operator tag configuration, plus reset and deletion.
 - `MapNameField` / `MapNameBinder`: current-map naming and its blocker message.
-- `AlignmentMethodField` / `AlignmentMethodBinder`: alignment choice, active method,
-  saved preference, and status. It requires no tag controls or navigation.
-- `TagConfiguration` / `TagConfigurationBinder`: manual size, count, and removal.
+- `AlignmentSettings` / `AlignmentSettingsBinder`: alignment choice, saved preference,
+  status, pair selection, and operator tag size/count/removal. Owns method-specific
+  visibility and pending size edits; requires no navigation.
 - `MatchSettingsBinder`: match form values and callbacks.
 
 A binder receives its section root, so field names are local to that instance.
@@ -42,13 +45,14 @@ Page controllers choose the sections to instantiate, coordinate presentation, ca
 contract. Gameplay requests still go to the existing coordinator.
 
 `MapManagerUI` retains the prefab's operator-mode setting and picker instance; it
-supplies the catalog filter and empty-state copy. Game and Operator explicitly call
+shows every space with its maps and exposes space creation only to the operator. Game and Operator explicitly call
 `Bind` after preparing their buttons and `Unbind` when disabled.
 
-Headset-only `MapProbeBinder` owns probing. `MapEditingMenuBinder` composes the XR
-editor's navigation and shared fields; `TagRegistrationBinder` owns registration,
-measurement, and physical tool presentation. Operator instantiates none of those
-controls or binders. It can administer tag data without entering XR editing mode.
+Headset-only `MapProbeBinder` owns probing. `GameMenu` activates the tag palette
+while a tag-based space's settings are open and routes automatic registration there.
+`PaletteMenu` owns tag configuration, measurement and physical tool presentation.
+The operator administers tag data through `SpaceDetailsBinder` without entering XR
+editing mode.
 
 `../Shared/MenuErrorPage.uxml` is used by Connection, Game, and the operator map panel.
 Shared sections retain their localization keys when filenames or locations change.
@@ -69,14 +73,14 @@ its pending operation on disposal; an old completion cannot update a replacement
 and the operator's refresh loop also end with their enabled lifetime. Error queues
 have a longer lifetime: unbinding removes their view, while destruction disposes the queue's subscriptions.
 
-Each `NavView` owns its direct-child `NavPage` elements and modal priorities. The editing
-page on XR contains its own navigation view. Reset its history only for a new editing
-session; temporarily presenting an error must preserve the originating subpage.
+Each `NavView` owns its direct-child `NavPage` elements and modal priorities. Space
+settings and map editing are separate pages in the parent view. Temporarily presenting
+an error preserves the originating page and any active tag measurement.
 
 ## Copy and verification
 
 See `../README.md` for localization tables, Smart String arguments, and error ownership.
-`MenuPresentationTests` covers localization, errors, and nested navigation.
+`MenuPresentationTests` covers localization, errors, and return navigation.
 `MenuBindingLifetimeTests` covers disposing and rebinding controls on a surviving tree.
 `MapMenuCompositionTests` covers platform composition, isolated alignment fields,
 localization, and independent bindings for repeated sections.

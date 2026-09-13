@@ -104,7 +104,8 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		[Tooltip("Distance in meters from the controller's pointing pose to the ruler tip")]
 		[SerializeField] private float measurementTipDistance = 0.08f;
 		private TagSizeRuler ruler;
-		private string measurementMapId;
+		private string measurementSpaceContext;
+		private int measurementTrackingGeneration;
 		public static string MeasurementHint { get; private set; }
 
 		private MapObject currentSpawnObject;
@@ -187,7 +188,8 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		private void ApplyMode(Mode mode, MapObject spawnObject)
 		{
 			ResetMeasurement();
-			measurementMapId = LaserTagMapCoordinator.Instance?.CurrentMap?.id;
+			measurementSpaceContext = LaserTagMapCoordinator.Instance?.ReferenceContext.ToString();
+			measurementTrackingGeneration = ColocationManager.Instance != null ? ColocationManager.Instance.TrackingGeneration : 0;
 			SetSpawnObject(mode == Mode.Place ? spawnObject : null);
 			TryLetGo();
 			Aimer.Clear();
@@ -347,7 +349,8 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 
 		private bool MeasurementAllowed => MapEditor.IsActive &&
 			LaserTagMapCoordinator.Instance != null &&
-			measurementMapId != null && LaserTagMapCoordinator.Instance.CurrentMap?.id == measurementMapId &&
+			measurementSpaceContext != null && LaserTagMapCoordinator.Instance.ReferenceContext.ToString() == measurementSpaceContext &&
+			(ColocationManager.Instance == null || ColocationManager.Instance.TrackingGeneration == measurementTrackingGeneration) &&
 			LaserTagMapCoordinator.Instance.DescribeTagSizeBlocker() == null;
 
 		private void ResetMeasurement()

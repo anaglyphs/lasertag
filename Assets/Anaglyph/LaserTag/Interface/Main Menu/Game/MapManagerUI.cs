@@ -1,5 +1,5 @@
-using Anaglyph.LaserTag.Maps;
-using Anaglyph.LaserTag.Operator;
+using System;
+using Anaglyph.Menu;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -12,32 +12,15 @@ namespace Anaglyph.LaserTag.Interface
 	[RequireComponent(typeof(UIDocument))]
 	public sealed class MapManagerUI : MonoBehaviour
 	{
-		[Tooltip("Use the operator-hostable map catalog instead of the headset room filter")]
+		[Tooltip("Expose operator space creation in the shared catalog")]
 		[SerializeField] private bool operatorMode;
 		private MapPickerBinder picker;
 
-		public void Bind(VisualElement root)
+		public void Bind(VisualElement root, NavPage spaceDetails, Action editMap)
 		{
-			picker ??= new MapPickerBinder(IncludeMap, GetEmptyStateKey);
-			picker.Bind(root);
+			picker ??= new MapPickerBinder(operatorMode);
+			picker.Bind(root, editMap, spaceDetails.NavigateHere);
 		}
-
-		private bool IncludeMap(GameMap map)
-		{
-			if (operatorMode)
-				return OperatorHost.CanHostMap(map);
-
-			// Headsets only hide a map positively located elsewhere. System-provided
-			// origins do not depend on a room's anchors, and untested maps stay visible.
-			LaserTagMapCoordinator manager = LaserTagMapCoordinator.Instance;
-			return manager == null || map.systemFrameForTagSetup ||
-				!ColocationManager.UsesSavedReferences(map.preferredColocationMethod) ||
-				manager.GetMapPresence(map.id) != MapPresence.Elsewhere;
-		}
-
-		private string GetEmptyStateKey(int savedCount) => operatorMode
-			? "maps.empty-operator"
-			: savedCount == 0 ? "maps.empty" : "maps.empty-room";
 
 		public void Unbind() => picker?.Dispose();
 		private void OnDisable() => Unbind();

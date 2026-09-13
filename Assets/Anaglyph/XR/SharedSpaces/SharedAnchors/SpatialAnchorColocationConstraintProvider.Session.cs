@@ -29,6 +29,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 			public Guid guid;
 			public Pose canon;
 			public int bindingId;
+			public int trackingGeneration;
 		}
 
 		private struct AnchorReply
@@ -66,6 +67,8 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		public Func<ulong?> SelectMinter { get; set; }
 		public Func<bool> LocalReadinessGate { get; set; }
 		public Func<ulong, bool> ValidateRemoteMint { get; set; }
+		public Func<int> TrackingGeneration { get; set; }
+		public Func<ulong, int, bool> ValidateTrackingGeneration { get; set; }
 		public Func<bool> PreparationGate { get; set; }
 		public Func<bool> PreparationMintingGate { get; set; }
 		public Func<IReadOnlyList<AnchorConstraintData>> SharingCandidates { get; set; }
@@ -184,7 +187,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		private bool CanAcceptMint(ulong sender, AnchorProposal proposal) =>
 			SenderIsCurrent(sender, proposal.operation) && IsRunning && RoamingMintEnabled &&
 			proposal.bindingId == -1 && ValidConstraint(proposal.guid, proposal.canon) &&
-			!constraints.ContainsKey(proposal.guid) && (ValidateRemoteMint?.Invoke(sender) ?? true);
+			!constraints.ContainsKey(proposal.guid) && (ValidateTrackingGeneration?.Invoke(sender, proposal.trackingGeneration) ?? true) && (ValidateRemoteMint?.Invoke(sender) ?? true);
 
 		private void OnMintProposed(ulong sender, AnchorProposal proposal)
 		{
@@ -321,7 +324,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 
 		private void SendPrepared(AnchorOperation operation, AnchorConstraintData candidate) => preparedAnchor.Raise(new()
 		{
-			operation = operation, guid = candidate.guid, canon = candidate.canonPose, bindingId = candidate.bindingId
+			operation = operation, guid = candidate.guid, canon = candidate.canonPose, bindingId = candidate.bindingId, trackingGeneration = TrackingGeneration?.Invoke() ?? 0
 		});
 
 		private void OnAnchorPrepared(ulong sender, AnchorProposal proposal)
@@ -329,7 +332,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 			AnchorConstraintData data = new(proposal.guid, proposal.canon, proposal.bindingId);
 			if (!SenderIsCurrent(sender, proposal.operation) || preparationComplete ||
 				preparation.Value.id != proposal.operation.id || !ValidConstraint(proposal.guid, proposal.canon) ||
-				!(ValidatePreparedAnchor?.Invoke(sender, data) ?? true)) return;
+				!(ValidateTrackingGeneration?.Invoke(sender, proposal.trackingGeneration) ?? true) || !(ValidatePreparedAnchor?.Invoke(sender, data) ?? true)) return;
 			if (preparedConstraints.Exists(entry => entry.guid == proposal.guid)) return;
 			preparedConstraints.Add(data);
 		}

@@ -245,9 +245,26 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 
 		// ------- sharing ------------------------------------------
 
+		public bool SharingDenied { get; private set; }
+
+		// Returning from system settings permits a fresh capability check/operation. Changing this
+		// does not switch the app away from its chosen AprilTag fallback or replace saved references.
+		private void OnApplicationFocus(bool focused) { if (focused) SharingDenied = false; }
+
 		/// <summary>Only Meta's runtime shares anchors; anything else answers unsupported.</summary>
 		public Supported sharedAnchorsSupport =>
-			metaAnchorSubsystem?.isSharedAnchorsSupported ?? Supported.Unsupported;
+			SharingDenied ? Supported.Unsupported : metaAnchorSubsystem?.isSharedAnchorsSupported ?? Supported.Unsupported;
+
+		// A supported OpenXR extension does not imply permission to use Meta's cloud service.
+		// Timeouts, failed network requests and poor localization are deliberately not denials.
+		private void ObserveSharingResult(XRResultStatus result)
+		{
+			if (result.IsSuccess()) SharingDenied = false;
+			else if (result.statusCode == XRResultStatus.StatusCode.Unsupported ||
+				result.nativeStatusCode is -1000169004 or -1000259003)
+				// XR_ERROR_SPACE_CLOUD_STORAGE_DISABLED_FB / XR_ERROR_SPACE_PERMISSION_INSUFFICIENT_META
+				SharingDenied = true;
+		}
 
 		/// <summary>Whether an anchor can be shared or downloaded at all right now.</summary>
 		public bool canShareAnchors => sharedAnchorsSupport == Supported.Supported;
@@ -299,6 +316,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 			{
 				meta.sharedAnchorsGroupId = guid;
 				XRResultStatus result = await anchorManager.TryShareAnchorAsync(anchor);
+				ObserveSharingResult(result);
 				ctkn.ThrowIfCancellationRequested();
 				return result;
 			}
@@ -917,6 +935,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 			meta.sharedAnchorsGroupId = guid;
 			XRResultStatus result =
 				await anchorManager.TryLoadAllSharedAnchorsAsync(downloaded, null);
+			ObserveSharingResult(result);
 
 			if (result.IsError())
 				return AnchorLoadResult.Failure($"shared group: {result}");

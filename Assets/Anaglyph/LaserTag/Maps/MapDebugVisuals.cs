@@ -15,17 +15,17 @@ namespace Anaglyph.LaserTag.Maps
 			if (!AnaglyphDebugging.DebugMode || LaserTagMapCoordinator.Instance == null)
 				return;
 
-			GameMap map = LaserTagMapCoordinator.Instance.CurrentMap;
+			MapSpace map = LaserTagMapCoordinator.Instance.CurrentSpace;
 			if (map == null)
 				return;
 
 			foreach (MapAnchorEntry anchor in map.anchors)
 				DebugAxisVisual.DrawDebugAxis(
-					anchor.canonPose.position, anchor.canonPose.rotation, anchorColor);
+					map.Frame.ToCanonical(anchor.canonPose).position, map.Frame.ToCanonical(anchor.canonPose).rotation, anchorColor);
 
 			foreach (MapTagEntry tag in map.tags)
 				DebugAxisVisual.DrawDebugAxis(
-					tag.canonPose.position, tag.canonPose.rotation, tagColor);
+					map.Frame.ToCanonical(tag.canonPose).position, map.Frame.ToCanonical(tag.canonPose).rotation, tagColor);
 		}
 	}
 }

@@ -10,6 +10,7 @@ namespace Anaglyph.LaserTag.Interface
 	{
 		private readonly TextField field;
 		private readonly Label note;
+		private string boundMapId;
 
 		public MapNameBinder(VisualElement root)
 		{
@@ -28,7 +29,7 @@ namespace Anaglyph.LaserTag.Interface
 		private void OnCommitted(FocusOutEvent _)
 		{
 			LaserTagMapCoordinator manager = LaserTagMapCoordinator.Instance;
-			if (manager == null || !manager.RenameMap(field.value))
+			if (manager == null || manager.CurrentMap?.id != boundMapId || !manager.RenameMap(field.value))
 				Refresh();
 		}
 
@@ -45,7 +46,7 @@ namespace Anaglyph.LaserTag.Interface
 			// A refresh must not replace a name the user is still typing.
 			if (field.panel?.focusController?.focusedElement is VisualElement focused &&
 			    (focused == field || field.Contains(focused))) return;
-			GameMap map = manager.CurrentMap;
+			GameMap map = manager.CurrentMap; boundMapId = map?.id;
 			field.SetValueWithoutNotify(map != null ? map.name : "");
 		}
 	}

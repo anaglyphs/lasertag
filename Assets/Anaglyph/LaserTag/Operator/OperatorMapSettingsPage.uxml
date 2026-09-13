@@ -1,7 +1,5 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
     <ui:Template name="MapNameField" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/MapNameField.uxml?fileID=9197481963319205126&amp;guid=f1770343a2d44d249f7bd97421e2e230&amp;type=3#MapNameField"/>
-    <ui:Template name="AlignmentMethodField" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/AlignmentMethodField.uxml?fileID=9197481963319205126&amp;guid=afec34b4c8614b298966b93971268b33&amp;type=3#AlignmentMethodField"/>
-    <ui:Template name="TagConfiguration" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/TagConfiguration.uxml?fileID=9197481963319205126&amp;guid=1bc5164b4e2b4c7da010680d6d233eef&amp;type=3#TagConfiguration"/>
     <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
     <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/MapFields.uss?fileID=7433441132597879392&amp;guid=f4c687285f094fca87062d2e41ca92d4&amp;type=3#MapFields"/>
     <ui:VisualElement class="page-template-root">
@@ -12,8 +10,6 @@
         </Anaglyph.Menu.NavHeader>
         <ui:ScrollView mode="Vertical" class="map-settings-scroll">
             <ui:Instance template="MapNameField"/>
-            <ui:Instance template="AlignmentMethodField"/>
-            <ui:Instance template="TagConfiguration"/>
         </ui:ScrollView>
         <ui:Button name="finish-editing-button">
             <Bindings>

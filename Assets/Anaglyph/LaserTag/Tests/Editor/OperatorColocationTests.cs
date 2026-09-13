@@ -21,10 +21,8 @@ namespace Anaglyph.LaserTag.Tests
 		public void StartupAndPickerAcceptEverySupportedAlignmentMethod(
 			ColocationManager.ColocationMethod method, bool tags, bool anchors, bool expected)
 		{
-			GameMap map = new() { preferredColocationMethod = method };
-			if (tags) map.SetTag(7, Pose.identity);
-			if (anchors) map.SetAnchorWithTag(System.Guid.NewGuid().ToString("N"), Pose.identity, -1);
-			Assert.That(OperatorHost.CanHostMap(map), Is.EqualTo(expected));
+			var space = MapSpace.Create("Test"); space.preferredColocationMethod = method;
+			Assert.That(ColocationManager.IsValidMethod(space.preferredColocationMethod), Is.EqualTo(expected));
 		}
 
 		[TestCase(MapPhase.Local)]

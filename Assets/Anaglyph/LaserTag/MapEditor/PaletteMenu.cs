@@ -19,6 +19,7 @@ namespace Anaglyph.LaserTag.MapEditor
 
 		private VisualElement categoryRail;
 		private Label categoryTitle;
+		private Label editingContext;
 		private ScrollView objectGrid;
 		private NavView navView;
 		private NavPage objectsPage;
@@ -38,6 +39,7 @@ namespace Anaglyph.LaserTag.MapEditor
 		private MapObjectDatabase.Category selectedCategory;
 		private MapObject selectedPrefab;
 		private float? pendingTagSizeCm;
+		private Guid pendingSizeContext;
 		private float pendingTagSizeTime;
 		private bool navigatingForMode;
 		private const float tagSizeSettleSeconds = 0.1f;
@@ -59,6 +61,7 @@ namespace Anaglyph.LaserTag.MapEditor
 			measureTagSizePage = navView.GetPage("measure-tag-size-page");
 			categoryRail = Require<VisualElement>(root, "category-rail");
 			categoryTitle = Require<Label>(root, "category-title");
+			editingContext = Require<Label>(root, "editing-context");
 			objectGrid = Require<ScrollView>(root, "object-grid");
 			tagSizeSlider = Require<Slider>(root, "tag-size-slider");
 			tagSizeNote = Require<Label>(root, "tag-size-note");
@@ -171,6 +174,14 @@ namespace Anaglyph.LaserTag.MapEditor
 
 		private void Update()
 		{
+			var context = editingContext;
+			if (context != null)
+			{
+				var coordinator = LaserTagMapCoordinator.Instance;
+				bool objects = MapEditorTool.CurrentMode is MapEditorTool.Mode.Place or MapEditorTool.Mode.Move;
+				context.text = MenuCopy.Format("Game", objects ? "palette.map-context" : "palette.space-context",
+					objects ? coordinator?.CurrentMap?.name ?? "" : coordinator?.CurrentSpace?.name ?? "");
+			}
 			if (pendingTagSizeCm.HasValue && Time.unscaledTime - pendingTagSizeTime >= tagSizeSettleSeconds)
 				FlushPendingTagSize();
 
@@ -184,6 +195,7 @@ namespace Anaglyph.LaserTag.MapEditor
 
 		private void OnTagSizeChanged(ChangeEvent<float> change)
 		{
+			pendingSizeContext = LaserTagMapCoordinator.Instance?.ReferenceContext ?? Guid.Empty;
 			pendingTagSizeCm = change.newValue;
 			pendingTagSizeTime = Time.unscaledTime;
 		}
@@ -195,7 +207,8 @@ namespace Anaglyph.LaserTag.MapEditor
 
 			float centimeters = pendingTagSizeCm.Value;
 			pendingTagSizeCm = null;
-			LaserTagMapCoordinator.Instance?.SetTagSize(centimeters);
+			var manager = LaserTagMapCoordinator.Instance;
+			if (manager != null && manager.ReferenceContext == pendingSizeContext) manager.SetTagSize(centimeters);
 		}
 
 		private void OnMeasureTagSizeClicked()
@@ -243,12 +256,12 @@ namespace Anaglyph.LaserTag.MapEditor
 				tagSizeSlider.SetValueWithoutNotify(manager.EffectiveTagSizeCm);
 			}
 
-			int registered = manager.CurrentMap != null ? manager.CurrentMap.tags.Count : 0;
+			int registered = manager.CurrentSpace != null ? manager.CurrentSpace.tags.Count : 0;
 			string registrationBlocker = manager.DescribeTagRegistrationBlocker();
 			unregisterAllTagsButton.SetEnabled(registered > 0 && manager.DescribeTagRemovalBlocker() == null);
 
 			bool twoTags = (ColocationManager.Instance != null ? ColocationManager.Instance.SelectedMethod :
-				manager.CurrentMap?.preferredColocationMethod) == ColocationManager.ColocationMethod.TwoAprilTags;
+				manager.CurrentSpace?.preferredColocationMethod) == ColocationManager.ColocationMethod.TwoAprilTags;
 			if (twoTags)
 				tagStatus.text = MenuCopy.Get("Game", "alignment.two-tags-description");
 			else if (registrationBlocker != null && registrationBlocker != sizeBlocker)

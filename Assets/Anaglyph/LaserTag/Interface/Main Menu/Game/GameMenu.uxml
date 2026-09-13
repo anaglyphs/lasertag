@@ -1,4 +1,6 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:Template name="DeleteSpacePage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/DeleteSpacePage.uxml?fileID=9197481963319205126&amp;guid=6129634a19654579bdcede2f56f2aa06&amp;type=3#DeleteSpacePage"/>
+    <ui:Template name="SpaceDetailsPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/SpaceDetailsPage.uxml?fileID=9197481963319205126&amp;guid=cab95617b3e34299901e6bfe788493f3&amp;type=3#SpaceDetailsPage"/>
     <ui:Template name="GameHomePage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Game/GameHomePage.uxml?fileID=9197481963319205126&amp;guid=6980a2d367ef74df1ba6e62d612b9e0d&amp;type=3#GameHomePage"/>
     <ui:Template name="GameMapEditingPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Game/GameMapEditingPage.uxml?fileID=9197481963319205126&amp;guid=b3d76a548f628444b9a10fa8052cd47b&amp;type=3#GameMapEditingPage"/>
     <ui:Template name="GameMapsPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Game/GameMapsPage.uxml?fileID=9197481963319205126&amp;guid=3c8b307a190364aa992398c5fc0ca534&amp;type=3#GameMapsPage"/>
@@ -20,8 +22,14 @@
             <Anaglyph.Menu.NavPage name="map-manager-page">
                 <ui:Instance template="GameMapsPage"/>
             </Anaglyph.Menu.NavPage>
+            <Anaglyph.Menu.NavPage name="space-details">
+                <ui:Instance template="SpaceDetailsPage"/>
+            </Anaglyph.Menu.NavPage>
             <Anaglyph.Menu.NavPage name="editing-map-page" show-back-button="false">
                 <ui:Instance template="GameMapEditingPage"/>
+            </Anaglyph.Menu.NavPage>
+            <Anaglyph.Menu.NavPage name="delete-space-modal" show-back-button="false" modal-user-dismissible="true">
+                <ui:Instance template="DeleteSpacePage"/>
             </Anaglyph.Menu.NavPage>
             <Anaglyph.Menu.NavPage name="error-modal" show-back-button="false">
                 <ui:Instance template="MenuErrorPage"/>

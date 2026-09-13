@@ -12,7 +12,7 @@ namespace Anaglyph.LaserTag.Tests
 	{
 		[TestCase(ColocationManager.ColocationMethod.AprilTag)]
 		[TestCase(ColocationManager.ColocationMethod.TwoAprilTags)]
-		public void MeasurementSurvivesDetachedMapSnapshotsButStopsWhenTheMapChanges(ColocationManager.ColocationMethod method)
+		public void MeasurementSurvivesMapChangesButStopsWhenTheSpaceContextChanges(ColocationManager.ColocationMethod method)
 		{
 			var owner = new GameObject("Measurement state test");
 			owner.SetActive(false);
@@ -23,19 +23,23 @@ namespace Anaglyph.LaserTag.Tests
 			{
 				var coordinator = owner.AddComponent<LaserTagMapCoordinator>();
 				var maps = new MapManager(new MapStore(System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString("N"))));
-				maps.Create();
-				maps.SetPreferredColocationMethod(method);
+				var space = MapSpace.Create("Test"); space.preferredColocationMethod = method;
+				var spaces = new MapSpaceManager(new MapSpaceStore(System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString("N")))); spaces.Load(space);
+				maps.Create(space.storageFrameId);
+				typeof(LaserTagMapCoordinator).GetField("spaces", flags).SetValue(coordinator, spaces);
 				typeof(LaserTagMapCoordinator).GetField("maps", flags).SetValue(coordinator, maps);
 				typeof(LaserTagMapCoordinator).GetProperty("Instance").SetValue(null, coordinator);
 				typeof(MapEditor.MapEditor).GetProperty("IsActive").SetValue(null, true);
 				var tool = owner.AddComponent<MapEditorTool>();
-				typeof(MapEditorTool).GetField("measurementMapId", flags).SetValue(tool, maps.CurrentId);
+				typeof(MapEditorTool).GetField("measurementSpaceContext", flags).SetValue(tool, coordinator.ReferenceContext.ToString());
 				var allowed = typeof(MapEditorTool).GetProperty("MeasurementAllowed", flags);
 				Assert.That(maps.CurrentMap, Is.Not.SameAs(maps.CurrentMap));
 				Assert.That(allowed.GetValue(tool), Is.True);
-				maps.SetTags(Array.Empty<MapTagEntry>(), 12f);
+				space.tagSizeCm = 12; spaces.Load(space);
 				Assert.That(allowed.GetValue(tool), Is.True);
-				maps.Create();
+				maps.Create(space.storageFrameId);
+				Assert.That(allowed.GetValue(tool), Is.True);
+				typeof(LaserTagMapCoordinator).GetField("referenceContext", flags).SetValue(coordinator, Guid.NewGuid());
 				Assert.That(allowed.GetValue(tool), Is.False);
 				maps.Unload();
 				Assert.That(allowed.GetValue(tool), Is.False);

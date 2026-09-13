@@ -7,7 +7,7 @@ namespace Anaglyph.LaserTag.Weapons
 		public static bool CanFire
 		{
 			get => canFire && ColocationManager.IsColocated &&
-				!(LaserTagMapCoordinator.Instance != null && LaserTagMapCoordinator.Instance.IsChangingColocation);
+				(LaserTagMapCoordinator.Instance == null || LaserTagMapCoordinator.Instance.CheckWorldFrameIsTrusted());
 			set => canFire = value;
 		}
 	}

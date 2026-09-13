@@ -132,7 +132,7 @@ namespace Anaglyph.LaserTag
 			this.hasMap = hasMap;
 			this.empty = empty;
 			this.hasTags = hasTags;
-			this.hasAnchors = hasAnchors && !empty;
+			this.hasAnchors = hasAnchors;
 			this.systemDeterminedFrame = systemDeterminedFrame && !empty;
 			this.twoTagFrame = twoTagFrame;
 			this.frameAgrees = frameAgrees;
@@ -164,10 +164,17 @@ namespace Anaglyph.LaserTag
 			bool inSession, bool isAuthority) => !hasTags && anchorCount == 0 &&
 			(!inSession || isAuthority || empty);
 
-		public bool HasAlignmentReferences => hasTags || hasAnchors || systemDeterminedFrame || twoTagFrame;
+		public bool HasAlignmentReferences => hasTags || hasAnchors;
+
+		public static bool CanAuthorReferences(bool hasReferences, ColocationManager.ColocationMethod activeMethod, bool aligned, bool initializationGrant) =>
+			hasReferences ? aligned && ColocationManager.UsesSavedReferences(activeMethod) : initializationGrant;
+
+		// The anchor minter's cloud capability must not govern first-tag registration.
+		public static bool CanInitializeTags(bool inSession, bool isAuthority, bool transitionActive, bool isTransitionAuthor) =>
+			!inSession || (transitionActive ? isTransitionAuthor : isAuthority);
 
 		public string ReferenceSetupBlocker => TransitionBlocker ??
-			(hasMap && HasAlignmentReferences && !frameAgrees ? "alignment.align-before-reference-setup" : null);
+			(hasMap && HasAlignmentReferences && (!frameAgrees || systemDeterminedFrame || twoTagFrame) ? "alignment.align-before-reference-setup" : null);
 
 		public string ColocationMethodBlocker(bool targetHasReferences) => TransitionBlocker ??
 			(!hasMap ? "blocker.load-a-map-first" : roundInProgress ? "blocker.wait-until-the-round-ends" :
@@ -188,8 +195,7 @@ namespace Anaglyph.LaserTag
 		public string EditBlocker => TransitionBlocker ??
 			(hasMap && !frameAgrees ? "blocker.waiting-for-alignment" : null);
 
-		public string TagRegistrationBlocker => TransitionBlocker ??
-			(hasTags && !frameAgrees ? "blocker.align-to-this-map-s-tags-first" : EditBlocker);
+		public string TagRegistrationBlocker => ReferenceSetupBlocker;
 
 		// Removing a moved tag must remain possible while alignment is lost.
 		public string TagRemovalBlocker => TransitionBlocker;

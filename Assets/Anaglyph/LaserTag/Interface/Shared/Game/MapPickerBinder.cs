@@ -1,65 +1,67 @@
 using System;
-using Anaglyph.Menu;
 using System.Collections.Generic;
 using Anaglyph.LaserTag.Maps;
 using Anaglyph.LaserTag.Matches;
+using Anaglyph.Menu;
 using Anaglyph.Netcode;
 using UnityEngine.UIElements;
 using static Anaglyph.Menu.UIQuery;
 
 namespace Anaglyph.LaserTag.Interface
 {
-	/// <summary>Shared map catalog and actions, bound explicitly by the headset or operator menu.</summary>
 	public sealed class MapPickerBinder : IDisposable
 	{
-		private readonly Func<GameMap, bool> includeMap;
-		private readonly Func<int, string> getEmptyStateKey;
-		private bool bound;
-
-		/// <param name="includeMap">Whether a saved map belongs in this host's catalog.</param>
-		/// <param name="getEmptyStateKey">Game table key for an empty catalog, given the unfiltered saved count.</param>
-		public MapPickerBinder(Func<GameMap, bool> includeMap, Func<int, string> getEmptyStateKey)
-		{
-			this.includeMap = includeMap ?? throw new ArgumentNullException(nameof(includeMap));
-			this.getEmptyStateKey = getEmptyStateKey ?? throw new ArgumentNullException(nameof(getEmptyStateKey));
-		}
-
-		private Label currentMapLabel;
-		private Button newMapButton;
-		private Button loadButton;
-		private Button deleteButton;
-		private ScrollView mapList;
-
-		// The list picks a map; the buttons below act on it.
+		private readonly bool operatorMode;
+		private bool bound, armedDelete;
 		private string selectedMapId;
+		private string selectedSpaceId;
+		private Button newMapButton, newSpaceButton;
+		private ScrollView mapList;
+		private Action editMap, editSpace;
+		private NavView navigation;
+		private NavPage deleteSpaceModal;
+		private Label deleteSpaceSubject, deleteSpaceDetails, deleteSpaceBlocker;
+		private Button confirmDeleteSpace, cancelDeleteSpace;
+		private string pendingDeleteSpaceId;
 
-		// Deleting is destructive; the first press only arms the button.
-		private bool armedDelete;
+		public MapPickerBinder(bool operatorMode) => this.operatorMode = operatorMode;
 
-		public void Bind(VisualElement root)
+		public void Bind(VisualElement root, Action editMap, Action editSpace)
 		{
 			Dispose();
+			this.editMap = editMap; this.editSpace = editSpace;
 			root.MakeButtonsActOnPress();
-			currentMapLabel = Require<Label>(root, "current-map-label");
 			newMapButton = Require<Button>(root, "new-map-button");
-			loadButton = Require<Button>(root, "load-map-button");
-			deleteButton = Require<Button>(root, "delete-map-button");
+			newSpaceButton = Require<Button>(root, "new-space-button");
 			mapList = Require<ScrollView>(root, "map-list");
-
+			navigation = root.GetFirstAncestorOfType<NavView>();
+			if (navigation != null)
+			{
+				deleteSpaceModal = navigation.GetPage("delete-space-modal");
+				deleteSpaceModal.MakeButtonsActOnPress();
+				deleteSpaceSubject = Require<Label>(deleteSpaceModal, "delete-space-subject");
+				deleteSpaceDetails = Require<Label>(deleteSpaceModal, "delete-space-details");
+				deleteSpaceBlocker = Require<Label>(deleteSpaceModal, "delete-space-blocker");
+				confirmDeleteSpace = Require<Button>(deleteSpaceModal, "confirm-delete-space-button");
+				cancelDeleteSpace = Require<Button>(deleteSpaceModal, "cancel-delete-space-button");
+				confirmDeleteSpace.clicked += ConfirmSpaceDeletion;
+				cancelDeleteSpace.clicked += DismissSpaceDeletion;
+				deleteSpaceModal.NavigatingBack += ClearSpaceDeletion;
+			}
+			newSpaceButton.EnableInClassList("map-field-hidden", !operatorMode);
 			bound = true;
-			newMapButton.clicked += OnNewMapClicked;
-			loadButton.clicked += OnLoadClicked;
-			deleteButton.clicked += OnDeleteClicked;
-
-			MenuCopy.Changed += Rebuild;
+			newMapButton.clicked += OnNewMap;
+			newSpaceButton.clicked += OnNewSpace;
+			MapSpaceStore.Default.Changed += Rebuild;
 			MapStore.Default.Changed += Rebuild;
+			MenuCopy.Changed += Rebuild;
 			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
+			LaserTagMapCoordinator.CurrentSpaceChanged += OnSpaceChanged;
 			LaserTagMapCoordinator.CurrentMapChanged += OnCurrentMapChanged;
 			LaserTagMapCoordinator.ProbeResultsChanged += Rebuild;
 			LaserTagMapCoordinator.ChangingMapChanged += Rebuild;
-			MatchReferee.StateChanged += OnMatchStateChanged;
 			LaserTagMapCoordinator.ColocationSettingsChanged += Rebuild;
-
+			MatchReferee.StateChanged += OnMatchStateChanged;
 			Rebuild();
 		}
 
@@ -67,157 +69,225 @@ namespace Anaglyph.LaserTag.Interface
 		{
 			if (!bound) return;
 			bound = false;
+			MapSpaceStore.Default.Changed -= Rebuild;
+			MapStore.Default.Changed -= Rebuild;
 			MenuCopy.Changed -= Rebuild;
+			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
+			LaserTagMapCoordinator.CurrentSpaceChanged -= OnSpaceChanged;
+			LaserTagMapCoordinator.CurrentMapChanged -= OnCurrentMapChanged;
+			LaserTagMapCoordinator.ProbeResultsChanged -= Rebuild;
+			LaserTagMapCoordinator.ChangingMapChanged -= Rebuild;
 			LaserTagMapCoordinator.ColocationSettingsChanged -= Rebuild;
 			MatchReferee.StateChanged -= OnMatchStateChanged;
-			LaserTagMapCoordinator.ChangingMapChanged -= Rebuild;
-			LaserTagMapCoordinator.ProbeResultsChanged -= Rebuild;
-			LaserTagMapCoordinator.CurrentMapChanged -= OnCurrentMapChanged;
-
-			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
-			MapStore.Default.Changed -= Rebuild;
-
-			newMapButton.clicked -= OnNewMapClicked;
-			loadButton.clicked -= OnLoadClicked;
-			deleteButton.clicked -= OnDeleteClicked;
+			newMapButton.clicked -= OnNewMap;
+			newSpaceButton.clicked -= OnNewSpace;
 			mapList.Clear();
-			currentMapLabel = null;
-			newMapButton = loadButton = deleteButton = null;
-			mapList = null;
-		}
-
-		private void Select(string mapId)
-		{
-			if (selectedMapId == mapId)
-				return;
-
-			selectedMapId = mapId;
-			armedDelete = false;
-			Rebuild();
-		}
-
-		private void OnLoadClicked()
-		{
-			if (selectedMapId != null && LaserTagMapCoordinator.Instance != null)
-				LaserTagMapCoordinator.Instance.ChangeMap(selectedMapId);
-		}
-
-		private void OnDeleteClicked()
-		{
-			if (selectedMapId == null)
-				return;
-
-			if (!armedDelete)
+			mapList = null; newMapButton = newSpaceButton = null;
+			editMap = editSpace = null; armedDelete = false;
+			if (deleteSpaceModal != null)
 			{
-				armedDelete = true;
-				Rebuild();
-				return;
+				confirmDeleteSpace.clicked -= ConfirmSpaceDeletion;
+				cancelDeleteSpace.clicked -= DismissSpaceDeletion;
+				deleteSpaceModal.NavigatingBack -= ClearSpaceDeletion;
+				DismissSpaceDeletion();
 			}
-
-			armedDelete = false;
-			LaserTagMapCoordinator.Instance?.DeleteMap(selectedMapId);
+			navigation = null; deleteSpaceModal = null;
+			confirmDeleteSpace = cancelDeleteSpace = null;
+			deleteSpaceSubject = deleteSpaceDetails = deleteSpaceBlocker = null;
 		}
 
+		private void Select(string id)
+		{
+			if (selectedMapId == id) return;
+			DismissSpaceDeletion();
+			selectedMapId = id; selectedSpaceId = null; armedDelete = false; Rebuild();
+		}
+		private void SelectSpace(string id)
+		{
+			if (selectedSpaceId == id) return;
+			DismissSpaceDeletion();
+			selectedSpaceId = id; selectedMapId = null; armedDelete = false; Rebuild();
+		}
+		private void EditSpace(string id)
+		{
+			if (selectedSpaceId != id) return;
+			var manager = LaserTagMapCoordinator.Instance;
+			if (manager == null) return;
+			if (manager.CurrentSpace?.id != id && !manager.ChangeSpace(id)) return;
+			if (manager.CurrentSpace?.id == id) editSpace?.Invoke();
+		}
+		private void OnLoad(string id) { if (selectedMapId == id) LaserTagMapCoordinator.Instance?.ChangeMap(id); }
+		private void OnNewMap() => LaserTagMapCoordinator.Instance?.NewMap();
+		private void OnNewSpace() => LaserTagMapCoordinator.Instance?.NewSpace();
 		private void OnCurrentMapChanged(GameMap _) => Rebuild();
+		private void OnSpaceChanged(MapSpace _) => Rebuild();
 		private void OnMatchStateChanged(MatchState _) => Rebuild();
 		private void OnNetcodeStateChanged(NetcodeState _) => Rebuild();
-		private void OnNewMapClicked()
+		private void Delete(string id)
 		{
-			LaserTagMapCoordinator.Instance?.NewMap();
+			if (selectedMapId != id) return;
+			if (!armedDelete) { armedDelete = true; Rebuild(); return; }
+			armedDelete = false; LaserTagMapCoordinator.Instance?.DeleteMap(id); Rebuild();
+		}
+
+		private void RequestSpaceDeletion(string id)
+		{
+			var manager = LaserTagMapCoordinator.Instance;
+			if (selectedSpaceId != id || deleteSpaceModal == null || manager == null ||
+				manager.DescribeDeleteSpaceBlocker(id) != null || !MapSpaceStore.Default.TryGet(id, out _)) return;
+			pendingDeleteSpaceId = id;
+			RefreshSpaceDeletion();
+			navigation.PresentModal(deleteSpaceModal, 100);
+		}
+		private void ConfirmSpaceDeletion()
+		{
+			string id = pendingDeleteSpaceId;
+			var manager = LaserTagMapCoordinator.Instance;
+			if (id == null || navigation?.CurrentPage != deleteSpaceModal || manager == null) return;
+			if (manager.DescribeDeleteSpaceBlocker(id) != null || !MapSpaceStore.Default.TryGet(id, out _))
+			{ RefreshSpaceDeletion(); return; }
+			DismissSpaceDeletion();
+			manager.DeleteSpace(id);
+		}
+		private void ClearSpaceDeletion() => pendingDeleteSpaceId = null;
+		private void DismissSpaceDeletion()
+		{
+			ClearSpaceDeletion();
+			if (deleteSpaceModal != null) navigation.DismissModal(deleteSpaceModal);
+		}
+		private void RefreshSpaceDeletion()
+		{
+			if (pendingDeleteSpaceId == null) return;
+			if (!MapSpaceStore.Default.TryGet(pendingDeleteSpaceId, out var space)) { DismissSpaceDeletion(); return; }
+			deleteSpaceSubject.text = MenuCopy.Format("Game", "space.delete-title", space.name);
+			deleteSpaceDetails.text = MenuCopy.Get("Game", "space.delete-details");
+			confirmDeleteSpace.text = MenuCopy.Get("Game", "space.delete");
+			cancelDeleteSpace.text = MenuCopy.Get("Game", "space.cancel-delete");
+			var manager = LaserTagMapCoordinator.Instance;
+			string blocker = manager == null ? MenuCopy.Get("Game", "maps.unavailable") : manager.DescribeDeleteSpaceBlocker(space.id);
+			confirmDeleteSpace.SetEnabled(blocker == null);
+			deleteSpaceBlocker.text = blocker ?? "";
+			deleteSpaceBlocker.style.display = blocker == null ? DisplayStyle.None : DisplayStyle.Flex;
 		}
 
 		private void Rebuild()
 		{
-			LaserTagMapCoordinator manager = LaserTagMapCoordinator.Instance;
-			GameMap current = manager != null ? manager.CurrentMap : null;
-			bool inSession = manager != null && manager.Phase != MapPhase.Local;
-
-			bool changing = manager != null && manager.IsChangingMap;
-
-			// The hold names the way out: a map whose references are not in this room never
-			// finishes aligning, and picking another one is what ends it.
-			currentMapLabel.text = current == null ? MenuCopy.Get("Game", "maps.none")
-				: changing ? MenuCopy.Format("Game", "maps.aligning", current.name)
-				: MenuCopy.Format("Game", "maps.current", current.name);
-
-			string newMapBlocker = manager == null ? MenuCopy.Get("Game", "maps.unavailable")
-				: manager.DescribeNewMapBlocker();
-
-			newMapButton.tooltip = newMapBlocker ?? string.Empty;
-			newMapButton.SetEnabled(newMapBlocker == null);
+			if (!bound) return;
+			RefreshSpaceDeletion();
+			var manager = LaserTagMapCoordinator.Instance;
+			var currentMap = manager?.CurrentMap;
+			var currentSpace = manager?.CurrentSpace;
+			var spaces = MapSpaceStore.Default.Spaces;
+			var maps = MapStore.Default.GetByLastUsed();
+			if (currentSpace != null)
+			{
+				int index = spaces.FindIndex(s => s.id == currentSpace.id);
+				if (index >= 0) spaces[index] = currentSpace; else spaces.Insert(0, currentSpace);
+			}
+			if (currentMap != null)
+			{
+				maps.RemoveAll(m => m.id == currentMap.id); maps.Insert(0, currentMap);
+				if (currentSpace != null && !currentSpace.mapIds.Contains(currentMap.id)) currentSpace.mapIds.Add(currentMap.id);
+			}
+			var visibleIds = new HashSet<string>();
+			foreach (var space in spaces) foreach (var map in maps) if (space.mapIds.Contains(map.id)) visibleIds.Add(map.id);
+			if (selectedMapId != null && !visibleIds.Contains(selectedMapId)) { selectedMapId = null; armedDelete = false; }
+			if (selectedSpaceId != null && !spaces.Exists(s => s.id == selectedSpaceId)) selectedSpaceId = null;
 
 			mapList.Clear();
-
-			List<GameMap> maps = MapStore.Default.GetByLastUsed();
-			int total = maps.Count;
-
-			maps.RemoveAll(map => !includeMap(map));
-
-			// Deleted, or hidden as belonging to another room: either way the selection is now
-			// naming a row nobody can see, and every control below acts on the selection.
-			if (selectedMapId != null && !maps.Exists(m => m.id == selectedMapId))
+			if (spaces.Count == 0)
 			{
-				selectedMapId = null;
-				armedDelete = false;
+				var empty = new Label(MenuCopy.Get("Game", operatorMode ? "maps.empty-operator" : "space.searching")) { name = "catalog-empty" };
+				empty.AddToClassList("body-copy"); mapList.Add(empty);
 			}
-
-			if (maps.Count == 0)
+			foreach (var space in spaces)
 			{
-				string message = MenuCopy.Get("Game", getEmptyStateKey(total));
-				Label empty = new(message);
-				empty.AddToClassList("body-copy");
-				mapList.Add(empty);
-			}
-
-			foreach (GameMap map in maps)
-			{
-				bool isCurrent = current != null && current.id == map.id;
-				string id = map.id;
-
-				Button row = new(() => Select(id))
+				bool active = space.id == currentSpace?.id;
+				var group = new VisualElement { name = "space-" + space.id, userData = space.id };
+				group.AddToClassList("catalog-space");
+				var heading = new VisualElement { name = "space-row" }; heading.AddToClassList("catalog-space-row");
+				group.Add(heading);
+				var select = new Button { clickable = new PressClickable(() => SelectSpace(space.id)), name = "select-space-button", tooltip = space.name };
+				select.AddToClassList("map-row"); select.EnableInClassList("selected", selectedSpaceId == space.id);
+				var title = new Label(space.name) { pickingMode = PickingMode.Ignore }; title.AddToClassList("catalog-space-name"); select.Add(title);
+				var status = new Label(MenuCopy.Get("Game", active ? "space.active" : "space.presence." + (manager?.GetSpacePresence(space.id) ?? MapPresence.Unknown))) { pickingMode = PickingMode.Ignore };
+				status.AddToClassList("catalog-row-status"); select.Add(status); heading.Add(select);
+				if (selectedSpaceId == space.id)
 				{
-					text = DescribeMap(map, isCurrent)
-				};
-				row.AddToClassList("map-row");
-				row.EnableInClassList("selected", selectedMapId == id);
-				mapList.Add(row);
+					var edit = IconButton("edit-space-button", "catalog-edit", MenuCopy.Get("Game", "space.edit"), () => EditSpace(space.id));
+					string blocker = manager == null ? MenuCopy.Get("Game", "maps.unavailable") : active ? null : manager.DescribeSpaceChangeBlocker(space.id);
+					edit.SetEnabled(editSpace != null && blocker == null); if (blocker != null) edit.tooltip = blocker;
+					heading.Add(edit);
+					var delete = IconButton("delete-space-button", "catalog-delete", MenuCopy.Get("Game", "space.delete"), () => RequestSpaceDeletion(space.id));
+					delete.AddToClassList("destructive");
+					string deleteBlocker = manager == null ? MenuCopy.Get("Game", "maps.unavailable") : manager.DescribeDeleteSpaceBlocker(space.id);
+					delete.SetEnabled(deleteSpaceModal != null && deleteBlocker == null);
+					if (deleteBlocker != null) delete.tooltip = deleteBlocker;
+					heading.Add(delete);
+				}
+				var children = new VisualElement(); children.AddToClassList("catalog-maps"); group.Add(children);
+				foreach (var map in maps)
+					if (space.mapIds.Contains(map.id)) children.Add(MapRow(map, map.id == currentMap?.id, manager));
+				if (children.childCount == 0)
+				{
+					var create = new Button { clickable = new PressClickable(() => {
+						var coordinator = LaserTagMapCoordinator.Instance;
+						if (coordinator?.CurrentSpace?.id == space.id) coordinator.NewMap();
+						else coordinator?.ChangeSpace(space.id);
+					}), text = MenuCopy.Get("Game", "GameMapsPage.new-map-button.text") };
+					create.AddToClassList("catalog-empty-space");
+					string blocker = manager == null ? MenuCopy.Get("Game", "maps.unavailable") : active ? manager.DescribeNewMapBlocker() : manager.DescribeSpaceChangeBlocker(space.id);
+					SetBlocker(create, blocker); children.Add(create);
+				}
+				mapList.Add(group);
 			}
-
-
-			// The host may change the session's map between rounds; LaserTagMapCoordinator owns the rules,
-			// and reports the one that blocks so the disabled button can say why.
-			string blocker = selectedMapId == null ? MenuCopy.Get("Game", "maps.select")
-				: manager == null ? MenuCopy.Get("Game", "maps.unavailable")
-				: manager.DescribeChangeBlocker(selectedMapId);
-
-			loadButton.text = inSession ? MenuCopy.Get("Game", "maps.switch") : MenuCopy.Get("Game", "maps.load");
-			loadButton.tooltip = blocker ?? string.Empty;
-			loadButton.SetEnabled(blocker == null);
-
-			string deleteBlocker = manager == null ? MenuCopy.Get("Game", "maps.unavailable")
-				: manager.DescribeDeleteBlocker(selectedMapId);
-			deleteButton.text = armedDelete ? MenuCopy.Get("Game", "maps.confirm-delete") : MenuCopy.Get("Game", "maps.delete");
-			deleteButton.tooltip = deleteBlocker ?? string.Empty;
-			deleteButton.SetEnabled(deleteBlocker == null);
+			mapList.MakeButtonsActOnPress();
+			newSpaceButton.text = MenuCopy.Get("Game", "space.new");
+			SetBlocker(newMapButton, manager == null ? MenuCopy.Get("Game", "maps.unavailable") : manager.DescribeNewMapBlocker());
+			SetBlocker(newSpaceButton, manager == null ? MenuCopy.Get("Game", "maps.unavailable") : manager.DescribeSpaceChangeBlocker(null));
 		}
 
-		private static string DescribeMap(GameMap map, bool isCurrent)
+		private VisualElement MapRow(GameMap map, bool current, LaserTagMapCoordinator manager)
 		{
-			string age = DescribeAge(map.lastUsed);
-			string key = map.HasTags
-				? (isCurrent ? "maps.row-tags-loaded" : "maps.row-tags")
-				: (isCurrent ? "maps.row-loaded" : "maps.row");
-			return MenuCopy.Format("Game", key, map.name, age, map.tags.Count);
+			string id = map.id;
+			var row = new VisualElement { name = "map-" + id, userData = id }; row.AddToClassList("catalog-map-row");
+			var select = new Button { clickable = new PressClickable(() => Select(id)), name = "select-map-button", tooltip = map.name };
+			select.AddToClassList("map-row"); select.EnableInClassList("selected", selectedMapId == id);
+			var label = new Label(map.name) { pickingMode = PickingMode.Ignore }; label.AddToClassList("catalog-map-name"); select.Add(label);
+			if (current)
+			{
+				var status = new Label(MenuCopy.Get("Game", manager.IsChangingMap ? "maps.loading" : "maps.loaded")) { pickingMode = PickingMode.Ignore };
+				status.AddToClassList("catalog-row-status"); select.Add(status);
+			}
+			row.Add(select);
+			if (current)
+			{
+				var edit = IconButton("edit-map-button", "catalog-edit", MenuCopy.Get("Game", "maps.edit"), () => {
+					if (LaserTagMapCoordinator.Instance?.CurrentMap?.id == id) editMap?.Invoke();
+				});
+				edit.SetEnabled(editMap != null); row.Add(edit);
+			}
+			if (selectedMapId == id)
+			{
+				string action = MenuCopy.Get("Game", manager != null && manager.Phase != MapPhase.Local ? "maps.switch" : "maps.load");
+				var load = IconButton("load-map-button", "catalog-load", action, () => OnLoad(id));
+				string loadBlocker = manager == null ? MenuCopy.Get("Game", "maps.unavailable") : manager.DescribeChangeBlocker(id);
+				load.SetEnabled(loadBlocker == null); if (loadBlocker != null) load.tooltip = loadBlocker;
+				row.Add(load);
+				var delete = IconButton("delete-map-button", "catalog-delete", MenuCopy.Get("Game", "maps.delete"), () => Delete(id));
+				delete.AddToClassList("destructive"); delete.EnableInClassList("catalog-confirm-delete", armedDelete);
+				if (armedDelete) delete.text = MenuCopy.Get("Game", "maps.confirm-delete");
+				string blocker = manager == null ? MenuCopy.Get("Game", "maps.unavailable") : manager.DescribeDeleteBlocker(id);
+				delete.SetEnabled(blocker == null); if (blocker != null) delete.tooltip = blocker;
+				row.Add(delete);
+			}
+			return row;
 		}
-
-		private static string DescribeAge(long ticks)
+		private static Button IconButton(string name, string icon, string tooltip, Action action)
 		{
-			TimeSpan age = DateTime.UtcNow - new DateTime(ticks, DateTimeKind.Utc);
-
-			if (age.TotalMinutes < 1) return MenuCopy.Get("Game", "age.now");
-			if (age.TotalHours < 1) return MenuCopy.Format("Game", "age.minutes", (int)age.TotalMinutes);
-			if (age.TotalDays < 1) return MenuCopy.Format("Game", "age.hours", (int)age.TotalHours);
-			return MenuCopy.Format("Game", "age.days", (int)age.TotalDays);
+			var button = new Button { clickable = new PressClickable(action), name = name, tooltip = tooltip };
+			button.AddToClassList("catalog-row-action"); button.AddToClassList(icon); return button;
 		}
+		private static void SetBlocker(Button button, string blocker) { button.tooltip = blocker ?? string.Empty; button.SetEnabled(blocker == null); }
 	}
 }

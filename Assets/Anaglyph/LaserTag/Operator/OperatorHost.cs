@@ -134,7 +134,7 @@ namespace Anaglyph.LaserTag.Operator
 
 		/// <summary>The same catalog is used for startup restoration and the operator's map picker.</summary>
 		public static bool CanHostMap(GameMap map) => map != null &&
-			ColocationManager.IsValidMethod(map.preferredColocationMethod);
+			MapSpaceStore.Default.FindOwner(map.id) != null;
 
 		private static void LoadLastSupportedMap()
 		{

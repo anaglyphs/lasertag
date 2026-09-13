@@ -1,9 +1,11 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
-    <ui:Template name="OperatorMapSettingsPage" src="project://database/Assets/Anaglyph/LaserTag/Operator/OperatorMapSettingsPage.uxml?fileID=9197481963319205126&amp;guid=d51249ce67904b63a9732b67a419ef61&amp;type=3#OperatorMapSettingsPage"/>
-    <ui:Template name="OperatorMapsPage" src="project://database/Assets/Anaglyph/LaserTag/Operator/OperatorMapsPage.uxml?fileID=9197481963319205126&amp;guid=7e3af4252ef249ed8ae61e7784be2de2&amp;type=3#OperatorMapsPage"/>
+    <ui:Template name="DeleteSpacePage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/DeleteSpacePage.uxml?fileID=9197481963319205126&amp;guid=6129634a19654579bdcede2f56f2aa06&amp;type=3#DeleteSpacePage"/>
     <ui:Template name="GameMatchPlayingPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Game/GameMatchPlayingPage.uxml?fileID=9197481963319205126&amp;guid=617e74b6016424210b1d97fb28257683&amp;type=3#GameMatchPlayingPage"/>
     <ui:Template name="GameMatchSettingsPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/GameMatchSettingsPage.uxml?fileID=9197481963319205126&amp;guid=f28cafb4354a24f018772c69222a55ef&amp;type=3#GameMatchSettingsPage"/>
     <ui:Template name="MenuErrorPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/MenuErrorPage.uxml?fileID=9197481963319205126&amp;guid=07ab6142193414ebda335d8f277b3ead&amp;type=3#MenuErrorPage"/>
+    <ui:Template name="OperatorMapSettingsPage" src="project://database/Assets/Anaglyph/LaserTag/Operator/OperatorMapSettingsPage.uxml?fileID=9197481963319205126&amp;guid=d51249ce67904b63a9732b67a419ef61&amp;type=3#OperatorMapSettingsPage"/>
+    <ui:Template name="OperatorMapsPage" src="project://database/Assets/Anaglyph/LaserTag/Operator/OperatorMapsPage.uxml?fileID=9197481963319205126&amp;guid=7e3af4252ef249ed8ae61e7784be2de2&amp;type=3#OperatorMapsPage"/>
+    <ui:Template name="SpaceDetailsPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/SpaceDetailsPage.uxml?fileID=9197481963319205126&amp;guid=cab95617b3e34299901e6bfe788493f3&amp;type=3#SpaceDetailsPage"/>
     <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
     <Style src="project://database/Assets/Anaglyph/LaserTag/Operator/OperatorStyle.uss?fileID=7433441132597879392&amp;guid=50e7e683e56714de0b0ad7967c86b879&amp;type=3#OperatorStyle"/>
     <ui:VisualElement name="root" style="flex-grow: 1;">
@@ -55,8 +57,14 @@
                             <Anaglyph.Menu.NavPage name="maps-page">
                                 <ui:Instance template="OperatorMapsPage"/>
                             </Anaglyph.Menu.NavPage>
+                            <Anaglyph.Menu.NavPage name="space-details">
+                                <ui:Instance template="SpaceDetailsPage"/>
+                            </Anaglyph.Menu.NavPage>
                             <Anaglyph.Menu.NavPage name="map-editing-page">
                                 <ui:Instance template="OperatorMapSettingsPage"/>
+                            </Anaglyph.Menu.NavPage>
+                            <Anaglyph.Menu.NavPage name="delete-space-modal" show-back-button="false" modal-user-dismissible="true">
+                                <ui:Instance template="DeleteSpacePage"/>
                             </Anaglyph.Menu.NavPage>
                             <Anaglyph.Menu.NavPage name="error-modal" show-back-button="false">
                                 <ui:Instance template="MenuErrorPage"/>
@@ -75,6 +83,7 @@
                                 <ui:Column name="client" width="110" min-width="90"/>
                                 <ui:Column name="battery" width="110" min-width="100"/>
                                 <ui:Column name="alignment" width="160" min-width="140"/>
+                                <ui:Column name="source" width="230" min-width="180"/>
                                 <ui:Column name="left-hand" width="110" min-width="100"/>
                                 <ui:Column name="right-hand" width="110" min-width="100"/>
                                 <ui:Column name="team" width="80" min-width="70"/>
@@ -89,21 +98,22 @@
                                 <UnityEngine.Localization.LocalizedString property="text" table="OperatorMenu" entry="static-14.text"/>
                             </Bindings>
                         </ui:Label>
-                        <ui:Toggle name="require-menu-password-toggle">
-                            <Bindings>
-                                <UnityEngine.Localization.LocalizedString property="label" table="OperatorMenu" entry="require-menu-password-toggle.label"/>
-                            </Bindings>
-                        </ui:Toggle>
                         <ui:Label class="body-copy">
                             <Bindings>
                                 <UnityEngine.Localization.LocalizedString property="text" table="OperatorMenu" entry="static-16.text"/>
                             </Bindings>
                         </ui:Label>
-                        <ui:TextField name="menu-password-field" keyboard-type="Default">
+                        <ui:TextField name="menu-password-field" keyboard-type="Default" class="stacked-field">
                             <Bindings>
                                 <UnityEngine.Localization.LocalizedString property="label" table="OperatorMenu" entry="menu-password-field.label"/>
                             </Bindings>
                         </ui:TextField>
+                        <ui:Toggle name="require-menu-password-toggle">
+                            <Bindings>
+                                <UnityEngine.Localization.LocalizedString property="label" table="OperatorMenu" entry="require-menu-password-toggle.label"/>
+                            </Bindings>
+                        </ui:Toggle>
+                        <ui:VisualElement style="flex-grow: 0; height: 20px; flex-shrink: 1;"/>
                         <ui:Toggle name="pin-headsets-to-host-toggle">
                             <Bindings>
                                 <UnityEngine.Localization.LocalizedString property="label" table="OperatorMenu" entry="pin-headsets-to-host-toggle.label"/>

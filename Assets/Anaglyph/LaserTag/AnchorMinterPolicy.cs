@@ -8,7 +8,7 @@ namespace Anaglyph.LaserTag
 	public static class AnchorMinterPolicy
 	{
 		public static ulong? Select(ulong? current, ulong sessionOwner, bool operatorManaged,
-			Guid mapId, ColocationManager.ColocationMethod method,
+			Guid spaceId, Guid frameId, Guid referenceContext,
 			IEnumerable<KeyValuePair<ulong, HeadsetReadiness>> headsets)
 		{
 			ulong? first = null;
@@ -18,8 +18,8 @@ namespace Anaglyph.LaserTag
 			foreach (var pair in headsets)
 			{
 				HeadsetReadiness readiness = pair.Value;
-				if (!readiness.CanMintSharedAnchors || mapId == Guid.Empty ||
-					readiness.mapId != mapId || readiness.method != method) continue;
+				if (!readiness.CanMintSharedAnchors || spaceId == Guid.Empty ||
+					readiness.spaceId != spaceId || readiness.frameId != frameId || readiness.referenceContext != referenceContext) continue;
 				if (!operatorManaged)
 				{
 					if (pair.Key == sessionOwner) return sessionOwner;

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Threading;
 using Anaglyph.LaserTag.Player;
+using Anaglyph.LaserTag.Maps;
 using Anaglyph.Netcode.SyncVariables;
 using Anaglyph.XR.SharedSpaces;
 using Anaglyph.XR.SharedSpaces.SharedAnchors;
@@ -56,14 +57,13 @@ namespace Anaglyph.LaserTag.Tests
 
 		private HeadsetReadiness Ready(bool aligned = false) => new()
 		{
-			mapId = map, method = ColocationManager.ColocationMethod.MetaSharedAnchor,
+			spaceId = map, frameId = map, referenceContext = map, mapId = map, method = ColocationManager.ColocationMethod.MetaSharedAnchor,
 			hasAnchorRuntime = true, supportsSharedAnchors = true, isHeadTracked = true, isFocused = true,
 			referenceFrameTrusted = aligned
 		};
 
 		private ulong? Choose(ulong? current = null, bool managed = true, ulong sessionOwner = 0) =>
-			AnchorMinterPolicy.Select(current, sessionOwner, managed, map,
-				ColocationManager.ColocationMethod.MetaSharedAnchor, headsets);
+			AnchorMinterPolicy.Select(current, sessionOwner, managed, map, map, map, headsets);
 
 		[Test]
 		public void BlankSessionSelectsOneHeadsetBeforeAlignmentAndKeepsItStable()
@@ -114,8 +114,8 @@ namespace Anaglyph.LaserTag.Tests
 		{
 			var status = Ready(); status.isOperator = true; headsets[0] = status;
 			status = Ready(); status.supportsSharedAnchors = false; headsets[1] = status;
-			status = Ready(); status.mapId = Guid.NewGuid(); headsets[2] = status;
-			status = Ready(); status.method = ColocationManager.ColocationMethod.AprilTag; headsets[3] = status;
+			status = Ready(); status.spaceId = Guid.NewGuid(); headsets[2] = status;
+			status = Ready(); status.referenceContext = Guid.NewGuid(); headsets[3] = status;
 			Assert.That(Choose(), Is.Null);
 		}
 
@@ -154,9 +154,7 @@ namespace Anaglyph.LaserTag.Tests
 				instance.SetValue(null, configuration);
 				var manager = owner.AddComponent<ColocationManager>();
 				Set(manager, "spatialAnchorColocationProvider", provider);
-				Set(manager, "mapPreference", ColocationManager.ColocationMethod.MetaSharedAnchor);
-				Set(manager, "mapHasAnchors", hasReferences);
-				Set(manager, "mapHasTags", hasReferences);
+				manager.ManagedSelection = true; manager.ConfigureSpace(MapSpace.Create("Test"), null);
 				Assert.That(manager.PreferredSessionMethod, Is.EqualTo(ColocationManager.ColocationMethod.MetaSharedAnchor));
 			}
 			finally { instance.SetValue(null, previous); }
@@ -177,11 +175,9 @@ namespace Anaglyph.LaserTag.Tests
 				var manager = owner.AddComponent<ColocationManager>();
 				Set(manager, "colocator", owner.AddComponent<Colocator>());
 				Set(manager, "spatialAnchorColocationProvider", provider);
-				Set(manager, "mapLoaded", true);
-				manager.GetType().GetMethod("UpdateProvider", Private).Invoke(manager, null);
+				manager.ActivateMethod(ColocationManager.ColocationMethod.MetaSharedAnchor);
 				Assert.That(provider.IsRunning, Is.True);
-				Set(manager, "mapLoaded", false);
-				manager.GetType().GetMethod("UpdateProvider", Private).Invoke(manager, null);
+				manager.ClearSpace();
 				Assert.That(provider.IsRunning, Is.False);
 			}
 			finally

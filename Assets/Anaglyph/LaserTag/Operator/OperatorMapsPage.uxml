@@ -8,11 +8,6 @@
                 <UnityEngine.Localization.LocalizedString property="Title" table="GameMenu" entry="GameMapsPage.navheader-2.title"/>
             </Bindings>
         </Anaglyph.Menu.NavHeader>
-        <ui:Button name="edit-map-button">
-            <Bindings>
-                <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMapsPage.edit-map-button.text"/>
-            </Bindings>
-        </ui:Button>
         <ui:Instance template="MapCatalog" class="map-catalog-instance"/>
     </ui:VisualElement>
 </ui:UXML>

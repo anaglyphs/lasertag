@@ -1,4 +1,7 @@
+using System;
 using System.Collections.Generic;
+using Anaglyph.LaserTag.Maps;
+using Anaglyph.XR;
 using Anaglyph.XR.SharedSpaces.AprilTags;
 using UnityEngine;
 
@@ -15,6 +18,16 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		private readonly Dictionary<int, (Pose pose, float time)> observations = new();
 		private readonly List<int> expiredScratch = new();
 
+		private Guid context;
+		private int trackingGeneration;
+		private void CheckContext()
+		{
+			var next = LaserTagMapCoordinator.Instance?.ReferenceContext ?? Guid.Empty;
+			int generation = ColocationManager.Instance != null ? ColocationManager.Instance.TrackingGeneration : 0;
+			if (context == next && trackingGeneration == generation) return;
+			Clear(); context = next; trackingGeneration = generation;
+		}
+		private static Pose RigPose => MainXRRig.Instance ? new(MainXRRig.TrackingSpace.position, MainXRRig.TrackingSpace.rotation) : Pose.identity;
 		private readonly float observationLifetime;
 		private readonly float maxAngleDegrees;
 
@@ -51,9 +64,10 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 
 		public bool TryGetObservation(int tagId, out Pose pose)
 		{
+			CheckContext(); Expire();
 			if (observations.TryGetValue(tagId, out (Pose pose, float time) entry))
 			{
-				pose = entry.pose;
+				pose = MapSpaceFrame.Compose(RigPose, entry.pose);
 				return true;
 			}
 
@@ -61,19 +75,19 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			return false;
 		}
 
-		private void OnTagObserved(int id, Pose pose) => observations[id] = (pose, Time.time);
+		private void OnTagObserved(int id, Pose pose) { CheckContext(); observations[id] = (MapSpaceFrame.Compose(MapSpaceFrame.Inverse(RigPose), pose), Time.time); }
 
 		/// <summary>Drops stale observations and re-aims.</summary>
 		public int Aim(Vector3 origin, Vector3 forward)
 		{
-			Expire();
+			CheckContext(); Expire();
 
 			int best = -1;
 			float bestAngle = maxAngleDegrees;
 
 			foreach ((int id, (Pose pose, float _)) in observations)
 			{
-				float angle = Vector3.Angle(forward, pose.position - origin);
+				float angle = Vector3.Angle(forward, MapSpaceFrame.Compose(RigPose, pose).position - origin);
 
 				if (angle < bestAngle)
 				{

@@ -69,7 +69,8 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(Policy(phase, hasTags: false, aligned: false).ColocationPreferenceBlocker, Is.Null);
 			Assert.That(Policy(phase, playing: true).ColocationPreferenceBlocker, Is.Not.Null);
 			Assert.That(Policy(phase, holding: true).ColocationPreferenceBlocker, Is.Not.Null);
-			Assert.That(Policy(phase, hasTags: false, empty: true).ColocationMethodBlocker(targetHasReferences: false), Is.Null);
+			// An empty layout still belongs to the existing anchor-defined space.
+			Assert.That(Policy(phase, hasTags: false, empty: true).ColocationMethodBlocker(targetHasReferences: false), Is.Not.Null);
 		}
 
 		[Test]
@@ -170,7 +171,6 @@ namespace Anaglyph.LaserTag.Tests
 			workflow.EnterSession(authority: true);
 			workflow.BeginSwitch(now: 10f);
 			var target = new GameMap();
-			target.tags.Add(new MapTagEntry { id = 1 });
 			MapPolicy switching = Policy(workflow.Phase, aligned: false);
 			Assert.That(switching.ChangeMapBlocker(target, false, MapPresence.Unknown), Is.Null);
 			Assert.That(switching.EditBlocker, Is.Not.Null);
