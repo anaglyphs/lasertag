@@ -1,0 +1,11 @@
+.tag-setup-hidden { display: none; }
+.tag-setup-scroll { flex-grow: 1; min-height: 0; }
+.tag-setup-step { flex-shrink: 0; -unity-font-style: bold; white-space: normal; margin-top: 12px; margin-bottom: 12px; }
+.tag-setup-address { flex-shrink: 0; font-size: 38px; -unity-font-style: bold; white-space: normal; margin-top: 12px; margin-bottom: 12px; color: rgb(130, 230, 255); }
+.tag-setup-actions { flex-shrink: 0; flex-direction: row; flex-wrap: wrap; }
+.tag-setup-actions > Button { flex-grow: 1; }
+.tag-setup-guide { font-size: 20px; margin-bottom: 12px; padding: 12px; background-color: rgb(0, 36, 48); }
+.tag-setup-viewport { position: absolute; left: 0; right: 0; top: 0; bottom: 0; overflow: hidden; }
+.tag-setup-confirm { white-space: normal; }
+.tag-setup-confirm > .unity-toggle__text { white-space: normal; flex-shrink: 1; }
+#setup-cancel { flex-shrink: 0; }

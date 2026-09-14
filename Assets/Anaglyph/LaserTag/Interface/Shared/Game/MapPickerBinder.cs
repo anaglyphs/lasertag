@@ -118,7 +118,11 @@ namespace Anaglyph.LaserTag.Interface
 		}
 		private void OnLoad(string id) { if (selectedMapId == id) LaserTagMapCoordinator.Instance?.ChangeMap(id); }
 		private void OnNewMap() => LaserTagMapCoordinator.Instance?.NewMap();
-		private void OnNewSpace() => LaserTagMapCoordinator.Instance?.NewSpace();
+		private void OnNewSpace()
+		{
+			if (operatorMode && LaserTagMapCoordinator.Instance?.NewSpace().IsCompleted == true)
+				editSpace?.Invoke();
+		}
 		private void OnCurrentMapChanged(GameMap _) => Rebuild();
 		private void OnSpaceChanged(MapSpace _) => Rebuild();
 		private void OnMatchStateChanged(MatchState _) => Rebuild();

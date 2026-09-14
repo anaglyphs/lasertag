@@ -63,6 +63,8 @@ namespace Anaglyph.LaserTag.Operator
 
 		private VisualElement viewport;
 		private Camera viewportCamera;
+		private AprilTagSetupWizard tagSetupWizard;
+		private AprilTagSetupViewport tagSetupViewport;
 
 		private const string sidebarWidthPref = "OperatorMenu.SidebarWidth";
 		private const string networkHeightPref = "OperatorMenu.NetworkHeight";
@@ -124,6 +126,9 @@ namespace Anaglyph.LaserTag.Operator
 			BindMapEditing(root);
 
 			BindViewportToCamera(root);
+			tagSetupViewport = new AprilTagSetupViewport();
+			viewport.Add(tagSetupViewport);
+			tagSetupWizard = new AprilTagSetupWizard(mapsNav, tagSetupViewport.FocusTags);
 			RestoreSplitSizes(root);
 
 			bindings.Click(hostButton, StartHosting);
@@ -145,6 +150,10 @@ namespace Anaglyph.LaserTag.Operator
 
 		private void OnDisable()
 		{
+			tagSetupWizard?.Dispose();
+			tagSetupWizard = null;
+			tagSetupViewport?.RemoveFromHierarchy();
+			tagSetupViewport = null;
 			refreshCancellation?.Cancel();
 			refreshCancellation?.Dispose();
 			refreshCancellation = null;
@@ -169,7 +178,14 @@ namespace Anaglyph.LaserTag.Operator
 			matchNav = null;
 		}
 
-		private void Update() => RefreshMapSettings();
+		private void Update()
+		{
+			RefreshMapSettings();
+			tagSetupWizard?.Tick();
+			var coordinator = LaserTagMapCoordinator.Instance;
+			tagSetupViewport?.Refresh(viewportCamera, coordinator?.CurrentSpace);
+			matchSettings?.StartButton.SetEnabled(NetcodeManagement.State == NetcodeState.Connected && coordinator?.TagSetup?.IsActive != true);
+		}
 
 		/// <summary>
 		/// The operator edits map names and space alignment without an editing mode:

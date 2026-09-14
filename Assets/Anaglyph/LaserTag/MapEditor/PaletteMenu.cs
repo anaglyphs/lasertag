@@ -32,6 +32,9 @@ namespace Anaglyph.LaserTag.MapEditor
 		private Button measureTagSizeButton;
 		private Button unregisterAllTagsButton;
 		private Button doneButton;
+		private VisualElement setupGuide;
+		private Label setupInstructions;
+		private Label setupProgress;
 
 		private readonly List<(MapObjectDatabase.Category category, Button button)> categoryButtons = new();
 		private readonly List<(MapObject prefab, Button button)> objectButtons = new();
@@ -70,6 +73,9 @@ namespace Anaglyph.LaserTag.MapEditor
 			measureTagSizeButton = Require<Button>(root, "measure-tag-size-button");
 			unregisterAllTagsButton = Require<Button>(root, "unregister-all-tags-button");
 			doneButton = Require<Button>(root, "done-button");
+			setupGuide = Require<VisualElement>(root, "tag-setup-guide");
+			setupInstructions = Require<Label>(root, "tag-setup-instructions");
+			setupProgress = Require<Label>(root, "tag-setup-progress");
 
 			MenuCopy.Changed += OnCopyChanged;
 			AnaglyphDebugging.DebugModeChanged += OnDebugModeChanged;
@@ -189,9 +195,27 @@ namespace Anaglyph.LaserTag.MapEditor
 				RefreshTagSettings();
 			else if (MapEditorTool.CurrentMode == MapEditorTool.Mode.MeasureTagSize)
 				RefreshMeasurementHint();
+			RefreshSetupGuide();
 		}
 
 		// ------- tag settings ----------------------------------------
+		private void RefreshSetupGuide()
+		{
+			var coordinator = LaserTagMapCoordinator.Instance;
+			var setup = coordinator?.TagSetup;
+			bool guided = setup?.IsGuidingHeadset == true;
+			setupGuide.EnableInClassList("tag-setup-hidden", !guided);
+			doneButton.SetEnabled(!guided);
+			unregisterAllTagsButton.EnableInClassList("tag-setup-hidden", guided);
+			if (!guided) return;
+			bool measuring = MapEditorTool.CurrentMode == MapEditorTool.Mode.MeasureTagSize;
+			setupInstructions.text = MenuCopy.Get("Game", measuring ? "tag-setup.headset-measure" :
+				!setup.SizeConfirmed ? "tag-setup.headset-wait" : "tag-setup.headset-register");
+			setupProgress.text = MenuCopy.Format("Game", "tag-setup.headset-progress", coordinator.CurrentSpace.tags.Count,
+				coordinator.EffectiveTagSizeCm);
+			tagSizeSlider.SetEnabled(false);
+			measureTagSizeButton.SetEnabled(false);
+		}
 
 		private void OnTagSizeChanged(ChangeEvent<float> change)
 		{
@@ -374,7 +398,7 @@ namespace Anaglyph.LaserTag.MapEditor
 		}
 
 		/// <summary>An icon above its name, for both the category tabs and the object grid.</summary>
-		private static Button MakeThumbnailButton(string className, Sprite icon, string caption)
+		private static Button MakeThumbnailButton(string className, VectorImage icon, string caption)
 		{
 			Button button = new();
 			button.MakeActOnPress(); // built after the tree-wide pass, so it opts in itself

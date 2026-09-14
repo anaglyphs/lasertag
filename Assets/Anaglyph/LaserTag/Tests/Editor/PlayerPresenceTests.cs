@@ -24,6 +24,7 @@ namespace Anaglyph.LaserTag.Tests
 		private ColocationManager previousColocation;
 		private LaserTagMapCoordinator previousCoordinator;
 		private Guid mapId;
+		private MapCoordinatorTestContext mapContext;
 
 		[SetUp]
 		public void SetUp()
@@ -40,9 +41,10 @@ namespace Anaglyph.LaserTag.Tests
 			Set(colocation, "offlineMethod", ColocationManager.ColocationMethod.SystemDetermined);
 			SetStatic(typeof(ColocationManager), "Instance", colocation);
 			var coordinator = context.AddComponent<LaserTagMapCoordinator>();
-			var spaces = new MapSpaceManager(new MapSpaceStore(System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString("N"))));
-			spaces.Load(MapSpace.Create("Presence test")); Set(coordinator, "spaces", spaces);
-			((MapWorkflow)Get(coordinator, "workflow")).BeginHosting(false, 0);
+			mapContext = new MapCoordinatorTestContext(coordinator);
+			mapContext.SpaceDocument.Load(MapSpace.Create("Presence test"));
+			Set(coordinator, "colocationManager", colocation);
+			((MapLifecycle)Get(coordinator, "lifecycle")).BeginHosting(false, 0);
 			SetStatic(typeof(LaserTagMapCoordinator), "Instance", coordinator);
 		}
 
@@ -60,6 +62,7 @@ namespace Anaglyph.LaserTag.Tests
 				Object.DestroyImmediate(owner);
 			}
 			objects.Clear();
+			mapContext?.Dispose();
 		}
 
 		[Test]

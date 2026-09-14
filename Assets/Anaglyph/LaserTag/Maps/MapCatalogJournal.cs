@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Anaglyph.LaserTag.Maps
 {
 	/// <summary>Durable redo record for writes spanning a space and separate layout files.</summary>
-	public sealed class MapSpaceCatalog
+	public sealed class MapCatalogJournal
 	{
 		[Serializable] private sealed class Transaction
 		{
@@ -25,7 +25,7 @@ namespace Anaglyph.LaserTag.Maps
 		public bool IsBlocked { get; private set; }
 		public bool HasPending => pending != null || IsBlocked;
 		public MapSpace PendingSpace => pending?.space.Clone();
-		public MapSpaceCatalog(MapStore maps, MapSpaceStore spaces, string directory)
+		public MapCatalogJournal(MapStore maps, MapSpaceStore spaces, string directory)
 		{
 			this.maps = maps; this.spaces = spaces;
 			journal = Path.Combine(directory, "pending-catalog-operation.json");

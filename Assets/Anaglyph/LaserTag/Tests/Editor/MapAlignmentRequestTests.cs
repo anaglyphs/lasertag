@@ -32,7 +32,8 @@ namespace Anaglyph.LaserTag.Tests
 		private HeadsetConfiguration configuration, previousConfiguration;
 		private MapSpaceStore previousStore;
 		private MapStore previousMapStore;
-		private MapSpaceManager spaces;
+		private MapSpaceWorkingCopy spaceDocument;
+		private MapWorkingCopy mapDocument;
 		private IDisposable alignment;
 		private string directory;
 		private Dictionary<ulong, PlayerAvatar> previousPlayers;
@@ -44,7 +45,12 @@ namespace Anaglyph.LaserTag.Tests
 		private static void Static(Type type, string name, object value) => type.GetProperty(name).SetValue(null, value);
 		private static object Create(string name, params object[] args) =>
 			Activator.CreateInstance(typeof(MapSpace).Assembly.GetType("Anaglyph.LaserTag.Maps." + name, true), args);
-		private object Call(string name, params object[] args) => typeof(LaserTagMapCoordinator).GetMethod(name, Private).Invoke(coordinator, args);
+		private object ReferenceWorkflow => Get(coordinator, "referenceWorkflow");
+		private object SessionController => Get(coordinator, "sessionWorkflow");
+		private MapSpace Candidate => (MapSpace)ReferenceWorkflow.GetType().GetProperty("Candidate").GetValue(ReferenceWorkflow);
+		private static object Call(object target, string name, params object[] args) =>
+			target.GetType().GetMethod(name, Private | BindingFlags.Public).Invoke(target, args);
+		private object ReferenceCall(string name, params object[] args) => Call(ReferenceWorkflow, name, args);
 
 		[SetUp]
 		public void SetUp()
@@ -69,17 +75,19 @@ namespace Anaglyph.LaserTag.Tests
 			Set(manager, "aprilTagColocationProvider", owner.AddComponent<AprilTagColocationConstraintProvider>());
 			var mapStore = new MapStore(Path.Combine(directory, "maps"));
 			Static(typeof(MapStore), "Default", mapStore);
-			spaces = new MapSpaceManager(MapSpaceStore.Default); spaces.Load(MapSpace.Create("Editor room"));
-			Set(coordinator, "spaces", spaces); Set(coordinator, "maps", new MapManager(mapStore));
+			var documents = Create("MapCatalog", mapStore, MapSpaceStore.Default, directory, Get(coordinator, "visit"));
+			mapDocument = (MapWorkingCopy)documents.GetType().GetProperty("MapDocument").GetValue(documents);
+			spaceDocument = (MapSpaceWorkingCopy)documents.GetType().GetProperty("SpaceDocument").GetValue(documents);
+			spaceDocument.Load(MapSpace.Create("Editor room"));
+			Set(coordinator, "documents", documents);
 			Set(coordinator, "colocationManager", manager);
-			Set(coordinator, "catalog", new MapSpaceCatalog(mapStore, MapSpaceStore.Default, directory));
 			Set(coordinator, "references", Create("MapSpaceColocationAdapter", manager));
 			alignment = (IDisposable)Create("MapSpaceAlignmentController", manager, (Func<bool>)(() => false));
 			Set(coordinator, "alignment", alignment);
-			Set(coordinator, "transitions", Create("MapSpaceTransitionSync"));
 			Set(coordinator, "session", Create("MapSessionSync"));
 			Static(typeof(LaserTagMapCoordinator), "Instance", coordinator);
 			Static(typeof(ColocationManager), "Instance", manager);
+			Call(coordinator, "ComposeWorkflows");
 			errors.Clear(); UserErrors.Raised += OnError;
 		}
 		private void OnError(UserError error) => errors.Add(error);
@@ -97,9 +105,9 @@ namespace Anaglyph.LaserTag.Tests
 			tracker.SetValue(manager.TagProvider, owner.AddComponent(tracker.FieldType));
 			Set(manager, "systemDeterminedProvider", new SystemDeterminedColocationConstraintProvider(owner.transform));
 			Set(manager, "twoAprilTagProvider", new TwoAprilTagColocationConstraintProvider(manager.TagProvider, owner.transform, () => true));
-			Set(coordinator, "objects", Create("MapObjectDirector", null, (Action)(() => { }), (Func<bool>)(() => false), (Func<MapSpaceFrame>)(() => spaces.Frame)));
+			Set(coordinator, "objects", Create("MapSceneObjectDirector", null, (Action)(() => { }), (Func<bool>)(() => false), (Func<MapSpaceFrame>)(() => spaceDocument.Frame)));
 			Set(coordinator, "discovery", Create("MapSpaceDiscovery", MapSpaceStore.Default, manager.AnchorProvider, 1f, (Func<bool>)(() => false)));
-			spaces.Unload();
+			spaceDocument.Unload();
 			try { test(); }
 			finally { manager.AnchorProvider.StopProviding(); manager.TwoTagProvider.StopProviding(); Static(rigType, "Instance", previousRig); }
 		}
@@ -195,7 +203,7 @@ namespace Anaglyph.LaserTag.Tests
 		public void AlignmentSettingsExposeOnlyTheSelectedMethodsControls(Method method, bool size, bool registrations, bool pair)
 		{
 			var space = coordinator.CurrentSpace; space.preferredColocationMethod = method;
-			spaces.Load(space);
+			spaceDocument.Load(space);
 			var root = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>("Assets/Anaglyph/LaserTag/Interface/Shared/Game/AlignmentSettings.uxml").CloneTree();
 			using var binder = new AlignmentSettingsBinder(root, operatorMode: true); binder.Refresh();
 			Assert.That(root.Q("tag-configuration-section").ClassListContains("map-field-hidden"), Is.EqualTo(!size));
@@ -219,10 +227,10 @@ namespace Anaglyph.LaserTag.Tests
 		}
 		private static void Report(PlayerHeadsetStatus status, HeadsetReadiness readiness) =>
 			((NetworkVariable<HeadsetReadiness>)Get(status, "readinessSync")).Value = readiness;
-		private bool Ready(ulong sender = 7) => (bool)Call("ReadyForReferenceWork", sender, true, Method.AprilTag);
+		private bool Ready(ulong sender = 7) => (bool)ReferenceCall("ReadyForReferenceWork", sender, true, Method.AprilTag);
 		private object TagRequest(int id, Pose pose, int generation = 0)
 		{
-			var type = typeof(LaserTagMapCoordinator).GetNestedType("ReferenceRequest", BindingFlags.NonPublic);
+			var type = typeof(MapSpace).Assembly.GetType("Anaglyph.LaserTag.Maps.SpaceReferenceRequest", true);
 			var request = Activator.CreateInstance(type);
 			type.GetField("context").SetValue(request, coordinator.ReferenceContext);
 			type.GetField("operation").SetValue(request, coordinator.AlignmentTransition.Operation);
@@ -238,9 +246,9 @@ namespace Anaglyph.LaserTag.Tests
 			var space = coordinator.CurrentSpace;
 			space.canonicalFromStorage = new Pose(new Vector3(3, 0, 5), Quaternion.Euler(0, 90, 0));
 			if (established) space.SetAnchorWithTag(Guid.NewGuid().ToString("N"), Pose.identity, -1);
-			spaces.Load(space);
+			spaceDocument.Load(space);
 			var status = RemoteHeadset(out var readiness); readiness.referenceFrameTrusted = established; Report(status, readiness);
-			Assert.That((bool)Call("BeginTransition", Method.AprilTag, ReferenceTransitionIntent.ActivateTarget, true, (ulong?)7), Is.True);
+			Assert.That((bool)ReferenceCall("BeginTransition", Method.AprilTag, ReferenceTransitionIntent.ActivateTarget, true, (ulong?)7), Is.True);
 			bool persisted = false;
 			void OnSaved()
 			{
@@ -251,7 +259,7 @@ namespace Anaglyph.LaserTag.Tests
 				persisted = true;
 			}
 			MapSpaceStore.Default.Changed += OnSaved;
-			try { Assert.That((bool)Call("ApplyReferenceRequest", 7UL, TagRequest(7, space.Frame.ToCanonical(Pose.identity))), Is.True); }
+			try { Assert.That((bool)ReferenceCall("ApplyReferenceRequest", 7UL, TagRequest(7, space.Frame.ToCanonical(Pose.identity))), Is.True); }
 			finally { MapSpaceStore.Default.Changed -= OnSaved; }
 			Assert.That(persisted, Is.True);
 			Assert.That(manager.TagProvider.RegisteredTags.ContainsKey(7), Is.True);
@@ -259,17 +267,17 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(coordinator.AlignmentTransition.Ready, Is.False, "No headset validation has been supplied.");
 			Assert.That(manager.ActiveMethod, Is.EqualTo(Method.MetaSharedAnchor), "The old source remains active during validation.");
 			readiness.referenceFrameTrusted = false; Report(status, readiness);
-			Assert.That((bool)Call("ApplyReferenceRequest", 7UL, TagRequest(8, Pose.identity)), Is.False,
+			Assert.That((bool)ReferenceCall("ApplyReferenceRequest", 7UL, TagRequest(8, Pose.identity)), Is.False,
 				"Saving the first tag does not grant an unaligned headset permission to author more references.");
-			Call("CancelTransitionInternal");
+			ReferenceCall("CancelTransitionInternal");
 			Assert.That(new MapSpaceStore(Path.Combine(directory, "spaces")).TryGet(space.id, out var reopened), Is.True);
 			Assert.That(reopened.TryGetTag(7, out _), Is.True);
 			Assert.That(reopened.hasPendingSetup, Is.True);
 			Assert.That(reopened.pendingSetupMethod, Is.EqualTo(Method.AprilTag));
 			Assert.That(reopened.initializationPending, Is.False);
-			spaces.Load(reopened);
+			spaceDocument.Load(reopened);
 			readiness.referenceFrameTrusted = false; Report(status, readiness);
-			Call("ResumePendingSetup");
+			ReferenceCall("ResumePendingSetup");
 			Assert.That(coordinator.AlignmentTransition.Target, Is.EqualTo(Method.AprilTag));
 			Assert.That(coordinator.AlignmentTransition.CreatesReferences, Is.False, "The saved target can recover without the old source.");
 			Assert.That(manager.TagProvider.RegisteredTags.ContainsKey(7), Is.True);
@@ -284,16 +292,16 @@ namespace Anaglyph.LaserTag.Tests
 		public void ImmediateRegistrationPersistenceStillRejectsObsoleteOrUnauthorizedRequests(string invalid)
 		{
 			var space = coordinator.CurrentSpace;
-			space.SetAnchorWithTag(Guid.NewGuid().ToString("N"), Pose.identity, -1); spaces.Load(space);
+			space.SetAnchorWithTag(Guid.NewGuid().ToString("N"), Pose.identity, -1); spaceDocument.Load(space);
 			var status = RemoteHeadset(out var readiness); readiness.referenceFrameTrusted = true; Report(status, readiness);
-			Assert.That((bool)Call("BeginTransition", Method.AprilTag, ReferenceTransitionIntent.ActivateTarget, true, (ulong?)7), Is.True);
+			Assert.That((bool)ReferenceCall("BeginTransition", Method.AprilTag, ReferenceTransitionIntent.ActivateTarget, true, (ulong?)7), Is.True);
 			var request = TagRequest(7, Pose.identity);
 			if (invalid == "trackingGeneration") request.GetType().GetField(invalid).SetValue(request, 1);
 			if (invalid is "operation" or "context") request.GetType().GetField(invalid).SetValue(request, Guid.NewGuid());
 			if (invalid == "focus") readiness.isFocused = false;
 			if (invalid == "source") { readiness.activeMethod = Method.SystemDetermined; readiness.referenceFrameTrusted = false; }
 			Report(status, readiness); PlayerAvatar.All[8] = PlayerAvatar.All[7];
-			Assert.That((bool)Call("ApplyReferenceRequest", invalid == "author" ? 8UL : 7UL, request), Is.False);
+			Assert.That((bool)ReferenceCall("ApplyReferenceRequest", invalid == "author" ? 8UL : 7UL, request), Is.False);
 			Assert.That(new MapSpaceStore(Path.Combine(directory, "spaces")).TryGet(space.id, out var saved), Is.True);
 			Assert.That(saved.tags, Is.Empty); Assert.That(manager.TagProvider.RegisteredTags, Is.Empty);
 		}
@@ -302,14 +310,12 @@ namespace Anaglyph.LaserTag.Tests
 		public void FailedRegistrationSaveDoesNotPublishOrChangeTheCandidate()
 		{
 			RemoteHeadset(out _);
-			Assert.That((bool)Call("BeginTransition", Method.AprilTag, ReferenceTransitionIntent.ActivateTarget, true, (ulong?)7), Is.True);
-			var blocker = Path.Combine(directory, "not-a-directory"); File.WriteAllText(blocker, "blocked");
-			Static(typeof(MapSpaceStore), "Default", new MapSpaceStore(Path.Combine(blocker, "spaces")));
-			LogAssert.Expect(LogType.Exception, new System.Text.RegularExpressions.Regex("IOException|DirectoryNotFoundException"));
-			LogAssert.Expect(LogType.Exception, new System.Text.RegularExpressions.Regex("IOException|DirectoryNotFoundException"));
-			Assert.That((bool)Call("ApplyReferenceRequest", 7UL, TagRequest(7, Pose.identity)), Is.False);
+			Assert.That((bool)ReferenceCall("BeginTransition", Method.AprilTag, ReferenceTransitionIntent.ActivateTarget, true, (ulong?)7), Is.True);
+			Directory.CreateDirectory(Path.Combine(directory, "spaces", coordinator.CurrentSpace.id + ".json.tmp"));
+			LogAssert.Expect(LogType.Exception, new System.Text.RegularExpressions.Regex("IOException|UnauthorizedAccessException"));
+			Assert.That((bool)ReferenceCall("ApplyReferenceRequest", 7UL, TagRequest(7, Pose.identity)), Is.False);
 			Assert.That(coordinator.CurrentSpace.tags, Is.Empty);
-			Assert.That(((MapSpace)Get(coordinator, "staged")).tags, Is.Empty);
+			Assert.That(Candidate.tags, Is.Empty);
 			Assert.That(manager.TagProvider.RegisteredTags, Is.Empty);
 			Assert.That(coordinator.AlignmentTransition.CreatesReferences, Is.True);
 		}
@@ -323,13 +329,13 @@ namespace Anaglyph.LaserTag.Tests
 			owner.AddComponent<NetworkObject>(); bus = owner.AddComponent<SyncBus>();
 			Property(bus, "IsSpawned", true); Property(bus, "HasAuthority", true); Static(typeof(SyncBus), "Current", bus);
 			readiness.isFocused = false; Report(status, readiness);
-			Call("ResumePendingSetup");
+			ReferenceCall("ResumePendingSetup");
 			Assert.That(coordinator.WaitingForAlignmentAuthor, Is.True);
 			readiness.isFocused = true; Report(status, readiness);
 			Assert.That(Ready(), Is.True);
 			// This fixture exercises authority selection and staging without a network transport.
 			for (int i = 0; i < 4; i++) LogAssert.Expect(LogType.Error, "Rpc methods can only be invoked after starting the NetworkManager!");
-			Call("ResumePendingSetup");
+			ReferenceCall("ResumePendingSetup");
 			Assert.That(coordinator.IsChangingColocation, Is.True);
 			Assert.That(coordinator.AlignmentTransition.Bootstrap, Is.True);
 			Assert.That(coordinator.AlignmentTransition.Source, Is.EqualTo(Method.MetaSharedAnchor));
@@ -350,7 +356,7 @@ namespace Anaglyph.LaserTag.Tests
 			var anchor = new MapAnchorEntry { guid = Guid.NewGuid().ToString("N"), canonPose = Pose.identity, tagId = -1 };
 			if (retained) space.retainedReferences.Add(new() { anchors = new() { anchor } });
 			else space.anchors.Add(anchor);
-			spaces.Load(space);
+			spaceDocument.Load(space);
 			Assert.That(coordinator.SetPreferredColocationMethod(Method.AprilTag), Is.True);
 			Assert.That(coordinator.WaitingForAlignmentAuthor, Is.True);
 			Assert.That(errors, Is.Empty);
@@ -376,7 +382,7 @@ namespace Anaglyph.LaserTag.Tests
 			Field("space", new MapIdentity { spaceId = Guid.Parse(candidate.id), frameId = Guid.Parse(candidate.canonicalFrameId) });
 			Field("target", Method.AprilTag); Field("intent", ReferenceTransitionIntent.ActivateTarget);
 			Field("createsReferences", true); Field("committed", committed);
-			Call("OnTransitionReceived", command, candidate);
+			ReferenceCall("OnTransitionReceived", command, candidate);
 		}
 		private static MapSpace CanonicalCandidate(MapSpace local)
 		{
@@ -392,14 +398,14 @@ namespace Anaglyph.LaserTag.Tests
 		public void IncomingCandidatesRetainLivePrivateAnchorsUntilTheirTagDefinitionChanges(bool changeSize)
 		{
 			var space = coordinator.CurrentSpace;
-			space.canonicalFromStorage = new Pose(new Vector3(3, 0, 5), Quaternion.Euler(0, 90, 0)); spaces.Load(space);
+			space.canonicalFromStorage = new Pose(new Vector3(3, 0, 5), Quaternion.Euler(0, 90, 0)); spaceDocument.Load(space);
 			var candidate = CanonicalCandidate(space); candidate.SetTag(7, space.Frame.ToCanonical(Pose.identity));
 			var operation = Guid.NewGuid(); ReceiveCandidate(candidate, operation);
 			var anchorId = Guid.NewGuid(); var storedAnchor = new Pose(Vector3.right * .2f, Quaternion.identity);
 			manager.TagProvider.SetLocalAnchors(new[] { new TaggedAnchorConstraintData(anchorId, 7, space.Frame.ToCanonical(storedAnchor)) });
-			Assert.That(((MapSpace)Get(coordinator, "staged")).localAnchors, Is.Empty, "The next callback can arrive before LateUpdate captures the mint.");
+			Assert.That(Candidate.localAnchors, Is.Empty, "The next callback can arrive before LateUpdate captures the mint.");
 			candidate.SetTag(22, new Pose(Vector3.forward * 6, Quaternion.identity)); ReceiveCandidate(candidate, operation);
-			var staged = (MapSpace)Get(coordinator, "staged");
+			var staged = Candidate;
 			Assert.That(staged.localAnchors.Count, Is.EqualTo(1));
 			Assert.That(staged.localAnchors[0].guid, Is.EqualTo(anchorId.ToString("N")));
 			Assert.That(MapSpaceFrame.Near(staged.localAnchors[0].canonPose, storedAnchor), Is.True);
@@ -427,19 +433,19 @@ namespace Anaglyph.LaserTag.Tests
 			remote.SetTag(7, local.Frame.ToCanonical(Pose.identity)); remote.preferredColocationMethod = Method.AprilTag;
 			local.associations.Add(new() { remoteSpaceId = remote.id, frameId = remote.canonicalFrameId });
 			var map = new GameMap { id = Guid.NewGuid().ToString("N"), version = Guid.NewGuid().ToString("N"), name = "Session layout", storageFrameId = local.storageFrameId };
-			local.mapIds.Add(map.id); MapStore.Default.Save(map); MapSpaceStore.Default.Save(local); spaces.Load(local);
-			((MapManager)Get(coordinator, "maps")).Load(map);
-			Set(coordinator, "objects", Create("MapObjectDirector", null, (Action)(() => { }), (Func<bool>)(() => false), (Func<MapSpaceFrame>)(() => spaces.Frame)));
+			local.mapIds.Add(map.id); MapStore.Default.Save(map); MapSpaceStore.Default.Save(local); spaceDocument.Load(local);
+			mapDocument.Load(map);
+			Set(coordinator, "objects", Create("MapSceneObjectDirector", null, (Action)(() => { }), (Func<bool>)(() => false), (Func<MapSpaceFrame>)(() => spaceDocument.Frame)));
 			var identity = new MapIdentity { id = Guid.Parse(map.id), version = Guid.Parse(map.version), spaceId = Guid.Parse(remote.id),
 				frameId = Guid.Parse(remote.canonicalFrameId), spaceVersion = Guid.Parse(remote.version), context = Guid.NewGuid(),
 				referenceContext = coordinator.ReferenceContext, scan = coordinator.ScanContext, method = Method.AprilTag };
-			identity.name.CopyFromTruncated(map.name); Set(coordinator, "sessionIdentity", identity);
+			identity.name.CopyFromTruncated(map.name); Set(SessionController, "remoteIdentity", identity);
 			var operation = Guid.NewGuid(); ReceiveCandidate(remote, operation);
 			var anchorId = Guid.NewGuid(); var storedAnchor = new Pose(Vector3.right * .2f, Quaternion.identity);
 			manager.TagProvider.SetLocalAnchors(new[] { new TaggedAnchorConstraintData(anchorId, 7, local.Frame.ToCanonical(storedAnchor)) });
 			void ReceiveMap()
 			{
-				Call("OnSessionMapReceived", identity, new List<MapObjectEntry>(), remote.Clone());
+				Call(coordinator, "OnSessionMapReceived", identity, new List<MapObjectEntry>(), remote.Clone());
 				Assert.That(manager.TagProvider.LocalAnchorCount, Is.EqualTo(1), "The map snapshot must preserve the live realization before the next transition callback.");
 			}
 			if (mapFirst) { ReceiveMap(); ReceiveCandidate(remote, operation, true); }
@@ -459,13 +465,13 @@ namespace Anaglyph.LaserTag.Tests
 			var space = coordinator.CurrentSpace; space.SetTag(7, Pose.identity);
 			var oldId = Guid.NewGuid(); var currentId = Guid.NewGuid();
 			space.localAnchors.Add(new() { guid = oldId.ToString("N"), tagId = 7, canonPose = Pose.identity,
-				tagCanonPose = Pose.identity, tagSizeCm = space.tagSizeCm }); spaces.Load(space);
+				tagCanonPose = Pose.identity, tagSizeCm = space.tagSizeCm }); spaceDocument.Load(space);
 			var candidate = CanonicalCandidate(space); var operation = Guid.NewGuid(); ReceiveCandidate(candidate, operation);
 			manager.TagProvider.SetLocalAnchors(new[] { new TaggedAnchorConstraintData(currentId, 7, Pose.identity) });
 			candidate.SetTag(22, new Pose(Vector3.forward, Quaternion.identity)); ReceiveCandidate(candidate, operation);
 			var realized = new List<TaggedAnchorConstraintData>(); manager.TagProvider.GetLocalAnchorConstraints(realized);
 			Assert.That(realized.Count, Is.EqualTo(1)); Assert.That(realized[0].guid, Is.EqualTo(currentId));
-			var staged = (MapSpace)Get(coordinator, "staged");
+			var staged = Candidate;
 			Assert.That(staged.localAnchors[0].guid, Is.EqualTo(currentId.ToString("N")));
 			Assert.That(staged.localAnchors.Exists(a => a.guid == oldId.ToString("N")), Is.True, "The old saved UUID still needs ownership bookkeeping.");
 			ReceiveCandidate(candidate, operation, true);
@@ -488,22 +494,22 @@ namespace Anaglyph.LaserTag.Tests
 			var remote = CanonicalCandidate(local); remote.id = Guid.NewGuid().ToString("N");
 			remote.SetTag(7, local.Frame.ToCanonical(Pose.identity));
 			var map = new GameMap { id = Guid.NewGuid().ToString("N"), version = Guid.NewGuid().ToString("N"), name = "Reconciled layout", storageFrameId = remote.storageFrameId };
-			MapSpaceStore.Default.Save(local); spaces.Load(remote);
-			Call("NotifySpace");
+			MapSpaceStore.Default.Save(local); spaceDocument.Load(remote);
+			Call(coordinator, "ApplySpaceConfiguration");
 			manager.TagProvider.AdoptTagSize(remote.tagSizeCm);
 			manager.TagProvider.SetRegisteredTags(new[] { new TagConstraintData(7, remote.tags[0].canonPose) });
 			var anchorId = Guid.NewGuid(); var storedAnchor = new Pose(Vector3.right * .2f, Quaternion.identity);
 			manager.TagProvider.SetLocalAnchors(new[] { new TaggedAnchorConstraintData(anchorId, 7, local.Frame.ToCanonical(storedAnchor)) });
 			Assert.That(remote.localAnchors, Is.Empty, "The snapshot held across await predates the native mint.");
 			int operation = 10; var context = coordinator.ReferenceContext;
-			Set(coordinator, "incomingGeneration", scope == "operation" ? operation + 1 : operation);
-			if (scope == "context") Set(coordinator, "referenceContext", Guid.NewGuid());
-			Set(coordinator, "sessionIdentity", new MapIdentity {
+			Set(SessionController, "generation", scope == "operation" ? operation + 1 : operation);
+			if (scope == "context") Property(Get(coordinator, "visit"), "ReferenceContext", Guid.NewGuid());
+			Set(SessionController, "remoteIdentity", new MapIdentity {
 				spaceId = scope == "space" ? Guid.NewGuid() : Guid.Parse(remote.id),
 				frameId = scope == "frame" ? Guid.NewGuid() : Guid.Parse(remote.canonicalFrameId) });
 			owner.AddComponent<NetworkObject>(); bus = owner.AddComponent<SyncBus>();
 			Property(bus, "IsSpawned", true); Property(bus, "HasAuthority", false); Static(typeof(SyncBus), "Current", bus);
-			bool adopted = (bool)Call("TryFinishSessionReconciliation", local, remote, map, local.canonicalFromStorage, operation, context);
+			bool adopted = (bool)Call(SessionController, "TryFinishSessionReconciliation", local, remote, map, local.canonicalFromStorage, operation, context);
 			Assert.That(adopted, Is.EqualTo(scope == "current"));
 			Assert.That(new MapSpaceStore(Path.Combine(directory, "spaces")).TryGet(local.id, out var reopened), Is.True);
 			if (scope == "current")
@@ -515,6 +521,70 @@ namespace Anaglyph.LaserTag.Tests
 			}
 			else Assert.That(reopened.localAnchors, Is.Empty, "An obsolete reconciliation cannot commit its snapshot or captured anchors.");
 			Assert.That(remote.localAnchors, Is.Empty, "Preservation must not mutate the held source snapshot.");
+		}
+
+		private (MapSpace local, MapSpace remote, GameMap map) PrepareReconciliationTarget()
+		{
+			var local = coordinator.CurrentSpace;
+			var remote = CanonicalCandidate(local); remote.id = Guid.NewGuid().ToString("N");
+			remote.SetTag(7, Pose.identity);
+			var map = new GameMap { id = Guid.NewGuid().ToString("N"), version = Guid.NewGuid().ToString("N"),
+				name = "Session layout", storageFrameId = remote.storageFrameId };
+			Assert.That(MapSpaceStore.Default.Save(local), Is.True);
+			spaceDocument.Load(remote);
+			Set(SessionController, "generation", 1);
+			Set(SessionController, "remoteIdentity", new MapIdentity {
+				spaceId = Guid.Parse(remote.id), frameId = Guid.Parse(remote.canonicalFrameId) });
+			owner.AddComponent<NetworkObject>(); bus = owner.AddComponent<SyncBus>();
+			Property(bus, "IsSpawned", true); Property(bus, "HasAuthority", false); Static(typeof(SyncBus), "Current", bus);
+			return (local, remote, map);
+		}
+
+		[TestCase("deleted")]
+		[TestCase("canonical")]
+		[TestCase("storage")]
+		[TestCase("revision")]
+		public void ReconciliationRejectsADeletedOrChangedLocalFrame(string change)
+		{
+			var (local, remote, map) = PrepareReconciliationTarget();
+			var latest = local.Clone();
+			if (change == "deleted") Assert.That(MapSpaceStore.Default.Delete(local.id), Is.True);
+			else
+			{
+				if (change == "canonical") latest.canonicalFrameId = Guid.NewGuid().ToString("N");
+				if (change == "storage") latest.storageFrameId = Guid.NewGuid().ToString("N");
+				if (change == "revision") latest.frameRevision++;
+				Assert.That(MapSpaceStore.Default.Save(latest), Is.True);
+			}
+
+			Assert.That((bool)Call(SessionController, "TryFinishSessionReconciliation",
+				local, remote, map, local.canonicalFromStorage, 1, coordinator.ReferenceContext), Is.False);
+
+			Assert.That(MapStore.Default.TryGet(map.id, out _), Is.False);
+			var reopened = new MapSpaceStore(Path.Combine(directory, "spaces"));
+			Assert.That(reopened.TryGet(local.id, out var saved), Is.EqualTo(change != "deleted"));
+			if (saved != null) Assert.That(JsonUtility.ToJson(saved), Is.EqualTo(JsonUtility.ToJson(latest)));
+		}
+
+		[Test]
+		public void ReconciliationPreservesLayoutsAddedToTheLocalSpaceWhileItWasObserving()
+		{
+			var (local, remote, map) = PrepareReconciliationTarget();
+			var added = new GameMap { id = Guid.NewGuid().ToString("N"), version = Guid.NewGuid().ToString("N"),
+				name = "New local layout", storageFrameId = local.storageFrameId };
+			Assert.That(MapStore.Default.Save(added), Is.True);
+			var latest = local.Clone(); latest.mapIds.Add(added.id); latest.name = "Renamed locally";
+			Assert.That(MapSpaceStore.Default.Save(latest), Is.True);
+
+			Assert.That((bool)Call(SessionController, "TryFinishSessionReconciliation",
+				local, remote, map, local.canonicalFromStorage, 1, coordinator.ReferenceContext), Is.True);
+
+			var reopened = new MapSpaceStore(Path.Combine(directory, "spaces"));
+			Assert.That(reopened.TryGet(local.id, out var saved), Is.True);
+			Assert.That(saved.mapIds, Is.EquivalentTo(new[] { added.id, map.id }));
+			Assert.That(saved.name, Is.EqualTo("Renamed locally"));
+			Assert.That(new MapStore(Path.Combine(directory, "maps")).TryGet(added.id, out _), Is.True);
+			Assert.That(local.mapIds, Is.Empty);
 		}
 
 		[Test]
@@ -550,7 +620,7 @@ namespace Anaglyph.LaserTag.Tests
 		{
 			var field = typeof(AprilTagColocationConstraintProvider).GetField("tagTracker", Private);
 			field.SetValue(manager.TagProvider, owner.AddComponent(field.FieldType));
-			Assert.That((bool)Call("BeginTransition", Method.AprilTag, ReferenceTransitionIntent.ActivateTarget, true, (ulong?)7), Is.True);
+			Assert.That((bool)ReferenceCall("BeginTransition", Method.AprilTag, ReferenceTransitionIntent.ActivateTarget, true, (ulong?)7), Is.True);
 			Assert.That(manager.TagProvider.IsRunning, Is.True);
 			Assert.That(manager.TagProvider.IsDetecting, Is.True);
 			coordinator.CancelAlignmentTransition();
@@ -563,17 +633,17 @@ namespace Anaglyph.LaserTag.Tests
 		public void DelegatedTagValidationPersistsOnTheOperatorWithoutWaitingForItsOwnRig()
 		{
 			var space = coordinator.CurrentSpace;
-			space.SetAnchorWithTag(Guid.NewGuid().ToString("N"), Pose.identity, -1); spaces.Load(space);
+			space.SetAnchorWithTag(Guid.NewGuid().ToString("N"), Pose.identity, -1); spaceDocument.Load(space);
 			var status = RemoteHeadset(out var readiness); readiness.referenceFrameTrusted = true; Report(status, readiness);
-			Assert.That((bool)Call("BeginTransition", Method.AprilTag, ReferenceTransitionIntent.ActivateTarget, true, (ulong?)7), Is.True);
-			Assert.That((bool)Call("ApplyReferenceRequest", 7UL, TagRequest(7, Pose.identity)), Is.True);
+			Assert.That((bool)ReferenceCall("BeginTransition", Method.AprilTag, ReferenceTransitionIntent.ActivateTarget, true, (ulong?)7), Is.True);
+			Assert.That((bool)ReferenceCall("ApplyReferenceRequest", 7UL, TagRequest(7, Pose.identity)), Is.True);
 			readiness.referenceFrameTrusted = false; Report(status, readiness);
 			var evidenceType = typeof(MapSpace).Assembly.GetType("Anaglyph.LaserTag.Maps.SpaceTransitionEvidence", true);
 			var evidence = Activator.CreateInstance(evidenceType);
 			void Evidence(string key, object value) => evidenceType.GetField(key).SetValue(evidence, value);
 			Evidence("operation", coordinator.AlignmentTransition.Operation); Evidence("revision", coordinator.AlignmentTransition.Revision);
 			Evidence("referenceContext", coordinator.ReferenceContext); Evidence("trackingGeneration", readiness.trackingGeneration);
-			Call("OnTargetValidated", 7UL, evidence);
+			ReferenceCall("OnTargetValidated", 7UL, evidence);
 			var reopened = new MapSpaceStore(Path.Combine(directory, "spaces"));
 			Assert.That(reopened.TryGet(space.id, out var saved), Is.True);
 			Assert.That(saved.TryGetTag(7, out _), Is.True);
@@ -593,7 +663,7 @@ namespace Anaglyph.LaserTag.Tests
 			{
 				Property(manager.AnchorProvider, "IsRunning", true);
 				manager.AnchorProvider.SetConstraints(new[] { new AnchorConstraintData(Guid.NewGuid(), Pose.identity, -1) });
-				Call("ApplyReferenceChanges");
+				ReferenceCall("ApplyReferenceChanges");
 				Assert.That(coordinator.CurrentSpace.pendingSetupMethod, Is.EqualTo(Method.AprilTag));
 				Assert.That(coordinator.WaitingForAlignmentAuthor, Is.True);
 			}
@@ -632,7 +702,7 @@ namespace Anaglyph.LaserTag.Tests
 			{
 				Static(typeof(ColocationManager), "IsColocated", true);
 				Weapons.WeaponsManagement.CanFire = true;
-				Assert.That((bool)Call("BeginTransition", Method.AprilTag, ReferenceTransitionIntent.ActivateTarget, true, (ulong?)7), Is.True);
+				Assert.That((bool)ReferenceCall("BeginTransition", Method.AprilTag, ReferenceTransitionIntent.ActivateTarget, true, (ulong?)7), Is.True);
 				Assert.That(coordinator.IsChangingColocation, Is.True);
 				Assert.That(Weapons.WeaponsManagement.CanFire, Is.True);
 				Static(typeof(ColocationManager), "IsColocated", false);
@@ -679,11 +749,11 @@ namespace Anaglyph.LaserTag.Tests
 		[Test]
 		public void InvalidMethodRequestRaisesOnlyOneWarning()
 		{
-			var type = typeof(LaserTagMapCoordinator).GetNestedType("MethodRequest", BindingFlags.NonPublic);
+			var type = typeof(MapSpace).Assembly.GetType("Anaglyph.LaserTag.Maps.SpaceMethodRequest", true);
 			var request = Activator.CreateInstance(type);
 			type.GetField("context").SetValue(request, coordinator.ReferenceContext);
 			type.GetField("method").SetValue(request, (Method)999);
-			Call("OnMethodRequested", 0UL, request);
+			ReferenceCall("OnMethodRequested", 0UL, request);
 			Assert.That(errors.Count, Is.EqualTo(1));
 			Assert.That(coordinator.CurrentSpace.HasReferenceBasedData, Is.False);
 		}

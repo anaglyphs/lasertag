@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Localization;
+using UnityEngine.UIElements;
 
 namespace Anaglyph.LaserTag.MapEditor
 {
@@ -21,11 +22,11 @@ namespace Anaglyph.LaserTag.MapEditor
 			[SerializeField] private LocalizedString localizedName;
 
 			[Tooltip("Thumbnail on the palette button")]
-			[SerializeField] private Sprite icon;
+			[SerializeField] private VectorImage icon;
 
 			[SerializeField] private MapObject prefab;
 
-			public Sprite Icon => icon;
+			public VectorImage Icon => icon;
 			public MapObject Prefab => prefab;
 
 			public string DisplayName =>
@@ -41,7 +42,7 @@ namespace Anaglyph.LaserTag.MapEditor
 			[SerializeField] private LocalizedString localizedName;
 
 			[Tooltip("Icon on the category tab")]
-			[SerializeField] private Sprite icon;
+			[SerializeField] private VectorImage icon;
 
 			[Tooltip("Hidden from the palette unless debug mode is on")]
 			[SerializeField] private bool debugOnly;
@@ -49,7 +50,7 @@ namespace Anaglyph.LaserTag.MapEditor
 			[SerializeField] private List<Entry> objects = new();
 
 			public string Name => localizedName != null && !localizedName.IsEmpty ? localizedName.GetLocalizedString() : name;
-			public Sprite Icon => icon;
+			public VectorImage Icon => icon;
 			public bool DebugOnly => debugOnly;
 			public IReadOnlyList<Entry> Objects => objects;
 		}

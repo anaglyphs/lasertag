@@ -15,7 +15,7 @@ namespace Anaglyph.LaserTag.Tests
 		private string directory, mapDirectory, spaceDirectory;
 		private MapStore maps;
 		private MapSpaceStore spaces;
-		private MapSpaceCatalog catalog;
+		private MapCatalogJournal catalog;
 		private MapSpace space;
 		private GameMap map;
 		[SetUp] public void SetUp()
@@ -56,7 +56,7 @@ namespace Anaglyph.LaserTag.Tests
 		}
 		[Test] public void StoreAndManagerReadsAreDetached()
 		{
-			Save(); var manager = new MapManager(maps); manager.Load(map); manager.CurrentMap.objects.Clear();
+			Save(); var manager = new MapWorkingCopy(maps); manager.Load(map); manager.CurrentMap.objects.Clear();
 			Assert.That(manager.CurrentMap.objects.Count, Is.EqualTo(1));
 			spaces.TryGet(space.id, out var read); read.mapIds.Clear(); spaces.TryGet(space.id, out read);
 			Assert.That(read.mapIds, Does.Contain(map.id));
@@ -132,7 +132,7 @@ namespace Anaglyph.LaserTag.Tests
 			Directory.CreateDirectory(MapPath + ".tmp"); LogAssert.Expect(LogType.Exception, new Regex("[\\s\\S]*"));
 			Assert.That(catalog.Commit(space, writes), Is.False); Assert.That(catalog.HasPending, Is.True);
 			Directory.Delete(MapPath + ".tmp"); var reopenedMaps = new MapStore(mapDirectory); var reopenedSpaces = new MapSpaceStore(spaceDirectory);
-			var recovered = new MapSpaceCatalog(reopenedMaps, reopenedSpaces, directory); Assert.That(recovered.Recover(), Is.True);
+			var recovered = new MapCatalogJournal(reopenedMaps, reopenedSpaces, directory); Assert.That(recovered.Recover(), Is.True);
 			Assert.That(reopenedMaps.Maps.Count, Is.EqualTo(2)); Assert.That(recovered.Recover(), Is.True);
 			reopenedMaps.TryGet(map.id, out var result); Assert.That(result.objects, Is.Empty);
 		}
@@ -205,14 +205,14 @@ namespace Anaglyph.LaserTag.Tests
 		}
 		[Test] public void FailedSaveKeepsDirtyDocumentAndLastCommittedCatalog()
 		{
-			Save(); var manager = new MapManager(maps); manager.Load(map); manager.Rename("Changed");
+			Save(); var manager = new MapWorkingCopy(maps); manager.Load(map); manager.Rename("Changed");
 			Directory.CreateDirectory(MapPath + ".tmp"); LogAssert.Expect(LogType.Exception, new Regex("[\\s\\S]*"));
 			Assert.That(manager.Save(true), Is.False); Assert.That(manager.CurrentMap.dirty, Is.True);
 			maps.TryGet(map.id, out var previous); Assert.That(previous.name, Is.EqualTo("Layout"));
 		}
 		[Test] public void UnchangedSaveAndSmallRoundTripErrorDoNotCreateContentRevisions()
 		{
-			Save(); var manager = new MapManager(maps); manager.Load(map); var slight = Placement(3.000001f);
+			Save(); var manager = new MapWorkingCopy(maps); manager.Load(map); var slight = Placement(3.000001f);
 			Assert.That(manager.SetObjects(new[] { slight }), Is.False); Assert.That(manager.Save(), Is.True);
 			Assert.That(File.Exists(MapPath + ".bak"), Is.False); Assert.That(manager.CurrentMap.version, Is.EqualTo(map.version));
 		}

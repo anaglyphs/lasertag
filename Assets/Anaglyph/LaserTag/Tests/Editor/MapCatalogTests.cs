@@ -29,8 +29,9 @@ namespace Anaglyph.LaserTag.Tests
 		private MapSpaceStore previousSpaces;
 		private GameObject owner;
 		private LaserTagMapCoordinator coordinator;
-		private MapSpaceManager spaces;
-		private MapManager maps;
+		private MapSpaceWorkingCopy spaceDocument;
+		private MapWorkingCopy mapDocument;
+		private object documents, visit;
 		private MapSpace first, second;
 		private GameMap loaded, other, target;
 		private MapMenuCompositionTestWindow window;
@@ -67,14 +68,17 @@ namespace Anaglyph.LaserTag.Tests
 			typeof(ColocationManager).GetField("spatialAnchorColocationProvider", Private).SetValue(manager, anchors);
 			typeof(ColocationManager).GetField("aprilTagColocationProvider", Private).SetValue(manager, tags);
 			typeof(ColocationManager).GetField("systemDeterminedProvider", Private).SetValue(manager, new SystemDeterminedColocationConstraintProvider(null));
-			maps = new MapManager(MapStore.Default); maps.Load(loaded);
-			spaces = new MapSpaceManager(MapSpaceStore.Default); spaces.Load(first);
-			Set("maps", maps); Set("spaces", spaces); Set("colocationManager", manager);
-			Set("catalog", new MapSpaceCatalog(MapStore.Default, MapSpaceStore.Default, directory));
-			Set("objects", Create("MapObjectDirector", null, (Action)(() => { }), (Func<bool>)(() => false), (Func<MapSpaceFrame>)(() => spaces.Frame)));
+			visit = typeof(LaserTagMapCoordinator).GetField("visit", Private).GetValue(coordinator);
+			documents = Create("MapCatalog", MapStore.Default, MapSpaceStore.Default, directory, visit);
+			mapDocument = (MapWorkingCopy)documents.GetType().GetProperty("MapDocument").GetValue(documents); mapDocument.Load(loaded);
+			spaceDocument = (MapSpaceWorkingCopy)documents.GetType().GetProperty("SpaceDocument").GetValue(documents); spaceDocument.Load(first);
+			Set("documents", documents); Set("colocationManager", manager);
+			Set("objects", Create("MapSceneObjectDirector", null, (Action)(() => { }), (Func<bool>)(() => false), (Func<MapSpaceFrame>)(() => spaceDocument.Frame)));
 			Set("references", Create("MapSpaceColocationAdapter", manager));
 			Set("alignment", Create("MapSpaceAlignmentController", manager, (Func<bool>)(() => false)));
 			Set("discovery", Create("MapSpaceDiscovery", MapSpaceStore.Default, anchors, 1f, (Func<bool>)(() => false)));
+			Set("session", Create("MapSessionSync"));
+			typeof(LaserTagMapCoordinator).GetMethod("ComposeWorkflows", Private).Invoke(coordinator, null);
 			typeof(LaserTagMapCoordinator).GetProperty("Instance").SetValue(null, coordinator);
 			window = ScriptableObject.CreateInstance<MapMenuCompositionTestWindow>();
 			window.Show(); window.position = new Rect(100, 100, 480, 700);
@@ -107,6 +111,112 @@ namespace Anaglyph.LaserTag.Tests
 			using (var up = PointerUpEvent.GetPooled(new Event { type = EventType.MouseUp, button = 0, mousePosition = button.worldBound.center })) button.SendEvent(up);
 		}
 		private VisualElement Row(GameMap map) => root.Q("map-" + map.id);
+
+		private string BeginPendingNewMap()
+		{
+			Directory.CreateDirectory(Path.Combine(directory, "pending-catalog-operation.json.tmp"));
+			LogAssert.Expect(LogType.Exception, new System.Text.RegularExpressions.Regex("IOException|UnauthorizedAccessException"));
+			Assert.That(coordinator.NewMap().Status, Is.EqualTo(CatalogOperationStatus.Pending));
+			Assert.That(coordinator.HasPendingCatalogOperation, Is.True);
+			Assert.That(coordinator.CurrentMap.id, Is.EqualTo(loaded.id));
+			var journal = (MapCatalogJournal)documents.GetType().GetProperty("Journal").GetValue(documents);
+			return journal.PendingSpace.mapIds.Single(id => id != loaded.id);
+		}
+
+		private void RecoverPendingCatalogOperation()
+		{
+			Directory.Delete(Path.Combine(directory, "pending-catalog-operation.json.tmp"));
+			Assert.That((bool)documents.GetType().GetMethod("RetryPending").Invoke(documents, null), Is.True);
+			Assert.That(coordinator.HasPendingCatalogOperation, Is.False);
+		}
+
+		[Test]
+		public void PendingNewMapCannotActivateAfterTheDeviceStartsFollowingASession()
+		{
+			string createdId = BeginPendingNewMap();
+			var lifecycle = (MapLifecycle)typeof(LaserTagMapCoordinator).GetField("lifecycle", Private).GetValue(coordinator);
+			lifecycle.EnterSession(authority: false);
+
+			RecoverPendingCatalogOperation();
+
+			Assert.That(coordinator.Phase, Is.EqualTo(MapPhase.AwaitingSessionMap));
+			Assert.That(coordinator.CurrentMap.id, Is.EqualTo(loaded.id));
+			Assert.That(coordinator.CurrentSpace.id, Is.EqualTo(first.id));
+			Assert.That(MapStore.Default.TryGet(createdId, out _), Is.True);
+			Assert.That(coordinator.CurrentSpace.mapIds, Does.Contain(createdId));
+		}
+
+		[Test]
+		public void PendingNewMapPreservesCompletedMembershipAfterTheReferenceContextChanges()
+		{
+			string createdId = BeginPendingNewMap();
+			visit.GetType().GetProperty("ReferenceContext").SetValue(visit, Guid.NewGuid());
+			spaceDocument.Rename("Current room revision");
+
+			RecoverPendingCatalogOperation();
+
+			Assert.That(coordinator.CurrentMap.id, Is.EqualTo(loaded.id));
+			Assert.That(coordinator.CurrentSpace.mapIds, Does.Contain(createdId));
+			Assert.That(coordinator.CurrentSpace.name, Is.EqualTo("Current room revision"));
+			Assert.That(coordinator.SaveCurrentMap(), Is.True);
+			var reopened = new MapSpaceStore(Path.Combine(directory, "spaces"));
+			Assert.That(reopened.TryGet(first.id, out var saved), Is.True);
+			Assert.That(saved.mapIds, Is.EquivalentTo(new[] { loaded.id, createdId }));
+			Assert.That(saved.name, Is.EqualTo("Current room revision"));
+			Assert.That(new MapStore(Path.Combine(directory, "maps")).TryGet(createdId, out _), Is.True);
+		}
+
+		[Test]
+		public void DeletingTheSelectedMapDuringRestoreCannotRecreateItOnSave()
+		{
+			var lifecycle = (MapLifecycle)typeof(LaserTagMapCoordinator).GetField("lifecycle", Private).GetValue(coordinator);
+			lifecycle.BeginRestore();
+
+			Assert.That(coordinator.DeleteMap(loaded.id).Status, Is.EqualTo(CatalogOperationStatus.Completed));
+
+			Assert.That(coordinator.CurrentMap, Is.Null);
+			Assert.That(coordinator.CurrentSpace.mapIds, Does.Not.Contain(loaded.id));
+			Assert.That(coordinator.SaveCurrentMap(), Is.True);
+			Assert.That(new MapStore(Path.Combine(directory, "maps")).TryGet(loaded.id, out _), Is.False);
+			Assert.That(new MapSpaceStore(Path.Combine(directory, "spaces")).TryGet(first.id, out var saved), Is.True);
+			Assert.That(saved.mapIds, Does.Not.Contain(loaded.id));
+		}
+
+		[Test]
+		public void PendingMapDeletionClearsTheRestoreSnapshotWithoutUnloadingTheSessionMap()
+		{
+			Directory.CreateDirectory(Path.Combine(directory, "pending-catalog-operation.json.tmp"));
+			LogAssert.Expect(LogType.Exception, new System.Text.RegularExpressions.Regex("IOException|UnauthorizedAccessException"));
+			Assert.That(coordinator.DeleteMap(loaded.id).Status, Is.EqualTo(CatalogOperationStatus.Pending));
+			var sessionWorkflow = typeof(LaserTagMapCoordinator).GetField("sessionWorkflow", Private).GetValue(coordinator);
+			var beforeSessionMap = sessionWorkflow.GetType().GetField("beforeSessionMap", Private);
+			var beforeSessionSpace = sessionWorkflow.GetType().GetField("beforeSessionSpace", Private);
+			beforeSessionMap.SetValue(sessionWorkflow, coordinator.CurrentMap);
+			beforeSessionSpace.SetValue(sessionWorkflow, coordinator.CurrentSpace);
+			var lifecycle = (MapLifecycle)typeof(LaserTagMapCoordinator).GetField("lifecycle", Private).GetValue(coordinator);
+			lifecycle.FollowSession();
+			owner.AddComponent<Unity.Netcode.NetworkObject>();
+			var bus = owner.AddComponent<SyncBus>();
+			typeof(Unity.Netcode.NetworkBehaviour).GetProperty("IsSpawned").SetValue(bus, true);
+			typeof(Unity.Netcode.NetworkBehaviour).GetProperty("HasAuthority").SetValue(bus, false);
+			typeof(SyncBus).GetProperty("Current").SetValue(null, bus);
+			try
+			{
+				RecoverPendingCatalogOperation();
+
+				Assert.That(coordinator.CurrentMap.id, Is.EqualTo(loaded.id));
+				Assert.That(coordinator.CurrentSpace.id, Is.EqualTo(first.id));
+				Assert.That(coordinator.CurrentSpace.mapIds, Does.Contain(loaded.id));
+				Assert.That(beforeSessionMap.GetValue(sessionWorkflow), Is.Null);
+				Assert.That(((MapSpace)beforeSessionSpace.GetValue(sessionWorkflow)).mapIds, Does.Not.Contain(loaded.id));
+				Assert.That(new MapStore(Path.Combine(directory, "maps")).TryGet(loaded.id, out _), Is.False);
+			}
+			finally
+			{
+				typeof(Unity.Netcode.NetworkBehaviour).GetProperty("IsSpawned").SetValue(bus, false);
+				typeof(SyncBus).GetProperty("Current").SetValue(null, null);
+			}
+		}
 
 		private IEnumerator OpenSpaceDeletion()
 		{
@@ -168,8 +278,8 @@ namespace Anaglyph.LaserTag.Tests
 		public IEnumerator SpaceDeletionRechecksEligibilityWhenConfirming()
 		{
 			yield return OpenSpaceDeletion();
-			var workflow = (MapWorkflow)typeof(LaserTagMapCoordinator).GetField("workflow", Private).GetValue(coordinator);
-			workflow.Stop();
+			var lifecycle = (MapLifecycle)typeof(LaserTagMapCoordinator).GetField("lifecycle", Private).GetValue(coordinator);
+			lifecycle.Stop();
 			Click(root.Q<Button>("confirm-delete-space-button"));
 			Assert.That(nav.CurrentPage.name, Is.EqualTo("delete-space-modal"));
 			Assert.That(root.Q<Button>("confirm-delete-space-button").enabledSelf, Is.False);
@@ -232,7 +342,7 @@ namespace Anaglyph.LaserTag.Tests
 			{
 				foreach (var method in new[] { ColocationManager.ColocationMethod.AprilTag, ColocationManager.ColocationMethod.TwoAprilTags })
 				{
-					first.preferredColocationMethod = method; spaces.Load(first);
+					first.preferredColocationMethod = method; spaceDocument.Load(first);
 					nav.GoToPage("space-details");
 					Assert.That(nav.CurrentPage.name, Is.EqualTo("space-details"));
 					Assert.That(MapEditor.MapEditor.IsActive, Is.True);

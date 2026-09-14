@@ -18,36 +18,39 @@ namespace Anaglyph.LaserTag.Tests
 			owner.SetActive(false);
 			var previous = LaserTagMapCoordinator.Instance;
 			bool wasEditing = MapEditor.MapEditor.IsActive;
+			MapCoordinatorTestContext context = null;
 			const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
 			try
 			{
 				var coordinator = owner.AddComponent<LaserTagMapCoordinator>();
-				var maps = new MapManager(new MapStore(System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString("N"))));
+				context = new MapCoordinatorTestContext(coordinator);
+				var mapDocument = context.MapDocument;
+				var spaceDocument = context.SpaceDocument;
 				var space = MapSpace.Create("Test"); space.preferredColocationMethod = method;
-				var spaces = new MapSpaceManager(new MapSpaceStore(System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString("N")))); spaces.Load(space);
-				maps.Create(space.storageFrameId);
-				typeof(LaserTagMapCoordinator).GetField("spaces", flags).SetValue(coordinator, spaces);
-				typeof(LaserTagMapCoordinator).GetField("maps", flags).SetValue(coordinator, maps);
+				spaceDocument.Load(space);
+				mapDocument.Create(space.storageFrameId);
+				context.ComposeReferences(owner.AddComponent<ColocationManager>());
 				typeof(LaserTagMapCoordinator).GetProperty("Instance").SetValue(null, coordinator);
 				typeof(MapEditor.MapEditor).GetProperty("IsActive").SetValue(null, true);
 				var tool = owner.AddComponent<MapEditorTool>();
 				typeof(MapEditorTool).GetField("measurementSpaceContext", flags).SetValue(tool, coordinator.ReferenceContext.ToString());
 				var allowed = typeof(MapEditorTool).GetProperty("MeasurementAllowed", flags);
-				Assert.That(maps.CurrentMap, Is.Not.SameAs(maps.CurrentMap));
+				Assert.That(mapDocument.CurrentMap, Is.Not.SameAs(mapDocument.CurrentMap));
 				Assert.That(allowed.GetValue(tool), Is.True);
-				space.tagSizeCm = 12; spaces.Load(space);
+				space.tagSizeCm = 12; spaceDocument.Load(space);
 				Assert.That(allowed.GetValue(tool), Is.True);
-				maps.Create(space.storageFrameId);
+				mapDocument.Create(space.storageFrameId);
 				Assert.That(allowed.GetValue(tool), Is.True);
-				typeof(LaserTagMapCoordinator).GetField("referenceContext", flags).SetValue(coordinator, Guid.NewGuid());
+				context.Visit.GetType().GetProperty("ReferenceContext").SetValue(context.Visit, Guid.NewGuid());
 				Assert.That(allowed.GetValue(tool), Is.False);
-				maps.Unload();
+				mapDocument.Unload();
 				Assert.That(allowed.GetValue(tool), Is.False);
 			}
 			finally
 			{
 				typeof(LaserTagMapCoordinator).GetProperty("Instance").SetValue(null, previous);
 				typeof(MapEditor.MapEditor).GetProperty("IsActive").SetValue(null, wasEditing);
+				context?.Dispose();
 				Object.DestroyImmediate(owner);
 			}
 		}

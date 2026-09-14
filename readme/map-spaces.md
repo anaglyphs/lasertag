@@ -16,7 +16,7 @@ Application.persistentDataPath/map-catalog-v2/
 
 This fresh catalog does not load or migrate the old map directory. It does not delete that directory.
 
-`JsonDocumentStore` provides detached reads, schema validation, temporary files, backup recovery and atomic replacement. It distinguishes unavailable reads from missing or invalid documents. `MapSpaceCatalog` records a recoverable operation before writing layouts and their membership. Recovery precedes membership pruning. Pruning removes bad, duplicate or missing IDs, preserves uncertain reads, and leaves unrelated layout files alone. Native anchor saves are erased only when no readable catalog owner references them; an unavailable catalog prevents erasure.
+`JsonDocumentStore` provides detached reads, schema validation, temporary files, backup recovery and atomic replacement. It distinguishes unavailable reads from missing or invalid documents. `MapCatalogJournal` records a recoverable operation before writing layouts and their membership. Recovery precedes membership pruning. Pruning removes bad, duplicate or missing IDs, preserves uncertain reads, and leaves unrelated layout files alone. Native anchor saves are erased only when no readable catalog owner references them; an unavailable catalog prevents erasure.
 
 Every saved layout pose, shared anchor target, registered tag target and private tag-anchor target uses the stable storage basis:
 
@@ -25,13 +25,13 @@ canonicalPose = canonicalFromStorage * storedPose
 storedPose    = inverse(canonicalFromStorage) * canonicalPose
 ```
 
-`MapObjectDirector` projects scene placements; `MapSpaceColocationAdapter` projects provider targets. `MapSpaceReconciler` projects incoming canonical DTOs into local storage. A pure rebase changes only the space document. It preserves map files, target poses, object revisions, tag IDs and anchor UUIDs. Undo restores the previous offset/frame pair. The transform has unit scale, yaw and translation; it is not applied to the tracking rig a second time.
+`MapSceneObjectDirector` projects scene placements; `MapSpaceColocationAdapter` projects provider targets. `MapSpaceReconciler` projects incoming canonical DTOs into local storage. A pure rebase changes only the space document. It preserves map files, target poses, object revisions, tag IDs and anchor UUIDs. Undo restores the previous offset/frame pair. The transform has unit scale, yaw and translation; it is not applied to the tracking rig a second time.
 
 Shared definitions, private tag-anchor realizations, retained source revisions and foreign associations are separate collections. A private realization records the tag size and definition it realizes, preventing an old UUID from being reused for a conflicting imported tag. Incoming host definitions become active while conflicting local definitions remain retained.
 
 ## Lifecycles and discovery
 
-`LaserTagMapCoordinator` composes `MapManager`, `MapSpaceManager`, persistence, network DTOs, discovery and alignment. Map changes within a space replace gameplay objects while keeping references, the active observer and scan. Deleting the last map leaves the space. Space settings include rename, deletion and explicit alignment reset. Operators can also create spaces. Rebase undo remains an internal API and is not exposed in the menus.
+`LaserTagMapCoordinator` composes `MapWorkingCopy`, `MapSpaceWorkingCopy`, persistence, network DTOs, discovery and alignment. Map changes within a space replace gameplay objects while keeping references, the active observer and scan. Deleting the last map leaves the space. Space settings include rename, deletion and explicit alignment reset. Operators can also create spaces. Rebase undo remains an internal API and is not exposed in the menus.
 
 Headsets probe saved space anchors automatically. Every matching space remains a distinct candidate; the most recently used match wins startup. A healthy completed probe with no matches creates a space and baseline layout, reusing an unfinished automatic draft where possible. Shared spatial anchors are the default when sharing is supported. Otherwise, including on managed headsets without a Meta account, startup activates registered AprilTags and resumes the normal first-tag registration transition. This does not require a shared-anchor minter or manual space creation. Local anchor probing still runs when available, even without sharing support. A confirmed lack of anchor support can start the AprilTag path without waiting for an impossible probe; unknown capability, canceled probes and inconclusive queries retry without creating a space. Session selection supersedes startup. Operator and Editor simulation restoration use separate paths.
 

@@ -343,15 +343,13 @@ namespace Anaglyph.LaserTag.Tests
 		}
 
 		[Test]
-		public void BlankTwoTagMapRequiresAlignmentWithoutRequestingRegistration()
+		public void TwoTagEditingRequiresAlignmentButAlignmentSelectionRemainsAvailable()
 		{
-			var policy = new MapPolicy(MapPhase.Hosting, true, true, false, false, false, false, false,
-				hasAnchors: false, twoTagFrame: true);
-			Assert.That(policy.HasAlignmentReferences, Is.False);
-			Assert.That(policy.FrameIsTrusted, Is.False);
-			Assert.That(policy.EditBlocker, Is.Not.Null);
-			Assert.That(policy.NeedsFirstTag, Is.False);
-			Assert.That(policy.ColocationMethodBlocker(true), Is.Null);
+			Assert.That(MapPolicy.CanEditMap(changingMap: false, frameReady: false, operatorCanEditSpace: false), Is.False);
+			Assert.That(MapPolicy.CanAuthorReferences(true, ColocationManager.ColocationMethod.TwoAprilTags,
+				aligned: true, initializationGrant: true), Is.False);
+			Assert.That(MapPolicy.ColocationMethodBlocker(ColocationManager.ColocationMethod.TwoAprilTags,
+				hasSpace: true, roundInProgress: false, operatorManagedSession: false, operatorRequest: false), Is.Null);
 		}
 
 		private object Select(int id) => typeof(TwoAprilTagColocationConstraintProvider)

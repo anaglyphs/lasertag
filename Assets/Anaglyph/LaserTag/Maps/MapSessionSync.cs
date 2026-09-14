@@ -86,7 +86,8 @@ namespace Anaglyph.LaserTag.Maps
 
 		public void SetChanging(bool value) => changing.Value = value;
 
-		public void Publish(GameMap map, MapSpace space, Guid context, Guid referenceContext, Guid scan)
+		public void Publish(GameMap map, MapSpace space, ColocationManager.ColocationMethod selectedMethod,
+			Guid context, Guid referenceContext, Guid scan)
 		{
 			if (!SyncBus.Active || !SyncBus.IsAuthority || map == null || space == null) return;
 			if (!Guid.TryParseExact(map.id, "N", out Guid id) ||
@@ -94,7 +95,8 @@ namespace Anaglyph.LaserTag.Maps
 
 			Guid spaceVersion = Guid.Parse(space.version), frameId = Guid.Parse(space.canonicalFrameId);
 			if (identity.Value.id == id && identity.Value.version == version && identity.Value.spaceVersion == spaceVersion &&
-				identity.Value.method == ColocationManager.Instance.SelectedMethod && identity.Value.frameId == frameId && identity.Value.context == context && identity.Value.referenceContext == referenceContext && identity.Value.scan == scan) return;
+				identity.Value.method == selectedMethod && identity.Value.frameId == frameId && identity.Value.context == context &&
+				identity.Value.referenceContext == referenceContext && identity.Value.scan == scan) return;
 			spaceSync.Stage(space);
 			objectRecords.Clear();
 			foreach (MapObjectEntry entry in map.objects)
@@ -110,7 +112,7 @@ namespace Anaglyph.LaserTag.Maps
 			identity.Value = new MapIdentity
 			{
 				id = id, version = version, name = name,
-				preferredColocationMethod = space.preferredColocationMethod, method = ColocationManager.Instance.SelectedMethod,
+				preferredColocationMethod = space.preferredColocationMethod, method = selectedMethod,
 				spaceId = Guid.Parse(space.id), frameId = frameId, spaceVersion = spaceVersion,
 				context = context, referenceContext = referenceContext, scan = scan, spaceName = spaceName, tagSizeCm = space.tagSizeCm,
 				firstTagId = space.firstTagId, secondTagId = space.secondTagId,

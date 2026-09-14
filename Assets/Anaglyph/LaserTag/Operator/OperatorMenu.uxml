@@ -1,4 +1,5 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:Template name="AprilTagSetupPage" src="project://database/Assets/Anaglyph/LaserTag/Operator/AprilTagSetupPage.uxml?fileID=9197481963319205126&amp;guid=9bc34206cd9a47328df68da36f587bbf&amp;type=3#AprilTagSetupPage"/>
     <ui:Template name="DeleteSpacePage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/DeleteSpacePage.uxml?fileID=9197481963319205126&amp;guid=6129634a19654579bdcede2f56f2aa06&amp;type=3#DeleteSpacePage"/>
     <ui:Template name="GameMatchPlayingPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Game/GameMatchPlayingPage.uxml?fileID=9197481963319205126&amp;guid=617e74b6016424210b1d97fb28257683&amp;type=3#GameMatchPlayingPage"/>
     <ui:Template name="GameMatchSettingsPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/GameMatchSettingsPage.uxml?fileID=9197481963319205126&amp;guid=f28cafb4354a24f018772c69222a55ef&amp;type=3#GameMatchSettingsPage"/>
@@ -8,6 +9,7 @@
     <ui:Template name="SpaceDetailsPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/SpaceDetailsPage.uxml?fileID=9197481963319205126&amp;guid=cab95617b3e34299901e6bfe788493f3&amp;type=3#SpaceDetailsPage"/>
     <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
     <Style src="project://database/Assets/Anaglyph/LaserTag/Operator/OperatorStyle.uss?fileID=7433441132597879392&amp;guid=50e7e683e56714de0b0ad7967c86b879&amp;type=3#OperatorStyle"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/AprilTagSetup.uss?fileID=7433441132597879392&amp;guid=690749010bfe496d9943e399fdf472f0&amp;type=3#AprilTagSetup"/>
     <ui:VisualElement name="root" style="flex-grow: 1;">
         <ui:TwoPaneSplitView name="root-split" orientation="Horizontal" fixed-pane-index="0" fixed-pane-initial-dimension="400">
             <ui:TwoPaneSplitView name="sidebar-split" orientation="Vertical" fixed-pane-index="0" fixed-pane-initial-dimension="400">
@@ -36,19 +38,6 @@
                     </Anaglyph.Menu.NavPage>
                 </Anaglyph.Menu.NavView>
                 <ui:TabView name="tabs" class="menu-root" style="min-width: auto; width: auto; top: 0; min-height: 400px;">
-                    <ui:Tab name="match-tab">
-                        <Bindings>
-                            <UnityEngine.Localization.LocalizedString property="label" table="OperatorMenu" entry="match-tab.label"/>
-                        </Bindings>
-                        <Anaglyph.Menu.NavView name="match-nav" first-page="match-page">
-                            <Anaglyph.Menu.NavPage name="match-page">
-                                <ui:Instance template="GameMatchSettingsPage"/>
-                            </Anaglyph.Menu.NavPage>
-                            <Anaglyph.Menu.NavPage name="playing-page" show-back-button="false">
-                                <ui:Instance template="GameMatchPlayingPage"/>
-                            </Anaglyph.Menu.NavPage>
-                        </Anaglyph.Menu.NavView>
-                    </ui:Tab>
                     <ui:Tab name="maps-tab">
                         <Bindings>
                             <UnityEngine.Localization.LocalizedString property="label" table="OperatorMenu" entry="maps-tab.label"/>
@@ -63,11 +52,27 @@
                             <Anaglyph.Menu.NavPage name="map-editing-page">
                                 <ui:Instance template="OperatorMapSettingsPage"/>
                             </Anaglyph.Menu.NavPage>
+                            <Anaglyph.Menu.NavPage name="apriltag-setup-page" show-back-button="false">
+                                <ui:Instance template="AprilTagSetupPage"/>
+                            </Anaglyph.Menu.NavPage>
                             <Anaglyph.Menu.NavPage name="delete-space-modal" show-back-button="false" modal-user-dismissible="true">
                                 <ui:Instance template="DeleteSpacePage"/>
                             </Anaglyph.Menu.NavPage>
                             <Anaglyph.Menu.NavPage name="error-modal" show-back-button="false">
                                 <ui:Instance template="MenuErrorPage"/>
+                            </Anaglyph.Menu.NavPage>
+                        </Anaglyph.Menu.NavView>
+                    </ui:Tab>
+                    <ui:Tab name="match-tab">
+                        <Bindings>
+                            <UnityEngine.Localization.LocalizedString property="label" table="OperatorMenu" entry="match-tab.label"/>
+                        </Bindings>
+                        <Anaglyph.Menu.NavView name="match-nav" first-page="match-page">
+                            <Anaglyph.Menu.NavPage name="match-page">
+                                <ui:Instance template="GameMatchSettingsPage"/>
+                            </Anaglyph.Menu.NavPage>
+                            <Anaglyph.Menu.NavPage name="playing-page" show-back-button="false">
+                                <ui:Instance template="GameMatchPlayingPage"/>
                             </Anaglyph.Menu.NavPage>
                         </Anaglyph.Menu.NavView>
                     </ui:Tab>

@@ -483,13 +483,13 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 198935179157505
-    m_Localized: Place the controller dot at a corner of the tag's inner white square
-      and press the trigger. Back cancels.
+    m_Localized: Place the right controller's ruler tip at a corner of the inner
+      white square and press the trigger.
     m_Metadata:
       m_Items: []
   - m_Id: 198935179157506
-    m_Localized: Place the dot at the adjacent corner of the same edge and press
-      the trigger to apply its length. Back restarts.
+    m_Localized: Move the tip along one edge of the inner white square to the adjacent
+      corner and press the trigger. Do not measure the black frame.
     m_Metadata:
       m_Items: []
   - m_Id: 198935179157507
@@ -734,6 +734,179 @@ MonoBehaviour:
     m_Metadata:
       m_Items:
       - rid: 533178702104363357
+  - m_Id: 1355627388461056
+    m_Localized: AprilTag setup
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627392655360
+    m_Localized: Set up AprilTags
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627392655361
+    m_Localized: 'Space: {0}'
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363357
+  - m_Id: 1355627396849664
+    m_Localized: "{0} of 3 \xB7 {1}"
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363357
+  - m_Id: 1355627396849665
+    m_Localized: Print and place tags
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849666
+    m_Localized: Connect and register
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849667
+    m_Localized: Review and finish
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849668
+    m_Localized: Print tagStandard41h12 tags as large as possible. Larger tags track
+      better at longer distances. Use the same printed size for every tag.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849669
+    m_Localized: Open AprilTag PDF generator
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849670
+    m_Localized: Use multiple tags with different IDs. Mount them securely around
+      the space, especially at the farthest edges and corners. Keep them visible
+      from the play area.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849671
+    m_Localized: "Connect the PC and headset to the same local network. In the headset,
+      open Connection \u2192 Connect manually. Turn off Connect over the internet
+      and enter this PC's IP address."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849672
+    m_Localized: No local IP address available
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849673
+    m_Localized: Put on a connected headset. Its hand palette will guide you through
+      measuring the inner white square and registering tags. Register several different
+      IDs around the space, then return here to review.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849674
+    m_Localized: Check the tag positions and directions in the viewport against the
+      room. Cyan squares mark registered tags; yellow lines show their direction.
+      Confirm the IDs and coverage at the farthest edges. Use a headset to register
+      any missing tags.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849675
+    m_Localized: Show all tags in viewport
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849676
+    m_Localized: I checked the tag layout and coverage
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849677
+    m_Localized: Finish saves the setup and returns connected headsets to normal
+      play.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849678
+    m_Localized: Back
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849679
+    m_Localized: Continue
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849680
+    m_Localized: Confirm and finish
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849681
+    m_Localized: Stop setup
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849682
+    m_Localized: "{0} connected headset(s) \xB7 {1} registered tag(s)"
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363357
+  - m_Id: 1355627396849683
+    m_Localized: Waiting for a headset. Registration starts automatically when it
+      joins.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849684
+    m_Localized: Follow the measurement guide in the headset before registering tags.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849685
+    m_Localized: Register tags in the headset. Keep looking at each tag until its
+      registration appears here.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849686
+    m_Localized: No tags registered yet.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849687
+    m_Localized: Wait for a headset to align with the registered tags before finishing.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849688
+    m_Localized: Start hosting on the PC before setting up AprilTags.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849689
+    m_Localized: Create or select a space first.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849690
+    m_Localized: Wait for the current map operation to finish.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849691
+    m_Localized: The setup could not be saved. Check storage and try again.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849692
+    m_Localized: Measure the inner white square in the headset before registering
+      tags.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849693
+    m_Localized: 1. Measure the inner white square, not the black frame. Place the
+      right controller's ruler tip at one corner and press the trigger. Move along
+      one edge to the adjacent corner and press again.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849694
+    m_Localized: Keep the headset on and tracked. The PC assigns one headset to measure
+      and register the first tag. Other headsets can help after looking at a registered
+      tag to align.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849695
+    m_Localized: 2. Look at a tag, aim at it with the right controller, and press
+      the trigger. Keep looking until the registered count updates. Repeat with different
+      IDs around the room, especially at its farthest edges.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1355627396849696
+    m_Localized: "{0} registered tag(s) \xB7 inner white square: {1:0.0} cm"
+    m_Metadata:
+      m_Items:
+      - rid: 533178702104363357
+  - m_Id: 1355627396849697
+    m_Localized: When all tags are registered, return to the PC to check the layout
+      and finish. This headset returns to normal play when the operator finishes.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:
@@ -762,3 +935,7 @@ MonoBehaviour:
         - id: 648730511400964
         - id: 983255229652992
         - id: 1001490419277824
+        - id: 1355627392655361
+        - id: 1355627396849664
+        - id: 1355627396849682
+        - id: 1355627396849696

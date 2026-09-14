@@ -7,15 +7,15 @@ namespace Anaglyph.LaserTag.Maps
 	/// <summary>
 	/// Owns the editable map document. Reads return detached snapshots; only these operations
 	/// change the document. Networking, scene objects, alignment and UI are coordinated above it.
-	/// Alignment and membership are owned by MapSpaceManager; this document contains only layout data.
+	/// Alignment and membership are owned by MapSpaceWorkingCopy; this document contains only layout data.
 	/// </summary>
-	public sealed class MapManager
+	public sealed class MapWorkingCopy
 	{
 		private readonly MapStore store;
 		private GameMap current;
 		private string savedJson;
 
-		public MapManager(MapStore store) => this.store = store;
+		public MapWorkingCopy(MapStore store) => this.store = store;
 		public GameMap CurrentMap => current?.Clone();
 		public string CurrentId => current?.id;
 		public bool HasMap => current != null;

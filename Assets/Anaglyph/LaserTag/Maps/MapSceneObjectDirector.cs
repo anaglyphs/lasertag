@@ -13,7 +13,7 @@ namespace Anaglyph.LaserTag.Maps
 	/// Retired objects are excluded immediately, even when NGO ownership delays their despawn.
 	/// Clients persist the complete document from MapSessionSync, never a partial spawned scene.
 	/// </summary>
-	internal sealed class MapObjectDirector
+	internal sealed class MapSceneObjectDirector
 	{
 		private struct Placement
 		{
@@ -43,7 +43,7 @@ namespace Anaglyph.LaserTag.Maps
 		private Guid context;
 		private readonly Func<MapSpaceFrame> frame;
 
-		public MapObjectDirector(MapObjectDatabase database, Action contentChanged, Func<bool> canEdit, Func<MapSpaceFrame> frame)
+		public MapSceneObjectDirector(MapObjectDatabase database, Action contentChanged, Func<bool> canEdit, Func<MapSpaceFrame> frame)
 		{
 			this.database = database;
 			this.contentChanged = contentChanged;

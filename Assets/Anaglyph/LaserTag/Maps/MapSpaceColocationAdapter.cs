@@ -10,11 +10,9 @@ namespace Anaglyph.LaserTag.Maps
 	{
 		public bool Anchors;
 		public bool TaggedAnchors;
-		public bool Tags;
 	}
 
-	/// <summary>Projects a space's saved targets into canonical coordinates and captures private realizations.
-	/// The coordinator stages authored references and erases native saves only after their last owner is gone.</summary>
+	/// <summary>Projects saved targets into canonical coordinates and captures compatible private anchors.</summary>
 	internal sealed class MapSpaceColocationAdapter
 	{
 		private readonly ColocationManager colocation;
@@ -22,10 +20,9 @@ namespace Anaglyph.LaserTag.Maps
 		private readonly AprilTagColocationConstraintProvider aprilTagColocationProvider;
 		private bool anchorSnapshotPending;
 		private string injectedSpaceId;
-		private bool tagSnapshotPending;
 		private bool taggedAnchorSnapshotPending;
 		public event Action Changed = delegate { };
-		public bool HasPendingSnapshots => anchorSnapshotPending || tagSnapshotPending || taggedAnchorSnapshotPending;
+		public bool HasPendingSnapshots => anchorSnapshotPending || taggedAnchorSnapshotPending;
 
 		public MapSpaceColocationAdapter(ColocationManager colocation)
 		{
@@ -44,8 +41,6 @@ namespace Anaglyph.LaserTag.Maps
 
 			if (aprilTagColocationProvider)
 			{
-				aprilTagColocationProvider.TagsChanged += OnAprilTagsColocationChanged;
-				aprilTagColocationProvider.TagSizeChanged += OnAprilTagsColocationChanged;
 				aprilTagColocationProvider.AnchorsChanged += OnTaggedAnchorsChanged;
 			}
 		}
@@ -55,8 +50,6 @@ namespace Anaglyph.LaserTag.Maps
 			if (aprilTagColocationProvider)
 			{
 				aprilTagColocationProvider.AnchorsChanged -= OnTaggedAnchorsChanged;
-				aprilTagColocationProvider.TagSizeChanged -= OnAprilTagsColocationChanged;
-				aprilTagColocationProvider.TagsChanged -= OnAprilTagsColocationChanged;
 			}
 
 			if (anchorColocationProvider)
@@ -100,7 +93,7 @@ namespace Anaglyph.LaserTag.Maps
 			InjectTagSize(map);
 
 			if (aprilTagColocationProvider)
-				{
+			{
 				if (Anaglyph.Netcode.SyncVariables.SyncBus.IsAuthority) aprilTagColocationProvider.SetRegisteredTags(tags);
 				aprilTagColocationProvider.SetLocalAnchors(taggedAnchors);
 			}
@@ -130,14 +123,12 @@ namespace Anaglyph.LaserTag.Maps
 		// ------- export ------------------------------------------
 
 		private void OnAnchorColocationConstraintsChanged() => anchorSnapshotPending = true;
-		private void OnAprilTagsColocationChanged() => tagSnapshotPending = true;
 		private void OnTaggedAnchorsChanged() => taggedAnchorSnapshotPending = true;
 		private void OnAnchorColocationPersisted(Guid _) => Changed.Invoke();
 
 		public void ClearPendingSnapshots()
 		{
 			anchorSnapshotPending = false;
-			tagSnapshotPending = false;
 			taggedAnchorSnapshotPending = false;
 		}
 
@@ -145,19 +136,14 @@ namespace Anaglyph.LaserTag.Maps
 		public MapSpace TakePendingSnapshot(MapSpace snapshot, SpaceReferenceCapture capture)
 		{
 			bool anchors = anchorSnapshotPending && capture.Anchors;
-			bool tags = tagSnapshotPending && capture.Tags;
 			bool tagged = taggedAnchorSnapshotPending && capture.TaggedAnchors;
 			ClearPendingSnapshots();
-			if (snapshot == null || (!anchors && !tags && !tagged))
+			if (snapshot == null || (!anchors && !tagged))
 				return null;
 			if (anchors)
 				SnapshotAnchors(snapshot);
-			if (tags)
-				SnapshotTags(snapshot);
 			if (tagged)
-			{
 				SnapshotTaggedAnchors(snapshot);
-			}
 			return snapshot;
 		}
 
@@ -179,46 +165,54 @@ namespace Anaglyph.LaserTag.Maps
 				map.SetAnchorWithTag(MapGuid.ToString(guid), map.Frame.ToStorage(state.canonPose), state.bindingId);
 		}
 
-		private void SnapshotTags(MapSpace map)
+		public MapSpace CapturePrivateReferences(MapSpace source)
 		{
-			if (!aprilTagColocationProvider)
-				return;
-
-			map.tags.Clear();
-			foreach ((int tagId, Pose canon) in aprilTagColocationProvider.RegisteredTags)
-				map.SetTag(tagId, map.Frame.ToStorage(canon));
-
-			// The map is written from the provider on a joiner, and the size is half of what a
-			// registered pose means — a copy that recorded the poses but not the size they were
-			// solved at would be unusable on its own later.
-			if (aprilTagColocationProvider.TagSizeCm > 0f)
-				map.tagSizeCm = aprilTagColocationProvider.TagSizeCm;
-
-			// Private realizations are retained separately when the host changes its tag definitions.
+			if (source == null) return null;
+			var copy = source.Clone();
+			SnapshotTaggedAnchors(copy);
+			return copy;
 		}
 
 		private void SnapshotTaggedAnchors(MapSpace map)
 		{
-			if (!aprilTagColocationProvider)
+			if (!aprilTagColocationProvider || Mathf.Abs(aprilTagColocationProvider.TagSizeCm - map.tagSizeCm) > .001f)
 				return;
 
 			List<TaggedAnchorConstraintData> realized = new();
 			aprilTagColocationProvider.GetLocalAnchorConstraints(realized);
-
-			// Mirror of SnapshotAnchors: this provider owns only the tag realizations. Roaming
-			// anchors (tagId -1) belong to the anchor provider and survive a map being tagged
-			// later, so they must not be swept up here.
-			HashSet<string> present = new();
 			foreach (TaggedAnchorConstraintData entry in realized)
-				present.Add(MapGuid.ToString(entry.guid));
+			{
+				if (!map.TryGetTag(entry.tagId, out var tag) ||
+					!aprilTagColocationProvider.RegisteredTags.TryGetValue(entry.tagId, out var liveTag) ||
+					!MapSpaceFrame.Near(map.Frame.ToCanonical(tag.canonPose), liveTag, .001f, .1f)) continue;
+				PrioritizePrivateAnchor(map.localAnchors, new MapAnchorEntry
+				{
+					guid = MapGuid.ToString(entry.guid), tagId = entry.tagId,
+					canonPose = map.Frame.ToStorage(entry.canonPose), tagCanonPose = tag.canonPose, tagSizeCm = map.tagSizeCm
+				});
+			}
+		}
 
-			// Missing realizations are retained: provider replacement is not an explicit deletion.
+		public static void PrioritizePrivateAnchor(List<MapAnchorEntry> anchors, MapAnchorEntry anchor)
+		{
+			// Restore the live UUID first; retain older saves for ownership and cleanup.
+			anchors.RemoveAll(saved => saved.guid == anchor.guid);
+			anchors.Insert(0, anchor);
+		}
 
-			foreach (TaggedAnchorConstraintData entry in realized)
-				MapSpace.SetAnchor(map.localAnchors, new MapAnchorEntry { guid = MapGuid.ToString(entry.guid),
-					canonPose = map.Frame.ToStorage(entry.canonPose), tagId = entry.tagId, tagSizeCm = map.tagSizeCm,
-					tagCanonPose = map.TryGetTag(entry.tagId, out var tag) ? tag.canonPose : Pose.identity });
-
+		public static void CopyCompatiblePrivateAnchors(MapSpace target, MapSpace source)
+		{
+			if (source == null || source.canonicalFrameId != target.canonicalFrameId) return;
+			for (int i = source.localAnchors.Count - 1; i >= 0; i--)
+			{
+				var anchor = source.localAnchors[i];
+				if (Mathf.Abs(anchor.tagSizeCm - target.tagSizeCm) >= .001f ||
+					!target.TryGetTag(anchor.tagId, out var tag) ||
+					!MapSpaceFrame.Near(source.Frame.ToCanonical(anchor.tagCanonPose), target.Frame.ToCanonical(tag.canonPose), .001f, .1f)) continue;
+				anchor.canonPose = target.Frame.ToStorage(source.Frame.ToCanonical(anchor.canonPose));
+				anchor.tagCanonPose = tag.canonPose;
+				PrioritizePrivateAnchor(target.localAnchors, anchor);
+			}
 		}
 
 		public void EraseAnchorSave(string guid)

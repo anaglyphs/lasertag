@@ -383,6 +383,9 @@ ScrollView .unity-scroll-view__horizontal-scroller #unity-drag-container,
 ScrollView .unity-scroll-view__horizontal-scroller #unity-dragger {
     min-height: 24px;
     max-height: 24px;
+}
+
+ScrollView .unity-scroll-view__horizontal-scroller #unity-drag-container {
     align-self: center;
 }
 
@@ -580,7 +583,7 @@ ScrollView .unity-scroll-view__horizontal-scroller #unity-dragger {
     justify-content: flex-start;
     min-height: auto;
     padding: 4px;
-    background-color: rgba(0, 0, 0, 0.35);
+    /*background-color: rgba(0, 0, 0, 0.35);*/
 }
 
 .palette-tab {
@@ -594,7 +597,7 @@ ScrollView .unity-scroll-view__horizontal-scroller #unity-dragger {
 
 .palette-tab-icon,
 .palette-item-icon {
-    background-color: rgba(255, 255, 255, 0.07);
+    /* background-color: rgba(255, 255, 255, 0.07); */
     background-size: contain;
     background-position: center;
     background-repeat: no-repeat;

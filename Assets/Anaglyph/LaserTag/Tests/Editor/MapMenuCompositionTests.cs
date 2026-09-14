@@ -207,28 +207,24 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(Anaglyph.Netcode.SyncVariables.SyncBus.Current, Is.Null);
 			var owner = new GameObject("Alignment status test");
 			owner.SetActive(false);
-			string directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "lasertag-status-" + System.Guid.NewGuid().ToString("N"));
+			MapCoordinatorTestContext context = null;
 			bool wasColocated = ColocationManager.IsColocated;
-			const BindingFlags fields = BindingFlags.Instance | BindingFlags.NonPublic;
 			var coordinator = owner.AddComponent<LaserTagMapCoordinator>();
 			var manager = owner.AddComponent<ColocationManager>();
 			owner.AddComponent<Unity.Netcode.NetworkObject>();
 			var bus = owner.AddComponent<Anaglyph.Netcode.SyncVariables.SyncBus>();
-			System.IDisposable alignment = null;
 			try
 			{
 				var space = MapSpace.Create("Status test");
 				space.preferredColocationMethod = ColocationManager.ColocationMethod.MetaSharedAnchor;
-				var spaces = new MapSpaceManager(new MapSpaceStore(directory)); spaces.Load(space);
+				context = new MapCoordinatorTestContext(coordinator);
+				context.SpaceDocument.Load(space);
+				context.ComposeReferences(manager);
 				var transition = new ReferenceAlignmentTransition(System.Guid.NewGuid(), space,
 					ColocationManager.ColocationMethod.MetaSharedAnchor, ColocationManager.ColocationMethod.AprilTag,
 					ReferenceTransitionIntent.ActivateTarget, true);
 				transition.SetCandidate(System.Guid.NewGuid());
-				var alignmentType = typeof(LaserTagMapCoordinator).Assembly.GetType("Anaglyph.LaserTag.Maps.MapSpaceAlignmentController", true);
-				alignment = (System.IDisposable)System.Activator.CreateInstance(alignmentType, manager, (System.Func<bool>)(() => false));
-				alignmentType.GetProperty("Transition").SetValue(alignment, transition);
-				typeof(LaserTagMapCoordinator).GetField("spaces", fields).SetValue(coordinator, spaces);
-				typeof(LaserTagMapCoordinator).GetField("alignment", fields).SetValue(coordinator, alignment);
+				context.Alignment.GetType().GetProperty("Transition").SetValue(context.Alignment, transition);
 				typeof(LaserTagMapCoordinator).GetProperty("Instance").SetValue(null, coordinator);
 				typeof(ColocationManager).GetProperty("Instance").SetValue(null, manager);
 				typeof(ColocationManager).GetProperty("IsColocated").SetValue(null, true);
@@ -261,12 +257,11 @@ namespace Anaglyph.LaserTag.Tests
 			{
 				typeof(Unity.Netcode.NetworkBehaviour).GetProperty("IsSpawned").SetValue(bus, false);
 				typeof(Anaglyph.Netcode.SyncVariables.SyncBus).GetProperty("Current").SetValue(null, null);
-				alignment?.Dispose();
+				context?.Dispose();
 				typeof(LaserTagMapCoordinator).GetProperty("Instance").SetValue(null, null);
 				typeof(ColocationManager).GetProperty("Instance").SetValue(null, null);
 				typeof(ColocationManager).GetProperty("IsColocated").SetValue(null, wasColocated);
 				Object.DestroyImmediate(owner);
-				if (System.IO.Directory.Exists(directory)) System.IO.Directory.Delete(directory, true);
 			}
 		}
 
@@ -360,16 +355,15 @@ namespace Anaglyph.LaserTag.Tests
 			owner.SetActive(false);
 			bool wasEditing = MapEditor.MapEditor.IsActive;
 			var previousMode = MapEditorTool.CurrentMode;
-			const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+			MapCoordinatorTestContext context = null;
 			try
 			{
 				var coordinator = owner.AddComponent<LaserTagMapCoordinator>();
-				var maps = new MapManager(new MapStore(System.IO.Path.Combine(System.IO.Path.GetTempPath(), System.Guid.NewGuid().ToString("N"))));
+				context = new MapCoordinatorTestContext(coordinator);
 				var space = MapSpace.Create("Test"); space.tagSizeCm = 18f; space.preferredColocationMethod = method;
-				var spaces = new MapSpaceManager(new MapSpaceStore(System.IO.Path.Combine(System.IO.Path.GetTempPath(), System.Guid.NewGuid().ToString("N")))); spaces.Load(space);
-				maps.Create(space.storageFrameId);
-				typeof(LaserTagMapCoordinator).GetField("maps", flags).SetValue(coordinator, maps);
-				typeof(LaserTagMapCoordinator).GetField("spaces", flags).SetValue(coordinator, spaces);
+				context.SpaceDocument.Load(space);
+				context.MapDocument.Create(space.storageFrameId);
+				context.ComposeReferences(owner.AddComponent<ColocationManager>());
 				typeof(LaserTagMapCoordinator).GetProperty("Instance").SetValue(null, coordinator);
 				typeof(MapEditor.MapEditor).GetProperty("IsActive").SetValue(null, true);
 				var headset = Load("Assets/Anaglyph/LaserTag/Interface/Main Menu/Game/GameMenu.uxml");
@@ -391,6 +385,7 @@ namespace Anaglyph.LaserTag.Tests
 				typeof(LaserTagMapCoordinator).GetProperty("Instance").SetValue(null, null);
 				typeof(MapEditor.MapEditor).GetProperty("IsActive").SetValue(null, wasEditing);
 				MapEditorTool.SetMode(previousMode);
+				context?.Dispose();
 				Object.DestroyImmediate(owner);
 			}
 		}
@@ -408,4 +403,49 @@ namespace Anaglyph.LaserTag.Tests
 	}
 
 	public sealed class MapMenuCompositionTestWindow : EditorWindow { }
+
+	internal sealed class MapCoordinatorTestContext : System.IDisposable
+	{
+		private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
+		private readonly LaserTagMapCoordinator coordinator;
+		private readonly string directory;
+		public MapWorkingCopy MapDocument { get; }
+		public MapSpaceWorkingCopy SpaceDocument { get; }
+		public object Visit { get; }
+		public System.IDisposable Alignment { get; private set; }
+
+		public MapCoordinatorTestContext(LaserTagMapCoordinator coordinator)
+		{
+			this.coordinator = coordinator;
+			directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "lasertag-context-" + System.Guid.NewGuid().ToString("N"));
+			Visit = typeof(LaserTagMapCoordinator).GetField("visit", Private).GetValue(coordinator);
+			var documents = Create("MapCatalog", new MapStore(System.IO.Path.Combine(directory, "maps")),
+				new MapSpaceStore(System.IO.Path.Combine(directory, "spaces")), directory, Visit);
+			MapDocument = (MapWorkingCopy)documents.GetType().GetProperty("MapDocument").GetValue(documents);
+			SpaceDocument = (MapSpaceWorkingCopy)documents.GetType().GetProperty("SpaceDocument").GetValue(documents);
+			Set("documents", documents);
+		}
+
+		public void ComposeReferences(ColocationManager manager)
+		{
+			Alignment = (System.IDisposable)Create("MapSpaceAlignmentController", manager, (System.Func<bool>)(() => false));
+			Set("colocationManager", manager);
+			Set("alignment", Alignment);
+			Set("references", Create("MapSpaceColocationAdapter", manager));
+			Set("session", Create("MapSessionSync"));
+			typeof(LaserTagMapCoordinator).GetMethod("ComposeWorkflows", Private).Invoke(coordinator, null);
+		}
+
+		private void Set(string name, object value) =>
+			typeof(LaserTagMapCoordinator).GetField(name, Private).SetValue(coordinator, value);
+
+		private static object Create(string name, params object[] arguments) =>
+			System.Activator.CreateInstance(typeof(MapSpace).Assembly.GetType("Anaglyph.LaserTag.Maps." + name, true), arguments);
+
+		public void Dispose()
+		{
+			Alignment?.Dispose();
+			if (System.IO.Directory.Exists(directory)) System.IO.Directory.Delete(directory, true);
+		}
+	}
 }

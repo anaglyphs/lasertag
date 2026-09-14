@@ -4,17 +4,20 @@ using UnityEngine;
 namespace Anaglyph.LaserTag.Maps
 {
 	/// <summary>Single editable owner for the selected space; reads are detached snapshots.</summary>
-	public sealed class MapSpaceManager
+	public sealed class MapSpaceWorkingCopy
 	{
 		private readonly MapSpaceStore store;
 		private MapSpace current;
 		private string savedJson;
-		public MapSpaceManager(MapSpaceStore store) => this.store = store;
+		public MapSpaceWorkingCopy(MapSpaceStore store) => this.store = store;
 		public MapSpace CurrentSpace => current?.Clone();
 		public string CurrentId => current?.id;
 		public bool HasSpace => current != null;
 		public bool HasTags => current != null && current.HasTags;
 		public bool HasReferences => current != null && current.HasReferenceBasedData;
+		public bool HasPendingSetup => current != null && current.hasPendingSetup;
+		public ColocationManager.ColocationMethod PendingSetupMethod => current != null ? current.pendingSetupMethod : default;
+		public int FirstTagId => current?.firstTagId ?? -1;
 		public int AnchorCount => current?.anchors.Count ?? 0;
 		public MapSpaceFrame Frame => current != null ? current.Frame : new MapSpaceFrame(null, null, Pose.identity);
 		public void Load(MapSpace space) { current = space?.Clone(); savedJson = current == null ? null : JsonUtility.ToJson(current); }
@@ -41,10 +44,11 @@ namespace Anaglyph.LaserTag.Maps
 			if (current == null || !ColocationManager.IsValidMethod(method) || current.preferredColocationMethod == method) return false;
 			current.preferredColocationMethod = method; current.MarkChanged(); return true;
 		}
-		public void ReplaceReferences(MapSpace snapshot, bool authored)
+		public void ApplySnapshot(MapSpace snapshot)
 		{
-			if (current == null || snapshot.id != current.id) throw new InvalidOperationException("Space changed during reference capture.");
-			current = snapshot.Clone(); if (authored) current.MarkChanged();
+			if (current == null || snapshot.id != current.id)
+				throw new InvalidOperationException("The snapshot belongs to another space.");
+			current = snapshot.Clone();
 		}
 		public bool AddMap(GameMap map)
 		{

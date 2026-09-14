@@ -22,6 +22,7 @@ namespace Anaglyph.LaserTag.Interface
 			page.MakeButtonsActOnPress();
 			name = Require<TextField>(page, "space-name-field");
 			reset = Require<Button>(page, "reset-space-alignment");
+			Require<Button>(page, "start-apriltag-setup").EnableInClassList("map-field-hidden", !operatorMode);
 			Alignment = new AlignmentSettingsBinder(Require<VisualElement>(page, "alignment-settings-section"), operatorMode);
 			Alignment.Changed += Refresh;
 			name.RegisterValueChangedCallback(OnNameChanged);

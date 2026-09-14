@@ -64,7 +64,7 @@ Persist the first two in `MapSpace` in storage coordinates; keep the third in a 
 
 **2. Give storage and document editing clear owners**
 
-Add `MapSpaceManager` as the plain document owner for space settings and membership. Keep [MapManager.cs](/Users/jt/source/lasertag/Assets/Anaglyph/LaserTag/Maps/MapManager.cs:12) as the API for editing the selected child map. MapManager saves layout changes through MapStore; MapSpaceManager saves membership/settings through MapSpaceStore. The space owns the membership list, with a derived reverse index enforcing one space per map. Continue returning detached document snapshots; resolve child maps by ID when needed.
+Add `MapSpaceWorkingCopy` as the plain document owner for space settings and membership. Keep [MapWorkingCopy.cs](/Users/jt/source/lasertag/Assets/Anaglyph/LaserTag/Maps/MapWorkingCopy.cs:12) as the API for editing the selected child map. MapWorkingCopy saves layout changes through MapStore; MapSpaceWorkingCopy saves membership/settings through MapSpaceStore. The space owns the membership list, with a derived reverse index enforcing one space per map. Continue returning detached document snapshots; resolve child maps by ID when needed.
 
 Keep [MapStore.cs](/Users/jt/source/lasertag/Assets/Anaglyph/LaserTag/Maps/MapStore.cs) for separate GameMap JSON files and add `MapSpaceStore` for space JSON files. Use a fresh versioned catalog root with sibling `maps/<mapId>.json` and `spaces/<spaceId>.json` directories, so legacy map files cannot be mistaken for the new schema. No legacy migration or grouping is required. Preserve temporary-file replacement and backup recovery for each document.
 
@@ -114,7 +114,7 @@ Expose `CurrentSpace` alongside `CurrentMap`, and separate map-content events, s
 
 An active space may contain zero maps. `NewMap`, `UnloadCurrentMap`, and `EnsureMap` must stop implicitly creating or discarding alignment state. Add space creation/selection/exit commands for the lifecycle controller and operator; headset startup invokes creation automatically, with no manual New space option. Select the last-used map, or create a baseline empty map when entering play requires one. A map-only switch may still hold gameplay while objects are replaced, but it must not restart colocation or imply alignment was lost.
 
-Update [MapWorkflow.cs / MapPolicy](/Users/jt/source/lasertag/Assets/Anaglyph/LaserTag/MapWorkflow.cs) with separate facts for the active space, its established frame, the active map, and the kind of transition. Preserve generation checks for stale async work, adoption retries, disconnect reconstruction, authority changes, round restrictions, and the ability to escape a space switch that never localizes. A timeout releases a transition hold; it never declares a headset aligned.
+Update [MapLifecycle.cs / MapPolicy](/Users/jt/source/lasertag/Assets/Anaglyph/LaserTag/MapLifecycle.cs) with separate facts for the active space, its established frame, the active map, and the kind of transition. Preserve generation checks for stale async work, adoption retries, disconnect reconstruction, authority changes, round restrictions, and the ability to escape a space switch that never localizes. A timeout releases a transition hold; it never declares a headset aligned.
 
 On disconnect, rebuild the last complete adopted layout in its adopted space, as the current workflow does for a map. A network-session change invalidates network work independently of whether the physical space/frame changes.
 
@@ -237,7 +237,7 @@ Authority handoff keeps the committed session space and canonical frame. A newly
 
 Add space/frame/operation context to reference-authoring requests and rejections, including tag registration/removal/size requests. The tag provider's current dictionary requests carry only a tag ID/pose, which is insufficient to distinguish a delayed request for a previous space using the same tag ID. Keep generic providers independent of `GameMap` by accepting an opaque reference-context token from the embedding layer. Preserve the anchor provider's existing assignment/context generation checks.
 
-Keep map identity in [MapObjectDirector.cs](/Users/jt/source/lasertag/Assets/Anaglyph/LaserTag/Maps/MapObjectDirector.cs) requests and add the committed operation/frame context where needed to reject stale edits, including switching away and back to the same map. Update readiness, HUD/connection progress, and gameplay gates without treating a map-only transition as loss of physical alignment.
+Keep map identity in [MapSceneObjectDirector.cs](/Users/jt/source/lasertag/Assets/Anaglyph/LaserTag/Maps/MapSceneObjectDirector.cs) requests and add the committed operation/frame context where needed to reject stale edits, including switching away and back to the same map. Update readiness, HUD/connection progress, and gameplay gates without treating a map-only transition as loss of physical alignment.
 
 Bump the actual NGO protocol version in [Networking.prefab](/Users/jt/source/lasertag/Assets/Anaglyph/LaserTag/Networking.prefab:53), currently 7. This changes several binary payloads; a display/build-number change alone does not establish network compatibility. Verify both LAN distributed authority and the relay path.
 
@@ -245,12 +245,12 @@ Bump the actual NGO protocol version in [Networking.prefab](/Users/jt/source/las
 
 Recommendation: when client A joins host B, associate B's advertised space with an appropriate existing local entry, verify the coordinate relationship, and update that entry's `canonicalFromStorage` and canonical-frame metadata. Existing saved object and reference poses remain unchanged in storage coordinates. Their projected physical locations should remain the same within measured alignment accuracy. Reconciliation must solve both identity and geometry: an offset without a saved association would still produce duplicate spaces later.
 
-The earlier proposal would have walked every object in every saved map and rewritten its pose. A single space offset avoids that work and makes reversal simpler. The current code already provides concentrated boundaries in [MapObjectDirector.cs](/Users/jt/source/lasertag/Assets/Anaglyph/LaserTag/Maps/MapObjectDirector.cs), [MapColocationAdapter.cs](/Users/jt/source/lasertag/Assets/Anaglyph/LaserTag/Maps/MapColocationAdapter.cs), and [MapSessionSync.cs](/Users/jt/source/lasertag/Assets/Anaglyph/LaserTag/Maps/MapSessionSync.cs). Keep gameplay, physics, generic providers, and networked transforms in canonical/world coordinates and adapt these document boundaries.
+The earlier proposal would have walked every object in every saved map and rewritten its pose. A single space offset avoids that work and makes reversal simpler. The current code already provides concentrated boundaries in [MapSceneObjectDirector.cs](/Users/jt/source/lasertag/Assets/Anaglyph/LaserTag/Maps/MapSceneObjectDirector.cs), [MapColocationAdapter.cs](/Users/jt/source/lasertag/Assets/Anaglyph/LaserTag/Maps/MapColocationAdapter.cs), and [MapSessionSync.cs](/Users/jt/source/lasertag/Assets/Anaglyph/LaserTag/Maps/MapSessionSync.cs). Keep gameplay, physics, generic providers, and networked transforms in canonical/world coordinates and adapt these document boundaries.
 
 | Boundary | Conversion and implementation |
 | --- | --- |
-| Saved layout to scene | `MapObjectDirector.Replace`: project each loaded pose through the offset when instantiating. Inactive maps are untouched. |
-| Scene to saved layout | `MapObjectDirector.Capture`: use the inverse offset. Preserve unresolved-prefab entries in storage coordinates. Placing/moving live objects and their network requests continue to use world coordinates. |
+| Saved layout to scene | `MapSceneObjectDirector.Replace`: project each loaded pose through the offset when instantiating. Inactive maps are untouched. |
+| Scene to saved layout | `MapSceneObjectDirector.Capture`: use the inverse offset. Preserve unresolved-prefab entries in storage coordinates. Placing/moving live objects and their network requests continue to use world coordinates. |
 | Saved references to/from providers | `MapSpaceColocationAdapter.Inject`, local-anchor restoration, and all snapshot paths: project stored targets on injection; inverse-project newly captured or imported targets. UUIDs, tag IDs, and physical tag sizes do not transform. |
 | Stored map to/from session DTO | Project on export and inverse-project on adoption. Label wire payloads with the canonical frame/operation; do not interpret a remote device's storage coordinates using this device's offset. |
 
@@ -348,7 +348,7 @@ Use the current working-tree versions as the baseline. There are substantial exi
 
 **12. Acceptance and regression coverage**
 
-Extend the existing tests under [Tests/Editor](/Users/jt/source/lasertag/Assets/Anaglyph/LaserTag/Tests/Editor), especially `MapPersistenceTests`, `MapWorkflowTests`, `ColocationMethodHandoffTests`, `AnchorMinterTests`, `TagAnchorRecoveryTests`, `SystemDeterminedColocationTests`, `TwoAprilTagColocationTests`, `PlayerPresenceTests`, `MapMenuCompositionTests`, `MenuBindingLifetimeTests`, and `TagSizeRulerTests`. Add focused space-discovery and mesh-context tests where no equivalent currently exists.
+Extend the existing tests under [Tests/Editor](/Users/jt/source/lasertag/Assets/Anaglyph/LaserTag/Tests/Editor), especially `MapPersistenceTests`, `MapLifecycleTests`, `ColocationMethodHandoffTests`, `AnchorMinterTests`, `TagAnchorRecoveryTests`, `SystemDeterminedColocationTests`, `TwoAprilTagColocationTests`, `PlayerPresenceTests`, `MapMenuCompositionTests`, `MenuBindingLifetimeTests`, and `TagSizeRulerTests`. Add focused space-discovery and mesh-context tests where no equivalent currently exists.
 
 | Scenario | Required result |
 | --- | --- |

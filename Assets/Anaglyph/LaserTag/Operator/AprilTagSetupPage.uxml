@@ -1,0 +1,35 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/AprilTagSetup.uss?fileID=7433441132597879392&amp;guid=690749010bfe496d9943e399fdf472f0&amp;type=3#AprilTagSetup"/>
+    <ui:VisualElement class="page-template-root">
+        <Anaglyph.Menu.NavHeader><Bindings><UnityEngine.Localization.LocalizedString property="Title" table="GameMenu" entry="tag-setup.title"/></Bindings></Anaglyph.Menu.NavHeader>
+        <ui:Label name="setup-space" class="body-copy"/>
+        <ui:Label name="setup-step" class="tag-setup-step"/>
+        <ui:Label name="setup-address" class="tag-setup-address tag-setup-hidden"/>
+        <ui:ScrollView class="tag-setup-scroll">
+            <ui:VisualElement name="setup-print">
+                <ui:Label class="body-copy"><Bindings><UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="tag-setup.print"/></Bindings></ui:Label>
+                <ui:Button name="setup-print-link"><Bindings><UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="tag-setup.print-link"/></Bindings></ui:Button>
+                <ui:Label class="body-copy"><Bindings><UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="tag-setup.place"/></Bindings></ui:Label>
+            </ui:VisualElement>
+            <ui:VisualElement name="setup-connect" class="tag-setup-hidden">
+                <ui:Label class="body-copy"><Bindings><UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="tag-setup.connect"/></Bindings></ui:Label>
+                <ui:Label class="body-copy"><Bindings><UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="tag-setup.use-headset"/></Bindings></ui:Label>
+            </ui:VisualElement>
+            <ui:VisualElement name="setup-review" class="tag-setup-hidden">
+                <ui:Label class="body-copy"><Bindings><UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="tag-setup.review"/></Bindings></ui:Label>
+                <ui:Label name="setup-tags" class="body-copy"/>
+                <ui:Button name="setup-focus-tags"><Bindings><UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="tag-setup.focus-tags"/></Bindings></ui:Button>
+                <ui:Toggle name="setup-confirm" class="tag-setup-confirm"><Bindings><UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="tag-setup.confirm"/></Bindings></ui:Toggle>
+                <ui:Label class="body-copy"><Bindings><UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="tag-setup.finish-note"/></Bindings></ui:Label>
+            </ui:VisualElement>
+            <ui:Label name="setup-status" class="body-copy"/>
+            <ui:Label name="setup-error" class="warning"/>
+        </ui:ScrollView>
+        <ui:VisualElement class="tag-setup-actions">
+            <ui:Button name="setup-back"><Bindings><UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="tag-setup.back"/></Bindings></ui:Button>
+            <ui:Button name="setup-next"><Bindings><UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="tag-setup.next"/></Bindings></ui:Button>
+            <ui:Button name="setup-finish" class="tag-setup-hidden"><Bindings><UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="tag-setup.finish"/></Bindings></ui:Button>
+        </ui:VisualElement>
+        <ui:Button name="setup-cancel"><Bindings><UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="tag-setup.cancel"/></Bindings></ui:Button>
+    </ui:VisualElement>
+</ui:UXML>

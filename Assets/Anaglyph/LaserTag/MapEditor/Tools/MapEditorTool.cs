@@ -37,6 +37,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		public static Mode CurrentMode { get; private set; }
 		public static MapObject SelectedObject { get; private set; }
 		public static event Action<Mode> ModeChanged = delegate { };
+		public static event Action<float> TagSizeMeasured = delegate { };
 
 		public static MapEditorTool DominantHand;
 
@@ -47,6 +48,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			CurrentMode = Mode.Move;
 			SelectedObject = null;
 			ModeChanged = delegate { };
+			TagSizeMeasured = delegate { };
 			DominantHand = null;
 			MeasurementHint = null;
 		}
@@ -402,7 +404,10 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			}
 
 			if (LaserTagMapCoordinator.Instance.SetTagSize(centimeters))
+			{
+				TagSizeMeasured.Invoke(centimeters);
 				SetMode(Mode.Tags);
+			}
 		}
 
 		// ------- per-frame ---------------------------------------
