@@ -143,8 +143,7 @@ MonoBehaviour:
   placeInputBinding: OnFire
   rotationSpeed: 300
   distanceSpeed: 3
-  aimMaxAngleDegrees: 10
-  observationLifetime: 5
+  measurementTipDistance: 0.08
   handSubject: {fileID: 4690625453757267056}
   lineRenderer: {fileID: 7151539148833430239}
 --- !u!120 &7151539148833430239
@@ -384,8 +383,7 @@ MonoBehaviour:
   placeInputBinding: OnFire
   rotationSpeed: 300
   distanceSpeed: 3
-  aimMaxAngleDegrees: 10
-  observationLifetime: 5
+  measurementTipDistance: 0.08
   handSubject: {fileID: 4269192228584513475}
   lineRenderer: {fileID: 6259261133466939747}
 --- !u!120 &6259261133466939747
@@ -684,6 +682,68 @@ MonoBehaviour:
   m_EditorClassIdentifier: Anaglyph.Input::Anaglyph.Input.HandMover
   handSubject: {fileID: 8207893101650581033}
   usePointPose: 0
+--- !u!1001 &1647609029522018582
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 5708129311068832725}
+    m_Modifications:
+    - target: {fileID: 1595266721863862882, guid: 817753ade73944da9a3401cda06c057c, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1595266721863862882, guid: 817753ade73944da9a3401cda06c057c, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1.4
+      objectReference: {fileID: 0}
+    - target: {fileID: 1595266721863862882, guid: 817753ade73944da9a3401cda06c057c, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1595266721863862882, guid: 817753ade73944da9a3401cda06c057c, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1595266721863862882, guid: 817753ade73944da9a3401cda06c057c, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1595266721863862882, guid: 817753ade73944da9a3401cda06c057c, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1595266721863862882, guid: 817753ade73944da9a3401cda06c057c, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1595266721863862882, guid: 817753ade73944da9a3401cda06c057c, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1595266721863862882, guid: 817753ade73944da9a3401cda06c057c, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1595266721863862882, guid: 817753ade73944da9a3401cda06c057c, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6545356426890864342, guid: 817753ade73944da9a3401cda06c057c, type: 3}
+      propertyPath: m_Name
+      value: MapEditorControlsHUD
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 817753ade73944da9a3401cda06c057c, type: 3}
+--- !u!4 &71772886893878132 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1595266721863862882, guid: 817753ade73944da9a3401cda06c057c, type: 3}
+  m_PrefabInstance: {fileID: 1647609029522018582}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &2770341069827081544
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1010,7 +1070,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7254734392762225021, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       propertyPath: m_Name
-      value: Lasertag XR Rig
+      value: Lasertag XR Mode
       objectReference: {fileID: 0}
     m_RemovedComponents:
     - {fileID: 2425337985288985396, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
@@ -1042,6 +1102,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 8767311771694048704, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 3354283358237559018}
+    - targetCorrespondingSourceObject: {fileID: 8767311771694048704, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 71772886893878132}
     - targetCorrespondingSourceObject: {fileID: 8767311771694048704, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 804381795132305301}
@@ -1927,7 +1990,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a1f3341a9a1dd40bf88522a84e26a835, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.DepthPermissionController
 --- !u!4 &5708129311068832725 stripped
 Transform:
@@ -1952,6 +2015,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   redDamagedVision: 1
+  damageFlashDuration: 0.25
+  damageFlashStrength: 0.75
 --- !u!114 &7958624712871393461
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2252,11 +2317,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6454082589010525323, guid: 6871ee6b4bbc4477a99bf46b94860e2f, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 1
+      value: 0.7071068
       objectReference: {fileID: 0}
     - target: {fileID: 6454082589010525323, guid: 6871ee6b4bbc4477a99bf46b94860e2f, type: 3}
       propertyPath: m_LocalRotation.x
-      value: -0
+      value: -0.70710677
       objectReference: {fileID: 0}
     - target: {fileID: 6454082589010525323, guid: 6871ee6b4bbc4477a99bf46b94860e2f, type: 3}
       propertyPath: m_LocalRotation.y
@@ -2268,7 +2333,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6454082589010525323, guid: 6871ee6b4bbc4477a99bf46b94860e2f, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
+      value: -90
       objectReference: {fileID: 0}
     - target: {fileID: 6454082589010525323, guid: 6871ee6b4bbc4477a99bf46b94860e2f, type: 3}
       propertyPath: m_LocalEulerAnglesHint.y

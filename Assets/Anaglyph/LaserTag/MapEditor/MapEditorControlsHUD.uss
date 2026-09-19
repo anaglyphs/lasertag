@@ -1,0 +1,14 @@
+.editor-controls-panel {
+    flex-grow: 0;
+	flex-shrink: 1;
+}
+
+.editor-controls__title {
+    -unity-font-definition: resource("Fonts/DINish-Bold SDF");
+    margin-bottom: 8px;
+    white-space: normal;
+}
+
+.editor-controls__bindings {
+    white-space: normal;
+}

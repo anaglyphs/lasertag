@@ -21,7 +21,7 @@ Shader "Anaglyph/Debug/Flat Normals"
 				"LightMode" = "UniversalForward"
 			}
 
-			Cull Off
+			Cull Back
 			ZWrite True
 
 			HLSLPROGRAM

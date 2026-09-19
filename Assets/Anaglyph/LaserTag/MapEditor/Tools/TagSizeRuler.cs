@@ -106,7 +106,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 				return;
 			}
 			label.transform.SetPositionAndRotation(midpoint + rotation * Vector3.up * 0.015f, rotation);
-			label.text = MenuCopy.Format("Game", "ruler.length", LengthCm(worldTip));
+			label.text = MenuCopy.Format("Map", "ruler.length", LengthCm(worldTip));
 		}
 
 		private static void DrawDot(LineRenderer dot, Vector3 point, Vector3 up)

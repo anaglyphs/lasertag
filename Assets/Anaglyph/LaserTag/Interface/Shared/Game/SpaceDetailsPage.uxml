@@ -5,13 +5,12 @@
     <ui:VisualElement class="page-template-root">
         <Anaglyph.Menu.NavHeader>
             <Bindings>
-                <UnityEngine.Localization.LocalizedString property="Title" table="GameMenu" entry="space.details"/>
+                <UnityEngine.Localization.LocalizedString property="Title" table="Map" entry="space.details"/>
             </Bindings>
         </Anaglyph.Menu.NavHeader>
         <ui:ScrollView class="map-settings-scroll">
             <ui:TextField name="space-name-field" keyboard-type="Default" class="stacked-field"/>
             <ui:Instance template="AlignmentSettings"/>
-            <ui:Button name="start-apriltag-setup" class="map-field-hidden"><Bindings><UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="tag-setup.start"/></Bindings></ui:Button>
             <ui:Button name="reset-space-alignment" class="destructive"/>
         </ui:ScrollView>
     </ui:VisualElement>

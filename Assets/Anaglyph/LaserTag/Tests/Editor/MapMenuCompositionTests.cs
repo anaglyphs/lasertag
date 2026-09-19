@@ -5,6 +5,7 @@ using Anaglyph.LaserTag.Interface;
 using Anaglyph.LaserTag.MapEditor;
 using Anaglyph.LaserTag.MapEditor.Tools;
 using Anaglyph.LaserTag.Maps;
+using Anaglyph.LaserTag.Operator;
 using Anaglyph.Menu;
 using NUnit.Framework;
 using UnityEditor;
@@ -100,10 +101,14 @@ namespace Anaglyph.LaserTag.Tests
 			}
 			Assert.That(desktop.Q("tag-configuration-section")?.Q<Slider>("tag-size-slider"), Is.Not.Null);
 			Assert.That(desktop.Q("tag-configuration-section")?.Q<Button>("unregister-all-tags-button"), Is.Not.Null);
-			Assert.That(headset.Q("tag-configuration-section").ClassListContains("map-field-hidden"), Is.True);
 			foreach (string control in new[] { "measure-tag-size-button", "tag-measurement-hint", "map-editing-nav" })
 				Assert.That(desktop.Q(control), Is.Null, "Desktop must not instantiate " + control);
 			Assert.That(palette.Q<Slider>("tag-size-slider"), Is.Not.Null);
+			Assert.That(palette.Q("tag-setup-guide"), Is.Null);
+			Assert.That(palette.Q<NavPage>("measure-tag-size-page").Q<Slider>("tag-size-slider"), Is.Not.Null);
+			Assert.That(palette.Q<NavPage>("tags-page").Q<Slider>("tag-size-slider"), Is.Not.Null);
+			Assert.That(palette.Q<NavPage>("measure-tag-size-page").Q<Button>("continue-tag-registration"), Is.Not.Null);
+			Assert.That(palette.Q<NavPage>("tags-page").Q<Button>("tag-setup-back"), Is.Not.Null);
 			Assert.That(palette.Q<Button>("measure-tag-size-button"), Is.Not.Null);
 			Assert.That(palette.Q<Button>("unregister-all-tags-button"), Is.Not.Null);
 			var done = palette.Q<Button>("done-button");
@@ -132,6 +137,56 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(root.Q<ScrollView>(className: "operator-map-catalog-scroll"), Is.Null);
 			Assert.That(mapList.contentContainer.layout.height, Is.GreaterThan(mapList.contentViewport.layout.height));
 			Assert.That(root.Q("new-map-button").worldBound.yMax, Is.LessThanOrEqualTo(root.Q<NavPage>("maps-page").worldBound.yMax + 1));
+		}
+
+		[Test]
+		public void WizardVisibilityOverridesUIBuilderDisplaySettings()
+		{
+			Assert.That(LaserTagMapCoordinator.Instance, Is.Null);
+			var root = Load("Assets/Anaglyph/LaserTag/Operator/OperatorMenu.uxml");
+			var navigation = root.Q<NavView>("maps-nav");
+			var page = navigation.GetPage("apriltag-setup-page");
+			string[] steps = { "setup-print", "setup-connect", "setup-review" };
+			foreach (string name in steps.Concat(new[] { "setup-address", "setup-back", "setup-next", "setup-finish" }))
+			{
+				page.Q(name).RemoveFromClassList("tag-setup-hidden");
+				page.Q(name).style.display = DisplayStyle.Flex;
+			}
+			using var wizard = new AprilTagSetupWizard(navigation, () => { });
+			for (int step = 0; step < steps.Length; step++)
+			{
+				foreach (string name in steps) page.Q(name).style.display = DisplayStyle.None;
+				typeof(AprilTagSetupWizard).GetField("step", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(wizard, step);
+				wizard.Refresh();
+				for (int i = 0; i < steps.Length; i++)
+					Assert.That(page.Q(steps[i]).style.display.value, Is.EqualTo(i == step ? DisplayStyle.Flex : DisplayStyle.None));
+				Assert.That(page.Q("setup-address").style.display.value, Is.EqualTo(step == 1 ? DisplayStyle.Flex : DisplayStyle.None));
+				Assert.That(page.Q("setup-back").style.display.value, Is.EqualTo(step == 0 ? DisplayStyle.None : DisplayStyle.Flex));
+				Assert.That(page.Q("setup-next").style.display.value, Is.EqualTo(step == 2 ? DisplayStyle.None : DisplayStyle.Flex));
+				Assert.That(page.Q("setup-finish").style.display.value, Is.EqualTo(step == 2 ? DisplayStyle.Flex : DisplayStyle.None));
+			}
+		}
+
+		[TestCase(true)]
+		[TestCase(false)]
+		public void MapControlsOverrideUIBuilderDisplaySettingsWhenBound(bool operatorMode)
+		{
+			Assert.That(LaserTagMapCoordinator.Instance, Is.Null);
+			var root = Load("Assets/Anaglyph/LaserTag/Operator/OperatorMenu.uxml");
+			var page = root.Q<NavPage>("space-details");
+			page.Q("start-apriltag-setup").style.display = operatorMode ? DisplayStyle.None : DisplayStyle.Flex;
+			page.Q("tag-configuration-section").style.display = DisplayStyle.Flex;
+			using var details = new SpaceDetailsBinder(page, operatorMode);
+			Assert.That(page.Q("start-apriltag-setup").style.display.value, Is.EqualTo(DisplayStyle.None));
+			Assert.That(page.Q("tag-configuration-section").style.display.value, Is.EqualTo(DisplayStyle.None));
+			root.Q("new-space-button").style.display = operatorMode ? DisplayStyle.None : DisplayStyle.Flex;
+			root.Q("probe-maps-button").style.display = DisplayStyle.Flex;
+			using var picker = new MapPickerBinder(operatorMode);
+			picker.Bind(root.Q("map-catalog-section"), () => { }, () => { });
+			Assert.That(root.Q("new-space-button").style.display.value, Is.EqualTo(operatorMode ? DisplayStyle.Flex : DisplayStyle.None));
+			Assert.That(root.Q("probe-maps-button").style.display.value, Is.EqualTo(DisplayStyle.None));
+			using var probe = new MapProbeBinder(root.Q<Button>("probe-maps-button"));
+			Assert.That(root.Q("probe-maps-button").style.display.value, Is.EqualTo(DisplayStyle.Flex));
 		}
 
 		[TestCase(MapEditorTool.Mode.Move, "objects-page")]
@@ -181,9 +236,9 @@ namespace Anaglyph.LaserTag.Tests
 			var settings = navigation.GetPage("space-details");
 			using var spaceBinder = new SpaceDetailsBinder(settings, operatorMode: true);
 			navigation.GoToPage(settings);
-			using var errors = new MenuErrorPresenter(UserErrorArea.Game);
+			using var errors = new MenuErrorPresenter(MenuErrorArea.Game);
 			errors.Bind(navigation);
-			UserErrors.Raise(UserErrorArea.Game, "Alignment change unavailable", "Test detail");
+			errors.Show(new MenuError(MenuErrorArea.Game, "Alignment change unavailable", "Test detail"));
 			Assert.That(navigation.CurrentPage.name, Is.EqualTo("error-modal"));
 			for (int i = 0; i < 2; i++) yield return null;
 			var dismiss = navigation.CurrentPage.Q<Button>("dismiss-error-button");
@@ -371,9 +426,12 @@ namespace Anaglyph.LaserTag.Tests
 				using var details = new SpaceDetailsBinder(page);
 				headset.Q<NavView>().GoToPage(page);
 				Assert.That(details.Alignment.UsesTags, Is.True);
-				Assert.That(headset.Q("tag-configuration-section").ClassListContains("map-field-hidden"), Is.True);
-				Assert.That(headset.Q("choose-two-tag-pair").ClassListContains("map-field-hidden"),
-					Is.EqualTo(method != ColocationManager.ColocationMethod.TwoAprilTags));
+				Assert.That(headset.Q("tag-configuration-section").style.display.value,
+					Is.EqualTo(method == ColocationManager.ColocationMethod.AprilTag ? DisplayStyle.Flex : DisplayStyle.None));
+				Assert.That(headset.Q("tag-configuration-section").Q<Button>("start-apriltag-setup"), Is.Not.Null);
+				Assert.That(headset.Q<Slider>("tag-size-slider").style.display.value, Is.EqualTo(DisplayStyle.None));
+				Assert.That(headset.Q("choose-two-tag-pair").style.display.value,
+					Is.EqualTo(method != ColocationManager.ColocationMethod.TwoAprilTags ? DisplayStyle.None : DisplayStyle.Flex));
 				var palette = Load("Assets/Anaglyph/LaserTag/MapEditor/MapEditorPalette.uxml");
 				Assert.That(palette.Q<NavPage>("tags-page").Q<Slider>("tag-size-slider"), Is.Not.Null);
 				Assert.That(palette.Q<NavPage>("tags-page").Q<Button>("measure-tag-size-button"), Is.Not.Null);
@@ -394,10 +452,10 @@ namespace Anaglyph.LaserTag.Tests
 		{
 			Assert.That(field.choices, Is.EqualTo(new[]
 			{
-				MenuCopy.Get("Game", "alignment.anchors"),
-				MenuCopy.Get("Game", "alignment.tags"),
-				MenuCopy.Get("Game", "alignment.system"),
-				MenuCopy.Get("Game", "alignment.two-tags")
+				MenuCopy.Get("Map", "alignment.anchors"),
+				MenuCopy.Get("Map", "alignment.tags"),
+				MenuCopy.Get("Map", "alignment.system"),
+				MenuCopy.Get("Map", "alignment.two-tags")
 			}));
 		}
 	}

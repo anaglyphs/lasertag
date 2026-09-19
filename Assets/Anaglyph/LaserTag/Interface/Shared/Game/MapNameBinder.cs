@@ -37,7 +37,7 @@ namespace Anaglyph.LaserTag.Interface
 		{
 			LaserTagMapCoordinator manager = LaserTagMapCoordinator.Instance;
 			string blocker = manager != null ? manager.DescribeRenameBlocker()
-				: MenuCopy.Get("Game", "maps.unavailable");
+				: MenuCopy.Get("Map", "maps.unavailable");
 			field.SetEnabled(blocker == null);
 			note.text = blocker ?? "";
 			note.style.display = blocker == null ? DisplayStyle.None : DisplayStyle.Flex;

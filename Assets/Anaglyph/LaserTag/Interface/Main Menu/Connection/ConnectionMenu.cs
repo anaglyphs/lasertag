@@ -123,7 +123,7 @@ namespace Anaglyph.LaserTag.Interface
 		// an error raised while this panel is hidden still has to reach the user.
 		private void Awake()
 		{
-			errors = new MenuErrorPresenter(UserErrorArea.Connection);
+			errors = new MenuErrorPresenter(MenuErrorArea.Connection);
 			sessionDiscoveryController =
 				GetComponentInParent<SessionDiscoveryController>();
 			if (sessionDiscoveryController == null)
@@ -209,7 +209,7 @@ namespace Anaglyph.LaserTag.Interface
 					: "discovery.preparing";
 			if (key == shownDiscoveryKey) return;
 			shownDiscoveryKey = key;
-			sessionDiscoveryStatus.text = MenuCopy.Get("Connection", key);
+			sessionDiscoveryStatus.text = MenuCopy.Get("ConnectionMenu", key);
 		}
 
 		private void OnHostOnRelaySettingChange(bool value)
@@ -294,7 +294,7 @@ namespace Anaglyph.LaserTag.Interface
 			Type transportType = transport.GetType();
 			if (string.Equals(transportType.Name, "DistributedAuthorityTransport"))
 			{
-				sessionIpText.text = MenuCopy.Format("Connection", "session.relay", NetcodeManagement.CurrentSessionName);
+				sessionIpText.text = MenuCopy.Format("ConnectionMenu", "session.relay", NetcodeManagement.CurrentSessionName);
 			}
 			else if (transport is UnityTransport unityTransport)
 			{
@@ -316,18 +316,18 @@ namespace Anaglyph.LaserTag.Interface
 			switch (state)
 			{
 				case SessionState.Connecting:
-					sessionStateText.text = MenuCopy.Get("Connection", "session.connecting");
+					sessionStateText.text = MenuCopy.Get("ConnectionMenu", "session.connecting");
 					break;
 
 				case SessionState.Colocating:
-					sessionStateText.text = MenuCopy.Get("Connection", "session.aligning");
+					sessionStateText.text = MenuCopy.Get("ConnectionMenu", "session.aligning");
 					break;
 
 				case SessionState.Connected:
 					sessionStateText.text =
 						Manager != null && Manager.CurrentSessionOwner == Manager.LocalClientId
-							? MenuCopy.Get("Connection", "session.hosting")
-							: MenuCopy.Get("Connection", "session.connected");
+							? MenuCopy.Get("ConnectionMenu", "session.hosting")
+							: MenuCopy.Get("ConnectionMenu", "session.connected");
 					break;
 			}
 

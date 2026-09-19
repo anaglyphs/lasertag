@@ -1,0 +1,7 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+    <ui:VisualElement name="editor-controls-panel" picking-mode="Ignore" class="editor-controls editor-controls--hidden menu-root game-panel" style="display: flex; flex-grow: 0; top: 50%; translate: 0 -50%;">
+        <ui:Label name="controls-title" picking-mode="Ignore" text="title" class="editor-controls__title title"/>
+        <ui:Label name="controls-bindings" picking-mode="Ignore" text="controls" class="editor-controls__bindings"/>
+    </ui:VisualElement>
+</ui:UXML>

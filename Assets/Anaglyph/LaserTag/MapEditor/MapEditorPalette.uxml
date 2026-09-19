@@ -5,12 +5,6 @@
     <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle" />
     <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/AprilTagSetup.uss?fileID=7433441132597879392&amp;guid=690749010bfe496d9943e399fdf472f0&amp;type=3#AprilTagSetup"/>
     <ui:VisualElement picking-mode="Ignore" class="page-template-root">
-        <ui:VisualElement name="tag-setup-guide" class="tag-setup-guide tag-setup-hidden" picking-mode="Ignore">
-            <ui:Label class="title"><Bindings><UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="tag-setup.title"/></Bindings></ui:Label>
-            <ui:Label name="tag-setup-instructions" class="body-copy"/>
-            <ui:Label name="tag-setup-progress" class="body-copy"/>
-            <ui:Label class="body-copy"><Bindings><UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="tag-setup.headset-finish"/></Bindings></ui:Label>
-        </ui:VisualElement>
         <ui:Label name="editing-context" class="body-copy"/>
         <Anaglyph.Menu.NavView name="palette-nav">
             <Anaglyph.Menu.NavPage name="objects-page" show-back-button="false">
@@ -25,7 +19,7 @@
         </Anaglyph.Menu.NavView>
         <ui:Button name="done-button" class="palette-done">
             <Bindings>
-                <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMapEditingPage.finish-editing-button.text" />
+                <UnityEngine.Localization.LocalizedString property="text" table="Map" entry="GameMapEditingPage.finish-editing-button.text" />
             </Bindings>
         </ui:Button>
     </ui:VisualElement>

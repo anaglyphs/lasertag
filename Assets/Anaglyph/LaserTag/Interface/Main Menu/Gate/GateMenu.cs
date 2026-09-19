@@ -295,7 +295,7 @@ namespace Anaglyph.LaserTag.Interface
 			if (statusLabel == null)
 				return;
 
-			statusLabel.text = MenuCopy.Get("Gate", statusKey) ?? "";
+			statusLabel.text = MenuCopy.Get("GateMenu", statusKey) ?? "";
 			statusLabel.style.display =
 				string.IsNullOrEmpty(statusKey)
 					? DisplayStyle.None

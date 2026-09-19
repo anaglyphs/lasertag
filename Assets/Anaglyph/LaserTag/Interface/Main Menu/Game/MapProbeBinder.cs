@@ -18,7 +18,7 @@ namespace Anaglyph.LaserTag.Interface
 		{
 			this.probeButton = probeButton ?? throw new ArgumentNullException(nameof(probeButton));
 			probeButton.MakeActOnPress();
-			probeButton.EnableInClassList("map-field-hidden", false);
+			probeButton.style.display = DisplayStyle.Flex;
 			probeButton.clicked += Probe;
 			MenuCopy.Changed += Refresh;
 			Refresh();
@@ -65,13 +65,13 @@ namespace Anaglyph.LaserTag.Interface
 			bindingCancellation.Cancel();
 			bindingCancellation.Dispose();
 			probeButton.clicked -= Probe;
-			probeButton.EnableInClassList("map-field-hidden", true);
+			probeButton.style.display = DisplayStyle.None;
 			MenuCopy.Changed -= Refresh;
 		}
 
 		private void Refresh()
 		{
-			probeButton.text = MenuCopy.Get("Game", probing ? "maps.checking" : "maps.check");
+			probeButton.text = MenuCopy.Get("Map", probing ? "maps.checking" : "maps.check");
 			probeButton.SetEnabled(!probing);
 		}
 	}

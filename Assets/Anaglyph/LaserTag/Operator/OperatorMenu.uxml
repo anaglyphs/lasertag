@@ -42,7 +42,7 @@
                         <Bindings>
                             <UnityEngine.Localization.LocalizedString property="label" table="OperatorMenu" entry="maps-tab.label"/>
                         </Bindings>
-                        <Anaglyph.Menu.NavView name="maps-nav" first-page="maps-page">
+                        <Anaglyph.Menu.NavView name="maps-nav" first-page="maps-page" tabindex="2">
                             <Anaglyph.Menu.NavPage name="maps-page">
                                 <ui:Instance template="OperatorMapsPage"/>
                             </Anaglyph.Menu.NavPage>

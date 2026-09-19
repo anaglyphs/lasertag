@@ -28,7 +28,7 @@ namespace Anaglyph.LaserTag.Interface
 
 		private MatchReferee Referee => MatchReferee.Instance;
 
-		private void Awake() => errors = new MenuErrorPresenter(UserErrorArea.Game);
+		private void Awake() => errors = new MenuErrorPresenter(MenuErrorArea.Game);
 		private void OnDestroy() => errors?.Dispose();
 
 		private void InitializeUI()

@@ -1,0 +1,8 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:VisualElement name="tag-size-field">
+        <ui:Slider name="tag-size-slider" low-value="1" high-value="50" show-input-field="true" class="stacked-field">
+            <Bindings><UnityEngine.Localization.LocalizedString property="label" table="Map" entry="GameMapAlignmentPage.tag-size-slider.label"/></Bindings>
+        </ui:Slider>
+        <ui:Label name="tag-size-note" class="warning"/>
+    </ui:VisualElement>
+</ui:UXML>

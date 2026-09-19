@@ -4,7 +4,7 @@
     <ui:VisualElement name="map-name-section" class="map-field-section">
         <ui:TextField name="map-name-field" max-length="40" keyboard-type="Default" class="stacked-field">
             <Bindings>
-                <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMapEditingPage.map-name-field.label"/>
+                <UnityEngine.Localization.LocalizedString property="label" table="Map" entry="GameMapEditingPage.map-name-field.label"/>
             </Bindings>
         </ui:TextField>
         <ui:Label name="map-name-note" class="warning"/>

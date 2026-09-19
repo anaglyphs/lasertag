@@ -202,7 +202,7 @@ namespace Anaglyph.LaserTag.Interface.HUD
 
 			shownRound = round;
 			shownNumRounds = numRounds;
-			roundLabel.text = MenuCopy.Format("HUD", "match.round", round, numRounds);
+			roundLabel.text = MenuCopy.Format("HUDMenu", "match.round", round, numRounds);
 		}
 
 		private void SetTimerText(string timerString)

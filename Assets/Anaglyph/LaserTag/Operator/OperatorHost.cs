@@ -58,10 +58,10 @@ namespace Anaglyph.LaserTag.Operator
 				// way as MultiplayerMenu rather than casting to an inaccessible type.
 				if (string.Equals(currentTransport.GetType().Name,
 					    "DistributedAuthorityTransport", StringComparison.Ordinal))
-					return MenuCopy.Format("Operator", "address.relay", NetcodeManagement.CurrentSessionName);
+					return MenuCopy.Format("OperatorMenu", "address.relay", NetcodeManagement.CurrentSessionName);
 
 				if (currentTransport is UnityTransport unityTransport)
-					return MenuCopy.Format("Operator", "address.lan", unityTransport.ConnectionData.Address);
+					return MenuCopy.Format("OperatorMenu", "address.lan", unityTransport.ConnectionData.Address);
 
 				return currentTransport.GetType().Name;
 			}
@@ -91,20 +91,20 @@ namespace Anaglyph.LaserTag.Operator
 
 			if (NetcodeManagement.State != NetcodeState.Disconnected)
 			{
-				error = MenuCopy.String("Operator", "error.already-hosting");
+				error = MenuCopy.String("OperatorMenu", "error.already-hosting");
 				return false;
 			}
 
 			if (NetworkManager.Singleton == null)
 			{
-				error = MenuCopy.String("Operator", "error.network-unavailable");
+				error = MenuCopy.String("OperatorMenu", "error.network-unavailable");
 				return false;
 			}
 
 			ColocationManager colocation = ColocationManager.Instance;
 			if (colocation == null)
 			{
-				error = MenuCopy.String("Operator", "error.colocation-unavailable");
+				error = MenuCopy.String("OperatorMenu", "error.colocation-unavailable");
 				return false;
 			}
 
@@ -113,7 +113,7 @@ namespace Anaglyph.LaserTag.Operator
 			if (colocation.PreferredSessionMethod == ColocationManager.ColocationMethod.AprilTag &&
 				colocation.TagProvider == null)
 			{
-				error = MenuCopy.String("Operator", "error.tags-unavailable");
+				error = MenuCopy.String("OperatorMenu", "error.tags-unavailable");
 				return false;
 			}
 
@@ -126,7 +126,7 @@ namespace Anaglyph.LaserTag.Operator
 			}
 			catch (Exception exception)
 			{
-				error = MenuCopy.String("Operator", "error.host-start", exception.Message);
+				error = MenuCopy.String("OperatorMenu", "error.host-start", exception.Message);
 				Debug.LogException(exception);
 				return false;
 			}

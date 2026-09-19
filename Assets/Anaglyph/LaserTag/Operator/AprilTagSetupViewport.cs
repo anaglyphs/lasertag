@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using Anaglyph.LaserTag.Maps;
+using Anaglyph.Rendering;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -8,19 +10,22 @@ namespace Anaglyph.LaserTag.Operator
 	{
 		private Camera camera;
 		private MapSpace space;
-		private readonly Vector3[] corners = new Vector3[4];
-		public AprilTagSetupViewport()
+		private readonly Material tagIndicatorMaterial;
+		private readonly IndicatorRenderer indicators = new();
+		private readonly List<(int id, string text, Vector2 position)> labels = new();
+		public AprilTagSetupViewport(Material tagIndicatorMaterial)
 		{
+			this.tagIndicatorMaterial = tagIndicatorMaterial;
 			pickingMode = PickingMode.Ignore;
 			AddToClassList("tag-setup-viewport");
-			generateVisualContent += Draw;
+			generateVisualContent += DrawLabels;
 		}
 
 		public void Refresh(Camera camera, MapSpace space)
 		{
 			this.camera = camera;
 			this.space = space;
-			MarkDirtyRepaint();
+			DrawIndicators();
 		}
 
 		public void FocusTags()
@@ -43,38 +48,49 @@ namespace Anaglyph.LaserTag.Operator
 			return projected.z > camera.nearClipPlane;
 		}
 
-		private void Draw(MeshGenerationContext context)
+		private void DrawIndicators()
 		{
-			if (!camera || space == null || contentRect.width <= 0 || contentRect.height <= 0) return;
-			var painter = context.painter2D;
-			painter.lineWidth = 2;
-			float halfSize = space.tagSizeCm * .005f;
-			foreach (var tag in space.tags)
+			int labelCount = 0;
+			bool labelsChanged = false;
+			if (camera && space != null && panel != null && visible && resolvedStyle.display != DisplayStyle.None &&
+				contentRect.width > 0 && contentRect.height > 0)
 			{
-				Pose pose = space.Frame.ToCanonical(tag.canonPose);
-				Vector3 right = pose.rotation * Vector3.right * halfSize;
-				Vector3 up = pose.rotation * Vector3.up * halfSize;
-				corners[0] = pose.position - right - up;
-				corners[1] = pose.position + right - up;
-				corners[2] = pose.position + right + up;
-				corners[3] = pose.position - right + up;
-				bool visible = true;
-				for (int i = 0; i < corners.Length; i++) visible &= Project(corners[i], out _);
-				if (!visible || !Project(pose.position, out var center)) continue;
-				painter.strokeColor = Color.cyan;
-				painter.BeginPath();
-				Project(corners[0], out var first);
-				painter.MoveTo(first);
-				for (int i = 1; i < corners.Length; i++) { Project(corners[i], out var point); painter.LineTo(point); }
-				painter.ClosePath();
-				painter.Stroke();
-				if (Project(pose.position + pose.rotation * Vector3.forward * Mathf.Max(.15f, halfSize), out var normal))
+				Vector3 scale = Vector3.one * (space.tagSizeCm * .03f);
+				Quaternion quadRotation = Quaternion.Euler(90, 0, 0);
+				foreach (var tag in space.tags)
 				{
-					painter.strokeColor = Color.yellow;
-					painter.BeginPath(); painter.MoveTo(center); painter.LineTo(normal); painter.Stroke();
+					Pose pose = space.Frame.ToCanonical(tag.canonPose);
+					Matrix4x4 transform = Matrix4x4.TRS(pose.position, pose.rotation * quadRotation, scale);
+					indicators.DrawQuad(camera, tagIndicatorMaterial, transform, Color.cyan);
+					if (!Project(pose.position, out var center)) continue;
+
+					Vector2 labelPosition = center + new Vector2(8, -28);
+					if (labelCount == labels.Count)
+					{
+						labels.Add((tag.id, "#" + tag.id, labelPosition));
+						labelsChanged = true;
+					}
+					else if (labels[labelCount].id != tag.id || labels[labelCount].position != labelPosition)
+					{
+						string text = labels[labelCount].id == tag.id ? labels[labelCount].text : "#" + tag.id;
+						labels[labelCount] = (tag.id, text, labelPosition);
+						labelsChanged = true;
+					}
+					labelCount++;
 				}
-				context.DrawText("#" + tag.id, center + new Vector2(8, -28), 28, Color.white);
 			}
+			if (labels.Count > labelCount)
+			{
+				labels.RemoveRange(labelCount, labels.Count - labelCount);
+				labelsChanged = true;
+			}
+			if (labelsChanged) MarkDirtyRepaint();
+		}
+
+		private void DrawLabels(MeshGenerationContext context)
+		{
+			foreach (var label in labels)
+				context.DrawText(label.text, label.position, 28, Color.white);
 		}
 	}
 }

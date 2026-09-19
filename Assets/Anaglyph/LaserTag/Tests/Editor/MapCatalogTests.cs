@@ -336,7 +336,7 @@ namespace Anaglyph.LaserTag.Tests
 			MapEditor.MapEditor.TagRegistrationRequested += register;
 			details.Alignment.Changing += changing;
 			details.Alignment.Changed += changed;
-			using var errors = new MenuErrorPresenter(UserErrorArea.Game);
+			using var errors = new MenuErrorPresenter(MenuErrorArea.Game);
 			errors.Bind(nav);
 			try
 			{
@@ -348,7 +348,7 @@ namespace Anaglyph.LaserTag.Tests
 					Assert.That(MapEditor.MapEditor.IsActive, Is.True);
 					Assert.That(MapEditorTool.CurrentMode, Is.EqualTo(MapEditorTool.Mode.Tags));
 					MapEditorTool.SetMode(MapEditorTool.Mode.MeasureTagSize);
-					UserErrors.Raise(UserErrorArea.Game, "Alignment warning", "Test detail");
+					errors.Show(new MenuError(MenuErrorArea.Game, "Alignment warning", "Test detail"));
 					Assert.That(MapEditor.MapEditor.IsActive, Is.True);
 					for (int i = 0; i < 2; i++) yield return null;
 					Click(root.Q<Button>("dismiss-error-button"));

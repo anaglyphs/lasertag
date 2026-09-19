@@ -23,6 +23,7 @@ namespace Anaglyph.LaserTag.Interface
 		private readonly Label tagSizeNote;
 		private readonly Label tagStatus;
 		private readonly Button unregisterAllTagsButton;
+		private readonly Button setupTagsButton;
 		private const float tagSizeSettleSeconds = 0.1f;
 		private float? pendingTagSizeCm;
 		private Guid pendingSizeContext;
@@ -50,6 +51,9 @@ namespace Anaglyph.LaserTag.Interface
 		{
 			this.operatorMode = operatorMode;
 			tagConfigurationSection = Require<VisualElement>(root, "tag-configuration-section");
+			setupTagsButton = Require<Button>(root, "start-apriltag-setup");
+			setupTagsButton.MakeActOnPress();
+			bindings.Click(setupTagsButton, () => { FlushPendingSize(); LaserTagMapCoordinator.Instance?.TagSetup?.Begin(); Refresh(); });
 			tagSizeSlider = Require<Slider>(root, "tag-size-slider");
 			tagSizeNote = Require<Label>(root, "tag-size-note");
 			tagStatus = Require<Label>(root, "tag-status");
@@ -73,6 +77,7 @@ namespace Anaglyph.LaserTag.Interface
 			RefreshChoices();
 			bindings.Value(methodField, OnMethodChanged);
 			MenuCopy.Changed += OnCopyChanged;
+			Refresh();
 		}
 
 		public void Dispose()
@@ -86,8 +91,8 @@ namespace Anaglyph.LaserTag.Interface
 		{
 			methodField.choices = new List<string>
 			{
-				MenuCopy.Get("Game", "alignment.anchors"), MenuCopy.Get("Game", "alignment.tags"),
-				MenuCopy.Get("Game", "alignment.system"), MenuCopy.Get("Game", "alignment.two-tags")
+				MenuCopy.Get("Map", "alignment.anchors"), MenuCopy.Get("Map", "alignment.tags"),
+				MenuCopy.Get("Map", "alignment.system"), MenuCopy.Get("Map", "alignment.two-tags")
 			};
 		}
 
@@ -117,51 +122,51 @@ namespace Anaglyph.LaserTag.Interface
 			var preference = Preference;
 			var displayed = DisplayedMethod;
 			bool inSession = InSession;
-			methodField.label = MenuCopy.Get("Game", inSession && !SettingUpTags ? "alignment.session-label" : "alignment.preference-label");
+			methodField.label = MenuCopy.Get("Map", inSession && !SettingUpTags ? "alignment.session-label" : "alignment.preference-label");
 			methodField.SetValueWithoutNotify(methodField.choices[(int)displayed]);
 			SetMessage(preferenceStatus, inSession && displayed != preference
-				? MenuCopy.Format("Game", "alignment.saved-preference", methodField.choices[(int)preference]) : null);
+				? MenuCopy.Format("Map", "alignment.saved-preference", methodField.choices[(int)preference]) : null);
 
-			string blocker = manager != null ? manager.DescribeColocationPreferenceBlocker() : MenuCopy.Get("Game", "maps.unavailable");
+			string blocker = manager != null ? manager.DescribeColocationPreferenceBlocker() : MenuCopy.Get("Map", "maps.unavailable");
 			methodField.SetEnabled(blocker == null);
-			methodField.tooltip = blocker ?? MenuCopy.Get("Game", inSession ? "alignment.session-scope" : "alignment.scope");
+			methodField.tooltip = blocker ?? MenuCopy.Get("Map", inSession ? "alignment.session-scope" : "alignment.scope");
 			Status = blocker ?? contextStatus;
 			if (manager != null && manager.IsChangingColocation)
 			{
 				var transition = manager.AlignmentTransition;
-				var phase = MenuCopy.Get("Game", "alignment.phase." + transition.Phase);
+				var phase = MenuCopy.Get("Map", "alignment.phase." + transition.Phase);
 				Status = ColocationManager.IsColocated
-					? MenuCopy.Format("Game", "alignment.transition", phase,
+					? MenuCopy.Format("Map", "alignment.transition", phase,
 						methodField.choices[(int)ColocationManager.Instance.ActiveMethod])
-					: MenuCopy.Format("Game", "alignment.transition-unresolved", phase);
-				Status = MenuCopy.Format("Game", "alignment.method-status", methodField.choices[(int)transition.Target], Status);
+					: MenuCopy.Format("Map", "alignment.transition-unresolved", phase);
+				Status = MenuCopy.Format("Map", "alignment.method-status", methodField.choices[(int)transition.Target], Status);
 			}
 			else if (manager != null && manager.WaitingForAlignmentAuthor)
 			{
 				var pendingSpace = manager.CurrentSpace;
 				bool needsSource = pendingSpace.HasReferenceBasedData &&
 					(displayed == ColocationManager.ColocationMethod.AprilTag ? !pendingSpace.HasTags : pendingSpace.anchors.Count == 0);
-				Status = MenuCopy.Get("Game", needsSource ? "alignment.waiting-for-reference-headset" : "alignment.waiting-for-headset");
+				Status = MenuCopy.Get("Map", needsSource ? "alignment.waiting-for-reference-headset" : "alignment.waiting-for-headset");
 			}
 			else if (inSession && displayed == ColocationManager.ColocationMethod.MetaSharedAnchor &&
 				ColocationManager.Instance.AnchorProvider != null)
 			{
 				var anchors = ColocationManager.Instance.AnchorProvider;
 				Status ??= anchors.HasMinter
-					? MenuCopy.Format("Game", "alignment.anchor-minter", anchors.Minter.clientId)
-					: MenuCopy.Get("Game", "alignment.waiting-for-anchor-headset");
+					? MenuCopy.Format("Map", "alignment.anchor-minter", anchors.Minter.clientId)
+					: MenuCopy.Get("Map", "alignment.waiting-for-anchor-headset");
 			}
 			else if (SettingUpTags)
-				Status ??= MenuCopy.Get("Game", "alignment.system-tag-setup");
+				Status ??= MenuCopy.Get("Map", "alignment.system-tag-setup");
 			else if (displayed == ColocationManager.ColocationMethod.SystemDetermined)
-				Status ??= MenuCopy.Get("Game", "alignment.system-description");
-			if (!ColocationManager.UsesSavedReferences(displayed)) Status = MenuCopy.Get("Game", "alignment.provisional");
-			choosePair.text = MenuCopy.Get("Game", "alignment.choose-pair");
-			choosePair.EnableInClassList("map-field-hidden", displayed != ColocationManager.ColocationMethod.TwoAprilTags);
+				Status ??= MenuCopy.Get("Map", "alignment.system-description");
+			if (!ColocationManager.UsesSavedReferences(displayed)) Status = MenuCopy.Get("Map", "alignment.provisional");
+			choosePair.text = MenuCopy.Get("Map", "alignment.choose-pair");
+			choosePair.style.display = displayed != ColocationManager.ColocationMethod.TwoAprilTags ? DisplayStyle.None : DisplayStyle.Flex;
 			choosePair.SetEnabled(blocker == null);
 			var space = manager?.CurrentSpace;
 			SetMessage(pairStatus, displayed != ColocationManager.ColocationMethod.TwoAprilTags ? null : space?.firstTagId >= 0
-				? MenuCopy.Format("Game", "alignment.pair", space.firstTagId, space.secondTagId) : MenuCopy.Get("Game", "alignment.pair-waiting"));
+				? MenuCopy.Format("Map", "alignment.pair", space.firstTagId, space.secondTagId) : MenuCopy.Get("Map", "alignment.pair-waiting"));
 			SetMessage(statusLabel, Status);
 			RefreshTagControls();
 		}
@@ -193,9 +198,15 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void RefreshTagControls()
 		{
-			tagConfigurationSection.EnableInClassList("map-field-hidden", !operatorMode || !UsesTags);
+			bool aprilTags = DisplayedMethod == ColocationManager.ColocationMethod.AprilTag;
+			tagConfigurationSection.style.display = aprilTags || operatorMode && UsesTags ? DisplayStyle.Flex : DisplayStyle.None;
+			setupTagsButton.style.display = aprilTags ? DisplayStyle.Flex : DisplayStyle.None;
+			var setup = LaserTagMapCoordinator.Instance?.TagSetup;
+			setupTagsButton.SetEnabled(setup != null && setup.StartBlocker == null);
+			setupTagsButton.tooltip = setup?.StartBlocker;
+			tagSizeSlider.style.display = operatorMode ? DisplayStyle.Flex : DisplayStyle.None;
 			bool registeredTags = operatorMode && DisplayedMethod == ColocationManager.ColocationMethod.AprilTag;
-			unregisterAllTagsButton.EnableInClassList("map-field-hidden", !registeredTags);
+			unregisterAllTagsButton.style.display = !registeredTags ? DisplayStyle.None : DisplayStyle.Flex;
 			LaserTagMapCoordinator manager = LaserTagMapCoordinator.Instance;
 			if (manager == null)
 			{
@@ -208,7 +219,7 @@ namespace Anaglyph.LaserTag.Interface
 
 			string sizeBlocker = manager.DescribeTagSizeBlocker();
 			tagSizeSlider.SetEnabled(operatorMode && UsesTags && sizeBlocker == null);
-			SetMessage(tagSizeNote, sizeBlocker == Status ? null : sizeBlocker);
+			SetMessage(tagSizeNote, !operatorMode || sizeBlocker == Status ? null : sizeBlocker);
 			if (!pendingTagSizeCm.HasValue && !IsBeingEdited(tagSizeSlider))
 			{
 				tagSizeSlider.highValue = Mathf.Max(50f, manager.EffectiveTagSizeCm);
@@ -217,7 +228,7 @@ namespace Anaglyph.LaserTag.Interface
 
 			int registered = manager.CurrentSpace != null ? manager.CurrentSpace.tags.Count : 0;
 			unregisterAllTagsButton.SetEnabled(registeredTags && registered > 0 && manager.DescribeTagRemovalBlocker() == null);
-			SetMessage(tagStatus, registeredTags ? MenuCopy.Format("Game", "alignment.tag-count", registered) : null);
+			SetMessage(tagStatus, registeredTags ? MenuCopy.Format("Map", "alignment.tag-count", registered) : null);
 		}
 
 		private static bool IsBeingEdited(VisualElement field)

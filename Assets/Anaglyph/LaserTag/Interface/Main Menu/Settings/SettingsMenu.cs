@@ -196,8 +196,8 @@ namespace Anaglyph.LaserTag.Interface
 			bool locked = HeadsetConfiguration.MenuPasswordRequired;
 			bool provisioned = HeadsetConfiguration.IsProvisioned;
 			provisioningStatus.text = pinned
-				? MenuCopy.Format("Settings", locked ? "provisioning.host-locked" : "provisioning.host", HeadsetConfiguration.PinnedHostAddress)
-				: MenuCopy.Get("Settings", locked ? "provisioning.locked" : "provisioning.none");
+				? MenuCopy.Format("SettingsMenu", locked ? "provisioning.host-locked" : "provisioning.host", HeadsetConfiguration.PinnedHostAddress)
+				: MenuCopy.Get("SettingsMenu", locked ? "provisioning.locked" : "provisioning.none");
 			unprovisionButton.style.display = provisioned ? DisplayStyle.Flex : DisplayStyle.None;
 			operatorProvisioningButton.style.display = provisioned ? DisplayStyle.Flex : DisplayStyle.None;
 		}

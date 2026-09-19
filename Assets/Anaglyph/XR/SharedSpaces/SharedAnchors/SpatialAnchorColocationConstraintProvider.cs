@@ -54,6 +54,8 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		private readonly SyncDictionary<Guid, AnchorConstraintState> constraints =
 			new("colocation.anchors.canon");
 		public IReadOnlyDictionary<Guid, AnchorConstraintState> Constraints => constraints;
+		public enum Error { SharingFailed, SharingUnsupported }
+		public event Action<Error> ErrorRaised = delegate { };
 		public event Action ConstraintsChanged = delegate { };
 		public event Action<Guid> AnchorPersisted = delegate { };
 
@@ -527,7 +529,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 				if (!result.IsError()) return true;
 				Debug.LogWarning($"Failed to share anchor {lease.Handle.guid}: {result} (attempt {attempt}).");
 				if (attempt == 3)
-					UserErrors.RaiseLocalized(UserErrorArea.Game, "error.share-title", "error.share-details");
+					ErrorRaised.Invoke(Error.SharingFailed);
 				if (attempt < 5) await Awaitable.WaitForSecondsAsync(3f, token);
 			}
 			return false;
@@ -571,7 +573,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 				return true;
 
 			Debug.LogWarning($"Shared anchors are unavailable: {support}");
-			UserErrors.RaiseLocalized(UserErrorArea.Game, "error.anchors-title", "error.anchors-details");
+			ErrorRaised.Invoke(Error.SharingUnsupported);
 			return false;
 		}
 
@@ -639,7 +641,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 						$"(native {result.nativeStatusCode})");
 
 					if (attempt == attemptsBeforeTellingUser)
-						UserErrors.RaiseLocalized(UserErrorArea.Game, "error.share-title", "error.share-details");
+						ErrorRaised.Invoke(Error.SharingFailed);
 
 					await Awaitable.WaitForSecondsAsync(3f, ctkn);
 

@@ -209,7 +209,7 @@ namespace Anaglyph.LaserTag.Interface.HUD
 					{
 						shownCountdown = countdown;
 						countdownLabel.text = countdown == GoCountdown
-							? MenuCopy.Get("HUD", "countdown.go")
+							? MenuCopy.Get("HUDMenu", "countdown.go")
 							: countdown.ToString();
 					}
 
@@ -224,8 +224,8 @@ namespace Anaglyph.LaserTag.Interface.HUD
 			bool multiRound = numRounds > 1;
 
 			resultsTitle.text = MatchReferee.State == MatchState.NotPlaying
-				? MenuCopy.Get("HUD", "results.match")
-				: MenuCopy.Get("HUD", "results.round");
+				? MenuCopy.Get("HUDMenu", "results.match")
+				: MenuCopy.Get("HUDMenu", "results.round");
 
 			HUDElement.SetDisplayed(resultsRoundLabel, multiRound);
 
@@ -236,7 +236,7 @@ namespace Anaglyph.LaserTag.Interface.HUD
 				if (round != shownRound)
 				{
 					shownRound = round;
-					resultsRoundLabel.text = MenuCopy.Format("HUD", "match.round", round, numRounds);
+					resultsRoundLabel.text = MenuCopy.Format("HUDMenu", "match.round", round, numRounds);
 				}
 			}
 
@@ -261,19 +261,19 @@ namespace Anaglyph.LaserTag.Interface.HUD
 			if (settings.respawnCondition == RespawnCondition.NextRound
 			    && MatchReferee.State == MatchState.Playing)
 			{
-				text = MenuCopy.Get("HUD", "respawn.next-round");
+				text = MenuCopy.Get("HUDMenu", "respawn.next-round");
 			}
 			else if (settings.respawnCondition == RespawnCondition.InBases
 			         && !MainPlayer.Instance.IsInFriendlyBase)
 			{
-				text = MenuCopy.Get("HUD", "respawn.base");
+				text = MenuCopy.Get("HUDMenu", "respawn.base");
 				promptToMove = true;
 			}
 			else
 			{
 				float timeSinceDeath = Time.time - MainPlayer.Instance.LastDeathTime;
 				float timeToRespawn = settings.respawnSeconds - timeSinceDeath;
-				text = MenuCopy.Format("HUD", "respawn.countdown", timeToRespawn);
+				text = MenuCopy.Format("HUDMenu", "respawn.countdown", timeToRespawn);
 			}
 
 			respawnLabel.Flashing = promptToMove;
@@ -369,7 +369,7 @@ namespace Anaglyph.LaserTag.Interface.HUD
 			if (shown == text) return;
 
 			shown = text;
-			label.text = MenuCopy.Get("HUD", text);
+			label.text = MenuCopy.Get("HUDMenu", text);
 		}
 
 		private static void SetInt(Label label, ref int shown, int value)

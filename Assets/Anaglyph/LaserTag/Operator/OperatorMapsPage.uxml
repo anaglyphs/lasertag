@@ -5,7 +5,7 @@
     <ui:VisualElement class="page-template-root">
         <Anaglyph.Menu.NavHeader>
             <Bindings>
-                <UnityEngine.Localization.LocalizedString property="Title" table="GameMenu" entry="GameMapsPage.navheader-2.title"/>
+                <UnityEngine.Localization.LocalizedString property="Title" table="Map" entry="GameMapsPage.navheader-2.title"/>
             </Bindings>
         </Anaglyph.Menu.NavHeader>
         <ui:Instance template="MapCatalog" class="map-catalog-instance"/>

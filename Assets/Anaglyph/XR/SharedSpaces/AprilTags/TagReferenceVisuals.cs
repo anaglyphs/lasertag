@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Anaglyph.Debugging;
+using Anaglyph.Rendering;
 using AprilTag;
 using UnityEngine;
 
@@ -15,8 +16,7 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		[SerializeField] private Mesh debugPointMesh;
 		[SerializeField] private Material debugMaterial;
 
-		private static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
-		private MaterialPropertyBlock mpb;
+		private IndicatorRenderer indicators;
 
 		/// <summary>
 		/// The tag being aimed at, or -1. Written by whatever is authoring tags; kept here so the
@@ -33,7 +33,7 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 
 		private void Awake()
 		{
-			mpb = new MaterialPropertyBlock();
+			indicators = new IndicatorRenderer();
 		}
 
 		private void Start()
@@ -66,31 +66,27 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 					if (tagPose.ID == HighlightedTagId)
 						color = Color.green;
 
-					mpb.SetColor(BaseColorID, color);
-
 					Matrix4x4 model = Matrix4x4.TRS(tagPose.Position, tagPose.Rotation, scale);
-					Graphics.DrawMesh(indicatorMesh, model, indicatorMaterial, 0, MainXRRig.Camera, 0, mpb);
+					indicators.DrawMesh(MainXRRig.Camera, indicatorMesh, indicatorMaterial, model, color);
 				}
 			}
 
 			if (AnaglyphDebugging.DebugMode)
 			{
 				scale = Vector3.one * 0.02f;
-				mpb.SetColor(BaseColorID, Color.green);
 				foreach (Pose canonTag in provider.RegisteredTags.Values)
 				{
 					Matrix4x4 model = Matrix4x4.TRS(canonTag.position, Quaternion.identity, scale);
-					Graphics.DrawMesh(debugPointMesh, model, debugMaterial, 0, MainXRRig.Camera, 0, mpb);
+					indicators.DrawMesh(MainXRRig.Camera, debugPointMesh, debugMaterial, model, Color.green);
 				}
 
-				mpb.SetColor(BaseColorID, Color.white);
 				anchorScratch.Clear();
 				provider.GetLocalAnchorConstraints(anchorScratch);
 				foreach (TaggedAnchorConstraintData anchor in anchorScratch)
 				{
 					Matrix4x4 model = Matrix4x4.TRS(
 						anchor.canonPose.position, anchor.canonPose.rotation, scale);
-					Graphics.DrawMesh(debugPointMesh, model, debugMaterial, 0, MainXRRig.Camera, 0, mpb);
+					indicators.DrawMesh(MainXRRig.Camera, debugPointMesh, debugMaterial, model, Color.white);
 				}
 			}
 		}

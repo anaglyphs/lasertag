@@ -22,7 +22,6 @@ namespace Anaglyph.LaserTag.Interface
 			page.MakeButtonsActOnPress();
 			name = Require<TextField>(page, "space-name-field");
 			reset = Require<Button>(page, "reset-space-alignment");
-			Require<Button>(page, "start-apriltag-setup").EnableInClassList("map-field-hidden", !operatorMode);
 			Alignment = new AlignmentSettingsBinder(Require<VisualElement>(page, "alignment-settings-section"), operatorMode);
 			Alignment.Changed += Refresh;
 			name.RegisterValueChangedCallback(OnNameChanged);
@@ -64,8 +63,8 @@ namespace Anaglyph.LaserTag.Interface
 			}
 			if (name.panel?.focusController?.focusedElement is not VisualElement focused || (focused != name && !name.Contains(focused)))
 				name.SetValueWithoutNotify(space?.name ?? "");
-			name.label = MenuCopy.Get("Game", "space.name"); name.maxLength = LaserTagMapCoordinator.MaxMapNameLength;
-			reset.text = MenuCopy.Get("Game", armedReset ? "space.confirm-reset" : "space.reset");
+			name.label = MenuCopy.Get("Map", "space.name"); name.maxLength = LaserTagMapCoordinator.MaxMapNameLength;
+			reset.text = MenuCopy.Get("Map", armedReset ? "space.confirm-reset" : "space.reset");
 			name.SetEnabled(space != null && manager.DescribeRenameBlocker() == null);
 			reset.SetEnabled(space != null && !SyncBus.Active && !manager.IsChangingColocation);
 		}

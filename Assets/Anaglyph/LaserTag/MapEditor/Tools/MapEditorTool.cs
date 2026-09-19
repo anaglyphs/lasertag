@@ -1,9 +1,9 @@
 using System;
-using Anaglyph.LaserTag.Maps;
 using Anaglyph.LaserTag.Player.Teams;
 using Anaglyph.XR;
 using Anaglyph.XR.Input;
 using Anaglyph.XR.SharedSpaces.AprilTags;
+using AprilTag;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.XR;
@@ -97,12 +97,6 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		[SerializeField] private float rotationSpeed;
 		[SerializeField] private float distanceSpeed;
 
-		[Tooltip("How far off the hand ray a tag can be and still count as aimed at")]
-		[SerializeField] private float aimMaxAngleDegrees = 10f;
-
-		[Tooltip("Seconds a tag observation stays valid; stale poses must not be registered")]
-		[SerializeField] private float observationLifetime = 5f;
-
 		[Tooltip("Distance in meters from the controller's pointing pose to the ruler tip")]
 		[SerializeField] private float measurementTipDistance = 0.08f;
 		private TagSizeRuler ruler;
@@ -122,16 +116,8 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		private float rotationDelta;
 		private float distanceDelta;
 
-		private TagAimer tagAimer;
-
-		/// <summary>
-		/// Built on demand: a mode change reaches every tool including ones on still-inactive
-		/// hands, whose Awake has not run yet. Serialized fields are already deserialized by
-		/// then, so the settings below are the authored ones either way.
-		/// </summary>
-		private TagAimer Aimer => tagAimer ??= new TagAimer(observationLifetime, aimMaxAngleDegrees);
-
 		[SerializeField] private HandSubject handSubject;
+		public HandInput Hand => handSubject != null ? handSubject.Current : null;
 
 		[SerializeField] private LineRenderer lineRenderer;
 
@@ -166,7 +152,6 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		private void OnEnable()
 		{
 			MainXRRig.Recentered += ResetMeasurement;
-			Aimer.Register();
 			UpdateTagDetection();
 		}
 
@@ -174,8 +159,6 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		{
 			MainXRRig.Recentered -= ResetMeasurement;
 			ResetMeasurement();
-			Aimer.Unregister();
-			Aimer.Clear();
 			ReleaseTagHighlight();
 
 			if (previewObject != null)
@@ -194,7 +177,6 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			measurementTrackingGeneration = ColocationManager.Instance != null ? ColocationManager.Instance.TrackingGeneration : 0;
 			SetSpawnObject(mode == Mode.Place ? spawnObject : null);
 			TryLetGo();
-			Aimer.Clear();
 			ReleaseTagHighlight();
 		}
 
@@ -292,36 +274,63 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 
 		// ------- tags --------------------------------------------
 
+		private bool TryGetAimedTag(out TagPose tag)
+		{
+			tag = default;
+			var tracker = AprilTagColocationConstraintProvider.Instance?.TagTracker;
+			var coordinator = LaserTagMapCoordinator.Instance;
+			if (tracker == null || !tracker.isActiveAndEnabled || coordinator == null)
+				return false;
+
+			float halfTagSizeMeters = coordinator.EffectiveTagSizeCm * 0.005f;
+			Ray ray = new(transform.position, transform.forward);
+			bool found = false;
+			float nearestDistance = float.PositiveInfinity;
+			foreach (TagPose candidate in tracker.WorldPoses)
+			{
+				Plane tagPlane = new(candidate.Rotation * Vector3.forward, candidate.Position);
+				if (!tagPlane.Raycast(ray, out float distance) || distance >= nearestDistance)
+					continue;
+
+				Vector3 localHit = Quaternion.Inverse(candidate.Rotation) * (ray.GetPoint(distance) - candidate.Position);
+				if (Mathf.Abs(localHit.x) > halfTagSizeMeters || Mathf.Abs(localHit.y) > halfTagSizeMeters)
+					continue;
+
+				nearestDistance = distance;
+				tag = candidate;
+				found = true;
+			}
+
+			return found;
+		}
+
 		private bool CanActOnTag()
 		{
 			return CurrentMode == Mode.Tags &&
 			       this == DominantHand &&
-			       Aimer.AimedTagId >= 0 &&
 			       !handSubject.Current.InputBlocked &&
 			       LaserTagMapCoordinator.Instance != null;
 		}
 
 		public bool TryRegisterTag()
 		{
-			if (!CanActOnTag())
+			if (!CanActOnTag() || !TryGetAimedTag(out TagPose tag))
 				return false;
-
-			int tagId = Aimer.AimedTagId;
 
 			string blocker = LaserTagMapCoordinator.Instance.DescribeTagRegistrationBlocker();
 			if (blocker != null)
 			{
-				Debug.LogWarning($"Couldn't register tag {tagId} — {blocker}.");
+				Debug.LogWarning($"Couldn't register tag {tag.ID} — {blocker}.");
 				return false;
 			}
 
-			return Aimer.TryGetObservation(tagId, out Pose pose) &&
-			       LaserTagMapCoordinator.Instance.RegisterTag(tagId, pose);
+			return LaserTagMapCoordinator.Instance.RegisterTag(tag.ID, new Pose(tag.Position, tag.Rotation));
 		}
 
 		public bool TryUnregisterTag()
 		{
-			return CanActOnTag() && LaserTagMapCoordinator.Instance.UnregisterTag(Aimer.AimedTagId);
+			return CanActOnTag() && TryGetAimedTag(out TagPose tag) &&
+			       LaserTagMapCoordinator.Instance.UnregisterTag(tag.ID);
 		}
 
 		private void ReleaseTagHighlight()
@@ -353,7 +362,8 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			LaserTagMapCoordinator.Instance != null &&
 			measurementSpaceContext != null && LaserTagMapCoordinator.Instance.ReferenceContext.ToString() == measurementSpaceContext &&
 			(ColocationManager.Instance == null || ColocationManager.Instance.TrackingGeneration == measurementTrackingGeneration) &&
-			LaserTagMapCoordinator.Instance.DescribeTagSizeBlocker() == null;
+			LaserTagMapCoordinator.Instance.DescribeTagSizeBlocker() == null &&
+			(LaserTagMapCoordinator.Instance.TagSetup?.IsGuidingHeadset != true || LaserTagMapCoordinator.Instance.TagSetup.CanMeasure);
 
 		private void ResetMeasurement()
 		{
@@ -367,7 +377,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			if (this != DominantHand) return;
 			if (!MeasurementAllowed)
 			{
-				SetMode(Mode.Tags);
+				ResetMeasurement();
 				return;
 			}
 
@@ -406,7 +416,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			if (LaserTagMapCoordinator.Instance.SetTagSize(centimeters))
 			{
 				TagSizeMeasured.Invoke(centimeters);
-				SetMode(Mode.Tags);
+				ResetMeasurement();
 			}
 		}
 
@@ -441,7 +451,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 
 			// The indicator drawn at every visible tag is the one visual; aiming just recolors it.
 			TagReferenceVisuals.HighlightedTagId =
-				Aimer.Aim(transform.position, transform.forward);
+				TryGetAimedTag(out TagPose tag) ? tag.ID : -1;
 		}
 
 		private float UpdateObjectTools(bool didHit, RaycastHit hit, float lineDist)

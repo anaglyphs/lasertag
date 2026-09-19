@@ -173,7 +173,7 @@ namespace Anaglyph.LaserTag
 			error = null;
 			if (!IsOperator)
 			{
-				error = MenuCopy.String("Operator", "configuration.operator-only");
+				error = MenuCopy.String("OperatorMenu", "configuration.operator-only");
 				return false;
 			}
 
@@ -183,14 +183,14 @@ namespace Anaglyph.LaserTag
 
 			if (requirePassword && string.IsNullOrEmpty(hash))
 			{
-				error = MenuCopy.String("Operator", "configuration.password-required");
+				error = MenuCopy.String("OperatorMenu", "configuration.password-required");
 				return false;
 			}
 
 			string hostAddress = NetcodeManagement.GetLocalIPv4() ?? "";
 			if (pinToHost && string.IsNullOrWhiteSpace(hostAddress))
 			{
-				error = MenuCopy.String("Operator", "configuration.address-required");
+				error = MenuCopy.String("OperatorMenu", "configuration.address-required");
 				return false;
 			}
 

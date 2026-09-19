@@ -1,7 +1,7 @@
 /* Global defaults */
 
 * {
-    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINish-Regular%20SDF.asset?fileID=11400000&guid=8605ad9ed578841b0960a34a3cc63844&type=2#DINish-Regular SDF");
+    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINish-Regular%20SDF.asset");
     color: rgb(255, 255, 255);
 }
 
@@ -29,12 +29,12 @@
 
 .game-panel {
     border-color: rgb(0, 255, 173);
-    background-color: rgb(20, 0, 49);
+    background-color: rgb(12, 0, 49);
 }
 
 .settings-panel {
     border-color: rgb(255, 116, 0);
-    background-color: rgb(24, 36, 0);
+    background-color: rgb(41, 37, 0);
 }
 
 /* Control visuals */
@@ -119,8 +119,8 @@ RadioButton #unity-checkmark {
     /*flex-grow: 1;*/
     -unity-text-align: middle-left;
     font-size: 28px;
-    -unity-font-style: bold;
-    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishExpanded-Regular%20SDF.asset?fileID=11400000&guid=7dfaad12b4ec34f0bbdc86faea4b3721&type=2#DINishExpanded-Regular SDF");
+    /*-unity-font-style: bold;*/
+    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishCondensed-Light%20SDF.asset");
 }
 
 .nav-button {

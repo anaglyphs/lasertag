@@ -7,7 +7,7 @@
             <ui:Button name="new-space-button" class="map-field-hidden"/>
             <ui:Button name="new-map-button">
                 <Bindings>
-                    <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMapsPage.new-map-button.text"/>
+                    <UnityEngine.Localization.LocalizedString property="text" table="Map" entry="GameMapsPage.new-map-button.text"/>
                 </Bindings>
             </ui:Button>
             <ui:Button name="probe-maps-button" class="map-field-hidden"/>

@@ -1,0 +1,116 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b1e3e22ff9634e441a479f01f905a2f7, type: 3}
+  m_Name: MenuReferences
+  m_EditorClassIdentifier: Unity.Localization::UnityEngine.Localization.SmartFormat.PersistentVariables.VariablesGroupAsset
+  m_Variables:
+  - name: connection
+    variable:
+      rid: 533178800756753082
+  - name: connectManually
+    variable:
+      rid: 533178800756753083
+  - name: relayConnection
+    variable:
+      rid: 533178800756753084
+  - name: continue
+    variable:
+      rid: 533178800756753085
+  - name: back
+    variable:
+      rid: 533178800756753086
+  - name: finishTagSetup
+    variable:
+      rid: 533178800756753087
+  - name: systemAlignment
+    variable:
+      rid: 533178800756753088
+  references:
+    version: 2
+    RefIds:
+    - rid: 533178800756753082
+      type: {class: LocalizedString, ns: UnityEngine.Localization, asm: Unity.Localization}
+      data:
+        m_TableReference:
+          m_TableCollectionName: GUID:10f44029c9f6549a0b185a98637a95f2
+        m_TableEntryReference:
+          m_KeyId: 221241356
+          m_Key: 
+        m_FallbackState: 0
+        m_WaitForCompletion: 0
+        m_LocalVariables: []
+    - rid: 533178800756753083
+      type: {class: LocalizedString, ns: UnityEngine.Localization, asm: Unity.Localization}
+      data:
+        m_TableReference:
+          m_TableCollectionName: GUID:10f44029c9f6549a0b185a98637a95f2
+        m_TableEntryReference:
+          m_KeyId: 221241357
+          m_Key: 
+        m_FallbackState: 0
+        m_WaitForCompletion: 0
+        m_LocalVariables: []
+    - rid: 533178800756753084
+      type: {class: LocalizedString, ns: UnityEngine.Localization, asm: Unity.Localization}
+      data:
+        m_TableReference:
+          m_TableCollectionName: GUID:10f44029c9f6549a0b185a98637a95f2
+        m_TableEntryReference:
+          m_KeyId: 221241365
+          m_Key: 
+        m_FallbackState: 0
+        m_WaitForCompletion: 0
+        m_LocalVariables: []
+    - rid: 533178800756753085
+      type: {class: LocalizedString, ns: UnityEngine.Localization, asm: Unity.Localization}
+      data:
+        m_TableReference:
+          m_TableCollectionName: GUID:7726045c5e179419eae444215938468b
+        m_TableEntryReference:
+          m_KeyId: 1355627396849679
+          m_Key: 
+        m_FallbackState: 0
+        m_WaitForCompletion: 0
+        m_LocalVariables: []
+    - rid: 533178800756753086
+      type: {class: LocalizedString, ns: UnityEngine.Localization, asm: Unity.Localization}
+      data:
+        m_TableReference:
+          m_TableCollectionName: GUID:7726045c5e179419eae444215938468b
+        m_TableEntryReference:
+          m_KeyId: 1355627396849678
+          m_Key: 
+        m_FallbackState: 0
+        m_WaitForCompletion: 0
+        m_LocalVariables: []
+    - rid: 533178800756753087
+      type: {class: LocalizedString, ns: UnityEngine.Localization, asm: Unity.Localization}
+      data:
+        m_TableReference:
+          m_TableCollectionName: GUID:7726045c5e179419eae444215938468b
+        m_TableEntryReference:
+          m_KeyId: 1355627396849680
+          m_Key: 
+        m_FallbackState: 0
+        m_WaitForCompletion: 0
+        m_LocalVariables: []
+    - rid: 533178800756753088
+      type: {class: LocalizedString, ns: UnityEngine.Localization, asm: Unity.Localization}
+      data:
+        m_TableReference:
+          m_TableCollectionName: GUID:7726045c5e179419eae444215938468b
+        m_TableEntryReference:
+          m_KeyId: 291267517865984
+          m_Key: 
+        m_FallbackState: 0
+        m_WaitForCompletion: 0
+        m_LocalVariables: []

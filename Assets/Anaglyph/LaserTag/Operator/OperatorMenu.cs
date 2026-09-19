@@ -61,6 +61,8 @@ namespace Anaglyph.LaserTag.Operator
 		private MapManagerUI mapManager;
 		private MatchSettingsBinder matchSettings;
 
+		[SerializeField] private Material tagIndicatorMaterial;
+
 		private VisualElement viewport;
 		private Camera viewportCamera;
 		private AprilTagSetupWizard tagSetupWizard;
@@ -76,7 +78,7 @@ namespace Anaglyph.LaserTag.Operator
 		private TwoPaneSplitView mainSplit;
 		private TwoPaneSplitView clientConfigSplit;
 
-		private void Awake() => mapErrors = new MenuErrorPresenter(UserErrorArea.Game);
+		private void Awake() => mapErrors = new MenuErrorPresenter(MenuErrorArea.Game);
 		private void OnDestroy() => mapErrors?.Dispose();
 
 		private void OnEnable()
@@ -126,7 +128,7 @@ namespace Anaglyph.LaserTag.Operator
 			BindMapEditing(root);
 
 			BindViewportToCamera(root);
-			tagSetupViewport = new AprilTagSetupViewport();
+			tagSetupViewport = new AprilTagSetupViewport(tagIndicatorMaterial);
 			viewport.Add(tagSetupViewport);
 			tagSetupWizard = new AprilTagSetupWizard(mapsNav, tagSetupViewport.FocusTags);
 			RestoreSplitSizes(root);
@@ -183,9 +185,11 @@ namespace Anaglyph.LaserTag.Operator
 			RefreshMapSettings();
 			tagSetupWizard?.Tick();
 			var coordinator = LaserTagMapCoordinator.Instance;
-			tagSetupViewport?.Refresh(viewportCamera, coordinator?.CurrentSpace);
 			matchSettings?.StartButton.SetEnabled(NetcodeManagement.State == NetcodeState.Connected && coordinator?.TagSetup?.IsActive != true);
 		}
+
+		private void LateUpdate() =>
+			tagSetupViewport?.Refresh(viewportCamera, LaserTagMapCoordinator.Instance?.CurrentSpace);
 
 		/// <summary>
 		/// The operator edits map names and space alignment without an editing mode:
@@ -263,7 +267,7 @@ namespace Anaglyph.LaserTag.Operator
 				    out LocalizedString error))
 			{
 				menuPasswordField.SetValueWithoutNotify("");
-				configurationMessage = MenuCopy.String("Operator", OperatorHost.IsHosting ? "configuration.sent" : "configuration.saved");
+				configurationMessage = MenuCopy.String("OperatorMenu", OperatorHost.IsHosting ? "configuration.sent" : "configuration.saved");
 				RefreshConfigurationMessage();
 				headsetConfigurationStatus.RemoveFromClassList("warning");
 				return;
@@ -284,8 +288,8 @@ namespace Anaglyph.LaserTag.Operator
 			requireMenuPasswordToggle.SetValueWithoutNotify(settings.requireMenuPassword);
 			pinHeadsetsToHostToggle.SetValueWithoutNotify(settings.pinHeadsetsToHost);
 			pinHostAddressLabel.text = string.IsNullOrEmpty(settings.hostAddress)
-				? MenuCopy.Get("Operator", "address.unavailable")
-				: MenuCopy.Format("Operator", "address.pinned", settings.hostAddress);
+				? MenuCopy.Get("OperatorMenu", "address.unavailable")
+				: MenuCopy.Format("OperatorMenu", "address.pinned", settings.hostAddress);
 			configurationMessage = null;
 			RefreshConfigurationMessage();
 			headsetConfigurationStatus.RemoveFromClassList("warning");
@@ -431,15 +435,15 @@ namespace Anaglyph.LaserTag.Operator
 		private void RefreshConfigurationMessage()
 		{
 			headsetConfigurationStatus.text = configurationMessage?.GetLocalizedString() ??
-				MenuCopy.Get("Operator", headsetConfiguration.GetOperatorSettings().hasMenuPassword
+				MenuCopy.Get("OperatorMenu", headsetConfiguration.GetOperatorSettings().hasMenuPassword
 					? "configuration.password-set" : "configuration.no-password");
 		}
 
 		private void RefreshLocalizedCopy()
 		{
 			foreach (Column column in clientList.columns)
-				column.title = MenuCopy.Get("Operator", "column." + column.name);
-			sessionStateLabel.text = MenuCopy.Get("Operator", hostError != null ? "session.failed" :
+				column.title = MenuCopy.Get("OperatorMenu", "column." + column.name);
+			sessionStateLabel.text = MenuCopy.Get("OperatorMenu", hostError != null ? "session.failed" :
 				NetcodeManagement.State == NetcodeState.Connecting ? "session.starting" :
 				NetcodeManagement.State == NetcodeState.Connected ? "session.hosting" : "session.stopped");
 			RefreshConfigurationMessage();
@@ -450,13 +454,13 @@ namespace Anaglyph.LaserTag.Operator
 		{
 			// The IP is what an operator reads out to the room, so it is shown whether or
 			// not the session is up.
-			localAddressLabel.text = MenuCopy.Format("Operator", "address.local", OperatorHost.LocalAddress);
+			localAddressLabel.text = MenuCopy.Format("OperatorMenu", "address.local", OperatorHost.LocalAddress);
 			if (pinHostAddressLabel != null)
 			{
 				string address = OperatorHost.LocalAddress;
 				pinHostAddressLabel.text = string.IsNullOrEmpty(address)
-					? MenuCopy.Get("Operator", "address.unavailable")
-					: MenuCopy.Format("Operator", "address.pinned", address);
+					? MenuCopy.Get("OperatorMenu", "address.unavailable")
+					: MenuCopy.Format("OperatorMenu", "address.pinned", address);
 			}
 
 			sessionAddressLabel.text = hostError?.GetLocalizedString() ?? OperatorHost.SessionAddress;
@@ -501,8 +505,8 @@ namespace Anaglyph.LaserTag.Operator
 
 			clientList.RefreshItems();
 			clientCountLabel.text = !OperatorHost.IsHosting
-				? MenuCopy.Get("Operator", "session.stopped")
-				: MenuCopy.Format("Operator", "client.count", playerCount);
+				? MenuCopy.Get("OperatorMenu", "session.stopped")
+				: MenuCopy.Format("OperatorMenu", "client.count", playerCount);
 		}
 
 		private static void BindClientCell(
@@ -516,10 +520,10 @@ namespace Anaglyph.LaserTag.Operator
 			string severity = null;
 
 			if (columnName == "client")
-				text = MenuCopy.Format("Operator", "client.name", client.clientId);
+				text = MenuCopy.Format("OperatorMenu", "client.name", client.clientId);
 			else if (columnName == "status")
-				text = client.isThisServer ? MenuCopy.Get("Operator", "client.server")
-					: avatar == null ? MenuCopy.Get("Operator", "client.joining") : avatar.IsAlive ? "" : MenuCopy.Get("Operator", "client.down");
+				text = client.isThisServer ? MenuCopy.Get("OperatorMenu", "client.server")
+					: avatar == null ? MenuCopy.Get("OperatorMenu", "client.joining") : avatar.IsAlive ? "" : MenuCopy.Get("OperatorMenu", "client.down");
 			else if (!client.isThisServer && avatar != null)
 			{
 				HeadsetTelemetry telemetry = avatar.Telemetry;
@@ -533,7 +537,7 @@ namespace Anaglyph.LaserTag.Operator
 					"right-hand" => (DescribeTracking(telemetry.rightHandTracking),
 						TrackingChipClass(telemetry.rightHandTracking)),
 					"team" => ($"{avatar.Team}", null),
-					"score" => (MenuCopy.Format("Operator", "client.score", avatar.Score), null),
+					"score" => (MenuCopy.Format("OperatorMenu", "client.score", avatar.Score), null),
 					_ => ("", null),
 				};
 			}
@@ -553,22 +557,22 @@ namespace Anaglyph.LaserTag.Operator
 		private static string DescribeTracking(byte tracking)
 		{
 			if (tracking == HeadsetTelemetry.TrackingUnavailable)
-				return MenuCopy.Get("Operator", "tracking.unavailable");
+				return MenuCopy.Get("OperatorMenu", "tracking.unavailable");
 
 			InputTrackingState state = (InputTrackingState)tracking;
 			bool hasPosition = (state & InputTrackingState.Position) != 0;
 			bool hasRotation = (state & InputTrackingState.Rotation) != 0;
 
 			if (hasPosition && hasRotation)
-				return MenuCopy.Get("Operator", "tracking.ok");
+				return MenuCopy.Get("OperatorMenu", "tracking.ok");
 
 			if (hasRotation)
-				return MenuCopy.Get("Operator", "tracking.rotation");
+				return MenuCopy.Get("OperatorMenu", "tracking.rotation");
 
 			if (hasPosition)
-				return MenuCopy.Get("Operator", "tracking.position");
+				return MenuCopy.Get("OperatorMenu", "tracking.position");
 
-			return MenuCopy.Get("Operator", "tracking.lost");
+			return MenuCopy.Get("OperatorMenu", "tracking.lost");
 		}
 
 		private static string TrackingChipClass(byte tracking)
@@ -588,11 +592,11 @@ namespace Anaglyph.LaserTag.Operator
 		private static string DescribeBattery(HeadsetTelemetry telemetry)
 		{
 			if (!telemetry.BatteryIsKnown)
-				return MenuCopy.Get("Operator", "battery.unknown");
+				return MenuCopy.Get("OperatorMenu", "battery.unknown");
 
 			return telemetry.isCharging
-				? MenuCopy.Format("Operator", "battery.charging", telemetry.batteryPercent)
-				: MenuCopy.Format("Operator", "battery.percent", telemetry.batteryPercent);
+				? MenuCopy.Format("OperatorMenu", "battery.charging", telemetry.batteryPercent)
+				: MenuCopy.Format("OperatorMenu", "battery.percent", telemetry.batteryPercent);
 		}
 
 		private static string BatteryChipClass(HeadsetTelemetry telemetry)
@@ -621,18 +625,18 @@ namespace Anaglyph.LaserTag.Operator
 				ColocationManager.ColocationMethod.AprilTag => "alignment.tags",
 				ColocationManager.ColocationMethod.TwoAprilTags => "alignment.two-tags",
 				ColocationManager.ColocationMethod.SystemDetermined => "alignment.system", _ => "alignment.anchors" };
-			string source = MenuCopy.Get("Game", key);
+			string source = MenuCopy.Get("Map", key);
 			return state.transition is Maps.ReferenceTransitionPhase.Preparing or Maps.ReferenceTransitionPhase.Validating or Maps.ReferenceTransitionPhase.Persisting or Maps.ReferenceTransitionPhase.HandingOver
-				? MenuCopy.Format("Game", "alignment.transition", MenuCopy.Get("Game", "alignment.phase." + state.transition), source) : source;
+				? MenuCopy.Format("Map", "alignment.transition", MenuCopy.Get("Map", "alignment.phase." + state.transition), source) : source;
 		}
 		private static string DescribeAlignment(HeadsetTelemetry telemetry) => telemetry.alignment switch
 		{
 			ColocationAlignmentState.Localized => telemetry.constraintCount > 0
-				? MenuCopy.Format("Operator", "alignment.count", telemetry.agreeingConstraintCount, telemetry.constraintCount)
-				: MenuCopy.Get("Operator", "alignment.aligned"),
-			ColocationAlignmentState.Searching => MenuCopy.Get("Operator", "alignment.searching"),
-			ColocationAlignmentState.Lost => MenuCopy.Get("Operator", "alignment.lost"),
-			_ => MenuCopy.Get("Operator", "alignment.inactive"),
+				? MenuCopy.Format("OperatorMenu", "alignment.count", telemetry.agreeingConstraintCount, telemetry.constraintCount)
+				: MenuCopy.Get("OperatorMenu", "alignment.aligned"),
+			ColocationAlignmentState.Searching => MenuCopy.Get("OperatorMenu", "alignment.searching"),
+			ColocationAlignmentState.Lost => MenuCopy.Get("OperatorMenu", "alignment.lost"),
+			_ => MenuCopy.Get("OperatorMenu", "alignment.inactive"),
 		};
 
 		private static string AlignmentChipClass(HeadsetTelemetry telemetry)

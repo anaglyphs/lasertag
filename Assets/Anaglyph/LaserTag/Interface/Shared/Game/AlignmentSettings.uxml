@@ -7,17 +7,22 @@
         <ui:Label name="colocation-preference-status" class="body-copy"/>
         <ui:Label name="two-tag-pair-status" class="body-copy"/>
         <ui:Button name="choose-two-tag-pair" class="map-field-hidden"/>
-        <ui:VisualElement name="tag-configuration-section" class="map-field-section map-field-hidden">
+        <ui:VisualElement name="tag-configuration-section" class="map-field-section map-field-hidden" style="display: flex;">
+            <ui:Button name="start-apriltag-setup">
+                <Bindings>
+                    <UnityEngine.Localization.LocalizedString property="text" table="Map" entry="tag-setup.start"/>
+                </Bindings>
+            </ui:Button>
             <ui:Slider name="tag-size-slider" low-value="1" high-value="50" show-input-field="true" class="stacked-field">
                 <Bindings>
-                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMapAlignmentPage.tag-size-slider.label"/>
+                    <UnityEngine.Localization.LocalizedString property="label" table="Map" entry="GameMapAlignmentPage.tag-size-slider.label"/>
                 </Bindings>
             </ui:Slider>
             <ui:Label name="tag-size-note" class="warning"/>
             <ui:Label name="tag-status" class="body-copy"/>
             <ui:Button name="unregister-all-tags-button" class="destructive">
                 <Bindings>
-                    <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMapAlignmentPage.unregister-all-tags-button.text"/>
+                    <UnityEngine.Localization.LocalizedString property="text" table="Map" entry="GameMapAlignmentPage.unregister-all-tags-button.text"/>
                 </Bindings>
             </ui:Button>
         </ui:VisualElement>

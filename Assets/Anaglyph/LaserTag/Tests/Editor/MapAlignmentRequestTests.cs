@@ -38,7 +38,7 @@ namespace Anaglyph.LaserTag.Tests
 		private string directory;
 		private Dictionary<ulong, PlayerAvatar> previousPlayers;
 		private SyncBus bus;
-		private readonly List<UserError> errors = new();
+		private readonly List<LaserTagMapCoordinator.AlignmentError> errors = new();
 		private static object Get(object target, string field) => target.GetType().GetField(field, Private).GetValue(target);
 		private static void Set(object target, string field, object value) => target.GetType().GetField(field, Private).SetValue(target, value);
 		private static void Property(object target, string name, object value) => target.GetType().GetProperty(name).SetValue(target, value);
@@ -88,9 +88,9 @@ namespace Anaglyph.LaserTag.Tests
 			Static(typeof(LaserTagMapCoordinator), "Instance", coordinator);
 			Static(typeof(ColocationManager), "Instance", manager);
 			Call(coordinator, "ComposeWorkflows");
-			errors.Clear(); UserErrors.Raised += OnError;
+			errors.Clear(); LaserTagMapCoordinator.AlignmentErrorRaised += OnError;
 		}
-		private void OnError(UserError error) => errors.Add(error);
+		private void OnError(LaserTagMapCoordinator.AlignmentError error) => errors.Add(error);
 
 		private void WithSimulationRestore(Action test)
 		{
@@ -156,7 +156,7 @@ namespace Anaglyph.LaserTag.Tests
 		[TearDown]
 		public void TearDown()
 		{
-			UserErrors.Raised -= OnError;
+			LaserTagMapCoordinator.AlignmentErrorRaised -= OnError;
 			if (bus) { Property(bus, "IsSpawned", false); Static(typeof(SyncBus), "Current", null); }
 			alignment?.Dispose();
 			Static(typeof(LaserTagMapCoordinator), "Instance", null);
@@ -188,8 +188,8 @@ namespace Anaglyph.LaserTag.Tests
 			var root = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>("Assets/Anaglyph/LaserTag/Interface/Shared/Game/AlignmentSettings.uxml").CloneTree();
 			using var binder = new AlignmentSettingsBinder(root); binder.Refresh();
 			Assert.That(binder.DisplayedMethod, Is.EqualTo(Method.AprilTag));
-			Assert.That(binder.Status, Is.EqualTo(MenuCopy.Get("Game", "alignment.waiting-for-headset")));
-			Assert.That(root.Q<DropdownField>("colocation-method-field").value, Is.EqualTo(MenuCopy.Get("Game", "alignment.tags")));
+			Assert.That(binder.Status, Is.EqualTo(MenuCopy.Get("Map", "alignment.waiting-for-headset")));
+			Assert.That(root.Q<DropdownField>("colocation-method-field").value, Is.EqualTo(MenuCopy.Get("Map", "alignment.tags")));
 			coordinator.CancelAlignmentTransition(); binder.Refresh();
 			Assert.That(coordinator.WaitingForAlignmentAuthor, Is.False);
 			Assert.That(binder.DisplayedMethod, Is.EqualTo(Method.MetaSharedAnchor));
@@ -206,10 +206,10 @@ namespace Anaglyph.LaserTag.Tests
 			spaceDocument.Load(space);
 			var root = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>("Assets/Anaglyph/LaserTag/Interface/Shared/Game/AlignmentSettings.uxml").CloneTree();
 			using var binder = new AlignmentSettingsBinder(root, operatorMode: true); binder.Refresh();
-			Assert.That(root.Q("tag-configuration-section").ClassListContains("map-field-hidden"), Is.EqualTo(!size));
+			Assert.That(root.Q("tag-configuration-section").style.display.value, Is.EqualTo(size ? DisplayStyle.Flex : DisplayStyle.None));
 			Assert.That(root.Q<Label>("tag-status").style.display.value, Is.EqualTo(registrations ? DisplayStyle.Flex : DisplayStyle.None));
-			Assert.That(root.Q<Button>("unregister-all-tags-button").ClassListContains("map-field-hidden"), Is.EqualTo(!registrations));
-			Assert.That(root.Q<Button>("choose-two-tag-pair").ClassListContains("map-field-hidden"), Is.EqualTo(!pair));
+			Assert.That(root.Q<Button>("unregister-all-tags-button").style.display.value, Is.EqualTo(registrations ? DisplayStyle.Flex : DisplayStyle.None));
+			Assert.That(root.Q<Button>("choose-two-tag-pair").style.display.value, Is.EqualTo(pair ? DisplayStyle.Flex : DisplayStyle.None));
 		}
 
 		private PlayerHeadsetStatus RemoteHeadset(out HeadsetReadiness readiness)

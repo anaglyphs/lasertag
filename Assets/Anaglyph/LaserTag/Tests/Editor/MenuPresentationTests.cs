@@ -2,6 +2,7 @@ using System.Collections;
 using System.Linq;
 using Anaglyph.LaserTag.Interface;
 using Anaglyph.Menu;
+using Anaglyph.Netcode;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -50,11 +51,11 @@ namespace Anaglyph.LaserTag.Tests
 		[Test]
 		public void SavedSpacePreferenceCopyDoesNotDescribeAPendingMethodSwitch()
 		{
-			Assert.That(MenuCopy.Format("Game", "alignment.saved-preference", "Shared spatial anchors"),
+			Assert.That(MenuCopy.Format("Map", "alignment.saved-preference", "Shared spatial anchors"),
 				Is.EqualTo("Space preference: Shared spatial anchors"));
-			Assert.That(MenuCopy.Format("Game", "alignment.saved-preference", "TEST-METHOD"),
+			Assert.That(MenuCopy.Format("Map", "alignment.saved-preference", "TEST-METHOD"),
 				Is.EqualTo("Space preference: TEST-METHOD"));
-			Assert.That(MenuCopy.Get("Game", "alignment.session-scope"),
+			Assert.That(MenuCopy.Get("Map", "alignment.session-scope"),
 				Is.EqualTo("Changes alignment for everyone. Successful changes are saved with this space."));
 		}
 
@@ -76,11 +77,11 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(op.Q<Button>("host-button").text, Is.EqualTo("Start hosting"));
 			Assert.That(op.Q<Tab>("maps-tab").label, Is.EqualTo("Maps"));
 			Assert.That(hand.Q<Anaglyph.LaserTag.Interface.HUD.ScoreDisplay>(), Is.Not.Null);
-			Assert.That(MenuCopy.Format("Operator", "client.count", 0), Is.EqualTo("0 players connected"));
-			Assert.That(MenuCopy.Format("Operator", "client.count", 1), Is.EqualTo("1 player connected"));
-			Assert.That(MenuCopy.Format("Operator", "client.count", 2), Is.EqualTo("2 players connected"));
-			Assert.That(MenuCopy.Format("HUD", "respawn.countdown", 2.3f), Is.EqualTo("RESPAWN: 2.3s"));
-			var error = MenuCopy.String("Operator", "error.host-start", "test detail");
+			Assert.That(MenuCopy.Format("OperatorMenu", "client.count", 0), Is.EqualTo("0 players connected"));
+			Assert.That(MenuCopy.Format("OperatorMenu", "client.count", 1), Is.EqualTo("1 player connected"));
+			Assert.That(MenuCopy.Format("OperatorMenu", "client.count", 2), Is.EqualTo("2 players connected"));
+			Assert.That(MenuCopy.Format("HUDMenu", "respawn.countdown", 2.3f), Is.EqualTo("RESPAWN: 2.3s"));
+			var error = MenuCopy.String("OperatorMenu", "error.host-start", "test detail");
 			string original = error.GetLocalizedString();
 			var pseudo = PseudoLocale.CreatePseudoLocale();
 			try
@@ -109,10 +110,10 @@ namespace Anaglyph.LaserTag.Tests
 			using var binder = new SpaceDetailsBinder(space);
 			nav.GoToPage("map-manager-page");
 			nav.GoToPage(space);
-			using var errors = new MenuErrorPresenter(UserErrorArea.Game);
+			using var errors = new MenuErrorPresenter(MenuErrorArea.Game);
 			errors.Bind(nav);
-			UserErrors.Raise(UserErrorArea.Game, "Alignment change unavailable", "Cannot share anchors");
-			UserErrors.Raise(UserErrorArea.Game, "Another warning", "Details");
+			errors.Show(new MenuError(MenuErrorArea.Game, "Alignment change unavailable", "Cannot share anchors"));
+			errors.Show(new MenuError(MenuErrorArea.Game, "Another warning", "Details"));
 			Assert.That(nav.CurrentPage.name, Is.EqualTo("error-modal"));
 			for (int i = 0; i < 2; i++) yield return null;
 			Submit(root.Q<Button>("dismiss-error-button"));
@@ -161,13 +162,13 @@ namespace Anaglyph.LaserTag.Tests
 		{
 			var root = Load("GameMenu");
 			var nav = NavView.RequireIn(root);
-			using var errors = new MenuErrorPresenter(UserErrorArea.Game);
+			using var errors = new MenuErrorPresenter(MenuErrorArea.Game);
 			errors.Bind(nav);
-			UserErrors.Raise(UserErrorArea.Connection, "Connection failure", "Network detail");
+			errors.Show(new MenuError(MenuErrorArea.Connection, "Connection failure", "Network detail"));
 			Assert.That(nav.CurrentPage.name, Is.EqualTo("home-page"));
-			UserErrors.Raise(UserErrorArea.Game, "Alignment failure", "First detail");
-			UserErrors.Raise(UserErrorArea.Game, "Alignment failure", "First detail");
-			UserErrors.Raise(UserErrorArea.Game, "Map failure", "Second detail");
+			errors.Show(new MenuError(MenuErrorArea.Game, "Alignment failure", "First detail"));
+			errors.Show(new MenuError(MenuErrorArea.Game, "Alignment failure", "First detail"));
+			errors.Show(new MenuError(MenuErrorArea.Game, "Map failure", "Second detail"));
 			Assert.That(nav.CurrentPage.name, Is.EqualTo("error-modal"));
 			Assert.That(root.Q<Label>("error-subject").text, Is.EqualTo("Alignment failure"));
 			errors.Unbind();
@@ -184,9 +185,9 @@ namespace Anaglyph.LaserTag.Tests
 		public IEnumerator PendingLocalizedErrorsFollowLocaleChanges()
 		{
 			var root = Load("GameMenu");
-			using var errors = new MenuErrorPresenter(UserErrorArea.Game);
+			using var errors = new MenuErrorPresenter(MenuErrorArea.Game);
 			errors.Bind(NavView.RequireIn(root));
-			UserErrors.RaiseLocalized(UserErrorArea.Game, "error.anchors-title", "error.anchors-details");
+			errors.Show(new MenuError(MenuErrorArea.Game, "error.anchors-title", "error.anchors-details", "Map"));
 			string original = root.Q<Label>("error-subject").text;
 			Assert.That(original, Is.EqualTo("Shared spatial anchors unavailable"));
 			var pseudo = PseudoLocale.CreatePseudoLocale();
@@ -201,6 +202,40 @@ namespace Anaglyph.LaserTag.Tests
 				LocalizationSettings.SelectedLocale = english;
 				Object.DestroyImmediate(pseudo);
 			}
+		}
+
+		[Test]
+		public void ProducerEventsReachOnlyTheirPanelAndDisposeUnsubscribes()
+		{
+			var game = Load("GameMenu");
+			var connection = Load("ConnectionMenu");
+			var gameNav = NavView.RequireIn(game);
+			var connectionNav = NavView.RequireIn(connection);
+			using var gameErrors = new MenuErrorPresenter(MenuErrorArea.Game);
+			using var connectionErrors = new MenuErrorPresenter(MenuErrorArea.Connection);
+			gameErrors.Bind(gameNav);
+			connectionErrors.Bind(connectionNav);
+			var flags = System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic;
+			var servicesError = typeof(NetcodeManagement).GetMethod("RaiseServicesError", flags);
+			var alignmentError = typeof(LaserTagMapCoordinator).GetMethod("ReportAlignmentRejection", flags);
+
+			servicesError.Invoke(null, null);
+			Assert.That(connectionNav.CurrentPage.name, Is.EqualTo("error-modal"));
+			Assert.That(connection.Q<Label>("error-subject").text, Is.EqualTo(MenuCopy.Get("ConnectionMenu", "error.relay-title")));
+			Assert.That(gameNav.CurrentPage.name, Is.Not.EqualTo("error-modal"));
+			alignmentError.Invoke(null, null);
+			Assert.That(gameNav.CurrentPage.name, Is.EqualTo("error-modal"));
+			Assert.That(game.Q<Label>("error-subject").text, Is.EqualTo(MenuCopy.Get("Map", "error.alignment-title")));
+
+			gameErrors.Dispose();
+			connectionErrors.Dispose();
+			var pending = typeof(MenuErrorPresenter).GetField("pending", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+			((System.Collections.Generic.Queue<MenuError>)pending.GetValue(gameErrors)).Clear();
+			((System.Collections.Generic.Queue<MenuError>)pending.GetValue(connectionErrors)).Clear();
+			servicesError.Invoke(null, null);
+			alignmentError.Invoke(null, null);
+			Assert.That((System.Collections.ICollection)pending.GetValue(gameErrors), Is.Empty);
+			Assert.That((System.Collections.ICollection)pending.GetValue(connectionErrors), Is.Empty);
 		}
 
 		[UnityTest]

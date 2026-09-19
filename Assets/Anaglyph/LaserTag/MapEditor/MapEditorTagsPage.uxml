@@ -1,31 +1,30 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:Template name="TagSizeField" src="project://database/Assets/Anaglyph/LaserTag/MapEditor/TagSizeField.uxml?fileID=9197481963319205126&amp;guid=0eaae135bf94481ca7c2e02a6df95351&amp;type=3#TagSizeField"/>
     <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle" />
     <ui:VisualElement picking-mode="Ignore" class="menu-root game-panel page-template-root">
         <Anaglyph.Menu.NavHeader>
             <Bindings>
-                <UnityEngine.Localization.LocalizedString property="Title" table="GameMenu" entry="alignment.tags" />
+                <UnityEngine.Localization.LocalizedString property="Title" table="Map" entry="alignment.tags" />
             </Bindings>
         </Anaglyph.Menu.NavHeader>
-        <ui:ScrollView mode="Vertical">
+        <ui:ScrollView mode="Vertical" class="palette-step-scroll">
+            <ui:Label name="tag-setup-register-instructions" class="body-copy tag-setup-hidden"><Bindings><UnityEngine.Localization.LocalizedString property="text" table="Map" entry="tag-setup.headset-register"/></Bindings></ui:Label>
             <ui:VisualElement name="tag-settings">
-                <ui:Slider name="tag-size-slider" low-value="1" high-value="50" show-input-field="true" class="stacked-field">
-                    <Bindings>
-                        <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMapAlignmentPage.tag-size-slider.label" />
-                    </Bindings>
-                </ui:Slider>
-                <ui:Label name="tag-size-note" class="warning" />
+                <ui:Instance template="TagSizeField" name="registration-tag-size"/>
                 <ui:Button name="measure-tag-size-button">
                     <Bindings>
-                        <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="ruler.measure" />
+                        <UnityEngine.Localization.LocalizedString property="text" table="Map" entry="ruler.measure" />
                     </Bindings>
                 </ui:Button>
                 <ui:Label name="tag-status" class="body-copy" />
                 <ui:Button name="unregister-all-tags-button" class="destructive">
                     <Bindings>
-                        <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMapAlignmentPage.unregister-all-tags-button.text" />
+                        <UnityEngine.Localization.LocalizedString property="text" table="Map" entry="GameMapAlignmentPage.unregister-all-tags-button.text" />
                     </Bindings>
                 </ui:Button>
             </ui:VisualElement>
+            <ui:Label name="tag-setup-finish" class="body-copy tag-setup-hidden"><Bindings><UnityEngine.Localization.LocalizedString property="text" table="Map" entry="tag-setup.headset-finish"/></Bindings></ui:Label>
         </ui:ScrollView>
+        <ui:Button name="tag-setup-back" class="tag-setup-hidden"><Bindings><UnityEngine.Localization.LocalizedString property="text" table="Map" entry="tag-setup.back"/></Bindings></ui:Button>
     </ui:VisualElement>
 </ui:UXML>

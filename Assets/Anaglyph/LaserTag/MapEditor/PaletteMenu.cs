@@ -25,16 +25,20 @@ namespace Anaglyph.LaserTag.MapEditor
 		private NavPage objectsPage;
 		private NavPage tagsPage;
 		private NavPage measureTagSizePage;
-		private Slider tagSizeSlider;
-		private Label tagSizeNote;
+		private List<Slider> tagSizeSliders;
+		private List<Label> tagSizeNotes;
 		private Label tagStatus;
 		private Label measurementHint;
 		private Button measureTagSizeButton;
 		private Button unregisterAllTagsButton;
 		private Button doneButton;
-		private VisualElement setupGuide;
-		private Label setupInstructions;
-		private Label setupProgress;
+		private Label setupMeasureInstructions;
+		private Label setupRegisterInstructions;
+		private Label setupFinish;
+		private VisualElement registrationTagSize;
+		private Button continueRegistrationButton;
+		private Button backToMeasurementButton;
+		private Button clearTagsForMeasurementButton;
 
 		private readonly List<(MapObjectDatabase.Category category, Button button)> categoryButtons = new();
 		private readonly List<(MapObject prefab, Button button)> objectButtons = new();
@@ -42,6 +46,8 @@ namespace Anaglyph.LaserTag.MapEditor
 		private MapObjectDatabase.Category selectedCategory;
 		private MapObject selectedPrefab;
 		private float? pendingTagSizeCm;
+		private float? submittedTagSizeCm;
+		private float submittedTagSizeTime;
 		private Guid pendingSizeContext;
 		private float pendingTagSizeTime;
 		private bool navigatingForMode;
@@ -66,22 +72,30 @@ namespace Anaglyph.LaserTag.MapEditor
 			categoryTitle = Require<Label>(root, "category-title");
 			editingContext = Require<Label>(root, "editing-context");
 			objectGrid = Require<ScrollView>(root, "object-grid");
-			tagSizeSlider = Require<Slider>(root, "tag-size-slider");
-			tagSizeNote = Require<Label>(root, "tag-size-note");
+			tagSizeSliders = root.Query<Slider>("tag-size-slider").ToList();
+			tagSizeNotes = root.Query<Label>("tag-size-note").ToList();
 			tagStatus = Require<Label>(root, "tag-status");
 			measurementHint = Require<Label>(root, "tag-measurement-hint");
 			measureTagSizeButton = Require<Button>(root, "measure-tag-size-button");
 			unregisterAllTagsButton = Require<Button>(root, "unregister-all-tags-button");
 			doneButton = Require<Button>(root, "done-button");
-			setupGuide = Require<VisualElement>(root, "tag-setup-guide");
-			setupInstructions = Require<Label>(root, "tag-setup-instructions");
-			setupProgress = Require<Label>(root, "tag-setup-progress");
+			setupMeasureInstructions = Require<Label>(root, "tag-setup-measure-instructions");
+			setupRegisterInstructions = Require<Label>(root, "tag-setup-register-instructions");
+			setupFinish = Require<Label>(root, "tag-setup-finish");
+			registrationTagSize = Require<VisualElement>(root, "registration-tag-size");
+			continueRegistrationButton = Require<Button>(root, "continue-tag-registration");
+			backToMeasurementButton = Require<Button>(root, "tag-setup-back");
+			clearTagsForMeasurementButton = Require<Button>(root, "clear-tags-for-measurement");
 
 			MenuCopy.Changed += OnCopyChanged;
 			AnaglyphDebugging.DebugModeChanged += OnDebugModeChanged;
 			MapEditorTool.ModeChanged += OnToolModeChanged;
 			navView.Changed += OnNavigationChanged;
-			tagSizeSlider.RegisterValueChangedCallback(OnTagSizeChanged);
+			foreach (var slider in tagSizeSliders) slider.RegisterValueChangedCallback(OnTagSizeChanged);
+			MapEditorTool.TagSizeMeasured += OnTagSizeMeasured;
+			continueRegistrationButton.clicked += OnContinueRegistration;
+			backToMeasurementButton.clicked += OnMeasureTagSizeClicked;
+			clearTagsForMeasurementButton.clicked += OnUnregisterAllTagsClicked;
 			measureTagSizeButton.clicked += OnMeasureTagSizeClicked;
 			unregisterAllTagsButton.clicked += OnUnregisterAllTagsClicked;
 			doneButton.clicked += OnDoneClicked;
@@ -96,7 +110,13 @@ namespace Anaglyph.LaserTag.MapEditor
 			AnaglyphDebugging.DebugModeChanged -= OnDebugModeChanged;
 			MapEditorTool.ModeChanged -= OnToolModeChanged;
 			if (navView != null) navView.Changed -= OnNavigationChanged;
-			tagSizeSlider?.UnregisterValueChangedCallback(OnTagSizeChanged);
+			if (tagSizeSliders != null)
+				foreach (var slider in tagSizeSliders) slider.UnregisterValueChangedCallback(OnTagSizeChanged);
+			MapEditorTool.TagSizeMeasured -= OnTagSizeMeasured;
+			if (continueRegistrationButton != null) continueRegistrationButton.clicked -= OnContinueRegistration;
+			if (backToMeasurementButton != null) backToMeasurementButton.clicked -= OnMeasureTagSizeClicked;
+			if (clearTagsForMeasurementButton != null) clearTagsForMeasurementButton.clicked -= OnUnregisterAllTagsClicked;
+			submittedTagSizeCm = null;
 			if (measureTagSizeButton != null) measureTagSizeButton.clicked -= OnMeasureTagSizeClicked;
 			if (unregisterAllTagsButton != null) unregisterAllTagsButton.clicked -= OnUnregisterAllTagsClicked;
 			if (doneButton != null) doneButton.clicked -= OnDoneClicked;
@@ -111,9 +131,16 @@ namespace Anaglyph.LaserTag.MapEditor
 			RebuildRail();
 			RefreshTagSettings();
 			RefreshMeasurementHint();
+			RefreshSetupGuide();
 		}
 
-		private static void OnDoneClicked() => MapEditor.SetActive(false);
+		private static void OnDoneClicked()
+		{
+			var setup = LaserTagMapCoordinator.Instance?.TagSetup;
+			if (setup?.IsGuidingHeadset != true) MapEditor.SetActive(false);
+			else if (setup.CanFinish) setup.Finish();
+			else setup.Cancel();
+		}
 
 		private void OnToolModeChanged(MapEditorTool.Mode mode)
 		{
@@ -130,6 +157,7 @@ namespace Anaglyph.LaserTag.MapEditor
 			ShowPageForMode(mode);
 			RefreshTagSettings();
 			RefreshMeasurementHint();
+			RefreshSetupGuide();
 		}
 
 		private void ShowPageForMode(MapEditorTool.Mode mode)
@@ -185,15 +213,15 @@ namespace Anaglyph.LaserTag.MapEditor
 			{
 				var coordinator = LaserTagMapCoordinator.Instance;
 				bool objects = MapEditorTool.CurrentMode is MapEditorTool.Mode.Place or MapEditorTool.Mode.Move;
-				context.text = MenuCopy.Format("Game", objects ? "palette.map-context" : "palette.space-context",
+				context.text = MenuCopy.Format("Map", objects ? "palette.map-context" : "palette.space-context",
 					objects ? coordinator?.CurrentMap?.name ?? "" : coordinator?.CurrentSpace?.name ?? "");
 			}
 			if (pendingTagSizeCm.HasValue && Time.unscaledTime - pendingTagSizeTime >= tagSizeSettleSeconds)
 				FlushPendingTagSize();
 
-			if (MapEditorTool.CurrentMode == MapEditorTool.Mode.Tags)
+			if (MapEditorTool.CurrentMode is MapEditorTool.Mode.Tags or MapEditorTool.Mode.MeasureTagSize)
 				RefreshTagSettings();
-			else if (MapEditorTool.CurrentMode == MapEditorTool.Mode.MeasureTagSize)
+			if (MapEditorTool.CurrentMode == MapEditorTool.Mode.MeasureTagSize)
 				RefreshMeasurementHint();
 			RefreshSetupGuide();
 		}
@@ -201,20 +229,24 @@ namespace Anaglyph.LaserTag.MapEditor
 		// ------- tag settings ----------------------------------------
 		private void RefreshSetupGuide()
 		{
-			var coordinator = LaserTagMapCoordinator.Instance;
-			var setup = coordinator?.TagSetup;
+			var setup = LaserTagMapCoordinator.Instance?.TagSetup;
 			bool guided = setup?.IsGuidingHeadset == true;
-			setupGuide.EnableInClassList("tag-setup-hidden", !guided);
-			doneButton.SetEnabled(!guided);
-			unregisterAllTagsButton.EnableInClassList("tag-setup-hidden", guided);
+			setupMeasureInstructions.style.display = guided ? DisplayStyle.Flex : DisplayStyle.None;
+			setupRegisterInstructions.style.display = guided ? DisplayStyle.Flex : DisplayStyle.None;
+			setupFinish.style.display = guided ? DisplayStyle.Flex : DisplayStyle.None;
+			backToMeasurementButton.style.display = guided ? DisplayStyle.Flex : DisplayStyle.None;
+			registrationTagSize.style.display = guided ? DisplayStyle.None : DisplayStyle.Flex;
+			measureTagSizeButton.style.display = guided ? DisplayStyle.None : DisplayStyle.Flex;
+			unregisterAllTagsButton.style.display = guided ? DisplayStyle.None : DisplayStyle.Flex;
+			doneButton.style.display = guided && !setup.CanEndFromHere ? DisplayStyle.None : DisplayStyle.Flex;
+			doneButton.text = MenuCopy.Get("Map", guided && !setup.CanFinish ? "tag-setup.cancel" : "GameMapEditingPage.finish-editing-button.text");
+			measurementHint.style.display = guided && !setup.CanMeasure ? DisplayStyle.None : DisplayStyle.Flex;
 			if (!guided) return;
-			bool measuring = MapEditorTool.CurrentMode == MapEditorTool.Mode.MeasureTagSize;
-			setupInstructions.text = MenuCopy.Get("Game", measuring ? "tag-setup.headset-measure" :
-				!setup.SizeConfirmed ? "tag-setup.headset-wait" : "tag-setup.headset-register");
-			setupProgress.text = MenuCopy.Format("Game", "tag-setup.headset-progress", coordinator.CurrentSpace.tags.Count,
-				coordinator.EffectiveTagSizeCm);
-			tagSizeSlider.SetEnabled(false);
-			measureTagSizeButton.SetEnabled(false);
+			setupFinish.text = MenuCopy.Get("Map", setup.State.operatorManaged ? "tag-setup.headset-finish" : "tag-setup.headset-finish-local");
+			setupMeasureInstructions.text = MenuCopy.Get("Map", setup.CanMeasure || setup.SizeConfirmed
+				? "tag-setup.headset-measure" : "tag-setup.headset-wait");
+			foreach (var slider in tagSizeSliders) slider.SetEnabled(setup.CanMeasure);
+			continueRegistrationButton.SetEnabled(setup.CanMeasure || setup.SizeConfirmed);
 		}
 
 		private void OnTagSizeChanged(ChangeEvent<float> change)
@@ -222,6 +254,23 @@ namespace Anaglyph.LaserTag.MapEditor
 			pendingSizeContext = LaserTagMapCoordinator.Instance?.ReferenceContext ?? Guid.Empty;
 			pendingTagSizeCm = change.newValue;
 			pendingTagSizeTime = Time.unscaledTime;
+			submittedTagSizeCm = null;
+			LaserTagMapCoordinator.Instance?.TagSetup?.ReturnToMeasurement();
+			foreach (var slider in tagSizeSliders) slider.SetValueWithoutNotify(change.newValue);
+		}
+
+		private void OnTagSizeMeasured(float centimeters)
+		{
+			pendingSizeContext = LaserTagMapCoordinator.Instance?.ReferenceContext ?? Guid.Empty;
+			pendingTagSizeCm = null;
+			submittedTagSizeCm = centimeters;
+			submittedTagSizeTime = Time.unscaledTime;
+			LaserTagMapCoordinator.Instance?.TagSetup?.ReturnToMeasurement();
+			foreach (var slider in tagSizeSliders)
+			{
+				slider.highValue = Mathf.Max(50f, centimeters);
+				slider.SetValueWithoutNotify(centimeters);
+			}
 		}
 
 		private void FlushPendingTagSize()
@@ -232,17 +281,33 @@ namespace Anaglyph.LaserTag.MapEditor
 			float centimeters = pendingTagSizeCm.Value;
 			pendingTagSizeCm = null;
 			var manager = LaserTagMapCoordinator.Instance;
-			if (manager != null && manager.ReferenceContext == pendingSizeContext) manager.SetTagSize(centimeters);
+			if (manager != null && manager.ReferenceContext == pendingSizeContext && manager.SetTagSize(centimeters))
+			{
+				submittedTagSizeCm = centimeters;
+				submittedTagSizeTime = Time.unscaledTime;
+			}
+		}
+
+		private void OnContinueRegistration()
+		{
+			var manager = LaserTagMapCoordinator.Instance;
+			if (manager == null) return;
+			float centimeters = pendingTagSizeCm ?? submittedTagSizeCm ?? manager.EffectiveTagSizeCm;
+			FlushPendingTagSize();
+			if (manager.TagSetup?.IsGuidingHeadset == true)
+				manager.TagSetup.ContinueToRegistration(centimeters);
+			else
+				MapEditorTool.SetMode(MapEditorTool.Mode.Tags);
 		}
 
 		private void OnMeasureTagSizeClicked()
 		{
-			LaserTagMapCoordinator manager = LaserTagMapCoordinator.Instance;
-			if (MapEditorTool.DominantHand == null || manager?.DescribeTagSizeBlocker() != null)
-				return;
-
+			var manager = LaserTagMapCoordinator.Instance;
 			FlushPendingTagSize();
-			MapEditorTool.SetMode(MapEditorTool.Mode.MeasureTagSize);
+			if (manager?.TagSetup?.IsGuidingHeadset == true)
+				manager.TagSetup.ReturnToMeasurement();
+			else if (MapEditorTool.DominantHand != null && manager?.DescribeTagSizeBlocker() == null)
+				MapEditorTool.SetMode(MapEditorTool.Mode.MeasureTagSize);
 		}
 
 		private void OnUnregisterAllTagsClicked()
@@ -253,47 +318,61 @@ namespace Anaglyph.LaserTag.MapEditor
 
 		private void RefreshTagSettings()
 		{
-			if (tagSizeSlider == null)
+			if (tagSizeSliders == null)
 				return;
 
 			LaserTagMapCoordinator manager = LaserTagMapCoordinator.Instance;
 			if (manager == null)
 			{
-				tagSizeSlider.SetEnabled(false);
+				foreach (var slider in tagSizeSliders) slider.SetEnabled(false);
 				unregisterAllTagsButton.SetEnabled(false);
 				measureTagSizeButton.SetEnabled(false);
-				SetMessage(tagSizeNote, null);
+				continueRegistrationButton.SetEnabled(false);
+				clearTagsForMeasurementButton.SetEnabled(false);
+				clearTagsForMeasurementButton.style.display = DisplayStyle.None;
+				foreach (var note in tagSizeNotes) SetMessage(note, null);
 				SetMessage(tagStatus, null);
 				return;
 			}
 
 			string sizeBlocker = manager.DescribeTagSizeBlocker();
-			tagSizeSlider.SetEnabled(sizeBlocker == null);
-			measureTagSizeButton.SetEnabled(MapEditorTool.DominantHand != null && sizeBlocker == null);
-			SetMessage(tagSizeNote, sizeBlocker);
-
-			// A slider drag is an uncommitted local value until it settles; do not overwrite it
-			// while the user is dragging or typing merely to reflect the current map value.
-			if (!pendingTagSizeCm.HasValue && !IsBeingEdited(tagSizeSlider))
+			if (pendingSizeContext != manager.ReferenceContext)
 			{
-				tagSizeSlider.highValue = Mathf.Max(50f, manager.EffectiveTagSizeCm);
-				tagSizeSlider.SetValueWithoutNotify(manager.EffectiveTagSizeCm);
+				pendingTagSizeCm = null;
+				submittedTagSizeCm = null;
 			}
+			foreach (var slider in tagSizeSliders) slider.SetEnabled(sizeBlocker == null);
+			measureTagSizeButton.SetEnabled(MapEditorTool.DominantHand != null && sizeBlocker == null);
+			foreach (var note in tagSizeNotes) SetMessage(note, sizeBlocker);
+
+			if (submittedTagSizeCm.HasValue && (Mathf.Abs(submittedTagSizeCm.Value - manager.EffectiveTagSizeCm) < .001f ||
+				Time.unscaledTime - submittedTagSizeTime > 2f)) submittedTagSizeCm = null;
+			if (!pendingTagSizeCm.HasValue && !submittedTagSizeCm.HasValue)
+				foreach (var slider in tagSizeSliders)
+					if (!IsBeingEdited(slider))
+					{
+						slider.highValue = Mathf.Max(50f, manager.EffectiveTagSizeCm);
+						slider.SetValueWithoutNotify(manager.EffectiveTagSizeCm);
+					}
+			continueRegistrationButton.SetEnabled(true);
 
 			int registered = manager.CurrentSpace != null ? manager.CurrentSpace.tags.Count : 0;
 			string registrationBlocker = manager.DescribeTagRegistrationBlocker();
-			unregisterAllTagsButton.SetEnabled(registered > 0 && manager.DescribeTagRemovalBlocker() == null);
+			bool canRemove = registered > 0 && manager.DescribeTagRemovalBlocker() == null;
+			unregisterAllTagsButton.SetEnabled(canRemove);
+			clearTagsForMeasurementButton.style.display = registered == 0 ? DisplayStyle.None : DisplayStyle.Flex;
+			clearTagsForMeasurementButton.SetEnabled(canRemove);
 
 			bool twoTags = (ColocationManager.Instance != null ? ColocationManager.Instance.SelectedMethod :
 				manager.CurrentSpace?.preferredColocationMethod) == ColocationManager.ColocationMethod.TwoAprilTags;
 			if (twoTags)
-				tagStatus.text = MenuCopy.Get("Game", "alignment.two-tags-description");
+				tagStatus.text = MenuCopy.Get("Map", "alignment.two-tags-description");
 			else if (registrationBlocker != null && registrationBlocker != sizeBlocker)
-				tagStatus.text = MenuCopy.Format("Game", "alignment.tag-blocked", registered, registrationBlocker);
+				tagStatus.text = MenuCopy.Format("Map", "alignment.tag-blocked", registered, registrationBlocker);
 			else if (manager.SessionIsWaitingOnFirstTag)
-				tagStatus.text = MenuCopy.Get("Game", "alignment.no-tags");
+				tagStatus.text = MenuCopy.Get("Map", "alignment.no-tags");
 			else
-				tagStatus.text = MenuCopy.Format("Game", "alignment.tag-count", registered);
+				tagStatus.text = MenuCopy.Format("Map", "alignment.tag-count", registered);
 		}
 
 		private void RefreshMeasurementHint()
@@ -301,7 +380,7 @@ namespace Anaglyph.LaserTag.MapEditor
 			if (measurementHint == null)
 				return;
 
-			measurementHint.text = MenuCopy.Get("Game", MapEditorTool.MeasurementHint ?? "ruler.first-point");
+			measurementHint.text = MenuCopy.Get("Map", MapEditorTool.MeasurementHint ?? "ruler.first-point");
 		}
 
 		private static bool IsBeingEdited(VisualElement field)
@@ -326,7 +405,7 @@ namespace Anaglyph.LaserTag.MapEditor
 
 			if (database == null)
 			{
-					ShowGridMessage(MenuCopy.Get("Palette", "error.no-database"), "warning");
+					ShowGridMessage(MenuCopy.Get("PaletteMenu", "error.no-database"), "warning");
 				return;
 			}
 
@@ -359,11 +438,11 @@ namespace Anaglyph.LaserTag.MapEditor
 			objectGrid.Clear();
 			objectButtons.Clear();
 
-			categoryTitle.text = selectedCategory != null ? selectedCategory.Name : MenuCopy.Get("Palette", "title");
+			categoryTitle.text = selectedCategory != null ? selectedCategory.Name : MenuCopy.Get("PaletteMenu", "title");
 
 			if (selectedCategory == null)
 			{
-				ShowGridMessage(MenuCopy.Get("Palette", "empty.categories"), "body-copy");
+				ShowGridMessage(MenuCopy.Get("PaletteMenu", "empty.categories"), "body-copy");
 				return;
 			}
 
@@ -382,7 +461,7 @@ namespace Anaglyph.LaserTag.MapEditor
 			}
 
 			if (objectButtons.Count == 0)
-				ShowGridMessage(MenuCopy.Get("Palette", "empty.objects"), "body-copy");
+				ShowGridMessage(MenuCopy.Get("PaletteMenu", "empty.objects"), "body-copy");
 
 			RefreshHighlights();
 		}

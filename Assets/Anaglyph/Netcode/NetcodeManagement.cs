@@ -24,6 +24,24 @@ namespace Anaglyph.Netcode
 
 	public static class NetcodeManagement
 	{
+		public enum ErrorKind { JoinFailed, VersionMismatch, ServicesUnavailable }
+
+		public readonly struct Error
+		{
+			public readonly ErrorKind kind;
+			public readonly string hostVersion;
+			public readonly string clientVersion;
+
+			public Error(ErrorKind kind, string hostVersion = null, string clientVersion = null)
+			{
+				this.kind = kind;
+				this.hostVersion = hostVersion;
+				this.clientVersion = clientVersion;
+			}
+		}
+
+		public static event Action<Error> ErrorRaised = delegate { };
+
 		public enum Protocol
 		{
 			LAN,
@@ -98,6 +116,7 @@ namespace Anaglyph.Netcode
 
 			_state = NetcodeState.Disconnected;
 			StateChanged = delegate { };
+			ErrorRaised = delegate { };
 
 			CurrentSession = null;
 			CurrentSessionName = "";
@@ -133,7 +152,6 @@ namespace Anaglyph.Netcode
 			bool failedToJoin = isAttemptingConnection;
 			isAttemptingConnection = false;
 
-			// closes the session page before the error page opens over the menu
 			State = NetcodeState.Disconnected;
 
 			if (failedToJoin)
@@ -160,14 +178,14 @@ namespace Anaglyph.Netcode
 			{
 				string hostVersion = reason.Substring(prefixIndex + legacyVersionMismatchPrefix.Length).Trim();
 
-				UserErrors.RaiseLocalized(UserErrorArea.Connection, "error.build-title", "error.build-details", hostVersion, GameVersion);
+				ErrorRaised.Invoke(new Error(ErrorKind.VersionMismatch, hostVersion, GameVersion));
 
 				return;
 			}
 
 			// NGO can reject a protocol/configuration mismatch before approval without
 			// sending a reason or the host's protocol version. Do not invent either.
-			UserErrors.RaiseLocalized(UserErrorArea.Connection, "error.join-title", "error.join-details");
+			ErrorRaised.Invoke(new Error(ErrorKind.JoinFailed));
 		}
 
 		private static CancellationTokenSource taskCanceller = new();
@@ -297,7 +315,7 @@ namespace Anaglyph.Netcode
 			// this error explains the failure, so don't also report it as a failed join
 			isAttemptingConnection = false;
 
-			UserErrors.RaiseLocalized(UserErrorArea.Connection, "error.relay-title", "error.relay-details");
+			ErrorRaised.Invoke(new Error(ErrorKind.ServicesUnavailable));
 		}
 
 		private static async Task ConnectUnityServices(string id, CancellationToken ct)

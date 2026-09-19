@@ -1,3 +1,4 @@
+using System;
 using Anaglyph.XR;
 using Anaglyph.XR.Input;
 using UnityEngine;
@@ -13,53 +14,62 @@ namespace Anaglyph.LaserTag.Interface.HUD
 
 		private HandInput follow;
 
-		private int side = 1;
-		private float swapTimer = float.MaxValue;
+		private int _side = 1;
+		private float swapTime = 0;
 
-		// Stick with the hand being followed while it still tracks, so a HUD on the hand you are
-		// holding the blaster in doesn't jump when the other controller wakes up.
-		private HandInput FindHandToFollow()
+		// this is NOT controller handedness, but what side of the CONTROLLER the hud should be on
+		public int ControllerSide => _side;
+		
+		// this is NOT controller handedness, but what side of the CONTROLLER the hud should be on
+		public event Action<int> ControllerSideSwapped;
+
+		public void SetHand(HandInput hand)
 		{
-			if (follow != null && follow.IsTracking)
-				return follow;
+			if (hand == follow)
+				return;
+			
+			follow = hand;
+			_side = hand.Handedness == Handedness.Left ? 1 : -1;
+		}
 
-			foreach (HandInput handInput in HandInput.Hands.Values)
-				if (handInput.IsTracking)
-					return handInput;
-
-			return null;
+		private void SetSide(int side)
+		{
+			_side = side;
+			ControllerSideSwapped?.Invoke(_side);
 		}
 
 		private void LateUpdate()
 		{
-			follow = FindHandToFollow();
-			if (follow == null || MainXRRig.Instance == null) return;
+			if (follow == null || !follow.IsTracking || MainXRRig.Instance == null) return;
 
 			Transform camTrans = MainXRRig.Camera.transform;
 			Vector3 camPos = camTrans.position;
 
-			Vector3 pos = MainXRRig.TrackingSpace.TransformPoint(follow.Position);
+			Vector3 handPos = MainXRRig.TrackingSpace.TransformPoint(follow.Position);
 
 			// determine side
-			// controller handedness DOES NOT always equal side the controller is ACTUALLY on
+			// controller handedness does NOT always equal side the controller is ACTUALLY held on
 			// e.g. when using the Striker Mavrik, the left controller is in the blaster's cradle
 			// for tracking, but the user can hold the blaster on their right side
-			Vector3 posCamSpace = camTrans.InverseTransformPoint(pos);
+			Vector3 posCamSpace = camTrans.InverseTransformPoint(handPos);
 			int currSide = posCamSpace.x >= 0 ? -1 : 1;
-			if (currSide == side || Mathf.Abs(posCamSpace.x) < handSwapThresh)
+			if (currSide == _side || Mathf.Abs(posCamSpace.x) < handSwapThresh)
 			{
-				swapTimer = 0;
+				swapTime = Time.time;
 			}
 			else
 			{
-				swapTimer += Time.deltaTime;
-				if (swapTimer > handSwapTime)
-					side = currSide;
+				if (Time.time > swapTime)
+				{
+					swapTime = Time.time;
+					SetSide(currSide);
+				}
 			}
 
-			Vector3 camToHandFlat = Vector3.ProjectOnPlane(pos - camPos, Vector3.up);
-			Vector3 offs = Vector3.Cross(Vector3.up, camToHandFlat).normalized * (horizontalOffset * side);
-			transform.position = pos + offs;
+			Vector3 camToHand = handPos - camPos;
+			Vector3 camToHandFlat = new(camToHand.x, 0, camToHand.z);
+			Vector3 offs = Vector3.Cross(camTrans.up, camToHandFlat.normalized).normalized * (horizontalOffset * _side);
+			transform.position = handPos + offs;
 
 			Vector3 lookDir = (transform.position - camPos).normalized;
 			float upLerp = Mathf.Abs(Vector3.Dot(camTrans.forward, Vector3.up));

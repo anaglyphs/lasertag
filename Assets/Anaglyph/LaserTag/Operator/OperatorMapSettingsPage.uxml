@@ -5,7 +5,7 @@
     <ui:VisualElement class="page-template-root">
         <Anaglyph.Menu.NavHeader>
             <Bindings>
-                <UnityEngine.Localization.LocalizedString property="Title" table="GameMenu" entry="GameMapEditingPage.navheader-4.title"/>
+                <UnityEngine.Localization.LocalizedString property="Title" table="Map" entry="GameMapEditingPage.navheader-4.title"/>
             </Bindings>
         </Anaglyph.Menu.NavHeader>
         <ui:ScrollView mode="Vertical" class="map-settings-scroll">
@@ -13,7 +13,7 @@
         </ui:ScrollView>
         <ui:Button name="finish-editing-button">
             <Bindings>
-                <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMapEditingPage.finish-editing-button.text"/>
+                <UnityEngine.Localization.LocalizedString property="text" table="Map" entry="GameMapEditingPage.finish-editing-button.text"/>
             </Bindings>
         </ui:Button>
     </ui:VisualElement>
