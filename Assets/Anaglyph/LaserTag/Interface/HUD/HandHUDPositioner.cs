@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Anaglyph.LaserTag.Interface.HUD
 {
-	[DefaultExecutionOrder(-999999)]
+	[DefaultExecutionOrder(999999)]
 	public class HandHUDPositioner : MonoBehaviour
 	{
 		[SerializeField] public float horizontalOffset = 0.15f;
@@ -29,7 +29,8 @@ namespace Anaglyph.LaserTag.Interface.HUD
 				return;
 			
 			follow = hand;
-			_side = hand.Handedness == Handedness.Left ? 1 : -1;
+			if (hand != null)
+				_side = hand.Handedness == Handedness.Left ? 1 : -1;
 		}
 
 		private void SetSide(int side)
