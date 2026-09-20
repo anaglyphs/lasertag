@@ -5,6 +5,7 @@ using Anaglyph.LaserTag.Player.Teams;
 using Anaglyph.LaserTag.Shaders;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Anaglyph.LaserTag.Weapons.Bullets
 {
@@ -17,7 +18,7 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 		[SerializeField, Range(0.01f, 1f),
 		 Tooltip("Normalized percentage of the texture occupied by the laser body. For example, 62 / 112 = 0.554.")]
 		private float bodyTexturePercentage = 62f / 112f;
-		[SerializeField] private DepthLight depthLight = null;
+		[SerializeField] private Light pointLight = null;
 		[SerializeField] private ParticleSystem impactEffect = null;
 
 		//private MaterialPropertyBlock propertyBlock;
@@ -41,11 +42,11 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 
 		private void HandleFire()
 		{
-			depthLight.enabled = true;
+			pointLight.enabled = true;
 			lineRenderer.enabled = true;
 
 			prevBulletPosition = bullet.transform.position;
-			depthLight.transform.position = prevBulletPosition;
+			pointLight.transform.position = prevBulletPosition;
 			UpdateLineRenderer(prevBulletPosition);
 
 			NetworkManager manager = NetworkManager.Singleton;
@@ -58,7 +59,7 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 			if (team == 0)
 				color = defaultColor;
 
-			depthLight.color = color;
+			pointLight.color = color;
 			//propertyBlock.SetColor(TeamColorer.ColorID, color);
 			//lineRenderer.SetPropertyBlock(propertyBlock);
 			lineRenderer.startColor = color;
@@ -79,7 +80,7 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 			{
 				await Awaitable.NextFrameAsync(ctkn);
 				ctkn.ThrowIfCancellationRequested();
-				depthLight.enabled = false;
+				pointLight.enabled = false;
 			}
 			catch (OperationCanceledException)
 			{
@@ -90,7 +91,7 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 		{
 			Vector3 pos = bullet.transform.position;
 			Vector3 prevPos = prevBulletPosition;
-			depthLight.transform.position = Vector3.Lerp(pos, prevPos, 0.5f);
+			pointLight.transform.position = Vector3.Lerp(pos, prevPos, 0.5f);
 			prevBulletPosition = pos;
 
 			if (lineRenderer.enabled)
