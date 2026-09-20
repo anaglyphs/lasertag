@@ -1,6 +1,8 @@
 using Anaglyph.Permissions;
 using UnityEngine;
 using UnityEngine.XR.ARFoundation;
+using UnityEngine.XR.ARSubsystems;
+using UnityEngine.XR.Management;
 
 namespace Anaglyph.LaserTag
 {
@@ -39,7 +41,7 @@ namespace Anaglyph.LaserTag
 				return;
 
 			nextPermissionCheck = Time.unscaledTime + PermissionCheckInterval;
-			bool ready = IsDepthPermissionReady();
+			bool ready = IsDepthReady();
 			if (ready == permissionReady)
 				return;
 
@@ -47,8 +49,12 @@ namespace Anaglyph.LaserTag
 			occlusionManager.enabled = ready;
 		}
 
-		private static bool IsDepthPermissionReady()
+		private static bool IsDepthReady()
 		{
+			var loader = XRGeneralSettings.Instance?.Manager?.activeLoader;
+			if (loader == null || loader.GetLoadedSubsystem<XROcclusionSubsystem>() == null)
+				return false;
+
 			PermissionAuthorization authorization = AndroidPermissionChecks.CheckPermission(
 				MetaPermissionChecks.ScenePermission).authorization;
 

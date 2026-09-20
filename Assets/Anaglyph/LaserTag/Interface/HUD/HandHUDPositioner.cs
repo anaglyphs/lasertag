@@ -52,7 +52,7 @@ namespace Anaglyph.LaserTag.Interface.HUD
 			// e.g. when using the Striker Mavrik, the left controller is in the blaster's cradle
 			// for tracking, but the user can hold the blaster on their right side
 			Vector3 posCamSpace = camTrans.InverseTransformPoint(handPos);
-			int currSide = posCamSpace.x >= 0 ? -1 : 1;
+			int currSide = posCamSpace.x >= 0 ? 1 : -1;
 			if (currSide == _side || Mathf.Abs(posCamSpace.x) < handSwapThresh)
 			{
 				swapTime = Time.time;
@@ -66,15 +66,13 @@ namespace Anaglyph.LaserTag.Interface.HUD
 				}
 			}
 
-			Vector3 camToHand = handPos - camPos;
-			Vector3 camToHandFlat = new(camToHand.x, 0, camToHand.z);
-			Vector3 offs = Vector3.Cross(camTrans.up, camToHandFlat.normalized).normalized * (horizontalOffset * _side);
-			transform.position = handPos + offs;
-
-			Vector3 lookDir = (transform.position - camPos).normalized;
+			Vector3 lookDir = (handPos - camPos).normalized;
 			float upLerp = Mathf.Abs(Vector3.Dot(camTrans.forward, Vector3.up));
 			Vector3 lookUpDir = Vector3.Lerp(Vector3.up, camTrans.up, upLerp);
-
+			Vector3 offs = Vector3.Cross(lookDir, lookUpDir).normalized * (horizontalOffset * _side);
+			transform.position = handPos + offs;
+			
+			lookDir = (transform.position - camPos).normalized;
 			transform.rotation = Quaternion.LookRotation(lookDir, lookUpDir);
 		}
 	}

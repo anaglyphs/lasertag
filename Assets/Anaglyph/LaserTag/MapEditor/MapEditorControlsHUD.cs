@@ -34,7 +34,7 @@ namespace Anaglyph.LaserTag.MapEditor
 
 		private void Update()
 		{
-			document.pivot = positioner.ControllerSide == 1 ? Pivot.LeftCenter : Pivot.RightCenter;
+			// document.pivot = positioner.ControllerSide == 1 ? Pivot.RightCenter : Pivot.LeftCenter;
 			
 			MapEditorTool tool = MapEditorTool.DominantHand;
 			var hand = tool != null && tool.isActiveAndEnabled ? tool.Hand : null;
