@@ -320,6 +320,45 @@ namespace Anaglyph.LaserTag.Tests
 		}
 
 		[Test]
+		public void HeadsetGuideRequestsMapsOnceAndRespectsPausedEditorTools()
+		{
+			var previousRig = Anaglyph.XR.MainXRRig.Instance;
+			var previousMode = MapEditorTool.CurrentMode;
+			bool previouslyActive = MapEditor.MapEditor.IsActive;
+			int requests = 0;
+			void Requested() => requests++;
+			try
+			{
+				var rig = owner.AddComponent<Anaglyph.XR.MainXRRig>();
+				typeof(Anaglyph.XR.MainXRRig).GetProperty("Instance").SetValue(null, rig);
+				Set(configuration, "role", HeadsetConfiguration.DeviceRole.Headset);
+				Receive(ActiveState);
+				MapEditor.MapEditor.TagRegistrationRequested += Requested;
+				setup.Tick();
+				Assert.That(requests, Is.EqualTo(1));
+				Assert.That(MapEditor.MapEditor.IsActive, Is.True);
+				Assert.That(MapEditorTool.CurrentMode, Is.EqualTo(MapEditorTool.Mode.MeasureTagSize));
+				MapEditor.MapEditor.SetActive(false);
+				setup.Tick(); setup.Tick();
+				Assert.That(setup.IsActive, Is.True);
+				Assert.That(requests, Is.EqualTo(1));
+				Assert.That(MapEditor.MapEditor.IsActive, Is.False);
+				Assert.That(MapEditorTool.CurrentMode, Is.EqualTo(MapEditorTool.Mode.Move));
+				MapEditor.MapEditor.SetActive(true);
+				setup.Tick();
+				Assert.That(MapEditorTool.CurrentMode, Is.EqualTo(MapEditorTool.Mode.MeasureTagSize));
+				Assert.That(requests, Is.EqualTo(1));
+			}
+			finally
+			{
+				MapEditor.MapEditor.TagRegistrationRequested -= Requested;
+				typeof(Anaglyph.XR.MainXRRig).GetProperty("Instance").SetValue(null, previousRig);
+				MapEditor.MapEditor.SetActive(previouslyActive);
+				MapEditorTool.SetMode(previousMode);
+			}
+		}
+
+		[Test]
 		public void FinishingOrDisconnectingReleasesHeadsetEditing()
 		{
 			var command = ActiveState; Receive(command);

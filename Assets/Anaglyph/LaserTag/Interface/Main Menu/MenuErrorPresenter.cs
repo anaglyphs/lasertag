@@ -85,14 +85,16 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void OnAlignmentError(LaserTagMapCoordinator.AlignmentError error)
 		{
-			if (area != MenuErrorArea.Game) return;
+			MenuErrorArea errorArea = error == LaserTagMapCoordinator.AlignmentError.RequestRejected
+				? MenuErrorArea.Game : MenuErrorArea.Connection;
+			if (area != errorArea) return;
 			string key = error switch
 			{
 				LaserTagMapCoordinator.AlignmentError.SharingFailed => "share",
 				LaserTagMapCoordinator.AlignmentError.SharingUnsupported => "anchors",
 				_ => "alignment"
 			};
-			Show(new MenuError(MenuErrorArea.Game, $"error.{key}-title", $"error.{key}-details", "Map",
+			Show(new MenuError(errorArea, $"error.{key}-title", $"error.{key}-details", "Map",
 				MenuCopy.Get("Map", "alignment.request-rejected")));
 		}
 

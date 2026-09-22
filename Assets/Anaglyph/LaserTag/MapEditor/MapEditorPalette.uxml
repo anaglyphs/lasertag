@@ -4,6 +4,7 @@
     <ui:Template name="MapEditorMeasureTagSizePage" src="project://database/Assets/Anaglyph/LaserTag/MapEditor/MapEditorMeasureTagSizePage.uxml?fileID=9197481963319205126&amp;guid=4c2f8b6017d9477fa7b01d6fef1b9b26&amp;type=3#MapEditorMeasureTagSizePage" />
     <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle" />
     <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/AprilTagSetup.uss?fileID=7433441132597879392&amp;guid=690749010bfe496d9943e399fdf472f0&amp;type=3#AprilTagSetup"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/MapEditor/MapEditorPalette.uss?fileID=7433441132597879392&amp;guid=f8f8d17682c34a1faa48339ad18921aa&amp;type=3#MapEditorPalette"/>
     <ui:VisualElement picking-mode="Ignore" class="page-template-root">
         <ui:Label name="editing-context" class="body-copy"/>
         <Anaglyph.Menu.NavView name="palette-nav">

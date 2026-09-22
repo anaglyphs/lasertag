@@ -1,6 +1,7 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
     <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
-    <Style src="/Assets/Anaglyph/LaserTag/Interface/HUD/ScoreDisplay.uss"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/HUD/ScoreDisplay.uss?fileID=7433441132597879392&amp;guid=51588dab1b0b0496c8fc44b0a87e48ee&amp;type=3#ScoreDisplay"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/HUD/HUD.uss?fileID=7433441132597879392&amp;guid=9cf26de1868a4e6fb1b348c410a58044&amp;type=3#HUD"/>
     <ui:VisualElement picking-mode="Ignore" name="hand-hud-root" class="hud-root">
         <Anaglyph.LaserTag.Interface.HUD.ScoreDisplay class="score-display--fill"/>
     </ui:VisualElement>

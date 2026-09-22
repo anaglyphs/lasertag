@@ -1,0 +1,20 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+    <ui:VisualElement class="page-template-root">
+        <Anaglyph.Menu.NavHeader>
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="Title" table="GameMenu" entry="bases.required-title"/>
+            </Bindings>
+        </Anaglyph.Menu.NavHeader>
+        <ui:Label name="missing-bases-instructions" class="body-copy">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="bases.required-instructions"/>
+            </Bindings>
+        </ui:Label>
+        <ui:Button name="place-bases-button">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="bases.edit-map"/>
+            </Bindings>
+        </ui:Button>
+    </ui:VisualElement>
+</ui:UXML>

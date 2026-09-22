@@ -31,7 +31,6 @@ namespace Anaglyph.LaserTag.Operator
 		private LocalizedString configurationMessage;
 		private Label sessionStateLabel;
 		private Label sessionAddressLabel;
-		private Label localAddressLabel;
 		private Button hostButton;
 		private Button disconnectButton;
 
@@ -101,7 +100,6 @@ namespace Anaglyph.LaserTag.Operator
 
 			sessionStateLabel = Require<Label>(networkNav, "session-state");
 			sessionAddressLabel = Require<Label>(networkNav, "session-address");
-			localAddressLabel = Require<Label>(networkNav, "local-address");
 			hostButton = Require<Button>(networkNav, "host-button");
 			disconnectButton = Require<Button>(networkNav, "disconnect-button");
 
@@ -454,7 +452,6 @@ namespace Anaglyph.LaserTag.Operator
 		{
 			// The IP is what an operator reads out to the room, so it is shown whether or
 			// not the session is up.
-			localAddressLabel.text = MenuCopy.Format("OperatorMenu", "address.local", OperatorHost.LocalAddress);
 			if (pinHostAddressLabel != null)
 			{
 				string address = OperatorHost.LocalAddress;

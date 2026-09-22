@@ -1,0 +1,52 @@
+.game-menu {
+    width: 400px;
+    height: 446px;
+    flex-shrink: 0;
+    font-size: 20px;
+}
+
+.game-menu-panel {
+    height: 400px;
+    flex-grow: 0;
+    flex-shrink: 0;
+}
+
+.game-menu-tabs {
+    flex-direction: row;
+    height: 46px;
+    flex-shrink: 0;
+    margin-left: var(--spacing-large);
+    margin-right: var(--spacing-large);
+}
+
+.game-menu-tab {
+    --text-color: white;
+    flex-grow: 1;
+    flex-basis: 0;
+    margin: 0;
+	margin-left: var(--spacing-small);
+	margin-right: var(--spacing-small);
+    border-width: 2px;
+    border-top-width: 0;
+    border-color: var(--primary);
+    border-radius: 0;
+    background-color: var(--secondary);
+    color: white;
+    -unity-text-align: middle-center;
+}
+
+.game-menu-tab-selected {
+    background-color: rgb(255, 255, 255);
+	border-width: 0;
+    color: var(--secondary);
+}
+
+.game-menu-tab:hover:enabled {
+    background-color: var(--highlight);
+	border-width: 0;
+    color: var(--secondary);
+}
+
+.game-menu-hidden {
+    display: none;
+}

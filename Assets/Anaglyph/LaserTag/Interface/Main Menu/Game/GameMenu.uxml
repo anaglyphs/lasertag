@@ -1,39 +1,60 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
     <ui:Template name="DeleteSpacePage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/DeleteSpacePage.uxml?fileID=9197481963319205126&amp;guid=6129634a19654579bdcede2f56f2aa06&amp;type=3#DeleteSpacePage"/>
-    <ui:Template name="SpaceDetailsPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/SpaceDetailsPage.uxml?fileID=9197481963319205126&amp;guid=cab95617b3e34299901e6bfe788493f3&amp;type=3#SpaceDetailsPage"/>
-    <ui:Template name="GameHomePage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Game/GameHomePage.uxml?fileID=9197481963319205126&amp;guid=6980a2d367ef74df1ba6e62d612b9e0d&amp;type=3#GameHomePage"/>
     <ui:Template name="GameMapEditingPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Game/GameMapEditingPage.uxml?fileID=9197481963319205126&amp;guid=b3d76a548f628444b9a10fa8052cd47b&amp;type=3#GameMapEditingPage"/>
     <ui:Template name="GameMapsPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Game/GameMapsPage.uxml?fileID=9197481963319205126&amp;guid=3c8b307a190364aa992398c5fc0ca534&amp;type=3#GameMapsPage"/>
     <ui:Template name="GameMatchPlayingPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Game/GameMatchPlayingPage.uxml?fileID=9197481963319205126&amp;guid=617e74b6016424210b1d97fb28257683&amp;type=3#GameMatchPlayingPage"/>
     <ui:Template name="GameMatchSettingsPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/GameMatchSettingsPage.uxml?fileID=9197481963319205126&amp;guid=f28cafb4354a24f018772c69222a55ef&amp;type=3#GameMatchSettingsPage"/>
+    <ui:Template name="GameMissingBasesPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Game/GameMissingBasesPage.uxml?fileID=9197481963319205126&amp;guid=a827b79061cb4dd3a981ed77e4c66a54&amp;type=3#GameMissingBasesPage"/>
     <ui:Template name="MenuErrorPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/MenuErrorPage.uxml?fileID=9197481963319205126&amp;guid=07ab6142193414ebda335d8f277b3ead&amp;type=3#MenuErrorPage"/>
+    <ui:Template name="SpaceDetailsPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/SpaceDetailsPage.uxml?fileID=9197481963319205126&amp;guid=cab95617b3e34299901e6bfe788493f3&amp;type=3#SpaceDetailsPage"/>
     <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
-    <ui:VisualElement picking-mode="Ignore" class="menu-root game-panel">
-        <Anaglyph.Menu.NavView first-page="home-page">
-            <Anaglyph.Menu.NavPage name="home-page" show-back-button="false">
-                <ui:Instance template="GameHomePage"/>
-            </Anaglyph.Menu.NavPage>
-            <Anaglyph.Menu.NavPage name="match-page">
-                <ui:Instance template="GameMatchSettingsPage"/>
-            </Anaglyph.Menu.NavPage>
-            <Anaglyph.Menu.NavPage name="playing-page" show-back-button="false">
-                <ui:Instance template="GameMatchPlayingPage"/>
-            </Anaglyph.Menu.NavPage>
-            <Anaglyph.Menu.NavPage name="map-manager-page">
-                <ui:Instance template="GameMapsPage"/>
-            </Anaglyph.Menu.NavPage>
-            <Anaglyph.Menu.NavPage name="space-details">
-                <ui:Instance template="SpaceDetailsPage"/>
-            </Anaglyph.Menu.NavPage>
-            <Anaglyph.Menu.NavPage name="editing-map-page" show-back-button="false">
-                <ui:Instance template="GameMapEditingPage"/>
-            </Anaglyph.Menu.NavPage>
-            <Anaglyph.Menu.NavPage name="delete-space-modal" show-back-button="false" modal-user-dismissible="true">
-                <ui:Instance template="DeleteSpacePage"/>
-            </Anaglyph.Menu.NavPage>
-            <Anaglyph.Menu.NavPage name="error-modal" show-back-button="false">
-                <ui:Instance template="MenuErrorPage"/>
-            </Anaglyph.Menu.NavPage>
-        </Anaglyph.Menu.NavView>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Game/GameMenu.uss?fileID=7433441132597879392&amp;guid=b7b08bde7cc940d0b45f8e7be031d8db&amp;type=3#GameMenu"/>
+    <ui:VisualElement name="game-menu" picking-mode="Ignore" class="game-menu game-panel">
+        <ui:VisualElement name="game-menu-panel" picking-mode="Ignore" class="menu-root game-panel game-menu-panel">
+            <Anaglyph.Menu.NavView name="game-nav" first-page="home-page">
+                <Anaglyph.Menu.NavPage name="home-page" show-back-button="false">
+                    <Anaglyph.Menu.NavView name="maps-nav" first-page="map-manager-page">
+                        <Anaglyph.Menu.NavPage name="map-manager-page" show-back-button="false">
+                            <ui:Instance template="GameMapsPage"/>
+                        </Anaglyph.Menu.NavPage>
+                        <Anaglyph.Menu.NavPage name="space-details">
+                            <ui:Instance template="SpaceDetailsPage"/>
+                        </Anaglyph.Menu.NavPage>
+                        <Anaglyph.Menu.NavPage name="editing-map-page" show-back-button="false">
+                            <ui:Instance template="GameMapEditingPage"/>
+                        </Anaglyph.Menu.NavPage>
+                        <Anaglyph.Menu.NavPage name="delete-space-modal" show-back-button="false" modal-user-dismissible="true">
+                            <ui:Instance template="DeleteSpacePage"/>
+                        </Anaglyph.Menu.NavPage>
+                    </Anaglyph.Menu.NavView>
+                    <Anaglyph.Menu.NavView name="match-nav" first-page="match-page" class="game-menu-hidden">
+                        <Anaglyph.Menu.NavPage name="match-page" show-back-button="false">
+                            <ui:Instance template="GameMatchSettingsPage"/>
+                        </Anaglyph.Menu.NavPage>
+                        <Anaglyph.Menu.NavPage name="playing-page" show-back-button="false">
+                            <ui:Instance template="GameMatchPlayingPage"/>
+                        </Anaglyph.Menu.NavPage>
+                        <Anaglyph.Menu.NavPage name="missing-bases-modal" show-back-button="false" modal-user-dismissible="false">
+                            <ui:Instance template="GameMissingBasesPage"/>
+                        </Anaglyph.Menu.NavPage>
+                    </Anaglyph.Menu.NavView>
+                </Anaglyph.Menu.NavPage>
+                <Anaglyph.Menu.NavPage name="error-modal" show-back-button="false">
+                    <ui:Instance template="MenuErrorPage"/>
+                </Anaglyph.Menu.NavPage>
+            </Anaglyph.Menu.NavView>
+        </ui:VisualElement>
+        <ui:VisualElement name="game-menu-tabs" picking-mode="Ignore" class="game-menu-tabs">
+            <ui:Button name="maps-tab" class="game-menu-tab game-menu-tab-selected">
+                <Bindings>
+                    <UnityEngine.Localization.LocalizedString property="text" table="OperatorMenu" entry="maps-tab.label"/>
+                </Bindings>
+            </ui:Button>
+            <ui:Button name="match-tab" class="game-menu-tab">
+                <Bindings>
+                    <UnityEngine.Localization.LocalizedString property="text" table="OperatorMenu" entry="match-tab.label"/>
+                </Bindings>
+            </ui:Button>
+        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

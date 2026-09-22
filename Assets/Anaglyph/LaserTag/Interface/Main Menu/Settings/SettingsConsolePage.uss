@@ -1,0 +1,44 @@
+/* Console */
+
+.console-scroll {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    min-height: 0;
+    overflow: hidden;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.4);
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 6px;
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+
+.console-entry {
+    font-size: 14px;
+    white-space: normal;
+    margin-bottom: 6px;
+}
+
+.console-entry.console-entry-warning {
+    color: rgb(255, 210, 80);
+}
+
+.console-entry.console-entry-error {
+    color: rgb(255, 130, 130);
+}
+
+.console-controls {
+    flex-direction: row;
+    align-items: center;
+}
+
+.console-controls > Toggle {
+    flex-grow: 1;
+}
+
+.console-clear-button {
+    width: 130px;
+    margin-left: 8px;
+    -unity-text-align: middle-center;
+}

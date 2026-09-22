@@ -181,8 +181,7 @@ namespace Anaglyph.LaserTag.Maps
 				guidingOperation = State.operation;
 				MapEditor.MapEditor.RequestTagRegistration();
 			}
-			if (!MapEditor.MapEditor.IsActive) MapEditor.MapEditor.SetActive(true);
-			RefreshHeadsetMode();
+			if (MapEditor.MapEditor.IsActive) RefreshHeadsetMode();
 		}
 
 		private void RefreshHeadsetMode()

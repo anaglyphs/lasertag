@@ -42,7 +42,8 @@ namespace Anaglyph.LaserTag.Tests
 			root.style.flexGrow = 1;
 			root.MakeButtonsActOnPress();
 			window.rootVisualElement.Add(root);
-			NavView.RequireIn(root).GoToPage("match-page");
+			root.Q<NavView>("match-nav").RemoveFromClassList("game-menu-hidden");
+			root.Q<NavView>("maps-nav").AddToClassList("game-menu-hidden");
 			return root;
 		}
 

@@ -55,7 +55,7 @@
     top: 50%;
     margin: 0;
     font-size: 53px;
-    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINish-Bold%20SDF.asset?fileID=11400000&guid=8f12ac5503c834d83955609ac10517a8&type=2#DINish-Bold SDF");
+    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINish-Bold%20SDF.asset");
 }
 
 .score-display__goal-score--blue {
@@ -80,7 +80,7 @@
     margin: 0;
     font-size: 24px;
     -unity-text-align: middle-center;
-    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishExpanded-Bold%20SDF.asset?fileID=11400000&guid=4bacbaffe155141a4a77227946fea209&type=2#DINishExpanded-Bold SDF");
+    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishExpanded-Bold%20SDF.asset");
 }
 
 /* Timer: scores flank the hourglass and may overhang the mode box */
@@ -91,7 +91,7 @@
     width: auto;
     margin: 0;
     font-size: 52px;
-    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINish-Bold%20SDF.asset?fileID=11400000&guid=8f12ac5503c834d83955609ac10517a8&type=2#DINish-Bold SDF");
+    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINish-Bold%20SDF.asset");
 }
 
 .score-display__timer-score--blue {
@@ -114,7 +114,7 @@
     margin: 0;
     font-size: 30px;
     -unity-text-align: middle-center;
-    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishExpanded-Bold%20SDF.asset?fileID=11400000&guid=4bacbaffe155141a4a77227946fea209&type=2#DINishExpanded-Bold SDF");
+    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishExpanded-Bold%20SDF.asset");
 }
 
 .score-display__round {
@@ -125,5 +125,5 @@
     margin: 0;
     font-size: 22px;
     -unity-text-align: middle-center;
-    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishExpanded-Bold%20SDF.asset?fileID=11400000&guid=4bacbaffe155141a4a77227946fea209&type=2#DINishExpanded-Bold SDF");
+    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishExpanded-Bold%20SDF.asset");
 }

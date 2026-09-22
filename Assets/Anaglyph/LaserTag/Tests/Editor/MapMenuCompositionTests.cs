@@ -424,7 +424,7 @@ namespace Anaglyph.LaserTag.Tests
 				var headset = Load("Assets/Anaglyph/LaserTag/Interface/Main Menu/Game/GameMenu.uxml");
 				var page = headset.Q<NavPage>("space-details");
 				using var details = new SpaceDetailsBinder(page);
-				headset.Q<NavView>().GoToPage(page);
+				headset.Q<NavView>("maps-nav").GoToPage(page);
 				Assert.That(details.Alignment.UsesTags, Is.True);
 				Assert.That(headset.Q("tag-configuration-section").style.display.value,
 					Is.EqualTo(method == ColocationManager.ColocationMethod.AprilTag ? DisplayStyle.Flex : DisplayStyle.None));

@@ -1,10 +1,13 @@
 using System;
+using Anaglyph.Audio;
 using UnityEngine;
 
 namespace Anaglyph.LaserTag.Weapons
 {
 	public class WeaponVisual : MonoBehaviour
 	{
+		[SerializeField] private AudioClip fireSFX;
+
 		public bool IsFiring { get; private set; }
 
 		public event Action Fired = delegate { };
@@ -12,6 +15,9 @@ namespace Anaglyph.LaserTag.Weapons
 
 		public void PlayFire()
 		{
+			if (fireSFX != null)
+				AudioPool.Play(fireSFX, transform.position);
+
 			Fired.Invoke();
 		}
 

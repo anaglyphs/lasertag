@@ -22,7 +22,6 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 		[SerializeField] private int despawnDelay = 1;
 		private CancellationTokenSource despawnCancelSrc;
 
-		[SerializeField] private AudioClip fireSFX;
 		[SerializeField] private AudioClip collideSFX;
 		
 		private readonly List<IDamageable> damageableBuffer = new();
@@ -74,7 +73,6 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 			}
 
 			OnFire.Invoke();
-			AudioPool.Play(fireSFX, transform.position);
 		}
 
 		private void OnShot(ShotData prev, ShotData curr)

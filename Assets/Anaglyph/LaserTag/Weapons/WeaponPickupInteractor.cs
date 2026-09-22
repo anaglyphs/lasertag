@@ -4,7 +4,7 @@ using UnityEngine.InputSystem;
 
 namespace Anaglyph.LaserTag.Weapons
 {
-	public class WeaponSwitchInteractor : MonoBehaviour
+	public class WeaponPickupInteractor : MonoBehaviour
 	{
 		[SerializeField] private HandSubject handSubject;
 

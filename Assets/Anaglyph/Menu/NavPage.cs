@@ -18,6 +18,9 @@ namespace Anaglyph.Menu
 		public NavPage()
 		{
 			AddToClassList(ussClassName);
+			usageHints |= UsageHints.DynamicTransform;
+			focusable = true;
+			tabIndex = -1;
 		}
 
 		/// <summary>Whether this page's back buttons appear once there is history to go back to.</summary>

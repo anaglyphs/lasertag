@@ -3,6 +3,7 @@ using System.Linq;
 using Anaglyph.LaserTag.Interface;
 using Anaglyph.Menu;
 using Anaglyph.Netcode;
+using Anaglyph.XR.SharedSpaces.SharedAnchors;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -106,10 +107,10 @@ namespace Anaglyph.LaserTag.Tests
 			var root = Load("GameMenu");
 			for (int i = 0; i < 2; i++) yield return null;
 			var nav = NavView.RequireIn(root);
-			var space = nav.GetPage("space-details");
+			var maps = root.Q<NavView>("maps-nav");
+			var space = maps.GetPage("space-details");
 			using var binder = new SpaceDetailsBinder(space);
-			nav.GoToPage("map-manager-page");
-			nav.GoToPage(space);
+			maps.GoToPage(space);
 			using var errors = new MenuErrorPresenter(MenuErrorArea.Game);
 			errors.Bind(nav);
 			errors.Show(new MenuError(MenuErrorArea.Game, "Alignment change unavailable", "Cannot share anchors"));
@@ -119,9 +120,10 @@ namespace Anaglyph.LaserTag.Tests
 			Submit(root.Q<Button>("dismiss-error-button"));
 			Assert.That(nav.CurrentPage.name, Is.EqualTo("error-modal"));
 			Submit(root.Q<Button>("dismiss-error-button"));
-			Assert.That(nav.CurrentPage, Is.SameAs(space));
-			nav.GoBack();
-			Assert.That(nav.CurrentPage.name, Is.EqualTo("map-manager-page"));
+			Assert.That(nav.CurrentPage.name, Is.EqualTo("home-page"));
+			Assert.That(maps.CurrentPage, Is.SameAs(space));
+			maps.GoBack();
+			Assert.That(maps.CurrentPage.name, Is.EqualTo("map-manager-page"));
 		}
 
 		[UnityTest]
@@ -184,10 +186,10 @@ namespace Anaglyph.LaserTag.Tests
 		[UnityTest]
 		public IEnumerator PendingLocalizedErrorsFollowLocaleChanges()
 		{
-			var root = Load("GameMenu");
-			using var errors = new MenuErrorPresenter(MenuErrorArea.Game);
+			var root = Load("ConnectionMenu");
+			using var errors = new MenuErrorPresenter(MenuErrorArea.Connection);
 			errors.Bind(NavView.RequireIn(root));
-			errors.Show(new MenuError(MenuErrorArea.Game, "error.anchors-title", "error.anchors-details", "Map"));
+			errors.Show(new MenuError(MenuErrorArea.Connection, "error.anchors-title", "error.anchors-details", "Map"));
 			string original = root.Q<Label>("error-subject").text;
 			Assert.That(original, Is.EqualTo("Shared spatial anchors unavailable"));
 			var pseudo = PseudoLocale.CreatePseudoLocale();
@@ -204,8 +206,8 @@ namespace Anaglyph.LaserTag.Tests
 			}
 		}
 
-		[Test]
-		public void ProducerEventsReachOnlyTheirPanelAndDisposeUnsubscribes()
+		[UnityTest]
+		public IEnumerator ProducerEventsReachOnlyTheirPanelAndDisposeUnsubscribes()
 		{
 			var game = Load("GameMenu");
 			var connection = Load("ConnectionMenu");
@@ -218,14 +220,32 @@ namespace Anaglyph.LaserTag.Tests
 			var flags = System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic;
 			var servicesError = typeof(NetcodeManagement).GetMethod("RaiseServicesError", flags);
 			var alignmentError = typeof(LaserTagMapCoordinator).GetMethod("ReportAlignmentRejection", flags);
+			var anchorError = typeof(LaserTagMapCoordinator).GetMethod("OnAnchorError", flags);
 
 			servicesError.Invoke(null, null);
 			Assert.That(connectionNav.CurrentPage.name, Is.EqualTo("error-modal"));
 			Assert.That(connection.Q<Label>("error-subject").text, Is.EqualTo(MenuCopy.Get("ConnectionMenu", "error.relay-title")));
 			Assert.That(gameNav.CurrentPage.name, Is.Not.EqualTo("error-modal"));
+			for (int i = 0; i < 2; i++) yield return null;
+			Submit(connection.Q<Button>("dismiss-error-button"));
+
+			foreach (var error in new[] { SpatialAnchorColocationConstraintProvider.Error.SharingFailed,
+				SpatialAnchorColocationConstraintProvider.Error.SharingUnsupported })
+			{
+				anchorError.Invoke(null, new object[] { error });
+				string key = error == SpatialAnchorColocationConstraintProvider.Error.SharingFailed ? "share" : "anchors";
+				Assert.That(connectionNav.CurrentPage.name, Is.EqualTo("error-modal"));
+				Assert.That(connection.Q<Label>("error-subject").text, Is.EqualTo(MenuCopy.Get("Map", $"error.{key}-title")));
+				Assert.That(gameNav.CurrentPage.name, Is.Not.EqualTo("error-modal"));
+				for (int i = 0; i < 2; i++) yield return null;
+				Submit(connection.Q<Button>("dismiss-error-button"));
+				Assert.That(connectionNav.CurrentPage.name, Is.EqualTo("home-page"));
+			}
+
 			alignmentError.Invoke(null, null);
 			Assert.That(gameNav.CurrentPage.name, Is.EqualTo("error-modal"));
 			Assert.That(game.Q<Label>("error-subject").text, Is.EqualTo(MenuCopy.Get("Map", "error.alignment-title")));
+			Assert.That(connectionNav.CurrentPage.name, Is.EqualTo("home-page"));
 
 			gameErrors.Dispose();
 			connectionErrors.Dispose();
@@ -234,6 +254,7 @@ namespace Anaglyph.LaserTag.Tests
 			((System.Collections.Generic.Queue<MenuError>)pending.GetValue(connectionErrors)).Clear();
 			servicesError.Invoke(null, null);
 			alignmentError.Invoke(null, null);
+			anchorError.Invoke(null, new object[] { SpatialAnchorColocationConstraintProvider.Error.SharingFailed });
 			Assert.That((System.Collections.ICollection)pending.GetValue(gameErrors), Is.Empty);
 			Assert.That((System.Collections.ICollection)pending.GetValue(connectionErrors), Is.Empty);
 		}
@@ -242,8 +263,8 @@ namespace Anaglyph.LaserTag.Tests
 		public IEnumerator MatchChoiceBindingsPreserveControlOrderAndSettings()
 		{
 			var root = Load("GameMenu");
-			var nav = NavView.RequireIn(root);
-			nav.GoToPage("match-page");
+			root.Q<NavView>("maps-nav").AddToClassList("game-menu-hidden");
+			root.Q<NavView>("match-nav").RemoveFromClassList("game-menu-hidden");
 			var binder = new MatchSettingsBinder(root);
 			for (int i = 0; i < 10; i++) yield return null;
 			var win = root.Q<RadioButtonGroup>("win-by-radio");

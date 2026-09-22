@@ -73,7 +73,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 39c7d15e1d5ed4e35b859aa314641a4a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.HandHUDPositioner
-  horizontalOffset: 0.15
+  horizontalOffset: 0.1
   handSwapTime: 0.3
   handSwapThresh: 0.1
 --- !u!114 &8373397657608908845
@@ -86,6 +86,6 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a3bd939c787e04dfa81c4353d7251b29, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.Interface.HUD.ScoreHUDHandSelector
   positioner: {fileID: 2824450522194378222}

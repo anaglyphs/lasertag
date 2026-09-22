@@ -1,0 +1,99 @@
+/* Map editor palette */
+
+.palette-body {
+    flex-grow: 1;
+    flex-direction: row;
+    min-height: 0;
+}
+
+.palette-rail {
+    flex-grow: 0;
+    flex-shrink: 0;
+    width: 84px;
+    margin-right: 8px;
+}
+
+.palette-content {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.palette-title {
+    font-size: 26px;
+    -unity-text-align: middle-left;
+    margin-bottom: 2px;
+}
+
+/* Object grid */
+
+.palette-grid {
+    flex-grow: 1;
+    min-height: 0;
+}
+
+.palette-grid .unity-scroll-view__content-container {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-content: flex-start;
+}
+
+.palette-tab,
+.palette-item {
+    align-items: center;
+    justify-content: flex-start;
+    min-height: auto;
+    padding: 4px;
+}
+
+.palette-tab {
+    margin: 0 0 6px 0;
+}
+
+.palette-item {
+    width: 30%;
+    margin: 4px;
+}
+
+.palette-tab-icon,
+.palette-item-icon {
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+	-unity-background-image-tint-color: var(--secondary);
+}
+
+.palette-tab-icon {
+    width: 44px;
+    height: 44px;
+}
+
+.palette-item-icon {
+    width: 100%;
+    aspect-ratio: 1;
+}
+
+.palette-tab-label,
+.palette-item-label {
+    white-space: normal;
+    -unity-text-align: middle-center;
+    margin-top: 2px;
+}
+
+.palette-tab-label {
+    font-size: 11px;
+}
+
+.palette-item-label {
+    font-size: 14px;
+}
+
+.palette-tab.selected,
+.palette-item.selected {
+    background-color: var(--primary-hover, rgb(255, 255, 255));
+}
+
+.palette-done {
+    align-self: center;
+    min-width: 140px;
+    -unity-text-align: middle-center;
+}

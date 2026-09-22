@@ -4,7 +4,6 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.InputSystem;
-using UnityEngine.Serialization;
 
 namespace Anaglyph.LaserTag.Weapons.Blaster
 {
@@ -15,7 +14,7 @@ namespace Anaglyph.LaserTag.Weapons.Blaster
 
 		[SerializeField] private GameObject boltPrefab;
 		[SerializeField] private Transform muzzle;
-		[FormerlySerializedAs("view")] [SerializeField] private WeaponVisual visual;
+		[SerializeField] private WeaponVisual visual;
 		public GameObject VisualObject => visual.gameObject;
 		public UnityEvent onFire = new();
 

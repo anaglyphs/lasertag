@@ -1,16 +1,16 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
-    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle" />
-    <Style src="/Assets/Anaglyph/LaserTag/Interface/HUD/ScoreDisplay.uss" />
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/HUD/ScoreDisplay.uss?fileID=7433441132597879392&amp;guid=51588dab1b0b0496c8fc44b0a87e48ee&amp;type=3#ScoreDisplay"/>
     <ui:VisualElement class="page-template-root">
         <Anaglyph.Menu.NavHeader>
             <Bindings>
-                <UnityEngine.Localization.LocalizedString property="Title" table="GameMenu" entry="GameMatchPlayingPage.navheader-2.title" />
+                <UnityEngine.Localization.LocalizedString property="Title" table="GameMenu" entry="GameMatchPlayingPage.navheader-2.title"/>
             </Bindings>
         </Anaglyph.Menu.NavHeader>
-        <Anaglyph.LaserTag.Interface.HUD.ScoreDisplay />
+        <Anaglyph.LaserTag.Interface.HUD.ScoreDisplay style="flex-grow: 1; width: auto; height: auto;"/>
         <ui:Button name="stop-button" class="destructive">
             <Bindings>
-                <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchPlayingPage.stop-button.text" />
+                <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchPlayingPage.stop-button.text"/>
             </Bindings>
         </ui:Button>
     </ui:VisualElement>

@@ -1,6 +1,7 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
     <ui:Style src="project://database/Assets/Anaglyph/Menu/FlashingLabel.uss?fileID=7433441132597879392&amp;guid=44eea67dbe71743bb8f435927b744ae8&amp;type=3#FlashingLabel"/>
     <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/HUD/HUD.uss?fileID=7433441132597879392&amp;guid=9cf26de1868a4e6fb1b348c410a58044&amp;type=3#HUD"/>
     <ui:VisualElement picking-mode="Ignore" name="hud-root" class="hud-root">
         <ui:VisualElement picking-mode="Ignore" name="death-hud" class="hud-overlay" style="display: none;">
             <ui:VisualElement picking-mode="Ignore" class="you-died-row">

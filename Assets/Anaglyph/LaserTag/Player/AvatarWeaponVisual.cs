@@ -160,7 +160,7 @@ namespace Anaglyph.LaserTag.Player
 		[Rpc(SendTo.NotOwner, Delivery = RpcDelivery.Unreliable)]
 		private void PlayFireRpc()
 		{
-			if (visual != null && visual.isActiveAndEnabled)
+			if (visual != null)
 				visual.PlayFire();
 		}
 	}

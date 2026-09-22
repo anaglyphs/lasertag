@@ -1,91 +1,91 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
-    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle" />
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
     <ui:VisualElement class="page-template-root">
         <Anaglyph.Menu.NavHeader>
             <Bindings>
-                <UnityEngine.Localization.LocalizedString property="Title" table="GameMenu" entry="GameMatchSettingsPage.navheader-2.title" />
+                <UnityEngine.Localization.LocalizedString property="Title" table="GameMenu" entry="GameMatchSettingsPage.navheader-2.title"/>
             </Bindings>
         </Anaglyph.Menu.NavHeader>
         <ui:ScrollView>
-            <ui:Slider value="1" high-value="2" name="damage-multiplier-slider" low-value="0.1" show-input-field="true" fill="true" class="stacked-field">
-                <Bindings>
-                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.damage-multiplier-slider.label" />
-                </Bindings>
-            </ui:Slider>
             <ui:SliderInt value="3" high-value="10" show-input-field="true" name="rounds-slider" low-value="1" fill="false" class="stacked-field">
                 <Bindings>
-                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.rounds-slider.label" />
+                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.rounds-slider.label"/>
                 </Bindings>
             </ui:SliderInt>
             <ui:Toggle name="infinite-rounds-toggle">
                 <Bindings>
-                    <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.infinite-rounds-toggle.text" />
+                    <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.infinite-rounds-toggle.text"/>
                 </Bindings>
             </ui:Toggle>
             <ui:RadioButtonGroup name="win-by-radio" class="stacked-field">
                 <Bindings>
-                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.win-by-radio.label" />
+                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.win-by-radio.label"/>
                 </Bindings>
                 <ui:RadioButton>
                     <Bindings>
-                        <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.win-by-radio.choice-0" />
+                        <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.win-by-radio.choice-0"/>
                     </Bindings>
                 </ui:RadioButton>
                 <ui:RadioButton>
                     <Bindings>
-                        <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.win-by-radio.choice-1" />
+                        <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.win-by-radio.choice-1"/>
                     </Bindings>
                 </ui:RadioButton>
                 <ui:RadioButton>
                     <Bindings>
-                        <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.win-by-radio.choice-2" />
+                        <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.win-by-radio.choice-2"/>
                     </Bindings>
                 </ui:RadioButton>
             </ui:RadioButtonGroup>
             <ui:Slider value="2" high-value="10" low-value="0.5" name="round-time-slider" show-input-field="true" class="stacked-field">
                 <Bindings>
-                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.round-time-slider.label" />
+                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.round-time-slider.label"/>
                 </Bindings>
             </ui:Slider>
             <ui:SliderInt value="5" high-value="20" name="score-target-slider" show-input-field="true" class="stacked-field">
                 <Bindings>
-                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.score-target-slider.label" />
+                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.score-target-slider.label"/>
                 </Bindings>
             </ui:SliderInt>
             <ui:RadioButtonGroup name="respawn-condition-radio" class="stacked-field">
                 <Bindings>
-                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.respawn-condition-radio.label" />
+                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.respawn-condition-radio.label"/>
                 </Bindings>
-                <ui:RadioButton>
+                <ui:RadioButton style="display: flex;">
                     <Bindings>
-                        <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.respawn-condition-radio.choice-0" />
+                        <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.respawn-condition-radio.choice-0"/>
                     </Bindings>
                 </ui:RadioButton>
                 <ui:RadioButton>
                     <Bindings>
-                        <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.respawn-condition-radio.choice-1" />
+                        <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.respawn-condition-radio.choice-1"/>
                     </Bindings>
                 </ui:RadioButton>
                 <ui:RadioButton>
                     <Bindings>
-                        <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.respawn-condition-radio.choice-2" />
+                        <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.respawn-condition-radio.choice-2"/>
                     </Bindings>
                 </ui:RadioButton>
             </ui:RadioButtonGroup>
             <ui:SliderInt value="5" high-value="10" name="respawn-time-slider" show-input-field="true" class="stacked-field">
                 <Bindings>
-                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.respawn-time-slider.label" />
+                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.respawn-time-slider.label"/>
                 </Bindings>
             </ui:SliderInt>
-            <ui:Toggle name="spawn-zombies-toggle">
+            <ui:Slider value="1" high-value="2" name="damage-multiplier-slider" low-value="0.1" show-input-field="true" fill="true" class="stacked-field">
                 <Bindings>
-                    <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.spawn-zombies-toggle.text" />
+                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.damage-multiplier-slider.label"/>
+                </Bindings>
+            </ui:Slider>
+            <ui:Toggle name="spawn-zombies-toggle" style="display: none;">
+                <Bindings>
+                    <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.spawn-zombies-toggle.text"/>
                 </Bindings>
             </ui:Toggle>
         </ui:ScrollView>
         <ui:Button name="start-button">
             <Bindings>
-                <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.start-button.text" />
+                <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.start-button.text"/>
             </Bindings>
         </ui:Button>
     </ui:VisualElement>

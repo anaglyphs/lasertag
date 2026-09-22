@@ -113,7 +113,6 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   despawnDelay: 1
-  fireSFX: {fileID: 8300000, guid: 49adec157a499594ca49a17e286c4bb2, type: 3}
   collideSFX: {fileID: 8300000, guid: 4083a17f54a820948bb1db48ce9920ed, type: 3}
 --- !u!120 &4844728147305137197
 LineRenderer:
@@ -5153,11 +5152,11 @@ Light:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2589594151031219113}
-  m_Enabled: 0
+  m_Enabled: 1
   serializedVersion: 12
   m_Type: 2
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_Intensity: 1
+  m_Intensity: 0.1
   m_Range: 2
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208

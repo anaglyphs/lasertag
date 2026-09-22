@@ -1,6 +1,7 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
-    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/AprilTagSetup.uss?fileID=7433441132597879392&amp;guid=690749010bfe496d9943e399fdf472f0&amp;type=3"/>
-    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/AprilTagSetup.uss?fileID=7433441132597879392&amp;guid=690749010bfe496d9943e399fdf472f0&amp;type=3#AprilTagSetup"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Operator/OperatorStyle.uss?fileID=7433441132597879392&amp;guid=50e7e683e56714de0b0ad7967c86b879&amp;type=3#OperatorStyle"/>
     <ui:VisualElement class="page-template-root">
         <Anaglyph.Menu.NavHeader>
             <Bindings>
@@ -27,7 +28,7 @@
                     </Bindings>
                 </ui:Label>
             </ui:VisualElement>
-            <ui:VisualElement name="setup-connect" class="tag-setup-hidden">
+            <ui:VisualElement name="setup-connect" class="tag-setup-hidden" style="display: flex;">
                 <ui:Label class="body-copy">
                     <Bindings>
                         <UnityEngine.Localization.LocalizedString property="text" table="Map" entry="tag-setup.connect"/>

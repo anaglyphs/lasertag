@@ -1,0 +1,93 @@
+/* Full-screen HUD */
+
+.hud-root {
+    flex-grow: 1;
+    color: rgb(255, 255, 255);
+}
+
+.hud-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Death and respawn */
+
+.you-died-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+.you-died-label {
+    font-size: 60px;
+    color: rgb(255, 119, 119);
+    -unity-text-align: middle-center;
+}
+
+.death-bar {
+    width: 94px;
+    height: 30px;
+    background-color: rgb(255, 120, 120);
+}
+
+.respawn-label {
+    font-size: 30px;
+    -unity-text-align: middle-center;
+}
+
+/* Queue and countdown */
+
+.queue-label {
+    font-size: 30px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+}
+
+.countdown-label {
+    position: absolute;
+    font-size: 140px;
+    -unity-text-align: middle-center;
+}
+
+/* Round results */
+
+.results-title {
+    font-size: 60px;
+    -unity-text-align: middle-center;
+    margin-bottom: 10px;
+}
+
+.results-round-label {
+    font-size: 30px;
+    -unity-text-align: middle-center;
+    margin-bottom: 20px;
+}
+
+.results-scores {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+.results-score {
+    font-size: 60px;
+    width: 200px;
+}
+
+.vs-label {
+    font-size: 60px;
+    width: 100px;
+    -unity-text-align: middle-center;
+}
+
+/* Connection status */
+
+.connection-label {
+    font-size: 45px;
+    -unity-text-align: middle-center;
+}

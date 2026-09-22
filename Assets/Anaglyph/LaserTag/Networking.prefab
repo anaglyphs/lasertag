@@ -50,7 +50,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   NetworkManagerExpanded: 0
   NetworkConfig:
-    ProtocolVersion: 8
+    ProtocolVersion: 9
     NetworkTransport: {fileID: 6448117670786824747}
     PlayerPrefab: {fileID: 0}
     Prefabs:
@@ -159,6 +159,8 @@ MonoBehaviour:
     PrewarmCount: 50
   - Prefab: {fileID: 2461548798482640612, guid: cdbc5f88494804658a46486164414247, type: 3}
     PrewarmCount: 20
+  - Prefab: {fileID: 6335627118381249066, guid: 1044dfb14e2dc460fa988ddc9fafe43f, type: 3}
+    PrewarmCount: 50
 --- !u!114 &8500694417332680183
 MonoBehaviour:
   m_ObjectHideFlags: 0

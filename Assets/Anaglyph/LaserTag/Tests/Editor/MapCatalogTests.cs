@@ -85,7 +85,7 @@ namespace Anaglyph.LaserTag.Tests
 			window.rootVisualElement.styleSheets.Add(AssetDatabase.LoadAssetAtPath<ThemeStyleSheet>("Assets/Anaglyph/LaserTag/Interface/LaserTagRuntimeTheme.tss"));
 			root = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>("Assets/Anaglyph/LaserTag/Interface/Main Menu/Game/GameMenu.uxml").CloneTree();
 			root.style.flexGrow = 1; window.rootVisualElement.Add(root);
-			nav = root.Q<NavView>(); nav.GoToPage("map-manager-page");
+			nav = root.Q<NavView>("maps-nav");
 			picker = new MapPickerBinder(false);
 			picker.Bind(root.Q("map-catalog-section"), () => editCount++, () => nav.GoToPage("space-details"));
 			details = new SpaceDetailsBinder(nav.GetPage("space-details"));
@@ -324,20 +324,24 @@ namespace Anaglyph.LaserTag.Tests
 			using var name = new MapNameBinder(root.Q("map-name-section"));
 			void Field(string key, object value) => typeof(GameMenu).GetField(key, Private).SetValue(menu, value);
 			T Handler<T>(string method) where T : Delegate => (T)Delegate.CreateDelegate(typeof(T), menu, typeof(GameMenu).GetMethod(method, Private));
-			Field("navView", nav); Field("editingMapPage", nav.GetPage("editing-map-page"));
+			Field("navView", root.Q<NavView>("game-nav")); Field("mapsNavigation", nav);
+			Field("matchNavigation", root.Q<NavView>("match-nav"));
+			Field("mapsTab", root.Q<Button>("maps-tab")); Field("matchTab", root.Q<Button>("match-tab"));
+			Field("editingMapPage", nav.GetPage("editing-map-page"));
 			Field("spaceDetailsPage", nav.GetPage("space-details")); Field("spaceDetails", details); Field("mapName", name);
 			var navigate = Handler<Action<NavPage>>("OnNavPageChanged");
 			var active = Handler<Action<bool>>("OnMapEditorStateChanged");
 			var register = Handler<Action>("ShowSpaceAlignment");
 			var changing = Handler<Action>("OnAlignmentChanging");
 			var changed = Handler<Action>("OnAlignmentChanged");
+			var selectTab = Handler<Action<bool>>("SelectTab");
 			nav.Changed += navigate;
 			MapEditor.MapEditor.ActiveChanged += active;
 			MapEditor.MapEditor.TagRegistrationRequested += register;
 			details.Alignment.Changing += changing;
 			details.Alignment.Changed += changed;
 			using var errors = new MenuErrorPresenter(MenuErrorArea.Game);
-			errors.Bind(nav);
+			errors.Bind(root.Q<NavView>("game-nav"));
 			try
 			{
 				foreach (var method in new[] { ColocationManager.ColocationMethod.AprilTag, ColocationManager.ColocationMethod.TwoAprilTags })
@@ -354,6 +358,12 @@ namespace Anaglyph.LaserTag.Tests
 					Click(root.Q<Button>("dismiss-error-button"));
 					Assert.That(nav.CurrentPage.name, Is.EqualTo("space-details"));
 					Assert.That(MapEditorTool.CurrentMode, Is.EqualTo(MapEditorTool.Mode.MeasureTagSize));
+					selectTab(false);
+					Assert.That(MapEditor.MapEditor.IsActive, Is.False);
+					Assert.That(nav.CurrentPage.name, Is.EqualTo("space-details"));
+					selectTab(true);
+					Assert.That(MapEditor.MapEditor.IsActive, Is.True);
+					Assert.That(MapEditorTool.CurrentMode, Is.EqualTo(MapEditorTool.Mode.Tags));
 					nav.GoBack();
 					Assert.That(MapEditor.MapEditor.IsActive, Is.False);
 					Assert.That(MapEditorTool.CurrentMode, Is.EqualTo(MapEditorTool.Mode.Move));
