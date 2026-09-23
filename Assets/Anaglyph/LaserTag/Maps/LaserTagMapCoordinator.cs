@@ -68,6 +68,7 @@ namespace Anaglyph.LaserTag
 		public bool HasPendingSpaceAdoption => sessionWorkflow?.IsTransient == true;
 		public bool HasPendingCatalogOperation => documents?.HasPending == true;
 		public IReadOnlyDictionary<string, int> ProbeResults => discovery.Results;
+		public bool SupportsEnvironmentProbing => discovery?.SupportsEnvironmentProbing == true;
 		public MapPresence GetSpacePresence(string id) => discovery.GetPresence(id);
 		public MapPresence GetMapPresence(string id) => GetSpacePresence(documents.SpaceStore.FindOwner(id)?.id);
 		private bool Authority => !SyncBus.Active || SyncBus.IsAuthority;

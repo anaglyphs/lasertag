@@ -209,8 +209,15 @@ namespace Anaglyph.LaserTag.Tests
 			var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Anaglyph/LaserTag/Interface/Main Menu/Menu.prefab");
 			var game = prefab.transform.Find("Game Panel");
 			Assert.That(game.GetComponent<UIDocument>().worldSpaceSize, Is.EqualTo(new Vector2(400, 446)));
-			Assert.That(game.GetComponent<BoxCollider>().size.y, Is.EqualTo(4.46f).Within(.001f));
-			Assert.That(game.localPosition.y + 2.23f * game.localScale.y, Is.EqualTo(.3f).Within(.001f));
+			var collider = game.GetComponent<BoxCollider>();
+			Assert.That(collider.size.y, Is.EqualTo(4.46f).Within(.001f));
+			float gameTop = game.TransformPoint(collider.center + Vector3.up * collider.size.y * .5f).y;
+			foreach (var document in prefab.GetComponentsInChildren<UIDocument>(true))
+			{
+				var panelCollider = document.GetComponent<BoxCollider>();
+				float panelTop = document.transform.TransformPoint(panelCollider.center + Vector3.up * panelCollider.size.y * .5f).y;
+				Assert.That(panelTop, Is.EqualTo(gameTop).Within(.001f), document.name);
+			}
 		}
 
 		[Test]

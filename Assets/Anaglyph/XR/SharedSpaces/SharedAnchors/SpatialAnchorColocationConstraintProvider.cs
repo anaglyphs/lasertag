@@ -88,6 +88,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		private int stateGeneration;
 
 		public bool IsAvailable => registry != null && registry.IsAvailable;
+		public bool SupportsEnvironmentProbing => registry != null && registry.SupportsEnvironmentProbing;
 		public bool IsRunning { get; private set; }
 		public bool IsMinting { get; private set; }
 

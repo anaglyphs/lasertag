@@ -393,7 +393,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		/// <see cref="MetaSpatialEntities"/> reaches it — this project enables MetaXRFeature
 		/// alongside Unity's OpenXR stack.
 		/// </summary>
-		private static bool metaDiscoveryAvailable => MetaSpatialEntities.IsAvailable;
+		public bool SupportsEnvironmentProbing => MetaSpatialEntities.IsAvailable;
 
 		/// <summary>
 		/// Whether this device is known to hold <paramref name="guid"/>. Only as complete as the
@@ -603,7 +603,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		private async Awaitable<bool> EnumerateSavedGuidsAsync(IReadOnlyCollection<SerializableGuid> guids,
 			float probeTimeoutSeconds, CancellationToken ctkn)
 		{
-			if (metaDiscoveryAvailable)
+			if (SupportsEnvironmentProbing)
 				return await DiscoverAndProbeAsync(guids, probeTimeoutSeconds, ctkn);
 
 			// Off Quest, take AR Foundation's own enumeration where the provider implements it.

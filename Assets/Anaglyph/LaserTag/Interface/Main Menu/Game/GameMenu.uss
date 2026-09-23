@@ -37,13 +37,13 @@
 
 .game-menu-tab-selected {
     background-color: rgb(255, 255, 255);
-	border-width: 0;
+	border-color: rgb(255, 255, 255);
     color: var(--secondary);
 }
 
 .game-menu-tab:hover:enabled {
     background-color: var(--highlight);
-	border-width: 0;
+	border-color: var(--highlight);
     color: var(--secondary);
 }
 

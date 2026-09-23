@@ -65,6 +65,7 @@ namespace Anaglyph.LaserTag.Interface
 			}
 		}
 
+		[ContextMenu("Configure XR Panel")]
 		public void Configure()
 		{
 			UIDocument document = GetComponent<UIDocument>();
@@ -73,9 +74,22 @@ namespace Anaglyph.LaserTag.Interface
 			XRPokeFilter pokeFilter = GetComponent<XRPokeFilter>();
 
 			Vector2 panelSize = document.worldSpaceSize / PixelsPerUnit;
+			Vector2 halfSize = panelSize * 0.5f;
+			Vector2 panelCenter = document.pivot switch
+			{
+				Pivot.TopLeft => new Vector2(halfSize.x, -halfSize.y),
+				Pivot.TopCenter => new Vector2(0, -halfSize.y),
+				Pivot.TopRight => new Vector2(-halfSize.x, -halfSize.y),
+				Pivot.LeftCenter => new Vector2(halfSize.x, 0),
+				Pivot.RightCenter => new Vector2(-halfSize.x, 0),
+				Pivot.BottomLeft => new Vector2(halfSize.x, halfSize.y),
+				Pivot.BottomCenter => new Vector2(0, halfSize.y),
+				Pivot.BottomRight => new Vector2(-halfSize.x, halfSize.y),
+				_ => Vector2.zero
+			};
 
 			panelCollider.isTrigger = true;
-			panelCollider.center = Vector3.zero;
+			panelCollider.center = new Vector3(panelCenter.x, panelCenter.y, 0);
 			panelCollider.size = new Vector3(panelSize.x, panelSize.y, 0.02f);
 
 			interactable.colliders.Clear();

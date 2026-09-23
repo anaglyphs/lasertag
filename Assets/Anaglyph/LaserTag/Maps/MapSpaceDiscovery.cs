@@ -28,6 +28,7 @@ namespace Anaglyph.LaserTag.Maps
 		public event Action ResultsChanged = delegate { };
 		public IReadOnlyDictionary<string, int> Results => results;
 		public bool IsAvailable => provider != null && provider.IsAvailable;
+		public bool SupportsEnvironmentProbing => provider != null && provider.SupportsEnvironmentProbing;
 		public MapPresence GetPresence(string spaceId) => spaceId != null && results.TryGetValue(spaceId, out int count)
 			? count > 0 ? MapPresence.Here : MapPresence.Elsewhere : MapPresence.Unknown;
 		public void Invalidate() { generation++; results.Clear(); ResultsChanged.Invoke(); }
