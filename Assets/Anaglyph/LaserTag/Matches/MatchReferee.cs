@@ -23,7 +23,7 @@ namespace Anaglyph.LaserTag.Matches
 	{
 		Timer,     // wait out respawnSeconds, then respawn anywhere
 		InBases,   // wait out respawnSeconds, then respawn in a friendly base
-		NextRound  // stay dead until the round ends
+		NextRound  // stay dead until mustering for the next round
 	}
 
 	public enum MatchState : byte
@@ -92,7 +92,7 @@ namespace Anaglyph.LaserTag.Matches
 			{
 				teams = true,
 				spawnZombies = false,
-				respawnCondition = RespawnCondition.InBases,
+				respawnCondition = RespawnCondition.NextRound,
 				respawnSeconds = 5,
 				healthRegenPerSecond = 5,
 				damageMultiplier = 1,
@@ -102,10 +102,10 @@ namespace Anaglyph.LaserTag.Matches
 				pointsPerFlagCapture = 10,
 				pointsPerZombieKill = 1,
 
-				winCondition = WinCondition.Timer,
+				winCondition = WinCondition.ReachScore,
 				roundTimeSeconds = 60 * 2,
 				scoreTarget = 10,
-				numRounds = 1
+				numRounds = 3
 			};
 		}
 

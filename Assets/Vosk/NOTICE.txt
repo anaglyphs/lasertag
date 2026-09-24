@@ -1,0 +1,10 @@
+Vosk speech recognition
+https://github.com/alphacep/vosk-api
+Apache License 2.0; see LICENSE.txt.
+
+Native libraries and C# bindings were imported from the wandtag project.
+Model.cs and VoskRecognizer.cs reject null native handles in this project.
+
+Bundled model: vosk-model-small-en-us-0.15
+https://alphacephei.com/vosk/models
+Apache License 2.0.

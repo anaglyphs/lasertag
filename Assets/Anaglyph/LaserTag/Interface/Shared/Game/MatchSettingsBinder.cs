@@ -49,12 +49,20 @@ namespace Anaglyph.LaserTag.Interface
 			Require<TextField>(roundsSlider, null).keyboardType = TouchScreenKeyboardType.NumberPad;
 			Require<TextField>(respawnTimeSlider, null).keyboardType = TouchScreenKeyboardType.NumberPad;
 
-			// the UXML carries the menu's default slider values
-			matchSettings.roundTimeSeconds = MinutesToSeconds(roundTimeSlider.value);
-			matchSettings.scoreTarget = (short)Mathf.Clamp(scoreTargetSlider.value, 1, short.MaxValue);
-			matchSettings.damageMultiplier = Mathf.Max(0f, damageMultiplierSlider.value);
-			matchSettings.respawnSeconds = Mathf.Max(0, respawnTimeSlider.value);
-			matchSettings.spawnZombies = spawnZombiesToggle.value;
+			roundTimeSlider.SetValueWithoutNotify(matchSettings.roundTimeSeconds / 60f);
+			scoreTargetSlider.SetValueWithoutNotify(matchSettings.scoreTarget);
+			damageMultiplierSlider.SetValueWithoutNotify(matchSettings.damageMultiplier);
+			roundsSlider.SetValueWithoutNotify(matchSettings.GetNumRounds());
+			infiniteRoundsToggle.SetValueWithoutNotify(matchSettings.HasInfiniteRounds());
+			respawnTimeSlider.SetValueWithoutNotify(Mathf.RoundToInt(matchSettings.respawnSeconds));
+			spawnZombiesToggle.SetValueWithoutNotify(matchSettings.spawnZombies);
+			bool byScore = matchSettings.CheckWinByScore();
+			int winChoice = matchSettings.CheckWinByTimer() && byScore ? 2 : byScore ? 1 : 0;
+			winByRadio.SetValueWithoutNotify(winChoice);
+			respawnConditionRadio.SetValueWithoutNotify((int)matchSettings.respawnCondition);
+			roundsSlider.SetEnabled(!matchSettings.HasInfiniteRounds());
+			roundTimeSlider.SetEnabled(matchSettings.CheckWinByTimer());
+			scoreTargetSlider.SetEnabled(byScore);
 
 			bindings.Value(roundTimeSlider, change =>
 				matchSettings.roundTimeSeconds = MinutesToSeconds(change.newValue));
@@ -67,8 +75,6 @@ namespace Anaglyph.LaserTag.Interface
 
 			bindings.Value(roundsSlider, change => SetNumRounds());
 			bindings.Value(infiniteRoundsToggle, change => SetNumRounds());
-			infiniteRoundsToggle.SetValueWithoutNotify(matchSettings.HasInfiniteRounds());
-			SetNumRounds();
 
 			bindings.Value(respawnTimeSlider, change =>
 				matchSettings.respawnSeconds = Mathf.Max(0, change.newValue));
@@ -77,14 +83,8 @@ namespace Anaglyph.LaserTag.Interface
 				matchSettings.spawnZombies = change.newValue);
 
 			bindings.Value(winByRadio, change => SetWinBy(change.newValue));
-			bool byScore = matchSettings.CheckWinByScore();
-			int winChoice = matchSettings.CheckWinByTimer() && byScore ? 2 : byScore ? 1 : 0;
-			winByRadio.SetValueWithoutNotify(winChoice);
-			SetWinBy(winChoice);
 
 			bindings.Value(respawnConditionRadio, change => SetRespawnCondition(change.newValue));
-			respawnConditionRadio.SetValueWithoutNotify((int)matchSettings.respawnCondition);
-			SetRespawnCondition((int)matchSettings.respawnCondition);
 		}
 
 		public void Dispose() => bindings.Dispose();

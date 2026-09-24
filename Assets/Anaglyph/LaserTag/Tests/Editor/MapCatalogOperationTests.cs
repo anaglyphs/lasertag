@@ -70,6 +70,24 @@ namespace Anaglyph.LaserTag.Tests
 		}
 
 		[Test]
+		public void HealthyNoMatchCreatesDurableSpaceAndStarterMapWhileSharingIsUnknown()
+		{
+			var method = MapSpaceStartup.InitialMethod(SpaceProbeOutcome.NoMatches,
+				Anaglyph.Permissions.CapabilitySupport.Unknown, true);
+			Assert.That(method.HasValue, Is.True);
+			Assert.That(Operation("CreateSpace", true, method.Value).IsCompleted, Is.True);
+			Assert.That(changes.Count, Is.EqualTo(1));
+			var createdSpace = (MapSpace)Property(changes[0], "Space");
+			var createdMap = (GameMap)Property(changes[0], "Map");
+			Assert.That(new MapSpaceStore(Path.Combine(directory, "spaces")).TryGet(createdSpace.id, out var saved), Is.True);
+			Assert.That(new MapStore(Path.Combine(directory, "maps")).TryGet(createdMap.id, out var layout), Is.True);
+			Assert.That(saved.mapIds, Is.EqualTo(new[] { layout.id }));
+			Assert.That(saved.storageFrameId, Is.EqualTo(layout.storageFrameId));
+			Assert.That(saved.automaticallyCreated && saved.initializationPending, Is.True);
+			Assert.That(saved.HasReferenceBasedData, Is.False);
+		}
+
+		[Test]
 		public void CompletionPublishesPersistedDocumentsWithoutSelectingThem()
 		{
 			var result = Operation("NewMap");

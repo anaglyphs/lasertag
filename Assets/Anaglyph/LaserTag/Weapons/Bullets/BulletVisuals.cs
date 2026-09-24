@@ -79,7 +79,6 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 			try
 			{
 				await Awaitable.NextFrameAsync(ctkn);
-				ctkn.ThrowIfCancellationRequested();
 				pointLight.enabled = false;
 			}
 			catch (OperationCanceledException)

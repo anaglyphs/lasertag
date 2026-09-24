@@ -32,6 +32,8 @@ namespace Anaglyph.LaserTag.Player
 		/// <summary>Whether the participating player has a valid spatial presence in the match.</summary>
 		public bool IsInPlay => hasSpatialPresence && !IsTeamlessDuringMatch;
 
+		private bool CanFire => IsInPlay && IsAlive && MatchReferee.State != MatchState.Mustering;
+
 		/// <summary>A player who has not joined a team sits out until they do.</summary>
 		public bool IsTeamlessDuringMatch =>
 			Team == 0 && MatchReferee.State != MatchState.NotPlaying;
@@ -96,23 +98,21 @@ namespace Anaglyph.LaserTag.Player
 
 			if (IsAlive) Health += MatchReferee.Settings.healthRegenPerSecond * Time.deltaTime;
 
-			WeaponsManagement.CanFire = IsAlive;
+			WeaponsManagement.CanFire = CanFire;
 
 			Health = Mathf.Clamp(Health, 0, MaxHealth);
 
 			// respawn timer
-			if (!IsAlive)
+			if (!IsAlive && MatchReferee.State != MatchState.RoundBreak)
 			{
 				MatchSettings settings = MatchReferee.Settings;
 				float timeSinceDeath = Time.time - LastDeathTime;
 				bool timeCheck = timeSinceDeath > settings.respawnSeconds;
 
-				// per-round deaths last until the round ends; every match state
-				// change already respawns everyone (OnMatchStateChange)
 				bool conditionCheck = settings.respawnCondition switch
 				{
 					RespawnCondition.InBases => IsInFriendlyBase,
-					RespawnCondition.NextRound => MatchReferee.State != MatchState.Playing,
+					RespawnCondition.NextRound => false,
 					_ => true,
 				};
 
@@ -123,7 +123,10 @@ namespace Anaglyph.LaserTag.Player
 
 		private void OnMatchStateChange(MatchState state)
 		{
-			Respawn();
+			if (state == MatchState.Mustering)
+				Respawn();
+
+			WeaponsManagement.CanFire = CanFire;
 		}
 
 		public void SetInPlay(bool inPlay)
@@ -183,10 +186,9 @@ namespace Anaglyph.LaserTag.Player
 
 			ClearPassthroughEffects();
 
-			WeaponsManagement.CanFire = IsInPlay;
-
 			IsAlive = true;
 			Health = MaxHealth;
+			WeaponsManagement.CanFire = CanFire;
 
 			Respawned.Invoke();
 		}

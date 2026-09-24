@@ -10,12 +10,7 @@ namespace Anaglyph.LaserTag.Maps
 		{
 			if (probe != SpaceProbeOutcome.NoMatches &&
 				!(probe == SpaceProbeOutcome.Indeterminate && !canProbe && sharing == CapabilitySupport.Unsupported)) return null;
-			return sharing switch
-			{
-				CapabilitySupport.Supported => Method.MetaSharedAnchor,
-				CapabilitySupport.Unsupported => Method.AprilTag,
-				_ => null
-			};
+			return sharing == CapabilitySupport.Unsupported ? Method.AprilTag : Method.MetaSharedAnchor;
 		}
 
 		/// <summary>Retarget an unfinished automatic draft without replacing its frame or layout files.</summary>

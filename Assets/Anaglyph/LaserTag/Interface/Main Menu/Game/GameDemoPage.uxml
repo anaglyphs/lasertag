@@ -1,0 +1,33 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+    <ui:VisualElement class="page-template-root">
+        <Anaglyph.Menu.NavHeader>
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="Title" table="GameMenu" entry="demo.title"/>
+            </Bindings>
+        </Anaglyph.Menu.NavHeader>
+        <ui:ScrollView mode="Vertical" horizontal-scroller-visibility="Hidden">
+            <ui:Label class="demo-instructions field-row">
+                <Bindings>
+                    <UnityEngine.Localization.LocalizedString property="text" table="GUID:185dc149adec9474995d0157d2ca1851" entry="Id(4941459617734656)"/>
+                </Bindings>
+            </ui:Label>
+            <ui:VisualElement name="demo-weapons" class="demo-weapons"/>
+            <ui:Label class="demo-instructions field-row">
+                <Bindings>
+                    <UnityEngine.Localization.LocalizedString property="text" table="GUID:185dc149adec9474995d0157d2ca1851" entry="Id(4944588778233856)"/>
+                </Bindings>
+            </ui:Label>
+            <ui:Button name="show-debug-mesh-for-everyone">
+                <Bindings>
+                    <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsDebuggingPage.show-debug-mesh-for-everyone.text"/>
+                </Bindings>
+            </ui:Button>
+            <ui:Button name="hide-debug-mesh-for-everyone">
+                <Bindings>
+                    <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsDebuggingPage.hide-debug-mesh-for-everyone.text"/>
+                </Bindings>
+            </ui:Button>
+        </ui:ScrollView>
+    </ui:VisualElement>
+</ui:UXML>

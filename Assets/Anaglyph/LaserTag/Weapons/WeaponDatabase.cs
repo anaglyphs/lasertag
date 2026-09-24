@@ -13,6 +13,7 @@ namespace Anaglyph.LaserTag.Weapons
 		public const int NoWeapon = -1;
 
 		[SerializeField] private List<GameObject> weapons = new();
+		public int Count => weapons.Count;
 
 		public int IndexOf(GameObject weaponPrefab)
 		{

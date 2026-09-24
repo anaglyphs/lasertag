@@ -9,7 +9,12 @@ namespace Anaglyph.LaserTag.Player
 	[RequireComponent(typeof(PlayerAvatar))]
 	public class AvatarPresentation : MonoBehaviour
 	{
+		[SerializeField] private GameObject wandPrefab;
+		[SerializeField] private Renderer helmetRenderer;
+		[SerializeField] private Renderer[] wizardHatRenderers = { };
+
 		private PlayerAvatar avatar;
+		private AvatarWeaponVisual[] weapons;
 		private Renderer[] renderers;
 		private Collider[] colliders;
 		private bool[] colliderEnabled;
@@ -21,6 +26,7 @@ namespace Anaglyph.LaserTag.Player
 		private void Awake()
 		{
 			avatar = GetComponent<PlayerAvatar>();
+			weapons = GetComponentsInChildren<AvatarWeaponVisual>(true);
 			renderers = GetComponentsInChildren<Renderer>(true);
 			colliders = GetComponentsInChildren<Collider>(true);
 			colliderEnabled = new bool[colliders.Length];
@@ -39,6 +45,7 @@ namespace Anaglyph.LaserTag.Player
 			bool present = avatar.HasSpatialPresence;
 			foreach (Renderer renderer in renderers)
 				renderer.forceRenderingOff = !present || (!avatar.IsAlive && renderer is not ParticleSystemRenderer);
+			RefreshHeadwear();
 			for (int i = 0; i < colliders.Length; i++)
 				colliders[i].enabled = colliderEnabled[i] && present && avatar.IsAlive;
 			for (int i = 0; i < audioSources.Length; i++)
@@ -50,6 +57,19 @@ namespace Anaglyph.LaserTag.Player
 				foreach (AudioSource source in audioSources) source.Stop();
 			}
 			wasPresent = present;
+		}
+
+		private void RefreshHeadwear()
+		{
+			bool hasWand = false;
+			if (wandPrefab != null)
+				foreach (AvatarWeaponVisual weapon in weapons)
+					hasWand |= weapon.EquippedWeapon == wandPrefab;
+
+			if (helmetRenderer != null)
+				helmetRenderer.forceRenderingOff |= hasWand;
+			foreach (Renderer renderer in wizardHatRenderers)
+				renderer.forceRenderingOff |= !hasWand || avatar.IsOwner;
 		}
 	}
 }

@@ -17,7 +17,7 @@
                     <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.infinite-rounds-toggle.text"/>
                 </Bindings>
             </ui:Toggle>
-            <ui:RadioButtonGroup name="win-by-radio" class="stacked-field">
+            <ui:RadioButtonGroup name="win-by-radio" value="1" class="stacked-field">
                 <Bindings>
                     <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.win-by-radio.label"/>
                 </Bindings>
@@ -42,12 +42,12 @@
                     <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.round-time-slider.label"/>
                 </Bindings>
             </ui:Slider>
-            <ui:SliderInt value="5" high-value="20" name="score-target-slider" show-input-field="true" class="stacked-field">
+            <ui:SliderInt value="5" high-value="20" name="score-target-slider" show-input-field="true" low-value="1" class="stacked-field">
                 <Bindings>
                     <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.score-target-slider.label"/>
                 </Bindings>
             </ui:SliderInt>
-            <ui:RadioButtonGroup name="respawn-condition-radio" class="stacked-field">
+            <ui:RadioButtonGroup name="respawn-condition-radio" value="1" class="stacked-field">
                 <Bindings>
                     <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.respawn-condition-radio.label"/>
                 </Bindings>

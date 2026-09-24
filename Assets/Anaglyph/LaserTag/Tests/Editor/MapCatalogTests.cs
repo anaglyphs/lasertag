@@ -326,6 +326,8 @@ namespace Anaglyph.LaserTag.Tests
 			T Handler<T>(string method) where T : Delegate => (T)Delegate.CreateDelegate(typeof(T), menu, typeof(GameMenu).GetMethod(method, Private));
 			Field("navView", root.Q<NavView>("game-nav")); Field("mapsNavigation", nav);
 			Field("matchNavigation", root.Q<NavView>("match-nav"));
+			Field("demoNavigation", root.Q<NavView>("demo-nav"));
+			Field("demoTab", root.Q<Button>("demo-tab"));
 			Field("mapsTab", root.Q<Button>("maps-tab")); Field("matchTab", root.Q<Button>("match-tab"));
 			Field("editingMapPage", nav.GetPage("editing-map-page"));
 			Field("spaceDetailsPage", nav.GetPage("space-details")); Field("spaceDetails", details); Field("mapName", name);
@@ -334,7 +336,7 @@ namespace Anaglyph.LaserTag.Tests
 			var register = Handler<Action>("ShowSpaceAlignment");
 			var changing = Handler<Action>("OnAlignmentChanging");
 			var changed = Handler<Action>("OnAlignmentChanged");
-			var selectTab = Handler<Action<bool>>("SelectTab");
+			var selectTab = Handler<Action<GameMenu.Tab>>("SelectTab");
 			nav.Changed += navigate;
 			MapEditor.MapEditor.ActiveChanged += active;
 			MapEditor.MapEditor.TagRegistrationRequested += register;
@@ -358,10 +360,10 @@ namespace Anaglyph.LaserTag.Tests
 					Click(root.Q<Button>("dismiss-error-button"));
 					Assert.That(nav.CurrentPage.name, Is.EqualTo("space-details"));
 					Assert.That(MapEditorTool.CurrentMode, Is.EqualTo(MapEditorTool.Mode.MeasureTagSize));
-					selectTab(false);
+					selectTab(GameMenu.Tab.Match);
 					Assert.That(MapEditor.MapEditor.IsActive, Is.False);
 					Assert.That(nav.CurrentPage.name, Is.EqualTo("space-details"));
-					selectTab(true);
+					selectTab(GameMenu.Tab.Maps);
 					Assert.That(MapEditor.MapEditor.IsActive, Is.True);
 					Assert.That(MapEditorTool.CurrentMode, Is.EqualTo(MapEditorTool.Mode.Tags));
 					nav.GoBack();
@@ -387,6 +389,32 @@ namespace Anaglyph.LaserTag.Tests
 				MapEditor.MapEditor.SetActive(false);
 				Object.DestroyImmediate(menu);
 			}
+		}
+
+		[UnityTest]
+		public IEnumerator UnalignedCurrentDraftCanOpenSpaceSettingsAndSaveSystemAlignment()
+		{
+			first.automaticallyCreated = first.initializationPending = true;
+			first.preferredColocationMethod = ColocationManager.ColocationMethod.MetaSharedAnchor;
+			spaceDocument.Load(first);
+			MapSpaceStore.Default.Save(first);
+			Assert.That(coordinator.GetSpacePresence(first.id), Is.EqualTo(MapPresence.Unknown));
+			Assert.That(ColocationManager.IsColocated, Is.False);
+			for (int i = 0; i < 4; i++) yield return null;
+			var edit = root.Q("space-" + first.id).Q<Button>("edit-space-button");
+			Assert.That(edit.enabledInHierarchy, Is.True);
+			Assert.That(Row(loaded), Is.Not.Null);
+			Click(edit);
+			Assert.That(nav.CurrentPage.name, Is.EqualTo("space-details"));
+			var method = nav.CurrentPage.Q<DropdownField>("colocation-method-field");
+			Assert.That(method.enabledInHierarchy, Is.True);
+			method.value = method.choices[(int)ColocationManager.ColocationMethod.SystemDetermined];
+			Assert.That(coordinator.CurrentSpace.preferredColocationMethod, Is.EqualTo(ColocationManager.ColocationMethod.SystemDetermined));
+			Assert.That(new MapSpaceStore(Path.Combine(directory, "spaces")).TryGet(first.id, out var saved), Is.True);
+			Assert.That(saved.preferredColocationMethod, Is.EqualTo(ColocationManager.ColocationMethod.SystemDetermined));
+			Assert.That(coordinator.CurrentMap.id, Is.EqualTo(loaded.id));
+			nav.GoBack();
+			Assert.That(root.Q("space-" + first.id).Q<Button>("edit-space-button"), Is.Not.Null);
 		}
 
 		[UnityTest]

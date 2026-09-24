@@ -13,10 +13,11 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 {
 	public class Bullet : NetworkBehaviour
 	{
-		private const float MaxTravelDist = 50;
+		private const float MaxTravelDist = 100;
 		private static float ServerTime => SharedNetworkTime.TimeAsFloat;
 
 		[SerializeField] private float metersPerSecond;
+		[SerializeField, Min(0)] private float collisionRadius;
 		[SerializeField] private AnimationCurve damageOverDistance = AnimationCurve.Constant(0, MaxTravelDist, 50f);
 
 		[SerializeField] private int despawnDelay = 1;
@@ -110,8 +111,13 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 
 			if (IsOwner)
 			{
-				bool didHit = Physics.Linecast(prevPos, transform.position, out RaycastHit physHit,
-					Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+				Vector3 travel = transform.position - prevPos;
+				RaycastHit physHit;
+				bool didHit = collisionRadius > 0
+					? Physics.SphereCast(prevPos, collisionRadius, travel.normalized, out physHit,
+						travel.magnitude, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)
+					: Physics.Linecast(prevPos, transform.position, out physHit,
+						Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
 
 				if (didHit)
 				{
@@ -133,7 +139,14 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 				}
 
 				if (travelDist > MaxTravelDist)
-					NetworkObject.Despawn(true);
+				{
+					// NetworkObject.Despawn(true);
+					isAlive = false;
+					
+					if (IsOwner)
+						DelayedDespawn();
+				}
+					
 			}
 		}
 

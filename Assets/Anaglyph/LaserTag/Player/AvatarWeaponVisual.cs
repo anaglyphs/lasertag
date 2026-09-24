@@ -27,6 +27,7 @@ namespace Anaglyph.LaserTag.Player
 		private PlayerAvatar avatar;
 		private WeaponVisual visual;
 		private int id = WeaponDatabase.NoWeapon;
+		public GameObject EquippedWeapon => database.GetWeapon(id);
 
 		// owner only
 		private GameObject selectedPrefab;

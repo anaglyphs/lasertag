@@ -191,7 +191,7 @@ namespace Anaglyph.LaserTag.Interface
 				if (currentSpace != null && !currentSpace.mapIds.Contains(currentMap.id)) currentSpace.mapIds.Add(currentMap.id);
 			}
 			if (manager?.SupportsEnvironmentProbing == true)
-				spaces.RemoveAll(space => manager.GetSpacePresence(space.id) != MapPresence.Here);
+				spaces.RemoveAll(space => space.id != currentSpace?.id && manager.GetSpacePresence(space.id) != MapPresence.Here);
 			var visibleIds = new HashSet<string>();
 			foreach (var space in spaces) foreach (var map in maps) if (space.mapIds.Contains(map.id)) visibleIds.Add(map.id);
 			if (selectedMapId != null && !visibleIds.Contains(selectedMapId)) { selectedMapId = null; armedDelete = false; }

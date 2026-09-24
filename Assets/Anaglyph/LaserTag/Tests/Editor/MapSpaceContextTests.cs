@@ -15,15 +15,15 @@ namespace Anaglyph.LaserTag.Tests
 	{
 		[TestCase(CapabilitySupport.Supported, Method.MetaSharedAnchor)]
 		[TestCase(CapabilitySupport.Unsupported, Method.AprilTag)]
+		[TestCase(CapabilitySupport.Unknown, Method.MetaSharedAnchor)]
 		public void NoMatchingSpaceUsesSharingCapabilityForInitialAlignment(CapabilitySupport sharing, Method expected)
 		{
 			Assert.That(MapSpaceStartup.InitialMethod(SpaceProbeOutcome.NoMatches, sharing, true), Is.EqualTo(expected));
 		}
 
 		[Test]
-		public void UnknownCapabilityAndInterruptedQueriesNeverChooseAStartupMethod()
+		public void InterruptedQueriesNeverChooseAStartupMethod()
 		{
-			Assert.That(MapSpaceStartup.InitialMethod(SpaceProbeOutcome.NoMatches, CapabilitySupport.Unknown, true), Is.Null);
 			foreach (CapabilitySupport sharing in Enum.GetValues(typeof(CapabilitySupport)))
 			{
 				Assert.That(MapSpaceStartup.InitialMethod(SpaceProbeOutcome.Canceled, sharing, false), Is.Null);

@@ -50,3 +50,18 @@
 .game-menu-hidden {
     display: none;
 }
+
+.demo-instructions {
+    white-space: normal;
+}
+
+.demo-weapons {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-bottom: var(--spacing-medium);
+}
+
+.demo-weapons > Button {
+    flex-basis: 40%;
+    flex-grow: 1;
+}

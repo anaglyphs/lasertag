@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 7418599492549241868}
   - component: {fileID: 6413514653029965147}
   - component: {fileID: 8500694417332680183}
+  - component: {fileID: 6530011707509666880}
   m_Layer: 0
   m_Name: Networking
   m_TagString: Untagged
@@ -33,7 +34,8 @@ Transform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 4141940556214233589}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &7459231172869217504
@@ -161,6 +163,12 @@ MonoBehaviour:
     PrewarmCount: 20
   - Prefab: {fileID: 6335627118381249066, guid: 1044dfb14e2dc460fa988ddc9fafe43f, type: 3}
     PrewarmCount: 50
+  - Prefab: {fileID: 1600935773405370644, guid: 08657e0e2cf0fbc4298a78a52365eb1b, type: 3}
+    PrewarmCount: 4
+  - Prefab: {fileID: 4590543788176844566, guid: 24eba45a1a5dd75498edce21ca888391, type: 3}
+    PrewarmCount: 4
+  - Prefab: {fileID: 1097153723754889566, guid: 99cad7c1437f877499006150b11817a9, type: 3}
+    PrewarmCount: 4
 --- !u!114 &8500694417332680183
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -173,3 +181,75 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 28ed39932787e4745ab5df6d52d1bc11, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.XRTemplate.SharedSpaces::Anaglyph.XRTemplate.SharedSpaces.MetaSessionDiscovery
+--- !u!114 &6530011707509666880
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2459965662535751644}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 993ac84e14de4ca1b48cf60bdeafab43, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.Weapons.SessionWeaponSwitcher
+  database: {fileID: 11400000, guid: 045856440b73c4f949c5ba26590e2ee1, type: 2}
+--- !u!1 &8737638517272434178
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4141940556214233589}
+  - component: {fileID: 5104841777811308307}
+  - component: {fileID: 115007846212663169}
+  m_Layer: 0
+  m_Name: Wand Voice Input
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4141940556214233589
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8737638517272434178}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 9038727052097006548}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5104841777811308307
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8737638517272434178}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 817783f6d31bd432c9b90e513d76bdec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Speech::Anaglyph.Speech.VoskSpeechRecognizer
+  modelArchive: vosk-model-small-en-us-0.15.zip
+--- !u!114 &115007846212663169
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8737638517272434178}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eebea657d01c942adb5acc7e1832fcad, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.Weapons.WandVoiceInput
+  recognizer: {fileID: 5104841777811308307}

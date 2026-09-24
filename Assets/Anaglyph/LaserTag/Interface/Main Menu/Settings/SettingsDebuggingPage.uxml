@@ -21,15 +21,5 @@
                 <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsDebuggingPage.show-debug-mesh-toggle.text" />
             </Bindings>
         </ui:Toggle>
-        <ui:Button name="show-debug-mesh-for-everyone">
-            <Bindings>
-                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsDebuggingPage.show-debug-mesh-for-everyone.text" />
-            </Bindings>
-        </ui:Button>
-        <ui:Button name="hide-debug-mesh-for-everyone">
-            <Bindings>
-                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsDebuggingPage.hide-debug-mesh-for-everyone.text" />
-            </Bindings>
-        </ui:Button>
     </ui:VisualElement>
 </ui:UXML>

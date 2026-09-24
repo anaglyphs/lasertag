@@ -6,6 +6,7 @@ using Anaglyph.LaserTag.Interface;
 using Anaglyph.LaserTag.Maps;
 using Anaglyph.LaserTag.Matches;
 using Anaglyph.LaserTag.Player.Teams;
+using Anaglyph.LaserTag.Weapons;
 using Anaglyph.Menu;
 using Anaglyph.Netcode;
 using NUnit.Framework;
@@ -26,6 +27,7 @@ namespace Anaglyph.LaserTag.Tests
 		private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
 		private GameObject owner;
 		private GameMenu menu;
+		private WeaponDatabase database;
 		private MenuPresentationTestWindow window;
 		private VisualElement root;
 		private NavView maps, match;
@@ -62,6 +64,10 @@ namespace Anaglyph.LaserTag.Tests
 			owner.SetActive(false);
 			owner.AddComponent<MapManagerUI>();
 			menu = owner.AddComponent<GameMenu>();
+			database = AssetDatabase.LoadAssetAtPath<WeaponDatabase>("Assets/Anaglyph/LaserTag/Weapons/Weapon Database.asset");
+			var serializedMenu = new SerializedObject(menu);
+			serializedMenu.FindProperty("weaponDatabase").objectReferenceValue = database;
+			serializedMenu.ApplyModifiedPropertiesWithoutUndo();
 			Bind();
 		}
 
@@ -129,7 +135,7 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(match.CurrentPage.name, Is.EqualTo("playing-page"));
 			Assert.That(root.Q<Button>("maps-tab").enabledSelf, Is.False);
 			Assert.That(MapEditor.MapEditor.IsActive, Is.False);
-			Call("SelectTab", true);
+			Call("SelectTab", GameMenu.Tab.Maps);
 			MapEditor.MapEditor.RequestTagRegistration();
 			Assert.That(maps.ClassListContains("game-menu-hidden"), Is.True);
 			Assert.That(MapEditor.MapEditor.IsActive, Is.False);
@@ -138,18 +144,18 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(root.Q<Button>("maps-tab").enabledSelf, Is.True);
 			Assert.That(match.CurrentPage.name, Is.EqualTo("missing-bases-modal"));
 			Assert.That(MapEditor.MapEditor.IsActive, Is.False);
-			Call("SelectTab", true);
+			Call("SelectTab", GameMenu.Tab.Maps);
 			Assert.That(MapEditor.MapEditor.IsActive, Is.True);
 		}
 
 		[Test]
 		public void RegistrationSelectsMapsButAllowsSwitchingAway()
 		{
-			Call("SelectTab", false);
+			Call("SelectTab", GameMenu.Tab.Match);
 			MapEditor.MapEditor.RequestTagRegistration();
 			Assert.That(maps.ClassListContains("game-menu-hidden"), Is.False);
 			Assert.That(maps.CurrentPage.name, Is.EqualTo("space-details"));
-			Call("SelectTab", false);
+			Call("SelectTab", GameMenu.Tab.Match);
 			Assert.That(maps.ClassListContains("game-menu-hidden"), Is.True);
 			Assert.That(maps.CurrentPage.name, Is.EqualTo("space-details"));
 			Assert.That(MapEditor.MapEditor.IsActive, Is.False);
@@ -159,7 +165,7 @@ namespace Anaglyph.LaserTag.Tests
 		public IEnumerator ErrorsPreserveBothTreesAndTheSelectedTab()
 		{
 			MapEditor.MapEditor.SetActive(true);
-			Call("SelectTab", false);
+			Call("SelectTab", GameMenu.Tab.Match);
 			var shell = root.Q<NavView>("game-nav");
 			using var errors = new MenuErrorPresenter(MenuErrorArea.Game);
 			errors.Bind(shell);
@@ -178,7 +184,7 @@ namespace Anaglyph.LaserTag.Tests
 		public IEnumerator RebindingPreservesPagesAndTabButtonsStillWork()
 		{
 			MapEditor.MapEditor.SetActive(true);
-			Call("SelectTab", false);
+			Call("SelectTab", GameMenu.Tab.Match);
 			for (int cycle = 0; cycle < 3; cycle++)
 			{
 				Call("OnDisable");
@@ -205,7 +211,8 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(tabs.layout.size, Is.EqualTo(new Vector2(376, 46)));
 			Assert.That(root.Q<Button>("maps-tab").worldBound.yMin, Is.EqualTo(panel.worldBound.yMax).Within(.1f));
 			Assert.That(root.Q<Button>("maps-tab").text, Is.EqualTo("Maps"));
-			Assert.That(root.Q<Button>("match-tab").text, Is.EqualTo("Match"));
+			Assert.That(root.Q<Button>("match-tab").text, Is.EqualTo("Matches"));
+			Assert.That(root.Q<Button>("demo-tab").text, Is.EqualTo("Demo"));
 			var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Anaglyph/LaserTag/Interface/Main Menu/Menu.prefab");
 			var game = prefab.transform.Find("Game Panel");
 			Assert.That(game.GetComponent<UIDocument>().worldSpaceSize, Is.EqualTo(new Vector2(400, 446)));
@@ -223,7 +230,7 @@ namespace Anaglyph.LaserTag.Tests
 		[Test]
 		public void MissingBasesCannotBeDismissedAndBothColorsRestoreMatchSettings()
 		{
-			Call("SelectTab", false);
+			Call("SelectTab", GameMenu.Tab.Match);
 			var score = root.Q<SliderInt>("score-target-slider");
 			score.value = 17;
 			Assert.That(match.CurrentPage.ModalUserDismissible, Is.False);
@@ -272,7 +279,7 @@ namespace Anaglyph.LaserTag.Tests
 		[UnityTest]
 		public IEnumerator PlaceBasesButtonSelectsMapsAndEntersObjectEditing()
 		{
-			Call("SelectTab", false);
+			Call("SelectTab", GameMenu.Tab.Match);
 			MapEditor.Tools.MapEditorTool.SetMode(MapEditor.Tools.MapEditorTool.Mode.Tags);
 			yield return Layout();
 			Press(root.Q<Button>("place-bases-button"));
@@ -280,7 +287,7 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(maps.CurrentPage.name, Is.EqualTo("editing-map-page"));
 			Assert.That(MapEditor.MapEditor.IsActive, Is.True);
 			Assert.That(MapEditor.Tools.MapEditorTool.CurrentMode, Is.EqualTo(MapEditor.Tools.MapEditorTool.Mode.Move));
-			Call("SelectTab", false);
+			Call("SelectTab", GameMenu.Tab.Match);
 			Assert.That(MapEditor.MapEditor.IsActive, Is.False);
 			Assert.That(match.CurrentPage.name, Is.EqualTo("missing-bases-modal"));
 		}
@@ -297,6 +304,67 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(match.CurrentPage.name, Is.EqualTo("playing-page"));
 			Call("OnMatchStateChanged", MatchState.NotPlaying);
 			Assert.That(match.CurrentPage.name, Is.EqualTo("missing-bases-modal"));
+		}
+
+		[UnityTest]
+		public IEnumerator DemoPreservesEditingAndYieldsToMatchUntilItEnds()
+		{
+			MapEditor.MapEditor.SetActive(true);
+			var demo = root.Q<NavView>("demo-nav");
+			for (int visit = 0; visit < 3; visit++)
+			{
+				yield return Layout();
+				Press(root.Q<Button>("demo-tab"));
+				Assert.That(MapEditor.MapEditor.IsActive, Is.False);
+				Assert.That(demo.ClassListContains("game-menu-hidden"), Is.False);
+				Assert.That(maps.ClassListContains("game-menu-hidden"), Is.True);
+				Assert.That(match.ClassListContains("game-menu-hidden"), Is.True);
+				Assert.That(maps.CurrentPage.name, Is.EqualTo("editing-map-page"));
+				Call("SelectTab", GameMenu.Tab.Maps);
+				Assert.That(MapEditor.MapEditor.IsActive, Is.True);
+			}
+			Call("SelectTab", GameMenu.Tab.Demo);
+			foreach (var state in new[] { MatchState.Mustering, MatchState.Countdown, MatchState.Playing, MatchState.RoundBreak })
+			{
+				Call("OnMatchStateChanged", state);
+				Assert.That(demo.ClassListContains("game-menu-hidden"), Is.True);
+				Assert.That(match.ClassListContains("game-menu-hidden"), Is.False);
+				Assert.That(match.CurrentPage.name, Is.EqualTo("playing-page"));
+				Assert.That(root.Q<Button>("demo-tab").enabledSelf, Is.False);
+				Assert.That(root.Q<Button>("maps-tab").enabledSelf, Is.False);
+				Assert.That(MapEditor.MapEditor.IsActive, Is.False);
+				Call("SelectTab", GameMenu.Tab.Demo);
+				Assert.That(demo.ClassListContains("game-menu-hidden"), Is.True);
+			}
+			Call("OnMatchStateChanged", MatchState.NotPlaying);
+			Assert.That(root.Q<Button>("demo-tab").enabledSelf, Is.True);
+			Call("SelectTab", GameMenu.Tab.Demo);
+			Assert.That(demo.ClassListContains("game-menu-hidden"), Is.False);
+		}
+
+		[UnityTest]
+		public IEnumerator DemoUsesDatabaseWeaponsAndOwnsNetworkMeshButtons()
+		{
+			Assert.That(SessionWeaponSwitcher.Instance, Is.Null);
+			for (int cycle = 0; cycle < 3; cycle++)
+			{
+				if (cycle > 0) { Call("OnDisable"); Bind(); }
+				Call("SelectTab", GameMenu.Tab.Demo);
+				yield return Layout();
+				var weapons = root.Q("demo-weapons");
+				Assert.That(weapons.childCount, Is.EqualTo(database.Count));
+				Assert.That(weapons.enabledSelf, Is.False);
+				for (int id = 0; id < database.Count; id++)
+					Assert.That(weapons.Q<Button>($"demo-weapon-{id}").text, Is.EqualTo(database.GetWeapon(id).name));
+				var demo = root.Q<NavView>("demo-nav");
+				Assert.That(demo.Q<Button>("show-debug-mesh-for-everyone").text, Is.EqualTo("Show mesh for everyone"));
+				Assert.That(demo.Q<Button>("hide-debug-mesh-for-everyone").enabledSelf, Is.False);
+			}
+			var settings = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(
+				"Assets/Anaglyph/LaserTag/Interface/Main Menu/Settings/SettingsMenu.uxml").CloneTree();
+			Assert.That(settings.Q<Button>("show-debug-mesh-for-everyone"), Is.Null);
+			Assert.That(settings.Q<Button>("hide-debug-mesh-for-everyone"), Is.Null);
+			Assert.That(settings.Q<Toggle>("show-debug-mesh-toggle"), Is.Not.Null);
 		}
 
 		private TeamBase AddBase(byte team)

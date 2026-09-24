@@ -1,9 +1,12 @@
 using System;
+using Anaglyph.LaserTag.EnvSyncing;
 using Anaglyph.LaserTag.Matches;
 using Anaglyph.LaserTag.MapEditor.Tools;
 using Anaglyph.LaserTag.Maps;
+using Anaglyph.LaserTag.Weapons;
 using Anaglyph.Menu;
 using Anaglyph.Netcode;
+using Anaglyph.Netcode.SyncVariables;
 using UnityEngine;
 using UnityEngine.UIElements;
 using static Anaglyph.Menu.UIQuery;
@@ -13,13 +16,22 @@ namespace Anaglyph.LaserTag.Interface
 	[DefaultExecutionOrder(100)]
 	public class GameMenu : MonoBehaviour
 	{
+		public enum Tab { Maps, Match, Demo }
+
+		[SerializeField] private WeaponDatabase weaponDatabase;
+
 		private MenuErrorPresenter errors;
 		private NavView navView;
 		private NavView mapsNavigation;
 		private NavView matchNavigation;
+		private NavView demoNavigation;
 		private Button mapsTab;
 		private Button matchTab;
-		private bool mapsSelected = true;
+		private Button demoTab;
+		private Tab selectedTab = Tab.Maps;
+		private VisualElement demoWeapons;
+		private Button showDebugMeshForEveryone;
+		private Button hideDebugMeshForEveryone;
 		private bool updatingEditor;
 		private NavPage playingPage;
 		private NavPage missingBasesPage;
@@ -51,15 +63,19 @@ namespace Anaglyph.LaserTag.Interface
 			navView = Require<NavView>(root, "game-nav");
 			mapsNavigation = Require<NavView>(root, "maps-nav");
 			matchNavigation = Require<NavView>(root, "match-nav");
+			demoNavigation = Require<NavView>(root, "demo-nav");
 			mapsTab = Require<Button>(root, "maps-tab");
 			matchTab = Require<Button>(root, "match-tab");
+			demoTab = Require<Button>(root, "demo-tab");
 			playingPage = matchNavigation.GetPage("playing-page");
 			missingBasesPage = matchNavigation.GetPage("missing-bases-modal");
 			hadRequiredBases = null;
 			editingMapPage = mapsNavigation.GetPage("editing-map-page");
 			spaceDetailsPage = mapsNavigation.GetPage("space-details");
-			bindings.Click(mapsTab, () => SelectTab(true));
-			bindings.Click(matchTab, () => SelectTab(false));
+			bindings.Click(mapsTab, () => SelectTab(Tab.Maps));
+			bindings.Click(matchTab, () => SelectTab(Tab.Match));
+			bindings.Click(demoTab, () => SelectTab(Tab.Demo));
+			InitializeDemo(root);
 
 			mapManager = GetComponent<MapManagerUI>();
 			if (mapManager == null)
@@ -91,6 +107,8 @@ namespace Anaglyph.LaserTag.Interface
 
 			MatchReferee.StateChanged += OnMatchStateChanged;
 			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
+			SyncBus.Activated += RefreshDemoControls;
+			SyncBus.Deactivated += RefreshDemoControls;
 			MapEditor.MapEditor.ActiveChanged += OnMapEditorStateChanged;
 			MapEditor.MapEditor.TagRegistrationRequested += ShowSpaceAlignment;
 
@@ -99,7 +117,7 @@ namespace Anaglyph.LaserTag.Interface
 				ShowSpaceAlignment();
 			else if (MapEditor.MapEditor.IsActive) OnMapEditorStateChanged(true);
 			OnMatchStateChanged(MatchReferee.State);
-			SelectTab(mapsSelected);
+			SelectTab(selectedTab);
 			errors.Bind(navView);
 		}
 
@@ -114,6 +132,8 @@ namespace Anaglyph.LaserTag.Interface
 			matchSettings = null;
 			MatchReferee.StateChanged -= OnMatchStateChanged;
 			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
+			SyncBus.Activated -= RefreshDemoControls;
+			SyncBus.Deactivated -= RefreshDemoControls;
 			MapEditor.MapEditor.ActiveChanged -= OnMapEditorStateChanged;
 			MapEditor.MapEditor.TagRegistrationRequested -= ShowSpaceAlignment;
 			if (mapsNavigation != null) mapsNavigation.Changed -= OnNavPageChanged;
@@ -130,12 +150,13 @@ namespace Anaglyph.LaserTag.Interface
 			navView = null;
 			mapsNavigation = null;
 			matchNavigation = null;
+			demoNavigation = null;
 		}
 
 		private void Update()
 		{
 			RefreshBaseRequirements();
-			if (!mapsSelected) return;
+			if (selectedTab != Tab.Maps) return;
 			if (mapsNavigation?.CurrentPage == spaceDetailsPage)
 			{
 				spaceDetails?.Refresh();
@@ -144,15 +165,48 @@ namespace Anaglyph.LaserTag.Interface
 			if (mapsNavigation?.CurrentPage == editingMapPage) mapName?.Refresh();
 		}
 
-		private void SelectTab(bool maps)
+		private void SelectTab(Tab tab)
 		{
-			if (maps && !mapsTab.enabledSelf) return;
-			mapsSelected = maps;
+			bool maps = tab == Tab.Maps;
+			if (maps && !mapsTab.enabledSelf || tab == Tab.Demo && !demoTab.enabledSelf) return;
+			selectedTab = tab;
 			mapsNavigation.EnableInClassList("game-menu-hidden", !maps);
-			matchNavigation.EnableInClassList("game-menu-hidden", maps);
+			matchNavigation.EnableInClassList("game-menu-hidden", tab != Tab.Match);
+			demoNavigation.EnableInClassList("game-menu-hidden", tab != Tab.Demo);
 			mapsTab.EnableInClassList("game-menu-tab-selected", maps);
-			matchTab.EnableInClassList("game-menu-tab-selected", !maps);
+			matchTab.EnableInClassList("game-menu-tab-selected", tab == Tab.Match);
+			demoTab.EnableInClassList("game-menu-tab-selected", tab == Tab.Demo);
 			OnNavPageChanged(mapsNavigation.CurrentPage);
+		}
+
+		private void InitializeDemo(VisualElement root)
+		{
+			demoWeapons = Require<VisualElement>(root, "demo-weapons");
+			demoWeapons.Clear();
+			if (weaponDatabase != null)
+				for (int id = 0; id < weaponDatabase.Count; id++)
+				{
+					GameObject weapon = weaponDatabase.GetWeapon(id);
+					if (weapon == null) continue;
+					int weaponId = id;
+					var button = new Button { name = $"demo-weapon-{id}", text = weapon.name };
+					button.MakeActOnPress();
+					bindings.Click(button, () => SessionWeaponSwitcher.Instance?.SwitchEveryone(weaponId));
+					demoWeapons.Add(button);
+				}
+
+			showDebugMeshForEveryone = Require<Button>(root, "show-debug-mesh-for-everyone");
+			hideDebugMeshForEveryone = Require<Button>(root, "hide-debug-mesh-for-everyone");
+			bindings.Click(showDebugMeshForEveryone, () => EnvMeshSync.Instance?.SetEnvMeshVisibleEveryone(true));
+			bindings.Click(hideDebugMeshForEveryone, () => EnvMeshSync.Instance?.SetEnvMeshVisibleEveryone(false));
+			RefreshDemoControls();
+		}
+
+		private void RefreshDemoControls()
+		{
+			demoWeapons.SetEnabled(SyncBus.Active && SessionWeaponSwitcher.Instance != null);
+			showDebugMeshForEveryone.SetEnabled(SyncBus.Active);
+			hideDebugMeshForEveryone.SetEnabled(SyncBus.Active);
 		}
 
 		private void RefreshBaseRequirements()
@@ -167,9 +221,8 @@ namespace Anaglyph.LaserTag.Interface
 		private void ShowMapEditing()
 		{
 			if (!mapsTab.enabledSelf) return;
-			mapsSelected = true;
 			mapsNavigation.PresentModal(editingMapPage, 10);
-			SelectTab(true);
+			SelectTab(Tab.Maps);
 			MapEditorTool.SetMode(MapEditorTool.Mode.Move);
 		}
 
@@ -179,12 +232,12 @@ namespace Anaglyph.LaserTag.Interface
 			mapsNavigation.DismissModal(editingMapPage);
 			mapsNavigation.GoToPage("map-manager-page");
 			mapsNavigation.GoToPage(spaceDetailsPage);
-			SelectTab(true);
+			SelectTab(Tab.Maps);
 		}
 
 		private void OnAlignmentChanging()
 		{
-			if (mapsSelected && mapsNavigation.CurrentPage == spaceDetailsPage &&
+			if (selectedTab == Tab.Maps && mapsNavigation.CurrentPage == spaceDetailsPage &&
 				MapEditorTool.CurrentMode == MapEditorTool.Mode.MeasureTagSize)
 				MapEditorTool.SetMode(MapEditorTool.Mode.Tags);
 		}
@@ -197,7 +250,7 @@ namespace Anaglyph.LaserTag.Interface
 		private void UpdateEditor()
 		{
 			bool spaceTools = mapsNavigation.CurrentPage == spaceDetailsPage && spaceDetails.Alignment.UsesTags;
-			bool active = mapsSelected && mapsTab.enabledSelf &&
+			bool active = selectedTab == Tab.Maps && mapsTab.enabledSelf &&
 				(mapsNavigation.CurrentPage == editingMapPage || spaceTools);
 			SetEditorActive(active);
 			if (active && spaceTools && MapEditorTool.CurrentMode is not (MapEditorTool.Mode.Tags or MapEditorTool.Mode.MeasureTagSize))
@@ -216,7 +269,7 @@ namespace Anaglyph.LaserTag.Interface
 			if (page == spaceDetailsPage) spaceDetails.Refresh();
 			if (page == editingMapPage) mapName.Refresh();
 			UpdateEditor();
-			if (mapsSelected && page?.name == "map-manager-page") mapProbe?.Probe();
+			if (selectedTab == Tab.Maps && page?.name == "map-manager-page") mapProbe?.Probe();
 		}
 
 		private void OnMapEditorStateChanged(bool active)
@@ -226,7 +279,7 @@ namespace Anaglyph.LaserTag.Interface
 			{
 				if (!mapsTab.enabledSelf) { SetEditorActive(false); return; }
 				mapsNavigation.PresentModal(editingMapPage, 10);
-				SelectTab(true);
+				SelectTab(Tab.Maps);
 			}
 			else
 			{
@@ -240,8 +293,9 @@ namespace Anaglyph.LaserTag.Interface
 		{
 			bool playing = state != MatchState.NotPlaying;
 			mapsTab.SetEnabled(!playing);
+			demoTab.SetEnabled(!playing);
 			matchNavigation.SetModalPresented(playingPage, playing, 20);
-			if (playing) SelectTab(false);
+			if (playing) SelectTab(Tab.Match);
 		}
 
 		private void OnNetcodeStateChanged(NetcodeState state)

@@ -1,4 +1,5 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:Template name="GameDemoPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Game/GameDemoPage.uxml?fileID=9197481963319205126&amp;guid=24a52b38cc4343cfbdef5557b993dabf&amp;type=3#GameDemoPage"/>
     <ui:Template name="DeleteSpacePage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/DeleteSpacePage.uxml?fileID=9197481963319205126&amp;guid=6129634a19654579bdcede2f56f2aa06&amp;type=3#DeleteSpacePage"/>
     <ui:Template name="GameMapEditingPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Game/GameMapEditingPage.uxml?fileID=9197481963319205126&amp;guid=b3d76a548f628444b9a10fa8052cd47b&amp;type=3#GameMapEditingPage"/>
     <ui:Template name="GameMapsPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Game/GameMapsPage.uxml?fileID=9197481963319205126&amp;guid=3c8b307a190364aa992398c5fc0ca534&amp;type=3#GameMapsPage"/>
@@ -38,6 +39,11 @@
                             <ui:Instance template="GameMissingBasesPage"/>
                         </Anaglyph.Menu.NavPage>
                     </Anaglyph.Menu.NavView>
+                    <Anaglyph.Menu.NavView name="demo-nav" first-page="demo-page" class="game-menu-hidden">
+                        <Anaglyph.Menu.NavPage name="demo-page" show-back-button="false">
+                            <ui:Instance template="GameDemoPage"/>
+                        </Anaglyph.Menu.NavPage>
+                    </Anaglyph.Menu.NavView>
                 </Anaglyph.Menu.NavPage>
                 <Anaglyph.Menu.NavPage name="error-modal" show-back-button="false">
                     <ui:Instance template="MenuErrorPage"/>
@@ -53,6 +59,11 @@
             <ui:Button name="match-tab" class="game-menu-tab">
                 <Bindings>
                     <UnityEngine.Localization.LocalizedString property="text" table="OperatorMenu" entry="match-tab.label"/>
+                </Bindings>
+            </ui:Button>
+            <ui:Button name="demo-tab" class="game-menu-tab">
+                <Bindings>
+                    <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="demo.title"/>
                 </Bindings>
             </ui:Button>
         </ui:VisualElement>

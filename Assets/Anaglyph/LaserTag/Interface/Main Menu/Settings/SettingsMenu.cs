@@ -1,5 +1,3 @@
-using Anaglyph.Netcode.SyncVariables;
-using Anaglyph.LaserTag.EnvSyncing;
 using System;
 using Anaglyph.Debugging;
 using Anaglyph.InGameConsole;
@@ -21,8 +19,6 @@ namespace Anaglyph.LaserTag.Interface
 
 		private readonly UIEventBindings bindings = new();
 
-		private Button showDebugMeshForEveryone;
-		private Button hideDebugMeshForEveryone;
 		private NavView navView;
 		private NavPage consolePage;
 		private InGameConsoleView consoleView;
@@ -39,15 +35,6 @@ namespace Anaglyph.LaserTag.Interface
 		private void Awake()
 		{
 			panel = GetComponent<UIToolkitPanelXRSetup>();
-		}
-
-		private void OnAuthorityChanged(bool hasAuthority) => UpdateDebugMeshForEveryoneEnabled();
-
-		private void UpdateDebugMeshForEveryoneEnabled()
-		{
-			bool canSetForEveryone = SyncBus.Active && SyncBus.IsAuthority;
-			showDebugMeshForEveryone.SetEnabled(canSetForEveryone);
-			hideDebugMeshForEveryone.SetEnabled(canSetForEveryone);
 		}
 
 		private void InitializeUI()
@@ -81,17 +68,6 @@ namespace Anaglyph.LaserTag.Interface
 			});
 			showDebugMeshToggle.SetValueWithoutNotify(showDebugMesh);
 
-
-			showDebugMeshForEveryone =
-				Require<Button>(root, "show-debug-mesh-for-everyone");
-			hideDebugMeshForEveryone =
-				Require<Button>(root, "hide-debug-mesh-for-everyone");
-
-			bindings.Click(showDebugMeshForEveryone,
-				() => EnvMeshSync.Instance?.SetEnvMeshVisibleEveryone(true));
-			bindings.Click(hideDebugMeshForEveryone,
-				() => EnvMeshSync.Instance?.SetEnvMeshVisibleEveryone(false));
-
 			healthPassthroughTintToggle =
 				Require<Toggle>(root, "health-passthrough-tint-toggle");
 			lightEffectsToggle = Require<Toggle>(root, "light-effects-toggle");
@@ -113,10 +89,6 @@ namespace Anaglyph.LaserTag.Interface
 		{
 			InitializeUI();
 			MenuCopy.Changed += RefreshHeadsetConfiguration;
-			UpdateDebugMeshForEveryoneEnabled();
-			SyncBus.AuthorityChanged += OnAuthorityChanged;
-			SyncBus.Deactivated += UpdateDebugMeshForEveryoneEnabled;
-			SyncBus.Activated += UpdateDebugMeshForEveryoneEnabled;
 
 			AnaglyphDebugging.DebugModeChanged += OnDebugModeChanged;
 			healthPassthroughTintSetting.Changed += OnHealthPassthroughTintChanged;
@@ -135,9 +107,6 @@ namespace Anaglyph.LaserTag.Interface
 		{
 			bindings.Dispose();
 			MenuCopy.Changed -= RefreshHeadsetConfiguration;
-			SyncBus.AuthorityChanged -= OnAuthorityChanged;
-			SyncBus.Deactivated -= UpdateDebugMeshForEveryoneEnabled;
-			SyncBus.Activated -= UpdateDebugMeshForEveryoneEnabled;
 			AnaglyphDebugging.DebugModeChanged -= OnDebugModeChanged;
 			healthPassthroughTintSetting.Changed -= OnHealthPassthroughTintChanged;
 			lightEffectsSetting.Changed -= OnLightEffectsChanged;
