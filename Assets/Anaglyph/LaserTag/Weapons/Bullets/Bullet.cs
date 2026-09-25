@@ -18,6 +18,7 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 
 		[SerializeField] private float metersPerSecond;
 		[SerializeField, Min(0)] private float collisionRadius;
+		[SerializeField] private bool blockedByProjectileBarriers;
 		[SerializeField] private AnimationCurve damageOverDistance = AnimationCurve.Constant(0, MaxTravelDist, 50f);
 
 		[SerializeField] private int despawnDelay = 1;
@@ -103,7 +104,7 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 		private void Update()
 		{
 			if (AnaglyphDebugging.DebugMode) DrawDebug();
-			
+
 			if (!isAlive) return;
 			
 			Vector3 prevPos = transform.position;
@@ -119,10 +120,15 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 					: Physics.Linecast(prevPos, transform.position, out physHit,
 						Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
 
+				if (blockedByProjectileBarriers && ProjectileBarrier.Cast(prevPos, travel, collisionRadius,
+					OwnerClientId, out RaycastHit barrierHit) && (!didHit || barrierHit.distance <= physHit.distance))
+				{
+					HitRpc(barrierHit.point, barrierHit.normal);
+					return;
+				}
+
 				if (didHit)
 				{
-					HitRpc(physHit.point, physHit.normal);
-					
 					float dist = Vector3.Distance(Shot.ray.origin, physHit.point);
 
 					float damage = damageOverDistance.Evaluate(dist);
@@ -135,7 +141,23 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 						damage = damage
 					};
 
-					IDamageable.DamageHierarchy(col.transform.root, physHit.point, damageData, damageableBuffer);
+					HitRpc(physHit.point, physHit.normal);
+					var receiver = col.GetComponentInParent<IProjectileDamageReceiver>();
+					if (receiver != null)
+						receiver.ReceiveProjectileHit(new ProjectileHit
+						{
+							damage = damageData,
+							position = physHit.point,
+							ray = Shot.ray,
+							shotTime = Shot.serverTimeShot,
+							speed = metersPerSecond,
+							distance = Vector3.Dot(prevPos - Shot.ray.origin, Shot.ray.direction) + physHit.distance,
+							radius = collisionRadius,
+							canBeBlocked = blockedByProjectileBarriers
+						});
+					else
+						IDamageable.DamageHierarchy(col.transform.root, physHit.point, damageData, damageableBuffer);
+					return;
 				}
 
 				if (travelDist > MaxTravelDist)
@@ -190,6 +212,7 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 
 		public override void OnNetworkDespawn()
 		{
+			isAlive = false;
 			despawnCancelSrc?.Cancel();
 		}
 	}

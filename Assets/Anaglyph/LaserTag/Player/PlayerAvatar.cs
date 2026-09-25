@@ -5,6 +5,7 @@ using Anaglyph.LaserTag.Objects.Gameplay.Base;
 using Anaglyph.LaserTag.Objects.Gameplay.Control_Point;
 using Anaglyph.LaserTag.Player.Teams;
 using Anaglyph.LaserTag.Weapons;
+using Anaglyph.LaserTag.Weapons.Bullets;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
@@ -13,7 +14,7 @@ namespace Anaglyph.LaserTag.Player
 {
 	[DefaultExecutionOrder(-500)]
 	[RequireComponent(typeof(PlayerHeadsetStatus))]
-	public class PlayerAvatar : NetworkBehaviour, IDamageable
+	public class PlayerAvatar : NetworkBehaviour, IDamageable, IProjectileDamageReceiver
 	{
 		public const string Tag = "Player";
 
@@ -128,7 +129,10 @@ namespace Anaglyph.LaserTag.Player
 		public override void OnNetworkSpawn()
 		{
 			if (IsOwner)
+			{
+				ProjectileBarrierHistory.Local.Clear();
 				Local = this;
+			}
 			else
 				OtherPlayers.Add(this);
 
@@ -141,6 +145,7 @@ namespace Anaglyph.LaserTag.Player
 
 		public override void OnNetworkDespawn()
 		{
+			if (IsOwner) ProjectileBarrierHistory.Local.Clear();
 			SetSpatialPresence(false);
 			OtherPlayers.Remove(this);
 			All.Remove(OwnerClientId);
@@ -236,11 +241,38 @@ namespace Anaglyph.LaserTag.Player
 
 		[Rpc(SendTo.Everyone)]
 		public void DamageRpc(float damage, ulong damagedBy)
+			=> ApplyDamage(damage, damagedBy);
+
+		public void ReceiveProjectileHit(ProjectileHit hit)
 		{
-			if (!CanInteract) return;
+			if (IsSpawned) RequestProjectileDamageRpc(hit);
+		}
+
+		[Rpc(SendTo.Owner)]
+		private void RequestProjectileDamageRpc(ProjectileHit hit, RpcParams rpc = default)
+		{
+			if (!IsOwner || !CanInteract || rpc.Receive.SenderClientId != hit.damage.playerID) return;
+			if (hit.canBeBlocked && ProjectileBarrierHistory.Local.Blocked(OwnerClientId, hit.ray,
+				hit.speed, hit.shotTime, hit.distance, hit.radius, Anaglyph.Netcode.SharedNetworkTime.TimeAsFloat))
+				return;
+			ApplyProjectileDamageRpc(hit.damage, hit.position);
+		}
+
+		[Rpc(SendTo.Everyone, InvokePermission = RpcInvokePermission.Owner)]
+		private void ApplyProjectileDamageRpc(IDamageable.Data data, Vector3 position)
+		{
+			if (!ApplyDamage(data.damage, data.playerID)) return;
+			if (NetworkManager.LocalClientId == data.playerID)
+				IDamageable.NotifyDamageDealt(position, this, data);
+		}
+
+		private bool ApplyDamage(float damage, ulong damagedBy)
+		{
+			if (!CanInteract) return false;
 			Health = Mathf.Max(0, Health - MatchReferee.Settings.ApplyDamageMultiplier(damage));
 
 			Damaged.Invoke(damage, damagedBy);
+			return true;
 		}
 
 		[Rpc(SendTo.Everyone)]

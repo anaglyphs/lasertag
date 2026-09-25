@@ -26,6 +26,7 @@ namespace Anaglyph.LaserTag.Player
 		private GameObject presentationRoot;
 		private PlayerAvatar avatar;
 		private WeaponVisual visual;
+		private WandSweepTrail sweepTrail;
 		private int id = WeaponDatabase.NoWeapon;
 		public GameObject EquippedWeapon => database.GetWeapon(id);
 
@@ -105,12 +106,15 @@ namespace Anaglyph.LaserTag.Player
 
 			if (visual != null)
 				visual.Fired -= OnFired;
+			if (sweepTrail != null)
+				sweepTrail.Emitted -= OnSweepEmitted;
 
 			if (instance != null)
 				Destroy(instance);
 
 			instance = null;
 			visual = null;
+			sweepTrail = null;
 
 			GameObject prefab = IsOwner ? database.GetWeapon(id) : database.GetView(id);
 
@@ -121,6 +125,12 @@ namespace Anaglyph.LaserTag.Player
 			instance = Instantiate(prefab, presentationRoot.transform, false);
 			instance.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
 			visual = instance.GetComponentInChildren<WeaponVisual>(true);
+			sweepTrail = instance.GetComponentInChildren<WandSweepTrail>(true);
+			if (sweepTrail != null)
+			{
+				sweepTrail.OwnerClientId = OwnerClientId;
+				if (IsOwner) sweepTrail.Emitted += OnSweepEmitted;
+			}
 
 			if (!IsOwner)
 			{
@@ -155,6 +165,18 @@ namespace Anaglyph.LaserTag.Player
 		private void OnFired()
 		{
 			PlayFireRpc();
+		}
+
+		private void OnSweepEmitted(WandSweepTrail.Segment segment)
+		{
+			if (IsSpawned) SweepRpc(id, segment);
+		}
+
+		[Rpc(SendTo.NotOwner, Delivery = RpcDelivery.Unreliable, InvokePermission = RpcInvokePermission.Owner)]
+		private void SweepRpc(int weaponId, WandSweepTrail.Segment segment)
+		{
+			if (weaponId == id && avatar.CanInteract && sweepTrail != null)
+				sweepTrail.Add(segment);
 		}
 
 		// Cosmetic one-shot - a dropped muzzle flash beats holding up the stream for it.
