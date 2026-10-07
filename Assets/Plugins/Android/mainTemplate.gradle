@@ -1,4 +1,5 @@
 apply plugin: 'com.android.library'
+apply from: '../shared/common.gradle'
 apply from: '../shared/keepUnitySymbols.gradle'
 **APPLY_PLUGINS**
 

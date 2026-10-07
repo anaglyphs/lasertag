@@ -28,7 +28,7 @@ namespace Anaglyph.LaserTag.Editor
 		{
 			using EditorGUILayout.ScrollViewScope scrollView = new(scroll);
 			scroll = scrollView.scrollPosition;
-			
+
 			EditorGUILayout.LabelField("Simulation", EditorStyles.boldLabel);
 
 			DrawToggle("Simulate XR", PlayModeXRSimulation.Setting);
@@ -86,10 +86,10 @@ namespace Anaglyph.LaserTag.Editor
 			EditorGUILayout.LabelField("Environment", EditorStyles.boldLabel);
 
 			DrawToggle("Show scanned meshes", PlayModeChunkVisibility.Setting);
-			
+
 			// EditorGUILayout.Space();
 			// EditorGUILayout.LabelField("Map", EditorStyles.boldLabel);
-			
+
 			// DrawToggle("Spawn red & blue bases", BaseSpawner.Setting);
 		}
 
@@ -390,7 +390,7 @@ namespace Anaglyph.LaserTag.Editor
 
 			appliedTo = mesher;
 			appliedValue = visible;
-			if(visible)
+			if (visible)
 				mesher.SetChunksVisible(true);
 		}
 	}
@@ -407,7 +407,7 @@ namespace Anaglyph.LaserTag.Editor
 		// Each environment gets a fresh GUID appended, hence the prefix match.
 		private const string EnvironmentSceneNamePrefix = "Simulated Environment Scene";
 
-		private static int appliedSceneHandle;
+		private static SceneHandle appliedSceneHandle;
 		private static XRInteractionSimulator appliedSimulator;
 		private static bool appliedValue;
 
