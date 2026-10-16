@@ -17,8 +17,13 @@ namespace Anaglyph.LaserTag
 	public class ColocationManager : MonoBehaviour
 	{
 		public static ColocationManager Instance { get; private set; }
-		[Serializable] public enum ColocationMethod { MetaSharedAnchor, AprilTag, SystemDetermined, TwoAprilTags }
-		public static bool IsValidMethod(ColocationMethod method) => method is ColocationMethod.MetaSharedAnchor or ColocationMethod.AprilTag or ColocationMethod.SystemDetermined or ColocationMethod.TwoAprilTags;
+		[Serializable] public enum ColocationMethod { MetaSharedAnchor, AprilTag, SystemDetermined, TwoAprilTags, ScanRegistration }
+		public static bool IsValidMethod(ColocationMethod method) => method is ColocationMethod.MetaSharedAnchor or ColocationMethod.AprilTag or ColocationMethod.SystemDetermined or ColocationMethod.TwoAprilTags or ColocationMethod.ScanRegistration;
+
+		// Scan registration takes over colocation for now: anchors, tags and the system
+		// frame stay in the code but are never selected. Flip this to return control to
+		// the per-space preference
+		public const bool ForceScanRegistration = true;
 		public static bool UsesSavedReferences(ColocationMethod method) => method is ColocationMethod.MetaSharedAnchor or ColocationMethod.AprilTag;
 		public static bool IsColocated { get; private set; }
 		public static Action<bool> Colocated = delegate { };
@@ -27,6 +32,7 @@ namespace Anaglyph.LaserTag
 		[FormerlySerializedAs("tagProvider")] [SerializeField] private AprilTagColocationConstraintProvider aprilTagColocationProvider;
 		private SystemDeterminedColocationConstraintProvider systemDeterminedProvider;
 		private TwoAprilTagColocationConstraintProvider twoAprilTagProvider;
+		private ScanRegistrationColocationConstraintProvider scanRegistrationProvider;
 		private readonly SyncVariable<ColocationMethod> methodSync = new("colo.method");
 		private ColocationMethod offlineMethod;
 		private MapSpace space;
@@ -40,7 +46,8 @@ namespace Anaglyph.LaserTag
 		public ColocationMethod Method => methodSync.Value;
 		public ColocationMethod SelectedMethod => SyncBus.Active ? Method : offlineMethod;
 		public ColocationMethod ActiveMethod { get; private set; }
-		public ColocationMethod PreferredAvailableMethod => space == null ? ColocationMethod.MetaSharedAnchor :
+		public ColocationMethod PreferredAvailableMethod => ForceScanRegistration ? ColocationMethod.ScanRegistration :
+			space == null ? ColocationMethod.MetaSharedAnchor :
 			CompatibleMethod(space.preferredColocationMethod, space.HasTags, true, space.anchors.Count > 0);
 		public ColocationMethod PreferredSessionMethod => PreferredAvailableMethod;
 		public static ColocationMethod CompatibleMethod(ColocationMethod requested, bool hasTags, bool hasContent,
@@ -59,6 +66,8 @@ namespace Anaglyph.LaserTag
 		public bool UsingAnchorProvider => ActiveProvider != null && ActiveMethod == ColocationMethod.MetaSharedAnchor;
 		public bool UsingSystemDeterminedProvider => ActiveProvider != null && ActiveMethod == ColocationMethod.SystemDetermined;
 		public bool UsingTwoAprilTagProvider => ActiveProvider != null && ActiveMethod == ColocationMethod.TwoAprilTags;
+		public bool UsingScanRegistrationProvider => ActiveProvider != null && ActiveMethod == ColocationMethod.ScanRegistration;
+		public ScanRegistrationColocationConstraintProvider ScanRegistrationProvider => scanRegistrationProvider;
 		public SpatialAnchorColocationConstraintProvider AnchorProvider => spatialAnchorColocationProvider;
 		public AprilTagColocationConstraintProvider TagProvider => aprilTagColocationProvider;
 		public TwoAprilTagColocationConstraintProvider TwoTagProvider => twoAprilTagProvider;
@@ -69,7 +78,7 @@ namespace Anaglyph.LaserTag
 		public int CountRealizableReferences()
 		{
 			if (ActiveProvider == null || !ActiveProvider.IsAvailable) return 0;
-			if (UsingSystemDeterminedProvider) return 1;
+			if (UsingSystemDeterminedProvider || UsingScanRegistrationProvider) return 1;
 			scratch.Clear(); ActiveProvider.GetColocationConstraints(scratch); return scratch.Count;
 		}
 		public IColocationConstraintProvider GetProvider(ColocationMethod method) => method switch
@@ -78,6 +87,7 @@ namespace Anaglyph.LaserTag
 			ColocationMethod.AprilTag => aprilTagColocationProvider,
 			ColocationMethod.SystemDetermined => systemDeterminedProvider,
 			ColocationMethod.TwoAprilTags => twoAprilTagProvider,
+			ColocationMethod.ScanRegistration => scanRegistrationProvider,
 			_ => null
 		};
 		public void ConfigureSpace(MapSpace value, Func<bool> mintingGate)
@@ -141,6 +151,9 @@ namespace Anaglyph.LaserTag
 			twoAprilTagProvider = new(aprilTagColocationProvider,
 				MainXRRig.Instance != null ? MainXRRig.TrackingSpace : null,
 				() => !applicationPaused && AppFocus.IsFocused && PlayerHeadsetStatus.HeadTrackingReady);
+			scanRegistrationProvider = ScanRegistrationColocationConstraintProvider.Instance;
+			if (!scanRegistrationProvider) scanRegistrationProvider = FindFirstObjectByType<ScanRegistrationColocationConstraintProvider>();
+			if (!scanRegistrationProvider) scanRegistrationProvider = gameObject.AddComponent<ScanRegistrationColocationConstraintProvider>();
 			if (colocator) colocator.StateChanged += OnStateChanged;
 			methodSync.Register(); methodSync.Validate = (_, _) => false;
 			methodSync.Synced += OnMethodSynced; methodSync.Changed += OnMethodChanged;

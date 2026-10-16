@@ -79,6 +79,32 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		public RenderTexture ChunkData => chunkData;
 		public int3 ChunkDataDims => chunkDataDims;
 
+		/// <summary>The chunk table buffer, for readers that address the atlas themselves (registration).</summary>
+		public ComputeBuffer ChunkTable => chunkTable;
+
+		/// <summary>Creates the GPU volume now if it does not exist yet.</summary>
+		public void EnsureGpuResources()
+		{
+			if (!GpuResourcesCreated) CreateGpuResources();
+		}
+
+		/// <summary>
+		/// Sets the chunk-addressing uniforms another compute shader needs to read this
+		/// volume, under the same names EnvScanner.compute uses
+		/// </summary>
+		public void ConfigureAtlasReader(ComputeShader shader)
+		{
+			int3 ctd = chunkTableDims;
+			int3 cdd = chunkDataDims;
+			shader.SetFloat(nameof(voxSize), voxSize);
+			shader.SetFloat(nameof(chunkWorldSizeDim), chunkWorldSizeDim);
+			shader.SetVector(nameof(originOffset), new Vector4(originOffset.x, originOffset.y, originOffset.z, 0f));
+			shader.SetFloat(nameof(distanceTruncationBand), distanceTruncationBand);
+			shader.SetInt(nameof(voxPerChunkDim), voxPerChunkDim);
+			shader.SetInts(nameof(chunkTableDims), ctd.x, ctd.y, ctd.z);
+			shader.SetInts(nameof(chunkDataDims), cdd.x, cdd.y, cdd.z);
+		}
+
 		[SerializeField] private Shader maskShader;
 		private Material maskMat;
 		private RenderTexture maskTex;

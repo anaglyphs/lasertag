@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -6,21 +7,22 @@ namespace Anaglyph.XR
 {
 	/// <summary>
 	/// Editor-only: anchors XR Simulation's "physical reality" to the
-	/// tracking space. XR Simulation keeps the simulated environment and
-	/// the simulated device pose in raw session coordinates, so when the
-	/// app moves the tracking space, both stay behind in world space — as
-	/// if the player teleported inside the room. In reality, moving the
-	/// rig never changes the player's relationship to the physical room.
-	/// This moves the environment roots and the simulated device together
-	/// with the tracking space, preserving that relationship.
+	/// tracking space. The simulated environment stands in for the physical
+	/// room, whose origin is the tracking space origin, so the environment
+	/// roots keep their original poses relative to the tracking space no
+	/// matter how the app moves it. The XR Interaction Simulator drives the
+	/// head and copies the XR camera's world pose onto XR Simulation's
+	/// camera, which renders the environment for passthrough and depth.
+	/// Each headset's tracking space starts at a random world pose, so
+	/// simulated players begin with mismatched coordinate spaces.
 	/// </summary>
 	public class SimEnvironmentRigFollower : MonoBehaviour
 	{
 #if UNITY_EDITOR
-		// runtime names used by ARFoundation's XR Simulation internals
-		private const string EnvScenePrefix = "Simulated Environment Scene";
+		// runtime name used by ARFoundation's XR Simulation internals
 		private const string SimCameraName = "SimulationCamera";
-		private const string ProxyName = "Simulation Camera Rig Anchor";
+
+		private const float MaxOffset = 10f;
 
 		private struct EnvRoot
 		{
@@ -30,24 +32,28 @@ namespace Anaglyph.XR
 
 		private readonly List<EnvRoot> envRoots = new();
 		private Scene envScene;
-		private Transform simCamera;
-		private Transform camProxy;
+		private Camera simCamera;
 
-		// emulated tracking drift: the room's session-space pose shift
-		private Matrix4x4 drift = Matrix4x4.identity;
+		// a private generator so nothing reseeding Unity's Random can give
+		// Multiplayer Play Mode players the same origin
+		private readonly System.Random random = new(Guid.NewGuid().GetHashCode());
+		private bool randomized;
 
 		private void LateUpdate()
 		{
 			if (!MainXRRig.Instance) return;
 
 			Transform space = MainXRRig.TrackingSpace;
-			if (!space) return;
+			Camera xrCamera = MainXRRig.Camera;
+			if (!space || !xrCamera) return;
 
-			TrackEnvironmentScene();
-			TrackSimulationCamera(space);
+			if (!TrackEnvironmentScene()) return;
 
-			if (camProxy)
-				camProxy.SetPositionAndRotation(space.position, space.rotation);
+			if (!randomized)
+			{
+				RandomizeOrigin(space);
+				randomized = true;
+			}
 
 			Matrix4x4 spaceMat = Matrix4x4.TRS(space.position, space.rotation, Vector3.one);
 
@@ -55,9 +61,20 @@ namespace Anaglyph.XR
 			{
 				if (!root.transform) continue;
 
-				Matrix4x4 m = spaceMat * drift * root.original;
-				root.transform.SetPositionAndRotation(m.GetPosition(), m.rotation);
+				Matrix4x4 m = spaceMat * root.original;
+				Vector3 pos = m.GetPosition();
+				Quaternion rot = m.rotation;
+
+				root.transform.GetPositionAndRotation(out Vector3 curPos, out Quaternion curRot);
+				if (curPos != pos || curRot != rot)
+					root.transform.SetPositionAndRotation(pos, rot);
 			}
+
+			// the interaction simulator syncs this in its Update. Repeat it so
+			// a tracking space move later in the frame doesn't leave the next
+			// simulated camera frame rendered from a stale pose
+			Transform head = xrCamera.transform;
+			simCamera.transform.SetPositionAndRotation(head.position, head.rotation);
 		}
 
 		private void OnDisable()
@@ -71,100 +88,49 @@ namespace Anaglyph.XR
 			envScene = default;
 		}
 
-		private void TrackEnvironmentScene()
+		private bool TrackEnvironmentScene()
 		{
-			if (envScene.IsValid() && envScene.isLoaded) return;
-
-			envRoots.Clear();
-			envScene = default;
-
-			for (int i = 0; i < SceneManager.sceneCount; i++)
-			{
-				Scene scene = SceneManager.GetSceneAt(i);
-				if (!scene.isLoaded || !scene.name.StartsWith(EnvScenePrefix)) continue;
-
-				envScene = scene;
-
-				foreach (GameObject root in scene.GetRootGameObjects())
-				{
-					Transform t = root.transform;
-					envRoots.Add(new EnvRoot
-					{
-						transform = t,
-						original = Matrix4x4.TRS(t.position, t.rotation, Vector3.one)
-					});
-				}
-
-				break;
-			}
-		}
-
-		private void TrackSimulationCamera(Transform space)
-		{
-			if (simCamera && camProxy && simCamera.parent == camProxy) return;
-
 			if (!simCamera)
 			{
 				GameObject go = GameObject.Find(SimCameraName);
-				if (!go) return;
-				simCamera = go.transform;
+				if (!go || !go.TryGetComponent(out simCamera)) return false;
 			}
 
-			if (!camProxy)
+			// XR Simulation restricts its camera to the environment scene,
+			// whose name is internal and carries a fresh GUID per setup
+			Scene scene = simCamera.scene;
+			if (!scene.IsValid() || !scene.isLoaded) return false;
+			if (scene == envScene) return true;
+
+			envScene = scene;
+			envRoots.Clear();
+
+			foreach (GameObject root in scene.GetRootGameObjects())
 			{
-				GameObject proxy = GameObject.Find(ProxyName);
-				if (!proxy)
+				Transform t = root.transform;
+				envRoots.Add(new EnvRoot
 				{
-					proxy = new GameObject(ProxyName);
-					// the simulated device must stay in the DontDestroyOnLoad
-					// scene, so its parent has to live there too
-					DontDestroyOnLoad(proxy);
-				}
-
-				camProxy = proxy.transform;
+					transform = t,
+					original = Matrix4x4.TRS(t.position, t.rotation, Vector3.one)
+				});
 			}
 
-			if (simCamera.parent != camProxy)
-			{
-				camProxy.SetPositionAndRotation(space.position, space.rotation);
-
-				// keep the local pose: it is the session-space device pose
-				// that SimulationCameraPoseProvider pushes to XR input
-				simCamera.SetParent(camProxy, false);
-			}
+			return true;
 		}
 
-		// real drift shifts the device pose estimate without changing what
-		// the player sees. emulate it by moving the room and the simulated
-		// device together: the view stays put, session coordinates shift,
-		// and the corrector should pull the rig back into alignment
-		[ContextMenu("Inject test drift")]
-		private void InjectTestDrift()
+		private void RandomizeOrigin(Transform space)
 		{
-			Quaternion rot = Quaternion.Euler(0f, 1.5f, 0f);
-			Vector3 offset = new(0.15f, 0.03f, -0.1f);
+			Quaternion rot = Quaternion.Euler(0f, Range(0f, 360f), 0f);
+			Vector3 offset = new(
+				Range(-MaxOffset, MaxOffset),
+				Range(-MaxOffset, MaxOffset),
+				Range(-MaxOffset, MaxOffset));
 
-			drift = Matrix4x4.TRS(offset, rot, Vector3.one) * drift;
-
-			if (simCamera)
-				simCamera.SetLocalPositionAndRotation(
-					rot * simCamera.localPosition + offset,
-					rot * simCamera.localRotation);
+			space.SetPositionAndRotation(offset, rot);
 		}
 
-		[ContextMenu("Reset test drift")]
-		private void ResetTestDrift()
-		{
-			if (simCamera)
-			{
-				Matrix4x4 inv = drift.inverse;
-				simCamera.SetLocalPositionAndRotation(
-					inv.MultiplyPoint3x4(simCamera.localPosition),
-					inv.rotation * simCamera.localRotation);
-			}
-
-			drift = Matrix4x4.identity;
-		}
+		private float Range(float min, float max) =>
+			min + (float)random.NextDouble() * (max - min);
 #endif
 	}
 }

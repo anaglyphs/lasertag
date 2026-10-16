@@ -35,23 +35,24 @@ namespace Anaglyph.LaserTag.Tests
 		public void TearDown() => UnityEngine.Object.DestroyImmediate(owner);
 
 		[Test]
-		public void StartingResetsWorldOriginWithoutResettingTrackedCameraPose()
+		public void StartingLeavesTrackingSpaceAndCameraUntouched()
 		{
+			Vector3 spacePosition = trackingSpace.position;
+			Quaternion spaceRotation = trackingSpace.rotation;
 			Vector3 position = camera.localPosition;
 			Quaternion rotation = camera.localRotation;
 			provider.StartProviding();
-			Assert.That(trackingSpace.position.magnitude, Is.LessThan(0.0001f));
-			Assert.That(Quaternion.Angle(trackingSpace.rotation, Quaternion.identity), Is.LessThan(0.001f));
+			Assert.That(Vector3.Distance(trackingSpace.position, spacePosition), Is.LessThan(0.0001f));
+			Assert.That(Quaternion.Angle(trackingSpace.rotation, spaceRotation), Is.LessThan(0.001f));
 			Assert.That(camera.localPosition, Is.EqualTo(position));
 			Assert.That(Quaternion.Angle(camera.localRotation, rotation), Is.LessThan(0.001f));
 			provider.GetColocationConstraints(constraints);
 			Assert.That(constraints.Count, Is.EqualTo(1));
 			Assert.That(constraints[0].hasReliableRotation, Is.True);
-			Assert.That(constraints[0].canon, Is.EqualTo(Pose.identity));
 		}
 
 		[Test]
-		public void ConstraintsExposeOriginOffsetsButNeverFollowCameraMovement()
+		public void ConstraintsNeverPullTheOriginOrFollowCameraMovement()
 		{
 			provider.StartProviding();
 			camera.localPosition += Vector3.forward * 5;
@@ -60,11 +61,12 @@ namespace Anaglyph.LaserTag.Tests
 			provider.GetColocationConstraints(constraints);
 			Assert.That(Vector3.Distance(constraints[0].observed.position, offset.position), Is.LessThan(0.0001f));
 			Assert.That(Quaternion.Angle(constraints[0].observed.rotation, offset.rotation), Is.LessThan(0.001f));
-			Assert.That(constraints[0].canon, Is.EqualTo(Pose.identity));
+			Assert.That(Vector3.Distance(constraints[0].canon.position, constraints[0].observed.position), Is.LessThan(0.0001f));
+			Assert.That(Quaternion.Angle(constraints[0].canon.rotation, constraints[0].observed.rotation), Is.LessThan(0.001f));
 		}
 
 		[Test]
-		public void StoppingReleasesTheFrameAndRestartingResetsItAgain()
+		public void StoppingReleasesTheFrameAndRestartingKeepsIt()
 		{
 			provider.GetColocationConstraints(constraints);
 			Assert.That(constraints, Is.Empty);
@@ -74,9 +76,8 @@ namespace Anaglyph.LaserTag.Tests
 			provider.GetColocationConstraints(constraints);
 			Assert.That(constraints, Is.Empty);
 			Assert.That(provider.IsRunning, Is.False);
-			Assert.That(Vector3.Distance(trackingSpace.position, Vector3.one), Is.LessThan(0.0001f));
 			provider.StartProviding();
-			Assert.That(trackingSpace.position.magnitude, Is.LessThan(0.0001f));
+			Assert.That(Vector3.Distance(trackingSpace.position, Vector3.one), Is.LessThan(0.0001f));
 		}
 
 		[TestCase(false, false)]

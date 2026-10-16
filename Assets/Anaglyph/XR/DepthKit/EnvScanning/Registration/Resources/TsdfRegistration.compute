@@ -1,0 +1,600 @@
+// Gravity-aligned (yaw + translation) registration of one TSDF against another.
+//
+// The SOURCE is a sample list: observed voxels of a chunk subset, extracted from the
+// live scan atlas. The TARGET is a dense volume over a bounding box, filled from the
+// atlas (loop closure against another part of the same scan) or from uploaded chunks
+// (a peer's snapshot), with a max-pooled pyramid above it so coarse scores upper-bound
+// fine ones and a coarse-to-fine search cannot prune the true optimum.
+//
+// Chunk addressing mirrors EnvScanner.compute; the uniforms are set with the same names.
+
+#define INDEX_MASK 0x8FFFFFFF
+#define RESERVED_BIT 0x20000000
+#define INVALID_BIT 0x80000000
+
+float voxSize;
+float chunkWorldSizeDim;
+float3 originOffset;
+uint voxPerChunkDim;
+uint3 chunkTableDims;
+uint3 chunkDataDims;
+
+StructuredBuffer<int> chunkTable;
+Texture3D<float2> chunkData;
+
+static const float surfaceBand = 0.5; // |sdf| (normalized) within which a voxel is "surface"
+static const float freeBand = 0.5; // sdf above which a voxel is "free"
+static const float unobservedAgreement = 0.3; // neutral score for landing in unknown space
+static const float freeWeight = 0.25; // free-space samples relative to surface samples
+
+// A projective TSDF stores distance along each sensor's own view ray, so two
+// headsets that saw one wall from different angles hold different values inside
+// the band even when perfectly aligned. Only the zero crossing is viewpoint-free.
+// So: tolerate a full band of disagreement, and weight surface samples by how
+// close they sit to the crossing, where the value is trustworthy
+static const float agreementTolerance = 1.0;
+
+float surfaceSampleWeight(const float sdf)
+{
+	return 1.0 - abs(sdf) / surfaceBand * 0.75; // 1 at the crossing, 0.25 at the band edge
+}
+
+int3 chunkIndexToChunkCoord(int chunkIndex)
+{
+	int3 coord;
+	coord.x = chunkIndex % (int)chunkTableDims.x;
+	coord.y = chunkIndex / (int)chunkTableDims.x % (int)chunkTableDims.y;
+	coord.z = chunkIndex / (int)(chunkTableDims.x * chunkTableDims.y);
+	return coord;
+}
+
+float3 chunkCoordToCornerWorldPos(const int3 chunkCoord)
+{
+	const int3 uncentered = chunkCoord - (int3)chunkTableDims / 2;
+	return uncentered * chunkWorldSizeDim - float3(voxSize, voxSize, voxSize) + originOffset;
+}
+
+int3 dataIndexToDataStartCoord(int dataIndex)
+{
+	uint3 coord;
+	coord.x = dataIndex % chunkDataDims.x;
+	coord.y = (dataIndex / chunkDataDims.x) % chunkDataDims.y;
+	coord.z = dataIndex / (chunkDataDims.x * chunkDataDims.y);
+	return coord * voxPerChunkDim;
+}
+
+uint SNorm8toU8(float f)
+{
+	int i = int(round(clamp(f, -1.0, 1.0) * 127.0));
+	return uint(i + 128);
+}
+
+float U8toSNorm8(uint u)
+{
+	int i = int(u) - 128;
+	return max(float(i) / 127.0, -1.0);
+}
+
+float SByteBitsToSNorm8(uint bits)
+{
+	const int i = (int)(bits << 24) >> 24;
+	return max(float(i) / 127.0, -1.0);
+}
+
+// yaw about +Y, Unity's convention: Quaternion.Euler(0, yaw, 0)
+float3 rotateY(const float3 p, const float yaw)
+{
+	float s, c;
+	sincos(yaw, s, c);
+	return float3(p.x * c + p.z * s, p.y, -p.x * s + p.z * c);
+}
+
+// ---- dense target ------------------------------------------------------------
+
+// voxel (0,0,0) of the dense grid is the apron corner of the minimum chunk; chunk
+// (c) voxel (v) lands at (c - minChunk) * (voxPerChunkDim - 2) + v, exactly
+int3 denseMinChunk;
+uint3 denseDims;
+float3 denseOrigin; // world position of the dense grid's corner (voxel 0 corner)
+RWTexture3D<float2> denseFine; // (sdf snorm, count snorm-encoded), as the atlas stores them
+
+StructuredBuffer<int> chunkList;
+uint chunkCount;
+
+int3 denseCoordOf(const int3 chunkCoord, const uint3 voxel)
+{
+	return (chunkCoord - denseMinChunk) * (int)(voxPerChunkDim - 2) + (int3)voxel;
+}
+
+#pragma kernel ClearDense
+
+[numthreads(4, 4, 4)]
+void ClearDense(uint3 id : SV_DispatchThreadID)
+{
+	if (any(id >= denseDims)) return;
+	denseFine[id] = float2(1.0, U8toSNorm8(0));
+}
+
+// dispatched (vpcd/8, vpcd/8, vpcd/8 * chunkCount): the z group index selects the chunk
+#pragma kernel FillDenseFromAtlas
+
+[numthreads(8, 8, 8)]
+void FillDenseFromAtlas(uint3 id : SV_DispatchThreadID)
+{
+	const uint groupsPerChunkZ = voxPerChunkDim / 8;
+	const uint listIndex = id.z / voxPerChunkDim;
+	if (listIndex >= chunkCount) return;
+	const uint3 voxel = uint3(id.x, id.y, id.z % voxPerChunkDim);
+	if (any(voxel >= voxPerChunkDim)) return;
+
+	const int chunkIdx = chunkList[listIndex];
+	const int tableVal = chunkTable[chunkIdx];
+	if ((tableVal & RESERVED_BIT) == 0) return;
+	const int dataIdx = tableVal & INDEX_MASK;
+	if (dataIdx & INVALID_BIT) return;
+
+	const int3 d = denseCoordOf(chunkIndexToChunkCoord(chunkIdx), voxel);
+	if (any(d < 0) || any(d >= (int3)denseDims)) return;
+
+	const float2 data = chunkData[dataIndexToDataStartCoord(dataIdx) + voxel].xy;
+	if (SNorm8toU8(data.y) == 0) return; // never observed: leave whatever is there
+	denseFine[(uint3)d] = data;
+}
+
+// one chunk's voxels as the CPU packs them (two (value, count) pairs per uint)
+#pragma kernel FillDenseFromUpload
+
+StructuredBuffer<uint> uploadVoxels;
+int uploadChunkIndex;
+
+[numthreads(8, 8, 8)]
+void FillDenseFromUpload(uint3 id : SV_DispatchThreadID)
+{
+	const uint3 v0 = uint3(id.x * 2, id.y, id.z);
+	if (any(v0 >= voxPerChunkDim)) return;
+
+	const uint threadsPerChunkX = voxPerChunkDim / 2;
+	const uint packed = uploadVoxels[id.x + id.y * threadsPerChunkX + id.z * threadsPerChunkX * voxPerChunkDim];
+	const int3 chunkCoord = chunkIndexToChunkCoord(uploadChunkIndex);
+
+	[unroll] for (uint i = 0; i < 2; i++)
+	{
+		const uint count = (packed >> (i * 16 + 8)) & 0xFF;
+		if (count == 0) continue;
+		const float sdf = SByteBitsToSNorm8((packed >> (i * 16)) & 0xFF);
+		const int3 d = denseCoordOf(chunkCoord, v0 + uint3(i, 0, 0));
+		if (any(d < 0) || any(d >= (int3)denseDims)) continue;
+		denseFine[(uint3)d] = float2(sdf, U8toSNorm8(count));
+	}
+}
+
+// ---- pyramid -----------------------------------------------------------------
+//
+// a level cell summarizes its children so its score is an UPPER BOUND of any fine
+// pose inside it: R/G = min/max sdf over observed children (a source sample agrees
+// best with whichever child value is nearest its own), B = flags: bit0 any child
+// free, bit1 any child unobserved, bit2 any child observed. Stored as RGBA16F,
+// flags as B * 7
+
+#define FLAG_FREE 1
+#define FLAG_UNOBSERVED 2
+#define FLAG_OBSERVED 4
+
+Texture3D<float4> pyramidSrc;
+RWTexture3D<float4> pyramidDst;
+uint3 pyramidSrcDims;
+uint3 pyramidDstDims;
+uint pyramidSrcIsFine;
+
+uint decodeFlags(const float g)
+{
+	return (uint)round(g * 7.0);
+}
+
+#pragma kernel BuildPyramidLevel
+
+[numthreads(4, 4, 4)]
+void BuildPyramidLevel(uint3 id : SV_DispatchThreadID)
+{
+	if (any(id >= pyramidDstDims)) return;
+
+	float minSdf = 1.0, maxSdf = -1.0;
+	uint flags = 0;
+
+	[unroll] for (uint dz = 0; dz < 2; dz++)
+	[unroll] for (uint dy = 0; dy < 2; dy++)
+	[unroll] for (uint dx = 0; dx < 2; dx++)
+	{
+		const uint3 s = id * 2 + uint3(dx, dy, dz);
+		if (any(s >= pyramidSrcDims)) { flags |= FLAG_UNOBSERVED; continue; }
+
+		const float4 src = pyramidSrc[s];
+		if (pyramidSrcIsFine)
+		{
+			if (SNorm8toU8(src.y) == 0) { flags |= FLAG_UNOBSERVED; continue; }
+			flags |= FLAG_OBSERVED;
+			minSdf = min(minSdf, src.x);
+			maxSdf = max(maxSdf, src.x);
+			if (src.x > freeBand) flags |= FLAG_FREE;
+		}
+		else
+		{
+			const uint childFlags = decodeFlags(src.z);
+			if (childFlags & FLAG_OBSERVED) { minSdf = min(minSdf, src.x); maxSdf = max(maxSdf, src.y); }
+			flags |= childFlags;
+		}
+	}
+
+	pyramidDst[id] = float4(minSdf, maxSdf, flags / 7.0, 0);
+}
+
+// ---- samples -----------------------------------------------------------------
+
+struct Sample
+{
+	float3 pos; // world position of the voxel center, in the SOURCE frame
+	float sdf; // normalized; |sdf| <= surfaceBand = surface, > freeBand = free
+	float weight; // how much this sample should say about the pose (see ExtractSamples)
+	float3 pad;
+};
+
+AppendStructuredBuffer<Sample> samplesAppend;
+uint sampleStride; // take every n-th voxel per axis
+uint freeStride; // of those, every n-th per axis may be a free-space sample
+
+// dispatched like FillDenseFromAtlas
+#pragma kernel ExtractSamples
+
+[numthreads(8, 8, 8)]
+void ExtractSamples(uint3 id : SV_DispatchThreadID)
+{
+	const uint listIndex = id.z / voxPerChunkDim;
+	if (listIndex >= chunkCount) return;
+	const uint3 voxel = uint3(id.x, id.y, id.z % voxPerChunkDim);
+	if (any(voxel >= voxPerChunkDim)) return;
+	// the apron duplicates the neighbor's voxels; skip it
+	if (any(voxel == 0) || any(voxel == voxPerChunkDim - 1)) return;
+	if (any(voxel % sampleStride != 0)) return;
+
+	const int chunkIdx = chunkList[listIndex];
+	const int tableVal = chunkTable[chunkIdx];
+	if ((tableVal & RESERVED_BIT) == 0) return;
+	const int dataIdx = tableVal & INDEX_MASK;
+	if (dataIdx & INVALID_BIT) return;
+
+	const float2 data = chunkData[dataIndexToDataStartCoord(dataIdx) + voxel].xy;
+	if (SNorm8toU8(data.y) == 0) return;
+
+	const bool isSurface = abs(data.x) <= surfaceBand;
+	const bool isFree = data.x > freeBand && all((voxel / sampleStride) % freeStride == 0);
+	if (!isSurface && !isFree) return;
+
+	float weight = freeWeight;
+	if (isSurface)
+	{
+		// floors and ceilings are most of an indoor scan yet constrain only height:
+		// a scan slid along a floor agrees as well as the true pose. Weight surface
+		// samples by how vertical their surface is, from the local sdf gradient
+		const uint3 start = dataIndexToDataStartCoord(dataIdx);
+		const uint3 lo = start + max(voxel, 1) - 1;
+		const uint3 hi = start + min(voxel + 1, voxPerChunkDim - 1);
+		const float3 g = float3(
+			chunkData[uint3(hi.x, start.y + voxel.y, start.z + voxel.z)].x - chunkData[uint3(lo.x, start.y + voxel.y, start.z + voxel.z)].x,
+			chunkData[uint3(start.x + voxel.x, hi.y, start.z + voxel.z)].x - chunkData[uint3(start.x + voxel.x, lo.y, start.z + voxel.z)].x,
+			chunkData[uint3(start.x + voxel.x, start.y + voxel.y, hi.z)].x - chunkData[uint3(start.x + voxel.x, start.y + voxel.y, lo.z)].x);
+		const float gLen = length(g);
+		const float vertical = gLen > 1e-4 ? abs(g.y) / gLen : 0;
+		weight = surfaceSampleWeight(data.x) * (1.0 - 0.75 * vertical * vertical);
+	}
+
+	Sample s;
+	s.pos = chunkCoordToCornerWorldPos(chunkIndexToChunkCoord(chunkIdx)) + ((float3)voxel + 0.5) * voxSize;
+	s.sdf = data.x;
+	s.weight = weight;
+	s.pad = 0;
+	samplesAppend.Append(s);
+}
+
+// ---- scoring -----------------------------------------------------------------
+
+StructuredBuffer<Sample> samples;
+uint sampleCount;
+StructuredBuffer<float4> candidates; // xyz translation, w yaw (radians): p_target = rotY(p, yaw) + xyz
+RWStructuredBuffer<float> scores;
+uint candidateCount;
+uint candidateOffset; // a dispatch covers at most 65535 groups; larger batches run in slices
+
+Texture3D<float4> levelTex;
+uint3 levelDims;
+float levelCell;
+uint levelIsFine;
+
+// agreement of a source sample with the target at p. observed: true when the
+// target knows that cell at all, so callers can measure overlap separately from
+// agreement. surface samples compare signed distances, so a voxel 8cm inside the
+// surface agrees with a target voxel 8cm inside it, not with the zero level set
+float agreementAt(const float3 p, const float sdf, const bool isSurface, out bool observed)
+{
+	observed = false;
+	const int3 cell = (int3)floor((p - denseOrigin) / levelCell);
+	if (any(cell < 0) || any(cell >= (int3)levelDims)) return unobservedAgreement;
+
+	const float4 v = levelTex[(uint3)cell];
+
+	if (levelIsFine)
+	{
+		observed = SNorm8toU8(v.y) != 0;
+		// free samples: agree with anything free or nearly so, disagree only with a
+		// target voxel well inside a surface
+		const float fine = isSurface ? saturate(1.0 - abs(v.x - sdf) / agreementTolerance) : saturate((v.x + surfaceBand) / (freeBand + surfaceBand));
+		return observed ? fine : unobservedAgreement;
+	}
+
+	const uint flags = decodeFlags(v.z);
+	observed = (flags & FLAG_OBSERVED) != 0;
+	float best = (flags & FLAG_UNOBSERVED) ? unobservedAgreement : 0.0;
+	if (isSurface)
+	{
+		// distance from the sample's value to the cell's value range
+		if (observed) best = max(best, saturate(1.0 - max(0.0, max(v.x - sdf, sdf - v.y)) / agreementTolerance));
+		return best;
+	}
+	if (observed) best = max(best, saturate((v.y + surfaceBand) / (freeBand + surfaceBand)));
+	return best;
+}
+
+// free-space samples never SUPPORT a pose: every scan of a room shares the air
+// between its walls, so air agreeing with air says nothing. They only veto, by
+// subtracting when they land inside the target's surfaces
+static const float freeSpacePenalty = 0.5;
+
+static const uint scoreGroupSize = 256;
+groupshared float scoreNum[scoreGroupSize]; // surface agreement, weighted, observed only
+groupshared float scoreDen[scoreGroupSize]; // surface weight that landed in observed cells
+groupshared float scoreAll[scoreGroupSize]; // surface weight in total
+groupshared float scoreBad[scoreGroupSize]; // free-space disagreement, weighted, observed only
+groupshared float scoreFree[scoreGroupSize]; // free-space weight that landed in observed cells
+
+#pragma kernel ScoreCandidates
+
+[numthreads(scoreGroupSize, 1, 1)]
+void ScoreCandidates(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
+{
+	const uint c = groupID.x + candidateOffset;
+	const float4 cand = c < candidateCount ? candidates[c] : 0;
+
+	float num = 0, den = 0, all = 0, bad = 0, freeW = 0;
+	if (c < candidateCount)
+	{
+		for (uint i = threadID.x; i < sampleCount; i += scoreGroupSize)
+		{
+			const Sample s = samples[i];
+			const bool isSurface = abs(s.sdf) <= surfaceBand;
+			const float w = s.weight;
+			const float3 p = rotateY(s.pos, cand.w) + cand.xyz;
+			bool observed;
+			const float a = agreementAt(p, s.sdf, isSurface, observed);
+			if (isSurface)
+			{
+				all += w;
+				num += observed ? w * a : 0;
+				den += observed ? w : 0;
+			}
+			else
+			{
+				bad += observed ? w * (1.0 - a) : 0;
+				freeW += observed ? w : 0;
+			}
+		}
+	}
+
+	scoreNum[threadID.x] = num;
+	scoreDen[threadID.x] = den;
+	scoreAll[threadID.x] = all;
+	scoreBad[threadID.x] = bad;
+	scoreFree[threadID.x] = freeW;
+	GroupMemoryBarrierWithGroupSync();
+
+	for (uint stride = scoreGroupSize / 2; stride > 0; stride >>= 1)
+	{
+		if (threadID.x < stride)
+		{
+			scoreNum[threadID.x] += scoreNum[threadID.x + stride];
+			scoreDen[threadID.x] += scoreDen[threadID.x + stride];
+			scoreAll[threadID.x] += scoreAll[threadID.x + stride];
+			scoreBad[threadID.x] += scoreBad[threadID.x + stride];
+			scoreFree[threadID.x] += scoreFree[threadID.x + stride];
+		}
+		GroupMemoryBarrierWithGroupSync();
+	}
+
+	// [0] surface agreement over the samples that landed in OBSERVED target cells,
+	// minus the free-space veto; [1] the fraction of surface weight that landed in
+	// observed cells. Samples outside what the target knows say nothing about the
+	// pose and are left out, so a headset that scanned more than its peer never
+	// registers worse for it
+	if (threadID.x == 0 && c < candidateCount)
+	{
+		const float agreement = scoreDen[0] > 0 ? scoreNum[0] / scoreDen[0] : 0;
+		const float veto = scoreFree[0] > 0 ? scoreBad[0] / scoreFree[0] : 0;
+		scores[c * 2] = max(0.0, agreement - freeSpacePenalty * veto);
+		scores[c * 2 + 1] = scoreAll[0] > 0 ? scoreDen[0] / scoreAll[0] : 0;
+	}
+}
+
+// ---- refinement --------------------------------------------------------------
+//
+// Gauss-Newton on the fine dense volume: surface samples pull toward the zero
+// level set along its gradient. refinePose[0] = (t.xyz, yaw) is read and rewritten
+// by RefineSolve, so several iterations chain on the GPU with no readback.
+
+RWStructuredBuffer<float4> refinePose; // [0] pose, [1] (rms meters, inlier count, iteration, damping)
+RWStructuredBuffer<float> refinePartials; // per group: 10 H entries, 4 b entries, count, residual sq
+uint refineGroupCount;
+float distanceTruncationBand;
+
+static const uint refineGroupSize = 256;
+static const uint refineTerms = 16;
+groupshared float refineAcc[refineTerms][refineGroupSize];
+
+// trilinear sdf and its gradient (per voxel) at a world point from the same eight
+// corners; false if any corner is unobserved
+bool sampleFine(const float3 p, out float sdf, out float3 grad)
+{
+	const float3 g = (p - denseOrigin) / voxSize - 0.5;
+	const int3 g0 = (int3)floor(g);
+	const float3 f = g - (float3)g0;
+	bool ok = !(any(g0 < 0) || any(g0 + 1 >= (int3)denseDims));
+
+	float c[8];
+	[unroll] for (uint i = 0; i < 8; i++)
+	{
+		const int3 o = int3(i & 1, (i >> 1) & 1, (i >> 2) & 1);
+		const uint3 cc = (uint3)clamp(g0 + o, 0, (int3)denseDims - 1);
+		const float2 v = denseFine[cc].xy;
+		ok = ok && SNorm8toU8(v.y) != 0;
+		c[i] = v.x;
+	}
+
+	// corners indexed x + 2y + 4z
+	const float c00 = lerp(c[0], c[1], f.x), c10 = lerp(c[2], c[3], f.x);
+	const float c01 = lerp(c[4], c[5], f.x), c11 = lerp(c[6], c[7], f.x);
+	const float c0 = lerp(c00, c10, f.y), c1 = lerp(c01, c11, f.y);
+	sdf = lerp(c0, c1, f.z);
+
+	grad.x = lerp(lerp(c[1] - c[0], c[3] - c[2], f.y), lerp(c[5] - c[4], c[7] - c[6], f.y), f.z);
+	grad.y = lerp(c10 - c00, c11 - c01, f.z);
+	grad.z = c1 - c0;
+	return ok;
+}
+
+#pragma kernel RefineAccumulate
+
+[numthreads(refineGroupSize, 1, 1)]
+void RefineAccumulate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
+{
+	const float4 pose = refinePose[0];
+	float acc[refineTerms];
+	[unroll] for (uint k = 0; k < refineTerms; k++) acc[k] = 0;
+
+	for (uint i = groupID.x * refineGroupSize + threadID.x; i < sampleCount; i += refineGroupCount * refineGroupSize)
+	{
+		const Sample s = samples[i];
+		if (abs(s.sdf) > surfaceBand) continue;
+
+		const float3 q = rotateY(s.pos, pose.w) + pose.xyz;
+
+		float sdf;
+		float3 gradVox;
+		if (!sampleFine(q, sdf, gradVox)) continue;
+
+		// residual: the target's value minus the sample's own, in meters. the sample
+		// sits wherever it sits relative to the surface; only the disagreement is error
+		const float r = (sdf - s.sdf) * distanceTruncationBand;
+		if (abs(r) > distanceTruncationBand * 0.9) continue; // past the band: not this surface
+		// the sample's weight (closeness to the crossing, wall-ness) scales its row
+		const float sw = s.weight;
+		const float3 grad = gradVox / voxSize * distanceTruncationBand * sw;
+
+		// d(rotY(p) + t)/dyaw = (q.z, 0, -q.x) for the rotated point
+		const float3 rq = q - pose.xyz;
+		const float4 J = float4(grad, grad.x * rq.z - grad.z * rq.x);
+
+		// H upper triangle: 00 01 02 03 11 12 13 22 23 33
+		acc[0] += J.x * J.x; acc[1] += J.x * J.y; acc[2] += J.x * J.z; acc[3] += J.x * J.w;
+		acc[4] += J.y * J.y; acc[5] += J.y * J.z; acc[6] += J.y * J.w;
+		acc[7] += J.z * J.z; acc[8] += J.z * J.w;
+		acc[9] += J.w * J.w;
+		acc[10] += J.x * r * sw; acc[11] += J.y * r * sw; acc[12] += J.z * r * sw; acc[13] += J.w * r * sw;
+		acc[14] += 1;
+		acc[15] += r * r;
+	}
+
+	[unroll] for (uint k2 = 0; k2 < refineTerms; k2++) refineAcc[k2][threadID.x] = acc[k2];
+	GroupMemoryBarrierWithGroupSync();
+
+	for (uint stride = refineGroupSize / 2; stride > 0; stride >>= 1)
+	{
+		if (threadID.x < stride)
+			[unroll] for (uint k3 = 0; k3 < refineTerms; k3++)
+				refineAcc[k3][threadID.x] += refineAcc[k3][threadID.x + stride];
+		GroupMemoryBarrierWithGroupSync();
+	}
+
+	if (threadID.x < refineTerms)
+		refinePartials[groupID.x * refineTerms + threadID.x] = refineAcc[threadID.x][0];
+}
+
+#pragma kernel RefineSolve
+
+[numthreads(1, 1, 1)]
+void RefineSolve(uint3 id : SV_DispatchThreadID)
+{
+	float t[refineTerms];
+	[unroll] for (uint k = 0; k < refineTerms; k++) t[k] = 0;
+	for (uint g = 0; g < refineGroupCount; g++)
+		[unroll] for (uint k2 = 0; k2 < refineTerms; k2++) t[k2] += refinePartials[g * refineTerms + k2];
+
+	float4 pose = refinePose[0];
+	float4 info = refinePose[1];
+	const float count = t[14];
+	info.y = count;
+	info.z += 1;
+
+	if (count < 8)
+	{
+		info.x = -1; // not enough support
+		refinePose[1] = info;
+		return;
+	}
+
+	// H (4x4, symmetric) with Levenberg damping, b = J^T r; solve H dx = b, pose -= dx
+	float H[4][4];
+	H[0][0] = t[0]; H[0][1] = t[1]; H[0][2] = t[2]; H[0][3] = t[3];
+	H[1][0] = t[1]; H[1][1] = t[4]; H[1][2] = t[5]; H[1][3] = t[6];
+	H[2][0] = t[2]; H[2][1] = t[5]; H[2][2] = t[7]; H[2][3] = t[8];
+	H[3][0] = t[3]; H[3][1] = t[6]; H[3][2] = t[8]; H[3][3] = t[9];
+	float b[4] = { t[10], t[11], t[12], t[13] };
+
+	const float damping = max(info.w, 1e-3);
+	[unroll] for (uint d = 0; d < 4; d++) H[d][d] *= 1.0 + damping;
+
+	// gaussian elimination with partial pivoting
+	[unroll] for (uint col = 0; col < 4; col++)
+	{
+		uint pivot = col;
+		[unroll] for (uint row = col + 1; row < 4; row++)
+			if (abs(H[row][col]) > abs(H[pivot][col])) pivot = row;
+		if (pivot != col)
+		{
+			[unroll] for (uint c = 0; c < 4; c++) { const float tmp = H[col][c]; H[col][c] = H[pivot][c]; H[pivot][c] = tmp; }
+			const float tb = b[col]; b[col] = b[pivot]; b[pivot] = tb;
+		}
+		if (abs(H[col][col]) < 1e-9) { info.x = -2; refinePose[1] = info; return; }
+		[unroll] for (uint row2 = col + 1; row2 < 4; row2++)
+		{
+			const float f = H[row2][col] / H[col][col];
+			[unroll] for (uint c2 = col; c2 < 4; c2++) H[row2][c2] -= f * H[col][c2];
+			b[row2] -= f * b[col];
+		}
+	}
+
+	float dx[4];
+	[unroll] for (int row3 = 3; row3 >= 0; row3--)
+	{
+		float sum = b[row3];
+		[unroll] for (uint c3 = row3 + 1; c3 < 4; c3++) sum -= H[row3][c3] * dx[c3];
+		dx[row3] = sum / H[row3][row3];
+	}
+
+	// a step bigger than a voxel or a few degrees means the linearization lied; shrink it
+	const float stepLen = length(float3(dx[0], dx[1], dx[2]));
+	const float maxStep = voxSize;
+	const float scale = stepLen > maxStep ? maxStep / stepLen : 1.0;
+	pose.xyz -= float3(dx[0], dx[1], dx[2]) * scale;
+	pose.w -= clamp(dx[3] * scale, -0.05, 0.05);
+
+	info.x = sqrt(t[15] / count);
+	refinePose[0] = pose;
+	refinePose[1] = info;
+}
