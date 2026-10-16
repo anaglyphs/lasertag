@@ -7,6 +7,7 @@ using Unity.Multiplayer.PlayMode;
 using Unity.Netcode;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.XR.Interaction.Toolkit.Inputs.Simulation;
 
@@ -460,6 +461,43 @@ namespace Anaglyph.LaserTag.Editor
 			{
 				if (hide) visibility.Hide(simulator.gameObject, true);
 				else visibility.Show(simulator.gameObject, true);
+			}
+		}
+	}
+
+	/// Keeps the simulated headset tracking while another window has focus. Otherwise
+	/// the Input System routes the interaction simulator's HMD writes to editor state,
+	/// and the TrackedPoseDrivers snap to the origin and stop until focus returns.
+	/// Ignore Focus also applies to device builds, so it is only set for play mode.
+	[InitializeOnLoad]
+	public static class PlayModeInputFocus
+	{
+		private static InputSettings.BackgroundBehavior savedBackground;
+		private static InputSettings.EditorInputBehaviorInPlayMode savedEditorBehavior;
+
+		static PlayModeInputFocus()
+		{
+			EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+		}
+
+		private static void OnPlayModeStateChanged(PlayModeStateChange change)
+		{
+			InputSettings settings = InputSystem.settings;
+
+			switch (change)
+			{
+				case PlayModeStateChange.ExitingEditMode:
+					savedBackground = settings.backgroundBehavior;
+					savedEditorBehavior = settings.editorInputBehaviorInPlayMode;
+					settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+					settings.editorInputBehaviorInPlayMode =
+						InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
+					break;
+
+				case PlayModeStateChange.EnteredEditMode:
+					settings.backgroundBehavior = savedBackground;
+					settings.editorInputBehaviorInPlayMode = savedEditorBehavior;
+					break;
 			}
 		}
 	}

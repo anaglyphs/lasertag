@@ -149,7 +149,7 @@ namespace Anaglyph.XR.SharedSpaces
 			// Device sleeping = tracking pauses = tracking lost. Prevents trusting a stale
 			// frame (and everything downstream that writes world-space data) on wake, until
 			// the constraints align it again.
-			if (!isFocused)
+			if (AppFocus.IsLoss(isFocused))
 				Delocalize();
 		}
 

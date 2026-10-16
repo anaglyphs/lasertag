@@ -19,6 +19,7 @@ namespace Anaglyph.LaserTag.Player
 		public const string Tag = "Player";
 
 		[SerializeField] private Transform headTransform;
+		[SerializeField] private Transform bodyTransform;
 		[SerializeField] private Transform leftHandTransform;
 		[SerializeField] private Transform rightHandTransform;
 
@@ -168,6 +169,14 @@ namespace Anaglyph.LaserTag.Player
 
 			RefreshParticipation();
 			RefreshBaseState();
+
+			bodyTransform.position = headTransform.position - new Vector3(0, 0.85f, 0);
+			
+			Vector3 flatForw = headTransform.forward;
+			flatForw.y = 0;
+			flatForw = flatForw.normalized;
+
+			bodyTransform.rotation = Quaternion.LookRotation(flatForw, Vector3.up);
 		}
 
 		internal void RefreshParticipation()

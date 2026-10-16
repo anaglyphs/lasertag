@@ -26,7 +26,14 @@ namespace Anaglyph.LaserTag
 		[SerializeField] private float probeTimeoutSeconds = 8f;
 		[SerializeField] private float saveDebounceSeconds = 2f;
 		[SerializeField] private float switchTimeoutSeconds = 20f;
-		public enum AlignmentError { RequestRejected, SharingFailed, SharingUnsupported }
+
+		public enum AlignmentError
+		{
+			RequestRejected,
+			SharingFailed,
+			SharingUnsupported
+		}
+
 		public static event Action<AlignmentError> AlignmentErrorRaised = delegate { };
 		public static event Action<GameMap> CurrentMapChanged = delegate { };
 		public static event Action<MapSpace> CurrentSpaceChanged = delegate { };
@@ -57,9 +64,13 @@ namespace Anaglyph.LaserTag
 		public MapSpace CurrentSpace => documents?.SpaceDocument.CurrentSpace;
 		public Guid ReferenceContext => visit.ReferenceContext;
 		public Guid ScanContext => visit.ScanContext;
-		public Guid CanonicalFrameId => Guid.TryParse(documents?.SpaceDocument.Frame.CanonicalId, out var id) ? id : Guid.Empty;
+
+		public Guid CanonicalFrameId =>
+			Guid.TryParse(documents?.SpaceDocument.Frame.CanonicalId, out var id) ? id : Guid.Empty;
+
 		public Guid SessionSpaceId => SyncBus.Active && !SyncBus.IsAuthority ? sessionWorkflow.RemoteIdentity.spaceId :
 			Guid.TryParse(documents?.SpaceDocument.CurrentId, out var id) ? id : Guid.Empty;
+
 		public bool IsChangingMap => session != null && session.IsChangingMap;
 		public bool IsChangingColocation => alignment != null && alignment.Busy;
 		public bool WaitingForAlignmentAuthor => referenceWorkflow?.WaitingForAlignmentAuthor == true;
@@ -74,13 +85,20 @@ namespace Anaglyph.LaserTag
 		private bool Authority => !SyncBus.Active || SyncBus.IsAuthority;
 		private bool RoundInProgress => MatchReferee.State is MatchState.Playing or MatchState.Countdown;
 		private bool CanManage => MapPolicy.CanManageMaps(Authority, lifecycle.Phase);
+
 		private bool FrameReady => documents != null && spaceDocument.HasSpace && ColocationManager.IsColocated &&
-			(!ColocationManager.UsesSavedReferences(colocationManager.ActiveMethod) || colocationManager.ReferenceAligned) &&
-			(lifecycle.Phase is MapPhase.Local or MapPhase.Hosting or MapPhase.FollowingSession) &&
-			(!SyncBus.Active || colocationManager.ActiveMethod == colocationManager.SelectedMethod ||
-			 ColocationManager.UsesSavedReferences(colocationManager.ActiveMethod) && ColocationManager.UsesSavedReferences(colocationManager.SelectedMethod));
+		                           (!ColocationManager.UsesSavedReferences(colocationManager.ActiveMethod) ||
+		                            colocationManager.ReferenceAligned) &&
+		                           (lifecycle.Phase is MapPhase.Local or MapPhase.Hosting
+			                           or MapPhase.FollowingSession) &&
+		                           (!SyncBus.Active ||
+		                            colocationManager.ActiveMethod == colocationManager.SelectedMethod ||
+		                            ColocationManager.UsesSavedReferences(colocationManager.ActiveMethod) &&
+		                            ColocationManager.UsesSavedReferences(colocationManager.SelectedMethod));
+
 		public bool CanIntegrateEnvironment => FrameReady && TrackingReady() &&
-			(colocationManager.ActiveMethod != Method.TwoAprilTags || spaceDocument.FirstTagId >= 0);
+		                                       (colocationManager.ActiveMethod != Method.TwoAprilTags ||
+		                                        spaceDocument.FirstTagId >= 0);
 
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
 		private static void ResetStatics()
@@ -102,6 +120,7 @@ namespace Anaglyph.LaserTag
 				Destroy(this);
 				return;
 			}
+
 			Instance = this;
 			lifetime = new();
 			if (!colocationManager)
@@ -186,7 +205,7 @@ namespace Anaglyph.LaserTag
 			referenceWorkflow.Tick();
 			TagSetup.Tick();
 			if (lifecycle.Phase == MapPhase.SwitchingMap &&
-				(objects.IsReplacementComplete || lifecycle.SwitchTimedOut(Time.unscaledTime, switchTimeoutSeconds)))
+			    (objects.IsReplacementComplete || lifecycle.SwitchTimedOut(Time.unscaledTime, switchTimeoutSeconds)))
 			{
 				lifecycle.FinishSwitch();
 				session.SetChanging(false);
@@ -239,11 +258,16 @@ namespace Anaglyph.LaserTag
 				SaveCurrentMap();
 		}
 
-		private bool TrackingReady() => Application.isFocused && PlayerHeadsetStatus.HeadTrackingReady;
+		private bool TrackingReady() => AppFocus.IsFocused && PlayerHeadsetStatus.HeadTrackingReady;
+
 		public bool CheckWorldFrameIsTrusted() => FrameReady;
-		public bool CheckReferenceFrameAgreement() => documents != null && spaceDocument.HasSpace && TrackingReady() && colocationManager.ReferenceAligned;
+
+		public bool CheckReferenceFrameAgreement() => documents != null && spaceDocument.HasSpace && TrackingReady() &&
+		                                              colocationManager.ReferenceAligned;
+
 		public bool CheckCanEditMap() => MapPolicy.CanEditMap(IsChangingMap, FrameReady,
 			HeadsetConfiguration.IsOperatorDevice && Authority && documents != null && spaceDocument.HasSpace);
+
 		private CapabilitySupport SharedAnchorSupport
 		{
 			get
@@ -273,7 +297,8 @@ namespace Anaglyph.LaserTag
 
 		private bool ReplaceMap(string id)
 		{
-			if (DescribeChangeBlocker(id) != null || !SaveCurrentMap() || !documents.MapStore.TryGet(id, out var target))
+			if (DescribeChangeBlocker(id) != null || !SaveCurrentMap() ||
+			    !documents.MapStore.TryGet(id, out var target))
 				return false;
 
 			var owner = documents.SpaceStore.FindOwner(id);
@@ -328,11 +353,17 @@ namespace Anaglyph.LaserTag
 			NotifyMap();
 		}
 
-		public string DescribeNewMapBlocker() => Localize(MapPolicy.NewMapBlocker(CanManage, RoundInProgress, spaceDocument.HasSpace));
+		public string DescribeNewMapBlocker() =>
+			Localize(MapPolicy.NewMapBlocker(CanManage, RoundInProgress, spaceDocument.HasSpace));
+
 		public CatalogOperationResult NewMap() => DescribeNewMapBlocker() == null && SaveCurrentMap()
-			? documents.NewMap() : new(CatalogOperationStatus.Rejected);
+			? documents.NewMap()
+			: new(CatalogOperationStatus.Rejected);
+
 		public CatalogOperationResult DuplicateMap(string id) => DescribeNewMapBlocker() == null && SaveCurrentMap()
-			? documents.DuplicateMap(id) : new(CatalogOperationStatus.Rejected);
+			? documents.DuplicateMap(id)
+			: new(CatalogOperationStatus.Rejected);
+
 		public bool UnloadCurrentMap()
 		{
 			if (SyncBus.Active || !SaveCurrentMap())
@@ -350,15 +381,22 @@ namespace Anaglyph.LaserTag
 			NotifyMap();
 		}
 
-		public string DescribeDeleteBlocker(string id) => Localize(MapPolicy.DeleteMapBlocker(id, mapDocument.CurrentId, SyncBus.Active));
+		public string DescribeDeleteBlocker(string id) =>
+			Localize(MapPolicy.DeleteMapBlocker(id, mapDocument.CurrentId, SyncBus.Active));
+
 		public CatalogOperationResult DeleteMap(string id) => DescribeDeleteBlocker(id) == null && SaveCurrentMap()
-			? documents.DeleteMap(id) : new(CatalogOperationStatus.Rejected);
+			? documents.DeleteMap(id)
+			: new(CatalogOperationStatus.Rejected);
+
 		public string DescribeSpaceChangeBlocker(string id) => Localize(MapPolicy.SpaceChangeBlocker(CanManage,
 			RoundInProgress, IsChangingColocation, HeadsetConfiguration.IsOperatorDevice, GetSpacePresence(id)));
+
 		public bool ChangeSpace(string id) => ChangeSpace(id, null);
+
 		private bool ChangeSpace(string id, string mapId)
 		{
-			if (DescribeSpaceChangeBlocker(id) != null || !documents.SpaceStore.TryGet(id, out var target) || !SaveCurrentMap())
+			if (DescribeSpaceChangeBlocker(id) != null || !documents.SpaceStore.TryGet(id, out var target) ||
+			    !SaveCurrentMap())
 				return false;
 			if (id == spaceDocument.CurrentId)
 				return mapId == null || ReplaceMap(mapId);
@@ -370,8 +408,11 @@ namespace Anaglyph.LaserTag
 			return SaveCurrentMap();
 		}
 
-		public CatalogOperationResult NewSpace() => HeadsetConfiguration.IsOperatorDevice && CanManage && !RoundInProgress && SaveCurrentMap()
-			? documents.CreateSpace(false, Method.MetaSharedAnchor) : new(CatalogOperationStatus.Rejected);
+		public CatalogOperationResult NewSpace() => HeadsetConfiguration.IsOperatorDevice && CanManage &&
+		                                            !RoundInProgress && SaveCurrentMap()
+			? documents.CreateSpace(false, Method.MetaSharedAnchor)
+			: new(CatalogOperationStatus.Rejected);
+
 		private void ActivateSpace(MapSpace space, GameMap map)
 		{
 			referenceWorkflow.CancelTransitionInternal();
@@ -399,8 +440,12 @@ namespace Anaglyph.LaserTag
 
 		public string DescribeDeleteSpaceBlocker(string id) => Localize(MapPolicy.DeleteSpaceBlocker(CanManage,
 			RoundInProgress, IsChangingColocation, SyncBus.Active && spaceDocument.CurrentId == id));
-		public CatalogOperationResult DeleteSpace(string id) => DescribeDeleteSpaceBlocker(id) == null && SaveCurrentMap()
-			? documents.DeleteSpace(id) : new(CatalogOperationStatus.Rejected);
+
+		public CatalogOperationResult DeleteSpace(string id) =>
+			DescribeDeleteSpaceBlocker(id) == null && SaveCurrentMap()
+				? documents.DeleteSpace(id)
+				: new(CatalogOperationStatus.Rejected);
+
 		private void OnCatalogCommitted(CatalogChange change)
 		{
 			sessionWorkflow.ApplyCatalogChange(change);
@@ -411,11 +456,14 @@ namespace Anaglyph.LaserTag
 				ApplyCatalogDeletion(change);
 				return;
 			}
-			if (!CanManage || change.MapContext != visit.MapContext || change.ReferenceContext != visit.ReferenceContext)
+
+			if (!CanManage || change.MapContext != visit.MapContext ||
+			    change.ReferenceContext != visit.ReferenceContext)
 			{
 				PreserveCommittedMembership(change);
 				return;
 			}
+
 			switch (change.Kind)
 			{
 				case CatalogChangeKind.Membership:
@@ -447,6 +495,7 @@ namespace Anaglyph.LaserTag
 				PreserveCommittedMembership(change);
 				return;
 			}
+
 			if (spaceDocument.CurrentId == change.Space.id)
 				ClearSpaceProjection();
 			SaveCurrentMap();
@@ -458,7 +507,7 @@ namespace Anaglyph.LaserTag
 		{
 			var current = CurrentSpace;
 			if (change.Kind == CatalogChangeKind.SpaceDeleted || current == null ||
-				current.id != change.Space.id || current.storageFrameId != change.Space.storageFrameId)
+			    current.id != change.Space.id || current.storageFrameId != change.Space.storageFrameId)
 				return;
 			current.mapIds = new(change.Space.mapIds);
 			spaceDocument.ApplySnapshot(current);
@@ -532,6 +581,7 @@ namespace Anaglyph.LaserTag
 		}
 
 		public const int MaxMapNameLength = 40;
+
 		private static string TrimName(string name)
 		{
 			var trimmed = name.Trim();
@@ -539,6 +589,7 @@ namespace Anaglyph.LaserTag
 		}
 
 		public string DescribeRenameBlocker() => Localize(MapPolicy.RenameBlocker(Authority));
+
 		public bool RenameMap(string name)
 		{
 			if (DescribeRenameBlocker() != null || string.IsNullOrWhiteSpace(name) || !mapDocument.HasMap)
@@ -550,6 +601,7 @@ namespace Anaglyph.LaserTag
 
 		public bool RequestPlaceObject(MapObject prefab, Vector3 position, Quaternion rotation) =>
 			CheckCanEditMap() && mapDocument.HasMap && objects.RequestPlace(prefab, position, rotation);
+
 		public bool RequestRemoveObject(MapObject obj) => CheckCanEditMap() && objects.RequestRemove(obj);
 
 		public void CommitObjectMove(MapObject obj)
@@ -559,6 +611,7 @@ namespace Anaglyph.LaserTag
 		}
 
 		private void OnObjectChanged(MapObject _) => ScheduleSave();
+
 		private void MarkMapContentChanged()
 		{
 			if (!Authority || !mapDocument.HasMap)
@@ -569,7 +622,8 @@ namespace Anaglyph.LaserTag
 
 		private void CaptureObjects()
 		{
-			if (MapPolicy.CanCaptureScene(Authority, lifecycle.Phase) && mapDocument.HasMap && objects.TryCapture(out var snapshot))
+			if (MapPolicy.CanCaptureScene(Authority, lifecycle.Phase) && mapDocument.HasMap &&
+			    objects.TryCapture(out var snapshot))
 				mapDocument.SetObjects(snapshot);
 		}
 
@@ -588,14 +642,18 @@ namespace Anaglyph.LaserTag
 					ScheduleSave();
 				return false;
 			}
+
 			PublishCurrentDocuments();
 			documents.EraseUnreferencedAnchors(references.EraseAnchorSave);
 			return true;
 		}
 
-		private void PublishCurrentDocuments() => session.Publish(CurrentMap, CurrentSpace, colocationManager.SelectedMethod,
+		private void PublishCurrentDocuments() => session.Publish(CurrentMap, CurrentSpace,
+			colocationManager.SelectedMethod,
 			visit.MapContext, visit.ReferenceContext, visit.ScanContext);
+
 		private void PersistAndPublish() => SaveCurrentMap();
+
 		private void SavePrivateReferences()
 		{
 			if (sessionWorkflow.IsTransient)
@@ -611,36 +669,54 @@ namespace Anaglyph.LaserTag
 				ScheduleSave();
 				return;
 			}
+
 			sessionWorkflow.RetryAdoption();
 			if (lifecycle.Phase != MapPhase.Stopped)
 				SaveCurrentMap();
 		}
 
 		public void CancelAlignmentTransition() => referenceWorkflow.CancelAlignmentTransition();
-		public string DescribeColocationPreferenceBlocker() => Localize(referenceWorkflow.DescribeColocationPreferenceBlocker());
-		public string DescribeColocationMethodBlocker(Method method) => Localize(referenceWorkflow.DescribeColocationMethodBlocker(method));
-		public bool SetPreferredColocationMethod(Method method) => referenceWorkflow.SetPreferredColocationMethod(method);
+
+		public string DescribeColocationPreferenceBlocker() =>
+			Localize(referenceWorkflow.DescribeColocationPreferenceBlocker());
+
+		public string DescribeColocationMethodBlocker(Method method) =>
+			Localize(referenceWorkflow.DescribeColocationMethodBlocker(method));
+
+		public bool SetPreferredColocationMethod(Method method) =>
+			referenceWorkflow.SetPreferredColocationMethod(method);
+
 		public bool SessionIsWaitingOnFirstTag => referenceWorkflow?.SessionIsWaitingOnFirstTag == true;
 		public string DescribeTagSetupBlocker() => DescribeTagRegistrationBlocker();
+
 		public string DescribeTagRegistrationBlocker() => TagSetup?.IsActive == true && !TagSetup.SizeConfirmed
-			? Localize("tag-setup.measure-first") : Localize(referenceWorkflow.DescribeTagRegistrationBlocker());
+			? Localize("tag-setup.measure-first")
+			: Localize(referenceWorkflow.DescribeTagRegistrationBlocker());
+
 		public string DescribeTagRemovalBlocker() => Localize(referenceWorkflow.DescribeTagRemovalBlocker());
 		public string DescribeTagSizeBlocker() => Localize(referenceWorkflow.DescribeTagSizeBlocker());
 		public float EffectiveTagSizeCm => referenceWorkflow?.EffectiveTagSizeCm ?? MapSpace.DefaultTagSizeCm;
-		public bool RegisterTag(int id, Pose worldPose) => DescribeTagRegistrationBlocker() == null && referenceWorkflow.RegisterTag(id, worldPose);
+
+		public bool RegisterTag(int id, Pose worldPose) => DescribeTagRegistrationBlocker() == null &&
+		                                                   referenceWorkflow.RegisterTag(id, worldPose);
+
 		public bool UnregisterTag(int id) => referenceWorkflow.UnregisterTag(id);
 		public void UnregisterAllTags() => referenceWorkflow.UnregisterAllTags();
 		public bool SetTagSize(float value) => referenceWorkflow.SetTagSize(value);
 		public void ChooseAnotherTagPair() => referenceWorkflow.ChooseAnotherTagPair();
 		private static void ReportAlignmentRejection() => AlignmentErrorRaised.Invoke(AlignmentError.RequestRejected);
+
 		private static void OnAnchorError(SpatialAnchorColocationConstraintProvider.Error error) =>
 			AlignmentErrorRaised.Invoke(error == SpatialAnchorColocationConstraintProvider.Error.SharingFailed
-				? AlignmentError.SharingFailed : AlignmentError.SharingUnsupported);
+				? AlignmentError.SharingFailed
+				: AlignmentError.SharingUnsupported);
+
 		private void OnAlignmentSourceChanged()
 		{
 			var activeMethod = colocationManager.ActiveMethod;
 			if (activeMethod != observedSource &&
-				(!ColocationManager.UsesSavedReferences(activeMethod) || !ColocationManager.UsesSavedReferences(observedSource)))
+			    (!ColocationManager.UsesSavedReferences(activeMethod) ||
+			     !ColocationManager.UsesSavedReferences(observedSource)))
 				WorldFrameRebased.Invoke();
 			observedSource = activeMethod;
 			RaiseSettingsChanged();
@@ -674,6 +750,7 @@ namespace Anaglyph.LaserTag
 				else if (!HeadsetConfiguration.IsOperatorDevice)
 					StartupProbe(lifetime.Token);
 			}
+
 			if (!mapDocument.HasMap && spaceDocument.HasSpace)
 				NewMap();
 			if (spaceDocument.HasSpace)
@@ -702,6 +779,7 @@ namespace Anaglyph.LaserTag
 
 		private void OnSessionMapReceived(MapIdentity identity, List<MapObjectEntry> placements, MapSpace remote) =>
 			sessionWorkflow.Receive(identity, placements, remote);
+
 		private void OnIncomingFrameChanging()
 		{
 			referenceWorkflow.CancelTransitionInternal();
@@ -723,7 +801,8 @@ namespace Anaglyph.LaserTag
 			{
 				if (ColocationManager.UsesSavedReferences(identity.method))
 				{
-					alignment.Begin(Guid.NewGuid(), space, identity.method, ReferenceTransitionIntent.ActivateTarget, false);
+					alignment.Begin(Guid.NewGuid(), space, identity.method, ReferenceTransitionIntent.ActivateTarget,
+						false);
 					alignment.SetCandidate(identity.spaceVersion, space);
 					alignment.Commit();
 				}
@@ -732,12 +811,14 @@ namespace Anaglyph.LaserTag
 			}
 			else if (!alignment.Busy && referencesChanged)
 				alignment.Activate(space, colocationManager.ActiveMethod, true);
+
 			if (scanChanged && colocationManager.ActiveMethod == Method.TwoAprilTags)
 			{
 				colocationManager.TwoTagProvider.ResetReferences();
 				colocationManager.InvalidateAlignment();
 				alignment.Activate(space, Method.TwoAprilTags);
 			}
+
 			if (newFrame || scanChanged)
 				WorldFrameRebased.Invoke();
 		}
@@ -780,19 +861,22 @@ namespace Anaglyph.LaserTag
 		// Sharing support and room discovery are independent. Local anchors may work on an MDM headset.
 		private void FallbackFromUnavailableSharing()
 		{
-			if (!Authority || HeadsetConfiguration.IsOperatorDevice || !TrackingReady() || documents.HasPending || RoundInProgress)
+			if (!Authority || HeadsetConfiguration.IsOperatorDevice || !TrackingReady() || documents.HasPending ||
+			    RoundInProgress)
 				return;
 			if (alignment.Busy && referenceWorkflow.TargetMethod != Method.MetaSharedAnchor)
 				return;
 			var space = CurrentSpace;
-			if (space?.preferredColocationMethod != Method.MetaSharedAnchor || SharedAnchorSupport != CapabilitySupport.Unsupported ||
-				!MapSpaceStartup.ConfigureDraft(space, Method.AprilTag))
+			if (space?.preferredColocationMethod != Method.MetaSharedAnchor ||
+			    SharedAnchorSupport != CapabilitySupport.Unsupported ||
+			    !MapSpaceStartup.ConfigureDraft(space, Method.AprilTag))
 				return;
 			if (!documents.SpaceStore.Save(space))
 			{
 				ScheduleSave();
 				return;
 			}
+
 			referenceWorkflow.CancelTransitionInternal();
 			spaceDocument.Load(space);
 			references.ClearPendingSnapshots();
@@ -814,6 +898,7 @@ namespace Anaglyph.LaserTag
 					if (lastSpace != null)
 						ChangeSpace(lastSpace.id);
 				}
+
 				return;
 			}
 #if UNITY_EDITOR
@@ -832,7 +917,9 @@ namespace Anaglyph.LaserTag
 						await Awaitable.WaitForSecondsAsync(2f, token);
 				}
 			}
-			catch (OperationCanceledException) { }
+			catch (OperationCanceledException)
+			{
+			}
 			catch (Exception exception)
 			{
 				Debug.LogException(exception);
@@ -848,7 +935,8 @@ namespace Anaglyph.LaserTag
 			// Restoring a space must restore its references and chosen provider together.
 			// Only a brand-new simulation space starts with the system origin.
 			return lastSpace != null
-				? ChangeSpace(lastSpace.id) : documents.CreateSpace(false, Method.SystemDetermined).IsCompleted;
+				? ChangeSpace(lastSpace.id)
+				: documents.CreateSpace(false, Method.SystemDetermined).IsCompleted;
 		}
 #endif
 
@@ -860,11 +948,13 @@ namespace Anaglyph.LaserTag
 			int trackingGeneration = colocationManager.TrackingGeneration;
 			var result = await discovery.ProbeAsync(token);
 			if (token.IsCancellationRequested || !Authority || CurrentSpace != null ||
-				sessionGeneration != sessionWorkflow.Generation || trackingGeneration != colocationManager.TrackingGeneration)
+			    sessionGeneration != sessionWorkflow.Generation ||
+			    trackingGeneration != colocationManager.TrackingGeneration)
 				return;
 			if (result.outcome == SpaceProbeOutcome.Matches)
 				ChangeSpace(result.best.id);
-			else if (MapSpaceStartup.InitialMethod(result.outcome, SharedAnchorSupport, discovery.IsAvailable) is Method initialMethod)
+			else if (MapSpaceStartup.InitialMethod(result.outcome, SharedAnchorSupport, discovery.IsAvailable) is Method
+			         initialMethod)
 			{
 				if (!documents.SpaceStore.IsAvailable)
 					return;

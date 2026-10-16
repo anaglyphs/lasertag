@@ -310,7 +310,7 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 
 		private void OnApplicationFocus(bool focused)
 		{
-			if (!focused)
+			if (AppFocus.IsLoss(focused))
 				InvalidatePendingObservations();
 		}
 		private void OnApplicationPause(bool paused) { if (paused) InvalidatePendingObservations(); }

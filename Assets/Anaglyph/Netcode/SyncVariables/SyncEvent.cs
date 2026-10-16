@@ -54,6 +54,17 @@ namespace Anaglyph.Netcode.SyncVariables
 			}
 		}
 
+		// Direct route only: deliver to one peer instead of everyone. Addressed to
+		// ourselves (or offline) it is delivered locally.
+		protected void RaiseBytesTo(ulong target, byte[] payload)
+		{
+			if (route != EventRoute.Direct)
+				throw new InvalidOperationException("Only Direct events can be addressed to a single peer");
+
+			if (!SyncBus.Active || target == SyncBus.LocalClientId) Receive(SyncBus.LocalClientId, payload);
+			else SyncBus.SendDirectTo(Id, target, payload);
+		}
+
 		protected virtual bool ValidateBytes(ulong sender, byte[] payload) => true;
 
 		protected abstract void Receive(ulong sender, byte[] payload);
@@ -147,6 +158,9 @@ namespace Anaglyph.Netcode.SyncVariables
 		}
 
 		public void Raise(byte[] payload) => RaiseBytes(payload);
+
+		/// <summary>Direct route only: deliver to a single peer.</summary>
+		public void RaiseTo(ulong target, byte[] payload) => RaiseBytesTo(target, payload);
 
 		protected override bool ValidateBytes(ulong sender, byte[] payload) =>
 			Validate == null || Validate(sender, payload);

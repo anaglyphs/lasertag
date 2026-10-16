@@ -60,9 +60,7 @@ MonoBehaviour:
     x: 0
     y: -1
     z: 0
-  playerMaskRadius: 0.8
-  playerMaskAbove: 0.5
-  playerMaskBelow: 2
+  maskShader: {fileID: 4800000, guid: 5f6dd7bd9df354224bcc42852c99205a, type: 3}
   chunkTableDims:
     x: 100
     y: 15

@@ -140,7 +140,7 @@ namespace Anaglyph.LaserTag
 			systemDeterminedProvider = new(MainXRRig.Instance != null ? MainXRRig.TrackingSpace : null);
 			twoAprilTagProvider = new(aprilTagColocationProvider,
 				MainXRRig.Instance != null ? MainXRRig.TrackingSpace : null,
-				() => !applicationPaused && Application.isFocused && PlayerHeadsetStatus.HeadTrackingReady);
+				() => !applicationPaused && AppFocus.IsFocused && PlayerHeadsetStatus.HeadTrackingReady);
 			if (colocator) colocator.StateChanged += OnStateChanged;
 			methodSync.Register(); methodSync.Validate = (_, _) => false;
 			methodSync.Synced += OnMethodSynced; methodSync.Changed += OnMethodChanged;
@@ -172,7 +172,7 @@ namespace Anaglyph.LaserTag
 			if (!ManagedSelection) ActivateMethod(PreferredAvailableMethod);
 			MethodChanged.Invoke();
 		}
-		private void OnApplicationFocus(bool focused) { if (!focused) TrackingOriginChanged(); }
+		private void OnApplicationFocus(bool focused) { if (AppFocus.IsLoss(focused)) TrackingOriginChanged(); }
 		private void OnApplicationPause(bool paused)
 		{
 			applicationPaused = paused;

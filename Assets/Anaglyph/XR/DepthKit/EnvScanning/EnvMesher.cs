@@ -116,6 +116,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		private void Begin()
 		{
 			EnvScanner.Instance.Updated += OnScanUpdate;
+			EnvScanner.Instance.ChunkUploaded += OnChunkUploaded;
 
 			StartWorkers();
 		}
@@ -125,7 +126,26 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			workerCancelSrc?.Cancel();
 
 			if (EnvScanner.Instance)
+			{
 				EnvScanner.Instance.Updated -= OnScanUpdate;
+				EnvScanner.Instance.ChunkUploaded -= OnChunkUploaded;
+			}
+		}
+
+		/// <summary>
+		/// A chunk fused in whole never passes through visibility, so it is queued for
+		/// meshing here. The work token is synthetic; the next visibility readback of the
+		/// chunk re-queues it once more against the real odometer, which is harmless.
+		/// </summary>
+		private void OnChunkUploaded(int chunkIndex)
+		{
+			Chunk chunk = GetOrCreateChunk(chunkIndex);
+			if (chunk.dirty) return;
+
+			chunk.pendingMeshingChangeSum = unchecked(chunk.lastMeshingChangeSum + 1);
+			chunk.dirty = true;
+			meshQueue.Enqueue(chunk);
+			mesherSemaphore.Release();
 		}
 
 		private void OnDestroy()
@@ -149,14 +169,23 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 				StartWorkers();
 		}
 
+		// frames (local and remote) can land faster than a readback round-trips. one
+		// missed update is caught up after the readback in flight, so a chunk only a
+		// remote frame touched still gets meshed
+		private bool updatePending;
+
 		private async void OnScanUpdate()
 		{
-			if (busy) return;
+			if (busy)
+			{
+				updatePending = true;
+				return;
+			}
+
 			busy = true;
 			CancellationToken ctkn = workerCancelSrc.Token;
 
 			EnvScanner scanner = EnvScanner.Instance;
-			
 
 			try
 			{
@@ -186,11 +215,17 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			}
 			catch (OperationCanceledException)
 			{
-				
+				updatePending = false;
 			}
 			finally
 			{
 				busy = false;
+			}
+
+			if (updatePending && this && enabled)
+			{
+				updatePending = false;
+				OnScanUpdate();
 			}
 		}
 

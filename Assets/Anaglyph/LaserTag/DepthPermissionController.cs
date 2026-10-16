@@ -75,8 +75,10 @@ namespace Anaglyph.LaserTag
 
 		private void OnApplicationFocus(bool focus)
 		{
-			focused = focus;
-			StopOcclusion();
+			focused = AppFocus.Resolve(focus);
+			// a headset losing or regaining focus restarts the provider on the next check;
+			// an editor window changing focus is nothing
+			if (AppFocus.Matters) StopOcclusion();
 		}
 
 		private void OnDisable()

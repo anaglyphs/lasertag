@@ -245,9 +245,9 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Editor
 		private async Task RefreshChunk(EnvScanner scanner)
 		{
 			int vpcd = scanner.VoxPerChunkDim;
-			// the readback kernel packs only the TSDF channel (1 byte/voxel), so the preview texture
-			// must be R8 even though the live atlas is R8G8 (G = integration count, not read back)
-			EnsureTex(ref chunkTex, vpcd, vpcd, vpcd, GraphicsFormat.R8_SNorm);
+			// the readback kernel packs (TSDF value, integration count) per voxel, the live
+			// atlas's own R8G8 layout
+			EnsureTex(ref chunkTex, vpcd, vpcd, vpcd, GraphicsFormat.R8G8_SNorm);
 
 			// reuse the readback buffer across refreshes; recreate only if the chunk size changed
 			if (readbackBuffer.gpuBuffer == null || readbackBuffer.voxPerChunkDim != vpcd)

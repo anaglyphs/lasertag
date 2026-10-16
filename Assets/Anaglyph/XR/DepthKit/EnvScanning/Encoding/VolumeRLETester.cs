@@ -10,7 +10,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Encoding
 	{
 		private EnvScanner.ChunkReadbackBuffer readbackBuffer;
 		private NativeArray<EnvScanner.Voxel> decodedVoxels;
-		private NativeList<sbyte> compressedData;
+		private NativeList<byte> compressedData;
 
 		private int uncompressedSize;
 		private int compressedSize;
@@ -23,7 +23,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Encoding
 			EnvScanner scanner = EnvScanner.Instance;
 			readbackBuffer = scanner.CreateChunkReadbackBuffer();
 			decodedVoxels = new NativeArray<EnvScanner.Voxel>(readbackBuffer.data.Length, Allocator.Persistent);
-			compressedData = new NativeList<sbyte>(Allocator.Persistent);
+			compressedData = new NativeList<byte>(Allocator.Persistent);
 
 			TestLoop();
 		}
@@ -65,7 +65,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Encoding
 					if (readbackBuffer.data[i].value != decodedVoxels[i].value)
 						mismatchCount++;
 
-				uncompressedSize = readbackBuffer.data.Length;
+				uncompressedSize = readbackBuffer.data.Length * EnvScanner.Voxel.stride;
 				compressedSize = compressedData.Length;
 				mismatches = mismatchCount;
 				float ratio = compressedSize / (float)uncompressedSize;

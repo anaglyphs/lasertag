@@ -197,8 +197,8 @@ namespace Anaglyph.LaserTag.Interface
 
 			showDebugMeshForEveryone = Require<Button>(root, "show-debug-mesh-for-everyone");
 			hideDebugMeshForEveryone = Require<Button>(root, "hide-debug-mesh-for-everyone");
-			bindings.Click(showDebugMeshForEveryone, () => EnvMeshSync.Instance?.SetEnvMeshVisibleEveryone(true));
-			bindings.Click(hideDebugMeshForEveryone, () => EnvMeshSync.Instance?.SetEnvMeshVisibleEveryone(false));
+			bindings.Click(showDebugMeshForEveryone, () => EnvSync.Instance?.SetEnvMeshVisibleEveryone(true));
+			bindings.Click(hideDebugMeshForEveryone, () => EnvSync.Instance?.SetEnvMeshVisibleEveryone(false));
 			RefreshDemoControls();
 		}
 

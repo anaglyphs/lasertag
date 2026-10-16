@@ -158,7 +158,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		}
 
 		public void InvalidateLocalFrame() => localFrameGeneration++;
-		private void OnApplicationFocus(bool focused) { if (!focused) InvalidateLocalFrame(); }
+		private void OnApplicationFocus(bool focused) { if (AppFocus.IsLoss(focused)) InvalidateLocalFrame(); }
 		private void OnApplicationPause(bool paused) { if (paused) InvalidateLocalFrame(); }
 
 		public void InvalidateReferenceContext()

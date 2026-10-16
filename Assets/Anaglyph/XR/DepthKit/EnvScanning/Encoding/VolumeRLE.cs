@@ -6,9 +6,14 @@ using UnityEngine;
 
 namespace Anaglyph.XR.DepthKit.EnvScanning.Encoding
 {
+	/// <summary>
+	/// Run-length coding of a chunk's voxels for whole-chunk transfer (snapshots).
+	/// Never-integrated voxels (count 0) are the runs; everything else travels as
+	/// raw (value, count) pairs so the receiver can fuse by weight.
+	/// </summary>
 	public static class VolumeRLE
 	{
-		public static async Task EncodeChunk(NativeArray<EnvScanner.Voxel> volume, NativeList<sbyte> compressedData)
+		public static async Task EncodeChunk(NativeArray<EnvScanner.Voxel> volume, NativeList<byte> compressedData)
 		{
 			compressedData.Clear();
 
@@ -23,7 +28,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Encoding
 			jobHandle.Complete();
 		}
 
-		public static async Task<bool> DecodeChunk(NativeArray<sbyte> encoding, NativeArray<EnvScanner.Voxel> volume)
+		public static async Task<bool> DecodeChunk(NativeArray<byte> encoding, NativeArray<EnvScanner.Voxel> volume)
 		{
 			NativeReference<bool> successResult = new(false, Allocator.TempJob);
 
@@ -48,14 +53,31 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Encoding
 			}
 		}
 
+		/// <summary>Synchronous decode for callers already off the main thread or in a job.</summary>
+		public static bool DecodeChunkNow(NativeArray<byte> encoding, NativeArray<EnvScanner.Voxel> volume)
+		{
+			NativeReference<bool> successResult = new(false, Allocator.TempJob);
+
+			try
+			{
+				new DecodeJob { Encoding = encoding, Volume = volume, Success = successResult }.Run();
+				return successResult.Value;
+			}
+			finally
+			{
+				successResult.Dispose();
+			}
+		}
+
+		// control byte: 0x80 | n  = run of n+1 empty voxels (n in 0..127)
+		//               n         = next n+1 voxels are raw (value, count) pairs
+		private const int MaxRun = 128;
+
 		[BurstCompile]
 		private struct CompressJob : IJob
 		{
 			[ReadOnly] public NativeArray<EnvScanner.Voxel> Volume;
-			public NativeList<sbyte> Encoding;
-
-			// negative value = run of empty voxels
-			// positive value = next n bytes are raw voxel data
+			public NativeList<byte> Encoding;
 
 			public void Execute()
 			{
@@ -67,21 +89,21 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Encoding
 
 				while (readHead < Volume.Length)
 				{
-					sbyte val = Volume[readHead].value;
+					EnvScanner.Voxel voxel = Volume[readHead];
 
-					if (val == sbyte.MaxValue)
+					if (voxel.IsEmpty)
 					{
 						if (numRaw > 0)
 						{
-							Encoding[rawRunStartIndex] = (sbyte)(numRaw - 1);
+							Encoding[rawRunStartIndex] = (byte)(numRaw - 1);
 							numRaw = 0;
 						}
 
 						numEmpty++;
 
-						if (numEmpty == 128)
+						if (numEmpty == MaxRun)
 						{
-							Encoding.Add((sbyte)-numEmpty);
+							Encoding.Add((byte)(0x80 | (numEmpty - 1)));
 							numEmpty = 0;
 						}
 					}
@@ -89,7 +111,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Encoding
 					{
 						if (numEmpty > 0)
 						{
-							Encoding.Add((sbyte)-numEmpty);
+							Encoding.Add((byte)(0x80 | (numEmpty - 1)));
 							numEmpty = 0;
 						}
 
@@ -101,11 +123,12 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Encoding
 
 						numRaw++;
 
-						Encoding.Add(val);
+						Encoding.Add((byte)voxel.value);
+						Encoding.Add(voxel.count);
 
-						if (numRaw == 128)
+						if (numRaw == MaxRun)
 						{
-							Encoding[rawRunStartIndex] = (sbyte)(numRaw - 1);
+							Encoding[rawRunStartIndex] = (byte)(numRaw - 1);
 							numRaw = 0;
 						}
 					}
@@ -114,8 +137,8 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Encoding
 				}
 
 				if (numEmpty > 0)
-					Encoding.Add((sbyte)-numEmpty);
-				else if (numRaw > 0) Encoding[rawRunStartIndex] = (sbyte)(numRaw - 1);
+					Encoding.Add((byte)(0x80 | (numEmpty - 1)));
+				else if (numRaw > 0) Encoding[rawRunStartIndex] = (byte)(numRaw - 1);
 			}
 		}
 
@@ -123,7 +146,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Encoding
 		private struct DecodeJob : IJob
 		{
 			public NativeArray<EnvScanner.Voxel> Volume;
-			[ReadOnly] public NativeArray<sbyte> Encoding;
+			[ReadOnly] public NativeArray<byte> Encoding;
 			public NativeReference<bool> Success;
 
 			public void Execute()
@@ -135,38 +158,37 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Encoding
 
 				while (readHead < Encoding.Length)
 				{
-					sbyte control = Encoding[readHead];
+					byte control = Encoding[readHead];
 
-					if (control < 0)
+					if ((control & 0x80) != 0)
 					{
 						// run of empty values
-						int count = -control; // 1..128
+						int count = (control & 0x7F) + 1;
 						if (writeHead + count > Volume.Length) return;
-						for (int i = 0; i < -control; i++)
+						for (int i = 0; i < count; i++)
 						{
-							Volume[writeHead] = new EnvScanner.Voxel(sbyte.MaxValue);
+							Volume[writeHead] = new EnvScanner.Voxel(sbyte.MaxValue, 0);
 							writeHead++;
 						}
+
+						readHead++;
 					}
 					else
 					{
 						// run of raw values
-
 						int count = control + 1;
-						if (readHead + count > Encoding.Length) return;
+						if (readHead + 1 + count * 2 > Encoding.Length) return;
 						if (writeHead + count > Volume.Length) return;
 
-						for (int i = 0; i < control + 1; i++)
+						readHead++;
+						for (int i = 0; i < count; i++)
 						{
-							readHead++;
-							sbyte rawVal = Encoding[readHead];
-
-							Volume[writeHead] = new EnvScanner.Voxel(rawVal);
+							sbyte value = (sbyte)Encoding[readHead++];
+							byte integCount = Encoding[readHead++];
+							Volume[writeHead] = new EnvScanner.Voxel(value, integCount);
 							writeHead++;
 						}
 					}
-
-					readHead++;
 				}
 
 				Success.Value = writeHead == Volume.Length;

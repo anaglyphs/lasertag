@@ -177,6 +177,13 @@ namespace Anaglyph.Netcode.SyncVariables
 			if (Active) Current.RaiseDirectRpc(id, data);
 		}
 
+		// Any peer → one peer: a direct event addressed to a single client (e.g. a
+		// snapshot for a joiner), relayed like any other RPC. Does not invoke locally.
+		internal static void SendDirectTo(uint id, ulong target, byte[] data)
+		{
+			if (Active) Current.RaiseDirectToRpc(id, data, Current.RpcTarget.Single(target, RpcTargetUse.Temp));
+		}
+
 		// ---- RPCs --------------------------------------------------------------
 
 		[Rpc(SendTo.NotMe, InvokePermission = RpcInvokePermission.Owner)]
@@ -203,6 +210,13 @@ namespace Anaglyph.Netcode.SyncVariables
 
 		[Rpc(SendTo.Everyone)]
 		private void RaiseDirectRpc(uint id, byte[] data, RpcParams rpc = default)
+		{
+			if (endpoints.TryGetValue(id, out SyncEndpoint endpoint))
+				endpoint.ApplyDirect(rpc.Receive.SenderClientId, data);
+		}
+
+		[Rpc(SendTo.SpecifiedInParams)]
+		private void RaiseDirectToRpc(uint id, byte[] data, RpcParams rpc = default)
 		{
 			if (endpoints.TryGetValue(id, out SyncEndpoint endpoint))
 				endpoint.ApplyDirect(rpc.Receive.SenderClientId, data);

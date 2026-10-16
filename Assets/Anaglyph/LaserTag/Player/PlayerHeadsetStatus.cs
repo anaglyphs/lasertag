@@ -62,7 +62,7 @@ namespace Anaglyph.LaserTag.Player
 
 		public override void OnNetworkSpawn()
 		{
-			focused = Application.isFocused;
+			focused = AppFocus.IsFocused;
 			OnMapChanged(LaserTagMapCoordinator.Instance?.CurrentMap);
 			LaserTagMapCoordinator.CurrentMapChanged += OnMapChanged;
 			Publish();
@@ -76,7 +76,8 @@ namespace Anaglyph.LaserTag.Player
 
 		private void OnMapChanged(GameMap map) => Guid.TryParse(map?.id, out currentMapId);
 		private void Update() => Publish();
-		private void OnApplicationFocus(bool value) { focused = value; Publish(); }
+
+		private void OnApplicationFocus(bool value) { focused = AppFocus.Resolve(value); Publish(); }
 		private void OnApplicationPause(bool value) { paused = value; Publish(); }
 
 		// Use the same tracking signal for local authoring and the operator's remote selection.

@@ -48,7 +48,7 @@ static const float depthTexCropMax = 0.9;
 
 RWStructuredBuffer<int> reservedChunkCounter; // single element buffer functioning as counter
 RWStructuredBuffer<int> chunkTable; // in concept a dense 3D grid spanning the desired max playspace
-RWStructuredBuffer<uint> chunkChangeSums; // absolute change odometer per chunk 
+RWStructuredBuffer<uint> chunkChangeSums; // absolute change odometer per chunk
 
 uint3 chunkTableDims; // num chunk entries per axis in table
 uint chunkTableLength; // num chunk entries total
@@ -65,32 +65,186 @@ AppendStructuredBuffer<int> visibleChunksAppend;
 RWStructuredBuffer<int> visibleChunks; // indexing the TABLE, not DATA
 int maxNumVisibleChunks;
 
-// depth samples landing on player bodies are rejected so players
-// don't get integrated into the environment scan.
-// players are approximated as cylinders encompassing their head
-// and extending down to the floor
-#define MAX_PLAYER_HEADS 64
-float4 playerHeads[MAX_PLAYER_HEADS]; // xyz: head world position
-int numPlayerHeads;
-float playerMaskRadius;
-float playerMaskAbove; // mask extent above head
-float playerMaskBelow; // mask extent below head
+// distance from the depth eye to the nearest invisible mask surface, per depth texel.
+// rendered by EnvScanner from the depth sensor's viewpoint (eye 0). anything
+// further than the mask (e.g. player bodies inside avatar capsules) is not integrated
+Texture2D<float> envMaskTex;
 
-bool isOnPlayer(const float3 worldPos)
+bool isMasked(const float2 uv, const float distFromEye)
 {
-	[loop] for (int p = 0; p < numPlayerHeads; p++)
-	{
-		const float3 headPos = playerHeads[p].xyz;
-		const float2 diff = worldPos.xz - headPos.xz;
+	return distFromEye > envMaskTex.SampleLevel(agPointClampSampler, uv, 0);
+}
 
-		if (dot(diff, diff) < playerMaskRadius * playerMaskRadius &&
-			worldPos.y < headPos.y + playerMaskAbove &&
-			worldPos.y > headPos.y - playerMaskBelow)
-			return true;
+// ---- depth frames -----------------------------------------------------------
+//
+// A frame is one eye of the depth sensor, downsampled, filtered and quantized on
+// the headset that captured it, for other headsets to integrate. The capturing
+// headset itself integrates its full-resolution sensor (IntegrateSensor); the
+// frame is only what crosses the wire. Frames are self-describing: the pose and
+// the projection (as view-angle tangents, like XrFovf) travel with the pixels, so
+// no receiver assumes the sender's optics match its own.
+
+uint2 frameSize;
+float4 frameTan; // tan of the left, right, bottom, top view angles (left/bottom negative)
+float2 frameZRange; // linear depth spanned by the log code: x = nearest, y = farthest
+uint frameWeight; // sensor frames this frame stands for (see DepthFrameHeader.weight)
+float4x4 frameView; // world -> camera, GL convention (camera looks down -Z)
+float4x4 frameViewInv;
+
+uint frameCodeBits; // 8 or 12; codes over 8 bits sit in 16-bit halves
+RWStructuredBuffer<uint> framePacked; // depth codes, row-major, 0 = invalid: 4 per uint at 8 bits, 2 per uint otherwise
+RWTexture2D<float> frameDepth; // decoded linear depth, 0 = invalid
+RWTexture2D<float4> frameNormal; // world-space surface normal, w = 1 if valid
+RWStructuredBuffer<uint> frameChange; // [0]: summed quantized change the last integrated frame caused
+
+// code 1..255 spans frameZRange logarithmically: constant relative precision,
+// which matches how depth sensor error grows with distance
+// highest code; codes 1..max span the range, 0 is invalid
+uint frameMaxCode()
+{
+	return (1u << frameCodeBits) - 1;
+}
+
+// codes 1..max span frameZRange LINEARLY. the volume stores a fixed distance per
+// level inside its truncation band whatever the range, so a constant depth step is
+// what it can use; a log mapping would spend bits up close and band far away
+uint encodeFrameDepth(const float z)
+{
+	// written so NaN fails the test and becomes invalid
+	if (!(z >= frameZRange.x && z <= frameZRange.y)) return 0;
+	const float t = (z - frameZRange.x) / (frameZRange.y - frameZRange.x);
+	return 1 + (uint)round(saturate(t) * (float)(frameMaxCode() - 1));
+}
+
+float decodeFrameDepth(const uint code)
+{
+	const float t = (code - 1) / (float)(frameMaxCode() - 1);
+	const float z = frameZRange.x + t * (frameZRange.y - frameZRange.x);
+	return code == 0 ? 0 : z;
+}
+
+uint readFrameCode(const uint2 px)
+{
+	const uint i = px.y * frameSize.x + px.x;
+	if (frameCodeBits <= 8) return (framePacked[i >> 2] >> ((i & 3) * 8)) & 0xFF;
+	return (framePacked[i >> 1] >> ((i & 1) * 16)) & 0xFFFF;
+}
+
+// 16-bit containers have spare bits above a 12-bit code. The top one marks a MASK
+// pixel: the sensor saw a player there, and the depth is the mask surface rather
+// than the world. Receivers carve free space in front of it and write no surface,
+// as the sensor path does for masks. 8-bit frames have no spare bit; masked
+// pixels there are simply invalid. In frameDepth a mask pixel is stored negative
+#define FRAME_CODE_MASK_BIT 0x8000
+#define FRAME_CODE_VALUE_MASK 0x7FFF
+
+bool frameCodeIsMask(const uint code)
+{
+	return frameCodeBits > 8 && (code & FRAME_CODE_MASK_BIT) != 0;
+}
+
+// a frame pixel's decoded depth: negative for mask pixels, 0 for invalid
+float decodeFramePixel(const uint code)
+{
+	const float z = decodeFrameDepth(code & FRAME_CODE_VALUE_MASK);
+	return frameCodeIsMask(code) ? -z : z;
+}
+
+float3 frameEyePos()
+{
+	return frameViewInv._m03_m13_m23;
+}
+
+float3 framePixelToCam(const uint2 px, const float z)
+{
+	const float2 uv = ((float2)px + 0.5) / (float2)frameSize;
+	const float2 t = lerp(frameTan.xz, frameTan.yw, uv);
+	return float3(t * z, -z);
+}
+
+float3 framePixelToWorld(const uint2 px, const float z)
+{
+	return mul(frameViewInv, float4(framePixelToCam(px, z), 1)).xyz;
+}
+
+// the point at depth z along the ray through an arbitrary frame uv
+float3 frameUVToWorld(const float2 uv, const float z)
+{
+	const float2 t = lerp(frameTan.xz, frameTan.yw, uv);
+	return mul(frameViewInv, float4(t * z, -z, 1)).xyz;
+}
+
+// depth and normal at a frame uv, bilinearly blended from the four surrounding
+// pixels. a frame pixel is about the size of a voxel, so point sampling terraces
+// slanted surfaces: neighboring voxels read the same depth. taps that are invalid
+// or lie across a depth jump from the nearest pixel are left out, so edges stay
+// sharp. false when no usable tap
+// isMask: the nearest pixel is a mask pixel; z is then the mask surface depth and
+// normal faces the eye, and no blending is done
+bool sampleFrame(const float2 uv, out float z, out float3 normal, out bool isMask)
+{
+	z = 0;
+	normal = 0;
+	isMask = false;
+
+	const uint2 nearest = min((uint2)(uv * frameSize), frameSize - 1);
+	const float zNearest = frameDepth[nearest];
+	if (zNearest == 0) return false;
+
+	if (zNearest < 0)
+	{
+		isMask = true;
+		z = -zNearest;
+		normal = normalize(frameEyePos() - frameUVToWorld(uv, z));
+		return true;
 	}
 
-	return false;
+	const float2 pxf = uv * (float2)frameSize - 0.5;
+	const int2 p0 = (int2)floor(pxf);
+	const float2 f = pxf - (float2)p0;
+
+	float wSum = 0;
+	float zSum = 0;
+	float3 nSum = 0;
+
+	[unroll] for (int dy = 0; dy < 2; dy++)
+	[unroll] for (int dx = 0; dx < 2; dx++)
+	{
+		const int2 p = p0 + int2(dx, dy);
+		if (any(p < 0) || any(p >= (int2)frameSize)) continue;
+
+		const float zp = frameDepth[(uint2)p];
+		if (zp <= 0 || abs(zp - zNearest) > zNearest * 0.05) continue;
+
+		const float4 np = frameNormal[(uint2)p];
+		if (np.w == 0) continue;
+
+		const float w = (dx ? f.x : 1 - f.x) * (dy ? f.y : 1 - f.y);
+		zSum += w * zp;
+		nSum += w * np.xyz;
+		wSum += w;
+	}
+
+	if (wSum <= 0) return false;
+
+	z = zSum / wSum;
+	const float nLen = length(nSum);
+	if (!(nLen > 0)) return false;
+	normal = nSum / nLen;
+	return true;
 }
+
+// false when the point is behind the camera. uv is in [0,1] when inside the frame
+bool frameWorldToUV(const float3 world, out float2 uv, out float z)
+{
+	const float3 cam = mul(frameView, float4(world, 1)).xyz;
+	z = -cam.z;
+	const float2 t = cam.xy / max(z, 1e-6);
+	uv = (t - frameTan.xz) / (frameTan.yw - frameTan.xz);
+	return z > 0;
+}
+
+// ---- chunk addressing -------------------------------------------------------
 
 int3 worldPosToChunkCoord(const float3 world)
 {
@@ -170,13 +324,19 @@ float U8toSNorm8(uint u)
 	return max(float(i) / 127.0, -1.0);
 }
 
-uint PackR8SNorm4toUInt(float4 R8_SNorm4)
+// the TSDF value as the signed byte the CPU Voxel struct holds, in a uint's low byte
+uint SNorm8toSByteBits(float f)
 {
-	const int4 quantized = (int4)round(clamp(R8_SNorm4, -1.0, 1.0) * 127.0); // [-127, 127]
+	const int quantized = (int)round(clamp(f, -1.0, 1.0) * 127.0); // [-127, 127]
 	// for a negative value like q = -1 (0xFFFFFFFF), masking the low byte gives 0xFF
 	// which is what CPU expects
-	const uint4 b = (uint4)(quantized & 0xFF);
-	return b.x | b.y << 8 | b.z << 16 | b.w << 24;
+	return (uint)(quantized & 0xFF);
+}
+
+float SByteBitsToSNorm8(uint bits)
+{
+	const int i = (int)(bits << 24) >> 24; // sign-extend the low byte
+	return max(float(i) / 127.0, -1.0);
 }
 
 #pragma kernel Clear
@@ -187,30 +347,150 @@ void Clear(uint3 id : SV_DispatchThreadID)
 	chunkData[id].xy = float2(1.0, U8toSNorm8(0));
 }
 
-// reserves chunk data and marks chunks as visible for integration
+// ---- frame capture ----------------------------------------------------------
+//
+// builds a frame from the live depth sensor (eye 0). every integration filter
+// that only depends on the sensor view — range, crop, surface angle, player mask —
+// is applied here so the frame carries only samples worth integrating and
+// receivers need none of the sender's inputs. masked samples become invalid
+// rather than carving in front of the mask; the space a player stood in is
+// carved once they move out of it.
 
-#pragma kernel Mark
+#pragma kernel CaptureFrame
 
-// input depth tex
-// thread per depth tex pix
+// thread per FOUR horizontally adjacent frame pixels (one packed uint at 8 bits, two otherwise)
 [numthreads(8, 8, 1)]
-void Mark(uint3 id : SV_DispatchThreadID)
+void CaptureFrame(uint3 id : SV_DispatchThreadID)
 {
-	if (any(id.xy >= agDepthTexSize)) return;
+	const uint2 px0 = uint2(id.x * 4, id.y);
+	if (px0.x >= frameSize.x || px0.y >= frameSize.y) return;
 
-	const float3 depthPos = agDepthSampleIdxToWorld(id.xy);
+	const float3 eye = agDepthEyePos();
+	uint codes[4] = { 0, 0, 0, 0 };
 
-	// ignore surfaces outside of integration range. todo: use square dist
-	const float3 depthEyePos = agDepthEyePos();
-	const float dist = distance(depthPos, depthEyePos);
-	const bool inRange = dist >= minDist && dist <= maxDist; // to guard against NaN
-	if (!inRange) return;
+	[unroll] for (uint i = 0; i < 4; i++)
+	{
+		const uint2 px = px0 + uint2(i, 0);
+		const float2 uv = ((float2)px + 0.5) / (float2)frameSize;
 
-	// player depth samples must not mark chunks visible —
-	// especially not RESERVE them, since reservations are permanent
-	if (isOnPlayer(depthPos)) return;
+		if (any(uv < depthTexCropMin) || any(uv > depthTexCropMax)) continue;
 
-	const int chunkIdx = worldPosToChunkIndex(depthPos);
+		const float depthNDC = agDepthSample(uv);
+		const float3 pos = agDepthNDCtoWorld(float3(uv, depthNDC));
+		const float3 eyeToPos = pos - eye;
+		const float dist = length(eyeToPos);
+
+		if (!(dist >= minDist && dist <= maxDist)) continue;
+
+		const float z = agDepthNDCToLinear(depthNDC);
+
+		if (isMasked(uv, dist))
+		{
+			// the mask surface, converted from eye distance to perpendicular depth along
+			// this pixel's ray, flagged so receivers only carve in front of it
+			if (frameCodeBits <= 8) continue;
+			const float maskDist = envMaskTex.SampleLevel(agPointClampSampler, uv, 0);
+			const uint maskCode = encodeFrameDepth(maskDist * z / dist);
+			codes[i] = maskCode == 0 ? 0 : (maskCode | FRAME_CODE_MASK_BIT);
+			continue;
+		}
+
+		const float3 norm = agDepthNormalSample(uv).xyz;
+		const float normDot = -dot(eyeToPos, norm) / dist;
+		if (normDot < minDot) continue;
+
+		codes[i] = encodeFrameDepth(z);
+	}
+
+	const uint i0 = px0.y * frameSize.x + px0.x;
+	if (frameCodeBits <= 8)
+	{
+		framePacked[i0 >> 2] = codes[0] | codes[1] << 8 | codes[2] << 16 | codes[3] << 24;
+	}
+	else
+	{
+		framePacked[i0 >> 1] = codes[0] | codes[1] << 16;
+		framePacked[(i0 >> 1) + 1] = codes[2] | codes[3] << 16;
+	}
+}
+
+// ---- frame decode -----------------------------------------------------------
+//
+// runs identically on the sender and every receiver from the same packed bytes
+
+#pragma kernel DecodeFrame
+
+[numthreads(8, 8, 1)]
+void DecodeFrame(uint3 id : SV_DispatchThreadID)
+{
+	if (any(id.xy >= frameSize)) return;
+	frameDepth[id.xy] = decodeFramePixel(readFrameCode(id.xy));
+}
+
+#pragma kernel FrameNormals
+
+float3 frameWorldAt(const uint2 px, out bool valid)
+{
+	const float z = frameDepth[px];
+	valid = z > 0;
+	return framePixelToWorld(px, z);
+}
+
+// world-space normals from the decoded frame by central differences, oriented
+// toward the eye. one-sided where a neighbor is invalid; invalid without two
+// usable axes
+[numthreads(8, 8, 1)]
+void FrameNormals(uint3 id : SV_DispatchThreadID)
+{
+	if (any(id.xy >= frameSize)) return;
+
+	bool valid;
+	const float3 p = frameWorldAt(id.xy, valid);
+	if (!valid) { frameNormal[id.xy] = 0; return; }
+
+	bool vL, vR, vD, vU;
+	const float3 pL = frameWorldAt(uint2(max((int)id.x - 1, 0), id.y), vL);
+	const float3 pR = frameWorldAt(uint2(min(id.x + 1, frameSize.x - 1), id.y), vR);
+	const float3 pD = frameWorldAt(uint2(id.x, max((int)id.y - 1, 0)), vD);
+	const float3 pU = frameWorldAt(uint2(id.x, min(id.y + 1, frameSize.y - 1)), vU);
+
+	// a neighbor across a depth discontinuity is as bad as an invalid one
+	// a mask neighbor (negative) is no surface either; abs() keeps the jump test sane
+	const float jump = abs(frameDepth[id.xy]) * 0.1;
+	vL = vL && abs(frameDepth[uint2(max((int)id.x - 1, 0), id.y)] - frameDepth[id.xy]) < jump;
+	vR = vR && abs(frameDepth[uint2(min(id.x + 1, frameSize.x - 1), id.y)] - frameDepth[id.xy]) < jump;
+	vD = vD && abs(frameDepth[uint2(id.x, max((int)id.y - 1, 0))] - frameDepth[id.xy]) < jump;
+	vU = vU && abs(frameDepth[uint2(id.x, min(id.y + 1, frameSize.y - 1))] - frameDepth[id.xy]) < jump;
+
+	float3 dx = 0, dy = 0;
+	if (vL && vR) dx = pR - pL;
+	else if (vR) dx = pR - p;
+	else if (vL) dx = p - pL;
+	else { frameNormal[id.xy] = 0; return; }
+
+	if (vD && vU) dy = pU - pD;
+	else if (vU) dy = pU - p;
+	else if (vD) dy = p - pD;
+	else { frameNormal[id.xy] = 0; return; }
+
+	float3 n = cross(dx, dy);
+	const float len = length(n);
+	if (!(len > 0)) { frameNormal[id.xy] = 0; return; }
+	n /= len;
+
+	if (dot(n, frameEyePos() - p) < 0) n = -n;
+
+	frameNormal[id.xy] = float4(n, 1);
+}
+
+// ---- mark -------------------------------------------------------------------
+// reserves chunk data and marks chunks as visible for integration.
+// MarkSensor walks the live depth texture (full resolution); Mark walks a decoded
+// frame. both feed the same visible-chunk list the integrate kernels consume
+
+void markWorldPos(const float3 pos)
+{
+	const int chunkIdx = worldPosToChunkIndex(pos);
 	if (chunkIdx & INVALID_BIT) return;
 
 	// try claim visibility
@@ -234,28 +514,67 @@ void Mark(uint3 id : SV_DispatchThreadID)
 	}
 }
 
+#pragma kernel MarkSensor
+
+// thread per depth tex pixel
+[numthreads(8, 8, 1)]
+void MarkSensor(uint3 id : SV_DispatchThreadID)
+{
+	if (any(id.xy >= agDepthTexSize)) return;
+
+	const float3 depthPos = agDepthSampleIdxToWorld(id.xy);
+
+	// ignore surfaces outside of integration range. todo: use square dist
+	const float3 depthEyePos = agDepthEyePos();
+	const float dist = distance(depthPos, depthEyePos);
+	const bool inRange = dist >= minDist && dist <= maxDist; // to guard against NaN
+	if (!inRange) return;
+
+	// masked depth samples must not mark chunks visible —
+	// especially not RESERVE them, since reservations are permanent
+	if (isMasked(agIdxToUV(id.xy), dist)) return;
+
+	markWorldPos(depthPos);
+}
+
+#pragma kernel Mark
+
+// thread per frame pixel
+[numthreads(8, 8, 1)]
+void Mark(uint3 id : SV_DispatchThreadID)
+{
+	if (any(id.xy >= frameSize)) return;
+
+	// the sender already dropped out-of-range, masked and grazing samples
+	const float z = frameDepth[id.xy];
+	if (z == 0) return;
+
+	// a mask pixel (negative) still marks the chunk its surface falls in, so free space
+	// in front of the player gets carved where the sensor path would carve it
+	markWorldPos(framePixelToWorld(id.xy, abs(z)));
+}
+
+// ---- integrate --------------------------------------------------------------
+//
 // if each chunk is 32cubed voxels, and the integrate kernel group size is 8cubed,
 // it takes (32cubed/8cubed) = 64 (4cubed) groups per chunk.
 // so for the integration indirect dispatch dimension arg buffer
 // X = visibleChunks count
 // Y = 64 (4 cubed) = num groups needed per chunk integration
-// Z = 1 
-
-// input depth tex
-// thread per pixel * num voxels within truncation band`
-
-// TODO: smarter integration with edge & sample count filtering
-
-#pragma kernel Integrate
+// Z = 1
+//
+// IntegrateSensor fuses the live depth texture at full resolution and precision;
+// Integrate fuses a decoded frame (what peers receive). both share the voxel
+// addressing and the TSDF update below
 
 static const uint integrateGroupDim = 8;
 
-[numthreads(integrateGroupDim, integrateGroupDim, integrateGroupDim)]
-void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
+// which voxel this thread owns. false when the chunk has no data
+bool resolveVoxel(const uint3 threadID, const uint3 groupID, out int chunkIdx, out uint3 voxDataCoord, out float3 voxCenterPos)
 {
-	if (groupID.x >= maxNumVisibleChunks) return;
-
-	const int chunkIdx = visibleChunks[groupID.x];
+	chunkIdx = visibleChunks[groupID.x];
+	voxDataCoord = 0;
+	voxCenterPos = 0;
 
 	// filtering one thread per chunk
 	if (groupID.y == 0 && all(threadID == 0))
@@ -265,8 +584,7 @@ void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 	}
 
 	const int dataIdx = readChunkDataIndex(chunkIdx);
-
-	if (dataIdx & INVALID_BIT) return; //invalid test
+	if (dataIdx & INVALID_BIT) return false; //invalid test
 
 	// get data coordinate for this thread
 	const uint3 dataStartCoord = dataIndexToDataStartCoord(dataIdx);
@@ -281,31 +599,22 @@ void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 	const uint3 threadLocalOffset = threadID; // local to GROUP, not chunk
 	const uint3 threadChunkOffset = groupLocalOffset + threadLocalOffset; // local to CHUNK
 
-	// get data coord
-	const uint3 voxDataCoord = dataStartCoord + groupLocalOffset + threadLocalOffset;
-
-	// get world position for this thread (for depth tex sampling)
+	voxDataCoord = dataStartCoord + groupLocalOffset + threadLocalOffset;
 
 	const int3 chunkCoord = chunkIndexToChunkCoord(chunkIdx);
 	const float3 chunkCornerWorldPos = chunkCoordToCornerWorldPos(chunkCoord);
 	const float3 voxCornerLocalPos = threadChunkOffset * voxSize;
-	const float3 voxCenterPos = chunkCornerWorldPos + voxCornerLocalPos + voxSize / 2;
+	voxCenterPos = chunkCornerWorldPos + voxCornerLocalPos + voxSize / 2;
+	return true;
+}
 
-	const float4 voxHCS = agDepthWorldToHCS(voxCenterPos);
-
-	// ignore any voxel BEHIND the depth eye
-	if (voxHCS.w < 0) return;
-
-	const float3 voxNDC = agDepthHCStoNDC(voxHCS);
-
-	// ignore any UV coord outside the cropped depth tex region
-	if (any(voxNDC.xy < depthTexCropMin) || any(voxNDC.xy > depthTexCropMax)) return;
-
-	const float depthNDC = agDepthSample(voxNDC.xy);
-	const float3 depthNorm = agDepthNormalSample(voxNDC.xy).xyz;
-	const float3 depthPos = agDepthNDCtoWorld(float3(voxNDC.xy, depthNDC));
-
-	const float3 eyePos = agDepthEyePos();
+// fuses one depth sample into one voxel: range and grazing-angle filters, the
+// truncated signed distance, then the count-weighted running average
+// carveOnly: the sample is a mask surface, not the world. only voxels at least a
+// truncation band in front of it are written, as free space; nothing nearer than that
+void integrateVoxel(const int chunkIdx, const uint3 voxDataCoord, const float3 voxCenterPos,
+	const float3 eyePos, const float3 depthPos, const float3 depthNorm, const uint weight, const bool carveOnly)
+{
 	const float3 eyeToVox = voxCenterPos - eyePos;
 	const float voxEyeDist = length(eyeToVox);
 
@@ -333,10 +642,8 @@ void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 	const bool isBehindTruncationBand = sDistNorm < -1.0;
 	if (isBehindTruncationBand) return;
 
-	// reject MEASUREMENTS of players (not voxels near them!)
-	// walls seen past a player still update voxels inside the mask,
-	// and free space in front of players still carves naturally
-	if (isOnPlayer(depthPos)) return;
+	// a player's silhouette is not a wall: write only the free space in front of it
+	if (carveOnly && sDistNorm < 1.0) return;
 
 	const float2 prevDataVal = chunkData[voxDataCoord].xy;
 
@@ -344,11 +651,13 @@ void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 	const float prevDistVal = prevDataVal.r;
 	const uint prevIntegCount = SNorm8toU8(prevDataVal.g);
 
-	const float newDistWeight = 1.0 / (prevIntegCount + 1);
+	// a frame standing for several sensor frames pulls as far as integrating that many
+	// near-identical frames one after another would have
+	const float newDistWeight = weight / (float)(prevIntegCount + weight);
 	const float oldDistWeight = 1.0 - newDistWeight;
 
 	const float newDistVal = sDistNorm * newDistWeight + prevDistVal * oldDistWeight;
-	const uint newIntegCount = min(prevIntegCount + 1, maxIntegCountSettle);
+	const uint newIntegCount = min(prevIntegCount + weight, maxIntegCountSettle);
 	const float2 newDataVal = float2(newDistVal, U8toSNorm8(newIntegCount));
 
 	chunkData[voxDataCoord] = newDataVal;
@@ -356,6 +665,73 @@ void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 	const uint quantizedChange = abs(round(newDistVal * 127) - round(prevDistVal * 127));
 
 	InterlockedAdd(chunkChangeSums[chunkIdx], quantizedChange);
+	// per-frame change: what THIS frame did to the volume, which is what decides
+	// whether peers need it. the odometer above only knows change since the last mesh
+	if (quantizedChange > 0) InterlockedAdd(frameChange[0], quantizedChange);
+}
+
+#pragma kernel IntegrateSensor
+
+[numthreads(integrateGroupDim, integrateGroupDim, integrateGroupDim)]
+void IntegrateSensor(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
+{
+	if (groupID.x >= maxNumVisibleChunks) return;
+
+	int chunkIdx;
+	uint3 voxDataCoord;
+	float3 voxCenterPos;
+	if (!resolveVoxel(threadID, groupID, chunkIdx, voxDataCoord, voxCenterPos)) return;
+
+	const float4 voxHCS = agDepthWorldToHCS(voxCenterPos);
+
+	// ignore any voxel BEHIND the depth eye
+	if (voxHCS.w < 0) return;
+
+	const float3 voxNDC = agDepthHCStoNDC(voxHCS);
+
+	// ignore any UV coord outside the cropped depth tex region
+	if (any(voxNDC.xy < depthTexCropMin) || any(voxNDC.xy > depthTexCropMax)) return;
+
+	const float depthNDC = agDepthSample(voxNDC.xy);
+	const float3 depthNorm = agDepthNormalSample(voxNDC.xy).xyz;
+	const float3 depthPos = agDepthNDCtoWorld(float3(voxNDC.xy, depthNDC));
+	const float3 eyePos = agDepthEyePos();
+
+	// voxels behind a mask surface aren't integrated.
+	// free space in front of masks (and the players inside them) still carves
+	if (isMasked(voxNDC.xy, distance(voxCenterPos, eyePos))) return;
+
+	integrateVoxel(chunkIdx, voxDataCoord, voxCenterPos, eyePos, depthPos, depthNorm, 1, false);
+}
+
+#pragma kernel Integrate
+
+[numthreads(integrateGroupDim, integrateGroupDim, integrateGroupDim)]
+void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
+{
+	if (groupID.x >= maxNumVisibleChunks) return;
+
+	int chunkIdx;
+	uint3 voxDataCoord;
+	float3 voxCenterPos;
+	if (!resolveVoxel(threadID, groupID, chunkIdx, voxDataCoord, voxCenterPos)) return;
+
+	float2 uv;
+	float voxZ;
+	// ignore any voxel BEHIND the frame's eye
+	if (!frameWorldToUV(voxCenterPos, uv, voxZ)) return;
+	if (any(uv < 0) || any(uv >= 1)) return;
+
+	float depthZ;
+	float3 depthNorm;
+	bool isMask;
+	if (!sampleFrame(uv, depthZ, depthNorm, isMask)) return;
+
+	// the surface point along THIS voxel's ray, as the sensor path does, not the
+	// center of whichever pixel the voxel happened to land in
+	const float3 depthPos = frameUVToWorld(uv, depthZ);
+
+	integrateVoxel(chunkIdx, voxDataCoord, voxCenterPos, frameEyePos(), depthPos, depthNorm, max(frameWeight, 1), isMask);
 }
 
 #pragma kernel VisibleChunkChangeSumsReadback
@@ -372,13 +748,15 @@ void VisibleChunkChangeSumsReadback(uint3 threadID : SV_DispatchThreadID)
 }
 
 
+// ---- chunk readback ---------------------------------------------------------
 // kernel for reading back data to the CPU
 // no batched chunk readbacks for now, just single
-// packs single chunk's sbyte voxel data into uint buffer
+// packs a chunk's voxels as (sbyte value, byte count) pairs, two voxels per uint —
+// the CPU Voxel struct's layout
 
 #pragma kernel ChunkDataReadback
 
-RWStructuredBuffer<int> readbackBuffer;
+RWStructuredBuffer<uint> readbackBuffer;
 int readbackChunkIndex;
 
 [numthreads(8, 8, 8)]
@@ -389,21 +767,92 @@ void ChunkDataReadback(uint3 threadID : SV_DispatchThreadID)
 	const int dataIdx = tableVal & INDEX_MASK;
 
 	const uint3 dataCoordOffs = dataIndexToDataStartCoord(dataIdx);
-	// each thread reads FOUR voxels on the X axis for byte-packing
-	const uint3 threadCoordOffs = uint3(threadID.x * 4, threadID.y, threadID.z);
+	// each thread reads TWO voxels on the X axis for byte-packing
+	const uint3 threadCoordOffs = uint3(threadID.x * 2, threadID.y, threadID.z);
 	const uint3 coordOffs = dataCoordOffs + threadCoordOffs;
 
-	float4 data;
-	[unroll] for (int i = 0; i < 4; i++)
+	uint packed = 0;
+	[unroll] for (uint i = 0; i < 2; i++)
 	{
-		data[i] = chunkData[coordOffs + uint3(i, 0, 0)].x;
+		const float2 data = chunkData[coordOffs + uint3(i, 0, 0)].xy;
+		packed |= SNorm8toSByteBits(data.x) << (i * 16);
+		packed |= SNorm8toU8(data.y) << (i * 16 + 8);
 	}
 
-	const uint threadsPerChunkX = voxPerChunkDim / 4;
+	const uint threadsPerChunkX = voxPerChunkDim / 2;
 	const uint bufferIdx =
 		threadID.x +
 		threadID.y * threadsPerChunkX +
 		threadID.z * threadsPerChunkX * voxPerChunkDim;
 
-	readbackBuffer[bufferIdx] = PackR8SNorm4toUInt(data);
+	readbackBuffer[bufferIdx] = packed;
+}
+
+// ---- chunk upload -----------------------------------------------------------
+// fuses a chunk received whole (a snapshot for a late joiner) into the volume.
+// the same count-weighted average the integrate kernel uses, so a chunk that
+// arrives over data this headset already scanned merges instead of replacing it.
+// reservation happens first in its own single-thread kernel so every upload
+// thread then reads a settled table entry
+
+#pragma kernel ChunkReserve
+
+int uploadChunkIndex;
+StructuredBuffer<uint> uploadBuffer; // same packing as readbackBuffer
+
+[numthreads(1, 1, 1)]
+void ChunkReserve(uint3 id : SV_DispatchThreadID)
+{
+	const int tableVal = chunkTable[uploadChunkIndex];
+	if (tableVal & RESERVED_BIT) return;
+
+	int dataIndex;
+	InterlockedAdd(reservedChunkCounter[0], 1, dataIndex);
+	if (dataIndex >= (int)maxNumChunks) dataIndex |= INVALID_BIT;
+
+	chunkTable[uploadChunkIndex] = dataIndex & INDEX_MASK | RESERVED_BIT;
+}
+
+#pragma kernel ChunkDataUpload
+
+[numthreads(8, 8, 8)]
+void ChunkDataUpload(uint3 threadID : SV_DispatchThreadID)
+{
+	const int tableVal = chunkTable[uploadChunkIndex];
+	if ((tableVal & RESERVED_BIT) == 0) return;
+	const int dataIdx = tableVal & INDEX_MASK;
+	if (dataIdx & INVALID_BIT) return;
+
+	const uint3 dataCoordOffs = dataIndexToDataStartCoord(dataIdx);
+	const uint3 threadCoordOffs = uint3(threadID.x * 2, threadID.y, threadID.z);
+	const uint3 coordOffs = dataCoordOffs + threadCoordOffs;
+
+	const uint threadsPerChunkX = voxPerChunkDim / 2;
+	const uint bufferIdx =
+		threadID.x +
+		threadID.y * threadsPerChunkX +
+		threadID.z * threadsPerChunkX * voxPerChunkDim;
+	const uint packed = uploadBuffer[bufferIdx];
+
+	uint change = 0;
+
+	[unroll] for (uint i = 0; i < 2; i++)
+	{
+		const float inDist = SByteBitsToSNorm8((packed >> (i * 16)) & 0xFF);
+		const uint inCount = (packed >> (i * 16 + 8)) & 0xFF;
+		if (inCount == 0) continue;
+
+		const uint3 coord = coordOffs + uint3(i, 0, 0);
+		const float2 prev = chunkData[coord].xy;
+		const uint prevCount = SNorm8toU8(prev.g);
+
+		const float total = prevCount + inCount;
+		const float newDist = (prev.r * prevCount + inDist * inCount) / total;
+		const uint newCount = min(prevCount + inCount, maxIntegCountSettle);
+
+		chunkData[coord] = float2(newDist, U8toSNorm8(newCount));
+		change += (uint)abs(round(newDist * 127) - round(prev.r * 127));
+	}
+
+	if (change > 0) InterlockedAdd(chunkChangeSums[uploadChunkIndex], change);
 }
