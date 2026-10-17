@@ -89,6 +89,16 @@ float3 rotateY(const float3 p, const float yaw)
 	return float3(p.x * c + p.z * s, p.y, -p.x * s + p.z * c);
 }
 
+// wall-normal azimuth histograms, one per map: rotateY adds yaw to an azimuth, so the
+// shift that best lines the source's histogram up with the target's is a yaw hypothesis
+#define YAW_BINS 360
+static const float wallVertical = 0.3; // |n.y| / |n| below this is a wall
+
+uint yawBin(const float3 g)
+{
+	return (uint)floor(frac(atan2(g.x, g.z) / 6.28318531 + 1.0) * YAW_BINS) % YAW_BINS;
+}
+
 // ---- dense target ------------------------------------------------------------
 
 // voxel (0,0,0) of the dense grid is the apron corner of the minimum chunk; chunk
@@ -168,6 +178,29 @@ void FillDenseFromUpload(uint3 id : SV_DispatchThreadID)
 	}
 }
 
+RWByteAddressBuffer targetYawHistogram;
+
+#pragma kernel TargetYawHistogram
+
+[numthreads(4, 4, 4)]
+void TargetYawHistogram(uint3 id : SV_DispatchThreadID)
+{
+	if (any(id < 1) || any(id + 1 >= denseDims)) return;
+	const float2 v = denseFine[id];
+	if (SNorm8toU8(v.y) == 0 || abs(v.x) > surfaceBand) return;
+
+	const float2 xm = denseFine[id - uint3(1, 0, 0)], xp = denseFine[id + uint3(1, 0, 0)];
+	const float2 ym = denseFine[id - uint3(0, 1, 0)], yp = denseFine[id + uint3(0, 1, 0)];
+	const float2 zm = denseFine[id - uint3(0, 0, 1)], zp = denseFine[id + uint3(0, 0, 1)];
+	if (SNorm8toU8(xm.y) == 0 || SNorm8toU8(xp.y) == 0 || SNorm8toU8(ym.y) == 0 ||
+		SNorm8toU8(yp.y) == 0 || SNorm8toU8(zm.y) == 0 || SNorm8toU8(zp.y) == 0) return;
+
+	const float3 g = float3(xp.x - xm.x, yp.x - ym.x, zp.x - zm.x);
+	const float gLen = length(g);
+	if (gLen < 1e-4 || abs(g.y) / gLen >= wallVertical) return;
+	targetYawHistogram.InterlockedAdd(yawBin(g) * 4, 1);
+}
+
 // ---- pyramid -----------------------------------------------------------------
 //
 // a level cell summarizes its children so its score is an UPPER BOUND of any fine
@@ -242,6 +275,17 @@ AppendStructuredBuffer<Sample> samplesAppend;
 uint sampleStride; // take every n-th voxel per axis
 uint freeStride; // of those, every n-th per axis may be a free-space sample
 
+// what the CPU needs to know about the source, in one readback: [0] coarse and [1]
+// fine sample counts (CopyCount), [2..4] min and [5..7] max voxel coordinate (biased
+// unsigned), [8..] wall-normal azimuth histogram. Gathered by the fine pass only
+RWByteAddressBuffer sourceStats;
+uint accumulateStats;
+
+#define STATS_MIN 2
+#define STATS_MAX 5
+#define STATS_YAW 8
+static const int coordBias = 1 << 20;
+
 // dispatched like FillDenseFromAtlas
 #pragma kernel ExtractSamples
 
@@ -285,6 +329,9 @@ void ExtractSamples(uint3 id : SV_DispatchThreadID)
 		const float gLen = length(g);
 		const float vertical = gLen > 1e-4 ? abs(g.y) / gLen : 0;
 		weight = surfaceSampleWeight(data.x) * (1.0 - 0.75 * vertical * vertical);
+
+		if (accumulateStats && gLen > 1e-4 && vertical < wallVertical)
+			sourceStats.InterlockedAdd((STATS_YAW + yawBin(g)) * 4, 1);
 	}
 
 	Sample s;
@@ -293,16 +340,28 @@ void ExtractSamples(uint3 id : SV_DispatchThreadID)
 	s.weight = weight;
 	s.pad = 0;
 	samplesAppend.Append(s);
+
+	if (accumulateStats)
+	{
+		const uint3 q = (uint3)((int3)floor(s.pos / voxSize) + coordBias);
+		[unroll] for (uint a = 0; a < 3; a++)
+		{
+			sourceStats.InterlockedMin((STATS_MIN + a) * 4, q[a]);
+			sourceStats.InterlockedMax((STATS_MAX + a) * 4, q[a]);
+		}
+	}
 }
 
 // ---- scoring -----------------------------------------------------------------
 
+#define SCORE_ROW 4096 // groups per row of a group-per-candidate dispatch
+
 StructuredBuffer<Sample> samples;
 uint sampleCount;
 StructuredBuffer<float4> candidates; // xyz translation, w yaw (radians): p_target = rotY(p, yaw) + xyz
-RWStructuredBuffer<float> scores;
 uint candidateCount;
-uint candidateOffset; // a dispatch covers at most 65535 groups; larger batches run in slices
+RWStructuredBuffer<float4> scores; // (agreement, overlap fraction, rank, explained)
+uint minOverlapSamples; // rank is discounted below this many overlapping samples
 
 Texture3D<float4> levelTex;
 uint3 levelDims;
@@ -360,7 +419,7 @@ groupshared float scoreFree[scoreGroupSize]; // free-space weight that landed in
 [numthreads(scoreGroupSize, 1, 1)]
 void ScoreCandidates(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 {
-	const uint c = groupID.x + candidateOffset;
+	const uint c = groupID.y * SCORE_ROW + groupID.x;
 	const float4 cand = c < candidateCount ? candidates[c] : 0;
 
 	float num = 0, den = 0, all = 0, bad = 0, freeW = 0;
@@ -412,13 +471,19 @@ void ScoreCandidates(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_Group
 	// minus the free-space veto; [1] the fraction of surface weight that landed in
 	// observed cells. Samples outside what the target knows say nothing about the
 	// pose and are left out, so a headset that scanned more than its peer never
-	// registers worse for it
+	// registers worse for it. [2] ranks: agreement, discounted only when so few samples
+	// overlap that a sliver of matching floor could outrank a broadly matching room.
+	// [3] explained: agreement x overlap, the share of the source the pose accounts for.
+	// Coarse levels select on it: their agreement is an upper bound that saturates at 1
+	// for any pose whose samples land near some surface, true pose and slivers alike,
+	// and only the overlap still tells them apart
 	if (threadID.x == 0 && c < candidateCount)
 	{
 		const float agreement = scoreDen[0] > 0 ? scoreNum[0] / scoreDen[0] : 0;
 		const float veto = scoreFree[0] > 0 ? scoreBad[0] / scoreFree[0] : 0;
-		scores[c * 2] = max(0.0, agreement - freeSpacePenalty * veto);
-		scores[c * 2 + 1] = scoreAll[0] > 0 ? scoreDen[0] / scoreAll[0] : 0;
+		const float score = max(0.0, agreement - freeSpacePenalty * veto);
+		const float overlap = scoreAll[0] > 0 ? scoreDen[0] / scoreAll[0] : 0;
+		scores[c] = float4(score, overlap, score * saturate(overlap * (float)sampleCount / (float)minOverlapSamples), score * overlap);
 	}
 }
 
@@ -597,4 +662,90 @@ void RefineSolve(uint3 id : SV_DispatchThreadID)
 	info.x = sqrt(t[15] / count);
 	refinePose[0] = pose;
 	refinePose[1] = info;
+}
+
+// ---- selection ---------------------------------------------------------------
+//
+// Top-K of the scored candidates without sorting: a histogram of the selection key
+// finds the bin the K-th best falls in, everything above it is kept, and that bin
+// fills the rest (BeginSelect, SelectHistogram, SelectThreshold, SelectCompact). The
+// survivors come back unordered; the CPU orders them and expands them.
+
+#define SELECT_BINS 4096
+
+RWStructuredBuffer<uint> selectHistogram;
+RWStructuredBuffer<uint> selectState; // [0] threshold bin, [1] count above it, [2] admitted above, [3] admitted in it
+RWStructuredBuffer<float4> survivors; // poses
+RWStructuredBuffer<float4> survivorScores; // as scores
+uint survivorLimit;
+uint selectKey; // component of scores to select on: 2 rank, 3 explained
+
+uint keyBin(const float4 score)
+{
+	return min((uint)(saturate(score[selectKey]) * SELECT_BINS), SELECT_BINS - 1);
+}
+
+#pragma kernel BeginSelect
+
+[numthreads(256, 1, 1)]
+void BeginSelect(uint3 id : SV_DispatchThreadID)
+{
+	if (id.x < SELECT_BINS) selectHistogram[id.x] = 0;
+	if (id.x < 4) selectState[id.x] = 0;
+}
+
+#pragma kernel SelectHistogram
+
+[numthreads(256, 1, 1)]
+void SelectHistogram(uint3 id : SV_DispatchThreadID)
+{
+	if (id.x >= candidateCount) return;
+	InterlockedAdd(selectHistogram[keyBin(scores[id.x])], 1);
+}
+
+#pragma kernel SelectThreshold
+
+[numthreads(1, 1, 1)]
+void SelectThreshold()
+{
+	// the bin the survivorLimit-th best lands in; above counts the bins over it
+	uint above = 0;
+	int b = SELECT_BINS - 1;
+	for (; b > 0; b--)
+	{
+		const uint h = selectHistogram[b];
+		if (above + h >= survivorLimit) break;
+		above += h;
+	}
+
+	selectState[0] = (uint)b;
+	selectState[1] = above;
+}
+
+#pragma kernel SelectCompact
+
+[numthreads(256, 1, 1)]
+void SelectCompact(uint3 id : SV_DispatchThreadID)
+{
+	if (id.x >= candidateCount) return;
+	const float4 score = scores[id.x];
+	const uint bin = keyBin(score);
+	const uint threshold = selectState[0];
+
+	// bins above the threshold always fit; the threshold bin takes what room is left
+	uint slot = 0;
+	if (bin > threshold)
+	{
+		InterlockedAdd(selectState[2], 1, slot);
+	}
+	else if (bin == threshold)
+	{
+		InterlockedAdd(selectState[3], 1, slot);
+		slot += selectState[1];
+	}
+	else return;
+
+	if (slot >= survivorLimit) return;
+	survivors[slot] = candidates[id.x];
+	survivorScores[slot] = score;
 }

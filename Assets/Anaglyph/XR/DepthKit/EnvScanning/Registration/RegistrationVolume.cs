@@ -26,9 +26,15 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 		private readonly ComputeShader compute;
 		private readonly EnvScanner scanner;
 
-		private ComputeKernel clearKernel, fillAtlasKernel, fillUploadKernel, pyramidKernel;
+		/// <summary>Bins of the wall-normal azimuth histograms, one per degree.</summary>
+		public const int YawBins = 360;
+
+		private ComputeKernel clearKernel, fillAtlasKernel, fillUploadKernel, pyramidKernel, yawHistogramKernel;
 		private ComputeBuffer chunkListBuffer;
 		private ComputeBuffer uploadBuffer;
+		private readonly ComputeBuffer yawHistogram;
+		private readonly uint[] yawHistogramZeros = new uint[YawBins];
+		private float[] yawHistogramCache;
 
 		public RenderTexture Fine { get; private set; }
 		public RenderTexture[] Levels { get; private set; } = Array.Empty<RenderTexture>();
@@ -58,6 +64,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 		private static readonly int pyramidSrcDimsID = Shader.PropertyToID("pyramidSrcDims");
 		private static readonly int pyramidDstDimsID = Shader.PropertyToID("pyramidDstDims");
 		private static readonly int pyramidSrcIsFineID = Shader.PropertyToID("pyramidSrcIsFine");
+		private static readonly int targetYawHistogramID = Shader.PropertyToID("targetYawHistogram");
 
 		public RegistrationVolume(ComputeShader compute, EnvScanner scanner)
 		{
@@ -68,6 +75,8 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 			fillAtlasKernel = new ComputeKernel(compute, "FillDenseFromAtlas");
 			fillUploadKernel = new ComputeKernel(compute, "FillDenseFromUpload");
 			pyramidKernel = new ComputeKernel(compute, "BuildPyramidLevel");
+			yawHistogramKernel = new ComputeKernel(compute, "TargetYawHistogram");
+			yawHistogram = new ComputeBuffer(YawBins, sizeof(uint), ComputeBufferType.Raw);
 
 			int vpcd = scanner.VoxPerChunkDim;
 			uploadBuffer = new ComputeBuffer(vpcd / 2 * vpcd * vpcd, sizeof(uint));
@@ -177,10 +186,16 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 			PyramidDirty = true;
 		}
 
-		/// <summary>Rebuilds the pooled levels from the fine grid.</summary>
+		/// <summary>Rebuilds the pooled levels and the wall-normal histogram from the fine grid.</summary>
 		public void BuildPyramid()
 		{
 			if (!IsAllocated) return;
+
+			yawHistogram.SetData(yawHistogramZeros);
+			BindDense(yawHistogramKernel);
+			yawHistogramKernel.Bind(targetYawHistogramID, yawHistogram);
+			yawHistogramKernel.DispatchFit(Dims.x, Dims.y, Dims.z);
+			yawHistogramCache = null;
 
 			Texture src = Fine;
 			int3 srcDims = Dims;
@@ -197,6 +212,25 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 			}
 
 			PyramidDirty = false;
+		}
+
+		/// <summary>
+		/// Wall-normal azimuth histogram of the target, one bin per degree; null when the
+		/// readback fails. Read back once per pyramid build
+		/// </summary>
+		public async Awaitable<float[]> ReadYawHistogramAsync()
+		{
+			if (!IsAllocated) return null;
+			if (PyramidDirty) BuildPyramid();
+			if (yawHistogramCache != null) return yawHistogramCache;
+
+			AsyncGPUReadbackRequest req = await AsyncGPUReadback.RequestAsync(yawHistogram);
+			if (req.hasError) return null;
+			NativeArray<uint> bins = req.GetData<uint>();
+			float[] result = new float[YawBins];
+			for (int i = 0; i < YawBins; i++) result[i] = bins[i];
+			yawHistogramCache = result;
+			return result;
 		}
 
 		/// <summary>Texture, dims and cell size of a pyramid level; 0 is the fine grid.</summary>
@@ -235,6 +269,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 			Release();
 			chunkListBuffer?.Release();
 			uploadBuffer?.Release();
+			yawHistogram?.Release();
 			chunkListBuffer = null;
 			uploadBuffer = null;
 		}

@@ -21,5 +21,10 @@
                 <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsDebuggingPage.show-debug-mesh-toggle.text" />
             </Bindings>
         </ui:Toggle>
+        <ui:Slider name="debug-mesh-opacity-slider" low-value="0" high-value="1" show-input-field="true" class="stacked-field">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="label" table="SettingsMenu" entry="SettingsDebuggingPage.debug-mesh-opacity-slider.label" />
+            </Bindings>
+        </ui:Slider>
     </ui:VisualElement>
 </ui:UXML>

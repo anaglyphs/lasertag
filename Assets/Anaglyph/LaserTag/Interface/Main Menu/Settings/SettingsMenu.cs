@@ -24,6 +24,7 @@ namespace Anaglyph.LaserTag.Interface
 		private InGameConsoleView consoleView;
 		private Toggle debugModeToggle;
 		private Toggle showDebugMeshToggle;
+		private Slider debugMeshOpacitySlider;
 		private Toggle healthPassthroughTintToggle;
 		private Toggle lightEffectsToggle;
 		private Label provisioningStatus;
@@ -67,6 +68,11 @@ namespace Anaglyph.LaserTag.Interface
 					EnvMesher.Instance.SetChunksVisible(showDebugMesh);
 			});
 			showDebugMeshToggle.SetValueWithoutNotify(showDebugMesh);
+
+			debugMeshOpacitySlider = Require<Slider>(root, "debug-mesh-opacity-slider");
+			bindings.Value(debugMeshOpacitySlider,
+				change => EnvMesher.DebugMeshOpacity = change.newValue);
+			debugMeshOpacitySlider.SetValueWithoutNotify(EnvMesher.DebugMeshOpacity);
 
 			healthPassthroughTintToggle =
 				Require<Toggle>(root, "health-passthrough-tint-toggle");

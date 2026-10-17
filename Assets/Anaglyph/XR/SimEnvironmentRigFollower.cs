@@ -14,7 +14,10 @@ namespace Anaglyph.XR
 	/// head and copies the XR camera's world pose onto XR Simulation's
 	/// camera, which renders the environment for passthrough and depth.
 	/// Each headset's tracking space starts at a random world pose, so
-	/// simulated players begin with mismatched coordinate spaces.
+	/// simulated players begin with mismatched coordinate spaces. Multiplayer
+	/// Play Mode virtual players also start at a random spot and heading in
+	/// the room (within poseOffsMax / poseYawMax of the main editor's start),
+	/// so their scans cover the room differently.
 	/// </summary>
 	public class SimEnvironmentRigFollower : MonoBehaviour
 	{
@@ -22,7 +25,13 @@ namespace Anaglyph.XR
 		// runtime name used by ARFoundation's XR Simulation internals
 		private const string SimCameraName = "SimulationCamera";
 
-		private const float MaxOffset = 10f;
+		[SerializeField] private float coordOffsMax = 10;
+		[SerializeField] private float poseOffsMax = 2;
+		[SerializeField] private float poseYawMax = 60;
+		[SerializeField] private float headOffs = -1.7f;
+
+		// the room relative to the tracking space: identity in the main editor
+		private Matrix4x4 poseOffs = Matrix4x4.identity;
 
 		private struct EnvRoot
 		{
@@ -52,6 +61,8 @@ namespace Anaglyph.XR
 			if (!randomized)
 			{
 				RandomizeOrigin(space);
+				if (!Unity.Multiplayer.PlayMode.CurrentPlayer.IsMainEditor)
+					poseOffs = RandomStartPose(space.InverseTransformPoint(xrCamera.transform.position));
 				randomized = true;
 			}
 
@@ -61,8 +72,8 @@ namespace Anaglyph.XR
 			{
 				if (!root.transform) continue;
 
-				Matrix4x4 m = spaceMat * root.original;
-				Vector3 pos = m.GetPosition();
+				Matrix4x4 m = spaceMat * poseOffs * root.original;
+				Vector3 pos = m.GetPosition() + Vector3.up * headOffs;
 				Quaternion rot = m.rotation;
 
 				root.transform.GetPositionAndRotation(out Vector3 curPos, out Quaternion curRot);
@@ -122,11 +133,21 @@ namespace Anaglyph.XR
 		{
 			Quaternion rot = Quaternion.Euler(0f, Range(0f, 360f), 0f);
 			Vector3 offset = new(
-				Range(-MaxOffset, MaxOffset),
-				Range(-MaxOffset, MaxOffset),
-				Range(-MaxOffset, MaxOffset));
+				Range(-coordOffsMax, coordOffsMax),
+				Range(-coordOffsMax, coordOffsMax),
+				Range(-coordOffsMax, coordOffsMax));
 
 			space.SetPositionAndRotation(offset, rot);
+		}
+
+		// turns the room about the head's starting spot and slides it, so the head
+		// starts somewhere else in it, facing another way
+		private Matrix4x4 RandomStartPose(Vector3 head)
+		{
+			head.y = 0;
+			Vector3 slide = new(Range(-poseOffsMax, poseOffsMax), 0, Range(-poseOffsMax, poseOffsMax));
+			Quaternion turn = Quaternion.Euler(0, Range(-poseYawMax, poseYawMax), 0);
+			return Matrix4x4.Translate(head + slide) * Matrix4x4.Rotate(turn) * Matrix4x4.Translate(-head);
 		}
 
 		private float Range(float min, float max) =>

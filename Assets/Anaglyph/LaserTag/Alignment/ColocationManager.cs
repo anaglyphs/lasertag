@@ -23,7 +23,6 @@ namespace Anaglyph.LaserTag
 		// Scan registration takes over colocation for now: anchors, tags and the system
 		// frame stay in the code but are never selected. Flip this to return control to
 		// the per-space preference
-		public const bool ForceScanRegistration = true;
 		public static bool UsesSavedReferences(ColocationMethod method) => method is ColocationMethod.MetaSharedAnchor or ColocationMethod.AprilTag;
 		public static bool IsColocated { get; private set; }
 		public static Action<bool> Colocated = delegate { };
@@ -46,9 +45,7 @@ namespace Anaglyph.LaserTag
 		public ColocationMethod Method => methodSync.Value;
 		public ColocationMethod SelectedMethod => SyncBus.Active ? Method : offlineMethod;
 		public ColocationMethod ActiveMethod { get; private set; }
-		public ColocationMethod PreferredAvailableMethod => ForceScanRegistration ? ColocationMethod.ScanRegistration :
-			space == null ? ColocationMethod.MetaSharedAnchor :
-			CompatibleMethod(space.preferredColocationMethod, space.HasTags, true, space.anchors.Count > 0);
+		public ColocationMethod PreferredAvailableMethod => ColocationMethod.ScanRegistration;
 		public ColocationMethod PreferredSessionMethod => PreferredAvailableMethod;
 		public static ColocationMethod CompatibleMethod(ColocationMethod requested, bool hasTags, bool hasContent,
 			bool hasAnchors, bool systemFrameForTagSetup = false)

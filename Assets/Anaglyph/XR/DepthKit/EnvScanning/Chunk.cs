@@ -22,6 +22,9 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		public MeshFilter meshFilter;
 		public MeshCollider meshCollider;
 
+		// drawn in place of mesh while the debug mesh is shown; see WireframeMesh
+		private Mesh wireframeMesh;
+
 		private Vector3 worldCenter;
 
 		private void Awake()
@@ -44,6 +47,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		private void OnDestroy()
 		{
 			Destroy(mesh);
+			if (wireframeMesh) Destroy(wireframeMesh);
 
 			if (voxelSignBits.IsCreated)
 				voxelSignBits.Dispose();
@@ -69,6 +73,32 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			
 			meshIsPopulated = isPopulated;
 			meshCollider.enabled = meshIsPopulated;
+			RefreshDisplayMesh();
+		}
+
+		/// <summary>
+		/// Rebuilds the drawn mesh from <see cref="mesh"/>: its wireframe copy while the
+		/// debug mesh is shown, the mesh itself (and no copy kept) otherwise
+		/// </summary>
+		public void RefreshDisplayMesh()
+		{
+			bool wireframe = EnvMesher.Instance != null && EnvMesher.Instance.ChunksVisible;
+			if (wireframe)
+			{
+				if (!wireframeMesh)
+				{
+					wireframeMesh = new Mesh { name = "Chunk Wireframe" };
+					wireframeMesh.MarkDynamic();
+				}
+				WireframeMesh.Build(mesh, wireframeMesh);
+				meshFilter.sharedMesh = wireframeMesh;
+			}
+			else
+			{
+				meshFilter.sharedMesh = mesh;
+				if (wireframeMesh) Destroy(wireframeMesh);
+				wireframeMesh = null;
+			}
 		}
 
 		private void Update()

@@ -5,7 +5,6 @@ using Anaglyph.LaserTag.Objects.Gameplay.Base;
 using Anaglyph.LaserTag.Objects.Gameplay.Control_Point;
 using Anaglyph.LaserTag.Player.Teams;
 using Anaglyph.LaserTag.Weapons;
-using Anaglyph.LaserTag.Weapons.Bullets;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
@@ -130,10 +129,7 @@ namespace Anaglyph.LaserTag.Player
 		public override void OnNetworkSpawn()
 		{
 			if (IsOwner)
-			{
-				ProjectileBarrierHistory.Local.Clear();
 				Local = this;
-			}
 			else
 				OtherPlayers.Add(this);
 
@@ -146,7 +142,6 @@ namespace Anaglyph.LaserTag.Player
 
 		public override void OnNetworkDespawn()
 		{
-			if (IsOwner) ProjectileBarrierHistory.Local.Clear();
 			SetSpatialPresence(false);
 			OtherPlayers.Remove(this);
 			All.Remove(OwnerClientId);
@@ -261,9 +256,6 @@ namespace Anaglyph.LaserTag.Player
 		private void RequestProjectileDamageRpc(ProjectileHit hit, RpcParams rpc = default)
 		{
 			if (!IsOwner || !CanInteract || rpc.Receive.SenderClientId != hit.damage.playerID) return;
-			if (hit.canBeBlocked && ProjectileBarrierHistory.Local.Blocked(OwnerClientId, hit.ray,
-				hit.speed, hit.shotTime, hit.distance, hit.radius, Anaglyph.Netcode.SharedNetworkTime.TimeAsFloat))
-				return;
 			ApplyProjectileDamageRpc(hit.damage, hit.position);
 		}
 

@@ -92,8 +92,36 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			Begin();
 		}
 
+		private static readonly int debugMeshOpacityID = Shader.PropertyToID("agDebugMeshOpacity");
+		private static float debugMeshOpacity = 0.2f;
+
+		/// <summary>
+		/// Passthrough compositor alpha of the debug meshes (the chunks and anything else
+		/// drawn with the debug mesh shaders). They stay opaque in-scene; this only sets
+		/// how much passthrough shows beneath them.
+		/// </summary>
+		public static float DebugMeshOpacity
+		{
+			get => debugMeshOpacity;
+			set
+			{
+				debugMeshOpacity = Mathf.Clamp01(value);
+				Shader.SetGlobalFloat(debugMeshOpacityID, debugMeshOpacity);
+			}
+		}
+
+		// globals do not survive entering play mode, so it is pushed again each run
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+		private static void InitDebugMeshOpacity() => DebugMeshOpacity = debugMeshOpacity;
+
+		/// <summary>Whether the chunk meshes are drawn (the debug mesh draw mode).</summary>
+		public bool ChunksVisible { get; private set; }
+		public event Action<bool> ChunksVisibleChanged = delegate { };
+
 		public void SetChunksVisible(bool visible)
 		{
+			bool changed = ChunksVisible != visible;
+			ChunksVisible = visible;
 			if (visible)
 			{
 				rendererData.prepassLayerMask |= envMeshLayerMask;
@@ -105,6 +133,13 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 				rendererData.prepassLayerMask &= ~envMeshLayerMask;
 				rendererData.opaqueLayerMask &= ~envMeshLayerMask;
 				rendererData.transparentLayerMask &= ~envMeshLayerMask;
+			}
+
+			if (changed)
+			{
+				foreach (Chunk chunk in chunksList)
+					if (chunk) chunk.RefreshDisplayMesh();
+				ChunksVisibleChanged.Invoke(visible);
 			}
 		}
 
@@ -453,6 +488,8 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 						activeChunk.meshIsPopulated = false;
 						activeChunk.meshCollider.enabled = false;
 					}
+
+					if (ChunksVisible) activeChunk.RefreshDisplayMesh();
 
 					RememberMeshedSurface(activeChunk, updatedSignBits);
 

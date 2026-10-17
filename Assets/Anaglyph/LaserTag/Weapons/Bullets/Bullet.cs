@@ -18,7 +18,6 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 
 		[SerializeField] private float metersPerSecond;
 		[SerializeField, Min(0)] private float collisionRadius;
-		[SerializeField] private bool blockedByProjectileBarriers;
 		[SerializeField] private AnimationCurve damageOverDistance = AnimationCurve.Constant(0, MaxTravelDist, 50f);
 
 		[SerializeField] private int despawnDelay = 1;
@@ -120,13 +119,6 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 					: Physics.Linecast(prevPos, transform.position, out physHit,
 						Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
 
-				if (blockedByProjectileBarriers && ProjectileBarrier.Cast(prevPos, travel, collisionRadius,
-					OwnerClientId, out RaycastHit barrierHit) && (!didHit || barrierHit.distance <= physHit.distance))
-				{
-					HitRpc(barrierHit.point, barrierHit.normal);
-					return;
-				}
-
 				if (didHit)
 				{
 					float dist = Vector3.Distance(Shot.ray.origin, physHit.point);
@@ -147,13 +139,7 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 						receiver.ReceiveProjectileHit(new ProjectileHit
 						{
 							damage = damageData,
-							position = physHit.point,
-							ray = Shot.ray,
-							shotTime = Shot.serverTimeShot,
-							speed = metersPerSecond,
-							distance = Vector3.Dot(prevPos - Shot.ray.origin, Shot.ray.direction) + physHit.distance,
-							radius = collisionRadius,
-							canBeBlocked = blockedByProjectileBarriers
+							position = physHit.point
 						});
 					else
 						IDamageable.DamageHierarchy(col.transform.root, physHit.point, damageData, damageableBuffer);

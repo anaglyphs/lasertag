@@ -1,10 +1,13 @@
+// Triangle wireframe over a flat-normal fill, for the debug environment mesh. Draws
+// meshes built by WireframeMesh: each triangle's corners carry (1,0,0), (0,1,0) and
+// (0,0,1) in the vertex color, so a pixel's distance to the nearest edge is the
+// smallest barycentric over its screen-space rate of change. No geometry shader,
+// so it stays cheap on Quest's tiled GPU.
 Shader "Anaglyph/Debug/Flat Normals"
 {
 	Properties
 	{
-		// Passthrough compositor alpha only (premultiplied). The pass stays opaque:
-		// no blending, ZWrite on. This does not make the surface see-through in-scene.
-		_Opacity ("Opacity", Range(0, 1)) = 1
+		_WireWidth ("Wire Width (px)", Range(0.5, 4)) = 1.25
 	}
 
 	SubShader
@@ -27,16 +30,24 @@ Shader "Anaglyph/Debug/Flat Normals"
 			HLSLPROGRAM
 			#pragma vertex vert
 			#pragma fragment frag
+			#pragma multi_compile_instancing
 
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+			#include "Assets/Anaglyph/XR/DepthKit/EnvScanning/Wireframe.hlsl"
 
 			CBUFFER_START(UnityPerMaterial)
-				half _Opacity;
+				half _WireWidth;
 			CBUFFER_END
+
+			// Passthrough compositor alpha of the fill (premultiplied), set globally by
+			// EnvMesher.DebugMeshOpacity. Wires are always solid. The pass stays opaque:
+			// no blending, ZWrite on, so hidden wires stay hidden.
+			half agDebugMeshOpacity;
 
 			struct Attributes
 			{
 				float4 positionOS : POSITION;
+				half4 barycentric : COLOR;
 				UNITY_VERTEX_INPUT_INSTANCE_ID
 			};
 
@@ -44,6 +55,7 @@ Shader "Anaglyph/Debug/Flat Normals"
 			{
 				float4 positionHCS : SV_POSITION;
 				float3 positionWS : TEXCOORD0;
+				half3 barycentric : TEXCOORD1;
 				UNITY_VERTEX_OUTPUT_STEREO
 			};
 
@@ -58,6 +70,7 @@ Shader "Anaglyph/Debug/Flat Normals"
 
 				OUT.positionHCS = TransformObjectToHClip(IN.positionOS.xyz);
 				OUT.positionWS = TransformObjectToWorld(IN.positionOS.xyz);
+				OUT.barycentric = IN.barycentric.rgb;
 
 				return OUT;
 			}
@@ -68,10 +81,9 @@ Shader "Anaglyph/Debug/Flat Normals"
 
 				float3 dp1 = ddx(IN.positionWS);
 				float3 dp2 = ddy(IN.positionWS);
-				float3 normalOS = normalize(cross(dp2, dp1));
+				half3 color = normalize(cross(dp2, dp1)) * 0.5 + 0.5;
 
-				// Premultiplied alpha for the passthrough compositor
-				return float4((normalOS * 0.5 + 0.5) * _Opacity, _Opacity);
+				return WireframeComposite(color, color, IN.barycentric, _WireWidth, agDebugMeshOpacity);
 			}
 			ENDHLSL
 		}
