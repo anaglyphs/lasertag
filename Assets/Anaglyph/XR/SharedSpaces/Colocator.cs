@@ -77,6 +77,8 @@ namespace Anaglyph.XR.SharedSpaces
 	[DefaultExecutionOrder(999)]
 	public class Colocator : MonoBehaviour
 	{
+		public static Colocator Instance;
+		
 		public const int MinimumPositionOnlyConstraintCount = 2;
 
 		public ColocationAlignmentState AlignmentState { get; private set; } = ColocationAlignmentState.Stopped;
@@ -103,6 +105,10 @@ namespace Anaglyph.XR.SharedSpaces
 
 		private readonly List<ColocationConstraint> constraints = new();
 
+		private void Awake()
+		{
+			Instance = this;
+		}
 
 		public void SetProvider(IColocationConstraintProvider next)
 		{

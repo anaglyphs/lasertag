@@ -27,7 +27,8 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		}
 
 		private readonly AprilTagColocationConstraintProvider observations;
-		private readonly Transform trackingSpace;
+		private readonly Func<Transform> getTrackingSpace;
+		private Transform trackingSpace => getTrackingSpace();
 		private readonly Func<bool> trackingReady;
 		private int configuredFirst = -1;
 		private int configuredSecond = -1;
@@ -40,10 +41,14 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		public int? ForwardTagId => forward?.id;
 
 		public TwoAprilTagColocationConstraintProvider(AprilTagColocationConstraintProvider observations,
-			Transform trackingSpace, Func<bool> trackingReady)
+			Transform trackingSpace, Func<bool> trackingReady) : this(observations, () => trackingSpace, trackingReady) { }
+
+		/// <summary>Resolves the tracking space on use, so construction needn't wait for the rig to wake.</summary>
+		public TwoAprilTagColocationConstraintProvider(AprilTagColocationConstraintProvider observations,
+			Func<Transform> trackingSpace, Func<bool> trackingReady)
 		{
 			this.observations = observations;
-			this.trackingSpace = trackingSpace;
+			getTrackingSpace = trackingSpace ?? throw new ArgumentNullException(nameof(trackingSpace));
 			this.trackingReady = trackingReady ?? throw new ArgumentNullException(nameof(trackingReady));
 		}
 

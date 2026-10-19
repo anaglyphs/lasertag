@@ -488,10 +488,30 @@ void FrameNormals(uint3 id : SV_DispatchThreadID)
 // MarkSensor walks the live depth texture (full resolution); Mark walks a decoded
 // frame. both feed the same visible-chunk list the integrate kernels consume
 
+// chunks a frame must not integrate into, one bit per chunk table entry: pose-graph
+// SLAM locks chunks whose anchor is too far (in expected drift) from the frame's node,
+// and chunks waiting to be resampled after a loop closure. A sample landing in one is
+// counted in lockedHits ([0] samples, then one bit per chunk) instead of marking it
+StructuredBuffer<uint> chunkLockBits;
+RWStructuredBuffer<uint> lockedHits;
+uint chunkLocksEnabled;
+
+bool isChunkLocked(const int chunkIdx)
+{
+	return chunkLocksEnabled != 0 && (chunkLockBits[(uint)chunkIdx >> 5] & (1u << ((uint)chunkIdx & 31))) != 0;
+}
+
 void markWorldPos(const float3 pos)
 {
 	const int chunkIdx = worldPosToChunkIndex(pos);
 	if (chunkIdx & INVALID_BIT) return;
+
+	if (isChunkLocked(chunkIdx))
+	{
+		InterlockedAdd(lockedHits[0], 1);
+		InterlockedOr(lockedHits[1 + ((uint)chunkIdx >> 5)], 1u << ((uint)chunkIdx & 31));
+		return;
+	}
 
 	// try claim visibility
 	int prevTableEntryValue;

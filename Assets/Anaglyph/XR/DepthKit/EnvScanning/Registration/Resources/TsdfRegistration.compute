@@ -30,9 +30,17 @@ static const float freeWeight = 0.25; // free-space samples relative to surface 
 // A projective TSDF stores distance along each sensor's own view ray, so two
 // headsets that saw one wall from different angles hold different values inside
 // the band even when perfectly aligned. Only the zero crossing is viewpoint-free.
-// So: tolerate a full band of disagreement, and weight surface samples by how
-// close they sit to the crossing, where the value is trustworthy
-static const float agreementTolerance = 1.0;
+// So: tolerate half a band of disagreement, and weight surface samples by how close
+// they sit to the crossing, where the value is trustworthy. Swept on two saved scans
+// of one room (partial views against full and half maps): a full band let wrong poses
+// reach 0.59 agreement against 0.70 for right ones; half a band separates them best
+// (wrong ≤ 0.42, right ≥ 0.55); a third of a band starts failing right ones
+static const float agreementTolerance = 0.5;
+
+// a target voxel this far from zero is past the truncation band: open air (or deep
+// behind a surface), with no surface within reach. A source surface sample landing
+// there disagrees outright rather than earning partial credit from the band tolerance
+static const float saturatedSdf = 0.9;
 
 float surfaceSampleWeight(const float sdf)
 {
@@ -277,13 +285,21 @@ uint freeStride; // of those, every n-th per axis may be a free-space sample
 
 // what the CPU needs to know about the source, in one readback: [0] coarse and [1]
 // fine sample counts (CopyCount), [2..4] min and [5..7] max voxel coordinate (biased
-// unsigned), [8..] wall-normal azimuth histogram. Gathered by the fine pass only
+// unsigned), [8..] wall-normal azimuth histogram, then the information matrix: the
+// upper triangle of sum(J J^T) over surface samples, J = (normal, yaw lever), in
+// fixed point. It is the matrix Gauss-Newton solves, so its eigenvalues say how firmly
+// the scan's own geometry pins each degree of freedom: a hallway leaves translation
+// along it near zero, a floor leaves x and z near zero. Gathered by the fine pass only
 RWByteAddressBuffer sourceStats;
 uint accumulateStats;
+float3 statsCenter; // the point yaw turns about
+float statsLever; // meters of lever that count as one unit of yaw constraint
 
 #define STATS_MIN 2
 #define STATS_MAX 5
 #define STATS_YAW 8
+#define STATS_INFO (STATS_YAW + YAW_BINS)
+#define INFO_SCALE 256.0
 static const int coordBias = 1 << 20;
 
 // dispatched like FillDenseFromAtlas
@@ -314,6 +330,7 @@ void ExtractSamples(uint3 id : SV_DispatchThreadID)
 	if (!isSurface && !isFree) return;
 
 	float weight = freeWeight;
+	float3 normal = 0;
 	if (isSurface)
 	{
 		// floors and ceilings are most of an indoor scan yet constrain only height:
@@ -332,6 +349,7 @@ void ExtractSamples(uint3 id : SV_DispatchThreadID)
 
 		if (accumulateStats && gLen > 1e-4 && vertical < wallVertical)
 			sourceStats.InterlockedAdd((STATS_YAW + yawBin(g)) * 4, 1);
+		if (gLen > 1e-4) normal = g / gLen;
 	}
 
 	Sample s;
@@ -349,6 +367,17 @@ void ExtractSamples(uint3 id : SV_DispatchThreadID)
 			sourceStats.InterlockedMin((STATS_MIN + a) * 4, q[a]);
 			sourceStats.InterlockedMax((STATS_MAX + a) * 4, q[a]);
 		}
+
+		if (any(normal != 0))
+		{
+			// d(rotY(p) + t)/dyaw = (p.z, 0, -p.x) about the center; the lever is clamped
+			// so a far wall can't overflow the fixed-point sums
+			const float3 r = s.pos - statsCenter;
+			const float4 J = float4(normal, clamp((normal.x * r.z - normal.z * r.x) / statsLever, -4.0, 4.0));
+			const float terms[10] = { J.x * J.x, J.x * J.y, J.x * J.z, J.x * J.w, J.y * J.y, J.y * J.z, J.y * J.w, J.z * J.z, J.z * J.w, J.w * J.w };
+			[unroll] for (uint k = 0; k < 10; k++)
+				sourceStats.InterlockedAdd((STATS_INFO + k) * 4, asuint((int)round(terms[k] * INFO_SCALE)));
+		}
 	}
 }
 
@@ -360,147 +389,19 @@ StructuredBuffer<Sample> samples;
 uint sampleCount;
 StructuredBuffer<float4> candidates; // xyz translation, w yaw (radians): p_target = rotY(p, yaw) + xyz
 uint candidateCount;
-RWStructuredBuffer<float4> scores; // (agreement, overlap fraction, rank, explained)
+RWStructuredBuffer<float4> scores; // (agreement, overlap fraction, rank, contradiction)
 uint minOverlapSamples; // rank is discounted below this many overlapping samples
 
 Texture3D<float4> levelTex;
 uint3 levelDims;
 float levelCell;
 uint levelIsFine;
-
-// agreement of a source sample with the target at p. observed: true when the
-// target knows that cell at all, so callers can measure overlap separately from
-// agreement. surface samples compare signed distances, so a voxel 8cm inside the
-// surface agrees with a target voxel 8cm inside it, not with the zero level set
-float agreementAt(const float3 p, const float sdf, const bool isSurface, out bool observed)
-{
-	observed = false;
-	const int3 cell = (int3)floor((p - denseOrigin) / levelCell);
-	if (any(cell < 0) || any(cell >= (int3)levelDims)) return unobservedAgreement;
-
-	const float4 v = levelTex[(uint3)cell];
-
-	if (levelIsFine)
-	{
-		observed = SNorm8toU8(v.y) != 0;
-		// free samples: agree with anything free or nearly so, disagree only with a
-		// target voxel well inside a surface
-		const float fine = isSurface ? saturate(1.0 - abs(v.x - sdf) / agreementTolerance) : saturate((v.x + surfaceBand) / (freeBand + surfaceBand));
-		return observed ? fine : unobservedAgreement;
-	}
-
-	const uint flags = decodeFlags(v.z);
-	observed = (flags & FLAG_OBSERVED) != 0;
-	float best = (flags & FLAG_UNOBSERVED) ? unobservedAgreement : 0.0;
-	if (isSurface)
-	{
-		// distance from the sample's value to the cell's value range
-		if (observed) best = max(best, saturate(1.0 - max(0.0, max(v.x - sdf, sdf - v.y)) / agreementTolerance));
-		return best;
-	}
-	if (observed) best = max(best, saturate((v.y + surfaceBand) / (freeBand + surfaceBand)));
-	return best;
-}
-
-// free-space samples never SUPPORT a pose: every scan of a room shares the air
-// between its walls, so air agreeing with air says nothing. They only veto, by
-// subtracting when they land inside the target's surfaces
-static const float freeSpacePenalty = 0.5;
-
-static const uint scoreGroupSize = 256;
-groupshared float scoreNum[scoreGroupSize]; // surface agreement, weighted, observed only
-groupshared float scoreDen[scoreGroupSize]; // surface weight that landed in observed cells
-groupshared float scoreAll[scoreGroupSize]; // surface weight in total
-groupshared float scoreBad[scoreGroupSize]; // free-space disagreement, weighted, observed only
-groupshared float scoreFree[scoreGroupSize]; // free-space weight that landed in observed cells
-
-#pragma kernel ScoreCandidates
-
-[numthreads(scoreGroupSize, 1, 1)]
-void ScoreCandidates(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
-{
-	const uint c = groupID.y * SCORE_ROW + groupID.x;
-	const float4 cand = c < candidateCount ? candidates[c] : 0;
-
-	float num = 0, den = 0, all = 0, bad = 0, freeW = 0;
-	if (c < candidateCount)
-	{
-		for (uint i = threadID.x; i < sampleCount; i += scoreGroupSize)
-		{
-			const Sample s = samples[i];
-			const bool isSurface = abs(s.sdf) <= surfaceBand;
-			const float w = s.weight;
-			const float3 p = rotateY(s.pos, cand.w) + cand.xyz;
-			bool observed;
-			const float a = agreementAt(p, s.sdf, isSurface, observed);
-			if (isSurface)
-			{
-				all += w;
-				num += observed ? w * a : 0;
-				den += observed ? w : 0;
-			}
-			else
-			{
-				bad += observed ? w * (1.0 - a) : 0;
-				freeW += observed ? w : 0;
-			}
-		}
-	}
-
-	scoreNum[threadID.x] = num;
-	scoreDen[threadID.x] = den;
-	scoreAll[threadID.x] = all;
-	scoreBad[threadID.x] = bad;
-	scoreFree[threadID.x] = freeW;
-	GroupMemoryBarrierWithGroupSync();
-
-	for (uint stride = scoreGroupSize / 2; stride > 0; stride >>= 1)
-	{
-		if (threadID.x < stride)
-		{
-			scoreNum[threadID.x] += scoreNum[threadID.x + stride];
-			scoreDen[threadID.x] += scoreDen[threadID.x + stride];
-			scoreAll[threadID.x] += scoreAll[threadID.x + stride];
-			scoreBad[threadID.x] += scoreBad[threadID.x + stride];
-			scoreFree[threadID.x] += scoreFree[threadID.x + stride];
-		}
-		GroupMemoryBarrierWithGroupSync();
-	}
-
-	// [0] surface agreement over the samples that landed in OBSERVED target cells,
-	// minus the free-space veto; [1] the fraction of surface weight that landed in
-	// observed cells. Samples outside what the target knows say nothing about the
-	// pose and are left out, so a headset that scanned more than its peer never
-	// registers worse for it. [2] ranks: agreement, discounted only when so few samples
-	// overlap that a sliver of matching floor could outrank a broadly matching room.
-	// [3] explained: agreement x overlap, the share of the source the pose accounts for.
-	// Coarse levels select on it: their agreement is an upper bound that saturates at 1
-	// for any pose whose samples land near some surface, true pose and slivers alike,
-	// and only the overlap still tells them apart
-	if (threadID.x == 0 && c < candidateCount)
-	{
-		const float agreement = scoreDen[0] > 0 ? scoreNum[0] / scoreDen[0] : 0;
-		const float veto = scoreFree[0] > 0 ? scoreBad[0] / scoreFree[0] : 0;
-		const float score = max(0.0, agreement - freeSpacePenalty * veto);
-		const float overlap = scoreAll[0] > 0 ? scoreDen[0] / scoreAll[0] : 0;
-		scores[c] = float4(score, overlap, score * saturate(overlap * (float)sampleCount / (float)minOverlapSamples), score * overlap);
-	}
-}
-
-// ---- refinement --------------------------------------------------------------
-//
-// Gauss-Newton on the fine dense volume: surface samples pull toward the zero
-// level set along its gradient. refinePose[0] = (t.xyz, yaw) is read and rewritten
-// by RefineSolve, so several iterations chain on the GPU with no readback.
-
-RWStructuredBuffer<float4> refinePose; // [0] pose, [1] (rms meters, inlier count, iteration, damping)
-RWStructuredBuffer<float> refinePartials; // per group: 10 H entries, 4 b entries, count, residual sq
-uint refineGroupCount;
-float distanceTruncationBand;
-
-static const uint refineGroupSize = 256;
-static const uint refineTerms = 16;
-groupshared float refineAcc[refineTerms][refineGroupSize];
+// fine level only: surface samples read the target trilinearly, as refinement does,
+// where all eight corners are observed. The nearest-voxel read jumps as a pose slides
+// under a voxel, so two refined poses would otherwise be compared through quantization
+// noise as large as the margin between them. Kept for the few refined poses: it costs
+// eight reads a sample
+uint scoreTrilinear;
 
 // trilinear sdf and its gradient (per voxel) at a world point from the same eight
 // corners; false if any corner is unobserved
@@ -532,6 +433,163 @@ bool sampleFine(const float3 p, out float sdf, out float3 grad)
 	grad.z = c1 - c0;
 	return ok;
 }
+
+// agreement of a source sample with the target at p. observed: true when the
+// target knows that cell at all, so callers can measure overlap separately from
+// agreement. surface samples compare signed distances, so a voxel 8cm inside the
+// surface agrees with a target voxel 8cm inside it, not with the zero level set.
+// open: a surface sample landed in a fine target voxel the target saw as open air
+float agreementAt(const float3 p, const float sdf, const bool isSurface, out bool observed, out bool open)
+{
+	observed = false;
+	open = false;
+	const int3 cell = (int3)floor((p - denseOrigin) / levelCell);
+	if (any(cell < 0) || any(cell >= (int3)levelDims)) return unobservedAgreement;
+
+	const float4 v = levelTex[(uint3)cell];
+
+	if (levelIsFine)
+	{
+		float target = v.x;
+		observed = SNorm8toU8(v.y) != 0;
+		float tri;
+		float3 unusedGrad;
+		if (scoreTrilinear && isSurface && sampleFine(p, tri, unusedGrad))
+		{
+			target = tri;
+			observed = true;
+		}
+
+		open = observed && isSurface && target >= saturatedSdf;
+		// free samples: agree with anything free or nearly so, disagree only with a
+		// target voxel well inside a surface
+		const float fine = isSurface
+			? (abs(target) >= saturatedSdf ? 0.0 : saturate(1.0 - abs(target - sdf) / agreementTolerance))
+			: saturate((target + surfaceBand) / (freeBand + surfaceBand));
+		return observed ? fine : unobservedAgreement;
+	}
+
+	const uint flags = decodeFlags(v.z);
+	observed = (flags & FLAG_OBSERVED) != 0;
+	float best = (flags & FLAG_UNOBSERVED) ? unobservedAgreement : 0.0;
+	if (isSurface)
+	{
+		// distance from the sample's value to the cell's value range; no credit when every
+		// observed child is saturated on one side (all open air, or all deep inside), so the
+		// bound still never falls below what a child can score
+		const bool allSaturated = v.x >= saturatedSdf || v.y <= -saturatedSdf;
+		if (observed && !allSaturated) best = max(best, saturate(1.0 - max(0.0, max(v.x - sdf, sdf - v.y)) / agreementTolerance));
+		return best;
+	}
+	if (observed) best = max(best, saturate((v.y + surfaceBand) / (freeBand + surfaceBand)));
+	return best;
+}
+
+// free-space samples never SUPPORT a pose: every scan of a room shares the air
+// between its walls, so air agreeing with air says nothing. They only veto, by
+// subtracting when they land inside the target's surfaces
+static const float freeSpacePenalty = 0.5;
+
+static const uint scoreGroupSize = 256;
+groupshared float scoreNum[scoreGroupSize]; // surface agreement, weighted, observed only
+groupshared float scoreDen[scoreGroupSize]; // surface weight that landed in observed cells
+groupshared float scoreAll[scoreGroupSize]; // surface weight in total
+groupshared float scoreBad[scoreGroupSize]; // free-space disagreement, weighted, observed only
+groupshared float scoreFree[scoreGroupSize]; // free-space weight that landed in observed cells
+groupshared float scoreOpen[scoreGroupSize]; // surface weight that landed in observed open air (fine level only)
+
+#pragma kernel ScoreCandidates
+
+[numthreads(scoreGroupSize, 1, 1)]
+void ScoreCandidates(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
+{
+	const uint c = groupID.y * SCORE_ROW + groupID.x;
+	const float4 cand = c < candidateCount ? candidates[c] : 0;
+
+	float num = 0, den = 0, all = 0, bad = 0, freeW = 0, openW = 0;
+	if (c < candidateCount)
+	{
+		for (uint i = threadID.x; i < sampleCount; i += scoreGroupSize)
+		{
+			const Sample s = samples[i];
+			const bool isSurface = abs(s.sdf) <= surfaceBand;
+			const float w = s.weight;
+			const float3 p = rotateY(s.pos, cand.w) + cand.xyz;
+			bool observed, open;
+			const float a = agreementAt(p, s.sdf, isSurface, observed, open);
+			if (isSurface)
+			{
+				all += w;
+				num += observed ? w * a : 0;
+				den += observed ? w : 0;
+				openW += open ? w : 0;
+			}
+			else
+			{
+				bad += observed ? w * (1.0 - a) : 0;
+				freeW += observed ? w : 0;
+			}
+		}
+	}
+
+	scoreNum[threadID.x] = num;
+	scoreDen[threadID.x] = den;
+	scoreAll[threadID.x] = all;
+	scoreBad[threadID.x] = bad;
+	scoreFree[threadID.x] = freeW;
+	scoreOpen[threadID.x] = openW;
+	GroupMemoryBarrierWithGroupSync();
+
+	for (uint stride = scoreGroupSize / 2; stride > 0; stride >>= 1)
+	{
+		if (threadID.x < stride)
+		{
+			scoreNum[threadID.x] += scoreNum[threadID.x + stride];
+			scoreDen[threadID.x] += scoreDen[threadID.x + stride];
+			scoreAll[threadID.x] += scoreAll[threadID.x + stride];
+			scoreBad[threadID.x] += scoreBad[threadID.x + stride];
+			scoreFree[threadID.x] += scoreFree[threadID.x + stride];
+			scoreOpen[threadID.x] += scoreOpen[threadID.x + stride];
+		}
+		GroupMemoryBarrierWithGroupSync();
+	}
+
+	// [0] surface agreement over the samples that landed in OBSERVED target cells,
+	// minus the free-space veto; [1] the fraction of surface weight that landed in
+	// observed cells. Samples outside what the target knows say nothing about the
+	// pose and are left out, so a headset that scanned more than its peer never
+	// registers worse for it. [2] ranks: agreement, discounted only when so few samples
+	// overlap that a sliver of matching floor could outrank a broadly matching room.
+	// [3] contradiction: the share of the overlapping surface weight that landed in what
+	// the target saw as open air, a surface where it saw none (fine level; 0 on coarse
+	// levels). Unlike agreement it doesn't care how closely a surface lines up, only
+	// whether it is there at all, so sensor noise and a slightly warped map barely move
+	// it while a pose that is simply wrong drives it up
+	if (threadID.x == 0 && c < candidateCount)
+	{
+		const float agreement = scoreDen[0] > 0 ? scoreNum[0] / scoreDen[0] : 0;
+		const float veto = scoreFree[0] > 0 ? scoreBad[0] / scoreFree[0] : 0;
+		const float score = max(0.0, agreement - freeSpacePenalty * veto);
+		const float overlap = scoreAll[0] > 0 ? scoreDen[0] / scoreAll[0] : 0;
+		const float contradiction = scoreDen[0] > 0 ? scoreOpen[0] / scoreDen[0] : 0;
+		scores[c] = float4(score, overlap, score * saturate(overlap * (float)sampleCount / (float)minOverlapSamples), contradiction);
+	}
+}
+
+// ---- refinement --------------------------------------------------------------
+//
+// Gauss-Newton on the fine dense volume: surface samples pull toward the zero
+// level set along its gradient. refinePose[0] = (t.xyz, yaw) is read and rewritten
+// by RefineSolve, so several iterations chain on the GPU with no readback.
+
+RWStructuredBuffer<float4> refinePose; // [0] pose, [1] (rms meters, inlier count, iteration, damping)
+RWStructuredBuffer<float> refinePartials; // per group: 10 H entries, 4 b entries, count, residual sq
+uint refineGroupCount;
+float distanceTruncationBand;
+
+static const uint refineGroupSize = 256;
+static const uint refineTerms = 16;
+groupshared float refineAcc[refineTerms][refineGroupSize];
 
 #pragma kernel RefineAccumulate
 
@@ -678,11 +736,20 @@ RWStructuredBuffer<uint> selectState; // [0] threshold bin, [1] count above it, 
 RWStructuredBuffer<float4> survivors; // poses
 RWStructuredBuffer<float4> survivorScores; // as scores
 uint survivorLimit;
-uint selectKey; // component of scores to select on: 2 rank, 3 explained
+uint selectKey; // what to select on: 2 rank, 3 explained
+
+// explained: agreement x overlap, the share of the source the pose accounts for.
+// Coarse levels select on it: their agreement is an upper bound that saturates at 1
+// for any pose whose samples land near some surface, true pose and slivers alike,
+// and only the overlap still tells them apart
+float selectValue(const float4 score)
+{
+	return selectKey == 3 ? score.x * score.y : score[selectKey];
+}
 
 uint keyBin(const float4 score)
 {
-	return min((uint)(saturate(score[selectKey]) * SELECT_BINS), SELECT_BINS - 1);
+	return min((uint)(saturate(selectValue(score)) * SELECT_BINS), SELECT_BINS - 1);
 }
 
 #pragma kernel BeginSelect

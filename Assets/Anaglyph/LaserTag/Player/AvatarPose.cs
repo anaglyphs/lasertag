@@ -1,4 +1,6 @@
+using Anaglyph.XR.DepthKit.EnvScanning.Registration;
 using Unity.Netcode;
+using Unity.Netcode.Components;
 using Unity.XR.CoreUtils;
 using UnityEngine;
 
@@ -10,6 +12,12 @@ namespace Anaglyph.LaserTag.Player
 	/// authority in PreUpdate, so a pose written any earlier in the frame is only a staler
 	/// version of the same send. Update and LateUpdate write too, so that anything reading a
 	/// held weapon's muzzle mid-frame isn't aiming with the previous frame's hand.
+	///
+	/// Poses travel relative to the avatar root, and every peer places the root at the
+	/// owner's pose-graph correction (their odometry frame in the shared frame) as its own
+	/// replica of the graph has it. A loop closure therefore moves the player together
+	/// with the map around them on every headset, in the same frame, instead of the map
+	/// moving first and the player catching up a network trip later.
 	/// </summary>
 	public class AvatarPose : NetworkBehaviour
 	{
@@ -21,6 +29,21 @@ namespace Anaglyph.LaserTag.Player
 		private void OnValidate()
 		{
 			TryGetComponent(out avatar);
+		}
+
+		private void Awake()
+		{
+			// set identically on every peer before spawn
+			foreach (NetworkTransform networkTransform in GetComponentsInChildren<NetworkTransform>(true))
+				if (networkTransform.transform != transform)
+					networkTransform.InLocalSpace = true;
+		}
+
+		private void PlaceRoot()
+		{
+			if (!IsSpawned) return;
+			Pose4 correction = SharedSlam.Instance != null ? SharedSlam.Instance.CorrectionOfClient(OwnerClientId) : Pose4.Identity;
+			transform.SetPositionAndRotation(correction.translation, correction.Rotation);
 		}
 
 		public override void OnNetworkSpawn()
@@ -43,11 +66,13 @@ namespace Anaglyph.LaserTag.Player
 
 		private void Update()
 		{
+			PlaceRoot();
 			if (driving) Apply();
 		}
 
 		private void LateUpdate()
 		{
+			PlaceRoot();
 			if (driving) Apply();
 		}
 
@@ -55,6 +80,7 @@ namespace Anaglyph.LaserTag.Player
 		[BeforeRenderOrder(1000)]
 		private void OnBeforeRender()
 		{
+			PlaceRoot();
 			Apply();
 		}
 

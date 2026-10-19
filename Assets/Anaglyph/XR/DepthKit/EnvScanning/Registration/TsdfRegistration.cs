@@ -9,30 +9,6 @@ using UnityEngine.Rendering;
 
 namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 {
-	/// <summary>A gravity-aligned rigid transform: p' = rotateY(p, yaw) + translation.</summary>
-	[Serializable]
-	public struct Pose4
-	{
-		public float3 translation;
-		public float yaw; // radians about +Y, Unity's sense
-
-		public Pose4(float3 translation, float yaw)
-		{
-			this.translation = translation;
-			this.yaw = yaw;
-		}
-
-		public static Pose4 Identity => new(float3.zero, 0);
-
-		public quaternion Rotation => quaternion.RotateY(yaw);
-		public Pose AsPose => new(translation, Rotation);
-		public float4x4 Matrix => float4x4.TRS(translation, Rotation, 1);
-
-		public float3 Apply(float3 p) => math.mul(Rotation, p) + translation;
-
-		public override string ToString() => $"t=({translation.x:F2}, {translation.y:F2}, {translation.z:F2}) yaw={math.degrees(yaw):F1}°";
-	}
-
 	/// <summary>One step of a search: the best pose after a pyramid level, or after refinement.</summary>
 	public readonly struct SearchStep
 	{
@@ -51,6 +27,38 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 		public readonly bool refined;
 	}
 
+	/// <summary>
+	/// How firmly a source scan's own geometry pins each of the four degrees of freedom:
+	/// the eigen decomposition of the information matrix sum(J J^T) over its surface
+	/// samples, J = (normal, yaw lever / StatsLever). An eigenvalue counts roughly how many
+	/// samples' worth of surface face along that direction, so a hallway is near zero
+	/// along its length and a lone floor near zero in x and z. An absolute count: scanning
+	/// more never lowers it.
+	/// </summary>
+	public readonly struct SourceConstraint
+	{
+		public SourceConstraint(float4 strengths, float4x4 directions)
+		{
+			this.strengths = strengths;
+			this.directions = directions;
+		}
+
+		/// <summary>Eigenvalues, weakest first.</summary>
+		public readonly float4 strengths;
+		/// <summary>Matching unit eigenvectors as columns, (x, y, z, yaw) each.</summary>
+		public readonly float4x4 directions;
+
+		public float Weakest => strengths.x;
+		public float4 WeakestDirection => directions.c0;
+
+		public override string ToString()
+		{
+			float4 d = math.abs(WeakestDirection);
+			string axis = d.w > math.cmax(d.xyz) ? "yaw" : d.x >= d.y && d.x >= d.z ? "x" : d.y >= d.z ? "y" : "z";
+			return $"weakest {strengths.x:F0} along {axis} (strengths {strengths.x:F0}/{strengths.y:F0}/{strengths.z:F0}/{strengths.w:F0})";
+		}
+	}
+
 	public struct RegistrationResult
 	{
 		public bool success;
@@ -61,6 +69,13 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 		public float overlap;
 		/// <summary>Surface agreement over the mutually observed samples, minus the free-space veto, 0..1.</summary>
 		public float agreement;
+		/// <summary>
+		/// Share of the mutually observed surface weight that landed where the target saw open
+		/// air, 0..1: surfaces the pose puts where the target saw none. Indifferent to how
+		/// closely the surfaces that are there line up, so it holds steady across sensor noise
+		/// and map warp that drag <see cref="agreement"/> down, while a wrong pose drives it up
+		/// </summary>
+		public float contradiction;
 		/// <summary>Roughly how many surface samples the agreement was measured on.</summary>
 		public int overlapSamples;
 		/// <summary>Score lead over the best candidate that is NOT a neighbor of the winner.</summary>
@@ -76,7 +91,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 		public int yawHypotheses;
 
 		public override string ToString() => success
-			? $"{pose} agreement={agreement:F3} overlap={overlap:F2} ({overlapSamples} samples) score={score:F3} margin={margin:F3} rms={(refinedRms < 0 ? "refine failed: " + failure : refinedRms * 100 + "cm")} samples={surfaceSamples} scored={candidatesScored}{(yawHypotheses > 0 ? $" yaws={yawHypotheses}" : "")} levels[{levelTrace}]"
+			? $"{pose} agreement={agreement:F3} contradiction={contradiction:F3} overlap={overlap:F2} ({overlapSamples} samples) score={score:F3} margin={margin:F3} rms={(refinedRms < 0 ? "refine failed: " + failure : refinedRms * 100 + "cm")} samples={surfaceSamples} scored={candidatesScored}{(yawHypotheses > 0 ? $" yaws={yawHypotheses}" : "")} levels[{levelTrace}]"
 			: $"failed: {failure}";
 	}
 
@@ -121,6 +136,15 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 		// indexed by pyramid level, fine first
 		private static readonly int[] SurvivorsPerLevel = { 64, 256, 512, 1024 };
 		private const int MaxSurvivors = 1024;
+		// each level's GPU selection is this many times its survivor count; the CPU then keeps
+		// the best, at most a PeakQuota share of them around any one peak, so the winner's
+		// neighbors can't crowd rival peaks (another corner of the room) out of the beam
+		private const int SelectOversample = 4;
+		private const int MaxSelected = MaxSurvivors * SelectOversample;
+		private const int PeakQuotaDivisor = 4;
+		// distinct peaks refined and fine-scored side by side at the end; the margin is the
+		// winner's lead over the best of the others
+		private const int Peaks = 4;
 		private const int RefineIterations = 8;
 		private const float CoarseYawStepDegrees = 10f;
 
@@ -144,7 +168,10 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 		private const int ScoreRow = 4096;
 		private const int SelectBins = 4096;
 		private const int SelectRank = 2, SelectExplained = 3;
-		private const int StatsMin = 2, StatsMax = 5, StatsYaw = 8, StatsLength = StatsYaw + YawBins;
+		private const int StatsMin = 2, StatsMax = 5, StatsYaw = 8, StatsInfo = StatsYaw + YawBins, StatsLength = StatsInfo + 10;
+		private const float InfoScale = 256f;
+		/// <summary>Meters of lever arm that count as one unit of yaw constraint in <see cref="SourceConstraint"/>.</summary>
+		public const float StatsLever = 2f;
 		private const int CoordBias = 1 << 20;
 
 		private readonly ComputeShader compute;
@@ -154,7 +181,8 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 		private ComputeKernel beginSelectKernel, selectHistogramKernel, selectThresholdKernel, selectCompactKernel;
 
 		private readonly ComputeBuffer coarseSamples, fineSamples, sourceStats, chunkListBuffer;
-		private readonly ComputeBuffer refinePose, refinePartials, evalScores;
+		private readonly ComputeBuffer refinePartials, evalScores;
+		private readonly ComputeBuffer[] peakPoses = new ComputeBuffer[Peaks], peakScores = new ComputeBuffer[Peaks];
 		private readonly ComputeBuffer selectHistogram, selectState, survivors, survivorScores;
 		private ComputeBuffer candidateBuffer, scoreBuffer;
 		private string lastRefineNote;
@@ -163,6 +191,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 		private Bounds sourceBounds;
 		private readonly float[] sourceYawHistogram = new float[YawBins];
 		private int sourceWallSamples;
+		private SourceConstraint sourceConstraint;
 		private bool sourceReady;
 
 		public RegistrationVolume Target { get; set; }
@@ -179,6 +208,8 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 		private static readonly int freeStrideID = Shader.PropertyToID("freeStride");
 		private static readonly int sourceStatsID = Shader.PropertyToID("sourceStats");
 		private static readonly int accumulateStatsID = Shader.PropertyToID("accumulateStats");
+		private static readonly int statsCenterID = Shader.PropertyToID("statsCenter");
+		private static readonly int statsLeverID = Shader.PropertyToID("statsLever");
 		private static readonly int chunkListID = Shader.PropertyToID("chunkList");
 		private static readonly int chunkCountID = Shader.PropertyToID("chunkCount");
 		private static readonly int samplesID = Shader.PropertyToID("samples");
@@ -200,6 +231,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 		private static readonly int survivorScoresID = Shader.PropertyToID("survivorScores");
 		private static readonly int survivorLimitID = Shader.PropertyToID("survivorLimit");
 		private static readonly int selectKeyID = Shader.PropertyToID("selectKey");
+		private static readonly int scoreTrilinearID = Shader.PropertyToID("scoreTrilinear");
 
 		public TsdfRegistration(ComputeShader compute, EnvScanner scanner)
 		{
@@ -220,14 +252,19 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 			fineSamples = new ComputeBuffer(MaxFineSamples, sampleStride, ComputeBufferType.Append);
 			sourceStats = new ComputeBuffer(StatsLength, sizeof(uint), ComputeBufferType.Raw);
 			chunkListBuffer = new ComputeBuffer(4096, sizeof(int));
-			refinePose = new ComputeBuffer(2, 16);
+			for (int i = 0; i < Peaks; i++)
+			{
+				peakPoses[i] = new ComputeBuffer(2, 16);
+				peakScores[i] = new ComputeBuffer(1, 16);
+			}
+
 			refinePartials = new ComputeBuffer(64 * 16, sizeof(float));
 			evalScores = new ComputeBuffer(1, 16);
 
 			selectHistogram = new ComputeBuffer(SelectBins, sizeof(uint));
 			selectState = new ComputeBuffer(4, sizeof(uint));
-			survivors = new ComputeBuffer(MaxSurvivors, 16);
-			survivorScores = new ComputeBuffer(MaxSurvivors, 16);
+			survivors = new ComputeBuffer(MaxSelected, 16);
+			survivorScores = new ComputeBuffer(MaxSelected, 16);
 		}
 
 		public static ComputeShader LoadShader() => Resources.Load<ComputeShader>("TsdfRegistration");
@@ -251,9 +288,19 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 			if (source == null || !source.IsCreated) return false;
 			scanner.ConfigureAtlasReader(compute, source);
 
+			// yaw is measured about the middle of the chunks, known before extraction
 			int[] list = new int[chunkIndices.Count];
-			for (int i = 0; i < list.Length; i++) list[i] = chunkIndices[i];
+			float3 center = 0;
+			for (int i = 0; i < list.Length; i++)
+			{
+				list[i] = chunkIndices[i];
+				center += scanner.ChunkCoordToCornerWorldPos(scanner.ChunkIndexToChunkCoord(list[i])) + scanner.ChunkWorldSizeDim * 0.5f;
+			}
+
+			center /= list.Length;
 			chunkListBuffer.SetData(list);
+			compute.SetVector(statsCenterID, new Vector4(center.x, center.y, center.z, 0));
+			compute.SetFloat(statsLeverID, StatsLever);
 
 			uint[] stats = new uint[StatsLength];
 			for (int a = 0; a < 3; a++) stats[StatsMin + a] = uint.MaxValue;
@@ -267,7 +314,8 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 			compute.SetInt(chunkCountID, list.Length);
 
 			// coarse: every 4th voxel per axis, free space every 8th; fine: every voxel,
-			// free every 4th. The fine pass also gathers the bounds and wall histogram
+			// free every 4th. The fine pass also gathers the bounds, wall histogram and
+			// information matrix
 			coarseSamples.SetCounterValue(0);
 			extractKernel.Bind(samplesAppendID, coarseSamples);
 			compute.SetInt(sampleStrideID, 4);
@@ -304,6 +352,10 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 				sourceWallSamples += (int)data[StatsYaw + i];
 			}
 
+			float[] info = new float[10];
+			for (int k = 0; k < 10; k++) info[k] = (int)data[StatsInfo + k] / InfoScale;
+			sourceConstraint = Decompose(info);
+
 			sourceReady = true;
 			return true;
 		}
@@ -311,6 +363,74 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 		public int FineSampleCount => fineCount;
 		public int CoarseSampleCount => coarseCount;
 		public Bounds SourceBounds => sourceBounds;
+
+		/// <summary>How firmly the current source's geometry pins each degree of freedom; read it before registering.</summary>
+		public SourceConstraint Constraint => sourceConstraint;
+
+		// symmetric 4x4 from its upper triangle (00 01 02 03 11 12 13 22 23 33), cyclic Jacobi
+		private static SourceConstraint Decompose(float[] t)
+		{
+			double[,] a =
+			{
+				{ t[0], t[1], t[2], t[3] },
+				{ t[1], t[4], t[5], t[6] },
+				{ t[2], t[5], t[7], t[8] },
+				{ t[3], t[6], t[8], t[9] }
+			};
+			double[,] v = { { 1, 0, 0, 0 }, { 0, 1, 0, 0 }, { 0, 0, 1, 0 }, { 0, 0, 0, 1 } };
+
+			for (int sweep = 0; sweep < 32; sweep++)
+			{
+				double off = 0;
+				for (int p = 0; p < 4; p++)
+				for (int q = p + 1; q < 4; q++)
+					off += a[p, q] * a[p, q];
+				if (off < 1e-18) break;
+
+				for (int p = 0; p < 4; p++)
+				for (int q = p + 1; q < 4; q++)
+				{
+					if (Math.Abs(a[p, q]) < 1e-30) continue;
+					double theta = (a[q, q] - a[p, p]) / (2 * a[p, q]);
+					double tan = Math.Sign(theta) / (Math.Abs(theta) + Math.Sqrt(theta * theta + 1));
+					if (theta == 0) tan = 1;
+					double c = 1 / Math.Sqrt(tan * tan + 1), s = tan * c;
+					for (int k = 0; k < 4; k++)
+					{
+						double akp = a[k, p], akq = a[k, q];
+						a[k, p] = c * akp - s * akq;
+						a[k, q] = s * akp + c * akq;
+					}
+
+					for (int k = 0; k < 4; k++)
+					{
+						double apk = a[p, k], aqk = a[q, k];
+						a[p, k] = c * apk - s * aqk;
+						a[q, k] = s * apk + c * aqk;
+					}
+
+					for (int k = 0; k < 4; k++)
+					{
+						double vkp = v[k, p], vkq = v[k, q];
+						v[k, p] = c * vkp - s * vkq;
+						v[k, q] = s * vkp + c * vkq;
+					}
+				}
+			}
+
+			int[] order = { 0, 1, 2, 3 };
+			Array.Sort(order, (i, j) => a[i, i].CompareTo(a[j, j]));
+			float4 strengths = 0;
+			float4x4 directions = default;
+			for (int i = 0; i < 4; i++)
+			{
+				int o = order[i];
+				strengths[i] = (float)Math.Max(0, a[o, o]);
+				directions[i] = new float4((float)v[0, o], (float)v[1, o], (float)v[2, o], (float)v[3, o]);
+			}
+
+			return new SourceConstraint(strengths, directions);
+		}
 
 		// ---- search ------------------------------------------------------------
 
@@ -392,6 +512,31 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 		private const int MinOverlapSamplesFine = 500;
 
 		/// <summary>Ranking value: agreement over the overlap, discounted only when few samples overlap.</summary>
+		// |sdf| within this (normalized) is a surface sample; mirrored in TsdfRegistration.compute
+		private const float SurfaceBand = 0.5f;
+
+		/// <summary>
+		/// Surface samples that this much scanned surface area (m²) yields. The surface band
+		/// is a truncation band thick (±SurfaceBand of it), so a square meter holds
+		/// band / voxel³ of them. Sample-count thresholds expressed as areas keep their
+		/// meaning when the scanner's voxel size or truncation band changes.
+		/// </summary>
+		public static float SurfaceSamples(EnvScanner scanner, float area)
+		{
+			float vox = scanner.VoxSize;
+			return area * 2f * SurfaceBand * scanner.DistanceTruncationBand / (vox * vox * vox);
+		}
+
+		/// <summary><see cref="SurfaceSamples"/> for a multiple of one chunk face (chunk world size²).</summary>
+		public static float SurfaceSamplesPerChunkFaces(EnvScanner scanner, float chunkFaces)
+		{
+			float side = scanner.ChunkWorldSizeDim;
+			return SurfaceSamples(scanner, chunkFaces * side * side);
+		}
+
+		// mirrors selectValue in TsdfRegistration.compute: explained (agreement x overlap) or a score component
+		private static float SelectValue(float4 score, int key) => key == SelectExplained ? score.x * score.y : score[key];
+
 		public static float RankOf(float agreement, float overlapSamples, int minSamples) =>
 			agreement * math.saturate(overlapSamples / minSamples);
 
@@ -417,7 +562,8 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 				// explains the most of the source, the fine level what agrees best
 				DispatchScore(candidateBuffer, scoreBuffer, n, level, coarseSamples, coarseCount, MinOverlapSamplesCoarse);
 				int key = level > 0 ? SelectExplained : SelectRank;
-				int k = math.min(SurvivorsPerLevel[level], n);
+				int keep = math.min(SurvivorsPerLevel[level], n);
+				int k = math.min(keep * SelectOversample, n);
 				DispatchSelect(candidateBuffer, scoreBuffer, n, k, key);
 				scored += n;
 
@@ -437,7 +583,8 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 				NativeArray<float4> poses = poseReq.GetData<float4>(), scores = scoreReq.GetData<float4>();
 				ranked = new List<(float4, float4)>(k);
 				for (int i = 0; i < k; i++) ranked.Add((poses[i], scores[i]));
-				ranked.Sort((a, b) => b.score[key].CompareTo(a.score[key]));
+				ranked.Sort((a, b) => SelectValue(b.score, key).CompareTo(SelectValue(a.score, key)));
+				ranked = KeepDiverse(ranked, keep, math.max(1, keep / PeakQuotaDivisor));
 
 				(float4 top, float4 topScore) = ranked[0];
 				trace.Append($"L{level}:{n}c best={topScore.z:F3}/{topScore.y:F2}@({top.x:F1},{top.y:F1},{top.z:F1},{math.degrees(top.w):F0}°) ");
@@ -448,48 +595,70 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 
 			if (ranked == null || ranked.Count == 0) return Fail("nothing scored");
 
-			(float4 best, float4 bestScore) = ranked[0];
-			float margin = bestScore.z;
-			foreach ((float4 pose, float4 score) in ranked)
+			// the best of each distinct peak, refined and fine-scored side by side: a rival
+			// peak (another corner of the room) is always measured against the winner on equal
+			// terms, refined against refined, and read trilinearly as the refinement reads, so
+			// neither gains or loses from where its samples happen to fall within a voxel
+			List<(float4 pose, float4 score)> heads = PeakHeads(ranked, Peaks);
+			for (int i = 0; i < heads.Count; i++)
 			{
-				if (IsDistinct(pose, best)) { margin = bestScore.z - score.z; break; }
+				DispatchRefine(new Pose4(heads[i].pose.xyz, heads[i].pose.w), peakPoses[i]);
+				DispatchScore(peakPoses[i], peakScores[i], 1, 0, fineSamples, fineCount, MinOverlapSamplesFine, trilinear: true);
 			}
 
-			// Gauss-Newton, then the refined pose's own agreement: the grid candidate sits
-			// up to half a cell off. Both run back to back on the GPU, one readback
-			DispatchRefine(new Pose4(best.xyz, best.w));
-			DispatchScore(refinePose, evalScores, 1, 0, fineSamples, fineCount, MinOverlapSamplesFine);
-			Awaitable<AsyncGPUReadbackRequest> refinePending = AsyncGPUReadback.RequestAsync(refinePose);
-			Awaitable<AsyncGPUReadbackRequest> evalPending = AsyncGPUReadback.RequestAsync(evalScores);
-			AsyncGPUReadbackRequest refineReq = await refinePending;
-			AsyncGPUReadbackRequest evalReq = await evalPending;
-
-			Pose4 refined = new(best.xyz, best.w);
-			float rms = -1;
-			float4 final = bestScore;
-			if (refineReq.hasError || evalReq.hasError)
+			var posePending = new Awaitable<AsyncGPUReadbackRequest>[heads.Count];
+			var scorePending = new Awaitable<AsyncGPUReadbackRequest>[heads.Count];
+			for (int i = 0; i < heads.Count; i++)
 			{
-				lastRefineNote = "readback failed";
+				posePending[i] = AsyncGPUReadback.RequestAsync(peakPoses[i]);
+				scorePending[i] = AsyncGPUReadback.RequestAsync(peakScores[i]);
 			}
-			else
+
+			// a peak whose refinement fails keeps its grid pose and fine score
+			var peaks = new List<(Pose4 pose, float4 score, float rms, string note)>(heads.Count);
+			for (int i = 0; i < heads.Count; i++)
 			{
-				NativeArray<float4> data = refineReq.GetData<float4>();
+				AsyncGPUReadbackRequest poseReq = await posePending[i];
+				AsyncGPUReadbackRequest scoreReq = await scorePending[i];
+				(float4 gridPose, float4 gridScore) = heads[i];
+				Pose4 grid = new(gridPose.xyz, gridPose.w);
+				if (poseReq.hasError || scoreReq.hasError)
+				{
+					peaks.Add((grid, gridScore, -1, "readback failed"));
+					continue;
+				}
+
+				NativeArray<float4> data = poseReq.GetData<float4>();
 				float4 pose = data[0];
-				rms = data[1].x;
+				float peakRms = data[1].x;
 				int support = (int)data[1].y;
-				if (rms < 0 || math.any(!math.isfinite(pose)))
-				{
-					lastRefineNote = rms == -1 ? $"only {support} samples in band" : rms == -2 ? "singular system" : "non-finite pose";
-					rms = -1;
-				}
+				if (peakRms < 0 || math.any(!math.isfinite(pose)))
+					peaks.Add((grid, gridScore, -1, peakRms == -1 ? $"only {support} samples in band" : peakRms == -2 ? "singular system" : "non-finite pose"));
 				else
-				{
-					lastRefineNote = null;
-					refined = new Pose4(pose.xyz, pose.w);
-					final = evalReq.GetData<float4>()[0];
-				}
+					peaks.Add((new Pose4(pose.xyz, pose.w), scoreReq.GetData<float4>()[0], peakRms, null));
 			}
 
+			int winner = 0;
+			for (int i = 1; i < peaks.Count; i++)
+				if (peaks[i].score.z > peaks[winner].score.z) winner = i;
+
+			(Pose4 refined, float4 final, float rms, string note) = peaks[winner];
+			float4 winnerPose = new(refined.translation, refined.yaw);
+			float margin = final.z;
+			int rival = -1;
+			for (int i = 0; i < peaks.Count; i++)
+			{
+				if (i == winner || !IsDistinct(new float4(peaks[i].pose.translation, peaks[i].pose.yaw), winnerPose)) continue;
+				if (rival < 0 || peaks[i].score.z > peaks[rival].score.z) rival = i;
+			}
+
+			if (rival >= 0) margin = final.z - peaks[rival].score.z;
+			lastRefineNote = note;
+			trace.Append(rival >= 0 ? $"rival {peaks[rival].score.z:F3}@{peaks[rival].pose} of {peaks.Count} peaks" : $"no rival among {peaks.Count} peaks");
+			trace.Append(" [");
+			for (int i = 0; i < peaks.Count; i++)
+				trace.Append($"{(i > 0 ? "; " : "")}{peaks[i].score.z:F3}@{peaks[i].pose} from {heads[i].score.z:F3}@{new Pose4(heads[i].pose.xyz, heads[i].pose.w)}{(peaks[i].rms < 0 ? " " + peaks[i].note : "")}");
+			trace.Append(']');
 			StepCompleted.Invoke(new SearchStep(-1, refined, final.x, true));
 
 			return new RegistrationResult
@@ -499,6 +668,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 				score = final.z,
 				overlap = final.y,
 				agreement = final.x,
+				contradiction = final.w,
 				overlapSamples = (int)(final.y * fineCount),
 				margin = margin,
 				failure = lastRefineNote,
@@ -520,7 +690,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 			scanner.ConfigureAtlasReader(compute);
 			bool fine = level == 0;
 			DispatchScore(candidateBuffer, evalScores, 1, level, fine ? fineSamples : coarseSamples, fine ? fineCount : coarseCount,
-				fine ? MinOverlapSamplesFine : MinOverlapSamplesCoarse);
+				fine ? MinOverlapSamplesFine : MinOverlapSamplesCoarse, trilinear: fine);
 
 			AsyncGPUReadbackRequest req = await AsyncGPUReadback.RequestAsync(evalScores);
 			if (req.hasError) return (-1, 0);
@@ -528,7 +698,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 			return (s.x, s.y);
 		}
 
-		private void DispatchScore(ComputeBuffer candidates, ComputeBuffer scores, int count, int level, ComputeBuffer samples, int sampleCount, int minOverlapSamples)
+		private void DispatchScore(ComputeBuffer candidates, ComputeBuffer scores, int count, int level, ComputeBuffer samples, int sampleCount, int minOverlapSamples, bool trilinear = false)
 		{
 			(Texture tex, int3 dims, float cell, bool isFine) = Target.Level(level);
 			Target.BindForReading(scoreKernel);
@@ -542,6 +712,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 			compute.SetInts(levelDimsID, dims.x, dims.y, dims.z);
 			compute.SetFloat(levelCellID, cell);
 			compute.SetInt(levelIsFineID, isFine ? 1 : 0);
+			compute.SetInt(scoreTrilinearID, trilinear && isFine ? 1 : 0);
 
 			// one group per candidate, in rows: a dispatch dimension holds at most 65535 groups
 			scoreKernel.DispatchGroups(math.min(count, ScoreRow), (count + ScoreRow - 1) / ScoreRow, 1);
@@ -574,7 +745,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 		}
 
 		// Gauss-Newton chained on the GPU from the given pose; no readback of its own
-		private void DispatchRefine(Pose4 start)
+		private void DispatchRefine(Pose4 start, ComputeBuffer refinePose)
 		{
 			int groups = math.clamp((fineCount + 255) / 256, 1, 64);
 
@@ -605,6 +776,51 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 			int size = math.max(count, 1024);
 			candidateBuffer = new ComputeBuffer(size, 16);
 			scoreBuffer = new ComputeBuffer(size, 16);
+		}
+
+		// the best `keep`, at most `quota` of them within the distinct radius of any one
+		// peak's best, so rival peaks keep a share of the beam all the way down
+		private static List<(float4 pose, float4 score)> KeepDiverse(List<(float4 pose, float4 score)> ranked, int keep, int quota)
+		{
+			List<float4> heads = new();
+			List<int> counts = new();
+			List<(float4 pose, float4 score)> result = new(keep);
+			foreach ((float4 pose, float4 score) item in ranked)
+			{
+				int peak = -1;
+				for (int h = 0; h < heads.Count && peak < 0; h++)
+					if (!IsDistinct(item.pose, heads[h])) peak = h;
+				if (peak < 0)
+				{
+					heads.Add(item.pose);
+					counts.Add(0);
+					peak = heads.Count - 1;
+				}
+
+				if (counts[peak] >= quota) continue;
+				counts[peak]++;
+				result.Add(item);
+				if (result.Count == keep) break;
+			}
+
+			return result;
+		}
+
+		// the best candidate of each of the first `count` distinct peaks, best first
+		private static List<(float4 pose, float4 score)> PeakHeads(List<(float4 pose, float4 score)> ranked, int count)
+		{
+			List<(float4 pose, float4 score)> heads = new(count);
+			foreach ((float4 pose, float4 score) item in ranked)
+			{
+				bool distinct = true;
+				foreach ((float4 pose, float4 _) head in heads)
+					if (!IsDistinct(item.pose, head.pose)) { distinct = false; break; }
+				if (!distinct) continue;
+				heads.Add(item);
+				if (heads.Count == count) break;
+			}
+
+			return heads;
 		}
 
 		private static bool IsDistinct(float4 a, float4 b)
@@ -815,7 +1031,8 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Registration
 			chunkListBuffer?.Release();
 			candidateBuffer?.Release();
 			scoreBuffer?.Release();
-			refinePose?.Release();
+			foreach (ComputeBuffer buffer in peakPoses) buffer?.Release();
+			foreach (ComputeBuffer buffer in peakScores) buffer?.Release();
 			refinePartials?.Release();
 			evalScores?.Release();
 			selectHistogram?.Release();

@@ -16,6 +16,10 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		public uint lastMeshingChangeSum;
 		internal uint pendingMeshingChangeSum;
 		public bool meshIsPopulated;
+
+		// set when a pose-graph solve moved this chunk's data: the next mesh is built
+		// whatever the sign bits say, and the chunk returns to its grid pose with it
+		internal bool forceRemesh;
 		
 		public NativeArray<uint> voxelSignBits;
 

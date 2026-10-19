@@ -29,17 +29,14 @@ namespace Anaglyph.LaserTag
 		[Header("Attempts")]
 		[SerializeField] private int minReferenceChunks = 4;
 		[SerializeField] private int minLocalChunks = 3;
+		private float nextCoverageLog;
 
 		[Header("Acceptance")]
-		// agreement among the samples that landed in the authority's observed space. two
-		// independently scanned volumes of one room agree around 0.5-0.6 at the right pose
-		[SerializeField] private float minAgreement = 0.4f;
-		// how many of this scan's samples must land in the authority's observed space; an
-		// absolute count, so scanning more than the authority never hurts
-		[SerializeField] private int minOverlapSamples = 500;
-		// the winner's lead over the best rival peak, as a fraction of its own score
-		[SerializeField] private float minMarginFraction = 0.15f;
-		[SerializeField] private float maxRefinedRms = 0.1f;
+		// shared with loop closure (SharedSlam) and ScanRegistrationBench
+		[SerializeField] private RegistrationGates gates = new();
+
+		/// <summary>When a registration may be attempted and trusted, for everything that registers scans.</summary>
+		public RegistrationGates Gates => gates;
 
 		public Phase CurrentPhase
 		{
@@ -84,26 +81,34 @@ namespace Anaglyph.LaserTag
 		// after sleep, tracking loss or a recenter the rig's pose means something else;
 		// the sensor is scanned into a scratch volume, in the stale frame, and that scan
 		// is registered against the map already held — the same source the initial
-		// colocation uses, fused and growing between attempts. The stale alignment is
-		// usually close: a recenter turns the space about the head, and a wake
-		// relocalizes onto the same tracking map. So a window about the head is
-		// searched first, where a fresh scan from one spot is unambiguous, and the
-		// whole map only when nothing in the window fits
+		// colocation uses, fused and growing between attempts. The whole map is searched,
+		// never a window about the stale alignment: a recenter can turn the frame by any
+		// angle, and a window that excludes the true pose returns the room's look-alike
+		// (its 180° twin, another corner) with nothing in the window to rival it, so the
+		// margin can't object. Measured on saved scans: a ±90° window with the truth 150°
+		// away accepted the 180° pose; the global search ranks the truth first
 		[SerializeField] private int3 relocalizeScratchChunks = new(4, 4, 4);
-		[SerializeField] private float relocalizeWindowMeters = 5f;
-		[SerializeField] private float relocalizeWindowDegrees = 90f;
-		// a scan from one spot sees a few walls, so a rival a room-width away often
-		// scores nearly as well; the window prior carries the decision here, not the margin
-		[SerializeField] private float relocalizeMinMarginFraction = 0.03f;
+		// the winner's lead over the best distinct rival, as a fraction of its own score
+		[SerializeField] private float relocalizeMinMarginFraction = 0.15f;
 
 		private EnvVolume scratch;
 		private bool alignmentApplied;
+
+		/// <summary>The scratch volume relocalization registers against the map; null unless relocalizing.</summary>
+		public EnvVolume ScratchVolume => scratch;
 		private bool relocalizeInFlight;
+
+		// bumped by every recenter: the sensor's world frame moved, so any scan fused before
+		// it, and any registration still running on one, describes a frame that is gone
+		private int frameEpoch;
 
 		/// <summary>True while incoming snapshot chunks belong in the reference volume, not the live scan.</summary>
 		public bool WantsReferenceChunks => CurrentPhase is Phase.Searching or Phase.Registering;
 
 		private readonly Dictionary<int, NativeArray<EnvScanner.Voxel>> referenceChunks = new();
+
+		/// <summary>The authority's snapshot chunks received while searching, in the authority's frame.</summary>
+		public IReadOnlyDictionary<int, NativeArray<EnvScanner.Voxel>> ReferenceChunks => referenceChunks;
 		private TsdfRegistration registration;
 		private RegistrationVolume reference;
 
@@ -111,6 +116,26 @@ namespace Anaglyph.LaserTag
 		// where the registration says it belongs. Identical for the authority
 		private Pose observedSpacePose;
 		private Pose canonSpacePose;
+
+		/// <summary>Where the registration put the tracking space: the alignment before any drift correction.</summary>
+		public Pose CanonSpacePose => canonSpacePose;
+
+		/// <summary>Bumped whenever a new alignment is found (colocation, relocalization, becoming the authority).</summary>
+		public int AlignmentGeneration { get; private set; }
+
+		/// <summary>
+		/// Pose-graph SLAM's drift correction, applied on top of the registered alignment:
+		/// the tracking space is aligned to SlamCorrection ∘ <see cref="CanonSpacePose"/>.
+		/// Reset whenever a new alignment is found, since that alignment was registered
+		/// against the map as already corrected
+		/// </summary>
+		public Pose4 SlamCorrection { get; set; } = Pose4.Identity;
+
+		private void NewAlignment()
+		{
+			AlignmentGeneration++;
+			SlamCorrection = Pose4.Identity;
+		}
 
 		public bool IsAvailable => EnvScanner.Instance != null && MainXRRig.Instance != null;
 		public bool IsRunning => CurrentPhase != Phase.Stopped;
@@ -155,7 +180,26 @@ namespace Anaglyph.LaserTag
 
 		private void OnRecentered()
 		{
-			if (CurrentPhase == Phase.Aligned) BeginRelocalize("recenter");
+			frameEpoch++;
+			switch (CurrentPhase)
+			{
+				case Phase.Aligned:
+					BeginRelocalize("recenter");
+					break;
+				case Phase.Relocalizing:
+					// the scratch scan so far is in the frame before this recenter; fusing the next
+					// frames on top would register a blend of two frames against the map
+					RestartScratch();
+					Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] recentered while relocalizing: restarting the scratch scan");
+					break;
+				case Phase.Searching:
+				case Phase.Registering:
+					// not colocated yet, so the live map is this headset's own scan, fused in the
+					// frame before this recenter; the authority's snapshot is unaffected
+					if (EnvScanner.Instance != null) EnvScanner.Instance.Clear();
+					Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] recentered while searching: restarting the local scan");
+					break;
+			}
 		}
 
 		// the colocator drops to Lost on tracking loss, sleep and recenter; the alignment
@@ -166,14 +210,34 @@ namespace Anaglyph.LaserTag
 			EnvScanner scanner = EnvScanner.Instance;
 			if (scanner == null) return;
 
-			CurrentPhase = Phase.Relocalizing;
+			// nothing mapped yet to register against (XROrigin setting the tracking origin
+			// mode at startup raises a recenter): relocalizing would wait forever with the
+			// live scan shut. The authority's frame is canon by definition, so it re-anchors
+			// on the new one; anyone else looks for the authority again
+			EnvMesher mesher = EnvMesher.Instance;
+			if (mesher == null || mesher.ChunksList.Count < minLocalChunks)
+			{
+				Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] {why} with no map to relocalize against: {(SyncBus.IsAuthority ? "re-anchoring" : "searching again")}");
+				scanner.Clear();
+				if (SyncBus.IsAuthority) AlignIdentity();
+				else BeginSearch();
+				return;
+			}
 
-			// the live integration gate is shut while relocalizing (LocalScanRequested is
-			// false), so the sensor goes into a fresh scratch volume on the same chunk grid
-			scratch?.Dispose();
+			CurrentPhase = Phase.Relocalizing;
+			RestartScratch();
+			Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] relocalizing ({why}): scanning into a scratch volume and registering it against the map");
+		}
+
+		// the live integration gate is shut while relocalizing (LocalScanRequested is false),
+		// so the sensor goes into a fresh scratch volume on the same chunk grid
+		private void RestartScratch()
+		{
+			EnvScanner scanner = EnvScanner.Instance;
+			if (scanner == null) return;
+			ReleaseScratch();
 			scratch = scanner.CreateVolume(relocalizeScratchChunks, "Relocalization Scratch");
 			scanner.GatedVolume = scratch;
-			Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] relocalizing ({why}): scanning into a scratch volume and registering it against the map");
 		}
 
 		// the scratch scan only means something while relocalizing
@@ -202,6 +266,7 @@ namespace Anaglyph.LaserTag
 			ReleaseScratch();
 			Transform space = MainXRRig.TrackingSpace;
 			observedSpacePose = canonSpacePose = space ? new Pose(space.position, space.rotation) : Pose.identity;
+			NewAlignment();
 			alignmentApplied = false;
 			CurrentPhase = Phase.Aligned;
 		}
@@ -224,7 +289,7 @@ namespace Anaglyph.LaserTag
 			// observed drifts toward canon as the colocator moves the rig, then the two
 			// coincide and the fit holds still
 			results.Add(new ColocationConstraint(new Pose(space.position, space.rotation),
-				canonSpacePose, hasReliableRotation: true));
+				SlamCorrection.Apply(canonSpacePose), hasReliableRotation: true));
 		}
 
 		// ---- reference volume --------------------------------------------------
@@ -297,6 +362,7 @@ namespace Anaglyph.LaserTag
 			// integration gate (a joiner needs its own scan), which here would bake the
 			// stale scan into the very map it is being matched against
 			relocalizeInFlight = true;
+			int epoch = frameEpoch;
 			try
 			{
 				EnsureRegistration(scanner);
@@ -328,26 +394,20 @@ namespace Anaglyph.LaserTag
 					return;
 				}
 
-				float3 head = MainXRRig.Camera ? (float3)MainXRRig.Camera.transform.position : float3.zero;
-				RegistrationResult result = await registration.RegisterAsync(Pose4.Identity, relocalizeWindowMeters, relocalizeWindowDegrees, head);
-				if (!this || CurrentPhase != Phase.Relocalizing) return;
-				string rejection = Rejection(result, relocalizeMinMarginFraction);
-				string where = "window";
+				if (epoch != frameEpoch || !HasCoverage("relocalize", scratchChunks.Count)) return;
 
-				// nothing fits inside the window: the map is searched whole. A fit that
-				// only failed the margin or rms gate is not improved on by a wider search
-				if (!Fits(result))
+				RegistrationResult result = await RegisterGlobalAsync();
+				if (!this || CurrentPhase != Phase.Relocalizing) return;
+				if (epoch != frameEpoch)
 				{
-					Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] relocalize (window): {result} — {rejection}; searching the whole map");
-					result = await RegisterGlobalAsync();
-					if (!this || CurrentPhase != Phase.Relocalizing) return;
-					rejection = Rejection(result, relocalizeMinMarginFraction);
-					where = "global";
+					Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] relocalize: discarded, recentered mid-registration");
+					return;
 				}
+				string rejection = Rejection(result, relocalizeMinMarginFraction);
 
 				LastResult = result;
 				Registered.Invoke(result);
-				Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] relocalize ({where}): {result}  (scratch {scratchChunks.Count} chunks, {registration.FineSampleCount} samples; map {mapChunks.Count} chunks)");
+				Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] relocalize: {result}  (scratch {scratchChunks.Count} chunks, {registration.FineSampleCount} samples; map {mapChunks.Count} chunks)");
 
 				if (rejection != null)
 				{
@@ -358,6 +418,7 @@ namespace Anaglyph.LaserTag
 				Transform space = MainXRRig.TrackingSpace;
 				observedSpacePose = new Pose(space.position, space.rotation);
 				canonSpacePose = new Pose(result.pose.Apply(space.position), math.mul(result.pose.Rotation, (quaternion)space.rotation));
+				NewAlignment();
 				ReleaseScratch();
 				alignmentApplied = false;
 				CurrentPhase = Phase.Aligned;
@@ -376,6 +437,7 @@ namespace Anaglyph.LaserTag
 		private async void Attempt(EnvScanner scanner, EnvMesher mesher)
 		{
 			CurrentPhase = Phase.Registering;
+			int epoch = frameEpoch;
 			try
 			{
 				EnsureRegistration(scanner);
@@ -405,8 +467,14 @@ namespace Anaglyph.LaserTag
 				foreach (Chunk chunk in mesher.ChunksList) local.Add(chunk.chunkIndex);
 
 				if (!await registration.SetSourceChunksAsync(local) || !this) return;
+				if (epoch != frameEpoch || !HasCoverage("colocate", local.Count)) return;
 				RegistrationResult result = await RegisterGlobalAsync();
 				if (!this || CurrentPhase != Phase.Registering) return;
+				if (epoch != frameEpoch)
+				{
+					Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] discarded, recentered mid-registration");
+					return;
+				}
 
 				LastResult = result;
 				Registered.Invoke(result);
@@ -446,18 +514,26 @@ namespace Anaglyph.LaserTag
 			return await registration.RegisterAsync(yawHypotheses: false);
 		}
 
-		private bool Fits(RegistrationResult result) =>
-			result.success && result.agreement >= minAgreement && result.overlapSamples >= minOverlapSamples;
+		// true once the extracted source constrains every degree of freedom; logs why not, at most every 2 s
+		private bool HasCoverage(string what, int chunks)
+		{
+			SourceConstraint constraint = registration.Constraint;
+			if (gates.HasCoverage(constraint, EnvScanner.Instance)) return true;
+			float minConstraint = gates.MinSourceConstraint(EnvScanner.Instance);
+			if (Time.unscaledTime >= nextCoverageLog)
+			{
+				nextCoverageLog = Time.unscaledTime + 2f;
+				Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] {what}: waiting for coverage, {constraint} < {minConstraint:F0} ({chunks} chunks, {registration.FineSampleCount} samples)");
+			}
 
-		private string Rejection(RegistrationResult result) => Rejection(result, minMarginFraction);
+			return false;
+		}
 
-		private string Rejection(RegistrationResult result, float marginFraction) =>
-			!result.success ? result.failure :
-			result.agreement < minAgreement ? $"agreement {result.agreement:F2} < {minAgreement}" :
-			result.overlapSamples < minOverlapSamples ? $"overlap {result.overlapSamples} samples < {minOverlapSamples}" :
-			result.margin < marginFraction * result.score ? $"margin {result.margin:F3} < {marginFraction:F2} × score {result.score:F3}" :
-			result.refinedRms < 0 ? "refinement failed" :
-			result.refinedRms > maxRefinedRms ? $"rms {result.refinedRms * 100:F1}cm > {maxRefinedRms * 100:F0}cm" : null;
+		private bool Fits(RegistrationResult result) => gates.Fits(result, EnvScanner.Instance);
+
+		private string Rejection(RegistrationResult result) => gates.Rejection(result, EnvScanner.Instance);
+
+		private string Rejection(RegistrationResult result, float marginFraction) => gates.Rejection(result, EnvScanner.Instance, marginFraction);
 
 		/// <summary>
 		/// <paramref name="localToCanon"/> maps this headset's current world frame onto the
@@ -469,6 +545,7 @@ namespace Anaglyph.LaserTag
 			Transform space = MainXRRig.TrackingSpace;
 			observedSpacePose = new Pose(space.position, space.rotation);
 			canonSpacePose = new Pose(localToCanon.Apply(space.position), math.mul(localToCanon.Rotation, (quaternion)space.rotation));
+			NewAlignment();
 			alignmentApplied = false;
 			CurrentPhase = Phase.Aligned;
 

@@ -136,6 +136,54 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 
 		private ComputeBuffer uploadBuffer;
 
+		// chunk locks for the mark kernels and what samples they turned away; see
+		// chunkLockBits in EnvScanner.compute
+		private ComputeBuffer chunkLockBits;
+		private ComputeBuffer lockedHits;
+		private uint[] lockedHitsZeros;
+		private uint[] uploadedLocks;
+		private int uploadedLocksRevision;
+		private readonly Matrix4x4[] correctedView = new Matrix4x4[2];
+		private readonly Matrix4x4[] correctedViewInv = new Matrix4x4[2];
+
+		/// <summary>Words of a chunk lock mask: one bit per chunk table entry.</summary>
+		public int LockWordCount => (chunkTableLength + 31) / 32;
+
+		/// <summary>
+		/// World → world transform applied to the local sensor's pose before it is
+		/// integrated or captured. Pose-graph SLAM eases the rig onto a corrected
+		/// alignment over a few frames; the scan uses where the rig is going, not where
+		/// the easing has it, so it stays consistent with every peer's map meanwhile
+		/// </summary>
+		public Matrix4x4 SensorCorrection { get; set; } = Matrix4x4.identity;
+
+		/// <summary>
+		/// Chunks the local sensor must not integrate into (bit per chunk table entry),
+		/// null for none. Change <see cref="SensorChunkLocksRevision"/> whenever the
+		/// contents change; the mask is uploaded only then
+		/// </summary>
+		public uint[] SensorChunkLocks { get; set; }
+		public int SensorChunkLocksRevision { get; set; }
+
+		/// <summary>
+		/// A volume the local sensor ALSO integrates into, unlocked, after the live map:
+		/// a loop-closure candidate's fresh scan of a place the live map holds locked
+		/// </summary>
+		public EnvVolume AuxVolume { get; set; }
+
+		/// <summary>
+		/// The local sensor was just integrated into the live map. Readbacks requested
+		/// from a handler (<see cref="RequestMarkedChunks"/>, <see cref="RequestLockedHits"/>)
+		/// see exactly that integration
+		/// </summary>
+		public event Action SensorIntegrated = delegate { };
+
+		/// <summary>
+		/// An id a <see cref="SensorIntegrated"/> handler may set for the frame being
+		/// captured; it comes back in that frame's <see cref="CapturedFrame.tag"/>
+		/// </summary>
+		public int SensorFrameTag { get; set; }
+
 		private ComputeKernel clearKernel;
 		private ComputeKernel captureKernel;
 		private ComputeKernel decodeKernel;
@@ -184,11 +232,15 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			/// <summary>Summed quantized voxel change this frame caused.</summary>
 			public readonly uint change;
 
-			public CapturedFrame(DepthFrameHeader header, NativeArray<byte> codes, uint change)
+			/// <summary><see cref="SensorFrameTag"/> as it was when the frame was captured.</summary>
+			public readonly int tag;
+
+			public CapturedFrame(DepthFrameHeader header, NativeArray<byte> codes, uint change, int tag)
 			{
 				this.header = header;
 				this.codes = codes;
 				this.change = change;
+				this.tag = tag;
 			}
 		}
 
@@ -287,6 +339,10 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			int3 ctd = chunkTableDims;
 			frameChange = new ComputeBuffer(1, sizeof(uint));
 			uploadBuffer = new ComputeBuffer(voxPerChunkDim / 2 * voxPerChunkDim * voxPerChunkDim, sizeof(uint));
+			chunkLockBits = new ComputeBuffer(LockWordCount, sizeof(uint));
+			lockedHits = new ComputeBuffer(1 + LockWordCount, sizeof(uint));
+			lockedHitsZeros = new uint[1 + LockWordCount];
+			uploadedLocks = null;
 
 			// uniform values
 			compute.SetFloat(nameof(minDist), minDist);
@@ -310,6 +366,12 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			// mark kernels: the live sensor (full resolution) and decoded frames
 			markSensorKernel = new ComputeKernel(compute, "MarkSensor");
 			markKernel = new ComputeKernel(compute, "Mark");
+			foreach (ComputeKernel kernel in new[] { markSensorKernel, markKernel })
+			{
+				kernel.Bind("chunkLockBits", chunkLockBits);
+				kernel.Bind("lockedHits", lockedHits);
+			}
+			compute.SetInt("chunkLocksEnabled", 0);
 
 			// integrate kernels, same split
 			integrateSensorKernel = new ComputeKernel(compute, "IntegrateSensor");
@@ -494,6 +556,8 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			visibleChangeSumsReadback?.Release();
 			frameChange?.Release();
 			uploadBuffer?.Release();
+			chunkLockBits?.Release();
+			lockedHits?.Release();
 			localPacked?.Release();
 			remotePacked?.Release();
 			if (frameDepth) frameDepth.Release();
@@ -553,11 +617,40 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 
 			// the local volume takes the sensor itself
 			frameChange.SetData(EmptyChangeArray);
+			lockedHits.SetData(lockedHitsZeros);
+			SetChunkLocks(SensorChunkLocks, SensorChunkLocksRevision);
 			IntegrateSensor(live, dkd);
 
+			SensorIntegrated.Invoke();
 			Updated.Invoke();
 
-			ReportCapturedFrame(header);
+			ReportCapturedFrame(header, SensorFrameTag);
+
+			// after the frame's change readback was requested, so the aux scan's change
+			// is not counted as the live map's
+			if (AuxVolume != null && AuxVolume.IsCreated && AuxVolume != live) ScanInto(AuxVolume);
+		}
+
+		/// <summary>
+		/// Uploads a chunk lock mask for the mark kernels, or disables locking for null.
+		/// The upload is skipped when the same array at the same revision is already there
+		/// </summary>
+		private void SetChunkLocks(uint[] bits, int revision)
+		{
+			if (bits == null || bits.Length < LockWordCount)
+			{
+				compute.SetInt("chunkLocksEnabled", 0);
+				return;
+			}
+
+			if (!ReferenceEquals(bits, uploadedLocks) || revision != uploadedLocksRevision)
+			{
+				chunkLockBits.SetData(bits, 0, 0, LockWordCount);
+				uploadedLocks = bits;
+				uploadedLocksRevision = revision;
+			}
+
+			compute.SetInt("chunkLocksEnabled", 1);
 		}
 
 		/// <summary>
@@ -573,15 +666,30 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			SetSensorUniforms(dkd);
 
 			frameChange.SetData(EmptyChangeArray);
+			SetChunkLocks(null, 0);
 			IntegrateSensor(volume, dkd);
 			TrackMarkedChunks(volume);
+
+			// the dispatch-size buffer is shared: hand the live map its own count back, which
+			// the mesher's visibility readback pairs with the live visible list
+			if (volume != live && live != null) ComputeBuffer.CopyCount(live.VisibleChunks, integrateDispatchDims, 0);
 		}
 
 		private void SetSensorUniforms(DepthKitDriver dkd)
 		{
-			compute.SetMatrixArray(DepthKitDriver.viewID, dkd.View);
+			// a correction moves the world under the sensor: world' = K world. The mask is
+			// rendered in the uncorrected world it lives in; its texels are per depth pixel
+			// and its distances are from the eye, which the correction does not change
+			Matrix4x4 k = SensorCorrection, kInv = k.inverse;
+			for (int i = 0; i < 2 && i < dkd.View.Length; i++)
+			{
+				correctedView[i] = dkd.View[i] * kInv;
+				correctedViewInv[i] = k * dkd.ViewInv[i];
+			}
+
+			compute.SetMatrixArray(DepthKitDriver.viewID, correctedView);
 			compute.SetMatrixArray(DepthKitDriver.projID, dkd.Proj);
-			compute.SetMatrixArray(DepthKitDriver.viewInvID, dkd.ViewInv);
+			compute.SetMatrixArray(DepthKitDriver.viewInvID, correctedViewInv);
 			compute.SetMatrixArray(DepthKitDriver.projInvID, dkd.ProjInv);
 			RenderMask(dkd);
 		}
@@ -603,6 +711,41 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			integrateSensorKernel.DispatchIndirect(integrateDispatchDims);
 		}
 
+		/// <summary>
+		/// Reads back the chunks the last integration into <paramref name="volume"/> (the
+		/// live map if null) marked, i.e. integrated into. Call right after that
+		/// integration; the list is only valid during the callback
+		/// </summary>
+		public async void RequestMarkedChunks(Action<NativeArray<int>> callback, EnvVolume volume = null)
+		{
+			volume ??= live;
+			if (volume == null || !volume.IsCreated) return;
+			Awaitable<AsyncGPUReadbackRequest> listWait = AsyncGPUReadback.RequestAsync(volume.VisibleChunks);
+			Awaitable<AsyncGPUReadbackRequest> countWait = AsyncGPUReadback.RequestAsync(integrateDispatchDims);
+			AsyncGPUReadbackRequest listReq = await listWait;
+			AsyncGPUReadbackRequest countReq = await countWait;
+			if (!this || !volume.IsCreated || listReq.hasError || countReq.hasError) return;
+
+			int count = math.clamp(countReq.GetData<int>()[0], 0, volume.MaxNumVisibleChunks);
+			try { callback(listReq.GetData<int>().GetSubArray(0, count)); }
+			catch (Exception e) { Debug.LogException(e, this); }
+		}
+
+		/// <summary>
+		/// Reads back what the chunk locks turned away during the last local sensor scan:
+		/// how many depth samples landed in locked chunks, and a bit per chunk they landed
+		/// in. Call from <see cref="SensorIntegrated"/>; the bits are only valid during the callback
+		/// </summary>
+		public async void RequestLockedHits(Action<uint, NativeArray<uint>> callback)
+		{
+			if (lockedHits == null) return;
+			AsyncGPUReadbackRequest req = await AsyncGPUReadback.RequestAsync(lockedHits);
+			if (!this || req.hasError) return;
+			NativeArray<uint> data = req.GetData<uint>();
+			try { callback(data[0], data.GetSubArray(1, data.Length - 1)); }
+			catch (Exception e) { Debug.LogException(e, this); }
+		}
+
 		// the visible list and its count are requested in the frame they were written
 		private async void TrackMarkedChunks(EnvVolume volume)
 		{
@@ -619,7 +762,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 
 		private DepthFrameHeader BuildLocalHeader(DepthKitDriver dkd)
 		{
-			DepthFrameHeader.PoseFromViewInverse(dkd.ViewInv[0], out float3 position, out quaternion rotation);
+			DepthFrameHeader.PoseFromViewInverse(SensorCorrection * dkd.ViewInv[0], out float3 position, out quaternion rotation);
 
 			return new DepthFrameHeader
 			{
@@ -673,7 +816,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			Updated.Invoke();
 		}
 
-		private async void ReportCapturedFrame(DepthFrameHeader header)
+		private async void ReportCapturedFrame(DepthFrameHeader header, int tag)
 		{
 			Awaitable<AsyncGPUReadbackRequest> packedWait = AsyncGPUReadback.RequestAsync(localPacked);
 			Awaitable<AsyncGPUReadbackRequest> changeWait = AsyncGPUReadback.RequestAsync(frameChange);
@@ -696,7 +839,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 
 			try
 			{
-				FrameCaptured.Invoke(new CapturedFrame(header, packedData, change));
+				FrameCaptured.Invoke(new CapturedFrame(header, packedData, change, tag));
 			}
 			catch (Exception e)
 			{
@@ -705,10 +848,11 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		}
 
 		/// <summary>
-		/// Integrates a frame another headset captured. Returns false when the frame
-		/// could not be integrated (no GPU resources yet created, gated, or malformed)
+		/// Integrates a frame another headset captured, skipping the chunks set in
+		/// <paramref name="chunkLocks"/> (see <see cref="SensorChunkLocks"/>). Returns false
+		/// when the frame could not be integrated (no GPU resources yet created, or malformed)
 		/// </summary>
-		public bool IntegrateFrame(in DepthFrameHeader header, NativeArray<byte> codes)
+		public bool IntegrateFrame(in DepthFrameHeader header, NativeArray<byte> codes, uint[] chunkLocks = null, int chunkLocksRevision = 0)
 		{
 			if (!header.IsSane || codes.Length != header.PackedBytes) return false;
 
@@ -717,6 +861,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			int2 size = new(header.width, header.height);
 			EnsureFrameResources(size);
 			SetFrameUniforms(header);
+			SetChunkLocks(chunkLocks, chunkLocksRevision);
 
 			remotePacked.SetData(codes);
 			IntegrateBoundFrame(remotePacked);
@@ -725,15 +870,19 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 
 		/// <summary>
 		/// Fuses a whole chunk (e.g. a snapshot from the session authority) into the volume
-		/// with the same count-weighted average integration uses
+		/// (the live map unless given) with the same count-weighted average integration
+		/// uses. Only the live map raises <see cref="ChunkUploaded"/>; another volume
+		/// records the chunk in its <see cref="EnvVolume.Chunks"/>
 		/// </summary>
-		public bool UploadChunk(int chunkIndex, NativeArray<Voxel> voxels)
+		public bool UploadChunk(int chunkIndex, NativeArray<Voxel> voxels, EnvVolume volume = null)
 		{
 			if (chunkIndex < 0 || chunkIndex >= chunkTableLength) return false;
 			if (voxels.Length != voxPerChunkDim * voxPerChunkDim * voxPerChunkDim) return false;
 
 			if (!GpuResourcesCreated) CreateGpuResources();
-			Use(live);
+			volume ??= live;
+			if (!volume.IsCreated) return false;
+			Use(volume);
 
 			uploadBuffer.SetData(voxels.Reinterpret<uint>(Voxel.stride));
 			compute.SetInt(uploadChunkIndexID, chunkIndex);
@@ -742,7 +891,8 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			int vpcd = voxPerChunkDim;
 			uploadKernel.DispatchFit(vpcd / 2, vpcd, vpcd);
 
-			ChunkUploaded.Invoke(chunkIndex);
+			if (volume == live) ChunkUploaded.Invoke(chunkIndex);
+			else volume.Chunks.Add(chunkIndex);
 			return true;
 		}
 
@@ -824,7 +974,8 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			return new ChunkReadbackBuffer(computeBuffer, data, vpcd);
 		}
 
-		public async Awaitable<bool> ReadbackChunkInto(int chunkIndex, ChunkReadbackBuffer readbackBuffer)
+		/// <summary>Reads one chunk of a volume (the live map unless given) back to the CPU.</summary>
+		public async Awaitable<bool> ReadbackChunkInto(int chunkIndex, ChunkReadbackBuffer readbackBuffer, EnvVolume volume = null)
 		{
 			if (readbackBuffer.voxPerChunkDim != voxPerChunkDim)
 				throw new Exception("Readback chunk dimensions do not match scanner chunk dimensions");
@@ -836,7 +987,9 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			}
 
 			if (!GpuResourcesCreated) return false;
-			Use(live);
+			volume ??= live;
+			if (!volume.IsCreated) return false;
+			Use(volume);
 
 			compute.SetInt(readbackChunkIndexID, chunkIndex);
 			dataReadbackKernel.Bind(readbackBufferID, readbackBuffer.gpuBuffer);

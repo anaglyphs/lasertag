@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -10,11 +11,15 @@ namespace Anaglyph.XR.SharedSpaces
 	/// </summary>
 	public sealed class SystemDeterminedColocationConstraintProvider : IColocationConstraintProvider
 	{
-		private readonly Transform trackingSpace;
+		private readonly Func<Transform> getTrackingSpace;
+		private Transform trackingSpace => getTrackingSpace();
 
-		public SystemDeterminedColocationConstraintProvider(Transform trackingSpace)
+		public SystemDeterminedColocationConstraintProvider(Transform trackingSpace) : this(() => trackingSpace) { }
+
+		/// <summary>Resolves the tracking space on use, so construction needn't wait for the rig to wake.</summary>
+		public SystemDeterminedColocationConstraintProvider(Func<Transform> trackingSpace)
 		{
-			this.trackingSpace = trackingSpace;
+			getTrackingSpace = trackingSpace ?? throw new ArgumentNullException(nameof(trackingSpace));
 		}
 
 		public bool IsAvailable => trackingSpace != null;

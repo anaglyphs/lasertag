@@ -67,7 +67,7 @@ namespace Anaglyph.LaserTag.Tests
 			var tags = owner.AddComponent<AprilTagColocationConstraintProvider>();
 			typeof(ColocationManager).GetField("spatialAnchorColocationProvider", Private).SetValue(manager, anchors);
 			typeof(ColocationManager).GetField("aprilTagColocationProvider", Private).SetValue(manager, tags);
-			typeof(ColocationManager).GetField("systemDeterminedProvider", Private).SetValue(manager, new SystemDeterminedColocationConstraintProvider(null));
+			typeof(ColocationManager).GetField("systemDeterminedProvider", Private).SetValue(manager, new SystemDeterminedColocationConstraintProvider((Transform)null));
 			visit = typeof(LaserTagMapCoordinator).GetField("visit", Private).GetValue(coordinator);
 			documents = Create("MapCatalog", MapStore.Default, MapSpaceStore.Default, directory, visit);
 			mapDocument = (MapWorkingCopy)documents.GetType().GetProperty("MapDocument").GetValue(documents); mapDocument.Load(loaded);

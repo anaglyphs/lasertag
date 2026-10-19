@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 5227507271294134687}
   - component: {fileID: 8956260993336716548}
   - component: {fileID: 2865989476549954882}
+  - component: {fileID: 5334984259928165399}
   - component: {fileID: 6911126833990273307}
   - component: {fileID: 9142721848964367083}
   - component: {fileID: 219892528580798013}
@@ -19,6 +20,7 @@ GameObject:
   - component: {fileID: 3794738929113082028}
   - component: {fileID: 8030733127724905774}
   - component: {fileID: 6247691024657539827}
+  - component: {fileID: 910813339669624958}
   m_Layer: 0
   m_Name: MapManager
   m_TagString: Untagged
@@ -82,12 +84,53 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0c1e3f149293645689d825af3599178c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.EnvMeshSync
-  syncFlippedVoxelsThreshold: 1000
-  minSecondsBetweenChunkSends: 0.2
-  secondsUntilChunkStable: 0.25
-  positionQuantizationBits: 6
-  encodingSpeed: 0
-  decodingSpeed: 4
+  frameChangeThreshold: 64
+  unsentChangeThreshold: 512
+  minSecondsBetweenSends: 0.2
+  compression: 1
+  snapshotChunksPerFrame: 2
+  snapshotRefreshSeconds: 5
+--- !u!114 &5334984259928165399
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5901269829941828840}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 30fb8d809a65f473fbfffe9253e1f2de, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.SharedSlam
+  nodeSpacingChunks: 1
+  nodeYawDegrees: 90
+  trustedTravelMeters: 20
+  attachRadiusChunks: 1.33
+  attachSigma: 0.05
+  attachSigmaDegrees: 2
+  minLockedFrameFraction: 0.015
+  candidateFrames: 3
+  scratchChunks:
+    x: 6
+    y: 4
+    z: 6
+  minScratchChunks: 3
+  attemptInterval: 1
+  candidateTimeout: 20
+  candidateIdleTimeout: 3
+  windowScale: 3
+  minWindowVoxels: 3
+  maxWindowChunks: 1
+  minWindowDegrees: 5
+  maxWindowDegrees: 30
+  confirmVoxels: 0.8
+  confirmDegrees: 2
+  loopSigmaDegrees: 1
+  solveDelay: 0.25
+  solveIterations: 15
+  huberThreshold: 3
+  rejectChi2: 25
+  resampleThresholdVoxels: 0.2
 --- !u!114 &6911126833990273307
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -103,6 +146,7 @@ MonoBehaviour:
   colocator: {fileID: 9142721848964367083}
   spatialAnchorColocationProvider: {fileID: 219892528580798013}
   aprilTagColocationProvider: {fileID: 1088323605287642758}
+  scanRegistrationProvider: {fileID: 910813339669624958}
 --- !u!114 &9142721848964367083
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -195,3 +239,29 @@ MonoBehaviour:
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.MapDebugVisuals
   anchorColor: {r: 0, g: 1, b: 1, a: 1}
   tagColor: {r: 1, g: 0, b: 1, a: 1}
+--- !u!114 &910813339669624958
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5901269829941828840}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8692c3595ba434e0d840a01743f9889b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.ScanRegistrationColocationConstraintProvider
+  minReferenceChunks: 4
+  minLocalChunks: 3
+  gates:
+    minSourceConstraintChunkFaces: 0.33
+    maxContradiction: 0.12
+    minAgreement: 0.25
+    minOverlapChunkFaces: 1.4
+    minMarginFraction: 0.15
+    maxRefinedRmsVoxels: 1
+  relocalizeScratchChunks:
+    x: 6
+    y: 4
+    z: 6
+  relocalizeMinMarginFraction: 0.15

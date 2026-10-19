@@ -1,0 +1,236 @@
+// Moves TSDF data after a pose-graph solve. Chunks stay on their axis-aligned grid;
+// the data inside them moves. A solve moves groups of chunks (those anchored to the
+// same node) by one rigid 4DoF delta each:
+//   1. SnapshotChunks copies every source chunk aside, before anything is written
+//   2. ClearChunks empties the sources: their data has left
+//   3. ReserveChunks gives every destination chunk atlas space
+//   4. FillGroup, per group, resamples each destination voxel from the snapshot at the
+//      inverse-moved position (trilinear over observed voxels) and fuses it in with the
+//      same count-weighted average integration uses, so data landing on data merges
+//
+// Chunk addressing mirrors EnvScanner.compute; the uniforms are set with the same names.
+
+#define INDEX_MASK 0x8FFFFFFF
+#define RESERVED_BIT 0x20000000
+#define INVALID_BIT 0x80000000
+
+float voxSize;
+float chunkWorldSizeDim;
+float3 originOffset;
+uint voxPerChunkDim;
+uint3 chunkTableDims;
+uint3 chunkDataDims;
+uint maxNumChunks;
+
+RWStructuredBuffer<int> chunkTable;
+RWTexture3D<float2> chunkData;
+RWStructuredBuffer<int> reservedChunkCounter;
+RWStructuredBuffer<uint> chunkChangeSums;
+
+static const uint maxIntegCountSettle = 16;
+
+RWTexture3D<float2> snapshot; // source chunks, one slot each, same encoding as the atlas
+uint3 snapshotDims; // slots per axis
+
+StructuredBuffer<int> chunkList; // chunk table indices
+uint listOffset; // where this dispatch's entries start in chunkList
+uint chunkCount;
+
+StructuredBuffer<int> slotOfChunk; // chunk table index -> snapshot slot, -1 none
+StructuredBuffer<int> slotGroup; // snapshot slot -> move group
+int groupId;
+float3 inverseTranslation; // the group's delta, inverted: source = rotateY(dest, inverseYaw) + inverseTranslation
+float inverseYaw;
+
+uint SNorm8toU8(float f)
+{
+	int i = int(round(clamp(f, -1.0, 1.0) * 127.0));
+	return uint(i + 128);
+}
+
+float U8toSNorm8(uint u)
+{
+	int i = int(u) - 128;
+	return max(float(i) / 127.0, -1.0);
+}
+
+float3 rotateY(const float3 p, const float yaw)
+{
+	float s, c;
+	sincos(yaw, s, c);
+	return float3(p.x * c + p.z * s, p.y, -p.x * s + p.z * c);
+}
+
+int3 chunkIndexToChunkCoord(int chunkIndex)
+{
+	int3 coord;
+	coord.x = chunkIndex % (int)chunkTableDims.x;
+	coord.y = chunkIndex / (int)chunkTableDims.x % (int)chunkTableDims.y;
+	coord.z = chunkIndex / (int)(chunkTableDims.x * chunkTableDims.y);
+	return coord;
+}
+
+int chunkCoordToChunkIndex(const int3 coord)
+{
+	if (any(coord < 0) || any(coord >= (int3)chunkTableDims)) return -1;
+	return coord.x + coord.y * chunkTableDims.x + coord.z * chunkTableDims.x * chunkTableDims.y;
+}
+
+float3 chunkCoordToCornerWorldPos(const int3 chunkCoord)
+{
+	const int3 uncentered = chunkCoord - (int3)chunkTableDims / 2;
+	return uncentered * chunkWorldSizeDim - float3(voxSize, voxSize, voxSize) + originOffset;
+}
+
+uint3 dataIndexToDataStartCoord(int dataIndex)
+{
+	uint3 coord;
+	coord.x = dataIndex % chunkDataDims.x;
+	coord.y = (dataIndex / chunkDataDims.x) % chunkDataDims.y;
+	coord.z = dataIndex / (chunkDataDims.x * chunkDataDims.y);
+	return coord * voxPerChunkDim;
+}
+
+uint3 slotStartCoord(uint slot)
+{
+	uint3 coord;
+	coord.x = slot % snapshotDims.x;
+	coord.y = (slot / snapshotDims.x) % snapshotDims.y;
+	coord.z = slot / (snapshotDims.x * snapshotDims.y);
+	return coord * voxPerChunkDim;
+}
+
+// atlas data index of a reserved, valid chunk; -1 otherwise
+int dataIndexOf(const int chunkIdx)
+{
+	const int tableVal = chunkTable[chunkIdx];
+	if ((tableVal & RESERVED_BIT) == 0) return -1;
+	const int dataIdx = tableVal & INDEX_MASK;
+	return (dataIdx & INVALID_BIT) ? -1 : dataIdx;
+}
+
+int floorDiv(const int a, const int b)
+{
+	return a >= 0 ? a / b : -((-a + b - 1) / b);
+}
+
+// dispatched (vpcd, vpcd, vpcd * chunkCount) threads: the z coordinate selects the list entry
+bool listVoxel(const uint3 id, out uint listIndex, out uint3 voxel)
+{
+	listIndex = id.z / voxPerChunkDim;
+	voxel = uint3(id.x, id.y, id.z % voxPerChunkDim);
+	return listIndex < chunkCount && all(voxel < voxPerChunkDim);
+}
+
+#pragma kernel SnapshotChunks
+
+[numthreads(8, 8, 8)]
+void SnapshotChunks(uint3 id : SV_DispatchThreadID)
+{
+	uint listIndex;
+	uint3 voxel;
+	if (!listVoxel(id, listIndex, voxel)) return;
+
+	const int dataIdx = dataIndexOf(chunkList[listOffset + listIndex]);
+	const float2 value = dataIdx < 0 ? float2(1.0, U8toSNorm8(0)) : chunkData[dataIndexToDataStartCoord(dataIdx) + voxel].xy;
+	snapshot[slotStartCoord(listIndex) + voxel] = value;
+}
+
+#pragma kernel ClearChunks
+
+[numthreads(8, 8, 8)]
+void ClearChunks(uint3 id : SV_DispatchThreadID)
+{
+	uint listIndex;
+	uint3 voxel;
+	if (!listVoxel(id, listIndex, voxel)) return;
+
+	const int dataIdx = dataIndexOf(chunkList[listOffset + listIndex]);
+	if (dataIdx < 0) return;
+	chunkData[dataIndexToDataStartCoord(dataIdx) + voxel] = float2(1.0, U8toSNorm8(0));
+}
+
+#pragma kernel ReserveChunks
+
+[numthreads(64, 1, 1)]
+void ReserveChunks(uint3 id : SV_DispatchThreadID)
+{
+	if (id.x >= chunkCount) return;
+	const int chunkIdx = chunkList[listOffset + id.x];
+	const int tableVal = chunkTable[chunkIdx];
+	if (tableVal & RESERVED_BIT) return;
+
+	int dataIndex;
+	InterlockedAdd(reservedChunkCounter[0], 1, dataIndex);
+	if (dataIndex >= (int)maxNumChunks) dataIndex |= INVALID_BIT;
+	chunkTable[chunkIdx] = dataIndex & INDEX_MASK | RESERVED_BIT;
+}
+
+#pragma kernel FillGroup
+
+[numthreads(8, 8, 8)]
+void FillGroup(uint3 id : SV_DispatchThreadID)
+{
+	uint listIndex;
+	uint3 voxel;
+	if (!listVoxel(id, listIndex, voxel)) return;
+
+	const int chunkIdx = chunkList[listOffset + listIndex];
+	const int dataIdx = dataIndexOf(chunkIdx);
+	if (dataIdx < 0) return;
+
+	// this voxel's center, and where its data was before the move
+	const float3 dest = chunkCoordToCornerWorldPos(chunkIndexToChunkCoord(chunkIdx)) + ((float3)voxel + 0.5) * voxSize;
+	const float3 source = rotateY(dest, inverseYaw) + inverseTranslation;
+
+	// the global voxel lattice: lattice point G has its center at originOffset + (G + 0.5) voxSize,
+	// and lives in chunk floor(G / interior) as interior voxel G - (chunk - dims/2) interior + 1
+	const int interior = (int)voxPerChunkDim - 2;
+	const float3 g = (source - originOffset) / voxSize - 0.5;
+	const int3 g0 = (int3)floor(g);
+	const float3 f = g - (float3)g0;
+
+	float wSum = 0, distSum = 0, countSum = 0;
+
+	[unroll] for (uint corner = 0; corner < 8; corner++)
+	{
+		const int3 o = int3(corner & 1, (corner >> 1) & 1, (corner >> 2) & 1);
+		const int3 lattice = g0 + o;
+		const int3 chunkCoord = int3(floorDiv(lattice.x, interior), floorDiv(lattice.y, interior), floorDiv(lattice.z, interior)) + (int3)chunkTableDims / 2;
+		const int sourceChunk = chunkCoordToChunkIndex(chunkCoord);
+		if (sourceChunk < 0) continue;
+
+		const int slot = slotOfChunk[sourceChunk];
+		if (slot < 0 || slotGroup[slot] != groupId) continue;
+
+		const uint3 v = (uint3)(lattice - (chunkCoord - (int3)chunkTableDims / 2) * interior + 1);
+		const float2 data = snapshot[slotStartCoord((uint)slot) + v].xy;
+		const uint count = SNorm8toU8(data.y);
+		if (count == 0) continue;
+
+		const float3 w3 = lerp(1.0 - f, f, (float3)o);
+		const float w = w3.x * w3.y * w3.z;
+		wSum += w;
+		distSum += w * data.x;
+		countSum += w * count;
+	}
+
+	// a voxel only grazed by observed data is left alone rather than invented
+	if (wSum < 0.25) return;
+
+	const float inDist = distSum / wSum;
+	const uint inCount = (uint)round(countSum / wSum);
+	if (inCount == 0) return;
+
+	const uint3 coord = dataIndexToDataStartCoord(dataIdx) + voxel;
+	const float2 prev = chunkData[coord].xy;
+	const uint prevCount = SNorm8toU8(prev.y);
+
+	const float total = prevCount + inCount;
+	const float newDist = (prev.x * prevCount + inDist * inCount) / total;
+	const uint newCount = min(prevCount + inCount, maxIntegCountSettle);
+	chunkData[coord] = float2(newDist, U8toSNorm8(newCount));
+
+	const uint change = (uint)abs(round(newDist * 127) - round(prev.x * 127));
+	if (change > 0) InterlockedAdd(chunkChangeSums[chunkIdx], change);
+}

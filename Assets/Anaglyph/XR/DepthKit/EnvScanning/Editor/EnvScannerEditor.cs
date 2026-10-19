@@ -59,6 +59,62 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Editor
 			{
 				EnvScannerDebugWindow.ShowWindow();
 			}
+
+			DrawScanFiles((EnvScanner)target);
+		}
+
+		private string scanName = "scan";
+
+		// save the live map to an EnvScan file, or replace it with one (play mode only)
+		private void DrawScanFiles(EnvScanner scanner)
+		{
+			EditorGUILayout.Space();
+			EditorGUILayout.LabelField("Scan Files", EditorStyles.boldLabel);
+			scanName = EditorGUILayout.TextField(new GUIContent("Name", $"Bare names go to {EnvScan.DefaultDirectory}"), scanName);
+
+			using (new EditorGUILayout.HorizontalScope())
+			{
+				using (new EditorGUI.DisabledScope(!Application.isPlaying))
+				{
+					if (GUILayout.Button("Save Live Scan")) SaveLive(scanner, scanName);
+					if (GUILayout.Button("Load Into Live Map")) LoadLive(scanner, scanName);
+				}
+
+				if (GUILayout.Button("Open Folder"))
+				{
+					System.IO.Directory.CreateDirectory(EnvScan.DefaultDirectory);
+					EditorUtility.RevealInFinder(EnvScan.DefaultDirectory);
+				}
+			}
+		}
+
+		private static async void SaveLive(EnvScanner scanner, string name)
+		{
+			try
+			{
+				using EnvScan scan = await EnvScan.CaptureAsync(scanner, label: name);
+				string path = scan.Save(name);
+				Debug.Log($"[{nameof(EnvScan)}] saved {scan} to {path}");
+			}
+			catch (System.Exception e)
+			{
+				Debug.LogException(e);
+			}
+		}
+
+		private static void LoadLive(EnvScanner scanner, string name)
+		{
+			try
+			{
+				using EnvScan scan = EnvScan.Load(name);
+				scanner.Clear();
+				int uploaded = scan.UploadInto(scanner);
+				Debug.Log($"[{nameof(EnvScan)}] loaded {uploaded} chunks of {scan} into the live map");
+			}
+			catch (System.Exception e)
+			{
+				Debug.LogException(e);
+			}
 		}
 
 		private static Vector3Int ReadInt3(SerializedProperty int3Prop)

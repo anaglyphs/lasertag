@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Anaglyph.Netcode.SyncVariables;
+using Anaglyph.XR.DepthKit.EnvScanning.Slam;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -58,6 +59,11 @@ namespace Anaglyph.LaserTag.MapEditor
 		{
 			NetworkObject.DontDestroyWithOwner = true;
 			NetworkObject.DestroyWithScene = true;
+
+			// bases, flags and the rest move with the map when a loop closure corrects it.
+			// Only whoever has authority over the object moves it; replication does the rest
+			if (!TryGetComponent(out NodeAnchor anchor)) anchor = gameObject.AddComponent<NodeAnchor>();
+			anchor.HasAuthority = () => !NetworkObject.IsSpawned || NetworkObject.HasAuthority;
 
 			all.Add(this);
 			Added.Invoke(this);

@@ -26,5 +26,11 @@
                 <UnityEngine.Localization.LocalizedString property="label" table="SettingsMenu" entry="SettingsDebuggingPage.debug-mesh-opacity-slider.label" />
             </Bindings>
         </ui:Slider>
+        <ui:Button name="capture-alignment-diagnosis-button">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsDebuggingPage.capture-alignment-diagnosis-button.text" />
+            </Bindings>
+        </ui:Button>
+        <ui:Label name="alignment-diagnosis-status" />
     </ui:VisualElement>
 </ui:UXML>

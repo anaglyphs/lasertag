@@ -17,7 +17,7 @@ using Method = Anaglyph.LaserTag.ColocationManager.ColocationMethod;
 namespace Anaglyph.LaserTag
 {
 	/// <summary>Connects document workflows to scene projections, Unity lifecycle and game UI.</summary>
-	[DefaultExecutionOrder(-100)]
+	/// <remarks>Awake only builds owned state; wiring to other components waits for Start, after every Awake.</remarks>
 	public class LaserTagMapCoordinator : MonoBehaviour
 	{
 		public static LaserTagMapCoordinator Instance { get; private set; }
@@ -137,6 +137,10 @@ namespace Anaglyph.LaserTag
 			TagSetup = new(this, referenceWorkflow.CanRegisterTags);
 			referenceWorkflow.TagRegistrationAllowed = () => !TagSetup.IsActive || TagSetup.SizeConfirmed;
 			referenceWorkflow.TagSetupOperation = () => TagSetup.IsActive ? TagSetup.State.operation : Guid.Empty;
+		}
+
+		private void Start()
+		{
 			TagSetup.Register();
 			objects.Register();
 			references.Register();
@@ -157,6 +161,7 @@ namespace Anaglyph.LaserTag
 			MapObject.Added += OnObjectChanged;
 			MapObject.Removed += OnObjectChanged;
 			MainXRRig.Recentered += OnRecentered;
+			StartupProbe(lifetime.Token);
 		}
 
 		private void ComposeWorkflows()
@@ -184,7 +189,6 @@ namespace Anaglyph.LaserTag
 			documents.RetryRequested += ScheduleSave;
 		}
 
-		private void Start() => StartupProbe(lifetime.Token);
 		private static void RaiseSettingsChanged() => ColocationSettingsChanged.Invoke();
 		private static void RaiseProbeResultsChanged() => ProbeResultsChanged.Invoke();
 		private static void RaiseWorldFrameRebased() => WorldFrameRebased.Invoke();

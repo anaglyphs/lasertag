@@ -25,6 +25,8 @@ namespace Anaglyph.LaserTag.Interface
 		private Toggle debugModeToggle;
 		private Toggle showDebugMeshToggle;
 		private Slider debugMeshOpacitySlider;
+		private Button captureAlignmentDiagnosisButton;
+		private Label alignmentDiagnosisStatus;
 		private Toggle healthPassthroughTintToggle;
 		private Toggle lightEffectsToggle;
 		private Label provisioningStatus;
@@ -73,6 +75,10 @@ namespace Anaglyph.LaserTag.Interface
 			bindings.Value(debugMeshOpacitySlider,
 				change => EnvMesher.DebugMeshOpacity = change.newValue);
 			debugMeshOpacitySlider.SetValueWithoutNotify(EnvMesher.DebugMeshOpacity);
+
+			captureAlignmentDiagnosisButton = Require<Button>(root, "capture-alignment-diagnosis-button");
+			alignmentDiagnosisStatus = Require<Label>(root, "alignment-diagnosis-status");
+			bindings.Click(captureAlignmentDiagnosisButton, CaptureAlignmentDiagnosis);
 
 			healthPassthroughTintToggle =
 				Require<Toggle>(root, "health-passthrough-tint-toggle");
@@ -158,6 +164,28 @@ namespace Anaglyph.LaserTag.Interface
 		private void OnHealthPassthroughTintChanged(bool enabled)
 		{
 			healthPassthroughTintToggle.SetValueWithoutNotify(enabled);
+		}
+
+		// a debugging tool: the status reports the folder path verbatim, unlocalized
+		private async void CaptureAlignmentDiagnosis()
+		{
+			if (AlignmentDiagnosis.InProgress) return;
+			captureAlignmentDiagnosisButton.SetEnabled(false);
+			alignmentDiagnosisStatus.text = "Capturing…";
+			try
+			{
+				string folder = await AlignmentDiagnosis.CaptureAsync();
+				if (alignmentDiagnosisStatus != null) alignmentDiagnosisStatus.text = $"Saved to {folder}";
+			}
+			catch (Exception e)
+			{
+				Debug.LogException(e, this);
+				if (alignmentDiagnosisStatus != null) alignmentDiagnosisStatus.text = $"Capture failed: {e.Message}";
+			}
+			finally
+			{
+				captureAlignmentDiagnosisButton?.SetEnabled(true);
+			}
 		}
 
 		private void UnprovisionHeadset()
