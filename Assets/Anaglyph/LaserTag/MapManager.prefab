@@ -21,6 +21,8 @@ GameObject:
   - component: {fileID: 8030733127724905774}
   - component: {fileID: 6247691024657539827}
   - component: {fileID: 910813339669624958}
+  - component: {fileID: 4542216402505528524}
+  - component: {fileID: 4959272462355547871}
   m_Layer: 0
   m_Name: MapManager
   m_TagString: Untagged
@@ -108,6 +110,7 @@ MonoBehaviour:
   attachRadiusChunks: 1.33
   attachSigma: 0.05
   attachSigmaDegrees: 2
+  scanLoopClosure: 0
   minLockedFrameFraction: 0.015
   candidateFrames: 3
   scratchChunks:
@@ -147,6 +150,7 @@ MonoBehaviour:
   spatialAnchorColocationProvider: {fileID: 219892528580798013}
   aprilTagColocationProvider: {fileID: 1088323605287642758}
   scanRegistrationProvider: {fileID: 910813339669624958}
+  visualProvider: {fileID: 4959272462355547871}
 --- !u!114 &9142721848964367083
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -265,3 +269,83 @@ MonoBehaviour:
     y: 4
     z: 6
   relocalizeMinMarginFraction: 0.15
+--- !u!114 &4542216402505528524
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5901269829941828840}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b9a0b2247526b429eaadad360f843173, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.XR.VisualLocalization::Anaglyph.XR.VisualLocalization.VisualLocalizer
+  mappingInterval: 0.5
+  keyframeMinDistance: 0.3
+  keyframeMinAngle: 15
+  maxAngularSpeed: 40
+  minKeyframeFeatures: 100
+  mapCapacity: 192
+  trustDrift: 0.05
+  trackNeighbors: 3
+  neighborDistance: 4
+  lighterGlueForTracks: 0
+  trackMinCosine: 0.82
+  useMeshDepth: 1
+  singleViewMeshLandmarks: 1
+  maxRayDistance: 8
+  minHitCosine: 0.2
+  meshDepthSigma: 0.02
+  meshDepthFraction: 0.01
+  environmentLayer: EnvironmentMesh
+  extractorBackend: 256
+  matcherBackend: 256
+  framesPerRun: 6
+  urgentFramesPerRun: 2
+  matcherFramesPerRun: 30
+  keyframesPerQuery: 2
+  minMutual: 12
+  pnp:
+    pixelSigma: 1.5
+    inlierSigmas: 3
+    iterations: 400
+    rangedFraction: 0.25
+    centerPriorSigma: 10
+  recordFrames: 1
+  recentFrames: 96
+--- !u!114 &4959272462355547871
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5901269829941828840}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 464e94c81781a4a90b7e85a32b6b166f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.VisualColocation
+  queriesEnabled: 1
+  queryInterval: 1
+  replyTimeout: 5
+  minInliers: 30
+  maxNormalizedRms: 2
+  maxYawSigmaDegrees: 0.5
+  maxTranslationSigma: 0.04
+  acceptConfidentSingleFrames: 1
+  confidentYawSigmaDegrees: 0.15
+  confidentTranslationSigma: 0.01
+  confidentInliers: 150
+  confidentInlierShare: 0.6
+  agreeTranslation: 0.05
+  agreeYawDegrees: 1
+  loopClosure: 1
+  loopInterval: 5
+  loopSearchDistance: 8
+  loopCenterPriorSigma: 1
+  yawOnlyLoops: 1
+  loopCooldown: 3
+  loopMatchFeatures: 512
+  loopMinMutual: 30
+  loopAnchorTolerance: 0.25

@@ -24,16 +24,17 @@ namespace Anaglyph.LaserTag
 			AprilTag,
 			SystemDetermined,
 			TwoAprilTags,
-			ScanRegistration
+			ScanRegistration,
+			Visual
 		}
 
 		public static bool IsValidMethod(ColocationMethod method) => method is ColocationMethod.MetaSharedAnchor
 			or ColocationMethod.AprilTag or ColocationMethod.SystemDetermined or ColocationMethod.TwoAprilTags
-			or ColocationMethod.ScanRegistration;
+			or ColocationMethod.ScanRegistration or ColocationMethod.Visual;
 
-		// Scan registration takes over colocation for now: anchors, tags and the system
-		// frame stay in the code but are never selected. Flip this to return control to
-		// the per-space preference
+		// Visual relocalization takes over colocation for now: anchors, tags, the system
+		// frame and scan registration stay in the code but are never selected. Flip
+		// PreferredAvailableMethod to return control to the per-space preference
 		public static bool UsesSavedReferences(ColocationMethod method) =>
 			method is ColocationMethod.MetaSharedAnchor or ColocationMethod.AprilTag;
 
@@ -45,6 +46,7 @@ namespace Anaglyph.LaserTag
 		private SystemDeterminedColocationConstraintProvider systemDeterminedProvider;
 		private TwoAprilTagColocationConstraintProvider twoAprilTagProvider;
 		[SerializeField] private ScanRegistrationColocationConstraintProvider scanRegistrationProvider;
+		[SerializeField] private VisualColocationConstraintProvider visualProvider;
 		private readonly SyncVariable<ColocationMethod> methodSync = new("colo.method");
 		private ColocationMethod offlineMethod;
 		private MapSpace space;
@@ -58,7 +60,7 @@ namespace Anaglyph.LaserTag
 		public ColocationMethod Method => methodSync.Value;
 		public ColocationMethod SelectedMethod => SyncBus.Active ? Method : offlineMethod;
 		public ColocationMethod ActiveMethod { get; private set; }
-		public ColocationMethod PreferredAvailableMethod => ColocationMethod.ScanRegistration;
+		public ColocationMethod PreferredAvailableMethod => ColocationMethod.Visual;
 		public ColocationMethod PreferredSessionMethod => PreferredAvailableMethod;
 
 		public static ColocationMethod CompatibleMethod(ColocationMethod requested, bool hasTags, bool hasContent,
@@ -86,7 +88,10 @@ namespace Anaglyph.LaserTag
 		public bool UsingScanRegistrationProvider =>
 			ActiveProvider != null && ActiveMethod == ColocationMethod.ScanRegistration;
 
+		public bool UsingVisualProvider => ActiveProvider != null && ActiveMethod == ColocationMethod.Visual;
+
 		public ScanRegistrationColocationConstraintProvider ScanRegistrationProvider => scanRegistrationProvider;
+		public VisualColocationConstraintProvider VisualProvider => visualProvider;
 		public SpatialAnchorColocationConstraintProvider AnchorProvider => spatialAnchorColocationProvider;
 		public AprilTagColocationConstraintProvider TagProvider => aprilTagColocationProvider;
 		public TwoAprilTagColocationConstraintProvider TwoTagProvider => twoAprilTagProvider;
@@ -105,7 +110,7 @@ namespace Anaglyph.LaserTag
 		public int CountRealizableReferences()
 		{
 			if (ActiveProvider == null || !ActiveProvider.IsAvailable) return 0;
-			if (UsingSystemDeterminedProvider || UsingScanRegistrationProvider) return 1;
+			if (UsingSystemDeterminedProvider || ActiveProvider is CanonColocationProvider) return 1;
 			scratch.Clear();
 			ActiveProvider.GetColocationConstraints(scratch);
 			return scratch.Count;
@@ -118,6 +123,7 @@ namespace Anaglyph.LaserTag
 			ColocationMethod.SystemDetermined => systemDeterminedProvider,
 			ColocationMethod.TwoAprilTags => twoAprilTagProvider,
 			ColocationMethod.ScanRegistration => scanRegistrationProvider,
+			ColocationMethod.Visual => visualProvider,
 			_ => null
 		};
 
@@ -207,6 +213,8 @@ namespace Anaglyph.LaserTag
 			twoAprilTagProvider = new(aprilTagColocationProvider, trackingSpace,
 				() => !applicationPaused && AppFocus.IsFocused && PlayerHeadsetStatus.HeadTrackingReady);
 			
+			if (!visualProvider) visualProvider = GetComponent<VisualColocationConstraintProvider>();
+
 			if (colocator) colocator.StateChanged += OnStateChanged;
 			methodSync.Register();
 			methodSync.Validate = (_, _) => false;

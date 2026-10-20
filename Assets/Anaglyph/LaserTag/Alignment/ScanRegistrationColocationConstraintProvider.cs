@@ -1,10 +1,8 @@
 using System;
 using System.Collections.Generic;
-using Anaglyph.Netcode.SyncVariables;
 using Anaglyph.XR;
 using Anaglyph.XR.DepthKit.EnvScanning;
 using Anaglyph.XR.DepthKit.EnvScanning.Registration;
-using Anaglyph.XR.SharedSpaces;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
@@ -13,18 +11,14 @@ namespace Anaglyph.LaserTag
 {
 	/// <summary>
 	/// Colocation by registering this headset's environment scan against the session
-	/// authority's. No anchors, tags or platform service: the authority's frame is the
-	/// canon frame, a joiner scans its surroundings, receives the authority's chunk
-	/// snapshot into a reference volume, and searches for the gravity-aligned
-	/// transform that lays its scan onto the reference. Once found, that transform is
-	/// the single constraint the <see cref="Colocator"/> aligns the rig with, exactly
-	/// as an anchor would be. The authority, and anyone offline, is aligned at once.
+	/// authority's: a joiner scans its surroundings, receives the authority's chunk
+	/// snapshot into a reference volume, and searches for the gravity-aligned transform
+	/// that lays its scan onto the reference. Relocalization scans into a scratch volume
+	/// and registers that against the map already held.
 	/// </summary>
-	public class ScanRegistrationColocationConstraintProvider : MonoBehaviour, IColocationConstraintProvider
+	public class ScanRegistrationColocationConstraintProvider : CanonColocationProvider
 	{
 		public static ScanRegistrationColocationConstraintProvider Instance { get; private set; }
-
-		public enum Phase { Stopped, Aligned, Searching, Registering, Relocalizing }
 
 		[Header("Attempts")]
 		[SerializeField] private int minReferenceChunks = 4;
@@ -37,22 +31,6 @@ namespace Anaglyph.LaserTag
 
 		/// <summary>When a registration may be attempted and trusted, for everything that registers scans.</summary>
 		public RegistrationGates Gates => gates;
-
-		public Phase CurrentPhase
-		{
-			get => currentPhase;
-			private set
-			{
-				if (currentPhase == value) return;
-				currentPhase = value;
-				PhaseChanged.Invoke(value);
-			}
-		}
-
-		private Phase currentPhase = Phase.Stopped;
-
-		/// <summary>Raised after <see cref="CurrentPhase"/> changes, with the new phase.</summary>
-		public event Action<Phase> PhaseChanged = delegate { };
 
 		/// <summary>Forwarded from the registration: a search began.</summary>
 		public event Action SearchStarted = delegate { };
@@ -92,15 +70,10 @@ namespace Anaglyph.LaserTag
 		[SerializeField] private float relocalizeMinMarginFraction = 0.15f;
 
 		private EnvVolume scratch;
-		private bool alignmentApplied;
 
 		/// <summary>The scratch volume relocalization registers against the map; null unless relocalizing.</summary>
 		public EnvVolume ScratchVolume => scratch;
 		private bool relocalizeInFlight;
-
-		// bumped by every recenter: the sensor's world frame moved, so any scan fused before
-		// it, and any registration still running on one, describes a frame that is gone
-		private int frameEpoch;
 
 		/// <summary>True while incoming snapshot chunks belong in the reference volume, not the live scan.</summary>
 		public bool WantsReferenceChunks => CurrentPhase is Phase.Searching or Phase.Registering;
@@ -112,121 +85,47 @@ namespace Anaglyph.LaserTag
 		private TsdfRegistration registration;
 		private RegistrationVolume reference;
 
-		// the one constraint: where the tracking space sat when the fit was found, and
-		// where the registration says it belongs. Identical for the authority
-		private Pose observedSpacePose;
-		private Pose canonSpacePose;
+		public override string LastAttemptDescription => LastResult.ToString();
 
-		/// <summary>Where the registration put the tracking space: the alignment before any drift correction.</summary>
-		public Pose CanonSpacePose => canonSpacePose;
-
-		/// <summary>Bumped whenever a new alignment is found (colocation, relocalization, becoming the authority).</summary>
-		public int AlignmentGeneration { get; private set; }
-
-		/// <summary>
-		/// Pose-graph SLAM's drift correction, applied on top of the registered alignment:
-		/// the tracking space is aligned to SlamCorrection ∘ <see cref="CanonSpacePose"/>.
-		/// Reset whenever a new alignment is found, since that alignment was registered
-		/// against the map as already corrected
-		/// </summary>
-		public Pose4 SlamCorrection { get; set; } = Pose4.Identity;
-
-		private void NewAlignment()
-		{
-			AlignmentGeneration++;
-			SlamCorrection = Pose4.Identity;
-		}
-
-		public bool IsAvailable => EnvScanner.Instance != null && MainXRRig.Instance != null;
-		public bool IsRunning => CurrentPhase != Phase.Stopped;
-
-		private void Awake()
+		protected override void Awake()
 		{
 			Instance = this;
-			SyncBus.Activated += OnBusActivated;
-			SyncBus.Deactivated += OnBusDeactivated;
-			SyncBus.AuthorityChanged += OnAuthorityChanged;
-			MainXRRig.Recentered += OnRecentered;
+			base.Awake();
 		}
 
-		private void OnDestroy()
+		protected override void OnDestroy()
 		{
-			SyncBus.Activated -= OnBusActivated;
-			SyncBus.Deactivated -= OnBusDeactivated;
-			SyncBus.AuthorityChanged -= OnAuthorityChanged;
-			MainXRRig.Recentered -= OnRecentered;
-			StopProviding();
+			base.OnDestroy();
 			registration?.Dispose();
 			reference?.Dispose();
 			if (Instance == this) Instance = null;
 		}
 
-		// ---- provider lifecycle ------------------------------------------------
-
-		public void StartProviding()
+		protected override void ResetWorkingState()
 		{
-			if (IsRunning) return;
-			EnterRole();
-		}
-
-		public void StopProviding()
-		{
-			if (CurrentPhase != Phase.Stopped)
-				Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] stopped (was {CurrentPhase})");
-			CurrentPhase = Phase.Stopped;
 			ClearReference();
 			ReleaseScratch();
 		}
 
-		private void OnRecentered()
+		protected override bool HasMapToRelocalizeAgainst =>
+			EnvMesher.Instance != null && EnvMesher.Instance.ChunksList.Count >= minLocalChunks;
+
+		protected override void OnRelocalizeBegun() => RestartScratch();
+
+		// the scratch scan so far is in the frame before this recenter; fusing the next
+		// frames on top would register a blend of two frames against the map
+		protected override void OnRecenteredWhileRelocalizing()
 		{
-			frameEpoch++;
-			switch (CurrentPhase)
-			{
-				case Phase.Aligned:
-					BeginRelocalize("recenter");
-					break;
-				case Phase.Relocalizing:
-					// the scratch scan so far is in the frame before this recenter; fusing the next
-					// frames on top would register a blend of two frames against the map
-					RestartScratch();
-					Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] recentered while relocalizing: restarting the scratch scan");
-					break;
-				case Phase.Searching:
-				case Phase.Registering:
-					// not colocated yet, so the live map is this headset's own scan, fused in the
-					// frame before this recenter; the authority's snapshot is unaffected
-					if (EnvScanner.Instance != null) EnvScanner.Instance.Clear();
-					Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] recentered while searching: restarting the local scan");
-					break;
-			}
+			RestartScratch();
+			Debug.Log($"{LogTag} recentered while relocalizing: restarting the scratch scan");
 		}
 
-		// the colocator drops to Lost on tracking loss, sleep and recenter; the alignment
-		// it keeps applied is stale, and only a fresh registration can say by how much
-		private void BeginRelocalize(string why)
+		// not colocated yet, so the live map is this headset's own scan, fused in the
+		// frame before this recenter; the authority's snapshot is unaffected
+		protected override void OnRecenteredWhileSearching()
 		{
-			if (CurrentPhase != Phase.Aligned) return;
-			EnvScanner scanner = EnvScanner.Instance;
-			if (scanner == null) return;
-
-			// nothing mapped yet to register against (XROrigin setting the tracking origin
-			// mode at startup raises a recenter): relocalizing would wait forever with the
-			// live scan shut. The authority's frame is canon by definition, so it re-anchors
-			// on the new one; anyone else looks for the authority again
-			EnvMesher mesher = EnvMesher.Instance;
-			if (mesher == null || mesher.ChunksList.Count < minLocalChunks)
-			{
-				Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] {why} with no map to relocalize against: {(SyncBus.IsAuthority ? "re-anchoring" : "searching again")}");
-				scanner.Clear();
-				if (SyncBus.IsAuthority) AlignIdentity();
-				else BeginSearch();
-				return;
-			}
-
-			CurrentPhase = Phase.Relocalizing;
-			RestartScratch();
-			Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] relocalizing ({why}): scanning into a scratch volume and registering it against the map");
+			if (EnvScanner.Instance != null) EnvScanner.Instance.Clear();
+			Debug.Log($"{LogTag} recentered while searching: restarting the local scan");
 		}
 
 		// the live integration gate is shut while relocalizing (LocalScanRequested is false),
@@ -247,49 +146,6 @@ namespace Anaglyph.LaserTag
 			if (scanner != null && scanner.GatedVolume == scratch) scanner.GatedVolume = null;
 			scratch?.Dispose();
 			scratch = null;
-		}
-
-		private void OnBusActivated() { if (IsRunning) EnterRole(); }
-		private void OnBusDeactivated() { if (IsRunning) EnterRole(); }
-		private void OnAuthorityChanged(bool _) { if (IsRunning) EnterRole(); }
-
-		// the authority's frame is canon by definition; everyone else has to find it
-		private void EnterRole()
-		{
-			if (SyncBus.IsAuthority) AlignIdentity();
-			else BeginSearch();
-		}
-
-		private void AlignIdentity()
-		{
-			ClearReference();
-			ReleaseScratch();
-			Transform space = MainXRRig.TrackingSpace;
-			observedSpacePose = canonSpacePose = space ? new Pose(space.position, space.rotation) : Pose.identity;
-			NewAlignment();
-			alignmentApplied = false;
-			CurrentPhase = Phase.Aligned;
-		}
-
-		private void BeginSearch()
-		{
-			if (CurrentPhase is Phase.Searching or Phase.Registering) return;
-			ClearReference();
-			ReleaseScratch();
-			CurrentPhase = Phase.Searching;
-			Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] searching: scanning locally and waiting for the authority's snapshot");
-		}
-
-		public void GetColocationConstraints(List<ColocationConstraint> results)
-		{
-			if (CurrentPhase != Phase.Aligned || !IsAvailable) return;
-			Transform space = MainXRRig.TrackingSpace;
-			if (!space) return;
-
-			// observed drifts toward canon as the colocator moves the rig, then the two
-			// coincide and the fit holds still
-			results.Add(new ColocationConstraint(new Pose(space.position, space.rotation),
-				SlamCorrection.Apply(canonSpacePose), hasReliableRotation: true));
 		}
 
 		// ---- reference volume --------------------------------------------------
@@ -315,20 +171,9 @@ namespace Anaglyph.LaserTag
 
 		// ---- attempts ----------------------------------------------------------
 
-		private void Update()
+		protected override void Update()
 		{
-			// the colocator reports Lost until its next fit applies a fresh alignment,
-			// so a loss only counts once the alignment we last produced was in use
-			if (ColocationManager.Instance != null)
-			{
-				ColocationAlignmentState state = ColocationManager.Instance.AlignmentState;
-				if (state == ColocationAlignmentState.Localized) alignmentApplied = true;
-				else if (state == ColocationAlignmentState.Lost && alignmentApplied && CurrentPhase == Phase.Aligned)
-				{
-					alignmentApplied = false;
-					BeginRelocalize("tracking lost");
-				}
-			}
+			base.Update();
 
 			// attempts run back to back: one in flight is never overlapped, and its own
 			// readbacks spread it over frames
@@ -362,7 +207,7 @@ namespace Anaglyph.LaserTag
 			// integration gate (a joiner needs its own scan), which here would bake the
 			// stale scan into the very map it is being matched against
 			relocalizeInFlight = true;
-			int epoch = frameEpoch;
+			int epoch = FrameEpoch;
 			try
 			{
 				EnsureRegistration(scanner);
@@ -381,7 +226,7 @@ namespace Anaglyph.LaserTag
 
 				if (!reference.Allocate(min, max))
 				{
-					Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] not attempted: the map spans {max - min + 1} chunks, more than the reference volume holds");
+					Debug.Log($"{LogTag} not attempted: the map spans {max - min + 1} chunks, more than the reference volume holds");
 					return;
 				}
 
@@ -390,39 +235,35 @@ namespace Anaglyph.LaserTag
 				List<int> scratchChunks = new(scratch.Chunks);
 				if (!await registration.SetSourceChunksAsync(scratchChunks, scratch) || !this || CurrentPhase != Phase.Relocalizing)
 				{
-					if (this && CurrentPhase == Phase.Relocalizing) Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] relocalize: no usable samples in the scratch scan yet ({scratchChunks.Count} chunks)");
+					if (this && CurrentPhase == Phase.Relocalizing) Debug.Log($"{LogTag} relocalize: no usable samples in the scratch scan yet ({scratchChunks.Count} chunks)");
 					return;
 				}
 
-				if (epoch != frameEpoch || !HasCoverage("relocalize", scratchChunks.Count)) return;
+				if (epoch != FrameEpoch || !HasCoverage("relocalize", scratchChunks.Count)) return;
 
 				RegistrationResult result = await RegisterGlobalAsync();
 				if (!this || CurrentPhase != Phase.Relocalizing) return;
-				if (epoch != frameEpoch)
+				if (epoch != FrameEpoch)
 				{
-					Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] relocalize: discarded, recentered mid-registration");
+					Debug.Log($"{LogTag} relocalize: discarded, recentered mid-registration");
 					return;
 				}
 				string rejection = Rejection(result, relocalizeMinMarginFraction);
 
 				LastResult = result;
 				Registered.Invoke(result);
-				Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] relocalize: {result}  (scratch {scratchChunks.Count} chunks, {registration.FineSampleCount} samples; map {mapChunks.Count} chunks)");
+				Debug.Log($"{LogTag} relocalize: {result}  (scratch {scratchChunks.Count} chunks, {registration.FineSampleCount} samples; map {mapChunks.Count} chunks)");
 
 				if (rejection != null)
 				{
-					Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] not accepted: {rejection}");
+					Debug.Log($"{LogTag} not accepted: {rejection}");
 					return;
 				}
 
 				Transform space = MainXRRig.TrackingSpace;
-				observedSpacePose = new Pose(space.position, space.rotation);
-				canonSpacePose = new Pose(result.pose.Apply(space.position), math.mul(result.pose.Rotation, (quaternion)space.rotation));
-				NewAlignment();
 				ReleaseScratch();
-				alignmentApplied = false;
-				CurrentPhase = Phase.Aligned;
-				Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] relocalized: {result.pose}");
+				ApplyAlignment(result.pose, new Pose(space.position, space.rotation));
+				Debug.Log($"{LogTag} relocalized: {result.pose}");
 			}
 			catch (Exception e)
 			{
@@ -437,7 +278,7 @@ namespace Anaglyph.LaserTag
 		private async void Attempt(EnvScanner scanner, EnvMesher mesher)
 		{
 			CurrentPhase = Phase.Registering;
-			int epoch = frameEpoch;
+			int epoch = FrameEpoch;
 			try
 			{
 				EnsureRegistration(scanner);
@@ -455,7 +296,7 @@ namespace Anaglyph.LaserTag
 
 				if (!reference.Allocate(min, max))
 				{
-					Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] not attempted: the authority's {referenceChunks.Count} chunks span {max - min + 1} chunks, more than the reference volume holds ({RegistrationVolume.MaxDims} voxels)");
+					Debug.Log($"{LogTag} not attempted: the authority's {referenceChunks.Count} chunks span {max - min + 1} chunks, more than the reference volume holds ({RegistrationVolume.MaxDims} voxels)");
 					return;
 				}
 
@@ -467,12 +308,12 @@ namespace Anaglyph.LaserTag
 				foreach (Chunk chunk in mesher.ChunksList) local.Add(chunk.chunkIndex);
 
 				if (!await registration.SetSourceChunksAsync(local) || !this) return;
-				if (epoch != frameEpoch || !HasCoverage("colocate", local.Count)) return;
+				if (epoch != FrameEpoch || !HasCoverage("colocate", local.Count)) return;
 				RegistrationResult result = await RegisterGlobalAsync();
 				if (!this || CurrentPhase != Phase.Registering) return;
-				if (epoch != frameEpoch)
+				if (epoch != FrameEpoch)
 				{
-					Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] discarded, recentered mid-registration");
+					Debug.Log($"{LogTag} discarded, recentered mid-registration");
 					return;
 				}
 
@@ -481,12 +322,12 @@ namespace Anaglyph.LaserTag
 				int referenceObserved = 0;
 				foreach (NativeArray<EnvScanner.Voxel> voxels in referenceChunks.Values)
 					for (int i = 0; i < voxels.Length; i += 64) if (!voxels[i].IsEmpty) referenceObserved++;
-				Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] {result}  (reference {referenceChunks.Count} chunks {min}..{max} bounds {reference.WorldBounds} observed≈{referenceObserved * 64}; local {local.Count} chunks, {registration.FineSampleCount} samples, bounds {registration.SourceBounds})");
+				Debug.Log($"{LogTag} {result}  (reference {referenceChunks.Count} chunks {min}..{max} bounds {reference.WorldBounds} observed≈{referenceObserved * 64}; local {local.Count} chunks, {registration.FineSampleCount} samples, bounds {registration.SourceBounds})");
 
 				string rejection = Rejection(result);
 				if (rejection != null)
 				{
-					Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] not accepted: {rejection}");
+					Debug.Log($"{LogTag} not accepted: {rejection}");
 					return;
 				}
 
@@ -510,7 +351,7 @@ namespace Anaglyph.LaserTag
 			RegistrationResult result = await registration.RegisterAsync(yawHypotheses: true);
 			if (!this || result.yawHypotheses == 0 || Fits(result)) return result;
 
-			Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] {result.yawHypotheses} wall yaw hypotheses: {result} — {Rejection(result)}; searching every yaw");
+			Debug.Log($"{LogTag} {result.yawHypotheses} wall yaw hypotheses: {result} — {Rejection(result)}; searching every yaw");
 			return await registration.RegisterAsync(yawHypotheses: false);
 		}
 
@@ -523,7 +364,7 @@ namespace Anaglyph.LaserTag
 			if (Time.unscaledTime >= nextCoverageLog)
 			{
 				nextCoverageLog = Time.unscaledTime + 2f;
-				Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] {what}: waiting for coverage, {constraint} < {minConstraint:F0} ({chunks} chunks, {registration.FineSampleCount} samples)");
+				Debug.Log($"{LogTag} {what}: waiting for coverage, {constraint} < {minConstraint:F0} ({chunks} chunks, {registration.FineSampleCount} samples)");
 			}
 
 			return false;
@@ -543,18 +384,14 @@ namespace Anaglyph.LaserTag
 		private void Align(EnvScanner scanner, Pose4 localToCanon)
 		{
 			Transform space = MainXRRig.TrackingSpace;
-			observedSpacePose = new Pose(space.position, space.rotation);
-			canonSpacePose = new Pose(localToCanon.Apply(space.position), math.mul(localToCanon.Rotation, (quaternion)space.rotation));
-			NewAlignment();
-			alignmentApplied = false;
-			CurrentPhase = Phase.Aligned;
+			ApplyAlignment(localToCanon, new Pose(space.position, space.rotation));
 
 			scanner.Clear();
 			foreach ((int chunkIndex, NativeArray<EnvScanner.Voxel> voxels) in referenceChunks)
 				scanner.UploadChunk(chunkIndex, voxels);
 			ClearReference();
 
-			Debug.Log($"[{nameof(ScanRegistrationColocationConstraintProvider)}] aligned: {localToCanon}");
+			Debug.Log($"{LogTag} aligned: {localToCanon}");
 		}
 	}
 }

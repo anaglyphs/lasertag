@@ -39,6 +39,9 @@ namespace Anaglyph.XR
 			Recentered.Invoke();
 		}
 
+		/// <summary>Raises <see cref="Recentered"/> as the runtime would, for editor tests that move the tracking space themselves.</summary>
+		public static void SimulateRecenter() => Recentered.Invoke();
+
 		public void ForceGlobalUp()
 		{
 			if (Vector3.Angle(transform.up, Vector3.up) < 0.1f)

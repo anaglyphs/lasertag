@@ -7,6 +7,7 @@ using Anaglyph.XR.DepthKit;
 using Anaglyph.XR.DepthKit.EnvScanning;
 using Anaglyph.XR.DepthKit.EnvScanning.Registration;
 using Anaglyph.XR.DepthKit.EnvScanning.Slam;
+using Anaglyph.XR.VisualLocalization;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -31,7 +32,7 @@ namespace Anaglyph.LaserTag
 	/// and eases its own rig onto its active node's correction. Frames, avatars and
 	/// anchored objects carry node-relative poses, so a solve moves them with the map.
 	/// </summary>
-	public class SharedSlam : MonoBehaviour
+	public class SharedSlam : MonoBehaviour, IKeyframeAnchoring
 	{
 		public static SharedSlam Instance { get; private set; }
 
@@ -60,6 +61,10 @@ namespace Anaglyph.LaserTag
 		[SerializeField] private float attachSigmaDegrees = 2f;
 
 		[Header("Loop closure")]
+		// off while visual loop closure (VisualColocationConstraintProvider, through ProposeVisualLoop) is the
+		// mechanism: locked chunks still keep a drifted view out of the old map, but no
+		// scratch scan is registered against them
+		[SerializeField] private bool scanLoopClosure = false;
 		[Tooltip("Fraction of the sensor depth texture's pixels landing in locked chunks before a candidate opens")]
 		[SerializeField] private float minLockedFrameFraction = 0.015f;
 		[SerializeField] private int candidateFrames = 3;
@@ -252,15 +257,15 @@ namespace Anaglyph.LaserTag
 			if (isAuthority && Graph.NodeCount > 0) RequestSolve();
 		}
 
-		private ScanRegistrationColocationConstraintProvider Provider => ScanRegistrationColocationConstraintProvider.Instance;
+		// whichever map-matching provider aligns this headset: scan registration or visual
+		private CanonColocationProvider Provider => CanonColocationProvider.Active;
 
 		private bool CanTrack()
 		{
 			var provider = Provider;
 			var coordinator = LaserTagMapCoordinator.Instance;
 			return scanner != null && MainXRRig.Instance != null && provider != null &&
-				ColocationManager.Instance != null && ColocationManager.Instance.UsingScanRegistrationProvider &&
-				provider.CurrentPhase == ScanRegistrationColocationConstraintProvider.Phase.Aligned &&
+				provider.CurrentPhase == CanonColocationProvider.Phase.Aligned &&
 				ColocationManager.IsColocated && coordinator != null && coordinator.CanIntegrateEnvironment &&
 				(SyncBus.IsAuthority || graphSynced);
 		}
@@ -560,6 +565,62 @@ namespace Anaglyph.LaserTag
 			scanner.SensorChunkLocksRevision = sensorLocksRevision;
 		}
 
+		// ---- keyframe anchoring (visual localization) ----------------------------
+
+		/// <summary>
+		/// The active node and the camera relative to it, through the same odometry frame
+		/// the node was made in. False when not tracking, or before the segment a new
+		/// alignment opens has its first node
+		/// </summary>
+		public bool TryAnchor(Pose cameraInTrackingSpace, out ulong node, out Pose cameraInNode)
+		{
+			node = 0;
+			cameraInNode = default;
+			var provider = Provider;
+			if (!IsTracking || !segmentOpen || provider == null || segmentGeneration != provider.AlignmentGeneration ||
+			    !Graph.TryGetNode(activeNode, out PoseNode active)) return false;
+
+			Pose canon = CanonSpacePose;
+			Matrix4x4 odometry = Matrix4x4.TRS(canon.position, canon.rotation, Vector3.one) *
+			                     Matrix4x4.TRS(cameraInTrackingSpace.position, cameraInTrackingSpace.rotation, Vector3.one);
+			node = active.key;
+			cameraInNode = new Pose(active.odometry.ApplyInverse(odometry.GetPosition()),
+				(Quaternion)math.conjugate(active.odometry.Rotation) * odometry.rotation);
+			return true;
+		}
+
+		public bool TryGetNodeWorld(ulong node, out Pose world)
+		{
+			world = default;
+			if (!Graph.TryGetNode(node, out PoseNode n)) return false;
+			world = n.world.AsPose;
+			return true;
+		}
+
+		public float Drift(ulong a, ulong b) => a == b ? 0 : Graph.Drift(a, b);
+
+		/// <summary>
+		/// A visual loop closure: <paramref name="correction"/> maps where the graph has
+		/// <paramref name="current"/> onto where the old map anchored at <paramref name="old"/>
+		/// says it is. Proposed as a loop edge, which the authority's solve weighs against
+		/// the rest of the graph. Yaw-only closures (far landmarks alone) carry a large
+		/// translation sigma, and so move rotation without dragging position.
+		/// </summary>
+		public bool ProposeVisualLoop(ulong old, ulong current, Pose4 correction, float sigmaTranslation, float sigmaYaw)
+		{
+			if (!Graph.TryGetNode(old, out PoseNode m) || !Graph.TryGetNode(current, out PoseNode n) || old == current) return false;
+			PoseEdge edge = new()
+			{
+				id = NextEdgeId(), from = m.key, to = n.key,
+				measurement = Pose4.Between(m.world, correction * n.world),
+				sigmaTranslation = math.max(Graph.LoopDrift, sigmaTranslation),
+				sigmaYaw = math.max(math.radians(0.1f), sigmaYaw), kind = EdgeKind.Loop
+			};
+			ProposeEdge(edge);
+			Debug.Log($"[{nameof(SharedSlam)}] visual loop closed: node {Describe(n.key)} → {Describe(m.key)}, correction {correction} (σ {edge.sigmaTranslation * 100:F1}cm / {math.degrees(edge.sigmaYaw):F2}°)");
+			return true;
+		}
+
 		// ---- loop closure ------------------------------------------------------
 
 		private sealed class Candidate
@@ -595,6 +656,7 @@ namespace Anaglyph.LaserTag
 
 			lockedStreak++;
 
+			if (candidate == null && !scanLoopClosure) return;
 			if (candidate == null)
 			{
 				if (lockedStreak < candidateFrames || Time.unscaledTime < candidateCooldownUntil || mover == null || mover.IsBusy) return;
@@ -695,7 +757,8 @@ namespace Anaglyph.LaserTag
 				ulong node = activeNode;
 				ulong anchor = DominantAnchor(c);
 				if (anchor == 0 || !Graph.TryGetNode(node, out PoseNode n) || !Graph.TryGetNode(anchor, out PoseNode m)) return;
-				RegistrationGates gates = Provider != null ? Provider.Gates : null;
+				ScanRegistrationColocationConstraintProvider registrar = ScanRegistrationColocationConstraintProvider.Instance;
+				RegistrationGates gates = registrar != null ? registrar.Gates : null;
 				if (gates == null) return;
 
 				// the target: the locked chunks the view landed in, and their locked

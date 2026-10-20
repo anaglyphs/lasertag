@@ -90,12 +90,12 @@ namespace Anaglyph.LaserTag.Interface
 		private void RefreshChoices()
 		{
 			// indexed by ColocationManager.ColocationMethod, so every method needs an entry.
-			// scan registration has no localized copy yet
+			// scan registration and visual relocalization have no localized copy yet
 			methodField.choices = new List<string>
 			{
 				MenuCopy.Get("Map", "alignment.anchors"), MenuCopy.Get("Map", "alignment.tags"),
 				MenuCopy.Get("Map", "alignment.system"), MenuCopy.Get("Map", "alignment.two-tags"),
-				"Scan registration"
+				"Scan registration", "Visual relocalization"
 			};
 		}
 

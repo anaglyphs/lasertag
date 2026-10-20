@@ -272,7 +272,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Slam
 		/// <summary>
 		/// Expected drift from <paramref name="source"/> to every node it reaches, the
 		/// cheapest path through odometry (drift that grows with distance) and loop edges
-		/// (a registration's few centimeters). Cached until the graph changes
+		/// (a registration's few centimeters, or its translation sigma when larger). Cached until the graph changes
 		/// </summary>
 		public IReadOnlyDictionary<ulong, float> DriftFrom(ulong source)
 		{
@@ -296,7 +296,9 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Slam
 						PoseEdge e = edges[id];
 						if (e.rejected) continue;
 						ulong other = e.from == key ? e.to : e.from;
-						float next = cost + (e.kind == EdgeKind.Odometry ? e.sigmaTranslation : LoopDrift);
+						// a registration ties two nodes as well as it pinned translation: a yaw-only
+						// visual closure leaves them as far apart in trust as before
+						float next = cost + (e.kind == EdgeKind.Odometry ? e.sigmaTranslation : math.max(LoopDrift, e.sigmaTranslation));
 						if (drift.TryGetValue(other, out float known) && known <= next) continue;
 						drift[other] = next;
 						Push(next, other);
