@@ -40,6 +40,8 @@ namespace Anaglyph.XR.VisualLocalization
 		/// closure is against views from another stretch of tracking only. 0 for none.
 		/// </summary>
 		public ulong untrustedFrom;
+		/// <summary>Keyframes facing more than this many degrees away from the query camera are skipped; 0 for any.</summary>
+		public float maxViewAngle;
 		/// <summary>
 		/// How well the query camera's position in the map frame is known beforehand,
 		/// meters; 0 for the solver's default (loose). A far landmark pins yaw only as well
@@ -93,13 +95,22 @@ namespace Anaglyph.XR.VisualLocalization
 		public static VisualLocalizer Instance { get; private set; }
 
 		[Header("Mapping")]
+		[Tooltip("Seconds after a keyframe before the next is tried")]
 		[SerializeField] private float mappingInterval = 0.5f;
-		[SerializeField] private float keyframeMinDistance = 0.3f;
-		[SerializeField] private float keyframeMinAngle = 15f;
+		[Tooltip("Seconds before trying again after a frame that couldn't be a keyframe (blurred, or nothing new): soon, so the calm moments of a moving head are caught")]
+		[SerializeField] private float mappingRetry = 0f;
+		[Tooltip("A head turning slower than this (°/s) is still enough to capture at once; between it and the blur limit, capture waits while the turn is still slowing quickly, for the stillest frame of the settle")]
+		[SerializeField] private float calmAngularSpeed = 15f;
+		[SerializeField] private float keyframeMinDistance = 0.5f;
+		[SerializeField] private float keyframeMinAngle = 20f;
 		[Tooltip("Head rotation above this (°/s) blurs the passthrough image too much to map or query")]
 		[SerializeField] private float maxAngularSpeed = 40f;
 		[SerializeField] private int minKeyframeFeatures = 100;
-		[SerializeField] private int mapCapacity = 192;
+		[SerializeField] private int mapCapacity = 256;
+		[Tooltip("When the map is full, keyframes are given up from the most crowded bucket of place and heading, so every place and direction keeps a view. Cell side at the finest level, meters")]
+		[SerializeField] private float coverageCell = 1f;
+		[Tooltip("Heading bins at the finest level; each coarsening halves them and doubles the cell")]
+		[SerializeField] private int coverageHeadings = 8;
 
 		[Header("Tracks")]
 		[Tooltip("Expected drift (m) between two keyframes' nodes up to which their views are triangulated together; beyond it they can only be loop-closed")]
@@ -112,9 +123,9 @@ namespace Anaglyph.XR.VisualLocalization
 		[SerializeField] private float trackMinCosine = 0.82f;
 
 		[Header("Scanned mesh (optional depth)")]
-		[SerializeField] private bool useMeshDepth = true;
+		[SerializeField] private bool useMeshDepth = false;
 		[Tooltip("Landmarks seen once but placed by the mesh may be matched; otherwise a landmark needs a second sighting")]
-		[SerializeField] private bool singleViewMeshLandmarks = true;
+		[SerializeField] private bool singleViewMeshLandmarks = false;
 		[SerializeField] private float maxRayDistance = 8f;
 		[Tooltip("Hits more grazing than this (cosine to the surface normal) are dropped: depth edges and slanted walls")]
 		[SerializeField] private float minHitCosine = 0.2f;
@@ -177,6 +188,16 @@ namespace Anaglyph.XR.VisualLocalization
 		public bool IsAvailable => capture != null;
 		public float TrustDrift => trustDrift;
 
+		/// <summary>What became of mapping attempts since the start (or since a test reset them).</summary>
+		public struct MappingCounts
+		{
+			public int attempts, noFrame, blurred, notNovel, fewFeatures, stale, added;
+			public override string ToString() =>
+				$"{added} keyframes of {attempts} attempts: {blurred} blurred, {notNovel} nothing new, {noFrame} no frame, {fewFeatures} too few features, {stale} map changed";
+		}
+
+		public MappingCounts Mapping;
+
 		public VisualMapQuality Quality => Map.Quality(singleViewMeshLandmarks, pnp.rangedFraction);
 
 		private ARCameraManager cameraManager;
@@ -186,14 +207,21 @@ namespace Anaglyph.XR.VisualLocalization
 		private LighterGlueMatcher matcher;
 		private long? lastFrameTimestampNs;
 		private float nextMapping;
-		private bool gpuBusy;
+		// one capture-and-extract at a time (they share the image buffer), and one LighterGlue
+		// run at a time: separately, so mapping goes on while a loop query matches
+		private bool extractorBusy, matcherBusy;
+
+		// the head's turn rate, frame to frame, for priming captures on the moment it settles
+		private Quaternion lastHeadRotation;
+		private bool hasHeadRotation;
+		private float turnRate, previousTurnRate;
 
 		public event Action<VisualKeyframe> KeyframeAdded = delegate { };
 
 		private void Awake()
 		{
 			Instance = this;
-			Map = new VisualMap(mapCapacity);
+			Map = new VisualMap(mapCapacity) { coverageCell = coverageCell, coverageHeadings = coverageHeadings };
 			Frames.enabled = recordFrames;
 			Frames.capacity = recentFrames;
 			Map.Evicted += k => Frames.Pin(k.frame, false);
@@ -240,10 +268,28 @@ namespace Anaglyph.XR.VisualLocalization
 
 		private void OnFrameReceived(ARCameraFrameEventArgs args) => lastFrameTimestampNs = args.timestampNs;
 
+		private void TrackTurnRate()
+		{
+			if (MainXRRig.Instance == null) return;
+			Quaternion rotation = MainXRRig.Camera.transform.localRotation;
+			previousTurnRate = turnRate;
+			turnRate = hasHeadRotation && Time.unscaledDeltaTime > 0 ? Quaternion.Angle(lastHeadRotation, rotation) / Time.unscaledDeltaTime : float.PositiveInfinity;
+			lastHeadRotation = rotation;
+			hasHeadRotation = true;
+		}
+
 		private void Update()
 		{
-			if (capture == null || Anchoring == null || gpuBusy || Time.unscaledTime < nextMapping) return;
-			nextMapping = Time.unscaledTime + mappingInterval;
+			TrackTurnRate();
+			if (capture == null || Anchoring == null || extractorBusy || Time.unscaledTime < nextMapping) return;
+
+			// primed, not polled: a frame is taken the moment the head settles under the blur
+			// limit, every frame it stays there; while a turn is still slowing quickly, the next
+			// frame is the sharper one
+			if (turnRate > maxAngularSpeed) return;
+			if (turnRate > calmAngularSpeed && turnRate < previousTurnRate * 0.8f) return;
+
+			nextMapping = Time.unscaledTime + mappingRetry;
 			TryAddKeyframe();
 		}
 
@@ -251,10 +297,16 @@ namespace Anaglyph.XR.VisualLocalization
 
 		private async void TryAddKeyframe()
 		{
-			if (!await AcquireGpu()) return;
+			if (!await Acquire(Lock.Extractor)) return;
 			try
 			{
-				if (!capture.TryCapture(image, lastFrameTimestampNs) || image.angularSpeed > maxAngularSpeed) return;
+				Mapping.attempts++;
+				if (!capture.TryCapture(image, lastFrameTimestampNs, maxAngularSpeed))
+				{
+					if (image.angularSpeed > maxAngularSpeed) Mapping.blurred++;
+					else Mapping.noFrame++;
+					return;
+				}
 
 				// anchored at capture: the node the head was at then, whatever happens while extracting
 				IKeyframeAnchoring anchoring = Anchoring;
@@ -262,7 +314,11 @@ namespace Anaglyph.XR.VisualLocalization
 				if (!Landmark.TryCamera(anchoring, node, cameraInNode, out Pose camera)) return;
 
 				Map.RefreshPlacement();
-				if (!Map.IsNovel(camera, node, trustDrift, keyframeMinDistance, keyframeMinAngle)) return;
+				if (!Map.IsNovel(camera, node, trustDrift, keyframeMinDistance, keyframeMinAngle))
+				{
+					Mapping.notNovel++;
+					return;
+				}
 
 				// everything about the frame is read now: the image buffer is reused
 				PinholeCamera intrinsics = image.intrinsics;
@@ -276,12 +332,14 @@ namespace Anaglyph.XR.VisualLocalization
 				if (features == null || !this) return;
 				if (features.Count < minKeyframeFeatures)
 				{
+					Mapping.fewFeatures++;
 					Frames.Note(frame, $"not a keyframe: {features.Count} features < {minKeyframeFeatures}");
 					return;
 				}
 
 				if (Map.Revision != mapRevision)
 				{
+					Mapping.stale++;
 					Frames.Note(frame, "not a keyframe: the map changed while extracting");
 					return;
 				}
@@ -310,7 +368,7 @@ namespace Anaglyph.XR.VisualLocalization
 			}
 			finally
 			{
-				gpuBusy = false;
+				extractorBusy = false;
 			}
 		}
 
@@ -325,12 +383,37 @@ namespace Anaglyph.XR.VisualLocalization
 				k => Map.IsTrusted(k, keyframe.node, trustDrift), keyframe.camera, neighborDistance);
 			if (!this || Map.Revision != mapRevision) return;
 
+			// why no neighbor: none near, none near and trusted, or the trusted ones share too little
+			string lonely = null;
+			if (neighbors.Count == 0)
+			{
+				int near = 0, trusted = 0;
+				foreach (VisualKeyframe k in Map.Keyframes)
+				{
+					if (k == keyframe || Vector3.Distance(k.camera.position, keyframe.camera.position) > neighborDistance) continue;
+					near++;
+					if (Map.IsTrusted(k, keyframe.node, trustDrift)) trusted++;
+				}
+
+				List<(VisualKeyframe keyframe, int mutual)> best = trusted > 0
+					? await Map.RetrieveAsync(keyframe.features, 1, 1, k => Map.IsTrusted(k, keyframe.node, trustDrift), keyframe.camera, neighborDistance)
+					: new();
+				if (!this || Map.Revision != mapRevision) return;
+				lonely = $" (alone: {near} near, {trusted} trusted, best shares {(best.Count > 0 ? best[0].mutual : 0)}" +
+				         $"{(best.Count > 0 ? $" at {Vector3.Angle(best[0].keyframe.camera.forward, keyframe.camera.forward):F0}° / {Vector3.Distance(best[0].keyframe.camera.position, keyframe.camera.position):F1} m" : "")})";
+			}
+
 			List<(VisualKeyframe neighbor, int[] matches)> matched = new();
 			foreach ((VisualKeyframe neighbor, int _) in neighbors)
 			{
-				(int[] matches, float[] _) = lighterGlueForTracks
-					? await matcher.MatchAsync(keyframe.features, neighbor.features)
-					: await MutualNearestMatcher.MatchAsync(keyframe.features, neighbor.features, trackMinCosine);
+				int[] matches;
+				if (lighterGlueForTracks)
+				{
+					if (!await Acquire(Lock.Matcher)) return;
+					try { (matches, _) = await matcher.MatchAsync(keyframe.features, neighbor.features); }
+					finally { matcherBusy = false; }
+				}
+				else (matches, _) = await MutualNearestMatcher.MatchAsync(keyframe.features, neighbor.features, trackMinCosine);
 				if (!this || Map.Revision != mapRevision) return;
 				if (matches != null) matched.Add((neighbor, matches));
 			}
@@ -394,8 +477,12 @@ namespace Anaglyph.XR.VisualLocalization
 				dropped += rejected.Count;
 			}
 
+			Mapping.added++;
+			// a view no other keyframe shares (a glance, mostly) triangulates nothing until a
+			// second view of it comes: take the next sharp frame at once, while it's still in sight
+			nextMapping = Time.unscaledTime + (matched.Count == 0 ? 0 : mappingInterval);
 			KeyframeAdded.Invoke(keyframe);
-			string summary = $"{matched.Count} trusted neighbors, {extended} sightings extended tracks, {started} started, {dropped} rejected";
+			string summary = $"{matched.Count} trusted neighbors{lonely}, {extended} sightings extended tracks, {started} started, {dropped} rejected";
 			Frames.Note(keyframe.frame, $"keyframe in slot {keyframe.slot}: {summary}");
 			Debug.Log($"[{nameof(VisualLocalizer)}] keyframe {Map.Count}: {summary}; {Quality}");
 		}
@@ -437,10 +524,10 @@ namespace Anaglyph.XR.VisualLocalization
 		/// </summary>
 		public async Awaitable<VisualQuery> CaptureQueryAsync()
 		{
-			if (capture == null || !await AcquireGpu()) return null;
+			if (capture == null || !await Acquire(Lock.Extractor)) return null;
 			try
 			{
-				if (!capture.TryCapture(image, lastFrameTimestampNs) || image.angularSpeed > maxAngularSpeed) return null;
+				if (!capture.TryCapture(image, lastFrameTimestampNs, maxAngularSpeed)) return null;
 				VisualQuery query = new()
 				{
 					intrinsics = image.intrinsics,
@@ -464,7 +551,7 @@ namespace Anaglyph.XR.VisualLocalization
 			}
 			finally
 			{
-				gpuBusy = false;
+				extractorBusy = false;
 			}
 		}
 
@@ -481,7 +568,7 @@ namespace Anaglyph.XR.VisualLocalization
 				return result;
 			}
 
-			if (!await AcquireGpu())
+			if (!await Acquire(Lock.Matcher))
 			{
 				result.failure = "destroyed";
 				return result;
@@ -492,7 +579,10 @@ namespace Anaglyph.XR.VisualLocalization
 				IKeyframeAnchoring anchoring = Anchoring;
 				Map.RefreshPlacement();
 
-				Func<VisualKeyframe, bool> filter = options.untrustedFrom != 0 ? k => !Map.IsTrusted(k, options.untrustedFrom, trustDrift) : null;
+				Vector3 queryForward = query.camera.forward;
+				Func<VisualKeyframe, bool> filter = k =>
+					(options.untrustedFrom == 0 || !Map.IsTrusted(k, options.untrustedFrom, trustDrift)) &&
+					(options.maxViewAngle <= 0 || Vector3.Angle(k.camera.forward, queryForward) <= options.maxViewAngle);
 				List<(VisualKeyframe keyframe, int mutual)> candidates = await Map.RetrieveAsync(query.features, keyframesPerQuery, minMutual, filter,
 					options.near, options.nearDistance > 0 ? options.nearDistance : float.PositiveInfinity);
 				if (!this)
@@ -523,15 +613,25 @@ namespace Anaglyph.XR.VisualLocalization
 				Dictionary<int, int> byFeature = new(), byLandmark = new();
 				foreach ((VisualKeyframe keyframe, int _) in candidates)
 				{
-					FeatureSet keyframeFeatures = options.maxMatchFeatures > 0 ? keyframe.features.Strongest(options.maxMatchFeatures) : keyframe.features;
-					(int[] matches, float[] confidence) = await matcher.MatchAsync(queryFeatures, keyframeFeatures);
+					// only the keyframe's features that sight a usable landmark can become
+					// correspondences: the rest would only take the matcher's time and slots
+					List<int> sighting = new();
+					for (int j = 0; j < keyframe.features.Count; j++)
+					{
+						if (options.maxMatchFeatures > 0 && sighting.Count >= options.maxMatchFeatures) break;
+						if (Map.TryGetLandmark(keyframe.landmarks[j], out Landmark l) && l.IsUsable(singleViewMeshLandmarks)) sighting.Add(j);
+					}
+					if (sighting.Count < 6) continue;
+
+					(int[] matches, float[] confidence) = await matcher.MatchAsync(queryFeatures, keyframe.features.Subset(sighting));
 					if (matches == null || !this) continue;
 					result.keyframesMatched++;
 
 					for (int i = 0; i < matches.Length; i++)
 					{
-						int j = matches[i];
-						if (j < 0 || !Map.TryGetLandmark(keyframe.landmarks[j], out Landmark landmark) || !landmark.IsUsable(singleViewMeshLandmarks)) continue;
+						if (matches[i] < 0) continue;
+						int j = sighting[matches[i]];
+						if (!Map.TryGetLandmark(keyframe.landmarks[j], out Landmark landmark) || !landmark.IsUsable(singleViewMeshLandmarks)) continue;
 						if (!landmark.TryPlace(anchoring, out float3 origin, out float3 direction)) continue;
 
 						float2 pixel = query.features.keypoints[i];
@@ -557,6 +657,12 @@ namespace Anaglyph.XR.VisualLocalization
 						byFeature[i] = byLandmark[landmark.id] = correspondences.Count;
 						correspondences.Add(c);
 					}
+				}
+
+				if (result.keyframesMatched == 0)
+				{
+					result.failure = $"the {candidates.Count} nearest views sight too few landmarks";
+					return result;
 				}
 
 				correspondences = Consistent(correspondences, anchoring, out result.anchorNode);
@@ -586,7 +692,7 @@ namespace Anaglyph.XR.VisualLocalization
 			}
 			finally
 			{
-				gpuBusy = false;
+				matcherBusy = false;
 			}
 		}
 
@@ -736,15 +842,18 @@ namespace Anaglyph.XR.VisualLocalization
 		private static readonly ProfilerMarker SnapshotMarker = new("VisualLocalizer.NodePoseSnapshot");
 
 		// one network at a time: mapping, capture and localization share the extractor's buffers
-		private async Awaitable<bool> AcquireGpu()
+		private enum Lock { Extractor, Matcher }
+
+		private async Awaitable<bool> Acquire(Lock which)
 		{
-			while (gpuBusy)
+			while (which == Lock.Extractor ? extractorBusy : matcherBusy)
 			{
 				await Awaitable.NextFrameAsync();
 				if (!this) return false;
 			}
 
-			gpuBusy = true;
+			if (which == Lock.Extractor) extractorBusy = true;
+			else matcherBusy = true;
 			return true;
 		}
 	}

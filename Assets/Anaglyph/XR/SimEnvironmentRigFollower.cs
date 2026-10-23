@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 
 namespace Anaglyph.XR
@@ -17,7 +18,8 @@ namespace Anaglyph.XR
 	/// simulated players begin with mismatched coordinate spaces. Multiplayer
 	/// Play Mode virtual players also start at a random spot and heading in
 	/// the room (within poseOffsMax / poseYawMax of the main editor's start),
-	/// so their scans cover the room differently.
+	/// so their scans cover the room differently. With SimTrackingDrift, the
+	/// room follows its drifted frame instead, as a drifting tracker would see it.
 	/// </summary>
 	public class SimEnvironmentRigFollower : MonoBehaviour
 	{
@@ -48,7 +50,23 @@ namespace Anaglyph.XR
 		private readonly System.Random random = new(Guid.NewGuid().GetHashCode());
 		private bool randomized;
 
-		private void LateUpdate()
+		private void OnEnable() =>
+			RenderPipelineManager.beginCameraRendering += OnBeginCameraRendering;
+
+		// the room can't be parented to the rig: it lives in XR Simulation's own
+		// scene, and moving it out would put its colliders in the game's physics.
+		// Its only reader is the simulated camera's render, which XR Simulation
+		// issues from an Update in no particular order, so re-follow the rig
+		// right as that render starts. LateUpdate keeps the scene view current
+		private void OnBeginCameraRendering(ScriptableRenderContext context, Camera camera)
+		{
+			if (simCamera && camera == simCamera)
+				Follow();
+		}
+
+		private void LateUpdate() => Follow();
+
+		private void Follow()
 		{
 			if (!MainXRRig.Instance) return;
 
@@ -66,7 +84,9 @@ namespace Anaglyph.XR
 				randomized = true;
 			}
 
-			Matrix4x4 spaceMat = Matrix4x4.TRS(space.position, space.rotation, Vector3.one);
+			// the room stays put in the tracker's (possibly drifted) frame
+			Transform frame = SimTrackingDrift.Frame ? SimTrackingDrift.Frame : space;
+			Matrix4x4 spaceMat = Matrix4x4.TRS(frame.position, frame.rotation, Vector3.one);
 
 			foreach (EnvRoot root in envRoots)
 			{
@@ -81,15 +101,16 @@ namespace Anaglyph.XR
 					root.transform.SetPositionAndRotation(pos, rot);
 			}
 
-			// the interaction simulator syncs this in its Update. Repeat it so
-			// a tracking space move later in the frame doesn't leave the next
-			// simulated camera frame rendered from a stale pose
+			// the interaction simulator syncs this in its Update, which may run
+			// before a tracking space move later in the frame
 			Transform head = xrCamera.transform;
 			simCamera.transform.SetPositionAndRotation(head.position, head.rotation);
 		}
 
 		private void OnDisable()
 		{
+			RenderPipelineManager.beginCameraRendering -= OnBeginCameraRendering;
+
 			foreach (EnvRoot root in envRoots)
 				if (root.transform)
 					root.transform.SetPositionAndRotation(

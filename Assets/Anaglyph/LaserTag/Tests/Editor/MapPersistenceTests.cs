@@ -44,8 +44,8 @@ namespace Anaglyph.LaserTag.Tests
 		}
 		[TestCase(ColocationManager.ColocationMethod.MetaSharedAnchor)]
 		[TestCase(ColocationManager.ColocationMethod.AprilTag)]
-		[TestCase(ColocationManager.ColocationMethod.TwoAprilTags)]
-		[TestCase(ColocationManager.ColocationMethod.SystemDetermined)]
+		[TestCase(ColocationManager.ColocationMethod.ScanRegistration)]
+		[TestCase(ColocationManager.ColocationMethod.Visual)]
 		public void SpaceConfigurationSurvivesSeparateJsonRoundTrip(ColocationManager.ColocationMethod method)
 		{
 			space.preferredColocationMethod = method; space.tagSizeCm = 18; space.firstTagId = 7; space.secondTagId = 42;
@@ -53,6 +53,24 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(new MapSpaceStore(spaceDirectory).TryGet(space.id, out var reopened), Is.True);
 			Assert.That(reopened.preferredColocationMethod, Is.EqualTo(method)); Assert.That(reopened.tagSizeCm, Is.EqualTo(18));
 			Assert.That(reopened.tags.Count, Is.EqualTo(1)); Assert.That(reopened.secondTagId, Is.EqualTo(42));
+		}
+		[TestCase(2)] // the retired system frame
+		[TestCase(3)] // the retired separate two-tag method
+		public void LegacyMethodsLoadAsAprilTag(int legacy)
+		{
+			space.preferredColocationMethod = ColocationManager.ColocationMethod.Visual; space.firstTagId = 7; space.secondTagId = 42;
+			space.hasPendingSetup = true; space.pendingSetupMethod = ColocationManager.ColocationMethod.Visual; Save();
+			string path = Path.Combine(spaceDirectory, space.id + ".json");
+			string json = File.ReadAllText(path);
+			string legacyJson = Regex.Replace(json, "(\"(?:preferredColocationMethod|pendingSetupMethod)\"\\s*:\\s*)5", "${1}" + legacy);
+			Assert.That(legacyJson, Is.Not.EqualTo(json));
+			File.WriteAllText(path, legacyJson);
+			Assert.That(new MapSpaceStore(spaceDirectory).TryGet(space.id, out var reopened), Is.True);
+			Assert.That(reopened.preferredColocationMethod, Is.EqualTo(ColocationManager.ColocationMethod.AprilTag));
+			Assert.That(reopened.pendingSetupMethod, Is.EqualTo(ColocationManager.ColocationMethod.AprilTag));
+			Assert.That(reopened.firstTagId, Is.EqualTo(7)); Assert.That(reopened.secondTagId, Is.EqualTo(42));
+			Assert.That(ColocationManager.MigrateLegacyMethod((ColocationManager.ColocationMethod)legacy),
+				Is.EqualTo(ColocationManager.ColocationMethod.AprilTag));
 		}
 		[Test] public void StoreAndManagerReadsAreDetached()
 		{

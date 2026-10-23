@@ -10,9 +10,8 @@ namespace Anaglyph.LaserTag.Tests
 {
 	public class TagSizeRulerTests
 	{
-		[TestCase(ColocationManager.ColocationMethod.AprilTag)]
-		[TestCase(ColocationManager.ColocationMethod.TwoAprilTags)]
-		public void MeasurementSurvivesMapChangesButStopsWhenTheSpaceContextChanges(ColocationManager.ColocationMethod method)
+		[Test] // AprilTag without registered tags: two-tag mode, where size stays editable
+		public void MeasurementSurvivesMapChangesButStopsWhenTheSpaceContextChanges()
 		{
 			var owner = new GameObject("Measurement state test");
 			owner.SetActive(false);
@@ -26,7 +25,7 @@ namespace Anaglyph.LaserTag.Tests
 				context = new MapCoordinatorTestContext(coordinator);
 				var mapDocument = context.MapDocument;
 				var spaceDocument = context.SpaceDocument;
-				var space = MapSpace.Create("Test"); space.preferredColocationMethod = method;
+				var space = MapSpace.Create("Test"); space.preferredColocationMethod = ColocationManager.ColocationMethod.AprilTag;
 				spaceDocument.Load(space);
 				mapDocument.Create(space.storageFrameId);
 				context.ComposeReferences(owner.AddComponent<ColocationManager>());

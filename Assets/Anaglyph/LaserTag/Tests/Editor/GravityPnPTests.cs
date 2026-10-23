@@ -226,3 +226,51 @@ namespace Anaglyph.LaserTag.Tests
 		}
 	}
 }
+
+namespace Anaglyph.LaserTag.Tests
+{
+	public class VisualMapCoverageTests
+	{
+		private static int sequence;
+
+		private static Anaglyph.XR.VisualLocalization.VisualKeyframe At(float x, float z, float headingDegrees)
+		{
+			var features = new Anaglyph.XR.VisualLocalization.FeatureSet(4);
+			int[] links = { -1, -1, -1, -1 };
+			return new Anaglyph.XR.VisualLocalization.VisualKeyframe
+			{
+				features = features,
+				landmarks = links,
+				camera = new UnityEngine.Pose(new UnityEngine.Vector3(x, 1.6f, z), UnityEngine.Quaternion.Euler(0, headingDegrees, 0)),
+				timestampNs = ++sequence,
+			};
+		}
+
+		[NUnit.Framework.Test]
+		public void EvictsFromTheMostCrowdedPlaceAndHeading()
+		{
+			using var map = new Anaglyph.XR.VisualLocalization.VisualMap(4);
+			var a1 = At(0.2f, 0.2f, 10); var a2 = At(0.5f, 0.4f, 15); var a3 = At(0.7f, 0.6f, 5);
+			var b = At(5.5f, 5.5f, 10);
+			map.Add(a1); map.Add(a2); map.Add(a3); map.Add(b);
+
+			map.Add(At(9.5f, 9.5f, 200));
+
+			NUnit.Framework.Assert.That(map.Keyframes, NUnit.Framework.Has.Member(b), "the lone view of a place stays");
+			NUnit.Framework.Assert.That(map.Keyframes, NUnit.Framework.Has.No.Member(a3), "the newest of the crowded bucket goes");
+			NUnit.Framework.Assert.That(map.CoverageLevel, NUnit.Framework.Is.EqualTo(0));
+		}
+
+		[NUnit.Framework.Test]
+		public void CoarsensWhenEveryBucketHasOneView()
+		{
+			using var map = new Anaglyph.XR.VisualLocalization.VisualMap(3);
+			map.Add(At(0.5f, 0.5f, 0)); map.Add(At(1.5f, 0.5f, 0)); map.Add(At(10.5f, 10.5f, 0));
+
+			map.Add(At(20.5f, 20.5f, 0));
+
+			NUnit.Framework.Assert.That(map.CoverageLevel, NUnit.Framework.Is.GreaterThan(0));
+			NUnit.Framework.Assert.That(map.Count, NUnit.Framework.Is.EqualTo(3));
+		}
+	}
+}

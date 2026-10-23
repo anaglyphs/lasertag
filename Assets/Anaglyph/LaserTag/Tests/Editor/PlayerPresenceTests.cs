@@ -38,7 +38,7 @@ namespace Anaglyph.LaserTag.Tests
 			mapId = Guid.NewGuid();
 			var context = Create("Presence context");
 			var colocation = context.AddComponent<ColocationManager>();
-			Set(colocation, "offlineMethod", ColocationManager.ColocationMethod.SystemDetermined);
+			Set(colocation, "offlineMethod", ColocationManager.ColocationMethod.Visual);
 			SetStatic(typeof(ColocationManager), "Instance", colocation);
 			var coordinator = context.AddComponent<LaserTagMapCoordinator>();
 			mapContext = new MapCoordinatorTestContext(coordinator);
@@ -295,7 +295,7 @@ namespace Anaglyph.LaserTag.Tests
 		{
 			hasAnchorRuntime = true, supportsSharedAnchors = true, isHeadTracked = true,
 			isFocused = true, aligned = aligned, mapId = mapId, frameId = LaserTagMapCoordinator.Instance.CanonicalFrameId, referenceContext = LaserTagMapCoordinator.Instance.ReferenceContext,
-			method = ColocationManager.ColocationMethod.SystemDetermined
+			method = ColocationManager.ColocationMethod.Visual
 		};
 
 		private static bool Winner(out byte team)

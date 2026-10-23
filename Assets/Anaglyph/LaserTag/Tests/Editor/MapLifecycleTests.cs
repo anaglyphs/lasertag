@@ -91,8 +91,7 @@ namespace Anaglyph.LaserTag.Tests
 
 		[TestCase(Method.MetaSharedAnchor)]
 		[TestCase(Method.AprilTag)]
-		[TestCase(Method.SystemDetermined)]
-		[TestCase(Method.TwoAprilTags)]
+		[TestCase(Method.Visual)]
 		public void AlignmentSelectionCanStartBeforeTargetReferencesAreReady(Method method)
 		{
 			Assert.That(MapPolicy.ColocationMethodBlocker(method, true, false, false, false), Is.Null);
@@ -110,8 +109,8 @@ namespace Anaglyph.LaserTag.Tests
 
 		[TestCase(Method.MetaSharedAnchor, true)]
 		[TestCase(Method.AprilTag, true)]
-		[TestCase(Method.SystemDetermined, false)]
-		[TestCase(Method.TwoAprilTags, false)]
+		[TestCase(Method.Visual, false)]
+		[TestCase(Method.ScanRegistration, false)]
 		public void ExistingReferencesRequireAlignmentToASavedReferenceMethod(Method method, bool canAuthor)
 		{
 			Assert.That(MapPolicy.CanAuthorReferences(true, method, true, true), Is.EqualTo(canAuthor));
@@ -121,8 +120,8 @@ namespace Anaglyph.LaserTag.Tests
 		[Test]
 		public void FirstReferencesRequireAnInitializationGrant()
 		{
-			Assert.That(MapPolicy.CanAuthorReferences(false, Method.SystemDetermined, false, true), Is.True);
-			Assert.That(MapPolicy.CanAuthorReferences(false, Method.SystemDetermined, true, false), Is.False);
+			Assert.That(MapPolicy.CanAuthorReferences(false, Method.Visual, false, true), Is.True);
+			Assert.That(MapPolicy.CanAuthorReferences(false, Method.Visual, true, false), Is.False);
 		}
 
 		[Test]
@@ -151,6 +150,22 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(ColocationManager.CompatibleMethod(Method.MetaSharedAnchor, true, true, false), Is.EqualTo(Method.AprilTag));
 			Assert.That(ColocationManager.CompatibleMethod(Method.AprilTag, false, false, false), Is.EqualTo(Method.AprilTag));
 			Assert.That(ColocationManager.CompatibleMethod(Method.MetaSharedAnchor, true, true, true), Is.EqualTo(Method.MetaSharedAnchor));
+			Assert.That(ColocationManager.CompatibleMethod(Method.Visual, true, true, true), Is.EqualTo(Method.Visual));
+		}
+
+		[Test]
+		public void RetiredMethodValuesMigrateToAprilTagAndAreOtherwiseInvalid()
+		{
+			foreach (int legacy in new[] { 2, 3 })
+			{
+				Assert.That(ColocationManager.IsValidMethod((Method)legacy), Is.False);
+				Assert.That(ColocationManager.MigrateLegacyMethod((Method)legacy), Is.EqualTo(Method.AprilTag));
+			}
+			foreach (var method in new[] { Method.MetaSharedAnchor, Method.AprilTag, Method.ScanRegistration, Method.Visual })
+			{
+				Assert.That(ColocationManager.IsValidMethod(method), Is.True);
+				Assert.That(ColocationManager.MigrateLegacyMethod(method), Is.EqualTo(method));
+			}
 		}
 
 		[Test]

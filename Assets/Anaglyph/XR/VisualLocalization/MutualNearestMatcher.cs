@@ -25,8 +25,8 @@ namespace Anaglyph.XR.VisualLocalization
 			if (a == null || b == null || a.Count == 0 || b.Count == 0) return (null, null);
 
 			// persistent: the job may outlive the four frames a TempJob allocation is allowed
-			NativeArray<float> descA = new(a.descriptors, Allocator.Persistent);
-			NativeArray<float> descB = new(b.descriptors, Allocator.Persistent);
+			NativeArray<half> descA = new(a.descriptors, Allocator.Persistent);
+			NativeArray<half> descB = new(b.descriptors, Allocator.Persistent);
 			NativeArray<int> bestForA = new(a.Count, Allocator.Persistent);
 			NativeArray<float> bestSimForA = new(a.Count, Allocator.Persistent);
 			NativeArray<int> bestForB = new(b.Count, Allocator.Persistent);
@@ -67,8 +67,8 @@ namespace Anaglyph.XR.VisualLocalization
 		[BurstCompile(FloatMode = FloatMode.Fast)]
 		private struct NearestJob : IJobParallelFor
 		{
-			[ReadOnly] public NativeArray<float> from;
-			[ReadOnly] public NativeArray<float> to;
+			[ReadOnly] public NativeArray<half> from;
+			[ReadOnly] public NativeArray<half> to;
 			public int toCount;
 			[WriteOnly] public NativeArray<int> best;
 			[WriteOnly] public NativeArray<float> bestSimilarity;
@@ -77,6 +77,10 @@ namespace Anaglyph.XR.VisualLocalization
 			{
 				const int d = FeatureSet.DescriptorSize;
 				int fi = i * d;
+				// the row being matched, widened once
+				NativeArray<float4> row = new(d / 4, Allocator.Temp);
+				for (int c = 0; c < d; c += 4) row[c / 4] = new float4(from[fi + c], from[fi + c + 1], from[fi + c + 2], from[fi + c + 3]);
+
 				float bestDot = -2;
 				int bestJ = -1;
 				for (int j = 0; j < toCount; j++)
@@ -84,8 +88,7 @@ namespace Anaglyph.XR.VisualLocalization
 					int tj = j * d;
 					float4 acc = 0;
 					for (int c = 0; c < d; c += 4)
-						acc += new float4(from[fi + c], from[fi + c + 1], from[fi + c + 2], from[fi + c + 3]) *
-						       new float4(to[tj + c], to[tj + c + 1], to[tj + c + 2], to[tj + c + 3]);
+						acc += row[c / 4] * new float4(to[tj + c], to[tj + c + 1], to[tj + c + 2], to[tj + c + 3]);
 					float dot = math.csum(acc);
 					if (dot <= bestDot) continue;
 					bestDot = dot;

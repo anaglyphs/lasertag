@@ -79,6 +79,9 @@ namespace Anaglyph.LaserTag
 		/// </summary>
 		public Pose4 SlamCorrection { get; set; } = Pose4.Identity;
 
+		/// <summary>Whether <see cref="SharedSlam"/> runs while this provider is active: it closes loops into the pose graph</summary>
+		public virtual bool SupportsSharedSlam => false;
+
 		public virtual bool IsAvailable => EnvScanner.Instance != null && MainXRRig.Instance != null;
 		public bool IsRunning => CurrentPhase != Phase.Stopped;
 

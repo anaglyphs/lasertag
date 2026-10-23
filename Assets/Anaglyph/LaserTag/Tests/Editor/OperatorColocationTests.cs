@@ -7,12 +7,12 @@ namespace Anaglyph.LaserTag.Tests
 {
 	public class OperatorColocationTests
 	{
-		[TestCase(ColocationManager.ColocationMethod.SystemDetermined, false, false, true)]
-		[TestCase(ColocationManager.ColocationMethod.SystemDetermined, false, true, true)]
-		[TestCase(ColocationManager.ColocationMethod.SystemDetermined, true, true, true)]
-		[TestCase(ColocationManager.ColocationMethod.TwoAprilTags, false, false, true)]
-		[TestCase(ColocationManager.ColocationMethod.TwoAprilTags, false, true, true)]
-		[TestCase(ColocationManager.ColocationMethod.TwoAprilTags, true, true, true)]
+		[TestCase(ColocationManager.ColocationMethod.Visual, false, false, true)]
+		[TestCase(ColocationManager.ColocationMethod.Visual, false, true, true)]
+		[TestCase(ColocationManager.ColocationMethod.Visual, true, true, true)]
+		[TestCase(ColocationManager.ColocationMethod.ScanRegistration, false, false, true)]
+		[TestCase((ColocationManager.ColocationMethod)2, false, false, false)] // retired; migrated on load
+		[TestCase((ColocationManager.ColocationMethod)3, false, false, false)]
 		[TestCase(ColocationManager.ColocationMethod.AprilTag, false, false, true)]
 		[TestCase(ColocationManager.ColocationMethod.AprilTag, false, true, true)]
 		[TestCase(ColocationManager.ColocationMethod.MetaSharedAnchor, true, true, true)]

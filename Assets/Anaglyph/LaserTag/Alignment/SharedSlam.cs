@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Anaglyph.Debugging;
+using Anaglyph.Debugging.Visuals;
 using Anaglyph.Netcode.SyncVariables;
 using Anaglyph.XR;
 using Anaglyph.XR.DepthKit;
@@ -12,6 +14,7 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
+using Utilities.XR;
 
 namespace Anaglyph.LaserTag
 {
@@ -93,6 +96,12 @@ namespace Anaglyph.LaserTag
 		[SerializeField] private float rejectChi2 = 25f;
 		[Tooltip("A chunk group's accumulated move, in voxels at a one-chunk lever arm, before its data is resampled")]
 		[SerializeField] private float resampleThresholdVoxels = 0.2f;
+
+		[Header("Debug")]
+		[SerializeField] private Color debugNodeColor = Color.white;
+		[SerializeField] private float debugNodeScale = 0.15f;
+		[SerializeField] private Color debugOdometryColor = Color.yellow;
+		[SerializeField] private Color debugLoopColor = Color.green;
 
 		// Direct events: graph additions are per-sender ordered with that sender's frames,
 		// which reference its nodes, on the same reliable channel
@@ -260,11 +269,14 @@ namespace Anaglyph.LaserTag
 		// whichever map-matching provider aligns this headset: scan registration or visual
 		private CanonColocationProvider Provider => CanonColocationProvider.Active;
 
+		// a provider that closes no loops (and no scan loop closure) leaves a graph that only drifts with it
+		private bool Supported => Provider != null && (Provider.SupportsSharedSlam || scanLoopClosure);
+
 		private bool CanTrack()
 		{
 			var provider = Provider;
 			var coordinator = LaserTagMapCoordinator.Instance;
-			return scanner != null && MainXRRig.Instance != null && provider != null &&
+			return scanner != null && MainXRRig.Instance != null && Supported &&
 				provider.CurrentPhase == CanonColocationProvider.Phase.Aligned &&
 				ColocationManager.IsColocated && coordinator != null && coordinator.CanIntegrateEnvironment &&
 				(SyncBus.IsAuthority || graphSynced);
@@ -276,7 +288,7 @@ namespace Anaglyph.LaserTag
 			mover ??= new ChunkMover(scanner);
 			mover.Tick();
 
-			if (SyncBus.Active && !SyncBus.IsAuthority && !graphSynced && Time.unscaledTime - lastSnapshotRequest > 3f)
+			if (Supported && SyncBus.Active && !SyncBus.IsAuthority && !graphSynced && Time.unscaledTime - lastSnapshotRequest > 3f)
 			{
 				lastSnapshotRequest = Time.unscaledTime;
 				snapshotRequest.Raise(0);
@@ -301,6 +313,27 @@ namespace Anaglyph.LaserTag
 
 			if (SyncBus.IsAuthority && solveRequested && !solving && Time.unscaledTime - solveRequestTime >= solveDelay)
 				Solve();
+		}
+
+		private void LateUpdate()
+		{
+			if (!AnaglyphDebugging.DebugMode) return;
+
+			foreach (PoseNode node in Graph.Nodes)
+			{
+				Pose pose = node.world.AsPose;
+				DebugAxisVisual.DrawDebugAxis(pose.position, pose.rotation, debugNodeColor, debugNodeScale);
+			}
+
+			foreach (PoseEdge edge in Graph.Edges)
+			{
+				if (edge.rejected || edge.kind == EdgeKind.Attach) continue;
+				if (!Graph.TryGetNode(edge.from, out PoseNode from) || !Graph.TryGetNode(edge.to, out PoseNode to)) continue;
+				// coincident nodes (a turn in place, a loop closed onto itself) have no line to draw
+				if (math.distancesq(from.world.translation, to.world.translation) < 1e-6f) continue;
+				XRGizmos.DrawLine(from.world.translation, to.world.translation,
+					edge.kind == EdgeKind.Loop ? debugLoopColor : debugOdometryColor);
+			}
 		}
 
 		// ---- trajectory --------------------------------------------------------

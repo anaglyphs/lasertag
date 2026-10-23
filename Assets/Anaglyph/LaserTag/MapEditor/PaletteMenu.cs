@@ -363,8 +363,9 @@ namespace Anaglyph.LaserTag.MapEditor
 			clearTagsForMeasurementButton.style.display = registered == 0 ? DisplayStyle.None : DisplayStyle.Flex;
 			clearTagsForMeasurementButton.SetEnabled(canRemove);
 
-			bool twoTags = (ColocationManager.Instance != null ? ColocationManager.Instance.SelectedMethod :
-				manager.CurrentSpace?.preferredColocationMethod) == ColocationManager.ColocationMethod.TwoAprilTags;
+			bool twoTags = registered == 0 && !manager.SessionIsWaitingOnFirstTag && ColocationManager.IsTwoTagMode(
+				ColocationManager.Instance != null ? ColocationManager.Instance.SelectedMethod :
+				manager.CurrentSpace?.preferredColocationMethod ?? ColocationManager.ColocationMethod.MetaSharedAnchor, manager.CurrentSpace);
 			if (twoTags)
 				tagStatus.text = MenuCopy.Get("Map", "alignment.two-tags-description");
 			else if (registrationBlocker != null && registrationBlocker != sizeBlocker)

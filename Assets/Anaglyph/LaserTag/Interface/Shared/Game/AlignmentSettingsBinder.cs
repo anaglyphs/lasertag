@@ -17,7 +17,6 @@ namespace Anaglyph.LaserTag.Interface
 		private readonly UIEventBindings bindings = new();
 		private string contextStatus;
 		private readonly Button choosePair;
-		private readonly Label pairStatus;
 
 		private readonly Slider tagSizeSlider;
 		private readonly Label tagSizeNote;
@@ -36,8 +35,14 @@ namespace Anaglyph.LaserTag.Interface
 		public ColocationManager.ColocationMethod DisplayedMethod => LaserTagMapCoordinator.Instance?.IsChangingColocation == true
 			? LaserTagMapCoordinator.Instance.AlignmentTransition.Target : LaserTagMapCoordinator.Instance?.WaitingForAlignmentAuthor == true
 			? LaserTagMapCoordinator.Instance.CurrentSpace.pendingSetupMethod : InSession ? ColocationManager.Instance.Method : Preference;
-		public bool UsesTags => DisplayedMethod is ColocationManager.ColocationMethod.AprilTag or
-			ColocationManager.ColocationMethod.TwoAprilTags;
+		public bool UsesTags => DisplayedMethod == ColocationManager.ColocationMethod.AprilTag;
+
+		// the methods offered, in dropdown order; scan registration stays selectable in code only
+		private static readonly ColocationManager.ColocationMethod[] ListedMethods =
+		{
+			ColocationManager.ColocationMethod.MetaSharedAnchor, ColocationManager.ColocationMethod.AprilTag,
+			ColocationManager.ColocationMethod.Visual
+		};
 		public string Status { get; private set; }
 
 		private static ColocationManager.ColocationMethod Preference =>
@@ -72,7 +77,7 @@ namespace Anaglyph.LaserTag.Interface
 			methodField = Require<DropdownField>(root, "colocation-method-field");
 			statusLabel = Require<Label>(root, "colocation-status");
 			preferenceStatus = Require<Label>(root, "colocation-preference-status");
-			choosePair = Require<Button>(root, "choose-two-tag-pair"); pairStatus = Require<Label>(root, "two-tag-pair-status");
+			choosePair = Require<Button>(root, "choose-two-tag-pair");
 			bindings.Click(choosePair, () => LaserTagMapCoordinator.Instance?.ChooseAnotherTagPair());
 			RefreshChoices();
 			bindings.Value(methodField, OnMethodChanged);
@@ -89,15 +94,20 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void RefreshChoices()
 		{
-			// indexed by ColocationManager.ColocationMethod, so every method needs an entry.
-			// scan registration and visual relocalization have no localized copy yet
-			methodField.choices = new List<string>
-			{
-				MenuCopy.Get("Map", "alignment.anchors"), MenuCopy.Get("Map", "alignment.tags"),
-				MenuCopy.Get("Map", "alignment.system"), MenuCopy.Get("Map", "alignment.two-tags"),
-				"Scan registration", "Visual relocalization"
-			};
+			var choices = new List<string>();
+			foreach (var method in ListedMethods) choices.Add(MethodName(method));
+			methodField.choices = choices;
 		}
+
+		// scan registration and visual relocalization have no localized copy yet
+		private static string MethodName(ColocationManager.ColocationMethod method) => method switch
+		{
+			ColocationManager.ColocationMethod.MetaSharedAnchor => MenuCopy.Get("Map", "alignment.anchors"),
+			ColocationManager.ColocationMethod.AprilTag => MenuCopy.Get("Map", "alignment.tags"),
+			ColocationManager.ColocationMethod.ScanRegistration => "Scan registration",
+			ColocationManager.ColocationMethod.Visual => "Visual relocalization",
+			_ => method.ToString()
+		};
 
 		private void OnCopyChanged()
 		{
@@ -111,7 +121,7 @@ namespace Anaglyph.LaserTag.Interface
 			if (index < 0) return;
 			FlushPendingSize();
 			Changing?.Invoke();
-			LaserTagMapCoordinator.Instance?.SetPreferredColocationMethod((ColocationManager.ColocationMethod)index);
+			LaserTagMapCoordinator.Instance?.SetPreferredColocationMethod(ListedMethods[index]);
 			Refresh(contextStatus);
 			Changed?.Invoke();
 		}
@@ -126,9 +136,10 @@ namespace Anaglyph.LaserTag.Interface
 			var displayed = DisplayedMethod;
 			bool inSession = InSession;
 			methodField.label = MenuCopy.Get("Map", inSession && !SettingUpTags ? "alignment.session-label" : "alignment.preference-label");
-			methodField.SetValueWithoutNotify(methodField.choices[(int)displayed]);
+			// a hidden method still shows its own name when it is the one in use
+			methodField.SetValueWithoutNotify(MethodName(displayed));
 			SetMessage(preferenceStatus, inSession && displayed != preference
-				? MenuCopy.Format("Map", "alignment.saved-preference", methodField.choices[(int)preference]) : null);
+				? MenuCopy.Format("Map", "alignment.saved-preference", MethodName(preference)) : null);
 
 			string blocker = manager != null ? manager.DescribeColocationPreferenceBlocker() : MenuCopy.Get("Map", "maps.unavailable");
 			methodField.SetEnabled(blocker == null);
@@ -140,9 +151,9 @@ namespace Anaglyph.LaserTag.Interface
 				var phase = MenuCopy.Get("Map", "alignment.phase." + transition.Phase);
 				Status = ColocationManager.IsColocated
 					? MenuCopy.Format("Map", "alignment.transition", phase,
-						methodField.choices[(int)ColocationManager.Instance.ActiveMethod])
+						MethodName(ColocationManager.Instance.ActiveMethod))
 					: MenuCopy.Format("Map", "alignment.transition-unresolved", phase);
-				Status = MenuCopy.Format("Map", "alignment.method-status", methodField.choices[(int)transition.Target], Status);
+				Status = MenuCopy.Format("Map", "alignment.method-status", MethodName(transition.Target), Status);
 			}
 			else if (manager != null && manager.WaitingForAlignmentAuthor)
 			{
@@ -159,17 +170,12 @@ namespace Anaglyph.LaserTag.Interface
 					? MenuCopy.Format("Map", "alignment.anchor-minter", anchors.Minter.clientId)
 					: MenuCopy.Get("Map", "alignment.waiting-for-anchor-headset");
 			}
-			else if (SettingUpTags)
-				Status ??= MenuCopy.Get("Map", "alignment.system-tag-setup");
-			else if (displayed == ColocationManager.ColocationMethod.SystemDetermined)
-				Status ??= MenuCopy.Get("Map", "alignment.system-description");
 			if (!ColocationManager.UsesSavedReferences(displayed)) Status = MenuCopy.Get("Map", "alignment.provisional");
+			bool twoTags = !SettingUpTags && ColocationManager.IsTwoTagMode(displayed, manager?.CurrentSpace);
+			if (twoTags) Status ??= MenuCopy.Get("Map", "alignment.two-tags-description");
 			choosePair.text = MenuCopy.Get("Map", "alignment.choose-pair");
-			choosePair.style.display = displayed != ColocationManager.ColocationMethod.TwoAprilTags ? DisplayStyle.None : DisplayStyle.Flex;
+			choosePair.style.display = twoTags ? DisplayStyle.Flex : DisplayStyle.None;
 			choosePair.SetEnabled(blocker == null);
-			var space = manager?.CurrentSpace;
-			SetMessage(pairStatus, displayed != ColocationManager.ColocationMethod.TwoAprilTags ? null : space?.firstTagId >= 0
-				? MenuCopy.Format("Map", "alignment.pair", space.firstTagId, space.secondTagId) : MenuCopy.Get("Map", "alignment.pair-waiting"));
 			SetMessage(statusLabel, Status);
 			RefreshTagControls();
 		}

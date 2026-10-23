@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -21,15 +22,27 @@ namespace Anaglyph.XR.VisualLocalization
 		public int Count;
 		public float2[] keypoints;
 		public float[] scores;
-		/// <summary><see cref="Count"/> × <see cref="DescriptorSize"/>, row per keypoint.</summary>
-		public float[] descriptors;
+		/// <summary>
+		/// <see cref="Count"/> × <see cref="DescriptorSize"/>, row per keypoint, as half floats:
+		/// a unit 64-d descriptor loses nothing a match can tell at 11 bits of mantissa, and
+		/// the map holds hundreds of thousands of them.
+		/// </summary>
+		public half[] descriptors;
 
 		public FeatureSet(int count)
 		{
 			Count = count;
 			keypoints = new float2[count];
 			scores = new float[count];
-			descriptors = new float[count * DescriptorSize];
+			descriptors = new half[count * DescriptorSize];
+		}
+
+		/// <summary>The descriptors widened to floats, as a network input takes them.</summary>
+		public float[] DescriptorsAsFloat()
+		{
+			float[] result = new float[Count * DescriptorSize];
+			for (int i = 0; i < result.Length; i++) result[i] = descriptors[i];
+			return result;
 		}
 
 		/// <summary>The strongest <paramref name="count"/> features (they are stored strongest first).</summary>
@@ -40,6 +53,21 @@ namespace Anaglyph.XR.VisualLocalization
 			Array.Copy(keypoints, result.keypoints, count);
 			Array.Copy(scores, result.scores, count);
 			Array.Copy(descriptors, result.descriptors, count * DescriptorSize);
+			return result;
+		}
+
+		/// <summary>The features at <paramref name="indices"/>, in that order.</summary>
+		public FeatureSet Subset(IReadOnlyList<int> indices)
+		{
+			FeatureSet result = new(indices.Count);
+			for (int i = 0; i < indices.Count; i++)
+			{
+				int k = indices[i];
+				result.keypoints[i] = keypoints[k];
+				result.scores[i] = scores[k];
+				Array.Copy(descriptors, k * DescriptorSize, result.descriptors, i * DescriptorSize, DescriptorSize);
+			}
+
 			return result;
 		}
 	}
@@ -138,7 +166,7 @@ namespace Anaglyph.XR.VisualLocalization
 			const int d = FeatureSet.DescriptorSize;
 			NativeArray<float2> keypoints = new(MaxKeypoints, Allocator.Persistent);
 			NativeArray<float> scores = new(MaxKeypoints, Allocator.Persistent);
-			NativeArray<float> descriptors = new(MaxKeypoints * d, Allocator.Persistent);
+			NativeArray<half> descriptors = new(MaxKeypoints * d, Allocator.Persistent);
 			NativeReference<int> count = new(Allocator.Persistent);
 			try
 			{
@@ -159,7 +187,7 @@ namespace Anaglyph.XR.VisualLocalization
 				FeatureSet result = new(n);
 				NativeArray<float2>.Copy(keypoints, result.keypoints, n);
 				NativeArray<float>.Copy(scores, result.scores, n);
-				NativeArray<float>.Copy(descriptors, result.descriptors, n * d);
+				NativeArray<half>.Copy(descriptors, result.descriptors, n * d);
 				return result;
 			}
 			finally
@@ -184,7 +212,7 @@ namespace Anaglyph.XR.VisualLocalization
 			[ReadOnly] public NativeArray<float>.ReadOnly feats;
 			public NativeArray<float2> keypoints;
 			public NativeArray<float> scores;
-			public NativeArray<float> descriptors;
+			public NativeArray<half> descriptors;
 			public NativeReference<int> count;
 
 			private struct Peak : IComparable<Peak>
@@ -226,19 +254,21 @@ namespace Anaglyph.XR.VisualLocalization
 				int x0 = (int)math.floor(fx), y0 = (int)math.floor(fy);
 				float tx = fx - x0, ty = fy - y0;
 
+				// normalized in floats, stored in halves
 				float sum = 0;
 				for (int c = 0; c < d; c++)
 				{
-					int b = c * plane;
-					float v = Tap(b, x0, y0) * (1 - tx) * (1 - ty) + Tap(b, x0 + 1, y0) * tx * (1 - ty) +
-					          Tap(b, x0, y0 + 1) * (1 - tx) * ty + Tap(b, x0 + 1, y0 + 1) * tx * ty;
-					descriptors[offset + c] = v;
+					float v = Sample(c * plane, x0, y0, tx, ty);
 					sum += v * v;
 				}
 
 				float inv = sum > 0 ? math.rsqrt(sum) : 0;
-				for (int c = 0; c < d; c++) descriptors[offset + c] *= inv;
+				for (int c = 0; c < d; c++) descriptors[offset + c] = (half)(Sample(c * plane, x0, y0, tx, ty) * inv);
 			}
+
+			private float Sample(int b, int x0, int y0, float tx, float ty) =>
+				Tap(b, x0, y0) * (1 - tx) * (1 - ty) + Tap(b, x0 + 1, y0) * tx * (1 - ty) +
+				Tap(b, x0, y0 + 1) * (1 - tx) * ty + Tap(b, x0 + 1, y0 + 1) * tx * ty;
 
 			private float Tap(int planeBase, int x, int y) =>
 				x < 0 || y < 0 || x >= FieldWidth || y >= FieldHeight ? 0 : feats[planeBase + y * FieldWidth + x];
@@ -284,9 +314,9 @@ namespace Anaglyph.XR.VisualLocalization
 			try
 			{
 				using Tensor<float> kpts0 = new(new TensorShape(a.Count, 2), Flatten(a.keypoints));
-				using Tensor<float> desc0 = new(new TensorShape(a.Count, FeatureSet.DescriptorSize), a.descriptors);
+				using Tensor<float> desc0 = new(new TensorShape(a.Count, FeatureSet.DescriptorSize), a.DescriptorsAsFloat());
 				using Tensor<float> kpts1 = new(new TensorShape(b.Count, 2), Flatten(b.keypoints));
-				using Tensor<float> desc1 = new(new TensorShape(b.Count, FeatureSet.DescriptorSize), b.descriptors);
+				using Tensor<float> desc1 = new(new TensorShape(b.Count, FeatureSet.DescriptorSize), b.DescriptorsAsFloat());
 
 				worker.SetInput("kpts0", kpts0);
 				worker.SetInput("desc0", desc0);

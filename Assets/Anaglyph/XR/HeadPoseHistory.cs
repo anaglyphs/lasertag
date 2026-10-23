@@ -230,6 +230,30 @@ namespace Anaglyph.XR
 			return false;
 		}
 
+		/// <summary>
+		/// The timestamp of the sample a frame before the one taken at <paramref name="timestampNs"/>.
+		/// The sample is found by nearness, not order: a timestamp from float Time.time can land a
+		/// few microseconds either side of the double-precision stamp of its own frame's sample.
+		/// </summary>
+		public bool TryGetPreviousSampleTime(long timestampNs, out long previousNs)
+		{
+			previousNs = 0;
+			int n = Mathf.Min(count, ring.Length);
+			int nearest = -1;
+			long nearestGap = long.MaxValue;
+			for (int i = 0; i < n; i++)
+			{
+				long gap = System.Math.Abs(ring[(count - 1 - i) % ring.Length].tNs - timestampNs);
+				if (gap >= nearestGap) continue;
+				nearestGap = gap;
+				nearest = i;
+			}
+
+			if (nearest < 0 || nearest + 1 >= n) return false;
+			previousNs = ring[(count - 2 - nearest) % ring.Length].tNs;
+			return true;
+		}
+
 		/// <summary>Same as <see cref="TryGetLocalPose"/> but in world space.</summary>
 		public bool TryGetWorldPose(long timestampNs, out Pose worldPose)
 		{

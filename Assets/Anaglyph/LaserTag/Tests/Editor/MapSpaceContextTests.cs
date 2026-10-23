@@ -115,8 +115,8 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(MapPolicy.CanInitializeTags(true, false, false, false), Is.False, "Clients wait for an initialization grant.");
 			Assert.That(MapPolicy.CanInitializeTags(true, false, true, true), Is.True, "An operator's assigned headset can register the first tag.");
 			Assert.That(MapPolicy.CanInitializeTags(true, true, true, false), Is.False, "Even authority cannot replace the assigned author's frame.");
-			Assert.That(MapPolicy.CanAuthorReferences(true, Method.SystemDetermined, true, true), Is.False);
-			Assert.That(MapPolicy.CanAuthorReferences(true, Method.TwoAprilTags, true, true), Is.False);
+			Assert.That(MapPolicy.CanAuthorReferences(true, Method.Visual, true, true), Is.False);
+			Assert.That(MapPolicy.CanAuthorReferences(true, Method.ScanRegistration, true, true), Is.False);
 		}
 
 		[TestCase(-1000169004, true)] // Cloud storage disabled.

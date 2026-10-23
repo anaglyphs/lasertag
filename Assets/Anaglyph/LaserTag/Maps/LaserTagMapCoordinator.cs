@@ -58,6 +58,7 @@ namespace Anaglyph.LaserTag
 		private CancellationTokenSource lifetime;
 		private bool shuttingDown;
 		private Method observedSource;
+		private bool observedTwoTagMode;
 
 		public MapPhase Phase => lifecycle.Phase;
 		public GameMap CurrentMap => documents?.MapDocument.CurrentMap;
@@ -88,7 +89,7 @@ namespace Anaglyph.LaserTag
 
 		private bool FrameReady => documents != null && spaceDocument.HasSpace && ColocationManager.IsColocated &&
 		                           (!ColocationManager.UsesSavedReferences(colocationManager.ActiveMethod) ||
-		                            colocationManager.ReferenceAligned) &&
+		                            colocationManager.UsingTwoTagMode || colocationManager.ReferenceAligned) &&
 		                           (lifecycle.Phase is MapPhase.Local or MapPhase.Hosting
 			                           or MapPhase.FollowingSession) &&
 		                           (!SyncBus.Active ||
@@ -97,7 +98,7 @@ namespace Anaglyph.LaserTag
 		                            ColocationManager.UsesSavedReferences(colocationManager.SelectedMethod));
 
 		public bool CanIntegrateEnvironment => FrameReady && TrackingReady() &&
-		                                       (colocationManager.ActiveMethod != Method.TwoAprilTags ||
+		                                       (!colocationManager.UsingTwoTagMode ||
 		                                        spaceDocument.FirstTagId >= 0);
 
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -687,8 +688,8 @@ namespace Anaglyph.LaserTag
 		public string DescribeColocationMethodBlocker(Method method) =>
 			Localize(referenceWorkflow.DescribeColocationMethodBlocker(method));
 
-		public bool SetPreferredColocationMethod(Method method) =>
-			referenceWorkflow.SetPreferredColocationMethod(method);
+		public bool SetPreferredColocationMethod(Method method, bool setupTags = false) =>
+			referenceWorkflow.SetPreferredColocationMethod(method, setupTags);
 
 		public bool SessionIsWaitingOnFirstTag => referenceWorkflow?.SessionIsWaitingOnFirstTag == true;
 		public string DescribeTagSetupBlocker() => DescribeTagRegistrationBlocker();
@@ -718,11 +719,16 @@ namespace Anaglyph.LaserTag
 		private void OnAlignmentSourceChanged()
 		{
 			var activeMethod = colocationManager.ActiveMethod;
-			if (activeMethod != observedSource &&
-			    (!ColocationManager.UsesSavedReferences(activeMethod) ||
-			     !ColocationManager.UsesSavedReferences(observedSource)))
+			bool twoTagMode = colocationManager.UsingTwoTagMode;
+			// two-tag mode is AprilTag without saved references, so entering or leaving it rebases
+			// like any provisional method would
+			bool savedReferences = ColocationManager.UsesSavedReferences(activeMethod) && !twoTagMode;
+			bool wasSavedReferences = ColocationManager.UsesSavedReferences(observedSource) && !observedTwoTagMode;
+			if ((activeMethod != observedSource || twoTagMode != observedTwoTagMode) &&
+			    (!savedReferences || !wasSavedReferences))
 				WorldFrameRebased.Invoke();
 			observedSource = activeMethod;
+			observedTwoTagMode = twoTagMode;
 			RaiseSettingsChanged();
 		}
 
@@ -803,7 +809,7 @@ namespace Anaglyph.LaserTag
 			}
 			else if (!alignment.Busy && colocationManager.ActiveMethod != identity.method)
 			{
-				if (ColocationManager.UsesSavedReferences(identity.method))
+				if (ColocationManager.UsesSavedReferences(identity.method, space))
 				{
 					alignment.Begin(Guid.NewGuid(), space, identity.method, ReferenceTransitionIntent.ActivateTarget,
 						false);
@@ -816,11 +822,11 @@ namespace Anaglyph.LaserTag
 			else if (!alignment.Busy && referencesChanged)
 				alignment.Activate(space, colocationManager.ActiveMethod, true);
 
-			if (scanChanged && colocationManager.ActiveMethod == Method.TwoAprilTags)
+			if (scanChanged && colocationManager.UsingTwoTagMode)
 			{
-				colocationManager.TwoTagProvider.ResetReferences();
+				colocationManager.TagProvider.ResetPairReferences();
 				colocationManager.InvalidateAlignment();
-				alignment.Activate(space, Method.TwoAprilTags);
+				alignment.Activate(space, Method.AprilTag);
 			}
 
 			if (newFrame || scanChanged)
@@ -937,10 +943,10 @@ namespace Anaglyph.LaserTag
 				return true;
 			var lastSpace = documents.SpaceStore.Spaces.FirstOrDefault();
 			// Restoring a space must restore its references and chosen provider together.
-			// Only a brand-new simulation space starts with the system origin.
+			// Only a brand-new simulation space starts with visual relocalization.
 			return lastSpace != null
 				? ChangeSpace(lastSpace.id)
-				: documents.CreateSpace(false, Method.SystemDetermined).IsCompleted;
+				: documents.CreateSpace(false, Method.Visual).IsCompleted;
 		}
 #endif
 

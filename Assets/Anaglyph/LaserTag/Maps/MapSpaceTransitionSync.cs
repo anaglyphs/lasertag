@@ -31,6 +31,8 @@ namespace Anaglyph.LaserTag.Maps
 		public Guid context;
 		public ColocationManager.ColocationMethod method;
 		public bool cancel;
+		// AprilTag without registered tags means two-tag mode, unless this asks to register some
+		public bool setupTags;
 	}
 
 	internal enum SpaceReferenceAction : byte

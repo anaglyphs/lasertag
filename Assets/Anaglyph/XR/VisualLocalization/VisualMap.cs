@@ -68,7 +68,7 @@ namespace Anaglyph.XR.VisualLocalization
 		private readonly List<VisualKeyframe> keyframes = new();
 		private readonly Dictionary<int, Landmark> landmarks = new();
 		private int nextLandmarkId;
-		private NativeArray<float> retrieval;
+		private NativeArray<half> retrieval;
 		private NativeArray<int> retrievalCounts;
 
 		public IReadOnlyList<VisualKeyframe> Keyframes => keyframes;
@@ -86,7 +86,7 @@ namespace Anaglyph.XR.VisualLocalization
 		public VisualMap(int capacity = 192)
 		{
 			this.capacity = capacity;
-			retrieval = new NativeArray<float>(capacity * RetrievalFeatures * D, Allocator.Persistent);
+			retrieval = new NativeArray<half>(capacity * RetrievalFeatures * D, Allocator.Persistent);
 			retrievalCounts = new NativeArray<int>(capacity, Allocator.Persistent);
 		}
 
@@ -109,6 +109,7 @@ namespace Anaglyph.XR.VisualLocalization
 		{
 			keyframes.Clear();
 			landmarks.Clear();
+			CoverageLevel = 0;
 			Revision++;
 			Cleared.Invoke();
 		}
@@ -204,24 +205,14 @@ namespace Anaglyph.XR.VisualLocalization
 			if (--landmark.references <= 0) landmarks.Remove(landmark.id);
 		}
 
+		/// <param name="trustDrift">The drift window keyframes count as one stretch of tracking within.</param>
 		public void Add(VisualKeyframe keyframe)
 		{
 			int slot = keyframes.Count;
 			Revision++;
 			if (slot >= capacity)
 			{
-				// replace the keyframe nearest the new one: the most redundant view
-				float best = float.MaxValue;
-				for (int i = 0; i < keyframes.Count; i++)
-				{
-					Pose c = keyframes[i].camera;
-					float d = Vector3.Distance(c.position, keyframe.camera.position) +
-					          Vector3.Angle(c.forward, keyframe.camera.forward) / 45f;
-					if (d >= best) continue;
-					best = d;
-					slot = i;
-				}
-
+				slot = CoverageVictim();
 				Evict(keyframes[slot]);
 				keyframes[slot] = keyframe;
 			}
@@ -229,8 +220,89 @@ namespace Anaglyph.XR.VisualLocalization
 
 			keyframe.slot = slot;
 			int count = math.min(RetrievalFeatures, keyframe.features.Count);
-			NativeArray<float>.Copy(keyframe.features.descriptors, 0, retrieval, slot * RetrievalFeatures * D, count * D);
+			NativeArray<half>.Copy(keyframe.features.descriptors, 0, retrieval, slot * RetrievalFeatures * D, count * D);
 			retrievalCounts[slot] = count;
+		}
+
+		// ---- coverage --------------------------------------------------------
+
+		/// <summary>Side of a coverage cell at the finest level, meters.</summary>
+		public float coverageCell = 1f;
+		/// <summary>Heading bins at the finest level.</summary>
+		public int coverageHeadings = 8;
+
+		/// <summary>
+		/// How many times coverage has been coarsened: each level doubles the cell side and
+		/// halves the heading bins. It only grows, so a map that outgrew its capacity once
+		/// doesn't refine again and churn.
+		/// </summary>
+		public int CoverageLevel { get; private set; }
+
+		public float CoverageCellSize => coverageCell * (1 << CoverageLevel);
+		public int CoverageHeadingBins => math.max(1, coverageHeadings >> CoverageLevel);
+
+		/// <summary>
+		/// The keyframe to give up when the map is full: one from the most crowded bucket of
+		/// place (horizontal cell) and heading, so every place and direction ever seen keeps a
+		/// view for as long as the capacity allows. Within the bucket, the keyframe that sights
+		/// the fewest usable landmarks goes, the newer on a tie. When every bucket is down to a
+		/// single keyframe the explored area has outgrown the capacity, and the buckets coarsen
+		/// rather than whole places losing their last view.
+		/// </summary>
+		private int CoverageVictim()
+		{
+			while (true)
+			{
+				Dictionary<int3, List<int>> buckets = Bucket();
+				List<int> crowded = null;
+				foreach (List<int> bucket in buckets.Values)
+					if (bucket.Count > 1 && (crowded == null || bucket.Count > crowded.Count))
+						crowded = bucket;
+
+				if (crowded != null) return LeastUseful(crowded);
+				if (CoverageCellSize >= 64f && CoverageHeadingBins == 1) return LeastUseful(new List<int>(System.Linq.Enumerable.Range(0, keyframes.Count)));
+
+				CoverageLevel++;
+				Debug.Log($"[{nameof(VisualMap)}] every place and heading is down to one keyframe: coverage coarsened to {CoverageCellSize:F0} m cells, {CoverageHeadingBins} headings");
+			}
+		}
+
+		private Dictionary<int3, List<int>> Bucket()
+		{
+			float cell = CoverageCellSize;
+			int headings = CoverageHeadingBins;
+			Dictionary<int3, List<int>> buckets = new();
+			for (int i = 0; i < keyframes.Count; i++)
+			{
+				Pose camera = keyframes[i].camera;
+				Vector3 forward = camera.forward;
+				float heading = math.atan2(forward.x, forward.z);
+				int bin = (int)math.floor((heading + math.PI) / (2 * math.PI) * headings) % headings;
+				int3 key = new((int)math.floor(camera.position.x / cell), (int)math.floor(camera.position.z / cell), bin);
+				if (!buckets.TryGetValue(key, out List<int> list)) buckets[key] = list = new List<int>();
+				list.Add(i);
+			}
+
+			return buckets;
+		}
+
+		private int LeastUseful(List<int> candidates)
+		{
+			int victim = candidates[0], fewest = int.MaxValue;
+			foreach (int i in candidates)
+			{
+				VisualKeyframe k = keyframes[i];
+				int usable = 0;
+				foreach (int id in k.landmarks)
+					if (landmarks.TryGetValue(id, out Landmark l) && l.IsUsable(true))
+						usable++;
+
+				if (usable > fewest || (usable == fewest && k.timestampNs <= keyframes[victim].timestampNs)) continue;
+				fewest = usable;
+				victim = i;
+			}
+
+			return victim;
 		}
 
 		// its sightings stay in their landmarks as measurements; the landmarks it alone held go
@@ -279,12 +351,12 @@ namespace Anaglyph.XR.VisualLocalization
 
 			int queryCount = math.min(RetrievalFeatures, query.Count);
 			// persistent: the job may outlive the four frames a TempJob allocation is allowed
-			NativeArray<float> queryDesc = new(queryCount * D, Allocator.Persistent);
+			NativeArray<half> queryDesc = new(queryCount * D, Allocator.Persistent);
 			NativeArray<int> slots = new(candidates.ToArray(), Allocator.Persistent);
 			NativeArray<int> scores = new(candidates.Count, Allocator.Persistent);
 			try
 			{
-				NativeArray<float>.Copy(query.descriptors, queryDesc, queryCount * D);
+				NativeArray<half>.Copy(query.descriptors, queryDesc, queryCount * D);
 				JobHandle handle;
 				using (ScheduleMarker.Auto())
 					handle = new MutualNearestJob
@@ -339,9 +411,9 @@ namespace Anaglyph.XR.VisualLocalization
 		{
 			private const float MinCosine = 0.8f;
 
-			[ReadOnly] public NativeArray<float> query;
+			[ReadOnly] public NativeArray<half> query;
 			public int queryCount;
-			[ReadOnly] public NativeArray<float> map;
+			[ReadOnly] public NativeArray<half> map;
 			[ReadOnly] public NativeArray<int> mapCounts;
 			[ReadOnly] public NativeArray<int> slots;
 			[WriteOnly] public NativeArray<int> scores;
@@ -355,16 +427,22 @@ namespace Anaglyph.XR.VisualLocalization
 				NativeArray<float> bestForMapSim = new(m, Allocator.Temp);
 				NativeArray<int> bestForQuery = new(queryCount, Allocator.Temp);
 				for (int j = 0; j < m; j++) bestForMapSim[j] = -2;
+				NativeArray<float4> row = new(D / 4, Allocator.Temp);
 
 				for (int i = 0; i < queryCount; i++)
 				{
+					// the query row widened once, the keyframe's read as halves
+					int qi = i * D;
+					for (int c = 0; c < D; c += 4) row[c / 4] = new float4(query[qi + c], query[qi + c + 1], query[qi + c + 2], query[qi + c + 3]);
+
 					float best = -2;
 					int bestJ = -1;
 					for (int j = 0; j < m; j++)
 					{
-						float dot = 0;
-						int qi = i * D, mj = baseIndex + j * D;
-						for (int c = 0; c < D; c++) dot += query[qi + c] * map[mj + c];
+						int mj = baseIndex + j * D;
+						float4 acc = 0;
+						for (int c = 0; c < D; c += 4) acc += row[c / 4] * new float4(map[mj + c], map[mj + c + 1], map[mj + c + 2], map[mj + c + 3]);
+						float dot = math.csum(acc);
 						if (dot > best)
 						{
 							best = dot;

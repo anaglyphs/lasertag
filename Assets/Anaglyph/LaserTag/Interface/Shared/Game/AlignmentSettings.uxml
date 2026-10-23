@@ -5,7 +5,6 @@
         <ui:DropdownField name="colocation-method-field" class="stacked-field"/>
         <ui:Label name="colocation-status" class="body-copy"/>
         <ui:Label name="colocation-preference-status" class="body-copy"/>
-        <ui:Label name="two-tag-pair-status" class="body-copy"/>
         <ui:Button name="choose-two-tag-pair" class="map-field-hidden"/>
         <ui:VisualElement name="tag-configuration-section" class="map-field-section map-field-hidden" style="display: flex;">
             <ui:Button name="start-apriltag-setup">

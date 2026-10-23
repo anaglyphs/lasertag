@@ -103,19 +103,17 @@ namespace Anaglyph.LaserTag.Tests
 			Set(manager.AnchorProvider, "lifetimeCtknSrc", anchorLifetime);
 			var tracker = manager.TagProvider.GetType().GetField("tagTracker", Private);
 			tracker.SetValue(manager.TagProvider, owner.AddComponent(tracker.FieldType));
-			Set(manager, "systemDeterminedProvider", new SystemDeterminedColocationConstraintProvider(owner.transform));
-			Set(manager, "twoAprilTagProvider", new TwoAprilTagColocationConstraintProvider(manager.TagProvider, owner.transform, () => true));
+			manager.TagProvider.TrackingSpaceSource = () => owner.transform; manager.TagProvider.TrackingReady = () => true;
 			Set(coordinator, "objects", Create("MapSceneObjectDirector", null, (Action)(() => { }), (Func<bool>)(() => false), (Func<MapSpaceFrame>)(() => spaceDocument.Frame)));
 			Set(coordinator, "discovery", Create("MapSpaceDiscovery", MapSpaceStore.Default, manager.AnchorProvider, 1f, (Func<bool>)(() => false)));
 			spaceDocument.Unload();
 			try { test(); }
-			finally { manager.AnchorProvider.StopProviding(); manager.TwoTagProvider.StopProviding(); Static(rigType, "Instance", previousRig); }
+			finally { manager.AnchorProvider.StopProviding(); manager.TagProvider.StopProviding(); Static(rigType, "Instance", previousRig); }
 		}
 
 		[TestCase(Method.AprilTag)]
 		[TestCase(Method.MetaSharedAnchor)]
-		[TestCase(Method.TwoAprilTags)]
-		[TestCase(Method.SystemDetermined)]
+		[TestCase(Method.Visual)]
 		public void SimulationRestartRestoresTheSavedMethodAndItsDetectionService(Method method)
 		{
 			WithSimulationRestore(() => {
@@ -130,11 +128,12 @@ namespace Anaglyph.LaserTag.Tests
 				Assert.That(coordinator.CurrentSpace.id, Is.EqualTo(space.id));
 				Assert.That(coordinator.CurrentMap.id, Is.EqualTo(map.id));
 				Assert.That(coordinator.CurrentSpace.preferredColocationMethod, Is.EqualTo(method));
-				Assert.That(manager.ActiveMethod, Is.EqualTo(method), "A restored space must not be overridden with the system origin.");
+				Assert.That(manager.ActiveMethod, Is.EqualTo(method), "A restored space must not be overridden with a provisional method.");
 				Assert.That(manager.SelectedMethod, Is.EqualTo(method));
 				Assert.That(manager.TagProvider.RegisteredTags.Count, Is.EqualTo(2));
 				Assert.That(manager.TagProvider.IsRunning, Is.EqualTo(method == Method.AprilTag));
-				Assert.That(manager.TagProvider.IsDetecting, Is.EqualTo(method is Method.AprilTag or Method.TwoAprilTags));
+				Assert.That(manager.TagProvider.IsDetecting, Is.EqualTo(method == Method.AprilTag));
+				Assert.That(manager.TagProvider.TwoTagMode, Is.False, "Registered tags never run two-tag mode.");
 				Assert.That(coordinator.RestoreLastMapForSimulation(), Is.True, "The auto-host retry is idempotent.");
 				Assert.That(manager.ActiveMethod, Is.EqualTo(method));
 			});
@@ -145,10 +144,10 @@ namespace Anaglyph.LaserTag.Tests
 		{
 			WithSimulationRestore(() => {
 				Assert.That(coordinator.RestoreLastMapForSimulation(), Is.True);
-				Assert.That(manager.ActiveMethod, Is.EqualTo(Method.SystemDetermined));
-				Assert.That(manager.SelectedMethod, Is.EqualTo(Method.SystemDetermined));
+				Assert.That(manager.ActiveMethod, Is.EqualTo(Method.Visual));
+				Assert.That(manager.SelectedMethod, Is.EqualTo(Method.Visual));
 				Assert.That(new MapSpaceStore(Path.Combine(directory, "spaces")).TryGet(coordinator.CurrentSpace.id, out var saved), Is.True);
-				Assert.That(saved.preferredColocationMethod, Is.EqualTo(Method.SystemDetermined));
+				Assert.That(saved.preferredColocationMethod, Is.EqualTo(Method.Visual));
 				Assert.That(saved.HasReferenceBasedData, Is.False);
 			});
 		}
@@ -174,7 +173,7 @@ namespace Anaglyph.LaserTag.Tests
 		{
 			var original = coordinator.CurrentSpace;
 			Assert.That(manager.ActiveMethod, Is.EqualTo(Method.MetaSharedAnchor));
-			Assert.That(coordinator.SetPreferredColocationMethod(Method.AprilTag), Is.True);
+			Assert.That(coordinator.SetPreferredColocationMethod(Method.AprilTag, setupTags: true), Is.True);
 			Assert.That(errors, Is.Empty);
 			Assert.That(coordinator.WaitingForAlignmentAuthor, Is.True);
 			Assert.That(coordinator.IsChangingColocation, Is.False);
@@ -196,13 +195,14 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(MapSpaceStore.Default.TryGet(original.id, out saved) && !saved.hasPendingSetup, Is.True);
 		}
 
-		[TestCase(Method.MetaSharedAnchor, false, false, false)]
-		[TestCase(Method.SystemDetermined, false, false, false)]
-		[TestCase(Method.AprilTag, true, true, false)]
-		[TestCase(Method.TwoAprilTags, true, false, true)]
-		public void AlignmentSettingsExposeOnlyTheSelectedMethodsControls(Method method, bool size, bool registrations, bool pair)
+		[TestCase(Method.MetaSharedAnchor, false, false, false, false)]
+		[TestCase(Method.Visual, false, false, false, false)]
+		[TestCase(Method.AprilTag, true, true, true, false)]
+		[TestCase(Method.AprilTag, false, true, true, true)]
+		public void AlignmentSettingsExposeOnlyTheSelectedMethodsControls(Method method, bool tags, bool size, bool registrations, bool pair)
 		{
 			var space = coordinator.CurrentSpace; space.preferredColocationMethod = method;
+			if (tags) space.SetTag(1, Pose.identity);
 			spaceDocument.Load(space);
 			var root = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>("Assets/Anaglyph/LaserTag/Interface/Shared/Game/AlignmentSettings.uxml").CloneTree();
 			using var binder = new AlignmentSettingsBinder(root, operatorMode: true); binder.Refresh();
@@ -210,6 +210,36 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(root.Q<Label>("tag-status").style.display.value, Is.EqualTo(registrations ? DisplayStyle.Flex : DisplayStyle.None));
 			Assert.That(root.Q<Button>("unregister-all-tags-button").style.display.value, Is.EqualTo(registrations ? DisplayStyle.Flex : DisplayStyle.None));
 			Assert.That(root.Q<Button>("choose-two-tag-pair").style.display.value, Is.EqualTo(pair ? DisplayStyle.Flex : DisplayStyle.None));
+			if (pair) Assert.That(binder.Status, Is.EqualTo(MenuCopy.Get("Map", "alignment.two-tags-description")));
+		}
+
+		[Test]
+		public void ChoosingTagsWithoutRegisteredTagsActivatesTwoTagModeImmediately()
+		{
+			var original = coordinator.CurrentSpace;
+			Assert.That(original.HasTags, Is.False);
+			Assert.That(coordinator.SetPreferredColocationMethod(Method.AprilTag), Is.True);
+			Assert.That(errors, Is.Empty);
+			Assert.That(coordinator.IsChangingColocation, Is.False);
+			Assert.That(coordinator.WaitingForAlignmentAuthor, Is.False);
+			Assert.That(coordinator.CurrentSpace.preferredColocationMethod, Is.EqualTo(Method.AprilTag));
+			Assert.That(coordinator.CurrentSpace.hasPendingSetup, Is.False);
+			Assert.That(manager.ActiveMethod, Is.EqualTo(Method.AprilTag));
+			Assert.That(manager.TagProvider.TwoTagMode, Is.True);
+			Assert.That(manager.IsSettingUpTags, Is.False);
+			Assert.That(MapSpaceStore.Default.TryGet(original.id, out var saved), Is.True);
+			Assert.That(saved.preferredColocationMethod, Is.EqualTo(Method.AprilTag));
+			Assert.That(saved.tags, Is.Empty);
+		}
+
+		[Test]
+		public void SetupTagsRequestStartsReferenceSetupInsteadOfTwoTagMode()
+		{
+			Assert.That(coordinator.SetPreferredColocationMethod(Method.AprilTag, setupTags: true), Is.True);
+			Assert.That(coordinator.WaitingForAlignmentAuthor, Is.True);
+			Assert.That(coordinator.CurrentSpace.pendingSetupMethod, Is.EqualTo(Method.AprilTag));
+			Assert.That(manager.ActiveMethod, Is.Not.EqualTo(Method.AprilTag));
+			Assert.That(manager.TagProvider.TwoTagMode, Is.False);
 		}
 
 		private PlayerHeadsetStatus RemoteHeadset(out HeadsetReadiness readiness)
@@ -299,7 +329,7 @@ namespace Anaglyph.LaserTag.Tests
 			if (invalid == "trackingGeneration") request.GetType().GetField(invalid).SetValue(request, 1);
 			if (invalid is "operation" or "context") request.GetType().GetField(invalid).SetValue(request, Guid.NewGuid());
 			if (invalid == "focus") readiness.isFocused = false;
-			if (invalid == "source") { readiness.activeMethod = Method.SystemDetermined; readiness.referenceFrameTrusted = false; }
+			if (invalid == "source") { readiness.activeMethod = Method.Visual; readiness.referenceFrameTrusted = false; }
 			Report(status, readiness); PlayerAvatar.All[8] = PlayerAvatar.All[7];
 			Assert.That((bool)ReferenceCall("ApplyReferenceRequest", invalid == "author" ? 8UL : 7UL, request), Is.False);
 			Assert.That(new MapSpaceStore(Path.Combine(directory, "spaces")).TryGet(space.id, out var saved), Is.True);
@@ -323,7 +353,7 @@ namespace Anaglyph.LaserTag.Tests
 		[Test]
 		public void SimulatedHeadsetCanEstablishTagsWithoutSharingOrPriorAlignment()
 		{
-			Assert.That(coordinator.SetPreferredColocationMethod(Method.AprilTag), Is.True);
+			Assert.That(coordinator.SetPreferredColocationMethod(Method.AprilTag, setupTags: true), Is.True);
 			var status = RemoteHeadset(out var readiness);
 			Assert.That(readiness.CanMintSharedAnchors, Is.False);
 			owner.AddComponent<NetworkObject>(); bus = owner.AddComponent<SyncBus>();
@@ -357,16 +387,16 @@ namespace Anaglyph.LaserTag.Tests
 			if (retained) space.retainedReferences.Add(new() { anchors = new() { anchor } });
 			else space.anchors.Add(anchor);
 			spaceDocument.Load(space);
-			Assert.That(coordinator.SetPreferredColocationMethod(Method.AprilTag), Is.True);
+			Assert.That(coordinator.SetPreferredColocationMethod(Method.AprilTag, setupTags: true), Is.True);
 			Assert.That(coordinator.WaitingForAlignmentAuthor, Is.True);
 			Assert.That(errors, Is.Empty);
 			var status = RemoteHeadset(out var readiness);
 			Assert.That(Ready(), Is.False);
 			readiness.referenceFrameTrusted = true; Report(status, readiness);
 			Assert.That(Ready(), Is.True);
-			readiness.activeMethod = Method.SystemDetermined; Report(status, readiness);
+			readiness.activeMethod = Method.Visual; Report(status, readiness);
 			Assert.That(Ready(), Is.False);
-			readiness.activeMethod = Method.TwoAprilTags; Report(status, readiness);
+			readiness.activeMethod = Method.ScanRegistration; Report(status, readiness);
 			Assert.That(Ready(), Is.False);
 			Assert.That(coordinator.CurrentSpace.HasReferenceBasedData, Is.True);
 		}
@@ -657,7 +687,7 @@ namespace Anaglyph.LaserTag.Tests
 		[Test]
 		public void AnchorUpdatesCannotReplaceAnExplicitPendingTagRequest()
 		{
-			Assert.That(coordinator.SetPreferredColocationMethod(Method.AprilTag), Is.True);
+			Assert.That(coordinator.SetPreferredColocationMethod(Method.AprilTag, setupTags: true), Is.True);
 			var adapter = Get(coordinator, "references"); adapter.GetType().GetMethod("Register").Invoke(adapter, null);
 			try
 			{

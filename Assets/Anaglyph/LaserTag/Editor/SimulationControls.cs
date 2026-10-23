@@ -2,6 +2,7 @@
 using System;
 using Anaglyph.Netcode;
 using Anaglyph.Permissions;
+using Anaglyph.XR;
 using Anaglyph.XR.DepthKit.EnvScanning;
 using Unity.Multiplayer.PlayMode;
 using Unity.Netcode;
@@ -10,6 +11,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.XR.Interaction.Toolkit.Inputs.Simulation;
+using Object = UnityEngine.Object;
 
 namespace Anaglyph.LaserTag.Editor
 {
@@ -31,9 +33,10 @@ namespace Anaglyph.LaserTag.Editor
 			scroll = scrollView.scrollPosition;
 
 			EditorGUILayout.LabelField("Simulation", EditorStyles.boldLabel);
-
 			DrawToggle("Simulate XR", PlayModeXRSimulation.Setting);
-			DrawToggle("Hide simulation environment from scene view", PlayModeSimulationVisibility.Setting);
+			DrawToggle("Simulate tracking drift", PlayModeTrackingDrift.Setting);
+			DrawToggle("Show simulated environment", PlayModeSimulationVisibility.Setting);
+			DrawToggle("Show scanned environment mesh", PlayModeChunkVisibility.Setting);
 
 			EditorGUILayout.Space();
 			EditorGUILayout.LabelField("Networking", EditorStyles.boldLabel);
@@ -82,11 +85,6 @@ namespace Anaglyph.LaserTag.Editor
 				SimulatedPermissions.Vps = (VpsStatus)EditorGUILayout.EnumPopup(
 					"VPS", SimulatedPermissions.Vps);
 			}
-
-			EditorGUILayout.Space();
-			EditorGUILayout.LabelField("Environment", EditorStyles.boldLabel);
-
-			DrawToggle("Show scanned meshes", PlayModeChunkVisibility.Setting);
 
 			// EditorGUILayout.Space();
 			// EditorGUILayout.LabelField("Map", EditorStyles.boldLabel);
@@ -245,17 +243,19 @@ namespace Anaglyph.LaserTag.Editor
 		private const double PollInterval = 1;
 
 		private readonly string prefKey;
+		private readonly bool defaultValue;
 		private double nextPoll;
 
-		public PlayModeSetting(string prefKey)
+		public PlayModeSetting(string prefKey, bool defaultValue = false)
 		{
 			this.prefKey = prefKey;
+			this.defaultValue = defaultValue;
 			EditorApplication.update += Poll;
 		}
 
 		public bool Value
 		{
-			get => EditorPrefs.GetBool(prefKey, false);
+			get => EditorPrefs.GetBool(prefKey, defaultValue);
 			set
 			{
 				EditorPrefs.SetBool(prefKey, value);
@@ -386,13 +386,58 @@ namespace Anaglyph.LaserTag.Editor
 				return;
 			}
 
-			if (mesher == appliedTo && visible == appliedValue)
+			bool sameMesher = mesher == appliedTo;
+
+			if (sameMesher && visible == appliedValue)
 				return;
 
 			appliedTo = mesher;
 			appliedValue = visible;
-			if (visible)
-				mesher.SetChunksVisible(true);
+
+			// A fresh mesher is already hidden, and something else may have shown
+			// it since, so only hide when this setting is the one turning it off
+			if (visible || sameMesher)
+				mesher.SetChunksVisible(visible);
+		}
+	}
+
+	/// Enables the interaction simulator's SimTrackingDrift. Turning it off also
+	/// removes the drift accumulated so far.
+	[InitializeOnLoad]
+	public static class PlayModeTrackingDrift
+	{
+		public static readonly PlayModeSetting Setting = new("Anaglyph.PlayMode.TrackingDrift", true);
+
+		private static SimTrackingDrift appliedTo;
+		private static bool appliedValue;
+
+		static PlayModeTrackingDrift()
+		{
+			Setting.Changed += Apply;
+		}
+
+		private static void Apply(bool simulate)
+		{
+			// the simulator is spawned during play, so re-apply whenever a new one shows up
+			SimTrackingDrift drift = Application.isPlaying
+				? Object.FindFirstObjectByType<SimTrackingDrift>(FindObjectsInactive.Include)
+				: null;
+
+			if (drift == null)
+			{
+				appliedTo = null;
+				return;
+			}
+
+			if (drift == appliedTo && simulate == appliedValue)
+				return;
+
+			appliedTo = drift;
+			appliedValue = simulate;
+
+			drift.enabled = simulate;
+			if (!simulate)
+				drift.ResetDrift();
 		}
 	}
 
@@ -430,7 +475,7 @@ namespace Anaglyph.LaserTag.Editor
 			return default;
 		}
 
-		private static void Apply(bool hide)
+		private static void Apply(bool show)
 		{
 			Scene scene = Application.isPlaying ? FindEnvironmentScene() : default;
 
@@ -439,13 +484,13 @@ namespace Anaglyph.LaserTag.Editor
 				: null;
 
 			// Both are spawned during play, so re-apply whenever a new one shows up
-			bool unchanged = hide == appliedValue &&
+			bool unchanged = show == appliedValue &&
 			                 scene.handle == appliedSceneHandle &&
 			                 simulator == appliedSimulator;
 
 			if (unchanged) return;
 
-			appliedValue = hide;
+			appliedValue = show;
 			appliedSceneHandle = scene.handle;
 			appliedSimulator = simulator;
 
@@ -453,14 +498,14 @@ namespace Anaglyph.LaserTag.Editor
 
 			if (scene.IsValid() && scene.isLoaded)
 			{
-				if (hide) visibility.Hide(scene);
-				else visibility.Show(scene);
+				if (show) visibility.Show(scene);
+				else visibility.Hide(scene);
 			}
 
 			if (simulator != null)
 			{
-				if (hide) visibility.Hide(simulator.gameObject, true);
-				else visibility.Show(simulator.gameObject, true);
+				if (show) visibility.Show(simulator.gameObject, true);
+				else visibility.Hide(simulator.gameObject, true);
 			}
 		}
 	}

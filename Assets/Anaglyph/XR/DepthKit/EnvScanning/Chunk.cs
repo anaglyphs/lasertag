@@ -114,7 +114,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		private void DrawDebug()
 		{
 			if (dirty)
-				DrawChunkFrame(Color.yellow);
+				DrawChunkFrame(Color.white);
 		}
 
 		private void DrawChunkFrame(Color color)

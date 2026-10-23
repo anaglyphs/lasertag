@@ -134,6 +134,10 @@ MonoBehaviour:
   huberThreshold: 3
   rejectChi2: 25
   resampleThresholdVoxels: 0.2
+  debugNodeColor: {r: 1, g: 1, b: 1, a: 1}
+  debugNodeScale: 0.15
+  debugOdometryColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  debugLoopColor: {r: 0, g: 1, b: 0, a: 1}
 --- !u!114 &6911126833990273307
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -281,19 +285,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b9a0b2247526b429eaadad360f843173, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.XR.VisualLocalization::Anaglyph.XR.VisualLocalization.VisualLocalizer
-  mappingInterval: 0.5
+  mappingInterval: 0.2
   keyframeMinDistance: 0.3
   keyframeMinAngle: 15
   maxAngularSpeed: 40
   minKeyframeFeatures: 100
-  mapCapacity: 192
+  mapCapacity: 512
   trustDrift: 0.05
   trackNeighbors: 3
-  neighborDistance: 4
+  neighborDistance: 5
   lighterGlueForTracks: 0
   trackMinCosine: 0.82
-  useMeshDepth: 1
-  singleViewMeshLandmarks: 1
+  useMeshDepth: 0
+  singleViewMeshLandmarks: 0
   maxRayDistance: 8
   minHitCosine: 0.2
   meshDepthSigma: 0.02
@@ -341,11 +345,11 @@ MonoBehaviour:
   agreeTranslation: 0.05
   agreeYawDegrees: 1
   loopClosure: 1
-  loopInterval: 5
+  loopInterval: 1
   loopSearchDistance: 8
   loopCenterPriorSigma: 1
   yawOnlyLoops: 1
   loopCooldown: 3
   loopMatchFeatures: 512
-  loopMinMutual: 30
+  loopMinMutual: 15
   loopAnchorTolerance: 0.25

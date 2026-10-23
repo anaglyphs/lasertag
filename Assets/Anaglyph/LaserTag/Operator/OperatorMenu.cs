@@ -619,9 +619,7 @@ namespace Anaglyph.LaserTag.Operator
 			if (!avatar.HeadsetStatus) return "";
 			var state = avatar.HeadsetStatus.Readiness;
 			string key = state.activeMethod switch {
-				ColocationManager.ColocationMethod.AprilTag => "alignment.tags",
-				ColocationManager.ColocationMethod.TwoAprilTags => "alignment.two-tags",
-				ColocationManager.ColocationMethod.SystemDetermined => "alignment.system", _ => "alignment.anchors" };
+				ColocationManager.ColocationMethod.AprilTag => "alignment.tags", _ => "alignment.anchors" };
 			string source = MenuCopy.Get("Map", key);
 			return state.transition is Maps.ReferenceTransitionPhase.Preparing or Maps.ReferenceTransitionPhase.Validating or Maps.ReferenceTransitionPhase.Persisting or Maps.ReferenceTransitionPhase.HandingOver
 				? MenuCopy.Format("Map", "alignment.transition", MenuCopy.Get("Map", "alignment.phase." + state.transition), source) : source;

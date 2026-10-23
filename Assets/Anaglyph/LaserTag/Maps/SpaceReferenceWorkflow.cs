@@ -81,7 +81,8 @@ namespace Anaglyph.LaserTag.Maps
 			ConfigureAnchorMinter();
 			alignment.Validated += OnLocallyValidated;
 			alignment.Changed += OnAlignmentChanged;
-			colocationManager.TwoTagProvider.PairSelected += OnPairSelected;
+			if (colocationManager.TagProvider)
+				colocationManager.TagProvider.PairSelected += OnPairSelected;
 			if (colocationManager.TagProvider)
 				colocationManager.TagProvider.ReferenceEditGate = _ => false;
 			transitions.RequestRejected += OnRequestRejected;
@@ -128,7 +129,8 @@ namespace Anaglyph.LaserTag.Maps
 			ClearAnchorMinter();
 			alignment.Validated -= OnLocallyValidated;
 			alignment.Changed -= OnAlignmentChanged;
-			colocationManager.TwoTagProvider.PairSelected -= OnPairSelected;
+			if (colocationManager.TagProvider)
+				colocationManager.TagProvider.PairSelected -= OnPairSelected;
 			transitions.RequestRejected -= OnRequestRejected;
 			transitions.MethodRequested -= OnMethodRequested;
 			transitions.ReferenceRequested -= OnReferenceRequested;
@@ -431,12 +433,12 @@ namespace Anaglyph.LaserTag.Maps
 			method, spaceDocument.HasSpace, RoundInProgress, HeadsetConfiguration.SessionIsOperatorManaged,
 			HeadsetConfiguration.IsOperatorDevice);
 
-		public bool SetPreferredColocationMethod(Method method)
+		public bool SetPreferredColocationMethod(Method method, bool setupTags = false)
 		{
 			if (DescribeColocationMethodBlocker(method) != null)
 				return false;
 
-			var request = new SpaceMethodRequest { context = referenceContext, method = method };
+			var request = new SpaceMethodRequest { context = referenceContext, method = method, setupTags = setupTags };
 			if (Authority)
 			{
 				bool accepted = RequestMethod(SyncBus.LocalClientId, request);
@@ -487,7 +489,8 @@ namespace Anaglyph.LaserTag.Maps
 			CancelTransitionInternal();
 			transitions.Publish(default, null);
 			var current = CurrentSpace;
-			if (!ColocationManager.UsesSavedReferences(request.method))
+			if (!ColocationManager.UsesSavedReferences(request.method, current) &&
+				!(request.setupTags && request.method == Method.AprilTag))
 			{
 				current.hasPendingSetup = false;
 				current.preferredColocationMethod = request.method;
@@ -765,11 +768,11 @@ namespace Anaglyph.LaserTag.Maps
 			references.ClearPendingSnapshots();
 			SpaceChanged.Invoke();
 			alignment.Activate(space, colocationManager.ActiveMethod, true);
-			if (colocationManager.ActiveMethod == Method.TwoAprilTags && request.action is SpaceReferenceAction.Size or SpaceReferenceAction.ForgetPair)
+			if (colocationManager.UsingTwoTagMode && request.action is SpaceReferenceAction.Size or SpaceReferenceAction.ForgetPair)
 			{
-				colocationManager.TwoTagProvider.ResetReferences();
+				colocationManager.TagProvider.ResetPairReferences();
 				colocationManager.InvalidateAlignment();
-				alignment.Activate(space, Method.TwoAprilTags);
+				alignment.Activate(space, Method.AprilTag);
 				scan = Guid.NewGuid();
 				FrameChanged.Invoke();
 			}
@@ -782,7 +785,7 @@ namespace Anaglyph.LaserTag.Maps
 			if (space == null)
 				return;
 			if (SyncBus.Active && !SyncBus.IsAuthority)
-				colocationManager.TwoTagProvider.ConfigurePair(space.firstTagId, space.secondTagId);
+				colocationManager.TagProvider.ConfigurePair(space.firstTagId, space.secondTagId);
 			SubmitReference(new() { action = SpaceReferenceAction.Pair, tag = first, second = second });
 		}
 		public void ChooseAnotherTagPair() => SubmitReference(new() { action = SpaceReferenceAction.ForgetPair });

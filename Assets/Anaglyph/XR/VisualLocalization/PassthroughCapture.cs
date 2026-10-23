@@ -97,8 +97,10 @@ namespace Anaglyph.XR.VisualLocalization
 		/// intrinsics or historical head pose is available for it.
 		/// </summary>
 		/// <param name="fallbackTimestampNs">The frame event's timestamp, used when the per-eye API is absent.</param>
-		public bool TryCapture(CapturedImage into, long? fallbackTimestampNs = null)
+		/// <param name="maxAngularSpeed">A frame taken while the head turned faster than this (°/s) is given up before converting it: false, with <see cref="CapturedImage.angularSpeed"/> set.</param>
+		public bool TryCapture(CapturedImage into, long? fallbackTimestampNs = null, float maxAngularSpeed = float.PositiveInfinity)
 		{
+			into.angularSpeed = 0;
 			if (cameraManager == null || HeadPoseHistory.Instance == null || MainXRRig.Instance == null) return false;
 
 			XRCpuImage image = default;
@@ -124,6 +126,14 @@ namespace Anaglyph.XR.VisualLocalization
 					if (!gotImage || !fallbackTimestampNs.HasValue) return false;
 					timestampNs = fallbackTimestampNs.Value;
 					lens = LensPosition.Unknown;
+
+#if UNITY_EDITOR
+					// XR Simulation renders its camera from an Update, before the head moves to
+					// this frame's pose: the image shows where the head was a frame earlier
+					// (measured exactly with SimCaptureTiming), stamped with this frame's time
+					if (HeadPoseHistory.Instance != null && HeadPoseHistory.Instance.TryGetPreviousSampleTime(timestampNs, out long previous))
+						timestampNs = previous;
+#endif
 				}
 
 				if (!HeadPoseHistory.Instance.TryGetLocalPose(timestampNs, out Pose head)) return false;
@@ -132,6 +142,7 @@ namespace Anaglyph.XR.VisualLocalization
 				into.angularSpeed = HeadPoseHistory.Instance.TryGetLocalPose(timestampNs - 30_000_000, out Pose before)
 					? Quaternion.Angle(before.rotation, head.rotation) / 0.03f
 					: float.PositiveInfinity;
+				if (into.angularSpeed > maxAngularSpeed) return false;
 
 				if (Application.platform == RuntimePlatform.Android && !lookedForLens)
 				{

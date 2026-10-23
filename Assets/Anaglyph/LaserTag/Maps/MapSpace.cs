@@ -124,7 +124,14 @@ namespace Anaglyph.LaserTag.Maps
 		{
 			version = Guid.NewGuid().ToString("N"); lastEdited = DateTime.UtcNow.Ticks; dirty = true;
 		}
-		internal bool Validate() => schemaVersion == SchemaVersion && ValidId(id) && ValidId(version) &&
+		internal bool Validate()
+		{
+			// saved before the system frame and the two-tag method folded into AprilTag
+			preferredColocationMethod = ColocationManager.MigrateLegacyMethod(preferredColocationMethod);
+			pendingSetupMethod = ColocationManager.MigrateLegacyMethod(pendingSetupMethod);
+			return IsValid();
+		}
+		private bool IsValid() => schemaVersion == SchemaVersion && ValidId(id) && ValidId(version) &&
 			ValidId(storageFrameId) && ValidId(canonicalFrameId) && MapSpaceFrame.ValidOffset(canonicalFromStorage) &&
 			MapSpaceFrame.Finite(tagSizeCm) && tagSizeCm > 0 && ColocationManager.IsValidMethod(preferredColocationMethod) &&
 			mapIds != null && tags != null && anchors != null && localAnchors != null && retainedReferences != null &&

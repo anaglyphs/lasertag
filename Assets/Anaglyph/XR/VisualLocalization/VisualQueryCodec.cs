@@ -42,7 +42,7 @@ namespace Anaglyph.XR.VisualLocalization
 			}
 
 			for (int i = 0; i < n * FeatureSet.DescriptorSize; i++)
-				w.Write((sbyte)math.clamp(math.round(f.descriptors[i] * 127f), -127, 127));
+				w.Write((sbyte)math.clamp(math.round((float)f.descriptors[i] * 127f), -127, 127));
 
 			return stream.ToArray();
 		}
@@ -76,19 +76,19 @@ namespace Anaglyph.XR.VisualLocalization
 				}
 
 				// renormalized: the matcher was trained on unit descriptors
+				float[] v = new float[FeatureSet.DescriptorSize];
 				for (int i = 0; i < n; i++)
 				{
 					int o = i * FeatureSet.DescriptorSize;
 					float sum = 0;
 					for (int c = 0; c < FeatureSet.DescriptorSize; c++)
 					{
-						float v = r.ReadSByte() / 127f;
-						f.descriptors[o + c] = v;
-						sum += v * v;
+						v[c] = r.ReadSByte() / 127f;
+						sum += v[c] * v[c];
 					}
 
 					float inv = sum > 0 ? 1f / math.sqrt(sum) : 0;
-					for (int c = 0; c < FeatureSet.DescriptorSize; c++) f.descriptors[o + c] *= inv;
+					for (int c = 0; c < FeatureSet.DescriptorSize; c++) f.descriptors[o + c] = (half)(v[c] * inv);
 				}
 
 				query.features = f;

@@ -242,7 +242,7 @@ namespace Anaglyph.XR.VisualLocalization
 			}
 
 			for (int i = 0; i < f.Count; i++) w.Write(f.scores[i]);
-			for (int i = 0; i < f.Count * FeatureSet.DescriptorSize; i++) w.Write((ushort)math.f32tof16(f.descriptors[i]));
+			for (int i = 0; i < f.Count * FeatureSet.DescriptorSize; i++) w.Write(f.descriptors[i].value);
 		}
 	}
 

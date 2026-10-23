@@ -56,7 +56,7 @@ namespace Anaglyph.LaserTag.Tests
 			typeof(MapStore).GetProperty("Default").SetValue(null, new MapStore(Path.Combine(directory, "maps")));
 			typeof(MapSpaceStore).GetProperty("Default").SetValue(null, new MapSpaceStore(Path.Combine(directory, "spaces")));
 			first = MapSpace.Create("Arena A"); second = MapSpace.Create("Arena B");
-			first.preferredColocationMethod = second.preferredColocationMethod = ColocationManager.ColocationMethod.SystemDetermined;
+			first.preferredColocationMethod = second.preferredColocationMethod = ColocationManager.ColocationMethod.Visual;
 			first.lastUsed = 20; second.lastUsed = 10;
 			loaded = Layout(first, "Loaded layout", 10); other = Layout(second, "Most recent layout", 100); target = Layout(second, "Chosen layout", 1);
 			MapSpaceStore.Default.Save(first); MapSpaceStore.Default.Save(second);
@@ -67,7 +67,6 @@ namespace Anaglyph.LaserTag.Tests
 			var tags = owner.AddComponent<AprilTagColocationConstraintProvider>();
 			typeof(ColocationManager).GetField("spatialAnchorColocationProvider", Private).SetValue(manager, anchors);
 			typeof(ColocationManager).GetField("aprilTagColocationProvider", Private).SetValue(manager, tags);
-			typeof(ColocationManager).GetField("systemDeterminedProvider", Private).SetValue(manager, new SystemDeterminedColocationConstraintProvider((Transform)null));
 			visit = typeof(LaserTagMapCoordinator).GetField("visit", Private).GetValue(coordinator);
 			documents = Create("MapCatalog", MapStore.Default, MapSpaceStore.Default, directory, visit);
 			mapDocument = (MapWorkingCopy)documents.GetType().GetProperty("MapDocument").GetValue(documents); mapDocument.Load(loaded);
@@ -346,7 +345,7 @@ namespace Anaglyph.LaserTag.Tests
 			errors.Bind(root.Q<NavView>("game-nav"));
 			try
 			{
-				foreach (var method in new[] { ColocationManager.ColocationMethod.AprilTag, ColocationManager.ColocationMethod.TwoAprilTags })
+				foreach (var method in new[] { ColocationManager.ColocationMethod.AprilTag })
 				{
 					first.preferredColocationMethod = method; spaceDocument.Load(first);
 					nav.GoToPage("space-details");
@@ -392,7 +391,7 @@ namespace Anaglyph.LaserTag.Tests
 		}
 
 		[UnityTest]
-		public IEnumerator UnalignedCurrentDraftCanOpenSpaceSettingsAndSaveSystemAlignment()
+		public IEnumerator UnalignedCurrentDraftCanOpenSpaceSettingsAndSaveProvisionalAlignment()
 		{
 			first.automaticallyCreated = first.initializationPending = true;
 			first.preferredColocationMethod = ColocationManager.ColocationMethod.MetaSharedAnchor;
@@ -408,10 +407,10 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(nav.CurrentPage.name, Is.EqualTo("space-details"));
 			var method = nav.CurrentPage.Q<DropdownField>("colocation-method-field");
 			Assert.That(method.enabledInHierarchy, Is.True);
-			method.value = method.choices[(int)ColocationManager.ColocationMethod.SystemDetermined];
-			Assert.That(coordinator.CurrentSpace.preferredColocationMethod, Is.EqualTo(ColocationManager.ColocationMethod.SystemDetermined));
+			method.value = method.choices[2]; // listed order: anchors, tags, visual relocalization
+			Assert.That(coordinator.CurrentSpace.preferredColocationMethod, Is.EqualTo(ColocationManager.ColocationMethod.Visual));
 			Assert.That(new MapSpaceStore(Path.Combine(directory, "spaces")).TryGet(first.id, out var saved), Is.True);
-			Assert.That(saved.preferredColocationMethod, Is.EqualTo(ColocationManager.ColocationMethod.SystemDetermined));
+			Assert.That(saved.preferredColocationMethod, Is.EqualTo(ColocationManager.ColocationMethod.Visual));
 			Assert.That(coordinator.CurrentMap.id, Is.EqualTo(loaded.id));
 			nav.GoBack();
 			Assert.That(root.Q("space-" + first.id).Q<Button>("edit-space-button"), Is.Not.Null);

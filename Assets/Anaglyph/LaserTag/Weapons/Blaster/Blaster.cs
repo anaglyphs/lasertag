@@ -18,6 +18,12 @@ namespace Anaglyph.LaserTag.Weapons.Blaster
 		public GameObject VisualObject => visual.gameObject;
 		public UnityEvent onFire = new();
 
+		// the trigger must fall below this before the next shot. The Press
+		// interaction re-arms at 75% of its press point, so a slight
+		// relax would otherwise fire again
+		[SerializeField, Range(0, 1)] private float rearmThreshold = 0.2f;
+		private InputControl heldTrigger;
+
 		private void Awake()
 		{
 			TryGetComponent(out hand);
@@ -35,8 +41,17 @@ namespace Anaglyph.LaserTag.Weapons.Blaster
 
 		public void OnFire(InputAction.CallbackContext context)
 		{
-			if (context.performed && context.ReadValueAsButton())
-				Fire();
+			if (!context.performed || !context.ReadValueAsButton() || heldTrigger != null)
+				return;
+
+			heldTrigger = context.control;
+			Fire();
+		}
+
+		private void Update()
+		{
+			if (heldTrigger != null && heldTrigger.EvaluateMagnitude() < rearmThreshold)
+				heldTrigger = null;
 		}
 
 		public void Fire()

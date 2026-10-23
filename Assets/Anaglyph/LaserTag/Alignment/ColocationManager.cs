@@ -20,20 +20,31 @@ namespace Anaglyph.LaserTag
 		[Serializable]
 		public enum ColocationMethod
 		{
-			MetaSharedAnchor,
-			AprilTag,
-			SystemDetermined,
-			TwoAprilTags,
-			ScanRegistration,
-			Visual
+			MetaSharedAnchor = 0,
+			AprilTag = 1,
+			// 2 and 3 were the system frame and the separate two-tag method; saved spaces
+			// migrate both to AprilTag (see MigrateLegacyMethod)
+			ScanRegistration = 4,
+			Visual = 5
 		}
 
 		public static bool IsValidMethod(ColocationMethod method) => method is ColocationMethod.MetaSharedAnchor
-			or ColocationMethod.AprilTag or ColocationMethod.SystemDetermined or ColocationMethod.TwoAprilTags
-			or ColocationMethod.ScanRegistration or ColocationMethod.Visual;
+			or ColocationMethod.AprilTag or ColocationMethod.ScanRegistration or ColocationMethod.Visual;
 
-		// Visual relocalization takes over colocation for now: anchors, tags, the system
-		// frame and scan registration stay in the code but are never selected. Flip
+		/// <summary>Maps the retired system-frame and two-tag values onto AprilTag, whose two-tag mode replaces both.</summary>
+		public static ColocationMethod MigrateLegacyMethod(ColocationMethod method) =>
+			(int)method is 2 or 3 ? ColocationMethod.AprilTag : method;
+
+		/// <summary>AprilTag alignment without registered tags runs in two-tag mode, which saves no references.</summary>
+		public static bool IsTwoTagMode(ColocationMethod method, MapSpace space) =>
+			method == ColocationMethod.AprilTag && (space == null || !space.HasTags);
+
+		/// <summary><see cref="UsesSavedReferences(ColocationMethod)"/>, less AprilTag's two-tag mode.</summary>
+		public static bool UsesSavedReferences(ColocationMethod method, MapSpace space) =>
+			UsesSavedReferences(method) && !IsTwoTagMode(method, space);
+
+		// Visual relocalization takes over colocation for now: anchors, tags and scan
+		// registration stay in the code but are never selected. Flip
 		// PreferredAvailableMethod to return control to the per-space preference
 		public static bool UsesSavedReferences(ColocationMethod method) =>
 			method is ColocationMethod.MetaSharedAnchor or ColocationMethod.AprilTag;
@@ -43,8 +54,6 @@ namespace Anaglyph.LaserTag
 		[SerializeField] private Colocator colocator;
 		[SerializeField] private SpatialAnchorColocationConstraintProvider spatialAnchorColocationProvider;
 		[SerializeField] private AprilTagColocationConstraintProvider aprilTagColocationProvider;
-		private SystemDeterminedColocationConstraintProvider systemDeterminedProvider;
-		private TwoAprilTagColocationConstraintProvider twoAprilTagProvider;
 		[SerializeField] private ScanRegistrationColocationConstraintProvider scanRegistrationProvider;
 		[SerializeField] private VisualColocationConstraintProvider visualProvider;
 		private readonly SyncVariable<ColocationMethod> methodSync = new("colo.method");
@@ -64,11 +73,9 @@ namespace Anaglyph.LaserTag
 		public ColocationMethod PreferredSessionMethod => PreferredAvailableMethod;
 
 		public static ColocationMethod CompatibleMethod(ColocationMethod requested, bool hasTags, bool hasContent,
-			bool hasAnchors, bool systemFrameForTagSetup = false)
+			bool hasAnchors)
 		{
 			if (!UsesSavedReferences(requested)) return requested;
-			if (systemFrameForTagSetup && requested == ColocationMethod.AprilTag && !hasTags)
-				return ColocationMethod.SystemDetermined;
 			if (!hasTags && hasAnchors) return ColocationMethod.MetaSharedAnchor;
 			if (hasTags && !hasAnchors) return ColocationMethod.AprilTag;
 			return requested;
@@ -80,10 +87,10 @@ namespace Anaglyph.LaserTag
 		public bool UsingTagProvider => ActiveProvider != null && ActiveMethod == ColocationMethod.AprilTag;
 		public bool UsingAnchorProvider => ActiveProvider != null && ActiveMethod == ColocationMethod.MetaSharedAnchor;
 
-		public bool UsingSystemDeterminedProvider =>
-			ActiveProvider != null && ActiveMethod == ColocationMethod.SystemDetermined;
-
-		public bool UsingTwoAprilTagProvider => ActiveProvider != null && ActiveMethod == ColocationMethod.TwoAprilTags;
+		/// <summary>The tag provider itself is the source, which it only is in two-tag mode.</summary>
+		public bool UsingTwoTagMode => ActiveProvider != null && ActiveMethod == ColocationMethod.AprilTag &&
+			aprilTagColocationProvider != null && ReferenceEquals(ActiveProvider, aprilTagColocationProvider) &&
+			aprilTagColocationProvider.TwoTagMode;
 
 		public bool UsingScanRegistrationProvider =>
 			ActiveProvider != null && ActiveMethod == ColocationMethod.ScanRegistration;
@@ -94,7 +101,6 @@ namespace Anaglyph.LaserTag
 		public VisualColocationConstraintProvider VisualProvider => visualProvider;
 		public SpatialAnchorColocationConstraintProvider AnchorProvider => spatialAnchorColocationProvider;
 		public AprilTagColocationConstraintProvider TagProvider => aprilTagColocationProvider;
-		public TwoAprilTagColocationConstraintProvider TwoTagProvider => twoAprilTagProvider;
 		public FitAgreement Agreement => colocator != null ? colocator.Agreement : default;
 
 		public ColocationAlignmentState AlignmentState =>
@@ -102,7 +108,8 @@ namespace Anaglyph.LaserTag
 
 		public int TrackingGeneration { get; private set; }
 
-		public bool ReferenceAligned => UsesSavedReferences(ActiveMethod) && ActiveProvider != null &&
+		// two-tag mode aligns to a pair of tags, not to the space's saved references
+		public bool ReferenceAligned => UsesSavedReferences(ActiveMethod) && !UsingTwoTagMode && ActiveProvider != null &&
 		                                ActiveProvider.IsAvailable && IsColocated && Agreement.constraintCount > 0 &&
 		                                Agreement.meanAgrees && Agreement.agreeingCount >=
 		                                Math.Min(Agreement.constraintCount, 2);
@@ -110,7 +117,7 @@ namespace Anaglyph.LaserTag
 		public int CountRealizableReferences()
 		{
 			if (ActiveProvider == null || !ActiveProvider.IsAvailable) return 0;
-			if (UsingSystemDeterminedProvider || ActiveProvider is CanonColocationProvider) return 1;
+			if (ActiveProvider is CanonColocationProvider) return 1;
 			scratch.Clear();
 			ActiveProvider.GetColocationConstraints(scratch);
 			return scratch.Count;
@@ -120,8 +127,6 @@ namespace Anaglyph.LaserTag
 		{
 			ColocationMethod.MetaSharedAnchor => spatialAnchorColocationProvider,
 			ColocationMethod.AprilTag => aprilTagColocationProvider,
-			ColocationMethod.SystemDetermined => systemDeterminedProvider,
-			ColocationMethod.TwoAprilTags => twoAprilTagProvider,
 			ColocationMethod.ScanRegistration => scanRegistrationProvider,
 			ColocationMethod.Visual => visualProvider,
 			_ => null
@@ -161,6 +166,12 @@ namespace Anaglyph.LaserTag
 			bool preserveAlignment)
 		{
 			ActiveMethod = method;
+			// The map layer realizes registered tags through its own observation, so the tag
+			// provider is the source itself only when there are none: two-tag mode. Decided
+			// here, not per frame, so tags registered while it aligns don't swap its frame
+			if (aprilTagColocationProvider)
+				aprilTagColocationProvider.TwoTagMode = ReferenceEquals(source, aprilTagColocationProvider) &&
+					aprilTagColocationProvider.RegisteredTags.Count == 0;
 
 			if (colocator != null)
 			{
@@ -181,14 +192,14 @@ namespace Anaglyph.LaserTag
 		public void TrackingOriginChanged()
 		{
 			TrackingGeneration++;
-			twoAprilTagProvider?.ResetReferences();
+			if (aprilTagColocationProvider) aprilTagColocationProvider.ResetPairReferences();
 			colocator?.InvalidateTracking();
 		}
 
 		public void InvalidateAlignment()
 		{
 			TrackingGeneration++;
-			twoAprilTagProvider?.ResetReferences();
+			if (aprilTagColocationProvider) aprilTagColocationProvider.ResetPairReferences();
 			colocator?.StopColocation();
 			SetColocated(false);
 		}
@@ -207,12 +218,10 @@ namespace Anaglyph.LaserTag
 			// Colocator.Instance may not be set yet; another component's Awake has no guaranteed order
 			if (!colocator) colocator = FindFirstObjectByType<Colocator>();
 
-			// MainXRRig sets its Instance in its own Awake, so resolve the tracking space on use
-			Func<Transform> trackingSpace = () => MainXRRig.Instance != null ? MainXRRig.TrackingSpace : null;
-			systemDeterminedProvider = new(trackingSpace);
-			twoAprilTagProvider = new(aprilTagColocationProvider, trackingSpace,
-				() => !applicationPaused && AppFocus.IsFocused && PlayerHeadsetStatus.HeadTrackingReady);
-			
+			if (aprilTagColocationProvider)
+				aprilTagColocationProvider.TrackingReady = () =>
+					!applicationPaused && AppFocus.IsFocused && PlayerHeadsetStatus.HeadTrackingReady;
+
 			if (!visualProvider) visualProvider = GetComponent<VisualColocationConstraintProvider>();
 
 			if (colocator) colocator.StateChanged += OnStateChanged;
@@ -232,7 +241,6 @@ namespace Anaglyph.LaserTag
 				colocator.SetProvider(null);
 			}
 
-			twoAprilTagProvider?.StopProviding();
 			methodSync.Synced -= OnMethodSynced;
 			methodSync.Changed -= OnMethodChanged;
 			methodSync.Unregister();
@@ -288,7 +296,7 @@ namespace Anaglyph.LaserTag
 			// Such refreshes must not discard a partially scanned pair between maps.
 			if (state != previousAlignmentState &&
 			    state is ColocationAlignmentState.Lost or ColocationAlignmentState.Stopped)
-				twoAprilTagProvider?.ResetReferences();
+				if (aprilTagColocationProvider) aprilTagColocationProvider.ResetPairReferences();
 			previousAlignmentState = state;
 			if (state != ColocationAlignmentState.Localized)
 			{

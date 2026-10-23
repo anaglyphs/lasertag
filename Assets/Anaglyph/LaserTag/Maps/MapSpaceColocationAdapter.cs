@@ -63,9 +63,12 @@ namespace Anaglyph.LaserTag.Maps
 
 		public void Inject(MapSpace map)
 		{
-			if (injectedSpaceId != map.id) colocation?.TwoTagProvider?.ResetReferences();
+			if (aprilTagColocationProvider)
+			{
+				if (injectedSpaceId != map.id) aprilTagColocationProvider.ResetPairReferences();
+				aprilTagColocationProvider.ConfigurePair(map.firstTagId, map.secondTagId);
+			}
 			injectedSpaceId = map.id;
-			colocation?.TwoTagProvider?.ConfigurePair(map.firstTagId, map.secondTagId);
 			List<AnchorConstraintData> anchors = new(map.anchors.Count);
 			List<TaggedAnchorConstraintData> taggedAnchors = new();
 			List<TagConstraintData> tags = new(map.tags.Count);

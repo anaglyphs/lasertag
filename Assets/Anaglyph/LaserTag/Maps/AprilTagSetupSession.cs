@@ -74,7 +74,7 @@ namespace Anaglyph.LaserTag.Maps
 			if (IsActive) return true;
 			if (StartBlocker != null) return false;
 			if (!SyncBus.IsAuthority) { Request(SetupAction.Begin); return true; }
-			if (!coordinator.SetPreferredColocationMethod(Method.AprilTag)) return false;
+			if (!coordinator.SetPreferredColocationMethod(Method.AprilTag, setupTags: true)) return false;
 			state.Value = new()
 			{
 				operation = Guid.NewGuid(), space = coordinator.SessionSpaceId, context = coordinator.ReferenceContext,

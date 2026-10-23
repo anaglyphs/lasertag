@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 9147200356447112767}
   - component: {fileID: 8031605675589883834}
   - component: {fileID: 2714278592351720407}
+  - component: {fileID: 2664092783629042336}
   m_Layer: 0
   m_Name: XR Interaction Simulator
   m_TagString: Untagged
@@ -1307,3 +1308,28 @@ MonoBehaviour:
   poseOffsMax: 1
   poseYawMax: 60
   headOffs: -1.7
+--- !u!114 &2664092783629042336
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8135023674665499069}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a19f464b909da499f8878ecfe352c267, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.XR::Anaglyph.XR.SimTrackingDrift
+  translationPerMeter: 0.01
+  translationPerDegree: 0.0002
+  translationPerSecond: 0.001
+  verticalScale: 0.3
+  yawPerMeter: 0.003
+  yawPerDegree: 0.005
+  yawPerSecond: 0.02
+  tiltScale: 0
+  wander: 50
+  wanderPerSecond: 0
+  jumpThreshold: 0.5
+  driftPosition: {x: 0, y: 0, z: 0}
+  driftYaw: 0

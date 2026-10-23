@@ -354,12 +354,12 @@ namespace Anaglyph.LaserTag.Tests
 				Assert.That(field.choices, Is.Not.EqualTo(englishChoices));
 				Assert.That(changes, Is.Zero, "Refreshing translated choices is not a user change.");
 				Assert.That(changing, Is.Zero);
-				field.value = field.choices[(int)ColocationManager.ColocationMethod.SystemDetermined];
+				field.value = Choice(field, ColocationManager.ColocationMethod.Visual);
 				Assert.That(changing, Is.EqualTo(1));
 				Assert.That(changes, Is.EqualTo(1));
 				Assert.That(staleChanges, Is.Zero);
 				current.Dispose();
-				field.value = field.choices[(int)ColocationManager.ColocationMethod.AprilTag];
+				field.value = Choice(field, ColocationManager.ColocationMethod.AprilTag);
 				Assert.That(changing, Is.EqualTo(1));
 				Assert.That(changes, Is.EqualTo(1));
 				Assert.That(staleChanges, Is.Zero);
@@ -389,20 +389,20 @@ namespace Anaglyph.LaserTag.Tests
 			var firstField = first.Q<DropdownField>("colocation-method-field");
 			var secondField = second.Q<DropdownField>("colocation-method-field");
 			string secondValue = secondField.value;
-			firstField.value = firstField.choices[(int)ColocationManager.ColocationMethod.AprilTag];
+			firstField.value = Choice(firstField, ColocationManager.ColocationMethod.AprilTag);
 			Assert.That(firstChanges, Is.EqualTo(1));
 			Assert.That(secondChanges, Is.Zero);
 			Assert.That(secondField.value, Is.EqualTo(secondValue));
 
 			firstBinder.Dispose();
-			secondField.value = secondField.choices[(int)ColocationManager.ColocationMethod.SystemDetermined];
+			secondField.value = Choice(secondField, ColocationManager.ColocationMethod.Visual);
 			Assert.That(firstChanges, Is.EqualTo(1));
 			Assert.That(secondChanges, Is.EqualTo(1), "Disposing one fragment must not unbind another instance.");
 		}
 
-		[TestCase(ColocationManager.ColocationMethod.AprilTag)]
-		[TestCase(ColocationManager.ColocationMethod.TwoAprilTags)]
-		public void BothTagMethodsExposeThePaletteSliderAndMeasurementPage(ColocationManager.ColocationMethod method)
+		[TestCase(true)]
+		[TestCase(false)]
+		public void BothTagModesExposeThePaletteSliderAndMeasurementPage(bool registeredTags)
 		{
 			Assert.That(LaserTagMapCoordinator.Instance, Is.Null);
 			Assert.That(ColocationManager.Instance, Is.Null);
@@ -415,7 +415,9 @@ namespace Anaglyph.LaserTag.Tests
 			{
 				var coordinator = owner.AddComponent<LaserTagMapCoordinator>();
 				context = new MapCoordinatorTestContext(coordinator);
-				var space = MapSpace.Create("Test"); space.tagSizeCm = 18f; space.preferredColocationMethod = method;
+				var space = MapSpace.Create("Test"); space.tagSizeCm = 18f;
+				space.preferredColocationMethod = ColocationManager.ColocationMethod.AprilTag;
+				if (registeredTags) space.SetTag(1, Pose.identity);
 				context.SpaceDocument.Load(space);
 				context.MapDocument.Create(space.storageFrameId);
 				context.ComposeReferences(owner.AddComponent<ColocationManager>());
@@ -426,12 +428,11 @@ namespace Anaglyph.LaserTag.Tests
 				using var details = new SpaceDetailsBinder(page);
 				headset.Q<NavView>("maps-nav").GoToPage(page);
 				Assert.That(details.Alignment.UsesTags, Is.True);
-				Assert.That(headset.Q("tag-configuration-section").style.display.value,
-					Is.EqualTo(method == ColocationManager.ColocationMethod.AprilTag ? DisplayStyle.Flex : DisplayStyle.None));
+				Assert.That(headset.Q("tag-configuration-section").style.display.value, Is.EqualTo(DisplayStyle.Flex));
 				Assert.That(headset.Q("tag-configuration-section").Q<Button>("start-apriltag-setup"), Is.Not.Null);
 				Assert.That(headset.Q<Slider>("tag-size-slider").style.display.value, Is.EqualTo(DisplayStyle.None));
 				Assert.That(headset.Q("choose-two-tag-pair").style.display.value,
-					Is.EqualTo(method != ColocationManager.ColocationMethod.TwoAprilTags ? DisplayStyle.None : DisplayStyle.Flex));
+					Is.EqualTo(registeredTags ? DisplayStyle.None : DisplayStyle.Flex), "Only two-tag mode chooses a pair.");
 				var palette = Load("Assets/Anaglyph/LaserTag/MapEditor/MapEditorPalette.uxml");
 				Assert.That(palette.Q<NavPage>("tags-page").Q<Slider>("tag-size-slider"), Is.Not.Null);
 				Assert.That(palette.Q<NavPage>("tags-page").Q<Button>("measure-tag-size-button"), Is.Not.Null);
@@ -448,15 +449,23 @@ namespace Anaglyph.LaserTag.Tests
 			}
 		}
 
+		// the dropdown lists only these, in this order, so indexes are not enum values
+		private static readonly ColocationManager.ColocationMethod[] ListedMethods =
+		{
+			ColocationManager.ColocationMethod.MetaSharedAnchor, ColocationManager.ColocationMethod.AprilTag,
+			ColocationManager.ColocationMethod.Visual
+		};
+
+		private static string Choice(DropdownField field, ColocationManager.ColocationMethod method) =>
+			field.choices[System.Array.IndexOf(ListedMethods, method)];
+
 		private static void AssertChoices(DropdownField field)
 		{
 			Assert.That(field.choices, Is.EqualTo(new[]
 			{
 				MenuCopy.Get("Map", "alignment.anchors"),
 				MenuCopy.Get("Map", "alignment.tags"),
-				MenuCopy.Get("Map", "alignment.system"),
-				MenuCopy.Get("Map", "alignment.two-tags"),
-				"Scan registration"
+				"Visual relocalization"
 			}));
 		}
 	}
