@@ -84,6 +84,15 @@ namespace Anaglyph.LaserTag
 		[SerializeField] private float loopMaxViewAngle = 90f;
 		[Tooltip("Every new keyframe made near old views is matched as a loop query at once, with the features mapping already extracted")]
 		[SerializeField] private bool loopFromKeyframes = true;
+		[Tooltip("With keyframe loop queries on, a loop query of its own (a capture, an extraction and a LighterGlue run) is made only after this many seconds without a keyframe: standing still near old views, where no new keyframe comes")]
+		[SerializeField] private float loopCaptureAfterQuiet = 3f;
+
+		[Header("Cross-headset links")]
+		[Tooltip("Once aligned, a joiner keeps sending keyframes to the authority; a confident answer becomes a pose-graph edge between their nodes, so the headsets keep agreeing on the shared frame instead of each drifting against its own map")]
+		[SerializeField] private bool crossLinks = true;
+		[Tooltip("Seconds between cross-link queries, at most: each is a LighterGlue run on the authority and ~50 KB on the network")]
+		[SerializeField] private float crossLinkInterval = 3f;
+		[SerializeField] private float crossLinkCooldown = 6f;
 		[Tooltip("Two loop results may lean on different old nodes, as long as those are this close (m of expected drift): the correction agreeing is the real test")]
 		[SerializeField] private float loopAnchorTolerance = 0.25f;
 
@@ -105,9 +114,17 @@ namespace Anaglyph.LaserTag
 			public float yawSigma;
 			public float translationSigma;
 			public int usableLandmarks;
+			// the authority's node the pose is relative to, and its graph's solve version then (-1 if a solve came meanwhile)
+			public ulong anchorNode;
+			public int graphVersion;
 		}
 
-		private enum Purpose { Colocate, Relocalize, Loop }
+		// CrossLink: a joiner's keyframe localized in the authority's map once both are aligned,
+		// becoming a pose-graph edge between the two headsets' nodes, which keeps them agreeing
+		private enum Purpose { Colocate, Relocalize, Loop, CrossLink }
+
+		// a closure between two nodes of the pose graph, local or between headsets
+		private static bool ClosesLoop(Purpose purpose) => purpose is Purpose.Loop or Purpose.CrossLink;
 
 		private class Pending
 		{
@@ -119,15 +136,22 @@ namespace Anaglyph.LaserTag
 			// the pose graph's solves when the query was placed in it: a loop correction is
 			// relative to the node poses of that moment, and a solve since has moved them
 			public int solves;
+			// the graph's solve version a cross-link query was placed in: the authority must have
+			// localized it in the same one, and nothing may have been solved since
+			public int graphVersion;
 		}
 
 		private readonly Dictionary<int, Pending> pending = new();
+		// cross-link queries in flight: kept apart, so they don't hold up colocation or local loops
+		private readonly Dictionary<int, Pending> crossLinkQueries = new();
+		private float nextCrossLink;
 		private int nextQueryId = 1;
 		private float nextQuery;
 		private float nextLoop;
 		private float nextQuietLoopLog;
 		private bool queryInFlight;
 		private int graphSolves;
+		private float lastKeyframeAt;
 		private bool serving;
 
 		// the first of two results that must agree
@@ -213,7 +237,7 @@ namespace Anaglyph.LaserTag
 		private void OnGraphSolved(IReadOnlyDictionary<ulong, Pose4> _)
 		{
 			graphSolves++;
-			if (candidate != null && candidate.purpose == Purpose.Loop) candidate = null;
+			if (candidate != null && ClosesLoop(candidate.purpose)) candidate = null;
 		}
 
 		private void OnPhaseChanged(Phase phase)
@@ -239,6 +263,14 @@ namespace Anaglyph.LaserTag
 				foreach ((int id, Pending p) in pending)
 					if (Time.unscaledTime - p.sentAt > replyTimeout) (expired ??= new()).Add(id);
 				if (expired != null) foreach (int id in expired) pending.Remove(id);
+			}
+
+			if (crossLinkQueries.Count > 0)
+			{
+				List<int> expired = null;
+				foreach ((int id, Pending p) in crossLinkQueries)
+					if (Time.unscaledTime - p.sentAt > replyTimeout) (expired ??= new()).Add(id);
+				if (expired != null) foreach (int id in expired) crossLinkQueries.Remove(id);
 			}
 
 			if (!queriesEnabled || queryInFlight || pending.Count > 0 || Time.unscaledTime < nextQuery || !localizer.IsAvailable) return;
@@ -274,6 +306,7 @@ namespace Anaglyph.LaserTag
 					remote = false;
 					// a query costs an extraction and LighterGlue runs: only when an old view is near to find
 					return loopClosure && Time.unscaledTime >= nextLoop && SharedSlam.Instance != null && SharedSlam.Instance.IsTracking &&
+					       (!loopFromKeyframes || Time.unscaledTime - lastKeyframeAt >= loopCaptureAfterQuiet) &&
 					       localizer.Map.Count > 0 &&
 					       localizer.HasUntrustedKeyframeNear(XR.MainXRRig.Camera.transform.position, SharedSlam.Instance.ActiveNode, loopSearchDistance);
 
@@ -311,7 +344,12 @@ namespace Anaglyph.LaserTag
 		/// </summary>
 		private async void OnKeyframeAdded(VisualKeyframe keyframe)
 		{
+			lastKeyframeAt = Time.unscaledTime;
+			SendCrossLink(keyframe);
 			if (!loopFromKeyframes || !loopClosure || !IsRunning || CurrentPhase != Phase.Aligned || queryInFlight || pending.Count > 0) return;
+			// each is up to keyframesPerQuery LighterGlue runs on the GPU: no more often than the loop
+			// interval, however fast keyframes come (a confirming frame is let through at once)
+			if (Time.unscaledTime < nextLoop) return;
 			if (SharedSlam.Instance == null || !SharedSlam.Instance.IsTracking || keyframe.node == 0) return;
 			if (!localizer.HasUntrustedKeyframeNear(keyframe.camera.position, keyframe.node, loopSearchDistance)) return;
 
@@ -342,6 +380,45 @@ namespace Anaglyph.LaserTag
 			{
 				queryInFlight = false;
 			}
+		}
+
+		/// <summary>
+		/// A joiner's new keyframe, sent to the authority to localize in its map. The camera
+		/// goes where this replica of the pose graph has it, and the graph's solve version with
+		/// it: the answer is relative to the node poses of that version on both sides.
+		/// </summary>
+		private void SendCrossLink(VisualKeyframe keyframe)
+		{
+			if (!crossLinks || !IsRunning || CurrentPhase != Phase.Aligned || !SyncBus.Active || SyncBus.IsAuthority) return;
+			if (crossLinkQueries.Count > 0 || Time.unscaledTime < nextCrossLink) return;
+			if (SharedSlam.Instance == null || !SharedSlam.Instance.IsTracking || keyframe.node == 0) return;
+			if (!Landmark.TryCamera(localizer.Anchoring, keyframe.node, keyframe.cameraInNode, out Pose camera)) return;
+
+			nextCrossLink = Time.unscaledTime + crossLinkInterval;
+			VisualQuery query = new()
+			{
+				features = keyframe.features,
+				intrinsics = keyframe.intrinsics,
+				camera = camera,
+				node = keyframe.node,
+				cameraInNode = keyframe.cameraInNode,
+				timestampNs = keyframe.timestampNs,
+				frame = keyframe.frame,
+				nearMapFrame = true,
+			};
+
+			int id = nextQueryId++;
+			crossLinkQueries[id] = new Pending
+			{
+				purpose = Purpose.CrossLink,
+				epoch = FrameEpoch,
+				generation = AlignmentGeneration,
+				query = query,
+				sentAt = Time.unscaledTime,
+				solves = graphSolves,
+				graphVersion = PoseGraph.Shared.Version,
+			};
+			queryEvent.Raise(VisualQueryCodec.Encode(query, id));
 		}
 
 		private async Awaitable Localize(Pending p, bool remote)
@@ -402,6 +479,12 @@ namespace Anaglyph.LaserTag
 		{
 			if (payload.Length < Marshal.SizeOf<Reply>()) return;
 			Reply reply = SyncBytes.Read<Reply>(payload, 0);
+			if (crossLinkQueries.Remove(reply.queryId, out Pending link))
+			{
+				OnCrossLinkReply(link, reply);
+				return;
+			}
+
 			if (!pending.Remove(reply.queryId, out Pending p)) return;
 
 			GravityPnPResult pose = new()
@@ -422,6 +505,35 @@ namespace Anaglyph.LaserTag
 			Consider(p, pose, 0, $"from authority: {pose}");
 		}
 
+		private static GravityPnPResult PoseOf(Reply reply) => new()
+		{
+			success = reply.success != 0,
+			yaw = reply.yaw,
+			translation = reply.translation,
+			inliers = reply.inliers,
+			rangedInliers = reply.rangedInliers,
+			correspondences = reply.correspondences,
+			rmsPixels = reply.rmsPixels,
+			normalizedRms = reply.normalizedRms,
+			yawSigma = reply.yawSigma,
+			translationSigma = reply.translationSigma,
+			failure = reply.success != 0 ? null : $"authority found no pose ({reply.usableLandmarks} usable landmarks in its map)",
+		};
+
+		private void OnCrossLinkReply(Pending p, Reply reply)
+		{
+			GravityPnPResult pose = PoseOf(reply);
+			if (!pose.success || reply.anchorNode == 0) return; // nothing of the authority's in view: the usual case
+			if (reply.graphVersion != p.graphVersion || PoseGraph.Shared.Version != p.graphVersion || p.solves != graphSolves)
+			{
+				considering = p;
+				Outcome($"CrossLink: discarded, the graph was solved while localizing (from authority: {pose})");
+				return;
+			}
+
+			Consider(p, pose, reply.anchorNode, $"from authority: {pose}");
+		}
+
 		// ---- deciding ----------------------------------------------------------
 
 		private void Consider(Pending p, GravityPnPResult pose, ulong anchor, string description)
@@ -440,11 +552,11 @@ namespace Anaglyph.LaserTag
 			string rejection = Rejection(pose);
 			if (rejection == null && pose.translationSigma > maxTranslationSigma)
 			{
-				if (p.purpose == Purpose.Loop && yawOnlyLoops) yawOnly = true;
+				if (ClosesLoop(p.purpose) && yawOnlyLoops) yawOnly = true;
 				else rejection = $"translation ±{pose.translationSigma * 100:F1}cm > {maxTranslationSigma * 100:F0}cm: the map needs ranged landmarks here (walk around)";
 			}
 
-			if (rejection == null && p.purpose == Purpose.Loop) rejection = Implausible(p, new Pose4(pose.translation, pose.yaw), anchor);
+			if (rejection == null && ClosesLoop(p.purpose)) rejection = Implausible(p, new Pose4(pose.translation, pose.yaw), anchor);
 
 			if (p.purpose == Purpose.Loop && p.solves != graphSolves)
 			{
@@ -463,7 +575,7 @@ namespace Anaglyph.LaserTag
 			}
 
 			Pose4 correction = new(pose.translation, pose.yaw);
-			bool loop = p.purpose == Purpose.Loop;
+			bool loop = ClosesLoop(p.purpose);
 			bool confident = acceptConfidentSingleFrames && !yawOnly &&
 			                 math.degrees(pose.yawSigma) <= (loop ? confidentLoopYawSigmaDegrees : confidentYawSigmaDegrees) &&
 			                 pose.translationSigma <= (loop ? confidentLoopTranslationSigma : confidentTranslationSigma) &&
@@ -491,6 +603,7 @@ namespace Anaglyph.LaserTag
 				// the confirming frame straight away, while the old views are still in sight
 				nextQuery = Time.unscaledTime;
 				if (p.purpose == Purpose.Loop) nextLoop = Time.unscaledTime;
+				if (p.purpose == Purpose.CrossLink) nextCrossLink = Time.unscaledTime;
 				return;
 			}
 
@@ -506,7 +619,7 @@ namespace Anaglyph.LaserTag
 			Pose4 agreed = new(centerMean - Pose4.RotateY(camera, yawMean), yawMean);
 			candidate = null;
 
-			if (p.purpose == Purpose.Loop)
+			if (ClosesLoop(p.purpose))
 			{
 				SharedSlam slam = SharedSlam.Instance;
 				// the two frames together pin translation as well as the better of them: a closure
@@ -519,7 +632,8 @@ namespace Anaglyph.LaserTag
 				yawOnly = bothYawOnly;
 				if (slam != null && slam.ProposeVisualLoop(anchor, p.query.node, agreed, sigmaTranslation, math.max(pose.yawSigma, math.radians(loopEdgeMinYawSigmaDegrees))))
 				{
-					nextLoop = Time.unscaledTime + loopCooldown;
+					if (p.purpose == Purpose.Loop) nextLoop = Time.unscaledTime + loopCooldown;
+					else nextCrossLink = Time.unscaledTime + crossLinkCooldown;
 					Outcome($"{p.purpose}: closed {agreed}{(yawOnly ? " (yaw only)" : "")} ({description})");
 				}
 				return;
@@ -539,7 +653,7 @@ namespace Anaglyph.LaserTag
 		{
 			if (candidate == null || candidate.purpose != p.purpose || candidate.generation != p.generation || candidate.epoch != p.epoch) return false;
 
-			if (p.purpose == Purpose.Loop)
+			if (ClosesLoop(p.purpose))
 			{
 				// one stretch of tracking against one old map: the query's node may have moved on
 				// within trust, and the old nodes matched may differ, but must be one region of the old map
@@ -604,7 +718,8 @@ namespace Anaglyph.LaserTag
 			if (considering?.query != null) localizer.Frames.Note(considering.query.frame, message);
 			outcomes.Enqueue($"{Time.realtimeSinceStartup:F2} {message}");
 			while (outcomes.Count > OutcomeLogLength) outcomes.Dequeue();
-			Debug.Log($"{LogTag} {message}");
+			// several a second while moving: no stack trace, which costs on device
+			Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this, "{0} {1}", LogTag, message);
 		}
 
 		// ---- answering ---------------------------------------------------------
@@ -620,7 +735,9 @@ namespace Anaglyph.LaserTag
 			try
 			{
 				LocalizeOptions options = query.nearMapFrame ? new LocalizeOptions { near = query.camera, nearDistance = loopSearchDistance } : default;
+				int version = PoseGraph.Shared.Version;
 				VisualLocalizationResult result = await localizer.LocalizeAsync(query, options);
+				if (PoseGraph.Shared.Version != version) version = -1;
 				if (!this) return;
 				LastResult = result;
 				considering = null;
@@ -641,6 +758,8 @@ namespace Anaglyph.LaserTag
 					yawSigma = pose.yawSigma,
 					translationSigma = pose.translationSigma,
 					usableLandmarks = localizer.Quality.usable,
+					anchorNode = result.anchorNode,
+					graphVersion = version,
 				};
 
 				replyEvent.RaiseTo(sender, SyncBytes.Of(reply));

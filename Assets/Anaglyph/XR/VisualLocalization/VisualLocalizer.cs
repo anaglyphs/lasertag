@@ -101,6 +101,8 @@ namespace Anaglyph.XR.VisualLocalization
 		[SerializeField] private float mappingRetry = 0f;
 		[Tooltip("A head turning slower than this (°/s) is still enough to capture at once; between it and the blur limit, capture waits while the turn is still slowing quickly, for the stillest frame of the settle")]
 		[SerializeField] private float calmAngularSpeed = 15f;
+		[Tooltip("Seconds before looking again when the view is nothing new: standing still, no image is converted every frame only to be dropped")]
+		[SerializeField] private float notNovelRetry = 0.1f;
 		[SerializeField] private float keyframeMinDistance = 0.5f;
 		[SerializeField] private float keyframeMinAngle = 20f;
 		[Tooltip("Head rotation above this (°/s) blurs the passthrough image too much to map or query")]
@@ -268,6 +270,19 @@ namespace Anaglyph.XR.VisualLocalization
 
 		private void OnFrameReceived(ARCameraFrameEventArgs args) => lastFrameTimestampNs = args.timestampNs;
 
+		// the head where the graph has it now, against the trusted keyframes' last placement:
+		// a cheap stand-in for the capture's own check, which still decides
+		private bool LooksNovel()
+		{
+			IKeyframeAnchoring anchoring = Anchoring;
+			if (anchoring == null || MainXRRig.Instance == null) return false;
+			Transform head = MainXRRig.Camera.transform, space = MainXRRig.TrackingSpace;
+			Pose inTrackingSpace = new(space.InverseTransformPoint(head.position), Quaternion.Inverse(space.rotation) * head.rotation);
+			if (!anchoring.TryAnchor(inTrackingSpace, out ulong node, out Pose cameraInNode)) return false;
+			if (!Landmark.TryCamera(anchoring, node, cameraInNode, out Pose camera)) return false;
+			return Map.IsNovel(camera, node, trustDrift, keyframeMinDistance, keyframeMinAngle);
+		}
+
 		private void TrackTurnRate()
 		{
 			if (MainXRRig.Instance == null) return;
@@ -288,6 +303,14 @@ namespace Anaglyph.XR.VisualLocalization
 			// frame is the sharper one
 			if (turnRate > maxAngularSpeed) return;
 			if (turnRate > calmAngularSpeed && turnRate < previousTurnRate * 0.8f) return;
+
+			// nothing new in view (standing, or retracing a step): decided from the head pose,
+			// before an image is acquired and converted on this thread
+			if (!LooksNovel())
+			{
+				nextMapping = Time.unscaledTime + notNovelRetry;
+				return;
+			}
 
 			nextMapping = Time.unscaledTime + mappingRetry;
 			TryAddKeyframe();
@@ -317,6 +340,7 @@ namespace Anaglyph.XR.VisualLocalization
 				if (!Map.IsNovel(camera, node, trustDrift, keyframeMinDistance, keyframeMinAngle))
 				{
 					Mapping.notNovel++;
+					nextMapping = Time.unscaledTime + notNovelRetry;
 					return;
 				}
 
@@ -383,7 +407,7 @@ namespace Anaglyph.XR.VisualLocalization
 				k => Map.IsTrusted(k, keyframe.node, trustDrift), keyframe.camera, neighborDistance);
 			if (!this || Map.Revision != mapRevision) return;
 
-			// why no neighbor: none near, none near and trusted, or the trusted ones share too little
+			// why no neighbor: none near, or none near and trusted (a glance's view shares too little with them)
 			string lonely = null;
 			if (neighbors.Count == 0)
 			{
@@ -395,12 +419,7 @@ namespace Anaglyph.XR.VisualLocalization
 					if (Map.IsTrusted(k, keyframe.node, trustDrift)) trusted++;
 				}
 
-				List<(VisualKeyframe keyframe, int mutual)> best = trusted > 0
-					? await Map.RetrieveAsync(keyframe.features, 1, 1, k => Map.IsTrusted(k, keyframe.node, trustDrift), keyframe.camera, neighborDistance)
-					: new();
-				if (!this || Map.Revision != mapRevision) return;
-				lonely = $" (alone: {near} near, {trusted} trusted, best shares {(best.Count > 0 ? best[0].mutual : 0)}" +
-				         $"{(best.Count > 0 ? $" at {Vector3.Angle(best[0].keyframe.camera.forward, keyframe.camera.forward):F0}° / {Vector3.Distance(best[0].keyframe.camera.position, keyframe.camera.position):F1} m" : "")})";
+				lonely = $" (alone: {near} near, {trusted} trusted)";
 			}
 
 			List<(VisualKeyframe neighbor, int[] matches)> matched = new();
@@ -484,7 +503,7 @@ namespace Anaglyph.XR.VisualLocalization
 			KeyframeAdded.Invoke(keyframe);
 			string summary = $"{matched.Count} trusted neighbors{lonely}, {extended} sightings extended tracks, {started} started, {dropped} rejected";
 			Frames.Note(keyframe.frame, $"keyframe in slot {keyframe.slot}: {summary}");
-			Debug.Log($"[{nameof(VisualLocalizer)}] keyframe {Map.Count}: {summary}; {Quality}");
+			Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this, "[{0}] keyframe {1}: {2}; {3}", nameof(VisualLocalizer), Map.Count, summary, Quality);
 		}
 
 		// each feature's ray against the environment mesh, where it is scanned

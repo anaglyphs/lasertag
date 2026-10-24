@@ -1,8 +1,10 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
@@ -67,8 +69,10 @@ namespace Anaglyph.XR.VisualLocalization
 			r.angularSpeed = image.angularSpeed;
 			r.rendered = image.rendered;
 
-			// copied now, the image buffer is reused; converted with the encoder, off the main thread
-			r.pixels = image.pixels.ToArray();
+			// copied now, the image buffer is reused; converted with the encoder, off the main
+			// thread. A pooled buffer: a fresh 1.2 MB array per frame is garbage the GC must chase
+			r.pixels = ArrayPool<float>.Shared.Rent(image.pixels.Length);
+			NativeArray<float>.Copy(image.pixels, r.pixels, image.pixels.Length);
 			Encode(r);
 			return r;
 		}
@@ -146,6 +150,7 @@ namespace Anaglyph.XR.VisualLocalization
 				await Awaitable.MainThreadAsync();
 				r.png ??= png;
 				r.pixels = null;
+				ArrayPool<float>.Shared.Return(pixels);
 			}
 			catch (Exception e)
 			{
@@ -212,7 +217,8 @@ namespace Anaglyph.XR.VisualLocalization
 
 			j.EndArray();
 			string json = j.ToString();
-			(VisualFrameRecord record, byte[] png, float[] pixels)[] images = Array.ConvertAll(snapshot, r => (r, r.png, r.pixels));
+			// frames still encoding: their pooled buffers go back when the encode ends, so copy them
+			(VisualFrameRecord record, byte[] png, float[] pixels)[] images = Array.ConvertAll(snapshot, r => (r, r.png, r.png == null ? (float[])r.pixels?.Clone() : null));
 
 			await Awaitable.BackgroundThreadAsync();
 			try

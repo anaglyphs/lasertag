@@ -286,12 +286,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.XR.VisualLocalization::Anaglyph.XR.VisualLocalization.VisualLocalizer
   mappingInterval: 0.2
+  mappingRetry: 0
+  calmAngularSpeed: 15
   keyframeMinDistance: 0.3
   keyframeMinAngle: 15
   maxAngularSpeed: 40
   minKeyframeFeatures: 100
   mapCapacity: 512
-  trustDrift: 0.05
+  coverageCell: 1
+  coverageHeadings: 8
+  trustDrift: 0.03
   trackNeighbors: 3
   neighborDistance: 5
   lighterGlueForTracks: 0
@@ -317,7 +321,7 @@ MonoBehaviour:
     rangedFraction: 0.25
     centerPriorSigma: 10
   recordFrames: 1
-  recentFrames: 96
+  recentFrames: 128
 --- !u!114 &4959272462355547871
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -338,18 +342,32 @@ MonoBehaviour:
   maxYawSigmaDegrees: 0.5
   maxTranslationSigma: 0.04
   acceptConfidentSingleFrames: 1
-  confidentYawSigmaDegrees: 0.15
-  confidentTranslationSigma: 0.01
+  confidentYawSigmaDegrees: 0.2
+  confidentTranslationSigma: 0.02
   confidentInliers: 150
+  confidentLoopInliers: 80
+  confidentLoopTranslationSigma: 0.02
+  confidentLoopYawSigmaDegrees: 0.2
   confidentInlierShare: 0.6
   agreeTranslation: 0.05
   agreeYawDegrees: 1
   loopClosure: 1
-  loopInterval: 1
+  loopInterval: 0.5
+  blurredRetry: 0.25
   loopSearchDistance: 8
   loopCenterPriorSigma: 1
   yawOnlyLoops: 1
   loopCooldown: 3
+  loopPlausibleSigmas: 3
+  loopPlausibleMeters: 0.5
+  loopPlausibleDegrees: 5
+  loopEdgeMinYawSigmaDegrees: 0.5
   loopMatchFeatures: 512
   loopMinMutual: 15
+  loopMaxViewAngle: 90
+  loopFromKeyframes: 0
+  loopCaptureAfterQuiet: 3
+  crossLinks: 1
+  crossLinkInterval: 3
+  crossLinkCooldown: 6
   loopAnchorTolerance: 0.25

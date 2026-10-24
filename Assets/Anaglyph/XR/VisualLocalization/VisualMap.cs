@@ -62,6 +62,11 @@ namespace Anaglyph.XR.VisualLocalization
 	public sealed class VisualMap : IDisposable
 	{
 		public const int RetrievalFeatures = 256;
+		/// <summary>Keyframes scored per retrieval when a camera narrows the search: ~4M multiply-adds each.</summary>
+		public const int MaxRetrievalCandidates = 24;
+		private const int CandidatesPerFrame = 2;
+		// the retrieval slice reading the descriptor table now, which writes and disposal wait on
+		private JobHandle retrievalInFlight;
 		private const int D = FeatureSet.DescriptorSize;
 
 		public readonly int capacity;
@@ -220,6 +225,8 @@ namespace Anaglyph.XR.VisualLocalization
 
 			keyframe.slot = slot;
 			int count = math.min(RetrievalFeatures, keyframe.features.Count);
+			// a retrieval slice may be reading the table: it's a couple of keyframes, done in a moment
+			retrievalInFlight.Complete();
 			NativeArray<half>.Copy(keyframe.features.descriptors, 0, retrieval, slot * RetrievalFeatures * D, count * D);
 			retrievalCounts[slot] = count;
 		}
@@ -333,7 +340,7 @@ namespace Anaglyph.XR.VisualLocalization
 		/// <paramref name="nearDistance"/> of it.
 		/// </summary>
 		public async Awaitable<List<(VisualKeyframe keyframe, int mutual)>> RetrieveAsync(FeatureSet query, int count, int minMutual,
-			Func<VisualKeyframe, bool> filter = null, Pose? near = null, float nearDistance = 4f)
+			Func<VisualKeyframe, bool> filter = null, Pose? near = null, float nearDistance = 4f, int maxCandidates = MaxRetrievalCandidates)
 		{
 			List<(VisualKeyframe, int)> result = new();
 			if (keyframes.Count == 0 || query == null || query.Count == 0) return result;
@@ -349,6 +356,18 @@ namespace Anaglyph.XR.VisualLocalization
 
 			if (candidates.Count == 0) return result;
 
+			// every candidate costs a brute-force match of a few hundred descriptors against as
+			// many: with a camera to go by, only the views most likely to share its features are
+			// scored, nearest and most alike in heading first
+			if (near.HasValue && maxCandidates > 0 && candidates.Count > maxCandidates)
+			{
+				Pose at = near.Value;
+				float Likeness(int i) => Vector3.Distance(at.position, keyframes[i].camera.position) +
+				                        Vector3.Angle(at.forward, keyframes[i].camera.forward) / 30f;
+				candidates.Sort((a, b) => Likeness(a).CompareTo(Likeness(b)));
+				candidates.RemoveRange(maxCandidates, candidates.Count - maxCandidates);
+			}
+
 			int queryCount = math.min(RetrievalFeatures, query.Count);
 			// persistent: the job may outlive the four frames a TempJob allocation is allowed
 			NativeArray<half> queryDesc = new(queryCount * D, Allocator.Persistent);
@@ -357,22 +376,29 @@ namespace Anaglyph.XR.VisualLocalization
 			try
 			{
 				NativeArray<half>.Copy(query.descriptors, queryDesc, queryCount * D);
-				JobHandle handle;
-				using (ScheduleMarker.Auto())
-					handle = new MutualNearestJob
-					{
-						query = queryDesc,
-						queryCount = queryCount,
-						map = retrieval,
-						mapCounts = retrievalCounts,
-						slots = slots,
-						scores = scores,
-					}.Schedule(candidates.Count, 1);
+				// a few keyframes a frame, each a few million multiply-adds: one job holding a
+				// worker for tens of milliseconds holds up the engine's own jobs, and the frame
+				for (int first = 0; first < candidates.Count; first += CandidatesPerFrame)
+				{
+					if (!retrieval.IsCreated) return result; // the map was disposed between slices
+					JobHandle handle;
+					using (ScheduleMarker.Auto())
+						handle = new MutualNearestJob
+						{
+							query = queryDesc,
+							queryCount = queryCount,
+							map = retrieval,
+							mapCounts = retrievalCounts,
+							slots = slots,
+							scores = scores,
+							offset = first,
+						}.Schedule(math.min(CandidatesPerFrame, candidates.Count - first), 1);
 
-				// a few hundred million multiply-adds: worker threads, while the frame goes on
-				JobHandle.ScheduleBatchedJobs();
-				while (!handle.IsCompleted) await Awaitable.NextFrameAsync();
-				handle.Complete();
+					retrievalInFlight = handle;
+					JobHandle.ScheduleBatchedJobs();
+					while (!handle.IsCompleted) await Awaitable.NextFrameAsync();
+					handle.Complete();
+				}
 
 				List<int> order = new(candidates.Count);
 				for (int c = 0; c < candidates.Count; c++)
@@ -400,6 +426,7 @@ namespace Anaglyph.XR.VisualLocalization
 
 		public void Dispose()
 		{
+			retrievalInFlight.Complete();
 			if (retrieval.IsCreated) retrieval.Dispose();
 			if (retrievalCounts.IsCreated) retrievalCounts.Dispose();
 		}
@@ -416,10 +443,12 @@ namespace Anaglyph.XR.VisualLocalization
 			[ReadOnly] public NativeArray<half> map;
 			[ReadOnly] public NativeArray<int> mapCounts;
 			[ReadOnly] public NativeArray<int> slots;
-			[WriteOnly] public NativeArray<int> scores;
+			[WriteOnly, NativeDisableParallelForRestriction] public NativeArray<int> scores;
+			public int offset;
 
-			public void Execute(int index)
+			public void Execute(int job)
 			{
+				int index = job + offset;
 				int k = slots[index];
 				int m = mapCounts[k];
 				int baseIndex = k * RetrievalFeatures * D;

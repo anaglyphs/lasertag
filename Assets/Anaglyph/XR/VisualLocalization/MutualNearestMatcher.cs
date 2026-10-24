@@ -32,15 +32,30 @@ namespace Anaglyph.XR.VisualLocalization
 			NativeArray<int> bestForB = new(b.Count, Allocator.Persistent);
 			try
 			{
-				JobHandle forA = new NearestJob { from = descA, to = descB, toCount = b.Count, best = bestForA, bestSimilarity = bestSimForA }.Schedule(a.Count, 32);
 				// the reverse direction only needs the index
 				NativeArray<float> bestSimForB = new(b.Count, Allocator.Persistent);
-				JobHandle forB = new NearestJob { from = descB, to = descA, toCount = a.Count, best = bestForB, bestSimilarity = bestSimForB }.Schedule(b.Count, 32);
-				JobHandle both = JobHandle.CombineDependencies(forA, forB);
-				JobHandle.ScheduleBatchedJobs();
-				while (!both.IsCompleted) await Awaitable.NextFrameAsync();
-				both.Complete();
-				bestSimForB.Dispose();
+				try
+				{
+					// a slice of rows a frame: one job holding a worker for tens of milliseconds
+					// holds up the engine's own jobs behind it, and the frame with them
+					for (int row = 0; row < math.max(a.Count, b.Count); row += RowsPerFrame)
+					{
+						JobHandle forA = row < a.Count
+							? new NearestJob { from = descA, to = descB, toCount = b.Count, best = bestForA, bestSimilarity = bestSimForA, offset = row }.Schedule(math.min(RowsPerFrame, a.Count - row), 16)
+							: default;
+						JobHandle forB = row < b.Count
+							? new NearestJob { from = descB, to = descA, toCount = a.Count, best = bestForB, bestSimilarity = bestSimForB, offset = row }.Schedule(math.min(RowsPerFrame, b.Count - row), 16)
+							: default;
+						JobHandle both = JobHandle.CombineDependencies(forA, forB);
+						JobHandle.ScheduleBatchedJobs();
+						while (!both.IsCompleted) await Awaitable.NextFrameAsync();
+						both.Complete();
+					}
+				}
+				finally
+				{
+					bestSimForB.Dispose();
+				}
 
 				int[] matches = new int[a.Count];
 				float[] confidence = new float[a.Count];
@@ -64,17 +79,22 @@ namespace Anaglyph.XR.VisualLocalization
 			}
 		}
 
+		// rows matched per frame and direction: ~64 × 1000 × 64 multiply-adds, a few milliseconds
+		private const int RowsPerFrame = 64;
+
 		[BurstCompile(FloatMode = FloatMode.Fast)]
 		private struct NearestJob : IJobParallelFor
 		{
 			[ReadOnly] public NativeArray<half> from;
 			[ReadOnly] public NativeArray<half> to;
 			public int toCount;
-			[WriteOnly] public NativeArray<int> best;
-			[WriteOnly] public NativeArray<float> bestSimilarity;
+			public int offset;
+			[WriteOnly, NativeDisableParallelForRestriction] public NativeArray<int> best;
+			[WriteOnly, NativeDisableParallelForRestriction] public NativeArray<float> bestSimilarity;
 
-			public void Execute(int i)
+			public void Execute(int index)
 			{
+				int i = index + offset;
 				const int d = FeatureSet.DescriptorSize;
 				int fi = i * d;
 				// the row being matched, widened once

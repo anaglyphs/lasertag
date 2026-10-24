@@ -224,11 +224,33 @@ namespace Anaglyph.XR.VisualLocalization
 				public int CompareTo(Peak other) => other.score != score ? other.score.CompareTo(score) : index.CompareTo(other.index);
 			}
 
+			private const int Bins = 4096;
+
 			public void Execute()
 			{
-				NativeList<Peak> peaks = new(4096, Allocator.Temp);
+				// the strongest MaxKeypoints of a few hundred thousand scores, without sorting them
+				// all (tens of milliseconds on a Quest core, holding up the engine's own jobs): a
+				// histogram finds the score that admits at least that many, and only those are sorted
+				float max = 0;
+				for (int i = 0; i < score.Length; i++) max = math.max(max, score[i]);
+				if (max <= 0)
+				{
+					count.Value = 0;
+					return;
+				}
+
+				float toBin = Bins / max;
+				NativeArray<int> histogram = new(Bins, Allocator.Temp);
 				for (int i = 0; i < score.Length; i++)
-					if (score[i] > 0) peaks.Add(new Peak { score = score[i], index = i });
+					if (score[i] > 0) histogram[math.min(Bins - 1, (int)(score[i] * toBin))]++;
+
+				int threshold = Bins - 1;
+				for (int admitted = histogram[threshold]; threshold > 0 && admitted < MaxKeypoints; admitted += histogram[--threshold]) { }
+
+				NativeList<Peak> peaks = new(MaxKeypoints * 2, Allocator.Temp);
+				for (int i = 0; i < score.Length; i++)
+					if (score[i] > 0 && math.min(Bins - 1, (int)(score[i] * toBin)) >= threshold)
+						peaks.Add(new Peak { score = score[i], index = i });
 				peaks.Sort();
 
 				int n = math.min(MaxKeypoints, peaks.Length);

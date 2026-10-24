@@ -137,8 +137,6 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 
 			if (changed)
 			{
-				foreach (Chunk chunk in chunksList)
-					if (chunk) chunk.RefreshDisplayMesh();
 				ChunksVisibleChanged.Invoke(visible);
 			}
 		}
@@ -509,8 +507,6 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 						activeChunk.meshIsPopulated = false;
 						activeChunk.meshCollider.enabled = false;
 					}
-
-					if (ChunksVisible) activeChunk.RefreshDisplayMesh();
 
 					// the mesh now shows the resampled data where it lies on the grid
 					if (force)
