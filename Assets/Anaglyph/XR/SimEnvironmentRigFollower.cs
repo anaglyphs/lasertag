@@ -47,11 +47,17 @@ namespace Anaglyph.XR
 
 		// a private generator so nothing reseeding Unity's Random can give
 		// Multiplayer Play Mode players the same origin
-		private readonly System.Random random = new(Guid.NewGuid().GetHashCode());
+		private System.Random random = new(Guid.NewGuid().GetHashCode());
+
+		/// <summary>When set before play starts, the random origin follows this seed: repeatable tests.</summary>
+		public static int? SeedOverride;
 		private bool randomized;
 
-		private void OnEnable() =>
+		private void OnEnable()
+		{
+			if (SeedOverride.HasValue) random = new System.Random(SeedOverride.Value);
 			RenderPipelineManager.beginCameraRendering += OnBeginCameraRendering;
+		}
 
 		// the room can't be parented to the rig: it lives in XR Simulation's own
 		// scene, and moving it out would put its colliders in the game's physics.

@@ -4,7 +4,6 @@ using System.Text;
 using Anaglyph.Netcode;
 using Anaglyph.XR;
 using Anaglyph.XR.DepthKit.EnvScanning;
-using Anaglyph.XR.DepthKit.EnvScanning.Slam;
 using Anaglyph.XR.VisualLocalization;
 using Unity.Collections;
 using UnityEngine;
@@ -18,7 +17,7 @@ namespace Anaglyph.LaserTag
 	/// <see cref="Anaglyph.XR.DepthKit.EnvScanning.Registration.ScanRegistrationBench"/>;
 	/// the visual localizer's map and the frames behind it (visual/: images, poses,
 	/// intrinsics, features, landmark tracks, what became of every recent query, and the
-	/// settings they ran under); the pose graph the visual map hangs off (graph.json);
+	/// settings they ran under); the constraint sites drift is corrected from (sites.json);
 	/// and a text summary of the active provider's state. One folder per capture under
 	/// <see cref="EnvScan.DefaultDirectory"/>/diagnosis — on a Quest that is
 	/// /sdcard/Android/data/&lt;package&gt;/files/EnvScans/diagnosis
@@ -61,7 +60,7 @@ namespace Anaglyph.LaserTag
 					info.AppendLine("reference: none (not searching, or no snapshot received)");
 
 				await SaveVisual(info, folder);
-				SaveGraph(info, folder);
+				SaveSites(info, folder);
 
 				File.WriteAllText(Path.Combine(folder, "info.txt"), info.ToString());
 				Debug.Log($"[{nameof(AlignmentDiagnosis)}] saved to {folder}\n{info}");
@@ -119,57 +118,49 @@ namespace Anaglyph.LaserTag
 			}
 		}
 
-		// nodes (odometry and world poses, trajectory links) and edges, so node-relative
-		// keyframe poses can be placed and closures inspected
-		private static void SaveGraph(StringBuilder info, string folder)
+		// the constraint sites (where drift was measured, the correction each needed, how
+		// much each counts at the head now) and the correction the rig is following
+		private static void SaveSites(StringBuilder info, string folder)
 		{
 			try
 			{
-				PoseGraph graph = PoseGraph.Shared;
-				Json j = new();
-				j.BeginObject();
-				j.Field("version", graph.Version);
-				j.Field("driftPerMeter", graph.DriftPerMeter);
-				j.Field("loopDrift", graph.LoopDrift);
-				SharedSlam slam = SharedSlam.Instance;
-				j.Field("activeNode", slam != null ? slam.ActiveNode : 0);
-				j.Field("tracking", slam != null && slam.IsTracking);
-
-				j.Key("nodes");
-				j.BeginArray();
-				foreach (PoseNode n in graph.Nodes)
+				VisualColocationConstraintProvider provider = VisualColocationConstraintProvider.Instance;
+				if (provider == null)
 				{
-					j.BeginObject();
-					j.Field("key", n.key);
-					j.Field("previous", n.previous);
-					j.Field("segmentStart", n.segmentStart);
-					j.Field("hasPrior", n.hasPrior);
-					j.Field("odometry", n.odometry.AsPose);
-					j.Field("world", n.world.AsPose);
-					j.EndObject();
+					info.AppendLine("sites: no visual provider");
+					return;
 				}
 
-				j.EndArray();
-				j.Key("edges");
+				ConstraintSites sites = provider.Sites;
+				TrackAnchoring track = provider.Track;
+				Vector3 head = XR.MainXRRig.Instance != null ? XR.MainXRRig.Camera.transform.position : Vector3.zero;
+				Json j = new();
+				j.BeginObject();
+				j.Field("correction", provider.SiteCorrection.AsPose);
+				j.Field("path", track.Path);
+				j.Field("segment", track.Current);
+				j.Field("head", head);
+				j.Key("sites");
 				j.BeginArray();
-				foreach (PoseEdge e in graph.Edges)
+				foreach (ConstraintSites.Site site in sites.Sites)
 				{
 					j.BeginObject();
-					j.Field("id", e.id);
-					j.Field("kind", e.kind.ToString());
-					j.Field("from", e.from);
-					j.Field("to", e.to);
-					j.Field("measurement", e.measurement.AsPose);
-					j.Field("sigmaTranslation", e.sigmaTranslation);
-					j.Field("sigmaYaw", e.sigmaYaw);
-					j.Field("rejected", e.rejected);
+					j.Field("id", site.id);
+					j.Field("position", site.position);
+					j.Field("correction", site.correction.AsPose);
+					j.Field("sigmaTranslation", site.sigmaTranslation);
+					j.Field("sigmaYaw", site.sigmaYaw);
+					j.Field("path", site.path);
+					j.Field("time", site.time);
+					j.Field("crossLink", site.crossLink);
+					j.Field("measurements", site.measurements);
 					j.EndObject();
 				}
 
 				j.EndArray();
 				j.EndObject();
-				File.WriteAllText(Path.Combine(folder, "graph.json"), j.ToString());
-				info.AppendLine($"pose graph: {graph.NodeCount} nodes, {graph.EdgeCount} edges, v{graph.Version}{(slam != null ? $", tracking {slam.IsTracking}" : "")}");
+				File.WriteAllText(Path.Combine(folder, "sites.json"), j.ToString());
+				info.AppendLine($"constraint sites: {sites.Count}, correction {provider.SiteCorrection}, walked {track.Path:F0} m");
 			}
 			catch (Exception e)
 			{
@@ -210,7 +201,7 @@ namespace Anaglyph.LaserTag
 			}
 
 			info.AppendLine($"provider {provider.GetType().Name}, phase {provider.CurrentPhase}, alignment generation {provider.AlignmentGeneration}");
-			info.AppendLine($"canon space pose {provider.CanonSpacePose.position} {provider.CanonSpacePose.rotation.eulerAngles}, slam correction {provider.SlamCorrection}");
+			info.AppendLine($"canon space pose {provider.CanonSpacePose.position} {provider.CanonSpacePose.rotation.eulerAngles}, site correction {provider.SiteCorrection}");
 			info.AppendLine($"last attempt {provider.LastAttemptDescription}");
 		}
 	}

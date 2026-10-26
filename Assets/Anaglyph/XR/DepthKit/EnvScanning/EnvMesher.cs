@@ -262,23 +262,6 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			}
 		}
 
-		/// <summary>
-		/// Re-meshes a chunk regardless of how few voxels changed sign, and puts it back
-		/// on its grid pose when the new mesh lands. For chunks whose data a pose-graph
-		/// solve moved: their mesh was shown moved by a transform until now
-		/// </summary>
-		public void ForceRemesh(int chunkIndex)
-		{
-			Chunk chunk = GetOrCreateChunk(chunkIndex);
-			chunk.forceRemesh = true;
-			if (chunk.dirty) return;
-
-			chunk.pendingMeshingChangeSum = unchecked(chunk.lastMeshingChangeSum + 1);
-			chunk.dirty = true;
-			meshQueue.Enqueue(chunk);
-			mesherSemaphore.Release();
-		}
-
 		public bool TryGetChunk(int chunkIndex, out Chunk chunk)
 		{
 			return chunks.TryGetValue(chunkIndex, out chunk);
@@ -454,14 +437,10 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 						continue;
 					}
 
-					bool force = activeChunk.forceRemesh;
-					activeChunk.forceRemesh = false;
-
 					bool readbackSuccess = await scanner.ReadbackChunkInto(activeChunk.chunkIndex, readbackBuffer);
 
 					if (!readbackSuccess)
 					{
-						activeChunk.forceRemesh |= force;
 						AbortChunkWork(activeChunk, activePendingChangeSum);
 						activeChunk = null;
 						continue;
@@ -473,7 +452,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 						updatedSignBits);
 
 					int flippedVoxels = CountFlippedVoxels(activeChunk.voxelSignBits, updatedSignBits);
-					if (!force && flippedVoxels < meshFlippedVoxelsThreshold)
+					if (flippedVoxels < meshFlippedVoxelsThreshold)
 					{
 						CommitChunkWork(activeChunk, activePendingChangeSum);
 						activeChunk = null;
@@ -507,11 +486,6 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 						activeChunk.meshIsPopulated = false;
 						activeChunk.meshCollider.enabled = false;
 					}
-
-					// the mesh now shows the resampled data where it lies on the grid
-					if (force)
-						activeChunk.transform.SetPositionAndRotation(
-							scanner.ChunkCoordToCornerWorldPos(scanner.ChunkIndexToChunkCoord(activeChunk.chunkIndex)), Quaternion.identity);
 
 					RememberMeshedSurface(activeChunk, updatedSignBits);
 

@@ -50,8 +50,11 @@ namespace Anaglyph.XR
 		[SerializeField] private Vector3 driftPosition;
 		[SerializeField] private float driftYaw;
 
+		/// <summary>When set before play starts, every drift follows this seed instead of a random one: repeatable tests.</summary>
+		public static int? SeedOverride;
+
 		// private generator so Multiplayer Play Mode players drift differently
-		private readonly System.Random random = new(Guid.NewGuid().GetHashCode());
+		private System.Random random = new(Guid.NewGuid().GetHashCode());
 		private readonly float[] seeds = new float[6];
 		private float motion;
 		private bool hasPrev;
@@ -61,6 +64,7 @@ namespace Anaglyph.XR
 
 		private void Awake()
 		{
+			if (SeedOverride.HasValue) random = new System.Random(SeedOverride.Value);
 			for (int i = 0; i < seeds.Length; i++)
 				seeds[i] = (float)random.NextDouble() * 1000f;
 		}

@@ -28,6 +28,12 @@ namespace Anaglyph.XR.VisualLocalization
 		public long timestampNs;
 		/// <summary>The <see cref="VisualFrameLog"/> record of the frame it was made from; 0 when not logged.</summary>
 		public int frame;
+		/// <summary>
+		/// The first view of its place and heading, as opposed to a revisit's. Never given up
+		/// while any revisit view is left to give up instead: later views add to the map, they
+		/// don't replace what it first saw.
+		/// </summary>
+		public bool original;
 		internal int slot;
 	}
 
@@ -64,7 +70,8 @@ namespace Anaglyph.XR.VisualLocalization
 		public const int RetrievalFeatures = 256;
 		/// <summary>Keyframes scored per retrieval when a camera narrows the search: ~4M multiply-adds each.</summary>
 		public const int MaxRetrievalCandidates = 24;
-		private const int CandidatesPerFrame = 2;
+		/// <summary>Keyframes scored per frame unless the caller says otherwise: each is a few million multiply-adds on a worker thread.</summary>
+		public const int DefaultCandidatesPerFrame = 2;
 		// the retrieval slice reading the descriptor table now, which writes and disposal wait on
 		private JobHandle retrievalInFlight;
 		private const int D = FeatureSet.DescriptorSize;
@@ -177,8 +184,18 @@ namespace Anaglyph.XR.VisualLocalization
 		public bool Link(VisualKeyframe keyframe, int feature, Landmark landmark, float pixelSigma)
 		{
 			int existing = keyframe.landmarks[feature];
-			if (existing == landmark.id) return true;
+			if (existing == landmark.id) return !(landmark.established && freezeEstablished);
 			if (existing >= 0) return false;
+
+			// an established landmark keeps the observations it was founded on: the keyframe
+			// sights it, which lets localization use it from there, but adds nothing to its fit
+			if (landmark.established && freezeEstablished)
+			{
+				keyframe.landmarks[feature] = landmark.id;
+				landmark.references++;
+				return false;
+			}
+
 			foreach (Observation o in landmark.observations)
 				if (o.keyframe == keyframe) return false;
 
@@ -233,6 +250,9 @@ namespace Anaglyph.XR.VisualLocalization
 
 		// ---- coverage --------------------------------------------------------
 
+		/// <summary>Established landmarks keep the observations they were founded on (see <see cref="Landmark.established"/>).</summary>
+		public bool freezeEstablished = true;
+
 		/// <summary>Side of a coverage cell at the finest level, meters.</summary>
 		public float coverageCell = 1f;
 		/// <summary>Heading bins at the finest level.</summary>
@@ -249,15 +269,31 @@ namespace Anaglyph.XR.VisualLocalization
 		public int CoverageHeadingBins => math.max(1, coverageHeadings >> CoverageLevel);
 
 		/// <summary>
-		/// The keyframe to give up when the map is full: one from the most crowded bucket of
-		/// place (horizontal cell) and heading, so every place and direction ever seen keeps a
-		/// view for as long as the capacity allows. Within the bucket, the keyframe that sights
-		/// the fewest usable landmarks goes, the newer on a tie. When every bucket is down to a
-		/// single keyframe the explored area has outgrown the capacity, and the buckets coarsen
-		/// rather than whole places losing their last view.
+		/// The keyframe to give up when the map is full. Revisit views go first, from the most
+		/// crowded bucket of place (horizontal cell) and heading that has one: a place's first
+		/// views are never replaced by later ones. Only once no revisit view is left does a
+		/// first view go, again from the most crowded bucket, so every place and direction ever
+		/// seen keeps a view for as long as the capacity allows. Within a bucket, the keyframe
+		/// that sights the fewest usable landmarks goes, the newer on a tie. When every bucket is
+		/// down to a single keyframe the explored area has outgrown the capacity, and the
+		/// buckets coarsen rather than whole places losing their last view.
 		/// </summary>
 		private int CoverageVictim()
 		{
+			// a revisit view from the most crowded bucket that has one, while any is left
+			List<int> crowdedRevisits = null;
+			int crowdedSize = 0;
+			foreach (List<int> bucket in Bucket().Values)
+			{
+				List<int> revisits = bucket.FindAll(i => !keyframes[i].original);
+				if (revisits.Count == 0 || bucket.Count <= crowdedSize) continue;
+				crowdedRevisits = revisits;
+				crowdedSize = bucket.Count;
+			}
+
+			if (crowdedRevisits != null) return LeastUseful(crowdedRevisits);
+
+			// only first views left: the explored area has outgrown the capacity
 			while (true)
 			{
 				Dictionary<int3, List<int>> buckets = Bucket();
@@ -337,10 +373,12 @@ namespace Anaglyph.XR.VisualLocalization
 		/// first: ranked by mutual nearest neighbors among the strongest features, at
 		/// least <paramref name="minMutual"/> of them, among those <paramref name="filter"/>
 		/// lets through and, with a <paramref name="near"/> pose, within
-		/// <paramref name="nearDistance"/> of it.
+		/// <paramref name="nearDistance"/> of it. <paramref name="candidatesPerFrame"/> keyframes
+		/// are scored a frame: more when something waits on the answer.
 		/// </summary>
 		public async Awaitable<List<(VisualKeyframe keyframe, int mutual)>> RetrieveAsync(FeatureSet query, int count, int minMutual,
-			Func<VisualKeyframe, bool> filter = null, Pose? near = null, float nearDistance = 4f, int maxCandidates = MaxRetrievalCandidates)
+			Func<VisualKeyframe, bool> filter = null, Pose? near = null, float nearDistance = 4f, int maxCandidates = MaxRetrievalCandidates,
+			int candidatesPerFrame = DefaultCandidatesPerFrame)
 		{
 			List<(VisualKeyframe, int)> result = new();
 			if (keyframes.Count == 0 || query == null || query.Count == 0) return result;
@@ -378,7 +416,8 @@ namespace Anaglyph.XR.VisualLocalization
 				NativeArray<half>.Copy(query.descriptors, queryDesc, queryCount * D);
 				// a few keyframes a frame, each a few million multiply-adds: one job holding a
 				// worker for tens of milliseconds holds up the engine's own jobs, and the frame
-				for (int first = 0; first < candidates.Count; first += CandidatesPerFrame)
+				int perFrame = math.max(1, candidatesPerFrame);
+				for (int first = 0; first < candidates.Count; first += perFrame)
 				{
 					if (!retrieval.IsCreated) return result; // the map was disposed between slices
 					JobHandle handle;
@@ -392,7 +431,7 @@ namespace Anaglyph.XR.VisualLocalization
 							slots = slots,
 							scores = scores,
 							offset = first,
-						}.Schedule(math.min(CandidatesPerFrame, candidates.Count - first), 1);
+						}.Schedule(math.min(perFrame, candidates.Count - first), 1);
 
 					retrievalInFlight = handle;
 					JobHandle.ScheduleBatchedJobs();

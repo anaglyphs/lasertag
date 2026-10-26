@@ -115,7 +115,12 @@ namespace Anaglyph.XR.VisualLocalization
 	/// </summary>
 	public sealed class XFeatExtractor : IDisposable
 	{
-		public const int Width = 640, Height = 480, MaxKeypoints = 1024;
+		// square, for the 1280×1280 passthrough mode's full field of view, at about the pixel
+		// count (and cost) 640×480 had; any multiple of 32 suits the networks, re-exported for
+		// it (Tools~/export_xfeat.py, XFEAT_SIZE): XFeat's input and LighterGlue's normalization
+		public const int Width = 544, Height = 544, MaxKeypoints = 1024;
+		// pixels kept clear of a padded band's edge
+		private const float PaddingMargin = 8;
 		private const int Cell = 8, FieldWidth = Width / Cell, FieldHeight = Height / Cell;
 
 		private readonly Worker worker;
@@ -140,7 +145,8 @@ namespace Anaglyph.XR.VisualLocalization
 		}
 
 		/// <summary>Features of a <see cref="Width"/>×<see cref="Height"/> grayscale image, 0..1, row 0 on top.</summary>
-		public async Awaitable<FeatureSet> ExtractAsync(NativeArray<float> image)
+		/// <param name="content">Where the camera frame lies in the image (min x, min y, max x, max y): no keypoint is taken outside it or near its edge.</param>
+		public async Awaitable<FeatureSet> ExtractAsync(NativeArray<float> image, float4 content)
 		{
 			if (IsBusy) return null;
 			IsBusy = true;
@@ -152,7 +158,7 @@ namespace Anaglyph.XR.VisualLocalization
 
 				using Tensor<float> score = await ((Tensor<float>)worker.PeekOutput("score")).ReadbackAndCloneAsync();
 				using Tensor<float> feats = await ((Tensor<float>)worker.PeekOutput("feats")).ReadbackAndCloneAsync();
-				return await SparsifyAsync(score, feats);
+				return await SparsifyAsync(score, feats, content);
 			}
 			finally
 			{
@@ -161,7 +167,7 @@ namespace Anaglyph.XR.VisualLocalization
 		}
 
 		// the tensors must outlive the job: the caller disposes them after this returns
-		private static async Awaitable<FeatureSet> SparsifyAsync(Tensor<float> score, Tensor<float> feats)
+		private static async Awaitable<FeatureSet> SparsifyAsync(Tensor<float> score, Tensor<float> feats, float4 content)
 		{
 			const int d = FeatureSet.DescriptorSize;
 			NativeArray<float2> keypoints = new(MaxKeypoints, Allocator.Persistent);
@@ -178,6 +184,8 @@ namespace Anaglyph.XR.VisualLocalization
 					scores = scores,
 					descriptors = descriptors,
 					count = count,
+					// a padded band's repeated edge pixels make streaks, not features
+					content = content + new float4(PaddingMargin, PaddingMargin, -PaddingMargin, -PaddingMargin),
 				}.Schedule();
 				JobHandle.ScheduleBatchedJobs();
 				while (!handle.IsCompleted) await Awaitable.NextFrameAsync();
@@ -214,6 +222,7 @@ namespace Anaglyph.XR.VisualLocalization
 			public NativeArray<float> scores;
 			public NativeArray<half> descriptors;
 			public NativeReference<int> count;
+			public float4 content;
 
 			private struct Peak : IComparable<Peak>
 			{
@@ -232,7 +241,8 @@ namespace Anaglyph.XR.VisualLocalization
 				// all (tens of milliseconds on a Quest core, holding up the engine's own jobs): a
 				// histogram finds the score that admits at least that many, and only those are sorted
 				float max = 0;
-				for (int i = 0; i < score.Length; i++) max = math.max(max, score[i]);
+				for (int i = 0; i < score.Length; i++)
+					if (Inside(i)) max = math.max(max, score[i]);
 				if (max <= 0)
 				{
 					count.Value = 0;
@@ -242,14 +252,14 @@ namespace Anaglyph.XR.VisualLocalization
 				float toBin = Bins / max;
 				NativeArray<int> histogram = new(Bins, Allocator.Temp);
 				for (int i = 0; i < score.Length; i++)
-					if (score[i] > 0) histogram[math.min(Bins - 1, (int)(score[i] * toBin))]++;
+					if (score[i] > 0 && Inside(i)) histogram[math.min(Bins - 1, (int)(score[i] * toBin))]++;
 
 				int threshold = Bins - 1;
 				for (int admitted = histogram[threshold]; threshold > 0 && admitted < MaxKeypoints; admitted += histogram[--threshold]) { }
 
 				NativeList<Peak> peaks = new(MaxKeypoints * 2, Allocator.Temp);
 				for (int i = 0; i < score.Length; i++)
-					if (score[i] > 0 && math.min(Bins - 1, (int)(score[i] * toBin)) >= threshold)
+					if (score[i] > 0 && Inside(i) && math.min(Bins - 1, (int)(score[i] * toBin)) >= threshold)
 						peaks.Add(new Peak { score = score[i], index = i });
 				peaks.Sort();
 
@@ -264,6 +274,12 @@ namespace Anaglyph.XR.VisualLocalization
 				}
 
 				count.Value = n;
+			}
+
+			private bool Inside(int i)
+			{
+				float x = i % Width, y = i / Width;
+				return x >= content.x && y >= content.y && x < content.z && y < content.w;
 			}
 
 			// grid_sample(bilinear, zeros padding, align_corners=False) at XFeat's grid
@@ -301,7 +317,7 @@ namespace Anaglyph.XR.VisualLocalization
 	/// LighterGlue, XFeat's LightGlue: attends over both images' keypoints and returns
 	/// mutual matches above a confidence. Both images must be in the extractor's
 	/// <see cref="XFeatExtractor.Width"/>×<see cref="XFeatExtractor.Height"/> pixels; the
-	/// positional encoding is normalized for that size inside the network.
+	/// positional encoding is normalized for that size inside the network (exported with it).
 	/// </summary>
 	public sealed class LighterGlueMatcher : IDisposable
 	{
@@ -329,7 +345,8 @@ namespace Anaglyph.XR.VisualLocalization
 		/// <paramref name="b"/> or -1, and the match confidence (0 when unmatched).
 		/// Null when either side is too sparse, or the matcher is busy.
 		/// </summary>
-		public async Awaitable<(int[] matches, float[] confidence)> MatchAsync(FeatureSet a, FeatureSet b)
+		/// <param name="framesPerRun">Frames this run is spread over; null for <see cref="FramesPerRun"/>.</param>
+		public async Awaitable<(int[] matches, float[] confidence)> MatchAsync(FeatureSet a, FeatureSet b, int? framesPerRun = null)
 		{
 			if (IsBusy || a == null || b == null || a.Count < MinKeypoints || b.Count < MinKeypoints) return (null, null);
 			IsBusy = true;
@@ -344,7 +361,7 @@ namespace Anaglyph.XR.VisualLocalization
 				worker.SetInput("desc0", desc0);
 				worker.SetInput("kpts1", kpts1);
 				worker.SetInput("desc1", desc1);
-				await XFeatModels.ScheduleAsync(worker, layerCount, FramesPerRun);
+				await XFeatModels.ScheduleAsync(worker, layerCount, framesPerRun ?? FramesPerRun);
 
 				using Tensor<float> matches = await ((Tensor<float>)worker.PeekOutput("matches0")).ReadbackAndCloneAsync();
 				using Tensor<float> scores = await ((Tensor<float>)worker.PeekOutput("mscores0")).ReadbackAndCloneAsync();

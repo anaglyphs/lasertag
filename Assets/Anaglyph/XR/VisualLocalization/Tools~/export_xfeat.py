@@ -26,7 +26,10 @@ ROOT = os.environ.get("XFEAT_ROOT", os.path.join(os.path.dirname(__file__), "ext
 sys.path.insert(0, ROOT)
 from modules.model import XFeatModel  # noqa: E402
 
-H, W = 480, 640
+# XFeat's input size, any multiple of 32 (XFEAT_SIZE="WxH"); XFeatExtractor.Width/Height
+# must match. LighterGlue normalizes keypoint positions for the same image size
+W, H = map(int, os.environ.get("XFEAT_SIZE", "544x544").lower().split("x"))
+GLUE_W, GLUE_H = W, H
 K = 1024
 DETECTION_THRESHOLD = 0.05
 OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), "onnx")
@@ -144,8 +147,8 @@ class LighterGlueExport(nn.Module):
         return x0 + blk.ffn(torch.cat([x0, m0], -1)), x1 + blk.ffn(torch.cat([x1, m1], -1))
 
     def forward(self, kpts0, desc0, kpts1, desc1):
-        shift = torch.tensor([W / 2, H / 2])
-        scale = max(W, H) / 2
+        shift = torch.tensor([GLUE_W / 2, GLUE_H / 2])
+        scale = max(GLUE_W, GLUE_H) / 2
         k0, k1 = (kpts0 - shift) / scale, (kpts1 - shift) / scale
         cos0, sin0 = self.posenc(k0)
         cos1, sin1 = self.posenc(k1)
@@ -183,8 +186,8 @@ def export():
                           input_names=["image"], output_names=["score", "feats"], dynamo=False)
 
     lg = LighterGlueExport().eval()
-    args = (torch.rand(700, 2) * torch.tensor([W, H]), F.normalize(torch.randn(700, 64), dim=-1),
-            torch.rand(900, 2) * torch.tensor([W, H]), F.normalize(torch.randn(900, 64), dim=-1))
+    args = (torch.rand(700, 2) * torch.tensor([GLUE_W, GLUE_H]), F.normalize(torch.randn(700, 64), dim=-1),
+            torch.rand(900, 2) * torch.tensor([GLUE_W, GLUE_H]), F.normalize(torch.randn(900, 64), dim=-1))
     with torch.no_grad():
         torch.onnx.export(lg, args, os.path.join(OUT, "lighterglue.onnx"), opset_version=17,
                           input_names=["kpts0", "desc0", "kpts1", "desc1"], output_names=["matches0", "mscores0"],

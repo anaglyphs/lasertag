@@ -35,7 +35,7 @@ namespace Anaglyph.LaserTag.Editor
 		public float turnResponse = 4f;
 		[Tooltip("Mean seconds between glances while walking")]
 		public float glanceInterval = 3f;
-		public float glanceAngle = 45f;
+		public float glanceAngle = 30f;
 		[Tooltip("Seconds spent looking around at each stop")]
 		public float lookAroundSeconds = 4f;
 		[Tooltip("Head shake while moving: degrees of jitter, as a running head bobs and darts")]
@@ -79,7 +79,10 @@ namespace Anaglyph.LaserTag.Editor
 		private float glanceYaw, glanceUntil, nextGlance;
 		private float lookAroundLeft, lookAroundYaw;
 		private float glancePitch;
-		private readonly Random random = new(12345);
+		private Random random = new(12345);
+
+		/// <summary>Restarts the walker's choices (stops, glances) from a seed: repeatable tests.</summary>
+		public void Reseed(int seed) => random = new Random(seed);
 
 		private void Awake() => Instance = this;
 

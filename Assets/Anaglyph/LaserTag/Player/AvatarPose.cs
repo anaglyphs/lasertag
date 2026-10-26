@@ -1,4 +1,3 @@
-using Anaglyph.XR.DepthKit.EnvScanning.Registration;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using Unity.XR.CoreUtils;
@@ -13,11 +12,9 @@ namespace Anaglyph.LaserTag.Player
 	/// version of the same send. Update and LateUpdate write too, so that anything reading a
 	/// held weapon's muzzle mid-frame isn't aiming with the previous frame's hand.
 	///
-	/// Poses travel relative to the avatar root, and every peer places the root at the
-	/// owner's pose-graph correction (their odometry frame in the shared frame) as its own
-	/// replica of the graph has it. A loop closure therefore moves the player together
-	/// with the map around them on every headset, in the same frame, instead of the map
-	/// moving first and the player catching up a network trip later.
+	/// Poses travel in the shared frame: each headset's rig is already aligned to it (drift
+	/// corrections included, eased in by the colocator), so the avatar root sits at the
+	/// origin on every peer and the owner's world poses are what everyone sees.
 	/// </summary>
 	public class AvatarPose : NetworkBehaviour
 	{
@@ -42,8 +39,7 @@ namespace Anaglyph.LaserTag.Player
 		private void PlaceRoot()
 		{
 			if (!IsSpawned) return;
-			Pose4 correction = SharedSlam.Instance != null ? SharedSlam.Instance.CorrectionOfClient(OwnerClientId) : Pose4.Identity;
-			transform.SetPositionAndRotation(correction.translation, correction.Rotation);
+			transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
 		}
 
 		public override void OnNetworkSpawn()

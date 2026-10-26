@@ -563,6 +563,7 @@ MonoBehaviour:
         m_Action: Position
         m_Flags: 0
       m_Flags: 0
+      m_Priority: 0
     m_Reference: {fileID: 0}
   m_RotationInput:
     m_UseReference: 0
@@ -583,6 +584,7 @@ MonoBehaviour:
         m_Action: Rotation
         m_Flags: 0
       m_Flags: 0
+      m_Priority: 0
     m_Reference: {fileID: 0}
   m_TrackingStateInput:
     m_UseReference: 0
@@ -603,6 +605,7 @@ MonoBehaviour:
         m_Action: Tracking State
         m_Flags: 0
       m_Flags: 0
+      m_Priority: 0
     m_Reference: {fileID: 0}
   m_PositionAction:
     m_Name: 
@@ -613,6 +616,7 @@ MonoBehaviour:
     m_Interactions: 
     m_SingletonActionBindings: []
     m_Flags: 0
+    m_Priority: 0
   m_RotationAction:
     m_Name: 
     m_Type: 0
@@ -622,6 +626,7 @@ MonoBehaviour:
     m_Interactions: 
     m_SingletonActionBindings: []
     m_Flags: 0
+    m_Priority: 0
 --- !u!1 &8763781957885751202
 GameObject:
   m_ObjectHideFlags: 0
@@ -1053,6 +1058,10 @@ PrefabInstance:
       value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 5728646336010394143, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
+      propertyPath: field of view
+      value: 120
+      objectReference: {fileID: 0}
+    - target: {fileID: 5728646336010394143, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       propertyPath: m_OcclusionCulling
       value: 1
       objectReference: {fileID: 0}
@@ -1259,6 +1268,7 @@ MonoBehaviour:
       m_Interactions: Press
       m_SingletonActionBindings: []
       m_Flags: 0
+      m_Priority: 0
     - m_Name: OnAxis
       m_Type: 0
       m_ExpectedControlType: Vector2
@@ -1267,6 +1277,7 @@ MonoBehaviour:
       m_Interactions: 
       m_SingletonActionBindings: []
       m_Flags: 0
+      m_Priority: 0
     - m_Name: OnGrip
       m_Type: 1
       m_ExpectedControlType: Button
@@ -1275,6 +1286,7 @@ MonoBehaviour:
       m_Interactions: 
       m_SingletonActionBindings: []
       m_Flags: 0
+      m_Priority: 0
     - m_Name: OnBack
       m_Type: 1
       m_ExpectedControlType: Button
@@ -1283,6 +1295,7 @@ MonoBehaviour:
       m_Interactions: 
       m_SingletonActionBindings: []
       m_Flags: 0
+      m_Priority: 0
     m_Bindings:
     - m_Name: 
       m_Id: ee84885c-db3b-4a58-b5a6-5fc743a69a38
@@ -1335,6 +1348,7 @@ MonoBehaviour:
         m_Action: Position
         m_Flags: 0
       m_Flags: 0
+      m_Priority: 0
     m_Reference: {fileID: 0}
   rotation:
     m_UseReference: 0
@@ -1355,6 +1369,7 @@ MonoBehaviour:
         m_Action: Rotation
         m_Flags: 0
       m_Flags: 0
+      m_Priority: 0
     m_Reference: {fileID: 0}
   pointPosition:
     m_UseReference: 0
@@ -1391,6 +1406,7 @@ MonoBehaviour:
         m_Action: Point Position
         m_Flags: 8
       m_Flags: 0
+      m_Priority: 0
     m_Reference: {fileID: 0}
   pointRotation:
     m_UseReference: 0
@@ -1427,6 +1443,7 @@ MonoBehaviour:
         m_Action: Point Rotation
         m_Flags: 8
       m_Flags: 0
+      m_Priority: 0
     m_Reference: {fileID: 0}
   trackingState:
     m_UseReference: 0
@@ -1447,6 +1464,7 @@ MonoBehaviour:
         m_Action: Tracking State
         m_Flags: 0
       m_Flags: 0
+      m_Priority: 0
     m_Reference: {fileID: 0}
   interactor: {fileID: 1566182161945705153}
   handedness: 1
@@ -1598,6 +1616,7 @@ MonoBehaviour:
       m_Interactions: Press
       m_SingletonActionBindings: []
       m_Flags: 0
+      m_Priority: 0
     - m_Name: OnAxis
       m_Type: 0
       m_ExpectedControlType: Vector2
@@ -1606,6 +1625,7 @@ MonoBehaviour:
       m_Interactions: 
       m_SingletonActionBindings: []
       m_Flags: 0
+      m_Priority: 0
     - m_Name: OnGrip
       m_Type: 1
       m_ExpectedControlType: Button
@@ -1614,6 +1634,7 @@ MonoBehaviour:
       m_Interactions: 
       m_SingletonActionBindings: []
       m_Flags: 0
+      m_Priority: 0
     - m_Name: OnBack
       m_Type: 1
       m_ExpectedControlType: Button
@@ -1622,6 +1643,7 @@ MonoBehaviour:
       m_Interactions: 
       m_SingletonActionBindings: []
       m_Flags: 0
+      m_Priority: 0
     m_Bindings:
     - m_Name: 
       m_Id: f0fb72ce-064d-4020-ad84-e61845cdb562
@@ -1682,6 +1704,7 @@ MonoBehaviour:
         m_Action: Position
         m_Flags: 0
       m_Flags: 0
+      m_Priority: 0
     m_Reference: {fileID: 0}
   rotation:
     m_UseReference: 0
@@ -1702,6 +1725,7 @@ MonoBehaviour:
         m_Action: Rotation
         m_Flags: 0
       m_Flags: 0
+      m_Priority: 0
     m_Reference: {fileID: 0}
   pointPosition:
     m_UseReference: 0
@@ -1738,6 +1762,7 @@ MonoBehaviour:
         m_Action: Point Position
         m_Flags: 8
       m_Flags: 0
+      m_Priority: 0
     m_Reference: {fileID: 0}
   pointRotation:
     m_UseReference: 0
@@ -1774,6 +1799,7 @@ MonoBehaviour:
         m_Action: Point Rotation
         m_Flags: 8
       m_Flags: 0
+      m_Priority: 0
     m_Reference: {fileID: 0}
   trackingState:
     m_UseReference: 0
@@ -1794,6 +1820,7 @@ MonoBehaviour:
         m_Action: Tracking State
         m_Flags: 0
       m_Flags: 0
+      m_Priority: 0
     m_Reference: {fileID: 0}
   interactor: {fileID: 1859463319553081786}
   handedness: 0

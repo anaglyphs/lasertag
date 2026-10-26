@@ -54,6 +54,8 @@ namespace Anaglyph.XR.VisualLocalization
 		/// <summary>The query camera's center in the map frame.</summary>
 		public float3 cameraCenter;
 		public int inliers;
+		/// <summary>Which correspondences the final fit kept, by index into those solved.</summary>
+		public int[] inlierIndices;
 		/// <summary>Inliers whose landmark is ranged: these pin translation, the rest only yaw.</summary>
 		public int rangedInliers;
 		public int correspondences;
@@ -205,6 +207,7 @@ namespace Anaglyph.XR.VisualLocalization
 
 			ctx.Select(inliers, yaw, center, threshold2);
 			result.inliers = inliers.Count;
+			result.inlierIndices = inliers.ToArray();
 			if (inliers.Count < 6)
 			{
 				result.failure = "refinement lost the consensus";

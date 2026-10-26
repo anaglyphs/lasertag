@@ -20,8 +20,8 @@ namespace Anaglyph.LaserTag
 	/// Subclasses find the alignments (<see cref="ScanRegistrationColocationConstraintProvider"/>
 	/// from environment scans, <see cref="VisualColocationConstraintProvider"/> from camera
 	/// landmarks); this holds the phases and the single constraint the
-	/// <see cref="Colocator"/> aligns the rig with, exactly as an anchor would be.
-	/// <see cref="SharedSlam"/> builds its pose graph on whichever is active.
+	/// <see cref="Colocator"/> aligns the rig with, exactly as an anchor would be, moved by
+	/// whatever <see cref="SiteCorrection"/> the provider has measured since.
 	/// </summary>
 	public abstract class CanonColocationProvider : MonoBehaviour, IColocationConstraintProvider
 	{
@@ -72,15 +72,14 @@ namespace Anaglyph.LaserTag
 		public int FrameEpoch => frameEpoch;
 
 		/// <summary>
-		/// Pose-graph SLAM's drift correction, applied on top of the found alignment: the
-		/// tracking space is aligned to SlamCorrection ∘ <see cref="CanonSpacePose"/>.
-		/// Reset whenever a new alignment is found, since that alignment was found against
-		/// the map as already corrected
+		/// The drift correction the rig is being aligned by, on top of the found alignment:
+		/// the tracking space goes to SiteCorrection ∘ <see cref="CanonSpacePose"/>.
+		/// Reset whenever a new alignment is found, which is found against the map as it is
 		/// </summary>
-		public Pose4 SlamCorrection { get; set; } = Pose4.Identity;
+		public Pose4 SiteCorrection { get; set; } = Pose4.Identity;
 
-		/// <summary>Whether <see cref="SharedSlam"/> runs while this provider is active: it closes loops into the pose graph</summary>
-		public virtual bool SupportsSharedSlam => false;
+		/// <summary>Where the tracking space belongs now: the alignment, corrected.</summary>
+		public Pose TargetSpacePose => SiteCorrection.Apply(canonSpacePose);
 
 		public virtual bool IsAvailable => EnvScanner.Instance != null && MainXRRig.Instance != null;
 		public bool IsRunning => CurrentPhase != Phase.Stopped;
@@ -122,7 +121,7 @@ namespace Anaglyph.LaserTag
 			ResetWorkingState();
 		}
 
-		public void GetColocationConstraints(List<ColocationConstraint> results)
+		public virtual void GetColocationConstraints(List<ColocationConstraint> results)
 		{
 			if (CurrentPhase != Phase.Aligned || !IsAvailable) return;
 			Transform space = MainXRRig.TrackingSpace;
@@ -131,7 +130,7 @@ namespace Anaglyph.LaserTag
 			// observed drifts toward canon as the colocator moves the rig, then the two
 			// coincide and the fit holds still
 			results.Add(new ColocationConstraint(new Pose(space.position, space.rotation),
-				SlamCorrection.Apply(canonSpacePose), hasReliableRotation: true));
+				TargetSpacePose, hasReliableRotation: true));
 		}
 
 		private void OnBusActivated() { if (IsRunning) EnterRole(); }
@@ -175,7 +174,7 @@ namespace Anaglyph.LaserTag
 		{
 			canonSpacePose = canon;
 			AlignmentGeneration++;
-			SlamCorrection = Pose4.Identity;
+			SiteCorrection = Pose4.Identity;
 			AlignmentIsRegistered = registered;
 			alignmentApplied = false;
 			CurrentPhase = Phase.Aligned;

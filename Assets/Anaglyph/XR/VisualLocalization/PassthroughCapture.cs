@@ -61,6 +61,9 @@ namespace Anaglyph.XR.VisualLocalization
 		/// <summary>Head rotation speed around capture, degrees per second: motion blur's proxy.</summary>
 		public float angularSpeed;
 
+		/// <summary>Where the camera's frame lies in <see cref="pixels"/> (min x, min y, max x, max y); outside it is padding.</summary>
+		public float4 content;
+
 		/// <summary>XR Simulation's rendered readback rather than a physical sensor.</summary>
 		public bool rendered;
 
@@ -83,6 +86,7 @@ namespace Anaglyph.XR.VisualLocalization
 		private NativeArray<byte> gray;
 		private Pose lensPose = Pose.identity;
 		private bool lookedForLens;
+		private bool loggedSize;
 
 		/// <summary>XR Simulation's readback has its first row at the bottom.</summary>
 		public bool simulatorMirrorY = true;
@@ -153,6 +157,12 @@ namespace Anaglyph.XR.VisualLocalization
 				}
 
 				if (!ToGrayscale(image, out int width, out int height, out into.rendered)) return false;
+				if (!loggedSize)
+				{
+					// which camera mode the runtime picked: AR Foundation can't choose one on Quest
+					loggedSize = true;
+					Debug.Log($"[{nameof(PassthroughCapture)}] camera frames are {width}×{height}, fitted into {XFeatExtractor.Width}×{XFeatExtractor.Height}");
+				}
 
 				// intrinsics of the full image; XR Simulation reports none, so take its render camera's
 				float fx = intrinsics.focalLength.x, fy = intrinsics.focalLength.y;
@@ -172,12 +182,13 @@ namespace Anaglyph.XR.VisualLocalization
 					cy *= s;
 				}
 
-				// the largest centered 4:3 rect, scaled to the model size
+				// the whole frame, fitted inside the model's square input: a 1280×1280 frame fills
+				// it, a 4:3 one keeps its full width between padded bands (edge pixels repeated,
+				// and no keypoints taken near them), so no field of view is ever cropped away
 				const int outW = XFeatExtractor.Width, outH = XFeatExtractor.Height;
-				int cropW = math.min(width, height * outW / outH);
-				int cropH = cropW * outH / outW;
-				int x0 = (width - cropW) / 2, y0 = (height - cropH) / 2;
-				float scale = (float)outW / cropW;
+				float scale = math.min((float)outW / width, (float)outH / height);
+				float x0 = (width - outW / scale) * 0.5f, y0 = (height - outH / scale) * 0.5f;
+				into.content = new float4(-x0 * scale, -y0 * scale, (width - x0) * scale, (height - y0) * scale);
 
 				new ResampleJob
 				{
@@ -255,7 +266,8 @@ namespace Anaglyph.XR.VisualLocalization
 		private struct ResampleJob : IJobParallelFor
 		{
 			[ReadOnly] public NativeArray<byte> src;
-			public int srcWidth, srcHeight, x0, y0;
+			public int srcWidth, srcHeight;
+			public float x0, y0;
 			public float scale;
 			[WriteOnly, NativeDisableParallelForRestriction] public NativeArray<float> dst;
 

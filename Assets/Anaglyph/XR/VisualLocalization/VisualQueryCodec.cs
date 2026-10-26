@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using Unity.Mathematics;
 using UnityEngine;
@@ -45,6 +46,15 @@ namespace Anaglyph.XR.VisualLocalization
 				w.Write((sbyte)math.clamp(math.round((float)f.descriptors[i] * 127f), -127, 127));
 
 			return stream.ToArray();
+		}
+
+		/// <summary>The query id alone, from the header: to answer a query without decoding its features.</summary>
+		public static bool TryReadId(byte[] payload, out int queryId)
+		{
+			queryId = 0;
+			if (payload == null || payload.Length < 5 || payload[0] != Version) return false;
+			queryId = BitConverter.ToInt32(payload, 1);
+			return true;
 		}
 
 		public static bool TryDecode(byte[] payload, out VisualQuery query, out int queryId)

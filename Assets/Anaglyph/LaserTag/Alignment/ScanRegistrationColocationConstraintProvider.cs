@@ -26,7 +26,7 @@ namespace Anaglyph.LaserTag
 		private float nextCoverageLog;
 
 		[Header("Acceptance")]
-		// shared with loop closure (SharedSlam) and ScanRegistrationBench
+		// shared with ScanRegistrationBench
 		[SerializeField] private RegistrationGates gates = new();
 
 		/// <summary>When a registration may be attempted and trusted, for everything that registers scans.</summary>

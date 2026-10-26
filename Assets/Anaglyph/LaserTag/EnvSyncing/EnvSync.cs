@@ -33,17 +33,15 @@ namespace Anaglyph.LaserTag.EnvSyncing
 		// NGO caps fragmented messages at 64000 bytes; leave headroom for headers.
 		private const int MaxPayloadBytes = 60000;
 
-		private const uint FramePayloadMagic = 0x4D415246; // "FRAM"
+		private const uint FramePayloadMagic = 0x324D5246; // "FRM2": shared-frame poses, no pose-graph node
 		private const uint ChunkPayloadMagic = 0x4B4E4843; // "CHNK"
 
-		// [magic][MapSpaceScanContext][frame index][pose-graph node] then the codec's bytes.
-		// With a node, the header's pose is relative to that node, and each receiver
-		// places the frame where its own replica of the graph has the node now
+		// [magic][MapSpaceScanContext][frame index] then the codec's bytes. The header's pose
+		// is in the shared frame, as the sender's corrected alignment places it
 		private const int ContextOffset = sizeof(uint);
 		private const int ContextBytes = 48;
 		private const int FrameIndexOffset = ContextOffset + ContextBytes;
-		private const int FrameNodeOffset = FrameIndexOffset + sizeof(uint);
-		private const int FramePayloadHeaderBytes = FrameNodeOffset + sizeof(ulong);
+		private const int FramePayloadHeaderBytes = FrameIndexOffset + sizeof(uint);
 
 		// [magic][MapSpaceScanContext][chunk index] then the RLE bytes
 		private const int ChunkIndexOffset = ContextOffset + ContextBytes;
@@ -323,14 +321,6 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			DepthFrameHeader header = captured.header;
 			header.weight = (ushort)Math.Clamp(unsentFrames, 1, MaxFrameWeight);
 
-			// relative to the node it was captured at, so a solve in flight moves it with the map
-			ulong node = 0;
-			if (SharedSlam.Instance != null && SharedSlam.Instance.TryGetCaptureNode(captured.tag, out node, out Pose4 nodeWorld))
-			{
-				header.position = nodeWorld.ApplyInverse(header.position);
-				header.rotation = math.mul(math.inverse(nodeWorld.Rotation), header.rotation);
-			}
-
 			byte[] encoded = DepthFrameCodec.Encode(header, captured.codes, compression);
 			int payloadSize = FramePayloadHeaderBytes + encoded.Length;
 
@@ -344,7 +334,6 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			SyncBytes.Write(payload, 0, FramePayloadMagic);
 			WriteContext(payload, CurrentFrame);
 			SyncBytes.Write(payload, FrameIndexOffset, ++sentFrameIndex);
-			SyncBytes.Write(payload, FrameNodeOffset, node);
 			Buffer.BlockCopy(encoded, 0, payload, FramePayloadHeaderBytes, encoded.Length);
 
 			frameEvent.Raise(payload);
@@ -387,30 +376,10 @@ namespace Anaglyph.LaserTag.EnvSyncing
 				return;
 			}
 
-			// a node-relative frame lands where this replica has the node, and may not
-			// integrate into chunks anchored too far from it
-			ulong node = SyncBytes.Read<ulong>(payload, FrameNodeOffset);
-			uint[] locks = null;
-			int locksRevision = 0;
-			if (node != 0)
-			{
-				Vector3 position = header.position;
-				Quaternion rotation = header.rotation;
-				if (SharedSlam.Instance == null || !SharedSlam.Instance.PrepareRemoteFrame(node, ref position, ref rotation, out locks, out locksRevision))
-				{
-					Drop("frame: pose-graph node not known here yet");
-					return;
-				}
-
-				header.position = position;
-				header.rotation = rotation;
-			}
-
-			if (EnvScanner.Instance.IntegrateFrame(header, receivedCodes, locks, locksRevision))
+			if (EnvScanner.Instance.IntegrateFrame(header, receivedCodes))
 			{
 				statReceived++;
 				statReceivedBytes += payload.Length;
-				if (SharedSlam.Instance != null) SharedSlam.Instance.OnRemoteFrameIntegrated(node);
 			}
 			else Drop("frame: scanner refused");
 		}

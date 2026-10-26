@@ -5,11 +5,10 @@ using UnityEngine;
 namespace Anaglyph.XR.VisualLocalization
 {
 	/// <summary>
-	/// Where keyframes are anchored: a pose graph whose nodes move as drift is
-	/// corrected. Keyframes and landmarks are stored relative to a node, so a solve moves
-	/// them with it, and how far apart two nodes are in expected drift decides whether
-	/// their keyframes may be triangulated together (consecutive views: yes; the same
-	/// place after a long walk: no, that is a loop closure).
+	/// Where keyframes are anchored: nodes along the headset's track. Keyframes and
+	/// landmarks are stored relative to a node, and how far apart two nodes are in expected
+	/// drift decides whether their keyframes may be triangulated together (consecutive
+	/// views: yes; the same place after a long walk: no, that is a revisit to measure).
 	/// </summary>
 	public interface IKeyframeAnchoring
 	{
@@ -95,6 +94,12 @@ namespace Anaglyph.XR.VisualLocalization
 		public readonly List<Observation> observations = new();
 		/// <summary>Keyframe features pointing at this landmark; it is dropped at zero.</summary>
 		public int references;
+		/// <summary>
+		/// Triangulated from the views that founded it, and fixed from then on: later
+		/// keyframes may sight it (and localize with it), but their observations never join
+		/// its fit, so a poor later view can't move it.
+		/// </summary>
+		public bool established;
 
 		public bool HasMesh => meshInverseDepthSigma > 0;
 

@@ -41,7 +41,8 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 
 		private NetworkVariable<ShotData> shotSync = new();
 		public ShotData Shot => shotSync.Value;
-		
+		public float MetersPerSecond => metersPerSecond;
+
 		private bool isAlive;
 		private float travelDist;
 
