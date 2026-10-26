@@ -95,7 +95,7 @@ namespace Anaglyph.LaserTag.Maps
 			return Commit(Change(CatalogChangeKind.Membership, space, copy), new[] { copy });
 		}
 
-		public CatalogOperationResult CreateSpace(bool automatic, Method initialMethod = Method.MetaSharedAnchor)
+		public CatalogOperationResult CreateSpace(bool automatic, Method initialMethod = MapSpaceStartup.DefaultMethod)
 		{
 			if (HasPending) return Rejected();
 			var space = MapSpace.Create(SpaceStore.GenerateName());

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Anaglyph.LaserTag.Maps;
 using Anaglyph.LaserTag.Player;
 using Anaglyph.Netcode.SyncVariables;
-using Anaglyph.XR;
 using Anaglyph.XR.SharedSpaces;
 using Anaglyph.XR.SharedSpaces.AprilTags;
 using Anaglyph.XR.SharedSpaces.SharedAnchors;
@@ -43,10 +42,23 @@ namespace Anaglyph.LaserTag
 		public static bool UsesSavedReferences(ColocationMethod method, MapSpace space) =>
 			UsesSavedReferences(method) && !IsTwoTagMode(method, space);
 
-		// Visual relocalization takes over colocation for now: anchors, tags and scan
-		// registration stay in the code but are never selected. Flip
-		// PreferredAvailableMethod to return control to the per-space preference
+		/// <summary>
+		/// Aligns to references a space keeps: anchors, tags, or its saved visual map. The
+		/// space's frame is then the same from one session to the next, and references of
+		/// different kinds share it. Scan registration aligns to whatever the authority has.
+		/// </summary>
 		public static bool UsesSavedReferences(ColocationMethod method) =>
+			UsesNativeReferences(method) || method == ColocationMethod.Visual;
+
+		/// <summary><see cref="UsesNativeReferences(ColocationMethod)"/>, less AprilTag's two-tag mode.</summary>
+		public static bool UsesNativeReferences(ColocationMethod method, MapSpace space) =>
+			UsesNativeReferences(method) && !IsTwoTagMode(method, space);
+
+		/// <summary>
+		/// Aligns to references the headset observes (anchors, tags), which the map layer
+		/// authors, observes and hands over between methods. A visual map is the provider's own.
+		/// </summary>
+		public static bool UsesNativeReferences(ColocationMethod method) =>
 			method is ColocationMethod.MetaSharedAnchor or ColocationMethod.AprilTag;
 
 		public static bool IsColocated { get; private set; }
@@ -69,13 +81,17 @@ namespace Anaglyph.LaserTag
 		public ColocationMethod Method => methodSync.Value;
 		public ColocationMethod SelectedMethod => SyncBus.Active ? Method : offlineMethod;
 		public ColocationMethod ActiveMethod { get; private set; }
-		public ColocationMethod PreferredAvailableMethod => ColocationMethod.Visual;
+
+		/// <summary>The space's preference, as far as it has the references for it; visual without a space.</summary>
+		public ColocationMethod PreferredAvailableMethod => space == null ? ColocationMethod.Visual :
+			CompatibleMethod(space.preferredColocationMethod, space.HasTags, true, space.anchors.Count > 0);
 		public ColocationMethod PreferredSessionMethod => PreferredAvailableMethod;
 
+		/// <summary>A native-reference preference the space has no references for falls back to the kind it has.</summary>
 		public static ColocationMethod CompatibleMethod(ColocationMethod requested, bool hasTags, bool hasContent,
 			bool hasAnchors)
 		{
-			if (!UsesSavedReferences(requested)) return requested;
+			if (!UsesNativeReferences(requested)) return requested;
 			if (!hasTags && hasAnchors) return ColocationMethod.MetaSharedAnchor;
 			if (hasTags && !hasAnchors) return ColocationMethod.AprilTag;
 			return requested;
@@ -108,11 +124,13 @@ namespace Anaglyph.LaserTag
 
 		public int TrackingGeneration { get; private set; }
 
-		// two-tag mode aligns to a pair of tags, not to the space's saved references
+		// two-tag mode aligns to a pair of tags, not to the space's saved references. The
+		// visual provider's constraints are its own alignment: colocated is aligned
 		public bool ReferenceAligned => UsesSavedReferences(ActiveMethod) && !UsingTwoTagMode && ActiveProvider != null &&
-		                                ActiveProvider.IsAvailable && IsColocated && Agreement.constraintCount > 0 &&
-		                                Agreement.meanAgrees && Agreement.agreeingCount >=
-		                                Math.Min(Agreement.constraintCount, 2);
+		                                ActiveProvider.IsAvailable && IsColocated &&
+		                                (ActiveMethod == ColocationMethod.Visual ||
+		                                 Agreement.constraintCount > 0 && Agreement.meanAgrees &&
+		                                 Agreement.agreeingCount >= Math.Min(Agreement.constraintCount, 2));
 
 		public int CountRealizableReferences()
 		{

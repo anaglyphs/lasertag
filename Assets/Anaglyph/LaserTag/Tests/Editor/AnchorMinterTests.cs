@@ -155,7 +155,7 @@ namespace Anaglyph.LaserTag.Tests
 				var manager = owner.AddComponent<ColocationManager>();
 				Set(manager, "spatialAnchorColocationProvider", provider);
 				manager.ManagedSelection = true; manager.ConfigureSpace(MapSpace.Create("Test"), null);
-				Assert.That(manager.PreferredSessionMethod, Is.EqualTo(ColocationManager.ColocationMethod.MetaSharedAnchor));
+				Assert.That(manager.PreferredSessionMethod, Is.EqualTo(MapSpaceStartup.DefaultMethod));
 			}
 			finally { instance.SetValue(null, previous); }
 		}

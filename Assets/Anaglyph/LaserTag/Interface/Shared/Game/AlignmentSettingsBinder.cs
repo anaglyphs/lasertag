@@ -47,7 +47,7 @@ namespace Anaglyph.LaserTag.Interface
 
 		private static ColocationManager.ColocationMethod Preference =>
 			LaserTagMapCoordinator.Instance?.CurrentSpace?.preferredColocationMethod ??
-			ColocationManager.ColocationMethod.MetaSharedAnchor;
+			Anaglyph.LaserTag.Maps.MapSpaceStartup.DefaultMethod;
 
 		public event Action Changing;
 		public event Action Changed;
@@ -158,7 +158,7 @@ namespace Anaglyph.LaserTag.Interface
 			else if (manager != null && manager.WaitingForAlignmentAuthor)
 			{
 				var pendingSpace = manager.CurrentSpace;
-				bool needsSource = pendingSpace.HasReferenceBasedData &&
+				bool needsSource = pendingSpace.HasNativeReferences &&
 					(displayed == ColocationManager.ColocationMethod.AprilTag ? !pendingSpace.HasTags : pendingSpace.anchors.Count == 0);
 				Status = MenuCopy.Get("Map", needsSource ? "alignment.waiting-for-reference-headset" : "alignment.waiting-for-headset");
 			}

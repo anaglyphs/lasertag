@@ -489,7 +489,7 @@ namespace Anaglyph.LaserTag.Maps
 			CancelTransitionInternal();
 			transitions.Publish(default, null);
 			var current = CurrentSpace;
-			if (!ColocationManager.UsesSavedReferences(request.method, current) &&
+			if (!ColocationManager.UsesNativeReferences(request.method, current) &&
 				!(request.setupTags && request.method == Method.AprilTag))
 			{
 				current.hasPendingSetup = false;

@@ -209,7 +209,7 @@ namespace Anaglyph.LaserTag.Maps
 		private async void ReconcileSession(MapSpace local, MapSpace remote, GameMap map,
 			int operation, CancellationToken token)
 		{
-			if (!local.HasReferenceBasedData || !remote.HasReferenceBasedData)
+			if (!local.HasNativeReferences || !remote.HasNativeReferences)
 				return;
 
 			Guid context = visit.ReferenceContext;

@@ -47,7 +47,7 @@ namespace Anaglyph.LaserTag.Tests
 		[Test] public void FirstReferenceMayBootstrapButProvisionalCannotAuthorizeLaterReferences()
 		{
 			var t = Transition(bootstrap: true); t.SetCandidate(Guid.NewGuid()); Observe(t, 0, false); Assert.That(Observe(t, 1, false), Is.True);
-			foreach (var provisional in new[] { Method.Visual, Method.ScanRegistration })
+			foreach (var provisional in new[] { Method.ScanRegistration })
 			{
 				Assert.That(MapPolicy.CanAuthorReferences(true, provisional, true, true), Is.False);
 				Assert.That(MapPolicy.CanAuthorReferences(false, provisional, true, false), Is.False);

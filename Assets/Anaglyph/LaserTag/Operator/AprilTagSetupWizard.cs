@@ -97,7 +97,7 @@ namespace Anaglyph.LaserTag.Operator
 			string instruction;
 			if (connected == 0)
 				instruction = Copy("waiting-headset");
-			else if (coordinator.WaitingForAlignmentAuthor && space.HasReferenceBasedData && !space.HasTags)
+			else if (coordinator.WaitingForAlignmentAuthor && space.HasNativeReferences && !space.HasTags)
 				instruction = MenuCopy.Get("Map", "alignment.waiting-for-reference-headset");
 			else if (!session.SizeConfirmed)
 				instruction = Copy("measuring");

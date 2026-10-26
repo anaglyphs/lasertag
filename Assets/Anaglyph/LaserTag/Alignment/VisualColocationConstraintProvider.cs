@@ -230,6 +230,12 @@ namespace Anaglyph.LaserTag
 
 		protected override void ResetWorkingState() => candidate = null;
 
+		/// <summary>
+		/// Relocalizes against the map as it stands, a map just loaded for the space: the rig
+		/// goes where the map says, as after a recenter. False when there is nothing to do it with.
+		/// </summary>
+		public bool RelocalizeAgainstMap() => localizer.Map.Count > 0 && BeginRelocalize("saved map");
+
 		protected override void Awake()
 		{
 			Instance = this;
@@ -309,8 +315,9 @@ namespace Anaglyph.LaserTag
 
 			if (!queriesEnabled || queryInFlight || pending.Count > 0 || Time.unscaledTime < nextQuery || !localizer.IsAvailable) return;
 
-			// a headset waiting on an alignment runs the networks over fewer frames
-			localizer.Urgent = CurrentPhase is Phase.Searching or Phase.Registering or Phase.Relocalizing;
+			// a headset waiting on an alignment runs the networks over fewer frames (while
+			// stopped, the pace is whoever else uses the localizer's to set)
+			if (IsRunning) localizer.Urgent = CurrentPhase is Phase.Searching or Phase.Registering or Phase.Relocalizing;
 
 			if (!NeedsQuery(out Purpose purpose, out bool remote)) return;
 

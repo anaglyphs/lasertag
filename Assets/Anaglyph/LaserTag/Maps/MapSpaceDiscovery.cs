@@ -33,6 +33,8 @@ namespace Anaglyph.LaserTag.Maps
 			? count > 0 ? MapPresence.Here : MapPresence.Elsewhere : MapPresence.Unknown;
 		public void Invalidate() { generation++; results.Clear(); ResultsChanged.Invoke(); }
 		public void Forget(string id) { generation++; if (results.Remove(id)) ResultsChanged.Invoke(); }
+		/// <summary>A presence found another way (the camera's view): shown like an anchor's.</summary>
+		public void SetPresence(string id, bool here) { results[id] = here ? 1 : 0; ResultsChanged.Invoke(); }
 		public async Awaitable<SpaceProbeResult> ProbeAsync(CancellationToken token)
 		{
 			if (!IsAvailable || !store.IsAvailable || probing || !trackingReady()) return new(SpaceProbeOutcome.Indeterminate);

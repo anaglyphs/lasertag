@@ -11,12 +11,23 @@ namespace Anaglyph.LaserTag.Maps
 		public static MapSpaceStore Default { get; private set; } = new(Path.Combine(MapStore.CatalogRoot, "spaces"));
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
 		private static void Init() => Default = new(Path.Combine(MapStore.CatalogRoot, "spaces"));
-		public MapSpaceStore(string directory) => documents = new(directory, s => s.id, s => s.Clone(), s => s.Validate());
+		public MapSpaceStore(string directory)
+		{
+			DirectoryPath = directory;
+			documents = new(directory, s => s.id, s => s.Clone(), s => s.Validate());
+		}
+		/// <summary>Where the space documents live; a space's visual map sits beside its document.</summary>
+		public string DirectoryPath { get; }
 		public event Action Changed { add => documents.Changed += value; remove => documents.Changed -= value; }
 		public bool IsAvailable => documents.IsAvailable;
 		public bool TryGet(string id, out MapSpace space) => documents.Read(id, out space) == DocumentReadStatus.Found;
 		public bool Save(MapSpace space) => documents.Save(space);
-		public bool Delete(string id) => documents.Delete(id);
+		public bool Delete(string id)
+		{
+			if (!documents.Delete(id)) return false;
+			VisualMapPersistence.DeleteFiles(DirectoryPath, id);
+			return true;
+		}
 		public void Refresh() => documents.Refresh();
 		public List<MapSpace> Spaces
 		{

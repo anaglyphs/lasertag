@@ -38,7 +38,7 @@ namespace Anaglyph.LaserTag.Maps
 		{
 			Cancel();
 			var previous = active;
-			active = ColocationManager.UsesSavedReferences(method) && HasConfiguration(space, method) ? Observer(space, method) : null;
+			active = ColocationManager.UsesNativeReferences(method) && HasConfiguration(space, method) ? Observer(space, method) : null;
 			sourceConfigured = true;
 			manager.ActivateSource(active ?? manager.GetProvider(method), method, preserve);
 			previous?.Dispose();
@@ -88,7 +88,7 @@ namespace Anaglyph.LaserTag.Maps
 			if (Transition.CreatesReferences && Transition.Target == ColocationManager.ColocationMethod.AprilTag)
 				foreach (var tag in space.tags)
 					if (!sourceSpace.TryGetTag(tag.id, out var old) || !MapSpaceFrame.Near(old.canonPose, tag.canonPose, .001f, .1f)) authoredTags.Add(tag.id);
-			if (HasConfiguration(space, Transition.Target))
+			if (ColocationManager.UsesNativeReferences(Transition.Target) && HasConfiguration(space, Transition.Target))
 			{ candidate = Observer(space, Transition.Target); candidate.RetainObservationsFrom(previous); }
 			candidateLease?.Dispose(); previous?.Dispose();
 			candidateLease = candidate?.Observe();

@@ -172,14 +172,14 @@ namespace Anaglyph.LaserTag.Tests
 		public void OperatorCanRequestFirstTagsWithoutAnAvailableHeadsetOrAnchorFrame()
 		{
 			var original = coordinator.CurrentSpace;
-			Assert.That(manager.ActiveMethod, Is.EqualTo(Method.MetaSharedAnchor));
+			Assert.That(manager.ActiveMethod, Is.EqualTo(MapSpaceStartup.DefaultMethod));
 			Assert.That(coordinator.SetPreferredColocationMethod(Method.AprilTag, setupTags: true), Is.True);
 			Assert.That(errors, Is.Empty);
 			Assert.That(coordinator.WaitingForAlignmentAuthor, Is.True);
 			Assert.That(coordinator.IsChangingColocation, Is.False);
 			Assert.That(coordinator.CurrentSpace.HasReferenceBasedData, Is.False);
 			Assert.That(coordinator.CurrentSpace.canonicalFrameId, Is.EqualTo(original.canonicalFrameId));
-			Assert.That(coordinator.CurrentSpace.preferredColocationMethod, Is.EqualTo(Method.MetaSharedAnchor), "Selection is committed after validation.");
+			Assert.That(coordinator.CurrentSpace.preferredColocationMethod, Is.EqualTo(MapSpaceStartup.DefaultMethod), "Selection is committed after validation.");
 			Assert.That(MapSpaceStore.Default.TryGet(original.id, out var saved), Is.True);
 			Assert.That(saved.hasPendingSetup, Is.True);
 			Assert.That(saved.pendingSetupMethod, Is.EqualTo(Method.AprilTag));
@@ -191,7 +191,7 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(root.Q<DropdownField>("colocation-method-field").value, Is.EqualTo(MenuCopy.Get("Map", "alignment.tags")));
 			coordinator.CancelAlignmentTransition(); binder.Refresh();
 			Assert.That(coordinator.WaitingForAlignmentAuthor, Is.False);
-			Assert.That(binder.DisplayedMethod, Is.EqualTo(Method.MetaSharedAnchor));
+			Assert.That(binder.DisplayedMethod, Is.EqualTo(MapSpaceStartup.DefaultMethod));
 			Assert.That(MapSpaceStore.Default.TryGet(original.id, out saved) && !saved.hasPendingSetup, Is.True);
 		}
 

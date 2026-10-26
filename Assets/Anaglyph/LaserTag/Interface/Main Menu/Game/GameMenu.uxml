@@ -1,6 +1,6 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
-    <ui:Template name="GameDemoPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Game/GameDemoPage.uxml?fileID=9197481963319205126&amp;guid=24a52b38cc4343cfbdef5557b993dabf&amp;type=3#GameDemoPage"/>
     <ui:Template name="DeleteSpacePage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/DeleteSpacePage.uxml?fileID=9197481963319205126&amp;guid=6129634a19654579bdcede2f56f2aa06&amp;type=3#DeleteSpacePage"/>
+    <ui:Template name="GameDemoPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Game/GameDemoPage.uxml?fileID=9197481963319205126&amp;guid=24a52b38cc4343cfbdef5557b993dabf&amp;type=3#GameDemoPage"/>
     <ui:Template name="GameMapEditingPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Game/GameMapEditingPage.uxml?fileID=9197481963319205126&amp;guid=b3d76a548f628444b9a10fa8052cd47b&amp;type=3#GameMapEditingPage"/>
     <ui:Template name="GameMapsPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Game/GameMapsPage.uxml?fileID=9197481963319205126&amp;guid=3c8b307a190364aa992398c5fc0ca534&amp;type=3#GameMapsPage"/>
     <ui:Template name="GameMatchPlayingPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Game/GameMatchPlayingPage.uxml?fileID=9197481963319205126&amp;guid=617e74b6016424210b1d97fb28257683&amp;type=3#GameMatchPlayingPage"/>
@@ -61,7 +61,7 @@
                     <UnityEngine.Localization.LocalizedString property="text" table="OperatorMenu" entry="match-tab.label"/>
                 </Bindings>
             </ui:Button>
-            <ui:Button name="demo-tab" class="game-menu-tab">
+            <ui:Button name="demo-tab" class="game-menu-tab" style="display: none;">
                 <Bindings>
                     <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="demo.title"/>
                 </Bindings>

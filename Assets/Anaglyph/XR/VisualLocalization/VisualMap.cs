@@ -68,6 +68,11 @@ namespace Anaglyph.XR.VisualLocalization
 	public sealed class VisualMap : IDisposable
 	{
 		public const int RetrievalFeatures = 256;
+		/// <summary>
+		/// The node a map loaded from a file hangs off: one rigid piece, never issued by any
+		/// anchoring, so it is consistent with itself and every live view is a revisit of it.
+		/// </summary>
+		public const ulong SavedNode = ulong.MaxValue;
 		/// <summary>Keyframes scored per retrieval when a camera narrows the search: ~4M multiply-adds each.</summary>
 		public const int MaxRetrievalCandidates = 24;
 		/// <summary>Keyframes scored per frame unless the caller says otherwise: each is a few million multiply-adds on a worker thread.</summary>
@@ -246,6 +251,88 @@ namespace Anaglyph.XR.VisualLocalization
 			retrievalInFlight.Complete();
 			NativeArray<half>.Copy(keyframe.features.descriptors, 0, retrieval, slot * RetrievalFeatures * D, count * D);
 			retrievalCounts[slot] = count;
+		}
+
+		/// <summary>
+		/// Replaces the map with a saved one, as one rigid piece under <see cref="SavedNode"/>:
+		/// every landmark frozen where the file has it, every keyframe feature that sights
+		/// one its observation. <paramref name="toWorld"/> maps the file's poses into the
+		/// world, <paramref name="toWorldRotation"/> its directions.
+		/// </summary>
+		public void Restore(VisualMapData data, Func<Pose, Pose> toWorld, Quaternion toWorldRotation, float pixelSigma)
+		{
+			Clear();
+			List<VisualKeyframe> restored = new();
+			foreach (VisualMapData.Keyframe k in data.keyframes)
+			{
+				if (k.count < LighterGlueMatcher.MinKeypoints) continue;
+				FeatureSet features = new(k.count);
+				Array.Copy(k.keypoints, features.keypoints, k.count);
+				Array.Copy(k.scores, features.scores, k.count);
+				Array.Copy(k.descriptors, features.descriptors, k.count * D);
+				Pose camera = toWorld(k.camera);
+				VisualKeyframe keyframe = new()
+				{
+					features = features,
+					intrinsics = k.intrinsics,
+					node = SavedNode,
+					cameraInNode = camera,
+					camera = camera,
+					landmarks = (int[])k.landmarks.Clone(),
+					timestampNs = k.timestampNs,
+					original = k.original,
+				};
+				Add(keyframe);
+				restored.Add(keyframe);
+				if (keyframes.Count >= capacity) break;
+			}
+
+			foreach (VisualMapData.Landmark l in data.landmarks)
+			{
+				Vector3 origin = toWorld(new Pose(l.origin, Quaternion.identity)).position;
+				landmarks[l.id] = new Landmark
+				{
+					id = l.id,
+					node = SavedNode,
+					reference = new Pose(origin, Quaternion.identity),
+					bearing = toWorldRotation * (Vector3)l.direction,
+					inverseDepth = l.inverseDepth,
+					inverseDepthSigma = l.inverseDepthSigma,
+					established = true,
+				};
+				nextLandmarkId = math.max(nextLandmarkId, l.id + 1);
+			}
+
+			// the sightings, from the keyframes' side
+			foreach (VisualKeyframe k in restored)
+				for (int i = 0; i < k.features.Count; i++)
+				{
+					int id = k.landmarks[i];
+					if (id < 0) continue;
+					if (!landmarks.TryGetValue(id, out Landmark landmark))
+					{
+						k.landmarks[i] = -1;
+						continue;
+					}
+
+					landmark.references++;
+					landmark.observations.Add(new Observation
+					{
+						keyframe = k,
+						feature = i,
+						node = SavedNode,
+						cameraInNode = k.cameraInNode,
+						ray = k.intrinsics.Ray(k.features.keypoints[i]),
+						angularSigma = pixelSigma / k.intrinsics.fx,
+					});
+				}
+
+			// a landmark no saved view sights is nothing
+			List<int> orphans = new();
+			foreach (Landmark l in landmarks.Values)
+				if (l.references == 0) orphans.Add(l.id);
+			foreach (int id in orphans) landmarks.Remove(id);
+			Revision++;
 		}
 
 		// ---- coverage --------------------------------------------------------

@@ -365,7 +365,7 @@ namespace Anaglyph.LaserTag.MapEditor
 
 			bool twoTags = registered == 0 && !manager.SessionIsWaitingOnFirstTag && ColocationManager.IsTwoTagMode(
 				ColocationManager.Instance != null ? ColocationManager.Instance.SelectedMethod :
-				manager.CurrentSpace?.preferredColocationMethod ?? ColocationManager.ColocationMethod.MetaSharedAnchor, manager.CurrentSpace);
+				manager.CurrentSpace?.preferredColocationMethod ?? Maps.MapSpaceStartup.DefaultMethod, manager.CurrentSpace);
 			if (twoTags)
 				tagStatus.text = MenuCopy.Get("Map", "alignment.two-tags-description");
 			else if (registrationBlocker != null && registrationBlocker != sizeBlocker)

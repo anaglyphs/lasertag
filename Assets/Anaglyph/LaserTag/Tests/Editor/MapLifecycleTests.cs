@@ -109,7 +109,7 @@ namespace Anaglyph.LaserTag.Tests
 
 		[TestCase(Method.MetaSharedAnchor, true)]
 		[TestCase(Method.AprilTag, true)]
-		[TestCase(Method.Visual, false)]
+		[TestCase(Method.Visual, true)]
 		[TestCase(Method.ScanRegistration, false)]
 		public void ExistingReferencesRequireAlignmentToASavedReferenceMethod(Method method, bool canAuthor)
 		{
@@ -120,8 +120,8 @@ namespace Anaglyph.LaserTag.Tests
 		[Test]
 		public void FirstReferencesRequireAnInitializationGrant()
 		{
-			Assert.That(MapPolicy.CanAuthorReferences(false, Method.Visual, false, true), Is.True);
-			Assert.That(MapPolicy.CanAuthorReferences(false, Method.Visual, true, false), Is.False);
+			Assert.That(MapPolicy.CanAuthorReferences(false, Method.ScanRegistration, false, true), Is.True);
+			Assert.That(MapPolicy.CanAuthorReferences(false, Method.ScanRegistration, true, false), Is.False);
 		}
 
 		[Test]

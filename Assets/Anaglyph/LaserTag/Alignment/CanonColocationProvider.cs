@@ -133,15 +133,18 @@ namespace Anaglyph.LaserTag
 				TargetSpacePose, hasReliableRotation: true));
 		}
 
-		private void OnBusActivated() { if (IsRunning) EnterRole(); }
-		private void OnBusDeactivated() { if (IsRunning) EnterRole(); }
-		private void OnAuthorityChanged(bool _) { if (IsRunning) EnterRole(); }
+		private void OnBusActivated() { if (IsRunning) EnterRole(true); }
+		private void OnBusDeactivated() { if (IsRunning) EnterRole(true); }
+		private void OnAuthorityChanged(bool _) { if (IsRunning) EnterRole(true); }
 
-		// the authority's frame is canon by definition; everyone else has to find it
-		private void EnterRole()
+		// the authority's frame is canon by definition; everyone else has to find it. An
+		// authority still relocalizing (against a map just loaded, say) keeps at it when the
+		// session comes up: taking its frame as it stands would fix the alignment it is
+		// looking for at whatever it happens to be
+		private void EnterRole(bool keepRelocalizing = false)
 		{
-			if (SyncBus.IsAuthority) AlignIdentity();
-			else BeginSearch();
+			if (!SyncBus.IsAuthority) BeginSearch();
+			else if (!keepRelocalizing || CurrentPhase != Phase.Relocalizing) AlignIdentity();
 		}
 
 		private void AlignIdentity()
@@ -209,11 +212,12 @@ namespace Anaglyph.LaserTag
 
 		// the colocator drops to Lost on tracking loss, sleep and recenter; the alignment
 		// it keeps applied is stale, and only a fresh match can say by how much
-		private void BeginRelocalize(string why)
+		/// <returns>Whether relocalizing began.</returns>
+		protected bool BeginRelocalize(string why)
 		{
-			if (CurrentPhase != Phase.Aligned) return;
+			if (CurrentPhase != Phase.Aligned) return false;
 			EnvScanner scanner = EnvScanner.Instance;
-			if (scanner == null) return;
+			if (scanner == null) return false;
 
 			// nothing mapped yet to match against (XROrigin setting the tracking origin mode
 			// at startup raises a recenter): relocalizing would wait forever with the live
@@ -224,12 +228,21 @@ namespace Anaglyph.LaserTag
 				Debug.Log($"{LogTag} {why} with no map to relocalize against: {(SyncBus.IsAuthority ? "re-anchoring" : "searching again")}");
 				scanner.Clear();
 				EnterRole();
-				return;
+				return false;
 			}
 
 			CurrentPhase = Phase.Relocalizing;
 			OnRelocalizeBegun();
 			Debug.Log($"{LogTag} relocalizing ({why})");
+			return true;
+		}
+
+		/// <summary>Stops relocalizing and takes the role's own alignment again: the authority's frame as it stands, or a search.</summary>
+		public void AbandonRelocalization()
+		{
+			if (CurrentPhase != Phase.Relocalizing) return;
+			Debug.Log($"{LogTag} relocalization abandoned");
+			EnterRole();
 		}
 
 		protected virtual void Update()

@@ -52,6 +52,10 @@ namespace Anaglyph.LaserTag
 		private MapSessionWorkflow sessionWorkflow;
 		private MapSessionSync session;
 		private MapSpaceDiscovery discovery;
+		// the space's visual map on disk, and which saved space the camera sees
+		private VisualMapPersistence visualMaps;
+		private VisualSpaceDiscovery visualDiscovery;
+		private bool visualSaveForced, visualSaveSync;
 		private MapAutosave autosave;
 		private readonly MapLifecycle lifecycle = new();
 		private readonly MapVisitContext visit = new();
@@ -134,6 +138,8 @@ namespace Anaglyph.LaserTag
 			colocationManager.ManagedSelection = true;
 			session = new();
 			discovery = new(documents.SpaceStore, colocationManager.AnchorProvider, probeTimeoutSeconds, TrackingReady);
+			visualMaps = new(documents.SpaceStore.DirectoryPath, () => Authority) { Saved = OnVisualMapSaved };
+			visualDiscovery = new(visualMaps, TrackingReady);
 			ComposeWorkflows();
 			TagSetup = new(this, referenceWorkflow.CanRegisterTags);
 			referenceWorkflow.TagRegistrationAllowed = () => !TagSetup.IsActive || TagSetup.SizeConfirmed;
@@ -162,6 +168,7 @@ namespace Anaglyph.LaserTag
 			MapObject.Added += OnObjectChanged;
 			MapObject.Removed += OnObjectChanged;
 			MainXRRig.Recentered += OnRecentered;
+			visualMaps.RunPeriodicSaves(() => CurrentSpace, lifetime.Token);
 			StartupProbe(lifetime.Token);
 		}
 
@@ -195,6 +202,15 @@ namespace Anaglyph.LaserTag
 		private static void RaiseWorldFrameRebased() => WorldFrameRebased.Invoke();
 		private void RaiseChangingMapChanged() => ChangingMapChanged.Invoke();
 		private void ScheduleSave() => autosave?.Schedule();
+
+		// a saved visual map is the space's reference: it is initialized, and the draft is no
+		// longer blank
+		private void OnVisualMapSaved(string spaceId, long ticks)
+		{
+			if (spaceDocument.CurrentId != spaceId || sessionWorkflow.IsTransient || !spaceDocument.MarkVisualMapSaved(ticks))
+				return;
+			ScheduleSave();
+		}
 
 		private void OnRecentered()
 		{
@@ -259,8 +275,10 @@ namespace Anaglyph.LaserTag
 
 		private void OnApplicationPause(bool paused)
 		{
-			if (paused)
-				SaveCurrentMap();
+			if (!paused)
+				return;
+			visualSaveForced = visualSaveSync = true;
+			SaveCurrentMap();
 		}
 
 		private bool TrackingReady() => AppFocus.IsFocused && PlayerHeadsetStatus.HeadTrackingReady;
@@ -400,6 +418,7 @@ namespace Anaglyph.LaserTag
 
 		private bool ChangeSpace(string id, string mapId)
 		{
+			visualSaveForced = true;
 			if (DescribeSpaceChangeBlocker(id) != null || !documents.SpaceStore.TryGet(id, out var target) ||
 			    !SaveCurrentMap())
 				return false;
@@ -415,7 +434,7 @@ namespace Anaglyph.LaserTag
 
 		public CatalogOperationResult NewSpace() => HeadsetConfiguration.IsOperatorDevice && CanManage &&
 		                                            !RoundInProgress && SaveCurrentMap()
-			? documents.CreateSpace(false, Method.MetaSharedAnchor)
+			? documents.CreateSpace(false, Method.Visual)
 			: new(CatalogOperationStatus.Rejected);
 
 		private void ActivateSpace(MapSpace space, GameMap map)
@@ -440,6 +459,8 @@ namespace Anaglyph.LaserTag
 			SetObjectContext();
 			objects.Replace(map?.objects ?? new());
 			WorldFrameRebased.Invoke();
+			if (Authority)
+				visualMaps.LoadAndRelocalize(space);
 			NotifyMap();
 		}
 
@@ -557,10 +578,13 @@ namespace Anaglyph.LaserTag
 			space.hasPendingSetup = false;
 			space.referenceSourceId = space.id;
 			space.referenceVersion = Guid.NewGuid().ToString("N");
-			space.preferredColocationMethod = Method.MetaSharedAnchor;
+			space.preferredColocationMethod = Method.Visual;
+			space.visualMapSaved = 0;
 			space.MarkChanged();
 			if (!documents.SpaceStore.Save(space))
 				return false;
+			VisualMapPersistence.DeleteFiles(documents.SpaceStore.DirectoryPath, space.id);
+			visualMaps.Invalidate();
 			ActivateSpace(space, CurrentMap);
 			return SaveCurrentMap();
 		}
@@ -648,6 +672,8 @@ namespace Anaglyph.LaserTag
 				return false;
 			}
 
+			visualMaps.Save(CurrentSpace, visualSaveForced || shuttingDown, visualSaveSync || shuttingDown);
+			visualSaveForced = visualSaveSync = false;
 			PublishCurrentDocuments();
 			documents.EraseUnreferencedAnchors(references.EraseAnchorSave);
 			return true;
@@ -809,7 +835,7 @@ namespace Anaglyph.LaserTag
 			}
 			else if (!alignment.Busy && colocationManager.ActiveMethod != identity.method)
 			{
-				if (ColocationManager.UsesSavedReferences(identity.method, space))
+				if (ColocationManager.UsesNativeReferences(identity.method, space))
 				{
 					alignment.Begin(Guid.NewGuid(), space, identity.method, ReferenceTransitionIntent.ActivateTarget,
 						false);
@@ -962,8 +988,28 @@ namespace Anaglyph.LaserTag
 			    trackingGeneration != colocationManager.TrackingGeneration)
 				return;
 			if (result.outcome == SpaceProbeOutcome.Matches)
+			{
 				ChangeSpace(result.best.id);
-			else if (MapSpaceStartup.InitialMethod(result.outcome, SharedAnchorSupport, discovery.IsAvailable) is Method
+				return;
+			}
+
+			// no anchor says where this is: the camera's view, against the spaces with a saved
+			// visual map. Looking takes a few frames; nothing decisive yet means try again shortly
+			var seen = await visualDiscovery.ProbeAsync(documents.SpaceStore.Spaces, token);
+			if (token.IsCancellationRequested || !Authority || CurrentSpace != null ||
+			    sessionGeneration != sessionWorkflow.Generation ||
+			    trackingGeneration != colocationManager.TrackingGeneration)
+				return;
+			if (seen.outcome == SpaceProbeOutcome.Matches)
+			{
+				discovery.SetPresence(seen.best.id, true);
+				ChangeSpace(seen.best.id);
+				return;
+			}
+
+			if (seen.outcome is SpaceProbeOutcome.Indeterminate or SpaceProbeOutcome.Canceled)
+				return;
+			if (MapSpaceStartup.InitialMethod(result.outcome, SharedAnchorSupport, discovery.IsAvailable) is Method
 			         initialMethod)
 			{
 				if (!documents.SpaceStore.IsAvailable)
@@ -972,7 +1018,7 @@ namespace Anaglyph.LaserTag
 					space.automaticallyCreated && space.initializationPending && !space.HasReferenceBasedData);
 				if (draft != null)
 				{
-					if (draft.preferredColocationMethod == Method.MetaSharedAnchor)
+					if (draft.preferredColocationMethod != initialMethod)
 						MapSpaceStartup.ConfigureDraft(draft, initialMethod);
 					if (documents.SpaceStore.Save(draft))
 						ChangeSpace(draft.id);

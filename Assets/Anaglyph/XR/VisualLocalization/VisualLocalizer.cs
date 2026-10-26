@@ -240,6 +240,8 @@ namespace Anaglyph.XR.VisualLocalization
 		public VisualFrameLog Frames { get; } = new();
 		public bool IsAvailable => capture != null;
 		public float TrustDrift => trustDrift;
+		/// <summary>Feature localization noise, pixels: what a sighting's angular sigma is made of.</summary>
+		public float PixelSigma => pnp.pixelSigma;
 
 		/// <summary>What became of mapping attempts since the start (or since a test reset them).</summary>
 		public struct MappingCounts

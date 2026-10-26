@@ -13,12 +13,12 @@ namespace Anaglyph.LaserTag.Tests
 {
 	public class MapSpaceContextTests
 	{
-		[TestCase(CapabilitySupport.Supported, Method.MetaSharedAnchor)]
-		[TestCase(CapabilitySupport.Unsupported, Method.AprilTag)]
-		[TestCase(CapabilitySupport.Unknown, Method.MetaSharedAnchor)]
-		public void NoMatchingSpaceUsesSharingCapabilityForInitialAlignment(CapabilitySupport sharing, Method expected)
+		[TestCase(CapabilitySupport.Supported)]
+		[TestCase(CapabilitySupport.Unsupported)]
+		[TestCase(CapabilitySupport.Unknown)]
+		public void NoMatchingSpaceStartsVisualWhateverTheSharingCapability(CapabilitySupport sharing)
 		{
-			Assert.That(MapSpaceStartup.InitialMethod(SpaceProbeOutcome.NoMatches, sharing, true), Is.EqualTo(expected));
+			Assert.That(MapSpaceStartup.InitialMethod(SpaceProbeOutcome.NoMatches, sharing, true), Is.EqualTo(MapSpaceStartup.DefaultMethod));
 		}
 
 		[Test]
@@ -33,9 +33,9 @@ namespace Anaglyph.LaserTag.Tests
 		}
 
 		[Test]
-		public void ConfirmedLackOfAnchorSupportCanStartTagsWithoutWaitingForAnImpossibleProbe()
+		public void ConfirmedLackOfAnchorSupportCanStartWithoutWaitingForAnImpossibleProbe()
 		{
-			Assert.That(MapSpaceStartup.InitialMethod(SpaceProbeOutcome.Indeterminate, CapabilitySupport.Unsupported, false), Is.EqualTo(Method.AprilTag));
+			Assert.That(MapSpaceStartup.InitialMethod(SpaceProbeOutcome.Indeterminate, CapabilitySupport.Unsupported, false), Is.EqualTo(MapSpaceStartup.DefaultMethod));
 			Assert.That(MapSpaceStartup.InitialMethod(SpaceProbeOutcome.Indeterminate, CapabilitySupport.Unknown, false), Is.Null);
 			Assert.That(MapSpaceStartup.InitialMethod(SpaceProbeOutcome.Indeterminate, CapabilitySupport.Supported, false), Is.Null);
 		}

@@ -39,6 +39,17 @@ namespace Anaglyph.LaserTag.Maps
 			if (current == null || current.name == name) return false;
 			current.name = name; current.MarkChanged(); return true;
 		}
+		/// <summary>A visual map of the space was saved: its reference from now on, and the first one initializes it.</summary>
+		public bool MarkVisualMapSaved(long ticks)
+		{
+			if (current == null || ticks == 0) return false;
+			bool first = current.visualMapSaved == 0;
+			current.visualMapSaved = ticks;
+			if (!first) return true;
+			current.initializationPending = false;
+			current.MarkChanged();
+			return true;
+		}
 		public bool SetPreferredMethod(ColocationManager.ColocationMethod method)
 		{
 			if (current == null || !ColocationManager.IsValidMethod(method) || current.preferredColocationMethod == method) return false;

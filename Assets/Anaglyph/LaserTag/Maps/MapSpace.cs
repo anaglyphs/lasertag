@@ -42,9 +42,14 @@ namespace Anaglyph.LaserTag.Maps
 		public int secondTagId = -1;
 		public string previousCanonicalFrameId;
 		public Pose previousOffset = Pose.identity;
+		/// <summary>When a visual map of this space was last saved beside its document (UTC ticks); 0 for never.</summary>
+		public long visualMapSaved;
 		public bool HasTags => tags.Count > 0;
-		public bool HasReferenceBasedData => tags.Count > 0 || anchors.Count > 0 || localAnchors.Count > 0 ||
+		/// <summary>References the headset observes: anchors and tags, including retained sets.</summary>
+		public bool HasNativeReferences => tags.Count > 0 || anchors.Count > 0 || localAnchors.Count > 0 ||
 			retainedReferences.Exists(r => r.tags.Count > 0 || r.anchors.Count > 0);
+		/// <summary>Any reference that fixes this space's frame across sessions: native ones, or a saved visual map.</summary>
+		public bool HasReferenceBasedData => HasNativeReferences || visualMapSaved != 0;
 		public MapSpaceFrame Frame => new(this);
 		public static bool ValidId(string value) => Guid.TryParseExact(value, "N", out var id) && id != Guid.Empty;
 
@@ -55,7 +60,7 @@ namespace Anaglyph.LaserTag.Maps
 			{
 				id = Guid.NewGuid().ToString("N"), name = name, version = Guid.NewGuid().ToString("N"),
 				storageFrameId = frame, canonicalFrameId = frame, lastUsed = DateTime.UtcNow.Ticks,
-				lastEdited = DateTime.UtcNow.Ticks, preferredColocationMethod = ColocationManager.ColocationMethod.MetaSharedAnchor
+				lastEdited = DateTime.UtcNow.Ticks, preferredColocationMethod = MapSpaceStartup.DefaultMethod
 			};
 			space.referenceSourceId = space.id; space.referenceVersion = space.version;
 			return space;
