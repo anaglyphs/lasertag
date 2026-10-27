@@ -2,10 +2,8 @@ using System;
 using System.Threading;
 using Anaglyph.LaserTag.Player;
 using Anaglyph.LaserTag.Player.Teams;
-using Anaglyph.LaserTag.Shaders;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace Anaglyph.LaserTag.Weapons.Bullets
 {

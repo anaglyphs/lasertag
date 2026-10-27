@@ -4,6 +4,7 @@ using Unity.XR.CoreUtils.Collections;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
+using UnityEngine.Serialization;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 
@@ -67,9 +68,18 @@ namespace Anaglyph.XR.DepthKit
 		}
 
 		[SerializeField] private ComputeShader depthNormalCompute = null;
-		[SerializeField] private Shader simDepthConversionShader;
+		[FormerlySerializedAs("simDepthConversionShader")]
+		[SerializeField] private Shader depthConversionShader;
 
-		private Material simDepthConversionMat;
+		private Material depthConversionMat;
+		private MaterialPropertyBlock depthConversionProps;
+
+		private static readonly int rawDepthID = ID("rawDepth");
+		private static readonly int rawDepthArrayID = ID("rawDepthArray");
+		private static readonly int sliceID = ID("_Slice");
+
+		private const int MonoLinearPass = 0;
+		private const int StereoSanitizePass = 1;
 
 		private ComputeKernel normKernel;
 
@@ -80,7 +90,8 @@ namespace Anaglyph.XR.DepthKit
 		private RenderTexture normTex;
 		public RenderTexture NormTex => normTex;
 
-		private RenderTexture simulatedDepthTex;
+		// every depth source is converted into this, never published raw
+		private RenderTexture convertedDepthTex;
 
 		private AROcclusionManager arOcclusionManager;
 
@@ -153,45 +164,12 @@ namespace Anaglyph.XR.DepthKit
 
 					// Convert mono linear R32_SFloat depth texture to (mock) stereo non-linear D16_UNorm
 
-					if (simulatedDepthTex == null ||
-					    simulatedDepthTex.width != rawDepth.width ||
-					    simulatedDepthTex.height != rawDepth.height)
-					{
-						if (simulatedDepthTex != null)
-							Destroy(simulatedDepthTex);
-
-						RenderTextureDescriptor occlusionTexDesc = new()
-						{
-							width = rawDepth.width,
-							height = rawDepth.height,
-							autoGenerateMips = false,
-							graphicsFormat = GraphicsFormat.None,
-							depthStencilFormat = GraphicsFormat.D16_UNorm,
-							dimension = TextureDimension.Tex2DArray,
-							volumeDepth = 2,
-							msaaSamples = 1,
-							vrUsage = VRTextureUsage.TwoEyes
-							// enableRandomWrite = true
-						};
-
-						simDepthConversionMat = new Material(simDepthConversionShader);
-						simulatedDepthTex = new RenderTexture(occlusionTexDesc);
-
-						Shader.SetGlobalVector(texSizeID, new Vector2(rawDepth.width, rawDepth.height));
-					}
-
-					simDepthConversionMat.SetTexture("rawDepth", rawDepth);
-					CommandBuffer cmd = CommandBufferPool.Get("DepthKit Simulated Depth Conversion");
-					cmd.SetRenderTarget(simulatedDepthTex);
-					cmd.ClearRenderTarget(true, false, Color.white);
-					// fullscreen triangle
-					cmd.DrawProcedural(Matrix4x4.identity, simDepthConversionMat, 0, MeshTopology.Triangles, 3);
-					Graphics.ExecuteCommandBuffer(cmd);
-					CommandBufferPool.Release(cmd);
-
-					depthTex = simulatedDepthTex;
-
 					if (!mainCam) mainCam = Camera.main;
+					planes = new Vector2(mainCam.nearClipPlane, mainCam.farClipPlane);
+					// the conversion reads these
+					Shader.SetGlobalVector(zParamsID, planes);
+
+					ConvertDepth(rawDepth, rawDepthID, MonoLinearPass);
 					Matrix4x4 p = mainCam.projectionMatrix;
 					Matrix4x4 pi = p.inverse;
 
@@ -207,15 +185,11 @@ namespace Anaglyph.XR.DepthKit
 						viewInv[i] = vi;
 					}
 
-					planes = new Vector2(mainCam.nearClipPlane, mainCam.farClipPlane);
-
 					break;
 
 				case DepthFormatScenario.StereoHeadset:
 
 					// Likely hard-coded to only support Meta Quest for now...
-					depthTex = rawDepth;
-
 					ReadOnlyList<XRFov> fovs = null;
 					ReadOnlyList<Pose> poses = null;
 					XRNearFarPlanes depthPlanes = default;
@@ -244,6 +218,9 @@ namespace Anaglyph.XR.DepthKit
 					}
 
 					planes = new Vector2(depthPlanes.nearZ, depthPlanes.farZ);
+
+					// Meta writes 0 (= the near plane) where it has no depth, e.g. the sky
+					ConvertDepth(rawDepth, rawDepthArrayID, StereoSanitizePass);
 
 					break;
 
@@ -285,6 +262,64 @@ namespace Anaglyph.XR.DepthKit
 			DepthAvailable = true;
 
 			Updated.Invoke();
+		}
+
+		// writes rawDepth into convertedDepthTex, one fullscreen draw per eye slice,
+		// with unknown texels rewritten to AG_DEPTH_UNKNOWN (see DepthKit.hlsl)
+		private void ConvertDepth(Texture rawDepth, int rawDepthPropID, int pass)
+		{
+			if (convertedDepthTex == null ||
+			    convertedDepthTex.width != rawDepth.width ||
+			    convertedDepthTex.height != rawDepth.height)
+			{
+				if (convertedDepthTex != null)
+					Destroy(convertedDepthTex);
+
+				RenderTextureDescriptor desc = new()
+				{
+					width = rawDepth.width,
+					height = rawDepth.height,
+					autoGenerateMips = false,
+					graphicsFormat = GraphicsFormat.None,
+					depthStencilFormat = GraphicsFormat.D16_UNorm,
+					dimension = TextureDimension.Tex2DArray,
+					volumeDepth = 2,
+					msaaSamples = 1,
+					vrUsage = VRTextureUsage.TwoEyes
+				};
+
+				convertedDepthTex = new RenderTexture(desc) { name = "DepthKit Depth" };
+			}
+
+			if (depthConversionMat == null)
+			{
+				depthConversionMat = new Material(depthConversionShader);
+				depthConversionProps = new MaterialPropertyBlock();
+			}
+
+			depthConversionMat.SetTexture(rawDepthPropID, rawDepth);
+
+			CommandBuffer cmd = CommandBufferPool.Get("DepthKit Depth Conversion");
+			for (int slice = 0; slice < 2; slice++)
+			{
+				depthConversionProps.SetInteger(sliceID, slice);
+				cmd.SetRenderTarget(convertedDepthTex, 0, CubemapFace.Unknown, slice);
+				cmd.ClearRenderTarget(true, false, Color.white);
+				// fullscreen triangle
+				cmd.DrawProcedural(Matrix4x4.identity, depthConversionMat, pass, MeshTopology.Triangles, 3, 1,
+					depthConversionProps);
+			}
+
+			Graphics.ExecuteCommandBuffer(cmd);
+			CommandBufferPool.Release(cmd);
+
+			depthTex = convertedDepthTex;
+		}
+
+		private void OnDestroy()
+		{
+			if (convertedDepthTex != null) Destroy(convertedDepthTex);
+			if (depthConversionMat != null) Destroy(depthConversionMat);
 		}
 
 		private static readonly Vector3 _scalingVector3 = new(1, 1, -1);

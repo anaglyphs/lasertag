@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Unity.Mathematics;
+using UnityEngine;
 
 namespace Anaglyph.XR.VisualLocalization
 {
@@ -25,6 +26,8 @@ namespace Anaglyph.XR.VisualLocalization
 		public float confidence;
 		/// <summary>The pose-graph node the landmark is anchored to; 0 when unanchored.</summary>
 		public ulong node;
+		/// <summary>Which of the solve's query cameras saw it (an index into the cameras given to <see cref="GravityPnP.Solve(IReadOnlyList{Correspondence}, PinholeCamera, IReadOnlyList{Pose}, GravityPnP.Settings, int)"/>); 0 with one camera.</summary>
+		public int camera;
 
 		public float3 Point => origin + direction / inverseDepth;
 
@@ -51,7 +54,7 @@ namespace Anaglyph.XR.VisualLocalization
 		public float yaw;
 		/// <summary>p_map = RotateY(yaw) p_query + translation.</summary>
 		public float3 translation;
-		/// <summary>The query camera's center in the map frame.</summary>
+		/// <summary>The first query camera's center in the map frame.</summary>
 		public float3 cameraCenter;
 		public int inliers;
 		/// <summary>Which correspondences the final fit kept, by index into those solved.</summary>
@@ -87,6 +90,10 @@ namespace Anaglyph.XR.VisualLocalization
 	/// uncertainty moves it in the query image. Far landmarks thereby pin yaw and
 	/// near ones translation, and the final Hessian gives the pose's uncertainty, which
 	/// is how a caller decides whether the map constrained it enough.
+	///
+	/// Several query cameras may share the one transform: frames of one stretch of
+	/// tracking, their relative poses known from it. Each correspondence names its
+	/// camera, and the baseline between the cameras pins translation as one view can't.
 	/// </summary>
 	public static class GravityPnP
 	{
@@ -105,17 +112,47 @@ namespace Anaglyph.XR.VisualLocalization
 			/// keeps translation defined (and its uncertainty honest) when only far landmarks match.
 			/// </summary>
 			public float centerPriorSigma;
+			/// <summary>
+			/// Yaw error the map views matched each carry as a whole, degrees: a view's own
+			/// placement error, common to every landmark it sighted, which no number of them
+			/// averages away. Added to the solver's own uncertainty, over the views matched
+			/// (<see cref="AddViewUncertainty"/>).
+			/// </summary>
+			public float viewYawSigmaDegrees;
+			/// <summary>Likewise for position, meters.</summary>
+			public float viewTranslationSigma;
 
 			public static Settings Default => new()
 			{
 				pixelSigma = 1.5f, inlierSigmas = 3f, iterations = 400, rangedFraction = 0.25f, centerPriorSigma = 10f,
+				viewYawSigmaDegrees = 0.3f, viewTranslationSigma = 0.03f,
 			};
+		}
+
+		/// <summary>
+		/// Widens a result's sigmas by the error the <paramref name="views"/> map views
+		/// matched share: each view's own placement error moves all of its landmarks
+		/// together, so the solver's covariance, which takes them as independent, runs
+		/// several times too small against the truth. Independent views average it down.
+		/// </summary>
+		public static void AddViewUncertainty(ref GravityPnPResult result, Settings settings, int views)
+		{
+			if (!result.success || views <= 0) return;
+			float yaw = math.radians(settings.viewYawSigmaDegrees);
+			result.yawSigma = math.sqrt(result.yawSigma * result.yawSigma + yaw * yaw / views);
+			result.translationSigma = math.sqrt(result.translationSigma * result.translationSigma +
+			                                    settings.viewTranslationSigma * settings.viewTranslationSigma / views);
 		}
 
 		/// <param name="cameraRotation">The query camera's rotation in the query world.</param>
 		/// <param name="cameraCenter">The query camera's center in the query world.</param>
 		public static GravityPnPResult Solve(IReadOnlyList<Correspondence> correspondences, PinholeCamera intrinsics,
-			quaternion cameraRotation, float3 cameraCenter, Settings settings, int seed = 1)
+			quaternion cameraRotation, float3 cameraCenter, Settings settings, int seed = 1) =>
+			Solve(correspondences, intrinsics, new[] { new Pose(cameraCenter, cameraRotation) }, settings, seed);
+
+		/// <param name="cameras">The query cameras in the query world; each correspondence's <see cref="Correspondence.camera"/> indexes them. The result's center and prior are the first's.</param>
+		public static GravityPnPResult Solve(IReadOnlyList<Correspondence> correspondences, PinholeCamera intrinsics,
+			IReadOnlyList<Pose> cameras, Settings settings, int seed = 1)
 		{
 			int n = correspondences.Count;
 			GravityPnPResult result = new() { correspondences = n };
@@ -125,44 +162,66 @@ namespace Anaglyph.XR.VisualLocalization
 				return result;
 			}
 
-			Context ctx = new(correspondences, intrinsics, cameraRotation, cameraCenter, settings);
+			if (cameras == null || cameras.Count == 0)
+			{
+				result.failure = "no camera";
+				return result;
+			}
 
-			// bearings turned into the query world's axes: the solver only rotates them about Y
+			Context ctx = new(correspondences, intrinsics, cameras, settings);
+
+			// bearings turned into the query world's axes: the solver only rotates them about Y.
+			// A two-point hypothesis needs both rays leaving one center, so the ranged
+			// correspondences are also kept by camera
 			float3[] bearings = new float3[n];
 			List<int> ranged = new();
+			List<int>[] rangedByCamera = new List<int>[cameras.Count];
 			for (int i = 0; i < n; i++)
 			{
-				bearings[i] = math.mul(cameraRotation, correspondences[i].ray);
-				if (correspondences[i].IsRanged(settings.rangedFraction)) ranged.Add(i);
+				int c = ctx.CameraOf(correspondences[i]);
+				bearings[i] = math.mul(ctx.Rotation(c), correspondences[i].ray);
+				if (!correspondences[i].IsRanged(settings.rangedFraction)) continue;
+				ranged.Add(i);
+				(rangedByCamera[c] ??= new List<int>()).Add(i);
 			}
+
+			bool twoPoint = false;
+			foreach (List<int> same in rangedByCamera)
+				if (same != null && same.Count >= 2)
+					twoPoint = true;
 
 			Unity.Mathematics.Random random = new((uint)math.max(1, seed));
 			float threshold2 = settings.inlierSigmas * settings.inlierSigmas;
 			int bestCount = 0;
 			float bestCost = float.MaxValue;
 			float bestYaw = 0;
-			float3 bestCenter = cameraCenter;
+			float3 bestCenter = ctx.PriorCenter;
 			Span<float> yaws = stackalloc float[2];
 			Span<float3> centers = stackalloc float3[2];
 
-			bool twoPoint = ranged.Count >= 2;
 			int iterations = twoPoint ? settings.iterations : math.min(settings.iterations, n);
 			for (int it = 0; it < iterations; it++)
 			{
 				int solutions;
 				if (twoPoint)
 				{
-					int ia = random.NextInt(ranged.Count), ib = random.NextInt(ranged.Count - 1);
-					if (ib >= ia) ib++;
-					int a = ranged[ia], b = ranged[ib];
+					int a = ranged[random.NextInt(ranged.Count)];
+					int c = ctx.CameraOf(correspondences[a]);
+					List<int> same = rangedByCamera[c];
+					if (same.Count < 2) continue;
+					int b;
+					do b = same[random.NextInt(same.Count)];
+					while (b == a);
 					solutions = SolveTwoPoint(bearings[a], correspondences[a].Point, bearings[b], correspondences[b].Point, yaws, centers);
+					// the hypothesis places that camera; the first camera sits a known, turned baseline away
+					for (int s = 0; s < solutions; s++) centers[s] = ctx.FirstCenter(c, centers[s], yaws[s]);
 				}
 				else
 				{
 					// nothing ranged: yaw alone, from one landmark's direction, about where the query says it is
 					int a = random.NextInt(n);
 					solutions = SolveYaw(bearings[a], correspondences[a].direction, out yaws[0]) ? 1 : 0;
-					centers[0] = cameraCenter;
+					centers[0] = ctx.PriorCenter;
 				}
 
 				for (int s = 0; s < solutions; s++)
@@ -231,7 +290,7 @@ namespace Anaglyph.XR.VisualLocalization
 			result.success = true;
 			result.yaw = yaw;
 			result.cameraCenter = center;
-			result.translation = center - RotateY(cameraCenter, yaw);
+			result.translation = center - RotateY(ctx.PriorCenter, yaw);
 			result.rangedInliers = rangedInliers;
 			result.rmsPixels = (float)math.sqrt(pixels / inliers.Count);
 			result.normalizedRms = (float)math.sqrt(normalized / (2 * inliers.Count));
@@ -308,22 +367,46 @@ namespace Anaglyph.XR.VisualLocalization
 			return true;
 		}
 
+		// the unknowns are the yaw and the first camera's center in the map frame: every
+		// other camera sits its query-world baseline from the first, turned by the yaw, so
+		// the yaw's lever arm is only that baseline, never the world origin's distance
 		private readonly struct Context
 		{
 			private readonly IReadOnlyList<Correspondence> correspondences;
 			private readonly PinholeCamera intrinsics;
-			private readonly quaternion inverseCamera;
-			private readonly float3 priorCenter;
+			private readonly quaternion[] rotation, inverseCamera;
+			private readonly float3[] offset;
 			private readonly Settings settings;
 
-			public Context(IReadOnlyList<Correspondence> correspondences, PinholeCamera intrinsics, quaternion cameraRotation, float3 cameraCenter, Settings settings)
+			/// <summary>The first camera's center in the query world: where the query says it is.</summary>
+			public readonly float3 PriorCenter;
+
+			public Context(IReadOnlyList<Correspondence> correspondences, PinholeCamera intrinsics, IReadOnlyList<Pose> cameras, Settings settings)
 			{
 				this.correspondences = correspondences;
 				this.intrinsics = intrinsics;
-				inverseCamera = math.conjugate(cameraRotation);
-				priorCenter = cameraCenter;
 				this.settings = settings;
+				int count = cameras.Count;
+				rotation = new quaternion[count];
+				inverseCamera = new quaternion[count];
+				offset = new float3[count];
+				PriorCenter = cameras[0].position;
+				for (int c = 0; c < count; c++)
+				{
+					rotation[c] = cameras[c].rotation;
+					inverseCamera[c] = math.conjugate(rotation[c]);
+					offset[c] = (float3)cameras[c].position - PriorCenter;
+				}
 			}
+
+			public quaternion Rotation(int camera) => rotation[camera];
+			public int CameraOf(Correspondence c) => math.clamp(c.camera, 0, offset.Length - 1);
+
+			/// <summary>Camera c's center in the map frame, from the first camera's.</summary>
+			private float3 CenterOf(int camera, float yaw, float3 first) => first + RotateY(offset[camera], yaw);
+
+			/// <summary>The first camera's center in the map frame, from a hypothesis placing camera c.</summary>
+			public float3 FirstCenter(int camera, float3 center, float yaw) => center - RotateY(offset[camera], yaw);
 
 			/// <summary>
 			/// Projected minus observed pixel. The landmark is taken in homogeneous form,
@@ -331,19 +414,21 @@ namespace Anaglyph.XR.VisualLocalization
 			/// for a point, and the bare direction at infinity. The variance is the pixel
 			/// noise plus the landmark's inverse depth uncertainty carried into the image.
 			/// </summary>
-			public bool Residual(int i, float yaw, float3 center, out float2 residual, out float variance)
+			public bool Residual(int i, float yaw, float3 first, out float2 residual, out float variance)
 			{
 				Correspondence c = correspondences[i];
 				residual = 0;
 				variance = float.MaxValue;
+				int camera = CameraOf(c);
+				float3 center = CenterOf(camera, yaw, first);
 
 				float3 toOrigin = c.origin - center;
-				float3 local = math.mul(inverseCamera, RotateY(c.inverseDepth * toOrigin + c.direction, -yaw));
+				float3 local = math.mul(inverseCamera[camera], RotateY(c.inverseDepth * toOrigin + c.direction, -yaw));
 				if (local.z <= 1e-4f * math.length(local)) return false;
 				if (!intrinsics.Project(local, out float2 pixel)) return false;
 
 				// d pixel / d ρ
-				float3 dl = math.mul(inverseCamera, RotateY(toOrigin, -yaw));
+				float3 dl = math.mul(inverseCamera[camera], RotateY(toOrigin, -yaw));
 				float iz = 1f / local.z;
 				float2 dp = new(intrinsics.fx * (dl.x * local.z - local.x * dl.z) * iz * iz,
 					-intrinsics.fy * (dl.y * local.z - local.y * dl.z) * iz * iz);
@@ -353,43 +438,43 @@ namespace Anaglyph.XR.VisualLocalization
 				return true;
 			}
 
-			public float Normalized2(int i, float yaw, float3 center) =>
-				Residual(i, yaw, center, out float2 r, out float v) ? math.lengthsq(r) / v : float.MaxValue;
+			public float Normalized2(int i, float yaw, float3 first) =>
+				Residual(i, yaw, first, out float2 r, out float v) ? math.lengthsq(r) / v : float.MaxValue;
 
-			public void Select(List<int> inliers, float yaw, float3 center, float threshold2)
+			public void Select(List<int> inliers, float yaw, float3 first, float threshold2)
 			{
 				inliers.Clear();
 				for (int i = 0; i < correspondences.Count; i++)
-					if (Normalized2(i, yaw, center) < threshold2)
+					if (Normalized2(i, yaw, first) < threshold2)
 						inliers.Add(i);
 			}
 
-			// normalized residuals and their numeric Jacobian over (yaw, center)
-			private bool Linearize(int i, float yaw, float3 center, out float2 r, out float2 jy, out float2 jx, out float2 jyy, out float2 jz, out float variance)
+			// normalized residuals and their numeric Jacobian over (yaw, first center)
+			private bool Linearize(int i, float yaw, float3 first, out float2 r, out float2 jy, out float2 jx, out float2 jyy, out float2 jz, out float variance)
 			{
 				const float yawStep = 1e-4f, centerStep = 1e-4f;
 				jy = jx = jyy = jz = 0;
-				if (!Residual(i, yaw, center, out r, out variance)) return false;
+				if (!Residual(i, yaw, first, out r, out variance)) return false;
 				float w = math.rsqrt(variance);
 				r *= w;
-				jy = Delta(i, yaw + yawStep, center, r, w) / yawStep;
-				jx = Delta(i, yaw, center + new float3(centerStep, 0, 0), r, w) / centerStep;
-				jyy = Delta(i, yaw, center + new float3(0, centerStep, 0), r, w) / centerStep;
-				jz = Delta(i, yaw, center + new float3(0, 0, centerStep), r, w) / centerStep;
+				jy = Delta(i, yaw + yawStep, first, r, w) / yawStep;
+				jx = Delta(i, yaw, first + new float3(centerStep, 0, 0), r, w) / centerStep;
+				jyy = Delta(i, yaw, first + new float3(0, centerStep, 0), r, w) / centerStep;
+				jz = Delta(i, yaw, first + new float3(0, 0, centerStep), r, w) / centerStep;
 				return true;
 			}
 
-			private float2 Delta(int i, float yaw, float3 center, float2 r0, float w) =>
-				Residual(i, yaw, center, out float2 r, out _) ? r * w - r0 : 0;
+			private float2 Delta(int i, float yaw, float3 first, float2 r0, float w) =>
+				Residual(i, yaw, first, out float2 r, out _) ? r * w - r0 : 0;
 
-			private double4x4 Information(List<int> inliers, float yaw, float3 center, bool robust, out double4 gradient)
+			private double4x4 Information(List<int> inliers, float yaw, float3 first, bool robust, out double4 gradient)
 			{
 				double4x4 h = default;
 				gradient = default;
 				const double huber = 2;
 				foreach (int i in inliers)
 				{
-					if (!Linearize(i, yaw, center, out float2 r, out float2 jy, out float2 jx, out float2 jyy, out float2 jz, out _)) continue;
+					if (!Linearize(i, yaw, first, out float2 r, out float2 jy, out float2 jx, out float2 jyy, out float2 jz, out _)) continue;
 					float norm = math.length(r);
 					double w = !robust || norm <= huber ? 1 : huber / norm;
 					for (int k = 0; k < 2; k++)
@@ -402,7 +487,7 @@ namespace Anaglyph.XR.VisualLocalization
 
 				// the weak prior on the center: translation stays defined with only far landmarks
 				double prior = 1.0 / (settings.centerPriorSigma * settings.centerPriorSigma);
-				double3 offset = (double3)(center - priorCenter);
+				double3 offset = (double3)(first - PriorCenter);
 				h.c1.y += prior;
 				h.c2.z += prior;
 				h.c3.w += prior;
@@ -410,25 +495,25 @@ namespace Anaglyph.XR.VisualLocalization
 				return h;
 			}
 
-			public void Refine(List<int> inliers, ref float yaw, ref float3 center)
+			public void Refine(List<int> inliers, ref float yaw, ref float3 first)
 			{
 				for (int iteration = 0; iteration < 10; iteration++)
 				{
-					double4x4 h = Information(inliers, yaw, center, true, out double4 g);
+					double4x4 h = Information(inliers, yaw, first, true, out double4 g);
 					h.c0.x += 1e-9 + h.c0.x * 1e-6;
 					if (math.determinant(h) == 0) return;
 					double4 step = -math.mul(math.inverse(h), g);
 					if (math.any(!math.isfinite(step))) return;
 
 					yaw += (float)step.x;
-					center += new float3((float)step.y, (float)step.z, (float)step.w);
+					first += new float3((float)step.y, (float)step.z, (float)step.w);
 					if (math.abs(step.x) < 1e-7 && math.length(step.yzw) < 1e-6) return;
 				}
 			}
 
-			public double4x4 Covariance(List<int> inliers, float yaw, float3 center)
+			public double4x4 Covariance(List<int> inliers, float yaw, float3 first)
 			{
-				double4x4 h = Information(inliers, yaw, center, false, out _);
+				double4x4 h = Information(inliers, yaw, first, false, out _);
 				h.c0.x += 1e-12;
 				return math.determinant(h) == 0 ? new double4x4(1e6) : math.inverse(h);
 			}

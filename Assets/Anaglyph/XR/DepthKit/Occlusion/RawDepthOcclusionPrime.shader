@@ -81,7 +81,7 @@ Shader "Anaglyph/AR Occlusion/Raw Depth Occlusion Prime"
 					float3(ndcD.xy, agDepthSample(ndcD.xy, eye, agBilinearClampSampler)), eye);
 				t = dot(hit - camPos, dir);
 
-				// beyond the cutoff (including sensor far plane / no data): don't composite
+				// beyond the cutoff (including unknown depth, stored far): don't composite
 				if (t > _MaxDistance || t <= 0.0)
 					discard;
 

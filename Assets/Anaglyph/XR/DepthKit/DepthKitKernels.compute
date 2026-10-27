@@ -49,15 +49,26 @@ void DepthNorm(uint3 id : SV_DispatchThreadID)
 	float2 uv = id.xy / texSizeF;
 	uint eye = id.z;
 
-	float3 depthWorld = agDepthNDCtoWorld(float3(uv, agDepthTex[uint3(ind, eye)]), eye);
+	const float depth = agDepthTex[uint3(ind, eye)];
+	const float depthH = agDepthTex[uint3(ind + uint2(1, 0), eye)];
+	const float depthV = agDepthTex[uint3(ind + uint2(0, 1), eye)];
+
+	// no normal across unknown depth: a zero normal fails every facing test
+	if (!agDepthIsKnown(depth) || !agDepthIsKnown(depthH) || !agDepthIsKnown(depthV))
+	{
+		agDepthNormalTexRW[id] = 0;
+		return;
+	}
+
+	float3 depthWorld = agDepthNDCtoWorld(float3(uv, depth), eye);
 
 	ind = id.xy + uint2(1, 0);
 	uv = ind / texSizeF;
-	float3 depthWorldH = agDepthNDCtoWorld(float3(uv, agDepthTex[uint3(ind, eye)]), eye);
+	float3 depthWorldH = agDepthNDCtoWorld(float3(uv, depthH), eye);
 
 	ind = id.xy + uint2(0, 1);
 	uv = ind / texSizeF;
-	float3 depthWorldV = agDepthNDCtoWorld(float3(uv, agDepthTex[uint3(ind, eye)]), eye);
+	float3 depthWorldV = agDepthNDCtoWorld(float3(uv, depthV), eye);
 
 	const float3 hDeriv = depthWorldH - depthWorld;
 	const float3 vDeriv = depthWorldV - depthWorld;

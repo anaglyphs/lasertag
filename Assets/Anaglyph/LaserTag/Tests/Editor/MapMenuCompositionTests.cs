@@ -289,7 +289,7 @@ namespace Anaglyph.LaserTag.Tests
 				Assert.That(field.choices, Is.Not.EqualTo(englishChoices));
 				Assert.That(changes, Is.Zero, "Refreshing translated choices is not a user change.");
 				Assert.That(changing, Is.Zero);
-				// visual is the default shown without a space, so the change has to be to another method
+				// the field starts on the default method (visual), so pick another to make a change
 				field.value = Choice(field, ColocationManager.ColocationMethod.AprilTag);
 				Assert.That(changing, Is.EqualTo(1));
 				Assert.That(changes, Is.EqualTo(1));

@@ -20,11 +20,25 @@ namespace Anaglyph.XR.SharedSpaces
 		/// </summary>
 		public readonly bool hasReliableRotation;
 
-		public ColocationConstraint(Pose observed, Pose canon, bool hasReliableRotation = false)
+		/// <summary>How much its position counts in a fit over several constraints (1/σ², or any relative measure); 1 by default.</summary>
+		public readonly float positionWeight;
+
+		/// <summary>
+		/// How much its rotation's yaw counts as a direct observation of the fit's yaw. 0, the
+		/// default, leaves the yaw to the positions alone, as a position-only source needs; a
+		/// source that measured each constraint's yaw gives 1/σ².
+		/// </summary>
+		public readonly float yawWeight;
+
+		public ColocationConstraint(Pose observed, Pose canon, bool hasReliableRotation = false) : this(observed, canon, hasReliableRotation, 1f, 0f) { }
+
+		public ColocationConstraint(Pose observed, Pose canon, bool hasReliableRotation, float positionWeight, float yawWeight)
 		{
 			this.observed = observed;
 			this.canon = canon;
 			this.hasReliableRotation = hasReliableRotation;
+			this.positionWeight = positionWeight;
+			this.yawWeight = yawWeight;
 		}
 	}
 
