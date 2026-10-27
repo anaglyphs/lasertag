@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Anaglyph.Debugging;
 using Anaglyph.LaserTag.MapEditor.Tools;
+using Anaglyph.LaserTag.Maps;
 using Anaglyph.Menu;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -134,13 +135,7 @@ namespace Anaglyph.LaserTag.MapEditor
 			RefreshSetupGuide();
 		}
 
-		private static void OnDoneClicked()
-		{
-			var setup = LaserTagMapCoordinator.Instance?.TagSetup;
-			if (setup?.IsGuidingHeadset != true) MapEditor.SetActive(false);
-			else if (setup.CanFinish) setup.Finish();
-			else setup.Cancel();
-		}
+		private static void OnDoneClicked() => MapEditor.SetActive(false);
 
 		private void OnToolModeChanged(MapEditorTool.Mode mode)
 		{
@@ -211,10 +206,10 @@ namespace Anaglyph.LaserTag.MapEditor
 			var context = editingContext;
 			if (context != null)
 			{
-				var coordinator = LaserTagMapCoordinator.Instance;
+				var manager = SpaceManager.Instance;
 				bool objects = MapEditorTool.CurrentMode is MapEditorTool.Mode.Place or MapEditorTool.Mode.Move;
 				context.text = MenuCopy.Format("Map", objects ? "palette.map-context" : "palette.space-context",
-					objects ? coordinator?.CurrentMap?.name ?? "" : coordinator?.CurrentSpace?.name ?? "");
+					objects ? manager?.Map?.name ?? "" : manager?.Space?.name ?? "");
 			}
 			if (pendingTagSizeCm.HasValue && Time.unscaledTime - pendingTagSizeTime >= tagSizeSettleSeconds)
 				FlushPendingTagSize();
@@ -227,45 +222,38 @@ namespace Anaglyph.LaserTag.MapEditor
 		}
 
 		// ------- tag settings ----------------------------------------
+		// the operator-guided setup returns with the operator flow; the palette shows the plain tools
 		private void RefreshSetupGuide()
 		{
-			var setup = LaserTagMapCoordinator.Instance?.TagSetup;
-			bool guided = setup?.IsGuidingHeadset == true;
-			setupMeasureInstructions.style.display = guided ? DisplayStyle.Flex : DisplayStyle.None;
-			setupRegisterInstructions.style.display = guided ? DisplayStyle.Flex : DisplayStyle.None;
-			setupFinish.style.display = guided ? DisplayStyle.Flex : DisplayStyle.None;
-			backToMeasurementButton.style.display = guided ? DisplayStyle.Flex : DisplayStyle.None;
-			registrationTagSize.style.display = guided ? DisplayStyle.None : DisplayStyle.Flex;
-			measureTagSizeButton.style.display = guided ? DisplayStyle.None : DisplayStyle.Flex;
-			unregisterAllTagsButton.style.display = guided ? DisplayStyle.None : DisplayStyle.Flex;
-			doneButton.style.display = guided && !setup.CanEndFromHere ? DisplayStyle.None : DisplayStyle.Flex;
-			doneButton.text = MenuCopy.Get("Map", guided && !setup.CanFinish ? "tag-setup.cancel" : "GameMapEditingPage.finish-editing-button.text");
-			measurementHint.style.display = guided && !setup.CanMeasure ? DisplayStyle.None : DisplayStyle.Flex;
-			if (!guided) return;
-			setupFinish.text = MenuCopy.Get("Map", setup.State.operatorManaged ? "tag-setup.headset-finish" : "tag-setup.headset-finish-local");
-			setupMeasureInstructions.text = MenuCopy.Get("Map", setup.CanMeasure || setup.SizeConfirmed
-				? "tag-setup.headset-measure" : "tag-setup.headset-wait");
-			foreach (var slider in tagSizeSliders) slider.SetEnabled(setup.CanMeasure);
-			continueRegistrationButton.SetEnabled(setup.CanMeasure || setup.SizeConfirmed);
+			setupMeasureInstructions.style.display = DisplayStyle.None;
+			setupRegisterInstructions.style.display = DisplayStyle.None;
+			setupFinish.style.display = DisplayStyle.None;
+			backToMeasurementButton.style.display = DisplayStyle.None;
+			registrationTagSize.style.display = DisplayStyle.Flex;
+			measureTagSizeButton.style.display = DisplayStyle.Flex;
+			unregisterAllTagsButton.style.display = DisplayStyle.Flex;
+			doneButton.style.display = DisplayStyle.Flex;
+			doneButton.text = MenuCopy.Get("Map", "GameMapEditingPage.finish-editing-button.text");
+			measurementHint.style.display = DisplayStyle.Flex;
 		}
+
+		private static Guid CurrentFrame => SpaceManager.Instance?.Frame.frameId ?? Guid.Empty;
 
 		private void OnTagSizeChanged(ChangeEvent<float> change)
 		{
-			pendingSizeContext = LaserTagMapCoordinator.Instance?.ReferenceContext ?? Guid.Empty;
+			pendingSizeContext = CurrentFrame;
 			pendingTagSizeCm = change.newValue;
 			pendingTagSizeTime = Time.unscaledTime;
 			submittedTagSizeCm = null;
-			LaserTagMapCoordinator.Instance?.TagSetup?.ReturnToMeasurement();
 			foreach (var slider in tagSizeSliders) slider.SetValueWithoutNotify(change.newValue);
 		}
 
 		private void OnTagSizeMeasured(float centimeters)
 		{
-			pendingSizeContext = LaserTagMapCoordinator.Instance?.ReferenceContext ?? Guid.Empty;
+			pendingSizeContext = CurrentFrame;
 			pendingTagSizeCm = null;
 			submittedTagSizeCm = centimeters;
 			submittedTagSizeTime = Time.unscaledTime;
-			LaserTagMapCoordinator.Instance?.TagSetup?.ReturnToMeasurement();
 			foreach (var slider in tagSizeSliders)
 			{
 				slider.highValue = Mathf.Max(50f, centimeters);
@@ -280,8 +268,8 @@ namespace Anaglyph.LaserTag.MapEditor
 
 			float centimeters = pendingTagSizeCm.Value;
 			pendingTagSizeCm = null;
-			var manager = LaserTagMapCoordinator.Instance;
-			if (manager != null && manager.ReferenceContext == pendingSizeContext && manager.SetTagSize(centimeters))
+			var manager = SpaceManager.Instance;
+			if (manager != null && manager.Frame.frameId == pendingSizeContext && manager.Alignment.SetTagSize(centimeters))
 			{
 				submittedTagSizeCm = centimeters;
 				submittedTagSizeTime = Time.unscaledTime;
@@ -290,29 +278,22 @@ namespace Anaglyph.LaserTag.MapEditor
 
 		private void OnContinueRegistration()
 		{
-			var manager = LaserTagMapCoordinator.Instance;
-			if (manager == null) return;
-			float centimeters = pendingTagSizeCm ?? submittedTagSizeCm ?? manager.EffectiveTagSizeCm;
+			if (SpaceManager.Instance == null) return;
 			FlushPendingTagSize();
-			if (manager.TagSetup?.IsGuidingHeadset == true)
-				manager.TagSetup.ContinueToRegistration(centimeters);
-			else
-				MapEditorTool.SetMode(MapEditorTool.Mode.Tags);
+			MapEditorTool.SetMode(MapEditorTool.Mode.Tags);
 		}
 
 		private void OnMeasureTagSizeClicked()
 		{
-			var manager = LaserTagMapCoordinator.Instance;
+			var manager = SpaceManager.Instance;
 			FlushPendingTagSize();
-			if (manager?.TagSetup?.IsGuidingHeadset == true)
-				manager.TagSetup.ReturnToMeasurement();
-			else if (MapEditorTool.DominantHand != null && manager?.DescribeTagSizeBlocker() == null)
+			if (MapEditorTool.DominantHand != null && manager?.Alignment.TagSizeBlocker() == null)
 				MapEditorTool.SetMode(MapEditorTool.Mode.MeasureTagSize);
 		}
 
 		private void OnUnregisterAllTagsClicked()
 		{
-			LaserTagMapCoordinator.Instance?.UnregisterAllTags();
+			SpaceManager.Instance?.Alignment.UnregisterAllTags();
 			RefreshTagSettings();
 		}
 
@@ -321,7 +302,7 @@ namespace Anaglyph.LaserTag.MapEditor
 			if (tagSizeSliders == null)
 				return;
 
-			LaserTagMapCoordinator manager = LaserTagMapCoordinator.Instance;
+			SpaceManager manager = SpaceManager.Instance;
 			if (manager == null)
 			{
 				foreach (var slider in tagSizeSliders) slider.SetEnabled(false);
@@ -335,8 +316,9 @@ namespace Anaglyph.LaserTag.MapEditor
 				return;
 			}
 
-			string sizeBlocker = manager.DescribeTagSizeBlocker();
-			if (pendingSizeContext != manager.ReferenceContext)
+			SpaceAlignment alignment = manager.Alignment;
+			string sizeBlocker = alignment.TagSizeBlocker();
+			if (pendingSizeContext != manager.Frame.frameId)
 			{
 				pendingTagSizeCm = null;
 				submittedTagSizeCm = null;
@@ -345,33 +327,30 @@ namespace Anaglyph.LaserTag.MapEditor
 			measureTagSizeButton.SetEnabled(MapEditorTool.DominantHand != null && sizeBlocker == null);
 			foreach (var note in tagSizeNotes) SetMessage(note, sizeBlocker);
 
-			if (submittedTagSizeCm.HasValue && (Mathf.Abs(submittedTagSizeCm.Value - manager.EffectiveTagSizeCm) < .001f ||
+			if (submittedTagSizeCm.HasValue && (Mathf.Abs(submittedTagSizeCm.Value - alignment.TagSizeCm) < .001f ||
 				Time.unscaledTime - submittedTagSizeTime > 2f)) submittedTagSizeCm = null;
 			if (!pendingTagSizeCm.HasValue && !submittedTagSizeCm.HasValue)
 				foreach (var slider in tagSizeSliders)
 					if (!IsBeingEdited(slider))
 					{
-						slider.highValue = Mathf.Max(50f, manager.EffectiveTagSizeCm);
-						slider.SetValueWithoutNotify(manager.EffectiveTagSizeCm);
+						slider.highValue = Mathf.Max(50f, alignment.TagSizeCm);
+						slider.SetValueWithoutNotify(alignment.TagSizeCm);
 					}
 			continueRegistrationButton.SetEnabled(true);
 
-			int registered = manager.CurrentSpace != null ? manager.CurrentSpace.tags.Count : 0;
-			string registrationBlocker = manager.DescribeTagRegistrationBlocker();
-			bool canRemove = registered > 0 && manager.DescribeTagRemovalBlocker() == null;
+			int registered = manager.Space != null ? manager.Space.tags.Count : 0;
+			string registrationBlocker = alignment.TagRegistrationBlocker();
+			bool canRemove = registered > 0 && alignment.TagRemovalBlocker() == null;
 			unregisterAllTagsButton.SetEnabled(canRemove);
 			clearTagsForMeasurementButton.style.display = registered == 0 ? DisplayStyle.None : DisplayStyle.Flex;
 			clearTagsForMeasurementButton.SetEnabled(canRemove);
 
-			bool twoTags = registered == 0 && !manager.SessionIsWaitingOnFirstTag && ColocationManager.IsTwoTagMode(
-				ColocationManager.Instance != null ? ColocationManager.Instance.SelectedMethod :
-				manager.CurrentSpace?.preferredColocationMethod ?? Maps.MapSpaceStartup.DefaultMethod, manager.CurrentSpace);
+			bool twoTags = registered == 0 && ColocationManager.IsTwoTagMode(
+				ColocationManager.Instance != null ? ColocationManager.Instance.SelectedMethod : alignment.SelectedMethod, manager.Space);
 			if (twoTags)
 				tagStatus.text = MenuCopy.Get("Map", "alignment.two-tags-description");
 			else if (registrationBlocker != null && registrationBlocker != sizeBlocker)
 				tagStatus.text = MenuCopy.Format("Map", "alignment.tag-blocked", registered, registrationBlocker);
-			else if (manager.SessionIsWaitingOnFirstTag)
-				tagStatus.text = MenuCopy.Get("Map", "alignment.no-tags");
 			else
 				tagStatus.text = MenuCopy.Format("Map", "alignment.tag-count", registered);
 		}

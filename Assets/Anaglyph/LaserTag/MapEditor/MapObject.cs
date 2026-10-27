@@ -76,7 +76,7 @@ namespace Anaglyph.LaserTag.MapEditor
 		}
 
 		// Map objects belong to the session authority, so that one peer can clear and repopulate
-		// the world when the map changes. Objects placed offline stay local; LaserTagMapCoordinator spawns
+		// the world when the map changes. Objects placed offline stay local; SpaceManager spawns
 		// them when this device starts hosting. A client never spawns one of its own — its
 		// placements are requests, and the object it gets back is the authority's.
 		private void TrySpawn()

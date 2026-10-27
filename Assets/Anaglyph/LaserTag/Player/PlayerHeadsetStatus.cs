@@ -17,22 +17,19 @@ namespace Anaglyph.LaserTag.Player
 		public bool isHeadTracked;
 		public bool isFocused;
 		public bool aligned;
-		public bool referenceFrameTrusted;
 		public Guid mapId;
-		public Guid spaceId, frameId, referenceContext;
+		public Guid spaceId, frameId;
 		public int trackingGeneration;
 		public ColocationManager.ColocationMethod activeMethod;
-		public ReferenceTransitionPhase transition;
 		public ColocationManager.ColocationMethod method;
 
 		// Alignment is deliberately separate: a blank map needs its first anchor before aligning.
 		public readonly bool CanMintSharedAnchors => !isOperator && hasAnchorRuntime &&
 			supportsSharedAnchors && isHeadTracked && isFocused;
 
-		public readonly bool IsAlignedTo(Guid currentMap, Guid currentFrame, Guid context) =>
-			!isOperator && isFocused && isHeadTracked && aligned && currentMap != Guid.Empty && currentFrame != Guid.Empty &&
-			mapId == currentMap && frameId == currentFrame && referenceContext == context;
-
+		public readonly bool IsAlignedTo(Guid currentMap, SpaceFrame frame) =>
+			!isOperator && isFocused && isHeadTracked && aligned && currentMap != Guid.Empty && frame.IsSet &&
+			mapId == currentMap && spaceId == frame.spaceId && frameId == frame.frameId;
 	}
 
 	/// <summary>
@@ -53,28 +50,25 @@ namespace Anaglyph.LaserTag.Player
 		public HeadsetReadiness Readiness => IsOwner ? SampleReadiness() : readinessSync.Value;
 		public HeadsetTelemetry Telemetry => telemetrySync.Value;
 
-		public bool IsAligned => IsSpawned && SessionFrameReady && Readiness.IsAlignedTo(currentMapId,
-			LaserTagMapCoordinator.Instance.CanonicalFrameId, LaserTagMapCoordinator.Instance.ReferenceContext);
+		public bool IsAligned => IsSpawned && SessionFrameReady && Readiness.IsAlignedTo(currentMapId, SpaceManager.Instance.Frame);
 
-		private static bool SessionFrameReady => LaserTagMapCoordinator.Instance != null &&
-			!LaserTagMapCoordinator.Instance.IsChangingMap &&
-			LaserTagMapCoordinator.Instance.Phase is MapPhase.Hosting or MapPhase.FollowingSession;
+		private static bool SessionFrameReady => SpaceManager.Instance != null && !SpaceManager.Instance.IsChangingMap;
 
 		public override void OnNetworkSpawn()
 		{
 			focused = AppFocus.IsFocused;
-			OnMapChanged(LaserTagMapCoordinator.Instance?.CurrentMap);
-			LaserTagMapCoordinator.CurrentMapChanged += OnMapChanged;
+			OnMapChanged();
+			SpaceManager.MapChanged += OnMapChanged;
 			Publish();
 		}
 
 		public override void OnNetworkDespawn()
 		{
-			LaserTagMapCoordinator.CurrentMapChanged -= OnMapChanged;
+			SpaceManager.MapChanged -= OnMapChanged;
 			currentMapId = Guid.Empty;
 		}
 
-		private void OnMapChanged(GameMap map) => Guid.TryParse(map?.id, out currentMapId);
+		private void OnMapChanged() => currentMapId = SpaceManager.Instance?.Map?.Id ?? Guid.Empty;
 		private void Update() => Publish();
 
 		private void OnApplicationFocus(bool value) { focused = AppFocus.Resolve(value); Publish(); }
@@ -104,16 +98,12 @@ namespace Anaglyph.LaserTag.Player
 				supportsSharedAnchors = registry != null && registry.canShareAnchors,
 				isHeadTracked = HeadTrackingReady,
 				isFocused = focused && !paused,
-				aligned = SessionFrameReady && LaserTagMapCoordinator.Instance.CheckWorldFrameIsTrusted(),
-				referenceFrameTrusted = LaserTagMapCoordinator.Instance != null &&
-					LaserTagMapCoordinator.Instance.CheckReferenceFrameAgreement(),
+				aligned = SessionFrameReady && SpaceManager.Instance.Alignment.IsAligned,
 				trackingGeneration = ColocationManager.Instance != null ? ColocationManager.Instance.TrackingGeneration : 0,
 				mapId = currentMapId,
-				spaceId = LaserTagMapCoordinator.Instance != null ? LaserTagMapCoordinator.Instance.SessionSpaceId : Guid.Empty,
-				frameId = LaserTagMapCoordinator.Instance != null ? LaserTagMapCoordinator.Instance.CanonicalFrameId : Guid.Empty,
-				referenceContext = LaserTagMapCoordinator.Instance != null ? LaserTagMapCoordinator.Instance.ReferenceContext : Guid.Empty,
+				spaceId = SpaceManager.Instance != null ? SpaceManager.Instance.Frame.spaceId : Guid.Empty,
+				frameId = SpaceManager.Instance != null ? SpaceManager.Instance.Frame.frameId : Guid.Empty,
 				activeMethod = ColocationManager.Instance != null ? ColocationManager.Instance.ActiveMethod : default,
-				transition = LaserTagMapCoordinator.Instance?.AlignmentTransition?.Phase ?? ReferenceTransitionPhase.None,
 				method = ColocationManager.Instance != null ? ColocationManager.Instance.SelectedMethod : default
 			};
 		}

@@ -28,16 +28,15 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void OnCommitted(FocusOutEvent _)
 		{
-			LaserTagMapCoordinator manager = LaserTagMapCoordinator.Instance;
-			if (manager == null || manager.CurrentMap?.id != boundMapId || !manager.RenameMap(field.value))
+			SpaceManager manager = SpaceManager.Instance;
+			if (manager == null || manager.Map?.id != boundMapId || !manager.RenameMap(field.value))
 				Refresh();
 		}
 
 		public void Refresh()
 		{
-			LaserTagMapCoordinator manager = LaserTagMapCoordinator.Instance;
-			string blocker = manager != null ? manager.DescribeRenameBlocker()
-				: MenuCopy.Get("Map", "maps.unavailable");
+			SpaceManager manager = SpaceManager.Instance;
+			string blocker = manager != null ? manager.RenameMapBlocker() : MenuCopy.Get("Map", "maps.unavailable");
 			field.SetEnabled(blocker == null);
 			note.text = blocker ?? "";
 			note.style.display = blocker == null ? DisplayStyle.None : DisplayStyle.Flex;
@@ -46,7 +45,8 @@ namespace Anaglyph.LaserTag.Interface
 			// A refresh must not replace a name the user is still typing.
 			if (field.panel?.focusController?.focusedElement is VisualElement focused &&
 			    (focused == field || field.Contains(focused))) return;
-			GameMap map = manager.CurrentMap; boundMapId = map?.id;
+			Map map = manager.Map;
+			boundMapId = map?.id;
 			field.SetValueWithoutNotify(map != null ? map.name : "");
 		}
 	}

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using Anaglyph.XR.VisualLocalization;
 using Unity.Mathematics;
 using UnityEngine;
@@ -8,27 +9,24 @@ using UnityEngine;
 namespace Anaglyph.LaserTag.Maps
 {
 	/// <summary>
-	/// A space's visual map on disk: <c>&lt;spaceId&gt;.vmap</c> beside its document, in its
-	/// storage frame, and one vocabulary for the whole catalog (<c>vocabulary.vvoc</c>) that
-	/// every map's place probes are made with. Saving snapshots the live map on the main
-	/// thread and writes on a worker; loading replaces the live map as one rigid piece and
-	/// has the rig relocalize against it, so the world frame comes back where the space
-	/// left it and the map's objects land where they were.
+	/// A space's visual map on disk: <c>&lt;spaceId&gt;.vmap</c> beside its file, in the space's
+	/// frame, and one vocabulary for the whole catalog (<c>vocabulary.vvoc</c>) that every
+	/// map's place probes are made with. Saving snapshots the live map on the main thread and
+	/// writes on a worker; loading replaces the live map as one rigid piece and has the rig
+	/// relocalize against it, so the world frame comes back where the space left it and the
+	/// map's objects land where they were. The caller decides whose map it is to save.
 	/// </summary>
-	internal sealed class VisualMapPersistence
+	public sealed class VisualMapPersistence
 	{
-		public const string VocabularyFile = "vocabulary.vvoc";
 		private const int VocabularySample = 30000;
 
-		private readonly string directory;
-		private readonly Func<bool> authority;
+		private readonly SpaceStore store;
 		private VisualVocabulary vocabulary;
 		private bool vocabularyLooked;
 		private int savedRevision = -1;
 		private string savedSpace;
 		private float lastSave = float.NegativeInfinity;
 		private bool saving;
-		private int loadGeneration;
 		// what was loaded for the current space: a live map smaller than that is a fresh one
 		// after a load that failed, and must not overwrite the file the loaded one came from
 		private string loadedSpace;
@@ -41,28 +39,10 @@ namespace Anaglyph.LaserTag.Maps
 		public float SaveInterval = 60f;
 		/// <summary>Seconds a loaded map gets to relocalize the rig before it is dropped for a fresh one.</summary>
 		public float RelocalizeTimeout = 30f;
-		/// <summary>Told after each map written: the space's id and the save's UTC ticks.</summary>
-		public Action<string, long> Saved;
 
-		public VisualMapPersistence(string directory, Func<bool> authority)
-		{
-			this.directory = directory;
-			this.authority = authority;
-		}
+		public VisualMapPersistence(SpaceStore store) => this.store = store;
 
-		public static string MapPath(string directory, string spaceId) => Path.Combine(directory, spaceId + VisualMapFile.Extension);
-		public string MapPath(string spaceId) => MapPath(directory, spaceId);
-		public bool HasMap(MapSpace space) => space != null && MapSpace.ValidId(space.id) && File.Exists(MapPath(space.id));
-
-		/// <summary>Removes a space's map file (and the temp file a save may have left).</summary>
-		public static void DeleteFiles(string directory, string spaceId)
-		{
-			foreach (string path in new[] { MapPath(directory, spaceId), MapPath(directory, spaceId) + ".tmp" })
-			{
-				try { File.Delete(path); }
-				catch (Exception e) when (e is IOException or UnauthorizedAccessException) { Debug.LogException(e); }
-			}
-		}
+		public bool HasMap(Space space) => space != null && store.HasVisualMap(space.id);
 
 		/// <summary>The catalog's vocabulary, read once; null until the first map saved builds it.</summary>
 		public VisualVocabulary Vocabulary
@@ -71,7 +51,7 @@ namespace Anaglyph.LaserTag.Maps
 			{
 				if (vocabularyLooked) return vocabulary;
 				vocabularyLooked = true;
-				string path = Path.Combine(directory, VocabularyFile);
+				string path = store.VocabularyPath;
 				try
 				{
 					if (File.Exists(path))
@@ -89,7 +69,7 @@ namespace Anaglyph.LaserTag.Maps
 		/// <summary>A space's map header (its place probes), or null without one.</summary>
 		public VisualMapHeader ReadHeader(string spaceId)
 		{
-			string path = MapPath(spaceId);
+			string path = store.VisualMapPath(spaceId);
 			if (!File.Exists(path)) return null;
 			try
 			{
@@ -106,27 +86,25 @@ namespace Anaglyph.LaserTag.Maps
 		// ---- saving ------------------------------------------------------------
 
 		/// <summary>
-		/// Saves the live map under the space when it is this headset's to save: the
-		/// authority's, aligned, in the space's frame. Unforced saves are skipped while the
-		/// map is unchanged or saved within <see cref="SaveInterval"/>; a synchronous save
-		/// writes before returning (quitting, pausing), without building a vocabulary.
+		/// Saves the live map under the space while the rig is aligned in the space's frame.
+		/// Unforced saves are skipped while the map is unchanged or saved within
+		/// <see cref="SaveInterval"/>; a synchronous save writes before returning (quitting,
+		/// pausing), without building a vocabulary.
 		/// </summary>
-		public void Save(MapSpace space, bool force, bool synchronous)
+		public void Save(Space space, bool force, bool synchronous)
 		{
 			VisualLocalizer localizer = VisualLocalizer.Instance;
 			VisualColocationConstraintProvider provider = VisualColocationConstraintProvider.Instance;
-			if (space == null || !MapSpace.ValidId(space.id) || localizer == null || provider == null || !authority()) return;
+			if (space == null || localizer == null || provider == null) return;
 			if (provider.CurrentPhase != CanonColocationProvider.Phase.Aligned) return;
 			VisualMap map = localizer.Map;
 			if (map.Count == 0 || saving) return;
 			if (space.id == loadedSpace && map.Count < loadedKeyframes) return;
 			bool unchanged = map.Revision == savedRevision && space.id == savedSpace;
-			if (!force && (unchanged || Time.realtimeSinceStartup - lastSave < SaveInterval)) return;
-			if (unchanged && !force) return;
+			if (unchanged || !force && Time.realtimeSinceStartup - lastSave < SaveInterval) return;
 
-			MapSpaceFrame frame = space.Frame;
-			VisualMapData data = VisualMapFile.Snapshot(map, frame.ToStorage, frame.StorageFromCanonical.rotation, false);
-			data.frameId = space.storageFrameId;
+			VisualMapData data = VisualMapFile.Snapshot(map, pose => pose, Quaternion.identity, false);
+			data.frameId = space.frameId;
 			data.savedTicks = DateTime.UtcNow.Ticks;
 			// the snapshot's keyframes in the map's order: their probes, where already made
 			List<VisualKeyframe> sources = new(map.Keyframes);
@@ -134,19 +112,19 @@ namespace Anaglyph.LaserTag.Maps
 				if (probeCache.TryGetValue(sources[i], out ulong[] probe)) data.keyframes[i].probe = probe;
 			int revision = map.Revision;
 			lastSave = Time.realtimeSinceStartup;
+			string path = store.VisualMapPath(space.id);
 			if (synchronous)
 			{
 				try
 				{
-					WriteMap(data, MapPath(space.id), Vocabulary, false);
+					WriteMap(data, path, Vocabulary, false);
 					Remember(sources, data);
 					savedRevision = revision;
 					savedSpace = space.id;
-					Saved?.Invoke(space.id, data.savedTicks);
 				}
 				catch (Exception e) { Debug.LogException(e); }
 			}
-			else WriteAsync(data, MapPath(space.id), revision, space.id, sources);
+			else WriteAsync(data, path, revision, space.id, sources);
 		}
 
 		private async void WriteAsync(VisualMapData data, string path, int revision, string spaceId, List<VisualKeyframe> sources)
@@ -164,12 +142,10 @@ namespace Anaglyph.LaserTag.Maps
 				{
 					await Awaitable.MainThreadAsync();
 				}
-
 				if (v != null) vocabulary = v;
 				Remember(sources, data);
 				savedRevision = revision;
 				savedSpace = spaceId;
-				Saved?.Invoke(spaceId, data.savedTicks);
 			}
 			catch (Exception e) { Debug.LogException(e); }
 			finally { saving = false; }
@@ -192,11 +168,9 @@ namespace Anaglyph.LaserTag.Maps
 				v = BuildVocabulary(data);
 				if (v != null)
 				{
-					string vocabularyPath = Path.Combine(directory, VocabularyFile);
-					using FileStream f = new(vocabularyPath + ".tmp", FileMode.Create, FileAccess.Write);
-					v.Write(f);
-					f.Close();
-					Replace(vocabularyPath + ".tmp", vocabularyPath);
+					string vocabularyPath = store.VocabularyPath;
+					using (FileStream f = new(vocabularyPath + ".tmp", FileMode.Create, FileAccess.Write)) v.Write(f);
+					SpaceStore.ReplaceFile(vocabularyPath + ".tmp", vocabularyPath);
 					Debug.Log($"[{nameof(VisualMapPersistence)}] built the catalog's vocabulary from {data.keyframes.Count} keyframes");
 				}
 			}
@@ -210,16 +184,10 @@ namespace Anaglyph.LaserTag.Maps
 			else foreach (VisualMapData.Keyframe k in data.keyframes) k.probe = null;
 
 			using (FileStream f = new(path + ".tmp", FileMode.Create, FileAccess.Write)) VisualMapFile.Write(data, f);
-			Replace(path + ".tmp", path);
+			SpaceStore.ReplaceFile(path + ".tmp", path);
 			long size = new FileInfo(path).Length;
 			Debug.Log($"[{nameof(VisualMapPersistence)}] saved {data.keyframes.Count} keyframes, {data.landmarks.Count} landmarks ({size / 1024} KB){(v == null ? ", no vocabulary yet: no place probes" : "")}");
 			return v;
-		}
-
-		private static void Replace(string temp, string path)
-		{
-			if (File.Exists(path)) File.Delete(path);
-			File.Move(temp, path);
 		}
 
 		// a sample of the map's descriptors, spread over its keyframes
@@ -240,7 +208,6 @@ namespace Anaglyph.LaserTag.Maps
 					Array.Copy(k.descriptors, i * d, row, 0, d);
 					sample.Add(row);
 				}
-
 			return VisualVocabulary.Build(sample);
 		}
 
@@ -248,18 +215,18 @@ namespace Anaglyph.LaserTag.Maps
 
 		/// <summary>
 		/// Loads the space's saved map, if it has one in the space's current frame, under the
-		/// live localizer as one rigid piece, and has the rig relocalize against it. Gives
-		/// up after <see cref="RelocalizeTimeout"/>, leaving a fresh map.
+		/// live localizer as one rigid piece, and has the rig relocalize against it. Gives up
+		/// after <see cref="RelocalizeTimeout"/>, leaving a fresh map. Cancelled when the space
+		/// stops being the shown one.
 		/// </summary>
-		public async void LoadAndRelocalize(MapSpace space)
+		public async void LoadAndRelocalize(Space space, CancellationToken token)
 		{
-			int generation = ++loadGeneration;
 			VisualLocalizer localizer = VisualLocalizer.Instance;
 			VisualColocationConstraintProvider provider = VisualColocationConstraintProvider.Instance;
-			if (space == null || !HasMap(space) || localizer == null || provider == null || !authority()) return;
-			string path = MapPath(space.id);
+			if (space == null || !HasMap(space) || localizer == null || provider == null) return;
+			string path = store.VisualMapPath(space.id);
 
-			VisualMapData data = null;
+			VisualMapData data;
 			try
 			{
 				await Awaitable.BackgroundThreadAsync();
@@ -279,24 +246,21 @@ namespace Anaglyph.LaserTag.Maps
 				return;
 			}
 
-			if (generation != loadGeneration || !localizer || !provider) return;
+			if (token.IsCancellationRequested || !localizer || !provider) return;
 			if (data == null)
 			{
 				Debug.LogWarning($"[{nameof(VisualMapPersistence)}] {path} is not a map: ignored");
 				return;
 			}
-
-			if (data.frameId != space.storageFrameId)
+			if (data.frameId != space.frameId)
 			{
 				Debug.Log($"[{nameof(VisualMapPersistence)}] the saved map is in another frame than the space: ignored");
 				return;
 			}
-
-			if (!authority() || provider.CurrentPhase != CanonColocationProvider.Phase.Aligned) return;
+			if (provider.CurrentPhase != CanonColocationProvider.Phase.Aligned) return;
 
 			// whatever was mapped since the space came up is in a frame about to be replaced
-			MapSpaceFrame frame = space.Frame;
-			localizer.Map.Restore(data, frame.ToCanonical, frame.CanonicalFromStorage.rotation, localizer.PixelSigma);
+			localizer.Map.Restore(data, pose => pose, Quaternion.identity, localizer.PixelSigma);
 			savedRevision = localizer.Map.Revision;
 			savedSpace = space.id;
 			loadedSpace = space.id;
@@ -322,19 +286,22 @@ namespace Anaglyph.LaserTag.Maps
 			// provider drops its map with them: put the loaded map back while it is still wanted
 			int restores = 0;
 			float deadline = Time.realtimeSinceStartup + RelocalizeTimeout;
-			while (Time.realtimeSinceStartup < deadline)
+			try
 			{
-				await Awaitable.WaitForSecondsAsync(0.5f);
-				if (generation != loadGeneration || !provider) return;
-				if (provider.CurrentPhase != CanonColocationProvider.Phase.Relocalizing) return;
-				if (localizer.Map.Count >= loadedKeyframes / 2 || restores >= 3) continue;
-				restores++;
-				localizer.Map.Restore(data, frame.ToCanonical, frame.CanonicalFromStorage.rotation, localizer.PixelSigma);
-				savedRevision = localizer.Map.Revision;
-				Debug.Log($"[{nameof(VisualMapPersistence)}] the loaded map was cleared while relocalizing: restored ({restores})");
+				while (Time.realtimeSinceStartup < deadline)
+				{
+					await Awaitable.WaitForSecondsAsync(0.5f, token);
+					if (!provider || provider.CurrentPhase != CanonColocationProvider.Phase.Relocalizing) return;
+					if (localizer.Map.Count >= loadedKeyframes / 2 || restores >= 3) continue;
+					restores++;
+					localizer.Map.Restore(data, pose => pose, Quaternion.identity, localizer.PixelSigma);
+					savedRevision = localizer.Map.Revision;
+					Debug.Log($"[{nameof(VisualMapPersistence)}] the loaded map was cleared while relocalizing: restored ({restores})");
+				}
 			}
+			catch (OperationCanceledException) { return; }
 
-			if (generation != loadGeneration || provider.CurrentPhase != CanonColocationProvider.Phase.Relocalizing) return;
+			if (provider.CurrentPhase != CanonColocationProvider.Phase.Relocalizing) return;
 			Debug.Log($"[{nameof(VisualMapPersistence)}] the saved map didn't relocalize in {RelocalizeTimeout:F0} s: starting a fresh one ({provider.LastAttemptDescription})");
 			provider.AbandonRelocalization();
 			localizer.Map.Clear();
@@ -342,23 +309,5 @@ namespace Anaglyph.LaserTag.Maps
 
 		/// <summary>Forgets what was saved: the next unforced save writes.</summary>
 		public void Invalidate() => savedRevision = -1;
-
-		/// <summary>
-		/// Saves the current space's map every <see cref="SaveInterval"/> while it grows: the
-		/// documents are saved on edits, but a map grows by walking. Runs until cancelled.
-		/// </summary>
-		public async void RunPeriodicSaves(Func<MapSpace> current, System.Threading.CancellationToken token)
-		{
-			try
-			{
-				while (!token.IsCancellationRequested)
-				{
-					await Awaitable.WaitForSecondsAsync(10f, token);
-					Save(current(), false, false);
-				}
-			}
-			catch (OperationCanceledException) { }
-			catch (Exception e) { Debug.LogException(e); }
-		}
 	}
 }

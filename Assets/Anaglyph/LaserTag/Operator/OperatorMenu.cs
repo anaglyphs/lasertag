@@ -182,12 +182,11 @@ namespace Anaglyph.LaserTag.Operator
 		{
 			RefreshMapSettings();
 			tagSetupWizard?.Tick();
-			var coordinator = LaserTagMapCoordinator.Instance;
-			matchSettings?.StartButton.SetEnabled(NetcodeManagement.State == NetcodeState.Connected && coordinator?.TagSetup?.IsActive != true);
+			matchSettings?.StartButton.SetEnabled(NetcodeManagement.State == NetcodeState.Connected);
 		}
 
 		private void LateUpdate() =>
-			tagSetupViewport?.Refresh(viewportCamera, LaserTagMapCoordinator.Instance?.CurrentSpace);
+			tagSetupViewport?.Refresh(viewportCamera, Maps.SpaceManager.Instance?.Space);
 
 		/// <summary>
 		/// The operator edits map names and space alignment without an editing mode:
@@ -620,9 +619,7 @@ namespace Anaglyph.LaserTag.Operator
 			var state = avatar.HeadsetStatus.Readiness;
 			string key = state.activeMethod switch {
 				ColocationManager.ColocationMethod.AprilTag => "alignment.tags", _ => "alignment.anchors" };
-			string source = MenuCopy.Get("Map", key);
-			return state.transition is Maps.ReferenceTransitionPhase.Preparing or Maps.ReferenceTransitionPhase.Validating or Maps.ReferenceTransitionPhase.Persisting or Maps.ReferenceTransitionPhase.HandingOver
-				? MenuCopy.Format("Map", "alignment.transition", MenuCopy.Get("Map", "alignment.phase." + state.transition), source) : source;
+			return MenuCopy.Get("Map", key);
 		}
 		private static string DescribeAlignment(HeadsetTelemetry telemetry) => telemetry.alignment switch
 		{

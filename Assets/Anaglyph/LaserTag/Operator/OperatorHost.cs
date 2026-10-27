@@ -74,7 +74,7 @@ namespace Anaglyph.LaserTag.Operator
 		public static async Awaitable<LocalizedString> StartSessionAsync(CancellationToken cancellationToken)
 		{
 			while (NetworkManager.Singleton == null || ColocationManager.Instance == null ||
-			       LaserTagMapCoordinator.Instance == null)
+			       SpaceManager.Instance == null)
 				await Awaitable.NextFrameAsync(cancellationToken);
 
 			LoadLastSupportedMap();
@@ -132,21 +132,12 @@ namespace Anaglyph.LaserTag.Operator
 			}
 		}
 
-		/// <summary>The same catalog is used for startup restoration and the operator's map picker.</summary>
-		public static bool CanHostMap(GameMap map) => map != null &&
-			MapSpaceStore.Default.FindOwner(map.id) != null;
-
+		/// <summary>The most recently used space, with its most recent map, when nothing is shown yet.</summary>
 		private static void LoadLastSupportedMap()
 		{
-			if (LaserTagMapCoordinator.Instance.CurrentMap != null)
-				return;
-
-			foreach (GameMap map in MapStore.Default.GetByLastUsed())
-				if (CanHostMap(map))
-				{
-					LaserTagMapCoordinator.Instance.LoadMap(map.id);
-					return;
-				}
+			SpaceManager manager = SpaceManager.Instance;
+			if (manager.Space == null && manager.Spaces.Count > 0)
+				manager.LoadSpace(manager.Spaces[0].id);
 		}
 
 		/// <summary>Empty while not hosting.</summary>

@@ -12,6 +12,7 @@ using Unity.Netcode;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
+using Space = Anaglyph.LaserTag.Maps.Space;
 
 namespace Anaglyph.LaserTag.Tests
 {
@@ -22,9 +23,9 @@ namespace Anaglyph.LaserTag.Tests
 		private Dictionary<ulong, PlayerAvatar> previousPlayers;
 		private PlayerAvatar previousLocal;
 		private ColocationManager previousColocation;
-		private LaserTagMapCoordinator previousCoordinator;
+		private SpaceManager previousManager;
 		private Guid mapId;
-		private MapCoordinatorTestContext mapContext;
+		private SpaceManagerTestContext mapContext;
 
 		[SetUp]
 		public void SetUp()
@@ -32,7 +33,7 @@ namespace Anaglyph.LaserTag.Tests
 			previousPlayers = PlayerAvatar.All;
 			previousLocal = PlayerAvatar.Local;
 			previousColocation = ColocationManager.Instance;
-			previousCoordinator = LaserTagMapCoordinator.Instance;
+			previousManager = SpaceManager.Instance;
 			SetStatic(typeof(PlayerAvatar), "All", new Dictionary<ulong, PlayerAvatar>());
 			SetStatic(typeof(PlayerAvatar), "Local", null);
 			mapId = Guid.NewGuid();
@@ -40,12 +41,8 @@ namespace Anaglyph.LaserTag.Tests
 			var colocation = context.AddComponent<ColocationManager>();
 			Set(colocation, "offlineMethod", ColocationManager.ColocationMethod.Visual);
 			SetStatic(typeof(ColocationManager), "Instance", colocation);
-			var coordinator = context.AddComponent<LaserTagMapCoordinator>();
-			mapContext = new MapCoordinatorTestContext(coordinator);
-			mapContext.SpaceDocument.Load(MapSpace.Create("Presence test"));
-			Set(coordinator, "colocationManager", colocation);
-			((MapLifecycle)Get(coordinator, "lifecycle")).BeginHosting(false, 0);
-			SetStatic(typeof(LaserTagMapCoordinator), "Instance", coordinator);
+			var manager = context.AddComponent<SpaceManager>();
+			mapContext = new SpaceManagerTestContext(manager, colocation, Space.Create("Presence test"));
 		}
 
 		[TearDown]
@@ -54,7 +51,8 @@ namespace Anaglyph.LaserTag.Tests
 			SetStatic(typeof(PlayerAvatar), "All", previousPlayers);
 			SetStatic(typeof(PlayerAvatar), "Local", previousLocal);
 			SetStatic(typeof(ColocationManager), "Instance", previousColocation);
-			SetStatic(typeof(LaserTagMapCoordinator), "Instance", previousCoordinator);
+			mapContext?.Dispose();
+			SetStatic(typeof(SpaceManager), "Instance", previousManager);
 			foreach (GameObject owner in objects)
 			{
 				foreach (NetworkBehaviour component in owner.GetComponentsInChildren<NetworkBehaviour>(true))
@@ -62,7 +60,6 @@ namespace Anaglyph.LaserTag.Tests
 				Object.DestroyImmediate(owner);
 			}
 			objects.Clear();
-			mapContext?.Dispose();
 		}
 
 		[Test]
@@ -92,7 +89,7 @@ namespace Anaglyph.LaserTag.Tests
 		{
 			var readiness = Ready(false);
 			Assert.That(readiness.CanMintSharedAnchors, Is.True);
-			Assert.That(readiness.IsAlignedTo(mapId, LaserTagMapCoordinator.Instance.CanonicalFrameId, LaserTagMapCoordinator.Instance.ReferenceContext), Is.False);
+			Assert.That(readiness.IsAlignedTo(mapId, SpaceManager.Instance.Frame), Is.False);
 			readiness.isOperator = true;
 			Assert.That(readiness.CanMintSharedAnchors, Is.False);
 			readiness.isOperator = false;
@@ -294,7 +291,7 @@ namespace Anaglyph.LaserTag.Tests
 		private HeadsetReadiness Ready(bool aligned) => new()
 		{
 			hasAnchorRuntime = true, supportsSharedAnchors = true, isHeadTracked = true,
-			isFocused = true, aligned = aligned, mapId = mapId, frameId = LaserTagMapCoordinator.Instance.CanonicalFrameId, referenceContext = LaserTagMapCoordinator.Instance.ReferenceContext,
+			isFocused = true, aligned = aligned, mapId = mapId, spaceId = SpaceManager.Instance.Frame.spaceId, frameId = SpaceManager.Instance.Frame.frameId,
 			method = ColocationManager.ColocationMethod.Visual
 		};
 

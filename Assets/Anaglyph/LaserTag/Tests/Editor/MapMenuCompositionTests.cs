@@ -15,6 +15,7 @@ using UnityEngine.Localization.Pseudo;
 using UnityEngine.Localization.Settings;
 using UnityEngine.TestTools;
 using UnityEngine.UIElements;
+using Space = Anaglyph.LaserTag.Maps.Space;
 
 namespace Anaglyph.LaserTag.Tests
 {
@@ -142,7 +143,7 @@ namespace Anaglyph.LaserTag.Tests
 		[Test]
 		public void WizardVisibilityOverridesUIBuilderDisplaySettings()
 		{
-			Assert.That(LaserTagMapCoordinator.Instance, Is.Null);
+			Assert.That(SpaceManager.Instance, Is.Null);
 			var root = Load("Assets/Anaglyph/LaserTag/Operator/OperatorMenu.uxml");
 			var navigation = root.Q<NavView>("maps-nav");
 			var page = navigation.GetPage("apriltag-setup-page");
@@ -171,7 +172,7 @@ namespace Anaglyph.LaserTag.Tests
 		[TestCase(false)]
 		public void MapControlsOverrideUIBuilderDisplaySettingsWhenBound(bool operatorMode)
 		{
-			Assert.That(LaserTagMapCoordinator.Instance, Is.Null);
+			Assert.That(SpaceManager.Instance, Is.Null);
 			var root = Load("Assets/Anaglyph/LaserTag/Operator/OperatorMenu.uxml");
 			var page = root.Q<NavPage>("space-details");
 			page.Q("start-apriltag-setup").style.display = operatorMode ? DisplayStyle.None : DisplayStyle.Flex;
@@ -204,7 +205,7 @@ namespace Anaglyph.LaserTag.Tests
 		[UnityTest]
 		public IEnumerator SharedMapFieldsBindAloneAndOperatorErrorsReturnToSpaceSettings()
 		{
-			Assert.That(LaserTagMapCoordinator.Instance, Is.Null, "This test must not change an active map.");
+			Assert.That(SpaceManager.Instance, Is.Null, "This test must not change an active map.");
 			var catalog = Load(sharedPath + "MapCatalog.uxml");
 			var name = Load(sharedPath + "MapNameField.uxml");
 			var tags = Load(sharedPath + "AlignmentSettings.uxml");
@@ -255,75 +256,9 @@ namespace Anaglyph.LaserTag.Tests
 		}
 
 		[UnityTest]
-		public IEnumerator SpaceDetailsShowsTagValidationSeparatelyFromTheSavedAnchorPreference()
-		{
-			Assert.That(LaserTagMapCoordinator.Instance, Is.Null);
-			Assert.That(ColocationManager.Instance, Is.Null);
-			Assert.That(Anaglyph.Netcode.SyncVariables.SyncBus.Current, Is.Null);
-			var owner = new GameObject("Alignment status test");
-			owner.SetActive(false);
-			MapCoordinatorTestContext context = null;
-			bool wasColocated = ColocationManager.IsColocated;
-			var coordinator = owner.AddComponent<LaserTagMapCoordinator>();
-			var manager = owner.AddComponent<ColocationManager>();
-			owner.AddComponent<Unity.Netcode.NetworkObject>();
-			var bus = owner.AddComponent<Anaglyph.Netcode.SyncVariables.SyncBus>();
-			try
-			{
-				var space = MapSpace.Create("Status test");
-				space.preferredColocationMethod = ColocationManager.ColocationMethod.MetaSharedAnchor;
-				context = new MapCoordinatorTestContext(coordinator);
-				context.SpaceDocument.Load(space);
-				context.ComposeReferences(manager);
-				var transition = new ReferenceAlignmentTransition(System.Guid.NewGuid(), space,
-					ColocationManager.ColocationMethod.MetaSharedAnchor, ColocationManager.ColocationMethod.AprilTag,
-					ReferenceTransitionIntent.ActivateTarget, true);
-				transition.SetCandidate(System.Guid.NewGuid());
-				context.Alignment.GetType().GetProperty("Transition").SetValue(context.Alignment, transition);
-				typeof(LaserTagMapCoordinator).GetProperty("Instance").SetValue(null, coordinator);
-				typeof(ColocationManager).GetProperty("Instance").SetValue(null, manager);
-				typeof(ColocationManager).GetProperty("IsColocated").SetValue(null, true);
-				typeof(Unity.Netcode.NetworkBehaviour).GetProperty("IsSpawned").SetValue(bus, true);
-				typeof(Anaglyph.Netcode.SyncVariables.SyncBus).GetProperty("Current").SetValue(null, bus);
-
-				foreach (string path in new[] { "Assets/Anaglyph/LaserTag/Operator/OperatorMenu.uxml",
-					"Assets/Anaglyph/LaserTag/Interface/Main Menu/Game/GameMenu.uxml" })
-				{
-					var root = Load(path);
-					var details = root.Q<NavPage>("space-details");
-					if (root.Q<TabView>("tabs") is TabView tabs) tabs.activeTab = root.Q<Tab>("maps-tab");
-					details.GetFirstAncestorOfType<NavView>().GoToPage(details);
-					using var binder = new AlignmentSettingsBinder(details.Q("alignment-settings-section"));
-					binder.Refresh();
-					for (int i = 0; i < 2; i++) yield return null;
-					var status = details.Q<Label>("colocation-status");
-					Assert.That(status.text, Is.EqualTo("AprilTags: Validating references; aligned using Shared spatial anchors"));
-					Assert.That(status.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
-					Assert.That(status.worldBound.height, Is.GreaterThan(0));
-					Assert.That(details.Q<Label>("colocation-preference-status").text, Is.EqualTo("Space preference: Shared spatial anchors"));
-					typeof(ColocationManager).GetProperty("IsColocated").SetValue(null, false);
-					binder.Refresh();
-					Assert.That(status.text, Is.EqualTo("AprilTags: Validating references; waiting for alignment"));
-					typeof(ColocationManager).GetProperty("IsColocated").SetValue(null, true);
-					root.RemoveFromHierarchy();
-				}
-			}
-			finally
-			{
-				typeof(Unity.Netcode.NetworkBehaviour).GetProperty("IsSpawned").SetValue(bus, false);
-				typeof(Anaglyph.Netcode.SyncVariables.SyncBus).GetProperty("Current").SetValue(null, null);
-				context?.Dispose();
-				typeof(LaserTagMapCoordinator).GetProperty("Instance").SetValue(null, null);
-				typeof(ColocationManager).GetProperty("Instance").SetValue(null, null);
-				typeof(ColocationManager).GetProperty("IsColocated").SetValue(null, wasColocated);
-				Object.DestroyImmediate(owner);
-			}
-		}
-
-		[UnityTest]
 		public IEnumerator AlignmentSettingsRebindAndFollowLocaleChanges()
 		{
-			Assert.That(LaserTagMapCoordinator.Instance, Is.Null, "This test must not change an active map.");
+			Assert.That(SpaceManager.Instance, Is.Null, "This test must not change an active map.");
 			var fragment = Load(sharedPath + "AlignmentSettings.uxml");
 			Assert.That(fragment.Q<NavView>(), Is.Null);
 			Assert.That(fragment.Q<Slider>("tag-size-slider"), Is.Not.Null);
@@ -354,12 +289,13 @@ namespace Anaglyph.LaserTag.Tests
 				Assert.That(field.choices, Is.Not.EqualTo(englishChoices));
 				Assert.That(changes, Is.Zero, "Refreshing translated choices is not a user change.");
 				Assert.That(changing, Is.Zero);
-				field.value = Choice(field, ColocationManager.ColocationMethod.Visual);
+				// visual is the default shown without a space, so the change has to be to another method
+				field.value = Choice(field, ColocationManager.ColocationMethod.AprilTag);
 				Assert.That(changing, Is.EqualTo(1));
 				Assert.That(changes, Is.EqualTo(1));
 				Assert.That(staleChanges, Is.Zero);
 				current.Dispose();
-				field.value = Choice(field, ColocationManager.ColocationMethod.AprilTag);
+				field.value = Choice(field, ColocationManager.ColocationMethod.Visual);
 				Assert.That(changing, Is.EqualTo(1));
 				Assert.That(changes, Is.EqualTo(1));
 				Assert.That(staleChanges, Is.Zero);
@@ -374,7 +310,7 @@ namespace Anaglyph.LaserTag.Tests
 		[UnityTest]
 		public IEnumerator SeparateAlignmentFragmentsKeepTheirBindingsIndependent()
 		{
-			Assert.That(LaserTagMapCoordinator.Instance, Is.Null, "This test must not change an active map.");
+			Assert.That(SpaceManager.Instance, Is.Null, "This test must not change an active map.");
 			var first = Load(sharedPath + "AlignmentSettings.uxml").Q("alignment-settings-section");
 			var second = Load(sharedPath + "AlignmentSettings.uxml").Q("alignment-settings-section");
 			using var firstBinder = new AlignmentSettingsBinder(first);
@@ -395,7 +331,7 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(secondField.value, Is.EqualTo(secondValue));
 
 			firstBinder.Dispose();
-			secondField.value = Choice(secondField, ColocationManager.ColocationMethod.Visual);
+			secondField.value = Choice(secondField, ColocationManager.ColocationMethod.MetaSharedAnchor);
 			Assert.That(firstChanges, Is.EqualTo(1));
 			Assert.That(secondChanges, Is.EqualTo(1), "Disposing one fragment must not unbind another instance.");
 		}
@@ -404,24 +340,22 @@ namespace Anaglyph.LaserTag.Tests
 		[TestCase(false)]
 		public void BothTagModesExposeThePaletteSliderAndMeasurementPage(bool registeredTags)
 		{
-			Assert.That(LaserTagMapCoordinator.Instance, Is.Null);
+			Assert.That(SpaceManager.Instance, Is.Null);
 			Assert.That(ColocationManager.Instance, Is.Null);
 			var owner = new GameObject("Tag palette test");
 			owner.SetActive(false);
 			bool wasEditing = MapEditor.MapEditor.IsActive;
 			var previousMode = MapEditorTool.CurrentMode;
-			MapCoordinatorTestContext context = null;
+			SpaceManagerTestContext context = null;
 			try
 			{
-				var coordinator = owner.AddComponent<LaserTagMapCoordinator>();
-				context = new MapCoordinatorTestContext(coordinator);
-				var space = MapSpace.Create("Test"); space.tagSizeCm = 18f;
-				space.preferredColocationMethod = ColocationManager.ColocationMethod.AprilTag;
+				var manager = owner.AddComponent<SpaceManager>();
+				var space = Space.Create("Test"); space.alignment.tagSizeCm = 18f;
+				space.alignment.method = ColocationManager.ColocationMethod.AprilTag;
 				if (registeredTags) space.SetTag(1, Pose.identity);
-				context.SpaceDocument.Load(space);
-				context.MapDocument.Create(space.storageFrameId);
-				context.ComposeReferences(owner.AddComponent<ColocationManager>());
-				typeof(LaserTagMapCoordinator).GetProperty("Instance").SetValue(null, coordinator);
+				space.maps.Add(Map.Create("Map 1"));
+				context = new SpaceManagerTestContext(manager, owner.AddComponent<ColocationManager>(), space);
+				context.ShowMap(space.maps[0]);
 				typeof(MapEditor.MapEditor).GetProperty("IsActive").SetValue(null, true);
 				var headset = Load("Assets/Anaglyph/LaserTag/Interface/Main Menu/Game/GameMenu.uxml");
 				var page = headset.Q<NavPage>("space-details");
@@ -437,11 +371,11 @@ namespace Anaglyph.LaserTag.Tests
 				Assert.That(palette.Q<NavPage>("tags-page").Q<Slider>("tag-size-slider"), Is.Not.Null);
 				Assert.That(palette.Q<NavPage>("tags-page").Q<Button>("measure-tag-size-button"), Is.Not.Null);
 				Assert.That(palette.Q<NavPage>("measure-tag-size-page"), Is.Not.Null);
-				Assert.That(coordinator.EffectiveTagSizeCm, Is.EqualTo(18f));
+				Assert.That(manager.Alignment.TagSizeCm, Is.EqualTo(18f));
+				Assert.That(manager.Alignment.TagSizeBlocker(), registeredTags ? Is.Not.Null : Is.Null, "registered tags fix the size they were solved at");
 			}
 			finally
 			{
-				typeof(LaserTagMapCoordinator).GetProperty("Instance").SetValue(null, null);
 				typeof(MapEditor.MapEditor).GetProperty("IsActive").SetValue(null, wasEditing);
 				MapEditorTool.SetMode(previousMode);
 				context?.Dispose();
@@ -472,47 +406,52 @@ namespace Anaglyph.LaserTag.Tests
 
 	public sealed class MapMenuCompositionTestWindow : EditorWindow { }
 
-	internal sealed class MapCoordinatorTestContext : System.IDisposable
+	/// <summary>
+	/// A SpaceManager on an inactive object, so Awake never runs: its store sits in a temp
+	/// directory, and the shown space and the alignment's view of it are set directly.
+	/// </summary>
+	internal sealed class SpaceManagerTestContext : System.IDisposable
 	{
 		private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
-		private readonly LaserTagMapCoordinator coordinator;
+		private readonly SpaceManager manager;
+		private readonly SpaceManager previous;
 		private readonly string directory;
-		public MapWorkingCopy MapDocument { get; }
-		public MapSpaceWorkingCopy SpaceDocument { get; }
-		public object Visit { get; }
-		public System.IDisposable Alignment { get; private set; }
+		public SpaceStore Store { get; }
+		public SpaceAlignment Alignment { get; }
 
-		public MapCoordinatorTestContext(LaserTagMapCoordinator coordinator)
+		public SpaceManagerTestContext(SpaceManager manager, ColocationManager colocation, Space space)
 		{
-			this.coordinator = coordinator;
+			this.manager = manager;
+			previous = SpaceManager.Instance;
 			directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "lasertag-context-" + System.Guid.NewGuid().ToString("N"));
-			Visit = typeof(LaserTagMapCoordinator).GetField("visit", Private).GetValue(coordinator);
-			var documents = Create("MapCatalog", new MapStore(System.IO.Path.Combine(directory, "maps")),
-				new MapSpaceStore(System.IO.Path.Combine(directory, "spaces")), directory, Visit);
-			MapDocument = (MapWorkingCopy)documents.GetType().GetProperty("MapDocument").GetValue(documents);
-			SpaceDocument = (MapSpaceWorkingCopy)documents.GetType().GetProperty("SpaceDocument").GetValue(documents);
-			Set("documents", documents);
+			Store = new SpaceStore(directory);
+			Alignment = new SpaceAlignment(manager, colocation, Store);
+			Set(manager, "store", Store);
+			Set(manager, "colocationManager", colocation);
+			typeof(SpaceManager).GetProperty("Alignment").SetValue(manager, Alignment);
+			typeof(SpaceManager).GetProperty("Instance").SetValue(null, manager);
+			ShowSpace(space);
 		}
 
-		public void ComposeReferences(ColocationManager manager)
+		public void ShowSpace(Space space)
 		{
-			Alignment = (System.IDisposable)Create("MapSpaceAlignmentController", manager, (System.Func<bool>)(() => false));
-			Set("colocationManager", manager);
-			Set("alignment", Alignment);
-			Set("references", Create("MapSpaceColocationAdapter", manager));
-			Set("session", Create("MapSessionSync"));
-			typeof(LaserTagMapCoordinator).GetMethod("ComposeWorkflows", Private).Invoke(coordinator, null);
+			Set(manager, "space", space);
+			Set(Alignment, "space", space);
+			if (space != null) ((System.Collections.Generic.List<Space>)Get(manager, "spaces")).Add(space);
 		}
 
-		private void Set(string name, object value) =>
-			typeof(LaserTagMapCoordinator).GetField(name, Private).SetValue(coordinator, value);
+		public void ShowMap(Map map)
+		{
+			Set(manager, "map", map);
+			typeof(SpaceManager).GetProperty("MapRevision").SetValue(manager, System.Guid.NewGuid());
+		}
 
-		private static object Create(string name, params object[] arguments) =>
-			System.Activator.CreateInstance(typeof(MapSpace).Assembly.GetType("Anaglyph.LaserTag.Maps." + name, true), arguments);
+		private static void Set(object owner, string field, object value) => owner.GetType().GetField(field, Private).SetValue(owner, value);
+		private static object Get(object owner, string field) => owner.GetType().GetField(field, Private).GetValue(owner);
 
 		public void Dispose()
 		{
-			Alignment?.Dispose();
+			typeof(SpaceManager).GetProperty("Instance").SetValue(null, previous);
 			if (System.IO.Directory.Exists(directory)) System.IO.Directory.Delete(directory, true);
 		}
 	}

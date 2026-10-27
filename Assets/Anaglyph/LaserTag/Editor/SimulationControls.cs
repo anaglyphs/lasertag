@@ -341,8 +341,8 @@ namespace Anaglyph.LaserTag.Editor
 
 			if (CurrentPlayer.IsMainEditor)
 			{
-				if (LaserTagMapCoordinator.Instance == null) return;
-				if (!LaserTagMapCoordinator.Instance.RestoreLastMapForSimulation()) return;
+				if (Maps.SpaceManager.Instance == null) return;
+				if (!Maps.SpaceManager.Instance.RestoreLastSpaceForSimulation()) return;
 				NetcodeManagement.Host(NetcodeManagement.Protocol.LAN);
 				EditorApplication.update -= Tick;
 			}

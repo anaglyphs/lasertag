@@ -7,6 +7,7 @@ using Anaglyph.XR.SharedSpaces;
 using Anaglyph.XR.SharedSpaces.AprilTags;
 using Anaglyph.XR.SharedSpaces.SharedAnchors;
 using UnityEngine;
+using Space = Anaglyph.LaserTag.Maps.Space;
 
 namespace Anaglyph.LaserTag
 {
@@ -35,11 +36,11 @@ namespace Anaglyph.LaserTag
 			(int)method is 2 or 3 ? ColocationMethod.AprilTag : method;
 
 		/// <summary>AprilTag alignment without registered tags runs in two-tag mode, which saves no references.</summary>
-		public static bool IsTwoTagMode(ColocationMethod method, MapSpace space) =>
+		public static bool IsTwoTagMode(ColocationMethod method, Space space) =>
 			method == ColocationMethod.AprilTag && (space == null || !space.HasTags);
 
 		/// <summary><see cref="UsesSavedReferences(ColocationMethod)"/>, less AprilTag's two-tag mode.</summary>
-		public static bool UsesSavedReferences(ColocationMethod method, MapSpace space) =>
+		public static bool UsesSavedReferences(ColocationMethod method, Space space) =>
 			UsesSavedReferences(method) && !IsTwoTagMode(method, space);
 
 		/// <summary>
@@ -51,7 +52,7 @@ namespace Anaglyph.LaserTag
 			UsesNativeReferences(method) || method == ColocationMethod.Visual;
 
 		/// <summary><see cref="UsesNativeReferences(ColocationMethod)"/>, less AprilTag's two-tag mode.</summary>
-		public static bool UsesNativeReferences(ColocationMethod method, MapSpace space) =>
+		public static bool UsesNativeReferences(ColocationMethod method, Space space) =>
 			UsesNativeReferences(method) && !IsTwoTagMode(method, space);
 
 		/// <summary>
@@ -70,21 +71,21 @@ namespace Anaglyph.LaserTag
 		[SerializeField] private VisualColocationConstraintProvider visualProvider;
 		private readonly SyncVariable<ColocationMethod> methodSync = new("colo.method");
 		private ColocationMethod offlineMethod;
-		private MapSpace space;
+		private Space space;
 		private bool sessionStarted;
 		private bool applicationPaused;
 		private ColocationAlignmentState previousAlignmentState;
 
 		private readonly List<ColocationConstraint> scratch = new();
+		/// <summary>The map layer activates methods itself; this component only follows the session's method otherwise.</summary>
 		public bool ManagedSelection { get; set; }
-		public bool IsSettingUpTags { get; internal set; }
 		public ColocationMethod Method => methodSync.Value;
 		public ColocationMethod SelectedMethod => SyncBus.Active ? Method : offlineMethod;
 		public ColocationMethod ActiveMethod { get; private set; }
 
 		/// <summary>The space's preference, as far as it has the references for it; visual without a space.</summary>
 		public ColocationMethod PreferredAvailableMethod => space == null ? ColocationMethod.Visual :
-			CompatibleMethod(space.preferredColocationMethod, space.HasTags, true, space.anchors.Count > 0);
+			CompatibleMethod(space.alignment.method, space.HasTags, true, space.anchors.Count > 0);
 		public ColocationMethod PreferredSessionMethod => PreferredAvailableMethod;
 
 		/// <summary>A native-reference preference the space has no references for falls back to the kind it has.</summary>
@@ -150,19 +151,12 @@ namespace Anaglyph.LaserTag
 			_ => null
 		};
 
-		public void ConfigureSpace(MapSpace value, Func<bool> mintingGate)
+		/// <summary>The shown space, whose settings decide the preferred method. Roaming anchors are minted only with one.</summary>
+		public void ConfigureSpace(Space value)
 		{
-			space = value?.Clone();
-			if (spatialAnchorColocationProvider)
-			{
-				spatialAnchorColocationProvider.MintingGate = mintingGate;
-				spatialAnchorColocationProvider.RoamingMintEnabled = space != null;
-				spatialAnchorColocationProvider.RequireSharingForMint = space != null && space.automaticallyCreated &&
-				                                                        space.initializationPending &&
-				                                                        !space.HasReferenceBasedData;
-			}
-
-			if (!SyncBus.Active && space != null) offlineMethod = space.preferredColocationMethod;
+			space = value;
+			spatialAnchorColocationProvider.RoamingMintEnabled = space != null;
+			if (!SyncBus.Active && space != null) offlineMethod = space.alignment.method;
 			if (!ManagedSelection) ActivateMethod(PreferredAvailableMethod);
 		}
 
@@ -225,7 +219,6 @@ namespace Anaglyph.LaserTag
 		public void ClearSpace()
 		{
 			space = null;
-			IsSettingUpTags = false;
 			colocator?.SetProvider(null);
 			SetColocated(false);
 		}

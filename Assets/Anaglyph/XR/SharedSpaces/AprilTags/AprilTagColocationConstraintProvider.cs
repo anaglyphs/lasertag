@@ -119,21 +119,6 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			new("colocation.tags.canon");
 		public IReadOnlyDictionary<int, Pose> RegisteredTags => registeredTags;
 		public int LocalAnchorCount => localAnchors.Count;
-		public Func<ulong, int, Pose, bool> RegistrationGate { get; set; }
-		public Guid ReferenceContext { get; set; }
-		public Func<ulong, bool> ReferenceEditGate { get; set; }
-		private struct ReferenceEdit { public Guid context; public byte action; public int id; public Pose pose; public float size; }
-		private readonly SyncEvent<ReferenceEdit> referenceEdit = new("colocation.tags.edit", EventRoute.ToAuthority);
-		private void OnReferenceEdit(ulong sender, ReferenceEdit edit)
-		{
-			if (edit.context != ReferenceContext || !(ReferenceEditGate?.Invoke(sender) ?? true)) return;
-			switch (edit.action)
-			{
-				case 0: if (ValidateTagRegistration(sender, edit.id, edit.pose)) registeredTags.Set(edit.id, edit.pose); break;
-				case 1: registeredTags.Remove(edit.id); break;
-				case 2: if (ValidateTagSize(sender, edit.size)) tagSizeSync.Value = edit.size; break;
-			}
-		}
 
 		public event Action TagsChanged = delegate { };
 
@@ -211,7 +196,6 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		private CancellationTokenSource lifetimeCtknSrc;
 		private int stateGeneration;
 		private bool detectionOverride;
-		private readonly HashSet<object> detectionRequests = new();
 
 		/// <summary>
 		/// Tag colocation needs both halves: a detector to see the tags with, and an anchor
@@ -240,7 +224,6 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			registeredTags.ValidateSet = (_, _, _) => false;
 			registeredTags.ValidateRemove = (_, _) => false;
 			registeredTags.ValidateClear = _ => false;
-			referenceEdit.Register(); referenceEdit.Received += OnReferenceEdit;
 			registeredTags.Register();
 			registeredTags.Changed += OnTagsChanged;
 
@@ -274,7 +257,6 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 
 			registeredTags.Changed -= OnTagsChanged;
 			registeredTags.Unregister();
-			referenceEdit.Received -= OnReferenceEdit; referenceEdit.Unregister();
 
 			if (Instance == this)
 				Instance = null;
@@ -323,22 +305,13 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			UpdateTrackerEnabled();
 		}
 
-		/// <summary>Shares filtered observations without activating registered-tag alignment.</summary>
-		public void SetDetectionRequest(object owner, bool enabled)
-		{
-			if (owner == null) throw new ArgumentNullException(nameof(owner));
-			if (enabled) detectionRequests.Add(owner);
-			else detectionRequests.Remove(owner);
-			UpdateTrackerEnabled();
-		}
-
 		private void UpdateTrackerEnabled()
 		{
 			if (tagTracker == null)
 				return;
 
 			tagTracker.tagSizeMeters = EffectiveTagSizeMeters();
-			tagTracker.enabled = IsRunning || detectionOverride || detectionRequests.Count > 0;
+			tagTracker.enabled = IsRunning || detectionOverride;
 		}
 
 		private float EffectiveTagSizeMeters()
@@ -388,61 +361,6 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		{
 			SetRegisteredTags(tags);
 			SetLocalAnchors(anchors);
-		}
-
-		/// <summary>
-		/// Proposes one tag registration from any peer. The authority validates it, applies it and
-		/// broadcasts, so every peer's registered set stays the authority's — including the
-		/// requester's, which is written by the broadcast rather than optimistically.
-		/// </summary>
-		public void RequestRegisterTag(int tagId, Pose canonPose)
-		{
-			referenceEdit.Raise(new() { context = ReferenceContext, action = 0, id = tagId, pose = canonPose });
-		}
-
-		/// <summary>
-		/// Proposes removing one registered tag, from any peer. Every peer then drops the anchor it
-		/// had realized for it — see <see cref="DropUnregisteredAnchors"/> — so no peer keeps
-		/// aligning to a reference the session no longer has.
-		/// </summary>
-		public void RequestUnregisterTag(int tagId)
-		{
-			referenceEdit.Raise(new() { context = ReferenceContext, action = 1, id = tagId });
-		}
-
-		/// <summary>
-		/// Proposes the size tags are solved at, from any peer. Validated like any other request,
-		/// including on the authority: this is a deliberate change to what the references mean,
-		/// unlike <see cref="AdoptTagSize"/> restoring the size they were already solved at.
-		/// </summary>
-		public void RequestTagSize(float centimeters)
-		{
-			referenceEdit.Raise(new() { context = ReferenceContext, action = 2, size = centimeters });
-		}
-
-		/// <summary>
-		/// Every registered pose was solved at the session's current size, so changing it would
-		/// move all of them at once. Adoption is exempt: loading references has to restore the
-		/// size they were solved at.
-		/// </summary>
-		private bool ValidateTagSize(ulong sender, float centimeters)
-		{
-			return centimeters > 0f && IsFinite(centimeters) && registeredTags.Count == 0;
-		}
-
-		/// <summary>
-		/// A registered pose becomes every peer's alignment target and is written into their maps,
-		/// so a garbage one would take the whole session's frame with it.
-		/// </summary>
-		private bool ValidateTagRegistration(ulong sender, int tagId, Pose canonPose)
-		{
-			Quaternion rotation = canonPose.rotation;
-
-			return (RegistrationGate == null || RegistrationGate(sender, tagId, canonPose)) && tagId >= 0 &&
-			       IsFinite(canonPose.position.x) && IsFinite(canonPose.position.y) &&
-			       IsFinite(canonPose.position.z) &&
-			       IsFinite(rotation.x) && IsFinite(rotation.y) &&
-			       IsFinite(rotation.z) && IsFinite(rotation.w);
 		}
 
 		private static bool IsFinite(float value) =>

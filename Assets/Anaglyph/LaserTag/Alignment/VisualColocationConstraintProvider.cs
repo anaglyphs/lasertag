@@ -254,7 +254,7 @@ namespace Anaglyph.LaserTag
 			localizer.Anchoring = track;
 			// the map's frame is gone when the scan is
 			if (EnvScanner.Instance != null) EnvScanner.Instance.Cleared += ClearMap;
-			LaserTagMapCoordinator.WorldFrameRebased += ClearMap;
+			Maps.SpaceManager.FrameChanged += ClearMap;
 			PhaseChanged += OnPhaseChanged;
 		}
 
@@ -267,7 +267,7 @@ namespace Anaglyph.LaserTag
 			replyEvent.Unregister();
 			if (localizer) localizer.KeyframeAdded -= OnKeyframeAdded;
 			if (EnvScanner.Instance != null) EnvScanner.Instance.Cleared -= ClearMap;
-			LaserTagMapCoordinator.WorldFrameRebased -= ClearMap;
+			Maps.SpaceManager.FrameChanged -= ClearMap;
 			PhaseChanged -= OnPhaseChanged;
 			if (Instance == this) Instance = null;
 		}

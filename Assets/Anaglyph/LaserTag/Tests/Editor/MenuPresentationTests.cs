@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Linq;
 using Anaglyph.LaserTag.Interface;
+using Anaglyph.LaserTag.Maps;
 using Anaglyph.Menu;
 using Anaglyph.Netcode;
 using Anaglyph.XR.SharedSpaces.SharedAnchors;
@@ -219,8 +220,8 @@ namespace Anaglyph.LaserTag.Tests
 			connectionErrors.Bind(connectionNav);
 			var flags = System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic;
 			var servicesError = typeof(NetcodeManagement).GetMethod("RaiseServicesError", flags);
-			var alignmentError = typeof(LaserTagMapCoordinator).GetMethod("ReportAlignmentRejection", flags);
-			var anchorError = typeof(LaserTagMapCoordinator).GetMethod("OnAnchorError", flags);
+			var alignmentError = typeof(SpaceManager).GetMethod("ReportAlignmentRejection", flags);
+			var anchorError = typeof(SpaceManager).GetMethod("OnAnchorError", flags);
 
 			servicesError.Invoke(null, null);
 			Assert.That(connectionNav.CurrentPage.name, Is.EqualTo("error-modal"));

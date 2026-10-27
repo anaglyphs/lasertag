@@ -43,7 +43,7 @@ namespace Anaglyph.LaserTag.Tests
 		[SetUp]
 		public void SetUp()
 		{
-			Assert.That(LaserTagMapCoordinator.Instance, Is.Null);
+			Assert.That(SpaceManager.Instance, Is.Null);
 			Assert.That(MapEditor.MapEditor.IsActive, Is.False);
 			Assert.That(TeamBase.AllBases, Is.Empty);
 			previousMode = MapEditor.Tools.MapEditorTool.CurrentMode;

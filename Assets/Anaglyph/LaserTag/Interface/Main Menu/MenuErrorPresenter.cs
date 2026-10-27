@@ -43,7 +43,7 @@ namespace Anaglyph.LaserTag.Interface
 		public MenuErrorPresenter(MenuErrorArea area)
 		{
 			this.area = area;
-			LaserTagMapCoordinator.AlignmentErrorRaised += OnAlignmentError;
+			Maps.SpaceManager.AlignmentErrorRaised += OnAlignmentError;
 			NetcodeManagement.ErrorRaised += OnNetcodeError;
 			MenuCopy.Changed += Present;
 		}
@@ -83,15 +83,15 @@ namespace Anaglyph.LaserTag.Interface
 				"ConnectionMenu", error.hostVersion, error.clientVersion));
 		}
 
-		private void OnAlignmentError(LaserTagMapCoordinator.AlignmentError error)
+		private void OnAlignmentError(Maps.SpaceManager.AlignmentError error)
 		{
-			MenuErrorArea errorArea = error == LaserTagMapCoordinator.AlignmentError.RequestRejected
+			MenuErrorArea errorArea = error == Maps.SpaceManager.AlignmentError.RequestRejected
 				? MenuErrorArea.Game : MenuErrorArea.Connection;
 			if (area != errorArea) return;
 			string key = error switch
 			{
-				LaserTagMapCoordinator.AlignmentError.SharingFailed => "share",
-				LaserTagMapCoordinator.AlignmentError.SharingUnsupported => "anchors",
+				Maps.SpaceManager.AlignmentError.SharingFailed => "share",
+				Maps.SpaceManager.AlignmentError.SharingUnsupported => "anchors",
 				_ => "alignment"
 			};
 			Show(new MenuError(errorArea, $"error.{key}-title", $"error.{key}-details", "Map",
@@ -127,7 +127,7 @@ namespace Anaglyph.LaserTag.Interface
 
 		public void Dispose()
 		{
-			LaserTagMapCoordinator.AlignmentErrorRaised -= OnAlignmentError;
+			Maps.SpaceManager.AlignmentErrorRaised -= OnAlignmentError;
 			NetcodeManagement.ErrorRaised -= OnNetcodeError;
 			MenuCopy.Changed -= Present;
 			Unbind();
