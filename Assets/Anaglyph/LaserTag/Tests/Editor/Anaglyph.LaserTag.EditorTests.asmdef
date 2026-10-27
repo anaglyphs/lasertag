@@ -1,0 +1,28 @@
+{
+  "name": "Anaglyph.LaserTag.EditorTests",
+  "references": [
+    "Anaglyph.Lasertag",
+    "Anaglyph.XR",
+    "Anaglyph.XR.Input",
+    "Anaglyph.XR.SharedSpaces",
+    "Anaglyph",
+    "Anaglyph.Menu",
+    "Unity.Localization",
+    "Unity.ResourceManager",
+    "Anaglyph.Netcode",
+    "Anaglyph.Permissions",
+    "Unity.Collections",
+    "Unity.XR.ARFoundation",
+    "Unity.XR.ARSubsystems",
+    "Unity.Mathematics",
+    "Unity.Netcode.Runtime",
+    "Anaglyph.XR.VisualLocalization"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "autoReferenced": false
+}
