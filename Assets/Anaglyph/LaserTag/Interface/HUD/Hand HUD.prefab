@@ -28,7 +28,7 @@ RectTransform:
   m_GameObject: {fileID: 4995463198307502455}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0.105}
-  m_LocalScale: {x: 0.1, y: 0.1, z: 0.1}
+  m_LocalScale: {x: 0.08, y: 0.08, z: 0.08}
   m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 0}
@@ -73,9 +73,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 39c7d15e1d5ed4e35b859aa314641a4a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.HandHUDPositioner
-  horizontalOffset: 0.1
-  handSwapTime: 0.3
-  handSwapThresh: 0.1
+  horizontalOffset: 0.15
+  handSwapTime: 0.2
+  handSwapThresh: 0
 --- !u!114 &8373397657608908845
 MonoBehaviour:
   m_ObjectHideFlags: 0

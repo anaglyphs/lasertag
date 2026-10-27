@@ -77,8 +77,11 @@ namespace Anaglyph.XR.VisualLocalization
 		public const int MaxRetrievalCandidates = 24;
 		/// <summary>Keyframes scored per frame unless the caller says otherwise: each is a few million multiply-adds on a worker thread.</summary>
 		public const int DefaultCandidatesPerFrame = 2;
-		// the retrieval slice reading the descriptor table now, which writes and disposal wait on
+		// the retrieval slices reading the descriptor table now, which writes and disposal wait on
 		private JobHandle retrievalInFlight;
+		// keyframes added while a slice was reading the table: written once it is done, so
+		// adding one never waits on a slice from this thread
+		private readonly List<(int slot, half[] descriptors, int count)> pendingWrites = new();
 		private const int D = FeatureSet.DescriptorSize;
 
 		public readonly int capacity;
@@ -126,6 +129,8 @@ namespace Anaglyph.XR.VisualLocalization
 		{
 			keyframes.Clear();
 			landmarks.Clear();
+			// their slots are about to be handed out afresh
+			pendingWrites.Clear();
 			CoverageLevel = 0;
 			Revision++;
 			Cleared.Invoke();
@@ -247,10 +252,23 @@ namespace Anaglyph.XR.VisualLocalization
 
 			keyframe.slot = slot;
 			int count = math.min(RetrievalFeatures, keyframe.features.Count);
-			// a retrieval slice may be reading the table: it's a couple of keyframes, done in a moment
+			pendingWrites.Add((slot, keyframe.features.descriptors, count));
+			FlushWrites();
+		}
+
+		// the keyframes added meanwhile into the table, once no slice reads it: an urgent
+		// retrieval's slice holds every worker for milliseconds, which this thread mustn't wait out
+		private void FlushWrites()
+		{
+			if (pendingWrites.Count == 0 || !retrievalInFlight.IsCompleted) return;
 			retrievalInFlight.Complete();
-			NativeArray<half>.Copy(keyframe.features.descriptors, 0, retrieval, slot * RetrievalFeatures * D, count * D);
-			retrievalCounts[slot] = count;
+			foreach ((int slot, half[] descriptors, int count) in pendingWrites)
+			{
+				NativeArray<half>.Copy(descriptors, 0, retrieval, slot * RetrievalFeatures * D, count * D);
+				retrievalCounts[slot] = count;
+			}
+
+			pendingWrites.Clear();
 		}
 
 		/// <summary>
@@ -507,6 +525,7 @@ namespace Anaglyph.XR.VisualLocalization
 				for (int first = 0; first < candidates.Count; first += perFrame)
 				{
 					if (!retrieval.IsCreated) return result; // the map was disposed between slices
+					FlushWrites();
 					JobHandle handle;
 					using (ScheduleMarker.Auto())
 						handle = new MutualNearestJob
@@ -520,10 +539,12 @@ namespace Anaglyph.XR.VisualLocalization
 							offset = first,
 						}.Schedule(math.min(perFrame, candidates.Count - first), 1);
 
-					retrievalInFlight = handle;
+					// a mapping retrieval and a localizing one may overlap: writes wait for both
+					retrievalInFlight = JobHandle.CombineDependencies(retrievalInFlight, handle);
 					JobHandle.ScheduleBatchedJobs();
 					while (!handle.IsCompleted) await Awaitable.NextFrameAsync();
 					handle.Complete();
+					FlushWrites();
 				}
 
 				List<int> order = new(candidates.Count);
@@ -584,9 +605,18 @@ namespace Anaglyph.XR.VisualLocalization
 				for (int j = 0; j < m; j++) bestForMapSim[j] = -2;
 				NativeArray<float4> row = new(D / 4, Allocator.Temp);
 
+				// the keyframe's descriptors widened once, not once per query row: a conversion
+				// per multiply-add before
+				const int W = D / 4;
+				NativeArray<float4> rows = new(m * W, Allocator.Temp);
+				for (int j = 0; j < m; j++)
+				{
+					int mj = baseIndex + j * D;
+					for (int c = 0; c < D; c += 4) rows[j * W + c / 4] = new float4(map[mj + c], map[mj + c + 1], map[mj + c + 2], map[mj + c + 3]);
+				}
+
 				for (int i = 0; i < queryCount; i++)
 				{
-					// the query row widened once, the keyframe's read as halves
 					int qi = i * D;
 					for (int c = 0; c < D; c += 4) row[c / 4] = new float4(query[qi + c], query[qi + c + 1], query[qi + c + 2], query[qi + c + 3]);
 
@@ -594,9 +624,9 @@ namespace Anaglyph.XR.VisualLocalization
 					int bestJ = -1;
 					for (int j = 0; j < m; j++)
 					{
-						int mj = baseIndex + j * D;
+						int rj = j * W;
 						float4 acc = 0;
-						for (int c = 0; c < D; c += 4) acc += row[c / 4] * new float4(map[mj + c], map[mj + c + 1], map[mj + c + 2], map[mj + c + 3]);
+						for (int c = 0; c < W; c++) acc += row[c] * rows[rj + c];
 						float dot = math.csum(acc);
 						if (dot > best)
 						{

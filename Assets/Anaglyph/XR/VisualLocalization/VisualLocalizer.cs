@@ -169,14 +169,16 @@ namespace Anaglyph.XR.VisualLocalization
 		[SerializeField] private BackendType matcherBackend = BackendType.GPUCompute;
 		[Tooltip("Frames each network run is spread over, so no one frame carries a whole network; 1 runs it at once")]
 		[SerializeField] private int framesPerRun = 6;
-		[Tooltip("Frames per run while the headset is waiting on an alignment (relocalizing, joining): latency matters more then")]
+		[Tooltip("Frames each XFeat extraction is spread over while the headset is waiting on an alignment (relocalizing, joining): latency matters more then")]
 		[SerializeField] private int urgentFramesPerRun = 2;
 		[Tooltip("Frames each LighterGlue match is spread over outside urgent alignments (loop closure). It is ~700 layers and the heaviest network; spreading it thin keeps background queries out of the frame time")]
 		[SerializeField] private int matcherFramesPerRun = 30;
+		[Tooltip("Frames each LighterGlue match is spread over while something waits on it (a relocalization, a joiner's query): its ~700 layers in a couple of frames stall them, both in dispatching on this thread and on the GPU")]
+		[SerializeField] private int urgentMatcherFramesPerRun = 10;
 		[Tooltip("Keyframes scored per frame when retrieving the views a query might share, each a few million multiply-adds on a worker thread; without a camera to narrow it, a query is scored against the whole map")]
 		[SerializeField] private int retrievalCandidatesPerFrame = VisualMap.DefaultCandidatesPerFrame;
-		[Tooltip("Keyframes scored per frame while something waits on the result (a relocalization, a joiner's query): the whole map in a few frames, at the cost of those frames' worker time")]
-		[SerializeField] private int urgentRetrievalCandidatesPerFrame = 16;
+		[Tooltip("Keyframes scored per frame while something waits on the result (a relocalization, a joiner's query): the whole map in a second or so, each slice holding every worker for a few milliseconds")]
+		[SerializeField] private int urgentRetrievalCandidatesPerFrame = 8;
 
 		[Header("Localization")]
 		[Tooltip("Views LighterGlue matches a query with no camera prior against, best shared features first")]
@@ -199,6 +201,8 @@ namespace Anaglyph.XR.VisualLocalization
 		[SerializeField] private float guidedMinMargin = 0.03f;
 		[Tooltip("A view sharing fewer guided matches than this with the query contributes none: so few are chance")]
 		[SerializeField] private int guidedMinMatches = 8;
+		[Tooltip("Milliseconds a frame may spend projecting the nearby views' landmarks through the prior before the rest waits for the next frame: tens of thousands of them, on this thread")]
+		[SerializeField] private float guidedProjectionBudgetMs = 1.5f;
 
 		[Header("Diagnosis")]
 		[Tooltip("Keep the frames behind the map (and recent ones besides) for AlignmentDiagnosis to save")]
@@ -207,8 +211,9 @@ namespace Anaglyph.XR.VisualLocalization
 		[SerializeField] private int recentFrames = 96;
 
 		/// <summary>
-		/// Something is waiting on an alignment (relocalizing, a joiner searching): networks
-		/// run over <see cref="urgentFramesPerRun"/> frames instead of <see cref="framesPerRun"/>.
+		/// Something is waiting on an alignment (relocalizing, a joiner searching): extraction
+		/// runs over <see cref="urgentFramesPerRun"/> frames instead of <see cref="framesPerRun"/>,
+		/// and matching and retrieval at their urgent paces.
 		/// </summary>
 		public bool Urgent
 		{
@@ -224,7 +229,7 @@ namespace Anaglyph.XR.VisualLocalization
 
 		// matching and retrieval take their pace per call: a query served for another headset
 		// is urgent whatever this one's state
-		private int MatcherFrames(bool urgent) => urgent ? urgentFramesPerRun : matcherFramesPerRun;
+		private int MatcherFrames(bool urgent) => urgent ? urgentMatcherFramesPerRun : matcherFramesPerRun;
 		private int RetrievalCandidatesPerFrame(bool urgent) => urgent ? urgentRetrievalCandidatesPerFrame : retrievalCandidatesPerFrame;
 
 		/// <summary>The pose graph keyframes are anchored to; no mapping without one.</summary>
@@ -304,7 +309,7 @@ namespace Anaglyph.XR.VisualLocalization
 			{
 				extractor = new XFeatExtractor(extractorBackend, framesPerRun);
 				matcher = new LighterGlueMatcher(matcherBackend, matcherFramesPerRun);
-				Debug.Log($"[{nameof(VisualLocalizer)}] XFeat on {extractorBackend} over {framesPerRun} frames, LighterGlue on {matcherBackend} over {matcherFramesPerRun} ({urgentFramesPerRun} each when urgent)");
+				Debug.Log($"[{nameof(VisualLocalizer)}] XFeat on {extractorBackend} over {framesPerRun} frames ({urgentFramesPerRun} when urgent), LighterGlue on {matcherBackend} over {matcherFramesPerRun} ({urgentMatcherFramesPerRun} when urgent)");
 			}
 			catch (Exception e)
 			{
@@ -923,8 +928,23 @@ namespace Anaglyph.XR.VisualLocalization
 			float translation = options.guidedTranslation > 0 ? options.guidedTranslation : guidedTranslation;
 			float maxWindow = XFeatExtractor.Width * 0.5f;
 			List<(VisualKeyframe view, List<Target> inView)> views = new();
+			System.Diagnostics.Stopwatch slice = System.Diagnostics.Stopwatch.StartNew();
 			foreach (VisualKeyframe k in near)
 			{
+				// spread over frames past the budget: what the views sight is read afresh by id,
+				// so a landmark released meanwhile is only skipped
+				if (slice.Elapsed.TotalMilliseconds > guidedProjectionBudgetMs)
+				{
+					await Awaitable.NextFrameAsync();
+					if (!this)
+					{
+						m.failure = "destroyed";
+						return m;
+					}
+
+					slice.Restart();
+				}
+
 				List<Target> inView = new();
 				for (int j = 0; j < k.features.Count; j++)
 				{
