@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using Anaglyph.LaserTag.MapEditor;
+using Unity.Netcode;
 using Anaglyph.LaserTag.Matches;
 using Anaglyph.Netcode.SyncVariables;
 using Anaglyph.XR;
@@ -50,10 +51,19 @@ namespace Anaglyph.LaserTag.Maps
 		private CancellationTokenSource shown;
 		private bool dirty, forceVisualSave, shuttingDown;
 		private float saveDue;
+		// a client shows the host's space, which is never saved; its own last space comes back on disconnect
+		private bool showingSessionSpace;
+		private string localSpaceId;
+		private int sessionGeneration;
+		// the host is replacing the session's map: objects are being retired and spawned
+		private bool changingMap;
+		private float changeStarted;
+		private const float ChangeTimeout = 20f;
 
 		public SpaceAlignment Alignment { get; private set; }
 		public MapObjects Objects { get; private set; }
 		public SpaceDiscovery Discovery { get; private set; }
+		public SpaceSync Sync { get; private set; }
 		public SpaceStore Store => store;
 
 		/// <summary>The shown space; null until startup finds or makes one.</summary>
@@ -64,7 +74,7 @@ namespace Anaglyph.LaserTag.Maps
 		public IReadOnlyList<Space> Spaces => spaces;
 		public SpaceRole Role => !SyncBus.Active ? SpaceRole.Offline : SyncBus.IsAuthority ? SpaceRole.Host : SpaceRole.Client;
 		/// <summary>The host is replacing the session's map; edits and readiness wait.</summary>
-		public bool IsChangingMap { get; private set; }
+		public bool IsChangingMap => showingSessionSpace ? Sync.Header.changing : changingMap;
 		public SpaceFrame Frame => space?.Frame ?? default;
 		/// <summary>New each time a map is shown; edit requests from a previous showing are refused.</summary>
 		public Guid MapRevision { get; private set; }
@@ -100,12 +110,14 @@ namespace Anaglyph.LaserTag.Maps
 			Alignment = new SpaceAlignment(this, colocationManager, store);
 			Objects = new MapObjects(this, objectDatabase);
 			Discovery = new SpaceDiscovery(colocationManager, visualMaps, probeTimeoutSeconds);
+			Sync = new SpaceSync(this, Alignment);
 		}
 
 		private void Start()
 		{
 			Objects.Register();
 			Alignment.Register();
+			Sync.Register();
 			colocationManager.AnchorProvider.ErrorRaised += OnAnchorError;
 			colocationManager.SourceChanged += RaiseSpaceChanged;
 			colocationManager.MethodChanged += RaiseSpaceChanged;
@@ -123,6 +135,11 @@ namespace Anaglyph.LaserTag.Maps
 		private void Update()
 		{
 			if (dirty && Time.unscaledTime >= saveDue) Save();
+			if (changingMap && (Objects.IsReplacementComplete || Time.unscaledTime - changeStarted >= ChangeTimeout))
+			{
+				changingMap = false;
+				Publish();
+			}
 		}
 
 		private void OnDestroy()
@@ -142,6 +159,7 @@ namespace Anaglyph.LaserTag.Maps
 			MapObject.Added -= OnObjectChanged;
 			MapObject.Removed -= OnObjectChanged;
 			MainXRRig.Recentered -= OnRecentered;
+			Sync.Unregister();
 			Alignment.Unregister();
 			Objects.Unregister();
 			shown?.Dispose();
@@ -164,6 +182,8 @@ namespace Anaglyph.LaserTag.Maps
 
 		private static void RaiseSpaceChanged() => SpaceChanged.Invoke();
 		private static void ReportAlignmentRejection() => AlignmentErrorRaised.Invoke(AlignmentError.RequestRejected);
+		/// <summary>The host refused one of this device's requests: it was stale, or this headset was not ready for it.</summary>
+		internal void ReportRejection() => ReportAlignmentRejection();
 
 		private static void OnAnchorError(SpatialAnchorColocationConstraintProvider.Error error) =>
 			AlignmentErrorRaised.Invoke(error == SpatialAnchorColocationConstraintProvider.Error.SharingFailed
@@ -180,7 +200,7 @@ namespace Anaglyph.LaserTag.Maps
 
 		// ------- showing ---------------------------------------------
 
-		/// <summary>Shows a space and one of its maps: a new frame, so colocation starts over.</summary>
+		/// <summary>Shows one of this device's spaces and one of its maps: a new frame, so colocation starts over.</summary>
 		private void Show(Space next, Map nextMap)
 		{
 			shown?.Cancel();
@@ -192,7 +212,7 @@ namespace Anaglyph.LaserTag.Maps
 			colocationManager.InvalidateAlignment();
 			Alignment.Apply(space, preserve: false);
 			FrameChanged.Invoke();
-			if (space != null && Role != SpaceRole.Client) visualMaps.LoadAndRelocalize(space, shown.Token);
+			if (space != null) visualMaps.LoadAndRelocalize(space, shown.Token);
 			SpaceChanged.Invoke();
 			MapChanged.Invoke();
 		}
@@ -202,6 +222,11 @@ namespace Anaglyph.LaserTag.Maps
 			map = next;
 			if (map != null) map.lastUsed = DateTime.UtcNow.Ticks;
 			MapRevision = Guid.NewGuid();
+			if (Role == SpaceRole.Host)
+			{
+				changingMap = true;
+				changeStarted = Time.unscaledTime;
+			}
 			Objects.Replace(map?.objects ?? new List<MapObjectRecord>());
 		}
 
@@ -225,7 +250,77 @@ namespace Anaglyph.LaserTag.Maps
 		internal void SpaceReferencesChanged()
 		{
 			MarkDirty();
+			Publish();
 			SpaceChanged.Invoke();
+		}
+
+		/// <summary>
+		/// A client renders the host's space as the header describes it. A new space or frame
+		/// starts colocation over; the same frame with new content is taken in place. The local
+		/// space is saved once, before the first session space replaces it.
+		/// </summary>
+		internal void ShowSessionSpace(Space incoming, Guid mapRevision, bool changing)
+		{
+			if (Role != SpaceRole.Client) return;
+			if (!showingSessionSpace)
+			{
+				Save();
+				localSpaceId = space?.id;
+				showingSessionSpace = true;
+			}
+			if (incoming == null)
+			{
+				if (space != null) ShowSession(null, null);
+				return;
+			}
+			Map next = incoming.maps.Count > 0 ? incoming.maps[0] : null;
+			if (space == null || space.id != incoming.id || space.frameId != incoming.frameId)
+			{
+				MapRevision = mapRevision;
+				ShowSession(incoming, next);
+				return;
+			}
+			bool realigns = !JsonUtility.ToJson(space.alignment).Equals(JsonUtility.ToJson(incoming.alignment)) ||
+				!SameEntries(space.tags, incoming.tags) || !SameEntries(space.anchors, incoming.anchors);
+			bool mapChanged = map?.id != next?.id;
+			space.name = incoming.name;
+			space.alignment = incoming.alignment;
+			space.tags = incoming.tags;
+			space.anchors = incoming.anchors;
+			space.maps = incoming.maps;
+			map = next;
+			MapRevision = mapRevision;
+			if (realigns) Alignment.Apply(space, preserve: true);
+			SpaceChanged.Invoke();
+			if (mapChanged) MapChanged.Invoke();
+		}
+
+		private static bool SameEntries<T>(List<T> a, List<T> b) where T : struct
+		{
+			if (a.Count != b.Count) return false;
+			for (int i = 0; i < a.Count; i++) if (!a[i].Equals(b[i])) return false;
+			return true;
+		}
+
+		// the session's objects are the host's, spawned by it; only objects placed offline leave
+		private void ShowSession(Space next, Map nextMap)
+		{
+			shown?.Cancel();
+			shown?.Dispose();
+			shown = new CancellationTokenSource();
+			space = next;
+			map = nextMap;
+			Objects.RemoveLocalObjects();
+			colocationManager.InvalidateAlignment();
+			Alignment.Apply(space, preserve: false);
+			FrameChanged.Invoke();
+			SpaceChanged.Invoke();
+			MapChanged.Invoke();
+		}
+
+		private void Publish()
+		{
+			if (Role == SpaceRole.Host) Sync.Publish(space, map, MapRevision, changingMap);
 		}
 
 		// stored poses stop meaning the same place: a new frame id, and colocation starts over
@@ -262,7 +357,7 @@ namespace Anaglyph.LaserTag.Maps
 		private bool Save(bool synchronousVisual)
 		{
 			dirty = false;
-			if (space == null || Role == SpaceRole.Client) return true;
+			if (space == null || showingSessionSpace) return true;
 			if (map != null && Objects.TryCapture(out List<MapObjectRecord> records)) map.objects = records;
 			if (!store.Save(space))
 			{
@@ -271,6 +366,7 @@ namespace Anaglyph.LaserTag.Maps
 			}
 			visualMaps.Save(space, forceVisualSave || shuttingDown, synchronousVisual || shuttingDown);
 			forceVisualSave = false;
+			Publish();
 			return true;
 		}
 
@@ -281,7 +377,7 @@ namespace Anaglyph.LaserTag.Maps
 				while (!token.IsCancellationRequested)
 				{
 					await Awaitable.WaitForSecondsAsync(10f, token);
-					if (space != null && Role != SpaceRole.Client && Alignment.IsAligned) visualMaps.Save(space, false, false);
+					if (space != null && !showingSessionSpace && Alignment.IsAligned) visualMaps.Save(space, false, false);
 				}
 			}
 			catch (OperationCanceledException) { }
@@ -505,31 +601,63 @@ namespace Anaglyph.LaserTag.Maps
 			return $"Map {highest + 1}";
 		}
 
-		// ------- sessions (the sync itself arrives with SpaceSync) ---
+		// ------- sessions ---------------------------------------------
 
 		private void OnBusActivated()
 		{
+			sessionGeneration++;
 			Discovery.Invalidate();
+			Save();
 			if (SyncBus.IsAuthority)
 			{
-				Save();
 				Objects.SpawnLocalObjects();
+				Publish();
 			}
+			else localSpaceId = space?.id; // the host's space arrives with its header
 			SpacesChanged.Invoke();
 			SpaceChanged.Invoke();
 		}
 
 		private void OnAuthorityChanged(bool authority)
 		{
-			if (authority) Objects.SpawnLocalObjects();
+			if (authority)
+			{
+				Objects.SpawnLocalObjects();
+				Publish();
+			}
 			SpaceChanged.Invoke();
 		}
 
 		private void OnBusDeactivated()
 		{
-			Save();
+			sessionGeneration++;
+			changingMap = false;
+			if (showingSessionSpace) RestoreLocalSpace(sessionGeneration, lifetime.Token);
+			else Save();
 			SpaceChanged.Invoke();
 			SpacesChanged.Invoke();
+		}
+
+		// the client's own last space comes back once NGO has finished tearing the session down
+		private async void RestoreLocalSpace(int generation, CancellationToken token)
+		{
+			try
+			{
+				do
+				{
+					await Awaitable.NextFrameAsync(token);
+					if (generation != sessionGeneration) return;
+				}
+				while (NetworkManager.Singleton && (NetworkManager.Singleton.IsListening || NetworkManager.Singleton.ShutdownInProgress));
+				showingSessionSpace = false;
+				Space local = FindSpace(localSpaceId) ?? (spaces.Count > 0 ? spaces[0] : null);
+				localSpaceId = null;
+				if (local != null) Show(local, MostRecentMap(local) ?? AddMap(local));
+				else Show(null, null);
+				Save();
+				if (space == null) Startup(lifetime.Token);
+			}
+			catch (OperationCanceledException) { }
 		}
 
 		// ------- startup ---------------------------------------------

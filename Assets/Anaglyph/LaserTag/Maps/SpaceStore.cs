@@ -100,33 +100,40 @@ namespace Anaglyph.LaserTag.Maps
 		public bool Delete(string id)
 		{
 			if (!Space.ValidId(id)) return false;
-			bool success = true;
-			foreach (string path in new[] { SpacePath(id), SpacePath(id) + ".tmp", PrivatePath(id), PrivatePath(id) + ".tmp",
-				VisualMapPath(id), VisualMapPath(id) + ".tmp" })
-			{
-				try { File.Delete(path); }
-				catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-				{
-					Debug.LogException(e);
-					success = false;
-				}
-			}
+			bool success = DeleteVisualMap(id);
+			foreach (string path in new[] { SpacePath(id), SpacePath(id) + ".tmp", PrivatePath(id), PrivatePath(id) + ".tmp" })
+				success &= TryDelete(path);
 			return success;
 		}
 
-		/// <summary>Removes a space's visual map, leaving the space. True when no map file is left.</summary>
+		private static bool TryDelete(string path)
+		{
+			try
+			{
+				File.Delete(path);
+				return true;
+			}
+			catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+			{
+				Debug.LogException(e);
+				return false;
+			}
+		}
+
+		/// <summary>Removes a space's visual map and any temp file a write left, leaving the space. True when none is left.</summary>
 		public bool DeleteVisualMap(string id)
 		{
 			if (!Space.ValidId(id)) return false;
-			bool success = true;
-			foreach (string path in new[] { VisualMapPath(id), VisualMapPath(id) + ".tmp" })
+			bool success = TryDelete(VisualMapPath(id));
+			if (!System.IO.Directory.Exists(Directory)) return success;
+			try
 			{
-				try { File.Delete(path); }
-				catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-				{
-					Debug.LogException(e);
-					success = false;
-				}
+				foreach (string temp in System.IO.Directory.GetFiles(Directory, id + VisualMapExtension + ".*tmp")) success &= TryDelete(temp);
+			}
+			catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+			{
+				Debug.LogException(e);
+				success = false;
 			}
 			return success;
 		}

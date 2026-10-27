@@ -26,7 +26,13 @@ namespace Anaglyph.LaserTag.Maps
 		private int savedRevision = -1;
 		private string savedSpace;
 		private float lastSave = float.NegativeInfinity;
-		private bool saving;
+		// writes in flight gate only unforced saves: a forced one (leaving a space, pausing)
+		// always gets through, and the sequence numbers decide which write is the file
+		private int writesInFlight;
+		private int writeSequence;
+		private int writtenSequence;
+		private int recordedSequence;
+		private readonly object commitLock = new();
 		// what was loaded for the current space: a live map smaller than that is a fresh one
 		// after a load that failed, and must not overwrite the file the loaded one came from
 		private string loadedSpace;
@@ -87,9 +93,11 @@ namespace Anaglyph.LaserTag.Maps
 
 		/// <summary>
 		/// Saves the live map under the space while the rig is aligned in the space's frame.
-		/// Unforced saves are skipped while the map is unchanged or saved within
-		/// <see cref="SaveInterval"/>; a synchronous save writes before returning (quitting,
-		/// pausing), without building a vocabulary.
+		/// Unforced saves are skipped while the map is unchanged, saved within
+		/// <see cref="SaveInterval"/>, or still being written; a forced save always writes, and
+		/// a synchronous one writes before returning (quitting, pausing), without building a
+		/// vocabulary. Each write has its own temp file and sequence number, so an older write
+		/// finishing after a newer one neither replaces the file nor rolls the record back.
 		/// </summary>
 		public void Save(Space space, bool force, bool synchronous)
 		{
@@ -98,7 +106,7 @@ namespace Anaglyph.LaserTag.Maps
 			if (space == null || localizer == null || provider == null) return;
 			if (provider.CurrentPhase != CanonColocationProvider.Phase.Aligned) return;
 			VisualMap map = localizer.Map;
-			if (map.Count == 0 || saving) return;
+			if (map.Count == 0 || writesInFlight > 0 && !force) return;
 			if (space.id == loadedSpace && map.Count < loadedKeyframes) return;
 			bool unchanged = map.Revision == savedRevision && space.id == savedSpace;
 			if (unchanged || !force && Time.realtimeSinceStartup - lastSave < SaveInterval) return;
@@ -111,44 +119,59 @@ namespace Anaglyph.LaserTag.Maps
 			for (int i = 0; i < sources.Count && i < data.keyframes.Count; i++)
 				if (probeCache.TryGetValue(sources[i], out ulong[] probe)) data.keyframes[i].probe = probe;
 			int revision = map.Revision;
+			int sequence = ++writeSequence;
+			bool mayBuildVocabulary = writesInFlight == 0;
 			lastSave = Time.realtimeSinceStartup;
 			string path = store.VisualMapPath(space.id);
 			if (synchronous)
 			{
+				writesInFlight++;
 				try
 				{
-					WriteMap(data, path, Vocabulary, false);
-					Remember(sources, data);
-					savedRevision = revision;
-					savedSpace = space.id;
+					WriteMap(data, path, sequence, Vocabulary, false, out bool landed);
+					Record(landed, sequence, sources, data, revision, space.id);
 				}
 				catch (Exception e) { Debug.LogException(e); }
+				finally { writesInFlight--; }
 			}
-			else WriteAsync(data, path, revision, space.id, sources);
+			else WriteAsync(data, path, sequence, revision, space.id, sources, mayBuildVocabulary);
 		}
 
-		private async void WriteAsync(VisualMapData data, string path, int revision, string spaceId, List<VisualKeyframe> sources)
+		private async void WriteAsync(VisualMapData data, string path, int sequence, int revision, string spaceId,
+			List<VisualKeyframe> sources, bool mayBuildVocabulary)
 		{
-			saving = true;
+			writesInFlight++;
 			try
 			{
 				VisualVocabulary v = Vocabulary;
+				bool hadVocabulary = v != null;
+				bool landed;
 				await Awaitable.BackgroundThreadAsync();
 				try
 				{
-					v = WriteMap(data, path, v, true);
+					v = WriteMap(data, path, sequence, v, mayBuildVocabulary, out landed);
 				}
 				finally
 				{
 					await Awaitable.MainThreadAsync();
 				}
 				if (v != null) vocabulary = v;
-				Remember(sources, data);
-				savedRevision = revision;
-				savedSpace = spaceId;
+				if (landed) Record(true, sequence, sources, data, revision, spaceId);
+				// a vocabulary was built for a file that lost the race: the newer file has no probes yet
+				else if (!hadVocabulary && v != null) savedRevision = -1;
 			}
 			catch (Exception e) { Debug.LogException(e); }
-			finally { saving = false; }
+			finally { writesInFlight--; }
+		}
+
+		// the record follows the newest write that is the file; an older one landing later leaves it
+		private void Record(bool landed, int sequence, List<VisualKeyframe> sources, VisualMapData data, int revision, string spaceId)
+		{
+			if (!landed || sequence < recordedSequence) return;
+			recordedSequence = sequence;
+			Remember(sources, data);
+			savedRevision = revision;
+			savedSpace = spaceId;
 		}
 
 		private void Remember(List<VisualKeyframe> sources, VisualMapData data)
@@ -159,8 +182,8 @@ namespace Anaglyph.LaserTag.Maps
 		}
 
 		// any thread: builds the vocabulary first if there is none and it may, probes the
-		// keyframes with it, and writes the file through a temp name
-		private VisualVocabulary WriteMap(VisualMapData data, string path, VisualVocabulary v, bool mayBuildVocabulary)
+		// keyframes with it, and writes the file through its own temp name
+		private VisualVocabulary WriteMap(VisualMapData data, string path, int sequence, VisualVocabulary v, bool mayBuildVocabulary, out bool landed)
 		{
 			Directory.CreateDirectory(Path.GetDirectoryName(path));
 			if (v == null && mayBuildVocabulary)
@@ -169,8 +192,11 @@ namespace Anaglyph.LaserTag.Maps
 				if (v != null)
 				{
 					string vocabularyPath = store.VocabularyPath;
-					using (FileStream f = new(vocabularyPath + ".tmp", FileMode.Create, FileAccess.Write)) v.Write(f);
-					SpaceStore.ReplaceFile(vocabularyPath + ".tmp", vocabularyPath);
+					lock (commitLock)
+					{
+						using (FileStream f = new(vocabularyPath + ".tmp", FileMode.Create, FileAccess.Write)) v.Write(f);
+						SpaceStore.ReplaceFile(vocabularyPath + ".tmp", vocabularyPath);
+					}
 					Debug.Log($"[{nameof(VisualMapPersistence)}] built the catalog's vocabulary from {data.keyframes.Count} keyframes");
 				}
 			}
@@ -183,11 +209,31 @@ namespace Anaglyph.LaserTag.Maps
 			}
 			else foreach (VisualMapData.Keyframe k in data.keyframes) k.probe = null;
 
-			using (FileStream f = new(path + ".tmp", FileMode.Create, FileAccess.Write)) VisualMapFile.Write(data, f);
-			SpaceStore.ReplaceFile(path + ".tmp", path);
-			long size = new FileInfo(path).Length;
-			Debug.Log($"[{nameof(VisualMapPersistence)}] saved {data.keyframes.Count} keyframes, {data.landmarks.Count} landmarks ({size / 1024} KB){(v == null ? ", no vocabulary yet: no place probes" : "")}");
+			string temp = $"{path}.{sequence}.tmp";
+			using (FileStream f = new(temp, FileMode.Create, FileAccess.Write)) VisualMapFile.Write(data, f);
+			landed = Commit(temp, path, sequence);
+			if (landed)
+			{
+				long size = new FileInfo(path).Length;
+				Debug.Log($"[{nameof(VisualMapPersistence)}] saved {data.keyframes.Count} keyframes, {data.landmarks.Count} landmarks ({size / 1024} KB){(v == null ? ", no vocabulary yet: no place probes" : "")}");
+			}
 			return v;
+		}
+
+		/// <summary>Makes the temp file the map unless a newer write already did; then the temp is discarded.</summary>
+		private bool Commit(string temp, string path, int sequence)
+		{
+			lock (commitLock)
+			{
+				if (sequence < writtenSequence)
+				{
+					File.Delete(temp);
+					return false;
+				}
+				SpaceStore.ReplaceFile(temp, path);
+				writtenSequence = sequence;
+				return true;
+			}
 		}
 
 		// a sample of the map's descriptors, spread over its keyframes

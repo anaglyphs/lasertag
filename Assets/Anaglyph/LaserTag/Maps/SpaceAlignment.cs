@@ -209,25 +209,46 @@ namespace Anaglyph.LaserTag.Maps
 
 		private void OnPairSelected(int first, int second)
 		{
-			if (space == null || manager.Role == SpaceRole.Client || space.alignment.HasPair) return;
-			space.alignment.firstTagId = Math.Min(first, second);
-			space.alignment.secondTagId = Math.Max(first, second);
-			manager.SpaceReferencesChanged();
+			if (space == null || space.alignment.HasPair) return;
+			if (manager.Role == SpaceRole.Client)
+			{
+				Send(new SpaceRequest { kind = SpaceRequestKind.SetPair, tag = Math.Min(first, second), second = Math.Max(first, second), trackingGeneration = colocation.TrackingGeneration });
+				return;
+			}
+			ApplyPair(Math.Min(first, second), Math.Max(first, second));
 		}
 
 		// ------- commands --------------------------------------------
+		// Each command checks its blocker, then either applies here (offline, host) or asks the
+		// host (client). The host re-validates every request against the sender's readiness.
+
+		private void Send(SpaceRequest value)
+		{
+			value.spaceId = space.Id;
+			value.frameId = space.FrameId;
+			manager.Sync.Request(value);
+		}
 
 		public string MethodBlocker(Method method) =>
 			!ColocationManager.IsValidMethod(method) ? L("blocker.unknown-colocation-method") :
 			space == null ? L("space.load-first") :
 			RoundInProgress ? L("blocker.wait-until-the-round-ends") :
-			manager.Role == SpaceRole.Client ? L("blocker.only-the-host-can-change-the-map") :
 			HeadsetConfiguration.SessionIsOperatorManaged && !HeadsetConfiguration.IsOperatorDevice ? L("blocker.the-operator-sets-the-alignment-method") : null;
 
-		/// <summary>Saves the method and re-aligns. The frame moves when two-tag mode is entered or left.</summary>
+		/// <summary>Saves the method and re-aligns everyone. The frame moves when two-tag mode is entered or left.</summary>
 		public bool SetMethod(Method method)
 		{
 			if (MethodBlocker(method) != null) return false;
+			if (manager.Role == SpaceRole.Client)
+			{
+				Send(new SpaceRequest { kind = SpaceRequestKind.SetMethod, method = method });
+				return true;
+			}
+			return ApplyMethod(method);
+		}
+
+		private bool ApplyMethod(Method method)
+		{
 			if (space.alignment.method == method) return true;
 			bool wasTwoTag = ColocationManager.IsTwoTagMode(space.alignment.method, space);
 			space.alignment.method = method;
@@ -238,26 +259,44 @@ namespace Anaglyph.LaserTag.Maps
 
 		public string TagRegistrationBlocker() =>
 			space == null ? L("space.load-first") :
-			manager.Role == SpaceRole.Client ? L("blocker.only-the-host-can-change-the-map") :
 			!TrackingReady || !(IsAligned || FrameIsFree) ? L("alignment.align-before-reference-setup") : null;
 
 		/// <summary>Registers a tag where it is seen, in the world frame. The first one of a free frame defines it.</summary>
 		public bool RegisterTag(int id, Pose worldPose)
 		{
 			if (TagRegistrationBlocker() != null || id < 0 || !Space.ValidPose(worldPose)) return false;
+			if (manager.Role == SpaceRole.Client)
+			{
+				Send(new SpaceRequest { kind = SpaceRequestKind.RegisterTag, tag = id, pose = worldPose, trackingGeneration = colocation.TrackingGeneration });
+				return true;
+			}
+			return ApplyRegisterTag(id, worldPose);
+		}
+
+		private bool ApplyRegisterTag(int id, Pose worldPose)
+		{
 			space.SetTag(id, worldPose);
 			manager.SpaceAlignmentChanged(rebase: false);
 			return true;
 		}
 
-		public string TagRemovalBlocker() =>
-			space == null ? L("space.load-first") :
-			manager.Role == SpaceRole.Client ? L("blocker.only-the-host-can-change-the-map") : null;
+		public string TagRemovalBlocker() => space == null ? L("space.load-first") : null;
 
 		/// <summary>Removes a tag and the anchors realized at it. Removing the last one enters two-tag mode: a new frame.</summary>
 		public bool UnregisterTag(int id)
 		{
 			if (TagRemovalBlocker() != null || !space.TryGetTag(id, out _)) return false;
+			if (manager.Role == SpaceRole.Client)
+			{
+				Send(new SpaceRequest { kind = SpaceRequestKind.RemoveTag, tag = id });
+				return true;
+			}
+			return ApplyUnregisterTag(id);
+		}
+
+		private bool ApplyUnregisterTag(int id)
+		{
+			if (!space.TryGetTag(id, out _)) return false;
 			space.tags.RemoveAll(tag => tag.id == id);
 			List<string> orphaned = new();
 			foreach (AnchorRef anchor in space.anchors) if (anchor.tagId == id) orphaned.Add(anchor.guid);
@@ -281,12 +320,21 @@ namespace Anaglyph.LaserTag.Maps
 
 		public string TagSizeBlocker() =>
 			space == null ? L("space.load-first") :
-			manager.Role == SpaceRole.Client ? L("blocker.only-the-host-can-change-the-map") :
 			space.HasTags ? L("blocker.unregister-this-map-s-tags-to-change-their-size") : null;
 
 		public bool SetTagSize(float centimeters)
 		{
 			if (TagSizeBlocker() != null || !Space.Finite(centimeters) || centimeters <= 0) return false;
+			if (manager.Role == SpaceRole.Client)
+			{
+				Send(new SpaceRequest { kind = SpaceRequestKind.SetTagSize, size = centimeters });
+				return true;
+			}
+			return ApplyTagSize(centimeters);
+		}
+
+		private bool ApplyTagSize(float centimeters)
+		{
 			if (Mathf.Abs(space.alignment.tagSizeCm - centimeters) < .001f) return true;
 			space.alignment.tagSizeCm = centimeters;
 			manager.SpaceAlignmentChanged(rebase: false);
@@ -296,11 +344,60 @@ namespace Anaglyph.LaserTag.Maps
 		/// <summary>Forgets the two-tag pair; the next two tags seen define a new frame.</summary>
 		public bool ChooseAnotherTagPair()
 		{
-			if (space == null || manager.Role == SpaceRole.Client || RoundInProgress) return false;
+			if (space == null || RoundInProgress) return false;
+			if (manager.Role == SpaceRole.Client)
+			{
+				Send(new SpaceRequest { kind = SpaceRequestKind.ForgetPair });
+				return true;
+			}
+			return ApplyForgetPair();
+		}
+
+		private bool ApplyForgetPair()
+		{
 			bool hadPair = space.alignment.HasPair;
 			space.alignment.firstTagId = space.alignment.secondTagId = -1;
 			manager.SpaceAlignmentChanged(rebase: hadPair && colocation.UsingTwoTagMode);
 			return true;
+		}
+
+		private bool ApplyPair(int first, int second)
+		{
+			if (space.alignment.HasPair || first < 0 || second <= first) return false;
+			space.alignment.firstTagId = first;
+			space.alignment.secondTagId = second;
+			manager.SpaceReferencesChanged();
+			return true;
+		}
+
+		/// <summary>
+		/// The host's side of a client's request: the space and frame must be the ones shown,
+		/// a registration must come from a headset that is tracked and aligned here (or the frame
+		/// is still free), and the operator keeps the method to itself. The tag-setup kinds
+		/// belong to the operator flow and are refused until it exists.
+		/// </summary>
+		public bool HandleRequest(ulong sender, SpaceRequest value)
+		{
+			if (space == null || manager.Role != SpaceRole.Host || value.spaceId != space.Id || value.frameId != space.FrameId) return false;
+			switch (value.kind)
+			{
+				case SpaceRequestKind.SetMethod:
+					return ColocationManager.IsValidMethod(value.method) && !RoundInProgress &&
+						!HeadsetConfiguration.SessionIsOperatorManaged && ApplyMethod(value.method);
+				case SpaceRequestKind.RegisterTag:
+					return value.tag >= 0 && Space.ValidPose(value.pose) && !RoundInProgress && ReadyFor(sender) &&
+						value.trackingGeneration == SenderTrackingGeneration(sender) && ApplyRegisterTag(value.tag, value.pose);
+				case SpaceRequestKind.RemoveTag:
+					return !RoundInProgress && ApplyUnregisterTag(value.tag);
+				case SpaceRequestKind.SetTagSize:
+					return !space.HasTags && Space.Finite(value.size) && value.size > 0 && ApplyTagSize(value.size);
+				case SpaceRequestKind.SetPair:
+					return value.trackingGeneration == SenderTrackingGeneration(sender) && ApplyPair(value.tag, value.second);
+				case SpaceRequestKind.ForgetPair:
+					return !RoundInProgress && ApplyForgetPair();
+				default:
+					return false;
+			}
 		}
 
 		/// <summary>Forgets every reference of the shown space; the manager gives it a new frame.</summary>

@@ -32,7 +32,8 @@ namespace Anaglyph.LaserTag.Interface
 		private readonly VisualElement tagConfigurationSection;
 
 		public bool InSession => SyncBus.Active && ColocationManager.Instance != null;
-		public ColocationManager.ColocationMethod DisplayedMethod => InSession ? ColocationManager.Instance.Method : Preference;
+		/// <summary>The shown space's method: the host's in a session, since the space itself is the host's.</summary>
+		public ColocationManager.ColocationMethod DisplayedMethod => Preference;
 		public bool UsesTags => DisplayedMethod == ColocationManager.ColocationMethod.AprilTag;
 
 		// the methods offered, in dropdown order; scan registration stays selectable in code only
@@ -134,8 +135,7 @@ namespace Anaglyph.LaserTag.Interface
 			methodField.label = MenuCopy.Get("Map", inSession ? "alignment.session-label" : "alignment.preference-label");
 			// a hidden method still shows its own name when it is the one in use
 			methodField.SetValueWithoutNotify(MethodName(displayed));
-			SetMessage(preferenceStatus, inSession && displayed != preference
-				? MenuCopy.Format("Map", "alignment.saved-preference", MethodName(preference)) : null);
+			SetMessage(preferenceStatus, null);
 
 			string blocker = alignment != null ? alignment.MethodBlocker(displayed) : MenuCopy.Get("Map", "maps.unavailable");
 			methodField.SetEnabled(blocker == null);
