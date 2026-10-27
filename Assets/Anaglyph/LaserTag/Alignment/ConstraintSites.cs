@@ -114,6 +114,15 @@ namespace Anaglyph.LaserTag
 			return best;
 		}
 
+		/// <summary>Whether a site a cross-link made lies within <paramref name="radius"/> of a point: the authority's map reaches it.</summary>
+		public bool CrossLinkWithin(float3 position, float radius)
+		{
+			foreach (Site s in sites)
+				if (s.crossLink && math.distance(s.position, position) <= radius)
+					return true;
+			return false;
+		}
+
 		/// <summary>Head travel since the most recent measurement of any site: how much drift a new one may correct.</summary>
 		public float PathSinceLatest(float path, float fallback)
 		{

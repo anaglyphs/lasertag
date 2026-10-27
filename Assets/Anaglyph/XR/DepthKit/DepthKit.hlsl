@@ -17,6 +17,17 @@ uniform float4x4 agDepthViewInv[2];
 
 uniform float4 agDepthZParams;
 
+// Meta reports "no depth" (sky, dropouts) as 0, which decodes to a surface at the
+// near plane. DepthKitDriver rewrites those texels to this: the largest D16 value
+// below 1, far but finite, so reconstruction stays NaN-free and comparisons pass
+#define AG_DEPTH_UNKNOWN (65534.0 / 65535.0)
+
+// false for unknown texels and for out-of-bounds loads, which return 0
+bool agDepthIsKnown(float depthNDC)
+{
+	return depthNDC > 0.0 && depthNDC < AG_DEPTH_UNKNOWN - 0.5 / 65535.0;
+}
+
 
 float3 agDepthEyePos(int eye = 0)
 {

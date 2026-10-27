@@ -6,39 +6,83 @@ namespace Anaglyph.XR.SharedSpaces
 {
 	public static class BestFit
 	{
-		public static float4x4 Find4DOF(IReadOnlyList<(float3 subject, float3 target)> corresponding)
+		public static float4x4 Find4DOF(IReadOnlyList<(float3 subject, float3 target)> corresponding) => Find4DOF(corresponding, null, null);
+
+		/// <summary>
+		/// The yaw-and-translation transform laying the subjects on the targets, each pair
+		/// counted by its weight (1 when none), with direct observations of the yaw
+		/// (<paramref name="yaws"/>: radians about world up in Unity's sense, each with its
+		/// weight) joining the positions' say: weighted least squares over both.
+		/// </summary>
+		public static float4x4 Find4DOF(IReadOnlyList<(float3 subject, float3 target)> corresponding, IReadOnlyList<float> weights,
+			IReadOnlyList<(float yaw, float weight)> yaws)
 		{
-			float3 subjCentroid = float3.zero;
-			float3 targCentroid = float3.zero;
-
+			double3 subjCentroid = 0, targCentroid = 0;
+			double sum = 0;
 			for (int i = 0; i < corresponding.Count; i++)
 			{
-				float3 subj = corresponding[i].subject;
-				float3 targ = corresponding[i].target;
-
-				subjCentroid += subj;
-				targCentroid += targ;
+				double w = Weight(weights, i);
+				subjCentroid += w * (double3)corresponding[i].subject;
+				targCentroid += w * (double3)corresponding[i].target;
+				sum += w;
 			}
 
-			subjCentroid /= corresponding.Count;
-			targCentroid /= corresponding.Count;
+			subjCentroid /= sum;
+			targCentroid /= sum;
 
-			// 1-dof yaw rotation
-			float a = 0, b = 0;
+			// 1-dof yaw rotation: the positions' cost over the angle φ is −2(b cos φ − a sin φ)
+			double a = 0, b = 0;
 			for (int i = 0; i < corresponding.Count; i++)
 			{
-				float3 subj = corresponding[i].subject - subjCentroid;
-				float3 targ = corresponding[i].target - targCentroid;
+				double w = Weight(weights, i);
+				double3 subj = (double3)corresponding[i].subject - subjCentroid;
+				double3 targ = (double3)corresponding[i].target - targCentroid;
 
-				a += subj.x * targ.z - subj.z * targ.x;
-				b += subj.x * targ.x + subj.z * targ.z;
+				a += w * (subj.x * targ.z - subj.z * targ.x);
+				b += w * (subj.x * targ.x + subj.z * targ.z);
 			}
 
-			float theta = math.atan2(a, b); // todo: flip if needed
-			Quaternion rot = Quaternion.AngleAxis(math.degrees(-theta), Vector3.up);
+			double phi = math.atan2(-a, b);
+			if (yaws != null && yaws.Count > 0)
+			{
+				// Newton on the joint cost: the positions' term and each yaw's weighted squared difference
+				for (int iteration = 0; iteration < 8; iteration++)
+				{
+					double gradient = 2 * (b * math.sin(phi) + a * math.cos(phi));
+					double hessian = 2 * (b * math.cos(phi) - a * math.sin(phi));
+					foreach ((float yaw, float weight) in yaws)
+					{
+						gradient += 2 * weight * Wrap(phi - yaw);
+						hessian += 2 * weight;
+					}
 
-			float3 pos = targCentroid - math.mul(rot, subjCentroid);
+					if (hessian <= 0) break;
+					double step = -gradient / hessian;
+					phi += step;
+					if (math.abs(step) < 1e-7) break;
+				}
+			}
+
+			Quaternion rot = Quaternion.AngleAxis((float)math.degrees(phi), Vector3.up);
+			float3 pos = (float3)targCentroid - math.mul(rot, (float3)subjCentroid);
 			return float4x4.TRS(pos, rot, new float3(1.0));
+		}
+
+		private static double Weight(IReadOnlyList<float> weights, int i) =>
+			weights == null || i >= weights.Count || !(weights[i] > 0) ? 1 : weights[i];
+
+		/// <summary>Rotation about world up from the swing-twist decomposition, radians, in the sense of Quaternion.AngleAxis(angle, up).</summary>
+		public static float TwistYaw(Quaternion q)
+		{
+			if (math.abs(q.y) < 1e-8f && math.abs(q.w) < 1e-8f) return 0f;
+			return (float)Wrap(2.0 * math.atan2(q.y, q.w));
+		}
+
+		private static double Wrap(double angle)
+		{
+			angle = math.fmod(angle + math.PI_DBL, 2 * math.PI_DBL);
+			if (angle < 0) angle += 2 * math.PI_DBL;
+			return angle - math.PI_DBL;
 		}
 
 

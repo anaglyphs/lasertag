@@ -29,9 +29,20 @@ namespace Anaglyph.XR.SharedSpaces
 			}
 			if (baseline >= .1f)
 			{
+				// each constraint's position with its weight, and its yaw as a direct observation
+				// where the source measured it
 				List<(float3 subject, float3 target)> pairs = new(constraints.Count);
-				foreach (var c in constraints) pairs.Add((c.observed.position, c.canon.position));
-				Matrix4x4 matrix = BestFit.Find4DOF(pairs);
+				List<float> weights = new(constraints.Count);
+				List<(float yaw, float weight)> yaws = new();
+				foreach (var c in constraints)
+				{
+					pairs.Add((c.observed.position, c.canon.position));
+					weights.Add(c.positionWeight > 0 ? c.positionWeight : 1f);
+					if (c.hasReliableRotation && c.yawWeight > 0)
+						yaws.Add((BestFit.TwistYaw(c.canon.rotation) - BestFit.TwistYaw(c.observed.rotation), c.yawWeight));
+				}
+
+				Matrix4x4 matrix = BestFit.Find4DOF(pairs, weights, yaws);
 				delta = new Pose(matrix.GetPosition(), matrix.rotation);
 			}
 			else

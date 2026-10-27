@@ -660,9 +660,20 @@ namespace Anaglyph.XR.VisualLocalization
 		/// projection in a Burst job; one without runs LighterGlue against the views retrieval
 		/// ranks as sharing the most with it.
 		/// </summary>
-		public async Awaitable<VisualLocalizationResult> LocalizeAsync(VisualQuery query, LocalizeOptions options = default)
+		public Awaitable<VisualLocalizationResult> LocalizeAsync(VisualQuery query, LocalizeOptions options = default) =>
+			LocalizeAsync(new[] { query }, options);
+
+		/// <summary>
+		/// <see cref="LocalizeAsync(VisualQuery, LocalizeOptions)"/> over several frames of one
+		/// stretch of tracking, each with its camera in the same query world, the first the one
+		/// the prior and the result's center describe: matched by projection through each
+		/// camera and solved together, so the baseline between them pins translation as one
+		/// view can't. Without a prior only the first frame is used.
+		/// </summary>
+		public async Awaitable<VisualLocalizationResult> LocalizeAsync(IReadOnlyList<VisualQuery> frames, LocalizeOptions options = default)
 		{
 			VisualLocalizationResult result = default;
+			VisualQuery query = frames != null && frames.Count > 0 ? frames[0] : null;
 			if (capture == null || query?.features == null || Anchoring == null)
 			{
 				result.failure = "unavailable";
@@ -682,7 +693,37 @@ namespace Anaglyph.XR.VisualLocalization
 				IKeyframeAnchoring anchoring = Anchoring;
 				Map.RefreshPlacement();
 
-				Matching matching = guided ? await MatchGuided(query, options, anchoring) : await MatchAttention(query, options, anchoring);
+				Matching matching;
+				int cameraCount = 1;
+				if (guided)
+				{
+					matching = new();
+					HashSet<VisualKeyframe> contributing = new();
+					for (int c = 0; c < frames.Count; c++)
+					{
+						VisualQuery frame = frames[c];
+						if (frame?.features == null) continue;
+						Matching one = await MatchGuided(frame, c == 0 ? options.near.Value : frame.camera, c, options, anchoring, contributing);
+						if (!this)
+						{
+							result.failure = "destroyed";
+							return result;
+						}
+
+						matching.correspondences.AddRange(one.correspondences);
+						matching.bestMutual = math.max(matching.bestMutual, one.bestMutual);
+						if (c == 0) matching.failure = one.failure;
+						else Frames.Note(frame.frame, $"frame {c + 1} of {frames.Count} in one solve: {one.correspondences.Count} matches{(one.failure != null ? $" ({one.failure})" : "")}");
+					}
+
+					matching.keyframesMatched = contributing.Count;
+					// the later frames can carry a solve the first found too little for
+					if (matching.correspondences.Count >= 6) matching.failure = null;
+					else matching.failure ??= "too few matches";
+					cameraCount = frames.Count;
+				}
+				else matching = await MatchAttention(query, options, anchoring);
+
 				result.keyframesMatched = matching.keyframesMatched;
 				result.bestMutual = matching.bestMutual;
 				if (matching.failure != null)
@@ -695,13 +736,17 @@ namespace Anaglyph.XR.VisualLocalization
 				GravityPnP.Settings settings = pnp;
 				if (options.centerPriorSigma > 0) settings.centerPriorSigma = options.centerPriorSigma;
 				// RANSAC and Gauss-Newton over a few hundred correspondences: pure math, on a worker
-				Pose camera = query.camera;
+				Pose[] cameras = new Pose[cameraCount];
+				for (int c = 0; c < cameraCount; c++) cameras[c] = frames[c]?.camera ?? query.camera;
 				PinholeCamera intrinsics = query.intrinsics;
 				int seed = (int)(query.timestampNs & 0x7fffffff);
+				int views = matching.keyframesMatched;
 				await Awaitable.BackgroundThreadAsync();
 				try
 				{
-					result.pose = GravityPnP.Solve(correspondences, intrinsics, camera.rotation, camera.position, settings, seed);
+					result.pose = GravityPnP.Solve(correspondences, intrinsics, cameras, settings, seed);
+					// plus the matched views' own placement error, which all their landmarks share
+					GravityPnP.AddViewUncertainty(ref result.pose, settings, views);
 				}
 				finally
 				{
@@ -715,7 +760,7 @@ namespace Anaglyph.XR.VisualLocalization
 					result.inlierPoints = points.ToArray();
 				}
 
-				Frames.Note(query.frame, $"localized{(guided ? " (guided)" : "")}{(options.untrustedFrom != 0 ? " (loop)" : "")}: {result} anchor={result.anchorNode:X16}");
+				Frames.Note(query.frame, $"localized{(guided ? " (guided)" : "")}{(cameraCount > 1 ? $" ({cameraCount} frames)" : "")}{(options.untrustedFrom != 0 ? " (loop)" : "")}: {result} anchor={result.anchorNode:X16}");
 				return result;
 			}
 			catch (Exception e)
@@ -837,12 +882,14 @@ namespace Anaglyph.XR.VisualLocalization
 		/// The landmarks of the views that see most of what the prior sees, projected through
 		/// it into the query image and matched within the window each may fall in
 		/// (<see cref="GuidedMatcher"/>). No retrieval and no network: the prior says which
-		/// views can share the scene, and projecting their landmarks says which do.
+		/// views can share the scene, and projecting their landmarks says which do. The
+		/// correspondences name <paramref name="camera"/>, and the views that contributed join
+		/// <paramref name="contributing"/>.
 		/// </summary>
-		private async Awaitable<Matching> MatchGuided(VisualQuery query, LocalizeOptions options, IKeyframeAnchoring anchoring)
+		private async Awaitable<Matching> MatchGuided(VisualQuery query, Pose prior, int camera, LocalizeOptions options, IKeyframeAnchoring anchoring,
+			HashSet<VisualKeyframe> contributing)
 		{
 			Matching m = new();
-			Pose prior = options.near.Value;
 			float nearDistance = options.nearDistance > 0 ? options.nearDistance : float.PositiveInfinity;
 			Vector3 forward = prior.forward;
 
@@ -948,10 +995,12 @@ namespace Anaglyph.XR.VisualLocalization
 				perView[targets[t].keyframe] = n + 1;
 			}
 
-			foreach ((VisualKeyframe _, int n) in perView)
+			foreach ((VisualKeyframe view, int n) in perView)
 			{
 				m.bestMutual = math.max(m.bestMutual, n);
-				if (n >= guidedMinMatches) m.keyframesMatched++;
+				if (n < guidedMinMatches) continue;
+				m.keyframesMatched++;
+				contributing?.Add(view);
 			}
 
 			if (m.keyframesMatched == 0)
@@ -977,6 +1026,7 @@ namespace Anaglyph.XR.VisualLocalization
 					inverseDepthSigma = target.inverseDepthSigma,
 					confidence = confidence[t],
 					node = target.node,
+					camera = camera,
 				});
 			}
 

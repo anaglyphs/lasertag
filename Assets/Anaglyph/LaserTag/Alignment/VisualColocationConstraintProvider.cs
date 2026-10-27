@@ -119,13 +119,22 @@ namespace Anaglyph.LaserTag
 		[SerializeField] private bool loopFromKeyframes = true;
 		[Tooltip("With keyframe loop queries on, a loop query of its own (a capture, an extraction and a LighterGlue run) is made only after this many seconds without a keyframe: standing still near old views, where no new keyframe comes")]
 		[SerializeField] private float loopCaptureAfterQuiet = 3f;
+		[Tooltip("Recent keyframes of this stretch of tracking solved together with a loop query's frame: the baseline between them pins translation as one view can't. 1 for the frame alone")]
+		[SerializeField] private int loopFrames = 3;
+		[Tooltip("Seconds back a keyframe may be to join a measurement: tracking drifts little in that long, so the frames share one correction")]
+		[SerializeField] private float loopFrameWindow = 4f;
 
 		[Header("Cross-headset links")]
 		[Tooltip("Once aligned, a joiner keeps sending keyframes to the authority; a confident answer becomes a site, so the headsets keep agreeing on the shared frame instead of each drifting against its own map")]
 		[SerializeField] private bool crossLinks = true;
 		[Tooltip("Seconds between cross-link queries, at most: each is a LighterGlue run on the authority and ~50 KB on the network")]
-		[SerializeField] private float crossLinkInterval = 3f;
+		[SerializeField] private float crossLinkInterval = 2f;
 		[SerializeField] private float crossLinkCooldown = 6f;
+		[Tooltip("Keyframes a cross-link sends, the newest first, solved together on the authority: the baseline between them pins translation as one view can't. Two fit the transport at 448 features each")]
+		[SerializeField] private int crossLinkFrames = 2;
+		[SerializeField] private int crossLinkFeaturesPerFrame = 448;
+		[Tooltip("A joiner near a site a cross-link made leaves its own map alone there: the authority's map is the frame to agree on, and a revisit of its own map pulls a few centimeters elsewhere")]
+		[SerializeField] private bool crossLinksPrevail = true;
 		[Tooltip("Two revisit results may lean on different old segments, as long as those are this close (m of expected drift): the correction agreeing is the real test")]
 		[SerializeField] private float loopAnchorTolerance = 0.25f;
 
@@ -165,6 +174,8 @@ namespace Anaglyph.LaserTag
 		private class Pending
 		{
 			public VisualQuery query;
+			/// <summary>The query and the recent frames solved with it, the query first; null for the query alone.</summary>
+			public List<VisualQuery> frames;
 			public Purpose purpose;
 			public int epoch;
 			public int generation;
@@ -349,6 +360,7 @@ namespace Anaglyph.LaserTag
 					return loopClosure && Time.unscaledTime >= nextLoop && track.IsTracking &&
 					       (!loopFromKeyframes || Time.unscaledTime - lastKeyframeAt >= loopCaptureAfterQuiet) &&
 					       localizer.Map.Count > 0 &&
+					       !CrossLinkCovers(MainXRRig.Camera.transform.position) &&
 					       localizer.HasUntrustedKeyframeNear(MainXRRig.Camera.transform.position, track.Current, loopSearchDistance);
 
 				default:
@@ -392,6 +404,7 @@ namespace Anaglyph.LaserTag
 			// interval, however fast keyframes come (a confirming frame is let through at once)
 			if (Time.unscaledTime < nextLoop) return;
 			if (!track.IsTracking || keyframe.node == 0) return;
+			if (CrossLinkCovers(keyframe.camera.position)) return;
 			if (!localizer.HasUntrustedKeyframeNear(keyframe.camera.position, keyframe.node, loopSearchDistance)) return;
 
 			queryInFlight = true;
@@ -448,6 +461,8 @@ namespace Anaglyph.LaserTag
 				nearMapFrame = true,
 			};
 
+			// with the keyframes just before it, solved together on the authority
+			List<VisualQuery> frames = FramesWith(query, crossLinkFrames);
 			int id = nextQueryId++;
 			crossLinkQueries[id] = new Pending
 			{
@@ -455,9 +470,10 @@ namespace Anaglyph.LaserTag
 				epoch = FrameEpoch,
 				generation = AlignmentGeneration,
 				query = query,
+				frames = frames,
 				sentAt = Time.unscaledTime,
 			};
-			queryEvent.Raise(VisualQueryCodec.Encode(query, id));
+			queryEvent.Raise(VisualQueryCodec.Encode(frames, id, frames.Count > 1 ? crossLinkFeaturesPerFrame : VisualQueryCodec.DefaultMaxFeatures));
 		}
 
 		private async Awaitable Localize(Pending p, bool remote)
@@ -499,7 +515,11 @@ namespace Anaglyph.LaserTag
 				};
 			}
 
-			VisualLocalizationResult result = await localizer.LocalizeAsync(p.query, options);
+			// a loop query with the keyframes just before it: one solve over their baseline
+			if (purpose == Purpose.Loop) p.frames = FramesWith(p.query, loopFrames);
+			VisualLocalizationResult result = p.frames != null
+				? await localizer.LocalizeAsync(p.frames, options)
+				: await localizer.LocalizeAsync(p.query, options);
 			if (!this) return;
 			LastResult = result;
 			p.features = result.inlierPoints;
@@ -667,6 +687,13 @@ namespace Anaglyph.LaserTag
 
 			if (ClosesLoop(p.purpose))
 			{
+				// a joiner's own map has nothing to add where the authority's reaches
+				if (p.purpose == Purpose.Loop && CrossLinkCovers(camera))
+				{
+					Outcome($"{p.purpose}: not a site, a cross-link site covers here ({description})");
+					return;
+				}
+
 				// the two frames together pin translation as well as the better of them: a site
 				// is yaw-only when neither pinned it
 				bool bothYawOnly = yawOnly && candidateYawOnly;
@@ -757,6 +784,52 @@ namespace Anaglyph.LaserTag
 
 		private float WalkedSinceSite(Pending p) => sites.PathSinceLatest(track.PathOf(p.query.node), track.PathOf(p.query.node));
 
+		// a joiner near a site a cross-link made: the authority's map is the frame to agree on
+		private bool CrossLinkCovers(float3 position) =>
+			crossLinksPrevail && SyncBus.Active && !SyncBus.IsAuthority && sites.CrossLinkWithin(position, siteRadius);
+
+		/// <summary>
+		/// The latest frame with the newest keyframes of its stretch of tracking taken within
+		/// the window before it, up to <paramref name="count"/> frames in all, newest first:
+		/// each camera placed as the latest frame's correction places it rather than its own
+		/// segment's, so all share one query world and one solve.
+		/// </summary>
+		private List<VisualQuery> FramesWith(VisualQuery latest, int count)
+		{
+			List<VisualQuery> frames = new() { latest };
+			if (count <= 1 || latest.node == 0) return frames;
+
+			Pose4 correction = track.CorrectionOf(latest.node);
+			long oldest = latest.timestampNs - (long)(loopFrameWindow * 1e9);
+			List<VisualKeyframe> recent = new();
+			foreach (VisualKeyframe k in localizer.Map.Keyframes)
+			{
+				if (k.node == 0 || k.timestampNs >= latest.timestampNs || k.timestampNs < oldest) continue;
+				if (track.Drift(k.node, latest.node) > localizer.TrustDrift) continue;
+				recent.Add(k);
+			}
+
+			recent.Sort((a, b) => b.timestampNs.CompareTo(a.timestampNs));
+			foreach (VisualKeyframe k in recent)
+			{
+				if (frames.Count >= count) break;
+				Pose camera = correction.Apply(track.CorrectionOf(k.node).Inverse.Apply(k.cameraInNode));
+				frames.Add(new VisualQuery
+				{
+					features = k.features,
+					intrinsics = k.intrinsics,
+					camera = camera,
+					node = k.node,
+					cameraInNode = k.cameraInNode,
+					timestampNs = k.timestampNs,
+					frame = k.frame,
+					nearMapFrame = latest.nearMapFrame,
+				});
+			}
+
+			return frames;
+		}
+
 		// ---- correcting --------------------------------------------------------
 
 		/// <summary>
@@ -834,8 +907,12 @@ namespace Anaglyph.LaserTag
 			foreach (ConstraintSites.Site site in sites.Sites)
 			{
 				float3 placed = site.correction.ApplyInverse(site.position);
+				// weighted by how well the site pinned each: the fit leans on the surer sites,
+				// and takes their measured yaws rather than deriving yaw from positions alone
 				results.Add(new ColocationConstraint(new Pose(worldFromPlaced.MultiplyPoint3x4(placed), placedRotation),
-					new Pose(site.position, site.correction.Rotation), hasReliableRotation: true));
+					new Pose(site.position, site.correction.Rotation), true,
+					1f / math.max(site.sigmaTranslation * site.sigmaTranslation, 1e-6f),
+					1f / math.max(site.sigmaYaw * site.sigmaYaw, 1e-8f)));
 			}
 		}
 
@@ -892,7 +969,8 @@ namespace Anaglyph.LaserTag
 				return;
 			}
 
-			if (!VisualQueryCodec.TryDecode(payload, out VisualQuery query, out int queryId)) return;
+			if (!VisualQueryCodec.TryDecode(payload, out List<VisualQuery> frames, out int queryId) || frames.Count == 0) return;
+			VisualQuery query = frames[0];
 
 			serving = true;
 			VisualFrameRecord record = localizer.Frames.BeginRemote(query, sender);
@@ -913,7 +991,7 @@ namespace Anaglyph.LaserTag
 						guided = true,
 					}
 					: new LocalizeOptions { urgent = true };
-				VisualLocalizationResult result = await localizer.LocalizeAsync(query, options);
+				VisualLocalizationResult result = await localizer.LocalizeAsync(frames, options);
 				if (!this) return;
 				LastResult = result;
 				considering = null;

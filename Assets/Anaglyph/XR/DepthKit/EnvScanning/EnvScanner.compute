@@ -693,6 +693,10 @@ void IntegrateSensor(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_Group
 	if (any(voxNDC.xy < depthTexCropMin) || any(voxNDC.xy > depthTexCropMax)) return;
 
 	const float depthNDC = agDepthSample(voxNDC.xy);
+
+	// unknown is not empty: the far sentinel would carve everything in range
+	if (!agDepthIsKnown(depthNDC)) return;
+
 	const float3 depthNorm = agDepthNormalSample(voxNDC.xy).xyz;
 	const float3 depthPos = agDepthNDCtoWorld(float3(voxNDC.xy, depthNDC));
 	const float3 eyePos = agDepthEyePos();
