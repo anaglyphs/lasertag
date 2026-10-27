@@ -73,10 +73,10 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		public bool RoamingMintEnabled { get; set; } = true;
 
 		/// <summary>
-		/// Optional additional safety gate supplied by the embedding game. With no gate, an empty
-		/// provider defines the current frame and an established provider requires localization.
+		/// The embedding game's session rules. Without one, an empty provider defines the current
+		/// frame, an established provider requires localization, and the sync authority mints.
 		/// </summary>
-		public Func<bool> MintingGate { get; set; }
+		public IAnchorSessionPolicy Policy { get; set; }
 
 		private readonly Dictionary<Guid, HeldAnchor> held = new();
 		private readonly List<Guid> heldRemovalScratch = new();
@@ -431,12 +431,10 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 
 		// ------- designated headset minting -----------------------
 
-		/// <summary>Require an upload even offline while the embedding app initializes a shared space.</summary>
-		public bool RequireSharingForMint { get; set; }
 		// Temporary simulation anchors cannot define a persistent shared space.
 		private bool CanMintNow => IsRunning && RoamingMintEnabled && IsLocalMinter && LocallyReady && registry.canSaveAnchors &&
-			(!(SyncBus.Active || RequireSharingForMint) || CanShareAnchors) && (MintingGate?.Invoke() ??
-			(constraints.Count == 0 || ColocationManagerState() == ColocationAlignmentState.Localized));
+			(!SyncBus.Active || CanShareAnchors) && (Policy != null ? Policy.MayMint :
+			constraints.Count == 0 || ColocationManagerState() == ColocationAlignmentState.Localized);
 
 		public static bool HasNearbyAnchor(IEnumerable<AnchorConstraintState> anchors, Vector3 position, float distance)
 		{
@@ -496,7 +494,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 					if (!Current() || !minted.saved) return false;
 					// Confirm sharing before the first reference becomes permanent, including standalone
 					// startup. Some managed headsets expose the extension but deny cloud operations.
-					if ((inSession || RequireSharingForMint) && !await ShareBeforePublishing(minted.lease, Current, ctkn)) return false;
+					if (inSession && !await ShareBeforePublishing(minted.lease, Current, ctkn)) return false;
 					if (!inSession)
 					{
 						constraints.Set(minted.guid, new AnchorConstraintState { canonPose = pose, bindingId = -1 });
@@ -508,7 +506,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 					{
 						lease = minted.lease, operation = operation, deadline = Time.realtimeSinceStartupAsDouble + 20
 					});
-					mintProposal.Raise(new AnchorProposal { operation = operation, guid = minted.guid, canon = pose, bindingId = -1, trackingGeneration = TrackingGeneration?.Invoke() ?? 0 });
+					mintProposal.Raise(new AnchorProposal { operation = operation, guid = minted.guid, canon = pose, bindingId = -1, trackingGeneration = Policy?.TrackingGeneration ?? 0 });
 					return true; // PendingMint owns the lease until the ordered reply arrives.
 				}, commitTakesLease: true, ctkn);
 			}

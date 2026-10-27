@@ -5,49 +5,45 @@ using System.Reflection;
 using Anaglyph.LaserTag.Maps;
 using Object = UnityEngine.Object;
 using UnityEngine;
+using Space = Anaglyph.LaserTag.Maps.Space;
 
 namespace Anaglyph.LaserTag.Tests
 {
 	public class TagSizeRulerTests
 	{
 		[Test] // AprilTag without registered tags: two-tag mode, where size stays editable
-		public void MeasurementSurvivesMapChangesButStopsWhenTheSpaceContextChanges()
+		public void MeasurementSurvivesMapChangesButStopsWhenTheSpaceFrameChanges()
 		{
 			var owner = new GameObject("Measurement state test");
 			owner.SetActive(false);
-			var previous = LaserTagMapCoordinator.Instance;
+			Assert.That(SpaceManager.Instance, Is.Null);
 			bool wasEditing = MapEditor.MapEditor.IsActive;
-			MapCoordinatorTestContext context = null;
+			SpaceManagerTestContext context = null;
 			const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
 			try
 			{
-				var coordinator = owner.AddComponent<LaserTagMapCoordinator>();
-				context = new MapCoordinatorTestContext(coordinator);
-				var mapDocument = context.MapDocument;
-				var spaceDocument = context.SpaceDocument;
-				var space = MapSpace.Create("Test"); space.preferredColocationMethod = ColocationManager.ColocationMethod.AprilTag;
-				spaceDocument.Load(space);
-				mapDocument.Create(space.storageFrameId);
-				context.ComposeReferences(owner.AddComponent<ColocationManager>());
-				typeof(LaserTagMapCoordinator).GetProperty("Instance").SetValue(null, coordinator);
+				var manager = owner.AddComponent<SpaceManager>();
+				var space = Space.Create("Test"); space.alignment.method = ColocationManager.ColocationMethod.AprilTag;
+				space.maps.Add(Map.Create("Map 1"));
+				context = new SpaceManagerTestContext(manager, owner.AddComponent<ColocationManager>(), space);
+				context.ShowMap(space.maps[0]);
 				typeof(MapEditor.MapEditor).GetProperty("IsActive").SetValue(null, true);
 				var tool = owner.AddComponent<MapEditorTool>();
-				typeof(MapEditorTool).GetField("measurementSpaceContext", flags).SetValue(tool, coordinator.ReferenceContext.ToString());
+				typeof(MapEditorTool).GetField("measurementSpaceContext", flags).SetValue(tool, manager.Frame.frameId.ToString());
 				var allowed = typeof(MapEditorTool).GetProperty("MeasurementAllowed", flags);
-				Assert.That(mapDocument.CurrentMap, Is.Not.SameAs(mapDocument.CurrentMap));
 				Assert.That(allowed.GetValue(tool), Is.True);
-				space.tagSizeCm = 12; spaceDocument.Load(space);
+				space.alignment.tagSizeCm = 12;
 				Assert.That(allowed.GetValue(tool), Is.True);
-				mapDocument.Create(space.storageFrameId);
-				Assert.That(allowed.GetValue(tool), Is.True);
-				context.Visit.GetType().GetProperty("ReferenceContext").SetValue(context.Visit, Guid.NewGuid());
-				Assert.That(allowed.GetValue(tool), Is.False);
-				mapDocument.Unload();
+				space.maps.Add(Map.Create("Map 2"));
+				context.ShowMap(space.maps[1]);
+				Assert.That(allowed.GetValue(tool), Is.True, "a map change keeps the frame");
+				space.frameId = Space.NewId();
+				Assert.That(allowed.GetValue(tool), Is.False, "a rebased frame discards the measurement");
+				context.ShowSpace(null);
 				Assert.That(allowed.GetValue(tool), Is.False);
 			}
 			finally
 			{
-				typeof(LaserTagMapCoordinator).GetProperty("Instance").SetValue(null, previous);
 				typeof(MapEditor.MapEditor).GetProperty("IsActive").SetValue(null, wasEditing);
 				context?.Dispose();
 				Object.DestroyImmediate(owner);

@@ -63,20 +63,10 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		private int localFrameGeneration;
 		private bool wasLocallyReady;
 
-		/// <summary>Embedding-layer selection. Without it the sync authority is the minter.</summary>
-		public Func<ulong?> SelectMinter { get; set; }
-		public Func<bool> LocalReadinessGate { get; set; }
-		public Func<ulong, bool> ValidateRemoteMint { get; set; }
-		public Func<int> TrackingGeneration { get; set; }
-		public Func<ulong, int, bool> ValidateTrackingGeneration { get; set; }
-		public Func<bool> PreparationGate { get; set; }
-		public Func<bool> PreparationMintingGate { get; set; }
-		public Func<IReadOnlyList<AnchorConstraintData>> SharingCandidates { get; set; }
-		public Func<ulong, AnchorConstraintData, bool> ValidatePreparedAnchor { get; set; }
 		public AnchorMinterAssignment Minter => minter.Value;
 		public bool HasMinter => SyncBus.Active && Minter.assigned;
 		public bool IsLocalMinter => !SyncBus.Active || (Minter.assigned && Minter.clientId == SyncBus.LocalClientId);
-		private bool LocallyReady => IsAvailable && (LocalReadinessGate?.Invoke() ?? true);
+		private bool LocallyReady => IsAvailable && (Policy?.LocallyReady ?? true);
 		public event Action MinterChanged = delegate { };
 
 		private void RegisterSession()
@@ -127,7 +117,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		private void Update()
 		{
 			if (SyncBus.Active && SyncBus.IsAuthority)
-				AssignMinter(SelectMinter != null ? SelectMinter() : SyncBus.LocalClientId);
+				AssignMinter(Policy != null ? Policy.SelectMinter() : SyncBus.LocalClientId);
 			bool ready = LocallyReady;
 			if (wasLocallyReady && !ready) InvalidateLocalFrame();
 			wasLocallyReady = ready;
@@ -187,7 +177,8 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		private bool CanAcceptMint(ulong sender, AnchorProposal proposal) =>
 			SenderIsCurrent(sender, proposal.operation) && IsRunning && RoamingMintEnabled &&
 			proposal.bindingId == -1 && ValidConstraint(proposal.guid, proposal.canon) &&
-			!constraints.ContainsKey(proposal.guid) && (ValidateTrackingGeneration?.Invoke(sender, proposal.trackingGeneration) ?? true) && (ValidateRemoteMint?.Invoke(sender) ?? true);
+			!constraints.ContainsKey(proposal.guid) && (Policy?.ValidateTrackingGeneration(sender, proposal.trackingGeneration) ?? true) &&
+			(Policy?.ValidateRemoteMint(sender) ?? true);
 
 		private void OnMintProposed(ulong sender, AnchorProposal proposal)
 		{
@@ -267,13 +258,13 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 
 		private bool CanPrepare(AnchorOperation operation, int frame) => IsLocalMinter && LocallyReady &&
 			CanShareAnchors && frame == localFrameGeneration && OperationIsCurrent(operation) &&
-			preparation.Value.id == operation.id && (PreparationGate?.Invoke() ?? true);
+			preparation.Value.id == operation.id && (Policy?.MayPrepare ?? true);
 
 		private IReadOnlyList<AnchorConstraintData> GetSharingCandidates()
 		{
-			if (SharingCandidates != null) return SharingCandidates();
 			List<AnchorConstraintData> result = new();
-			foreach (var pair in constraints) result.Add(new(pair.Key, pair.Value.canonPose, pair.Value.bindingId));
+			if (Policy != null) Policy.GetSharingCandidates(result);
+			else foreach (var pair in constraints) result.Add(new(pair.Key, pair.Value.canonPose, pair.Value.bindingId));
 			return result;
 		}
 
@@ -299,7 +290,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 				// Tag corrections can change canon poses while uploads run. Read them again.
 				foreach (AnchorConstraintData candidate in GetSharingCandidates())
 					if (uploaded.Contains(candidate.guid)) SendPrepared(operation, candidate);
-				if (uploaded.Count == 0 && (PreparationMintingGate?.Invoke() ?? false))
+				if (uploaded.Count == 0 && (Policy?.MayMintForPreparation ?? false))
 				{
 					Pose pose = PoseUnderPlayer();
 					await AnchorMinting.TryMintWithAsyncCommit(registry, pose, async minted =>
@@ -324,7 +315,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 
 		private void SendPrepared(AnchorOperation operation, AnchorConstraintData candidate) => preparedAnchor.Raise(new()
 		{
-			operation = operation, guid = candidate.guid, canon = candidate.canonPose, bindingId = candidate.bindingId, trackingGeneration = TrackingGeneration?.Invoke() ?? 0
+			operation = operation, guid = candidate.guid, canon = candidate.canonPose, bindingId = candidate.bindingId, trackingGeneration = Policy?.TrackingGeneration ?? 0
 		});
 
 		private void OnAnchorPrepared(ulong sender, AnchorProposal proposal)
@@ -332,7 +323,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 			AnchorConstraintData data = new(proposal.guid, proposal.canon, proposal.bindingId);
 			if (!SenderIsCurrent(sender, proposal.operation) || preparationComplete ||
 				preparation.Value.id != proposal.operation.id || !ValidConstraint(proposal.guid, proposal.canon) ||
-				!(ValidateTrackingGeneration?.Invoke(sender, proposal.trackingGeneration) ?? true) || !(ValidatePreparedAnchor?.Invoke(sender, data) ?? true)) return;
+				!(Policy?.ValidateTrackingGeneration(sender, proposal.trackingGeneration) ?? true) || !(Policy?.ValidatePreparedAnchor(sender, data) ?? true)) return;
 			if (preparedConstraints.Exists(entry => entry.guid == proposal.guid)) return;
 			preparedConstraints.Add(data);
 		}

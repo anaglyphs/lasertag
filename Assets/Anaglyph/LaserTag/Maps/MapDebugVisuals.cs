@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Anaglyph.LaserTag.Maps
 {
-	/// <summary>Draws the current map's canon reference poses while debug mode is on.</summary>
+	/// <summary>Draws the shown space's reference poses while debug mode is on.</summary>
 	public class MapDebugVisuals : MonoBehaviour
 	{
 		[SerializeField] private Color anchorColor = Color.cyan;
@@ -12,20 +12,11 @@ namespace Anaglyph.LaserTag.Maps
 
 		private void Update()
 		{
-			if (!AnaglyphDebugging.DebugMode || LaserTagMapCoordinator.Instance == null)
-				return;
-
-			MapSpace map = LaserTagMapCoordinator.Instance.CurrentSpace;
-			if (map == null)
-				return;
-
-			foreach (MapAnchorEntry anchor in map.anchors)
-				DebugAxisVisual.DrawDebugAxis(
-					map.Frame.ToCanonical(anchor.canonPose).position, map.Frame.ToCanonical(anchor.canonPose).rotation, anchorColor);
-
-			foreach (MapTagEntry tag in map.tags)
-				DebugAxisVisual.DrawDebugAxis(
-					map.Frame.ToCanonical(tag.canonPose).position, map.Frame.ToCanonical(tag.canonPose).rotation, tagColor);
+			if (!AnaglyphDebugging.DebugMode || SpaceManager.Instance == null) return;
+			Space space = SpaceManager.Instance.Space;
+			if (space == null) return;
+			foreach (AnchorRef anchor in space.anchors) DebugAxisVisual.DrawDebugAxis(anchor.pose.position, anchor.pose.rotation, anchorColor);
+			foreach (TagRef tag in space.tags) DebugAxisVisual.DrawDebugAxis(tag.pose.position, tag.pose.rotation, tagColor);
 		}
 	}
 }

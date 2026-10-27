@@ -1,7 +1,6 @@
 using System;
 using Anaglyph.LaserTag.Maps;
 using Anaglyph.Menu;
-using Anaglyph.Netcode.SyncVariables;
 using UnityEngine.UIElements;
 using static Anaglyph.Menu.UIQuery;
 
@@ -28,34 +27,33 @@ namespace Anaglyph.LaserTag.Interface
 			reset.clicked += Reset;
 			page.NavigatingAway += Disarm;
 			page.NavigatingHere += Refresh;
-			MapSpaceStore.Default.Changed += Refresh;
-			LaserTagMapCoordinator.CurrentSpaceChanged += OnSpace;
-			LaserTagMapCoordinator.ColocationSettingsChanged += Refresh;
+			SpaceManager.SpaceChanged += OnSpace;
+			SpaceManager.SpacesChanged += Refresh;
 			MenuCopy.Changed += Refresh;
 			Refresh();
 		}
-		private bool IsCurrent => boundSpace != null && boundSpace == LaserTagMapCoordinator.Instance?.CurrentSpace?.id;
+		private bool IsCurrent => boundSpace != null && boundSpace == SpaceManager.Instance?.Space?.id;
 		private void FlushPendingSize() => Alignment.FlushPendingSize();
 		private void Disarm() { FlushPendingSize(); armedReset = false; Refresh(); }
-		private void OnSpace(MapSpace space)
+		private void OnSpace()
 		{
-			if (boundSpace != space?.id && page.ParentView?.CurrentPage == page) page.GoBack();
+			if (boundSpace != SpaceManager.Instance?.Space?.id && page.ParentView?.CurrentPage == page) page.GoBack();
 			Refresh();
 		}
 		private void OnNameChanged(ChangeEvent<string> change)
 		{
-			if (!IsCurrent || !LaserTagMapCoordinator.Instance.RenameSpace(change.newValue)) Refresh();
+			if (!IsCurrent || !SpaceManager.Instance.RenameSpace(change.newValue)) Refresh();
 		}
 		private void Reset()
 		{
 			if (!IsCurrent) return;
 			if (!armedReset) { armedReset = true; Refresh(); return; }
-			armedReset = false; LaserTagMapCoordinator.Instance.ResetSpaceAlignment(); Refresh();
+			armedReset = false; SpaceManager.Instance.ResetAlignment(); Refresh();
 		}
 		public void Refresh()
 		{
 			Alignment.Refresh();
-			var manager = LaserTagMapCoordinator.Instance; var space = manager?.CurrentSpace;
+			var manager = SpaceManager.Instance; var space = manager?.Space;
 			if (boundSpace != space?.id)
 			{
 				boundSpace = space?.id; armedReset = false;
@@ -63,10 +61,10 @@ namespace Anaglyph.LaserTag.Interface
 			}
 			if (name.panel?.focusController?.focusedElement is not VisualElement focused || (focused != name && !name.Contains(focused)))
 				name.SetValueWithoutNotify(space?.name ?? "");
-			name.label = MenuCopy.Get("Map", "space.name"); name.maxLength = LaserTagMapCoordinator.MaxMapNameLength;
+			name.label = MenuCopy.Get("Map", "space.name"); name.maxLength = Space.MaxNameLength;
 			reset.text = MenuCopy.Get("Map", armedReset ? "space.confirm-reset" : "space.reset");
-			name.SetEnabled(space != null && manager.DescribeRenameBlocker() == null);
-			reset.SetEnabled(space != null && !SyncBus.Active && !manager.IsChangingColocation);
+			name.SetEnabled(manager != null && manager.RenameSpaceBlocker() == null);
+			reset.SetEnabled(manager != null && manager.ResetAlignmentBlocker() == null);
 		}
 		public void Dispose()
 		{
@@ -76,9 +74,8 @@ namespace Anaglyph.LaserTag.Interface
 			reset.clicked -= Reset;
 			page.NavigatingAway -= Disarm;
 			page.NavigatingHere -= Refresh;
-			MapSpaceStore.Default.Changed -= Refresh;
-			LaserTagMapCoordinator.CurrentSpaceChanged -= OnSpace;
-			LaserTagMapCoordinator.ColocationSettingsChanged -= Refresh;
+			SpaceManager.SpaceChanged -= OnSpace;
+			SpaceManager.SpacesChanged -= Refresh;
 			MenuCopy.Changed -= Refresh;
 		}
 	}

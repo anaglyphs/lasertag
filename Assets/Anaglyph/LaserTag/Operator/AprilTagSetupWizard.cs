@@ -5,9 +5,15 @@ using Anaglyph.Menu;
 using UnityEngine;
 using UnityEngine.UIElements;
 using static Anaglyph.Menu.UIQuery;
+using Space = Anaglyph.LaserTag.Maps.Space;
 
 namespace Anaglyph.LaserTag.Operator
 {
+	/// <summary>
+	/// The operator's three-step AprilTag setup page: print, connect a headset that measures
+	/// and registers on the operator's behalf, review and finish. It presents itself while
+	/// <see cref="TagSetup"/> runs and leaves when the setup ends.
+	/// </summary>
 	public sealed class AprilTagSetupWizard : IDisposable
 	{
 		private readonly NavView navigation;
@@ -19,10 +25,13 @@ namespace Anaglyph.LaserTag.Operator
 		private readonly UIEventBindings bindings = new();
 		private bool presented;
 		private int step;
-		private string reviewedVersion;
+		private int reviewedTags = -1;
 		private float nextRefresh;
-		private AprilTagSetupSession Session => LaserTagMapCoordinator.Instance?.TagSetup;
 		private static string Copy(string key) => MenuCopy.Get("Map", "tag-setup." + key);
+		private static TagSetup Setup => SpaceManager.Instance != null ? SpaceManager.Instance.TagSetup : null;
+
+		/// <summary>Whether a guided setup is running for the shown space.</summary>
+		public bool IsActive => Setup != null && Setup.IsActive;
 
 		public AprilTagSetupWizard(NavView navigation, Action focusTags)
 		{
@@ -35,6 +44,7 @@ namespace Anaglyph.LaserTag.Operator
 			scope = Require<Label>(page, "setup-space");
 			stepLabel = Require<Label>(page, "setup-step");
 			address = Require<Label>(page, "setup-address");
+			status = Require<Label>(page, "setup-status");
 			tags = Require<Label>(page, "setup-tags");
 			error = Require<Label>(page, "setup-error");
 			confirm = Require<Toggle>(page, "setup-confirm");
@@ -44,7 +54,7 @@ namespace Anaglyph.LaserTag.Operator
 			bindings.Click(next, () => { step = Math.Min(2, step + 1); if (step == 2) focusTags(); Refresh(); });
 			bindings.Click(focus, focusTags);
 			bindings.Click(Require<Button>(page, "setup-print-link"), () => Application.OpenURL("https://novanix.github.io/apriltag-pdf-gen/"));
-			bindings.Click(Require<Button>(page, "setup-cancel"), () => { Session?.Cancel(); Refresh(); });
+			bindings.Click(Require<Button>(page, "setup-cancel"), () => { Setup?.Cancel(); Refresh(); });
 			bindings.Click(finish, Finish);
 			bindings.Value(confirm, _ => Refresh());
 			Refresh();
@@ -52,9 +62,9 @@ namespace Anaglyph.LaserTag.Operator
 
 		private void Finish()
 		{
-			if (!confirm.value || Session?.CanFinish != true ||
-				reviewedVersion != LaserTagMapCoordinator.Instance.CurrentSpace.referenceVersion) { Refresh(); return; }
-			if (!Session.Finish()) error.text = Copy("save-failed");
+			TagSetup setup = Setup;
+			if (!confirm.value || setup == null || !setup.CanFinish) { Refresh(); return; }
+			if (!setup.Finish()) error.text = Copy("save-failed");
 			Refresh();
 		}
 
@@ -67,8 +77,7 @@ namespace Anaglyph.LaserTag.Operator
 
 		public void Refresh()
 		{
-			var session = Session;
-			bool active = session?.IsActive == true;
+			bool active = IsActive;
 			if (active != presented)
 			{
 				if (active)
@@ -76,41 +85,33 @@ namespace Anaglyph.LaserTag.Operator
 					step = 0;
 					error.text = "";
 					confirm.SetValueWithoutNotify(false);
-					reviewedVersion = null;
+					reviewedTags = -1;
 				}
 				presented = active;
 				navigation.SetModalPresented(page, active, 15);
 			}
 			RefreshStepVisibility();
 			if (!active) return;
-			var coordinator = LaserTagMapCoordinator.Instance;
-			var space = coordinator.CurrentSpace;
-			if (reviewedVersion != space.referenceVersion)
+			TagSetup setup = Setup;
+			Space space = SpaceManager.Instance.Space;
+			// a tag registered after the review was ticked needs another look
+			if (reviewedTags != space.tags.Count)
 			{
-				reviewedVersion = space.referenceVersion;
+				reviewedTags = space.tags.Count;
 				confirm.SetValueWithoutNotify(false);
 			}
 			scope.text = MenuCopy.Format("Map", "tag-setup.space", space.name);
 			stepLabel.text = MenuCopy.Format("Map", "tag-setup.step", step + 1, Copy(new[] { "print-title", "connect-title", "review-title" }[step]));
 			address.text = string.IsNullOrEmpty(OperatorHost.LocalAddress) ? Copy("no-address") : OperatorHost.LocalAddress;
-			int connected = OperatorHost.GetConnectedClients().Count(client => !client.isThisServer);
-			string instruction;
-			if (connected == 0)
-				instruction = Copy("waiting-headset");
-			else if (coordinator.WaitingForAlignmentAuthor && space.HasNativeReferences && !space.HasTags)
-				instruction = MenuCopy.Get("Map", "alignment.waiting-for-reference-headset");
-			else if (!session.SizeConfirmed)
-				instruction = Copy("measuring");
-			else if (space.HasTags && !session.CanFinish)
-				instruction = Copy("wait-validation");
-			else
-				instruction = Copy("registering");
-			// status.text = MenuCopy.Format("Map", "tag-setup.progress", connected, space.tags.Count) + "\n" + instruction;
+			status.text = !setup.State.hasAuthor ? Copy("waiting-headset")
+				: !setup.SizeConfirmed ? Copy("measuring")
+				: space.HasTags && !setup.CanFinish ? Copy("wait-validation")
+				: Copy("registering");
 			tags.text = space.HasTags ? string.Join(", ", space.tags.OrderBy(tag => tag.id).Select(tag => "#" + tag.id)) : Copy("no-tags");
 			next.SetEnabled(step == 0 || space.HasTags);
-			finish.SetEnabled(confirm.value && session.CanFinish);
-			finish.tooltip = session.CanFinish ? null : Copy("wait-validation");
-			confirm.SetEnabled(session.CanFinish);
+			confirm.SetEnabled(setup.CanFinish);
+			finish.SetEnabled(confirm.value && setup.CanFinish);
+			finish.tooltip = setup.CanFinish ? null : Copy("wait-validation");
 			focus.SetEnabled(space.HasTags);
 		}
 
@@ -125,7 +126,7 @@ namespace Anaglyph.LaserTag.Operator
 
 		public void Dispose()
 		{
-			Session?.Cancel();
+			Setup?.Cancel();
 			bindings.Dispose();
 			if (presented) navigation.SetModalPresented(page, false, 15);
 		}

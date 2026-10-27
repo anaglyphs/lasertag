@@ -161,8 +161,6 @@ namespace Anaglyph.LaserTag.Interface.HUD
 
 		private Overlay ResolveOverlay()
 		{
-			if (NeedsFirstAprilTag()) return Overlay.TagRegistration;
-
 			// connecting and aligning block play, so they outrank everything
 			if (GetBlockingConnectionText() != null) return Overlay.Connection;
 			if (Time.time < resultsHideTime) return Overlay.Results;
@@ -179,11 +177,6 @@ namespace Anaglyph.LaserTag.Interface.HUD
 			if (Time.time < readyHideTime) return Overlay.Connection;
 
 			return Overlay.None;
-		}
-
-		private static bool NeedsFirstAprilTag()
-		{
-			return LaserTagMapCoordinator.Instance != null && LaserTagMapCoordinator.Instance.SessionIsWaitingOnFirstTag;
 		}
 
 		private void RefreshContent(Overlay overlay)

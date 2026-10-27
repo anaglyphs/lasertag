@@ -27,7 +27,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 		// ordering against other synced state
 		private readonly SyncEventBytes frameEvent = new("env.frames", EventRoute.Direct);
 		private readonly SyncEventBytes chunkEvent = new("env.chunks", EventRoute.Direct);
-		private readonly SyncEvent<MapSpaceScanContext> snapshotRequest = new("env.snapshot", EventRoute.ToAuthority);
+		private readonly SyncEvent<SpaceFrame> snapshotRequest = new("env.snapshot", EventRoute.ToAuthority);
 		private readonly SyncEvent<bool> visibleEvent = new("env.visible", EventRoute.Direct);
 
 		// NGO caps fragmented messages at 64000 bytes; leave headroom for headers.
@@ -36,14 +36,14 @@ namespace Anaglyph.LaserTag.EnvSyncing
 		private const uint FramePayloadMagic = 0x324D5246; // "FRM2": shared-frame poses, no pose-graph node
 		private const uint ChunkPayloadMagic = 0x4B4E4843; // "CHNK"
 
-		// [magic][MapSpaceScanContext][frame index] then the codec's bytes. The header's pose
+		// [magic][SpaceFrame][frame index] then the codec's bytes. The header's pose
 		// is in the shared frame, as the sender's corrected alignment places it
 		private const int ContextOffset = sizeof(uint);
-		private const int ContextBytes = 48;
+		private const int ContextBytes = 32;
 		private const int FrameIndexOffset = ContextOffset + ContextBytes;
 		private const int FramePayloadHeaderBytes = FrameIndexOffset + sizeof(uint);
 
-		// [magic][MapSpaceScanContext][chunk index] then the RLE bytes
+		// [magic][SpaceFrame][chunk index] then the RLE bytes
 		private const int ChunkIndexOffset = ContextOffset + ContextBytes;
 		private const int ChunkPayloadHeaderBytes = ChunkIndexOffset + sizeof(int);
 
@@ -68,7 +68,6 @@ namespace Anaglyph.LaserTag.EnvSyncing
 
 		// while a joiner is still registering, the authority's scan keeps growing; the
 		// reference it registers against must grow with it, so the snapshot is refreshed
-		[SerializeField] private float snapshotRefreshSeconds = 5f;
 
 		private uint unsentChange;
 		// local frames integrated since the last send, folded into the next sent frame's weight
@@ -82,8 +81,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 
 		// Invalidates work that outlives a network session or a scan.
 		private int syncGeneration;
-		private Guid requestedScan;
-		private float lastSnapshotRequestTime = float.NegativeInfinity;
+		private SpaceFrame requestedScan;
 
 		// per-second traffic report for development builds: what went out, what came in,
 		// and why anything was dropped. silent when nothing happened
@@ -92,19 +90,19 @@ namespace Anaglyph.LaserTag.EnvSyncing
 		private float nextStatReport;
 
 		private bool snapshotServing;
-		private readonly Queue<(ulong client, MapSpaceScanContext context)> snapshotQueue = new();
+		private readonly Queue<(ulong client, SpaceFrame context)> snapshotQueue = new();
 		private readonly Dictionary<ulong, float> lastSnapshotRequest = new();
 
-		// Scans are shared under every colocation method, system-determined included: the
-		// map coordinator's integration gate already decides whether the local frame is
-		// trusted. Peers only need to agree on the method family they are aligned with
-		private bool CanShareScan => ColocationManager.Instance != null &&
-			(ColocationManager.UsesSavedReferences(ColocationManager.Instance.ActiveMethod) && ColocationManager.UsesSavedReferences(ColocationManager.Instance.SelectedMethod) ||
-			 ColocationManager.Instance.ActiveMethod == ColocationManager.Instance.SelectedMethod);
-		private bool CanSendScan => CanShareScan && LaserTagMapCoordinator.Instance != null && LaserTagMapCoordinator.Instance.CanIntegrateEnvironment;
-		private MapSpaceScanContext CurrentFrame => new() { space = LaserTagMapCoordinator.Instance?.SessionSpaceId ?? Guid.Empty,
-			frame = LaserTagMapCoordinator.Instance?.CanonicalFrameId ?? Guid.Empty, scan = LaserTagMapCoordinator.Instance?.ScanContext ?? Guid.Empty };
-		private bool FrameMatches(MapSpaceScanContext frame) => frame.Matches(CurrentFrame);
+		// Scans are shared under every colocation method: the space's integration gate already
+		// decides whether the local frame is trusted. Peers only need to agree on the method
+		// family they are aligned with
+		private bool CanShareScan => ColocationManager.Instance != null && SpaceManager.Instance != null &&
+			(ColocationManager.UsesSavedReferences(ColocationManager.Instance.ActiveMethod) && ColocationManager.UsesSavedReferences(SpaceManager.Instance.Alignment.SelectedMethod) ||
+			 ColocationManager.Instance.ActiveMethod == SpaceManager.Instance.Alignment.SelectedMethod);
+		private static bool CanIntegrate => SpaceManager.Instance != null && SpaceManager.Instance.Alignment.CanIntegrateEnvironment;
+		private bool CanSendScan => CanShareScan && CanIntegrate;
+		private static SpaceFrame CurrentFrame => SpaceManager.Instance != null ? SpaceManager.Instance.Frame : default;
+		private static bool FrameMatches(SpaceFrame frame) => frame.IsSet && frame == CurrentFrame;
 
 		private void Awake()
 		{
@@ -123,22 +121,19 @@ namespace Anaglyph.LaserTag.EnvSyncing
 
 		private void Start()
 		{
-			LaserTagMapCoordinator.WorldFrameRebased += OnWorldFrameRebased;
+			SpaceManager.FrameChanged += OnWorldFrameRebased;
 
 			if (EnvScanner.Instance != null)
 			{
 				EnvScanner.Instance.Cleared += OnScanCleared;
 				EnvScanner.Instance.FrameCaptured += OnFrameCaptured;
-				// a joiner registering its scan against the authority's needs to scan before
-				// the coordinator considers the world frame trustworthy
-				EnvScanner.Instance.IntegrationGate = () => ScanRegistrationColocationConstraintProvider.LocalScanRequested ||
-					LaserTagMapCoordinator.Instance != null && LaserTagMapCoordinator.Instance.CanIntegrateEnvironment;
+				EnvScanner.Instance.IntegrationGate = () => CanIntegrate;
 			}
 		}
 
 		private void OnDestroy()
 		{
-			LaserTagMapCoordinator.WorldFrameRebased -= OnWorldFrameRebased;
+			SpaceManager.FrameChanged -= OnWorldFrameRebased;
 
 			if (EnvScanner.Instance != null)
 			{
@@ -168,7 +163,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			unsentChange = 0;
 			unsentFrames = 0;
 			lastSentSlot = long.MinValue;
-			requestedScan = Guid.Empty;
+			requestedScan = default;
 			snapshotQueue.Clear();
 			lastSnapshotRequest.Clear();
 		}
@@ -200,8 +195,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 		private void HandleScannerActivity()
 		{
 			// Scanner is only enabled if connected & collocated OR disconnected
-			if (EnvMesher.Instance) EnvMesher.Instance.enabled = ScanRegistrationColocationConstraintProvider.LocalScanRequested ||
-				LaserTagMapCoordinator.Instance != null && LaserTagMapCoordinator.Instance.CanIntegrateEnvironment;
+			if (EnvMesher.Instance) EnvMesher.Instance.enabled = CanIntegrate;
 		}
 
 		private void OnBusActivated()
@@ -235,22 +229,12 @@ namespace Anaglyph.LaserTag.EnvSyncing
 		{
 			HandleScannerActivity();
 
-			var frame = CurrentFrame;
-			if (SyncBus.Active && !SyncBus.IsAuthority && frame.space != Guid.Empty &&
-			    LaserTagMapCoordinator.Instance.Phase is MapPhase.FollowingSession)
+			SpaceFrame frame = CurrentFrame;
+			if (SyncBus.Active && !SyncBus.IsAuthority && frame.IsSet && requestedScan != frame)
 			{
-				ScanRegistrationColocationConstraintProvider registrar = ColocationManager.Instance?.ScanRegistrationProvider;
-				bool firstRequest = requestedScan != frame.scan;
-				bool refreshForRegistration = registrar != null && registrar.WantsReferenceChunks &&
-					Time.unscaledTime - lastSnapshotRequestTime >= snapshotRefreshSeconds;
-
-				if (firstRequest || refreshForRegistration)
-				{
-					requestedScan = frame.scan;
-					lastSnapshotRequestTime = Time.unscaledTime;
-					snapshotRequest.Raise(frame);
-					Debug.Log($"[{nameof(EnvSync)}] requested a scan snapshot from the authority{(firstRequest ? "" : " (refresh while registering)")}");
-				}
+				requestedScan = frame;
+				snapshotRequest.Raise(frame);
+				Debug.Log($"[{nameof(EnvSync)}] requested a scan snapshot from the authority");
 			}
 
 			if (!snapshotServing && snapshotQueue.Count > 0)
@@ -275,10 +259,10 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			// its gating state instead of nothing
 			if (!SyncBus.Active && statSent == 0 && statReceived == 0 && statChunksSent == 0 && statChunksReceived == 0 && statDrops.Count == 0) return;
 
-			var coordinator = LaserTagMapCoordinator.Instance;
+			var manager = SpaceManager.Instance;
 			var sb = new System.Text.StringBuilder($"[{nameof(EnvSync)}] frames out {statSent} ({statSentBytes}B) in {statReceived} ({statReceivedBytes}B), held {statHeld}, chunks out {statChunksSent} in {statChunksReceived}");
 			foreach (var drop in statDrops) sb.Append($", dropped {drop.Value} ({drop.Key})");
-			sb.Append($" | bus={SyncBus.Active} authority={SyncBus.IsAuthority} phase={coordinator?.Phase} colocated={ColocationManager.IsColocated} share={CanShareScan} send={CanSendScan} integrate={coordinator?.CanIntegrateEnvironment} space={(CurrentFrame.space != Guid.Empty)} snapshotRequested={(requestedScan != Guid.Empty)} snapshotQueue={snapshotQueue.Count}");
+			sb.Append($" | bus={SyncBus.Active} authority={SyncBus.IsAuthority} role={manager?.Role} colocated={ColocationManager.IsColocated} share={CanShareScan} send={CanSendScan} integrate={CanIntegrate} space={CurrentFrame.IsSet} snapshotRequested={requestedScan.IsSet} snapshotQueue={snapshotQueue.Count}");
 			Debug.Log(sb.ToString());
 
 			statSent = statSentBytes = statReceived = statReceivedBytes = statChunksSent = statChunksReceived = statHeld = 0;
@@ -386,7 +370,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 
 		// ---- snapshots ---------------------------------------------------------
 
-		private void OnSnapshotRequested(ulong sender, MapSpaceScanContext context)
+		private void OnSnapshotRequested(ulong sender, SpaceFrame context)
 		{
 			if (sender == SyncBus.LocalClientId) return;
 			if (!SyncBus.IsAuthority) { Drop("snapshot request: not authority"); return; }
@@ -478,7 +462,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 
 			if (payload.Length < ChunkPayloadHeaderBytes || payload.Length > MaxPayloadBytes) { Drop("chunk: bad size"); return; }
 			if (SyncBytes.Read<uint>(payload, 0) != ChunkPayloadMagic) { Drop("chunk: bad magic"); return; }
-			MapSpaceScanContext context = ReadContext(payload);
+			SpaceFrame context = ReadContext(payload);
 			if (!FrameMatches(context)) { Drop("chunk: context mismatch"); return; }
 
 			int chunkIndex = SyncBytes.Read<int>(payload, ChunkIndexOffset);
@@ -520,14 +504,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 					return;
 				}
 
-				// before alignment a snapshot is the reference to register against, not scan
-				ScanRegistrationColocationConstraintProvider registrar = ColocationManager.Instance?.ScanRegistrationProvider;
-				if (registrar != null && registrar.WantsReferenceChunks)
-				{
-					registrar.AcceptReferenceChunk(chunkIndex, receivedVoxels);
-					statChunksReceived++;
-				}
-				else if (scanner.UploadChunk(chunkIndex, receivedVoxels)) statChunksReceived++;
+				if (scanner.UploadChunk(chunkIndex, receivedVoxels)) statChunksReceived++;
 				else Drop("chunk: scanner refused");
 			}
 			finally
@@ -540,18 +517,13 @@ namespace Anaglyph.LaserTag.EnvSyncing
 
 		// ---- payload helpers ---------------------------------------------------
 
-		private static void WriteContext(byte[] payload, MapSpaceScanContext context)
+		private static void WriteContext(byte[] payload, SpaceFrame context)
 		{
-			SyncBytes.Write(payload, ContextOffset, context.space);
-			SyncBytes.Write(payload, ContextOffset + 16, context.frame);
-			SyncBytes.Write(payload, ContextOffset + 32, context.scan);
+			SyncBytes.Write(payload, ContextOffset, context.spaceId);
+			SyncBytes.Write(payload, ContextOffset + 16, context.frameId);
 		}
 
-		private static MapSpaceScanContext ReadContext(byte[] payload) => new()
-		{
-			space = SyncBytes.Read<Guid>(payload, ContextOffset),
-			frame = SyncBytes.Read<Guid>(payload, ContextOffset + 16),
-			scan = SyncBytes.Read<Guid>(payload, ContextOffset + 32)
-		};
+		private static SpaceFrame ReadContext(byte[] payload) =>
+			new(SyncBytes.Read<Guid>(payload, ContextOffset), SyncBytes.Read<Guid>(payload, ContextOffset + 16));
 	}
 }

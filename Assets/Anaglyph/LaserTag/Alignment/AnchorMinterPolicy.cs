@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Anaglyph.LaserTag.Maps;
 using Anaglyph.LaserTag.Player;
 
 namespace Anaglyph.LaserTag
@@ -7,8 +8,7 @@ namespace Anaglyph.LaserTag
 	/// <summary>Selects one capable headset without granting it map or session ownership.</summary>
 	public static class AnchorMinterPolicy
 	{
-		public static ulong? Select(ulong? current, ulong sessionOwner, bool operatorManaged,
-			Guid spaceId, Guid frameId, Guid referenceContext,
+		public static ulong? Select(ulong? current, ulong sessionOwner, bool operatorManaged, SpaceFrame frame,
 			IEnumerable<KeyValuePair<ulong, HeadsetReadiness>> headsets)
 		{
 			ulong? first = null;
@@ -18,19 +18,18 @@ namespace Anaglyph.LaserTag
 			foreach (var pair in headsets)
 			{
 				HeadsetReadiness readiness = pair.Value;
-				if (!readiness.CanMintSharedAnchors || spaceId == Guid.Empty ||
-					readiness.spaceId != spaceId || readiness.frameId != frameId || readiness.referenceContext != referenceContext) continue;
+				if (!readiness.CanMintSharedAnchors || !frame.IsSet || readiness.spaceId != frame.spaceId || readiness.frameId != frame.frameId) continue;
 				if (!operatorManaged)
 				{
 					if (pair.Key == sessionOwner) return sessionOwner;
 					continue;
 				}
 				if (!first.HasValue || pair.Key < first.Value) first = pair.Key;
-				if (readiness.referenceFrameTrusted && (!aligned.HasValue || pair.Key < aligned.Value)) aligned = pair.Key;
+				if (readiness.aligned && (!aligned.HasValue || pair.Key < aligned.Value)) aligned = pair.Key;
 				if (current == pair.Key)
 				{
 					currentReady = true;
-					currentAligned = readiness.referenceFrameTrusted;
+					currentAligned = readiness.aligned;
 				}
 			}
 			if (currentReady && (currentAligned || !aligned.HasValue)) return current;

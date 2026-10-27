@@ -1,4 +1,5 @@
 using System;
+using Anaglyph.LaserTag.Maps;
 using Anaglyph.LaserTag.Player.Teams;
 using Anaglyph.XR;
 using Anaglyph.XR.Input;
@@ -173,7 +174,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		private void ApplyMode(Mode mode, MapObject spawnObject)
 		{
 			ResetMeasurement();
-			measurementSpaceContext = LaserTagMapCoordinator.Instance?.ReferenceContext.ToString();
+			measurementSpaceContext = SpaceManager.Instance?.Frame.frameId.ToString();
 			measurementTrackingGeneration = ColocationManager.Instance != null ? ColocationManager.Instance.TrackingGeneration : 0;
 			SetSpawnObject(mode == Mode.Place ? spawnObject : null);
 			TryLetGo();
@@ -206,7 +207,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 				return false;
 
 			MapObject mapObj = hitObj.GetComponentInParent<MapObject>();
-			if (mapObj == null || LaserTagMapCoordinator.Instance == null || !LaserTagMapCoordinator.Instance.RequestRemoveObject(mapObj))
+			if (mapObj == null || SpaceManager.Instance == null || !SpaceManager.Instance.Objects.RequestRemove(mapObj))
 				return false;
 
 			MapObject.NotifyLocalEdit();
@@ -233,7 +234,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		{
 			// Moving an object records a new world pose, so it is held to the same rule as
 			// placing one.
-			if (LaserTagMapCoordinator.Instance != null && !LaserTagMapCoordinator.Instance.CheckCanEditMap())
+			if (SpaceManager.Instance != null && !SpaceManager.Instance.Objects.CanEdit)
 				return false;
 
 			if (!Raycast(out RaycastHit hit)) return false;
@@ -254,7 +255,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		{
 			if (grabbedObject != null)
 			{
-				LaserTagMapCoordinator.Instance?.CommitObjectMove(grabbedObject);
+				SpaceManager.Instance?.Objects.CommitMove(grabbedObject);
 				grabbedObject.ReleaseOwnership();
 				MapObject.NotifyLocalEdit();
 			}
@@ -269,7 +270,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			return CurrentMode == Mode.Place && currentSpawnObject != null &&
 				!handSubject.Current.InputBlocked &&
 				this == DominantHand &&
-				(LaserTagMapCoordinator.Instance == null || LaserTagMapCoordinator.Instance.CheckCanEditMap());
+				(SpaceManager.Instance == null || SpaceManager.Instance.Objects.CanEdit);
 		}
 
 		// ------- tags --------------------------------------------
@@ -278,11 +279,11 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		{
 			tag = default;
 			var tracker = AprilTagColocationConstraintProvider.Instance?.TagTracker;
-			var coordinator = LaserTagMapCoordinator.Instance;
-			if (tracker == null || !tracker.isActiveAndEnabled || coordinator == null)
+			var manager = SpaceManager.Instance;
+			if (tracker == null || !tracker.isActiveAndEnabled || manager == null)
 				return false;
 
-			float halfTagSizeMeters = coordinator.EffectiveTagSizeCm * 0.005f;
+			float halfTagSizeMeters = manager.Alignment.TagSizeCm * 0.005f;
 			Ray ray = new(transform.position, transform.forward);
 			bool found = false;
 			float nearestDistance = float.PositiveInfinity;
@@ -309,7 +310,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			return CurrentMode == Mode.Tags &&
 			       this == DominantHand &&
 			       !handSubject.Current.InputBlocked &&
-			       LaserTagMapCoordinator.Instance != null;
+			       SpaceManager.Instance != null;
 		}
 
 		public bool TryRegisterTag()
@@ -317,20 +318,20 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			if (!CanActOnTag() || !TryGetAimedTag(out TagPose tag))
 				return false;
 
-			string blocker = LaserTagMapCoordinator.Instance.DescribeTagRegistrationBlocker();
+			string blocker = SpaceManager.Instance.Alignment.TagRegistrationBlocker();
 			if (blocker != null)
 			{
 				Debug.LogWarning($"Couldn't register tag {tag.ID} — {blocker}.");
 				return false;
 			}
 
-			return LaserTagMapCoordinator.Instance.RegisterTag(tag.ID, new Pose(tag.Position, tag.Rotation));
+			return SpaceManager.Instance.Alignment.RegisterTag(tag.ID, new Pose(tag.Position, tag.Rotation));
 		}
 
 		public bool TryUnregisterTag()
 		{
 			return CanActOnTag() && TryGetAimedTag(out TagPose tag) &&
-			       LaserTagMapCoordinator.Instance.UnregisterTag(tag.ID);
+			       SpaceManager.Instance.Alignment.UnregisterTag(tag.ID);
 		}
 
 		private void ReleaseTagHighlight()
@@ -358,12 +359,12 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			(handSubject.Current.TrackingState & (InputTrackingState.Position | InputTrackingState.Rotation)) ==
 			(InputTrackingState.Position | InputTrackingState.Rotation);
 
+		// a measurement belongs to the frame it was taken in: a rebase or a tracking reset discards it
 		private bool MeasurementAllowed => MapEditor.IsActive &&
-			LaserTagMapCoordinator.Instance != null &&
-			measurementSpaceContext != null && LaserTagMapCoordinator.Instance.ReferenceContext.ToString() == measurementSpaceContext &&
+			SpaceManager.Instance != null &&
+			measurementSpaceContext != null && SpaceManager.Instance.Frame.frameId.ToString() == measurementSpaceContext &&
 			(ColocationManager.Instance == null || ColocationManager.Instance.TrackingGeneration == measurementTrackingGeneration) &&
-			LaserTagMapCoordinator.Instance.DescribeTagSizeBlocker() == null &&
-			(LaserTagMapCoordinator.Instance.TagSetup?.IsGuidingHeadset != true || LaserTagMapCoordinator.Instance.TagSetup.CanMeasure);
+			SpaceManager.Instance.Alignment.TagSizeBlocker() == null;
 
 		private void ResetMeasurement()
 		{
@@ -413,7 +414,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 				return;
 			}
 
-			if (LaserTagMapCoordinator.Instance.SetTagSize(centimeters))
+			if (SpaceManager.Instance.Alignment.SetTagSize(centimeters))
 			{
 				TagSizeMeasured.Invoke(centimeters);
 				ResetMeasurement();
@@ -611,8 +612,8 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		public static bool SpawnMapObject(MapObject prefab, Vector3 position,
 			Quaternion rotation = default)
 		{
-			return LaserTagMapCoordinator.Instance != null &&
-				LaserTagMapCoordinator.Instance.RequestPlaceObject(prefab, position, rotation);
+			return SpaceManager.Instance != null &&
+				SpaceManager.Instance.Objects.RequestPlace(prefab, position, rotation);
 		}
 
 		private static GameObject InstantiateObjectAsPreview(MapObject obj)

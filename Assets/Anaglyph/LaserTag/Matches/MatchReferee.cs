@@ -320,7 +320,6 @@ namespace Anaglyph.LaserTag.Matches
 		// countdown.
 		private static bool AllPlayersInBase()
 		{
-			if (LaserTagMapCoordinator.Instance != null && LaserTagMapCoordinator.Instance.IsChangingColocation) return false;
 			bool anyParticipating = false;
 			foreach (PlayerAvatar player in PlayerAvatar.All.Values)
 			{

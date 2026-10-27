@@ -28,7 +28,7 @@ namespace Anaglyph.LaserTag.Interface
 		// describe a room the headset has since left. The catalog itself owns no navigation.
 		public async void Probe()
 		{
-			LaserTagMapCoordinator manager = LaserTagMapCoordinator.Instance;
+			Maps.SpaceManager manager = Maps.SpaceManager.Instance;
 			if (disposed || probing || manager == null)
 				return;
 
@@ -38,7 +38,7 @@ namespace Anaglyph.LaserTag.Interface
 
 			try
 			{
-				await manager.ProbeAllMaps(token);
+				await manager.ProbeSpaces(token);
 			}
 			catch (OperationCanceledException)
 			{

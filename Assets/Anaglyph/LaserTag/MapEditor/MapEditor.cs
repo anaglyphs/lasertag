@@ -38,7 +38,7 @@ namespace Anaglyph.LaserTag.MapEditor
 			if (!active)
 			{
 				MapEditorTool.SetMode(MapEditorTool.Mode.Move);
-				LaserTagMapCoordinator.Instance?.SaveCurrentMap();
+				Maps.SpaceManager.Instance?.Save();
 			}
 
 			WeaponSwitcher.Instance?.SetWeaponsActive(!IsActive);

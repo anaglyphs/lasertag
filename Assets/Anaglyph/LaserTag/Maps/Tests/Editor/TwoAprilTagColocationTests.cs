@@ -159,6 +159,8 @@ namespace Anaglyph.LaserTag.Tests
 		public void TrackingLifecycleRequiresBothSavedTagsAgain(string reason, bool completePair)
 		{
 			var manager = owner.AddComponent<ColocationManager>();
+			typeof(ColocationManager).GetField("colocator", PrivateInstance).SetValue(manager, owner.AddComponent<Colocator>());
+			typeof(ColocationManager).GetField("spatialAnchorColocationProvider", PrivateInstance).SetValue(manager, owner.AddComponent<SpatialAnchorColocationConstraintProvider>());
 			typeof(ColocationManager).GetField("aprilTagColocationProvider", PrivateInstance).SetValue(manager, provider);
 			provider.ConfigurePair(17, 92); provider.StartProviding();
 			Observe(17, Vector3.zero);
@@ -221,33 +223,12 @@ namespace Anaglyph.LaserTag.Tests
 		}
 
 		[Test]
-		public void ActivatingTagsWithoutRegisteredTagsStopsAnchorServicesAndRunsTwoTagMode()
-		{
-			var manager = owner.AddComponent<ColocationManager>();
-			var anchors = owner.AddComponent<SpatialAnchorColocationConstraintProvider>();
-			typeof(ColocationManager).GetField("aprilTagColocationProvider", PrivateInstance).SetValue(manager, provider);
-			typeof(ColocationManager).GetField("spatialAnchorColocationProvider", PrivateInstance).SetValue(manager, anchors);
-			provider.TwoTagMode = false;
-			typeof(SpatialAnchorColocationConstraintProvider).GetProperty("IsRunning").SetValue(anchors, true);
-			var type = typeof(Maps.MapSpace).Assembly.GetType("Anaglyph.LaserTag.Maps.MapSpaceAlignmentController", true);
-			using var controller = (System.IDisposable)System.Activator.CreateInstance(type,
-				new object[] { manager, (System.Func<bool>)(() => true) });
-			type.GetMethod("Activate").Invoke(controller,
-				new object[] { Maps.MapSpace.Create("Two tags"), ColocationManager.ColocationMethod.AprilTag, false });
-			Assert.That(anchors.IsRunning, Is.False);
-			Assert.That(provider.IsRunning, Is.True);
-			Assert.That(provider.TwoTagMode, Is.True, "No registered tags means the provider aligns from a pair.");
-			Assert.That(provider.IsDetecting, Is.True);
-			Observe(17, Vector3.zero); Observe(92, Vector3.forward * 3);
-			Assert.That(Constraints().Count, Is.EqualTo(2));
-		}
-
-		[Test]
 		public void RefreshingTheSameSourceWhileSearchingKeepsAPartiallyScannedPair()
 		{
 			var manager = owner.AddComponent<ColocationManager>();
 			var colocator = owner.AddComponent<Colocator>();
 			typeof(ColocationManager).GetField("colocator", PrivateInstance).SetValue(manager, colocator);
+			typeof(ColocationManager).GetField("spatialAnchorColocationProvider", PrivateInstance).SetValue(manager, owner.AddComponent<SpatialAnchorColocationConstraintProvider>());
 			typeof(ColocationManager).GetField("aprilTagColocationProvider", PrivateInstance).SetValue(manager, provider);
 			manager.ActivateMethod(ColocationManager.ColocationMethod.AprilTag);
 			Observe(17, Vector3.zero);
@@ -262,6 +243,7 @@ namespace Anaglyph.LaserTag.Tests
 			var manager = owner.AddComponent<ColocationManager>();
 			var colocator = owner.AddComponent<Colocator>();
 			typeof(ColocationManager).GetField("colocator", PrivateInstance).SetValue(manager, colocator);
+			typeof(ColocationManager).GetField("spatialAnchorColocationProvider", PrivateInstance).SetValue(manager, owner.AddComponent<SpatialAnchorColocationConstraintProvider>());
 			typeof(ColocationManager).GetField("aprilTagColocationProvider", PrivateInstance).SetValue(manager, provider);
 			manager.ActivateMethod(ColocationManager.ColocationMethod.AprilTag);
 			Assert.That(manager.CountRealizableReferences(), Is.Zero);
@@ -289,9 +271,6 @@ namespace Anaglyph.LaserTag.Tests
 			provider.StopProviding();
 			provider.StopProviding();
 			Assert.That(provider.OriginTagId, Is.Null);
-			var requests = (HashSet<object>)typeof(AprilTagColocationConstraintProvider)
-				.GetField("detectionRequests", PrivateInstance).GetValue(provider);
-			Assert.That(requests, Is.Empty);
 			Observe(7, Vector3.zero); Observe(8, Vector3.forward * 3);
 			Assert.That(provider.OriginTagId, Is.Null, "Stopped providers must ignore detections.");
 			var constraints = new List<ColocationConstraint>();
@@ -302,8 +281,8 @@ namespace Anaglyph.LaserTag.Tests
 		[Test]
 		public void AprilTagWithoutRegisteredTagsIsTwoTagModeAndSavesNoReferences()
 		{
-			var empty = Maps.MapSpace.Create("Empty");
-			var tagged = Maps.MapSpace.Create("Tagged"); tagged.tags.Add(new Maps.MapTagEntry());
+			var empty = Maps.Space.Create("Empty");
+			var tagged = Maps.Space.Create("Tagged"); tagged.tags.Add(new Maps.TagRef());
 			Assert.That(ColocationManager.IsTwoTagMode(ColocationManager.ColocationMethod.AprilTag, empty), Is.True);
 			Assert.That(ColocationManager.IsTwoTagMode(ColocationManager.ColocationMethod.AprilTag, null), Is.True);
 			Assert.That(ColocationManager.IsTwoTagMode(ColocationManager.ColocationMethod.AprilTag, tagged), Is.False);
@@ -329,38 +308,9 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(manager.ActiveProvider, Is.SameAs(provider));
 			Assert.That(provider.TwoTagMode, Is.True);
 			Assert.That(manager.UsingTwoTagMode, Is.True);
-			Assert.That(manager.IsSettingUpTags, Is.False);
 			manager.ActivateMethod(ColocationManager.ColocationMethod.Visual);
 			Assert.That(provider.TwoTagMode, Is.False, "Another source never leaves the tag provider in two-tag mode.");
 			Assert.That(manager.UsingTwoTagMode, Is.False);
-		}
-
-		[Test]
-		public void LoadingAnotherMapWithTheSameTagSizeAllowsADifferentHigherIdPair()
-		{
-			var manager = owner.AddComponent<ColocationManager>();
-			typeof(ColocationManager).GetField("aprilTagColocationProvider", PrivateInstance).SetValue(manager, provider);
-			var adapterType = typeof(Maps.GameMap).Assembly.GetType("Anaglyph.LaserTag.Maps.MapSpaceColocationAdapter", true);
-			var adapter = System.Activator.CreateInstance(adapterType, new object[] { manager });
-			provider.StartProviding();
-			Select(1);
-			Select(2);
-			adapterType.GetMethod("Inject").Invoke(adapter, new object[] { Maps.MapSpace.Create("Test") });
-			Assert.That(provider.OriginTagId, Is.Null);
-			Select(50);
-			Select(70);
-			Assert.That(provider.OriginTagId, Is.EqualTo(50));
-			Assert.That(provider.ForwardTagId, Is.EqualTo(70));
-			adapterType.GetMethod("Inject").Invoke(adapter, new object[] { Maps.MapSpace.Create("Other") });
-			Assert.That(provider.OriginTagId, Is.Null);
-		}
-
-		[Test]
-		public void TwoTagEditingRequiresAlignmentButAlignmentSelectionRemainsAvailable()
-		{
-			Assert.That(MapPolicy.CanEditMap(changingMap: false, frameReady: false, operatorCanEditSpace: false), Is.False);
-			Assert.That(MapPolicy.ColocationMethodBlocker(ColocationManager.ColocationMethod.AprilTag,
-				hasSpace: true, roundInProgress: false, operatorManagedSession: false, operatorRequest: false), Is.Null);
 		}
 
 		private object Select(int id) => typeof(AprilTagColocationConstraintProvider)
