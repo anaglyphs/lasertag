@@ -354,12 +354,13 @@ namespace Anaglyph.LaserTag.Tests
 				Assert.That(field.choices, Is.Not.EqualTo(englishChoices));
 				Assert.That(changes, Is.Zero, "Refreshing translated choices is not a user change.");
 				Assert.That(changing, Is.Zero);
-				field.value = Choice(field, ColocationManager.ColocationMethod.Visual);
+				// the field starts on the default method (visual), so pick another to make a change
+				field.value = Choice(field, ColocationManager.ColocationMethod.AprilTag);
 				Assert.That(changing, Is.EqualTo(1));
 				Assert.That(changes, Is.EqualTo(1));
 				Assert.That(staleChanges, Is.Zero);
 				current.Dispose();
-				field.value = Choice(field, ColocationManager.ColocationMethod.AprilTag);
+				field.value = Choice(field, ColocationManager.ColocationMethod.Visual);
 				Assert.That(changing, Is.EqualTo(1));
 				Assert.That(changes, Is.EqualTo(1));
 				Assert.That(staleChanges, Is.Zero);
@@ -395,7 +396,7 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(secondField.value, Is.EqualTo(secondValue));
 
 			firstBinder.Dispose();
-			secondField.value = Choice(secondField, ColocationManager.ColocationMethod.Visual);
+			secondField.value = Choice(secondField, ColocationManager.ColocationMethod.MetaSharedAnchor);
 			Assert.That(firstChanges, Is.EqualTo(1));
 			Assert.That(secondChanges, Is.EqualTo(1), "Disposing one fragment must not unbind another instance.");
 		}

@@ -172,7 +172,7 @@ namespace Anaglyph.LaserTag.Tests
 		public void OperatorCanRequestFirstTagsWithoutAnAvailableHeadsetOrAnchorFrame()
 		{
 			var original = coordinator.CurrentSpace;
-			Assert.That(manager.ActiveMethod, Is.EqualTo(MapSpaceStartup.DefaultMethod));
+			Assert.That(original.preferredColocationMethod, Is.EqualTo(MapSpaceStartup.DefaultMethod), "The space starts on the default method.");
 			Assert.That(coordinator.SetPreferredColocationMethod(Method.AprilTag, setupTags: true), Is.True);
 			Assert.That(errors, Is.Empty);
 			Assert.That(coordinator.WaitingForAlignmentAuthor, Is.True);
@@ -395,9 +395,9 @@ namespace Anaglyph.LaserTag.Tests
 			readiness.referenceFrameTrusted = true; Report(status, readiness);
 			Assert.That(Ready(), Is.True);
 			readiness.activeMethod = Method.Visual; Report(status, readiness);
-			Assert.That(Ready(), Is.False);
+			Assert.That(Ready(), Is.True, "A headset aligned to the space's saved visual map is a trusted source too.");
 			readiness.activeMethod = Method.ScanRegistration; Report(status, readiness);
-			Assert.That(Ready(), Is.False);
+			Assert.That(Ready(), Is.False, "Scan registration aligns to whatever the authority has, not to the space.");
 			Assert.That(coordinator.CurrentSpace.HasReferenceBasedData, Is.True);
 		}
 

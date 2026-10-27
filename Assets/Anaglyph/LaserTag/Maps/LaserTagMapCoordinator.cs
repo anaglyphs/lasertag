@@ -138,8 +138,6 @@ namespace Anaglyph.LaserTag
 			colocationManager.ManagedSelection = true;
 			session = new();
 			discovery = new(documents.SpaceStore, colocationManager.AnchorProvider, probeTimeoutSeconds, TrackingReady);
-			visualMaps = new(documents.SpaceStore.DirectoryPath, () => Authority) { Saved = OnVisualMapSaved };
-			visualDiscovery = new(visualMaps, TrackingReady);
 			ComposeWorkflows();
 			TagSetup = new(this, referenceWorkflow.CanRegisterTags);
 			referenceWorkflow.TagRegistrationAllowed = () => !TagSetup.IsActive || TagSetup.SizeConfirmed;
@@ -172,9 +170,12 @@ namespace Anaglyph.LaserTag
 			StartupProbe(lifetime.Token);
 		}
 
+		// Everything built from the documents and the leaf services set before this call.
 		private void ComposeWorkflows()
 		{
 			var token = lifetime?.Token ?? default;
+			visualMaps = new(documents.SpaceStore.DirectoryPath, () => Authority) { Saved = OnVisualMapSaved };
+			visualDiscovery = new(visualMaps, TrackingReady);
 			referenceWorkflow = new(documents, colocationManager, references, alignment,
 				new MapSpaceTransitionSync(), visit, token, TrackingReady, () => SessionSpaceId);
 			sessionWorkflow = new(documents, colocationManager, lifecycle,

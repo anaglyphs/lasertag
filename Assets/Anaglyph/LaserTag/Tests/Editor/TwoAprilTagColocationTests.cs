@@ -311,7 +311,8 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(ColocationManager.UsesSavedReferences(ColocationManager.ColocationMethod.AprilTag, empty), Is.False);
 			Assert.That(ColocationManager.UsesSavedReferences(ColocationManager.ColocationMethod.AprilTag, tagged), Is.True);
 			Assert.That(ColocationManager.UsesSavedReferences(ColocationManager.ColocationMethod.MetaSharedAnchor, empty), Is.True);
-			Assert.That(ColocationManager.UsesSavedReferences(ColocationManager.ColocationMethod.Visual, tagged), Is.False);
+			Assert.That(ColocationManager.UsesSavedReferences(ColocationManager.ColocationMethod.Visual, tagged), Is.True, "A space's saved visual map is a reference of its own.");
+			Assert.That(ColocationManager.UsesNativeReferences(ColocationManager.ColocationMethod.Visual, tagged), Is.False, "But not one the map layer authors or hands over.");
 		}
 
 		[Test]

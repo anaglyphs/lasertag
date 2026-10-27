@@ -69,7 +69,7 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(MapSpaceStartup.ConfigureDraft(space, Method.AprilTag), Is.False);
 			space.anchors.Clear(); space.retainedReferences.Add(new() { tags = new() { new() { id = 7, canonPose = Pose.identity } } });
 			Assert.That(MapSpaceStartup.ConfigureDraft(space, Method.AprilTag), Is.False);
-			Assert.That(space.preferredColocationMethod, Is.EqualTo(Method.MetaSharedAnchor));
+			Assert.That(space.preferredColocationMethod, Is.EqualTo(MapSpaceStartup.DefaultMethod), "A refused draft keeps the method it was created with.");
 		}
 
 		[Test]
@@ -115,7 +115,8 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(MapPolicy.CanInitializeTags(true, false, false, false), Is.False, "Clients wait for an initialization grant.");
 			Assert.That(MapPolicy.CanInitializeTags(true, false, true, true), Is.True, "An operator's assigned headset can register the first tag.");
 			Assert.That(MapPolicy.CanInitializeTags(true, true, true, false), Is.False, "Even authority cannot replace the assigned author's frame.");
-			Assert.That(MapPolicy.CanAuthorReferences(true, Method.Visual, true, true), Is.False);
+			Assert.That(MapPolicy.CanAuthorReferences(true, Method.Visual, true, true), Is.True, "A saved visual map is a reference: aligned to it, the space can take tags and anchors.");
+			Assert.That(MapPolicy.CanAuthorReferences(true, Method.Visual, false, true), Is.False, "But only once aligned to it.");
 			Assert.That(MapPolicy.CanAuthorReferences(true, Method.ScanRegistration, true, true), Is.False);
 		}
 

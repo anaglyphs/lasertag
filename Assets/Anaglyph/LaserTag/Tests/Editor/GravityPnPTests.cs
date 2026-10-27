@@ -233,7 +233,9 @@ namespace Anaglyph.LaserTag.Tests
 	{
 		private static int sequence;
 
-		private static Anaglyph.XR.VisualLocalization.VisualKeyframe At(float x, float z, float headingDegrees)
+		// a first view of its place unless told otherwise; the localizer marks revisits of a
+		// place it already has views of, and those are the first to go when the map is full
+		private static Anaglyph.XR.VisualLocalization.VisualKeyframe At(float x, float z, float headingDegrees, bool original = true)
 		{
 			var features = new Anaglyph.XR.VisualLocalization.FeatureSet(4);
 			int[] links = { -1, -1, -1, -1 };
@@ -243,6 +245,7 @@ namespace Anaglyph.LaserTag.Tests
 				landmarks = links,
 				camera = new UnityEngine.Pose(new UnityEngine.Vector3(x, 1.6f, z), UnityEngine.Quaternion.Euler(0, headingDegrees, 0)),
 				timestampNs = ++sequence,
+				original = original,
 			};
 		}
 
@@ -250,7 +253,7 @@ namespace Anaglyph.LaserTag.Tests
 		public void EvictsFromTheMostCrowdedPlaceAndHeading()
 		{
 			using var map = new Anaglyph.XR.VisualLocalization.VisualMap(4);
-			var a1 = At(0.2f, 0.2f, 10); var a2 = At(0.5f, 0.4f, 15); var a3 = At(0.7f, 0.6f, 5);
+			var a1 = At(0.2f, 0.2f, 10); var a2 = At(0.5f, 0.4f, 15, original: false); var a3 = At(0.7f, 0.6f, 5, original: false);
 			var b = At(5.5f, 5.5f, 10);
 			map.Add(a1); map.Add(a2); map.Add(a3); map.Add(b);
 

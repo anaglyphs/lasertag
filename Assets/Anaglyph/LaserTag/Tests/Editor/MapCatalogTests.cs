@@ -456,7 +456,7 @@ namespace Anaglyph.LaserTag.Tests
 		}
 
 		[UnityTest]
-		public IEnumerator SelectingASpaceOnlyHighlightsItAndEditingLoadsItsMostRecentlyUsedMap()
+		public IEnumerator SelectingASpaceOnlyHighlightsItAndOnlyTheActiveSpaceCanBeEdited()
 		{
 			for (int i = 0; i < 4; i++) yield return null;
 			Click(Row(target).Q<Button>("select-map-button"));
@@ -469,18 +469,21 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(Row(target).Q<Button>("select-map-button").ClassListContains("selected"), Is.False);
 			Assert.That(root.Q<Button>("delete-map-button"), Is.Null);
 			Assert.That(root.Q<Button>("load-map-button"), Is.Null);
-			Assert.That(root.Q("space-" + first.id).Q<Button>("edit-space-button"), Is.Null);
+			// selection only highlights and offers deletion; editing belongs to the active space
 			var selected = root.Q("space-" + second.id);
 			Assert.That(selected.Q<Button>("select-space-button").ClassListContains("selected"), Is.True);
-			var edit = selected.Q<Button>("edit-space-button");
+			Assert.That(selected.Q<Button>("delete-space-button"), Is.Not.Null);
+			Assert.That(selected.Q<Button>("edit-space-button"), Is.Null);
+			var edit = root.Q("space-" + first.id).Q<Button>("edit-space-button");
+			Assert.That(edit, Is.Not.Null);
 			Assert.That(edit.resolvedStyle.width, Is.EqualTo(48).Within(.1));
 			Assert.That(edit.resolvedStyle.height, Is.EqualTo(48).Within(.1));
 			Assert.That(edit.resolvedStyle.backgroundImage.vectorImage, Is.Not.Null);
 			Click(edit);
-			Assert.That(coordinator.CurrentSpace.id, Is.EqualTo(second.id));
-			Assert.That(coordinator.CurrentMap.id, Is.EqualTo(other.id));
+			Assert.That(coordinator.CurrentSpace.id, Is.EqualTo(first.id));
+			Assert.That(coordinator.CurrentMap.id, Is.EqualTo(loaded.id));
 			Assert.That(nav.CurrentPage.name, Is.EqualTo("space-details"));
-			Assert.That(root.Q<TextField>("space-name-field").value, Is.EqualTo(second.name));
+			Assert.That(root.Q<TextField>("space-name-field").value, Is.EqualTo(first.name));
 		}
 
 		[UnityTest]
@@ -491,10 +494,10 @@ namespace Anaglyph.LaserTag.Tests
 			picker.Bind(root.Q("map-catalog-section"), () => editCount++, () => nav.GoToPage("space-details"));
 			for (int i = 0; i < 2; i++) yield return null;
 			Assert.That(root.Q("space-" + second.id).Q<Button>("select-space-button").ClassListContains("selected"), Is.True);
-			Assert.That(root.Q<Button>("edit-space-button"), Is.Not.Null);
+			Assert.That(root.Q("space-" + second.id).Q<Button>("delete-space-button"), Is.Not.Null);
 			Click(Row(target).Q<Button>("select-map-button"));
 			Assert.That(root.Q("space-" + second.id).Q<Button>("select-space-button").ClassListContains("selected"), Is.False);
-			Assert.That(root.Q<Button>("edit-space-button"), Is.Null);
+			Assert.That(root.Q<Button>("delete-space-button"), Is.Null);
 			Assert.That(Row(target).Q<Button>("select-map-button").ClassListContains("selected"), Is.True);
 		}
 
@@ -510,7 +513,8 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(coordinator.CurrentSpace.id, Is.EqualTo(second.id));
 			Assert.That(coordinator.CurrentMap.id, Is.EqualTo(target.id));
 			Assert.That(coordinator.CurrentMap.id, Is.Not.EqualTo(other.id));
-			Assert.That(root.Q("space-" + second.id).Q<Button>("edit-space-button"), Is.Null);
+			Assert.That(root.Q("space-" + second.id).Q<Button>("edit-space-button"), Is.Not.Null, "The loaded space is the one that can be edited.");
+			Assert.That(root.Q("space-" + first.id).Q<Button>("edit-space-button"), Is.Null);
 			Assert.That(Row(target).Q<Button>("edit-map-button"), Is.Not.Null);
 			Assert.That(Row(loaded).Q<Button>("edit-map-button"), Is.Null);
 		}
