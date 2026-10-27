@@ -33,27 +33,47 @@ namespace Anaglyph.LaserTag.Maps
 		}
 		private void LoadPending()
 		{
-			bool found = false;
+			IsBlocked = false;
+			List<string> unreadable = new();
 			foreach (string path in new[] { journal, journal + ".bak", journal + ".tmp" })
 			{
 				try
 				{
-					string json = File.ReadAllText(path); found = true;
+					string json = File.ReadAllText(path);
 					Transaction candidate = JsonUtility.FromJson<Transaction>(json);
 					if (candidate == null || candidate.schemaVersion != 1 || !MapSpace.ValidId(candidate.id) ||
 						candidate.space == null || !candidate.space.Validate() || candidate.maps == null ||
 						!candidate.maps.TrueForAll(m => m != null && m.Validate()) || candidate.deleteMaps == null ||
-						!candidate.deleteMaps.TrueForAll(MapSpace.ValidId)) continue;
+						!candidate.deleteMaps.TrueForAll(MapSpace.ValidId)) { unreadable.Add(path); continue; }
 					pending = candidate; return;
 				}
 				catch (Exception e) when (e is FileNotFoundException or DirectoryNotFoundException) { }
-				catch (Exception e) when (e is IOException or UnauthorizedAccessException) { IsBlocked = true; return; }
-				catch (ArgumentException) { found = true; }
+				catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+				{
+					// Locked or unreadable: a transaction may be pending that cannot be seen yet. Recover() looks again.
+					Debug.LogWarning($"[{nameof(MapCatalogJournal)}] cannot read {Path.GetFileName(path)}: {e.Message}. Catalog writes wait until it clears.");
+					IsBlocked = true; return;
+				}
+				catch (ArgumentException) { unreadable.Add(path); }
 			}
-			IsBlocked = found;
+			// Garbage no retry can replay. Blocking on it would stop every map save until someone
+			// deleted the file by hand, so set it aside and carry on.
+			foreach (string path in unreadable) Quarantine(path);
+		}
+		private static void Quarantine(string path)
+		{
+			string target = path + ".corrupt";
+			try
+			{
+				File.Delete(target);
+				File.Move(path, target);
+				Debug.LogError($"[{nameof(MapCatalogJournal)}] {Path.GetFileName(path)} is not a valid catalog transaction; moved to {Path.GetFileName(target)}. The operation it recorded is lost.");
+			}
+			catch (Exception e) { Debug.LogException(e); }
 		}
 		public bool Recover()
 		{
+			if (IsBlocked) LoadPending(); // the lock may have cleared since the last look
 			if (IsBlocked) return false;
 			if (pending == null) return true;
 			if (needsJournalWrite)
