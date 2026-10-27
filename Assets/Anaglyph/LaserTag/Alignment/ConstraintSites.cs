@@ -12,8 +12,10 @@ namespace Anaglyph.LaserTag
 	/// line up. The map never moves. Each site is a colocation constraint, as an anchor
 	/// would be, and the colocator's rigid fit over all of them aligns the rig.
 	///
-	/// A revisit moves its site to the newer measurement: drift grows with distance
-	/// walked, so the older one counts for less the further the head has gone since.
+	/// A site stays where it was first measured: a revisit within its radius refines its
+	/// correction there rather than moving it, so sites keep their spacing and a player
+	/// walking on doesn't drag one along. Drift grows with distance walked, so the older
+	/// measurement counts for less the further the head has gone since.
 	/// </summary>
 	public sealed class ConstraintSites
 	{
@@ -60,16 +62,19 @@ namespace Anaglyph.LaserTag
 			{
 				Site s = sites[nearest];
 				float stale = math.exp(-math.max(0, path - s.path) / PathScale);
-				float oldT = stale / Square(s.sigmaTranslation), newT = 1 / Square(sigmaTranslation);
+				// the new measurement carried from its camera to the site: its yaw's uncertainty
+				// grows into translation over the lever arm
+				float lever = distance * sigmaYaw;
+				float oldT = stale / Square(s.sigmaTranslation), newT = 1 / Square(math.sqrt(sigmaTranslation * sigmaTranslation + lever * lever));
 				float oldY = stale / Square(s.sigmaYaw), newY = 1 / Square(sigmaYaw);
 
-				// averaged about the new measurement's camera, as two agreeing frames are
-				float3 p = (s.correction.Apply(position) * oldT + correction.Apply(position) * newT) / (oldT + newT);
+				// averaged about the site, which stays where it is
+				float3 at = s.position;
+				float3 p = (s.correction.Apply(at) * oldT + correction.Apply(at) * newT) / (oldT + newT);
 				float yaw = s.correction.yaw + Pose4.WrapAngle(correction.yaw - s.correction.yaw) * (newY / (oldY + newY));
-				s.correction = new Pose4(p - Pose4.RotateY(position, yaw), yaw);
+				s.correction = new Pose4(p - Pose4.RotateY(at, yaw), yaw);
 				s.sigmaTranslation = 1 / math.sqrt(oldT + newT);
 				s.sigmaYaw = 1 / math.sqrt(oldY + newY);
-				s.position = position;
 				s.path = path;
 				s.time = time;
 				s.crossLink |= crossLink;
