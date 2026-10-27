@@ -108,7 +108,7 @@ namespace Anaglyph.LaserTag.Editor
 		private static void Begin(int index)
 		{
 			CanonColocationProvider provider = Provider;
-			string problem = provider == null ? "no map-matching provider (colocation method is neither Visual nor ScanRegistration)"
+			string problem = provider == null ? "no map-matching provider (colocation method is not Visual)"
 				: provider.CurrentPhase != CanonColocationProvider.Phase.Aligned ? $"provider is {provider.CurrentPhase}, not Aligned"
 				: ColocationManager.Instance == null || !ColocationManager.IsColocated ? "not colocated yet"
 				: MainXRRig.Instance == null ? "no XR rig"

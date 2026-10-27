@@ -1,96 +1,144 @@
-# MapSpace implementation
+# Spaces and maps: implementation
 
-Implemented from the approved [MapSpaces plan](map-spaces-implementation-plan.md). The original plan remains the design record. This document describes the code and the validation boundary.
+The map system after the October 2026 redesign ([plan](map-redesign-plan.md), which records the
+product decisions and what they deleted). This document describes the code: the documents, the
+scene component and its helpers, sessions, the operator flow, and where data is validated.
 
-## Documents and coordinate frames
+## Documents
 
-`MapSpace` stores alignment settings, saved tag/anchor targets, known map IDs, frame identities and the persisted `canonicalFromStorage` rigid pose. `GameMap` stores a layout and its storage-frame ID. A map has one parent space; copying a layout creates a new map ID. The separate JSON files are:
+`Maps/Space.cs` holds plain data; nothing in it touches the scene or the network.
+
+- A **`Space`** is one physical room: `id`, `name`, `frameId`, `lastUsed`, its `alignment`
+  settings (method, printed tag size, two-tag pair), its references (`tags`: id and pose;
+  `anchors`: shared-anchor GUID, pose and the tag it was realized at, if any) and its `maps`.
+- A **`Map`** is one layout of that room: `id`, `name`, `lastUsed`, `objects` (prefab id and
+  pose). Maps are embedded in their space; a map has exactly one space.
+- Every pose is in the space's frame. **`frameId`** names that frame. It changes only when the
+  frame can move: entering or leaving two-tag mode, forgetting the pair while in two-tag mode,
+  and resetting alignment. Environment scans and the visual map measured in the old frame are
+  discarded then; the maps keep their poses.
+- **`PrivateReferences`** (`<space-id>.private.json`) are this device's own realizations of the
+  space's tags: anchor GUIDs with the tag pose and size they were realized at. They are never
+  shared and are discarded when the host's frame changes.
+- `Sanitize()` drops entries it cannot use (bad ids, non-finite poses, duplicate tags) and
+  logs them; it never rejects the document. Legacy method values migrate on load: 2 and 3 (system
+  frame, separate two-tag method) to AprilTag, 4 (scan registration) to Visual.
+
+Files, under `Application.persistentDataPath/spaces-v3/`:
 
 ```text
-Application.persistentDataPath/map-catalog-v2/
-  spaces/<space-id>.json
-  maps/<map-id>.json
-  pending-catalog-operation.json   # present only during a multi-file operation
-  session-cache/<remote-space-id>.json
+<space-id>.json           the space with its maps
+<space-id>.private.json   this device's tag anchors for it
+<space-id>.vmap           its visual map (VisualMapPersistence)
+vocabulary.vvoc           the visual vocabulary shared by every map
+migrated-from-v2          marker: the v2 catalog was imported once
 ```
 
-This fresh catalog does not load or migrate the old map directory. It does not delete that directory.
+`SpaceStore` writes temp-then-replace, loads every readable file and skips an unreadable or
+mismatched one with a warning, so one bad file never blocks the rest. `CatalogV2Migrator` runs
+once, when `spaces-v3` is empty and `map-catalog-v2` exists: it embeds each space's maps,
+composes stored poses through the v2 `canonicalFromStorage` offset, moves local anchors to the
+private file, copies the `.vmap` and vocabulary, and writes the marker. `map-catalog-v2` is left
+in place.
 
-`JsonDocumentStore` provides detached reads, schema validation, temporary files, backup recovery and atomic replacement. It distinguishes unavailable reads from missing or invalid documents. `MapCatalogJournal` records a recoverable operation before writing layouts and their membership. Recovery precedes membership pruning. Pruning removes bad, duplicate or missing IDs, preserves uncertain reads, and leaves unrelated layout files alone. Native anchor saves are erased only when no readable catalog owner references them; an unavailable catalog prevents erasure.
+## Scene component and helpers
 
-Every saved layout pose, shared anchor target, registered tag target and private tag-anchor target uses the stable storage basis:
+`SpaceManager` (on the MapManager prefab) is the only `MonoBehaviour`. Its `Awake` builds what it
+owns; consumers read `SpaceManager.Instance` from `Start` on. It constructs plain classes with
+direct references; required scene dependencies are serialized fields that throw when missing.
 
-```text
-canonicalPose = canonicalFromStorage * storedPose
-storedPose    = inverse(canonicalFromStorage) * canonicalPose
-```
-
-`MapSceneObjectDirector` projects scene placements; `MapSpaceColocationAdapter` projects provider targets. `MapSpaceReconciler` projects incoming canonical DTOs into local storage. A pure rebase changes only the space document. It preserves map files, target poses, object revisions, tag IDs and anchor UUIDs. Undo restores the previous offset/frame pair. The transform has unit scale, yaw and translation; it is not applied to the tracking rig a second time.
-
-Shared definitions, private tag-anchor realizations, retained source revisions and foreign associations are separate collections. A private realization records the tag size and definition it realizes, preventing an old UUID from being reused for a conflicting imported tag. Incoming host definitions become active while conflicting local definitions remain retained.
-
-## Lifecycles and discovery
-
-`LaserTagMapCoordinator` composes `MapWorkingCopy`, `MapSpaceWorkingCopy`, persistence, network DTOs, discovery and alignment. Map changes within a space replace gameplay objects while keeping references, the active observer and scan. Deleting the last map leaves the space. Space settings include rename, deletion and explicit alignment reset. Operators can also create spaces. Rebase undo remains an internal API and is not exposed in the menus.
-
-Headsets probe saved space anchors automatically. Every matching space remains a distinct candidate; the most recently used match wins startup. A healthy completed probe with no matches creates a space and baseline layout, reusing an unfinished automatic draft where possible. Shared spatial anchors are the default when sharing is supported. Otherwise, including on managed headsets without a Meta account, startup activates registered AprilTags and resumes the normal first-tag registration transition. This does not require a shared-anchor minter or manual space creation. Local anchor probing still runs when available, even without sharing support. A confirmed lack of anchor support can start the AprilTag path without waiting for an impossible probe; unknown capability, canceled probes and inconclusive queries retry without creating a space. Session selection supersedes startup. Operator and Editor simulation restoration use separate paths.
-
-Shared-anchor initialization checks runtime support and also confirms a successful upload before committing its first reference, including during standalone startup. A definitive cloud-storage or permission denial switches an unfinished automatic draft to AprilTags; transient network/localization errors retry. This fallback keeps the draft frame and map files, and never resets an established reference frame.
-
-Editor simulation restores the most recently used space through the normal activation path, including its saved alignment method and reference services. It does not replace a restored provider with System determined. A new simulation space explicitly saves System determined as its initial method, keeping the saved preference, active provider and auto-hosted selection consistent.
-
-## Alignment transitions
-
-Saved anchors and registered tags are reference-based. Two AprilTags and System determined are provisional. Provisional alignment permits layout editing, but cannot authorize persistent reference creation when any saved reference-based definition exists, including retained definitions. A space with no saved references permits its designated initialization headset to establish the frame.
-
-`ReferenceAlignmentTransition` tracks intent, candidate revision, source/target methods and fresh evidence. `MapSpaceAlignmentController` retains immutable source observations, starts an independent target observation lease, and keeps one rig writer. New references cannot participate in their own validating source fit. Setup-only commits without switching methods; setup-and-switch and configured switches transfer control after validation and persistence. Source observation leases survive until the target confirms the handoff, with local fallback if it fails. Peers report their actual source and complete independently. A configured target can recover alignment when the old source is unavailable.
-
-Native services remain active for the source and candidate through a transition, then unused services stop. Independent editor and observation leases can still request tag detection. An operator commits a delegated validation without waiting for a physical rig of its own. Gameplay can continue using the existing trusted frame during validation.
-
-Tag registration and method activation are separate commits. After checking the author, source alignment, operation, reference context and tracking generation, the authority saves each accepted tag definition before publishing it to the provider or other headsets. A failed save cannot display the tag as registered. The same transition then validates a saved target, retaining its observation leases and previous alignment source. Interruption or cancellation does not discard accepted tags; a resumed switch can align to them without requiring the old source. Every additional registration still requires current reference-authoring permission.
-
-Native tag anchors preserve the actual relationship between the detected tag and the anchor returned by the runtime. The initial target uses `canonTag * inverse(observedTag) * observedAnchor`, just like later drift correction. The tag observation is captured in tracking coordinates before minting and projected into the current rig frame afterward. Recenter, focus loss and pause invalidate pending observations, so an old tracking pose cannot define a new anchor target.
-
-Candidate revisions and committed host snapshots retain this headset's compatible private tag anchors, including realizations minted during setup. They remain local to the headset and are saved alongside the host's committed tag definitions. The alignment settings display the transition target and progress separately from the saved space preference.
-
-Setup intent and accepted tag definitions are durable. Live phases, observations, readiness and leases restart after interruption. Network proposals include operation/revision/context and tracking-generation checks; rejections apply only to the originating context. Minter assignment follows space/frame readiness independently of map selection. First-tag initialization uses a separate single-author grant: a headset host may initialize, or an operator may assign a tracked headset without requiring cloud-anchor capability. Once a transition has an author, other headsets cannot initialize its frame.
-
-Imported spaces adopt the host's alignment preference and pending setup intent, replacing obsolete local setup requests. These fields travel with the space snapshot. Automatic anchor updates cannot replace an explicit pending method request or an unfinished handoff.
-
-A method request with no eligible headset is retained as a pending, cancelable selection. It resumes when a headset connects or regains tracking/focus; adding references to an established space still requires a headset aligned to its saved references. An empty space can establish its first tag even while its selected source is shared anchors. Local authoring and network readiness use the same head-tracking check, including Editor simulation. Shared-anchor minting requires runtime persistence and a successful save before publishing a reference; temporary AR Foundation simulation anchors cannot establish a saved frame. These are runtime capability checks, so capable runtimes such as Meta XR Simulator remain supported in the Editor. Saved-reference observers wait for an anchor runtime instead of throwing on an operator or during runtime startup.
-
-Initial thresholds, pending headset measurements:
-
-| Check | Current value |
+| Class | Owns |
 | --- | --- |
-| Candidate observation interval | 0.6 seconds |
-| Fit residual / reliable angular error | 5 cm / 5 degrees |
-| Agreement with retained reference source | 8 cm / 5 degrees |
-| Candidate stability | 2 cm / 1 degree |
-| Confirmation after transferring rig control | 0.2 seconds |
-| Session frame relationship stability | 1 second |
-| Native shared-anchor setup timeout | 20 seconds |
+| `SpaceManager` | the shown `Space` and `Map` (read-only to callers), the space list, autosave (dirty flag and debounce), startup discovery, the role (`Offline`, `Host`, `Client`, derived from `SyncBus`), the space and map commands with their `…Blocker()` strings, and the static events `SpaceChanged`, `MapChanged`, `FrameChanged`, `SpacesChanged`, `AlignmentErrorRaised` |
+| `SpaceAlignment` | applying a space's settings and references to `ColocationManager` and the providers; authoring (register and remove tags, tag size, method, pair); the host's validation of requests; the anchor provider's `IAnchorSessionPolicy`; minter and author selection |
+| `MapObjects` | the scene projection of the shown map: capture, replace, spawn and remove; edit requests in a session carry the map revision |
+| `SpaceDiscovery` | which saved spaces are in this room: anchor probe first, then visual voting; presence results for the picker |
+| `SpaceSync` | the wire format (below) |
+| `TagSetup` | the guided AprilTag setup (below) |
+| `VisualMapPersistence` | the `.vmap` per space: sequenced writes so a forced save lands beside an async one, relocalize on activate |
 
-Two tags commits a pair only after usable geometry is observed. The lower ID defines the origin and the higher defines forward. No anchors are created or used. Positions are retained in the headset's current tracking frame, allowing the tags to be scanned individually and then left out of view. Recenter, tracking/alignment loss, sleep and focus loss discard both observations, including detections already in flight; both tags must be seen again. Automatic reacquisition preserves IDs; choosing another pair explicitly clears them. Later unrelated IDs do not silently replace the pair. Both tag methods share the space's printed-size setting.
+`ColocationManager` is reduced to switching the `Colocator` between the three providers and
+tracking the alignment state and tracking generation. It no longer carries a method of its own:
+the method is the shown space's (`SpaceAlignment.SelectedMethod`), and `PreferredMethod` falls a
+tag or anchor preference back to the kind of reference the space actually has.
 
-## Networking and reconciliation
+## Alignment methods
 
-`MapSessionSync` commits canonical shared references and the active layout with a coherent identity header. `MapSpaceTransitionSync` transports staged definitions and validation separately. Only the active layout is learned; other layouts arrive when selected. Protocol version is **8**; peers need matching builds.
+- **Shared spatial anchors** (`MetaSharedAnchor`): the space's anchors. In a session one headset
+  mints and shares (`AnchorMinterPolicy`: the host when it is a headset; for an operator the
+  lowest capable headset in the frame, kept while it stays ready). Minted anchors are written to
+  the space by the device that owns it.
+- **AprilTags** (`AprilTag`): registered tags, realized by every device through its own local
+  anchors (`PrivateReferences`). Without registered tags it runs in **two-tag mode**: the first two
+  tags seen define a provisional frame, nothing is saved, and the space gets a new `frameId` on
+  the way in and out.
+- **Visual** (`Visual`, the default): the space's visual map, the provider's own.
 
-Foreign space associations and known frame offsets prevent a new local space on every join. For unknown relationships, independent observers fit both saved reference frames in the same current tracking generation. A stable verified relationship updates the offset and imports references/layouts transactionally. An empty draft with no geometry or references can be reused without a physical transform. Contradictory immutable anchor targets invalidate a remembered mapping.
+## Sessions
 
-If geometry cannot establish a relationship, the session remains usable from a separate cache while durable local data stays intact. Provisional-only evidence cannot reconcile saved layouts. Dirty layout conflicts create a local copy within the same transaction; retries reuse the journal instead of generating more copies.
+The host publishes the shown space and map through `SpaceSync`: three `SyncList`s (tags,
+anchors, map objects) followed by one `SyncVariable<SpaceHeader>` that commits them on the bus's
+ordered channel. The header carries the space and map identity and names, the frame id, the
+alignment settings, a map revision (new each time a map is shown; edit requests from an earlier
+showing are refused), a publish revision and the `changing` flag (the host is replacing the
+session's objects; readiness and edits wait). The tag setup state rides along as one more
+variable.
 
-## Environment scans and menus
+A client renders whatever the header describes (`SpaceManager.ShowSessionSpace`): a new space
+or frame starts colocation over, the same frame with new content is taken in place. It never
+saves the host's space, and gets its own last space back once the session is torn down.
 
-Scans remain live only for the active space. Space changes, rebase and provisional discontinuities clear scanner GPU state, meshes/colliders and navigation. Ordinary same-space map changes and verified reference-based handoffs preserve the scan. Tracking loss pauses depth integration and outgoing mesh work. Mesh packets and asynchronous completion checks carry space, canonical frame and scan-visit IDs; an A → B → A visit cannot accept packets from the previous A. Late joiners request populated chunks through the bounded encoder queue. Incoming populated and empty chunks update collision and navigation. System determined scans are never merged by assuming common device origins.
+Clients ask for changes with one `SyncEvent<SpaceRequest>` (set method, register and remove a
+tag, tag size, pair, forget pair, and the four tag-setup steps). The host re-validates every
+request against the sender's `PlayerHeadsetStatus` readiness: same space and frame, focused,
+head-tracked, not an operator, and aligned unless the space has no references yet. Refusals come
+back as one `SyncEvent<RequestRejected>`, surfaced as `AlignmentError.RequestRejected`.
 
-The shared headset/operator catalog lists all spaces, each followed by its indented maps. Loading a selected map automatically switches to its parent space if necessary. Space and map rows share one selection. A square edit button appears beside the selected space; it loads that space and its most recently used map before opening space details. The loaded map retains its edit button; deletion appears beside the selected map and requires confirmation. A selected space also has a delete button. Its confirmation modal names the space and warns that all of its saved maps are deleted too; it does not activate the space. Cancel or Back dismisses the request, and confirmation rechecks deletion eligibility. Space details has no delete action. Space settings are a separate page in each menu's parent `NavView` and own all alignment controls. The operator's manual tag size and removal controls also live there. On headsets, opening a tag-based space's settings activates the tag palette; Back or the palette's Done action ends that tool session. Automatic first-tag setup opens the same space page. Map editing contains layout controls only. There is no space dropdown, separate Load Space action, duplicate action or rebase-undo control. Headsets have no New Space action. Alignment settings show the requested method, actual source, transition, provisional category and selected pair. Palette tools identify whether they edit the map or the space. Delayed size/name edits and observations retain the context they started in. The operator catalog scrolls within its resizable sidebar and exposes actual headset sources in a separate table column.
+A method switch is the host's: it saves the method, bumps the frame when the frame can move,
+publishes, and every device activates the method from the header. In an operator-managed session
+only the operator changes the method.
+
+## Operator
+
+An operator machine hosts without a rig. Two things need a headset on its behalf:
+
+- **Anchor minting** goes through `IAnchorSessionPolicy`: `SelectMinter` picks the author above,
+  and the anchor provider's preparation and mint proposals are validated by the policy against the
+  sender's readiness and tracking generation.
+- **Tag registration** runs through `TagSetup`, the three-step wizard (print, connect a headset,
+  review). The operator starts it from space settings; the host switches the space to AprilTags
+  and publishes a `TagSetupState` naming the operation, the space and frame, and the **author**:
+  the headset that measures and registers for it (the requester when a headset asked and is
+  ready, else the lowest ready headset in the frame, kept while it stays ready). The author's map
+  editor opens on the tag tools: it measures the printed size, continues once the host has
+  confirmed that size, then registers tags. The operator reviews the registered tags and
+  finishes, which saves the space, or cancels. A setup ends by itself when its space or method
+  changes or a round starts; it follows its space through a rebase of its own (the last tag
+  removed to measure again).
+
+Offline, and on a headset host, the same `TagSetup` runs on the device itself; in a headset-run
+session any ready headset may finish or cancel it.
+
+## Rules the code follows
+
+- Required dependencies are `[SerializeField]` references assigned in the prefab, with no
+  `Find`/`GetComponent` fallbacks and no null checks: a missing one throws.
+- No `Func`/`Action` wiring inside the LaserTag assembly; direct references, and one interface
+  (`IAnchorSessionPolicy`) where the XR assembly boundary forces inversion.
+- No `[DefaultExecutionOrder]`; static events for subscribers that attach in `OnEnable`.
+- Data is validated where it enters: file load (`Sanitize`) and network receive (`SpaceSync`,
+  `HandleRequest`). `Space` and `Map` are handed out as read-only references, never cloned.
 
 ## Verification
 
-Unity 6000.3.20f1 compiles the implementation. The latest EditMode run on 12 September 2026 passed **281 of 282 tests**, including all five simulation-restoration regressions; the existing `UxmlBindingsUpdateNamedVariablesAndLocale` test passed on an isolated rerun. Coverage includes the sharing-unavailable startup fallback, grouped catalog, deferred operator alignment requests, simulated-headset readiness, runtime persistence gates, operator reference observers without an anchor runtime, and anchorless two-tag acquisition, recenter/tracking-loss recovery, stale camera frames, same-space observation preservation and service shutdown. The latest regression checks cover saving tag registrations before publication, failed-save rollback, interrupted-switch recovery, reference-authoring guards, completion of the first-tag handoff, and initial native-anchor pose conversion across rig movement. The assembly exercises persistence, offset projection, conflicts/journal recovery, reference-policy and handoff evidence, overlapping-space discovery, sharing capability and denial handling, first-tag initialization grants, resumable fallback drafts, stale scan contexts, existing tag-anchor recovery, readiness, menu binding lifetimes, and composed UXML. Catalog checks cover loading the exact selected map across spaces, active-row editing, selected-map deletion and membership pruning, navigation and stale-space handling, automatic tag registration through space settings, and tag-tool lifetime across warnings, Back and Done. The headset composition was inspected with `LaserTagRuntimeTheme.tss`; the operator catalog was also inspected in Play Mode, and the short-sidebar layout passed composition checks.
+Implemented and checked in the editor on 26 October 2026 (branch
+`claude/suspicious-sammet-e80cff`): the EditMode suites under `Maps/Tests/Editor`
+(`Anaglyph.LaserTag.MapTests`: store round trip and migration, two-tag colocation, menu
+composition, presence, tag ruler) and `Tests/Editor` (`Anaglyph.LaserTag.EditorTests`), the
+offline PlayMode test, and a two-editor PlayMode session test (host and client in separate batch
+editors: join, map switch, method switch, a client's tag-size request, disconnect).
 
-The saved-AprilTag restart failure was reproduced in a live Editor session: AprilTags remained selected while System determined was active, detection was stopped, and environment integration was blocked. After the fix, restarting the same saved space restored AprilTags, detected both registered tags, acquired reference alignment, enabled the scanner and mesher, and cleared the reference-registration blocker. The existing tag definitions and space offset were unchanged.
-
-Physical validation remains required on **two Quests and a PC operator**, on both LAN and relay. In particular: fresh/reloaded automatic startup on both account-enabled and managed headsets without a Meta account, including interrupted tag registration and shared-service permission denial; same-space map changes; every alignment handoff; first pair acquisition and reacquisition; independently created spaces joining repeatedly in both directions; minter replacement and simultaneous setup; sleep/wake/recenter; and stable-scan late joining. Measure physical position and yaw at several points before treating the thresholds above as tuned. Editor checks do not validate Meta anchor services, camera observations, radio/network timing, or physical continuity.
+Still to check on two Quests (plan step 6): join, switch and disconnect; tag registration by a
+joiner and by an operator-assigned headset through the wizard; anchor mint and share with an
+operator host; a method switch mid-session; relaunch with a corrupted space file present; and a
+first launch that migrates a real `map-catalog-v2`.

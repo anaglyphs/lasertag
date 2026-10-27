@@ -426,9 +426,12 @@ namespace Anaglyph.LaserTag.Tests
 			directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "lasertag-context-" + System.Guid.NewGuid().ToString("N"));
 			Store = new SpaceStore(directory);
 			Alignment = new SpaceAlignment(manager, colocation, Store);
+			var sync = new SpaceSync(manager, Alignment);
 			Set(manager, "store", Store);
 			Set(manager, "colocationManager", colocation);
 			typeof(SpaceManager).GetProperty("Alignment").SetValue(manager, Alignment);
+			typeof(SpaceManager).GetProperty("Sync").SetValue(manager, sync);
+			typeof(SpaceManager).GetProperty("TagSetup").SetValue(manager, new TagSetup(manager, Alignment, sync));
 			typeof(SpaceManager).GetProperty("Instance").SetValue(null, manager);
 			ShowSpace(space);
 		}

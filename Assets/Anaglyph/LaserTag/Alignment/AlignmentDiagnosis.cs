@@ -12,10 +12,8 @@ namespace Anaglyph.LaserTag
 {
 	/// <summary>
 	/// Saves what alignment works from, for diagnosing and tuning it offline: the live
-	/// map, the relocalization scratch volume (while relocalizing) and the authority's
-	/// snapshot a joiner registers against (while searching), for
-	/// <see cref="Anaglyph.XR.DepthKit.EnvScanning.Registration.ScanRegistrationBench"/>;
-	/// the visual localizer's map and the frames behind it (visual/: images, poses,
+	/// environment map (an .envscan the registration bench can read); the visual
+	/// localizer's map and the frames behind it (visual/: images, poses,
 	/// intrinsics, features, landmark tracks, what became of every recent query, and the
 	/// settings they ran under); the constraint sites drift is corrected from (sites.json);
 	/// and a text summary of the active provider's state. One folder per capture under
@@ -39,25 +37,11 @@ namespace Anaglyph.LaserTag
 				string folder = Path.Combine(EnvScan.DefaultDirectory, "diagnosis", DateTime.Now.ToString("yyyyMMdd-HHmmss"));
 				Directory.CreateDirectory(folder);
 
-				// the scratch and reference volumes are scan registration's; the state is whichever provider is active
-				ScanRegistrationColocationConstraintProvider provider = ScanRegistrationColocationConstraintProvider.Instance;
 				StringBuilder info = new();
 				info.AppendLine($"captured {DateTime.Now:u}, build {NetcodeManagement.GameVersion}, device {SystemInfo.deviceModel}");
 				AppendState(info, CanonColocationProvider.Active);
 
-				// the scratch volume first: a relocalization that succeeds meanwhile disposes it
-				EnvVolume scratch = provider != null ? provider.ScratchVolume : null;
-				if (scratch != null && scratch.IsCreated)
-					await Save(info, folder, "scratch", () => EnvScan.CaptureAsync(scanner, scratch, "relocalization scratch"));
-				else
-					info.AppendLine("scratch: none (not relocalizing)");
-
 				await Save(info, folder, "map", () => EnvScan.CaptureAsync(scanner, label: "live map"));
-
-				if (provider != null && provider.ReferenceChunks.Count > 0)
-					await Save(info, folder, "reference", () => FromReference(scanner, provider));
-				else
-					info.AppendLine("reference: none (not searching, or no snapshot received)");
 
 				await SaveVisual(info, folder);
 				SaveSites(info, folder);
@@ -169,18 +153,6 @@ namespace Anaglyph.LaserTag
 			}
 		}
 
-		// the snapshot is in the authority's frame, whose tracking space this headset never knew
-		private static Awaitable<EnvScan> FromReference(EnvScanner scanner, ScanRegistrationColocationConstraintProvider provider)
-		{
-			EnvScan scan = EnvScan.NewFor(scanner);
-			scan.Label = "authority snapshot (authority frame)";
-			foreach ((int index, NativeArray<EnvScanner.Voxel> voxels) in provider.ReferenceChunks)
-				scan.Chunks[index] = new NativeArray<EnvScanner.Voxel>(voxels, Allocator.Persistent);
-
-			AwaitableCompletionSource<EnvScan> done = new();
-			done.SetResult(scan);
-			return done.Awaitable;
-		}
 
 		private static void AppendState(StringBuilder info, CanonColocationProvider provider)
 		{

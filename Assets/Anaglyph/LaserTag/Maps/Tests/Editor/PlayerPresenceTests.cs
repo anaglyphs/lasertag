@@ -39,7 +39,6 @@ namespace Anaglyph.LaserTag.Tests
 			mapId = Guid.NewGuid();
 			var context = Create("Presence context");
 			var colocation = context.AddComponent<ColocationManager>();
-			Set(colocation, "offlineMethod", ColocationManager.ColocationMethod.Visual);
 			SetStatic(typeof(ColocationManager), "Instance", colocation);
 			var manager = context.AddComponent<SpaceManager>();
 			mapContext = new SpaceManagerTestContext(manager, colocation, Space.Create("Presence test"));

@@ -16,7 +16,8 @@ namespace Anaglyph.LaserTag.Maps
 	/// device writes the tag anchors it realizes to the space's private file; the device that
 	/// owns the space (offline, or the host) writes minted anchors to the space itself. Changing
 	/// the method bumps the frame when the frame can move: into or out of two-tag mode, or when
-	/// the pair changes. It is also the anchor provider's session policy.
+	/// the pair changes. It is also the anchor provider's session policy, and it picks the
+	/// headset that authors for an operator.
 	/// </summary>
 	public sealed class SpaceAlignment : IAnchorSessionPolicy
 	{
@@ -41,8 +42,6 @@ namespace Anaglyph.LaserTag.Maps
 
 		public void Register()
 		{
-			// this class drives activation; the manager's own selection stays off
-			colocation.ManagedSelection = true;
 			Anchors.Policy = this;
 			Anchors.ConstraintsChanged += OnAnchorsChanged;
 			Anchors.AnchorPersisted += OnAnchorPersisted;
@@ -67,6 +66,9 @@ namespace Anaglyph.LaserTag.Maps
 		public Method ActiveMethod => colocation.ActiveMethod;
 		/// <summary>The method the shown space is set to; visual without a space.</summary>
 		public Method SelectedMethod => space?.alignment.method ?? Method.Visual;
+		/// <summary>The space's method as far as it has the references for it: a tag or anchor preference without tags or anchors falls back to the kind it has.</summary>
+		public Method PreferredMethod => space == null ? Method.Visual :
+			ColocationManager.CompatibleMethod(space.alignment.method, space.HasTags, space.anchors.Count > 0);
 		public bool UsingTwoTagMode => colocation.UsingTwoTagMode;
 		public float TagSizeCm => space?.alignment.tagSizeCm ?? Space.DefaultTagSizeCm;
 
@@ -100,7 +102,8 @@ namespace Anaglyph.LaserTag.Maps
 				{
 					privateReferences = null;
 					ClearProviders();
-					colocation.ClearSpace();
+					Anchors.RoamingMintEnabled = false;
+					colocation.ClearProvider();
 					return;
 				}
 				PrivateReferences loaded = store.LoadPrivate(space.id);
@@ -114,10 +117,9 @@ namespace Anaglyph.LaserTag.Maps
 					Tags.SetRegisteredTags(TagConstraints());
 				}
 				Tags.SetLocalAnchors(CompatibleTagAnchors());
-				colocation.ConfigureSpace(space);
-				Method method = colocation.PreferredAvailableMethod;
-				colocation.ActivateMethod(method, preserve);
-				if (SyncBus.Active && SyncBus.IsAuthority) colocation.CommitMethod(method);
+				// roaming anchors are minted only into a shown space
+				Anchors.RoamingMintEnabled = true;
+				colocation.ActivateMethod(PreferredMethod, preserve);
 			}
 			finally { applying = false; }
 		}
@@ -222,7 +224,7 @@ namespace Anaglyph.LaserTag.Maps
 		// Each command checks its blocker, then either applies here (offline, host) or asks the
 		// host (client). The host re-validates every request against the sender's readiness.
 
-		private void Send(SpaceRequest value)
+		internal void Send(SpaceRequest value)
 		{
 			value.spaceId = space.Id;
 			value.frameId = space.FrameId;
@@ -373,8 +375,8 @@ namespace Anaglyph.LaserTag.Maps
 		/// <summary>
 		/// The host's side of a client's request: the space and frame must be the ones shown,
 		/// a registration must come from a headset that is tracked and aligned here (or the frame
-		/// is still free), and the operator keeps the method to itself. The tag-setup kinds
-		/// belong to the operator flow and are refused until it exists.
+		/// is still free), and the operator keeps the method to itself. The tag-setup kinds go
+		/// to <see cref="TagSetup"/>.
 		/// </summary>
 		public bool HandleRequest(ulong sender, SpaceRequest value)
 		{
@@ -395,6 +397,11 @@ namespace Anaglyph.LaserTag.Maps
 					return value.trackingGeneration == SenderTrackingGeneration(sender) && ApplyPair(value.tag, value.second);
 				case SpaceRequestKind.ForgetPair:
 					return !RoundInProgress && ApplyForgetPair();
+				case SpaceRequestKind.TagSetupBegin:
+				case SpaceRequestKind.TagSetupMeasure:
+				case SpaceRequestKind.TagSetupFinish:
+				case SpaceRequestKind.TagSetupCancel:
+					return manager.TagSetup.HandleRequest(sender, value);
 				default:
 					return false;
 			}
@@ -430,13 +437,32 @@ namespace Anaglyph.LaserTag.Maps
 
 		// ------- the anchor provider's session policy ----------------
 
+		// a headset host mints itself; an operator has no rig, so one capable headset in this
+		// frame mints for it, kept while it stays ready
 		ulong? IAnchorSessionPolicy.SelectMinter()
 		{
 			if (space == null) return null;
-			if (!HeadsetConfiguration.IsOperatorDevice) return TrackingReady ? SyncBus.LocalClientId : null;
-			// an operator has no rig: the lowest ready headset in this frame mints for it
-			ulong? chosen = null;
+			ulong? current = Anchors.Minter.assigned ? Anchors.Minter.clientId : null;
+			return AnchorMinterPolicy.Select(current, SyncBus.LocalClientId, HeadsetConfiguration.IsOperatorDevice, space.Frame, Readiness());
+		}
+
+		private static IEnumerable<KeyValuePair<ulong, HeadsetReadiness>> Readiness()
+		{
 			foreach ((ulong client, PlayerAvatar avatar) in PlayerAvatar.All)
+				if (avatar && avatar.IsSpawned && avatar.HeadsetStatus) yield return new(client, avatar.HeadsetStatus.Readiness);
+		}
+
+		/// <summary>
+		/// The headset that registers tags for the host: the current one while it stays ready,
+		/// else this device when it is a ready headset, else the lowest ready headset in this frame.
+		/// </summary>
+		internal ulong? SelectAuthor(ulong? current)
+		{
+			if (space == null) return null;
+			if (current.HasValue && ReadyFor(current.Value)) return current;
+			if (!HeadsetConfiguration.IsOperatorDevice && ReadyFor(SyncBus.LocalClientId)) return SyncBus.LocalClientId;
+			ulong? chosen = null;
+			foreach (ulong client in PlayerAvatar.All.Keys)
 				if (ReadyFor(client) && (chosen == null || client < chosen)) chosen = client;
 			return chosen;
 		}
@@ -462,7 +488,7 @@ namespace Anaglyph.LaserTag.Maps
 		}
 
 		/// <summary>A sender may author references: tracked, focused, in this space and frame, and aligned unless the frame is still free.</summary>
-		private bool ReadyFor(ulong sender)
+		internal bool ReadyFor(ulong sender)
 		{
 			if (space == null) return false;
 			if (sender == SyncBus.LocalClientId) return !HeadsetConfiguration.IsOperatorDevice && TrackingReady && (IsAligned || FrameIsFree);

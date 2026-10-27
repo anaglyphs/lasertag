@@ -142,7 +142,6 @@ namespace Anaglyph.LaserTag.Maps
 		public void Sanitize(string where)
 		{
 			Method migrated = ColocationManager.MigrateLegacyMethod(method);
-			if (migrated == Method.ScanRegistration) migrated = Method.Visual;
 			if (!ColocationManager.IsValidMethod(migrated))
 			{
 				Debug.LogWarning($"[{nameof(Space)}] {where}: unknown alignment method {(int)method}: using visual");

@@ -68,7 +68,6 @@ namespace Anaglyph.LaserTag.EnvSyncing
 
 		// while a joiner is still registering, the authority's scan keeps growing; the
 		// reference it registers against must grow with it, so the snapshot is refreshed
-		[SerializeField] private float snapshotRefreshSeconds = 5f;
 
 		private uint unsentChange;
 		// local frames integrated since the last send, folded into the next sent frame's weight
@@ -83,7 +82,6 @@ namespace Anaglyph.LaserTag.EnvSyncing
 		// Invalidates work that outlives a network session or a scan.
 		private int syncGeneration;
 		private SpaceFrame requestedScan;
-		private float lastSnapshotRequestTime = float.NegativeInfinity;
 
 		// per-second traffic report for development builds: what went out, what came in,
 		// and why anything was dropped. silent when nothing happened
@@ -95,12 +93,12 @@ namespace Anaglyph.LaserTag.EnvSyncing
 		private readonly Queue<(ulong client, SpaceFrame context)> snapshotQueue = new();
 		private readonly Dictionary<ulong, float> lastSnapshotRequest = new();
 
-		// Scans are shared under every colocation method, system-determined included: the
-		// map coordinator's integration gate already decides whether the local frame is
-		// trusted. Peers only need to agree on the method family they are aligned with
-		private bool CanShareScan => ColocationManager.Instance != null &&
-			(ColocationManager.UsesSavedReferences(ColocationManager.Instance.ActiveMethod) && ColocationManager.UsesSavedReferences(ColocationManager.Instance.SelectedMethod) ||
-			 ColocationManager.Instance.ActiveMethod == ColocationManager.Instance.SelectedMethod);
+		// Scans are shared under every colocation method: the space's integration gate already
+		// decides whether the local frame is trusted. Peers only need to agree on the method
+		// family they are aligned with
+		private bool CanShareScan => ColocationManager.Instance != null && SpaceManager.Instance != null &&
+			(ColocationManager.UsesSavedReferences(ColocationManager.Instance.ActiveMethod) && ColocationManager.UsesSavedReferences(SpaceManager.Instance.Alignment.SelectedMethod) ||
+			 ColocationManager.Instance.ActiveMethod == SpaceManager.Instance.Alignment.SelectedMethod);
 		private static bool CanIntegrate => SpaceManager.Instance != null && SpaceManager.Instance.Alignment.CanIntegrateEnvironment;
 		private bool CanSendScan => CanShareScan && CanIntegrate;
 		private static SpaceFrame CurrentFrame => SpaceManager.Instance != null ? SpaceManager.Instance.Frame : default;
@@ -129,9 +127,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			{
 				EnvScanner.Instance.Cleared += OnScanCleared;
 				EnvScanner.Instance.FrameCaptured += OnFrameCaptured;
-				// a joiner registering its scan against the authority's needs to scan before
-				// the map layer considers the world frame trustworthy
-				EnvScanner.Instance.IntegrationGate = () => ScanRegistrationColocationConstraintProvider.LocalScanRequested || CanIntegrate;
+				EnvScanner.Instance.IntegrationGate = () => CanIntegrate;
 			}
 		}
 
@@ -199,7 +195,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 		private void HandleScannerActivity()
 		{
 			// Scanner is only enabled if connected & collocated OR disconnected
-			if (EnvMesher.Instance) EnvMesher.Instance.enabled = ScanRegistrationColocationConstraintProvider.LocalScanRequested || CanIntegrate;
+			if (EnvMesher.Instance) EnvMesher.Instance.enabled = CanIntegrate;
 		}
 
 		private void OnBusActivated()
@@ -234,20 +230,11 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			HandleScannerActivity();
 
 			SpaceFrame frame = CurrentFrame;
-			if (SyncBus.Active && !SyncBus.IsAuthority && frame.IsSet)
+			if (SyncBus.Active && !SyncBus.IsAuthority && frame.IsSet && requestedScan != frame)
 			{
-				ScanRegistrationColocationConstraintProvider registrar = ColocationManager.Instance?.ScanRegistrationProvider;
-				bool firstRequest = requestedScan != frame;
-				bool refreshForRegistration = registrar != null && registrar.WantsReferenceChunks &&
-					Time.unscaledTime - lastSnapshotRequestTime >= snapshotRefreshSeconds;
-
-				if (firstRequest || refreshForRegistration)
-				{
-					requestedScan = frame;
-					lastSnapshotRequestTime = Time.unscaledTime;
-					snapshotRequest.Raise(frame);
-					Debug.Log($"[{nameof(EnvSync)}] requested a scan snapshot from the authority{(firstRequest ? "" : " (refresh while registering)")}");
-				}
+				requestedScan = frame;
+				snapshotRequest.Raise(frame);
+				Debug.Log($"[{nameof(EnvSync)}] requested a scan snapshot from the authority");
 			}
 
 			if (!snapshotServing && snapshotQueue.Count > 0)
@@ -517,14 +504,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 					return;
 				}
 
-				// before alignment a snapshot is the reference to register against, not scan
-				ScanRegistrationColocationConstraintProvider registrar = ColocationManager.Instance?.ScanRegistrationProvider;
-				if (registrar != null && registrar.WantsReferenceChunks)
-				{
-					registrar.AcceptReferenceChunk(chunkIndex, receivedVoxels);
-					statChunksReceived++;
-				}
-				else if (scanner.UploadChunk(chunkIndex, receivedVoxels)) statChunksReceived++;
+				if (scanner.UploadChunk(chunkIndex, receivedVoxels)) statChunksReceived++;
 				else Drop("chunk: scanner refused");
 			}
 			finally

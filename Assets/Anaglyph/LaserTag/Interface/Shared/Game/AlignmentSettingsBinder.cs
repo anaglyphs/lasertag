@@ -36,7 +36,7 @@ namespace Anaglyph.LaserTag.Interface
 		public ColocationManager.ColocationMethod DisplayedMethod => Preference;
 		public bool UsesTags => DisplayedMethod == ColocationManager.ColocationMethod.AprilTag;
 
-		// the methods offered, in dropdown order; scan registration stays selectable in code only
+		// the methods offered, in dropdown order
 		private static readonly ColocationManager.ColocationMethod[] ListedMethods =
 		{
 			ColocationManager.ColocationMethod.MetaSharedAnchor, ColocationManager.ColocationMethod.AprilTag,
@@ -56,6 +56,7 @@ namespace Anaglyph.LaserTag.Interface
 			tagConfigurationSection = Require<VisualElement>(root, "tag-configuration-section");
 			setupTagsButton = Require<Button>(root, "start-apriltag-setup");
 			setupTagsButton.MakeActOnPress();
+			bindings.Click(setupTagsButton, () => { FlushPendingSize(); SpaceManager.Instance?.TagSetup.Begin(); Refresh(); });
 			tagSizeSlider = Require<Slider>(root, "tag-size-slider");
 			tagSizeNote = Require<Label>(root, "tag-size-note");
 			tagStatus = Require<Label>(root, "tag-status");
@@ -96,12 +97,11 @@ namespace Anaglyph.LaserTag.Interface
 			methodField.choices = choices;
 		}
 
-		// scan registration and visual relocalization have no localized copy yet
+		// visual relocalization has no localized copy yet
 		private static string MethodName(ColocationManager.ColocationMethod method) => method switch
 		{
 			ColocationManager.ColocationMethod.MetaSharedAnchor => MenuCopy.Get("Map", "alignment.anchors"),
 			ColocationManager.ColocationMethod.AprilTag => MenuCopy.Get("Map", "alignment.tags"),
-			ColocationManager.ColocationMethod.ScanRegistration => "Scan registration",
 			ColocationManager.ColocationMethod.Visual => "Visual relocalization",
 			_ => method.ToString()
 		};
@@ -188,9 +188,10 @@ namespace Anaglyph.LaserTag.Interface
 		{
 			bool aprilTags = DisplayedMethod == ColocationManager.ColocationMethod.AprilTag;
 			tagConfigurationSection.style.display = aprilTags || operatorMode && UsesTags ? DisplayStyle.Flex : DisplayStyle.None;
-			// the guided setup returns with the operator flow; until then tags are registered in the map editor
-			setupTagsButton.style.display = DisplayStyle.None;
-			setupTagsButton.SetEnabled(false);
+			setupTagsButton.style.display = aprilTags ? DisplayStyle.Flex : DisplayStyle.None;
+			TagSetup setup = SpaceManager.Instance?.TagSetup;
+			setupTagsButton.SetEnabled(setup != null && setup.StartBlocker == null);
+			setupTagsButton.tooltip = setup?.StartBlocker;
 			tagSizeSlider.style.display = operatorMode ? DisplayStyle.Flex : DisplayStyle.None;
 			bool registeredTags = operatorMode && DisplayedMethod == ColocationManager.ColocationMethod.AprilTag;
 			unregisterAllTagsButton.style.display = !registeredTags ? DisplayStyle.None : DisplayStyle.Flex;

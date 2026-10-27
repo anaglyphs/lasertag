@@ -17,9 +17,8 @@ namespace Anaglyph.LaserTag
 	/// sleep or tracking loss makes the applied alignment stale, and the headset
 	/// relocalizes against the map it already holds.
 	///
-	/// Subclasses find the alignments (<see cref="ScanRegistrationColocationConstraintProvider"/>
-	/// from environment scans, <see cref="VisualColocationConstraintProvider"/> from camera
-	/// landmarks); this holds the phases and the single constraint the
+	/// A subclass finds the alignments (<see cref="VisualColocationConstraintProvider"/> from
+	/// camera landmarks); this holds the phases and the single constraint the
 	/// <see cref="Colocator"/> aligns the rig with, exactly as an anchor would be, moved by
 	/// whatever <see cref="SiteCorrection"/> the provider has measured since.
 	/// </summary>

@@ -135,7 +135,14 @@ namespace Anaglyph.LaserTag.MapEditor
 			RefreshSetupGuide();
 		}
 
-		private static void OnDoneClicked() => MapEditor.SetActive(false);
+		// a guided headset's Done finishes or cancels its setup; otherwise it closes the editor
+		private static void OnDoneClicked()
+		{
+			TagSetup setup = SpaceManager.Instance?.TagSetup;
+			if (setup == null || !setup.IsGuidingHeadset) MapEditor.SetActive(false);
+			else if (setup.CanFinish) setup.Finish();
+			else setup.Cancel();
+		}
 
 		private void OnToolModeChanged(MapEditorTool.Mode mode)
 		{
@@ -222,19 +229,27 @@ namespace Anaglyph.LaserTag.MapEditor
 		}
 
 		// ------- tag settings ----------------------------------------
-		// the operator-guided setup returns with the operator flow; the palette shows the plain tools
+		// a headset guided through a setup sees its instructions in place of the plain tools
 		private void RefreshSetupGuide()
 		{
-			setupMeasureInstructions.style.display = DisplayStyle.None;
-			setupRegisterInstructions.style.display = DisplayStyle.None;
-			setupFinish.style.display = DisplayStyle.None;
-			backToMeasurementButton.style.display = DisplayStyle.None;
-			registrationTagSize.style.display = DisplayStyle.Flex;
-			measureTagSizeButton.style.display = DisplayStyle.Flex;
-			unregisterAllTagsButton.style.display = DisplayStyle.Flex;
-			doneButton.style.display = DisplayStyle.Flex;
-			doneButton.text = MenuCopy.Get("Map", "GameMapEditingPage.finish-editing-button.text");
-			measurementHint.style.display = DisplayStyle.Flex;
+			TagSetup setup = SpaceManager.Instance?.TagSetup;
+			bool guided = setup != null && setup.IsGuidingHeadset;
+			setupMeasureInstructions.style.display = guided ? DisplayStyle.Flex : DisplayStyle.None;
+			setupRegisterInstructions.style.display = guided ? DisplayStyle.Flex : DisplayStyle.None;
+			setupFinish.style.display = guided ? DisplayStyle.Flex : DisplayStyle.None;
+			backToMeasurementButton.style.display = guided ? DisplayStyle.Flex : DisplayStyle.None;
+			registrationTagSize.style.display = guided ? DisplayStyle.None : DisplayStyle.Flex;
+			measureTagSizeButton.style.display = guided ? DisplayStyle.None : DisplayStyle.Flex;
+			unregisterAllTagsButton.style.display = guided ? DisplayStyle.None : DisplayStyle.Flex;
+			doneButton.style.display = guided && !setup.CanEndFromHere ? DisplayStyle.None : DisplayStyle.Flex;
+			doneButton.text = MenuCopy.Get("Map", guided && !setup.CanFinish ? "tag-setup.cancel" : "GameMapEditingPage.finish-editing-button.text");
+			measurementHint.style.display = guided && !setup.CanMeasure ? DisplayStyle.None : DisplayStyle.Flex;
+			if (!guided) return;
+			setupFinish.text = MenuCopy.Get("Map", setup.State.operatorManaged ? "tag-setup.headset-finish" : "tag-setup.headset-finish-local");
+			setupMeasureInstructions.text = MenuCopy.Get("Map", setup.CanMeasure || setup.SizeConfirmed
+				? "tag-setup.headset-measure" : "tag-setup.headset-wait");
+			foreach (var slider in tagSizeSliders) slider.SetEnabled(setup.CanMeasure);
+			continueRegistrationButton.SetEnabled(setup.CanMeasure || setup.SizeConfirmed);
 		}
 
 		private static Guid CurrentFrame => SpaceManager.Instance?.Frame.frameId ?? Guid.Empty;
@@ -278,16 +293,20 @@ namespace Anaglyph.LaserTag.MapEditor
 
 		private void OnContinueRegistration()
 		{
-			if (SpaceManager.Instance == null) return;
+			var manager = SpaceManager.Instance;
+			if (manager == null) return;
+			float centimeters = pendingTagSizeCm ?? submittedTagSizeCm ?? manager.Alignment.TagSizeCm;
 			FlushPendingTagSize();
-			MapEditorTool.SetMode(MapEditorTool.Mode.Tags);
+			if (manager.TagSetup.IsGuidingHeadset) manager.TagSetup.ContinueToRegistration(centimeters);
+			else MapEditorTool.SetMode(MapEditorTool.Mode.Tags);
 		}
 
 		private void OnMeasureTagSizeClicked()
 		{
 			var manager = SpaceManager.Instance;
 			FlushPendingTagSize();
-			if (MapEditorTool.DominantHand != null && manager?.Alignment.TagSizeBlocker() == null)
+			if (manager != null && manager.TagSetup.IsGuidingHeadset) manager.TagSetup.ReturnToMeasurement();
+			else if (MapEditorTool.DominantHand != null && manager?.Alignment.TagSizeBlocker() == null)
 				MapEditorTool.SetMode(MapEditorTool.Mode.MeasureTagSize);
 		}
 
@@ -345,8 +364,7 @@ namespace Anaglyph.LaserTag.MapEditor
 			clearTagsForMeasurementButton.style.display = registered == 0 ? DisplayStyle.None : DisplayStyle.Flex;
 			clearTagsForMeasurementButton.SetEnabled(canRemove);
 
-			bool twoTags = registered == 0 && ColocationManager.IsTwoTagMode(
-				ColocationManager.Instance != null ? ColocationManager.Instance.SelectedMethod : alignment.SelectedMethod, manager.Space);
+			bool twoTags = registered == 0 && ColocationManager.IsTwoTagMode(alignment.SelectedMethod, manager.Space);
 			if (twoTags)
 				tagStatus.text = MenuCopy.Get("Map", "alignment.two-tags-description");
 			else if (registrationBlocker != null && registrationBlocker != sizeBlocker)

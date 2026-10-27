@@ -104,7 +104,7 @@ namespace Anaglyph.LaserTag.Player
 				spaceId = SpaceManager.Instance != null ? SpaceManager.Instance.Frame.spaceId : Guid.Empty,
 				frameId = SpaceManager.Instance != null ? SpaceManager.Instance.Frame.frameId : Guid.Empty,
 				activeMethod = ColocationManager.Instance != null ? ColocationManager.Instance.ActiveMethod : default,
-				method = ColocationManager.Instance != null ? ColocationManager.Instance.SelectedMethod : default
+				method = SpaceManager.Instance != null ? SpaceManager.Instance.Alignment.SelectedMethod : default
 			};
 		}
 

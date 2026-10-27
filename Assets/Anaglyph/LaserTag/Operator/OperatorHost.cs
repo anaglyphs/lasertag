@@ -108,15 +108,6 @@ namespace Anaglyph.LaserTag.Operator
 				return false;
 			}
 
-			// The tag size is not a hosting choice: it belongs to the map whose tags are being
-			// used, and reaches the provider when that map is loaded.
-			if (colocation.PreferredSessionMethod == ColocationManager.ColocationMethod.AprilTag &&
-				colocation.TagProvider == null)
-			{
-				error = MenuCopy.String("OperatorMenu", "error.tags-unavailable");
-				return false;
-			}
-
 			PlayerAvatarSpawner.Instance?.SetIsParticipating(false);
 
 			try

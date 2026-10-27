@@ -70,8 +70,7 @@ namespace Anaglyph.LaserTag.Maps
 				id = source.id, name = source.name, frameId = source.canonicalFrameId, lastUsed = source.lastUsed,
 				alignment = new AlignmentSettings
 				{
-					method = ColocationManager.MigrateLegacyMethod(source.preferredColocationMethod) is var method && method == Method.ScanRegistration
-						? Method.Visual : method,
+					method = ColocationManager.MigrateLegacyMethod(source.preferredColocationMethod),
 					tagSizeCm = source.tagSizeCm, firstTagId = source.firstTagId, secondTagId = source.secondTagId
 				}
 			};

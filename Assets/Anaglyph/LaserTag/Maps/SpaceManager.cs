@@ -64,6 +64,7 @@ namespace Anaglyph.LaserTag.Maps
 		public MapObjects Objects { get; private set; }
 		public SpaceDiscovery Discovery { get; private set; }
 		public SpaceSync Sync { get; private set; }
+		public TagSetup TagSetup { get; private set; }
 		public SpaceStore Store => store;
 
 		/// <summary>The shown space; null until startup finds or makes one.</summary>
@@ -111,6 +112,7 @@ namespace Anaglyph.LaserTag.Maps
 			Objects = new MapObjects(this, objectDatabase);
 			Discovery = new SpaceDiscovery(colocationManager, visualMaps, probeTimeoutSeconds);
 			Sync = new SpaceSync(this, Alignment);
+			TagSetup = new TagSetup(this, Alignment, Sync);
 		}
 
 		private void Start()
@@ -118,9 +120,9 @@ namespace Anaglyph.LaserTag.Maps
 			Objects.Register();
 			Alignment.Register();
 			Sync.Register();
+			TagSetup.Register();
 			colocationManager.AnchorProvider.ErrorRaised += OnAnchorError;
 			colocationManager.SourceChanged += RaiseSpaceChanged;
-			colocationManager.MethodChanged += RaiseSpaceChanged;
 			SyncBus.Activated += OnBusActivated;
 			SyncBus.Deactivated += OnBusDeactivated;
 			SyncBus.AuthorityChanged += OnAuthorityChanged;
@@ -135,6 +137,7 @@ namespace Anaglyph.LaserTag.Maps
 		private void Update()
 		{
 			if (dirty && Time.unscaledTime >= saveDue) Save();
+			TagSetup.Tick();
 			if (changingMap && (Objects.IsReplacementComplete || Time.unscaledTime - changeStarted >= ChangeTimeout))
 			{
 				changingMap = false;
@@ -151,7 +154,6 @@ namespace Anaglyph.LaserTag.Maps
 			lifetime.Cancel();
 			colocationManager.AnchorProvider.ErrorRaised -= OnAnchorError;
 			colocationManager.SourceChanged -= RaiseSpaceChanged;
-			colocationManager.MethodChanged -= RaiseSpaceChanged;
 			SyncBus.Activated -= OnBusActivated;
 			SyncBus.Deactivated -= OnBusDeactivated;
 			SyncBus.AuthorityChanged -= OnAuthorityChanged;
@@ -159,6 +161,7 @@ namespace Anaglyph.LaserTag.Maps
 			MapObject.Added -= OnObjectChanged;
 			MapObject.Removed -= OnObjectChanged;
 			MainXRRig.Recentered -= OnRecentered;
+			TagSetup.Unregister();
 			Sync.Unregister();
 			Alignment.Unregister();
 			Objects.Unregister();

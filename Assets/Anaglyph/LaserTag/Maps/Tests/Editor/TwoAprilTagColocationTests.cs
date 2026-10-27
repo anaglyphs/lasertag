@@ -159,6 +159,8 @@ namespace Anaglyph.LaserTag.Tests
 		public void TrackingLifecycleRequiresBothSavedTagsAgain(string reason, bool completePair)
 		{
 			var manager = owner.AddComponent<ColocationManager>();
+			typeof(ColocationManager).GetField("colocator", PrivateInstance).SetValue(manager, owner.AddComponent<Colocator>());
+			typeof(ColocationManager).GetField("spatialAnchorColocationProvider", PrivateInstance).SetValue(manager, owner.AddComponent<SpatialAnchorColocationConstraintProvider>());
 			typeof(ColocationManager).GetField("aprilTagColocationProvider", PrivateInstance).SetValue(manager, provider);
 			provider.ConfigurePair(17, 92); provider.StartProviding();
 			Observe(17, Vector3.zero);
@@ -226,6 +228,7 @@ namespace Anaglyph.LaserTag.Tests
 			var manager = owner.AddComponent<ColocationManager>();
 			var colocator = owner.AddComponent<Colocator>();
 			typeof(ColocationManager).GetField("colocator", PrivateInstance).SetValue(manager, colocator);
+			typeof(ColocationManager).GetField("spatialAnchorColocationProvider", PrivateInstance).SetValue(manager, owner.AddComponent<SpatialAnchorColocationConstraintProvider>());
 			typeof(ColocationManager).GetField("aprilTagColocationProvider", PrivateInstance).SetValue(manager, provider);
 			manager.ActivateMethod(ColocationManager.ColocationMethod.AprilTag);
 			Observe(17, Vector3.zero);
@@ -240,6 +243,7 @@ namespace Anaglyph.LaserTag.Tests
 			var manager = owner.AddComponent<ColocationManager>();
 			var colocator = owner.AddComponent<Colocator>();
 			typeof(ColocationManager).GetField("colocator", PrivateInstance).SetValue(manager, colocator);
+			typeof(ColocationManager).GetField("spatialAnchorColocationProvider", PrivateInstance).SetValue(manager, owner.AddComponent<SpatialAnchorColocationConstraintProvider>());
 			typeof(ColocationManager).GetField("aprilTagColocationProvider", PrivateInstance).SetValue(manager, provider);
 			manager.ActivateMethod(ColocationManager.ColocationMethod.AprilTag);
 			Assert.That(manager.CountRealizableReferences(), Is.Zero);
