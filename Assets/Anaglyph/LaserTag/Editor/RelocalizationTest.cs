@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 using System.Collections.Generic;
 using System.Text;
+using Anaglyph.XR.SharedSpaces;
 using Anaglyph.XR;
 using Anaglyph.XR.DepthKit.EnvScanning.Registration;
 using Anaglyph.XR.VisualLocalization;
@@ -59,7 +60,7 @@ namespace Anaglyph.LaserTag.Editor
 		[MenuItem(Menu + "Cancel", true)]
 		private static bool CanCancel() => trial != null;
 
-		private static CanonColocationProvider Provider => CanonColocationProvider.Active;
+		private static VisualColocationConstraintProvider Provider => VisualColocationConstraintProvider.Active;
 
 		private static void Run(int count)
 		{
@@ -93,23 +94,23 @@ namespace Anaglyph.LaserTag.Editor
 				return;
 			}
 
-			CanonColocationProvider provider = Provider;
+			VisualColocationConstraintProvider provider = Provider;
 			double elapsed = EditorApplication.timeSinceStartup - trial.started;
-			if (provider != null && provider.CurrentPhase == CanonColocationProvider.Phase.Aligned &&
-			    provider.AlignmentGeneration != trial.generation)
+			if (provider != null && provider.Alignment.CurrentPhase == CanonAlignment.Phase.Aligned &&
+			    provider.Alignment.Generation != trial.generation)
 			{
 				Finish(true, null);
 				return;
 			}
 
-			if (elapsed > Timeout) Finish(false, $"timed out after {Timeout:F0} s in phase {provider?.CurrentPhase}");
+			if (elapsed > Timeout) Finish(false, $"timed out after {Timeout:F0} s in phase {provider?.Alignment.CurrentPhase}");
 		}
 
 		private static void Begin(int index)
 		{
-			CanonColocationProvider provider = Provider;
+			VisualColocationConstraintProvider provider = Provider;
 			string problem = provider == null ? "no map-matching provider (colocation method is not Visual)"
-				: provider.CurrentPhase != CanonColocationProvider.Phase.Aligned ? $"provider is {provider.CurrentPhase}, not Aligned"
+				: provider.Alignment.CurrentPhase != CanonAlignment.Phase.Aligned ? $"provider is {provider.Alignment.CurrentPhase}, not Aligned"
 				: ColocationManager.Instance == null || !ColocationManager.IsColocated ? "not colocated yet"
 				: MainXRRig.Instance == null ? "no XR rig"
 				: null;
@@ -140,7 +141,7 @@ namespace Anaglyph.LaserTag.Editor
 			trial = new Trial
 			{
 				index = index, before = before, jump = jump,
-				generation = provider.AlignmentGeneration, started = EditorApplication.timeSinceStartup,
+				generation = provider.Alignment.Generation, started = EditorApplication.timeSinceStartup,
 			};
 
 			MainXRRig.SimulateRecenter();
@@ -164,7 +165,7 @@ namespace Anaglyph.LaserTag.Editor
 			// the alignment found, against the tracking space's pose before the jump (the canon
 			// pose leaves out the SLAM correction, which a new alignment resets anyway): where
 			// each puts the head, tracking-local, and how far they turn the frame apart
-			Pose canon = Provider.CanonSpacePose;
+			Pose canon = Provider.Alignment.CanonSpacePose;
 			Vector3 headLocal = MainXRRig.TrackingSpace.InverseTransformPoint(MainXRRig.Camera.transform.position);
 			float headError = Vector3.Distance(t.before.position + t.before.rotation * headLocal, canon.position + canon.rotation * headLocal);
 			float yawError = math.degrees(math.abs(Pose4.WrapAngle(Pose4.TwistYaw(canon.rotation) - Pose4.TwistYaw(t.before.rotation))));

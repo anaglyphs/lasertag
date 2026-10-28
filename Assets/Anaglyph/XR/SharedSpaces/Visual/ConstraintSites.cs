@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using Anaglyph.XR.DepthKit.EnvScanning.Registration;
 using Unity.Mathematics;
 
-namespace Anaglyph.LaserTag
+namespace Anaglyph.XR.SharedSpaces
 {
 	/// <summary>
 	/// Where this headset has measured its alignment against the map, and what correction it

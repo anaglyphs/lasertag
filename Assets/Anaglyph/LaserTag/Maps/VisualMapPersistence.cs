@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
+using Anaglyph.XR.SharedSpaces;
 using Anaglyph.XR.VisualLocalization;
 using Unity.Mathematics;
 using UnityEngine;
@@ -109,7 +110,7 @@ namespace Anaglyph.LaserTag.Maps
 			VisualLocalizer localizer = VisualLocalizer.Instance;
 			VisualColocationConstraintProvider provider = VisualColocationConstraintProvider.Instance;
 			if (space == null || localizer == null || provider == null) return;
-			if (provider.CurrentPhase != CanonColocationProvider.Phase.Aligned) return;
+			if (provider.Alignment.CurrentPhase != CanonAlignment.Phase.Aligned) return;
 			VisualMap map = localizer.Map;
 			if (map.Count == 0 || writesInFlight > 0 && !force) return;
 			if (space.id == loadedSpace && map.Count < loadedKeyframes || space.id == unverifiedSpace) return;
@@ -318,14 +319,14 @@ namespace Anaglyph.LaserTag.Maps
 			try
 			{
 				float alignDeadline = Time.realtimeSinceStartup + AlignTimeout;
-				while (provider && provider.CurrentPhase != CanonColocationProvider.Phase.Aligned && Time.realtimeSinceStartup < alignDeadline)
+				while (provider && provider.Alignment.CurrentPhase != CanonAlignment.Phase.Aligned && Time.realtimeSinceStartup < alignDeadline)
 					await Awaitable.WaitForSecondsAsync(0.25f, token);
 			}
 			catch (OperationCanceledException) { return; }
 			if (!localizer || !provider) return;
-			if (provider.CurrentPhase != CanonColocationProvider.Phase.Aligned)
+			if (provider.Alignment.CurrentPhase != CanonAlignment.Phase.Aligned)
 			{
-				Debug.Log($"[{nameof(VisualMapPersistence)}] the rig took no alignment in {AlignTimeout:F0} s ({provider.CurrentPhase}): the saved map for space {space.id} is not loaded, and not replaced");
+				Debug.Log($"[{nameof(VisualMapPersistence)}] the rig took no alignment in {AlignTimeout:F0} s ({provider.Alignment.CurrentPhase}): the saved map for space {space.id} is not loaded, and not replaced");
 				return;
 			}
 
@@ -366,9 +367,9 @@ namespace Anaglyph.LaserTag.Maps
 				{
 					await Awaitable.WaitForSecondsAsync(0.5f, token);
 					if (!provider) return;
-					if (provider.CurrentPhase != CanonColocationProvider.Phase.Relocalizing)
+					if (provider.Alignment.CurrentPhase != CanonAlignment.Phase.Relocalizing)
 					{
-						if (provider.CurrentPhase == CanonColocationProvider.Phase.Aligned) Verified(space);
+						if (provider.Alignment.CurrentPhase == CanonAlignment.Phase.Aligned) Verified(space);
 						return;
 					}
 					if (localizer.Map.Count >= loadedKeyframes / 2 || restores >= 3) continue;
@@ -380,9 +381,9 @@ namespace Anaglyph.LaserTag.Maps
 			}
 			catch (OperationCanceledException) { return; }
 
-			if (provider.CurrentPhase != CanonColocationProvider.Phase.Relocalizing) return;
+			if (provider.Alignment.CurrentPhase != CanonAlignment.Phase.Relocalizing) return;
 			Debug.Log($"[{nameof(VisualMapPersistence)}] the saved map didn't relocalize in {RelocalizeTimeout:F0} s: starting a fresh one ({provider.LastAttemptDescription})");
-			provider.AbandonRelocalization();
+			provider.Alignment.AbandonRelocalization();
 			localizer.Map.Clear();
 			failed?.Invoke(space);
 		}

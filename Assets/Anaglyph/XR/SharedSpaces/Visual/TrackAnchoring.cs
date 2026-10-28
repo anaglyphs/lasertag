@@ -5,7 +5,7 @@ using Anaglyph.XR.VisualLocalization;
 using Unity.Mathematics;
 using UnityEngine;
 
-namespace Anaglyph.LaserTag
+namespace Anaglyph.XR.SharedSpaces
 {
 	/// <summary>
 	/// Where visual keyframes hang: the track this headset walks, cut into short segments.
@@ -35,6 +35,8 @@ namespace Anaglyph.LaserTag
 		}
 
 		private readonly Dictionary<ulong, Segment> segments = new();
+		// the alignment the current segment's keyframes are placed through
+		private CanonAlignment alignment;
 		private ulong current;
 		private ulong nextId = 1;
 		private float path, steps;
@@ -59,22 +61,23 @@ namespace Anaglyph.LaserTag
 			current = 0;
 		}
 
-		/// <summary>Follows the head and the provider's alignment. Call once per frame.</summary>
-		public void Update(CanonColocationProvider provider)
+		/// <summary>Follows the head and the alignment keyframes are placed through. Call once per frame.</summary>
+		public void Update(CanonAlignment alignment)
 		{
-			if (MainXRRig.Instance == null || provider == null) return;
+			this.alignment = alignment;
+			if (MainXRRig.Instance == null || alignment == null) return;
 			if (HeadPoseHistory.Instance != null) path = HeadPoseHistory.Instance.Path;
 
-			if (provider.CurrentPhase != CanonColocationProvider.Phase.Aligned)
+			if (alignment.CurrentPhase != CanonAlignment.Phase.Aligned)
 			{
 				current = 0;
 				return;
 			}
 
-			Pose4 correction = provider.SiteCorrection;
-			if (current == 0 || !segments.TryGetValue(current, out Segment s) || s.generation != provider.AlignmentGeneration)
+			Pose4 correction = alignment.SiteCorrection;
+			if (current == 0 || !segments.TryGetValue(current, out Segment s) || s.generation != alignment.Generation)
 			{
-				Begin(provider.AlignmentGeneration, correction);
+				Begin(alignment.Generation, correction);
 				return;
 			}
 
@@ -109,10 +112,9 @@ namespace Anaglyph.LaserTag
 		{
 			node = 0;
 			cameraInNode = default;
-			CanonColocationProvider provider = CanonColocationProvider.Active;
-			if (current == 0 || provider == null || !segments.TryGetValue(current, out Segment s)) return false;
+			if (current == 0 || alignment == null || !segments.TryGetValue(current, out Segment s)) return false;
 
-			Pose canon = provider.CanonSpacePose;
+			Pose canon = alignment.CanonSpacePose;
 			Pose inCanon = new(canon.position + canon.rotation * cameraInTrackingSpace.position, canon.rotation * cameraInTrackingSpace.rotation);
 			node = current;
 			cameraInNode = s.correction.Apply(inCanon);

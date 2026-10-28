@@ -92,25 +92,19 @@ namespace Anaglyph.XR.SharedSpaces
 	}
 
 	/// <summary>
-	/// Supplies a colocator with constraints each frame. A colocator consumes constraints from
-	/// a source without caring how its physical references were established. Sources own their
-	/// references' lifecycles.
+	/// Supplies a colocator with constraints each frame, and owns the lifecycle of the
+	/// physical references behind them: the colocator only fits what it is given, without
+	/// caring how those references were established. Exactly one provider is activated by
+	/// <see cref="Colocator"/> at a time.
 	/// </summary>
-	public interface IColocationConstraintSource
+	public interface IColocationConstraintProvider
 	{
 		/// <summary>
 		/// Appends every constraint that is trustworthy right now (tracked/visible, with a
 		/// known canon pose). Called every frame; implementations should not allocate.
 		/// </summary>
 		void GetColocationConstraints(List<ColocationConstraint> results);
-	}
 
-	/// <summary>
-	/// A self-contained source that owns the lifecycle of the physical references it exposes.
-	/// Exactly one provider is activated by <see cref="Colocator"/> at a time.
-	/// </summary>
-	public interface IColocationConstraintProvider : IColocationConstraintSource
-	{
 		/// <summary>
 		/// Whether the runtime this provider observes its references through exists in this
 		/// process at all. False means no reference can ever be observed — not that none

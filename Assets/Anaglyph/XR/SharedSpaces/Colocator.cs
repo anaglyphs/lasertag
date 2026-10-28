@@ -58,6 +58,7 @@ namespace Anaglyph.XR.SharedSpaces
 		/// <summary>How many of them land within <see cref="Colocator.AgreementMaxError"/>.</summary>
 		public readonly int agreeingCount;
 
+		/// <summary>Mean error beyond the drift each constraint has had time to gather since it was measured; live ones are allowed none.</summary>
 		public readonly float meanError;
 
 		/// <summary>
@@ -92,19 +93,15 @@ namespace Anaglyph.XR.SharedSpaces
 
 		public float AgreementMaxError => agreementMaxError;
 
-		[Tooltip("Position uncertainty a measured constraint gains as the head walks on, meters per √meter walked: tracking drifts like a random walk. Live references (anchors) never age")]
+		[Tooltip("Position uncertainty the fit gains as the head walks on, meters per √meter walked: tracking drifts like a random walk, so measurements taken further back count for less. Live references count as measured now")]
 		[SerializeField] private float positionDriftRate = 0.063f;
 
-		[Tooltip("Yaw uncertainty a measured constraint gains as the head walks on, degrees per √meter walked")]
+		[Tooltip("Yaw uncertainty the fit gains as the head walks on, degrees per √meter walked")]
 		[SerializeField] private float yawDriftRateDegrees = 0.57f;
 
 		/// <summary>How constraints' uncertainty stands now, for this headset's tracking: what the fit weighs them by.</summary>
 		public ColocationDrift Drift => new(positionDriftRate, yawDriftRateDegrees * Mathf.Deg2Rad,
 			HeadPoseHistory.Instance != null ? HeadPoseHistory.Instance.Path : 0f);
-
-		/// <summary>The fit this colocator applies, without applying it: for a source placing data where the rig is going.</summary>
-		public bool TryEvaluate(IReadOnlyList<ColocationConstraint> fitting, out Pose delta) =>
-			ColocationFit.TryEvaluate(fitting, Drift, out delta, out _, out _);
 
 		/// <summary>
 		/// How well the alignment currently applied fits the references being observed. Measured
@@ -256,11 +253,14 @@ namespace Anaglyph.XR.SharedSpaces
 
 			int agreeing = 0;
 			float errorSum = 0f;
+			ColocationDrift drift = Drift;
 
 			foreach (ColocationConstraint constraint in constraints)
 			{
-				float error = Vector3.Distance(
-					constraint.observed.position, constraint.canon.position);
+				// a measurement taken a walk ago is allowed the drift it has had time to gather (2σ)
+				float allowance = 2f * drift.positionRate * Mathf.Sqrt(drift.Age(constraint));
+				float error = Mathf.Max(0f, Vector3.Distance(
+					constraint.observed.position, constraint.canon.position) - allowance);
 
 				errorSum += error;
 				if (error <= agreementMaxError)
@@ -286,7 +286,7 @@ namespace Anaglyph.XR.SharedSpaces
 
 		private bool TryFit()
 		{
-			if (!MainXRRig.Instance || !TryEvaluate(constraints, out Pose delta)) return false;
+			if (!MainXRRig.Instance || !ColocationFit.TryEvaluate(constraints, Drift, out Pose delta)) return false;
 			float lerp = AlignmentState == ColocationAlignmentState.Localized ? fitLerp : 1f;
 			Matrix4x4 current = MainXRRig.TrackingSpace.localToWorldMatrix;
 			MainXRRig.Instance.AlignSpace(current, Matrix4x4.TRS(delta.position, delta.rotation, Vector3.one) * current, lerp);

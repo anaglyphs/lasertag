@@ -8,7 +8,7 @@ using Anaglyph.XR.VisualLocalization;
 using Unity.Collections;
 using UnityEngine;
 
-namespace Anaglyph.LaserTag
+namespace Anaglyph.XR.SharedSpaces
 {
 	/// <summary>
 	/// Saves what alignment works from, for diagnosing and tuning it offline: the live
@@ -39,7 +39,7 @@ namespace Anaglyph.LaserTag
 
 				StringBuilder info = new();
 				info.AppendLine($"captured {DateTime.Now:u}, build {NetcodeManagement.GameVersion}, device {SystemInfo.deviceModel}");
-				AppendState(info, CanonColocationProvider.Active);
+				AppendState(info, VisualColocationConstraintProvider.Active);
 
 				await Save(info, folder, "map", () => EnvScan.CaptureAsync(scanner, label: "live map"));
 
@@ -117,10 +117,10 @@ namespace Anaglyph.LaserTag
 
 				ConstraintSites sites = provider.Sites;
 				TrackAnchoring track = provider.Track;
-				Vector3 head = XR.MainXRRig.Instance != null ? XR.MainXRRig.Camera.transform.position : Vector3.zero;
+				Vector3 head = MainXRRig.Instance != null ? MainXRRig.Camera.transform.position : Vector3.zero;
 				Json j = new();
 				j.BeginObject();
-				j.Field("correction", provider.SiteCorrection.AsPose);
+				j.Field("correction", provider.Alignment.SiteCorrection.AsPose);
 				j.Field("path", track.Path);
 				j.Field("segment", track.Current);
 				j.Field("head", head);
@@ -162,7 +162,7 @@ namespace Anaglyph.LaserTag
 				j.EndArray();
 				j.EndObject();
 				File.WriteAllText(Path.Combine(folder, "sites.json"), j.ToString());
-				info.AppendLine($"constraint sites: {sites.Count}, correction {provider.SiteCorrection}, walked {track.Path:F0} m");
+				info.AppendLine($"constraint sites: {sites.Count}, correction {provider.Alignment.SiteCorrection}, walked {track.Path:F0} m");
 			}
 			catch (Exception e)
 			{
@@ -172,7 +172,7 @@ namespace Anaglyph.LaserTag
 		}
 
 
-		private static void AppendState(StringBuilder info, CanonColocationProvider provider)
+		private static void AppendState(StringBuilder info, VisualColocationConstraintProvider provider)
 		{
 			if (MainXRRig.Instance)
 			{
@@ -181,8 +181,8 @@ namespace Anaglyph.LaserTag
 				if (MainXRRig.Camera) info.AppendLine($"head {MainXRRig.Camera.transform.position} {MainXRRig.Camera.transform.rotation.eulerAngles}");
 			}
 
-			if (ColocationManager.Instance != null)
-				info.AppendLine($"colocation state {ColocationManager.Instance.AlignmentState}");
+			if (Colocator.Instance != null)
+				info.AppendLine($"colocation state {Colocator.Instance.AlignmentState}");
 
 			if (provider == null)
 			{
@@ -190,8 +190,9 @@ namespace Anaglyph.LaserTag
 				return;
 			}
 
-			info.AppendLine($"provider {provider.GetType().Name}, phase {provider.CurrentPhase}, alignment generation {provider.AlignmentGeneration}");
-			info.AppendLine($"canon space pose {provider.CanonSpacePose.position} {provider.CanonSpacePose.rotation.eulerAngles}, site correction {provider.SiteCorrection}");
+			CanonAlignment alignment = provider.Alignment;
+			info.AppendLine($"provider {provider.GetType().Name}, phase {alignment.CurrentPhase}, alignment generation {alignment.Generation}");
+			info.AppendLine($"canon space pose {alignment.CanonSpacePose.position} {alignment.CanonSpacePose.rotation.eulerAngles}, site correction {alignment.SiteCorrection}");
 			info.AppendLine($"last attempt {provider.LastAttemptDescription}");
 		}
 	}
