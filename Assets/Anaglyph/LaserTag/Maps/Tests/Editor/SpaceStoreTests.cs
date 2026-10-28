@@ -3,9 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 using Anaglyph.LaserTag.Maps;
-using Anaglyph.XR.VisualLocalization;
 using NUnit.Framework;
-using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.TestTools;
 using Method = Anaglyph.LaserTag.ColocationManager.ColocationMethod;
@@ -161,117 +159,6 @@ namespace Anaglyph.LaserTag.Tests
 			good.name = "Still saves";
 			Assert.That(store.Save(good), Is.True);
 			Assert.That(store.LoadAll()[0].name, Is.EqualTo("Still saves"));
-		}
-
-		[Test]
-		public void MigratesAV2CatalogOnce()
-		{
-			string v2 = Path.Combine(root, CatalogV2Migrator.V2Folder);
-			Directory.CreateDirectory(Path.Combine(v2, "spaces"));
-			Directory.CreateDirectory(Path.Combine(v2, "maps"));
-			string spaceId = Space.NewId(), frameId = Space.NewId(), storageFrameId = Space.NewId();
-			string mapId = Space.NewId(), otherMapId = Space.NewId(), anchorId = Space.NewId(), localAnchorId = Space.NewId();
-			Pose offset = new(new Vector3(1, 0, 2), Quaternion.Euler(0, 90, 0));
-			string spaceJson = V2SpaceJson(spaceId, "Garage", storageFrameId, frameId, offset, new[] { mapId, otherMapId }, anchorId, localAnchorId);
-			File.WriteAllText(Path.Combine(v2, "spaces", spaceId + ".json"), spaceJson);
-			File.WriteAllText(Path.Combine(v2, "maps", mapId + ".json"), V2MapJson(mapId, "Garage layout", storageFrameId, "Base", new Vector3(1, 0, 0)));
-			File.WriteAllText(Path.Combine(v2, "maps", otherMapId + ".json"), V2MapJson(otherMapId, "Foreign", Space.NewId(), "Base", Vector3.zero));
-			// a space whose primary is corrupt but whose backup reads
-			string backedUpId = Space.NewId();
-			File.WriteAllText(Path.Combine(v2, "spaces", backedUpId + ".json"), "{ corrupt");
-			File.WriteAllText(Path.Combine(v2, "spaces", backedUpId + ".json.bak"),
-				V2SpaceJson(backedUpId, "Backup", storageFrameId, storageFrameId, Pose.identity, Array.Empty<string>(), null, null));
-			File.WriteAllBytes(Path.Combine(v2, "spaces", SpaceStore.VocabularyFile), new byte[] { 1, 2, 3, 4 });
-			WriteVisualMap(Path.Combine(v2, "spaces", spaceId + ".vmap"), storageFrameId, new Pose(new Vector3(0, 1, 0), Quaternion.identity));
-
-			Assert.That(CatalogV2Migrator.NeedsMigration(v2, store), Is.True);
-			Assert.That(CatalogV2Migrator.Migrate(v2, store), Is.EqualTo(2));
-			Assert.That(CatalogV2Migrator.NeedsMigration(v2, store), Is.False);
-			Assert.That(File.Exists(Path.Combine(v2, "spaces", spaceId + ".json")), Is.True, "the old catalog is left for rollback");
-
-			List<Space> spaces = store.LoadAll();
-			Assert.That(spaces.Count, Is.EqualTo(2));
-			Space space = spaces.Find(s => s.id == spaceId);
-			Assert.That(space.name, Is.EqualTo("Garage"));
-			Assert.That(space.frameId, Is.EqualTo(frameId));
-			Assert.That(space.alignment.method, Is.EqualTo(Method.Visual), "scan registration migrates to visual");
-			Assert.That(space.alignment.tagSizeCm, Is.EqualTo(9.5f).Within(.001f));
-			Assert.That(space.maps.Count, Is.EqualTo(1), "a map in another frame is not embedded");
-			Assert.That(space.maps[0].id, Is.EqualTo(mapId));
-			Assert.That(space.maps[0].name, Is.EqualTo("Garage layout"));
-			Assert.That(space.maps[0].objects.Count, Is.EqualTo(1));
-			Vector3 expected = offset.position + offset.rotation * new Vector3(1, 0, 0);
-			Assert.That(Vector3.Distance(space.maps[0].objects[0].pose.position, expected), Is.LessThan(.001f), "poses pass through canonicalFromStorage");
-			Assert.That(space.tags.Count, Is.EqualTo(1));
-			Assert.That(Vector3.Distance(space.tags[0].pose.position, offset.position + offset.rotation * new Vector3(3, 1, 0)), Is.LessThan(.001f));
-			Assert.That(space.anchors.Count, Is.EqualTo(1));
-			Assert.That(space.anchors[0].guid, Is.EqualTo(anchorId));
-			Assert.That(JsonUtility.ToJson(space), Does.Not.Contain("retainedReferences").And.Not.Contain("associations").And.Not.Contain("knownFrames"));
-
-			PrivateReferences references = store.LoadPrivate(spaceId);
-			Assert.That(references, Is.Not.Null);
-			Assert.That(references.Matches(space), Is.True);
-			Assert.That(references.tagAnchors.Count, Is.EqualTo(1));
-			Assert.That(references.tagAnchors[0].guid, Is.EqualTo(localAnchorId));
-			Assert.That(references.tagAnchors[0].tagId, Is.EqualTo(7));
-
-			Assert.That(File.ReadAllBytes(store.VocabularyPath), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
-			Assert.That(store.HasVisualMap(spaceId), Is.True);
-			using (FileStream f = new(store.VisualMapPath(spaceId), FileMode.Open, FileAccess.Read))
-			{
-				VisualMapData data = VisualMapFile.Read(f);
-				Assert.That(data.frameId, Is.EqualTo(frameId), "the visual map follows the space into its aligned frame");
-				Assert.That(Vector3.Distance(data.keyframes[0].camera.position, offset.position + offset.rotation * new Vector3(0, 1, 0)), Is.LessThan(.001f));
-			}
-			Assert.That(spaces.Find(s => s.id == backedUpId).name, Is.EqualTo("Backup"));
-
-			// a second run after the user deleted everything must not resurrect the old catalog
-			foreach (Space s in spaces) store.Delete(s.id);
-			Assert.That(store.IsEmpty, Is.True);
-			Assert.That(CatalogV2Migrator.NeedsMigration(v2, store), Is.False);
-		}
-
-		private static string V2SpaceJson(string id, string name, string storageFrameId, string canonicalFrameId, Pose offset,
-			string[] mapIds, string anchorId, string localAnchorId)
-		{
-			string maps = string.Join(",", Array.ConvertAll(mapIds, m => $"\"{m}\""));
-			string anchors = anchorId == null ? "" : $"{{\"guid\":\"{anchorId}\",\"canonPose\":{PoseJson(new Pose(new Vector3(2, 0, 2), Quaternion.identity))},\"tagId\":-1,\"tagSizeCm\":0,\"tagCanonPose\":{PoseJson(Pose.identity)}}}";
-			string localAnchors = localAnchorId == null ? "" : $"{{\"guid\":\"{localAnchorId}\",\"canonPose\":{PoseJson(new Pose(new Vector3(3, 1, 0.1f), Quaternion.identity))},\"tagId\":7,\"tagSizeCm\":9.5,\"tagCanonPose\":{PoseJson(new Pose(new Vector3(3, 1, 0), Quaternion.identity))}}}";
-			return "{\"schemaVersion\":1," +
-				$"\"id\":\"{id}\",\"name\":\"{name}\",\"version\":\"{Space.NewId()}\",\"storageFrameId\":\"{storageFrameId}\",\"canonicalFrameId\":\"{canonicalFrameId}\"," +
-				$"\"canonicalFromStorage\":{PoseJson(offset)},\"frameRevision\":1,\"lastUsed\":638000000000000000,\"lastEdited\":0,\"dirty\":false," +
-				"\"automaticallyCreated\":false,\"initializationPending\":false,\"hasPendingSetup\":false,\"pendingSetupMethod\":1,\"pendingSetupIntent\":0," +
-				$"\"mapIds\":[{maps}],\"tags\":[{{\"id\":7,\"canonPose\":{PoseJson(new Pose(new Vector3(3, 1, 0), Quaternion.identity))}}}]," +
-				$"\"anchors\":[{anchors}],\"localAnchors\":[{localAnchors}]," +
-				$"\"retainedReferences\":[{{\"sourceId\":\"{Space.NewId()}\",\"version\":\"{Space.NewId()}\",\"tagSizeCm\":9.5,\"tags\":[],\"anchors\":[]}}]," +
-				$"\"associations\":[{{\"remoteSpaceId\":\"{Space.NewId()}\",\"frameId\":\"{canonicalFrameId}\"}}]," +
-				$"\"knownFrames\":[{{\"frameId\":\"{canonicalFrameId}\",\"canonicalFromStorage\":{PoseJson(offset)}}}]," +
-				$"\"referenceSourceId\":\"{id}\",\"referenceVersion\":\"{Space.NewId()}\",\"referenceDirty\":false,\"tagSizeCm\":9.5," +
-				"\"preferredColocationMethod\":4,\"firstTagId\":-1,\"secondTagId\":-1,\"previousCanonicalFrameId\":\"\"," +
-				$"\"previousOffset\":{PoseJson(Pose.identity)},\"visualMapSaved\":0}}";
-		}
-
-		private static string V2MapJson(string id, string name, string storageFrameId, string prefabId, Vector3 position) =>
-			$"{{\"schemaVersion\":1,\"id\":\"{id}\",\"name\":\"{name}\",\"storageFrameId\":\"{storageFrameId}\",\"version\":\"{Space.NewId()}\"," +
-			$"\"dirty\":false,\"lastUsed\":638000000000000000,\"lastEdited\":0,\"objects\":[{{\"prefabId\":\"{prefabId}\",\"pose\":{PoseJson(new Pose(position, Quaternion.identity))}}}]}}";
-
-		private static string PoseJson(Pose pose) =>
-			$"{{\"position\":{{\"x\":{F(pose.position.x)},\"y\":{F(pose.position.y)},\"z\":{F(pose.position.z)}}}," +
-			$"\"rotation\":{{\"x\":{F(pose.rotation.x)},\"y\":{F(pose.rotation.y)},\"z\":{F(pose.rotation.z)},\"w\":{F(pose.rotation.w)}}}}}";
-
-		private static string F(float value) => value.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
-
-		private static void WriteVisualMap(string path, string frameId, Pose camera)
-		{
-			VisualMapData data = new() { frameId = frameId, savedTicks = 1 };
-			data.keyframes.Add(new VisualMapData.Keyframe
-			{
-				camera = camera, intrinsics = new PinholeCamera(500, 500, 320, 240), timestampNs = 1, original = true, count = 0,
-				keypoints = Array.Empty<float2>(), scores = Array.Empty<float>(), descriptors = Array.Empty<half>(), landmarks = Array.Empty<int>()
-			});
-			data.landmarks.Add(new VisualMapData.Landmark { id = 1, origin = new float3(0, 1, 0), direction = new float3(0, 0, 1), inverseDepth = .5f, inverseDepthSigma = .1f });
-			using FileStream f = new(path, FileMode.Create, FileAccess.Write);
-			VisualMapFile.Write(data, f);
 		}
 	}
 }

@@ -107,8 +107,6 @@ namespace Anaglyph.LaserTag.Maps
 			Instance = this;
 			lifetime = new CancellationTokenSource();
 			store = new SpaceStore(SpaceStore.DefaultDirectory);
-			if (CatalogV2Migrator.NeedsMigration(CatalogV2Migrator.DefaultV2Root, store))
-				CatalogV2Migrator.Migrate(CatalogV2Migrator.DefaultV2Root, store);
 			spaces.AddRange(store.LoadAll());
 			visualMaps = new VisualMapPersistence(store);
 			Alignment = new SpaceAlignment(this, colocationManager, store);
