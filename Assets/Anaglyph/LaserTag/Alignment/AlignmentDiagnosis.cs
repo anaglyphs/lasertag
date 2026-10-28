@@ -138,6 +138,24 @@ namespace Anaglyph.LaserTag
 					j.Field("time", site.time);
 					j.Field("crossLink", site.crossLink);
 					j.Field("measurements", site.measurements);
+					// every measurement as it came (the first and the latest), unmerged
+					j.Key("history");
+					j.BeginArray();
+					if (site.history != null)
+						foreach (ConstraintSites.Measurement m in site.history)
+						{
+							j.BeginObject();
+							j.Field("camera", (Vector3)m.camera);
+							j.Field("correction", m.correction.AsPose);
+							j.Field("sigmaTranslation", m.sigmaTranslation);
+							j.Field("sigmaYaw", m.sigmaYaw);
+							j.Field("path", m.path);
+							j.Field("time", m.time);
+							j.Field("crossLink", m.crossLink);
+							j.EndObject();
+						}
+
+					j.EndArray();
 					j.EndObject();
 				}
 

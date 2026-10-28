@@ -21,8 +21,11 @@ namespace Anaglyph.LaserTag.Maps
 	/// Which saved space the headset is standing in. The anchor runtime is asked first which
 	/// saved anchors localize here; when none can say, the camera's view is ranked against every
 	/// space with a saved visual map, by the words they share, with votes added up over a few
-	/// frames. A visual match is confirmed by relocalizing against that space's map once it is
-	/// shown, which is where a wrong guess is caught. The per-space results feed the map picker.
+	/// frames; a space is only chosen by view when it scores like here, even when it is the only
+	/// candidate. A visual match is confirmed by relocalizing against that space's map once it
+	/// is shown, which is where a wrong guess is caught: a space whose map fails to relocalize
+	/// is rejected, left out of probes until the headset changes rooms. The per-space results
+	/// feed the map picker.
 	/// </summary>
 	public sealed class SpaceDiscovery
 	{
@@ -31,6 +34,7 @@ namespace Anaglyph.LaserTag.Maps
 		private readonly float anchorTimeout;
 		private readonly Dictionary<string, int> results = new();
 		private readonly Dictionary<string, float> lastScores = new();
+		private readonly HashSet<string> rejected = new();
 		private bool probing;
 		private int generation;
 
@@ -57,18 +61,23 @@ namespace Anaglyph.LaserTag.Maps
 		/// <summary>Each candidate space's average score over the last visual probe's frames.</summary>
 		public IReadOnlyDictionary<string, float> LastVisualScores => lastScores;
 
-		public MapPresence GetPresence(string spaceId) => spaceId != null && results.TryGetValue(spaceId, out int count)
-			? count > 0 ? MapPresence.Here : MapPresence.Elsewhere : MapPresence.Unknown;
+		public MapPresence GetPresence(string spaceId) => spaceId == null ? MapPresence.Unknown
+			: rejected.Contains(spaceId) ? MapPresence.Elsewhere
+			: results.TryGetValue(spaceId, out int count) ? count > 0 ? MapPresence.Here : MapPresence.Elsewhere : MapPresence.Unknown;
 
 		/// <summary>The headset moved rooms or lost its frame: nothing found so far applies.</summary>
-		public void Invalidate() { generation++; results.Clear(); }
-		public void Forget(string id) { generation++; results.Remove(id); }
+		public void Invalidate() { generation++; results.Clear(); rejected.Clear(); }
+		public void Forget(string id) { generation++; results.Remove(id); rejected.Remove(id); }
+		/// <summary>The space's saved map failed to relocalize here: it is elsewhere, and probes leave it out until <see cref="Invalidate"/>.</summary>
+		public void Reject(string id) { generation++; results.Remove(id); rejected.Add(id); }
 
-		public async Awaitable<ProbeResult> ProbeAsync(IReadOnlyList<Space> spaces, CancellationToken token)
+		public async Awaitable<ProbeResult> ProbeAsync(IReadOnlyList<Space> all, CancellationToken token)
 		{
 			if (probing || !SpaceAlignment.TrackingReady) return new(ProbeOutcome.Indeterminate);
 			probing = true;
 			int operation = generation;
+			List<Space> spaces = new();
+			foreach (Space space in all) if (!rejected.Contains(space.id)) spaces.Add(space);
 			try
 			{
 				ProbeResult byAnchors = await ProbeAnchorsAsync(spaces, token);
@@ -136,9 +145,11 @@ namespace Anaglyph.LaserTag.Maps
 			VisualLocalizer localizer = VisualLocalizer.Instance;
 			if (localizer == null || !localizer.IsAvailable || !SpaceAlignment.TrackingReady) return new(ProbeOutcome.Indeterminate);
 
-			// one space, or nothing to rank them by: the most recent, and relocalizing decides
+			// nothing to rank them by (no vocabulary yet): a guess at the most recent, and
+			// relocalizing decides. A single candidate is scored like any other: an unfamiliar
+			// room must not take the only space there is
 			VisualVocabulary vocabulary = visualMaps.Vocabulary;
-			if (candidates.Count == 1 || vocabulary == null) return new(ProbeOutcome.Matches, candidates[0]);
+			if (vocabulary == null) return new(ProbeOutcome.Matches, candidates[0]);
 
 			VisualPlaceIndex index = new();
 			List<Space> unscorable = new();

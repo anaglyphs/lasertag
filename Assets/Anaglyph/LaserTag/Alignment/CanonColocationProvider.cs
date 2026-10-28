@@ -132,9 +132,25 @@ namespace Anaglyph.LaserTag
 				TargetSpacePose, hasReliableRotation: true));
 		}
 
-		private void OnBusActivated() { if (IsRunning) EnterRole(true); }
-		private void OnBusDeactivated() { if (IsRunning) EnterRole(true); }
-		private void OnAuthorityChanged(bool _) { if (IsRunning) EnterRole(true); }
+		private void OnBusActivated() => OnRoleEvent("session started");
+		private void OnBusDeactivated() => OnRoleEvent("session ended");
+		private void OnAuthorityChanged(bool _) => OnRoleEvent("authority changed");
+
+		// an authority already aligned keeps its frame: it is canon as it stands, with the map
+		// and every site measured in it. Taking the tracking space as canon again would throw
+		// the sites away and fix whatever correction the rig was still easing toward
+		private void OnRoleEvent(string why)
+		{
+			if (!IsRunning) return;
+			if (SyncBus.IsAuthority && CurrentPhase == Phase.Aligned)
+			{
+				Debug.Log($"{LogTag} {why}: the authority, keeping its alignment");
+				return;
+			}
+
+			Debug.Log($"{LogTag} {why}: {(!SyncBus.IsAuthority ? "not the authority" : CurrentPhase == Phase.Relocalizing ? "the authority, still relocalizing" : "the authority, taking its own frame")} (was {CurrentPhase})");
+			EnterRole(true);
+		}
 
 		// the authority's frame is canon by definition; everyone else has to find it. An
 		// authority still relocalizing (against a map just loaded, say) keeps at it when the

@@ -78,6 +78,8 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			public Vector3 position;
 			public Vector3 positionSum;
 			public int samples;
+			/// <summary>The head's travel when <see cref="position"/> was last taken: tracking drifts from it as the head walks on.</summary>
+			public float measuredAt = float.NaN;
 
 			public PairReference(int id) => this.id = id;
 		}
@@ -145,6 +147,9 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 
 		[Tooltip("Tag observations averaged before an anchor's canon pose is rewritten")]
 		[SerializeField] private int correctionSamples = 30;
+
+		[Tooltip("How far off a two-tag reference's averaged position is, meters. The colocator grows it with the walk since the reference was averaged, as tracking drifts from it")]
+		[SerializeField] private float pairPositionSigma = 0.01f;
 
 		[SerializeField] private AprilTagTracker tagTracker;
 		public AprilTagTracker TagTracker => tagTracker;
@@ -731,6 +736,7 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			if (!reference.observed)
 			{
 				reference.position = position;
+				reference.measuredAt = HeadPath;
 				reference.observed = true;
 				return;
 			}
@@ -740,9 +746,12 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			reference.positionSum += position;
 			if (++reference.samples < Mathf.Max(1, correctionSamples)) return;
 			reference.position = reference.positionSum / reference.samples;
+			reference.measuredAt = HeadPath;
 			reference.positionSum = Vector3.zero;
 			reference.samples = 0;
 		}
+
+		private static float HeadPath => HeadPoseHistory.Instance != null ? HeadPoseHistory.Instance.Path : float.NaN;
 
 		private PairReference SelectPairReference(int id)
 		{
@@ -769,7 +778,8 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 
 			Transform trackingSpace = PairTrackingSpace;
 			if (TryCreatePairConstraints(trackingSpace.TransformPoint(pairOrigin.position),
-				trackingSpace.TransformPoint(pairForward.position), out var first, out var second))
+				trackingSpace.TransformPoint(pairForward.position), out var first, out var second,
+				pairPositionSigma, pairOrigin.measuredAt, pairForward.measuredAt))
 			{
 				if (configuredFirst < 0)
 				{
@@ -785,9 +795,14 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			}
 		}
 
-		/// <summary>Preserves measured scale and height difference while constraining yaw.</summary>
+		/// <summary>
+		/// Preserves measured scale and height difference while constraining yaw. Each position
+		/// may carry its uncertainty and the head's travel when it was taken, so the colocator
+		/// trusts the one taken longer ago less.
+		/// </summary>
 		public static bool TryCreatePairConstraints(Vector3 originPosition, Vector3 forwardPosition,
-			out ColocationConstraint first, out ColocationConstraint second)
+			out ColocationConstraint first, out ColocationConstraint second,
+			float positionSigma = 0f, float originMeasuredAt = float.NaN, float forwardMeasuredAt = float.NaN)
 		{
 			first = second = default;
 			Vector3 delta = forwardPosition - originPosition;
@@ -795,9 +810,10 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			float distance = new Vector2(delta.x, delta.z).magnitude;
 			if (float.IsInfinity(distance) || distance < MinimumHorizontalSeparation) return false;
 
-			first = new ColocationConstraint(new Pose(originPosition, Quaternion.identity), Pose.identity);
+			first = new ColocationConstraint(new Pose(originPosition, Quaternion.identity), Pose.identity,
+				false, positionSigma, 0f, originMeasuredAt);
 			second = new ColocationConstraint(new Pose(forwardPosition, Quaternion.identity),
-				new Pose(new Vector3(0, delta.y, distance), Quaternion.identity));
+				new Pose(new Vector3(0, delta.y, distance), Quaternion.identity), false, positionSigma, 0f, forwardMeasuredAt);
 			return true;
 		}
 

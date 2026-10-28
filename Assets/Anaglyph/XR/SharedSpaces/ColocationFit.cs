@@ -8,6 +8,11 @@ namespace Anaglyph.XR.SharedSpaces
 	public static class ColocationFit
 	{
 		public static bool TryEvaluate(IReadOnlyList<ColocationConstraint> constraints, out Pose delta,
+			out float maximumError, out float maximumAngularError) =>
+			TryEvaluate(constraints, ColocationDrift.None, out delta, out maximumError, out maximumAngularError);
+
+		/// <summary>The fit with each constraint weighted by its uncertainty as it stands now: measured, then grown by <paramref name="drift"/>.</summary>
+		public static bool TryEvaluate(IReadOnlyList<ColocationConstraint> constraints, in ColocationDrift drift, out Pose delta,
 			out float maximumError, out float maximumAngularError)
 		{
 			delta = Pose.identity; maximumError = maximumAngularError = 0;
@@ -37,9 +42,10 @@ namespace Anaglyph.XR.SharedSpaces
 				foreach (var c in constraints)
 				{
 					pairs.Add((c.observed.position, c.canon.position));
-					weights.Add(c.positionWeight > 0 ? c.positionWeight : 1f);
-					if (c.hasReliableRotation && c.yawWeight > 0)
-						yaws.Add((BestFit.TwistYaw(c.canon.rotation) - BestFit.TwistYaw(c.observed.rotation), c.yawWeight));
+					weights.Add(drift.PositionWeight(c));
+					float yawWeight = drift.YawWeight(c);
+					if (yawWeight > 0)
+						yaws.Add((BestFit.TwistYaw(c.canon.rotation) - BestFit.TwistYaw(c.observed.rotation), yawWeight));
 				}
 
 				Matrix4x4 matrix = BestFit.Find4DOF(pairs, weights, yaws);

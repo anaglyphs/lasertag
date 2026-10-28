@@ -40,6 +40,13 @@ namespace Anaglyph.XR.VisualLocalization
 		/// closure is against views from another stretch of tracking only. 0 for none.
 		/// </summary>
 		public ulong untrustedFrom;
+		/// <summary>
+		/// With <see cref="untrustedFrom"/>, keyframes whose walk-only drift from that node
+		/// (<see cref="IKeyframeAnchoring.WalkDrift"/>) is below this are skipped too: a
+		/// correction step alone puts the views of a moment ago beyond the trust window, and
+		/// matching them only measures the correction they were placed with. 0 for none.
+		/// </summary>
+		public float minLoopWalkDrift;
 		/// <summary>Keyframes facing more than this many degrees away from the query camera are skipped; 0 for any.</summary>
 		public float maxViewAngle;
 		/// <summary>
@@ -790,7 +797,7 @@ namespace Anaglyph.XR.VisualLocalization
 			bool urgent = options.urgent || this.urgent;
 			Vector3 queryForward = query.camera.forward;
 			Func<VisualKeyframe, bool> filter = k =>
-				(options.untrustedFrom == 0 || !Map.IsTrusted(k, options.untrustedFrom, trustDrift)) &&
+				(options.untrustedFrom == 0 || IsLoopTarget(k, options.untrustedFrom, options.minLoopWalkDrift)) &&
 				(options.maxViewAngle <= 0 || Vector3.Angle(k.camera.forward, queryForward) <= options.maxViewAngle);
 			List<(VisualKeyframe keyframe, int mutual)> candidates = await Map.RetrieveAsync(query.features, keyframesPerQuery, minMutual, filter,
 				options.near, options.nearDistance > 0 ? options.nearDistance : float.PositiveInfinity, candidatesPerFrame: RetrievalCandidatesPerFrame(urgent));
@@ -903,7 +910,7 @@ namespace Anaglyph.XR.VisualLocalization
 			foreach (VisualKeyframe k in Map.Keyframes)
 			{
 				if (Vector3.Distance(k.camera.position, prior.position) > nearDistance) continue;
-				if (options.untrustedFrom != 0 && Map.IsTrusted(k, options.untrustedFrom, trustDrift)) continue;
+				if (options.untrustedFrom != 0 && !IsLoopTarget(k, options.untrustedFrom, options.minLoopWalkDrift)) continue;
 				if (options.maxViewAngle > 0 && Vector3.Angle(k.camera.forward, forward) > options.maxViewAngle) continue;
 				near.Add(k);
 			}
@@ -1184,17 +1191,23 @@ namespace Anaglyph.XR.VisualLocalization
 		/// <summary>
 		/// Whether a keyframe from another stretch of tracking (beyond the trust window of
 		/// <paramref name="node"/>) lies within <paramref name="distance"/> of the camera: the
-		/// only time a loop closure query can find anything.
+		/// only time a loop closure query can find anything. With <paramref name="minWalkDrift"/>,
+		/// as <see cref="LocalizeOptions.minLoopWalkDrift"/>.
 		/// </summary>
-		public bool HasUntrustedKeyframeNear(Vector3 camera, ulong node, float distance)
+		public bool HasUntrustedKeyframeNear(Vector3 camera, ulong node, float distance, float minWalkDrift = 0)
 		{
 			if (Anchoring == null) return false;
 			Map.RefreshPlacement();
 			foreach (VisualKeyframe k in Map.Keyframes)
-				if (Vector3.Distance(k.camera.position, camera) <= distance && !Map.IsTrusted(k, node, trustDrift))
+				if (Vector3.Distance(k.camera.position, camera) <= distance && IsLoopTarget(k, node, minWalkDrift))
 					return true;
 			return false;
 		}
+
+		// another stretch of tracking: beyond the trust window, and walked away from rather
+		// than only stepped away from by a correction
+		private bool IsLoopTarget(VisualKeyframe k, ulong node, float minWalkDrift) =>
+			Anchoring != null && !Map.IsTrusted(k, node, trustDrift) && (minWalkDrift <= 0 || Anchoring.WalkDrift(node, k.node) >= minWalkDrift);
 
 		private static readonly ProfilerMarker SnapshotMarker = new("VisualLocalizer.NodePoseSnapshot");
 

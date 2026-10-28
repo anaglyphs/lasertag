@@ -26,9 +26,6 @@ namespace Anaglyph.LaserTag
 		public float StepTranslation = 0.01f;
 		public float StepYawDegrees = 0.1f;
 
-		// a head moving further than this in one frame was a recenter or a teleport, not a walk
-		private const float JumpThreshold = 0.5f;
-
 		private struct Segment
 		{
 			public float path;
@@ -41,10 +38,8 @@ namespace Anaglyph.LaserTag
 		private ulong current;
 		private ulong nextId = 1;
 		private float path, steps;
-		private Vector3 lastHead;
-		private bool hasHead;
 
-		/// <summary>Head travel so far, meters, in the tracking space (which only drift distorts).</summary>
+		/// <summary>Head travel so far, meters: <see cref="HeadPoseHistory.Path"/>, the odometer the colocator ages constraints by.</summary>
 		public float Path => path;
 
 		/// <summary>The segment keyframes are anchored to now; 0 when not aligned.</summary>
@@ -62,23 +57,13 @@ namespace Anaglyph.LaserTag
 		{
 			segments.Clear();
 			current = 0;
-			hasHead = false;
 		}
 
 		/// <summary>Follows the head and the provider's alignment. Call once per frame.</summary>
 		public void Update(CanonColocationProvider provider)
 		{
 			if (MainXRRig.Instance == null || provider == null) return;
-			Transform space = MainXRRig.TrackingSpace;
-			Vector3 head = space.InverseTransformPoint(MainXRRig.Camera.transform.position);
-			if (hasHead)
-			{
-				float step = Vector3.Distance(head, lastHead);
-				if (step < JumpThreshold) path += step;
-			}
-
-			lastHead = head;
-			hasHead = true;
+			if (HeadPoseHistory.Instance != null) path = HeadPoseHistory.Instance.Path;
 
 			if (provider.CurrentPhase != CanonColocationProvider.Phase.Aligned)
 			{
@@ -147,6 +132,15 @@ namespace Anaglyph.LaserTag
 			if (!segments.TryGetValue(a, out Segment sa) || !segments.TryGetValue(b, out Segment sb) || sa.generation != sb.generation)
 				return float.PositiveInfinity;
 			return math.abs(sa.path - sb.path) * DriftPerMeter + math.abs(sa.steps - sb.steps);
+		}
+
+		// a step only says the views either side were placed differently, not that tracking drifted
+		public float WalkDrift(ulong a, ulong b)
+		{
+			if (a == b) return 0;
+			if (!segments.TryGetValue(a, out Segment sa) || !segments.TryGetValue(b, out Segment sb) || sa.generation != sb.generation)
+				return float.PositiveInfinity;
+			return math.abs(sa.path - sb.path) * DriftPerMeter;
 		}
 	}
 }
