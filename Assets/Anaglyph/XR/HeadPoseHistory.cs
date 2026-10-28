@@ -45,6 +45,16 @@ namespace Anaglyph.XR
 		private readonly Sample[] ring = new Sample[256];
 		private int count;
 
+		// a head moving further than this in one frame was a recenter or a teleport, not a walk
+		private const float JumpThreshold = 0.5f;
+
+		/// <summary>
+		/// Head travel so far, meters, in the tracking space (which only drift distorts): the
+		/// odometer drift is reckoned in, so anything stamped with it can tell how far the
+		/// head has walked since.
+		/// </summary>
+		public float Path { get; private set; }
+
 		private void Awake() => Instance = this;
 		private void OnEnable() => Application.onBeforeRender += Capture;
 		private void OnDisable() => Application.onBeforeRender -= Capture;
@@ -58,6 +68,12 @@ namespace Anaglyph.XR
 
 			// camera pose expressed in tracking space
 			Matrix4x4 local = ts.worldToLocalMatrix * cam.localToWorldMatrix;
+
+			if (count > 0)
+			{
+				float step = Vector3.Distance(local.GetPosition(), ring[(count - 1) % ring.Length].pos);
+				if (step < JumpThreshold) Path += step;
+			}
 
 			ring[count++ % ring.Length] = new Sample
 			{

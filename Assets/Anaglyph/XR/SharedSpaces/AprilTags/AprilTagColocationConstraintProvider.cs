@@ -38,18 +38,22 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 	}
 
 	/// <summary>
-	/// A complete AprilTag colocation strategy with two modes.
-	/// <para>Registered tags: the authority synchronizes registered
-	/// tag/canon-pose pairs; each peer creates and persists its own local anchor at each tag it
-	/// sees. The colocator receives only those anchor/canon-pose pairs, never raw tag readings,
-	/// so alignment roughly survives when the device loses & regains tracking.
-	/// Later readings correct for anchor drift
-	/// by preserving its currently observed offset from the physical tag.</para>
+	/// A complete AprilTag colocation strategy with two modes. Either way the colocator gets
+	/// tag readings as measurements stamped with the head's travel: each visit to a tag (until
+	/// the head walks <c>revisitWalk</c> away) refines one, a later visit adds another, and the
+	/// colocator's filter runs over them in order, so a tag seen again corrects the drift since.
+	/// Readings live in the tracking frame they were taken in and are forgotten when it is lost.
+	/// <para>Registered tags: the authority synchronizes registered tag/canon-pose pairs; each
+	/// peer creates and persists its own local anchor at each tag it sees. Anchors are not
+	/// followed: the runtime relocalizes them poorly and they drift. They only realign: once
+	/// per tracking frame (startup, recenter, tracking loss), each anchor the runtime has
+	/// settled gives one measurement where it stands, which ages like any other. Later readings
+	/// keep each anchor's canon pose on its tag, so the stand-in stays current.</para>
 	/// <para>Two tags (<see cref="TwoTagMode"/>), for spaces with no registered tags: the lower
 	/// of two detected IDs defines world zero; the line to the higher defines +Z. Gravity defines
-	/// +Y. Tag rotations, registrations, and saved map references are unused. Observations live
-	/// only in the current tracking frame. Invalidate them when that frame or alignment is lost;
-	/// both tags must then be seen again. No anchors are created or used.</para>
+	/// +Y. The two tags' first visits fix that frame. Tag rotations, registrations, and saved map
+	/// references are unused. When the tracking frame or alignment is lost, both tags must be
+	/// seen again. No anchors are created or used.</para>
 	/// </summary>
 	[DefaultExecutionOrder(-200)]
 	public class AprilTagColocationConstraintProvider : MonoBehaviour, IColocationConstraintProvider
@@ -62,6 +66,16 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			public int tagId;
 			public Pose canon;
 			public AnchorLease lease;
+			/// <summary>When it last started tracking, unscaled seconds; NaN while not tracking.</summary>
+			public float trackedSince = float.NaN;
+			/// <summary>The tracking frame it has realigned (or was minted) in.</summary>
+			public int realignedEpoch = -1;
+			/// <summary>Where it stood when it realigned, in the tracking space, and its canon pose then.</summary>
+			public Pose realignedPose, realignedCanon;
+			/// <summary>Whether it gives a measurement in <see cref="realignedEpoch"/>; not when it was minted in it, from a reading the fit already has.</summary>
+			public bool realigned;
+			/// <summary>The head's travel when it realigned.</summary>
+			public float realignedAt = float.NaN;
 		}
 
 		private sealed class TagCorrection
@@ -71,15 +85,26 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			public int samples;
 		}
 
-		private sealed class PairReference
+		/// <summary>One tag's readings in the current tracking frame, a measurement per visit.</summary>
+		private sealed class TagVisits
 		{
 			public readonly int id;
-			public bool observed;
-			public Vector3 position;
+			/// <summary>Oldest first. The first stays: in two-tag mode it fixes the frame.</summary>
+			public readonly List<TagVisit> visits = new();
 			public Vector3 positionSum;
+			public Vector4 rotationSum;
 			public int samples;
 
-			public PairReference(int id) => this.id = id;
+			public TagVisits(int id) => this.id = id;
+			public bool Observed => visits.Count > 0;
+		}
+
+		private struct TagVisit
+		{
+			/// <summary>In the tracking space.</summary>
+			public Pose pose;
+			/// <summary>The head's travel when it was last averaged: tracking drifts from it as the head walks on.</summary>
+			public float measuredAt;
 		}
 
 		public const float MinimumHorizontalSeparation = 0.1f;
@@ -104,7 +129,7 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 				return;
 
 			adoptedTagSizeCm = next;
-			ResetPairReferences();
+			ResetObservations();
 
 			// References may be swapped after the session is already running. Keep the canonical
 			// session value and the local tracker in step immediately.
@@ -146,6 +171,30 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		[Tooltip("Tag observations averaged before an anchor's canon pose is rewritten")]
 		[SerializeField] private int correctionSamples = 30;
 
+		[Tooltip("How far off a two-tag reference's averaged position is, meters")]
+		[SerializeField] private float pairPositionSigma = 0.01f;
+
+		[Tooltip("How far off a registered tag's averaged position is, meters")]
+		[SerializeField] private float tagPositionSigma = 0.01f;
+
+		[Tooltip("How far off a registered tag's averaged yaw is, degrees")]
+		[SerializeField] private float tagYawSigmaDegrees = 2f;
+
+		[Tooltip("Head travel after which a tag seen again is a new measurement rather than a refinement of the last, meters")]
+		[SerializeField] private float revisitWalk = 1f;
+
+		[Tooltip("Visits each tag keeps; the first and the latest")]
+		[SerializeField] private int visitCapacity = 16;
+
+		[Tooltip("How far off an anchor is where it realigns, meters")]
+		[SerializeField] private float anchorPositionSigma = 0.05f;
+
+		[Tooltip("How far off an anchor's yaw is where it realigns, degrees")]
+		[SerializeField] private float anchorYawSigmaDegrees = 2f;
+
+		[Tooltip("How long an anchor must track in a new tracking frame before it realigns, seconds: the runtime may still be relocalizing it")]
+		[SerializeField] private float anchorSettleSeconds = 0.5f;
+
 		[SerializeField] private AprilTagTracker tagTracker;
 		public AprilTagTracker TagTracker => tagTracker;
 
@@ -160,9 +209,13 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 
 		private int configuredFirst = -1;
 		private int configuredSecond = -1;
-		private PairReference pairOrigin;
-		private PairReference pairForward;
-		private long ignorePairFramesThrough;
+		private TagVisits pairOrigin;
+		private TagVisits pairForward;
+		private readonly Dictionary<int, TagVisits> sightings = new();
+		private long ignoreFramesThrough;
+		// counts up whenever the tracking frame readings were taken in is gone
+		private int trackingEpoch;
+		private float trackingEpochStart;
 		private bool twoTagMode;
 
 		public int? OriginTagId => pairOrigin?.id;
@@ -183,10 +236,10 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			}
 		}
 
-		/// <summary>Two-tag observations are dropped, and the pair forgotten, while this is false.</summary>
+		/// <summary>Tag readings are dropped, and those already taken forgotten, while this is false.</summary>
 		public Func<bool> TrackingReady { get; set; } = () => true;
 
-		/// <summary>The frame pair observations are kept in, resolved on use.</summary>
+		/// <summary>The frame tag readings are kept in, resolved on use.</summary>
 		public Func<Transform> TrackingSpaceSource { get; set; } =
 			() => MainXRRig.Instance != null ? MainXRRig.TrackingSpace : null;
 
@@ -271,7 +324,8 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 
 			IsRunning = true;
 			stateGeneration++;
-			ResetPairReferences();
+			ResetObservations();
+			NewTrackingEpoch();
 			ReconcileAnchors();
 			UpdateTrackerEnabled();
 		}
@@ -284,7 +338,7 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			IsRunning = false;
 			stateGeneration++;
 			corrections.Clear();
-			ResetPairReferences();
+			ResetObservations();
 
 			foreach (LocalAnchor anchor in localAnchors.Values)
 			{
@@ -338,7 +392,7 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		private void OnTagSizeChanged(float _, float __)
 		{
 			UpdateTrackerEnabled();
-			ResetPairReferences();
+			ResetObservations();
 			TagSizeChanged.Invoke();
 		}
 
@@ -348,7 +402,21 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 				InvalidatePendingObservations();
 		}
 		private void OnApplicationPause(bool paused) { if (paused) InvalidatePendingObservations(); }
-		private void InvalidatePendingObservations() { stateGeneration++; corrections.Clear(); ResetPairReferences(); }
+		private void InvalidatePendingObservations() { stateGeneration++; corrections.Clear(); ResetObservations(); NewTrackingEpoch(); }
+
+		/// <summary>Forgets every reading: the tracking frame they were taken in is gone, or they no longer fit.</summary>
+		private void ResetObservations()
+		{
+			ResetPairReferences();
+			sightings.Clear();
+		}
+
+		/// <summary>The tracking frame is new: every anchor realigns in it once the runtime settles it.</summary>
+		private void NewTrackingEpoch()
+		{
+			trackingEpoch++;
+			trackingEpochStart = Time.unscaledTime;
+		}
 
 		// ------- state import/export ------------------------------
 
@@ -509,17 +577,66 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 				return;
 			}
 
+			Transform trackingSpace = PairTrackingSpace;
+			if (!CanObserve() || trackingSpace == null) return;
+			float tagYawSigma = tagYawSigmaDegrees * Mathf.Deg2Rad;
+			foreach (TagVisits tag in sightings.Values)
+			{
+				if (!registeredTags.TryGetValue(tag.id, out Pose canonTag)) continue;
+				foreach (TagVisit visit in tag.visits)
+					results.Add(new ColocationConstraint(FromTracking(trackingSpace, visit.pose), canonTag, true,
+						tagPositionSigma, tagYawSigma, visit.measuredAt));
+			}
+
+			float anchorYawSigma = anchorYawSigmaDegrees * Mathf.Deg2Rad;
 			foreach (LocalAnchor entry in localAnchors.Values)
 			{
-				AnchorHandle handle = entry.lease?.Handle;
-				if (handle == null || handle.state != AnchorHandle.State.Active) continue;
-				if (handle.anchor.trackingState != TrackingState.Tracking) continue;
-
-				Transform t = handle.anchor.transform;
-				results.Add(new ColocationConstraint(
-					new Pose(t.position, t.rotation), entry.canon, hasReliableRotation: true));
+				Realign(entry, trackingSpace);
+				if (entry.realignedEpoch != trackingEpoch || !entry.realigned) continue;
+				results.Add(new ColocationConstraint(FromTracking(trackingSpace, entry.realignedPose), entry.realignedCanon, true,
+					anchorPositionSigma, anchorYawSigma, entry.realignedAt));
 			}
 		}
+
+		/// <summary>
+		/// The anchor's one measurement in this tracking frame: where it stands once it has
+		/// tracked long enough for the runtime to have settled it. Taken once and kept, so its
+		/// later drift and relocalizations never reach the fit.
+		/// </summary>
+		private void Realign(LocalAnchor anchor, Transform trackingSpace)
+		{
+			if (!IsTracking(anchor))
+			{
+				anchor.trackedSince = float.NaN;
+				return;
+			}
+
+			float now = Time.unscaledTime;
+			if (float.IsNaN(anchor.trackedSince)) anchor.trackedSince = now;
+			if (anchor.realignedEpoch == trackingEpoch || now - Mathf.Max(anchor.trackedSince, trackingEpochStart) < anchorSettleSeconds) return;
+			Transform t = anchor.lease.Handle.anchor.transform;
+			anchor.realignedEpoch = trackingEpoch;
+			anchor.realigned = true;
+			anchor.realignedPose = ToTracking(trackingSpace, new Pose(t.position, t.rotation));
+			anchor.realignedCanon = anchor.canon;
+			anchor.realignedAt = HeadPath;
+		}
+
+		private bool CanObserve()
+		{
+			if (!IsRunning) return false;
+			if (IsAvailable && (TrackingReady?.Invoke() ?? true)) return true;
+			// tracking is gone: so is the frame every reading was taken in
+			ResetObservations();
+			NewTrackingEpoch();
+			return false;
+		}
+
+		private static Pose ToTracking(Transform trackingSpace, Pose world) =>
+			new(trackingSpace.InverseTransformPoint(world.position), Quaternion.Inverse(trackingSpace.rotation) * world.rotation);
+
+		private static Pose FromTracking(Transform trackingSpace, Pose local) =>
+			new(trackingSpace.TransformPoint(local.position), trackingSpace.rotation * local.rotation);
 
 		// ------- tag observations --------------------------------
 
@@ -559,6 +676,8 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 				if (!IsRunning ||
 				    !registeredTags.TryGetValue(observed.ID, out Pose canonTag))
 					continue;
+
+				ObserveRegistered(observed.ID, observedPose);
 
 				localAnchors.TryGetValue(observed.ID, out LocalAnchor anchor);
 				if (!IsTracking(anchor))
@@ -629,6 +748,8 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 				tagId = tagId,
 				canon = canonAnchor,
 				lease = minted.lease,
+				// minted from a reading the fit already has: it realigns only in later frames
+				realignedEpoch = trackingEpoch,
 			};
 			replacing?.lease?.Dispose();
 			corrections.Remove(tagId);
@@ -698,7 +819,7 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			pairOrigin = pairForward = null;
 			// Detection is asynchronous. A frame already being processed at invalidation
 			// must not supply observations in the replacement tracking frame.
-			ignorePairFramesThrough = tagTracker != null ? tagTracker.FrameTimestampNs : 0;
+			ignoreFramesThrough = tagTracker != null ? tagTracker.FrameTimestampNs : 0;
 		}
 
 		/// <summary>Restricts two-tag mode to this pair, or with no valid pair, to the first two IDs seen.</summary>
@@ -711,65 +832,95 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			configuredFirst = first; configuredSecond = second; ResetPairReferences();
 		}
 
-		private bool CanObservePair()
-		{
-			if (!IsRunning || !twoTagMode) return false;
-			if (IsAvailable && (TrackingReady?.Invoke() ?? true)) return true;
-			ResetPairReferences();
-			return false;
-		}
+		private bool CanObservePair() => twoTagMode && CanObserve();
 
 		private void ObservePair(int id, Pose pose)
 		{
-			if (!CanObservePair() || tagTracker.FrameTimestampNs <= ignorePairFramesThrough ||
+			if (!CanObservePair() || tagTracker.FrameTimestampNs <= ignoreFramesThrough ||
 				!IsFinite(pose.position)) return;
-			Vector3 position = PairTrackingSpace.InverseTransformPoint(pose.position);
-			if (!IsFinite(position)) return;
-			PairReference reference = SelectPairReference(id);
+			Pose local = ToTracking(PairTrackingSpace, pose);
+			if (!IsFinite(local.position)) return;
+			TagVisits reference = SelectPairReference(id);
 			if (reference == null) return;
+			Visit(reference, local);
+		}
 
-			if (!reference.observed)
+		private void ObserveRegistered(int id, Pose pose)
+		{
+			if (twoTagMode || !CanObserve() || tagTracker.FrameTimestampNs <= ignoreFramesThrough ||
+				!IsFinite(pose.position) || PairTrackingSpace == null) return;
+			Pose local = ToTracking(PairTrackingSpace, pose);
+			if (!IsFinite(local.position)) return;
+			if (!sightings.TryGetValue(id, out TagVisits tag)) sightings.Add(id, tag = new TagVisits(id));
+			Visit(tag, local);
+		}
+
+		/// <summary>
+		/// A reading of the tag, in the tracking space: rig corrections move world space, so
+		/// averaging there would feed them back into the readings. The first reading of a visit
+		/// stands for it at once; every <c>correctionSamples</c> after replace it with their
+		/// average, restamped. Once the head has walked <c>revisitWalk</c> since, the next
+		/// reading starts another visit.
+		/// </summary>
+		private void Visit(TagVisits tag, Pose local)
+		{
+			float path = HeadPath;
+			if (!tag.Observed || path - tag.visits[^1].measuredAt >= revisitWalk)
 			{
-				reference.position = position;
-				reference.observed = true;
+				if (tag.visits.Count >= Mathf.Max(2, visitCapacity)) tag.visits.RemoveAt(1);
+				tag.visits.Add(new TagVisit { pose = local, measuredAt = path });
+				tag.positionSum = Vector3.zero;
+				tag.rotationSum = Vector4.zero;
+				tag.samples = 0;
 				return;
 			}
 
-			// Rig corrections move world space; averaging in tracking space avoids feeding
-			// those corrections back into the observations.
-			reference.positionSum += position;
-			if (++reference.samples < Mathf.Max(1, correctionSamples)) return;
-			reference.position = reference.positionSum / reference.samples;
-			reference.positionSum = Vector3.zero;
-			reference.samples = 0;
+			Vector4 rotation = new(local.rotation.x, local.rotation.y, local.rotation.z, local.rotation.w);
+			if (tag.samples > 0 && Vector4.Dot(tag.rotationSum, rotation) < 0f) rotation = -rotation;
+			tag.positionSum += local.position;
+			tag.rotationSum += rotation;
+			if (++tag.samples < Mathf.Max(1, correctionSamples)) return;
+			Vector4 average = tag.rotationSum.normalized;
+			tag.visits[^1] = new TagVisit
+			{
+				pose = new Pose(tag.positionSum / tag.samples, new Quaternion(average.x, average.y, average.z, average.w)),
+				measuredAt = path,
+			};
+			tag.positionSum = Vector3.zero;
+			tag.rotationSum = Vector4.zero;
+			tag.samples = 0;
 		}
 
-		private PairReference SelectPairReference(int id)
+		private static float HeadPath => HeadPoseHistory.Instance != null ? HeadPoseHistory.Instance.Path : float.NaN;
+
+		private TagVisits SelectPairReference(int id)
 		{
 			if (id < 0) return null;
 			if (configuredFirst >= 0)
 			{
-				if (id == configuredFirst) return pairOrigin ??= new PairReference(id);
-				if (id == configuredSecond) return pairForward ??= new PairReference(id);
+				if (id == configuredFirst) return pairOrigin ??= new TagVisits(id);
+				if (id == configuredSecond) return pairForward ??= new TagVisits(id);
 				return null;
 			}
-			if (pairOrigin == null) return pairOrigin = new PairReference(id);
+			if (pairOrigin == null) return pairOrigin = new TagVisits(id);
 			if (id == pairOrigin.id) return pairOrigin;
 			if (pairForward == null)
 			{
-				pairForward = new PairReference(id);
+				pairForward = new TagVisits(id);
 				if (pairOrigin.id > pairForward.id) (pairOrigin, pairForward) = (pairForward, pairOrigin);
 			}
 			return id == pairOrigin.id ? pairOrigin : id == pairForward.id ? pairForward : null;
 		}
 
+		/// <summary>The pair's frame from each tag's first visit; then every visit of each, against it.</summary>
 		private void GetPairConstraints(List<ColocationConstraint> results)
 		{
-			if (!CanObservePair() || pairOrigin?.observed != true || pairForward?.observed != true) return;
+			if (!CanObservePair() || pairOrigin?.Observed != true || pairForward?.Observed != true) return;
 
 			Transform trackingSpace = PairTrackingSpace;
-			if (TryCreatePairConstraints(trackingSpace.TransformPoint(pairOrigin.position),
-				trackingSpace.TransformPoint(pairForward.position), out var first, out var second))
+			TagVisit originFirst = pairOrigin.visits[0], forwardFirst = pairForward.visits[0];
+			if (TryCreatePairConstraints(trackingSpace.TransformPoint(originFirst.pose.position),
+				trackingSpace.TransformPoint(forwardFirst.pose.position), out var first, out var second))
 			{
 				if (configuredFirst < 0)
 				{
@@ -780,14 +931,26 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 					// The session may reject this pair or replace its context synchronously.
 					if (!IsRunning || !twoTagMode || pairOrigin != selectedOrigin || pairForward != selectedForward) return;
 				}
-				results.Add(first);
-				results.Add(second);
+				AddPairVisits(results, trackingSpace, pairOrigin, first.canon);
+				AddPairVisits(results, trackingSpace, pairForward, second.canon);
 			}
 		}
 
-		/// <summary>Preserves measured scale and height difference while constraining yaw.</summary>
+		private void AddPairVisits(List<ColocationConstraint> results, Transform trackingSpace, TagVisits tag, Pose canon)
+		{
+			foreach (TagVisit visit in tag.visits)
+				results.Add(new ColocationConstraint(new Pose(trackingSpace.TransformPoint(visit.pose.position), Quaternion.identity),
+					canon, false, pairPositionSigma, 0f, visit.measuredAt));
+		}
+
+		/// <summary>
+		/// Preserves measured scale and height difference while constraining yaw. Each position
+		/// may carry its uncertainty and the head's travel when it was taken, so the colocator
+		/// trusts the one taken longer ago less.
+		/// </summary>
 		public static bool TryCreatePairConstraints(Vector3 originPosition, Vector3 forwardPosition,
-			out ColocationConstraint first, out ColocationConstraint second)
+			out ColocationConstraint first, out ColocationConstraint second,
+			float positionSigma = 0f, float originMeasuredAt = float.NaN, float forwardMeasuredAt = float.NaN)
 		{
 			first = second = default;
 			Vector3 delta = forwardPosition - originPosition;
@@ -795,9 +958,10 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			float distance = new Vector2(delta.x, delta.z).magnitude;
 			if (float.IsInfinity(distance) || distance < MinimumHorizontalSeparation) return false;
 
-			first = new ColocationConstraint(new Pose(originPosition, Quaternion.identity), Pose.identity);
+			first = new ColocationConstraint(new Pose(originPosition, Quaternion.identity), Pose.identity,
+				false, positionSigma, 0f, originMeasuredAt);
 			second = new ColocationConstraint(new Pose(forwardPosition, Quaternion.identity),
-				new Pose(new Vector3(0, delta.y, distance), Quaternion.identity));
+				new Pose(new Vector3(0, delta.y, distance), Quaternion.identity), false, positionSigma, 0f, forwardMeasuredAt);
 			return true;
 		}
 

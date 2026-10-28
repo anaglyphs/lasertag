@@ -5,6 +5,7 @@ using Anaglyph.XR.SharedSpaces;
 using Anaglyph.XR.SharedSpaces.AprilTags;
 using Anaglyph.XR.SharedSpaces.SharedAnchors;
 using UnityEngine;
+using SpaceManager = Anaglyph.LaserTag.Maps.SpaceManager;
 using Space = Anaglyph.LaserTag.Maps.Space;
 
 namespace Anaglyph.LaserTag
@@ -120,7 +121,7 @@ namespace Anaglyph.LaserTag
 		public int CountRealizableReferences()
 		{
 			if (ActiveProvider == null || !ActiveProvider.IsAvailable) return 0;
-			if (ActiveProvider is CanonColocationProvider) return 1;
+			if (ActiveProvider is VisualColocationConstraintProvider) return 1;
 			scratch.Clear();
 			ActiveProvider.GetColocationConstraints(scratch);
 			return scratch.Count;
@@ -187,8 +188,12 @@ namespace Anaglyph.LaserTag
 			colocator.StateChanged += OnStateChanged;
 		}
 
+		// the visual map's frame is the space's: gone when the space's frame changes
+		private void Start() => SpaceManager.FrameChanged += visualProvider.ClearMap;
+
 		private void OnDestroy()
 		{
+			SpaceManager.FrameChanged -= visualProvider.ClearMap;
 			colocator.StateChanged -= OnStateChanged;
 			colocator.SetProvider(null);
 			if (Instance == this)

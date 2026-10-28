@@ -25,8 +25,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2715419115656621503}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: -0.32273015, z: 0, w: 0.946491}
-  m_LocalPosition: {x: 0, y: 0.99508053, z: 0}
+  m_LocalRotation: {x: 0, y: 0.0670055, z: 0, w: -0.9977526}
+  m_LocalPosition: {x: 0, y: 0.97550356, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -48,7 +48,7 @@ MonoBehaviour:
   spinSpeed: 60
   bobHeight: 0.05
   bobFrequency: 0.5
-  basePosition: {x: 0, y: 0.99508053, z: 0}
+  basePosition: {x: 0, y: 0.97550356, z: 0}
 --- !u!1 &6135838225578493482
 GameObject:
   m_ObjectHideFlags: 0
@@ -303,7 +303,7 @@ PrefabInstance:
     - target: {fileID: -7511558181221131132, guid: a29e9b93336a8489da32f80101fbcbd9, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: -876546973899608171, guid: 675c217b2f486324dad66c29faa9ec36, type: 3}
+      objectReference: {fileID: 2100000, guid: 7f4ba696a840046948f820555bcea259, type: 2}
     - target: {fileID: 919132149155446097, guid: a29e9b93336a8489da32f80101fbcbd9, type: 3}
       propertyPath: m_Name
       value: Glow

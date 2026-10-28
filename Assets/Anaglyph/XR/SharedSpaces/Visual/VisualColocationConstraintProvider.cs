@@ -6,13 +6,13 @@ using Anaglyph.Netcode.SyncVariables;
 using Anaglyph.XR.DepthKit.EnvScanning;
 using Anaglyph.XR;
 using Anaglyph.XR.DepthKit.EnvScanning.Registration;
-using Anaglyph.XR.SharedSpaces;
 using Anaglyph.XR.VisualLocalization;
 using Unity.Mathematics;
 using UnityEngine;
 using Utilities.XR;
+using Phase = Anaglyph.XR.SharedSpaces.CanonAlignment.Phase;
 
-namespace Anaglyph.LaserTag
+namespace Anaglyph.XR.SharedSpaces
 {
 	/// <summary>
 	/// Colocation, relocalization and drift correction from one camera landmark map per
@@ -34,7 +34,7 @@ namespace Anaglyph.LaserTag
 	/// needed before one is applied.
 	/// </summary>
 	[RequireComponent(typeof(VisualLocalizer))]
-	public class VisualColocationConstraintProvider : CanonColocationProvider
+	public class VisualColocationConstraintProvider : MonoBehaviour, IColocationConstraintProvider
 	{
 		[SerializeField] private bool queriesEnabled = true;
 		[SerializeField] private float queryInterval = 1f;
@@ -46,6 +46,8 @@ namespace Anaglyph.LaserTag
 		[SerializeField] private int minInliers = 30;
 		[Tooltip("Inlier residuals' RMS in their own sigmas (pixel noise plus landmark depth uncertainty)")]
 		[SerializeField] private float maxNormalizedRms = 2f;
+		[Tooltip("Ranged inliers a drift measurement needs. With only far landmarks, yaw and translation trade off and the solver's sigmas don't show it: on device, 9 ranged of 99 inliers gave a yaw 3.6° off at a claimed ±0.3°, and two frames of the same view agreed on it")]
+		[SerializeField] private int minLoopRangedInliers = 20;
 		[SerializeField] private float maxYawSigmaDegrees = 0.5f;
 		[SerializeField] private float maxTranslationSigma = 0.04f;
 		[Header("Single-frame acceptance")]
@@ -81,6 +83,8 @@ namespace Anaglyph.LaserTag
 		[SerializeField] private float blurredRetry = 0.25f;
 		[Tooltip("Old keyframes farther than this (m) from where the graph puts the camera are not tried")]
 		[SerializeField] private float loopSearchDistance = 8f;
+		[Tooltip("Meters walked, at least, between a loop query and the keyframes it may close against. A correction step alone makes the views of a moment ago count as another stretch of tracking, and matching them only gives back the correction they were placed with: on device this undid a 33 cm loop closure seconds after it was made")]
+		[SerializeField] private float loopMinWalk = 6f;
 		[Tooltip("How well the graph is assumed to know where the camera is before a loop closure, meters: the position prior far landmarks' yaw leans on")]
 		[SerializeField] private float loopCenterPriorSigma = 1f;
 		[Tooltip("A closure that pins yaw but not translation (far landmarks only) still becomes an edge, with translation left loose")]
@@ -101,7 +105,7 @@ namespace Anaglyph.LaserTag
 		[Header("Sites")]
 		[Tooltip("A measurement this close to a site updates it, meters: a few sites per room, each refined by every revisit")]
 		[SerializeField] private float siteRadius = 8f;
-		[Tooltip("Head travel over which a site's earlier measurement loses most of its weight against a revisit's, meters: drift grows with distance walked")]
+		[Tooltip("Head travel over which a site's earlier measurement loses most of its weight against a revisit's in the site's record, meters. The fit takes each site's latest measurement instead, aged by the colocator's drift rates")]
 		[SerializeField] private float sitePathScale = 15f;
 		[SerializeField] private Color debugRevisitColor = new(1f, 0.8f, 0.2f);
 		[SerializeField] private Color debugCrossLinkColor = new(0.2f, 0.9f, 1f);
@@ -212,6 +216,22 @@ namespace Anaglyph.LaserTag
 
 		public static VisualColocationConstraintProvider Instance { get; private set; }
 
+		/// <summary>The provider the colocator has active, if it is this one.</summary>
+		public static VisualColocationConstraintProvider Active =>
+			Colocator.Instance != null ? Colocator.Instance.Provider as VisualColocationConstraintProvider : null;
+
+		private CanonAlignment alignment;
+
+		/// <summary>The alignment found against the authority's frame, its phase, and the drift correction on top of it.</summary>
+		public CanonAlignment Alignment => alignment;
+
+		public bool IsAvailable => EnvScanner.Instance != null && MainXRRig.Instance != null;
+		public bool IsRunning => alignment.IsRunning;
+		public void StartProviding() => alignment.Start();
+		public void StopProviding() => alignment.Stop();
+
+		private static string LogTag => $"[{nameof(VisualColocationConstraintProvider)}]";
+
 		public TrackAnchoring Track => track;
 		public ConstraintSites Sites => sites;
 
@@ -235,23 +255,20 @@ namespace Anaglyph.LaserTag
 		/// <summary>Recent outcomes, oldest first, each stamped with the realtime it happened at.</summary>
 		public IEnumerable<string> RecentOutcomes => outcomes;
 
-		public override string LastAttemptDescription => LastOutcome ?? "none";
-
-		protected override bool HasMapToRelocalizeAgainst => localizer.Map.Count > 0;
-
-		protected override void ResetWorkingState() => candidate = null;
+		/// <summary>The latest attempt and what came of it, for diagnosis.</summary>
+		public string LastAttemptDescription => LastOutcome ?? "none";
 
 		/// <summary>
 		/// Relocalizes against the map as it stands, a map just loaded for the space: the rig
 		/// goes where the map says, as after a recenter. False when there is nothing to do it with.
 		/// </summary>
-		public bool RelocalizeAgainstMap() => localizer.Map.Count > 0 && BeginRelocalize("saved map");
+		public bool RelocalizeAgainstMap() => localizer.Map.Count > 0 && alignment.BeginRelocalize("saved map");
 
-		protected override void Awake()
+		private void Awake()
 		{
 			Instance = this;
 			localizer = GetComponent<VisualLocalizer>();
-			base.Awake();
+			alignment = new CanonAlignment(LogTag, () => IsAvailable, () => localizer.Map.Count > 0);
 			queryEvent.Register();
 			queryEvent.Received += OnQueryReceived;
 			replyEvent.Register();
@@ -265,25 +282,26 @@ namespace Anaglyph.LaserTag
 			localizer.Anchoring = track;
 			// the map's frame is gone when the scan is
 			if (EnvScanner.Instance != null) EnvScanner.Instance.Cleared += ClearMap;
-			Maps.SpaceManager.FrameChanged += ClearMap;
-			PhaseChanged += OnPhaseChanged;
+			alignment.PhaseChanged += OnPhaseChanged;
+			alignment.FrameAbandoned += ClearScan;
 		}
 
-		protected override void OnDestroy()
+		private void OnDestroy()
 		{
-			base.OnDestroy();
+			alignment.Dispose();
 			queryEvent.Received -= OnQueryReceived;
 			queryEvent.Unregister();
 			replyEvent.Received -= OnReplyReceived;
 			replyEvent.Unregister();
 			if (localizer) localizer.KeyframeAdded -= OnKeyframeAdded;
 			if (EnvScanner.Instance != null) EnvScanner.Instance.Cleared -= ClearMap;
-			Maps.SpaceManager.FrameChanged -= ClearMap;
-			PhaseChanged -= OnPhaseChanged;
+			alignment.PhaseChanged -= OnPhaseChanged;
+			alignment.FrameAbandoned -= ClearScan;
 			if (Instance == this) Instance = null;
 		}
 
-		private void ClearMap()
+		/// <summary>Drops the map, its sites and track: the frame they were built in is gone (the scan cleared, or the space's frame changed).</summary>
+		public void ClearMap()
 		{
 			if (localizer.Map.Count > 0)
 				Debug.Log($"{LogTag} map cleared ({localizer.Quality}): its frame is gone");
@@ -291,6 +309,12 @@ namespace Anaglyph.LaserTag
 			sites.Clear();
 			track.Clear();
 			candidate = null;
+		}
+
+		// the scan was built in a frame that is gone
+		private static void ClearScan()
+		{
+			if (EnvScanner.Instance != null) EnvScanner.Instance.Clear();
 		}
 
 		private void OnPhaseChanged(Phase phase)
@@ -302,9 +326,9 @@ namespace Anaglyph.LaserTag
 
 		// ---- asking ------------------------------------------------------------
 
-		protected override void Update()
+		private void Update()
 		{
-			base.Update();
+			alignment.Update();
 			UpdateCorrection();
 
 			// replies that never came
@@ -328,7 +352,7 @@ namespace Anaglyph.LaserTag
 
 			// a headset waiting on an alignment runs the networks over fewer frames (while
 			// stopped, the pace is whoever else uses the localizer's to set)
-			if (IsRunning) localizer.Urgent = CurrentPhase is Phase.Searching or Phase.Registering or Phase.Relocalizing;
+			if (IsRunning) localizer.Urgent = alignment.CurrentPhase is Phase.Searching or Phase.Relocalizing;
 
 			if (!NeedsQuery(out Purpose purpose, out bool remote)) return;
 
@@ -341,10 +365,9 @@ namespace Anaglyph.LaserTag
 		{
 			purpose = default;
 			remote = SyncBus.Active && !SyncBus.IsAuthority;
-			switch (CurrentPhase)
+			switch (alignment.CurrentPhase)
 			{
 				case Phase.Searching:
-				case Phase.Registering:
 					purpose = Purpose.Colocate;
 					return remote;
 
@@ -361,7 +384,7 @@ namespace Anaglyph.LaserTag
 					       (!loopFromKeyframes || Time.unscaledTime - lastKeyframeAt >= loopCaptureAfterQuiet) &&
 					       localizer.Map.Count > 0 &&
 					       !CrossLinkCovers(MainXRRig.Camera.transform.position) &&
-					       localizer.HasUntrustedKeyframeNear(MainXRRig.Camera.transform.position, track.Current, loopSearchDistance);
+					       localizer.HasUntrustedKeyframeNear(MainXRRig.Camera.transform.position, track.Current, loopSearchDistance, LoopMinWalkDrift);
 
 				default:
 					return false;
@@ -376,8 +399,8 @@ namespace Anaglyph.LaserTag
 				Pending p = new()
 				{
 					purpose = purpose,
-					epoch = FrameEpoch,
-					generation = AlignmentGeneration,
+					epoch = alignment.FrameEpoch,
+					generation = alignment.Generation,
 				};
 
 				p.query = await localizer.CaptureQueryAsync();
@@ -399,13 +422,13 @@ namespace Anaglyph.LaserTag
 		{
 			lastKeyframeAt = Time.unscaledTime;
 			SendCrossLink(keyframe);
-			if (!loopFromKeyframes || !loopClosure || !IsRunning || CurrentPhase != Phase.Aligned || queryInFlight || pending.Count > 0) return;
+			if (!loopFromKeyframes || !loopClosure || !IsRunning || alignment.CurrentPhase != Phase.Aligned || queryInFlight || pending.Count > 0) return;
 			// each is up to keyframesPerQuery LighterGlue runs on the GPU: no more often than the loop
 			// interval, however fast keyframes come (a confirming frame is let through at once)
 			if (Time.unscaledTime < nextLoop) return;
 			if (!track.IsTracking || keyframe.node == 0) return;
 			if (CrossLinkCovers(keyframe.camera.position)) return;
-			if (!localizer.HasUntrustedKeyframeNear(keyframe.camera.position, keyframe.node, loopSearchDistance)) return;
+			if (!localizer.HasUntrustedKeyframeNear(keyframe.camera.position, keyframe.node, loopSearchDistance, LoopMinWalkDrift)) return;
 
 			queryInFlight = true;
 			try
@@ -413,8 +436,8 @@ namespace Anaglyph.LaserTag
 				Pending p = new()
 				{
 					purpose = Purpose.Loop,
-					epoch = FrameEpoch,
-					generation = AlignmentGeneration,
+					epoch = alignment.FrameEpoch,
+					generation = alignment.Generation,
 					query = new VisualQuery
 					{
 						features = keyframe.features,
@@ -443,7 +466,7 @@ namespace Anaglyph.LaserTag
 		/// </summary>
 		private void SendCrossLink(VisualKeyframe keyframe)
 		{
-			if (!crossLinks || !IsRunning || CurrentPhase != Phase.Aligned || !SyncBus.Active || SyncBus.IsAuthority) return;
+			if (!crossLinks || !IsRunning || alignment.CurrentPhase != Phase.Aligned || !SyncBus.Active || SyncBus.IsAuthority) return;
 			if (crossLinkQueries.Count > 0 || Time.unscaledTime < nextCrossLink) return;
 			if (!track.IsTracking || keyframe.node == 0) return;
 			if (!Landmark.TryCamera(localizer.Anchoring, keyframe.node, keyframe.cameraInNode, out Pose camera)) return;
@@ -467,8 +490,8 @@ namespace Anaglyph.LaserTag
 			crossLinkQueries[id] = new Pending
 			{
 				purpose = Purpose.CrossLink,
-				epoch = FrameEpoch,
-				generation = AlignmentGeneration,
+				epoch = alignment.FrameEpoch,
+				generation = alignment.Generation,
 				query = query,
 				frames = frames,
 				sentAt = Time.unscaledTime,
@@ -512,6 +535,7 @@ namespace Anaglyph.LaserTag
 					maxViewAngle = loopMaxViewAngle,
 					guided = true,
 					guidedTranslation = ExpectedLoopDrift(p),
+					minLoopWalkDrift = LoopMinWalkDrift,
 				};
 			}
 
@@ -607,7 +631,7 @@ namespace Anaglyph.LaserTag
 			considering = p;
 
 			// the frame the query was captured in has to still be the one aligned against
-			if (p.epoch != FrameEpoch || p.generation != AlignmentGeneration)
+			if (p.epoch != alignment.FrameEpoch || p.generation != alignment.Generation)
 			{
 				Outcome($"{p.purpose}: discarded, the alignment changed while localizing ({description})");
 				return;
@@ -615,6 +639,8 @@ namespace Anaglyph.LaserTag
 
 			bool yawOnly = false;
 			string rejection = Rejection(pose);
+			if (rejection == null && ClosesLoop(p.purpose) && pose.rangedInliers < minLoopRangedInliers)
+				rejection = $"{pose.rangedInliers} ranged inliers < {minLoopRangedInliers}: far landmarks alone leave yaw and translation trading off";
 			if (rejection == null && pose.translationSigma > maxTranslationSigma)
 			{
 				if (ClosesLoop(p.purpose) && yawOnlyLoops) yawOnly = true;
@@ -709,6 +735,7 @@ namespace Anaglyph.LaserTag
 				if (p.purpose == Purpose.Loop) nextLoop = Time.unscaledTime + loopCooldown;
 				else nextCrossLink = Time.unscaledTime + crossLinkCooldown;
 				Outcome($"{p.purpose}: site {site.id} ({site.measurements} measurements, {site.features?.Length ?? 0} features, {sites.Count} sites) now {site.correction}{(yawOnly ? " (yaw only)" : "")} ({description})");
+				LogSiteLap(site, p.purpose);
 				SiteMeasured.Invoke(site);
 				return;
 			}
@@ -719,7 +746,7 @@ namespace Anaglyph.LaserTag
 				return;
 			}
 
-			ApplyAlignment(agreed, p.query.trackingSpace);
+			alignment.Apply(agreed, p.query.trackingSpace);
 			Outcome($"{p.purpose}: applied {agreed} ({description})");
 		}
 
@@ -782,6 +809,8 @@ namespace Anaglyph.LaserTag
 		/// <summary>How far off a revisit's camera prior is expected to be, meters: the track's drift rate over the path since the latest site, over a floor. Several times less than <see cref="MaxLoopMove"/>, which is what the gate allows.</summary>
 		private float ExpectedLoopDrift(Pending p) => loopSearchFloor + WalkedSinceSite(p) * track.DriftPerMeter;
 
+		private float LoopMinWalkDrift => loopMinWalk * track.DriftPerMeter;
+
 		private float WalkedSinceSite(Pending p) => sites.PathSinceLatest(track.PathOf(p.query.node), track.PathOf(p.query.node));
 
 		// a joiner near a site a cross-link made: the authority's map is the frame to agree on
@@ -839,19 +868,19 @@ namespace Anaglyph.LaserTag
 		/// </summary>
 		private void UpdateCorrection()
 		{
-			if (sitesGeneration != AlignmentGeneration || sitesEpoch != FrameEpoch)
+			if (sitesGeneration != alignment.Generation || sitesEpoch != alignment.FrameEpoch)
 			{
 				sites.Clear();
-				sitesGeneration = AlignmentGeneration;
-				sitesEpoch = FrameEpoch;
+				sitesGeneration = alignment.Generation;
+				sitesEpoch = alignment.FrameEpoch;
 			}
 
 			sites.SiteRadius = siteRadius;
 			sites.PathScale = sitePathScale;
-			track.Update(this);
+			track.Update(alignment);
 
 			EnvScanner scanner = EnvScanner.Instance;
-			if (CurrentPhase != Phase.Aligned || MainXRRig.Instance == null)
+			if (alignment.CurrentPhase != Phase.Aligned || MainXRRig.Instance == null)
 			{
 				if (scanner != null) scanner.SensorCorrection = Matrix4x4.identity;
 				return;
@@ -863,17 +892,18 @@ namespace Anaglyph.LaserTag
 			{
 				siteConstraints.Clear();
 				AddSiteConstraints(siteConstraints);
-				if (ColocationFit.TryEvaluate(siteConstraints, out Pose delta, out _, out _))
+				ColocationDrift drift = Colocator.Instance != null ? Colocator.Instance.Drift : ColocationDrift.None;
+				if (ColocationFit.TryEvaluate(siteConstraints, drift, out Pose delta))
 				{
-					Pose canon = CanonSpacePose;
+					Pose canon = alignment.CanonSpacePose;
 					Matrix4x4 goal = Matrix4x4.TRS(delta.position, delta.rotation, Vector3.one) * MainXRRig.TrackingSpace.localToWorldMatrix;
-					SiteCorrection = Pose4.FromMatrix(goal * Matrix4x4.TRS(canon.position, canon.rotation, Vector3.one).inverse);
+					alignment.SiteCorrection = Pose4.FromMatrix(goal * Matrix4x4.TRS(canon.position, canon.rotation, Vector3.one).inverse);
 				}
 			}
 
 			if (scanner != null)
 			{
-				Pose target = TargetSpacePose;
+				Pose target = alignment.TargetSpacePose;
 				scanner.SensorCorrection = Matrix4x4.TRS(target.position, target.rotation, Vector3.one) * MainXRRig.TrackingSpace.worldToLocalMatrix;
 			}
 		}
@@ -882,56 +912,89 @@ namespace Anaglyph.LaserTag
 
 		private readonly List<ColocationConstraint> siteConstraints = new();
 
-		/// <summary>One constraint per site once there are any; the found alignment's own until then.</summary>
-		public override void GetColocationConstraints(List<ColocationConstraint> results)
+		/// <summary>One constraint per site measurement once there are any; the found alignment's own until then.</summary>
+		public void GetColocationConstraints(List<ColocationConstraint> results)
 		{
-			if (CurrentPhase != Phase.Aligned || !IsAvailable || sites.Count == 0)
-			{
-				base.GetColocationConstraints(results);
-				return;
-			}
-
-			AddSiteConstraints(results);
+			if (alignment.CurrentPhase != Phase.Aligned || !IsAvailable) return;
+			if (sites.Count == 0) alignment.AddConstraint(results);
+			else AddSiteConstraints(results);
 		}
 
 		/// <summary>
-		/// Each site as an anchor would be: where the uncorrected alignment places it, seen
-		/// through the tracking space as it stands (observed), and where the map has it (canon),
-		/// turned by its correction's yaw so that one site alone still fixes rotation.
+		/// Every measurement of every site as an anchor would be: where the uncorrected
+		/// alignment places the camera it was measured from, seen through the tracking space as
+		/// it stands (observed), and where the map has it (canon), turned by its correction's
+		/// yaw so that one alone still fixes rotation. Each one as it came, not the site's merge
+		/// of them: tracking drifts as a whole, so the colocator's filter runs over them in the
+		/// order they were measured, and a revisit says where the rig belongs now.
 		/// </summary>
 		private void AddSiteConstraints(List<ColocationConstraint> results)
 		{
-			Pose canon = CanonSpacePose;
+			Pose canon = alignment.CanonSpacePose;
 			Matrix4x4 worldFromPlaced = MainXRRig.TrackingSpace.localToWorldMatrix * Matrix4x4.TRS(canon.position, canon.rotation, Vector3.one).inverse;
 			Quaternion placedRotation = worldFromPlaced.rotation;
 			foreach (ConstraintSites.Site site in sites.Sites)
+			foreach (ConstraintSites.Measurement measurement in site.history)
 			{
-				float3 placed = site.correction.ApplyInverse(site.position);
-				// weighted by how well the site pinned each: the fit leans on the surer sites,
-				// and takes their measured yaws rather than deriving yaw from positions alone
+				float3 placed = measurement.correction.ApplyInverse(measurement.camera);
 				results.Add(new ColocationConstraint(new Pose(worldFromPlaced.MultiplyPoint3x4(placed), placedRotation),
-					new Pose(site.position, site.correction.Rotation), true,
-					1f / math.max(site.sigmaTranslation * site.sigmaTranslation, 1e-6f),
-					1f / math.max(site.sigmaYaw * site.sigmaYaw, 1e-8f)));
+					new Pose(measurement.camera, measurement.correction.Rotation), true,
+					measurement.sigmaTranslation, measurement.sigmaYaw, measurement.path));
 			}
 		}
 
-		// every site as an axis where the map has it (green for the one measured last), a line
-		// from there to where the rig's current alignment puts it: how far the fit leaves each
-		// one, and the features its latest measurement stood on
+		// every site's latest measurement as an axis where the map has its camera (green for the
+		// one measured last), a line from there to where the rig's current alignment puts it:
+		// how far the fit leaves each one, and the features that measurement stood on
 		private void LateUpdate()
 		{
-			if (!AnaglyphDebugging.DebugMode || MainXRRig.Instance == null || sites.Count == 0 || CurrentPhase != Phase.Aligned) return;
-			Pose canon = CanonSpacePose;
+			if (!AnaglyphDebugging.DebugMode || MainXRRig.Instance == null || sites.Count == 0 || alignment.CurrentPhase != Phase.Aligned) return;
+			Pose canon = alignment.CanonSpacePose;
 			Matrix4x4 worldFromPlaced = MainXRRig.TrackingSpace.localToWorldMatrix * Matrix4x4.TRS(canon.position, canon.rotation, Vector3.one).inverse;
 			foreach (ConstraintSites.Site site in sites.Sites)
 			{
 				Color color = site.id == lastSiteId ? debugLatestColor : site.crossLink ? debugCrossLinkColor : debugRevisitColor;
-				DebugAxisVisual.DrawDebugAxis(site.position, site.correction.Rotation, color, 0.3f);
-				XRGizmos.DrawLine(site.position, worldFromPlaced.MultiplyPoint3x4(site.correction.ApplyInverse(site.position)), color);
+				ConstraintSites.Measurement latest = site.history[^1];
+				DebugAxisVisual.DrawDebugAxis(latest.camera, latest.correction.Rotation, color, 0.3f);
+				XRGizmos.DrawLine(latest.camera, worldFromPlaced.MultiplyPoint3x4(latest.correction.ApplyInverse(latest.camera)), color);
 				// the features its latest measurement stood on, where the map has them
 				if (site.features != null) XRGizmos.DrawPointSet(site.features, color, debugFeatureSize);
 			}
+		}
+
+		/// <summary>
+		/// One greppable line per site measurement ("SiteLap"), for telling a bent map from
+		/// drift: each measurement held against the site's previous one and its first, at the
+		/// site, with the head travel between them, and against the fit the rig follows, at the
+		/// camera. A bent map's revisits repeat themselves however far the head walked between
+		/// them; drift's differences grow with it.
+		/// </summary>
+		private void LogSiteLap(ConstraintSites.Site site, Purpose purpose)
+		{
+			List<ConstraintSites.Measurement> history = site.history;
+			ConstraintSites.Measurement latest = history[^1];
+			System.Text.StringBuilder line = new();
+			line.Append($"{LogTag} SiteLap site={site.id} n={site.measurements} kind={purpose} path={latest.path:F1}m " +
+			            $"from={math.distance(latest.camera, site.position):F1}m σ={latest.sigmaTranslation * 100:F1}cm/{math.degrees(latest.sigmaYaw):F2}°");
+			if (history.Count > 1)
+			{
+				ConstraintSites.Measurement previous = history[^2];
+				line.Append($" | prev walked={latest.path - previous.path:F1}m {Difference(previous.correction, latest.correction, site.position)}");
+				if (history.Count > 2)
+					line.Append($" | first walked={latest.path - history[0].path:F1}m {Difference(history[0].correction, latest.correction, site.position)}");
+			}
+
+			// the fit before this measurement takes effect
+			line.Append($" | fit {Difference(alignment.SiteCorrection, latest.correction, latest.camera)} ({sites.Count} sites)");
+			Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this, "{0}", line);
+		}
+
+		// how far apart two corrections put a point, signed: the yaw and the horizontal offset (cm)
+		private static string Difference(Pose4 from, Pose4 to, float3 at)
+		{
+			float3 offset = to.Apply(at) - from.Apply(at);
+			float yaw = math.degrees(Pose4.WrapAngle(to.yaw - from.yaw));
+			return $"Δyaw={yaw:+0.00;-0.00}° Δxz=({offset.x * 100:+0.0;-0.0}, {offset.z * 100:+0.0;-0.0})cm |{math.length(offset.xz) * 100:F1}cm|";
 		}
 
 		private string Rejection(GravityPnPResult pose)

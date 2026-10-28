@@ -5,6 +5,7 @@ using Anaglyph.Menu;
 using Anaglyph.Netcode;
 using Anaglyph.VariableObjects;
 using Anaglyph.XR.DepthKit.EnvScanning;
+using Anaglyph.XR.SharedSpaces;
 using UnityEngine;
 using UnityEngine.UIElements;
 using static Anaglyph.Menu.UIQuery;

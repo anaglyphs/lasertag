@@ -23,6 +23,12 @@ namespace Anaglyph.XR.VisualLocalization
 
 		/// <summary>Expected tracking drift between two nodes, meters; +∞ when unconnected.</summary>
 		float Drift(ulong a, ulong b);
+
+		/// <summary>
+		/// The part of <see cref="Drift"/> the walk between two nodes accounts for, meters: an
+		/// anchoring that also counts correction steps as drift leaves them out here.
+		/// </summary>
+		float WalkDrift(ulong a, ulong b) => Drift(a, b);
 	}
 
 	/// <summary>

@@ -5,7 +5,7 @@ using Anaglyph.XR.VisualLocalization;
 using Unity.Mathematics;
 using UnityEngine;
 
-namespace Anaglyph.LaserTag
+namespace Anaglyph.XR.SharedSpaces
 {
 	/// <summary>
 	/// Where visual keyframes hang: the track this headset walks, cut into short segments.
@@ -26,9 +26,6 @@ namespace Anaglyph.LaserTag
 		public float StepTranslation = 0.01f;
 		public float StepYawDegrees = 0.1f;
 
-		// a head moving further than this in one frame was a recenter or a teleport, not a walk
-		private const float JumpThreshold = 0.5f;
-
 		private struct Segment
 		{
 			public float path;
@@ -38,13 +35,13 @@ namespace Anaglyph.LaserTag
 		}
 
 		private readonly Dictionary<ulong, Segment> segments = new();
+		// the alignment the current segment's keyframes are placed through
+		private CanonAlignment alignment;
 		private ulong current;
 		private ulong nextId = 1;
 		private float path, steps;
-		private Vector3 lastHead;
-		private bool hasHead;
 
-		/// <summary>Head travel so far, meters, in the tracking space (which only drift distorts).</summary>
+		/// <summary>Head travel so far, meters: <see cref="HeadPoseHistory.Path"/>, the odometer the colocator ages constraints by.</summary>
 		public float Path => path;
 
 		/// <summary>The segment keyframes are anchored to now; 0 when not aligned.</summary>
@@ -62,34 +59,25 @@ namespace Anaglyph.LaserTag
 		{
 			segments.Clear();
 			current = 0;
-			hasHead = false;
 		}
 
-		/// <summary>Follows the head and the provider's alignment. Call once per frame.</summary>
-		public void Update(CanonColocationProvider provider)
+		/// <summary>Follows the head and the alignment keyframes are placed through. Call once per frame.</summary>
+		public void Update(CanonAlignment alignment)
 		{
-			if (MainXRRig.Instance == null || provider == null) return;
-			Transform space = MainXRRig.TrackingSpace;
-			Vector3 head = space.InverseTransformPoint(MainXRRig.Camera.transform.position);
-			if (hasHead)
-			{
-				float step = Vector3.Distance(head, lastHead);
-				if (step < JumpThreshold) path += step;
-			}
+			this.alignment = alignment;
+			if (MainXRRig.Instance == null || alignment == null) return;
+			if (HeadPoseHistory.Instance != null) path = HeadPoseHistory.Instance.Path;
 
-			lastHead = head;
-			hasHead = true;
-
-			if (provider.CurrentPhase != CanonColocationProvider.Phase.Aligned)
+			if (alignment.CurrentPhase != CanonAlignment.Phase.Aligned)
 			{
 				current = 0;
 				return;
 			}
 
-			Pose4 correction = provider.SiteCorrection;
-			if (current == 0 || !segments.TryGetValue(current, out Segment s) || s.generation != provider.AlignmentGeneration)
+			Pose4 correction = alignment.SiteCorrection;
+			if (current == 0 || !segments.TryGetValue(current, out Segment s) || s.generation != alignment.Generation)
 			{
-				Begin(provider.AlignmentGeneration, correction);
+				Begin(alignment.Generation, correction);
 				return;
 			}
 
@@ -124,10 +112,9 @@ namespace Anaglyph.LaserTag
 		{
 			node = 0;
 			cameraInNode = default;
-			CanonColocationProvider provider = CanonColocationProvider.Active;
-			if (current == 0 || provider == null || !segments.TryGetValue(current, out Segment s)) return false;
+			if (current == 0 || alignment == null || !segments.TryGetValue(current, out Segment s)) return false;
 
-			Pose canon = provider.CanonSpacePose;
+			Pose canon = alignment.CanonSpacePose;
 			Pose inCanon = new(canon.position + canon.rotation * cameraInTrackingSpace.position, canon.rotation * cameraInTrackingSpace.rotation);
 			node = current;
 			cameraInNode = s.correction.Apply(inCanon);
@@ -147,6 +134,15 @@ namespace Anaglyph.LaserTag
 			if (!segments.TryGetValue(a, out Segment sa) || !segments.TryGetValue(b, out Segment sb) || sa.generation != sb.generation)
 				return float.PositiveInfinity;
 			return math.abs(sa.path - sb.path) * DriftPerMeter + math.abs(sa.steps - sb.steps);
+		}
+
+		// a step only says the views either side were placed differently, not that tracking drifted
+		public float WalkDrift(ulong a, ulong b)
+		{
+			if (a == b) return 0;
+			if (!segments.TryGetValue(a, out Segment sa) || !segments.TryGetValue(b, out Segment sb) || sa.generation != sb.generation)
+				return float.PositiveInfinity;
+			return math.abs(sa.path - sb.path) * DriftPerMeter;
 		}
 	}
 }

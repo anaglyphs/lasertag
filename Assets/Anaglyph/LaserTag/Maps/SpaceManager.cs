@@ -59,6 +59,9 @@ namespace Anaglyph.LaserTag.Maps
 		private bool changingMap;
 		private float changeStarted;
 		private const float ChangeTimeout = 20f;
+		// a space startup loaded on the probe's word: backed out of if its map fails to relocalize
+		private string provisionalSpaceId;
+		private long provisionalLastUsed;
 
 		public SpaceAlignment Alignment { get; private set; }
 		public MapObjects Objects { get; private set; }
@@ -209,15 +212,35 @@ namespace Anaglyph.LaserTag.Maps
 			shown?.Cancel();
 			shown?.Dispose();
 			shown = new CancellationTokenSource();
+			provisionalSpaceId = null;
 			space = next;
 			if (space != null) space.lastUsed = DateTime.UtcNow.Ticks;
 			SetMap(nextMap);
 			colocationManager.InvalidateAlignment();
 			Alignment.Apply(space, preserve: false);
 			FrameChanged.Invoke();
-			if (space != null) visualMaps.LoadAndRelocalize(space, shown.Token);
+			if (space != null) visualMaps.LoadAndRelocalize(space, shown.Token, OnRelocalizationFailed);
 			SpaceChanged.Invoke();
 			MapChanged.Invoke();
+		}
+
+		/// <summary>
+		/// The shown space's saved map didn't relocalize: the headset is likely not in it at all.
+		/// It is rejected for this room; a space startup only guessed is backed out of for a
+		/// blank one, and nothing done during the guess is saved to it. A space the player chose
+		/// stays shown, and its map file is kept.
+		/// </summary>
+		private void OnRelocalizationFailed(Space failed)
+		{
+			if (failed != space || showingSessionSpace) return;
+			Discovery.Reject(failed.id);
+			SpacesChanged.Invoke();
+			if (failed.id != provisionalSpaceId || Role != SpaceRole.Offline) return;
+			Debug.Log($"[{nameof(SpaceManager)}] space {failed.id} ({failed.name}) didn't relocalize: this room is not one of the saved spaces");
+			dirty = false;
+			failed.lastUsed = provisionalLastUsed;
+			store.Save(failed);
+			ShowBlankSpace();
 		}
 
 		private void SetMap(Map next)
@@ -710,14 +733,32 @@ namespace Anaglyph.LaserTag.Maps
 			switch (result.outcome)
 			{
 				case ProbeOutcome.Matches:
-					LoadSpace(result.best.id);
+					long lastUsed = result.best.lastUsed;
+					if (LoadSpace(result.best.id) && space == result.best)
+					{
+						provisionalSpaceId = space.id;
+						provisionalLastUsed = lastUsed;
+					}
 					return;
 				case ProbeOutcome.NoMatches:
-					Space draft = FindBlankSpace();
-					if (draft != null) LoadSpace(draft.id);
-					else NewSpace();
+					if (NewSpaceBlocker() == null) ShowBlankSpace();
 					return;
 			}
+		}
+
+		/// <summary>The room is none of the saved spaces: shows the most recent blank space, or a new one.</summary>
+		private bool ShowBlankSpace()
+		{
+			Space next = FindBlankSpace();
+			if (next == null)
+			{
+				next = Space.Create(GenerateSpaceName());
+				spaces.Insert(0, next);
+			}
+			Show(next, MostRecentMap(next) ?? AddMap(next));
+			spaces.Sort(ByLastUsed);
+			SpacesChanged.Invoke();
+			return Save();
 		}
 
 		/// <summary>The most recent space with nothing in it: no references, no visual map, only empty maps.</summary>

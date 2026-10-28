@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using Anaglyph.XR.DepthKit.EnvScanning.Registration;
 using Unity.Mathematics;
 
-namespace Anaglyph.LaserTag
+namespace Anaglyph.XR.SharedSpaces
 {
 	/// <summary>
 	/// Where this headset has measured its alignment against the map, and what correction it
@@ -34,7 +34,24 @@ namespace Anaglyph.LaserTag
 			public int measurements;
 			/// <summary>Where the map has the features its latest measurement stood on (ranged inliers), for debug views; may be null.</summary>
 			public UnityEngine.Vector3[] features;
+			/// <summary>Its measurements as they came, oldest first, before merging: whether revisits after a lap agree (a bent map) or wander with the path (drift).</summary>
+			public List<Measurement> history;
 		}
+
+		/// <summary>One measurement of a site, unmerged.</summary>
+		public struct Measurement
+		{
+			/// <summary>The camera it was measured from, in the shared frame.</summary>
+			public float3 camera;
+			public Pose4 correction;
+			public float sigmaTranslation, sigmaYaw;
+			public float path;
+			public float time;
+			public bool crossLink;
+		}
+
+		/// <summary>Measurements each site keeps in its history: the first and the latest ones.</summary>
+		public int HistoryLength = 32;
 
 		/// <summary>A measurement this close to a site updates it, meters.</summary>
 		public float SiteRadius = 8f;
@@ -57,10 +74,19 @@ namespace Anaglyph.LaserTag
 		public Site Add(float3 position, Pose4 correction, float sigmaTranslation, float sigmaYaw, float path, float time, bool crossLink,
 			UnityEngine.Vector3[] features = null)
 		{
+			Measurement measurement = new()
+			{
+				camera = position, correction = correction, sigmaTranslation = sigmaTranslation, sigmaYaw = sigmaYaw,
+				path = path, time = time, crossLink = crossLink,
+			};
+
 			int nearest = Nearest(position, out float distance);
 			if (nearest >= 0 && distance <= SiteRadius)
 			{
 				Site s = sites[nearest];
+				// the first stays: the baseline every lap is held against
+				if (s.history.Count >= HistoryLength) s.history.RemoveAt(1);
+				s.history.Add(measurement);
 				float stale = math.exp(-math.max(0, path - s.path) / PathScale);
 				// the new measurement carried from its camera to the site: its yaw's uncertainty
 				// grows into translation over the lever arm
@@ -98,6 +124,7 @@ namespace Anaglyph.LaserTag
 				id = nextId++, position = position, correction = correction,
 				sigmaTranslation = sigmaTranslation, sigmaYaw = sigmaYaw,
 				path = path, time = time, crossLink = crossLink, measurements = 1, features = features,
+				history = new List<Measurement> { measurement },
 			};
 			sites.Add(site);
 			return site;

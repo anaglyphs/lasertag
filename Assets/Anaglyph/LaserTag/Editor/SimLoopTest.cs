@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using Anaglyph.XR.SharedSpaces;
 using Anaglyph.XR;
 using Anaglyph.XR.DepthKit.EnvScanning.Registration;
 using Anaglyph.XR.VisualLocalization;
@@ -264,9 +265,9 @@ namespace Anaglyph.LaserTag.Editor
 		private bool TryIdealCorrection(out Pose4 ideal)
 		{
 			ideal = Pose4.Identity;
-			CanonColocationProvider provider = CanonColocationProvider.Active;
+			VisualColocationConstraintProvider provider = VisualColocationConstraintProvider.Active;
 			if (provider == null || MainXRRig.Instance == null) return false;
-			Pose canon = provider.CanonSpacePose;
+			Pose canon = provider.Alignment.CanonSpacePose;
 			Matrix4x4 start = Matrix4x4.TRS(roomStart.position, roomStart.rotation, Vector3.one);
 			Matrix4x4 space = MainXRRig.TrackingSpace.localToWorldMatrix;
 			Matrix4x4 canonInverse = Matrix4x4.TRS(canon.position, canon.rotation, Vector3.one).inverse;
@@ -284,8 +285,8 @@ namespace Anaglyph.LaserTag.Editor
 		// the head where the uncorrected alignment places it: where corrections act
 		private Vector3 HeadInCanon()
 		{
-			CanonColocationProvider provider = CanonColocationProvider.Active;
-			Pose canon = provider != null ? provider.CanonSpacePose : Pose.identity;
+			VisualColocationConstraintProvider provider = VisualColocationConstraintProvider.Active;
+			Pose canon = provider != null ? provider.Alignment.CanonSpacePose : Pose.identity;
 			Vector3 local = MainXRRig.TrackingSpace.InverseTransformPoint(MainXRRig.Camera.transform.position);
 			return canon.position + canon.rotation * local;
 		}

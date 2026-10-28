@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
+using Anaglyph.XR.SharedSpaces;
 using Anaglyph.XR.VisualLocalization;
 using Unity.Mathematics;
 using UnityEngine;
@@ -37,6 +38,9 @@ namespace Anaglyph.LaserTag.Maps
 		// after a load that failed, and must not overwrite the file the loaded one came from
 		private string loadedSpace;
 		private int loadedKeyframes;
+		// a space whose saved map has not relocalized the rig yet: the live map may be of
+		// another room entirely, and saving it would replace the space's map with that room
+		private string unverifiedSpace;
 		// each keyframe's place probe once made: a keyframe never changes, so a synchronous
 		// save (quitting, pausing) reuses them instead of quantizing the whole map again
 		private readonly Dictionary<VisualKeyframe, ulong[]> probeCache = new();
@@ -45,6 +49,8 @@ namespace Anaglyph.LaserTag.Maps
 		public float SaveInterval = 60f;
 		/// <summary>Seconds a loaded map gets to relocalize the rig before it is dropped for a fresh one.</summary>
 		public float RelocalizeTimeout = 30f;
+		/// <summary>Seconds a space just shown waits for the rig to take an alignment before its map is loaded.</summary>
+		public float AlignTimeout = 10f;
 
 		public VisualMapPersistence(SpaceStore store) => this.store = store;
 
@@ -104,10 +110,10 @@ namespace Anaglyph.LaserTag.Maps
 			VisualLocalizer localizer = VisualLocalizer.Instance;
 			VisualColocationConstraintProvider provider = VisualColocationConstraintProvider.Instance;
 			if (space == null || localizer == null || provider == null) return;
-			if (provider.CurrentPhase != CanonColocationProvider.Phase.Aligned) return;
+			if (provider.Alignment.CurrentPhase != CanonAlignment.Phase.Aligned) return;
 			VisualMap map = localizer.Map;
 			if (map.Count == 0 || writesInFlight > 0 && !force) return;
-			if (space.id == loadedSpace && map.Count < loadedKeyframes) return;
+			if (space.id == loadedSpace && map.Count < loadedKeyframes || space.id == unverifiedSpace) return;
 			bool unchanged = map.Revision == savedRevision && space.id == savedSpace;
 			if (unchanged || !force && Time.realtimeSinceStartup - lastSave < SaveInterval) return;
 
@@ -262,14 +268,17 @@ namespace Anaglyph.LaserTag.Maps
 		/// <summary>
 		/// Loads the space's saved map, if it has one in the space's current frame, under the
 		/// live localizer as one rigid piece, and has the rig relocalize against it. Gives up
-		/// after <see cref="RelocalizeTimeout"/>, leaving a fresh map. Cancelled when the space
-		/// stops being the shown one.
+		/// after <see cref="RelocalizeTimeout"/>, leaving a fresh map, and calls
+		/// <paramref name="failed"/>: the headset is likely not in the space at all. Until the
+		/// map relocalizes, the space's map file is not written. Cancelled when the space stops
+		/// being the shown one.
 		/// </summary>
-		public async void LoadAndRelocalize(Space space, CancellationToken token)
+		public async void LoadAndRelocalize(Space space, CancellationToken token, Action<Space> failed = null)
 		{
 			VisualLocalizer localizer = VisualLocalizer.Instance;
 			VisualColocationConstraintProvider provider = VisualColocationConstraintProvider.Instance;
-			if (space == null || !HasMap(space) || localizer == null || provider == null) return;
+			unverifiedSpace = space != null && HasMap(space) ? space.id : null;
+			if (unverifiedSpace == null || localizer == null || provider == null) return;
 			string path = store.VisualMapPath(space.id);
 
 			VisualMapData data;
@@ -289,21 +298,37 @@ namespace Anaglyph.LaserTag.Maps
 			catch (Exception e)
 			{
 				Debug.LogException(e);
+				Verified(space);
 				return;
 			}
 
 			if (token.IsCancellationRequested || !localizer || !provider) return;
+			// an unreadable map, or one of another frame, has nothing to protect: a fresh one replaces it
 			if (data == null)
 			{
 				Debug.LogWarning($"[{nameof(VisualMapPersistence)}] {path} is not a map: ignored");
+				Verified(space);
 				return;
 			}
 			if (data.frameId != space.frameId)
 			{
 				Debug.Log($"[{nameof(VisualMapPersistence)}] the saved map is in another frame than the space: ignored");
+				Verified(space);
 				return;
 			}
-			if (provider.CurrentPhase != CanonColocationProvider.Phase.Aligned) return;
+			try
+			{
+				float alignDeadline = Time.realtimeSinceStartup + AlignTimeout;
+				while (provider && provider.Alignment.CurrentPhase != CanonAlignment.Phase.Aligned && Time.realtimeSinceStartup < alignDeadline)
+					await Awaitable.WaitForSecondsAsync(0.25f, token);
+			}
+			catch (OperationCanceledException) { return; }
+			if (!localizer || !provider) return;
+			if (provider.Alignment.CurrentPhase != CanonAlignment.Phase.Aligned)
+			{
+				Debug.Log($"[{nameof(VisualMapPersistence)}] the rig took no alignment in {AlignTimeout:F0} s ({provider.Alignment.CurrentPhase}): the saved map for space {space.id} is not loaded, and not replaced");
+				return;
+			}
 
 			// whatever was mapped since the space came up is in a frame about to be replaced
 			localizer.Map.Restore(data, pose => pose, Quaternion.identity, localizer.PixelSigma);
@@ -326,7 +351,11 @@ namespace Anaglyph.LaserTag.Maps
 				}
 			}
 			Debug.Log($"[{nameof(VisualMapPersistence)}] loaded {localizer.Map.Count} keyframes for space {space.id}: {localizer.Quality}; relocalizing");
-			if (!provider.RelocalizeAgainstMap()) return;
+			if (!provider.RelocalizeAgainstMap())
+			{
+				Debug.Log($"[{nameof(VisualMapPersistence)}] couldn't relocalize against the saved map for space {space.id}: it is not replaced");
+				return;
+			}
 
 			// startup clears the scan and rebases the frame while the session comes up, and the
 			// provider drops its map with them: put the loaded map back while it is still wanted
@@ -337,7 +366,12 @@ namespace Anaglyph.LaserTag.Maps
 				while (Time.realtimeSinceStartup < deadline)
 				{
 					await Awaitable.WaitForSecondsAsync(0.5f, token);
-					if (!provider || provider.CurrentPhase != CanonColocationProvider.Phase.Relocalizing) return;
+					if (!provider) return;
+					if (provider.Alignment.CurrentPhase != CanonAlignment.Phase.Relocalizing)
+					{
+						if (provider.Alignment.CurrentPhase == CanonAlignment.Phase.Aligned) Verified(space);
+						return;
+					}
 					if (localizer.Map.Count >= loadedKeyframes / 2 || restores >= 3) continue;
 					restores++;
 					localizer.Map.Restore(data, pose => pose, Quaternion.identity, localizer.PixelSigma);
@@ -347,10 +381,16 @@ namespace Anaglyph.LaserTag.Maps
 			}
 			catch (OperationCanceledException) { return; }
 
-			if (provider.CurrentPhase != CanonColocationProvider.Phase.Relocalizing) return;
+			if (provider.Alignment.CurrentPhase != CanonAlignment.Phase.Relocalizing) return;
 			Debug.Log($"[{nameof(VisualMapPersistence)}] the saved map didn't relocalize in {RelocalizeTimeout:F0} s: starting a fresh one ({provider.LastAttemptDescription})");
-			provider.AbandonRelocalization();
+			provider.Alignment.AbandonRelocalization();
 			localizer.Map.Clear();
+			failed?.Invoke(space);
+		}
+
+		private void Verified(Space space)
+		{
+			if (unverifiedSpace == space.id) unverifiedSpace = null;
 		}
 
 		/// <summary>Forgets what was saved: the next unforced save writes.</summary>
