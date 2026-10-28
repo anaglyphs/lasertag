@@ -7,7 +7,7 @@
 #session-address {
     flex-shrink: 0;
     font-size: 38px;
-    -unity-font-style: bold;
+    -unity-font-definition: var(--font-bold);
     white-space: normal;
     margin-top: 12px;
     margin-bottom: 12px;
@@ -33,7 +33,7 @@
 }
 
 .client-cell--name {
-    -unity-font-style: bold;
+    -unity-font-definition: var(--font-bold);
 }
 
 .client-cell--status {

@@ -55,7 +55,7 @@
     top: 50%;
     margin: 0;
     font-size: 53px;
-    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINish-Bold%20SDF.asset");
+    -unity-font-definition: var(--font-bold);
 }
 
 .score-display__goal-score--blue {
@@ -80,7 +80,7 @@
     margin: 0;
     font-size: 24px;
     -unity-text-align: middle-center;
-    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishExpanded-Bold%20SDF.asset");
+    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishExpanded-Bold.ttf");
 }
 
 /* Timer: scores flank the hourglass and may overhang the mode box */
@@ -91,7 +91,7 @@
     width: auto;
     margin: 0;
     font-size: 52px;
-    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINish-Bold%20SDF.asset");
+    -unity-font-definition: var(--font-bold);
 }
 
 .score-display__timer-score--blue {
@@ -114,7 +114,7 @@
     margin: 0;
     font-size: 30px;
     -unity-text-align: middle-center;
-    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishExpanded-Bold%20SDF.asset");
+    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishExpanded-Bold.ttf");
 }
 
 .score-display__round {
@@ -125,5 +125,5 @@
     margin: 0;
     font-size: 22px;
     -unity-text-align: middle-center;
-    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishExpanded-Bold%20SDF.asset");
+    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishExpanded-Bold.ttf");
 }

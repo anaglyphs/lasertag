@@ -1,2 +1,28 @@
 @import url("unity-theme://default");
 VisualElement {}
+
+/* Font families. Faces are .ttf files, never font-style: bold/italic, which the advanced
+   text generator fakes by dilating the regular face. A family class swaps the variables
+   for its subtree; the .bold/.italic classes in LaserTagStyle.uss pick a face from whichever
+   family is in scope (they live there because theme rules lose to its * rule). */
+
+:root {
+    --font-regular: url("project://database/Assets/Resources/Fonts/DINish-Regular.ttf");
+    --font-bold: url("project://database/Assets/Resources/Fonts/DINish-Bold.ttf");
+    --font-italic: url("project://database/Assets/Resources/Fonts/DINish-Italic.ttf");
+    --font-bold-italic: url("project://database/Assets/Resources/Fonts/DINish-BoldItalic.ttf");
+}
+
+.din-expanded {
+    --font-regular: url("project://database/Assets/Resources/Fonts/DINishExpanded-Regular.ttf");
+    --font-bold: url("project://database/Assets/Resources/Fonts/DINishExpanded-Bold.ttf");
+    --font-italic: url("project://database/Assets/Resources/Fonts/DINishExpanded-Italic.ttf");
+    --font-bold-italic: url("project://database/Assets/Resources/Fonts/DINishExpanded-BoldItalic.ttf");
+}
+
+.din-condensed {
+    --font-regular: url("project://database/Assets/Resources/Fonts/DINishCondensed-Regular.ttf");
+    --font-bold: url("project://database/Assets/Resources/Fonts/DINishCondensed-Bold.ttf");
+    --font-italic: url("project://database/Assets/Resources/Fonts/DINishCondensed-Italic.ttf");
+    --font-bold-italic: url("project://database/Assets/Resources/Fonts/DINishCondensed-BoldItalic.ttf");
+}

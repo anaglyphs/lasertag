@@ -9,7 +9,7 @@
 
 .tag-setup-step {
     flex-shrink: 0;
-    -unity-font-style: bold;
+    -unity-font-definition: var(--font-bold);
     white-space: normal;
     margin-top: 12px;
     margin-bottom: 12px;
@@ -18,7 +18,7 @@
 .tag-setup-address {
     flex-shrink: 0;
     font-size: 38px;
-    -unity-font-style: bold;
+    -unity-font-definition: var(--font-bold);
     white-space: normal;
     margin-top: 12px;
     margin-bottom: 12px;

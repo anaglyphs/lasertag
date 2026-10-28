@@ -1,6 +1,5 @@
 .session-discovery-status {
-    -unity-font-style: bold;
-    -unity-font-definition: resource("Fonts/DINishExpanded-Regular SDF");
+    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishExpanded-Bold.ttf");
     font-size: 18px;
     flex-grow: 1;
     -unity-text-align: middle-left;

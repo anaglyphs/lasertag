@@ -38,7 +38,7 @@
     flex-shrink: 1;
     min-width: 0;
     font-size: 22px;
-    -unity-font-style: bold;
+    -unity-font-definition: var(--font-bold);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

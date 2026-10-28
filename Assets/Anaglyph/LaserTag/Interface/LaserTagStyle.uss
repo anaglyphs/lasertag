@@ -1,7 +1,7 @@
 /* Global defaults */
 
 * {
-    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINish-Regular%20SDF.asset");
+    -unity-font-definition: var(--font-regular);
     color: var(--text-color, rgb(255, 255, 255));
 
 	--spacing-small: 4px;
@@ -16,6 +16,21 @@
 	--panel-border-width: 2px;
 	--scrollbar-size: 24px;
 	--scrollbar-button-clearance: 28px;
+}
+
+/* Font faces: families (.din-expanded, .din-condensed) and their variables are in
+   LaserTagRuntimeTheme.tss. Use these classes, not -unity-font-style, for weight. */
+
+.bold {
+    -unity-font-definition: var(--font-bold);
+}
+
+.italic {
+    -unity-font-definition: var(--font-italic);
+}
+
+.bold.italic {
+    -unity-font-definition: var(--font-bold-italic);
 }
 
 /* Shared spacing and control sizes */
@@ -199,7 +214,7 @@ RadioButton #unity-checkmark {
 .nav-header__title {
     -unity-text-align: middle-left;
     font-size: var(--font-size-title, 28px);
-    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishCondensed-Light%20SDF.asset");
+    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishCondensed-Light.ttf");
 }
 
 .nav-button {
@@ -233,7 +248,7 @@ RadioButton #unity-checkmark {
 
 .error-subject {
     flex-grow: 0;
-    -unity-font-style: bold;
+    -unity-font-definition: var(--font-bold);
     white-space: normal;
     margin-bottom: var(--spacing-small, 4px);
 }
@@ -256,7 +271,7 @@ RadioButton #unity-checkmark {
     --text-color: var(--secondary, rgb(20, 20, 20));
     border-width: 0;
     -unity-text-align: middle-left;
-    -unity-font-style: bold;
+    -unity-font-definition: var(--font-bold);
     background-color: var(--primary, rgb(200, 200, 200));
     color: var(--text-color);
     -unity-background-image-tint-color: var(--secondary, rgb(20, 20, 20));
@@ -311,7 +326,7 @@ TextField,
     -unity-text-align: middle-left;
     margin: 0;
     padding: 0;
-	-unity-font-style: bold;
+	-unity-font-definition: var(--font-bold);
 }
 
 .unity-popup-field .unity-base-popup-field__arrow {
@@ -326,7 +341,10 @@ TextField,
     --primary: rgb(150, 150, 150);
     --highlight: rgb(200, 200, 200);
     --secondary: rgb(20, 20, 20);
-	-unity-font-style: bold;
+}
+
+.unity-base-dropdown * {
+    -unity-font-definition: var(--font-bold);
 }
 
 .unity-base-dropdown .unity-base-dropdown__container-outer {
@@ -644,7 +662,7 @@ ScrollView .unity-scroll-view__horizontal-scroller #unity-dragger {
     padding-top: 1px;
     padding-bottom: 1px;
     color: rgb(0, 12, 24);
-    -unity-font-style: bold;
+    -unity-font-definition: var(--font-bold);
     -unity-text-align: middle-center;
 }
 
