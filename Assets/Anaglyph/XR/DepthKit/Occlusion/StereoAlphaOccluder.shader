@@ -28,8 +28,13 @@ Shader "Anaglyph/DepthKit/StereoAlphaOccluder"
 			HLSLPROGRAM
 			#pragma vertex vert
 			#pragma fragment frag
+			// set on DepthKitEnvironmentOcclusionFeature's override material, which draws into agOcclusionTex
+			#pragma multi_compile_local _ AG_OCCLUSION_MATRICES
 
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+			#if AG_OCCLUSION_MATRICES
+			#include "DepthKitEnvironmentOcclusion.hlsl"
+			#endif
 
 			struct Attributes
 			{
@@ -50,7 +55,11 @@ Shader "Anaglyph/DepthKit/StereoAlphaOccluder"
 				UNITY_SETUP_INSTANCE_ID(IN);
 				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(OUT);
 
+				#if AG_OCCLUSION_MATRICES
+				OUT.positionHCS = mul(agOcclusionVP[unity_StereoEyeIndex], float4(TransformObjectToWorld(IN.positionOS.xyz), 1));
+				#else
 				OUT.positionHCS = TransformObjectToHClip(IN.positionOS.xyz);
+				#endif
 
 				return OUT;
 			}

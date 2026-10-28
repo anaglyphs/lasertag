@@ -54,7 +54,8 @@ namespace Anaglyph.LaserTag.Shaders
 		{
 			if (irradiancePass == null || !globallyEnabled || !DepthKitDriver.DepthAvailable) return;
 			if (renderingData.cameraData.cameraType != CameraType.Game ||
-			    renderingData.cameraData.renderType != CameraRenderType.Base) return;
+			    renderingData.cameraData.renderType != CameraRenderType.Base ||
+			    renderingData.cameraData.targetTexture != null) return;
 
 			irradiancePass.renderingLayers = renderingLayers.value;
 			irradiancePass.maxLights = maxLights;
@@ -317,8 +318,9 @@ namespace Anaglyph.LaserTag.Shaders
 					data.properties.SetTexture(IrradianceID, (RTHandle)data.irradiance);
 					data.properties.SetMatrixArray(WorldToDepthClipID, data.worldToDepthClip);
 					data.properties.SetMatrixArray(DepthClipToWorldID, data.depthClipToWorld);
+					// ViewQuad.hlsl's 6-vertex quad
 					context.cmd.DrawProcedural(Matrix4x4.identity, data.material, CompositeShaderPass,
-						MeshTopology.Triangles, 3, 1, data.properties);
+						MeshTopology.Triangles, 6, 1, data.properties);
 				});
 			}
 		}

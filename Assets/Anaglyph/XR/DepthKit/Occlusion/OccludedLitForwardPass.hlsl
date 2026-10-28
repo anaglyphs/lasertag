@@ -271,18 +271,11 @@ void LitPassFragment(
 	color.rgb = MixFog(color.rgb, inputData.fogCoord);
 	color.a = OutputAlpha(color.a, IsSurfaceTypeTransparent(_Surface));
 
-	// positionCS here is WINDOW space: .xy = pixels, .z = depth-buffer value, .w = 1/clipW
-	float deviceDepth = input.positionCS.z; // the value to compare — no divide
-
-	// agOcclusionTex is rasterized with this camera's matrices, so raw window
-	// coordinates already line up 1:1 with its rows on every platform. Don't use
-	// GetNormalizedScreenSpaceUV here: its _ScaleBiasRt y-flip depends on the
-	// current target's flip state (editor vs XR) and misaligns the sample.
-	float2 screenUV = input.positionCS.xy * rcp(GetScaledScreenParams().xy);
-
-	float3 uvEye = float3(screenUV, unity_StereoEyeIndex);
-
-	float occlusion = agOcclusionTex.SampleCmpLevelZero(agLinearClampCompareSampler, uvEye, deviceDepth);
+	// projected through agOcclusionTex's own matrices, not this target's window
+	// coordinates, which only line up with it when both share a y-flip
+	float3 uvDepth = agOcclusionUVDepth(inputData.positionWS, unity_StereoEyeIndex);
+	float occlusion = agOcclusionTex.SampleCmpLevelZero(agLinearClampCompareSampler,
+		float3(uvDepth.xy, unity_StereoEyeIndex), uvDepth.z);
 	color *= occlusion;
 	outColor = color;
 

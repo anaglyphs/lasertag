@@ -83,6 +83,7 @@ Shader "Anaglyph/Lasertag/DepthLight"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
 			#include "Assets/Anaglyph/XR/DepthKit/DepthKit.hlsl"
+			#include "Assets/Anaglyph/XR/DepthKit/ViewQuad.hlsl"
 
 			Texture2DArray<half4> _DepthLightIrradiance;
 			float4x4 _WorldToDepthClip[2];
@@ -112,9 +113,9 @@ Shader "Anaglyph/Lasertag/DepthLight"
 				Varyings output;
 				UNITY_SETUP_INSTANCE_ID(input);
 				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
-				output.positionCS = GetFullScreenTriangleVertexPosition(input.vertexID);
-				float4 nearWS = mul(UNITY_MATRIX_I_VP, output.positionCS);
-				output.viewRayWS = nearWS.xyz - GetCameraPositionWS() * nearWS.w;
+				float3 positionWS = agViewQuadWorld(input.vertexID);
+				output.positionCS = TransformWorldToHClip(positionWS);
+				output.viewRayWS = positionWS - GetCameraPositionWS();
 				return output;
 			}
 

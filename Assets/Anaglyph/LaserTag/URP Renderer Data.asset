@@ -41,20 +41,19 @@ MonoBehaviour:
   - {fileID: -2539395790362853379}
   - {fileID: 3569414214604287537}
   - {fileID: 8038678225821553079}
-  m_RendererFeatureMap: fdbf4ca3fb40c2dc31eeb70d511b8931b7d1c271411f8f6f
-  m_UseNativeRenderPass: 0
+  m_RendererFeatureMap: fdbf4ca3fb40c2dc31eeb70d511b8931b7d1c271411f8f6fl
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 0}
   m_AssetVersion: 3
   m_PrepassLayerMask:
     serializedVersion: 2
-    m_Bits: 1073741943
+    m_Bits: 1073741879
   m_OpaqueLayerMask:
     serializedVersion: 2
-    m_Bits: 1073741943
+    m_Bits: 1073741879
   m_TransparentLayerMask:
     serializedVersion: 2
-    m_Bits: 1073741943
+    m_Bits: 1073741879
   m_DefaultStencilState:
     overrideStencilState: 0
     stencilReference: 0
@@ -70,6 +69,7 @@ MonoBehaviour:
   m_DepthTextureFormat: 0
   m_AccurateGbufferNormals: 0
   m_IntermediateTextureMode: 0
+  m_TileOnlyMode: 0
 --- !u!114 &3569414214604287537
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -90,6 +90,8 @@ MonoBehaviour:
   OcclusionMeshLayerMask:
     serializedVersion: 2
     m_Bits: 64
+  primeCameraDepth: 0
+  primeCameraDepthMargin: 0.05
 --- !u!114 &4128944301352777345
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -105,7 +107,7 @@ MonoBehaviour:
   m_Active: 1
 --- !u!114 &8038678225821553079
 MonoBehaviour:
-  m_ObjectHideFlags: 0
+  m_ObjectHideFlags: 1
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -120,3 +122,4 @@ MonoBehaviour:
   renderingLayers:
     serializedVersion: 0
     m_Bits: 1
+  maxLights: 32
