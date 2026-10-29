@@ -89,7 +89,8 @@ namespace Anaglyph.XR.SharedSpaces
 		[SerializeField] private float loopCenterPriorSigma = 1f;
 		[Tooltip("A closure that pins yaw but not translation (far landmarks only) still becomes an edge, with translation left loose")]
 		[SerializeField] private bool yawOnlyLoops = false;
-		[SerializeField] private float loopCooldown = 3f;
+		[Tooltip("Seconds after a revisit makes a site before the next loop query: drift grows with the walk between measurements, so on device one every ~5 m left the fit ~4.5 cm off at the next, where one every ~2 m should leave it ~3")]
+		[SerializeField] private float loopCooldown = 1f;
 		[Tooltip("A revisit corrects the drift walked since the last measurement: one moving the camera by more than this plus the per-meter allowance found the wrong place, such as the far end of a symmetric hallway")]
 		[SerializeField] private float loopPlausibleMeters = 0.5f;
 		[SerializeField] private float loopPlausibleFraction = 0.03f;
@@ -195,6 +196,8 @@ namespace Anaglyph.XR.SharedSpaces
 		private int nextQueryId = 1;
 		private float nextQuery;
 		private float nextLoop;
+		private float nextLoopTargetCheck;
+		private const float LoopTargetRetry = 0.25f;
 		private float nextQuietLoopLog;
 		private float nextBusyLog;
 		private bool queryInFlight;
@@ -205,6 +208,7 @@ namespace Anaglyph.XR.SharedSpaces
 		private Pending candidate;
 		private Pose4 candidatePose;
 		private float candidateTranslationSigma;
+		private GravityPnPResult candidateSolve;
 		private bool candidateYawOnly;
 		private ulong candidateAnchor;
 
@@ -380,11 +384,15 @@ namespace Anaglyph.XR.SharedSpaces
 					purpose = Purpose.Loop;
 					remote = false;
 					// a query costs an extraction and LighterGlue runs: only when an old view is near to find
-					return loopClosure && Time.unscaledTime >= nextLoop && track.IsTracking &&
-					       (!loopFromKeyframes || Time.unscaledTime - lastKeyframeAt >= loopCaptureAfterQuiet) &&
-					       localizer.Map.Count > 0 &&
-					       !CrossLinkCovers(MainXRRig.Camera.transform.position) &&
-					       localizer.HasUntrustedKeyframeNear(MainXRRig.Camera.transform.position, track.Current, loopSearchDistance, LoopMinWalkDrift);
+					if (!loopClosure || Time.unscaledTime < nextLoop || Time.unscaledTime < nextLoopTargetCheck || !track.IsTracking ||
+					    (loopFromKeyframes && Time.unscaledTime - lastKeyframeAt < loopCaptureAfterQuiet) ||
+					    localizer.Map.Count == 0 ||
+					    CrossLinkCovers(MainXRRig.Camera.transform.position)) return false;
+					if (localizer.HasUntrustedKeyframeNear(MainXRRig.Camera.transform.position, track.Current, loopSearchDistance, LoopMinWalkDrift)) return true;
+					// a scan of every keyframe: none near now means the head has to move first,
+					// so not again every frame
+					nextLoopTargetCheck = Time.unscaledTime + LoopTargetRetry;
+					return false;
 
 				default:
 					return false;
@@ -677,6 +685,7 @@ namespace Anaglyph.XR.SharedSpaces
 				candidate = p;
 				candidatePose = correction;
 				candidateTranslationSigma = pose.translationSigma;
+				candidateSolve = pose;
 				candidateAnchor = anchor;
 				candidateYawOnly = false;
 				description = $"one frame, confident enough alone: {description}";
@@ -686,6 +695,7 @@ namespace Anaglyph.XR.SharedSpaces
 				candidate = p;
 				candidatePose = correction;
 				candidateTranslationSigma = pose.translationSigma;
+				candidateSolve = pose;
 				candidateAnchor = anchor;
 				candidateYawOnly = yawOnly;
 				Outcome($"{p.purpose}: candidate {correction}{(yawOnly ? " (yaw only)" : "")}, waiting for a second frame to agree ({description})");
@@ -696,19 +706,25 @@ namespace Anaglyph.XR.SharedSpaces
 				return;
 			}
 
-			// averaged about the camera, not the world origin, which may be tens of meters
-			// away and turns a hundredth of a degree into centimeters there
-			float3 camera = p.query.camera.position;
-			float yawMean = candidatePose.yaw + Pose4.WrapAngle(correction.yaw - candidatePose.yaw) * 0.5f;
-			// weighted by how well each pinned translation: a yaw-only frame's says nothing
-			float candidateWeight = candidateYawOnly ? 0 : 1f / math.max(candidateTranslationSigma * candidateTranslationSigma, 1e-8f);
-			float weight = yawOnly ? 0 : 1f / math.max(pose.translationSigma * pose.translationSigma, 1e-8f);
-			if (candidateWeight + weight <= 0) candidateWeight = weight = 1;
-			float3 centerMean = (candidatePose.Apply(camera) * candidateWeight + correction.Apply(camera) * weight) / (candidateWeight + weight);
-			Pose4 agreed = new(centerMean - Pose4.RotateY(camera, yawMean), yawMean);
 			Vector3[] features = candidate == p || candidate?.features == null ? p.features
 				: p.features == null ? candidate.features
 				: System.Linq.Enumerable.ToArray(System.Linq.Enumerable.Concat(candidate.features, p.features));
+
+			// measured where the map has the features the frames stood on, not at the camera:
+			// the solves pin the correction best there (the yaw's error at the camera rides its
+			// lever arm to them), and a revisit of the same features lands there again
+			// wherever the head stands. Averaged about it too, not the world origin, which may
+			// be tens of meters away and turns a hundredth of a degree into centimeters there
+			float3 camera = p.query.camera.position;
+			float3 focus = Focus(features, camera);
+			float candidateSigma = candidateSolve.TranslationSigmaAt(focus), sigma = pose.TranslationSigmaAt(focus);
+			float yawMean = candidatePose.yaw + Pose4.WrapAngle(correction.yaw - candidatePose.yaw) * 0.5f;
+			// weighted by how well each pinned translation: a yaw-only frame's says nothing
+			float candidateWeight = candidateYawOnly ? 0 : 1f / math.max(candidateSigma * candidateSigma, 1e-8f);
+			float weight = yawOnly ? 0 : 1f / math.max(sigma * sigma, 1e-8f);
+			if (candidateWeight + weight <= 0) candidateWeight = weight = 1;
+			float3 focusMean = (candidatePose.Apply(focus) * candidateWeight + correction.Apply(focus) * weight) / (candidateWeight + weight);
+			Pose4 agreed = new(focusMean - Pose4.RotateY(focus, yawMean), yawMean);
 			candidate = null;
 
 			if (ClosesLoop(p.purpose))
@@ -723,13 +739,13 @@ namespace Anaglyph.XR.SharedSpaces
 				// the two frames together pin translation as well as the better of them: a site
 				// is yaw-only when neither pinned it
 				bool bothYawOnly = yawOnly && candidateYawOnly;
-				float sigmaTranslation = bothYawOnly ? math.max(pose.translationSigma, 1f)
-					: yawOnly ? candidateTranslationSigma
-					: candidateYawOnly ? pose.translationSigma
-					: math.min(pose.translationSigma, candidateTranslationSigma);
+				float sigmaTranslation = bothYawOnly ? math.max(sigma, 1f)
+					: yawOnly ? candidateSigma
+					: candidateYawOnly ? sigma
+					: math.min(sigma, candidateSigma);
 				yawOnly = bothYawOnly;
 
-				ConstraintSites.Site site = sites.Add(camera, agreed, math.max(sigmaTranslation, siteMinTranslationSigma),
+				ConstraintSites.Site site = sites.Add(focus, camera, agreed, math.max(sigmaTranslation, siteMinTranslationSigma),
 					math.max(pose.yawSigma, math.radians(loopEdgeMinYawSigmaDegrees)), track.Path, Time.realtimeSinceStartup, p.purpose == Purpose.CrossLink, features);
 				lastSiteId = site.id;
 				if (p.purpose == Purpose.Loop) nextLoop = Time.unscaledTime + loopCooldown;
@@ -748,6 +764,15 @@ namespace Anaglyph.XR.SharedSpaces
 
 			alignment.Apply(agreed, p.query.trackingSpace);
 			Outcome($"{p.purpose}: applied {agreed} ({description})");
+		}
+
+		// the middle of the map points a measurement stood on; the camera when it has none
+		private static float3 Focus(Vector3[] features, float3 camera)
+		{
+			if (features == null || features.Length == 0) return camera;
+			float3 sum = 0;
+			foreach (Vector3 f in features) sum += (float3)f;
+			return sum / features.Length;
 		}
 
 		private bool AgreesWithCandidate(Pending p, Pose4 correction, float translationSigma, ulong anchor, bool yawOnly)
@@ -922,8 +947,8 @@ namespace Anaglyph.XR.SharedSpaces
 
 		/// <summary>
 		/// Every measurement of every site as an anchor would be: where the uncorrected
-		/// alignment places the camera it was measured from, seen through the tracking space as
-		/// it stands (observed), and where the map has it (canon), turned by its correction's
+		/// alignment places the features it was measured on, seen through the tracking space as
+		/// it stands (observed), and where the map has them (canon), turned by its correction's
 		/// yaw so that one alone still fixes rotation. Each one as it came, not the site's merge
 		/// of them: tracking drifts as a whole, so the colocator's filter runs over them in the
 		/// order they were measured, and a revisit says where the rig belongs now.
@@ -936,14 +961,14 @@ namespace Anaglyph.XR.SharedSpaces
 			foreach (ConstraintSites.Site site in sites.Sites)
 			foreach (ConstraintSites.Measurement measurement in site.history)
 			{
-				float3 placed = measurement.correction.ApplyInverse(measurement.camera);
+				float3 placed = measurement.correction.ApplyInverse(measurement.focus);
 				results.Add(new ColocationConstraint(new Pose(worldFromPlaced.MultiplyPoint3x4(placed), placedRotation),
-					new Pose(measurement.camera, measurement.correction.Rotation), true,
+					new Pose(measurement.focus, measurement.correction.Rotation), true,
 					measurement.sigmaTranslation, measurement.sigmaYaw, measurement.path));
 			}
 		}
 
-		// every site's latest measurement as an axis where the map has its camera (green for the
+		// every site's latest measurement as an axis where the map has its features (green for the
 		// one measured last), a line from there to where the rig's current alignment puts it:
 		// how far the fit leaves each one, and the features that measurement stood on
 		private void LateUpdate()
@@ -955,8 +980,8 @@ namespace Anaglyph.XR.SharedSpaces
 			{
 				Color color = site.id == lastSiteId ? debugLatestColor : site.crossLink ? debugCrossLinkColor : debugRevisitColor;
 				ConstraintSites.Measurement latest = site.history[^1];
-				DebugAxisVisual.DrawDebugAxis(latest.camera, latest.correction.Rotation, color, 0.3f);
-				XRGizmos.DrawLine(latest.camera, worldFromPlaced.MultiplyPoint3x4(latest.correction.ApplyInverse(latest.camera)), color);
+				DebugAxisVisual.DrawDebugAxis(latest.focus, latest.correction.Rotation, color, 0.3f);
+				XRGizmos.DrawLine(latest.focus, worldFromPlaced.MultiplyPoint3x4(latest.correction.ApplyInverse(latest.focus)), color);
 				// the features its latest measurement stood on, where the map has them
 				if (site.features != null) XRGizmos.DrawPointSet(site.features, color, debugFeatureSize);
 			}
@@ -984,8 +1009,8 @@ namespace Anaglyph.XR.SharedSpaces
 					line.Append($" | first walked={latest.path - history[0].path:F1}m {Difference(history[0].correction, latest.correction, site.position)}");
 			}
 
-			// the fit before this measurement takes effect
-			line.Append($" | fit {Difference(alignment.SiteCorrection, latest.correction, latest.camera)} ({sites.Count} sites)");
+			// the fit before this measurement takes effect, where it was measured
+			line.Append($" | fit {Difference(alignment.SiteCorrection, latest.correction, latest.focus)} ({sites.Count} sites)");
 			Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this, "{0}", line);
 		}
 

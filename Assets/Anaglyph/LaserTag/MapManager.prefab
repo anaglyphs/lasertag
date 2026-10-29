@@ -71,7 +71,6 @@ MonoBehaviour:
   objectDatabase: {fileID: 11400000, guid: 93790f38bf42f48f9baa20fd8c0411a3, type: 2}
   probeTimeoutSeconds: 8
   saveDebounceSeconds: 2
-  switchTimeoutSeconds: 20
 --- !u!114 &2865989476549954882
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -89,7 +88,6 @@ MonoBehaviour:
   minSecondsBetweenSends: 0.2
   compression: 1
   snapshotChunksPerFrame: 2
-  snapshotRefreshSeconds: 5
 --- !u!114 &6911126833990273307
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -120,6 +118,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: Anaglyph.XRTemplate.SharedSpaces::Anaglyph.XRTemplate.SharedSpaces.ReferenceColocator
   fitLerp: 1
   agreementMaxError: 0.3
+  positionDriftRate: 0.014
+  yawDriftRateDegrees: 0.05
+  walkCorrection: 0.1
+  turnCorrection: 0.05
+  turnYawCorrection: 0.1
+  walkYawCorrection: 1
+  stillCorrection: 0.003
+  stillYawCorrectionDegrees: 0.05
+  hiddenCorrectionLimit: 0.3
 --- !u!114 &219892528580798013
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -152,6 +159,14 @@ MonoBehaviour:
   maxHeadSpeed: 2
   maxHeadAngSpeed: 2
   correctionSamples: 30
+  pairPositionSigma: 0.01
+  tagPositionSigma: 0.01
+  tagYawSigmaDegrees: 2
+  revisitWalk: 1
+  visitCapacity: 16
+  anchorPositionSigma: 0.05
+  anchorYawSigmaDegrees: 2
+  anchorSettleSeconds: 0.5
   tagTracker: {fileID: 8030733127724905774}
 --- !u!114 &3794738929113082028
 MonoBehaviour:
@@ -221,6 +236,10 @@ MonoBehaviour:
   mapCapacity: 512
   coverageCell: 1
   coverageHeadings: 8
+  freezeEstablishedLandmarks: 1
+  establishedDepthSigma: 0.1
+  establishedViews: 6
+  establishedMinViews: 3
   trustDrift: 0.03
   trackNeighbors: 3
   neighborDistance: 5
@@ -238,6 +257,9 @@ MonoBehaviour:
   framesPerRun: 6
   urgentFramesPerRun: 2
   matcherFramesPerRun: 30
+  urgentMatcherFramesPerRun: 10
+  retrievalCandidatesPerFrame: 2
+  urgentRetrievalCandidatesPerFrame: 8
   keyframesPerQuery: 2
   minMutual: 12
   pnp:
@@ -246,6 +268,16 @@ MonoBehaviour:
     iterations: 400
     rangedFraction: 0.25
     centerPriorSigma: 10
+    viewYawSigmaDegrees: 0.3
+    viewTranslationSigma: 0.03
+  guidedMatching: 1
+  guidedKeyframes: 10
+  guidedWindowPixels: 32
+  guidedTranslation: 0.5
+  guidedMinCosine: 0.78
+  guidedMinMargin: 0.03
+  guidedMinMatches: 8
+  guidedProjectionBudgetMs: 1.5
   recordFrames: 1
   recentFrames: 128
 --- !u!114 &4959272462355547871
@@ -263,8 +295,10 @@ MonoBehaviour:
   queriesEnabled: 1
   queryInterval: 1
   replyTimeout: 5
+  busyRetry: 0.2
   minInliers: 30
   maxNormalizedRms: 2
+  minLoopRangedInliers: 20
   maxYawSigmaDegrees: 0.5
   maxTranslationSigma: 0.04
   acceptConfidentSingleFrames: 1
@@ -274,26 +308,45 @@ MonoBehaviour:
   confidentLoopInliers: 80
   confidentLoopTranslationSigma: 0.02
   confidentLoopYawSigmaDegrees: 0.25
+  confidentLoopInlierShare: 0.75
   confidentInlierShare: 0.6
   agreeTranslation: 0.05
   agreeYawDegrees: 1
+  loopAgreePath: 30
+  loopAgreeTranslationPerMeter: 0.02
+  loopAgreeYawPerMeter: 0.3
   loopClosure: 1
   loopInterval: 0.5
   blurredRetry: 0.25
   loopSearchDistance: 8
+  loopMinWalk: 6
   loopCenterPriorSigma: 1
   yawOnlyLoops: 0
-  loopCooldown: 3
-  loopPlausibleSigmas: 3
+  loopCooldown: 1
   loopPlausibleMeters: 0.5
+  loopPlausibleFraction: 0.03
   loopPlausibleDegrees: 5
+  loopPlausibleDegreesPerMeter: 0.5
+  loopSearchFloor: 0.1
   loopEdgeMinYawSigmaDegrees: 0.5
+  siteMinTranslationSigma: 0.03
+  siteRadius: 8
+  sitePathScale: 15
+  debugRevisitColor: {r: 1, g: 0.8, b: 0.2, a: 1}
+  debugCrossLinkColor: {r: 0.2, g: 0.9, b: 1, a: 1}
+  debugLatestColor: {r: 0.2, g: 1, b: 0.3, a: 1}
+  debugFeatureSize: 0.03
   loopMatchFeatures: 512
   loopMinMutual: 15
   loopMaxViewAngle: 90
   loopFromKeyframes: 1
   loopCaptureAfterQuiet: 3
+  loopFrames: 3
+  loopFrameWindow: 4
   crossLinks: 1
   crossLinkInterval: 2
   crossLinkCooldown: 6
+  crossLinkFrames: 2
+  crossLinkFeaturesPerFrame: 448
+  crossLinksPrevail: 1
   loopAnchorTolerance: 0.25

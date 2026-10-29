@@ -146,6 +146,7 @@ namespace Anaglyph.XR.SharedSpaces
 						{
 							j.BeginObject();
 							j.Field("camera", (Vector3)m.camera);
+							j.Field("focus", (Vector3)m.focus);
 							j.Field("correction", m.correction.AsPose);
 							j.Field("sigmaTranslation", m.sigmaTranslation);
 							j.Field("sigmaYaw", m.sigmaYaw);

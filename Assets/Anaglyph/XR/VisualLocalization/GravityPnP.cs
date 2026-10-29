@@ -74,7 +74,24 @@ namespace Anaglyph.XR.VisualLocalization
 		public float yawSigma;
 		/// <summary>One-sigma uncertainty of the camera center, meters (root of the covariance trace).</summary>
 		public float translationSigma;
+		/// <summary>Covariance over (yaw, camera center x, y, z) in the map frame, widened as the sigmas are; zero when not known (a remote reply).</summary>
+		public float4x4 covariance;
 		public string failure;
+
+		/// <summary>
+		/// One-sigma uncertainty of where the solve puts a map point, meters (root of the
+		/// covariance trace): at the camera center, <see cref="translationSigma"/>; near the
+		/// landmarks it stood on, less, as the yaw's error there partly undoes the center's.
+		/// </summary>
+		public float TranslationSigmaAt(float3 point)
+		{
+			if (covariance.c0.x <= 0) return translationSigma;
+			// a point the solve places moves with the center, and turns about it with the yaw
+			float3 lever = point - cameraCenter;
+			float4 x = new(lever.z, 1, 0, 0), y = new(0, 0, 1, 0), z = new(-lever.x, 0, 0, 1);
+			float variance = math.dot(x, math.mul(covariance, x)) + math.dot(y, math.mul(covariance, y)) + math.dot(z, math.mul(covariance, z));
+			return math.sqrt(math.max(0, variance));
+		}
 
 		public override string ToString() => success
 			? $"yaw={math.degrees(yaw):F2}°±{math.degrees(yawSigma):F2} t=({translation.x:F3}, {translation.y:F3}, {translation.z:F3})±{translationSigma * 100:F1}cm inliers={inliers}/{correspondences} (ranged {rangedInliers}) rms={rmsPixels:F2}px"
@@ -142,6 +159,15 @@ namespace Anaglyph.XR.VisualLocalization
 			result.yawSigma = math.sqrt(result.yawSigma * result.yawSigma + yaw * yaw / views);
 			result.translationSigma = math.sqrt(result.translationSigma * result.translationSigma +
 			                                    settings.viewTranslationSigma * settings.viewTranslationSigma / views);
+			if (result.covariance.c0.x > 0)
+			{
+				// the center's share spread over its three axes, as the trace counts it
+				float center = settings.viewTranslationSigma * settings.viewTranslationSigma / views / 3;
+				result.covariance.c0.x += yaw * yaw / views;
+				result.covariance.c1.y += center;
+				result.covariance.c2.z += center;
+				result.covariance.c3.w += center;
+			}
 		}
 
 		/// <param name="cameraRotation">The query camera's rotation in the query world.</param>
@@ -294,6 +320,7 @@ namespace Anaglyph.XR.VisualLocalization
 			result.rangedInliers = rangedInliers;
 			result.rmsPixels = (float)math.sqrt(pixels / inliers.Count);
 			result.normalizedRms = (float)math.sqrt(normalized / (2 * inliers.Count));
+			result.covariance = (float4x4)(covariance * scale);
 			result.yawSigma = (float)math.sqrt(math.max(0, covariance.c0.x * scale));
 			result.translationSigma = (float)math.sqrt(math.max(0, (covariance.c1.y + covariance.c2.z + covariance.c3.w) * scale));
 			return result;

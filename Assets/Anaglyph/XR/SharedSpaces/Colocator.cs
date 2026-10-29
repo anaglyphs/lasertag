@@ -94,10 +94,30 @@ namespace Anaglyph.XR.SharedSpaces
 		public float AgreementMaxError => agreementMaxError;
 
 		[Tooltip("Position uncertainty the fit gains as the head walks on, meters per √meter walked: tracking drifts like a random walk, so measurements taken further back count for less. Live references count as measured now")]
-		[SerializeField] private float positionDriftRate = 0.063f;
+		[SerializeField] private float positionDriftRate = 0.014f;
 
 		[Tooltip("Yaw uncertainty the fit gains as the head walks on, degrees per √meter walked")]
-		[SerializeField] private float yawDriftRateDegrees = 0.57f;
+		[SerializeField] private float yawDriftRateDegrees = 0.05f;
+
+		[Header("Hiding corrections in head motion")]
+		[Tooltip("Correction applied per meter the head moves, meters: a world that shifts while the head walks reads as part of the walk")]
+		[SerializeField] private float walkCorrection = 0.1f;
+
+		[Tooltip("Correction applied per radian the head turns, meters at the head: the view is sweeping anyway")]
+		[SerializeField] private float turnCorrection = 0.05f;
+
+		[Tooltip("Yaw correction applied per degree the head turns, degrees")]
+		[SerializeField] private float turnYawCorrection = 0.1f;
+
+		[Tooltip("Yaw correction applied per meter the head moves, degrees")]
+		[SerializeField] private float walkYawCorrection = 1f;
+
+		[Tooltip("Correction applied however still the head is, meters per second and degrees per second: a still head's world still settles, slowly")]
+		[SerializeField] private float stillCorrection = 0.003f;
+		[SerializeField] private float stillYawCorrectionDegrees = 0.05f;
+
+		[Tooltip("A correction at the head larger than this, meters, is a new alignment rather than a refinement: eased by fitLerp alone")]
+		[SerializeField] private float hiddenCorrectionLimit = 0.3f;
 
 		/// <summary>How constraints' uncertainty stands now, for this headset's tracking: what the fit weighs them by.</summary>
 		public ColocationDrift Drift => new(positionDriftRate, yawDriftRateDegrees * Mathf.Deg2Rad,
@@ -287,10 +307,48 @@ namespace Anaglyph.XR.SharedSpaces
 		private bool TryFit()
 		{
 			if (!MainXRRig.Instance || !ColocationFit.TryEvaluate(constraints, Drift, out Pose delta)) return false;
-			float lerp = AlignmentState == ColocationAlignmentState.Localized ? fitLerp : 1f;
+			float lerp = AlignmentState == ColocationAlignmentState.Localized ? HiddenLerp(delta) : 1f;
 			Matrix4x4 current = MainXRRig.TrackingSpace.localToWorldMatrix;
 			MainXRRig.Instance.AlignSpace(current, Matrix4x4.TRS(delta.position, delta.rotation, Vector3.one) * current, lerp);
 			return true;
+		}
+
+		private Vector3 lastHeadPosition;
+		private Quaternion lastHeadRotation;
+		private bool hasLastHead;
+
+		/// <summary>
+		/// How much of a refinement to apply this frame: no more than the head's own motion
+		/// since the last frame can hide. A measurement moves the fit a few centimeters, and the
+		/// same few centimeters that pass unseen in a walk or a turn read as the world sliding
+		/// when the head is still. A move too large to be a refinement eases by fitLerp alone.
+		/// </summary>
+		private float HiddenLerp(Pose delta)
+		{
+			Transform space = MainXRRig.TrackingSpace;
+			Transform head = MainXRRig.Camera.transform;
+			Vector3 headPosition = space.InverseTransformPoint(head.position);
+			Quaternion headRotation = Quaternion.Inverse(space.rotation) * head.rotation;
+			// a tracking jump is no motion to hide in
+			float walked = hasLastHead ? Vector3.Distance(headPosition, lastHeadPosition) : 0f;
+			if (walked > .5f) walked = 0f;
+			float turned = hasLastHead ? Quaternion.Angle(headRotation, lastHeadRotation) : 0f;
+			lastHeadPosition = headPosition;
+			lastHeadRotation = headRotation;
+			hasLastHead = true;
+
+			Vector3 at = head.position;
+			float move = Vector3.Distance(delta.position + delta.rotation * at, at);
+			float yaw = Mathf.Abs(BestFit.TwistYaw(delta.rotation)) * Mathf.Rad2Deg;
+			if (move > hiddenCorrectionLimit) return fitLerp;
+
+			float dt = Time.unscaledDeltaTime;
+			float allowedMove = stillCorrection * dt + walkCorrection * walked + turnCorrection * turned * Mathf.Deg2Rad;
+			float allowedYaw = stillYawCorrectionDegrees * dt + walkYawCorrection * walked + turnYawCorrection * turned;
+			float lerp = fitLerp;
+			if (move > 1e-6f) lerp = Mathf.Min(lerp, allowedMove / move);
+			if (yaw > 1e-6f) lerp = Mathf.Min(lerp, allowedYaw / yaw);
+			return lerp;
 		}
 	}
 }

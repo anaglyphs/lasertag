@@ -12,7 +12,8 @@ namespace Anaglyph.XR.SharedSpaces
 	/// line up. The map never moves. Each site is a colocation constraint, as an anchor
 	/// would be, and the colocator's rigid fit over all of them aligns the rig.
 	///
-	/// A site stays where it was first measured: a revisit within its radius refines its
+	/// A site is the features it was measured on, and stays where the map has those it was
+	/// first measured on: a revisit within its radius refines its
 	/// correction there rather than moving it, so sites keep their spacing and a player
 	/// walking on doesn't drag one along. Drift grows with distance walked, so the older
 	/// measurement counts for less the further the head has gone since.
@@ -22,7 +23,7 @@ namespace Anaglyph.XR.SharedSpaces
 		public struct Site
 		{
 			public int id;
-			/// <summary>Where it was measured, in the shared frame.</summary>
+			/// <summary>Where its first measurement's features are, in the shared frame.</summary>
 			public float3 position;
 			/// <summary>World → world: where the alignment placed things, onto where the map has them.</summary>
 			public Pose4 correction;
@@ -43,6 +44,8 @@ namespace Anaglyph.XR.SharedSpaces
 		{
 			/// <summary>The camera it was measured from, in the shared frame.</summary>
 			public float3 camera;
+			/// <summary>Where the map has the features it was measured on (their middle), in the shared frame: where it pins the correction best, and its constraint stands.</summary>
+			public float3 focus;
 			public Pose4 correction;
 			public float sigmaTranslation, sigmaYaw;
 			public float path;
@@ -68,19 +71,20 @@ namespace Anaglyph.XR.SharedSpaces
 		public void Clear() => sites.Clear();
 
 		/// <summary>
-		/// A measurement at <paramref name="position"/>: merges into the site there (the older
-		/// measurement weighted down by how far the head has walked since), or starts a new one.
+		/// A measurement on features at <paramref name="focus"/>, from <paramref name="camera"/>:
+		/// merges into the site there (the older measurement weighted down by how far the head
+		/// has walked since), or starts a new one.
 		/// </summary>
-		public Site Add(float3 position, Pose4 correction, float sigmaTranslation, float sigmaYaw, float path, float time, bool crossLink,
+		public Site Add(float3 focus, float3 camera, Pose4 correction, float sigmaTranslation, float sigmaYaw, float path, float time, bool crossLink,
 			UnityEngine.Vector3[] features = null)
 		{
 			Measurement measurement = new()
 			{
-				camera = position, correction = correction, sigmaTranslation = sigmaTranslation, sigmaYaw = sigmaYaw,
+				camera = camera, focus = focus, correction = correction, sigmaTranslation = sigmaTranslation, sigmaYaw = sigmaYaw,
 				path = path, time = time, crossLink = crossLink,
 			};
 
-			int nearest = Nearest(position, out float distance);
+			int nearest = Nearest(focus, out float distance);
 			if (nearest >= 0 && distance <= SiteRadius)
 			{
 				Site s = sites[nearest];
@@ -88,7 +92,7 @@ namespace Anaglyph.XR.SharedSpaces
 				if (s.history.Count >= HistoryLength) s.history.RemoveAt(1);
 				s.history.Add(measurement);
 				float stale = math.exp(-math.max(0, path - s.path) / PathScale);
-				// the new measurement carried from its camera to the site: its yaw's uncertainty
+				// the new measurement carried from its features to the site's: its yaw's uncertainty
 				// grows into translation over the lever arm
 				float lever = distance * sigmaYaw;
 				float oldT = stale / Square(s.sigmaTranslation), newT = 1 / Square(math.sqrt(sigmaTranslation * sigmaTranslation + lever * lever));
@@ -121,7 +125,7 @@ namespace Anaglyph.XR.SharedSpaces
 
 			Site site = new()
 			{
-				id = nextId++, position = position, correction = correction,
+				id = nextId++, position = focus, correction = correction,
 				sigmaTranslation = sigmaTranslation, sigmaYaw = sigmaYaw,
 				path = path, time = time, crossLink = crossLink, measurements = 1, features = features,
 				history = new List<Measurement> { measurement },

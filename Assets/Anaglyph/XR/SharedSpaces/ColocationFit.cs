@@ -1,4 +1,8 @@
+using System;
 using System.Collections.Generic;
+using Unity.Burst;
+using Unity.Collections;
+using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 
@@ -13,7 +17,10 @@ namespace Anaglyph.XR.SharedSpaces
 		// a diffuse prior: before the first constraint, the fit could be anywhere
 		private const double PriorPosition = 100, PriorYaw = math.PI_DBL;
 
-		private static readonly List<int> order = new();
+		// the linearization point's inputs, reused: the fit runs every frame
+		private static readonly List<(float3 subject, float3 target)> pairs = new();
+		private static readonly List<float> weights = new();
+		private static readonly List<(float yaw, float weight)> yaws = new();
 
 		/// <summary>
 		/// The fit as a Kalman filter re-run over the constraints in the order they were
@@ -56,11 +63,12 @@ namespace Anaglyph.XR.SharedSpaces
 			{
 				// each constraint's position with its weight, and its yaw as a direct observation
 				// where the source measured it
-				List<(float3 subject, float3 target)> pairs = new(constraints.Count);
-				List<float> weights = new(constraints.Count);
-				List<(float yaw, float weight)> yaws = new();
-				foreach (var c in constraints)
+				pairs.Clear();
+				weights.Clear();
+				yaws.Clear();
+				for (int i = 0; i < constraints.Count; i++)
 				{
+					ColocationConstraint c = constraints[i];
 					pairs.Add((c.observed.position, c.canon.position));
 					weights.Add(drift.PositionWeight(c));
 					float yawWeight = drift.YawWeight(c);
@@ -96,81 +104,133 @@ namespace Anaglyph.XR.SharedSpaces
 		/// </summary>
 		private static Pose Filter(IReadOnlyList<ColocationConstraint> constraints, in ColocationDrift drift, Pose start)
 		{
+			int count = constraints.Count;
 			double3 pivot = 0;
-			order.Clear();
-			for (int i = 0; i < constraints.Count; i++)
-			{
-				pivot += (float3)constraints[i].observed.position;
-				order.Add(i);
-			}
-			pivot /= constraints.Count;
-			ColocationDrift at = drift;
-			order.Sort((a, b) =>
-			{
-				int c = MeasuredAt(constraints[a], at).CompareTo(MeasuredAt(constraints[b], at));
-				return c != 0 ? c : a.CompareTo(b);
-			});
+			for (int i = 0; i < count; i++) pivot += (float3)constraints[i].observed.position;
+			pivot /= count;
 
 			// delta(p) = R(φ)(p − pivot) + pivot + t
 			double yaw = BestFit.TwistYaw(start.rotation);
 			double3 translation = (float3)start.position - pivot + Rotate(yaw, pivot);
-			double4 x = new(translation, yaw);
-			double4x4 p = double4x4.zero;
-			p.c0.x = p.c1.y = p.c2.z = PriorPosition * PriorPosition;
-			p.c3.w = PriorYaw * PriorYaw;
 
-			double qPosition = (double)drift.positionRate * drift.positionRate;
-			double qYaw = (double)drift.yawRate * drift.yawRate;
-			float previousAt = float.NaN;
-			double3 previousPlace = 0;
-			foreach (int i in order)
+			NativeArray<Measurement> measurements = new(count, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+			NativeArray<double4> state = new(1, Allocator.TempJob);
+			try
 			{
-				ColocationConstraint c = constraints[i];
-				float measuredAt = MeasuredAt(c, drift);
-				double3 place = (float3)c.observed.position;
-
-				// the walk since the previous one: drift in translation, and in yaw turning
-				// about where the head walked, which a pivot elsewhere sees as translation too
-				double walked = float.IsNaN(previousAt) || !(measuredAt > previousAt) ? 0 : measuredAt - previousAt;
-				if (walked > 0)
+				for (int i = 0; i < count; i++)
 				{
-					p.c0.x += qPosition * walked;
-					p.c1.y += qPosition * walked;
-					p.c2.z += qPosition * walked;
-					double3 lever = Perpendicular(pivot + x.xyz - (previousPlace + place) / 2);
-					double4 g = new(lever, 1);
-					p += qYaw * walked * OuterProduct(g, g);
-				}
-
-				previousAt = measuredAt;
-				previousPlace = place;
-
-				// its position, one axis at a time: the noise is the same on each
-				double sigma = c.positionSigma > 0 ? c.positionSigma : 1;
-				double3 canon = (float3)c.canon.position;
-				for (int axis = 0; axis < 3; axis++)
-				{
-					double3 turned = Rotate(x.w, (float3)c.observed.position - pivot);
-					double3 predicted = turned + pivot + x.xyz;
-					double3 slope = Perpendicular(turned);
-					double4 h = axis switch
+					ColocationConstraint c = constraints[i];
+					bool observesYaw = ObservesYaw(c);
+					measurements[i] = new Measurement
 					{
-						0 => new double4(1, 0, 0, slope.x),
-						1 => new double4(0, 1, 0, 0),
-						_ => new double4(0, 0, 1, slope.z),
+						observed = (float3)c.observed.position,
+						canon = (float3)c.canon.position,
+						yaw = observesYaw ? BestFit.TwistYaw(c.canon.rotation) - BestFit.TwistYaw(c.observed.rotation) : 0,
+						sigma = c.positionSigma > 0 ? c.positionSigma : 1,
+						yawSigma = observesYaw ? c.yawSigma : 0,
+						at = MeasuredAt(c, drift),
+						index = i,
 					};
-					Update(ref x, ref p, h, canon[axis] - predicted[axis], sigma * sigma);
 				}
 
-				if (ObservesYaw(c))
+				state[0] = new double4(translation, yaw);
+				new FilterJob
 				{
-					double observed = BestFit.TwistYaw(c.canon.rotation) - BestFit.TwistYaw(c.observed.rotation);
-					Update(ref x, ref p, new double4(0, 0, 0, 1), Wrap(observed - x.w), (double)c.yawSigma * c.yawSigma);
-				}
-			}
+					measurements = measurements,
+					state = state,
+					pivot = pivot,
+					qPosition = (double)drift.positionRate * drift.positionRate,
+					qYaw = (double)drift.yawRate * drift.yawRate,
+				}.Run();
 
-			Quaternion rotation = Quaternion.AngleAxis((float)math.degrees(x.w), Vector3.up);
-			return new Pose((float3)(pivot + x.xyz - Rotate(x.w, pivot)), rotation);
+				double4 x = state[0];
+				Quaternion rotation = Quaternion.AngleAxis((float)math.degrees(x.w), Vector3.up);
+				return new Pose((float3)(pivot + x.xyz - Rotate(x.w, pivot)), rotation);
+			}
+			finally
+			{
+				measurements.Dispose();
+				state.Dispose();
+			}
+		}
+
+		/// <summary>One constraint as the filter reads it; ordered by when it was measured.</summary>
+		private struct Measurement : IComparable<Measurement>
+		{
+			public double3 observed, canon;
+			/// <summary>The yaw it observes, radians; read only where <see cref="yawSigma"/> is positive.</summary>
+			public double yaw;
+			public double sigma, yawSigma;
+			public float at;
+			public int index;
+
+			public int CompareTo(Measurement other)
+			{
+				int c = at.CompareTo(other.at);
+				return c != 0 ? c : index.CompareTo(other.index);
+			}
+		}
+
+		[BurstCompile]
+		private struct FilterJob : IJob
+		{
+			public NativeArray<Measurement> measurements;
+			/// <summary>In: the pose the filter is linearized about. Out: the fit.</summary>
+			public NativeArray<double4> state;
+			public double3 pivot;
+			public double qPosition, qYaw;
+
+			public void Execute()
+			{
+				measurements.Sort();
+				double4 x = state[0];
+				double4x4 p = double4x4.zero;
+				p.c0.x = p.c1.y = p.c2.z = PriorPosition * PriorPosition;
+				p.c3.w = PriorYaw * PriorYaw;
+
+				float previousAt = float.NaN;
+				double3 previousPlace = 0;
+				for (int i = 0; i < measurements.Length; i++)
+				{
+					Measurement m = measurements[i];
+
+					// the walk since the previous one: drift in translation, and in yaw turning
+					// about where the head walked, which a pivot elsewhere sees as translation too
+					double walked = float.IsNaN(previousAt) || !(m.at > previousAt) ? 0 : m.at - previousAt;
+					if (walked > 0)
+					{
+						p.c0.x += qPosition * walked;
+						p.c1.y += qPosition * walked;
+						p.c2.z += qPosition * walked;
+						double3 lever = Perpendicular(pivot + x.xyz - (previousPlace + m.observed) / 2);
+						double4 g = new(lever, 1);
+						p += qYaw * walked * OuterProduct(g, g);
+					}
+
+					previousAt = m.at;
+					previousPlace = m.observed;
+
+					// its position, one axis at a time: the noise is the same on each
+					for (int axis = 0; axis < 3; axis++)
+					{
+						double3 turned = Rotate(x.w, m.observed - pivot);
+						double3 predicted = turned + pivot + x.xyz;
+						double3 slope = Perpendicular(turned);
+						double4 h = axis switch
+						{
+							0 => new double4(1, 0, 0, slope.x),
+							1 => new double4(0, 1, 0, 0),
+							_ => new double4(0, 0, 1, slope.z),
+						};
+						Update(ref x, ref p, h, m.canon[axis] - predicted[axis], m.sigma * m.sigma);
+					}
+
+					if (m.yawSigma > 0)
+						Update(ref x, ref p, new double4(0, 0, 0, 1), Wrap(m.yaw - x.w), m.yawSigma * m.yawSigma);
+				}
+
+				state[0] = x;
+			}
 		}
 
 		private static void Update(ref double4 x, ref double4x4 p, double4 h, double residual, double noise)
