@@ -111,7 +111,16 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Encoding
 	{
 		public static readonly int HeaderSize = UnsafeUtility.SizeOf<DepthFrameHeader>();
 
-		public static byte[] Encode(DepthFrameHeader header, NativeArray<byte> codes, DepthFrameCompression compression)
+		// encoding scratch, kept between frames so a send allocates only its deflate stream.
+		// Encode is main-thread only
+		private static readonly byte[] headerScratch = new byte[HeaderSize];
+		private static byte[] codeScratch = Array.Empty<byte>();
+
+		/// <summary>
+		/// Writes the wire frame into <paramref name="output"/> at its position, so a caller
+		/// reusing one stream can put its own header in front without another copy
+		/// </summary>
+		public static void Encode(DepthFrameHeader header, NativeArray<byte> codes, DepthFrameCompression compression, MemoryStream output)
 		{
 			if (codes.Length != header.PackedBytes)
 				throw new ArgumentException("code buffer does not match the header's dimensions and code width");
@@ -119,28 +128,29 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Encoding
 			header.version = DepthFrameHeader.CurrentVersion;
 			header.compression = (byte)compression;
 
-			byte[] body;
+			if (codeScratch.Length < codes.Length) codeScratch = new byte[codes.Length];
+
 			switch (compression)
 			{
 				case DepthFrameCompression.Raw:
-					body = codes.ToArray();
+					WriteHeader(headerScratch, 0, header);
+					output.Write(headerScratch, 0, HeaderSize);
+					NativeArray<byte>.Copy(codes, codeScratch, codes.Length);
+					output.Write(codeScratch, 0, codes.Length);
 					break;
 
 				case DepthFrameCompression.PredictedDeflate:
-					byte[] residuals = new byte[codes.Length];
-					if (header.CodeBytes == 1) Predict8(codes, header.width, residuals);
-					else Predict16(codes, header.width, residuals);
-					body = Deflate(residuals, 0, residuals.Length);
+					WriteHeader(headerScratch, 0, header);
+					output.Write(headerScratch, 0, HeaderSize);
+					if (header.CodeBytes == 1) Predict8(codes, header.width, codeScratch);
+					else Predict16(codes, header.width, codeScratch);
+					using (DeflateStream deflate = new(output, System.IO.Compression.CompressionLevel.Fastest, true))
+						deflate.Write(codeScratch, 0, codes.Length);
 					break;
 
 				default:
 					throw new ArgumentOutOfRangeException(nameof(compression));
 			}
-
-			byte[] wire = new byte[HeaderSize + body.Length];
-			WriteHeader(wire, 0, header);
-			Buffer.BlockCopy(body, 0, wire, HeaderSize, body.Length);
-			return wire;
 		}
 
 		/// <summary>

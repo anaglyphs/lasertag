@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Anaglyph.LaserTag.Maps;
 using Anaglyph.Netcode;
 using Anaglyph.Netcode.SyncVariables;
@@ -74,6 +75,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 		private int unsentFrames;
 		private long lastSentSlot = long.MinValue;
 		private uint sentFrameIndex;
+		private readonly MemoryStream frameEncoding = new();
 
 		private NativeArray<byte> receivedCodes;
 		private NativeArray<byte> chunkEncoding;
@@ -305,8 +307,11 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			DepthFrameHeader header = captured.header;
 			header.weight = (ushort)Math.Clamp(unsentFrames, 1, MaxFrameWeight);
 
-			byte[] encoded = DepthFrameCodec.Encode(header, captured.codes, compression);
-			int payloadSize = FramePayloadHeaderBytes + encoded.Length;
+			// encoded behind room for the payload header, into the stream kept for sends
+			frameEncoding.SetLength(FramePayloadHeaderBytes);
+			frameEncoding.Position = FramePayloadHeaderBytes;
+			DepthFrameCodec.Encode(header, captured.codes, compression, frameEncoding);
+			int payloadSize = (int)frameEncoding.Length;
 
 			if (payloadSize > MaxPayloadBytes)
 			{
@@ -314,11 +319,12 @@ namespace Anaglyph.LaserTag.EnvSyncing
 				return;
 			}
 
+			// the bus takes an array of exactly the payload's length: the one allocation per send
 			byte[] payload = new byte[payloadSize];
+			Buffer.BlockCopy(frameEncoding.GetBuffer(), 0, payload, 0, payloadSize);
 			SyncBytes.Write(payload, 0, FramePayloadMagic);
 			WriteContext(payload, CurrentFrame);
 			SyncBytes.Write(payload, FrameIndexOffset, ++sentFrameIndex);
-			Buffer.BlockCopy(encoded, 0, payload, FramePayloadHeaderBytes, encoded.Length);
 
 			frameEvent.Raise(payload);
 			statSent++; statSentBytes += payload.Length;
