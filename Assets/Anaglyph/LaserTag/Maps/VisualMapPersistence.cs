@@ -12,10 +12,10 @@ namespace Anaglyph.LaserTag.Maps
 	/// <summary>
 	/// A space's visual map on disk: <c>&lt;spaceId&gt;.vmap</c> beside its file, in the space's
 	/// frame, and one vocabulary for the whole catalog (<c>vocabulary.vvoc</c>) that every
-	/// map's place probes are made with. Saving snapshots the live map on the main thread and
-	/// writes on a worker; loading replaces the live map as one rigid piece and has the rig
-	/// relocalize against it, so the world frame comes back where the space left it and the
-	/// map's objects land where they were. The caller decides whose map it is to save.
+	/// map's place probes are made with. Saving snapshots the live map and the graph it hangs off
+	/// on the main thread and writes on a worker; loading replaces both, free to go on moving, and
+	/// has the rig relocalize against them, so the world frame comes back where the space left it
+	/// and the map's objects land where they were. The caller decides whose map it is to save.
 	/// </summary>
 	public sealed class VisualMapPersistence
 	{
@@ -127,7 +127,7 @@ namespace Anaglyph.LaserTag.Maps
 			bool unchanged = map.Revision == savedRevision && space.id == savedSpace;
 			if (unchanged || !force && Time.realtimeSinceStartup - lastSave < SaveInterval) return;
 
-			VisualMapData data = VisualMapFile.Snapshot(map, pose => pose, Quaternion.identity);
+			VisualMapData data = provider.SnapshotMap();
 			data.frameId = space.frameId;
 			data.savedTicks = DateTime.UtcNow.Ticks;
 			// the snapshot's keyframes in the map's order: their probes, where already made
@@ -344,7 +344,13 @@ namespace Anaglyph.LaserTag.Maps
 			}
 
 			// whatever was mapped since the space came up is in a frame about to be replaced
-			localizer.Map.Restore(data, pose => pose, Quaternion.identity, localizer.PixelSigma);
+			if (!provider.RestoreMap(data))
+			{
+				Debug.LogWarning($"[{nameof(VisualMapPersistence)}] {path} has no graph: ignored");
+				Verified(space);
+				return;
+			}
+
 			savedRevision = localizer.Map.Revision;
 			savedSpace = space.id;
 			loadedSpace = space.id;
@@ -352,16 +358,11 @@ namespace Anaglyph.LaserTag.Maps
 			probeCache.Clear();
 			if (data.vocabulary != 0 && data.vocabulary == Vocabulary?.Id)
 			{
-				// restored in the file's order, less the views too sparse to restore
-				IReadOnlyList<VisualKeyframe> restored = localizer.Map.Keyframes;
-				int r = 0;
+				Dictionary<(uint owner, long timestamp), ulong[]> probes = new();
 				foreach (VisualMapData.Keyframe k in data.keyframes)
-				{
-					if (k.count < LighterGlueMatcher.MinKeypoints) continue;
-					if (r >= restored.Count) break;
-					if (k.probe != null) probeCache[restored[r]] = k.probe;
-					r++;
-				}
+					if (k.probe != null) probes[(k.owner, k.timestampNs)] = k.probe;
+				foreach (VisualKeyframe k in localizer.Map.Keyframes)
+					if (probes.TryGetValue((k.owner, k.timestampNs), out ulong[] probe)) probeCache[k] = probe;
 			}
 			Debug.Log($"[{nameof(VisualMapPersistence)}] loaded {localizer.Map.Count} keyframes for space {space.id}: {localizer.Quality}; relocalizing");
 			if (!provider.RelocalizeAgainstMap())
@@ -387,7 +388,7 @@ namespace Anaglyph.LaserTag.Maps
 					}
 					if (localizer.Map.Count >= loadedKeyframes / 2 || restores >= 3) continue;
 					restores++;
-					localizer.Map.Restore(data, pose => pose, Quaternion.identity, localizer.PixelSigma);
+					provider.RestoreMap(data);
 					savedRevision = localizer.Map.Revision;
 					Debug.Log($"[{nameof(VisualMapPersistence)}] the loaded map was cleared while relocalizing: restored ({restores})");
 				}
@@ -396,8 +397,8 @@ namespace Anaglyph.LaserTag.Maps
 
 			if (provider.Alignment.CurrentPhase != CanonAlignment.Phase.Relocalizing) return;
 			Debug.Log($"[{nameof(VisualMapPersistence)}] the saved map didn't relocalize in {RelocalizeTimeout:F0} s: starting a fresh one ({provider.LastAttemptDescription})");
-			provider.Alignment.AbandonRelocalization();
 			localizer.Map.Clear();
+			provider.Alignment.AbandonRelocalization();
 			failed?.Invoke(space);
 		}
 

@@ -12,8 +12,8 @@ namespace Anaglyph.XR.SharedSpaces
 {
 	/// <summary>
 	/// Names for a knot on every headset: its owner, a token a headset picks for each map it
-	/// starts, and its place along that owner's walk. As a node, one of another headset's knots
-	/// hangs the views and landmarks received from it. The saved map's one rigid piece is key 0.
+	/// starts, and its place along that owner's walk. As a node, a knot of another headset's, or
+	/// of a saved map's walks, hangs the views and landmarks that came from it. Key 0 is no knot.
 	/// </summary>
 	public static class KnotKeys
 	{
@@ -21,8 +21,8 @@ namespace Anaglyph.XR.SharedSpaces
 
 		public static ulong Make(uint owner, uint index) => ((ulong)owner << 32) | index;
 		public static uint Owner(ulong key) => (uint)(key >> 32);
-		public static ulong Node(ulong key) => key == 0 ? VisualMap.SavedNode : key | OtherBit;
-		public static ulong Key(ulong node) => node == VisualMap.SavedNode ? 0 : node & ~OtherBit;
+		public static ulong Node(ulong key) => key | OtherBit;
+		public static ulong Key(ulong node) => node & ~OtherBit;
 	}
 
 	/// <summary>
@@ -34,8 +34,12 @@ namespace Anaglyph.XR.SharedSpaces
 	/// its keyframes, landmarks and any site anchored there, moves to where the laps agree. The
 	/// scan doesn't follow: it stays where it was integrated.
 	///
-	/// Every headset contributes knots and edges; the authority holds them all and is the only
-	/// one to solve (<see cref="KeyframeGraphSync"/>). Offline, this headset is the authority.
+	/// There is one graph, and everyone holds all of it: a saved map carries its knots and edges
+	/// and goes on moving, and every headset contributes knots and edges through the authority, the
+	/// only one to solve (<see cref="KeyframeGraphSync"/>), so anyone can take over from it. A track
+	/// only starts once it has been aligned against the graph, and that alignment is what ties it
+	/// on (<see cref="LinkNextTrack"/>): no walk is ever left in a piece of its own. Offline, this
+	/// headset is the authority.
 	///
 	/// All of it runs at a walking pace on one worker: one pair of views at a time, a few a
 	/// second, and one Gauss-Newton step a frame every few seconds, none of it while nothing new
@@ -100,10 +104,6 @@ namespace Anaglyph.XR.SharedSpaces
 			[Tooltip("Sigmas past which an edge's pull stops growing")]
 			public float huber = 2f;
 			public int maxEdges = 8192;
-			[Tooltip("Edges two separate pieces of the graph (headsets, or one after a recenter) must share before either pulls on the other: in a replay 3-4 edges across a seam left the far side 90-150 cm off, worse than no link, where 6 left it 14")]
-			public int minLinkEdges = 6;
-			[Tooltip("How far apart those edges' points must spread, meters: a few at one spot can't hold yaw")]
-			public float minLinkSpread = 1f;
 			[Tooltip("How well a solve is taken to place this headset's tracking, meters: as a constraint beside the sites")]
 			public float tipSigma = 0.05f;
 			[Tooltip("Newest matches of this headset's own views kept as constraints beside the solve, which lags them by seconds: at a run, seconds are meters of drift")]
@@ -153,12 +153,15 @@ namespace Anaglyph.XR.SharedSpaces
 		private Fix waitingFix;
 		private bool hasWaitingFix;
 		private bool ownEdgesSolved;
+		// the alignment the next track starts from, to tie it to the graph with
+		private ulong linkKey;
+		private KeyframeEdge linkEdge;
 
 		// for the authority: what it has yet to tell everyone, and edges naming knots not come yet
 		private readonly List<float4> sentPoses = new();
 		private readonly List<PoseMessage> solvedPoses = new();
 		private readonly List<EdgeMessage> waitingEdges = new();
-		// for everyone else: what it has yet to tell the authority
+		// what it has yet to pass on: to everyone from the authority, to the authority from anyone else
 		private readonly List<KnotMessage> knotsToSend = new();
 		private readonly List<EdgeMessage> edgesToSend = new();
 
@@ -271,6 +274,7 @@ namespace Anaglyph.XR.SharedSpaces
 			fixes.Clear();
 			hasWaitingFix = false;
 			ownEdgesSolved = false;
+			linkKey = 0;
 			nextOwnIndex = 0;
 			sentPoses.Clear();
 			solvedPoses.Clear();
@@ -321,27 +325,76 @@ namespace Anaglyph.XR.SharedSpaces
 			if (knotByPlace.TryGetValue(place, out int index)) return index;
 
 			// a new alignment's raw frame is another: what placed the old one says nothing of it
-			if (generation != lastKnotGeneration)
+			bool newTrack = generation != lastKnotGeneration;
+			if (newTrack)
 			{
 				fixes.Clear();
 				hasWaitingFix = false;
 			}
 
+			// the frame everything else is held to; any other track starts only tied to the graph:
+			// until an alignment does that, this headset's views are its own alone
+			bool isRoot = knots.Length == 0 && SyncBus.IsAuthority;
+			if (newTrack && linkKey == 0 && !isRoot) return -1;
+
 			ulong key = KnotKeys.Make(Owner, nextOwnIndex++);
 			int previous = lastKnotGeneration == generation ? lastOwnKnot : -1;
 			double4 transform = new(placement.translation, placement.yaw);
-			// the frame everything else is held to, unless a map already in it is
-			index = AddKnot(key, head, path, previous, transform, knots.Length == 0 && SyncBus.IsAuthority && !HoldsSavedMap());
+			index = AddKnot(key, head, path, previous, transform, isRoot);
 			knotByPlace[place] = index;
 			lastKnotGeneration = generation;
 			lastOwnKnot = index;
-			if (!SyncBus.IsAuthority)
+			if (SyncBus.Active)
 				knotsToSend.Add(new KnotMessage
 				{
 					key = key, previous = previous >= 0 ? keys[previous] : 0,
-					origin = head, path = path, transform = (float4)transform,
+					origin = head, path = path, transform = (float4)transform, isFixed = isRoot ? 1 : 0,
 				});
+
+			if (newTrack && linkKey != 0)
+			{
+				AddEdge(linkKey, key, linkEdge);
+				linkKey = 0;
+			}
+
 			return index;
+		}
+
+		/// <summary>
+		/// The alignment just found, which the next track starts from: at <paramref name="focus"/> it
+		/// held the new raw frame and the map together, so the new track's first knot is tied to
+		/// <paramref name="anchorNode"/>'s, which it was measured against, as a saved or recentered
+		/// walk's are to the rest. A new raw frame is the map's own at the time, so it is the identity.
+		/// </summary>
+		public void LinkNextTrack(ulong anchorNode, float3 focus)
+		{
+			linkKey = 0;
+			if (!TryKey(anchorNode, out ulong anchor) || !knotByKey.ContainsKey(anchor))
+			{
+				if (keys.Count == 0) return;
+				anchor = keys[0];
+			}
+
+			Pose4 world = WorldOfKey(anchor);
+			linkKey = anchor;
+			linkEdge = new KeyframeEdge
+			{
+				pointA = world.ApplyInverse(focus),
+				pointB = focus,
+				yaw = -world.yaw,
+				positionInformation = 1f / (settings.edgeSigma * settings.edgeSigma),
+				yawInformation = 1f / math.square(math.radians(settings.edgeYawSigmaDegrees)),
+				inliers = LinkInliers,
+			};
+		}
+
+		private const int LinkInliers = -1;
+
+		/// <summary>Tracking is lost or recentered: what was waiting to be matched is dropped, and nothing more is contributed until a new alignment.</summary>
+		public void DropWaiting()
+		{
+			waiting.Clear();
+			pairs.Clear();
 		}
 
 		private int AddKnot(ulong key, float3 origin, float path, int previous, double4 transform, bool isFixed)
@@ -362,49 +415,117 @@ namespace Anaglyph.XR.SharedSpaces
 			return index;
 		}
 
-		/// <summary>The authority: a knot another headset has walked.</summary>
+		/// <summary>A knot walked elsewhere, or earlier: come from the authority, a headset, or a saved map.</summary>
 		public void AddOtherKnot(in KnotMessage knot)
 		{
 			if (knotByKey.ContainsKey(knot.key)) return;
 			int previous = knot.previous != 0 && knotByKey.TryGetValue(knot.previous, out int found) ? found : -1;
-			AddKnot(knot.key, knot.origin, knot.path, previous, knot.transform, false);
+			AddKnot(knot.key, knot.origin, knot.path, previous, knot.transform, knot.isFixed != 0);
 			track.SetOtherWorld(KnotKeys.Node(knot.key), new Pose4(knot.transform.xyz, knot.transform.w));
+			if (SyncBus.IsAuthority && SyncBus.Active) knotsToSend.Add(knot);
 
 			for (int i = waitingEdges.Count - 1; i >= 0; i--)
 			{
 				EdgeMessage e = waitingEdges[i];
 				if (!TryAddSolvable(e.keyA, e.keyB, e.edge)) continue;
 				waitingEdges.RemoveAt(i);
+				if (SyncBus.IsAuthority && SyncBus.Active) edgesToSend.Add(e);
 			}
 		}
 
-		/// <summary>The authority: an edge any headset has measured. Everyone else: on its way to the authority.</summary>
+		/// <summary>An edge any headset has measured. The authority takes it and tells everyone; anyone else sends it there, and holds it when it comes back.</summary>
 		public void AddEdge(ulong a, ulong b, in KeyframeEdge edge)
 		{
 			if (a == b) return;
+			EdgeMessage message = new() { keyA = a, keyB = b, edge = edge };
 			if (!SyncBus.IsAuthority)
 			{
-				edgesToSend.Add(new EdgeMessage { keyA = a, keyB = b, edge = edge });
+				edgesToSend.Add(message);
 				return;
 			}
 
-			if (TryAddSolvable(a, b, edge)) return;
+			if (TryAddSolvable(a, b, edge))
+			{
+				if (SyncBus.Active) edgesToSend.Add(message);
+			}
 			// its knots are on their way: everyone's come in order, but not everyone's together
-			if (waitingEdges.Count < settings.maxEdges / 4) waitingEdges.Add(new EdgeMessage { keyA = a, keyB = b, edge = edge });
+			else if (waitingEdges.Count < settings.maxEdges / 4) waitingEdges.Add(message);
+		}
+
+		/// <summary>An edge the authority has told everyone of.</summary>
+		public void AddToldEdge(in EdgeMessage message)
+		{
+			if (!TryAddSolvable(message.keyA, message.keyB, message.edge) && waitingEdges.Count < settings.maxEdges / 4)
+				waitingEdges.Add(message);
 		}
 
 		private bool TryAddSolvable(ulong a, ulong b, in KeyframeEdge edge)
 		{
-			int indexA = -1;
-			if (a != 0 && !knotByKey.TryGetValue(a, out indexA)) return false;
-			if (!knotByKey.TryGetValue(b, out int indexB)) return false;
+			if (!knotByKey.TryGetValue(a, out int indexA) || !knotByKey.TryGetValue(b, out int indexB)) return false;
 			KeyframeEdge e = edge;
 			e.knotA = indexA;
 			e.knotB = indexB;
-			// past capacity one goes at random: what any one pair of views says is said again by others
-			if (edges.Length >= settings.maxEdges) edges[(int)(seed++ * 2654435761u % (uint)edges.Length)] = e;
+			// past capacity one goes at random: what any one pair of views says is said again by others.
+			// What ties a track to the graph is said only once
+			if (edges.Length >= settings.maxEdges)
+			{
+				uint at = seed++ * 2654435761u % (uint)edges.Length;
+				while (edges[(int)at].inliers < 0) at = (at + 1) % (uint)edges.Length;
+				edges[(int)at] = e;
+			}
 			else edges.Add(e);
 			edgesSinceSolve++;
+			return true;
+		}
+
+		// ---- the whole graph: to a joiner, and to and from a saved map ------------
+
+		private const uint WholeMagic = 0x47524756; // VGRG
+
+		/// <summary>Every knot and edge, as a joiner or a map file holds them.</summary>
+		public byte[] Encode()
+		{
+			int knotSize = SyncBytes.Size<KnotMessage>(), edgeSize = SyncBytes.Size<EdgeMessage>();
+			int offset = sizeof(uint) + 2 * sizeof(int);
+			byte[] bytes = new byte[offset + knots.Length * knotSize + edges.Length * edgeSize];
+			SyncBytes.Write(bytes, 0, WholeMagic);
+			SyncBytes.Write(bytes, sizeof(uint), knots.Length);
+			SyncBytes.Write(bytes, sizeof(uint) + sizeof(int), edges.Length);
+			for (int k = 0; k < knots.Length; k++, offset += knotSize)
+			{
+				KeyframeGraphKnot knot = knots[k];
+				SyncBytes.Write(bytes, offset, new KnotMessage
+				{
+					key = keys[k], previous = knot.previous >= 0 ? keys[knot.previous] : 0,
+					origin = knot.origin, path = knot.path, transform = (float4)state[k], isFixed = knot.isFixed ? 1 : 0,
+				});
+			}
+
+			for (int e = 0; e < edges.Length; e++, offset += edgeSize)
+			{
+				KeyframeEdge edge = edges[e];
+				SyncBytes.Write(bytes, offset, new EdgeMessage { keyA = keys[edge.knotA], keyB = keys[edge.knotB], edge = edge });
+			}
+
+			return bytes;
+		}
+
+		/// <summary>Takes in what <see cref="Encode"/> gave; false when it isn't that.</summary>
+		public bool Decode(byte[] bytes, int offset = 0)
+		{
+			int knotSize = SyncBytes.Size<KnotMessage>(), edgeSize = SyncBytes.Size<EdgeMessage>();
+			if (bytes == null || bytes.Length - offset < sizeof(uint) + 2 * sizeof(int) || SyncBytes.Read<uint>(bytes, offset) != WholeMagic) return false;
+			int knotCount = SyncBytes.Read<int>(bytes, offset + sizeof(uint)), edgeCount = SyncBytes.Read<int>(bytes, offset + sizeof(uint) + sizeof(int));
+			offset += sizeof(uint) + 2 * sizeof(int);
+			if (knotCount < 0 || edgeCount < 0 || bytes.Length - offset != knotCount * knotSize + edgeCount * edgeSize) return false;
+			for (int k = 0; k < knotCount; k++, offset += knotSize)
+				AddOtherKnot(SyncBytes.Read<KnotMessage>(bytes, offset));
+			for (int e = 0; e < edgeCount; e++, offset += edgeSize)
+			{
+				EdgeMessage message = SyncBytes.Read<EdgeMessage>(bytes, offset);
+				TryAddSolvable(message.keyA, message.keyB, message.edge);
+			}
+
 			return true;
 		}
 
@@ -415,33 +536,28 @@ namespace Anaglyph.XR.SharedSpaces
 		/// </summary>
 		public void AddMeasurement(ulong queryNode, ulong anchorNode, Pose4 correction, float3 focus, float sigmaTranslation, float sigmaYaw)
 		{
-			if (!settings.enabled || anchorNode == 0 || !TryKey(queryNode, out ulong b) || !TryKey(anchorNode, out ulong a) || a == b) return;
+			if (!settings.enabled || !TryKey(queryNode, out ulong b) || !TryKey(anchorNode, out ulong a) || a == b) return;
 			Pose4 anchorWorld = track.WorldOf(anchorNode);
 			Pose4 toAnchor = Pose4.Between(anchorWorld, correction);
 			float3 point = anchorWorld.ApplyInverse(focus);
 			Pose4 anchorCorrection = track.CorrectionOf(anchorNode);
-			float position = 1f / (sigmaTranslation * sigmaTranslation);
-			float4x4 information = default;
-			information.c0.x = information.c1.y = information.c2.z = position;
-			information.c3.w = 1f / (sigmaYaw * sigmaYaw);
 			AddEdge(a, b, new KeyframeEdge
 			{
 				pointA = anchorCorrection.ApplyInverse(point),
 				pointB = toAnchor.ApplyInverse(point),
 				yaw = toAnchor.yaw - anchorCorrection.yaw,
-				information = information,
+				positionInformation = 1f / (sigmaTranslation * sigmaTranslation),
+				yawInformation = 1f / (sigmaYaw * sigmaYaw),
 				inliers = 1,
 			});
 		}
 
-		/// <summary>What has yet to go to the authority, at most this many edges, knots first since edges name them.</summary>
-		public void TakeUploads(List<KnotMessage> knotsOut, List<EdgeMessage> edgesOut, int maxItems)
+		/// <summary>What has yet to be passed on: every knot, since the edges that tie them on follow, and at most this many edges.</summary>
+		public void TakeToSend(List<KnotMessage> knotsOut, List<EdgeMessage> edgesOut, int maxEdges)
 		{
-			int knotCount = math.min(knotsToSend.Count, maxItems);
-			knotsOut.AddRange(knotsToSend.GetRange(0, knotCount));
-			knotsToSend.RemoveRange(0, knotCount);
-			// an edge may name a knot still queued behind these: the authority holds it until it comes
-			int edgeCount = math.min(edgesToSend.Count, maxItems - knotCount);
+			knotsOut.AddRange(knotsToSend);
+			knotsToSend.Clear();
+			int edgeCount = math.min(edgesToSend.Count, maxEdges);
 			edgesOut.AddRange(edgesToSend.GetRange(0, edgeCount));
 			edgesToSend.RemoveRange(0, edgeCount);
 		}
@@ -459,17 +575,19 @@ namespace Anaglyph.XR.SharedSpaces
 			bool ownMoved = false;
 			foreach (PoseMessage pose in poses)
 			{
-				if (knotByKey.TryGetValue(pose.key, out int index))
+				if (knotByKey.TryGetValue(pose.key, out int index)) state[index] = pose.transform;
+				if (KnotKeys.Owner(pose.key) != Owner)
 				{
-					state[index] = pose.transform;
-					ownMoved = true;
-					if (index > tipKnot)
-					{
-						tipKnot = index;
-						tipGeneration = lastKnotGeneration;
-					}
+					track.SetOtherWorld(KnotKeys.Node(pose.key), new Pose4(pose.transform.xyz, pose.transform.w));
+					continue;
 				}
-				else track.SetOtherWorld(KnotKeys.Node(pose.key), new Pose4(pose.transform.xyz, pose.transform.w));
+
+				ownMoved = true;
+				if (index > tipKnot)
+				{
+					tipKnot = index;
+					tipGeneration = lastKnotGeneration;
+				}
 			}
 
 			Solves++;
@@ -477,7 +595,7 @@ namespace Anaglyph.XR.SharedSpaces
 			localizer.Map.RefreshPlacement();
 		}
 
-		/// <summary>The knot this node is, by the name every headset knows it by; 0 for a saved map's.</summary>
+		/// <summary>The knot this node is, by the name every headset knows it by.</summary>
 		private bool TryKey(ulong node, out ulong key)
 		{
 			key = 0;
@@ -490,7 +608,7 @@ namespace Anaglyph.XR.SharedSpaces
 		}
 
 		/// <summary>The name a node goes by on other headsets.</summary>
-		public ulong WireNode(ulong node) => TryKey(node, out ulong key) ? KnotKeys.Node(key) : VisualMap.SavedNode;
+		public ulong WireNode(ulong node) => TryKey(node, out ulong key) ? KnotKeys.Node(key) : 0;
 
 		/// <summary>Raw tracking to the map at a node, named as it is on other headsets.</summary>
 		public float4 TransformOfWire(ulong node)
@@ -498,14 +616,6 @@ namespace Anaglyph.XR.SharedSpaces
 			if (knotByKey.TryGetValue(KnotKeys.Key(node), out int index)) return (float4)state[index];
 			Pose4 world = track.WorldOf(node);
 			return new float4(world.translation, world.yaw);
-		}
-
-		private bool HoldsSavedMap()
-		{
-			foreach (VisualKeyframe k in localizer.Map.Keyframes)
-				if (k.node == VisualMap.SavedNode)
-					return true;
-			return false;
 		}
 
 		/// <summary>
@@ -545,7 +655,6 @@ namespace Anaglyph.XR.SharedSpaces
 
 		private Pose4 WorldOfKey(ulong key)
 		{
-			if (key == 0) return Pose4.Identity;
 			if (knotByKey.TryGetValue(key, out int index))
 			{
 				double4 x = state[index];
@@ -604,7 +713,7 @@ namespace Anaglyph.XR.SharedSpaces
 				KeyframeGraphKnot knot = knots[k];
 				double4 x = state[k];
 				if (k > 0) text.Append(',');
-				text.Append(FormattableString.Invariant($"[{KnotKeys.Owner(keys[k])},{knot.path:F3},{knot.origin.x:F4},{knot.origin.y:F4},{knot.origin.z:F4},{x.x:F5},{x.y:F5},{x.z:F5},{x.w:F6}]"));
+				text.Append(FormattableString.Invariant($"[{KnotKeys.Owner(keys[k])},{knot.path:F3},{knot.origin.x:F4},{knot.origin.y:F4},{knot.origin.z:F4},{x.x:F5},{x.y:F5},{x.z:F5},{x.w:F6},{(knot.isFixed ? 1 : 0)},{knot.previous}]"));
 			}
 
 			text.Append("],\"edges\":[");
@@ -668,9 +777,8 @@ namespace Anaglyph.XR.SharedSpaces
 				{
 					// few inliers are about twice as far from the truth
 					float confidence = edge.inliers < settings.confidentInliers ? 0.25f : 1f;
-					edge.information = default;
-					edge.information.c0.x = edge.information.c1.y = edge.information.c2.z = confidence / (settings.edgeSigma * settings.edgeSigma);
-					edge.information.c3.w = confidence / math.square(math.radians(settings.edgeYawSigmaDegrees));
+					edge.positionInformation = confidence / (settings.edgeSigma * settings.edgeSigma);
+					edge.yawInformation = confidence / math.square(math.radians(settings.edgeYawSigmaDegrees));
 					AddEdge(keyA, keyB, edge);
 					if (edge.inliers >= settings.confidentInliers && KnotKeys.Owner(keyB) == Owner) OfferFix(keyA, edge, pathB);
 					edgeLagSum += Time.unscaledTime - newerAt;
@@ -873,101 +981,6 @@ namespace Anaglyph.XR.SharedSpaces
 		// how far a knot moves before anyone else hears of it, meters and radians
 		private const float MinTold = 0.003f, MinToldYaw = 0.0002f;
 
-		// ---- separate pieces -----------------------------------------------------
-
-		// each knot's chain of consecutive knots, the saved map's the last, and which chains the
-		// edges between them have earned the right to pull on each other: until then each stays
-		// where its alignment put it
-		private int[] chainOf = Array.Empty<int>(), linked = Array.Empty<int>();
-		private readonly Dictionary<(int a, int b), (int count, float2 min, float2 max)> links = new();
-		private readonly HashSet<int> pieces = new();
-
-		private int RootOf(int chain)
-		{
-			while (linked[chain] != chain) chain = linked[chain] = linked[linked[chain]];
-			return chain;
-		}
-
-		private int CountLinkedEdges()
-		{
-			int knotCount = knots.Length;
-			if (chainOf.Length < knotCount + 1)
-			{
-				chainOf = new int[knotCount * 2 + 1];
-				linked = new int[knotCount * 2 + 1];
-			}
-
-			for (int k = 0; k < knotCount; k++)
-			{
-				int previous = knots[k].previous;
-				chainOf[k] = previous >= 0 ? chainOf[previous] : k;
-				linked[k] = k;
-			}
-
-			int saved = knotCount;
-			linked[saved] = saved;
-			links.Clear();
-			for (int e = 0; e < edges.Length; e++)
-			{
-				KeyframeEdge edge = edges[e];
-				int a = edge.knotA >= 0 ? chainOf[edge.knotA] : saved, b = chainOf[edge.knotB];
-				if (a == b) continue;
-				(int a, int b) pair = a < b ? (a, b) : (b, a);
-				float2 at = edge.pointA.xz;
-				links[pair] = links.TryGetValue(pair, out (int count, float2 min, float2 max) link)
-					? (link.count + 1, math.min(link.min, at), math.max(link.max, at))
-					: (1, at, at);
-			}
-
-			foreach (((int a, int b) pair, (int count, float2 min, float2 max) link) in links)
-				if (link.count >= settings.minLinkEdges && math.distance(link.min, link.max) >= settings.minLinkSpread)
-					linked[RootOf(pair.a)] = RootOf(pair.b);
-
-			if (links.Count == 0) return edges.Length;
-			int count = 0;
-			for (int e = 0; e < edges.Length; e++)
-				if (IsLinked(edges[e], saved))
-					count++;
-			return count;
-		}
-
-		private bool IsLinked(in KeyframeEdge edge, int saved)
-		{
-			int a = edge.knotA >= 0 ? chainOf[edge.knotA] : saved, b = chainOf[edge.knotB];
-			return a == b || RootOf(a) == RootOf(b);
-		}
-
-		// a piece of the graph tied to nothing that holds still would be free to turn and slide
-		// as a whole: for this solve, its first knot holds it where its alignment put it
-		private void HoldUnanchoredPieces()
-		{
-			pieces.Clear();
-			pieces.Add(RootOf(solveKnotCount));
-			for (int g = 0; g < solveGroupCount; g++)
-				if (solveKnots[g].isFixed)
-					pieces.Add(RootOf(chainOf[groupFirst[g]]));
-
-			for (int g = 0; g < solveGroupCount; g++)
-			{
-				if (!pieces.Add(RootOf(chainOf[groupFirst[g]]))) continue;
-				KeyframeGraphKnot first = solveKnots[g];
-				first.isFixed = true;
-				solveKnots[g] = first;
-			}
-		}
-
-		private void CopyLinkedEdges()
-		{
-			int saved = solveKnotCount;
-			for (int e = 0, n = 0; e < edges.Length && n < solveEdgeCount; e++)
-				if (links.Count == 0 || IsLinked(edges[e], saved))
-				{
-					KeyframeEdge edge = edges[e];
-					ownEdgesSolved |= KnotKeys.Owner(keys[edge.knotB]) == Owner || edge.knotA >= 0 && KnotKeys.Owner(keys[edge.knotA]) == Owner;
-					solveEdges[n++] = InGroups(edge);
-				}
-		}
-
 		// The system's cost grows with the cube of its knots, and a long game's would stall a
 		// headset's worker for seconds. Past the limit the older half is solved in groups along each
 		// walk, each as one rigid piece. Every knot keeps its own place and its name on other
@@ -1010,8 +1023,6 @@ namespace Anaglyph.XR.SharedSpaces
 			edge.pointB = Pose4.RotateY(Pose4.RotateY(edge.pointB, b.w) + b.xyz - firstB.xyz, -firstB.w);
 			edge.yaw -= b.w - firstB.w;
 			edge.knotB = groupB;
-			if (edge.knotA < 0) return edge;
-
 			int groupA = groupOf[edge.knotA];
 			float4 a = (float4)state[edge.knotA], firstA = (float4)state[groupFirst[groupA]];
 			edge.pointA = Pose4.RotateY(Pose4.RotateY(edge.pointA, a.w) + a.xyz - firstA.xyz, -firstA.w);
@@ -1025,7 +1036,7 @@ namespace Anaglyph.XR.SharedSpaces
 		{
 			edgesSinceSolve = 0;
 			solveKnotCount = knots.Length;
-			solveEdgeCount = CountLinkedEdges();
+			solveEdgeCount = edges.Length;
 			GroupKnots();
 			solveKnots = new NativeArray<KeyframeGraphKnot>(solveGroupCount, Allocator.Persistent);
 			solveEdges = new NativeArray<KeyframeEdge>(solveEdgeCount, Allocator.Persistent);
@@ -1047,8 +1058,13 @@ namespace Anaglyph.XR.SharedSpaces
 					solveKnots[groupOf[k]] = group;
 				}
 
-			HoldUnanchoredPieces();
-			CopyLinkedEdges();
+			for (int e = 0; e < solveEdgeCount; e++)
+			{
+				KeyframeEdge edge = edges[e];
+				ownEdgesSolved |= KnotKeys.Owner(keys[edge.knotB]) == Owner || KnotKeys.Owner(keys[edge.knotA]) == Owner;
+				solveEdges[e] = InGroups(edge);
+			}
+
 			solving = true;
 			discardSolve = false;
 			solveIteration = 0;

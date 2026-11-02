@@ -12,15 +12,16 @@ namespace Anaglyph.XR.SharedSpaces
 	/// </summary>
 	public struct KeyframeEdge
 	{
-		/// <summary>The older view's knot, -1 for a saved or received map, which never moves.</summary>
+		/// <summary>The older view's knot.</summary>
 		public int knotA;
 		public int knotB;
 		/// <summary>The point as each view's tracking placed it.</summary>
 		public float3 pointA, pointB;
 		/// <summary>Yaw from B's placement to A's, radians.</summary>
 		public float yaw;
-		/// <summary>Of (point, yaw) at <see cref="pointA"/>: for unit noise on each ray as a job gives it, as a variance once in the graph.</summary>
-		public float4x4 information;
+		/// <summary>One over its variance, in the point's position along each axis and in yaw.</summary>
+		public float positionInformation, yawInformation;
+		/// <summary>Of the rays that made it; below 0 for what ties a track to the graph, which is never given up.</summary>
 		public int inliers;
 	}
 
@@ -92,7 +93,7 @@ namespace Anaglyph.XR.SharedSpaces
 			double yawVariance = math.inverse(hessian).c3.w;
 			if (yawVariance <= 0 || math.sqrt(yawVariance) * angularSigma > maxYawSigma) Stop(YawLoose);
 			else if (math.abs(yaw) > MaxYaw || math.distance(pivotA, pivotB) > 1.25f * MaxOffset) Stop(OutOfBounds);
-			else result[0] = new KeyframeEdge { pointA = pivotA, pointB = pivotB, yaw = yaw, information = (float4x4)hessian, inliers = inliers };
+			else result[0] = new KeyframeEdge { pointA = pivotA, pointB = pivotB, yaw = yaw, inliers = inliers };
 		}
 
 		private void Stop(int why) => result[0] = new KeyframeEdge { inliers = why };

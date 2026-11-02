@@ -44,7 +44,7 @@ namespace Anaglyph.XR.SharedSpaces
 		private const int PartsOffset = PartOffset + sizeof(ushort);
 		private const int OwnerOffset = PartsOffset + sizeof(ushort);
 		private const int KnotsOffset = OwnerOffset + sizeof(uint);
-		private const byte KindSnapshot = 0, KindViews = 1;
+		private const byte KindSnapshot = 0, KindViews = 1, KindGraph = 2;
 		private const byte RequestSnapshot = 0, RequestKeepAlive = 1;
 		// a joiner says it is still there this often, and is forgotten after this long without
 		private const float KeepAliveSeconds = 10f, ForgetSeconds = 30f;
@@ -182,7 +182,7 @@ namespace Anaglyph.XR.SharedSpaces
 			List<PoseMessage> knots = new();
 			void Name(ulong node)
 			{
-				if (node != VisualMap.SavedNode && named.Add(node))
+				if (node != 0 && named.Add(node))
 					knots.Add(new PoseMessage { key = KnotKeys.Key(node), transform = graph.TransformOfWire(node) });
 			}
 
@@ -215,7 +215,7 @@ namespace Anaglyph.XR.SharedSpaces
 		}
 
 		// other headsets' and a saved map's are held as they came
-		private Pose Raw(ulong node, Pose inNode) => track.CorrectionOf(node).Inverse.Apply(inNode);
+		private Pose Raw(ulong node, Pose inNode) => track.Raw(node, inNode);
 
 		// ---- the authority ---------------------------------------------------------
 
@@ -310,7 +310,19 @@ namespace Anaglyph.XR.SharedSpaces
 				viewCount += list.Count;
 			}
 
-			outcome($"MapSync: sending client {client} the map, {viewCount} views from {byOwner.Count} headsets in {bytes / 1024} KB");
+			// last, so nothing it names is missing when it lands: the views' knots came with them until then
+			byte[] whole = graph.Encode();
+			byte[] graphMessage = new byte[HeaderBytes + whole.Length];
+			SyncBytes.Write(graphMessage, 0, Magic);
+			SyncBytes.Write(graphMessage, sizeof(uint), sentEpoch);
+			graphMessage[KindOffset] = KindGraph;
+			SyncBytes.Write(graphMessage, PartsOffset, (ushort)part);
+			SyncBytes.Write(graphMessage, OwnerOffset, graph.Owner);
+			Buffer.BlockCopy(whole, 0, graphMessage, HeaderBytes, whole.Length);
+			mapEvent.RaiseTo(client, graphMessage);
+			bytes += graphMessage.Length;
+
+			outcome($"MapSync: sending client {client} the map, {viewCount} views from {byOwner.Count} headsets and {graph.KnotCount} knots, {graph.EdgeCount} edges in {bytes / 1024} KB");
 		}
 
 		// ---- a joiner --------------------------------------------------------------
@@ -373,6 +385,12 @@ namespace Anaglyph.XR.SharedSpaces
 				while (arrived.Count > 0)
 				{
 					byte[] message = arrived.Dequeue();
+					if (message[KindOffset] == KindGraph)
+					{
+						ApplyGraph(message);
+						continue;
+					}
+
 					int knotSize = SyncBytes.Size<PoseMessage>();
 					int knotCount = SyncBytes.Read<ushort>(message, KnotsOffset);
 					int headerEnd = HeaderBytes + knotCount * knotSize;
@@ -420,7 +438,7 @@ namespace Anaglyph.XR.SharedSpaces
 			if (kind == KindSnapshot)
 			{
 				if (!IsJoiner) return;
-				int part = SyncBytes.Read<ushort>(message, PartOffset), parts = SyncBytes.Read<ushort>(message, PartsOffset);
+				int part = SyncBytes.Read<ushort>(message, PartOffset);
 				if (part == 0)
 				{
 					applying = true;
@@ -440,15 +458,6 @@ namespace Anaglyph.XR.SharedSpaces
 
 				ApplyKnots(message, knotCount);
 				Merge(owner, data, false);
-				if (part < parts - 1) return;
-
-				HasHostMap = true;
-				outcome($"MapSync: received the authority's map from {parts} headsets ({localizer.Quality})");
-				foreach ((ushort epochThen, uint ownerThen, VisualMapData dataThen) in early)
-					if (epochThen == hostEpoch)
-						Merge(ownerThen, dataThen, true);
-				early.Clear();
-				HostMapReceived.Invoke();
 				return;
 			}
 
@@ -463,6 +472,28 @@ namespace Anaglyph.XR.SharedSpaces
 			// views of a map that has since been replaced: its snapshot is on the way
 			if (messageEpoch != CurrentEpoch) return;
 			Merge(owner, data, true);
+		}
+
+		// the authority's graph, the end of its map
+		private void ApplyGraph(byte[] message)
+		{
+			if (!localizer || !IsJoiner || SyncBytes.Read<ushort>(message, sizeof(uint)) != hostEpoch) return;
+			if (!graph.Decode(message, HeaderBytes))
+			{
+				Debug.LogWarning($"{logTag} the authority's graph didn't decode ({message.Length} bytes)");
+				HasHostMap = false;
+				nextRequest = 0;
+				return;
+			}
+
+			localizer.Map.RefreshPlacement();
+			HasHostMap = true;
+			outcome($"MapSync: received the authority's map from {SyncBytes.Read<ushort>(message, PartsOffset)} headsets, {graph.KnotCount} knots and {graph.EdgeCount} edges ({localizer.Quality})");
+			foreach ((ushort epochThen, uint ownerThen, VisualMapData dataThen) in early)
+				if (epochThen == hostEpoch)
+					Merge(ownerThen, dataThen, true);
+			early.Clear();
+			HostMapReceived.Invoke();
 		}
 
 		// where the sender's knots were when it sent these: until a solve says otherwise
@@ -483,7 +514,7 @@ namespace Anaglyph.XR.SharedSpaces
 			// a view sent whole and then again as it settled is merged once
 			data.keyframes.RemoveAll(k => !views.Add((owner, k.timestampNs)));
 			if (!idsByOwner.TryGetValue(owner, out Dictionary<int, int> ids)) idsByOwner[owner] = ids = new();
-			List<VisualKeyframe> added = localizer.Map.Merge(data, pose => pose, Quaternion.identity, localizer.PixelSigma, ids);
+			List<VisualKeyframe> added = localizer.Map.Merge(data, pose => pose, Quaternion.identity, localizer.PixelSigma, ids, true);
 			localizer.Map.RefreshPlacement();
 			if (!matchAgainstOwn) return;
 			foreach (VisualKeyframe view in added) graph.AddReceived(view);

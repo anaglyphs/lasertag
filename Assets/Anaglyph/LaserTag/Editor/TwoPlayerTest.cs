@@ -60,6 +60,7 @@ namespace Anaglyph.LaserTag.Editor
 			public float speed;
 			public bool external;
 			public int map;
+			public float recenterAt;
 		}
 
 		[Serializable]
@@ -99,6 +100,7 @@ namespace Anaglyph.LaserTag.Editor
 		private static float endsAt;
 		private static bool waitingForPlayer;
 		private static double launchedAt;
+		private static float recenterDue;
 		private static bool externalEntered;
 
 		// a copy of the project running Player 2 is told where the main project's logs are
@@ -148,21 +150,22 @@ namespace Anaglyph.LaserTag.Editor
 		/// <param name="speed">Meters a second both players keep up, 0 for a sprint of 3. The headset captures walked 1 to 1.3 on average.</param>
 		/// <param name="seed">Non-zero: the drift, the start poses and the walkers follow it, so runs compare.</param>
 		/// <param name="map">What becomes of the saved map, each of them the space's only copy: <see cref="MapNone"/> neither reads nor writes it, <see cref="MapBuild"/> starts empty and saves over it, <see cref="MapUse"/> starts from it and leaves it as it was.</param>
+		/// <param name="recenterAt">Above 0: seconds in, the host's tracking is recentered, and a minute later Player 2's, which each has to come back from.</param>
 		/// <param name="external">Player 2 is a separate editor, started with <see cref="SimPlayer.ExternalArgument"/>, which enters play by itself.</param>
-		public static string Launch(float minutes, bool graph = true, int seed = 0, int stops = 6, float spacing = 6f, float speed = 0f, bool external = false, int map = MapNone)
+		public static string Launch(float minutes, bool graph = true, int seed = 0, int stops = 6, float spacing = 6f, float speed = 0f, bool external = false, int map = MapNone, float recenterAt = 0)
 		{
 			if (!SimPlayer.IsMainEditor) return "run this from the main editor, not a virtual player";
 			if (Application.isPlaying) return "leave play mode first";
 			if (EditorApplication.isCompiling) return "compiling";
 			if (IsRunning) return "a run is already under way";
-			if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.StandaloneOSX)
+			if (!external && EditorUserBuildSettings.activeBuildTarget != BuildTarget.StandaloneOSX)
 				return $"{EditorUserBuildSettings.activeBuildTarget} is the active target: make macOS active first, virtual players get no shaders otherwise";
 
 			ReimportSettings();
 			run = new Run
 			{
 				folder = Path.Combine(LogRoot, DateTime.Now.ToString("yyyyMMdd-HHmmss")),
-				createdAt = Now, minutes = minutes, graph = graph, seed = seed, stops = stops, spacing = spacing, speed = speed, external = external, map = map,
+				createdAt = Now, minutes = minutes, graph = graph, seed = seed, stops = stops, spacing = spacing, speed = speed, external = external, map = map, recenterAt = recenterAt,
 			};
 			Directory.CreateDirectory(run.folder);
 			File.WriteAllText(RunPath, JsonUtility.ToJson(run));
@@ -246,6 +249,7 @@ namespace Anaglyph.LaserTag.Editor
 					if (run == null) return;
 					logPath = Path.Combine(run.folder, SimPlayer.IsMainEditor ? "host.jsonl" : "player2.jsonl");
 					endsAt = Time.realtimeSinceStartup + run.minutes * 60f;
+					recenterDue = run.recenterAt > 0 ? Time.realtimeSinceStartup + run.recenterAt + (SimPlayer.IsMainEditor ? 0 : 60) : 0;
 					break;
 
 				case PlayModeStateChange.ExitingPlayMode:
@@ -321,6 +325,13 @@ namespace Anaglyph.LaserTag.Editor
 			if (!configured) configured = Configure();
 
 			double time = Time.realtimeSinceStartupAsDouble;
+			if (recenterDue > 0 && Time.realtimeSinceStartup >= recenterDue)
+			{
+				recenterDue = 0;
+				Debug.Log($"[{nameof(TwoPlayerTest)}] recentering");
+				MainXRRig.SimulateRecenter();
+			}
+
 			if (time >= nextSample)
 			{
 				nextSample = time + 1;

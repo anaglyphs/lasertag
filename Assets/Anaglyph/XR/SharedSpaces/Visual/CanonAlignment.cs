@@ -172,11 +172,18 @@ namespace Anaglyph.XR.SharedSpaces
 		// the authority's frame is canon by definition; everyone else has to find it. An
 		// authority still relocalizing (against a map just loaded, say) keeps at it when the
 		// session comes up: taking its frame as it stands would fix the alignment it is
-		// looking for at whatever it happens to be
+		// looking for at whatever it happens to be. One holding a map at all has to find itself
+		// in it: its frame as it stands would be a second world beside the map's
 		private void EnterRole(bool keepRelocalizing = false)
 		{
 			if (!SyncBus.IsAuthority) BeginSearch();
-			else if (!keepRelocalizing || CurrentPhase != Phase.Relocalizing) AlignIdentity();
+			else if (keepRelocalizing && CurrentPhase == Phase.Relocalizing) return;
+			else if (hasMap())
+			{
+				CurrentPhase = Phase.Relocalizing;
+				Debug.Log($"{logTag} the authority, holding a map: relocalizing");
+			}
+			else AlignIdentity();
 		}
 
 		private void AlignIdentity()
@@ -224,7 +231,7 @@ namespace Anaglyph.XR.SharedSpaces
 			return true;
 		}
 
-		/// <summary>Stops relocalizing and takes the role's own alignment again: the authority's frame as it stands, or a search.</summary>
+		/// <summary>Stops relocalizing and takes the role's own alignment again: the authority's frame as it stands, or a search. Clear the map first, or an authority goes on relocalizing against it.</summary>
 		public void AbandonRelocalization()
 		{
 			if (CurrentPhase != Phase.Relocalizing) return;

@@ -61,7 +61,10 @@ namespace Anaglyph.XR.SharedSpaces
 		/// <summary>The site correction keyframes of this segment were placed with.</summary>
 		public Pose4 CorrectionOf(ulong segment) => TryGet(segment, out Segment s) ? s.correction : Pose4.Identity;
 
-		/// <summary>Where the graph has moved this segment's frame; identity for a saved map's, which never moves.</summary>
+		/// <summary>A pose relative to a node as its own tracking had it: whatever the graph does next.</summary>
+		public Pose Raw(ulong node, Pose inNode) => CorrectionOf(node).Inverse.Apply(inNode);
+
+		/// <summary>Where the graph has moved this segment's frame.</summary>
 		public Pose4 WorldOf(ulong segment) =>
 			TryGet(segment, out Segment s) ? s.world : others.TryGetValue(segment, out (Pose4 world, Pose pose) other) ? other.world : Pose4.Identity;
 

@@ -75,11 +75,6 @@ namespace Anaglyph.XR.VisualLocalization
 	public sealed class VisualMap : IDisposable
 	{
 		public const int RetrievalFeatures = 256;
-		/// <summary>
-		/// The node a map loaded from a file hangs off: one rigid piece, never issued by any
-		/// anchoring, so it is consistent with itself and every live view is a revisit of it.
-		/// </summary>
-		public const ulong SavedNode = ulong.MaxValue;
 		/// <summary>Keyframes scored per retrieval when a camera narrows the search: ~4M multiply-adds each.</summary>
 		public const int MaxRetrievalCandidates = 24;
 		/// <summary>Keyframes scored per frame unless the caller says otherwise: each is a few million multiply-adds on a worker thread.</summary>
@@ -288,45 +283,22 @@ namespace Anaglyph.XR.VisualLocalization
 		}
 
 		/// <summary>
-		/// Replaces the map with a saved one, as one rigid piece under <see cref="SavedNode"/>:
-		/// every landmark frozen where the file has it, every keyframe feature that sights
-		/// one its observation. <paramref name="toWorld"/> maps the file's poses into the
-		/// world, <paramref name="toWorldRotation"/> its directions.
-		/// </summary>
-		public void Restore(VisualMapData data, Func<Pose, Pose> toWorld, Quaternion toWorldRotation, float pixelSigma)
-		{
-			Clear();
-			Insert(data, toWorld, toWorldRotation, pixelSigma, null);
-		}
-
-		/// <summary>
-		/// Adds another headset's views to the map as they are, under the nodes they name or
-		/// <see cref="SavedNode"/>: frames of their own, which this headset's tracking never
-		/// triangulates with, only localizes against. Their landmark ids are the sender's,
+		/// Adds views walked elsewhere or earlier to the map as they are, another headset's or a
+		/// saved map's, under the knots they name: frames of their own, which this headset's
+		/// tracking never triangulates with, only localizes against. Their landmark ids are the sender's,
 		/// mapped through <paramref name="ids"/> (the sender's → this map's) and allocated here
 		/// the first time; a landmark held already takes the placement sent, and the new views'
 		/// sightings join it.
 		/// </summary>
 		/// <returns>The views added.</returns>
-		public List<VisualKeyframe> Merge(VisualMapData data, Func<Pose, Pose> toWorld, Quaternion toWorldRotation, float pixelSigma, Dictionary<int, int> ids)
-		{
-			return Insert(data, toWorld, toWorldRotation, pixelSigma, ids ?? throw new ArgumentNullException(nameof(ids)));
-		}
-
-		// with ids null, the file's own landmark ids, into a map just cleared
-		private List<VisualKeyframe> Insert(VisualMapData data, Func<Pose, Pose> toWorld, Quaternion toWorldRotation, float pixelSigma, Dictionary<int, int> ids)
+		/// <param name="shared">Whether every other headset holds these views too.</param>
+		public List<VisualKeyframe> Merge(VisualMapData data, Func<Pose, Pose> toWorld, Quaternion toWorldRotation, float pixelSigma, Dictionary<int, int> ids, bool shared)
 		{
 			// the sender's landmark ids as this map's, allocated the first time one is seen
 			HashSet<int> arrived = new();
 			foreach (VisualMapData.Landmark l in data.landmarks)
 			{
-				int id;
-				if (ids == null)
-				{
-					id = l.id;
-					nextLandmarkId = math.max(nextLandmarkId, l.id + 1);
-				}
-				else if (!ids.TryGetValue(l.id, out id))
+				if (!ids.TryGetValue(l.id, out int id))
 				{
 					id = nextLandmarkId++;
 					ids[l.id] = id;
@@ -335,7 +307,7 @@ namespace Anaglyph.XR.VisualLocalization
 				Vector3 origin = toWorld(new Pose(l.origin, Quaternion.identity)).position;
 				if (!landmarks.TryGetValue(id, out Landmark landmark))
 				{
-					landmark = new Landmark { id = id, owner = data.owner, ownerId = l.id, node = l.node != 0 ? l.node : SavedNode, established = true };
+					landmark = new Landmark { id = id, owner = data.owner, ownerId = l.id, node = l.node, established = true };
 					landmarks[id] = landmark;
 				}
 
@@ -349,10 +321,10 @@ namespace Anaglyph.XR.VisualLocalization
 			List<VisualKeyframe> restored = new();
 			foreach (VisualMapData.Keyframe k in data.keyframes)
 			{
-				if (k.count < LighterGlueMatcher.MinKeypoints) continue;
+				if (k.node == 0 || k.count < LighterGlueMatcher.MinKeypoints) continue;
 				int[] sighted = new int[k.count];
 				for (int i = 0; i < k.count; i++)
-					sighted[i] = k.landmarks[i] < 0 ? -1 : ids == null ? k.landmarks[i] : ids.TryGetValue(k.landmarks[i], out int id) ? id : -1;
+					sighted[i] = k.landmarks[i] >= 0 && ids.TryGetValue(k.landmarks[i], out int id) ? id : -1;
 				FeatureSet features = new(k.count);
 				Array.Copy(k.keypoints, features.keypoints, k.count);
 				Array.Copy(k.scores, features.scores, k.count);
@@ -362,18 +334,16 @@ namespace Anaglyph.XR.VisualLocalization
 				{
 					features = features,
 					intrinsics = k.intrinsics,
-					node = k.node != 0 ? k.node : SavedNode,
+					node = k.node,
 					cameraInNode = camera,
 					camera = camera,
 					landmarks = sighted,
 					timestampNs = k.timestampNs,
 					original = k.original,
-					locked = ids == null || k.locked,
+					locked = k.locked,
 					owner = data.owner,
-					shared = ids != null,
+					shared = shared,
 				};
-				// restoring stops at capacity; a merge makes room as any new view does
-				if (ids == null && keyframes.Count >= capacity) break;
 				Add(keyframe);
 				restored.Add(keyframe);
 			}
@@ -405,7 +375,7 @@ namespace Anaglyph.XR.VisualLocalization
 			// a landmark no saved view sights is nothing
 			List<int> orphans = new();
 			foreach (Landmark l in landmarks.Values)
-				if (l.references == 0 && (ids == null || arrived.Contains(l.id))) orphans.Add(l.id);
+				if (l.references == 0 && arrived.Contains(l.id)) orphans.Add(l.id);
 			foreach (int id in orphans) landmarks.Remove(id);
 			Revision++;
 			return restored;

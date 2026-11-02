@@ -10,7 +10,8 @@ namespace Anaglyph.XR.VisualLocalization
 	/// A map on its way to or from disk: only what localization reads. Per keyframe the
 	/// features that sight a usable landmark plus the strongest ones retrieval ranks by,
 	/// with int8 descriptors; per landmark its reference ray and inverse depth, since
-	/// established landmarks are frozen. Poses are in the caller's storage frame.
+	/// established landmarks are frozen. Poses are relative to the graph's knots, which come
+	/// with them, so a map loaded goes on moving as the one that was saved did.
 	/// </summary>
 	public sealed class VisualMapData
 	{
@@ -22,8 +23,10 @@ namespace Anaglyph.XR.VisualLocalization
 			public bool original;
 			/// <summary>Sent between headsets, not saved: see <see cref="VisualKeyframe.locked"/>.</summary>
 			public bool locked;
-			/// <summary>The node it hangs off, for views sent between headsets; 0 for a saved map's one rigid piece.</summary>
+			/// <summary>The knot it hangs off, under its name on every headset.</summary>
 			public ulong node;
+			/// <summary>The headset whose tracking made it.</summary>
+			public uint owner;
 			public int count;
 			public float2[] keypoints;
 			public float[] scores;
@@ -42,6 +45,8 @@ namespace Anaglyph.XR.VisualLocalization
 			public float inverseDepth, inverseDepthSigma;
 			/// <summary>As <see cref="Keyframe.node"/>.</summary>
 			public ulong node;
+			/// <summary>As <see cref="Keyframe.owner"/>: <see cref="id"/> means something only within its owner's.</summary>
+			public uint owner;
 		}
 
 		/// <summary>The frame the poses are in.</summary>
@@ -53,6 +58,8 @@ namespace Anaglyph.XR.VisualLocalization
 		public uint owner;
 		public readonly List<Keyframe> keyframes = new();
 		public readonly List<Landmark> landmarks = new();
+		/// <summary>The knots and edges the poses hang off, as the graph that holds them encodes them; saved only.</summary>
+		public byte[] graph;
 	}
 
 	/// <summary>What a map file says about itself before its views are read: enough to rank it as a place.</summary>
@@ -70,7 +77,7 @@ namespace Anaglyph.XR.VisualLocalization
 	{
 		public const string Extension = ".vmap";
 		private const uint Magic = 0x50414D56; // VMAP
-		private const int Version = 1;
+		private const int Version = 2;
 		private const float PixelScale = 50f;
 		private const int D = FeatureSet.DescriptorSize;
 
@@ -108,6 +115,7 @@ namespace Anaglyph.XR.VisualLocalization
 					original = k.original,
 					locked = k.locked,
 					node = wireNode?.Invoke(k.node) ?? 0,
+					owner = k.owner,
 					count = selected.Count,
 					keypoints = new float2[selected.Count],
 					scores = new float[selected.Count],
@@ -142,6 +150,7 @@ namespace Anaglyph.XR.VisualLocalization
 						inverseDepth = l.inverseDepth,
 						inverseDepthSigma = l.inverseDepthSigma,
 						node = wireNode?.Invoke(l.node) ?? 0,
+						owner = l.owner,
 					});
 					continue;
 				}
@@ -188,6 +197,8 @@ namespace Anaglyph.XR.VisualLocalization
 				w.Write(k.intrinsics.cy);
 				w.Write(k.timestampNs);
 				w.Write(k.original);
+				w.Write(k.node);
+				w.Write(k.owner);
 				w.Write(k.count);
 				for (int i = 0; i < k.count; i++)
 				{
@@ -212,7 +223,12 @@ namespace Anaglyph.XR.VisualLocalization
 				w.Write(l.direction.z);
 				w.Write(l.inverseDepth);
 				w.Write(l.inverseDepthSigma);
+				w.Write(l.node);
+				w.Write(l.owner);
 			}
+
+			w.Write(data.graph?.Length ?? 0);
+			if (data.graph != null) w.Write(data.graph);
 		}
 
 		// ---- reading -----------------------------------------------------------
@@ -262,6 +278,8 @@ namespace Anaglyph.XR.VisualLocalization
 					intrinsics = new PinholeCamera(r.ReadSingle(), r.ReadSingle(), r.ReadSingle(), r.ReadSingle()),
 					timestampNs = r.ReadInt64(),
 					original = r.ReadBoolean(),
+					node = r.ReadUInt64(),
+					owner = r.ReadUInt32(),
 					probe = h.probes[k],
 				};
 				int count = r.ReadInt32();
@@ -304,8 +322,13 @@ namespace Anaglyph.XR.VisualLocalization
 					direction = new float3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle()),
 					inverseDepth = r.ReadSingle(),
 					inverseDepthSigma = r.ReadSingle(),
+					node = r.ReadUInt64(),
+					owner = r.ReadUInt32(),
 				});
 
+			int graphLength = r.ReadInt32();
+			if (graphLength < 0) return null;
+			data.graph = r.ReadBytes(graphLength);
 			return data;
 		}
 

@@ -170,6 +170,41 @@ namespace Anaglyph.XR.SharedSpaces
 		/// </summary>
 		public bool RelocalizeAgainstMap() => localizer.Map.Count > 0 && alignment.BeginRelocalize("saved map");
 
+		/// <summary>The map as it stands with the graph it hangs off, to save. Main thread.</summary>
+		public VisualMapData SnapshotMap()
+		{
+			VisualMapData data = VisualMapFile.Snapshot(localizer.Map, pose => pose, Quaternion.identity, null, track.Raw, graph.WireNode);
+			data.graph = graph.Encode();
+			return data;
+		}
+
+		/// <summary>
+		/// Replaces the map and its graph with saved ones, each view on the knot it was made on, all
+		/// free to move as the graph learns more. False when the file has no graph to hang them off,
+		/// leaving things as they were.
+		/// </summary>
+		public bool RestoreMap(VisualMapData data)
+		{
+			if (data.graph == null || data.graph.Length == 0) return false;
+			localizer.Map.Clear();
+			if (!graph.Decode(data.graph)) return false;
+
+			// one part per owner: a landmark's id means something only within its owner's
+			Dictionary<uint, VisualMapData> byOwner = new();
+			VisualMapData PartOf(uint owner)
+			{
+				if (!byOwner.TryGetValue(owner, out VisualMapData part)) byOwner[owner] = part = new VisualMapData { owner = owner };
+				return part;
+			}
+
+			foreach (VisualMapData.Keyframe k in data.keyframes) PartOf(k.owner).keyframes.Add(k);
+			foreach (VisualMapData.Landmark l in data.landmarks) PartOf(l.owner).landmarks.Add(l);
+			foreach (VisualMapData part in byOwner.Values)
+				localizer.Map.Merge(part, pose => pose, Quaternion.identity, localizer.PixelSigma, new Dictionary<int, int>(), false);
+			localizer.Map.RefreshPlacement();
+			return true;
+		}
+
 		private void Awake()
 		{
 			Instance = this;
@@ -253,6 +288,8 @@ namespace Anaglyph.XR.SharedSpaces
 		{
 			// searching means this world is not canon, whatever the map was built in
 			if (phase == Phase.Searching) ClearMap();
+			// nothing more goes into the graph until a fresh match says where this tracking is
+			if (phase == Phase.Relocalizing) graph.DropWaiting();
 			gate.Clear();
 		}
 
@@ -493,19 +530,20 @@ namespace Anaglyph.XR.SharedSpaces
 
 			if (agreed.alone) description = $"one frame, confident enough alone: {description}";
 			if (loop) AddSite(p, agreed, pose.yawSigma, anchor, description);
-			else ApplyAlignment(p, agreed.correction, description);
+			else ApplyAlignment(p, agreed, anchor, description);
 		}
 
-		private void ApplyAlignment(Pending p, Pose4 agreed, string description)
+		private void ApplyAlignment(Pending p, in MeasurementGate.Agreed agreed, ulong anchor, string description)
 		{
 			if (!IsAvailable)
 			{
-				log.Outcome($"{p.purpose}: not applied, {agreed} found while the rig or scanner is missing");
+				log.Outcome($"{p.purpose}: not applied, {agreed.correction} found while the rig or scanner is missing");
 				return;
 			}
 
-			alignment.Apply(agreed, p.query.trackingSpace);
-			log.Outcome($"{p.purpose}: applied {agreed} ({description})");
+			graph.LinkNextTrack(anchor, agreed.focus);
+			alignment.Apply(agreed.correction, p.query.trackingSpace);
+			log.Outcome($"{p.purpose}: applied {agreed.correction} ({description})");
 		}
 
 		private void AddSite(Pending p, in MeasurementGate.Agreed agreed, float yawSigma, ulong anchor, string description)

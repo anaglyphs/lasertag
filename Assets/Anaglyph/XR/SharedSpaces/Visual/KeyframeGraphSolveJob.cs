@@ -56,8 +56,7 @@ namespace Anaglyph.XR.SharedSpaces
 				if (knots[k].previous >= 0)
 					Reach(ref first, position, k, knots[k].previous);
 			for (int e = 0; e < edges.Length; e++)
-				if (edges[e].knotA >= 0)
-					Reach(ref first, position, edges[e].knotA, edges[e].knotB);
+				Reach(ref first, position, edges[e].knotA, edges[e].knotB);
 
 			int size = free * 4;
 			NativeArray<int> rowStart = new(size + 1, Allocator.Temp);
@@ -86,7 +85,9 @@ namespace Anaglyph.XR.SharedSpaces
 			for (int e = 0; e < edges.Length; e++)
 			{
 				KeyframeEdge edge = edges[e];
-				double4x4 information = edge.information;
+				double4x4 information = default;
+				information.c0.x = information.c1.y = information.c2.z = edge.positionInformation;
+				information.c3.w = edge.yawInformation;
 				Add(ref matrix, ref gradient, rowStart, first, position, edge.knotA, edge.knotB, edge.pointA, edge.pointB, edge.yaw, information, huber);
 			}
 
@@ -125,7 +126,7 @@ namespace Anaglyph.XR.SharedSpaces
 			for (int e = 0; e < edges.Length; e++)
 			{
 				int a = edges[e].knotA, b = edges[e].knotB;
-				if (a < 0 || a == b || knots[a].isFixed || knots[b].isFixed) continue;
+				if (a == b || knots[a].isFixed || knots[b].isFixed) continue;
 				degree[a]++;
 				degree[b]++;
 			}
@@ -144,7 +145,7 @@ namespace Anaglyph.XR.SharedSpaces
 			for (int e = 0; e < edges.Length; e++)
 			{
 				int a = edges[e].knotA, b = edges[e].knotB;
-				if (a >= 0 && a != b && !knots[a].isFixed && !knots[b].isFixed) Link(ref neighbors, ref fill, start, a, b);
+				if (a != b && !knots[a].isFixed && !knots[b].isFixed) Link(ref neighbors, ref fill, start, a, b);
 			}
 
 			NativeArray<int> queue = new(knotCount, Allocator.Temp);
@@ -206,7 +207,7 @@ namespace Anaglyph.XR.SharedSpaces
 		private void Add(ref NativeArray<double> matrix, ref NativeArray<double> gradient, NativeArray<int> rowStart, NativeArray<int> first, NativeArray<int> position,
 			int a, int b, double3 pointA, double3 pointB, double yawDifference, in double4x4 information, double robust = 0)
 		{
-			double4 stateA = a >= 0 ? state[a] : default, stateB = state[b];
+			double4 stateA = state[a], stateB = state[b];
 			double3 turnedA = Pose4Turn(stateA.w, pointA), turnedB = Pose4Turn(stateB.w, pointB);
 			double4 residual = new(turnedA + stateA.xyz - turnedB - stateB.xyz, stateA.w + yawDifference - stateB.w);
 			double4 weighted = math.mul(information, residual);
@@ -219,7 +220,7 @@ namespace Anaglyph.XR.SharedSpaces
 
 			double4x4 ja = Jacobian(turnedA, 1), jb = Jacobian(turnedB, -1);
 			double4x4 ia = math.mul(information, ja), ib = math.mul(information, jb);
-			int pa = a >= 0 ? position[a] : -1, pb = position[b];
+			int pa = position[a], pb = position[b];
 			if (pa >= 0)
 			{
 				AddGradient(ref gradient, pa, math.mul(math.transpose(ja), weighted) * scale);
