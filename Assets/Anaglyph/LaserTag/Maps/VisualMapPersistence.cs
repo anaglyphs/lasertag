@@ -54,6 +54,13 @@ namespace Anaglyph.LaserTag.Maps
 
 		public VisualMapPersistence(SpaceStore store) => this.store = store;
 
+#if UNITY_EDITOR
+		/// <summary>A test starting from no map: nothing saved is loaded.</summary>
+		public static bool SkipLoadForTests;
+		/// <summary>A test whose map is not to last: nothing it maps is saved over what was.</summary>
+		public static bool SkipSaveForTests;
+#endif
+
 		public bool HasMap(Space space) => space != null && store.HasVisualMap(space.id);
 
 		/// <summary>The catalog's vocabulary, read once; null until the first map saved builds it.</summary>
@@ -107,6 +114,9 @@ namespace Anaglyph.LaserTag.Maps
 		/// </summary>
 		public void Save(Space space, bool force, bool synchronous)
 		{
+#if UNITY_EDITOR
+			if (SkipSaveForTests) return;
+#endif
 			VisualLocalizer localizer = VisualLocalizer.Instance;
 			VisualColocationConstraintProvider provider = VisualColocationConstraintProvider.Instance;
 			if (space == null || localizer == null || provider == null) return;
@@ -117,7 +127,7 @@ namespace Anaglyph.LaserTag.Maps
 			bool unchanged = map.Revision == savedRevision && space.id == savedSpace;
 			if (unchanged || !force && Time.realtimeSinceStartup - lastSave < SaveInterval) return;
 
-			VisualMapData data = VisualMapFile.Snapshot(map, pose => pose, Quaternion.identity, false);
+			VisualMapData data = VisualMapFile.Snapshot(map, pose => pose, Quaternion.identity);
 			data.frameId = space.frameId;
 			data.savedTicks = DateTime.UtcNow.Ticks;
 			// the snapshot's keyframes in the map's order: their probes, where already made
@@ -275,6 +285,9 @@ namespace Anaglyph.LaserTag.Maps
 		/// </summary>
 		public async void LoadAndRelocalize(Space space, CancellationToken token, Action<Space> failed = null)
 		{
+#if UNITY_EDITOR
+			if (SkipLoadForTests) return;
+#endif
 			VisualLocalizer localizer = VisualLocalizer.Instance;
 			VisualColocationConstraintProvider provider = VisualColocationConstraintProvider.Instance;
 			unverifiedSpace = space != null && HasMap(space) ? space.id : null;

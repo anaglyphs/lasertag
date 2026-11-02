@@ -58,8 +58,11 @@ namespace Anaglyph.XR.SharedSpaces
 
 	/// <summary>
 	/// How a constraint's uncertainty grows with the head's travel since it was measured:
-	/// tracking drifts like a random walk, so σ² gains <c>rate² × meters</c>. The rates are the
-	/// headset's, not any one source's, so the colocator holds them for every provider.
+	/// tracking drifts like a random walk, so σ² gains <c>rate² × meters</c>. And with how far
+	/// from the head it lies: tracking errs differently in different places, so a correction
+	/// measured across the room says less about the alignment here than one measured here,
+	/// σ² gaining <c>(spatialRate × meters away)²</c>. The rates are the headset's, not any one
+	/// source's, so the colocator holds them for every provider.
 	/// </summary>
 	public readonly struct ColocationDrift
 	{
@@ -71,24 +74,50 @@ namespace Anaglyph.XR.SharedSpaces
 		public readonly float yawRate;
 		/// <summary>The head's travel now, the same odometer constraints were stamped with.</summary>
 		public readonly float path;
+		/// <summary>Where the head is now, in the constraints' observed (current world) frame.</summary>
+		public readonly Vector3 place;
+		/// <summary>Position σ a constraint carries per meter it lies from <see cref="place"/>, meters per meter; 0 ignores place.</summary>
+		public readonly float spatialRate;
+		/// <summary>Likewise for yaw, radians per meter.</summary>
+		public readonly float spatialYawRate;
 
-		public ColocationDrift(float positionRate, float yawRate, float path)
+		public ColocationDrift(float positionRate, float yawRate, float path) : this(positionRate, yawRate, path, default, 0f, 0f) { }
+
+		public ColocationDrift(float positionRate, float yawRate, float path, Vector3 place, float spatialRate, float spatialYawRate)
 		{
 			this.positionRate = positionRate;
 			this.yawRate = yawRate;
 			this.path = path;
+			this.place = place;
+			this.spatialRate = spatialRate;
+			this.spatialYawRate = spatialYawRate;
 		}
 
 		/// <summary>Meters walked since the constraint was measured; 0 for a live one.</summary>
 		public float Age(in ColocationConstraint c) => c.IsLive ? 0f : Mathf.Max(0f, path - c.measuredAt);
 
+		/// <summary>How far across the floor the constraint lies from the head, meters.</summary>
+		public float Distance(in ColocationConstraint c)
+		{
+			Vector3 d = c.observed.position - place;
+			return Mathf.Sqrt(d.x * d.x + d.z * d.z);
+		}
+
+		/// <summary>The position variance its distance from the head adds, meters².</summary>
+		public float SpatialVariance(in ColocationConstraint c) => Square(spatialRate * Distance(c));
+
+		/// <summary>The yaw variance its distance from the head adds, radians².</summary>
+		public float SpatialYawVariance(in ColocationConstraint c) => Square(spatialYawRate * Distance(c));
+
 		/// <summary>1/σ² of its position as it stands now, or 1 for an unweighted constraint.</summary>
 		public float PositionWeight(in ColocationConstraint c) =>
-			c.positionSigma > 0 ? 1f / Mathf.Max(c.positionSigma * c.positionSigma + positionRate * positionRate * Age(c), 1e-8f) : 1f;
+			c.positionSigma > 0 ? 1f / Mathf.Max(c.positionSigma * c.positionSigma + positionRate * positionRate * Age(c) + SpatialVariance(c), 1e-8f) : 1f;
 
 		/// <summary>1/σ² of its yaw as it stands now, or 0 when it carries no yaw observation.</summary>
 		public float YawWeight(in ColocationConstraint c) =>
-			c.hasReliableRotation && c.yawSigma > 0 ? 1f / Mathf.Max(c.yawSigma * c.yawSigma + yawRate * yawRate * Age(c), 1e-10f) : 0f;
+			c.hasReliableRotation && c.yawSigma > 0 ? 1f / Mathf.Max(c.yawSigma * c.yawSigma + yawRate * yawRate * Age(c) + SpatialYawVariance(c), 1e-10f) : 0f;
+
+		private static float Square(float x) => x * x;
 	}
 
 	/// <summary>

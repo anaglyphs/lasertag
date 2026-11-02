@@ -88,6 +88,9 @@ namespace Anaglyph.XR.VisualLocalization
 	public sealed class Landmark
 	{
 		public int id;
+		/// <summary>The headset that made it, and its id for it there: the same on every headset.</summary>
+		public uint owner;
+		public int ownerId;
 		public ulong node;
 		/// <summary>The reference camera relative to <see cref="node"/>; observations[0] is its sighting.</summary>
 		public Pose reference;
@@ -95,8 +98,6 @@ namespace Anaglyph.XR.VisualLocalization
 		public float3 bearing;
 		public float inverseDepth;
 		public float inverseDepthSigma = float.PositiveInfinity;
-		/// <summary>The scanned mesh's depth along the reference ray, as an inverse depth prior; σ 0 when the ray hit nothing.</summary>
-		public float meshInverseDepth, meshInverseDepthSigma;
 		public readonly List<Observation> observations = new();
 		/// <summary>Keyframe features pointing at this landmark; it is dropped at zero.</summary>
 		public int references;
@@ -107,10 +108,8 @@ namespace Anaglyph.XR.VisualLocalization
 		/// </summary>
 		public bool established;
 
-		public bool HasMesh => meshInverseDepthSigma > 0;
-
-		/// <summary>Seen from at least two keyframes, or placed by the mesh where single-view points are allowed.</summary>
-		public bool IsUsable(bool singleViewMesh) => observations.Count >= 2 || (singleViewMesh && HasMesh);
+		/// <summary>Seen from at least two keyframes, or received fixed with only some of the views that founded it.</summary>
+		public bool IsUsable => observations.Count >= 2 || established;
 
 		/// <summary>The reference ray in the world, through the anchoring's current node poses.</summary>
 		public bool TryPlace(IKeyframeAnchoring anchoring, out float3 origin, out float3 direction)
@@ -148,8 +147,8 @@ namespace Anaglyph.XR.VisualLocalization
 
 			for (int round = 0; round < 3; round++)
 			{
-				// a coarse sweep picks the basin, from the mesh's depth if there is one
-				float rho = HasMesh ? meshInverseDepth : 0;
+				// a coarse sweep picks the basin
+				float rho = 0;
 				float best = Cost(rho, origin, direction, cameras, placed);
 				for (int s = 0; s < Seeds.Length; s++)
 				{
@@ -215,10 +214,7 @@ namespace Anaglyph.XR.VisualLocalization
 		{
 			double h = 1.0 / (WeakPriorSigma * WeakPriorSigma);
 			gradient += (rho - WeakPrior) * h;
-			if (!HasMesh) return h;
-			double m = 1.0 / (meshInverseDepthSigma * meshInverseDepthSigma);
-			gradient += (rho - meshInverseDepth) * m;
-			return h + m;
+			return h;
 		}
 
 		private float Cost(float rho, float3 origin, float3 direction, Pose[] cameras, bool[] placed)
@@ -226,7 +222,6 @@ namespace Anaglyph.XR.VisualLocalization
 			float cost = 0;
 			for (int k = 1; k < cameras.Length; k++)
 				cost += placed[k] && AngularResidual(k, rho, origin, direction, cameras[k], out float2 r) ? math.min(math.lengthsq(r), 100) : 100;
-			if (HasMesh) cost += math.square((rho - meshInverseDepth) / meshInverseDepthSigma);
 			return cost;
 		}
 

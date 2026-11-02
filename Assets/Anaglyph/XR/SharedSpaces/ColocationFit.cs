@@ -10,17 +10,27 @@ namespace Anaglyph.XR.SharedSpaces
 {
 	/// <summary>
 	/// The colocator's gravity-preserving rigid fit, without applying it: the move of tracking
-	/// space that lands each constraint's observed pose on its canon pose.
+	/// space that lands each constraint's observed pose on its canon pose. One per
+	/// <see cref="Colocator"/>, which runs it once a frame; it keeps only its working buffers
+	/// between runs.
 	/// </summary>
-	public static class ColocationFit
+	public sealed class ColocationFit : IDisposable
 	{
 		// a diffuse prior: before the first constraint, the fit could be anywhere
 		private const double PriorPosition = 100, PriorYaw = math.PI_DBL;
 
-		// the linearization point's inputs, reused: the fit runs every frame
-		private static readonly List<(float3 subject, float3 target)> pairs = new();
-		private static readonly List<float> weights = new();
-		private static readonly List<(float yaw, float weight)> yaws = new();
+		// the linearization point's inputs and the filter's, reused: the fit runs every frame
+		private readonly List<(float3 subject, float3 target)> pairs = new();
+		private readonly List<float> weights = new();
+		private readonly List<(float yaw, float weight)> yaws = new();
+		private NativeList<Measurement> measurements = new(64, Allocator.Persistent);
+		private NativeArray<double4> state = new(1, Allocator.Persistent);
+
+		public void Dispose()
+		{
+			if (measurements.IsCreated) measurements.Dispose();
+			if (state.IsCreated) state.Dispose();
+		}
 
 		/// <summary>
 		/// The fit as a Kalman filter re-run over the constraints in the order they were
@@ -28,9 +38,10 @@ namespace Anaglyph.XR.SharedSpaces
 		/// fit's own uncertainty grows by <paramref name="drift"/> for the walk between them:
 		/// an older measurement is worth less because everything since has had time to move,
 		/// not because each one ages on its own. Every constraint of every source shares that
-		/// one drift. Holds no state: the history is the list.
+		/// one drift. Carries no estimate from run to run: providers re-express and rewrite
+		/// their histories every frame, so the history is the list.
 		/// </summary>
-		public static bool TryEvaluate(IReadOnlyList<ColocationConstraint> constraints, in ColocationDrift drift, out Pose delta)
+		public bool TryEvaluate(IReadOnlyList<ColocationConstraint> constraints, in ColocationDrift drift, out Pose delta)
 		{
 			delta = Pose.identity;
 			if (constraints == null || constraints.Count == 0) return false;
@@ -102,7 +113,7 @@ namespace Anaglyph.XR.SharedSpaces
 		/// The filter over (translation, yaw), yaw turning about the constraints' centroid so
 		/// the two stay nearly independent however far the map is from the origin.
 		/// </summary>
-		private static Pose Filter(IReadOnlyList<ColocationConstraint> constraints, in ColocationDrift drift, Pose start)
+		private Pose Filter(IReadOnlyList<ColocationConstraint> constraints, in ColocationDrift drift, Pose start)
 		{
 			int count = constraints.Count;
 			double3 pivot = 0;
@@ -113,54 +124,46 @@ namespace Anaglyph.XR.SharedSpaces
 			double yaw = BestFit.TwistYaw(start.rotation);
 			double3 translation = (float3)start.position - pivot + Rotate(yaw, pivot);
 
-			NativeArray<Measurement> measurements = new(count, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-			NativeArray<double4> state = new(1, Allocator.TempJob);
-			try
+			measurements.Clear();
+			for (int i = 0; i < count; i++)
 			{
-				for (int i = 0; i < count; i++)
+				ColocationConstraint c = constraints[i];
+				bool observesYaw = ObservesYaw(c);
+				measurements.Add(new Measurement
 				{
-					ColocationConstraint c = constraints[i];
-					bool observesYaw = ObservesYaw(c);
-					measurements[i] = new Measurement
-					{
-						observed = (float3)c.observed.position,
-						canon = (float3)c.canon.position,
-						yaw = observesYaw ? BestFit.TwistYaw(c.canon.rotation) - BestFit.TwistYaw(c.observed.rotation) : 0,
-						sigma = c.positionSigma > 0 ? c.positionSigma : 1,
-						yawSigma = observesYaw ? c.yawSigma : 0,
-						at = MeasuredAt(c, drift),
-						index = i,
-					};
-				}
-
-				state[0] = new double4(translation, yaw);
-				new FilterJob
-				{
-					measurements = measurements,
-					state = state,
-					pivot = pivot,
-					qPosition = (double)drift.positionRate * drift.positionRate,
-					qYaw = (double)drift.yawRate * drift.yawRate,
-				}.Run();
-
-				double4 x = state[0];
-				Quaternion rotation = Quaternion.AngleAxis((float)math.degrees(x.w), Vector3.up);
-				return new Pose((float3)(pivot + x.xyz - Rotate(x.w, pivot)), rotation);
+					observed = (float3)c.observed.position,
+					canon = (float3)c.canon.position,
+					yaw = observesYaw ? BestFit.TwistYaw(c.canon.rotation) - BestFit.TwistYaw(c.observed.rotation) : 0,
+					// the further from the head it was measured, the less it says about here
+					variance = (c.positionSigma > 0 ? (double)c.positionSigma * c.positionSigma : 1) + drift.SpatialVariance(c),
+					yawVariance = observesYaw ? (double)c.yawSigma * c.yawSigma + drift.SpatialYawVariance(c) : 0,
+					at = MeasuredAt(c, drift),
+					index = i,
+				});
 			}
-			finally
+
+			state[0] = new double4(translation, yaw);
+			new FilterJob
 			{
-				measurements.Dispose();
-				state.Dispose();
-			}
+				measurements = measurements.AsArray(),
+				state = state,
+				pivot = pivot,
+				qPosition = (double)drift.positionRate * drift.positionRate,
+				qYaw = (double)drift.yawRate * drift.yawRate,
+			}.Run();
+
+			double4 x = state[0];
+			Quaternion rotation = Quaternion.AngleAxis((float)math.degrees(x.w), Vector3.up);
+			return new Pose((float3)(pivot + x.xyz - Rotate(x.w, pivot)), rotation);
 		}
 
 		/// <summary>One constraint as the filter reads it; ordered by when it was measured.</summary>
 		private struct Measurement : IComparable<Measurement>
 		{
 			public double3 observed, canon;
-			/// <summary>The yaw it observes, radians; read only where <see cref="yawSigma"/> is positive.</summary>
+			/// <summary>The yaw it observes, radians; read only where <see cref="yawVariance"/> is positive.</summary>
 			public double yaw;
-			public double sigma, yawSigma;
+			public double variance, yawVariance;
 			public float at;
 			public int index;
 
@@ -222,11 +225,11 @@ namespace Anaglyph.XR.SharedSpaces
 							1 => new double4(0, 1, 0, 0),
 							_ => new double4(0, 0, 1, slope.z),
 						};
-						Update(ref x, ref p, h, m.canon[axis] - predicted[axis], m.sigma * m.sigma);
+						Update(ref x, ref p, h, m.canon[axis] - predicted[axis], m.variance);
 					}
 
-					if (m.yawSigma > 0)
-						Update(ref x, ref p, new double4(0, 0, 0, 1), Wrap(m.yaw - x.w), m.yawSigma * m.yawSigma);
+					if (m.yawVariance > 0)
+						Update(ref x, ref p, new double4(0, 0, 0, 1), Wrap(m.yaw - x.w), m.yawVariance);
 				}
 
 				state[0] = x;

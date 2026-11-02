@@ -23,8 +23,6 @@ namespace Anaglyph.XR.VisualLocalization
 		public Pose camera;
 		/// <summary>Per feature, the landmark id it sights, or -1.</summary>
 		public int[] landmarks;
-		/// <summary>Per feature, the scanned mesh's distance along its ray, or 0 where the ray hit nothing usable.</summary>
-		public float[] meshDepth;
 		public long timestampNs;
 		/// <summary>The <see cref="VisualFrameLog"/> record of the frame it was made from; 0 when not logged.</summary>
 		public int frame;
@@ -34,6 +32,15 @@ namespace Anaglyph.XR.VisualLocalization
 		/// don't replace what it first saw.
 		/// </summary>
 		public bool original;
+		/// <summary>
+		/// The first view of its place and heading, at the coarser scale a revisit is measured
+		/// at: the fixed reference revisits localize against. A saved or received map's are all so.
+		/// </summary>
+		public bool locked;
+		/// <summary>The headset whose tracking made it, for telling views apart across headsets; 0 for a saved map's.</summary>
+		public uint owner;
+		/// <summary>Sent to the other headsets, or come from one: they hold it too.</summary>
+		public bool shared;
 		internal int slot;
 	}
 
@@ -99,6 +106,8 @@ namespace Anaglyph.XR.VisualLocalization
 		public event Action Cleared = delegate { };
 		public int Count => keyframes.Count;
 		public IKeyframeAnchoring Anchoring { get; set; }
+		/// <summary>This headset's name for what it maps, on every landmark and keyframe it makes.</summary>
+		public uint LocalOwner { get; set; }
 
 		/// <summary>Bumped on every change, so consumers can tell a stale result.</summary>
 		public int Revision { get; private set; }
@@ -112,12 +121,12 @@ namespace Anaglyph.XR.VisualLocalization
 
 		public bool TryGetLandmark(int id, out Landmark landmark) => landmarks.TryGetValue(id, out landmark);
 
-		public VisualMapQuality Quality(bool singleViewMesh, float rangedFraction)
+		public VisualMapQuality Quality(float rangedFraction)
 		{
 			int usable = 0, ranged = 0;
 			foreach (Landmark l in landmarks.Values)
 			{
-				if (!l.IsUsable(singleViewMesh)) continue;
+				if (!l.IsUsable) continue;
 				usable++;
 				if (l.inverseDepth > 1e-4f && l.inverseDepthSigma <= rangedFraction * l.inverseDepth) ranged++;
 			}
@@ -165,26 +174,33 @@ namespace Anaglyph.XR.VisualLocalization
 			return true;
 		}
 
-		public Landmark CreateLandmark(VisualKeyframe keyframe, int feature, float pixelSigma, float meshDepthSigma, float meshDepthFraction)
+		/// <summary>
+		/// Whether no view walked away from has seen this place and heading: within
+		/// <paramref name="radius"/> and turned less than <paramref name="angleDegrees"/>.
+		/// </summary>
+		public bool IsFirstView(Pose camera, ulong node, float minWalkDrift, float radius, float angleDegrees)
+		{
+			if (Anchoring == null) return true;
+			foreach (VisualKeyframe k in keyframes)
+				if (Vector3.Distance(k.camera.position, camera.position) < radius &&
+				    Vector3.Angle(k.camera.forward, camera.forward) < angleDegrees &&
+				    Anchoring.WalkDrift(node, k.node) >= minWalkDrift)
+					return false;
+			return true;
+		}
+
+		public Landmark CreateLandmark(VisualKeyframe keyframe, int feature, float pixelSigma)
 		{
 			Landmark landmark = new()
 			{
-				id = nextLandmarkId++,
+				id = nextLandmarkId,
+				owner = LocalOwner,
+				ownerId = nextLandmarkId++,
 				node = keyframe.node,
 				reference = keyframe.cameraInNode,
 				bearing = keyframe.intrinsics.Ray(keyframe.features.keypoints[feature]),
 			};
 
-			float depth = keyframe.meshDepth != null ? keyframe.meshDepth[feature] : 0;
-			if (depth > 0)
-			{
-				// depth sigma into inverse depth sigma: σρ = σd / d²
-				float sigma = meshDepthSigma + meshDepthFraction * depth;
-				landmark.meshInverseDepth = 1f / depth;
-				landmark.meshInverseDepthSigma = sigma / (depth * depth);
-			}
-
-			landmark.inverseDepth = depth > 0 ? 1f / depth : 0;
 			landmarks[landmark.id] = landmark;
 			Link(keyframe, feature, landmark, pixelSigma);
 			return landmark;
@@ -280,10 +296,63 @@ namespace Anaglyph.XR.VisualLocalization
 		public void Restore(VisualMapData data, Func<Pose, Pose> toWorld, Quaternion toWorldRotation, float pixelSigma)
 		{
 			Clear();
+			Insert(data, toWorld, toWorldRotation, pixelSigma, null);
+		}
+
+		/// <summary>
+		/// Adds another headset's views to the map as they are, under the nodes they name or
+		/// <see cref="SavedNode"/>: frames of their own, which this headset's tracking never
+		/// triangulates with, only localizes against. Their landmark ids are the sender's,
+		/// mapped through <paramref name="ids"/> (the sender's → this map's) and allocated here
+		/// the first time; a landmark held already takes the placement sent, and the new views'
+		/// sightings join it.
+		/// </summary>
+		/// <returns>The views added.</returns>
+		public List<VisualKeyframe> Merge(VisualMapData data, Func<Pose, Pose> toWorld, Quaternion toWorldRotation, float pixelSigma, Dictionary<int, int> ids)
+		{
+			return Insert(data, toWorld, toWorldRotation, pixelSigma, ids ?? throw new ArgumentNullException(nameof(ids)));
+		}
+
+		// with ids null, the file's own landmark ids, into a map just cleared
+		private List<VisualKeyframe> Insert(VisualMapData data, Func<Pose, Pose> toWorld, Quaternion toWorldRotation, float pixelSigma, Dictionary<int, int> ids)
+		{
+			// the sender's landmark ids as this map's, allocated the first time one is seen
+			HashSet<int> arrived = new();
+			foreach (VisualMapData.Landmark l in data.landmarks)
+			{
+				int id;
+				if (ids == null)
+				{
+					id = l.id;
+					nextLandmarkId = math.max(nextLandmarkId, l.id + 1);
+				}
+				else if (!ids.TryGetValue(l.id, out id))
+				{
+					id = nextLandmarkId++;
+					ids[l.id] = id;
+				}
+
+				Vector3 origin = toWorld(new Pose(l.origin, Quaternion.identity)).position;
+				if (!landmarks.TryGetValue(id, out Landmark landmark))
+				{
+					landmark = new Landmark { id = id, owner = data.owner, ownerId = l.id, node = l.node != 0 ? l.node : SavedNode, established = true };
+					landmarks[id] = landmark;
+				}
+
+				landmark.reference = new Pose(origin, Quaternion.identity);
+				landmark.bearing = toWorldRotation * (Vector3)l.direction;
+				landmark.inverseDepth = l.inverseDepth;
+				landmark.inverseDepthSigma = l.inverseDepthSigma;
+				arrived.Add(id);
+			}
+
 			List<VisualKeyframe> restored = new();
 			foreach (VisualMapData.Keyframe k in data.keyframes)
 			{
 				if (k.count < LighterGlueMatcher.MinKeypoints) continue;
+				int[] sighted = new int[k.count];
+				for (int i = 0; i < k.count; i++)
+					sighted[i] = k.landmarks[i] < 0 ? -1 : ids == null ? k.landmarks[i] : ids.TryGetValue(k.landmarks[i], out int id) ? id : -1;
 				FeatureSet features = new(k.count);
 				Array.Copy(k.keypoints, features.keypoints, k.count);
 				Array.Copy(k.scores, features.scores, k.count);
@@ -293,32 +362,20 @@ namespace Anaglyph.XR.VisualLocalization
 				{
 					features = features,
 					intrinsics = k.intrinsics,
-					node = SavedNode,
+					node = k.node != 0 ? k.node : SavedNode,
 					cameraInNode = camera,
 					camera = camera,
-					landmarks = (int[])k.landmarks.Clone(),
+					landmarks = sighted,
 					timestampNs = k.timestampNs,
 					original = k.original,
+					locked = ids == null || k.locked,
+					owner = data.owner,
+					shared = ids != null,
 				};
+				// restoring stops at capacity; a merge makes room as any new view does
+				if (ids == null && keyframes.Count >= capacity) break;
 				Add(keyframe);
 				restored.Add(keyframe);
-				if (keyframes.Count >= capacity) break;
-			}
-
-			foreach (VisualMapData.Landmark l in data.landmarks)
-			{
-				Vector3 origin = toWorld(new Pose(l.origin, Quaternion.identity)).position;
-				landmarks[l.id] = new Landmark
-				{
-					id = l.id,
-					node = SavedNode,
-					reference = new Pose(origin, Quaternion.identity),
-					bearing = toWorldRotation * (Vector3)l.direction,
-					inverseDepth = l.inverseDepth,
-					inverseDepthSigma = l.inverseDepthSigma,
-					established = true,
-				};
-				nextLandmarkId = math.max(nextLandmarkId, l.id + 1);
 			}
 
 			// the sightings, from the keyframes' side
@@ -338,7 +395,7 @@ namespace Anaglyph.XR.VisualLocalization
 					{
 						keyframe = k,
 						feature = i,
-						node = SavedNode,
+						node = k.node,
 						cameraInNode = k.cameraInNode,
 						ray = k.intrinsics.Ray(k.features.keypoints[i]),
 						angularSigma = pixelSigma / k.intrinsics.fx,
@@ -348,9 +405,10 @@ namespace Anaglyph.XR.VisualLocalization
 			// a landmark no saved view sights is nothing
 			List<int> orphans = new();
 			foreach (Landmark l in landmarks.Values)
-				if (l.references == 0) orphans.Add(l.id);
+				if (l.references == 0 && (ids == null || arrived.Contains(l.id))) orphans.Add(l.id);
 			foreach (int id in orphans) landmarks.Remove(id);
 			Revision++;
+			return restored;
 		}
 
 		// ---- coverage --------------------------------------------------------
@@ -442,7 +500,7 @@ namespace Anaglyph.XR.VisualLocalization
 				VisualKeyframe k = keyframes[i];
 				int usable = 0;
 				foreach (int id in k.landmarks)
-					if (landmarks.TryGetValue(id, out Landmark l) && l.IsUsable(true))
+					if (landmarks.TryGetValue(id, out Landmark l) && l.IsUsable)
 						usable++;
 
 				if (usable > fewest || (usable == fewest && k.timestampNs <= keyframes[victim].timestampNs)) continue;

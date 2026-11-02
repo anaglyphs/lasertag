@@ -20,6 +20,10 @@ namespace Anaglyph.XR.VisualLocalization
 			public PinholeCamera intrinsics;
 			public long timestampNs;
 			public bool original;
+			/// <summary>Sent between headsets, not saved: see <see cref="VisualKeyframe.locked"/>.</summary>
+			public bool locked;
+			/// <summary>The node it hangs off, for views sent between headsets; 0 for a saved map's one rigid piece.</summary>
+			public ulong node;
 			public int count;
 			public float2[] keypoints;
 			public float[] scores;
@@ -36,6 +40,8 @@ namespace Anaglyph.XR.VisualLocalization
 			/// <summary>The reference camera's center and the unit direction to the landmark from it, storage frame.</summary>
 			public float3 origin, direction;
 			public float inverseDepth, inverseDepthSigma;
+			/// <summary>As <see cref="Keyframe.node"/>.</summary>
+			public ulong node;
 		}
 
 		/// <summary>The frame the poses are in.</summary>
@@ -43,6 +49,8 @@ namespace Anaglyph.XR.VisualLocalization
 		public long savedTicks;
 		/// <summary>The vocabulary the probe bitsets were made with; 0 for none.</summary>
 		public ulong vocabulary;
+		/// <summary>The headset whose views these are, when sent between headsets.</summary>
+		public uint owner;
 		public readonly List<Keyframe> keyframes = new();
 		public readonly List<Landmark> landmarks = new();
 	}
@@ -71,28 +79,35 @@ namespace Anaglyph.XR.VisualLocalization
 		/// <summary>
 		/// The map as it stands, in the storage frame <paramref name="toStorage"/> maps world
 		/// poses into (<paramref name="toStorageRotation"/> its rotation alone, for directions).
-		/// Main thread: it reads the live map.
+		/// Main thread: it reads the live map. With <paramref name="only"/>, those of its
+		/// keyframes alone, with the landmarks they sight. With <paramref name="raw"/>, for another
+		/// headset, poses go as they are relative to their node instead (its tracking's, whatever
+		/// the graph does next), under the name <paramref name="wireNode"/> gives the node there,
+		/// and landmarks by their owner's ids.
 		/// </summary>
-		public static VisualMapData Snapshot(VisualMap map, Func<Pose, Pose> toStorage, Quaternion toStorageRotation, bool singleViewMesh)
+		public static VisualMapData Snapshot(VisualMap map, Func<Pose, Pose> toStorage, Quaternion toStorageRotation,
+			IEnumerable<VisualKeyframe> only = null, Func<ulong, Pose, Pose> raw = null, Func<ulong, ulong> wireNode = null)
 		{
 			VisualMapData data = new();
 			HashSet<int> saved = new();
-			foreach (VisualKeyframe k in map.Keyframes)
+			foreach (VisualKeyframe k in only ?? map.Keyframes)
 			{
 				// the features that sight a usable landmark, and the strongest retrieval ranks by
 				List<int> selected = new();
 				for (int j = 0; j < k.features.Count; j++)
 				{
-					bool sights = map.TryGetLandmark(k.landmarks[j], out Landmark l) && l.IsUsable(singleViewMesh);
+					bool sights = map.TryGetLandmark(k.landmarks[j], out Landmark l) && l.IsUsable;
 					if (sights || j < VisualMap.RetrievalFeatures) selected.Add(j);
 				}
 
 				VisualMapData.Keyframe entry = new()
 				{
-					camera = toStorage(k.camera),
+					camera = raw != null ? raw(k.node, k.cameraInNode) : toStorage(k.camera),
 					intrinsics = k.intrinsics,
 					timestampNs = k.timestampNs,
 					original = k.original,
+					locked = k.locked,
+					node = wireNode?.Invoke(k.node) ?? 0,
 					count = selected.Count,
 					keypoints = new float2[selected.Count],
 					scores = new float[selected.Count],
@@ -105,8 +120,8 @@ namespace Anaglyph.XR.VisualLocalization
 					entry.keypoints[i] = k.features.keypoints[j];
 					entry.scores[i] = k.features.scores[j];
 					Array.Copy(k.features.descriptors, j * D, entry.descriptors, i * D, D);
-					bool sights = map.TryGetLandmark(k.landmarks[j], out Landmark l) && l.IsUsable(singleViewMesh);
-					entry.landmarks[i] = sights ? k.landmarks[j] : -1;
+					bool sights = map.TryGetLandmark(k.landmarks[j], out Landmark l) && l.IsUsable;
+					entry.landmarks[i] = sights ? raw != null ? l.ownerId : k.landmarks[j] : -1;
 					if (sights) saved.Add(k.landmarks[j]);
 				}
 
@@ -115,7 +130,23 @@ namespace Anaglyph.XR.VisualLocalization
 
 			foreach (int id in saved)
 			{
-				if (!map.TryGetLandmark(id, out Landmark l) || !l.TryPlace(map.Anchoring, out float3 origin, out float3 direction)) continue;
+				if (!map.TryGetLandmark(id, out Landmark l)) continue;
+				if (raw != null)
+				{
+					Pose reference = raw(l.node, l.reference);
+					data.landmarks.Add(new VisualMapData.Landmark
+					{
+						id = l.ownerId,
+						origin = reference.position,
+						direction = reference.rotation * (Vector3)l.bearing,
+						inverseDepth = l.inverseDepth,
+						inverseDepthSigma = l.inverseDepthSigma,
+						node = wireNode?.Invoke(l.node) ?? 0,
+					});
+					continue;
+				}
+
+				if (!l.TryPlace(map.Anchoring, out float3 origin, out float3 direction)) continue;
 				data.landmarks.Add(new VisualMapData.Landmark
 				{
 					id = id,

@@ -74,7 +74,7 @@ namespace Anaglyph.XR.VisualLocalization
 		public float yawSigma;
 		/// <summary>One-sigma uncertainty of the camera center, meters (root of the covariance trace).</summary>
 		public float translationSigma;
-		/// <summary>Covariance over (yaw, camera center x, y, z) in the map frame, widened as the sigmas are; zero when not known (a remote reply).</summary>
+		/// <summary>Covariance over (yaw, camera center x, y, z) in the map frame, widened as the sigmas are; zero when not known.</summary>
 		public float4x4 covariance;
 		public string failure;
 

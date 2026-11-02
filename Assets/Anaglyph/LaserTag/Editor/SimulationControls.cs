@@ -339,7 +339,7 @@ namespace Anaglyph.LaserTag.Editor
 
 			nextAttempt = EditorApplication.timeSinceStartup + RetryInterval;
 
-			if (CurrentPlayer.IsMainEditor)
+			if (SimPlayer.IsMainEditor)
 			{
 				if (Maps.SpaceManager.Instance == null) return;
 				if (!Maps.SpaceManager.Instance.RestoreLastSpaceForSimulation()) return;

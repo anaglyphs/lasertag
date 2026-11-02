@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Threading;
-using Unity.Mathematics;
 using UnityEngine;
 
 namespace Anaglyph.XR.SharedSpaces
@@ -85,9 +83,6 @@ namespace Anaglyph.XR.SharedSpaces
 		public ColocationAlignmentState AlignmentState { get; private set; } = ColocationAlignmentState.Stopped;
 		public event Action<ColocationAlignmentState> StateChanged = delegate { };
 
-		[Tooltip("How quickly to ease onto a new fit once already localized. 1 = snap")]
-		[SerializeField] private float fitLerp = 0.1f;
-
 		[Tooltip("Reference error above which a constraint does not count as agreeing with the fit")]
 		[SerializeField] private float agreementMaxError = 0.3f;
 
@@ -96,32 +91,26 @@ namespace Anaglyph.XR.SharedSpaces
 		[Tooltip("Position uncertainty the fit gains as the head walks on, meters per √meter walked: tracking drifts like a random walk, so measurements taken further back count for less. Live references count as measured now")]
 		[SerializeField] private float positionDriftRate = 0.014f;
 
+		[Tooltip("Position uncertainty the fit itself gains as the head walks on, meters per √meter walked along each axis: on device long walks gather about 4 cm/√m across the floor, more than the short stretches the drift model above reasons about")]
+		[SerializeField] private float fitPositionDriftRate = 0.028f;
+
 		[Tooltip("Yaw uncertainty the fit gains as the head walks on, degrees per √meter walked")]
 		[SerializeField] private float yawDriftRateDegrees = 0.05f;
 
-		[Header("Hiding corrections in head motion")]
-		[Tooltip("Correction applied per meter the head moves, meters: a world that shifts while the head walks reads as part of the walk")]
-		[SerializeField] private float walkCorrection = 0.1f;
+		[Tooltip("Position uncertainty a constraint carries per meter it lies from the head, meters per meter: tracking errs differently in different places, so a correction measured across the room says less about here than one measured here. On device a site 10 m from a table needed 2° and 25 cm that the table itself didn't")]
+		[SerializeField] private float spatialDriftRate = 0.03f;
 
-		[Tooltip("Correction applied per radian the head turns, meters at the head: the view is sweeping anyway")]
-		[SerializeField] private float turnCorrection = 0.05f;
+		[Tooltip("Yaw uncertainty a constraint carries per meter it lies from the head, degrees per meter")]
+		[SerializeField] private float spatialYawDriftRateDegrees = 0.15f;
 
-		[Tooltip("Yaw correction applied per degree the head turns, degrees")]
-		[SerializeField] private float turnYawCorrection = 0.1f;
-
-		[Tooltip("Yaw correction applied per meter the head moves, degrees")]
-		[SerializeField] private float walkYawCorrection = 1f;
-
-		[Tooltip("Correction applied however still the head is, meters per second and degrees per second: a still head's world still settles, slowly")]
-		[SerializeField] private float stillCorrection = 0.003f;
-		[SerializeField] private float stillYawCorrectionDegrees = 0.05f;
-
-		[Tooltip("A correction at the head larger than this, meters, is a new alignment rather than a refinement: eased by fitLerp alone")]
-		[SerializeField] private float hiddenCorrectionLimit = 0.3f;
+		/// <summary>How fast this headset's tracking drifts, for everything that reasons about it.</summary>
+		public DriftModel DriftRates => new(positionDriftRate, yawDriftRateDegrees * Mathf.Deg2Rad);
 
 		/// <summary>How constraints' uncertainty stands now, for this headset's tracking: what the fit weighs them by.</summary>
-		public ColocationDrift Drift => new(positionDriftRate, yawDriftRateDegrees * Mathf.Deg2Rad,
-			HeadPoseHistory.Instance != null ? HeadPoseHistory.Instance.Path : 0f);
+		public ColocationDrift Drift => new(fitPositionDriftRate, yawDriftRateDegrees * Mathf.Deg2Rad,
+			HeadPoseHistory.Instance != null ? HeadPoseHistory.Instance.Path : 0f,
+			MainXRRig.Instance != null ? MainXRRig.Camera.transform.position : Vector3.zero,
+			MainXRRig.Instance != null ? spatialDriftRate : 0f, MainXRRig.Instance != null ? spatialYawDriftRateDegrees * Mathf.Deg2Rad : 0f);
 
 		/// <summary>
 		/// How well the alignment currently applied fits the references being observed. Measured
@@ -132,9 +121,14 @@ namespace Anaglyph.XR.SharedSpaces
 
 		public IColocationConstraintProvider Provider { get; private set; }
 
-		private CancellationTokenSource ctknSrc;
+		/// <summary>
+		/// Raised every frame the fit aligned the rig, right after it moved, with the tracking
+		/// space's new world pose: where the fit puts it, since the fit is applied whole.
+		/// </summary>
+		public event Action<Pose> Fitted = delegate { };
 
 		private readonly List<ColocationConstraint> constraints = new();
+		private readonly ColocationFit fit = new();
 
 		private void Awake()
 		{
@@ -179,6 +173,7 @@ namespace Anaglyph.XR.SharedSpaces
 		private void OnDestroy()
 		{
 			StopColocation();
+			fit.Dispose();
 		}
 
 		private void OnApplicationFocus(bool isFocused)
@@ -196,10 +191,7 @@ namespace Anaglyph.XR.SharedSpaces
 				return;
 
 			Provider.StartProviding();
-
-			ctknSrc = new CancellationTokenSource();
 			SetState(ColocationAlignmentState.Searching);
-			AlignLoop(ctknSrc.Token);
 		}
 
 		public void StopColocation()
@@ -207,48 +199,40 @@ namespace Anaglyph.XR.SharedSpaces
 			if (AlignmentState == ColocationAlignmentState.Stopped)
 				return;
 
-			ctknSrc?.Cancel();
-			ctknSrc = null;
 			Provider?.StopProviding();
 			Agreement = default;
 			SetState(ColocationAlignmentState.Stopped);
 		}
 
-		private async void AlignLoop(CancellationToken ctkn)
+		// late in the frame (DefaultExecutionOrder), so providers have updated their constraints
+		// and the fit is the frame's one answer: anything reading the alignment after it,
+		// through Fitted, sees the rig where the fit put it
+		private void Update()
 		{
-			try
-			{
-				while (!ctkn.IsCancellationRequested)
-				{
-					await Awaitable.NextFrameAsync(ctkn);
+			if (AlignmentState == ColocationAlignmentState.Stopped) return;
 
-					// An unavailable reference runtime supplies no alignment evidence.
-					if (Provider != null && !Provider.IsAvailable)
-					{
-						WarnNoReferenceRuntimeOnce();
-						Agreement = default;
-						Delocalize();
-						continue;
-					}
-
-					constraints.Clear();
-					Provider?.GetColocationConstraints(constraints);
-					MeasureAgreement();
-
-					if (!TryFit())
-						Delocalize();
-					else
-						SetState(ColocationAlignmentState.Localized);
-				}
-			}
-			catch (OperationCanceledException)
+			// An unavailable reference runtime supplies no alignment evidence.
+			if (Provider != null && !Provider.IsAvailable)
 			{
+				WarnNoReferenceRuntimeOnce();
+				Agreement = default;
+				Delocalize();
+				return;
 			}
-			catch (Exception e)
+
+			constraints.Clear();
+			Provider?.GetColocationConstraints(constraints);
+			MeasureAgreement();
+
+			if (!TryFit())
 			{
-				Debug.LogException(e);
-				AlignLoop(ctkn);
+				Delocalize();
+				return;
 			}
+
+			SetState(ColocationAlignmentState.Localized);
+			Transform space = MainXRRig.TrackingSpace;
+			Fitted.Invoke(new Pose(space.position, space.rotation));
 		}
 
 		private bool loggedNoReferenceRuntime;
@@ -277,8 +261,9 @@ namespace Anaglyph.XR.SharedSpaces
 
 			foreach (ColocationConstraint constraint in constraints)
 			{
-				// a measurement taken a walk ago is allowed the drift it has had time to gather (2σ)
-				float allowance = 2f * drift.positionRate * Mathf.Sqrt(drift.Age(constraint));
+				// a measurement taken a walk ago, or across the room, is allowed the drift it has had
+				// time and distance to gather (2σ)
+				float allowance = 2f * Mathf.Sqrt(drift.positionRate * drift.positionRate * drift.Age(constraint) + drift.SpatialVariance(constraint));
 				float error = Mathf.Max(0f, Vector3.Distance(
 					constraint.observed.position, constraint.canon.position) - allowance);
 
@@ -304,51 +289,14 @@ namespace Anaglyph.XR.SharedSpaces
 			previous?.StopProviding();
 		}
 
+		// applied whole: the rig is always where the fit says, so nothing downstream has to tell
+		// a goal from where the rig stands
 		private bool TryFit()
 		{
-			if (!MainXRRig.Instance || !ColocationFit.TryEvaluate(constraints, Drift, out Pose delta)) return false;
-			float lerp = AlignmentState == ColocationAlignmentState.Localized ? HiddenLerp(delta) : 1f;
+			if (!MainXRRig.Instance || !fit.TryEvaluate(constraints, Drift, out Pose delta)) return false;
 			Matrix4x4 current = MainXRRig.TrackingSpace.localToWorldMatrix;
-			MainXRRig.Instance.AlignSpace(current, Matrix4x4.TRS(delta.position, delta.rotation, Vector3.one) * current, lerp);
+			MainXRRig.Instance.AlignSpace(current, Matrix4x4.TRS(delta.position, delta.rotation, Vector3.one) * current);
 			return true;
-		}
-
-		private Vector3 lastHeadPosition;
-		private Quaternion lastHeadRotation;
-		private bool hasLastHead;
-
-		/// <summary>
-		/// How much of a refinement to apply this frame: no more than the head's own motion
-		/// since the last frame can hide. A measurement moves the fit a few centimeters, and the
-		/// same few centimeters that pass unseen in a walk or a turn read as the world sliding
-		/// when the head is still. A move too large to be a refinement eases by fitLerp alone.
-		/// </summary>
-		private float HiddenLerp(Pose delta)
-		{
-			Transform space = MainXRRig.TrackingSpace;
-			Transform head = MainXRRig.Camera.transform;
-			Vector3 headPosition = space.InverseTransformPoint(head.position);
-			Quaternion headRotation = Quaternion.Inverse(space.rotation) * head.rotation;
-			// a tracking jump is no motion to hide in
-			float walked = hasLastHead ? Vector3.Distance(headPosition, lastHeadPosition) : 0f;
-			if (walked > .5f) walked = 0f;
-			float turned = hasLastHead ? Quaternion.Angle(headRotation, lastHeadRotation) : 0f;
-			lastHeadPosition = headPosition;
-			lastHeadRotation = headRotation;
-			hasLastHead = true;
-
-			Vector3 at = head.position;
-			float move = Vector3.Distance(delta.position + delta.rotation * at, at);
-			float yaw = Mathf.Abs(BestFit.TwistYaw(delta.rotation)) * Mathf.Rad2Deg;
-			if (move > hiddenCorrectionLimit) return fitLerp;
-
-			float dt = Time.unscaledDeltaTime;
-			float allowedMove = stillCorrection * dt + walkCorrection * walked + turnCorrection * turned * Mathf.Deg2Rad;
-			float allowedYaw = stillYawCorrectionDegrees * dt + walkYawCorrection * walked + turnYawCorrection * turned;
-			float lerp = fitLerp;
-			if (move > 1e-6f) lerp = Mathf.Min(lerp, allowedMove / move);
-			if (yaw > 1e-6f) lerp = Mathf.Min(lerp, allowedYaw / yaw);
-			return lerp;
 		}
 	}
 }

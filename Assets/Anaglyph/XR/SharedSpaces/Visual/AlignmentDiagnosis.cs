@@ -4,6 +4,7 @@ using System.Text;
 using Anaglyph.Netcode;
 using Anaglyph.XR;
 using Anaglyph.XR.DepthKit.EnvScanning;
+using Anaglyph.XR.DepthKit.EnvScanning.Registration;
 using Anaglyph.XR.VisualLocalization;
 using Unity.Collections;
 using UnityEngine;
@@ -15,7 +16,9 @@ namespace Anaglyph.XR.SharedSpaces
 	/// environment map (an .envscan the registration bench can read); the visual
 	/// localizer's map and the frames behind it (visual/: images, poses,
 	/// intrinsics, features, landmark tracks, what became of every recent query, and the
-	/// settings they ran under); the constraint sites drift is corrected from (sites.json);
+	/// settings they ran under, and the map with its descriptors, map.vmap, to match views
+	/// across passes offline); the constraint sites drift is corrected from and the track's
+	/// segments, which give each keyframe its path and correction (sites.json);
 	/// and a text summary of the active provider's state. One folder per capture under
 	/// <see cref="EnvScan.DefaultDirectory"/>/diagnosis — on a Quest that is
 	/// /sdcard/Android/data/&lt;package&gt;/files/EnvScans/diagnosis
@@ -84,8 +87,12 @@ namespace Anaglyph.XR.SharedSpaces
 			try
 			{
 				string visual = Path.Combine(folder, "visual");
+				// the same instant as the export: the map goes on growing while it writes
+				VisualMapData map = VisualMapFile.Snapshot(localizer.Map, pose => pose, Quaternion.identity);
+				map.savedTicks = DateTime.UtcNow.Ticks;
 				await localizer.ExportAsync(visual);
 				info.AppendLine($"visual: {localizer.Quality}, {localizer.Frames.Count} frames logged{(localizer.IsAvailable ? "" : " (localizer unavailable: no camera or models)")}");
+				await WriteMap(map, Path.Combine(visual, "map" + VisualMapFile.Extension));
 
 				VisualColocationConstraintProvider colocation = VisualColocationConstraintProvider.Instance;
 				if (colocation != null)
@@ -99,6 +106,21 @@ namespace Anaglyph.XR.SharedSpaces
 			{
 				info.AppendLine($"visual: FAILED {e.Message}");
 				Debug.LogException(e);
+			}
+		}
+
+		// tens of megabytes: off the main thread, and back on it however the write ends
+		private static async Awaitable WriteMap(VisualMapData map, string path)
+		{
+			await Awaitable.BackgroundThreadAsync();
+			try
+			{
+				using FileStream file = new(path, FileMode.Create, FileAccess.Write);
+				VisualMapFile.Write(map, file);
+			}
+			finally
+			{
+				await Awaitable.MainThreadAsync();
 			}
 		}
 
@@ -130,10 +152,11 @@ namespace Anaglyph.XR.SharedSpaces
 				{
 					j.BeginObject();
 					j.Field("id", site.id);
-					j.Field("position", site.position);
-					j.Field("correction", site.correction.AsPose);
-					j.Field("sigmaTranslation", site.sigmaTranslation);
-					j.Field("sigmaYaw", site.sigmaYaw);
+					j.Field("position", (Vector3)sites.PositionOf(site));
+					j.Field("anchor", site.anchor);
+					j.Field("correction", site.Latest.correction.AsPose);
+					j.Field("sigmaTranslation", site.Latest.sigmaTranslation);
+					j.Field("sigmaYaw", site.Latest.sigmaYaw);
 					j.Field("path", site.path);
 					j.Field("time", site.time);
 					j.Field("crossLink", site.crossLink);
@@ -153,6 +176,7 @@ namespace Anaglyph.XR.SharedSpaces
 							j.Field("path", m.path);
 							j.Field("time", m.time);
 							j.Field("crossLink", m.crossLink);
+							j.Field("anchor", m.anchor);
 							j.EndObject();
 						}
 
@@ -161,9 +185,39 @@ namespace Anaglyph.XR.SharedSpaces
 				}
 
 				j.EndArray();
+				// where this session first mapped each place, and the correction it was mapped with
+				j.Key("mapped");
+				j.BeginArray();
+				foreach (ConstraintSites.Measurement m in provider.MappedPlaces)
+				{
+					j.BeginObject();
+					j.Field("focus", (Vector3)m.focus);
+					j.Field("correction", m.correction.AsPose);
+					j.Field("path", m.path);
+					j.Field("time", m.time);
+					j.EndObject();
+				}
+
+				j.EndArray();
+				// the track: with a keyframe's node, how far along it was made and the correction that placed it
+				j.Key("segments");
+				j.BeginArray();
+				foreach ((ulong node, float path, int generation, Pose4 correction) in track.Segments)
+				{
+					j.BeginObject();
+					j.Field("node", node);
+					j.Field("path", path);
+					j.Field("generation", generation);
+					j.Field("correction", correction.AsPose);
+					j.Field("world", track.WorldOf(node).AsPose);
+					j.EndObject();
+				}
+
+				j.EndArray();
 				j.EndObject();
 				File.WriteAllText(Path.Combine(folder, "sites.json"), j.ToString());
 				info.AppendLine($"constraint sites: {sites.Count}, correction {provider.Alignment.SiteCorrection}, walked {track.Path:F0} m");
+				if (provider.Graph != null) info.AppendLine($"keyframe graph: {provider.Graph.Summary}");
 			}
 			catch (Exception e)
 			{

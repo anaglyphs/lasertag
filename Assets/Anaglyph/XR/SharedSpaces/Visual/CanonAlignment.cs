@@ -85,9 +85,10 @@ namespace Anaglyph.XR.SharedSpaces
 		public int FrameEpoch { get; private set; }
 
 		/// <summary>
-		/// The drift correction the rig is being aligned by, on top of the found alignment:
-		/// the tracking space goes to SiteCorrection ∘ <see cref="CanonSpacePose"/>.
-		/// Reset whenever a new alignment is found, which is found against the map as it is
+		/// The drift correction the rig is aligned by, on top of the found alignment: the
+		/// tracking space stands at SiteCorrection ∘ <see cref="CanonSpacePose"/>. Set from the
+		/// colocator's fit once there are sites; reset whenever a new alignment is found, which
+		/// is found against the map as it is
 		/// </summary>
 		public Pose4 SiteCorrection { get; set; } = Pose4.Identity;
 
@@ -113,10 +114,20 @@ namespace Anaglyph.XR.SharedSpaces
 			Transform space = MainXRRig.TrackingSpace;
 			if (!space) return;
 
-			// observed drifts toward canon as the colocator moves the rig, then the two
-			// coincide and the fit holds still
+			// the colocator moves the rig onto canon in one step; after that the two coincide
+			// and the fit holds still
 			results.Add(new ColocationConstraint(new Pose(space.position, space.rotation),
 				TargetSpacePose, hasReliableRotation: true));
+		}
+
+		/// <summary>The alignment's own constraint without its drift correction: the rig on raw tracking.</summary>
+		public void AddUncorrectedConstraint(List<ColocationConstraint> results)
+		{
+			if (CurrentPhase != Phase.Aligned) return;
+			Transform space = MainXRRig.TrackingSpace;
+			if (!space) return;
+			results.Add(new ColocationConstraint(new Pose(space.position, space.rotation),
+				canonSpacePose, hasReliableRotation: true));
 		}
 
 		/// <summary>

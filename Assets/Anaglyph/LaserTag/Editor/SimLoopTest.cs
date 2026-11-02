@@ -71,13 +71,21 @@ namespace Anaglyph.LaserTag.Editor
 		// set when Launch entered play mode for the run: it leaves play mode again when done
 		private static bool exitPlayModeWhenDone;
 
+		// set while a launched run waits for the visual map
+		private static bool waitingToStart;
+
+		// a launch on its way to its run. unity-mcp can deliver a command again as play mode
+		// starts, so the same Launch can arrive here while its first delivery is still under way
+		private static bool Launching => waitingToStart ||
+		                                 (EditorApplication.isPlayingOrWillChangePlaymode && SessionState.GetString(PendingKey, "").Length > 0);
+
 		private SimWalker walker;
 		private SimCaptureTiming timing;
 		private SimLandmarkDepthCheck depths;
 		private Transform room;
 		private Pose roomStart;
 		private float started, nextSample, worstFrame;
-		private int sitesMeasured, yawOnlySites, stops;
+		private int sitesMeasured, stops;
 		private float maxMisalignment, sumMisalignment;
 		private int samples;
 		private StreamWriter writer;
@@ -95,11 +103,17 @@ namespace Anaglyph.LaserTag.Editor
 		private readonly Dictionary<ulong, Pose4> segmentPlacementError = new();
 		private readonly List<(float translation, float yaw, bool accepted)> mapRelativeErrors = new();
 
+		/// <summary>When above zero, how fast a run around like a player goes, meters a second, over the sprint it otherwise is.</summary>
+		public static float PlayerSpeed;
+
+		/// <summary>The drift, the room's random origin and the walker of the next play session follow this, as <see cref="Launch"/>'s seed does.</summary>
+		public static void SeedNextPlay(int nextSeed) => SessionState.SetInt(SeedKey, nextSeed);
+
 		[MenuItem(Menu + "Run Around Like a Player")]
 		private static void RunMenu() => Launch(10, 6f);
 
 		[MenuItem(Menu + "Run Around Like a Player", true)]
-		private static bool CanRun() => Current == null && !EditorApplication.isCompiling;
+		private static bool CanRun() => Current == null && !Launching && !EditorApplication.isCompiling;
 
 		/// <summary>
 		/// Runs a test from edit mode or play mode. From edit mode it enters play mode, starts
@@ -112,6 +126,7 @@ namespace Anaglyph.LaserTag.Editor
 		/// <param name="freeze">Overrides whether established landmarks are frozen, for A/B runs.</param>
 		public static string Launch(int stops, float minSpacing, int seed = 0, bool? freeze = null)
 		{
+			if (Launching) return "a launch is already under way";
 			if (Application.isPlaying) return Run(stops, minSpacing);
 			if (EditorApplication.isCompiling) return "compiling";
 			LastSummary = "";
@@ -127,6 +142,12 @@ namespace Anaglyph.LaserTag.Editor
 
 		private static void OnPlayModeChanged(PlayModeStateChange change)
 		{
+			if (change == PlayModeStateChange.EnteredEditMode)
+			{
+				waitingToStart = false;
+				exitPlayModeWhenDone = false;
+			}
+
 			if (change != PlayModeStateChange.EnteredPlayMode) return;
 			string pending = SessionState.GetString(PendingKey, "");
 			if (pending.Length == 0) return;
@@ -138,11 +159,14 @@ namespace Anaglyph.LaserTag.Editor
 		private static async void StartWhenReady(int stops, float minSpacing)
 		{
 			exitPlayModeWhenDone = true;
+			waitingToStart = true;
 			float give = Time.realtimeSinceStartup + 90f;
-			while (Application.isPlaying && Time.realtimeSinceStartup < give &&
+			while (Application.isPlaying && !Current && Time.realtimeSinceStartup < give &&
 			       (VisualLocalizer.Instance == null || VisualLocalizer.Instance.Map.Count == 0 || SimWalker.FindRoom() == null || MainXRRig.Instance == null))
 				await Awaitable.WaitForSecondsAsync(0.5f);
-			if (!Application.isPlaying) return;
+			waitingToStart = false;
+			// a run someone started with Run while this waited serves as the launched one
+			if (!Application.isPlaying || Current) return;
 
 			string problem = Time.realtimeSinceStartup >= give ? "the visual map never started" : Run(stops, minSpacing);
 			if (problem == null) return;
@@ -181,6 +205,7 @@ namespace Anaglyph.LaserTag.Editor
 			test.timing = host.AddComponent<SimCaptureTiming>();
 			test.depths = host.AddComponent<SimLandmarkDepthCheck>();
 			if (player) walker.PlayLikeAPlayer();
+			if (player && PlayerSpeed > 0) walker.walkSpeed = PlayerSpeed;
 			if (seed != 0) walker.Reseed(seed);
 			string problem = test.Begin(walker, stops, minSpacing, returnTrip);
 			if (problem != null) Destroy(host);
@@ -329,19 +354,18 @@ namespace Anaglyph.LaserTag.Editor
 		private void OnSite(ConstraintSites.Site site)
 		{
 			sitesMeasured++;
-			if (site.sigmaTranslation > 0.5f) yawOnlySites++;
 			string verdict = "no truth";
 			if (TryIdealCorrection(out Pose4 ideal))
 			{
 				Vector3 head = HeadInCanon();
-				(float t, float y) = Error(site.correction, ideal, head);
+				(float t, float y) = Error(site.Latest.correction, ideal, head);
 				(float dt, float dy) = Error(Pose4.Identity, ideal, head);
 				siteErrors.Add((t, y));
 				verdict = $"off by {t * 100:F1} cm / {y:F2}° (uncorrected {dt * 100:F1} cm / {dy:F2}°)";
-				writer?.WriteLine($"{{\"site\":{{\"id\":{site.id},\"measurements\":{site.measurements},\"crossLink\":{(site.crossLink ? "true" : "false")},\"error\":{F(t)},\"errorYaw\":{F(y)},\"uncorrectedError\":{F(dt)},\"uncorrectedErrorYaw\":{F(dy)},\"sigma\":{F(site.sigmaTranslation)}}}}}");
+				writer?.WriteLine($"{{\"site\":{{\"id\":{site.id},\"measurements\":{site.measurements},\"crossLink\":{(site.crossLink ? "true" : "false")},\"error\":{F(t)},\"errorYaw\":{F(y)},\"uncorrectedError\":{F(dt)},\"uncorrectedErrorYaw\":{F(dy)},\"sigma\":{F(site.Latest.sigmaTranslation)}}}}}");
 			}
 
-			Note($"site {site.id} ({site.measurements} measurements) σ {site.sigmaTranslation * 100:F1} cm / {site.sigmaYaw * Mathf.Rad2Deg:F2}°: {verdict}");
+			Note($"site {site.id} ({site.measurements} measurements) σ {site.Latest.sigmaTranslation * 100:F1} cm / {site.Latest.sigmaYaw * Mathf.Rad2Deg:F2}°: {verdict}");
 		}
 
 		private void OnArrived(int stop) => Note($"arrived at stop {stop + 1}/{stops}, walked {walker.DistanceWalked:F1} m; {(timing ? timing.Summary : "")}");
@@ -406,11 +430,13 @@ namespace Anaglyph.LaserTag.Editor
 		private void Finish(string why)
 		{
 			if (Current != this) return;
-			float misalignment = Misalignment(out float yaw);
+			// play mode ending can take the room or the rig first
+			float yaw = 0;
+			float misalignment = room && MainXRRig.Instance ? Misalignment(out yaw) : 0;
 			Transform drift = SimTrackingDrift.Frame;
 			float driftMeters = drift ? drift.localPosition.magnitude : 0;
 			LastSummary = $"{why}: walked {walker.DistanceWalked:F0} m in {Time.realtimeSinceStartup - started:F0} s; " +
-			              $"{sitesMeasured} site measurements ({yawOnlySites} yaw-only); final misalignment {misalignment * 100:F1} cm / {yaw:F2}° " +
+			              $"{sitesMeasured} site measurements; final misalignment {misalignment * 100:F1} cm / {yaw:F2}° " +
 			              $"(mean {(samples > 0 ? sumMisalignment / samples * 100 : 0):F1} cm, max {maxMisalignment * 100:F1} cm) against {driftMeters * 100:F0} cm of raw drift";
 			if (siteErrors.Count > 0)
 			{

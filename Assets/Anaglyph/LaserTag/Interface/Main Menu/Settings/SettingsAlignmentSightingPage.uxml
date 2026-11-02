@@ -1,0 +1,46 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle" />
+    <ui:VisualElement class="page-template-root">
+        <Anaglyph.Menu.NavHeader>
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="Title" table="SettingsMenu" entry="SettingsAlignmentSightingPage.navheader.title" />
+            </Bindings>
+        </Anaglyph.Menu.NavHeader>
+        <ui:RadioButtonGroup name="sighting-mode-radio" value="0" class="stacked-field">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="label" table="SettingsMenu" entry="SettingsAlignmentSightingPage.sighting-mode-radio.label" />
+            </Bindings>
+            <ui:RadioButton>
+                <Bindings>
+                    <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsAlignmentSightingPage.sighting-mode-radio.off" />
+                </Bindings>
+            </ui:RadioButton>
+            <ui:RadioButton>
+                <Bindings>
+                    <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsAlignmentSightingPage.sighting-mode-radio.place" />
+                </Bindings>
+            </ui:RadioButton>
+            <ui:RadioButton>
+                <Bindings>
+                    <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsAlignmentSightingPage.sighting-mode-radio.crosshair" />
+                </Bindings>
+            </ui:RadioButton>
+        </ui:RadioButtonGroup>
+        <ui:Toggle name="sighting-raw-tracking-toggle">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsAlignmentSightingPage.sighting-raw-tracking-toggle.text" />
+            </Bindings>
+        </ui:Toggle>
+        <ui:Toggle name="sighting-right-eye-toggle">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsAlignmentSightingPage.sighting-right-eye-toggle.text" />
+            </Bindings>
+        </ui:Toggle>
+        <ui:Button name="sighting-clear-button">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsAlignmentSightingPage.sighting-clear-button.text" />
+            </Bindings>
+        </ui:Button>
+        <ui:Label name="sighting-status" />
+    </ui:VisualElement>
+</ui:UXML>

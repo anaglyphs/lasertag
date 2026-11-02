@@ -11,9 +11,19 @@
                 <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsDebuggingPage.console-button.text" />
             </Bindings>
         </Anaglyph.Menu.NavButton>
+        <Anaglyph.Menu.NavButton name="alignment-sighting-button" target="alignment-sighting-page">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsDebuggingPage.alignment-sighting-button.text" />
+            </Bindings>
+        </Anaglyph.Menu.NavButton>
         <ui:Toggle name="debug-mode-toggle">
             <Bindings>
                 <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsDebuggingPage.debug-mode-toggle.text" />
+            </Bindings>
+        </ui:Toggle>
+        <ui:Toggle name="demo-mode-toggle">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsDebuggingPage.demo-mode-toggle.text" />
             </Bindings>
         </ui:Toggle>
         <ui:Toggle name="show-debug-mesh-toggle">

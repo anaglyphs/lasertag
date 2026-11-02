@@ -44,8 +44,10 @@ namespace Anaglyph.LaserTag.Maps
 
 		private SpaceStore store;
 		private readonly List<Space> spaces = new();
-		private Space space;
-		private Map map;
+		// NonSerialized: a recompile's hot-reload restore would otherwise leave empty instances
+		// here, not null, when play mode is entered without a scene reload
+		[NonSerialized] private Space space;
+		[NonSerialized] private Map map;
 		private VisualMapPersistence visualMaps;
 		private CancellationTokenSource lifetime;
 		private CancellationTokenSource shown;

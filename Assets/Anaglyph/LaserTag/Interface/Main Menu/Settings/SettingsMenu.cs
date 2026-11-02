@@ -25,9 +25,14 @@ namespace Anaglyph.LaserTag.Interface
 		private InGameConsoleView consoleView;
 		private Toggle debugModeToggle;
 		private Toggle showDebugMeshToggle;
+		private Toggle demoModeToggle;
 		private Slider debugMeshOpacitySlider;
 		private Button captureAlignmentDiagnosisButton;
 		private Label alignmentDiagnosisStatus;
+		private RadioButtonGroup sightingModeRadio;
+		private Toggle sightingRawTrackingToggle;
+		private Toggle sightingRightEyeToggle;
+		private Label sightingStatus;
 		private Toggle healthPassthroughTintToggle;
 		private Toggle lightEffectsToggle;
 		private Label provisioningStatus;
@@ -61,9 +66,12 @@ namespace Anaglyph.LaserTag.Interface
 
 			debugModeToggle = Require<Toggle>(root, "debug-mode-toggle");
 			showDebugMeshToggle = Require<Toggle>(root, "show-debug-mesh-toggle");
+			demoModeToggle = Require<Toggle>(root, "demo-mode-toggle");
 
 			bindings.Value(debugModeToggle,
 				change => AnaglyphDebugging.SetDebugMode(change.newValue));
+			bindings.Value(demoModeToggle,
+				change => GameMenu.DemoMode = change.newValue);
 			bindings.Value(showDebugMeshToggle, change =>
 			{
 				showDebugMesh = change.newValue;
@@ -80,6 +88,18 @@ namespace Anaglyph.LaserTag.Interface
 			captureAlignmentDiagnosisButton = Require<Button>(root, "capture-alignment-diagnosis-button");
 			alignmentDiagnosisStatus = Require<Label>(root, "alignment-diagnosis-status");
 			bindings.Click(captureAlignmentDiagnosisButton, CaptureAlignmentDiagnosis);
+
+			sightingModeRadio = Require<RadioButtonGroup>(root, "sighting-mode-radio");
+			sightingRawTrackingToggle = Require<Toggle>(root, "sighting-raw-tracking-toggle");
+			sightingRightEyeToggle = Require<Toggle>(root, "sighting-right-eye-toggle");
+			sightingStatus = Require<Label>(root, "sighting-status");
+			bindings.Value(sightingModeRadio,
+				change => AlignmentSightingTool.Mode = (AlignmentSightingTool.ToolMode)change.newValue);
+			bindings.Value(sightingRawTrackingToggle,
+				change => AlignmentSightingTool.ShowRawTracking = change.newValue);
+			bindings.Value(sightingRightEyeToggle,
+				change => AlignmentSightingTool.CrosshairInRightEye = change.newValue);
+			bindings.Click(Require<Button>(root, "sighting-clear-button"), AlignmentSightingTool.ClearMarkers);
 
 			healthPassthroughTintToggle =
 				Require<Toggle>(root, "health-passthrough-tint-toggle");
@@ -104,6 +124,8 @@ namespace Anaglyph.LaserTag.Interface
 			MenuCopy.Changed += RefreshHeadsetConfiguration;
 
 			AnaglyphDebugging.DebugModeChanged += OnDebugModeChanged;
+			GameMenu.DemoModeChanged += OnDemoModeChanged;
+			AlignmentSightingTool.Changed += OnSightingChanged;
 			healthPassthroughTintSetting.Changed += OnHealthPassthroughTintChanged;
 			lightEffectsSetting.Changed += OnLightEffectsChanged;
 			panel.VisibleChanged += OnPanelVisibleChanged;
@@ -111,6 +133,8 @@ namespace Anaglyph.LaserTag.Interface
 
 			UpdateConsoleVisible();
 			OnDebugModeChanged(AnaglyphDebugging.DebugMode);
+			OnDemoModeChanged(GameMenu.DemoMode);
+			OnSightingChanged();
 			OnHealthPassthroughTintChanged(healthPassthroughTintSetting.Value);
 			OnLightEffectsChanged(lightEffectsSetting.Value);
 			RefreshHeadsetConfiguration();
@@ -121,6 +145,8 @@ namespace Anaglyph.LaserTag.Interface
 			bindings.Dispose();
 			MenuCopy.Changed -= RefreshHeadsetConfiguration;
 			AnaglyphDebugging.DebugModeChanged -= OnDebugModeChanged;
+			GameMenu.DemoModeChanged -= OnDemoModeChanged;
+			AlignmentSightingTool.Changed -= OnSightingChanged;
 			healthPassthroughTintSetting.Changed -= OnHealthPassthroughTintChanged;
 			lightEffectsSetting.Changed -= OnLightEffectsChanged;
 			if (panel != null) panel.VisibleChanged -= OnPanelVisibleChanged;
@@ -155,6 +181,20 @@ namespace Anaglyph.LaserTag.Interface
 		private void OnDebugModeChanged(bool enabled)
 		{
 			debugModeToggle.SetValueWithoutNotify(enabled);
+		}
+
+		private void OnDemoModeChanged(bool enabled)
+		{
+			demoModeToggle.SetValueWithoutNotify(enabled);
+		}
+
+		// a debugging tool: the status reports its readings verbatim, unlocalized
+		private void OnSightingChanged()
+		{
+			sightingModeRadio.SetValueWithoutNotify((int)AlignmentSightingTool.Mode);
+			sightingRawTrackingToggle.SetValueWithoutNotify(AlignmentSightingTool.ShowRawTracking);
+			sightingRightEyeToggle.SetValueWithoutNotify(AlignmentSightingTool.CrosshairInRightEye);
+			sightingStatus.text = AlignmentSightingTool.Status;
 		}
 
 		private void OnLightEffectsChanged(bool enabled)

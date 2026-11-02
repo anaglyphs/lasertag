@@ -109,7 +109,7 @@ namespace Anaglyph.LaserTag.Editor
 			List<float>[] byViews = { new(), new(), new() }; // 2, 3, 4+ views
 			foreach (Landmark l in localizer.Map.Landmarks)
 			{
-				if (!l.IsUsable(false) || l.observations.Count == 0 || !float.IsFinite(l.inverseDepthSigma) || l.inverseDepthSigma <= 0) continue;
+				if (!l.IsUsable || l.observations.Count == 0 || !float.IsFinite(l.inverseDepthSigma) || l.inverseDepthSigma <= 0) continue;
 				Observation reference = l.observations[0];
 				if (reference.keyframe == null || !truth.TryGetValue(reference.keyframe.frame, out float[] depths) ||
 				    reference.feature >= depths.Length || float.IsNaN(depths[reference.feature])) continue;
@@ -161,7 +161,7 @@ namespace Anaglyph.LaserTag.Editor
 			int unmeasured = 0, direction = 0;
 			foreach (Landmark l in localizer.Map.Landmarks)
 			{
-				if (!l.IsUsable(false) || l.observations.Count == 0) continue;
+				if (!l.IsUsable || l.observations.Count == 0) continue;
 				Observation reference = l.observations[0];
 				if (reference.keyframe == null || !truth.TryGetValue(reference.keyframe.frame, out float[] depths) ||
 				    reference.feature >= depths.Length || float.IsNaN(depths[reference.feature]))

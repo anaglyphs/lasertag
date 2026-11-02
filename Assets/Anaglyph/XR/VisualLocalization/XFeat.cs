@@ -7,6 +7,7 @@ using Unity.Jobs;
 using Unity.InferenceEngine;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Anaglyph.XR.VisualLocalization
 {
@@ -88,23 +89,42 @@ namespace Anaglyph.XR.VisualLocalization
 		/// Spread by frames rather than layers per frame, since the networks differ a lot in
 		/// layer count (XFeat ~50, LighterGlue ~700 mostly tiny ones). 1 or less schedules
 		/// everything at once.
+		///
+		/// On the GPU, give <paramref name="commands"/>: left to itself the worker submits a
+		/// command buffer after every layer, ~100 submissions a frame for LighterGlue. With it
+		/// the layers are recorded there and submitted once per frame.
 		/// </summary>
-		public static async Awaitable ScheduleAsync(Worker worker, int layerCount, int frames)
+		public static async Awaitable ScheduleAsync(Worker worker, CommandBuffer commands, int layerCount, int frames)
 		{
-			if (frames <= 1)
-			{
-				worker.Schedule();
-				return;
-			}
-
-			int perFrame = math.max(1, (layerCount + frames - 1) / frames);
-			IEnumerator layers = worker.ScheduleIterable();
+			IEnumerator layers = commands != null ? commands.ScheduleWorkerIterable(worker) : worker.ScheduleIterable();
+			int perFrame = frames <= 1 ? int.MaxValue : math.max(1, (layerCount + frames - 1) / frames);
 			int scheduled = 0;
-			while (layers.MoveNext())
-				if (++scheduled % perFrame == 0)
+			try
+			{
+				while (layers.MoveNext())
+				{
+					if (++scheduled % perFrame != 0) continue;
+					Submit(commands);
 					await Awaitable.NextFrameAsync();
+				}
+			}
+			finally
+			{
+				// the rest, before any output is read back
+				Submit(commands);
+			}
 		}
 
+		/// <summary>The command buffer a GPU worker records into, or null for the CPU.</summary>
+		public static CommandBuffer CommandsFor(BackendType backend, string name) =>
+			backend == BackendType.GPUCompute ? new CommandBuffer { name = name } : null;
+
+		private static void Submit(CommandBuffer commands)
+		{
+			if (commands == null) return;
+			Graphics.ExecuteCommandBuffer(commands);
+			commands.Clear();
+		}
 	}
 
 	/// <summary>
@@ -124,6 +144,7 @@ namespace Anaglyph.XR.VisualLocalization
 		private const int Cell = 8, FieldWidth = Width / Cell, FieldHeight = Height / Cell;
 
 		private readonly Worker worker;
+		private readonly CommandBuffer commands;
 		private readonly Tensor<float> input;
 		private readonly int layerCount;
 
@@ -141,6 +162,7 @@ namespace Anaglyph.XR.VisualLocalization
 			Model model = XFeatModels.Load("xfeat_dense");
 			layerCount = model.layers.Count;
 			worker = new Worker(model, backend);
+			commands = XFeatModels.CommandsFor(backend, "XFeat");
 			input = new Tensor<float>(new TensorShape(1, 1, Height, Width));
 		}
 
@@ -154,7 +176,7 @@ namespace Anaglyph.XR.VisualLocalization
 			{
 				input.Upload(image);
 				worker.SetInput(0, input);
-				await XFeatModels.ScheduleAsync(worker, layerCount, FramesPerRun);
+				await XFeatModels.ScheduleAsync(worker, commands, layerCount, FramesPerRun);
 
 				using Tensor<float> score = await ((Tensor<float>)worker.PeekOutput("score")).ReadbackAndCloneAsync();
 				using Tensor<float> feats = await ((Tensor<float>)worker.PeekOutput("feats")).ReadbackAndCloneAsync();
@@ -211,6 +233,7 @@ namespace Anaglyph.XR.VisualLocalization
 		{
 			input?.Dispose();
 			worker?.Dispose();
+			commands?.Release();
 		}
 
 		[BurstCompile]
@@ -325,6 +348,7 @@ namespace Anaglyph.XR.VisualLocalization
 		public const int MinKeypoints = 16;
 
 		private readonly Worker worker;
+		private readonly CommandBuffer commands;
 		private readonly int layerCount;
 
 		public bool IsBusy { get; private set; }
@@ -338,6 +362,7 @@ namespace Anaglyph.XR.VisualLocalization
 			Model model = XFeatModels.Load("lighterglue");
 			layerCount = model.layers.Count;
 			worker = new Worker(model, backend);
+			commands = XFeatModels.CommandsFor(backend, "LighterGlue");
 		}
 
 		/// <summary>
@@ -361,7 +386,7 @@ namespace Anaglyph.XR.VisualLocalization
 				worker.SetInput("desc0", desc0);
 				worker.SetInput("kpts1", kpts1);
 				worker.SetInput("desc1", desc1);
-				await XFeatModels.ScheduleAsync(worker, layerCount, framesPerRun ?? FramesPerRun);
+				await XFeatModels.ScheduleAsync(worker, commands, layerCount, framesPerRun ?? FramesPerRun);
 
 				using Tensor<float> matches = await ((Tensor<float>)worker.PeekOutput("matches0")).ReadbackAndCloneAsync();
 				using Tensor<float> scores = await ((Tensor<float>)worker.PeekOutput("mscores0")).ReadbackAndCloneAsync();
@@ -400,6 +425,10 @@ namespace Anaglyph.XR.VisualLocalization
 			return flat;
 		}
 
-		public void Dispose() => worker?.Dispose();
+		public void Dispose()
+		{
+			worker?.Dispose();
+			commands?.Release();
+		}
 	}
 }

@@ -1,4 +1,5 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:Template name="SettingsAlignmentSightingPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Settings/SettingsAlignmentSightingPage.uxml?fileID=9197481963319205126&amp;guid=475e00eca673c42a58890b7a73d6551f&amp;type=3#SettingsAlignmentSightingPage"/>
     <ui:Template name="SettingsConsolePage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Settings/SettingsConsolePage.uxml?fileID=9197481963319205126&amp;guid=29fff76d7449646bd813bb3c6cc8fc6c&amp;type=3#SettingsConsolePage"/>
     <ui:Template name="SettingsDebuggingPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Settings/SettingsDebuggingPage.uxml?fileID=9197481963319205126&amp;guid=9bf826ccd1d164ad3b161157ee49f263&amp;type=3#SettingsDebuggingPage"/>
     <ui:Template name="SettingsGraphicsPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Settings/SettingsGraphicsPage.uxml?fileID=9197481963319205126&amp;guid=973da39e3ff984cecaae07976fa2d51e&amp;type=3#SettingsGraphicsPage"/>
@@ -12,6 +13,9 @@
             </Anaglyph.Menu.NavPage>
             <Anaglyph.Menu.NavPage name="debugging-page">
                 <ui:Instance template="SettingsDebuggingPage"/>
+            </Anaglyph.Menu.NavPage>
+            <Anaglyph.Menu.NavPage name="alignment-sighting-page">
+                <ui:Instance template="SettingsAlignmentSightingPage"/>
             </Anaglyph.Menu.NavPage>
             <Anaglyph.Menu.NavPage name="console-page">
                 <ui:Instance template="SettingsConsolePage"/>

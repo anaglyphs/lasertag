@@ -15,7 +15,7 @@ namespace Anaglyph.XR.VisualLocalization
 	public sealed class VisualFrameRecord
 	{
 		public int sequence;
-		/// <summary>"map" (a keyframe candidate), "query" (this headset's), or "remote-query" (another's, features only).</summary>
+		/// <summary>"map" (a keyframe candidate) or "query".</summary>
 		public string purpose;
 		public long timestampNs;
 		public float realtime;
@@ -27,7 +27,7 @@ namespace Anaglyph.XR.VisualLocalization
 		public Pose cameraInNode;
 		public float angularSpeed;
 		public bool rendered;
-		/// <summary>Grayscale PNG of the extractor's input, top row first; null until encoded, and for remote queries.</summary>
+		/// <summary>Grayscale PNG of the extractor's input, top row first; null until encoded.</summary>
 		public byte[] png;
 		public FeatureSet features;
 		public readonly List<string> notes = new();
@@ -74,20 +74,6 @@ namespace Anaglyph.XR.VisualLocalization
 			r.pixels = ArrayPool<float>.Shared.Rent(image.pixels.Length);
 			NativeArray<float>.Copy(image.pixels, r.pixels, image.pixels.Length);
 			Encode(r);
-			return r;
-		}
-
-		/// <summary>Records a query another headset sent: its features and camera, no image.</summary>
-		public VisualFrameRecord BeginRemote(VisualQuery query, ulong sender)
-		{
-			if (!enabled) return null;
-			VisualFrameRecord r = Add("remote-query");
-			r.timestampNs = query.timestampNs;
-			r.intrinsics = query.intrinsics;
-			r.camera = query.camera;
-			r.trackingSpace = query.trackingSpace;
-			r.features = query.features;
-			r.notes.Add($"from client {sender}");
 			return r;
 		}
 
