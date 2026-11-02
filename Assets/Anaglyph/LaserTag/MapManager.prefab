@@ -87,6 +87,7 @@ MonoBehaviour:
   unsentChangeThreshold: 512
   minSecondsBetweenSends: 0.2
   compression: 1
+  framesIntegratedPerUpdate: 2
   snapshotChunksPerFrame: 2
 --- !u!114 &6911126833990273307
 MonoBehaviour:
@@ -116,17 +117,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c9754b4a58eb44757be9b67ea0de0119, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.XRTemplate.SharedSpaces::Anaglyph.XRTemplate.SharedSpaces.ReferenceColocator
-  fitLerp: 1
   agreementMaxError: 0.3
   positionDriftRate: 0.014
   yawDriftRateDegrees: 0.05
-  walkCorrection: 0.1
-  turnCorrection: 0.05
-  turnYawCorrection: 0.1
-  walkYawCorrection: 1
-  stillCorrection: 0.003
-  stillYawCorrectionDegrees: 0.05
-  hiddenCorrectionLimit: 0.3
+  spatialDriftRate: 0
+  spatialYawDriftRateDegrees: 0
 --- !u!114 &219892528580798013
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -225,41 +220,35 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b9a0b2247526b429eaadad360f843173, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.XR.VisualLocalization::Anaglyph.XR.VisualLocalization.VisualLocalizer
-  mappingInterval: 0.2
-  mappingRetry: 0
-  calmAngularSpeed: 15
-  notNovelRetry: 0.1
-  keyframeMinDistance: 0.3
-  keyframeMinAngle: 15
-  maxAngularSpeed: 40
-  minKeyframeFeatures: 100
-  mapCapacity: 512
-  coverageCell: 1
-  coverageHeadings: 8
-  freezeEstablishedLandmarks: 1
-  establishedDepthSigma: 0.1
-  establishedViews: 6
-  establishedMinViews: 3
-  trustDrift: 0.03
-  trackNeighbors: 3
-  neighborDistance: 5
-  lighterGlueForTracks: 0
-  trackMinCosine: 0.82
-  useMeshDepth: 0
-  singleViewMeshLandmarks: 0
-  maxRayDistance: 8
-  minHitCosine: 0.2
-  meshDepthSigma: 0.02
-  meshDepthFraction: 0.01
-  environmentLayer: EnvironmentMesh
-  extractorBackend: 256
-  matcherBackend: 256
-  framesPerRun: 6
-  urgentFramesPerRun: 2
-  matcherFramesPerRun: 30
-  urgentMatcherFramesPerRun: 10
-  retrievalCandidatesPerFrame: 2
-  urgentRetrievalCandidatesPerFrame: 8
+  mapperSettings:
+    mappingInterval: 0.2
+    mappingRetry: 0
+    calmAngularSpeed: 15
+    notNovelRetry: 0.1
+    keyframeMinDistance: 0.3
+    keyframeMinAngle: 15
+    maxAngularSpeed: 40
+    minKeyframeFeatures: 100
+    mapCapacity: 512
+    coverageCell: 1
+    coverageHeadings: 8
+    freezeEstablishedLandmarks: 1
+    establishedDepthSigma: 0.1
+    establishedViews: 6
+    establishedMinViews: 3
+    trustDrift: 0.0243
+    trackNeighbors: 3
+    neighborDistance: 5
+    trackMinCosine: 0.82
+  inferenceSettings:
+    extractorBackend: 256
+    matcherBackend: 256
+    framesPerRun: 6
+    urgentFramesPerRun: 2
+    matcherFramesPerRun: 30
+    urgentMatcherFramesPerRun: 10
+    retrievalCandidatesPerFrame: 2
+    urgentRetrievalCandidatesPerFrame: 8
   keyframesPerQuery: 2
   minMutual: 12
   pnp:
@@ -294,48 +283,54 @@ MonoBehaviour:
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.VisualColocation
   queriesEnabled: 1
   queryInterval: 1
-  replyTimeout: 5
-  busyRetry: 0.2
-  minInliers: 30
-  maxNormalizedRms: 2
-  minLoopRangedInliers: 20
-  maxYawSigmaDegrees: 0.5
-  maxTranslationSigma: 0.04
-  acceptConfidentSingleFrames: 1
-  confidentYawSigmaDegrees: 0.2
-  confidentTranslationSigma: 0.02
-  confidentInliers: 150
-  confidentLoopInliers: 80
-  confidentLoopTranslationSigma: 0.02
-  confidentLoopYawSigmaDegrees: 0.25
-  confidentLoopInlierShare: 0.75
-  confidentInlierShare: 0.6
-  agreeTranslation: 0.05
-  agreeYawDegrees: 1
-  loopAgreePath: 30
-  loopAgreeTranslationPerMeter: 0.02
-  loopAgreeYawPerMeter: 0.3
+  gateSettings:
+    alignment:
+      minInliers: 30
+      maxNormalizedRms: 2
+      maxYawSigmaDegrees: 0.5
+      minRangedInliers: 0
+      maxTranslationSigma: 0.04
+      confidentYawSigmaDegrees: 0.2
+      confidentTranslationSigma: 0.02
+      confidentInliers: 150
+      confidentInlierShare: 0.6
+    drift:
+      minInliers: 30
+      maxNormalizedRms: 2
+      maxYawSigmaDegrees: 0.5
+      minRangedInliers: 20
+      maxTranslationSigma: 0.04
+      confidentYawSigmaDegrees: 0.25
+      confidentTranslationSigma: 0.02
+      confidentInliers: 80
+      confidentInlierShare: 0.75
+    acceptConfidentSingleFrames: 1
+    agreeTranslation: 0.05
+    agreeYawDegrees: 1
+    agreePath: 30
+    anchorTolerance: 0.07
+    plausibleMeters: 0.5
+    plausibleDegrees: 5
+  siteSettings:
+    minYawSigmaDegrees: 0.5
+    closeYawDegrees: 4
+    minTranslationSigma: 0.03
+    siteRadius: 8
+    crossLinksPrevail: 1
+    mappedSpacing: 2
+    mappedCapacity: 128
+    debugRevisitColor: {r: 1, g: 0.8, b: 0.2, a: 1}
+    debugCrossLinkColor: {r: 0.2, g: 0.9, b: 1, a: 1}
+    debugLatestColor: {r: 0.2, g: 1, b: 0.3, a: 1}
+    debugFeatureSize: 0.03
   loopClosure: 1
   loopInterval: 0.5
   blurredRetry: 0.25
   loopSearchDistance: 8
   loopMinWalk: 6
   loopCenterPriorSigma: 1
-  yawOnlyLoops: 0
   loopCooldown: 1
-  loopPlausibleMeters: 0.5
-  loopPlausibleFraction: 0.03
-  loopPlausibleDegrees: 5
-  loopPlausibleDegreesPerMeter: 0.5
   loopSearchFloor: 0.1
-  loopEdgeMinYawSigmaDegrees: 0.5
-  siteMinTranslationSigma: 0.03
-  siteRadius: 8
-  sitePathScale: 15
-  debugRevisitColor: {r: 1, g: 0.8, b: 0.2, a: 1}
-  debugCrossLinkColor: {r: 0.2, g: 0.9, b: 1, a: 1}
-  debugLatestColor: {r: 0.2, g: 1, b: 0.3, a: 1}
-  debugFeatureSize: 0.03
   loopMatchFeatures: 512
   loopMinMutual: 15
   loopMaxViewAngle: 90
@@ -343,10 +338,3 @@ MonoBehaviour:
   loopCaptureAfterQuiet: 3
   loopFrames: 3
   loopFrameWindow: 4
-  crossLinks: 1
-  crossLinkInterval: 2
-  crossLinkCooldown: 6
-  crossLinkFrames: 2
-  crossLinkFeaturesPerFrame: 448
-  crossLinksPrevail: 1
-  loopAnchorTolerance: 0.25

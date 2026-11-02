@@ -36,7 +36,11 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		public Pose TrackingSpace { get; set; } = Pose.identity;
 		/// <summary>World pose of the head (camera) when captured.</summary>
 		public Pose Head { get; set; } = Pose.identity;
-		/// <summary><see cref="EnvScanner.SensorCorrection"/> when captured: the scan was made in K · world.</summary>
+		/// <summary>
+		/// The scan was made in K · world. Identity for scans captured now; older files were
+		/// captured while the colocator eased the rig, with the scanner integrating where it was
+		/// going, and keep that correction
+		/// </summary>
 		public Matrix4x4 SensorCorrection { get; set; } = Matrix4x4.identity;
 
 		/// <summary>Chunk index → voxels. Owned by the scan.</summary>
@@ -109,7 +113,6 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 
 			EnvScan scan = NewFor(scanner);
 			scan.Label = label ?? "";
-			scan.SensorCorrection = scanner.SensorCorrection;
 			if (MainXRRig.Instance)
 			{
 				Transform space = MainXRRig.TrackingSpace;

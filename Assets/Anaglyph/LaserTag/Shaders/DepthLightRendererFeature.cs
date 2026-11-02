@@ -8,8 +8,9 @@ using UnityEngine.Rendering.Universal;
 namespace Anaglyph.LaserTag.Shaders
 {
 	// Lights the depth map at its own resolution before the opaques (IrradiancePass, once
-	// per eye slice), then composites that irradiance into the eye buffer after the skybox
-	// (CompositePass), so the light loop runs per depth texel instead of per eye pixel
+	// per eye slice), then blends that irradiance under the finished eye buffer after the
+	// transparents (CompositePass), so the light loop runs per depth texel instead of per
+	// eye pixel and coverage alpha, not depth, decides where it shows
 	[DisallowMultipleRendererFeature("Depth Lighting")]
 	public class DepthLightingRendererFeature : ScriptableRendererFeature
 	{
@@ -46,7 +47,8 @@ namespace Anaglyph.LaserTag.Shaders
 			};
 			compositePass = new CompositePass(material)
 			{
-				renderPassEvent = RenderPassEvent.AfterRenderingSkybox
+				// after everything that writes coverage alpha
+				renderPassEvent = RenderPassEvent.AfterRenderingTransparents
 			};
 		}
 
@@ -81,17 +83,13 @@ namespace Anaglyph.LaserTag.Shaders
 		// hands this camera's irradiance from IrradiancePass to CompositePass
 		private sealed class DepthLightFrame : ContextItem
 		{
-			public TextureHandle depth;
 			public TextureHandle irradiance;
 			public Matrix4x4[] worldToDepthClip;
-			public Matrix4x4[] depthClipToWorld;
 
 			public override void Reset()
 			{
-				depth = TextureHandle.nullHandle;
 				irradiance = TextureHandle.nullHandle;
 				worldToDepthClip = null;
-				depthClipToWorld = null;
 			}
 		}
 
@@ -209,10 +207,8 @@ namespace Anaglyph.LaserTag.Shaders
 				}
 
 				DepthLightFrame frame = frameData.GetOrCreate<DepthLightFrame>();
-				frame.depth = depthTexture;
 				frame.irradiance = irradiance;
 				frame.worldToDepthClip = worldToDepthClip;
-				frame.depthClipToWorld = depthClipToWorld;
 			}
 
 			// Fills lightIndices with the additional-light array slots of the point and spot
@@ -272,10 +268,8 @@ namespace Anaglyph.LaserTag.Shaders
 			{
 				public Material material;
 				public MaterialPropertyBlock properties;
-				public TextureHandle depth;
 				public TextureHandle irradiance;
 				public Matrix4x4[] worldToDepthClip;
-				public Matrix4x4[] depthClipToWorld;
 			}
 
 			public override void RecordRenderGraph(RenderGraph graph, ContextContainer frameData)
@@ -292,14 +286,13 @@ namespace Anaglyph.LaserTag.Shaders
 
 				data.material = material;
 				data.properties = properties;
-				data.depth = frame.depth;
 				data.irradiance = frame.irradiance;
 				data.worldToDepthClip = frame.worldToDepthClip;
-				data.depthClipToWorld = frame.depthClipToWorld;
 
-				builder.UseTexture(frame.depth, AccessFlags.Read);
 				builder.UseTexture(frame.irradiance, AccessFlags.Read);
 				builder.SetRenderAttachment(resources.activeColorTexture, 0, AccessFlags.ReadWrite);
+				// unused, but matching the transparent pass's attachments keeps this merged
+				// into its native render pass
 				builder.SetRenderAttachmentDepth(resources.activeDepthTexture, AccessFlags.ReadWrite);
 				if (camera.xr.enabled)
 				{
@@ -314,10 +307,8 @@ namespace Anaglyph.LaserTag.Shaders
 				builder.SetRenderFunc(static (PassData data, RasterGraphContext context) =>
 				{
 					data.properties.Clear();
-					data.properties.SetTexture(DepthKitDriver.depthTexID, (RTHandle)data.depth);
 					data.properties.SetTexture(IrradianceID, (RTHandle)data.irradiance);
 					data.properties.SetMatrixArray(WorldToDepthClipID, data.worldToDepthClip);
-					data.properties.SetMatrixArray(DepthClipToWorldID, data.depthClipToWorld);
 					// ViewQuad.hlsl's 6-vertex quad
 					context.cmd.DrawProcedural(Matrix4x4.identity, data.material, CompositeShaderPass,
 						MeshTopology.Triangles, 6, 1, data.properties);

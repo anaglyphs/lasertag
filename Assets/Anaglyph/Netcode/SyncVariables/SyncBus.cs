@@ -69,6 +69,9 @@ namespace Anaglyph.Netcode.SyncVariables
 		private static void Init()
 		{
 			endpoints.Clear();
+			partialPayloads.Clear();
+			unreliableSendSequences.Clear();
+			ClearLargeMessages();
 			Current = null;
 			Activated = delegate { };
 			Deactivated = delegate { };
@@ -103,6 +106,10 @@ namespace Anaglyph.Netcode.SyncVariables
 		public override void OnNetworkDespawn()
 		{
 			if (Current == this) Current = null;
+
+			partialPayloads.Clear();
+			unreliableSendSequences.Clear();
+			ClearLargeMessages();
 
 			Deactivated.Invoke();
 
@@ -171,17 +178,67 @@ namespace Anaglyph.Netcode.SyncVariables
 			if (Active) Current.RequestRpc(id, data);
 		}
 
-		// Any peer → everyone (including itself): a direct event.
+		// Any peer → everyone (including itself): a direct event. One over a reliable piece,
+		// or behind one still going out on this endpoint, is delivered here at once and
+		// queued for everyone else (see "large messages").
 		internal static void SendDirect(uint id, byte[] data)
 		{
-			if (Active) Current.RaiseDirectRpc(id, data);
+			if (!Active) return;
+			if (data.Length <= ReliablePieceBytes && !outgoing.ContainsKey((id, Everyone)))
+			{
+				Current.RaiseDirectRpc(id, data);
+				return;
+			}
+
+			if (endpoints.TryGetValue(id, out SyncEndpoint endpoint))
+				endpoint.ApplyDirect(LocalClientId, data);
+			Enqueue(id, Everyone, data);
+		}
+
+		// Any peer → everyone else, unreliable: split into pieces that each fit NGO's
+		// unreliable cap (1296 bytes, less the RPC header and, on DA, the proxy's target
+		// list). Does not invoke locally.
+		internal static void SendDirectUnreliable(uint id, byte[] data)
+		{
+			if (!Active) return;
+
+			int count = Mathf.Max(1, (data.Length + UnreliablePieceBytes - 1) / UnreliablePieceBytes);
+			if (count > byte.MaxValue)
+			{
+				Debug.LogError($"[SyncBus] Unreliable payload of {data.Length}B for {id} needs {count} pieces (max {byte.MaxValue})");
+				return;
+			}
+
+			ushort sequence = unreliableSendSequences.TryGetValue(id, out ushort last) ? (ushort)(last + 1) : (ushort)0;
+			unreliableSendSequences[id] = sequence;
+
+			if (count == 1)
+			{
+				Current.RaiseDirectPieceRpc(id, sequence, 0, 1, data);
+				return;
+			}
+
+			for (int i = 0; i < count; i++)
+			{
+				int offset = i * UnreliablePieceBytes;
+				byte[] piece = new byte[Mathf.Min(UnreliablePieceBytes, data.Length - offset)];
+				System.Buffer.BlockCopy(data, offset, piece, 0, piece.Length);
+				Current.RaiseDirectPieceRpc(id, sequence, (byte)i, (byte)count, piece);
+			}
 		}
 
 		// Any peer → one peer: a direct event addressed to a single client (e.g. a
 		// snapshot for a joiner), relayed like any other RPC. Does not invoke locally.
 		internal static void SendDirectTo(uint id, ulong target, byte[] data)
 		{
-			if (Active) Current.RaiseDirectToRpc(id, data, Current.RpcTarget.Single(target, RpcTargetUse.Temp));
+			if (!Active) return;
+			if (data.Length <= ReliablePieceBytes && !outgoing.ContainsKey((id, target)))
+			{
+				Current.RaiseDirectToRpc(id, data, Current.RpcTarget.Single(target, RpcTargetUse.Temp));
+				return;
+			}
+
+			Enqueue(id, target, data);
 		}
 
 		// ---- RPCs --------------------------------------------------------------
@@ -220,6 +277,238 @@ namespace Anaglyph.Netcode.SyncVariables
 		{
 			if (endpoints.TryGetValue(id, out SyncEndpoint endpoint))
 				endpoint.ApplyDirect(rpc.Receive.SenderClientId, data);
+		}
+
+		// ---- unreliable pieces -------------------------------------------------
+
+		// payload bytes per piece: well under 1296 with room for the RPC header and a
+		// DA proxy's target list (8 bytes per client)
+		private const int UnreliablePieceBytes = 1024;
+
+		// The largest DirectUnreliable payload: the most pieces a piece number can count.
+		public const int MaxUnreliableBytes = byte.MaxValue * UnreliablePieceBytes;
+
+		private static readonly Dictionary<uint, ushort> unreliableSendSequences = new();
+
+		// one payload being reassembled per sender and endpoint: pieces may arrive in any
+		// order, and a piece of a newer payload abandons an incomplete older one
+		private class PartialPayload
+		{
+			public ushort sequence;
+			public byte[][] pieces;
+			public int received;
+		}
+
+		private static readonly Dictionary<(ulong sender, uint id), PartialPayload> partialPayloads = new();
+
+		[Rpc(SendTo.NotMe, Delivery = RpcDelivery.Unreliable)]
+		private void RaiseDirectPieceRpc(uint id, ushort sequence, byte index, byte count, byte[] data, RpcParams rpc = default)
+		{
+			if (count == 0 || index >= count) return;
+			if (!endpoints.TryGetValue(id, out SyncEndpoint endpoint)) return;
+			ulong sender = rpc.Receive.SenderClientId;
+
+			if (count == 1)
+			{
+				endpoint.ApplyDirect(sender, data);
+				return;
+			}
+
+			var key = (sender, id);
+			if (!partialPayloads.TryGetValue(key, out PartialPayload partial))
+				partialPayloads[key] = partial = new PartialPayload { sequence = (ushort)(sequence - 1) };
+
+			if (partial.sequence != sequence)
+			{
+				// a straggler from a payload already given up on
+				if ((short)(sequence - partial.sequence) < 0) return;
+
+				partial.sequence = sequence;
+				partial.pieces = new byte[count][];
+				partial.received = 0;
+			}
+
+			if (partial.pieces == null || partial.pieces.Length != count || partial.pieces[index] != null) return;
+			partial.pieces[index] = data;
+			if (++partial.received < count) return;
+
+			int length = 0;
+			foreach (byte[] piece in partial.pieces) length += piece.Length;
+			byte[] payload = new byte[length];
+			int offset = 0;
+			foreach (byte[] piece in partial.pieces)
+			{
+				System.Buffer.BlockCopy(piece, 0, payload, offset, piece.Length);
+				offset += piece.Length;
+			}
+
+			partial.pieces = null;
+			endpoint.ApplyDirect(sender, payload);
+		}
+
+		// ---- large messages ------------------------------------------------------
+
+		// Reliable direct events of any size. NGO caps a reliable message at 64000 bytes,
+		// so a larger payload goes as pieces, reassembled on arrival. And paced: every
+		// reliable message shares one sequenced channel, so a few MB sent at once would hold
+		// every synced change behind it until the last byte landed. The pieces leave at
+		// ReliableBytesPerSecond, and synced state slips in between them. Each endpoint and
+		// target keeps its own queue, which later messages of the same endpoint join while
+		// it drains, so per-endpoint order holds as it does for small ones. Only the direct
+		// routes: splitting via-authority traffic would break its ordering against synced
+		// state.
+
+		// payload bytes per piece: well under NGO's 64000 with room for the RPC header and a
+		// DA proxy's target list
+		public const int ReliablePieceBytes = 32 * 1024;
+
+		// Pieces of large messages sent a second, by this peer to all others together.
+		public static int ReliableBytesPerSecond = 2_000_000;
+
+		// Whether pieces of large messages are still waiting to leave this peer.
+		public static bool IsSendingLarge => outgoing.Count > 0;
+
+		private const ulong Everyone = ulong.MaxValue;
+
+		private class OutgoingPiece
+		{
+			public uint message;
+			public ushort index, count;
+			public byte[] data;
+		}
+
+		private static readonly Dictionary<(uint id, ulong target), Queue<OutgoingPiece>> outgoing = new();
+		private static readonly List<(uint id, ulong target)> outgoingOrder = new();
+		private static int nextOutgoing;
+		private static uint nextMessage;
+		private static float sendBudget;
+
+		private class IncomingMessage
+		{
+			public byte[][] pieces;
+			public int received;
+		}
+
+		private static readonly Dictionary<(ulong sender, uint id, uint message), IncomingMessage> incoming = new();
+
+		private static void ClearLargeMessages()
+		{
+			outgoing.Clear();
+			outgoingOrder.Clear();
+			incoming.Clear();
+			sendBudget = 0;
+		}
+
+		private static void Enqueue(uint id, ulong target, byte[] data)
+		{
+			int count = Mathf.Max(1, (data.Length + ReliablePieceBytes - 1) / ReliablePieceBytes);
+			if (count > ushort.MaxValue)
+			{
+				Debug.LogError($"[SyncBus] Reliable payload of {data.Length}B for {id} needs {count} pieces (max {ushort.MaxValue})");
+				return;
+			}
+
+			var key = (id, target);
+			if (!outgoing.TryGetValue(key, out Queue<OutgoingPiece> queue))
+			{
+				outgoing[key] = queue = new Queue<OutgoingPiece>();
+				outgoingOrder.Add(key);
+			}
+
+			uint message = nextMessage++;
+			for (int i = 0; i < count; i++)
+			{
+				int offset = i * ReliablePieceBytes;
+				byte[] piece = new byte[Mathf.Min(ReliablePieceBytes, data.Length - offset)];
+				System.Buffer.BlockCopy(data, offset, piece, 0, piece.Length);
+				queue.Enqueue(new OutgoingPiece { message = message, index = (ushort)i, count = (ushort)count, data = piece });
+			}
+		}
+
+		private void Update()
+		{
+			if (!IsSpawned || outgoing.Count == 0) return;
+
+			sendBudget = Mathf.Min(sendBudget + ReliableBytesPerSecond * Time.unscaledDeltaTime, 2f * ReliablePieceBytes);
+			IReadOnlyList<ulong> connected = NetworkManager != null ? NetworkManager.ConnectedClientsIds : null;
+
+			// round robin over the queues, a piece at a time, within the budget
+			while (sendBudget > 0 && outgoingOrder.Count > 0)
+			{
+				nextOutgoing %= outgoingOrder.Count;
+				(uint id, ulong target) key = outgoingOrder[nextOutgoing];
+				Queue<OutgoingPiece> queue = outgoing[key];
+
+				// a peer that left takes its queue with it
+				if (key.target != Everyone && connected != null && !Contains(connected, key.target))
+					queue.Clear();
+
+				if (queue.Count > 0)
+				{
+					OutgoingPiece piece = queue.Dequeue();
+					if (key.target == Everyone)
+						RaiseDirectPartRpc(key.id, piece.message, piece.index, piece.count, piece.data);
+					else
+						RaiseDirectToPartRpc(key.id, piece.message, piece.index, piece.count, piece.data,
+							RpcTarget.Single(key.target, RpcTargetUse.Temp));
+					sendBudget -= piece.data.Length;
+				}
+
+				if (queue.Count == 0)
+				{
+					outgoing.Remove(key);
+					outgoingOrder.RemoveAt(nextOutgoing);
+				}
+				else nextOutgoing++;
+			}
+		}
+
+		private static bool Contains(IReadOnlyList<ulong> list, ulong value)
+		{
+			for (int i = 0; i < list.Count; i++)
+				if (list[i] == value)
+					return true;
+			return false;
+		}
+
+		[Rpc(SendTo.NotMe)]
+		private void RaiseDirectPartRpc(uint id, uint message, ushort index, ushort count, byte[] data, RpcParams rpc = default) =>
+			ReceivePart(rpc.Receive.SenderClientId, id, message, index, count, data);
+
+		[Rpc(SendTo.SpecifiedInParams)]
+		private void RaiseDirectToPartRpc(uint id, uint message, ushort index, ushort count, byte[] data, RpcParams rpc = default) =>
+			ReceivePart(rpc.Receive.SenderClientId, id, message, index, count, data);
+
+		// a message's pieces arrive in order on the sequenced channel, but those of messages to
+		// different targets interleave: each is kept apart by its number
+		private static void ReceivePart(ulong sender, uint id, uint message, ushort index, ushort count, byte[] data)
+		{
+			if (count == 0 || index >= count) return;
+			if (count == 1)
+			{
+				if (endpoints.TryGetValue(id, out SyncEndpoint single)) single.ApplyDirect(sender, data);
+				return;
+			}
+
+			var key = (sender, id, message);
+			if (!incoming.TryGetValue(key, out IncomingMessage partial))
+				incoming[key] = partial = new IncomingMessage { pieces = new byte[count][] };
+			if (partial.pieces.Length != count || partial.pieces[index] != null) return;
+			partial.pieces[index] = data;
+			if (++partial.received < count) return;
+
+			incoming.Remove(key);
+			int length = 0;
+			foreach (byte[] piece in partial.pieces) length += piece.Length;
+			byte[] payload = new byte[length];
+			int offset = 0;
+			foreach (byte[] piece in partial.pieces)
+			{
+				System.Buffer.BlockCopy(piece, 0, payload, offset, piece.Length);
+				offset += piece.Length;
+			}
+
+			if (endpoints.TryGetValue(id, out SyncEndpoint endpoint)) endpoint.ApplyDirect(sender, payload);
 		}
 
 		// ---- snapshots ---------------------------------------------------------

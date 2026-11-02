@@ -15,11 +15,6 @@ namespace Anaglyph.XR.DepthKit.Occlusion
 		public float relativeTexSize = 0.5f;
 		public float rawDepthMaxDistance = 6;
 		public LayerMask OcclusionMeshLayerMask;
-		[Tooltip("Copy the occlusion depth into the camera depth so occluded opaques are rejected before shading. " +
-		         "Hard-occludes every depth-tested draw, including shaders that don't sample occlusion.")]
-		public bool primeCameraDepth = true;
-		[Tooltip("Meters the primed environment depth is pushed back, covering depth precision and noise.")]
-		public float primeCameraDepthMargin = 0.05f;
 
 		private DepthKitEnvironmentOcclusionPass depthKitEnvironmentOcclusionPass;
 
@@ -35,7 +30,7 @@ namespace Anaglyph.XR.DepthKit.Occlusion
 
 			depthKitEnvironmentOcclusionPass =
 				new DepthKitEnvironmentOcclusionPass(depthMat, primeMat, relativeTexSize, rawDepthMaxDistance,
-					OcclusionMeshLayerMask.value, primeCameraDepth, primeCameraDepthMargin)
+					OcclusionMeshLayerMask.value)
 				{
 					renderPassEvent = RenderPassEvent.BeforeRenderingOpaques
 				};
@@ -86,9 +81,7 @@ namespace Anaglyph.XR.DepthKit.Occlusion
 
 			private static readonly int OcclusionTexID = Shader.PropertyToID("agOcclusionTex");
 			private static readonly int MaxDistanceID = Shader.PropertyToID("_MaxDistance");
-			private static readonly int PrimeMarginID = Shader.PropertyToID("_PrimeMargin");
 			private static readonly int OcclusionVPID = Shader.PropertyToID("agOcclusionVP");
-			private const int CameraDepthPrimePass = 1;
 			private static readonly ShaderTagId ShaderTag = new("UniversalForward");
 
 			private readonly Material depthMat;
@@ -97,21 +90,16 @@ namespace Anaglyph.XR.DepthKit.Occlusion
 			private readonly float relativeTexSize;
 			private readonly int layermask;
 			private readonly Matrix4x4[] occlusionVP = new Matrix4x4[2];
-			private readonly bool primeCameraDepth;
-			private readonly float primeCameraDepthMargin;
 			private readonly ComputeShader compute;
 
 			public DepthKitEnvironmentOcclusionPass(Material depthMat, Material rawDepthPrimeMat,
-				float relativeTexSize, float rawDepthMaxDistance, int layermask,
-				bool primeCameraDepth, float primeCameraDepthMargin)
+				float relativeTexSize, float rawDepthMaxDistance, int layermask)
 			{
 				this.depthMat = depthMat;
 				this.rawDepthPrimeMat = rawDepthPrimeMat;
 				this.relativeTexSize = relativeTexSize;
 				this.rawDepthMaxDistance = rawDepthMaxDistance;
 				this.layermask = layermask;
-				this.primeCameraDepth = primeCameraDepth;
-				this.primeCameraDepthMargin = primeCameraDepthMargin;
 			}
 
 			private class PassData
@@ -124,14 +112,8 @@ namespace Anaglyph.XR.DepthKit.Occlusion
 				public Matrix4x4[] occlusionVP;
 			}
 
-			private class CameraPrimePassData
-			{
-				public Material material;
-			}
-
 			public override void RecordRenderGraph(RenderGraph graph, ContextContainer frameContext)
 			{
-				TextureHandle occlusionTex;
 				using (IRasterRenderGraphBuilder builder = graph.AddRasterRenderPass(passName,
 					       out PassData data))
 				{
@@ -170,7 +152,6 @@ namespace Anaglyph.XR.DepthKit.Occlusion
 						                   cameraData.GetViewMatrix(view);
 					}
 					data.occlusionVP = occlusionVP;
-					occlusionTex = data.occlusionTexHandle;
 
 					DrawingSettings drawSettings = RenderingUtils.CreateDrawingSettings(
 						ShaderTag, renderingData, cameraData, lightData, cameraData.defaultOpaqueSortFlags);
@@ -212,47 +193,6 @@ namespace Anaglyph.XR.DepthKit.Occlusion
 						ctx.cmd.DrawRendererList(passData.rendererListHandle);
 					});
 				}
-
-				// offscreen cameras include XR Simulation's environment camera, whose depth
-				// is read back as the next frame's sensor depth: priming it feeds back
-				if (primeCameraDepth && rawDepthPrimeMat != null &&
-				    frameContext.Get<UniversalCameraData>().camera.targetTexture == null)
-					RecordCameraDepthPrime(graph, frameContext, occlusionTex);
-			}
-
-			// shares the opaque pass's attachments and foveation so it merges into that
-			// native render pass instead of costing its own load/store
-			private void RecordCameraDepthPrime(RenderGraph graph, ContextContainer frameContext, TextureHandle occlusionTex)
-			{
-				UniversalResourceData resources = frameContext.Get<UniversalResourceData>();
-				UniversalCameraData cameraData = frameContext.Get<UniversalCameraData>();
-
-				using IRasterRenderGraphBuilder builder = graph.AddRasterRenderPass(
-					"Environment Camera Depth Prime", out CameraPrimePassData data);
-
-				rawDepthPrimeMat.SetFloat(PrimeMarginID, primeCameraDepthMargin);
-				data.material = rawDepthPrimeMat;
-
-				builder.UseTexture(occlusionTex, AccessFlags.Read);
-				builder.SetRenderAttachment(resources.activeColorTexture, 0, AccessFlags.ReadWrite);
-				builder.SetRenderAttachmentDepth(resources.activeDepthTexture, AccessFlags.ReadWrite);
-				if (cameraData.xr.enabled)
-				{
-					bool canFoveateIntermediate = true;
-#if UNITY_ANDROID || UNITY_WSA
-					canFoveateIntermediate = Application.isEditor || XRSystem.GetRenderViewportScale() == 1.0f;
-#endif
-					builder.EnableFoveatedRasterization(cameraData.xr.supportsFoveatedRendering &&
-					                                   (canFoveateIntermediate || resources.isActiveTargetBackBuffer));
-					builder.SetExtendedFeatureFlags(ExtendedFeatureFlags.MultiviewRenderRegionsCompatible);
-				}
-
-				builder.SetRenderFunc(static (CameraPrimePassData data, RasterGraphContext ctx) =>
-				{
-					// one instance, doubled per eye by single-pass stereo as in the pass above
-					ctx.cmd.DrawProcedural(Matrix4x4.identity, data.material, CameraDepthPrimePass,
-						MeshTopology.Triangles, 6, 1);
-				});
 			}
 		}
 	}

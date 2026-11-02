@@ -85,7 +85,7 @@ namespace Anaglyph.XR
 			if (!randomized)
 			{
 				RandomizeOrigin(space);
-				if (!Unity.Multiplayer.PlayMode.CurrentPlayer.IsMainEditor)
+				if (!SimPlayer.IsMainEditor)
 					poseOffs = RandomStartPose(space.InverseTransformPoint(xrCamera.transform.position));
 				randomized = true;
 			}

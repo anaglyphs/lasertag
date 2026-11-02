@@ -1,12 +1,9 @@
 using System;
 using System.Runtime.InteropServices;
-using System.Threading;
-using System.Threading.Tasks;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
-using Unity.Mathematics.Geometry;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -18,11 +15,10 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		private NativeList<int3> vertCoords;
 		private NativeArray<int> coordVertMap;
 		private NativeList<uint> tris;
+		private NativeArray<VertexAttributeDescriptor> vertexLayout;
 
-		private NativeReference<MinMaxAABB> boundsRef;
-
-		private bool isBusy = false;
-		public bool IsBusy => isBusy;
+		/// <summary>Indices the last completed <see cref="Schedule"/> wrote; 0 when the chunk holds no surface.</summary>
+		public int IndexCount => tris.IsCreated ? tris.Length : 0;
 
 		private static readonly byte[] CrnrOffsIdxA =
 		{
@@ -88,15 +84,9 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			public NativeList<Vertex> Verts;
 			public NativeList<int3> VertCoords;
 
-			public NativeReference<MinMaxAABB> BoundsRef;
-
 			public void Execute()
 			{
 				int voxelCount = VoxCount.x * VoxCount.y * VoxCount.z;
-
-				float pi = float.PositiveInfinity;
-				float ni = float.NegativeInfinity;
-				MinMaxAABB bounds = new(new float3(pi, pi, pi), new float3(ni, ni, ni));
 
 				for (int i = 0; i < voxelCount; i++)
 				{
@@ -156,14 +146,10 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 
 					Vertex vert = new(pos, norm);
 
-					bounds.Encapsulate(pos);
-
 					CoordVertMap[i] = Verts.Length;
 					Verts.Add(vert);
 					VertCoords.Add(coord);
 				}
-
-				BoundsRef.Value = bounds;
 			}
 
 			private float3 CoordToPos(float3 c)
@@ -185,6 +171,9 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 
 			public void Execute()
 			{
+				// fewer than three vertices can't make a triangle
+				if (VertCoords.Length < 3) return;
+
 				foreach (int3 coord in VertCoords)
 				{
 					TrisForAxis(coord, X, Z, Y);
@@ -231,9 +220,10 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 
 			private void AddTriangle(int a, int b, int c)
 			{
-				Tris.AddNoResize((uint)a);
-				Tris.AddNoResize((uint)b);
-				Tris.AddNoResize((uint)c);
+				// a vertex can own up to three quads, so the list may outgrow its estimate
+				Tris.Add((uint)a);
+				Tris.Add((uint)b);
+				Tris.Add((uint)c);
 			}
 		}
 
@@ -259,30 +249,80 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			);
 		}
 
-		public async Task<bool> CreateMesh(
-			NativeArray<EnvScanner.Voxel> volume,
-			int3 voxCount, float voxSize, Mesh mesh,
-			CancellationToken ctkn = default)
+		/// <summary>
+		/// Writes the vertices and indices into a writable mesh, in a job, so the result never
+		/// passes through a Mesh on the main thread before it is simplified
+		/// </summary>
+		[BurstCompile]
+		private struct FillMeshDataJob : IJob
 		{
-			if (isBusy) return false;
-			isBusy = true;
+			[ReadOnly] public NativeList<Vertex> Verts;
+			[ReadOnly] public NativeList<uint> Tris;
+			[ReadOnly] public NativeArray<VertexAttributeDescriptor> Layout;
+			public float BoundsPadding;
 
+			public Mesh.MeshData MeshData;
+
+			public void Execute()
+			{
+				int indexCount = Tris.Length;
+				// a surface with no triangles is no mesh at all
+				int vertexCount = indexCount > 0 ? Verts.Length : 0;
+
+				MeshData.SetVertexBufferParams(vertexCount, Layout);
+				MeshData.SetIndexBufferParams(indexCount, IndexFormat.UInt32);
+
+				if (vertexCount > 0)
+					MeshData.GetVertexData<Vertex>().CopyFrom(Verts.AsArray());
+				if (indexCount > 0)
+					MeshData.GetIndexData<uint>().CopyFrom(Tris.AsArray());
+
+				// the mesh's bounds are its submesh's, and the simplifier carries them over
+				// unchanged. Padded, since decimation can place a vertex a little outside
+				float3 min = float.PositiveInfinity, max = float.NegativeInfinity;
+				for (int i = 0; i < vertexCount; i++)
+				{
+					min = math.min(min, Verts[i].pos);
+					max = math.max(max, Verts[i].pos);
+				}
+
+				Bounds bounds = vertexCount > 0 ? new Bounds((min + max) * 0.5f, max - min + BoundsPadding * 2) : default;
+
+				const MeshUpdateFlags flags = MeshUpdateFlags.DontNotifyMeshUsers |
+				                              MeshUpdateFlags.DontRecalculateBounds |
+				                              MeshUpdateFlags.DontValidateIndices;
+				MeshData.subMeshCount = 1;
+				MeshData.SetSubMesh(0, new SubMeshDescriptor(0, indexCount)
+				{
+					bounds = bounds,
+					vertexCount = vertexCount
+				}, flags);
+			}
+		}
+
+		/// <summary>
+		/// Schedules surface nets over <paramref name="volume"/> into <paramref name="destination"/>,
+		/// one chain of jobs. Neither the volume nor this mesher may be touched until the returned
+		/// handle completes; <see cref="IndexCount"/> is then the result's index count
+		/// </summary>
+		public JobHandle Schedule(NativeArray<EnvScanner.Voxel> volume, int3 voxCount, float voxSize,
+			Mesh.MeshData destination, JobHandle dependency = default)
+		{
 			if (!verts.IsCreated)
 			{
-				int vertCountEstimate = volume.Length / 3;
+				// a surface crossing a chunk touches a few thousand of its cells, not a third
+				int vertCountEstimate = volume.Length / 8;
 				int triCountEstimate = vertCountEstimate * 6;
 
 				verts = new NativeList<Vertex>(vertCountEstimate, Allocator.Persistent);
 				vertCoords = new NativeList<int3>(vertCountEstimate, Allocator.Persistent);
 				tris = new NativeList<uint>(triCountEstimate, Allocator.Persistent);
-				boundsRef = new NativeReference<MinMaxAABB>(Allocator.Persistent);
-
-				coordVertMap = new NativeArray<int>(volume.Length, Allocator.Persistent);
+				vertexLayout = new NativeArray<VertexAttributeDescriptor>(Vertex.Layout, Allocator.Persistent);
 			}
 
-			if (coordVertMap.IsCreated && coordVertMap.Length < volume.Length)
+			if (!coordVertMap.IsCreated || coordVertMap.Length < volume.Length)
 			{
-				coordVertMap.Dispose();
+				if (coordVertMap.IsCreated) coordVertMap.Dispose();
 				coordVertMap = new NativeArray<int>(volume.Length, Allocator.Persistent);
 			}
 
@@ -290,110 +330,45 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			vertCoords.Clear();
 			tris.Clear();
 
-
-			float pi = float.PositiveInfinity;
-			float ni = float.NegativeInfinity;
-			boundsRef.Value = new MinMaxAABB(new float3(pi, pi, pi), new float3(ni, ni, ni));
-
-			bool hasTriangles = false;
-
-			try
+			JobHandle vertices = new VertexJob
 			{
-				VertexJob vertexMaker = new()
-				{
-					Volume = volume,
-					VoxCount = voxCount,
-					VoxSize = voxSize,
+				Volume = volume,
+				VoxCount = voxCount,
+				VoxSize = voxSize,
 
-					CoordVertMap = coordVertMap,
-					Verts = verts,
-					VertCoords = vertCoords,
+				CoordVertMap = coordVertMap,
+				Verts = verts,
+				VertCoords = vertCoords
+			}.Schedule(dependency);
 
-					BoundsRef = boundsRef
-				};
-
-				JobHandle vertHandle = vertexMaker.Schedule();
-				// do NOT cancel until job is done!
-				// ReSharper disable once MethodSupportsCancellation
-				while (!vertHandle.IsCompleted) await Awaitable.NextFrameAsync();
-				vertHandle.Complete();
-
-				ctkn.ThrowIfCancellationRequested();
-
-				if (verts.Length < 3)
-					return false;
-
-				IndexJob triMaker = new()
-				{
-					VertCoords = vertCoords,
-					CoordVertMap = coordVertMap,
-
-					Volume = volume,
-					VoxCount = voxCount,
-					// Verts = verts,
-
-					Tris = tris
-				};
-
-				JobHandle triHandle = triMaker.Schedule();
-				// do NOT cancel until job is done!
-				// ReSharper disable once MethodSupportsCancellation
-				while (!triHandle.IsCompleted) await Awaitable.NextFrameAsync();
-				triHandle.Complete();
-				ctkn.ThrowIfCancellationRequested();
-
-				MinMaxAABB b = boundsRef.Value;
-
-				Bounds bounds = new(b.Center, b.Extents);
-				ApplyToMesh(verts.AsArray(), tris.AsArray(), bounds, mesh);
-
-				hasTriangles = tris.Length > 0;
-			}
-			catch (OperationCanceledException)
+			JobHandle indices = new IndexJob
 			{
-			}
-			finally
+				VertCoords = vertCoords,
+				CoordVertMap = coordVertMap,
+
+				Volume = volume,
+				VoxCount = voxCount,
+
+				Tris = tris
+			}.Schedule(vertices);
+
+			return new FillMeshDataJob
 			{
-				isBusy = false;
-			}
-
-			return hasTriangles;
-		}
-
-		private static void ApplyToMesh(NativeArray<Vertex> verts, NativeArray<uint> tris,
-			Bounds bounds, Mesh mesh)
-		{
-			Mesh.MeshDataArray meshDataArray = Mesh.AllocateWritableMeshData(1);
-			Mesh.MeshData meshData = meshDataArray[0];
-
-			meshData.SetVertexBufferParams(verts.Length, Vertex.Layout);
-			meshData.SetIndexBufferParams(tris.Length, IndexFormat.UInt32);
-
-			NativeArray<Vertex> vb = meshData.GetVertexData<Vertex>();
-			vb.CopyFrom(verts);
-
-			NativeArray<uint> ib = meshData.GetIndexData<uint>();
-			ib.CopyFrom(tris);
-
-			const MeshUpdateFlags flags = MeshUpdateFlags.DontNotifyMeshUsers |
-			                              MeshUpdateFlags.DontRecalculateBounds |
-			                              MeshUpdateFlags.DontValidateIndices;
-			meshData.subMeshCount = 1;
-			meshData.SetSubMesh(0, new SubMeshDescriptor(0, tris.Length), flags);
-
-			Mesh.ApplyAndDisposeWritableMeshData(meshDataArray, mesh);
-
-			mesh.bounds = bounds;
-			mesh.MarkModified();
+				Verts = verts,
+				Tris = tris,
+				Layout = vertexLayout,
+				BoundsPadding = voxSize * 0.5f,
+				MeshData = destination
+			}.Schedule(indices);
 		}
 
 		public void Dispose()
 		{
-			verts.Dispose();
-			vertCoords.Dispose();
-			coordVertMap.Dispose();
-			tris.Dispose();
-			boundsRef.Dispose();
+			if (verts.IsCreated) verts.Dispose();
+			if (vertCoords.IsCreated) vertCoords.Dispose();
+			if (coordVertMap.IsCreated) coordVertMap.Dispose();
+			if (tris.IsCreated) tris.Dispose();
+			if (vertexLayout.IsCreated) vertexLayout.Dispose();
 		}
 	}
 }

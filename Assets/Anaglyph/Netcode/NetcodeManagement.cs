@@ -241,19 +241,7 @@ namespace Anaglyph.Netcode
 					break;
 
 				case Protocol.UnityService:
-
-					try
-					{
-						await ConnectUnityServices(DateTime.Now.ToString("HHmmssffff"), PrepareNextTask());
-					}
-					catch (Exception e)
-					{
-						State = NetcodeState.Disconnected;
-						Log($"Failed to connect to Unity services!", LogType.Error);
-						Debug.LogException(e);
-						RaiseServicesError();
-					}
-
+					ConnectUnityServices(DateTime.Now.ToString("HHmmssffff"));
 					break;
 			}
 		}
@@ -297,9 +285,18 @@ namespace Anaglyph.Netcode
 
 		public static async void ConnectUnityServices(string id)
 		{
+			// checked before PrepareNextTask so a repeat call can't cancel the attempt in flight
+			if (State != NetcodeState.Disconnected)
+				return;
+
 			try
 			{
 				await ConnectUnityServices(id, PrepareNextTask());
+			}
+			catch (OperationCanceledException)
+			{
+				// whoever cancelled (Disconnect, a new attempt, app exit) owns the state now
+				Log("Cancelled connecting to Unity services");
 			}
 			catch (Exception e)
 			{
@@ -320,9 +317,6 @@ namespace Anaglyph.Netcode
 
 		private static async Task ConnectUnityServices(string id, CancellationToken ct)
 		{
-			if (State != NetcodeState.Disconnected)
-				return;
-
 			SetNetworkTransportType(Protocol.UnityService);
 
 			manager.NetworkConfig.UseCMBService = true;
@@ -335,13 +329,14 @@ namespace Anaglyph.Netcode
 			if (Time.time < cooldownDoneTime)
 			{
 				float waitTime = cooldownDoneTime - Time.time;
-				await Awaitable.WaitForSecondsAsync(waitTime);
+				await Awaitable.WaitForSecondsAsync(waitTime, ct);
 			}
 
 			ct.ThrowIfCancellationRequested();
 
 			cooldownDoneTime = Time.time + cooldownSeconds;
 
+			// services init and sign-in take no token
 			await SetupServices();
 
 			ct.ThrowIfCancellationRequested();
@@ -353,7 +348,19 @@ namespace Anaglyph.Netcode
 			}.WithDistributedAuthorityNetwork();
 
 			CurrentSessionName = id;
-			CurrentSession = await MultiplayerService.Instance.CreateOrJoinSessionAsync(id, options);
+
+			// cancelling also stops the network start the join triggers
+			ISession session = await MultiplayerService.Instance.CreateOrJoinSessionAsync(id, options, ct);
+
+			// cancelled after the join completed but before this continuation ran.
+			// leaving also stops the session's network
+			if (ct.IsCancellationRequested)
+			{
+				await session.LeaveAsync();
+				ct.ThrowIfCancellationRequested();
+			}
+
+			CurrentSession = session;
 			CurrentSession.RemovedFromSession += delegate
 			{
 				manager.Shutdown();

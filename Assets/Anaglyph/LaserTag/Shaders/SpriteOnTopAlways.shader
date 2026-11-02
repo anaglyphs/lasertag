@@ -14,7 +14,7 @@ Shader "Anaglyph/Sprite On Top Always"
 		}
 		ZWrite Off
 		ZTest Always
-		Blend SrcAlpha OneMinusSrcAlpha
+		Blend SrcAlpha OneMinusSrcAlpha, One OneMinusSrcAlpha
 		Cull Off
 		Lighting Off
 

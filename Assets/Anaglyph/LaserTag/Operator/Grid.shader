@@ -15,7 +15,7 @@ Shader "Pristine Grid"
     {
         Tags { "RenderType"="Transparent" }
         ZWrite Off
-		Blend SrcAlpha OneMinusSrcAlpha
+		Blend SrcAlpha OneMinusSrcAlpha, One OneMinusSrcAlpha
         LOD 100
 
         Pass

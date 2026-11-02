@@ -19,7 +19,7 @@ namespace Anaglyph.LaserTag
 #if UNITY_EDITOR
 				// Multiplayer Play Mode virtual players have no headset
 				return Editor.PlayModeXRSimulation.Setting.Value ||
-				       !Unity.Multiplayer.PlayMode.CurrentPlayer.IsMainEditor;
+				       !Anaglyph.XR.SimPlayer.IsMainEditor;
 #else
 				return false;
 #endif

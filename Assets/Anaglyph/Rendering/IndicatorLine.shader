@@ -12,7 +12,7 @@ Shader "Anaglyph/Indicator Line"
 		Pass
 		{
 			Tags { "LightMode" = "SRPDefaultUnlit" }
-			Blend SrcAlpha OneMinusSrcAlpha
+			Blend SrcAlpha OneMinusSrcAlpha, One OneMinusSrcAlpha
 			ZWrite Off
 			ZTest [_ZTest]
 			Cull Off

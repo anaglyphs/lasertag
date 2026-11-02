@@ -13,8 +13,9 @@ namespace Anaglyph.XR
 		public new Camera camera;
 		public Transform trackingSpace;
 
-		public static Camera Camera => Instance.camera;
-		public static Transform TrackingSpace => Instance.trackingSpace;
+		// null without a rig (the desktop operator)
+		public static Camera Camera => Instance ? Instance.camera : null;
+		public static Transform TrackingSpace => Instance ? Instance.trackingSpace : null;
 		
 		public static event Action Recentered = delegate { };
 		private readonly List<XRInputSubsystem> xrSubsystems = new();

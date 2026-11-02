@@ -7,9 +7,15 @@ namespace Anaglyph.XR
 	/// Simulates headset tracking drift for the XR Interaction Simulator. The
 	/// rig root's children (camera offset, hands, trackables) are moved under a
 	/// drift frame, which is nudged about the head by a small error as the
-	/// simulated head moves and turns (and slowly over time), like a VIO tracker
-	/// accumulating error. The error's direction wanders slowly and randomly, so
-	/// drift builds up coherently rather than averaging out.
+	/// simulated head moves (and slowly over time), like a VIO tracker
+	/// accumulating error.
+	///
+	/// The defaults follow Quest 3 captures (2026-11-01, three venues, about 1.5 km): position
+	/// wanders without bound, about 4 cm/√m across the floor once past a few meters and smooth
+	/// within them, while yaw wanders only so far: about 0.5° between any two moments once 100 m
+	/// apart, however far. So position error is the velocity of a slowly changing error integrated
+	/// along the walk, and yaw error is pulled back toward none, as if the tracker's own map held it.
+	/// The venues differed: height drift ranged from almost none to 50 cm over a few hundred meters.
 	///
 	/// The drift lives between the tracking space and the tracked poses, as it
 	/// does on a headset: the head pose in the tracking space is wrong, while the
@@ -24,25 +30,23 @@ namespace Anaglyph.XR
 		/// <summary>The drifted tracking frame, or null when no drift is simulated.</summary>
 		public static Transform Frame { get; private set; }
 
-		[Header("Translation (meters)")]
-		[SerializeField] private float translationPerMeter = 0.02f;
-		[SerializeField] private float translationPerDegree = 0.0002f;
-		[SerializeField] private float translationPerSecond = 0.001f;
-		[Tooltip("Scales vertical drift relative to horizontal")]
-		[SerializeField] private float verticalScale = 0.3f;
+		[Header("Position")]
+		[Tooltip("How fast position wanders along each floor axis, meters per √meter walked, past the correlation below")]
+		[SerializeField] private float translationRate = 0.028f;
+		[Tooltip("Likewise for height")]
+		[SerializeField] private float verticalRate = 0.006f;
+		[Tooltip("Meters of walk over which the error's direction changes: shorter stretches drift smoothly")]
+		[SerializeField] private float translationCorrelation = 5f;
 
-		[Header("Rotation (degrees)")]
-		[SerializeField] private float yawPerMeter = 0.5f;
-		[SerializeField] private float yawPerDegree = 0.005f;
-		[SerializeField] private float yawPerSecond = 0.02f;
-		[Tooltip("Pitch and roll drift relative to yaw. Real trackers observe gravity, so this is usually 0")]
-		[SerializeField] private float tiltScale = 0f;
+		[Header("Yaw")]
+		[Tooltip("How far yaw error strays from none, degrees (1σ)")]
+		[SerializeField] private float yawSpread = 0.37f;
+		[Tooltip("Meters of walk over which yaw error is pulled back")]
+		[SerializeField] private float yawCorrelation = 55f;
 
 		[Header("Character")]
-		[Tooltip("Head motion over which the drift direction decorrelates, in meters (plus degrees turned / 90)")]
-		[SerializeField] private float wander = 3f;
-		[Tooltip("Equivalent head motion per second, so the drift direction also wanders while still")]
-		[SerializeField] private float wanderPerSecond = 0.05f;
+		[Tooltip("Equivalent walk per second, so drift continues slowly while still")]
+		[SerializeField] private float stillMetersPerSecond = 0.05f;
 		[Tooltip("Per-frame head jumps larger than this (meters) are treated as resets and cause no drift")]
 		[SerializeField] private float jumpThreshold = 0.5f;
 
@@ -55,18 +59,14 @@ namespace Anaglyph.XR
 
 		// private generator so Multiplayer Play Mode players drift differently
 		private System.Random random = new(Guid.NewGuid().GetHashCode());
-		private readonly float[] seeds = new float[6];
-		private float motion;
+		private Vector3 velocity;
 		private bool hasPrev;
 		private Vector3 prevPos;
-		private Quaternion prevRot;
 		private Transform frame;
 
 		private void Awake()
 		{
 			if (SeedOverride.HasValue) random = new System.Random(SeedOverride.Value);
-			for (int i = 0; i < seeds.Length; i++)
-				seeds[i] = (float)random.NextDouble() * 1000f;
 		}
 
 		private void OnDisable() => hasPrev = false;
@@ -92,6 +92,7 @@ namespace Anaglyph.XR
 			if (frame) frame.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
 			driftPosition = Vector3.zero;
 			driftYaw = 0f;
+			velocity = Vector3.zero;
 		}
 
 		private void LateUpdate()
@@ -109,34 +110,35 @@ namespace Anaglyph.XR
 			// which drifting the frame doesn't change
 			Transform head = camera.transform;
 			Vector3 pos = frame.InverseTransformPoint(head.position);
-			Quaternion rot = Quaternion.Inverse(frame.rotation) * head.rotation;
 
 			if (!hasPrev)
 			{
-				Remember(pos, rot);
+				prevPos = pos;
+				hasPrev = true;
 				return;
 			}
 
 			float dist = Vector3.Distance(pos, prevPos);
-			float angle = Quaternion.Angle(rot, prevRot);
-			Remember(pos, rot);
+			prevPos = pos;
 
 			if (dist > jumpThreshold) return;
 
-			float dt = Time.deltaTime;
-			motion += dist + angle / 90f + wanderPerSecond * dt;
-			float t = motion / Mathf.Max(wander, 0.001f);
+			float walked = dist + stillMetersPerSecond * Time.deltaTime;
+			if (walked <= 0) return;
 
-			Vector3 translation = new Vector3(Noise(0, t), Noise(1, t) * verticalScale, Noise(2, t))
-				* (translationPerMeter * dist + translationPerDegree * angle + translationPerSecond * dt);
-			float yaw = Noise(3, t) * (yawPerMeter * dist + yawPerDegree * angle + yawPerSecond * dt);
-			float pitch = Noise(4, t) * tiltScale * Mathf.Abs(yaw);
-			float roll = Noise(5, t) * tiltScale * Mathf.Abs(yaw);
+			// the error's velocity: wandering, and forgetting where it was wandering to
+			float correlation = Mathf.Max(translationCorrelation, 0.001f);
+			float forgetting = walked / correlation;
+			float noise = Mathf.Sqrt(walked) / correlation;
+			velocity += -velocity * forgetting + noise * new Vector3(Gaussian() * translationRate, Gaussian() * verticalRate, Gaussian() * translationRate);
+			Vector3 translation = velocity * walked;
+
+			// yaw error strays, and is pulled back
+			float yawForgetting = walked / Mathf.Max(yawCorrelation, 0.001f);
+			float yaw = -driftYaw * yawForgetting + yawSpread * Mathf.Sqrt(2f * yawForgetting) * Gaussian();
 
 			// everything below is in the tracking space, where the frame's local pose lives
-			Quaternion delta = Quaternion.AngleAxis(yaw, Vector3.up)
-				* Quaternion.AngleAxis(pitch, Vector3.right)
-				* Quaternion.AngleAxis(roll, Vector3.forward);
+			Quaternion delta = Quaternion.AngleAxis(yaw, Vector3.up);
 
 			// turn about the head so the error doesn't swing it around the origin
 			Vector3 pivot = space.InverseTransformPoint(head.position);
@@ -169,15 +171,10 @@ namespace Anaglyph.XR
 			hasPrev = false;
 		}
 
-		private void Remember(Vector3 pos, Quaternion rot)
+		private float Gaussian()
 		{
-			prevPos = pos;
-			prevRot = rot;
-			hasPrev = true;
+			double u = 1.0 - random.NextDouble(), v = random.NextDouble();
+			return (float)(Math.Sqrt(-2.0 * Math.Log(u)) * Math.Cos(2.0 * Math.PI * v));
 		}
-
-		// smooth noise in [-1, 1]
-		private float Noise(int channel, float t) =>
-			Mathf.PerlinNoise(seeds[channel], t) * 2f - 1f;
 	}
 }

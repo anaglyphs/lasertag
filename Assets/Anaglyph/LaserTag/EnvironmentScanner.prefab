@@ -60,7 +60,10 @@ MonoBehaviour:
     x: 0
     y: -1
     z: 0
-  maskShader: {fileID: 4800000, guid: 5f6dd7bd9df354224bcc42852c99205a, type: 3}
+  frameSize:
+    x: 80
+    y: 80
+  frameCodeBits: 12
   chunkTableDims:
     x: 100
     y: 15
@@ -70,6 +73,7 @@ MonoBehaviour:
     y: 8
     z: 16
   maxNumVisibleChunks: 256
+  maskShader: {fileID: 4800000, guid: 5f6dd7bd9df354224bcc42852c99205a, type: 3}
 --- !u!114 &8862733854877386027
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -86,7 +90,12 @@ MonoBehaviour:
   numMeshWorkers: 2
   meshFlippedVoxelsThreshold: 100
   voxelSignDeadbandMeters: 0.04
+  minChangeSumToCheck: 512
+  recheckSeconds: 2
+  maxQueueWaitSeconds: 1
   rendererData: {fileID: 11400000, guid: cf65c79082bdf4c4fb1ba1fd4ed52c18, type: 2}
+  occlusionCulling: 0
+  occlusionFrustumMargin: 0.25
   decimationTarget:
     Kind: 6
     Value: 0.01
@@ -127,7 +136,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: EnvScanning::Anaglyph.DepthKit.EnvScanning.EnvNavMesher
   agentTypeID: 0
   navMeshArea: 0
-  maxJobWorkers: 3
+  maxJobWorkers: 1
   secondsBetweenChecks: 1
   boundsPadding: 1
   maxUpdateTilesPerAxis: 4

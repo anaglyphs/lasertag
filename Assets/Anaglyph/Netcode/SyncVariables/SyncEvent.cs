@@ -17,7 +17,13 @@ namespace Anaglyph.Netcode.SyncVariables
 
 		// Raiser → authority only; no rebroadcast. A command: Received fires solely
 		// on the authority, which typically reacts by mutating synced state.
-		ToAuthority = 2
+		ToAuthority = 2,
+
+		// Like Direct, but unreliable and unordered: split into MTU-sized pieces, and a
+		// payload missing any piece is never delivered. Nothing waits on a lost packet,
+		// so a stall can't hold up reliable traffic. For streams where the next payload
+		// supersedes a lost one (depth frames). Delivered locally at once.
+		DirectUnreliable = 3
 	}
 
 	// The transient sibling of SyncVariable — a replicated event with no
@@ -46,6 +52,11 @@ namespace Anaglyph.Netcode.SyncVariables
 					else Receive(SyncBus.LocalClientId, payload);
 					break;
 
+				case EventRoute.DirectUnreliable:
+					Receive(SyncBus.LocalClientId, payload);
+					SyncBus.SendDirectUnreliable(Id, payload);
+					break;
+
 				case EventRoute.ViaAuthority:
 				case EventRoute.ToAuthority:
 					if (SyncBus.IsAuthority) HandleRequest(SyncBus.LocalClientId, payload);
@@ -59,7 +70,7 @@ namespace Anaglyph.Netcode.SyncVariables
 		protected void RaiseBytesTo(ulong target, byte[] payload)
 		{
 			if (route != EventRoute.Direct)
-				throw new InvalidOperationException("Only Direct events can be addressed to a single peer");
+				throw new InvalidOperationException("Only reliable Direct events can be addressed to a single peer");
 
 			if (!SyncBus.Active || target == SyncBus.LocalClientId) Receive(SyncBus.LocalClientId, payload);
 			else SyncBus.SendDirectTo(Id, target, payload);
@@ -145,9 +156,11 @@ namespace Anaglyph.Netcode.SyncVariables
 			Received.Invoke(sender, SyncBytes.Read<T>(payload, 0));
 	}
 
-	// Event carrying a raw byte payload (e.g. serialized meshes). Payloads ride
-	// reliable fragmented delivery; keep them under ~60KB (NGO caps fragmented
-	// messages at 64000 bytes).
+	// Event carrying a raw byte payload (e.g. serialized meshes). Direct payloads of any
+	// size are split by the bus and paced at SyncBus.ReliableBytesPerSecond; via-authority
+	// ones ride reliable fragmented delivery whole, so keep them under ~60KB (NGO caps
+	// fragmented messages at 64000 bytes). DirectUnreliable payloads are split by the bus
+	// too, and every extra piece is one more chance to lose the whole payload.
 	public class SyncEventBytes : SyncEventBase
 	{
 		public event Action<ulong, byte[]> Received = delegate { };

@@ -24,15 +24,17 @@ namespace Anaglyph.LaserTag.EnvSyncing
 	{
 		public static EnvSync Instance { get; private set; }
 
-		// Direct events: frames are fire-and-forget, per-sender ordered, and need no
-		// ordering against other synced state
-		private readonly SyncEventBytes frameEvent = new("env.frames", EventRoute.Direct);
+		// frames are unreliable: a lost one only leaves peers a little less fused, while a
+		// reliable one stalls all synced state behind its retransmission. Snapshot chunks
+		// stay reliable, since a joiner has nothing else to fill a hole with
+		private readonly SyncEventBytes frameEvent = new("env.frames", EventRoute.DirectUnreliable);
 		private readonly SyncEventBytes chunkEvent = new("env.chunks", EventRoute.Direct);
 		private readonly SyncEvent<SpaceFrame> snapshotRequest = new("env.snapshot", EventRoute.ToAuthority);
 		private readonly SyncEvent<bool> visibleEvent = new("env.visible", EventRoute.Direct);
 
-		// NGO caps fragmented messages at 64000 bytes; leave headroom for headers.
-		private const int MaxPayloadBytes = 60000;
+		// frames go unreliable, split by the bus into at most this; snapshot chunks are
+		// reliable direct events, which the bus splits at any size
+		private const int MaxFrameBytes = SyncBus.MaxUnreliableBytes;
 
 		private const uint FramePayloadMagic = 0x324D5246; // "FRM2": shared-frame poses, no pose-graph node
 		private const uint ChunkPayloadMagic = 0x4B4E4843; // "CHNK"
@@ -63,6 +65,12 @@ namespace Anaglyph.LaserTag.EnvSyncing
 
 		[SerializeField] private DepthFrameCompression compression = DepthFrameCompression.PredictedDeflate;
 
+		[Header("Frame receiving")]
+		// peers' frames integrated per Unity frame, at most. frames arrive in bursts after a
+		// network stall; each is a GPU decode/integrate chain and a mesher readback, so the
+		// rest wait in arrival order for the next frames
+		[SerializeField] private int framesIntegratedPerUpdate = 2;
+
 		[Header("Snapshots")]
 		// chunks encoded and sent per Unity frame while serving a joiner
 		[SerializeField] private int snapshotChunksPerFrame = 2;
@@ -90,6 +98,8 @@ namespace Anaglyph.LaserTag.EnvSyncing
 		private int statSent, statSentBytes, statReceived, statReceivedBytes, statChunksSent, statChunksReceived, statHeld;
 		private readonly Dictionary<string, int> statDrops = new();
 		private float nextStatReport;
+
+		private readonly Queue<(ulong sender, byte[] payload)> receivedFrames = new();
 
 		private bool snapshotServing;
 		private readonly Queue<(ulong client, SpaceFrame context)> snapshotQueue = new();
@@ -166,6 +176,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			unsentFrames = 0;
 			lastSentSlot = long.MinValue;
 			requestedScan = default;
+			receivedFrames.Clear();
 			snapshotQueue.Clear();
 			lastSnapshotRequest.Clear();
 		}
@@ -238,6 +249,9 @@ namespace Anaglyph.LaserTag.EnvSyncing
 				snapshotRequest.Raise(frame);
 				Debug.Log($"[{nameof(EnvSync)}] requested a scan snapshot from the authority");
 			}
+
+			for (int i = 0; i < framesIntegratedPerUpdate && receivedFrames.TryDequeue(out var received); i++)
+				IntegrateReceivedFrame(received.sender, received.payload);
 
 			if (!snapshotServing && snapshotQueue.Count > 0)
 				ServeSnapshots(syncGeneration);
@@ -313,9 +327,9 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			DepthFrameCodec.Encode(header, captured.codes, compression, frameEncoding);
 			int payloadSize = (int)frameEncoding.Length;
 
-			if (payloadSize > MaxPayloadBytes)
+			if (payloadSize > MaxFrameBytes)
 			{
-				Debug.LogWarning($"[{nameof(EnvSync)}] Frame payload ({payloadSize}B) exceeds the fragmented message cap");
+				Debug.LogWarning($"[{nameof(EnvSync)}] Frame payload ({payloadSize}B) exceeds the unreliable cap ({MaxFrameBytes}B)");
 				return;
 			}
 
@@ -342,13 +356,21 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			// Direct events also invoke locally; the scanner integrated the full-res sensor
 			// this frame was captured from
 			if (sender == SyncBus.LocalClientId) return;
+
+			// the RPC hands over a fresh array, so it can wait for Update
+			receivedFrames.Enqueue((sender, payload));
+		}
+
+		// checked when integrated, not when received: the context may change while it waits
+		private void IntegrateReceivedFrame(ulong sender, byte[] payload)
+		{
 			if (!CanShareScan) { Drop("frame: colocation method not shareable"); return; }
 			if (!EnvScanner.Instance) { Drop("frame: no scanner"); return; }
 			// a peer's frame is in the shared frame; until this headset is in it too, the
 			// frame would land in the wrong place
 			if (!ColocationManager.IsColocated) { Drop("frame: not colocated yet"); return; }
 
-			if (payload.Length < FramePayloadHeaderBytes || payload.Length > MaxPayloadBytes) { Drop("frame: bad size"); return; }
+			if (payload.Length < FramePayloadHeaderBytes || payload.Length > MaxFrameBytes) { Drop("frame: bad size"); return; }
 			if (SyncBytes.Read<uint>(payload, 0) != FramePayloadMagic) { Drop("frame: bad magic"); return; }
 			if (!FrameMatches(ReadContext(payload))) { Drop("frame: space/frame/scan context mismatch"); return; }
 
@@ -421,16 +443,11 @@ namespace Anaglyph.LaserTag.EnvSyncing
 						if (!this || generation != syncGeneration) return;
 
 						// a fully observed chunk's run-length data is ~64KB of near-identical
-						// pairs, over the message cap; deflated it is a few KB
+						// pairs; deflated it is a few KB. Any size goes: the bus splits and paces it
 						byte[] rle = encoding.AsArray().ToArray();
 						byte[] deflated = DepthFrameCodec.Deflate(rle, 0, rle.Length);
 
 						int payloadSize = ChunkPayloadHeaderBytes + deflated.Length;
-						if (payloadSize > MaxPayloadBytes)
-						{
-							Debug.LogWarning($"[{nameof(EnvSync)}] Chunk {chunkIndex} snapshot ({payloadSize}B) exceeds the fragmented message cap");
-							continue;
-						}
 
 						byte[] payload = new byte[payloadSize];
 						SyncBytes.Write(payload, 0, ChunkPayloadMagic);
@@ -466,7 +483,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			if (sender == SyncBus.LocalClientId) return;
 			if (!CanShareScan || !EnvScanner.Instance) { Drop("chunk: not shareable"); return; }
 
-			if (payload.Length < ChunkPayloadHeaderBytes || payload.Length > MaxPayloadBytes) { Drop("chunk: bad size"); return; }
+			if (payload.Length < ChunkPayloadHeaderBytes) { Drop("chunk: bad size"); return; }
 			if (SyncBytes.Read<uint>(payload, 0) != ChunkPayloadMagic) { Drop("chunk: bad magic"); return; }
 			SpaceFrame context = ReadContext(payload);
 			if (!FrameMatches(context)) { Drop("chunk: context mismatch"); return; }

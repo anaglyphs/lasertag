@@ -136,17 +136,6 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 
 		private ComputeBuffer uploadBuffer;
 
-		private readonly Matrix4x4[] correctedView = new Matrix4x4[2];
-		private readonly Matrix4x4[] correctedViewInv = new Matrix4x4[2];
-
-		/// <summary>
-		/// World → world transform applied to the local sensor's pose before it is
-		/// integrated or captured. The colocator eases the rig onto a corrected alignment
-		/// over a few frames; the scan uses where the rig is going, not where the easing
-		/// has it, so it stays consistent with the map (and every peer's) meanwhile
-		/// </summary>
-		public Matrix4x4 SensorCorrection { get; set; } = Matrix4x4.identity;
-
 		private ComputeKernel clearKernel;
 		private ComputeKernel captureKernel;
 		private ComputeKernel decodeKernel;
@@ -209,17 +198,32 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			public NativeArray<Voxel> data { get; private set; }
 			public readonly int voxPerChunkDim;
 
+			// shared by every copy of the struct, so a readback's sum reaches whoever holds one
+			private NativeArray<uint> changeSum;
+
+			/// <summary>
+			/// The chunk's change odometer as it stood when <see cref="data"/> was read: the
+			/// change the data already holds
+			/// </summary>
+			public uint ChangeSum
+			{
+				get => changeSum[0];
+				internal set => changeSum[0] = value;
+			}
+
 			public ChunkReadbackBuffer(ComputeBuffer gpuBuffer, NativeArray<Voxel> data, int voxPerChunkDim)
 			{
 				this.gpuBuffer = gpuBuffer;
 				this.data = data;
 				this.voxPerChunkDim = voxPerChunkDim;
+				changeSum = new NativeArray<uint>(1, Allocator.Persistent);
 			}
 
 			public void Dispose()
 			{
 				gpuBuffer?.Dispose();
 				data.Dispose();
+				if (changeSum.IsCreated) changeSum.Dispose();
 			}
 		}
 
@@ -382,6 +386,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			clearKernel.Bind("chunkData", volume.ChunkData);
 			dataReadbackKernel.Bind("chunkTable", volume.ChunkTable);
 			dataReadbackKernel.Bind("chunkData", volume.ChunkData);
+			dataReadbackKernel.Bind("chunkChangeSums", volume.ChunkChangeSums);
 			reserveKernel.Bind("chunkTable", volume.ChunkTable);
 			reserveKernel.Bind("reservedChunkCounter", volume.ReservedChunkCounter);
 			visChangeSumsReadbackKernel.Bind("visibleChunks", volume.VisibleChunks);
@@ -594,19 +599,9 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 
 		private void SetSensorUniforms(DepthKitDriver dkd)
 		{
-			// a correction moves the world under the sensor: world' = K world. The mask is
-			// rendered in the uncorrected world it lives in; its texels are per depth pixel
-			// and its distances are from the eye, which the correction does not change
-			Matrix4x4 k = SensorCorrection, kInv = k.inverse;
-			for (int i = 0; i < 2 && i < dkd.View.Length; i++)
-			{
-				correctedView[i] = dkd.View[i] * kInv;
-				correctedViewInv[i] = k * dkd.ViewInv[i];
-			}
-
-			compute.SetMatrixArray(DepthKitDriver.viewID, correctedView);
+			compute.SetMatrixArray(DepthKitDriver.viewID, dkd.View);
 			compute.SetMatrixArray(DepthKitDriver.projID, dkd.Proj);
-			compute.SetMatrixArray(DepthKitDriver.viewInvID, correctedViewInv);
+			compute.SetMatrixArray(DepthKitDriver.viewInvID, dkd.ViewInv);
 			compute.SetMatrixArray(DepthKitDriver.projInvID, dkd.ProjInv);
 			RenderMask(dkd);
 		}
@@ -645,7 +640,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 
 		private DepthFrameHeader BuildLocalHeader(DepthKitDriver dkd)
 		{
-			DepthFrameHeader.PoseFromViewInverse(SensorCorrection * dkd.ViewInv[0], out float3 position, out quaternion rotation);
+			DepthFrameHeader.PoseFromViewInverse(dkd.ViewInv[0], out float3 position, out quaternion rotation);
 
 			return new DepthFrameHeader
 			{
@@ -849,7 +844,8 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		{
 			int vpcd = voxPerChunkDim;
 
-			ComputeBuffer computeBuffer = new(vpcd / 2 * vpcd * vpcd, sizeof(uint));
+			// the packed voxels, then the chunk's change sum
+			ComputeBuffer computeBuffer = new(vpcd / 2 * vpcd * vpcd + 1, sizeof(uint));
 			NativeArray<Voxel> data = new(vpcd * vpcd * vpcd, Allocator.Persistent);
 
 			return new ChunkReadbackBuffer(computeBuffer, data, vpcd);
@@ -887,7 +883,10 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 				return false;
 			}
 
-			req.GetData<byte>().Reinterpret<Voxel>(1).CopyTo(readbackBuffer.data);
+			NativeArray<byte> bytes = req.GetData<byte>();
+			int voxelBytes = readbackBuffer.data.Length * Voxel.stride;
+			bytes.GetSubArray(0, voxelBytes).Reinterpret<Voxel>(1).CopyTo(readbackBuffer.data);
+			readbackBuffer.ChangeSum = bytes.GetSubArray(voxelBytes, sizeof(uint)).Reinterpret<uint>(1)[0];
 			return true;
 		}
 

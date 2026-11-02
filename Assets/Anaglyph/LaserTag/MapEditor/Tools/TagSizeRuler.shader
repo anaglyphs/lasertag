@@ -10,7 +10,7 @@ Shader "Anaglyph/Tag Size Ruler"
 		Pass
 		{
 			Tags { "LightMode" = "SRPDefaultUnlit" }
-			Blend SrcAlpha OneMinusSrcAlpha
+			Blend SrcAlpha OneMinusSrcAlpha, One OneMinusSrcAlpha
 			ZWrite Off
 			ZTest Always
 			Cull Off

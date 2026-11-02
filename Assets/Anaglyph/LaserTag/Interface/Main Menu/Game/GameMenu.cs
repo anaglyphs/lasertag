@@ -18,6 +18,28 @@ namespace Anaglyph.LaserTag.Interface
 	{
 		public enum Tab { Maps, Match, Demo }
 
+		private static bool demoMode;
+		public static event Action<bool> DemoModeChanged = delegate { };
+
+		// shows the demo tab; session-only, off at launch
+		public static bool DemoMode
+		{
+			get => demoMode;
+			set
+			{
+				if (demoMode == value) return;
+				demoMode = value;
+				DemoModeChanged.Invoke(demoMode);
+			}
+		}
+
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+		private static void Init()
+		{
+			demoMode = false;
+			DemoModeChanged = delegate { };
+		}
+
 		[SerializeField] private WeaponDatabase weaponDatabase;
 
 		private MenuErrorPresenter errors;
@@ -106,6 +128,7 @@ namespace Anaglyph.LaserTag.Interface
 			InitializeUI(GetComponent<UIDocument>()?.rootVisualElement);
 
 			MatchReferee.StateChanged += OnMatchStateChanged;
+			DemoModeChanged += OnDemoModeChanged;
 			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
 			SyncBus.Activated += RefreshDemoControls;
 			SyncBus.Deactivated += RefreshDemoControls;
@@ -117,6 +140,7 @@ namespace Anaglyph.LaserTag.Interface
 				ShowSpaceAlignment();
 			else if (MapEditor.MapEditor.IsActive) OnMapEditorStateChanged(true);
 			OnMatchStateChanged(MatchReferee.State);
+			OnDemoModeChanged(DemoMode);
 			SelectTab(selectedTab);
 			errors.Bind(navView);
 		}
@@ -131,6 +155,7 @@ namespace Anaglyph.LaserTag.Interface
 			matchSettings?.Dispose();
 			matchSettings = null;
 			MatchReferee.StateChanged -= OnMatchStateChanged;
+			DemoModeChanged -= OnDemoModeChanged;
 			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
 			SyncBus.Activated -= RefreshDemoControls;
 			SyncBus.Deactivated -= RefreshDemoControls;
@@ -168,7 +193,7 @@ namespace Anaglyph.LaserTag.Interface
 		private void SelectTab(Tab tab)
 		{
 			bool maps = tab == Tab.Maps;
-			if (maps && !mapsTab.enabledSelf || tab == Tab.Demo && !demoTab.enabledSelf) return;
+			if (maps && !mapsTab.enabledSelf || tab == Tab.Demo && !DemoMode) return;
 			selectedTab = tab;
 			mapsNavigation.EnableInClassList("game-menu-hidden", !maps);
 			matchNavigation.EnableInClassList("game-menu-hidden", tab != Tab.Match);
@@ -202,11 +227,13 @@ namespace Anaglyph.LaserTag.Interface
 			RefreshDemoControls();
 		}
 
+		// demo controls would meddle with a match in progress
 		private void RefreshDemoControls()
 		{
-			demoWeapons.SetEnabled(SyncBus.Active && SessionWeaponSwitcher.Instance != null);
-			showDebugMeshForEveryone.SetEnabled(SyncBus.Active);
-			hideDebugMeshForEveryone.SetEnabled(SyncBus.Active);
+			bool available = SyncBus.Active && MatchReferee.State == MatchState.NotPlaying;
+			demoWeapons.SetEnabled(available && SessionWeaponSwitcher.Instance != null);
+			showDebugMeshForEveryone.SetEnabled(available);
+			hideDebugMeshForEveryone.SetEnabled(available);
 		}
 
 		private void RefreshBaseRequirements()
@@ -293,9 +320,16 @@ namespace Anaglyph.LaserTag.Interface
 		{
 			bool playing = state != MatchState.NotPlaying;
 			mapsTab.SetEnabled(!playing);
-			demoTab.SetEnabled(!playing);
+			RefreshDemoControls();
 			matchNavigation.SetModalPresented(playingPage, playing, 20);
 			if (playing) SelectTab(Tab.Match);
+		}
+
+		private void OnDemoModeChanged(bool on)
+		{
+			demoTab.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
+			if (!on && selectedTab == Tab.Demo)
+				SelectTab(mapsTab.enabledSelf ? Tab.Maps : Tab.Match);
 		}
 
 		private void OnNetcodeStateChanged(NetcodeState state)

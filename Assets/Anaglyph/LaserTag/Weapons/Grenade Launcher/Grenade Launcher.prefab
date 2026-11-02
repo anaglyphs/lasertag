@@ -1,0 +1,244 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &5590136025964441683
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6986795128661064175}
+  - component: {fileID: 1046495725283451962}
+  - component: {fileID: 2086107493002776326}
+  - component: {fileID: 8259843950057122773}
+  - component: {fileID: 6420102746224276340}
+  - component: {fileID: 5657579796625950239}
+  m_Layer: 0
+  m_Name: Grenade Launcher
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &6986795128661064175
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5590136025964441683}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 6364626521882018102}
+  - {fileID: 7520961279127222098}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1046495725283451962
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5590136025964441683}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fdf44a4ffac26409ab7419a08d9ba820, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Input::Anaglyph.Input.HandSubject
+  current: {fileID: 0}
+--- !u!114 &2086107493002776326
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5590136025964441683}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 64aa7d1847f4c4694af054912a9e5d79, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.Weapons.WeaponHaptics
+  hand: {fileID: 1046495725283451962}
+  controllerClip: {fileID: 2460798210113038985, guid: 9e5280b4ce2eb7949b8975ab8c740090, type: 3}
+  strikerClip: {fileID: 5572794820186912483, guid: a72c91097a4fb384f93318ce20e55d79, type: 3}
+--- !u!114 &8259843950057122773
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5590136025964441683}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 238bab5240b05ad459c0dd631822bf57, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Input::Anaglyph.Input.DeactivateUntracked
+  handSubject: {fileID: 1046495725283451962}
+--- !u!114 &6420102746224276340
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5590136025964441683}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 45292a157dd91406c997164dff5eccc7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.Weapons.WeaponPeripheralMount
+  muzzle: {fileID: 7520961279127222098}
+  visual: {fileID: 1833960984733220321}
+--- !u!114 &5657579796625950239
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5590136025964441683}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1ce640f29485f482d8ed6ba766a270a7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.Weapons.Grenades.GrenadeLauncher
+  grenadePrefab: {fileID: 793076488038798558, guid: 2af74696a5ee54ae6ad7fd276f039cfe, type: 3}
+  muzzle: {fileID: 7520961279127222098}
+  visual: {fileID: 1833960984733220321}
+  onFire:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 2086107493002776326}
+        m_TargetAssemblyTypeName: Anaglyph.LaserTag.Weapons.WeaponHaptics, Anaglyph.Lasertag
+        m_MethodName: Play
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: 
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+  roundsPerLife: 2
+  roundIndicators:
+  - {fileID: 5979334696320675100}
+  - {fileID: 476240688729992567}
+  rearmThreshold: 0.2
+--- !u!1 &8282284271619053601
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7520961279127222098}
+  m_Layer: 0
+  m_Name: Muzzle
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7520961279127222098
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8282284271619053601}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.64278764, y: 0, z: 0, w: 0.7660445}
+  m_LocalPosition: {x: 0, y: -0.131546, z: 0.066655}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 6986795128661064175}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &8463362514929586242
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 6986795128661064175}
+    m_Modifications:
+    - target: {fileID: 1287713938777169240, guid: 654a58ae5a3d7475a8a0ac983de21a73, type: 3}
+      propertyPath: m_Name
+      value: Grenade Launcher View
+      objectReference: {fileID: 0}
+    - target: {fileID: 3251692683243213172, guid: 654a58ae5a3d7475a8a0ac983de21a73, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3251692683243213172, guid: 654a58ae5a3d7475a8a0ac983de21a73, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3251692683243213172, guid: 654a58ae5a3d7475a8a0ac983de21a73, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3251692683243213172, guid: 654a58ae5a3d7475a8a0ac983de21a73, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3251692683243213172, guid: 654a58ae5a3d7475a8a0ac983de21a73, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3251692683243213172, guid: 654a58ae5a3d7475a8a0ac983de21a73, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3251692683243213172, guid: 654a58ae5a3d7475a8a0ac983de21a73, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3251692683243213172, guid: 654a58ae5a3d7475a8a0ac983de21a73, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3251692683243213172, guid: 654a58ae5a3d7475a8a0ac983de21a73, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3251692683243213172, guid: 654a58ae5a3d7475a8a0ac983de21a73, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 654a58ae5a3d7475a8a0ac983de21a73, type: 3}
+--- !u!1 &476240688729992567 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 8351948872589425973, guid: 654a58ae5a3d7475a8a0ac983de21a73, type: 3}
+  m_PrefabInstance: {fileID: 8463362514929586242}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1833960984733220321 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 7782341726509657507, guid: 654a58ae5a3d7475a8a0ac983de21a73, type: 3}
+  m_PrefabInstance: {fileID: 8463362514929586242}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28eae13bae57d4e5cbb0ba997ece46cd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.Weapons.WeaponView
+--- !u!1 &5979334696320675100 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 2848872441078398302, guid: 654a58ae5a3d7475a8a0ac983de21a73, type: 3}
+  m_PrefabInstance: {fileID: 8463362514929586242}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &6364626521882018102 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 3251692683243213172, guid: 654a58ae5a3d7475a8a0ac983de21a73, type: 3}
+  m_PrefabInstance: {fileID: 8463362514929586242}
+  m_PrefabAsset: {fileID: 0}
