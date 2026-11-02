@@ -3,23 +3,23 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Text;
 using Anaglyph.Netcode.SyncVariables;
 using Anaglyph.XR;
 using Anaglyph.XR.SharedSpaces;
 using Anaglyph.XR.VisualLocalization;
-using Unity.Multiplayer.PlayMode;
+using ParrelSync;
 using UnityEditor;
 using UnityEngine;
 
 namespace Anaglyph.LaserTag.Editor
 {
 	/// <summary>
-	/// Two players in XR Simulation, through Multiplayer Play Mode: the main editor hosts, Player 2
-	/// joins, and both walk tours of the room (<see cref="SimLoopTest"/>) with their tracking
+	/// Two players in XR Simulation: the main editor hosts, a ParrelSync clone of the project joins as
+	/// Player 2, and both walk tours of the room (<see cref="SimLoopTest"/>) with their tracking
 	/// drifting, for as long as asked. <see cref="Launch"/> does all of it from edit mode, in and
-	/// out of play mode, and closes Player 2 again.
+	/// out of play mode, and closes Player 2 again. Being a full editor Player 2 has Burst, which
+	/// Multiplayer Play Mode's virtual players never get.
 	///
 	/// Ground truth: each player's simulated room stands where its tracking really is in its world.
 	/// So one player's head, taken into its own room and back out through the other player's, is
@@ -27,13 +27,12 @@ namespace Anaglyph.LaserTag.Editor
 	/// the head offset the shared alignment exists to remove. Each player logs once a second to
 	/// Logs/TwoPlayerTest/&lt;time&gt;/, and the host adds summary.txt when the run ends.
 	///
-	/// On 6000.6 the virtual players need macOS active in the main editor: while Android is, every
-	/// shader in them comes up null. <see cref="SimEnvironmentRigFollower"/> must be enabled on the
-	/// simulator prefab, or the room stands still and every offset reads 0.
+	/// <see cref="SimEnvironmentRigFollower"/> must be enabled on the simulator prefab, or the room
+	/// stands still and every offset reads 0.
 	///
-	/// unity-mcp can attach to the virtual player whenever the main editor reloads or leaves play
-	/// mode, and from there <see cref="Launch"/> refuses. Closing Player 2 at the end of a run gives
-	/// it back. <see cref="LastSummary"/> reads from either editor.
+	/// unity-mcp can attach to the clone while it is open, and from there <see cref="Launch"/>
+	/// refuses. Closing Player 2 at the end of a run gives it back. <see cref="LastSummary"/> reads
+	/// from either editor.
 	/// </summary>
 	[InitializeOnLoad]
 	public static class TwoPlayerTest
@@ -41,9 +40,10 @@ namespace Anaglyph.LaserTag.Editor
 		private const string Menu = "Lasertag/Two Player Test/";
 		private const string RunningKey = "Anaglyph.TwoPlayerTest.Running";
 		private const string SettingsKey = "Anaglyph.TwoPlayerTest.Settings";
-		private const float LaunchTimeout = 180f;
 		// a run left behind by a crash stops counting this long after it should have ended
-		private const double RunGrace = 300;
+		private const double RunGrace = 600;
+		// opening the clone can take most of that, and the clone must still see the run when it's up
+		private const float LaunchTimeout = 480f;
 		private const double MaxSampleGap = 1.2;
 		public const int MapNone = 0, MapBuild = 1, MapUse = 2;
 
@@ -58,7 +58,6 @@ namespace Anaglyph.LaserTag.Editor
 			public int stops;
 			public float spacing;
 			public float speed;
-			public bool external;
 			public int map;
 			public float recenterAt;
 		}
@@ -101,14 +100,13 @@ namespace Anaglyph.LaserTag.Editor
 		private static bool waitingForPlayer;
 		private static double launchedAt;
 		private static float recenterDue;
-		private static bool externalEntered;
-
-		// a copy of the project running Player 2 is told where the main project's logs are
-		private const string MainProjectArgument = "-lasertagMainProject";
+		private static bool cloneRefreshed, cloneEntered;
 
 		static TwoPlayerTest()
 		{
-						EditorApplication.playModeStateChanged += OnPlayModeChanged;
+			// CloneSaveBlock does this job without ParrelSync's dialog, which hangs a clone nobody is watching
+			if (ClonesManager.IsClone()) EditorPrefs.SetBool("ParrelSync_DisableClonesAssetSaving", false);
+			EditorApplication.playModeStateChanged += OnPlayModeChanged;
 			EditorApplication.update += Tick;
 		}
 
@@ -123,12 +121,8 @@ namespace Anaglyph.LaserTag.Editor
 		[MenuItem(Menu + "Stop")]
 		private static void StopMenu()
 		{
-			if (waitingForPlayer)
-			{
-				waitingForPlayer = false;
-				Finish();
-			}
-			else if (Application.isPlaying) EditorApplication.isPlaying = false;
+			if (Application.isPlaying) EditorApplication.isPlaying = false;
+			else Finish();
 		}
 
 		[MenuItem(Menu + "Stop", true)]
@@ -142,8 +136,8 @@ namespace Anaglyph.LaserTag.Editor
 		private static bool IsRunning => SessionState.GetBool(RunningKey, false);
 
 		/// <summary>
-		/// Runs two players for <paramref name="minutes"/>, from edit mode in the main editor: Player 2
-		/// launched, play mode in and out, Player 2 closed. Read <see cref="LastSummary"/> afterwards.
+		/// Runs two players for <paramref name="minutes"/>, from edit mode in the main editor: the clone
+		/// opened, play mode in and out, the clone closed. Read <see cref="LastSummary"/> afterwards.
 		/// Returns why not, or null when it started.
 		/// </summary>
 		/// <param name="graph">Off for a baseline: no pairs matched, nothing solved.</param>
@@ -151,21 +145,20 @@ namespace Anaglyph.LaserTag.Editor
 		/// <param name="seed">Non-zero: the drift, the start poses and the walkers follow it, so runs compare.</param>
 		/// <param name="map">What becomes of the saved map, each of them the space's only copy: <see cref="MapNone"/> neither reads nor writes it, <see cref="MapBuild"/> starts empty and saves over it, <see cref="MapUse"/> starts from it and leaves it as it was.</param>
 		/// <param name="recenterAt">Above 0: seconds in, the host's tracking is recentered, and a minute later Player 2's, which each has to come back from.</param>
-		/// <param name="external">Player 2 is a separate editor, started with <see cref="SimPlayer.ExternalArgument"/>, which enters play by itself.</param>
-		public static string Launch(float minutes, bool graph = true, int seed = 0, int stops = 6, float spacing = 6f, float speed = 0f, bool external = false, int map = MapNone, float recenterAt = 0)
+		public static string Launch(float minutes, bool graph = true, int seed = 0, int stops = 6, float spacing = 6f, float speed = 0f, int map = MapNone, float recenterAt = 0)
 		{
-			if (!SimPlayer.IsMainEditor) return "run this from the main editor, not a virtual player";
+			if (!SimPlayer.IsMainEditor) return "run this from the main editor, not a clone or a virtual player";
 			if (Application.isPlaying) return "leave play mode first";
 			if (EditorApplication.isCompiling) return "compiling";
 			if (IsRunning) return "a run is already under way";
-			if (!external && EditorUserBuildSettings.activeBuildTarget != BuildTarget.StandaloneOSX)
-				return $"{EditorUserBuildSettings.activeBuildTarget} is the active target: make macOS active first, virtual players get no shaders otherwise";
+			string clone = ClonesManager.GetCloneProjectsPath().FirstOrDefault();
+			if (clone == null) return "no ParrelSync clone of this project: make one in ParrelSync > Clones Manager";
 
 			ReimportSettings();
 			run = new Run
 			{
 				folder = Path.Combine(LogRoot, DateTime.Now.ToString("yyyyMMdd-HHmmss")),
-				createdAt = Now, minutes = minutes, graph = graph, seed = seed, stops = stops, spacing = spacing, speed = speed, external = external, map = map, recenterAt = recenterAt,
+				createdAt = Now, minutes = minutes, graph = graph, seed = seed, stops = stops, spacing = spacing, speed = speed, map = map, recenterAt = recenterAt,
 			};
 			Directory.CreateDirectory(run.folder);
 			File.WriteAllText(RunPath, JsonUtility.ToJson(run));
@@ -178,17 +171,14 @@ namespace Anaglyph.LaserTag.Editor
 			PlayModeTrackingDrift.Setting.Value = true;
 			SessionState.SetBool(RunningKey, true);
 
-			if (external)
+			try
 			{
-				EditorApplication.isPlaying = true;
-				return null;
+				if (!ClonesManager.IsCloneProjectRunning(clone)) ClonesManager.OpenProject(clone);
 			}
-
-			string problem = SetPlayerActive(true);
-			if (problem != null)
+			catch (Exception e)
 			{
 				Finish();
-				return problem;
+				return $"can't open the clone: {e.Message}";
 			}
 
 			waitingForPlayer = true;
@@ -201,24 +191,11 @@ namespace Anaglyph.LaserTag.Editor
 
 		// ---- paths and clocks ------------------------------------------------------
 
-		// a virtual player's data path is under the main project's Library
-		private static string ProjectRoot
-		{
-			get
-			{
-				string[] arguments = Environment.GetCommandLineArgs();
-				int mainProject = Array.IndexOf(arguments, MainProjectArgument);
-				if (mainProject >= 0 && mainProject + 1 < arguments.Length) return arguments[mainProject + 1];
-
-				string data = Application.dataPath;
-				int virtualProject = data.IndexOf("/Library/VP/", StringComparison.Ordinal);
-				return virtualProject >= 0 ? data.Substring(0, virtualProject) : Path.GetDirectoryName(data);
-			}
-		}
-
-		private static string LogRoot => Path.Combine(ProjectRoot, "Logs", "TwoPlayerTest");
+		private static string LogRoot => Path.Combine(ClonesManager.GetOriginalProjectPath(), "Logs", "TwoPlayerTest");
 		private static string RunPath => Path.Combine(LogRoot, "run.json");
 		private static string LatestPath => Path.Combine(LogRoot, "latest.txt");
+		// the clone leaves this in the run's folder as it enters play
+		private static string CloneReadyPath(Run forRun) => Path.Combine(forRun.folder, "clone-ready");
 		private static double Now => (DateTime.UtcNow - DateTime.UnixEpoch).TotalSeconds;
 
 		private static Run ReadRun()
@@ -273,7 +250,7 @@ namespace Anaglyph.LaserTag.Editor
 			Maps.VisualMapPersistence.SkipSaveForTests = coming != null && !(host && map == MapBuild);
 		}
 
-		// the host's summary, Player 2 closed, the settings as they were
+		// the host's summary, the settings as they were. The run gone is what closes Player 2
 		private static void Finish()
 		{
 			waitingForPlayer = false;
@@ -290,9 +267,6 @@ namespace Anaglyph.LaserTag.Editor
 			if (File.Exists(RunPath)) File.Delete(RunPath);
 			run = null;
 
-			string problem = ended is { external: true } ? null : SetPlayerActive(false);
-			if (problem != null) Report(problem);
-
 			string[] settings = SessionState.GetString(SettingsKey, "").Split(',');
 			if (settings.Length != 3) return;
 			PlayModeAutoConnect.Setting.Value = bool.Parse(settings[0]);
@@ -302,18 +276,18 @@ namespace Anaglyph.LaserTag.Editor
 
 		private static void Tick()
 		{
-			if (SimPlayer.IsExternal) TickExternalPlayer();
+			if (ClonesManager.IsClone()) TickClone();
 
 			if (waitingForPlayer)
 			{
-				if (IsPlayerLaunched())
+				if (run != null && File.Exists(CloneReadyPath(run)))
 				{
 					waitingForPlayer = false;
 					EditorApplication.isPlaying = true;
 				}
 				else if (EditorApplication.timeSinceStartup - launchedAt > LaunchTimeout)
 				{
-					Report("Player 2 never launched");
+					Report("Player 2 never launched: is the clone stuck on a dialog, or is a stale Temp/UnityLockfile left in it?");
 					Finish();
 				}
 
@@ -365,18 +339,27 @@ namespace Anaglyph.LaserTag.Editor
 		// a prefab that never saved a setting holds the default from its last import, not the code's
 		private static void ReimportSettings() => AssetDatabase.ImportAsset("Assets/Anaglyph/LaserTag/MapManager.prefab", ImportAssetOptions.ForceUpdate);
 
-		private static void TickExternalPlayer()
+		private static void TickClone()
 		{
 			if (EditorApplication.isCompiling || EditorApplication.isUpdating) return;
 			Run current = ReadRun();
-			if (!externalEntered)
+			if (!cloneEntered)
 			{
-				if (current is not { external: true } || Application.isPlaying) return;
-				externalEntered = true;
-				ReimportSettings();
+				if (current == null || Application.isPlaying) return;
+				// the clone shares Assets, and may have been open since before they changed. A reload here starts this over
+				if (!cloneRefreshed)
+				{
+					cloneRefreshed = true;
+					ReimportSettings();
+					AssetDatabase.Refresh();
+					return;
+				}
+
+				cloneEntered = true;
 				PlayModeAutoConnect.Setting.Value = true;
 				PlayModeXRSimulation.Setting.Value = true;
 				PlayModeTrackingDrift.Setting.Value = true;
+				File.WriteAllText(CloneReadyPath(current), "");
 				EditorApplication.isPlaying = true;
 			}
 			else if (current == null) EditorApplication.Exit(0);
@@ -580,36 +563,12 @@ namespace Anaglyph.LaserTag.Editor
 			text.Append($"; Player 2 walked {lastPlayer.walked:F0} m, {lastPlayer.ownViews} own views + {lastPlayer.otherViews} others, {lastPlayer.sites} sites ({lastPlayer.crossLinks} cross-links), {lastPlayer.pairs} pairs tried, heard {lastPlayer.solves} solves");
 			return text.ToString();
 		}
+	}
 
-		// ---- Player 2 ------------------------------------------------------------
-
-		// Multiplayer Play Mode offers its players only through its window, so through its internals here
-		private const BindingFlags AnyMember = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
-
-		private static object FindPlayer2()
-		{
-			Assembly module = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetName().Name == "UnityEditor.MultiplayerModule");
-			Type playmode = module?.GetType("Unity.Multiplayer.PlayMode.Editor.MultiplayerPlaymode");
-			Array players = playmode?.GetProperty("Players", AnyMember)?.GetValue(null) as Array;
-			return players != null && players.Length > 1 ? players.GetValue(1) : null;
-		}
-
-		private static string SetPlayerActive(bool active)
-		{
-			object player = FindPlayer2();
-			if (player == null) return "Multiplayer Play Mode's players can't be reached: has this Unity version changed them?";
-			MethodInfo method = player.GetType().GetMethod(active ? "Activate" : "Deactivate", AnyMember);
-			if (method == null) return "Multiplayer Play Mode's players can't be activated: has this Unity version changed them?";
-			object[] arguments = method.GetParameters().Select(p => p.ParameterType.IsByRef ? null : Activator.CreateInstance(p.ParameterType)).ToArray();
-			method.Invoke(player, arguments);
-			return null;
-		}
-
-		private static bool IsPlayerLaunched()
-		{
-			object player = FindPlayer2();
-			return player?.GetType().GetProperty("PlayerState", AnyMember)?.GetValue(player)?.ToString() == "Launched";
-		}
+	/// <summary>A clone shares the main project's Assets and ProjectSettings, so it saves nothing into them.</summary>
+	public class CloneSaveBlock : AssetModificationProcessor
+	{
+		public static string[] OnWillSaveAssets(string[] paths) => ClonesManager.IsClone() ? Array.Empty<string>() : paths;
 	}
 }
 #endif

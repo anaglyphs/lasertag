@@ -17,7 +17,7 @@ namespace Anaglyph.LaserTag
 			get
 			{
 #if UNITY_EDITOR
-				// Multiplayer Play Mode virtual players have no headset
+				// ParrelSync clones and Multiplayer Play Mode virtual players have no headset
 				return Editor.PlayModeXRSimulation.Setting.Value ||
 				       !Anaglyph.XR.SimPlayer.IsMainEditor;
 #else

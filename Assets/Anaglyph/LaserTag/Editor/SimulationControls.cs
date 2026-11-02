@@ -44,8 +44,8 @@ namespace Anaglyph.LaserTag.Editor
 			DrawToggle("Autoconnect", PlayModeAutoConnect.Setting);
 
 			EditorGUILayout.HelpBox(
-				"On play, the main editor hosts over LAN and Multiplayer Play Mode " +
-				$"virtual players connect to {PlayModeAutoConnect.LoopbackIP}.",
+				"On play, the main editor hosts over LAN and ParrelSync clones and " +
+				$"Multiplayer Play Mode virtual players connect to {PlayModeAutoConnect.LoopbackIP}.",
 				MessageType.None);
 
 			SimulatedConnectivity.State = (NetworkState)EditorGUILayout.IntPopup(
