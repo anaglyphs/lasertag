@@ -103,11 +103,27 @@ namespace Anaglyph.LaserTag.Editor
 		/// </summary>
 		public static Transform FindRoom()
 		{
-			Type surface = Type.GetType("Unity.AI.Navigation.NavMeshSurface, Unity.AI.Navigation");
+			Type surface = SurfaceType;
 			if (surface == null) return null;
 			UnityEngine.Object found = FindFirstObjectByType(surface);
 			return found is Component c ? c.transform.root : null;
 		}
+
+		/// <summary>
+		/// Puts the nav-mesh where its room is now. It lags the room, and a route planned on it
+		/// before it catches up walks the head through the air beside the building.
+		/// </summary>
+		public static void SyncNavMesh()
+		{
+			Type surface = SurfaceType;
+			if (surface == null) return;
+			UnityEngine.Object found = FindFirstObjectByType(surface);
+			if (found == null) return;
+			surface.GetMethod("RemoveData").Invoke(found, null);
+			surface.GetMethod("AddData").Invoke(found, null);
+		}
+
+		private static Type SurfaceType => Type.GetType("Unity.AI.Navigation.NavMeshSurface, Unity.AI.Navigation");
 
 		private bool Bind()
 		{

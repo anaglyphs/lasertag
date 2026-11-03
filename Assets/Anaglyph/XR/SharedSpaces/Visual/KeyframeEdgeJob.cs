@@ -59,6 +59,8 @@ namespace Anaglyph.XR.SharedSpaces
 		public uint seed;
 		/// <summary>One element, its <see cref="KeyframeEdge.inliers"/> not positive when the views share too little.</summary>
 		[WriteOnly] public NativeArray<KeyframeEdge> result;
+		/// <summary>Optional, sized as A's rows: which of A's rows the edge's inliers are.</summary>
+		[WriteOnly] public NativeArray<int> inliersOfA;
 
 		public void Execute()
 		{
@@ -84,7 +86,7 @@ namespace Anaglyph.XR.SharedSpaces
 				return;
 			}
 
-			if (!Refine(targets, rays, ref yaw, ref pivotA, ref pivotB, out int inliers, out double4x4 hessian) || inliers < minInliers)
+			if (!Refine(targets, rays, matchA, ref yaw, ref pivotA, ref pivotB, out int inliers, out double4x4 hessian) || inliers < minInliers)
 			{
 				Stop(RefinementLost);
 				return;
@@ -207,7 +209,7 @@ namespace Anaglyph.XR.SharedSpaces
 		}
 
 		// about a pivot in the middle of what agrees, so yaw and position hardly couple there
-		private bool Refine(NativeArray<float3> targets, NativeArray<float3> rays, ref float yaw, ref float3 pivotA, ref float3 pivotB,
+		private bool Refine(NativeArray<float3> targets, NativeArray<float3> rays, NativeArray<int> matchA, ref float yaw, ref float3 pivotA, ref float3 pivotB,
 			out int inliers, out double4x4 hessian)
 		{
 			inliers = 0;
@@ -259,6 +261,7 @@ namespace Anaglyph.XR.SharedSpaces
 					double3 ray = Turn(s, c, (double3)rays[k]);
 					double3 e = u - ray;
 					if (math.lengthsq(e) >= gate) continue;
+					if (inliersOfA.IsCreated) inliersOfA[inliers] = matchA[k];
 					inliers++;
 
 					// the ray's error: the direction to the point less the ray. A step of the center

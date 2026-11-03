@@ -317,6 +317,7 @@ namespace Anaglyph.LaserTag.Editor
 					File.WriteAllText(Path.ChangeExtension(logPath, ".graph.json"), graph.ToDebugJson());
 					File.AppendAllLines(Path.ChangeExtension(logPath, ".pairs.csv"), graph.PairLog);
 					graph.PairLog.Clear();
+					File.WriteAllLines(Path.ChangeExtension(logPath, ".outcomes.txt"), VisualColocationConstraintProvider.Instance.RecentOutcomes);
 				}
 			}
 

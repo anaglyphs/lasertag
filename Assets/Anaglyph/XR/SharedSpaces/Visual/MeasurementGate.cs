@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Anaglyph.XR.DepthKit.EnvScanning.Registration;
 using Anaglyph.XR.VisualLocalization;
 using Unity.Mathematics;
@@ -47,8 +48,8 @@ namespace Anaglyph.XR.SharedSpaces
 			[Tooltip("Colocating and relocalizing")]
 			public Thresholds alignment = new()
 			{
-				minInliers = 30, maxNormalizedRms = 2f, maxYawSigmaDegrees = 0.5f, maxTranslationSigma = 0.04f,
-				confidentYawSigmaDegrees = 0.15f, confidentTranslationSigma = 0.01f, confidentInliers = 150, confidentInlierShare = 0.6f,
+				minInliers = 30, maxNormalizedRms = 2f, maxYawSigmaDegrees = 1.5f, maxTranslationSigma = 0.08f,
+				confidentYawSigmaDegrees = 0.4f, confidentTranslationSigma = 0.03f, confidentInliers = 100, confidentInlierShare = 0.6f,
 			};
 
 			[Tooltip("Revisits. One frame is enough with fewer inliers: the search is already confined to old views near where the graph puts the camera, and a moving player rarely gives a second frame of the same views in time")]
@@ -105,8 +106,9 @@ namespace Anaglyph.XR.SharedSpaces
 		private readonly Settings settings;
 		private readonly Func<ulong, ulong, float> drift, walkedBetween;
 
-		// the first of two results that must agree
-		private Frame candidate;
+		// results waiting for one to agree with: a wrong one doesn't push out a right one
+		private readonly List<Frame> candidates = new();
+		private const int MaxCandidates = 4;
 
 		/// <param name="settings">Read live, so they can be tuned while running.</param>
 		/// <param name="drift">How far tracking may have drifted between two track segments, meters.</param>
@@ -121,8 +123,8 @@ namespace Anaglyph.XR.SharedSpaces
 		/// <summary>How fast tracking drifts: what the allowances for a walk come from.</summary>
 		public DriftModel Model { get; set; } = DriftModel.Default;
 
-		/// <summary>Forgets the result waiting on a second frame.</summary>
-		public void Clear() => candidate = null;
+		/// <summary>Forgets the results waiting on a second frame.</summary>
+		public void Clear() => candidates.Clear();
 
 		private ref readonly Thresholds For(MeasurementPurpose purpose)
 		{
@@ -163,25 +165,27 @@ namespace Anaglyph.XR.SharedSpaces
 
 		/// <summary>
 		/// Whether this result is enough to act on: two independent frames must agree, unless
-		/// one is certain enough on its own. One that doesn't agree becomes the candidate, and
+		/// one is certain enough on its own. One that doesn't agree joins the candidates, and
 		/// the caller should ask for the confirming frame at once, while the old views are still
-		/// in sight. A frame that fails the gate says nothing against the candidate, and doesn't
+		/// in sight. A frame that fails the gate says nothing against the candidates, and doesn't
 		/// come here: it stays for the next good one.
 		/// </summary>
 		public bool TryAgree(Frame frame, out Agreed agreed)
 		{
 			agreed = default;
 			bool confident = Confident(frame.solve, frame.purpose);
-			if (!confident && !AgreesWithCandidate(frame))
+			Frame agreeing = confident ? frame : candidates.Find(candidate => Agrees(candidate, frame));
+			if (agreeing == null)
 			{
-				candidate = frame;
+				if (candidates.Count == MaxCandidates) candidates.RemoveAt(0);
+				candidates.Add(frame);
 				return false;
 			}
 
 			// a confident frame stands in for both
-			agreed = Combine(confident ? frame : candidate, frame);
+			agreed = Combine(agreeing, frame);
 			agreed.alone = confident;
-			candidate = null;
+			candidates.Clear();
 			return true;
 		}
 
@@ -196,9 +200,9 @@ namespace Anaglyph.XR.SharedSpaces
 			       pose.inliers >= t.confidentInlierShare * pose.correspondences;
 		}
 
-		private bool AgreesWithCandidate(Frame frame)
+		private bool Agrees(Frame candidate, Frame frame)
 		{
-			if (candidate == null || candidate.purpose != frame.purpose || candidate.generation != frame.generation || candidate.epoch != frame.epoch) return false;
+			if (candidate.purpose != frame.purpose || candidate.generation != frame.generation || candidate.epoch != frame.epoch) return false;
 
 			// a moving player's two loop measurements come seconds and meters apart, and tracking
 			// drifts on between them: they may differ by as much as it could have drifted
@@ -212,7 +216,9 @@ namespace Anaglyph.XR.SharedSpaces
 			}
 
 			float yawDifference = math.abs(Pose4.WrapAngle(frame.correction.yaw - candidate.correction.yaw));
-			if (yawDifference > math.radians(settings.agreeYawDegrees) + Model.YawAllowance(walked)) return false;
+			float candidateYawSigma = candidate.solve.yawSigma, yawSigma = frame.solve.yawSigma;
+			float yawTolerance = math.max(math.radians(settings.agreeYawDegrees), 3 * math.sqrt(candidateYawSigma * candidateYawSigma + yawSigma * yawSigma));
+			if (yawDifference > yawTolerance + Model.YawAllowance(walked)) return false;
 
 			// where the two put the camera: their translations alone differ by the yaw
 			// difference times the camera's distance from the world origin
@@ -238,7 +244,9 @@ namespace Anaglyph.XR.SharedSpaces
 
 			float3 focus = Focus(features, frame.camera);
 			float firstSigma = first.solve.TranslationSigmaAt(focus), sigma = frame.solve.TranslationSigmaAt(focus);
-			float yawMean = first.correction.yaw + Pose4.WrapAngle(frame.correction.yaw - first.correction.yaw) * 0.5f;
+			float firstYawWeight = 1f / math.max(first.solve.yawSigma * first.solve.yawSigma, 1e-8f);
+			float yawWeight = 1f / math.max(frame.solve.yawSigma * frame.solve.yawSigma, 1e-8f);
+			float yawMean = first.correction.yaw + Pose4.WrapAngle(frame.correction.yaw - first.correction.yaw) * yawWeight / (firstYawWeight + yawWeight);
 			// weighted by how well each pinned translation
 			float firstWeight = 1f / math.max(firstSigma * firstSigma, 1e-8f);
 			float weight = 1f / math.max(sigma * sigma, 1e-8f);

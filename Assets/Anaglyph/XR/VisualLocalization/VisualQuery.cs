@@ -37,6 +37,8 @@ namespace Anaglyph.XR.VisualLocalization
 		/// matching them only measures the correction they were placed with. 0 for none.
 		/// </summary>
 		public float minLoopWalkDrift;
+		/// <summary>Views matched, best ranked first and passing over those sighting few landmarks, until enough correspondences have come; 0 for the localizer's usual few.</summary>
+		public int maxViews;
 		/// <summary>Only <see cref="VisualKeyframe.locked"/> views are tried: a revisit's reference doesn't follow later laps.</summary>
 		public bool lockedOnly;
 		/// <summary>Keyframes facing more than this many degrees away from the query camera are skipped; 0 for any.</summary>

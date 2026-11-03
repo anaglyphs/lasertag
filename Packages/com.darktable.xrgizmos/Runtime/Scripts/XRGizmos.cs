@@ -679,6 +679,48 @@ namespace Utilities.XR
         }
 
         /// <summary>
+        ///   <para>Draw separate lines all in one color, from each pair of points.</para>
+        /// </summary>
+        /// <param name="points"></param>
+        /// <param name="color"></param>
+        /// <param name="lineThickness"></param>
+        [Conditional(k_XRGizmosDefine)]
+        public static void DrawLineSegments(IReadOnlyList<Vector3> points, Color color, float lineThickness = k_LineThickness)
+        {
+            if (points == null || points.Count < 2)
+            {
+                return;
+            }
+
+            s_GizmoProperties.SetColor(k_ColorID, color);
+
+            var lines = 0;
+
+            for (var i = 1; i < points.Count; i += 2)
+            {
+                if (!TryGetLineMatrix(points[i - 1], points[i], lineThickness, out var matrix))
+                {
+                    continue;
+                }
+
+                s_Matrices[lines++] = matrix;
+
+                if (lines == k_MaxInstances)
+                {
+                    Graphics.RenderMeshInstanced(s_RenderParams, s_CubeMesh, 0, s_Matrices, lines);
+                    lines = 0;
+                }
+            }
+
+            if (lines == 0)
+            {
+                return;
+            }
+
+            Graphics.RenderMeshInstanced(s_RenderParams, s_CubeMesh, 0, s_Matrices, lines);
+        }
+
+        /// <summary>
         ///   <para>Draw set of points all with same size.</para>
         /// </summary>
         /// <param name="points"></param>

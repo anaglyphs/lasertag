@@ -28,6 +28,8 @@ namespace Anaglyph.XR.VisualLocalization
 		[SerializeField] private VisualMapper.Settings mapperSettings = new();
 		[SerializeField] private InferenceQueue.Settings inferenceSettings = new();
 
+		private const int EnoughCorrespondences = 50, MinSightingsWhenSearching = 20;
+
 		[Header("Localization")]
 		[Tooltip("Views LighterGlue matches a query with no camera prior against, best shared features first")]
 		[SerializeField] private int keyframesPerQuery = 2;
@@ -322,7 +324,7 @@ namespace Anaglyph.XR.VisualLocalization
 				(options.untrustedFrom == 0 || IsLoopTarget(k, options.untrustedFrom, options.minLoopWalkDrift)) &&
 				(!options.lockedOnly || k.locked) &&
 				(options.maxViewAngle <= 0 || Vector3.Angle(k.camera.forward, queryForward) <= options.maxViewAngle);
-			List<(VisualKeyframe keyframe, int mutual)> candidates = await Map.RetrieveAsync(query.features, keyframesPerQuery, minMutual, filter,
+			List<(VisualKeyframe keyframe, int mutual)> candidates = await Map.RetrieveAsync(query.features, options.maxViews > 0 ? VisualMap.MaxRetrievalCandidates : keyframesPerQuery, minMutual, filter,
 				options.near, options.nearDistance > 0 ? options.nearDistance : float.PositiveInfinity, candidatesPerFrame: queue.RetrievalCandidatesPerFrame(urgent));
 			if (!this)
 			{
@@ -351,6 +353,8 @@ namespace Anaglyph.XR.VisualLocalization
 			Dictionary<int, int> byFeature = new(), byLandmark = new();
 			foreach ((VisualKeyframe keyframe, int _) in candidates)
 			{
+				if (options.maxViews > 0 && (m.keyframesMatched >= options.maxViews || m.correspondences.Count >= EnoughCorrespondences)) break;
+
 				// only the keyframe's features that sight a usable landmark can become
 				// correspondences: the rest would only take the matcher's time and slots
 				List<int> sighting = new();
@@ -359,7 +363,7 @@ namespace Anaglyph.XR.VisualLocalization
 					if (options.maxMatchFeatures > 0 && sighting.Count >= options.maxMatchFeatures) break;
 					if (Map.TryGetLandmark(keyframe.landmarks[j], out Landmark l) && l.IsUsable) sighting.Add(j);
 				}
-				if (sighting.Count < 6) continue;
+				if (sighting.Count < (options.maxViews > 0 ? MinSightingsWhenSearching : 6)) continue;
 
 				(int[] matches, float[] confidence) = await queue.MatchAsync(queryFeatures, keyframe.features.Subset(sighting), urgent);
 				if (matches == null || !this) continue;

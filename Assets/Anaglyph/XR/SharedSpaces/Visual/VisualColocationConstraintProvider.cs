@@ -34,6 +34,8 @@ namespace Anaglyph.XR.SharedSpaces
 	{
 		[SerializeField] private bool queriesEnabled = true;
 		[SerializeField] private float queryInterval = 1f;
+		[Tooltip("Views a colocating or relocalizing query tries: similar-looking views often outrank the one that shows the same place")]
+		[SerializeField] private int searchViews = 5;
 
 		[SerializeField] private MeasurementGate.Settings gateSettings = new();
 		[SerializeField] private DriftSites.Settings siteSettings = new();
@@ -93,6 +95,7 @@ namespace Anaglyph.XR.SharedSpaces
 		private VisualLocalizer localizer;
 		private readonly TrackAnchoring track = new();
 		private KeyframeGraph graph;
+		private VisualAlignmentDebugView debugView;
 		private MeasurementGate gate;
 		private DriftSites driftSites;
 		private ColocationLog log;
@@ -227,6 +230,7 @@ namespace Anaglyph.XR.SharedSpaces
 			localizer.Map.LocalOwner = graph.Owner;
 			localizer.Map.Evicted += graph.OnEvicted;
 			localizer.Map.Cleared += graph.Clear;
+			debugView = new VisualAlignmentDebugView(localizer, graph);
 			// the map's frame is gone when the scan is
 			if (EnvScanner.Instance != null) EnvScanner.Instance.Cleared += ClearMap;
 			alignment.PhaseChanged += OnPhaseChanged;
@@ -260,6 +264,7 @@ namespace Anaglyph.XR.SharedSpaces
 			}
 			graph.Dispose();
 			if (localizer) localizer.KeyframeAdded -= OnKeyframeAdded;
+			debugView?.Dispose();
 			if (EnvScanner.Instance != null) EnvScanner.Instance.Cleared -= ClearMap;
 			alignment.PhaseChanged -= OnPhaseChanged;
 			alignment.FrameAbandoned -= ClearScan;
@@ -431,7 +436,7 @@ namespace Anaglyph.XR.SharedSpaces
 			{
 				frames = new[] { p.query };
 				// a joiner matching the authority's map is waiting on it: the urgent pace
-				options = new LocalizeOptions { urgent = p.purpose == Purpose.Colocate };
+				options = new LocalizeOptions { urgent = p.purpose == Purpose.Colocate, maxViews = searchViews };
 			}
 
 			VisualLocalizationResult result = await localizer.LocalizeAsync(frames, options);
@@ -697,8 +702,9 @@ namespace Anaglyph.XR.SharedSpaces
 
 		private void LateUpdate()
 		{
-			if (!AnaglyphDebugging.DebugMode || MainXRRig.Instance == null || Sites.Count == 0 || alignment.CurrentPhase != Phase.Aligned) return;
+			if (!AnaglyphDebugging.DebugMode || MainXRRig.Instance == null || !MainXRRig.Camera || alignment.CurrentPhase != Phase.Aligned) return;
 			driftSites.DrawDebug(WorldFromPlaced);
+			debugView.Draw(MainXRRig.Camera.transform.position);
 		}
 	}
 }

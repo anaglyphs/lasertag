@@ -217,6 +217,7 @@ namespace Anaglyph.LaserTag.Editor
 			walker = w;
 			room = SimWalker.FindRoom();
 			if (!room) return "no XR Simulation environment with a NavMeshSurface";
+			SimWalker.SyncNavMesh();
 			if (depths) depths.Begin(room);
 
 			// stops spread out: each at least minSpacing from the head and the previous stops

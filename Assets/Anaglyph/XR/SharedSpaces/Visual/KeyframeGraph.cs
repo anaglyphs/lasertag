@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Anaglyph.Debugging;
 using Anaglyph.Netcode.SyncVariables;
 using Anaglyph.XR.DepthKit.EnvScanning.Registration;
 using Anaglyph.XR.VisualLocalization;
@@ -175,6 +176,9 @@ namespace Anaglyph.XR.SharedSpaces
 		private NativeArray<half> descriptorsA, descriptorsB;
 		private NativeArray<float3> pointsA, raysB;
 		private NativeArray<KeyframeEdge> edgeResult = new(1, Allocator.Persistent);
+		private NativeArray<int> inliersOfA;
+		private VisualKeyframe olderOfPair;
+		private int[] featuresOfPair;
 		private JobHandle edgeHandle;
 		private bool edgeInFlight;
 		private int countB, edgesOfNewer;
@@ -218,6 +222,9 @@ namespace Anaglyph.XR.SharedSpaces
 
 		public string Summary => $"{KnotCount} knots, {EdgeCount} edges from {PairsTried} pairs ({pairsLost[1]} few matches, {pairsLost[2]} no consensus, {pairsLost[3]} lost, {pairsLost[4]} loose yaw, {pairsLost[5]} bounds; {(edgeLagCount > 0 ? edgeLagSum / edgeLagCount : 0):F1} s to an edge, {(PairsTried > 0 ? pairSeconds / PairsTried * 1000 : 0):F1} ms a pair), {Solves} solves (last {LastSolveSeconds * 1000:F0} ms, moved {LastSolveMoved * 100:F1} cm)";
 
+		/// <summary>In debug mode: a landmark one of this headset's views just matched in an older view.</summary>
+		public event Action<int> LandmarkMatched = delegate { };
+
 		public KeyframeGraph(Settings settings, VisualLocalizer localizer, TrackAnchoring track)
 		{
 			this.settings = settings;
@@ -229,6 +236,7 @@ namespace Anaglyph.XR.SharedSpaces
 			descriptorsB = new NativeArray<half>(rows * d, Allocator.Persistent);
 			pointsA = new NativeArray<float3>(rows, Allocator.Persistent);
 			raysB = new NativeArray<float3>(rows, Allocator.Persistent);
+			inliersOfA = new NativeArray<int>(rows, Allocator.Persistent);
 		}
 
 		public void Dispose()
@@ -242,6 +250,7 @@ namespace Anaglyph.XR.SharedSpaces
 			descriptorsB.Dispose();
 			pointsA.Dispose();
 			raysB.Dispose();
+			inliersOfA.Dispose();
 			edgeResult.Dispose();
 			largestStep.Dispose();
 			DisposeSolve();
@@ -738,6 +747,34 @@ namespace Anaglyph.XR.SharedSpaces
 #endif
 
 		/// <summary>Raw tracking to the map at this far along a knot's stretch, between it and the next.</summary>
+		/// <summary>Appends lines as pairs of points: each knot's axes and the walk between knots, and the matches between knots.</summary>
+		public void AddDebugLines(List<Vector3> walkLines, List<Vector3> matchLines, float axisLength)
+		{
+			for (int k = 0; k < knots.Length; k++)
+			{
+				Vector3 at = WorldOfKnot(k);
+				Quaternion rotation = Transform(k, knots[k].path).Rotation;
+				walkLines.Add(at);
+				walkLines.Add(at + rotation * Vector3.up * (axisLength * 0.75f));
+				walkLines.Add(at);
+				walkLines.Add(at + rotation * Vector3.right * (axisLength * 0.5f));
+				walkLines.Add(at);
+				walkLines.Add(at + rotation * Vector3.forward * axisLength);
+				if (knots[k].previous < 0) continue;
+				walkLines.Add(at);
+				walkLines.Add(WorldOfKnot(knots[k].previous));
+			}
+
+			for (int e = 0; e < edges.Length; e++)
+			{
+				if (edges[e].knotA == edges[e].knotB) continue;
+				matchLines.Add(WorldOfKnot(edges[e].knotA));
+				matchLines.Add(WorldOfKnot(edges[e].knotB));
+			}
+		}
+
+		private Vector3 WorldOfKnot(int knot) => Transform(knot, knots[knot].path).Apply(knots[knot].origin);
+
 		public Pose4 Transform(int knot, float path)
 		{
 			double4 x = state[knot];
@@ -781,6 +818,9 @@ namespace Anaglyph.XR.SharedSpaces
 					edge.yawInformation = confidence / math.square(math.radians(settings.edgeYawSigmaDegrees));
 					AddEdge(keyA, keyB, edge);
 					if (edge.inliers >= settings.confidentInliers && KnotKeys.Owner(keyB) == Owner) OfferFix(keyA, edge, pathB);
+					if (AnaglyphDebugging.DebugMode && KnotKeys.Owner(keyB) == Owner)
+						for (int i = 0; i < edge.inliers; i++)
+							LandmarkMatched(olderOfPair.landmarks[featuresOfPair[inliersOfA[i]]]);
 					edgeLagSum += Time.unscaledTime - newerAt;
 					edgeLagCount++;
 					if (++edgesOfNewer >= settings.edgesPerKeyframe) pairs.Clear();
@@ -877,7 +917,7 @@ namespace Anaglyph.XR.SharedSpaces
 			return count;
 		}
 
-		private bool IsRanged(Landmark l) => l.IsUsable && l.inverseDepth >= settings.minInverseDepth && l.inverseDepthSigma < settings.maxDepthSigmaShare * l.inverseDepth;
+		public bool IsRanged(Landmark l) => l.IsUsable && l.inverseDepth >= settings.minInverseDepth && l.inverseDepthSigma < settings.maxDepthSigmaShare * l.inverseDepth;
 
 		// a landmark where the tracking that made it placed it: no graph in it
 		private float3 RawPoint(Landmark l)
@@ -936,6 +976,8 @@ namespace Anaglyph.XR.SharedSpaces
 
 			PairsTried++;
 			pairBegan = Time.realtimeSinceStartup;
+			olderOfPair = older;
+			featuresOfPair = view.features;
 #if UNITY_EDITOR
 			Vector3 toOlder = older.camera.position - newerCamera.camera.position;
 			toOlder.y = 0;
@@ -948,7 +990,7 @@ namespace Anaglyph.XR.SharedSpaces
 				countA = view.features.Length, countB = countB,
 				centerB = centerB, angularSigma = angularSigma,
 				minInliers = settings.minInliers, maxYawSigma = math.radians(settings.maxYawSigmaDegrees),
-				seed = seed++, result = edgeResult,
+				seed = seed++, result = edgeResult, inliersOfA = inliersOfA,
 			}.Schedule();
 			JobHandle.ScheduleBatchedJobs();
 			edgeInFlight = true;

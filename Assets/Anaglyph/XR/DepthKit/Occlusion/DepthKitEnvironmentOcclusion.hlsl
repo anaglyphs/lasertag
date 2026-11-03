@@ -3,7 +3,6 @@
 #pragma target 4.5
 
 Texture2DArray<float> agOcclusionTex;
-SamplerState linearClampSampler;
 
 float agOcclusionActive = 1.0;
 
@@ -56,12 +55,16 @@ void agEnvOcclusion_half(float3 WorldPos, out float OutValue)
 	agEnvOcclusion_float(WorldPos, OutValue);
 }
 
-void agEnvOcclusionSample_half(float2 uv, out float val)
+// distance along a ray from the eye to the occluding surface.
+// Reads the far plane's distance where nothing was rasterized
+void agEnvSurfaceDistance_float(float3 EyePos, float3 RayDir, out float OutDistance)
 {
-	val = agOcclusionTex.Sample(linearClampSampler, float3(uv, 0)).r;
-}
+	uint eye = unity_StereoEyeIndex;
+	float2 uv = agOcclusionUVDepth(EyePos + RayDir, eye).xy;
+	float depth = agOcclusionTex.SampleLevel(agPointClampSampler, float3(uv, eye), 0);
 
-void agEnvOcclusionSample_float(float2 uv, out float val)
-{
-	val = agOcclusionTex.Sample(linearClampSampler, float3(uv, 0)).r;
+	// solves depth = clip.z / clip.w for clip = eyeClip + distance * dirClip
+	float4 eyeClip = mul(agOcclusionVP[eye], float4(EyePos, 1));
+	float4 dirClip = mul(agOcclusionVP[eye], float4(RayDir, 0));
+	OutDistance = (eyeClip.z - depth * eyeClip.w) / (depth * dirClip.w - dirClip.z);
 }
