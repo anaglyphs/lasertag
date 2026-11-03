@@ -54,6 +54,10 @@ namespace Anaglyph.LaserTag.Player
 
 		private static bool SessionFrameReady => SpaceManager.Instance != null && !SpaceManager.Instance.IsChangingMap;
 
+		/// <summary>This peer can place other players where they stand: its rig is in the shared frame. An operator has no rig and watches from outside it.</summary>
+		public static bool LocalViewAligned => HeadsetConfiguration.IsOperatorDevice ||
+			SessionFrameReady && SpaceManager.Instance.Alignment.IsAligned;
+
 		public override void OnNetworkSpawn()
 		{
 			focused = AppFocus.IsFocused;

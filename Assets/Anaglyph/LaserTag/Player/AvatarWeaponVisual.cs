@@ -25,6 +25,7 @@ namespace Anaglyph.LaserTag.Player
 		private GameObject instance;
 		private GameObject presentationRoot;
 		private PlayerAvatar avatar;
+		private AvatarPresentation presentation;
 		private WeaponVisual visual;
 		private int id = WeaponDatabase.NoWeapon;
 		public GameObject EquippedWeapon => database.GetWeapon(id);
@@ -36,6 +37,7 @@ namespace Anaglyph.LaserTag.Player
 		private void Awake()
 		{
 			avatar = GetComponentInParent<PlayerAvatar>(true);
+			presentation = GetComponentInParent<AvatarPresentation>(true);
 			// Tracking controls the weapon instance itself. A separate parent lets presence
 			// hide it without a tracking callback accidentally making it active again.
 			presentationRoot = new GameObject("Weapon Presentation");
@@ -140,12 +142,13 @@ namespace Anaglyph.LaserTag.Player
 		// what the owner's own weapon does for itself, applied to everyone else's copy
 		private void ApplySyncedState()
 		{
-			presentationRoot.SetActive(IsSpawned && avatar.CanInteract && shownSync.Value);
+			bool shown = IsSpawned && presentation.IsShown && avatar.IsAlive;
+			presentationRoot.SetActive(shown && shownSync.Value);
 			if (instance == null)
 				return;
 
 			if (visual != null)
-				visual.SetFiring(avatar.CanInteract && firingSync.Value);
+				visual.SetFiring(shown && firingSync.Value);
 		}
 
 		private void OnWeaponIdChanged(int previous, int current) => Show(current);

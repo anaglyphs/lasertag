@@ -182,22 +182,38 @@ namespace Anaglyph.LaserTag.Tests
 			var renderer = body.GetComponent<Renderer>();
 			var collider = body.GetComponent<Collider>();
 			renderer.enabled = false; // equivalent to DontRenderIfOwner
-			var presentation = player.gameObject.AddComponent<AvatarPresentation>();
-			Invoke(presentation, "Awake");
+			var presentation = Presentation(player);
+			Refresh(presentation, true);
 			Assert.That(renderer.forceRenderingOff, Is.False);
 			Assert.That(renderer.enabled, Is.False);
 			Assert.That(collider.enabled, Is.True);
 			NetworkValue(player.HeadsetStatus, "readinessSync", Ready(false));
-			Invoke(presentation, "Refresh");
+			Refresh(presentation, true);
 			Assert.That(renderer.forceRenderingOff, Is.True);
 			Assert.That(collider.enabled, Is.False);
 			Assert.That(player.enabled && player.HeadsetStatus.enabled, Is.True);
 			Assert.That(player.IsSpawned, Is.True);
 			NetworkValue(player.HeadsetStatus, "readinessSync", Ready(true));
-			Invoke(presentation, "Refresh");
+			Refresh(presentation, true);
 			Assert.That(renderer.forceRenderingOff, Is.False);
 			Assert.That(renderer.enabled, Is.False);
 			Assert.That(collider.enabled, Is.True);
+		}
+
+		[Test]
+		public void UnalignedViewerSeesNoOtherPlayerButStillCollidesWithThem()
+		{
+			PlayerAvatar player = Player(1);
+			var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
+			body.transform.SetParent(player.transform);
+			var presentation = Presentation(player);
+			Refresh(presentation, true);
+			Assert.That(presentation.IsShown, Is.True);
+			Refresh(presentation, false);
+			Assert.That(presentation.IsShown, Is.False);
+			Assert.That(body.GetComponent<Renderer>().forceRenderingOff, Is.True);
+			Assert.That(body.GetComponent<Collider>().enabled, Is.True);
+			Assert.That(player.HasSpatialPresence, Is.True);
 		}
 
 		[Test]
@@ -228,6 +244,8 @@ namespace Anaglyph.LaserTag.Tests
 		public void TrackingCannotShowWeaponsWhileSpatialPresenceIsHidden()
 		{
 			PlayerAvatar player = Player(1);
+			var presentation = Presentation(player);
+			Refresh(presentation, true);
 			var weapon = player.gameObject.AddComponent<AvatarWeaponVisual>();
 			Invoke(weapon, "Awake");
 			Spawned(weapon, true);
@@ -239,6 +257,7 @@ namespace Anaglyph.LaserTag.Tests
 			Invoke(weapon, "ApplySyncedState");
 			Assert.That(wrapper.activeSelf, Is.True);
 			NetworkValue(player.HeadsetStatus, "readinessSync", Ready(false));
+			Refresh(presentation, true);
 			Invoke(weapon, "ApplySyncedState");
 			instance.SetActive(false);
 			instance.SetActive(true); // a tracking callback only controls this child
@@ -286,6 +305,16 @@ namespace Anaglyph.LaserTag.Tests
 			PlayerAvatar.All[(ulong)PlayerAvatar.All.Count + 1] = player;
 			return player;
 		}
+
+		private static AvatarPresentation Presentation(PlayerAvatar player)
+		{
+			var presentation = player.gameObject.AddComponent<AvatarPresentation>();
+			Invoke(presentation, "Awake");
+			return presentation;
+		}
+
+		private static void Refresh(AvatarPresentation presentation, bool viewerAligned) =>
+			typeof(AvatarPresentation).GetMethod("RefreshFor", Private).Invoke(presentation, new object[] { viewerAligned });
 
 		private HeadsetReadiness Ready(bool aligned) => new()
 		{
