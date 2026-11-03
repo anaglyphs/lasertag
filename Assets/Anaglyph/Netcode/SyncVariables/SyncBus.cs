@@ -1,3 +1,5 @@
+using System;
+using System.Buffers;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
@@ -58,11 +60,11 @@ namespace Anaglyph.Netcode.SyncVariables
 		// Session came up / went down. On Activated the authority is already known:
 		// write host-configured initial values in an Activated handler and they land
 		// before any endpoint's Synced fires.
-		public static event System.Action Activated = delegate { };
-		public static event System.Action Deactivated = delegate { };
+		public static event Action Activated = delegate { };
+		public static event Action Deactivated = delegate { };
 
 		// The bus changed owner; argument is whether the local peer is now authority.
-		public static event System.Action<bool> AuthorityChanged = delegate { };
+		public static event Action<bool> AuthorityChanged = delegate { };
 
 		// Statics persist across play sessions while domain reload is disabled.
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -181,60 +183,53 @@ namespace Anaglyph.Netcode.SyncVariables
 		// Any peer → everyone (including itself): a direct event. One over a reliable piece,
 		// or behind one still going out on this endpoint, is delivered here at once and
 		// queued for everyone else (see "large messages").
-		internal static void SendDirect(uint id, byte[] data)
+		internal static void SendDirect(uint id, ArraySegment<byte> data)
 		{
 			if (!Active) return;
-			if (data.Length <= ReliablePieceBytes && !outgoing.ContainsKey((id, Everyone)))
+			if (data.Count <= ReliablePieceBytes && !outgoing.ContainsKey((id, Everyone)))
 			{
-				Current.RaiseDirectRpc(id, data);
+				Current.RaiseDirectRpc(id, new BusBytes(data));
 				return;
 			}
 
 			if (endpoints.TryGetValue(id, out SyncEndpoint endpoint))
-				endpoint.ApplyDirect(LocalClientId, data);
+				endpoint.ApplyDirectBorrowed(LocalClientId, data);
 			Enqueue(id, Everyone, data);
 		}
 
 		// Any peer → everyone else, unreliable: split into pieces that each fit NGO's
 		// unreliable cap (1296 bytes, less the RPC header and, on DA, the proxy's target
 		// list). Does not invoke locally.
-		internal static void SendDirectUnreliable(uint id, byte[] data)
+		internal static void SendDirectUnreliable(uint id, ArraySegment<byte> data)
 		{
 			if (!Active) return;
 
-			int count = Mathf.Max(1, (data.Length + UnreliablePieceBytes - 1) / UnreliablePieceBytes);
+			int count = Mathf.Max(1, (data.Count + UnreliablePieceBytes - 1) / UnreliablePieceBytes);
 			if (count > byte.MaxValue)
 			{
-				Debug.LogError($"[SyncBus] Unreliable payload of {data.Length}B for {id} needs {count} pieces (max {byte.MaxValue})");
+				Debug.LogError($"[SyncBus] Unreliable payload of {data.Count}B for {id} needs {count} pieces (max {byte.MaxValue})");
 				return;
 			}
 
 			ushort sequence = unreliableSendSequences.TryGetValue(id, out ushort last) ? (ushort)(last + 1) : (ushort)0;
 			unreliableSendSequences[id] = sequence;
 
-			if (count == 1)
-			{
-				Current.RaiseDirectPieceRpc(id, sequence, 0, 1, data);
-				return;
-			}
-
 			for (int i = 0; i < count; i++)
 			{
 				int offset = i * UnreliablePieceBytes;
-				byte[] piece = new byte[Mathf.Min(UnreliablePieceBytes, data.Length - offset)];
-				System.Buffer.BlockCopy(data, offset, piece, 0, piece.Length);
-				Current.RaiseDirectPieceRpc(id, sequence, (byte)i, (byte)count, piece);
+				ArraySegment<byte> piece = new(data.Array, data.Offset + offset, Mathf.Min(UnreliablePieceBytes, data.Count - offset));
+				Current.RaiseDirectPieceRpc(id, sequence, (byte)i, (byte)count, new BusBytes(piece));
 			}
 		}
 
 		// Any peer → one peer: a direct event addressed to a single client (e.g. a
 		// snapshot for a joiner), relayed like any other RPC. Does not invoke locally.
-		internal static void SendDirectTo(uint id, ulong target, byte[] data)
+		internal static void SendDirectTo(uint id, ulong target, ArraySegment<byte> data)
 		{
 			if (!Active) return;
-			if (data.Length <= ReliablePieceBytes && !outgoing.ContainsKey((id, target)))
+			if (data.Count <= ReliablePieceBytes && !outgoing.ContainsKey((id, target)))
 			{
-				Current.RaiseDirectToRpc(id, data, Current.RpcTarget.Single(target, RpcTargetUse.Temp));
+				Current.RaiseDirectToRpc(id, new BusBytes(data), Current.RpcTarget.Single(target, RpcTargetUse.Temp));
 				return;
 			}
 
@@ -266,17 +261,46 @@ namespace Anaglyph.Netcode.SyncVariables
 		}
 
 		[Rpc(SendTo.Everyone)]
-		private void RaiseDirectRpc(uint id, byte[] data, RpcParams rpc = default)
+		private void RaiseDirectRpc(uint id, BusBytes data, RpcParams rpc = default)
 		{
 			if (endpoints.TryGetValue(id, out SyncEndpoint endpoint))
-				endpoint.ApplyDirect(rpc.Receive.SenderClientId, data);
+				endpoint.ApplyDirectBorrowed(rpc.Receive.SenderClientId, data.Bytes);
+			data.ReturnToPool();
 		}
 
 		[Rpc(SendTo.SpecifiedInParams)]
-		private void RaiseDirectToRpc(uint id, byte[] data, RpcParams rpc = default)
+		private void RaiseDirectToRpc(uint id, BusBytes data, RpcParams rpc = default)
 		{
 			if (endpoints.TryGetValue(id, out SyncEndpoint endpoint))
-				endpoint.ApplyDirect(rpc.Receive.SenderClientId, data);
+				endpoint.ApplyDirectBorrowed(rpc.Receive.SenderClientId, data.Bytes);
+			data.ReturnToPool();
+		}
+
+		// A slice of any buffer on the sending side, an array from the shared pool on the
+		// receiving one: no array per message at either end. The receiving RPC returns it.
+		private struct BusBytes : INetworkSerializable
+		{
+			public ArraySegment<byte> Bytes;
+
+			public BusBytes(ArraySegment<byte> bytes) => Bytes = bytes;
+
+			public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+			{
+				int count = Bytes.Count;
+				serializer.SerializeValue(ref count);
+
+				if (serializer.IsWriter)
+				{
+					serializer.GetFastBufferWriter().WriteBytesSafe(Bytes.Array, count, Bytes.Offset);
+					return;
+				}
+
+				byte[] rented = ArrayPool<byte>.Shared.Rent(count);
+				serializer.GetFastBufferReader().ReadBytesSafe(ref rented, count);
+				Bytes = new ArraySegment<byte>(rented, 0, count);
+			}
+
+			public void ReturnToPool() => ArrayPool<byte>.Shared.Return(Bytes.Array);
 		}
 
 		// ---- unreliable pieces -------------------------------------------------
@@ -291,26 +315,35 @@ namespace Anaglyph.Netcode.SyncVariables
 		private static readonly Dictionary<uint, ushort> unreliableSendSequences = new();
 
 		// one payload being reassembled per sender and endpoint: pieces may arrive in any
-		// order, and a piece of a newer payload abandons an incomplete older one
+		// order, and a piece of a newer payload abandons an incomplete older one. Every piece
+		// but the last is full-size, so each has a fixed place in a buffer kept for the next payload
 		private class PartialPayload
 		{
 			public ushort sequence;
-			public byte[][] pieces;
+			public byte count;
 			public int received;
+			public int length;
+			public byte[] buffer = Array.Empty<byte>();
+			public readonly bool[] arrived = new bool[byte.MaxValue];
 		}
 
 		private static readonly Dictionary<(ulong sender, uint id), PartialPayload> partialPayloads = new();
 
 		[Rpc(SendTo.NotMe, Delivery = RpcDelivery.Unreliable)]
-		private void RaiseDirectPieceRpc(uint id, ushort sequence, byte index, byte count, byte[] data, RpcParams rpc = default)
+		private void RaiseDirectPieceRpc(uint id, ushort sequence, byte index, byte count, BusBytes data, RpcParams rpc = default)
 		{
-			if (count == 0 || index >= count) return;
+			ReceivePiece(rpc.Receive.SenderClientId, id, sequence, index, count, data.Bytes);
+			data.ReturnToPool();
+		}
+
+		private static void ReceivePiece(ulong sender, uint id, ushort sequence, byte index, byte count, ArraySegment<byte> piece)
+		{
+			if (count == 0 || index >= count || piece.Count > UnreliablePieceBytes) return;
 			if (!endpoints.TryGetValue(id, out SyncEndpoint endpoint)) return;
-			ulong sender = rpc.Receive.SenderClientId;
 
 			if (count == 1)
 			{
-				endpoint.ApplyDirect(sender, data);
+				endpoint.ApplyDirectBorrowed(sender, piece);
 				return;
 			}
 
@@ -324,26 +357,22 @@ namespace Anaglyph.Netcode.SyncVariables
 				if ((short)(sequence - partial.sequence) < 0) return;
 
 				partial.sequence = sequence;
-				partial.pieces = new byte[count][];
+				partial.count = count;
 				partial.received = 0;
+				Array.Clear(partial.arrived, 0, count);
+				if (partial.buffer.Length < count * UnreliablePieceBytes)
+					partial.buffer = new byte[count * UnreliablePieceBytes];
 			}
 
-			if (partial.pieces == null || partial.pieces.Length != count || partial.pieces[index] != null) return;
-			partial.pieces[index] = data;
-			if (++partial.received < count) return;
+			if (partial.count != count || partial.arrived[index]) return;
+			partial.arrived[index] = true;
 
-			int length = 0;
-			foreach (byte[] piece in partial.pieces) length += piece.Length;
-			byte[] payload = new byte[length];
-			int offset = 0;
-			foreach (byte[] piece in partial.pieces)
-			{
-				System.Buffer.BlockCopy(piece, 0, payload, offset, piece.Length);
-				offset += piece.Length;
-			}
+			int offset = index * UnreliablePieceBytes;
+			Buffer.BlockCopy(piece.Array, piece.Offset, partial.buffer, offset, piece.Count);
+			if (index == count - 1) partial.length = offset + piece.Count;
 
-			partial.pieces = null;
-			endpoint.ApplyDirect(sender, payload);
+			if (++partial.received == count)
+				endpoint.ApplyDirectBorrowed(sender, new ArraySegment<byte>(partial.buffer, 0, partial.length));
 		}
 
 		// ---- large messages ------------------------------------------------------
@@ -399,12 +428,12 @@ namespace Anaglyph.Netcode.SyncVariables
 			sendBudget = 0;
 		}
 
-		private static void Enqueue(uint id, ulong target, byte[] data)
+		private static void Enqueue(uint id, ulong target, ArraySegment<byte> data)
 		{
-			int count = Mathf.Max(1, (data.Length + ReliablePieceBytes - 1) / ReliablePieceBytes);
+			int count = Mathf.Max(1, (data.Count + ReliablePieceBytes - 1) / ReliablePieceBytes);
 			if (count > ushort.MaxValue)
 			{
-				Debug.LogError($"[SyncBus] Reliable payload of {data.Length}B for {id} needs {count} pieces (max {ushort.MaxValue})");
+				Debug.LogError($"[SyncBus] Reliable payload of {data.Count}B for {id} needs {count} pieces (max {ushort.MaxValue})");
 				return;
 			}
 
@@ -419,8 +448,8 @@ namespace Anaglyph.Netcode.SyncVariables
 			for (int i = 0; i < count; i++)
 			{
 				int offset = i * ReliablePieceBytes;
-				byte[] piece = new byte[Mathf.Min(ReliablePieceBytes, data.Length - offset)];
-				System.Buffer.BlockCopy(data, offset, piece, 0, piece.Length);
+				byte[] piece = new byte[Mathf.Min(ReliablePieceBytes, data.Count - offset)];
+				Buffer.BlockCopy(data.Array, data.Offset + offset, piece, 0, piece.Length);
 				queue.Enqueue(new OutgoingPiece { message = message, index = (ushort)i, count = (ushort)count, data = piece });
 			}
 		}
@@ -504,7 +533,7 @@ namespace Anaglyph.Netcode.SyncVariables
 			int offset = 0;
 			foreach (byte[] piece in partial.pieces)
 			{
-				System.Buffer.BlockCopy(piece, 0, payload, offset, piece.Length);
+				Buffer.BlockCopy(piece, 0, payload, offset, piece.Length);
 				offset += piece.Length;
 			}
 
@@ -545,7 +574,7 @@ namespace Anaglyph.Netcode.SyncVariables
 				offset += sizeof(uint);
 				SyncBytes.Write(combined, offset, snapshot.Length);
 				offset += sizeof(int);
-				System.Buffer.BlockCopy(snapshot, 0, combined, offset, snapshot.Length);
+				Buffer.BlockCopy(snapshot, 0, combined, offset, snapshot.Length);
 				offset += snapshot.Length;
 			}
 
@@ -576,7 +605,7 @@ namespace Anaglyph.Netcode.SyncVariables
 				if (endpoints.TryGetValue(id, out SyncEndpoint endpoint))
 				{
 					byte[] snapshot = new byte[length];
-					System.Buffer.BlockCopy(combined, offset, snapshot, 0, length);
+					Buffer.BlockCopy(combined, offset, snapshot, 0, length);
 					endpoint.ApplySnapshot(snapshot);
 					applied.Add(endpoint);
 				}

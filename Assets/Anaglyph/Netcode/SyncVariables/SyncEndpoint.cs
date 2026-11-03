@@ -57,6 +57,12 @@ namespace Anaglyph.Netcode.SyncVariables
 		{
 		}
 
+		// The same, in a buffer the bus reuses: valid only during the call.
+		internal virtual void ApplyDirectBorrowed(ulong sender, ArraySegment<byte> data)
+		{
+			ApplyDirect(sender, data.ToArray());
+		}
+
 		// Full current state for a joiner's snapshot; null = stateless (events).
 		internal virtual byte[] SerializeSnapshot()
 		{
@@ -132,6 +138,11 @@ namespace Anaglyph.Netcode.SyncVariables
 			{
 				return *(T*)(p + offset);
 			}
+		}
+
+		public static T Read<T>(ArraySegment<byte> src, int offset) where T : unmanaged
+		{
+			return Read<T>(src.Array, src.Offset + offset);
 		}
 
 		public static byte[] Of<T>(T value) where T : unmanaged

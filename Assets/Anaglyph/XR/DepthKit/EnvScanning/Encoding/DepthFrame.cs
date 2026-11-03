@@ -111,8 +111,8 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Encoding
 	{
 		public static readonly int HeaderSize = UnsafeUtility.SizeOf<DepthFrameHeader>();
 
-		// encoding scratch, kept between frames so a send allocates only its deflate stream.
-		// Encode is main-thread only
+		// kept between calls, so frames and chunks allocate only their deflate streams.
+		// The codec is main-thread only
 		private static readonly byte[] headerScratch = new byte[HeaderSize];
 		private static byte[] codeScratch = Array.Empty<byte>();
 
@@ -157,52 +157,52 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Encoding
 		/// Reads the header alone, so a receiver can size <paramref name="codes"/> for
 		/// <see cref="Decode"/> and reject frames before touching the payload
 		/// </summary>
-		public static bool TryReadHeader(byte[] wire, int offset, out DepthFrameHeader header)
+		public static bool TryReadHeader(ArraySegment<byte> wire, int offset, out DepthFrameHeader header)
 		{
 			header = default;
-			if (wire == null || wire.Length < offset + HeaderSize) return false;
-			header = ReadHeader(wire, offset);
+			if (wire.Array == null || wire.Count < offset + HeaderSize) return false;
+			header = ReadHeader(wire.Array, wire.Offset + offset);
 			return header.IsSane;
 		}
 
-		public static bool Decode(byte[] wire, int offset, in DepthFrameHeader header, NativeArray<byte> codes)
+		public static bool Decode(ArraySegment<byte> wire, int offset, in DepthFrameHeader header, NativeArray<byte> codes)
 		{
 			if (codes.Length != header.PackedBytes) return false;
 
-			int bodyOffset = offset + HeaderSize;
-			int bodyLength = wire.Length - bodyOffset;
+			int bodyOffset = wire.Offset + offset + HeaderSize;
+			int bodyLength = wire.Count - offset - HeaderSize;
 			if (bodyLength < 0) return false;
 
 			switch ((DepthFrameCompression)header.compression)
 			{
 				case DepthFrameCompression.Raw:
 					if (bodyLength != codes.Length) return false;
-					NativeArray<byte>.Copy(wire, bodyOffset, codes, 0, codes.Length);
+					NativeArray<byte>.Copy(wire.Array, bodyOffset, codes, 0, codes.Length);
 					return true;
 
 				case DepthFrameCompression.PredictedDeflate:
-					byte[] residuals = new byte[codes.Length];
+					if (codeScratch.Length < codes.Length) codeScratch = new byte[codes.Length];
 					try
 					{
-						using MemoryStream stream = new(wire, bodyOffset, bodyLength, false);
+						using MemoryStream stream = new(wire.Array, bodyOffset, bodyLength, false);
 						using DeflateStream deflate = new(stream, CompressionMode.Decompress);
 						int read = 0;
-						while (read < residuals.Length)
+						while (read < codes.Length)
 						{
-							int n = deflate.Read(residuals, read, residuals.Length - read);
+							int n = deflate.Read(codeScratch, read, codes.Length - read);
 							if (n <= 0) break;
 							read += n;
 						}
 
-						if (read != residuals.Length) return false;
+						if (read != codes.Length) return false;
 					}
-					catch (InvalidDataException)
+					catch (Exception corrupt) when (corrupt is InvalidDataException or IOException)
 					{
 						return false;
 					}
 
-					if (header.CodeBytes == 1) Unpredict8(residuals, header.width, codes);
-					else Unpredict16(residuals, header.width, codes);
+					if (header.CodeBytes == 1) Unpredict8(codeScratch, header.width, codes);
+					else Unpredict16(codeScratch, header.width, codes);
 					return true;
 
 				default:
@@ -210,40 +210,42 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Encoding
 			}
 		}
 
-		/// <summary>Deflates a byte range; shared by frames and chunk snapshots.</summary>
-		public static byte[] Deflate(byte[] src, int offset, int count)
+		/// <summary>Deflates <paramref name="source"/> into <paramref name="output"/> at its position.</summary>
+		public static void Deflate(NativeArray<byte> source, MemoryStream output)
 		{
-			using MemoryStream stream = new();
-			using (DeflateStream deflate = new(stream, System.IO.Compression.CompressionLevel.Fastest, true))
-				deflate.Write(src, offset, count);
-			return stream.ToArray();
+			if (codeScratch.Length < source.Length) codeScratch = new byte[source.Length];
+			NativeArray<byte>.Copy(source, codeScratch, source.Length);
+			using DeflateStream deflate = new(output, System.IO.Compression.CompressionLevel.Fastest, true);
+			deflate.Write(codeScratch, 0, source.Length);
 		}
 
 		/// <summary>
-		/// Inflates a byte range, refusing output beyond <paramref name="maxLength"/> so a
-		/// hostile or corrupt payload cannot balloon. Null on failure.
+		/// Inflates what follows <paramref name="offset"/> into <paramref name="output"/>, refusing
+		/// more than it holds so a hostile or corrupt payload cannot balloon.
 		/// </summary>
-		public static byte[] Inflate(byte[] src, int offset, int count, int maxLength)
+		public static bool TryInflate(ArraySegment<byte> source, int offset, NativeArray<byte> output, out int length)
 		{
+			length = 0;
+			// one byte over, to tell a payload that fills the output from one that overflows it
+			int capacity = output.Length + 1;
+			if (codeScratch.Length < capacity) codeScratch = new byte[capacity];
+
 			try
 			{
-				using MemoryStream input = new(src, offset, count, false);
+				using MemoryStream input = new(source.Array, source.Offset + offset, source.Count - offset, false);
 				using DeflateStream inflate = new(input, CompressionMode.Decompress);
-				using MemoryStream output = new();
-				byte[] buffer = new byte[16384];
 				int read;
-				while ((read = inflate.Read(buffer, 0, buffer.Length)) > 0)
-				{
-					if (output.Length + read > maxLength) return null;
-					output.Write(buffer, 0, read);
-				}
-
-				return output.ToArray();
+				while (length < capacity && (read = inflate.Read(codeScratch, length, capacity - length)) > 0)
+					length += read;
 			}
-			catch (InvalidDataException)
+			catch (Exception corrupt) when (corrupt is InvalidDataException or IOException)
 			{
-				return null;
+				return false;
 			}
+
+			if (length > output.Length) return false;
+			NativeArray<byte>.Copy(codeScratch, 0, output, 0, length);
+			return true;
 		}
 
 		private static void Predict8(NativeArray<byte> codes, int width, byte[] residuals)
@@ -258,7 +260,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Encoding
 
 		private static void Unpredict8(byte[] residuals, int width, NativeArray<byte> codes)
 		{
-			for (int i = 0; i < residuals.Length; i++)
+			for (int i = 0; i < codes.Length; i++)
 			{
 				int x = i % width;
 				byte prediction = x > 0 ? codes[i - 1] : i >= width ? codes[i - width] : (byte)0;

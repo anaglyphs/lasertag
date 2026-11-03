@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using Anaglyph.LaserTag.Maps;
@@ -83,7 +84,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 		private int unsentFrames;
 		private long lastSentSlot = long.MinValue;
 		private uint sentFrameIndex;
-		private readonly MemoryStream frameEncoding = new();
+		private readonly MemoryStream sendEncoding = new();
 
 		private NativeArray<byte> receivedCodes;
 		private NativeArray<byte> chunkEncoding;
@@ -99,7 +100,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 		private readonly Dictionary<string, int> statDrops = new();
 		private float nextStatReport;
 
-		private readonly Queue<(ulong sender, byte[] payload)> receivedFrames = new();
+		private readonly Queue<ArraySegment<byte>> receivedFrames = new();
 
 		private bool snapshotServing;
 		private readonly Queue<(ulong client, SpaceFrame context)> snapshotQueue = new();
@@ -120,8 +121,8 @@ namespace Anaglyph.LaserTag.EnvSyncing
 		{
 			Instance = this;
 
-			frameEvent.Register(); frameEvent.Received += OnFrameReceived;
-			chunkEvent.Register(); chunkEvent.Received += OnChunkReceived;
+			frameEvent.Register(); frameEvent.ReceivedBorrowed += OnFrameReceived;
+			chunkEvent.Register(); chunkEvent.ReceivedBorrowed += OnChunkReceived;
 			snapshotRequest.Register(); snapshotRequest.Received += OnSnapshotRequested;
 			visibleEvent.Register(); visibleEvent.Received += OnVisibleReceived;
 
@@ -162,8 +163,8 @@ namespace Anaglyph.LaserTag.EnvSyncing
 
 			SyncBus.Activated -= OnBusActivated;
 			SyncBus.Deactivated -= OnBusDeactivated;
-			frameEvent.Received -= OnFrameReceived; frameEvent.Unregister();
-			chunkEvent.Received -= OnChunkReceived; chunkEvent.Unregister();
+			frameEvent.ReceivedBorrowed -= OnFrameReceived; frameEvent.Unregister();
+			chunkEvent.ReceivedBorrowed -= OnChunkReceived; chunkEvent.Unregister();
 			snapshotRequest.Received -= OnSnapshotRequested; snapshotRequest.Unregister();
 			visibleEvent.Received -= OnVisibleReceived; visibleEvent.Unregister();
 			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
@@ -250,8 +251,11 @@ namespace Anaglyph.LaserTag.EnvSyncing
 				Debug.Log($"[{nameof(EnvSync)}] requested a scan snapshot from the authority");
 			}
 
-			for (int i = 0; i < framesIntegratedPerUpdate && receivedFrames.TryDequeue(out var received); i++)
-				IntegrateReceivedFrame(received.sender, received.payload);
+			for (int i = 0; i < framesIntegratedPerUpdate && receivedFrames.TryDequeue(out ArraySegment<byte> received); i++)
+			{
+				IntegrateReceivedFrame(received);
+				ArrayPool<byte>.Shared.Return(received.Array);
+			}
 
 			if (!snapshotServing && snapshotQueue.Count > 0)
 				ServeSnapshots(syncGeneration);
@@ -322,10 +326,10 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			header.weight = (ushort)Math.Clamp(unsentFrames, 1, MaxFrameWeight);
 
 			// encoded behind room for the payload header, into the stream kept for sends
-			frameEncoding.SetLength(FramePayloadHeaderBytes);
-			frameEncoding.Position = FramePayloadHeaderBytes;
-			DepthFrameCodec.Encode(header, captured.codes, compression, frameEncoding);
-			int payloadSize = (int)frameEncoding.Length;
+			sendEncoding.SetLength(FramePayloadHeaderBytes);
+			sendEncoding.Position = FramePayloadHeaderBytes;
+			DepthFrameCodec.Encode(header, captured.codes, compression, sendEncoding);
+			int payloadSize = (int)sendEncoding.Length;
 
 			if (payloadSize > MaxFrameBytes)
 			{
@@ -333,15 +337,13 @@ namespace Anaglyph.LaserTag.EnvSyncing
 				return;
 			}
 
-			// the bus takes an array of exactly the payload's length: the one allocation per send
-			byte[] payload = new byte[payloadSize];
-			Buffer.BlockCopy(frameEncoding.GetBuffer(), 0, payload, 0, payloadSize);
+			byte[] payload = sendEncoding.GetBuffer();
 			SyncBytes.Write(payload, 0, FramePayloadMagic);
 			WriteContext(payload, CurrentFrame);
 			SyncBytes.Write(payload, FrameIndexOffset, ++sentFrameIndex);
 
-			frameEvent.Raise(payload);
-			statSent++; statSentBytes += payload.Length;
+			frameEvent.Raise(new ArraySegment<byte>(payload, 0, payloadSize));
+			statSent++; statSentBytes += payloadSize;
 
 			lastSentSlot = slot;
 			unsentChange = 0;
@@ -351,18 +353,20 @@ namespace Anaglyph.LaserTag.EnvSyncing
 		// matches maxIntegCountSettle in EnvScanner.compute
 		private const int MaxFrameWeight = 16;
 
-		private void OnFrameReceived(ulong sender, byte[] payload)
+		private void OnFrameReceived(ulong sender, ArraySegment<byte> payload)
 		{
 			// Direct events also invoke locally; the scanner integrated the full-res sensor
 			// this frame was captured from
 			if (sender == SyncBus.LocalClientId) return;
 
-			// the RPC hands over a fresh array, so it can wait for Update
-			receivedFrames.Enqueue((sender, payload));
+			// the payload is valid only now, and the frame waits for Update
+			byte[] kept = ArrayPool<byte>.Shared.Rent(payload.Count);
+			Buffer.BlockCopy(payload.Array, payload.Offset, kept, 0, payload.Count);
+			receivedFrames.Enqueue(new ArraySegment<byte>(kept, 0, payload.Count));
 		}
 
 		// checked when integrated, not when received: the context may change while it waits
-		private void IntegrateReceivedFrame(ulong sender, byte[] payload)
+		private void IntegrateReceivedFrame(ArraySegment<byte> payload)
 		{
 			if (!CanShareScan) { Drop("frame: colocation method not shareable"); return; }
 			if (!EnvScanner.Instance) { Drop("frame: no scanner"); return; }
@@ -370,7 +374,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			// frame would land in the wrong place
 			if (!ColocationManager.IsColocated) { Drop("frame: not colocated yet"); return; }
 
-			if (payload.Length < FramePayloadHeaderBytes || payload.Length > MaxFrameBytes) { Drop("frame: bad size"); return; }
+			if (payload.Count < FramePayloadHeaderBytes || payload.Count > MaxFrameBytes) { Drop("frame: bad size"); return; }
 			if (SyncBytes.Read<uint>(payload, 0) != FramePayloadMagic) { Drop("frame: bad magic"); return; }
 			if (!FrameMatches(ReadContext(payload))) { Drop("frame: space/frame/scan context mismatch"); return; }
 
@@ -391,7 +395,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			if (EnvScanner.Instance.IntegrateFrame(header, receivedCodes))
 			{
 				statReceived++;
-				statReceivedBytes += payload.Length;
+				statReceivedBytes += payload.Count;
 			}
 			else Drop("frame: scanner refused");
 		}
@@ -439,23 +443,20 @@ namespace Anaglyph.LaserTag.EnvSyncing
 						if (!this || generation != syncGeneration) return;
 						if (!ok) continue;
 
-						await VolumeRLE.EncodeChunk(readback.data, encoding);
-						if (!this || generation != syncGeneration) return;
+						VolumeRLE.EncodeChunkNow(readback.data, encoding);
 
 						// a fully observed chunk's run-length data is ~64KB of near-identical
 						// pairs; deflated it is a few KB. Any size goes: the bus splits and paces it
-						byte[] rle = encoding.AsArray().ToArray();
-						byte[] deflated = DepthFrameCodec.Deflate(rle, 0, rle.Length);
+						sendEncoding.SetLength(ChunkPayloadHeaderBytes);
+						sendEncoding.Position = ChunkPayloadHeaderBytes;
+						DepthFrameCodec.Deflate(encoding.AsArray(), sendEncoding);
 
-						int payloadSize = ChunkPayloadHeaderBytes + deflated.Length;
-
-						byte[] payload = new byte[payloadSize];
+						byte[] payload = sendEncoding.GetBuffer();
 						SyncBytes.Write(payload, 0, ChunkPayloadMagic);
 						WriteContext(payload, request.context);
 						SyncBytes.Write(payload, ChunkIndexOffset, chunkIndex);
-						Buffer.BlockCopy(deflated, 0, payload, ChunkPayloadHeaderBytes, deflated.Length);
 
-						chunkEvent.RaiseTo(request.client, payload);
+						chunkEvent.RaiseTo(request.client, new ArraySegment<byte>(payload, 0, (int)sendEncoding.Length));
 						statChunksSent++;
 
 						if (++sentThisFrame >= snapshotChunksPerFrame)
@@ -478,15 +479,14 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			}
 		}
 
-		private async void OnChunkReceived(ulong sender, byte[] payload)
+		private void OnChunkReceived(ulong sender, ArraySegment<byte> payload)
 		{
 			if (sender == SyncBus.LocalClientId) return;
 			if (!CanShareScan || !EnvScanner.Instance) { Drop("chunk: not shareable"); return; }
 
-			if (payload.Length < ChunkPayloadHeaderBytes) { Drop("chunk: bad size"); return; }
+			if (payload.Count < ChunkPayloadHeaderBytes) { Drop("chunk: bad size"); return; }
 			if (SyncBytes.Read<uint>(payload, 0) != ChunkPayloadMagic) { Drop("chunk: bad magic"); return; }
-			SpaceFrame context = ReadContext(payload);
-			if (!FrameMatches(context)) { Drop("chunk: context mismatch"); return; }
+			if (!FrameMatches(ReadContext(payload))) { Drop("chunk: context mismatch"); return; }
 
 			int chunkIndex = SyncBytes.Read<int>(payload, ChunkIndexOffset);
 			if (chunkIndex < 0 || chunkIndex >= EnvScanner.Instance.ChunkTableLength) { Drop("chunk: bad index"); return; }
@@ -501,42 +501,19 @@ namespace Anaglyph.LaserTag.EnvSyncing
 
 			// worst case RLE: every voxel raw, plus a control byte per run
 			int maxRle = voxelCount * EnvScanner.Voxel.stride + voxelCount / 64 + 64;
-			byte[] rle = DepthFrameCodec.Inflate(payload, ChunkPayloadHeaderBytes, payload.Length - ChunkPayloadHeaderBytes, maxRle);
-			if (rle == null) { Drop("chunk: inflate failed"); return; }
-
-			int encodedLength = rle.Length;
-			if (!chunkEncoding.IsCreated || chunkEncoding.Length < encodedLength)
+			if (!chunkEncoding.IsCreated || chunkEncoding.Length != maxRle)
 			{
 				if (chunkEncoding.IsCreated) chunkEncoding.Dispose();
-				chunkEncoding = new NativeArray<byte>(Math.Max(encodedLength, 1), Allocator.Persistent);
+				chunkEncoding = new NativeArray<byte>(maxRle, Allocator.Persistent);
 			}
 
-			NativeArray<byte>.Copy(rle, 0, chunkEncoding, 0, encodedLength);
+			if (!DepthFrameCodec.TryInflate(payload, ChunkPayloadHeaderBytes, chunkEncoding, out int encodedLength)) { Drop("chunk: inflate failed"); return; }
 
-			// decode and upload run back to back, so a chunk arriving mid-decode cannot
-			// overwrite the buffers under this one
-			int generation = syncGeneration;
-			await snapshotDecodeGate.WaitAsync();
-			try
-			{
-				if (!this || generation != syncGeneration || !FrameMatches(context)) return;
+			if (!VolumeRLE.DecodeChunkNow(chunkEncoding.GetSubArray(0, encodedLength), receivedVoxels)) { Drop("chunk: decode failed"); return; }
 
-				if (!VolumeRLE.DecodeChunkNow(chunkEncoding.GetSubArray(0, encodedLength), receivedVoxels))
-				{
-					Drop("chunk: decode failed");
-					return;
-				}
-
-				if (scanner.UploadChunk(chunkIndex, receivedVoxels)) statChunksReceived++;
-				else Drop("chunk: scanner refused");
-			}
-			finally
-			{
-				snapshotDecodeGate.Release();
-			}
+			if (scanner.UploadChunk(chunkIndex, receivedVoxels)) statChunksReceived++;
+			else Drop("chunk: scanner refused");
 		}
-
-		private readonly System.Threading.SemaphoreSlim snapshotDecodeGate = new(1, 1);
 
 		// ---- payload helpers ---------------------------------------------------
 
@@ -546,7 +523,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			SyncBytes.Write(payload, ContextOffset + 16, context.frameId);
 		}
 
-		private static SpaceFrame ReadContext(byte[] payload) =>
+		private static SpaceFrame ReadContext(ArraySegment<byte> payload) =>
 			new(SyncBytes.Read<Guid>(payload, ContextOffset), SyncBytes.Read<Guid>(payload, ContextOffset + 16));
 	}
 }

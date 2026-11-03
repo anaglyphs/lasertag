@@ -46,15 +46,8 @@ namespace Anaglyph.Netcode.SyncVariables
 			switch (route)
 			{
 				case EventRoute.Direct:
-					// SendTo.Everyone invokes locally too; offline there is no bus,
-					// so deliver to ourselves directly.
-					if (SyncBus.Active) SyncBus.SendDirect(Id, payload);
-					else Receive(SyncBus.LocalClientId, payload);
-					break;
-
 				case EventRoute.DirectUnreliable:
-					Receive(SyncBus.LocalClientId, payload);
-					SyncBus.SendDirectUnreliable(Id, payload);
+					RaiseDirectBytes(payload);
 					break;
 
 				case EventRoute.ViaAuthority:
@@ -65,14 +58,36 @@ namespace Anaglyph.Netcode.SyncVariables
 			}
 		}
 
+		// Direct routes only. The payload is read before this returns, so its buffer can be reused.
+		protected void RaiseDirectBytes(ArraySegment<byte> payload)
+		{
+			switch (route)
+			{
+				case EventRoute.Direct:
+					// SendTo.Everyone invokes locally too; offline there is no bus,
+					// so deliver to ourselves directly.
+					if (SyncBus.Active) SyncBus.SendDirect(Id, payload);
+					else ApplyDirectBorrowed(SyncBus.LocalClientId, payload);
+					break;
+
+				case EventRoute.DirectUnreliable:
+					ApplyDirectBorrowed(SyncBus.LocalClientId, payload);
+					SyncBus.SendDirectUnreliable(Id, payload);
+					break;
+
+				default:
+					throw new InvalidOperationException("Only Direct events can raise a borrowed payload");
+			}
+		}
+
 		// Direct route only: deliver to one peer instead of everyone. Addressed to
 		// ourselves (or offline) it is delivered locally.
-		protected void RaiseBytesTo(ulong target, byte[] payload)
+		protected void RaiseBytesTo(ulong target, ArraySegment<byte> payload)
 		{
 			if (route != EventRoute.Direct)
 				throw new InvalidOperationException("Only reliable Direct events can be addressed to a single peer");
 
-			if (!SyncBus.Active || target == SyncBus.LocalClientId) Receive(SyncBus.LocalClientId, payload);
+			if (!SyncBus.Active || target == SyncBus.LocalClientId) ApplyDirectBorrowed(SyncBus.LocalClientId, payload);
 			else SyncBus.SendDirectTo(Id, target, payload);
 		}
 
@@ -163,7 +178,12 @@ namespace Anaglyph.Netcode.SyncVariables
 	// too, and every extra piece is one more chance to lose the whole payload.
 	public class SyncEventBytes : SyncEventBase
 	{
-		public event Action<ulong, byte[]> Received = delegate { };
+		/// <summary>The handler owns the array and may keep it.</summary>
+		public event Action<ulong, byte[]> Received;
+
+		/// <summary>The payload is valid only during the call. Costs no array when <see cref="Received"/> has no handlers.</summary>
+		public event Action<ulong, ArraySegment<byte>> ReceivedBorrowed;
+
 		public Func<ulong, byte[], bool> Validate;
 
 		public SyncEventBytes(string name, EventRoute route) : base(name, route)
@@ -172,13 +192,25 @@ namespace Anaglyph.Netcode.SyncVariables
 
 		public void Raise(byte[] payload) => RaiseBytes(payload);
 
-		/// <summary>Direct route only: deliver to a single peer.</summary>
-		public void RaiseTo(ulong target, byte[] payload) => RaiseBytesTo(target, payload);
+		/// <summary>Direct routes only. The payload is read before this returns, so its buffer can be reused.</summary>
+		public void Raise(ArraySegment<byte> payload) => RaiseDirectBytes(payload);
+
+		/// <summary>Direct route only: deliver to a single peer. The payload is read before this returns.</summary>
+		public void RaiseTo(ulong target, ArraySegment<byte> payload) => RaiseBytesTo(target, payload);
 
 		protected override bool ValidateBytes(ulong sender, byte[] payload) =>
 			Validate == null || Validate(sender, payload);
 
-		protected override void Receive(ulong sender, byte[] payload) =>
-			Received.Invoke(sender, payload);
+		protected override void Receive(ulong sender, byte[] payload)
+		{
+			ReceivedBorrowed?.Invoke(sender, payload);
+			Received?.Invoke(sender, payload);
+		}
+
+		internal override void ApplyDirectBorrowed(ulong sender, ArraySegment<byte> data)
+		{
+			ReceivedBorrowed?.Invoke(sender, data);
+			Received?.Invoke(sender, data.ToArray());
+		}
 	}
 }

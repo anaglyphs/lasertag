@@ -28,6 +28,13 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Encoding
 			jobHandle.Complete();
 		}
 
+		/// <summary>Synchronous encode, for callers that have the frame's time to spare.</summary>
+		public static void EncodeChunkNow(NativeArray<EnvScanner.Voxel> volume, NativeList<byte> compressedData)
+		{
+			compressedData.Clear();
+			new CompressJob { Encoding = compressedData, Volume = volume }.Run();
+		}
+
 		public static async Task<bool> DecodeChunk(NativeArray<byte> encoding, NativeArray<EnvScanner.Voxel> volume)
 		{
 			NativeReference<bool> successResult = new(false, Allocator.TempJob);
