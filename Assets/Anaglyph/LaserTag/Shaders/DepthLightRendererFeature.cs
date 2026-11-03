@@ -266,6 +266,7 @@ namespace Anaglyph.LaserTag.Shaders
 				public MaterialPropertyBlock properties;
 				public TextureHandle irradiance;
 				public Matrix4x4[] worldToDepthClip;
+				public int vertexCount;
 			}
 
 			public override void RecordRenderGraph(RenderGraph graph, ContextContainer frameData)
@@ -284,6 +285,7 @@ namespace Anaglyph.LaserTag.Shaders
 				data.properties = properties;
 				data.irradiance = frame.irradiance;
 				data.worldToDepthClip = frame.worldToDepthClip;
+				data.vertexCount = CompositeVertexCount(camera);
 
 				builder.UseTexture(frame.irradiance, AccessFlags.Read);
 				builder.SetRenderAttachment(resources.activeColorTexture, 0, AccessFlags.ReadWrite);
@@ -305,10 +307,18 @@ namespace Anaglyph.LaserTag.Shaders
 					data.properties.Clear();
 					data.properties.SetTexture(IrradianceID, (RTHandle)data.irradiance);
 					data.properties.SetMatrixArray(WorldToDepthClipID, data.worldToDepthClip);
-					// ViewQuad.hlsl's 6-vertex quad
 					context.cmd.DrawProcedural(Matrix4x4.identity, data.material, CompositeShaderPass,
-						MeshTopology.Triangles, 6, 1, data.properties);
+						MeshTopology.Triangles, data.vertexCount, 1, data.properties);
 				});
+			}
+
+			// One quad per tile at URP's largest possible tile count: the shader collapses the
+			// extras. Must match UniversalRenderPipeline.maxTileWords, which is internal
+			private static int CompositeVertexCount(UniversalCameraData camera)
+			{
+				int maxTileWords = (UniversalRenderPipeline.maxVisibleAdditionalLights <= 32 ? 1024 : 4096) * 4;
+				int viewCount = camera.xr.enabled && camera.xr.singlePassEnabled ? 2 : 1;
+				return maxTileWords / viewCount * 6;
 			}
 		}
 	}

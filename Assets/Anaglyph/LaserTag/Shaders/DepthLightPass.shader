@@ -128,7 +128,8 @@ Shader "Anaglyph/Lasertag/DepthLight"
 		// Pass 1: adds the irradiance under everything already drawn, weighted by how much
 		// passthrough each pixel still shows (1 - eye alpha). Coverage alpha already encodes
 		// virtual objects in front, occluded ones (alpha = occlusion) and transparents, so
-		// no depth test is needed
+		// no depth test is needed. Drawn as one quad per Forward+ tile, collapsing quads no
+		// light can reach
 		Pass
 		{
 			Name "DepthLightComposite"
@@ -143,12 +144,12 @@ Shader "Anaglyph/Lasertag/DepthLight"
 			#pragma vertex Vert
 			#pragma fragment Frag
 			#pragma multi_compile_instancing
+			#pragma multi_compile _ _CLUSTER_LIGHT_LOOP
 			#include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
 
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
 			#include "Assets/Anaglyph/XR/DepthKit/DepthKit.hlsl"
-			#include "Assets/Anaglyph/XR/DepthKit/ViewQuad.hlsl"
 
 			Texture2DArray<half4> _DepthLightIrradiance;
 			float4x4 _WorldToDepthClip[2];
@@ -162,18 +163,83 @@ Shader "Anaglyph/Lasertag/DepthLight"
 			struct Varyings
 			{
 				float4 positionCS : SV_POSITION;
-				float3 viewRayWS : TEXCOORD0;
+				float4 depthClip : TEXCOORD0;
 				UNITY_VERTEX_OUTPUT_STEREO
 			};
 
+			#if USE_CLUSTER_LIGHT_LOOP
+			// Tile masks hold lights in the low bits and reflection probes above them
+			bool TileHasLight(int2 tile, uint tileCountX, uint tileCountY, uint view)
+			{
+				if (any(tile < 0) || tile.x >= (int)tileCountX || tile.y >= (int)tileCountY) return false;
+
+				uint firstWord = (tile.y * tileCountX + tile.x + URP_FP_TILE_COUNT * view) * URP_FP_WORDS_PER_TILE;
+				uint lightCount = URP_FP_PROBES_BEGIN;
+				uint lightWords = min(URP_FP_WORDS_PER_TILE, (lightCount + 31) / 32);
+				for (uint word = 0; word < lightWords; word++)
+				{
+					uint lightBits = lightCount - word * 32;
+					uint lightMask = lightBits >= 32 ? 0xFFFFFFFFu : (1u << lightBits) - 1;
+					uint wordIndex = firstWord + word;
+					if ((Select4(asuint(urp_Tiles[wordIndex / 4]), wordIndex % 4) & lightMask) != 0) return true;
+				}
+				return false;
+			}
+
+			// a pixel can read a texel whose surface projects into the next tile, from depth
+			// map pose lag and parallax
+			bool TileOrNeighborHasLight(int2 tile, uint tileCountX, uint tileCountY, uint view)
+			{
+				for (int y = -1; y <= 1; y++)
+					for (int x = -1; x <= 1; x++)
+						if (TileHasLight(tile + int2(x, y), tileCountX, tileCountY, view)) return true;
+				return false;
+			}
+			#endif
+
 			Varyings Vert(Attributes input)
 			{
-				Varyings output;
+				Varyings output = (Varyings)0;
 				UNITY_SETUP_INSTANCE_ID(input);
 				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
-				float3 positionWS = agViewQuadWorld(input.vertexID);
-				output.positionCS = TransformWorldToHClip(positionWS);
-				output.viewRayWS = positionWS - GetCameraPositionWS();
+
+				#if USE_CLUSTER_LIGHT_LOOP
+				static const float2 corners[6] =
+				{
+					float2(0, 0), float2(1, 0), float2(1, 1),
+					float2(0, 0), float2(1, 1), float2(0, 1)
+				};
+
+				uint tileIndex = input.vertexID / 6;
+				if (tileIndex >= URP_FP_TILE_COUNT) return output;
+
+				uint tileCountX = URP_FP_TILE_COUNT_X;
+				uint tileCountY = URP_FP_TILE_COUNT / tileCountX;
+				int2 tile = int2(tileIndex % tileCountX, tileIndex / tileCountX);
+				#if defined(USING_STEREO_MATRICES)
+				uint view = unity_StereoEyeIndex;
+				#else
+				uint view = 0;
+				#endif
+				if (!TileOrNeighborHasLight(tile, tileCountX, tileCountY, view)) return output;
+
+				// Tiles are y-up in the unflipped projection. A flipped target negates the
+				// projection's whole y row, so the sign of _m11 recovers the unflipped row
+				float4x4 projection = UNITY_MATRIX_P;
+				float ySign = projection._m11 < 0 ? -1 : 1;
+				float2 cameraNDC = (tile + corners[input.vertexID % 6]) / URP_FP_TILE_SCALE * 2 - 1;
+				float2 viewPlane = float2(
+					(cameraNDC.x + projection._m02) / projection._m00,
+					(cameraNDC.y + ySign * projection._m12) / abs(projection._m11));
+
+				float quadDistance = 2.0 * _ProjectionParams.y;
+				output.positionCS = mul(projection, float4(viewPlane * quadDistance, -quadDistance, 1));
+
+				// the surface is guessed on a plane 1 m along the view axis
+				float3 guessedViewPos = float3(viewPlane, -1);
+				float3 guessedSurfaceWS = mul(UNITY_MATRIX_I_V, float4(guessedViewPos, 1)).xyz;
+				output.depthClip = mul(_WorldToDepthClip[unity_StereoEyeIndex], float4(guessedSurfaceWS, 1));
+				#endif
 				return output;
 			}
 
@@ -182,18 +248,19 @@ Shader "Anaglyph/Lasertag/DepthLight"
 				UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
 				int eye = unity_StereoEyeIndex;
-				float3 cameraWS = GetCameraPositionWS();
-				float3 viewRayWS = input.viewRayWS;
+				float4 depthClip = input.depthClip;
 				#if defined(SUPPORTS_FOVEATED_RENDERING_NON_UNIFORM_RASTER)
 				UNITY_BRANCH if (_FOVEATED_RENDERING_NON_UNIFORM_RASTER)
 				{
 					float2 renderUV = input.positionCS.xy / GetScaledScreenParams().xy;
 					float2 linearUV = FoveatedRemapNonUniformToLinear(renderUV);
-					viewRayWS = ComputeWorldSpacePosition(linearUV, UNITY_NEAR_CLIP_VALUE, UNITY_MATRIX_I_VP) - cameraWS;
+					float3 cameraWS = GetCameraPositionWS();
+					float3 viewRayWS = ComputeWorldSpacePosition(linearUV, UNITY_NEAR_CLIP_VALUE, UNITY_MATRIX_I_VP) - cameraWS;
+					float3 guessedSurfaceWS = cameraWS + viewRayWS / dot(viewRayWS, GetViewForwardDir());
+					depthClip = mul(_WorldToDepthClip[eye], float4(guessedSurfaceWS, 1));
 				}
 				#endif
 
-				float4 depthClip = mul(_WorldToDepthClip[eye], float4(cameraWS + normalize(viewRayWS), 1));
 				if (!(depthClip.w > 0)) discard;
 				float2 depthUV = agDepthHCStoNDC(depthClip).xy;
 				if (!all(depthUV >= 0) || !all(depthUV <= 1)) discard;
