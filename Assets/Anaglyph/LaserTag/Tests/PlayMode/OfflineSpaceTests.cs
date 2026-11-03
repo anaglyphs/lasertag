@@ -94,10 +94,18 @@ namespace Anaglyph.LaserTag.Tests.PlayMode
 				MapObject prefab = FirstPrefab(manager);
 				Assert.That(prefab, Is.Not.Null, "the object database has a placeable prefab");
 				Object.Instantiate(prefab.gameObject, new Vector3(2, 0, 3), Quaternion.Euler(0, 45, 0));
+				manager.ObjectsEdited();
 				yield return null;
 				Assert.That(manager.Save(), Is.True);
 				Assert.That(Reload(manager, space.id).maps[0].objects.Count, Is.EqualTo(1));
 				Assert.That(Reload(manager, space.id).maps[0].objects[0].prefabId, Is.EqualTo(prefab.PrefabId));
+
+				// teardown is not an edit: objects destroyed without one leave the map as it was
+				Object.Destroy(MapObject.All[0].gameObject);
+				yield return null;
+				Assert.That(MapObject.All.Count, Is.Zero);
+				Assert.That(manager.Save(), Is.True);
+				Assert.That(Reload(manager, space.id).maps[0].objects.Count, Is.EqualTo(1), "a destroyed object stays in the saved map");
 
 				Assert.That(manager.NewSpace(), Is.True);
 				created.Add(manager.Space.id);

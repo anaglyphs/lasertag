@@ -117,6 +117,7 @@ namespace Anaglyph.LaserTag.Tests.PlayMode
 				Space space = manager.Space;
 				created.Add(space.id);
 				UnityEngine.Object.Instantiate(FirstPrefab(manager).gameObject, new Vector3(1, 0, 2), Quaternion.identity);
+				manager.ObjectsEdited();
 				yield return null;
 				Assert.That(manager.Save(), Is.True);
 				Mark("host-space", $"{space.id}\n{manager.Map.id}\n{space.frameId}");

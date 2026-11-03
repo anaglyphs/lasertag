@@ -27,15 +27,6 @@ namespace Anaglyph.LaserTag.MapEditor
 		public static event Action<MapObject> Added = delegate { };
 		public static event Action<MapObject> Removed = delegate { };
 
-		/// <summary>
-		/// A deliberate edit performed on THIS device — place, move, delete. Remote peers'
-		/// edits arrive through the network and do not raise this; only local edits make a
-		/// map copy dirty (fork-on-edit tracks local divergence, not shared state).
-		/// </summary>
-		public static event Action LocalEditOccurred = delegate { };
-
-		public static void NotifyLocalEdit() => LocalEditOccurred.Invoke();
-
 		// Statics persist across play sessions while domain reload is disabled.
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
 		private static void Init()
@@ -43,7 +34,6 @@ namespace Anaglyph.LaserTag.MapEditor
 			all.Clear();
 			Added = delegate { };
 			Removed = delegate { };
-			LocalEditOccurred = delegate { };
 		}
 
 		private bool shouldDelete;

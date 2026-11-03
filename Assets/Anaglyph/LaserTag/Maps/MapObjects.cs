@@ -9,11 +9,11 @@ using UnityEngine;
 namespace Anaglyph.LaserTag.Maps
 {
 	/// <summary>
-	/// The shown map's objects in the scene: placements become instances, and the authority's
-	/// scene is captured back into the map. Objects are retired before their replacements are
-	/// instantiated, so a capture never mixes two maps; records whose prefab this build does
-	/// not know survive capture, so loading an older map never silently drops them. Edit
-	/// requests carry the map and its revision, so a request from a previous map is refused.
+	/// The shown map's objects in the scene: placements become instances, and each edit captures
+	/// the scene back into the map. Objects leaving through session or scene teardown are not
+	/// edits, so they never reach the map. Records whose prefab this build does not know survive
+	/// capture, so loading an older map never silently drops them. Edit requests carry the map
+	/// and its revision, so a request from a previous map is refused.
 	/// </summary>
 	public sealed class MapObjects
 	{
@@ -87,7 +87,7 @@ namespace Anaglyph.LaserTag.Maps
 			if (!SyncBus.Active)
 			{
 				UnityEngine.Object.Instantiate(prefab.gameObject, position, rotation);
-				manager.MarkDirty();
+				manager.ObjectsEdited();
 				return true;
 			}
 			Placement placement = new() { mapId = MapId, revision = manager.MapRevision, pose = new Pose(position, rotation) };
@@ -102,7 +102,7 @@ namespace Anaglyph.LaserTag.Maps
 			if (!SyncBus.Active || !obj.NetworkObject.IsSpawned)
 			{
 				Retire(obj);
-				manager.MarkDirty();
+				manager.ObjectsEdited();
 				return true;
 			}
 			removeRequest.Raise(new ObjectRequest { mapId = MapId, revision = manager.MapRevision, objectId = obj.NetworkObject.NetworkObjectId });
@@ -114,7 +114,7 @@ namespace Anaglyph.LaserTag.Maps
 			if (!CanEdit || !obj || retired.Contains(obj)) return;
 			if (!SyncBus.Active)
 			{
-				manager.MarkDirty();
+				manager.ObjectsEdited();
 				return;
 			}
 			moveRequest.Raise(new ObjectRequest
@@ -133,7 +133,7 @@ namespace Anaglyph.LaserTag.Maps
 			if (!prefab || !NetworkManager.Singleton) return;
 			NetworkObject.InstantiateAndSpawn(prefab.gameObject, NetworkManager.Singleton,
 				ownerClientId: SyncBus.LocalClientId, position: placement.pose.position, rotation: placement.pose.rotation);
-			manager.MarkDirty();
+			manager.ObjectsEdited();
 		}
 
 		private bool TryResolve(ObjectRequest request, out MapObject obj)
@@ -149,36 +149,24 @@ namespace Anaglyph.LaserTag.Maps
 		{
 			if (!TryResolve(request, out MapObject obj)) return;
 			Retire(obj);
-			manager.MarkDirty();
+			manager.ObjectsEdited();
 		}
 
 		private void OnMoveRequested(ulong sender, ObjectRequest request)
 		{
 			if (!TryResolve(request, out MapObject obj) || !Space.ValidPose(request.pose)) return;
 			obj.transform.SetPositionAndRotation(request.pose.position, request.pose.rotation);
-			manager.MarkDirty();
+			manager.ObjectsEdited();
 		}
 
 		// ------- scene <-> records ---------------------------------
 
-		/// <summary>The scene as records, false while NGO is tearing the scene down and nothing can be trusted.</summary>
-		public bool TryCapture(out List<MapObjectRecord> result)
-		{
-			result = null;
-			NetworkManager network = NetworkManager.Singleton;
-			if (network && network.ShutdownInProgress) return false;
-			result = Capture(localOnly: false);
-			return true;
-		}
-
-		public List<MapObjectRecord> CaptureLocal() => Capture(localOnly: true);
-
-		private List<MapObjectRecord> Capture(bool localOnly)
+		public List<MapObjectRecord> Capture()
 		{
 			List<MapObjectRecord> result = new(unresolved);
 			foreach (MapObject obj in MapObject.All)
 			{
-				if (!obj || retired.Contains(obj) || localOnly && !obj.IsLocalOnly || string.IsNullOrEmpty(obj.PrefabId)) continue;
+				if (!obj || retired.Contains(obj) || string.IsNullOrEmpty(obj.PrefabId)) continue;
 				result.Add(new MapObjectRecord { prefabId = obj.PrefabId, pose = new Pose(obj.transform.position, obj.transform.rotation) });
 			}
 			return result;

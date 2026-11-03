@@ -129,9 +129,6 @@ namespace Anaglyph.LaserTag.Maps
 			SyncBus.Activated += OnBusActivated;
 			SyncBus.Deactivated += OnBusDeactivated;
 			SyncBus.AuthorityChanged += OnAuthorityChanged;
-			MapObject.LocalEditOccurred += MarkDirty;
-			MapObject.Added += OnObjectChanged;
-			MapObject.Removed += OnObjectChanged;
 			MainXRRig.Recentered += OnRecentered;
 			SaveVisualMapsPeriodically(lifetime.Token);
 			Startup(lifetime.Token);
@@ -160,9 +157,6 @@ namespace Anaglyph.LaserTag.Maps
 			SyncBus.Activated -= OnBusActivated;
 			SyncBus.Deactivated -= OnBusDeactivated;
 			SyncBus.AuthorityChanged -= OnAuthorityChanged;
-			MapObject.LocalEditOccurred -= MarkDirty;
-			MapObject.Added -= OnObjectChanged;
-			MapObject.Removed -= OnObjectChanged;
 			MainXRRig.Recentered -= OnRecentered;
 			TagSetup.Unregister();
 			Sync.Unregister();
@@ -194,8 +188,6 @@ namespace Anaglyph.LaserTag.Maps
 		private static void OnAnchorError(SpatialAnchorColocationConstraintProvider.Error error) =>
 			AlignmentErrorRaised.Invoke(error == SpatialAnchorColocationConstraintProvider.Error.SharingFailed
 				? AlignmentError.SharingFailed : AlignmentError.SharingUnsupported);
-
-		private void OnObjectChanged(MapObject _) => MarkDirty();
 
 		private void OnRecentered()
 		{
@@ -370,7 +362,15 @@ namespace Anaglyph.LaserTag.Maps
 			saveDue = Time.unscaledTime + saveDebounceSeconds;
 		}
 
-		/// <summary>Captures the scene into the shown map and writes the space. A client never saves the host's space.</summary>
+		/// <summary>An edit changed the scene's objects: they become the shown map, written soon. A client's edits are the host's to record.</summary>
+		public void ObjectsEdited()
+		{
+			if (map == null || Role == SpaceRole.Client) return;
+			map.objects = Objects.Capture();
+			MarkDirty();
+		}
+
+		/// <summary>Writes the space. A client never saves the host's space.</summary>
 		public bool Save() => Save(synchronousVisual: false);
 
 		// the outgoing space's visual map is written whatever the save interval says
@@ -384,7 +384,6 @@ namespace Anaglyph.LaserTag.Maps
 		{
 			dirty = false;
 			if (space == null || showingSessionSpace) return true;
-			if (map != null && Objects.TryCapture(out List<MapObjectRecord> records)) map.objects = records;
 			if (!store.Save(space))
 			{
 				if (!shuttingDown) MarkDirty();
@@ -658,14 +657,15 @@ namespace Anaglyph.LaserTag.Maps
 		{
 			sessionGeneration++;
 			changingMap = false;
-			if (showingSessionSpace) RestoreLocalSpace(sessionGeneration, lifetime.Token);
-			else Save();
+			if (!showingSessionSpace) Save();
+			RestoreAfterSession(sessionGeneration, lifetime.Token);
 			SpaceChanged.Invoke();
 			SpacesChanged.Invoke();
 		}
 
-		// the client's own last space comes back once NGO has finished tearing the session down
-		private async void RestoreLocalSpace(int generation, CancellationToken token)
+		// once NGO has destroyed the session's objects: a client's own last space comes back,
+		// and a host's map gets its objects back as local ones
+		private async void RestoreAfterSession(int generation, CancellationToken token)
 		{
 			try
 			{
@@ -675,6 +675,11 @@ namespace Anaglyph.LaserTag.Maps
 					if (generation != sessionGeneration) return;
 				}
 				while (NetworkManager.Singleton && (NetworkManager.Singleton.IsListening || NetworkManager.Singleton.ShutdownInProgress));
+				if (!showingSessionSpace)
+				{
+					Objects.Replace(map?.objects ?? new List<MapObjectRecord>());
+					return;
+				}
 				showingSessionSpace = false;
 				Space local = FindSpace(localSpaceId) ?? (spaces.Count > 0 ? spaces[0] : null);
 				localSpaceId = null;

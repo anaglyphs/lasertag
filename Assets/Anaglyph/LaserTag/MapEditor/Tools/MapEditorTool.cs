@@ -207,11 +207,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 				return false;
 
 			MapObject mapObj = hitObj.GetComponentInParent<MapObject>();
-			if (mapObj == null || SpaceManager.Instance == null || !SpaceManager.Instance.Objects.RequestRemove(mapObj))
-				return false;
-
-			MapObject.NotifyLocalEdit();
-			return true;
+			return mapObj != null && SpaceManager.Instance != null && SpaceManager.Instance.Objects.RequestRemove(mapObj);
 		}
 
 		public bool TryPlace()
@@ -222,12 +218,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			if (!Raycast(out Vector3 hitPos))
 				return false;
 
-			if (!SpawnMapObject(currentSpawnObject, hitPos, GetSpawnRotation()))
-				return false;
-
-			MapObject.NotifyLocalEdit();
-
-			return true;
+			return SpawnMapObject(currentSpawnObject, hitPos, GetSpawnRotation());
 		}
 
 		public bool TryGrab()
@@ -257,7 +248,6 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			{
 				SpaceManager.Instance?.Objects.CommitMove(grabbedObject);
 				grabbedObject.ReleaseOwnership();
-				MapObject.NotifyLocalEdit();
 			}
 
 			grabbedObject = null;
