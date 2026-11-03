@@ -16,11 +16,13 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 		private float bodyLength = 1f;
 		[SerializeField, Min(0.001f), Tooltip("World-space radius the glow fades out by.")]
 		private float glowRadius = 0.05f;
-		[SerializeField] private Light pointLight = null;
+		[SerializeField, Tooltip("This bullet's own light, or the per-bullet template for its group's shared light.")]
+		private Light pointLight = null;
 		[SerializeField] private ParticleSystem impactEffect = null;
 
 		private static readonly int ColorID = Shader.PropertyToID("_Color");
 		private MaterialPropertyBlock propertyBlock;
+		private BulletGroupLight groupLight;
 
 		public Color defaultColor = Teams.Colors[1];
 
@@ -33,6 +35,19 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 
 			bullet.OnFire += HandleFire;
 			bullet.OnCollide += HandleCollision;
+			bullet.OnDespawned += LeaveGroupLight;
+		}
+
+		private void OnDestroy()
+		{
+			LeaveGroupLight();
+		}
+
+		private void LeaveGroupLight()
+		{
+			if (groupLight != null)
+				groupLight.Leave(pointLight.transform);
+			groupLight = null;
 		}
 
 		private Vector3 prevBulletPosition;
@@ -42,7 +57,6 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 
 		private void HandleFire()
 		{
-			pointLight.enabled = true;
 			laserBody.enabled = true;
 			hitDistance = float.PositiveInfinity;
 
@@ -61,6 +75,11 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 				color = defaultColor;
 
 			pointLight.color = color;
+			Bullet.ShotData shot = bullet.Shot;
+			pointLight.enabled = !shot.IsGrouped;
+			if (shot.IsGrouped)
+				groupLight = BulletGroupLight.Join(bullet.OwnerClientId, shot.groupId, shot.groupSize, pointLight);
+
 			propertyBlock.SetColor(ColorID, color);
 			laserBody.SetPropertyBlock(propertyBlock);
 
@@ -80,6 +99,7 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 			{
 				await Awaitable.NextFrameAsync(ctkn);
 				pointLight.enabled = false;
+				LeaveGroupLight();
 			}
 			catch (OperationCanceledException)
 			{

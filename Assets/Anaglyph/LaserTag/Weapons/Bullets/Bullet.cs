@@ -32,6 +32,10 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 		{
 			public Ray ray;
 			public float serverTimeShot;
+			public ushort groupId;
+			public ushort groupSize;
+
+			public bool IsGrouped => groupSize > 1;
 
 			public float GetFlightTime()
 			{
@@ -49,7 +53,19 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 		public event Action OnFire = delegate { };
 		public event Action OnCollide = delegate { };
 
+		public event Action OnDespawned = delegate { };
+
 		private IDamageable.Data damageData;
+
+		private ushort assignedGroupId;
+		private ushort assignedGroupSize;
+
+		// call before spawning; bullets sharing an id and owner share one light
+		public void AssignGroup(ushort groupId, ushort groupSize)
+		{
+			assignedGroupId = groupId;
+			assignedGroupSize = groupSize;
+		}
 
 		private void Awake()
 		{
@@ -66,6 +82,8 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 				{
 					ray = new Ray(transform.position, transform.forward),
 					serverTimeShot = ServerTime,
+					groupId = assignedGroupId,
+					groupSize = assignedGroupSize,
 				};
 				shotSync.Value = shotData;
 			}
@@ -201,6 +219,7 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 		{
 			isAlive = false;
 			despawnCancelSrc?.Cancel();
+			OnDespawned.Invoke();
 		}
 	}
 }

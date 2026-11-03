@@ -1,4 +1,5 @@
 using Anaglyph.LaserTag.Weapons;
+using Anaglyph.LaserTag.Weapons.Bullets;
 using Anaglyph.Netcode;
 using Anaglyph.XR.Input;
 using Unity.Netcode;
@@ -19,6 +20,8 @@ public class Shotgun : MonoBehaviour, IWeapon
 
 	[SerializeField] private int numBullets;
 	[FormerlySerializedAs("angleSpread")] [SerializeField] private float bulletSpread;
+
+	private static ushort nextGroupId;
 
 	private void Awake()
 	{
@@ -46,6 +49,8 @@ public class Shotgun : MonoBehaviour, IWeapon
 		if (!NetworkManager.Singleton.IsConnectedClient || !WeaponsManagement.CanFire)
 			return;
 
+		ushort groupId = nextGroupId++;
+
 		for (int i = 0; i < numBullets; i++)
 		{
 			float r = Random.Range(0, Mathf.PI * 2);
@@ -62,6 +67,7 @@ public class Shotgun : MonoBehaviour, IWeapon
 			NetworkObject n = NetworkObjectPool.Instance.GetNetworkObject(
 				boltPrefab, muzzle.position, rot);
 			
+			n.GetComponent<Bullet>().AssignGroup(groupId, (ushort)numBullets);
 			n.SpawnWithOwnership(NetworkManager.Singleton.LocalClientId);
 		}
 

@@ -21,7 +21,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Particles
-  m_Shader: {fileID: -6465566751694194690, guid: f74df6003c36366479cfe066c2dddca4, type: 3}
+  m_Shader: {fileID: 4800000, guid: f1e7072adefae4bd2b42ed16f0c36566, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -55,8 +55,11 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _CoreRadius: 0.05
+    - _Intensity: 200
     - _QueueControl: 0
     - _QueueOffset: 0
+    - _Whiteness: 0.005
     - _XRMotionVectorsPass: 1
     m_Colors:
     - _Color: {r: 1, g: 0, b: 0, a: 1}

@@ -14,10 +14,10 @@ namespace Anaglyph.LaserTag.Shaders
 	[DisallowMultipleRendererFeature("Depth Lighting")]
 	public class DepthLightingRendererFeature : ScriptableRendererFeature
 	{
-		[SerializeField, Tooltip("Fullscreen depth lighting shader. Requires Render Graph.")]
+		[SerializeField, Tooltip("Fullscreen depth lighting shader. Requires Forward+ and Render Graph.")]
 		private Shader shader;
 		[SerializeField] private RenderingLayerMask renderingLayers = RenderingLayerMask.defaultRenderingLayerMask;
-		[SerializeField, Min(1), Tooltip("Most point/spot lights evaluated per frame, in URP's visible-light order.")]
+		[SerializeField, Min(1), Tooltip("Most point/spot lights evaluated per depth texel, in URP's visible-light order.")]
 		private int maxLights = 32;
 
 		private Material material;
@@ -97,14 +97,14 @@ namespace Anaglyph.LaserTag.Shaders
 		{
 			private static readonly int TexelSizeID = Shader.PropertyToID("_DepthLightTexelSize");
 			private static readonly int EyeID = Shader.PropertyToID("_DepthLightEye");
-			private static readonly int LightCountID = Shader.PropertyToID("_DepthLightCount");
-			private static readonly int LightIndicesID = Shader.PropertyToID("_DepthLightIndices");
+			private static readonly int ClusterViewID = Shader.PropertyToID("_DepthLightClusterView");
+			private static readonly int WorldToCameraClipID = Shader.PropertyToID("_DepthLightWorldToCameraClip");
+			private static readonly int MaxLightsID = Shader.PropertyToID("_DepthLightMaxLights");
+			private static readonly int RenderingLayersID = Shader.PropertyToID("_EnvironmentRenderingLayers");
 
 			private readonly Material material;
 			private readonly MaterialPropertyBlock properties = new();
 			private readonly GraphicsFormat format;
-			// sized to the shader's MAX_VISIBLE_LIGHTS array, which a property block fixes on first set
-			private readonly float[] lightIndices = new float[UniversalRenderPipeline.maxVisibleAdditionalLights];
 			private readonly Matrix4x4[] worldToDepthClip = new Matrix4x4[2];
 			private readonly Matrix4x4[] depthClipToWorld = new Matrix4x4[2];
 			private RTHandle depthHandle;
@@ -131,8 +131,10 @@ namespace Anaglyph.LaserTag.Shaders
 				public Texture normals;
 				public Vector2 texelSize;
 				public int eye;
-				public int lightCount;
-				public float[] lightIndices;
+				public int clusterView;
+				public Matrix4x4 worldToCameraClip;
+				public int maxLights;
+				public uint renderingLayers;
 				public Matrix4x4[] depthClipToWorld;
 			}
 
@@ -143,8 +145,7 @@ namespace Anaglyph.LaserTag.Shaders
 
 				UniversalLightData lights = frameData.Get<UniversalLightData>();
 				if (lights.additionalLightsCount == 0) return;
-				int lightCount = CollectLights(lights);
-				if (lightCount == 0) return;
+				if (!AnyLightReachesEnvironment(lights)) return;
 
 				UpdateHandle(ref depthHandle, depth);
 				UpdateHandle(ref normalHandle, source.NormTex);
@@ -180,8 +181,12 @@ namespace Anaglyph.LaserTag.Shaders
 					data.normals = source.NormTex;
 					data.texelSize = new Vector2(1f / depth.width, 1f / depth.height);
 					data.eye = eye;
-					data.lightCount = lightCount;
-					data.lightIndices = lightIndices;
+					// URP only clusters a second view under single-pass stereo. These are the
+					// matrices it clusters with: GetGPUProjectionMatrix's flip isn't in the tiles
+					data.clusterView = camera.xr.enabled && camera.xr.singlePassEnabled ? eye : 0;
+					data.worldToCameraClip = camera.GetProjectionMatrix(data.clusterView) * camera.GetViewMatrix(data.clusterView);
+					data.maxLights = maxLights;
+					data.renderingLayers = renderingLayers;
 					data.depthClipToWorld = depthClipToWorld;
 
 					builder.UseTexture(depthTexture, AccessFlags.Read);
@@ -196,8 +201,10 @@ namespace Anaglyph.LaserTag.Shaders
 						data.properties.SetTexture(DepthKitDriver.normTexID, data.normals);
 						data.properties.SetVector(TexelSizeID, data.texelSize);
 						data.properties.SetFloat(EyeID, data.eye);
-						data.properties.SetFloat(LightCountID, data.lightCount);
-						data.properties.SetFloatArray(LightIndicesID, data.lightIndices);
+						data.properties.SetFloat(ClusterViewID, data.clusterView);
+						data.properties.SetMatrix(WorldToCameraClipID, data.worldToCameraClip);
+						data.properties.SetFloat(MaxLightsID, data.maxLights);
+						data.properties.SetInteger(RenderingLayersID, unchecked((int)data.renderingLayers));
 						data.properties.SetMatrixArray(DepthClipToWorldID, data.depthClipToWorld);
 						data.xr.StopSinglePass(context.cmd);
 						context.cmd.DrawProcedural(Matrix4x4.identity, data.material, IrradianceShaderPass,
@@ -211,28 +218,17 @@ namespace Anaglyph.LaserTag.Shaders
 				frame.worldToDepthClip = worldToDepthClip;
 			}
 
-			// Fills lightIndices with the additional-light array slots of the point and spot
-			// lights that reach the environment's rendering layers. URP packs that array from
-			// visibleLights in order, skipping only the main light
-			private int CollectLights(UniversalLightData lights)
+			// the clusters ignore rendering layers, so this skips the pass when no light could
+			// light the environment; the shader still checks each light's layers
+			private bool AnyLightReachesEnvironment(UniversalLightData lights)
 			{
-				int capacity = Mathf.Min(maxLights, lightIndices.Length);
-				int mainLight = lights.mainLightIndex;
-				int count = 0;
-				for (int i = 0; i < lights.visibleLights.Length && count < capacity; i++)
+				foreach (VisibleLight light in lights.visibleLights)
 				{
-					if (i == mainLight) continue;
-					int slot = mainLight >= 0 && mainLight < i ? i - 1 : i;
-					if (slot >= lightIndices.Length) break;
-
-					VisibleLight light = lights.visibleLights[i];
 					if (light.lightType is not (LightType.Point or LightType.Spot)) continue;
-					if (lights.supportsLightLayers && light.light != null &&
-					    (light.light.GetUniversalAdditionalLightData().renderingLayers & renderingLayers) == 0) continue;
-
-					lightIndices[count++] = slot;
+					if (!lights.supportsLightLayers || light.light == null ||
+					    (light.light.GetUniversalAdditionalLightData().renderingLayers & renderingLayers) != 0) return true;
 				}
-				return count;
+				return false;
 			}
 
 			private static void UpdateHandle(ref RTHandle handle, RenderTexture texture)

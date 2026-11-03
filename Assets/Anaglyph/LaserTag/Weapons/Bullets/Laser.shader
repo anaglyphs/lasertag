@@ -22,7 +22,11 @@ Shader "Anaglyph/Lasertag/Laser"
 				"LightMode" = "UniversalForward"
 			}
 
-			Cull Back
+			// each pixel has exactly one back face whether the eye is inside or
+			// outside the proxy, and each eye may be on a different side of it.
+			// frag does the depth test at the glow, not on this far side
+			Cull Front
+			ZTest LEqual
 			ZWrite Off
 			Blend One OneMinusSrcAlpha
 
@@ -32,6 +36,7 @@ Shader "Anaglyph/Lasertag/Laser"
 
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 			#include_with_pragmas "Assets/Anaglyph/XR/DepthKit/Occlusion/DepthKitEnvironmentOcclusion.hlsl"
+			#include "LaserExposure.hlsl"
 
 			/// P = world position
 			/// O = camera view pos
@@ -129,7 +134,7 @@ Shader "Anaglyph/Lasertag/Laser"
 			    return eps * eps * 2 * (F1 - F0) / delta;
 			}
 
-			half4 frag(Varyings IN) : SV_Target
+			half4 frag(Varyings IN, out float depth : SV_Depth) : SV_Target
 			{
 				UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(IN);
 
@@ -145,22 +150,26 @@ Shader "Anaglyph/Lasertag/Laser"
 				// occlude at the point on this pixel's view ray nearest the laser,
 				// which is where most of the pixel's glow comes from
 				const float3 O = _WorldSpaceCameraPos;
-				const float3 glowPos = O + v * dot(w + sMin * D, v);
-				float occlusion;
-				agEnvOcclusion_float(glowPos, occlusion);
-				g *= occlusion;
+				// kept in front of the eye: a laser passing through or behind the
+				// head still needs a valid clip w, and clamps to the near plane
+				const float glowDist = max(dot(w + sMin * D, v), 0.001f);
+				const float3 glowPos = O + v * glowDist;
+
+				const float4 glowClip = TransformWorldToHClip(glowPos);
+				depth = saturate(glowClip.z / glowClip.w);
+
+				// share of the kernel's ray integral that lies in front of the surface:
+				// the core cuts crisply there while the wider halo fades through it
+				float envDist;
+				agEnvSurfaceDistance_float(O, v, envDist);
+				const float u = (envDist - glowDist) * rsqrt(hMin * hMin + _CoreRadius * _CoreRadius);
+				g *= 0.5 + (atan(u) + u / (1 + u * u)) / PI;
 
 				// fade to zero before the proxy's sides so its silhouette never shows
 				const float fade = saturate(1 - hMin / R);
 				g *= fade * fade * _Intensity;
 
-				// exposure desaturation: the emission leaks a little into every
-				// channel, so once the dominant channels clip the leak keeps rising
-				// and the core burns to white while the dim halo stays saturated
-				const half3 spectrum = lerp(_Color.rgb, 1, _Whiteness);
-				const half3 col = 1 - exp(-g * spectrum);
-
-				return half4(col, 0);
+				return half4(LaserExposure(g, _Color.rgb, _Whiteness), 0);
 			}
 			
 			ENDHLSL
