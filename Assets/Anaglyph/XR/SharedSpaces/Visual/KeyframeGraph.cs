@@ -227,7 +227,7 @@ namespace Anaglyph.XR.SharedSpaces
 		private double4[] groupWas = Array.Empty<double4>();
 		private bool discardSolve;
 		private int edgesSinceSolve;
-		private const int NewerFeatures = 512;
+		public const int NewerFeatures = 512;
 		// by KeyframeEdgeJob's reason, negated
 		private readonly int[] pairsLost = new int[6];
 		private float edgeLagSum, pairSeconds, pairBegan;
@@ -764,7 +764,7 @@ namespace Anaglyph.XR.SharedSpaces
 				KeyframeGraphKnot knot = knots[k];
 				double4 x = state[k];
 				if (k > 0) text.Append(',');
-				text.Append(FormattableString.Invariant($"[{KnotKeys.Owner(keys[k])},{knot.path:F3},{knot.origin.x:F4},{knot.origin.y:F4},{knot.origin.z:F4},{x.x:F5},{x.y:F5},{x.z:F5},{x.w:F6},{(knot.isFixed ? 1 : 0)},{knot.previous}]"));
+				text.Append(FormattableString.Invariant($"[{KnotKeys.Owner(keys[k])},{knot.path:F3},{knot.origin.x:F4},{knot.origin.y:F4},{knot.origin.z:F4},{x.x:F5},{x.y:F5},{x.z:F5},{x.w:F6},{(knot.isFixed ? 1 : 0)},{knot.previous},{(uint)keys[k]}]"));
 			}
 
 			text.Append("],\"edges\":[");
@@ -996,10 +996,13 @@ namespace Anaglyph.XR.SharedSpaces
 			return count;
 		}
 
-		public bool IsRanged(Landmark l) => l.IsUsable && l.inverseDepth >= settings.minInverseDepth && l.inverseDepthSigma < settings.maxDepthSigmaShare * l.inverseDepth;
+		public bool IsRanged(Landmark l) => l.IsUsable && IsRanged(settings, l.inverseDepth, l.inverseDepthSigma);
+
+		public static bool IsRanged(Settings settings, float inverseDepth, float inverseDepthSigma) =>
+			inverseDepth >= settings.minInverseDepth && inverseDepthSigma < settings.maxDepthSigmaShare * inverseDepth;
 
 		// a landmark where the tracking that made it placed it: no graph in it
-		private float3 RawPoint(Landmark l)
+		public float3 RawPoint(Landmark l)
 		{
 			float3 inNode = (float3)l.reference.position + math.mul(l.reference.rotation, l.bearing) / l.inverseDepth;
 			return track.CorrectionOf(l.node).ApplyInverse(inNode);
@@ -1157,9 +1160,14 @@ namespace Anaglyph.XR.SharedSpaces
 					yaw = edge.yawInformation,
 				};
 
-			float3 toPoint = Pose4.RotateY(edge.pointB - knots[edge.knotB].origin, (float)state[edge.knotB].w);
+			return WeightOfPair(settings, edge.inliers, Pose4.RotateY(edge.pointB - knots[edge.knotB].origin, (float)state[edge.knotB].w));
+		}
+
+		/// <summary>What a pair of views' edge is worth, from its inliers and the way its point lies from the camera, in the map.</summary>
+		public static KeyframeEdgeWeight WeightOfPair(Settings settings, float inliers, float3 toPoint)
+		{
 			toPoint.y = 0;
-			float inliers = edge.inliers;
+			float Information(float sigma) => 1f / math.square(math.max(sigma, settings.edgeSigmaFloor));
 			return new KeyframeEdgeWeight
 			{
 				sight = math.normalizesafe(toPoint, new float3(1, 0, 0)),
@@ -1169,8 +1177,6 @@ namespace Anaglyph.XR.SharedSpaces
 				yaw = 1f / math.square(math.radians(math.max(settings.edgeYawSpread / math.sqrt(inliers), settings.edgeYawFloorDegrees))),
 			};
 		}
-
-		private float Information(float sigma) => 1f / math.square(math.max(sigma, settings.edgeSigmaFloor));
 
 		// an edge as its knots' groups see it: its points and yaw in the frame of each group's first knot
 		private KeyframeEdge InGroups(KeyframeEdge edge)

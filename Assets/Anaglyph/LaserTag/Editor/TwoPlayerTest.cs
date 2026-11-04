@@ -60,12 +60,13 @@ namespace Anaglyph.LaserTag.Editor
 			public float spacing;
 			public float speed;
 			public int map;
+			public bool record;
 			public float recenterAt;
 			public float misjoinDegrees;
 		}
 
 		[Serializable]
-		private struct Sample
+		public struct Sample
 		{
 			public double time;
 			public string phase;
@@ -99,6 +100,7 @@ namespace Anaglyph.LaserTag.Editor
 		private static bool configured;
 		private static double nextSample, nextWalk, nextGraphDump;
 		private static float endsAt;
+		private static ViewRecorder recorder;
 		private static bool waitingForPlayer;
 		private static double launchedAt;
 		private static float recenterDue;
@@ -148,7 +150,7 @@ namespace Anaglyph.LaserTag.Editor
 		/// <param name="map">What becomes of the saved map, each of them the space's only copy: <see cref="MapNone"/> neither reads nor writes it, <see cref="MapBuild"/> starts empty and saves over it, <see cref="MapUse"/> starts from it and leaves it as it was.</param>
 		/// <param name="recenterAt">Above 0: seconds in, the host's tracking is recentered, and a minute later Player 2's, which each has to come back from.</param>
 		/// <param name="misjoinDegrees">Not 0: Player 2's first alignment is turned by this much, which it has to notice and come back from.</param>
-		public static string Launch(float minutes, bool graph = true, int seed = 0, int stops = 6, float spacing = 6f, float speed = 0f, int map = MapNone, float recenterAt = 0, float misjoinDegrees = 0)
+		public static string Launch(float minutes, bool graph = true, int seed = 0, int stops = 6, float spacing = 6f, float speed = 0f, int map = MapNone, float recenterAt = 0, float misjoinDegrees = 0, bool record = false)
 		{
 			if (!SimPlayer.IsMainEditor) return "run this from the main editor, not a clone or a virtual player";
 			if (Application.isPlaying) return "leave play mode first";
@@ -161,7 +163,7 @@ namespace Anaglyph.LaserTag.Editor
 			run = new Run
 			{
 				folder = Path.Combine(LogRoot, DateTime.Now.ToString("yyyyMMdd-HHmmss")),
-				createdAt = Now, minutes = minutes, graph = graph, seed = seed, stops = stops, spacing = spacing, speed = speed, map = map, recenterAt = recenterAt, misjoinDegrees = misjoinDegrees,
+				createdAt = Now, minutes = minutes, graph = graph, seed = seed, stops = stops, spacing = spacing, speed = speed, map = map, recenterAt = recenterAt, record = record, misjoinDegrees = misjoinDegrees,
 			};
 			Directory.CreateDirectory(run.folder);
 			File.WriteAllText(RunPath, JsonUtility.ToJson(run));
@@ -235,6 +237,7 @@ namespace Anaglyph.LaserTag.Editor
 					break;
 
 				case PlayModeStateChange.ExitingPlayMode:
+					FinishRecording();
 					logPath = null;
 					break;
 
@@ -243,6 +246,20 @@ namespace Anaglyph.LaserTag.Editor
 					if (SimPlayer.IsMainEditor && IsRunning) Finish();
 					break;
 			}
+		}
+
+		private static void FinishRecording()
+		{
+			if (recorder == null) return;
+			if (logPath != null)
+			{
+				if (VisualColocationConstraintProvider.Instance != null)
+					File.WriteAllText(Path.ChangeExtension(logPath, ".graph.json"), VisualColocationConstraintProvider.Instance.Graph.ToDebugJson());
+				recorder.Write(Path.ChangeExtension(logPath, ".views"));
+			}
+
+			recorder.Dispose();
+			recorder = null;
 		}
 
 		// by default every run from an empty map: a saved one holds earlier runs' drift, and would
@@ -303,6 +320,8 @@ namespace Anaglyph.LaserTag.Editor
 			if (!Application.isPlaying || logPath == null) return;
 
 			if (!configured) configured = Configure();
+			if (configured && run.record && recorder == null && VisualLocalizer.Instance != null)
+				recorder = new ViewRecorder(VisualColocationConstraintProvider.Instance, VisualLocalizer.Instance, () => Now);
 
 			double time = Time.realtimeSinceStartupAsDouble;
 			if (recenterDue > 0 && Time.realtimeSinceStartup >= recenterDue)
@@ -319,6 +338,7 @@ namespace Anaglyph.LaserTag.Editor
 				if (time >= nextGraphDump && VisualColocationConstraintProvider.Instance != null)
 				{
 					nextGraphDump = time + 20;
+					recorder?.Refresh();
 					KeyframeGraph graph = VisualColocationConstraintProvider.Instance.Graph;
 					File.WriteAllText(Path.ChangeExtension(logPath, ".graph.json"), graph.ToDebugJson());
 					File.AppendAllLines(Path.ChangeExtension(logPath, ".pairs.csv"), graph.PairLog);
@@ -369,7 +389,11 @@ namespace Anaglyph.LaserTag.Editor
 				File.WriteAllText(CloneReadyPath(current), "");
 				EditorApplication.isPlaying = true;
 			}
-			else if (current == null) EditorApplication.Exit(0);
+			else if (current == null)
+			{
+				FinishRecording();
+				EditorApplication.Exit(0);
+			}
 		}
 
 		private static bool Configure()
@@ -456,7 +480,7 @@ namespace Anaglyph.LaserTag.Editor
 
 		// ---- the summary ---------------------------------------------------------
 
-		private static List<Sample> ReadSamples(string path)
+		public static List<Sample> ReadSamples(string path)
 		{
 			List<Sample> samples = new();
 			if (!File.Exists(path)) return samples;
