@@ -17,6 +17,44 @@ namespace Anaglyph.LaserTag.Maps
 		public ProbeResult(ProbeOutcome outcome, Space best = null) { this.outcome = outcome; this.best = best; }
 	}
 
+	/// <summary>The rolling average of each space's score over the last few keyframes.</summary>
+	public sealed class RecognitionVotes
+	{
+		private readonly Queue<Dictionary<string, float>> recent = new();
+		private readonly int length;
+
+		public RecognitionVotes(int length) => this.length = length;
+
+		public void Clear() => recent.Clear();
+
+		/// <summary>Adds a keyframe's scores: the highest space whose average over a full window reaches <paramref name="minimum"/>, or null.</summary>
+		public string Add(Dictionary<string, float> scores, float minimum)
+		{
+			recent.Enqueue(scores);
+			if (recent.Count > length) recent.Dequeue();
+			if (recent.Count < length) return null;
+
+			Dictionary<string, float> sums = new();
+			foreach (Dictionary<string, float> keyframe in recent)
+				foreach ((string id, float score) in keyframe)
+				{
+					sums.TryGetValue(id, out float sum);
+					sums[id] = sum + score;
+				}
+
+			string best = null;
+			float highest = minimum * length;
+			foreach ((string id, float sum) in sums)
+			{
+				if (sum < highest) continue;
+				highest = sum;
+				best = id;
+			}
+
+			return best;
+		}
+	}
+
 	/// <summary>
 	/// Which saved space the headset is standing in. The anchor runtime is asked first which
 	/// saved anchors localize here; when none can say, the camera's view is ranked against every
@@ -38,8 +76,8 @@ namespace Anaglyph.LaserTag.Maps
 		private bool probing;
 		private int generation;
 
-		/// <summary>Average per-frame score a space needs to be the one: the sum of its best three views' shares of the frame's words (a view of the same place scores ~0.5, one of another ~0.06).</summary>
-		public float MinScore = 0.3f;
+		/// <summary>Average per-frame score a space needs to be the one: the sum of its best three views' shares of the frame's words. On headset maps, a view of the same place scores 0.8-1.0 and any other 0.5-0.7.</summary>
+		public float MinScore = 0.75f;
 		/// <summary>How far ahead of the runner-up the leader must be for an early decision.</summary>
 		public float LeadRatio = 1.5f;
 		public int MinFrames = 3, MaxFrames = 10;
@@ -47,6 +85,13 @@ namespace Anaglyph.LaserTag.Maps
 		public int MinFeatures = 100;
 		/// <summary>Seconds a visual probe looks before giving up for now.</summary>
 		public float MaxSeconds = 6f;
+
+		private readonly RecognitionVotes votes = new(RecognitionKeyframes);
+		private VisualPlaceIndex recognitionIndex;
+		private string recognitionShownId;
+		private int recognitionGeneration;
+		/// <summary>Keyframes in a row whose average score must reach <see cref="MinScore"/> for a space to be recognized while walking.</summary>
+		private const int RecognitionKeyframes = 5;
 
 		public SpaceDiscovery(ColocationManager colocation, VisualMapPersistence visualMaps, float anchorTimeout)
 		{
@@ -97,6 +142,79 @@ namespace Anaglyph.LaserTag.Maps
 				return new(ProbeOutcome.Indeterminate);
 			}
 			finally { probing = false; }
+		}
+
+		// ---- while walking ------------------------------------------------------
+
+		/// <summary>
+		/// Scores a keyframe the shown space just mapped against the other saved spaces, off the
+		/// main thread: the space it has looked like for <see cref="RecognitionKeyframes"/>
+		/// keyframes in a row, or null. Relocalizing against that space still has the last word.
+		/// </summary>
+		public async Awaitable<Space> RecognizeAsync(IReadOnlyList<Space> all, Space shown, VisualKeyframe keyframe)
+		{
+			VisualVocabulary vocabulary = visualMaps.Vocabulary;
+			if (vocabulary == null) return null;
+			if (recognitionIndex == null || recognitionShownId != shown.id || recognitionGeneration != generation) await BuildRecognitionIndex(all, shown, vocabulary);
+			if (recognitionIndex.Count == 0) return null;
+
+			int operation = generation;
+			VisualPlaceIndex index = recognitionIndex;
+			Dictionary<string, float> scores;
+			await Awaitable.BackgroundThreadAsync();
+			try
+			{
+				scores = index.ScoreSpaces(vocabulary.Bitset(keyframe.features.descriptors, keyframe.features.Count));
+			}
+			finally
+			{
+				await Awaitable.MainThreadAsync();
+			}
+
+			if (operation != generation || index != recognitionIndex) return null;
+			string recognized = votes.Add(scores, MinScore);
+			if (recognized == null) return null;
+			Space best = null;
+			foreach (Space space in all)
+				if (space.id == recognized) best = space;
+			if (best != null) Debug.Log($"[{nameof(SpaceDiscovery)}] recognized space {best.id} ({best.name}) while walking");
+			return best;
+		}
+
+		/// <summary>Drops what recognition holds in memory: nothing is being watched for.</summary>
+		public void StopRecognizing()
+		{
+			recognitionIndex = null;
+			recognitionShownId = null;
+			votes.Clear();
+		}
+
+		private async Awaitable BuildRecognitionIndex(IReadOnlyList<Space> all, Space shown, VisualVocabulary vocabulary)
+		{
+			List<string> ids = new();
+			foreach (Space space in all)
+				if (space != shown && !rejected.Contains(space.id) && visualMaps.HasMap(space)) ids.Add(space.id);
+
+			VisualPlaceIndex index = new();
+			await Awaitable.BackgroundThreadAsync();
+			try
+			{
+				foreach (string id in ids)
+				{
+					VisualMapHeader header = visualMaps.ReadHeader(id);
+					if (header == null || header.vocabulary != vocabulary.Id) continue;
+					foreach (ulong[] bits in header.probes) index.Add(id, bits);
+				}
+			}
+			finally
+			{
+				await Awaitable.MainThreadAsync();
+			}
+
+			votes.Clear();
+			recognitionIndex = index;
+			recognitionShownId = shown.id;
+			recognitionGeneration = generation;
 		}
 
 		// ---- anchors -----------------------------------------------------------

@@ -79,6 +79,11 @@ namespace Anaglyph.LaserTag
 
 		public static bool IsColocated { get; private set; }
 		public static Action<bool> Colocated = delegate { };
+
+		/// <summary>Colocated, but on an alignment still being tested: what this headset would share with the others should wait.</summary>
+		public static bool AlignmentUnconfirmed =>
+			Instance != null && Instance.ActiveProvider is VisualColocationConstraintProvider visual && visual.AlignmentUnconfirmed;
+
 		[SerializeField] private Colocator colocator;
 		[SerializeField] private SpatialAnchorColocationConstraintProvider spatialAnchorColocationProvider;
 		[SerializeField] private AprilTagColocationConstraintProvider aprilTagColocationProvider;

@@ -38,6 +38,7 @@ namespace Anaglyph.XR.SharedSpaces
 		[SerializeField] private int searchViews = 5;
 
 		[SerializeField] private MeasurementGate.Settings gateSettings = new();
+		[SerializeField] private AlignmentWatch.Settings watchSettings = new();
 		[SerializeField] private DriftSites.Settings siteSettings = new();
 		[SerializeField] private KeyframeGraph.Settings graphSettings = new();
 
@@ -97,6 +98,8 @@ namespace Anaglyph.XR.SharedSpaces
 		private KeyframeGraph graph;
 		private VisualAlignmentDebugView debugView;
 		private MeasurementGate gate;
+		private AlignmentWatch watch;
+		private float nextCheck;
 		private DriftSites driftSites;
 		private ColocationLog log;
 		private int sitesGeneration = -1, sitesEpoch = -1;
@@ -125,6 +128,14 @@ namespace Anaglyph.XR.SharedSpaces
 
 		public bool IsAvailable => EnvScanner.Instance != null && MainXRRig.Instance != null;
 		public bool IsRunning => alignment.IsRunning;
+
+		/// <summary>This joiner's alignment hasn't been confirmed yet: what it would share with the others should wait.</summary>
+		public bool AlignmentUnconfirmed => watch.HoldsContributions(Time.unscaledTime);
+
+#if UNITY_EDITOR
+		/// <summary>Degrees the next alignment is turned by, about what it stood on: the only way to test recovering from a wrong one on demand.</summary>
+		public float MisalignNextAlignmentForTests { get; set; }
+#endif
 
 		public void StartProviding()
 		{
@@ -214,6 +225,7 @@ namespace Anaglyph.XR.SharedSpaces
 			localizer = GetComponent<VisualLocalizer>();
 			log = new ColocationLog(this, LogTag, localizer);
 			gate = new MeasurementGate(gateSettings, track.Drift, track.Walked);
+			watch = new AlignmentWatch(watchSettings, gateSettings.places);
 			driftSites = new DriftSites(siteSettings);
 			driftSites.Sites.WorldOf = track.WorldOf;
 			graph = new KeyframeGraph(graphSettings, localizer, track);
@@ -235,9 +247,9 @@ namespace Anaglyph.XR.SharedSpaces
 			if (EnvScanner.Instance != null) EnvScanner.Instance.Cleared += ClearMap;
 			alignment.PhaseChanged += OnPhaseChanged;
 			alignment.FrameAbandoned += ClearScan;
-			mapSync = new VisualMapSync(localizer, graph, track, LogTag, message => log.Outcome(message));
+			mapSync = new VisualMapSync(localizer, graph, track, LogTag, message => log.Outcome(message), () => AlignmentUnconfirmed);
 			mapSync.HostMapReceived += OnHostMapReceived;
-			graphSync = new KeyframeGraphSync(graph);
+			graphSync = new KeyframeGraphSync(graph, () => AlignmentUnconfirmed);
 		}
 
 		private VisualMapSync mapSync;
@@ -281,6 +293,7 @@ namespace Anaglyph.XR.SharedSpaces
 			graph.Clear();
 			track.Clear();
 			gate.Clear();
+			watch.End();
 		}
 
 		// the scan was built in a frame that is gone
@@ -295,6 +308,7 @@ namespace Anaglyph.XR.SharedSpaces
 			if (phase == Phase.Searching) ClearMap();
 			// nothing more goes into the graph until a fresh match says where this tracking is
 			if (phase == Phase.Relocalizing) graph.DropWaiting();
+			if (phase != Phase.Aligned) watch.End();
 			gate.Clear();
 		}
 
@@ -305,6 +319,8 @@ namespace Anaglyph.XR.SharedSpaces
 			DriftModel drift = Colocator.Instance != null ? Colocator.Instance.DriftRates : DriftModel.Default;
 			track.Model = drift;
 			gate.Model = drift;
+			// a joiner that took over as the authority is canon now
+			if (SyncBus.IsAuthority && watch.Watching) watch.End();
 			alignment.Update();
 			UpdateCorrection();
 			graph.Update();
@@ -339,6 +355,13 @@ namespace Anaglyph.XR.SharedSpaces
 					return localizer.Map.Count > 0;
 
 				case Phase.Aligned:
+					if (watch.Watching && Time.unscaledTime >= nextCheck)
+					{
+						purpose = Purpose.Check;
+						nextCheck = Time.unscaledTime + watch.CheckSeconds;
+						return true;
+					}
+
 					purpose = Purpose.Loop;
 					if (loopFromKeyframes && Time.unscaledTime - lastKeyframeAt < loopCaptureAfterQuiet) return false;
 					if (Time.unscaledTime < nextLoopTargetCheck || !LoopAllowed(track.Current)) return false;
@@ -410,6 +433,7 @@ namespace Anaglyph.XR.SharedSpaces
 					// blurred (or no frame yet): try again shortly rather than after a whole interval
 					nextQuery = Time.unscaledTime + blurredRetry;
 					if (purpose == Purpose.Loop) nextLoop = Time.unscaledTime + blurredRetry;
+					if (purpose == Purpose.Check) nextCheck = Time.unscaledTime + blurredRetry;
 					return;
 				}
 
@@ -436,7 +460,7 @@ namespace Anaglyph.XR.SharedSpaces
 			{
 				frames = new[] { p.query };
 				// a joiner matching the authority's map is waiting on it: the urgent pace
-				options = new LocalizeOptions { urgent = p.purpose == Purpose.Colocate, maxViews = searchViews };
+				options = new LocalizeOptions { urgent = p.purpose == Purpose.Colocate, maxViews = searchViews, skipOwnViews = p.purpose == Purpose.Check };
 			}
 
 			VisualLocalizationResult result = await localizer.LocalizeAsync(frames, options);
@@ -514,7 +538,8 @@ namespace Anaglyph.XR.SharedSpaces
 			// a frame that fails says nothing against the candidate: it stays for the next good one
 			if (rejection != null)
 			{
-				log.Outcome($"{p.purpose}: not accepted, {rejection} ({description})");
+				// a check every second finding nothing near isn't news
+				if (p.purpose != Purpose.Check) log.Outcome($"{p.purpose}: not accepted, {rejection} ({description})");
 				return;
 			}
 
@@ -523,10 +548,20 @@ namespace Anaglyph.XR.SharedSpaces
 				purpose = p.purpose, generation = p.generation, epoch = p.epoch,
 				node = p.query.node, anchor = anchor, camera = camera,
 				correction = correction, solve = pose, features = p.features,
+				spaceInMap = loop ? default : correction * SpaceOf(p.query),
+				cameraInSpace = p.query.cameraInTrackingSpace.position,
+				forwardInSpace = p.query.cameraInTrackingSpace.forward,
 			};
+
+			if (p.purpose == Purpose.Check)
+			{
+				Check(frame, description);
+				return;
+			}
+
 			if (!gate.TryAgree(frame, out MeasurementGate.Agreed agreed))
 			{
-				log.Outcome($"{p.purpose}: candidate {correction}, waiting for a second frame to agree ({description})");
+				log.Outcome($"{p.purpose}: candidate {correction}, {gate.HeldBack ?? "waiting for a second frame to agree"} ({description})");
 				// the confirming frame at once, while the old views are still in sight
 				nextQuery = Time.unscaledTime;
 				if (loop) nextLoop = Time.unscaledTime;
@@ -534,6 +569,14 @@ namespace Anaglyph.XR.SharedSpaces
 			}
 
 			if (agreed.alone) description = $"one frame, confident enough alone: {description}";
+#if UNITY_EDITOR
+			if (!loop && MisalignNextAlignmentForTests != 0)
+			{
+				Pose4 turn = new(float3.zero, math.radians(MisalignNextAlignmentForTests));
+				agreed.correction = new Pose4(agreed.focus - turn.Apply(agreed.focus), turn.yaw) * agreed.correction;
+				MisalignNextAlignmentForTests = 0;
+			}
+#endif
 			if (loop) AddSite(p, agreed, pose.yawSigma, anchor, description);
 			else ApplyAlignment(p, agreed, anchor, description);
 		}
@@ -546,10 +589,28 @@ namespace Anaglyph.XR.SharedSpaces
 				return;
 			}
 
+			if (!SyncBus.IsAuthority)
+			{
+				watch.Begin(agreed.witnesses, agreed.correction * SpaceOf(p.query), track.Path, Time.unscaledTime);
+				nextCheck = Time.unscaledTime + watch.CheckSeconds;
+			}
+
 			graph.LinkNextTrack(anchor, agreed.focus);
 			alignment.Apply(agreed.correction, p.query.trackingSpace);
 			log.Outcome($"{p.purpose}: applied {agreed.correction} ({description})");
 		}
+
+		// a result against other headsets' views, with this alignment on
+		private void Check(MeasurementGate.Frame frame, string description)
+		{
+			Pose target = alignment.TargetSpacePose;
+			AlignmentWatch.Verdict verdict = watch.Add(frame, Pose4.FromPose(target.position, target.rotation), track.Path, out string why);
+			if (verdict == AlignmentWatch.Verdict.None) return;
+			log.Outcome($"Check: {why} ({description})");
+			if (verdict == AlignmentWatch.Verdict.Overturned) alignment.AbandonAlignment(why);
+		}
+
+		private static Pose4 SpaceOf(VisualQuery query) => Pose4.FromPose(query.trackingSpace.position, query.trackingSpace.rotation);
 
 		private void AddSite(Pending p, in MeasurementGate.Agreed agreed, float yawSigma, ulong anchor, string description)
 		{

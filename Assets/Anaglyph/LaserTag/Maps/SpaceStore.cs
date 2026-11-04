@@ -24,7 +24,13 @@ namespace Anaglyph.LaserTag.Maps
 
 		public SpaceStore(string directory) => Directory = directory ?? throw new ArgumentNullException(nameof(directory));
 
+#if UNITY_EDITOR
+		/// <summary>Set: the catalog a test plays from, whichever build profile is active.</summary>
+		public static string DirectoryForTests;
+		public static string DefaultDirectory => DirectoryForTests ?? Path.Combine(Application.persistentDataPath, CatalogFolder);
+#else
 		public static string DefaultDirectory => Path.Combine(Application.persistentDataPath, CatalogFolder);
+#endif
 
 		public string SpacePath(string id) => Path.Combine(Directory, id + ".json");
 		public string PrivatePath(string id) => Path.Combine(Directory, id + PrivateSuffix);

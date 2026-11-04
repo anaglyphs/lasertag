@@ -57,9 +57,12 @@ namespace Anaglyph.XR.SharedSpaces
 		private readonly TrackAnchoring track;
 		private readonly string logTag;
 		private readonly Action<string> outcome;
+		private readonly Func<bool> holdViews;
 
-		public VisualMapSync(VisualLocalizer localizer, KeyframeGraph graph, TrackAnchoring track, string logTag, Action<string> outcome)
+		/// <param name="holdViews">Whether the views this headset adds should wait for now.</param>
+		public VisualMapSync(VisualLocalizer localizer, KeyframeGraph graph, TrackAnchoring track, string logTag, Action<string> outcome, Func<bool> holdViews)
 		{
+			this.holdViews = holdViews;
 			this.localizer = localizer;
 			this.graph = graph;
 			this.track = track;
@@ -152,7 +155,7 @@ namespace Anaglyph.XR.SharedSpaces
 
 		private async void SendSettledViews()
 		{
-			if (settling.Count == 0) return;
+			if (settling.Count == 0 || holdViews()) return;
 			List<VisualKeyframe> settled = null;
 			for (int i = 0; i < settling.Count; i++)
 			{

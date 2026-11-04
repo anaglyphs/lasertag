@@ -231,6 +231,15 @@ namespace Anaglyph.XR.SharedSpaces
 			return true;
 		}
 
+		/// <summary>The alignment turned out wrong: everything built on it goes with it, and the role's own alignment is taken again.</summary>
+		public void AbandonAlignment(string why)
+		{
+			if (CurrentPhase != Phase.Aligned) return;
+			Debug.Log($"{logTag} alignment abandoned ({why})");
+			FrameAbandoned.Invoke();
+			EnterRole();
+		}
+
 		/// <summary>Stops relocalizing and takes the role's own alignment again: the authority's frame as it stands, or a search. Clear the map first, or an authority goes on relocalizing against it.</summary>
 		public void AbandonRelocalization()
 		{

@@ -7,6 +7,7 @@ using Anaglyph.LaserTag.Matches;
 using Anaglyph.Netcode.SyncVariables;
 using Anaglyph.XR;
 using Anaglyph.XR.SharedSpaces.SharedAnchors;
+using Anaglyph.XR.VisualLocalization;
 using UnityEngine;
 using UnityEngine.XR;
 
@@ -64,6 +65,9 @@ namespace Anaglyph.LaserTag.Maps
 		// a space startup loaded on the probe's word: backed out of if its map fails to relocalize
 		private string provisionalSpaceId;
 		private long provisionalLastUsed;
+		// a blank space startup fell back to, nothing done to it yet: a recognized place replaces it
+		private string replaceableSpaceId;
+		private const int MaxKeyframesToReplace = 150;
 
 		public SpaceAlignment Alignment { get; private set; }
 		public MapObjects Objects { get; private set; }
@@ -131,6 +135,7 @@ namespace Anaglyph.LaserTag.Maps
 			SyncBus.AuthorityChanged += OnAuthorityChanged;
 			MainXRRig.Recentered += OnRecentered;
 			SaveVisualMapsPeriodically(lifetime.Token);
+			ReplaceWithRecognizedSpaces(lifetime.Token);
 			Startup(lifetime.Token);
 		}
 
@@ -205,6 +210,7 @@ namespace Anaglyph.LaserTag.Maps
 			shown?.Dispose();
 			shown = new CancellationTokenSource();
 			provisionalSpaceId = null;
+			replaceableSpaceId = null;
 			space = next;
 			if (space != null) space.lastUsed = DateTime.UtcNow.Ticks;
 			SetMap(nextMap);
@@ -258,6 +264,7 @@ namespace Anaglyph.LaserTag.Maps
 		internal void SpaceAlignmentChanged(bool rebase)
 		{
 			if (space == null) return;
+			replaceableSpaceId = null;
 			if (rebase) Rebase();
 			else Alignment.Apply(space, preserve: true);
 			Save();
@@ -366,6 +373,7 @@ namespace Anaglyph.LaserTag.Maps
 		public void ObjectsEdited()
 		{
 			if (map == null || Role == SpaceRole.Client) return;
+			replaceableSpaceId = null;
 			map.objects = Objects.Capture();
 			MarkDirty();
 		}
@@ -407,6 +415,54 @@ namespace Anaglyph.LaserTag.Maps
 			}
 			catch (OperationCanceledException) { }
 			catch (Exception e) { Debug.LogException(e); }
+		}
+
+		private bool ShownSpaceIsReplaceable => space != null && space.id == replaceableSpaceId &&
+			Role == SpaceRole.Offline && !RoundInProgress && !showingSessionSpace && Alignment.IsAligned;
+
+		// one keyframe a second at most, and only while a fresh blank space is shown
+		private async void ReplaceWithRecognizedSpaces(CancellationToken token)
+		{
+			try
+			{
+				VisualKeyframe scored = null;
+				while (!token.IsCancellationRequested)
+				{
+					await Awaitable.WaitForSecondsAsync(1f, token);
+					VisualMap visualMap = VisualLocalizer.Instance ? VisualLocalizer.Instance.Map : null;
+					if (!ShownSpaceIsReplaceable || visualMap == null || visualMap.Count == 0 || visualMap.Count > MaxKeyframesToReplace)
+					{
+						Discovery.StopRecognizing();
+						continue;
+					}
+
+					VisualKeyframe newest = visualMap.Keyframes[visualMap.Count - 1];
+					if (newest == scored) continue;
+					scored = newest;
+					Space shownWhenAsked = space;
+					Space recognized = await Discovery.RecognizeAsync(spaces, space, newest);
+					if (recognized != null && space == shownWhenAsked && ShownSpaceIsReplaceable) ReplaceShownSpace(recognized);
+				}
+			}
+			catch (OperationCanceledException) { }
+			catch (Exception e) { Debug.LogException(e); }
+		}
+
+		// the shown space goes back to blank, for the next unknown room: what it mapped is a few
+		// keyframes of a place already saved. If the saved map fails to relocalize, startup's
+		// back-out returns to it
+		private void ReplaceShownSpace(Space recognized)
+		{
+			string replaced = space.id;
+			long lastUsed = recognized.lastUsed;
+			Show(recognized, MostRecentMap(recognized) ?? AddMap(recognized));
+			provisionalSpaceId = recognized.id;
+			provisionalLastUsed = lastUsed;
+			store.DeleteVisualMap(replaced);
+			Discovery.StopRecognizing();
+			spaces.Sort(ByLastUsed);
+			SpacesChanged.Invoke();
+			Save();
 		}
 
 		// ------- space commands --------------------------------------
@@ -479,6 +535,7 @@ namespace Anaglyph.LaserTag.Maps
 		public bool RenameSpace(string name)
 		{
 			if (RenameSpaceBlocker() != null || string.IsNullOrWhiteSpace(name)) return false;
+			replaceableSpaceId = null;
 			space.name = TrimName(name);
 			SpaceChanged.Invoke();
 			SpacesChanged.Invoke();
@@ -761,6 +818,7 @@ namespace Anaglyph.LaserTag.Maps
 				spaces.Insert(0, next);
 			}
 			Show(next, MostRecentMap(next) ?? AddMap(next));
+			replaceableSpaceId = next.id;
 			spaces.Sort(ByLastUsed);
 			SpacesChanged.Invoke();
 			return Save();

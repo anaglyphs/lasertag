@@ -10,16 +10,18 @@ namespace Anaglyph.XR.SharedSpaces
 	/// <summary>
 	/// Colocate: aligning against the authority's map. Relocalize: against this headset's own.
 	/// Loop: a revisit of this headset's map (the authority's views merged into it count as
-	/// cross-links), which measures drift and becomes a site.
+	/// cross-links), which measures drift and becomes a site. Check: a joiner's applied alignment
+	/// against other headsets' views (<see cref="AlignmentWatch"/>).
 	/// </summary>
-	public enum MeasurementPurpose { Colocate, Relocalize, Loop }
+	public enum MeasurementPurpose { Colocate, Relocalize, Loop, Check }
 
 	/// <summary>
 	/// Whether a solved localization is good enough to act on. Every result is gated on how
 	/// well it is pinned down (the solver's yaw and translation sigmas), not on how many points
 	/// matched: a map seen from one spot pins yaw but not translation until someone walks
 	/// around. Two results that agree are needed before one is applied, unless one is certain
-	/// enough alone.
+	/// enough alone. An alignment nothing can undo also has to beat the other places in contention
+	/// (<see cref="PlaceVotes"/>), and two frames of one view only count as two if they are strong.
 	/// </summary>
 	public sealed class MeasurementGate
 	{
@@ -70,6 +72,9 @@ namespace Anaglyph.XR.SharedSpaces
 			[Tooltip("Two revisit results may lean on different old segments, as long as those are this close (m of expected drift): the correction agreeing is the real test")]
 			public float anchorTolerance = 0.07f;
 
+			[Header("Competing places")]
+			public PlaceVotes.Settings places = new();
+
 			[Header("Plausibility")]
 			[Tooltip("A revisit corrects the drift walked since the last measurement: one moving the camera by more than this plus the drift model's allowance found the wrong place, such as the far end of a symmetric hallway")]
 			public float plausibleMeters = 0.5f;
@@ -86,6 +91,12 @@ namespace Anaglyph.XR.SharedSpaces
 			/// <summary>The query camera, where its segment's correction placed it.</summary>
 			public float3 camera;
 			public Pose4 correction;
+			/// <summary>
+			/// Colocating, relocalizing and checking: the same result in terms that survive the rig
+			/// moving: where it puts the tracking space, and the camera within that space.
+			/// </summary>
+			public Pose4 spaceInMap;
+			public float3 cameraInSpace, forwardInSpace;
 			public GravityPnPResult solve;
 			/// <summary>The map points the solve stood on; may be null.</summary>
 			public Vector3[] features;
@@ -101,6 +112,8 @@ namespace Anaglyph.XR.SharedSpaces
 			public float sigmaTranslation;
 			/// <summary>One frame was certain enough to stand in for both.</summary>
 			public bool alone;
+			/// <summary>An alignment: every recent result, for what comes after it to weigh it against.</summary>
+			public List<Frame> witnesses;
 		}
 
 		private readonly Settings settings;
@@ -109,6 +122,7 @@ namespace Anaglyph.XR.SharedSpaces
 		// results waiting for one to agree with: a wrong one doesn't push out a right one
 		private readonly List<Frame> candidates = new();
 		private const int MaxCandidates = 4;
+		private readonly PlaceVotes votes;
 
 		/// <param name="settings">Read live, so they can be tuned while running.</param>
 		/// <param name="drift">How far tracking may have drifted between two track segments, meters.</param>
@@ -118,13 +132,21 @@ namespace Anaglyph.XR.SharedSpaces
 			this.settings = settings;
 			this.drift = drift;
 			this.walkedBetween = walkedBetween;
+			votes = new PlaceVotes(settings.places);
 		}
 
 		/// <summary>How fast tracking drifts: what the allowances for a walk come from.</summary>
 		public DriftModel Model { get; set; } = DriftModel.Default;
 
 		/// <summary>Forgets the results waiting on a second frame.</summary>
-		public void Clear() => candidates.Clear();
+		public void Clear()
+		{
+			candidates.Clear();
+			votes.Clear();
+		}
+
+		/// <summary>Why the latest result that agreed wasn't let through, or null.</summary>
+		public string HeldBack { get; private set; }
 
 		private ref readonly Thresholds For(MeasurementPurpose purpose)
 		{
@@ -168,14 +190,18 @@ namespace Anaglyph.XR.SharedSpaces
 		/// one is certain enough on its own. One that doesn't agree joins the candidates, and
 		/// the caller should ask for the confirming frame at once, while the old views are still
 		/// in sight. A frame that fails the gate says nothing against the candidates, and doesn't
-		/// come here: it stays for the next good one.
+		/// come here: it stays for the next good one. An alignment also has to survive
+		/// <see cref="Contest"/>.
 		/// </summary>
 		public bool TryAgree(Frame frame, out Agreed agreed)
 		{
 			agreed = default;
+			bool alignment = frame.purpose != MeasurementPurpose.Loop;
+			if (alignment) votes.Add(frame);
 			bool confident = Confident(frame.solve, frame.purpose);
-			Frame agreeing = confident ? frame : candidates.Find(candidate => Agrees(candidate, frame));
-			if (agreeing == null)
+			Frame agreeing = confident ? frame : Agreeing(frame);
+			HeldBack = agreeing != null && alignment ? Contest(agreeing, frame) : null;
+			if (agreeing == null || HeldBack != null)
 			{
 				if (candidates.Count == MaxCandidates) candidates.RemoveAt(0);
 				candidates.Add(frame);
@@ -185,8 +211,41 @@ namespace Anaglyph.XR.SharedSpaces
 			// a confident frame stands in for both
 			agreed = Combine(agreeing, frame);
 			agreed.alone = confident;
-			candidates.Clear();
+			if (alignment) agreed.witnesses = new List<Frame>(votes.Frames);
+			Clear();
 			return true;
+		}
+
+		// a frame of another view if there is one: the stronger test of the two
+		private Frame Agreeing(Frame frame)
+		{
+			Frame sameView = null;
+			foreach (Frame candidate in candidates)
+			{
+				if (!Agrees(candidate, frame)) continue;
+				if (frame.purpose == MeasurementPurpose.Loop || !votes.SameView(candidate, frame)) return candidate;
+				sameView ??= candidate;
+			}
+
+			return sameView;
+		}
+
+		// why an alignment that agreed should still wait, or null. In one simulated join, two frames
+		// 0.3 s apart of a view resembling another place agreed at 46 inliers, seconds after a frame
+		// of the right place had 105
+		private string Contest(Frame agreeing, Frame frame)
+		{
+			if (agreeing != frame && votes.SameView(agreeing, frame) && !Strong(agreeing.solve) && !Strong(frame.solve))
+				return "two weak frames of one view";
+
+			PlaceVotes.Tally here = votes.For(frame.spaceInMap), rival = votes.BestAgainst(frame.spaceInMap);
+			return votes.Beats(here, rival) ? null : $"{here.inliers} inliers here against {rival.inliers} at another place";
+		}
+
+		private bool Strong(in GravityPnPResult pose)
+		{
+			ref readonly Thresholds t = ref settings.alignment;
+			return pose.inliers >= t.confidentInliers && pose.inliers >= t.confidentInlierShare * pose.correspondences;
 		}
 
 		// certain enough to act on from one frame

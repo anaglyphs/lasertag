@@ -339,6 +339,7 @@ namespace Anaglyph.XR.VisualLocalization
 			Func<VisualKeyframe, bool> filter = k =>
 				(options.untrustedFrom == 0 || IsLoopTarget(k, options.untrustedFrom, options.minLoopWalkDrift)) &&
 				(!options.lockedOnly || k.locked) &&
+				(!options.skipOwnViews || k.owner != Map.LocalOwner) &&
 				(options.maxViewAngle <= 0 || Vector3.Angle(k.camera.forward, queryForward) <= options.maxViewAngle);
 			List<(VisualKeyframe keyframe, int mutual)> candidates = await Map.RetrieveAsync(query.features, options.maxViews > 0 ? VisualMap.MaxRetrievalCandidates : keyframesPerQuery, minMutual, filter,
 				options.near, options.nearDistance > 0 ? options.nearDistance : float.PositiveInfinity, candidatesPerFrame: queue.RetrievalCandidatesPerFrame(urgent));

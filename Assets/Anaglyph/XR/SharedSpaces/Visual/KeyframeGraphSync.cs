@@ -54,10 +54,13 @@ namespace Anaglyph.XR.SharedSpaces
 		private readonly List<EdgeMessage> edges = new();
 		private readonly List<PoseMessage> poses = new();
 		private float nextUpload;
+		private readonly Func<bool> holdUploads;
 
-		public KeyframeGraphSync(KeyframeGraph graph)
+		/// <param name="holdUploads">Whether the knots and edges this headset makes should wait for now.</param>
+		public KeyframeGraphSync(KeyframeGraph graph, Func<bool> holdUploads)
 		{
 			this.graph = graph;
+			this.holdUploads = holdUploads;
 			uploadEvent.Register();
 			uploadEvent.Received += OnUpload;
 			posesEvent.Register();
@@ -88,7 +91,7 @@ namespace Anaglyph.XR.SharedSpaces
 				if (poses.Count > 0) posesEvent.Raise(EncodePoses(poses));
 			}
 
-			if (Time.unscaledTime < nextUpload) return;
+			if (Time.unscaledTime < nextUpload || holdUploads()) return;
 			nextUpload = Time.unscaledTime + UploadInterval;
 			knots.Clear();
 			edges.Clear();

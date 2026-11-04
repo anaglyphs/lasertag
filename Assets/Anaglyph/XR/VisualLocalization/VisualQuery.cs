@@ -41,6 +41,8 @@ namespace Anaglyph.XR.VisualLocalization
 		public int maxViews;
 		/// <summary>Only <see cref="VisualKeyframe.locked"/> views are tried: a revisit's reference doesn't follow later laps.</summary>
 		public bool lockedOnly;
+		/// <summary>Only other headsets' views are tried: this headset's own are placed by the very alignment being tested.</summary>
+		public bool skipOwnViews;
 		/// <summary>Keyframes facing more than this many degrees away from the query camera are skipped; 0 for any.</summary>
 		public float maxViewAngle;
 		/// <summary>

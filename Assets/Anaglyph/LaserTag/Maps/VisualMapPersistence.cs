@@ -52,6 +52,9 @@ namespace Anaglyph.LaserTag.Maps
 		/// <summary>Seconds a space just shown waits for the rig to take an alignment before its map is loaded.</summary>
 		public float AlignTimeout = 10f;
 
+		// the fewest inliers a localization can be accepted on: a map with fewer landmarks can never relocalize anything
+		private const int MinLandmarks = 30;
+
 		public VisualMapPersistence(SpaceStore store) => this.store = store;
 
 #if UNITY_EDITOR
@@ -120,9 +123,9 @@ namespace Anaglyph.LaserTag.Maps
 			VisualLocalizer localizer = VisualLocalizer.Instance;
 			VisualColocationConstraintProvider provider = VisualColocationConstraintProvider.Instance;
 			if (space == null || localizer == null || provider == null) return;
-			if (provider.Alignment.CurrentPhase != CanonAlignment.Phase.Aligned) return;
+			if (provider.Alignment.CurrentPhase != CanonAlignment.Phase.Aligned || provider.AlignmentUnconfirmed) return;
 			VisualMap map = localizer.Map;
-			if (map.Count == 0 || writesInFlight > 0 && !force) return;
+			if (map.LandmarkCount < MinLandmarks || writesInFlight > 0 && !force) return;
 			if (space.id == loadedSpace && map.Count < loadedKeyframes || space.id == unverifiedSpace) return;
 			bool unchanged = map.Revision == savedRevision && space.id == savedSpace;
 			if (unchanged || !force && Time.realtimeSinceStartup - lastSave < SaveInterval) return;
@@ -326,6 +329,12 @@ namespace Anaglyph.LaserTag.Maps
 			if (data.frameId != space.frameId)
 			{
 				Debug.Log($"[{nameof(VisualMapPersistence)}] the saved map is in another frame than the space: ignored");
+				Verified(space);
+				return;
+			}
+			if (data.landmarks.Count < MinLandmarks)
+			{
+				Debug.Log($"[{nameof(VisualMapPersistence)}] the saved map has {data.landmarks.Count} landmarks, too few to relocalize against: ignored");
 				Verified(space);
 				return;
 			}

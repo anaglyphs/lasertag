@@ -26,9 +26,10 @@ namespace Anaglyph.XR.SharedSpaces
 	}
 
 	/// <summary>
-	/// Measures one <see cref="KeyframeEdge"/> from two views' stored features: no network and
-	/// no image, and nothing of B's but its rays, so a view is measured the moment it is made:
-	/// mutual nearest descriptors between A's ranged landmarks and B's features, a RANSAC on
+	/// Measures one <see cref="KeyframeEdge"/> from stored features: no network and no image, and
+	/// nothing of B's but its rays, so a view is measured the moment it is made. A is the ranged
+	/// landmarks of any number of views of one stretch of tracking, whose raw frame they share:
+	/// mutual nearest descriptors between them and B's features, a RANSAC on
 	/// where two rays put the camera, tracking's yaw being nearly right, and Gauss-Newton on B's
 	/// rays against A's points. A few milliseconds on a worker.
 	/// </summary>

@@ -10,12 +10,9 @@ namespace Anaglyph.XR
 	/// simulated head moves (and slowly over time), like a VIO tracker
 	/// accumulating error.
 	///
-	/// The defaults follow Quest 3 captures (2026-11-01, three venues, about 1.5 km): position
-	/// wanders without bound, about 4 cm/√m across the floor once past a few meters and smooth
-	/// within them, while yaw wanders only so far: about 0.5° between any two moments once 100 m
-	/// apart, however far. So position error is the velocity of a slowly changing error integrated
-	/// along the walk, and yaw error is pulled back toward none, as if the tracker's own map held it.
-	/// The venues differed: height drift ranged from almost none to 50 cm over a few hundred meters.
+	/// The defaults follow Quest 3 captures (2026-10-28 to 11-03, eight sessions, about 3.5 km).
+	/// Floor position and yaw wander without bound, growing with the square root of the walk. Height
+	/// climbs steadily at a rate that stays fixed for the session: from about none to 2.8 mm/m.
 	///
 	/// The drift lives between the tracking space and the tracked poses, as it
 	/// does on a headset: the head pose in the tracking space is wrong, while the
@@ -32,17 +29,17 @@ namespace Anaglyph.XR
 
 		[Header("Position")]
 		[Tooltip("How fast position wanders along each floor axis, meters per √meter walked, past the correlation below")]
-		[SerializeField] private float translationRate = 0.028f;
-		[Tooltip("Likewise for height")]
+		[SerializeField] private float translationRate = 0.018f;
+		[Tooltip("Likewise for height, on top of its steady climb")]
 		[SerializeField] private float verticalRate = 0.006f;
+		[Tooltip("Spread across sessions of the steady height climb, meters per meter walked (1σ)")]
+		[SerializeField] private float heightClimbSpread = 0.0015f;
 		[Tooltip("Meters of walk over which the error's direction changes: shorter stretches drift smoothly")]
 		[SerializeField] private float translationCorrelation = 5f;
 
 		[Header("Yaw")]
-		[Tooltip("How far yaw error strays from none, degrees (1σ)")]
-		[SerializeField] private float yawSpread = 0.37f;
-		[Tooltip("Meters of walk over which yaw error is pulled back")]
-		[SerializeField] private float yawCorrelation = 55f;
+		[Tooltip("How fast yaw wanders, degrees per √meter walked")]
+		[SerializeField] private float yawRate = 0.05f;
 
 		[Header("Character")]
 		[Tooltip("Equivalent walk per second, so drift continues slowly while still")]
@@ -60,6 +57,7 @@ namespace Anaglyph.XR
 		// private generator so Multiplayer Play Mode players drift differently
 		private System.Random random = new(Guid.NewGuid().GetHashCode());
 		private Vector3 velocity;
+		private float heightClimb;
 		private bool hasPrev;
 		private Vector3 prevPos;
 		private Transform frame;
@@ -67,6 +65,7 @@ namespace Anaglyph.XR
 		private void Awake()
 		{
 			if (SeedOverride.HasValue) random = new System.Random(SeedOverride.Value);
+			heightClimb = Gaussian() * heightClimbSpread;
 		}
 
 		private void OnDisable() => hasPrev = false;
@@ -131,11 +130,9 @@ namespace Anaglyph.XR
 			float forgetting = walked / correlation;
 			float noise = Mathf.Sqrt(walked) / correlation;
 			velocity += -velocity * forgetting + noise * new Vector3(Gaussian() * translationRate, Gaussian() * verticalRate, Gaussian() * translationRate);
-			Vector3 translation = velocity * walked;
+			Vector3 translation = (velocity + Vector3.up * heightClimb) * walked;
 
-			// yaw error strays, and is pulled back
-			float yawForgetting = walked / Mathf.Max(yawCorrelation, 0.001f);
-			float yaw = -driftYaw * yawForgetting + yawSpread * Mathf.Sqrt(2f * yawForgetting) * Gaussian();
+			float yaw = yawRate * Mathf.Sqrt(walked) * Gaussian();
 
 			// everything below is in the tracking space, where the frame's local pose lives
 			Quaternion delta = Quaternion.AngleAxis(yaw, Vector3.up);

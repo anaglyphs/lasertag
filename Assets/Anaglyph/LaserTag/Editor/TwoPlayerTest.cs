@@ -46,6 +46,7 @@ namespace Anaglyph.LaserTag.Editor
 		private const float LaunchTimeout = 480f;
 		private const double MaxSampleGap = 1.2;
 		public const int MapNone = 0, MapBuild = 1, MapUse = 2;
+		private const string SavedMapProduct = "Lasertag";
 
 		[Serializable]
 		private class Run
@@ -60,6 +61,7 @@ namespace Anaglyph.LaserTag.Editor
 			public float speed;
 			public int map;
 			public float recenterAt;
+			public float misjoinDegrees;
 		}
 
 		[Serializable]
@@ -145,7 +147,8 @@ namespace Anaglyph.LaserTag.Editor
 		/// <param name="seed">Non-zero: the drift, the start poses and the walkers follow it, so runs compare.</param>
 		/// <param name="map">What becomes of the saved map, each of them the space's only copy: <see cref="MapNone"/> neither reads nor writes it, <see cref="MapBuild"/> starts empty and saves over it, <see cref="MapUse"/> starts from it and leaves it as it was.</param>
 		/// <param name="recenterAt">Above 0: seconds in, the host's tracking is recentered, and a minute later Player 2's, which each has to come back from.</param>
-		public static string Launch(float minutes, bool graph = true, int seed = 0, int stops = 6, float spacing = 6f, float speed = 0f, int map = MapNone, float recenterAt = 0)
+		/// <param name="misjoinDegrees">Not 0: Player 2's first alignment is turned by this much, which it has to notice and come back from.</param>
+		public static string Launch(float minutes, bool graph = true, int seed = 0, int stops = 6, float spacing = 6f, float speed = 0f, int map = MapNone, float recenterAt = 0, float misjoinDegrees = 0)
 		{
 			if (!SimPlayer.IsMainEditor) return "run this from the main editor, not a clone or a virtual player";
 			if (Application.isPlaying) return "leave play mode first";
@@ -158,7 +161,7 @@ namespace Anaglyph.LaserTag.Editor
 			run = new Run
 			{
 				folder = Path.Combine(LogRoot, DateTime.Now.ToString("yyyyMMdd-HHmmss")),
-				createdAt = Now, minutes = minutes, graph = graph, seed = seed, stops = stops, spacing = spacing, speed = speed, map = map, recenterAt = recenterAt,
+				createdAt = Now, minutes = minutes, graph = graph, seed = seed, stops = stops, spacing = spacing, speed = speed, map = map, recenterAt = recenterAt, misjoinDegrees = misjoinDegrees,
 			};
 			Directory.CreateDirectory(run.folder);
 			File.WriteAllText(RunPath, JsonUtility.ToJson(run));
@@ -192,6 +195,8 @@ namespace Anaglyph.LaserTag.Editor
 		// ---- paths and clocks ------------------------------------------------------
 
 		private static string LogRoot => Path.Combine(ClonesManager.GetOriginalProjectPath(), "Logs", "TwoPlayerTest");
+		// a build profile renames the product, and with it persistentDataPath: both players use the release catalog
+		private static string SavedMapDirectory => Path.Combine(Path.GetDirectoryName(Application.persistentDataPath), SavedMapProduct, Maps.SpaceStore.CatalogFolder);
 		private static string RunPath => Path.Combine(LogRoot, "run.json");
 		private static string LatestPath => Path.Combine(LogRoot, "latest.txt");
 		// the clone leaves this in the run's folder as it enters play
@@ -248,6 +253,7 @@ namespace Anaglyph.LaserTag.Editor
 			bool host = SimPlayer.IsMainEditor;
 			Maps.VisualMapPersistence.SkipLoadForTests = coming != null && !(host && map == MapUse);
 			Maps.VisualMapPersistence.SkipSaveForTests = coming != null && !(host && map == MapBuild);
+			Maps.SpaceStore.DirectoryForTests = coming != null ? SavedMapDirectory : null;
 		}
 
 		// the host's summary, the settings as they were. The run gone is what closes Player 2
@@ -374,6 +380,7 @@ namespace Anaglyph.LaserTag.Editor
 			SerializedObject providerFields = new(provider);
 			providerFields.FindProperty("graphSettings.enabled").boolValue = run.graph;
 			providerFields.ApplyModifiedPropertiesWithoutUndo();
+			if (!SimPlayer.IsMainEditor) provider.MisalignNextAlignmentForTests = run.misjoinDegrees;
 			return true;
 		}
 

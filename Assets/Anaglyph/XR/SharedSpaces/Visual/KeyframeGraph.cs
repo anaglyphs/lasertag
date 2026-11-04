@@ -29,8 +29,9 @@ namespace Anaglyph.XR.SharedSpaces
 	/// <summary>
 	/// Corrects the map itself, across every headset. Raw tracking walks a place a little
 	/// differently each lap, and revisits alone hold every lap to the first, error and all. Each
-	/// new view is matched against older views of its place, this headset's from every lap and
-	/// everyone's it holds (<see cref="KeyframeEdgeJob"/>), and a graph over everyone's tracks
+	/// new view is matched against every earlier pass of its place, this headset's and everyone's
+	/// it holds, the nearby views of a pass pooled in one solve (<see cref="KeyframeEdgeJob"/>),
+	/// so that view ties those passes to each other, and a graph over everyone's tracks
 	/// (<see cref="KeyframeGraphSolveJob"/>) averages the walks: every segment's node, and with it
 	/// its keyframes, landmarks and any site anchored there, moves to where the laps agree. The
 	/// scan doesn't follow: it stays where it was integrated.
@@ -42,7 +43,7 @@ namespace Anaglyph.XR.SharedSpaces
 	/// on (<see cref="LinkNextTrack"/>): no walk is ever left in a piece of its own. Offline, this
 	/// headset is the authority.
 	///
-	/// All of it runs at a walking pace on one worker: one pair of views at a time, a few a
+	/// All of it runs at a walking pace on one worker: one new view against one pass at a time, a few a
 	/// second, and one Gauss-Newton step a frame every few seconds, none of it while nothing new
 	/// has come.
 	/// </summary>
@@ -56,19 +57,17 @@ namespace Anaglyph.XR.SharedSpaces
 			public float knotSpacing = 2f;
 
 			[Header("Matching")]
-			[Tooltip("Of an older view's landmarks, how many must fall in the new view's image for the pair to be tried")]
+			[Tooltip("Of an older pass's pooled views' landmarks, how many must fall in the new view's image for the pass to be tried")]
 			public int minOverlap = 50;
-			[Tooltip("Older views tried per new keyframe")]
-			public int pairsPerKeyframe = 6;
-			[Tooltip("Edges that end a keyframe's tries: the next view has newer news")]
-			public int edgesPerKeyframe = 3;
+			[Tooltip("Earlier passes of its place a new keyframe is matched against, each giving one edge: a graph learns from other laps, not from more of one")]
+			public int passesPerKeyframe = 6;
 			[Tooltip("Keyframes kept waiting for their pairs, newest first: at a run, more come than can be matched")]
 			public int maxWaiting = 16;
-			[Tooltip("Of those, the most from one pass of a place: a graph learns from other laps, not from more of one")]
-			public int pairsPerPass = 2;
+			[Tooltip("Views of a pass pooled in one solve, the likeliest first: the solve stands on what the pass saw, not on what one view of it saw")]
+			public int viewsPerPass = 6;
 			[Tooltip("Seconds of capture time counted as one pass")]
 			public float passSeconds = 15f;
-			[Tooltip("Pairs of views matched a second, at most: each is a few milliseconds on a worker")]
+			[Tooltip("Solves of a new view against a pass a second, at most: each is a few milliseconds on a worker")]
 			public float pairsPerSecond = 12f;
 			[Tooltip("Views farther apart than this (m) aren't tried: on device this holds 90% of what matches, half of it past 2.5 m")]
 			public float pairDistance = 6f;
@@ -119,11 +118,18 @@ namespace Anaglyph.XR.SharedSpaces
 			public float tipYawSigmaDegrees = 0.15f;
 		}
 
-		// what a view offers as the older of a pair
+		// what a view offers to a pass: its ranged features, with their landmarks as it had them
 		private sealed class OlderView
 		{
-			public int[] features;
+			public int[] features, landmarks;
 			public float3[] points;
+		}
+
+		// the views of one earlier pass of the new view's place, pooled in one solve
+		private sealed class OlderPass
+		{
+			public readonly List<VisualKeyframe> views = new();
+			public int overlap;
 		}
 
 		private readonly Settings settings;
@@ -136,6 +142,9 @@ namespace Anaglyph.XR.SharedSpaces
 		private NativeList<KeyframeEdge> edges = new(1024, Allocator.Persistent);
 		// parallel to knots
 		private readonly List<ulong> keys = new();
+		// parallel to knots: which unbroken stretch of tracking each is on, whose raw frame its views' landmarks share
+		private readonly List<int> walkOfKnot = new();
+		private int nextWalk;
 		private readonly Dictionary<ulong, int> knotByKey = new();
 		private readonly Dictionary<long, int> knotByPlace = new();
 		private int lastKnotGeneration = -1, lastOwnKnot = -1, tipGeneration = -1;
@@ -169,19 +178,23 @@ namespace Anaglyph.XR.SharedSpaces
 		private readonly List<(VisualKeyframe keyframe, float at)> waiting = new();
 		private readonly Dictionary<VisualKeyframe, OlderView> olderViews = new();
 		private readonly List<(float likeness, VisualKeyframe keyframe)> candidates = new();
-		private readonly Dictionary<long, int> pairsOfPass = new();
-		private readonly List<VisualKeyframe> pairs = new();
+		private readonly Dictionary<long, OlderPass> passByKey = new();
+		private readonly List<OlderPass> passes = new();
+		private readonly Stack<OlderPass> sparePasses = new();
+		private readonly HashSet<int> pooledLandmarks = new();
+		private readonly Dictionary<ulong, int> inliersOfKey = new();
 
-		// one pair at a time: the newer view's side stays for all of its pairs
+		// one pass at a time: the newer view's side stays for all of its passes
 		private NativeArray<half> descriptorsA, descriptorsB;
 		private NativeArray<float3> pointsA, raysB;
 		private NativeArray<KeyframeEdge> edgeResult = new(1, Allocator.Persistent);
 		private NativeArray<int> inliersOfA;
-		private VisualKeyframe olderOfPair;
-		private int[] featuresOfPair;
+		// per row of A
+		private readonly int[] landmarkOfRow = new int[XFeatExtractor.MaxKeypoints];
+		private readonly ulong[] keyOfRow = new ulong[XFeatExtractor.MaxKeypoints];
 		private JobHandle edgeHandle;
 		private bool edgeInFlight;
-		private int countB, edgesOfNewer;
+		private int countB;
 		private float pathB, newerAt;
 		private ulong keyA, keyB;
 		private float3 centerB;
@@ -277,6 +290,7 @@ namespace Anaglyph.XR.SharedSpaces
 			state.Clear();
 			edges.Clear();
 			keys.Clear();
+			walkOfKnot.Clear();
 			knotByKey.Clear();
 			knotByPlace.Clear();
 			lastKnotGeneration = lastOwnKnot = tipKnot = -1;
@@ -294,7 +308,7 @@ namespace Anaglyph.XR.SharedSpaces
 			localizer.Map.LocalOwner = Owner;
 			waiting.Clear();
 			olderViews.Clear();
-			pairs.Clear();
+			ClearPasses();
 			edgesSinceSolve = 0;
 			track.ForgetKnots();
 		}
@@ -320,7 +334,7 @@ namespace Anaglyph.XR.SharedSpaces
 		public void OnEvicted(VisualKeyframe keyframe)
 		{
 			olderViews.Remove(keyframe);
-			pairs.Remove(keyframe);
+			foreach (OlderPass pass in passes) pass.views.Remove(keyframe);
 			waiting.RemoveAll(w => w.keyframe == keyframe);
 		}
 
@@ -403,7 +417,18 @@ namespace Anaglyph.XR.SharedSpaces
 		public void DropWaiting()
 		{
 			waiting.Clear();
-			pairs.Clear();
+			ClearPasses();
+		}
+
+		private void ClearPasses()
+		{
+			foreach (OlderPass pass in passes)
+			{
+				pass.views.Clear();
+				sparePasses.Push(pass);
+			}
+
+			passes.Clear();
 		}
 
 		private int AddKnot(ulong key, float3 origin, float path, int previous, double4 transform, bool isFixed)
@@ -412,6 +437,7 @@ namespace Anaglyph.XR.SharedSpaces
 			knots.Add(new KeyframeGraphKnot { origin = origin, path = path, previous = previous, next = -1, isFixed = isFixed });
 			state.Add(transform);
 			keys.Add(key);
+			walkOfKnot.Add(previous >= 0 ? walkOfKnot[previous] : nextWalk++);
 			sentPoses.Add((float4)transform);
 			knotByKey[key] = index;
 			if (previous >= 0)
@@ -812,6 +838,7 @@ namespace Anaglyph.XR.SharedSpaces
 				KeyframeEdge edge = edgeResult[0];
 				if (edge.inliers > 0)
 				{
+					keyA = MostMatchedKey(edge.inliers);
 					// few inliers are about twice as far from the truth
 					float confidence = edge.inliers < settings.confidentInliers ? 0.25f : 1f;
 					edge.positionInformation = confidence / (settings.edgeSigma * settings.edgeSigma);
@@ -820,24 +847,44 @@ namespace Anaglyph.XR.SharedSpaces
 					if (edge.inliers >= settings.confidentInliers && KnotKeys.Owner(keyB) == Owner) OfferFix(keyA, edge, pathB);
 					if (AnaglyphDebugging.DebugMode && KnotKeys.Owner(keyB) == Owner)
 						for (int i = 0; i < edge.inliers; i++)
-							LandmarkMatched(olderOfPair.landmarks[featuresOfPair[inliersOfA[i]]]);
+							LandmarkMatched(landmarkOfRow[inliersOfA[i]]);
 					edgeLagSum += Time.unscaledTime - newerAt;
 					edgeLagCount++;
-					if (++edgesOfNewer >= settings.edgesPerKeyframe) pairs.Clear();
 				}
 				else pairsLost[-edge.inliers]++;
 			}
 
 			if (Time.unscaledTime < nextPair) return;
 
-			if (pairs.Count == 0 && !BeginNextKeyframe()) return;
-			VisualKeyframe older = pairs[0];
-			pairs.RemoveAt(0);
-			SchedulePair(older);
+			if (passes.Count == 0 && !BeginNextKeyframe()) return;
+			OlderPass pass = passes[0];
+			passes.RemoveAt(0);
+			SchedulePass(pass);
+			pass.views.Clear();
+			sparePasses.Push(pass);
 			nextPair = Time.unscaledTime + 1f / math.max(settings.pairsPerSecond, 0.1f);
 		}
 
-		// the newest keyframe's own side, and which older views it will try
+		// the knot most of an edge's inliers hang off: the one it ties the new view to
+		private ulong MostMatchedKey(int inliers)
+		{
+			inliersOfKey.Clear();
+			ulong best = 0;
+			int bestCount = 0;
+			for (int i = 0; i < inliers; i++)
+			{
+				ulong key = keyOfRow[inliersOfA[i]];
+				inliersOfKey.TryGetValue(key, out int count);
+				inliersOfKey[key] = ++count;
+				if (count <= bestCount) continue;
+				bestCount = count;
+				best = key;
+			}
+
+			return best;
+		}
+
+		// the newest keyframe's own side, and which older passes it will try
 		private bool BeginNextKeyframe()
 		{
 			while (waiting.Count > 0)
@@ -849,19 +896,18 @@ namespace Anaglyph.XR.SharedSpaces
 #if UNITY_EDITOR
 				newerCamera = keyframe;
 #endif
-				edgesOfNewer = 0;
 				SelectOlder(keyframe);
-				if (pairs.Count > 0) return true;
+				if (passes.Count > 0) return true;
 			}
 
 			return false;
 		}
 
-		// the views nearest it and most alike in heading, a few from each pass of its place
+		// the passes of its place with the views nearest it and most alike in heading, the likeliest first
 		private void SelectOlder(VisualKeyframe newer)
 		{
 			candidates.Clear();
-			pairsOfPass.Clear();
+			passByKey.Clear();
 			VisualMap map = localizer.Map;
 			float maxCosine = math.cos(math.radians(settings.pairAngle));
 			Vector3 at = newer.camera.position, forward = newer.camera.forward;
@@ -878,24 +924,45 @@ namespace Anaglyph.XR.SharedSpaces
 				if (to.sqrMagnitude > settings.pairDistance * settings.pairDistance) continue;
 				float cosine = Vector3.Dot(k.camera.forward, forward);
 				if (cosine < maxCosine) continue;
-				// the likeliest first: a keyframe stops at a few edges, so the rest are tried only when these fail
 				candidates.Add((to.magnitude + math.degrees(math.acos(math.saturate(cosine))) / 10f, k));
 			}
 
 			candidates.Sort((x, y) => x.likeness.CompareTo(y.likeness));
 			long passNs = (long)(math.max(settings.passSeconds, 0.1f) * 1e9);
-			int taken = 0;
 			foreach ((float _, VisualKeyframe k) in candidates)
 			{
-				if (taken >= settings.pairsPerKeyframe) break;
-				long pass = ((long)k.owner << 32) ^ (k.timestampNs / passNs);
-				pairsOfPass.TryGetValue(pass, out int count);
-				// near and turned alike can still share nothing: a pair is worth trying only with enough of its landmarks in frame
-				if (count >= settings.pairsPerPass || Overlap(newer, k) < settings.minOverlap) continue;
-				pairsOfPass[pass] = count + 1;
-				pairs.Add(k);
-				taken++;
+				if (!TryKey(k.node, out ulong key) || !knotByKey.TryGetValue(key, out int knot)) continue;
+				// one stretch of tracking only: its views' landmarks share a raw frame, and another's don't
+				long passKey = ((long)walkOfKnot[knot] << 32) ^ (k.timestampNs / passNs);
+				if (!passByKey.TryGetValue(passKey, out OlderPass pass))
+				{
+					pass = sparePasses.Count > 0 ? sparePasses.Pop() : new OlderPass();
+					pass.overlap = 0;
+					passByKey[passKey] = pass;
+					passes.Add(pass);
+				}
+
+				if (pass.views.Count >= settings.viewsPerPass) continue;
+				// near and turned alike can still share nothing, and a view with a few landmarks in frame only costs time
+				int overlap = Overlap(newer, k);
+				if (overlap < settings.minInliers) continue;
+				pass.views.Add(k);
+				pass.overlap += overlap;
 			}
+
+			int kept = 0;
+			for (int i = 0; i < passes.Count; i++)
+			{
+				OlderPass candidate = passes[i];
+				if (kept < settings.passesPerKeyframe && candidate.overlap >= settings.minOverlap) passes[kept++] = candidate;
+				else
+				{
+					candidate.views.Clear();
+					sparePasses.Push(candidate);
+				}
+			}
+
+			passes.RemoveRange(kept, passes.Count - kept);
 		}
 
 		// how many of an older view's ranged landmarks fall in the newer view's image: drift is small against the room
@@ -948,46 +1015,56 @@ namespace Anaglyph.XR.SharedSpaces
 		private OlderView LoadOlder(VisualKeyframe keyframe)
 		{
 			if (olderViews.TryGetValue(keyframe, out OlderView view)) return view;
-			List<int> features = new();
+			List<int> features = new(), landmarks = new();
 			List<float3> points = new();
 			VisualMap map = localizer.Map;
 			for (int j = 0; j < keyframe.features.Count && features.Count < pointsA.Length; j++)
 			{
 				if (!map.TryGetLandmark(keyframe.landmarks[j], out Landmark l) || !IsRanged(l)) continue;
 				features.Add(j);
+				landmarks.Add(keyframe.landmarks[j]);
 				points.Add(RawPoint(l));
 			}
 
-			view = new OlderView { features = features.ToArray(), points = points.ToArray() };
+			view = new OlderView { features = features.ToArray(), landmarks = landmarks.ToArray(), points = points.ToArray() };
 			olderViews[keyframe] = view;
 			return view;
 		}
 
-		private void SchedulePair(VisualKeyframe older)
+		private void SchedulePass(OlderPass pass)
 		{
-			OlderView view = LoadOlder(older);
-			if (view.features.Length < settings.minInliers || !TryKey(older.node, out keyA) || keyA == keyB) return;
 			const int d = FeatureSet.DescriptorSize;
-			for (int i = 0; i < view.features.Length; i++)
+			pooledLandmarks.Clear();
+			int rows = 0;
+			foreach (VisualKeyframe keyframe in pass.views)
 			{
-				NativeArray<half>.Copy(older.features.descriptors, view.features[i] * d, descriptorsA, i * d, d);
-				pointsA[i] = view.points[i];
+				if (!TryKey(keyframe.node, out ulong key) || key == keyB) continue;
+				OlderView view = LoadOlder(keyframe);
+				for (int i = 0; i < view.features.Length && rows < pointsA.Length; i++)
+				{
+					if (!pooledLandmarks.Add(view.landmarks[i])) continue;
+					NativeArray<half>.Copy(keyframe.features.descriptors, view.features[i] * d, descriptorsA, rows * d, d);
+					pointsA[rows] = view.points[i];
+					landmarkOfRow[rows] = view.landmarks[i];
+					keyOfRow[rows] = key;
+					rows++;
+				}
 			}
 
+			if (rows < settings.minInliers) return;
 			PairsTried++;
 			pairBegan = Time.realtimeSinceStartup;
-			olderOfPair = older;
-			featuresOfPair = view.features;
 #if UNITY_EDITOR
-			Vector3 toOlder = older.camera.position - newerCamera.camera.position;
+			VisualKeyframe nearest = pass.views[0];
+			Vector3 toOlder = nearest.camera.position - newerCamera.camera.position;
 			toOlder.y = 0;
-			pairNote = FormattableString.Invariant($"{(track.IsOwn(older.node) ? 1 : 0)},{toOlder.magnitude:F2},{Vector3.Angle(older.camera.forward, newerCamera.camera.forward):F1},{Overlap(newerCamera, older)},{view.features.Length},{countB}");
+			pairNote = FormattableString.Invariant($"{(track.IsOwn(nearest.node) ? 1 : 0)},{toOlder.magnitude:F2},{Vector3.Angle(nearest.camera.forward, newerCamera.camera.forward):F1},{pass.overlap},{rows},{countB}");
 #endif
 			edgeHandle = new KeyframeEdgeJob
 			{
 				descriptorsA = descriptorsA, descriptorsB = descriptorsB,
 				pointsA = pointsA, raysB = raysB,
-				countA = view.features.Length, countB = countB,
+				countA = rows, countB = countB,
 				centerB = centerB, angularSigma = angularSigma,
 				minInliers = settings.minInliers, maxYawSigma = math.radians(settings.maxYawSigmaDegrees),
 				seed = seed++, result = edgeResult, inliersOfA = inliersOfA,

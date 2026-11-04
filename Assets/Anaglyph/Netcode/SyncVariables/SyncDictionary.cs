@@ -11,11 +11,7 @@ namespace Anaglyph.Netcode.SyncVariables
 		Clear = 2,
 		Snapshot = 3
 	}
-
-	// A replicated dictionary with no NetworkObject of its own — the NetworkDictionary
-	// NGO never shipped, for plain MonoBehaviour singletons. Routed through SyncBus
-	// under the hash of its string name.
-	//
+	
 	// The authority mutates (Set / Remove / Clear) and every peer mirrors the change
 	// in the same order; other peers use RequestSet / RequestRemove / RequestClear,
 	// which the authority validates. Changed fires after any mutation from any

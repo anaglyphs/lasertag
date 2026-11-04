@@ -10,7 +10,8 @@ namespace Anaglyph.XR.SharedSpaces
 	/// <summary>
 	/// What visual alignment is working from, drawn in debug mode. White rays from the newest
 	/// view through its features. Dots: yellow for locked keyframes' landmarks around the head,
-	/// green for those a view has just matched. Lines: white for the graph's knots and the walk
+	/// green for those a new view has just tracked, cyan for those of any view it has just
+	/// aligned to. Lines: white for the graph's knots and the walk
 	/// between them, green for matches between knots.
 	/// </summary>
 	public sealed class VisualAlignmentDebugView : IDisposable
@@ -22,10 +23,10 @@ namespace Anaglyph.XR.SharedSpaces
 
 		private readonly VisualLocalizer localizer;
 		private readonly KeyframeGraph graph;
-		private readonly Dictionary<int, float> matchedAt = new();
+		private readonly Dictionary<int, float> matchedAt = new(), alignedAt = new();
 		private readonly HashSet<int> placedLocked = new();
 		private readonly List<int> expired = new();
-		private readonly List<Vector3> lockedDots = new(), matchedDots = new();
+		private readonly List<Vector3> lockedDots = new(), matchedDots = new(), alignedDots = new();
 		private readonly List<Vector3> featureRays = new(), walkLines = new(), matchLines = new();
 		private VisualKeyframe newest;
 		private float nextRefresh;
@@ -37,12 +38,12 @@ namespace Anaglyph.XR.SharedSpaces
 			localizer.KeyframeExtracted += OnKeyframeExtracted;
 			localizer.KeyframeAdded += OnKeyframeAdded;
 			localizer.Map.Cleared += OnMapCleared;
-			graph.LandmarkMatched += OnLandmarkMatched;
+			graph.LandmarkMatched += OnLandmarkAligned;
 		}
 
 		public void Dispose()
 		{
-			graph.LandmarkMatched -= OnLandmarkMatched;
+			graph.LandmarkMatched -= OnLandmarkAligned;
 			if (!localizer) return;
 			localizer.KeyframeExtracted -= OnKeyframeExtracted;
 			localizer.KeyframeAdded -= OnKeyframeAdded;
@@ -62,6 +63,7 @@ namespace Anaglyph.XR.SharedSpaces
 			XRGizmos.DrawLineSegments(featureRays, Color.white);
 			XRGizmos.DrawPointSet(lockedDots, Color.yellow, DotSize);
 			XRGizmos.DrawPointSet(matchedDots, Color.green, DotSize);
+			XRGizmos.DrawPointSet(alignedDots, Color.cyan, DotSize);
 		}
 
 		private void OnKeyframeExtracted(VisualKeyframe keyframe) => newest = keyframe;
@@ -75,10 +77,13 @@ namespace Anaglyph.XR.SharedSpaces
 
 		private void OnLandmarkMatched(int landmark) => matchedAt[landmark] = Time.unscaledTime;
 
+		private void OnLandmarkAligned(int landmark) => alignedAt[landmark] = Time.unscaledTime;
+
 		private void OnMapCleared()
 		{
 			newest = null;
 			matchedAt.Clear();
+			alignedAt.Clear();
 		}
 
 		private void Refresh(Vector3 head)
@@ -87,13 +92,28 @@ namespace Anaglyph.XR.SharedSpaces
 			matchLines.Clear();
 			graph.AddDebugLines(walkLines, matchLines, KnotAxisLength);
 
-			expired.Clear();
-			foreach ((int landmark, float at) in matchedAt)
-				if (Time.unscaledTime - at > MatchedSeconds) expired.Add(landmark);
-			foreach (int landmark in expired) matchedAt.Remove(landmark);
-
+			ForgetExpired(matchedAt);
+			ForgetExpired(alignedAt);
 			RefreshLocked(head);
+			RefreshAligned();
 			// RefreshNewest();
+		}
+
+		private void ForgetExpired(Dictionary<int, float> landmarkTimes)
+		{
+			expired.Clear();
+			foreach ((int landmark, float at) in landmarkTimes)
+				if (Time.unscaledTime - at > MatchedSeconds) expired.Add(landmark);
+			foreach (int landmark in expired) landmarkTimes.Remove(landmark);
+		}
+
+		private void RefreshAligned()
+		{
+			alignedDots.Clear();
+			VisualMap map = localizer.Map;
+			foreach ((int id, float _) in alignedAt)
+				if (map.TryGetLandmark(id, out Landmark landmark) && TryPlace(landmark, out Vector3 point))
+					alignedDots.Add(point);
 		}
 
 		private void RefreshLocked(Vector3 head)
@@ -108,7 +128,7 @@ namespace Anaglyph.XR.SharedSpaces
 				foreach (int id in keyframe.landmarks)
 				{
 					if (!map.TryGetLandmark(id, out Landmark landmark) || !graph.IsRanged(landmark) || !TryPlace(landmark, out Vector3 point) || !placedLocked.Add(id)) continue;
-					(matchedAt.ContainsKey(id) ? matchedDots : lockedDots).Add(point);
+					if (!alignedAt.ContainsKey(id)) (matchedAt.ContainsKey(id) ? matchedDots : lockedDots).Add(point);
 				}
 			}
 		}

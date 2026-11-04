@@ -299,7 +299,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 		private void OnFrameCaptured(EnvScanner.CapturedFrame captured)
 		{
 			if (!SyncBus.Active) { unsentChange = 0; unsentFrames = 0; return; }
-			if (!CanSendScan || !ColocationManager.IsColocated)
+			if (!CanSendScan || !ColocationManager.IsColocated || ColocationManager.AlignmentUnconfirmed)
 			{
 				unsentChange = 0;
 				unsentFrames = 0;

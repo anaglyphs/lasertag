@@ -27,7 +27,7 @@ namespace Anaglyph.LaserTag.Editor
 		public static SimWalker Instance { get; private set; }
 
 		[Header("Motion")]
-		public float walkSpeed = 1.2f;
+		public float walkSpeed = 2f;
 		public float eyeHeight = 1.6f;
 		[Tooltip("Fastest the head turns, degrees per second")]
 		public float maxTurnRate = 120f;
@@ -346,7 +346,9 @@ namespace Anaglyph.LaserTag.Editor
 			type.GetField("centerEyeRotation").SetValue(state, deviceRotation);
 			type.GetField("deviceRotation").SetValue(state, deviceRotation);
 			hmdStateField.SetValue(simulator, state);
-			centerEyeEulerField.SetValue(simulator, deviceRotation.eulerAngles);
+			Vector3 euler = deviceRotation.eulerAngles;
+			euler.x = Mathf.DeltaAngle(0, euler.x);
+			centerEyeEulerField.SetValue(simulator, euler);
 		}
 	}
 }
