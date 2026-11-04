@@ -18,6 +18,15 @@ namespace Anaglyph.XR.SharedSpaces
 		public bool isFixed;
 	}
 
+	/// <summary>How much one edge says, along each way it can be wrong: a solve's working copy of what its inliers and its line of sight imply.</summary>
+	public struct KeyframeEdgeWeight
+	{
+		/// <summary>Unit, level, in the map: the way the edge's point lies from the camera.</summary>
+		public float3 sight;
+		/// <summary>One over its variance along the sight, across it, in height and in yaw.</summary>
+		public float along, across, height, yaw;
+	}
+
 	/// <summary>
 	/// One Gauss-Newton step of the graph: over each free knot's transform from raw tracking to
 	/// the map, with tracking drifting a little between consecutive knots, and every
@@ -32,6 +41,8 @@ namespace Anaglyph.XR.SharedSpaces
 
 		[ReadOnly] public NativeArray<KeyframeGraphKnot> knots;
 		[ReadOnly] public NativeArray<KeyframeEdge> edges;
+		/// <summary>Parallel to <see cref="edges"/>.</summary>
+		[ReadOnly] public NativeArray<KeyframeEdgeWeight> weights;
 		/// <summary>Each knot's (translation, yaw): in, where to linearize; out, one step on.</summary>
 		public NativeArray<double4> state;
 		/// <summary>One element: the largest step taken.</summary>
@@ -85,9 +96,14 @@ namespace Anaglyph.XR.SharedSpaces
 			for (int e = 0; e < edges.Length; e++)
 			{
 				KeyframeEdge edge = edges[e];
+				KeyframeEdgeWeight weight = weights[e];
+				double3 sight = weight.sight;
+				double3 side = new(sight.z, 0, -sight.x);
 				double4x4 information = default;
-				information.c0.x = information.c1.y = information.c2.z = edge.positionInformation;
-				information.c3.w = edge.yawInformation;
+				information.c0.xyz = (double)weight.along * sight * sight.x + (double)weight.across * side * side.x;
+				information.c1.y = weight.height;
+				information.c2.xyz = (double)weight.along * sight * sight.z + (double)weight.across * side * side.z;
+				information.c3.w = weight.yaw;
 				Add(ref matrix, ref gradient, rowStart, first, position, edge.knotA, edge.knotB, edge.pointA, edge.pointB, edge.yaw, information, huber);
 			}
 

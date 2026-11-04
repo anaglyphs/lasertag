@@ -93,16 +93,28 @@ namespace Anaglyph.XR.SharedSpaces
 			public int maxSolveKnots = 500;
 			[Tooltip("Gauss-Newton steps a solve takes at most, one a frame")]
 			public int iterations = 3;
-			[Tooltip("How far one pair of views' edge is from the truth across its knots, meters: the rays' own fit is far surer than the landmarks it rests on allow")]
+			[Tooltip("How far an edge is from the truth, meters, across its inliers: along its line of sight, where landmark depth errors land")]
+			public float edgeAlongSpread = 5.5f;
+			[Tooltip("Likewise across its line of sight")]
+			public float edgeAcrossSpread = 2.8f;
+			[Tooltip("Likewise in height")]
+			public float edgeHeightSpread = 1.8f;
+			[Tooltip("The least an edge can be off along any axis however many inliers it has, meters: the error all of a view's landmarks share")]
+			public float edgeSigmaFloor = 0.02f;
+			[Tooltip("How far an edge's yaw is off, degrees, across the square root of its inliers")]
+			public float edgeYawSpread = 10f;
+			[Tooltip("The least an edge's yaw can be off, degrees")]
+			public float edgeYawFloorDegrees = 0.3f;
+			[Tooltip("How far a tie made other than by a pair of views is off, meters")]
 			public float edgeSigma = 0.04f;
-			[Tooltip("Inliers below which an edge counts for a quarter, and tracking isn't corrected from it directly")]
+			[Tooltip("Inliers below which tracking isn't corrected from an edge directly")]
 			public int confidentInliers = 30;
-			[Tooltip("Likewise in yaw, degrees: an edge's yaw is much the worse half of it")]
+			[Tooltip("Likewise in yaw, degrees")]
 			public float edgeYawSigmaDegrees = 1.5f;
-			[Tooltip("How fast the solve lets tracking wander between knots, meters per √meter along each axis: what long walks measured on device, more than the short stretches landmarks are trusted over")]
-			public float driftRate = 0.028f;
+			[Tooltip("How fast the solve lets tracking wander between knots, meters per √meter along each axis: what long walks measured on device")]
+			public float driftRate = 0.018f;
 			[Tooltip("Sigmas past which an edge's pull stops growing")]
-			public float huber = 2f;
+			public float huber = 1f;
 			public int maxEdges = 8192;
 			[Tooltip("How well a solve is taken to place this headset's tracking, meters: as a constraint beside the sites")]
 			public float tipSigma = 0.05f;
@@ -205,6 +217,7 @@ namespace Anaglyph.XR.SharedSpaces
 
 		private NativeArray<KeyframeGraphKnot> solveKnots;
 		private NativeArray<KeyframeEdge> solveEdges;
+		private NativeArray<KeyframeEdgeWeight> solveWeights;
 		private NativeArray<double4> solveState;
 		private NativeArray<double> largestStep = new(1, Allocator.Persistent);
 		private JobHandle solveHandle;
@@ -275,6 +288,7 @@ namespace Anaglyph.XR.SharedSpaces
 		{
 			if (solveKnots.IsCreated) solveKnots.Dispose();
 			if (solveEdges.IsCreated) solveEdges.Dispose();
+			if (solveWeights.IsCreated) solveWeights.Dispose();
 			if (solveState.IsCreated) solveState.Dispose();
 		}
 
@@ -412,6 +426,8 @@ namespace Anaglyph.XR.SharedSpaces
 		}
 
 		private const int LinkInliers = -1;
+		// at or below this, an edge is no pair of views' and carries its own information: a link, or a revisit's single measurement
+		private const int MeasuredTie = 1;
 
 		/// <summary>Tracking is lost or recentered: what was waiting to be matched is dropped, and nothing more is contributed until a new alignment.</summary>
 		public void DropWaiting()
@@ -839,10 +855,6 @@ namespace Anaglyph.XR.SharedSpaces
 				if (edge.inliers > 0)
 				{
 					keyA = MostMatchedKey(edge.inliers);
-					// few inliers are about twice as far from the truth
-					float confidence = edge.inliers < settings.confidentInliers ? 0.25f : 1f;
-					edge.positionInformation = confidence / (settings.edgeSigma * settings.edgeSigma);
-					edge.yawInformation = confidence / math.square(math.radians(settings.edgeYawSigmaDegrees));
 					AddEdge(keyA, keyB, edge);
 					if (edge.inliers >= settings.confidentInliers && KnotKeys.Owner(keyB) == Owner) OfferFix(keyA, edge, pathB);
 					if (AnaglyphDebugging.DebugMode && KnotKeys.Owner(keyB) == Owner)
@@ -1134,6 +1146,32 @@ namespace Anaglyph.XR.SharedSpaces
 			}
 		}
 
+		// what an edge is worth: a pair of views' by its inliers and its line of sight, read afresh so a saved map's go by the same rule
+		private KeyframeEdgeWeight WeightOf(in KeyframeEdge edge)
+		{
+			if (edge.inliers <= MeasuredTie)
+				return new KeyframeEdgeWeight
+				{
+					sight = new float3(1, 0, 0),
+					along = edge.positionInformation, across = edge.positionInformation, height = edge.positionInformation,
+					yaw = edge.yawInformation,
+				};
+
+			float3 toPoint = Pose4.RotateY(edge.pointB - knots[edge.knotB].origin, (float)state[edge.knotB].w);
+			toPoint.y = 0;
+			float inliers = edge.inliers;
+			return new KeyframeEdgeWeight
+			{
+				sight = math.normalizesafe(toPoint, new float3(1, 0, 0)),
+				along = Information(settings.edgeAlongSpread / inliers),
+				across = Information(settings.edgeAcrossSpread / inliers),
+				height = Information(settings.edgeHeightSpread / inliers),
+				yaw = 1f / math.square(math.radians(math.max(settings.edgeYawSpread / math.sqrt(inliers), settings.edgeYawFloorDegrees))),
+			};
+		}
+
+		private float Information(float sigma) => 1f / math.square(math.max(sigma, settings.edgeSigmaFloor));
+
 		// an edge as its knots' groups see it: its points and yaw in the frame of each group's first knot
 		private KeyframeEdge InGroups(KeyframeEdge edge)
 		{
@@ -1159,6 +1197,7 @@ namespace Anaglyph.XR.SharedSpaces
 			GroupKnots();
 			solveKnots = new NativeArray<KeyframeGraphKnot>(solveGroupCount, Allocator.Persistent);
 			solveEdges = new NativeArray<KeyframeEdge>(solveEdgeCount, Allocator.Persistent);
+			solveWeights = new NativeArray<KeyframeEdgeWeight>(solveEdgeCount, Allocator.Persistent);
 			solveState = new NativeArray<double4>(solveGroupCount, Allocator.Persistent);
 			for (int g = 0; g < solveGroupCount; g++)
 			{
@@ -1181,6 +1220,7 @@ namespace Anaglyph.XR.SharedSpaces
 			{
 				KeyframeEdge edge = edges[e];
 				ownEdgesSolved |= KnotKeys.Owner(keys[edge.knotB]) == Owner || KnotKeys.Owner(keys[edge.knotA]) == Owner;
+				solveWeights[e] = WeightOf(edge);
 				solveEdges[e] = InGroups(edge);
 			}
 
@@ -1198,6 +1238,7 @@ namespace Anaglyph.XR.SharedSpaces
 			{
 				knots = solveKnots,
 				edges = solveEdges,
+				weights = solveWeights,
 				state = solveState,
 				largestStep = largestStep,
 				positionRateSquared = (double)settings.driftRate * settings.driftRate,

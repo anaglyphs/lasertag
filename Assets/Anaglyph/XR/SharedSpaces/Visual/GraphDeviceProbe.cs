@@ -201,12 +201,15 @@ namespace Anaglyph.XR.SharedSpaces
 					edges[i] = new KeyframeEdge { knotA = a, knotB = b, pointA = at, pointB = at, positionInformation = 625, yawInformation = 1459, inliers = 50 };
 				}
 
+				NativeArray<KeyframeEdgeWeight> weights = new(edgeCount, Allocator.Persistent);
+				for (int i = 0; i < edgeCount; i++) weights[i] = new KeyframeEdgeWeight { sight = new float3(1, 0, 0), along = 625, across = 625, height = 625, yaw = 1459 };
+
 				double[] times = new double[12];
 				for (int r = 0; r < times.Length; r++)
 				{
 					times[r] = Timed(new KeyframeGraphSolveJob
 					{
-						knots = knots, edges = edges, state = state, largestStep = step, positionRateSquared = 0.028 * 0.028,
+						knots = knots, edges = edges, weights = weights, state = state, largestStep = step, positionRateSquared = 0.028 * 0.028,
 						yawRateSquared = 7.6e-7, positionFloorSquared = 2.5e-5, yawFloorSquared = 1.2e-7, huber = 2,
 					}.Schedule());
 					yield return null;
@@ -215,6 +218,7 @@ namespace Anaglyph.XR.SharedSpaces
 				Write($"solve step {knotCount} knots, {edgeCount} edges: {Stats(times)}");
 				knots.Dispose();
 				edges.Dispose();
+				weights.Dispose();
 				state.Dispose();
 				step.Dispose();
 			}
