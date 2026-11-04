@@ -62,8 +62,7 @@ namespace Anaglyph.LaserTag.Player
 
 		private void Update()
 		{
-			// regen and damage both move health continuously; the NetworkVariable only
-			// goes out when the value actually changes, so a full-health player costs nothing
+			// the NetworkVariable only goes out when the whole-point value changes
 			if (IsSpawned && IsOwner && player != null)
 				avatar.SetHealth(player.Health);
 		}

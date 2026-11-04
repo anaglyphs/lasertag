@@ -7,8 +7,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace Anaglyph.LaserTag.Shaders
 {
-	// Lights the depth map at its own resolution before the opaques (IrradiancePass, once
-	// per eye slice), then blends that irradiance under the finished eye buffer after the
+	// Lights the depth map at its own resolution before the opaques (IrradiancePass), then blends that irradiance under the finished eye buffer after the
 	// transparents (CompositePass), so the light loop runs per depth texel instead of per
 	// eye pixel and coverage alpha, not depth, decides where it shows
 	[DisallowMultipleRendererFeature("Depth Lighting")]
@@ -96,8 +95,6 @@ namespace Anaglyph.LaserTag.Shaders
 		private sealed class IrradiancePass : ScriptableRenderPass
 		{
 			private static readonly int TexelSizeID = Shader.PropertyToID("_DepthLightTexelSize");
-			private static readonly int EyeID = Shader.PropertyToID("_DepthLightEye");
-			private static readonly int ClusterViewID = Shader.PropertyToID("_DepthLightClusterView");
 			private static readonly int WorldToCameraClipID = Shader.PropertyToID("_DepthLightWorldToCameraClip");
 			private static readonly int MaxLightsID = Shader.PropertyToID("_DepthLightMaxLights");
 			private static readonly int RenderingLayersID = Shader.PropertyToID("_EnvironmentRenderingLayers");
@@ -107,6 +104,7 @@ namespace Anaglyph.LaserTag.Shaders
 			private readonly GraphicsFormat format;
 			private readonly Matrix4x4[] worldToDepthClip = new Matrix4x4[2];
 			private readonly Matrix4x4[] depthClipToWorld = new Matrix4x4[2];
+			private readonly Matrix4x4[] worldToCameraClip = new Matrix4x4[2];
 			private RTHandle depthHandle;
 			private RTHandle normalHandle;
 
@@ -126,13 +124,10 @@ namespace Anaglyph.LaserTag.Shaders
 			{
 				public Material material;
 				public MaterialPropertyBlock properties;
-				public XRPass xr;
 				public Texture depth;
 				public Texture normals;
 				public Vector2 texelSize;
-				public int eye;
-				public int clusterView;
-				public Matrix4x4 worldToCameraClip;
+				public Matrix4x4[] worldToCameraClip;
 				public int maxLights;
 				public uint renderingLayers;
 				public Matrix4x4[] depthClipToWorld;
@@ -149,13 +144,18 @@ namespace Anaglyph.LaserTag.Shaders
 
 				UpdateHandle(ref depthHandle, depth);
 				UpdateHandle(ref normalHandle, source.NormTex);
+
+				UniversalCameraData camera = frameData.Get<UniversalCameraData>();
+				bool singlePassStereo = camera.xr.enabled && camera.xr.singlePassEnabled;
 				for (int eye = 0; eye < 2; eye++)
 				{
 					worldToDepthClip[eye] = source.Proj[eye] * source.View[eye];
 					depthClipToWorld[eye] = source.ViewInv[eye] * source.ProjInv[eye];
+					// the unflipped matrices URP builds its clusters with
+					int view = singlePassStereo ? eye : 0;
+					worldToCameraClip[eye] = camera.GetProjectionMatrix(view) * camera.GetViewMatrix(view);
 				}
 
-				UniversalCameraData camera = frameData.Get<UniversalCameraData>();
 				TextureHandle depthTexture = graph.ImportTexture(depthHandle);
 				TextureHandle normalTexture = graph.ImportTexture(normalHandle);
 				TextureHandle irradiance = graph.CreateTexture(new TextureDesc(depth.width, depth.height)
@@ -169,47 +169,36 @@ namespace Anaglyph.LaserTag.Shaders
 					name = "Depth Light Irradiance"
 				});
 
-				for (int eye = 0; eye < 2; eye++)
+				using (IRasterRenderGraphBuilder builder = graph.AddRasterRenderPass<PassData>(
+					       "Depth Light Irradiance", out PassData data, profilingSampler))
 				{
-					using IRasterRenderGraphBuilder builder = graph.AddRasterRenderPass<PassData>(
-						"Depth Light Irradiance", out PassData data, profilingSampler);
-
 					data.material = material;
 					data.properties = properties;
-					data.xr = camera.xr;
 					data.depth = depth;
 					data.normals = source.NormTex;
 					data.texelSize = new Vector2(1f / depth.width, 1f / depth.height);
-					data.eye = eye;
-					// URP only clusters a second view under single-pass stereo. These are the
-					// matrices it clusters with: GetGPUProjectionMatrix's flip isn't in the tiles
-					data.clusterView = camera.xr.enabled && camera.xr.singlePassEnabled ? eye : 0;
-					data.worldToCameraClip = camera.GetProjectionMatrix(data.clusterView) * camera.GetViewMatrix(data.clusterView);
+					data.worldToCameraClip = worldToCameraClip;
 					data.maxLights = maxLights;
 					data.renderingLayers = renderingLayers;
 					data.depthClipToWorld = depthClipToWorld;
 
 					builder.UseTexture(depthTexture, AccessFlags.Read);
 					builder.UseTexture(normalTexture, AccessFlags.Read);
-					builder.SetRenderAttachment(irradiance, 0, AccessFlags.WriteAll, 0, eye);
-					// single-pass stereo goes off around a draw into one plain slice
-					builder.AllowGlobalStateModification(true);
+					// -1 binds every slice for single-pass stereo; without it only slice 0 is read
+					builder.SetRenderAttachment(irradiance, 0, AccessFlags.WriteAll, 0, singlePassStereo ? -1 : 0);
 					builder.SetRenderFunc(static (PassData data, RasterGraphContext context) =>
 					{
 						data.properties.Clear();
 						data.properties.SetTexture(DepthKitDriver.depthTexID, data.depth);
 						data.properties.SetTexture(DepthKitDriver.normTexID, data.normals);
 						data.properties.SetVector(TexelSizeID, data.texelSize);
-						data.properties.SetFloat(EyeID, data.eye);
-						data.properties.SetFloat(ClusterViewID, data.clusterView);
-						data.properties.SetMatrix(WorldToCameraClipID, data.worldToCameraClip);
+						data.properties.SetMatrixArray(WorldToCameraClipID, data.worldToCameraClip);
 						data.properties.SetFloat(MaxLightsID, data.maxLights);
 						data.properties.SetInteger(RenderingLayersID, unchecked((int)data.renderingLayers));
 						data.properties.SetMatrixArray(DepthClipToWorldID, data.depthClipToWorld);
-						data.xr.StopSinglePass(context.cmd);
+						// one instance, doubled per eye by single-pass stereo
 						context.cmd.DrawProcedural(Matrix4x4.identity, data.material, IrradianceShaderPass,
 							MeshTopology.Triangles, 3, 1, data.properties);
-						data.xr.StartSinglePass(context.cmd);
 					});
 				}
 

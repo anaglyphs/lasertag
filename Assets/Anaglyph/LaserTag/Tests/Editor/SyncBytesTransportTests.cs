@@ -179,7 +179,8 @@ namespace Anaglyph.LaserTag.Tests
 			{
 				codeBits = codeBits, width = 80, height = 80, weight = 3,
 				position = new float3(1, 2, 3), rotation = quaternion.identity,
-				tangents = new float4(-1, 1, -1, 1), zRange = new float2(0.5f, 6f)
+				tangents = new float4(-1, 1, -1, 1), zRange = new float2(0.5f, 6f),
+				eyeDistanceRange = new float2(1f, 10f), minSurfaceDot = 0.3f
 			};
 
 			using NativeArray<byte> codes = new(header.PackedBytes, Allocator.Temp);
@@ -206,6 +207,8 @@ namespace Anaglyph.LaserTag.Tests
 				Assert.That(DepthFrameCodec.TryReadHeader(wire, prefix, out DepthFrameHeader read));
 				Assert.That(DepthFrameCodec.Decode(wire, prefix, read, decoded));
 				Assert.That(read.weight, Is.EqualTo(header.weight));
+				Assert.That(read.eyeDistanceRange, Is.EqualTo(header.eyeDistanceRange));
+				Assert.That(read.minSurfaceDot, Is.EqualTo(header.minSurfaceDot));
 				Assert.That(decoded.ToArray(), Is.EqualTo(codes.ToArray()));
 			}
 		}

@@ -14,6 +14,7 @@ namespace Anaglyph.LaserTag.Player
 	public class MainPlayer : MonoBehaviour
 	{
 		private const float MaxHealth = MatchSettings.MaxHealth;
+		private const float TintLevels = 255;
 
 		// todo move this into another component. this really doesn't belong here
 		// private OVRPassthroughLayer passthroughLayer;
@@ -78,6 +79,7 @@ namespace Anaglyph.LaserTag.Player
 			{
 				float healthNormalized = 1f - Mathf.Clamp01(Health / MaxHealth);
 				float tintAmount = Mathf.Lerp(healthNormalized, 1f, damageFlash * damageFlashStrength);
+				tintAmount = Mathf.Round(tintAmount * TintLevels) / TintLevels;
 
 				Color col = Color.red;
 				col.a = tintAmount;

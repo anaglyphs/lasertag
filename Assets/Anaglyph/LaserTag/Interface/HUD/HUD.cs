@@ -25,6 +25,10 @@ namespace Anaglyph.LaserTag.Interface.HUD
 		private const string AligningText = "AligningText";
 		private const string ReadyText = "ReadyText";
 
+		private const string RespawnNextRoundKey = "respawn.next-round";
+		private const string RespawnBaseKey = "respawn.base";
+		private const string RespawnCountdownKey = "respawn.countdown";
+
 		private const int NoCountdown = -1;
 		private const int GoCountdown = 0;
 
@@ -67,7 +71,9 @@ namespace Anaglyph.LaserTag.Interface.HUD
 		// last values pushed into labels, so per-frame refreshes only allocate
 		// strings when the text actually changes
 		private string shownConnectionText;
-		private string shownRespawnText;
+		private string shownRespawnKey;
+		private int shownRespawnTenths;
+		private string shownResultsTitleKey;
 		private int shownCountdown;
 		private int shownRound;
 		private readonly int[] shownScores = new int[Teams.NumTeams];
@@ -216,9 +222,8 @@ namespace Anaglyph.LaserTag.Interface.HUD
 			int numRounds = settings.GetNumRounds();
 			bool multiRound = numRounds > 1;
 
-			resultsTitle.text = MatchReferee.State == MatchState.NotPlaying
-				? MenuCopy.Get("HUDMenu", "results.match")
-				: MenuCopy.Get("HUDMenu", "results.round");
+			SetText(resultsTitle, ref shownResultsTitleKey,
+				MatchReferee.State == MatchState.NotPlaying ? "results.match" : "results.round");
 
 			HUDElement.SetDisplayed(resultsRoundLabel, multiRound);
 
@@ -248,33 +253,34 @@ namespace Anaglyph.LaserTag.Interface.HUD
 		private void RefreshRespawnLabel()
 		{
 			MatchSettings settings = MatchReferee.Settings;
-			string text;
-			bool promptToMove = false;
+			string key = RespawnCountdownKey;
+			int tenths = 0;
 
 			if (settings.respawnCondition == RespawnCondition.NextRound
 			    && MatchReferee.State == MatchState.Playing)
 			{
-				text = MenuCopy.Get("HUDMenu", "respawn.next-round");
+				key = RespawnNextRoundKey;
 			}
 			else if (settings.respawnCondition == RespawnCondition.InBases
 			         && !MainPlayer.Instance.IsInFriendlyBase)
 			{
-				text = MenuCopy.Get("HUDMenu", "respawn.base");
-				promptToMove = true;
+				key = RespawnBaseKey;
 			}
 			else
 			{
 				float timeSinceDeath = Time.time - MainPlayer.Instance.LastDeathTime;
 				float timeToRespawn = settings.respawnSeconds - timeSinceDeath;
-				text = MenuCopy.Format("HUDMenu", "respawn.countdown", timeToRespawn);
+				tenths = Mathf.RoundToInt(timeToRespawn * 10);
 			}
 
-			respawnLabel.Flashing = promptToMove;
-			if (text != shownRespawnText)
-			{
-				shownRespawnText = text;
-				respawnLabel.text = text;
-			}
+			respawnLabel.Flashing = key == RespawnBaseKey;
+			if (key == shownRespawnKey && tenths == shownRespawnTenths) return;
+
+			shownRespawnKey = key;
+			shownRespawnTenths = tenths;
+			respawnLabel.text = key == RespawnCountdownKey
+				? MenuCopy.Format("HUDMenu", key, tenths / 10f)
+				: MenuCopy.Get("HUDMenu", key);
 		}
 
 		private static bool IsReady()
@@ -349,7 +355,8 @@ namespace Anaglyph.LaserTag.Interface.HUD
 		private void InvalidateShownText()
 		{
 			shownConnectionText = null;
-			shownRespawnText = null;
+			shownRespawnKey = null;
+			shownResultsTitleKey = null;
 			shownCountdown = NoCountdown;
 			shownRound = 0;
 

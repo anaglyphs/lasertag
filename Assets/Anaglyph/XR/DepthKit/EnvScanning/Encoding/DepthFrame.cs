@@ -13,7 +13,8 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Encoding
 	/// Everything a receiver needs to integrate one depth frame besides its pixels:
 	/// the camera pose and the projection as view-angle tangents (the XrFovf
 	/// convention), so frames from a headset with different optics still land where
-	/// they were seen. Pixels are linear depth codes of <see cref="codeBits"/> bits,
+	/// they were seen, and the distances and surface angles the sender's sensor is trusted
+	/// at. Rows run bottom to top. Pixels are linear depth codes of <see cref="codeBits"/> bits,
 	/// 0 = invalid, row-major; codes wider than 8 bits travel in 16-bit containers,
 	/// whose top bit (0x8000) flags a mask pixel: the depth is a player's silhouette,
 	/// and receivers carve free space in front of it without writing a surface.
@@ -21,7 +22,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Encoding
 	[StructLayout(LayoutKind.Sequential)]
 	public struct DepthFrameHeader
 	{
-		public const byte CurrentVersion = 1;
+		public const byte CurrentVersion = 2;
 
 		public byte version;
 		public byte compression; // DepthFrameCompression
@@ -52,6 +53,12 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Encoding
 		/// <summary>Linear depth spanned by code 1..max, uniformly.</summary>
 		public float2 zRange;
 
+		/// <summary>Nearest and farthest a voxel may be from the eye, meters, to integrate from this frame.</summary>
+		public float2 eyeDistanceRange;
+
+		/// <summary>Least dot product between the view ray and the surface normal to integrate from this frame.</summary>
+		public float minSurfaceDot;
+
 		public int PixelCount => width * height;
 
 		/// <summary>Bytes per code in the packed buffer: 1 for 8-bit codes, 2 otherwise.</summary>
@@ -67,6 +74,8 @@ namespace Anaglyph.XR.DepthKit.EnvScanning.Encoding
 			width >= 4 && height >= 1 && width % 4 == 0 &&
 			width <= 1024 && height <= 1024 &&
 			zRange.x > 0 && zRange.y > zRange.x &&
+			eyeDistanceRange.x >= 0 && eyeDistanceRange.y > eyeDistanceRange.x &&
+			minSurfaceDot >= -1 && minSurfaceDot <= 1 &&
 			tangents.y > tangents.x && tangents.w > tangents.z &&
 			math.all(math.isfinite(position)) && math.all(math.isfinite(rotation.value)) &&
 			math.all(math.isfinite(tangents));

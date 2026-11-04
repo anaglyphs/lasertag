@@ -47,6 +47,9 @@ namespace Anaglyph.LaserTag.Player
 		private bool paused;
 		private float nextTelemetrySampleTime;
 
+		private static int headTrackedSampleFrame = -1;
+		private static bool headTrackedSample;
+
 		public HeadsetReadiness Readiness => IsOwner ? SampleReadiness() : readinessSync.Value;
 		public HeadsetTelemetry Telemetry => telemetrySync.Value;
 
@@ -87,8 +90,14 @@ namespace Anaglyph.LaserTag.Player
 #if UNITY_EDITOR
 				if (!XRSettings.enabled) return true;
 #endif
-				var head = InputDevices.GetDeviceAtXRNode(XRNode.Head);
-				return head.TryGetFeatureValue(CommonUsages.isTracked, out bool tracked) && tracked;
+				if (headTrackedSampleFrame != Time.frameCount)
+				{
+					headTrackedSampleFrame = Time.frameCount;
+					var head = InputDevices.GetDeviceAtXRNode(XRNode.Head);
+					headTrackedSample = head.TryGetFeatureValue(CommonUsages.isTracked, out bool tracked) && tracked;
+				}
+
+				return headTrackedSample;
 			}
 		}
 

@@ -17,13 +17,14 @@ float3 originOffset;
 // since two voxels on each row are apron voxels
 // this is for sampling interpolation for raymarching and surface-net meshing
 uint voxPerChunkDim; // voxels per chunk edge INCLUDING APRON
-uint groupsPerChunkDim; // groups per chunk edge
+uint groupsPerChunkDimLog2; // groups per chunk edge is a power of two
 
+// limits of the depth source being integrated: this headset's sensor, or a peer's frame
 float minDist = 0.8; // min integration distance (meters)
 float maxDist = 6; // max integration distance (meters)
 float minDot = 0.5; // min dot product between depth ray and surface normal
 
-static const uint maxIntegCountSettle = 16; // max 255
+static const uint maxIntegCountSettle = 16; // max 254
 
 // crop out part of the depth texture to prevent artifacts when user turns head quickly
 static const float depthTexCropMin = 0.1;
@@ -55,10 +56,10 @@ uint chunkTableLength; // num chunk entries total
 
 // chunkData should be a R8G8_SNorm.
 // R -> TSDF value
-// G -> number of times this voxel has been integrated (to maxIntegCountSettle, max 255)...
-// en/decoded as an unsigned byte and used for scan filtering over time
+// G -> number of times this voxel has been integrated (to maxIntegCountSettle, max 254)...
+// 0 is -1 and 254 is +1 (see SNorm8toCount), used for scan filtering over time
 RWTexture3D<float2> chunkData;
-uint3 chunkDataDims; // chunks per axis in chunkData (NOT VOXELS PER AXIS. voxels on axis / voxChunkPerEdge)
+uint3 chunkDataDimsLog2; // chunks per axis in chunkData are powers of two (NOT VOXELS PER AXIS)
 uint maxNumChunks; // maximum possible number of chunks allowed by data size
 
 AppendStructuredBuffer<int> visibleChunksAppend;
@@ -297,10 +298,13 @@ int worldPosToChunkIndex(const float3 world)
 // does NOT check for valid index
 int3 dataIndexToDataStartCoord(int dataIndex)
 {
+	const uint index = dataIndex;
+	const uint3 bits = chunkDataDimsLog2;
+
 	uint3 coord;
-	coord.x = dataIndex % chunkDataDims.x;
-	coord.y = (dataIndex / chunkDataDims.x) % chunkDataDims.y;
-	coord.z = dataIndex / (chunkDataDims.x * chunkDataDims.y);
+	coord.x = index & ((1u << bits.x) - 1);
+	coord.y = (index >> bits.x) & ((1u << bits.y) - 1);
+	coord.z = index >> (bits.x + bits.y);
 
 	return coord * voxPerChunkDim;
 }
@@ -312,16 +316,16 @@ int readChunkDataIndex(int chunkIndex)
 	return chunkTable[chunkIndex] & INDEX_MASK;
 }
 
-uint SNorm8toU8(float f)
+// an snorm channel has 255 levels, so a count spans 0..254: 255 values would give
+// 0 and 1 the same stored -1, and a cleared voxel would read as integrated once
+uint SNorm8toCount(float f)
 {
-	int i = int(round(clamp(f, -1.0, 1.0) * 127.0));
-	return uint(i + 128);
+	return (uint)round(clamp(f, -1.0, 1.0) * 127.0 + 127.0);
 }
 
-float U8toSNorm8(uint u)
+float CountToSNorm8(uint count)
 {
-	int i = int(u) - 128;
-	return max(float(i) / 127.0, -1.0);
+	return ((float)count - 127.0) / 127.0;
 }
 
 // the TSDF value as the signed byte the CPU Voxel struct holds, in a uint's low byte
@@ -344,7 +348,7 @@ float SByteBitsToSNorm8(uint bits)
 [numthreads(4, 4, 4)]
 void Clear(uint3 id : SV_DispatchThreadID)
 {
-	chunkData[id].xy = float2(1.0, U8toSNorm8(0));
+	chunkData[id].xy = float2(1.0, CountToSNorm8(0));
 }
 
 // ---- frame capture ----------------------------------------------------------
@@ -558,11 +562,12 @@ void Mark(uint3 id : SV_DispatchThreadID)
 // ---- integrate --------------------------------------------------------------
 //
 // if each chunk is 32cubed voxels, and the integrate kernel group size is 8cubed,
-// it takes (32cubed/8cubed) = 64 (4cubed) groups per chunk.
-// so for the integration indirect dispatch dimension arg buffer
+// it takes (32cubed/8cubed) = 64 (4cubed) blocks per chunk.
+// so for the cull kernels' indirect dispatch dimension arg buffer
 // X = visibleChunks count
-// Y = 64 (4 cubed) = num groups needed per chunk integration
+// Y = 64 (4 cubed) = num blocks per chunk
 // Z = 1
+// the cull kernels list the blocks in view, and the integrate kernels run one group per block
 //
 // IntegrateSensor fuses the live depth texture at full resolution and precision;
 // Integrate fuses a decoded frame (what peers receive). both share the voxel
@@ -570,43 +575,116 @@ void Mark(uint3 id : SV_DispatchThreadID)
 
 static const uint integrateGroupDim = 8;
 
-// which voxel this thread owns. false when the chunk has no data
-bool resolveVoxel(const uint3 threadID, const uint3 groupID, out int chunkIdx, out uint3 voxDataCoord, out float3 voxCenterPos)
+// a block of integrateGroupDim^3 voxels the current depth view may reach: one group of
+// an integrate kernel. Everything its voxels share is resolved once, when it is culled
+struct IntegrateBlock
 {
-	chunkIdx = visibleChunks[groupID.x];
-	voxDataCoord = 0;
-	voxCenterPos = 0;
+	float3 cornerWorldPos;
+	uint3 dataCoord;
+	int chunkIdx;
+};
 
-	// filtering one thread per chunk
-	if (groupID.y == 0 && all(threadID == 0))
-	{
-		// clear visibility for the next cycle
-		InterlockedAnd(chunkTable[chunkIdx], ~VISIBILITY_BIT);
-	}
+AppendStructuredBuffer<IntegrateBlock> integrateBlocksAppend;
+RWStructuredBuffer<IntegrateBlock> integrateBlocks;
+
+// the block this cull thread owns. false when the chunk has no data
+bool resolveBlock(const uint3 groupID, out IntegrateBlock block)
+{
+	block = (IntegrateBlock)0;
+	if (groupID.x >= (uint)maxNumVisibleChunks) return false;
+
+	const int chunkIdx = visibleChunks[groupID.x];
+	const uint perChunkBlockID = groupID.y;
+
+	// runs once per chunk: clear visibility for the next cycle
+	if (perChunkBlockID == 0) InterlockedAnd(chunkTable[chunkIdx], ~VISIBILITY_BIT);
 
 	const int dataIdx = readChunkDataIndex(chunkIdx);
 	if (dataIdx & INVALID_BIT) return false; //invalid test
 
-	// get data coordinate for this thread
-	const uint3 dataStartCoord = dataIndexToDataStartCoord(dataIdx);
+	const uint blocksPerChunkDimMask = (1u << groupsPerChunkDimLog2) - 1;
+	uint3 blockCoord;
+	blockCoord.x = perChunkBlockID & blocksPerChunkDimMask;
+	blockCoord.y = (perChunkBlockID >> groupsPerChunkDimLog2) & blocksPerChunkDimMask;
+	blockCoord.z = perChunkBlockID >> (groupsPerChunkDimLog2 * 2);
+	const uint3 voxelOffset = blockCoord * integrateGroupDim;
 
-	const uint perChunkGroupID = groupID.y;
-
-	uint3 groupLocalOffset; // local to chunk
-	groupLocalOffset.x = perChunkGroupID % groupsPerChunkDim;
-	groupLocalOffset.y = (perChunkGroupID / groupsPerChunkDim) % groupsPerChunkDim;
-	groupLocalOffset.z = perChunkGroupID / (groupsPerChunkDim * groupsPerChunkDim);
-	groupLocalOffset *= integrateGroupDim;
-	const uint3 threadLocalOffset = threadID; // local to GROUP, not chunk
-	const uint3 threadChunkOffset = groupLocalOffset + threadLocalOffset; // local to CHUNK
-
-	voxDataCoord = dataStartCoord + groupLocalOffset + threadLocalOffset;
-
-	const int3 chunkCoord = chunkIndexToChunkCoord(chunkIdx);
-	const float3 chunkCornerWorldPos = chunkCoordToCornerWorldPos(chunkCoord);
-	const float3 voxCornerLocalPos = threadChunkOffset * voxSize;
-	voxCenterPos = chunkCornerWorldPos + voxCornerLocalPos + voxSize / 2;
+	block.chunkIdx = chunkIdx;
+	block.dataCoord = dataIndexToDataStartCoord(dataIdx) + voxelOffset;
+	block.cornerWorldPos = chunkCoordToCornerWorldPos(chunkIndexToChunkCoord(chunkIdx)) + (float3)voxelOffset * voxSize;
 	return true;
+}
+
+float3 blockCornerAt(const IntegrateBlock block, const uint corner)
+{
+	const float3 side = float3(corner & 1, (corner >> 1) & 1, (corner >> 2) & 1);
+	return block.cornerWorldPos + side * (integrateGroupDim * voxSize);
+}
+
+// no voxel of the block is within integration range of the eye
+bool blockOutOfRange(const IntegrateBlock block, const float3 eyePos)
+{
+	const float3 halfDiagonal = 0.5 * integrateGroupDim * voxSize;
+	const float eyeDist = distance(block.cornerWorldPos + halfDiagonal, eyePos);
+	const float radius = length(halfDiagonal);
+	return eyeDist + radius < minDist || eyeDist - radius > maxDist;
+}
+
+// A block whose corners are all past one side of the view has no voxel in view.
+// Skipping it writes nothing the integrate kernels would have: they return for those voxels
+#pragma kernel CullBlocksSensor
+
+[numthreads(1, 1, 1)]
+void CullBlocksSensor(uint3 groupID : SV_GroupID)
+{
+	IntegrateBlock block;
+	if (!resolveBlock(groupID, block)) return;
+	if (blockOutOfRange(block, agDepthEyePos())) return;
+
+	// the crop window in clip space, where a uv maps to x / w * 0.5 + 0.5
+	const float clipCropMin = depthTexCropMin * 2 - 1;
+	const float clipCropMax = depthTexCropMax * 2 - 1;
+
+	uint outsideEverySide = 0x1F;
+	[unroll] for (uint corner = 0; corner < 8; corner++)
+	{
+		const float4 hcs = agDepthWorldToHCS(blockCornerAt(block, corner));
+		uint outside = 0;
+		if (hcs.w < 0) outside |= 1;
+		if (hcs.x < clipCropMin * hcs.w) outside |= 2;
+		if (hcs.x > clipCropMax * hcs.w) outside |= 4;
+		if (hcs.y < clipCropMin * hcs.w) outside |= 8;
+		if (hcs.y > clipCropMax * hcs.w) outside |= 16;
+		outsideEverySide &= outside;
+	}
+
+	if (outsideEverySide == 0) integrateBlocksAppend.Append(block);
+}
+
+#pragma kernel CullBlocks
+
+[numthreads(1, 1, 1)]
+void CullBlocks(uint3 groupID : SV_GroupID)
+{
+	IntegrateBlock block;
+	if (!resolveBlock(groupID, block)) return;
+	if (blockOutOfRange(block, frameEyePos())) return;
+
+	uint outsideEverySide = 0x1F;
+	[unroll] for (uint corner = 0; corner < 8; corner++)
+	{
+		const float3 cam = mul(frameView, float4(blockCornerAt(block, corner), 1)).xyz;
+		const float z = -cam.z;
+		uint outside = 0;
+		if (z <= 0) outside |= 1;
+		if (cam.x < frameTan.x * z) outside |= 2;
+		if (cam.x >= frameTan.y * z) outside |= 4;
+		if (cam.y < frameTan.z * z) outside |= 8;
+		if (cam.y >= frameTan.w * z) outside |= 16;
+		outsideEverySide &= outside;
+	}
+
+	if (outsideEverySide == 0) integrateBlocksAppend.Append(block);
 }
 
 // fuses one depth sample into one voxel: range and grazing-angle filters, the
@@ -650,7 +728,7 @@ void integrateVoxel(const int chunkIdx, const uint3 voxDataCoord, const float3 v
 
 	// decode num times this voxel has previously been integrated (up to 255)
 	const float prevDistVal = prevDataVal.r;
-	const uint prevIntegCount = SNorm8toU8(prevDataVal.g);
+	const uint prevIntegCount = SNorm8toCount(prevDataVal.g);
 
 	// a frame standing for several sensor frames pulls as far as integrating that many
 	// near-identical frames one after another would have
@@ -659,7 +737,7 @@ void integrateVoxel(const int chunkIdx, const uint3 voxDataCoord, const float3 v
 
 	const float newDistVal = sDistNorm * newDistWeight + prevDistVal * oldDistWeight;
 	const uint newIntegCount = min(prevIntegCount + weight, maxIntegCountSettle);
-	const float2 newDataVal = float2(newDistVal, U8toSNorm8(newIntegCount));
+	const float2 newDataVal = float2(newDistVal, CountToSNorm8(newIntegCount));
 
 	chunkData[voxDataCoord] = newDataVal;
 
@@ -679,12 +757,10 @@ void integrateVoxel(const int chunkIdx, const uint3 voxDataCoord, const float3 v
 [numthreads(integrateGroupDim, integrateGroupDim, integrateGroupDim)]
 void IntegrateSensor(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 {
-	if (groupID.x >= maxNumVisibleChunks) return;
-
-	int chunkIdx;
-	uint3 voxDataCoord;
-	float3 voxCenterPos;
-	if (!resolveVoxel(threadID, groupID, chunkIdx, voxDataCoord, voxCenterPos)) return;
+	const IntegrateBlock block = integrateBlocks[groupID.x];
+	const int chunkIdx = block.chunkIdx;
+	const uint3 voxDataCoord = block.dataCoord + threadID;
+	const float3 voxCenterPos = block.cornerWorldPos + ((float3)threadID + 0.5) * voxSize;
 
 	const float4 voxHCS = agDepthWorldToHCS(voxCenterPos);
 
@@ -717,12 +793,10 @@ void IntegrateSensor(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_Group
 [numthreads(integrateGroupDim, integrateGroupDim, integrateGroupDim)]
 void Integrate(uint3 threadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
 {
-	if (groupID.x >= maxNumVisibleChunks) return;
-
-	int chunkIdx;
-	uint3 voxDataCoord;
-	float3 voxCenterPos;
-	if (!resolveVoxel(threadID, groupID, chunkIdx, voxDataCoord, voxCenterPos)) return;
+	const IntegrateBlock block = integrateBlocks[groupID.x];
+	const int chunkIdx = block.chunkIdx;
+	const uint3 voxDataCoord = block.dataCoord + threadID;
+	const float3 voxCenterPos = block.cornerWorldPos + ((float3)threadID + 0.5) * voxSize;
 
 	float2 uv;
 	float voxZ;
@@ -789,7 +863,7 @@ void ChunkDataReadback(uint3 threadID : SV_DispatchThreadID)
 	{
 		const float2 data = chunkData[coordOffs + uint3(i, 0, 0)].xy;
 		packed |= SNorm8toSByteBits(data.x) << (i * 16);
-		packed |= SNorm8toU8(data.y) << (i * 16 + 8);
+		packed |= SNorm8toCount(data.y) << (i * 16 + 8);
 	}
 
 	const uint threadsPerChunkX = voxPerChunkDim / 2;
@@ -857,13 +931,13 @@ void ChunkDataUpload(uint3 threadID : SV_DispatchThreadID)
 
 		const uint3 coord = coordOffs + uint3(i, 0, 0);
 		const float2 prev = chunkData[coord].xy;
-		const uint prevCount = SNorm8toU8(prev.g);
+		const uint prevCount = SNorm8toCount(prev.g);
 
 		const float total = prevCount + inCount;
 		const float newDist = (prev.r * prevCount + inDist * inCount) / total;
 		const uint newCount = min(prevCount + inCount, maxIntegCountSettle);
 
-		chunkData[coord] = float2(newDist, U8toSNorm8(newCount));
+		chunkData[coord] = float2(newDist, CountToSNorm8(newCount));
 		change += (uint)abs(round(newDist * 127) - round(prev.r * 127));
 	}
 

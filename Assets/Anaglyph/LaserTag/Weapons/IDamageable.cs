@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -24,22 +23,15 @@ namespace Anaglyph.LaserTag.Weapons
 		public static void NotifyDamageDealt(Vector3 position, IDamageable target, Data data)
 			=> DamageDealt.Invoke(position, target, data);
 
-		public static void DamageHierarchy(GameObject hierarchyRoot, Vector3 position, Data data,
-			List<IDamageable> foundDamageables)
+		public static void DamageParentOf(Component hit, Vector3 position, Data data)
 		{
-			hierarchyRoot.GetComponentsInChildren(foundDamageables);
+			IDamageable damageable = hit.GetComponentInParent<IDamageable>();
+			if (damageable == null) return;
 
-			foreach (IDamageable damageable in foundDamageables)
-			{
-				damageable.Damage(data);
+			damageable.Damage(data);
 
-				// after Damage so listeners see the target's post-hit state
-				DamageDealt.Invoke(position, damageable, data);
-			}
+			// after Damage so listeners see the target's post-hit state
+			DamageDealt.Invoke(position, damageable, data);
 		}
-
-		public static void DamageHierarchy(Component hierarchyRoot, Vector3 position, Data data,
-			List<IDamageable> foundDamageables)
-			=> DamageHierarchy(hierarchyRoot.gameObject, position, data, foundDamageables);
 	}
 }

@@ -131,7 +131,7 @@ float3 agDepthSampleNDCtoWorld(float2 uv, int eye = 0)
 
 float2 agIdxToUV(uint2 idx)
 {
-	return (float2)idx / agDepthTexSize;
+	return ((float2)idx + 0.5) / agDepthTexSize;
 }
 
 float3 agDepthSampleIdxToWorld(uint2 idx, int eye = 0)

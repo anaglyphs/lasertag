@@ -1,5 +1,4 @@
 using Unity.Mathematics;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -17,16 +16,16 @@ namespace Anaglyph.XR.DepthKit.Occlusion
 		public LayerMask OcclusionMeshLayerMask;
 
 		private DepthKitEnvironmentOcclusionPass depthKitEnvironmentOcclusionPass;
-
-		private static readonly int OcclusionActiveID = Shader.PropertyToID("agOcclusionActive");
+		private Material depthMat;
+		private Material primeMat;
 
 		public override void Create()
 		{
-			SetOcclusionShaderActive(false);
+			DestroyMaterials();
 
-			Material depthMat = new(zDepthShader);
+			depthMat = new Material(zDepthShader);
 			depthMat.EnableKeyword("AG_OCCLUSION_MATRICES");
-			Material primeMat = new(depthPrimeShader);
+			primeMat = new Material(depthPrimeShader);
 
 			depthKitEnvironmentOcclusionPass =
 				new DepthKitEnvironmentOcclusionPass(depthMat, primeMat, relativeTexSize, rawDepthMaxDistance,
@@ -34,45 +33,23 @@ namespace Anaglyph.XR.DepthKit.Occlusion
 				{
 					renderPassEvent = RenderPassEvent.BeforeRenderingOpaques
 				};
-
-#if UNITY_EDITOR
-			EditorApplication.playModeStateChanged -= OnPlayModeChanged;
-#endif
 		}
 
 		protected override void Dispose(bool disposing)
 		{
-			SetOcclusionShaderActive(false);
-#if UNITY_EDITOR
-			EditorApplication.playModeStateChanged -= OnPlayModeChanged;
-#endif
+			DestroyMaterials();
 			base.Dispose(disposing);
+		}
+
+		private void DestroyMaterials()
+		{
+			CoreUtils.Destroy(depthMat);
+			CoreUtils.Destroy(primeMat);
 		}
 
 		public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
 		{
 			renderer.EnqueuePass(depthKitEnvironmentOcclusionPass);
-		}
-
-#if UNITY_EDITOR
-		private void OnPlayModeChanged(PlayModeStateChange state)
-		{
-			switch (state)
-			{
-				case PlayModeStateChange.EnteredEditMode:
-					SetOcclusionShaderActive(false);
-					break;
-
-				case PlayModeStateChange.EnteredPlayMode:
-					SetOcclusionShaderActive(true);
-					break;
-			}
-		}
-#endif
-
-		private void SetOcclusionShaderActive(bool active)
-		{
-			Shader.SetGlobalFloat(OcclusionActiveID, active ? 1.0f : 0.0f);
 		}
 
 		private class DepthKitEnvironmentOcclusionPass : ScriptableRenderPass

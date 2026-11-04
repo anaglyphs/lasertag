@@ -83,6 +83,7 @@ namespace Anaglyph.XR
 		private static Color passthroughTint = Color.white;
 		private static float passthroughTintAmount;
 		private static Color edgeTint = Color.clear;
+		private static bool styleIsOnAllLayers;
 
 		/// <summary>True while at least one AR Foundation passthrough layer is available.</summary>
 		public static bool HasPassthroughLayer
@@ -112,10 +113,17 @@ namespace Anaglyph.XR
 		{
 			lock (sync)
 			{
+				tintAmount = Mathf.Clamp01(tintAmount);
+				textureOpacity = Mathf.Clamp01(textureOpacity);
+
+				if (styleIsOnAllLayers && layers.Count != 0 && tint == passthroughTint &&
+				    tintAmount == passthroughTintAmount && newEdgeTint == edgeTint && textureOpacity == opacity)
+					return true;
+
 				passthroughTint = tint;
-				passthroughTintAmount = Mathf.Clamp01(tintAmount);
+				passthroughTintAmount = tintAmount;
 				edgeTint = newEdgeTint;
-				opacity = Mathf.Clamp01(textureOpacity);
+				opacity = textureOpacity;
 				return ApplyStyleToAllLayers();
 			}
 		}
@@ -283,7 +291,7 @@ namespace Anaglyph.XR
 				lock (sync)
 				{
 					layers[layer] = new LayerState(layerCreateInfo.passthrough);
-					ApplyStyle(layer);
+					styleIsOnAllLayers &= ApplyStyle(layer);
 				}
 			}
 
@@ -311,9 +319,15 @@ namespace Anaglyph.XR
 		private static bool ApplyStyleToAllLayers()
 		{
 			bool applied = false;
+			bool appliedToAll = true;
 			foreach (ulong layer in layers.Keys)
-				applied |= ApplyStyle(layer);
+			{
+				bool layerApplied = ApplyStyle(layer);
+				applied |= layerApplied;
+				appliedToAll &= layerApplied;
+			}
 
+			styleIsOnAllLayers = appliedToAll;
 			return applied;
 		}
 

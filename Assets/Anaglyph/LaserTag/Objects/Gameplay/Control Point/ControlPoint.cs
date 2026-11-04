@@ -198,7 +198,7 @@ namespace Anaglyph.LaserTag.Objects.Gameplay.Control_Point
 					}
 					else
 					{
-						millisCapturedSync.Value = Mathf.Max(0, millisCapturedSync.Value - Time.fixedDeltaTime * 1000);
+						millisCapturedSync.Value = Mathf.Max(0, millisCapturedSync.Value - Time.deltaTime * 1000);
 
 						// capturing team loses capture over time
 						if (millisCapturedSync.Value <= 0)

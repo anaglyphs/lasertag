@@ -4,7 +4,6 @@
 
 Texture2DArray<float> agOcclusionTex;
 
-float agOcclusionActive = 1.0;
 
 // the per-eye view-projection agOcclusionTex is rasterized with, set by
 // DepthKitEnvironmentOcclusionFeature: GL.GetGPUProjectionMatrix(proj, true) * view.
@@ -36,12 +35,6 @@ void agEnvOcclusion_float(float3 WorldPos, out float OutValue)
 	OutValue = 1.0;
 	return;
 	#else
-
-	// if (agOcclusionActive < 0.5)
-	// {
-	// 	OutValue = 1;
-	// 	return;
-	// }
 
 	uint eye = unity_StereoEyeIndex;
 	float3 uvDepth = agOcclusionUVDepth(WorldPos, eye);

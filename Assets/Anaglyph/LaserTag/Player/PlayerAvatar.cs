@@ -70,8 +70,8 @@ namespace Anaglyph.LaserTag.Player
 		/// </summary>
 		public float Health { get; private set; } = MatchSettings.MaxHealth;
 
-		/// <summary>Owner only - the local player's health is the source of truth.</summary>
-		internal void SetHealth(float health) => healthSync.Value = health;
+		/// <summary>Owner only - the local player's health is the source of truth. Synced in whole points, rounded up so a living player never reads as 0.</summary>
+		internal void SetHealth(float health) => healthSync.Value = Mathf.Ceil(health);
 
 		[SerializeField] private TeamOwner teamOwner;
 		public TeamOwner TeamOwner => teamOwner;

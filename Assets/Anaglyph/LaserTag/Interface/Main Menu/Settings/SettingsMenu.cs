@@ -101,6 +101,13 @@ namespace Anaglyph.LaserTag.Interface
 				change => AlignmentSightingTool.CrosshairInRightEye = change.newValue);
 			bindings.Click(Require<Button>(root, "sighting-clear-button"), AlignmentSightingTool.ClearMarkers);
 
+			if (!Debug.isDebugBuild)
+			{
+				captureAlignmentDiagnosisButton.style.display = DisplayStyle.None;
+				alignmentDiagnosisStatus.style.display = DisplayStyle.None;
+				Require<VisualElement>(root, "alignment-sighting-button").style.display = DisplayStyle.None;
+			}
+
 			healthPassthroughTintToggle =
 				Require<Toggle>(root, "health-passthrough-tint-toggle");
 			lightEffectsToggle = Require<Toggle>(root, "light-effects-toggle");

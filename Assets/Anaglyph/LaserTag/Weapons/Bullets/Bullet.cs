@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
 using Anaglyph.Audio;
@@ -24,8 +23,6 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 		private CancellationTokenSource despawnCancelSrc;
 
 		[SerializeField] private AudioClip collideSFX;
-		
-		private readonly List<IDamageable> damageableBuffer = new();
 
 		[Serializable, StructLayout(LayoutKind.Sequential)]
 		public struct ShotData : INetworkSerializeByMemcpy
@@ -161,7 +158,7 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 							position = physHit.point
 						});
 					else
-						IDamageable.DamageHierarchy(col.transform.root, physHit.point, damageData, damageableBuffer);
+						IDamageable.DamageParentOf(col, physHit.point, damageData);
 					return;
 				}
 

@@ -10,12 +10,8 @@ using UnityEngine;
 namespace Anaglyph.XR.DepthKit.EnvScanning
 {
 	/// <summary>
-	/// A TSDF scan on the CPU: every populated chunk of an <see cref="EnvVolume"/> plus the
-	/// grid it was made on and where the rig was, saved to and loaded from a gzipped file.
-	/// Made for testing registration offline: capture a scan, move the tracking space,
-	/// capture another, and the two files carry their own ground truth
-	/// (<see cref="GroundTruth"/>) wherever the room is fixed to the tracking space (XR
-	/// Simulation, or one headset session without a recenter)
+	/// A TSDF scan on the CPU: every populated chunk of the live map plus the grid it was
+	/// made on and where the rig was, saved to and loaded from a gzipped file
 	/// </summary>
 	public sealed class EnvScan : IDisposable
 	{
@@ -55,13 +51,6 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		public Pose4 ScanFrame =>
 			Pose4.FromMatrix(SensorCorrection) * Pose4.FromPose(TrackingSpace.position, TrackingSpace.rotation);
 
-		/// <summary>
-		/// The transform registering <paramref name="source"/> onto <paramref name="target"/>
-		/// should find (p_target = T p_source), assuming the room sat still in tracking space
-		/// between the two captures
-		/// </summary>
-		public static Pose4 GroundTruth(EnvScan source, EnvScan target) => target.ScanFrame * source.ScanFrame.Inverse;
-
 		/// <summary>Min and max chunk coordinates, inclusive.</summary>
 		public (int3 min, int3 max) ChunkBounds
 		{
@@ -84,9 +73,6 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		private int3 IndexToCoord(int index) =>
 			new(index % ChunkTableDims.x, index / ChunkTableDims.x % ChunkTableDims.y, index / (ChunkTableDims.x * ChunkTableDims.y));
 
-		private int CoordToIndex(int3 c) =>
-			math.any(c < 0) || math.any(c >= ChunkTableDims) ? -1 : c.x + c.y * ChunkTableDims.x + c.z * ChunkTableDims.x * ChunkTableDims.y;
-
 		/// <summary>Null when this scan was made on <paramref name="scanner"/>'s chunk grid, else why not.</summary>
 		public string Incompatibility(EnvScanner scanner)
 		{
@@ -101,15 +87,12 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		// ---- capture / upload --------------------------------------------------
 
 		/// <summary>
-		/// Reads every reserved chunk with at least one integrated voxel out of
-		/// <paramref name="volume"/> (the live map unless given). Poses come from the main
-		/// rig when it exists
+		/// Reads every reserved chunk with at least one integrated voxel out of the live map.
+		/// Poses come from the main rig when it exists
 		/// </summary>
-		public static async Awaitable<EnvScan> CaptureAsync(EnvScanner scanner, EnvVolume volume = null, string label = "")
+		public static async Awaitable<EnvScan> CaptureAsync(EnvScanner scanner, string label = "")
 		{
 			scanner.EnsureGpuResources();
-			volume ??= scanner.LiveVolume;
-			if (volume == null || !volume.IsCreated) throw new InvalidOperationException("volume is not created");
 
 			EnvScan scan = NewFor(scanner);
 			scan.Label = label ?? "";
@@ -124,7 +107,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 				}
 			}
 
-			TableReadback table = await ReadTable(volume);
+			TableReadback table = await ReadTable(scanner.ChunkTable);
 			if (table.hasError) throw new InvalidOperationException("chunk table readback failed");
 
 			EnvScanner.ChunkReadbackBuffer readback = scanner.CreateChunkReadbackBuffer();
@@ -132,7 +115,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			{
 				foreach (int index in table.reserved)
 				{
-					if (!await scanner.ReadbackChunkInto(index, readback, volume)) continue;
+					if (!await scanner.ReadbackChunkInto(index, readback)) continue;
 					NativeArray<EnvScanner.Voxel> voxels = readback.data;
 					bool any = false;
 					for (int i = 0; i < voxels.Length && !any; i++) any = !voxels[i].IsEmpty;
@@ -166,11 +149,11 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		}
 
 		// reserved, valid chunk table entries; bits as in EnvScanner.compute
-		private static async Awaitable<TableReadback> ReadTable(EnvVolume volume)
+		private static async Awaitable<TableReadback> ReadTable(ComputeBuffer chunkTable)
 		{
 			const int reservedBit = 0x20000000;
 			UnityEngine.Rendering.AsyncGPUReadbackRequest req =
-				await UnityEngine.Rendering.AsyncGPUReadback.RequestAsync(volume.ChunkTable);
+				await UnityEngine.Rendering.AsyncGPUReadback.RequestAsync(chunkTable);
 			if (req.hasError) return new TableReadback(true, null);
 
 			NativeArray<int> entries = req.GetData<int>();
@@ -181,38 +164,19 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		}
 
 		/// <summary>
-		/// Fuses every chunk into <paramref name="volume"/> (the live map unless given),
-		/// optionally moved by whole chunks — an exact translation of
-		/// <paramref name="chunkShift"/> × <see cref="EnvScanner.ChunkWorldSizeDim"/>.
-		/// Returns how many chunks went in. Clear the volume first for an exact copy
+		/// Fuses every chunk into the live map. Returns how many chunks went in. Clear the
+		/// scanner first for an exact copy
 		/// </summary>
-		public int UploadInto(EnvScanner scanner, EnvVolume volume = null, int3 chunkShift = default)
+		public int UploadInto(EnvScanner scanner)
 		{
 			string why = Incompatibility(scanner);
 			if (why != null) throw new InvalidOperationException($"scan not made on this scanner's grid: {why}");
 
 			int uploaded = 0;
 			foreach ((int index, NativeArray<EnvScanner.Voxel> voxels) in Chunks)
-			{
-				int shifted = CoordToIndex(IndexToCoord(index) + chunkShift);
-				if (shifted >= 0 && scanner.UploadChunk(shifted, voxels, volume)) uploaded++;
-			}
+				if (scanner.UploadChunk(index, voxels)) uploaded++;
 
 			return uploaded;
-		}
-
-		/// <summary>
-		/// Allocates <paramref name="target"/> over this scan's chunks and writes them in.
-		/// False when the scan spans more than a registration volume holds
-		/// </summary>
-		public bool FillRegistrationVolume(RegistrationVolume target)
-		{
-			if (Chunks.Count == 0) return false;
-			(int3 min, int3 max) = ChunkBounds;
-			if (!target.Allocate(min, max)) return false;
-			foreach ((int index, NativeArray<EnvScanner.Voxel> voxels) in Chunks)
-				target.FillFromVoxels(index, voxels);
-			return true;
 		}
 
 		/// <summary>An empty scan on <paramref name="scanner"/>'s grid.</summary>

@@ -4,8 +4,8 @@ Shader "Anaglyph/Lasertag/DepthLight"
 	{
 		Tags { "RenderPipeline" = "UniversalPipeline" }
 
-		// Pass 0: lights one depth-map slice at depth resolution, walking the Forward+
-		// clusters of the camera eye that sees each texel
+		// Pass 0: lights the depth map at depth resolution, one slice per eye through
+		// single-pass stereo, walking the Forward+ clusters of the eye that sees each texel
 		Pass
 		{
 			Name "DepthLightIrradiance"
@@ -17,6 +17,7 @@ Shader "Anaglyph/Lasertag/DepthLight"
 			#pragma target 4.5
 			#pragma vertex Vert
 			#pragma fragment Frag
+			#pragma multi_compile_instancing
 			#pragma multi_compile _ _CLUSTER_LIGHT_LOOP
 			#pragma multi_compile _ _LIGHT_LAYERS
 
@@ -31,16 +32,30 @@ Shader "Anaglyph/Lasertag/DepthLight"
 			#define CAMERA_UV_MARGIN 0.1
 
 			float4x4 _DepthClipToWorld[2];
-			float4x4 _DepthLightWorldToCameraClip;
+			float4x4 _DepthLightWorldToCameraClip[2];
 			float2 _DepthLightTexelSize;
-			float _DepthLightEye;
-			float _DepthLightClusterView;
 			float _DepthLightMaxLights;
 			uint _EnvironmentRenderingLayers;
 
-			float4 Vert(uint vertexID : SV_VertexID) : SV_POSITION
+			struct Attributes
 			{
-				return GetFullScreenTriangleVertexPosition(vertexID);
+				uint vertexID : SV_VertexID;
+				UNITY_VERTEX_INPUT_INSTANCE_ID
+			};
+
+			struct Varyings
+			{
+				float4 positionCS : SV_POSITION;
+				UNITY_VERTEX_OUTPUT_STEREO
+			};
+
+			Varyings Vert(Attributes input)
+			{
+				Varyings output;
+				UNITY_SETUP_INSTANCE_ID(input);
+				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
+				output.positionCS = GetFullScreenTriangleVertexPosition(input.vertexID);
+				return output;
 			}
 
 			#if USE_CLUSTER_LIGHT_LOOP
@@ -78,13 +93,14 @@ Shader "Anaglyph/Lasertag/DepthLight"
 			}
 			#endif
 
-			half4 Frag(float4 positionCS : SV_POSITION) : SV_Target
+			half4 Frag(Varyings input) : SV_Target
 			{
+				UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 				#if !USE_CLUSTER_LIGHT_LOOP
 				return 0;
 				#else
-				int eye = (int)_DepthLightEye;
-				int2 texel = int2(positionCS.xy);
+				int eye = unity_StereoEyeIndex;
+				int2 texel = int2(input.positionCS.xy);
 
 				float depth = agDepthTex.Load(int4(texel, eye, 0));
 				if (!agDepthIsKnown(depth)) return 0;
@@ -94,7 +110,7 @@ Shader "Anaglyph/Lasertag/DepthLight"
 				float3 positionWS = worldH.xyz / worldH.w;
 
 				// w is the distance along the view axis, which is what the Z bins index
-				float4 cameraClip = mul(_DepthLightWorldToCameraClip, float4(positionWS, 1));
+				float4 cameraClip = mul(_DepthLightWorldToCameraClip[eye], float4(positionWS, 1));
 				if (!(cameraClip.w > 0)) return 0;
 				float2 cameraUV = cameraClip.xy / cameraClip.w * 0.5 + 0.5;
 				if (any(abs(cameraUV - 0.5) > 0.5 + CAMERA_UV_MARGIN)) return 0;
@@ -107,7 +123,7 @@ Shader "Anaglyph/Lasertag/DepthLight"
 				uint evaluated = 0;
 				uint maxLights = (uint)_DepthLightMaxLights;
 				uint lightIndex;
-				ClusterIterator cluster = DepthLightClusterInit(cameraUV, cameraClip.w, (uint)_DepthLightClusterView);
+				ClusterIterator cluster = DepthLightClusterInit(cameraUV, cameraClip.w, (uint)eye);
 				[loop] while (evaluated < maxLights && ClusterNext(cluster, lightIndex))
 				{
 					lightIndex += URP_FP_DIRECTIONAL_LIGHTS_COUNT;
