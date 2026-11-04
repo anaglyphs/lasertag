@@ -96,6 +96,8 @@ namespace Anaglyph.XR.VisualLocalization
 		public IReadOnlyList<VisualKeyframe> Keyframes => keyframes;
 		public IEnumerable<Landmark> Landmarks => landmarks.Values;
 		public int LandmarkCount => landmarks.Count;
+		/// <summary>Every landmark id so far is below this.</summary>
+		public int LandmarkIdLimit => nextLandmarkId;
 
 		public event Action<VisualKeyframe> Evicted = delegate { };
 		public event Action Cleared = delegate { };
@@ -311,6 +313,7 @@ namespace Anaglyph.XR.VisualLocalization
 					landmarks[id] = landmark;
 				}
 
+				landmark.hasWire = false;
 				landmark.reference = new Pose(origin, Quaternion.identity);
 				landmark.bearing = toWorldRotation * (Vector3)l.direction;
 				landmark.inverseDepth = l.inverseDepth;
@@ -361,6 +364,7 @@ namespace Anaglyph.XR.VisualLocalization
 					}
 
 					landmark.references++;
+					if (DropsEstablishedSightings) continue;
 					landmark.observations.Add(new Observation
 					{
 						keyframe = k,
@@ -385,6 +389,20 @@ namespace Anaglyph.XR.VisualLocalization
 
 		/// <summary>Established landmarks keep the observations they were founded on (see <see cref="Landmark.established"/>).</summary>
 		public bool freezeEstablished = true;
+
+		/// <summary>Whether established landmarks give up their sightings, which only diagnostics still read: with frozen landmarks, nothing refits them.</summary>
+		public bool dropEstablishedSightings;
+
+		private bool DropsEstablishedSightings => freezeEstablished && dropEstablishedSightings;
+
+		/// <summary>Fixes a landmark's fit from now on.</summary>
+		public void Establish(Landmark landmark)
+		{
+			landmark.established = true;
+			if (!DropsEstablishedSightings) return;
+			landmark.observations.Clear();
+			landmark.observations.TrimExcess();
+		}
 
 		/// <summary>Side of a coverage cell at the finest level, meters.</summary>
 		public float coverageCell = 1f;
@@ -414,23 +432,22 @@ namespace Anaglyph.XR.VisualLocalization
 		private int CoverageVictim()
 		{
 			// a revisit view from the most crowded bucket that has one, while any is left
-			List<int> crowdedRevisits = null;
-			int crowdedSize = 0;
-			foreach (List<int> bucket in Bucket().Values)
-			{
-				List<int> revisits = bucket.FindAll(i => !keyframes[i].original);
-				if (revisits.Count == 0 || bucket.Count <= crowdedSize) continue;
-				crowdedRevisits = revisits;
-				crowdedSize = bucket.Count;
-			}
+			RefillBuckets();
+			List<int> crowded = null;
+			foreach (List<int> bucket in buckets.Values)
+				if ((crowded == null || bucket.Count > crowded.Count) && HasRevisit(bucket))
+					crowded = bucket;
 
-			if (crowdedRevisits != null) return LeastUseful(crowdedRevisits);
+			if (crowded != null)
+			{
+				for (int i = crowded.Count - 1; i >= 0; i--)
+					if (keyframes[crowded[i]].original) crowded.RemoveAt(i);
+				return LeastUseful(crowded);
+			}
 
 			// only first views left: the explored area has outgrown the capacity
 			while (true)
 			{
-				Dictionary<int3, List<int>> buckets = Bucket();
-				List<int> crowded = null;
 				foreach (List<int> bucket in buckets.Values)
 					if (bucket.Count > 1 && (crowded == null || bucket.Count > crowded.Count))
 						crowded = bucket;
@@ -440,14 +457,32 @@ namespace Anaglyph.XR.VisualLocalization
 
 				CoverageLevel++;
 				Debug.Log($"[{nameof(VisualMap)}] every place and heading is down to one keyframe: coverage coarsened to {CoverageCellSize:F0} m cells, {CoverageHeadingBins} headings");
+				RefillBuckets();
 			}
 		}
 
-		private Dictionary<int3, List<int>> Bucket()
+		private bool HasRevisit(List<int> bucket)
 		{
+			foreach (int i in bucket)
+				if (!keyframes[i].original) return true;
+			return false;
+		}
+
+		// the buckets of the last eviction, their lists reused: one comes every keyframe once the map is full
+		private readonly Dictionary<int3, List<int>> buckets = new();
+		private readonly Stack<List<int>> spareBuckets = new();
+
+		private void RefillBuckets()
+		{
+			foreach (List<int> list in buckets.Values)
+			{
+				list.Clear();
+				spareBuckets.Push(list);
+			}
+
+			buckets.Clear();
 			float cell = CoverageCellSize;
 			int headings = CoverageHeadingBins;
-			Dictionary<int3, List<int>> buckets = new();
 			for (int i = 0; i < keyframes.Count; i++)
 			{
 				Pose camera = keyframes[i].camera;
@@ -455,11 +490,10 @@ namespace Anaglyph.XR.VisualLocalization
 				float heading = math.atan2(forward.x, forward.z);
 				int bin = (int)math.floor((heading + math.PI) / (2 * math.PI) * headings) % headings;
 				int3 key = new((int)math.floor(camera.position.x / cell), (int)math.floor(camera.position.z / cell), bin);
-				if (!buckets.TryGetValue(key, out List<int> list)) buckets[key] = list = new List<int>();
+				if (!buckets.TryGetValue(key, out List<int> list))
+					buckets[key] = list = spareBuckets.Count > 0 ? spareBuckets.Pop() : new List<int>();
 				list.Add(i);
 			}
-
-			return buckets;
 		}
 
 		private int LeastUseful(List<int> candidates)
@@ -507,11 +541,13 @@ namespace Anaglyph.XR.VisualLocalization
 		/// least <paramref name="minMutual"/> of them, among those <paramref name="filter"/>
 		/// lets through and, with a <paramref name="near"/> pose, within
 		/// <paramref name="nearDistance"/> of it. <paramref name="candidatesPerFrame"/> keyframes
-		/// are scored a frame: more when something waits on the answer.
+		/// are scored a frame: more when something waits on the answer. With
+		/// <paramref name="scoreOnlyToChoose"/>, a caller that measures what it gets by itself
+		/// has no scoring done when there is nothing to choose between: all come back at 0.
 		/// </summary>
 		public async Awaitable<List<(VisualKeyframe keyframe, int mutual)>> RetrieveAsync(FeatureSet query, int count, int minMutual,
 			Func<VisualKeyframe, bool> filter = null, Pose? near = null, float nearDistance = 4f, int maxCandidates = MaxRetrievalCandidates,
-			int candidatesPerFrame = DefaultCandidatesPerFrame)
+			int candidatesPerFrame = DefaultCandidatesPerFrame, bool scoreOnlyToChoose = false)
 		{
 			List<(VisualKeyframe, int)> result = new();
 			if (keyframes.Count == 0 || query == null || query.Count == 0) return result;
@@ -526,6 +562,11 @@ namespace Anaglyph.XR.VisualLocalization
 			}
 
 			if (candidates.Count == 0) return result;
+			if (scoreOnlyToChoose && candidates.Count <= count)
+			{
+				foreach (int i in candidates) result.Add((keyframes[i], 0));
+				return result;
+			}
 
 			// every candidate costs a brute-force match of a few hundred descriptors against as
 			// many: with a camera to go by, only the views most likely to share its features are

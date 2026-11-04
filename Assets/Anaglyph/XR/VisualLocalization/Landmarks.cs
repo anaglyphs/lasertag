@@ -92,7 +92,7 @@ namespace Anaglyph.XR.VisualLocalization
 		public uint owner;
 		public int ownerId;
 		public ulong node;
-		/// <summary>The reference camera relative to <see cref="node"/>; observations[0] is its sighting.</summary>
+		/// <summary>The reference camera relative to <see cref="node"/>; while it is being fitted, observations[0] is its sighting.</summary>
 		public Pose reference;
 		/// <summary>Unit ray from the reference camera, its Unity axes.</summary>
 		public float3 bearing;
@@ -107,6 +107,9 @@ namespace Anaglyph.XR.VisualLocalization
 		/// its fit, so a poor later view can't move it.
 		/// </summary>
 		public bool established;
+		/// <summary>This landmark as it goes to a file or another headset, once it no longer changes.</summary>
+		internal VisualMapData.Landmark wire;
+		internal bool hasWire;
 
 		/// <summary>Seen from at least two keyframes, or received fixed with only some of the views that founded it.</summary>
 		public bool IsUsable => observations.Count >= 2 || established;
@@ -115,10 +118,17 @@ namespace Anaglyph.XR.VisualLocalization
 		public bool TryPlace(IKeyframeAnchoring anchoring, out float3 origin, out float3 direction)
 		{
 			origin = direction = default;
-			if (!TryCamera(anchoring, node, reference, out Pose camera)) return false;
+			if (anchoring == null || !anchoring.TryGetNodeWorld(node, out Pose nodeWorld)) return false;
+			PlaceThrough(nodeWorld, out origin, out direction);
+			return true;
+		}
+
+		/// <summary>The reference ray in the world, through this pose of its node.</summary>
+		public void PlaceThrough(Pose nodeWorld, out float3 origin, out float3 direction)
+		{
+			Pose camera = reference.GetTransformedBy(nodeWorld);
 			origin = camera.position;
 			direction = math.mul(camera.rotation, bearing);
-			return true;
 		}
 
 		public static bool TryCamera(IKeyframeAnchoring anchoring, ulong node, Pose cameraInNode, out Pose camera)

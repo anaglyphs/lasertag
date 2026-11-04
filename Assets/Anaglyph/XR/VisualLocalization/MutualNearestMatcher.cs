@@ -26,35 +26,30 @@ namespace Anaglyph.XR.VisualLocalization
 
 			// persistent: the job may outlive the four frames a TempJob allocation is allowed
 			NativeArray<half> descA = new(a.descriptors, Allocator.Persistent);
-			NativeArray<half> descB = new(b.descriptors, Allocator.Persistent);
+			NativeArray<float4> rowsB = new(b.Count * Widths, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
 			NativeArray<int> bestForA = new(a.Count, Allocator.Persistent);
 			NativeArray<float> bestSimForA = new(a.Count, Allocator.Persistent);
 			NativeArray<int> bestForB = new(b.Count, Allocator.Persistent);
+			NativeArray<float> bestSimForB = new(b.Count, Allocator.Persistent);
 			try
 			{
-				// the reverse direction only needs the index
-				NativeArray<float> bestSimForB = new(b.Count, Allocator.Persistent);
-				try
+				NativeArray<half> descB = new(b.descriptors, Allocator.Persistent);
+				JobHandle prepared = new PrepareJob { descriptors = descB, rows = rowsB, best = bestForB, bestSimilarity = bestSimForB }.Schedule();
+				descB.Dispose(prepared);
+
+				// a slice of rows a frame: one job holding a worker for tens of milliseconds
+				// holds up the engine's own jobs behind it, and the frame with them
+				JobHandle slice = prepared;
+				for (int row = 0; row < a.Count; row += RowsPerFrame)
 				{
-					// a slice of rows a frame: one job holding a worker for tens of milliseconds
-					// holds up the engine's own jobs behind it, and the frame with them
-					for (int row = 0; row < math.max(a.Count, b.Count); row += RowsPerFrame)
+					slice = new NearestSliceJob
 					{
-						JobHandle forA = row < a.Count
-							? new NearestJob { from = descA, to = descB, toCount = b.Count, best = bestForA, bestSimilarity = bestSimForA, offset = row }.Schedule(math.min(RowsPerFrame, a.Count - row), 16)
-							: default;
-						JobHandle forB = row < b.Count
-							? new NearestJob { from = descB, to = descA, toCount = a.Count, best = bestForB, bestSimilarity = bestSimForB, offset = row }.Schedule(math.min(RowsPerFrame, b.Count - row), 16)
-							: default;
-						JobHandle both = JobHandle.CombineDependencies(forA, forB);
-						JobHandle.ScheduleBatchedJobs();
-						while (!both.IsCompleted) await Awaitable.NextFrameAsync();
-						both.Complete();
-					}
-				}
-				finally
-				{
-					bestSimForB.Dispose();
+						descA = descA, rowsB = rowsB, countB = b.Count, first = row, end = math.min(row + RowsPerFrame, a.Count),
+						bestForA = bestForA, bestSimForA = bestSimForA, bestForB = bestForB, bestSimForB = bestSimForB,
+					}.Schedule(slice);
+					JobHandle.ScheduleBatchedJobs();
+					while (!slice.IsCompleted) await Awaitable.NextFrameAsync();
+					slice.Complete();
 				}
 
 				int[] matches = new int[a.Count];
@@ -72,51 +67,91 @@ namespace Anaglyph.XR.VisualLocalization
 			finally
 			{
 				descA.Dispose();
-				descB.Dispose();
+				rowsB.Dispose();
 				bestForA.Dispose();
 				bestSimForA.Dispose();
 				bestForB.Dispose();
+				bestSimForB.Dispose();
 			}
 		}
 
-		// rows matched per frame and direction: ~64 × 1000 × 64 multiply-adds, a few milliseconds
+		// rows of a matched per frame: ~64 × 1000 × 64 multiply-adds, a millisecond or two
 		private const int RowsPerFrame = 64;
+		private const int Widths = FeatureSet.DescriptorSize / 4;
 
-		[BurstCompile(FloatMode = FloatMode.Fast)]
-		private struct NearestJob : IJobParallelFor
+		// b's descriptors widened once, not once per multiply; and nothing yet the best of any row of it
+		[BurstCompile]
+		private struct PrepareJob : IJob
 		{
-			[ReadOnly] public NativeArray<half> from;
-			[ReadOnly] public NativeArray<half> to;
-			public int toCount;
-			public int offset;
-			[WriteOnly, NativeDisableParallelForRestriction] public NativeArray<int> best;
-			[WriteOnly, NativeDisableParallelForRestriction] public NativeArray<float> bestSimilarity;
+			[ReadOnly] public NativeArray<half> descriptors;
+			[WriteOnly] public NativeArray<float4> rows;
+			[WriteOnly] public NativeArray<int> best;
+			[WriteOnly] public NativeArray<float> bestSimilarity;
 
-			public void Execute(int index)
+			public void Execute()
 			{
-				int i = index + offset;
-				const int d = FeatureSet.DescriptorSize;
-				int fi = i * d;
-				// the row being matched, widened once
-				NativeArray<float4> row = new(d / 4, Allocator.Temp);
-				for (int c = 0; c < d; c += 4) row[c / 4] = new float4(from[fi + c], from[fi + c + 1], from[fi + c + 2], from[fi + c + 3]);
-
-				float bestDot = -2;
-				int bestJ = -1;
-				for (int j = 0; j < toCount; j++)
+				for (int i = 0; i < rows.Length; i++)
 				{
-					int tj = j * d;
-					float4 acc = 0;
-					for (int c = 0; c < d; c += 4)
-						acc += row[c / 4] * new float4(to[tj + c], to[tj + c + 1], to[tj + c + 2], to[tj + c + 3]);
-					float dot = math.csum(acc);
-					if (dot <= bestDot) continue;
-					bestDot = dot;
-					bestJ = j;
+					int at = i * 4;
+					rows[i] = new float4(descriptors[at], descriptors[at + 1], descriptors[at + 2], descriptors[at + 3]);
 				}
 
-				best[i] = bestJ;
-				bestSimilarity[i] = bestDot;
+				for (int j = 0; j < best.Length; j++)
+				{
+					best[j] = -1;
+					bestSimilarity[j] = -2;
+				}
+			}
+		}
+
+		// each row of a against all of b once, both directions' best kept in the one pass
+		[BurstCompile(FloatMode = FloatMode.Fast)]
+		private struct NearestSliceJob : IJob
+		{
+			[ReadOnly] public NativeArray<half> descA;
+			[ReadOnly] public NativeArray<float4> rowsB;
+			public int countB, first, end;
+			[WriteOnly] public NativeArray<int> bestForA;
+			[WriteOnly] public NativeArray<float> bestSimForA;
+			[WriteOnly] public NativeArray<int> bestForB;
+			public NativeArray<float> bestSimForB;
+
+			public void Execute()
+			{
+				NativeArray<float4> rowA = new(Widths, Allocator.Temp);
+				for (int i = first; i < end; i++)
+				{
+					int ai = i * FeatureSet.DescriptorSize;
+					for (int c = 0; c < Widths; c++)
+					{
+						int at = ai + c * 4;
+						rowA[c] = new float4(descA[at], descA[at + 1], descA[at + 2], descA[at + 3]);
+					}
+
+					float best = -2;
+					int bestJ = -1;
+					for (int j = 0; j < countB; j++)
+					{
+						int rj = j * Widths;
+						float4 acc = 0;
+						for (int c = 0; c < Widths; c++) acc += rowA[c] * rowsB[rj + c];
+						float dot = math.csum(acc);
+						if (dot > best)
+						{
+							best = dot;
+							bestJ = j;
+						}
+
+						if (dot > bestSimForB[j])
+						{
+							bestSimForB[j] = dot;
+							bestForB[j] = i;
+						}
+					}
+
+					bestForA[i] = bestJ;
+					bestSimForA[i] = best;
+				}
 			}
 		}
 	}

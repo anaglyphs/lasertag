@@ -221,7 +221,7 @@ namespace Anaglyph.LaserTag.Maps
 			{
 				data.vocabulary = v.Id;
 				foreach (VisualMapData.Keyframe k in data.keyframes)
-					if (k.probe == null) k.probe = v.Bitset(k.descriptors, k.count);
+					if (k.probe == null) k.probe = v.Bitset(k.descriptors, k.count, k.rows);
 			}
 			else foreach (VisualMapData.Keyframe k in data.keyframes) k.probe = null;
 
@@ -267,7 +267,7 @@ namespace Anaglyph.LaserTag.Maps
 				{
 					if (random.NextFloat() > keep) continue;
 					half[] row = new half[d];
-					Array.Copy(k.descriptors, i * d, row, 0, d);
+					Array.Copy(k.descriptors, k.Row(i) * d, row, 0, d);
 					sample.Add(row);
 				}
 			return VisualVocabulary.Build(sample);

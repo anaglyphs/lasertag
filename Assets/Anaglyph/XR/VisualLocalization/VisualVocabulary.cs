@@ -165,14 +165,15 @@ namespace Anaglyph.XR.VisualLocalization
 
 		// ---- quantizing --------------------------------------------------------
 
-		/// <summary>The word of each of the first <paramref name="count"/> descriptors (rows of halves).</summary>
-		public int[] Quantize(half[] descriptors, int count)
+		/// <summary>The word of each of <paramref name="count"/> descriptors (rows of halves): the first ones, or those <paramref name="rows"/> names.</summary>
+		public int[] Quantize(half[] descriptors, int count, int[] rows = null)
 		{
 			int[] words = new int[count];
 			float[] row = new float[D];
 			for (int i = 0; i < count; i++)
 			{
-				for (int c = 0; c < D; c++) row[c] = descriptors[i * D + c];
+				int at = (rows != null ? rows[i] : i) * D;
+				for (int c = 0; c < D; c++) row[c] = descriptors[at + c];
 				words[i] = Word(row);
 			}
 
@@ -208,10 +209,10 @@ namespace Anaglyph.XR.VisualLocalization
 		}
 
 		/// <summary>The bitset of the words the descriptors show.</summary>
-		public ulong[] Bitset(half[] descriptors, int count)
+		public ulong[] Bitset(half[] descriptors, int count, int[] rows = null)
 		{
 			ulong[] bits = new ulong[BitsetLength];
-			foreach (int word in Quantize(descriptors, count)) bits[word >> 6] |= 1ul << (word & 63);
+			foreach (int word in Quantize(descriptors, count, rows)) bits[word >> 6] |= 1ul << (word & 63);
 			return bits;
 		}
 

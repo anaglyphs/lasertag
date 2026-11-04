@@ -20,33 +20,64 @@ namespace Anaglyph.XR.VisualLocalization
 	public static class GuidedMatcher
 	{
 		/// <summary>
-		/// For every target (a landmark projected to <paramref name="projected"/>[t], whose
-		/// true position lies within <paramref name="windows"/>[t] pixels of it, with row t of
-		/// <paramref name="descriptors"/>), the index of its mutual nearest query feature
-		/// within that window with a cosine of at least <paramref name="minCosine"/>, beating
-		/// the runner-up in its window by <paramref name="minMargin"/> (repeated structure gives
-		/// near ties), or -1; and that cosine as the confidence.
+		/// A match's targets and results, kept between matches so each allocates nothing new.
+		/// Target t is a landmark projected to projected[t], whose true position lies within
+		/// windows[t] pixels of it, with row t of descriptors. Must stay untouched and undisposed
+		/// until <see cref="MatchAsync"/> returns.
 		/// </summary>
-		public static async Awaitable<(int[] matches, float[] confidence)> MatchAsync(FeatureSet query, float2[] projected, float[] windows,
-			half[] descriptors, float minCosine, float minMargin = 0)
+		public sealed class Buffers : IDisposable
 		{
-			int targets = projected.Length;
-			if (targets == 0) return (Array.Empty<int>(), Array.Empty<float>());
+			public NativeList<float2> projected = new(Allocator.Persistent);
+			public NativeList<float> windows = new(Allocator.Persistent);
+			public NativeList<half> descriptors = new(Allocator.Persistent);
+			public NativeList<int> matches = new(Allocator.Persistent);
+			public NativeList<float> confidence = new(Allocator.Persistent);
+
+			public void Clear()
+			{
+				projected.Clear();
+				windows.Clear();
+				descriptors.Clear();
+				matches.Clear();
+				confidence.Clear();
+			}
+
+			public void Dispose()
+			{
+				projected.Dispose();
+				windows.Dispose();
+				descriptors.Dispose();
+				matches.Dispose();
+				confidence.Dispose();
+			}
+		}
+
+		/// <summary>
+		/// Fills <see cref="Buffers.matches"/> with every target's mutual nearest query feature
+		/// within its window with a cosine of at least <paramref name="minCosine"/>, beating
+		/// the runner-up in its window by <paramref name="minMargin"/> (repeated structure gives
+		/// near ties), or -1; and <see cref="Buffers.confidence"/> with that cosine.
+		/// </summary>
+		public static async Awaitable MatchAsync(FeatureSet query, Buffers buffers, float minCosine, float minMargin = 0)
+		{
+			int targets = buffers.projected.Length;
+			buffers.matches.ResizeUninitialized(targets);
+			buffers.confidence.ResizeUninitialized(targets);
+			if (targets == 0) return;
 			if (query == null || query.Count == 0)
 			{
-				int[] none = new int[targets];
-				Array.Fill(none, -1);
-				return (none, new float[targets]);
+				for (int t = 0; t < targets; t++)
+				{
+					buffers.matches[t] = -1;
+					buffers.confidence[t] = 0;
+				}
+
+				return;
 			}
 
 			// persistent: the job may outlive the four frames a TempJob allocation is allowed
 			NativeArray<float2> queryPoints = new(query.keypoints, Allocator.Persistent);
 			NativeArray<half> queryDesc = new(query.descriptors, Allocator.Persistent);
-			NativeArray<float2> targetPoints = new(projected, Allocator.Persistent);
-			NativeArray<float> targetWindows = new(windows, Allocator.Persistent);
-			NativeArray<half> targetDesc = new(descriptors, Allocator.Persistent);
-			NativeArray<int> matches = new(targets, Allocator.Persistent);
-			NativeArray<float> confidence = new(targets, Allocator.Persistent);
 			try
 			{
 				JobHandle handle = new GuidedMatchJob
@@ -54,28 +85,22 @@ namespace Anaglyph.XR.VisualLocalization
 					queryPoints = queryPoints,
 					queryDesc = queryDesc,
 					queryCount = query.Count,
-					targetPoints = targetPoints,
-					targetWindows = targetWindows,
-					targetDesc = targetDesc,
+					targetPoints = buffers.projected.AsArray(),
+					targetWindows = buffers.windows.AsArray(),
+					targetDesc = buffers.descriptors.AsArray(),
 					minCosine = minCosine,
 					minMargin = minMargin,
-					matches = matches,
-					confidence = confidence,
+					matches = buffers.matches.AsArray(),
+					confidence = buffers.confidence.AsArray(),
 				}.Schedule();
 				JobHandle.ScheduleBatchedJobs();
 				while (!handle.IsCompleted) await Awaitable.NextFrameAsync();
 				handle.Complete();
-				return (matches.ToArray(), confidence.ToArray());
 			}
 			finally
 			{
 				queryPoints.Dispose();
 				queryDesc.Dispose();
-				targetPoints.Dispose();
-				targetWindows.Dispose();
-				targetDesc.Dispose();
-				matches.Dispose();
-				confidence.Dispose();
 			}
 		}
 

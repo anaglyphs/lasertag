@@ -235,7 +235,7 @@ namespace Anaglyph.XR.SharedSpaces
 			if (EnvScanner.Instance != null) EnvScanner.Instance.Cleared += ClearMap;
 			alignment.PhaseChanged += OnPhaseChanged;
 			alignment.FrameAbandoned += ClearScan;
-			mapSync = new VisualMapSync(localizer, graph, track, LogTag, log.Outcome);
+			mapSync = new VisualMapSync(localizer, graph, track, LogTag, message => log.Outcome(message));
 			mapSync.HostMapReceived += OnHostMapReceived;
 			graphSync = new KeyframeGraphSync(graph);
 		}

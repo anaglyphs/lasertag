@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using Unity.Collections;
 using Unity.Mathematics;
+using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.XR.ARFoundation;
 
@@ -109,6 +111,8 @@ namespace Anaglyph.XR.VisualLocalization
 			{
 				coverageCell = mapperSettings.coverageCell, coverageHeadings = mapperSettings.coverageHeadings,
 				freezeEstablished = FreezeOverride ?? mapperSettings.freezeEstablishedLandmarks,
+				// diagnostics in development builds still read them
+				dropEstablishedSightings = !Debug.isDebugBuild,
 			};
 			queue = new InferenceQueue(this, inferenceSettings);
 			mapper = new VisualMapper(this, mapperSettings, queue);
@@ -136,6 +140,7 @@ namespace Anaglyph.XR.VisualLocalization
 		{
 			queue?.Dispose();
 			Map?.Dispose();
+			while (idleGuidedBuffers.Count > 0) idleGuidedBuffers.Pop().Dispose();
 			if (Instance == this) Instance = null;
 		}
 
@@ -235,21 +240,32 @@ namespace Anaglyph.XR.VisualLocalization
 				{
 					matching = new();
 					HashSet<VisualKeyframe> contributing = new();
-					for (int c = 0; c < frames.Count; c++)
+					GuidedBuffers buffers = idleGuidedBuffers.Count > 0 ? idleGuidedBuffers.Pop() : new();
+					try
 					{
-						VisualQuery frame = frames[c];
-						if (frame?.features == null) continue;
-						Matching one = await MatchGuided(frame, c == 0 ? options.near.Value : frame.camera, c, options, anchoring, contributing);
-						if (!this)
+						for (int c = 0; c < frames.Count; c++)
 						{
-							result.failure = "destroyed";
-							return result;
-						}
+							VisualQuery frame = frames[c];
+							if (frame?.features == null) continue;
+							Matching one = await MatchGuided(frame, c == 0 ? options.near.Value : frame.camera, c, options, anchoring, contributing, buffers);
+							if (!this)
+							{
+								result.failure = "destroyed";
+								return result;
+							}
 
-						matching.correspondences.AddRange(one.correspondences);
-						matching.bestMutual = math.max(matching.bestMutual, one.bestMutual);
-						if (c == 0) matching.failure = one.failure;
-						else Frames.Note(frame.frame, $"frame {c + 1} of {frames.Count} in one solve: {one.correspondences.Count} matches{(one.failure != null ? $" ({one.failure})" : "")}");
+							matching.correspondences.AddRange(one.correspondences);
+							matching.bestMutual = math.max(matching.bestMutual, one.bestMutual);
+							if (c == 0) matching.failure = one.failure;
+							else Frames.Note(frame.frame, $"frame {c + 1} of {frames.Count} in one solve: {one.correspondences.Count} matches{(one.failure != null ? $" ({one.failure})" : "")}");
+						}
+					}
+					finally
+					{
+						// idle buffers hold no keyframes, which would keep evicted ones alive
+						buffers.Clear();
+						if (this) idleGuidedBuffers.Push(buffers);
+						else buffers.Dispose();
 					}
 
 					matching.keyframesMatched = contributing.Count;
@@ -417,6 +433,39 @@ namespace Anaglyph.XR.VisualLocalization
 			public ulong node;
 		}
 
+		// a guided match's working lists, reused so a match allocates only its result. One set per
+		// query in flight
+		private sealed class GuidedBuffers : IDisposable
+		{
+			public readonly List<(float likeness, VisualKeyframe view)> near = new();
+			// every near view's targets, each view's together
+			public readonly List<Target> inView = new();
+			public readonly List<(VisualKeyframe view, int start, int count)> views = new();
+			public readonly List<Target> targets = new();
+			public readonly HashSet<int> seen = new();
+			public readonly Dictionary<VisualKeyframe, int> perView = new();
+			public readonly System.Diagnostics.Stopwatch slice = new();
+			public readonly GuidedMatcher.Buffers matcher = new();
+
+			public void Clear()
+			{
+				near.Clear();
+				inView.Clear();
+				views.Clear();
+				targets.Clear();
+				seen.Clear();
+				perView.Clear();
+				matcher.Clear();
+			}
+
+			public void Dispose() => matcher.Dispose();
+		}
+
+		private readonly Stack<GuidedBuffers> idleGuidedBuffers = new();
+
+		private static readonly ProfilerMarker GuidedSetupMarker = new("VisualLocalizer.Guided setup");
+		private static readonly ProfilerMarker GuidedProjectionMarker = new("VisualLocalizer.Guided projection");
+
 		/// <summary>
 		/// The landmarks of the views that see most of what the prior sees, projected through
 		/// it into the query image and matched within the window each may fall in
@@ -426,21 +475,30 @@ namespace Anaglyph.XR.VisualLocalization
 		/// <paramref name="contributing"/>.
 		/// </summary>
 		private async Awaitable<Matching> MatchGuided(VisualQuery query, Pose prior, int camera, LocalizeOptions options, IKeyframeAnchoring anchoring,
-			HashSet<VisualKeyframe> contributing)
+			HashSet<VisualKeyframe> contributing, GuidedBuffers buffers)
 		{
+			buffers.Clear();
 			Matching m = new();
 			float nearDistance = options.nearDistance > 0 ? options.nearDistance : float.PositiveInfinity;
 			Vector3 forward = prior.forward;
 
 			// the views nearest the prior and most alike in heading may have seen what it sees
-			List<VisualKeyframe> near = new();
-			foreach (VisualKeyframe k in Map.Keyframes)
+			List<(float likeness, VisualKeyframe view)> near = buffers.near;
+			using (GuidedSetupMarker.Auto())
 			{
-				if (Vector3.Distance(k.camera.position, prior.position) > nearDistance) continue;
-				if (options.untrustedFrom != 0 && !IsLoopTarget(k, options.untrustedFrom, options.minLoopWalkDrift)) continue;
-				if (options.lockedOnly && !k.locked) continue;
-				if (options.maxViewAngle > 0 && Vector3.Angle(k.camera.forward, forward) > options.maxViewAngle) continue;
-				near.Add(k);
+				foreach (VisualKeyframe k in Map.Keyframes)
+				{
+					float distance = Vector3.Distance(k.camera.position, prior.position);
+					if (distance > nearDistance) continue;
+					if (options.untrustedFrom != 0 && !IsLoopTarget(k, options.untrustedFrom, options.minLoopWalkDrift)) continue;
+					if (options.lockedOnly && !k.locked) continue;
+					float angle = Vector3.Angle(k.camera.forward, forward);
+					if (options.maxViewAngle > 0 && angle > options.maxViewAngle) continue;
+					near.Add((distance + angle / 30f, k));
+				}
+
+				near.Sort((a, b) => a.likeness.CompareTo(b.likeness));
+				if (near.Count > VisualMap.MaxRetrievalCandidates) near.RemoveRange(VisualMap.MaxRetrievalCandidates, near.Count - VisualMap.MaxRetrievalCandidates);
 			}
 
 			if (near.Count == 0)
@@ -448,10 +506,6 @@ namespace Anaglyph.XR.VisualLocalization
 				m.failure = $"no view within {nearDistance:F0} m faces this way ({Quality})";
 				return m;
 			}
-
-			float Likeness(VisualKeyframe k) => Vector3.Distance(prior.position, k.camera.position) + Vector3.Angle(forward, k.camera.forward) / 30f;
-			near.Sort((a, b) => Likeness(a).CompareTo(Likeness(b)));
-			if (near.Count > VisualMap.MaxRetrievalCandidates) near.RemoveRange(VisualMap.MaxRetrievalCandidates, near.Count - VisualMap.MaxRetrievalCandidates);
 
 			// which of them did: every usable landmark each sights, where the prior projects it
 			// into the image, with the window its true position may fall in: the base window for
@@ -462,9 +516,11 @@ namespace Anaglyph.XR.VisualLocalization
 			float3 center = prior.position;
 			float translation = options.guidedTranslation > 0 ? options.guidedTranslation : guidedTranslation;
 			float maxWindow = XFeatExtractor.Width * 0.5f;
-			List<(VisualKeyframe view, List<Target> inView)> views = new();
-			System.Diagnostics.Stopwatch slice = System.Diagnostics.Stopwatch.StartNew();
-			foreach (VisualKeyframe k in near)
+			List<Target> inView = buffers.inView;
+			List<(VisualKeyframe view, int start, int count)> views = buffers.views;
+			System.Diagnostics.Stopwatch slice = buffers.slice;
+			slice.Restart();
+			foreach ((float _, VisualKeyframe k) in near)
 			{
 				// spread over frames past the budget: what the views sight is read afresh by id,
 				// so a landmark released meanwhile is only skipped
@@ -480,31 +536,47 @@ namespace Anaglyph.XR.VisualLocalization
 					slice.Restart();
 				}
 
-				List<Target> inView = new();
-				for (int j = 0; j < k.features.Count; j++)
+				int start = inView.Count;
+				using (GuidedProjectionMarker.Auto())
 				{
-					int id = k.landmarks[j];
-					if (id < 0 || !Map.TryGetLandmark(id, out Landmark l) || !l.IsUsable) continue;
-					if (!l.TryPlace(anchoring, out float3 origin, out float3 direction)) continue;
-
-					// the landmark's direction from the prior camera, homogeneous: exact for a
-					// point, the bare direction at infinity; its depth is h.z / ρ
-					float3 h = math.mul(inversePrior, l.inverseDepth * (origin - center) + direction);
-					if (h.z <= 1e-4f * math.length(h) || !query.intrinsics.Project(h, out float2 pixel)) continue;
-					float baseline = math.length(origin - center);
-					float window = math.min(maxWindow, guidedWindowPixels +
-						query.intrinsics.fx * (translation * l.inverseDepth + baseline * l.inverseDepthSigma) / h.z);
-					if (pixel.x < -window || pixel.y < -window || pixel.x >= XFeatExtractor.Width + window || pixel.y >= XFeatExtractor.Height + window) continue;
-
-					inView.Add(new Target
+					// a view's landmarks mostly share a node. Looked up afresh each view: the graph
+					// can move nodes between slices
+					ulong lastNode = 0;
+					bool hasLastNode = false, lastNodePlaced = false;
+					Pose lastNodeWorld = default;
+					for (int j = 0; j < k.features.Count; j++)
 					{
-						keyframe = k, feature = j, landmark = id, pixel = pixel, window = window,
-						origin = origin, direction = direction,
-						inverseDepth = l.inverseDepth, inverseDepthSigma = l.inverseDepthSigma, node = l.node,
-					});
+						int id = k.landmarks[j];
+						if (id < 0 || !Map.TryGetLandmark(id, out Landmark l) || !l.IsUsable) continue;
+						if (!hasLastNode || l.node != lastNode)
+						{
+							lastNode = l.node;
+							hasLastNode = true;
+							lastNodePlaced = anchoring != null && anchoring.TryGetNodeWorld(l.node, out lastNodeWorld);
+						}
+
+						if (!lastNodePlaced) continue;
+						l.PlaceThrough(lastNodeWorld, out float3 origin, out float3 direction);
+
+						// the landmark's direction from the prior camera, homogeneous: exact for a
+						// point, the bare direction at infinity; its depth is h.z / ρ
+						float3 h = math.mul(inversePrior, l.inverseDepth * (origin - center) + direction);
+						if (h.z <= 1e-4f * math.length(h) || !query.intrinsics.Project(h, out float2 pixel)) continue;
+						float baseline = math.length(origin - center);
+						float window = math.min(maxWindow, guidedWindowPixels +
+							query.intrinsics.fx * (translation * l.inverseDepth + baseline * l.inverseDepthSigma) / h.z);
+						if (pixel.x < -window || pixel.y < -window || pixel.x >= XFeatExtractor.Width + window || pixel.y >= XFeatExtractor.Height + window) continue;
+
+						inView.Add(new Target
+						{
+							keyframe = k, feature = j, landmark = id, pixel = pixel, window = window,
+							origin = origin, direction = direction,
+							inverseDepth = l.inverseDepth, inverseDepthSigma = l.inverseDepthSigma, node = l.node,
+						});
+					}
 				}
 
-				if (inView.Count > 0) views.Add((k, inView));
+				if (inView.Count > start) views.Add((k, start, inView.Count - start));
 			}
 
 			if (views.Count == 0)
@@ -514,35 +586,41 @@ namespace Anaglyph.XR.VisualLocalization
 			}
 
 			// the views that see most of the scene; every landmark once, in their order
-			views.Sort((a, b) => b.inView.Count.CompareTo(a.inView.Count));
-			if (views.Count > guidedKeyframes) views.RemoveRange(guidedKeyframes, views.Count - guidedKeyframes);
-			const int d = FeatureSet.DescriptorSize;
-			List<Target> targets = new();
-			List<float2> projected = new();
-			List<float> windows = new();
-			HashSet<int> seen = new();
-			foreach ((VisualKeyframe _, List<Target> inView) in views)
-				foreach (Target t in inView)
-				{
-					if (!seen.Add(t.landmark)) continue;
-					targets.Add(t);
-					projected.Add(t.pixel);
-					windows.Add(t.window);
-				}
+			List<Target> targets = buffers.targets;
+			GuidedMatcher.Buffers matcher = buffers.matcher;
+			using (GuidedSetupMarker.Auto())
+			{
+				views.Sort((a, b) => b.count.CompareTo(a.count));
+				if (views.Count > guidedKeyframes) views.RemoveRange(guidedKeyframes, views.Count - guidedKeyframes);
+				foreach ((VisualKeyframe _, int start, int count) in views)
+					for (int v = start; v < start + count; v++)
+					{
+						Target t = inView[v];
+						if (!buffers.seen.Add(t.landmark)) continue;
+						targets.Add(t);
+						matcher.projected.Add(t.pixel);
+						matcher.windows.Add(t.window);
+					}
 
-			half[] descriptors = new half[targets.Count * d];
-			for (int t = 0; t < targets.Count; t++)
-				Array.Copy(targets[t].keyframe.features.descriptors, targets[t].feature * d, descriptors, t * d, d);
+				const int d = FeatureSet.DescriptorSize;
+				matcher.descriptors.ResizeUninitialized(targets.Count * d);
+				NativeArray<half> descriptors = matcher.descriptors.AsArray();
+				for (int t = 0; t < targets.Count; t++)
+					NativeArray<half>.Copy(targets[t].keyframe.features.descriptors, targets[t].feature * d, descriptors, t * d, d);
+			}
 
-			(int[] matches, float[] confidence) = await GuidedMatcher.MatchAsync(query.features, projected.ToArray(), windows.ToArray(), descriptors, guidedMinCosine, guidedMinMargin);
-			if (!this || matches == null)
+			await GuidedMatcher.MatchAsync(query.features, matcher, guidedMinCosine, guidedMinMargin);
+			if (!this)
 			{
 				m.failure = "destroyed";
 				return m;
 			}
 
+			NativeList<int> matches = matcher.matches;
+			NativeList<float> confidence = matcher.confidence;
+
 			// a view sharing only a few matches shares them by chance: it contributes none
-			Dictionary<VisualKeyframe, int> perView = new();
+			Dictionary<VisualKeyframe, int> perView = buffers.perView;
 			for (int t = 0; t < targets.Count; t++)
 			{
 				if (matches[t] < 0) continue;

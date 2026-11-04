@@ -12,7 +12,7 @@ using Debug = UnityEngine.Debug;
 namespace Anaglyph.XR.SharedSpaces
 {
 	/// <summary>
-	/// Temporary, for measuring the keyframe graph on a headset. Every 10 s appends the graph's
+	/// Development builds only, for measuring the keyframe graph on a headset. Every 10 s appends the graph's
 	/// state, frame times and the process's CPU use to graphprobe.log beside the app's files, so an
 	/// untethered walk leaves a record. Creating a file named graphbench there runs the pair and
 	/// solve jobs on workers against synthetic data, stalling frames while it does.
@@ -33,7 +33,7 @@ namespace Anaglyph.XR.SharedSpaces
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
 		private static void Create()
 		{
-			if (Application.isEditor) return;
+			if (Application.isEditor || !Debug.isDebugBuild) return;
 			GameObject probe = new(nameof(GraphDeviceProbe));
 			probe.hideFlags = HideFlags.HideAndDontSave;
 			DontDestroyOnLoad(probe);

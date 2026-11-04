@@ -13,7 +13,7 @@ namespace Anaglyph.XR.SharedSpaces
 {
 	/// <summary>
 	/// Saves what alignment works from, for diagnosing and tuning it offline: the live
-	/// environment map (an .envscan the registration bench can read); the visual
+	/// environment map (an .envscan); the visual
 	/// localizer's map and the frames behind it (visual/: images, poses,
 	/// intrinsics, features, landmark tracks, what became of every recent query, and the
 	/// settings they ran under, and the map with its descriptors, map.vmap, to match views

@@ -156,7 +156,7 @@ namespace Anaglyph.XR.VisualLocalization
 						Debug.LogError($"[{nameof(PassthroughCapture)}] no camera extrinsics found: poses will be off by the lens to head offset");
 				}
 
-				if (!ToGrayscale(image, out int width, out int height, out into.rendered)) return false;
+				if (!TryGetGrayscale(image, out NativeArray<byte> source, out int sourceStride, out int width, out int height, out into.rendered)) return false;
 				if (!loggedSize)
 				{
 					// which camera mode the runtime picked: AR Foundation can't choose one on Quest
@@ -192,7 +192,8 @@ namespace Anaglyph.XR.VisualLocalization
 
 				new ResampleJob
 				{
-					src = gray,
+					src = source,
+					srcStride = sourceStride,
 					srcWidth = width,
 					srcHeight = height,
 					x0 = x0,
@@ -217,13 +218,15 @@ namespace Anaglyph.XR.VisualLocalization
 			}
 		}
 
-		// the luma plane as is for the sensor's YUV; the simulator's color readback converted
-		private bool ToGrayscale(XRCpuImage image, out int width, out int height, out bool rendered)
+		// the luma plane itself for the sensor's YUV, valid until the image is disposed; the
+		// simulator's color readback converted
+		private bool TryGetGrayscale(XRCpuImage image, out NativeArray<byte> pixels, out int stride, out int width, out int height, out bool rendered)
 		{
 			width = image.width;
 			height = image.height;
 			rendered = false;
-			EnsureGray(width * height);
+			pixels = default;
+			stride = width;
 
 			switch (image.format)
 			{
@@ -232,15 +235,17 @@ namespace Anaglyph.XR.VisualLocalization
 				{
 					XRCpuImage.Plane luma = image.GetPlane(0);
 					if (luma.pixelStride != 1) return false;
-					for (int y = 0; y < height; y++)
-						NativeArray<byte>.Copy(luma.data, y * luma.rowStride, gray, y * width, width);
+					pixels = luma.data;
+					stride = luma.rowStride;
 					return true;
 				}
 
 				case XRCpuImage.Format.BGRA32:
 				case XRCpuImage.Format.RGBA32:
 					rendered = true;
+					EnsureGray(width * height);
 					image.ConvertToGrayscale(gray, simulatorMirrorY);
+					pixels = gray;
 					return true;
 
 				default:
@@ -266,7 +271,7 @@ namespace Anaglyph.XR.VisualLocalization
 		private struct ResampleJob : IJobParallelFor
 		{
 			[ReadOnly] public NativeArray<byte> src;
-			public int srcWidth, srcHeight;
+			public int srcStride, srcWidth, srcHeight;
 			public float x0, y0;
 			public float scale;
 			[WriteOnly, NativeDisableParallelForRestriction] public NativeArray<float> dst;
@@ -282,9 +287,9 @@ namespace Anaglyph.XR.VisualLocalization
 					float sx = math.clamp((x + 0.5f) / scale - 0.5f + x0, 0, srcWidth - 1);
 					int ix = math.min((int)sx, srcWidth - 2);
 					float fx = sx - ix;
-					int i = iy * srcWidth + ix;
+					int i = iy * srcStride + ix;
 					float top = math.lerp(src[i], src[i + 1], fx);
-					float bottom = math.lerp(src[i + srcWidth], src[i + srcWidth + 1], fx);
+					float bottom = math.lerp(src[i + srcStride], src[i + srcStride + 1], fx);
 					dst[y * w + x] = math.lerp(top, bottom, fy) * (1f / 255f);
 				}
 			}

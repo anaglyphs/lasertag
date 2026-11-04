@@ -88,6 +88,7 @@ namespace Anaglyph.XR.VisualLocalization
 
 		public bool TryGet(int sequence, out VisualFrameRecord record) => bySequence.TryGetValue(sequence, out record);
 
+		[System.Diagnostics.Conditional("DEBUG")]
 		public void Note(int sequence, string note)
 		{
 			if (bySequence.TryGetValue(sequence, out VisualFrameRecord r)) r.notes.Add(note);

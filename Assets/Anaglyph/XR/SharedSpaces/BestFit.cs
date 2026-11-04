@@ -50,8 +50,9 @@ namespace Anaglyph.XR.SharedSpaces
 				{
 					double gradient = 2 * (b * math.sin(phi) + a * math.cos(phi));
 					double hessian = 2 * (b * math.cos(phi) - a * math.sin(phi));
-					foreach ((float yaw, float weight) in yaws)
+					for (int i = 0; i < yaws.Count; i++)
 					{
+						(float yaw, float weight) = yaws[i];
 						gradient += 2 * weight * Wrap(phi - yaw);
 						hessian += 2 * weight;
 					}

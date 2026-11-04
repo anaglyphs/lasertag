@@ -109,8 +109,9 @@ namespace Anaglyph.XR.VisualLocalization
 					w.Write((ushort)count);
 					for (int i = 0; i < count; i++)
 					{
-						w.Write((ushort)math.clamp(math.round(k.keypoints[i].x * PixelScale), 0, ushort.MaxValue));
-						w.Write((ushort)math.clamp(math.round(k.keypoints[i].y * PixelScale), 0, ushort.MaxValue));
+						float2 keypoint = k.keypoints[k.Row(i)];
+						w.Write((ushort)math.clamp(math.round(keypoint.x * PixelScale), 0, ushort.MaxValue));
+						w.Write((ushort)math.clamp(math.round(keypoint.y * PixelScale), 0, ushort.MaxValue));
 						// 0 for none, else the landmark's number + 1
 						WriteVarint(w, k.landmarks[i] >= 0 && number.TryGetValue(k.landmarks[i], out int n) ? n + 1 : 0);
 					}
@@ -118,7 +119,7 @@ namespace Anaglyph.XR.VisualLocalization
 					for (int i = 0; i < count; i++)
 					{
 						int dims = k.landmarks[i] >= 0 && number.ContainsKey(k.landmarks[i]) ? SightingDimensions : RetrievalDimensions;
-						int offset = i * D;
+						int offset = k.Row(i) * D;
 						for (int j = 0; j < D; j++) centered[j] = (float)k.descriptors[offset + j] - b.mean[j];
 						for (int c = 0; c < dims; c++)
 						{

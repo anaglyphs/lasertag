@@ -251,12 +251,28 @@ namespace Anaglyph.XR.VisualLocalization
 		private async Awaitable ExtendTracks(VisualKeyframe keyframe, int mapRevision)
 		{
 			List<(VisualKeyframe keyframe, int mutual)> neighbors = await Map.RetrieveAsync(keyframe.features, settings.trackNeighbors, owner.MinMutual,
-				k => Map.IsTrusted(k, keyframe.node, settings.trustDrift), keyframe.camera, settings.neighborDistance, candidatesPerFrame: queue.RetrievalCandidatesPerFrame(queue.Urgent));
+				k => Map.IsTrusted(k, keyframe.node, settings.trustDrift), keyframe.camera, settings.neighborDistance, candidatesPerFrame: queue.RetrievalCandidatesPerFrame(queue.Urgent),
+				scoreOnlyToChoose: true);
 			if (!owner || Map.Revision != mapRevision) return;
+
+			// the views that share enough with it, those that share the most first: a feature takes the first track it matches
+			List<(VisualKeyframe neighbor, int[] matches, int mutual)> matched = new();
+			foreach ((VisualKeyframe neighbor, int _) in neighbors)
+			{
+				(int[] matches, _) = await MutualNearestMatcher.MatchAsync(keyframe.features, neighbor.features, settings.trackMinCosine);
+				if (!owner || Map.Revision != mapRevision) return;
+				if (matches == null) continue;
+				int mutual = 0;
+				foreach (int match in matches)
+					if (match >= 0) mutual++;
+				if (mutual >= owner.MinMutual) matched.Add((neighbor, matches, mutual));
+			}
+
+			matched.Sort((a, b) => b.mutual.CompareTo(a.mutual));
 
 			// why no neighbor: none near, or none near and trusted (a glance's view shares too little with them)
 			string lonely = null;
-			if (neighbors.Count == 0)
+			if (matched.Count == 0)
 			{
 				int near = 0, trusted = 0;
 				foreach (VisualKeyframe k in Map.Keyframes)
@@ -267,14 +283,6 @@ namespace Anaglyph.XR.VisualLocalization
 				}
 
 				lonely = $" (alone: {near} near, {trusted} trusted)";
-			}
-
-			List<(VisualKeyframe neighbor, int[] matches)> matched = new();
-			foreach ((VisualKeyframe neighbor, int _) in neighbors)
-			{
-				(int[] matches, _) = await MutualNearestMatcher.MatchAsync(keyframe.features, neighbor.features, settings.trackMinCosine);
-				if (!owner || Map.Revision != mapRevision) return;
-				if (matches != null) matched.Add((neighbor, matches));
 			}
 
 			// the anchoring's graph may have been cleared while matching
@@ -288,7 +296,7 @@ namespace Anaglyph.XR.VisualLocalization
 			Frames.Pin(keyframe.frame, true);
 			HashSet<Landmark> touched = new();
 			int extended = 0, started = 0, sighted = 0;
-			foreach ((VisualKeyframe neighbor, int[] matches) in matched)
+			foreach ((VisualKeyframe neighbor, int[] matches, int _) in matched)
 			{
 				for (int i = 0; i < matches.Length; i++)
 				{
@@ -337,16 +345,21 @@ namespace Anaglyph.XR.VisualLocalization
 			foreach (Landmark l in fitting)
 				if (l.observations.Count >= settings.establishedMinViews && float.IsFinite(l.inverseDepthSigma) &&
 				    (l.inverseDepthSigma <= settings.establishedDepthSigma * l.inverseDepth || l.observations.Count >= settings.establishedViews))
-					l.established = true;
+					Map.Establish(l);
 
 			Mapping.added++;
 			// a view no other keyframe shares (a glance, mostly) triangulates nothing until a
 			// second view of it comes: take the next sharp frame at once, while it's still in sight
 			nextMapping = Time.unscaledTime + (matched.Count == 0 ? 0 : settings.mappingInterval);
 			owner.RaiseKeyframeAdded(keyframe);
-			string summary = $"{matched.Count} trusted neighbors{lonely}, {extended} sightings extended tracks, {sighted} sighted established landmarks, {started} started, {dropped} rejected";
+			LogKeyframe(keyframe, $"{matched.Count} trusted neighbors{lonely}, {extended} sightings extended tracks, {sighted} sighted established landmarks, {started} started, {dropped} rejected");
+		}
+
+		[System.Diagnostics.Conditional("DEBUG")]
+		private void LogKeyframe(VisualKeyframe keyframe, string summary)
+		{
 			Frames.Note(keyframe.frame, $"keyframe in slot {keyframe.slot}: {summary}");
-			Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, owner, "[{0}] keyframe {1}: {2}; {3}", nameof(VisualLocalizer), Map.Count, summary, owner.Quality);
+			Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, owner, "[{0}] keyframe {1}, {2} landmarks: {3}", nameof(VisualLocalizer), Map.Count, Map.LandmarkCount, summary);
 		}
 	}
 }

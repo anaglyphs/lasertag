@@ -33,8 +33,11 @@ namespace Anaglyph.XR.SharedSpaces
 		public IEnumerable<string> Recent => outcomes;
 
 		/// <summary>The query the outcomes from here on are about.</summary>
+		[System.Diagnostics.Conditional("DEBUG")]
 		public void About(VisualQuery query) => considering = query;
 
+		/// <summary>In development builds; a release build doesn't even build the message.</summary>
+		[System.Diagnostics.Conditional("DEBUG")]
 		public void Outcome(string message)
 		{
 			LastOutcome = message;
@@ -52,6 +55,7 @@ namespace Anaglyph.XR.SharedSpaces
 		/// camera. A bent map's revisits repeat themselves however far the head walked between
 		/// them; drift's differences grow with it.
 		/// </summary>
+		[System.Diagnostics.Conditional("DEBUG")]
 		public void SiteLap(ConstraintSites.Site site, bool crossLink, Pose4 fit, int siteCount)
 		{
 			List<ConstraintSites.Measurement> history = site.history;
