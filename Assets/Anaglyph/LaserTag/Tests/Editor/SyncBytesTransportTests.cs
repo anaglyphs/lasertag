@@ -149,6 +149,26 @@ namespace Anaglyph.LaserTag.Tests
 			writer.Dispose();
 		}
 
+		[TestCase(-1)]
+		[TestCase(301)]
+		[TestCase(int.MaxValue)]
+		public void BusBytesRefuseASizeTheMessageDoesNotHold(int claimedSize)
+		{
+			Type busBytes = typeof(SyncBus).GetNestedType("BusBytes", BindingFlags.NonPublic);
+
+			FastBufferWriter writer = new(4096, Allocator.Temp);
+			writer.WriteValueSafe(claimedSize);
+			writer.WriteBytesSafe(payload, 300);
+
+			FastBufferReader reader = new(writer, Allocator.Temp);
+			object[] readArguments = { Activator.CreateInstance(busBytes) };
+			Assert.Throws<OverflowException>(() =>
+				SerializeOne(typeof(FastBufferReader), nameof(FastBufferReader.ReadNetworkSerializable), busBytes).Invoke(reader, readArguments));
+
+			reader.Dispose();
+			writer.Dispose();
+		}
+
 		[TestCase((byte)12, DepthFrameCompression.PredictedDeflate)]
 		[TestCase((byte)8, DepthFrameCompression.PredictedDeflate)]
 		[TestCase((byte)12, DepthFrameCompression.Raw)]

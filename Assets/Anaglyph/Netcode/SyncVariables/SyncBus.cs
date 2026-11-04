@@ -295,8 +295,13 @@ namespace Anaglyph.Netcode.SyncVariables
 					return;
 				}
 
+				FastBufferReader reader = serializer.GetFastBufferReader();
+				int remaining = reader.Length - reader.Position;
+				if (count < 0 || count > remaining)
+					throw new OverflowException($"[SyncBus] Payload claims {count} bytes with {remaining} left in the message");
+
 				byte[] rented = ArrayPool<byte>.Shared.Rent(count);
-				serializer.GetFastBufferReader().ReadBytesSafe(ref rented, count);
+				reader.ReadBytesSafe(ref rented, count);
 				Bytes = new ArraySegment<byte>(rented, 0, count);
 			}
 
