@@ -25,7 +25,10 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
-    - _CoreRadius: 0.005
+    - _CoreIntensity: 4
+    - _CoreRadius: 0.1
+    - _GlowIntensity: 87.03
+    - _GlowRadius: 0.7
     - _HaloIntensity: 0.5
     - _HaloRadius: 0.02
     - _Intensity: 100

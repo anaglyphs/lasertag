@@ -1,13 +1,13 @@
 // A glowing ring on a cube proxy, around the transform's Y axis.
-// X/Z scale = 2 * (ring radius + glow radius), Y scale = 2 * glow radius.
+// X/Z scale = 2 * (ring radius + bound radius), Y scale = 2 * bound radius.
 Shader "Anaglyph/Lasertag/Glow Ring"
 {
 	Properties
 	{
 		_Color ("Color", Color) = (1, 0, 0, 1)
-		_CoreRadius ("Core Radius", Float) = 0.01
-		_Intensity ("Intensity", Float) = 1
-		_Whiteness ("Whiteness", Range(0, 1)) = 0.1
+		_CoreRadius ("Core Radius (fraction of bound radius)", Range(0, 1)) = 0.1
+		_GlowRadius ("Glow Radius (fraction of bound radius)", Range(0, 0.95)) = 0.6
+		_Brightness ("Brightness", Float) = 1
 	}
 
 	SubShader
@@ -55,7 +55,7 @@ Shader "Anaglyph/Lasertag/Glow Ring"
 				float3 viewVec : TEXCOORD0; // P - O, not normalized
 				nointerpolation float3 eyeFromCentre : TEXCOORD1;
 				nointerpolation float3 axis : TEXCOORD2;
-				nointerpolation float2 radii : TEXCOORD3; // x = ring radius, y = glow radius
+				nointerpolation float2 radii : TEXCOORD3; // x = ring radius, y = bound radius
 
 				UNITY_VERTEX_OUTPUT_STEREO
 			};
@@ -63,8 +63,8 @@ Shader "Anaglyph/Lasertag/Glow Ring"
 			CBUFFER_START(UnityPerMaterial)
 				half4 _Color;
 				float _CoreRadius;
-				float _Intensity;
-				half _Whiteness;
+				float _GlowRadius;
+				float _Brightness;
 			CBUFFER_END
 
 			Varyings vert(Attributes IN)
@@ -80,13 +80,13 @@ Shader "Anaglyph/Lasertag/Glow Ring"
 
 				const float4x4 M = UNITY_MATRIX_M;
 				const float3 O = _WorldSpaceCameraPos;
-				const float glowRadius = length(M._m01_m11_m21) * 0.5f;
+				const float boundRadius = length(M._m01_m11_m21) * 0.5f;
 				const float outerRadius = length(M._m00_m10_m20) * 0.5f;
 
 				OUT.viewVec = P - O;
 				OUT.eyeFromCentre = O - M._m03_m13_m23;
 				OUT.axis = normalize(M._m01_m11_m21);
-				OUT.radii = float2(max(outerRadius - glowRadius, 0.001f), glowRadius);
+				OUT.radii = float2(max(outerRadius - boundRadius, 0.001f), boundRadius);
 
 				return OUT;
 			}
@@ -100,17 +100,14 @@ Shader "Anaglyph/Lasertag/Glow Ring"
 				float originY;
 				float dirY;
 				float ringRadius;
-				float glowRadius;
-				float coreRadius;
+				GlowShape shape;
 			};
 
-			// A line of 1/(r² + core²)² emitters, integrated along itself. The fade reaches
-			// zero at the glow radius, so the proxy's silhouette never shows.
-			float GlowDensity(float distanceToRing, float glowRadius, float coreRadius)
+			// A line of 1/(r² + kernel²)² emitters, integrated along itself
+			float GlowDensity(float distanceToRing, GlowShape shape)
 			{
-				const float q = distanceToRing * distanceToRing + coreRadius * coreRadius;
-				const float fade = saturate(1 - distanceToRing / glowRadius);
-				return coreRadius * coreRadius * rsqrt(q) / q * fade * fade;
+				const float q = distanceToRing * distanceToRing + Sq(shape.kernelRadius);
+				return Sq(shape.kernelRadius) * rsqrt(q) / q * GlowBoundFade(distanceToRing, shape);
 			}
 
 			float DistanceToRing(RingRay ray, float t)
@@ -158,7 +155,7 @@ Shader "Anaglyph/Lasertag/Glow Ring"
 				const float radialRate = dot(radialAtPeak, ray.dirRadial) / max(r, 1e-6);
 				const float rateSquared = max(ray.dirY * ray.dirY + radialRate * radialRate, 1e-8);
 				const float missDistance = sqrt((r - ray.ringRadius) * (r - ray.ringRadius) + y * y
-					+ ray.coreRadius * ray.coreRadius);
+					+ Sq(ray.shape.kernelRadius));
 				const float width = min(missDistance * rsqrt(rateSquared),
 					sqrt(2 * ray.ringRadius * missDistance) / ray.dirRadialLength);
 
@@ -170,7 +167,7 @@ Shader "Anaglyph/Lasertag/Glow Ring"
 				{
 					const float tanWarped = tan(warpedStart + (i + 0.5f) * warpedStep);
 					const float t = peak + width * tanWarped;
-					glow += GlowDensity(DistanceToRing(ray, t), ray.glowRadius, ray.coreRadius)
+					glow += GlowDensity(DistanceToRing(ray, t), ray.shape)
 						* (1 + tanWarped * tanWarped);
 				}
 				return glow * width * warpedStep;
@@ -183,7 +180,7 @@ Shader "Anaglyph/Lasertag/Glow Ring"
 				const float3 v = normalize(IN.viewVec);
 				const float3 axis = IN.axis;
 				const float ringRadius = IN.radii.x;
-				const float glowRadius = IN.radii.y;
+				const float boundRadius = IN.radii.y;
 
 				RingRay ray;
 				ray.originY = dot(IN.eyeFromCentre, axis);
@@ -192,8 +189,8 @@ Shader "Anaglyph/Lasertag/Glow Ring"
 				ray.originRadial = IN.eyeFromCentre - ray.originY * axis;
 				ray.dirRadial = v - dirAlongAxis * axis;
 				ray.ringRadius = ringRadius;
-				ray.glowRadius = glowRadius;
-				ray.coreRadius = _CoreRadius;
+				const GlowShape shape = MakeGlowShape(_CoreRadius, _GlowRadius, boundRadius, LineGlowProfilePower);
+				ray.shape = shape;
 
 				const float dirRadialSquared = max(dot(ray.dirRadial, ray.dirRadial), 1e-8);
 				ray.dirRadialLength = sqrt(dirRadialSquared);
@@ -203,11 +200,11 @@ Shader "Anaglyph/Lasertag/Glow Ring"
 				const float3 closestRadial = ray.originRadial + closestToAxis * ray.dirRadial;
 				const float closestSquared = dot(closestRadial, closestRadial);
 
-				const float outerRadius = ringRadius + glowRadius;
+				const float outerRadius = ringRadius + boundRadius;
 				const float outerChord = sqrt(max(outerRadius * outerRadius - closestSquared, 0)) / ray.dirRadialLength;
 
-				const float slabA = (-glowRadius - ray.originY) / ray.dirY;
-				const float slabB = (glowRadius - ray.originY) / ray.dirY;
+				const float slabA = (-boundRadius - ray.originY) / ray.dirY;
+				const float slabB = (boundRadius - ray.originY) / ray.dirY;
 
 				const float3 O = _WorldSpaceCameraPos;
 				float surfaceDistance;
@@ -217,7 +214,7 @@ Shader "Anaglyph/Lasertag/Glow Ring"
 				const float end = min(min(surfaceDistance, closestToAxis + outerChord), max(slabA, slabB));
 
 				// outside the glow's bounds, or entirely within the ring's hole
-				const float innerRadius = ringRadius - glowRadius;
+				const float innerRadius = ringRadius - boundRadius;
 				if (end <= start
 					|| closestSquared >= outerRadius * outerRadius
 					|| max(length(ray.originRadial + start * ray.dirRadial),
@@ -236,8 +233,9 @@ Shader "Anaglyph/Lasertag/Glow Ring"
 				const float4 glowClip = TransformWorldToHClip(O + v * glowDistance);
 				depth = saturate(glowClip.z / glowClip.w);
 
-				const float glow = (nearGlow + farGlow) * _Intensity;
-				return half4(LaserExposure(glow, _Color.rgb, _Whiteness), 0);
+				// a tube of this density integrates to 2 at its centre
+				const float glow = (nearGlow + farGlow) * 0.5f * _Brightness;
+				return half4(LaserExposure(glow, shape, _Color.rgb), 0);
 			}
 
 			ENDHLSL

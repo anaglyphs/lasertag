@@ -2,10 +2,11 @@ using UnityEngine;
 
 namespace Anaglyph.LaserTag.Objects.Gameplay.Base
 {
+	[ExecuteAlways]
 	[RequireComponent(typeof(Renderer))]
 	public class RisingGlowRing : MonoBehaviour
 	{
-		private static readonly int IntensityID = Shader.PropertyToID("_Intensity");
+		private static readonly int BrightnessID = Shader.PropertyToID("_Brightness");
 
 		[SerializeField] private float riseHeight = 2f;
 		[SerializeField, Min(0.01f)] private float riseSeconds = 4f;
@@ -35,7 +36,7 @@ namespace Anaglyph.LaserTag.Objects.Gameplay.Base
 
 			// the block also holds the colour from TeamColorer
 			renderer.GetPropertyBlock(propertyBlock);
-			propertyBlock.SetFloat(IntensityID, intensity);
+			propertyBlock.SetFloat(BrightnessID, intensity);
 			renderer.SetPropertyBlock(propertyBlock);
 		}
 	}

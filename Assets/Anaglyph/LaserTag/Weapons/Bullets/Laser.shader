@@ -3,9 +3,8 @@ Shader "Anaglyph/Lasertag/Laser"
 	Properties
 	{
 		_Color ("Color", Color) = (1, 0, 0, 1)
-		_CoreRadius ("Core Radius", Float) = 0.005
-		_Intensity ("Intensity", Float) = 1
-		_Whiteness ("Whiteness", Range(0, 1)) = 0.1
+		_CoreRadius ("Core Radius (fraction of mesh radius)", Range(0, 1)) = 0.05
+		_GlowRadius ("Glow Radius (fraction of mesh radius)", Range(0, 0.95)) = 0.6
 	}
 
 	SubShader
@@ -35,8 +34,8 @@ Shader "Anaglyph/Lasertag/Laser"
 			#pragma fragment frag
 
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-			#include_with_pragmas "Assets/Anaglyph/XR/DepthKit/Occlusion/DepthKitEnvironmentOcclusion.hlsl"
 			#include "LaserExposure.hlsl"
+			#include_with_pragmas "Assets/Anaglyph/XR/DepthKit/Occlusion/DepthKitEnvironmentOcclusion.hlsl"
 
 			/// P = world position
 			/// O = camera view pos
@@ -48,7 +47,7 @@ Shader "Anaglyph/Lasertag/Laser"
 			/// L = laser length
 			/// s = distance from tail
 			///		s = 0 = tail, s = L = head
-			///	R = glow radius
+			///	R = mesh radius
 
 			struct Attributes
 			{
@@ -99,8 +98,7 @@ Shader "Anaglyph/Lasertag/Laser"
 			CBUFFER_START(UnityPerMaterial)
 				half4 _Color;
 				float _CoreRadius;
-				float _Intensity;
-				half _Whiteness;
+				float _GlowRadius;
 			CBUFFER_END
 
 			// w = laser centre - O, so s runs from -L/2 (tail) to +L/2 (head).
@@ -108,30 +106,39 @@ Shader "Anaglyph/Lasertag/Laser"
 			// π/(2 q^3/2) with q = h² + eps², so a line falls off as 1/h² sideways.
 			// The softer 1/r² kernel only falls off as ln(L/h), which fills the
 			// whole proxy instead of reading as a line.
-			// Returns glow scaled so the core of a long laser seen side-on is ~2,
+			// Returns glow scaled so the centre of a long laser seen side-on is 1,
 			// hMin = closest distance between the view ray and the segment, and
 			// sMin = where along the segment (from the centre) that happens.
 			float LaserGlow(float3 v, float3 w, float3 D, float L, float eps, out float hMin, out float sMin)
 			{
-			    float wv = dot(w, v), Dv = dot(D, v);
+			    float Dv = dot(D, v);
+			    float3 wAcrossView = w - dot(w, v) * v;
 			    float a = 1 - Dv * Dv;                        // 0 when viewed end-on
-			    float b = 2 * (dot(w, D) - wv * Dv);
-			    float c0 = dot(w, w) - wv * wv;               // h² at the centre
+			    float b = 2 * dot(wAcrossView, D);
+			    float c0 = dot(wAcrossView, wAcrossView);     // h² at the centre
 			    float c = c0 + eps * eps;
+			    // distance between the view ray and the laser's line, times sin(angle)
+			    float lineToRay = dot(w, cross(D, v));
 			    // h²(s) = a s² + b s + c0, minimised over the segment;
 			    // end-on, the nearest end is the first thing the ray meets
 			    sMin = a < 1e-4 ? -0.5 * L * sign(Dv) : clamp(-b / (2 * a), -0.5 * L, 0.5 * L);
 			    hMin = sqrt(max(a * sMin * sMin + b * sMin + c0, 0));
 			    // ∫-L/2..L/2 ds / q^3/2, q = a s² + b s + c
 			    if (a < 1e-4)                                 // end-on: h is constant
-			        return eps * eps * L * rsqrt(c) / c;
-			    // antiderivative 2 (2as + b) / (Δ sqrt(q)), Δ = 4ac - b² ≥ 4a eps²
-			    float delta = max(4 * a * c - b * b, 1e-12);
+			        return 0.5 * eps * eps * L * rsqrt(c) / c;
+			    // antiderivative 2 (2as + b) / (Δ sqrt(q)), Δ = 4ac - b²
+			    float delta = max(4 * (a * eps * eps + lineToRay * lineToRay), 1e-20);
 			    float q0 = 0.25 * a * L * L - 0.5 * b * L + c;
 			    float q1 = 0.25 * a * L * L + 0.5 * b * L + c;
 			    float F0 = (-a * L + b) * rsqrt(q0);
 			    float F1 = ( a * L + b) * rsqrt(q1);
-			    return eps * eps * 2 * (F1 - F0) / delta;
+			    return eps * eps * (F1 - F0) / delta;
+			}
+
+			float ShareInFrontOfSurface(float surfaceToGlow, float hMin, float eps)
+			{
+				const float u = surfaceToGlow * rsqrt(hMin * hMin + eps * eps);
+				return 0.5 + (atan(u) + u / (1 + u * u)) / PI;
 			}
 
 			half4 frag(Varyings IN, out float depth : SV_Depth) : SV_Target
@@ -144,8 +151,11 @@ Shader "Anaglyph/Lasertag/Laser"
 				const float L = IN.dirLen.w;
 				const float3 w = IN.wRad.xyz;
 				const float R = IN.wRad.w;
+				const GlowShape shape = MakeGlowShape(_CoreRadius, _GlowRadius, R, LineGlowProfilePower);
+				const float eps = shape.kernelRadius;
+
 				float hMin, sMin;
-				float g = LaserGlow(v, w, D, L, _CoreRadius, hMin, sMin);
+				float glow = LaserGlow(v, w, D, L, eps, hMin, sMin);
 
 				// occlude at the point on this pixel's view ray nearest the laser,
 				// which is where most of the pixel's glow comes from
@@ -159,17 +169,14 @@ Shader "Anaglyph/Lasertag/Laser"
 				depth = saturate(glowClip.z / glowClip.w);
 
 				// share of the kernel's ray integral that lies in front of the surface:
-				// the core cuts crisply there while the wider halo fades through it
+				// the core cuts crisply there while the wider glow fades through it
 				float envDist;
 				agEnvSurfaceDistance_float(O, v, envDist);
-				const float u = (envDist - glowDist) * rsqrt(hMin * hMin + _CoreRadius * _CoreRadius);
-				g *= 0.5 + (atan(u) + u / (1 + u * u)) / PI;
+				glow *= ShareInFrontOfSurface(envDist - glowDist, hMin, eps);
 
-				// fade to zero before the proxy's sides so its silhouette never shows
-				const float fade = saturate(1 - hMin / R);
-				g *= fade * fade * _Intensity;
+				glow *= GlowBoundFade(hMin, shape);
 
-				return half4(LaserExposure(g, _Color.rgb, _Whiteness), 0);
+				return half4(LaserExposure(glow, shape, _Color.rgb), 0);
 			}
 			
 			ENDHLSL

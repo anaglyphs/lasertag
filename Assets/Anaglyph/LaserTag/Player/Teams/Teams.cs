@@ -12,7 +12,7 @@ namespace Anaglyph.LaserTag.Player.Teams
 		public static readonly Color[] Colors = new Color[]
 		{
 			Color.white, // blank team	
-			new Color32(0xFF, 0x1F, 0x00, 0xFF),
+			new Color32(0xFF, 0x2F, 0x00, 0xFF),
 			new Color32(0x00,0x5F, 0xFF, 0xFF),
 		};
 

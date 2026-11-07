@@ -2,9 +2,8 @@ Shader "Anaglyph/Lasertag/Laser Spark"
 {
 	Properties
 	{
-		_CoreRadius ("Core Radius (fraction of quad radius)", Float) = 0.05
-		_Intensity ("Intensity", Float) = 200
-		_Whiteness ("Whiteness", Range(0, 1)) = 0.005
+		_CoreRadius ("Core Radius (fraction of quad radius)", Range(0, 1)) = 0.15
+		_GlowRadius ("Glow Radius (fraction of quad radius)", Range(0, 0.95)) = 0.9
 	}
 
 	SubShader
@@ -53,8 +52,7 @@ Shader "Anaglyph/Lasertag/Laser Spark"
 
 			CBUFFER_START(UnityPerMaterial)
 				float _CoreRadius;
-				float _Intensity;
-				half _Whiteness;
+				float _GlowRadius;
 			CBUFFER_END
 
 			Varyings vert(Attributes IN)
@@ -76,22 +74,18 @@ Shader "Anaglyph/Lasertag/Laser Spark"
 			{
 				UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(IN);
 
-				// the laser's point kernel seen from the side: (eps² / (r² + eps²))^3/2.
-				// Measured in the quad, so it follows particle size and stretch
-				const float r2 = dot(IN.quadPos, IN.quadPos);
-				const float eps2 = _CoreRadius * _CoreRadius;
-				const float kernel = eps2 / (r2 + eps2);
-				float g = kernel * sqrt(kernel);
+				// measured in the quad, so it follows particle size and stretch
+				const GlowShape shape = MakeGlowShape(_CoreRadius, _GlowRadius, 1, PointGlowProfilePower);
+				const float r = length(IN.quadPos);
+				float g = GlowProfile(r, shape);
 
-				// fade to zero before the quad's edge so its outline never shows
-				const float fade = saturate(1 - sqrt(r2));
-				g *= fade * fade * _Intensity * IN.color.a;
+				g *= GlowBoundFade(r, shape) * IN.color.a;
 
 				float occlusion;
 				agEnvOcclusion_float(IN.positionWS, occlusion);
 				g *= occlusion;
 
-				return half4(LaserExposure(g, IN.color.rgb, _Whiteness), 0);
+				return half4(LaserExposure(g, shape, IN.color.rgb), 0);
 			}
 
 			ENDHLSL

@@ -24,8 +24,6 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 		private MaterialPropertyBlock propertyBlock;
 		private BulletGroupLight groupLight;
 
-		public Color defaultColor = Teams.Colors[1];
-
 		private void Awake()
 		{
 			propertyBlock = new();
@@ -69,10 +67,7 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 			TeamOwner teamOwner = playerObject.GetComponent<PlayerAvatar>().TeamOwner;
 			byte team = teamOwner.Team;
 
-			Color color = Teams.Colors[team];
-
-			if (team == 0)
-				color = defaultColor;
+			Color color = Teams.Colors[team == 0 ? Teams.Red : team];
 
 			pointLight.color = color;
 			Bullet.ShotData shot = bullet.Shot;

@@ -3,9 +3,8 @@ Shader "Anaglyph/Lasertag/Glow"
 	Properties
 	{
 		_Color ("Color", Color) = (1, 0, 0, 1)
-		_Intensity ("Intensity", Float) = 1
-		_Whiteness ("Whiteness", Range(0, 1)) = 0.1
-		_Falloff ("Falloff", Range(0.1, 8)) = 1
+		_CoreRadius ("Core Radius (fraction of streak)", Range(0, 1)) = 0.05
+		_GlowRadius ("Glow Radius (fraction of streak)", Range(0, 0.95)) = 0.9
 	}
 
 	SubShader
@@ -32,6 +31,7 @@ Shader "Anaglyph/Lasertag/Glow"
 
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 			#include_with_pragmas "Assets/Anaglyph/XR/DepthKit/Occlusion/DepthKitEnvironmentOcclusion.hlsl"
+			#include "Assets/Anaglyph/LaserTag/Weapons/Bullets/LaserExposure.hlsl"
 
 			struct Attributes
 			{
@@ -69,19 +69,18 @@ Shader "Anaglyph/Lasertag/Glow"
 
 			CBUFFER_START(UnityPerMaterial)
 				half4 _Color;
-				float _Intensity;
-				half _Whiteness;
-				float _Falloff;
+				float _CoreRadius;
+				float _GlowRadius;
 			CBUFFER_END
 
 			half4 frag(Varyings IN) : SV_Target
 			{
 				UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(IN);
 
-				// glow gradient along the streak: full at uv.x = 0, fully
-				// fallen off at uv.x = 1
-				const float fall = pow(saturate(1 - IN.uv.x), _Falloff);
-				float g = fall * _Intensity;
+				// glow gradient along the streak: brightest at uv.x = 0, fading
+				// to zero by uv.x = 1 so the quad's end never shows
+				const GlowShape shape = MakeGlowShape(_CoreRadius, _GlowRadius, 1, LineGlowProfilePower);
+				float g = GlowProfile(IN.uv.x, shape) * GlowBoundFade(IN.uv.x, shape);
 
 				// occlude against the environment scan so the streak doesn't
 				// shine through walls
@@ -89,14 +88,7 @@ Shader "Anaglyph/Lasertag/Glow"
 				agEnvOcclusion_float(IN.positionWS, occlusion);
 				g *= occlusion;
 
-				// exposure tonemap: the emission leaks a little into every
-				// channel, so once the dominant channels clip the leak keeps
-				// rising and the bright end burns to white while the dim tail
-				// stays saturated
-				const half3 spectrum = lerp(_Color.rgb, 1, _Whiteness);
-				const half3 col = 1 - exp(-g * spectrum);
-
-				return half4(col, 0);
+				return half4(LaserExposure(g, shape, _Color.rgb), 0);
 			}
 			
 			ENDHLSL

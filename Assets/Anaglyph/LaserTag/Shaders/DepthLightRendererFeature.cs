@@ -166,6 +166,7 @@ namespace Anaglyph.LaserTag.Shaders
 					filterMode = FilterMode.Bilinear,
 					wrapMode = TextureWrapMode.Clamp,
 					clearBuffer = false,
+					vrUsage = singlePassStereo ? VRTextureUsage.TwoEyes : VRTextureUsage.None,
 					name = "Depth Light Irradiance"
 				});
 
