@@ -1062,7 +1062,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f6a75d1f5ff90154ea2a8e58222a1f59, type: 3}
   m_Name: FoveatedRenderingFeature Android
   m_EditorClassIdentifier: Unity.XR.OpenXR::UnityEngine.XR.OpenXR.Features.FoveatedRenderingFeature
-  m_enabled: 0
+  m_enabled: 1
   nameUi: Foveated Rendering
   version: 1
   featureIdInternal: com.unity.openxr.feature.foveatedrendering
@@ -1317,6 +1317,8 @@ MonoBehaviour:
   - {fileID: 7916808367699567533}
   - {fileID: -8969762819027851567}
   - {fileID: -6087142552553665063}
+  - {fileID: -3302666642232612847}
+  - {fileID: 3177152282268977766}
   - {fileID: 1652290468883680687}
   - {fileID: 8537366575719405892}
   - {fileID: -3177450778780709382}
@@ -1330,11 +1332,13 @@ MonoBehaviour:
   - {fileID: -1544292616591955582}
   - {fileID: 5756301711344455815}
   - {fileID: -6551975785638959269}
+  - {fileID: -1195458223911644927}
   - {fileID: 5178135832826241459}
   - {fileID: 6340083422715160523}
   - {fileID: 7537014708496559066}
   - {fileID: 2844303110380226642}
   - {fileID: -8029330241774917088}
+  - {fileID: 935038549282622359}
   - {fileID: 4707585656442238690}
   - {fileID: -8321137197414959949}
   - {fileID: -3244222583346308996}
@@ -1349,10 +1353,6 @@ MonoBehaviour:
   - {fileID: 4118321385384196143}
   - {fileID: -5750116646164557699}
   - {fileID: -8703573684439564615}
-  - {fileID: 935038549282622359}
-  - {fileID: -1195458223911644927}
-  - {fileID: 3177152282268977766}
-  - {fileID: -3302666642232612847}
   customLoaderName: 
   m_renderMode: 1
   m_latencyOptimization: 0
@@ -1738,7 +1738,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b213d3e3c7f3109449eb46a4c8ee42f0, type: 3}
   m_Name: XrPerformanceSettingsFeature Android
   m_EditorClassIdentifier: Unity.XR.OpenXR::UnityEngine.XR.OpenXR.Features.Extensions.PerformanceSettings.XrPerformanceSettingsFeature
-  m_enabled: 0
+  m_enabled: 1
   nameUi: XR Performance Settings
   version: 1.0.0
   featureIdInternal: com.unity.openxr.feature.extension.performance_settings
@@ -1773,7 +1773,7 @@ MonoBehaviour:
   targetDevices:
   - visibleName: Quest
     manifestName: quest
-    enabled: 1
+    enabled: 0
   - visibleName: Quest 2
     manifestName: quest2
     enabled: 1
@@ -1787,14 +1787,14 @@ MonoBehaviour:
     manifestName: quest3s
     enabled: 1
   forceRemoveInternetPermission: 0
-  m_symmetricProjection: 0
+  m_symmetricProjection: 1
   systemSplashScreen: {fileID: 0}
   enableSystemKeyboard: 0
   m_optimizeBufferDiscards: 1
   lateLatchingMode: 0
   lateLatchingDebug: 0
-  optimizeMultiviewRenderRegions: 0
-  m_multiviewRenderRegionsOptimizationMode: 0
+  optimizeMultiviewRenderRegions: 1
+  m_multiviewRenderRegionsOptimizationMode: 2
   m_hasMigratedMultiviewRenderRegions: 1
   spacewarpMotionVectorTextureFormat: 0
 --- !u!114 &3392431271176658462
@@ -2258,7 +2258,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3d28f705476c80d47acb3dfade3d3142, type: 3}
   m_Name: MetaXRFoveationFeature Android
   m_EditorClassIdentifier: Oculus.VR::Meta.XR.MetaXRFoveationFeature
-  m_enabled: 1
+  m_enabled: 0
   nameUi: Meta XR Foveation
   version: 1.0.0
   featureIdInternal: com.meta.openxr.feature.foveation
@@ -2814,9 +2814,9 @@ MonoBehaviour:
   m_depthSubmissionMode: 0
   m_spacewarpMotionVectorTextureFormat: 0
   m_optimizeBufferDiscards: 1
-  m_symmetricProjection: 0
-  m_optimizeMultiviewRenderRegions: 0
-  m_multiviewRenderRegionsOptimizationMode: 0
+  m_symmetricProjection: 1
+  m_optimizeMultiviewRenderRegions: 1
+  m_multiviewRenderRegionsOptimizationMode: 2
   m_hasMigratedMultiviewRenderRegionSetting: 1
   m_foveatedRenderingApi: 1
   m_useOpenXRPredictedTime: 1
