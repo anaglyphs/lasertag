@@ -101,6 +101,10 @@ namespace Anaglyph.XR.VisualLocalization
 
 		public event Action<VisualKeyframe> Evicted = delegate { };
 		public event Action Cleared = delegate { };
+		/// <summary>A landmark's depth moved: this headset's fit found a better one, or its owner sent one.</summary>
+		public event Action<Landmark> LandmarkDepthChanged = delegate { };
+		/// <summary>Bumped when a landmark's depth moves, so anything holding its points knows to read them again.</summary>
+		public int DepthRevision { get; private set; }
 		public int Count => keyframes.Count;
 		public IKeyframeAnchoring Anchoring { get; set; }
 		/// <summary>This headset's name for what it maps, on every landmark and keyframe it makes.</summary>
@@ -151,8 +155,13 @@ namespace Anaglyph.XR.VisualLocalization
 					k.camera = camera;
 		}
 
-		/// <summary>Whether a keyframe's node is within <paramref name="drift"/> of <paramref name="node"/>: consecutive views of one stretch of tracking.</summary>
-		public bool IsTrusted(VisualKeyframe k, ulong node, float drift) => Anchoring != null && Anchoring.Drift(node, k.node) <= drift;
+		/// <summary>
+		/// Whether a keyframe's node is within <paramref name="drift"/> of walking from
+		/// <paramref name="node"/>: consecutive views of one stretch of tracking. Correction
+		/// steps between them don't count: landmarks are fitted through raw tracking, which
+		/// a step never touches.
+		/// </summary>
+		public bool IsTrusted(VisualKeyframe k, ulong node, float drift) => Anchoring != null && Anchoring.WalkDrift(node, k.node) <= drift;
 
 		/// <summary>
 		/// Whether a camera at <paramref name="camera"/> would see something no trusted
@@ -204,15 +213,15 @@ namespace Anaglyph.XR.VisualLocalization
 		}
 
 		/// <summary>Adds the keyframe feature as a sighting of the landmark. False when the feature already sights another.</summary>
-		public bool Link(VisualKeyframe keyframe, int feature, Landmark landmark, float pixelSigma)
+		/// <param name="refining">Whether an established landmark takes this sighting into its fit.</param>
+		public bool Link(VisualKeyframe keyframe, int feature, Landmark landmark, float pixelSigma, bool refining = false)
 		{
 			int existing = keyframe.landmarks[feature];
-			if (existing == landmark.id) return !(landmark.established && freezeEstablished);
+			if (existing == landmark.id) return !(landmark.established && freezeEstablished) || refining;
 			if (existing >= 0) return false;
 
-			// an established landmark keeps the observations it was founded on: the keyframe
-			// sights it, which lets localization use it from there, but adds nothing to its fit
-			if (landmark.established && freezeEstablished)
+			// the keyframe sights it, which lets localization use it from there, but adds nothing to its fit
+			if (landmark.established && freezeEstablished && !refining)
 			{
 				keyframe.landmarks[feature] = landmark.id;
 				landmark.references++;
@@ -395,13 +404,39 @@ namespace Anaglyph.XR.VisualLocalization
 
 		private bool DropsEstablishedSightings => freezeEstablished && dropEstablishedSightings;
 
-		/// <summary>Fixes a landmark's fit from now on.</summary>
+		/// <summary>Whether established landmarks go on being refitted for a while, keeping their sightings until <see cref="StopRefining"/>.</summary>
+		public bool refineEstablished;
+
+		/// <summary>Marks a landmark good enough to use and share.</summary>
 		public void Establish(Landmark landmark)
 		{
 			landmark.established = true;
+			if (!refineEstablished) StopRefining(landmark);
+		}
+
+		/// <summary>Nothing more will join this landmark's fit.</summary>
+		public void StopRefining(Landmark landmark)
+		{
 			if (!DropsEstablishedSightings) return;
 			landmark.observations.Clear();
 			landmark.observations.TrimExcess();
+		}
+
+		/// <summary>A landmark's depth moved: anything built from the old one is stale.</summary>
+		public void NoteDepthChanged(Landmark landmark)
+		{
+			landmark.hasWire = false;
+			DepthRevision++;
+			LandmarkDepthChanged.Invoke(landmark);
+		}
+
+		/// <summary>The depth a landmark's owner now has for it.</summary>
+		public void SetDepth(int id, float inverseDepth, float inverseDepthSigma)
+		{
+			if (!landmarks.TryGetValue(id, out Landmark landmark)) return;
+			landmark.inverseDepth = inverseDepth;
+			landmark.inverseDepthSigma = inverseDepthSigma;
+			NoteDepthChanged(landmark);
 		}
 
 		/// <summary>Side of a coverage cell at the finest level, meters.</summary>
@@ -513,6 +548,42 @@ namespace Anaglyph.XR.VisualLocalization
 			}
 
 			return victim;
+		}
+
+		/// <summary>Takes out everything a headset shared: its views, its landmarks, and its sightings in anyone's.</summary>
+		/// <returns>The views removed.</returns>
+		public int RemoveOwner(uint owner)
+		{
+			foreach (Landmark landmark in landmarks.Values)
+				landmark.observations.RemoveAll(o => o.keyframe != null && o.keyframe.owner == owner);
+
+			int removed = 0;
+			for (int slot = keyframes.Count - 1; slot >= 0; slot--)
+			{
+				if (keyframes[slot].owner != owner) continue;
+				Evict(keyframes[slot]);
+				VisualKeyframe last = keyframes[^1];
+				keyframes.RemoveAt(keyframes.Count - 1);
+				removed++;
+				if (slot == keyframes.Count) continue;
+				keyframes[slot] = last;
+				last.slot = slot;
+				pendingWrites.Add((slot, last.features.descriptors, math.min(RetrievalFeatures, last.features.Count)));
+			}
+
+			foreach (VisualKeyframe k in keyframes)
+				for (int f = 0; f < k.landmarks.Length; f++)
+					if (landmarks.TryGetValue(k.landmarks[f], out Landmark landmark) && landmark.owner == owner)
+						k.landmarks[f] = -1;
+
+			List<int> ownerLandmarks = new();
+			foreach (Landmark landmark in landmarks.Values)
+				if (landmark.owner == owner) ownerLandmarks.Add(landmark.id);
+			foreach (int id in ownerLandmarks) landmarks.Remove(id);
+
+			FlushWrites();
+			Revision++;
+			return removed;
 		}
 
 		// its sightings stay in their landmarks as measurements; the landmarks it alone held go

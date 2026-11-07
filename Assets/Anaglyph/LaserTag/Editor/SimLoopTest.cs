@@ -106,6 +106,9 @@ namespace Anaglyph.LaserTag.Editor
 		/// <summary>When above zero, how fast a run around like a player goes, meters a second, over the sprint it otherwise is.</summary>
 		public static float PlayerSpeed;
 
+		/// <summary>When above zero, how many times faster than walking the walker covers its route, snapping between samples: see <see cref="SimSpeedup"/>.</summary>
+		public static float Speedup;
+
 		/// <summary>The drift, the room's random origin and the walker of the next play session follow this, as <see cref="Launch"/>'s seed does.</summary>
 		public static void SeedNextPlay(int nextSeed) => SessionState.SetInt(SeedKey, nextSeed);
 
@@ -124,7 +127,9 @@ namespace Anaglyph.LaserTag.Editor
 		/// </summary>
 		/// <param name="seed">Non-zero: the drift, the room's random origin and the walker follow it, so runs repeat.</param>
 		/// <param name="freeze">Overrides whether established landmarks are frozen, for A/B runs.</param>
-		public static string Launch(int stops, float minSpacing, int seed = 0, bool? freeze = null)
+		/// <param name="speedup">Above 0: <see cref="Speedup"/>.</param>
+		/// <param name="playerSpeed">Above 0: <see cref="PlayerSpeed"/>.</param>
+		public static string Launch(int stops, float minSpacing, int seed = 0, bool? freeze = null, float speedup = 0, float playerSpeed = 0)
 		{
 			if (Launching) return "a launch is already under way";
 			if (Application.isPlaying) return Run(stops, minSpacing);
@@ -132,7 +137,7 @@ namespace Anaglyph.LaserTag.Editor
 			LastSummary = "";
 			SessionState.SetInt(SeedKey, seed);
 			SessionState.SetInt(FreezeKey, freeze.HasValue ? (freeze.Value ? 1 : 0) : -1);
-			SessionState.SetString(PendingKey, $"{stops};{minSpacing.ToString(CultureInfo.InvariantCulture)}");
+			SessionState.SetString(PendingKey, string.Join(";", stops, minSpacing.ToString(CultureInfo.InvariantCulture), speedup.ToString(CultureInfo.InvariantCulture), playerSpeed.ToString(CultureInfo.InvariantCulture)));
 			EditorApplication.isPlaying = true;
 			return null;
 		}
@@ -146,6 +151,7 @@ namespace Anaglyph.LaserTag.Editor
 			{
 				waitingToStart = false;
 				exitPlayModeWhenDone = false;
+				Speedup = PlayerSpeed = 0;
 			}
 
 			if (change != PlayModeStateChange.EnteredPlayMode) return;
@@ -153,6 +159,8 @@ namespace Anaglyph.LaserTag.Editor
 			if (pending.Length == 0) return;
 			SessionState.EraseString(PendingKey);
 			string[] parts = pending.Split(';');
+			Speedup = float.Parse(parts[2], CultureInfo.InvariantCulture);
+			PlayerSpeed = float.Parse(parts[3], CultureInfo.InvariantCulture);
 			StartWhenReady(int.Parse(parts[0], CultureInfo.InvariantCulture), float.Parse(parts[1], CultureInfo.InvariantCulture));
 		}
 
@@ -200,16 +208,32 @@ namespace Anaglyph.LaserTag.Editor
 			if (MainXRRig.Instance == null) return "no XR rig";
 
 			GameObject host = new("Sim Loop Test");
-			SimWalker walker = SimWalker.Instance ? SimWalker.Instance : host.AddComponent<SimWalker>();
+			SimWalker walker = AddWalker(host, player);
 			SimLoopTest test = host.AddComponent<SimLoopTest>();
 			test.timing = host.AddComponent<SimCaptureTiming>();
 			test.depths = host.AddComponent<SimLandmarkDepthCheck>();
-			if (player) walker.PlayLikeAPlayer();
-			if (player && PlayerSpeed > 0) walker.walkSpeed = PlayerSpeed;
-			if (seed != 0) walker.Reseed(seed);
 			string problem = test.Begin(walker, stops, minSpacing, returnTrip);
 			if (problem != null) Destroy(host);
 			return problem;
+		}
+
+		/// <summary>The session's walker, moving as this play session's runs do.</summary>
+		public static SimWalker AddWalker(GameObject owner, bool player = true)
+		{
+			SimWalker walker = SimWalker.Instance ? SimWalker.Instance : owner.AddComponent<SimWalker>();
+			if (player) walker.PlayLikeAPlayer();
+			if (player && PlayerSpeed > 0) walker.walkSpeed = PlayerSpeed;
+			if (seed != 0) walker.Reseed(seed);
+			if (Speedup > 0) SimSpeedup.Apply(Speedup, walker);
+			return walker;
+		}
+
+		/// <summary>Ends the run under way, if there is one, without ending play mode.</summary>
+		public static void StopCurrent()
+		{
+			if (!Current) return;
+			exitPlayModeWhenDone = false;
+			Current.Finish("stopped");
 		}
 
 		private string Begin(SimWalker w, int stopCount, float minSpacing, bool returnTrip)

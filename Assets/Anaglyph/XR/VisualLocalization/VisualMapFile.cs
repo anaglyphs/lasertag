@@ -171,6 +171,7 @@ namespace Anaglyph.XR.VisualLocalization
 					l.hasWire = l.established && map.freezeEstablished;
 				}
 
+				l.sentInverseDepth = l.wire.inverseDepth;
 				data.landmarks.Add(l.wire);
 				return l.ownerId;
 			}

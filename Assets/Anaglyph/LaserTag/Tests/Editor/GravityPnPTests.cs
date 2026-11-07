@@ -211,6 +211,36 @@ namespace Anaglyph.LaserTag.Tests
 		}
 
 		[Test]
+		public void LongerBaselineSharpensAFarPoint()
+		{
+			StubAnchoring near = new(), far = new();
+			float3 point = new(1f, 2f, 20f);
+			Landmark shortWalk = Track(point, 0.5f, 4, near, 0.3f, 4);
+			Landmark longWalk = Track(point, 4f, 4, far, 0.3f, 4);
+			shortWalk.Estimate(near);
+			longWalk.Estimate(far);
+			Assert.That(longWalk.inverseDepthSigma, Is.LessThan(0.25f * shortWalk.inverseDepthSigma));
+		}
+
+		[Test]
+		public void AFitAppliedLaterKeepsWhatHappenedToItsSightingMeanwhile()
+		{
+			StubAnchoring anchoring = new();
+			Landmark landmark = Track(new float3(0.5f, 1.3f, 2.5f), 1.2f, 5, anchoring, 0.3f, 5);
+			Observation wrong = landmark.observations[3];
+			wrong.ray = math.normalize(wrong.ray + new float3(0.05f, -0.03f, 0));
+			landmark.observations[3] = wrong;
+
+			Landmark.Fitted fit = landmark.Fit(landmark.observations.ToArray(), anchoring);
+			Assert.AreEqual(5, landmark.observations.Count);
+
+			List<Observation> removed = landmark.Apply(fit);
+			Assert.AreEqual(4, landmark.observations.Count);
+			Assert.AreEqual(1, removed.Count);
+			Assert.That(math.all(removed[0].ray == wrong.ray));
+		}
+
+		[Test]
 		public void DropsASightingOfSomethingElse()
 		{
 			StubAnchoring anchoring = new();

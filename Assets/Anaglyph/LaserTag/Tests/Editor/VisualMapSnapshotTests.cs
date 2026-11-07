@@ -278,6 +278,36 @@ namespace Anaglyph.LaserTag.Tests
 		}
 
 		[Test]
+		public void RemoveOwner_TakesItsViewsLandmarksAndSightings_KeepingEveryoneElses()
+		{
+			VisualMap map = new(8) { Anchoring = new AnchoredAtOrigin(), LocalOwner = 7 };
+			try
+			{
+				VisualKeyframe kept = Keyframe(1, map);
+				VisualKeyframe wrong = Keyframe(2, map);
+				wrong.owner = 9;
+				VisualKeyframe keptLast = Keyframe(3, map);
+				Landmark keptLandmark = map.CreateLandmark(kept, SightedWeakFeature, 1.5f);
+				map.Link(wrong, 5, keptLandmark, 1.5f);
+				map.LocalOwner = 9;
+				Landmark wrongLandmark = map.CreateLandmark(wrong, UnsightedWeakFeature, 1.5f);
+				map.Link(kept, 6, wrongLandmark, 1.5f);
+
+				Assert.That(map.RemoveOwner(9), Is.EqualTo(1));
+
+				Assert.That(map.Keyframes, Is.EquivalentTo(new[] { kept, keptLast }));
+				Assert.That(map.TryGetLandmark(wrongLandmark.id, out _), Is.False);
+				Assert.That(kept.landmarks[6], Is.EqualTo(-1));
+				Assert.That(map.TryGetLandmark(keptLandmark.id, out _), Is.True);
+				Assert.That(keptLandmark.observations.Exists(o => o.keyframe == wrong), Is.False);
+			}
+			finally
+			{
+				map.Dispose();
+			}
+		}
+
+		[Test]
 		public void Eviction_GivesUpARevisitFromTheMostCrowdedBucket_AcrossRepeatedAdds()
 		{
 			VisualMap map = new(4) { Anchoring = new AnchoredAtOrigin(), LocalOwner = 7 };
@@ -315,6 +345,77 @@ namespace Anaglyph.LaserTag.Tests
 
 				CollectionAssert.DoesNotContain(map.Keyframes, next);
 				Assert.AreEqual(4, map.Count);
+			}
+			finally
+			{
+				map.Dispose();
+			}
+		}
+
+		[Test]
+		public void Link_AnEstablishedLandmarkTakesASightingOnlyWhenRefining()
+		{
+			VisualMap map = MapWithSharedLandmark(out VisualKeyframe a, out VisualKeyframe b, out Landmark shared);
+			try
+			{
+				map.Establish(shared);
+				int before = shared.observations.Count;
+				VisualKeyframe sighting = Keyframe(3, map), refining = Keyframe(4, map);
+
+				Assert.IsFalse(map.Link(sighting, 6, shared, 1.5f));
+				Assert.AreEqual(before, shared.observations.Count);
+				Assert.AreEqual(shared.id, sighting.landmarks[6]);
+
+				Assert.IsTrue(map.Link(refining, 6, shared, 1.5f, true));
+				Assert.AreEqual(before + 1, shared.observations.Count);
+			}
+			finally
+			{
+				map.Dispose();
+			}
+		}
+
+		[Test]
+		public void Establish_KeepsSightingsWhileRefining_UntilToldToStop()
+		{
+			VisualMap map = MapWithSharedLandmark(out VisualKeyframe a, out VisualKeyframe b, out Landmark shared);
+			try
+			{
+				map.dropEstablishedSightings = true;
+				map.refineEstablished = true;
+				map.Establish(shared);
+				Assert.AreEqual(2, shared.observations.Count);
+
+				map.StopRefining(shared);
+				Assert.AreEqual(0, shared.observations.Count);
+				Assert.IsTrue(shared.IsUsable);
+			}
+			finally
+			{
+				map.Dispose();
+			}
+		}
+
+		[Test]
+		public void NoteDepthChanged_TheNextSnapshotCarriesTheNewDepth()
+		{
+			VisualMap map = MapWithSharedLandmark(out VisualKeyframe a, out VisualKeyframe b, out Landmark shared);
+			try
+			{
+				map.Establish(shared);
+				VisualMapFile.Snapshot(map, pose => pose, Quaternion.identity, null, Raw, Wire);
+				Assert.AreEqual(0.25f, shared.sentInverseDepth);
+
+				int revision = map.DepthRevision;
+				Landmark told = null;
+				map.LandmarkDepthChanged += changed => told = changed;
+				map.SetDepth(shared.id, 0.1f, 0.002f);
+				Assert.AreEqual(shared, told);
+				Assert.AreEqual(revision + 1, map.DepthRevision);
+
+				VisualMapData data = VisualMapFile.Snapshot(map, pose => pose, Quaternion.identity, null, Raw, Wire);
+				Assert.AreEqual(0.1f, data.landmarks[0].inverseDepth);
+				Assert.AreEqual(0.1f, shared.sentInverseDepth);
 			}
 			finally
 			{

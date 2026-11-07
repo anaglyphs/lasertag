@@ -119,6 +119,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Anaglyph.XRTemplate.SharedSpaces::Anaglyph.XRTemplate.SharedSpaces.ReferenceColocator
   agreementMaxError: 0.3
   positionDriftRate: 0.014
+  fitPositionDriftRate: 0.028
   yawDriftRateDegrees: 0.05
   spatialDriftRate: 0
   spatialYawDriftRateDegrees: 0
@@ -231,13 +232,21 @@ MonoBehaviour:
     minKeyframeFeatures: 100
     mapCapacity: 512
     coverageCell: 1
+    lockRadius: 4
+    lockAngle: 60
+    lockMinWalkDrift: 0.034
     coverageHeadings: 8
     freezeEstablishedLandmarks: 1
+    refineEstablishedLandmarks: 1
+    refineWalkDrift: 0.077
+    refineMinBaseline: 1.5
+    refineMaxViews: 12
     establishedDepthSigma: 0.1
     establishedViews: 6
     establishedMinViews: 3
     trustDrift: 0.0243
     trackNeighbors: 3
+    trackRowsPerFrame: 64
     neighborDistance: 5
     trackMinCosine: 0.82
   inferenceSettings:
@@ -310,21 +319,75 @@ MonoBehaviour:
     agreeYawDegrees: 1
     agreePath: 30
     anchorTolerance: 0.07
+    places:
+      distinctViewMeters: 1
+      distinctViewDegrees: 20
+      samePlaceMeters: 1.5
+      samePlaceDegrees: 10
+      margin: 1.5
     plausibleMeters: 0.5
     plausibleDegrees: 5
+  watchSettings:
+    confirmWalk: 5
+    holdSeconds: 60
+    overturnViews: 3
+    checkSeconds: 1
+    confirmedCheckSeconds: 10
   siteSettings:
     minYawSigmaDegrees: 0.5
     closeYawDegrees: 4
     minTranslationSigma: 0.03
     siteRadius: 8
-    crossLinksPrevail: 1
     mappedSpacing: 2
     mappedCapacity: 128
     debugRevisitColor: {r: 1, g: 0.8, b: 0.2, a: 1}
     debugCrossLinkColor: {r: 0.2, g: 0.9, b: 1, a: 1}
     debugLatestColor: {r: 0.2, g: 1, b: 0.3, a: 1}
     debugFeatureSize: 0.03
+  graphSettings:
+    enabled: 1
+    knotSpacing: 2
+    minOverlap: 50
+    passesPerKeyframe: 6
+    maxWaiting: 16
+    viewsPerPass: 6
+    passSeconds: 15
+    pairsPerSecond: 12
+    pairDistance: 6
+    pairAngle: 45
+    pairMinWalk: 10
+    minInliers: 20
+    maxYawSigmaDegrees: 1
+    edgeRobustSigmas: 1.5
+    minInverseDepth: 0.005
+    maxDepthSigmaShare: 0.35
+    pixelSigma: 1.5
+    solveInterval: 0.5
+    solveCostMultiple: 10
+    minNewEdges: 1
+    maxSolveKnots: 500
+    iterations: 3
+    edgeAlongSpread: 0.55
+    edgeAcrossSpread: 0.055
+    edgeHeightSpread: 0.04
+    edgeSigmaFloor: 0.02
+    edgeYawSpread: 20
+    edgeYawFloorDegrees: 0.3
+    edgeSigma: 0.04
+    confidentInliers: 30
+    edgeYawSigmaDegrees: 1.5
+    driftRate: 0.012
+    driftYawRateDegrees: 0.05
+    huber: 0.5
+    maxEdges: 8192
+    tipSigma: 0.05
+    freshFixes: 12
+    fixSigma: 0.05
+    fixYawSigmaDegrees: 0.75
+    fixAgreement: 0.2
+    tipYawSigmaDegrees: 0.15
   loopClosure: 1
+  lockRevisits: 1
   loopInterval: 0.5
   blurredRetry: 0.25
   loopSearchDistance: 8
@@ -332,6 +395,7 @@ MonoBehaviour:
   loopCenterPriorSigma: 1
   loopCooldown: 1
   loopSearchFloor: 0.1
+  mapSettleSeconds: 10
   loopMatchFeatures: 512
   loopMinMutual: 15
   loopMaxViewAngle: 90

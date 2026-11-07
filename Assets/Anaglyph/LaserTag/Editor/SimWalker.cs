@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Anaglyph.XR;
+using Anaglyph.XR.VisualLocalization;
 using UnityEngine;
 using UnityEngine.AI;
 using Random = System.Random;
@@ -20,6 +21,10 @@ namespace Anaglyph.LaserTag.Editor
 	/// so they move with it as drift and corrections move the room. The head turns toward
 	/// where it is going at a human rate, glances around, and looks about at each stop;
 	/// fast turns trip the localizer's motion-blur guard, as real heads do.
+	///
+	/// <see cref="SnapBetweenSamples"/> walks the same path without showing it: the head waits
+	/// where it is until mapping has finished with that view, then jumps to where the walk
+	/// would next give mapping a sharp frame.
 	/// </summary>
 	[DefaultExecutionOrder(-32000)] // before the XR Interaction Simulator (-29991) applies its HMD state
 	public class SimWalker : MonoBehaviour
@@ -64,6 +69,9 @@ namespace Anaglyph.LaserTag.Editor
 		public float DistanceWalked { get; private set; }
 		public string Status { get; private set; } = "idle";
 
+		/// <summary>Farthest one snap can move the head, meters.</summary>
+		public float LongestSnap => walkSpeed * SampleSeconds * MaxSamplesPerSnap;
+
 		private object simulator;
 		private FieldInfo hmdStateField, centerEyeEulerField;
 		private Transform room;
@@ -81,14 +89,49 @@ namespace Anaglyph.LaserTag.Editor
 		private float glancePitch;
 		private Random random = new(12345);
 
+		// seconds of the walk so far, whichever way it is being walked
+		private float walkClock;
+
+		// how far from the nav-mesh the head can be and still find its way back onto it: a start beside another player can be off it
+		private const float HeadToNavMeshMeters = 10f;
+		// stops land this many times more often per square meter on nav-mesh baked with the Favored area
+		private const string FavoredArea = "Favored";
+		private const float FavoredAreaWeight = 5f;
+		private float headYaw, headPitch;
+
+		// snapping: how much faster than walking, and the walk's sharp frames
+		private const float SampleSeconds = 0.6f;
+		private const float MaxSamplesPerSnap = 3f;
+		private const float SnapStepSeconds = 1f / 60f;
+		// frames the head stays put after a snap before a frame may be taken, and then before the next snap
+		private const int FramesToSeeSnap = 3, FramesToTakeFrame = 2;
+		private float speedup, blurLimit, calmLimit;
+		private float walkSecondsEarned;
+		private int framesSinceSnap, framesFreeToMap;
+		private Quaternion stepRotation;
+		private float turnRate, previousTurnRate;
+
 		/// <summary>Restarts the walker's choices (stops, glances) from a seed: repeatable tests.</summary>
 		public void Reseed(int seed) => random = new Random(seed);
+
+		/// <summary>
+		/// Covers the walk <paramref name="walkSecondsPerSecond"/> times faster by jumping between
+		/// the frames mapping would use. A frame counts as sharp as the mapper would judge it,
+		/// by these same limits, degrees a second.
+		/// </summary>
+		public void SnapBetweenSamples(float walkSecondsPerSecond, float headTurnBlurLimit, float headTurnCalmLimit)
+		{
+			speedup = walkSecondsPerSecond;
+			blurLimit = headTurnBlurLimit;
+			calmLimit = headTurnCalmLimit;
+		}
 
 		private void Awake() => Instance = this;
 
 		private void OnDestroy()
 		{
 			if (Instance == this) Instance = null;
+			if (speedup > 0 && VisualLocalizer.Instance != null) VisualLocalizer.Instance.HoldCapture = false;
 		}
 
 		// ---- the room and the head -----------------------------------------------
@@ -163,16 +206,18 @@ namespace Anaglyph.LaserTag.Editor
 			Vector3 from = Room.TransformPoint(position);
 			foreach (Vector3 stop in worldStops)
 			{
-				if (!NavMesh.SamplePosition(from, out NavMeshHit start, 3f, NavMesh.AllAreas) ||
+				if (!NavMesh.SamplePosition(from, out NavMeshHit start, HeadToNavMeshMeters, NavMesh.AllAreas) ||
 				    !NavMesh.SamplePosition(stop, out NavMeshHit end, 3f, NavMesh.AllAreas))
 				{
-					Status = $"no nav-mesh near {(NavMesh.SamplePosition(from, out _, 3f, NavMesh.AllAreas) ? stop : from)}";
+					Status = $"no nav-mesh near {(NavMesh.SamplePosition(from, out _, HeadToNavMeshMeters, NavMesh.AllAreas) ? stop : from)}";
 					legs.Clear();
 					return false;
 				}
 
 				NavMeshPath path = new();
-				if (!NavMesh.CalculatePath(start.position, end.position, NavMesh.AllAreas, path) || path.status == NavMeshPathStatus.PathInvalid)
+				bool found = NavMesh.CalculatePath(start.position, end.position, NavMesh.AllAreas, path) && path.status != NavMeshPathStatus.PathInvalid;
+				if (legs.Count == 0 && (!found || path.status == NavMeshPathStatus.PathPartial)) found |= TryPathFromBeside(from, end.position, path);
+				if (!found)
 				{
 					Status = $"no path to {stop}";
 					legs.Clear();
@@ -196,9 +241,12 @@ namespace Anaglyph.LaserTag.Editor
 			NavMeshTriangulation tri = NavMesh.CalculateTriangulation();
 			if (tri.vertices.Length == 0 || MainXRRig.Instance == null) return false;
 			Vector3 head = HeadWorld;
-			for (int attempt = 0; attempt < 64; attempt++)
+			float[] cumulativeWeights = CumulativeStopWeights(tri);
+			const int attempts = 64, attemptsFromBeside = 12;
+			for (int attempt = 0; attempt < attempts + attemptsFromBeside; attempt++)
 			{
-				int t = random.Next(tri.indices.Length / 3) * 3;
+				int triangle = Array.BinarySearch(cumulativeWeights, (float)random.NextDouble() * cumulativeWeights[^1]);
+				int t = Math.Min(triangle < 0 ? ~triangle : triangle, cumulativeWeights.Length - 1) * 3;
 				float a = (float)random.NextDouble(), b = (float)random.NextDouble();
 				if (a + b > 1) { a = 1 - a; b = 1 - b; }
 				Vector3 p = tri.vertices[tri.indices[t]] + a * (tri.vertices[tri.indices[t + 1]] - tri.vertices[tri.indices[t]]) +
@@ -207,11 +255,49 @@ namespace Anaglyph.LaserTag.Editor
 				flat.y = 0;
 				if (flat.magnitude < minDistance) continue;
 				NavMeshPath path = new();
-				if (!NavMesh.SamplePosition(head, out NavMeshHit start, 3f, NavMesh.AllAreas)) return false;
-				if (!NavMesh.CalculatePath(start.position, p, NavMesh.AllAreas, path) || path.status != NavMeshPathStatus.PathComplete) continue;
+				if (!NavMesh.SamplePosition(head, out NavMeshHit start, HeadToNavMeshMeters, NavMesh.AllAreas)) return false;
+				bool complete = attempt < attempts
+					? NavMesh.CalculatePath(start.position, p, NavMesh.AllAreas, path) && path.status == NavMeshPathStatus.PathComplete
+					: TryPathFromBeside(head, p, path);
+				if (!complete) continue;
 				world = p;
 				return true;
 			}
+
+			return false;
+		}
+
+		// running totals over triangles of floor size, times FavoredAreaWeight on the Favored nav-mesh area
+		private static float[] CumulativeStopWeights(NavMeshTriangulation tri)
+		{
+			int favoredArea = NavMesh.GetAreaFromName(FavoredArea);
+			float[] cumulative = new float[tri.indices.Length / 3];
+			float total = 0;
+			for (int i = 0; i < cumulative.Length; i++)
+			{
+				Vector3 a = tri.vertices[tri.indices[i * 3]], b = tri.vertices[tri.indices[i * 3 + 1]], c = tri.vertices[tri.indices[i * 3 + 2]];
+				float size = Vector3.Cross(b - a, c - a).magnitude / 2;
+				total += tri.areas[i] == favoredArea ? size * FavoredAreaWeight : size;
+				cumulative[i] = total;
+			}
+
+			return cumulative;
+		}
+
+		// the nav-mesh nearest the head can be a scrap cut off from the rest, as on a stair: a step
+		// away from it may reach everywhere, and a walker heads straight for its path's first corner
+		private static bool TryPathFromBeside(Vector3 from, Vector3 target, NavMeshPath path)
+		{
+			const int directions = 8;
+			foreach (float radius in new[] { 2f, 4f })
+				foreach (float height in new[] { 0f, -2.5f, 2.5f })
+					for (int d = 0; d < directions; d++)
+					{
+						Vector3 beside = from + Quaternion.Euler(0, d * 360f / directions, 0) * Vector3.forward * radius + Vector3.up * height;
+						if (NavMesh.SamplePosition(beside, out NavMeshHit hit, 1.5f, NavMesh.AllAreas) &&
+						    NavMesh.CalculatePath(hit.position, target, NavMesh.AllAreas, path) && path.status == NavMeshPathStatus.PathComplete)
+							return true;
+					}
 
 			return false;
 		}
@@ -234,6 +320,9 @@ namespace Anaglyph.LaserTag.Editor
 			Vector3 forward = Room.InverseTransformDirection(head.forward);
 			yaw = Mathf.Atan2(forward.x, forward.z) * Mathf.Rad2Deg;
 			pitch = 0;
+			headYaw = yaw;
+			headPitch = pitch;
+			stepRotation = Quaternion.Euler(headPitch, headYaw, 0);
 			placed = true;
 		}
 
@@ -242,7 +331,7 @@ namespace Anaglyph.LaserTag.Editor
 			if (!placed || !Bind() || Room == null || MainXRRig.Instance == null) return;
 
 			// never steer a head that has left the building: something has gone wrong
-			if (!NavMesh.SamplePosition(Room.TransformPoint(position), out _, 10f, NavMesh.AllAreas))
+			if (!NavMesh.SamplePosition(Room.TransformPoint(position), out _, HeadToNavMeshMeters, NavMesh.AllAreas))
 			{
 				Status = "stopped: the head is nowhere near the nav-mesh";
 				legs.Clear();
@@ -251,7 +340,40 @@ namespace Anaglyph.LaserTag.Editor
 				return;
 			}
 
-			float dt = Time.deltaTime;
+			if (speedup <= 0) Step(Time.deltaTime);
+			else if (ReadyToSnap()) SnapToNextSample();
+			Apply(headYaw, headPitch);
+		}
+
+		private bool ReadyToSnap()
+		{
+			walkSecondsEarned = Mathf.Min(walkSecondsEarned + Time.unscaledDeltaTime * speedup, SampleSeconds * MaxSamplesPerSnap);
+			VisualLocalizer localizer = VisualLocalizer.Instance;
+			bool holding = ++framesSinceSnap < FramesToSeeSnap;
+			if (localizer != null) localizer.HoldCapture = holding;
+			framesFreeToMap = holding || (localizer != null && localizer.IsMappingOrExtracting) ? 0 : framesFreeToMap + 1;
+			return framesFreeToMap >= FramesToTakeFrame && walkSecondsEarned >= SampleSeconds;
+		}
+
+		private void SnapToNextSample()
+		{
+			float walked = 0;
+			do
+			{
+				Step(SnapStepSeconds);
+				walked += SnapStepSeconds;
+			} while (IsMoving && walked < SampleSeconds * MaxSamplesPerSnap && (walked < SampleSeconds || !FrameIsSharp));
+
+			walkSecondsEarned = Mathf.Max(0, walkSecondsEarned - walked);
+			framesSinceSnap = framesFreeToMap = 0;
+			if (VisualLocalizer.Instance != null) VisualLocalizer.Instance.HoldCapture = true;
+		}
+
+		private bool FrameIsSharp => turnRate <= blurLimit && !(turnRate > calmLimit && turnRate < previousTurnRate * 0.8f);
+
+		private void Step(float dt)
+		{
+			walkClock += dt;
 			float targetYaw = yaw;
 			float targetPitch = 0;
 
@@ -275,24 +397,24 @@ namespace Anaglyph.LaserTag.Editor
 					Vector3 toward = Flat(corners[0] - position);
 					float step = Mathf.Min(walkSpeed * dt, toward.magnitude);
 					position += toward.normalized * step;
-					position.y = Mathf.Lerp(position.y, corners[0].y, dt * 2f);
+					StandOnNavMesh();
 					DistanceWalked += step;
 					targetYaw = Mathf.Atan2(toward.x, toward.z) * Mathf.Rad2Deg;
 
 					// glances: a look to the side every few seconds, as people walking do
-					if (Time.time >= nextGlance)
+					if (walkClock >= nextGlance)
 					{
 						glanceYaw = ((float)random.NextDouble() * 2 - 1) * glanceAngle;
-						glanceUntil = Time.time + 0.6f + (float)random.NextDouble();
+						glanceUntil = walkClock + 0.6f + (float)random.NextDouble();
 						// players look about at eye level: a glance dips a little more often than it rises
 						glancePitch = shakeDegrees > 0 ? Mathf.Lerp(-5f, 10f, (float)random.NextDouble()) : 0;
 						if (shakeDegrees > 0) glanceUntil -= 0.3f;
 						nextGlance = glanceUntil + glanceInterval * (0.5f + (float)random.NextDouble());
 					}
 
-					if (Time.time < glanceUntil) targetYaw += glanceYaw;
-					targetPitch = Mathf.Sin(Time.time * 0.7f) * (shakeDegrees > 0 ? 4f : 8f);
-					if (Time.time < glanceUntil) targetPitch += glancePitch;
+					if (walkClock < glanceUntil) targetYaw += glanceYaw;
+					targetPitch = Mathf.Sin(walkClock * 0.7f) * (shakeDegrees > 0 ? 4f : 8f);
+					if (walkClock < glanceUntil) targetPitch += glancePitch;
 				}
 			}
 
@@ -316,12 +438,52 @@ namespace Anaglyph.LaserTag.Editor
 			float shakeYaw = 0, shakePitch = 0;
 			if (shakeDegrees > 0 && legs.Count > 0)
 			{
-				float t = Time.time;
+				float t = walkClock;
 				shakeYaw = shakeDegrees * (Mathf.PerlinNoise(t * 3f, 0.5f) * 2 - 1);
 				shakePitch = shakeDegrees * (Mathf.PerlinNoise(0.5f, t * 3.7f) * 2 - 1) + 0.4f * shakeDegrees * Mathf.Sin(t * 2 * Mathf.PI * 2.6f);
 			}
 
-			Apply(yaw + shakeYaw, pitch + shakePitch);
+			headYaw = yaw + shakeYaw;
+			headPitch = pitch + shakePitch;
+
+			Quaternion rotation = Quaternion.Euler(headPitch, headYaw, 0);
+			previousTurnRate = turnRate;
+			turnRate = Quaternion.Angle(stepRotation, rotation) / dt;
+			stepRotation = rotation;
+		}
+
+		// path corners mark turns, not slopes or stairs, so the height comes from the nav-mesh under the feet
+		private void StandOnNavMesh()
+		{
+			Vector3 head = Room.TransformPoint(position);
+			if (TryFindGroundUnder(head, out Vector3 ground))
+				position.y = Room.InverseTransformPoint(ground + Vector3.up * eyeHeight).y;
+		}
+
+		// the floor underfoot while on it; otherwise the highest floor straight below the head; otherwise the nearest
+		private bool TryFindGroundUnder(Vector3 head, out Vector3 ground)
+		{
+			const float underfootMeters = 0.5f, columnRadius = 0.25f, besideTolerance = 0.1f;
+			Vector3 feet = head - Vector3.up * eyeHeight;
+			if (NavMesh.SamplePosition(feet, out NavMeshHit hit, underfootMeters, NavMesh.AllAreas) && Flat(hit.position - feet).magnitude < besideTolerance)
+			{
+				ground = hit.position;
+				return true;
+			}
+
+			for (float drop = 0; drop < eyeHeight + HeadToNavMeshMeters; drop += columnRadius)
+			{
+				Vector3 probe = head - Vector3.up * drop;
+				if (NavMesh.SamplePosition(probe, out hit, columnRadius, NavMesh.AllAreas))
+				{
+					ground = hit.position;
+					return true;
+				}
+			}
+
+			bool nearAny = NavMesh.SamplePosition(feet, out hit, HeadToNavMeshMeters, NavMesh.AllAreas);
+			ground = hit.position;
+			return nearAny;
 		}
 
 		private static Vector3 Flat(Vector3 v)

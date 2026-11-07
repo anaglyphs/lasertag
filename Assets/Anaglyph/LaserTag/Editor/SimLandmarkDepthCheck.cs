@@ -25,7 +25,14 @@ namespace Anaglyph.LaserTag.Editor
 		private readonly HashSet<Collider> roomColliders = new();
 		private readonly RaycastHit[] hits = new RaycastHit[16];
 		// per keyframe frame record: each feature's true depth, NaN where the ray hit nothing
-		private readonly Dictionary<int, float[]> truth = new();
+		private static readonly Dictionary<int, float[]> truth = new();
+
+		// a run walks tour after tour, each with a check of its own: what they've cast lasts the play session
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+		private static void ForgetCasts() => truth.Clear();
+
+		/// <summary>Each feature's true distance along its ray in this frame, NaN where it hit nothing; null when it wasn't cast.</summary>
+		public static float[] TrueDepths(int frame) => truth.TryGetValue(frame, out float[] depths) ? depths : null;
 
 		public void Begin(Transform simulatedRoom)
 		{

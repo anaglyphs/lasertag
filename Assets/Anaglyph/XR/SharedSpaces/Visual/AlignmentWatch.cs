@@ -8,7 +8,7 @@ namespace Anaglyph.XR.SharedSpaces
 	/// Whether an applied alignment holds up as the head moves on. A joiner keeps localizing against
 	/// other headsets' views: results at the place it was put in confirm it, and a different place
 	/// that outgrows it says it is in the wrong one. Until confirmed, what this headset would tell
-	/// the others waits, since nothing it has shared can be taken back.
+	/// the others waits: what it has shared can be taken back, but not out of the others' scans.
 	/// </summary>
 	public sealed class AlignmentWatch
 	{

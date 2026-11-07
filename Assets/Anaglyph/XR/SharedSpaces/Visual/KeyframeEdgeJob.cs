@@ -47,16 +47,29 @@ namespace Anaglyph.XR.SharedSpaces
 		/// <summary>In <see cref="KeyframeEdge.inliers"/> when a pair yields no edge: where it stopped.</summary>
 		public const int FewMatches = -1, NoConsensus = -2, RefinementLost = -3, YawLoose = -4, OutOfBounds = -5;
 		private const float ScoreSigmas = 6, CoarseSigmas = 8, FineSigmas = 5;
-		private const int Refinements = 8, RecenterAt = 3;
+		private const int Refinements = 8, RecenterAt = 3, RobustFrom = 5;
+		// graduated non-convexity: the Geman-McClure scale starts this many times the inlier bound squared and shrinks each refinement to 1
+		private const float GncStart = 8f, GncShrink = 1.68f;
 
 		[ReadOnly] public NativeArray<half> descriptorsA, descriptorsB;
 		[ReadOnly] public NativeArray<float3> pointsA, raysB;
+		/// <summary>
+		/// Optional, parallel to <see cref="pointsA"/>: how far each point may really lie along the
+		/// ray that ranged it, as that ray's direction times the doubt in metres, raw frame. Seen
+		/// from B that doubt moves the point across the sight by a known direction, which each
+		/// ray's residual is judged and weighed with projected out (its covariance).
+		/// </summary>
+		[ReadOnly] public NativeArray<float3> depthAxisA;
 		public int countA, countB;
 		public float3 centerB;
 		/// <summary>A feature's localization noise as an angle, radians.</summary>
 		public float angularSigma;
 		public int minInliers;
 		public float maxYawSigma;
+		/// <summary>In the last refinements a ray's pull falls off as a Geman-McClure weight past this many sigmas of error, so near misses among the inliers stop steering the edge; 0 keeps every inlier at full weight.</summary>
+		public float robustSigmas;
+		/// <summary>With <see cref="depthAxisA"/>: the inlier bound in sigmas of a Geman-McClure weight whose scale is graduated from convex down to this over the refinements (GNC); 0 keeps the hard gates.</summary>
+		public float gncSigmas;
 		public uint seed;
 		/// <summary>One element, its <see cref="KeyframeEdge.inliers"/> not positive when the views share too little.</summary>
 		[WriteOnly] public NativeArray<KeyframeEdge> result;
@@ -74,20 +87,22 @@ namespace Anaglyph.XR.SharedSpaces
 				return;
 			}
 
-			NativeArray<float3> targets = new(matches, Allocator.Temp), rays = new(matches, Allocator.Temp);
+			bool hasDoubt = depthAxisA.IsCreated && gncSigmas > 0;
+			NativeArray<float3> targets = new(matches, Allocator.Temp), rays = new(matches, Allocator.Temp), doubts = new(matches, Allocator.Temp);
 			for (int i = 0; i < matches; i++)
 			{
 				targets[i] = pointsA[matchA[i]];
 				rays[i] = raysB[matchB[i]];
+				doubts[i] = hasDoubt ? depthAxisA[matchA[i]] : float3.zero;
 			}
 
-			if (!Ransac(targets, rays, out float yaw, out float3 pivotA, out float3 pivotB))
+			if (!Ransac(targets, rays, doubts, out float yaw, out float3 pivotA, out float3 pivotB))
 			{
 				Stop(NoConsensus);
 				return;
 			}
 
-			if (!Refine(targets, rays, matchA, ref yaw, ref pivotA, ref pivotB, out int inliers, out double4x4 hessian) || inliers < minInliers)
+			if (!Refine(targets, rays, doubts, matchA, ref yaw, ref pivotA, ref pivotB, out int inliers, out double4x4 hessian) || inliers < minInliers)
 			{
 				Stop(RefinementLost);
 				return;
@@ -156,16 +171,23 @@ namespace Anaglyph.XR.SharedSpaces
 			return matches;
 		}
 
+		// how a point's depth doubt moves the direction to it, seen from a camera this far away along u
+		private static float3 Doubt(float3 axis, float3 u, float distance) => (axis - u * math.dot(u, axis)) / distance;
+		private static double3 Doubt(float3 axis, double3 u, double distance) => ((double3)axis - u * math.dot(u, axis)) / distance;
+
+		// a ray's squared error against the direction to its point, with the doubt projected out: e'Σ⁻¹e σ², Σ = σ²I + ww'
+		private static float Judged(float3 e, float3 w, float sigma2) => math.lengthsq(e) - math.square(math.dot(e, w)) / (sigma2 + math.lengthsq(w));
+		private static double Judged(double3 e, double3 w, double sigma2) => math.lengthsq(e) - math.square(math.dot(e, w)) / (sigma2 + math.lengthsq(w));
+
 		// B's rays against A's points decide: two matches propose where the camera was, at a yaw near tracking's
-		private bool Ransac(NativeArray<float3> targets, NativeArray<float3> rays,
+		private bool Ransac(NativeArray<float3> targets, NativeArray<float3> rays, NativeArray<float3> doubts,
 			out float bestYaw, out float3 bestA, out float3 bestB)
 		{
 			bestYaw = 0;
 			bestA = bestB = default;
 			int bestInliers = 0;
 			Random random = new(seed | 1);
-			float gate = math.cos(ScoreSigmas * angularSigma);
-			gate *= gate;
+			float sigma2 = angularSigma * angularSigma, gate = ScoreSigmas * ScoreSigmas * sigma2;
 			for (int iteration = 0; iteration < RansacIterations; iteration++)
 			{
 				int i = random.NextInt(targets.Length), j = random.NextInt(targets.Length);
@@ -179,8 +201,11 @@ namespace Anaglyph.XR.SharedSpaces
 				for (int k = 0; k < targets.Length; k++)
 				{
 					float3 to = targets[k] - center;
-					float along = math.dot(to, Turn(s, c, rays[k]));
-					if (along > 0 && along * along > gate * math.lengthsq(to)) inliers++;
+					float distance = math.length(to);
+					if (distance < 1e-6f) continue;
+					float3 u = to / distance, ray = Turn(s, c, rays[k]);
+					if (math.dot(u, ray) <= 0) continue;
+					if (Judged(u - ray, Doubt(doubts[k], u, distance), sigma2) < gate) inliers++;
 				}
 
 				if (inliers <= bestInliers) continue;
@@ -210,18 +235,24 @@ namespace Anaglyph.XR.SharedSpaces
 		}
 
 		// about a pivot in the middle of what agrees, so yaw and position hardly couple there
-		private bool Refine(NativeArray<float3> targets, NativeArray<float3> rays, NativeArray<int> matchA, ref float yaw, ref float3 pivotA, ref float3 pivotB,
-			out int inliers, out double4x4 hessian)
+		private bool Refine(NativeArray<float3> targets, NativeArray<float3> rays, NativeArray<float3> doubts, NativeArray<int> matchA,
+			ref float yaw, ref float3 pivotA, ref float3 pivotB, out int inliers, out double4x4 hessian)
 		{
 			inliers = 0;
 			hessian = default;
 			double y = yaw;
 			double3 a = pivotA, b = pivotB;
+			double sigma2 = (double)angularSigma * angularSigma;
+			bool gnc = gncSigmas > 0;
+			double bound = math.square(gncSigmas * angularSigma);
 			NativeArray<float> x = new(targets.Length, Allocator.Temp), h = new(targets.Length, Allocator.Temp), z = new(targets.Length, Allocator.Temp);
 			for (int iteration = 0; iteration < Refinements; iteration++)
 			{
+				// with GNC the fine gate stays as the membership bound; the Geman-McClure scale, convex at first, decides the pull
 				double gate = (iteration < RecenterAt ? CoarseSigmas : FineSigmas) * angularSigma;
 				gate *= gate;
+				double robust = robustSigmas > 0 && iteration >= RobustFrom ? math.square(robustSigmas * angularSigma) : 0;
+				double mu = gnc ? math.max(1, GncStart / math.pow(GncShrink, math.max(0, iteration - RecenterAt))) : 0;
 				math.sincos(y, out double s, out double c);
 				double3 turned = Turn(s, c, centerB - b);
 				double3 center = turned + a;
@@ -232,8 +263,11 @@ namespace Anaglyph.XR.SharedSpaces
 					int n = 0;
 					for (int k = 0; k < targets.Length; k++)
 					{
-						double3 u = math.normalize((double3)targets[k] - center);
-						if (math.lengthsq(u - Turn(s, c, (double3)rays[k])) >= gate) continue;
+						double3 to = (double3)targets[k] - center;
+						double distance = math.length(to);
+						if (distance < 1e-6) continue;
+						double3 u = to / distance;
+						if (Judged(u - Turn(s, c, (double3)rays[k]), Doubt(doubts[k], u, distance), sigma2) >= gate) continue;
 						x[n] = targets[k].x;
 						h[n] = targets[k].y;
 						z[n] = targets[k].z;
@@ -261,21 +295,27 @@ namespace Anaglyph.XR.SharedSpaces
 					double3 u = to / distance;
 					double3 ray = Turn(s, c, (double3)rays[k]);
 					double3 e = u - ray;
-					if (math.lengthsq(e) >= gate) continue;
+					double3 cov = Doubt(doubts[k], u, distance);
+					double shrink = 1 / (sigma2 + math.lengthsq(cov));
+					double error = math.lengthsq(e) - math.square(math.dot(e, cov)) * shrink;
+					if (error >= gate) continue;
 					if (inliersOfA.IsCreated) inliersOfA[inliers] = matchA[k];
 					inliers++;
 
 					// the ray's error: the direction to the point less the ray. A step of the center
-					// moves the direction across itself, by 1/distance
+					// moves the direction across itself, by 1/distance. Each term is weighed with the
+					// doubt's direction projected out, and by the robust weight
+					double w = gnc ? math.square(mu * bound / (error + mu * bound)) : robust > 0 ? math.square(robust / (robust + error)) : 1;
 					double3 dy = -Across(slopeCenter, u, distance) - Slope(ray);
 					double3 dx = -Across(new double3(1, 0, 0), u, distance), dh = -Across(new double3(0, 1, 0), u, distance), dz = -Across(new double3(0, 0, 1), u, distance);
-					tt.c0 += dx * dx.x + dh * dh.x + dz * dz.x;
-					tt.c1 += dx * dx.y + dh * dh.y + dz * dz.y;
-					tt.c2 += dx * dx.z + dh * dh.z + dz * dz.z;
-					ty += new double3(math.dot(dx, dy), math.dot(dh, dy), math.dot(dz, dy));
-					yy += math.dot(dy, dy);
-					gt += new double3(math.dot(dx, e), math.dot(dh, e), math.dot(dz, e));
-					gy += math.dot(dy, e);
+					double wx = math.dot(dx, cov), wh = math.dot(dh, cov), wz = math.dot(dz, cov), wy = math.dot(dy, cov), we = math.dot(e, cov);
+					tt.c0 += new double3(math.dot(dx, dx) - wx * wx * shrink, math.dot(dh, dx) - wh * wx * shrink, math.dot(dz, dx) - wz * wx * shrink) * w;
+					tt.c1 += new double3(math.dot(dx, dh) - wx * wh * shrink, math.dot(dh, dh) - wh * wh * shrink, math.dot(dz, dh) - wz * wh * shrink) * w;
+					tt.c2 += new double3(math.dot(dx, dz) - wx * wz * shrink, math.dot(dh, dz) - wh * wz * shrink, math.dot(dz, dz) - wz * wz * shrink) * w;
+					ty += new double3(math.dot(dx, dy) - wx * wy * shrink, math.dot(dh, dy) - wh * wy * shrink, math.dot(dz, dy) - wz * wy * shrink) * w;
+					yy += (math.dot(dy, dy) - wy * wy * shrink) * w;
+					gt += new double3(math.dot(dx, e) - wx * we * shrink, math.dot(dh, e) - wh * we * shrink, math.dot(dz, e) - wz * we * shrink) * w;
+					gy += (math.dot(dy, e) - wy * we * shrink) * w;
 				}
 
 				if (inliers < MinRefining) return false;

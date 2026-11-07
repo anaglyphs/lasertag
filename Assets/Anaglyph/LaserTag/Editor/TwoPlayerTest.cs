@@ -17,8 +17,10 @@ namespace Anaglyph.LaserTag.Editor
 	/// <summary>
 	/// Two players in XR Simulation: the main editor hosts, a ParrelSync clone of the project joins as
 	/// Player 2, and both walk tours of the room (<see cref="SimLoopTest"/>) with their tracking
-	/// drifting, for as long as asked. <see cref="Launch"/> does all of it from edit mode, in and
-	/// out of play mode, and closes Player 2 again. Being a full editor Player 2 has Burst, which
+	/// drifting, for as long as asked. Player 2 starts beside the host and stays near it until
+	/// it has found the host's frame, as players who know to look around the same places would.
+	/// <see cref="Launch"/> does all of it from edit mode, in and
+	/// out of play mode, and closes Player 2 again unless a queued run follows (<see cref="Queue(IEnumerable{RunSettings})"/>). Being a full editor Player 2 has Burst, which
 	/// Multiplayer Play Mode's virtual players never get.
 	///
 	/// Ground truth: each player's simulated room stands where its tracking really is in its world.
@@ -35,7 +37,7 @@ namespace Anaglyph.LaserTag.Editor
 	/// from either editor.
 	/// </summary>
 	[InitializeOnLoad]
-	public static class TwoPlayerTest
+	public static partial class TwoPlayerTest
 	{
 		private const string Menu = "Lasertag/Two Player Test/";
 		private const string RunningKey = "Anaglyph.TwoPlayerTest.Running";
@@ -45,24 +47,40 @@ namespace Anaglyph.LaserTag.Editor
 		// opening the clone can take most of that, and the clone must still see the run when it's up
 		private const float LaunchTimeout = 480f;
 		private const double MaxSampleGap = 1.2;
-		public const int MapNone = 0, MapBuild = 1, MapUse = 2;
+		public const int MapNone = 0, MapBuild = 1, MapUse = 2, MapGrow = 3;
 		private const string SavedMapProduct = "Lasertag";
+		// Player 2 aims this far around the host, and picks a new aim once the host is this far from the last one
+		private const float FollowRadius = 3f, FollowSlack = 4f;
+		private const float MetersBesideHostAtStart = 1f;
+		private const double FollowCheckSeconds = 1;
 
+		/// <summary>One run's settings, as <see cref="Launch(float, bool, int, int, float, float, int, float, float, float, bool, float)"/> describes them.</summary>
 		[Serializable]
-		private class Run
+		public class RunSettings
 		{
-			public string folder;
-			public double createdAt;
-			public float minutes;
-			public bool graph;
+			/// <summary>The XR Simulation environment: a prefab path, or part of one (<see cref="SimEnvironmentSetting.TryFind"/>). Empty keeps the current one.</summary>
+			public string environment = "";
+			public float minutes = 10;
+			public bool graph = true;
 			public int seed;
-			public int stops;
-			public float spacing;
+			public int stops = 6;
+			public float spacing = 6f;
 			public float speed;
-			public int map;
+			public int map = MapNone;
 			public bool record;
 			public float recenterAt;
 			public float misjoinDegrees;
+			public float misjoinUncheckedSeconds;
+			public float speedup;
+
+			public RunSettings Copy() => (RunSettings)MemberwiseClone();
+		}
+
+		[Serializable]
+		private class Run : RunSettings
+		{
+			public string folder;
+			public double createdAt;
 		}
 
 		[Serializable]
@@ -101,10 +119,20 @@ namespace Anaglyph.LaserTag.Editor
 		private static double nextSample, nextWalk, nextGraphDump;
 		private static float endsAt;
 		private static ViewRecorder recorder;
-		private static bool waitingForPlayer;
-		private static double launchedAt;
+		// kept through script reloads, which can come while Player 2 opens
+		private const string WaitingKey = "Anaglyph.TwoPlayerTest.WaitingForPlayer", LaunchedAtKey = "Anaglyph.TwoPlayerTest.LaunchedAt", CloneOpenedKey = "Anaglyph.TwoPlayerTest.CloneOpened";
+		private static bool WaitingForPlayer
+		{
+			get => SessionState.GetBool(WaitingKey, false);
+			set => SessionState.SetBool(WaitingKey, value);
+		}
+
+		private static double nextCloneCheck;
 		private static float recenterDue;
-		private static bool cloneRefreshed, cloneEntered;
+		private const string ClonePlayedKey = "Anaglyph.TwoPlayerTest.ClonePlayed";
+		private static string refreshedFor;
+		private static SimWalker followWalker;
+		private static Vector3 followedPlace;
 
 		static TwoPlayerTest()
 		{
@@ -125,12 +153,13 @@ namespace Anaglyph.LaserTag.Editor
 		[MenuItem(Menu + "Stop")]
 		private static void StopMenu()
 		{
+			EndQueue("stopped");
 			if (Application.isPlaying) EditorApplication.isPlaying = false;
 			else Finish();
 		}
 
 		[MenuItem(Menu + "Stop", true)]
-		private static bool CanStop() => IsRunning;
+		private static bool CanStop() => IsRunning || IsQueueActive;
 
 		private static void Report(string problem)
 		{
@@ -147,10 +176,18 @@ namespace Anaglyph.LaserTag.Editor
 		/// <param name="graph">Off for a baseline: no pairs matched, nothing solved.</param>
 		/// <param name="speed">Meters a second both players keep up, 0 for a sprint of 3. The headset captures walked 1 to 1.3 on average.</param>
 		/// <param name="seed">Non-zero: the drift, the start poses and the walkers follow it, so runs compare.</param>
-		/// <param name="map">What becomes of the saved map, each of them the space's only copy: <see cref="MapNone"/> neither reads nor writes it, <see cref="MapBuild"/> starts empty and saves over it, <see cref="MapUse"/> starts from it and leaves it as it was.</param>
+		/// <param name="map">What becomes of the saved map, each of them the space's only copy: <see cref="MapNone"/> neither reads nor writes it, <see cref="MapBuild"/> starts empty and saves over it, <see cref="MapUse"/> starts from it and leaves it as it was, <see cref="MapGrow"/> starts from it and saves over it.</param>
 		/// <param name="recenterAt">Above 0: seconds in, the host's tracking is recentered, and a minute later Player 2's, which each has to come back from.</param>
 		/// <param name="misjoinDegrees">Not 0: Player 2's first alignment is turned by this much, which it has to notice and come back from.</param>
-		public static string Launch(float minutes, bool graph = true, int seed = 0, int stops = 6, float spacing = 6f, float speed = 0f, int map = MapNone, float recenterAt = 0, float misjoinDegrees = 0, bool record = false)
+		/// <param name="misjoinUncheckedSeconds">Seconds that first alignment goes unchecked: past the watch's hold, what it shares has to be taken back from the host.</param>
+		/// <param name="speedup">Above 0: both players cover their walk this many times faster, snapping between samples (<see cref="SimSpeedup"/>). The run still lasts <paramref name="minutes"/> of real time.</param>
+		public static string Launch(float minutes, bool graph = true, int seed = 0, int stops = 6, float spacing = 6f, float speed = 0f, int map = MapNone, float recenterAt = 0, float misjoinDegrees = 0, float misjoinUncheckedSeconds = 0, bool record = false, float speedup = 0) =>
+			Launch(new RunSettings { minutes = minutes, graph = graph, seed = seed, stops = stops, spacing = spacing, speed = speed, map = map, recenterAt = recenterAt, misjoinDegrees = misjoinDegrees, misjoinUncheckedSeconds = misjoinUncheckedSeconds, record = record, speedup = speedup });
+
+		/// <summary>Runs two players as <paramref name="settings"/> say, in their environment when one is named.</summary>
+		public static string Launch(RunSettings settings) => IsQueueActive ? "a queue is under way: stop it first" : Start(settings);
+
+		private static string Start(RunSettings settings)
 		{
 			if (!SimPlayer.IsMainEditor) return "run this from the main editor, not a clone or a virtual player";
 			if (Application.isPlaying) return "leave play mode first";
@@ -158,13 +195,18 @@ namespace Anaglyph.LaserTag.Editor
 			if (IsRunning) return "a run is already under way";
 			string clone = ClonesManager.GetCloneProjectsPath().FirstOrDefault();
 			if (clone == null) return "no ParrelSync clone of this project: make one in ParrelSync > Clones Manager";
+			if (!string.IsNullOrEmpty(settings.environment))
+			{
+				if (!SimEnvironmentSetting.TryFind(settings.environment, out string environment, out string notFound)) return notFound;
+				string notSet = SimEnvironmentSetting.Set(environment);
+				if (notSet != null) return notSet;
+			}
 
 			ReimportSettings();
-			run = new Run
-			{
-				folder = Path.Combine(LogRoot, DateTime.Now.ToString("yyyyMMdd-HHmmss")),
-				createdAt = Now, minutes = minutes, graph = graph, seed = seed, stops = stops, spacing = spacing, speed = speed, map = map, recenterAt = recenterAt, record = record, misjoinDegrees = misjoinDegrees,
-			};
+			run = JsonUtility.FromJson<Run>(JsonUtility.ToJson(settings));
+			run.environment = SimEnvironmentSetting.Current;
+			run.folder = Path.Combine(LogRoot, DateTime.Now.ToString("yyyyMMdd-HHmmss"));
+			run.createdAt = Now;
 			Directory.CreateDirectory(run.folder);
 			File.WriteAllText(RunPath, JsonUtility.ToJson(run));
 			File.Delete(LatestPath);
@@ -176,19 +218,38 @@ namespace Anaglyph.LaserTag.Editor
 			PlayModeTrackingDrift.Setting.Value = true;
 			SessionState.SetBool(RunningKey, true);
 
+			SessionState.EraseBool(CloneOpenedKey);
+			string notOpened = OpenCloneIfClosed();
+			if (notOpened != null)
+			{
+				Finish();
+				return notOpened;
+			}
+
+			WaitingForPlayer = true;
+			SessionState.SetFloat(LaunchedAtKey, (float)EditorApplication.timeSinceStartup);
+			return null;
+		}
+
+		// once per run: a starting clone reads as closed until it writes its lockfile, and a clone still
+		// closing from the last run reads as open, so this is asked again while waiting until it opens one
+		private static string OpenCloneIfClosed()
+		{
+			if (SessionState.GetBool(CloneOpenedKey, false)) return null;
+			string clone = ClonesManager.GetCloneProjectsPath().FirstOrDefault();
 			try
 			{
-				if (!ClonesManager.IsCloneProjectRunning(clone)) ClonesManager.OpenProject(clone);
+				if (clone != null && !ClonesManager.IsCloneProjectRunning(clone))
+				{
+					SessionState.SetBool(CloneOpenedKey, true);
+					ClonesManager.OpenProject(clone);
+				}
+				return null;
 			}
 			catch (Exception e)
 			{
-				Finish();
 				return $"can't open the clone: {e.Message}";
 			}
-
-			waitingForPlayer = true;
-			launchedAt = EditorApplication.timeSinceStartup;
-			return null;
 		}
 
 		/// <summary>The summary of the last run to finish, from either editor; empty while one is under way.</summary>
@@ -203,6 +264,8 @@ namespace Anaglyph.LaserTag.Editor
 		private static string LatestPath => Path.Combine(LogRoot, "latest.txt");
 		// the clone leaves this in the run's folder as it enters play
 		private static string CloneReadyPath(Run forRun) => Path.Combine(forRun.folder, "clone-ready");
+		// the host's head in room coordinates, which mean the same place to both players
+		private static string HostPlacePath(Run forRun) => Path.Combine(forRun.folder, "host-place.json");
 		private static double Now => (DateTime.UtcNow - DateTime.UnixEpoch).TotalSeconds;
 
 		private static Run ReadRun()
@@ -268,15 +331,16 @@ namespace Anaglyph.LaserTag.Editor
 		{
 			int map = coming?.map ?? MapNone;
 			bool host = SimPlayer.IsMainEditor;
-			Maps.VisualMapPersistence.SkipLoadForTests = coming != null && !(host && map == MapUse);
-			Maps.VisualMapPersistence.SkipSaveForTests = coming != null && !(host && map == MapBuild);
+			Maps.VisualMapPersistence.SkipLoadForTests = coming != null && !(host && (map == MapUse || map == MapGrow));
+			Maps.VisualMapPersistence.SkipSaveForTests = coming != null && !(host && (map == MapBuild || map == MapGrow));
 			Maps.SpaceStore.DirectoryForTests = coming != null ? SavedMapDirectory : null;
+			SimEnvironmentRigFollower.JoinerStartOffset = coming != null ? Vector3.right * MetersBesideHostAtStart : null;
 		}
 
 		// the host's summary, the settings as they were. The run gone is what closes Player 2
 		private static void Finish()
 		{
-			waitingForPlayer = false;
+			WaitingForPlayer = false;
 			SessionState.SetBool(RunningKey, false);
 			Run ended = run ?? ReadRun();
 			if (ended != null)
@@ -285,6 +349,7 @@ namespace Anaglyph.LaserTag.Editor
 				File.WriteAllText(Path.Combine(ended.folder, "summary.txt"), summary);
 				File.WriteAllText(LatestPath, summary);
 				Debug.Log($"[{nameof(TwoPlayerTest)}] {summary}");
+				NoteQueuedRun(ended, summary);
 			}
 
 			if (File.Exists(RunPath)) File.Delete(RunPath);
@@ -300,15 +365,31 @@ namespace Anaglyph.LaserTag.Editor
 		private static void Tick()
 		{
 			if (ClonesManager.IsClone()) TickClone();
+			else if (SimPlayer.IsMainEditor) TickQueue();
 
-			if (waitingForPlayer)
+			if (WaitingForPlayer)
 			{
+				run ??= ReadRun();
+				if (EditorApplication.timeSinceStartup >= nextCloneCheck)
+				{
+					nextCloneCheck = EditorApplication.timeSinceStartup + 5;
+					Report(OpenCloneIfClosed());
+				}
+
 				if (run != null && File.Exists(CloneReadyPath(run)))
 				{
-					waitingForPlayer = false;
+					WaitingForPlayer = false;
+					string cloneEnvironment = File.ReadAllText(CloneReadyPath(run));
+					if (cloneEnvironment != run.environment)
+					{
+						Report($"Player 2 opened {cloneEnvironment}, not {run.environment}: run abandoned");
+						Finish();
+						return;
+					}
+
 					EditorApplication.isPlaying = true;
 				}
-				else if (EditorApplication.timeSinceStartup - launchedAt > LaunchTimeout)
+				else if (run == null || EditorApplication.timeSinceStartup - SessionState.GetFloat(LaunchedAtKey, 0) > LaunchTimeout)
 				{
 					Report("Player 2 never launched: is the clone stuck on a dialog, or is a stale Temp/UnityLockfile left in it?");
 					Finish();
@@ -350,50 +431,100 @@ namespace Anaglyph.LaserTag.Editor
 			// a tour ends, and the next one starts: nobody stops playing either
 			if (time >= nextWalk)
 			{
-				nextWalk = time + 5;
+				nextWalk = time + 5 / Mathf.Max(run.speedup, 1);
 				VisualColocationConstraintProvider provider = VisualColocationConstraintProvider.Instance;
-				// a joiner walks before it has found the host's frame, as a player would
-				if (provider != null && VisualLocalizer.Instance != null && VisualLocalizer.Instance.Map.Count + (SimPlayer.IsMainEditor ? 0 : 1) > 0 && !SimLoopTest.Current && SimWalker.FindRoom() != null)
+				if (provider != null && VisualLocalizer.Instance != null && SimWalker.FindRoom() != null)
 				{
 					SimLoopTest.PlayerSpeed = run.speed;
-					SimLoopTest.Run(run.stops, run.spacing);
+					SimLoopTest.Speedup = run.speedup;
+					if (!SimPlayer.IsMainEditor && !HasFoundHost(provider))
+					{
+						nextWalk = time + FollowCheckSeconds;
+						FollowHost();
+					}
+					else if (followWalker)
+					{
+						// the next tour needs a walker that isn't on its way out
+						nextWalk = time + FollowCheckSeconds;
+						UnityEngine.Object.Destroy(followWalker.gameObject);
+						followWalker = null;
+					}
+					else if (!SimLoopTest.Current && (VisualLocalizer.Instance.Map.Count > 0 || !SimPlayer.IsMainEditor))
+					{
+						string noTour = SimLoopTest.Run(run.stops, run.spacing);
+						if (noTour != null) Debug.LogWarning($"{nameof(TwoPlayerTest)}: no tour yet, {noTour}");
+					}
 				}
 			}
 
 			if (SimPlayer.IsMainEditor && Time.realtimeSinceStartup >= endsAt) EditorApplication.isPlaying = false;
 		}
 
+		// a joiner counts itself the authority, and so aligned, until the session comes up
+		private static bool HasFoundHost(VisualColocationConstraintProvider provider) =>
+			provider.Alignment.CurrentPhase == CanonAlignment.Phase.Aligned && !SyncBus.IsAuthority;
+
+		private static void FollowHost()
+		{
+			// the tour's walker goes with it at the end of this frame
+			if (SimLoopTest.Current)
+			{
+				SimLoopTest.StopCurrent();
+				return;
+			}
+
+			if (!followWalker)
+			{
+				followWalker = SimLoopTest.AddWalker(new GameObject("Following the Host"));
+				followedPlace = new Vector3(float.PositiveInfinity, 0, 0);
+			}
+
+			string json = File.Exists(HostPlacePath(run)) ? File.ReadAllText(HostPlacePath(run)) : "";
+			if (json.Length == 0) return;
+			Vector3 hostPlace = JsonUtility.FromJson<Vector3>(json);
+
+			Transform room = SimWalker.FindRoom();
+			Vector3 hostWorld = room.TransformPoint(hostPlace);
+			if (followWalker.IsMoving && Vector3.Distance(hostWorld, room.TransformPoint(followedPlace)) < FollowSlack) return;
+			followedPlace = hostPlace;
+			Vector2 aside = UnityEngine.Random.insideUnitCircle * FollowRadius;
+			followWalker.GoTo(hostWorld + new Vector3(aside.x, -followWalker.eyeHeight, aside.y));
+		}
+
 		// a prefab that never saved a setting holds the default from its last import, not the code's
 		private static void ReimportSettings() => AssetDatabase.ImportAsset("Assets/Anaglyph/LaserTag/MapManager.prefab", ImportAssetOptions.ForceUpdate);
 
+		// Player 2 plays each run once, and closes when no run follows
 		private static void TickClone()
 		{
 			if (EditorApplication.isCompiling || EditorApplication.isUpdating) return;
 			Run current = ReadRun();
-			if (!cloneEntered)
+			string played = SessionState.GetString(ClonePlayedKey, "");
+			if (Application.isPlaying)
 			{
-				if (current == null || Application.isPlaying) return;
-				// the clone shares Assets, and may have been open since before they changed. A reload here starts this over
-				if (!cloneRefreshed)
+				if (played.Length > 0 && current?.folder != played) EditorApplication.isPlaying = false;
+				return;
+			}
+
+			if (current != null && current.folder != played)
+			{
+				// the clone shares Assets, which may have changed since it last looked, its environment with them. A reload here starts this over
+				if (refreshedFor != current.folder)
 				{
-					cloneRefreshed = true;
+					refreshedFor = current.folder;
 					ReimportSettings();
 					AssetDatabase.Refresh();
 					return;
 				}
 
-				cloneEntered = true;
+				SessionState.SetString(ClonePlayedKey, current.folder);
 				PlayModeAutoConnect.Setting.Value = true;
 				PlayModeXRSimulation.Setting.Value = true;
 				PlayModeTrackingDrift.Setting.Value = true;
-				File.WriteAllText(CloneReadyPath(current), "");
+				File.WriteAllText(CloneReadyPath(current), SimEnvironmentSetting.Current);
 				EditorApplication.isPlaying = true;
 			}
-			else if (current == null)
-			{
-				FinishRecording();
-				EditorApplication.Exit(0);
-			}
+			else if (current == null && played.Length > 0 && !QueueExpectsAnotherRun) EditorApplication.Exit(0);
 		}
 
 		private static bool Configure()
@@ -404,7 +535,11 @@ namespace Anaglyph.LaserTag.Editor
 			SerializedObject providerFields = new(provider);
 			providerFields.FindProperty("graphSettings.enabled").boolValue = run.graph;
 			providerFields.ApplyModifiedPropertiesWithoutUndo();
-			if (!SimPlayer.IsMainEditor) provider.MisalignNextAlignmentForTests = run.misjoinDegrees;
+			if (!SimPlayer.IsMainEditor)
+			{
+				provider.MisalignNextAlignmentForTests = run.misjoinDegrees;
+				provider.HoldNextCheckForTests = run.misjoinUncheckedSeconds;
+			}
 			return true;
 		}
 
@@ -476,6 +611,7 @@ namespace Anaglyph.LaserTag.Editor
 					s.crossLinks++;
 
 			File.AppendAllText(logPath, JsonUtility.ToJson(s) + "\n");
+			if (SimPlayer.IsMainEditor) File.WriteAllText(HostPlacePath(run), JsonUtility.ToJson(room.InverseTransformPoint(s.head)));
 		}
 
 		// ---- the summary ---------------------------------------------------------
@@ -552,7 +688,7 @@ namespace Anaglyph.LaserTag.Editor
 		{
 			List<Sample> host = ReadSamples(Path.Combine(ended.folder, "host.jsonl"));
 			List<Sample> player = ReadSamples(Path.Combine(ended.folder, "player2.jsonl"));
-			StringBuilder text = new($"two players, {ended.minutes:F1} min, graph {(ended.graph ? "on" : "off")}{(ended.seed != 0 ? $", seed {ended.seed}" : "")}{(ended.speed > 0 ? $", {ended.speed:F1} m/s" : "")}{(ended.map == MapUse ? ", from a saved map" : "")}: ");
+			StringBuilder text = new($"two players, {ended.minutes:F1} min, graph {(ended.graph ? "on" : "off")}{(ended.seed != 0 ? $", seed {ended.seed}" : "")}{(ended.speed > 0 ? $", {ended.speed:F1} m/s" : "")}{(ended.map == MapUse ? ", from a saved map" : ended.map == MapGrow ? ", growing the saved map" : "")}: ");
 			if (host.Count == 0 || player.Count == 0) return text.Append($"no comparison: {host.Count} host samples, {player.Count} from Player 2").ToString();
 
 			List<(double time, float offset, float yaw, float apart)> pairs = new();

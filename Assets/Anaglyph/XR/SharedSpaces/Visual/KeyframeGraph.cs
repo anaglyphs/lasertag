@@ -43,6 +43,11 @@ namespace Anaglyph.XR.SharedSpaces
 	/// on (<see cref="LinkNextTrack"/>): no walk is ever left in a piece of its own. Offline, this
 	/// headset is the authority.
 	///
+	/// Raw tracking of two passes, or of two headsets, can lie metres apart in height and a degree
+	/// or two in yaw after a few hundred metres, so a pair is searched around where the solved
+	/// graph puts the newer view's tracking relative to the older pass's, not around the two raw
+	/// frames agreeing (<see cref="PriorToOlder"/>).
+	///
 	/// All of it runs at a walking pace on one worker: one new view against one pass at a time, a few a
 	/// second, and one Gauss-Newton step a frame every few seconds, none of it while nothing new
 	/// has come.
@@ -77,6 +82,10 @@ namespace Anaglyph.XR.SharedSpaces
 			public float pairMinWalk = 10f;
 			public int minInliers = 20;
 			public float maxYawSigmaDegrees = 1f;
+			[Tooltip("In an edge's last refinements a ray's pull falls off past this many pixel sigmas of error (Geman-McClure), so near misses among the inliers stop steering it; 0 weighs every inlier alike")]
+			public float edgeRobustSigmas = 1.5f;
+			[Tooltip("Each ray's residual carries its landmark's range sigma as covariance and is weighed by a Geman-McClure kernel graduated from convex down to this inlier bound in sigmas (GNC); 0 keeps the hard gates. Replay 2026-11-06: 3 beat 0 on four of five recordings, 19.1 to 18.3 cm")]
+			public float edgeGncSigmas = 3f;
 			[Tooltip("Lowest inverse depth a landmark can have and count as ranged, 1/m")]
 			public float minInverseDepth = 0.005f;
 			[Tooltip("Largest share of its inverse depth a landmark's sigma can be and count as ranged")]
@@ -85,24 +94,26 @@ namespace Anaglyph.XR.SharedSpaces
 			public float pixelSigma = 1.5f;
 
 			[Header("Solving")]
-			[Tooltip("Seconds between solves, at least")]
-			public float solveInterval = 2f;
+			[Tooltip("Seconds between solves, at least: the newest view's edges reach the rig this soon (replay 2026-11-05: 0.5 s beat 2 s on every recording)")]
+			public float solveInterval = 0.5f;
+			[Tooltip("Seconds between solves, at least, per second the last solve took: it keeps a long session's growing solve to this share of a worker")]
+			public float solveCostMultiple = 10f;
 			[Tooltip("Edges to wait for before solving again")]
-			public int minNewEdges = 2;
+			public int minNewEdges = 1;
 			[Tooltip("Knots the solve holds apart at most: past this the older half is solved in groups. A step's cost grows with the cube of this")]
 			public int maxSolveKnots = 500;
 			[Tooltip("Gauss-Newton steps a solve takes at most, one a frame")]
 			public int iterations = 3;
-			[Tooltip("How far an edge is from the truth, meters, across its inliers: along its line of sight, where landmark depth errors land")]
-			public float edgeAlongSpread = 5.5f;
-			[Tooltip("Likewise across its line of sight")]
-			public float edgeAcrossSpread = 2.8f;
+			[Tooltip("How far an edge is from the truth along its line of sight, as a share of how far away its matched points are, times its inliers: landmark depth errors land here")]
+			public float edgeAlongSpread = 0.55f;
+			[Tooltip("How far an edge is from the truth across its line of sight, as a share of how far away its matched points are, times the square root of its inliers")]
+			public float edgeAcrossSpread = 0.055f;
 			[Tooltip("Likewise in height")]
-			public float edgeHeightSpread = 1.8f;
+			public float edgeHeightSpread = 0.04f;
 			[Tooltip("The least an edge can be off along any axis however many inliers it has, meters: the error all of a view's landmarks share")]
 			public float edgeSigmaFloor = 0.02f;
 			[Tooltip("How far an edge's yaw is off, degrees, across the square root of its inliers")]
-			public float edgeYawSpread = 10f;
+			public float edgeYawSpread = 20f;
 			[Tooltip("The least an edge's yaw can be off, degrees")]
 			public float edgeYawFloorDegrees = 0.3f;
 			[Tooltip("How far a tie made other than by a pair of views is off, meters")]
@@ -112,9 +123,11 @@ namespace Anaglyph.XR.SharedSpaces
 			[Tooltip("Likewise in yaw, degrees")]
 			public float edgeYawSigmaDegrees = 1.5f;
 			[Tooltip("How fast the solve lets tracking wander between knots, meters per √meter along each axis: what long walks measured on device")]
-			public float driftRate = 0.018f;
+			public float driftRate = 0.012f;
+			[Tooltip("Likewise in yaw, degrees per √meter")]
+			public float driftYawRateDegrees = 0.05f;
 			[Tooltip("Sigmas past which an edge's pull stops growing")]
-			public float huber = 1f;
+			public float huber = 0.5f;
 			public int maxEdges = 8192;
 			[Tooltip("How well a solve is taken to place this headset's tracking, meters: as a constraint beside the sites")]
 			public float tipSigma = 0.05f;
@@ -134,7 +147,8 @@ namespace Anaglyph.XR.SharedSpaces
 		private sealed class OlderView
 		{
 			public int[] features, landmarks;
-			public float3[] points;
+			public float3[] points, doubts;
+			public int depthRevision;
 		}
 
 		// the views of one earlier pass of the new view's place, pooled in one solve
@@ -175,6 +189,7 @@ namespace Anaglyph.XR.SharedSpaces
 		private Fix waitingFix;
 		private bool hasWaitingFix;
 		private bool ownEdgesSolved;
+		private readonly HashSet<uint> forgottenOwners = new();
 		// the alignment the next track starts from, to tie it to the graph with
 		private ulong linkKey;
 		private KeyframeEdge linkEdge;
@@ -198,7 +213,9 @@ namespace Anaglyph.XR.SharedSpaces
 
 		// one pass at a time: the newer view's side stays for all of its passes
 		private NativeArray<half> descriptorsA, descriptorsB;
-		private NativeArray<float3> pointsA, raysB;
+		private NativeArray<float3> pointsA, raysB, raysBToOlder, depthAxisA;
+		// B's raw frame as the graph puts it in the scheduled pass's raw frame
+		private Pose4 priorToOlder;
 		private NativeArray<KeyframeEdge> edgeResult = new(1, Allocator.Persistent);
 		private NativeArray<int> inliersOfA;
 		// per row of A
@@ -262,6 +279,8 @@ namespace Anaglyph.XR.SharedSpaces
 			descriptorsB = new NativeArray<half>(rows * d, Allocator.Persistent);
 			pointsA = new NativeArray<float3>(rows, Allocator.Persistent);
 			raysB = new NativeArray<float3>(rows, Allocator.Persistent);
+			raysBToOlder = new NativeArray<float3>(rows, Allocator.Persistent);
+			depthAxisA = new NativeArray<float3>(rows, Allocator.Persistent);
 			inliersOfA = new NativeArray<int>(rows, Allocator.Persistent);
 		}
 
@@ -276,6 +295,8 @@ namespace Anaglyph.XR.SharedSpaces
 			descriptorsB.Dispose();
 			pointsA.Dispose();
 			raysB.Dispose();
+			raysBToOlder.Dispose();
+			depthAxisA.Dispose();
 			inliersOfA.Dispose();
 			edgeResult.Dispose();
 			largestStep.Dispose();
@@ -325,6 +346,42 @@ namespace Anaglyph.XR.SharedSpaces
 			ClearPasses();
 			edgesSinceSolve = 0;
 			track.ForgetKnots();
+		}
+
+		/// <summary>Whether a headset's knots and edges have been taken back: anything still on its way from it is ignored.</summary>
+		public bool IsForgotten(uint owner) => forgottenOwners.Contains(owner);
+
+		/// <summary>
+		/// A headset's alignment turned out wrong: every edge touching its knots goes, and the graph
+		/// solves again without them. The knots stay behind, fixed and tied to nothing, since
+		/// everything holds knots by index; they aren't sent to anyone again.
+		/// </summary>
+		public void Forget(uint owner)
+		{
+			if (owner == Owner || !forgottenOwners.Add(owner)) return;
+			solveHandle.Complete();
+			if (solving) DisposeSolve();
+			solving = false;
+
+			bool ByForgotten(ulong key) => KnotKeys.Owner(key) == owner;
+			for (int k = 0; k < knots.Length; k++)
+			{
+				if (!ByForgotten(keys[k])) continue;
+				KeyframeGraphKnot knot = knots[k];
+				knot.isFixed = true;
+				knots[k] = knot;
+			}
+
+			for (int e = edges.Length - 1; e >= 0; e--)
+				if (ByForgotten(keys[edges[e].knotA]) || ByForgotten(keys[edges[e].knotB]))
+					edges.RemoveAtSwapBack(e);
+
+			waitingEdges.RemoveAll(e => ByForgotten(e.keyA) || ByForgotten(e.keyB));
+			edgesToSend.RemoveAll(e => ByForgotten(e.keyA) || ByForgotten(e.keyB));
+			knotsToSend.RemoveAll(k => ByForgotten(k.key));
+			fixes.Clear();
+			hasWaitingFix = false;
+			edgesSinceSolve += math.max(settings.minNewEdges, 1);
 		}
 
 		/// <summary>A new keyframe: matched against older views, the newest first.</summary>
@@ -469,7 +526,7 @@ namespace Anaglyph.XR.SharedSpaces
 		/// <summary>A knot walked elsewhere, or earlier: come from the authority, a headset, or a saved map.</summary>
 		public void AddOtherKnot(in KnotMessage knot)
 		{
-			if (knotByKey.ContainsKey(knot.key)) return;
+			if (knotByKey.ContainsKey(knot.key) || IsForgotten(KnotKeys.Owner(knot.key))) return;
 			int previous = knot.previous != 0 && knotByKey.TryGetValue(knot.previous, out int found) ? found : -1;
 			AddKnot(knot.key, knot.origin, knot.path, previous, knot.transform, knot.isFixed != 0);
 			track.SetOtherWorld(KnotKeys.Node(knot.key), new Pose4(knot.transform.xyz, knot.transform.w));
@@ -512,6 +569,8 @@ namespace Anaglyph.XR.SharedSpaces
 
 		private bool TryAddSolvable(ulong a, ulong b, in KeyframeEdge edge)
 		{
+			// nothing to wait for
+			if (IsForgotten(KnotKeys.Owner(a)) || IsForgotten(KnotKeys.Owner(b))) return true;
 			if (!knotByKey.TryGetValue(a, out int indexA) || !knotByKey.TryGetValue(b, out int indexB)) return false;
 			KeyframeEdge e = edge;
 			e.knotA = indexA;
@@ -538,18 +597,23 @@ namespace Anaglyph.XR.SharedSpaces
 		{
 			int knotSize = SyncBytes.Size<KnotMessage>(), edgeSize = SyncBytes.Size<EdgeMessage>();
 			int offset = sizeof(uint) + 2 * sizeof(int);
-			byte[] bytes = new byte[offset + knots.Length * knotSize + edges.Length * edgeSize];
+			int knotsHeld = 0;
+			for (int k = 0; k < knots.Length; k++)
+				if (!IsForgotten(KnotKeys.Owner(keys[k]))) knotsHeld++;
+			byte[] bytes = new byte[offset + knotsHeld * knotSize + edges.Length * edgeSize];
 			SyncBytes.Write(bytes, 0, WholeMagic);
-			SyncBytes.Write(bytes, sizeof(uint), knots.Length);
+			SyncBytes.Write(bytes, sizeof(uint), knotsHeld);
 			SyncBytes.Write(bytes, sizeof(uint) + sizeof(int), edges.Length);
-			for (int k = 0; k < knots.Length; k++, offset += knotSize)
+			for (int k = 0; k < knots.Length; k++)
 			{
+				if (IsForgotten(KnotKeys.Owner(keys[k]))) continue;
 				KeyframeGraphKnot knot = knots[k];
 				SyncBytes.Write(bytes, offset, new KnotMessage
 				{
 					key = keys[k], previous = knot.previous >= 0 ? keys[knot.previous] : 0,
 					origin = knot.origin, path = knot.path, transform = (float4)state[k], isFixed = knot.isFixed ? 1 : 0,
 				});
+				offset += knotSize;
 			}
 
 			for (int e = 0; e < edges.Length; e++, offset += edgeSize)
@@ -854,6 +918,9 @@ namespace Anaglyph.XR.SharedSpaces
 				KeyframeEdge edge = edgeResult[0];
 				if (edge.inliers > 0)
 				{
+					// measured around the prior: back into B's raw frame, as edges are kept
+					edge.pointB = priorToOlder.ApplyInverse(edge.pointB);
+					edge.yaw = Pose4.WrapAngle(edge.yaw + priorToOlder.yaw);
 					keyA = MostMatchedKey(edge.inliers);
 					AddEdge(keyA, keyB, edge);
 					if (edge.inliers >= settings.confidentInliers && KnotKeys.Owner(keyB) == Owner) OfferFix(keyA, edge, pathB);
@@ -983,11 +1050,13 @@ namespace Anaglyph.XR.SharedSpaces
 			float3[] points = LoadOlder(older).points;
 			PinholeCamera camera = newer.intrinsics;
 			float width = 2 * camera.cx, height = 2 * camera.cy;
-			quaternion toCamera = math.conjugate(rotationB);
+			Pose4 toOlder = PriorToOlder(older.node);
+			float3 center = toOlder.Apply(centerB);
+			quaternion toCamera = math.conjugate(math.mul(toOlder.Rotation, rotationB));
 			int count = 0;
 			for (int i = 0; i < points.Length; i++)
 			{
-				float3 p = math.mul(toCamera, points[i] - centerB);
+				float3 p = math.mul(toCamera, points[i] - center);
 				if (p.z < 0.1f) continue;
 				float x = camera.fx * p.x / p.z + camera.cx, y = camera.fy * p.y / p.z + camera.cy;
 				if (x >= 0 && y >= 0 && x < width && y < height) count++;
@@ -1000,6 +1069,28 @@ namespace Anaglyph.XR.SharedSpaces
 
 		public static bool IsRanged(Settings settings, float inverseDepth, float inverseDepthSigma) =>
 			inverseDepth >= settings.minInverseDepth && inverseDepthSigma < settings.maxDepthSigmaShare * inverseDepth;
+
+		// where the graph puts the newer view's raw frame in an older view's: both knots' transforms to
+		// the map, as solved so far. Identity until a solve has placed them, which is raw frames agreeing
+		private Pose4 PriorToOlder(ulong olderNode)
+		{
+			if (!TryKey(olderNode, out ulong keyA) || !knotByKey.TryGetValue(keyA, out int knotA) || !knotByKey.TryGetValue(keyB, out int knotB)) return Pose4.Identity;
+			return Pose4.Between(Pose4.FromPacked((float4)state[knotA]), Pose4.FromPacked((float4)state[knotB]));
+		}
+
+		/// <summary>How far a landmark may really lie along the ray that ranged it, metres: its fit's sigma, at most its depth.</summary>
+		public static float DepthDoubt(float inverseDepth, float inverseDepthSigma)
+		{
+			float depth = 1 / inverseDepth;
+			return float.IsFinite(inverseDepthSigma) ? math.min(inverseDepthSigma * depth * depth, depth) : depth;
+		}
+
+		// a landmark's range doubt along its ray in raw tracking, for KeyframeEdgeJob.depthAxisA
+		private float3 RawDoubt(Landmark l)
+		{
+			float3 direction = Pose4.RotateY(math.mul(l.reference.rotation, l.bearing), -track.CorrectionOf(l.node).yaw);
+			return direction * DepthDoubt(l.inverseDepth, l.inverseDepthSigma);
+		}
 
 		// a landmark where the tracking that made it placed it: no graph in it
 		public float3 RawPoint(Landmark l)
@@ -1029,9 +1120,9 @@ namespace Anaglyph.XR.SharedSpaces
 
 		private OlderView LoadOlder(VisualKeyframe keyframe)
 		{
-			if (olderViews.TryGetValue(keyframe, out OlderView view)) return view;
+			if (olderViews.TryGetValue(keyframe, out OlderView view) && view.depthRevision == localizer.Map.DepthRevision) return view;
 			List<int> features = new(), landmarks = new();
-			List<float3> points = new();
+			List<float3> points = new(), doubts = new();
 			VisualMap map = localizer.Map;
 			for (int j = 0; j < keyframe.features.Count && features.Count < pointsA.Length; j++)
 			{
@@ -1039,9 +1130,10 @@ namespace Anaglyph.XR.SharedSpaces
 				features.Add(j);
 				landmarks.Add(keyframe.landmarks[j]);
 				points.Add(RawPoint(l));
+				doubts.Add(RawDoubt(l));
 			}
 
-			view = new OlderView { features = features.ToArray(), landmarks = landmarks.ToArray(), points = points.ToArray() };
+			view = new OlderView { features = features.ToArray(), landmarks = landmarks.ToArray(), points = points.ToArray(), doubts = doubts.ToArray(), depthRevision = map.DepthRevision };
 			olderViews[keyframe] = view;
 			return view;
 		}
@@ -1060,6 +1152,7 @@ namespace Anaglyph.XR.SharedSpaces
 					if (!pooledLandmarks.Add(view.landmarks[i])) continue;
 					NativeArray<half>.Copy(keyframe.features.descriptors, view.features[i] * d, descriptorsA, rows * d, d);
 					pointsA[rows] = view.points[i];
+					depthAxisA[rows] = view.doubts[i];
 					landmarkOfRow[rows] = view.landmarks[i];
 					keyOfRow[rows] = key;
 					rows++;
@@ -1067,6 +1160,8 @@ namespace Anaglyph.XR.SharedSpaces
 			}
 
 			if (rows < settings.minInliers) return;
+			priorToOlder = PriorToOlder(pass.views[0].node);
+			for (int j = 0; j < countB; j++) raysBToOlder[j] = Pose4.RotateY(raysB[j], priorToOlder.yaw);
 			PairsTried++;
 			pairBegan = Time.realtimeSinceStartup;
 #if UNITY_EDITOR
@@ -1078,10 +1173,10 @@ namespace Anaglyph.XR.SharedSpaces
 			edgeHandle = new KeyframeEdgeJob
 			{
 				descriptorsA = descriptorsA, descriptorsB = descriptorsB,
-				pointsA = pointsA, raysB = raysB,
+				pointsA = pointsA, raysB = raysBToOlder, depthAxisA = depthAxisA,
 				countA = rows, countB = countB,
-				centerB = centerB, angularSigma = angularSigma,
-				minInliers = settings.minInliers, maxYawSigma = math.radians(settings.maxYawSigmaDegrees),
+				centerB = priorToOlder.Apply(centerB), angularSigma = angularSigma,
+				minInliers = settings.minInliers, maxYawSigma = math.radians(settings.maxYawSigmaDegrees), robustSigmas = settings.edgeRobustSigmas, gncSigmas = settings.edgeGncSigmas,
 				seed = seed++, result = edgeResult, inliersOfA = inliersOfA,
 			}.Schedule();
 			JobHandle.ScheduleBatchedJobs();
@@ -1166,15 +1261,17 @@ namespace Anaglyph.XR.SharedSpaces
 		/// <summary>What a pair of views' edge is worth, from its inliers and the way its point lies from the camera, in the map.</summary>
 		public static KeyframeEdgeWeight WeightOfPair(Settings settings, float inliers, float3 toPoint)
 		{
+			float reach = math.length(toPoint);
+			float rootInliers = math.sqrt(inliers);
 			toPoint.y = 0;
 			float Information(float sigma) => 1f / math.square(math.max(sigma, settings.edgeSigmaFloor));
 			return new KeyframeEdgeWeight
 			{
 				sight = math.normalizesafe(toPoint, new float3(1, 0, 0)),
-				along = Information(settings.edgeAlongSpread / inliers),
-				across = Information(settings.edgeAcrossSpread / inliers),
-				height = Information(settings.edgeHeightSpread / inliers),
-				yaw = 1f / math.square(math.radians(math.max(settings.edgeYawSpread / math.sqrt(inliers), settings.edgeYawFloorDegrees))),
+				along = Information(settings.edgeAlongSpread * reach / inliers),
+				across = Information(settings.edgeAcrossSpread * reach / rootInliers),
+				height = Information(settings.edgeHeightSpread * reach / rootInliers),
+				yaw = 1f / math.square(math.radians(math.max(settings.edgeYawSpread / rootInliers, settings.edgeYawFloorDegrees))),
 			};
 		}
 
@@ -1239,7 +1336,6 @@ namespace Anaglyph.XR.SharedSpaces
 
 		private void ScheduleStep()
 		{
-			DriftModel model = track.Model;
 			solveHandle = new KeyframeGraphSolveJob
 			{
 				knots = solveKnots,
@@ -1248,7 +1344,7 @@ namespace Anaglyph.XR.SharedSpaces
 				state = solveState,
 				largestStep = largestStep,
 				positionRateSquared = (double)settings.driftRate * settings.driftRate,
-				yawRateSquared = (double)model.yawRate * model.yawRate,
+				yawRateSquared = math.square((double)math.radians(settings.driftYawRateDegrees)),
 				positionFloorSquared = 0.005 * 0.005,
 				yawFloorSquared = math.square(math.radians(0.02)),
 				huber = settings.huber,
@@ -1299,8 +1395,7 @@ namespace Anaglyph.XR.SharedSpaces
 			track.ApplyGraph(this);
 			localizer.Map.RefreshPlacement();
 			EndSolve();
-			// a long session's system grows: it never takes more than a tenth of a worker, and far less than the frames this counts
-			nextSolve = Time.unscaledTime + math.max(settings.solveInterval, 10f * LastSolveSeconds);
+			nextSolve = Time.unscaledTime + math.max(settings.solveInterval, settings.solveCostMultiple * LastSolveSeconds);
 		}
 
 		private void EndSolve()

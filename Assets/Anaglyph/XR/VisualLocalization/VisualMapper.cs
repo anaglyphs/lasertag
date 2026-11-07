@@ -46,8 +46,16 @@ namespace Anaglyph.XR.VisualLocalization
 			public int coverageHeadings = 8;
 
 			[Header("Tracks")]
-			[Tooltip("A landmark triangulated from the views that founded it is fixed from then on: later views sight it but never refit it")]
+			[Tooltip("A landmark triangulated from the views that founded it only takes in later views as Refine Established Landmarks allows")]
 			public bool freezeEstablishedLandmarks = true;
+			[Tooltip("An established landmark goes on being refitted from later views of the same walk, through raw tracking alone: a far point needs a long baseline, and no map or solve goes into it")]
+			public bool refineEstablishedLandmarks = true;
+			[Tooltip("Expected drift (m) from where a landmark was first seen up to which later views refine it: 0.077 is about 30 m of walk")]
+			public float refineWalkDrift = 0.077f;
+			[Tooltip("A view refines a landmark only this far (m) from the last view that did: closer adds little baseline")]
+			public float refineMinBaseline = 1.5f;
+			[Tooltip("Sightings a landmark's fit holds at most")]
+			public int refineMaxViews = 12;
 			[Tooltip("A landmark is established once its depth sigma is within this fraction of its depth...")]
 			public float establishedDepthSigma = 0.1f;
 			[Tooltip("...or once this many views have sighted it, whichever comes first")]
@@ -57,6 +65,8 @@ namespace Anaglyph.XR.VisualLocalization
 			[Tooltip("Expected drift (m) between two keyframes' nodes up to which their views are triangulated together; beyond it they can only be loop-closed")]
 			public float trustDrift = 0.031f;
 			public int trackNeighbors = 3;
+			[Tooltip("Features matched against a neighbor per frame: spreading it keeps one job from holding up the frame")]
+			public int trackRowsPerFrame = MutualNearestMatcher.DefaultRowsPerFrame;
 			public float neighborDistance = 4f;
 			[Tooltip("Lowest descriptor cosine a mutual nearest neighbor match may have")]
 			public float trackMinCosine = 0.82f;
@@ -82,12 +92,18 @@ namespace Anaglyph.XR.VisualLocalization
 		// a query's capture shouldn't wait behind
 		private bool mappingBusy;
 
+		/// <summary>A keyframe is being tried: its frame is taken and not yet settled into the map.</summary>
+		public bool IsBusy => mappingBusy;
+
 		// the head's turn rate, frame to frame, for priming captures on the moment it settles
 		private Quaternion lastHeadRotation;
 		private bool hasHeadRotation;
 		private float turnRate, previousTurnRate;
 
 		private static readonly ProfilerMarker SnapshotMarker = new("VisualLocalizer.NodePoseSnapshot");
+
+		// established landmarks still within reach of being refined
+		private readonly List<Landmark> refining = new();
 
 		public VisualMapper(VisualLocalizer owner, Settings settings, InferenceQueue queue)
 		{
@@ -259,7 +275,7 @@ namespace Anaglyph.XR.VisualLocalization
 			List<(VisualKeyframe neighbor, int[] matches, int mutual)> matched = new();
 			foreach ((VisualKeyframe neighbor, int _) in neighbors)
 			{
-				(int[] matches, _) = await MutualNearestMatcher.MatchAsync(keyframe.features, neighbor.features, settings.trackMinCosine);
+				(int[] matches, _) = await MutualNearestMatcher.MatchAsync(keyframe.features, neighbor.features, settings.trackMinCosine, settings.trackRowsPerFrame);
 				if (!owner || Map.Revision != mapRevision) return;
 				if (matches == null) continue;
 				int mutual = 0;
@@ -310,7 +326,7 @@ namespace Anaglyph.XR.VisualLocalization
 					else if (landmark.established) sighted++;
 					else extended++;
 
-					if (Map.Link(keyframe, i, landmark, owner.PixelSigma)) touched.Add(landmark);
+					if (Map.Link(keyframe, i, landmark, owner.PixelSigma, landmark.established && Refines(landmark, keyframe))) touched.Add(landmark);
 				}
 			}
 
@@ -319,11 +335,13 @@ namespace Anaglyph.XR.VisualLocalization
 			using (SnapshotMarker.Auto()) nodes = new NodePoseSnapshot(Map.Anchoring, touched);
 			Landmark[] fitting = new Landmark[touched.Count];
 			touched.CopyTo(fitting);
-			List<Observation>[] rejections = new List<Observation>[fitting.Length];
+			Observation[][] sightings = new Observation[fitting.Length][];
+			for (int i = 0; i < fitting.Length; i++) sightings[i] = fitting[i].observations.ToArray();
+			Landmark.Fitted[] fits = new Landmark.Fitted[fitting.Length];
 			await Awaitable.BackgroundThreadAsync();
 			try
 			{
-				for (int i = 0; i < fitting.Length; i++) rejections[i] = fitting[i].Estimate(nodes);
+				for (int i = 0; i < fitting.Length; i++) fits[i] = fitting[i].Fit(sightings[i], nodes);
 			}
 			finally
 			{
@@ -331,9 +349,18 @@ namespace Anaglyph.XR.VisualLocalization
 			}
 
 			if (!owner) return;
-			int dropped = 0;
-			foreach (List<Observation> rejected in rejections)
+			int dropped = 0, refined = 0;
+			for (int i = 0; i < fitting.Length; i++)
 			{
+				Landmark l = fitting[i];
+				float before = l.inverseDepth;
+				List<Observation> rejected = l.Apply(fits[i]);
+				if (l.established && before > 0 && math.abs(l.inverseDepth - before) > DepthMoved * before)
+				{
+					Map.NoteDepthChanged(l);
+					refined++;
+				}
+
 				if (rejected == null) continue;
 				foreach (Observation o in rejected) Map.Unlink(o);
 				dropped += rejected.Count;
@@ -343,16 +370,45 @@ namespace Anaglyph.XR.VisualLocalization
 			// have ranged it well (or there are enough of them that more won't help), a landmark is
 			// fixed for good
 			foreach (Landmark l in fitting)
-				if (l.observations.Count >= settings.establishedMinViews && float.IsFinite(l.inverseDepthSigma) &&
+				if (!l.established && l.observations.Count >= settings.establishedMinViews && float.IsFinite(l.inverseDepthSigma) &&
 				    (l.inverseDepthSigma <= settings.establishedDepthSigma * l.inverseDepth || l.observations.Count >= settings.establishedViews))
+				{
 					Map.Establish(l);
+					if (Map.refineEstablished) refining.Add(l);
+				}
 
+			StopRefiningThoseLeftBehind(keyframe.node);
 			Mapping.added++;
 			// a view no other keyframe shares (a glance, mostly) triangulates nothing until a
 			// second view of it comes: take the next sharp frame at once, while it's still in sight
 			nextMapping = Time.unscaledTime + (matched.Count == 0 ? 0 : settings.mappingInterval);
 			owner.RaiseKeyframeAdded(keyframe);
-			LogKeyframe(keyframe, $"{matched.Count} trusted neighbors{lonely}, {extended} sightings extended tracks, {sighted} sighted established landmarks, {started} started, {dropped} rejected");
+			LogKeyframe(keyframe, $"{matched.Count} trusted neighbors{lonely}, {extended} sightings extended tracks, {sighted} sighted established landmarks, {started} started, {dropped} rejected, {refined} refined");
+		}
+
+		// a depth moving by less than this share isn't worth rereading or sending
+		private const float DepthMoved = 0.01f;
+
+		// farther along the same walk, a view away from the last that did, and room for it
+		private bool Refines(Landmark landmark, VisualKeyframe keyframe)
+		{
+			if (!Map.refineEstablished || landmark.owner != Map.LocalOwner || landmark.observations.Count == 0 || landmark.observations.Count >= settings.refineMaxViews) return false;
+			if (Anchoring.WalkDrift(landmark.node, keyframe.node) > settings.refineWalkDrift) return false;
+			Observation last = landmark.observations[^1];
+			return Landmark.TryCamera(Anchoring, last.node, last.cameraInNode, out Pose lastCamera) &&
+			       Vector3.Distance(lastCamera.position, keyframe.camera.position) >= settings.refineMinBaseline;
+		}
+
+		private void StopRefiningThoseLeftBehind(ulong node)
+		{
+			for (int i = refining.Count - 1; i >= 0; i--)
+			{
+				Landmark l = refining[i];
+				if (Anchoring.WalkDrift(l.node, node) <= settings.refineWalkDrift && l.observations.Count < settings.refineMaxViews) continue;
+				Map.StopRefining(l);
+				refining[i] = refining[^1];
+				refining.RemoveAt(refining.Count - 1);
+			}
 		}
 
 		[System.Diagnostics.Conditional("DEBUG")]

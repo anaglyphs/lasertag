@@ -45,8 +45,8 @@ namespace Anaglyph.XR
 		private readonly Sample[] ring = new Sample[256];
 		private int count;
 
-		// a head moving further than this in one frame was a recenter or a teleport, not a walk
-		private const float JumpThreshold = 0.5f;
+		/// <summary>A head moving further than this in one frame, meters, was a recenter or a teleport, not a walk.</summary>
+		[System.NonSerialized] public float JumpThreshold = 0.5f;
 
 		/// <summary>
 		/// Head travel so far, meters, in the tracking space (which only drift distorts): the

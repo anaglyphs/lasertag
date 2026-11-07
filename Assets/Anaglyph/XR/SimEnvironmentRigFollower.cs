@@ -51,6 +51,9 @@ namespace Anaglyph.XR
 
 		/// <summary>When set before play starts, the random origin follows this seed: repeatable tests.</summary>
 		public static int? SeedOverride;
+
+		/// <summary>When set before play starts, a joiner starts this far from the main editor's spot in the room, facing its way, instead of at a random spot nearby.</summary>
+		public static Vector3? JoinerStartOffset;
 		private bool randomized;
 
 		private void OnEnable()
@@ -86,7 +89,9 @@ namespace Anaglyph.XR
 			{
 				RandomizeOrigin(space);
 				if (!SimPlayer.IsMainEditor)
-					poseOffs = RandomStartPose(space.InverseTransformPoint(xrCamera.transform.position));
+					poseOffs = JoinerStartOffset is Vector3 offset
+						? Matrix4x4.Translate(-offset)
+						: RandomStartPose(space.InverseTransformPoint(xrCamera.transform.position));
 				randomized = true;
 			}
 

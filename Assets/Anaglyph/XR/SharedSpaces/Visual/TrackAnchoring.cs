@@ -11,11 +11,12 @@ namespace Anaglyph.XR.SharedSpaces
 	/// Where visual keyframes hang: the track this headset walks, cut into short segments.
 	/// Keyframes are stored in the shared frame as the alignment showed it when they were
 	/// captured; a segment records how far along the track it began, which site correction was
-	/// in force, and where the <see cref="KeyframeGraph"/> has since moved that frame, so two
-	/// keyframes' expected drift apart is the distance walked between them plus any correction
-	/// stepped in meanwhile. Consecutive
-	/// views fall within the trust window and triangulate together; the same place after a
-	/// long walk, or across a correction step, does not, and is a revisit to measure.
+	/// in force, and where the <see cref="KeyframeGraph"/> has since moved that frame. Two
+	/// keyframes' expected drift apart is the distance walked between them
+	/// (<see cref="WalkDrift"/>): consecutive views fall within the trust window and
+	/// triangulate together through raw tracking, and the same place after a long walk is a
+	/// revisit to measure. <see cref="Drift"/> adds the corrections stepped between them, the
+	/// amount their world placements differ by until the next solve.
 	/// </summary>
 	public sealed class TrackAnchoring : IKeyframeAnchoring
 	{
@@ -223,6 +224,13 @@ namespace Anaglyph.XR.SharedSpaces
 			if (TryGet(node, out Segment s)) world = s.worldPose;
 			else world = others.TryGetValue(node, out (Pose4 world, Pose pose) other) ? other.pose : Pose.identity;
 			return node != 0;
+		}
+
+		public bool TryGetNodeRaw(ulong node, out Pose raw)
+		{
+			if (!TryGet(node, out Segment s)) return TryGetNodeWorld(node, out raw);
+			raw = s.correction.Inverse.AsPose;
+			return true;
 		}
 
 		public float Drift(ulong a, ulong b)

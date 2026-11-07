@@ -21,6 +21,9 @@ namespace Anaglyph.XR.VisualLocalization
 		/// <summary>The node's pose in the shared world, as the graph has it now.</summary>
 		bool TryGetNodeWorld(ulong node, out Pose world);
 
+		/// <summary>The node's pose as tracking alone has it: what a landmark's depth is fitted through, so no solve feeds back into it.</summary>
+		bool TryGetNodeRaw(ulong node, out Pose raw) => TryGetNodeWorld(node, out raw);
+
 		/// <summary>Expected tracking drift between two nodes, meters; +∞ when unconnected.</summary>
 		float Drift(ulong a, ulong b);
 
@@ -32,8 +35,8 @@ namespace Anaglyph.XR.VisualLocalization
 	}
 
 	/// <summary>
-	/// The node poses a set of landmarks needs, copied on the main thread, so their fits
-	/// can run on a worker while the graph goes on changing.
+	/// The node poses a set of landmarks needs in raw tracking, copied on the main thread, so
+	/// their fits can run on a worker.
 	/// </summary>
 	public sealed class NodePoseSnapshot : IKeyframeAnchoring
 	{
@@ -50,7 +53,7 @@ namespace Anaglyph.XR.VisualLocalization
 
 		private void Add(IKeyframeAnchoring source, ulong node)
 		{
-			if (!worlds.ContainsKey(node) && source.TryGetNodeWorld(node, out Pose world)) worlds[node] = world;
+			if (!worlds.ContainsKey(node) && source.TryGetNodeRaw(node, out Pose raw)) worlds[node] = raw;
 		}
 
 		public bool TryAnchor(Pose cameraInTrackingSpace, out ulong node, out Pose cameraInNode)
@@ -102,11 +105,12 @@ namespace Anaglyph.XR.VisualLocalization
 		/// <summary>Keyframe features pointing at this landmark; it is dropped at zero.</summary>
 		public int references;
 		/// <summary>
-		/// Triangulated from the views that founded it, and fixed from then on: later
-		/// keyframes may sight it (and localize with it), but their observations never join
-		/// its fit, so a poor later view can't move it.
+		/// Triangulated well enough to use and share. Later keyframes may sight it, and only
+		/// those farther along the same walk join its fit (<see cref="VisualMapper.Settings.refineEstablishedLandmarks"/>).
 		/// </summary>
 		public bool established;
+		/// <summary>The depth other headsets last got for it; 0 until it has been sent.</summary>
+		public float sentInverseDepth;
 		/// <summary>This landmark as it goes to a file or another headset, once it no longer changes.</summary>
 		internal VisualMapData.Landmark wire;
 		internal bool hasWire;
@@ -144,25 +148,47 @@ namespace Anaglyph.XR.VisualLocalization
 		/// depth as a prior when there is one) and drops sightings that disagree. Returns
 		/// the dropped ones so their keyframes can be unlinked.
 		/// </summary>
-		public List<Observation> Estimate(IKeyframeAnchoring anchoring, float outlierSigmas = 3f)
+		public List<Observation> Estimate(IKeyframeAnchoring anchoring, float outlierSigmas = 3f) =>
+			Apply(Fit(observations.ToArray(), anchoring, outlierSigmas));
+
+		/// <summary>A fit of a landmark to a copy of its sightings: made on a worker, applied back on the main thread.</summary>
+		public readonly struct Fitted
+		{
+			public readonly bool placed;
+			public readonly float inverseDepth, inverseDepthSigma;
+			public readonly List<Observation> dropped;
+
+			public Fitted(float inverseDepth, float inverseDepthSigma, List<Observation> dropped)
+			{
+				placed = true;
+				this.inverseDepth = inverseDepth;
+				this.inverseDepthSigma = inverseDepthSigma;
+				this.dropped = dropped;
+			}
+		}
+
+		/// <summary>The fit of these sightings. Reads nothing else of the landmark that changes: safe on a worker.</summary>
+		public Fitted Fit(Observation[] sightings, IKeyframeAnchoring anchoring, float outlierSigmas = 3f)
 		{
 			List<Observation> dropped = null;
-			if (!TryPlace(anchoring, out float3 origin, out float3 direction)) return null;
+			if (!TryPlace(anchoring, out float3 origin, out float3 direction)) return default;
 
-			int count = observations.Count;
+			List<Observation> kept = new(sightings);
+			int count = kept.Count;
 			Pose[] cameras = new Pose[count];
 			bool[] placed = new bool[count];
 			for (int k = 1; k < count; k++)
-				placed[k] = TryCamera(anchoring, observations[k].node, observations[k].cameraInNode, out cameras[k]);
+				placed[k] = TryCamera(anchoring, kept[k].node, kept[k].cameraInNode, out cameras[k]);
 
+			float fitted = inverseDepth, fittedSigma = inverseDepthSigma;
 			for (int round = 0; round < 3; round++)
 			{
 				// a coarse sweep picks the basin
 				float rho = 0;
-				float best = Cost(rho, origin, direction, cameras, placed);
+				float best = Cost(kept, rho, origin, direction, cameras, placed);
 				for (int s = 0; s < Seeds.Length; s++)
 				{
-					float cost = Cost(Seeds[s], origin, direction, cameras, placed);
+					float cost = Cost(kept, Seeds[s], origin, direction, cameras, placed);
 					if (cost >= best) continue;
 					best = cost;
 					rho = Seeds[s];
@@ -176,8 +202,8 @@ namespace Anaglyph.XR.VisualLocalization
 					float step = 1e-4f + 1e-3f * rho;
 					for (int k = 1; k < count; k++)
 					{
-						if (!placed[k] || !AngularResidual(k, rho, origin, direction, cameras[k], out float2 r)) continue;
-						if (!AngularResidual(k, rho + step, origin, direction, cameras[k], out float2 r1)) continue;
+						if (!placed[k] || !AngularResidual(kept[k], rho, origin, direction, cameras[k], out float2 r)) continue;
+						if (!AngularResidual(kept[k], rho + step, origin, direction, cameras[k], out float2 r1)) continue;
 						float2 j = (r1 - r) / step;
 						hessian += math.dot(j, j);
 						g += math.dot(j, r);
@@ -189,29 +215,49 @@ namespace Anaglyph.XR.VisualLocalization
 					if (math.abs(delta) < 1e-6f) break;
 				}
 
-				inverseDepth = rho;
-				inverseDepthSigma = hessian > 0 ? (float)(1 / math.sqrt(hessian)) : float.PositiveInfinity;
+				fitted = rho;
+				fittedSigma = hessian > 0 ? (float)(1 / math.sqrt(hessian)) : float.PositiveInfinity;
 
 				// the worst sighting past the gate goes, and the fit is redone without it
 				int worst = -1;
 				float worstError = outlierSigmas * outlierSigmas * 2;
 				for (int k = 1; k < count; k++)
 				{
-					float e = placed[k] && AngularResidual(k, rho, origin, direction, cameras[k], out float2 r) ? math.lengthsq(r) : float.MaxValue;
+					float e = placed[k] && AngularResidual(kept[k], rho, origin, direction, cameras[k], out float2 r) ? math.lengthsq(r) : float.MaxValue;
 					if (e <= worstError) continue;
 					worstError = e;
 					worst = k;
 				}
 
 				if (worst < 0) break;
-				(dropped ??= new()).Add(observations[worst]);
-				observations.RemoveAt(worst);
+				(dropped ??= new()).Add(kept[worst]);
+				kept.RemoveAt(worst);
 				count--;
 				cameras = RemoveAt(cameras, worst);
 				placed = RemoveAt(placed, worst);
 			}
 
-			return dropped;
+			return new Fitted(fitted, fittedSigma, dropped);
+		}
+
+		/// <summary>Takes a fit: the depth, and the sightings it dropped out of this landmark. Returns those, as they are now.</summary>
+		public List<Observation> Apply(in Fitted fit)
+		{
+			if (!fit.placed) return null;
+			inverseDepth = fit.inverseDepth;
+			inverseDepthSigma = fit.inverseDepthSigma;
+			if (fit.dropped == null) return null;
+
+			List<Observation> removed = new(fit.dropped.Count);
+			foreach (Observation o in fit.dropped)
+			{
+				int at = observations.FindIndex(held => held.node == o.node && held.feature == o.feature && math.all(held.ray == o.ray));
+				if (at < 0) continue;
+				removed.Add(observations[at]);
+				observations.RemoveAt(at);
+			}
+
+			return removed;
 		}
 
 		// 1/0.2 m: nearer than the headset can focus a feature from is a bad fit
@@ -220,25 +266,24 @@ namespace Anaglyph.XR.VisualLocalization
 		// weak pull toward 5 m keeps ρ defined from a single sighting; far weaker than any real one
 		private const float WeakPrior = 0.2f, WeakPriorSigma = 5f;
 
-		private double Prior(float rho, ref double gradient)
+		private static double Prior(float rho, ref double gradient)
 		{
 			double h = 1.0 / (WeakPriorSigma * WeakPriorSigma);
 			gradient += (rho - WeakPrior) * h;
 			return h;
 		}
 
-		private float Cost(float rho, float3 origin, float3 direction, Pose[] cameras, bool[] placed)
+		private static float Cost(List<Observation> sightings, float rho, float3 origin, float3 direction, Pose[] cameras, bool[] placed)
 		{
 			float cost = 0;
 			for (int k = 1; k < cameras.Length; k++)
-				cost += placed[k] && AngularResidual(k, rho, origin, direction, cameras[k], out float2 r) ? math.min(math.lengthsq(r), 100) : 100;
+				cost += placed[k] && AngularResidual(sightings[k], rho, origin, direction, cameras[k], out float2 r) ? math.min(math.lengthsq(r), 100) : 100;
 			return cost;
 		}
 
-		/// <summary>The landmark's predicted direction against sighting k's ray, in its noise sigmas.</summary>
-		private bool AngularResidual(int k, float rho, float3 origin, float3 direction, Pose camera, out float2 residual)
+		/// <summary>The landmark's predicted direction against a sighting's ray, in its noise sigmas.</summary>
+		private static bool AngularResidual(in Observation o, float rho, float3 origin, float3 direction, Pose camera, out float2 residual)
 		{
-			Observation o = observations[k];
 			float3 h = math.mul(math.conjugate(camera.rotation), rho * (origin - (float3)camera.position) + direction);
 			residual = 0;
 			float length = math.length(h);

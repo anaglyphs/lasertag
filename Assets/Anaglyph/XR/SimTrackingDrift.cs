@@ -47,6 +47,9 @@ namespace Anaglyph.XR
 		[Tooltip("Per-frame head jumps larger than this (meters) are treated as resets and cause no drift")]
 		[SerializeField] private float jumpThreshold = 0.5f;
 
+		// drift per meter is the same however far one frame moves the head
+		private const float DriftStepMeters = 0.05f;
+
 		[Header("Accumulated (read only)")]
 		[SerializeField] private Vector3 driftPosition;
 		[SerializeField] private float driftYaw;
@@ -127,12 +130,18 @@ namespace Anaglyph.XR
 
 			// the error's velocity: wandering, and forgetting where it was wandering to
 			float correlation = Mathf.Max(translationCorrelation, 0.001f);
-			float forgetting = walked / correlation;
-			float noise = Mathf.Sqrt(walked) / correlation;
-			velocity += -velocity * forgetting + noise * new Vector3(Gaussian() * translationRate, Gaussian() * verticalRate, Gaussian() * translationRate);
-			Vector3 translation = (velocity + Vector3.up * heightClimb) * walked;
-
-			float yaw = yawRate * Mathf.Sqrt(walked) * Gaussian();
+			int steps = Mathf.Max(1, Mathf.CeilToInt(walked / DriftStepMeters));
+			float step = walked / steps;
+			float forgetting = step / correlation;
+			float noise = Mathf.Sqrt(step) / correlation;
+			Vector3 translation = Vector3.zero;
+			float yaw = 0;
+			for (int i = 0; i < steps; i++)
+			{
+				velocity += -velocity * forgetting + noise * new Vector3(Gaussian() * translationRate, Gaussian() * verticalRate, Gaussian() * translationRate);
+				translation += (velocity + Vector3.up * heightClimb) * step;
+				yaw += yawRate * Mathf.Sqrt(step) * Gaussian();
+			}
 
 			// everything below is in the tracking space, where the frame's local pose lives
 			Quaternion delta = Quaternion.AngleAxis(yaw, Vector3.up);

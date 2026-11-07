@@ -60,6 +60,8 @@ namespace Anaglyph.XR.SharedSpaces
 		[SerializeField] private float loopCooldown = 1f;
 		[Tooltip("Meters a revisit's camera prior is taken to be off before any drift is counted: with the drift allowed over the path since the last site, how far around each projected landmark a guided loop query looks")]
 		[SerializeField] private float loopSearchFloor = 0.1f;
+		[Tooltip("Seconds a new view waits before it is sent to the other headsets, for the views after it to range its landmarks")]
+		[SerializeField] private float mapSettleSeconds = 10f;
 		[Tooltip("Features per side a loop query's LighterGlue runs attend over, when the localizer's guided matching is off: cost grows with the square, and a loop closure needs far fewer than a cold relocalization")]
 		[SerializeField] private int loopMatchFeatures = 512;
 		[Tooltip("An old keyframe sharing fewer descriptor matches than this with the view isn't worth a LighterGlue run (guided matching off)")]
@@ -135,6 +137,8 @@ namespace Anaglyph.XR.SharedSpaces
 #if UNITY_EDITOR
 		/// <summary>Degrees the next alignment is turned by, about what it stood on: the only way to test recovering from a wrong one on demand.</summary>
 		public float MisalignNextAlignmentForTests { get; set; }
+		/// <summary>Seconds the next alignment goes unchecked, so what it would share spreads before it can be overturned.</summary>
+		public float HoldNextCheckForTests { get; set; }
 #endif
 
 		public void StartProviding()
@@ -247,12 +251,19 @@ namespace Anaglyph.XR.SharedSpaces
 			if (EnvScanner.Instance != null) EnvScanner.Instance.Cleared += ClearMap;
 			alignment.PhaseChanged += OnPhaseChanged;
 			alignment.FrameAbandoned += ClearScan;
-			mapSync = new VisualMapSync(localizer, graph, track, LogTag, message => log.Outcome(message), () => AlignmentUnconfirmed);
+			mapSync = new VisualMapSync(localizer, graph, track, LogTag, message => log.Outcome(message), () => AlignmentUnconfirmed) { SettleSeconds = mapSettleSeconds };
 			mapSync.HostMapReceived += OnHostMapReceived;
 			graphSync = new KeyframeGraphSync(graph, () => AlignmentUnconfirmed);
 		}
 
 		private VisualMapSync mapSync;
+
+		/// <summary>Seconds a new view waits before it is sent to the other headsets.</summary>
+		public float MapSettleSeconds
+		{
+			get => mapSync?.SettleSeconds ?? 0;
+			set { if (mapSync != null) mapSync.SettleSeconds = value; }
+		}
 		private KeyframeGraphSync graphSync;
 
 		// the authority's map replaced this joiner's while it was aligned (its own was cleared): found against it again
@@ -593,6 +604,10 @@ namespace Anaglyph.XR.SharedSpaces
 			{
 				watch.Begin(agreed.witnesses, agreed.correction * SpaceOf(p.query), track.Path, Time.unscaledTime);
 				nextCheck = Time.unscaledTime + watch.CheckSeconds;
+#if UNITY_EDITOR
+				nextCheck += HoldNextCheckForTests;
+				HoldNextCheckForTests = 0;
+#endif
 			}
 
 			graph.LinkNextTrack(anchor, agreed.focus);
@@ -607,7 +622,9 @@ namespace Anaglyph.XR.SharedSpaces
 			AlignmentWatch.Verdict verdict = watch.Add(frame, Pose4.FromPose(target.position, target.rotation), track.Path, out string why);
 			if (verdict == AlignmentWatch.Verdict.None) return;
 			log.Outcome($"Check: {why} ({description})");
-			if (verdict == AlignmentWatch.Verdict.Overturned) alignment.AbandonAlignment(why);
+			if (verdict != AlignmentWatch.Verdict.Overturned) return;
+			mapSync.TakeBackShared(graph.Owner);
+			alignment.AbandonAlignment(why);
 		}
 
 		private static Pose4 SpaceOf(VisualQuery query) => Pose4.FromPose(query.trackingSpace.position, query.trackingSpace.rotation);
@@ -650,7 +667,7 @@ namespace Anaglyph.XR.SharedSpaces
 			foreach (VisualKeyframe k in localizer.Map.Keyframes)
 			{
 				if (k.node == 0 || k.timestampNs >= latest.timestampNs || k.timestampNs < oldest) continue;
-				if (track.Drift(k.node, latest.node) > localizer.TrustDrift) continue;
+				if (track.WalkDrift(k.node, latest.node) > localizer.TrustDrift) continue;
 				recent.Add(k);
 			}
 

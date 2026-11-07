@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -26,6 +27,8 @@ namespace Anaglyph.LaserTag.Editor
 		public int[] landmarks;
 		public float3[] points, directions;
 		public float[] inverseDepths, inverseDepthSigmas;
+		/// <summary>Per feature, how far along its ray the simulated room really is; NaN where unknown.</summary>
+		public float[] trueDepths;
 
 		public int Count => keypoints.Length;
 	}
@@ -37,7 +40,7 @@ namespace Anaglyph.LaserTag.Editor
 	/// </summary>
 	public sealed class ViewRecorder : IDisposable
 	{
-		private const uint Magic = 0x57454956, Version = 1;
+		private const uint Magic = 0x57454956, Version = 2;
 
 		private readonly VisualColocationConstraintProvider provider;
 		private readonly VisualLocalizer localizer;
@@ -130,6 +133,14 @@ namespace Anaglyph.LaserTag.Editor
 		public void Write(string path)
 		{
 			Refresh();
+			foreach ((VisualKeyframe keyframe, RecordedView view) in views)
+			{
+				view.trueDepths = new float[view.Count];
+				Array.Fill(view.trueDepths, float.NaN);
+				float[] known = SimLandmarkDepthCheck.TrueDepths(keyframe.frame);
+				if (known != null) Array.Copy(known, view.trueDepths, math.min(known.Length, view.Count));
+			}
+
 			string temporary = path + ".tmp";
 			using (BinaryWriter w = new(File.Create(temporary)))
 			{
@@ -163,6 +174,7 @@ namespace Anaglyph.LaserTag.Editor
 					Put<float3>(w, v.directions);
 					Put<float>(w, v.inverseDepths);
 					Put<float>(w, v.inverseDepthSigmas);
+					Put<float>(w, v.trueDepths);
 				}
 			}
 
@@ -175,7 +187,8 @@ namespace Anaglyph.LaserTag.Editor
 		{
 			if (!File.Exists(path)) return null;
 			using BinaryReader r = new(File.OpenRead(path));
-			if (r.ReadUInt32() != Magic || r.ReadUInt32() != Version) return null;
+			if (r.ReadUInt32() != Magic) return null;
+			uint version = r.ReadUInt32();
 			int count = r.ReadInt32();
 			List<RecordedView> views = new(count);
 			for (int i = 0; i < count; i++)
@@ -199,6 +212,7 @@ namespace Anaglyph.LaserTag.Editor
 				v.directions = Take<float3>(r, features);
 				v.inverseDepths = Take<float>(r, features);
 				v.inverseDepthSigmas = Take<float>(r, features);
+				if (version >= 2) v.trueDepths = Take<float>(r, features);
 				views.Add(v);
 			}
 
@@ -222,3 +236,4 @@ namespace Anaglyph.LaserTag.Editor
 		}
 	}
 }
+#endif

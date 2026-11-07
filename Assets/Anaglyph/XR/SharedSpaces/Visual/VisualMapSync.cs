@@ -12,7 +12,8 @@ namespace Anaglyph.XR.SharedSpaces
 	/// The views every headset has made, shared: a team on one side of a space may be all that
 	/// ever sees it. A joiner asks the authority once and receives every shared view and landmark
 	/// the authority holds (<see cref="VisualMapCodec"/>), and from then on every headset sends the
-	/// views it adds that none of them has seen a place and heading from yet. Received views go
+	/// views it adds that none of them has seen a place and heading from yet, and the new depths
+	/// of its landmarks that have gone out and been refined since. Received views go
 	/// into the map in their owner's raw tracking, under that owner's knot, so they move with the
 	/// <see cref="KeyframeGraph"/>; this headset's tracking only localizes against them.
 	/// A view is named by its owner and capture time on every headset, a landmark by its owner
@@ -35,6 +36,10 @@ namespace Anaglyph.XR.SharedSpaces
 		public float CoverDistance = 1f;
 		/// <summary>...and turned less than this, degrees: a headset new to a place has only these to match its views against, and matches few across more.</summary>
 		public float CoverAngle = 20f;
+		/// <summary>Seconds between messages of refined landmark depths.</summary>
+		public float DepthSendSeconds = 2f;
+		/// <summary>A landmark's depth goes out again once it has moved this share from what the others hold.</summary>
+		public float DepthResendShare = 0.05f;
 
 		private const uint Magic = 0x50534D57; // WMSP
 		// [magic][epoch][kind][part][parts][owner][knots] then each knot, then the codec's bytes
@@ -44,8 +49,10 @@ namespace Anaglyph.XR.SharedSpaces
 		private const int PartsOffset = PartOffset + sizeof(ushort);
 		private const int OwnerOffset = PartsOffset + sizeof(ushort);
 		private const int KnotsOffset = OwnerOffset + sizeof(uint);
-		private const byte KindSnapshot = 0, KindViews = 1, KindGraph = 2;
-		private const byte RequestSnapshot = 0, RequestKeepAlive = 1;
+		private const byte KindSnapshot = 0, KindViews = 1, KindGraph = 2, KindForget = 3, KindDepths = 4;
+		// a landmark in a depths message: the owner's id for it, its inverse depth and sigma as halves
+		private const int DepthEntryBytes = sizeof(int) + 2 * sizeof(ushort);
+		private const byte RequestSnapshot = 0, RequestKeepAlive = 1, RequestForget = 2;
 		// a joiner says it is still there this often, and is forgotten after this long without
 		private const float KeepAliveSeconds = 10f, ForgetSeconds = 30f;
 		private const int MaxEarlyMessages = 256;
@@ -75,6 +82,7 @@ namespace Anaglyph.XR.SharedSpaces
 			mapEvent.Received += OnMap;
 			localizer.KeyframeAdded += OnKeyframeAdded;
 			localizer.Map.Cleared += OnMapCleared;
+			localizer.Map.LandmarkDepthChanged += OnLandmarkDepthChanged;
 			SyncBus.Deactivated += Reset;
 			SyncBus.AuthorityChanged += OnAuthorityChanged;
 		}
@@ -89,6 +97,7 @@ namespace Anaglyph.XR.SharedSpaces
 			{
 				localizer.KeyframeAdded -= OnKeyframeAdded;
 				localizer.Map.Cleared -= OnMapCleared;
+				localizer.Map.LandmarkDepthChanged -= OnLandmarkDepthChanged;
 			}
 			SyncBus.Deactivated -= Reset;
 			SyncBus.AuthorityChanged -= OnAuthorityChanged;
@@ -111,12 +120,38 @@ namespace Anaglyph.XR.SharedSpaces
 			HasHostMap = false;
 			arrived.Clear();
 			early.Clear();
+			earlyDepths.Clear();
+			refined.Clear();
 			idsByOwner.Clear();
 			views.Clear();
 			nextRequest = 0;
 		}
 
 		private void OnAuthorityChanged(bool _) => Reset();
+
+		/// <summary>
+		/// This joiner's alignment turned out wrong: asks the authority to take back everything
+		/// shared under <paramref name="owner"/>, from every headset. Call before the map is cleared:
+		/// what this headset asks for next comes after it, without those views to mislead it again.
+		/// </summary>
+		public void TakeBackShared(uint owner)
+		{
+			if (!IsJoiner) return;
+			byte[] request = new byte[1 + sizeof(uint)];
+			request[0] = RequestForget;
+			SyncBytes.Write(request, 1, owner);
+			requestEvent.Raise(request);
+		}
+
+		private void Forget(uint owner)
+		{
+			int views = localizer.Map.RemoveOwner(owner);
+			this.views.RemoveWhere(view => view.owner == owner);
+			idsByOwner.Remove(owner);
+			graph.Forget(owner);
+			localizer.Map.RefreshPlacement();
+			outcome($"MapSync: took back {views} views and the edges of a headset whose alignment was wrong");
+		}
 
 		// ---- what everyone sends ---------------------------------------------------
 
@@ -220,6 +255,80 @@ namespace Anaglyph.XR.SharedSpaces
 		// other headsets' and a saved map's are held as they came
 		private Pose Raw(ulong node, Pose inNode) => track.Raw(node, inNode);
 
+		// ---- refined depths --------------------------------------------------------
+
+		// this headset's landmarks whose depth has moved since the last message
+		private readonly HashSet<Landmark> refined = new();
+		private float nextDepthSend;
+		private int depthsSent, depthsReceived;
+		private float nextDepthReport;
+
+		private void OnLandmarkDepthChanged(Landmark landmark)
+		{
+			if (landmark.owner == graph.Owner) refined.Add(landmark);
+		}
+
+		private void SendRefinedDepths()
+		{
+			if (Time.unscaledTime >= nextDepthReport)
+			{
+				nextDepthReport = Time.unscaledTime + 60f;
+				if (depthsSent + depthsReceived > 0) outcome($"MapSync: {depthsSent} refined depths sent, {depthsReceived} received");
+			}
+
+			if (refined.Count == 0 || Time.unscaledTime < nextDepthSend || holdViews()) return;
+			nextDepthSend = Time.unscaledTime + DepthSendSeconds;
+
+			List<Landmark> sending = new();
+			foreach (Landmark l in refined)
+				// one that hasn't gone out yet goes as it is then, with its views
+				if (l.sentInverseDepth > 0 && math.abs(l.inverseDepth - l.sentInverseDepth) >= DepthResendShare * l.sentInverseDepth)
+					sending.Add(l);
+			refined.Clear();
+			if (sending.Count == 0) return;
+
+			byte[] message = new byte[HeaderBytes + sending.Count * DepthEntryBytes];
+			SyncBytes.Write(message, 0, Magic);
+			SyncBytes.Write(message, sizeof(uint), CurrentEpoch);
+			message[KindOffset] = KindDepths;
+			SyncBytes.Write(message, OwnerOffset, graph.Owner);
+			for (int i = 0; i < sending.Count; i++)
+			{
+				Landmark l = sending[i];
+				int at = HeaderBytes + i * DepthEntryBytes;
+				SyncBytes.Write(message, at, l.ownerId);
+				SyncBytes.Write(message, at + sizeof(int), ((half)l.inverseDepth).value);
+				SyncBytes.Write(message, at + sizeof(int) + sizeof(ushort), ((half)math.min(l.inverseDepthSigma, 65000f)).value);
+				l.sentInverseDepth = l.inverseDepth;
+			}
+
+			depthsSent += sending.Count;
+			mapEvent.Raise(message);
+		}
+
+		private void ApplyDepths(byte[] message)
+		{
+			if (!localizer || !SyncBus.Active) return;
+			// they may name landmarks of the map still on its way: applied after it
+			if (IsJoiner && !HasHostMap)
+			{
+				if (earlyDepths.Count < MaxEarlyMessages) earlyDepths.Add(message);
+				return;
+			}
+
+			if (SyncBytes.Read<ushort>(message, sizeof(uint)) != CurrentEpoch) return;
+			uint owner = SyncBytes.Read<uint>(message, OwnerOffset);
+			if (graph.IsForgotten(owner) || !idsByOwner.TryGetValue(owner, out Dictionary<int, int> ids)) return;
+			for (int at = HeaderBytes; at + DepthEntryBytes <= message.Length; at += DepthEntryBytes)
+			{
+				if (!ids.TryGetValue(SyncBytes.Read<int>(message, at), out int id)) continue;
+				float inverseDepth = new half { value = SyncBytes.Read<ushort>(message, at + sizeof(int)) };
+				float inverseDepthSigma = new half { value = SyncBytes.Read<ushort>(message, at + sizeof(int) + sizeof(ushort)) };
+				localizer.Map.SetDepth(id, inverseDepth, inverseDepthSigma);
+				depthsReceived++;
+			}
+		}
+
 		// ---- the authority ---------------------------------------------------------
 
 		private sealed class Subscriber
@@ -237,6 +346,19 @@ namespace Anaglyph.XR.SharedSpaces
 		private void OnRequest(ulong sender, byte[] payload)
 		{
 			if (!IsHost || sender == SyncBus.LocalClientId) return;
+			if (payload.Length == 1 + sizeof(uint) && payload[0] == RequestForget)
+			{
+				uint owner = SyncBytes.Read<uint>(payload, 1);
+				Forget(owner);
+				byte[] message = new byte[HeaderBytes];
+				SyncBytes.Write(message, 0, Magic);
+				SyncBytes.Write(message, sizeof(uint), epoch);
+				message[KindOffset] = KindForget;
+				SyncBytes.Write(message, OwnerOffset, owner);
+				mapEvent.Raise(message);
+				return;
+			}
+
 			bool known = subscribers.TryGetValue(sender, out Subscriber s);
 			if (!known) subscribers[sender] = s = new Subscriber();
 			s.heardAt = Time.unscaledTime;
@@ -253,6 +375,7 @@ namespace Anaglyph.XR.SharedSpaces
 				// restoring a saved map clears first and fills after: sent next frame, whole
 				epoch++;
 				settling.Clear();
+				refined.Clear();
 				views.Clear();
 				idsByOwner.Clear();
 				resync = true;
@@ -262,7 +385,9 @@ namespace Anaglyph.XR.SharedSpaces
 				// a joiner's map is gone (searching again, its scan cleared): ask for the authority's anew
 				HasHostMap = false;
 				settling.Clear();
+				refined.Clear();
 				early.Clear();
+				earlyDepths.Clear();
 				idsByOwner.Clear();
 				views.Clear();
 				nextRequest = 0;
@@ -284,6 +409,7 @@ namespace Anaglyph.XR.SharedSpaces
 			}
 
 			SendSettledViews();
+			SendRefinedDepths();
 		}
 
 		// one message per owner: a landmark's id means something only within its owner's
@@ -356,6 +482,7 @@ namespace Anaglyph.XR.SharedSpaces
 			}
 
 			SendSettledViews();
+			SendRefinedDepths();
 		}
 
 		// ---- what everyone receives --------------------------------------------------
@@ -379,6 +506,7 @@ namespace Anaglyph.XR.SharedSpaces
 		private bool decoding;
 		// other headsets' views that came before the authority's map: merged after it
 		private readonly List<(ushort epoch, uint owner, VisualMapData data)> early = new();
+		private readonly List<byte[]> earlyDepths = new();
 
 		private async void DecodeArrived()
 		{
@@ -391,6 +519,18 @@ namespace Anaglyph.XR.SharedSpaces
 					if (message[KindOffset] == KindGraph)
 					{
 						ApplyGraph(message);
+						continue;
+					}
+
+					if (message[KindOffset] == KindForget)
+					{
+						if (localizer && SyncBus.Active) Forget(SyncBytes.Read<uint>(message, OwnerOffset));
+						continue;
+					}
+
+					if (message[KindOffset] == KindDepths)
+					{
+						ApplyDepths(message);
 						continue;
 					}
 
@@ -496,6 +636,8 @@ namespace Anaglyph.XR.SharedSpaces
 				if (epochThen == hostEpoch)
 					Merge(ownerThen, dataThen, true);
 			early.Clear();
+			foreach (byte[] depths in earlyDepths) ApplyDepths(depths);
+			earlyDepths.Clear();
 			HostMapReceived.Invoke();
 		}
 
@@ -513,6 +655,7 @@ namespace Anaglyph.XR.SharedSpaces
 
 		private void Merge(uint owner, VisualMapData data, bool matchAgainstOwn)
 		{
+			if (graph.IsForgotten(owner)) return;
 			data.owner = owner;
 			// a view sent whole and then again as it settled is merged once
 			data.keyframes.RemoveAll(k => !views.Add((owner, k.timestampNs)));

@@ -92,6 +92,16 @@ namespace Anaglyph.XR.VisualLocalization
 			set => mapper.Mapping = value;
 		}
 
+		/// <summary>A keyframe is being tried, or a query holds the extractor mapping would need.</summary>
+		public bool IsMappingOrExtracting => mapper.IsBusy || queue.ExtractorBusy;
+
+		/// <inheritdoc cref="InferenceQueue.HoldCapture"/>
+		public bool HoldCapture
+		{
+			get => queue.HoldCapture;
+			set => queue.HoldCapture = value;
+		}
+
 		public VisualMapQuality Quality => Map.Quality(pnp.rangedFraction);
 
 		private InferenceQueue queue;
@@ -113,6 +123,7 @@ namespace Anaglyph.XR.VisualLocalization
 				freezeEstablished = FreezeOverride ?? mapperSettings.freezeEstablishedLandmarks,
 				// diagnostics in development builds still read them
 				dropEstablishedSightings = !Debug.isDebugBuild,
+				refineEstablished = mapperSettings.refineEstablishedLandmarks,
 			};
 			queue = new InferenceQueue(this, inferenceSettings);
 			mapper = new VisualMapper(this, mapperSettings, queue);

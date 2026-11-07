@@ -105,7 +105,10 @@ namespace Anaglyph.XR.VisualLocalization
 		}
 
 		/// <summary>The current frame into <see cref="Image"/>; hold the extractor first. False when there is none, or the head turns faster than <paramref name="maxAngularSpeed"/>.</summary>
-		public bool TryCapture(float maxAngularSpeed) => capture.TryCapture(Image, lastFrameTimestampNs, maxAngularSpeed);
+		public bool TryCapture(float maxAngularSpeed) => !HoldCapture && capture.TryCapture(Image, lastFrameTimestampNs, maxAngularSpeed);
+
+		/// <summary>No frame is taken while this is set: the head is somewhere its image doesn't show yet.</summary>
+		public bool HoldCapture { get; set; }
 
 		/// <summary>Waits a turn on the extractor. False when the owner was destroyed meanwhile.</summary>
 		public async Awaitable<bool> AcquireExtractor()

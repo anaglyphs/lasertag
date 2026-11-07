@@ -20,7 +20,7 @@ namespace Anaglyph.XR.VisualLocalization
 		/// neighbor in <paramref name="b"/> with a cosine of at least
 		/// <paramref name="minCosine"/>, or -1; and that cosine as the confidence.
 		/// </summary>
-		public static async Awaitable<(int[] matches, float[] confidence)> MatchAsync(FeatureSet a, FeatureSet b, float minCosine = 0.82f)
+		public static async Awaitable<(int[] matches, float[] confidence)> MatchAsync(FeatureSet a, FeatureSet b, float minCosine = 0.82f, int rowsPerFrame = DefaultRowsPerFrame)
 		{
 			if (a == null || b == null || a.Count == 0 || b.Count == 0) return (null, null);
 
@@ -40,11 +40,11 @@ namespace Anaglyph.XR.VisualLocalization
 				// a slice of rows a frame: one job holding a worker for tens of milliseconds
 				// holds up the engine's own jobs behind it, and the frame with them
 				JobHandle slice = prepared;
-				for (int row = 0; row < a.Count; row += RowsPerFrame)
+				for (int row = 0; row < a.Count; row += rowsPerFrame)
 				{
 					slice = new NearestSliceJob
 					{
-						descA = descA, rowsB = rowsB, countB = b.Count, first = row, end = math.min(row + RowsPerFrame, a.Count),
+						descA = descA, rowsB = rowsB, countB = b.Count, first = row, end = math.min(row + rowsPerFrame, a.Count),
 						bestForA = bestForA, bestSimForA = bestSimForA, bestForB = bestForB, bestSimForB = bestSimForB,
 					}.Schedule(slice);
 					JobHandle.ScheduleBatchedJobs();
@@ -76,7 +76,7 @@ namespace Anaglyph.XR.VisualLocalization
 		}
 
 		// rows of a matched per frame: ~64 × 1000 × 64 multiply-adds, a millisecond or two
-		private const int RowsPerFrame = 64;
+		public const int DefaultRowsPerFrame = 64;
 		private const int Widths = FeatureSet.DescriptorSize / 4;
 
 		// b's descriptors widened once, not once per multiply; and nothing yet the best of any row of it
