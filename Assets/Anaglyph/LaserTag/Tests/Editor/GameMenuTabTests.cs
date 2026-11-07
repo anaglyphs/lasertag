@@ -98,7 +98,7 @@ namespace Anaglyph.LaserTag.Tests
 		[UnityTest]
 		public IEnumerator RepeatedTabPressesPauseEditingAndPreserveNavigationAndMatchSettings()
 		{
-			Assert.That(maps.CurrentPage.name, Is.EqualTo("map-manager-page"));
+			Assert.That(maps.CurrentPage.name, Is.EqualTo("maps-page"));
 			Assert.That(root.Q<Button>("maps-tab").ClassListContains("game-menu-tab-selected"), Is.True);
 			MapEditor.MapEditor.SetActive(true);
 			var score = root.Q<SliderInt>("score-target-slider");
@@ -121,7 +121,7 @@ namespace Anaglyph.LaserTag.Tests
 			yield return Layout();
 			Press(root.Q<Button>("finish-editing-button"));
 			Assert.That(MapEditor.MapEditor.IsActive, Is.False);
-			Assert.That(maps.CurrentPage.name, Is.EqualTo("map-manager-page"));
+			Assert.That(maps.CurrentPage.name, Is.EqualTo("maps-page"));
 		}
 
 		[TestCase(MatchState.Mustering)]

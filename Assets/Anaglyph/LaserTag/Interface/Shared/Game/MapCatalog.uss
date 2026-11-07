@@ -113,6 +113,18 @@
     background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/trash.svg");
 }
 
+.catalog-map-row > .catalog-row-action {
+    display: none;
+}
+
+.catalog-map-row--hovered > .catalog-row-action {
+    display: flex;
+}
+
+.catalog-map-row--unloadable .catalog-map-name {
+    opacity: 0.5;
+}
+
 .catalog-confirm-delete {
     width: auto;
     padding-left: 8px;
@@ -123,4 +135,17 @@
 .layout-actions > Button {
     flex-basis: 0;
     min-width: 0;
+}
+
+.recognizing-space-label {
+    flex-grow: 1;
+    white-space: normal;
+    -unity-text-align: middle-center;
+}
+
+.catalog-new-map {
+    height: 48px;
+    min-height: 48px;
+    flex-shrink: 0;
+    font-size: 28px;
 }

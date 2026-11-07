@@ -118,6 +118,70 @@ namespace Anaglyph.LaserTag.Tests
 				"Done remains visible outside the mode-specific navigation pages.");
 		}
 
+		[Test]
+		public void HeadsetMapsPageWaitsForItsSpaceAndLeadsToManage()
+		{
+			Assert.That(SpaceManager.Instance, Is.Null);
+			var root = Load("Assets/Anaglyph/LaserTag/Interface/Main Menu/Game/GameMenu.uxml");
+			var maps = root.Q<NavView>("maps-nav");
+			Assert.That(maps.FirstPageName, Is.EqualTo("maps-page"));
+			var section = maps.GetPage("maps-page").Q("loaded-space-maps-section");
+			using var binder = new LoadedSpaceMapsBinder(section, () => { });
+			Assert.That(section.Q<FlashingLabel>("recognizing-space-label").style.display.value, Is.EqualTo(DisplayStyle.Flex));
+			Assert.That(section.Q("map-list").style.display.value, Is.EqualTo(DisplayStyle.None));
+			Assert.That(section.Q<Button>("manage-maps-button"), Is.Not.Null);
+			Assert.That(section.Q("space-row"), Is.Null);
+			Assert.That(maps.GetPage("manage-maps-page").Q("map-catalog-section"), Is.Not.Null);
+		}
+
+		[UnityTest]
+		public IEnumerator MapRowLoadsOnPressAndHidesItsActionsUntilHovered()
+		{
+			Assert.That(SpaceManager.Instance, Is.Null);
+			var root = Load("Assets/Anaglyph/LaserTag/Interface/Main Menu/Game/GameMenu.uxml");
+			var list = root.Q<NavView>("maps-nav").GetPage("maps-page").Q<ScrollView>("map-list");
+			var row = new MapRows().Build(Map.Create("Arena"), false, null, () => { });
+			list.Add(row);
+			for (int i = 0; i < 2; i++) yield return null;
+			Assert.That(row.Q("load-map-button"), Is.Null);
+			Assert.That(row.Q<Button>("map-row-button"), Is.Not.Null);
+			Assert.That(row.ClassListContains(MapRows.UnloadableUssClassName), Is.True);
+			foreach (string action in new[] { "edit-map-button", "delete-map-button" })
+				Assert.That(row.Q(action).resolvedStyle.display, Is.EqualTo(DisplayStyle.None), action);
+		}
+
+		[UnityTest]
+		public IEnumerator HoveringAMapEntryMakesRoomForItsActionsUntilThePointerLeaves()
+		{
+			window.wantsMouseMove = true;
+			var root = Load("Assets/Anaglyph/LaserTag/Interface/Main Menu/Game/GameMenu.uxml");
+			var list = root.Q<NavView>("maps-nav").GetPage("maps-page").Q<ScrollView>("map-list");
+			var row = new MapRows().Build(Map.Create("Arena"), false, null, () => { });
+			list.Add(row);
+			var main = row.Q("map-row-button"); var delete = row.Q("delete-map-button");
+			for (int i = 0; i < 3; i++) yield return null;
+			float fullWidth = main.layout.width;
+			float mainOuterWidth = fullWidth + main.resolvedStyle.marginLeft + main.resolvedStyle.marginRight;
+			Assert.That(mainOuterWidth, Is.EqualTo(row.contentRect.width).Within(1), "the map button spans the entry");
+
+			// where the actions appear, so the pointer ends up over a child that was hidden
+			var nearRightEnd = new Vector2(main.worldBound.xMax - 20, main.worldBound.center.y);
+			for (int frame = 0; frame < 6; frame++)
+			{
+				window.SendEvent(new Event { type = EventType.MouseMove, mousePosition = nearRightEnd });
+				yield return null;
+				if (frame == 0) continue;
+				Assert.That(delete.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex), $"frame {frame}");
+				Assert.That(main.layout.width, Is.LessThan(fullWidth), $"frame {frame}");
+			}
+			Assert.That(root.panel.Pick(nearRightEnd), Is.SameAs(delete));
+
+			window.SendEvent(new Event { type = EventType.MouseMove, mousePosition = new Vector2(row.worldBound.center.x, row.worldBound.yMax + 200) });
+			for (int i = 0; i < 2; i++) yield return null;
+			Assert.That(delete.resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
+			Assert.That(main.layout.width, Is.EqualTo(fullWidth).Within(0.5f));
+		}
+
 		[UnityTest]
 		public IEnumerator OperatorCatalogKeepsMapsReachableInAShortSidebar()
 		{

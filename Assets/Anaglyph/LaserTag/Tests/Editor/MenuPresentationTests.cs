@@ -124,7 +124,7 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(nav.CurrentPage.name, Is.EqualTo("home-page"));
 			Assert.That(maps.CurrentPage, Is.SameAs(space));
 			maps.GoBack();
-			Assert.That(maps.CurrentPage.name, Is.EqualTo("map-manager-page"));
+			Assert.That(maps.CurrentPage.name, Is.EqualTo("maps-page"));
 		}
 
 		[UnityTest]

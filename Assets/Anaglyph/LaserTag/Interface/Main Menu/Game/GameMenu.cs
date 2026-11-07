@@ -63,6 +63,8 @@ namespace Anaglyph.LaserTag.Interface
 		private readonly UIEventBindings bindings = new();
 		private MapManagerUI mapManager;
 		private MapProbeBinder mapProbe;
+		private LoadedSpaceMapsBinder loadedSpaceMaps;
+		private NavPage manageMapsPage;
 		private MatchSettingsBinder matchSettings;
 		private MapNameBinder mapName;
 		private SpaceDetailsBinder spaceDetails;
@@ -94,6 +96,7 @@ namespace Anaglyph.LaserTag.Interface
 			hadRequiredBases = null;
 			editingMapPage = mapsNavigation.GetPage("editing-map-page");
 			spaceDetailsPage = mapsNavigation.GetPage("space-details");
+			manageMapsPage = mapsNavigation.GetPage("manage-maps-page");
 			bindings.Click(mapsTab, () => SelectTab(Tab.Maps));
 			bindings.Click(matchTab, () => SelectTab(Tab.Match));
 			bindings.Click(demoTab, () => SelectTab(Tab.Demo));
@@ -105,6 +108,8 @@ namespace Anaglyph.LaserTag.Interface
 			mapManager.Bind(Require<VisualElement>(root, "map-catalog-section"), spaceDetailsPage,
 				ShowMapEditing);
 			mapProbe = new MapProbeBinder(Require<Button>(root, "probe-maps-button"));
+			loadedSpaceMaps = new LoadedSpaceMapsBinder(Require<VisualElement>(root, "loaded-space-maps-section"), ShowMapEditing);
+			bindings.Click(Require<Button>(root, "manage-maps-button"), () => mapsNavigation.GoToPage(manageMapsPage));
 			matchSettings = new MatchSettingsBinder(root);
 			mapName = new MapNameBinder(Require<VisualElement>(editingMapPage, "map-name-section"));
 			spaceDetails = new SpaceDetailsBinder(spaceDetailsPage);
@@ -152,6 +157,8 @@ namespace Anaglyph.LaserTag.Interface
 			mapManager?.Unbind();
 			mapProbe?.Dispose();
 			mapProbe = null;
+			loadedSpaceMaps?.Dispose();
+			loadedSpaceMaps = null;
 			matchSettings?.Dispose();
 			matchSettings = null;
 			MatchReferee.StateChanged -= OnMatchStateChanged;
@@ -257,7 +264,8 @@ namespace Anaglyph.LaserTag.Interface
 		{
 			if (!mapsTab.enabledSelf) { SetEditorActive(false); return; }
 			mapsNavigation.DismissModal(editingMapPage);
-			mapsNavigation.GoToPage("map-manager-page");
+			mapsNavigation.GoToPage("maps-page");
+			mapsNavigation.GoToPage(manageMapsPage);
 			mapsNavigation.GoToPage(spaceDetailsPage);
 			SelectTab(Tab.Maps);
 		}
@@ -296,7 +304,7 @@ namespace Anaglyph.LaserTag.Interface
 			if (page == spaceDetailsPage) spaceDetails.Refresh();
 			if (page == editingMapPage) mapName.Refresh();
 			UpdateEditor();
-			if (selectedTab == Tab.Maps && page?.name == "map-manager-page") mapProbe?.Probe();
+			if (selectedTab == Tab.Maps && page == manageMapsPage) mapProbe?.Probe();
 		}
 
 		private void OnMapEditorStateChanged(bool active)
@@ -312,7 +320,7 @@ namespace Anaglyph.LaserTag.Interface
 			{
 				mapsNavigation.DismissModal(editingMapPage);
 				if (mapsNavigation.CurrentPage == spaceDetailsPage)
-					mapsNavigation.GoToPage("map-manager-page");
+					mapsNavigation.GoToPage(manageMapsPage);
 			}
 		}
 

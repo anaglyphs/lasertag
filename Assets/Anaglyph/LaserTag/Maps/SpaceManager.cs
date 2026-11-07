@@ -500,16 +500,22 @@ namespace Anaglyph.LaserTag.Maps
 		{
 			if (NewSpaceBlocker() != null) return false;
 			SaveBeforeLeaving();
-			Space fresh = Space.Create(GenerateSpaceName());
-			spaces.Insert(0, fresh);
-			Show(fresh, AddMap(fresh));
+			ShowFreshSpace();
 			SpacesChanged.Invoke();
 			return Save();
 		}
 
+		private void ShowFreshSpace()
+		{
+			Space fresh = Space.Create(GenerateSpaceName());
+			spaces.Insert(0, fresh);
+			Show(fresh, AddMap(fresh));
+		}
+
 		public string DeleteSpaceBlocker(string id) =>
-			ManageBlocker() ?? (FindSpace(id) == null ? L("blocker.map-is-missing") :
-			SyncBus.Active && space?.id == id ? L("space.busy") : null);
+			ManageBlocker() ?? (FindSpace(id) == null ? L("blocker.map-is-missing") : null);
+
+		/// <summary>Deletes a space, its maps and its visual map. Deleting the shown space shows a fresh one.</summary>
 
 		public bool DeleteSpace(string id)
 		{
@@ -520,12 +526,13 @@ namespace Anaglyph.LaserTag.Maps
 			PrivateReferences references = store.LoadPrivate(id);
 			if (references != null) foreach (TagAnchorRef anchor in references.tagAnchors) guids.Add(anchor.guid);
 			spaces.Remove(target);
-			if (target == space) Show(null, null);
+			bool deletingShownSpace = target == space;
+			if (deletingShownSpace) ShowFreshSpace();
 			Alignment.EraseUnreferenced(guids);
 			bool deleted = store.Delete(id);
 			Discovery.Forget(id);
 			SpacesChanged.Invoke();
-			if (space == null) Startup(lifetime.Token);
+			if (deletingShownSpace) Save();
 			return deleted;
 		}
 
@@ -615,16 +622,16 @@ namespace Anaglyph.LaserTag.Maps
 		}
 
 		public string DeleteMapBlocker(string id) =>
-			id == null ? L("blocker.no-map-selected") : ManageBlocker() ?? (OwnerOf(id) == null ? L("blocker.map-is-missing") :
-			SyncBus.Active && map?.id == id ? L("blocker.cannot-delete-the-active-session-map") : null);
+			id == null ? L("blocker.no-map-selected") : ManageBlocker() ?? (OwnerOf(id) == null ? L("blocker.map-is-missing") : null);
 
+		/// <summary>Deletes a saved map. Deleting the shown map shows a fresh one in its space.</summary>
 		public bool DeleteMap(string id)
 		{
 			if (DeleteMapBlocker(id) != null) return false;
 			Space owner = OwnerOf(id);
 			Map target = owner.FindMap(id);
 			owner.maps.Remove(target);
-			if (target == map) ShowMap(null);
+			if (target == map) ShowMap(AddMap(owner));
 			bool saved = owner == space ? Save() : store.Save(owner);
 			SpacesChanged.Invoke();
 			return saved;
