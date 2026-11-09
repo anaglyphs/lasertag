@@ -8,7 +8,13 @@ namespace Anaglyph.Audio
 	public static class AudioPool
 	{
 		private const int InitSourceCount = 10;
+		private const float ClearCutoffHz = 22000f;
+		private const float MuffledCutoffHz = 800f;
 		private static readonly List<AudioSource> allSources = new();
+		private static readonly List<AudioLowPassFilter> allFilters = new();
+
+		/// <summary>Moves and muffles pooled sounds that something stands in the way of. Null = none.</summary>
+		public static ISoundRouting Routing { get; set; }
 
 		private static int numPlaying = 0;
 		private static int poolIndex = 0;
@@ -17,6 +23,7 @@ namespace Anaglyph.Audio
 		private static void Init()
 		{
 			allSources.Clear();
+			allFilters.Clear();
 			for (int i = 0; i < InitSourceCount; i++) InstantiateNewSource();
 		}
 
@@ -29,6 +36,7 @@ namespace Anaglyph.Audio
 			source.dopplerLevel = 0.0f;
 			source.gameObject.SetActive(false);
 			allSources.Add(source);
+			allFilters.Add(sourceObj.AddComponent<AudioLowPassFilter>());
 		}
 
 		public static void Play(AudioClip clip, Vector3 pos, float vol = 1)
@@ -57,6 +65,15 @@ namespace Anaglyph.Audio
 			}
 
 			AudioSource player = allSources[poolIndex];
+
+			float muffle = 0;
+			if (Routing != null && Routing.TryRoute(pos, out Vector3 apparentSource, out float routedMuffle))
+			{
+				pos = apparentSource;
+				muffle = routedMuffle;
+			}
+			allFilters[poolIndex].cutoffFrequency =
+				ClearCutoffHz * Mathf.Pow(MuffledCutoffHz / ClearCutoffHz, Mathf.Clamp01(muffle));
 
 			try
 			{

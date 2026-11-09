@@ -30,9 +30,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		
 		public NativeArray<uint> voxelSignBits;
 
-		// the empty components reaching this chunk's faces, from voxelSignBits; see ChunkPortals
-		public uint[] portalMasks = ChunkPortals.Open;
-		public int portalComponents = 1;
+		// counts remeshes that changed voxelSignBits, and with them the chunk's ChunkPortals
 		public int portalRevision;
 
 		public MeshFilter meshFilter;

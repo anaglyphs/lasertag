@@ -55,6 +55,9 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		private ChunkOcclusionCuller occlusionCuller;
 		public ChunkOcclusionCuller OcclusionCuller => occlusionCuller;
 
+		/// <summary>The empty space each meshed chunk opens onto its neighbours, for the culler and path queries.</summary>
+		public ChunkPortalStore Portals { get; private set; }
+
 		[Header("Mesh decimation options")] public MeshSimplificationTarget decimationTarget = new()
 		{
 			Kind = MeshSimplificationTargetKind.ScaledTotalError,
@@ -121,6 +124,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		private void Awake()
 		{
 			Instance = this;
+			Portals = new ChunkPortalStore();
 			envMeshLayerMask = LayerMask.GetMask(EnvironmentMeshLayerName);
 			chunkPrefabMaterial = chunkPrefab.GetComponent<MeshRenderer>().sharedMaterial;
 
@@ -332,6 +336,8 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 
 		private void OnDestroy()
 		{
+			Portals.Dispose();
+
 			if (EnvScanner.Instance)
 			{
 				EnvScanner.Instance.Cleared -= OnLiveScanCleared;
@@ -364,6 +370,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			chunksList.Clear();
 			meshQueue.Clear();
 			recheckList.Clear();
+			Portals.Clear();
 
 			if (enabled)
 				StartWorkers();
@@ -527,8 +534,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			return flippedVoxels;
 		}
 
-		// portalComponents < 0: the portals weren't found, so the chunk is taken as open
-		private static void RememberMeshedSurface(Chunk chunk, NativeArray<uint> updatedSignBits,
+		private void RememberMeshedSurface(Chunk chunk, NativeArray<uint> updatedSignBits,
 			NativeArray<uint> portalMasks, int portalComponents)
 		{
 			if (!chunk.voxelSignBits.IsCreated)
@@ -536,19 +542,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 
 			chunk.voxelSignBits.CopyFrom(updatedSignBits);
 			chunk.portalRevision++;
-
-			if (portalComponents < 0)
-			{
-				chunk.portalMasks = ChunkPortals.Open;
-				chunk.portalComponents = 1;
-				return;
-			}
-
-			int words = portalComponents * ChunkPortals.ComponentWords;
-			if (chunk.portalMasks == ChunkPortals.Open || chunk.portalMasks.Length != words)
-				chunk.portalMasks = new uint[words];
-			NativeArray<uint>.Copy(portalMasks, chunk.portalMasks, words);
-			chunk.portalComponents = portalComponents;
+			Portals.Set(chunk.chunkIndex, portalMasks, portalComponents);
 		}
 
 		private const int VoxelsPerSignWord = 32;
@@ -683,19 +677,14 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 
 					surface = Mesh.AllocateWritableMeshData(1);
 					surfaceAllocated = true;
-					inFlight = mesher.Schedule(readbackBuffer.data, chunkSize, scanner.VoxSize, surface[0]);
-					// the portals only feed the culler
-					bool findPortals = occlusionCulling;
-					if (findPortals)
+					JobHandle portalsJob = new ChunkPortals.ComponentsJob
 					{
-						JobHandle portalsJob = new ChunkPortals.ComponentsJob
-						{
-							solidBits = updatedSignBits,
-							masks = portalMasks,
-							count = portalComponents
-						}.Schedule();
-						inFlight = JobHandle.CombineDependencies(inFlight, portalsJob);
-					}
+						solidBits = updatedSignBits,
+						masks = portalMasks,
+						count = portalComponents
+					}.Schedule();
+					inFlight = JobHandle.CombineDependencies(
+						mesher.Schedule(readbackBuffer.data, chunkSize, scanner.VoxSize, surface[0]), portalsJob);
 					await Finish(inFlight);
 					ctkn.ThrowIfCancellationRequested();
 
@@ -743,8 +732,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 					}
 					else target.Clear();
 
-					RememberMeshedSurface(activeChunk, updatedSignBits, portalMasks,
-						findPortals ? portalComponents[0] : -1);
+					RememberMeshedSurface(activeChunk, updatedSignBits, portalMasks, portalComponents[0]);
 
 					if (CommitChunkWork(activeChunk, activePendingChangeSum, meshedChangeSum))
 					{

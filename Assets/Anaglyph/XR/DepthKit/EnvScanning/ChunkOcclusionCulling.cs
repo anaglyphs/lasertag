@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -10,226 +9,6 @@ using UnityEngine.Rendering;
 
 namespace Anaglyph.XR.DepthKit.EnvScanning
 {
-	/// <summary>
-	/// The pockets of empty space inside a chunk that reach its faces, and exactly where
-	/// each reaches them: per component, a 30×30 bitmask per face of the voxels it
-	/// holds there. Two components in neighbouring chunks are joined when their masks on
-	/// the shared face overlap. Faces are numbered -X, +X, -Y, +Y, -Z, +Z, so a face's
-	/// opposite is <c>face ^ 1</c>. Face masks are rows of z (bits y) on X faces, rows of
-	/// z (bits x) on Y faces and rows of y (bits x) on Z faces, the same on both sides
-	/// of a face. Space never observed counts as empty: holes in the scan only ever make
-	/// a chunk more open
-	/// </summary>
-	public static class ChunkPortals
-	{
-		public const int FaceCount = 6;
-
-		/// <summary>Voxels a chunk owns per axis; the outer layer is the neighbours' apron.</summary>
-		public const int Span = 30;
-
-		public const int Dim = Span + 2;
-		public const uint RowMask = (1u << Span) - 1;
-
-		/// <summary>Words per component: a mask per face.</summary>
-		public const int ComponentWords = FaceCount * Span;
-
-		/// <summary>Past this many, the rest of a chunk's empty space is one component.</summary>
-		public const int MaxComponents = 16;
-
-		public static readonly int3[] FaceSteps =
-		{
-			new(-1, 0, 0), new(1, 0, 0),
-			new(0, -1, 0), new(0, 1, 0),
-			new(0, 0, -1), new(0, 0, 1)
-		};
-
-		/// <summary>One component touching every voxel of every face: a chunk nothing is known to seal.</summary>
-		public static readonly uint[] Open = CreateOpen();
-
-		private static uint[] CreateOpen()
-		{
-			uint[] open = new uint[ComponentWords];
-			Array.Fill(open, RowMask);
-			return open;
-		}
-
-		// the owned voxels of a row (y + z * Dim), as bits of x, for rows 1..Span on y and z
-		private const uint Interior = RowMask << 1;
-		private const int Last = Span;
-
-		private static void LoadEmpty(NativeArray<uint> solidBits, NativeArray<uint> empty)
-		{
-			for (int r = 0; r < Dim * Dim; r++) empty[r] = 0;
-			for (int z = 1; z <= Last; z++)
-			for (int y = 1; y <= Last; y++)
-			{
-				int r = y + z * Dim;
-				empty[r] = ~solidBits[r] & Interior;
-			}
-		}
-
-		// 6-connected: a surface one voxel thick seals. Rows grow along x by shifting to
-		// a fixed point and take from their four neighbouring rows; sweeps alternate
-		// direction so long paths settle in few passes
-		private static void Flood(NativeArray<uint> empty, NativeArray<uint> fill)
-		{
-			const int rows = Span * Span;
-			bool changed = true;
-			bool forward = true;
-			while (changed)
-			{
-				changed = false;
-				for (int i = 0; i < rows; i++)
-				{
-					int j = forward ? i : rows - 1 - i;
-					int r = 1 + j % Span + (1 + j / Span) * Dim;
-
-					uint v = fill[r];
-					uint grow = (v | fill[r - 1] | fill[r + 1] | fill[r - Dim] | fill[r + Dim]) & empty[r];
-					if (grow == 0) continue;
-
-					uint prev;
-					do
-					{
-						prev = grow;
-						grow = (grow | (grow << 1) | (grow >> 1)) & empty[r];
-					} while (grow != prev);
-
-					if (grow == v) continue;
-					fill[r] = grow;
-					changed = true;
-				}
-
-				forward = !forward;
-			}
-		}
-
-		private static void ExtractFaces(NativeArray<uint> fill, NativeArray<uint> masks, int offset)
-		{
-			for (int i = 0; i < Span; i++)
-			{
-				int a = i + 1;
-				uint nx = 0, px = 0;
-				for (int j = 0; j < Span; j++)
-				{
-					uint row = fill[j + 1 + a * Dim];
-					nx |= ((row >> 1) & 1u) << j;
-					px |= ((row >> Last) & 1u) << j;
-				}
-
-				masks[offset + 0 * Span + i] = nx;
-				masks[offset + 1 * Span + i] = px;
-				masks[offset + 2 * Span + i] = (fill[1 + a * Dim] >> 1) & RowMask;
-				masks[offset + 3 * Span + i] = (fill[Last + a * Dim] >> 1) & RowMask;
-				masks[offset + 4 * Span + i] = (fill[a + 1 * Dim] >> 1) & RowMask;
-				masks[offset + 5 * Span + i] = (fill[a + Last * Dim] >> 1) & RowMask;
-			}
-		}
-
-		private static bool IsFaceRow(int r)
-		{
-			int y = r % Dim, z = r / Dim;
-			return y == 1 || y == Last || z == 1 || z == Last;
-		}
-
-		/// <summary>Splits a chunk's empty space into the components that reach its faces.</summary>
-		[BurstCompile]
-		public struct ComponentsJob : IJob
-		{
-			/// <summary>
-			/// <see cref="Chunk.voxelSignBits"/>: a set bit is behind a surface. One word is
-			/// one x row; row = y + z * dim
-			/// </summary>
-			[ReadOnly] public NativeArray<uint> solidBits;
-
-			/// <summary><see cref="MaxComponents"/> × <see cref="ComponentWords"/>.</summary>
-			[WriteOnly] public NativeArray<uint> masks;
-
-			[WriteOnly] public NativeArray<int> count;
-
-			public void Execute()
-			{
-				// a row must be exactly one word
-				if (solidBits.Length != Dim * Dim)
-				{
-					for (int i = 0; i < ComponentWords; i++) masks[i] = RowMask;
-					count[0] = 1;
-					return;
-				}
-
-				NativeArray<uint> empty = new(Dim * Dim, Allocator.Temp);
-				NativeArray<uint> fill = new(Dim * Dim, Allocator.Temp);
-				LoadEmpty(solidBits, empty);
-
-				int n = 0;
-				while (n < MaxComponents)
-				{
-					int seedRow = -1;
-					uint seedBits = 0;
-					for (int r = Dim; r < Dim * (Dim - 1) && seedRow < 0; r++)
-					{
-						uint face = empty[r] & (IsFaceRow(r) ? Interior : (1u << 1) | (1u << Last));
-						if (face == 0) continue;
-						seedRow = r;
-						seedBits = face & (~face + 1);
-					}
-
-					if (seedRow < 0) break;
-
-					if (n == MaxComponents - 1)
-					{
-						// everything left, as one
-						for (int r = 0; r < Dim * Dim; r++) fill[r] = empty[r];
-					}
-					else
-					{
-						for (int r = 0; r < Dim * Dim; r++) fill[r] = 0;
-						fill[seedRow] = seedBits;
-						Flood(empty, fill);
-					}
-
-					ExtractFaces(fill, masks, n * ComponentWords);
-					n++;
-
-					for (int r = 0; r < Dim * Dim; r++) empty[r] &= ~fill[r];
-				}
-
-				count[0] = n;
-			}
-		}
-
-		/// <summary>The face masks of the empty component holding one voxel, if it is empty.</summary>
-		[BurstCompile]
-		public struct ContainingComponentJob : IJob
-		{
-			[ReadOnly] public NativeArray<uint> solidBits;
-			public int3 voxel;
-
-			[WriteOnly] public NativeArray<uint> masks;
-			[WriteOnly] public NativeArray<int> found;
-
-			public void Execute()
-			{
-				NativeArray<uint> empty = new(Dim * Dim, Allocator.Temp);
-				NativeArray<uint> fill = new(Dim * Dim, Allocator.Temp);
-				LoadEmpty(solidBits, empty);
-
-				int r = voxel.y + voxel.z * Dim;
-				uint bit = 1u << voxel.x;
-				if ((empty[r] & bit) == 0)
-				{
-					found[0] = 0;
-					return;
-				}
-
-				fill[r] = bit;
-				Flood(empty, fill);
-				ExtractFaces(fill, masks, 0);
-				found[0] = 1;
-			}
-		}
-	}
-
 	/// <summary>
 	/// Hides chunks a camera can't see past the scanned surfaces, for that camera only.
 	/// Walks the empty space of the chunk grid out from the camera (cave culling): from
@@ -266,8 +45,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		private int planeCount;
 
 		// the camera's component, kept until the camera changes voxel or its chunk remeshes
-		private readonly uint[] startMasks = new uint[ChunkPortals.ComponentWords];
-		private NativeArray<uint> startMasksNative;
+		private NativeArray<uint> startMasks;
 		private NativeArray<int> startFound;
 		private bool startValid;
 		private Chunk startChunk;
@@ -289,7 +67,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			this.mesher = mesher;
 			this.layerMask = layerMask;
 			this.frustumMargin = frustumMargin;
-			startMasksNative = new NativeArray<uint>(ChunkPortals.ComponentWords, Allocator.Persistent);
+			startMasks = new NativeArray<uint>(ChunkPortals.ComponentWords, Allocator.Persistent);
 			startFound = new NativeArray<int>(1, Allocator.Persistent);
 			RenderPipelineManager.beginCameraRendering += OnBeginCamera;
 			RenderPipelineManager.endCameraRendering += OnEndCamera;
@@ -300,7 +78,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			RenderPipelineManager.beginCameraRendering -= OnBeginCamera;
 			RenderPipelineManager.endCameraRendering -= OnEndCamera;
 			Restore();
-			if (startMasksNative.IsCreated) startMasksNative.Dispose();
+			if (startMasks.IsCreated) startMasks.Dispose();
 			if (startFound.IsCreated) startFound.Dispose();
 		}
 
@@ -389,7 +167,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			else
 			{
 				// the camera sits in what reads as solid: walk out of every pocket of its chunk
-				int count = startChunkHere ? startChunkHere.portalComponents : 1;
+				int count = startChunkHere ? mesher.Portals.ComponentCount(mesher.Portals.SlotOf(startChunkHere.chunkIndex)) : 1;
 				for (int k = 0; k < count; k++)
 				{
 					reached[startCell] |= 1u << k;
@@ -402,11 +180,14 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			// the mesh reaches into the apron, a voxel past the chunk on each side
 			float3 extents = (chunkSize + voxSize * 2) * 0.5f;
 
+			ChunkPortalStore portals = mesher.Portals;
+			NativeArray<uint> storeMasks = portals.Masks;
+
 			while (queue.Count > 0)
 			{
 				Step s = queue.Dequeue();
-				Portals(scanner, s.coord, out uint[] masks, out _);
-				int offset = s.component * ChunkPortals.ComponentWords;
+				NativeArray<uint> masks = storeMasks;
+				int offset = ChunkPortalStore.MaskOffset(Slot(scanner, s.coord), s.component);
 				if (s.component == StartComponent)
 				{
 					masks = startMasks;
@@ -419,7 +200,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 					if ((s.dirs & (1 << (d ^ 1))) != 0) continue;
 
 					int from = offset + d * ChunkPortals.Span;
-					if (!Any(masks, from)) continue;
+					if (!ChunkPortals.Any(masks, from)) continue;
 
 					int3 n = s.coord + ChunkPortals.FaceSteps[d];
 					if (math.any(n < min) || math.any(n > max)) continue;
@@ -432,13 +213,14 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 					int cell = Cell(n, min, dims);
 					reached[cell] |= SeenBit;
 
-					Portals(scanner, n, out uint[] nMasks, out int nCount);
+					int nSlot = Slot(scanner, n);
+					int nCount = portals.ComponentCount(nSlot);
 					int entry = (d ^ 1) * ChunkPortals.Span;
 					byte dirs = (byte)(s.dirs | (1 << d));
 					for (int k = 0; k < nCount; k++)
 					{
 						if ((reached[cell] & (1u << k)) != 0) continue;
-						if (!Overlap(masks, from, nMasks, k * ChunkPortals.ComponentWords + entry)) continue;
+						if (!ChunkPortals.Overlap(masks, from, storeMasks, ChunkPortalStore.MaskOffset(nSlot, k) + entry)) continue;
 
 						reached[cell] |= 1u << k;
 						queue.Enqueue(new Step { coord = n, component = (byte)k, dirs = dirs });
@@ -447,18 +229,10 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			}
 		}
 
-		private void Portals(EnvScanner scanner, int3 coord, out uint[] masks, out int count)
+		private int Slot(EnvScanner scanner, int3 coord)
 		{
 			int index = scanner.ChunkCoordToChunkIndex(coord);
-			if (index >= 0 && mesher.TryGetChunk(index, out Chunk chunk))
-			{
-				masks = chunk.portalMasks;
-				count = chunk.portalComponents;
-				return;
-			}
-
-			masks = ChunkPortals.Open;
-			count = 1;
+			return index < 0 ? ChunkPortalStore.OpenSlot : mesher.Portals.SlotOf(index);
 		}
 
 		// floods the camera's chunk from the camera's voxel into startMasks
@@ -468,7 +242,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			int index = scanner.ChunkCoordToChunkIndex(coord);
 			if (index < 0 || !mesher.TryGetChunk(index, out chunk) || !chunk.voxelSignBits.IsCreated)
 			{
-				Array.Copy(ChunkPortals.Open, startMasks, ChunkPortals.ComponentWords);
+				NativeArray<uint>.Copy(mesher.Portals.Masks, startMasks, ChunkPortals.ComponentWords);
 				return true;
 			}
 
@@ -482,7 +256,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			{
 				solidBits = chunk.voxelSignBits,
 				voxel = voxel,
-				masks = startMasksNative,
+				masks = startMasks,
 				found = startFound
 			}.Run();
 
@@ -490,22 +264,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			startVoxel = voxel;
 			startRevision = chunk.portalRevision;
 			startValid = startFound[0] != 0;
-			if (startValid) startMasksNative.CopyTo(startMasks);
 			return startValid;
-		}
-
-		private static bool Any(uint[] masks, int from)
-		{
-			for (int i = 0; i < ChunkPortals.Span; i++)
-				if (masks[from + i] != 0) return true;
-			return false;
-		}
-
-		private static bool Overlap(uint[] a, int aFrom, uint[] b, int bFrom)
-		{
-			for (int i = 0; i < ChunkPortals.Span; i++)
-				if ((a[aFrom + i] & b[bFrom + i]) != 0) return true;
-			return false;
 		}
 
 		private static int Cell(int3 c, int3 min, int3 dims)
