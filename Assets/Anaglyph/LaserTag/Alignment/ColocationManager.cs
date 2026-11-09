@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Anaglyph.LaserTag.Player;
+using Anaglyph.Netcode;
 using Anaglyph.XR.SharedSpaces;
 using Anaglyph.XR.SharedSpaces.AprilTags;
 using Anaglyph.XR.SharedSpaces.SharedAnchors;
@@ -196,6 +197,8 @@ namespace Anaglyph.LaserTag
 			Instance = this;
 			aprilTagColocationProvider.TrackingReady = () =>
 				!applicationPaused && AppFocus.IsFocused && PlayerHeadsetStatus.HeadTrackingReady;
+			visualProvider.HasInternet = () =>
+				(NetworkConnectivityTest.GetNetworkState() & NetworkState.FullInternetFlag) != 0;
 			colocator.StateChanged += OnStateChanged;
 		}
 

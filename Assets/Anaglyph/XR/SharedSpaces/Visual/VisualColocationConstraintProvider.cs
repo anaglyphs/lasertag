@@ -28,6 +28,10 @@ namespace Anaglyph.XR.SharedSpaces
 	/// A <see cref="KeyframeGraph"/> over every headset's laps moves the views, and the sites locked
 	/// to them, to where the laps agree. Results only count once a <see cref="MeasurementGate"/>
 	/// lets them through.
+	///
+	/// Where the runtime shares anchors, the authority also shares one (<see cref="SessionAnchor"/>):
+	/// a joiner that finds it is aligned at once, without waiting for a camera match, and a headset
+	/// with no camera stays on it, the only thing it has to follow.
 	/// </summary>
 	[RequireComponent(typeof(VisualLocalizer))]
 	public class VisualColocationConstraintProvider : MonoBehaviour, IColocationConstraintProvider
@@ -36,6 +40,8 @@ namespace Anaglyph.XR.SharedSpaces
 		[SerializeField] private float queryInterval = 1f;
 		[Tooltip("Views a colocating or relocalizing query tries: similar-looking views often outrank the one that shows the same place")]
 		[SerializeField] private int searchViews = 5;
+		[Tooltip("The authority shares one anchor through the headset runtime, and joiners align by it as soon as they find it. Camera matching runs alongside and aligns whoever it reaches first")]
+		[SerializeField] private bool shareSessionAnchor = true;
 
 		[SerializeField] private MeasurementGate.Settings gateSettings = new();
 		[SerializeField] private AlignmentWatch.Settings watchSettings = new();
@@ -113,6 +119,10 @@ namespace Anaglyph.XR.SharedSpaces
 			Colocator.Instance != null ? Colocator.Instance.Provider as VisualColocationConstraintProvider : null;
 
 		private CanonAlignment alignment;
+		private SessionAnchor sessionAnchor;
+
+		/// <summary>Whether the headset reaches the internet, which sharing or downloading the session anchor needs. The embedding game's to answer; asked every 2 seconds at most.</summary>
+		public System.Func<bool> HasInternet { get; set; } = () => true;
 
 		/// <summary>
 		/// A debugging view: holds the rig on the found alignment alone, as raw tracking has it,
@@ -235,6 +245,7 @@ namespace Anaglyph.XR.SharedSpaces
 			graph = new KeyframeGraph(graphSettings, localizer, track);
 			track.KnotFor = graph.KnotFor;
 			alignment = new CanonAlignment(LogTag, () => IsAvailable, () => localizer.Map.Count > 0);
+			sessionAnchor = new SessionAnchor(CanonOf, () => HasInternet(), message => log.Outcome(message));
 			localizer.KeyframeAdded += OnKeyframeAdded;
 			localizer.KeyframeExtracted += graph.Add;
 		}
@@ -266,16 +277,20 @@ namespace Anaglyph.XR.SharedSpaces
 		}
 		private KeyframeGraphSync graphSync;
 
-		// the authority's map replaced this joiner's while it was aligned (its own was cleared): found against it again
+		// the authority's map replaced this joiner's while it was aligned (its own was cleared): found against it
+		// again, by the session anchor where it is tracked, which says the same as before of the new map
 		private void OnHostMapReceived()
 		{
-			if (alignment.CurrentPhase == Phase.Aligned) alignment.BeginRelocalize("the authority's map arrived");
+			if (alignment.CurrentPhase != Phase.Aligned) return;
+			if (TryGetSessionAnchor(out Pose live, out Pose canon)) AlignToSessionAnchor(live, canon);
+			else if (localizer.IsAvailable) alignment.BeginRelocalize("the authority's map arrived");
 		}
 
 		private void OnDestroy()
 		{
 			if (Colocator.Instance != null) Colocator.Instance.Fitted -= OnFitted;
 			alignment.Dispose();
+			sessionAnchor.Dispose();
 			rawFit.Dispose();
 			mapSync?.Dispose();
 			graphSync?.Dispose();
@@ -333,11 +348,13 @@ namespace Anaglyph.XR.SharedSpaces
 			// a joiner that took over as the authority is canon now
 			if (SyncBus.IsAuthority && watch.Watching) watch.End();
 			alignment.Update();
+			UpdateSessionAnchor();
 			UpdateCorrection();
 			graph.Update();
 			graphSync?.Update();
 			FitBehindRawTracking();
-			mapSync?.Update(IsRunning);
+			// a headset with no camera has nothing to match the authority's map with
+			mapSync?.Update(IsRunning && localizer.IsAvailable);
 
 			if (!queriesEnabled || queryInFlight || Time.unscaledTime < nextQuery || !localizer.IsAvailable) return;
 
@@ -627,6 +644,82 @@ namespace Anaglyph.XR.SharedSpaces
 			alignment.AbandonAlignment(why);
 		}
 
+		// ---- the session anchor -------------------------------------------------
+
+		private void UpdateSessionAnchor()
+		{
+			if (!shareSessionAnchor || !SyncBus.Active || !IsRunning)
+			{
+				sessionAnchor.Drop();
+				return;
+			}
+
+			Phase phase = alignment.CurrentPhase;
+			if (SyncBus.IsAuthority)
+			{
+				Camera head = MainXRRig.Camera;
+				Pose levelAtHead = head ? new Pose(head.transform.position, Quaternion.Euler(0, head.transform.eulerAngles.y, 0)) : default;
+				sessionAnchor.UpdateAuthority(phase == Phase.Aligned && head, alignment.Generation, levelAtHead);
+				return;
+			}
+
+			sessionAnchor.UpdateJoiner(phase == Phase.Searching || !localizer.IsAvailable);
+			if (phase == Phase.Searching && TryGetSessionAnchor(out Pose live, out Pose canon)) AlignToSessionAnchor(live, canon);
+		}
+
+		private bool TryGetSessionAnchor(out Pose live, out Pose canon)
+		{
+			live = canon = default;
+			return shareSessionAnchor && SyncBus.Active && !SyncBus.IsAuthority && IsAvailable && sessionAnchor.TryGetTracked(out live, out canon);
+		}
+
+		/// <summary>The rig turned about the anchor and moved, so the anchor stands where the authority says it does.</summary>
+		private void AlignToSessionAnchor(Pose live, Pose canon)
+		{
+			Transform space = MainXRRig.TrackingSpace;
+			Pose4 turn = new(float3.zero, Pose4.FromPose(Vector3.zero, canon.rotation * Quaternion.Inverse(live.rotation)).yaw);
+			Pose4 worldToCanon = new((float3)canon.position - turn.Apply((float3)live.position), turn.yaw);
+
+			watch.End();
+			graph.LinkNextTrack(0, canon.position);
+			alignment.Apply(worldToCanon, new Pose(space.position, space.rotation));
+			anchorFollowedIn = -1;
+			log.Outcome($"Colocate: applied {worldToCanon} (the session anchor)");
+		}
+
+		// where a pose in the world as it stands belongs in the frame this headset is aligned to
+		private Pose CanonOf(Pose world)
+		{
+			Transform space = MainXRRig.TrackingSpace;
+			Pose target = alignment.TargetSpacePose;
+			return new Pose(target.position + target.rotation * space.InverseTransformPoint(world.position),
+				target.rotation * (Quaternion.Inverse(space.rotation) * world.rotation));
+		}
+
+		private Pose anchorInSpace, anchorCanon;
+		private int anchorFollowedIn = -1;
+
+		/// <summary>
+		/// A headset with no camera measures no drift: it stays on the session anchor, where the
+		/// runtime tracks it, or where it last did.
+		/// </summary>
+		private bool TryFollowSessionAnchor(List<ColocationConstraint> results)
+		{
+			if (localizer.IsAvailable) return false;
+			Transform space = MainXRRig.TrackingSpace;
+			if (TryGetSessionAnchor(out Pose live, out Pose canon))
+			{
+				anchorInSpace = new Pose(space.InverseTransformPoint(live.position), Quaternion.Inverse(space.rotation) * live.rotation);
+				anchorCanon = canon;
+				anchorFollowedIn = alignment.Generation;
+			}
+			else if (anchorFollowedIn != alignment.Generation) return false;
+
+			results.Add(new ColocationConstraint(
+				new Pose(space.TransformPoint(anchorInSpace.position), space.rotation * anchorInSpace.rotation), anchorCanon, hasReliableRotation: true));
+			return true;
+		}
+
 		private static Pose4 SpaceOf(VisualQuery query) => Pose4.FromPose(query.trackingSpace.position, query.trackingSpace.rotation);
 
 		private void AddSite(Pending p, in MeasurementGate.Agreed agreed, float yawSigma, ulong anchor, string description)
@@ -753,6 +846,7 @@ namespace Anaglyph.XR.SharedSpaces
 		{
 			if (alignment.CurrentPhase != Phase.Aligned || !IsAvailable) return;
 			if (ShowRawTracking) alignment.AddUncorrectedConstraint(results);
+			else if (TryFollowSessionAnchor(results)) return;
 			else if (Sites.Count == 0 && !graph.HasConstraints) alignment.AddConstraint(results);
 			else AddDriftConstraints(results);
 		}
