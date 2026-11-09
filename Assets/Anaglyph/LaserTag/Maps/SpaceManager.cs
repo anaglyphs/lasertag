@@ -217,7 +217,7 @@ namespace Anaglyph.LaserTag.Maps
 			colocationManager.InvalidateAlignment();
 			Alignment.Apply(space, preserve: false);
 			FrameChanged.Invoke();
-			if (space != null) visualMaps.LoadAndRelocalize(space, shown.Token, OnRelocalizationFailed);
+			if (space != null) visualMaps.LoadAndRelocalize(space, shown.Token, OnRelocalizationFailed, loaded => loaded.id == provisionalSpaceId);
 			SpaceChanged.Invoke();
 			MapChanged.Invoke();
 		}
@@ -410,7 +410,7 @@ namespace Anaglyph.LaserTag.Maps
 				while (!token.IsCancellationRequested)
 				{
 					await Awaitable.WaitForSecondsAsync(10f, token);
-					if (space != null && !showingSessionSpace && Alignment.IsAligned) visualMaps.Save(space, false, false);
+					if (space != null && !showingSessionSpace && ColocationManager.IsLocalized) visualMaps.Save(space, false, false);
 				}
 			}
 			catch (OperationCanceledException) { }
@@ -418,7 +418,7 @@ namespace Anaglyph.LaserTag.Maps
 		}
 
 		private bool ShownSpaceIsReplaceable => space != null && space.id == replaceableSpaceId &&
-			Role == SpaceRole.Offline && !RoundInProgress && !showingSessionSpace && Alignment.IsAligned;
+			Role == SpaceRole.Offline && !RoundInProgress && !showingSessionSpace && ColocationManager.IsLocalized;
 
 		// one keyframe a second at most, and only while a fresh blank space is shown
 		private async void ReplaceWithRecognizedSpaces(CancellationToken token)

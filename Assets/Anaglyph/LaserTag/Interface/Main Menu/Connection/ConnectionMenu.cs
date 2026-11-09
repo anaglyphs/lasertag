@@ -150,7 +150,7 @@ namespace Anaglyph.LaserTag.Interface
 			panel.VisibleChanged += OnPanelVisibilityChanged;
 
 			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
-			ColocationManager.Colocated += OnColocationChange;
+			ColocationManager.LocalizedChanged += OnLocalizedChanged;
 			hostOnRelaySetting.Changed += OnHostOnRelaySettingChange;
 			RefreshSessionConnectionState();
 
@@ -178,7 +178,7 @@ namespace Anaglyph.LaserTag.Interface
 			bindings.Dispose();
 
 			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
-			ColocationManager.Colocated -= OnColocationChange;
+			ColocationManager.LocalizedChanged -= OnLocalizedChanged;
 			hostOnRelaySetting.Changed -= OnHostOnRelaySettingChange;
 			if (panel != null)
 				panel.VisibleChanged -= OnPanelVisibilityChanged;
@@ -277,7 +277,7 @@ namespace Anaglyph.LaserTag.Interface
 
 				case NetcodeState.Connected:
 					UpdateIpText();
-					OnColocationChange(ColocationManager.IsColocated);
+					OnLocalizedChanged(ColocationManager.IsLocalized);
 					break;
 			}
 		}
@@ -302,12 +302,12 @@ namespace Anaglyph.LaserTag.Interface
 			}
 		}
 
-		private void OnColocationChange(bool isColocated)
+		private void OnLocalizedChanged(bool isLocalized)
 		{
 			if (NetcodeManagement.State == NetcodeState.Connected)
 			{
 				OpenSessionPage(
-					isColocated ? SessionState.Connected : SessionState.Colocating);
+					isLocalized ? SessionState.Connected : SessionState.Colocating);
 			}
 		}
 

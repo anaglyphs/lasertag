@@ -463,7 +463,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::XRDisplaySettings
   targetRefreshRate: 90
-  foveationLevel: 0
+  foveationLevel: 0.1
+  cpuPerformanceLevel: 50
+  gpuPerformanceLevel: 50
 --- !u!4 &1579371976
 Transform:
   m_ObjectHideFlags: 0

@@ -300,6 +300,7 @@ MonoBehaviour:
       maxYawSigmaDegrees: 1.5
       minRangedInliers: 0
       maxTranslationSigma: 0.08
+      translationSigmaPerMeter: 0.015
       confidentYawSigmaDegrees: 0.4
       confidentTranslationSigma: 0.03
       confidentInliers: 100
@@ -310,6 +311,7 @@ MonoBehaviour:
       maxYawSigmaDegrees: 0.5
       minRangedInliers: 20
       maxTranslationSigma: 0.04
+      translationSigmaPerMeter: 0
       confidentYawSigmaDegrees: 0.25
       confidentTranslationSigma: 0.02
       confidentInliers: 80
@@ -354,11 +356,12 @@ MonoBehaviour:
     passSeconds: 15
     pairsPerSecond: 12
     pairDistance: 6
-    pairAngle: 45
+    pairAngle: 180
     pairMinWalk: 10
     minInliers: 20
     maxYawSigmaDegrees: 1
     edgeRobustSigmas: 1.5
+    edgeGncSigmas: 3
     minInverseDepth: 0.005
     maxDepthSigmaShare: 0.35
     pixelSigma: 1.5
@@ -395,7 +398,7 @@ MonoBehaviour:
   loopCenterPriorSigma: 1
   loopCooldown: 1
   loopSearchFloor: 0.1
-  mapSettleSeconds: 10
+  mapSettleSeconds: 3
   loopMatchFeatures: 512
   loopMinMutual: 15
   loopMaxViewAngle: 90

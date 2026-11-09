@@ -6,6 +6,7 @@ using Anaglyph.XR.SharedSpaces.AprilTags;
 using Anaglyph.XR.SharedSpaces.SharedAnchors;
 using UnityEngine;
 using SpaceManager = Anaglyph.LaserTag.Maps.SpaceManager;
+using SpaceAlignment = Anaglyph.LaserTag.Maps.SpaceAlignment;
 using Space = Anaglyph.LaserTag.Maps.Space;
 
 namespace Anaglyph.LaserTag
@@ -77,8 +78,13 @@ namespace Anaglyph.LaserTag
 			return requested;
 		}
 
-		public static bool IsColocated { get; private set; }
-		public static Action<bool> Colocated = delegate { };
+		/// <summary>
+		/// The rig is in the shown space's frame: the colocator's fit holds, head tracking is
+		/// live, and the space's saved references agree with the fit where the method has any.
+		/// The same alone or in a session; peers localized in the same space are colocated
+		/// </summary>
+		public static bool IsLocalized { get; private set; }
+		public static Action<bool> LocalizedChanged = delegate { };
 
 		/// <summary>Colocated, but on an alignment still being tested: what this headset would share with the others should wait.</summary>
 		public static bool AlignmentUnconfirmed =>
@@ -116,12 +122,12 @@ namespace Anaglyph.LaserTag
 		public int TrackingGeneration { get; private set; }
 
 		// two-tag mode aligns to a pair of tags, not to the space's saved references. The
-		// visual provider's constraints are its own alignment: colocated is aligned
-		public bool ReferenceAligned => UsesSavedReferences(ActiveMethod) && !UsingTwoTagMode && ActiveProvider != null &&
-		                                ActiveProvider.IsAvailable && IsColocated &&
-		                                (ActiveMethod == ColocationMethod.Visual ||
-		                                 Agreement.constraintCount > 0 && Agreement.meanAgrees &&
-		                                 Agreement.agreeingCount >= Math.Min(Agreement.constraintCount, 2));
+		// visual provider's constraints are its own alignment: a fit is agreement
+		private bool FitAgreesWithSavedReferences => !UsesSavedReferences(ActiveMethod) || UsingTwoTagMode ||
+		                                             ActiveProvider != null && ActiveProvider.IsAvailable &&
+		                                             (ActiveMethod == ColocationMethod.Visual ||
+		                                              Agreement.constraintCount > 0 && Agreement.meanAgrees &&
+		                                              Agreement.agreeingCount >= Math.Min(Agreement.constraintCount, 2));
 
 		public int CountRealizableReferences()
 		{
@@ -175,14 +181,14 @@ namespace Anaglyph.LaserTag
 			TrackingGeneration++;
 			aprilTagColocationProvider.ResetPairReferences();
 			colocator.StopColocation();
-			SetColocated(false);
+			RefreshLocalized();
 		}
 
 		/// <summary>No space is shown: nothing to align to.</summary>
 		public void ClearProvider()
 		{
 			colocator.SetProvider(null);
-			SetColocated(false);
+			RefreshLocalized();
 		}
 
 		private void Awake()
@@ -204,7 +210,7 @@ namespace Anaglyph.LaserTag
 			if (Instance == this)
 			{
 				Instance = null;
-				IsColocated = false;
+				IsLocalized = false;
 			}
 		}
 
@@ -233,14 +239,20 @@ namespace Anaglyph.LaserTag
 				spatialAnchorColocationProvider.InvalidateLocalFrame();
 			}
 
-			SetColocated(state == ColocationAlignmentState.Localized);
+			RefreshLocalized();
 		}
 
-		private void SetColocated(bool value)
+		// tracking and agreement change without the colocator's state changing
+		private void LateUpdate() => RefreshLocalized();
+
+		private void RefreshLocalized()
 		{
-			if (IsColocated == value) return;
-			IsColocated = value;
-			Colocated.Invoke(value);
+			bool localized = colocator.AlignmentState == ColocationAlignmentState.Localized &&
+			                 SpaceManager.Instance != null && SpaceManager.Instance.Space != null &&
+			                 SpaceAlignment.TrackingReady && FitAgreesWithSavedReferences;
+			if (IsLocalized == localized) return;
+			IsLocalized = localized;
+			LocalizedChanged.Invoke(localized);
 		}
 
 		public void SetTagDetectionOverride(bool on) => aprilTagColocationProvider.SetDetectionOverride(on);

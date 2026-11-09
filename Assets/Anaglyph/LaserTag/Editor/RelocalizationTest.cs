@@ -168,7 +168,7 @@ namespace Anaglyph.LaserTag.Editor
 			VisualColocationConstraintProvider provider = Provider;
 			if (provider == null) return "no map-matching provider (colocation method is not Visual)";
 			if (provider.Alignment.CurrentPhase != CanonAlignment.Phase.Aligned) return $"provider is {provider.Alignment.CurrentPhase}, not Aligned";
-			if (ColocationManager.Instance == null || !ColocationManager.IsColocated) return "not colocated yet";
+			if (ColocationManager.Instance == null || !ColocationManager.IsLocalized) return "not localized yet";
 			if (MainXRRig.Instance == null) return "no XR rig";
 			VisualLocalizer localizer = VisualLocalizer.Instance;
 			return localizer == null || localizer.Map.Count == 0 ? "the visual map is empty" : null;

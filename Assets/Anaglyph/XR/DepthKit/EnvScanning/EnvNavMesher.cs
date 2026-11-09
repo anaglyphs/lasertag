@@ -64,7 +64,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 
 		private void Start()
 		{
-			EnvScanner.Instance.Cleared += OnClear;
+			EnvMesher.Instance.ChunksCleared += OnClear;
 
 			Begin();
 		}
@@ -98,8 +98,8 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 
 		private void OnDestroy()
 		{
-			if (EnvScanner.Instance)
-				EnvScanner.Instance.Cleared -= OnClear;
+			if (EnvMesher.Instance)
+				EnvMesher.Instance.ChunksCleared -= OnClear;
 
 			DestroyData();
 		}

@@ -19,15 +19,18 @@ namespace Anaglyph.XR.SharedSpaces
 	/// A view is named by its owner and capture time on every headset, a landmark by its owner
 	/// and the owner's id for it, and a knot by <see cref="KnotKeys"/>.
 	///
-	/// Views go once their landmarks have had <see cref="SettleSeconds"/> to triangulate from
-	/// the views after them. The bus splits and paces the messages
+	/// A view goes once it is <see cref="SettleSeconds"/> old and sights enough usable landmarks,
+	/// the views after it having ranged them; one that still doesn't after
+	/// <see cref="ViewWaitSeconds"/> is given up. The bus splits and paces the messages
 	/// (<see cref="SyncBus.ReliableBytesPerSecond"/>), and keeps each sender's in order. A map
 	/// the authority clears or replaces starts a new epoch, sent whole to everyone again.
 	/// </summary>
 	public sealed class VisualMapSync : IDisposable
 	{
-		/// <summary>Seconds a new view waits before it is sent: the views after it range its landmarks.</summary>
-		public float SettleSeconds = 10f;
+		/// <summary>Seconds a new view waits at least before it is sent: the views after it range its landmarks.</summary>
+		public float SettleSeconds = 3f;
+		/// <summary>Seconds a view goes on waiting for enough usable landmarks, or for someone to send it to.</summary>
+		public float ViewWaitSeconds = 30f;
 		/// <summary>A view sighting fewer usable landmarks than this can't be localized against, whatever else it covers: it isn't sent.</summary>
 		public int MinLandmarks = 30;
 		/// <summary>Seconds a joiner waits on the map it asked for before asking again: a few MB take a few seconds.</summary>
@@ -156,26 +159,32 @@ namespace Anaglyph.XR.SharedSpaces
 		// ---- what everyone sends ---------------------------------------------------
 
 		private readonly List<(VisualKeyframe keyframe, float addedAt)> settling = new();
+		private const float SettledCheckInterval = 0.5f;
+		private float nextSettledCheck;
 
 		private void OnKeyframeAdded(VisualKeyframe keyframe)
 		{
-			// an authority no one has asked yet sends it all when someone does
-			if (IsHost && subscribers.Count > 0 || IsJoiner && HasHostMap) settling.Add((keyframe, Time.unscaledTime));
+			// an authority no one has asked yet sends it all when someone does: a view not usable by then still waits here
+			if (IsHost || IsJoiner && HasHostMap) settling.Add((keyframe, Time.unscaledTime));
 		}
 
 		private ushort CurrentEpoch => IsHost ? epoch : hostEpoch;
 
-		// a view any headset already holds this place and heading from adds nothing to send
 		private bool MarkIfAdding(VisualKeyframe view)
 		{
-			if (view.shared || !SightsEnough(view)) return false;
+			if (view.shared || !SightsEnough(view) || !AddsCoverage(view)) return false;
+			view.shared = true;
+			return true;
+		}
+
+		// a view any headset already holds this place and heading from adds nothing to send
+		private bool AddsCoverage(VisualKeyframe view)
+		{
 			float cosine = math.cos(math.radians(CoverAngle));
 			Vector3 at = view.camera.position, forward = view.camera.forward;
 			foreach (VisualKeyframe k in localizer.Map.Keyframes)
 				if (k.shared && Vector3.Distance(k.camera.position, at) < CoverDistance && Vector3.Dot(k.camera.forward, forward) > cosine)
 					return false;
-
-			view.shared = true;
 			return true;
 		}
 
@@ -190,20 +199,25 @@ namespace Anaglyph.XR.SharedSpaces
 
 		private async void SendSettledViews()
 		{
-			if (settling.Count == 0 || holdViews()) return;
+			if (settling.Count == 0 || holdViews() || Time.unscaledTime < nextSettledCheck) return;
+			nextSettledCheck = Time.unscaledTime + SettledCheckInterval;
+			bool anyoneToSendTo = !IsHost || subscribers.Count > 0;
 			List<VisualKeyframe> settled = null;
 			for (int i = 0; i < settling.Count; i++)
 			{
-				if (Time.unscaledTime - settling[i].addedAt < SettleSeconds) continue;
-				(settled ??= new()).Add(settling[i].keyframe);
+				(VisualKeyframe view, float addedAt) = settling[i];
+				float age = Time.unscaledTime - addedAt;
+				if (age < SettleSeconds) continue;
+				bool stillWanted = localizer.Map.Holds(view) && !view.shared;
+				bool ready = stillWanted && anyoneToSendTo && SightsEnough(view);
+				if (stillWanted && !ready && age < ViewWaitSeconds) continue;
 				settling.RemoveAt(i--);
+				if (!ready || !AddsCoverage(view)) continue;
+				view.shared = true;
+				(settled ??= new()).Add(view);
 			}
 
 			if (settled == null) return;
-			// views evicted while settling are gone from the map too
-			HashSet<VisualKeyframe> held = new(localizer.Map.Keyframes);
-			settled.RemoveAll(k => !held.Contains(k) || !MarkIfAdding(k));
-			if (settled.Count == 0) return;
 
 			ushort sentEpoch = CurrentEpoch;
 			byte[] message = await BuildAsync(KindViews, 0, 1, graph.Owner, settled);

@@ -35,6 +35,8 @@ namespace Anaglyph.XR.SharedSpaces
 			[Tooltip("Ranged inliers a measurement needs. With only far landmarks, yaw and translation trade off and the solver's sigmas don't show it: on device, 9 ranged of 99 inliers gave a yaw 3.6° off at a claimed ±0.3°, and two frames of the same view agreed on it")]
 			public int minRangedInliers;
 			public float maxTranslationSigma;
+			[Tooltip("The translation sigma allowed grows by this much per meter the solved landmarks are away, up to three times Max Translation Sigma: far scenery can't place a camera to centimeters, and the graph tightens a looser alignment afterwards")]
+			public float translationSigmaPerMeter;
 
 			[Header("Single-frame acceptance")]
 			public float confidentYawSigmaDegrees;
@@ -50,7 +52,7 @@ namespace Anaglyph.XR.SharedSpaces
 			[Tooltip("Colocating and relocalizing")]
 			public Thresholds alignment = new()
 			{
-				minInliers = 30, maxNormalizedRms = 2f, maxYawSigmaDegrees = 1.5f, maxTranslationSigma = 0.08f,
+				minInliers = 30, maxNormalizedRms = 2f, maxYawSigmaDegrees = 1.5f, maxTranslationSigma = 0.08f, translationSigmaPerMeter = 0.015f,
 				confidentYawSigmaDegrees = 0.4f, confidentTranslationSigma = 0.03f, confidentInliers = 100, confidentInlierShare = 0.6f,
 			};
 
@@ -154,8 +156,18 @@ namespace Anaglyph.XR.SharedSpaces
 			return ref settings.alignment;
 		}
 
-		/// <summary>Why a solve is too loose to use, or null.</summary>
-		public string Rejection(in GravityPnPResult pose, MeasurementPurpose purpose)
+		/// <summary>How far the landmarks a solve stood on are from its camera, meters: the middle one's distance.</summary>
+		public static float Reach(float3 camera, Vector3[] landmarks)
+		{
+			if (landmarks == null || landmarks.Length == 0) return 0;
+			float[] distances = new float[landmarks.Length];
+			for (int i = 0; i < landmarks.Length; i++) distances[i] = math.distance(camera, landmarks[i]);
+			Array.Sort(distances);
+			return distances[distances.Length / 2];
+		}
+
+		/// <summary>Why a solve is too loose to use, or null. <paramref name="reach"/> is <see cref="Reach"/> of its landmarks.</summary>
+		public string Rejection(in GravityPnPResult pose, MeasurementPurpose purpose, float reach = 0)
 		{
 			ref readonly Thresholds t = ref For(purpose);
 			if (!pose.success) return pose.failure ?? "no pose";
@@ -164,8 +176,9 @@ namespace Anaglyph.XR.SharedSpaces
 			if (math.degrees(pose.yawSigma) > t.maxYawSigmaDegrees) return $"yaw ±{math.degrees(pose.yawSigma):F2}° > {t.maxYawSigmaDegrees}°";
 			if (pose.rangedInliers < t.minRangedInliers)
 				return $"{pose.rangedInliers} ranged inliers < {t.minRangedInliers}: far landmarks alone leave yaw and translation trading off";
-			if (pose.translationSigma > t.maxTranslationSigma)
-				return $"translation ±{pose.translationSigma * 100:F1}cm > {t.maxTranslationSigma * 100:F0}cm: the map needs ranged landmarks here (walk around)";
+			float translationAllowed = math.clamp(t.translationSigmaPerMeter * reach, t.maxTranslationSigma, 3 * t.maxTranslationSigma);
+			if (pose.translationSigma > translationAllowed)
+				return $"translation ±{pose.translationSigma * 100:F1}cm > {translationAllowed * 100:F0}cm with landmarks {reach:F0} m away: the map needs ranged landmarks here (walk around)";
 			return null;
 		}
 

@@ -273,10 +273,7 @@ void LitPassFragment(
 
 	// projected through agOcclusionTex's own matrices, not this target's window
 	// coordinates, which only line up with it when both share a y-flip
-	float3 uvDepth = agOcclusionUVDepth(inputData.positionWS, unity_StereoEyeIndex);
-	float occlusion = agOcclusionTex.SampleCmpLevelZero(agLinearClampCompareSampler,
-		float3(uvDepth.xy, unity_StereoEyeIndex), uvDepth.z);
-	color *= occlusion;
+	color *= agSoftEnvOcclusion(inputData.positionWS, unity_StereoEyeIndex);
 	outColor = color;
 
 	#ifdef _WRITE_RENDERING_LAYERS

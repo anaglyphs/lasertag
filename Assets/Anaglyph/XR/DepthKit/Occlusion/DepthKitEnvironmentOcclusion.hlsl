@@ -11,6 +11,10 @@ Texture2DArray<float> agOcclusionTex;
 // y-flips the bound projection per render target
 float4x4 agOcclusionVP[2];
 
+// xy: 1 / size, zw: size
+float4 agOcclusionTexSize;
+float agOcclusionDepthSoftness;
+
 // xy: agOcclusionTex uv, z: device depth comparable with its texels
 float3 agOcclusionUVDepth(float3 positionWS, uint eye)
 {
@@ -29,17 +33,43 @@ float3 agOcclusionUVDepth(float3 positionWS, uint eye)
 
 #define NEAR_CUTOFF 5
 
+// 0 = hidden, 1 = visible. Feathers across occluder edges with a bilinear-weighted
+// 4x4 texel box, and along depth over agOcclusionDepthSoftness meters
+float agSoftEnvOcclusion(float3 positionWS, uint eye)
+{
+	float3 uvDepth = agOcclusionUVDepth(positionWS, eye);
+
+	// signed device-depth span of the softness at this distance; the sign absorbs the Z direction
+	float3 towardEye = normalize(_WorldSpaceCameraPos - positionWS);
+	float rampWidth = agOcclusionUVDepth(positionWS + towardEye * agOcclusionDepthSoftness, eye).z - uvDepth.z;
+
+	float2 texel = uvDepth.xy * agOcclusionTexSize.zw - 0.5;
+	float2 baseTexel = floor(texel);
+	float2 f = texel - baseTexel;
+	float4 wx = float4(1 - f.x, 1, 1, f.x);
+	float4 wy = float4(1 - f.y, 1, 1, f.y);
+
+	float visibility = 0;
+	[unroll] for (int gy = 0; gy < 2; gy++)
+	[unroll] for (int gx = 0; gx < 2; gx++)
+	{
+		float2 gatherUV = (baseTexel + float2(gx, gy) * 2) * agOcclusionTexSize.xy;
+		float4 occluderDepth = agOcclusionTex.Gather(agPointClampSampler, float3(gatherUV, eye));
+		float4 texelVisibility = saturate((uvDepth.z - occluderDepth) / rampWidth + 0.5);
+		// Gather order: x=(-u,+v) y=(+u,+v) z=(+u,-v) w=(-u,-v)
+		float4 weights = float4(wx[gx * 2] * wy[gy * 2 + 1], wx[gx * 2 + 1] * wy[gy * 2 + 1],
+		                        wx[gx * 2 + 1] * wy[gy * 2], wx[gx * 2] * wy[gy * 2]);
+		visibility += dot(texelVisibility, weights);
+	}
+	return visibility / 9;
+}
+
 void agEnvOcclusion_float(float3 WorldPos, out float OutValue)
 {
 	#if SHADERGRAPH_PREVIEW
 	OutValue = 1.0;
-	return;
 	#else
-
-	uint eye = unity_StereoEyeIndex;
-	float3 uvDepth = agOcclusionUVDepth(WorldPos, eye);
-	OutValue = agOcclusionTex.SampleCmpLevelZero(agLinearClampCompareSampler, float3(uvDepth.xy, eye), uvDepth.z);
-
+	OutValue = agSoftEnvOcclusion(WorldPos, unity_StereoEyeIndex);
 	#endif
 }
 

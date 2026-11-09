@@ -76,8 +76,8 @@ namespace Anaglyph.XR.SharedSpaces
 			public float pairsPerSecond = 12f;
 			[Tooltip("Views farther apart than this (m) aren't tried: on device this holds 90% of what matches, half of it past 2.5 m")]
 			public float pairDistance = 6f;
-			[Tooltip("Views turned further apart than this (°) aren't tried: on device this holds 99% of what matches, half of it past 15°")]
-			public float pairAngle = 45f;
+			[Tooltip("Views turned further apart than this (°) aren't tried. 180 tries every heading: replay 2026-11-07 gained 0.6 cm for 36% more tries, the overlap gate doing the filtering")]
+			public float pairAngle = 180f;
 			[Tooltip("Meters walked, at least, between two views of a pair: nearer than this, they are one stretch of tracking")]
 			public float pairMinWalk = 10f;
 			public int minInliers = 20;

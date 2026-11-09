@@ -114,8 +114,7 @@ namespace Anaglyph.XR.SharedSpaces
 			Transform space = MainXRRig.TrackingSpace;
 			if (!space) return;
 
-			// the colocator moves the rig onto canon in one step; after that the two coincide
-			// and the fit holds still
+			// the colocator moves the rig onto canon; once the two coincide the fit holds still
 			results.Add(new ColocationConstraint(new Pose(space.position, space.rotation),
 				TargetSpacePose, hasReliableRotation: true));
 		}

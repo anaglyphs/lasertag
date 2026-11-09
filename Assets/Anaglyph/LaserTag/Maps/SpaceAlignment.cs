@@ -72,12 +72,8 @@ namespace Anaglyph.LaserTag.Maps
 		public bool UsingTwoTagMode => colocation.UsingTwoTagMode;
 		public float TagSizeCm => space?.alignment.tagSizeCm ?? Space.DefaultTagSizeCm;
 
-		/// <summary>The rig is in the shown space's frame: colocated, tracked, and on the space's references where the method has any.</summary>
-		public bool IsAligned => space != null && ColocationManager.IsColocated && TrackingReady &&
-			(!ColocationManager.UsesSavedReferences(colocation.ActiveMethod) || colocation.UsingTwoTagMode || colocation.ReferenceAligned);
-
-		/// <summary>Scans may be integrated and shared: aligned, and in two-tag mode the pair is chosen.</summary>
-		public bool CanIntegrateEnvironment => IsAligned && (!colocation.UsingTwoTagMode || space.alignment.HasPair);
+		/// <summary>Scans may be integrated and shared: localized, and in two-tag mode the pair is chosen.</summary>
+		public bool CanIntegrateEnvironment => ColocationManager.IsLocalized && (!colocation.UsingTwoTagMode || space.alignment.HasPair);
 
 		private bool RoundInProgress => MatchReferee.State is MatchState.Playing or MatchState.Countdown;
 		private static string L(string key) => MenuCopy.Get("Map", key);
@@ -261,7 +257,7 @@ namespace Anaglyph.LaserTag.Maps
 
 		public string TagRegistrationBlocker() =>
 			space == null ? L("space.load-first") :
-			!TrackingReady || !(IsAligned || FrameIsFree) ? L("alignment.align-before-reference-setup") : null;
+			!TrackingReady || !(ColocationManager.IsLocalized || FrameIsFree) ? L("alignment.align-before-reference-setup") : null;
 
 		/// <summary>Registers a tag where it is seen, in the world frame. The first one of a free frame defines it.</summary>
 		public bool RegisterTag(int id, Pose worldPose)
@@ -468,9 +464,9 @@ namespace Anaglyph.LaserTag.Maps
 		}
 
 		bool IAnchorSessionPolicy.LocallyReady => TrackingReady;
-		bool IAnchorSessionPolicy.MayMint => space != null && (IsAligned || FrameIsFree);
-		bool IAnchorSessionPolicy.MayPrepare => space != null && (IsAligned || FrameIsFree);
-		bool IAnchorSessionPolicy.MayMintForPreparation => space != null && (IsAligned || FrameIsFree);
+		bool IAnchorSessionPolicy.MayMint => space != null && (ColocationManager.IsLocalized || FrameIsFree);
+		bool IAnchorSessionPolicy.MayPrepare => space != null && (ColocationManager.IsLocalized || FrameIsFree);
+		bool IAnchorSessionPolicy.MayMintForPreparation => space != null && (ColocationManager.IsLocalized || FrameIsFree);
 		int IAnchorSessionPolicy.TrackingGeneration => colocation.TrackingGeneration;
 		bool IAnchorSessionPolicy.ValidateRemoteMint(ulong sender) => ReadyFor(sender);
 		bool IAnchorSessionPolicy.ValidateTrackingGeneration(ulong sender, int generation) => generation == SenderTrackingGeneration(sender);
@@ -491,7 +487,7 @@ namespace Anaglyph.LaserTag.Maps
 		internal bool ReadyFor(ulong sender)
 		{
 			if (space == null) return false;
-			if (sender == SyncBus.LocalClientId) return !HeadsetConfiguration.IsOperatorDevice && TrackingReady && (IsAligned || FrameIsFree);
+			if (sender == SyncBus.LocalClientId) return !HeadsetConfiguration.IsOperatorDevice && TrackingReady && (ColocationManager.IsLocalized || FrameIsFree);
 			if (!PlayerAvatar.All.TryGetValue(sender, out PlayerAvatar avatar) || !avatar || !avatar.IsSpawned || !avatar.HeadsetStatus) return false;
 			HeadsetReadiness readiness = avatar.HeadsetStatus.Readiness;
 			return readiness.isFocused && readiness.isHeadTracked && !readiness.isOperator &&

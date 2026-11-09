@@ -51,7 +51,7 @@ namespace Anaglyph.LaserTag.Maps
 
 		/// <summary>Editing needs the shown map in a trusted frame; an operator edits a space it hosts without a rig.</summary>
 		public bool CanEdit => manager.Map != null && !manager.IsChangingMap &&
-			(manager.Alignment.IsAligned || HeadsetConfiguration.IsOperatorDevice && manager.Role != SpaceRole.Client);
+			(ColocationManager.IsLocalized || HeadsetConfiguration.IsOperatorDevice && manager.Role != SpaceRole.Client);
 
 		private Guid MapId => manager.Map?.Id ?? Guid.Empty;
 

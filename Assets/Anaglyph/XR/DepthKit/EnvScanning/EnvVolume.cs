@@ -64,7 +64,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			ChunkTable?.Release();
 			ChunkChangeSums?.Release();
 			VisibleChunks?.Release();
-			if (ChunkData) ChunkData.Release();
+			if (ChunkData) UnityEngine.Object.Destroy(ChunkData);
 			ReservedChunkCounter = null;
 			ChunkTable = null;
 			ChunkChangeSums = null;

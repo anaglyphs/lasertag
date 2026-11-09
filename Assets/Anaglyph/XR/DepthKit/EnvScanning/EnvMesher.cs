@@ -81,6 +81,26 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		/// </summary>
 		public event Action<Chunk> ChunkMeshUpdated = delegate { };
 
+		/// <summary>Every chunk is about to be destroyed: the scan was cleared or the meshed volume changed.</summary>
+		public event Action ChunksCleared = delegate { };
+
+		private Material chunkPrefabMaterial;
+		private Material chunkMaterialOverride;
+
+		/// <summary>Drawn on every chunk in place of the chunk prefab's material. Null = the prefab's.</summary>
+		public Material ChunkMaterialOverride
+		{
+			get => chunkMaterialOverride;
+			set
+			{
+				chunkMaterialOverride = value;
+				foreach (Chunk chunk in chunksList)
+					chunk.meshRenderer.sharedMaterial = ChunkMaterial;
+			}
+		}
+
+		private Material ChunkMaterial => chunkMaterialOverride ? chunkMaterialOverride : chunkPrefabMaterial;
+
 		private readonly Dictionary<int, Chunk> chunks = new();
 		private readonly List<Chunk> chunksList = new();
 		public IReadOnlyList<Chunk> ChunksList => chunksList;
@@ -102,6 +122,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		{
 			Instance = this;
 			envMeshLayerMask = LayerMask.GetMask(EnvironmentMeshLayerName);
+			chunkPrefabMaterial = chunkPrefab.GetComponent<MeshRenderer>().sharedMaterial;
 
 			// hide EnvironmentMesh layer from rendering in normal camera
 			SetChunksVisible(false);
@@ -112,7 +133,8 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			ChunkWorldSize = EnvScanner.Instance.ChunkWorldSizeDim * Vector3.one;
 			ChunkWorldSizeHalf = ChunkWorldSize / 2f;
 
-			EnvScanner.Instance.Cleared += OnClear;
+			EnvScanner.Instance.Cleared += OnLiveScanCleared;
+			EnvScanner.Instance.SensorVolumeChanged += OnSensorVolumeChanged;
 
 			Begin();
 		}
@@ -220,6 +242,29 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 				occlusionCuller ??= new ChunkOcclusionCuller(this, envMeshLayerMask, occlusionFrustumMargin);
 
 			StartWorkers();
+			MeshStoredChunksNotYetMeshed();
+		}
+
+		/// <summary>
+		/// Queues every chunk the meshed volume holds that has no chunk object yet: chunks
+		/// uploaded while disabled, or a whole volume just switched to. Visibility alone
+		/// would leave them unmeshed until each is seen
+		/// </summary>
+		private async void MeshStoredChunksNotYetMeshed()
+		{
+			CancellationToken ctkn = workerCancelSrc.Token;
+			EnvScanner scanner = EnvScanner.Instance;
+			EnvVolume volume = scanner.SensorVolume;
+
+			List<int> stored = await scanner.ReadbackStoredChunks(volume);
+			if (stored == null || ctkn.IsCancellationRequested || !this || !enabled || scanner.SensorVolume != volume)
+				return;
+
+			foreach (int chunkIndex in stored)
+			{
+				if (chunks.ContainsKey(chunkIndex)) continue;
+				QueueForMeshing(GetOrCreateChunk(chunkIndex), 1, uint.MaxValue);
+			}
 		}
 
 		private void OnDisable()
@@ -288,11 +333,28 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		private void OnDestroy()
 		{
 			if (EnvScanner.Instance)
-				EnvScanner.Instance.Cleared -= OnClear;
+			{
+				EnvScanner.Instance.Cleared -= OnLiveScanCleared;
+				EnvScanner.Instance.SensorVolumeChanged -= OnSensorVolumeChanged;
+			}
 		}
 
-		private void OnClear()
+		private void OnLiveScanCleared()
 		{
+			if (EnvScanner.Instance.SensorVolume == EnvScanner.Instance.LiveVolume)
+				ClearChunks();
+		}
+
+		private void OnSensorVolumeChanged()
+		{
+			ClearChunks();
+			if (enabled) MeshStoredChunksNotYetMeshed();
+		}
+
+		private void ClearChunks()
+		{
+			ChunksCleared.Invoke();
+
 			workerCancelSrc?.Cancel();
 
 			foreach (Chunk chunk in chunks.Values)
@@ -390,6 +452,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			g.name = "Chunk " + chunkIndex;
 			chunk = g.GetComponent<Chunk>();
 			chunk.meshCollider.enabled = false;
+			chunk.meshRenderer.sharedMaterial = ChunkMaterial;
 			chunk.chunkIndex = chunkIndex;
 			chunks.Add(chunkIndex, chunk);
 			chunksList.Add(chunk);
@@ -594,7 +657,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 						continue;
 					}
 
-					bool readbackSuccess = await scanner.ReadbackChunkInto(activeChunk.chunkIndex, readbackBuffer);
+					bool readbackSuccess = await scanner.ReadbackChunkInto(activeChunk.chunkIndex, readbackBuffer, scanner.SensorVolume);
 
 					if (!readbackSuccess)
 					{

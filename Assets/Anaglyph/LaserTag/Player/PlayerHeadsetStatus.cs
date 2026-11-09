@@ -59,7 +59,7 @@ namespace Anaglyph.LaserTag.Player
 
 		/// <summary>This peer can place other players where they stand: its rig is in the shared frame. An operator has no rig and watches from outside it.</summary>
 		public static bool LocalViewAligned => HeadsetConfiguration.IsOperatorDevice ||
-			SessionFrameReady && SpaceManager.Instance.Alignment.IsAligned;
+			SessionFrameReady && ColocationManager.IsLocalized;
 
 		public override void OnNetworkSpawn()
 		{
@@ -111,7 +111,7 @@ namespace Anaglyph.LaserTag.Player
 				supportsSharedAnchors = registry != null && registry.canShareAnchors,
 				isHeadTracked = HeadTrackingReady,
 				isFocused = focused && !paused,
-				aligned = SessionFrameReady && SpaceManager.Instance.Alignment.IsAligned,
+				aligned = SessionFrameReady && ColocationManager.IsLocalized,
 				trackingGeneration = ColocationManager.Instance != null ? ColocationManager.Instance.TrackingGeneration : 0,
 				mapId = currentMapId,
 				spaceId = SpaceManager.Instance != null ? SpaceManager.Instance.Frame.spaceId : Guid.Empty,

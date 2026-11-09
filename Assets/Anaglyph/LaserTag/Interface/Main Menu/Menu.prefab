@@ -150,6 +150,7 @@ GameObject:
   - component: {fileID: 7342034910384305891}
   - component: {fileID: 4920348102394058301}
   - component: {fileID: 6655027314436283210}
+  - component: {fileID: 3361085006380025706}
   m_Layer: 5
   m_Name: Gate Panel
   m_TagString: Untagged
@@ -338,6 +339,22 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.Interface.GateMenu
   permissionDocument: {fileID: 2048293053441045072}
+--- !u!114 &3361085006380025706
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1493847234382081523}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a283695fe5f046b8a2efd3c19e8e9f4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.XR.UILayers::Anaglyph.XR.UILayers.UnderlaidUIDocument
+  mirroredUnityLayerName: Composited UI
+  holeShader: {fileID: 4800000, guid: cc6c2b055b7994b2b9c453deafc926a3, type: 3}
+  panelPixelsPerUnit: 100
+  textureScale: 1.5
 --- !u!1 &6903953378024613189
 GameObject:
   m_ObjectHideFlags: 0
@@ -353,6 +370,7 @@ GameObject:
   - component: {fileID: 7884476485876053575}
   - component: {fileID: 6567378669736010760}
   - component: {fileID: 8937229687362520837}
+  - component: {fileID: 3331094286005255259}
   m_Layer: 5
   m_Name: Connection Panel
   m_TagString: Untagged
@@ -541,6 +559,22 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.MultiplayerMenu
   hostOnRelaySetting: {fileID: 11400000, guid: 8256b37a220cf5d4aa386e985d532dcb, type: 2}
+--- !u!114 &3331094286005255259
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6903953378024613189}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a283695fe5f046b8a2efd3c19e8e9f4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.XR.UILayers::Anaglyph.XR.UILayers.UnderlaidUIDocument
+  mirroredUnityLayerName: Composited UI
+  holeShader: {fileID: 4800000, guid: cc6c2b055b7994b2b9c453deafc926a3, type: 3}
+  panelPixelsPerUnit: 100
+  textureScale: 1.5
 --- !u!1 &7831272810532019032
 GameObject:
   m_ObjectHideFlags: 0
@@ -557,6 +591,7 @@ GameObject:
   - component: {fileID: 1075698427333703147}
   - component: {fileID: 5471789696194625456}
   - component: {fileID: 5345525076357511453}
+  - component: {fileID: 7144676446882431319}
   m_Layer: 5
   m_Name: Game Panel
   m_TagString: Untagged
@@ -758,6 +793,22 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.MapManagerUI
   operatorMode: 0
+--- !u!114 &7144676446882431319
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7831272810532019032}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a283695fe5f046b8a2efd3c19e8e9f4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.XR.UILayers::Anaglyph.XR.UILayers.UnderlaidUIDocument
+  mirroredUnityLayerName: Composited UI
+  holeShader: {fileID: 4800000, guid: cc6c2b055b7994b2b9c453deafc926a3, type: 3}
+  panelPixelsPerUnit: 100
+  textureScale: 1.5
 --- !u!1 &8627892836725830402
 GameObject:
   m_ObjectHideFlags: 0
@@ -773,6 +824,7 @@ GameObject:
   - component: {fileID: 5427764813092587953}
   - component: {fileID: 6691546867971027795}
   - component: {fileID: 2202964035863076988}
+  - component: {fileID: 5588978974435416349}
   m_Layer: 5
   m_Name: Settings Panel
   m_TagString: Untagged
@@ -962,3 +1014,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.SettingsMenu
   healthPassthroughTintSetting: {fileID: 11400000, guid: b813fbe3231576640b9402131ed4d833, type: 2}
   lightEffectsSetting: {fileID: 11400000, guid: 5390df5bc7d02f14081ac7755da55437, type: 2}
+--- !u!114 &5588978974435416349
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8627892836725830402}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a283695fe5f046b8a2efd3c19e8e9f4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.XR.UILayers::Anaglyph.XR.UILayers.UnderlaidUIDocument
+  mirroredUnityLayerName: Composited UI
+  holeShader: {fileID: 4800000, guid: cc6c2b055b7994b2b9c453deafc926a3, type: 3}
+  panelPixelsPerUnit: 100
+  textureScale: 1.5

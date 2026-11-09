@@ -6,8 +6,7 @@ namespace Anaglyph.LaserTag.Weapons
 		private static bool canFire;
 		public static bool CanFire
 		{
-			get => canFire && ColocationManager.IsColocated &&
-				(Maps.SpaceManager.Instance == null || Maps.SpaceManager.Instance.Alignment.IsAligned);
+			get => canFire && ColocationManager.IsLocalized;
 			set => canFire = value;
 		}
 	}

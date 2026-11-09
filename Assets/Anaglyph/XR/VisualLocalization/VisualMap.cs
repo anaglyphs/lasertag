@@ -146,6 +146,9 @@ namespace Anaglyph.XR.VisualLocalization
 			Cleared.Invoke();
 		}
 
+		/// <summary>Whether this keyframe is in the map still: not evicted, not cleared away.</summary>
+		public bool Holds(VisualKeyframe keyframe) => keyframe.slot >= 0 && keyframe.slot < keyframes.Count && keyframes[keyframe.slot] == keyframe;
+
 		/// <summary>Moves every keyframe's world camera to where its node now is.</summary>
 		public void RefreshPlacement()
 		{

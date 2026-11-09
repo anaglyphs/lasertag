@@ -114,6 +114,10 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			 ColocationManager.Instance.ActiveMethod == SpaceManager.Instance.Alignment.SelectedMethod);
 		private static bool CanIntegrate => SpaceManager.Instance != null && SpaceManager.Instance.Alignment.CanIntegrateEnvironment;
 		private bool CanSendScan => CanShareScan && CanIntegrate;
+		// no frame to scan into yet: the scan made meanwhile goes to a scratch volume and is
+		// dropped on alignment
+		private static bool SearchingForAlignment => !CanIntegrate && ColocationManager.Instance != null &&
+			ColocationManager.Instance.AlignmentState == Anaglyph.XR.SharedSpaces.ColocationAlignmentState.Searching;
 		private static SpaceFrame CurrentFrame => SpaceManager.Instance != null ? SpaceManager.Instance.Frame : default;
 		private static bool FrameMatches(SpaceFrame frame) => frame.IsSet && frame == CurrentFrame;
 
@@ -129,7 +133,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			SyncBus.Activated += OnBusActivated;
 			SyncBus.Deactivated += OnBusDeactivated;
 			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
-			ColocationManager.Colocated += OnColocated;
+			ColocationManager.LocalizedChanged += OnLocalizedChanged;
 		}
 
 		private void Start()
@@ -168,7 +172,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			snapshotRequest.Received -= OnSnapshotRequested; snapshotRequest.Unregister();
 			visibleEvent.Received -= OnVisibleReceived; visibleEvent.Unregister();
 			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
-			ColocationManager.Colocated -= OnColocated;
+			ColocationManager.LocalizedChanged -= OnLocalizedChanged;
 		}
 
 		private void ResetSendState()
@@ -203,13 +207,15 @@ namespace Anaglyph.LaserTag.EnvSyncing
 				EnvScanner.Instance.Clear();
 		}
 
-		private void OnColocated(bool isColocated) => HandleScannerActivity();
+		private void OnLocalizedChanged(bool isLocalized) => HandleScannerActivity();
 		private void OnNetcodeStateChanged(NetcodeState state) => HandleScannerActivity();
 
 		private void HandleScannerActivity()
 		{
-			// Scanner is only enabled if connected & collocated OR disconnected
-			if (EnvMesher.Instance) EnvMesher.Instance.enabled = CanIntegrate;
+			// the live map takes scans once aligned; before that the scratch volume does
+			bool searching = SearchingForAlignment;
+			if (EnvScanner.Instance) EnvScanner.Instance.ScanIntoScratch = searching;
+			if (EnvMesher.Instance) EnvMesher.Instance.enabled = CanIntegrate || searching;
 		}
 
 		private void OnBusActivated()
@@ -282,7 +288,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			var manager = SpaceManager.Instance;
 			var sb = new System.Text.StringBuilder($"[{nameof(EnvSync)}] frames out {statSent} ({statSentBytes}B) in {statReceived} ({statReceivedBytes}B), held {statHeld}, chunks out {statChunksSent} in {statChunksReceived}");
 			foreach (var drop in statDrops) sb.Append($", dropped {drop.Value} ({drop.Key})");
-			sb.Append($" | bus={SyncBus.Active} authority={SyncBus.IsAuthority} role={manager?.Role} colocated={ColocationManager.IsColocated} share={CanShareScan} send={CanSendScan} integrate={CanIntegrate} space={CurrentFrame.IsSet} snapshotRequested={requestedScan.IsSet} snapshotQueue={snapshotQueue.Count}");
+			sb.Append($" | bus={SyncBus.Active} authority={SyncBus.IsAuthority} role={manager?.Role} localized={ColocationManager.IsLocalized} share={CanShareScan} send={CanSendScan} integrate={CanIntegrate} space={CurrentFrame.IsSet} snapshotRequested={requestedScan.IsSet} snapshotQueue={snapshotQueue.Count}");
 			Debug.Log(sb.ToString());
 
 			statSent = statSentBytes = statReceived = statReceivedBytes = statChunksSent = statChunksReceived = statHeld = 0;
@@ -299,11 +305,11 @@ namespace Anaglyph.LaserTag.EnvSyncing
 		private void OnFrameCaptured(EnvScanner.CapturedFrame captured)
 		{
 			if (!SyncBus.Active) { unsentChange = 0; unsentFrames = 0; return; }
-			if (!CanSendScan || !ColocationManager.IsColocated || ColocationManager.AlignmentUnconfirmed)
+			if (!CanSendScan || !ColocationManager.IsLocalized || ColocationManager.AlignmentUnconfirmed)
 			{
 				unsentChange = 0;
 				unsentFrames = 0;
-				Drop("local frame: cannot send (not colocated / not shareable / gate closed)");
+				Drop("local frame: cannot send (not localized / not shareable / gate closed)");
 				return;
 			}
 
@@ -372,7 +378,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			if (!EnvScanner.Instance) { Drop("frame: no scanner"); return; }
 			// a peer's frame is in the shared frame; until this headset is in it too, the
 			// frame would land in the wrong place
-			if (!ColocationManager.IsColocated) { Drop("frame: not colocated yet"); return; }
+			if (!ColocationManager.IsLocalized) { Drop("frame: not localized yet"); return; }
 
 			if (payload.Count < FramePayloadHeaderBytes || payload.Count > MaxFrameBytes) { Drop("frame: bad size"); return; }
 			if (SyncBytes.Read<uint>(payload, 0) != FramePayloadMagic) { Drop("frame: bad magic"); return; }

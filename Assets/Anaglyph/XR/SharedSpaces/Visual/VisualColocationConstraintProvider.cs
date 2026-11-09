@@ -61,7 +61,7 @@ namespace Anaglyph.XR.SharedSpaces
 		[Tooltip("Meters a revisit's camera prior is taken to be off before any drift is counted: with the drift allowed over the path since the last site, how far around each projected landmark a guided loop query looks")]
 		[SerializeField] private float loopSearchFloor = 0.1f;
 		[Tooltip("Seconds a new view waits before it is sent to the other headsets, for the views after it to range its landmarks")]
-		[SerializeField] private float mapSettleSeconds = 10f;
+		[SerializeField] private float mapSettleSeconds = 3f;
 		[Tooltip("Features per side a loop query's LighterGlue runs attend over, when the localizer's guided matching is off: cost grows with the square, and a loop closure needs far fewer than a cold relocalization")]
 		[SerializeField] private int loopMatchFeatures = 512;
 		[Tooltip("An old keyframe sharing fewer descriptor matches than this with the view isn't worth a LighterGlue run (guided matching off)")]
@@ -538,7 +538,7 @@ namespace Anaglyph.XR.SharedSpaces
 			bool loop = p.purpose == Purpose.Loop;
 			float3 camera = p.query.camera.position;
 			Pose4 correction = new(pose.translation, pose.yaw);
-			string rejection = gate.Rejection(pose, p.purpose) ?? (loop ? gate.Implausible(correction, camera, WalkedSinceSite(p)) : null);
+			string rejection = gate.Rejection(pose, p.purpose, MeasurementGate.Reach(pose.cameraCenter, p.features)) ?? (loop ? gate.Implausible(correction, camera, WalkedSinceSite(p)) : null);
 
 			// a drift measurement maps the camera as its segment's correction placed it onto the
 			// map: composed with that correction, it is the whole correction the site needs

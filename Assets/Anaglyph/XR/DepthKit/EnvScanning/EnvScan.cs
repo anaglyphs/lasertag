@@ -107,13 +107,13 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 				}
 			}
 
-			TableReadback table = await ReadTable(scanner.ChunkTable);
-			if (table.hasError) throw new InvalidOperationException("chunk table readback failed");
+			List<int> stored = await scanner.ReadbackStoredChunks();
+			if (stored == null) throw new InvalidOperationException("chunk table readback failed");
 
 			EnvScanner.ChunkReadbackBuffer readback = scanner.CreateChunkReadbackBuffer();
 			try
 			{
-				foreach (int index in table.reserved)
+				foreach (int index in stored)
 				{
 					if (!await scanner.ReadbackChunkInto(index, readback)) continue;
 					NativeArray<EnvScanner.Voxel> voxels = readback.data;
@@ -134,33 +134,6 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			}
 
 			return scan;
-		}
-
-		private readonly struct TableReadback
-		{
-			public readonly bool hasError;
-			public readonly List<int> reserved;
-
-			public TableReadback(bool hasError, List<int> reserved)
-			{
-				this.hasError = hasError;
-				this.reserved = reserved;
-			}
-		}
-
-		// reserved, valid chunk table entries; bits as in EnvScanner.compute
-		private static async Awaitable<TableReadback> ReadTable(ComputeBuffer chunkTable)
-		{
-			const int reservedBit = 0x20000000;
-			UnityEngine.Rendering.AsyncGPUReadbackRequest req =
-				await UnityEngine.Rendering.AsyncGPUReadback.RequestAsync(chunkTable);
-			if (req.hasError) return new TableReadback(true, null);
-
-			NativeArray<int> entries = req.GetData<int>();
-			List<int> reserved = new();
-			for (int i = 0; i < entries.Length; i++)
-				if ((entries[i] & reservedBit) != 0 && entries[i] >= 0) reserved.Add(i);
-			return new TableReadback(false, reserved);
 		}
 
 		/// <summary>

@@ -103,6 +103,20 @@ namespace Anaglyph.XR.SharedSpaces
 		[Tooltip("Yaw uncertainty a constraint carries per meter it lies from the head, degrees per meter")]
 		[SerializeField] private float spatialYawDriftRateDegrees = 0.15f;
 
+		[Tooltip("The rig follows the fit only as fast as the head's own movement hides. Off, the rig stands where the fit says every frame")]
+		[SerializeField] private bool hideCorrectionsInHeadMovement;
+
+		[Tooltip("Correction the rig takes per meter the head moves, meters: 0.05 scored the same as unlimited over 14 simulated runs, 0.02 cost 0.4 cm")]
+		[SerializeField] private float correctionPerMeterOfHeadMovement = 0.05f;
+
+		[Tooltip("A correction larger than this at the head is applied at once, meters: a new alignment or a recenter, which no movement hides. Below Agreement Max Error, so a correction still on its way never reads as disagreement")]
+		[SerializeField] private float largestHiddenCorrection = 0.2f;
+
+		// a yaw correction counts as the distance it moves things this far from the head, meters
+		private const float YawCorrectionLever = 1f;
+
+		private Vector3 headInTrackingSpaceLastFit;
+
 		/// <summary>How fast this headset's tracking drifts, for everything that reasons about it.</summary>
 		public DriftModel DriftRates => new(positionDriftRate, yawDriftRateDegrees * Mathf.Deg2Rad);
 
@@ -122,8 +136,9 @@ namespace Anaglyph.XR.SharedSpaces
 		public IColocationConstraintProvider Provider { get; private set; }
 
 		/// <summary>
-		/// Raised every frame the fit aligned the rig, right after it moved, with the tracking
-		/// space's new world pose: where the fit puts it, since the fit is applied whole.
+		/// Raised every frame the fit aligned the rig, right after it moved, with the world pose
+		/// the fit gives the tracking space. The rig stands there unless corrections are being
+		/// hidden in head movement, when it is still on its way.
 		/// </summary>
 		public event Action<Pose> Fitted = delegate { };
 
@@ -206,7 +221,7 @@ namespace Anaglyph.XR.SharedSpaces
 
 		// late in the frame (DefaultExecutionOrder), so providers have updated their constraints
 		// and the fit is the frame's one answer: anything reading the alignment after it,
-		// through Fitted, sees the rig where the fit put it
+		// through Fitted, sees where the fit puts the rig
 		private void Update()
 		{
 			if (AlignmentState == ColocationAlignmentState.Stopped) return;
@@ -224,15 +239,14 @@ namespace Anaglyph.XR.SharedSpaces
 			Provider?.GetColocationConstraints(constraints);
 			MeasureAgreement();
 
-			if (!TryFit())
+			if (!TryFit(out Pose fittedSpace))
 			{
 				Delocalize();
 				return;
 			}
 
 			SetState(ColocationAlignmentState.Localized);
-			Transform space = MainXRRig.TrackingSpace;
-			Fitted.Invoke(new Pose(space.position, space.rotation));
+			Fitted.Invoke(fittedSpace);
 		}
 
 		private bool loggedNoReferenceRuntime;
@@ -289,14 +303,35 @@ namespace Anaglyph.XR.SharedSpaces
 			previous?.StopProviding();
 		}
 
-		// applied whole: the rig is always where the fit says, so nothing downstream has to tell
-		// a goal from where the rig stands
-		private bool TryFit()
+		// the fit is always reported whole, so nothing downstream has to tell a goal from where
+		// the rig stands; only the rig itself may trail it
+		private bool TryFit(out Pose fittedSpace)
 		{
+			fittedSpace = default;
 			if (!MainXRRig.Instance || !fit.TryEvaluate(constraints, Drift, out Pose delta)) return false;
 			Matrix4x4 current = MainXRRig.TrackingSpace.localToWorldMatrix;
-			MainXRRig.Instance.AlignSpace(current, Matrix4x4.TRS(delta.position, delta.rotation, Vector3.one) * current);
+			Matrix4x4 fitted = Matrix4x4.TRS(delta.position, delta.rotation, Vector3.one) * current;
+			float shareOfCorrectionApplied = ShareOfCorrectionHiddenByHeadMovement(delta);
+			MainXRRig.Instance.AlignSpace(current, fitted, shareOfCorrectionApplied);
+			fittedSpace = new Pose(fitted.GetPosition(), fitted.rotation);
 			return true;
+		}
+
+		// 1 applies the fit whole: the limit off, the first fit after being stopped or lost, or
+		// a correction too large to hide
+		private float ShareOfCorrectionHiddenByHeadMovement(Pose delta)
+		{
+			Vector3 head = MainXRRig.Camera.transform.position;
+			Vector3 headInTrackingSpace = MainXRRig.TrackingSpace.InverseTransformPoint(head);
+			float headMovement = Vector3.Distance(headInTrackingSpace, headInTrackingSpaceLastFit);
+			headInTrackingSpaceLastFit = headInTrackingSpace;
+			if (!hideCorrectionsInHeadMovement || AlignmentState != ColocationAlignmentState.Localized) return 1f;
+
+			float correction = Vector3.Distance(delta.rotation * head + delta.position, head) +
+				Quaternion.Angle(Quaternion.identity, delta.rotation) * Mathf.Deg2Rad * YawCorrectionLever;
+			if (correction > largestHiddenCorrection) return 1f;
+			float hidden = correctionPerMeterOfHeadMovement * headMovement;
+			return hidden >= correction ? 1f : hidden / correction;
 		}
 	}
 }

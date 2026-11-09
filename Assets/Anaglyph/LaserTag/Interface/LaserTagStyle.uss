@@ -1,28 +1,23 @@
-/* Global defaults */
-
 * {
     -unity-font-definition: var(--font-regular);
     color: var(--text-color, rgb(255, 255, 255));
-
-	--spacing-small: 4px;
-	--spacing-medium: 8px;
-	--spacing-large: 12px;
-	--control-icon-spacing: 10px;
-	--font-size-body: 20px;
-	--font-size-title: 28px;
-	--font-size-small: 14px;
-	--control-min-height: 46px;
-	--control-border-width: 1px;
-	--panel-border-width: 2px;
-	--scrollbar-size: 24px;
-	--scrollbar-button-clearance: 28px;
+    --spacing-small: 4px;
+    --spacing-medium: 8px;
+    --spacing-large: 12px;
+    --control-icon-spacing: 10px;
+    --font-size-body: 20px;
+    --font-size-title: 28px;
+    --font-size-small: 14px;
+    --control-min-height: 46px;
+    --control-border-width: 1px;
+    --panel-border-width: 2px;
+    --scrollbar-size: 24px;
+    --scrollbar-button-clearance: 28px;
 }
-
-/* Font faces: families (.din-expanded, .din-condensed) and their variables are in
-   LaserTagRuntimeTheme.tss. Use these classes, not -unity-font-style, for weight. */
 
 .bold {
     -unity-font-definition: var(--font-bold);
+    -unity-font-style: bold;
 }
 
 .italic {
@@ -33,31 +28,10 @@
     -unity-font-definition: var(--font-bold-italic);
 }
 
-/* Shared spacing and control sizes */
-
-/*.menu-root,*/
-/*.unity-base-dropdown {*/
-/*    --spacing-small: 4px;*/
-/*    --spacing-medium: 8px;*/
-/*    --spacing-large: 12px;*/
-/*    --control-icon-spacing: 10px;*/
-/*    --font-size-body: 20px;*/
-/*    --font-size-title: 28px;*/
-/*    --font-size-small: 14px;*/
-/*    --control-min-height: 46px;*/
-/*    --control-border-width: 1px;*/
-/*    --panel-border-width: 2px;*/
-/*    --scrollbar-size: 24px;*/
-/*    --scrollbar-button-clearance: 28px;*/
-/*}*/
-
-/* Menu shell and panel themes */
-
 .menu-root {
     --primary: rgb(200, 200, 200);
     --highlight: rgb(220, 220, 220);
     --secondary: rgb(20, 20, 20);
-
     flex-grow: 1;
     padding: var(--spacing-small, 4px);
     background-color: var(--secondary);
@@ -69,33 +43,31 @@
 
 .multiplayer-panel {
     --primary: rgb(255, 0, 21);
-	--primary-dark: rgb(200, 0, 1);
-	--highlight: rgb(255, 128, 140);
+    --primary-dark: rgb(200, 0, 1);
+    --highlight: rgb(255, 128, 140);
     --secondary: rgb(27, 0, 33);
 }
 
 .multiplayer-panel.session-connected {
     --primary: rgb(162, 255, 0);
-	--primary-dark: rgb(128, 204, 0);
-	--highlight: rgb(207, 255, 128);
+    --primary-dark: rgb(128, 204, 0);
+    --highlight: rgb(207, 255, 128);
     --secondary: rgb(27, 30, 0);
 }
 
 .game-panel {
     --primary: rgb(0, 255, 173);
-	--primary-dark: rgb(0, 205, 140);
-	--highlight: rgb(177, 255, 230);
+    --primary-dark: rgb(0, 205, 140);
+    --highlight: rgb(177, 255, 230);
     --secondary: rgb(12, 0, 49);
 }
 
 .settings-panel {
     --primary: rgb(255, 116, 0);
-	--primary-dark: rgb(189, 88, 0);
-	--highlight: rgb(255, 185, 127);
+    --primary-dark: rgb(189, 88, 0);
+    --highlight: rgb(255, 185, 127);
     --secondary: rgb(41, 37, 0);
 }
-
-/* Inputs and toggles */
 
 .unity-toggle__checkmark,
 .nav-header__back-button {
@@ -179,8 +151,6 @@ RadioButton #unity-checkmark {
     background-color: white;
 }
 
-/* Navigation and page layout */
-
 .menu-root .nav-view {
     --nav-transition-duration-ms: 100;
 }
@@ -214,11 +184,11 @@ RadioButton #unity-checkmark {
 .nav-header__title {
     -unity-text-align: middle-left;
     font-size: var(--font-size-title, 28px);
-    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishCondensed-Light.ttf");
+    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishCondensed-Light.ttf?fileID=12800000&guid=67a02d15b790b4aa98aa67d81f08ef7c&type=3#DINishCondensed-Light");
 }
 
 .nav-button {
-    background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/chevron.svg");
+    background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/chevron.svg?fileID=7388822144124034973&guid=0fd51030a512546328cc9361346e77b8&type=3#chevron");
     background-size: auto 16px;
     background-position-x: right 12px;
     background-position-y: center;
@@ -228,13 +198,11 @@ RadioButton #unity-checkmark {
 
 .nav-header__back-button {
     background-position-x: center;
-    background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/back chevron.svg");
+    background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/back%20chevron.svg?fileID=7388822144124034973&guid=ce2a202a9449e49a38f514f72b39cc20&type=3#back chevron");
     padding: 18px;
     aspect-ratio: 1;
     min-height: auto;
 }
-
-/* Shared page content */
 
 .field-row {
     margin-top: var(--spacing-small, 4px);
@@ -265,8 +233,6 @@ RadioButton #unity-checkmark {
     white-space: normal;
 }
 
-/* Buttons and shared control spacing */
-
 .unity-button {
     --text-color: var(--secondary, rgb(20, 20, 20));
     border-width: 0;
@@ -282,9 +248,9 @@ RadioButton #unity-checkmark {
 }
 
 *.unity-button.destructive {
-	--primary: rgb(255, 50, 50);
-	--highlight: rgb(255, 150, 150);
-	--secondary: rgb(50, 10, 10);
+    --primary: rgb(255, 50, 50);
+    --highlight: rgb(255, 150, 150);
+    --secondary: rgb(50, 10, 10);
 }
 
 .unity-button,
@@ -296,8 +262,6 @@ TextField,
     font-size: var(--font-size-body, 20px);
     justify-content: center;
 }
-
-/* Popup fields (including DropdownField) */
 
 .unity-popup-field > .unity-popup-field__input {
     --text-color: var(--secondary, rgb(20, 20, 20));
@@ -326,7 +290,7 @@ TextField,
     -unity-text-align: middle-left;
     margin: 0;
     padding: 0;
-	-unity-font-definition: var(--font-bold);
+    -unity-font-definition: var(--font-bold);
 }
 
 .unity-popup-field .unity-base-popup-field__arrow {
@@ -334,8 +298,6 @@ TextField,
     flex-shrink: 0;
     margin-left: var(--spacing-medium, 8px);
 }
-
-/* Open dropdowns are panel overlays, not children of their popup fields. */
 
 .unity-base-dropdown {
     --primary: rgb(150, 150, 150);
@@ -402,8 +364,6 @@ TextField,
 ScrollView {
     flex-grow: 1;
 }
-
-/* Scroll bars */
 
 ScrollView .unity-scroll-view__vertical-scroller {
     width: var(--scrollbar-size, 24px);
@@ -489,8 +449,6 @@ ScrollView .unity-scroll-view__horizontal-scroller #unity-dragger {
     top: 0;
 }
 
-/* Stacked form fields */
-
 .stacked-field.unity-base-slider #unity-tracker {
     height: 10px;
     margin-top: -5px;
@@ -534,8 +492,6 @@ ScrollView .unity-scroll-view__horizontal-scroller #unity-dragger {
     flex-direction: row;
     flex-wrap: wrap;
 }
-
-/* Tab view */
 
 .unity-tab__header {
     --text-color: var(--secondary, rgb(20, 20, 20));
@@ -589,8 +545,6 @@ ScrollView .unity-scroll-view__horizontal-scroller #unity-dragger {
     min-height: 0;
 }
 
-/* Multi-column lists */
-
 .unity-multi-column-header {
     min-height: auto;
 }
@@ -617,8 +571,6 @@ ScrollView .unity-scroll-view__horizontal-scroller #unity-dragger {
     --text-color: var(--secondary, rgb(20, 20, 20));
     background-color: var(--highlight, rgb(255, 255, 255));
 }
-
-/* Split views */
 
 .unity-two-pane-split-view__dragline-anchor {
     position: absolute;
@@ -653,8 +605,6 @@ ScrollView .unity-scroll-view__horizontal-scroller #unity-dragger {
     top: -4px;
 }
 
-/* Status chips */
-
 .chip {
     margin-right: var(--spacing-small, 4px);
     padding-left: 6px;
@@ -686,8 +636,6 @@ ScrollView .unity-scroll-view__horizontal-scroller #unity-dragger {
     background-color: rgb(86, 102, 118);
     color: rgb(214, 229, 245);
 }
-
-/* Team colors */
 
 .team-red {
     color: rgb(255, 0, 38);

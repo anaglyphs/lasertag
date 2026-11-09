@@ -285,5 +285,49 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(watch.Watching, Is.False);
 			Assert.That(watch.HoldsContributions(0), Is.False);
 		}
+
+		private static GravityPnPResult SolveWithTranslationSigma(float meters) => new()
+		{
+			success = true, inliers = 60, correspondences = 90, rangedInliers = 60, normalizedRms = 1,
+			yawSigma = math.radians(0.3f), translationSigma = meters,
+		};
+
+		[Test]
+		public void NearLandmarksKeepTheTightTranslationBound()
+		{
+			MeasurementGate gate = Gate(new MeasurementGate.Settings());
+			Assert.That(gate.Rejection(SolveWithTranslationSigma(0.15f), MeasurementPurpose.Colocate, reach: 3f), Is.Not.Null);
+			Assert.That(gate.Rejection(SolveWithTranslationSigma(0.07f), MeasurementPurpose.Colocate, reach: 3f), Is.Null);
+		}
+
+		[Test]
+		public void FarLandmarksAllowALooserTranslation()
+		{
+			MeasurementGate gate = Gate(new MeasurementGate.Settings());
+			Assert.That(gate.Rejection(SolveWithTranslationSigma(0.15f), MeasurementPurpose.Colocate, reach: 15f), Is.Null);
+		}
+
+		[Test]
+		public void TheLooserTranslationBoundStopsAtThreeTimesTheTightOne()
+		{
+			MeasurementGate gate = Gate(new MeasurementGate.Settings());
+			Assert.That(gate.Rejection(SolveWithTranslationSigma(0.30f), MeasurementPurpose.Colocate, reach: 100f), Is.Not.Null);
+			Assert.That(gate.Rejection(SolveWithTranslationSigma(0.23f), MeasurementPurpose.Colocate, reach: 100f), Is.Null);
+		}
+
+		[Test]
+		public void RevisitsKeepTheirTranslationBoundHoweverFarTheLandmarks()
+		{
+			MeasurementGate gate = Gate(new MeasurementGate.Settings());
+			Assert.That(gate.Rejection(SolveWithTranslationSigma(0.06f), MeasurementPurpose.Loop, reach: 30f), Does.Contain("translation"));
+		}
+
+		[Test]
+		public void ReachIsTheMiddleLandmarkDistance()
+		{
+			UnityEngine.Vector3[] landmarks = { new(0, 0, 2), new(0, 0, 10), new(0, 0, 40) };
+			Assert.That(MeasurementGate.Reach(float3.zero, landmarks), Is.EqualTo(10f).Within(1e-4f));
+			Assert.That(MeasurementGate.Reach(float3.zero, null), Is.EqualTo(0f));
+		}
 	}
 }

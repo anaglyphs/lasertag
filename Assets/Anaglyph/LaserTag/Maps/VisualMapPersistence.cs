@@ -49,6 +49,8 @@ namespace Anaglyph.LaserTag.Maps
 		public float SaveInterval = 60f;
 		/// <summary>Seconds a loaded map gets to relocalize the rig before it is dropped for a fresh one.</summary>
 		public float RelocalizeTimeout = 30f;
+		/// <summary>Likewise for a space the player didn't choose, one only guessed from the view: a wrong guess holds up the new room this long.</summary>
+		public float GuessedRelocalizeTimeout = 12f;
 		/// <summary>Seconds a space just shown waits for the rig to take an alignment before its map is loaded.</summary>
 		public float AlignTimeout = 10f;
 
@@ -281,12 +283,13 @@ namespace Anaglyph.LaserTag.Maps
 		/// <summary>
 		/// Loads the space's saved map, if it has one in the space's current frame, under the
 		/// live localizer as one rigid piece, and has the rig relocalize against it. Gives up
-		/// after <see cref="RelocalizeTimeout"/>, leaving a fresh map, and calls
+		/// after <see cref="RelocalizeTimeout"/> (<see cref="GuessedRelocalizeTimeout"/> for a space
+		/// <paramref name="isGuessed"/> says the player didn't choose), leaving a fresh map, and calls
 		/// <paramref name="failed"/>: the headset is likely not in the space at all. Until the
 		/// map relocalizes, the space's map file is not written. Cancelled when the space stops
 		/// being the shown one.
 		/// </summary>
-		public async void LoadAndRelocalize(Space space, CancellationToken token, Action<Space> failed = null)
+		public async void LoadAndRelocalize(Space space, CancellationToken token, Action<Space> failed = null, Func<Space, bool> isGuessed = null)
 		{
 #if UNITY_EDITOR
 			if (SkipLoadForTests) return;
@@ -383,7 +386,8 @@ namespace Anaglyph.LaserTag.Maps
 			// startup clears the scan and rebases the frame while the session comes up, and the
 			// provider drops its map with them: put the loaded map back while it is still wanted
 			int restores = 0;
-			float deadline = Time.realtimeSinceStartup + RelocalizeTimeout;
+			float timeout = isGuessed != null && isGuessed(space) ? GuessedRelocalizeTimeout : RelocalizeTimeout;
+			float deadline = Time.realtimeSinceStartup + timeout;
 			try
 			{
 				while (Time.realtimeSinceStartup < deadline)
@@ -405,7 +409,7 @@ namespace Anaglyph.LaserTag.Maps
 			catch (OperationCanceledException) { return; }
 
 			if (provider.Alignment.CurrentPhase != CanonAlignment.Phase.Relocalizing) return;
-			Debug.Log($"[{nameof(VisualMapPersistence)}] the saved map didn't relocalize in {RelocalizeTimeout:F0} s: starting a fresh one ({provider.LastAttemptDescription})");
+			Debug.Log($"[{nameof(VisualMapPersistence)}] the saved map didn't relocalize in {timeout:F0} s: starting a fresh one ({provider.LastAttemptDescription})");
 			localizer.Map.Clear();
 			provider.Alignment.AbandonRelocalization();
 			failed?.Invoke(space);

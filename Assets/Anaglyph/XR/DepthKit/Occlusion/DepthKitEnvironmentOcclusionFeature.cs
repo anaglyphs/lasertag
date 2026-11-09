@@ -13,6 +13,7 @@ namespace Anaglyph.XR.DepthKit.Occlusion
 		public Shader depthPrimeShader;
 		public float relativeTexSize = 0.5f;
 		public float rawDepthMaxDistance = 6;
+		[Min(0.001f)] public float occlusionDepthSoftnessMeters = 0.05f;
 		public LayerMask OcclusionMeshLayerMask;
 
 		private DepthKitEnvironmentOcclusionPass depthKitEnvironmentOcclusionPass;
@@ -29,7 +30,7 @@ namespace Anaglyph.XR.DepthKit.Occlusion
 
 			depthKitEnvironmentOcclusionPass =
 				new DepthKitEnvironmentOcclusionPass(depthMat, primeMat, relativeTexSize, rawDepthMaxDistance,
-					OcclusionMeshLayerMask.value)
+					occlusionDepthSoftnessMeters, OcclusionMeshLayerMask.value)
 				{
 					renderPassEvent = RenderPassEvent.BeforeRenderingOpaques
 				};
@@ -59,23 +60,27 @@ namespace Anaglyph.XR.DepthKit.Occlusion
 			private static readonly int OcclusionTexID = Shader.PropertyToID("agOcclusionTex");
 			private static readonly int MaxDistanceID = Shader.PropertyToID("_MaxDistance");
 			private static readonly int OcclusionVPID = Shader.PropertyToID("agOcclusionVP");
+			private static readonly int OcclusionTexSizeID = Shader.PropertyToID("agOcclusionTexSize");
+			private static readonly int OcclusionDepthSoftnessID = Shader.PropertyToID("agOcclusionDepthSoftness");
 			private static readonly ShaderTagId ShaderTag = new("UniversalForward");
 
 			private readonly Material depthMat;
 			private readonly Material rawDepthPrimeMat;
 			private readonly float rawDepthMaxDistance;
 			private readonly float relativeTexSize;
+			private readonly float occlusionDepthSoftnessMeters;
 			private readonly int layermask;
 			private readonly Matrix4x4[] occlusionVP = new Matrix4x4[2];
 			private readonly ComputeShader compute;
 
 			public DepthKitEnvironmentOcclusionPass(Material depthMat, Material rawDepthPrimeMat,
-				float relativeTexSize, float rawDepthMaxDistance, int layermask)
+				float relativeTexSize, float rawDepthMaxDistance, float occlusionDepthSoftnessMeters, int layermask)
 			{
 				this.depthMat = depthMat;
 				this.rawDepthPrimeMat = rawDepthPrimeMat;
 				this.relativeTexSize = relativeTexSize;
 				this.rawDepthMaxDistance = rawDepthMaxDistance;
+				this.occlusionDepthSoftnessMeters = Mathf.Max(occlusionDepthSoftnessMeters, 0.001f);
 				this.layermask = layermask;
 			}
 
@@ -87,6 +92,7 @@ namespace Anaglyph.XR.DepthKit.Occlusion
 				public ComputeShader compute;
 				public int2 texSize;
 				public Matrix4x4[] occlusionVP;
+				public float depthSoftnessMeters;
 			}
 
 			public override void RecordRenderGraph(RenderGraph graph, ContextContainer frameContext)
@@ -129,6 +135,7 @@ namespace Anaglyph.XR.DepthKit.Occlusion
 						                   cameraData.GetViewMatrix(view);
 					}
 					data.occlusionVP = occlusionVP;
+					data.depthSoftnessMeters = occlusionDepthSoftnessMeters;
 
 					DrawingSettings drawSettings = RenderingUtils.CreateDrawingSettings(
 						ShaderTag, renderingData, cameraData, lightData, cameraData.defaultOpaqueSortFlags);
@@ -157,6 +164,9 @@ namespace Anaglyph.XR.DepthKit.Occlusion
 					builder.SetRenderFunc((PassData passData, RasterGraphContext ctx) =>
 					{
 						ctx.cmd.SetGlobalMatrixArray(OcclusionVPID, passData.occlusionVP);
+						ctx.cmd.SetGlobalVector(OcclusionTexSizeID, new Vector4(
+							1f / passData.texSize.x, 1f / passData.texSize.y, passData.texSize.x, passData.texSize.y));
+						ctx.cmd.SetGlobalFloat(OcclusionDepthSoftnessID, passData.depthSoftnessMeters);
 						ctx.cmd.ClearRenderTarget(RTClearFlags.Depth, Color.black, 1f, 0);
 
 						// instanceCount stays 1: URP wraps camera passes in

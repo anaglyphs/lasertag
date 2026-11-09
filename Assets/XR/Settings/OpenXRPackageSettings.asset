@@ -844,6 +844,28 @@ MonoBehaviour:
   targetOpenXRApiVersion: 1.1.54
   required: 0
   customRuntimeLoaderName: 
+--- !u!114 &-3026878240495084251
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c69964a90c1cf4db99afc651bdd582a2, type: 3}
+  m_Name: HeadLockedLayersFeature Standalone
+  m_EditorClassIdentifier: Anaglyph.XR.UILayers::Anaglyph.XR.UILayers.HeadLockedLayersFeature
+  m_enabled: 1
+  nameUi: Head-Locked Composition Layers
+  version: 1.0.0
+  featureIdInternal: com.anaglyph.xrtemplate.headlockedlayers
+  openxrExtensionStrings: 
+  company: Anaglyph
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
 --- !u!114 &-2090885481483100658
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1073,7 +1095,7 @@ MonoBehaviour:
   required: 0
   customRuntimeLoaderName: 
   enableSubsampledLayout: 0
-  useEyeTracking: 1
+  useEyeTracking: 0
 --- !u!114 &-666709021505325714
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1353,6 +1375,7 @@ MonoBehaviour:
   - {fileID: 4118321385384196143}
   - {fileID: -5750116646164557699}
   - {fileID: -8703573684439564615}
+  - {fileID: -3026878240495084251}
   customLoaderName: 
   m_renderMode: 1
   m_latencyOptimization: 0
@@ -2591,6 +2614,28 @@ MonoBehaviour:
   customRuntimeLoaderName: 
   enableSubsampledLayout: 0
   useEyeTracking: 1
+--- !u!114 &8011636343452076331
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c69964a90c1cf4db99afc651bdd582a2, type: 3}
+  m_Name: HeadLockedLayersFeature Android
+  m_EditorClassIdentifier: Anaglyph.XR.UILayers::Anaglyph.XR.UILayers.HeadLockedLayersFeature
+  m_enabled: 1
+  nameUi: Head-Locked Composition Layers
+  version: 1.0.0
+  featureIdInternal: com.anaglyph.xrtemplate.headlockedlayers
+  openxrExtensionStrings: 
+  company: Anaglyph
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
 --- !u!114 &8034267771770814774
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2805,6 +2850,7 @@ MonoBehaviour:
   - {fileID: -639159031304481213}
   - {fileID: -8642844409457886308}
   - {fileID: -3895922964723454753}
+  - {fileID: 8011636343452076331}
   customLoaderName: 
   m_renderMode: 1
   m_latencyOptimization: 1

@@ -286,7 +286,7 @@ namespace Anaglyph.LaserTag.Interface.HUD
 		private static bool IsReady()
 		{
 			return NetcodeManagement.State == NetcodeState.Connected
-			       && ColocationManager.IsColocated;
+			       && ColocationManager.IsLocalized;
 		}
 
 		private static string GetBlockingConnectionText()
@@ -296,7 +296,12 @@ namespace Anaglyph.LaserTag.Interface.HUD
 			if (state == NetcodeState.Connecting)
 				return ConnectingText;
 
-			if (state == NetcodeState.Connected && !ColocationManager.IsColocated)
+			if (state == NetcodeState.Connected && !ColocationManager.IsLocalized)
+				return AligningText;
+
+			// alone with no space shown, nothing is being aligned to
+			if (state == NetcodeState.Disconnected && !ColocationManager.IsLocalized && ColocationManager.Instance != null &&
+			    ColocationManager.Instance.AlignmentState != XR.SharedSpaces.ColocationAlignmentState.Stopped)
 				return AligningText;
 
 			return null;
