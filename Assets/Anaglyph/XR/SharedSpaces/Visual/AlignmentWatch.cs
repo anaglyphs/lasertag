@@ -21,7 +21,7 @@ namespace Anaglyph.XR.SharedSpaces
 			public float confirmWalk = 5f;
 			[UnityEngine.Tooltip("Seconds what this headset shares waits for confirmation while nothing contradicts it: someone walking into a place no one has mapped can't be confirmed, and is the only one who can share it")]
 			public float holdSeconds = 60f;
-			[UnityEngine.Tooltip("Distinct views another place needs before it can overturn the alignment")]
+			[UnityEngine.Tooltip("Distinct views another place needs before it can overturn the alignment. Until confirmed, one more than the alignment's own place has is enough: an alignment applied on one view falls to two")]
 			public int overturnViews = 3;
 			[UnityEngine.Tooltip("Seconds between checks until confirmed")]
 			public float checkSeconds = 1f;
@@ -44,6 +44,9 @@ namespace Anaglyph.XR.SharedSpaces
 		public bool Watching { get; private set; }
 
 		public float CheckSeconds => confirmed ? settings.confirmedCheckSeconds : settings.checkSeconds;
+
+		/// <summary>Every recent result, for and against the alignment.</summary>
+		public IReadOnlyList<MeasurementGate.Frame> Witnesses => votes.Frames;
 
 		/// <summary>An alignment was just applied, on what <paramref name="witnesses"/> saw while it was being found.</summary>
 		public void Begin(IEnumerable<MeasurementGate.Frame> witnesses, Pose4 place, float path, float time)
@@ -85,7 +88,8 @@ namespace Anaglyph.XR.SharedSpaces
 			}
 
 			PlaceVotes.Tally here = votes.For(current), rival = votes.BestAgainst(current);
-			if (rival.views < settings.overturnViews || !votes.Beats(rival, here)) return Verdict.None;
+			int viewsToOverturn = confirmed ? settings.overturnViews : Math.Min(settings.overturnViews, Math.Max(here.views, 1) + 1);
+			if (rival.views < viewsToOverturn || !votes.Beats(rival, here)) return Verdict.None;
 			why = $"another place has {rival.views} views and {rival.inliers} inliers against {here.views} and {here.inliers} here";
 			return Verdict.Overturned;
 		}

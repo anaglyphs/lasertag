@@ -71,7 +71,7 @@ namespace Anaglyph.XR.SharedSpaces
 			foreach (MeasurementGate.Frame frame in frames)
 				if (SamePlace(place, frame))
 					countedViews.Add(frame);
-			countedViews.Sort((a, b) => b.solve.inliers.CompareTo(a.solve.inliers));
+			countedViews.Sort((a, b) => b.Votes.CompareTo(a.Votes));
 
 			int views = 0, inliers = 0;
 			for (int i = 0; i < countedViews.Count; i++)
@@ -80,7 +80,7 @@ namespace Anaglyph.XR.SharedSpaces
 				for (int j = 0; j < i && !shown; j++) shown = SameView(countedViews[i], countedViews[j]);
 				if (shown) continue;
 				views++;
-				inliers += countedViews[i].solve.inliers;
+				inliers += countedViews[i].Votes;
 			}
 
 			return new Tally(views, inliers);

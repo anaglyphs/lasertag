@@ -15,6 +15,10 @@ GameObject:
   - component: {fileID: 3443407413656384531}
   - component: {fileID: 8548394878927596030}
   - component: {fileID: 6239849721511375241}
+  - component: {fileID: 658164315331326434}
+  - component: {fileID: 2828388200385001078}
+  - component: {fileID: 5205418310527985788}
+  - component: {fileID: 2455392993017310891}
   m_Layer: 0
   m_Name: EnvironmentScanner
   m_TagString: Untagged
@@ -173,3 +177,80 @@ MonoBehaviour:
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.EnvSoundRouting
   maxRouteMeters: 40
   detourMetersForFullMuffle: 8
+--- !u!114 &658164315331326434
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4658663475596877275}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dcdd283aafeb04afa8342008b1f97dbf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.EnvReverb
+  probeCount: 32
+  maxProbeDistance: 30
+  secondsBetweenProbes: 0.25
+  secondsToSettle: 1
+  surfaceAbsorption: 0.15
+  decaySecondsRange: {x: 0.1, y: 4}
+  enclosedLevelMillibels: -600
+  openSkyLongestDecaySeconds: 0.5
+  openSkyLevelCutMillibels: 1000
+  openSkyDensity: 20
+  openSkyDiffusion: 20
+  openSkyHighsMillibels: -3000
+  openSkyHighsDecayRatio: 0.3
+--- !u!114 &2828388200385001078
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4658663475596877275}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7643d825d61264dfe81ca00fd8798cf9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.EnvSoundReflections
+  maxReflections: 3
+  minDelaySeconds: 0.005
+  maxWallDistance: 20
+  horizontalProbeCount: 8
+  gainPerBounce: 0.5
+  mufflePerBounce: 0.15
+--- !u!114 &5205418310527985788
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4658663475596877275}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: df89c548eeacc46f08b9147e5ba3a790, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EnvScanning::Anaglyph.XR.DepthKit.EnvScanning.CoarseEnvScanner
+  compute: {fileID: 7200000, guid: d15e520887d50483294f78a4878be743, type: 3}
+  cellMeters: 1
+  raysPerSide: 32
+  secondsBetweenLooks: 0.25
+  trustedMeters: {x: 1, y: 6}
+--- !u!114 &2455392993017310891
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4658663475596877275}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1c28cbb5cc034cbe92a49a8bc7bf510, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.CoarseEnvFarSight
+  farthestTrustedMeters: 20
+  fewestMeasuredCells: 35
+  largestTypicalDisagreement: 1.2
+  raysPerCellSide: 2
+  skyShareForOpen: 0.5

@@ -118,8 +118,6 @@ namespace Anaglyph.XR.SharedSpaces
 			public float edgeYawFloorDegrees = 0.3f;
 			[Tooltip("How far a tie made other than by a pair of views is off, meters")]
 			public float edgeSigma = 0.04f;
-			[Tooltip("Inliers below which tracking isn't corrected from an edge directly")]
-			public int confidentInliers = 30;
 			[Tooltip("Likewise in yaw, degrees")]
 			public float edgeYawSigmaDegrees = 1.5f;
 			[Tooltip("How fast the solve lets tracking wander between knots, meters per √meter along each axis: what long walks measured on device")]
@@ -131,14 +129,6 @@ namespace Anaglyph.XR.SharedSpaces
 			public int maxEdges = 8192;
 			[Tooltip("How well a solve is taken to place this headset's tracking, meters: as a constraint beside the sites")]
 			public float tipSigma = 0.05f;
-			[Tooltip("Newest matches of this headset's own views kept as constraints beside the solve, which lags them by seconds: at a run, seconds are meters of drift")]
-			public int freshFixes = 12;
-			[Tooltip("How well one match places this headset's tracking, meters")]
-			public float fixSigma = 0.05f;
-			[Tooltip("Likewise in yaw, degrees")]
-			public float fixYawSigmaDegrees = 0.75f;
-			[Tooltip("Two matches agree enough to act on when they place tracking this close, meters")]
-			public float fixAgreement = 0.2f;
 			[Tooltip("Likewise in yaw, degrees")]
 			public float tipYawSigmaDegrees = 0.15f;
 		}
@@ -177,18 +167,13 @@ namespace Anaglyph.XR.SharedSpaces
 		private uint nextOwnIndex;
 		// the latest of this headset's knots a solve has placed, and whether it measured anything of this headset's to do so
 		private int tipKnot = -1;
-		private struct Fix
-		{
-			public ulong keyA;
-			public float3 pointA, pointB;
-			public float yaw, path;
-		}
-
-		// the newest first-hand matches, and one waiting for another to agree with it
-		private readonly List<Fix> fixes = new();
-		private Fix waitingFix;
-		private bool hasWaitingFix;
 		private bool ownEdgesSolved;
+		// where this headset places its own newest knots itself, between the solves everyone shares: only its rig goes by it
+		private const int LocallyPlacedKnots = 6, MostOwnUntoldEdges = 64;
+		private int localTipKnot = -1, localTipGeneration = -1;
+		private double4 localTip;
+		// this headset's edges the authority has yet to tell everyone of
+		private readonly List<EdgeMessage> ownUntoldEdges = new();
 		private readonly HashSet<uint> forgottenOwners = new();
 		// the alignment the next track starts from, to tie it to the graph with
 		private ulong linkKey;
@@ -224,7 +209,7 @@ namespace Anaglyph.XR.SharedSpaces
 		private JobHandle edgeHandle;
 		private bool edgeInFlight;
 		private int countB;
-		private float pathB, newerAt;
+		private float newerAt;
 		private ulong keyA, keyB;
 		private float3 centerB;
 		private quaternion rotationB;
@@ -328,9 +313,8 @@ namespace Anaglyph.XR.SharedSpaces
 			walkOfKnot.Clear();
 			knotByKey.Clear();
 			knotByPlace.Clear();
-			lastKnotGeneration = lastOwnKnot = tipKnot = -1;
-			fixes.Clear();
-			hasWaitingFix = false;
+			lastKnotGeneration = lastOwnKnot = tipKnot = localTipKnot = -1;
+			ownUntoldEdges.Clear();
 			ownEdgesSolved = false;
 			linkKey = 0;
 			nextOwnIndex = 0;
@@ -379,8 +363,6 @@ namespace Anaglyph.XR.SharedSpaces
 			waitingEdges.RemoveAll(e => ByForgotten(e.keyA) || ByForgotten(e.keyB));
 			edgesToSend.RemoveAll(e => ByForgotten(e.keyA) || ByForgotten(e.keyB));
 			knotsToSend.RemoveAll(k => ByForgotten(k.key));
-			fixes.Clear();
-			hasWaitingFix = false;
 			edgesSinceSolve += math.max(settings.minNewEdges, 1);
 		}
 
@@ -418,13 +400,7 @@ namespace Anaglyph.XR.SharedSpaces
 			long place = ((long)generation << 32) | (uint)(int)math.floor(path / settings.knotSpacing);
 			if (knotByPlace.TryGetValue(place, out int index)) return index;
 
-			// a new alignment's raw frame is another: what placed the old one says nothing of it
 			bool newTrack = generation != lastKnotGeneration;
-			if (newTrack)
-			{
-				fixes.Clear();
-				hasWaitingFix = false;
-			}
 
 			// the frame everything else is held to; any other track starts only tied to the graph:
 			// until an alignment does that, this headset's views are its own alone
@@ -459,9 +435,14 @@ namespace Anaglyph.XR.SharedSpaces
 		/// held the new raw frame and the map together, so the new track's first knot is tied to
 		/// <paramref name="anchorNode"/>'s, which it was measured against, as a saved or recentered
 		/// walk's are to the rest. A new raw frame is the map's own at the time, so it is the identity.
+		/// The tie is as loose as the alignment was (<paramref name="sigmaTranslation"/> meters,
+		/// <paramref name="sigmaYaw"/> radians), and never tighter than any other tie: a rough
+		/// alignment gives way to the first pairs of views.
 		/// </summary>
-		public void LinkNextTrack(ulong anchorNode, float3 focus)
+		public void LinkNextTrack(ulong anchorNode, float3 focus, float sigmaTranslation = 0, float sigmaYaw = 0)
 		{
+			sigmaTranslation = math.max(sigmaTranslation, settings.edgeSigma);
+			sigmaYaw = math.max(sigmaYaw, math.radians(settings.edgeYawSigmaDegrees));
 			linkKey = 0;
 			if (!TryKey(anchorNode, out ulong anchor) || !knotByKey.ContainsKey(anchor))
 			{
@@ -476,8 +457,8 @@ namespace Anaglyph.XR.SharedSpaces
 				pointA = world.ApplyInverse(focus),
 				pointB = focus,
 				yaw = -world.yaw,
-				positionInformation = 1f / (settings.edgeSigma * settings.edgeSigma),
-				yawInformation = 1f / math.square(math.radians(settings.edgeYawSigmaDegrees)),
+				positionInformation = 1f / (sigmaTranslation * sigmaTranslation),
+				yawInformation = 1f / (sigmaYaw * sigmaYaw),
 				inliers = LinkInliers,
 			};
 		}
@@ -546,15 +527,21 @@ namespace Anaglyph.XR.SharedSpaces
 		{
 			if (a == b) return;
 			EdgeMessage message = new() { keyA = a, keyB = b, edge = edge };
+			bool own = KnotKeys.Owner(a) == Owner || KnotKeys.Owner(b) == Owner;
 			if (!SyncBus.IsAuthority)
 			{
 				edgesToSend.Add(message);
+				if (!own) return;
+				if (ownUntoldEdges.Count >= MostOwnUntoldEdges) ownUntoldEdges.RemoveAt(0);
+				ownUntoldEdges.Add(message);
+				PlaceTipLocally();
 				return;
 			}
 
 			if (TryAddSolvable(a, b, edge))
 			{
 				if (SyncBus.Active) edgesToSend.Add(message);
+				if (own) PlaceTipLocally();
 			}
 			// its knots are on their way: everyone's come in order, but not everyone's together
 			else if (waitingEdges.Count < settings.maxEdges / 4) waitingEdges.Add(message);
@@ -563,6 +550,12 @@ namespace Anaglyph.XR.SharedSpaces
 		/// <summary>An edge the authority has told everyone of.</summary>
 		public void AddToldEdge(in EdgeMessage message)
 		{
+			for (int i = 0; i < ownUntoldEdges.Count; i++)
+			{
+				if (ownUntoldEdges[i].keyA != message.keyA || ownUntoldEdges[i].keyB != message.keyB) continue;
+				ownUntoldEdges.RemoveAt(i);
+				break;
+			}
 			if (!TryAddSolvable(message.keyA, message.keyB, message.edge) && waitingEdges.Count < settings.maxEdges / 4)
 				waitingEdges.Add(message);
 		}
@@ -708,6 +701,7 @@ namespace Anaglyph.XR.SharedSpaces
 			Solves++;
 			if (ownMoved) track.ApplyGraph(this);
 			localizer.Map.RefreshPlacement();
+			PlaceTipLocally();
 		}
 
 		/// <summary>The knot this node is, by the name every headset knows it by.</summary>
@@ -741,32 +735,94 @@ namespace Anaglyph.XR.SharedSpaces
 		public bool TryTipConstraint(in Matrix4x4 worldFromPlaced, out ColocationConstraint constraint)
 		{
 			constraint = default;
-			if (!settings.enabled || tipKnot < 0 || tipKnot >= knots.Length) return false;
-			if (tipGeneration != lastKnotGeneration) return false;
-			KeyframeGraphKnot knot = knots[tipKnot];
-			Pose4 transform = Transform(tipKnot, knot.path);
+			if (!settings.enabled || !TryTip(out int tip, out double4 placed)) return false;
+			KeyframeGraphKnot knot = knots[tip];
+			Pose4 transform = new((float3)placed.xyz, (float)placed.w);
 			constraint = new ColocationConstraint(new Pose(worldFromPlaced.MultiplyPoint3x4(knot.origin), worldFromPlaced.rotation),
 				new Pose(transform.Apply(knot.origin), transform.Rotation), true,
 				settings.tipSigma, math.radians(settings.tipYawSigmaDegrees), knot.path);
 			return true;
 		}
 
-		/// <summary>Whether the graph has anything to place this headset's tracking with.</summary>
-		public bool HasConstraints => settings.enabled && (fixes.Count > 0 || tipKnot >= 0 && tipGeneration == lastKnotGeneration);
-
-		/// <summary>The newest agreed matches of this headset's own views, through where the graph has the views they matched now.</summary>
-		public void AddFixConstraints(List<ColocationConstraint> results, in Matrix4x4 worldFromPlaced)
+		// the newest of this headset's knots that is placed, and where: by this headset's own placing when it has one, by the latest solve otherwise
+		private bool TryTip(out int knot, out double4 transform)
 		{
-			if (!settings.enabled) return;
-			Quaternion placedRotation = worldFromPlaced.rotation;
-			float yawSigma = math.radians(settings.fixYawSigmaDegrees);
-			foreach (Fix fix in fixes)
-			{
-				Pose4 older = WorldOfKey(fix.keyA);
-				results.Add(new ColocationConstraint(new Pose(worldFromPlaced.MultiplyPoint3x4(fix.pointB), placedRotation),
-					new Pose(older.Apply(fix.pointA), quaternion.RotateY(older.yaw + fix.yaw)), true, settings.fixSigma, yawSigma, fix.path));
-			}
+			knot = -1;
+			transform = default;
+			bool local = localTipKnot >= 0 && localTipKnot < knots.Length && localTipGeneration == lastKnotGeneration;
+			bool solved = tipKnot >= 0 && tipKnot < knots.Length && tipGeneration == lastKnotGeneration;
+			if (!local && !solved) return false;
+			knot = local ? localTipKnot : tipKnot;
+			transform = local ? localTip : state[tipKnot];
+			return true;
 		}
+
+		/// <summary>
+		/// Places this headset's newest knots against everything else as the latest solve left it,
+		/// with every edge this headset has measured since, a joiner's before the authority has solved
+		/// any of them too. Nothing but the tip changes: the knots everyone shares stay the authority's.
+		/// </summary>
+		private void PlaceTipLocally()
+		{
+			localTipKnot = -1;
+			if (!settings.enabled || lastOwnKnot < 0) return;
+
+			NativeArray<KeyframeGraphKnot> placedKnots = new(knots.Length, Allocator.TempJob);
+			for (int k = 0; k < knots.Length; k++)
+			{
+				KeyframeGraphKnot knot = knots[k];
+				knot.isFixed = true;
+				placedKnots[k] = knot;
+			}
+
+			for (int k = lastOwnKnot, n = 0; k >= 0 && n < LocallyPlacedKnots; k = knots[k].previous, n++) placedKnots[k] = knots[k];
+
+			NativeList<KeyframeEdge> placedEdges = new(64, Allocator.TempJob);
+			NativeList<KeyframeEdgeWeight> placedWeights = new(64, Allocator.TempJob);
+			// a track's tie to the graph alone says nothing its alignment didn't
+			bool measured = false;
+			void Take(KeyframeEdge edge)
+			{
+				if (edge.knotA == edge.knotB || placedKnots[edge.knotA].isFixed && placedKnots[edge.knotB].isFixed) return;
+				placedEdges.Add(edge);
+				placedWeights.Add(WeightOf(edge));
+				measured |= edge.inliers != LinkInliers;
+			}
+
+			for (int e = 0; e < edges.Length; e++) Take(edges[e]);
+			foreach (EdgeMessage untold in ownUntoldEdges)
+			{
+				if (!knotByKey.TryGetValue(untold.keyA, out int a) || !knotByKey.TryGetValue(untold.keyB, out int b)) continue;
+				KeyframeEdge edge = untold.edge;
+				edge.knotA = a;
+				edge.knotB = b;
+				Take(edge);
+			}
+
+			if (measured)
+			{
+				NativeArray<double4> placedState = new(state.AsArray(), Allocator.TempJob);
+				NativeArray<double> step = new(1, Allocator.TempJob);
+				for (int i = 0; i < math.max(settings.iterations, 1); i++)
+				{
+					SolveStep(placedKnots, placedEdges.AsArray(), placedWeights.AsArray(), placedState, step).Run();
+					if (step[0] <= SettledStep) break;
+				}
+
+				localTip = placedState[lastOwnKnot];
+				localTipKnot = lastOwnKnot;
+				localTipGeneration = lastKnotGeneration;
+				placedState.Dispose();
+				step.Dispose();
+			}
+
+			placedKnots.Dispose();
+			placedEdges.Dispose();
+			placedWeights.Dispose();
+		}
+
+		/// <summary>Whether the graph has anything to place this headset's tracking with.</summary>
+		public bool HasConstraints => settings.enabled && TryTip(out _, out _);
 
 		private Pose4 WorldOfKey(ulong key)
 		{
@@ -777,39 +833,6 @@ namespace Anaglyph.XR.SharedSpaces
 			}
 
 			return track.WorldOf(KnotKeys.Node(key));
-		}
-
-		// one match can be wrong and move the world by a meter: it has to agree with the last
-		// that was believed, or failing that with the one after it
-		private void OfferFix(ulong keyA, in KeyframeEdge edge, float path)
-		{
-			Fix fix = new() { keyA = keyA, pointA = edge.pointA, pointB = edge.pointB, yaw = edge.yaw, path = path };
-			float3 implied = Implied(fix);
-			if (fixes.Count > 0 && math.distance(implied, Implied(fixes[^1])) <= settings.fixAgreement)
-			{
-				AddFix(fix);
-				hasWaitingFix = false;
-			}
-			else if (hasWaitingFix && math.distance(implied, Implied(waitingFix)) <= settings.fixAgreement)
-			{
-				AddFix(waitingFix);
-				AddFix(fix);
-				hasWaitingFix = false;
-			}
-			else
-			{
-				waitingFix = fix;
-				hasWaitingFix = true;
-			}
-		}
-
-		// how far the match moves raw tracking, at the point it placed
-		private float3 Implied(in Fix fix) => WorldOfKey(fix.keyA).Apply(fix.pointA) - fix.pointB;
-
-		private void AddFix(in Fix fix)
-		{
-			if (fixes.Count >= math.max(settings.freshFixes, 1)) fixes.RemoveAt(0);
-			fixes.Add(fix);
 		}
 
 #if UNITY_EDITOR
@@ -846,8 +869,8 @@ namespace Anaglyph.XR.SharedSpaces
 		public bool TryTipTransform(out float4 transform)
 		{
 			transform = default;
-			if (tipKnot < 0 || tipKnot >= knots.Length) return false;
-			transform = (float4)state[tipKnot];
+			if (!TryTip(out _, out double4 placed)) return false;
+			transform = (float4)placed;
 			return true;
 		}
 #endif
@@ -923,7 +946,6 @@ namespace Anaglyph.XR.SharedSpaces
 					edge.yaw = Pose4.WrapAngle(edge.yaw + priorToOlder.yaw);
 					keyA = MostMatchedKey(edge.inliers);
 					AddEdge(keyA, keyB, edge);
-					if (edge.inliers >= settings.confidentInliers && KnotKeys.Owner(keyB) == Owner) OfferFix(keyA, edge, pathB);
 					if (AnaglyphDebugging.DebugMode && KnotKeys.Owner(keyB) == Owner)
 						for (int i = 0; i < edge.inliers; i++)
 							LandmarkMatched(landmarkOfRow[inliersOfA[i]]);
@@ -1108,7 +1130,6 @@ namespace Anaglyph.XR.SharedSpaces
 			NativeArray<half>.Copy(features.descriptors, 0, descriptorsB, 0, rows * FeatureSet.DescriptorSize);
 			for (int j = 0; j < rows; j++) raysB[j] = keyframe.intrinsics.Ray(features.keypoints[j]);
 			countB = rows;
-			pathB = track.PathOf(keyframe.node);
 			angularSigma = settings.pixelSigma / keyframe.intrinsics.fx;
 
 			Pose raw = track.CorrectionOf(keyframe.node).Inverse.Apply(keyframe.cameraInNode);
@@ -1198,7 +1219,7 @@ namespace Anaglyph.XR.SharedSpaces
 				}
 
 				solveIteration++;
-				if (solveIteration < settings.iterations && largestStep[0] > 1e-4) ScheduleStep();
+				if (solveIteration < settings.iterations && largestStep[0] > SettledStep) ScheduleStep();
 				else FinishSolve();
 				return;
 			}
@@ -1206,6 +1227,9 @@ namespace Anaglyph.XR.SharedSpaces
 			if (edgesSinceSolve < settings.minNewEdges || Time.unscaledTime < nextSolve) return;
 			BeginSolve();
 		}
+
+		// a step under this, meters or radians, ends a solve: the next solve starts from where this one stopped
+		private const double SettledStep = 5e-4;
 
 		// how far a knot moves before anyone else hears of it, meters and radians
 		private const float MinTold = 0.003f, MinToldYaw = 0.0002f;
@@ -1336,21 +1360,23 @@ namespace Anaglyph.XR.SharedSpaces
 
 		private void ScheduleStep()
 		{
-			solveHandle = new KeyframeGraphSolveJob
-			{
-				knots = solveKnots,
-				edges = solveEdges,
-				weights = solveWeights,
-				state = solveState,
-				largestStep = largestStep,
-				positionRateSquared = (double)settings.driftRate * settings.driftRate,
-				yawRateSquared = math.square((double)math.radians(settings.driftYawRateDegrees)),
-				positionFloorSquared = 0.005 * 0.005,
-				yawFloorSquared = math.square(math.radians(0.02)),
-				huber = settings.huber,
-			}.Schedule();
+			solveHandle = SolveStep(solveKnots, solveEdges, solveWeights, solveState, largestStep).Schedule();
 			JobHandle.ScheduleBatchedJobs();
 		}
+
+		private KeyframeGraphSolveJob SolveStep(NativeArray<KeyframeGraphKnot> stepKnots, NativeArray<KeyframeEdge> stepEdges, NativeArray<KeyframeEdgeWeight> stepWeights, NativeArray<double4> stepState, NativeArray<double> stepTaken) => new()
+		{
+			knots = stepKnots,
+			edges = stepEdges,
+			weights = stepWeights,
+			state = stepState,
+			largestStep = stepTaken,
+			positionRateSquared = (double)settings.driftRate * settings.driftRate,
+			yawRateSquared = math.square((double)math.radians(settings.driftYawRateDegrees)),
+			positionFloorSquared = 0.005 * 0.005,
+			yawFloorSquared = math.square(math.radians(0.02)),
+			huber = settings.huber,
+		};
 
 		private void FinishSolve()
 		{
@@ -1395,6 +1421,7 @@ namespace Anaglyph.XR.SharedSpaces
 			track.ApplyGraph(this);
 			localizer.Map.RefreshPlacement();
 			EndSolve();
+			PlaceTipLocally();
 			nextSolve = Time.unscaledTime + math.max(settings.solveInterval, settings.solveCostMultiple * LastSolveSeconds);
 		}
 

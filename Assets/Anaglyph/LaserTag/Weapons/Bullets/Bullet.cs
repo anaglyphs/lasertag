@@ -23,6 +23,7 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 		private CancellationTokenSource despawnCancelSrc;
 
 		[SerializeField] private AudioClip collideSFX;
+		[SerializeField, Min(0.01f)] private float collideSFXFullVolumeDistance = 1;
 
 		[Serializable, StructLayout(LayoutKind.Sequential)]
 		public struct ShotData : INetworkSerializeByMemcpy
@@ -190,7 +191,7 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 			isAlive = false;
 
 			OnCollide.Invoke();
-			AudioPool.Play(collideSFX, transform.position);
+			AudioPool.Play(collideSFX, transform.position, 1, collideSFXFullVolumeDistance);
 
 			if (IsOwner)
 				DelayedDespawn();

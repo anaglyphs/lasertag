@@ -21,6 +21,7 @@ GameObject:
   - component: {fileID: 6247691024657539827}
   - component: {fileID: 4542216402505528524}
   - component: {fileID: 4959272462355547871}
+  - component: {fileID: 4349437884803312086}
   m_Layer: 0
   m_Name: MapManager
   m_TagString: Untagged
@@ -123,6 +124,9 @@ MonoBehaviour:
   yawDriftRateDegrees: 0.05
   spatialDriftRate: 0
   spatialYawDriftRateDegrees: 0
+  hideCorrectionsInHeadMovement: 0
+  correctionPerMeterOfHeadMovement: 0.05
+  largestHiddenCorrection: 0.2
 --- !u!114 &219892528580798013
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -293,6 +297,7 @@ MonoBehaviour:
   queriesEnabled: 1
   queryInterval: 1
   searchViews: 5
+  shareSessionAnchor: 1
   gateSettings:
     alignment:
       minInliers: 30
@@ -368,7 +373,7 @@ MonoBehaviour:
     solveInterval: 0.5
     solveCostMultiple: 10
     minNewEdges: 1
-    maxSolveKnots: 500
+    maxSolveKnots: 200
     iterations: 3
     edgeAlongSpread: 0.55
     edgeAcrossSpread: 0.055
@@ -377,17 +382,12 @@ MonoBehaviour:
     edgeYawSpread: 20
     edgeYawFloorDegrees: 0.3
     edgeSigma: 0.04
-    confidentInliers: 30
     edgeYawSigmaDegrees: 1.5
     driftRate: 0.012
     driftYawRateDegrees: 0.05
     huber: 0.5
     maxEdges: 8192
     tipSigma: 0.05
-    freshFixes: 12
-    fixSigma: 0.05
-    fixYawSigmaDegrees: 0.75
-    fixAgreement: 0.2
     tipYawSigmaDegrees: 0.15
   loopClosure: 1
   lockRevisits: 1
@@ -406,3 +406,24 @@ MonoBehaviour:
   loopCaptureAfterQuiet: 3
   loopFrames: 3
   loopFrameWindow: 4
+--- !u!114 &4349437884803312086
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5901269829941828840}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8c30a30a99a324aa681643f65ff3eb52, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.XR.VisualLocalization::Anaglyph.XR.VisualLocalization.SkyView
+  model: {fileID: 5022602860645237092, guid: d7cc93ec471364508b614130973e31af, type: 3}
+  backend: 256
+  framesPerLook: 8
+  secondsBetweenLooks: 1
+  degreesTurnedForNewLook: 20
+  metersWalkedForNewLook: 3
+  maxAngularSpeed: 90
+  metersUntilForgotten: 15
+  newLookWeight: 0.5

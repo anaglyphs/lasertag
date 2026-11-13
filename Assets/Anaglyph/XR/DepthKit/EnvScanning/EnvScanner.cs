@@ -173,6 +173,9 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		/// <summary>Embedding policy pauses depth integration without discarding the scan.</summary>
 		public Func<bool> IntegrationGate { get; set; }
 
+		/// <summary>The local sensor's pose is in the live map's frame: <see cref="IntegrationGate"/> lets it through.</summary>
+		public bool LocalSensorTrusted => IntegrationGate?.Invoke() ?? true;
+
 		public event Action Cleared = delegate { };
 
 		/// <summary>
@@ -598,7 +601,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 				return;
 			}
 
-			if (!(IntegrationGate?.Invoke() ?? true)) return;
+			if (!LocalSensorTrusted) return;
 
 			SetSensorUniforms(dkd);
 

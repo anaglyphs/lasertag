@@ -218,12 +218,44 @@ namespace Anaglyph.LaserTag.Tests
 		{
 			AlignmentWatch watch = Watch(out _);
 			Pose4 wrong = Place(WrongJoin[7]);
-			watch.Begin(new[] { Frame(WrongJoin[6]), Frame(WrongJoin[7]), Frame(WrongJoin[2]) }, wrong, 30, 25);
+			watch.Begin(new[] { Frame(WrongJoin[6]), Frame(WrongJoin[7]), Further(WrongJoin[7], 3), Frame(WrongJoin[2]) }, wrong, 30, 25);
 			Assert.That(watch.HoldsContributions(26), Is.True);
 
 			Assert.That(watch.Add(Further(WrongJoin[2], 5), wrong, 35, out _), Is.EqualTo(AlignmentWatch.Verdict.None), "two views aren't enough");
 			Assert.That(watch.Add(Further(WrongJoin[2], 10), wrong, 40, out string why), Is.EqualTo(AlignmentWatch.Verdict.Overturned));
 			Assert.That(why, Does.Contain("3 views"));
+		}
+
+		[Test]
+		public void AWatchedJoinerStandsOnOneWeakFrame()
+		{
+			MeasurementGate gate = Gate(new MeasurementGate.Settings());
+			Assert.That(gate.TryAgree(Frame(WeakPair[0], 59.69f), out MeasurementGate.Agreed agreed, provisional: true), Is.True);
+			Assert.That(agreed.provisional, Is.True);
+			Assert.That(YawDegrees(agreed), Is.EqualTo(171.4f).Within(0.1f));
+		}
+
+		[Test]
+		public void AnAlignmentOnOneViewIsOverturnedByTwoViewsOfAnotherPlace()
+		{
+			AlignmentWatch watch = Watch(out _);
+			Pose4 wrong = Place(WrongJoin[7]);
+			watch.Begin(new[] { Frame(WrongJoin[7]) }, wrong, 30, 25);
+
+			Assert.That(watch.Add(Frame(WrongJoin[2]), wrong, 31, out _), Is.EqualTo(AlignmentWatch.Verdict.None), "one view against one");
+			Assert.That(watch.Add(Further(WrongJoin[2], 5), wrong, 35, out string why), Is.EqualTo(AlignmentWatch.Verdict.Overturned));
+			Assert.That(why, Does.Contain("2 views"));
+		}
+
+		[Test]
+		public void AnOverturnedPlaceIsNotJoinedAgainOnOneView()
+		{
+			MeasurementGate gate = Gate(new MeasurementGate.Settings());
+			gate.Recall(new[] { Frame(WrongJoin[7]), Frame(WrongJoin[2]), Further(WrongJoin[2], 5) });
+			Assert.That(gate.TryAgree(Further(WrongJoin[7], 3), out _, provisional: true), Is.False);
+			Assert.That(gate.HeldBack, Does.Contain("another place"));
+			Assert.That(gate.TryAgree(Further(WrongJoin[2], 10), out MeasurementGate.Agreed agreed, provisional: true), Is.True);
+			Assert.That(YawDegrees(agreed), Is.EqualTo(TrueYawDegrees).Within(1f));
 		}
 
 		[Test]
@@ -313,6 +345,20 @@ namespace Anaglyph.LaserTag.Tests
 			MeasurementGate gate = Gate(new MeasurementGate.Settings());
 			Assert.That(gate.Rejection(SolveWithTranslationSigma(0.30f), MeasurementPurpose.Colocate, reach: 100f), Is.Not.Null);
 			Assert.That(gate.Rejection(SolveWithTranslationSigma(0.23f), MeasurementPurpose.Colocate, reach: 100f), Is.Null);
+		}
+
+		[Test]
+		public void ARoughFirstAlignmentPassesWhatAPreciseOneCannot()
+		{
+			MeasurementGate gate = Gate(new MeasurementGate.Settings());
+			GravityPnPResult acrossTheRoom = SolveWithTranslationSigma(0.6f);
+			acrossTheRoom.yawSigma = math.radians(3f);
+			Assert.That(gate.Rejection(acrossTheRoom, MeasurementPurpose.Colocate, reach: 6f), Is.Not.Null);
+			Assert.That(gate.Rejection(acrossTheRoom, MeasurementPurpose.Colocate, reach: 6f, rough: true), Is.Null);
+
+			Assert.That(gate.Rejection(SolveWithTranslationSigma(2.5f), MeasurementPurpose.Colocate, reach: 6f, rough: true), Does.Contain("translation"));
+			acrossTheRoom.yawSigma = math.radians(10f);
+			Assert.That(gate.Rejection(acrossTheRoom, MeasurementPurpose.Colocate, reach: 6f, rough: true), Does.Contain("yaw"));
 		}
 
 		[Test]

@@ -24,6 +24,9 @@ namespace Anaglyph.XR.VisualLocalization
 	{
 		public static VisualLocalizer Instance { get; private set; }
 
+		/// <summary>Every result carries what its solve stood on (<see cref="SolveInputs"/>): for tests that know the truth.</summary>
+		public static bool KeepSolveInputs;
+
 		/// <summary>When set before the localizer wakes, overrides freezeEstablishedLandmarks: for A/B tests.</summary>
 		public static bool? FreezeOverride;
 
@@ -155,7 +158,13 @@ namespace Anaglyph.XR.VisualLocalization
 			if (Instance == this) Instance = null;
 		}
 
-		private void Update() => mapper.Tick();
+		/// <summary>No view becomes a keyframe while this is set: where this headset is isn't known well enough to place one.</summary>
+		public bool MappingPaused { get; set; }
+
+		private void Update()
+		{
+			if (!MappingPaused) mapper.Tick();
+		}
 
 		// ---- querying ----------------------------------------------------------
 
@@ -190,6 +199,26 @@ namespace Anaglyph.XR.VisualLocalization
 				query.features = await queue.ExtractAsync(image.pixels, image.content);
 				if (record != null) record.features = query.features;
 				return query.features == null ? null : query;
+			}
+			finally
+			{
+				queue.ReleaseExtractor();
+			}
+		}
+
+		/// <summary>
+		/// Takes the current camera frame and hands it to <paramref name="read"/>, which copies
+		/// what it keeps: the buffer is reused. False when no frame is available or the head
+		/// turns faster than <paramref name="maxAngularSpeed"/> (°/s).
+		/// </summary>
+		public async Awaitable<bool> ReadFrameAsync(float maxAngularSpeed, Action<CapturedImage> read)
+		{
+			if (!queue.IsAvailable || !await queue.AcquireExtractor()) return false;
+			try
+			{
+				if (!queue.TryCapture(maxAngularSpeed)) return false;
+				read(queue.Image);
+				return true;
 			}
 			finally
 			{
@@ -295,12 +324,20 @@ namespace Anaglyph.XR.VisualLocalization
 					return result;
 				}
 
-				List<Correspondence> correspondences = Consistent(matching.correspondences, anchoring, out result.anchorNode);
+				Pose[] cameras = new Pose[cameraCount];
+				for (int c = 0; c < cameraCount; c++) cameras[c] = frames[c]?.camera ?? query.camera;
+				List<Correspondence> matched = matching.correspondences;
+				if (!guided && options.pool != null)
+				{
+					(cameras, matched) = options.pool.With(query, matching.correspondences);
+					options.pool.Add(query, matching.correspondences);
+					cameraCount = cameras.Length;
+				}
+
+				List<Correspondence> correspondences = Consistent(matched, anchoring, out result.anchorNode);
 				GravityPnP.Settings settings = pnp;
 				if (options.centerPriorSigma > 0) settings.centerPriorSigma = options.centerPriorSigma;
 				// RANSAC and Gauss-Newton over a few hundred correspondences: pure math, on a worker
-				Pose[] cameras = new Pose[cameraCount];
-				for (int c = 0; c < cameraCount; c++) cameras[c] = frames[c]?.camera ?? query.camera;
 				PinholeCamera intrinsics = query.intrinsics;
 				int seed = (int)(query.timestampNs & 0x7fffffff);
 				int views = matching.keyframesMatched;
@@ -310,16 +347,24 @@ namespace Anaglyph.XR.VisualLocalization
 					result.pose = GravityPnP.Solve(correspondences, intrinsics, cameras, settings, seed);
 					// plus the matched views' own placement error, which all their landmarks share
 					GravityPnP.AddViewUncertainty(ref result.pose, settings, views);
+					GravityPnP.AddDepthScaleUncertainty(ref result.pose, correspondences, settings);
 				}
 				finally
 				{
 					await Awaitable.MainThreadAsync();
 				}
+				result.frames = cameraCount;
+				if (KeepSolveInputs)
+					result.inputs = new SolveInputs { correspondences = correspondences, cameras = cameras, intrinsics = intrinsics, settings = settings, trackingSpace = query.trackingSpace };
 				if (result.pose.success && result.pose.inlierIndices != null)
 				{
 					List<Vector3> points = new(result.pose.inlierIndices.Length);
 					foreach (int i in result.pose.inlierIndices)
+					{
+						if (correspondences[i].camera == 0) result.frameInliers++;
 						if (correspondences[i].inverseDepth > 1f / 30f) points.Add(correspondences[i].Point);
+					}
+
 					result.inlierPoints = points.ToArray();
 				}
 
@@ -415,6 +460,7 @@ namespace Anaglyph.XR.VisualLocalization
 						inverseDepthSigma = landmark.inverseDepthSigma,
 						confidence = confidence[i],
 						node = landmark.node,
+						landmark = landmark.id + 1,
 					};
 
 					int existing = byFeature.TryGetValue(i, out int f) ? f : byLandmark.TryGetValue(landmark.id, out int l) ? l : -1;

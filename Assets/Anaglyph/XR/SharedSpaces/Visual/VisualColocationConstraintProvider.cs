@@ -38,8 +38,18 @@ namespace Anaglyph.XR.SharedSpaces
 	{
 		[SerializeField] private bool queriesEnabled = true;
 		[SerializeField] private float queryInterval = 1f;
+		[Tooltip("Seconds between a joiner's queries while it searches for the authority's frame: each starts once the last is done")]
+		[SerializeField] private float searchQueryInterval = 0.2f;
 		[Tooltip("Views a colocating or relocalizing query tries: similar-looking views often outrank the one that shows the same place")]
 		[SerializeField] private int searchViews = 5;
+		[Tooltip("A joiner's query is solved together with its queries just before it, up to this many frames in all: tracking holds them rigidly together, so their matches add up and the baseline between them pins translation. 1 for each frame alone")]
+		[SerializeField] private int joinFrames = 4;
+		[Tooltip("A joiner aligns on its first result that passes the gate, and the watch overturns it if other views say another place. Off: two results have to agree first")]
+		[SerializeField] private bool joinOnOneResult = true;
+		[Tooltip("Seconds back a frame may be to join a joiner's solve")]
+		[SerializeField] private float joinFrameWindow = 6f;
+		[Tooltip("While its alignment is rough a joiner goes on solving its latest frames together, and a result takes the alignment's place when its translation sigma is within this share of the one in force: as the joiner moves, frames from apart pin what one standing point can't")]
+		[SerializeField] private float refineSigmaShare = 0.7f;
 		[Tooltip("The authority shares one anchor through the headset runtime, and joiners align by it as soon as they find it. Camera matching runs alongside and aligns whoever it reaches first")]
 		[SerializeField] private bool shareSessionAnchor = true;
 
@@ -91,7 +101,12 @@ namespace Anaglyph.XR.SharedSpaces
 			public int generation;
 			// the map points the solve stood on, for the site's debug view
 			public Vector3[] features;
+			public int frameInliers = -1;
 		}
+
+		// a joiner's recent queries against the authority's map, in the tracking space of joinPoolEpoch
+		private readonly QueryPool joinPool = new();
+		private int joinPoolEpoch = -1;
 
 		private float nextQuery;
 		private float nextLoop;
@@ -142,7 +157,12 @@ namespace Anaglyph.XR.SharedSpaces
 		public bool IsRunning => alignment.IsRunning;
 
 		/// <summary>This joiner's alignment hasn't been confirmed yet: what it would share with the others should wait.</summary>
-		public bool AlignmentUnconfirmed => watch.HoldsContributions(Time.unscaledTime);
+		public bool AlignmentUnconfirmed => alignmentIsRough || watch.HoldsContributions(Time.unscaledTime);
+
+		// the alignment in force passed only the rough gate: a tighter result takes its place when one comes
+		private bool alignmentIsRough;
+		// the translation sigma of the result the alignment in force was applied from, meters
+		private float alignmentSigma;
 
 #if UNITY_EDITOR
 		/// <summary>Degrees the next alignment is turned by, about what it stood on: the only way to test recovering from a wrong one on demand.</summary>
@@ -257,6 +277,7 @@ namespace Anaglyph.XR.SharedSpaces
 			localizer.Map.LocalOwner = graph.Owner;
 			localizer.Map.Evicted += graph.OnEvicted;
 			localizer.Map.Cleared += graph.Clear;
+			localizer.Map.Cleared += joinPool.Clear;
 			debugView = new VisualAlignmentDebugView(localizer, graph);
 			// the map's frame is gone when the scan is
 			if (EnvScanner.Instance != null) EnvScanner.Instance.Cleared += ClearMap;
@@ -298,6 +319,7 @@ namespace Anaglyph.XR.SharedSpaces
 			{
 				localizer.Map.Evicted -= graph.OnEvicted;
 				localizer.Map.Cleared -= graph.Clear;
+				localizer.Map.Cleared -= joinPool.Clear;
 				localizer.KeyframeExtracted -= graph.Add;
 			}
 			graph.Dispose();
@@ -336,6 +358,9 @@ namespace Anaglyph.XR.SharedSpaces
 			if (phase == Phase.Relocalizing) graph.DropWaiting();
 			if (phase != Phase.Aligned) watch.End();
 			gate.Clear();
+			// frames from the search go on being solved with those after a rough alignment
+			if (phase != Phase.Aligned) joinPool.Clear();
+			alignmentIsRough = false;
 		}
 
 		// ---- asking ------------------------------------------------------------
@@ -348,6 +373,8 @@ namespace Anaglyph.XR.SharedSpaces
 			// a joiner that took over as the authority is canon now
 			if (SyncBus.IsAuthority && watch.Watching) watch.End();
 			alignment.Update();
+			// a view mapped under a search or a rough alignment would hold the next alignment to where that one put it
+			localizer.MappingPaused = IsRunning && (alignment.CurrentPhase == Phase.Searching || alignmentIsRough);
 			UpdateSessionAnchor();
 			UpdateCorrection();
 			graph.Update();
@@ -363,7 +390,7 @@ namespace Anaglyph.XR.SharedSpaces
 			if (IsRunning) localizer.Urgent = alignment.CurrentPhase is Phase.Searching or Phase.Relocalizing;
 
 			if (!NeedsCapture(out Purpose purpose)) return;
-			nextQuery = Time.unscaledTime + queryInterval;
+			nextQuery = Time.unscaledTime + (purpose == Purpose.Colocate ? searchQueryInterval : queryInterval);
 			Run(purpose);
 		}
 
@@ -386,7 +413,8 @@ namespace Anaglyph.XR.SharedSpaces
 					if (watch.Watching && Time.unscaledTime >= nextCheck)
 					{
 						purpose = Purpose.Check;
-						nextCheck = Time.unscaledTime + watch.CheckSeconds;
+						// a rough alignment goes on being checked at the search's pace, confirmed or not
+						nextCheck = Time.unscaledTime + (alignmentIsRough ? watchSettings.checkSeconds : watch.CheckSeconds);
 						return true;
 					}
 
@@ -489,12 +517,15 @@ namespace Anaglyph.XR.SharedSpaces
 				frames = new[] { p.query };
 				// a joiner matching the authority's map is waiting on it: the urgent pace
 				options = new LocalizeOptions { urgent = p.purpose == Purpose.Colocate, maxViews = searchViews, skipOwnViews = p.purpose == Purpose.Check };
+				bool refining = p.purpose == Purpose.Check && alignmentIsRough;
+				if ((p.purpose == Purpose.Colocate || refining) && joinFrames > 1) options.pool = JoinPoolFor(p.epoch);
 			}
 
 			VisualLocalizationResult result = await localizer.LocalizeAsync(frames, options);
 			if (!this) return;
 			LastResult = result;
 			p.features = result.inlierPoints;
+			if (result.frames > 1) p.frameInliers = result.frameInliers;
 
 			// a loop query finding nothing old in view is the normal case: noted, at most every 10 s
 			if (loop && result.keyframesMatched == 0)
@@ -508,6 +539,16 @@ namespace Anaglyph.XR.SharedSpaces
 				return;
 			}
 			Consider(p, result.pose, result.anchorNode, result.ToString());
+		}
+
+		// frames from before a recenter stand in a tracking space that is gone
+		private QueryPool JoinPoolFor(int epoch)
+		{
+			if (epoch != joinPoolEpoch) joinPool.Clear();
+			joinPoolEpoch = epoch;
+			joinPool.maxFrames = joinFrames;
+			joinPool.maxSeconds = joinFrameWindow;
+			return joinPool;
 		}
 
 		/// <summary>
@@ -537,8 +578,9 @@ namespace Anaglyph.XR.SharedSpaces
 		// ---- deciding ----------------------------------------------------------
 
 		/// <summary>
-		/// A solved query: gated, agreed with a second frame, then applied as the alignment
-		/// (colocating, relocalizing) or kept as a site (a loop closure measuring drift).
+		/// A solved query: gated, agreed with a second frame (a joiner's first alignment stands on
+		/// one, for the watch to confirm or overturn), then applied as the alignment (colocating,
+		/// relocalizing) or kept as a site (a loop closure measuring drift).
 		/// </summary>
 		private void Consider(Pending p, GravityPnPResult pose, ulong anchor, string description)
 		{
@@ -555,7 +597,25 @@ namespace Anaglyph.XR.SharedSpaces
 			bool loop = p.purpose == Purpose.Loop;
 			float3 camera = p.query.camera.position;
 			Pose4 correction = new(pose.translation, pose.yaw);
-			string rejection = gate.Rejection(pose, p.purpose, MeasurementGate.Reach(pose.cameraCenter, p.features)) ?? (loop ? gate.Implausible(correction, camera, WalkedSinceSite(p)) : null);
+			float reach = MeasurementGate.Reach(pose.cameraCenter, p.features);
+			string rejection = gate.Rejection(pose, p.purpose, reach);
+
+			// a joiner's alignment is watched, and what it would share waits: one result is enough to stand
+			// on, and a rough one enough to start from
+			bool watched = joinOnOneResult && p.purpose == Purpose.Colocate && !SyncBus.IsAuthority;
+			bool refining = p.purpose == Purpose.Check && alignmentIsRough;
+			// a result that may be rough is held to the rough gate alone: what it says is why a joiner is still waiting
+			bool rough = false;
+			if ((watched || refining) && rejection != null)
+			{
+				rejection = gate.Rejection(pose, p.purpose, reach, rough: true);
+				rough = rejection == null;
+			}
+
+			// a rough result is worth the jump only when it is tighter than the rough one in force: otherwise it
+			// only says whether the place is the same
+			bool sameOrOther = rough && refining && pose.translationSigma > refineSigmaShare * alignmentSigma;
+			if (loop) rejection ??= gate.Implausible(correction, camera, WalkedSinceSite(p));
 
 			// a drift measurement maps the camera as its segment's correction placed it onto the
 			// map: composed with that correction, it is the whole correction the site needs
@@ -575,19 +635,20 @@ namespace Anaglyph.XR.SharedSpaces
 			{
 				purpose = p.purpose, generation = p.generation, epoch = p.epoch,
 				node = p.query.node, anchor = anchor, camera = camera,
-				correction = correction, solve = pose, features = p.features,
+				correction = correction, solve = pose, features = p.features, frameInliers = p.frameInliers,
 				spaceInMap = loop ? default : correction * SpaceOf(p.query),
 				cameraInSpace = p.query.cameraInTrackingSpace.position,
 				forwardInSpace = p.query.cameraInTrackingSpace.forward,
 			};
 
-			if (p.purpose == Purpose.Check)
+			if (sameOrOther || (p.purpose == Purpose.Check && !alignmentIsRough))
 			{
 				Check(frame, description);
 				return;
 			}
 
-			if (!gate.TryAgree(frame, out MeasurementGate.Agreed agreed))
+			// a check that passed the gate is tighter than the rough alignment it checks: it takes its place
+			if (!gate.TryAgree(frame, out MeasurementGate.Agreed agreed, watched || refining))
 			{
 				log.Outcome($"{p.purpose}: candidate {correction}, {gate.HeldBack ?? "waiting for a second frame to agree"} ({description})");
 				// the confirming frame at once, while the old views are still in sight
@@ -597,6 +658,9 @@ namespace Anaglyph.XR.SharedSpaces
 			}
 
 			if (agreed.alone) description = $"one frame, confident enough alone: {description}";
+			if (refining) description = $"{(rough ? "tighter, still rough" : "tight")}, in place of the rough alignment: {description}";
+			else if (rough) description = $"rough, until a closer view or the graph refines it: {description}";
+			else if (agreed.provisional) description = $"one frame, provisional until another view agrees: {description}";
 #if UNITY_EDITOR
 			if (!loop && MisalignNextAlignmentForTests != 0)
 			{
@@ -606,10 +670,10 @@ namespace Anaglyph.XR.SharedSpaces
 			}
 #endif
 			if (loop) AddSite(p, agreed, pose.yawSigma, anchor, description);
-			else ApplyAlignment(p, agreed, anchor, description);
+			else ApplyAlignment(p, agreed, anchor, description, rough, pose.translationSigma);
 		}
 
-		private void ApplyAlignment(Pending p, in MeasurementGate.Agreed agreed, ulong anchor, string description)
+		private void ApplyAlignment(Pending p, in MeasurementGate.Agreed agreed, ulong anchor, string description, bool rough, float sigma)
 		{
 			if (!IsAvailable)
 			{
@@ -627,8 +691,10 @@ namespace Anaglyph.XR.SharedSpaces
 #endif
 			}
 
-			graph.LinkNextTrack(anchor, agreed.focus);
+			graph.LinkNextTrack(anchor, agreed.focus, agreed.sigmaTranslation, agreed.sigmaYaw);
 			alignment.Apply(agreed.correction, p.query.trackingSpace);
+			alignmentIsRough = rough;
+			alignmentSigma = sigma;
 			log.Outcome($"{p.purpose}: applied {agreed.correction} ({description})");
 		}
 
@@ -639,9 +705,14 @@ namespace Anaglyph.XR.SharedSpaces
 			AlignmentWatch.Verdict verdict = watch.Add(frame, Pose4.FromPose(target.position, target.rotation), track.Path, out string why);
 			if (verdict == AlignmentWatch.Verdict.None) return;
 			log.Outcome($"Check: {why} ({description})");
+			// walked on and still in the same place: from here the graph refines it, with this headset's own views
+			if (verdict == AlignmentWatch.Verdict.Confirmed) alignmentIsRough = false;
 			if (verdict != AlignmentWatch.Verdict.Overturned) return;
+			List<MeasurementGate.Frame> seen = new(watch.Witnesses);
 			mapSync.TakeBackShared(graph.Owner);
 			alignment.AbandonAlignment(why);
+			// the place just left has to be beaten by the next: it can't be joined again on one view
+			gate.Recall(seen);
 		}
 
 		// ---- the session anchor -------------------------------------------------
@@ -683,6 +754,7 @@ namespace Anaglyph.XR.SharedSpaces
 			watch.End();
 			graph.LinkNextTrack(0, canon.position);
 			alignment.Apply(worldToCanon, new Pose(space.position, space.rotation));
+			alignmentIsRough = false;
 			anchorFollowedIn = -1;
 			log.Outcome($"Colocate: applied {worldToCanon} (the session anchor)");
 		}
@@ -856,7 +928,6 @@ namespace Anaglyph.XR.SharedSpaces
 			Matrix4x4 worldFromPlaced = WorldFromPlaced;
 			driftSites.AddConstraints(results, worldFromPlaced);
 			if (graph.TryTipConstraint(worldFromPlaced, out ColocationConstraint tip)) results.Add(tip);
-			graph.AddFixConstraints(results, worldFromPlaced);
 		}
 
 		/// <summary>Where this session first mapped each place and the correction it was mapped with, for diagnosis.</summary>

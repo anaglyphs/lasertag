@@ -20,7 +20,8 @@ namespace Anaglyph.XR.SharedSpaces
 	/// well it is pinned down (the solver's yaw and translation sigmas), not on how many points
 	/// matched: a map seen from one spot pins yaw but not translation until someone walks
 	/// around. Two results that agree are needed before one is applied, unless one is certain
-	/// enough alone. An alignment nothing can undo also has to beat the other places in contention
+	/// enough alone, or it is provisional: what comes after can undo it
+	/// (<see cref="AlignmentWatch"/>). An alignment also has to beat the other places in contention
 	/// (<see cref="PlaceVotes"/>), and two frames of one view only count as two if they are strong.
 	/// </summary>
 	public sealed class MeasurementGate
@@ -63,6 +64,9 @@ namespace Anaglyph.XR.SharedSpaces
 				confidentYawSigmaDegrees = 0.25f, confidentTranslationSigma = 0.02f, confidentInliers = 80, confidentInlierShare = 0.75f,
 			};
 
+			[Tooltip("A joiner's first alignment, when what comes after refines it: good enough to show where the others are, long before a view pins it to centimeters")]
+			public Thresholds rough = new() { minInliers = 30, maxNormalizedRms = 2f, maxYawSigmaDegrees = 8f, minRangedInliers = 30, maxTranslationSigma = 2f, confidentInlierShare = 0.65f };
+
 			[Tooltip("A result this certain is applied without waiting for a second frame")]
 			public bool acceptConfidentSingleFrames = true;
 
@@ -100,6 +104,10 @@ namespace Anaglyph.XR.SharedSpaces
 			public Pose4 spaceInMap;
 			public float3 cameraInSpace, forwardInSpace;
 			public GravityPnPResult solve;
+			/// <summary>Inliers of this frame alone, when its solve stood on earlier frames too; negative when it stood alone.</summary>
+			public int frameInliers = -1;
+			/// <summary>What the frame counts for among places: its own inliers, so frames solved together aren't counted twice.</summary>
+			public int Votes => frameInliers >= 0 ? frameInliers : solve.inliers;
 			/// <summary>The map points the solve stood on; may be null.</summary>
 			public Vector3[] features;
 		}
@@ -112,8 +120,12 @@ namespace Anaglyph.XR.SharedSpaces
 			public Vector3[] features;
 			/// <summary>At the focus: the two together pin translation as well as the better of them.</summary>
 			public float sigmaTranslation;
+			/// <summary>The better of the two's yaw sigma, radians.</summary>
+			public float sigmaYaw;
 			/// <summary>One frame was certain enough to stand in for both.</summary>
 			public bool alone;
+			/// <summary>One frame, not certain alone: applied for what comes after to confirm or undo.</summary>
+			public bool provisional;
 			/// <summary>An alignment: every recent result, for what comes after it to weigh it against.</summary>
 			public List<Frame> witnesses;
 		}
@@ -147,6 +159,12 @@ namespace Anaglyph.XR.SharedSpaces
 			votes.Clear();
 		}
 
+		/// <summary>Results from before an alignment was undone: the place they backed still has to be beaten by the next.</summary>
+		public void Recall(IEnumerable<Frame> seen)
+		{
+			foreach (Frame frame in seen) votes.Add(frame);
+		}
+
 		/// <summary>Why the latest result that agreed wasn't let through, or null.</summary>
 		public string HeldBack { get; private set; }
 
@@ -166,12 +184,18 @@ namespace Anaglyph.XR.SharedSpaces
 			return distances[distances.Length / 2];
 		}
 
-		/// <summary>Why a solve is too loose to use, or null. <paramref name="reach"/> is <see cref="Reach"/> of its landmarks.</summary>
-		public string Rejection(in GravityPnPResult pose, MeasurementPurpose purpose, float reach = 0)
+		/// <summary>
+		/// Why a solve is too loose to use, or null. <paramref name="reach"/> is <see cref="Reach"/> of its
+		/// landmarks. With <paramref name="rough"/>, too loose even for a first alignment that will be refined.
+		/// </summary>
+		public string Rejection(in GravityPnPResult pose, MeasurementPurpose purpose, float reach = 0, bool rough = false)
 		{
-			ref readonly Thresholds t = ref For(purpose);
+			ref readonly Thresholds t = ref rough ? ref settings.rough : ref For(purpose);
 			if (!pose.success) return pose.failure ?? "no pose";
 			if (pose.inliers < t.minInliers) return $"{pose.inliers} inliers < {t.minInliers}";
+			// a look-alike place fits about half of what was matched: nothing rough stands on that
+			if (rough && pose.inliers < t.confidentInlierShare * pose.correspondences)
+				return $"{pose.inliers} inliers of {pose.correspondences} < {t.confidentInlierShare:P0}";
 			if (pose.normalizedRms > t.maxNormalizedRms) return $"residuals {pose.normalizedRms:F2}σ > {t.maxNormalizedRms}σ";
 			if (math.degrees(pose.yawSigma) > t.maxYawSigmaDegrees) return $"yaw ±{math.degrees(pose.yawSigma):F2}° > {t.maxYawSigmaDegrees}°";
 			if (pose.rangedInliers < t.minRangedInliers)
@@ -206,13 +230,14 @@ namespace Anaglyph.XR.SharedSpaces
 		/// come here: it stays for the next good one. An alignment also has to survive
 		/// <see cref="Contest"/>.
 		/// </summary>
-		public bool TryAgree(Frame frame, out Agreed agreed)
+		/// <param name="provisional">One frame is enough: the caller watches the alignment and can undo it.</param>
+		public bool TryAgree(Frame frame, out Agreed agreed, bool provisional = false)
 		{
 			agreed = default;
 			bool alignment = frame.purpose != MeasurementPurpose.Loop;
 			if (alignment) votes.Add(frame);
 			bool confident = Confident(frame.solve, frame.purpose);
-			Frame agreeing = confident ? frame : Agreeing(frame);
+			Frame agreeing = confident || provisional ? frame : Agreeing(frame);
 			HeldBack = agreeing != null && alignment ? Contest(agreeing, frame) : null;
 			if (agreeing == null || HeldBack != null)
 			{
@@ -224,6 +249,7 @@ namespace Anaglyph.XR.SharedSpaces
 			// a confident frame stands in for both
 			agreed = Combine(agreeing, frame);
 			agreed.alone = confident;
+			agreed.provisional = provisional && !confident;
 			if (alignment) agreed.witnesses = new List<Frame>(votes.Frames);
 			Clear();
 			return true;
@@ -329,6 +355,7 @@ namespace Anaglyph.XR.SharedSpaces
 				focus = focus,
 				features = features,
 				sigmaTranslation = math.min(sigma, firstSigma),
+				sigmaYaw = math.min(first.solve.yawSigma, frame.solve.yawSigma),
 			};
 		}
 

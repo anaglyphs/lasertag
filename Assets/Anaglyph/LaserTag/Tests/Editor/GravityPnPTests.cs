@@ -84,6 +84,137 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(result.inliers, Is.EqualTo(50), result.ToString());
 		}
 
+		private static VisualQuery QueryAt(Pose trackingSpace, Pose cameraInSpace, long timestampNs) => new()
+		{
+			trackingSpace = trackingSpace,
+			cameraInTrackingSpace = cameraInSpace,
+			camera = new Pose(trackingSpace.position + trackingSpace.rotation * cameraInSpace.position, trackingSpace.rotation * cameraInSpace.rotation),
+			timestampNs = timestampNs,
+		};
+
+		[Test]
+		public void FramesTooThinAloneSolveTogetherThroughThePool()
+		{
+			float yaw = math.radians(63f);
+			float3 translation = new(-3.1f, 0.2f, 5.4f);
+			Pose space = new(new Vector3(2f, 0, -1f), Quaternion.Euler(0, 35f, 0));
+			VisualQuery first = QueryAt(space, new Pose(new Vector3(0, 1.6f, 0), Quaternion.Euler(5f, -20f, 0)), 1_000_000_000);
+			VisualQuery second = QueryAt(space, new Pose(new Vector3(0.8f, 1.6f, 0.3f), Quaternion.Euler(-3f, 30f, 0)), 2_000_000_000);
+			VisualQuery late = QueryAt(space, new Pose(new Vector3(1.5f, 1.6f, 0.5f), Quaternion.Euler(0, 10f, 0)), 20_000_000_000);
+
+			List<Correspondence> Seen(VisualQuery q, uint seed) =>
+				Scene(yaw, translation, q.camera.rotation, q.camera.position, 5, 0, 0, seed, new float2(1.5f, 6f), 0.001f);
+
+			List<Correspondence> firstMatches = Seen(first, 5), secondMatches = Seen(second, 9);
+			Assert.IsFalse(GravityPnP.Solve(secondMatches, Intrinsics, second.camera.rotation, second.camera.position, Settings).success);
+
+			QueryPool pool = new();
+			pool.Add(first, firstMatches);
+			(Pose[] cameras, List<Correspondence> matches) = pool.With(second, secondMatches);
+			Assert.That(cameras.Length, Is.EqualTo(2));
+			GravityPnPResult result = GravityPnP.Solve(matches, Intrinsics, cameras, Settings);
+
+			Assert.IsTrue(result.success, result.ToString());
+			Assert.That(result.inliers, Is.EqualTo(10), result.ToString());
+			Assert.That(YawError(result.yaw, yaw), Is.LessThan(0.1f), result.ToString());
+			Assert.That(math.distance(result.translation, translation), Is.LessThan(5e-3f), result.ToString());
+
+			pool.Add(second, secondMatches);
+			Assert.That(pool.With(late, Seen(late, 4)).cameras.Length, Is.EqualTo(1), "frames past the window are dropped");
+		}
+
+		[Test]
+		public void ACameraFarFromWhereLandmarksWereRangedIsLessCertain()
+		{
+			float3 cameraCenter = new(0, 1.6f, 0);
+			List<Correspondence> seen = Scene(0, 0, quaternion.identity, cameraCenter, 80, 0, 0.5f, 5, new float2(6f, 10f), 1f);
+
+			// the same landmarks, ranged from beside the camera and from 6 m to its side
+			GravityPnPResult Solved(float3 rangedFrom)
+			{
+				List<Correspondence> moved = new();
+				foreach (Correspondence c in seen) moved.Add(Correspondence.ToPoint(c.pixel, c.ray, c.Point, rangedFrom, 1f));
+				GravityPnPResult result = GravityPnP.Solve(moved, Intrinsics, quaternion.identity, cameraCenter, Settings);
+				Assert.IsTrue(result.success, result.ToString());
+				GravityPnP.AddDepthScaleUncertainty(ref result, moved, Settings);
+				return result;
+			}
+
+			GravityPnPResult near = Solved(cameraCenter + new float3(0.2f, 0, 0)), far = Solved(cameraCenter + new float3(6f, 0, 0));
+			Assert.That(near.translationSigma, Is.LessThan(0.08f), near.ToString());
+			Assert.That(far.translationSigma, Is.GreaterThan(0.55f), far.ToString());
+			Assert.That(math.degrees(far.yawSigma), Is.LessThan(1f), far.ToString());
+		}
+
+		[Test]
+		public void YawHoldsFromAcrossTheRoomWhenTheLandmarksAreRangedTooNear()
+		{
+			float yaw = math.radians(40f);
+			float3 translation = new(2f, 0.1f, -1f);
+			quaternion cameraRotation = quaternion.RotateY(math.radians(-15f));
+			float3 cameraCenter = new(0.5f, 1.6f, 0.2f);
+			List<Correspondence> seen = Scene(yaw, translation, cameraRotation, cameraCenter, 150, 0.1f, 0.5f, 21, new float2(5f, 9f), 0.01f);
+
+			// ranged from 6 m to the camera's side, every depth past 3 m halved back toward it: no camera sees that scene rigidly
+			float3 rangedFrom = GravityPnP.RotateY(cameraCenter + math.mul(cameraRotation, new float3(6f, 0, 0)), yaw) + translation;
+			List<Correspondence> wrong = new();
+			foreach (Correspondence c in seen)
+			{
+				float3 ray = c.Point - rangedFrom;
+				float depth = math.length(ray), claimed = 3f + 0.5f * (depth - 3f);
+				wrong.Add(Correspondence.ToPoint(c.pixel, c.ray, rangedFrom + ray / depth * claimed, rangedFrom, 0.15f * claimed));
+			}
+
+			GravityPnPResult result = GravityPnP.Solve(wrong, Intrinsics, cameraRotation, cameraCenter, Settings);
+			Assert.IsTrue(result.success, result.ToString());
+			Assert.That(YawError(result.yaw, yaw), Is.LessThan(1f), result.ToString());
+			Assert.That(result.inliers, Is.GreaterThan(90), result.ToString());
+
+			GravityPnP.AddDepthScaleUncertainty(ref result, wrong, Settings);
+			float3 truth = GravityPnP.RotateY(cameraCenter, yaw) + translation;
+			Assert.That(math.distance(result.cameraCenter, truth), Is.LessThan(3 * result.translationSigma), result.ToString());
+		}
+
+		[Test]
+		public void TwoStandingPointsRangeWhatTheMapRangedTooNear()
+		{
+			float yaw = math.radians(40f);
+			float3 translation = new(2f, 0.1f, -1f);
+			quaternion cameraRotation = quaternion.RotateY(math.radians(-15f));
+			float3 first = new(0.5f, 1.6f, 0.2f), second = first + math.mul(cameraRotation, new float3(2f, 0, 0.5f));
+			List<Correspondence> seen = Scene(yaw, translation, cameraRotation, first, 150, 0, 0.3f, 21, new float2(5f, 9f), 0.01f);
+
+			// the map as the test before has it, every depth past 3 m halved back toward where it was ranged from
+			float3 rangedFrom = GravityPnP.RotateY(first + math.mul(cameraRotation, new float3(6f, 0, 0)), yaw) + translation;
+			List<Correspondence> alone = new(), together = new();
+			for (int i = 0; i < seen.Count; i++)
+			{
+				float3 point = seen[i].Point, ray = point - rangedFrom;
+				float depth = math.length(ray), claimed = 3f + 0.5f * (depth - 3f);
+				Correspondence sighting = Correspondence.ToPoint(seen[i].pixel, seen[i].ray, rangedFrom + ray / depth * claimed, rangedFrom, 0.15f * claimed);
+				sighting.landmark = i + 1;
+				alone.Add(sighting);
+				together.Add(sighting);
+
+				// the same thing where the second standing point really sees it
+				float3 inQueryWorld = GravityPnP.RotateY(point - translation, -yaw);
+				if (!Intrinsics.Project(math.mul(math.conjugate(cameraRotation), inQueryWorld - second), out float2 pixel)) continue;
+				if (pixel.x < 0 || pixel.y < 0 || pixel.x > 639 || pixel.y > 479) continue;
+				sighting.pixel = pixel;
+				sighting.ray = Intrinsics.Ray(pixel);
+				sighting.camera = 1;
+				together.Add(sighting);
+			}
+
+			float3 truth = GravityPnP.RotateY(first, yaw) + translation;
+			GravityPnPResult one = GravityPnP.Solve(alone, Intrinsics, cameraRotation, first, Settings);
+			GravityPnPResult two = GravityPnP.Solve(together, Intrinsics, new[] { new Pose(first, cameraRotation), new Pose(second, cameraRotation) }, Settings);
+			Assert.IsTrue(one.success && two.success, $"{one} | {two}");
+			Assert.That(math.distance(one.cameraCenter, truth), Is.GreaterThan(1f), one.ToString());
+			Assert.That(math.distance(two.cameraCenter, truth), Is.LessThan(0.4f), two.ToString());
+			Assert.That(YawError(two.yaw, yaw), Is.LessThan(1f), two.ToString());
+		}
+
 		[Test]
 		public void FailsWithoutConsensus()
 		{

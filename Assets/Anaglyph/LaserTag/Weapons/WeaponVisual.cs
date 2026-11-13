@@ -7,6 +7,7 @@ namespace Anaglyph.LaserTag.Weapons
 	public class WeaponVisual : MonoBehaviour
 	{
 		[SerializeField] private AudioClip fireSFX;
+		[SerializeField, Min(0.01f)] private float fireSFXFullVolumeDistance = 1;
 
 		public bool IsFiring { get; private set; }
 
@@ -16,7 +17,7 @@ namespace Anaglyph.LaserTag.Weapons
 		public void PlayFire()
 		{
 			if (fireSFX != null)
-				AudioPool.Play(fireSFX, transform.position);
+				AudioPool.Play(fireSFX, transform.position, 1, fireSFXFullVolumeDistance);
 
 			Fired.Invoke();
 		}

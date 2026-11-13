@@ -53,6 +53,8 @@ namespace Anaglyph.LaserTag.Editor
 		private const float FollowRadius = 3f, FollowSlack = 4f;
 		private const float MetersBesideHostAtStart = 1f;
 		private const double FollowCheckSeconds = 1;
+		// an aligned Player 2 whose head is this far from where the host's world has it is in the wrong place, not drifting
+		private const float MisalignedMeters = 1f, MisalignedDegrees = 5f;
 
 		/// <summary>One run's settings, as <see cref="Launch(float, bool, int, int, float, float, int, float, float, float, bool, float)"/> describes them.</summary>
 		[Serializable]
@@ -72,6 +74,16 @@ namespace Anaglyph.LaserTag.Editor
 			public float misjoinDegrees;
 			public float misjoinUncheckedSeconds;
 			public float speedup;
+			/// <summary>
+			/// Above 0: Player 2 doesn't trail the host. It walks, taking no camera frames, to a spot on its
+			/// floor this many meters from its start, or up to half again as far, then looks for the host's frame from around there,
+			/// stepping toward where the host is and back, as a player across the room who looks its way. player2.apart.txt holds when it
+			/// arrived, on the clock of player2.outcomes.txt: a line for each search, as an overturned
+			/// alignment starts another.
+			/// </summary>
+			public float joinerApartMeters;
+			/// <summary>Player 2 joins on two agreeing single-frame results: the other side of an A/B against the one-result, several-frame join.</summary>
+			public bool plainJoin;
 
 			public RunSettings Copy() => (RunSettings)MemberwiseClone();
 		}
@@ -92,6 +104,8 @@ namespace Anaglyph.LaserTag.Editor
 			public Vector2 roomForward;
 			public Vector3 head;
 			// the drift itself: where the head really is, and the error between that and tracking
+			// Player 2 only: how far its world has its own head from where the host's world has it, through the room both stand in
+			public float alignmentError, alignmentYawError;
 			public Vector3 trueHead;
 			public Vector3 driftPosition;
 			public float driftYaw;
@@ -266,6 +280,8 @@ namespace Anaglyph.LaserTag.Editor
 		private static string CloneReadyPath(Run forRun) => Path.Combine(forRun.folder, "clone-ready");
 		// the host's head in room coordinates, which mean the same place to both players
 		private static string HostPlacePath(Run forRun) => Path.Combine(forRun.folder, "host-place.json");
+		private static string HostRoomPath(Run forRun) => Path.Combine(forRun.folder, "host-room.json");
+		private static string MisalignmentsPath(Run forRun) => Path.Combine(forRun.folder, "player2.misaligned.txt");
 		private static double Now => (DateTime.UtcNow - DateTime.UnixEpoch).TotalSeconds;
 
 		private static Run ReadRun()
@@ -292,6 +308,9 @@ namespace Anaglyph.LaserTag.Editor
 					run = ReadRun();
 					ApplyMapMode(run);
 					configured = false;
+					misaligned = false;
+					misalignmentsTold = 0;
+					sharedViewNoted = alignedNoted = false;
 					nextSample = nextWalk = nextGraphDump = 0;
 					if (run == null) return;
 					logPath = Path.Combine(run.folder, SimPlayer.IsMainEditor ? "host.jsonl" : "player2.jsonl");
@@ -401,6 +420,11 @@ namespace Anaglyph.LaserTag.Editor
 			if (!Application.isPlaying || logPath == null) return;
 
 			if (!configured) configured = Configure();
+			if (configured && !SimPlayer.IsMainEditor)
+			{
+				DescribeSolve();
+				if (HasFoundHost(VisualColocationConstraintProvider.Instance)) NoteFirst(ref alignedNoted, "aligned");
+			}
 			if (configured && run.record && recorder == null && VisualLocalizer.Instance != null)
 				recorder = new ViewRecorder(VisualColocationConstraintProvider.Instance, VisualLocalizer.Instance, () => Now);
 
@@ -440,10 +464,12 @@ namespace Anaglyph.LaserTag.Editor
 					if (!SimPlayer.IsMainEditor && !HasFoundHost(provider))
 					{
 						nextWalk = time + FollowCheckSeconds;
-						FollowHost();
+						if (run.joinerApartMeters > 0) SearchApart();
+						else FollowHost();
 					}
 					else if (followWalker)
 					{
+						VisualLocalizer.Instance.HoldCapture = false;
 						// the next tour needs a walker that isn't on its way out
 						nextWalk = time + FollowCheckSeconds;
 						UnityEngine.Object.Destroy(followWalker.gameObject);
@@ -491,6 +517,72 @@ namespace Anaglyph.LaserTag.Editor
 			followWalker.GoTo(hostWorld + new Vector3(aside.x, -followWalker.eyeHeight, aside.y));
 		}
 
+		// where Player 2 searches from, in the room; none until it has picked one
+		private static Vector3? apartPlace;
+		private static bool walkingApart;
+
+		private static void SearchApart()
+		{
+			if (SimLoopTest.Current)
+			{
+				SimLoopTest.StopCurrent();
+				return;
+			}
+
+			if (!followWalker)
+			{
+				followWalker = SimLoopTest.AddWalker(new GameObject("Searching Apart"));
+				apartPlace = null;
+			}
+
+			Transform room = SimWalker.FindRoom();
+			VisualLocalizer localizer = VisualLocalizer.Instance;
+			if (apartPlace is not Vector3 place)
+			{
+				// nothing seen from the start or on the way: the search starts where it arrives
+				localizer.HoldCapture = walkingApart = true;
+				if (followWalker.IsMoving || !TryApartSpot(out Vector3 spot) || !followWalker.GoTo(spot)) return;
+				apartPlace = room.InverseTransformPoint(spot);
+				return;
+			}
+
+			if (followWalker.IsMoving) return;
+
+			if (walkingApart)
+			{
+				walkingApart = false;
+				localizer.HoldCapture = false;
+				File.AppendAllText(Path.ChangeExtension(logPath, ".apart.txt"), Time.realtimeSinceStartup.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + "\n");
+			}
+
+			// a few steps toward where the host is and back, as someone across the room looks its way
+			Vector3 searchSpot = room.TransformPoint(place);
+			string json = File.Exists(HostPlacePath(run)) ? File.ReadAllText(HostPlacePath(run)) : "";
+			Vector3 towardHost = json.Length > 0 ? room.TransformPoint(JsonUtility.FromJson<Vector3>(json)) - searchSpot : Vector3.zero;
+			towardHost.y = 0;
+			towardApproach = !towardApproach && towardHost.magnitude > 1f;
+			Vector2 aside = UnityEngine.Random.insideUnitCircle * (towardApproach ? 0.7f : 0.3f);
+			followWalker.GoTo(searchSpot + (towardApproach ? towardHost.normalized * UnityEngine.Random.Range(1.5f, FollowRadius) : Vector3.zero) + new Vector3(aside.x, 0, aside.y));
+		}
+
+		private static bool towardApproach;
+
+		// across the room: on the start's floor and no more than half again as far as asked, not on another
+		// floor, the ground outside or the far end of the building, where nothing the host sees shows
+		private static bool TryApartSpot(out Vector3 spot)
+		{
+			Vector3 head = MainXRRig.Camera.transform.position;
+			float floor = head.y - followWalker.eyeHeight;
+			for (int attempt = 0; attempt < 64; attempt++)
+			{
+				if (!followWalker.RandomReachable(run.joinerApartMeters, out spot) || Mathf.Abs(spot.y - floor) > 0.5f) continue;
+				if (new Vector2(spot.x - head.x, spot.z - head.z).magnitude <= 1.5f * run.joinerApartMeters) return true;
+			}
+
+			spot = default;
+			return false;
+		}
+
 		// a prefab that never saved a setting holds the default from its last import, not the code's
 		private static void ReimportSettings() => AssetDatabase.ImportAsset("Assets/Anaglyph/LaserTag/MapManager.prefab", ImportAssetOptions.ForceUpdate);
 
@@ -534,6 +626,12 @@ namespace Anaglyph.LaserTag.Editor
 
 			SerializedObject providerFields = new(provider);
 			providerFields.FindProperty("graphSettings.enabled").boolValue = run.graph;
+			if (run.plainJoin)
+			{
+				providerFields.FindProperty("joinOnOneResult").boolValue = false;
+				providerFields.FindProperty("joinFrames").intValue = 1;
+			}
+
 			providerFields.ApplyModifiedPropertiesWithoutUndo();
 			if (!SimPlayer.IsMainEditor)
 			{
@@ -610,9 +708,130 @@ namespace Anaglyph.LaserTag.Editor
 				if (site.crossLink)
 					s.crossLinks++;
 
+			if (SimPlayer.IsMainEditor)
+			{
+				File.WriteAllText(HostRoomPath(run), JsonUtility.ToJson(new Vector4(s.room.x, s.room.y, s.room.z, Yaw(s))));
+				TellMisalignments();
+			}
+			else NoteMisalignment(ref s);
+
 			File.AppendAllText(logPath, JsonUtility.ToJson(s) + "\n");
 			if (SimPlayer.IsMainEditor) File.WriteAllText(HostPlacePath(run), JsonUtility.ToJson(room.InverseTransformPoint(s.head)));
 		}
+
+		private static bool misaligned;
+		private static SolveInputs solveDescribed;
+		private static bool sharedViewNoted, alignedNoted;
+		// a frame whose matches the true pose explains this many of shows what the host saw: nothing before it could align
+		private const int SharedViewMatches = 30;
+
+		private static string FirstsPath(Run forRun) => Path.Combine(forRun.folder, "player2.firsts.txt");
+
+		private static void NoteFirst(ref bool noted, string what)
+		{
+			if (noted) return;
+			noted = true;
+			File.AppendAllText(FirstsPath(run), $"{what} {Time.realtimeSinceStartup.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)}\n");
+		}
+
+		/// <summary>
+		/// Each of Player 2's solves against the truth the room gives, in player2.solves.txt: the pose it
+		/// found and the true one, each with how well it explains what was matched
+		/// (<see cref="GravityPnP.Describe"/>). A true pose that explains the matches no better than a
+		/// wrong one means the matches can't tell them apart; one that explains them better was missed.
+		/// </summary>
+		private static void DescribeSolve()
+		{
+			VisualColocationConstraintProvider provider = VisualColocationConstraintProvider.Instance;
+			VisualLocalizer.KeepSolveInputs = true;
+			VisualLocalizationResult result = provider != null ? provider.LastResult : default;
+			SolveInputs inputs = result.inputs;
+			Transform room = SimWalker.FindRoom();
+			if (inputs == null || ReferenceEquals(inputs, solveDescribed) || room == null || MainXRRig.Instance == null) return;
+			solveDescribed = inputs;
+			string json = File.Exists(HostRoomPath(run)) ? File.ReadAllText(HostRoomPath(run)) : "";
+			if (json.Length == 0 || inputs.correspondences.Count < 6) return;
+
+			// the room stands still in tracking: where it was in the world the query was captured in
+			Vector4 hostRoom = JsonUtility.FromJson<Vector4>(json);
+			Transform space = MainXRRig.TrackingSpace;
+			Matrix4x4 roomAtCapture = Matrix4x4.TRS(inputs.trackingSpace.position, inputs.trackingSpace.rotation, Vector3.one) *
+			                          Matrix4x4.TRS(space.position, space.rotation, Vector3.one).inverse * Matrix4x4.TRS(room.position, room.rotation, Vector3.one);
+			Matrix4x4 truth = Matrix4x4.TRS(hostRoom, Quaternion.Euler(0, hostRoom.w * Mathf.Rad2Deg, 0), Vector3.one) * roomAtCapture.inverse;
+			Vector3 turned = truth.MultiplyVector(Vector3.forward);
+			float trueYaw = Mathf.Atan2(turned.x, turned.z);
+			Vector3 trueCenter = truth.MultiplyPoint3x4(inputs.cameras[0].position);
+
+			StringBuilder text = new($"{Time.realtimeSinceStartup:F2} {provider.Alignment.CurrentPhase}, {inputs.cameras.Length} frames\n");
+			if (result.pose.success)
+			{
+				text.Append($"   found {result.pose}: off by {Mathf.DeltaAngle(trueYaw * Mathf.Rad2Deg, result.pose.yaw * Mathf.Rad2Deg):F1}° and {Vector3.Distance(trueCenter, result.pose.cameraCenter):F2} m\n");
+				text.Append($"      {GravityPnP.Describe(inputs.correspondences, inputs.intrinsics, inputs.cameras, inputs.settings, result.pose.yaw, result.pose.cameraCenter, out _)}\n");
+			}
+			else text.Append($"   no pose: {result.pose.failure}\n");
+
+			text.Append($"   truth yaw={trueYaw * Mathf.Rad2Deg:F2}° center=({trueCenter.x:F3}, {trueCenter.y:F3}, {trueCenter.z:F3})\n");
+			text.Append($"      {GravityPnP.Describe(inputs.correspondences, inputs.intrinsics, inputs.cameras, inputs.settings, trueYaw, trueCenter, out int explained)}\n");
+			File.AppendAllText(Path.ChangeExtension(logPath, ".solves.txt"), text.ToString());
+			if (explained >= SharedViewMatches) NoteFirst(ref sharedViewNoted, "shared");
+		}
+
+		// both players stand in one room: where the host's world has the room says where it has Player 2's head
+		private static void NoteMisalignment(ref Sample s)
+		{
+			string json = File.Exists(HostRoomPath(run)) ? File.ReadAllText(HostRoomPath(run)) : "";
+			if (json.Length == 0) return;
+			Vector4 hostRoom = JsonUtility.FromJson<Vector4>(json);
+			Vector3 inRoom = Quaternion.Euler(0, -Yaw(s) * Mathf.Rad2Deg, 0) * (s.head - s.room);
+			Vector3 hostHas = (Vector3)hostRoom + Quaternion.Euler(0, hostRoom.w * Mathf.Rad2Deg, 0) * inRoom;
+			s.alignmentError = Vector3.Distance(hostHas, s.head);
+			s.alignmentYawError = Mathf.DeltaAngle(hostRoom.w * Mathf.Rad2Deg, Yaw(s) * Mathf.Rad2Deg);
+
+			bool now = IsMisaligned(s);
+			if (now != misaligned)
+			{
+				string note = now
+					? $"PLAYER 2 IS MISALIGNED: {s.alignmentError:F2} m and {s.alignmentYawError:F1}° from where the host's world has it"
+					: s.phase == nameof(CanonAlignment.Phase.Aligned) ? $"Player 2 is aligned again: {s.alignmentError:F2} m, {s.alignmentYawError:F1}°" : $"Player 2 gave its alignment up ({s.phase})";
+				Debug.LogWarning($"[{nameof(TwoPlayerTest)}] {note}");
+				File.AppendAllText(MisalignmentsPath(run), $"{Time.realtimeSinceStartup:F2} {note}\n");
+			}
+
+			misaligned = now;
+		}
+
+		private static int misalignmentsTold;
+
+		// the host's console says what Player 2 found, where whoever watches the run sees it
+		private static void TellMisalignments()
+		{
+			if (!File.Exists(MisalignmentsPath(run))) return;
+			string[] notes = File.ReadAllLines(MisalignmentsPath(run));
+			for (; misalignmentsTold < notes.Length; misalignmentsTold++)
+				Debug.LogWarning($"[{nameof(TwoPlayerTest)}] {notes[misalignmentsTold]} (Player 2's clock)");
+		}
+
+		// how long Player 2 took to align once it had a view of what the host saw: before that nothing could
+		private static string FirstAlignment(Run ended)
+		{
+			float shared = -1, aligned = -1;
+			if (File.Exists(FirstsPath(ended)))
+				foreach (string line in File.ReadAllLines(FirstsPath(ended)))
+				{
+					string[] parts = line.Split(' ');
+					if (parts.Length != 2 || !float.TryParse(parts[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float at)) continue;
+					if (parts[0] == "shared") shared = at;
+					if (parts[0] == "aligned") aligned = at;
+				}
+
+			if (shared < 0) return aligned < 0 ? "Player 2 never had a view of what the host saw; " : "";
+			return aligned < 0 ? $"PLAYER 2 SAW WHAT THE HOST SAW at {shared:F0} s and never aligned; " : $"Player 2 aligned {Mathf.Max(0, aligned - shared):F1} s after its first view of what the host saw; ";
+		}
+
+		// aligned, and not just because it hasn't begun to look
+		private static bool IsMisaligned(in Sample player) =>
+			player.phase == nameof(CanonAlignment.Phase.Aligned) && player.otherViews > 0 &&
+			(player.alignmentError > MisalignedMeters || Mathf.Abs(player.alignmentYawError) > MisalignedDegrees);
 
 		// ---- the summary ---------------------------------------------------------
 
@@ -705,7 +924,16 @@ namespace Anaglyph.LaserTag.Editor
 				pairs.Add((p.time, HeadOffset(o, p), Mathf.DeltaAngle(Yaw(o) * Mathf.Rad2Deg, Yaw(p) * Mathf.Rad2Deg), apart));
 			}
 
-			if (pairs.Count == 0) return text.Append("no moment with both players aligned").ToString();
+			if (pairs.Count == 0) return text.Append(FirstAlignment(ended)).Append("no moment with both players aligned").ToString();
+
+			text.Append(FirstAlignment(ended));
+			List<Sample> wrong = player.Where(p => IsMisaligned(p)).ToList();
+			if (wrong.Count > 0)
+			{
+				Sample worst = wrong.OrderByDescending(p => p.alignmentError).First();
+				int aligned = player.Count(p => p.phase == nameof(CanonAlignment.Phase.Aligned) && p.otherViews > 0);
+				text.Append($"PLAYER 2 MISALIGNED for {wrong.Count} of {aligned} s aligned, from {wrong[0].time - player[0].time:F0} s to {wrong[^1].time - player[0].time:F0} s into its run (worst {worst.alignmentError:F1} m, {worst.alignmentYawError:F0}°); ");
+			}
 
 			int third = Mathf.Max(1, pairs.Count / 3);
 			text.Append($"head offset within 20 m RMS {Rms(pairs.Where(x => x.apart < 20f).Select(x => x.offset)) * 100:F1} cm; ");

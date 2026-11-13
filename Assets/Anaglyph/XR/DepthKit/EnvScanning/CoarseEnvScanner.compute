@@ -1,0 +1,29 @@
+#include "../DepthKit.hlsl"
+
+// where each of a sparse grid of the depth sensor's rays ends, at whatever range the
+// sensor reports: for CoarseEnvScanner
+
+#pragma kernel CaptureRayEnds
+
+// the depth texture's outer tenth, which EnvScanner leaves out as well
+static const float depthTexCropMin = 0.1;
+static const float depthTexCropMax = 0.9;
+
+uint raysPerSide;
+RWStructuredBuffer<float4> rayEnds; // world position, w = 1; all zero where the sensor has no reading
+
+[numthreads(8, 8, 1)]
+void CaptureRayEnds(uint3 id : SV_DispatchThreadID)
+{
+	if (any(id.xy >= raysPerSide)) return;
+
+	const float2 across = ((float2)id.xy + 0.5) / raysPerSide;
+	const float2 uv = lerp(depthTexCropMin, depthTexCropMax, across);
+	const float depthNDC = agDepthSample(uv);
+	const uint ray = id.y * raysPerSide + id.x;
+
+	if (agDepthIsKnown(depthNDC))
+		rayEnds[ray] = float4(agDepthNDCtoWorld(float3(uv, depthNDC)), 1);
+	else
+		rayEnds[ray] = 0;
+}

@@ -147,6 +147,13 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			int3 local = scanner.WorldPosToChunkCoord(target) - boxMin;
 			if (math.any(local < 0) || math.any(local >= boxDims)) return EnvPathResult.Unknown;
 
+			Vector3 origin = front.origin;
+			if (InSight(origin, target))
+			{
+				length = Vector3.Distance(origin, target);
+				return EnvPathResult.Found;
+			}
+
 			int cell = local.x + boxDims.x * (local.y + boxDims.y * local.z);
 			int firstNode = front.nodeBase[cell];
 			int count = front.nodeBase[cell + 1] - firstNode;
@@ -181,14 +188,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			}
 
 			// waypoints sit on chunk faces, so the route zigzags; cut straight to the last one in sight
-			Vector3 origin = front.origin;
 			length = bestLength;
-			if (InSight(origin, target))
-			{
-				length = Vector3.Distance(origin, target);
-				return EnvPathResult.Found;
-			}
-
 			if (routePoints.Count > 0) firstTurn = routePoints[^1];
 			for (int i = 0; i < routePoints.Count; i++)
 			{

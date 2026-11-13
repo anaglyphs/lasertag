@@ -1,0 +1,7 @@
+sky_distance_grid.onnx was trained for this project on photos from the Open Images
+validation set, which are licensed CC BY 2.0
+(https://storage.googleapis.com/openimages/web/index.html). Its sky output copies
+skysegsmall (see LICENSE-SkySeg.txt). Its distance output copies Depth Anything V2 Metric
+Indoor Small (https://huggingface.co/depth-anything/Depth-Anything-V2-Metric-Indoor-Small-hf).
+Its first layers start from torchvision's MobileNetV3-Large weights, trained on ImageNet
+(https://github.com/pytorch/vision, BSD-3-Clause).

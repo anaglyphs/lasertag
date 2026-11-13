@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Anaglyph.XR.VisualLocalization
@@ -20,8 +22,64 @@ namespace Anaglyph.XR.VisualLocalization
 		public int frame;
 	}
 
+	/// <summary>
+	/// What recent queries of one stretch of tracking matched in the map, for the next to be
+	/// solved with: tracking holds the frames' cameras rigidly together over a few seconds, so
+	/// their matches add up and the baseline between them pins translation as one view can't.
+	/// Clear it when the map or the tracking space is replaced.
+	/// </summary>
+	public sealed class QueryPool
+	{
+		/// <summary>Frames a solve stands on at most, the query's own included.</summary>
+		public int maxFrames = 4;
+		/// <summary>Seconds back a frame may be.</summary>
+		public float maxSeconds = 6f;
+
+		private readonly List<(Pose cameraInTrackingSpace, long timestampNs, List<Correspondence> matches)> earlier = new();
+
+		public void Clear() => earlier.Clear();
+
+		/// <summary>
+		/// The query's camera and the earlier frames' as its tracking space has them, and the
+		/// query's matches with theirs, each naming its camera.
+		/// </summary>
+		public (Pose[] cameras, List<Correspondence> matches) With(VisualQuery query, List<Correspondence> matches)
+		{
+			long oldest = query.timestampNs - (long)(maxSeconds * 1e9);
+			earlier.RemoveAll(e => e.timestampNs < oldest || e.timestampNs >= query.timestampNs);
+
+			Pose[] cameras = new Pose[earlier.Count + 1];
+			cameras[0] = query.camera;
+			List<Correspondence> all = new(matches);
+			Pose space = query.trackingSpace;
+			for (int i = 0; i < earlier.Count; i++)
+			{
+				Pose inSpace = earlier[i].cameraInTrackingSpace;
+				cameras[i + 1] = new Pose(space.position + space.rotation * inSpace.position, space.rotation * inSpace.rotation);
+				foreach (Correspondence match in earlier[i].matches)
+				{
+					Correspondence c = match;
+					c.camera = i + 1;
+					all.Add(c);
+				}
+			}
+
+			return (cameras, all);
+		}
+
+		public void Add(VisualQuery query, List<Correspondence> matches)
+		{
+			if (matches.Count == 0) return;
+			earlier.Add((query.cameraInTrackingSpace, query.timestampNs, matches));
+			if (earlier.Count > maxFrames - 1) earlier.RemoveRange(0, earlier.Count - math.max(0, maxFrames - 1));
+		}
+	}
+
 	public struct LocalizeOptions
 	{
+		/// <summary>The query is solved with the frames here, and joins them. Not for a guided query.</summary>
+		public QueryPool pool;
+
 		/// <summary>Only keyframes within <see cref="nearDistance"/> of this camera are tried.</summary>
 		public Pose? near;
 		public float nearDistance;
@@ -74,8 +132,21 @@ namespace Anaglyph.XR.VisualLocalization
 		public float guidedTranslation;
 	}
 
+	/// <summary>What a solve stood on, kept when <see cref="VisualLocalizer.KeepSolveInputs"/> asks: for tests that know the truth.</summary>
+	public sealed class SolveInputs
+	{
+		public List<Correspondence> correspondences;
+		public Pose[] cameras;
+		public PinholeCamera intrinsics;
+		public GravityPnP.Settings settings;
+		/// <summary>The tracking space's world pose when the first camera's frame was captured.</summary>
+		public Pose trackingSpace;
+	}
+
 	public struct VisualLocalizationResult
 	{
+		/// <summary>Null unless <see cref="VisualLocalizer.KeepSolveInputs"/> is set.</summary>
+		public SolveInputs inputs;
 		public GravityPnPResult pose;
 		public int keyframesMatched;
 		public int bestMutual;
@@ -84,11 +155,15 @@ namespace Anaglyph.XR.VisualLocalization
 		/// <summary>The map points of the ranged inliers (within 30 m), where the map has them: what the solve stood on.</summary>
 		public Vector3[] inlierPoints;
 		public string failure;
+		/// <summary>Query frames the solve stood on.</summary>
+		public int frames;
+		/// <summary>Inliers of the query's own frame: fewer than the pose's when earlier frames were solved with it.</summary>
+		public int frameInliers;
 
 		public bool Success => pose.success;
 
 		public override string ToString() => pose.success
-			? $"{pose} keyframes={keyframesMatched} mutual={bestMutual}"
+			? $"{pose} keyframes={keyframesMatched} mutual={bestMutual}{(frames > 1 ? $" frames={frames} ({frameInliers} inliers in the latest)" : "")}"
 			: $"failed: {failure ?? pose.failure} keyframes={keyframesMatched} mutual={bestMutual} correspondences={pose.correspondences}";
 	}
 }
