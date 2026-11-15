@@ -364,6 +364,21 @@ namespace Anaglyph.LaserTag.Tests
 			// fitted by sliding landmarks along their depth: forgiven in sigmas, not in pixels
 			acrossTheRoom.yawSigma = math.radians(0.5f);
 			acrossTheRoom.rmsPixels = 400f;
+			acrossTheRoom.rangedInliers = 10;
+			Assert.That(gate.Rejection(acrossTheRoom, MeasurementPurpose.Colocate, reach: 6f, rough: true), Does.Contain("misfit"));
+
+			// landmarks ranged from far away miss by many pixels at the right pose; enough of them are trusted anyway
+			acrossTheRoom.rangedInliers = acrossTheRoom.inliers = 60;
+			acrossTheRoom.correspondences = 100;
+			Assert.That(gate.Rejection(acrossTheRoom, MeasurementPurpose.Colocate, reach: 6f, rough: true), Is.Null);
+			acrossTheRoom.correspondences = 200;
+			Assert.That(gate.Rejection(acrossTheRoom, MeasurementPurpose.Colocate, reach: 6f, rough: true), Does.Contain("misfit"));
+			acrossTheRoom.correspondences = 100;
+			acrossTheRoom.translationSigma = 0.9f;
+			Assert.That(gate.Rejection(acrossTheRoom, MeasurementPurpose.Colocate, reach: 6f, rough: true), Does.Contain("misfit"));
+			acrossTheRoom.translationSigma = 0.6f;
+			acrossTheRoom.inliers = 200;
+			acrossTheRoom.correspondences = 300;
 			Assert.That(gate.Rejection(acrossTheRoom, MeasurementPurpose.Colocate, reach: 6f, rough: true), Does.Contain("misfit"));
 		}
 

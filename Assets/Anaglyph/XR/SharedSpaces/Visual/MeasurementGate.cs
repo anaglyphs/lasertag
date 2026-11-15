@@ -40,6 +40,8 @@ namespace Anaglyph.XR.SharedSpaces
 			public float translationSigmaPerMeter;
 			[Tooltip("Inlier reprojection RMS allowed, pixels; 0 for any. A pose in the wrong place can fit by sliding landmarks along their depth, which their sigmas forgive and this doesn't: in the sim, right poses ran 3 to 9 px and wrong ones that passed everything else 16 to 1500")]
 			public float maxRmsPixels;
+			[Tooltip("Ranged inliers, when they are also at least half the inliers, that lift Max Rms Pixels; 0 for never. Landmarks ranged from far away miss by tens of pixels at the right pose, and a wrong pose rarely holds this many: in the sim, 2 of 18 joins let through at 40 to 42 were over 50 cm off")]
+			public int rangedInliersTrustedPastMaxRmsPixels;
 
 			[Header("Single-frame acceptance")]
 			public float confidentYawSigmaDegrees;
@@ -67,7 +69,7 @@ namespace Anaglyph.XR.SharedSpaces
 			};
 
 			[Tooltip("A joiner's first alignment, when what comes after refines it: good enough to show where the others are, long before a view pins it to centimeters")]
-			public Thresholds rough = new() { minInliers = 25, maxNormalizedRms = 2f, maxRmsPixels = 15f, maxYawSigmaDegrees = 3f, maxTranslationSigma = 1.5f };
+			public Thresholds rough = new() { minInliers = 25, maxNormalizedRms = 2f, maxRmsPixels = 15f, rangedInliersTrustedPastMaxRmsPixels = 50, maxYawSigmaDegrees = 3f, maxTranslationSigma = 1.5f };
 
 			[Tooltip("A result this certain is applied without waiting for a second frame")]
 			public bool acceptConfidentSingleFrames = true;
@@ -186,6 +188,10 @@ namespace Anaglyph.XR.SharedSpaces
 			return distances[distances.Length / 2];
 		}
 
+		// in the sim, joins let past Max Rms Pixels within both of these were at most 32 cm off; the rest reached 76 cm
+		private const float TranslationSigmaTrustedPastMaxRmsPixels = 0.6f;
+		private const float InlierShareTrustedPastMaxRmsPixels = 0.4f;
+
 		/// <summary>
 		/// Why a solve is too loose to use, or null. <paramref name="reach"/> is <see cref="Reach"/> of its
 		/// landmarks. With <paramref name="rough"/>, too loose even for a first alignment that will be refined.
@@ -196,7 +202,9 @@ namespace Anaglyph.XR.SharedSpaces
 			if (!pose.success) return pose.failure ?? "no pose";
 			if (pose.inliers < t.minInliers) return $"{pose.inliers} inliers < {t.minInliers}";
 			if (pose.normalizedRms > t.maxNormalizedRms) return $"residuals {pose.normalizedRms:F2}σ > {t.maxNormalizedRms}σ";
-			if (t.maxRmsPixels > 0 && pose.rmsPixels > t.maxRmsPixels) return $"misfit {pose.rmsPixels:F1} px > {t.maxRmsPixels} px";
+			bool trustedByRangedInliers = t.rangedInliersTrustedPastMaxRmsPixels > 0 && pose.rangedInliers >= t.rangedInliersTrustedPastMaxRmsPixels && pose.rangedInliers * 2 >= pose.inliers
+			                              && pose.translationSigma <= TranslationSigmaTrustedPastMaxRmsPixels && pose.inliers >= InlierShareTrustedPastMaxRmsPixels * pose.correspondences;
+			if (t.maxRmsPixels > 0 && pose.rmsPixels > t.maxRmsPixels && !trustedByRangedInliers) return $"misfit {pose.rmsPixels:F1} px > {t.maxRmsPixels} px";
 			if (math.degrees(pose.yawSigma) > t.maxYawSigmaDegrees) return $"yaw ±{math.degrees(pose.yawSigma):F2}° > {t.maxYawSigmaDegrees}°";
 			if (pose.rangedInliers < t.minRangedInliers)
 				return $"{pose.rangedInliers} ranged inliers < {t.minRangedInliers}: far landmarks alone leave yaw and translation trading off";
