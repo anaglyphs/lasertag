@@ -438,14 +438,32 @@ namespace Anaglyph.XR
 			}
 		}
 
+		private static float[] luminanceSrgbPerLutEntry;
+
 		private static byte[] CreateLuminanceTintLut(Color tint)
 		{
+			luminanceSrgbPerLutEntry ??= CreateLuminanceSrgbPerLutEntry();
+			byte[] data = new byte[luminanceSrgbPerLutEntry.Length * ColorLutChannelCount];
+
+			for (int entryIndex = 0; entryIndex < luminanceSrgbPerLutEntry.Length; entryIndex++)
+			{
+				float luminanceSrgb = luminanceSrgbPerLutEntry[entryIndex];
+				int byteIndex = entryIndex * ColorLutChannelCount;
+				data[byteIndex] = FloatToSrgbByte(luminanceSrgb * tint.r);
+				data[byteIndex + 1] = FloatToSrgbByte(luminanceSrgb * tint.g);
+				data[byteIndex + 2] = FloatToSrgbByte(luminanceSrgb * tint.b);
+			}
+
+			return data;
+		}
+
+		private static float[] CreateLuminanceSrgbPerLutEntry()
+		{
 			int resolution = (int)ColorLutResolution;
-			int entryCount = resolution * resolution * resolution;
-			byte[] data = new byte[entryCount * ColorLutChannelCount];
+			float[] luminance = new float[resolution * resolution * resolution];
 
 			// The extension defines LUT inputs and outputs in sRGB. Compute luminance
-			// in linear space, then encode the tinted result back to sRGB.
+			// in linear space, then encode it back to sRGB.
 			for (int blueIndex = 0; blueIndex < resolution; blueIndex++)
 			{
 				float blueLinear = Mathf.GammaToLinearSpace(blueIndex / (resolution - 1f));
@@ -458,19 +476,15 @@ namespace Anaglyph.XR
 						float luminanceLinear = 0.2126f * redLinear +
 						                        0.7152f * greenLinear +
 						                        0.0722f * blueLinear;
-						float luminanceSrgb = Mathf.LinearToGammaSpace(luminanceLinear);
 
 						int entryIndex = redIndex + greenIndex * resolution +
 						                 blueIndex * resolution * resolution;
-						int byteIndex = entryIndex * ColorLutChannelCount;
-						data[byteIndex] = FloatToSrgbByte(luminanceSrgb * tint.r);
-						data[byteIndex + 1] = FloatToSrgbByte(luminanceSrgb * tint.g);
-						data[byteIndex + 2] = FloatToSrgbByte(luminanceSrgb * tint.b);
+						luminance[entryIndex] = Mathf.LinearToGammaSpace(luminanceLinear);
 					}
 				}
 			}
 
-			return data;
+			return luminance;
 		}
 
 		private static byte FloatToSrgbByte(float value) =>

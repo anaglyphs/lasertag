@@ -31,6 +31,7 @@ namespace Anaglyph.LaserTag.Interface.HUD
 
 			leftHand.IsTrackingChanged += OnHandTrackingStateChanged;
 			rightHand.IsTrackingChanged += OnHandTrackingStateChanged;
+			Dominance.Changed += SetHand;
 
 			SetHand();
 		}
@@ -42,24 +43,17 @@ namespace Anaglyph.LaserTag.Interface.HUD
 			
 			if(leftHand != null) leftHand.IsTrackingChanged -= OnHandTrackingStateChanged;
 			if(rightHand != null) rightHand.IsTrackingChanged -= OnHandTrackingStateChanged;
+			Dominance.Changed -= SetHand;
 		}
 
 		private void OnHandTrackingStateChanged(bool _) => SetHand();
 
 		private void SetHand()
 		{
-			// choose hand
-			HandInput follow = null;
+			HandInput dominant = Dominance.Hand == Handedness.Left ? leftHand : rightHand;
+			HandInput other = dominant == leftHand ? rightHand : leftHand;
+			HandInput follow = dominant.IsTracking ? dominant : other.IsTracking ? other : null;
 
-			if (rightHand.IsTracking)
-			{
-				follow = rightHand;
-			}
-			else if(leftHand.IsTracking)
-			{
-				follow = leftHand;
-			} 
-			
 			positioner.SetHand(follow);
 			HUDElement.SetDisplayed(hud, follow != null);
 		}

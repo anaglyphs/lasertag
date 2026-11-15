@@ -34,8 +34,6 @@ namespace Anaglyph.XR.Input
 		private static readonly Dictionary<Handedness, HandInput> hands = new();
 		public static readonly ReadOnlyDictionary<Handedness, HandInput> Hands = new(hands);
 
-		public static Handedness DominantHandGuess;
-
 		public InputActionMap Actions => actionMap;
 		public Vector3 Position => position.action.ReadValue<Vector3>();
 		public Quaternion Rotation => rotation.action.ReadValue<Quaternion>();

@@ -14,7 +14,8 @@ namespace Anaglyph.LaserTag.Player
 	public class MainPlayer : MonoBehaviour
 	{
 		private const float MaxHealth = MatchSettings.MaxHealth;
-		private const float TintLevels = 255;
+		private const float DesaturationLevels = 255;
+		private const float FlashRednessLevels = 16;
 
 		// todo move this into another component. this really doesn't belong here
 		// private OVRPassthroughLayer passthroughLayer;
@@ -77,17 +78,23 @@ namespace Anaglyph.LaserTag.Player
 			// health
 			if (redDamagedVision)
 			{
-				float healthNormalized = 1f - Mathf.Clamp01(Health / MaxHealth);
-				float tintAmount = Mathf.Lerp(healthNormalized, 1f, damageFlash * damageFlashStrength);
-				tintAmount = Mathf.Round(tintAmount * TintLevels) / TintLevels;
+				float saturationLoss = 1f - Mathf.Clamp01(Health / MaxHealth);
+				float flash = damageFlash * damageFlashStrength;
 
-				Color col = Color.red;
-				col.a = tintAmount;
-				
+				// One blend toward a tinted grayscale: desaturate by health lost, then flash red on top
+				float grayscaleAmount = 1f - (1f - flash) * (1f - saturationLoss);
+				float flashRedness = grayscaleAmount > 0f ? flash / grayscaleAmount : 0f;
+
+				grayscaleAmount = Mathf.Round(grayscaleAmount * DesaturationLevels) / DesaturationLevels;
+				flashRedness = Mathf.Round(flashRedness * FlashRednessLevels) / FlashRednessLevels;
+
+				Color flashEdge = Color.red;
+				flashEdge.a = flash;
+
 				PassthroughStylingFeature.SetStyle(
-					tint: col,
-					tintAmount: tintAmount,
-					newEdgeTint: col
+					tint: Color.Lerp(Color.white, Color.red, flashRedness),
+					tintAmount: grayscaleAmount,
+					newEdgeTint: flashEdge
 					);
 
 				damageFlash = Mathf.MoveTowards(damageFlash, 0f,

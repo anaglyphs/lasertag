@@ -38,6 +38,8 @@ namespace Anaglyph.XR.SharedSpaces
 			public float maxTranslationSigma;
 			[Tooltip("The translation sigma allowed grows by this much per meter the solved landmarks are away, up to three times Max Translation Sigma: far scenery can't place a camera to centimeters, and the graph tightens a looser alignment afterwards")]
 			public float translationSigmaPerMeter;
+			[Tooltip("Inlier reprojection RMS allowed, pixels; 0 for any. A pose in the wrong place can fit by sliding landmarks along their depth, which their sigmas forgive and this doesn't: in the sim, right poses ran 3 to 9 px and wrong ones that passed everything else 16 to 1500")]
+			public float maxRmsPixels;
 
 			[Header("Single-frame acceptance")]
 			public float confidentYawSigmaDegrees;
@@ -53,7 +55,7 @@ namespace Anaglyph.XR.SharedSpaces
 			[Tooltip("Colocating and relocalizing")]
 			public Thresholds alignment = new()
 			{
-				minInliers = 30, maxNormalizedRms = 2f, maxYawSigmaDegrees = 1.5f, maxTranslationSigma = 0.08f, translationSigmaPerMeter = 0.015f,
+				minInliers = 30, maxNormalizedRms = 2f, maxYawSigmaDegrees = 1.5f, minRangedInliers = 15, maxTranslationSigma = 0.08f, translationSigmaPerMeter = 0.015f,
 				confidentYawSigmaDegrees = 0.4f, confidentTranslationSigma = 0.03f, confidentInliers = 100, confidentInlierShare = 0.6f,
 			};
 
@@ -65,7 +67,7 @@ namespace Anaglyph.XR.SharedSpaces
 			};
 
 			[Tooltip("A joiner's first alignment, when what comes after refines it: good enough to show where the others are, long before a view pins it to centimeters")]
-			public Thresholds rough = new() { minInliers = 30, maxNormalizedRms = 2f, maxYawSigmaDegrees = 8f, minRangedInliers = 30, maxTranslationSigma = 2f, confidentInlierShare = 0.65f };
+			public Thresholds rough = new() { minInliers = 25, maxNormalizedRms = 2f, maxRmsPixels = 15f, maxYawSigmaDegrees = 3f, maxTranslationSigma = 1.5f };
 
 			[Tooltip("A result this certain is applied without waiting for a second frame")]
 			public bool acceptConfidentSingleFrames = true;
@@ -193,10 +195,8 @@ namespace Anaglyph.XR.SharedSpaces
 			ref readonly Thresholds t = ref rough ? ref settings.rough : ref For(purpose);
 			if (!pose.success) return pose.failure ?? "no pose";
 			if (pose.inliers < t.minInliers) return $"{pose.inliers} inliers < {t.minInliers}";
-			// a look-alike place fits about half of what was matched: nothing rough stands on that
-			if (rough && pose.inliers < t.confidentInlierShare * pose.correspondences)
-				return $"{pose.inliers} inliers of {pose.correspondences} < {t.confidentInlierShare:P0}";
 			if (pose.normalizedRms > t.maxNormalizedRms) return $"residuals {pose.normalizedRms:F2}σ > {t.maxNormalizedRms}σ";
+			if (t.maxRmsPixels > 0 && pose.rmsPixels > t.maxRmsPixels) return $"misfit {pose.rmsPixels:F1} px > {t.maxRmsPixels} px";
 			if (math.degrees(pose.yawSigma) > t.maxYawSigmaDegrees) return $"yaw ±{math.degrees(pose.yawSigma):F2}° > {t.maxYawSigmaDegrees}°";
 			if (pose.rangedInliers < t.minRangedInliers)
 				return $"{pose.rangedInliers} ranged inliers < {t.minRangedInliers}: far landmarks alone leave yaw and translation trading off";

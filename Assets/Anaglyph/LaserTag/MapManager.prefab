@@ -303,7 +303,7 @@ MonoBehaviour:
       minInliers: 30
       maxNormalizedRms: 2
       maxYawSigmaDegrees: 1.5
-      minRangedInliers: 0
+      minRangedInliers: 15
       maxTranslationSigma: 0.08
       translationSigmaPerMeter: 0.015
       confidentYawSigmaDegrees: 0.4

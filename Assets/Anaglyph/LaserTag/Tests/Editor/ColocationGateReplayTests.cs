@@ -352,13 +352,19 @@ namespace Anaglyph.LaserTag.Tests
 		{
 			MeasurementGate gate = Gate(new MeasurementGate.Settings());
 			GravityPnPResult acrossTheRoom = SolveWithTranslationSigma(0.6f);
-			acrossTheRoom.yawSigma = math.radians(3f);
+			acrossTheRoom.yawSigma = math.radians(2f);
+			acrossTheRoom.rmsPixels = 7f;
 			Assert.That(gate.Rejection(acrossTheRoom, MeasurementPurpose.Colocate, reach: 6f), Is.Not.Null);
 			Assert.That(gate.Rejection(acrossTheRoom, MeasurementPurpose.Colocate, reach: 6f, rough: true), Is.Null);
 
 			Assert.That(gate.Rejection(SolveWithTranslationSigma(2.5f), MeasurementPurpose.Colocate, reach: 6f, rough: true), Does.Contain("translation"));
-			acrossTheRoom.yawSigma = math.radians(10f);
+			acrossTheRoom.yawSigma = math.radians(5f);
 			Assert.That(gate.Rejection(acrossTheRoom, MeasurementPurpose.Colocate, reach: 6f, rough: true), Does.Contain("yaw"));
+
+			// fitted by sliding landmarks along their depth: forgiven in sigmas, not in pixels
+			acrossTheRoom.yawSigma = math.radians(0.5f);
+			acrossTheRoom.rmsPixels = 400f;
+			Assert.That(gate.Rejection(acrossTheRoom, MeasurementPurpose.Colocate, reach: 6f, rough: true), Does.Contain("misfit"));
 		}
 
 		[Test]

@@ -2314,6 +2314,7 @@ GameObject:
   - component: {fileID: 1394363023484580083}
   - component: {fileID: 6825106031471342320}
   - component: {fileID: 5339566166535882300}
+  - component: {fileID: 6012816224957504844}
   m_Layer: 0
   m_Name: XR Origin
   m_TagString: Untagged
@@ -2438,6 +2439,30 @@ MonoBehaviour:
   m_VerticalAxis: Vertical
   m_SubmitButton: Submit
   m_CancelButton: Cancel
+--- !u!114 &6012816224957504844
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7254734392762225021}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 69aff671ffa3c4c388bc628f43447b62, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.XR.Input::Anaglyph.XR.Input.TrackedHandControllerDriver
+  neckFromEyes: {x: 0, y: -0.1, z: -0.08}
+  shoulderBelowNeck: 0.13
+  shoulderHalfWidth: 0.17
+  bodyYawDeadzoneDegrees: 30
+  tapPressGap: 0.022
+  tapReleaseGap: 0.035
+  tapTriggerZeroGap: 0.06
+  palmFacingHeadCosine: 0.6
+  aimMinCutoffHz: 1.2
+  aimCutoffPerDegreePerSecond: 0.05
+  aimFreezeDuringTap: 0.85
+  tapFingerSpeedForFullFreeze: 0.2
 --- !u!1 &8273645227207553632
 GameObject:
   m_ObjectHideFlags: 0

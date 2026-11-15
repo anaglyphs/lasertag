@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Anaglyph.LaserTag.Maps;
 using Anaglyph.LaserTag.Player.Teams;
 using Anaglyph.XR;
@@ -40,7 +41,19 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		public static event Action<Mode> ModeChanged = delegate { };
 		public static event Action<float> TagSizeMeasured = delegate { };
 
-		public static MapEditorTool DominantHand;
+		private static readonly List<MapEditorTool> tools = new();
+
+		/// <summary>The tool in the player's dominant hand; the other hand's tool only grabs and deletes.</summary>
+		public static MapEditorTool DominantHand
+		{
+			get
+			{
+				foreach (MapEditorTool tool in tools)
+					if (tool.Hand != null && tool.Hand.Handedness == Dominance.Hand)
+						return tool;
+				return null;
+			}
+		}
 
 		// Statics persist across play sessions while domain reload is disabled.
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -50,7 +63,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			SelectedObject = null;
 			ModeChanged = delegate { };
 			TagSizeMeasured = delegate { };
-			DominantHand = null;
+			tools.Clear();
 			MeasurementHint = null;
 		}
 
@@ -124,6 +137,10 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 
 		private void Awake()
 		{
+			if (!handSubject)
+				TryGetComponent(out handSubject);
+			tools.Add(this);
+
 			MapEditor.ActiveChanged += gameObject.SetActive;
 			gameObject.SetActive(MapEditor.IsActive);
 
@@ -132,12 +149,6 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 
 		private void Start()
 		{
-			if (!handSubject)
-				TryGetComponent(out handSubject);
-
-			if (handSubject.Current.Handedness == Handedness.Right)
-				DominantHand = this;
-
 			handSubject.Bind(rotateInputBinding, OnRotateInput);
 			handSubject.Bind(placeInputBinding, OnFireInput);
 			handSubject.Bind(deleteInputBinding, OnBackInput);
@@ -146,6 +157,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 
 		private void OnDestroy()
 		{
+			tools.Remove(this);
 			MapEditor.ActiveChanged -= gameObject.SetActive;
 			ruler?.Dispose();
 		}
@@ -153,12 +165,14 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		private void OnEnable()
 		{
 			MainXRRig.Recentered += ResetMeasurement;
+			Dominance.Changed += OnDominanceChanged;
 			UpdateTagDetection();
 		}
 
 		private void OnDisable()
 		{
 			MainXRRig.Recentered -= ResetMeasurement;
+			Dominance.Changed -= OnDominanceChanged;
 			ResetMeasurement();
 			ReleaseTagHighlight();
 
@@ -169,6 +183,8 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			// detection stays on.
 			UpdateTagDetection();
 		}
+
+		private void OnDominanceChanged() => ApplyMode(CurrentMode, SelectedObject);
 
 		/// <summary>Whatever the outgoing mode was holding is not the incoming one's to keep.</summary>
 		private void ApplyMode(Mode mode, MapObject spawnObject)
@@ -484,19 +500,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		{
 			if (!isActiveAndEnabled || !context.performed) return;
 
-			// Every mode: the off hand's trigger is how the palette swaps sides, so it has to be
-			// answered before whatever the current mode would do with the press.
-			if (this != DominantHand)
-			{
-				Handedness otherHand =
-					handSubject.Current.Handedness == Handedness.Left ? Handedness.Right : Handedness.Left;
-
-				DominantHand = this;
-				if (CurrentMode == Mode.MeasureTagSize)
-					SetMode(Mode.MeasureTagSize);
-				Palette.Instance?.SetHandSide(otherHand);
-				return;
-			}
+			if (this != DominantHand) return;
 
 			if (CurrentMode == Mode.MeasureTagSize)
 			{

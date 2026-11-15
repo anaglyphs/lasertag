@@ -1,24 +1,25 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
-    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle" />
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Settings/SettingsHomePage.uss?fileID=7433441132597879392&amp;guid=53742a5757b3a41aaa72b34510a4d50e&amp;type=3#SettingsHomePage"/>
     <ui:VisualElement class="page-template-root">
         <Anaglyph.Menu.NavHeader>
             <Bindings>
-                <UnityEngine.Localization.LocalizedString property="Title" table="SettingsMenu" entry="SettingsHomePage.navheader-2.title" />
+                <UnityEngine.Localization.LocalizedString property="Title" table="SettingsMenu" entry="SettingsHomePage.navheader-2.title"/>
             </Bindings>
         </Anaglyph.Menu.NavHeader>
         <Anaglyph.Menu.NavButton name="graphics-button" target="graphics-page">
             <Bindings>
-                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsHomePage.graphics-button.text" />
+                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsHomePage.graphics-button.text"/>
             </Bindings>
         </Anaglyph.Menu.NavButton>
         <Anaglyph.Menu.NavButton name="debugging-button" target="debugging-page">
             <Bindings>
-                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsHomePage.debugging-button.text" />
+                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsHomePage.debugging-button.text"/>
             </Bindings>
         </Anaglyph.Menu.NavButton>
         <Anaglyph.Menu.NavButton name="operator-provisioning-button" target="operator-provisioning-page" style="display: none;">
             <Bindings>
-                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsHomePage.operator-provisioning-button.text" />
+                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsHomePage.operator-provisioning-button.text"/>
             </Bindings>
         </Anaglyph.Menu.NavButton>
         <ui:Label name="version" class="version">
@@ -26,11 +27,30 @@
                 <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="version">
                     <variables>
                         <UnityEngine.Localization.LocalVariable name="version">
-                            <UnityEngine.Localization.SmartFormat.PersistentVariables.StringVariable value="" />
+                            <UnityEngine.Localization.SmartFormat.PersistentVariables.StringVariable value=""/>
                         </UnityEngine.Localization.LocalVariable>
                     </variables>
                 </UnityEngine.Localization.LocalizedString>
             </Bindings>
         </ui:Label>
+        <ui:VisualElement style="flex-grow: 1;"/>
+        <ui:VisualElement name="dominant-eye-row" class="dominance-row">
+            <ui:Button name="dominant-eye-left-button" class="dominance-button dominance-button--eye"/>
+            <ui:Label class="dominance-label">
+                <Bindings>
+                    <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsHomePage.dominant-eye.text"/>
+                </Bindings>
+            </ui:Label>
+            <ui:Button name="dominant-eye-right-button" class="dominance-button dominance-button--eye"/>
+        </ui:VisualElement>
+        <ui:VisualElement name="dominant-hand-row" class="dominance-row">
+            <ui:Button name="dominant-hand-left-button" class="dominance-button dominance-button--hand dominance-button--mirrored"/>
+            <ui:Label class="dominance-label">
+                <Bindings>
+                    <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsHomePage.dominant-hand.text"/>
+                </Bindings>
+            </ui:Label>
+            <ui:Button name="dominant-hand-right-button" class="dominance-button dominance-button--hand"/>
+        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>
