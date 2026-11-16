@@ -2,13 +2,8 @@
 
 static CHHapticEngine *engine;
 static NSMutableArray<CHHapticPattern *> *patterns;
-// NSNull until a pattern first plays, and again after the engine resets
-static NSMutableArray *players;
-
-static void ForgetPlayers()
-{
-    for (NSUInteger i = 0; i < players.count; i++) players[i] = [NSNull null];
-}
+// the newest player of each pattern, kept alive until the pattern plays again
+static NSMutableArray *latestPlayers;
 
 static BOOL EnsureEngine()
 {
@@ -24,12 +19,9 @@ static BOOL EnsureEngine()
     }
 
     patterns = [NSMutableArray array];
-    players = [NSMutableArray array];
+    latestPlayers = [NSMutableArray array];
     engine.playsHapticsOnly = YES;
     engine.autoShutdownEnabled = YES;
-    engine.resetHandler = ^{
-        dispatch_async(dispatch_get_main_queue(), ^{ ForgetPlayers(); });
-    };
     return YES;
 }
 
@@ -49,7 +41,7 @@ extern "C" int AnaglyphHapticsRegister(const char *ahapJson)
     }
 
     [patterns addObject:pattern];
-    [players addObject:[NSNull null]];
+    [latestPlayers addObject:[NSNull null]];
     return (int)patterns.count - 1;
 }
 
@@ -65,14 +57,15 @@ extern "C" void AnaglyphHapticsPlay(int index)
         return;
     }
 
-    id<CHHapticPatternPlayer> player = players[index];
-    if ((id)player == [NSNull null])
+    // a fresh player per play: stopping and restarting one player at the same instant can drop the restart
+    id<CHHapticPatternPlayer> player = [engine createPlayerWithPattern:patterns[index] error:&error];
+    if (!player || ![player startAtTime:CHHapticTimeImmediate error:&error])
     {
-        player = [engine createPlayerWithPattern:patterns[index] error:&error];
-        if (!player) return;
-        players[index] = player;
+        NSLog(@"[AnaglyphHaptics] pattern did not play: %@", error);
+        return;
     }
 
-    [player stopAtTime:CHHapticTimeImmediate error:nil];
-    [player startAtTime:CHHapticTimeImmediate error:nil];
+    id previous = latestPlayers[index];
+    if (previous != [NSNull null]) [previous stopAtTime:CHHapticTimeImmediate error:nil];
+    latestPlayers[index] = player;
 }

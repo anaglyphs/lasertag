@@ -9,11 +9,12 @@ using UnityEngine;
 namespace Anaglyph.Editor
 {
 	/// <summary>
-	/// Batch-mode store build of any build profile, for Tools/release:
-	/// <c>-executeMethod Anaglyph.Editor.ReleaseBuild.BuildFromCommandLine -releaseProfile &lt;asset&gt; -releaseOutput &lt;path&gt; -releaseBuildNumber N</c>.
+	/// Batch-mode build of any build profile, for the scripts in Tools:
+	/// <c>-executeMethod Anaglyph.Editor.ProfileBuild.BuildFromCommandLine -buildProfilePath &lt;asset&gt; -buildOutputPath &lt;path&gt;
+	/// [-buildNumber N] [-developmentBuild]</c>.
 	/// Android signs with the keystore passwords in RELEASE_KEYSTORE_PASS and RELEASE_KEYALIAS_PASS.
 	/// </summary>
-	public static class ReleaseBuild
+	public static class ProfileBuild
 	{
 		/// <summary>Exit code asking for a relaunch: the profile was just activated, so its defines aren't compiled in yet.</summary>
 		public const int ProfileActivatedExitCode = 2;
@@ -23,25 +24,27 @@ namespace Anaglyph.Editor
 			BuildReport report = null;
 			try
 			{
-				string profilePath = CommandLineValue("-releaseProfile");
+				string profilePath = CommandLineValue("-buildProfilePath");
 				if (ActivateProfileUnlessActive(profilePath))
 				{
-					Debug.Log($"[{nameof(ReleaseBuild)}] activated {profilePath}; relaunch to build with its defines");
+					Debug.Log($"[{nameof(ProfileBuild)}] activated {profilePath}; relaunch to build with its defines");
 					EditorApplication.Exit(ProfileActivatedExitCode);
 					return;
 				}
 
+				string buildNumber = OptionalCommandLineValue("-buildNumber");
 				report = Build(
 					profilePath,
-					CommandLineValue("-releaseOutput"),
-					int.Parse(CommandLineValue("-releaseBuildNumber")));
+					CommandLineValue("-buildOutputPath"),
+					buildNumber == null ? null : int.Parse(buildNumber),
+					HasCommandLineFlag("-developmentBuild"));
 			}
 			catch (Exception exception)
 			{
 				Debug.LogException(exception);
 			}
 
-			Debug.Log($"[{nameof(ReleaseBuild)}] {(report == null ? "not built" : $"{report.summary.result}, {report.summary.totalErrors} errors at {report.summary.outputPath}")}");
+			Debug.Log($"[{nameof(ProfileBuild)}] {(report == null ? "not built" : $"{report.summary.result}, {report.summary.totalErrors} errors at {report.summary.outputPath}")}");
 			EditorApplication.Exit(report != null && report.summary.result == BuildResult.Succeeded ? 0 : 1);
 		}
 
@@ -61,7 +64,8 @@ namespace Anaglyph.Editor
 		private static BuildProfile LoadProfile(string profilePath) =>
 			AssetDatabase.LoadAssetAtPath<BuildProfile>(profilePath) ?? throw new ArgumentException($"no build profile at {profilePath}");
 
-		public static BuildReport Build(string profilePath, string outputPath, int buildNumber)
+		/// <param name="buildNumber">null keeps the profile's own number</param>
+		public static BuildReport Build(string profilePath, string outputPath, int? buildNumber, bool development)
 		{
 			BuildProfile profile = LoadProfile(profilePath);
 			BuildProfile.SetActiveBuildProfile(profile);
@@ -73,35 +77,40 @@ namespace Anaglyph.Editor
 			{
 				buildProfile = profile,
 				locationPathName = outputPath,
-				options = BuildOptions.None,
+				options = development ? BuildOptions.Development : BuildOptions.None,
 			});
 		}
 
-		private static void SetBuildNumberAndSigning(BuildTarget target, int buildNumber)
+		private static void SetBuildNumberAndSigning(BuildTarget target, int? buildNumber)
 		{
 			switch (target)
 			{
 				case BuildTarget.Android:
-					PlayerSettings.Android.bundleVersionCode = buildNumber;
+					if (buildNumber.HasValue) PlayerSettings.Android.bundleVersionCode = buildNumber.Value;
 					if (!PlayerSettings.Android.useCustomKeystore) break;
 					PlayerSettings.Android.keystorePass = RequiredEnvironmentVariable("RELEASE_KEYSTORE_PASS");
 					PlayerSettings.Android.keyaliasPass = Environment.GetEnvironmentVariable("RELEASE_KEYALIAS_PASS") is { Length: > 0 } aliasPass ? aliasPass : PlayerSettings.Android.keystorePass;
 					break;
 				case BuildTarget.iOS:
-					PlayerSettings.iOS.buildNumber = buildNumber.ToString();
+					if (buildNumber.HasValue) PlayerSettings.iOS.buildNumber = buildNumber.Value.ToString();
 					break;
 				default:
-					throw new NotSupportedException($"{nameof(ReleaseBuild)} doesn't number {target} builds yet");
+					if (buildNumber.HasValue) throw new NotSupportedException($"{nameof(ProfileBuild)} doesn't number {target} builds yet");
+					break;
 			}
 		}
 
-		private static string CommandLineValue(string name)
+		private static string OptionalCommandLineValue(string name)
 		{
 			string[] args = Environment.GetCommandLineArgs();
 			int index = Array.IndexOf(args, name);
-			if (index < 0 || index + 1 >= args.Length) throw new ArgumentException($"missing {name}");
-			return args[index + 1];
+			return index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
 		}
+
+		private static string CommandLineValue(string name) =>
+			OptionalCommandLineValue(name) ?? throw new ArgumentException($"missing {name}");
+
+		private static bool HasCommandLineFlag(string name) => Array.IndexOf(Environment.GetCommandLineArgs(), name) >= 0;
 
 		private static string RequiredEnvironmentVariable(string name) =>
 			Environment.GetEnvironmentVariable(name) is { Length: > 0 } value ? value : throw new ArgumentException($"{name} is not set");

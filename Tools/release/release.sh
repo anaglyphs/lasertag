@@ -1,8 +1,7 @@
 #!/bin/bash
 # Builds the committed HEAD for each platform in platforms/<name>.sh and uploads it to that platform's
 # test channel. All platforms share one build number, tagged release/<number>.
-# Builds run in batch Unity inside ../lasertag_release/<Unity build target>: worktrees whose Library
-# starts as an APFS clone of this checkout's, so the open editor is untouched.
+# Builds run in batch Unity inside ../lasertag_release/<Unity build target> (see Tools/lib/unity-batch.sh).
 #
 # Usage: Tools/release/release.sh [--dry-run] [platform...]     (RELEASE_DEFAULT_PLATFORMS when none given)
 #   --dry-run   check credentials and print the build number and notes, without building or uploading
@@ -67,15 +66,11 @@ done
 
 commit="$(git -C "$project_dir" rev-parse HEAD)"
 [ -z "$(git -C "$project_dir" status --porcelain)" ] || echo "release: uncommitted changes are NOT in this release"
-git -C "$project_dir" cat-file -e "$commit:Assets/Anaglyph/Editor/ReleaseBuild.cs" 2>/dev/null \
-	|| fail "the release build code isn't committed yet (Assets/Anaglyph/Editor/ReleaseBuild.cs)"
+git -C "$project_dir" cat-file -e "$commit:Assets/Anaglyph/Editor/ProfileBuild.cs" 2>/dev/null \
+	|| fail "the build code isn't committed yet (Assets/Anaglyph/Editor/ProfileBuild.cs)"
 
-unity_version="$(sed -n 's/^m_EditorVersion: //p' "$project_dir/ProjectSettings/ProjectVersion.txt")"
-unity_app="/Applications/Unity/Hub/Editor/$unity_version/Unity.app"
-[ -x "$unity_app/Contents/MacOS/Unity" ] || fail "Unity $unity_version is not installed at $unity_app"
-
-release_root="$(dirname "$project_dir")/lasertag_release"
-log_dir="$release_root/logs/$(date +%Y%m%d-%H%M%S)"
+source "$project_dir/Tools/lib/unity-batch.sh"
+log_dir="$side_build_root/logs/$(date +%Y%m%d-%H%M%S)"
 
 # each platform runs in its own subshell, so platform files can't see each other's settings
 in_platform() { local platform="$1"; shift; ( source "$release_dir/platforms/$platform.sh"; "$@" ); }
@@ -102,30 +97,11 @@ if $dry_run; then
 fi
 mkdir -p "$log_dir"
 
-# a detached worktree at $commit beside this checkout, keeping its own Library between releases
-prepare_worktree() {
-	local dir="$release_root/$1"
-	if [ ! -e "$dir/.git" ]; then
-		git -C "$project_dir" worktree add --quiet --detach "$dir" "$commit"
-		echo "release: cloning Library into $dir" >&2
-		cp -Rc "$project_dir/Library" "$dir/Library"
-		rm -f "$dir/Library/EditorInstance.json" "$dir/Library/"*-lock
-		# Gradle's intermediates hold absolute paths into this checkout; Unity regenerates them per build
-		rm -rf "$dir/Library/Bee/Android/Prj"
-	else
-		git -C "$dir" checkout --quiet --detach --force "$commit"
-		git -C "$dir" clean -fdq
-	fi
-	pgrep -f -- "-projectPath $dir( |$)" >/dev/null && fail "Unity is already open on $dir"
-	rm -f "$dir/Temp/UnityLockfile"
-	echo "$dir"
-}
-
-artifact_path() { echo "$release_root/$PLATFORM_BUILD_TARGET/$PLATFORM_OUTPUT"; }
+artifact_path() { echo "$side_build_root/$PLATFORM_BUILD_TARGET/$PLATFORM_OUTPUT"; }
 
 build_platform() {
 	local platform="$1" dir artifact log built build_stamp
-	dir="$(prepare_worktree "$PLATFORM_BUILD_TARGET")"
+	dir="$(prepare_worktree "$side_build_root/$PLATFORM_BUILD_TARGET" "$commit")"
 	artifact="$(artifact_path)"
 	log="$log_dir/$platform-unity.log"
 	build_stamp="$dir/Builds/Release/$platform.built-from"
@@ -135,18 +111,8 @@ build_platform() {
 	else
 		rm -rf "$artifact" "$build_stamp"
 		echo "release: building $platform $build_number (log: $log)"
-		local unity_exit=0 launch
-		for launch in first relaunch; do
-			unity_exit=0
-			"$unity_app/Contents/MacOS/Unity" -batchmode -projectPath "$dir" -buildTarget "$PLATFORM_BUILD_TARGET" \
-				-executeMethod Anaglyph.Editor.ReleaseBuild.BuildFromCommandLine \
-				-releaseProfile "$PLATFORM_PROFILE" -releaseOutput "$PLATFORM_OUTPUT" -releaseBuildNumber "$build_number" \
-				-logFile "$log" || unity_exit=$?
-			# 2: ReleaseBuild switched to the profile and needs a relaunch to compile with its defines
-			[ "$unity_exit" -eq 2 ] && [ "$launch" = first ] && { echo "release: switched $platform's Unity to its build profile, relaunching"; continue; }
-			break
-		done
-		[ "$unity_exit" -eq 0 ] || fail "$platform build failed; see $log"
+		run_profile_build "$dir" "$PLATFORM_BUILD_TARGET" "$PLATFORM_PROFILE" "$PLATFORM_OUTPUT" "$log" -buildNumber "$build_number" \
+			|| fail "$platform build failed; see $log"
 		if declare -F platform_package >/dev/null; then
 			echo "release: packaging $platform $build_number (log: $log_dir/$platform-package.log)"
 			platform_package "$artifact" > "$log_dir/$platform-package.log" 2>&1 \
