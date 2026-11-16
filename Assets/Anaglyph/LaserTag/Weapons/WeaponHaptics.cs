@@ -1,3 +1,5 @@
+using Anaglyph.XR;
+using Anaglyph.XR.Haptics;
 using Anaglyph.XR.Input;
 using Oculus.Haptics;
 using StrikerLink.Unity.Runtime.HapticEngine;
@@ -17,9 +19,16 @@ namespace Anaglyph.LaserTag.Weapons
 		[SerializeField] private HapticEffectAsset strikerClip;
 
 		private HapticSource controllerHapticSource;
+		private PhoneHapticClip phoneClip;
 
 		private void Awake()
 		{
+			if (HandheldAR.IsActive)
+			{
+				phoneClip = new PhoneHapticClip(controllerClip.json);
+				return;
+			}
+
 			if (Application.isEditor || !XRSettings.isDeviceActive) return;
 
 			controllerHapticSource = gameObject.AddComponent<HapticSource>();
@@ -28,6 +37,12 @@ namespace Anaglyph.LaserTag.Weapons
 
 		public void Play()
 		{
+			if (phoneClip != null)
+			{
+				phoneClip.Play();
+				return;
+			}
+
 			if (hand.Current == null) return;
 
 			Handedness handedness = hand.Current.Handedness;

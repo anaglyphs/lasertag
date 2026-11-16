@@ -171,6 +171,7 @@ namespace Anaglyph.LaserTag.Editor
 			PBXProject frameworkProject = new();
 			frameworkProject.ReadFromFile(frameworkProjectPath);
 			frameworkProject.AddFrameworkToProject(frameworkProject.GetUnityFrameworkTargetGuid(), "Photos.framework", false);
+			frameworkProject.AddFrameworkToProject(frameworkProject.GetUnityFrameworkTargetGuid(), "CoreHaptics.framework", false);
 			frameworkProject.WriteToFile(frameworkProjectPath);
 			if (!MulticastEntitlementGranted) return;
 
