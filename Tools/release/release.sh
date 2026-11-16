@@ -130,7 +130,7 @@ build_platform() {
 	log="$log_dir/$platform-unity.log"
 	build_stamp="$dir/Builds/Release/$platform.built-from"
 
-	if [ -e "$artifact" ] && [ "$(cat "$build_stamp" 2>/dev/null)" = "$commit $build_number" ]; then
+	if [ -e "$artifact" ] && [ "$(cat "$build_stamp" 2>/dev/null || true)" = "$commit $build_number" ]; then
 		echo "release: reusing the $platform $build_number build of this commit"
 	else
 		rm -rf "$artifact" "$build_stamp"
