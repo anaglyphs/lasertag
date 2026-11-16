@@ -130,6 +130,7 @@ namespace Anaglyph.LaserTag.Maps
 			TagSetup.Register();
 			colocationManager.AnchorProvider.ErrorRaised += OnAnchorError;
 			colocationManager.SourceChanged += RaiseSpaceChanged;
+			if (colocationManager.VisualProvider) colocationManager.VisualProvider.PlaceUnfamiliar += OnPlaceUnfamiliar;
 			SyncBus.Activated += OnBusActivated;
 			SyncBus.Deactivated += OnBusDeactivated;
 			SyncBus.AuthorityChanged += OnAuthorityChanged;
@@ -159,6 +160,7 @@ namespace Anaglyph.LaserTag.Maps
 			lifetime.Cancel();
 			colocationManager.AnchorProvider.ErrorRaised -= OnAnchorError;
 			colocationManager.SourceChanged -= RaiseSpaceChanged;
+			if (colocationManager.VisualProvider) colocationManager.VisualProvider.PlaceUnfamiliar -= OnPlaceUnfamiliar;
 			SyncBus.Activated -= OnBusActivated;
 			SyncBus.Deactivated -= OnBusDeactivated;
 			SyncBus.AuthorityChanged -= OnAuthorityChanged;
@@ -222,21 +224,26 @@ namespace Anaglyph.LaserTag.Maps
 			MapChanged.Invoke();
 		}
 
+		private void OnPlaceUnfamiliar()
+		{
+			if (space != null) OnRelocalizationFailed(space);
+		}
+
 		/// <summary>
-		/// The shown space's saved map didn't relocalize: the headset is likely not in it at all.
-		/// It is rejected for this room; a space startup only guessed is backed out of for a
-		/// blank one, and nothing done during the guess is saved to it. A space the player chose
-		/// stays shown, and its map file is kept.
+		/// The shown space's map didn't relocalize: the headset is not in it. It is rejected for
+		/// this room and a blank space is shown in its place, a host's session moving with it. Its
+		/// map file is left as last saved, and nothing done during a guess by startup is saved to it.
+		/// A client shows the host's space whatever it sees, and a round is played out where it began.
 		/// </summary>
 		private void OnRelocalizationFailed(Space failed)
 		{
 			if (failed != space || showingSessionSpace) return;
 			Discovery.Reject(failed.id);
 			SpacesChanged.Invoke();
-			if (failed.id != provisionalSpaceId || Role != SpaceRole.Offline) return;
-			Debug.Log($"[{nameof(SpaceManager)}] space {failed.id} ({failed.name}) didn't relocalize: this room is not one of the saved spaces");
+			if (Role == SpaceRole.Client || RoundInProgress) return;
+			Debug.Log($"[{nameof(SpaceManager)}] space {failed.id} ({failed.name}) didn't relocalize: this room is not that space");
 			dirty = false;
-			failed.lastUsed = provisionalLastUsed;
+			if (failed.id == provisionalSpaceId) failed.lastUsed = provisionalLastUsed;
 			store.Save(failed);
 			ShowBlankSpace();
 		}

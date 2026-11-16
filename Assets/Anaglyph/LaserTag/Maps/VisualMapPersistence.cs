@@ -388,6 +388,9 @@ namespace Anaglyph.LaserTag.Maps
 			int restores = 0;
 			float timeout = isGuessed != null && isGuessed(space) ? GuessedRelocalizeTimeout : RelocalizeTimeout;
 			float deadline = Time.realtimeSinceStartup + timeout;
+			bool placeUnfamiliar = false;
+			void OnPlaceUnfamiliar() => placeUnfamiliar = true;
+			provider.PlaceUnfamiliar += OnPlaceUnfamiliar;
 			try
 			{
 				while (Time.realtimeSinceStartup < deadline)
@@ -396,7 +399,7 @@ namespace Anaglyph.LaserTag.Maps
 					if (!provider) return;
 					if (provider.Alignment.CurrentPhase != CanonAlignment.Phase.Relocalizing)
 					{
-						if (provider.Alignment.CurrentPhase == CanonAlignment.Phase.Aligned) Verified(space);
+						if (provider.Alignment.CurrentPhase == CanonAlignment.Phase.Aligned && !placeUnfamiliar) Verified(space);
 						return;
 					}
 					if (localizer.Map.Count >= loadedKeyframes / 2 || restores >= 3) continue;
@@ -407,6 +410,10 @@ namespace Anaglyph.LaserTag.Maps
 				}
 			}
 			catch (OperationCanceledException) { return; }
+			finally
+			{
+				if (provider) provider.PlaceUnfamiliar -= OnPlaceUnfamiliar;
+			}
 
 			if (provider.Alignment.CurrentPhase != CanonAlignment.Phase.Relocalizing) return;
 			Debug.Log($"[{nameof(VisualMapPersistence)}] the saved map didn't relocalize in {timeout:F0} s: starting a fresh one ({provider.LastAttemptDescription})");

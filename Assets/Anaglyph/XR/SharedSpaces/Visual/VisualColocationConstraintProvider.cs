@@ -55,6 +55,7 @@ namespace Anaglyph.XR.SharedSpaces
 
 		[SerializeField] private MeasurementGate.Settings gateSettings = new();
 		[SerializeField] private AlignmentWatch.Settings watchSettings = new();
+		[SerializeField] private UnfamiliarPlaceVerdict.Settings unfamiliarPlaceSettings = new();
 		[SerializeField] private DriftSites.Settings siteSettings = new();
 		[SerializeField] private KeyframeGraph.Settings graphSettings = new();
 
@@ -122,6 +123,7 @@ namespace Anaglyph.XR.SharedSpaces
 		private VisualAlignmentDebugView debugView;
 		private MeasurementGate gate;
 		private AlignmentWatch watch;
+		private UnfamiliarPlaceVerdict unfamiliarPlace;
 		private float nextCheck;
 		private DriftSites driftSites;
 		private ColocationLog log;
@@ -203,6 +205,12 @@ namespace Anaglyph.XR.SharedSpaces
 
 		/// <summary>Raised when a measurement becomes or updates a site.</summary>
 		public event System.Action<ConstraintSites.Site> SiteMeasured = delegate { };
+		/// <summary>
+		/// Raised while relocalizing, when views kept coming and none found the map: the headset is
+		/// somewhere the map doesn't cover. Whoever owns the map saves or swaps it here; what is left
+		/// of it afterwards is dropped, and the rig takes its role's own alignment.
+		/// </summary>
+		public event System.Action PlaceUnfamiliar = delegate { };
 		public VisualLocalizationResult LastResult { get; private set; }
 		public string LastOutcome => log.LastOutcome;
 
@@ -260,6 +268,7 @@ namespace Anaglyph.XR.SharedSpaces
 			log = new ColocationLog(this, LogTag, localizer);
 			gate = new MeasurementGate(gateSettings, track.Drift, track.Walked);
 			watch = new AlignmentWatch(watchSettings, gateSettings.places);
+			unfamiliarPlace = new UnfamiliarPlaceVerdict(unfamiliarPlaceSettings);
 			driftSites = new DriftSites(siteSettings);
 			driftSites.Sites.WorldOf = track.WorldOf;
 			graph = new KeyframeGraph(graphSettings, localizer, track);
@@ -358,6 +367,7 @@ namespace Anaglyph.XR.SharedSpaces
 			if (phase == Phase.Relocalizing) graph.DropWaiting();
 			if (phase != Phase.Aligned) watch.End();
 			gate.Clear();
+			unfamiliarPlace.BeginLooking(Time.unscaledTime);
 			// frames from the search go on being solved with those after a rough alignment
 			if (phase != Phase.Aligned) joinPool.Clear();
 			alignmentIsRough = false;
@@ -390,7 +400,7 @@ namespace Anaglyph.XR.SharedSpaces
 			if (IsRunning) localizer.Urgent = alignment.CurrentPhase is Phase.Searching or Phase.Relocalizing;
 
 			if (!NeedsCapture(out Purpose purpose)) return;
-			nextQuery = Time.unscaledTime + (purpose == Purpose.Colocate ? searchQueryInterval : queryInterval);
+			nextQuery = Time.unscaledTime + (purpose is Purpose.Colocate or Purpose.Relocalize ? searchQueryInterval : queryInterval);
 			Run(purpose);
 		}
 
@@ -539,6 +549,19 @@ namespace Anaglyph.XR.SharedSpaces
 				return;
 			}
 			Consider(p, result.pose, result.anchorNode, result.ToString());
+			if (p.purpose == Purpose.Relocalize) ConsiderPlaceUnfamiliar(p, result);
+		}
+
+		private void ConsiderPlaceUnfamiliar(Pending p, in VisualLocalizationResult result)
+		{
+			if (alignment.CurrentPhase != Phase.Relocalizing || p.epoch != alignment.FrameEpoch || p.generation != alignment.Generation) return;
+			if (!unfamiliarPlace.Add(Time.unscaledTime, p.query.features.Count, result.Success, result.pose.inliers)) return;
+
+			log.Outcome($"Relocalize: this place is not the map's ({result})");
+			PlaceUnfamiliar.Invoke();
+			if (alignment.CurrentPhase != Phase.Relocalizing) return;
+			ClearMap();
+			alignment.AbandonRelocalization();
 		}
 
 		// frames from before a recenter stand in a tracking space that is gone
