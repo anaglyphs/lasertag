@@ -79,17 +79,20 @@ namespace Anaglyph.XR.Input
 		// the ray (menu closing, interactor disabled the same frame) can leave the latch stuck on.
 		// This is the same test XRI runs internally (XRUIToolkitHandler.HasUIDocument): the world
 		// space panel collider lives on the UIDocument GameObject.
-		public bool InputBlocked => FollowsCamera ? ScreenSpaceUIHit.IsPrimaryTouchOverUI() : IsOverWorldSpaceUIToolkit();
+		public bool InputBlocked => FollowsCamera ? ScreenSpaceUIHit.IsPrimaryTouchOverUI() : RayHoveredDocument != null;
 
-		private bool IsOverWorldSpaceUIToolkit()
+		/// <summary>The world-space UI Toolkit document under this hand's ray; null when none.</summary>
+		public UIDocument RayHoveredDocument
 		{
-			if (interactor == null || !interactor.isActiveAndEnabled)
-				return false;
+			get
+			{
+				if (interactor == null || !interactor.isActiveAndEnabled ||
+				    !interactor.TryGetCurrent3DRaycastHit(out var hit) || hit.collider == null ||
+				    !hit.collider.TryGetComponent(out UIDocument document) || !document.isActiveAndEnabled)
+					return null;
 
-			return interactor.TryGetCurrent3DRaycastHit(out var hit) &&
-			       hit.collider != null &&
-			       hit.collider.TryGetComponent(out UIDocument document) &&
-			       document.isActiveAndEnabled;
+				return document;
+			}
 		}
 
 		public static HandInput Get(Handedness h)

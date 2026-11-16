@@ -1,0 +1,6 @@
+@import url("../LaserTagRuntimeTheme.tss");
+
+/* Touch screens have no headset or controllers. */
+.xr-only {
+    display: none;
+}

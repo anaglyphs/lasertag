@@ -385,7 +385,7 @@ namespace Anaglyph.LaserTag.Tests
 		[Test]
 		public void LooseResultsMakeARoughAlignmentOnlyWhenThreeLandTogether()
 		{
-			MeasurementGate gate = Gate(new MeasurementGate.Settings());
+			MeasurementGate gate = Gate(new MeasurementGate.Settings { looseResultsToAgree = 3 });
 			GravityPnPResult loose = SolveWithTranslationSigma(0.6f);
 			loose.yawSigma = math.radians(10f);
 			float3 camera = new(1, 1.6f, 2);

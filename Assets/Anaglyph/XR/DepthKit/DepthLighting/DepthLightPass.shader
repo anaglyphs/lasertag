@@ -287,5 +287,33 @@ Shader "Anaglyph/Lasertag/DepthLight"
 			}
 			ENDHLSL
 		}
+
+		// Pass 2: zeroes alpha under a camera image drawn opaque into the eye buffer, marking it
+		// all passthrough before virtual objects write their coverage
+		Pass
+		{
+			Name "DepthLightPassthroughAlpha"
+			ZWrite Off
+			ZTest Always
+			Cull Off
+			ColorMask A
+
+			HLSLPROGRAM
+			#pragma vertex Vert
+			#pragma fragment Frag
+
+			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+
+			float4 Vert(uint vertexID : SV_VertexID) : SV_POSITION
+			{
+				return GetFullScreenTriangleVertexPosition(vertexID);
+			}
+
+			half4 Frag() : SV_Target
+			{
+				return 0;
+			}
+			ENDHLSL
+		}
 	}
 }

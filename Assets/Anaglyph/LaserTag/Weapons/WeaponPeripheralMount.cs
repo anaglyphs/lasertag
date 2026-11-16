@@ -4,16 +4,18 @@ using UnityEngine;
 namespace Anaglyph.LaserTag.Weapons
 {
 	/// <summary>
-	/// While a peripheral is mounted the player is holding a physical blaster, so the virtual
-	/// one is hidden and shots leave the peripheral's barrel instead of the model's.
+	/// While the player holds a physical blaster - a mounted peripheral, or the phone itself - the
+	/// virtual one is hidden and shots leave the physical barrel instead of the model's.
 	/// Only the owner has this - everyone else hides the weapon off the synced visibility.
 	/// </summary>
 	[RequireComponent(typeof(HandSubject))]
 	public class WeaponPeripheralMount : MonoBehaviour
 	{
-		// a direct child, so its local pose is measured from the tracked controller
 		[SerializeField] private Transform muzzle;
 		[SerializeField] private WeaponVisual visual;
+
+		// a phone's hand is its camera: shots leave just below it, along the view
+		private static readonly Pose PhoneBarrelFromCamera = new(new Vector3(0, -0.05f, 0), Quaternion.identity);
 
 		private HandSubject hand;
 		private Pose modelMuzzlePose;
@@ -30,6 +32,8 @@ namespace Anaglyph.LaserTag.Weapons
 		{
 			MountedPeripheral.Changed += OnMountedPeripheralChanged;
 			hand.Changed += OnHandChanged;
+			// also raised when the hands start or stop following a phone's camera
+			hand.IsTrackingChanged += OnTrackingChanged;
 			Apply();
 		}
 
@@ -37,23 +41,30 @@ namespace Anaglyph.LaserTag.Weapons
 		{
 			MountedPeripheral.Changed -= OnMountedPeripheralChanged;
 			hand.Changed -= OnHandChanged;
+			hand.IsTrackingChanged -= OnTrackingChanged;
 		}
 
 		// the hand is assigned after this is instantiated, so the first Apply runs without one
 		private void OnMountedPeripheralChanged(HandPeripheral peripheral) => Apply();
 		private void OnHandChanged(HandInput current) => Apply();
+		private void OnTrackingChanged(bool tracking) => Apply();
 
 		private void Apply()
 		{
-			bool mounted = hand.Current != null &&
-				MountedPeripheral.IsMountedOn(hand.Current.Handedness);
+			Pose? barrelFromHand = HandInput.FollowedCamera != null ? PhoneBarrelFromCamera
+				: hand.Current != null && MountedPeripheral.IsMountedOn(hand.Current.Handedness) ? MountedPeripheral.Current.BarrelFromController
+				: null;
 
-			Pose pose = mounted
-				? MountedPeripheral.Current.BarrelFromController
-				: modelMuzzlePose;
+			// the handle sits on the hand's pose, so the barrel is measured from it
+			if (barrelFromHand is Pose barrel)
+			{
+				Transform handPose = visual.Handle;
+				muzzle.SetPositionAndRotation(handPose.TransformPoint(barrel.position), handPose.rotation * barrel.rotation);
+			}
+			else
+				muzzle.SetLocalPositionAndRotation(modelMuzzlePose.position, modelMuzzlePose.rotation);
 
-			muzzle.SetLocalPositionAndRotation(pose.position, pose.rotation);
-			visual.gameObject.SetActive(!mounted);
+			visual.gameObject.SetActive(barrelFromHand == null);
 		}
 	}
 }

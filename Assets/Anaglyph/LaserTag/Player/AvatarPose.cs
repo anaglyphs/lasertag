@@ -80,15 +80,6 @@ namespace Anaglyph.LaserTag.Player
 			Apply();
 		}
 
-		// a phone is held out in front of the face and below the eyes: the head that gets hit is back there
-		private const float EyesBehindPhone = 0.35f, EyesAbovePhone = 0.12f;
-
-		private static Pose HeadBehindPhone(Pose phone)
-		{
-			Vector3 flatForward = Vector3.ProjectOnPlane(phone.forward, Vector3.up).normalized;
-			return new Pose(phone.position - flatForward * EyesBehindPhone + Vector3.up * EyesAbovePhone, phone.rotation);
-		}
-
 		private void Apply()
 		{
 			if (!driving || !avatar.HasSpatialPresence) return;
@@ -97,7 +88,8 @@ namespace Anaglyph.LaserTag.Player
 			if (rig == null)
 				return;
 
-			avatar.HeadTransform.SetWorldPose(Anaglyph.XR.HandheldAR.IsActive ? HeadBehindPhone(rig.Head.GetWorldPose()) : rig.Head.GetWorldPose());
+			// on a phone the head is the phone: its tracking is the only body pose there is
+			avatar.HeadTransform.SetWorldPose(rig.Head.GetWorldPose());
 			avatar.LeftHandTransform.SetWorldPose(rig.LeftHand.GetWorldPose());
 			avatar.RightHandTransform.SetWorldPose(rig.RightHand.GetWorldPose());
 		}

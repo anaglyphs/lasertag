@@ -8,6 +8,9 @@ namespace Anaglyph.LaserTag.Weapons
 	{
 		[SerializeField] private AudioClip fireSFX;
 		[SerializeField, Min(0.01f)] private float fireSFXFullVolumeDistance = 1;
+		[Tooltip("Where the hand holds the weapon: +Z runs up the handle, pinky to thumb, as the grip pose does.")]
+		[SerializeField] private Transform handle;
+		public Transform Handle => handle;
 
 		public bool IsFiring { get; private set; }
 

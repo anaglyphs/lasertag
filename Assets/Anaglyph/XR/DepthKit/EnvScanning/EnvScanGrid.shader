@@ -25,6 +25,9 @@ Shader "Anaglyph/Env Scan Grid"
 
 			Cull Back
 			ZWrite True
+			// premultiplied over whatever is behind: an empty eye buffer the passthrough
+			// compositor fills, or a phone's camera image
+			Blend One OneMinusSrcAlpha
 
 			HLSLPROGRAM
 			#pragma vertex vert
@@ -86,7 +89,7 @@ Shader "Anaglyph/Env Scan Grid"
 
 				half gridLine = GridLines(IN.positionWS) * _LineColor.a;
 
-				// premultiplied for the passthrough compositor: faint fill, solid lines over it
+				// premultiplied: faint fill, solid lines over it
 				half3 rgb = lerp(_FillColor.rgb * _FillOpacity, _LineColor.rgb, gridLine);
 				half alpha = lerp(_FillOpacity, 1.0, gridLine);
 				return half4(rgb, alpha);

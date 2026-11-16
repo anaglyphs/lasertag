@@ -147,9 +147,8 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		private static float debugMeshOpacity = 0.2f;
 
 		/// <summary>
-		/// Passthrough compositor alpha of the debug meshes (the chunks and anything else
-		/// drawn with the debug mesh shaders). They stay opaque in-scene; this only sets
-		/// how much passthrough shows beneath them.
+		/// Opacity of the debug meshes (the chunks and anything else drawn with the debug
+		/// mesh shaders) over passthrough or a phone's camera image.
 		/// </summary>
 		public static float DebugMeshOpacity
 		{

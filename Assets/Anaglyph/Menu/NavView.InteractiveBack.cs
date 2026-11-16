@@ -30,8 +30,7 @@ namespace Anaglyph.Menu
 			root?.Query<NavView>().ForEach(view =>
 			{
 				if (!IsShown(view) || !view.CanGoBack) return;
-				int depth = 0;
-				for (VisualElement e = view; e != null; e = e.hierarchy.parent) depth++;
+				int depth = Depth(view);
 				if (depth <= innermostDepth) return;
 				innermost = view;
 				innermostDepth = depth;

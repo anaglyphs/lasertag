@@ -16,6 +16,9 @@ Shader "Anaglyph/Debug/Flat Normals"
 
 			Cull Back
 			ZWrite True
+			// premultiplied over whatever is behind: an empty eye buffer the passthrough
+			// compositor fills, or a phone's camera image
+			Blend One OneMinusSrcAlpha
 
 			HLSLPROGRAM
 			#pragma vertex vert
@@ -23,9 +26,7 @@ Shader "Anaglyph/Debug/Flat Normals"
 
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
-			// Passthrough compositor alpha only (premultiplied), set globally by
-			// EnvMesher.DebugMeshOpacity. The pass stays opaque: no blending, ZWrite on.
-			// This does not make the surface see-through in-scene.
+			// set globally by EnvMesher.DebugMeshOpacity
 			half agDebugMeshOpacity;
 
 			struct Attributes

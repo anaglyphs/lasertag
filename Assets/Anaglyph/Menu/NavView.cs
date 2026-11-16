@@ -38,6 +38,7 @@ namespace Anaglyph.Menu
 		private int navigationVersion;
 		private readonly IVisualElementScheduledItem transitionTick;
 		private readonly List<VisualElement> suspendedFocus = new();
+		private readonly HashSet<int> pointersOver = new();
 		private NavPage outgoingPage;
 		private Vector2 incomingStart;
 		private Vector2 outgoingEnd;
@@ -62,6 +63,8 @@ namespace Anaglyph.Menu
 			transitionTick.Pause();
 			RegisterCallback<AttachToPanelEvent>(_ => Build());
 			RegisterCallback<DetachFromPanelEvent>(_ => Teardown());
+			RegisterCallback<PointerEnterEvent>(evt => pointersOver.Add(evt.pointerId));
+			RegisterCallback<PointerLeaveEvent>(evt => pointersOver.Remove(evt.pointerId));
 			RegisterCallback<PointerDownEvent>(FilterPageInput, TrickleDown.TrickleDown);
 			RegisterCallback<PointerUpEvent>(FilterPageInput, TrickleDown.TrickleDown);
 			RegisterCallback<PointerMoveEvent>(FilterPageInput, TrickleDown.TrickleDown);
@@ -140,6 +143,47 @@ namespace Anaglyph.Menu
 			NavView innermost = InnermostThatCanGoBack(root);
 			innermost?.GoBack();
 			return innermost != null;
+		}
+
+		public enum PointerBackResult { WentBack, Blocked, AllAtFirstPage }
+
+		/// <summary>
+		/// A back button press over the navigations a pointer is over under <paramref name="root"/>, innermost first.
+		/// Dismisses a user-dismissible modal; blocked by any other modal or by a page that hides its back button.
+		/// </summary>
+		public static PointerBackResult TryGoBackUnderPointerIn(VisualElement root)
+		{
+			var viewsUnderPointer = new List<NavView>();
+			root?.Query<NavView>().ForEach(view =>
+			{
+				if (view.pointersOver.Count > 0 && IsShown(view)) viewsUnderPointer.Add(view);
+			});
+			viewsUnderPointer.Sort((a, b) => Depth(b).CompareTo(Depth(a)));
+
+			foreach (NavView view in viewsUnderPointer)
+			{
+				view.EnsureBuilt();
+				int topModal = view.TopModalIndex();
+				if (topModal != -1)
+				{
+					if (!view.modals[topModal].page.ModalUserDismissible) return PointerBackResult.Blocked;
+					view.GoBack();
+					return PointerBackResult.WentBack;
+				}
+				if (view.history.Count < 2) continue;
+				if (!view.CurrentPage.ShowBackButton) return PointerBackResult.Blocked;
+				view.GoBack();
+				return PointerBackResult.WentBack;
+			}
+
+			return PointerBackResult.AllAtFirstPage;
+		}
+
+		private static int Depth(VisualElement element)
+		{
+			int depth = 0;
+			for (; element != null; element = element.hierarchy.parent) depth++;
+			return depth;
 		}
 
 		private static bool IsShown(VisualElement element)
@@ -262,6 +306,7 @@ namespace Anaglyph.Menu
 			pages.Clear();
 			history.Clear();
 			modals.Clear();
+			pointersOver.Clear();
 			CurrentPage = null;
 		}
 

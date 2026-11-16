@@ -43,7 +43,7 @@ namespace Anaglyph.XR.Input
 				rot = handSubject.Rotation;
 
 #if UNITY_EDITOR
-				if (!XRSettings.enabled) rot *= Quaternion.Euler(-90, 0, 0);
+				if (!XRSettings.enabled && HandInput.FollowedCamera == null) rot *= Quaternion.Euler(-90, 0, 0);
 #endif
 			}
 

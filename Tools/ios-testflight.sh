@@ -1,17 +1,18 @@
 #!/bin/bash
 # Archives the Unity-exported Xcode project in Builds/iOS and uploads it to App Store Connect,
 # where it appears in TestFlight once Apple has processed it.
-# Usage: Tools/ios-testflight.sh <team-id>
+# Usage: Tools/ios-testflight.sh <team-id> [xcode-project-folder, default Builds/iOS]
 # Needs: the team's Apple ID signed into Xcode (Settings > Accounts), and an app record in
 # App Store Connect for the build's bundle ID.
 set -euo pipefail
 
 team="${1:?usage: $0 <team-id>}"
 project_dir="$(cd "$(dirname "$0")/.." && pwd)"
-xcode_project="$project_dir/Builds/iOS/Unity-iPhone.xcodeproj"
-archive="$project_dir/Builds/iOSArchive/Lasertag.xcarchive"
-export_dir="$project_dir/Builds/iOSExport"
-options="$project_dir/Builds/iOSArchive/ExportOptions.plist"
+xcode_dir="$(cd "${2:-$project_dir/Builds/iOS}" && pwd)"
+xcode_project="$xcode_dir/Unity-iPhone.xcodeproj"
+archive="${xcode_dir}Archive/Lasertag.xcarchive"
+export_dir="${xcode_dir}Export"
+options="${xcode_dir}Archive/ExportOptions.plist"
 
 mkdir -p "$(dirname "$archive")"
 cat > "$options" <<EOF

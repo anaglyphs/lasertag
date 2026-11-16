@@ -41,10 +41,7 @@ namespace Anaglyph.LaserTag
 
 			if (handheld)
 			{
-				// a phone draws its camera feed itself, with the provider's own background material
-				foreach (ARCameraBackground background in g.GetComponentsInChildren<ARCameraBackground>(true))
-					background.useCustomMaterial = false;
-				// which would otherwise write the sensor's depth and hide everything on a real surface: DepthKit occludes
+				// a phone's camera background would otherwise write the sensor's depth and hide everything on a real surface: DepthKit occludes
 				foreach (AROcclusionManager occlusion in g.GetComponentsInChildren<AROcclusionManager>(true))
 					occlusion.requestedOcclusionPreferenceMode = UnityEngine.XR.ARSubsystems.OcclusionPreferenceMode.NoOcclusion;
 				g.AddComponent<CameraMode>();

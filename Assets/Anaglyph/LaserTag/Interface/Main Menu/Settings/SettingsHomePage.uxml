@@ -34,7 +34,7 @@
             </Bindings>
         </ui:Label>
         <ui:VisualElement style="flex-grow: 1;"/>
-        <ui:VisualElement name="dominant-eye-row" class="dominance-row">
+        <ui:VisualElement name="dominant-eye-row" class="dominance-row xr-only">
             <ui:Button name="dominant-eye-left-button" class="dominance-button dominance-button--eye"/>
             <ui:Label class="dominance-label">
                 <Bindings>
@@ -43,7 +43,7 @@
             </ui:Label>
             <ui:Button name="dominant-eye-right-button" class="dominance-button dominance-button--eye"/>
         </ui:VisualElement>
-        <ui:VisualElement name="dominant-hand-row" class="dominance-row">
+        <ui:VisualElement name="dominant-hand-row" class="dominance-row xr-only">
             <ui:Button name="dominant-hand-left-button" class="dominance-button dominance-button--hand dominance-button--mirrored"/>
             <ui:Label class="dominance-label">
                 <Bindings>

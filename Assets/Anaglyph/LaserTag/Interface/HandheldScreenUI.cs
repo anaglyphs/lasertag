@@ -30,7 +30,8 @@ namespace Anaglyph.LaserTag.Interface
 		private const float GestureEdge = 16;
 		private const float ReticleSize = 6;
 		private const float ScanSeconds = 1;
-		private const float DamageTintOpacity = 0.45f, DamageEdgeWidth = 24;
+		// hides elements tagged .xr-only
+		public const string TouchThemeResource = "LaserTagTouchTheme";
 
 		private static readonly Color ToggleFill = new(20 / 255f, 20 / 255f, 20 / 255f);
 		private static readonly Color ToggleEdge = new(200 / 255f, 200 / 255f, 200 / 255f);
@@ -49,7 +50,7 @@ namespace Anaglyph.LaserTag.Interface
 		public float? PixelsPerUnitForTests { get; set; }
 
 		private UIDocument overlay;
-		private VisualElement tabBar, toggle, reticle, damage;
+		private VisualElement tabBar, toggle, reticle;
 		private Button[] tabs;
 		private Button cameraTab;
 		private CameraMode cameraMode;
@@ -205,6 +206,7 @@ namespace Anaglyph.LaserTag.Interface
 			panel.renderMode = PanelRenderMode.ScreenSpaceOverlay;
 			panel.scaleMode = PanelScaleMode.ConstantPixelSize;
 			panel.targetTexture = null;
+			panel.themeStyleSheet = Resources.Load<ThemeStyleSheet>(TouchThemeResource);
 			return panel;
 		}
 
@@ -279,12 +281,6 @@ namespace Anaglyph.LaserTag.Interface
 					for (int i = 0; i < element.styleSheets.count; i++)
 						if (!root.styleSheets.Contains(element.styleSheets[i])) root.styleSheets.Add(element.styleSheets[i]);
 				});
-
-			// damage shows as a tint over the camera feed and a glow at its edges, as passthrough styling does in the headset
-			damage = new VisualElement { name = "handheld-damage", pickingMode = PickingMode.Ignore };
-			damage.style.position = Position.Absolute;
-			damage.style.left = damage.style.right = damage.style.top = damage.style.bottom = 0;
-			root.Add(damage);
 
 			reticle = new VisualElement { name = "handheld-reticle", pickingMode = PickingMode.Ignore };
 			reticle.style.position = Position.Absolute;
@@ -397,6 +393,8 @@ namespace Anaglyph.LaserTag.Interface
 			bool granted = menu.Gate.Access == GateMenu.AccessState.Granted;
 			bool filming = IsFilming;
 			Display(tabBar, granted && !filming);
+			// closed, only the menu button blocks fire taps; the rest of the bar's strip is open screen
+			tabBar.pickingMode = menuShown ? PickingMode.Position : PickingMode.Ignore;
 			foreach (Button tab in tabs) Display(tab, menuShown);
 			if (cameraTab != null) Display(cameraTab, menuShown);
 			Display(reticle, !menuShown && !filming);
@@ -405,10 +403,6 @@ namespace Anaglyph.LaserTag.Interface
 			cameraScreen?.Refresh();
 			for (int i = 0; i < tabs.Length; i++)
 				tabs[i].EnableInClassList("game-menu-tab-selected", i == menu.ScreenPanel);
-
-			(Color tint, float tintAmount, Color edge) = Anaglyph.XR.PassthroughStylingFeature.RequestedStyle;
-			damage.style.backgroundColor = new Color(tint.r, tint.g, tint.b, tintAmount * DamageTintOpacity);
-			SetBorder(damage, DamageEdgeWidth, edge);
 
 			IPanel panel = overlay.rootVisualElement.panel;
 			Vector2 panelSize = panel != null ? panel.visualTree.layout.size : Vector2.zero;

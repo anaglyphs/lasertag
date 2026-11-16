@@ -53,6 +53,9 @@ namespace Anaglyph.XR
 		private const string UpdateColorLutFunctionName = "xrUpdatePassthroughColorLutMETA";
 		private const string DestroyColorLutFunctionName = "xrDestroyPassthroughColorLutMETA";
 
+		private static readonly int PassthroughTintId = Shader.PropertyToID("_PassthroughTint");
+		private static readonly int PassthroughEdgeColorId = Shader.PropertyToID("_PassthroughEdgeColor");
+
 		private static readonly object sync = new();
 		private static readonly Dictionary<ulong, LayerState> layers = new();
 
@@ -108,15 +111,6 @@ namespace Anaglyph.XR
 		/// retained and applied when AR Foundation creates or recreates its layer.
 		/// </summary>
 		/// <returns>True if the style was applied to a live passthrough layer.</returns>
-		/// <summary>The style last asked for, whether or not a passthrough layer shows it: what a phone's screen draws over its camera feed instead.</summary>
-		public static (Color tint, float tintAmount, Color edgeTint) RequestedStyle
-		{
-			get
-			{
-				lock (sync) return (passthroughTint, passthroughTintAmount, edgeTint);
-			}
-		}
-
 		public static bool SetStyle(Color tint, float tintAmount, Color newEdgeTint,
 			float textureOpacity = 1f)
 		{
@@ -133,6 +127,7 @@ namespace Anaglyph.XR
 				passthroughTintAmount = tintAmount;
 				edgeTint = newEdgeTint;
 				opacity = textureOpacity;
+				PublishStyleToCameraBackgroundShaders();
 				return ApplyStyleToAllLayers();
 			}
 		}
@@ -148,6 +143,7 @@ namespace Anaglyph.XR
 			{
 				passthroughTint = tint;
 				passthroughTintAmount = Mathf.Clamp01(tintAmount);
+				PublishStyleToCameraBackgroundShaders();
 				return ApplyStyleToAllLayers();
 			}
 		}
@@ -161,8 +157,18 @@ namespace Anaglyph.XR
 			lock (sync)
 			{
 				edgeTint = tint;
+				PublishStyleToCameraBackgroundShaders();
 				return ApplyStyleToAllLayers();
 			}
+		}
+
+		// read by HandheldCameraBackground's shaders; vectors, not colors, so the values stay sRGB like the headset's LUT
+		private static void PublishStyleToCameraBackgroundShaders()
+		{
+			Shader.SetGlobalVector(PassthroughTintId,
+				new Vector4(passthroughTint.r, passthroughTint.g, passthroughTint.b, passthroughTintAmount));
+			Shader.SetGlobalVector(PassthroughEdgeColorId,
+				new Vector4(edgeTint.r, edgeTint.g, edgeTint.b, edgeTint.a));
 		}
 
 		/// <summary>Restores unmodified, fully opaque passthrough with no edges.</summary>

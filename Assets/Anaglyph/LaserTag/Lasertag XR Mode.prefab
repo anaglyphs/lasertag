@@ -1190,6 +1190,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 8273645227207553632, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 6019041182422304548}
+    - targetCorrespondingSourceObject: {fileID: 8273645227207553632, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4901709855932592238}
     - targetCorrespondingSourceObject: {fileID: 603982319059033611, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 7612118653768009084}
@@ -2043,6 +2046,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Anaglyph.XR.DepthKit::Anaglyph.XR.DepthKit.DepthKitDriver
   depthNormalCompute: {fileID: 7200000, guid: 094ecfc2d2e1d984c9955562fea46b9d, type: 3}
   depthConversionShader: {fileID: 4800000, guid: 82205287c50174936b6864df5b631e7f, type: 3}
+  flipPhoneDepthRows: 1
 --- !u!114 &6019041182422304548
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2055,6 +2059,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a1f3341a9a1dd40bf88522a84e26a835, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.DepthPermissionController
+--- !u!114 &4901709855932592238
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4921592961275499637}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a04e2cd44e844adf9eaa688d462ec12, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.XR::Anaglyph.XR.HandheldCameraBackground
+  arKitStyledShader: {fileID: 4800000, guid: b9d3cc4ff7c114843a641feb0db15e7a, type: 3}
+  arCoreStyledShader: {fileID: 4800000, guid: ef1b13c59e785412d9c54267f65d001d, type: 3}
+  simulationStyledShader: {fileID: 4800000, guid: 505c8c6d8dd174972ab93ec1c8ba98c8, type: 3}
 --- !u!4 &5708129311068832725 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8767311771694048704, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}

@@ -28,8 +28,6 @@ namespace Anaglyph.LaserTag.Interface
 		private Toggle showDebugMeshToggle;
 		private Toggle demoModeToggle;
 		private Slider debugMeshOpacitySlider;
-		private Button captureAlignmentDiagnosisButton;
-		private Label alignmentDiagnosisStatus;
 		private RadioButtonGroup sightingModeRadio;
 		private Toggle sightingRawTrackingToggle;
 		private Toggle sightingRightEyeToggle;
@@ -97,10 +95,6 @@ namespace Anaglyph.LaserTag.Interface
 				change => EnvMesher.DebugMeshOpacity = change.newValue);
 			debugMeshOpacitySlider.SetValueWithoutNotify(EnvMesher.DebugMeshOpacity);
 
-			captureAlignmentDiagnosisButton = Require<Button>(root, "capture-alignment-diagnosis-button");
-			alignmentDiagnosisStatus = Require<Label>(root, "alignment-diagnosis-status");
-			bindings.Click(captureAlignmentDiagnosisButton, CaptureAlignmentDiagnosis);
-
 			sightingModeRadio = Require<RadioButtonGroup>(root, "sighting-mode-radio");
 			sightingRawTrackingToggle = Require<Toggle>(root, "sighting-raw-tracking-toggle");
 			sightingRightEyeToggle = Require<Toggle>(root, "sighting-right-eye-toggle");
@@ -114,12 +108,7 @@ namespace Anaglyph.LaserTag.Interface
 			bindings.Click(Require<Button>(root, "sighting-clear-button"), AlignmentSightingTool.ClearMarkers);
 
 			if (!Debug.isDebugBuild)
-			{
-				captureAlignmentDiagnosisButton.style.display = DisplayStyle.None;
-				alignmentDiagnosisStatus.style.display = DisplayStyle.None;
 				Require<VisualElement>(root, "alignment-sighting-button").style.display = DisplayStyle.None;
-				Require<VisualElement>(root, "debugging-button").style.display = DisplayStyle.None;
-			}
 
 			healthPassthroughTintToggle =
 				Require<Toggle>(root, "health-passthrough-tint-toggle");
@@ -240,26 +229,26 @@ namespace Anaglyph.LaserTag.Interface
 		}
 
 		// a debugging tool: the status reports the folder path verbatim, unlocalized
-		private async void CaptureAlignmentDiagnosis()
-		{
-			if (AlignmentDiagnosis.InProgress) return;
-			captureAlignmentDiagnosisButton.SetEnabled(false);
-			alignmentDiagnosisStatus.text = "Capturing…";
-			try
-			{
-				string folder = await AlignmentDiagnosis.CaptureAsync();
-				if (alignmentDiagnosisStatus != null) alignmentDiagnosisStatus.text = $"Saved to {folder}";
-			}
-			catch (Exception e)
-			{
-				Debug.LogException(e, this);
-				if (alignmentDiagnosisStatus != null) alignmentDiagnosisStatus.text = $"Capture failed: {e.Message}";
-			}
-			finally
-			{
-				captureAlignmentDiagnosisButton?.SetEnabled(true);
-			}
-		}
+		// private async void CaptureAlignmentDiagnosis()
+		// {
+		// 	if (AlignmentDiagnosis.InProgress) return;
+		// 	captureAlignmentDiagnosisButton.SetEnabled(false);
+		// 	alignmentDiagnosisStatus.text = "Capturing…";
+		// 	try
+		// 	{
+		// 		string folder = await AlignmentDiagnosis.CaptureAsync();
+		// 		if (alignmentDiagnosisStatus != null) alignmentDiagnosisStatus.text = $"Saved to {folder}";
+		// 	}
+		// 	catch (Exception e)
+		// 	{
+		// 		Debug.LogException(e, this);
+		// 		if (alignmentDiagnosisStatus != null) alignmentDiagnosisStatus.text = $"Capture failed: {e.Message}";
+		// 	}
+		// 	finally
+		// 	{
+		// 		captureAlignmentDiagnosisButton?.SetEnabled(true);
+		// 	}
+		// }
 
 		private void UnprovisionHeadset()
 		{

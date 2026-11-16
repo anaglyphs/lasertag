@@ -109,7 +109,6 @@ namespace Anaglyph.LaserTag.Interface
 				ShowMapEditing);
 			mapProbe = new MapProbeBinder(Require<Button>(root, "probe-maps-button"));
 			loadedSpaceMaps = new LoadedSpaceMapsBinder(Require<VisualElement>(root, "loaded-space-maps-section"), ShowMapEditing);
-			bindings.Click(Require<Button>(root, "manage-maps-button"), () => mapsNavigation.GoToPage(manageMapsPage));
 			matchSettings = new MatchSettingsBinder(root);
 			mapName = new MapNameBinder(Require<VisualElement>(editingMapPage, "map-name-section"));
 			spaceDetails = new SpaceDetailsBinder(spaceDetailsPage);

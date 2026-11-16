@@ -1,46 +1,40 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
-    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle" />
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
     <ui:VisualElement class="page-template-root">
         <Anaglyph.Menu.NavHeader>
             <Bindings>
-                <UnityEngine.Localization.LocalizedString property="Title" table="SettingsMenu" entry="SettingsDebuggingPage.navheader-2.title" />
+                <UnityEngine.Localization.LocalizedString property="Title" table="SettingsMenu" entry="SettingsDebuggingPage.navheader-2.title"/>
             </Bindings>
         </Anaglyph.Menu.NavHeader>
         <Anaglyph.Menu.NavButton name="console-button" target="console-page">
             <Bindings>
-                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsDebuggingPage.console-button.text" />
+                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsDebuggingPage.console-button.text"/>
             </Bindings>
         </Anaglyph.Menu.NavButton>
         <Anaglyph.Menu.NavButton name="alignment-sighting-button" target="alignment-sighting-page">
             <Bindings>
-                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsDebuggingPage.alignment-sighting-button.text" />
+                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsDebuggingPage.alignment-sighting-button.text"/>
             </Bindings>
         </Anaglyph.Menu.NavButton>
         <ui:Toggle name="debug-mode-toggle">
             <Bindings>
-                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsDebuggingPage.debug-mode-toggle.text" />
+                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsDebuggingPage.debug-mode-toggle.text"/>
             </Bindings>
         </ui:Toggle>
         <ui:Toggle name="demo-mode-toggle">
             <Bindings>
-                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsDebuggingPage.demo-mode-toggle.text" />
+                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsDebuggingPage.demo-mode-toggle.text"/>
             </Bindings>
         </ui:Toggle>
         <ui:Toggle name="show-debug-mesh-toggle">
             <Bindings>
-                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsDebuggingPage.show-debug-mesh-toggle.text" />
+                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsDebuggingPage.show-debug-mesh-toggle.text"/>
             </Bindings>
         </ui:Toggle>
         <ui:Slider name="debug-mesh-opacity-slider" low-value="0" high-value="1" show-input-field="true" class="stacked-field">
             <Bindings>
-                <UnityEngine.Localization.LocalizedString property="label" table="SettingsMenu" entry="SettingsDebuggingPage.debug-mesh-opacity-slider.label" />
+                <UnityEngine.Localization.LocalizedString property="label" table="SettingsMenu" entry="SettingsDebuggingPage.debug-mesh-opacity-slider.label"/>
             </Bindings>
         </ui:Slider>
-        <ui:Button name="capture-alignment-diagnosis-button">
-            <Bindings>
-                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsDebuggingPage.capture-alignment-diagnosis-button.text" />
-            </Bindings>
-        </ui:Button>
-        <ui:Label name="alignment-diagnosis-status" />
     </ui:VisualElement>
 </ui:UXML>

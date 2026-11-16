@@ -121,8 +121,8 @@ namespace Anaglyph.LaserTag.Player
 
 			presentationRoot.SetActive(false);
 			instance = Instantiate(prefab, presentationRoot.transform, false);
-			instance.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
 			visual = instance.GetComponentInChildren<WeaponVisual>(true);
+			PlaceHandleOnHand(instance.transform, visual != null ? visual.Handle : null);
 
 			if (!IsOwner)
 			{
@@ -137,6 +137,18 @@ namespace Anaglyph.LaserTag.Player
 
 			if (visual != null)
 				visual.Fired += OnFired;
+		}
+
+		// the hand transform is the grip pose, so the weapon is moved until its handle sits there
+		private static void PlaceHandleOnHand(Transform weapon, Transform handle)
+		{
+			weapon.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+			if (handle == null) return;
+
+			Quaternion handleRotationInWeapon = Quaternion.Inverse(weapon.rotation) * handle.rotation;
+			Vector3 handlePositionInWeapon = weapon.InverseTransformPoint(handle.position);
+			Quaternion weaponRotation = Quaternion.Inverse(handleRotationInWeapon);
+			weapon.SetLocalPositionAndRotation(weaponRotation * -handlePositionInWeapon, weaponRotation);
 		}
 
 		// what the owner's own weapon does for itself, applied to everyone else's copy

@@ -6,7 +6,7 @@
     --spacing-large: 12px;
     --control-icon-spacing: 10px;
     --font-size-body: 20px;
-    --font-size-title: 28px;
+    --font-size-title: 32px;
     --font-size-small: 14px;
     --control-min-height: 46px;
     --control-border-width: 1px;
@@ -177,15 +177,21 @@ RadioButton #unity-checkmark {
 .nav-header {
     flex-direction: row;
     align-items: center;
-    min-height: var(--control-min-height, 46px);
-    margin-bottom: var(--spacing-medium, 8px);
+    height: var(--control-min-height, 46px);
+	margin: var(--spacing-small, 4px);
+	margin-bottom: var(--spacing-large, 16px);
 }
 
 .title,
 .nav-header__title {
     -unity-text-align: middle-left;
-    font-size: var(--font-size-title, 28px);
+    font-size: var(--font-size-title, 32px);
     -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishCondensed-Light.ttf?fileID=12800000&guid=67a02d15b790b4aa98aa67d81f08ef7c&type=3#DINishCondensed-Light");
+}
+
+.unity-label.nav-header__title {
+	height: 100%;
+	margin: 0;
 }
 
 .nav-button {
@@ -197,20 +203,15 @@ RadioButton #unity-checkmark {
     padding-right: 40px;
 }
 
-.nav-header__back-button {
+.nav-button.nav-header__back-button {
     background-position-x: center;
     background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/back%20chevron.svg?fileID=7388822144124034973&guid=ce2a202a9449e49a38f514f72b39cc20&type=3#back chevron");
     width: var(--control-min-height, 46px);
     height: var(--control-min-height, 46px);
-    min-height: var(--control-min-height, 46px);
     flex-shrink: 0;
-    padding: 0;
-}
-
-/* over .unity-button's control margins, so the header is no taller than its back button */
-.unity-button.nav-header__back-button {
-    margin-top: 0;
-    margin-bottom: 0;
+    padding: 0;		
+	margin: 0;
+	margin-right: var(--spacing-large, 16px);
 }
 
 .field-row {

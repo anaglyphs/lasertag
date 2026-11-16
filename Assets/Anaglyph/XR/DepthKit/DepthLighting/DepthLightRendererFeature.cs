@@ -21,6 +21,7 @@ namespace Anaglyph.LaserTag.Shaders
 
 		private Material material;
 		private IrradiancePass irradiancePass;
+		private PassthroughAlphaPass passthroughAlphaPass;
 		private CompositePass compositePass;
 		private static bool globallyEnabled = true;
 
@@ -33,6 +34,7 @@ namespace Anaglyph.LaserTag.Shaders
 		{
 			irradiancePass?.Dispose();
 			irradiancePass = null;
+			passthroughAlphaPass = null;
 			compositePass = null;
 			CoreUtils.Destroy(material);
 			material = shader != null ? CoreUtils.CreateEngineMaterial(shader) : null;
@@ -43,6 +45,11 @@ namespace Anaglyph.LaserTag.Shaders
 			irradiancePass = new IrradiancePass(material)
 			{
 				renderPassEvent = RenderPassEvent.BeforeRenderingOpaques
+			};
+			// after the camera image is drawn, before anything virtual covers it
+			passthroughAlphaPass = new PassthroughAlphaPass(material)
+			{
+				renderPassEvent = RenderPassEvent.BeforeRenderingOpaques + 1
 			};
 			compositePass = new CompositePass(material)
 			{
@@ -61,6 +68,9 @@ namespace Anaglyph.LaserTag.Shaders
 			irradiancePass.renderingLayers = renderingLayers.value;
 			irradiancePass.maxLights = maxLights;
 			renderer.EnqueuePass(irradiancePass);
+			// a headset composites passthrough under a cleared eye buffer; a flat screen draws the
+			// camera image into it opaque
+			if (!renderingData.cameraData.xr.enabled) renderer.EnqueuePass(passthroughAlphaPass);
 			renderer.EnqueuePass(compositePass);
 		}
 
@@ -68,6 +78,7 @@ namespace Anaglyph.LaserTag.Shaders
 		{
 			irradiancePass?.Dispose();
 			irradiancePass = null;
+			passthroughAlphaPass = null;
 			compositePass = null;
 			CoreUtils.Destroy(material);
 			material = null;
@@ -75,6 +86,7 @@ namespace Anaglyph.LaserTag.Shaders
 
 		private const int IrradianceShaderPass = 0;
 		private const int CompositeShaderPass = 1;
+		private const int PassthroughAlphaShaderPass = 2;
 
 		private static readonly int WorldToDepthClipID = Shader.PropertyToID("_WorldToDepthClip");
 		private static readonly int DepthClipToWorldID = Shader.PropertyToID("_DepthClipToWorld");
@@ -234,6 +246,41 @@ namespace Anaglyph.LaserTag.Shaders
 				normalHandle?.Release();
 				depthHandle = null;
 				normalHandle = null;
+			}
+		}
+
+		// zeroes the eye buffer's alpha so the composite reads the camera image drawn into it as
+		// passthrough; virtual objects drawn afterwards write their own coverage
+		private sealed class PassthroughAlphaPass : ScriptableRenderPass
+		{
+			private readonly Material material;
+
+			public PassthroughAlphaPass(Material material)
+			{
+				this.material = material;
+				profilingSampler = new ProfilingSampler("Depth Light Passthrough Alpha");
+			}
+
+			private sealed class PassData
+			{
+				public Material material;
+			}
+
+			public override void RecordRenderGraph(RenderGraph graph, ContextContainer frameData)
+			{
+				if (!frameData.Contains<DepthLightFrame>() || !frameData.Get<DepthLightFrame>().irradiance.IsValid()) return;
+
+				UniversalResourceData resources = frameData.Get<UniversalResourceData>();
+				using IRasterRenderGraphBuilder builder = graph.AddRasterRenderPass<PassData>(
+					"Depth Light Passthrough Alpha", out PassData data, profilingSampler);
+
+				data.material = material;
+				builder.SetRenderAttachment(resources.activeColorTexture, 0, AccessFlags.ReadWrite);
+				// matching the opaque pass's attachments keeps this merged into its native render pass
+				builder.SetRenderAttachmentDepth(resources.activeDepthTexture, AccessFlags.ReadWrite);
+				builder.SetRenderFunc(static (PassData data, RasterGraphContext context) =>
+					context.cmd.DrawProcedural(Matrix4x4.identity, data.material, PassthroughAlphaShaderPass,
+						MeshTopology.Triangles, 3, 1));
 			}
 		}
 

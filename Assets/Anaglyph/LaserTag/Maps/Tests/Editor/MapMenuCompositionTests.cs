@@ -129,7 +129,7 @@ namespace Anaglyph.LaserTag.Tests
 			using var binder = new LoadedSpaceMapsBinder(section, () => { });
 			Assert.That(section.Q<FlashingLabel>("recognizing-space-label").style.display.value, Is.EqualTo(DisplayStyle.Flex));
 			Assert.That(section.Q("map-list").style.display.value, Is.EqualTo(DisplayStyle.None));
-			Assert.That(section.Q<Button>("manage-maps-button"), Is.Not.Null);
+			Assert.That(section.Q<Anaglyph.Menu.NavButton>("manage-maps-button"), Is.Not.Null);
 			Assert.That(section.Q("space-row"), Is.Null);
 			Assert.That(maps.GetPage("manage-maps-page").Q("map-catalog-section"), Is.Not.Null);
 		}
