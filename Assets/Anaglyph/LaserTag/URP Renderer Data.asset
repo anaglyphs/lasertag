@@ -1,5 +1,18 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-4266892850124004793
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 01b019caa33e147829f48e2b15958f84, type: 3}
+  m_Name: ARCommandBufferSupportRendererFeature
+  m_EditorClassIdentifier: Unity.XR.ARFoundation::UnityEngine.XR.ARFoundation.ARCommandBufferSupportRendererFeature
+  m_Active: 1
 --- !u!114 &-2539395790362853379
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -41,7 +54,8 @@ MonoBehaviour:
   - {fileID: -2539395790362853379}
   - {fileID: 3569414214604287537}
   - {fileID: 8038678225821553079}
-  m_RendererFeatureMap: fdbf4ca3fb40c2dc31eeb70d511b8931b7d1c271411f8f6fl
+  - {fileID: -4266892850124004793}
+  m_RendererFeatureMap: fdbf4ca3fb40c2dc31eeb70d511b8931b7d1c271411f8f6f4762b44d8ff3c8c4l
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 0}
   m_AssetVersion: 3
@@ -87,6 +101,7 @@ MonoBehaviour:
   depthPrimeShader: {fileID: 4800000, guid: e101087c38b2a43389365ba0019c7d26, type: 3}
   relativeTexSize: 0.15
   rawDepthMaxDistance: 6
+  occlusionDepthSoftnessMeters: 0.05
   OcclusionMeshLayerMask:
     serializedVersion: 2
     m_Bits: 64

@@ -1183,6 +1183,9 @@ PrefabInstance:
       addedObject: {fileID: 9167943051378863151}
     - targetCorrespondingSourceObject: {fileID: 8273645227207553632, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
+      addedObject: {fileID: 7097062300948969833}
+    - targetCorrespondingSourceObject: {fileID: 8273645227207553632, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
+      insertIndex: -1
       addedObject: {fileID: 4782126345167559609}
     - targetCorrespondingSourceObject: {fileID: 8273645227207553632, guid: 4c50b6196ae1c694fa29b80827d98a1f, type: 3}
       insertIndex: -1
@@ -1303,6 +1306,14 @@ MonoBehaviour:
     - m_Name: 
       m_Id: ee84885c-db3b-4a58-b5a6-5fc743a69a38
       m_Path: <XRController>{RightHand}/{TriggerButton}
+      m_Interactions: 
+      m_Processors: 
+      m_Groups: 
+      m_Action: OnFire
+      m_Flags: 0
+    - m_Name: 
+      m_Id: d03388fe-bda6-4830-9723-fb9b6ecab486
+      m_Path: <Touchscreen>/primaryTouch/press
       m_Interactions: 
       m_Processors: 
       m_Groups: 
@@ -1657,6 +1668,14 @@ MonoBehaviour:
       m_Action: OnFire
       m_Flags: 0
     - m_Name: 
+      m_Id: f1065604-c93c-4944-af35-21825aaa8176
+      m_Path: <Touchscreen>/primaryTouch/press
+      m_Interactions: 
+      m_Processors: 
+      m_Groups: 
+      m_Action: OnFire
+      m_Flags: 0
+    - m_Name: 
       m_Id: d49ada71-33c7-4bbf-9ea3-a2d9340c0873
       m_Path: <MavrikDevice>/trigger
       m_Interactions: 
@@ -1996,6 +2015,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 02889afd966904ede80f145b06f6ef3d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.XRTemplate::Anaglyph.XRTemplate.HeadPoseHistory
+--- !u!114 &7097062300948969833
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4921592961275499637}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fc48d2f6bab424c60bddb6239fba697c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.XR::Anaglyph.XR.HandheldCameraPoses
+  cameraManager: {fileID: 5467248365274046325}
+  session: {fileID: 426684643620982884}
 --- !u!114 &4782126345167559609
 MonoBehaviour:
   m_ObjectHideFlags: 0

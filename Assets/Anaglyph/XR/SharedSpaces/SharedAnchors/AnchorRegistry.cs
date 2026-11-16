@@ -5,7 +5,6 @@ using Unity.Collections;
 using UnityEngine;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
-using UnityEngine.XR.OpenXR.Features.Meta;
 using Object = UnityEngine.Object;
 
 namespace Anaglyph.XR.SharedSpaces.SharedAnchors
@@ -114,13 +113,6 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		/// </summary>
 		private XRAnchorSubsystem anchorSubsystem =>
 			anchorManager != null ? anchorManager.subsystem : null;
-
-		/// <summary>
-		/// Null under AR Foundation's XR Simulation, which tracks anchors but implements none of
-		/// Meta's extensions (sharing, local persistence, discovery).
-		/// </summary>
-		private MetaOpenXRAnchorSubsystem metaAnchorSubsystem =>
-			anchorSubsystem as MetaOpenXRAnchorSubsystem;
 
 		/// <summary>
 		/// False where this process has no anchor runtime at all — a rig with no AR managers, or an
@@ -253,7 +245,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 
 		/// <summary>Only Meta's runtime shares anchors; anything else answers unsupported.</summary>
 		public Supported sharedAnchorsSupport =>
-			SharingDenied ? Supported.Unsupported : metaAnchorSubsystem?.isSharedAnchorsSupported ?? Supported.Unsupported;
+			SharingDenied ? Supported.Unsupported : MetaAnchorGroups.SharingSupport(anchorSubsystem);
 
 		// A supported OpenXR extension does not imply permission to use Meta's cloud service.
 		// Timeouts, failed network requests and poor localization are deliberately not denials.
@@ -270,17 +262,13 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		public bool canShareAnchors => sharedAnchorsSupport == Supported.Supported;
 
 		/// <summary>
-		/// Meta's subsystem when this runtime shares anchors, null otherwise. Callers point
-		/// <see cref="MetaOpenXRAnchorSubsystem.sharedAnchorsGroupId"/> at their group immediately
-		/// before the call that uses it; the subsystem reads it synchronously, before returning its
-		/// Awaitable, so group-scoped operations may overlap.
+		/// The anchor subsystem when this runtime shares anchors, null otherwise. Each share and
+		/// load names its group (<see cref="MetaAnchorGroups"/>), so group-scoped operations may overlap.
 		/// </summary>
-		private MetaOpenXRAnchorSubsystem TryGetSharingSubsystem()
+		private XRAnchorSubsystem TryGetSharingSubsystem()
 		{
-			MetaOpenXRAnchorSubsystem meta = metaAnchorSubsystem;
-
-			if (meta != null && sharedAnchorsSupport != Supported.Unsupported)
-				return meta;
+			if (anchorSubsystem != null && sharedAnchorsSupport != Supported.Unsupported)
+				return anchorSubsystem;
 
 			LogNoSharedAnchorsOnce();
 			return null;
@@ -295,8 +283,8 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 			ThrowIfDisposed();
 			ctkn.ThrowIfCancellationRequested();
 
-			MetaOpenXRAnchorSubsystem meta = TryGetSharingSubsystem();
-			if (meta == null)
+			XRAnchorSubsystem sharing = TryGetSharingSubsystem();
+			if (sharing == null)
 				return new XRResultStatus(XRResultStatus.StatusCode.Unsupported);
 
 			SerializableGuid guid = handle.guid;
@@ -314,8 +302,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 
 			try
 			{
-				meta.sharedAnchorsGroupId = guid;
-				XRResultStatus result = await anchorManager.TryShareAnchorAsync(anchor);
+				XRResultStatus result = await MetaAnchorGroups.ShareAsync(anchorManager, anchor, guid);
 				ObserveSharingResult(result);
 				ctkn.ThrowIfCancellationRequested();
 				return result;
@@ -926,15 +913,13 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 
 		private async Awaitable<AnchorLoadResult> TryLoadSharedAnchorAsync(SerializableGuid guid)
 		{
-			MetaOpenXRAnchorSubsystem meta = TryGetSharingSubsystem();
-			if (meta == null)
+			XRAnchorSubsystem sharing = TryGetSharingSubsystem();
+			if (sharing == null)
 				return AnchorLoadResult.Failure("this runtime has no shared anchors");
 
 			List<XRAnchor> downloaded = new(1);
 
-			meta.sharedAnchorsGroupId = guid;
-			XRResultStatus result =
-				await anchorManager.TryLoadAllSharedAnchorsAsync(downloaded, null);
+			XRResultStatus result = await MetaAnchorGroups.LoadAllAsync(anchorManager, guid, downloaded);
 			ObserveSharingResult(result);
 
 			if (result.IsError())

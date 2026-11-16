@@ -65,6 +65,8 @@ namespace Anaglyph.LaserTag.Interface.HUD
 			BuildTimerMode();
 
 			roundLabel.AddToClassList(roundUssClassName);
+			roundLabel.AddToClassList(BoldClass);
+			roundLabel.AddToClassList(ExpandedClass);
 			roundLabel.pickingMode = PickingMode.Ignore;
 
 			content.Add(scoreMode);
@@ -91,7 +93,7 @@ namespace Anaglyph.LaserTag.Interface.HUD
 			goalScores[Teams.Red] = AddTeamLabel(scoreMode, goalScoreUssClassName, Teams.Red);
 			goalScores[Teams.Blue] = AddTeamLabel(scoreMode, goalScoreUssClassName, Teams.Blue);
 
-			AddLabel(scoreMode, goalTargetLabel, goalTargetUssClassName);
+			AddLabel(scoreMode, goalTargetLabel, goalTargetUssClassName).AddToClassList(ExpandedClass);
 		}
 
 		private void BuildTimerMode()
@@ -103,7 +105,7 @@ namespace Anaglyph.LaserTag.Interface.HUD
 			timerScores[Teams.Red] = AddTeamLabel(timerMode, timerScoreUssClassName, Teams.Red);
 			timerScores[Teams.Blue] = AddTeamLabel(timerMode, timerScoreUssClassName, Teams.Blue);
 
-			AddLabel(timerMode, timerLabel, timerLabelUssClassName);
+			AddLabel(timerMode, timerLabel, timerLabelUssClassName).AddToClassList(ExpandedClass);
 		}
 
 		// Team colour comes from Teams so the display never drifts from the
@@ -119,9 +121,13 @@ namespace Anaglyph.LaserTag.Interface.HUD
 			return label;
 		}
 
+		// the theme's weight and family classes pick the real bold and expanded faces
+		private const string BoldClass = "bold", ExpandedClass = "din-expanded";
+
 		private static Label AddLabel(VisualElement parent, Label label, string ussClassName)
 		{
 			label.AddToClassList(ussClassName);
+			label.AddToClassList(BoldClass);
 			label.pickingMode = PickingMode.Ignore;
 			parent.Add(label);
 

@@ -108,6 +108,15 @@ namespace Anaglyph.XR
 		/// retained and applied when AR Foundation creates or recreates its layer.
 		/// </summary>
 		/// <returns>True if the style was applied to a live passthrough layer.</returns>
+		/// <summary>The style last asked for, whether or not a passthrough layer shows it: what a phone's screen draws over its camera feed instead.</summary>
+		public static (Color tint, float tintAmount, Color edgeTint) RequestedStyle
+		{
+			get
+			{
+				lock (sync) return (passthroughTint, passthroughTintAmount, edgeTint);
+			}
+		}
+
 		public static bool SetStyle(Color tint, float tintAmount, Color newEdgeTint,
 			float textureOpacity = 1f)
 		{

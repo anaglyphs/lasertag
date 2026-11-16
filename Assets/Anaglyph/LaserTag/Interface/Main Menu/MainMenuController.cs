@@ -40,6 +40,35 @@ namespace Anaglyph.LaserTag.Interface
 		public bool IsVisible { get; private set; }
 		public bool IsClosing => !IsVisible && transitionProgress > 0;
 
+		public GateMenu Gate => gateMenu;
+		public Transform[] Panels => panels;
+		public event Action VisibilityChanged = delegate { };
+
+		/// <summary>
+		/// On a phone the panels are flat on the screen, one at a time: none are placed in the room, none
+		/// close because the player walked off, and only <see cref="ScreenPanel"/> shows.
+		/// </summary>
+		public bool OnScreen { get; private set; }
+
+		private int screenPanel;
+
+		/// <summary>Which of <see cref="Panels"/> shows while <see cref="OnScreen"/>.</summary>
+		public int ScreenPanel
+		{
+			get => screenPanel;
+			set
+			{
+				screenPanel = Mathf.Clamp(value, 0, panels.Length - 1);
+				ApplyPanelVisibility();
+			}
+		}
+
+		public void ShowOnScreen(int initialPanel)
+		{
+			OnScreen = true;
+			ScreenPanel = initialPanel;
+		}
+
 		private void Awake()
 		{
 			gateMenu = GetComponentInChildren<GateMenu>(true);
@@ -174,7 +203,7 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void Update()
 		{
-			if (IsVisible && hasPose && NetcodeManagement.State == NetcodeState.Connected &&
+			if (!OnScreen && IsVisible && hasPose && NetcodeManagement.State == NetcodeState.Connected &&
 				MainXRRig.Camera != null)
 				CheckAutoCloseDistance(camTransform.position);
 
@@ -199,6 +228,7 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void ApplyPanelLayout()
 		{
+			if (OnScreen) return;
 			float lerp = transitionCurve.Evaluate(transitionProgress);
 			for (int i = 0; i < panels.Length; i++)
 			{
@@ -215,6 +245,7 @@ namespace Anaglyph.LaserTag.Interface
 
 		private bool CheckIsInView()
 		{
+			if (OnScreen) return true;
 			Vector3 viewPos = MainXRRig.Camera.WorldToViewportPoint(transform.position + transform.forward);
 
 			return viewPos.x is > 0f and < 1f && viewPos.y is > 0f and < 1f && viewPos.z > 0;
@@ -255,14 +286,18 @@ namespace Anaglyph.LaserTag.Interface
 			ApplyPanelVisibility();
 			if (!visible) gateMenu.ResetPasswordAccess();
 			sessionDiscoveryController.SetRecoveryMenuOpen(visible && recoveryRequested);
+			if (changed) VisibilityChanged.Invoke();
 		}
 
 		private void ApplyPanelVisibility()
 		{
 			if (IsVisible) displayedAccess = gateMenu.Access;
 			bool showMenu = displayedAccess == GateMenu.AccessState.Granted;
-			foreach (UIToolkitPanelXRSetup panel in menuPanels)
-				panel.SetVisible(IsVisible && showMenu, IsClosing && showMenu);
+			for (int i = 0; i < menuPanels.Length; i++)
+			{
+				bool shown = showMenu && (!OnScreen || i == screenPanel);
+				menuPanels[i].SetVisible(IsVisible && shown, IsClosing && shown);
+			}
 			gatePanel.SetVisible(IsVisible && !showMenu, IsClosing && !showMenu);
 		}
 
@@ -274,6 +309,7 @@ namespace Anaglyph.LaserTag.Interface
 
 		private async void SetPose()
 		{
+			if (OnScreen) return;
 			// Wait for placement before checking distance when opening or recentering.
 			hasPose = false;
 			CancellationToken ctkn = destroyCancellationToken;

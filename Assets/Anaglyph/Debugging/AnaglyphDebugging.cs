@@ -26,10 +26,8 @@ namespace Anaglyph.Debugging
 			DebugMode = on;
 		}
 
-		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-		private static void InitializeOnLoad()
-		{
-			DebugMode = Debug.isDebugBuild;
-		}
+		// every play starts with it off, also in an editor that keeps statics between plays
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+		private static void StartOff() => _debugMode = false;
 	}
 }

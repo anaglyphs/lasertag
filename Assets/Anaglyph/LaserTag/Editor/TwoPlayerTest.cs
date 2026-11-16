@@ -55,6 +55,8 @@ namespace Anaglyph.LaserTag.Editor
 		private const double FollowCheckSeconds = 1;
 		// an aligned Player 2 whose head is this far from where the host's world has it is in the wrong place, not drifting
 		private const float MisalignedMeters = 1f, MisalignedDegrees = 5f;
+		// a phone's wide camera in landscape, as ARKit and ARCore frame it, held at arm's length below the eyes
+		private const float PhoneHorizontalFov = 64f, PhoneAspect = 4f / 3f, PhoneBelowEyes = 0.15f;
 
 		/// <summary>One run's settings, as <see cref="Launch(float, bool, int, int, float, float, int, float, float, float, bool, float)"/> describes them.</summary>
 		[Serializable]
@@ -90,6 +92,10 @@ namespace Anaglyph.LaserTag.Editor
 			public float secondsAfterRefined;
 			/// <summary>Player 2 joins on two agreeing single-frame results: the other side of an A/B against the one-result, several-frame join.</summary>
 			public bool plainJoin;
+			/// <summary>Player 2 finds the host by session discovery (multicast) instead of dialing it directly.</summary>
+			public bool joinerDiscovers;
+			/// <summary>Player 2 sees through a phone's camera: a 4:3 frame <see cref="PhoneHorizontalFov"/> degrees wide, held below the eyes.</summary>
+			public bool joinerPhone;
 
 			public RunSettings Copy() => (RunSettings)MemberwiseClone();
 		}
@@ -538,7 +544,7 @@ namespace Anaglyph.LaserTag.Editor
 
 			if (!followWalker)
 			{
-				followWalker = SimLoopTest.AddWalker(new GameObject("Following the Host"));
+				followWalker = AddPlayer2Walker("Following the Host");
 				followedPlace = new Vector3(float.PositiveInfinity, 0, 0);
 				SimWalker.SyncNavMesh();
 			}
@@ -586,7 +592,7 @@ namespace Anaglyph.LaserTag.Editor
 
 			if (!followWalker)
 			{
-				followWalker = SimLoopTest.AddWalker(new GameObject("Searching Apart"));
+				followWalker = AddPlayer2Walker("Searching Apart");
 				apartPlace = null;
 			}
 
@@ -641,6 +647,13 @@ namespace Anaglyph.LaserTag.Editor
 		// a prefab that never saved a setting holds the default from its last import, not the code's
 		private static void ReimportSettings() => AssetDatabase.ImportAsset("Assets/Anaglyph/LaserTag/MapManager.prefab", ImportAssetOptions.ForceUpdate);
 
+		private static SimWalker AddPlayer2Walker(string name)
+		{
+			SimWalker walker = SimLoopTest.AddWalker(new GameObject(name));
+			if (run.joinerPhone) walker.eyeHeight -= PhoneBelowEyes;
+			return walker;
+		}
+
 		// Player 2 plays each run once, and closes when no run follows
 		private static void TickClone()
 		{
@@ -666,6 +679,7 @@ namespace Anaglyph.LaserTag.Editor
 
 				SessionState.SetString(ClonePlayedKey, current.folder);
 				PlayModeAutoConnect.Setting.Value = true;
+				PlayModeAutoConnect.JoinByDiscovery = current.joinerDiscovers;
 				PlayModeXRSimulation.Setting.Value = true;
 				PlayModeTrackingDrift.Setting.Value = true;
 				File.WriteAllText(CloneReadyPath(current), SimEnvironmentSetting.Current);
@@ -688,6 +702,10 @@ namespace Anaglyph.LaserTag.Editor
 			}
 
 			providerFields.ApplyModifiedPropertiesWithoutUndo();
+			bool phone = run.joinerPhone && !SimPlayer.IsMainEditor;
+			PassthroughCapture.CropRenderedFramesToAspectForTests = phone ? PhoneAspect : 0;
+			// the rendered frame PhoneHorizontalFov wide, cropped to the phone's aspect by the capture
+			if (phone) MainXRRig.Camera.fieldOfView = Camera.HorizontalToVerticalFieldOfView(PhoneHorizontalFov, MainXRRig.Camera.aspect);
 			if (!SimPlayer.IsMainEditor)
 			{
 				provider.MisalignNextAlignmentForTests = run.misjoinDegrees;
@@ -1015,7 +1033,7 @@ namespace Anaglyph.LaserTag.Editor
 		{
 			List<Sample> host = ReadSamples(Path.Combine(ended.folder, "host.jsonl"));
 			List<Sample> player = ReadSamples(Path.Combine(ended.folder, "player2.jsonl"));
-			StringBuilder text = new($"two players, {ended.minutes:F1} min, graph {(ended.graph ? "on" : "off")}{(ended.seed != 0 ? $", seed {ended.seed}" : "")}{(ended.speed > 0 ? $", {ended.speed:F1} m/s" : "")}{(ended.map == MapUse ? ", from a saved map" : ended.map == MapGrow ? ", growing the saved map" : "")}: ");
+			StringBuilder text = new($"two players, {ended.minutes:F1} min, graph {(ended.graph ? "on" : "off")}{(ended.seed != 0 ? $", seed {ended.seed}" : "")}{(ended.speed > 0 ? $", {ended.speed:F1} m/s" : "")}{(ended.map == MapUse ? ", from a saved map" : ended.map == MapGrow ? ", growing the saved map" : "")}{(ended.joinerPhone ? ", Player 2 on a phone" : "")}: ");
 			if (host.Count == 0 || player.Count == 0) return text.Append($"no comparison: {host.Count} host samples, {player.Count} from Player 2").ToString();
 
 			List<(double time, float offset, float yaw, float apart)> pairs = new();

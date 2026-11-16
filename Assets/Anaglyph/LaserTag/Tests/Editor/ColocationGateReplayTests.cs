@@ -383,6 +383,28 @@ namespace Anaglyph.LaserTag.Tests
 		}
 
 		[Test]
+		public void LooseResultsMakeARoughAlignmentOnlyWhenThreeLandTogether()
+		{
+			MeasurementGate gate = Gate(new MeasurementGate.Settings());
+			GravityPnPResult loose = SolveWithTranslationSigma(0.6f);
+			loose.yawSigma = math.radians(10f);
+			float3 camera = new(1, 1.6f, 2);
+			Pose4 Turned(float degrees) => new(new float3(3, 0, 1), math.radians(170 + degrees));
+
+			Assert.That(gate.LooseResultsAgree(loose, Turned(0), camera, 1, 10f), Is.False);
+			Assert.That(gate.LooseResultsAgree(loose, Turned(20), camera, 1, 10.3f), Is.False, "another place");
+			Assert.That(gate.LooseResultsAgree(loose, Turned(3), camera, 1, 10.6f), Is.False);
+			Assert.That(gate.LooseResultsAgree(loose, Turned(1), camera, 1, 10.9f), Is.True);
+
+			gate.Clear();
+			Assert.That(gate.LooseResultsAgree(loose, Turned(0), camera, 1, 20f), Is.False);
+			Assert.That(gate.LooseResultsAgree(loose, Turned(1), camera, 1, 21f), Is.False);
+			Assert.That(gate.LooseResultsAgree(loose, Turned(2), camera, 1, 24.5f), Is.False, "the first is too long ago");
+			loose.yawSigma = math.radians(20f);
+			Assert.That(gate.LooseResultsAgree(loose, Turned(2), camera, 1, 24.6f), Is.False, "too loose to count");
+		}
+
+		[Test]
 		public void RevisitsKeepTheirTranslationBoundHoweverFarTheLandmarks()
 		{
 			MeasurementGate gate = Gate(new MeasurementGate.Settings());

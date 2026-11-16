@@ -26,7 +26,7 @@ Shader "Anaglyph/DepthKit/Sim/R32toD16Blit"
 		}
 		ENDHLSL
 
-		// mono linear R32_SFloat (phone / AR Foundation simulator) -> one D16 eye slice
+		// mono linear depth (phone / AR Foundation simulator) -> one D16 eye slice
 		Pass
 		{
 			ZWrite On
@@ -38,10 +38,16 @@ Shader "Anaglyph/DepthKit/Sim/R32toD16Blit"
 			#pragma fragment frag
 
 			Texture2D<float> rawDepth;
+			// meters per sampled unit (ARCore's 16-bit millimeters sample as fractions of 65535)
+			float _RawDepthScale;
+			// a phone's depth image counts rows from the top
+			float _FlipRows;
 
 			float frag(Varyings IN) : SV_Depth
 			{
-				const float z = rawDepth.SampleLevel(agPointClampSampler, IN.uv, 0).r;
+				float2 uv = IN.uv;
+				if (_FlipRows > 0.5) uv.y = 1.0 - uv.y;
+				const float z = rawDepth.SampleLevel(agPointClampSampler, uv, 0).r * _RawDepthScale;
 
 				// no measurement: 0 / negative / NaN / inf would map to the near plane or NaN
 				if (!(z > 0.0 && z < 1e30)) return AG_DEPTH_UNKNOWN;

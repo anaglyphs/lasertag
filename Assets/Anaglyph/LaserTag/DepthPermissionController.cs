@@ -55,6 +55,9 @@ namespace Anaglyph.LaserTag
 			if (loader == null || loader.GetLoadedSubsystem<XROcclusionSubsystem>() == null)
 				return false;
 
+			// a phone's AR runtime asks for its camera itself; a Quest's depth needs the scene permission
+			if (Anaglyph.XR.HandheldAR.IsActive) return true;
+
 			PermissionAuthorization authorization = AndroidPermissionChecks.CheckPermission(
 				MetaPermissionChecks.ScenePermission).authorization;
 

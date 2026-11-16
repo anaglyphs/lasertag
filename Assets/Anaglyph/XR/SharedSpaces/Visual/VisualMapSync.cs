@@ -296,7 +296,7 @@ namespace Anaglyph.XR.SharedSpaces
 			List<Landmark> sending = new();
 			foreach (Landmark l in refined)
 				// one that hasn't gone out yet goes as it is then, with its views
-				if (l.sentInverseDepth > 0 && math.abs(l.inverseDepth - l.sentInverseDepth) >= DepthResendShare * l.sentInverseDepth)
+				if (l.sentInverseDepth > 0 && ((l.established && l.sentUnestablished) || math.abs(l.inverseDepth - l.sentInverseDepth) >= DepthResendShare * l.sentInverseDepth))
 					sending.Add(l);
 			refined.Clear();
 			if (sending.Count == 0) return;
@@ -312,8 +312,9 @@ namespace Anaglyph.XR.SharedSpaces
 				int at = HeaderBytes + i * DepthEntryBytes;
 				SyncBytes.Write(message, at, l.ownerId);
 				SyncBytes.Write(message, at + sizeof(int), ((half)l.inverseDepth).value);
-				SyncBytes.Write(message, at + sizeof(int) + sizeof(ushort), ((half)math.min(l.inverseDepthSigma, 65000f)).value);
+				SyncBytes.Write(message, at + sizeof(int) + sizeof(ushort), ((half)math.min(l.SharedInverseDepthSigma, 65000f)).value);
 				l.sentInverseDepth = l.inverseDepth;
+				l.sentUnestablished = !l.established;
 			}
 
 			depthsSent += sending.Count;

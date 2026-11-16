@@ -18,6 +18,7 @@ namespace Anaglyph.LaserTag.Editor
 	public static partial class TwoPlayerTest
 	{
 		private const string QueueSessionKey = "Anaglyph.TwoPlayerTest.Queue";
+		private const string QuitWhenQueueEndsKey = "Anaglyph.TwoPlayerTest.QuitWhenQueueEnds";
 		// Player 2 waits this long after a queued run for the next, then closes: the host may be gone
 		private const double QueueGapSeconds = 600;
 
@@ -30,7 +31,46 @@ namespace Anaglyph.LaserTag.Editor
 			public int next;
 		}
 
+		[Serializable]
+		private class CommandLineQueue
+		{
+			public List<RunSettings> runs = new();
+		}
+
 		private static double nextQueueCheck;
+
+		/// <summary>
+		/// For <c>-executeMethod</c>: queues the runs in the JSON file after <c>-twoPlayerQueue</c>
+		/// (<c>{"runs": [RunSettings, …]}</c>) and closes the editor when the queue ends.
+		/// </summary>
+		public static void QueueFromCommandLine()
+		{
+			string[] args = Environment.GetCommandLineArgs();
+			int at = Array.IndexOf(args, "-twoPlayerQueue");
+			if (at < 0 || at + 1 >= args.Length)
+			{
+				Debug.LogError($"[{nameof(TwoPlayerTest)}] -twoPlayerQueue <file> is missing");
+				return;
+			}
+
+			List<RunSettings> runs = JsonUtility.FromJson<CommandLineQueue>(File.ReadAllText(args[at + 1])).runs;
+			// the editor is still settling when -executeMethod runs: queue once it is idle
+			void QueueWhenIdle()
+			{
+				if (EditorApplication.isCompiling || EditorApplication.isUpdating) return;
+				EditorApplication.update -= QueueWhenIdle;
+				string problem = Queue(runs);
+				if (problem != null)
+				{
+					Debug.LogError($"[{nameof(TwoPlayerTest)}] command-line queue not started: {problem}");
+					return;
+				}
+
+				SessionState.SetBool(QuitWhenQueueEndsKey, true);
+			}
+
+			EditorApplication.update += QueueWhenIdle;
+		}
 
 		private static string QueuePath => Path.Combine(LogRoot, "queue.json");
 
@@ -151,6 +191,7 @@ namespace Anaglyph.LaserTag.Editor
 			File.Delete(QueuePath);
 			SessionState.EraseString(QueueSessionKey);
 			LogQueue($"queue {how}: {queue.next} of {queue.runs.Count} runs started");
+			if (SessionState.GetBool(QuitWhenQueueEndsKey, false)) EditorApplication.Exit(0);
 		}
 
 		private static string Describe(RunSettings settings) => $"{Path.GetFileNameWithoutExtension(settings.environment)} | seed {settings.seed}";

@@ -91,3 +91,12 @@
     font-size: 45px;
     -unity-text-align: middle-center;
 }
+
+/* messages wrap inside the HUD instead of running off its edges */
+.connection-label,
+.respawn-label,
+.results-title,
+.results-round-label {
+    white-space: normal;
+    max-width: 100%;
+}

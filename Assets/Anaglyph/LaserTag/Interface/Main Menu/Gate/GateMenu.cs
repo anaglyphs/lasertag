@@ -91,10 +91,14 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void RefreshGate()
 		{
-			PermissionAuthorization sceneAuthorization =
-				MetaPermissionChecks.CheckScene().authorization;
-			PermissionAuthorization cameraAuthorization =
-				MetaPermissionChecks.CheckPassthroughCamera().authorization;
+			// these are Quest's permissions; a phone's AR runtime asks for its camera itself
+			bool handheld = Anaglyph.XR.HandheldAR.IsActive;
+			PermissionAuthorization sceneAuthorization = handheld
+				? PermissionAuthorization.NotRequired
+				: MetaPermissionChecks.CheckScene().authorization;
+			PermissionAuthorization cameraAuthorization = handheld
+				? PermissionAuthorization.NotRequired
+				: MetaPermissionChecks.CheckPassthroughCamera().authorization;
 
 			bool permissionsSatisfied =
 				IsSatisfied(sceneAuthorization) && IsSatisfied(cameraAuthorization);
@@ -105,6 +109,7 @@ namespace Anaglyph.LaserTag.Interface
 			HasCheckedPermissions = true;
 
 			UpdatePermissionToggle(scenePermissionToggle, sceneAuthorization, sceneRequestInFlight);
+			scenePermissionToggle.style.display = handheld ? DisplayStyle.None : DisplayStyle.Flex;
 			UpdatePermissionToggle(cameraPermissionToggle, cameraAuthorization, cameraRequestInFlight);
 			UpdateStatus();
 			navView.SetModalPresented(limitedSupportModal, warnLimitedSupport, 100);
@@ -161,7 +166,7 @@ namespace Anaglyph.LaserTag.Interface
 		// themselves and depend on another player's headset streaming one to them.
 		private bool NeedsLimitedSupportWarning()
 		{
-			return !limitedSupportAcknowledged &&
+			return !limitedSupportAcknowledged && !Anaglyph.XR.HandheldAR.IsActive &&
 				MetaPermissionChecks.CheckEnvironmentDepth() == CapabilitySupport.Unsupported;
 		}
 

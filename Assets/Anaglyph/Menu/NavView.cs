@@ -44,6 +44,8 @@ namespace Anaglyph.Menu
 		private double transitionStart;
 		private float transitionDuration;
 		private Action restoreTransitionStyles;
+		// a committed drag back: the back transition picks up from this fraction instead of the start
+		private float resumeBackAt;
 		private const string modalTransitionClass = "nav-page--modal-transition";
 
 		/// <summary>Name of the page shown when this view attaches to a panel.</summary>
@@ -115,6 +117,36 @@ namespace Anaglyph.Menu
 			ValidatePage(targetPage);
 			bool targetPageIsInHistory = PushOrTruncateHistory(targetPage);
 			Resolve(targetPageIsInHistory ? TransitionKind.Back : TransitionKind.Forward);
+		}
+
+		/// <summary>Whether <see cref="GoBack"/> would do anything: a dismissible modal on top, or history behind a page that offers a way back.</summary>
+		public bool CanGoBack
+		{
+			get
+			{
+				EnsureBuilt();
+				int topModal = TopModalIndex();
+				if (topModal != -1) return modals[topModal].page.ModalUserDismissible;
+				return history.Count >= 2 && CurrentPage != null && CurrentPage.ShowBackButton;
+			}
+		}
+
+		/// <summary>
+		/// Goes back in the innermost navigation shown under <paramref name="root"/> that can: what a back
+		/// gesture or button means. False when none can.
+		/// </summary>
+		public static bool TryGoBackIn(VisualElement root)
+		{
+			NavView innermost = InnermostThatCanGoBack(root);
+			innermost?.GoBack();
+			return innermost != null;
+		}
+
+		private static bool IsShown(VisualElement element)
+		{
+			for (VisualElement e = element; e != null; e = e.hierarchy.parent)
+				if (e.resolvedStyle.display == DisplayStyle.None) return false;
+			return true;
 		}
 
 		public void GoBack()
@@ -384,6 +416,14 @@ namespace Anaglyph.Menu
 			SetTranslation(next, incomingStart);
 			transitionDuration = durationMs / 1000f;
 			transitionStart = Time.realtimeSinceStartupAsDouble;
+			if (kind == TransitionKind.Back && resumeBackAt > 0)
+			{
+				// AdvanceTransition eases by 1 - (1 - t)^3: start at the time that eases to where the finger was
+				float startTime = 1 - Mathf.Pow(1 - Mathf.Clamp01(resumeBackAt), 1f / 3f);
+				transitionStart -= startTime * transitionDuration;
+				SetTranslation(previous, outgoingEnd * resumeBackAt);
+				SetTranslation(next, incomingStart * (1 - resumeBackAt));
+			}
 			transitionTick.Resume();
 
 			bool transferFocus = focusController?.focusedElement is VisualElement focused &&

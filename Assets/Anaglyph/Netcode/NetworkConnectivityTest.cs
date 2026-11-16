@@ -28,7 +28,7 @@ namespace Anaglyph.Netcode
 
 			return SimulatedNetworkState;
 
-#endif
+#elif UNITY_ANDROID
 			
         const int NET_CAPABILITY_INTERNET = 12;
         const int NET_CAPABILITY_VALIDATED = 16;
@@ -58,6 +58,12 @@ namespace Anaglyph.Netcode
         return internetConfigured && internetValidated
             ? NetworkState.ConnectionFullInternet
             : NetworkState.ConnectionLAN;
+#else
+			// iOS and desktops can't tell a validated internet connection from a local one
+			return Application.internetReachability == NetworkReachability.NotReachable
+				? NetworkState.NoConnection
+				: NetworkState.ConnectionFullInternet;
+#endif
 		}
 	}
 }

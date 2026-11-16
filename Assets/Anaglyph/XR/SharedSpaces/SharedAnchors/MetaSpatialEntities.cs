@@ -49,6 +49,8 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		{
 			get
 			{
+				// a phone never loads Meta's runtime; don't load its library to find out
+				if (HandheldAR.IsActive) return false;
 				try
 				{
 					return OVRPlugin.initialized;

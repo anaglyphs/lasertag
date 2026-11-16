@@ -75,10 +75,9 @@ namespace Anaglyph.XR.VisualLocalization
 
 	/// <summary>
 	/// Grabs the passthrough camera's latest CPU image through
-	/// <see cref="MetaPassthroughCamera"/> (or AR Foundation's generic image), turns it
-	/// into the extractor's 640×480 grayscale with matching intrinsics, and places the
-	/// lens in the world at the frame's capture time through <see cref="HeadPoseHistory"/>.
-	/// The image is center-cropped to 4:3 first, so any sensor mode works.
+	/// <see cref="MetaPassthroughCamera"/> (or AR Foundation's generic image, as on phones), fits
+	/// the whole frame into the extractor's square grayscale with matching intrinsics, and places
+	/// the lens in the world at the frame's capture time through <see cref="HeadPoseHistory"/>.
 	/// </summary>
 	public sealed class PassthroughCapture : IDisposable
 	{
@@ -90,6 +89,9 @@ namespace Anaglyph.XR.VisualLocalization
 
 		/// <summary>XR Simulation's readback has its first row at the bottom.</summary>
 		public bool simulatorMirrorY = true;
+
+		/// <summary>Above 0: XR Simulation's frames are center-cropped to this width over height, as a phone's 4:3 sensor sees.</summary>
+		public static float CropRenderedFramesToAspectForTests;
 
 		public PassthroughCapture(ARCameraManager cameraManager)
 		{
@@ -127,9 +129,16 @@ namespace Anaglyph.XR.VisualLocalization
 				{
 					if (!cameraManager.TryGetIntrinsics(out intrinsics)) return false;
 					gotImage = cameraManager.TryAcquireLatestCpuImage(out image);
-					if (!gotImage || !fallbackTimestampNs.HasValue) return false;
-					timestampNs = fallbackTimestampNs.Value;
+					if (!gotImage) return false;
 					lens = LensPosition.Unknown;
+
+					// a phone's latest image can be a frame newer than the last frame event: its own stamp finds its pose
+					if (HeadPoseHistory.Instance.SamplesAreCameraFrames && image.timestamp > 0)
+						timestampNs = (long)Math.Round(image.timestamp * 1e9);
+					else if (fallbackTimestampNs.HasValue)
+						timestampNs = fallbackTimestampNs.Value;
+					else
+						return false;
 
 #if UNITY_EDITOR
 					// XR Simulation renders its camera from an Update, before the head moves to
@@ -148,7 +157,8 @@ namespace Anaglyph.XR.VisualLocalization
 					: float.PositiveInfinity;
 				if (into.angularSpeed > maxAngularSpeed) return false;
 
-				if (Application.platform == RuntimePlatform.Android && !lookedForLens)
+				// a phone's camera poses are already the lens's
+				if (Application.platform == RuntimePlatform.Android && !lookedForLens && !HeadPoseHistory.Instance.SamplesAreCameraFrames)
 				{
 					lookedForLens = true;
 					if (!AndroidCamExtrinsicsHelper.TryFindCameraExtrinsics(cameraManager.currentFacingDirection,
@@ -157,6 +167,24 @@ namespace Anaglyph.XR.VisualLocalization
 				}
 
 				if (!TryGetGrayscale(image, out NativeArray<byte> source, out int sourceStride, out int width, out int height, out into.rendered)) return false;
+				int sourceOffsetX = 0, sourceOffsetY = 0;
+				int uncroppedWidth = width, uncroppedHeight = height;
+				float cropAspect = CropRenderedFramesToAspectForTests;
+				if (into.rendered && cropAspect > 0)
+				{
+					if (width > height * cropAspect)
+					{
+						int cropped = Mathf.RoundToInt(height * cropAspect);
+						sourceOffsetX = (width - cropped) / 2;
+						width = cropped;
+					}
+					else
+					{
+						int cropped = Mathf.RoundToInt(width / cropAspect);
+						sourceOffsetY = (height - cropped) / 2;
+						height = cropped;
+					}
+				}
 				if (!loggedSize)
 				{
 					// which camera mode the runtime picked: AR Foundation can't choose one on Quest
@@ -169,18 +197,21 @@ namespace Anaglyph.XR.VisualLocalization
 				float cx = intrinsics.principalPoint.x, cy = intrinsics.principalPoint.y;
 				if (fy <= 0)
 				{
-					fy = fx = height * 0.5f * MainXRRig.Camera.projectionMatrix.m11;
-					cx = width * 0.5f;
-					cy = height * 0.5f;
+					fy = fx = uncroppedHeight * 0.5f * MainXRRig.Camera.projectionMatrix.m11;
+					cx = uncroppedWidth * 0.5f;
+					cy = uncroppedHeight * 0.5f;
 				}
-				else if (intrinsics.resolution.x > 0 && intrinsics.resolution.x != width)
+				else if (intrinsics.resolution.x > 0 && intrinsics.resolution.x != uncroppedWidth)
 				{
-					float s = (float)width / intrinsics.resolution.x;
+					float s = (float)uncroppedWidth / intrinsics.resolution.x;
 					fx *= s;
 					fy *= s;
 					cx *= s;
 					cy *= s;
 				}
+
+				cx -= sourceOffsetX;
+				cy -= sourceOffsetY;
 
 				// the whole frame, fitted inside the model's square input: a 1280×1280 frame fills
 				// it, a 4:3 one keeps its full width between padded bands (edge pixels repeated,
@@ -194,6 +225,8 @@ namespace Anaglyph.XR.VisualLocalization
 				{
 					src = source,
 					srcStride = sourceStride,
+					srcOffsetX = sourceOffsetX,
+					srcOffsetY = sourceOffsetY,
 					srcWidth = width,
 					srcHeight = height,
 					x0 = x0,
@@ -231,6 +264,7 @@ namespace Anaglyph.XR.VisualLocalization
 			switch (image.format)
 			{
 				case XRCpuImage.Format.AndroidYuv420_888:
+				case XRCpuImage.Format.IosYpCbCr420_8BiPlanarFullRange:
 				case XRCpuImage.Format.OneComponent8:
 				{
 					XRCpuImage.Plane luma = image.GetPlane(0);
@@ -271,7 +305,7 @@ namespace Anaglyph.XR.VisualLocalization
 		private struct ResampleJob : IJobParallelFor
 		{
 			[ReadOnly] public NativeArray<byte> src;
-			public int srcStride, srcWidth, srcHeight;
+			public int srcStride, srcOffsetX, srcOffsetY, srcWidth, srcHeight;
 			public float x0, y0;
 			public float scale;
 			[WriteOnly, NativeDisableParallelForRestriction] public NativeArray<float> dst;
@@ -287,7 +321,7 @@ namespace Anaglyph.XR.VisualLocalization
 					float sx = math.clamp((x + 0.5f) / scale - 0.5f + x0, 0, srcWidth - 1);
 					int ix = math.min((int)sx, srcWidth - 2);
 					float fx = sx - ix;
-					int i = iy * srcStride + ix;
+					int i = (iy + srcOffsetY) * srcStride + srcOffsetX + ix;
 					float top = math.lerp(src[i], src[i + 1], fx);
 					float bottom = math.lerp(src[i + srcStride], src[i + srcStride + 1], fx);
 					dst[y * w + x] = math.lerp(top, bottom, fy) * (1f / 255f);

@@ -48,6 +48,17 @@ namespace Anaglyph.LaserTag.Weapons.Blaster
 			Fire();
 		}
 
+		// a phone is aimed with its camera: the bolt leaves just in front of it, through the reticle.
+		// A controller fires from the muzzle, angled for how the controller is held
+		private const float PhoneMuzzleDistance = 0.15f;
+
+		private (Vector3 position, Quaternion rotation) Muzzle()
+		{
+			Transform camera = HandInput.FollowedCamera;
+			if (camera == null) return (muzzle.position, muzzle.rotation);
+			return (camera.position + camera.forward * PhoneMuzzleDistance, camera.rotation);
+		}
+
 		private void Update()
 		{
 			if (heldTrigger != null && heldTrigger.EvaluateMagnitude() < rearmThreshold)
@@ -59,8 +70,8 @@ namespace Anaglyph.LaserTag.Weapons.Blaster
 			if (!NetworkManager.Singleton.IsConnectedClient || !WeaponsManagement.CanFire)
 				return;
 
-			NetworkObject n = NetworkObjectPool.Instance.GetNetworkObject(
-				boltPrefab, muzzle.position, muzzle.rotation);
+			(Vector3 from, Quaternion aim) = Muzzle();
+			NetworkObject n = NetworkObjectPool.Instance.GetNetworkObject(boltPrefab, from, aim);
 
 			n.SpawnWithOwnership(NetworkManager.Singleton.LocalClientId);
 

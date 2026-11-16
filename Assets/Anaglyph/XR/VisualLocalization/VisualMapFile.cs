@@ -164,7 +164,7 @@ namespace Anaglyph.XR.VisualLocalization
 						origin = reference.position,
 						direction = reference.rotation * (Vector3)l.bearing,
 						inverseDepth = l.inverseDepth,
-						inverseDepthSigma = l.inverseDepthSigma,
+						inverseDepthSigma = l.SharedInverseDepthSigma,
 						node = wireNode?.Invoke(l.node) ?? 0,
 						owner = l.owner,
 					};
@@ -172,6 +172,7 @@ namespace Anaglyph.XR.VisualLocalization
 				}
 
 				l.sentInverseDepth = l.wire.inverseDepth;
+				l.sentUnestablished = !l.established;
 				data.landmarks.Add(l.wire);
 				return l.ownerId;
 			}
