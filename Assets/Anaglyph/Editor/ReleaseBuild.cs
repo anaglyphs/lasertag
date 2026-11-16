@@ -15,13 +15,24 @@ namespace Anaglyph.Editor
 	/// </summary>
 	public static class ReleaseBuild
 	{
+		/// <summary>Exit code asking for a relaunch: the profile was just activated, so its defines aren't compiled in yet.</summary>
+		public const int ProfileActivatedExitCode = 2;
+
 		public static void BuildFromCommandLine()
 		{
 			BuildReport report = null;
 			try
 			{
+				string profilePath = CommandLineValue("-releaseProfile");
+				if (ActivateProfileUnlessActive(profilePath))
+				{
+					Debug.Log($"[{nameof(ReleaseBuild)}] activated {profilePath}; relaunch to build with its defines");
+					EditorApplication.Exit(ProfileActivatedExitCode);
+					return;
+				}
+
 				report = Build(
-					CommandLineValue("-releaseProfile"),
+					profilePath,
 					CommandLineValue("-releaseOutput"),
 					int.Parse(CommandLineValue("-releaseBuildNumber")));
 			}
@@ -34,10 +45,25 @@ namespace Anaglyph.Editor
 			EditorApplication.Exit(report != null && report.summary.result == BuildResult.Succeeded ? 0 : 1);
 		}
 
+		/// <summary>
+		/// Editor code compiles with the active profile's defines, and some build processors (ARKit's) act
+		/// only on those, so a newly activated profile needs a relaunch before it builds correctly.
+		/// </summary>
+		private static bool ActivateProfileUnlessActive(string profilePath)
+		{
+			BuildProfile profile = LoadProfile(profilePath);
+			if (BuildProfile.GetActiveBuildProfile() == profile) return false;
+			BuildProfile.SetActiveBuildProfile(profile);
+			AssetDatabase.SaveAssets();
+			return true;
+		}
+
+		private static BuildProfile LoadProfile(string profilePath) =>
+			AssetDatabase.LoadAssetAtPath<BuildProfile>(profilePath) ?? throw new ArgumentException($"no build profile at {profilePath}");
+
 		public static BuildReport Build(string profilePath, string outputPath, int buildNumber)
 		{
-			BuildProfile profile = AssetDatabase.LoadAssetAtPath<BuildProfile>(profilePath);
-			if (profile == null) throw new ArgumentException($"no build profile at {profilePath}");
+			BuildProfile profile = LoadProfile(profilePath);
 			BuildProfile.SetActiveBuildProfile(profile);
 			SetBuildNumberAndSigning(EditorUserBuildSettings.activeBuildTarget, buildNumber);
 			AssetDatabase.SaveAssets();

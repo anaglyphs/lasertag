@@ -57,7 +57,14 @@ namespace Anaglyph.LaserTag.Editor
 
 		public void OnPreprocessBuild(BuildReport report)
 		{
-			if (report.summary.platform == BuildTarget.iOS) SetUp();
+			if (report.summary.platform != BuildTarget.iOS) return;
+			SetUp();
+#if !UNITY_XR_ARKIT_LOADER_ENABLED
+			// in batch mode ARKit includes its native library only when editor code compiled with this define
+			if (Application.isBatchMode)
+				throw new BuildFailedException("UNITY_XR_ARKIT_LOADER_ENABLED isn't compiled into the editor, so the ARKit library " +
+					"would be left out and Xcode would fail to link. Activate the iOS build profile, relaunch Unity, then build.");
+#endif
 		}
 
 		[MenuItem("Lasertag/Mobile/Set Up iOS")]

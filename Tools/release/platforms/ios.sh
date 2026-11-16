@@ -13,4 +13,7 @@ platform_highest_store_build_number() { echo 0; }
 
 platform_built_number() { /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$1/Info.plist"; }
 
-platform_upload() { "$project_dir/Tools/ios-testflight.sh" "$APPLE_TEAM_ID" "$1"; }
+# archiving compiles and signs, so it belongs with the build, before anything uploads
+platform_package() { "$project_dir/Tools/ios-testflight.sh" "$APPLE_TEAM_ID" "$1" archive; }
+
+platform_upload() { "$project_dir/Tools/ios-testflight.sh" "$APPLE_TEAM_ID" "$1" upload; }
