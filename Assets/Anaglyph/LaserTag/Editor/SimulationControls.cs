@@ -34,6 +34,7 @@ namespace Anaglyph.LaserTag.Editor
 
 			EditorGUILayout.LabelField("Simulation", EditorStyles.boldLabel);
 			DrawToggle("Simulate XR", PlayModeXRSimulation.Setting);
+			DrawToggle("Play as a phone", PlayModePhoneSimulation.Setting);
 			DrawToggle("Simulate tracking drift", PlayModeTrackingDrift.Setting);
 			DrawToggle("Show simulated environment", PlayModeSimulationVisibility.Setting);
 			DrawToggle("Show scanned environment mesh", PlayModeChunkVisibility.Setting);
@@ -282,6 +283,12 @@ namespace Anaglyph.LaserTag.Editor
 		public static readonly PlayModeSetting Setting = new("Anaglyph.PlayMode.SimulateXR");
 	}
 
+	/// Plays over XR Simulation with the phone's screen UI and touch input.
+	public static class PlayModePhoneSimulation
+	{
+		public static readonly PlayModeSetting Setting = new("Anaglyph.PlayMode.SimulatePhone");
+	}
+
 	/// Hosts or connects on entering play mode. Runs in every editor process,
 	/// including virtual players.
 	[InitializeOnLoad]
@@ -290,6 +297,13 @@ namespace Anaglyph.LaserTag.Editor
 		public const string LoopbackIP = "127.0.0.1";
 
 		public static readonly PlayModeSetting Setting = new("Anaglyph.PlayMode.AutoConnect");
+
+		/// <summary>This editor, a joiner, finds the host by session discovery instead of dialing loopback. Per editor process.</summary>
+		public static bool JoinByDiscovery
+		{
+			get => SessionState.GetBool("Anaglyph.PlayMode.JoinByDiscovery", false);
+			set => SessionState.SetBool("Anaglyph.PlayMode.JoinByDiscovery", value);
+		}
 
 		// Virtual players may enter play mode before the host is listening.
 		private const double RetryInterval = 1;
@@ -344,6 +358,11 @@ namespace Anaglyph.LaserTag.Editor
 				if (Maps.SpaceManager.Instance == null) return;
 				if (!Maps.SpaceManager.Instance.RestoreLastSpaceForSimulation()) return;
 				NetcodeManagement.Host(NetcodeManagement.Protocol.LAN);
+				EditorApplication.update -= Tick;
+			}
+			else if (JoinByDiscovery)
+			{
+				// SessionDiscoveryController listens, and joins the host it hears
 				EditorApplication.update -= Tick;
 			}
 			else

@@ -1,6 +1,5 @@
 using System;
 using Anaglyph.Netcode;
-using Anaglyph.XR.SharedSpaces.SharedAnchors;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -20,11 +19,9 @@ namespace Anaglyph.LaserTag
 		private bool hasAttemptedPinnedConnection;
 		private string attemptedAddress;
 		private float nextAttemptTime;
-		private MetaSessionDiscovery sessionDiscovery;
 		private NetworkManager subscribedNetworkManager;
 
-		public bool IsListening =>
-			isActiveAndEnabled && sessionDiscovery != null && sessionDiscovery.IsListening;
+		public bool IsListening => isActiveAndEnabled && SessionDiscovery.IsListening;
 
 		private bool PinnedConnectionAllowed => isActiveAndEnabled &&
 			requiredPermissionsGranted && !recoveryMenuOpen && HeadsetConfiguration.PinnedHostEnabled;
@@ -45,7 +42,7 @@ namespace Anaglyph.LaserTag
 			HeadsetConfiguration.Changed -= ApplyConnectionPolicy;
 			CancelPinnedAttempt();
 			SetNetworkManager(null);
-			SetDiscoveryActivity(MetaSessionDiscovery.Activity.Disabled);
+			SessionDiscovery.SetActivity(SessionDiscoveryActivity.Disabled);
 		}
 
 		public void SetRequiredPermissionsGranted(bool granted)
@@ -97,23 +94,23 @@ namespace Anaglyph.LaserTag
 			if (!PinnedConnectionAllowed || attemptedAddress != HeadsetConfiguration.PinnedHostAddress)
 				CancelPinnedAttempt();
 
-			MetaSessionDiscovery.Activity activity = MetaSessionDiscovery.Activity.Disabled;
+			SessionDiscoveryActivity activity = SessionDiscoveryActivity.Disabled;
 			if (isActiveAndEnabled && requiredPermissionsGranted)
 			{
 				activity = NetcodeManagement.State switch
 				{
 					NetcodeState.Disconnected when menuAllowsListening &&
 					                               !HeadsetConfiguration.PinnedHostEnabled =>
-						MetaSessionDiscovery.Activity.Listening,
+						SessionDiscoveryActivity.Listening,
 					// The LAN host advertises its IP; the relay session owner advertises its name.
 					NetcodeState.Connected when manager != null &&
 					                            manager.LocalClient.IsSessionOwner =>
-						MetaSessionDiscovery.Activity.Advertising,
-					_ => MetaSessionDiscovery.Activity.Disabled
+						SessionDiscoveryActivity.Advertising,
+					_ => SessionDiscoveryActivity.Disabled
 				};
 			}
 
-			SetDiscoveryActivity(activity);
+			SessionDiscovery.SetActivity(activity);
 		}
 
 		private void Update()
@@ -164,20 +161,6 @@ namespace Anaglyph.LaserTag
 			ownsPinnedAttempt = false;
 			if (NetworkManager.Singleton != null && NetcodeManagement.State == NetcodeState.Connecting)
 				NetcodeManagement.Disconnect();
-		}
-
-		private void SetDiscoveryActivity(MetaSessionDiscovery.Activity activity)
-		{
-			MetaSessionDiscovery current = MetaSessionDiscovery.Instance;
-			if (current != sessionDiscovery)
-			{
-				// Unity's destroyed components are not CLR-null during scene teardown.
-				if (sessionDiscovery != null)
-					sessionDiscovery.SetActivity(MetaSessionDiscovery.Activity.Disabled);
-				sessionDiscovery = current;
-			}
-			if (sessionDiscovery != null)
-				sessionDiscovery.SetActivity(activity);
 		}
 	}
 }

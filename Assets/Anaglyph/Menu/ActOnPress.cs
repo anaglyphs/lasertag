@@ -21,7 +21,7 @@ namespace Anaglyph.Menu
 		{
 			// Captures the pointer and sets the :active pseudo state. It does not
 			// click — Clickable only clicks on down when it is set up to repeat.
-			actOnRelease = target.ClassListContains("destructive");
+			actOnRelease = ActOnPress.ActsOnRelease || target.ClassListContains("destructive");
 			base.ProcessDownEvent(evt, localPosition, pointerId);
 
 			if (!actOnRelease && target.enabledInHierarchy)
@@ -44,6 +44,12 @@ namespace Anaglyph.Menu
 	public static class ActOnPress
 	{
 		/// <summary>
+		/// Buttons and toggles act on release, as touch screens expect: a press there may become a
+		/// scroll or a back swipe instead.
+		/// </summary>
+		public static bool ActsOnRelease { get; set; }
+
+		/// <summary>
 		/// Makes buttons, toggles, and radio buttons act on press unless destructive.
 		/// Call it before wiring any <see cref="Button.clicked"/>
 		/// handlers — swapping the manipulator drops handlers already attached
@@ -62,7 +68,7 @@ namespace Anaglyph.Menu
 		private static void OnBoolFieldPressed(PointerDownEvent evt)
 		{
 			var field = (BaseBoolField)evt.currentTarget;
-			if (evt.button != 0 || !field.enabledInHierarchy || field.ClassListContains("destructive"))
+			if (ActsOnRelease || evt.button != 0 || !field.enabledInHierarchy || field.ClassListContains("destructive"))
 				return;
 			if (!field.toggleOnLabelClick && field.labelElement.worldBound.Contains(evt.position))
 				return;

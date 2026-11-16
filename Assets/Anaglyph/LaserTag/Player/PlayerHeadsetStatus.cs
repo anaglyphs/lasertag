@@ -93,8 +93,14 @@ namespace Anaglyph.LaserTag.Player
 				if (headTrackedSampleFrame != Time.frameCount)
 				{
 					headTrackedSampleFrame = Time.frameCount;
-					var head = InputDevices.GetDeviceAtXRNode(XRNode.Head);
-					headTrackedSample = head.TryGetFeatureValue(CommonUsages.isTracked, out bool tracked) && tracked;
+					// a phone has no head device: its AR session's tracking is the camera's
+					if (Anaglyph.XR.HandheldAR.IsActive)
+						headTrackedSample = UnityEngine.XR.ARFoundation.ARSession.state == UnityEngine.XR.ARFoundation.ARSessionState.SessionTracking;
+					else
+					{
+						var head = InputDevices.GetDeviceAtXRNode(XRNode.Head);
+						headTrackedSample = head.TryGetFeatureValue(CommonUsages.isTracked, out bool tracked) && tracked;
+					}
 				}
 
 				return headTrackedSample;

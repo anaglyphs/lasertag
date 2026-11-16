@@ -28,6 +28,9 @@ namespace Anaglyph.XR
 	/// runtime is the same time base as XrTime — i.e. the same domain as
 	/// ARCameraFrameEventArgs.timestampNs / AROcclusionFrameEventArgs timestamps.
 	/// No clock conversion needed; pass timestampNs straight in.
+	///
+	/// On phones, <see cref="HandheldCameraPoses"/> feeds every camera frame's own pose
+	/// and timestamp instead (<see cref="SamplesAreCameraFrames"/>).
 	/// </summary>
 	[DefaultExecutionOrder(-998)] // after MainXRRig (-999) sets its Instance
 	public class HeadPoseHistory : MonoBehaviour
@@ -55,32 +58,69 @@ namespace Anaglyph.XR
 		/// </summary>
 		public float Path { get; private set; }
 
+		/// <summary>
+		/// Samples come from <see cref="AddCameraFrameSample"/>: each is the camera lens itself at one
+		/// of its frames, stamped on the camera's clock, rather than the head sampled before rendering.
+		/// </summary>
+		public bool SamplesAreCameraFrames { get; private set; }
+
+		// how far past the newest camera frame a lookup may land and still get it: image timestamps
+		// round-trip through seconds
+		private const long CameraFrameToleranceNs = 1_000_000;
+
 		private void Awake() => Instance = this;
 		private void OnEnable() => Application.onBeforeRender += Capture;
 		private void OnDisable() => Application.onBeforeRender -= Capture;
 
 		private void Capture()
 		{
-			if (MainXRRig.Instance == null) return;
+			if (MainXRRig.Instance == null || SamplesAreCameraFrames) return;
 
 			Transform ts = MainXRRig.TrackingSpace;
 			Transform cam = MainXRRig.Camera.transform;
 
 			// camera pose expressed in tracking space
 			Matrix4x4 local = ts.worldToLocalMatrix * cam.localToWorldMatrix;
+			Append(MonotonicNs(), local.GetPosition(), local.rotation);
+		}
 
+		/// <summary>
+		/// A camera frame's lens pose in the XR camera's parent space (where AR Foundation places the
+		/// camera), at the frame's timestamp. From the first one on, these are the only samples.
+		/// </summary>
+		public void AddCameraFrameSample(long timestampNs, Pose inCameraParent)
+		{
+			if (MainXRRig.Instance == null) return;
+			if (!SamplesAreCameraFrames)
+			{
+				SamplesAreCameraFrames = true;
+				count = 0;
+			}
+
+			if (count > 0 && timestampNs <= ring[(count - 1) % ring.Length].tNs) return;
+
+			Matrix4x4 parentToLocal = CameraParentToTrackingSpace();
+			Append(timestampNs, parentToLocal.MultiplyPoint(inCameraParent.position), parentToLocal.rotation * inCameraParent.rotation);
+		}
+
+		private void Append(long timestampNs, Vector3 position, Quaternion rotation)
+		{
 			if (count > 0)
 			{
-				float step = Vector3.Distance(local.GetPosition(), ring[(count - 1) % ring.Length].pos);
+				float step = Vector3.Distance(position, ring[(count - 1) % ring.Length].pos);
 				if (step < JumpThreshold) Path += step;
 			}
 
-			ring[count++ % ring.Length] = new Sample
-			{
-				tNs = MonotonicNs(),
-				pos = local.GetPosition(),
-				rot = local.rotation,
-			};
+			ring[count++ % ring.Length] = new Sample { tNs = timestampNs, pos = position, rot = rotation };
+		}
+
+		private static Matrix4x4 CameraParentToTrackingSpace()
+		{
+			Transform parent = MainXRRig.Camera.transform.parent;
+			Transform trackingSpace = MainXRRig.TrackingSpace;
+			return parent == null || parent == trackingSpace
+				? Matrix4x4.identity
+				: trackingSpace.worldToLocalMatrix * parent.localToWorldMatrix;
 		}
 
 		/// <summary>
@@ -91,6 +131,8 @@ namespace Anaglyph.XR
 		/// </summary>
 		public bool TryGetLocalPose(long timestampNs, out Pose pose)
 		{
+			if (SamplesAreCameraFrames) return TryInterpolatePose(timestampNs, out pose);
+
 			bool located = TryLocatePose(timestampNs, out pose);
 
 			if (located && loggedSourceComparison)
@@ -143,17 +185,7 @@ namespace Anaglyph.XR
 			// camera's local transform lives in, so the camera's parent is what
 			// maps it into the world. Going through that keeps us correct even
 			// when a camera offset sits between the rig and the camera.
-			Transform origin = MainXRRig.Camera.transform.parent;
-			Transform trackingSpace = MainXRRig.TrackingSpace;
-
-			if (origin == null || origin == trackingSpace)
-			{
-				pose = sessionPose;
-				return true;
-			}
-
-			Matrix4x4 originToLocal = trackingSpace.worldToLocalMatrix * origin.localToWorldMatrix;
-
+			Matrix4x4 originToLocal = CameraParentToTrackingSpace();
 			pose = new Pose(
 				originToLocal.MultiplyPoint(sessionPose.position),
 				originToLocal.rotation * sessionPose.rotation);
@@ -230,6 +262,13 @@ namespace Anaglyph.XR
 			int n = Mathf.Min(count, ring.Length);
 			if (n < 2) return false;
 
+			Sample newest = ring[(count - 1) % ring.Length];
+			if (SamplesAreCameraFrames && timestampNs > newest.tNs && timestampNs - newest.tNs <= CameraFrameToleranceNs)
+			{
+				a = b = newest;
+				return true;
+			}
+
 			for (int i = 0; i < n - 1; i++)
 			{
 				Sample newer = ring[(count - 1 - i) % ring.Length];
@@ -269,6 +308,9 @@ namespace Anaglyph.XR
 			previousNs = ring[(count - 2 - nearest) % ring.Length].tNs;
 			return true;
 		}
+
+		/// <summary>The newest sample's timestamp; 0 before any.</summary>
+		public long NewestTimestampNs => count > 0 ? ring[(count - 1) % ring.Length].tNs : 0;
 
 		/// <summary>Same as <see cref="TryGetLocalPose"/> but in world space.</summary>
 		public bool TryGetWorldPose(long timestampNs, out Pose worldPose)

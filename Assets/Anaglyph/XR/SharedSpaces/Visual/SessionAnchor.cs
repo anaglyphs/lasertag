@@ -4,7 +4,7 @@ using Anaglyph.Netcode.SyncVariables;
 using UnityEngine;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
-using UnityEngine.XR.OpenXR.Features.Meta;
+using Anaglyph.XR.SharedSpaces.SharedAnchors;
 using Object = UnityEngine.Object;
 using SerializableGuid = UnityEngine.XR.ARSubsystems.SerializableGuid;
 
@@ -66,7 +66,7 @@ namespace Anaglyph.XR.SharedSpaces
 			published.Unregister();
 		}
 
-		private MetaOpenXRAnchorSubsystem Sharing
+		private XRAnchorSubsystem Sharing
 		{
 			get
 			{
@@ -76,8 +76,7 @@ namespace Anaglyph.XR.SharedSpaces
 					manager = Object.FindFirstObjectByType<ARAnchorManager>();
 				}
 
-				return manager != null && manager.subsystem is MetaOpenXRAnchorSubsystem meta &&
-				       meta.isSharedAnchorsSupported == Supported.Supported ? meta : null;
+				return manager != null && MetaAnchorGroups.SharingSupport(manager.subsystem) == Supported.Supported ? manager.subsystem : null;
 			}
 		}
 
@@ -92,8 +91,8 @@ namespace Anaglyph.XR.SharedSpaces
 			if (!aligned || any && (frame != alignmentGeneration || guid != current)) Drop();
 
 			if (!aligned || held != null || busy || published.Value.guid != Guid.Empty || Time.unscaledTime < retryAt) return;
-			MetaOpenXRAnchorSubsystem meta = Sharing;
-			if (meta != null && Online()) Mint(meta, alignmentGeneration, mintAt);
+			XRAnchorSubsystem sharing = Sharing;
+			if (sharing != null && Online()) Mint(sharing, alignmentGeneration, mintAt);
 		}
 
 		/// <summary>Everyone else, every frame: downloads the authority's anchor while <paramref name="wanted"/>.</summary>
@@ -103,8 +102,8 @@ namespace Anaglyph.XR.SharedSpaces
 			if (guid != current && (held != null || busy)) Release();
 
 			if (!wanted || current == Guid.Empty || held != null || busy || Time.unscaledTime < retryAt) return;
-			MetaOpenXRAnchorSubsystem meta = Sharing;
-			if (meta != null && Online()) Load(meta, current);
+			XRAnchorSubsystem sharing = Sharing;
+			if (sharing != null && Online()) Load(sharing, current);
 		}
 
 		/// <summary>The anchor where the runtime tracks it now, and where the authority says it stands.</summary>
@@ -142,7 +141,7 @@ namespace Anaglyph.XR.SharedSpaces
 
 		private static Pose PoseOf(ARAnchor anchor) => new(anchor.transform.position, anchor.transform.rotation);
 
-		private async void Mint(MetaOpenXRAnchorSubsystem meta, int alignmentGeneration, Pose at)
+		private async void Mint(XRAnchorSubsystem sharing, int alignmentGeneration, Pose at)
 		{
 			busy = true;
 			frame = alignmentGeneration;
@@ -161,8 +160,7 @@ namespace Anaglyph.XR.SharedSpaces
 				}
 
 				SerializableGuid id = minted.trackableId;
-				meta.sharedAnchorsGroupId = id;
-				XRResultStatus shared = await manager.TryShareAnchorAsync(minted);
+				XRResultStatus shared = await MetaAnchorGroups.ShareAsync(manager, minted, id);
 				if (mine != request || minted == null || !SyncBus.Active || !SyncBus.IsAuthority) return;
 				if (shared.IsError())
 				{
@@ -189,7 +187,7 @@ namespace Anaglyph.XR.SharedSpaces
 			}
 		}
 
-		private async void Load(MetaOpenXRAnchorSubsystem meta, Guid wanted)
+		private async void Load(XRAnchorSubsystem sharing, Guid wanted)
 		{
 			busy = true;
 			frame = -1;
@@ -199,8 +197,7 @@ namespace Anaglyph.XR.SharedSpaces
 			try
 			{
 				List<XRAnchor> downloaded = new(1);
-				meta.sharedAnchorsGroupId = new SerializableGuid(wanted);
-				XRResultStatus status = await manager.TryLoadAllSharedAnchorsAsync(downloaded, null);
+				XRResultStatus status = await MetaAnchorGroups.LoadAllAsync(manager, new SerializableGuid(wanted), downloaded);
 				if (status.IsError() || downloaded.Count == 0)
 				{
 					if (mine == request) Failed($"could not be downloaded ({(status.IsError() ? Describe(status) : "nothing was shared")})");

@@ -64,6 +64,12 @@ namespace Anaglyph.LaserTag.Editor
 		/// <summary>Raised on arriving at each stop of a route, with its index.</summary>
 		public event Action<int> Arrived = delegate { };
 
+		/// <summary>
+		/// When set, the head looks this way (yaw then pitch, degrees, in the room) wherever the legs
+		/// go, with no glances or looking around of its own: someone watching what another looks at.
+		/// </summary>
+		public Vector2? Gaze;
+
 		public bool IsMoving => legs.Count > 0 || lookAroundLeft > 0;
 		public int StopsReached { get; private set; }
 		public float DistanceWalked { get; private set; }
@@ -204,6 +210,8 @@ namespace Anaglyph.LaserTag.Editor
 			lookAroundLeft = 0;
 
 			Vector3 from = Room.TransformPoint(position);
+			// the floor underfoot, not whichever floor is nearest the head
+			if (TryFindGroundUnder(from, out Vector3 underfoot)) from = underfoot;
 			foreach (Vector3 stop in worldStops)
 			{
 				if (!NavMesh.SamplePosition(from, out NavMeshHit start, HeadToNavMeshMeters, NavMesh.AllAreas) ||
@@ -299,6 +307,39 @@ namespace Anaglyph.LaserTag.Editor
 							return true;
 					}
 
+			return false;
+		}
+
+		/// <summary>
+		/// Stands the head eye height above the nearest nav-mesh below it, looking as it was;
+		/// <paramref name="moved"/> is how far that took its feet. False when the simulator isn't up yet
+		/// or there is no nav-mesh below.
+		/// </summary>
+		public bool StandOnNavMeshBelow(out Vector3 moved)
+		{
+			moved = default;
+			if (!Bind() || Room == null || MainXRRig.Instance == null) return false;
+			Place();
+			Vector3 head = Room.TransformPoint(position);
+			if (!TryFindNavMeshBelow(head, out Vector3 ground)) return false;
+			moved = ground - (head - Vector3.up * eyeHeight);
+			position = Room.InverseTransformPoint(ground + Vector3.up * eyeHeight);
+			Apply(headYaw, headPitch);
+			return true;
+		}
+
+		/// <summary>The nav-mesh straight down the line under the head first, then as near that line as nav-mesh below the head comes.</summary>
+		public static bool TryFindNavMeshBelow(Vector3 head, out Vector3 ground)
+		{
+			for (float reach = 0.25f; reach <= HeadToNavMeshMeters; reach *= 2)
+				for (float drop = 0; drop < HeadToNavMeshMeters; drop += reach)
+					if (NavMesh.SamplePosition(head - Vector3.up * drop, out NavMeshHit hit, reach, NavMesh.AllAreas) && hit.position.y <= head.y)
+					{
+						ground = hit.position;
+						return true;
+					}
+
+			ground = default;
 			return false;
 		}
 
@@ -428,6 +469,13 @@ namespace Anaglyph.LaserTag.Editor
 				if (lookAroundLeft <= 0 && legs.Count == 0) Status = "arrived";
 			}
 
+			if (Gaze is Vector2 gaze)
+			{
+				lookAroundLeft = 0;
+				targetYaw = gaze.x;
+				targetPitch = gaze.y;
+			}
+
 			// turn at a human rate toward the target heading
 			float yawError = Mathf.DeltaAngle(yaw, targetYaw);
 			float turn = Mathf.Clamp(yawError * turnResponse, -maxTurnRate, maxTurnRate) * dt;
@@ -460,10 +508,10 @@ namespace Anaglyph.LaserTag.Editor
 				position.y = Room.InverseTransformPoint(ground + Vector3.up * eyeHeight).y;
 		}
 
-		// the floor underfoot while on it; otherwise the highest floor straight below the head; otherwise the nearest
+		// the floor underfoot while on it; otherwise the highest floor straight below a step up from the feet; otherwise the nearest
 		private bool TryFindGroundUnder(Vector3 head, out Vector3 ground)
 		{
-			const float underfootMeters = 0.5f, columnRadius = 0.25f, besideTolerance = 0.1f;
+			const float underfootMeters = 0.5f, columnRadius = 0.25f, besideTolerance = 0.1f, stepUpMeters = 0.5f;
 			Vector3 feet = head - Vector3.up * eyeHeight;
 			if (NavMesh.SamplePosition(feet, out NavMeshHit hit, underfootMeters, NavMesh.AllAreas) && Flat(hit.position - feet).magnitude < besideTolerance)
 			{
@@ -471,7 +519,7 @@ namespace Anaglyph.LaserTag.Editor
 				return true;
 			}
 
-			for (float drop = 0; drop < eyeHeight + HeadToNavMeshMeters; drop += columnRadius)
+			for (float drop = eyeHeight - stepUpMeters; drop < eyeHeight + HeadToNavMeshMeters; drop += columnRadius)
 			{
 				Vector3 probe = head - Vector3.up * drop;
 				if (NavMesh.SamplePosition(probe, out hit, columnRadius, NavMesh.AllAreas))

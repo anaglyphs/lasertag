@@ -4,7 +4,9 @@ using UnityEngine;
 using UnityEngine.XR.ARSubsystems;
 using UnityEngine.XR.Management;
 using UnityEngine.XR.OpenXR;
+#if !UNITY_IOS || UNITY_EDITOR
 using UnityEngine.XR.OpenXR.Features.Meta;
+#endif
 
 namespace Anaglyph.Permissions
 {
@@ -161,6 +163,7 @@ namespace Anaglyph.Permissions
 			anchorSubsystems.Clear();
 			SubsystemManager.GetSubsystems(anchorSubsystems);
 
+#if !UNITY_IOS || UNITY_EDITOR
 			foreach (XRAnchorSubsystem subsystem in anchorSubsystems)
 			{
 				if (subsystem is not MetaOpenXRAnchorSubsystem metaSubsystem)
@@ -173,6 +176,7 @@ namespace Anaglyph.Permissions
 					_ => CapabilitySupport.Unknown
 				};
 			}
+#endif
 
 			// XR initialized but the Meta anchor subsystem was not created. This
 			// usually means its OpenXR feature is disabled or unsupported.
@@ -203,6 +207,7 @@ namespace Anaglyph.Permissions
 				return CapabilityConfiguration.Enabled;
 #endif
 
+#if !UNITY_IOS || UNITY_EDITOR
 			ARCameraFeature cameraFeature =
 				OpenXRSettings.Instance?.GetFeature<ARCameraFeature>();
 
@@ -212,6 +217,9 @@ namespace Anaglyph.Permissions
 			return cameraFeature.cameraImageSupportEnabled
 				? CapabilityConfiguration.Enabled
 				: CapabilityConfiguration.Disabled;
+#else
+			return CapabilityConfiguration.Disabled;
+#endif
 		}
 
 		private static bool IsOpenXRInitialized()

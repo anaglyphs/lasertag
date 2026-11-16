@@ -28,7 +28,7 @@
       "url": "https://package.openupm.com"
     },
     "com.meta.xr.sdk.core": {
-      "version": "207.0.1",
+      "version": "209.0.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -43,11 +43,11 @@
       "url": "https://packages.unity.com"
     },
     "com.meta.xr.sdk.haptics": {
-      "version": "207.0.1",
+      "version": "209.0.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.meta.xr.sdk.core": "207.0.1"
+        "com.meta.xr.sdk.core": "209.0.0"
       },
       "url": "https://packages.unity.com"
     },
@@ -508,6 +508,19 @@
         "com.unity.render-pipelines.core": "17.6.0"
       }
     },
+    "com.unity.xr.arcore": {
+      "version": "6.7.1",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {
+        "com.unity.xr.core-utils": "2.6.0",
+        "com.unity.xr.management": "4.4.0",
+        "com.unity.xr.arfoundation": "6.7.1",
+        "com.unity.modules.androidjni": "1.0.0",
+        "com.unity.modules.unitywebrequest": "1.0.0"
+      },
+      "url": "https://packages.unity.com"
+    },
     "com.unity.xr.arfoundation": {
       "version": "6.7.1",
       "depth": 0,
@@ -523,6 +536,18 @@
         "com.unity.modules.particlesystem": "1.0.0",
         "com.unity.modules.unityanalytics": "1.0.0",
         "com.unity.modules.unitywebrequest": "1.0.0"
+      },
+      "url": "https://packages.unity.com"
+    },
+    "com.unity.xr.arkit": {
+      "version": "6.7.1",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {
+        "com.unity.xr.core-utils": "2.2.2",
+        "com.unity.xr.management": "4.4.0",
+        "com.unity.xr.arfoundation": "6.7.1",
+        "com.unity.editorcoroutines": "1.0.0"
       },
       "url": "https://packages.unity.com"
     },
@@ -548,7 +573,7 @@
     },
     "com.unity.xr.hands": {
       "version": "1.9.0",
-      "depth": 1,
+      "depth": 0,
       "source": "registry",
       "dependencies": {
         "com.unity.modules.xr": "1.0.0",

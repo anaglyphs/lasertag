@@ -71,12 +71,17 @@ namespace Anaglyph.XR.DepthKit
 		[FormerlySerializedAs("simDepthConversionShader")]
 		[SerializeField] private Shader depthConversionShader;
 
+		[Tooltip("A phone's depth image has its first row at the top of the camera's view; Unity's textures count rows from the bottom")]
+		[SerializeField] private bool flipPhoneDepthRows = true;
+
 		private Material depthConversionMat;
 		private MaterialPropertyBlock depthConversionProps;
 
 		private static readonly int rawDepthID = ID("rawDepth");
 		private static readonly int rawDepthArrayID = ID("rawDepthArray");
 		private static readonly int sliceID = ID("_Slice");
+		private static readonly int rawDepthScaleID = ID("_RawDepthScale");
+		private static readonly int flipRowsID = ID("_FlipRows");
 
 		private const int MonoLinearPass = 0;
 		private const int StereoSanitizePass = 1;
@@ -94,6 +99,7 @@ namespace Anaglyph.XR.DepthKit
 		private RenderTexture convertedDepthTex;
 
 		private AROcclusionManager arOcclusionManager;
+		private ARCameraManager arCameraManager;
 
 		public event Action Updated = delegate { };
 
@@ -149,8 +155,14 @@ namespace Anaglyph.XR.DepthKit
 			Texture rawDepth = extTextures[0].texture;
 
 			DepthFormatScenario depthFormat = DepthFormatScenario.Unknown;
-			if (rawDepth.graphicsFormat == GraphicsFormat.R32_SFloat &&
-			    rawDepth.dimension == TextureDimension.Tex2D)
+			// meters per sampled unit: ARKit and the simulator give meters, ARCore millimeters in 16 bits or half-float meters
+			float rawDepthScale = rawDepth.graphicsFormat switch
+			{
+				GraphicsFormat.R32_SFloat or GraphicsFormat.R16_SFloat => 1,
+				GraphicsFormat.R16_UNorm => 65.535f,
+				_ => 0
+			};
+			if (rawDepthScale > 0 && rawDepth.dimension == TextureDimension.Tex2D)
 				depthFormat = DepthFormatScenario.PhoneOrARFoundationSimulator;
 			else if (rawDepth is RenderTexture rawDepthRT &&
 			         rawDepthRT.depthStencilFormat == GraphicsFormat.D16_UNorm &&
@@ -169,12 +181,28 @@ namespace Anaglyph.XR.DepthKit
 					// the conversion reads these
 					Shader.SetGlobalVector(zParamsID, planes);
 
-					ConvertDepth(rawDepth, rawDepthID, MonoLinearPass);
-					Matrix4x4 p = mainCam.projectionMatrix;
-					Matrix4x4 pi = p.inverse;
+					bool phone = HandheldAR.Runtime != HandheldAR.Provider.None;
+					ConvertDepth(rawDepth, rawDepthID, MonoLinearPass, rawDepthScale, phone && flipPhoneDepthRows);
 
-					Transform ct = mainCam.transform;
-					Matrix4x4 vi = Matrix4x4.TRS(ct.position, ct.rotation, _scalingVector3);
+					Matrix4x4 p, vi;
+					if (phone)
+					{
+						// the depth image shares the camera image's lens and its frame's pose, not the screen's
+						if (!TryGetPhoneDepthCamera(args, rawDepth.width, rawDepth.height, out p, out vi))
+						{
+							DepthAvailable = false;
+							return;
+						}
+					}
+					else
+					{
+						// the simulator renders depth through the Unity camera as it is now
+						p = mainCam.projectionMatrix;
+						Transform ct = mainCam.transform;
+						vi = Matrix4x4.TRS(ct.position, ct.rotation, _scalingVector3);
+					}
+
+					Matrix4x4 pi = p.inverse;
 					Matrix4x4 v = vi.inverse;
 
 					for (int i = 0; i < 2; i++)
@@ -266,7 +294,7 @@ namespace Anaglyph.XR.DepthKit
 
 		// writes rawDepth into convertedDepthTex, one fullscreen draw per eye slice,
 		// with unknown texels rewritten to AG_DEPTH_UNKNOWN (see DepthKit.hlsl)
-		private void ConvertDepth(Texture rawDepth, int rawDepthPropID, int pass)
+		private void ConvertDepth(Texture rawDepth, int rawDepthPropID, int pass, float rawDepthScale = 1, bool flipRows = false)
 		{
 			if (convertedDepthTex == null ||
 			    convertedDepthTex.width != rawDepth.width ||
@@ -298,6 +326,8 @@ namespace Anaglyph.XR.DepthKit
 			}
 
 			depthConversionMat.SetTexture(rawDepthPropID, rawDepth);
+			depthConversionMat.SetFloat(rawDepthScaleID, rawDepthScale);
+			depthConversionMat.SetFloat(flipRowsID, flipRows ? 1 : 0);
 
 			CommandBuffer cmd = CommandBufferPool.Get("DepthKit Depth Conversion");
 			for (int slice = 0; slice < 2; slice++)
@@ -323,6 +353,71 @@ namespace Anaglyph.XR.DepthKit
 		}
 
 		private static readonly Vector3 _scalingVector3 = new(1, 1, -1);
+
+		// a phone's depth: the camera's intrinsics scaled to the depth image, placed where the
+		// camera stood at the depth frame's time, both in the sensor's own orientation
+		private bool TryGetPhoneDepthCamera(AROcclusionFrameEventArgs args, int width, int height, out Matrix4x4 projection, out Matrix4x4 viewInverse)
+		{
+			projection = viewInverse = default;
+			if (!arCameraManager) arCameraManager = FindFirstObjectByType<ARCameraManager>();
+			HeadPoseHistory history = HeadPoseHistory.Instance;
+			if (arCameraManager == null || !arCameraManager.TryGetIntrinsics(out XRCameraIntrinsics intrinsics) || intrinsics.resolution.x <= 0)
+				return MissingPhoneDepthCamera("no camera intrinsics");
+			if (history == null || !history.SamplesAreCameraFrames)
+				return MissingPhoneDepthCamera("no camera frame poses yet");
+
+			// the pose at the depth frame's own time; a depth frame without one is the newest camera frame's
+			// (ARKit's scene depth comes with the frame it was captured in)
+			bool timed = args.TryGetTimestamp(out long timestampNs) && history.TryGetWorldPose(timestampNs, out _);
+			if (!history.TryGetWorldPose(timed ? timestampNs : history.NewestTimestampNs, out Pose camera))
+				return MissingPhoneDepthCamera("no camera pose");
+
+			float sx = (float)width / intrinsics.resolution.x, sy = (float)height / intrinsics.resolution.y;
+			projection = ProjectionFromIntrinsics(intrinsics.focalLength.x * sx, intrinsics.focalLength.y * sy,
+				intrinsics.principalPoint.x * sx, intrinsics.principalPoint.y * sy, width, height, planes.x, planes.y);
+			viewInverse = Matrix4x4.TRS(camera.position, camera.rotation, _scalingVector3);
+			// once per pairing of depth and camera image sizes: the camera image changes size in camera mode
+			Vector4 sizes = new(width, height, intrinsics.resolution.x, intrinsics.resolution.y);
+			if (sizes != loggedPhoneDepthSizes)
+			{
+				loggedPhoneDepthSizes = sizes;
+				Debug.Log($"[DepthKitDriver] phone depth {width}×{height} {args.externalTextures[0].texture.graphicsFormat} over a {intrinsics.resolution.x}×{intrinsics.resolution.y} camera image, " +
+				          $"focal {intrinsics.focalLength.x * sx:F1}×{intrinsics.focalLength.y * sy:F1} px, center {intrinsics.principalPoint.x * sx:F1},{intrinsics.principalPoint.y * sy:F1}, placed at " +
+				          (timed ? "its frame's camera pose" : $"the newest camera frame's pose (its timestamp {(args.TryGetTimestamp(out long t) ? t.ToString() : "absent")}, newest camera frame {history.NewestTimestampNs})"));
+			}
+			return true;
+		}
+
+		private Vector4 loggedPhoneDepthSizes;
+		private bool loggedPhoneDepthMissing;
+
+		private bool MissingPhoneDepthCamera(string why)
+		{
+			if (!loggedPhoneDepthMissing)
+			{
+				loggedPhoneDepthMissing = true;
+				Debug.LogWarning($"[DepthKitDriver] phone depth dropped: {why}");
+			}
+
+			return false;
+		}
+
+		/// <summary>
+		/// An OpenGL-style projection (view looking down -Z, texture rows counted from the bottom) for a
+		/// pinhole camera whose intrinsics are in pixels from the image's top-left corner.
+		/// </summary>
+		public static Matrix4x4 ProjectionFromIntrinsics(float fx, float fy, float cx, float cy, float width, float height, float near, float far)
+		{
+			Matrix4x4 m = Matrix4x4.zero;
+			m.m00 = 2 * fx / width;
+			m.m02 = 1 - 2 * cx / width;
+			m.m11 = 2 * fy / height;
+			m.m12 = 2 * cy / height - 1;
+			m.m22 = -(far + near) / (far - near);
+			m.m23 = -2 * far * near / (far - near);
+			m.m32 = -1;
+			return m;
+		}
 
 		private static Matrix4x4 CalculateDepthProjMatrix(XRFov fov, XRNearFarPlanes planes)
 		{

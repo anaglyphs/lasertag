@@ -58,7 +58,17 @@ namespace Anaglyph.Netcode
 		private static UnityTransport transport =>
 			(UnityTransport)NetworkManager.Singleton.NetworkConfig.NetworkTransport;
 
-		public const ushort port = 7777;
+		/// <summary>The LAN port. In the editor the ANAGLYPH_PORT environment variable replaces it, so two projects' play-mode players can run side by side.</summary>
+		public static readonly ushort port = EditorPortOverride() ?? 7777;
+
+		private static ushort? EditorPortOverride()
+		{
+#if UNITY_EDITOR
+			if (ushort.TryParse(System.Environment.GetEnvironmentVariable("ANAGLYPH_PORT"), out ushort overridden)) return overridden;
+#endif
+			return null;
+		}
+
 		public const string DefaultIP = "0.0.0.0";
 
 		private static float cooldownDoneTime = 0;

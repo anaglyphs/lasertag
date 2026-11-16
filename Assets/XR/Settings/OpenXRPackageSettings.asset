@@ -45,6 +45,30 @@ MonoBehaviour:
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
+--- !u!114 &-8817956490032296390
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac45ba33a6cb81f468c7bf0bfcd05775, type: 3}
+  m_Name: MetaHandTrackingDataSourceFeature Standalone
+  m_EditorClassIdentifier: Oculus.VR::Meta.XR.MetaHandTrackingDataSourceFeature
+  m_enabled: 0
+  nameUi: Meta XR Hand Tracking Data Source
+  version: 0.0.1
+  featureIdInternal: com.meta.openxr.feature.handtrackingdatasource
+  openxrExtensionStrings: XR_EXT_hand_tracking_data_source XR_META_hand_tracking_wide_motion_mode2 XR_EXT_hand_joints_motion_range
+  company: Meta
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
+  m_WideMotionModeEnabled: 0
+  m_ControllerDrivenHandPoses: 0
 --- !u!114 &-8703573684439564615
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -57,7 +81,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4e314dfef9af0904e80129bcc0a79361, type: 3}
   m_Name: HandTracking Standalone
   m_EditorClassIdentifier: Unity.XR.Hands::UnityEngine.XR.Hands.OpenXR.HandTracking
-  m_enabled: 0
+  m_enabled: 1
   nameUi: Hand Tracking Subsystem
   version: 0.0.1
   featureIdInternal: com.unity.openxr.feature.input.handtrackingsubsystem
@@ -480,6 +504,28 @@ MonoBehaviour:
   version: 0.0.1
   featureIdInternal: com.unity.openxr.feature.input.metaquestpro
   openxrExtensionStrings: XR_FB_touch_controller_pro
+  company: Unity
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
+--- !u!114 &-5671861932921828886
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b213d3e3c7f3109449eb46a4c8ee42f0, type: 3}
+  m_Name: XrPerformanceSettingsFeature iPhone
+  m_EditorClassIdentifier: Unity.XR.OpenXR::UnityEngine.XR.OpenXR.Features.Extensions.PerformanceSettings.XrPerformanceSettingsFeature
+  m_enabled: 0
+  nameUi: XR Performance Settings
+  version: 1.0.0
+  featureIdInternal: com.unity.openxr.feature.extension.performance_settings
+  openxrExtensionStrings: XR_EXT_performance_settings
   company: Unity
   priority: 0
   targetOpenXRApiVersion: 
@@ -1219,10 +1265,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9f0ebc320a151d3408ea1e9fce54d40e, type: 3}
   m_Name: OpenXRPackageSettings
   m_EditorClassIdentifier: Unity.XR.OpenXR.Editor::UnityEditor.XR.OpenXR.OpenXRPackageSettings
-  Keys: 0700000001000000i
+  Keys: 070000000100000004000000i
   Values:
   - {fileID: 9205790515618713437}
   - {fileID: 555580867254668633}
+  - {fileID: 3373581757612393784}
 --- !u!114 &2738398249348749
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1342,6 +1389,7 @@ MonoBehaviour:
   - {fileID: -3302666642232612847}
   - {fileID: 3177152282268977766}
   - {fileID: 1652290468883680687}
+  - {fileID: -3026878240495084251}
   - {fileID: 8537366575719405892}
   - {fileID: -3177450778780709382}
   - {fileID: -5401984309847879255}
@@ -1375,7 +1423,7 @@ MonoBehaviour:
   - {fileID: 4118321385384196143}
   - {fileID: -5750116646164557699}
   - {fileID: -8703573684439564615}
-  - {fileID: -3026878240495084251}
+  - {fileID: -8817956490032296390}
   customLoaderName: 
   m_renderMode: 1
   m_latencyOptimization: 0
@@ -1820,6 +1868,35 @@ MonoBehaviour:
   m_multiviewRenderRegionsOptimizationMode: 2
   m_hasMigratedMultiviewRenderRegions: 1
   spacewarpMotionVectorTextureFormat: 0
+--- !u!114 &3373581757612393784
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b5a1f07dc5afe854f9f12a4194aca3fb, type: 3}
+  m_Name: iPhone
+  m_EditorClassIdentifier: Unity.XR.OpenXR::UnityEngine.XR.OpenXR.OpenXRSettings
+  features:
+  - {fileID: -5671861932921828886}
+  customLoaderName: 
+  m_renderMode: 1
+  m_latencyOptimization: 0
+  m_autoColorSubmissionMode: 1
+  m_colorSubmissionModes:
+    m_List: 00000000i
+  m_depthSubmissionMode: 0
+  m_spacewarpMotionVectorTextureFormat: 0
+  m_optimizeBufferDiscards: 0
+  m_symmetricProjection: 0
+  m_optimizeMultiviewRenderRegions: 0
+  m_multiviewRenderRegionsOptimizationMode: 0
+  m_hasMigratedMultiviewRenderRegionSetting: 0
+  m_foveatedRenderingApi: 1
+  m_useOpenXRPredictedTime: 1
 --- !u!114 &3392431271176658462
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2396,7 +2473,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4e314dfef9af0904e80129bcc0a79361, type: 3}
   m_Name: HandTracking Android
   m_EditorClassIdentifier: Unity.XR.Hands::UnityEngine.XR.Hands.OpenXR.HandTracking
-  m_enabled: 0
+  m_enabled: 1
   nameUi: Hand Tracking Subsystem
   version: 0.0.1
   featureIdInternal: com.unity.openxr.feature.input.handtrackingsubsystem
@@ -2740,6 +2817,30 @@ MonoBehaviour:
   customRuntimeLoaderName: 
   m_MessageSeverity: 4369
   m_MessageType: 15
+--- !u!114 &8775138739662574250
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac45ba33a6cb81f468c7bf0bfcd05775, type: 3}
+  m_Name: MetaHandTrackingDataSourceFeature Android
+  m_EditorClassIdentifier: Oculus.VR::Meta.XR.MetaHandTrackingDataSourceFeature
+  m_enabled: 0
+  nameUi: Meta XR Hand Tracking Data Source
+  version: 0.0.1
+  featureIdInternal: com.meta.openxr.feature.handtrackingdatasource
+  openxrExtensionStrings: XR_EXT_hand_tracking_data_source XR_META_hand_tracking_wide_motion_mode2 XR_EXT_hand_joints_motion_range
+  company: Meta
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
+  m_WideMotionModeEnabled: 0
+  m_ControllerDrivenHandPoses: 0
 --- !u!114 &8848267643514683081
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2851,6 +2952,7 @@ MonoBehaviour:
   - {fileID: -8642844409457886308}
   - {fileID: -3895922964723454753}
   - {fileID: 8011636343452076331}
+  - {fileID: 8775138739662574250}
   customLoaderName: 
   m_renderMode: 1
   m_latencyOptimization: 1

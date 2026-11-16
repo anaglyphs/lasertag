@@ -415,6 +415,7 @@ namespace Anaglyph.XR.VisualLocalization
 		{
 			landmark.established = true;
 			if (!refineEstablished) StopRefining(landmark);
+			NoteDepthChanged(landmark);
 		}
 
 		/// <summary>Nothing more will join this landmark's fit.</summary>

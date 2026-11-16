@@ -34,17 +34,31 @@ namespace Anaglyph.XR.Input
 		private static readonly Dictionary<Handedness, HandInput> hands = new();
 		public static readonly ReadOnlyDictionary<Handedness, HandInput> Hands = new(hands);
 
-		public static Handedness DominantHandGuess;
-
 		public InputActionMap Actions => actionMap;
-		public Vector3 Position => position.action.ReadValue<Vector3>();
-		public Quaternion Rotation => rotation.action.ReadValue<Quaternion>();
+		/// <summary>
+		/// Set on a phone, where the hand is the screen held out in front: every hand follows this
+		/// camera (its local pose, as controller poses are), counts as tracked, and only taps on the
+		/// screen's UI block its input. Null for controllers and tracked hands.
+		/// </summary>
+		public static Transform FollowedCamera { get; private set; }
+
+		public static void FollowCamera(Transform camera)
+		{
+			FollowedCamera = camera;
+			foreach (HandInput hand in hands.Values)
+				if (hand != null) hand.IsTrackingChanged?.Invoke(hand.IsTracking);
+		}
+
+		private static bool FollowsCamera => FollowedCamera != null;
+
+		public Vector3 Position => FollowsCamera ? FollowedCamera.localPosition : position.action.ReadValue<Vector3>();
+		public Quaternion Rotation => FollowsCamera ? FollowedCamera.localRotation : rotation.action.ReadValue<Quaternion>();
 		public Vector3 Forward => Rotation * Vector3.forward;
-		public Vector3 PointPosition => PointsFromPeripheral
+		public Vector3 PointPosition => FollowsCamera ? Position : PointsFromPeripheral
 			? Position + Rotation * MountedPeripheral.Current.BarrelFromController.position
 			: pointPosition.action.ReadValue<Vector3>();
 
-		public Quaternion PointRotation => PointsFromPeripheral
+		public Quaternion PointRotation => FollowsCamera ? Rotation : PointsFromPeripheral
 			? Rotation * MountedPeripheral.Current.BarrelFromController.rotation
 			: pointRotation.action.ReadValue<Quaternion>();
 
@@ -54,8 +68,9 @@ namespace Anaglyph.XR.Input
 		// describes nothing, so the peripheral's barrel replaces it rather than offsetting it.
 		private bool PointsFromPeripheral => MountedPeripheral.IsMountedOn(handedness);
 		/// <summary>Which parts of the pose the runtime currently vouches for.</summary>
-		public InputTrackingState TrackingState =>
-			(InputTrackingState)trackingState.action.ReadValue<int>();
+		public InputTrackingState TrackingState => FollowsCamera
+			? InputTrackingState.Position | InputTrackingState.Rotation
+			: (InputTrackingState)trackingState.action.ReadValue<int>();
 
 		public bool IsTracking => TrackingState != InputTrackingState.None;
 
@@ -64,7 +79,7 @@ namespace Anaglyph.XR.Input
 		// the ray (menu closing, interactor disabled the same frame) can leave the latch stuck on.
 		// This is the same test XRI runs internally (XRUIToolkitHandler.HasUIDocument): the world
 		// space panel collider lives on the UIDocument GameObject.
-		public bool InputBlocked => IsOverWorldSpaceUIToolkit();
+		public bool InputBlocked => FollowsCamera ? ScreenSpaceUIHit.IsPrimaryTouchOverUI() : IsOverWorldSpaceUIToolkit();
 
 		private bool IsOverWorldSpaceUIToolkit()
 		{
@@ -94,7 +109,7 @@ namespace Anaglyph.XR.Input
 		
 		private void OnTrackingStateChanged(InputAction.CallbackContext tracked)
 		{
-			IsTrackingChanged?.Invoke(tracked.ReadValue<int>() != 0);
+			if (!FollowsCamera) IsTrackingChanged?.Invoke(tracked.ReadValue<int>() != 0);
 		}
 
 		private void OnDestroy()

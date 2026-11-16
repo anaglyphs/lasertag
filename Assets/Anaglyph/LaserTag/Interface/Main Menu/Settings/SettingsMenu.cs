@@ -5,6 +5,7 @@ using Anaglyph.Menu;
 using Anaglyph.Netcode;
 using Anaglyph.VariableObjects;
 using Anaglyph.XR.DepthKit.EnvScanning;
+using Anaglyph.XR.Input;
 using Anaglyph.XR.SharedSpaces;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -38,6 +39,8 @@ namespace Anaglyph.LaserTag.Interface
 		private Label provisioningStatus;
 		private Button unprovisionButton;
 		private NavButton operatorProvisioningButton;
+		private Button dominantEyeLeftButton, dominantEyeRightButton;
+		private Button dominantHandLeftButton, dominantHandRightButton;
 		private bool showDebugMesh;
 		private UIToolkitPanelXRSetup panel;
 
@@ -63,6 +66,15 @@ namespace Anaglyph.LaserTag.Interface
 			// the console only processes log messages while its page is on screen
 			consoleView = new InGameConsoleView(consolePage);
 			navView.Changed += OnNavPageChange;
+
+			dominantEyeLeftButton = Require<Button>(root, "dominant-eye-left-button");
+			dominantEyeRightButton = Require<Button>(root, "dominant-eye-right-button");
+			dominantHandLeftButton = Require<Button>(root, "dominant-hand-left-button");
+			dominantHandRightButton = Require<Button>(root, "dominant-hand-right-button");
+			bindings.Click(dominantEyeLeftButton, () => Dominance.Eye = Handedness.Left);
+			bindings.Click(dominantEyeRightButton, () => Dominance.Eye = Handedness.Right);
+			bindings.Click(dominantHandLeftButton, () => Dominance.Hand = Handedness.Left);
+			bindings.Click(dominantHandRightButton, () => Dominance.Hand = Handedness.Right);
 
 			debugModeToggle = Require<Toggle>(root, "debug-mode-toggle");
 			showDebugMeshToggle = Require<Toggle>(root, "show-debug-mesh-toggle");
@@ -106,6 +118,7 @@ namespace Anaglyph.LaserTag.Interface
 				captureAlignmentDiagnosisButton.style.display = DisplayStyle.None;
 				alignmentDiagnosisStatus.style.display = DisplayStyle.None;
 				Require<VisualElement>(root, "alignment-sighting-button").style.display = DisplayStyle.None;
+				Require<VisualElement>(root, "debugging-button").style.display = DisplayStyle.None;
 			}
 
 			healthPassthroughTintToggle =
@@ -137,6 +150,7 @@ namespace Anaglyph.LaserTag.Interface
 			lightEffectsSetting.Changed += OnLightEffectsChanged;
 			panel.VisibleChanged += OnPanelVisibleChanged;
 			HeadsetConfiguration.Changed += RefreshHeadsetConfiguration;
+			Dominance.Changed += OnDominanceChanged;
 
 			UpdateConsoleVisible();
 			OnDebugModeChanged(AnaglyphDebugging.DebugMode);
@@ -145,6 +159,7 @@ namespace Anaglyph.LaserTag.Interface
 			OnHealthPassthroughTintChanged(healthPassthroughTintSetting.Value);
 			OnLightEffectsChanged(lightEffectsSetting.Value);
 			RefreshHeadsetConfiguration();
+			OnDominanceChanged();
 		}
 
 		private void OnDisable()
@@ -158,6 +173,7 @@ namespace Anaglyph.LaserTag.Interface
 			lightEffectsSetting.Changed -= OnLightEffectsChanged;
 			if (panel != null) panel.VisibleChanged -= OnPanelVisibleChanged;
 			HeadsetConfiguration.Changed -= RefreshHeadsetConfiguration;
+			Dominance.Changed -= OnDominanceChanged;
 			if (navView != null)
 			{
 				navView.Changed -= OnNavPageChange;
@@ -202,6 +218,15 @@ namespace Anaglyph.LaserTag.Interface
 			sightingRawTrackingToggle.SetValueWithoutNotify(AlignmentSightingTool.ShowRawTracking);
 			sightingRightEyeToggle.SetValueWithoutNotify(AlignmentSightingTool.CrosshairInRightEye);
 			sightingStatus.text = AlignmentSightingTool.Status;
+		}
+
+		private void OnDominanceChanged()
+		{
+			const string selected = "dominance-button--selected";
+			dominantEyeLeftButton.EnableInClassList(selected, Dominance.Eye == Handedness.Left);
+			dominantEyeRightButton.EnableInClassList(selected, Dominance.Eye == Handedness.Right);
+			dominantHandLeftButton.EnableInClassList(selected, Dominance.Hand == Handedness.Left);
+			dominantHandRightButton.EnableInClassList(selected, Dominance.Hand == Handedness.Right);
 		}
 
 		private void OnLightEffectsChanged(bool enabled)

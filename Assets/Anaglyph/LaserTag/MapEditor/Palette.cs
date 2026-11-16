@@ -5,14 +5,10 @@ namespace Anaglyph.LaserTag.MapEditor
 {
 	public class Palette : MonoBehaviour
 	{
-		public static Palette Instance { get; private set; }
-
 		private HandSubject handSubject;
 
 		private void Awake()
 		{
-			Instance = this;
-
 			TryGetComponent(out handSubject);
 		}
 
@@ -21,18 +17,19 @@ namespace Anaglyph.LaserTag.MapEditor
 			MapEditor.ActiveChanged += gameObject.SetActive;
 			gameObject.SetActive(MapEditor.IsActive);
 
-			if (handSubject.Current == null)
-				handSubject.Assign(HandInput.Get(Handedness.Left));
+			Dominance.Changed += FollowOffHand;
+			FollowOffHand();
 		}
 
 		private void OnDestroy()
 		{
 			MapEditor.ActiveChanged -= gameObject.SetActive;
+			Dominance.Changed -= FollowOffHand;
 		}
 
-		public void SetHandSide(Handedness handedness)
+		private void FollowOffHand()
 		{
-			handSubject.Assign(HandInput.Get(handedness));
+			handSubject.Assign(HandInput.Get(Dominance.Hand == Handedness.Left ? Handedness.Right : Handedness.Left));
 		}
 	}
 }

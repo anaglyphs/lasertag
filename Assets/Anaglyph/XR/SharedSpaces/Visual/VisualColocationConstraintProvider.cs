@@ -610,6 +610,12 @@ namespace Anaglyph.XR.SharedSpaces
 			{
 				rejection = gate.Rejection(pose, p.purpose, reach, rough: true);
 				rough = rejection == null;
+				if (!rough && watched && gate.LooseResultsAgree(pose, correction, camera, p.epoch, Time.unscaledTime))
+				{
+					rough = true;
+					rejection = null;
+					description = $"loose alone, agreeing with those before it: {description}";
+				}
 			}
 
 			// a rough result is worth the jump only when it is tighter than the rough one in force: otherwise it

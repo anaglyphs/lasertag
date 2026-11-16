@@ -111,6 +111,13 @@ namespace Anaglyph.XR.VisualLocalization
 		public bool established;
 		/// <summary>The depth other headsets last got for it; 0 until it has been sent.</summary>
 		public float sentInverseDepth;
+		/// <summary>Other headsets last got it before it was established: as a direction.</summary>
+		public bool sentUnestablished;
+		/// <summary>
+		/// The depth sigma another headset or a file may rely on. Until it is established a landmark is a
+		/// direction to them: two sightings agree along their epipolar line whether or not they are one point.
+		/// </summary>
+		public float SharedInverseDepthSigma => inverseDepthSigma;
 		/// <summary>This landmark as it goes to a file or another headset, once it no longer changes.</summary>
 		internal VisualMapData.Landmark wire;
 		internal bool hasWire;

@@ -1,0 +1,40 @@
+.dominance-row {
+    flex-direction: row;
+    align-items: center;
+}
+
+.dominance-label {
+    flex-grow: 1;
+    -unity-text-align: middle-center;
+}
+
+.dominance-button {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    background-position: center;
+    background-size: 36px auto;
+    background-repeat: no-repeat;
+	/*-unity-background-scale-mode: scale-to-fit;*/
+    -unity-background-image-tint-color: var(--secondary, rgb(150, 150, 150));
+}
+
+.dominance-button.dominance-button--selected {
+    background-color: white;
+}
+
+.dominance-button.dominance-button--selected:hover {
+	background-color: white;
+}
+
+.dominance-button--eye {
+    background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/eye.svg");
+}
+
+.dominance-button--hand {
+    background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/hand.svg");
+}
+
+.dominance-button--mirrored {
+    scale: -1 1;
+}

@@ -65,11 +65,8 @@ MonoBehaviour:
   prefabsToSpawn:
   - {fileID: 1881905762339889209, guid: bf414b72be169c04aa2f5798f2e09a45, type: 3}
   spawnOrigin: {fileID: 0}
-  spawnAttemptRadius: 100
   minSpawnRadius: 10
   spawnEverySeconds: 1
-  spawnsPerCluster: 6
-  clusterArcDegrees: 30
   maxSampleAttempts: 30
 --- !u!114 &5293559935730707558
 MonoBehaviour:
@@ -114,7 +111,7 @@ AudioSource:
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
-  BypassListenerEffects: 0
+  BypassListenerEffects: 1
   BypassReverbZones: 0
   rolloffCustomCurve:
     serializedVersion: 2
@@ -272,7 +269,7 @@ AudioSource:
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
-  BypassListenerEffects: 0
+  BypassListenerEffects: 1
   BypassReverbZones: 0
   rolloffCustomCurve:
     serializedVersion: 2

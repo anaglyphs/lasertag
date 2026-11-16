@@ -352,13 +352,40 @@ namespace Anaglyph.LaserTag.Tests
 		{
 			MeasurementGate gate = Gate(new MeasurementGate.Settings());
 			GravityPnPResult acrossTheRoom = SolveWithTranslationSigma(0.6f);
-			acrossTheRoom.yawSigma = math.radians(3f);
+			acrossTheRoom.yawSigma = math.radians(2f);
 			Assert.That(gate.Rejection(acrossTheRoom, MeasurementPurpose.Colocate, reach: 6f), Is.Not.Null);
 			Assert.That(gate.Rejection(acrossTheRoom, MeasurementPurpose.Colocate, reach: 6f, rough: true), Is.Null);
 
 			Assert.That(gate.Rejection(SolveWithTranslationSigma(2.5f), MeasurementPurpose.Colocate, reach: 6f, rough: true), Does.Contain("translation"));
-			acrossTheRoom.yawSigma = math.radians(10f);
+			acrossTheRoom.yawSigma = math.radians(5f);
 			Assert.That(gate.Rejection(acrossTheRoom, MeasurementPurpose.Colocate, reach: 6f, rough: true), Does.Contain("yaw"));
+
+			// directions alone place nothing
+			acrossTheRoom.yawSigma = math.radians(0.5f);
+			acrossTheRoom.rangedInliers = 6;
+			Assert.That(gate.Rejection(acrossTheRoom, MeasurementPurpose.Colocate, reach: 6f, rough: true), Does.Contain("ranged"));
+		}
+
+		[Test]
+		public void LooseResultsMakeARoughAlignmentOnlyWhenThreeLandTogether()
+		{
+			MeasurementGate gate = Gate(new MeasurementGate.Settings());
+			GravityPnPResult loose = SolveWithTranslationSigma(0.6f);
+			loose.yawSigma = math.radians(10f);
+			float3 camera = new(1, 1.6f, 2);
+			Pose4 Turned(float degrees) => new(new float3(3, 0, 1), math.radians(170 + degrees));
+
+			Assert.That(gate.LooseResultsAgree(loose, Turned(0), camera, 1, 10f), Is.False);
+			Assert.That(gate.LooseResultsAgree(loose, Turned(20), camera, 1, 10.3f), Is.False, "another place");
+			Assert.That(gate.LooseResultsAgree(loose, Turned(3), camera, 1, 10.6f), Is.False);
+			Assert.That(gate.LooseResultsAgree(loose, Turned(1), camera, 1, 10.9f), Is.True);
+
+			gate.Clear();
+			Assert.That(gate.LooseResultsAgree(loose, Turned(0), camera, 1, 20f), Is.False);
+			Assert.That(gate.LooseResultsAgree(loose, Turned(1), camera, 1, 21f), Is.False);
+			Assert.That(gate.LooseResultsAgree(loose, Turned(2), camera, 1, 24.5f), Is.False, "the first is too long ago");
+			loose.yawSigma = math.radians(20f);
+			Assert.That(gate.LooseResultsAgree(loose, Turned(2), camera, 1, 24.6f), Is.False, "too loose to count");
 		}
 
 		[Test]
