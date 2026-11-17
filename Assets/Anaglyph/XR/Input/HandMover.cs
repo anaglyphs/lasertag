@@ -15,7 +15,24 @@ namespace Anaglyph.XR.Input
 				handSubject = GetComponentInParent<HandSubject>();
 		}
 
+		private void OnEnable()
+		{
+			Application.onBeforeRender += OnBeforeRender;
+		}
+
+		private void OnDisable()
+		{
+			Application.onBeforeRender -= OnBeforeRender;
+		}
+
 		private void Update()
+		{
+			UpdatePosition();
+		}
+
+		// controller poses update once more right before rendering
+		[BeforeRenderOrder(900)]
+		private void OnBeforeRender()
 		{
 			UpdatePosition();
 		}

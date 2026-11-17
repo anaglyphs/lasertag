@@ -227,9 +227,11 @@ namespace Anaglyph.LaserTag.Tests
 		}
 
 		[Test]
-		public void PrefabKeepsStatusAndNetworkTransformsEnabled()
+		public void PrefabKeepsStatusAndPoseSyncEnabled()
 		{
 			var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Anaglyph/LaserTag/Player/Avatar.prefab");
+			Assert.That(prefab.GetComponentsInChildren<Anaglyph.Netcode.SameFramePoseSync>(true), Has.Length.EqualTo(3));
+			Assert.That(prefab.GetComponentsInChildren<Unity.Netcode.Components.NetworkTransform>(true), Is.Empty);
 			Assert.That(prefab.GetComponent<PlayerHeadsetStatus>(), Is.Not.Null);
 			Assert.That(prefab.GetComponent<AvatarPresentation>(), Is.Not.Null);
 			foreach (NetworkBehaviour component in prefab.GetComponentsInChildren<NetworkBehaviour>(true))

@@ -562,6 +562,14 @@ MonoBehaviour:
         m_Groups: 
         m_Action: Position
         m_Flags: 0
+      - m_Name: 
+        m_Id: d8238be1-f100-445d-bfd2-bc88550d8be1
+        m_Path: <HandheldARInputDevice>/devicePosition
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: Position
+        m_Flags: 0
       m_Flags: 0
       m_Priority: 0
     m_Reference: {fileID: 0}
@@ -578,6 +586,14 @@ MonoBehaviour:
       - m_Name: 
         m_Id: 4b738b77-33b9-4273-a8dc-1db65e2b6bd7
         m_Path: <XRHMD>/deviceRotation
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: Rotation
+        m_Flags: 0
+      - m_Name: 
+        m_Id: 05fb9bf8-5ba7-46c8-955d-c8a73c52a5c0
+        m_Path: <HandheldARInputDevice>/deviceRotation
         m_Interactions: 
         m_Processors: 
         m_Groups: 

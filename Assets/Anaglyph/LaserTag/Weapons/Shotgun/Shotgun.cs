@@ -22,6 +22,7 @@ public class Shotgun : MonoBehaviour, IWeapon
 	[FormerlySerializedAs("angleSpread")] [SerializeField] private float bulletSpread;
 
 	private static ushort nextGroupId;
+	private bool fireRequested;
 
 	private void Awake()
 	{
@@ -36,12 +37,22 @@ public class Shotgun : MonoBehaviour, IWeapon
 	private void OnDisable()
 	{
 		hand.Unbind(nameof(OnFire), OnFire);
+		fireRequested = false;
 	}
 
 	public void OnFire(InputAction.CallbackContext context)
 	{
 		if (context.performed && context.ReadValueAsButton())
-			Fire();
+			fireRequested = true;
+	}
+
+	private void Update()
+	{
+		// the muzzle holds this frame's hand pose by now
+		if (!fireRequested) return;
+
+		fireRequested = false;
+		Fire();
 	}
 
 	public void Fire()

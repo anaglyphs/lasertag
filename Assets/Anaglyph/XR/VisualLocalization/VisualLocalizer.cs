@@ -124,6 +124,11 @@ namespace Anaglyph.XR.VisualLocalization
 
 		private const float MinRangedInverseDepth = 1f / 30f, MaxRangedInverseDepthSigmaShare = 0.5f;
 
+		private static readonly List<Correspondence> NothingRecognized = new();
+
+		/// <summary>Reports a captured frame's features as seen, none recognized, for a query used without the map.</summary>
+		public void ReportFeaturesSeen(VisualQuery query) => RaiseFeaturesSeen(query, NothingRecognized);
+
 		private void RaiseFeaturesSeen(VisualQuery query, List<Correspondence> correspondences)
 		{
 			Transform trackingSpace = MainXRRig.TrackingSpace;

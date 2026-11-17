@@ -6,7 +6,6 @@ Shader "Anaglyph/XR/View Aligned Dot"
 		_Color ("Color", Color) = (1, 1, 1, 1)
 		_AngularSize ("Angular Radius (radians)", Float) = 0.01
 		_MinSize ("Min Radius (meters)", Float) = 0.008
-		_SurfacePull ("Pull Toward Viewer (meters, per meter of distance)", Vector) = (0.03, 0.03, 0, 0)
 	}
 
 	SubShader
@@ -24,7 +23,8 @@ Shader "Anaglyph/XR/View Aligned Dot"
 			}
 
 			Cull Off
-			ZTest LEqual
+			// a dot marks a surface the camera just saw: the sensor depth primed into the z-buffer would hide it
+			ZTest Always
 			ZWrite Off
 			Blend One OneMinusSrcAlpha
 
@@ -59,7 +59,6 @@ Shader "Anaglyph/XR/View Aligned Dot"
 				half4 _Color;
 				float _AngularSize;
 				float _MinSize;
-				float4 _SurfacePull;
 			CBUFFER_END
 
 			Varyings vert(Attributes IN)
@@ -69,10 +68,7 @@ Shader "Anaglyph/XR/View Aligned Dot"
 				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(OUT);
 
 				float3 centerVS = TransformWorldToView(TransformObjectToWorld(IN.positionOS.xyz));
-				const float distance = -centerVS.z;
-				const float size = max(_MinSize, _AngularSize * distance);
-				// dots sit on the surface they mark; pulled in front so it does not hide them
-				centerVS.z += min(_SurfacePull.x + _SurfacePull.y * distance, 0.5 * distance);
+				const float size = max(_MinSize, _AngularSize * -centerVS.z);
 				centerVS.xy += (IN.uv * 2 - 1) * size;
 
 				// a hidden dot collapses to nothing

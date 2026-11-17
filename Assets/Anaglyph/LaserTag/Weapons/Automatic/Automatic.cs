@@ -1,5 +1,3 @@
-using System;
-using System.Threading;
 using Anaglyph.Netcode;
 using Anaglyph.XR.Input;
 using Unity.Netcode;
@@ -14,7 +12,6 @@ namespace Anaglyph.LaserTag.Weapons.Automatic
 	public class Automatic : MonoBehaviour, IWeapon
 	{
 		private HandSubject hand;
-		private CancellationTokenSource fireLoopCancellation;
 
 		[SerializeField] private GameObject boltPrefab = null;
 		[SerializeField] private Transform muzzle = null;
@@ -25,7 +22,8 @@ namespace Anaglyph.LaserTag.Weapons.Automatic
 		[SerializeField] private float fireFrequency = 0.1f;
 
 		private bool triggerDown;
-		private bool firing;
+		private bool pressedSinceLastShot;
+		private float nextShotTime;
 
 		private void Awake()
 		{
@@ -41,44 +39,31 @@ namespace Anaglyph.LaserTag.Weapons.Automatic
 		{
 			hand.Unbind(nameof(OnFire), OnFire);
 			triggerDown = false;
-			fireLoopCancellation?.Cancel();
+			pressedSinceLastShot = false;
 			visual.SetFiring(false);
 		}
 
 		public void OnFire(InputAction.CallbackContext context)
 		{
 			triggerDown = context.ReadValueAsButton();
-
-			if (triggerDown)
-				FireLoop();
+			pressedSinceLastShot |= triggerDown;
 		}
 
-		private async void FireLoop()
+		// shots leave here, once the muzzle holds this frame's hand pose
+		private void Update()
 		{
-			if (firing)
+			if (!triggerDown && !pressedSinceLastShot)
+			{
+				visual.SetFiring(false);
+				return;
+			}
+
+			if (Time.time < nextShotTime)
 				return;
 
-			firing = true;
-			fireLoopCancellation = CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken);
-
-			try
-			{
-				while (triggerDown)
-				{
-					visual.SetFiring(TryFire());
-					await Awaitable.WaitForSecondsAsync(fireFrequency, fireLoopCancellation.Token);
-				}
-			}
-			catch (OperationCanceledException)
-			{
-			}
-			finally
-			{
-				fireLoopCancellation?.Dispose();
-				fireLoopCancellation = null;
-				firing = false;
-				visual.SetFiring(false);
-			}
+			pressedSinceLastShot = false;
+			nextShotTime = Time.time + fireFrequency;
+			visual.SetFiring(TryFire());
 		}
 
 		public void Fire()

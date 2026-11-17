@@ -14,6 +14,8 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 		private MeshRenderer laserBody = null;
 		[SerializeField, Min(0f), Tooltip("Maximum world-space length of the visible laser body.")]
 		private float bodyLength = 1f;
+		[SerializeField, Min(1f), Tooltip("A shot heard late is already partway down its path. Its tail starts at the muzzle and moves this many times faster than the head until the body is back to its normal length.")]
+		private float lateTailSpeedMultiplier = 2f;
 		[SerializeField, Min(0.001f), Tooltip("World-space radius the glow fades out by.")]
 		private float glowRadius = 0.05f;
 		[SerializeField, Tooltip("This bullet's own light, or the per-bullet template for its group's shared light.")]
@@ -52,11 +54,13 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 		// distance along the shot ray where the bullet hit; the body keeps
 		// flying and drains into this point instead of vanishing on impact
 		private float hitDistance = float.PositiveInfinity;
+		private float localFireTime;
 
 		private void HandleFire()
 		{
 			laserBody.enabled = true;
 			hitDistance = float.PositiveInfinity;
+			localFireTime = Time.time;
 
 			prevBulletPosition = bullet.transform.position;
 			pointLight.transform.position = prevBulletPosition;
@@ -135,7 +139,8 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 
 		private void UpdateLaserBody(float headDistance)
 		{
-			float tailDistance = Mathf.Max(0f, headDistance - bodyLength);
+			float lateTailDistance = bullet.MetersPerSecond * lateTailSpeedMultiplier * (Time.time - localFireTime);
+			float tailDistance = Mathf.Max(0f, Mathf.Min(headDistance - bodyLength, lateTailDistance));
 
 			if (tailDistance >= hitDistance)
 			{

@@ -7,7 +7,7 @@ using UnityEngine.Rendering;
 namespace Anaglyph.XR.SharedSpaces
 {
 	/// <summary>
-	/// While visual alignment is the active method and not yet aligned, draws the features its
+	/// While visual alignment is the active method and not yet aligned, or no method has started, draws the features its
 	/// query frames see as small view-facing dots on the surfaces they were seen on: green for
 	/// those the map recognized, white for a sample of the rest. Placed by the depth sensor; a
 	/// recognized one with no depth reading stands at the map's range for its landmark. Dots fade,
@@ -109,9 +109,11 @@ namespace Anaglyph.XR.SharedSpaces
 			return quadMesh;
 		}
 
+		// before any alignment method starts, frames are looked at to tell which saved space this is
 		private bool VisualAlignmentUnaligned =>
-			VisualColocationConstraintProvider.Active == provider && provider.IsRunning &&
-			provider.Alignment.CurrentPhase is CanonAlignment.Phase.Searching or CanonAlignment.Phase.Relocalizing;
+			(Colocator.Instance != null && Colocator.Instance.Provider == null) ||
+			(VisualColocationConstraintProvider.Active == provider && provider.IsRunning &&
+			 provider.Alignment.CurrentPhase is CanonAlignment.Phase.Searching or CanonAlignment.Phase.Relocalizing);
 
 		private int RecognizedDotSlots => maxDots - seenDotSlots;
 

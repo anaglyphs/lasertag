@@ -28,7 +28,7 @@ namespace Anaglyph.LaserTag.Player
 		public Transform RightHandTransform => rightHandTransform;
 		// public Transform TorsoTransform => torsoTransform;
 
-		public UnityEvent OnRespawned = new();
+		[SerializeField] private UnityEvent OnRespawned = new();
 		public event Action Respawned = delegate { };
 
 		public UnityEvent OnKilled = new();

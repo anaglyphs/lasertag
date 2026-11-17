@@ -46,7 +46,10 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 		public float MetersPerSecond => metersPerSecond;
 
 		private bool isAlive;
+		private bool hasCollided;
 		private float travelDist;
+		private readonly RaycastHit[] castHits = new RaycastHit[8];
+		private static int frameCollidersWereSynced = -1;
 
 		public event Action OnFire = delegate { };
 		public event Action OnCollide = delegate { };
@@ -73,6 +76,7 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 		public override void OnNetworkSpawn()
 		{
 			isAlive = true;
+			hasCollided = false;
 
 			if (IsOwner)
 			{
@@ -87,7 +91,8 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 			}
 			else
 			{
-				UpdatePosition(Shot);
+				// start at the muzzle so the first Update casts the whole path flown before this peer heard of the shot
+				UpdatePosition(new Pose(Shot.ray.origin, Quaternion.LookRotation(Shot.ray.direction)));
 			}
 
 			OnFire.Invoke();
@@ -125,54 +130,86 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 			
 			Vector3 prevPos = transform.position;
 			UpdatePosition(Shot);
+			SyncCollidersOncePerFrame();
 
-			if (IsOwner)
+			if (TryCastAlongFlight(prevPos, transform.position, out RaycastHit physHit))
 			{
-				Vector3 travel = transform.position - prevPos;
-				RaycastHit physHit;
-				bool didHit = collisionRadius > 0
-					? Physics.SphereCast(prevPos, collisionRadius, travel.normalized, out physHit,
-						travel.magnitude, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)
-					: Physics.Linecast(prevPos, transform.position, out physHit,
-						Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
-
-				if (didHit)
-				{
-					float dist = Vector3.Distance(Shot.ray.origin, physHit.point);
-
-					float damage = damageOverDistance.Evaluate(dist);
-
-					Collider col = physHit.collider;
-
-					damageData = new IDamageable.Data
-					{
-						playerID = OwnerClientId,
-						damage = damage
-					};
-
-					HitRpc(physHit.point, physHit.normal);
-					var receiver = col.GetComponentInParent<IProjectileDamageReceiver>();
-					if (receiver != null)
-						receiver.ReceiveProjectileHit(new ProjectileHit
-						{
-							damage = damageData,
-							position = physHit.point
-						});
-					else
-						IDamageable.DamageParentOf(col, physHit.point, damageData);
-					return;
-				}
-
-				if (travelDist > MaxTravelDist)
-				{
-					// NetworkObject.Despawn(true);
-					isAlive = false;
-					
-					if (IsOwner)
-						DelayedDespawn();
-				}
-					
+				if (IsOwner)
+					ApplyHit(physHit);
+				else
+					Collide(physHit.point, physHit.normal); // predicted: visuals only, the owner's HitRpc decides damage
+				return;
 			}
+
+			if (IsOwner && travelDist > MaxTravelDist)
+			{
+				isAlive = false;
+				DelayedDespawn();
+			}
+		}
+
+		// physics otherwise sees moved colliders only after a fixed step
+		private static void SyncCollidersOncePerFrame()
+		{
+			if (frameCollidersWereSynced == Time.frameCount) return;
+
+			frameCollidersWereSynced = Time.frameCount;
+			Physics.SyncTransforms();
+		}
+
+		private bool TryCastAlongFlight(Vector3 from, Vector3 to, out RaycastHit nearestHit)
+		{
+			nearestHit = default;
+			Vector3 travel = to - from;
+			float distance = travel.magnitude;
+			if (distance <= 0) return false;
+			Vector3 direction = travel / distance;
+
+			int hitCount = collisionRadius > 0
+				? Physics.SphereCastNonAlloc(from, collisionRadius, direction, castHits, distance,
+					Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)
+				: Physics.RaycastNonAlloc(from, direction, castHits, distance,
+					Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+
+			Transform shooter = NetworkManager.SpawnManager.GetPlayerNetworkObject(OwnerClientId)?.transform;
+			bool found = false;
+			for (int i = 0; i < hitCount; i++)
+			{
+				RaycastHit hit = castHits[i];
+				// a remote shooter's avatar lags behind their real body, so their own shot can cross it
+				if (shooter != null && hit.collider.transform.IsChildOf(shooter)) continue;
+				// sweeps that start overlapping report a zero point; keep the bullet on its path instead
+				if (hit.distance <= 0) hit.point = from;
+				if (!found || hit.distance < nearestHit.distance)
+				{
+					nearestHit = hit;
+					found = true;
+				}
+			}
+			return found;
+		}
+
+		private void ApplyHit(RaycastHit physHit)
+		{
+			float dist = Vector3.Distance(Shot.ray.origin, physHit.point);
+
+			damageData = new IDamageable.Data
+			{
+				playerID = OwnerClientId,
+				damage = damageOverDistance.Evaluate(dist)
+			};
+
+			HitRpc(physHit.point, physHit.normal);
+			Collider col = physHit.collider;
+			var receiver = col.GetComponentInParent<IProjectileDamageReceiver>();
+			if (receiver != null)
+				receiver.ReceiveProjectileHit(new ProjectileHit
+				{
+					damage = damageData,
+					position = physHit.point
+				});
+			else
+				IDamageable.DamageParentOf(col, physHit.point, damageData);
 		}
 
 		private void DrawDebug()
@@ -186,15 +223,22 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 		[Rpc(SendTo.Everyone, InvokePermission = RpcInvokePermission.Owner)]
 		private void HitRpc(Vector3 pos, Vector3 norm)
 		{
-			transform.position = pos;
-			transform.up = norm;
-			isAlive = false;
-
-			OnCollide.Invoke();
-			AudioPool.Play(collideSFX, transform.position, 1, collideSFXFullVolumeDistance);
+			if (!hasCollided)
+				Collide(pos, norm);
 
 			if (IsOwner)
 				DelayedDespawn();
+		}
+
+		private void Collide(Vector3 pos, Vector3 norm)
+		{
+			hasCollided = true;
+			isAlive = false;
+			transform.position = pos;
+			transform.up = norm;
+
+			OnCollide.Invoke();
+			AudioPool.Play(collideSFX, transform.position, 1, collideSFXFullVolumeDistance);
 		}
 
 		private async void DelayedDespawn()

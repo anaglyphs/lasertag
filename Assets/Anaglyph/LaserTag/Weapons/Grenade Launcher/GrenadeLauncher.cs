@@ -21,7 +21,7 @@ namespace Anaglyph.LaserTag.Weapons.Grenades
 		[SerializeField] private Transform muzzle;
 		[SerializeField] private WeaponVisual visual;
 		public GameObject VisualObject => visual.gameObject;
-		public UnityEvent onFire = new();
+		[SerializeField] private UnityEvent onFire = new();
 
 		[SerializeField, Min(1)] private int roundsPerLife = 2;
 		[SerializeField, Tooltip("Shown while that many rounds or more are left, one per round.")]
@@ -30,6 +30,7 @@ namespace Anaglyph.LaserTag.Weapons.Grenades
 		// see Blaster: the trigger must fall below this before the next shot
 		[SerializeField, Range(0, 1)] private float rearmThreshold = 0.2f;
 		private InputControl heldTrigger;
+		private bool fireRequested;
 
 		private int rounds;
 		public int Rounds
@@ -64,6 +65,7 @@ namespace Anaglyph.LaserTag.Weapons.Grenades
 		private void OnDisable()
 		{
 			hand.Unbind(nameof(OnFire), OnFire);
+			fireRequested = false;
 		}
 
 		private void Refill() => Rounds = roundsPerLife;
@@ -74,13 +76,20 @@ namespace Anaglyph.LaserTag.Weapons.Grenades
 				return;
 
 			heldTrigger = context.control;
-			Fire();
+			fireRequested = true;
 		}
 
 		private void Update()
 		{
 			if (heldTrigger != null && heldTrigger.EvaluateMagnitude() < rearmThreshold)
 				heldTrigger = null;
+
+			// the muzzle holds this frame's hand pose by now
+			if (fireRequested)
+			{
+				fireRequested = false;
+				Fire();
+			}
 		}
 
 		public void Fire()

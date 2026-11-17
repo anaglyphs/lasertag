@@ -46,7 +46,7 @@ namespace Anaglyph.LaserTag
 
 		private Camera gameCamera, screenClearCamera;
 		private ARCameraManager cameraManager;
-		private ARCameraBackground cameraBackground;
+		private HandheldCameraBackground cameraBackground;
 		private XRCameraConfiguration? configurationBefore;
 		private float renderScaleBefore;
 		private Vector2Int cameraImageSize;
@@ -303,7 +303,7 @@ namespace Anaglyph.LaserTag
 				gameCamera.fieldOfView = Mathf.Atan(1 / projection[1, 1]) * 2 * Mathf.Rad2Deg;
 			}
 
-			Material backgroundMaterial = cameraBackground != null ? cameraBackground.material : null;
+			Material backgroundMaterial = cameraBackground != null ? cameraBackground.Material : null;
 			if (frame.displayMatrix.HasValue && backgroundMaterial != null)
 			{
 				// the background shaders read image coordinates as (u, v, 1) × matrix

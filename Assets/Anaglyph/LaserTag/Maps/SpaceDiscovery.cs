@@ -297,6 +297,7 @@ namespace Anaglyph.LaserTag.Maps
 					if (token.IsCancellationRequested) return new(ProbeOutcome.Canceled);
 					if (query?.features != null && query.features.Count >= MinFeatures)
 					{
+						localizer.ReportFeaturesSeen(query);
 						ulong[] bits = vocabulary.Bitset(query.features.descriptors, query.features.Count);
 						foreach ((string id, float score) in index.ScoreSpaces(bits))
 						{

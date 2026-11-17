@@ -1,39 +1,30 @@
 using Unity.Netcode;
-using Unity.Netcode.Components;
 using Unity.XR.CoreUtils;
 using UnityEngine;
 
 namespace Anaglyph.LaserTag.Player
 {
 	/// <summary>
-	/// Copies the local rig onto the owner's avatar. onBeforeRender has the last word because
-	/// that is the last point the tracked poses are updated: NetworkTransform samples the
-	/// authority in PreUpdate, so a pose written any earlier in the frame is only a staler
-	/// version of the same send. Update and LateUpdate write too, so that anything reading a
-	/// held weapon's muzzle mid-frame isn't aiming with the previous frame's hand.
+	/// Copies the local rig onto the owner's avatar. Update runs right after the hands are
+	/// placed and before gameplay scripts, so a held weapon's muzzle is current when it fires.
+	/// onBeforeRender has the last word because that is the last point the tracked poses are
+	/// updated; the pose written there is what gets rendered and sent.
 	///
 	/// Poses travel in the shared frame: each headset's rig is already aligned to it (drift
 	/// corrections included, eased in by the colocator), so the avatar root sits at the
 	/// origin on every peer and the owner's world poses are what everyone sees.
 	/// </summary>
+	[DefaultExecutionOrder(-9998)]
 	public class AvatarPose : NetworkBehaviour
 	{
 		[SerializeField] private PlayerAvatar avatar;
 
-		// everyone else's copy of this avatar is driven by NetworkTransform instead
+		// everyone else's copy of this avatar is driven by the owner's synced poses instead
 		private bool driving;
 
 		private void OnValidate()
 		{
 			TryGetComponent(out avatar);
-		}
-
-		private void Awake()
-		{
-			// set identically on every peer before spawn
-			foreach (NetworkTransform networkTransform in GetComponentsInChildren<NetworkTransform>(true))
-				if (networkTransform.transform != transform)
-					networkTransform.InLocalSpace = true;
 		}
 
 		private void PlaceRoot()
@@ -72,7 +63,7 @@ namespace Anaglyph.LaserTag.Player
 			if (driving) Apply();
 		}
 
-		// runs after the tracked pose drivers have written this frame's poses
+		// runs after the tracked pose drivers and hand movers have written this frame's poses
 		[BeforeRenderOrder(1000)]
 		private void OnBeforeRender()
 		{

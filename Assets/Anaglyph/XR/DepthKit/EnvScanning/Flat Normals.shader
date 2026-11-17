@@ -16,9 +16,7 @@ Shader "Anaglyph/Debug/Flat Normals"
 
 			Cull Back
 			ZWrite True
-			// premultiplied. A global, Zero unless set: the passthrough compositor fills in behind.
-			// HandheldCameraBackground sets OneMinusSrcAlpha, over a phone's camera image
-			Blend One [agBlendOverCameraImage]
+			// premultiplied: passthrough fills in behind by the alpha written here
 
 			HLSLPROGRAM
 			#pragma vertex vert
