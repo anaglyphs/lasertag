@@ -8,6 +8,7 @@ using Anaglyph.LaserTag.Player.Teams;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 namespace Anaglyph.LaserTag.Objects.Gameplay.Control_Point
@@ -24,7 +25,7 @@ namespace Anaglyph.LaserTag.Objects.Gameplay.Control_Point
 	{
 		public const float MillisToTake = 10000;
 
-		public UnityEvent<byte> ControllingTeamChanged = new();
+		[FormerlySerializedAs("ControllingTeamChanged")] [SerializeField] private UnityEvent<byte> OnControllingTeamChange = new();
 
 		[SerializeField] private TeamOwner teamOwner;
 		public byte HoldingTeam => teamOwner.Team;
@@ -75,7 +76,7 @@ namespace Anaglyph.LaserTag.Objects.Gameplay.Control_Point
 		{
 			if (IsOwner) millisCapturedSync.Value = 0;
 
-			ControllingTeamChanged.Invoke(HoldingTeam);
+			OnControllingTeamChange.Invoke(HoldingTeam);
 		}
 
 		private void OnMatchStateChanged(MatchState state)

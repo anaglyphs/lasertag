@@ -1,5 +1,6 @@
 using Anaglyph.LaserTag.Interface.HUD;
 using Anaglyph.LaserTag.MapEditor.Tools;
+using Anaglyph.XR.Input;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -42,7 +43,7 @@ namespace Anaglyph.LaserTag.MapEditor
 			// document.pivot = positioner.ControllerSide == 1 ? Pivot.RightCenter : Pivot.LeftCenter;
 			
 			MapEditorTool tool = MapEditorTool.DominantHand;
-			var hand = tool != null && tool.isActiveAndEnabled ? tool.Hand : null;
+			HandInput hand = tool != null && tool.isActiveAndEnabled ? tool.Hand : null;
 			bool visible = MapEditor.IsActive && hand != null && hand.IsTracking;
 			positioner.SetHand(visible ? hand : null);
 			HUDElement.SetDisplayed(controls, visible);

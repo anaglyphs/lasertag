@@ -138,8 +138,10 @@ namespace Anaglyph.XR.SharedSpaces
 		private CanonAlignment alignment;
 		private SessionAnchor sessionAnchor;
 
-		/// <summary>Whether the headset reaches the internet, which sharing or downloading the session anchor needs. The embedding game's to answer; asked every 2 seconds at most.</summary>
-		public System.Func<bool> HasInternet { get; set; } = () => true;
+		/// <summary>Answers whether the headset reaches the internet, which sharing or downloading the session anchor needs. Asked every 2 seconds at most. No answerer means it does.</summary>
+		public IInternetAccess InternetAccess { get; set; }
+
+		private bool HasInternet => InternetAccess == null || InternetAccess.HasInternet;
 
 		/// <summary>
 		/// A debugging view: holds the rig on the found alignment alone, as raw tracking has it,
@@ -274,7 +276,7 @@ namespace Anaglyph.XR.SharedSpaces
 			graph = new KeyframeGraph(graphSettings, localizer, track);
 			track.KnotFor = graph.KnotFor;
 			alignment = new CanonAlignment(LogTag, () => IsAvailable, () => localizer.Map.Count > 0);
-			sessionAnchor = new SessionAnchor(CanonOf, () => HasInternet(), message => log.Outcome(message));
+			sessionAnchor = new SessionAnchor(CanonOf, () => HasInternet, message => log.Outcome(message));
 			localizer.KeyframeAdded += OnKeyframeAdded;
 			localizer.KeyframeExtracted += graph.Add;
 		}
@@ -978,5 +980,11 @@ namespace Anaglyph.XR.SharedSpaces
 			driftSites.DrawDebug(WorldFromPlaced);
 			debugView.Draw(MainXRRig.Camera.transform.position);
 		}
+	}
+
+	/// <summary>Answers whether this device reaches the internet right now.</summary>
+	public interface IInternetAccess
+	{
+		bool HasInternet { get; }
 	}
 }

@@ -220,7 +220,7 @@ namespace Anaglyph.LaserTag.Interface
 					GameObject weapon = weaponDatabase.GetWeapon(id);
 					if (weapon == null) continue;
 					int weaponId = id;
-					var button = new Button { name = $"demo-weapon-{id}", text = weapon.name };
+					Button button = new() { name = $"demo-weapon-{id}", text = weapon.name };
 					button.MakeActOnPress();
 					bindings.Click(button, () => SessionWeaponSwitcher.Instance?.SwitchEveryone(weaponId));
 					demoWeapons.Add(button);

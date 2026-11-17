@@ -20,7 +20,7 @@ namespace Anaglyph.LaserTag.Player.Teams
 
 		public Color Color { get; private set; }
 
-		public UnityEvent<Color> OnColorSet = new();
+		[SerializeField] private UnityEvent<Color> OnColorSet = new();
 
 		private void Awake()
 		{

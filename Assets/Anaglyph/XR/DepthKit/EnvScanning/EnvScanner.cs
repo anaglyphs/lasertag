@@ -129,11 +129,11 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 		/// <summary>A frame (local or remote) was integrated; visible chunks are current for this Unity frame.</summary>
 		public event Action Updated = delegate { };
 
-		/// <summary>Embedding policy pauses depth integration without discarding the scan.</summary>
-		public Func<bool> IntegrationGate { get; set; }
+		/// <summary>Pauses depth integration without discarding the scan. No gate means never paused.</summary>
+		public IEnvIntegrationGate IntegrationGate { get; set; }
 
 		/// <summary>The local sensor's pose is in the live map's frame: <see cref="IntegrationGate"/> lets it through.</summary>
-		public bool LocalSensorTrusted => IntegrationGate?.Invoke() ?? true;
+		public bool LocalSensorTrusted => IntegrationGate == null || IntegrationGate.CanIntegrate;
 
 		public event Action Cleared = delegate { };
 
@@ -482,7 +482,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			if (!GpuResourcesCreated)
 				CreateGpuResources();
 
-			UpdateLoop();
+			UpdateLoop().RunUntilCancelled();
 		}
 
 		private void OnDestroy()
@@ -505,24 +505,18 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			if (maskMat) Destroy(maskMat);
 		}
 
-		private async void UpdateLoop()
+		private async Awaitable UpdateLoop()
 		{
 			updateLoopTknSrc?.Cancel();
 			updateLoopTknSrc = new CancellationTokenSource();
 			CancellationToken ctkn = updateLoopTknSrc.Token;
 
-			try
+			while (!ctkn.IsCancellationRequested)
 			{
-				while (!ctkn.IsCancellationRequested)
-				{
-					await Awaitable.WaitForSecondsAsync(1 / updateFrequency, ctkn);
-					ctkn.ThrowIfCancellationRequested();
+				await Awaitable.WaitForSecondsAsync(1 / updateFrequency, ctkn);
+				ctkn.ThrowIfCancellationRequested();
 
-					Scan();
-				}
-			}
-			catch (OperationCanceledException)
-			{
+				Scan();
 			}
 		}
 
@@ -959,5 +953,11 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 				this.count = count;
 			}
 		}
+	}
+
+	/// <summary>Answers whether the local sensor's pose is in the live map's frame right now.</summary>
+	public interface IEnvIntegrationGate
+	{
+		bool CanIntegrate { get; }
 	}
 }

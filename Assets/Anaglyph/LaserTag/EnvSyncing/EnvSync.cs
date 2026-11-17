@@ -2,6 +2,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using Anaglyph.LaserTag.Maps;
 using Anaglyph.Netcode;
 using Anaglyph.Netcode.SyncVariables;
@@ -21,7 +22,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 	/// frames held back are folded into the next sent frame's weight. Late joiners pull
 	/// the authority's chunks whole as a snapshot.
 	/// </summary>
-	public class EnvSync : MonoBehaviour
+	public class EnvSync : MonoBehaviour, IEnvIntegrationGate
 	{
 		public static EnvSync Instance { get; private set; }
 
@@ -113,6 +114,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			(ColocationManager.UsesSavedReferences(ColocationManager.Instance.ActiveMethod) && ColocationManager.UsesSavedReferences(SpaceManager.Instance.Alignment.SelectedMethod) ||
 			 ColocationManager.Instance.ActiveMethod == SpaceManager.Instance.Alignment.SelectedMethod);
 		private static bool CanIntegrate => SpaceManager.Instance != null && SpaceManager.Instance.Alignment.CanIntegrateEnvironment;
+		bool IEnvIntegrationGate.CanIntegrate => CanIntegrate;
 		private bool CanSendScan => CanShareScan && CanIntegrate;
 		private static SpaceFrame CurrentFrame => SpaceManager.Instance != null ? SpaceManager.Instance.Frame : default;
 		private static bool FrameMatches(SpaceFrame frame) => frame.IsSet && frame == CurrentFrame;
@@ -140,7 +142,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			{
 				EnvScanner.Instance.Cleared += OnScanCleared;
 				EnvScanner.Instance.FrameCaptured += OnFrameCaptured;
-				EnvScanner.Instance.IntegrationGate = () => CanIntegrate;
+				EnvScanner.Instance.IntegrationGate = this;
 			}
 		}
 
@@ -278,9 +280,9 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			// its gating state instead of nothing
 			if (!SyncBus.Active && statSent == 0 && statReceived == 0 && statChunksSent == 0 && statChunksReceived == 0 && statDrops.Count == 0) return;
 
-			var manager = SpaceManager.Instance;
-			var sb = new System.Text.StringBuilder($"[{nameof(EnvSync)}] frames out {statSent} ({statSentBytes}B) in {statReceived} ({statReceivedBytes}B), held {statHeld}, chunks out {statChunksSent} in {statChunksReceived}");
-			foreach (var drop in statDrops) sb.Append($", dropped {drop.Value} ({drop.Key})");
+			SpaceManager manager = SpaceManager.Instance;
+			StringBuilder sb = new($"[{nameof(EnvSync)}] frames out {statSent} ({statSentBytes}B) in {statReceived} ({statReceivedBytes}B), held {statHeld}, chunks out {statChunksSent} in {statChunksReceived}");
+			foreach (KeyValuePair<string, int> drop in statDrops) sb.Append($", dropped {drop.Value} ({drop.Key})");
 			sb.Append($" | bus={SyncBus.Active} authority={SyncBus.IsAuthority} role={manager?.Role} localized={ColocationManager.IsLocalized} share={CanShareScan} send={CanSendScan} integrate={CanIntegrate} space={CurrentFrame.IsSet} snapshotRequested={requestedScan.IsSet} snapshotQueue={snapshotQueue.Count}");
 			Debug.Log(sb.ToString());
 
@@ -427,7 +429,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 
 			try
 			{
-				while (generation == syncGeneration && SyncBus.Active && snapshotQueue.TryDequeue(out var request))
+				while (generation == syncGeneration && SyncBus.Active && snapshotQueue.TryDequeue(out (ulong client, SpaceFrame context) request))
 				{
 					List<int> chunkIndices = new();
 					foreach (Chunk chunk in EnvMesher.Instance.ChunksList) chunkIndices.Add(chunk.chunkIndex);

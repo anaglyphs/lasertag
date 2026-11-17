@@ -9,13 +9,14 @@ using UnityEngine;
 
 namespace Anaglyph.LaserTag.Tests
 {
-	public class TwoAprilTagColocationTests
+	public class TwoAprilTagColocationTests : ITagTrackingGate
 	{
 		private const BindingFlags PrivateInstance = BindingFlags.NonPublic | BindingFlags.Instance;
 		private GameObject owner;
 		private AprilTagColocationConstraintProvider provider;
 		private Component tracker;
 		private bool trackingReady;
+		bool ITagTrackingGate.TrackingReady => trackingReady;
 		private long frameTimestamp;
 
 		[SetUp]
@@ -28,8 +29,8 @@ namespace Anaglyph.LaserTag.Tests
 			tracker = owner.AddComponent(trackerField.FieldType);
 			trackerField.SetValue(provider, tracker);
 			trackingReady = true; frameTimestamp = 0;
-			provider.TrackingSpaceSource = () => owner.transform;
-			provider.TrackingReady = () => trackingReady;
+			provider.TrackingSpace = owner.transform;
+			provider.TrackingGate = this;
 			provider.TwoTagMode = true;
 		}
 

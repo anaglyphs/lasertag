@@ -1,5 +1,6 @@
 using System;
-using System.Linq;
+using System.Collections.Generic;
+using System.Text;
 using Anaglyph.LaserTag.Maps;
 using Anaglyph.Menu;
 using UnityEngine;
@@ -107,12 +108,28 @@ namespace Anaglyph.LaserTag.Operator
 				: !setup.SizeConfirmed ? Copy("measuring")
 				: space.HasTags && !setup.CanFinish ? Copy("wait-validation")
 				: Copy("registering");
-			tags.text = space.HasTags ? string.Join(", ", space.tags.OrderBy(tag => tag.id).Select(tag => "#" + tag.id)) : Copy("no-tags");
+			tags.text = space.HasTags ? SortedTagLabels(space.tags) : Copy("no-tags");
 			next.SetEnabled(step == 0 || space.HasTags);
 			confirm.SetEnabled(setup.CanFinish);
 			finish.SetEnabled(confirm.value && setup.CanFinish);
 			finish.tooltip = setup.CanFinish ? null : Copy("wait-validation");
 			focus.SetEnabled(space.HasTags);
+		}
+
+		private static string SortedTagLabels(List<TagRef> tags)
+		{
+			List<int> ids = new(tags.Count);
+			foreach (TagRef tag in tags) ids.Add(tag.id);
+			ids.Sort();
+
+			StringBuilder labels = new();
+			foreach (int id in ids)
+			{
+				if (labels.Length > 0) labels.Append(", ");
+				labels.Append('#').Append(id);
+			}
+
+			return labels.ToString();
 		}
 
 		private void RefreshStepVisibility()

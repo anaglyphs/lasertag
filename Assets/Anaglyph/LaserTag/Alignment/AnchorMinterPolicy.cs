@@ -15,7 +15,7 @@ namespace Anaglyph.LaserTag
 			ulong? aligned = null;
 			bool currentReady = false;
 			bool currentAligned = false;
-			foreach (var pair in headsets)
+			foreach (KeyValuePair<ulong, HeadsetReadiness> pair in headsets)
 			{
 				HeadsetReadiness readiness = pair.Value;
 				if (!readiness.CanMintSharedAnchors || !frame.IsSet || readiness.spaceId != frame.spaceId || readiness.frameId != frame.frameId) continue;

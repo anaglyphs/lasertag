@@ -7,3 +7,20 @@ tab_width = 4
 
 [*.cs]
 resharper_check_namespace_highlighting = none
+
+# explicit types, never var
+csharp_style_var_for_built_in_types = false:warning
+csharp_style_var_when_type_is_apparent = false:warning
+csharp_style_var_elsewhere = false:warning
+dotnet_diagnostic.IDE0008.severity = warning
+csharp_style_implicit_object_creation_when_type_is_apparent = true:suggestion
+
+# explicit access modifiers
+dotnet_style_require_accessibility_modifiers = for_non_interface_members:warning
+dotnet_diagnostic.IDE0040.severity = warning
+
+# layout
+csharp_new_line_before_open_brace = all
+csharp_style_namespace_declarations = block_scoped:warning
+csharp_style_expression_bodied_properties = true:suggestion
+csharp_style_expression_bodied_accessors = true:suggestion

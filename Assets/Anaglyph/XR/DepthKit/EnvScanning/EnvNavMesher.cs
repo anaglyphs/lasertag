@@ -56,6 +56,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 
 		private NavMeshDataInstance dataInstance;
 		private CancellationTokenSource loopCancelSrc;
+		private EnvMesher envMesher;
 
 		private void Awake()
 		{
@@ -64,7 +65,8 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 
 		private void Start()
 		{
-			EnvMesher.Instance.ChunksCleared += OnClear;
+			envMesher = EnvMesher.Instance;
+			envMesher.ChunksCleared += HandleClear;
 
 			Begin();
 		}
@@ -76,11 +78,11 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 
 		private void Begin()
 		{
-			EnvMesher.Instance.ChunkMeshUpdated += OnChunkMeshUpdated;
+			envMesher.ChunkMeshUpdated += HandleChunkMeshUpdate;
 
 			// meshing that happened while disabled was never reported, and a chunk first meshed
 			// back then isn't in the source list at all, so every chunk is taken in from scratch
-			foreach (Chunk chunk in EnvMesher.Instance.ChunksList)
+			foreach (Chunk chunk in envMesher.ChunksList)
 				MarkChunkDirty(chunk);
 
 			CreateData();
@@ -92,19 +94,19 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			loopCancelSrc?.Cancel();
 			CancelBake();
 
-			if (EnvMesher.Instance)
-				EnvMesher.Instance.ChunkMeshUpdated -= OnChunkMeshUpdated;
+			if (envMesher)
+				envMesher.ChunkMeshUpdated -= HandleChunkMeshUpdate;
 		}
 
 		private void OnDestroy()
 		{
-			if (EnvMesher.Instance)
-				EnvMesher.Instance.ChunksCleared -= OnClear;
+			if (envMesher)
+				envMesher.ChunksCleared -= HandleClear;
 
 			DestroyData();
 		}
 
-		private void OnClear()
+		private void HandleClear()
 		{
 			loopCancelSrc?.Cancel();
 			CancelBake();
@@ -149,7 +151,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			IsBaking = false;
 		}
 
-		private void OnChunkMeshUpdated(Chunk chunk) => MarkChunkDirty(chunk);
+		private void HandleChunkMeshUpdate(Chunk chunk) => MarkChunkDirty(chunk);
 
 		/// <summary>
 		/// Queues a chunk into the next NavMesh update. Locally meshed chunks are picked up
@@ -190,34 +192,24 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			loopCancelSrc?.Cancel();
 			loopCancelSrc = new CancellationTokenSource();
 
-			_ = RunUpdateLoop(loopCancelSrc.Token);
+			RunUpdateLoop(loopCancelSrc.Token).RunUntilCancelled();
 		}
 
 		private async Awaitable RunUpdateLoop(CancellationToken ctkn)
 		{
-			try
+			while (!ctkn.IsCancellationRequested)
 			{
-				while (!ctkn.IsCancellationRequested)
+				// walking dirties chunks faster than one bake a second can take them in, and a
+				// backlog only ever grows, so bakes run back to back until the scan is caught up
+				if (dirtyChunks.Count == 0)
 				{
-					// walking dirties chunks faster than one bake a second can take them in, and a
-					// backlog only ever grows, so bakes run back to back until the scan is caught up
-					if (dirtyChunks.Count == 0)
-					{
-						await Awaitable.WaitForSecondsAsync(secondsBetweenChecks, ctkn);
-						continue;
-					}
-
-					await Bake(ctkn);
-
-					await Awaitable.NextFrameAsync(ctkn);
+					await Awaitable.WaitForSecondsAsync(secondsBetweenChecks, ctkn);
+					continue;
 				}
-			}
-			catch (OperationCanceledException)
-			{
-			}
-			catch (Exception e)
-			{
-				Debug.LogException(e);
+
+				await Bake(ctkn);
+
+				await Awaitable.NextFrameAsync(ctkn);
 			}
 		}
 

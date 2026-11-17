@@ -8,6 +8,7 @@ using Anaglyph.LaserTag.Weapons;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.Serialization;
 
 namespace Anaglyph.LaserTag.Player
 {
@@ -28,13 +29,13 @@ namespace Anaglyph.LaserTag.Player
 		public Transform RightHandTransform => rightHandTransform;
 		// public Transform TorsoTransform => torsoTransform;
 
-		[SerializeField] private UnityEvent OnRespawned = new();
+		[FormerlySerializedAs("OnRespawned")] [SerializeField] private UnityEvent OnRespawn = new();
 		public event Action Respawned = delegate { };
 
-		public UnityEvent OnKilled = new();
+		[FormerlySerializedAs("OnKilled")] [SerializeField] private UnityEvent OnKill = new();
 		public event Action Killed = delegate { };
 
-		public UnityEvent OnDamaged = new();
+		[FormerlySerializedAs("OnDamaged")] [SerializeField] private UnityEvent OnDamage = new();
 		public event Action<float, ulong> Damaged = delegate { };
 
 		public bool IsAlive => isAliveSync.Value;
@@ -106,9 +107,9 @@ namespace Anaglyph.LaserTag.Player
 		private void Awake()
 		{
 			HeadsetStatus = GetComponent<PlayerHeadsetStatus>();
-			Killed += delegate { if (HasSpatialPresence) OnKilled.Invoke(); };
-			Damaged += delegate { if (HasSpatialPresence) OnDamaged.Invoke(); };
-			Respawned += delegate { if (HasSpatialPresence) OnRespawned.Invoke(); };
+			Killed += delegate { if (HasSpatialPresence) OnKill.Invoke(); };
+			Damaged += delegate { if (HasSpatialPresence) OnDamage.Invoke(); };
+			Respawned += delegate { if (HasSpatialPresence) OnRespawn.Invoke(); };
 
 			healthSync.OnValueChanged += delegate(float _, float health) { Health = health; };
 

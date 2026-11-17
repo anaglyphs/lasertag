@@ -144,7 +144,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 
 			// Unity cancels this token as the component is destroyed, so the loop ends with the
 			// registry and needs no source of our own underneath it.
-			ReconciliationLoop(destroyCancellationToken);
+			ReconciliationLoop(destroyCancellationToken).RunUntilCancelled();
 		}
 
 		/// <summary>
@@ -998,18 +998,11 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 			}
 		}
 
-		private async void ReconciliationLoop(CancellationToken ctkn)
+		private async Awaitable ReconciliationLoop(CancellationToken ctkn)
 		{
 			while (!ctkn.IsCancellationRequested)
 			{
-				try
-				{
-					await Awaitable.NextFrameAsync(ctkn);
-				}
-				catch (OperationCanceledException)
-				{
-					return;
-				}
+				await Awaitable.NextFrameAsync(ctkn);
 
 				reconciliationSnapshot.Clear();
 				reconciliationSnapshot.AddRange(handles.Values);

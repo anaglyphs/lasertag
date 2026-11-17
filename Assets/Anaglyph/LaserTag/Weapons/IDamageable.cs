@@ -20,6 +20,9 @@ namespace Anaglyph.LaserTag.Weapons
 		// Raised once per damageable hit, on the client dealing the damage.
 		public static event Action<Vector3, IDamageable, Data> DamageDealt = delegate { };
 
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+		private static void ResetStatics() => DamageDealt = delegate { };
+
 		public static void NotifyDamageDealt(Vector3 position, IDamageable target, Data data)
 			=> DamageDealt.Invoke(position, target, data);
 

@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Diagnostics;
 using System.IO;
 using Unity.Collections;
@@ -44,7 +43,6 @@ namespace Anaglyph.Recording
 		private RenderTexture source;
 		private AudioListenerTap tap;
 		private NativeArray<float> audioScratch;
-		private Coroutine capture;
 		private double frameInterval, nextFrameAt;
 		private long audioSamplesWritten;
 		private int audioSampleRate, audioChannels;
@@ -88,7 +86,7 @@ namespace Anaglyph.Recording
 
 			clock.Restart();
 			IsRecording = true;
-			capture = StartCoroutine(CaptureFrames());
+			CaptureFrames().RunUntilCancelled();
 			return true;
 		}
 
@@ -97,8 +95,6 @@ namespace Anaglyph.Recording
 			if (!IsRecording) return;
 			IsRecording = false;
 			clock.Stop();
-			if (capture != null) StopCoroutine(capture);
-			capture = null;
 
 			AsyncGPUReadback.WaitAllRequests();
 			WriteHeardAudio();
@@ -110,12 +106,14 @@ namespace Anaglyph.Recording
 			IsSaving = true;
 		}
 
-		private IEnumerator CaptureFrames()
+		private async Awaitable CaptureFrames()
 		{
-			WaitForEndOfFrame afterDrawing = new();
+			int capturedSession = session;
 			while (true)
 			{
-				yield return afterDrawing;
+				await Awaitable.EndOfFrameAsync(destroyCancellationToken);
+				if (!IsRecording || capturedSession != session) return;
+
 				double now = clock.Elapsed.TotalSeconds;
 				if (now < nextFrameAt || framesBeingRead >= MaxFramesBeingRead) continue;
 				// a late frame doesn't pull the ones after it early

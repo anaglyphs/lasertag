@@ -26,7 +26,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			start = MakeLine("First corner", material, 0.004f);
 			edge = MakeLine("Measured edge", material, 0.0015f);
 
-			var textObject = new GameObject("Length", typeof(TextMesh));
+			GameObject textObject = new("Length", typeof(TextMesh));
 			textObject.layer = layer;
 			textObject.transform.SetParent(root.transform, false);
 			label = textObject.GetComponent<TextMesh>();
@@ -36,7 +36,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			label.anchor = TextAnchor.MiddleCenter;
 			label.alignment = TextAlignment.Center;
 			label.color = Color.white;
-			var renderer = label.GetComponent<MeshRenderer>();
+			MeshRenderer renderer = label.GetComponent<MeshRenderer>();
 			labelMaterial = new Material(material);
 			labelMaterial.mainTexture = label.font.material.mainTexture;
 			renderer.sharedMaterial = labelMaterial;
@@ -54,10 +54,10 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 
 		private LineRenderer MakeLine(string name, Material material, float width)
 		{
-			var obj = new GameObject(name, typeof(LineRenderer));
+			GameObject obj = new(name, typeof(LineRenderer));
 			obj.layer = root.layer;
 			obj.transform.SetParent(root.transform, false);
-			var line = obj.GetComponent<LineRenderer>();
+			LineRenderer line = obj.GetComponent<LineRenderer>();
 			line.sharedMaterial = material;
 			line.useWorldSpace = true;
 			line.positionCount = 2;

@@ -46,7 +46,7 @@ namespace Anaglyph.XR.Input
 		{
 			FollowedCamera = camera;
 			foreach (HandInput hand in hands.Values)
-				if (hand != null) hand.IsTrackingChanged?.Invoke(hand.IsTracking);
+				if (hand != null) hand.IsTrackingChanged.Invoke(hand.IsTracking);
 		}
 
 		private static bool FollowsCamera => FollowedCamera != null;
@@ -100,8 +100,16 @@ namespace Anaglyph.XR.Input
 			return hands.GetValueOrDefault(h);
 		}
 
-		public static event Action<HandInput> Registered;
-		public event Action<bool> IsTrackingChanged;
+		public static event Action<HandInput> Registered = delegate { };
+		public event Action<bool> IsTrackingChanged = delegate { };
+
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+		private static void ResetStatics()
+		{
+			hands.Clear();
+			FollowedCamera = null;
+			Registered = delegate { };
+		}
 
 		private void Awake()
 		{
@@ -112,7 +120,7 @@ namespace Anaglyph.XR.Input
 		
 		private void OnTrackingStateChanged(InputAction.CallbackContext tracked)
 		{
-			if (!FollowsCamera) IsTrackingChanged?.Invoke(tracked.ReadValue<int>() != 0);
+			if (!FollowsCamera) IsTrackingChanged.Invoke(tracked.ReadValue<int>() != 0);
 		}
 
 		private void OnDestroy()
@@ -128,7 +136,7 @@ namespace Anaglyph.XR.Input
 			pointRotation.action.Enable();
 			trackingState.action.Enable();
 			actionMap.Enable();
-			Registered?.Invoke(this);
+			Registered.Invoke(this);
 		}
 
 		private void OnDisable()

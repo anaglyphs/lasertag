@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Anaglyph.LaserTag.Maps;
 using Anaglyph.LaserTag.Player.Teams;
 using Anaglyph.XR;
+using Anaglyph.XR.AprilTags;
 using Anaglyph.XR.Input;
 using Anaglyph.XR.SharedSpaces.AprilTags;
 using AprilTag;
@@ -303,8 +304,8 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		private bool TryGetAimedTag(out TagPose tag)
 		{
 			tag = default;
-			var tracker = AprilTagColocationConstraintProvider.Instance?.TagTracker;
-			var manager = SpaceManager.Instance;
+			AprilTagTracker tracker = AprilTagColocationConstraintProvider.Instance?.TagTracker;
+			SpaceManager manager = SpaceManager.Instance;
 			if (tracker == null || !tracker.isActiveAndEnabled || manager == null)
 				return false;
 

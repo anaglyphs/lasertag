@@ -96,17 +96,14 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		{
 			Instance = this;
 			colocator = GetComponent<Colocator>() ?? FindFirstObjectByType<Colocator>();
-			registry = AnchorRegistry.Instance ?? FindFirstObjectByType<AnchorRegistry>();
+			registry = AnchorRegistry.Instance;
 			if (registry == null)
-				Debug.LogError(
-					"SpatialAnchorConstraintProvider requires an AnchorRegistry in the scene.", this);
+				throw new InvalidOperationException($"{nameof(SpatialAnchorColocationConstraintProvider)} requires an {nameof(AnchorRegistry)} in the scene.");
 
 			lifetimeCtknSrc = new CancellationTokenSource();
 
 			constraints.ResetOnDeactivate = false;
-			constraints.ValidateSet = (_, _, _) => false;
-			constraints.ValidateRemove = (_, _) => false;
-			constraints.ValidateClear = _ => false;
+			constraints.AcceptedRequests = SyncEndpoint.RequestSource.Nobody;
 			constraints.Register();
 			RegisterSession();
 			constraints.Changed += OnConstraintsChanged;
@@ -147,7 +144,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 			stateGeneration++;
 			runCtknSrc = CancellationTokenSource.CreateLinkedTokenSource(lifetimeCtknSrc.Token);
 			ReconcileHeld();
-			MintLoop(runCtknSrc.Token);
+			MintLoop(runCtknSrc.Token).RunUntilCancelled();
 
 			if (SyncBus.Active && IsLocalMinter)
 				ShareAll();
@@ -176,7 +173,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 			if (SyncBus.IsAuthority)
 			{
 				ReconcileHeld();
-				ShareAllAfterActivation();
+				ShareAllAfterActivation().RunUntilCancelled();
 			}
 			else
 			{
@@ -186,16 +183,10 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 			}
 		}
 
-		private async void ShareAllAfterActivation()
+		private async Awaitable ShareAllAfterActivation()
 		{
-			try
-			{
-				await Awaitable.NextFrameAsync(lifetimeCtknSrc.Token);
-				ShareAll();
-			}
-			catch (OperationCanceledException)
-			{
-			}
+			await Awaitable.NextFrameAsync(lifetimeCtknSrc.Token);
+			ShareAll();
 		}
 
 		private void OnBusDeactivated()
@@ -444,25 +435,20 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 			return false;
 		}
 
-		private async void MintLoop(CancellationToken ctkn)
+		private async Awaitable MintLoop(CancellationToken ctkn)
 		{
-			try
+			while (!ctkn.IsCancellationRequested)
 			{
-				while (!ctkn.IsCancellationRequested)
-				{
-					await Awaitable.FixedUpdateAsync(ctkn);
-					if (!CanMintNow || IsMinting || pendingMints.Count > 0 ||
-						MainXRRig.Instance == null || MainXRRig.Camera == null) continue;
-					if (HasNearbyAnchor(constraints.Values, MainXRRig.Camera.transform.position, newAnchorDistance)) continue;
-					try { await MintAsync(PoseUnderPlayer(), ctkn); }
-					catch (OperationCanceledException) when (ctkn.IsCancellationRequested) { throw; }
-					catch (Exception e) { Debug.LogException(e); }
-					// Native failures should not cause a mint/save/upload attempt every physics tick.
-					await Awaitable.WaitForSecondsAsync(1f, ctkn);
-				}
+				await Awaitable.FixedUpdateAsync(ctkn);
+				if (!CanMintNow || IsMinting || pendingMints.Count > 0 ||
+					MainXRRig.Instance == null || MainXRRig.Camera == null) continue;
+				if (HasNearbyAnchor(constraints.Values, MainXRRig.Camera.transform.position, newAnchorDistance)) continue;
+				try { await MintAsync(PoseUnderPlayer(), ctkn); }
+				catch (OperationCanceledException) when (ctkn.IsCancellationRequested) { throw; }
+				catch (Exception e) { Debug.LogException(e); }
+				// Native failures should not cause a mint/save/upload attempt every physics tick.
+				await Awaitable.WaitForSecondsAsync(1f, ctkn);
 			}
-			catch (OperationCanceledException) { }
-			catch (Exception e) { Debug.LogException(e); }
 		}
 
 		private ColocationAlignmentState ColocationManagerState() =>

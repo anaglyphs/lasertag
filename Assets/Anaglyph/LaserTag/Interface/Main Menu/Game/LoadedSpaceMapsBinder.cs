@@ -62,7 +62,7 @@ namespace Anaglyph.LaserTag.Interface
 
 		private static Button NewMapButton(SpaceManager manager)
 		{
-			var button = new Button { clickable = new PressClickable(() => SpaceManager.Instance?.NewMap()), name = "new-map-button", text = "+" };
+			Button button = new() { clickable = new PressClickable(() => SpaceManager.Instance?.NewMap()), name = "new-map-button", text = "+" };
 			button.AddToClassList("catalog-new-map");
 			MapRows.SetBlocker(button, manager.NewMapBlocker(), MenuCopy.Get("Map", "GameMapsPage.new-map-button.text"));
 			return button;

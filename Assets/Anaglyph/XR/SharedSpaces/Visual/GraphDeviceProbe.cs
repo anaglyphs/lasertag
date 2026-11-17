@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Diagnostics;
 using System.IO;
 using Anaglyph.XR.VisualLocalization;
@@ -88,14 +87,14 @@ namespace Anaglyph.XR.SharedSpaces
 			if (File.Exists(benchPath))
 			{
 				File.Delete(benchPath);
-				StartCoroutine(Bench());
+				Bench().RunUntilCancelled();
 			}
 
 			string snapshotBenchPath = Path.Combine(Application.persistentDataPath, SnapshotBenchName);
 			if (File.Exists(snapshotBenchPath))
 			{
 				File.Delete(snapshotBenchPath);
-				StartCoroutine(SnapshotBench());
+				SnapshotBench().RunUntilCancelled();
 			}
 		}
 
@@ -128,7 +127,7 @@ namespace Anaglyph.XR.SharedSpaces
 			Debug.Log($"[{nameof(GraphDeviceProbe)}] {line}");
 		}
 
-		private IEnumerator Bench()
+		private async Awaitable Bench()
 		{
 			benching = true;
 			Write($"--- bench {DateTime.Now:u}");
@@ -168,7 +167,7 @@ namespace Anaglyph.XR.SharedSpaces
 						countA = countA, countB = countB, centerB = float3.zero, angularSigma = 0.004f,
 						minInliers = 20, maxYawSigma = math.radians(1f), seed = (uint)(r + 1), result = result,
 					}.Schedule());
-					yield return null;
+					await Awaitable.NextFrameAsync(destroyCancellationToken);
 				}
 
 				Write($"pair A={countA} B={countB} shared={shared}: {Stats(times)}, outcome {result[0].inliers}");
@@ -212,7 +211,7 @@ namespace Anaglyph.XR.SharedSpaces
 						knots = knots, edges = edges, weights = weights, state = state, largestStep = step, positionRateSquared = 0.028 * 0.028,
 						yawRateSquared = 7.6e-7, positionFloorSquared = 2.5e-5, yawFloorSquared = 1.2e-7, huber = 2,
 					}.Schedule());
-					yield return null;
+					await Awaitable.NextFrameAsync(destroyCancellationToken);
 				}
 
 				Write($"solve step {knotCount} knots, {edgeCount} edges: {Stats(times)}");
@@ -228,20 +227,20 @@ namespace Anaglyph.XR.SharedSpaces
 			benching = false;
 		}
 
-		private IEnumerator SnapshotBench()
+		private async Awaitable SnapshotBench()
 		{
 			VisualColocationConstraintProvider provider = VisualColocationConstraintProvider.Active;
 			VisualMap map = VisualLocalizer.Instance ? VisualLocalizer.Instance.Map : null;
 			if (provider == null || map == null)
 			{
 				Write("snapshot bench: no provider or map");
-				yield break;
+				return;
 			}
 
 			Write($"--- snapshot bench, {map.Count} keyframes, {map.LandmarkCount} landmarks, incremental GC {UnityEngine.Scripting.GarbageCollector.isIncremental}");
 			for (int run = 0; run < 3; run++)
 			{
-				yield return new WaitForSeconds(2f);
+				await Awaitable.WaitForSecondsAsync(2f, destroyCancellationToken);
 				Stopwatch watch = Stopwatch.StartNew();
 				int lookups = 0;
 				foreach (VisualKeyframe k in map.Keyframes)
@@ -260,7 +259,7 @@ namespace Anaglyph.XR.SharedSpaces
 				double encodeMs = watch.Elapsed.TotalMilliseconds;
 
 				Write($"snapshot run {run}: {snapshotMs:F1} ms whole, of which one lookup pass {lookupMs:F1} ms ({lookups} usable), graph encode {encodeMs:F2} ms ({graph.Length} bytes), managed heap grew {(after - before) / 1048576f:F1} MB, keyframes {data.keyframes.Count}, landmarks {data.landmarks.Count}");
-				yield return null;
+				await Awaitable.NextFrameAsync(destroyCancellationToken);
 
 				watch.Restart();
 				data = null;

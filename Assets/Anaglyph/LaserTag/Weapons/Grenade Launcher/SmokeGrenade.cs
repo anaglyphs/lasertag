@@ -132,7 +132,7 @@ namespace Anaglyph.LaserTag.Weapons.Grenades
 			{
 				body.linearVelocity = Vector3.zero;
 				body.angularVelocity = Vector3.zero;
-				DelayedDespawn();
+				DelayedDespawn().RunUntilCancelled();
 			}
 		}
 
@@ -142,20 +142,14 @@ namespace Anaglyph.LaserTag.Weapons.Grenades
 				r.enabled = visible;
 		}
 
-		private async void DelayedDespawn()
+		private async Awaitable DelayedDespawn()
 		{
 			despawnCancelSrc = new CancellationTokenSource();
 			CancellationToken ctn = despawnCancelSrc.Token;
 
-			try
-			{
-				await Awaitable.WaitForSecondsAsync(despawnDelay, ctn);
-				ctn.ThrowIfCancellationRequested();
-				NetworkObject.Despawn(true);
-			}
-			catch (OperationCanceledException)
-			{
-			}
+			await Awaitable.WaitForSecondsAsync(despawnDelay, ctn);
+			ctn.ThrowIfCancellationRequested();
+			NetworkObject.Despawn(true);
 		}
 	}
 }

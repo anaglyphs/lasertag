@@ -18,6 +18,14 @@ namespace Anaglyph.XR
 		public static Transform TrackingSpace => Instance ? Instance.trackingSpace : null;
 		
 		public static event Action Recentered = delegate { };
+
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+		private static void ResetStatics()
+		{
+			Instance = null;
+			Recentered = delegate { };
+		}
+
 		private readonly List<XRInputSubsystem> xrSubsystems = new();
 
 		private void Awake()

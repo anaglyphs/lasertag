@@ -225,7 +225,7 @@ namespace Anaglyph.LaserTag
 
 		private static Vector3[] EvenlySpreadDirections(int count)
 		{
-			var directions = new Vector3[count];
+			Vector3[] directions = new Vector3[count];
 			float goldenAngle = Mathf.PI * (3 - Mathf.Sqrt(5));
 			for (int i = 0; i < count; i++)
 			{

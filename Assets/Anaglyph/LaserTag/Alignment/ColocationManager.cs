@@ -18,7 +18,7 @@ namespace Anaglyph.LaserTag
 	/// component switches sources, tracks the alignment state and the tracking generation.
 	/// </summary>
 	/// <remarks>Awake touches only this component's own fields, so dependents can wire up in Start.</remarks>
-	public class ColocationManager : MonoBehaviour
+	public class ColocationManager : MonoBehaviour, ITagTrackingGate, IInternetAccess
 	{
 		public static ColocationManager Instance { get; private set; }
 
@@ -192,13 +192,17 @@ namespace Anaglyph.LaserTag
 			RefreshLocalized();
 		}
 
+		bool ITagTrackingGate.TrackingReady =>
+			!applicationPaused && AppFocus.IsFocused && PlayerHeadsetStatus.HeadTrackingReady;
+
+		bool IInternetAccess.HasInternet =>
+			(NetworkConnectivityTest.GetNetworkState() & NetworkState.FullInternetFlag) != 0;
+
 		private void Awake()
 		{
 			Instance = this;
-			aprilTagColocationProvider.TrackingReady = () =>
-				!applicationPaused && AppFocus.IsFocused && PlayerHeadsetStatus.HeadTrackingReady;
-			visualProvider.HasInternet = () =>
-				(NetworkConnectivityTest.GetNetworkState() & NetworkState.FullInternetFlag) != 0;
+			aprilTagColocationProvider.TrackingGate = this;
+			visualProvider.InternetAccess = this;
 			colocator.StateChanged += OnStateChanged;
 		}
 

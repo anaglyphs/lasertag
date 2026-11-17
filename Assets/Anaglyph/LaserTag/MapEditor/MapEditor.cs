@@ -8,15 +8,15 @@ namespace Anaglyph.LaserTag.MapEditor
 	public static class MapEditor
 	{
 		public static bool IsActive { get; private set; }
-		public static event Action<bool> ActiveChanged;
+		public static event Action<bool> ActiveChanged = delegate { };
 
 		/// <summary>Someone asked the editor to show space alignment and its tag tools.</summary>
-		public static event Action TagRegistrationRequested;
+		public static event Action TagRegistrationRequested = delegate { };
 
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
 		private static void Init()
 		{
-			TagRegistrationRequested = null;
+			TagRegistrationRequested = delegate { };
 			SetActive(false);
 		}
 
@@ -28,7 +28,7 @@ namespace Anaglyph.LaserTag.MapEditor
 		{
 			SetActive(true);
 			MapEditorTool.SetMode(MapEditorTool.Mode.Tags);
-			TagRegistrationRequested?.Invoke();
+			TagRegistrationRequested.Invoke();
 		}
 
 		public static void SetActive(bool active)
@@ -43,7 +43,7 @@ namespace Anaglyph.LaserTag.MapEditor
 
 			WeaponSwitcher.Instance?.SetWeaponsActive(!IsActive);
 
-			ActiveChanged?.Invoke(active);
+			ActiveChanged.Invoke(active);
 		}
 	}
 }

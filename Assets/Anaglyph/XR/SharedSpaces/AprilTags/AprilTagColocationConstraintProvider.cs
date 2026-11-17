@@ -236,14 +236,13 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			}
 		}
 
-		/// <summary>Tag readings are dropped, and those already taken forgotten, while this is false.</summary>
-		public Func<bool> TrackingReady { get; set; } = () => true;
+		/// <summary>Tag readings are dropped, and those already taken forgotten, while the gate reports tracking is not ready. No gate means always ready.</summary>
+		public ITagTrackingGate TrackingGate { get; set; }
 
-		/// <summary>The frame tag readings are kept in, resolved on use.</summary>
-		public Func<Transform> TrackingSpaceSource { get; set; } =
-			() => MainXRRig.Instance != null ? MainXRRig.TrackingSpace : null;
+		/// <summary>The frame tag readings are kept in. The main rig's tracking space when unset.</summary>
+		public Transform TrackingSpace { get; set; }
 
-		private Transform PairTrackingSpace => TrackingSpaceSource?.Invoke();
+		private Transform PairTrackingSpace => TrackingSpace != null ? TrackingSpace : MainXRRig.TrackingSpace;
 
 		private AnchorRegistry registry;
 		private CancellationTokenSource lifetimeCtknSrc;
@@ -264,23 +263,18 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		private void Awake()
 		{
 			Instance = this;
-			registry = AnchorRegistry.Instance ?? FindFirstObjectByType<AnchorRegistry>();
+			registry = AnchorRegistry.Instance;
 			if (registry == null)
-				Debug.LogError("TagConstraintProvider requires an AnchorRegistry in the scene.", this);
+				throw new InvalidOperationException($"{nameof(AprilTagColocationConstraintProvider)} requires an {nameof(AnchorRegistry)} in the scene.");
 
 			lifetimeCtknSrc = new CancellationTokenSource();
 
-			if (!tagTracker)
-				tagTracker = FindAnyObjectByType<AprilTagTracker>();
-
 			registeredTags.ResetOnDeactivate = false;
-			registeredTags.ValidateSet = (_, _, _) => false;
-			registeredTags.ValidateRemove = (_, _) => false;
-			registeredTags.ValidateClear = _ => false;
+			registeredTags.AcceptedRequests = SyncEndpoint.RequestSource.Nobody;
 			registeredTags.Register();
 			registeredTags.Changed += OnTagsChanged;
 
-			tagSizeSync.Validate = (_, _) => false;
+			tagSizeSync.AcceptedRequests = SyncEndpoint.RequestSource.Nobody;
 			tagSizeSync.Register();
 			tagSizeSync.Changed += OnTagSizeChanged;
 			SyncBus.Activated += OnBusActivated;
@@ -625,7 +619,7 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		private bool CanObserve()
 		{
 			if (!IsRunning) return false;
-			if (IsAvailable && (TrackingReady?.Invoke() ?? true)) return true;
+			if (IsAvailable && (TrackingGate == null || TrackingGate.TrackingReady)) return true;
 			// tracking is gone: so is the frame every reading was taken in
 			ResetObservations();
 			NewTrackingEpoch();
@@ -980,5 +974,11 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			return AnchorsAvailable &&
 			       await registry.TryEraseSavedAsync(new SerializableGuid(guid), ctkn);
 		}
+	}
+
+	/// <summary>Answers whether head tracking can be trusted at the moment a tag reading is taken.</summary>
+	public interface ITagTrackingGate
+	{
+		bool TrackingReady { get; }
 	}
 }

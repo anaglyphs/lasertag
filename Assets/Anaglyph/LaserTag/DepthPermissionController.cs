@@ -51,7 +51,7 @@ namespace Anaglyph.LaserTag
 
 		private static bool IsDepthReady()
 		{
-			var loader = XRGeneralSettings.Instance?.Manager?.activeLoader;
+			XRLoader loader = XRGeneralSettings.Instance?.Manager?.activeLoader;
 			if (loader == null || loader.GetLoadedSubsystem<XROcclusionSubsystem>() == null)
 				return false;
 

@@ -16,7 +16,7 @@ public class Shotgun : MonoBehaviour, IWeapon
 	[SerializeField] private Transform muzzle;
 	[SerializeField] private WeaponVisual visual;
 	public GameObject VisualObject => visual.gameObject;
-	public UnityEvent onFire = new();
+	[SerializeField] private UnityEvent onFire = new();
 
 	[SerializeField] private int numBullets;
 	[FormerlySerializedAs("angleSpread")] [SerializeField] private float bulletSpread;

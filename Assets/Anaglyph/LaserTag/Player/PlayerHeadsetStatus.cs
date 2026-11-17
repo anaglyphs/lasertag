@@ -98,7 +98,7 @@ namespace Anaglyph.LaserTag.Player
 						headTrackedSample = UnityEngine.XR.ARFoundation.ARSession.state == UnityEngine.XR.ARFoundation.ARSessionState.SessionTracking;
 					else
 					{
-						var head = InputDevices.GetDeviceAtXRNode(XRNode.Head);
+						InputDevice head = InputDevices.GetDeviceAtXRNode(XRNode.Head);
 						headTrackedSample = head.TryGetFeatureValue(CommonUsages.isTracked, out bool tracked) && tracked;
 					}
 				}

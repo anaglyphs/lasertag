@@ -53,7 +53,7 @@ namespace Anaglyph.LaserTag.Interface
 		public void Refresh()
 		{
 			Alignment.Refresh();
-			var manager = SpaceManager.Instance; var space = manager?.Space;
+			SpaceManager manager = SpaceManager.Instance; Space space = manager?.Space;
 			if (boundSpace != space?.id)
 			{
 				boundSpace = space?.id; armedReset = false;

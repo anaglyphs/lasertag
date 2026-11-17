@@ -29,23 +29,23 @@ namespace Anaglyph.LaserTag.Interface
 			string id = map.id;
 			string unavailable = MenuCopy.Get("Map", "maps.unavailable");
 			string loadBlocker = manager == null ? unavailable : manager.LoadMapBlocker(id);
-			var row = new VisualElement { name = "map-" + id, userData = id };
+			VisualElement row = new() { name = "map-" + id, userData = id };
 			row.AddToClassList(RowUssClassName);
 			row.EnableInClassList(UnloadableUssClassName, !loaded && loadBlocker != null);
 			row.EnableInClassList(LoadedUssClassName, loaded);
 
-			var load = new Button { clickable = new PressClickable(() => SpaceManager.Instance?.LoadMap(id)), name = "map-row-button" };
+			Button load = new() { clickable = new PressClickable(() => SpaceManager.Instance?.LoadMap(id)), name = "map-row-button" };
 			load.tooltip = loaded ? map.name : loadBlocker ?? map.name;
 			load.AddToClassList("map-row");
-			var label = new Label(map.name) { pickingMode = PickingMode.Ignore }; label.AddToClassList("catalog-map-name"); load.Add(label);
+			Label label = new(map.name) { pickingMode = PickingMode.Ignore }; label.AddToClassList("catalog-map-name"); load.Add(label);
 			if (loaded)
 			{
-				var status = new Label(MenuCopy.Get("Map", manager.IsChangingMap ? "maps.loading" : "maps.loaded")) { pickingMode = PickingMode.Ignore };
+				Label status = new(MenuCopy.Get("Map", manager.IsChangingMap ? "maps.loading" : "maps.loaded")) { pickingMode = PickingMode.Ignore };
 				status.AddToClassList("catalog-row-status"); load.Add(status);
 			}
 			row.Add(load);
 
-			var edit = IconButton("edit-map-button", "catalog-edit", MenuCopy.Get("Map", "maps.edit"), () => LoadAndEdit(id, editMap));
+			Button edit = IconButton("edit-map-button", "catalog-edit", MenuCopy.Get("Map", "maps.edit"), () => LoadAndEdit(id, editMap));
 			SetBlocker(edit, editMap == null ? unavailable : loaded ? null : loadBlocker, edit.tooltip);
 			row.Add(edit);
 
@@ -63,7 +63,7 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void AddSwipeToDelete(VisualElement row, Button delete, string id)
 		{
-			var swipe = new SwipeToReveal(delete, SwipedOpenDeleteWidth, () => DeleteNow(id), open =>
+			SwipeToReveal swipe = new(delete, SwipedOpenDeleteWidth, () => DeleteNow(id), open =>
 			{
 				if (open) swipedOpenMapId = id;
 				else if (swipedOpenMapId == id) swipedOpenMapId = null;
@@ -78,7 +78,7 @@ namespace Anaglyph.LaserTag.Interface
 		/// </summary>
 		private static void TrackHover(VisualElement row, Action onUnhovered)
 		{
-			var pointersInside = new HashSet<int>();
+			HashSet<int> pointersInside = new();
 			row.RegisterCallback<PointerEnterEvent>(enter =>
 			{
 				if (enter.target != row || enter.pointerType == PointerType.touch || !pointersInside.Add(enter.pointerId)) return;
@@ -133,7 +133,7 @@ namespace Anaglyph.LaserTag.Interface
 
 		public static Button IconButton(string name, string icon, string tooltip, Action action)
 		{
-			var button = new Button { clickable = new PressClickable(action), name = name, tooltip = tooltip };
+			Button button = new() { clickable = new PressClickable(action), name = name, tooltip = tooltip };
 			button.AddToClassList("catalog-row-action"); button.AddToClassList(icon); return button;
 		}
 

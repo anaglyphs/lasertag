@@ -45,12 +45,6 @@ namespace Anaglyph.Netcode.SyncVariables
 
 		public event Action<EventData> Changed = delegate { };
 
-		// Authority-side gates for requests: (sender, key, value) => accept? Null
-		// accepts everything. Also consulted for the authority's own Request calls.
-		public Func<ulong, TKey, TValue, bool> ValidateSet;
-		public Func<ulong, TKey, bool> ValidateRemove;
-		public Func<ulong, bool> ValidateClear;
-
 		public SyncDictionary(string name) : base(name)
 		{
 		}
@@ -193,17 +187,17 @@ namespace Anaglyph.Netcode.SyncVariables
 
 		private void RequestSetChecked(ulong sender, TKey key, TValue value)
 		{
-			if (ValidateSet == null || ValidateSet(sender, key, value)) Set(key, value);
+			if (AcceptsRequestFrom(sender)) Set(key, value);
 		}
 
 		private void RequestRemoveChecked(ulong sender, TKey key)
 		{
-			if (ValidateRemove == null || ValidateRemove(sender, key)) Remove(key);
+			if (AcceptsRequestFrom(sender)) Remove(key);
 		}
 
 		private void RequestClearChecked(ulong sender)
 		{
-			if (ValidateClear == null || ValidateClear(sender)) Clear();
+			if (AcceptsRequestFrom(sender)) Clear();
 		}
 
 		// ---- bus plumbing ------------------------------------------------------

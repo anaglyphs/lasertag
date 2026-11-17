@@ -54,12 +54,6 @@ namespace Anaglyph.Netcode.SyncVariables
 
 		public event Action<EventData> Changed = delegate { };
 
-		// Authority-side gates for requests: (sender, item) => accept? Null accepts
-		// everything. Also consulted for the authority's own Request calls.
-		public Func<ulong, T, bool> ValidateAdd;
-		public Func<ulong, T, bool> ValidateRemove;
-		public Func<ulong, bool> ValidateClear;
-
 		public SyncList(string name, IEnumerable<T> initialItems = null) : base(name)
 		{
 			initial = initialItems != null ? new List<T>(initialItems).ToArray() : Array.Empty<T>();
@@ -187,17 +181,17 @@ namespace Anaglyph.Netcode.SyncVariables
 
 		private void RequestAddChecked(ulong sender, T item)
 		{
-			if (ValidateAdd == null || ValidateAdd(sender, item)) Add(item);
+			if (AcceptsRequestFrom(sender)) Add(item);
 		}
 
 		private void RequestRemoveChecked(ulong sender, T item)
 		{
-			if (ValidateRemove == null || ValidateRemove(sender, item)) Remove(item);
+			if (AcceptsRequestFrom(sender)) Remove(item);
 		}
 
 		private void RequestClearChecked(ulong sender)
 		{
-			if (ValidateClear == null || ValidateClear(sender)) Clear();
+			if (AcceptsRequestFrom(sender)) Clear();
 		}
 
 		// ---- bus plumbing ------------------------------------------------------

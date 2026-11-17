@@ -145,7 +145,7 @@ namespace Anaglyph.LaserTag.Operator
 
 			OnNetcodeStateChanged(NetcodeManagement.State);
 			OnMatchStateChanged(MatchReferee.State);
-			BeginRefreshLoop();
+			BeginRefreshLoop().RunUntilCancelled();
 		}
 
 		private void OnDisable()
@@ -224,18 +224,14 @@ namespace Anaglyph.LaserTag.Operator
 			if (mapsNav?.CurrentPage == spaceDetailsPage) spaceDetails?.Refresh();
 		}
 
-		private async void Start()
+		private void Start()
 		{
-			LocalizedString error;
-			try
-			{
-				error = await OperatorHost.StartSessionAsync(destroyCancellationToken);
-			}
-			catch (OperationCanceledException)
-			{
-				return;
-			}
+			StartSession().RunUntilCancelled();
+		}
 
+		private async Awaitable StartSession()
+		{
+			LocalizedString error = await OperatorHost.StartSessionAsync(destroyCancellationToken);
 			ShowHostError(error);
 		}
 
@@ -409,23 +405,17 @@ namespace Anaglyph.LaserTag.Operator
 			matchNav.SetModalPresented(playingPage, state != MatchState.NotPlaying, 20);
 		}
 
-		private async void BeginRefreshLoop()
+		private async Awaitable BeginRefreshLoop()
 		{
 			refreshCancellation?.Cancel();
 			refreshCancellation?.Dispose();
 			refreshCancellation = new CancellationTokenSource();
 			CancellationToken token = refreshCancellation.Token;
-			try
+			while (!token.IsCancellationRequested)
 			{
-				while (!token.IsCancellationRequested)
-				{
-					Refresh();
-					await Awaitable.WaitForSecondsAsync(
-						refreshIntervalSeconds, token);
-				}
-			}
-			catch (OperationCanceledException)
-			{
+				Refresh();
+				await Awaitable.WaitForSecondsAsync(
+					refreshIntervalSeconds, token);
 			}
 		}
 
@@ -616,7 +606,7 @@ namespace Anaglyph.LaserTag.Operator
 		private static string DescribeActiveSource(PlayerAvatar avatar)
 		{
 			if (!avatar.HeadsetStatus) return "";
-			var state = avatar.HeadsetStatus.Readiness;
+			HeadsetReadiness state = avatar.HeadsetStatus.Readiness;
 			string key = state.activeMethod switch {
 				ColocationManager.ColocationMethod.AprilTag => "alignment.tags", _ => "alignment.anchors" };
 			return MenuCopy.Get("Map", key);

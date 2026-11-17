@@ -66,25 +66,25 @@ namespace Anaglyph.VariableObjects
 	{
 		[FormerlySerializedAs("scriptableVariable")] [SerializeField] private GenericVariableObject<T> variableObject;
 
-		public UnityEvent<T> onChange;
-		public UnityEvent<T> beforeChange;
+		[FormerlySerializedAs("onChange")] [SerializeField] private UnityEvent<T> OnChange;
+		[FormerlySerializedAs("beforeChange")] [SerializeField] private UnityEvent<T> OnBeforeChange;
 
 		private void Awake()
 		{
-			variableObject.Changed += onChange.Invoke;
+			variableObject.Changed += OnChange.Invoke;
 			// variableObject.beforeChange += beforeChange.Invoke;
-			onChange.Invoke(variableObject.Value);
+			OnChange.Invoke(variableObject.Value);
 		}
 
 		public void AddChangeListenerAndCheck(UnityAction<T> f)
 		{
 			f.Invoke(variableObject.Value);
-			onChange.AddListener(f);
+			OnChange.AddListener(f);
 		}
 
 		private void OnDestroy()
 		{
-			variableObject.Changed -= onChange.Invoke;
+			variableObject.Changed -= OnChange.Invoke;
 			// variableObject.beforeChange -= beforeChange.Invoke;
 		}
 	}

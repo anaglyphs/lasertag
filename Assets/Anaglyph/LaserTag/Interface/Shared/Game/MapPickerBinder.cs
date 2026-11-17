@@ -118,7 +118,7 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void RequestSpaceDeletion(string id)
 		{
-			var manager = SpaceManager.Instance;
+			SpaceManager manager = SpaceManager.Instance;
 			if (selectedSpaceId != id || deleteSpaceModal == null || manager == null || manager.DeleteSpaceBlocker(id) != null) return;
 			pendingDeleteSpaceId = id;
 			RefreshSpaceDeletion();
@@ -127,7 +127,7 @@ namespace Anaglyph.LaserTag.Interface
 		private void ConfirmSpaceDeletion()
 		{
 			string id = pendingDeleteSpaceId;
-			var manager = SpaceManager.Instance;
+			SpaceManager manager = SpaceManager.Instance;
 			if (id == null || navigation?.CurrentPage != deleteSpaceModal || manager == null) return;
 			if (manager.DeleteSpaceBlocker(id) != null) { RefreshSpaceDeletion(); return; }
 			DismissSpaceDeletion();
@@ -142,7 +142,7 @@ namespace Anaglyph.LaserTag.Interface
 		private void RefreshSpaceDeletion()
 		{
 			if (pendingDeleteSpaceId == null) return;
-			var manager = SpaceManager.Instance;
+			SpaceManager manager = SpaceManager.Instance;
 			Space space = FindSpace(manager, pendingDeleteSpaceId);
 			if (space == null) { DismissSpaceDeletion(); return; }
 			deleteSpaceSubject.text = MenuCopy.Format("Map", "space.delete-title", space.name);
@@ -159,52 +159,53 @@ namespace Anaglyph.LaserTag.Interface
 		{
 			if (!bound) return;
 			RefreshSpaceDeletion();
-			var manager = SpaceManager.Instance;
-			var currentMap = manager?.Map;
-			var currentSpace = manager?.Space;
+			SpaceManager manager = SpaceManager.Instance;
+			Map currentMap = manager?.Map;
+			Space currentSpace = manager?.Space;
 			List<Space> spaces = manager != null ? new List<Space>(manager.Spaces) : new List<Space>();
 			if (selectedSpaceId != null && !spaces.Exists(s => s.id == selectedSpaceId)) selectedSpaceId = null;
 
 			mapList.Clear();
 			if (spaces.Count == 0)
 			{
-				var empty = new Label(MenuCopy.Get("Map", operatorMode ? "maps.empty-operator" : "space.searching")) { name = "catalog-empty" };
+				Label empty = new(MenuCopy.Get("Map", operatorMode ? "maps.empty-operator" : "space.searching")) { name = "catalog-empty" };
 				empty.AddToClassList("body-copy"); mapList.Add(empty);
 			}
-			foreach (var space in spaces)
+			foreach (Space space in spaces)
 			{
 				bool active = space == currentSpace;
-				var group = new VisualElement { name = "space-" + space.id, userData = space.id };
+				VisualElement group = new() { name = "space-" + space.id, userData = space.id };
 				group.AddToClassList("catalog-space");
-				var heading = new VisualElement { name = "space-row" }; heading.AddToClassList("catalog-space-row");
+				VisualElement heading = new() { name = "space-row" }; heading.AddToClassList("catalog-space-row");
 				group.Add(heading);
-				var select = new Button { clickable = new PressClickable(() => SelectSpace(space.id)), name = "select-space-button", tooltip = space.name };
+				Button select = new() { clickable = new PressClickable(() => SelectSpace(space.id)), name = "select-space-button", tooltip = space.name };
 				select.AddToClassList("map-row"); select.EnableInClassList("selected", selectedSpaceId == space.id);
-				var title = new Label(space.name) { pickingMode = PickingMode.Ignore }; title.AddToClassList("catalog-space-name"); select.Add(title);
-				var status = new Label(MenuCopy.Get("Map", active ? "space.active" : "space.presence." + (manager?.GetSpacePresence(space.id) ?? MapPresence.Unknown))) { pickingMode = PickingMode.Ignore };
+				Label title = new(space.name) { pickingMode = PickingMode.Ignore }; title.AddToClassList("catalog-space-name"); select.Add(title);
+				Label status = new(MenuCopy.Get("Map", active ? "space.active" : "space.presence." + (manager?.GetSpacePresence(space.id) ?? MapPresence.Unknown))) { pickingMode = PickingMode.Ignore };
 				status.AddToClassList("catalog-row-status"); select.Add(status); heading.Add(select);
 				if (active)
 				{
-					var edit = MapRows.IconButton("edit-space-button", "catalog-edit", MenuCopy.Get("Map", "space.edit"), () => EditSpace(space.id));
+					Button edit = MapRows.IconButton("edit-space-button", "catalog-edit", MenuCopy.Get("Map", "space.edit"), () => EditSpace(space.id));
 					edit.SetEnabled(editSpace != null);
 					heading.Add(edit);
 				}
 				if (selectedSpaceId == space.id)
 				{
-					var delete = MapRows.IconButton("delete-space-button", "catalog-delete", MenuCopy.Get("Map", "space.delete"), () => RequestSpaceDeletion(space.id));
+					Button delete = MapRows.IconButton("delete-space-button", "catalog-delete", MenuCopy.Get("Map", "space.delete"), () => RequestSpaceDeletion(space.id));
 					delete.AddToClassList("destructive");
 					string deleteBlocker = manager == null || deleteSpaceModal == null ? MenuCopy.Get("Map", "maps.unavailable") : manager.DeleteSpaceBlocker(space.id);
 					MapRows.SetBlocker(delete, deleteBlocker, delete.tooltip);
 					heading.Add(delete);
 				}
-				var children = new VisualElement(); children.AddToClassList("catalog-maps"); group.Add(children);
-				var maps = new List<Map>(space.maps);
+				VisualElement children = new(); children.AddToClassList("catalog-maps"); group.Add(children);
+				List<Map> maps = new(space.maps);
 				maps.Sort((a, b) => b.lastUsed.CompareTo(a.lastUsed));
-				foreach (var map in maps) children.Add(mapRows.Build(map, map == currentMap, manager, editMap));
+				foreach (Map map in maps) children.Add(mapRows.Build(map, map == currentMap, manager, editMap));
 				if (children.childCount == 0)
 				{
-					var create = new Button { clickable = new PressClickable(() => {
-						var current = SpaceManager.Instance;
+					Button create = new()
+					{ clickable = new PressClickable(() => {
+						SpaceManager current = SpaceManager.Instance;
 						if (current?.Space?.id == space.id) current.NewMap();
 						else current?.LoadSpace(space.id);
 					}), text = MenuCopy.Get("Map", "GameMapsPage.new-map-button.text") };

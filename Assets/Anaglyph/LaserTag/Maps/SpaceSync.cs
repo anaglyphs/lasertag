@@ -97,12 +97,12 @@ namespace Anaglyph.LaserTag.Maps
 		public void Register()
 		{
 			// only the host writes; a client's writes are its requests
-			tags.ValidateAdd = (_, _) => false; tags.ValidateRemove = (_, _) => false; tags.ValidateClear = _ => false;
-			anchors.ValidateAdd = (_, _) => false; anchors.ValidateRemove = (_, _) => false; anchors.ValidateClear = _ => false;
-			objects.ValidateAdd = (_, _) => false; objects.ValidateRemove = (_, _) => false; objects.ValidateClear = _ => false;
-			header.Validate = (_, _) => false;
-			setup.Validate = (_, _) => false;
-			rejected.Validate = (sender, _) => SyncBus.IsAuthority && sender == SyncBus.LocalClientId;
+			tags.AcceptedRequests = SyncEndpoint.RequestSource.Nobody;
+			anchors.AcceptedRequests = SyncEndpoint.RequestSource.Nobody;
+			objects.AcceptedRequests = SyncEndpoint.RequestSource.Nobody;
+			header.AcceptedRequests = SyncEndpoint.RequestSource.Nobody;
+			setup.AcceptedRequests = SyncEndpoint.RequestSource.Nobody;
+			rejected.AcceptedRequests = SyncEndpoint.RequestSource.AuthorityOnly;
 			tags.Register();
 			anchors.Register();
 			objects.Register();

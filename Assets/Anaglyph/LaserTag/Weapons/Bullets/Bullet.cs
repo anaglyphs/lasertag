@@ -144,7 +144,7 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 			if (IsOwner && travelDist > MaxTravelDist)
 			{
 				isAlive = false;
-				DelayedDespawn();
+				DelayedDespawn().RunUntilCancelled();
 			}
 		}
 
@@ -201,7 +201,7 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 
 			HitRpc(physHit.point, physHit.normal);
 			Collider col = physHit.collider;
-			var receiver = col.GetComponentInParent<IProjectileDamageReceiver>();
+			IProjectileDamageReceiver receiver = col.GetComponentInParent<IProjectileDamageReceiver>();
 			if (receiver != null)
 				receiver.ReceiveProjectileHit(new ProjectileHit
 				{
@@ -227,7 +227,7 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 				Collide(pos, norm);
 
 			if (IsOwner)
-				DelayedDespawn();
+				DelayedDespawn().RunUntilCancelled();
 		}
 
 		private void Collide(Vector3 pos, Vector3 norm)
@@ -241,20 +241,14 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 			AudioPool.Play(collideSFX, transform.position, 1, collideSFXFullVolumeDistance);
 		}
 
-		private async void DelayedDespawn()
+		private async Awaitable DelayedDespawn()
 		{
 			despawnCancelSrc = new CancellationTokenSource();
 			CancellationToken ctn = despawnCancelSrc.Token;
 
-			try
-			{
-				await Awaitable.WaitForSecondsAsync(despawnDelay, ctn);
-				ctn.ThrowIfCancellationRequested();
-				NetworkObject.Despawn(true);
-			}
-			catch (OperationCanceledException)
-			{
-			}
+			await Awaitable.WaitForSecondsAsync(despawnDelay, ctn);
+			ctn.ThrowIfCancellationRequested();
+			NetworkObject.Despawn(true);
 		}
 
 		public override void OnNetworkDespawn()

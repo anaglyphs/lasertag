@@ -11,7 +11,15 @@ namespace Anaglyph.XR.Input
 
 		private static Handedness? hand, eye;
 
-		public static event Action Changed;
+		public static event Action Changed = delegate { };
+
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+		private static void ResetStatics()
+		{
+			hand = null;
+			eye = null;
+			Changed = delegate { };
+		}
 
 		public static Handedness Hand
 		{
@@ -34,7 +42,7 @@ namespace Anaglyph.XR.Input
 			field = value;
 			PlayerPrefs.SetInt(pref, (int)value);
 			PlayerPrefs.Save();
-			Changed?.Invoke();
+			Changed.Invoke();
 		}
 	}
 }

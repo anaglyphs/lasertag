@@ -84,7 +84,7 @@ namespace Anaglyph.Netcode
 				bool changed = value != _state;
 				_state = value;
 				if (changed)
-					StateChanged?.Invoke(_state);
+					StateChanged.Invoke(_state);
 			}
 		}
 

@@ -32,12 +32,12 @@ namespace Anaglyph.LaserTag.Operator
 		public void FocusTags()
 		{
 			if (!camera || space?.HasTags != true) return;
-			var bounds = new Bounds(space.tags[0].pose.position, Vector3.one);
-			foreach (var tag in space.tags) bounds.Encapsulate(tag.pose.position);
+			Bounds bounds = new(space.tags[0].pose.position, Vector3.one);
+			foreach (TagRef tag in space.tags) bounds.Encapsulate(tag.pose.position);
 			float radius = bounds.extents.magnitude + space.alignment.tagSizeCm * .01f;
 			float halfFov = Mathf.Atan(Mathf.Tan(camera.fieldOfView * Mathf.Deg2Rad * .5f) * Mathf.Min(1f, camera.aspect));
 			float distance = radius / Mathf.Sin(halfFov) * 1.2f;
-			var rotation = Quaternion.Euler(35, 35, 0);
+			Quaternion rotation = Quaternion.Euler(35, 35, 0);
 			camera.transform.SetPositionAndRotation(bounds.center - rotation * Vector3.forward * distance, rotation);
 			if (camera.orthographic) camera.orthographicSize = radius / Mathf.Min(1f, camera.aspect) * 1.2f;
 		}
@@ -58,12 +58,12 @@ namespace Anaglyph.LaserTag.Operator
 			{
 				Vector3 scale = Vector3.one * (space.alignment.tagSizeCm * .03f);
 				Quaternion quadRotation = Quaternion.Euler(90, 0, 0);
-				foreach (var tag in space.tags)
+				foreach (TagRef tag in space.tags)
 				{
 					Pose pose = tag.pose;
 					Matrix4x4 transform = Matrix4x4.TRS(pose.position, pose.rotation * quadRotation, scale);
 					indicators.DrawQuad(camera, tagIndicatorMaterial, transform, Color.cyan);
-					if (!Project(pose.position, out var center)) continue;
+					if (!Project(pose.position, out Vector2 center)) continue;
 
 					Vector2 labelPosition = center + new Vector2(8, -28);
 					if (labelCount == labels.Count)
@@ -90,7 +90,7 @@ namespace Anaglyph.LaserTag.Operator
 
 		private void DrawLabels(MeshGenerationContext context)
 		{
-			foreach (var label in labels)
+			foreach ((int id, string text, Vector2 position) label in labels)
 				context.DrawText(label.text, label.position, 28, Color.white);
 		}
 	}

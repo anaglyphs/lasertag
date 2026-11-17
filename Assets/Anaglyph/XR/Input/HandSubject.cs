@@ -11,8 +11,8 @@ namespace Anaglyph.XR.Input
 		[SerializeField] private HandInput current;
 		public HandInput Current => current;
 		
-		public event Action<HandInput> Changed;
-		public event Action<bool> IsTrackingChanged;
+		public event Action<HandInput> Changed = delegate { };
+		public event Action<bool> IsTrackingChanged = delegate { };
 
 		// Pose is reported in the rig's tracking space (see HandInput) — apply it
 		// as LOCAL position/rotation under the XR Origin, not world space.
@@ -57,7 +57,7 @@ namespace Anaglyph.XR.Input
 			current = hand;
 			Subscribe(current);
 
-			Changed?.Invoke(current);
+			Changed.Invoke(current);
 
 			if (current != null)
 			{
@@ -68,7 +68,7 @@ namespace Anaglyph.XR.Input
 
 		private void OnCurrentHandTrackingChanged(bool isTracking)
 		{
-			IsTrackingChanged?.Invoke(isTracking);
+			IsTrackingChanged.Invoke(isTracking);
 		}
 
 		// Subscribe a callback to a named action on whichever hand is assigned,

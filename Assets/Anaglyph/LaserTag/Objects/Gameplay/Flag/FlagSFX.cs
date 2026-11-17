@@ -28,15 +28,15 @@ namespace Anaglyph.LaserTag.Objects.Gameplay.Flag
 		{
 			if (PlayerAvatar.Local?.Team != holder.Team)
 			{
-				var pos = holder.HeadTransform.position;
+				Vector3 pos = holder.HeadTransform.position;
 				AudioPool.Play(enemyStoleFlag, pos);
 			}
 		}
 
 		private void OnCaptured(PlayerAvatar holder)
 		{
-			var pos = holder.HeadTransform.position;
-			var sfx = scored;
+			Vector3 pos = holder.HeadTransform.position;
+			AudioClip sfx = scored;
 
 			if (PlayerAvatar.Local && PlayerAvatar.Local?.Team != holder.Team)
 				sfx = enemyCapturedFlag;

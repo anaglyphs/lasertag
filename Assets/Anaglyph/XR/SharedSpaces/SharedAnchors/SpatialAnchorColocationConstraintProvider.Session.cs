@@ -71,10 +71,10 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 
 		private void RegisterSession()
 		{
-			minter.Validate = (_, _) => false;
-			referenceContext.Validate = (_, _) => false;
-			preparation.Validate = (_, _) => false;
-			mintReply.Validate = (sender, _) => SyncBus.IsAuthority && sender == SyncBus.LocalClientId;
+			minter.AcceptedRequests = SyncEndpoint.RequestSource.Nobody;
+			referenceContext.AcceptedRequests = SyncEndpoint.RequestSource.Nobody;
+			preparation.AcceptedRequests = SyncEndpoint.RequestSource.Nobody;
+			mintReply.AcceptedRequests = SyncEndpoint.RequestSource.AuthorityOnly;
 			minter.Register();
 			referenceContext.Register();
 			preparation.Register();
@@ -143,7 +143,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		private void OnMinterChanged(AnchorMinterAssignment _, AnchorMinterAssignment __)
 		{
 			InvalidateLocalFrame();
-			if (IsRunning && IsLocalMinter) ShareAllAfterActivation();
+			if (IsRunning && IsLocalMinter) ShareAllAfterActivation().RunUntilCancelled();
 			MinterChanged.Invoke();
 		}
 

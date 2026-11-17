@@ -135,9 +135,9 @@ namespace Anaglyph.LaserTag.Maps
 			SyncBus.Deactivated += OnBusDeactivated;
 			SyncBus.AuthorityChanged += OnAuthorityChanged;
 			MainXRRig.Recentered += OnRecentered;
-			SaveVisualMapsPeriodically(lifetime.Token);
-			ReplaceWithRecognizedSpaces(lifetime.Token);
-			Startup(lifetime.Token);
+			SaveVisualMapsPeriodically(lifetime.Token).RunUntilCancelled();
+			ReplaceWithRecognizedSpaces(lifetime.Token).RunUntilCancelled();
+			Startup(lifetime.Token).RunUntilCancelled();
 		}
 
 		private void Update()
@@ -410,49 +410,39 @@ namespace Anaglyph.LaserTag.Maps
 			return true;
 		}
 
-		private async void SaveVisualMapsPeriodically(CancellationToken token)
+		private async Awaitable SaveVisualMapsPeriodically(CancellationToken token)
 		{
-			try
+			while (!token.IsCancellationRequested)
 			{
-				while (!token.IsCancellationRequested)
-				{
-					await Awaitable.WaitForSecondsAsync(10f, token);
-					if (space != null && !showingSessionSpace && ColocationManager.IsLocalized) visualMaps.Save(space, false, false);
-				}
+				await Awaitable.WaitForSecondsAsync(10f, token);
+				if (space != null && !showingSessionSpace && ColocationManager.IsLocalized) visualMaps.Save(space, false, false);
 			}
-			catch (OperationCanceledException) { }
-			catch (Exception e) { Debug.LogException(e); }
 		}
 
 		private bool ShownSpaceIsReplaceable => space != null && space.id == replaceableSpaceId &&
 			Role == SpaceRole.Offline && !RoundInProgress && !showingSessionSpace && ColocationManager.IsLocalized;
 
 		// one keyframe a second at most, and only while a fresh blank space is shown
-		private async void ReplaceWithRecognizedSpaces(CancellationToken token)
+		private async Awaitable ReplaceWithRecognizedSpaces(CancellationToken token)
 		{
-			try
+			VisualKeyframe scored = null;
+			while (!token.IsCancellationRequested)
 			{
-				VisualKeyframe scored = null;
-				while (!token.IsCancellationRequested)
+				await Awaitable.WaitForSecondsAsync(1f, token);
+				VisualMap visualMap = VisualLocalizer.Instance ? VisualLocalizer.Instance.Map : null;
+				if (!ShownSpaceIsReplaceable || visualMap == null || visualMap.Count == 0 || visualMap.Count > MaxKeyframesToReplace)
 				{
-					await Awaitable.WaitForSecondsAsync(1f, token);
-					VisualMap visualMap = VisualLocalizer.Instance ? VisualLocalizer.Instance.Map : null;
-					if (!ShownSpaceIsReplaceable || visualMap == null || visualMap.Count == 0 || visualMap.Count > MaxKeyframesToReplace)
-					{
-						Discovery.StopRecognizing();
-						continue;
-					}
-
-					VisualKeyframe newest = visualMap.Keyframes[visualMap.Count - 1];
-					if (newest == scored) continue;
-					scored = newest;
-					Space shownWhenAsked = space;
-					Space recognized = await Discovery.RecognizeAsync(spaces, space, newest);
-					if (recognized != null && space == shownWhenAsked && ShownSpaceIsReplaceable) ReplaceShownSpace(recognized);
+					Discovery.StopRecognizing();
+					continue;
 				}
+
+				VisualKeyframe newest = visualMap.Keyframes[visualMap.Count - 1];
+				if (newest == scored) continue;
+				scored = newest;
+				Space shownWhenAsked = space;
+				Space recognized = await Discovery.RecognizeAsync(spaces, space, newest);
+				if (recognized != null && space == shownWhenAsked && ShownSpaceIsReplaceable) ReplaceShownSpace(recognized);
 			}
-			catch (OperationCanceledException) { }
-			catch (Exception e) { Debug.LogException(e); }
 		}
 
 		// the shown space goes back to blank, for the next unknown room: what it mapped is a few
@@ -729,43 +719,39 @@ namespace Anaglyph.LaserTag.Maps
 			sessionGeneration++;
 			changingMap = false;
 			if (!showingSessionSpace) Save();
-			RestoreAfterSession(sessionGeneration, lifetime.Token);
+			RestoreAfterSession(sessionGeneration, lifetime.Token).RunUntilCancelled();
 			SpaceChanged.Invoke();
 			SpacesChanged.Invoke();
 		}
 
 		// once NGO has destroyed the session's objects: a client's own last space comes back,
 		// and a host's map gets its objects back as local ones
-		private async void RestoreAfterSession(int generation, CancellationToken token)
+		private async Awaitable RestoreAfterSession(int generation, CancellationToken token)
 		{
-			try
+			do
 			{
-				do
-				{
-					await Awaitable.NextFrameAsync(token);
-					if (generation != sessionGeneration) return;
-				}
-				while (NetworkManager.Singleton && (NetworkManager.Singleton.IsListening || NetworkManager.Singleton.ShutdownInProgress));
-				if (!showingSessionSpace)
-				{
-					Objects.Replace(map?.objects ?? new List<MapObjectRecord>());
-					return;
-				}
-				showingSessionSpace = false;
-				Space local = FindSpace(localSpaceId) ?? (spaces.Count > 0 ? spaces[0] : null);
-				localSpaceId = null;
-				if (local != null) Show(local, MostRecentMap(local) ?? AddMap(local));
-				else Show(null, null);
-				Save();
-				if (space == null) Startup(lifetime.Token);
+				await Awaitable.NextFrameAsync(token);
+				if (generation != sessionGeneration) return;
 			}
-			catch (OperationCanceledException) { }
+			while (NetworkManager.Singleton && (NetworkManager.Singleton.IsListening || NetworkManager.Singleton.ShutdownInProgress));
+			if (!showingSessionSpace)
+			{
+				Objects.Replace(map?.objects ?? new List<MapObjectRecord>());
+				return;
+			}
+			showingSessionSpace = false;
+			Space local = FindSpace(localSpaceId) ?? (spaces.Count > 0 ? spaces[0] : null);
+			localSpaceId = null;
+			if (local != null) Show(local, MostRecentMap(local) ?? AddMap(local));
+			else Show(null, null);
+			Save();
+			if (space == null) Startup(lifetime.Token).RunUntilCancelled();
 		}
 
 		// ------- startup ---------------------------------------------
 
 		// A healthy completed probe may reuse one blank space. A failed probe never means an empty room.
-		private async void Startup(CancellationToken token)
+		private async Awaitable Startup(CancellationToken token)
 		{
 			if (HeadsetConfiguration.IsOperatorDevice)
 			{
@@ -779,16 +765,11 @@ namespace Anaglyph.LaserTag.Maps
 				return;
 			}
 #endif
-			try
+			while (!token.IsCancellationRequested && Role != SpaceRole.Client && space == null)
 			{
-				while (!token.IsCancellationRequested && Role != SpaceRole.Client && space == null)
-				{
-					await ProbeAndLoad(token);
-					if (space == null) await Awaitable.WaitForSecondsAsync(2f, token);
-				}
+				await ProbeAndLoad(token);
+				if (space == null) await Awaitable.WaitForSecondsAsync(2f, token);
 			}
-			catch (OperationCanceledException) { }
-			catch (Exception e) { Debug.LogException(e); }
 		}
 
 #if UNITY_EDITOR

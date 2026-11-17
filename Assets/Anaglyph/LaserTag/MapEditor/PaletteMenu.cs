@@ -94,7 +94,7 @@ namespace Anaglyph.LaserTag.MapEditor
 			AnaglyphDebugging.DebugModeChanged += OnDebugModeChanged;
 			MapEditorTool.ModeChanged += OnToolModeChanged;
 			navView.Changed += OnNavigationChanged;
-			foreach (var slider in tagSizeSliders) slider.RegisterValueChangedCallback(OnTagSizeChanged);
+			foreach (Slider slider in tagSizeSliders) slider.RegisterValueChangedCallback(OnTagSizeChanged);
 			MapEditorTool.TagSizeMeasured += OnTagSizeMeasured;
 			continueRegistrationButton.clicked += OnContinueRegistration;
 			backToMeasurementButton.clicked += OnMeasureTagSizeClicked;
@@ -115,7 +115,7 @@ namespace Anaglyph.LaserTag.MapEditor
 			MapEditorTool.ModeChanged -= OnToolModeChanged;
 			if (navView != null) navView.Changed -= OnNavigationChanged;
 			if (tagSizeSliders != null)
-				foreach (var slider in tagSizeSliders) slider.UnregisterValueChangedCallback(OnTagSizeChanged);
+				foreach (Slider slider in tagSizeSliders) slider.UnregisterValueChangedCallback(OnTagSizeChanged);
 			MapEditorTool.TagSizeMeasured -= OnTagSizeMeasured;
 			if (continueRegistrationButton != null) continueRegistrationButton.clicked -= OnContinueRegistration;
 			if (backToMeasurementButton != null) backToMeasurementButton.clicked -= OnMeasureTagSizeClicked;
@@ -224,10 +224,10 @@ namespace Anaglyph.LaserTag.MapEditor
 
 		private void Update()
 		{
-			var context = editingContext;
+			Label context = editingContext;
 			if (context != null)
 			{
-				var manager = SpaceManager.Instance;
+				SpaceManager manager = SpaceManager.Instance;
 				bool objects = MapEditorTool.CurrentMode is MapEditorTool.Mode.Place or MapEditorTool.Mode.Move;
 				context.text = MenuCopy.Format("Map", objects ? "palette.map-context" : "palette.space-context",
 					objects ? manager?.Map?.name ?? "" : manager?.Space?.name ?? "");
@@ -263,7 +263,7 @@ namespace Anaglyph.LaserTag.MapEditor
 			setupFinish.text = MenuCopy.Get("Map", setup.State.operatorManaged ? "tag-setup.headset-finish" : "tag-setup.headset-finish-local");
 			setupMeasureInstructions.text = MenuCopy.Get("Map", setup.CanMeasure || setup.SizeConfirmed
 				? "tag-setup.headset-measure" : "tag-setup.headset-wait");
-			foreach (var slider in tagSizeSliders) slider.SetEnabled(setup.CanMeasure);
+			foreach (Slider slider in tagSizeSliders) slider.SetEnabled(setup.CanMeasure);
 			continueRegistrationButton.SetEnabled(setup.CanMeasure || setup.SizeConfirmed);
 		}
 
@@ -275,7 +275,7 @@ namespace Anaglyph.LaserTag.MapEditor
 			pendingTagSizeCm = change.newValue;
 			pendingTagSizeTime = Time.unscaledTime;
 			submittedTagSizeCm = null;
-			foreach (var slider in tagSizeSliders) slider.SetValueWithoutNotify(change.newValue);
+			foreach (Slider slider in tagSizeSliders) slider.SetValueWithoutNotify(change.newValue);
 		}
 
 		private void OnTagSizeMeasured(float centimeters)
@@ -284,7 +284,7 @@ namespace Anaglyph.LaserTag.MapEditor
 			pendingTagSizeCm = null;
 			submittedTagSizeCm = centimeters;
 			submittedTagSizeTime = Time.unscaledTime;
-			foreach (var slider in tagSizeSliders)
+			foreach (Slider slider in tagSizeSliders)
 			{
 				slider.highValue = Mathf.Max(50f, centimeters);
 				slider.SetValueWithoutNotify(centimeters);
@@ -298,7 +298,7 @@ namespace Anaglyph.LaserTag.MapEditor
 
 			float centimeters = pendingTagSizeCm.Value;
 			pendingTagSizeCm = null;
-			var manager = SpaceManager.Instance;
+			SpaceManager manager = SpaceManager.Instance;
 			if (manager != null && manager.Frame.frameId == pendingSizeContext && manager.Alignment.SetTagSize(centimeters))
 			{
 				submittedTagSizeCm = centimeters;
@@ -308,7 +308,7 @@ namespace Anaglyph.LaserTag.MapEditor
 
 		private void OnContinueRegistration()
 		{
-			var manager = SpaceManager.Instance;
+			SpaceManager manager = SpaceManager.Instance;
 			if (manager == null) return;
 			float centimeters = pendingTagSizeCm ?? submittedTagSizeCm ?? manager.Alignment.TagSizeCm;
 			FlushPendingTagSize();
@@ -318,7 +318,7 @@ namespace Anaglyph.LaserTag.MapEditor
 
 		private void OnMeasureTagSizeClicked()
 		{
-			var manager = SpaceManager.Instance;
+			SpaceManager manager = SpaceManager.Instance;
 			FlushPendingTagSize();
 			if (manager != null && manager.TagSetup.IsGuidingHeadset) manager.TagSetup.ReturnToMeasurement();
 			else if (MapEditorTool.DominantHand != null && manager?.Alignment.TagSizeBlocker() == null)
@@ -339,13 +339,13 @@ namespace Anaglyph.LaserTag.MapEditor
 			SpaceManager manager = SpaceManager.Instance;
 			if (manager == null)
 			{
-				foreach (var slider in tagSizeSliders) slider.SetEnabled(false);
+				foreach (Slider slider in tagSizeSliders) slider.SetEnabled(false);
 				unregisterAllTagsButton.SetEnabled(false);
 				measureTagSizeButton.SetEnabled(false);
 				continueRegistrationButton.SetEnabled(false);
 				clearTagsForMeasurementButton.SetEnabled(false);
 				clearTagsForMeasurementButton.style.display = DisplayStyle.None;
-				foreach (var note in tagSizeNotes) SetMessage(note, null);
+				foreach (Label note in tagSizeNotes) SetMessage(note, null);
 				SetMessage(tagStatus, null);
 				return;
 			}
@@ -357,14 +357,14 @@ namespace Anaglyph.LaserTag.MapEditor
 				pendingTagSizeCm = null;
 				submittedTagSizeCm = null;
 			}
-			foreach (var slider in tagSizeSliders) slider.SetEnabled(sizeBlocker == null);
+			foreach (Slider slider in tagSizeSliders) slider.SetEnabled(sizeBlocker == null);
 			measureTagSizeButton.SetEnabled(MapEditorTool.DominantHand != null && sizeBlocker == null);
-			foreach (var note in tagSizeNotes) SetMessage(note, sizeBlocker);
+			foreach (Label note in tagSizeNotes) SetMessage(note, sizeBlocker);
 
 			if (submittedTagSizeCm.HasValue && (Mathf.Abs(submittedTagSizeCm.Value - alignment.TagSizeCm) < .001f ||
 				Time.unscaledTime - submittedTagSizeTime > 2f)) submittedTagSizeCm = null;
 			if (!pendingTagSizeCm.HasValue && !submittedTagSizeCm.HasValue)
-				foreach (var slider in tagSizeSliders)
+				foreach (Slider slider in tagSizeSliders)
 					if (!IsBeingEdited(slider))
 					{
 						slider.highValue = Mathf.Max(50f, alignment.TagSizeCm);

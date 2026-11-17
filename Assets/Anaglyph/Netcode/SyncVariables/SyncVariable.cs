@@ -8,7 +8,7 @@ namespace Anaglyph.Netcode.SyncVariables
 	// under the hash of its string name; see SyncEndpoint for the lifecycle contract.
 	//
 	// The authority is the single writer (Value setter). Other peers read, and may
-	// Request a value that the authority validates (Validate) and applies. Late
+	// Request a value that the authority applies when AcceptedRequests allows the sender. Late
 	// joiners get the current value through the bus's snapshot handshake. Off-network
 	// it is just a local value.
 	public class SyncVariable<T> : SyncEndpoint where T : unmanaged
@@ -19,10 +19,6 @@ namespace Anaglyph.Netcode.SyncVariables
 		// (oldValue, newValue) after any applied change — local write, remote update,
 		// snapshot, or reset. Only fires on an actual change.
 		public event Action<T, T> Changed = delegate { };
-
-		// Authority-side gate for requested writes: (sender, proposed) => accept?
-		// Null accepts everything. Also consulted for the authority's own Request.
-		public Func<ulong, T, bool> Validate;
 
 		public SyncVariable(string name, T initialValue = default) : base(name)
 		{
@@ -61,7 +57,7 @@ namespace Anaglyph.Netcode.SyncVariables
 
 		private void ApplyRequestChecked(ulong sender, T proposed)
 		{
-			if (Validate == null || Validate(sender, proposed))
+			if (AcceptsRequestFrom(sender))
 				Value = proposed; // authority write: applies + broadcasts
 		}
 

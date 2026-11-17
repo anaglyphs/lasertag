@@ -18,6 +18,23 @@ namespace Anaglyph.Netcode.SyncVariables
 	//   registration, authority change).
 	public abstract class SyncEndpoint
 	{
+		/// <summary>Whose requests the authority applies. The authority's own direct writes are never requests.</summary>
+		public enum RequestSource
+		{
+			Anyone,
+			AuthorityOnly,
+			Nobody,
+		}
+
+		public RequestSource AcceptedRequests = RequestSource.Anyone;
+
+		protected bool AcceptsRequestFrom(ulong sender)
+		{
+			if (AcceptedRequests == RequestSource.Anyone) return true;
+			if (AcceptedRequests == RequestSource.Nobody) return false;
+			return SyncBus.IsAuthority && sender == SyncBus.LocalClientId;
+		}
+
 		public string Name { get; }
 		internal uint Id { get; }
 

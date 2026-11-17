@@ -17,7 +17,7 @@ namespace Anaglyph.LaserTag.Weapons.Automatic
 		[SerializeField] private Transform muzzle = null;
 		[FormerlySerializedAs("view")] [SerializeField] private WeaponVisual visual = null;
 		public GameObject VisualObject => visual.gameObject;
-		public UnityEvent onFire = new();
+		[SerializeField] private UnityEvent onFire = new();
 
 		[SerializeField] private float fireFrequency = 0.1f;
 

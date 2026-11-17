@@ -27,7 +27,7 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 
 		public static BulletGroupLight Join(ulong owner, ushort id, int groupSize, Light memberLight)
 		{
-			var key = (owner, id);
+			(ulong owner, ushort id) key = (owner, id);
 			if (!activeGroups.TryGetValue(key, out BulletGroupLight group))
 			{
 				group = idleGroups.Count > 0 ? idleGroups.Pop() : Create(memberLight);

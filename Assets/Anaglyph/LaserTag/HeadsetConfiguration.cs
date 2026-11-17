@@ -131,7 +131,7 @@ namespace Anaglyph.LaserTag
 			Instance = this;
 			LoadLocalSettings();
 
-			policySync.Validate = (_, _) => false;
+			policySync.AcceptedRequests = SyncEndpoint.RequestSource.Nobody;
 			policySync.Changed += OnSyncedPolicyChanged;
 			policySync.Synced += OnPolicySynced;
 			policySync.Register();
@@ -147,7 +147,7 @@ namespace Anaglyph.LaserTag
 			policySync.Synced -= OnPolicySynced;
 			policySync.Changed -= OnSyncedPolicyChanged;
 			policySync.Unregister();
-			policySync.Validate = null;
+			policySync.AcceptedRequests = SyncEndpoint.RequestSource.Anyone;
 			Instance = null;
 		}
 

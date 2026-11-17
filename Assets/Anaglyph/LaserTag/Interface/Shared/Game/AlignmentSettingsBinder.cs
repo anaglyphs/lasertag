@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Anaglyph.LaserTag.Maps;
 using Anaglyph.Menu;
 using Anaglyph.Netcode.SyncVariables;
+using Anaglyph.XR.SharedSpaces.SharedAnchors;
 using UnityEngine;
 using UnityEngine.UIElements;
 using static Anaglyph.Menu.UIQuery;
@@ -47,8 +48,8 @@ namespace Anaglyph.LaserTag.Interface
 		private static SpaceAlignment Alignment => SpaceManager.Instance?.Alignment;
 		private static ColocationManager.ColocationMethod Preference => Alignment?.SelectedMethod ?? AlignmentSettings.Default.method;
 
-		public event Action Changing;
-		public event Action Changed;
+		public event Action Changing = delegate { };
+		public event Action Changed = delegate { };
 
 		public AlignmentSettingsBinder(VisualElement root, bool operatorMode = false)
 		{
@@ -92,8 +93,8 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void RefreshChoices()
 		{
-			var choices = new List<string>();
-			foreach (var method in ListedMethods) choices.Add(MethodName(method));
+			List<string> choices = new();
+			foreach (ColocationManager.ColocationMethod method in ListedMethods) choices.Add(MethodName(method));
 			methodField.choices = choices;
 		}
 
@@ -117,10 +118,10 @@ namespace Anaglyph.LaserTag.Interface
 			int index = methodField.choices.IndexOf(change.newValue);
 			if (index < 0) return;
 			FlushPendingSize();
-			Changing?.Invoke();
+			Changing.Invoke();
 			Alignment?.SetMethod(ListedMethods[index]);
 			Refresh(contextStatus);
-			Changed?.Invoke();
+			Changed.Invoke();
 		}
 
 		public void Refresh(string contextStatus = null)
@@ -129,8 +130,8 @@ namespace Anaglyph.LaserTag.Interface
 				FlushPendingSize();
 			this.contextStatus = contextStatus;
 			SpaceAlignment alignment = Alignment;
-			var preference = Preference;
-			var displayed = DisplayedMethod;
+			ColocationManager.ColocationMethod preference = Preference;
+			ColocationManager.ColocationMethod displayed = DisplayedMethod;
 			bool inSession = InSession;
 			methodField.label = MenuCopy.Get("Map", inSession ? "alignment.session-label" : "alignment.preference-label");
 			// a hidden method still shows its own name when it is the one in use
@@ -144,7 +145,7 @@ namespace Anaglyph.LaserTag.Interface
 			if (inSession && displayed == ColocationManager.ColocationMethod.MetaSharedAnchor &&
 				ColocationManager.Instance.AnchorProvider != null)
 			{
-				var anchors = ColocationManager.Instance.AnchorProvider;
+				SpatialAnchorColocationConstraintProvider anchors = ColocationManager.Instance.AnchorProvider;
 				Status ??= anchors.HasMinter
 					? MenuCopy.Format("Map", "alignment.anchor-minter", anchors.Minter.clientId)
 					: MenuCopy.Get("Map", "alignment.waiting-for-anchor-headset");

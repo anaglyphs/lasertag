@@ -70,7 +70,7 @@ namespace Anaglyph.LaserTag
 				float delaySeconds = (pathLength - directLength) / SpeedOfSound;
 				if (delaySeconds < minDelaySeconds) continue;
 
-				var reflection = new SoundReflection
+				SoundReflection reflection = new()
 				{
 					apparentSource = listenerPos + (bouncePoint - listenerPos).normalized * pathLength,
 					delaySeconds = delaySeconds,
@@ -95,7 +95,7 @@ namespace Anaglyph.LaserTag
 				if (!Physics.Raycast(listenerPos, direction, out RaycastHit hit, maxWallDistance, envMeshLayerMask,
 					    QueryTriggerInteraction.Ignore)) continue;
 
-				var wall = new Wall { point = hit.point, normal = hit.normal };
+				Wall wall = new() { point = hit.point, normal = hit.normal };
 				if (!IsSameAsFoundWall(wall)) walls.Add(wall);
 			}
 		}

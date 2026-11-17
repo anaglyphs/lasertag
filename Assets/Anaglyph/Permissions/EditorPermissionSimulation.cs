@@ -22,7 +22,10 @@ namespace Anaglyph.Permissions
 		public static bool grantRequests { get; set; } = true;
 		public static VpsStatus vpsStatus { get; set; } = VpsStatus.Disabled;
 
-		public static event Action<string, bool> permissionGrantedChanged;
+		public static event Action<string, bool> permissionGrantedChanged = delegate { };
+
+		[UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
+		private static void ResetStatics() => permissionGrantedChanged = delegate { };
 
 		public static AndroidPermissionCheckResult CheckPermission(string permission)
 		{
@@ -62,7 +65,7 @@ namespace Anaglyph.Permissions
 				return;
 
 			state.granted = granted;
-			permissionGrantedChanged?.Invoke(permission, granted);
+			permissionGrantedChanged.Invoke(permission, granted);
 		}
 
 		internal static void RequestPermission(

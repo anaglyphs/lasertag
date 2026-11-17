@@ -16,7 +16,6 @@ namespace Anaglyph.LaserTag.Weapons
 		private void Awake()
 		{
 			Instance = this;
-			switchEveryone.Validate = (_, id) => database != null && database.GetWeapon(id) != null;
 			switchEveryone.Received += OnSwitchEveryone;
 			switchEveryone.Register();
 		}

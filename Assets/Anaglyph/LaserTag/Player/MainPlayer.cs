@@ -49,6 +49,16 @@ namespace Anaglyph.LaserTag.Player
 		public static event Action Damaged = delegate { };
 		public static event Action<byte> TeamChanged = delegate { };
 
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+		private static void ResetStatics()
+		{
+			Instance = null;
+			Died = delegate { };
+			Respawned = delegate { };
+			Damaged = delegate { };
+			TeamChanged = delegate { };
+		}
+
 		private void Awake()
 		{
 			Instance = this;

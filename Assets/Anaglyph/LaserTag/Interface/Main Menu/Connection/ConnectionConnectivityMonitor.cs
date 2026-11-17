@@ -8,9 +8,9 @@ namespace Anaglyph.LaserTag.Interface
 	// Owns device connectivity sampling; the menu decides how changes are presented.
 	internal sealed class ConnectionConnectivityMonitor : IDisposable
 	{
-		public event Action<bool> LanConnectionChanged;
-		public event Action InternetConnectionChanged;
-		public event Action<bool> BluetoothEnabledChanged;
+		public event Action<bool> LanConnectionChanged = delegate { };
+		public event Action InternetConnectionChanged = delegate { };
+		public event Action<bool> BluetoothEnabledChanged = delegate { };
 
 		public bool HasFullInternet { get; private set; }
 		public bool HasBluetoothState { get; private set; }
@@ -29,7 +29,7 @@ namespace Anaglyph.LaserTag.Interface
 			hasNetworkState = false;
 			HasBluetoothState = false;
 			pollCancellation = new CancellationTokenSource();
-			Poll(pollCancellation.Token);
+			Poll(pollCancellation.Token).RunUntilCancelled();
 		}
 
 		public void Stop()
@@ -41,20 +41,14 @@ namespace Anaglyph.LaserTag.Interface
 
 		public void Dispose() => Stop();
 
-		private async void Poll(CancellationToken token)
+		private async Awaitable Poll(CancellationToken token)
 		{
-			try
+			while (!token.IsCancellationRequested)
 			{
-				while (!token.IsCancellationRequested)
-				{
-					CheckNetworkConnection();
-					if (token.IsCancellationRequested) return;
-					CheckBluetoothConnection();
-					await Awaitable.WaitForSecondsAsync(1f, token);
-				}
-			}
-			catch (OperationCanceledException)
-			{
+				CheckNetworkConnection();
+				if (token.IsCancellationRequested) return;
+				CheckBluetoothConnection();
+				await Awaitable.WaitForSecondsAsync(1f, token);
 			}
 		}
 
@@ -73,9 +67,9 @@ namespace Anaglyph.LaserTag.Interface
 			// Notify only on transitions so dismissing a warning lasts until the
 			// corresponding device state changes, rather than the next poll.
 			if (connectionChanged)
-				LanConnectionChanged?.Invoke((newState & NetworkState.ConnectionLAN) != 0);
+				LanConnectionChanged.Invoke((newState & NetworkState.ConnectionLAN) != 0);
 			if (internetChanged)
-				InternetConnectionChanged?.Invoke();
+				InternetConnectionChanged.Invoke();
 		}
 
 		private void CheckBluetoothConnection()
@@ -86,7 +80,7 @@ namespace Anaglyph.LaserTag.Interface
 			BluetoothIsEnabled = isEnabled;
 			HasBluetoothState = true;
 			if (changed)
-				BluetoothEnabledChanged?.Invoke(isEnabled);
+				BluetoothEnabledChanged.Invoke(isEnabled);
 		}
 
 		private bool TryGetBluetoothEnabled(out bool isEnabled)

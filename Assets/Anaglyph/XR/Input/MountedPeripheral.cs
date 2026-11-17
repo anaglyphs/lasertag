@@ -10,7 +10,7 @@ namespace Anaglyph.XR.Input
 	public static class MountedPeripheral
 	{
 		public static HandPeripheral Current { get; private set; }
-		public static event Action<HandPeripheral> Changed;
+		public static event Action<HandPeripheral> Changed = delegate { };
 
 		public static bool IsMountedOn(Handedness hand) =>
 			Current != null && Current.MountedHand == hand;
@@ -21,7 +21,7 @@ namespace Anaglyph.XR.Input
 				return;
 
 			Current = peripheral;
-			Changed?.Invoke(Current);
+			Changed.Invoke(Current);
 		}
 
 		// statics outlive play sessions when domain reloading is off
@@ -29,7 +29,7 @@ namespace Anaglyph.XR.Input
 		private static void ResetState()
 		{
 			Current = null;
-			Changed = null;
+			Changed = delegate { };
 		}
 	}
 }

@@ -177,14 +177,15 @@ namespace Anaglyph.LaserTag.Interface
 				SetPose();
 		}
 
-		private async void Start()
+		private void Start()
 		{
-			try
-			{
-				await Awaitable.WaitForSecondsAsync(0.5f, destroyCancellationToken);
-				if (IsVisible) SetPose();
-			}
-			catch (OperationCanceledException) { }
+			SetPoseAfterStartupDelay().RunUntilCancelled();
+		}
+
+		private async Awaitable SetPoseAfterStartupDelay()
+		{
+			await Awaitable.WaitForSecondsAsync(0.5f, destroyCancellationToken);
+			if (IsVisible) SetPose();
 		}
 
 		private void OnEnable()
@@ -307,31 +308,26 @@ namespace Anaglyph.LaserTag.Interface
 			firstProtectedMenuPressTime = float.NegativeInfinity;
 		}
 
-		private async void SetPose()
+		private void SetPose() => SetPoseAtEndOfFrame().RunUntilCancelled();
+
+		private async Awaitable SetPoseAtEndOfFrame()
 		{
 			if (OnScreen) return;
 			// Wait for placement before checking distance when opening or recentering.
 			hasPose = false;
 			CancellationToken ctkn = destroyCancellationToken;
 
-			try
-			{
-				await Awaitable.EndOfFrameAsync(ctkn);
+			await Awaitable.EndOfFrameAsync(ctkn);
 
-				Vector3 camPos = camTransform.position;
-				transform.position = camPos + Vector3.up * verticalOffset;
+			Vector3 camPos = camTransform.position;
+			transform.position = camPos + Vector3.up * verticalOffset;
 
-				Vector3 f = camTransform.forward;
-				f = new Vector3(f.x, 0, f.z).normalized;
+			Vector3 f = camTransform.forward;
+			f = new Vector3(f.x, 0, f.z).normalized;
 
-				transform.forward = f;
-				hasPose = true;
+			transform.forward = f;
+			hasPose = true;
 
-			}
-			catch (OperationCanceledException)
-			{
-
-			}
 		}
 	}
 }

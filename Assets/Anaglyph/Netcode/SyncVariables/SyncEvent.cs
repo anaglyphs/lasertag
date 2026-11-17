@@ -91,15 +91,13 @@ namespace Anaglyph.Netcode.SyncVariables
 			else SyncBus.SendDirectTo(Id, target, payload);
 		}
 
-		protected virtual bool ValidateBytes(ulong sender, byte[] payload) => true;
-
 		protected abstract void Receive(ulong sender, byte[] payload);
 
 		// Authority side: gate, deliver, and (ViaAuthority) rebroadcast with the
 		// original sender's id embedded, since the broadcast itself comes from us.
 		private void HandleRequest(ulong sender, byte[] payload)
 		{
-			if (!ValidateBytes(sender, payload)) return;
+			if (!AcceptsRequestFrom(sender)) return;
 
 			Receive(sender, payload);
 
@@ -137,16 +135,12 @@ namespace Anaglyph.Netcode.SyncVariables
 	public class SyncEvent : SyncEventBase
 	{
 		public event Action<ulong> Received = delegate { };
-		public Func<ulong, bool> Validate;
 
 		public SyncEvent(string name, EventRoute route) : base(name, route)
 		{
 		}
 
 		public void Raise() => RaiseBytes(Array.Empty<byte>());
-
-		protected override bool ValidateBytes(ulong sender, byte[] payload) =>
-			Validate == null || Validate(sender);
 
 		protected override void Receive(ulong sender, byte[] payload) =>
 			Received.Invoke(sender);
@@ -156,16 +150,12 @@ namespace Anaglyph.Netcode.SyncVariables
 	public class SyncEvent<T> : SyncEventBase where T : unmanaged
 	{
 		public event Action<ulong, T> Received = delegate { };
-		public Func<ulong, T, bool> Validate;
 
 		public SyncEvent(string name, EventRoute route) : base(name, route)
 		{
 		}
 
 		public void Raise(T argument) => RaiseBytes(SyncBytes.Of(argument));
-
-		protected override bool ValidateBytes(ulong sender, byte[] payload) =>
-			Validate == null || Validate(sender, SyncBytes.Read<T>(payload, 0));
 
 		protected override void Receive(ulong sender, byte[] payload) =>
 			Received.Invoke(sender, SyncBytes.Read<T>(payload, 0));
@@ -184,8 +174,6 @@ namespace Anaglyph.Netcode.SyncVariables
 		/// <summary>The payload is valid only during the call. Costs no array when <see cref="Received"/> has no handlers.</summary>
 		public event Action<ulong, ArraySegment<byte>> ReceivedBorrowed;
 
-		public Func<ulong, byte[], bool> Validate;
-
 		public SyncEventBytes(string name, EventRoute route) : base(name, route)
 		{
 		}
@@ -197,9 +185,6 @@ namespace Anaglyph.Netcode.SyncVariables
 
 		/// <summary>Direct route only: deliver to a single peer. The payload is read before this returns.</summary>
 		public void RaiseTo(ulong target, ArraySegment<byte> payload) => RaiseBytesTo(target, payload);
-
-		protected override bool ValidateBytes(ulong sender, byte[] payload) =>
-			Validate == null || Validate(sender, payload);
 
 		protected override void Receive(ulong sender, byte[] payload)
 		{
