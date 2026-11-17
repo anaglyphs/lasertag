@@ -18,10 +18,17 @@
                 <ui:Instance template="MapEditorMeasureTagSizePage" />
             </Anaglyph.Menu.NavPage>
         </Anaglyph.Menu.NavView>
-        <ui:Button name="done-button" class="palette-done">
-            <Bindings>
-                <UnityEngine.Localization.LocalizedString property="text" table="Map" entry="GameMapEditingPage.finish-editing-button.text" />
-            </Bindings>
-        </ui:Button>
+        <ui:VisualElement picking-mode="Ignore" class="palette-actions">
+            <ui:Button name="delete-object-button" class="palette-delete destructive">
+                <Bindings>
+                    <UnityEngine.Localization.LocalizedString property="text" table="Map" entry="maps.delete" />
+                </Bindings>
+            </ui:Button>
+            <ui:Button name="done-button" class="palette-done">
+                <Bindings>
+                    <UnityEngine.Localization.LocalizedString property="text" table="Map" entry="GameMapEditingPage.finish-editing-button.text" />
+                </Bindings>
+            </ui:Button>
+        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

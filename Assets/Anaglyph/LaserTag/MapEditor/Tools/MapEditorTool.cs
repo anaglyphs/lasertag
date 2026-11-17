@@ -16,8 +16,12 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 	/// The map editor's hand tool. One of these per hand, activated with the editor.
 	///
 	/// It has one mode at a time and the buttons mean whatever that mode says: the trigger places
-	/// an object or registers a tag, the back button deletes one or unregisters one. Mode is
+	/// an object, carries the one it points at while held, or registers a tag; the back button
+	/// deletes an object or unregisters a tag. Objects are never placed on other objects. Mode is
 	/// static because both hands share the palette selection and the game menu's tag mode.
+	///
+	/// On a phone the hand is the screen, aimed by its dot, and a finger is the trigger: a sideways
+	/// swipe turns what is carried or about to be placed, and placing waits for a tap to lift.
 	/// </summary>
 	public class MapEditorTool : MonoBehaviour
 	{
@@ -130,6 +134,15 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 		private float rotationDelta;
 		private float distanceDelta;
 
+		private const float ScreenWidthsPerFullTurn = 1;
+		// a finger that travels farther than this is swiping, not tapping
+		private const float TapTravelInches = 0.08f;
+		private bool triggerIsHeld;
+		private bool carryingWithTrigger;
+		private float fingerTravelPixels;
+
+		private static bool HandIsTheScreen => HandInput.FollowedCamera != null;
+
 		[SerializeField] private HandSubject handSubject;
 		public HandInput Hand => handSubject != null ? handSubject.Current : null;
 
@@ -175,6 +188,8 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			Dominance.Changed -= OnDominanceChanged;
 			ResetMeasurement();
 			ReleaseTagHighlight();
+			triggerIsHeld = false;
+			carryingWithTrigger = false;
 
 			if (previewObject != null)
 				previewObject.SetActive(false);
@@ -217,6 +232,10 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 
 		// ------- map objects -------------------------------------
 
+		/// <summary>Whether the ray is on a placed object: what <see cref="TryDelete"/> would remove.</summary>
+		public bool IsAimingAtObject =>
+			Raycast(out GameObject hitObject) && hitObject.GetComponentInParent<MapObject>() != null;
+
 		public bool TryDelete()
 		{
 			if (!Raycast(out GameObject hitObj))
@@ -231,10 +250,10 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			if (!CheckCanPlace())
 				return false;
 
-			if (!Raycast(out Vector3 hitPos))
+			if (!Raycast(out RaycastHit hit) || IsMapObject(hit))
 				return false;
 
-			return SpawnMapObject(currentSpawnObject, hitPos, GetSpawnRotation());
+			return SpawnMapObject(currentSpawnObject, hit.point, GetSpawnRotation());
 		}
 
 		public bool TryGrab()
@@ -438,6 +457,8 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 				return;
 			}
 
+			if (triggerIsHeld && HandIsTheScreen) TurnWithFingerSwipe();
+
 			bool didHit = Raycast(out RaycastHit hit);
 			float lineDist = didHit ? hit.distance : 1f;
 
@@ -446,7 +467,8 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			else
 				lineDist = UpdateObjectTools(didHit, hit, lineDist);
 
-			lineRenderer.enabled = !handSubject.Current.InputBlocked;
+			// a ray from the screen's own camera is seen end-on: the screen's dot shows where it points
+			lineRenderer.enabled = HandInput.FollowedCamera == null && !handSubject.Current.InputBlocked;
 			lineRenderer.SetPosition(0, Vector3.zero);
 			lineRenderer.SetPosition(1, Vector3.forward * lineDist);
 		}
@@ -488,19 +510,60 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 
 				previewObject.transform.position = hit.point;
 				previewObject.transform.rotation = GetSpawnRotation();
-				previewObject.SetActive(didHit && CheckCanPlace());
+				previewObject.SetActive(didHit && !IsMapObject(hit) && CheckCanPlace());
 			}
 
 			return lineDist;
 		}
 
+		private void TurnWithFingerSwipe()
+		{
+			Touchscreen touchscreen = Touchscreen.current;
+			if (touchscreen == null) return;
+			float sidewaysPixels = touchscreen.primaryTouch.delta.ReadValue().x;
+			fingerTravelPixels += Mathf.Abs(sidewaysPixels);
+			if (!FingerHasSwiped) return;
+
+			float degrees = -sidewaysPixels / (Screen.width * ScreenWidthsPerFullTurn) * 360f;
+			if (grabbedObject != null) grabRotation += degrees;
+			else spawnRotation += degrees;
+		}
+
+		private bool FingerHasSwiped => fingerTravelPixels > TapTravelInches * (Screen.dpi > 0 ? Screen.dpi : 160);
+
 		#region Input
+
+		// pressed on an object, the trigger carries it until released. Elsewhere it places: at once from a
+		// controller, and from a finger once it lifts without having swiped
+		private void OnObjectTriggerInput(InputAction.CallbackContext context)
+		{
+			if (context.performed && grabbedObject == null)
+			{
+				triggerIsHeld = true;
+				fingerTravelPixels = 0;
+				carryingWithTrigger = TryGrab();
+				if (!carryingWithTrigger && !HandIsTheScreen) TryPlace();
+			}
+			else if (context.canceled && triggerIsHeld)
+			{
+				triggerIsHeld = false;
+				if (carryingWithTrigger) TryLetGo();
+				else if (HandIsTheScreen && !FingerHasSwiped) TryPlace();
+				carryingWithTrigger = false;
+			}
+		}
 
 		private void OnFireInput(InputAction.CallbackContext context)
 		{
-			if (!isActiveAndEnabled || !context.performed) return;
+			if (!isActiveAndEnabled || this != DominantHand) return;
 
-			if (this != DominantHand) return;
+			if (CurrentMode is Mode.Move or Mode.Place)
+			{
+				OnObjectTriggerInput(context);
+				return;
+			}
+
+			if (!context.performed) return;
 
 			if (CurrentMode == Mode.MeasureTagSize)
 			{
@@ -508,15 +571,7 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 				return;
 			}
 
-			if (CurrentMode == Mode.Tags)
-			{
-				TryRegisterTag();
-				return;
-			}
-
-			if (grabbedObject != null) return;
-
-			TryPlace();
+			if (CurrentMode == Mode.Tags) TryRegisterTag();
 		}
 
 		private void OnBackInput(InputAction.CallbackContext context)
@@ -575,20 +630,14 @@ namespace Anaglyph.LaserTag.MapEditor.Tools
 			return Physics.Raycast(ray, out hit);
 		}
 
+		private static bool IsMapObject(RaycastHit hit) =>
+			hit.collider != null && hit.collider.GetComponentInParent<MapObject>() != null;
+
 		private bool Raycast(out GameObject hitObject)
 		{
 			bool didHit = Raycast(out RaycastHit hit);
 
 			hitObject = hit.collider?.gameObject;
-
-			return didHit;
-		}
-
-		private bool Raycast(out Vector3 hitPos)
-		{
-			bool didHit = Raycast(out RaycastHit hit);
-
-			hitPos = hit.point;
 
 			return didHit;
 		}

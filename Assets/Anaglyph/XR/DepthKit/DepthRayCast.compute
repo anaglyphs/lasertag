@@ -1,0 +1,69 @@
+#include "DepthKit.hlsl"
+
+// where world-space rays first meet the surface the depth sensor sees: for DepthRayCaster
+
+#pragma kernel CastRays
+
+static const int MarchSteps = 96;
+static const int RefineSteps = 6;
+
+uint rayCount;
+float2 rayRange; // meters along each ray: nearest, farthest
+float2 surfaceTolerance; // meters a hit may sit off the surface: constant, per meter of range
+StructuredBuffer<float4> rayOrigins;
+StructuredBuffer<float4> rayDirections;
+RWStructuredBuffer<float4> rayHits; // world position, w = 1; all zero where the ray met no seen surface
+
+static const int Unseen = -1;
+static const int InFront = 0;
+static const int Behind = 1;
+
+int Classify(float3 worldPos, out float gap)
+{
+	gap = 0;
+	const float3 ndc = agDepthWorldToNDC(worldPos);
+	if (any(ndc < 0) || any(ndc > 1)) return Unseen;
+
+	const float surfaceNDC = agDepthSample(ndc.xy);
+	if (!agDepthIsKnown(surfaceNDC)) return Unseen;
+
+	gap = agDepthNDCToLinear(ndc.z) - agDepthNDCToLinear(surfaceNDC);
+	return gap >= 0 ? Behind : InFront;
+}
+
+[numthreads(64, 1, 1)]
+void CastRays(uint3 id : SV_DispatchThreadID)
+{
+	if (id.x >= rayCount) return;
+
+	const float3 origin = rayOrigins[id.x].xyz;
+	const float3 direction = rayDirections[id.x].xyz;
+	const float rangeRatio = rayRange.y / rayRange.x;
+	rayHits[id.x] = 0;
+
+	float lastInFront = -1;
+	for (int i = 0; i < MarchSteps; i++)
+	{
+		const float t = rayRange.x * pow(rangeRatio, i / (float)(MarchSteps - 1));
+		float gap;
+		const int state = Classify(origin + direction * t, gap);
+		if (state == InFront) { lastInFront = t; continue; }
+		if (state == Unseen || lastInFront < 0) { lastInFront = -1; continue; }
+
+		float near = lastInFront, far = t;
+		for (int r = 0; r < RefineSteps; r++)
+		{
+			const float mid = 0.5 * (near + far);
+			if (Classify(origin + direction * mid, gap) == InFront) near = mid;
+			else far = mid;
+		}
+
+		// a ray slipping behind a nearer object's edge crosses a depth jump, not a surface
+		const float crossing = 0.5 * (near + far);
+		const float3 hit = origin + direction * crossing;
+		Classify(hit, gap);
+		if (abs(gap) <= surfaceTolerance.x + surfaceTolerance.y * crossing)
+			rayHits[id.x] = float4(hit, 1);
+		return;
+	}
+}

@@ -454,11 +454,13 @@ namespace Anaglyph.XR
 		}
 
 		private static float[] luminanceSrgbPerLutEntry;
+		// refilled for each tint under the lock: the runtime copies it on create and update
+		private static byte[] luminanceTintLut;
 
 		private static byte[] CreateLuminanceTintLut(Color tint)
 		{
 			luminanceSrgbPerLutEntry ??= CreateLuminanceSrgbPerLutEntry();
-			byte[] data = new byte[luminanceSrgbPerLutEntry.Length * ColorLutChannelCount];
+			byte[] data = luminanceTintLut ??= new byte[luminanceSrgbPerLutEntry.Length * ColorLutChannelCount];
 
 			for (int entryIndex = 0; entryIndex < luminanceSrgbPerLutEntry.Length; entryIndex++)
 			{

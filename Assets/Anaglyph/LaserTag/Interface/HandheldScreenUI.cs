@@ -1,6 +1,8 @@
 using Anaglyph.LaserTag.Interface.HUD;
 using Anaglyph.LaserTag.MapEditor;
-using Anaglyph.LaserTag.Weapons;
+using Anaglyph.LaserTag.MapEditor.Tools;
+using Anaglyph.LaserTag.Player;
+using Anaglyph.LaserTag.Player.Teams;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
@@ -14,8 +16,9 @@ namespace Anaglyph.LaserTag.Interface
 	/// dot in the middle of the screen where the blaster fires. The panels and the bar fill the screen
 	/// inside its safe area (clear of notches, rounded corners and the home indicator). One panel unit
 	/// is one density-independent pixel, so the panels' 48-unit controls are a fingertip tall on any screen.
-	/// Hand-held and map-editor interfaces, which follow controllers, are put away. Camera mode, entered
-	/// from a tab beside the panels' own, replaces all of it with its own screen.
+	/// Interfaces that follow controllers are put away. Camera mode, entered from a tab beside the panels'
+	/// own, replaces all of it with its own screen. Editing a map's objects replaces all but the dot with
+	/// the map editor's palette along the bottom of the screen.
 	/// </summary>
 	public sealed class HandheldScreenUI : MonoBehaviour
 	{
@@ -28,10 +31,13 @@ namespace Anaglyph.LaserTag.Interface
 		private const float BarGap = 8;
 		// Android's gesture navigation strip isn't part of its safe area: the bottom keeps at least this clear of it
 		private const float GestureEdge = 16;
-		private const float ReticleSize = 6;
-		private const float ScanSeconds = 1;
+		// the blaster sight's look: a white dot in a team-colored halo
+		private const float ReticleSize = 10;
+		private const float ReticleCoreSize = 4;
 		// hides elements tagged .xr-only
 		public const string TouchThemeResource = "LaserTagTouchTheme";
+		// on each document's root, so a style sheet can tell the screen from the headset
+		public const string TouchScreenUssClassName = "touch-screen";
 
 		private static readonly Color ToggleFill = new(20 / 255f, 20 / 255f, 20 / 255f);
 		private static readonly Color ToggleEdge = new(200 / 255f, 200 / 255f, 200 / 255f);
@@ -57,15 +63,23 @@ namespace Anaglyph.LaserTag.Interface
 		private CameraModeScreen cameraScreen;
 		private readonly System.Collections.Generic.List<VisualElement> scoreRoots = new();
 		private UIDocument[] menuDocuments;
-		private UIDocument gateDocument, hudDocument;
+		private UIDocument gateDocument, hudDocument, editorDocument;
+		private UIToolkitPanelXRSetup editorPanel;
+		private VisualElement placedEditorRoot;
+		private bool wasEditingObjects;
 		private Rect appliedSafeArea;
 		private Vector2 appliedPanelSize;
 		private RenderTexture appliedTarget;
 		private ScreenOrientation appliedOrientation;
-		private float nextScan;
 
 		private void Start()
 		{
+			// the blaster is the phone itself: the hands follow its camera, and a tap fires
+			Camera camera = Anaglyph.XR.MainXRRig.Camera;
+			if (camera != null) Anaglyph.XR.Input.HandInput.FollowCamera(camera.transform);
+			else Debug.LogError($"[{nameof(HandheldScreenUI)}] no camera for the hands to follow: taps will not fire");
+			Anaglyph.Menu.ActOnPress.ActsOnRelease = true;
+
 			menu = GetComponentInChildren<MainMenuController>(true);
 			if (menu == null)
 			{
@@ -93,10 +107,7 @@ namespace Anaglyph.LaserTag.Interface
 			menu.ShowOnScreen(DefaultPanel());
 			Anaglyph.MenuCopy.Changed += LabelTabs;
 			LabelTabs();
-
-			// the blaster is the phone itself: the hands follow its camera, and a tap fires
-			if (Anaglyph.XR.MainXRRig.Camera != null) Anaglyph.XR.Input.HandInput.FollowCamera(Anaglyph.XR.MainXRRig.Camera.transform);
-			Anaglyph.Menu.ActOnPress.ActsOnRelease = true;
+			PutAwayControllerInterfaces();
 		}
 
 		// a back swipe: rightward, mostly level, and not one that drags a slider, scrollbar or text.
@@ -117,6 +128,7 @@ namespace Anaglyph.LaserTag.Interface
 			if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
 			{
 				if (IsFilming) cameraScreen.Back();
+				else if (IsEditorShown) MapEditor.MapEditor.SetActive(false);
 				else Back();
 			}
 
@@ -171,6 +183,11 @@ namespace Anaglyph.LaserTag.Interface
 
 		private bool IsFilming => cameraMode != null && cameraMode.IsActive;
 
+		private static bool IsEditingObjects => MapEditor.MapEditor.IsActive &&
+			MapEditorTool.CurrentMode is MapEditorTool.Mode.Move or MapEditorTool.Mode.Place;
+
+		private bool IsEditorShown => IsEditingObjects && !menu.IsVisible && !IsFilming;
+
 		private UIDocument ShownMenuDocument =>
 			menu.Gate.Access == GateMenu.AccessState.Granted ? menuDocuments[menu.ScreenPanel] : gateDocument;
 
@@ -194,6 +211,7 @@ namespace Anaglyph.LaserTag.Interface
 			Anaglyph.XR.Input.HandInput.FollowCamera(null);
 			Anaglyph.Menu.ActOnPress.ActsOnRelease = false;
 			Anaglyph.MenuCopy.Changed -= LabelTabs;
+			MainPlayer.TeamChanged -= ColorReticle;
 			cameraScreen?.Dispose();
 			if (screenPanel != null) Destroy(screenPanel);
 		}
@@ -235,6 +253,7 @@ namespace Anaglyph.LaserTag.Interface
 			VisualElement root = document.rootVisualElement;
 			if (root == null) return;
 			root.style.position = Position.Absolute;
+			root.AddToClassList(TouchScreenUssClassName);
 
 			// the game menu is a fixed-size box in the headset; on a screen it takes the room there is
 			root.Query(className: "game-menu").ForEach(Fill);
@@ -282,15 +301,14 @@ namespace Anaglyph.LaserTag.Interface
 						if (!root.styleSheets.Contains(element.styleSheets[i])) root.styleSheets.Add(element.styleSheets[i]);
 				});
 
-			reticle = new VisualElement { name = "handheld-reticle", pickingMode = PickingMode.Ignore };
-			reticle.style.position = Position.Absolute;
-			reticle.style.width = reticle.style.height = ReticleSize;
-			reticle.style.left = reticle.style.top = Length.Percent(50);
-			reticle.style.translate = new Translate(-ReticleSize / 2, -ReticleSize / 2);
-			SetRadius(reticle, ReticleSize / 2);
-			reticle.style.backgroundColor = Color.white;
+			reticle = CenteredDot("handheld-reticle", ReticleSize);
 			SetBorder(reticle, 1, new Color(0, 0, 0, 0.6f));
+			VisualElement reticleCore = CenteredDot("handheld-reticle-core", ReticleCoreSize);
+			reticleCore.style.backgroundColor = Color.white;
+			reticle.Add(reticleCore);
 			root.Add(reticle);
+			MainPlayer.TeamChanged += ColorReticle;
+			ColorReticle(MainPlayer.Instance != null ? MainPlayer.Instance.Team : (byte)0);
 
 			// one bar along the phone's physical bottom edge: the tabs sharing it equally, the menu button at its end
 			tabBar = new VisualElement { name = "handheld-tab-bar" };
@@ -381,25 +399,26 @@ namespace Anaglyph.LaserTag.Interface
 		{
 			if (menu == null || overlay == null) return;
 
-			if (Time.unscaledTime >= nextScan)
-			{
-				nextScan = Time.unscaledTime + ScanSeconds;
-				PutAwayControllerInterfaces();
-			}
-
 			if (!Mathf.Approximately(screenPanel.scale, PixelsPerUnit)) screenPanel.scale = PixelsPerUnit;
+
+			// editing objects starts from a menu page: the menu gets out of the way
+			bool editingObjects = IsEditingObjects;
+			if (editingObjects && !wasEditingObjects) menu.SetVisible(false);
+			wasEditingObjects = editingObjects;
 
 			bool menuShown = menu.IsVisible;
 			bool granted = menu.Gate.Access == GateMenu.AccessState.Granted;
 			bool filming = IsFilming;
-			Display(tabBar, granted && !filming);
+			bool editing = IsEditorShown;
+			Display(tabBar, granted && !filming && !editing);
 			// closed, only the menu button blocks fire taps; the rest of the bar's strip is open screen
 			tabBar.pickingMode = menuShown ? PickingMode.Position : PickingMode.Ignore;
 			foreach (Button tab in tabs) Display(tab, menuShown);
 			if (cameraTab != null) Display(cameraTab, menuShown);
 			Display(reticle, !menuShown && !filming);
-			if (hudDocument != null && hudDocument.rootVisualElement != null) Display(hudDocument.rootVisualElement, !filming);
-			foreach (VisualElement score in scoreRoots) Display(score, !filming);
+			if (hudDocument != null && hudDocument.rootVisualElement != null) Display(hudDocument.rootVisualElement, !filming && !editing);
+			foreach (VisualElement score in scoreRoots) Display(score, !filming && !editing);
+			if (editorPanel != null) editorPanel.SetVisible(editing);
 			cameraScreen?.Refresh();
 			for (int i = 0; i < tabs.Length; i++)
 				tabs[i].EnableInClassList("game-menu-tab-selected", i == menu.ScreenPanel);
@@ -408,8 +427,11 @@ namespace Anaglyph.LaserTag.Interface
 			Vector2 panelSize = panel != null ? panel.visualTree.layout.size : Vector2.zero;
 			Rect safeArea = SafeAreaPixels;
 			ScreenOrientation orientation = Orientation(panelSize);
+			// the editor's document builds a new tree each time the editor opens
+			VisualElement editorRoot = editorDocument != null ? editorDocument.rootVisualElement : null;
 			if (panelSize.x <= 0 || safeArea == appliedSafeArea && panelSize == appliedPanelSize && screenPanel.targetTexture == appliedTarget &&
-			    orientation == appliedOrientation) return;
+			    orientation == appliedOrientation && editorRoot == placedEditorRoot) return;
+			placedEditorRoot = editorRoot;
 			appliedOrientation = orientation;
 			appliedSafeArea = safeArea;
 			appliedPanelSize = panelSize;
@@ -494,6 +516,22 @@ namespace Anaglyph.LaserTag.Interface
 				Place(document, panelLeft, panelTop, panelRight, panelBottom);
 
 			cameraScreen?.Layout(left, top, right, bottom, orientation);
+			PlaceAlongScreenBottom(editorDocument, left + Margin, right + Margin, bottom + Margin);
+		}
+
+		// as tall as its content, on the screen's bottom edge however the phone is turned: the editor's rows scroll sideways
+		private static void PlaceAlongScreenBottom(UIDocument document, float left, float right, float bottom)
+		{
+			VisualElement root = document != null ? document.rootVisualElement : null;
+			if (root == null) return;
+			root.AddToClassList(TouchScreenUssClassName);
+			root.style.width = StyleKeyword.Auto;
+			root.style.height = StyleKeyword.Auto;
+			root.style.position = Position.Absolute;
+			root.style.left = left;
+			root.style.right = right;
+			root.style.top = StyleKeyword.Auto;
+			root.style.bottom = bottom;
 		}
 
 		// a document laid out at its headset size (the HUD's 800 × 600), scaled down to fit the space
@@ -529,12 +567,12 @@ namespace Anaglyph.LaserTag.Interface
 			root.style.bottom = bottom;
 		}
 
-		// what follows a controller or a hand has nothing to follow on a phone; the score moves to the top of the screen
+		// the rig's interfaces that follow a controller or a hand have nothing to follow on a phone: the score moves
+		// to the top of the screen and the map editor's palette to the bottom
 		private void PutAwayControllerInterfaces()
 		{
-			foreach (ScoreHUDHandSelector selector in FindObjectsByType<ScoreHUDHandSelector>(FindObjectsInactive.Include))
+			foreach (ScoreHUDHandSelector selector in GetComponentsInChildren<ScoreHUDHandSelector>(true))
 			{
-				if (!selector.enabled) continue;
 				selector.enabled = false;
 				if (selector.TryGetComponent(out HandHUDPositioner positioner)) positioner.enabled = false;
 				if (!selector.TryGetComponent(out UIDocument score)) continue;
@@ -551,19 +589,29 @@ namespace Anaglyph.LaserTag.Interface
 				if (hud != null) hud.style.display = DisplayStyle.Flex;
 			}
 
-			foreach (Palette palette in FindObjectsByType<Palette>(FindObjectsInactive.Exclude))
-				palette.gameObject.SetActive(false);
-			foreach (MapEditorControlsHUD controls in FindObjectsByType<MapEditorControlsHUD>(FindObjectsInactive.Exclude))
-				controls.gameObject.SetActive(false);
-
-			// the blaster sits at the camera, inside the near plane: only its bolts are seen
-			foreach (WeaponVisual visual in FindObjectsByType<WeaponVisual>(FindObjectsInactive.Include))
-				foreach (Renderer renderer in visual.GetComponentsInChildren<Renderer>(true))
-					renderer.enabled = false;
+			PaletteMenu palette = GetComponentInChildren<PaletteMenu>(true);
+			if (palette != null && palette.TryGetComponent(out editorDocument))
+			{
+				editorDocument.panelSettings = screenPanel;
+				palette.TryGetComponent(out editorPanel);
+			}
 		}
 
 		private static void Display(VisualElement element, bool shown) =>
 			element.style.display = shown ? DisplayStyle.Flex : DisplayStyle.None;
+
+		private void ColorReticle(byte team) => reticle.style.backgroundColor = Teams.Colors[team];
+
+		private static VisualElement CenteredDot(string name, float size)
+		{
+			VisualElement dot = new() { name = name, pickingMode = PickingMode.Ignore };
+			dot.style.position = Position.Absolute;
+			dot.style.width = dot.style.height = size;
+			dot.style.left = dot.style.top = Length.Percent(50);
+			dot.style.translate = new Translate(-size / 2, -size / 2);
+			SetRadius(dot, size / 2);
+			return dot;
+		}
 
 		private static void SetRadius(VisualElement element, float radius) =>
 			element.style.borderTopLeftRadius = element.style.borderTopRightRadius =

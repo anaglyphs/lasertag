@@ -115,6 +115,42 @@ namespace Anaglyph.XR.VisualLocalization
 		public event Action<VisualKeyframe> KeyframeExtracted = delegate { };
 		internal void RaiseKeyframeExtracted(VisualKeyframe keyframe) => KeyframeExtracted.Invoke(keyframe);
 		internal void RaiseKeyframeAdded(VisualKeyframe keyframe) => KeyframeAdded.Invoke(keyframe);
+
+		/// <summary>
+		/// Every feature of each query frame matched against the map, solved or not, marking those
+		/// the map recognized, with the frame's camera in the world as it stands now.
+		/// </summary>
+		public event Action<Pose, SeenFeature[]> FeaturesSeen = delegate { };
+
+		private const float MinRangedInverseDepth = 1f / 30f, MaxRangedInverseDepthSigmaShare = 0.5f;
+
+		private void RaiseFeaturesSeen(VisualQuery query, List<Correspondence> correspondences)
+		{
+			Transform trackingSpace = MainXRRig.TrackingSpace;
+			FeatureSet features = query.features;
+			if (trackingSpace == null || features == null || features.Count == 0) return;
+
+			// the query's own distance is unknown: the landmark's from where it was first seen stands in
+			Dictionary<float2, float> recognizedRangeByPixel = new();
+			foreach (Correspondence c in correspondences)
+			{
+				if (c.camera != 0) continue;
+				bool ranged = c.inverseDepth > MinRangedInverseDepth && c.inverseDepthSigma < MaxRangedInverseDepthSigmaShare * c.inverseDepth;
+				recognizedRangeByPixel[c.pixel] = ranged ? 1f / c.inverseDepth : 0;
+			}
+
+			SeenFeature[] seen = new SeenFeature[features.Count];
+			for (int i = 0; i < features.Count; i++)
+			{
+				float2 pixel = features.keypoints[i];
+				bool recognized = recognizedRangeByPixel.TryGetValue(pixel, out float range);
+				seen[i] = new SeenFeature { ray = query.intrinsics.Ray(pixel), range = range, recognized = recognized };
+			}
+
+			Pose camera = new(trackingSpace.TransformPoint(query.cameraInTrackingSpace.position), trackingSpace.rotation * query.cameraInTrackingSpace.rotation);
+			FeaturesSeen.Invoke(camera, seen);
+		}
+
 		internal int MinMutual => minMutual;
 
 		private void Awake()
@@ -318,6 +354,7 @@ namespace Anaglyph.XR.VisualLocalization
 
 				result.keyframesMatched = matching.keyframesMatched;
 				result.bestMutual = matching.bestMutual;
+				RaiseFeaturesSeen(query, matching.correspondences);
 				if (matching.failure != null)
 				{
 					result.failure = matching.failure;

@@ -15,9 +15,14 @@ namespace Anaglyph.LaserTag.MapEditor
 		private Label bindings;
 		private MapEditorTool.Mode? shownMode;
 
+		// a phone has no controller for these controls to describe or follow
+		private void Awake()
+		{
+			if (Anaglyph.XR.HandheldAR.IsActive) gameObject.SetActive(false);
+		}
+
 		private void OnEnable()
 		{
-			
 			controls = HUDElement.Require<VisualElement>(this, "editor-controls-panel");
 			title = controls.Q<Label>("controls-title");
 			bindings = controls.Q<Label>("controls-bindings");

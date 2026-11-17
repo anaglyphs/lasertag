@@ -10,10 +10,10 @@
             </ui:Label>
         </ui:VisualElement>
         <ui:VisualElement picking-mode="Ignore" class="palette-body">
-            <ui:ScrollView name="category-rail" mode="Vertical" vertical-scroller-visibility="Hidden" class="palette-rail"/>
+            <Anaglyph.Menu.StyleDirectedScrollView name="category-rail" mode="Vertical" vertical-scroller-visibility="Hidden" horizontal-scroller-visibility="Hidden" class="palette-rail"/>
             <ui:VisualElement picking-mode="Ignore" class="palette-content">
                 <ui:Label name="category-title"  class="palette-title"/>
-                <ui:ScrollView name="object-grid" mode="Vertical" class="palette-grid"/>
+                <Anaglyph.Menu.StyleDirectedScrollView name="object-grid" mode="Vertical" horizontal-scroller-visibility="Hidden" class="palette-grid"/>
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>

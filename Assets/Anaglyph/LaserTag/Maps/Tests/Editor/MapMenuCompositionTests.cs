@@ -183,6 +183,75 @@ namespace Anaglyph.LaserTag.Tests
 		}
 
 		[UnityTest]
+		public IEnumerator SwipingAnEntryLeftRevealsItsActionAndAFullSwipeRunsIt()
+		{
+			bool actedOnRelease = ActOnPress.ActsOnRelease;
+			ActOnPress.ActsOnRelease = true;
+			try
+			{
+				int loads = 0, runs = 0;
+				var row = new VisualElement { style = { flexDirection = FlexDirection.Row, height = 48, width = 400 } };
+				var main = new Button { clickable = new PressClickable(() => loads++), style = { flexGrow = 1 } };
+				var action = new Button();
+				row.Add(main); row.Add(action);
+				var swipe = new SwipeToReveal(action, 80, () => runs++);
+				row.AddManipulator(swipe);
+				window.rootVisualElement.Add(row);
+				var outside = new VisualElement { style = { height = 100 } };
+				window.rootVisualElement.Add(outside);
+				for (int i = 0; i < 2; i++) yield return null;
+
+				Vector2 start = new(row.worldBound.xMax - 20, row.worldBound.center.y);
+				void SendTouch(TouchPhase phase, Vector2 at)
+				{
+					var touch = new Touch { fingerId = 0, position = at, phase = phase };
+					EventBase evt = phase switch
+					{
+						TouchPhase.Began => PointerDownEvent.GetPooled(touch),
+						TouchPhase.Moved => PointerMoveEvent.GetPooled(touch),
+						_ => PointerUpEvent.GetPooled(touch),
+					};
+					using (evt) row.panel.visualTree.SendEvent(evt);
+				}
+				IEnumerator Swipe(float distance)
+				{
+					SendTouch(TouchPhase.Began, start);
+					for (int step = 1; step <= 4; step++) SendTouch(TouchPhase.Moved, start - new Vector2(distance * step / 4, 0));
+					yield return null;
+					SendTouch(TouchPhase.Ended, start - new Vector2(distance, 0));
+					yield return Settle();
+				}
+				IEnumerator Settle()
+				{
+					double until = EditorApplication.timeSinceStartup + 0.4;
+					while (EditorApplication.timeSinceStartup < until) { window.Repaint(); yield return null; }
+				}
+
+				yield return Swipe(60);
+				Assert.That(swipe.IsOpen, Is.True, "a short swipe leaves the action open");
+				Assert.That(action.resolvedStyle.width, Is.EqualTo(80).Within(1));
+				Assert.That(loads, Is.Zero, "the swipe does not press the entry");
+
+				SendTouch(TouchPhase.Began, outside.worldBound.center);
+				SendTouch(TouchPhase.Ended, outside.worldBound.center);
+				yield return Settle();
+				Assert.That(swipe.IsOpen, Is.False, "a press elsewhere closes it");
+				Assert.That(action.style.width.keyword, Is.EqualTo(StyleKeyword.Null), "the action returns to its own style");
+
+				yield return Swipe(300);
+				Assert.That(runs, Is.EqualTo(1), "a long swipe runs the action");
+				Assert.That(loads, Is.Zero);
+
+				SendTouch(TouchPhase.Began, main.worldBound.center);
+				yield return null;
+				SendTouch(TouchPhase.Ended, main.worldBound.center);
+				yield return null;
+				Assert.That(loads, Is.EqualTo(1), "a tap still presses the entry");
+			}
+			finally { ActOnPress.ActsOnRelease = actedOnRelease; }
+		}
+
+		[UnityTest]
 		public IEnumerator OperatorCatalogKeepsMapsReachableInAShortSidebar()
 		{
 			window.position = new Rect(100, 100, 1280, 800);

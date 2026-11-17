@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Anaglyph.XR;
 using Anaglyph.XR.Haptics;
 using Anaglyph.XR.Input;
@@ -18,6 +19,9 @@ namespace Anaglyph.LaserTag.Weapons
 		[FormerlySerializedAs("clip")] [SerializeField] private HapticClip controllerClip;
 		[SerializeField] private HapticEffectAsset strikerClip;
 
+		// one per haptic asset: weapons are instantiated again on every switch
+		private static readonly Dictionary<HapticClip, PhoneHapticClip> phoneClips = new();
+
 		private HapticSource controllerHapticSource;
 		private PhoneHapticClip phoneClip;
 
@@ -25,7 +29,8 @@ namespace Anaglyph.LaserTag.Weapons
 		{
 			if (HandheldAR.IsActive)
 			{
-				phoneClip = new PhoneHapticClip(controllerClip.json);
+				if (!phoneClips.TryGetValue(controllerClip, out phoneClip))
+					phoneClips[controllerClip] = phoneClip = new PhoneHapticClip(controllerClip.json);
 				return;
 			}
 

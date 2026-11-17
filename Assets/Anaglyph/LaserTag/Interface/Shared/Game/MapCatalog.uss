@@ -121,6 +121,11 @@
     display: flex;
 }
 
+/* touch screens have no hover: the loaded map keeps its edit button showing */
+.touch-screen .catalog-map-row--loaded > .catalog-edit {
+    display: flex;
+}
+
 .catalog-map-row--unloadable .catalog-map-name {
     opacity: 0.5;
 }

@@ -114,10 +114,6 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			 ColocationManager.Instance.ActiveMethod == SpaceManager.Instance.Alignment.SelectedMethod);
 		private static bool CanIntegrate => SpaceManager.Instance != null && SpaceManager.Instance.Alignment.CanIntegrateEnvironment;
 		private bool CanSendScan => CanShareScan && CanIntegrate;
-		// colocation is running but the live map is shut (searching, lost, or a joiner looking
-		// for the host's frame): the scan made meanwhile goes to a scratch volume, dropped on alignment
-		private static bool AligningWithLiveMapShut => !CanIntegrate && ColocationManager.Instance != null &&
-			ColocationManager.Instance.AlignmentState != Anaglyph.XR.SharedSpaces.ColocationAlignmentState.Stopped;
 		private static SpaceFrame CurrentFrame => SpaceManager.Instance != null ? SpaceManager.Instance.Frame : default;
 		private static bool FrameMatches(SpaceFrame frame) => frame.IsSet && frame == CurrentFrame;
 
@@ -212,10 +208,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 
 		private void HandleScannerActivity()
 		{
-			// the live map takes scans once aligned; before that the scratch volume does
-			bool searching = AligningWithLiveMapShut;
-			if (EnvScanner.Instance) EnvScanner.Instance.ScanIntoScratch = searching;
-			if (EnvMesher.Instance) EnvMesher.Instance.enabled = CanIntegrate || searching;
+			if (EnvMesher.Instance) EnvMesher.Instance.enabled = CanIntegrate;
 		}
 
 		private void OnBusActivated()

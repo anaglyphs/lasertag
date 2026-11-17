@@ -22,6 +22,7 @@ GameObject:
   - component: {fileID: 4542216402505528524}
   - component: {fileID: 4959272462355547871}
   - component: {fileID: 4349437884803312086}
+  - component: {fileID: 8335514708412449444}
   m_Layer: 0
   m_Name: MapManager
   m_TagString: Untagged
@@ -272,6 +273,8 @@ MonoBehaviour:
     centerPriorSigma: 10
     viewYawSigmaDegrees: 0.3
     viewTranslationSigma: 0.03
+    depthSigmaScale: 2
+    inverseDepthSigmaFloor: 0.015
   guidedMatching: 1
   guidedKeyframes: 10
   guidedWindowPixels: 32
@@ -296,7 +299,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.VisualColocation
   queriesEnabled: 1
   queryInterval: 1
+  searchQueryInterval: 0.2
   searchViews: 5
+  joinFrames: 4
+  joinOnOneResult: 1
+  joinFrameWindow: 6
+  refineSigmaShare: 0.7
   shareSessionAnchor: 1
   gateSettings:
     alignment:
@@ -306,6 +314,8 @@ MonoBehaviour:
       minRangedInliers: 15
       maxTranslationSigma: 0.08
       translationSigmaPerMeter: 0.015
+      maxRmsPixels: 0
+      rangedInliersTrustedPastMaxRmsPixels: 0
       confidentYawSigmaDegrees: 0.4
       confidentTranslationSigma: 0.03
       confidentInliers: 100
@@ -317,10 +327,42 @@ MonoBehaviour:
       minRangedInliers: 20
       maxTranslationSigma: 0.04
       translationSigmaPerMeter: 0
+      maxRmsPixels: 0
+      rangedInliersTrustedPastMaxRmsPixels: 0
       confidentYawSigmaDegrees: 0.25
       confidentTranslationSigma: 0.02
       confidentInliers: 80
       confidentInlierShare: 0.75
+    rough:
+      minInliers: 25
+      maxNormalizedRms: 2
+      maxYawSigmaDegrees: 3
+      minRangedInliers: 0
+      maxTranslationSigma: 1.5
+      translationSigmaPerMeter: 0
+      maxRmsPixels: 15
+      rangedInliersTrustedPastMaxRmsPixels: 50
+      confidentYawSigmaDegrees: 0
+      confidentTranslationSigma: 0
+      confidentInliers: 0
+      confidentInlierShare: 0
+    loose:
+      minInliers: 25
+      maxNormalizedRms: 2
+      maxYawSigmaDegrees: 15
+      minRangedInliers: 15
+      maxTranslationSigma: 1.5
+      translationSigmaPerMeter: 0
+      maxRmsPixels: 0
+      rangedInliersTrustedPastMaxRmsPixels: 0
+      confidentYawSigmaDegrees: 0
+      confidentTranslationSigma: 0
+      confidentInliers: 0
+      confidentInlierShare: 0
+    looseResultsToAgree: 999
+    looseAgreeSeconds: 3
+    looseAgreeDegrees: 5
+    looseAgreeMeters: 0.5
     acceptConfidentSingleFrames: 1
     agreeTranslation: 0.05
     agreeYawDegrees: 1
@@ -340,6 +382,12 @@ MonoBehaviour:
     overturnViews: 3
     checkSeconds: 1
     confirmedCheckSeconds: 10
+  unfamiliarPlaceSettings:
+    seconds: 4
+    secondsAfterTheMapWasFound: 30
+    minViews: 4
+    minFeatures: 100
+    inliersThatFoundTheMap: 30
   siteSettings:
     minYawSigmaDegrees: 0.5
     closeYawDegrees: 4
@@ -427,3 +475,21 @@ MonoBehaviour:
   maxAngularSpeed: 90
   metersUntilForgotten: 15
   newLookWeight: 0.5
+--- !u!114 &8335514708412449444
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5901269829941828840}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 488a399ff51b049e6817aa8514fc9c10, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.XR.SharedSpaces::Anaglyph.XR.SharedSpaces.AlignmentFeatureDots
+  dotShader: {fileID: 4800000, guid: c471c1ac2d9e24570853dffae00e18ab, type: 3}
+  dotTexture: {fileID: 2800000, guid: ebfd30a4609294d1f9f4d5ba35a5da98, type: 3}
+  depthRayCast: {fileID: 7200000, guid: 3e75a133dd1b34d65a14e6d7645f3976, type: 3}
+  maxDots: 256
+  dotSeconds: 4
+  fadeInSeconds: 0.15

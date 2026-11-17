@@ -16,9 +16,9 @@ Shader "Anaglyph/Debug/Flat Normals"
 
 			Cull Back
 			ZWrite True
-			// premultiplied over whatever is behind: an empty eye buffer the passthrough
-			// compositor fills, or a phone's camera image
-			Blend One OneMinusSrcAlpha
+			// premultiplied. A global, Zero unless set: the passthrough compositor fills in behind.
+			// HandheldCameraBackground sets OneMinusSrcAlpha, over a phone's camera image
+			Blend One [agBlendOverCameraImage]
 
 			HLSLPROGRAM
 			#pragma vertex vert

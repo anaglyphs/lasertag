@@ -13,7 +13,6 @@ GameObject:
   - component: {fileID: 8862733854877386027}
   - component: {fileID: 3181667627902939140}
   - component: {fileID: 3443407413656384531}
-  - component: {fileID: 8548394878927596030}
   - component: {fileID: 6239849721511375241}
   - component: {fileID: 658164315331326434}
   - component: {fileID: 2828388200385001078}
@@ -78,10 +77,6 @@ MonoBehaviour:
     x: 16
     y: 8
     z: 16
-  scratchChunkDataDims:
-    x: 8
-    y: 2
-    z: 8
   maxNumVisibleChunks: 256
   maskShader: {fileID: 4800000, guid: 5f6dd7bd9df354224bcc42852c99205a, type: 3}
 --- !u!114 &8862733854877386027
@@ -150,19 +145,6 @@ MonoBehaviour:
   secondsBetweenChecks: 1
   boundsPadding: 1
   maxUpdateTilesPerAxis: 4
---- !u!114 &8548394878927596030
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4658663475596877275}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 512e6dbc8ea67430c841e92377780fe7, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: EnvScanning::Anaglyph.XR.DepthKit.EnvScanning.ScratchScanPreview
-  scratchMaterial: {fileID: 2100000, guid: 85e9b3d14b41b4c298df8059395004ad, type: 2}
 --- !u!114 &6239849721511375241
 MonoBehaviour:
   m_ObjectHideFlags: 0

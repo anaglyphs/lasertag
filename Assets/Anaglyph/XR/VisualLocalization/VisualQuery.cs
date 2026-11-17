@@ -143,6 +143,16 @@ namespace Anaglyph.XR.VisualLocalization
 		public Pose trackingSpace;
 	}
 
+	/// <summary>A feature a query frame saw, and whether the map recognized it as one of its landmarks.</summary>
+	public struct SeenFeature
+	{
+		/// <summary>Unit ray in the view's camera, Unity axes.</summary>
+		public Vector3 ray;
+		/// <summary>Meters along the ray to the recognized landmark as the map ranges it, roughly; 0 when unrecognized or unranged.</summary>
+		public float range;
+		public bool recognized;
+	}
+
 	public struct VisualLocalizationResult
 	{
 		/// <summary>Null unless <see cref="VisualLocalizer.KeepSolveInputs"/> is set.</summary>

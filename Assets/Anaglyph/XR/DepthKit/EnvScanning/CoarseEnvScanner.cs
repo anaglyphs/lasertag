@@ -54,7 +54,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			get
 			{
 				EnvScanner scanner = EnvScanner.Instance;
-				return scanner != null && !scanner.ScanIntoScratch && scanner.LocalSensorTrusted;
+				return scanner != null && scanner.LocalSensorTrusted;
 			}
 		}
 

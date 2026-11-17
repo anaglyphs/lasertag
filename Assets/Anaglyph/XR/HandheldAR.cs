@@ -11,20 +11,33 @@ namespace Anaglyph.XR
 
 		private static readonly List<XRSessionSubsystem> sessions = new();
 
+		private static Provider runtime;
+		private static bool runtimeIsKnown;
+
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+		private static void ForgetRuntime() => runtimeIsKnown = false;
+
 		/// <summary>The handheld AR runtime whose session subsystem exists, once XR has started; None on headsets, in the editor and before XR starts.</summary>
 		public static Provider Runtime
 		{
 			get
 			{
+				if (runtimeIsKnown) return runtime;
+
 				SubsystemManager.GetSubsystems(sessions);
+				runtime = Provider.None;
 				foreach (XRSessionSubsystem session in sessions)
 				{
 					string id = session.subsystemDescriptor.id;
-					if (id.Contains("ARKit")) return Provider.ARKit;
-					if (id.Contains("ARCore")) return Provider.ARCore;
+					if (id.Contains("ARKit")) runtime = Provider.ARKit;
+					else if (id.Contains("ARCore")) runtime = Provider.ARCore;
+					else continue;
+					break;
 				}
 
-				return Provider.None;
+				// a session subsystem exists once XR has started, and which one never changes after
+				runtimeIsKnown = sessions.Count > 0;
+				return runtime;
 			}
 		}
 

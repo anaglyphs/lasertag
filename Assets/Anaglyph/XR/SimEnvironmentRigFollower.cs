@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
 
 namespace Anaglyph.XR
@@ -32,6 +33,9 @@ namespace Anaglyph.XR
 		[SerializeField] private float poseYawMax = 60;
 		[SerializeField] private float headOffs = -1.7f;
 
+		// XR Simulation forces a depth texture on its camera, which Tile-Only renderers reject
+		[SerializeField] private int simCameraRendererIndex = 2;
+
 		// the room relative to the tracking space: identity in the main editor
 		private Matrix4x4 poseOffs = Matrix4x4.identity;
 
@@ -59,7 +63,17 @@ namespace Anaglyph.XR
 		private void OnEnable()
 		{
 			if (SeedOverride.HasValue) random = new System.Random(SeedOverride.Value);
+			RenderPipelineManager.beginContextRendering += OnBeginContextRendering;
 			RenderPipelineManager.beginCameraRendering += OnBeginCameraRendering;
+		}
+
+		// the renderer must change before URP sets the camera up
+		private void OnBeginContextRendering(ScriptableRenderContext context, List<Camera> cameras)
+		{
+			if (simCamera) return;
+			foreach (Camera camera in cameras)
+				if (camera.name == SimCameraName)
+					AdoptSimCamera(camera);
 		}
 
 		// the room can't be parented to the rig: it lives in XR Simulation's own
@@ -71,6 +85,12 @@ namespace Anaglyph.XR
 		{
 			if (simCamera && camera == simCamera)
 				Follow();
+		}
+
+		private void AdoptSimCamera(Camera camera)
+		{
+			simCamera = camera;
+			simCamera.GetUniversalAdditionalCameraData().SetRenderer(simCameraRendererIndex);
 		}
 
 		private void LateUpdate() => Follow();
@@ -120,6 +140,7 @@ namespace Anaglyph.XR
 
 		private void OnDisable()
 		{
+			RenderPipelineManager.beginContextRendering -= OnBeginContextRendering;
 			RenderPipelineManager.beginCameraRendering -= OnBeginCameraRendering;
 
 			foreach (EnvRoot root in envRoots)
@@ -136,7 +157,8 @@ namespace Anaglyph.XR
 			if (!simCamera)
 			{
 				GameObject go = GameObject.Find(SimCameraName);
-				if (!go || !go.TryGetComponent(out simCamera)) return false;
+				if (!go || !go.TryGetComponent(out Camera found)) return false;
+				AdoptSimCamera(found);
 			}
 
 			// XR Simulation restricts its camera to the environment scene,

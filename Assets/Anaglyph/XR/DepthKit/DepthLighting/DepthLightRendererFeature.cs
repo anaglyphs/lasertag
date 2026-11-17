@@ -4,6 +4,7 @@ using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.XR.ARFoundation;
 
 namespace Anaglyph.LaserTag.Shaders
 {
@@ -68,9 +69,12 @@ namespace Anaglyph.LaserTag.Shaders
 			irradiancePass.renderingLayers = renderingLayers.value;
 			irradiancePass.maxLights = maxLights;
 			renderer.EnqueuePass(irradiancePass);
-			// a headset composites passthrough under a cleared eye buffer; a flat screen draws the
-			// camera image into it opaque
-			if (!renderingData.cameraData.xr.enabled) renderer.EnqueuePass(passthroughAlphaPass);
+			// a headset composites passthrough under a cleared eye buffer; a camera whose AR background
+			// draws on a flat screen has the camera image in it opaque
+			if (!renderingData.cameraData.xr.enabled &&
+			    renderingData.cameraData.camera.TryGetComponent(out ARCameraBackground background) &&
+			    background.backgroundRenderingEnabled)
+				renderer.EnqueuePass(passthroughAlphaPass);
 			renderer.EnqueuePass(compositePass);
 		}
 

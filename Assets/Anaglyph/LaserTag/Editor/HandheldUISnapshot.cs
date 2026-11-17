@@ -9,7 +9,7 @@ namespace Anaglyph.LaserTag.Editor
 {
 	/// <summary>
 	/// For <c>-executeMethod</c>: plays as a phone over XR Simulation, renders the phone's screen UI
-	/// into portrait and landscape phone-sized textures (menu on each tab, menu hidden, then camera mode), saves
+	/// into portrait and landscape phone-sized textures (menu on each tab, menu hidden, camera mode, then the map editor), saves
 	/// them to Logs/HandheldUISnapshot, and closes the editor.
 	/// </summary>
 	[InitializeOnLoad]
@@ -112,16 +112,17 @@ namespace Anaglyph.LaserTag.Editor
 
 			MainMenuController menu = ui.Menu;
 			int panels = menu.Panels.Length;
-			// shots: each tab in portrait, each tab in landscape, then the menu hidden in both, then camera mode in both
-			int shots = 2 * panels + 4;
-			bool filming = shot >= 2 * panels + 2;
+			// shots: each tab in portrait, each tab in landscape, then the menu hidden in both, camera mode in both, the map editor in both
+			int shots = 2 * panels + 6;
+			bool editing = shot >= 2 * panels + 4;
+			bool filming = shot >= 2 * panels + 2 && !editing;
 			if (shot >= shots)
 			{
 				EditorApplication.isPlaying = false;
 				return;
 			}
 
-			bool portrait = shot < panels || shot == 2 * panels || shot == 2 * panels + 2;
+			bool portrait = shot < panels || shot >= 2 * panels && (shot - 2 * panels) % 2 == 0;
 			int tab = shot < 2 * panels ? shot % panels : -1;
 			switch (phase)
 			{
@@ -129,6 +130,7 @@ namespace Anaglyph.LaserTag.Editor
 					menu.SetVisible(tab >= 0);
 					if (tab >= 0) menu.ScreenPanel = tab;
 					if (CameraMode.Instance != null) CameraMode.Instance.SetActive(filming);
+					MapEditor.MapEditor.SetActive(editing);
 					break;
 				case 1:
 					ui.SafeAreaForTests = portrait ? device.portraitSafeArea : device.landscapeSafeArea;
@@ -136,7 +138,7 @@ namespace Anaglyph.LaserTag.Editor
 					Render(ui, portrait ? device.portrait : device.Landscape);
 					break;
 				default:
-					Save($"{(tab >= 0 ? "menu-" + menu.Panels[tab].name : filming ? "camera" : "playing")}-{(portrait ? "portrait" : "landscape")}", ui.SafeAreaForTests.Value);
+					Save($"{(tab >= 0 ? "menu-" + menu.Panels[tab].name : filming ? "camera" : editing ? "editor" : "playing")}-{(portrait ? "portrait" : "landscape")}", ui.SafeAreaForTests.Value);
 					shot++;
 					phase = -1;
 					break;

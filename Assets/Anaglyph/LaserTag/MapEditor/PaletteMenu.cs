@@ -33,6 +33,7 @@ namespace Anaglyph.LaserTag.MapEditor
 		private Button measureTagSizeButton;
 		private Button unregisterAllTagsButton;
 		private Button doneButton;
+		private Button deleteObjectButton;
 		private Label setupMeasureInstructions;
 		private Label setupRegisterInstructions;
 		private Label setupFinish;
@@ -80,6 +81,7 @@ namespace Anaglyph.LaserTag.MapEditor
 			measureTagSizeButton = Require<Button>(root, "measure-tag-size-button");
 			unregisterAllTagsButton = Require<Button>(root, "unregister-all-tags-button");
 			doneButton = Require<Button>(root, "done-button");
+			deleteObjectButton = Require<Button>(root, "delete-object-button");
 			setupMeasureInstructions = Require<Label>(root, "tag-setup-measure-instructions");
 			setupRegisterInstructions = Require<Label>(root, "tag-setup-register-instructions");
 			setupFinish = Require<Label>(root, "tag-setup-finish");
@@ -100,6 +102,7 @@ namespace Anaglyph.LaserTag.MapEditor
 			measureTagSizeButton.clicked += OnMeasureTagSizeClicked;
 			unregisterAllTagsButton.clicked += OnUnregisterAllTagsClicked;
 			doneButton.clicked += OnDoneClicked;
+			deleteObjectButton.clicked += OnDeleteObjectClicked;
 			RebuildRail();
 			OnToolModeChanged(MapEditorTool.CurrentMode);
 		}
@@ -121,6 +124,7 @@ namespace Anaglyph.LaserTag.MapEditor
 			if (measureTagSizeButton != null) measureTagSizeButton.clicked -= OnMeasureTagSizeClicked;
 			if (unregisterAllTagsButton != null) unregisterAllTagsButton.clicked -= OnUnregisterAllTagsClicked;
 			if (doneButton != null) doneButton.clicked -= OnDoneClicked;
+			if (deleteObjectButton != null) deleteObjectButton.clicked -= OnDeleteObjectClicked;
 			categoryButtons.Clear();
 			objectButtons.Clear();
 			navView = null;
@@ -142,6 +146,16 @@ namespace Anaglyph.LaserTag.MapEditor
 			if (setup == null || !setup.IsGuidingHeadset) MapEditor.SetActive(false);
 			else if (setup.CanFinish) setup.Finish();
 			else setup.Cancel();
+		}
+
+		private static void OnDeleteObjectClicked() => MapEditorTool.DominantHand?.TryDelete();
+
+		// shown where the style sheet says deleting needs a button; pressable while there is an object to delete
+		private void RefreshDeleteObjectButton()
+		{
+			if (deleteObjectButton.resolvedStyle.display == DisplayStyle.None) return;
+			MapEditorTool tool = MapEditorTool.DominantHand;
+			deleteObjectButton.SetEnabled(tool != null && tool.isActiveAndEnabled && tool.IsAimingAtObject);
 		}
 
 		private void OnToolModeChanged(MapEditorTool.Mode mode)
@@ -221,6 +235,7 @@ namespace Anaglyph.LaserTag.MapEditor
 			if (pendingTagSizeCm.HasValue && Time.unscaledTime - pendingTagSizeTime >= tagSizeSettleSeconds)
 				FlushPendingTagSize();
 
+			RefreshDeleteObjectButton();
 			if (MapEditorTool.CurrentMode is MapEditorTool.Mode.Tags or MapEditorTool.Mode.MeasureTagSize)
 				RefreshTagSettings();
 			if (MapEditorTool.CurrentMode == MapEditorTool.Mode.MeasureTagSize)

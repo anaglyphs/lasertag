@@ -1,9 +1,7 @@
 using System;
-using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System.Threading;
 using UnityEngine;
 
 namespace Anaglyph.Netcode
@@ -21,11 +19,11 @@ namespace Anaglyph.Netcode
 		private const int Port = 47784;
 		private const string Magic = "LASERTAG1 ";
 		private const float AnnounceSeconds = 1;
-		private const float FailedAnnounceSeconds = 10;
+		private const float FailedRetrySeconds = 10;
 		private bool announceFailed;
+		private float nextListenAttempt;
 
 		private UdpClient listener, announcer;
-		private readonly ConcurrentQueue<(string message, string sender)> heard = new();
 		private float nextAnnounce;
 		private bool paused;
 		private AndroidMulticastLock multicastLock;
@@ -50,13 +48,12 @@ namespace Anaglyph.Netcode
 			if (activity == SessionDiscoveryActivity.Advertising) Announce();
 			else StopAnnouncing();
 
-			while (heard.TryDequeue(out (string message, string sender) next))
-				SessionDiscovery.OnAdvertisementHeard(next.message, next.sender);
+			HearAnnouncements();
 		}
 
 		private void StartListening()
 		{
-			if (listener != null) return;
+			if (listener != null || Time.unscaledTime < nextListenAttempt) return;
 			try
 			{
 				multicastLock ??= AndroidMulticastLock.Create();
@@ -67,8 +64,6 @@ namespace Anaglyph.Netcode
 				listener.Client.Bind(new IPEndPoint(IPAddress.Any, Port));
 				listener.JoinMulticastGroup(Group);
 
-				UdpClient receiving = listener;
-				new Thread(() => Receive(receiving)) { IsBackground = true, Name = "Session discovery" }.Start();
 				SessionDiscovery.Receiving = true;
 				Debug.Log($"[{nameof(MulticastSessionDiscovery)}] listening on {Group}:{Port}");
 			}
@@ -76,23 +71,28 @@ namespace Anaglyph.Netcode
 			{
 				Debug.LogWarning($"[{nameof(MulticastSessionDiscovery)}] couldn't listen: {e.Message}");
 				StopListening();
+				nextListenAttempt = Time.unscaledTime + FailedRetrySeconds;
 			}
 		}
 
-		// on its own thread until the socket is closed
-		private void Receive(UdpClient client)
+		// takes only what has already arrived, so the frame never waits on the network
+		private void HearAnnouncements()
 		{
-			IPEndPoint from = new(IPAddress.Any, 0);
 			try
 			{
-				while (true)
+				while (listener != null && listener.Client.Poll(0, SelectMode.SelectRead))
 				{
-					string text = Encoding.UTF8.GetString(client.Receive(ref from));
-					if (text.StartsWith(Magic)) heard.Enqueue((text.Substring(Magic.Length), from.Address.ToString()));
+					IPEndPoint from = new(IPAddress.Any, 0);
+					string text = Encoding.UTF8.GetString(listener.Receive(ref from));
+					if (text.StartsWith(Magic))
+						SessionDiscovery.OnAdvertisementHeard(text.Substring(Magic.Length), from.Address.ToString());
 				}
 			}
 			catch (Exception e) when (e is SocketException or ObjectDisposedException)
 			{
+				Debug.LogWarning($"[{nameof(MulticastSessionDiscovery)}] couldn't receive: {e.Message}");
+				StopListening();
+				nextListenAttempt = Time.unscaledTime + FailedRetrySeconds;
 			}
 		}
 
@@ -124,7 +124,7 @@ namespace Anaglyph.Netcode
 				// iOS refuses multicast to apps without Apple's multicast entitlement: say so once, retry slowly
 				if (!announceFailed) Debug.LogWarning($"[{nameof(MulticastSessionDiscovery)}] couldn't announce: {e.Message}");
 				announceFailed = true;
-				nextAnnounce = Time.unscaledTime + FailedAnnounceSeconds;
+				nextAnnounce = Time.unscaledTime + FailedRetrySeconds;
 				StopAnnouncing();
 			}
 		}

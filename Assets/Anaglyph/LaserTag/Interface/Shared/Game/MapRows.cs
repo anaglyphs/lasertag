@@ -7,17 +7,22 @@ using UnityEngine.UIElements;
 namespace Anaglyph.LaserTag.Interface
 {
 	/// <summary>
-	/// Saved-map entries: pressing the map button loads the map. While any pointer is over the entry,
-	/// edit and delete show beside the map button.
+	/// Saved-map entries: pressing the map button loads the map. While a mouse or controller ray is over
+	/// the entry, edit and delete show beside the map button. On touch screens, the loaded map shows edit,
+	/// and swiping an entry left reveals delete.
 	/// </summary>
 	public sealed class MapRows
 	{
 		public const string RowUssClassName = "catalog-map-row";
 		public const string UnloadableUssClassName = "catalog-map-row--unloadable";
 		public const string HoveredUssClassName = "catalog-map-row--hovered";
+		public const string LoadedUssClassName = "catalog-map-row--loaded";
 		public const string ConfirmDeleteUssClassName = "catalog-confirm-delete";
 
+		private const float SwipedOpenDeleteWidth = 80;
+
 		private string armedDeleteMapId;
+		private string swipedOpenMapId;
 
 		public VisualElement Build(Map map, bool loaded, SpaceManager manager, Action editMap)
 		{
@@ -27,6 +32,7 @@ namespace Anaglyph.LaserTag.Interface
 			var row = new VisualElement { name = "map-" + id, userData = id };
 			row.AddToClassList(RowUssClassName);
 			row.EnableInClassList(UnloadableUssClassName, !loaded && loadBlocker != null);
+			row.EnableInClassList(LoadedUssClassName, loaded);
 
 			var load = new Button { clickable = new PressClickable(() => SpaceManager.Instance?.LoadMap(id)), name = "map-row-button" };
 			load.tooltip = loaded ? map.name : loadBlocker ?? map.name;
@@ -49,18 +55,33 @@ namespace Anaglyph.LaserTag.Interface
 			SetBlocker(delete, manager == null ? unavailable : manager.DeleteMapBlocker(id), delete.tooltip);
 			ShowDeleteArmed(delete, armedDeleteMapId == id);
 			row.Add(delete);
+			if (delete.enabledSelf) AddSwipeToDelete(row, delete, id);
 
 			TrackHover(row, onUnhovered: () => Disarm(id, delete));
 			return row;
 		}
 
-		/// <summary>The entry counts as hovered while any pointer is inside it, so one pointer leaving cannot hide what another is over.</summary>
+		private void AddSwipeToDelete(VisualElement row, Button delete, string id)
+		{
+			var swipe = new SwipeToReveal(delete, SwipedOpenDeleteWidth, () => DeleteNow(id), open =>
+			{
+				if (open) swipedOpenMapId = id;
+				else if (swipedOpenMapId == id) swipedOpenMapId = null;
+			});
+			row.AddManipulator(swipe);
+			if (swipedOpenMapId == id) swipe.Open();
+		}
+
+		/// <summary>
+		/// The entry counts as hovered while any mouse or ray is inside it, so one leaving cannot hide what another is over.
+		/// Touches are not hovering.
+		/// </summary>
 		private static void TrackHover(VisualElement row, Action onUnhovered)
 		{
 			var pointersInside = new HashSet<int>();
 			row.RegisterCallback<PointerEnterEvent>(enter =>
 			{
-				if (enter.target != row || !pointersInside.Add(enter.pointerId)) return;
+				if (enter.target != row || enter.pointerType == PointerType.touch || !pointersInside.Add(enter.pointerId)) return;
 				row.AddToClassList(HoveredUssClassName);
 			});
 			row.RegisterCallback<PointerLeaveEvent>(leave =>
@@ -81,13 +102,19 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void Delete(string id, Button delete)
 		{
-			if (armedDeleteMapId != id)
+			if (armedDeleteMapId != id && swipedOpenMapId != id)
 			{
 				armedDeleteMapId = id;
 				ShowDeleteArmed(delete, true);
 				return;
 			}
+			DeleteNow(id);
+		}
+
+		private void DeleteNow(string id)
+		{
 			armedDeleteMapId = null;
+			swipedOpenMapId = null;
 			SpaceManager.Instance?.DeleteMap(id);
 		}
 

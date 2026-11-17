@@ -41,6 +41,12 @@ namespace Anaglyph.LaserTag.Player.Teams
 			UpdateColor();
 		}
 
+		private void OnDestroy()
+		{
+			if (teamOwner)
+				teamOwner.TeamChanged -= SetColor;
+		}
+
 		private void OnValidate()
 		{
 			teamOwner = GetComponentInParent<TeamOwner>(true);

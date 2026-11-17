@@ -232,6 +232,7 @@ GameObject:
   - component: {fileID: 4845373868858630595}
   - component: {fileID: 5760661657346058903}
   - component: {fileID: 4580462328365069680}
+  - component: {fileID: 3062306004087959978}
   m_Layer: 0
   m_Name: automatic
   m_TagString: Untagged
@@ -312,6 +313,23 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!114 &3062306004087959978
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1400539203718096896}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de906b0a9e4e02d4cb6ed9ea738b7abe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.Player.Teams.TeamColorer
+  defaultTeam: 0
+  multiply: 1
+  OnColorSet:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1 &7289614115251318986
 GameObject:
   m_ObjectHideFlags: 0
@@ -323,6 +341,7 @@ GameObject:
   - component: {fileID: 5047879905343240195}
   - component: {fileID: 6383902546729548403}
   - component: {fileID: 5890810224191059563}
+  - component: {fileID: 1805989899918736304}
   m_Layer: 0
   m_Name: cylinder
   m_TagString: Untagged
@@ -402,3 +421,20 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!114 &1805989899918736304
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7289614115251318986}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de906b0a9e4e02d4cb6ed9ea738b7abe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.Player.Teams.TeamColorer
+  defaultTeam: 0
+  multiply: 1
+  OnColorSet:
+    m_PersistentCalls:
+      m_Calls: []

@@ -92,8 +92,91 @@
     background-color: var(--primary-hover, rgb(255, 255, 255));
 }
 
-.palette-done {
-    align-self: center;
+.palette-actions {
+    flex-direction: row;
+    justify-content: center;
+}
+
+.palette-done,
+.palette-delete {
     min-width: 140px;
     -unity-text-align: middle-center;
+}
+
+/* Controllers delete with a button of their own */
+.palette-delete {
+    display: none;
+}
+
+/* Scroll directions, read by StyleDirectedScrollView */
+
+.palette-rail,
+.palette-grid {
+    --scroll-direction: vertical;
+}
+
+/* Touch screens: a row of category names over a row of objects, with nothing drawn behind them */
+
+.touch-screen #editing-context,
+.touch-screen .palette-root > .nav-header,
+.touch-screen .palette-title,
+.touch-screen .palette-tab-icon {
+    display: none;
+}
+
+.touch-screen .palette-root {
+    padding: 0;
+    border-width: 0;
+    background-color: rgba(0, 0, 0, 0);
+}
+
+.touch-screen .palette-body {
+    flex-direction: column;
+}
+
+.touch-screen .palette-rail,
+.touch-screen .palette-grid {
+    --scroll-direction: horizontal;
+    flex-grow: 0;
+    flex-shrink: 0;
+    width: auto;
+    margin-right: 0;
+    margin-bottom: var(--spacing-medium, 8px);
+}
+
+.touch-screen .palette-grid .unity-scroll-view__content-container {
+    flex-wrap: nowrap;
+}
+
+.touch-screen .palette-tab,
+.touch-screen .palette-item {
+    flex-shrink: 0;
+    margin: 0 var(--spacing-medium, 8px) 0 0;
+}
+
+.touch-screen .palette-tab {
+    justify-content: center;
+    min-height: var(--control-min-height, 46px);
+    padding: 0 var(--spacing-large, 12px);
+}
+
+.touch-screen .palette-tab-label {
+    margin-top: 0;
+    font-size: var(--font-size-body, 20px);
+    white-space: nowrap;
+}
+
+.touch-screen .palette-item {
+    width: 88px;
+}
+
+.touch-screen .palette-delete {
+    display: flex;
+    margin-right: var(--spacing-medium, 8px);
+}
+
+.touch-screen .palette-done,
+.touch-screen .palette-delete {
+    margin-top: 0;
+    margin-bottom: 0;
 }

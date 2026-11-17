@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.XR.ARFoundation;
 
 namespace Anaglyph.XR
@@ -14,11 +15,16 @@ namespace Anaglyph.XR
 		[SerializeField] private Shader arCoreStyledShader;
 		[SerializeField] private Shader simulationStyledShader;
 
+		// the destination blend of surfaces that let passthrough show through them
+		private static readonly int BlendOverCameraImageId = Shader.PropertyToID("agBlendOverCameraImage");
+
 		private Material styledMaterial;
 
 		private void Awake()
 		{
 			if (!HandheldAR.IsActive) return;
+
+			Shader.SetGlobalFloat(BlendOverCameraImageId, (float)BlendMode.OneMinusSrcAlpha);
 
 			Shader styledShader = HandheldAR.Runtime switch
 			{
@@ -39,6 +45,7 @@ namespace Anaglyph.XR
 
 		private void OnDestroy()
 		{
+			Shader.SetGlobalFloat(BlendOverCameraImageId, (float)BlendMode.Zero);
 			if (styledMaterial != null) Destroy(styledMaterial);
 		}
 	}
