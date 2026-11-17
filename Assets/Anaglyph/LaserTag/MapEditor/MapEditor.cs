@@ -16,6 +16,7 @@ namespace Anaglyph.LaserTag.MapEditor
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
 		private static void Init()
 		{
+			ActiveChanged = delegate { };
 			TagRegistrationRequested = delegate { };
 			SetActive(false);
 		}

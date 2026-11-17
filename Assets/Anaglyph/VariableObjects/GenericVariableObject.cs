@@ -15,7 +15,6 @@ namespace Anaglyph.VariableObjects
 		protected T val;
 
 		public event Action<T> Changed = delegate { };
-		// public event Action<T> beforeChange = delegate { };
 
 		protected void OnValidate()
 		{
@@ -53,7 +52,6 @@ namespace Anaglyph.VariableObjects
 				if (EqualityComparer<T>.Default.Equals(val, value))
 					return;
 
-				// beforeChange.Invoke(val);
 				val = value;
 				Changed.Invoke(val);
 			}
@@ -67,12 +65,10 @@ namespace Anaglyph.VariableObjects
 		[FormerlySerializedAs("scriptableVariable")] [SerializeField] private GenericVariableObject<T> variableObject;
 
 		[FormerlySerializedAs("onChange")] [SerializeField] private UnityEvent<T> OnChange;
-		[FormerlySerializedAs("beforeChange")] [SerializeField] private UnityEvent<T> OnBeforeChange;
 
 		private void Awake()
 		{
 			variableObject.Changed += OnChange.Invoke;
-			// variableObject.beforeChange += beforeChange.Invoke;
 			OnChange.Invoke(variableObject.Value);
 		}
 
@@ -85,7 +81,6 @@ namespace Anaglyph.VariableObjects
 		private void OnDestroy()
 		{
 			variableObject.Changed -= OnChange.Invoke;
-			// variableObject.beforeChange -= beforeChange.Invoke;
 		}
 	}
 }

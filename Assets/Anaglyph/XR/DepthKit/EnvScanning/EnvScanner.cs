@@ -511,11 +511,9 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			updateLoopTknSrc = new CancellationTokenSource();
 			CancellationToken ctkn = updateLoopTknSrc.Token;
 
-			while (!ctkn.IsCancellationRequested)
+			while (true)
 			{
 				await Awaitable.WaitForSecondsAsync(1 / updateFrequency, ctkn);
-				ctkn.ThrowIfCancellationRequested();
-
 				Scan();
 			}
 		}

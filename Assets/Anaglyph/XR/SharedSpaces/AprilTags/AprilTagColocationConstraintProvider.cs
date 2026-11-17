@@ -254,11 +254,11 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 		/// runtime to realize what it sees. Without either, no reference can ever be observed.
 		/// Two-tag mode needs only the detector and a tracking space.
 		/// </summary>
-		public bool IsAvailable => tagTracker != null && (twoTagMode ? PairTrackingSpace != null : AnchorsAvailable);
+		public bool IsAvailable => twoTagMode ? PairTrackingSpace != null : AnchorsAvailable;
 
 		private bool AnchorsAvailable => registry != null && registry.IsAvailable;
 		public bool IsRunning { get; private set; }
-		public bool IsDetecting => tagTracker != null && tagTracker.enabled;
+		public bool IsDetecting => tagTracker.enabled;
 
 		private void Awake()
 		{
@@ -280,8 +280,7 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			SyncBus.Activated += OnBusActivated;
 			MainXRRig.Recentered += InvalidatePendingObservations;
 
-			if (tagTracker != null)
-				tagTracker.OnDetectTags += OnDetectTags;
+			tagTracker.OnDetectTags += OnDetectTags;
 		}
 
 		private void Start()
@@ -294,8 +293,7 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			StopProviding();
 			lifetimeCtknSrc?.Cancel();
 
-			if (tagTracker != null)
-				tagTracker.OnDetectTags -= OnDetectTags;
+			tagTracker.OnDetectTags -= OnDetectTags;
 
 			SyncBus.Activated -= OnBusActivated;
 			MainXRRig.Recentered -= InvalidatePendingObservations;
@@ -813,7 +811,7 @@ namespace Anaglyph.XR.SharedSpaces.AprilTags
 			pairOrigin = pairForward = null;
 			// Detection is asynchronous. A frame already being processed at invalidation
 			// must not supply observations in the replacement tracking frame.
-			ignoreFramesThrough = tagTracker != null ? tagTracker.FrameTimestampNs : 0;
+			ignoreFramesThrough = tagTracker.FrameTimestampNs;
 		}
 
 		/// <summary>Restricts two-tag mode to this pair, or with no valid pair, to the first two IDs seen.</summary>

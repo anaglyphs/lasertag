@@ -1,5 +1,4 @@
 using System;
-using System.Threading;
 using Anaglyph.Netcode;
 using Anaglyph.XR;
 using UnityEngine;
@@ -177,10 +176,7 @@ namespace Anaglyph.LaserTag.Interface
 				SetPose();
 		}
 
-		private void Start()
-		{
-			SetPoseAfterStartupDelay().RunUntilCancelled();
-		}
+		private void Start() => SetPoseAfterStartupDelay().RunUntilCancelled();
 
 		private async Awaitable SetPoseAfterStartupDelay()
 		{
@@ -315,9 +311,8 @@ namespace Anaglyph.LaserTag.Interface
 			if (OnScreen) return;
 			// Wait for placement before checking distance when opening or recentering.
 			hasPose = false;
-			CancellationToken ctkn = destroyCancellationToken;
 
-			await Awaitable.EndOfFrameAsync(ctkn);
+			await Awaitable.EndOfFrameAsync(destroyCancellationToken);
 
 			Vector3 camPos = camTransform.position;
 			transform.position = camPos + Vector3.up * verticalOffset;
@@ -327,7 +322,6 @@ namespace Anaglyph.LaserTag.Interface
 
 			transform.forward = f;
 			hasPose = true;
-
 		}
 	}
 }

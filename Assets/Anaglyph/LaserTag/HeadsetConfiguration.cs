@@ -147,7 +147,6 @@ namespace Anaglyph.LaserTag
 			policySync.Synced -= OnPolicySynced;
 			policySync.Changed -= OnSyncedPolicyChanged;
 			policySync.Unregister();
-			policySync.AcceptedRequests = SyncEndpoint.RequestSource.Anyone;
 			Instance = null;
 		}
 

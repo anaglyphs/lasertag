@@ -411,7 +411,7 @@ namespace Anaglyph.LaserTag.Operator
 			refreshCancellation?.Dispose();
 			refreshCancellation = new CancellationTokenSource();
 			CancellationToken token = refreshCancellation.Token;
-			while (!token.IsCancellationRequested)
+			while (true)
 			{
 				Refresh();
 				await Awaitable.WaitForSecondsAsync(

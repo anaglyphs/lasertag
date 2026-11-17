@@ -43,7 +43,7 @@ namespace Anaglyph.LaserTag.Interface
 
 		private async Awaitable Poll(CancellationToken token)
 		{
-			while (!token.IsCancellationRequested)
+			while (true)
 			{
 				CheckNetworkConnection();
 				if (token.IsCancellationRequested) return;

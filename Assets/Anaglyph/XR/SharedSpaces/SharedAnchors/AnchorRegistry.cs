@@ -1000,7 +1000,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 
 		private async Awaitable ReconciliationLoop(CancellationToken ctkn)
 		{
-			while (!ctkn.IsCancellationRequested)
+			while (true)
 			{
 				await Awaitable.NextFrameAsync(ctkn);
 

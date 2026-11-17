@@ -412,7 +412,7 @@ namespace Anaglyph.LaserTag.Maps
 
 		private async Awaitable SaveVisualMapsPeriodically(CancellationToken token)
 		{
-			while (!token.IsCancellationRequested)
+			while (true)
 			{
 				await Awaitable.WaitForSecondsAsync(10f, token);
 				if (space != null && !showingSessionSpace && ColocationManager.IsLocalized) visualMaps.Save(space, false, false);
@@ -426,7 +426,7 @@ namespace Anaglyph.LaserTag.Maps
 		private async Awaitable ReplaceWithRecognizedSpaces(CancellationToken token)
 		{
 			VisualKeyframe scored = null;
-			while (!token.IsCancellationRequested)
+			while (true)
 			{
 				await Awaitable.WaitForSecondsAsync(1f, token);
 				VisualMap visualMap = VisualLocalizer.Instance ? VisualLocalizer.Instance.Map : null;

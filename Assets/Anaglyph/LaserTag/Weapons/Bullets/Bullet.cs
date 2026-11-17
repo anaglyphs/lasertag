@@ -241,14 +241,10 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 			AudioPool.Play(collideSFX, transform.position, 1, collideSFXFullVolumeDistance);
 		}
 
-		private async Awaitable DelayedDespawn()
+		private Awaitable DelayedDespawn()
 		{
 			despawnCancelSrc = new CancellationTokenSource();
-			CancellationToken ctn = despawnCancelSrc.Token;
-
-			await Awaitable.WaitForSecondsAsync(despawnDelay, ctn);
-			ctn.ThrowIfCancellationRequested();
-			NetworkObject.Despawn(true);
+			return NetworkObject.DespawnAfterSeconds(despawnDelay, despawnCancelSrc.Token);
 		}
 
 		public override void OnNetworkDespawn()

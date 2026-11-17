@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Anaglyph.LaserTag.Maps;
 using Anaglyph.LaserTag.Player;

@@ -437,7 +437,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 
 		private async Awaitable MintLoop(CancellationToken ctkn)
 		{
-			while (!ctkn.IsCancellationRequested)
+			while (true)
 			{
 				await Awaitable.FixedUpdateAsync(ctkn);
 				if (!CanMintNow || IsMinting || pendingMints.Count > 0 ||

@@ -1,8 +1,8 @@
-using System;
 using System.Collections.Generic;
 using System.Threading;
 using Anaglyph.Audio;
 using Anaglyph.LaserTag.Player;
+using Anaglyph.Netcode;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;
@@ -142,14 +142,10 @@ namespace Anaglyph.LaserTag.Weapons.Grenades
 				r.enabled = visible;
 		}
 
-		private async Awaitable DelayedDespawn()
+		private Awaitable DelayedDespawn()
 		{
 			despawnCancelSrc = new CancellationTokenSource();
-			CancellationToken ctn = despawnCancelSrc.Token;
-
-			await Awaitable.WaitForSecondsAsync(despawnDelay, ctn);
-			ctn.ThrowIfCancellationRequested();
-			NetworkObject.Despawn(true);
+			return NetworkObject.DespawnAfterSeconds(despawnDelay, despawnCancelSrc.Token);
 		}
 	}
 }

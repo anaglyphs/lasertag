@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Anaglyph.Netcode.SyncVariables;
 using Unity.Collections;
 using UnityEngine;

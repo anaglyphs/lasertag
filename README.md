@@ -16,7 +16,7 @@ Lasertag features a custom live environment scanning system that progressively s
 
 ## License
 
-Lasertag uses the PolyForm Noncommercial License 1.0.0. If you would like to license Lasertag code for commercial projects, please reach out to me!
+Lasertag is released under the MIT License.
 
 ## Credits
 
