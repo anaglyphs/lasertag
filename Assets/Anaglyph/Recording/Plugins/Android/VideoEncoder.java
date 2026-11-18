@@ -27,12 +27,14 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/** Writes RGBA frames and 16-bit audio into an H.264 + AAC .mp4, then adds the file to the device's Movies. */
+/** Writes RGBA frames and 16-bit audio into an H.264 .mp4 with one AAC track per audio stream, then adds the file to the device's Movies. */
 public final class VideoEncoder {
     private static final String TAG = "AnaglyphVideoEncoder";
 
     // matches Anaglyph.Recording.VideoEncoderState
     private static final int IDLE = 0, RECORDING = 1, FINISHING = 2, SAVED = 3, FAILED = 4;
+    // streams; the audio ones match Anaglyph.Recording.AudioTrack
+    private static final int VIDEO = 0, GAME_AUDIO = 1, MICROPHONE = 2, STREAMS = 3;
 
     // bits per pixel per frame; 1080p at 30 fps comes to about 12 Mbit/s
     private static final double VIDEO_BITS_PER_PIXEL = 0.2;
@@ -44,7 +46,7 @@ public final class VideoEncoder {
     private static final String FOLDER = Environment.DIRECTORY_MOVIES + "/Lasertag";
 
     private static final class Packet {
-        int track;
+        int stream;
         ByteBuffer data;
         MediaCodec.BufferInfo info;
     }
@@ -56,19 +58,19 @@ public final class VideoEncoder {
     private HandlerThread thread;
     private Handler handler;
     private File file;
-    private MediaCodec video, audio;
+    private final MediaCodec[] codecs = new MediaCodec[STREAMS];
+    private final MediaFormat[] formats = new MediaFormat[STREAMS];
+    private final int[] tracks = new int[STREAMS];
+    private final long[] lastMicros = new long[STREAMS];
+    private final int[] sampleRates = new int[STREAMS], channelCounts = new int[STREAMS];
     private Surface surface;
     private MediaMuxer muxer;
-    private MediaFormat videoFormat, audioFormat;
-    private int videoTrack = -1, audioTrack = -1;
     private boolean muxing;
     private final ArrayList<Packet> heldUntilMuxing = new ArrayList<>();
     private final ArrayDeque<Long> drawnFrameMicros = new ArrayDeque<>();
-    private long lastVideoMicros = -1, lastAudioMicros = -1;
     private Bitmap frame;
     private final Matrix bottomRowFirst = new Matrix();
     private final AtomicBoolean frameFree = new AtomicBoolean(true);
-    private int sampleRate, channels;
 
     public VideoEncoder(Context context) {
         this.context = context.getApplicationContext();
@@ -77,10 +79,10 @@ public final class VideoEncoder {
     public int getState() { return state; }
     public String getError() { return error; }
 
-    public boolean begin(String path, int width, int height, int framesPerSecond, int sampleRate, int channels) {
+    /** A microphoneSampleRate of 0 leaves out the microphone track. */
+    public boolean begin(String path, int width, int height, int framesPerSecond, int sampleRate, int channels,
+                         int microphoneSampleRate, int microphoneChannels) {
         if (state == RECORDING || state == FINISHING) return false;
-        this.sampleRate = sampleRate;
-        this.channels = channels;
         try {
             file = new File(path);
             file.delete();
@@ -90,25 +92,31 @@ public final class VideoEncoder {
             videoRequest.setInteger(MediaFormat.KEY_BIT_RATE, (int) (width * (double) height * framesPerSecond * VIDEO_BITS_PER_PIXEL));
             videoRequest.setInteger(MediaFormat.KEY_FRAME_RATE, framesPerSecond);
             videoRequest.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, KEY_FRAME_SECONDS);
-            video = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC);
+            MediaCodec video = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC);
+            codecs[VIDEO] = video;
             video.configure(videoRequest, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
             surface = video.createInputSurface();
             video.start();
 
-            MediaFormat audioRequest = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, sampleRate, channels);
-            audioRequest.setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC);
-            audioRequest.setInteger(MediaFormat.KEY_BIT_RATE, AUDIO_BITS_PER_SAMPLE_PER_CHANNEL * sampleRate * channels);
-            audio = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC);
-            audio.configure(audioRequest, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-            audio.start();
+            startAudioEncoder(GAME_AUDIO, sampleRate, channels);
+            if (microphoneSampleRate > 0) {
+                try {
+                    startAudioEncoder(MICROPHONE, microphoneSampleRate, microphoneChannels);
+                } catch (Exception e) {
+                    Log.w(TAG, "recording without the microphone", e);
+                    releaseCodec(MICROPHONE);
+                }
+            }
 
             muxer = new MediaMuxer(path, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
-            videoFormat = audioFormat = null;
-            videoTrack = audioTrack = -1;
+            for (int stream = 0; stream < STREAMS; stream++) {
+                formats[stream] = null;
+                tracks[stream] = -1;
+                lastMicros[stream] = -1;
+            }
             muxing = false;
             heldUntilMuxing.clear();
             drawnFrameMicros.clear();
-            lastVideoMicros = lastAudioMicros = -1;
 
             frame = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
             frame.setHasAlpha(false);
@@ -129,6 +137,18 @@ public final class VideoEncoder {
         }
     }
 
+    private void startAudioEncoder(int stream, int sampleRate, int channels) throws Exception {
+        sampleRates[stream] = sampleRate;
+        channelCounts[stream] = channels;
+        MediaFormat request = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, sampleRate, channels);
+        request.setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC);
+        request.setInteger(MediaFormat.KEY_BIT_RATE, AUDIO_BITS_PER_SAMPLE_PER_CHANNEL * sampleRate * channels);
+        MediaCodec codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC);
+        codecs[stream] = codec;
+        codec.configure(request, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+        codec.start();
+    }
+
     /** RGBA bytes, bottom row first. The buffer is only read during this call. A frame arriving while the last is still being drawn is skipped. */
     public void appendVideo(ByteBuffer rgba, final long micros) {
         if (state != RECORDING || !frameFree.compareAndSet(true, false)) return;
@@ -142,7 +162,7 @@ public final class VideoEncoder {
                     canvas.drawBitmap(frame, bottomRowFirst, null);
                     surface.unlockCanvasAndPost(canvas);
                     drawnFrameMicros.add(micros);
-                    drain(video, true, false);
+                    drain(VIDEO, false);
                 } catch (Exception e) {
                     fail(e);
                 } finally {
@@ -153,8 +173,8 @@ public final class VideoEncoder {
     }
 
     /** Interleaved 16-bit samples in native byte order. The buffer is only read during this call. */
-    public void appendAudio(ByteBuffer samples, int byteCount, final long micros) {
-        if (state != RECORDING) return;
+    public void appendAudio(final int stream, ByteBuffer samples, int byteCount, final long micros) {
+        if (state != RECORDING || codecs[stream] == null) return;
         final byte[] copy = new byte[byteCount];
         samples.rewind();
         samples.get(copy, 0, byteCount);
@@ -162,7 +182,8 @@ public final class VideoEncoder {
             @Override public void run() {
                 try {
                     if (state != RECORDING) return;
-                    int bytesPerFrame = 2 * channels;
+                    MediaCodec audio = codecs[stream];
+                    int bytesPerFrame = 2 * channelCounts[stream];
                     int offset = 0;
                     while (offset < copy.length) {
                         int index = audio.dequeueInputBuffer(WAIT_MICROS);
@@ -172,9 +193,9 @@ public final class VideoEncoder {
                         int count = Math.min(copy.length - offset, input.capacity());
                         count -= count % bytesPerFrame;
                         input.put(copy, offset, count);
-                        audio.queueInputBuffer(index, 0, count, micros + 1000000L * (offset / bytesPerFrame) / sampleRate, 0);
+                        audio.queueInputBuffer(index, 0, count, micros + 1000000L * (offset / bytesPerFrame) / sampleRates[stream], 0);
                         offset += count;
-                        drain(audio, false, false);
+                        drain(stream, false);
                     }
                 } catch (Exception e) {
                     fail(e);
@@ -192,13 +213,10 @@ public final class VideoEncoder {
             @Override public void run() {
                 try {
                     if (!failed) {
-                        video.signalEndOfInputStream();
-                        drain(video, true, true);
-                        int index = audio.dequeueInputBuffer(WAIT_MICROS * END_WAITS);
-                        if (index >= 0) {
-                            audio.queueInputBuffer(index, 0, 0, lastAudioMicros + 1, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
-                            drain(audio, false, true);
-                        }
+                        codecs[VIDEO].signalEndOfInputStream();
+                        drain(VIDEO, true);
+                        endAudio(GAME_AUDIO);
+                        endAudio(MICROPHONE);
                         if (!muxing) startMuxing();
                         if (!muxing) throw new IllegalStateException("Nothing was recorded");
                         muxer.stop();
@@ -219,7 +237,17 @@ public final class VideoEncoder {
         });
     }
 
-    private void drain(MediaCodec codec, boolean isVideo, boolean untilEnd) {
+    private void endAudio(int stream) {
+        MediaCodec audio = codecs[stream];
+        if (audio == null) return;
+        int index = audio.dequeueInputBuffer(WAIT_MICROS * END_WAITS);
+        if (index < 0) return;
+        audio.queueInputBuffer(index, 0, 0, lastMicros[stream] + 1, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+        drain(stream, true);
+    }
+
+    private void drain(int stream, boolean untilEnd) {
+        MediaCodec codec = codecs[stream];
         MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
         int waits = 0;
         while (true) {
@@ -229,9 +257,8 @@ public final class VideoEncoder {
                 continue;
             }
             if (index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                if (isVideo) videoFormat = codec.getOutputFormat();
-                else audioFormat = codec.getOutputFormat();
-                if (videoFormat != null && audioFormat != null) startMuxing();
+                formats[stream] = codec.getOutputFormat();
+                if (allFormatsKnown()) startMuxing();
                 continue;
             }
             if (index < 0) continue;
@@ -239,18 +266,16 @@ public final class VideoEncoder {
             boolean setup = (info.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0;
             if (!setup && info.size > 0) {
                 // a frame's time is when the game drew it, not when it reached the encoder
-                if (isVideo) {
+                if (stream == VIDEO) {
                     Long drawn = drawnFrameMicros.poll();
-                    info.presentationTimeUs = Math.max(drawn != null ? drawn : 0, lastVideoMicros + 1);
-                    lastVideoMicros = info.presentationTimeUs;
-                } else {
-                    info.presentationTimeUs = Math.max(info.presentationTimeUs, lastAudioMicros + 1);
-                    lastAudioMicros = info.presentationTimeUs;
+                    info.presentationTimeUs = drawn != null ? drawn : 0;
                 }
+                info.presentationTimeUs = Math.max(info.presentationTimeUs, lastMicros[stream] + 1);
+                lastMicros[stream] = info.presentationTimeUs;
                 ByteBuffer data = codec.getOutputBuffer(index);
                 data.position(info.offset);
                 data.limit(info.offset + info.size);
-                write(isVideo, data, info);
+                write(stream, data, info);
             }
             boolean ended = (info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0;
             codec.releaseOutputBuffer(index, false);
@@ -258,13 +283,13 @@ public final class VideoEncoder {
         }
     }
 
-    private void write(boolean isVideo, ByteBuffer data, MediaCodec.BufferInfo info) {
+    private void write(int stream, ByteBuffer data, MediaCodec.BufferInfo info) {
         if (muxing) {
-            muxer.writeSampleData(isVideo ? videoTrack : audioTrack, data, info);
+            if (tracks[stream] >= 0) muxer.writeSampleData(tracks[stream], data, info);
             return;
         }
         Packet packet = new Packet();
-        packet.track = isVideo ? 0 : 1;
+        packet.stream = stream;
         packet.data = ByteBuffer.allocate(info.size);
         packet.data.put(data);
         packet.data.flip();
@@ -273,14 +298,21 @@ public final class VideoEncoder {
         heldUntilMuxing.add(packet);
     }
 
+    private boolean allFormatsKnown() {
+        for (int stream = 0; stream < STREAMS; stream++)
+            if (codecs[stream] != null && formats[stream] == null) return false;
+        return true;
+    }
+
+    // a stream whose format never arrived is left out of the file
     private void startMuxing() {
-        if (muxing || videoFormat == null) return;
-        videoTrack = muxer.addTrack(videoFormat);
-        if (audioFormat != null) audioTrack = muxer.addTrack(audioFormat);
+        if (muxing || formats[VIDEO] == null) return;
+        for (int stream = 0; stream < STREAMS; stream++)
+            if (formats[stream] != null) tracks[stream] = muxer.addTrack(formats[stream]);
         muxer.start();
         muxing = true;
         for (Packet packet : heldUntilMuxing) {
-            int track = packet.track == 0 ? videoTrack : audioTrack;
+            int track = tracks[packet.stream];
             if (track >= 0) muxer.writeSampleData(track, packet.data, packet.info);
         }
         heldUntilMuxing.clear();
@@ -308,15 +340,18 @@ public final class VideoEncoder {
     }
 
     private void release() {
-        try { if (video != null) { video.stop(); video.release(); } } catch (Exception ignored) { }
-        try { if (audio != null) { audio.stop(); audio.release(); } } catch (Exception ignored) { }
+        for (int stream = 0; stream < STREAMS; stream++) releaseCodec(stream);
         try { if (surface != null) surface.release(); } catch (Exception ignored) { }
         try { if (muxer != null) muxer.release(); } catch (Exception ignored) { }
         if (frame != null) frame.recycle();
-        video = audio = null;
         surface = null;
         muxer = null;
         frame = null;
+    }
+
+    private void releaseCodec(int stream) {
+        try { if (codecs[stream] != null) { codecs[stream].stop(); codecs[stream].release(); } } catch (Exception ignored) { }
+        codecs[stream] = null;
     }
 
     private void fail(Exception e) {

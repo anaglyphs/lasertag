@@ -1,4 +1,4 @@
-// Writes RGBA frames and float audio into an HEVC + AAC .mp4 with AVAssetWriter, then adds the file to Photos.
+// Writes RGBA frames and float audio into an HEVC .mp4 with one AAC track per audio stream, with AVAssetWriter, then adds the file to Photos.
 #import <AVFoundation/AVFoundation.h>
 #import <Accelerate/Accelerate.h>
 #import <Photos/Photos.h>
@@ -6,6 +6,8 @@
 
 // matches Anaglyph.Recording.VideoEncoderState
 enum { StateIdle, StateRecording, StateFinishing, StateSaved, StateFailed };
+// matches Anaglyph.Recording.AudioTrack
+enum { TrackGame = 1, TrackMicrophone = 2, TrackSlots = 3 };
 
 static const int32_t TicksPerSecond = 90000;
 // bits per pixel per frame; 4K at 30 fps comes to about 45 Mbit/s
@@ -15,10 +17,11 @@ static const int AudioBitsPerSamplePerChannel = 2;
 
 static AVAssetWriter* writer;
 static AVAssetWriterInput* videoInput;
-static AVAssetWriterInput* audioInput;
+static AVAssetWriterInput* audioInputs[TrackSlots];
 static AVAssetWriterInputPixelBufferAdaptor* pixelBuffers;
-static CMAudioFormatDescriptionRef audioFormat;
-static int frameWidth, frameHeight, audioChannels;
+static CMAudioFormatDescriptionRef audioFormats[TrackSlots];
+static int audioChannels[TrackSlots];
+static int frameWidth, frameHeight;
 static CMTime lastVideoTime;
 static std::atomic<int> state(StateIdle);
 static NSString* errorText = @"";
@@ -72,7 +75,44 @@ static void SaveToPhotos(NSURL* file)
 	}];
 }
 
-extern "C" bool AnaglyphVideoEncoderBegin(const char* path, int width, int height, int framesPerSecond, int sampleRate, int channels)
+// leaves the track out when the writer cannot take it
+static void AddAudioTrack(int track, int sampleRate, int channels)
+{
+	audioInputs[track] = nil;
+	if (audioFormats[track] != NULL) CFRelease(audioFormats[track]);
+	audioFormats[track] = NULL;
+	audioChannels[track] = channels;
+	if (sampleRate <= 0 || channels <= 0 || channels > 2) return;
+
+	AudioChannelLayout layout = {};
+	layout.mChannelLayoutTag = channels == 1 ? kAudioChannelLayoutTag_Mono : kAudioChannelLayoutTag_Stereo;
+	NSDictionary* settings = @{
+		AVFormatIDKey: @(kAudioFormatMPEG4AAC),
+		AVSampleRateKey: @(sampleRate),
+		AVNumberOfChannelsKey: @(channels),
+		AVEncoderBitRateKey: @(AudioBitsPerSamplePerChannel * sampleRate * channels),
+		AVChannelLayoutKey: [NSData dataWithBytes:&layout length:sizeof(layout)],
+	};
+	AVAssetWriterInput* input = [AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeAudio outputSettings:settings];
+	input.expectsMediaDataInRealTime = YES;
+	if (![writer canAddInput:input]) return;
+	[writer addInput:input];
+
+	AudioStreamBasicDescription samples = {};
+	samples.mSampleRate = sampleRate;
+	samples.mFormatID = kAudioFormatLinearPCM;
+	samples.mFormatFlags = kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked;
+	samples.mChannelsPerFrame = channels;
+	samples.mBitsPerChannel = 32;
+	samples.mBytesPerFrame = 4 * channels;
+	samples.mBytesPerPacket = samples.mBytesPerFrame;
+	samples.mFramesPerPacket = 1;
+	CMAudioFormatDescriptionCreate(kCFAllocatorDefault, &samples, 0, NULL, 0, NULL, NULL, &audioFormats[track]);
+	audioInputs[track] = input;
+}
+
+extern "C" bool AnaglyphVideoEncoderBegin(const char* path, int width, int height, int framesPerSecond, int sampleRate, int channels,
+                                          int microphoneSampleRate, int microphoneChannels)
 {
 	if (state == StateRecording || state == StateFinishing) return false;
 
@@ -89,7 +129,6 @@ extern "C" bool AnaglyphVideoEncoderBegin(const char* path, int width, int heigh
 
 	frameWidth = width;
 	frameHeight = height;
-	audioChannels = channels;
 
 	NSDictionary* videoSettings = @{
 		AVVideoCodecKey: AVVideoCodecTypeHEVC,
@@ -110,39 +149,14 @@ extern "C" bool AnaglyphVideoEncoderBegin(const char* path, int width, int heigh
 			(id)kCVPixelBufferHeightKey: @(height),
 		}];
 
-	AudioChannelLayout layout = {};
-	layout.mChannelLayoutTag = channels == 1 ? kAudioChannelLayoutTag_Mono : kAudioChannelLayoutTag_Stereo;
-	NSDictionary* audioSettings = @{
-		AVFormatIDKey: @(kAudioFormatMPEG4AAC),
-		AVSampleRateKey: @(sampleRate),
-		AVNumberOfChannelsKey: @(channels),
-		AVEncoderBitRateKey: @(AudioBitsPerSamplePerChannel * sampleRate * channels),
-		AVChannelLayoutKey: [NSData dataWithBytes:&layout length:sizeof(layout)],
-	};
-	audioInput = channels <= 2 ? [AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeAudio outputSettings:audioSettings] : nil;
-	audioInput.expectsMediaDataInRealTime = YES;
-
-	AudioStreamBasicDescription samples = {};
-	samples.mSampleRate = sampleRate;
-	samples.mFormatID = kAudioFormatLinearPCM;
-	samples.mFormatFlags = kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked;
-	samples.mChannelsPerFrame = channels;
-	samples.mBitsPerChannel = 32;
-	samples.mBytesPerFrame = 4 * channels;
-	samples.mBytesPerPacket = samples.mBytesPerFrame;
-	samples.mFramesPerPacket = 1;
-	if (audioFormat != NULL) CFRelease(audioFormat);
-	audioFormat = NULL;
-	CMAudioFormatDescriptionCreate(kCFAllocatorDefault, &samples, 0, NULL, 0, NULL, NULL, &audioFormat);
-
 	if (![writer canAddInput:videoInput])
 	{
 		Fail(@"This device cannot encode video at this size");
 		return false;
 	}
 	[writer addInput:videoInput];
-	if (audioInput != nil && [writer canAddInput:audioInput]) [writer addInput:audioInput];
-	else audioInput = nil;
+	AddAudioTrack(TrackGame, sampleRate, channels);
+	AddAudioTrack(TrackMicrophone, microphoneSampleRate, microphoneChannels);
 
 	if (![writer startWriting])
 	{
@@ -185,11 +199,13 @@ extern "C" void AnaglyphVideoEncoderAppendVideo(const void* rgbaBottomRowFirst, 
 	CVPixelBufferRelease(frame);
 }
 
-extern "C" void AnaglyphVideoEncoderAppendAudio(const void* interleaved, int frameCount, double seconds)
+extern "C" void AnaglyphVideoEncoderAppendAudio(int track, const void* interleaved, int frameCount, double seconds)
 {
-	if (state != StateRecording || audioInput == nil || audioFormat == NULL || frameCount <= 0 || !audioInput.readyForMoreMediaData) return;
+	if (track <= 0 || track >= TrackSlots) return;
+	AVAssetWriterInput* audioInput = audioInputs[track];
+	if (state != StateRecording || audioInput == nil || audioFormats[track] == NULL || frameCount <= 0 || !audioInput.readyForMoreMediaData) return;
 
-	size_t byteCount = (size_t)frameCount * 4 * audioChannels;
+	size_t byteCount = (size_t)frameCount * 4 * audioChannels[track];
 	CMBlockBufferRef block = NULL;
 	if (CMBlockBufferCreateWithMemoryBlock(kCFAllocatorDefault, NULL, byteCount, kCFAllocatorDefault, NULL, 0, byteCount,
 	                                       kCMBlockBufferAssureMemoryNowFlag, &block) != kCMBlockBufferNoErr)
@@ -197,7 +213,7 @@ extern "C" void AnaglyphVideoEncoderAppendAudio(const void* interleaved, int fra
 	CMBlockBufferReplaceDataBytes(interleaved, block, 0, byteCount);
 
 	CMSampleBufferRef sampleBuffer = NULL;
-	OSStatus created = CMAudioSampleBufferCreateReadyWithPacketDescriptions(kCFAllocatorDefault, block, audioFormat, frameCount,
+	OSStatus created = CMAudioSampleBufferCreateReadyWithPacketDescriptions(kCFAllocatorDefault, block, audioFormats[track], frameCount,
 		CMTimeMakeWithSeconds(seconds, TicksPerSecond), NULL, &sampleBuffer);
 	CFRelease(block);
 	if (created != noErr) return;
@@ -224,7 +240,7 @@ extern "C" void AnaglyphVideoEncoderFinish()
 	}
 
 	[videoInput markAsFinished];
-	[audioInput markAsFinished];
+	for (int track = 0; track < TrackSlots; track++) [audioInputs[track] markAsFinished];
 	[finishing finishWritingWithCompletionHandler:^
 	{
 		if (failed) [[NSFileManager defaultManager] removeItemAtURL:finishing.outputURL error:nil];

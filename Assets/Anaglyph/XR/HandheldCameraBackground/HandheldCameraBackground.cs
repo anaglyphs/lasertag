@@ -20,6 +20,8 @@ namespace Anaglyph.XR
 	public class HandheldCameraBackground : MonoBehaviour
 	{
 		private static readonly int DisplayTransformId = Shader.PropertyToID("_UnityDisplayTransform");
+		private const int DrawFeedShaderPass = 0;
+		private const int OpaqueAlphaShaderPass = 1;
 
 		[SerializeField, FormerlySerializedAs("arKitStyledShader")]
 		private Shader backgroundShader;
@@ -29,7 +31,8 @@ namespace Anaglyph.XR
 
 		private Camera gameCamera;
 		private ARCameraManager cameraManager;
-		private DrawFeedPass drawFeedPass;
+		private FullscreenPass drawFeedPass;
+		private FullscreenPass opaqueAlphaPass;
 		private bool hasFeed;
 
 		private void Awake()
@@ -43,7 +46,11 @@ namespace Anaglyph.XR
 			Material = new Material(backgroundShader);
 			if (HandheldAR.Runtime == HandheldAR.Provider.ARKit) Material.EnableKeyword("HANDHELD_ARKIT");
 			else if (HandheldAR.Runtime == HandheldAR.Provider.ARCore) Material.EnableKeyword("HANDHELD_ARCORE");
-			drawFeedPass = new DrawFeedPass(Material);
+			drawFeedPass = new FullscreenPass("Handheld Camera Background", Material, DrawFeedShaderPass,
+				RenderPassEvent.AfterRenderingOpaques, issueBeforeFeedDraw: true);
+			// after the transparents, so passes that weigh the feed by alpha still see it
+			opaqueAlphaPass = new FullscreenPass("Handheld Camera Background Opaque Alpha", Material, OpaqueAlphaShaderPass,
+				RenderPassEvent.AfterRenderingTransparents + 1, issueBeforeFeedDraw: false);
 
 			// the feed fills in wherever the frame is left transparent
 			gameCamera.clearFlags = CameraClearFlags.SolidColor;
@@ -89,7 +96,10 @@ namespace Anaglyph.XR
 		private void EnqueueFeedForThisCamera(ScriptableRenderContext context, Camera renderingCamera)
 		{
 			if (renderingCamera != gameCamera || !hasFeed) return;
-			renderingCamera.GetUniversalAdditionalCameraData().scriptableRenderer.EnqueuePass(drawFeedPass);
+			ScriptableRenderer renderer = renderingCamera.GetUniversalAdditionalCameraData().scriptableRenderer;
+			renderer.EnqueuePass(drawFeedPass);
+			// a screen ignores alpha; a texture may be shown or saved with it
+			if (renderingCamera.targetTexture != null) renderer.EnqueuePass(opaqueAlphaPass);
 		}
 
 		// The provider's work right before its images are drawn, on the render thread: ARKit releases the
@@ -106,37 +116,47 @@ namespace Anaglyph.XR
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
 		private static void ForgetCameraSubsystem() => renderThreadCameraSubsystem = null;
 
-		private sealed class DrawFeedPass : ScriptableRenderPass
+		private sealed class FullscreenPass : ScriptableRenderPass
 		{
+			private readonly string name;
 			private readonly Material material;
+			private readonly int shaderPass;
+			private readonly bool issueBeforeFeedDraw;
 
-			public DrawFeedPass(Material material)
+			public FullscreenPass(string name, Material material, int shaderPass, RenderPassEvent renderPassEvent,
+				bool issueBeforeFeedDraw)
 			{
+				this.name = name;
 				this.material = material;
-				renderPassEvent = RenderPassEvent.AfterRenderingOpaques;
-				profilingSampler = new ProfilingSampler("Handheld Camera Background");
+				this.shaderPass = shaderPass;
+				this.issueBeforeFeedDraw = issueBeforeFeedDraw;
+				this.renderPassEvent = renderPassEvent;
+				profilingSampler = new ProfilingSampler(name);
 			}
 
 			private sealed class PassData
 			{
 				public Material material;
+				public int shaderPass;
+				public bool issueBeforeFeedDraw;
 			}
 
 			public override void RecordRenderGraph(RenderGraph graph, ContextContainer frameData)
 			{
 				UniversalResourceData resources = frameData.Get<UniversalResourceData>();
-				using IRasterRenderGraphBuilder builder = graph.AddRasterRenderPass<PassData>(
-					"Handheld Camera Background", out PassData data, profilingSampler);
+				using IRasterRenderGraphBuilder builder = graph.AddRasterRenderPass<PassData>(name, out PassData data, profilingSampler);
 
 				data.material = material;
+				data.shaderPass = shaderPass;
+				data.issueBeforeFeedDraw = issueBeforeFeedDraw;
 				builder.SetRenderAttachment(resources.activeColorTexture, 0, AccessFlags.ReadWrite);
 				// matching the opaque pass's attachments keeps this merged into its native render pass
 				builder.SetRenderAttachmentDepth(resources.activeDepthTexture, AccessFlags.ReadWrite);
 				builder.AllowPassCulling(false);
 				builder.SetRenderFunc(static (PassData data, RasterGraphContext context) =>
 				{
-					context.cmd.IssuePluginEvent(BeforeFeedDrawPointer, 0);
-					context.cmd.DrawProcedural(Matrix4x4.identity, data.material, 0, MeshTopology.Triangles, 3, 1);
+					if (data.issueBeforeFeedDraw) context.cmd.IssuePluginEvent(BeforeFeedDrawPointer, 0);
+					context.cmd.DrawProcedural(Matrix4x4.identity, data.material, data.shaderPass, MeshTopology.Triangles, 3, 1);
 				});
 			}
 		}

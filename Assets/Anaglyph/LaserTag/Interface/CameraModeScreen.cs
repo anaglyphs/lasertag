@@ -7,8 +7,8 @@ namespace Anaglyph.LaserTag.Interface
 	/// <summary>
 	/// Camera mode on a phone's screen, laid out as a camera app: the view being filmed fitted to the
 	/// screen, a record button on the phone's physical bottom edge with Done beside it, and across
-	/// the top the running time and the video's size and frame rate, which a tap switches between
-	/// 1080p at 60 and 4K at 30 where the phone offers both.
+	/// the top the running time, the video's size and frame rate, which a tap switches between
+	/// 1080p at 60 and 4K at 30 where the phone offers both, and whether the microphone is recorded.
 	/// </summary>
 	public sealed class CameraModeScreen
 	{
@@ -20,7 +20,7 @@ namespace Anaglyph.LaserTag.Interface
 		private readonly CameraMode mode;
 		private readonly VisualElement root, view, bar, status, record;
 		private readonly Button done;
-		private readonly Label time, size, message;
+		private readonly Label time, size, microphone, message;
 		private float messageUntil;
 
 		public CameraModeScreen(CameraMode mode, VisualElement parent)
@@ -46,6 +46,8 @@ namespace Anaglyph.LaserTag.Interface
 			size = Chip("camera-mode-size");
 			size.RegisterCallback<ClickEvent>(_ => mode.SetQuality(
 				mode.Quality == CameraMode.VideoQuality.UltraHD30 ? CameraMode.VideoQuality.FullHD60 : CameraMode.VideoQuality.UltraHD30));
+			microphone = Chip("camera-mode-microphone");
+			microphone.RegisterCallback<ClickEvent>(_ => mode.SetRecordMicrophone(!mode.RecordMicrophone));
 
 			bar = new VisualElement { name = "camera-mode-bar" };
 			bar.AddToClassList("camera-mode-bar");
@@ -172,8 +174,15 @@ namespace Anaglyph.LaserTag.Interface
 			int longSide = Mathf.Max(video.x, video.y), shortSide = Mathf.Min(video.x, video.y);
 			size.text = $"{(longSide >= UltraHighDefinitionLongSide ? "4K" : shortSide + "p")} · {mode.FramesPerSecond}";
 			bool canSwitch = mode.UltraHDAvailable && !recorder.IsRecording && !recorder.IsSaving;
-			size.EnableInClassList("camera-mode-quality--switchable", canSwitch);
+			size.EnableInClassList("camera-mode-chip--switchable", canSwitch);
 			size.EnableInClassList("chip--unknown", !canSwitch);
+
+			bool microphoneBlocked = mode.RecordMicrophone && !VideoRecorder.MicrophoneAllowed;
+			microphone.text = Anaglyph.MenuCopy.Get(Table, !mode.RecordMicrophone ? "camera.mic.off" : microphoneBlocked ? "camera.mic.denied" : "camera.mic.on");
+			bool canSwitchMicrophone = !recorder.IsRecording && !recorder.IsSaving;
+			microphone.EnableInClassList("camera-mode-chip--switchable", canSwitchMicrophone && !microphoneBlocked);
+			microphone.EnableInClassList("chip--low", microphoneBlocked);
+			microphone.EnableInClassList("chip--unknown", !canSwitchMicrophone && !microphoneBlocked);
 
 			message.style.display = Time.unscaledTime < messageUntil ? DisplayStyle.Flex : DisplayStyle.None;
 

@@ -136,6 +136,33 @@ Shader "Anaglyph/HandheldCameraBackground"
             }
             ENDHLSL
         }
+
+        // makes a finished frame opaque, for a texture that is shown or saved with its alpha
+        Pass
+        {
+            Name "OpaqueAlpha"
+            Cull Off
+            ZTest Always
+            ZWrite Off
+            ColorMask A
+
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment Frag
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+
+            float4 Vert(uint vertexID : SV_VertexID) : SV_POSITION
+            {
+                return GetFullScreenTriangleVertexPosition(vertexID);
+            }
+
+            half4 Frag() : SV_Target
+            {
+                return 1;
+            }
+            ENDHLSL
+        }
     }
 
     FallBack Off

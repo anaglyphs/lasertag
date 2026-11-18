@@ -8,9 +8,10 @@ using UnityEngine.Rendering;
 namespace Anaglyph.Recording
 {
 	/// <summary>
-	/// Records a render texture and what an AudioListener hears into a video file in the device's
-	/// photo library. The file has the texture's size; frames are taken at a steady rate however
-	/// fast the game draws.
+	/// Records a render texture, what an AudioListener hears and, if allowed, the microphone into a
+	/// video file in the device's photo library. The game and the microphone are separate audio
+	/// tracks. The file has the texture's size; frames are taken at a steady rate however fast the
+	/// game draws.
 	/// </summary>
 	public sealed class VideoRecorder : MonoBehaviour
 	{
@@ -31,7 +32,12 @@ namespace Anaglyph.Recording
 #endif
 		}
 
+		/// <summary>Asks, the first time, for leave to record the microphone into videos.</summary>
+		public static void RequestMicrophoneAccess() => MicrophoneTap.RequestAccess();
+		public static bool MicrophoneAllowed => MicrophoneTap.IsAllowed;
+
 		public bool IsRecording { get; private set; }
+		public bool IsRecordingMicrophone => IsRecording && microphone != null;
 		public bool IsSaving { get; private set; }
 		public double RecordedSeconds => IsRecording ? clock.Elapsed.TotalSeconds : 0;
 
@@ -42,6 +48,9 @@ namespace Anaglyph.Recording
 		private IVideoEncoder encoder;
 		private RenderTexture source;
 		private AudioListenerTap tap;
+		private MicrophoneTap microphone;
+		private double microphoneStartSeconds;
+		private long microphoneFramesWritten;
 		private NativeArray<float> audioScratch;
 		private double frameInterval, nextFrameAt;
 		private long audioSamplesWritten;
@@ -49,7 +58,7 @@ namespace Anaglyph.Recording
 		private int framesBeingRead;
 		private int session;
 
-		public bool Begin(RenderTexture texture, int framesPerSecond, AudioListener listener)
+		public bool Begin(RenderTexture texture, int framesPerSecond, AudioListener listener, bool withMicrophone)
 		{
 			if (IsRecording || IsSaving || texture == null) return false;
 
@@ -60,11 +69,15 @@ namespace Anaglyph.Recording
 				return false;
 			}
 
+			// first, as starting the microphone can change how the device plays sound
+			microphone = withMicrophone ? MicrophoneTap.TryStart() : null;
 			audioSampleRate = AudioSettings.outputSampleRate;
 			audioChannels = ChannelCount(AudioSettings.speakerMode);
 			string path = Path.Combine(Application.temporaryCachePath, $"lasertag-{DateTime.Now:yyyyMMdd-HHmmss}.mp4");
-			if (!encoder.Begin(path, texture.width, texture.height, framesPerSecond, audioSampleRate, audioChannels))
+			if (!encoder.Begin(path, texture.width, texture.height, framesPerSecond, audioSampleRate, audioChannels,
+				    microphone?.SampleRate ?? 0, microphone?.Channels ?? 0))
 			{
+				StopMicrophone();
 				Finished.Invoke(false, encoder.Error);
 				return false;
 			}
@@ -73,6 +86,7 @@ namespace Anaglyph.Recording
 			frameInterval = 1.0 / framesPerSecond;
 			nextFrameAt = 0;
 			audioSamplesWritten = 0;
+			microphoneFramesWritten = 0;
 			framesBeingRead = 0;
 			session++;
 
@@ -98,6 +112,8 @@ namespace Anaglyph.Recording
 
 			AsyncGPUReadback.WaitAllRequests();
 			WriteHeardAudio();
+			WriteMicrophone();
+			StopMicrophone();
 			if (tap != null) Destroy(tap);
 			tap = null;
 			source = null;
@@ -136,6 +152,7 @@ namespace Anaglyph.Recording
 			if (IsRecording)
 			{
 				WriteHeardAudio();
+				WriteMicrophone();
 				if (encoder.State == VideoEncoderState.Failed) End();
 			}
 
@@ -149,8 +166,29 @@ namespace Anaglyph.Recording
 			if (tap == null) return;
 			int count = tap.Take(audioScratch);
 			if (count == 0) return;
-			encoder.AppendAudio(audioScratch, count, (double)audioSamplesWritten / audioSampleRate);
+			encoder.AppendAudio(AudioTrack.Game, audioScratch, count, (double)audioSamplesWritten / audioSampleRate);
 			audioSamplesWritten += count / audioChannels;
+		}
+
+		private void WriteMicrophone()
+		{
+			if (microphone == null) return;
+			int count = microphone.Take();
+			if (count == 0) return;
+
+			int frames = count / microphone.Channels;
+			// the microphone's own start lags the clock's; its first samples were heard just now
+			if (microphoneFramesWritten == 0)
+				microphoneStartSeconds = Math.Max(0, clock.Elapsed.TotalSeconds - (double)frames / microphone.SampleRate);
+			encoder.AppendAudio(AudioTrack.Microphone, microphone.Samples, count,
+				microphoneStartSeconds + (double)microphoneFramesWritten / microphone.SampleRate);
+			microphoneFramesWritten += frames;
+		}
+
+		private void StopMicrophone()
+		{
+			microphone?.Stop();
+			microphone = null;
 		}
 
 		// a recording left open when the app is put away would never be closed into a playable file
@@ -164,6 +202,7 @@ namespace Anaglyph.Recording
 		private void OnDestroy()
 		{
 			if (audioScratch.IsCreated) audioScratch.Dispose();
+			StopMicrophone();
 		}
 
 		private static int ChannelCount(AudioSpeakerMode mode) => mode switch

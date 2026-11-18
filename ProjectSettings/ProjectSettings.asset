@@ -93,7 +93,7 @@ PlayerSettings:
   callOnDisableOnAssetBundleUnload: 1
   muteOtherAudioSources: 0
   Prepare IOS For Recording: 0
-  Force IOS Speakers When Recording: 0
+  Force IOS Speakers When Recording: 1
   audioSpatialExperience: 0
   deferSystemGesturesMode: 0
   hideHomeButton: 0
@@ -508,7 +508,7 @@ PlayerSettings:
   enableCrashReportAPI: 0
   cameraUsageDescription: 
   locationUsageDescription: 
-  microphoneUsageDescription: Lasertag uses the microphone for voice input when microphone features are enabled.
+  microphoneUsageDescription: Lasertag records your voice into videos filmed in camera mode.
   bluetoothUsageDescription: 
   macOSTargetOSVersion: 12.0
   switchNMETAOverride: 

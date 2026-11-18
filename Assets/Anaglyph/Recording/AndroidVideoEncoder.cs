@@ -12,7 +12,7 @@ namespace Anaglyph.Recording
 
 		private readonly AndroidJavaObject encoder;
 		private readonly IntPtr appendVideo, appendAudio;
-		private readonly jvalue[] videoArguments = new jvalue[2], audioArguments = new jvalue[3];
+		private readonly jvalue[] videoArguments = new jvalue[2], audioArguments = new jvalue[4];
 		private NativeArray<short> samples16;
 
 		public AndroidVideoEncoder()
@@ -21,14 +21,15 @@ namespace Anaglyph.Recording
 			using AndroidJavaObject activity = player.GetStatic<AndroidJavaObject>("currentActivity");
 			encoder = new AndroidJavaObject("com.anaglyph.recording.VideoEncoder", activity);
 			appendVideo = AndroidJNIHelper.GetMethodID(encoder.GetRawClass(), "appendVideo", "(Ljava/nio/ByteBuffer;J)V");
-			appendAudio = AndroidJNIHelper.GetMethodID(encoder.GetRawClass(), "appendAudio", "(Ljava/nio/ByteBuffer;IJ)V");
+			appendAudio = AndroidJNIHelper.GetMethodID(encoder.GetRawClass(), "appendAudio", "(ILjava/nio/ByteBuffer;IJ)V");
 		}
 
 		public VideoEncoderState State => (VideoEncoderState)encoder.Call<int>("getState");
 		public string Error => encoder.Call<string>("getError");
 
-		public bool Begin(string filePath, int width, int height, int framesPerSecond, int audioSampleRate, int audioChannels) =>
-			encoder.Call<bool>("begin", filePath, width, height, framesPerSecond, audioSampleRate, audioChannels);
+		public bool Begin(string filePath, int width, int height, int framesPerSecond, int audioSampleRate, int audioChannels,
+			int microphoneSampleRate, int microphoneChannels) =>
+			encoder.Call<bool>("begin", filePath, width, height, framesPerSecond, audioSampleRate, audioChannels, microphoneSampleRate, microphoneChannels);
 
 		public void AppendVideo(NativeArray<byte> rgba, double seconds)
 		{
@@ -39,7 +40,7 @@ namespace Anaglyph.Recording
 			AndroidJNI.DeleteLocalRef(buffer);
 		}
 
-		public void AppendAudio(NativeArray<float> samples, int sampleCount, double seconds)
+		public void AppendAudio(AudioTrack track, NativeArray<float> samples, int sampleCount, double seconds)
 		{
 			if (samples16.Length < sampleCount)
 			{
@@ -51,9 +52,10 @@ namespace Anaglyph.Recording
 				samples16[i] = (short)(Mathf.Clamp(samples[i], -1, 1) * MaxSample);
 
 			IntPtr buffer = AndroidJNI.NewDirectByteBuffer(samples16.Reinterpret<byte>(sizeof(short)));
-			audioArguments[0].l = buffer;
-			audioArguments[1].i = sampleCount * sizeof(short);
-			audioArguments[2].j = Micros(seconds);
+			audioArguments[0].i = (int)track;
+			audioArguments[1].l = buffer;
+			audioArguments[2].i = sampleCount * sizeof(short);
+			audioArguments[3].j = Micros(seconds);
 			AndroidJNI.CallVoidMethod(encoder.GetRawObject(), appendAudio, audioArguments);
 			AndroidJNI.DeleteLocalRef(buffer);
 		}

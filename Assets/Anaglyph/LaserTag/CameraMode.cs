@@ -23,6 +23,7 @@ namespace Anaglyph.LaserTag
 		public enum VideoQuality { FullHD60, UltraHD30 }
 
 		private const string QualityPref = "CameraMode.Quality";
+		private const string MicrophonePref = "CameraMode.Microphone";
 		private const int FullHDLongSide = 1920, UltraHDLongSide = 3840;
 		private const float WideAspect = 16f / 9f;
 		private const int EditorLongSide = 1920;
@@ -34,6 +35,8 @@ namespace Anaglyph.LaserTag
 		public bool IsActive { get; private set; }
 
 		public VideoQuality Quality { get; private set; }
+		/// <summary>Whether videos get a microphone track, when the phone allows it.</summary>
+		public bool RecordMicrophone { get; private set; }
 		/// <summary>Whether this phone's AR runtime offers a camera image sharper than 1080p.</summary>
 		public bool UltraHDAvailable { get; private set; }
 		public int FramesPerSecond => Quality == VideoQuality.UltraHD30 ? 30 : 60;
@@ -58,6 +61,7 @@ namespace Anaglyph.LaserTag
 			Instance = this;
 			Recorder = gameObject.AddComponent<VideoRecorder>();
 			Quality = (VideoQuality)PlayerPrefs.GetInt(QualityPref, (int)VideoQuality.FullHD60);
+			RecordMicrophone = PlayerPrefs.GetInt(MicrophonePref, 1) == 1;
 		}
 
 		private void OnDestroy()
@@ -90,6 +94,16 @@ namespace Anaglyph.LaserTag
 			Changed.Invoke();
 		}
 
+		/// <summary>Kept for the next time the app runs. Ignored while recording.</summary>
+		public void SetRecordMicrophone(bool record)
+		{
+			if (RecordMicrophone == record || Recorder.IsRecording || Recorder.IsSaving) return;
+			RecordMicrophone = record;
+			PlayerPrefs.SetInt(MicrophonePref, record ? 1 : 0);
+			if (record) VideoRecorder.RequestMicrophoneAccess();
+			Changed.Invoke();
+		}
+
 		public void ToggleRecording()
 		{
 			if (!IsActive || Recorder.IsSaving) return;
@@ -100,7 +114,7 @@ namespace Anaglyph.LaserTag
 			}
 
 			if (View == null) return;
-			if (!Recorder.Begin(View, FramesPerSecond, FindAnyObjectByType<AudioListener>())) return;
+			if (!Recorder.Begin(View, FramesPerSecond, FindAnyObjectByType<AudioListener>(), RecordMicrophone)) return;
 			// the video keeps the shape it started with
 			Screen.orientation = Screen.orientation;
 			orientationHeld = true;
@@ -109,6 +123,7 @@ namespace Anaglyph.LaserTag
 		private void Enter()
 		{
 			VideoRecorder.RequestSaveAccess();
+			if (RecordMicrophone) VideoRecorder.RequestMicrophoneAccess();
 			gameCamera.TryGetComponent(out cameraManager);
 			gameCamera.TryGetComponent(out cameraBackground);
 			cameraImageSize = Vector2Int.zero;
