@@ -219,7 +219,13 @@ namespace Anaglyph.XR.VisualLocalization
 				const int outW = XFeatExtractor.Width, outH = XFeatExtractor.Height;
 				float scale = math.min((float)outW / width, (float)outH / height);
 				float x0 = (width - outW / scale) * 0.5f, y0 = (height - outH / scale) * 0.5f;
-				into.content = new float4(-x0 * scale, -y0 * scale, (width - x0) * scale, (height - y0) * scale);
+				float4 sensorContent = new(-x0 * scale, -y0 * scale, (width - x0) * scale, (height - y0) * scale);
+				PinholeCamera sensorIntrinsics = new(fx * scale, fy * scale, (cx - x0 + 0.5f) * scale - 0.5f, (cy - y0 + 0.5f) * scale - 0.5f);
+
+				// XFeat's descriptors aren't rotation-invariant: a phone held upright sees its scene
+				// a quarter turn off, so every frame is turned to keep gravity pointing down the image
+				Quaternion sensorRotation = head.rotation * lensPose.rotation;
+				int quarterTurns = QuarterTurnsToUpright(sensorRotation);
 
 				new ResampleJob
 				{
@@ -232,12 +238,15 @@ namespace Anaglyph.XR.VisualLocalization
 					x0 = x0,
 					y0 = y0,
 					scale = scale,
+					quarterTurns = quarterTurns,
 					dst = into.pixels,
 				}.Schedule(outH, 16).Complete();
 
-				into.intrinsics = new PinholeCamera(fx * scale, fy * scale, (cx - x0 + 0.5f) * scale - 0.5f, (cy - y0 + 0.5f) * scale - 0.5f);
+				into.content = TurnContent(sensorContent, quarterTurns);
+				into.intrinsics = TurnIntrinsics(sensorIntrinsics, quarterTurns);
 				into.timestampNs = timestampNs;
-				into.cameraInTrackingSpace = new Pose(head.position + head.rotation * lensPose.position, head.rotation * lensPose.rotation);
+				into.cameraInTrackingSpace = new Pose(head.position + head.rotation * lensPose.position,
+					sensorRotation * Quaternion.AngleAxis(90 * quarterTurns, Vector3.forward));
 
 				Transform space = MainXRRig.TrackingSpace;
 				into.trackingSpace = new Pose(space.position, space.rotation);
@@ -249,6 +258,42 @@ namespace Anaglyph.XR.VisualLocalization
 			{
 				if (gotImage) image.Dispose();
 			}
+		}
+
+		// a turn of 90° about the view axis takes the camera's right to its up (Unity's z rotation),
+		// so the turned camera's up is, per turn: up, -right, -up, right
+		private static int QuarterTurnsToUpright(Quaternion sensorInTrackingSpace)
+		{
+			float upAlongGravity = (sensorInTrackingSpace * Vector3.up).y;
+			float rightAlongGravity = (sensorInTrackingSpace * Vector3.right).y;
+			if (math.abs(upAlongGravity) >= math.abs(rightAlongGravity)) return upAlongGravity >= 0 ? 0 : 2;
+			return rightAlongGravity >= 0 ? 3 : 1;
+		}
+
+		// output pixel (x, y) of the turned image samples sensor-oriented pixel (u, v):
+		// one turn: x = N-1-v, y = u
+		private static PinholeCamera TurnIntrinsics(PinholeCamera c, int quarterTurns)
+		{
+			const float last = XFeatExtractor.Width - 1;
+			return quarterTurns switch
+			{
+				1 => new PinholeCamera(c.fy, c.fx, last - c.cy, c.cx),
+				2 => new PinholeCamera(c.fx, c.fy, last - c.cx, last - c.cy),
+				3 => new PinholeCamera(c.fy, c.fx, c.cy, last - c.cx),
+				_ => c,
+			};
+		}
+
+		private static float4 TurnContent(float4 c, int quarterTurns)
+		{
+			const float size = XFeatExtractor.Width;
+			return quarterTurns switch
+			{
+				1 => new float4(size - c.w, c.x, size - c.y, c.z),
+				2 => new float4(size - c.z, size - c.w, size - c.x, size - c.y),
+				3 => new float4(c.y, size - c.z, c.w, size - c.x),
+				_ => c,
+			};
 		}
 
 		// the luma plane itself for the sensor's YUV, valid until the image is disposed; the
@@ -308,17 +353,25 @@ namespace Anaglyph.XR.VisualLocalization
 			public int srcStride, srcOffsetX, srcOffsetY, srcWidth, srcHeight;
 			public float x0, y0;
 			public float scale;
+			public int quarterTurns;
 			[WriteOnly, NativeDisableParallelForRestriction] public NativeArray<float> dst;
 
 			public void Execute(int y)
 			{
-				const int w = XFeatExtractor.Width;
-				float sy = math.clamp((y + 0.5f) / scale - 0.5f + y0, 0, srcHeight - 1);
-				int iy = math.min((int)sy, srcHeight - 2);
-				float fy = sy - iy;
+				const int w = XFeatExtractor.Width, last = w - 1;
 				for (int x = 0; x < w; x++)
 				{
-					float sx = math.clamp((x + 0.5f) / scale - 0.5f + x0, 0, srcWidth - 1);
+					int2 sensorPixel = quarterTurns switch
+					{
+						1 => new int2(y, last - x),
+						2 => new int2(last - x, last - y),
+						3 => new int2(last - y, x),
+						_ => new int2(x, y),
+					};
+					float sy = math.clamp((sensorPixel.y + 0.5f) / scale - 0.5f + y0, 0, srcHeight - 1);
+					int iy = math.min((int)sy, srcHeight - 2);
+					float fy = sy - iy;
+					float sx = math.clamp((sensorPixel.x + 0.5f) / scale - 0.5f + x0, 0, srcWidth - 1);
 					int ix = math.min((int)sx, srcWidth - 2);
 					float fx = sx - ix;
 					int i = (iy + srcOffsetY) * srcStride + srcOffsetX + ix;
