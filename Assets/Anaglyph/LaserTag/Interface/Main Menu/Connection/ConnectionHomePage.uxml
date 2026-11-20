@@ -14,20 +14,25 @@
                 <UnityEngine.Localization.LocalizedString property="text" table="ConnectionMenu" entry="ConnectionHomePage.manual-connect-button.text"/>
             </Bindings>
         </Anaglyph.Menu.NavButton>
+        <ui:VisualElement class="host-mode-cards">
+            <ui:Button name="host-mode-direct" class="host-mode-card">
+                <ui:Label picking-mode="Ignore" class="host-mode-card__name"/>
+                <ui:Label picking-mode="Ignore" class="host-mode-card__status"/>
+            </ui:Button>
+            <ui:Button name="host-mode-lan" class="host-mode-card">
+                <ui:Label picking-mode="Ignore" class="host-mode-card__name"/>
+                <ui:Label picking-mode="Ignore" class="host-mode-card__status"/>
+            </ui:Button>
+            <ui:Button name="host-mode-relay" class="host-mode-card">
+                <ui:Label picking-mode="Ignore" class="host-mode-card__name"/>
+                <ui:Label picking-mode="Ignore" class="host-mode-card__status"/>
+            </ui:Button>
+        </ui:VisualElement>
+        <ui:Label name="host-mode-about" class="host-mode-about"/>
         <ui:Button name="host-button">
             <Bindings>
                 <UnityEngine.Localization.LocalizedString property="text" table="ConnectionMenu" entry="ConnectionHomePage.host-button.text"/>
             </Bindings>
         </ui:Button>
-        <ui:Toggle name="host-on-relay-toggle">
-            <Bindings>
-                <UnityEngine.Localization.LocalizedString property="text" table="ConnectionMenu" entry="ConnectionHomePage.host-on-relay-toggle.text"/>
-            </Bindings>
-        </ui:Toggle>
-        <ui:Label name="host-on-relay-warning" class="warning" style="display: none;">
-            <Bindings>
-                <UnityEngine.Localization.LocalizedString property="text" table="ConnectionMenu" entry="ConnectionHomePage.host-on-relay-warning.text"/>
-            </Bindings>
-        </ui:Label>
     </ui:VisualElement>
 </ui:UXML>

@@ -1,15 +1,12 @@
-using System;
 using UnityEngine;
 
 namespace Anaglyph.Netcode
 {
-	[Flags]
 	public enum NetworkState
 	{
-		NoConnection = 0,
-		ConnectionLAN = 1,
-		FullInternetFlag = 2,
-		ConnectionFullInternet = 3
+		NoConnection,
+		LocalNetworkOnly,
+		FullInternet
 	}
 
 	public static class NetworkConnectivityTest
@@ -18,7 +15,7 @@ namespace Anaglyph.Netcode
 
 		/// Set from the Lasertag Simulation Settings window.
 		public static NetworkState SimulatedNetworkState { get; set; } =
-			NetworkState.ConnectionFullInternet;
+			NetworkState.FullInternet;
 
 #endif
 
@@ -56,13 +53,13 @@ namespace Anaglyph.Netcode
             "hasCapability", NET_CAPABILITY_VALIDATED);
 
         return internetConfigured && internetValidated
-            ? NetworkState.ConnectionFullInternet
-            : NetworkState.ConnectionLAN;
+            ? NetworkState.FullInternet
+            : NetworkState.LocalNetworkOnly;
 #else
 			// iOS and desktops can't tell a validated internet connection from a local one
 			return Application.internetReachability == NetworkReachability.NotReachable
 				? NetworkState.NoConnection
-				: NetworkState.ConnectionFullInternet;
+				: NetworkState.FullInternet;
 #endif
 		}
 	}

@@ -22,7 +22,7 @@ namespace Anaglyph.LaserTag.Interface
 
 		private static NetworkManager Manager => NetworkManager.Singleton;
 
-		[SerializeField] private BoolObject hostOnRelaySetting;
+		[SerializeField] private IntObject hostModeSetting;
 
 		private NavView navView;
 		private VisualElement multiplayerPanel;
@@ -34,8 +34,8 @@ namespace Anaglyph.LaserTag.Interface
 		private UIToolkitPanelXRSetup panel;
 		private SessionDiscoveryController sessionDiscoveryController;
 
-		private Toggle hostOnRelayToggle;
-		private Label hostOnRelayWarning;
+		private HostModePicker hostModePicker;
+		private bool directSupported;
 		private FlashingLabel sessionDiscoveryStatus;
 		private string shownDiscoveryKey;
 
@@ -77,10 +77,7 @@ namespace Anaglyph.LaserTag.Interface
 
 			bindings.Click(Require<Button>(root, "host-button"), Host);
 
-			hostOnRelayToggle = Require<Toggle>(root, "host-on-relay-toggle");
-			hostOnRelayWarning = Require<Label>(root, "host-on-relay-warning");
-
-			bindings.Value(hostOnRelayToggle, change => hostOnRelaySetting.Value = change.newValue);
+			hostModePicker = new HostModePicker(root, bindings, hostModeSetting, directSupported);
 
 			useRelayToggle = Require<Toggle>(root, "use-relay-toggle");
 			ipFieldRow = Require<VisualElement>(root, "ip-field-row");
@@ -124,6 +121,7 @@ namespace Anaglyph.LaserTag.Interface
 		private void Awake()
 		{
 			errors = new MenuErrorPresenter(MenuErrorArea.Connection);
+			directSupported = NetcodeManagement.DirectSupported;
 			sessionDiscoveryController =
 				GetComponentInParent<SessionDiscoveryController>();
 			if (sessionDiscoveryController == null)
@@ -151,13 +149,13 @@ namespace Anaglyph.LaserTag.Interface
 
 			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
 			ColocationManager.LocalizedChanged += OnLocalizedChanged;
-			hostOnRelaySetting.Changed += OnHostOnRelaySettingChange;
+			hostModeSetting.Changed += OnHostModeSettingChanged;
 			RefreshSessionConnectionState();
 
-			OnHostOnRelaySettingChange(hostOnRelaySetting.Value);
+			RefreshHostModes();
 			OnNetcodeStateChanged(NetcodeManagement.State);
 			connectivity.LanConnectionChanged += OnLanConnectionChanged;
-			connectivity.InternetConnectionChanged += UpdateInternetWarnings;
+			connectivity.InternetConnectionChanged += RefreshHostModes;
 			connectivity.BluetoothEnabledChanged += OnBluetoothEnabledChanged;
 			connectivity.Start();
 
@@ -173,13 +171,13 @@ namespace Anaglyph.LaserTag.Interface
 
 			connectivity.Stop();
 			connectivity.LanConnectionChanged -= OnLanConnectionChanged;
-			connectivity.InternetConnectionChanged -= UpdateInternetWarnings;
+			connectivity.InternetConnectionChanged -= RefreshHostModes;
 			connectivity.BluetoothEnabledChanged -= OnBluetoothEnabledChanged;
 			bindings.Dispose();
 
 			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
 			ColocationManager.LocalizedChanged -= OnLocalizedChanged;
-			hostOnRelaySetting.Changed -= OnHostOnRelaySettingChange;
+			hostModeSetting.Changed -= OnHostModeSettingChanged;
 			if (panel != null)
 				panel.VisibleChanged -= OnPanelVisibilityChanged;
 			sessionDiscoveryController?.SetMenuAllowsListening(true);
@@ -195,6 +193,7 @@ namespace Anaglyph.LaserTag.Interface
 		{
 			shownDiscoveryKey = null;
 			OnNetcodeStateChanged(NetcodeManagement.State);
+			RefreshHostModes();
 		}
 
 		private void Update()
@@ -212,10 +211,12 @@ namespace Anaglyph.LaserTag.Interface
 			sessionDiscoveryStatus.text = MenuCopy.Get("ConnectionMenu", key);
 		}
 
-		private void OnHostOnRelaySettingChange(bool value)
+		private void OnHostModeSettingChanged(int _) => RefreshHostModes();
+
+		private void RefreshHostModes()
 		{
-			hostOnRelayToggle.SetValueWithoutNotify(value);
-			UpdateInternetWarnings();
+			bool bluetoothOn = !connectivity.HasBluetoothState || connectivity.BluetoothIsEnabled;
+			hostModePicker?.Refresh(connectivity.HasLocalNetwork, connectivity.HasFullInternet, bluetoothOn);
 		}
 
 		private void UpdateManualConnectionFields(bool usingRelay)
@@ -253,7 +254,7 @@ namespace Anaglyph.LaserTag.Interface
 		private void RefreshSessionConnectionState()
 		{
 			sessionDiscoveryController?.SetMenuAllowsListening(
-				AutomaticDiscoveryAllowed());
+				AutomaticDiscoveryAllowed(), directSupported && !connectivity.HasLocalNetwork);
 			if (sessionDiscoveryStatus != null)
 				sessionDiscoveryStatus.Flashing = isActiveAndEnabled &&
 					panel != null && panel.IsVisible && navView?.CurrentPage == homePage;
@@ -336,31 +337,22 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void Host()
 		{
-			NetcodeManagement.Protocol protocol = hostOnRelaySetting.Value
-				? NetcodeManagement.Protocol.UnityService
-				: NetcodeManagement.Protocol.LAN;
-			NetcodeManagement.Host(protocol);
+			if (hostModePicker.SelectedMode is { } mode)
+				NetcodeManagement.Host(mode);
 		}
 
 		private void OnLanConnectionChanged(bool isConnected)
 		{
-			navView.SetModalPresented(networkErrorModal, !isConnected, 100);
+			// with direct hosting the mode cards explain a missing network instead
+			navView.SetModalPresented(networkErrorModal, !isConnected && !directSupported, 100);
+			RefreshSessionConnectionState();
+			RefreshHostModes();
 		}
 
 		private void OnBluetoothEnabledChanged(bool isEnabled)
 		{
 			navView.SetModalPresented(bluetoothErrorModal, !isEnabled, 100);
-		}
-
-		private void UpdateInternetWarnings()
-		{
-			if (hostOnRelayWarning == null)
-				return;
-
-			hostOnRelayWarning.style.display =
-				hostOnRelaySetting.Value && !connectivity.HasFullInternet
-					? DisplayStyle.Flex
-					: DisplayStyle.None;
+			RefreshHostModes();
 		}
 
 		private static void Disconnect()

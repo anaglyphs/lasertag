@@ -64,7 +64,7 @@ namespace Anaglyph.Netcode
 				listener.Client.Bind(new IPEndPoint(IPAddress.Any, Port));
 				listener.JoinMulticastGroup(Group);
 
-				SessionDiscovery.Receiving = true;
+				SessionDiscovery.SetReceiving(this, true);
 				Debug.Log($"[{nameof(MulticastSessionDiscovery)}] listening on {Group}:{Port}");
 			}
 			catch (Exception e) when (e is SocketException or ObjectDisposedException)
@@ -98,7 +98,7 @@ namespace Anaglyph.Netcode
 
 		private void StopListening()
 		{
-			SessionDiscovery.Receiving = false;
+			SessionDiscovery.SetReceiving(this, false);
 			multicastLock?.Release();
 			if (listener == null) return;
 			listener.Close();

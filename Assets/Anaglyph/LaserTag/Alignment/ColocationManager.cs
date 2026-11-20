@@ -196,7 +196,7 @@ namespace Anaglyph.LaserTag
 			!applicationPaused && AppFocus.IsFocused && PlayerHeadsetStatus.HeadTrackingReady;
 
 		bool IInternetAccess.HasInternet =>
-			(NetworkConnectivityTest.GetNetworkState() & NetworkState.FullInternetFlag) != 0;
+			NetworkConnectivityTest.GetNetworkState() == NetworkState.FullInternet;
 
 		private void Awake()
 		{

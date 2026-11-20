@@ -19,14 +19,6 @@
     -unity-background-image-tint-color: var(--secondary, rgb(150, 150, 150));
 }
 
-.dominance-button.dominance-button--selected {
-    background-color: white;
-}
-
-.dominance-button.dominance-button--selected:hover {
-	background-color: white;
-}
-
 .dominance-button--eye {
     background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/eye.svg");
 }

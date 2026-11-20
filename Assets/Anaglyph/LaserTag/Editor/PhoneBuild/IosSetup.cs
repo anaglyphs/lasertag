@@ -16,7 +16,7 @@ namespace Anaglyph.LaserTag.Editor
 {
 	/// <summary>
 	/// Every iPhone build, however started: ARKit as iOS's XR runtime (without it the app starts
-	/// as the desktop operator), the usage text iOS shows when it asks for the local network, and,
+	/// as the desktop operator), the usage text iOS shows when it asks for the local network or Bluetooth, and,
 	/// once Apple has granted it to the team, the multicast entitlement session discovery needs.
 	/// </summary>
 	public class IosSetup : IPreprocessBuildWithReport, IPostprocessBuildWithReport
@@ -30,6 +30,7 @@ namespace Anaglyph.LaserTag.Editor
 		private const string EntitlementsPath = "Unity-iPhone/Lasertag.entitlements";
 		private const string CameraUsage = "Lasertag sees the room through the camera to line up players and map walls.";
 		private const string LocalNetworkUsage = "Lasertag finds and joins games with players on the same Wi-Fi.";
+		private const string BluetoothUsage = "Lasertag finds and joins games with players near you.";
 		private const string PhotoLibraryAddUsage = "Lasertag saves the videos you record in camera mode to your photo library.";
 		private const string OutputPath = "Builds/iOS";
 
@@ -162,6 +163,7 @@ namespace Anaglyph.LaserTag.Editor
 			PlistDocument plist = new();
 			plist.ReadFromFile(plistPath);
 			plist.root.SetString("NSLocalNetworkUsageDescription", LocalNetworkUsage);
+			plist.root.SetString("NSBluetoothAlwaysUsageDescription", BluetoothUsage);
 			plist.root.SetString("NSPhotoLibraryAddUsageDescription", PhotoLibraryAddUsage);
 			// only the system's standard encryption (HTTPS): exempt from export paperwork, so TestFlight asks nothing
 			plist.root.SetBoolean("ITSAppUsesNonExemptEncryption", false);
@@ -172,6 +174,7 @@ namespace Anaglyph.LaserTag.Editor
 			frameworkProject.ReadFromFile(frameworkProjectPath);
 			frameworkProject.AddFrameworkToProject(frameworkProject.GetUnityFrameworkTargetGuid(), "Photos.framework", false);
 			frameworkProject.AddFrameworkToProject(frameworkProject.GetUnityFrameworkTargetGuid(), "CoreHaptics.framework", false);
+			frameworkProject.AddFrameworkToProject(frameworkProject.GetUnityFrameworkTargetGuid(), "CoreBluetooth.framework", false);
 			frameworkProject.WriteToFile(frameworkProjectPath);
 			if (!MulticastEntitlementGranted) return;
 

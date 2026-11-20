@@ -111,18 +111,18 @@ namespace Anaglyph.LaserTag.Editor
 		public static readonly int[] Values =
 		{
 			(int)NetworkState.NoConnection,
-			(int)NetworkState.ConnectionLAN,
-			(int)NetworkState.ConnectionFullInternet
+			(int)NetworkState.LocalNetworkOnly,
+			(int)NetworkState.FullInternet
 		};
 
-		private const string Key = "Anaglyph.Lasertag.SimulatedNetworkState";
+		private const string Key = "Anaglyph.Lasertag.SimulatedConnectivity";
 
 		static SimulatedConnectivity() => Apply();
 
 		public static NetworkState State
 		{
 			get => (NetworkState)SessionState.GetInt(
-				Key, (int)NetworkState.ConnectionFullInternet);
+				Key, (int)NetworkState.FullInternet);
 			set
 			{
 				SessionState.SetInt(Key, (int)value);

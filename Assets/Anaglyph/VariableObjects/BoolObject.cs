@@ -3,7 +3,7 @@ using UnityEngine.Scripting.APIUpdating;
 
 namespace Anaglyph.VariableObjects
 {
-	[CreateAssetMenu(fileName = "Bool", menuName = "Variable Objects/Bool")]
+	[CreateAssetMenu(fileName = "Boolean", menuName = "Variable Objects/Boolean")]
 	[MovedFrom("VariableObjects.ScriptableBool")]
 	public class BoolObject : GenericVariableObject<bool>
 	{

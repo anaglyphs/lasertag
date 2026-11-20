@@ -211,7 +211,7 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void OnDominanceChanged()
 		{
-			const string selected = "dominance-button--selected";
+			const string selected = "option--selected";
 			dominantEyeLeftButton.EnableInClassList(selected, Dominance.Eye == Handedness.Left);
 			dominantEyeRightButton.EnableInClassList(selected, Dominance.Eye == Handedness.Right);
 			dominantHandLeftButton.EnableInClassList(selected, Dominance.Hand == Handedness.Left);

@@ -15,6 +15,7 @@ GameObject:
   - component: {fileID: 6413514653029965147}
   - component: {fileID: 8500694417332680183}
   - component: {fileID: 6530011707509666880}
+  - component: {fileID: 9205506002514383648}
   m_Layer: 0
   m_Name: Networking
   m_TagString: Untagged
@@ -189,3 +190,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.Weapons.SessionWeaponSwitcher
   database: {fileID: 11400000, guid: 045856440b73c4f949c5ba26590e2ee1, type: 2}
+--- !u!114 &9205506002514383648
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2459965662535751644}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31ec25bd6c83645d3a1e0219bebd8489, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Netcode::Anaglyph.Netcode.BluetoothSessionDiscovery

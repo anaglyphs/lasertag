@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Anaglyph.VariableObjects;
+using Anaglyph.WifiDirect;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using Unity.Services.Authentication;
@@ -45,7 +46,9 @@ namespace Anaglyph.Netcode
 		public enum Protocol
 		{
 			LAN,
-			UnityService
+			UnityService,
+			/// <summary>LAN play over a Wi-Fi Direct group the host creates, for places with no router.</summary>
+			Direct
 		}
 
 		public const float cooldownSeconds = 8;
@@ -91,6 +94,24 @@ namespace Anaglyph.Netcode
 		public static ISession CurrentSession { get; private set; }
 		public static string CurrentSessionName { get; private set; } = "";
 
+		public static bool DirectSupported => WifiDirectGroup.IsSupported;
+
+		/// <summary>
+		/// Names the Wi-Fi Direct group of the current direct session, and is all a nearby device needs to join it.
+		/// Empty outside a direct session. Hex digits: 3 bytes of network name, then 8 of passphrase.
+		/// </summary>
+		public static string DirectSessionToken { get; private set; } = "";
+
+		public const int DirectSessionTokenByteCount = DirectNetworkNameByteCount + DirectPassphraseByteCount;
+		private const int DirectNetworkNameByteCount = 3;
+		private const int DirectPassphraseByteCount = 8;
+		private const string DirectNetworkNamePrefix = "DIRECT-LT";
+		private const float DirectGroupCreateTimeoutSeconds = 15;
+		private const float DirectGroupJoinTimeoutSeconds = 30;
+		private const float MaxCountedFrameSeconds = 0.1f;
+
+		private static WifiDirectGroup directGroup;
+
 		// Written into the asset at build time, so every build of the game reports
 		// the same version no matter which rig or menu is running.
 		private const string buildNumberResourceName = "BuildNumber";
@@ -131,6 +152,12 @@ namespace Anaglyph.Netcode
 			CurrentSession = null;
 			CurrentSessionName = "";
 			isAttemptingConnection = false;
+
+			directGroup?.Dispose();
+			directGroup = null;
+			DirectSessionToken = "";
+			Application.quitting -= LeaveDirectGroup;
+			Application.quitting += LeaveDirectGroup;
 		}
 
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -145,6 +172,8 @@ namespace Anaglyph.Netcode
 
 			if (manager.ConnectionApprovalCallback == null)
 				manager.ConnectionApprovalCallback = ApproveJoiningClient;
+
+			if (DirectSupported) directGroup = new WifiDirectGroup();
 		}
 
 		private static void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
@@ -162,6 +191,7 @@ namespace Anaglyph.Netcode
 			bool failedToJoin = isAttemptingConnection;
 			isAttemptingConnection = false;
 
+			LeaveDirectGroup();
 			State = NetcodeState.Disconnected;
 
 			if (failedToJoin)
@@ -243,9 +273,7 @@ namespace Anaglyph.Netcode
 			switch (protocol)
 			{
 				case Protocol.LAN:
-					SetNetworkTransportType(Protocol.LAN);
-					manager.NetworkConfig.UseCMBService = false;
-					ConfigureConnectionApproval(true);
+					UseLanTransport();
 					transport.SetConnectionData(GetLocalIPv4(), port, DefaultIP);
 					manager.StartHost();
 					break;
@@ -253,16 +281,95 @@ namespace Anaglyph.Netcode
 				case Protocol.UnityService:
 					ConnectUnityServices(DateTime.Now.ToString("HHmmssffff"));
 					break;
+
+				case Protocol.Direct:
+					byte[] token = new byte[DirectSessionTokenByteCount];
+					System.Security.Cryptography.RandomNumberGenerator.Fill(token);
+					await StartDirectSession(BitConverter.ToString(token).Replace("-", "").ToLowerInvariant(), true);
+					break;
 			}
+		}
+
+		/// <summary>Joins the direct session a nearby host announced as <paramref name="sessionToken"/>.</summary>
+		public static async void ConnectDirect(string sessionToken) => await StartDirectSession(sessionToken, false);
+
+		private static async Task StartDirectSession(string sessionToken, bool asHost)
+		{
+			if (State != NetcodeState.Disconnected || !DirectSupported)
+				return;
+
+			int hexDigitsInName = DirectNetworkNameByteCount * 2;
+			if (sessionToken.Length != DirectSessionTokenByteCount * 2 || !Uri.IsHexDigit(sessionToken[0]))
+			{
+				Log($"Malformed direct session token {sessionToken}", LogType.Warning);
+				return;
+			}
+
+			string networkName = DirectNetworkNamePrefix + sessionToken.Substring(0, hexDigitsInName);
+			string passphrase = sessionToken.Substring(hexDigitsInName);
+
+			CancellationToken ct = PrepareNextTask();
+			UseLanTransport();
+			DirectSessionToken = sessionToken;
+			State = NetcodeState.Connecting;
+			isAttemptingConnection = true;
+
+			try
+			{
+				directGroup ??= new WifiDirectGroup();
+				if (asHost) directGroup.Create(networkName, passphrase);
+				else directGroup.Join(networkName, passphrase);
+
+				// counted in frames shown, so time spent answering the permission prompt doesn't use it up
+				float secondsLeft = asHost ? DirectGroupCreateTimeoutSeconds : DirectGroupJoinTimeoutSeconds;
+				while (directGroup.State == WifiDirectGroupState.Forming && secondsLeft > 0)
+				{
+					await Awaitable.NextFrameAsync(ct);
+					secondsLeft -= Mathf.Min(Time.unscaledDeltaTime, MaxCountedFrameSeconds);
+				}
+
+				if (directGroup.State != WifiDirectGroupState.Ready)
+					throw new Exception($"Wi-Fi Direct group {networkName} ended {directGroup.State}");
+
+				if (asHost)
+				{
+					transport.SetConnectionData(directGroup.OwnerAddress, port, DefaultIP);
+					manager.StartHost();
+				}
+				else
+				{
+					transport.SetConnectionData(directGroup.OwnerAddress, port);
+					manager.StartClient();
+				}
+			}
+			catch (OperationCanceledException)
+			{
+				// whoever cancelled (Disconnect, a new attempt, app exit) owns the state now
+				LeaveDirectGroup();
+			}
+			catch (Exception e)
+			{
+				Debug.LogException(e);
+				EndAttempt();
+			}
+		}
+
+		private static void LeaveDirectGroup()
+		{
+			DirectSessionToken = "";
+			directGroup?.Leave();
+		}
+
+		private static void UseLanTransport()
+		{
+			SetNetworkTransportType(Protocol.LAN);
+			manager.NetworkConfig.UseCMBService = false;
+			ConfigureConnectionApproval(true);
 		}
 
 		public static void ConnectLAN(string ip)
 		{
-			SetNetworkTransportType(Protocol.LAN);
-
-			manager.NetworkConfig.UseCMBService = false;
-
-			ConfigureConnectionApproval(true);
+			UseLanTransport();
 
 			transport.SetConnectionData(ip, port);
 
@@ -383,6 +490,7 @@ namespace Anaglyph.Netcode
 			taskCanceller?.Cancel();
 
 			isAttemptingConnection = false;
+			LeaveDirectGroup();
 			State = NetcodeState.Disconnected;
 
 			try

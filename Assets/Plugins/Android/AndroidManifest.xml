@@ -23,6 +23,11 @@
     <uses-permission android:name="horizonos.permission.HEADSET_CAMERA"/>
     <uses-permission android:name="com.oculus.permission.PASSTHROUGH_CAMERA"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation"/>
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" android:usesPermissionFlags="neverForLocation"/>
 
     <!-- Remove unnecessary permissions -->
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" tools:node="remove"/>
@@ -68,5 +73,6 @@
 
             <meta-data android:name="com.oculus.vr.focusaware" android:value="true"/>
         </activity>
+        <service android:name="com.anaglyph.wifidirect.WifiDirectGroupTaskWatch" android:exported="false" android:stopWithTask="false"/>
     </application>
 </manifest>

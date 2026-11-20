@@ -361,6 +361,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Anaglyph.XR.UILayers::Anaglyph.XR.UILayers.UnderlaidUIDocument
   mirroredUnityLayerName: Composited UI
   holeShader: {fileID: 4800000, guid: cc6c2b055b7994b2b9c453deafc926a3, type: 3}
+  mirrorCameraRendererIndex: 1
   panelPixelsPerUnit: 100
   textureScale: 1.5
 --- !u!1 &6903953378024613189
@@ -566,7 +567,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ab2bf6706c2697d439952557fc0356ba, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.MultiplayerMenu
-  hostOnRelaySetting: {fileID: 11400000, guid: 8256b37a220cf5d4aa386e985d532dcb, type: 2}
+  hostModeSetting: {fileID: 11400000, guid: 0394c720034ad46a6abf534edd5ff42b, type: 2}
 --- !u!114 &3331094286005255259
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -581,6 +582,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Anaglyph.XR.UILayers::Anaglyph.XR.UILayers.UnderlaidUIDocument
   mirroredUnityLayerName: Composited UI
   holeShader: {fileID: 4800000, guid: cc6c2b055b7994b2b9c453deafc926a3, type: 3}
+  mirrorCameraRendererIndex: 1
   panelPixelsPerUnit: 100
   textureScale: 1.5
 --- !u!1 &7831272810532019032
@@ -815,6 +817,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Anaglyph.XR.UILayers::Anaglyph.XR.UILayers.UnderlaidUIDocument
   mirroredUnityLayerName: Composited UI
   holeShader: {fileID: 4800000, guid: cc6c2b055b7994b2b9c453deafc926a3, type: 3}
+  mirrorCameraRendererIndex: 1
   panelPixelsPerUnit: 100
   textureScale: 1.5
 --- !u!1 &8627892836725830402
@@ -1036,5 +1039,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Anaglyph.XR.UILayers::Anaglyph.XR.UILayers.UnderlaidUIDocument
   mirroredUnityLayerName: Composited UI
   holeShader: {fileID: 4800000, guid: cc6c2b055b7994b2b9c453deafc926a3, type: 3}
+  mirrorCameraRendererIndex: 1
   panelPixelsPerUnit: 100
   textureScale: 1.5

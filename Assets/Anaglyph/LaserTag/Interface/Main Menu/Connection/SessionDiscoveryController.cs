@@ -14,6 +14,7 @@ namespace Anaglyph.LaserTag
 
 		private bool requiredPermissionsGranted;
 		private bool menuAllowsListening = true;
+		private bool menuAllowsOnlyDirectSessions;
 		private bool recoveryMenuOpen;
 		private bool ownsPinnedAttempt;
 		private bool hasAttemptedPinnedConnection;
@@ -53,10 +54,11 @@ namespace Anaglyph.LaserTag
 			ApplyConnectionPolicy();
 		}
 
-		public void SetMenuAllowsListening(bool allowed)
+		public void SetMenuAllowsListening(bool allowed, bool onlyForDirectSessions = false)
 		{
-			if (menuAllowsListening == allowed) return;
+			if (menuAllowsListening == allowed && menuAllowsOnlyDirectSessions == onlyForDirectSessions) return;
 			menuAllowsListening = allowed;
+			menuAllowsOnlyDirectSessions = onlyForDirectSessions;
 			ApplyConnectionPolicy();
 		}
 
@@ -110,6 +112,7 @@ namespace Anaglyph.LaserTag
 				};
 			}
 
+			SessionDiscovery.JoinsOnlyDirectSessions = menuAllowsOnlyDirectSessions;
 			SessionDiscovery.SetActivity(activity);
 		}
 

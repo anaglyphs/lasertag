@@ -53,9 +53,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 221241345
-    m_Localized: "Host's app version: {0}; \nThis device's version: {1}. \nUpdate
-      the devices to support compatible builds, or install the host\u2019s exact
-      build on this headset."
+    m_Localized: "Host's app version: {0}; \nThis device's version: {1}. \nUpdate the devices to support compatible builds, or install the host\u2019s exact build on this headset."
     m_Metadata:
       m_Items:
       - rid: 533178702104363356
@@ -64,8 +62,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 221241347
-    m_Localized: Check that the host is hosting and the address is correct. Both
-      devices need compatible multiplayer versions.
+    m_Localized: Check that the host is hosting and the address is correct. Both devices need compatible multiplayer versions.
     m_Metadata:
       m_Items: []
   - m_Id: 221241348
@@ -73,8 +70,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 221241349
-    m_Localized: "Hosting or joining over the internet needs an internet connection.
-      Check this headset\u2019s Wi-Fi, or host over the local network."
+    m_Localized: "Hosting or joining over the internet needs an internet connection. Check this headset\u2019s Wi-Fi, or host over the local network."
     m_Metadata:
       m_Items: []
   - m_Id: 221241350
@@ -86,8 +82,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 221241352
-    m_Localized: Automatic connection requires bluetooth. You can still connect manually
-      without bluetooth if you want.
+    m_Localized: Automatic connection requires bluetooth. You can still connect manually without bluetooth if you want.
     m_Metadata:
       m_Items: []
   - m_Id: 221241353
@@ -114,12 +109,12 @@ MonoBehaviour:
     m_Localized: Host session
     m_Metadata:
       m_Items: []
-  - m_Id: 221241359
-    m_Localized: Host over the internet
+  - m_Id: 25851322312941569
+    m_Localized: This headset makes its own Wi-Fi for players nearby. No router or internet needed.
     m_Metadata:
       m_Items: []
-  - m_Id: 221241360
-    m_Localized: Relay hosting requires a full internet connection.
+  - m_Id: 25851322312941568
+    m_Localized: No router
     m_Metadata:
       m_Items: []
   - m_Id: 221241361
@@ -163,8 +158,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 221241371
-    m_Localized: Connect this headset to a local network before hosting or joining
-      a session.
+    m_Localized: Connect this headset to a local network before hosting or joining a session.
     m_Metadata:
       m_Items: []
   - m_Id: 221241372
@@ -181,6 +175,50 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 221241375
     m_Localized: Disconnect
+    m_Metadata:
+      m_Items: []
+  - m_Id: 25851322304552960
+    m_Localized: Direct
+    m_Metadata:
+      m_Items: []
+  - m_Id: 25851322312941570
+    m_Localized: Wi-Fi
+    m_Metadata:
+      m_Items: []
+  - m_Id: 25851322312941571
+    m_Localized: Same network
+    m_Metadata:
+      m_Items: []
+  - m_Id: 25851322312941572
+    m_Localized: Players on the same Wi-Fi network as this headset can join.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 25851322312941573
+    m_Localized: Online
+    m_Metadata:
+      m_Items: []
+  - m_Id: 25851322312941574
+    m_Localized: Via internet
+    m_Metadata:
+      m_Items: []
+  - m_Id: 25851322312941575
+    m_Localized: Players join through an internet server. Works on guest or venue Wi-Fi that blocks local play.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 25851322312941576
+    m_Localized: Bluetooth off
+    m_Metadata:
+      m_Items: []
+  - m_Id: 25851322312941577
+    m_Localized: No Wi-Fi
+    m_Metadata:
+      m_Items: []
+  - m_Id: 25851322312941578
+    m_Localized: No internet
+    m_Metadata:
+      m_Items: []
+  - m_Id: 25851322312941579
+    m_Localized: Turn on Wi-Fi or Bluetooth to host.
     m_Metadata:
       m_Items: []
   references:

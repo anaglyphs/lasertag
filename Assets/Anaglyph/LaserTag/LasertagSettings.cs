@@ -9,7 +9,6 @@ namespace Anaglyph.LaserTag
 	{
 		[SerializeField] private BoolObject damagedRedVision;
 		[SerializeField] private BoolObject lightEffects;
-		[SerializeField] private BoolObject relay;
 
 		private void Start()
 		{

@@ -12,11 +12,11 @@ namespace Anaglyph.LaserTag.Interface
 		public event Action InternetConnectionChanged = delegate { };
 		public event Action<bool> BluetoothEnabledChanged = delegate { };
 
+		public bool HasLocalNetwork { get; private set; }
 		public bool HasFullInternet { get; private set; }
 		public bool HasBluetoothState { get; private set; }
 		public bool BluetoothIsEnabled { get; private set; }
 
-		private NetworkState networkState;
 		private bool hasNetworkState;
 		private bool hasLoggedBluetoothCheckFailure;
 		private CancellationTokenSource pollCancellation;
@@ -55,19 +55,19 @@ namespace Anaglyph.LaserTag.Interface
 		private void CheckNetworkConnection()
 		{
 			NetworkState newState = NetworkConnectivityTest.GetNetworkState();
-			bool connectionChanged = !hasNetworkState ||
-				((newState ^ networkState) & NetworkState.ConnectionLAN) != 0;
-			bool internetChanged = !hasNetworkState ||
-				((newState ^ networkState) & NetworkState.FullInternetFlag) != 0;
+			bool hasLocalNetwork = newState >= NetworkState.LocalNetworkOnly;
+			bool hasFullInternet = newState == NetworkState.FullInternet;
+			bool connectionChanged = !hasNetworkState || hasLocalNetwork != HasLocalNetwork;
+			bool internetChanged = !hasNetworkState || hasFullInternet != HasFullInternet;
 
-			networkState = newState;
 			hasNetworkState = true;
-			HasFullInternet = (newState & NetworkState.FullInternetFlag) != 0;
+			HasLocalNetwork = hasLocalNetwork;
+			HasFullInternet = hasFullInternet;
 
 			// Notify only on transitions so dismissing a warning lasts until the
 			// corresponding device state changes, rather than the next poll.
 			if (connectionChanged)
-				LanConnectionChanged.Invoke((newState & NetworkState.ConnectionLAN) != 0);
+				LanConnectionChanged.Invoke(hasLocalNetwork);
 			if (internetChanged)
 				InternetConnectionChanged.Invoke();
 		}

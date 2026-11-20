@@ -257,6 +257,11 @@ RadioButton #unity-checkmark {
     background-color: var(--highlight, rgb(255, 255, 255));
 }
 
+.unity-button.option--selected,
+.unity-button.option--selected:hover {
+    background-color: white;
+}
+
 *.unity-button.destructive {
     --primary: rgb(255, 50, 50);
     --highlight: rgb(255, 150, 150);
@@ -362,6 +367,11 @@ TextField,
 .unity-label {
     margin: var(--spacing-small, 4px);
     padding: 0;
+}
+
+.touch-screen Toggle {
+    min-height: var(--control-min-height, 46px);
+    align-items: center;
 }
 
 .unity-toggle__text {
