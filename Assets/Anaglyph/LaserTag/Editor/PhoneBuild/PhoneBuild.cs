@@ -30,6 +30,9 @@ namespace Anaglyph.LaserTag.Editor
 		/// <summary>The phone's own manifest: no headset requirements, turning with the phone. Stands in for the Quest one while the phone builds.</summary>
 		public const string PhoneManifestPath = "Assets/Settings/Build Profiles/Android Phone/AndroidManifest.xml";
 
+		/// <summary>Exit code asking for a relaunch: the profile was just activated, so its defines aren't compiled in yet.</summary>
+		public const int ProfileActivatedExitCode = 2;
+
 		/// <summary>A phone build is under way, with its loader and manifest in place.</summary>
 		public static bool InProgress { get; private set; }
 
@@ -40,10 +43,25 @@ namespace Anaglyph.LaserTag.Editor
 			EditorUtility.DisplayDialog("Android phone build", Describe(report), "OK");
 		}
 
-		/// <summary>For <c>-executeMethod</c> in batch mode: exits 0 when the APK was built.</summary>
+		/// <summary>
+		/// For <c>-executeMethod</c> in batch mode, with optional <c>-buildOutputPath &lt;apk&gt;</c> and <c>-developmentBuild</c>.
+		/// Exits 0 when the APK was built, or <see cref="ProfileActivatedExitCode"/> when it activated the profile and needs a relaunch.
+		/// </summary>
 		public static void BuildFromCommandLine()
 		{
-			BuildReport report = Build();
+			if (BuildProfile.GetActiveBuildProfile() != EnsureProfile())
+			{
+				BuildProfile.SetActiveBuildProfile(EnsureProfile());
+				AssetDatabase.SaveAssets();
+				Debug.Log($"[{nameof(PhoneBuild)}] activated {ProfilePath}; relaunch to build with its defines");
+				EditorApplication.Exit(ProfileActivatedExitCode);
+				return;
+			}
+
+			string[] args = Environment.GetCommandLineArgs();
+			int outputIndex = Array.IndexOf(args, "-buildOutputPath");
+			string outputPath = outputIndex >= 0 && outputIndex + 1 < args.Length ? args[outputIndex + 1] : OutputPath;
+			BuildReport report = Build(outputPath, development: Array.IndexOf(args, "-developmentBuild") >= 0);
 			Debug.Log($"[{nameof(PhoneBuild)}] {Describe(report)}");
 			EditorApplication.Exit(report != null && report.summary.result == BuildResult.Succeeded ? 0 : 1);
 		}
@@ -52,7 +70,7 @@ namespace Anaglyph.LaserTag.Editor
 			? "not built: see the console"
 			: $"{report.summary.result}, {report.summary.totalErrors} errors, {report.summary.totalSize / 1e6:F0} MB at {report.summary.outputPath}";
 
-		public static BuildReport Build()
+		public static BuildReport Build(string outputPath = OutputPath, bool development = true)
 		{
 			BuildProfile profile = EnsureProfile();
 			EnsureCommandBufferSupport();
@@ -79,12 +97,12 @@ namespace Anaglyph.LaserTag.Editor
 					return null;
 				}
 
-				Directory.CreateDirectory(Path.GetDirectoryName(OutputPath)!);
+				Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath))!);
 				return BuildPipeline.BuildPlayer(new BuildPlayerWithProfileOptions
 				{
 					buildProfile = profile,
-					locationPathName = OutputPath,
-					options = BuildOptions.Development,
+					locationPathName = outputPath,
+					options = development ? BuildOptions.Development : BuildOptions.None,
 				});
 			}
 			finally

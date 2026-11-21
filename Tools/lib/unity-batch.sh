@@ -40,6 +40,7 @@ working_tree_snapshot() {
 }
 
 # run_profile_build <dir> <unity build target> <profile asset> <output path> <log> [ProfileBuild args...]
+# A profile with its own build code sets build_method for the call (same arguments and exit codes as ProfileBuild).
 run_profile_build() {
 	local dir="$1" build_target="$2" profile="$3" output="$4" log="$5"
 	shift 5
@@ -47,7 +48,7 @@ run_profile_build() {
 	for attempt in 1 2 3; do
 		unity_exit=0
 		"$unity_app/Contents/MacOS/Unity" -batchmode -projectPath "$dir" -buildTarget "$build_target" \
-			-executeMethod Anaglyph.Editor.ProfileBuild.BuildFromCommandLine \
+			-executeMethod "${build_method:-Anaglyph.Editor.ProfileBuild.BuildFromCommandLine}" \
 			-buildProfilePath "$profile" -buildOutputPath "$output" "$@" -logFile "$log" || unity_exit=$?
 		[ "$unity_exit" -eq 0 ] || [ "$attempt" -eq 3 ] && break
 		# 2: ProfileBuild switched to the profile and needs a relaunch to compile with its defines

@@ -53,6 +53,7 @@ namespace Anaglyph.LaserTag.Interface.HUD
 		private VisualElement tagRegistrationHUD;
 
 		private Label connectionLabel;
+		private Label alignmentOutcomeLabel;
 		private FlashingLabel respawnLabel;
 		private Label countdownLabel;
 		private FlashingLabel musterLabel;
@@ -90,6 +91,7 @@ namespace Anaglyph.LaserTag.Interface.HUD
 			tagRegistrationHUD = HUDElement.Require<VisualElement>(this, "tag-registration-hud");
 
 			connectionLabel = HUDElement.Require<Label>(this, "connection-label");
+			alignmentOutcomeLabel = HUDElement.Require<Label>(this, "alignment-outcome-label");
 			respawnLabel = HUDElement.Require<FlashingLabel>(this, "respawn-label");
 			countdownLabel = HUDElement.Require<Label>(this, "countdown-label");
 			musterLabel = HUDElement.Require<FlashingLabel>(this, "muster-label");
@@ -192,6 +194,7 @@ namespace Anaglyph.LaserTag.Interface.HUD
 				case Overlay.Connection:
 					SetText(connectionLabel, ref shownConnectionText,
 						GetBlockingConnectionText() ?? ReadyText);
+					RefreshAlignmentOutcome();
 					break;
 
 				case Overlay.Results:
@@ -281,6 +284,16 @@ namespace Anaglyph.LaserTag.Interface.HUD
 			respawnLabel.text = key == RespawnCountdownKey
 				? MenuCopy.Format("HUDMenu", key, tenths / 10f)
 				: MenuCopy.Get("HUDMenu", key);
+		}
+
+		// development builds only: a release build has no outcomes to show
+		private void RefreshAlignmentOutcome()
+		{
+			string outcome = Debug.isDebugBuild && GetBlockingConnectionText() == AligningText
+				? XR.SharedSpaces.VisualColocationConstraintProvider.Instance?.LastOutcome
+				: null;
+			HUDElement.SetDisplayed(alignmentOutcomeLabel, outcome != null);
+			if (outcome != null && alignmentOutcomeLabel.text != outcome) alignmentOutcomeLabel.text = outcome;
 		}
 
 		private static bool IsReady()

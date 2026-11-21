@@ -415,7 +415,9 @@ namespace Anaglyph.XR.SharedSpaces
 				case Phase.Searching:
 					// the authority's map, matched here once it has come
 					purpose = Purpose.Colocate;
-					return mapSync != null && mapSync.HasHostMap && localizer.Map.Count > 0;
+					if (mapSync != null && mapSync.HasHostMap && localizer.Map.Count > 0) return true;
+					NoteWaiting($"Colocate: waiting for the authority's map ({localizer.Map.Count} views here)");
+					return false;
 
 				case Phase.Relocalizing:
 					purpose = Purpose.Relocalize;
@@ -475,6 +477,17 @@ namespace Anaglyph.XR.SharedSpaces
 			loopClosure && !graphSettings.enabled && IsRunning && alignment.CurrentPhase == Phase.Aligned && Time.unscaledTime >= nextLoop &&
 			track.IsTracking && node != 0 && localizer.Map.Count > 0;
 
+		private const float WaitingNoteSeconds = 2f;
+		private float nextWaitingNote;
+
+		// why no query is being solved, at most every few seconds
+		private void NoteWaiting(string message)
+		{
+			if (Time.unscaledTime < nextWaitingNote) return;
+			nextWaitingNote = Time.unscaledTime + WaitingNoteSeconds;
+			log.Outcome(message);
+		}
+
 		// a query costs an extraction and LighterGlue runs: only when an old view is near to find
 		private bool OldViewNear(Vector3 camera, ulong node) =>
 			localizer.HasUntrustedKeyframeNear(camera, node, loopSearchDistance, LoopMinWalkDrift, lockRevisits);
@@ -502,6 +515,7 @@ namespace Anaglyph.XR.SharedSpaces
 					nextQuery = Time.unscaledTime + blurredRetry;
 					if (purpose == Purpose.Loop) nextLoop = Time.unscaledTime + blurredRetry;
 					if (purpose == Purpose.Check) nextCheck = Time.unscaledTime + blurredRetry;
+					if (purpose is Purpose.Colocate or Purpose.Relocalize) NoteWaiting($"{purpose}: no sharp frame to match");
 					return;
 				}
 

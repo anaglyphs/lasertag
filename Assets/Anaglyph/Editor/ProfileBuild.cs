@@ -94,6 +94,10 @@ namespace Anaglyph.Editor
 				case BuildTarget.iOS:
 					if (buildNumber.HasValue) PlayerSettings.iOS.buildNumber = buildNumber.Value.ToString();
 					break;
+				// desktop players have no build number of their own; BuildProcess stamps Android's into the game
+				case BuildTarget.StandaloneWindows64:
+					if (buildNumber.HasValue) PlayerSettings.Android.bundleVersionCode = buildNumber.Value;
+					break;
 				default:
 					if (buildNumber.HasValue) throw new NotSupportedException($"{nameof(ProfileBuild)} doesn't number {target} builds yet");
 					break;

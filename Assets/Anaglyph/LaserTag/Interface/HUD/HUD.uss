@@ -92,6 +92,14 @@
     -unity-text-align: middle-center;
 }
 
+/* development builds: the latest alignment attempt, under "Aligning" */
+.alignment-outcome-label {
+    font-size: 16px;
+    white-space: normal;
+    max-width: 100%;
+    -unity-text-align: middle-center;
+}
+
 /* messages wrap inside the HUD instead of running off its edges */
 .connection-label,
 .respawn-label,

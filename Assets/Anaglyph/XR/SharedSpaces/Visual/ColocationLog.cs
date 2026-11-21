@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using Anaglyph.XR.DepthKit.EnvScanning.Registration;
 using Anaglyph.XR.VisualLocalization;
@@ -7,12 +9,17 @@ using UnityEngine;
 
 namespace Anaglyph.XR.SharedSpaces
 {
-	/// <summary>What every recent localization attempt came to, for the console and <see cref="AlignmentDiagnosis"/>.</summary>
+	/// <summary>
+	/// What every recent localization attempt came to, for the console and <see cref="AlignmentDiagnosis"/>.
+	/// A development build on a device also keeps them in <see cref="FileName"/> under the persistent
+	/// data path, with the launch before it in <see cref="PreviousFileName"/>.
+	/// </summary>
 	public sealed class ColocationLog
 	{
 		private const int Length = 400;
+		public const string FileName = "alignment-outcomes.log", PreviousFileName = "alignment-outcomes.previous.log";
 
-		private readonly Object context;
+		private readonly UnityEngine.Object context;
 		private readonly string tag;
 		private readonly VisualLocalizer localizer;
 		private readonly Queue<string> outcomes = new();
@@ -20,11 +27,54 @@ namespace Anaglyph.XR.SharedSpaces
 		// the query an outcome is about, so the outcome lands on its frame too
 		private VisualQuery considering;
 
-		public ColocationLog(Object context, string tag, VisualLocalizer localizer)
+		// null when outcomes aren't kept in a file
+		private string filePath;
+		private bool cameraWritten;
+
+		public ColocationLog(UnityEngine.Object context, string tag, VisualLocalizer localizer)
 		{
 			this.context = context;
 			this.tag = tag;
 			this.localizer = localizer;
+			OpenFile();
+		}
+
+		[System.Diagnostics.Conditional("DEBUG")]
+		private void OpenFile()
+		{
+			if (Application.isEditor || !Debug.isDebugBuild) return;
+			try
+			{
+				filePath = Path.Combine(Application.persistentDataPath, FileName);
+				string previous = Path.Combine(Application.persistentDataPath, PreviousFileName);
+				if (File.Exists(filePath))
+				{
+					File.Delete(previous);
+					File.Move(filePath, previous);
+				}
+			}
+			catch (Exception e)
+			{
+				Debug.LogWarning($"{tag} outcomes won't be kept in a file: {e.Message}");
+				filePath = null;
+				return;
+			}
+
+			WriteToFile($"--- started {DateTime.Now:u}, build {Application.version}, {SystemInfo.deviceModel}, {SystemInfo.operatingSystem}");
+		}
+
+		private void WriteToFile(string line)
+		{
+			if (filePath == null) return;
+			try
+			{
+				File.AppendAllText(filePath, line + "\n");
+			}
+			catch (Exception e)
+			{
+				Debug.LogWarning($"{tag} outcomes are no longer kept in a file: {e.Message}");
+				filePath = null;
+			}
 		}
 
 		public string LastOutcome { get; private set; }
@@ -34,7 +84,13 @@ namespace Anaglyph.XR.SharedSpaces
 
 		/// <summary>The query the outcomes from here on are about.</summary>
 		[System.Diagnostics.Conditional("DEBUG")]
-		public void About(VisualQuery query) => considering = query;
+		public void About(VisualQuery query)
+		{
+			considering = query;
+			if (cameraWritten || query == null) return;
+			cameraWritten = true;
+			WriteToFile($"{Time.realtimeSinceStartup:F2} query camera {query.intrinsics}, {query.features?.Count ?? 0} features");
+		}
 
 		/// <summary>In development builds; a release build doesn't even build the message.</summary>
 		[System.Diagnostics.Conditional("DEBUG")]
@@ -42,7 +98,9 @@ namespace Anaglyph.XR.SharedSpaces
 		{
 			LastOutcome = message;
 			if (considering != null) localizer.Frames.Note(considering.frame, message);
-			outcomes.Enqueue($"{Time.realtimeSinceStartup:F2} {message}");
+			string stamped = $"{Time.realtimeSinceStartup:F2} {message}";
+			outcomes.Enqueue(stamped);
+			WriteToFile(stamped);
 			while (outcomes.Count > Length) outcomes.Dequeue();
 			// several a second while moving: no stack trace, which costs on device
 			Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, context, "{0} {1}", tag, message);

@@ -12,6 +12,7 @@
 #   security add-generic-password -a "$USER" -s lasertag-android-keystore -w      (keystore password)
 #   security add-generic-password -a "$USER" -s lasertag-android-keyalias -w      (only if the alias password differs)
 #   Xcode > Settings > Accounts: signed in to APPLE_TEAM_ID's team
+#   gh auth login                                                                 (GitHub releases)
 set -Eeuo pipefail
 trap 'echo "release: stopped unexpectedly at line $LINENO: $BASH_COMMAND" >&2' ERR
 

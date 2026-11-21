@@ -47,6 +47,7 @@
         </ui:VisualElement>
         <ui:VisualElement picking-mode="Ignore" name="connection-hud" class="hud-overlay" style="display: flex;">
             <ui:Label picking-mode="Ignore" name="connection-label"  class="connection-label din-expanded bold"/>
+            <ui:Label picking-mode="Ignore" name="alignment-outcome-label" class="alignment-outcome-label" style="display: none;"/>
         </ui:VisualElement>
         <ui:VisualElement picking-mode="Ignore" name="tag-registration-hud" class="hud-overlay" style="display: none;">
             <Anaglyph.Menu.FlashingLabel picking-mode="Ignore" name="tag-registration-label" class="connection-label din-expanded bold" flashing="true">
