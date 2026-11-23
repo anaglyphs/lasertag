@@ -93,7 +93,7 @@ namespace Anaglyph.LaserTag.Matches
 				teams = true,
 				spawnZombies = false,
 				respawnCondition = RespawnCondition.NextRound,
-				respawnSeconds = 5,
+				respawnSeconds = 3,
 				healthRegenPerSecond = 5,
 				damageMultiplier = 1,
 

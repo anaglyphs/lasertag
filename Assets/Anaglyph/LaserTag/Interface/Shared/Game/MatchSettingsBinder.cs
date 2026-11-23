@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Anaglyph.Menu;
 using Anaglyph.LaserTag.Matches;
 using UnityEngine;
@@ -13,14 +14,21 @@ namespace Anaglyph.LaserTag.Interface
 	/// </summary>
 	public sealed class MatchSettingsBinder : IDisposable
 	{
-		private readonly RadioButtonGroup winByRadio;
-		private readonly Slider roundTimeSlider;
-		private readonly SliderInt scoreTargetSlider;
-		private readonly Slider damageMultiplierSlider;
-		private readonly SliderInt roundsSlider;
-		private readonly Toggle infiniteRoundsToggle;
-		private readonly RadioButtonGroup respawnConditionRadio;
-		private readonly SliderInt respawnTimeSlider;
+		private const int EndTimedChoice = 0;
+		private const int EndScoreChoice = 1;
+
+		private static readonly float[] RoundMinuteChoices = { 1, 2, 3, 5, 7, 10 };
+		private static readonly float[] DamageMultiplierChoices = { 0.5f, 1f, 2f };
+		private static readonly List<RespawnCondition> RespawnChoices = new() { RespawnCondition.InBases, RespawnCondition.NextRound };
+		private const int MinScoreTarget = 1, MaxScoreTarget = 20;
+		private const int MinRounds = 1, MaxRounds = 5;
+
+		private readonly DetentField endField;
+		private readonly DetentField roundTimeField;
+		private readonly DetentField scoreTargetField;
+		private readonly DetentField roundsField;
+		private readonly DetentField damageField;
+		private readonly DetentField respawnField;
 		private readonly Toggle spawnZombiesToggle;
 
 		private readonly UIEventBindings bindings = new();
@@ -32,100 +40,100 @@ namespace Anaglyph.LaserTag.Interface
 
 		public MatchSettingsBinder(VisualElement root)
 		{
-			winByRadio = Require<RadioButtonGroup>(root, "win-by-radio");
-			roundTimeSlider = Require<Slider>(root, "round-time-slider");
-			scoreTargetSlider = Require<SliderInt>(root, "score-target-slider");
-			damageMultiplierSlider = Require<Slider>(root, "damage-multiplier-slider");
-			roundsSlider = Require<SliderInt>(root, "rounds-slider");
-			infiniteRoundsToggle = Require<Toggle>(root, "infinite-rounds-toggle");
-			respawnConditionRadio = Require<RadioButtonGroup>(root, "respawn-condition-radio");
-			respawnTimeSlider = Require<SliderInt>(root, "respawn-time-slider");
+			endField = Require<DetentField>(root, "end-field");
+			roundTimeField = Require<DetentField>(root, "round-time-field");
+			scoreTargetField = Require<DetentField>(root, "score-target-field");
+			roundsField = Require<DetentField>(root, "rounds-field");
+			damageField = Require<DetentField>(root, "damage-field");
+			respawnField = Require<DetentField>(root, "respawn-field");
 			spawnZombiesToggle = Require<Toggle>(root, "spawn-zombies-toggle");
 			StartButton = Require<Button>(root, "start-button");
 
-			Require<TextField>(roundTimeSlider, null).keyboardType = TouchScreenKeyboardType.DecimalPad;
-			Require<TextField>(damageMultiplierSlider, null).keyboardType = TouchScreenKeyboardType.DecimalPad;
-			Require<TextField>(scoreTargetSlider, null).keyboardType = TouchScreenKeyboardType.NumberPad;
-			Require<TextField>(roundsSlider, null).keyboardType = TouchScreenKeyboardType.NumberPad;
-			Require<TextField>(respawnTimeSlider, null).keyboardType = TouchScreenKeyboardType.NumberPad;
+			roundTimeField.SetSegmentWeights(MinutesAddedByEachChoice());
+			roundTimeField.FormatValue = choice => $"{(int)RoundMinuteChoices[ClampChoice(choice, RoundMinuteChoices.Length)]}:00";
+			scoreTargetField.TickCount = MaxScoreTarget - MinScoreTarget + 1;
+			scoreTargetField.FormatValue = choice => (choice + MinScoreTarget).ToString();
+			roundsField.SetSegmentWeights(EqualWeights(MaxRounds - MinRounds + 1));
+			roundsField.FormatValue = choice => (choice + MinRounds).ToString();
 
-			roundTimeSlider.SetValueWithoutNotify(matchSettings.roundTimeSeconds / 60f);
-			scoreTargetSlider.SetValueWithoutNotify(matchSettings.scoreTarget);
-			damageMultiplierSlider.SetValueWithoutNotify(matchSettings.damageMultiplier);
-			roundsSlider.SetValueWithoutNotify(matchSettings.GetNumRounds());
-			infiniteRoundsToggle.SetValueWithoutNotify(matchSettings.HasInfiniteRounds());
-			respawnTimeSlider.SetValueWithoutNotify(Mathf.RoundToInt(matchSettings.respawnSeconds));
+			// Winning by both time and score shows as score.
+			endField.SetValueWithoutNotify(matchSettings.CheckWinByScore() ? EndScoreChoice : EndTimedChoice);
+			roundTimeField.SetValueWithoutNotify(NearestChoice(RoundMinuteChoices, matchSettings.roundTimeSeconds / 60f));
+			scoreTargetField.SetValueWithoutNotify(Mathf.Clamp(matchSettings.scoreTarget, MinScoreTarget, MaxScoreTarget) - MinScoreTarget);
+			roundsField.SetValueWithoutNotify(Mathf.Clamp(matchSettings.GetNumRounds(), MinRounds, MaxRounds) - MinRounds);
+			damageField.SetValueWithoutNotify(NearestChoice(DamageMultiplierChoices, matchSettings.damageMultiplier));
+			// A timed respawn shows as at base.
+			respawnField.SetValueWithoutNotify(Mathf.Max(0, RespawnChoices.IndexOf(matchSettings.respawnCondition)));
 			spawnZombiesToggle.SetValueWithoutNotify(matchSettings.spawnZombies);
-			bool byScore = matchSettings.CheckWinByScore();
-			int winChoice = matchSettings.CheckWinByTimer() && byScore ? 2 : byScore ? 1 : 0;
-			winByRadio.SetValueWithoutNotify(winChoice);
-			respawnConditionRadio.SetValueWithoutNotify((int)matchSettings.respawnCondition);
-			roundsSlider.SetEnabled(!matchSettings.HasInfiniteRounds());
-			roundTimeSlider.SetEnabled(matchSettings.CheckWinByTimer());
-			scoreTargetSlider.SetEnabled(byScore);
 
-			bindings.Value(roundTimeSlider, change =>
-				matchSettings.roundTimeSeconds = MinutesToSeconds(change.newValue));
+			SetEnd(endField.value);
+			SetRoundMinutes(roundTimeField.value);
+			SetScoreTarget(scoreTargetField.value);
+			SetRounds(roundsField.value);
+			SetDamage(damageField.value);
+			SetRespawnCondition(respawnField.value);
 
-			bindings.Value(scoreTargetSlider, change =>
-				matchSettings.scoreTarget = (short)Mathf.Clamp(change.newValue, 1, short.MaxValue));
-
-			bindings.Value(damageMultiplierSlider, change =>
-				matchSettings.damageMultiplier = Mathf.Max(0f, change.newValue));
-
-			bindings.Value(roundsSlider, change => SetNumRounds());
-			bindings.Value(infiniteRoundsToggle, change => SetNumRounds());
-
-			bindings.Value(respawnTimeSlider, change =>
-				matchSettings.respawnSeconds = Mathf.Max(0, change.newValue));
-
-			bindings.Value(spawnZombiesToggle, change =>
-				matchSettings.spawnZombies = change.newValue);
-
-			bindings.Value(winByRadio, change => SetWinBy(change.newValue));
-
-			bindings.Value(respawnConditionRadio, change => SetRespawnCondition(change.newValue));
+			bindings.Value(endField, change => SetEnd(change.newValue));
+			bindings.Value(roundTimeField, change => SetRoundMinutes(change.newValue));
+			bindings.Value(scoreTargetField, change => SetScoreTarget(change.newValue));
+			bindings.Value(roundsField, change => SetRounds(change.newValue));
+			bindings.Value(damageField, change => SetDamage(change.newValue));
+			bindings.Value(respawnField, change => SetRespawnCondition(change.newValue));
+			bindings.Value(spawnZombiesToggle, change => matchSettings.spawnZombies = change.newValue);
 		}
 
 		public void Dispose() => bindings.Dispose();
 
-		// The referee reads zero rounds as "until somebody ends the match", so the
-		// toggle owns the setting and the slider only feeds it when finite.
-		private void SetNumRounds()
+		private void SetEnd(int choice)
 		{
-			bool infinite = infiniteRoundsToggle.value;
-
-			matchSettings.numRounds = infinite
-				? (byte)0
-				: (byte)Mathf.Clamp(roundsSlider.value, 1, byte.MaxValue);
-
-			roundsSlider.SetEnabled(!infinite);
+			bool timed = choice == EndTimedChoice;
+			matchSettings.winCondition = timed ? WinCondition.Timer : WinCondition.ReachScore;
+			SetShown(roundTimeField, timed);
+			SetShown(scoreTargetField, !timed);
 		}
 
-		private static int MinutesToSeconds(float minutes)
+		private void SetRoundMinutes(int choice) =>
+			matchSettings.roundTimeSeconds = Mathf.RoundToInt(RoundMinuteChoices[ClampChoice(choice, RoundMinuteChoices.Length)] * 60);
+
+		private void SetScoreTarget(int choice) =>
+			matchSettings.scoreTarget = (short)Mathf.Clamp(choice + MinScoreTarget, MinScoreTarget, MaxScoreTarget);
+
+		private void SetRounds(int choice) =>
+			matchSettings.numRounds = (byte)Mathf.Clamp(choice + MinRounds, MinRounds, MaxRounds);
+
+		private void SetDamage(int choice) =>
+			matchSettings.damageMultiplier = DamageMultiplierChoices[ClampChoice(choice, DamageMultiplierChoices.Length)];
+
+		private void SetRespawnCondition(int choice) =>
+			matchSettings.respawnCondition = RespawnChoices[ClampChoice(choice, RespawnChoices.Count)];
+
+		private static void SetShown(VisualElement element, bool shown) =>
+			element.style.display = shown ? DisplayStyle.Flex : DisplayStyle.None;
+
+		private static float[] MinutesAddedByEachChoice()
 		{
-			return Mathf.RoundToInt(minutes * 60f);
+			var added = new float[RoundMinuteChoices.Length];
+			for (int i = 0; i < added.Length; i++)
+				added[i] = RoundMinuteChoices[i] - (i == 0 ? 0 : RoundMinuteChoices[i - 1]);
+			return added;
 		}
 
-		// win-by-radio choices: 0 = Time, 1 = Points, 2 = Either
-		private void SetWinBy(int choice)
+		private static float[] EqualWeights(int count)
 		{
-			matchSettings.winCondition = choice switch
-			{
-				0 => WinCondition.Timer,
-				1 => WinCondition.ReachScore,
-				_ => WinCondition.Timer | WinCondition.ReachScore,
-			};
-
-			roundTimeSlider.SetEnabled(matchSettings.CheckWinByTimer());
-			scoreTargetSlider.SetEnabled(matchSettings.CheckWinByScore());
+			var weights = new float[count];
+			Array.Fill(weights, 1f);
+			return weights;
 		}
 
-		// respawn-radio choices follow the RespawnCondition enum order
-		private void SetRespawnCondition(int choice)
+		private static int ClampChoice(int choice, int count) => Mathf.Clamp(choice, 0, count - 1);
+
+		private static int NearestChoice(float[] choices, float wanted)
 		{
-			matchSettings.respawnCondition =
-				(RespawnCondition)Mathf.Clamp(choice, 0, (int)RespawnCondition.NextRound);
+			int nearest = 0;
+			for (int i = 1; i < choices.Length; i++)
+				if (Mathf.Abs(choices[i] - wanted) < Mathf.Abs(choices[nearest] - wanted))
+					nearest = i;
+			return nearest;
 		}
 	}
 }

@@ -52,38 +52,38 @@ namespace Anaglyph.LaserTag.Tests
 		{
 			var root = LoadMatchPage();
 			for (int i = 0; i < 2; i++) yield return null;
-			var score = root.Q<SliderInt>("score-target-slider");
-			var damage = root.Q<Slider>("damage-multiplier-slider");
+			var score = root.Q<DetentField>("score-target-field");
+			var damage = root.Q<DetentField>("damage-field");
 			var zombies = root.Q<Toggle>("spawn-zombies-toggle");
-			var win = root.Q<RadioButtonGroup>("win-by-radio");
+			var end = root.Q<DetentField>("end-field");
 			using var previous = new MatchSettingsBinder(root);
-			score.value = 7;
-			damage.value = 0.75f;
+			score.value = 6;
+			damage.value = 0;
 			zombies.value = true;
-			win.value = 1;
+			end.value = 1;
 			MatchSettings saved = previous.Settings;
 			Assert.That(saved.scoreTarget, Is.EqualTo(7));
-			Assert.That(saved.damageMultiplier, Is.EqualTo(0.75f));
+			Assert.That(saved.damageMultiplier, Is.EqualTo(0.5f));
 			Assert.That(saved.spawnZombies, Is.True);
 			Assert.That(saved.CheckWinByTimer(), Is.False);
 
 			previous.Dispose();
 			previous.Dispose();
 			using var current = new MatchSettingsBinder(root);
-			score.value = 12;
-			damage.value = 1.5f;
+			score.value = 11;
+			damage.value = 2;
 			zombies.value = false;
-			win.value = 2;
+			end.value = 0;
 
 			Assert.That(previous.Settings, Is.EqualTo(saved),
 				"Controls retained by the panel must not update a disposed owner.");
 			Assert.That(current.Settings.scoreTarget, Is.EqualTo(12));
-			Assert.That(current.Settings.damageMultiplier, Is.EqualTo(1.5f));
+			Assert.That(current.Settings.damageMultiplier, Is.EqualTo(2f));
 			Assert.That(current.Settings.spawnZombies, Is.False);
-			Assert.That(current.Settings.CheckWinByScore(), Is.True);
+			Assert.That(current.Settings.CheckWinByScore(), Is.False);
 			Assert.That(current.Settings.CheckWinByTimer(), Is.True);
-			Assert.That(root.Q<Slider>("round-time-slider").enabledSelf, Is.True);
-			Assert.That(score.enabledSelf, Is.True);
+			Assert.That(root.Q<DetentField>("round-time-field").style.display.value, Is.EqualTo(DisplayStyle.Flex));
+			Assert.That(score.style.display.value, Is.EqualTo(DisplayStyle.None));
 		}
 
 		[UnityTest]
@@ -92,7 +92,7 @@ namespace Anaglyph.LaserTag.Tests
 			var root = LoadMatchPage();
 			for (int i = 0; i < 2; i++) yield return null;
 			var zombies = root.Q<Toggle>("spawn-zombies-toggle");
-			var score = root.Q<SliderInt>("score-target-slider");
+			var score = root.Q<DetentField>("score-target-field");
 			int starts = 0;
 			int edits = 0;
 			MatchSettings submitted = default;
@@ -109,7 +109,7 @@ namespace Anaglyph.LaserTag.Tests
 					submitted = match.Settings;
 				});
 				events.Value(zombies, _ => edits++);
-				score.value = 8 + cycle;
+				score.value = 7 + cycle;
 				zombies.value = !zombies.value;
 				Submit(match.StartButton);
 				Assert.That(starts, Is.EqualTo(cycle + 1));

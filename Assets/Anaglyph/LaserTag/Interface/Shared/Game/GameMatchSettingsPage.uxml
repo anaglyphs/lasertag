@@ -1,5 +1,6 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
     <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/MatchSettings.uss"/>
     <ui:VisualElement class="page-template-root">
         <Anaglyph.Menu.NavHeader>
             <Bindings>
@@ -7,76 +8,71 @@
             </Bindings>
         </Anaglyph.Menu.NavHeader>
         <ui:ScrollView>
-            <ui:SliderInt value="3" high-value="10" show-input-field="true" name="rounds-slider" low-value="1" fill="false" class="stacked-field">
-                <Bindings>
-                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.rounds-slider.label"/>
-                </Bindings>
-            </ui:SliderInt>
-            <ui:Toggle name="infinite-rounds-toggle">
-                <Bindings>
-                    <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.infinite-rounds-toggle.text"/>
-                </Bindings>
-            </ui:Toggle>
-            <ui:RadioButtonGroup name="win-by-radio" value="1" class="stacked-field">
+            <Anaglyph.Menu.DetentField name="end-field">
                 <Bindings>
                     <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.win-by-radio.label"/>
                 </Bindings>
-                <ui:RadioButton>
+                <Anaglyph.Menu.DetentMark class="match-icon match-icon--hourglass">
                     <Bindings>
-                        <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.win-by-radio.choice-0"/>
+                        <UnityEngine.Localization.LocalizedString property="Text" table="GameMenu" entry="GameMatchSettingsPage.win-by-radio.choice-0"/>
                     </Bindings>
-                </ui:RadioButton>
-                <ui:RadioButton>
+                </Anaglyph.Menu.DetentMark>
+                <Anaglyph.Menu.DetentMark class="match-icon match-icon--podium">
                     <Bindings>
-                        <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.win-by-radio.choice-1"/>
+                        <UnityEngine.Localization.LocalizedString property="Text" table="GameMenu" entry="GameMatchSettingsPage.win-by-radio.choice-1"/>
                     </Bindings>
-                </ui:RadioButton>
-                <ui:RadioButton>
-                    <Bindings>
-                        <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.win-by-radio.choice-2"/>
-                    </Bindings>
-                </ui:RadioButton>
-            </ui:RadioButtonGroup>
-            <ui:Slider value="2" high-value="10" low-value="0.5" name="round-time-slider" show-input-field="true" class="stacked-field">
+                </Anaglyph.Menu.DetentMark>
+            </Anaglyph.Menu.DetentField>
+            <Anaglyph.Menu.DetentField name="round-time-field" cumulative="true">
                 <Bindings>
                     <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.round-time-slider.label"/>
                 </Bindings>
-            </ui:Slider>
-            <ui:SliderInt value="5" high-value="20" name="score-target-slider" show-input-field="true" low-value="1" class="stacked-field">
+            </Anaglyph.Menu.DetentField>
+            <Anaglyph.Menu.DetentField name="score-target-field" cumulative="true">
                 <Bindings>
                     <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.score-target-slider.label"/>
                 </Bindings>
-            </ui:SliderInt>
-            <ui:RadioButtonGroup name="respawn-condition-radio" value="1" class="stacked-field">
+            </Anaglyph.Menu.DetentField>
+            <Anaglyph.Menu.DetentField name="rounds-field" cumulative="true">
+                <Bindings>
+                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.rounds-slider.label"/>
+                </Bindings>
+            </Anaglyph.Menu.DetentField>
+            <Anaglyph.Menu.DetentField name="respawn-field">
                 <Bindings>
                     <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.respawn-condition-radio.label"/>
                 </Bindings>
-                <ui:RadioButton style="display: flex;">
+                <Anaglyph.Menu.DetentMark class="match-icon match-icon--base">
                     <Bindings>
-                        <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.respawn-condition-radio.choice-0"/>
+                        <UnityEngine.Localization.LocalizedString property="Text" table="GameMenu" entry="GameMatchSettingsPage.respawn-condition-radio.choice-1"/>
                     </Bindings>
-                </ui:RadioButton>
-                <ui:RadioButton>
+                </Anaglyph.Menu.DetentMark>
+                <Anaglyph.Menu.DetentMark class="match-icon match-icon--next-round">
                     <Bindings>
-                        <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.respawn-condition-radio.choice-1"/>
+                        <UnityEngine.Localization.LocalizedString property="Text" table="GameMenu" entry="GameMatchSettingsPage.respawn-condition-radio.choice-2"/>
                     </Bindings>
-                </ui:RadioButton>
-                <ui:RadioButton>
-                    <Bindings>
-                        <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.respawn-condition-radio.choice-2"/>
-                    </Bindings>
-                </ui:RadioButton>
-            </ui:RadioButtonGroup>
-            <ui:SliderInt value="5" high-value="10" name="respawn-time-slider" show-input-field="true" class="stacked-field">
-                <Bindings>
-                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.respawn-time-slider.label"/>
-                </Bindings>
-            </ui:SliderInt>
-            <ui:Slider value="1" high-value="2" name="damage-multiplier-slider" low-value="0.1" show-input-field="true" fill="true" class="stacked-field">
-                <Bindings>
-                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.damage-multiplier-slider.label"/>
-                </Bindings>
-            </ui:Slider>
+                </Anaglyph.Menu.DetentMark>
+            </Anaglyph.Menu.DetentField>
+	        <Anaglyph.Menu.DetentField name="damage-field" cumulative="true">
+		        <Bindings>
+			        <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.damage-multiplier-slider.label"/>
+		        </Bindings>
+		        <Anaglyph.Menu.DetentMark class="match-icon match-icon--ramp-1">
+			        <Bindings>
+				        <UnityEngine.Localization.LocalizedString property="Text" table="GameMenu" entry="GameMatchSettingsPage.damage.choice-0"/>
+			        </Bindings>
+		        </Anaglyph.Menu.DetentMark>
+		        <Anaglyph.Menu.DetentMark class="match-icon match-icon--ramp-2">
+			        <Bindings>
+				        <UnityEngine.Localization.LocalizedString property="Text" table="GameMenu" entry="GameMatchSettingsPage.damage.choice-1"/>
+			        </Bindings>
+		        </Anaglyph.Menu.DetentMark>
+		        <Anaglyph.Menu.DetentMark class="match-icon match-icon--ramp-3">
+			        <Bindings>
+				        <UnityEngine.Localization.LocalizedString property="Text" table="GameMenu" entry="GameMatchSettingsPage.damage.choice-2"/>
+			        </Bindings>
+		        </Anaglyph.Menu.DetentMark>
+	        </Anaglyph.Menu.DetentField>
             <ui:Toggle name="spawn-zombies-toggle" style="display: none;">
                 <Bindings>
                     <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="GameMatchSettingsPage.spawn-zombies-toggle.text"/>

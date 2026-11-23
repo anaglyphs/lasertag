@@ -13,6 +13,7 @@
     --panel-border-width: 2px;
     --scrollbar-size: 24px;
     --scrollbar-button-clearance: 28px;
+    --panel-frame-padding: 12px;
 }
 
 .bold {
@@ -21,6 +22,10 @@
 
 .italic {
     -unity-font-definition: var(--font-italic);
+}
+
+.light {
+    -unity-font-definition: var(--font-light);
 }
 
 .bold.italic {
@@ -32,40 +37,44 @@
     --highlight: rgb(220, 220, 220);
     --secondary: rgb(20, 20, 20);
     flex-grow: 1;
-    padding: var(--spacing-small, 4px);
     background-color: var(--secondary);
     color: rgb(255, 255, 255);
     font-size: var(--font-size-body, 20px);
-    border-width: var(--panel-border-width, 2px);
-    border-color: var(--primary);
+    padding: var(--panel-frame-padding, 12px);
+    background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/panel-frame.svg");
+    -unity-background-image-tint-color: var(--primary);
+    -unity-slice-left: 12;
+    -unity-slice-right: 12;
+    -unity-slice-top: 12;
+    -unity-slice-bottom: 12;
 }
 
 .multiplayer-panel {
-    --primary: rgb(255, 0, 21);
+    --primary: rgb(255, 38, 57);
     --primary-dark: rgb(200, 0, 1);
     --highlight: rgb(255, 128, 140);
     --secondary: rgb(27, 0, 33);
 }
 
 .multiplayer-panel.session-connected {
-    --primary: rgb(162, 255, 0);
-    --primary-dark: rgb(128, 204, 0);
+    --primary: rgb(236, 255, 61);
+    --primary-dark: rgb(127, 186, 29);
     --highlight: rgb(207, 255, 128);
     --secondary: rgb(27, 30, 0);
 }
 
 .game-panel {
-    --primary: rgb(0, 255, 173);
-    --primary-dark: rgb(0, 205, 140);
+    --primary: rgb(0, 230, 230);
+    --primary-dark: rgb(0, 142, 97);
     --highlight: rgb(177, 255, 230);
     --secondary: rgb(12, 0, 49);
 }
 
 .settings-panel {
-    --primary: rgb(255, 116, 0);
+    --primary: rgb(255, 138, 89);
     --primary-dark: rgb(189, 88, 0);
     --highlight: rgb(255, 185, 127);
-    --secondary: rgb(41, 37, 0);
+    --secondary: rgb(16, 0, 4);
 }
 
 .unity-toggle__checkmark,
@@ -188,9 +197,20 @@ RadioButton #unity-checkmark {
     -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishCondensed-Light.ttf?fileID=12800000&guid=67a02d15b790b4aa98aa67d81f08ef7c&type=3#DINishCondensed-Light");
 }
 
+/* Cap height fills the nav bar */
 .unity-label.nav-header__title {
-	height: 100%;
-	margin: 0;
+    --text-color: var(--primary);
+    flex-grow: 1;
+    flex-shrink: 1;
+    height: 100%;
+    margin: 0;
+    font-size: var(--font-size-nav-title, 64px);
+    -unity-text-align: middle-right;
+    overflow: visible;
+}
+
+.nav-header--without-back-button > .unity-label.nav-header__title {
+    -unity-text-align: middle-left;
 }
 
 .nav-button {
@@ -211,6 +231,77 @@ RadioButton #unity-checkmark {
     padding: 0;		
 	margin: 0;
 	margin-right: var(--spacing-large, 16px);
+}
+
+/* Tile control: label, chosen value beneath, marks on the right */
+
+.detent-field {
+    --text-color: var(--secondary);
+    min-height: 84px;
+    margin: 0;
+    margin-bottom: var(--spacing-medium, 8px);
+    padding: var(--spacing-medium, 8px) var(--spacing-large, 12px);
+    flex-direction: column;
+    justify-content: center;
+    background-color: var(--primary);
+}
+
+.detent-field > .unity-base-field__label {
+    min-width: auto;
+    width: auto;
+    margin: 0;
+    padding: 0;
+    color: var(--secondary);
+    font-size: var(--font-size-body, 20px);
+    -unity-font-definition: var(--font-light);
+}
+
+.detent-field > .detent-field__value {
+    margin: 0;
+    color: var(--secondary);
+    font-size: var(--font-size-title, 32px);
+    -unity-font-definition: var(--font-bold);
+}
+
+.detent-field > .detent-field__marks {
+    position: absolute;
+    top: var(--spacing-medium, 8px);
+    bottom: var(--spacing-medium, 8px);
+    right: var(--spacing-large, 12px);
+    /* Fits 20 ticks exactly: 20 × 4px + 19 gaps × 6px */
+    width: 194px;
+    margin: 0;
+    flex-direction: row;
+    justify-content: flex-end;
+    background-color: transparent;
+}
+
+.detent-field__mark {
+    flex-shrink: 0;
+    -unity-background-image-tint-color: var(--secondary);
+}
+
+.detent-field__mark.detent-field__mark--lit {
+    -unity-background-image-tint-color: white;
+}
+
+/* Whole-pixel width and gap keep ticks evenly spaced */
+.detent-field__tick {
+    width: 4px;
+    margin-left: 6px;
+    background-color: var(--secondary);
+}
+
+.detent-field__segment {
+    flex-basis: 0;
+    margin-left: 2px;
+    margin-right: 2px;
+    background-color: var(--secondary);
+}
+
+.detent-field__tick.detent-field__mark--lit,
+.detent-field__segment.detent-field__mark--lit {
+    background-color: white;
 }
 
 .field-row {

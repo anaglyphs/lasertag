@@ -101,7 +101,7 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(maps.CurrentPage.name, Is.EqualTo("maps-page"));
 			Assert.That(root.Q<Button>("maps-tab").ClassListContains("game-menu-tab-selected"), Is.True);
 			MapEditor.MapEditor.SetActive(true);
-			var score = root.Q<SliderInt>("score-target-slider");
+			var score = root.Q<DetentField>("score-target-field");
 			score.value = 17;
 			for (int visit = 0; visit < 3; visit++)
 			{
@@ -231,7 +231,7 @@ namespace Anaglyph.LaserTag.Tests
 		public void MissingBasesCannotBeDismissedAndBothColorsRestoreMatchSettings()
 		{
 			Call("SelectTab", GameMenu.Tab.Match);
-			var score = root.Q<SliderInt>("score-target-slider");
+			var score = root.Q<DetentField>("score-target-field");
 			score.value = 17;
 			Assert.That(match.CurrentPage.ModalUserDismissible, Is.False);
 			for (int attempt = 0; attempt < 3; attempt++) match.GoBack();

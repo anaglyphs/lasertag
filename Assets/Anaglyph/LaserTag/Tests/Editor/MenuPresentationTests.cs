@@ -268,14 +268,14 @@ namespace Anaglyph.LaserTag.Tests
 			root.Q<NavView>("match-nav").RemoveFromClassList("game-menu-hidden");
 			var binder = new MatchSettingsBinder(root);
 			for (int i = 0; i < 10; i++) yield return null;
-			var win = root.Q<RadioButtonGroup>("win-by-radio");
-			Assert.That(win.Query<RadioButton>().ToList().Select(r => r.text),
-				Is.EqualTo(new[] { "Time", "Points", "Either" }));
-			win.value = 1;
+			var end = root.Q<DetentField>("end-field");
+			Assert.That(end.Query<DetentMark>().ToList().Select(mark => mark.Text),
+				Is.EqualTo(new[] { "Timed", "Score" }));
+			end.value = 1;
 			Assert.That(binder.Settings.CheckWinByScore(), Is.True);
 			Assert.That(binder.Settings.CheckWinByTimer(), Is.False);
-			win.value = 2;
-			Assert.That(binder.Settings.CheckWinByScore(), Is.True);
+			end.value = 0;
+			Assert.That(binder.Settings.CheckWinByScore(), Is.False);
 			Assert.That(binder.Settings.CheckWinByTimer(), Is.True);
 			Assert.That(root.Q<Button>("start-button").text, Is.EqualTo("Start match"));
 			Assert.That(root.Q<Button>("start-button").worldBound.height, Is.GreaterThan(0));

@@ -7,6 +7,7 @@ VisualElement {}
    family is in scope (they live there because theme rules lose to its * rule). */
 
 :root {
+    --font-light: url("project://database/Assets/Resources/Fonts/DINish-Light.ttf");
     --font-regular: url("project://database/Assets/Resources/Fonts/DINish-Regular.ttf");
     --font-bold: url("project://database/Assets/Resources/Fonts/DINish-Bold.ttf");
     --font-italic: url("project://database/Assets/Resources/Fonts/DINish-Italic.ttf");
@@ -14,6 +15,7 @@ VisualElement {}
 }
 
 .din-expanded {
+    --font-light: url("project://database/Assets/Resources/Fonts/DINishExpanded-Light.ttf");
     --font-regular: url("project://database/Assets/Resources/Fonts/DINishExpanded-Regular.ttf");
     --font-bold: url("project://database/Assets/Resources/Fonts/DINishExpanded-Bold.ttf");
     --font-italic: url("project://database/Assets/Resources/Fonts/DINishExpanded-Italic.ttf");
@@ -21,6 +23,7 @@ VisualElement {}
 }
 
 .din-condensed {
+    --font-light: url("project://database/Assets/Resources/Fonts/DINishCondensed-Light.ttf");
     --font-regular: url("project://database/Assets/Resources/Fonts/DINishCondensed-Regular.ttf");
     --font-bold: url("project://database/Assets/Resources/Fonts/DINishCondensed-Bold.ttf");
     --font-italic: url("project://database/Assets/Resources/Fonts/DINishCondensed-Italic.ttf");

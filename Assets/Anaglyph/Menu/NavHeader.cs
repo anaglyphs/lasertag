@@ -15,14 +15,21 @@ namespace Anaglyph.Menu
 		public static readonly string ussClassName = "nav-header";
 		public static readonly string titleUssClassName = "nav-header__title";
 		public static readonly string backButtonUssClassName = "nav-header__back-button";
+		public static readonly string withoutBackButtonUssClassName = "nav-header--without-back-button";
 
 		private readonly Label titleLabel = new();
+		private string title;
 
+		/// <summary>The authored title; it displays in capitals.</summary>
 		[UxmlAttribute("title"), CreateProperty]
 		public string Title
 		{
-			get => titleLabel.text;
-			set => titleLabel.text = value;
+			get => title;
+			set
+			{
+				title = value;
+				titleLabel.text = value?.ToUpperInvariant();
+			}
 		}
 
 		public NavHeader()

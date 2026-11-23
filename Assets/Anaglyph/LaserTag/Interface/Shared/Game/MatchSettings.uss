@@ -1,0 +1,25 @@
+.match-icon {
+    width: 58px;
+    height: 58px;
+    margin-left: var(--spacing-large, 12px);
+    align-self: center;
+    background-size: contain;
+}
+
+.match-icon--hourglass { background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/Match/hourglass.svg"); }
+.match-icon--podium { background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/Match/podium.svg"); }
+.match-icon--base { background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/Match/base.svg"); }
+.match-icon--next-round { background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/Match/next-round.svg"); }
+
+/* The ramp thirds read as one rising wedge */
+.match-icon--ramp-1,
+.match-icon--ramp-2,
+.match-icon--ramp-3 {
+    width: 48px;
+    margin-left: var(--spacing-small, 4px);
+    background-size: 100% 100%;
+}
+
+.match-icon--ramp-1 { background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/Match/ramp-1.svg"); }
+.match-icon--ramp-2 { background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/Match/ramp-2.svg"); }
+.match-icon--ramp-3 { background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/Match/ramp-3.svg"); }
