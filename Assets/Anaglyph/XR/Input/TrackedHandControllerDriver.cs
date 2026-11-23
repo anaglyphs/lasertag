@@ -407,11 +407,11 @@ namespace Anaglyph.XR.Input
 				reportedTracked = false;
 			}
 
-			// A held controller owns the hand usage; the tracked hand steps aside so the two never
-			// fight over the same bindings.
+			// An untracked hand or a held controller gives up the hand usage, so a stale hand pose
+			// never competes with the controller for the same bindings.
 			private void Publish()
 			{
-				bool shouldOwnUsage = !IsRealControllerTracked();
+				bool shouldOwnUsage = state.isTracked && !IsRealControllerTracked();
 				bool ownsUsage = device.usages.Contains(handUsage);
 
 				if (shouldOwnUsage && !ownsUsage)

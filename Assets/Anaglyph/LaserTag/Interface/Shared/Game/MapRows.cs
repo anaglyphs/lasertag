@@ -19,7 +19,7 @@ namespace Anaglyph.LaserTag.Interface
 		public const string LoadedUssClassName = "catalog-map-row--loaded";
 		public const string ConfirmDeleteUssClassName = "catalog-confirm-delete";
 
-		private const float SwipedOpenDeleteWidth = 80;
+		public const float SwipedOpenDeleteWidth = 80;
 
 		private string armedDeleteMapId;
 		private string swipedOpenMapId;
@@ -37,6 +37,7 @@ namespace Anaglyph.LaserTag.Interface
 			Button load = new() { clickable = new PressClickable(() => SpaceManager.Instance?.LoadMap(id)), name = "map-row-button" };
 			load.tooltip = loaded ? map.name : loadBlocker ?? map.name;
 			load.AddToClassList("map-row");
+			load.EnableInClassList("option--selected", loaded);
 			Label label = new(map.name) { pickingMode = PickingMode.Ignore }; label.AddToClassList("catalog-map-name"); load.Add(label);
 			if (loaded)
 			{
@@ -57,7 +58,7 @@ namespace Anaglyph.LaserTag.Interface
 			row.Add(delete);
 			if (delete.enabledSelf) AddSwipeToDelete(row, delete, id);
 
-			TrackHover(row, onUnhovered: () => Disarm(id, delete));
+			TrackHover(row, HoveredUssClassName, onUnhovered: () => Disarm(id, delete));
 			return row;
 		}
 
@@ -76,19 +77,19 @@ namespace Anaglyph.LaserTag.Interface
 		/// The entry counts as hovered while any mouse or ray is inside it, so one leaving cannot hide what another is over.
 		/// Touches are not hovering.
 		/// </summary>
-		private static void TrackHover(VisualElement row, Action onUnhovered)
+		public static void TrackHover(VisualElement row, string hoveredUssClassName, Action onUnhovered = null)
 		{
 			HashSet<int> pointersInside = new();
 			row.RegisterCallback<PointerEnterEvent>(enter =>
 			{
 				if (enter.target != row || enter.pointerType == PointerType.touch || !pointersInside.Add(enter.pointerId)) return;
-				row.AddToClassList(HoveredUssClassName);
+				row.AddToClassList(hoveredUssClassName);
 			});
 			row.RegisterCallback<PointerLeaveEvent>(leave =>
 			{
 				if (leave.target != row || !pointersInside.Remove(leave.pointerId) || pointersInside.Count > 0) return;
-				row.RemoveFromClassList(HoveredUssClassName);
-				onUnhovered();
+				row.RemoveFromClassList(hoveredUssClassName);
+				onUnhovered?.Invoke();
 			});
 		}
 
@@ -129,6 +130,15 @@ namespace Anaglyph.LaserTag.Interface
 		{
 			delete.EnableInClassList(ConfirmDeleteUssClassName, armed);
 			delete.text = armed ? MenuCopy.Get("Map", "maps.confirm-delete") : "";
+		}
+
+		/// <summary>Creates a map in the shown space and opens it for editing.</summary>
+		public static Button NewMapButton(SpaceManager manager, Action editMap)
+		{
+			Button button = new() { clickable = new PressClickable(() => { if (SpaceManager.Instance?.NewMap() == true) editMap?.Invoke(); }), name = "new-map-button", text = "+" };
+			button.AddToClassList("catalog-new-map");
+			SetBlocker(button, manager == null ? MenuCopy.Get("Map", "maps.unavailable") : manager.NewMapBlocker(), MenuCopy.Get("Map", "GameMapsPage.new-map-button.text"));
+			return button;
 		}
 
 		public static Button IconButton(string name, string icon, string tooltip, Action action)

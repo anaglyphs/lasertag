@@ -21,6 +21,15 @@ namespace Anaglyph.LaserTag.Tests
 		}
 
 		[Test]
+		public void AGuessedMapIsGivenUpSooner()
+		{
+			UnfamiliarPlaceVerdict verdict = new(new UnfamiliarPlaceVerdict.Settings { seconds = 4f, secondsForAGuess = 2f, minViews = 4, minFeatures = 100, inliersThatFoundTheMap = 30 });
+			verdict.BeginLooking(0f, mapIsAGuess: true);
+			for (float t = 0.5f; t < 2f; t += 0.5f) Assert.IsFalse(verdict.Add(t, 400, false, 0), $"at {t} s");
+			Assert.IsTrue(verdict.Add(2f, 400, true, 12));
+		}
+
+		[Test]
 		public void AfterAViewFindsTheMapTheLookingGoesOnFarLonger()
 		{
 			UnfamiliarPlaceVerdict verdict = NewVerdict();

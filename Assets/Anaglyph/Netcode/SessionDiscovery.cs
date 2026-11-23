@@ -12,6 +12,16 @@ namespace Anaglyph.Netcode
 		Advertising
 	}
 
+	/// <summary>Why a session heard nearby can't be joined from this device's current network.</summary>
+	public enum UnjoinableSessionReason
+	{
+		None,
+		WifiOff,
+		NoLocalNetwork,
+		NoInternet,
+		DirectUnsupported
+	}
+
 	/// <summary>
 	/// What this device is doing about nearby sessions: announcing its own, listening for others'
 	/// and joining the first it hears, or neither. <see cref="MulticastSessionDiscovery"/> carries it out
@@ -24,14 +34,23 @@ namespace Anaglyph.Netcode
 		internal const string DirectPrefix = "Direct:";
 		private const float MinReconnectDelay = 2;
 		private const float MaxReconnectDelay = 30;
+		// a session just left is still announced for a moment, and would be rejoined at once
+		private const float JoinDelayAfterListeningStartsSeconds = 3;
+		// long enough to outlast gaps between a host's announcements
+		private const float UnjoinableSessionForgetSeconds = 5;
 
 		private static float reconnectDelay = MinReconnectDelay;
 		private static float nextConnectAllowedTime;
+		private static UnjoinableSessionReason lastUnjoinableReason;
+		private static float lastUnjoinableHeardTime = float.NegativeInfinity;
 
 		public static SessionDiscoveryActivity Activity { get; private set; }
 
-		/// <summary>While set, announcements of LAN and relay sessions are ignored. A direct session brings its own network, so it is joinable with none.</summary>
-		public static bool JoinsOnlyDirectSessions { get; set; }
+		/// <summary>Why the nearby session heard most recently could not be joined, while it is still being heard.</summary>
+		public static UnjoinableSessionReason UnjoinableSessionNearby =>
+			IsListening && Time.unscaledTime - lastUnjoinableHeardTime < UnjoinableSessionForgetSeconds
+				? lastUnjoinableReason
+				: UnjoinableSessionReason.None;
 
 		/// <summary>Whether announcements can be heard right now, not only asked for.</summary>
 		public static bool IsListening => Activity == SessionDiscoveryActivity.Listening && receivers.Count > 0;
@@ -47,7 +66,11 @@ namespace Anaglyph.Netcode
 
 		public static void SetActivity(SessionDiscoveryActivity next)
 		{
-			if (next == SessionDiscoveryActivity.Advertising && Activity != next) reconnectDelay = MinReconnectDelay;
+			if (next == Activity) return;
+
+			if (next == SessionDiscoveryActivity.Advertising) reconnectDelay = MinReconnectDelay;
+			if (next == SessionDiscoveryActivity.Listening)
+				nextConnectAllowedTime = Mathf.Max(nextConnectAllowedTime, Time.time + JoinDelayAfterListeningStartsSeconds);
 			Activity = next;
 		}
 
@@ -67,16 +90,23 @@ namespace Anaglyph.Netcode
 
 		/// <summary>
 		/// An announcement heard while listening, from <paramref name="senderAddress"/>: joins it,
-		/// backing off between attempts. A LAN host is joined where its announcement came from,
-		/// which is the address that reached this device.
+		/// backing off between attempts, unless this device's network can't reach it.
+		/// A LAN host is joined where its announcement came from, which is the address that reached this device.
 		/// </summary>
 		public static void OnAdvertisementHeard(string message, string senderAddress)
 		{
 			if (Activity != SessionDiscoveryActivity.Listening) return;
-			if (JoinsOnlyDirectSessions && !message.StartsWith(DirectPrefix)) return;
+			if (NetworkManager.Singleton == null || NetworkManager.Singleton.IsListening) return;
 
-			if (NetworkManager.Singleton == null || NetworkManager.Singleton.IsListening || Time.time < nextConnectAllowedTime)
+			UnjoinableSessionReason unjoinableReason = WhyUnjoinable(message);
+			if (unjoinableReason != UnjoinableSessionReason.None)
+			{
+				lastUnjoinableReason = unjoinableReason;
+				lastUnjoinableHeardTime = Time.unscaledTime;
 				return;
+			}
+
+			if (Time.time < nextConnectAllowedTime) return;
 
 			Debug.Log($"[SessionDiscovery] Discovered {message} from {senderAddress}");
 			nextConnectAllowedTime = Time.time + reconnectDelay;
@@ -88,6 +118,25 @@ namespace Anaglyph.Netcode
 				NetcodeManagement.ConnectUnityServices(message.Remove(0, RelayPrefix.Length));
 			else if (message.StartsWith(DirectPrefix))
 				NetcodeManagement.ConnectDirect(message.Remove(0, DirectPrefix.Length));
+		}
+
+		private static UnjoinableSessionReason WhyUnjoinable(string message)
+		{
+			if (message.StartsWith(DirectPrefix))
+			{
+				if (!NetcodeManagement.DirectJoiningSupported) return UnjoinableSessionReason.DirectUnsupported;
+				return NetworkConnectivityTest.IsWifiEnabled()
+					? UnjoinableSessionReason.None
+					: UnjoinableSessionReason.WifiOff;
+			}
+
+			NetworkState network = NetworkConnectivityTest.GetNetworkState();
+			if (network == NetworkState.WifiOff) return UnjoinableSessionReason.WifiOff;
+			if (message.StartsWith(LanPrefix) && network < NetworkState.LocalNetworkOnly)
+				return UnjoinableSessionReason.NoLocalNetwork;
+			if (message.StartsWith(RelayPrefix) && network != NetworkState.FullInternet)
+				return UnjoinableSessionReason.NoInternet;
+			return UnjoinableSessionReason.None;
 		}
 	}
 }

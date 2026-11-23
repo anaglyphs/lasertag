@@ -420,7 +420,9 @@ namespace Anaglyph.LaserTag.Maps
 		public void EraseUnreferenced(IEnumerable<string> guids)
 		{
 			HashSet<string> referenced = new();
-			foreach (Space other in manager.Spaces)
+			List<Space> inUse = new(manager.Spaces);
+			if (space != null && !inUse.Contains(space)) inUse.Add(space);
+			foreach (Space other in inUse)
 			{
 				foreach (AnchorRef anchor in other.anchors) referenced.Add(anchor.guid);
 				PrivateReferences references = ReferenceEquals(other, space) ? privateReferences : store.LoadPrivate(other.id);

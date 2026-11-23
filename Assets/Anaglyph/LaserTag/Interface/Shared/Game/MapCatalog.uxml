@@ -6,12 +6,6 @@
         <ui:ScrollView name="map-list"/>
         <ui:VisualElement class="map-actions layout-actions">
             <ui:Button name="new-space-button" class="map-field-hidden"/>
-            <ui:Button name="new-map-button">
-                <Bindings>
-                    <UnityEngine.Localization.LocalizedString property="text" table="Map" entry="GameMapsPage.new-map-button.text"/>
-                </Bindings>
-            </ui:Button>
-            <ui:Button name="probe-maps-button" class="map-field-hidden"/>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

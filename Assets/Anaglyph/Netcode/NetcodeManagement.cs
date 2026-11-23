@@ -25,7 +25,7 @@ namespace Anaglyph.Netcode
 
 	public static class NetcodeManagement
 	{
-		public enum ErrorKind { JoinFailed, VersionMismatch, ServicesUnavailable }
+		public enum ErrorKind { JoinFailed, VersionMismatch, ServicesUnavailable, DirectNeedsWifi }
 
 		public readonly struct Error
 		{
@@ -94,7 +94,8 @@ namespace Anaglyph.Netcode
 		public static ISession CurrentSession { get; private set; }
 		public static string CurrentSessionName { get; private set; } = "";
 
-		public static bool DirectSupported => WifiDirectGroup.IsSupported;
+		public static bool DirectHostingSupported => WifiDirectGroup.CanCreate;
+		public static bool DirectJoiningSupported => WifiDirectGroup.CanJoin;
 
 		/// <summary>
 		/// Names the Wi-Fi Direct group of the current direct session, and is all a nearby device needs to join it.
@@ -103,14 +104,30 @@ namespace Anaglyph.Netcode
 		public static string DirectSessionToken { get; private set; } = "";
 
 		public const int DirectSessionTokenByteCount = DirectNetworkNameByteCount + DirectPassphraseByteCount;
-		private const int DirectNetworkNameByteCount = 3;
+		internal const int DirectNetworkNameByteCount = 3;
 		private const int DirectPassphraseByteCount = 8;
-		private const string DirectNetworkNamePrefix = "DIRECT-LT";
+		internal const string DirectNetworkNamePrefix = "DIRECT-Lasertag-";
 		private const float DirectGroupCreateTimeoutSeconds = 15;
-		private const float DirectGroupJoinTimeoutSeconds = 30;
+		private const float DirectGroupJoinTimeoutSeconds = 90;
+		private const float DirectSuggestedJoinTimeoutSeconds = 10;
 		private const float MaxCountedFrameSeconds = 0.1f;
 
+		/// <summary>
+		/// Joining through the system's prompt lets host and joiner stop scanning for networks, which stalls a
+		/// direct session every few minutes (<see cref="DirectTwoWayLink"/>). The message the system shows as that
+		/// prompt closes exhausts a Quest's memory on Horizon OS 210, so joiners join as a suggested network instead.
+		/// </summary>
+		private static readonly bool directJoinsThroughSystemPrompt = false;
+
 		private static WifiDirectGroup directGroup;
+		// the group a joiner opens for the host to join, and the host's side of that link
+		private static WifiDirectGroup directGroupForHost;
+		private static DirectTwoWayLinkHost directTwoWayLinkHost;
+		// a direct session whose join the user refused, held off until the retry time; a host's token never changes
+		private static string directSessionTokenNotToJoin = "";
+		private static float refusedDirectJoinRetryTime;
+		private const float RefusedDirectJoinRetrySeconds = 60;
+		private const string OwnDirectSessionTokenKey = "Anaglyph.Netcode.OwnDirectSessionToken";
 
 		// Written into the asset at build time, so every build of the game reports
 		// the same version no matter which rig or menu is running.
@@ -153,9 +170,14 @@ namespace Anaglyph.Netcode
 			CurrentSessionName = "";
 			isAttemptingConnection = false;
 
+			directTwoWayLinkHost?.Dispose();
+			directTwoWayLinkHost = null;
+			directGroupForHost?.Dispose();
+			directGroupForHost = null;
 			directGroup?.Dispose();
 			directGroup = null;
 			DirectSessionToken = "";
+			directSessionTokenNotToJoin = "";
 			Application.quitting -= LeaveDirectGroup;
 			Application.quitting += LeaveDirectGroup;
 		}
@@ -173,7 +195,7 @@ namespace Anaglyph.Netcode
 			if (manager.ConnectionApprovalCallback == null)
 				manager.ConnectionApprovalCallback = ApproveJoiningClient;
 
-			if (DirectSupported) directGroup = new WifiDirectGroup();
+			if (DirectJoiningSupported) directGroup = new WifiDirectGroup();
 		}
 
 		private static void OnConnectionEvent(NetworkManager manager, ConnectionEventData data)
@@ -283,11 +305,26 @@ namespace Anaglyph.Netcode
 					break;
 
 				case Protocol.Direct:
-					byte[] token = new byte[DirectSessionTokenByteCount];
-					System.Security.Cryptography.RandomNumberGenerator.Fill(token);
-					await StartDirectSession(BitConverter.ToString(token).Replace("-", "").ToLowerInvariant(), true);
+					await StartDirectSession(OwnDirectSessionToken(), true);
 					break;
 			}
+		}
+
+		/// <summary>
+		/// The same token every time this device hosts. A joiner's system asks before joining a Wi-Fi network
+		/// it has not joined before, so a host that kept changing its network would be asked about every session.
+		/// </summary>
+		private static string OwnDirectSessionToken()
+		{
+			string token = PlayerPrefs.GetString(OwnDirectSessionTokenKey, "");
+			if (token.Length == DirectSessionTokenByteCount * 2) return token;
+
+			byte[] bytes = new byte[DirectSessionTokenByteCount];
+			System.Security.Cryptography.RandomNumberGenerator.Fill(bytes);
+			token = BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant();
+			PlayerPrefs.SetString(OwnDirectSessionTokenKey, token);
+			PlayerPrefs.Save();
+			return token;
 		}
 
 		/// <summary>Joins the direct session a nearby host announced as <paramref name="sessionToken"/>.</summary>
@@ -295,18 +332,25 @@ namespace Anaglyph.Netcode
 
 		private static async Task StartDirectSession(string sessionToken, bool asHost)
 		{
-			if (State != NetcodeState.Disconnected || !DirectSupported)
+			bool refusedRecently = sessionToken == directSessionTokenNotToJoin &&
+			                       Time.realtimeSinceStartup < refusedDirectJoinRetryTime;
+			if (State != NetcodeState.Disconnected || refusedRecently)
 				return;
 
-			int hexDigitsInName = DirectNetworkNameByteCount * 2;
-			if (sessionToken.Length != DirectSessionTokenByteCount * 2 || !Uri.IsHexDigit(sessionToken[0]))
+			if (!(asHost ? DirectHostingSupported : DirectJoiningSupported))
+				return;
+
+			if (!NetworkConnectivityTest.IsWifiEnabled())
+			{
+				ErrorRaised.Invoke(new Error(ErrorKind.DirectNeedsWifi));
+				return;
+			}
+
+			if (!DirectTwoWayLink.TryNetworkOf(sessionToken, out string networkName, out string passphrase))
 			{
 				Log($"Malformed direct session token {sessionToken}", LogType.Warning);
 				return;
 			}
-
-			string networkName = DirectNetworkNamePrefix + sessionToken.Substring(0, hexDigitsInName);
-			string passphrase = sessionToken.Substring(hexDigitsInName);
 
 			CancellationToken ct = PrepareNextTask();
 			UseLanTransport();
@@ -318,15 +362,21 @@ namespace Anaglyph.Netcode
 			{
 				directGroup ??= new WifiDirectGroup();
 				if (asHost) directGroup.Create(networkName, passphrase);
-				else directGroup.Join(networkName, passphrase);
-
-				// counted in frames shown, so time spent answering the permission prompt doesn't use it up
-				float secondsLeft = asHost ? DirectGroupCreateTimeoutSeconds : DirectGroupJoinTimeoutSeconds;
-				while (directGroup.State == WifiDirectGroupState.Forming && secondsLeft > 0)
+				else if (directJoinsThroughSystemPrompt) directGroup.Join(networkName, passphrase);
+				else
 				{
-					await Awaitable.NextFrameAsync(ct);
-					secondsLeft -= Mathf.Min(Time.unscaledDeltaTime, MaxCountedFrameSeconds);
+					// as a suggested network the host's network scans stall the session for less; a device that
+					// can't join that way (not allowed by its user, or on a Wi-Fi network) joins as a Wi-Fi Direct client
+					if (WifiDirectGroup.CanJoinAsSuggestedNetwork)
+					{
+						directGroup.JoinAsSuggestedNetwork(networkName, passphrase);
+						await WaitWhileDirectGroupForms(DirectSuggestedJoinTimeoutSeconds, ct);
+					}
+					if (directGroup.State != WifiDirectGroupState.Ready)
+						directGroup.JoinWithoutSystemPrompt(networkName, passphrase);
 				}
+
+				await WaitWhileDirectGroupForms(asHost ? DirectGroupCreateTimeoutSeconds : DirectGroupJoinTimeoutSeconds, ct);
 
 				if (directGroup.State != WifiDirectGroupState.Ready)
 					throw new Exception($"Wi-Fi Direct group {networkName} ended {directGroup.State}");
@@ -335,28 +385,73 @@ namespace Anaglyph.Netcode
 				{
 					transport.SetConnectionData(directGroup.OwnerAddress, port, DefaultIP);
 					manager.StartHost();
+					directTwoWayLinkHost = new DirectTwoWayLinkHost(directGroup, port);
+					UpdateDirectTwoWayLinkHost(directTwoWayLinkHost);
 				}
 				else
 				{
-					transport.SetConnectionData(directGroup.OwnerAddress, port);
+					IPEndPoint hostRelay = null;
+					if (directJoinsThroughSystemPrompt && WifiDirectGroup.CanCreate)
+					{
+						directGroupForHost ??= new WifiDirectGroup();
+						hostRelay = await DirectTwoWayLink.LinkAsJoiner(directGroup.OwnerAddress, port,
+							OwnDirectSessionToken(), directGroupForHost, ct);
+						// while this device owns a group, the host's group address is this device's own
+						if (hostRelay == null) directGroupForHost.Leave();
+					}
+
+					if (hostRelay != null) transport.SetConnectionData(hostRelay.Address.ToString(), (ushort)hostRelay.Port);
+					else transport.SetConnectionData(directGroup.OwnerAddress, port);
 					manager.StartClient();
 				}
 			}
 			catch (OperationCanceledException)
 			{
 				// whoever cancelled (Disconnect, a new attempt, app exit) owns the state now
+				Log($"Direct session {networkName} cancelled before it started");
 				LeaveDirectGroup();
 			}
 			catch (Exception e)
 			{
 				Debug.LogException(e);
+				if (directGroup != null && directGroup.UserRefused)
+				{
+					directSessionTokenNotToJoin = sessionToken;
+					refusedDirectJoinRetryTime = Time.realtimeSinceStartup + RefusedDirectJoinRetrySeconds;
+				}
+				bool wifiSwitchedOff = !NetworkConnectivityTest.IsWifiEnabled();
+				// reported as Wi-Fi off instead of the generic join failure
+				if (wifiSwitchedOff) isAttemptingConnection = false;
 				EndAttempt();
+				if (wifiSwitchedOff) ErrorRaised.Invoke(new Error(ErrorKind.DirectNeedsWifi));
+			}
+		}
+
+		/// <summary>Counted in frames shown, so time the app spends behind a system prompt doesn't use it up.</summary>
+		private static async Task WaitWhileDirectGroupForms(float seconds, CancellationToken ct)
+		{
+			while (directGroup.State == WifiDirectGroupState.Forming && seconds > 0)
+			{
+				await Awaitable.NextFrameAsync(ct);
+				seconds -= Mathf.Min(Time.unscaledDeltaTime, MaxCountedFrameSeconds);
+			}
+		}
+
+		private static async void UpdateDirectTwoWayLinkHost(DirectTwoWayLinkHost linkHost)
+		{
+			while (directTwoWayLinkHost == linkHost)
+			{
+				linkHost.Update();
+				await Awaitable.NextFrameAsync();
 			}
 		}
 
 		private static void LeaveDirectGroup()
 		{
 			DirectSessionToken = "";
+			directTwoWayLinkHost?.Dispose();
+			directTwoWayLinkHost = null;
+			directGroupForHost?.Leave();
 			directGroup?.Leave();
 		}
 
@@ -440,6 +535,7 @@ namespace Anaglyph.Netcode
 
 			ConfigureConnectionApproval(false);
 
+			CurrentSessionName = id;
 			State = NetcodeState.Connecting;
 			isAttemptingConnection = true;
 
@@ -463,8 +559,6 @@ namespace Anaglyph.Netcode
 				Name = id,
 				MaxPlayers = 20
 			}.WithDistributedAuthorityNetwork();
-
-			CurrentSessionName = id;
 
 			// cancelling also stops the network start the join triggers
 			ISession session = await MultiplayerService.Instance.CreateOrJoinSessionAsync(id, options, ct);

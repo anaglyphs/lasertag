@@ -56,16 +56,9 @@ namespace Anaglyph.LaserTag.Interface
 			if (recognizing) return;
 
 			foreach (Map map in space.maps) mapList.Add(mapRows.Build(map, map == manager.Map, manager, editMap));
-			mapList.Add(NewMapButton(manager));
+			mapList.Add(MapRows.NewMapButton(manager, editMap));
 			mapList.MakeButtonsActOnPress();
 		}
 
-		private static Button NewMapButton(SpaceManager manager)
-		{
-			Button button = new() { clickable = new PressClickable(() => SpaceManager.Instance?.NewMap()), name = "new-map-button", text = "+" };
-			button.AddToClassList("catalog-new-map");
-			MapRows.SetBlocker(button, manager.NewMapBlocker(), MenuCopy.Get("Map", "GameMapsPage.new-map-button.text"));
-			return button;
-		}
 	}
 }

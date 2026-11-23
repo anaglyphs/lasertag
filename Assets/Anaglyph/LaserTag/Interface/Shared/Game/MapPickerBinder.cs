@@ -10,14 +10,17 @@ using Space = Anaglyph.LaserTag.Maps.Space;
 
 namespace Anaglyph.LaserTag.Interface
 {
-	/// <summary>Every space and map saved to this device, whether or not it belongs to this room.</summary>
+	/// <summary>Every space saved to this device with its maps, whether or not it belongs to this room. A space is saved once objects are placed in one of its maps.</summary>
 	public sealed class MapPickerBinder : IDisposable
 	{
+		public const string SpaceRowUssClassName = "catalog-space-row";
+		public const string SpaceRowHoveredUssClassName = "catalog-space-row--hovered";
+		public const string ActiveSpaceRowUssClassName = "catalog-space-row--active";
+
 		private readonly bool operatorMode;
 		private readonly MapRows mapRows = new();
 		private bool bound;
-		private string selectedSpaceId;
-		private Button newMapButton, newSpaceButton;
+		private Button newSpaceButton;
 		private ScrollView mapList;
 		private Action editMap, editSpace;
 		private NavView navigation;
@@ -33,7 +36,6 @@ namespace Anaglyph.LaserTag.Interface
 			Dispose();
 			this.editMap = editMap; this.editSpace = editSpace;
 			root.MakeButtonsActOnPress();
-			newMapButton = Require<Button>(root, "new-map-button");
 			newSpaceButton = Require<Button>(root, "new-space-button");
 			mapList = Require<ScrollView>(root, "map-list");
 			navigation = root.GetFirstAncestorOfType<NavView>();
@@ -50,10 +52,8 @@ namespace Anaglyph.LaserTag.Interface
 				cancelDeleteSpace.clicked += DismissSpaceDeletion;
 				deleteSpaceModal.NavigatingBack += ClearSpaceDeletion;
 			}
-			Require<Button>(root, "probe-maps-button").style.display = DisplayStyle.None;
 			newSpaceButton.style.display = operatorMode ? DisplayStyle.Flex : DisplayStyle.None;
 			bound = true;
-			newMapButton.clicked += OnNewMap;
 			newSpaceButton.clicked += OnNewSpace;
 			MenuCopy.Changed += Rebuild;
 			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
@@ -74,10 +74,9 @@ namespace Anaglyph.LaserTag.Interface
 			SpaceManager.MapChanged -= Rebuild;
 			SpaceManager.SpacesChanged -= Rebuild;
 			MatchReferee.StateChanged -= OnMatchStateChanged;
-			newMapButton.clicked -= OnNewMap;
 			newSpaceButton.clicked -= OnNewSpace;
 			mapList.Clear();
-			mapList = null; newMapButton = newSpaceButton = null;
+			mapList = null; newSpaceButton = null;
 			editMap = editSpace = null;
 			if (deleteSpaceModal != null)
 			{
@@ -91,17 +90,10 @@ namespace Anaglyph.LaserTag.Interface
 			deleteSpaceSubject = deleteSpaceDetails = deleteSpaceBlocker = null;
 		}
 
-		private void SelectSpace(string id)
-		{
-			if (selectedSpaceId == id) return;
-			DismissSpaceDeletion();
-			selectedSpaceId = id; Rebuild();
-		}
 		private void EditSpace(string id)
 		{
-			if (SpaceManager.Instance?.Space?.id == id) editSpace?.Invoke();
+			if (SpaceManager.Instance?.LoadSpace(id) == true) editSpace?.Invoke();
 		}
-		private void OnNewMap() => SpaceManager.Instance?.NewMap();
 		private void OnNewSpace()
 		{
 			if (operatorMode && SpaceManager.Instance?.NewSpace() == true) editSpace?.Invoke();
@@ -119,7 +111,7 @@ namespace Anaglyph.LaserTag.Interface
 		private void RequestSpaceDeletion(string id)
 		{
 			SpaceManager manager = SpaceManager.Instance;
-			if (selectedSpaceId != id || deleteSpaceModal == null || manager == null || manager.DeleteSpaceBlocker(id) != null) return;
+			if (deleteSpaceModal == null || manager == null || manager.DeleteSpaceBlocker(id) != null) return;
 			pendingDeleteSpaceId = id;
 			RefreshSpaceDeletion();
 			navigation.PresentModal(deleteSpaceModal, 100);
@@ -155,6 +147,36 @@ namespace Anaglyph.LaserTag.Interface
 			deleteSpaceBlocker.style.display = blocker == null ? DisplayStyle.None : DisplayStyle.Flex;
 		}
 
+		private VisualElement BuildSpaceRow(Space space, bool active, SpaceManager manager)
+		{
+			string unavailable = MenuCopy.Get("Map", "maps.unavailable");
+			string loadBlocker = manager == null ? unavailable : manager.LoadSpaceBlocker(space.id);
+			VisualElement row = new() { name = "space-row" };
+			row.AddToClassList(SpaceRowUssClassName);
+			row.EnableInClassList(ActiveSpaceRowUssClassName, active);
+
+			Button load = new() { clickable = new PressClickable(() => SpaceManager.Instance?.LoadSpace(space.id)), name = "load-space-button", tooltip = active ? space.name : loadBlocker ?? space.name };
+			load.AddToClassList("map-row");
+			load.EnableInClassList("option--selected", active);
+			Label title = new(space.name) { pickingMode = PickingMode.Ignore }; title.AddToClassList("catalog-space-name"); load.Add(title);
+			Label status = new(MenuCopy.Get("Map", active ? "space.active" : "space.presence." + (manager?.GetSpacePresence(space.id) ?? MapPresence.Unknown))) { pickingMode = PickingMode.Ignore };
+			status.AddToClassList("catalog-row-status"); load.Add(status);
+			row.Add(load);
+
+			Button edit = MapRows.IconButton("edit-space-button", "catalog-edit", MenuCopy.Get("Map", "space.edit"), () => EditSpace(space.id));
+			MapRows.SetBlocker(edit, editSpace == null ? unavailable : active ? null : loadBlocker, edit.tooltip);
+			row.Add(edit);
+
+			Button delete = MapRows.IconButton("delete-space-button", "catalog-delete", MenuCopy.Get("Map", "space.delete"), () => RequestSpaceDeletion(space.id));
+			delete.AddToClassList("destructive");
+			MapRows.SetBlocker(delete, manager == null || deleteSpaceModal == null ? unavailable : manager.DeleteSpaceBlocker(space.id), delete.tooltip);
+			row.Add(delete);
+			if (delete.enabledSelf) row.AddManipulator(new SwipeToReveal(delete, MapRows.SwipedOpenDeleteWidth, () => RequestSpaceDeletion(space.id)));
+
+			MapRows.TrackHover(row, SpaceRowHoveredUssClassName);
+			return row;
+		}
+
 		private void Rebuild()
 		{
 			if (!bound) return;
@@ -163,12 +185,11 @@ namespace Anaglyph.LaserTag.Interface
 			Map currentMap = manager?.Map;
 			Space currentSpace = manager?.Space;
 			List<Space> spaces = manager != null ? new List<Space>(manager.Spaces) : new List<Space>();
-			if (selectedSpaceId != null && !spaces.Exists(s => s.id == selectedSpaceId)) selectedSpaceId = null;
 
 			mapList.Clear();
 			if (spaces.Count == 0)
 			{
-				Label empty = new(MenuCopy.Get("Map", operatorMode ? "maps.empty-operator" : "space.searching")) { name = "catalog-empty" };
+				Label empty = new(MenuCopy.Get("Map", operatorMode ? "maps.empty-operator" : currentSpace == null ? "space.searching" : "maps.empty")) { name = "catalog-empty" };
 				empty.AddToClassList("body-copy"); mapList.Add(empty);
 			}
 			foreach (Space space in spaces)
@@ -176,48 +197,16 @@ namespace Anaglyph.LaserTag.Interface
 				bool active = space == currentSpace;
 				VisualElement group = new() { name = "space-" + space.id, userData = space.id };
 				group.AddToClassList("catalog-space");
-				VisualElement heading = new() { name = "space-row" }; heading.AddToClassList("catalog-space-row");
-				group.Add(heading);
-				Button select = new() { clickable = new PressClickable(() => SelectSpace(space.id)), name = "select-space-button", tooltip = space.name };
-				select.AddToClassList("map-row"); select.EnableInClassList("selected", selectedSpaceId == space.id);
-				Label title = new(space.name) { pickingMode = PickingMode.Ignore }; title.AddToClassList("catalog-space-name"); select.Add(title);
-				Label status = new(MenuCopy.Get("Map", active ? "space.active" : "space.presence." + (manager?.GetSpacePresence(space.id) ?? MapPresence.Unknown))) { pickingMode = PickingMode.Ignore };
-				status.AddToClassList("catalog-row-status"); select.Add(status); heading.Add(select);
-				if (active)
-				{
-					Button edit = MapRows.IconButton("edit-space-button", "catalog-edit", MenuCopy.Get("Map", "space.edit"), () => EditSpace(space.id));
-					edit.SetEnabled(editSpace != null);
-					heading.Add(edit);
-				}
-				if (selectedSpaceId == space.id)
-				{
-					Button delete = MapRows.IconButton("delete-space-button", "catalog-delete", MenuCopy.Get("Map", "space.delete"), () => RequestSpaceDeletion(space.id));
-					delete.AddToClassList("destructive");
-					string deleteBlocker = manager == null || deleteSpaceModal == null ? MenuCopy.Get("Map", "maps.unavailable") : manager.DeleteSpaceBlocker(space.id);
-					MapRows.SetBlocker(delete, deleteBlocker, delete.tooltip);
-					heading.Add(delete);
-				}
+				group.Add(BuildSpaceRow(space, active, manager));
 				VisualElement children = new(); children.AddToClassList("catalog-maps"); group.Add(children);
 				List<Map> maps = new(space.maps);
 				maps.Sort((a, b) => b.lastUsed.CompareTo(a.lastUsed));
 				foreach (Map map in maps) children.Add(mapRows.Build(map, map == currentMap, manager, editMap));
-				if (children.childCount == 0)
-				{
-					Button create = new()
-					{ clickable = new PressClickable(() => {
-						SpaceManager current = SpaceManager.Instance;
-						if (current?.Space?.id == space.id) current.NewMap();
-						else current?.LoadSpace(space.id);
-					}), text = MenuCopy.Get("Map", "GameMapsPage.new-map-button.text") };
-					create.AddToClassList("catalog-empty-space");
-					string blocker = manager == null ? MenuCopy.Get("Map", "maps.unavailable") : active ? manager.NewMapBlocker() : manager.LoadSpaceBlocker(space.id);
-					MapRows.SetBlocker(create, blocker); children.Add(create);
-				}
+				if (active) children.Add(MapRows.NewMapButton(manager, editMap));
 				mapList.Add(group);
 			}
 			mapList.MakeButtonsActOnPress();
 			newSpaceButton.text = MenuCopy.Get("Map", "space.new");
-			MapRows.SetBlocker(newMapButton, manager == null ? MenuCopy.Get("Map", "maps.unavailable") : manager.NewMapBlocker());
 			MapRows.SetBlocker(newSpaceButton, manager == null ? MenuCopy.Get("Map", "maps.unavailable") : manager.NewSpaceBlocker());
 		}
 	}

@@ -9,7 +9,8 @@ namespace Anaglyph.LaserTag.Maps
 	/// <summary>
 	/// The space files in one directory: <c>&lt;id&gt;.json</c> for a space, <c>&lt;id&gt;.private.json</c>
 	/// for what only this device knows about it, <c>&lt;id&gt;.vmap</c> for its visual map and one
-	/// <c>vocabulary.vvoc</c> for the catalog. Every write goes to a <c>.tmp</c> file first and
+	/// <c>vocabulary.vvoc</c> for the catalog. Only maps with objects are kept, and only the
+	/// spaces <see cref="Keeps"/> says. Every write goes to a <c>.tmp</c> file first and
 	/// replaces the old one. One unreadable file is skipped and logged; it never makes the
 	/// rest of the catalog unavailable.
 	/// </summary>
@@ -23,6 +24,12 @@ namespace Anaglyph.LaserTag.Maps
 		public string Directory { get; }
 
 		public SpaceStore(string directory) => Directory = directory ?? throw new ArgumentNullException(nameof(directory));
+
+		/// <summary>Every space is kept, whatever is in it: for simulation, whose spaces are only ever visual maps.</summary>
+		public bool KeepsEverySpace { get; set; }
+
+		/// <summary>Whether the space is worth a file: objects are placed in it or tags are registered in it.</summary>
+		public bool Keeps(Space space) => KeepsEverySpace || space.HasPlacedObjects || space.HasTags;
 
 #if UNITY_EDITOR
 		/// <summary>Set: the catalog a test plays from, whichever build profile is active.</summary>
@@ -51,7 +58,7 @@ namespace Anaglyph.LaserTag.Maps
 			}
 		}
 
-		/// <summary>Every readable space, most recently used first.</summary>
+		/// <summary>Every readable space that is kept, most recently used first, without its empty maps.</summary>
 		public List<Space> LoadAll()
 		{
 			List<Space> result = new();
@@ -73,7 +80,7 @@ namespace Anaglyph.LaserTag.Maps
 			return result;
 		}
 
-		private static Space ReadSpace(string path)
+		private Space ReadSpace(string path)
 		{
 			string expectedId = Path.GetFileNameWithoutExtension(path);
 			Space space;
@@ -92,14 +99,19 @@ namespace Anaglyph.LaserTag.Maps
 				return null;
 			}
 			space.Sanitize();
-			return space;
+			space.maps.RemoveAll(map => !map.HasObjects);
+			return Keeps(space) ? space : null;
 		}
 
+		/// <summary>Writes the space with its maps that have objects. A space that is not kept is not written: whatever was saved of it is removed.</summary>
 		public bool Save(Space space)
 		{
 			if (space == null) throw new ArgumentNullException(nameof(space));
 			if (!Space.ValidId(space.id)) throw new ArgumentException("A space needs a valid id to be saved.", nameof(space));
-			return WriteAtomically(SpacePath(space.id), JsonUtility.ToJson(space, true));
+			if (!Keeps(space)) return Delete(space.id);
+			Space kept = JsonUtility.FromJson<Space>(JsonUtility.ToJson(space));
+			kept.maps.RemoveAll(map => !map.HasObjects);
+			return WriteAtomically(SpacePath(space.id), JsonUtility.ToJson(kept, true));
 		}
 
 		/// <summary>Removes the space, its visual map and its private file. True when nothing of it is left.</summary>

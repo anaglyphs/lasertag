@@ -286,7 +286,7 @@ namespace Anaglyph.LaserTag.Interface.HUD
 				: MenuCopy.Get("HUDMenu", key);
 		}
 
-		// development builds only: a release build has no outcomes to show
+		// development builds only
 		private void RefreshAlignmentOutcome()
 		{
 			string outcome = Debug.isDebugBuild && GetBlockingConnectionText() == AligningText

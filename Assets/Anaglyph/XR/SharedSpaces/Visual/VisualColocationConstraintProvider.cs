@@ -53,6 +53,9 @@ namespace Anaglyph.XR.SharedSpaces
 		[Tooltip("The authority shares one anchor through the headset runtime, and joiners align by it as soon as they find it. Camera matching runs alongside and aligns whoever it reaches first")]
 		[SerializeField] private bool shareSessionAnchor = true;
 
+		[Tooltip("Ranges new views' features against the depth frame; none assigned, landmarks are ranged by triangulation alone")]
+		[SerializeField] private ComputeShader depthRayCast;
+		[SerializeField] private DepthFeatureRangeSensor.Settings depthRangeSettings = new();
 		[SerializeField] private MeasurementGate.Settings gateSettings = new();
 		[SerializeField] private AlignmentWatch.Settings watchSettings = new();
 		[SerializeField] private UnfamiliarPlaceVerdict.Settings unfamiliarPlaceSettings = new();
@@ -124,9 +127,11 @@ namespace Anaglyph.XR.SharedSpaces
 		private MeasurementGate gate;
 		private AlignmentWatch watch;
 		private UnfamiliarPlaceVerdict unfamiliarPlace;
+		private bool relocalizingAgainstAGuess;
 		private float nextCheck;
 		private DriftSites driftSites;
 		private ColocationLog log;
+		private DepthFeatureRangeSensor rangeSensor;
 		private int sitesGeneration = -1, sitesEpoch = -1;
 
 		public static VisualColocationConstraintProvider Instance { get; private set; }
@@ -219,6 +224,9 @@ namespace Anaglyph.XR.SharedSpaces
 		/// <summary>Recent outcomes, oldest first, each stamped with the realtime it happened at.</summary>
 		public IEnumerable<string> RecentOutcomes => log.Recent;
 
+		/// <summary>A line among the outcomes from whoever owns the map being aligned to: which was loaded, why it was dropped.</summary>
+		public void Note(string message) => log.Note(message);
+
 		/// <summary>The latest attempt and what came of it, for diagnosis.</summary>
 		public string LastAttemptDescription => LastOutcome ?? "none";
 
@@ -226,7 +234,12 @@ namespace Anaglyph.XR.SharedSpaces
 		/// Relocalizes against the map as it stands, a map just loaded for the space: the rig
 		/// goes where the map says, as after a recenter. False when there is nothing to do it with.
 		/// </summary>
-		public bool RelocalizeAgainstMap() => localizer.Map.Count > 0 && alignment.BeginRelocalize("saved map");
+		/// <param name="mapIsAGuess">The map may well be of another place: it is given up sooner (<see cref="UnfamiliarPlaceVerdict.Settings.secondsForAGuess"/>).</param>
+		public bool RelocalizeAgainstMap(bool mapIsAGuess = false)
+		{
+			relocalizingAgainstAGuess = mapIsAGuess;
+			return localizer.Map.Count > 0 && alignment.BeginRelocalize("saved map");
+		}
 
 		/// <summary>The map as it stands with the graph it hangs off, to save. Main thread.</summary>
 		public VisualMapData SnapshotMap()
@@ -268,6 +281,8 @@ namespace Anaglyph.XR.SharedSpaces
 			Instance = this;
 			localizer = GetComponent<VisualLocalizer>();
 			log = new ColocationLog(this, LogTag, localizer);
+			if (depthRayCast != null && SystemInfo.supportsComputeShaders)
+				localizer.RangeSensor = rangeSensor = new DepthFeatureRangeSensor(depthRayCast, XFeatExtractor.MaxKeypoints, depthRangeSettings);
 			gate = new MeasurementGate(gateSettings, track.Drift, track.Walked);
 			watch = new AlignmentWatch(watchSettings, gateSettings.places);
 			unfamiliarPlace = new UnfamiliarPlaceVerdict(unfamiliarPlaceSettings);
@@ -324,6 +339,8 @@ namespace Anaglyph.XR.SharedSpaces
 			alignment.Dispose();
 			sessionAnchor.Dispose();
 			rawFit.Dispose();
+			if (localizer && ReferenceEquals(localizer.RangeSensor, rangeSensor)) localizer.RangeSensor = null;
+			rangeSensor?.Dispose();
 			mapSync?.Dispose();
 			graphSync?.Dispose();
 			if (localizer)
@@ -369,7 +386,8 @@ namespace Anaglyph.XR.SharedSpaces
 			if (phase == Phase.Relocalizing) graph.DropWaiting();
 			if (phase != Phase.Aligned) watch.End();
 			gate.Clear();
-			unfamiliarPlace.BeginLooking(Time.unscaledTime);
+			relocalizingAgainstAGuess &= phase == Phase.Relocalizing;
+			unfamiliarPlace.BeginLooking(Time.unscaledTime, relocalizingAgainstAGuess);
 			// frames from the search go on being solved with those after a rough alignment
 			if (phase != Phase.Aligned) joinPool.Clear();
 			alignmentIsRough = false;
@@ -657,6 +675,10 @@ namespace Anaglyph.XR.SharedSpaces
 				}
 			}
 
+			// relocalizing has no watch to undo it: several results in a row at one place stand in for one tight one
+			bool steady = p.purpose == Purpose.Relocalize && gate.SteadyResultsAgree(pose, correction, camera, p.epoch, Time.unscaledTime);
+			if (steady) rejection = null;
+
 			// a rough result is worth the jump only when it is tighter than the rough one in force: otherwise it
 			// only says whether the place is the same
 			bool sameOrOther = rough && refining && pose.translationSigma > refineSigmaShare * alignmentSigma;
@@ -693,7 +715,7 @@ namespace Anaglyph.XR.SharedSpaces
 			}
 
 			// a check that passed the gate is tighter than the rough alignment it checks: it takes its place
-			if (!gate.TryAgree(frame, out MeasurementGate.Agreed agreed, watched || refining))
+			if (!gate.TryAgree(frame, out MeasurementGate.Agreed agreed, watched || refining || steady))
 			{
 				log.Outcome($"{p.purpose}: candidate {correction}, {gate.HeldBack ?? "waiting for a second frame to agree"} ({description})");
 				// the confirming frame at once, while the old views are still in sight
@@ -705,6 +727,7 @@ namespace Anaglyph.XR.SharedSpaces
 			if (agreed.alone) description = $"one frame, confident enough alone: {description}";
 			if (refining) description = $"{(rough ? "tighter, still rough" : "tight")}, in place of the rough alignment: {description}";
 			else if (rough) description = $"rough, until a closer view or the graph refines it: {description}";
+			else if (steady && agreed.provisional) description = $"several results in a row at one place: {description}";
 			else if (agreed.provisional) description = $"one frame, provisional until another view agrees: {description}";
 #if UNITY_EDITOR
 			if (!loop && MisalignNextAlignmentForTests != 0)

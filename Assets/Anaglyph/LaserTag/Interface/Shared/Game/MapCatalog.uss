@@ -9,10 +9,6 @@
     align-self: stretch;
 }
 
-.map-row.selected {
-    background-color: var(--primary-hover, rgb(255, 255, 255));
-}
-
 #map-list {
     flex-grow: 1;
     flex-shrink: 1;
@@ -113,16 +109,19 @@
     background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/trash.svg");
 }
 
-.catalog-map-row > .catalog-row-action {
+.catalog-map-row > .catalog-row-action,
+.catalog-space-row > .catalog-row-action {
     display: none;
 }
 
-.catalog-map-row--hovered > .catalog-row-action {
+.catalog-map-row--hovered > .catalog-row-action,
+.catalog-space-row--hovered > .catalog-row-action {
     display: flex;
 }
 
-/* touch screens have no hover: the loaded map keeps its edit button showing */
-.touch-screen .catalog-map-row--loaded > .catalog-edit {
+/* touch screens have no hover: the loaded map and active space keep their edit buttons showing */
+.touch-screen .catalog-map-row--loaded > .catalog-edit,
+.touch-screen .catalog-space-row--active > .catalog-edit {
     display: flex;
 }
 

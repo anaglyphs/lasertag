@@ -19,6 +19,9 @@ namespace Anaglyph.LaserTag.Maps
 	/// The scene component that owns the space and map currently shown, the space list,
 	/// autosave and startup discovery. Its role follows the sync bus: offline and the host own
 	/// the shown space and save it; a client renders the host's and saves nothing of it.
+	/// A map is saved while it has objects, and a space while the store keeps it (objects or
+	/// registered tags; any space in simulation): until then the shown space is not among
+	/// <see cref="Spaces"/>. A map exists only once the player makes one.
 	/// <see cref="Space"/> and <see cref="Map"/> are the live documents, read-only to callers;
 	/// every change goes through a command here or on <see cref="Alignment"/>.
 	/// </summary>
@@ -56,7 +59,7 @@ namespace Anaglyph.LaserTag.Maps
 		private float saveDue;
 		// a client shows the host's space, which is never saved; its own last space comes back on disconnect
 		private bool showingSessionSpace;
-		private string localSpaceId;
+		private Space localSpace;
 		private int sessionGeneration;
 		// the host is replacing the session's map: objects are being retired and spawned
 		private bool changingMap;
@@ -78,7 +81,7 @@ namespace Anaglyph.LaserTag.Maps
 
 		/// <summary>The shown space; null until startup finds or makes one.</summary>
 		public Space Space => space;
-		/// <summary>The shown map; null without a space, or after its map was deleted.</summary>
+		/// <summary>The shown map; null until the player makes or loads one.</summary>
 		public Map Map => map;
 		/// <summary>Every saved space, most recently used first.</summary>
 		public IReadOnlyList<Space> Spaces => spaces;
@@ -113,6 +116,9 @@ namespace Anaglyph.LaserTag.Maps
 			Instance = this;
 			lifetime = new CancellationTokenSource();
 			store = new SpaceStore(SpaceStore.DefaultDirectory);
+#if UNITY_EDITOR
+			store.KeepsEverySpace = !XRSettings.enabled;
+#endif
 			spaces.AddRange(store.LoadAll());
 			visualMaps = new VisualMapPersistence(store);
 			Alignment = new SpaceAlignment(this, colocationManager, store);
@@ -208,6 +214,8 @@ namespace Anaglyph.LaserTag.Maps
 		/// <summary>Shows one of this device's spaces and one of its maps: a new frame, so colocation starts over.</summary>
 		private void Show(Space next, Map nextMap)
 		{
+			ForgetShownMapIfEmpty();
+			Space left = space;
 			shown?.Cancel();
 			shown?.Dispose();
 			shown = new CancellationTokenSource();
@@ -219,9 +227,30 @@ namespace Anaglyph.LaserTag.Maps
 			colocationManager.InvalidateAlignment();
 			Alignment.Apply(space, preserve: false);
 			FrameChanged.Invoke();
+			if (space != null && colocationManager.VisualProvider)
+				colocationManager.VisualProvider.Note($"Space: showing {space.name} ({space.id.Substring(0, 8)}){(store.HasVisualMap(space.id) ? ", has a saved map" : ", no saved map")}");
 			if (space != null) visualMaps.LoadAndRelocalize(space, shown.Token, OnRelocalizationFailed, loaded => loaded.id == provisionalSpaceId);
 			SpaceChanged.Invoke();
 			MapChanged.Invoke();
+			if (left != null && left != space && !spaces.Contains(left)) Forget(left);
+		}
+
+		// a map left with nothing placed in it is not kept
+		private void ForgetShownMapIfEmpty()
+		{
+			if (map != null && !map.HasObjects) space?.maps.Remove(map);
+		}
+
+		/// <summary>Erases the anchors only this space referenced and everything saved of it.</summary>
+		private void Forget(Space target)
+		{
+			List<string> guids = new();
+			foreach (AnchorRef anchor in target.anchors) guids.Add(anchor.guid);
+			PrivateReferences references = store.LoadPrivate(target.id);
+			if (references != null) foreach (TagAnchorRef anchor in references.tagAnchors) guids.Add(anchor.guid);
+			Alignment.EraseUnreferenced(guids);
+			Discovery.Forget(target.id);
+			store.Delete(target.id);
 		}
 
 		private void OnPlaceUnfamiliar()
@@ -231,9 +260,10 @@ namespace Anaglyph.LaserTag.Maps
 
 		/// <summary>
 		/// The shown space's map didn't relocalize: the headset is not in it. It is rejected for
-		/// this room and a blank space is shown in its place, a host's session moving with it. Its
-		/// map file is left as last saved, and nothing done during a guess by startup is saved to it.
-		/// A client shows the host's space whatever it sees, and a round is played out where it began.
+		/// this room. A space startup only guessed at is backed out of, and startup guesses again;
+		/// any other is replaced by a blank space, a host's session moving with it. Its map file is
+		/// left as last saved, and nothing done during a guess is saved to it. A client shows the
+		/// host's space whatever it sees, and a round is played out where it began.
 		/// </summary>
 		private void OnRelocalizationFailed(Space failed)
 		{
@@ -242,10 +272,17 @@ namespace Anaglyph.LaserTag.Maps
 			SpacesChanged.Invoke();
 			if (Role == SpaceRole.Client || RoundInProgress) return;
 			Debug.Log($"[{nameof(SpaceManager)}] space {failed.id} ({failed.name}) didn't relocalize: this room is not that space");
+			if (colocationManager.VisualProvider) colocationManager.VisualProvider.Note($"Space: {failed.name} didn't relocalize, rejected for this room");
 			dirty = false;
-			if (failed.id == provisionalSpaceId) failed.lastUsed = provisionalLastUsed;
+			bool guessed = failed.id == provisionalSpaceId;
+			if (guessed) failed.lastUsed = provisionalLastUsed;
 			store.Save(failed);
-			ShowBlankSpace();
+			if (guessed && Role == SpaceRole.Offline)
+			{
+				Show(null, null);
+				Startup(lifetime.Token);
+			}
+			else ShowBlankSpace();
 		}
 
 		private void SetMap(Map next)
@@ -263,6 +300,7 @@ namespace Anaglyph.LaserTag.Maps
 
 		private void ShowMap(Map next)
 		{
+			ForgetShownMapIfEmpty();
 			SetMap(next);
 			MapChanged.Invoke();
 		}
@@ -296,8 +334,9 @@ namespace Anaglyph.LaserTag.Maps
 			if (Role != SpaceRole.Client) return;
 			if (!showingSessionSpace)
 			{
+				ForgetShownMapIfEmpty();
 				Save();
-				localSpaceId = space?.id;
+				localSpace = space;
 				showingSessionSpace = true;
 			}
 			if (incoming == null)
@@ -382,6 +421,7 @@ namespace Anaglyph.LaserTag.Maps
 			if (map == null || Role == SpaceRole.Client) return;
 			replaceableSpaceId = null;
 			map.objects = Objects.Capture();
+			ListShownSpaceWhileSaved();
 			MarkDirty();
 		}
 
@@ -399,15 +439,31 @@ namespace Anaglyph.LaserTag.Maps
 		{
 			dirty = false;
 			if (space == null || showingSessionSpace) return true;
+			ListShownSpaceWhileSaved();
 			if (!store.Save(space))
 			{
 				if (!shuttingDown) MarkDirty();
 				return false;
 			}
-			visualMaps.Save(space, forceVisualSave || shuttingDown, synchronousVisual || shuttingDown);
+			if (store.Keeps(space)) visualMaps.Save(space, forceVisualSave || shuttingDown, synchronousVisual || shuttingDown);
 			forceVisualSave = false;
 			Publish();
 			return true;
+		}
+
+		private void ListShownSpaceWhileSaved()
+		{
+			if (space == null || showingSessionSpace) return;
+			bool saved = store.Keeps(space);
+			if (saved == spaces.Contains(space)) return;
+			if (saved) spaces.Insert(0, space);
+			else
+			{
+				spaces.Remove(space);
+				visualMaps.Invalidate();
+				Discovery.Forget(space.id);
+			}
+			SpacesChanged.Invoke();
 		}
 
 		private async Awaitable SaveVisualMapsPeriodically(CancellationToken token)
@@ -415,7 +471,7 @@ namespace Anaglyph.LaserTag.Maps
 			while (true)
 			{
 				await Awaitable.WaitForSecondsAsync(10f, token);
-				if (space != null && !showingSessionSpace && ColocationManager.IsLocalized) visualMaps.Save(space, false, false);
+				if (space != null && !showingSessionSpace && store.Keeps(space) && ColocationManager.IsLocalized) visualMaps.Save(space, false, false);
 			}
 		}
 
@@ -445,17 +501,14 @@ namespace Anaglyph.LaserTag.Maps
 			}
 		}
 
-		// the shown space goes back to blank, for the next unknown room: what it mapped is a few
-		// keyframes of a place already saved. If the saved map fails to relocalize, startup's
-		// back-out returns to it
+		// what the blank space mapped is a few keyframes of a place already saved. If the saved
+		// map fails to relocalize, startup's back-out shows a blank space again
 		private void ReplaceShownSpace(Space recognized)
 		{
-			string replaced = space.id;
 			long lastUsed = recognized.lastUsed;
-			Show(recognized, MostRecentMap(recognized) ?? AddMap(recognized));
+			Show(recognized, MostRecentMap(recognized));
 			provisionalSpaceId = recognized.id;
 			provisionalLastUsed = lastUsed;
-			store.DeleteVisualMap(replaced);
 			Discovery.StopRecognizing();
 			spaces.Sort(ByLastUsed);
 			SpacesChanged.Invoke();
@@ -485,7 +538,7 @@ namespace Anaglyph.LaserTag.Maps
 			Space target = FindSpace(id);
 			if (target == space) return true;
 			SaveBeforeLeaving();
-			Show(target, MostRecentMap(target) ?? AddMap(target));
+			Show(target, MostRecentMap(target));
 			spaces.Sort(ByLastUsed);
 			SpacesChanged.Invoke();
 			return Save();
@@ -502,32 +555,21 @@ namespace Anaglyph.LaserTag.Maps
 			return Save();
 		}
 
-		private void ShowFreshSpace()
-		{
-			Space fresh = Space.Create(GenerateSpaceName());
-			spaces.Insert(0, fresh);
-			Show(fresh, AddMap(fresh));
-		}
+		private void ShowFreshSpace() => Show(Space.Create(GenerateSpaceName()), null);
 
 		public string DeleteSpaceBlocker(string id) =>
 			ManageBlocker() ?? (FindSpace(id) == null ? L("blocker.map-is-missing") : null);
 
 		/// <summary>Deletes a space, its maps and its visual map. Deleting the shown space shows a fresh one.</summary>
-
 		public bool DeleteSpace(string id)
 		{
 			if (DeleteSpaceBlocker(id) != null) return false;
 			Space target = FindSpace(id);
-			List<string> guids = new();
-			foreach (AnchorRef anchor in target.anchors) guids.Add(anchor.guid);
-			PrivateReferences references = store.LoadPrivate(id);
-			if (references != null) foreach (TagAnchorRef anchor in references.tagAnchors) guids.Add(anchor.guid);
 			spaces.Remove(target);
 			bool deletingShownSpace = target == space;
 			if (deletingShownSpace) ShowFreshSpace();
-			Alignment.EraseUnreferenced(guids);
+			else Forget(target);
 			bool deleted = store.Delete(id);
-			Discovery.Forget(id);
 			SpacesChanged.Invoke();
 			if (deletingShownSpace) Save();
 			return deleted;
@@ -598,6 +640,7 @@ namespace Anaglyph.LaserTag.Maps
 		public bool NewMap()
 		{
 			if (NewMapBlocker() != null) return false;
+			replaceableSpaceId = null;
 			Save();
 			ShowMap(AddMap(space));
 			SpacesChanged.Invoke();
@@ -621,15 +664,23 @@ namespace Anaglyph.LaserTag.Maps
 		public string DeleteMapBlocker(string id) =>
 			id == null ? L("blocker.no-map-selected") : ManageBlocker() ?? (OwnerOf(id) == null ? L("blocker.map-is-missing") : null);
 
-		/// <summary>Deletes a saved map. Deleting the shown map shows a fresh one in its space.</summary>
+		/// <summary>Deletes a saved map, and its space when nothing else keeps it. Deleting the shown map leaves none shown.</summary>
 		public bool DeleteMap(string id)
 		{
 			if (DeleteMapBlocker(id) != null) return false;
 			Space owner = OwnerOf(id);
 			Map target = owner.FindMap(id);
 			owner.maps.Remove(target);
-			if (target == map) ShowMap(AddMap(owner));
-			bool saved = owner == space ? Save() : store.Save(owner);
+			if (target == map) ShowMap(null);
+			bool saved;
+			if (owner == space) saved = Save();
+			else if (store.Keeps(owner)) saved = store.Save(owner);
+			else
+			{
+				spaces.Remove(owner);
+				Forget(owner);
+				saved = store.Delete(owner.id);
+			}
 			SpacesChanged.Invoke();
 			return saved;
 		}
@@ -674,8 +725,8 @@ namespace Anaglyph.LaserTag.Maps
 		{
 			int highest = 0;
 			foreach (Space candidate in spaces)
-				if (candidate.name != null && candidate.name.StartsWith("Space ") && int.TryParse(candidate.name.Substring(6), out int n)) highest = Math.Max(highest, n);
-			return $"Space {highest + 1}";
+				if (candidate.name != null && candidate.name.StartsWith(Space.GeneratedNamePrefix) && int.TryParse(candidate.name.Substring(Space.GeneratedNamePrefix.Length), out int n)) highest = Math.Max(highest, n);
+			return $"{Space.GeneratedNamePrefix}{highest + 1}";
 		}
 
 		private string GenerateMapName(Space owner)
@@ -699,7 +750,7 @@ namespace Anaglyph.LaserTag.Maps
 				Objects.SpawnLocalObjects();
 				Publish();
 			}
-			else localSpaceId = space?.id; // the host's space arrives with its header
+			else localSpace = space; // the host's space arrives with its header
 			SpacesChanged.Invoke();
 			SpaceChanged.Invoke();
 		}
@@ -740,10 +791,12 @@ namespace Anaglyph.LaserTag.Maps
 				return;
 			}
 			showingSessionSpace = false;
-			Space local = FindSpace(localSpaceId) ?? (spaces.Count > 0 ? spaces[0] : null);
-			localSpaceId = null;
-			if (local != null) Show(local, MostRecentMap(local) ?? AddMap(local));
-			else Show(null, null);
+			// the session's space is the host's: nothing of it is this device's to forget
+			space = null;
+			map = null;
+			Space local = localSpace;
+			localSpace = null;
+			Show(local, local != null ? MostRecentMap(local) : null);
 			Save();
 			if (space == null) Startup(lifetime.Token).RunUntilCancelled();
 		}
@@ -803,33 +856,13 @@ namespace Anaglyph.LaserTag.Maps
 			}
 		}
 
-		/// <summary>The room is none of the saved spaces: shows the most recent blank space, or a new one.</summary>
+		/// <summary>The room is none of the saved spaces: shows a new one, with no map.</summary>
 		private bool ShowBlankSpace()
 		{
-			Space next = FindBlankSpace();
-			if (next == null)
-			{
-				next = Space.Create(GenerateSpaceName());
-				spaces.Insert(0, next);
-			}
-			Show(next, MostRecentMap(next) ?? AddMap(next));
-			replaceableSpaceId = next.id;
-			spaces.Sort(ByLastUsed);
+			ShowFreshSpace();
+			replaceableSpaceId = space.id;
 			SpacesChanged.Invoke();
 			return Save();
-		}
-
-		/// <summary>The most recent space with nothing in it: no references, no visual map, only empty maps.</summary>
-		private Space FindBlankSpace()
-		{
-			foreach (Space candidate in spaces)
-			{
-				if (candidate.HasReferences || store.HasVisualMap(candidate.id)) continue;
-				bool empty = true;
-				foreach (Map existing in candidate.maps) empty &= existing.objects.Count == 0;
-				if (empty) return candidate;
-			}
-			return null;
 		}
 
 		/// <summary>Asks the room which saved spaces are here, for the picker. Offline only; a session's space is the host's.</summary>

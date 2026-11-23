@@ -79,6 +79,9 @@ namespace Anaglyph.XR.VisualLocalization
 			set => Map.Anchoring = value;
 		}
 
+		/// <summary>The device's depth sensor, for ranging new views' features; null to range by triangulation alone.</summary>
+		public IFeatureRangeSensor RangeSensor { get; set; }
+
 		public VisualMap Map { get; private set; }
 
 		/// <summary>The frames behind the map and recent queries, with what became of each.</summary>

@@ -326,6 +326,7 @@ namespace Anaglyph.LaserTag.Interface
 		private void OnMatchStateChanged(MatchState state)
 		{
 			bool playing = state != MatchState.NotPlaying;
+			if (playing) MapEditor.MapEditor.SetActive(false);
 			mapsTab.SetEnabled(!playing);
 			RefreshDemoControls();
 			matchNavigation.SetModalPresented(playingPage, playing, 20);

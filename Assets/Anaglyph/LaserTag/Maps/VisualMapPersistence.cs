@@ -352,6 +352,7 @@ namespace Anaglyph.LaserTag.Maps
 			if (provider.Alignment.CurrentPhase != CanonAlignment.Phase.Aligned)
 			{
 				Debug.Log($"[{nameof(VisualMapPersistence)}] the rig took no alignment in {AlignTimeout:F0} s ({provider.Alignment.CurrentPhase}): the saved map for space {space.id} is not loaded, and not replaced");
+				provider.Note($"Map: {space.name} not loaded, the rig took no alignment in {AlignTimeout:F0} s");
 				return;
 			}
 
@@ -377,7 +378,9 @@ namespace Anaglyph.LaserTag.Maps
 					if (probes.TryGetValue((k.owner, k.timestampNs), out ulong[] probe)) probeCache[k] = probe;
 			}
 			Debug.Log($"[{nameof(VisualMapPersistence)}] loaded {localizer.Map.Count} keyframes for space {space.id}: {localizer.Quality}; relocalizing");
-			if (!provider.RelocalizeAgainstMap())
+			provider.Note($"Map: loaded {space.name} ({space.id.Substring(0, 8)}), {localizer.Quality}");
+			bool guessed = isGuessed != null && isGuessed(space);
+			if (!provider.RelocalizeAgainstMap(guessed))
 			{
 				Debug.Log($"[{nameof(VisualMapPersistence)}] couldn't relocalize against the saved map for space {space.id}: it is not replaced");
 				return;
@@ -386,7 +389,7 @@ namespace Anaglyph.LaserTag.Maps
 			// startup clears the scan and rebases the frame while the session comes up, and the
 			// provider drops its map with them: put the loaded map back while it is still wanted
 			int restores = 0;
-			float timeout = isGuessed != null && isGuessed(space) ? GuessedRelocalizeTimeout : RelocalizeTimeout;
+			float timeout = guessed ? GuessedRelocalizeTimeout : RelocalizeTimeout;
 			float deadline = Time.realtimeSinceStartup + timeout;
 			bool placeUnfamiliar = false;
 			void OnPlaceUnfamiliar() => placeUnfamiliar = true;
@@ -417,6 +420,7 @@ namespace Anaglyph.LaserTag.Maps
 
 			if (provider.Alignment.CurrentPhase != CanonAlignment.Phase.Relocalizing) return;
 			Debug.Log($"[{nameof(VisualMapPersistence)}] the saved map didn't relocalize in {timeout:F0} s: starting a fresh one ({provider.LastAttemptDescription})");
+			provider.Note($"Map: {space.name} didn't relocalize in {timeout:F0} s");
 			localizer.Map.Clear();
 			provider.Alignment.AbandonRelocalization();
 			failed?.Invoke(space);

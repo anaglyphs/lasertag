@@ -17,6 +17,7 @@
                 </Bindings>
             </Anaglyph.Menu.FlashingLabel>
             <ui:VisualElement class="map-actions layout-actions">
+                <ui:Button name="probe-maps-button"/>
                 <Anaglyph.Menu.NavButton name="manage-maps-button" target="manage-maps-page">
                     <Bindings>
                         <UnityEngine.Localization.LocalizedString property="text" table="Map" entry="maps.manage"/>

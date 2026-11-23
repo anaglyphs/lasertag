@@ -61,6 +61,8 @@ namespace Anaglyph.LaserTag.Tests
 			List<Space> loaded = new SpaceStore(store.Directory).LoadAll();
 			Assert.That(loaded.Count, Is.EqualTo(2));
 			Assert.That(loaded[0].id, Is.EqualTo(second.id), "most recently used first");
+			Assert.That(loaded[1].maps.Count, Is.EqualTo(1), "a map with no objects is not kept");
+			first.maps.RemoveAt(1);
 			Assert.That(JsonUtility.ToJson(loaded[1]), Is.EqualTo(JsonUtility.ToJson(first)));
 			Assert.That(loaded[1].maps[0].objects.Count, Is.EqualTo(2));
 			Assert.That(loaded[1].alignment.HasPair, Is.True);
@@ -71,6 +73,35 @@ namespace Anaglyph.LaserTag.Tests
 
 			Assert.That(store.Delete(first.id), Is.True);
 			Assert.That(new SpaceStore(store.Directory).LoadAll().Count, Is.EqualTo(1));
+		}
+
+		[Test]
+		public void ASpaceWithNeitherObjectsNorTagsIsNotKept()
+		{
+			Space space = Sample();
+			Assert.That(store.Save(space), Is.True);
+			File.WriteAllText(store.VisualMapPath(space.id), "map");
+			store.SavePrivate(PrivateReferences.Create(space));
+
+			space.maps[0].objects.Clear();
+			Assert.That(store.Save(space), Is.True);
+			Assert.That(store.LoadAll().Count, Is.EqualTo(1), "registered tags keep a space with no objects");
+			Assert.That(store.LoadAll()[0].maps, Is.Empty);
+			Assert.That(store.HasVisualMap(space.id), Is.True);
+
+			space.tags.Clear();
+			Assert.That(store.Save(space), Is.True);
+			Assert.That(File.Exists(store.SpacePath(space.id)), Is.False);
+			Assert.That(store.HasVisualMap(space.id), Is.False);
+			Assert.That(File.Exists(store.PrivatePath(space.id)), Is.False);
+
+			File.WriteAllText(store.SpacePath(space.id), JsonUtility.ToJson(space));
+			Assert.That(store.LoadAll(), Is.Empty, "a file of a space that is not kept is not listed");
+
+			store.KeepsEverySpace = true;
+			Assert.That(store.LoadAll().Count, Is.EqualTo(1));
+			Assert.That(store.Save(space), Is.True);
+			Assert.That(File.Exists(store.SpacePath(space.id)), Is.True);
 		}
 
 		[Test]
@@ -119,7 +150,7 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(result.tags[0].id, Is.EqualTo(2));
 			Assert.That(result.anchors.Count, Is.EqualTo(1));
 			Assert.That(result.anchors[0].tagId, Is.EqualTo(2));
-			Assert.That(result.maps.Count, Is.EqualTo(2));
+			Assert.That(result.maps.Count, Is.EqualTo(1), "the map with no objects is not loaded");
 			Assert.That(result.maps[0].objects.Count, Is.EqualTo(1));
 			Assert.That(result.maps[0].objects[0].prefabId, Is.EqualTo("Base"));
 			Assert.That(result.alignment.method, Is.EqualTo(Method.Visual));

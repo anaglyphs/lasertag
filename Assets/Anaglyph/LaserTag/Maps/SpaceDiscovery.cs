@@ -17,6 +17,36 @@ namespace Anaglyph.LaserTag.Maps
 		public ProbeResult(ProbeOutcome outcome, Space best = null) { this.outcome = outcome; this.best = best; }
 	}
 
+	public static class SpaceRanking
+	{
+		/// <summary>Of the spaces scoring at least <paramref name="minimum"/>, the one with the highest priority, then the highest score; null when none does.</summary>
+		public static string Best(IReadOnlyDictionary<string, float> scores, float minimum, Func<string, int> priority = null)
+		{
+			string best = null;
+			int bestPriority = 0;
+			float bestScore = 0;
+			foreach ((string id, float score) in scores)
+			{
+				if (score < minimum) continue;
+				int idPriority = priority?.Invoke(id) ?? 0;
+				if (best != null && (idPriority < bestPriority || idPriority == bestPriority && score <= bestScore)) continue;
+				best = id;
+				bestPriority = idPriority;
+				bestScore = score;
+			}
+			return best;
+		}
+
+		/// <summary>Of the <paramref name="among"/> highest-scoring spaces, the one with the highest priority, then the highest score; null when there are none.</summary>
+		public static string BestOfTop(IReadOnlyDictionary<string, float> scores, int among, Func<string, int> priority = null)
+		{
+			List<KeyValuePair<string, float>> ranked = new(scores);
+			ranked.Sort((a, b) => b.Value.CompareTo(a.Value));
+			if (ranked.Count > among) ranked.RemoveRange(Math.Max(among, 0), ranked.Count - Math.Max(among, 0));
+			return Best(new Dictionary<string, float>(ranked), float.NegativeInfinity, priority);
+		}
+	}
+
 	/// <summary>The rolling average of each space's score over the last few keyframes.</summary>
 	public sealed class RecognitionVotes
 	{
@@ -27,31 +57,22 @@ namespace Anaglyph.LaserTag.Maps
 
 		public void Clear() => recent.Clear();
 
-		/// <summary>Adds a keyframe's scores: the highest space whose average over a full window reaches <paramref name="minimum"/>, or null.</summary>
-		public string Add(Dictionary<string, float> scores, float minimum)
+		/// <summary>Adds a keyframe's scores: the <see cref="SpaceRanking.Best"/> space by average over a full window, or null.</summary>
+		public string Add(Dictionary<string, float> scores, float minimum, Func<string, int> priority = null)
 		{
 			recent.Enqueue(scores);
 			if (recent.Count > length) recent.Dequeue();
 			if (recent.Count < length) return null;
 
-			Dictionary<string, float> sums = new();
+			Dictionary<string, float> averages = new();
 			foreach (Dictionary<string, float> keyframe in recent)
 				foreach ((string id, float score) in keyframe)
 				{
-					sums.TryGetValue(id, out float sum);
-					sums[id] = sum + score;
+					averages.TryGetValue(id, out float sum);
+					averages[id] = sum + score / length;
 				}
 
-			string best = null;
-			float highest = minimum * length;
-			foreach ((string id, float sum) in sums)
-			{
-				if (sum < highest) continue;
-				highest = sum;
-				best = id;
-			}
-
-			return best;
+			return SpaceRanking.Best(averages, minimum, priority);
 		}
 	}
 
@@ -59,11 +80,14 @@ namespace Anaglyph.LaserTag.Maps
 	/// Which saved space the headset is standing in. The anchor runtime is asked first which
 	/// saved anchors localize here; when none can say, the camera's view is ranked against every
 	/// space with a saved visual map, by the words they share, with votes added up over a few
-	/// frames; a space is only chosen by view when it scores like here, even when it is the only
-	/// candidate. A visual match is confirmed by relocalizing against that space's map once it
-	/// is shown, which is where a wrong guess is caught: a space whose map fails to relocalize
-	/// is rejected, left out of probes until the headset changes rooms. The per-space results
-	/// feed the map picker.
+	/// frames. The words only rank: on headset maps the space the headset stands in comes first
+	/// two times in three and among the first three nearly always, but no score separates it
+	/// from the others. So the probe's answer is a guess, the one with the highest
+	/// <see cref="Space.Priority"/> of the few best ranked, and relocalizing against that space's
+	/// map once it is shown decides: a space whose map fails to relocalize is rejected, left
+	/// out of probes until the headset changes rooms, and the next probe guesses again. After
+	/// <see cref="MaxGuesses"/> rejections the room is none of the saved spaces. The per-space
+	/// results feed the map picker.
 	/// </summary>
 	public sealed class SpaceDiscovery
 	{
@@ -76,15 +100,16 @@ namespace Anaglyph.LaserTag.Maps
 		private bool probing;
 		private int generation;
 
-		/// <summary>Average per-frame score a space needs to be the one: the sum of its best three views' shares of the frame's words. On headset maps, a view of the same place scores 0.8-1.0 and any other 0.5-0.7.</summary>
+		/// <summary>Average per-keyframe score a space needs to be recognized while walking: the sum of its best three views' shares of the keyframe's words. On headset maps the space the headset stands in reaches it in a quarter to a half of views, and another space in 1 to 2 in 100.</summary>
 		public float MinScore = 0.75f;
-		/// <summary>How far ahead of the runner-up the leader must be for an early decision.</summary>
-		public float LeadRatio = 1.5f;
-		public int MinFrames = 3, MaxFrames = 10;
+		/// <summary>Frames a visual probe ranks the spaces over.</summary>
+		public int ProbeFrames = 3;
 		public float FrameInterval = 0.3f;
 		public int MinFeatures = 100;
-		/// <summary>Seconds a visual probe looks before giving up for now.</summary>
+		/// <summary>Seconds a visual probe waits for its frames before giving up for now.</summary>
 		public float MaxSeconds = 6f;
+		/// <summary>Saved spaces tried in one room before it is taken for a new one: each wrong guess costs a map load and <see cref="UnfamiliarPlaceVerdict.Settings.secondsForAGuess"/>.</summary>
+		public int MaxGuesses = 3;
 
 		private readonly RecognitionVotes votes = new(RecognitionKeyframes);
 		private VisualPlaceIndex recognitionIndex;
@@ -129,7 +154,6 @@ namespace Anaglyph.LaserTag.Maps
 				if (byAnchors.outcome is ProbeOutcome.Matches or ProbeOutcome.Canceled || operation != generation) return byAnchors;
 				ProbeResult byView = await ProbeVisuallyAsync(spaces, token);
 				if (operation != generation) return new(ProbeOutcome.Canceled);
-				if (byView.outcome == ProbeOutcome.Matches) results[byView.best.id] = 1;
 				// only two answers of "nothing here" make an empty room; a runtime that could not
 				// answer leaves the question open, and the probe runs again shortly
 				if (byView.outcome == ProbeOutcome.NoMatches && byAnchors.outcome != ProbeOutcome.NoMatches) return new(ProbeOutcome.Indeterminate);
@@ -172,11 +196,9 @@ namespace Anaglyph.LaserTag.Maps
 			}
 
 			if (operation != generation || index != recognitionIndex) return null;
-			string recognized = votes.Add(scores, MinScore);
+			string recognized = votes.Add(scores, MinScore, id => PriorityOf(all, id));
 			if (recognized == null) return null;
-			Space best = null;
-			foreach (Space space in all)
-				if (space.id == recognized) best = space;
+			Space best = Find(all, recognized);
 			if (best != null) Debug.Log($"[{nameof(SpaceDiscovery)}] recognized space {best.id} ({best.name}) while walking");
 			return best;
 		}
@@ -258,14 +280,13 @@ namespace Anaglyph.LaserTag.Maps
 			List<Space> candidates = new();
 			foreach (Space space in spaces)
 				if (visualMaps.HasMap(space)) candidates.Add(space);
-			if (candidates.Count == 0) return new(ProbeOutcome.NoMatches);
+			if (candidates.Count == 0 || rejected.Count >= MaxGuesses) return new(ProbeOutcome.NoMatches);
+			candidates.Sort((a, b) => a.Priority != b.Priority ? b.Priority.CompareTo(a.Priority) : b.lastUsed.CompareTo(a.lastUsed));
 
 			VisualLocalizer localizer = VisualLocalizer.Instance;
 			if (localizer == null || !localizer.IsAvailable || !SpaceAlignment.TrackingReady) return new(ProbeOutcome.Indeterminate);
 
-			// nothing to rank them by (no vocabulary yet): a guess at the most recent, and
-			// relocalizing decides. A single candidate is scored like any other: an unfamiliar
-			// room must not take the only space there is
+			// nothing to rank them by (no vocabulary yet): a guess at the first by priority, then most recent
 			VisualVocabulary vocabulary = visualMaps.Vocabulary;
 			if (vocabulary == null) return new(ProbeOutcome.Matches, candidates[0]);
 
@@ -290,7 +311,7 @@ namespace Anaglyph.LaserTag.Maps
 				Dictionary<string, float> votes = new();
 				int frames = 0;
 				float deadline = Time.realtimeSinceStartup + MaxSeconds;
-				while (frames < MaxFrames && Time.realtimeSinceStartup < deadline)
+				while (frames < ProbeFrames && Time.realtimeSinceStartup < deadline)
 				{
 					if (token.IsCancellationRequested) return new(ProbeOutcome.Canceled);
 					VisualQuery query = await localizer.CaptureQueryAsync();
@@ -305,38 +326,25 @@ namespace Anaglyph.LaserTag.Maps
 							votes[id] = sum + score;
 						}
 						frames++;
-						if (frames >= MinFrames && Leader(votes, frames, candidates, needLead: true) is Space early)
-							return Report(early, candidates, frames, votes);
 					}
-					await Awaitable.WaitForSecondsAsync(FrameInterval, token);
+					if (frames < ProbeFrames) await Awaitable.WaitForSecondsAsync(FrameInterval, token);
 				}
 
-				if (frames < MinFrames) return new(ProbeOutcome.Indeterminate);
-				if (Leader(votes, frames, candidates, needLead: false) is Space leader) return Report(leader, candidates, frames, votes);
-				// nothing scored looks like here; a map saved without probes might still be
-				if (unscorable.Count > 0) return Report(unscorable[0], candidates, frames, votes);
-				Report(null, candidates, frames, votes);
-				return new(ProbeOutcome.NoMatches);
+				if (frames < ProbeFrames) return new(ProbeOutcome.Indeterminate);
+				string guess = SpaceRanking.BestOfTop(votes, MaxGuesses - rejected.Count, id => PriorityOf(candidates, id));
+				// a map saved without probes can't be ranked: it gets its turn after those that can
+				return Report(Find(candidates, guess) ?? (unscorable.Count > 0 ? unscorable[0] : null), candidates, frames, votes);
 			}
 			finally { localizer.Urgent = wasUrgent; }
 		}
 
-		// the space ahead by enough over the frames so far; with needLead, also ahead of the
-		// runner-up by the ratio (an early decision asks for more)
-		private Space Leader(Dictionary<string, float> votes, int frames, List<Space> candidates, bool needLead)
+		private static Space Find(IReadOnlyList<Space> spaces, string id)
 		{
-			string leader = null;
-			float first = 0, second = 0;
-			foreach ((string id, float sum) in votes)
-			{
-				float average = sum / frames;
-				if (average > first) { second = first; first = average; leader = id; }
-				else if (average > second) second = average;
-			}
-			if (leader == null || first < MinScore) return null;
-			if (needLead && second > 0 && first < LeadRatio * second) return null;
-			return candidates.Find(s => s.id == leader);
+			foreach (Space space in spaces) if (space.id == id) return space;
+			return null;
 		}
+
+		private static int PriorityOf(IReadOnlyList<Space> spaces, string id) => Find(spaces, id)?.Priority ?? 0;
 
 		private ProbeResult Report(Space best, List<Space> candidates, int frames, Dictionary<string, float> votes)
 		{
@@ -349,6 +357,7 @@ namespace Anaglyph.LaserTag.Maps
 				parts.Add($"{space.id.Substring(0, 8)}={score:F2}");
 			}
 			Debug.Log($"[{nameof(SpaceDiscovery)}] {frames} frames: {(best != null ? $"space {best.id} ({best.name})" : "no saved space")} {string.Join(" ", parts)}");
+			if (colocation.VisualProvider) colocation.VisualProvider.Note($"Probe: {frames} frames, {(best != null ? best.name : "no saved space")} of {candidates.Count} ({string.Join(" ", parts)})");
 			return best != null ? new(ProbeOutcome.Matches, best) : new(ProbeOutcome.NoMatches);
 		}
 	}

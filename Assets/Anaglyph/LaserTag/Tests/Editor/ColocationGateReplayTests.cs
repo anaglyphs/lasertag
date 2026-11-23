@@ -404,6 +404,66 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(gate.LooseResultsAgree(loose, Turned(2), camera, 1, 24.6f), Is.False, "too loose to count");
 		}
 
+		// 2026-11-21, a phone relocalizing in its own apartment: one view's frames, each refused for translation ±9-10 cm
+		private static readonly string[] PhoneRefusedForTranslation =
+		{
+			"33.62 yaw=-89.78°±0.38 t=(-0.082, -0.496, -0.145)±9.9cm inliers=77/99 (ranged 22)",
+			"34.01 yaw=-89.17°±0.39 t=(-0.052, -0.488, -0.216)±10.3cm inliers=89/115 (ranged 26)",
+			"34.41 yaw=-89.63°±0.37 t=(-0.055, -0.490, -0.183)±9.9cm inliers=85/109 (ranged 27)",
+		};
+
+		// the three places that launch's results against another map named; made sure enough here that each counts alone
+		private static readonly string[] PhoneScattered =
+		{
+			"45.21 yaw=55.24°±1.20 t=(-4.058, -0.264, 0.741)±13.6cm inliers=40/46 (ranged 20)",
+			"46.39 yaw=-9.27°±1.20 t=(-2.372, -0.240, 0.098)±15.8cm inliers=38/49 (ranged 20)",
+			"46.99 yaw=-33.08°±1.28 t=(-1.101, -0.225, 0.838)±14.4cm inliers=35/40 (ranged 20)",
+		};
+
+		private static bool SteadyAfter(MeasurementGate gate, IEnumerable<string> lines)
+		{
+			bool steady = false;
+			foreach (string line in lines)
+			{
+				MeasurementGate.Frame frame = Frame(line);
+				float time = Number(Solve.Match(line), 1);
+				steady = gate.SteadyResultsAgree(frame.solve, frame.correction, new float3(1, 1.4f, 2), 1, time);
+			}
+
+			return steady;
+		}
+
+		[Test]
+		public void RelocalizingTakesThreeResultsInARowAtOnePlace()
+		{
+			MeasurementGate gate = Gate(new MeasurementGate.Settings());
+			foreach (string line in PhoneRefusedForTranslation)
+				Assert.That(gate.Rejection(Frame(line).solve, MeasurementPurpose.Relocalize, reach: 4f), Does.Contain("translation"), "each alone is refused");
+			Assert.That(SteadyAfter(gate, new[] { PhoneRefusedForTranslation[0], PhoneRefusedForTranslation[1] }), Is.False, "two are not enough");
+			gate.Clear();
+			Assert.That(SteadyAfter(gate, PhoneRefusedForTranslation), Is.True);
+		}
+
+		[Test]
+		public void RelocalizingResultsAtDifferentPlacesNeverAddUp()
+		{
+			Assert.That(SteadyAfter(Gate(new MeasurementGate.Settings()), PhoneScattered), Is.False);
+		}
+
+		[Test]
+		public void RelocalizingResultsWithoutRangedLandmarksNeverAddUp()
+		{
+			MeasurementGate gate = Gate(new MeasurementGate.Settings());
+			bool steady = false;
+			for (int i = 0; i < 5; i++)
+			{
+				MeasurementGate.Frame frame = Frame("78.83 yaw=6.00°±0.44 t=(0.035, -0.595, 1.265)±16.2cm inliers=209/215 (ranged 0)");
+				steady |= gate.SteadyResultsAgree(frame.solve, frame.correction, new float3(1, 1.4f, 2), 1, 78.83f + 0.5f * i);
+			}
+
+			Assert.That(steady, Is.False);
+		}
+
 		[Test]
 		public void RevisitsKeepTheirTranslationBoundHoweverFarTheLandmarks()
 		{

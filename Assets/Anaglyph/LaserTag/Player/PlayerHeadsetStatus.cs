@@ -28,7 +28,7 @@ namespace Anaglyph.LaserTag.Player
 			supportsSharedAnchors && isHeadTracked && isFocused;
 
 		public readonly bool IsAlignedTo(Guid currentMap, SpaceFrame frame) =>
-			!isOperator && isFocused && isHeadTracked && aligned && currentMap != Guid.Empty && frame.IsSet &&
+			!isOperator && isFocused && isHeadTracked && aligned && frame.IsSet &&
 			mapId == currentMap && spaceId == frame.spaceId && frameId == frame.frameId;
 	}
 

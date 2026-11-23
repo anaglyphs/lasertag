@@ -16,6 +16,8 @@ namespace Anaglyph.LaserTag.Interface
 	internal sealed class HostModePicker
 	{
 		private const string Table = "ConnectionMenu";
+		private const string WifiOffReasonKey = "host-mode.blocked.wifi-off";
+		private const string BluetoothOffReasonKey = "host-mode.blocked.bluetooth";
 		private static readonly Protocol[] FallbackOrder = { Protocol.LAN, Protocol.Direct, Protocol.UnityService };
 
 		private readonly IntObject savedMode;
@@ -50,11 +52,12 @@ namespace Anaglyph.LaserTag.Interface
 			bindings.Click(card, () => OnCardClicked(mode));
 		}
 
-		public void Refresh(bool hasLocalNetwork, bool hasFullInternet, bool bluetoothOn)
+		public void Refresh(bool wifiOn, bool hasLocalNetwork, bool hasFullInternet, bool bluetoothOn)
 		{
 			unusableReasonKeys.Clear();
-			if (!bluetoothOn) unusableReasonKeys[Protocol.Direct] = "host-mode.blocked.bluetooth";
-			if (!hasLocalNetwork) unusableReasonKeys[Protocol.LAN] = "host-mode.blocked.wifi";
+			if (!wifiOn) unusableReasonKeys[Protocol.Direct] = WifiOffReasonKey;
+			else if (!bluetoothOn) unusableReasonKeys[Protocol.Direct] = BluetoothOffReasonKey;
+			if (!hasLocalNetwork) unusableReasonKeys[Protocol.LAN] = wifiOn ? "host-mode.blocked.wifi" : WifiOffReasonKey;
 			if (!hasFullInternet) unusableReasonKeys[Protocol.UnityService] = "host-mode.blocked.internet";
 
 			SelectedMode = null;
@@ -95,7 +98,7 @@ namespace Anaglyph.LaserTag.Interface
 				return;
 			}
 
-			if (mode == Protocol.Direct)
+			if (unusableReasonKeys[mode] == BluetoothOffReasonKey)
 				ConnectionConnectivityMonitor.OpenBluetoothSettings();
 			else
 				ConnectionConnectivityMonitor.OpenWifiSettings();

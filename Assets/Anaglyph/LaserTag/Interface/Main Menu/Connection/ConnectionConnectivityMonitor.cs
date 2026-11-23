@@ -8,10 +8,12 @@ namespace Anaglyph.LaserTag.Interface
 	// Owns device connectivity sampling; the menu decides how changes are presented.
 	internal sealed class ConnectionConnectivityMonitor : IDisposable
 	{
+		public event Action<bool> WifiEnabledChanged = delegate { };
 		public event Action<bool> LanConnectionChanged = delegate { };
 		public event Action InternetConnectionChanged = delegate { };
 		public event Action<bool> BluetoothEnabledChanged = delegate { };
 
+		public bool WifiIsEnabled { get; private set; } = true;
 		public bool HasLocalNetwork { get; private set; }
 		public bool HasFullInternet { get; private set; }
 		public bool HasBluetoothState { get; private set; }
@@ -55,17 +57,22 @@ namespace Anaglyph.LaserTag.Interface
 		private void CheckNetworkConnection()
 		{
 			NetworkState newState = NetworkConnectivityTest.GetNetworkState();
+			bool wifiIsEnabled = newState != NetworkState.WifiOff;
 			bool hasLocalNetwork = newState >= NetworkState.LocalNetworkOnly;
 			bool hasFullInternet = newState == NetworkState.FullInternet;
+			bool wifiChanged = !hasNetworkState || wifiIsEnabled != WifiIsEnabled;
 			bool connectionChanged = !hasNetworkState || hasLocalNetwork != HasLocalNetwork;
 			bool internetChanged = !hasNetworkState || hasFullInternet != HasFullInternet;
 
 			hasNetworkState = true;
+			WifiIsEnabled = wifiIsEnabled;
 			HasLocalNetwork = hasLocalNetwork;
 			HasFullInternet = hasFullInternet;
 
 			// Notify only on transitions so dismissing a warning lasts until the
 			// corresponding device state changes, rather than the next poll.
+			if (wifiChanged)
+				WifiEnabledChanged.Invoke(wifiIsEnabled);
 			if (connectionChanged)
 				LanConnectionChanged.Invoke(hasLocalNetwork);
 			if (internetChanged)

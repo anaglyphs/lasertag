@@ -78,6 +78,13 @@ namespace Anaglyph.XR.SharedSpaces
 			public float looseAgreeDegrees = 5f;
 			public float looseAgreeMeters = 0.5f;
 
+			[Tooltip("Relocalizing against a saved map: a result too loose alone is enough when several in a row put the camera at one place. Revisits tighten it afterwards, so it only has to land within what a revisit may correct (Plausible Meters, Plausible Degrees)")]
+			public Thresholds steady = new() { minInliers = 30, minRangedInliers = 15, maxNormalizedRms = 2f, maxRmsPixels = 15f, maxYawSigmaDegrees = 1.5f, maxTranslationSigma = 0.2f };
+			public int steadyResultsToAgree = 3;
+			public float steadyAgreeSeconds = 3f;
+			public float steadyAgreeDegrees = 2f;
+			public float steadyAgreeMeters = 0.15f;
+
 			[Tooltip("A result this certain is applied without waiting for a second frame")]
 			public bool acceptConfidentSingleFrames = true;
 
@@ -148,7 +155,7 @@ namespace Anaglyph.XR.SharedSpaces
 		private readonly List<Frame> candidates = new();
 		private const int MaxCandidates = 4;
 		private readonly PlaceVotes votes;
-		private readonly List<(Pose4 correction, int epoch, float time)> looseResults = new();
+		private readonly List<(Pose4 correction, int epoch, float time)> looseResults = new(), steadyResults = new();
 
 		/// <param name="settings">Read live, so they can be tuned while running.</param>
 		/// <param name="drift">How far tracking may have drifted between two track segments, meters.</param>
@@ -170,26 +177,43 @@ namespace Anaglyph.XR.SharedSpaces
 			candidates.Clear();
 			votes.Clear();
 			looseResults.Clear();
+			steadyResults.Clear();
 		}
 
 		/// <summary>
 		/// Whether a result that failed the rough gate is, with the loose results just before it, enough for a
 		/// rough first alignment: each alone leaves the yaw open by degrees, and wrong ones don't land together.
 		/// </summary>
-		public bool LooseResultsAgree(in GravityPnPResult pose, Pose4 correction, float3 camera, int epoch, float time)
-		{
-			ref readonly Thresholds t = ref settings.loose;
-			if (!pose.success || pose.inliers < t.minInliers || pose.normalizedRms > t.maxNormalizedRms || pose.rangedInliers < t.minRangedInliers ||
-			    math.degrees(pose.yawSigma) > t.maxYawSigmaDegrees || pose.translationSigma > t.maxTranslationSigma) return false;
+		public bool LooseResultsAgree(in GravityPnPResult pose, Pose4 correction, float3 camera, int epoch, float time) =>
+			Within(settings.loose, pose) &&
+			ResultsAgree(looseResults, correction, camera, epoch, time, settings.looseResultsToAgree, settings.looseAgreeSeconds, settings.looseAgreeDegrees, settings.looseAgreeMeters);
 
-			looseResults.RemoveAll(r => r.epoch != epoch || time - r.time > settings.looseAgreeSeconds);
+		/// <summary>
+		/// Whether a relocalizing result is, with those just before it, enough to align on: each alone may be
+		/// too loose, or a weak frame of the view the others showed, but several in a row at one place are
+		/// taken, for revisits to tighten.
+		/// </summary>
+		public bool SteadyResultsAgree(in GravityPnPResult pose, Pose4 correction, float3 camera, int epoch, float time) =>
+			Within(settings.steady, pose) &&
+			ResultsAgree(steadyResults, correction, camera, epoch, time, settings.steadyResultsToAgree, settings.steadyAgreeSeconds, settings.steadyAgreeDegrees, settings.steadyAgreeMeters);
+
+		private static bool Within(in Thresholds t, in GravityPnPResult pose) =>
+			pose.success && pose.inliers >= t.minInliers && pose.normalizedRms <= t.maxNormalizedRms && pose.rangedInliers >= t.minRangedInliers &&
+			(t.maxRmsPixels <= 0 || pose.rmsPixels <= t.maxRmsPixels) &&
+			math.degrees(pose.yawSigma) <= t.maxYawSigmaDegrees && pose.translationSigma <= t.maxTranslationSigma;
+
+		// adds the result to the recent ones, and counts it with those that put the camera where it does
+		private static bool ResultsAgree(List<(Pose4 correction, int epoch, float time)> recent, Pose4 correction, float3 camera, int epoch, float time,
+			int resultsToAgree, float seconds, float degrees, float meters)
+		{
+			recent.RemoveAll(r => r.epoch != epoch || time - r.time > seconds);
 			int agreeing = 1;
-			foreach ((Pose4 other, int _, float _) in looseResults)
-				if (math.abs(Pose4.WrapAngle(other.yaw - correction.yaw)) <= math.radians(settings.looseAgreeDegrees) &&
-				    math.distance(other.Apply(camera), correction.Apply(camera)) <= settings.looseAgreeMeters)
+			foreach ((Pose4 other, int _, float _) in recent)
+				if (math.abs(Pose4.WrapAngle(other.yaw - correction.yaw)) <= math.radians(degrees) &&
+				    math.distance(other.Apply(camera), correction.Apply(camera)) <= meters)
 					agreeing++;
-			looseResults.Add((correction, epoch, time));
-			return agreeing >= settings.looseResultsToAgree;
+			recent.Add((correction, epoch, time));
+			return agreeing >= resultsToAgree;
 		}
 
 		/// <summary>Results from before an alignment was undone: the place they backed still has to be beaten by the next.</summary>
@@ -267,7 +291,7 @@ namespace Anaglyph.XR.SharedSpaces
 		/// come here: it stays for the next good one. An alignment also has to survive
 		/// <see cref="Contest"/>.
 		/// </summary>
-		/// <param name="provisional">One frame is enough: the caller watches the alignment and can undo it.</param>
+		/// <param name="provisional">One frame is enough: the caller watches the alignment and can undo it, or has seen several results agree.</param>
 		public bool TryAgree(Frame frame, out Agreed agreed, bool provisional = false)
 		{
 			agreed = default;

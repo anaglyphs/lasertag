@@ -23,6 +23,8 @@ namespace Anaglyph.XR.VisualLocalization
 		public Pose camera;
 		/// <summary>Per feature, the landmark id it sights, or -1.</summary>
 		public int[] landmarks;
+		/// <summary>Per feature, what a depth sensor read along its ray when the view was taken; null with no sensor, or for a saved or received view.</summary>
+		public SensedRange[] sensedRanges;
 		public long timestampNs;
 		/// <summary>The <see cref="VisualFrameLog"/> record of the frame it was made from; 0 when not logged.</summary>
 		public int frame;

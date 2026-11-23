@@ -98,7 +98,7 @@ MonoBehaviour:
   m_MaxPacketQueueSize: 512
   m_MaxPayloadSize: 65536
   m_HeartbeatTimeoutMS: 500
-  m_ConnectTimeoutMS: 3000
+  m_ConnectTimeoutMS: 1000
   m_MaxConnectAttempts: 2
   m_DisconnectTimeoutMS: 30000
   ConnectionData:
@@ -129,7 +129,7 @@ MonoBehaviour:
   m_MaxPacketQueueSize: 512
   m_MaxPayloadSize: 65536
   m_HeartbeatTimeoutMS: 500
-  m_ConnectTimeoutMS: 3000
+  m_ConnectTimeoutMS: 1000
   m_MaxConnectAttempts: 2
   m_DisconnectTimeoutMS: 30000
   ConnectionData:

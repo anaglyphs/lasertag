@@ -11,8 +11,8 @@ namespace Anaglyph.XR.SharedSpaces
 {
 	/// <summary>
 	/// What every recent localization attempt came to, for the console and <see cref="AlignmentDiagnosis"/>.
-	/// A development build on a device also keeps them in <see cref="FileName"/> under the persistent
-	/// data path, with the launch before it in <see cref="PreviousFileName"/>.
+	/// A device also keeps them in <see cref="FileName"/> under the persistent data path, with the
+	/// launch before it in <see cref="PreviousFileName"/>.
 	/// </summary>
 	public sealed class ColocationLog
 	{
@@ -39,10 +39,9 @@ namespace Anaglyph.XR.SharedSpaces
 			OpenFile();
 		}
 
-		[System.Diagnostics.Conditional("DEBUG")]
 		private void OpenFile()
 		{
-			if (Application.isEditor || !Debug.isDebugBuild) return;
+			if (Application.isEditor) return;
 			try
 			{
 				filePath = Path.Combine(Application.persistentDataPath, FileName);
@@ -83,7 +82,6 @@ namespace Anaglyph.XR.SharedSpaces
 		public IEnumerable<string> Recent => outcomes;
 
 		/// <summary>The query the outcomes from here on are about.</summary>
-		[System.Diagnostics.Conditional("DEBUG")]
 		public void About(VisualQuery query)
 		{
 			considering = query;
@@ -92,18 +90,24 @@ namespace Anaglyph.XR.SharedSpaces
 			WriteToFile($"{Time.realtimeSinceStartup:F2} query camera {query.intrinsics}, {query.features?.Count ?? 0} features");
 		}
 
-		/// <summary>In development builds; a release build doesn't even build the message.</summary>
-		[System.Diagnostics.Conditional("DEBUG")]
 		public void Outcome(string message)
 		{
 			LastOutcome = message;
 			if (considering != null) localizer.Frames.Note(considering.frame, message);
+			Record(message);
+		}
+
+		/// <summary>What the attempts are made against or why they stopped (a map loaded, a space dropped): among the outcomes, but not the latest attempt.</summary>
+		public void Note(string message) => Record(message);
+
+		private void Record(string message)
+		{
 			string stamped = $"{Time.realtimeSinceStartup:F2} {message}";
 			outcomes.Enqueue(stamped);
 			WriteToFile(stamped);
 			while (outcomes.Count > Length) outcomes.Dequeue();
-			// several a second while moving: no stack trace, which costs on device
-			Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, context, "{0} {1}", tag, message);
+			// several a second while moving: no stack trace, which costs on device, and no console line in a release build
+			if (Debug.isDebugBuild) Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, context, "{0} {1}", tag, message);
 		}
 
 		/// <summary>

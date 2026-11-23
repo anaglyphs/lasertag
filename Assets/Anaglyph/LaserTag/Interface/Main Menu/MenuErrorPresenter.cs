@@ -77,6 +77,7 @@ namespace Anaglyph.LaserTag.Interface
 			{
 				NetcodeManagement.ErrorKind.VersionMismatch => "build",
 				NetcodeManagement.ErrorKind.ServicesUnavailable => "relay",
+				NetcodeManagement.ErrorKind.DirectNeedsWifi => "wifi-off",
 				_ => "join"
 			};
 			Show(new MenuError(MenuErrorArea.Connection, $"error.{key}-title", $"error.{key}-details",

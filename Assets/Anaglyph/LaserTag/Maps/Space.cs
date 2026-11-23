@@ -8,8 +8,8 @@ namespace Anaglyph.LaserTag.Maps
 	/// <summary>
 	/// A physical room as this device knows it: the references that align to it (tags,
 	/// shared anchors, and a visual map kept beside the file), the alignment settings, and
-	/// the maps arranged in it. Poses are in the space's frame, which is the aligned world
-	/// frame. <see cref="frameId"/> changes whenever stored poses stop meaning the same place.
+	/// the maps arranged in it. Only a space with placed objects or registered tags is saved.
+	/// Poses are in the space's frame, which is the aligned world frame. <see cref="frameId"/> changes whenever stored poses stop meaning the same place.
 	/// </summary>
 	[Serializable]
 	public class Space
@@ -31,6 +31,24 @@ namespace Anaglyph.LaserTag.Maps
 		/// <summary>References the headset observes. A saved visual map is a file question: see the store.</summary>
 		public bool HasReferences => tags.Count > 0 || anchors.Count > 0;
 		public bool HasTags => tags.Count > 0;
+		public const string GeneratedNamePrefix = "Space ";
+
+		/// <summary>The player named it: not blank, and not a generated "Space N".</summary>
+		public bool HasGivenName => !string.IsNullOrEmpty(name) &&
+			!(name.StartsWith(GeneratedNamePrefix) && int.TryParse(name.Substring(GeneratedNamePrefix.Length), out _));
+
+		public bool HasPlacedObjects
+		{
+			get
+			{
+				foreach (Map map in maps) if (map.HasObjects) return true;
+				return false;
+			}
+		}
+
+		/// <summary>How much the player made of it: a name they gave it, objects they placed. Of the spaces that look like a room, the highest is tried first.</summary>
+		public int Priority => (HasGivenName ? 1 : 0) + (HasPlacedObjects ? 1 : 0);
+
 		public Guid Id => Guid.TryParseExact(id, "N", out Guid guid) ? guid : Guid.Empty;
 		public Guid FrameId => Guid.TryParseExact(frameId, "N", out Guid guid) ? guid : Guid.Empty;
 		public SpaceFrame Frame => new(Id, FrameId);
@@ -187,6 +205,7 @@ namespace Anaglyph.LaserTag.Maps
 		public List<MapObjectRecord> objects = new();
 
 		public Guid Id => Guid.TryParseExact(id, "N", out Guid guid) ? guid : Guid.Empty;
+		public bool HasObjects => objects.Count > 0;
 
 		public static Map Create(string name) => new() { id = Space.NewId(), name = name ?? "", lastUsed = DateTime.UtcNow.Ticks };
 

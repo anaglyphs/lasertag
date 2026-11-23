@@ -329,6 +329,56 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(landmark.inverseDepthSigma, Is.LessThan(0.25f * landmark.inverseDepth), $"ρ={landmark.inverseDepth} σ={landmark.inverseDepthSigma}");
 		}
 
+		// both views from one spot, the second turned: no baseline to triangulate with
+		private static Landmark SeenTurningOnTheSpot(float3 point, StubAnchoring anchoring)
+		{
+			anchoring.nodes[1] = new Pose(new Vector3(0, 1.6f, 0), Quaternion.identity);
+			Pose first = new(Vector3.zero, Quaternion.identity), second = new(Vector3.zero, Quaternion.Euler(0, 20f, 0));
+			float3 RayFrom(Pose cameraInNode)
+			{
+				Landmark.TryCamera(anchoring, 1, cameraInNode, out Pose camera);
+				return math.normalize(math.mul(math.conjugate(camera.rotation), point - (float3)camera.position));
+			}
+
+			Landmark landmark = new() { node = 1, reference = first, bearing = RayFrom(first) };
+			landmark.observations.Add(new Observation { node = 1, cameraInNode = first, ray = RayFrom(first), angularSigma = PixelSigma / F });
+			landmark.observations.Add(new Observation { node = 1, cameraInNode = second, ray = RayFrom(second), angularSigma = PixelSigma / F });
+			return landmark;
+		}
+
+		[Test]
+		public void ADepthSensorRangesWhatTurningOnTheSpotCannot()
+		{
+			StubAnchoring anchoring = new();
+			float3 point = new(0.5f, 1.4f, 4f);
+			Landmark unsensed = SeenTurningOnTheSpot(point, anchoring);
+			unsensed.Estimate(anchoring);
+			Assert.That(unsensed.inverseDepthSigma, Is.GreaterThan(0.25f * unsensed.inverseDepth), "no baseline, no range");
+
+			Landmark landmark = SeenTurningOnTheSpot(point, anchoring);
+			landmark.TryPlace(anchoring, out float3 origin, out _);
+			float depth = math.distance(origin, point);
+			landmark.SetSensedRange(new SensedRange { meters = depth, sigma = 0.1f });
+			Assert.IsNull(landmark.Estimate(anchoring));
+			Assert.That(1f / landmark.inverseDepth, Is.EqualTo(depth).Within(0.05f));
+			Assert.That(landmark.inverseDepthSigma * depth * depth, Is.EqualTo(0.1f).Within(0.01f), "as sure as the sensor is");
+		}
+
+		[Test]
+		public void ADepthReadingTheSightingsContradictIsDropped()
+		{
+			StubAnchoring anchoring = new();
+			float3 point = new(1.2f, 1.1f, 2f);
+			Landmark landmark = Track(point, 1f, 4, anchoring, 0.5f, 3);
+			landmark.TryPlace(anchoring, out float3 origin, out _);
+			float depth = math.distance(origin, point);
+			// the ray grazed an edge and read the wall behind
+			landmark.SetSensedRange(new SensedRange { meters = depth + 4f, sigma = 0.15f });
+			Assert.IsNull(landmark.Estimate(anchoring), "no sighting is given up for it");
+			Assert.That(1f / landmark.inverseDepth, Is.EqualTo(depth).Within(0.05f));
+			Assert.That(landmark.sensedInverseDepthSigma, Is.EqualTo(0f));
+		}
+
 		[Test]
 		public void FarPointStaysADirection()
 		{

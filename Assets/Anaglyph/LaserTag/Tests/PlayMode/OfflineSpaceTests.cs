@@ -38,19 +38,38 @@ namespace Anaglyph.LaserTag.Tests.PlayMode
 			Assert.That(manager.Space, Is.Not.Null, "startup shows a space in the editor");
 			Assume.That(manager.Role, Is.Not.EqualTo(SpaceRole.Client));
 			shownBefore = manager.Space.id;
+			bool shownBeforeIsSaved = Saved(manager, shownBefore) != null;
 			ColocationManager colocation = ColocationManager.Instance;
+			// the rules a headset saves by: simulation keeps every space
+			bool keptEverySpace = manager.Store.KeepsEverySpace;
+			manager.Store.KeepsEverySpace = false;
 			try
 			{
-				// a new space starts visual, with one empty map, and is on disk at once
+				// a new space starts visual, with no map, and is neither listed nor on disk
 				Assert.That(manager.NewSpace(), Is.True);
 				Space space = manager.Space;
 				created.Add(space.id);
 				Assert.That(space.alignment.method, Is.EqualTo(Method.Visual));
-				Assert.That(manager.Map, Is.Not.Null);
-				Assert.That(Reload(manager, space.id).maps.Count, Is.EqualTo(1));
+				Assert.That(manager.Map, Is.Null);
+				Assert.That(Saved(manager, space.id), Is.Null);
+				Assert.That(manager.Spaces, Has.No.Member(space));
 				yield return null;
 				Assert.That(colocation.ActiveMethod, Is.EqualTo(Method.Visual));
 				Assert.That(colocation.VisualProvider.IsRunning, Is.True);
+
+				// a map the player makes is kept once an object is placed in it, and its space with it
+				Assert.That(manager.NewMap(), Is.True);
+				Assert.That(manager.Map, Is.Not.Null);
+				Assert.That(Saved(manager, space.id), Is.Null, "an empty map is not saved");
+				MapObject prefab = FirstPrefab(manager);
+				Assert.That(prefab, Is.Not.Null, "the object database has a placeable prefab");
+				Object.Instantiate(prefab.gameObject, new Vector3(2, 0, 3), Quaternion.Euler(0, 45, 0));
+				manager.ObjectsEdited();
+				yield return null;
+				Assert.That(manager.Spaces, Has.Member(space));
+				Assert.That(manager.Save(), Is.True);
+				Assert.That(Reload(manager, space.id).maps[0].objects.Count, Is.EqualTo(1));
+				Assert.That(Reload(manager, space.id).maps[0].objects[0].prefabId, Is.EqualTo(prefab.PrefabId));
 
 				// two-tag mode: AprilTag without registered tags, the tag provider as the source
 				Assert.That(manager.Alignment.SetMethod(Method.AprilTag), Is.True);
@@ -88,17 +107,8 @@ namespace Anaglyph.LaserTag.Tests.PlayMode
 				Assert.That(colocation.TagProvider.IsRunning, Is.False);
 				Assert.That(Reload(manager, space.id).alignment.method, Is.EqualTo(Method.MetaSharedAnchor));
 
-				// back to visual, then edit the map: a placed object is saved and comes back after a reload
 				Assert.That(manager.Alignment.SetMethod(Method.Visual), Is.True);
 				yield return null;
-				MapObject prefab = FirstPrefab(manager);
-				Assert.That(prefab, Is.Not.Null, "the object database has a placeable prefab");
-				Object.Instantiate(prefab.gameObject, new Vector3(2, 0, 3), Quaternion.Euler(0, 45, 0));
-				manager.ObjectsEdited();
-				yield return null;
-				Assert.That(manager.Save(), Is.True);
-				Assert.That(Reload(manager, space.id).maps[0].objects.Count, Is.EqualTo(1));
-				Assert.That(Reload(manager, space.id).maps[0].objects[0].prefabId, Is.EqualTo(prefab.PrefabId));
 
 				// teardown is not an edit: objects destroyed without one leave the map as it was
 				Object.Destroy(MapObject.All[0].gameObject);
@@ -110,21 +120,23 @@ namespace Anaglyph.LaserTag.Tests.PlayMode
 				Assert.That(manager.NewSpace(), Is.True);
 				created.Add(manager.Space.id);
 				yield return null;
-				Assert.That(MapObject.All.Count, Is.Zero, "another space shows its own, empty map");
+				Assert.That(MapObject.All.Count, Is.Zero, "another space shows no map");
 				Assert.That(manager.LoadSpace(space.id), Is.True);
 				yield return null;
 				Assert.That(manager.Space, Is.SameAs(space));
 				Assert.That(MapObject.All.Count, Is.EqualTo(1), "the saved object is instantiated again");
 				Assert.That(manager.Space.alignment.method, Is.EqualTo(Method.Visual));
 
-				// a second map in the space, and a rename, both land in the file
+				// a rename lands in the file; a second map left empty is in neither the file nor the space
+				Map first = manager.Map;
 				Assert.That(manager.NewMap(), Is.True);
 				Assert.That(manager.RenameMap("Smoke test map"), Is.True);
 				Assert.That(manager.RenameSpace("Smoke test space"), Is.True);
 				Space reloaded = Reload(manager, space.id);
 				Assert.That(reloaded.name, Is.EqualTo("Smoke test space"));
-				Assert.That(reloaded.maps.Count, Is.EqualTo(2));
-				Assert.That(reloaded.maps.Exists(m => m.name == "Smoke test map"), Is.True);
+				Assert.That(reloaded.maps.Count, Is.EqualTo(1));
+				Assert.That(manager.LoadMap(first.id), Is.True);
+				Assert.That(space.maps.Count, Is.EqualTo(1));
 
 				if (manager.Role == SpaceRole.Offline)
 				{
@@ -139,16 +151,19 @@ namespace Anaglyph.LaserTag.Tests.PlayMode
 				// the shown space cannot be deleted while a session is up (the editor may auto-host), so leave it first
 				if (shownBefore != null && !created.Contains(shownBefore)) manager.LoadSpace(shownBefore);
 				foreach (string id in created) manager.DeleteSpace(id);
+				manager.Store.KeepsEverySpace = keptEverySpace;
 				LogAssert.ignoreFailingMessages = false;
 			}
 			foreach (string id in created)
 				Assert.That(new SpaceStore(manager.Store.Directory).LoadAll().Exists(s => s.id == id), Is.False, "deleted spaces leave no file");
-			Assert.That(manager.Space?.id, Is.EqualTo(shownBefore), "the space shown before the test is shown again");
+			if (shownBeforeIsSaved) Assert.That(manager.Space?.id, Is.EqualTo(shownBefore), "the space shown before the test is shown again");
 		}
+
+		private static Space Saved(SpaceManager manager, string id) => new SpaceStore(manager.Store.Directory).LoadAll().Find(s => s.id == id);
 
 		private static Space Reload(SpaceManager manager, string id)
 		{
-			Space space = new SpaceStore(manager.Store.Directory).LoadAll().Find(s => s.id == id);
+			Space space = Saved(manager, id);
 			Assert.That(space, Is.Not.Null, "the space is on disk");
 			return space;
 		}

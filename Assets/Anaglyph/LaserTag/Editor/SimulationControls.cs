@@ -106,10 +106,11 @@ namespace Anaglyph.LaserTag.Editor
 	[InitializeOnLoad]
 	public static class SimulatedConnectivity
 	{
-		public static readonly string[] Labels = { "No connection", "LAN only", "Full internet" };
+		public static readonly string[] Labels = { "Wi-Fi off", "No connection", "LAN only", "Full internet" };
 
 		public static readonly int[] Values =
 		{
+			(int)NetworkState.WifiOff,
 			(int)NetworkState.NoConnection,
 			(int)NetworkState.LocalNetworkOnly,
 			(int)NetworkState.FullInternet

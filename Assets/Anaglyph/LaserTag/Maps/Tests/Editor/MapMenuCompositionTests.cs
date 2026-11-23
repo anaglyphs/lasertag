@@ -60,6 +60,7 @@ namespace Anaglyph.LaserTag.Tests
 			var palette = Load("Assets/Anaglyph/LaserTag/MapEditor/MapEditorPalette.uxml");
 			for (int i = 0; i < 2; i++) yield return null;
 
+			Assert.That(headset.Q("loaded-space-maps-section").Q<Button>("probe-maps-button"), Is.Not.Null);
 			foreach (var root in new[] { desktop, headset })
 			{
 				Assert.That(root.Q("map-name-section")?.Q<TextField>("map-name-field"), Is.Not.Null);
@@ -68,8 +69,8 @@ namespace Anaglyph.LaserTag.Tests
 				Assert.That(catalog, Is.Not.Null);
 				Assert.That(catalog.Q<ScrollView>("map-list"), Is.Not.Null);
 				Assert.That(catalog.Q("load-map-button"), Is.Null);
-				Assert.That(catalog.Q("probe-maps-button").ClassListContains("map-field-hidden"), Is.True);
-				foreach (string action in new[] { "new-map-button", "probe-maps-button", "new-space-button" })
+				Assert.That(catalog.Q("probe-maps-button"), Is.Null);
+				foreach (string action in new[] { "new-space-button" })
 					Assert.That(catalog.Q<Button>(action), Is.Not.Null, action);
 				foreach (string removed in new[] { "space-picker", "load-space-button", "duplicate-map-button", "current-space-label", "undo-space-rebase" })
 					Assert.That(root.Q(removed), Is.Null, removed);
@@ -264,13 +265,12 @@ namespace Anaglyph.LaserTag.Tests
 			for (int i = 0; i < 4; i++) yield return null;
 			Assert.That(root.Q("map-list").resolvedStyle.height, Is.GreaterThanOrEqualTo(180));
 			Assert.That(root.Q("space-details").resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
-			Assert.That(root.Q("new-map-button").resolvedStyle.width, Is.GreaterThanOrEqualTo(110));
 			Assert.That(root.Q("new-space-button").resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
 			Assert.That(root.Q<MultiColumnListView>("client-list").columns["source"], Is.Not.Null);
 			var mapList = root.Q<ScrollView>("map-list");
 			Assert.That(root.Q<ScrollView>(className: "operator-map-catalog-scroll"), Is.Null);
 			Assert.That(mapList.contentContainer.layout.height, Is.GreaterThan(mapList.contentViewport.layout.height));
-			Assert.That(root.Q("new-map-button").worldBound.yMax, Is.LessThanOrEqualTo(root.Q<NavPage>("maps-page").worldBound.yMax + 1));
+			Assert.That(root.Q("new-space-button").worldBound.yMax, Is.LessThanOrEqualTo(root.Q<NavPage>("maps-page").worldBound.yMax + 1));
 		}
 
 		[Test]
@@ -314,13 +314,9 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(page.Q("start-apriltag-setup").style.display.value, Is.EqualTo(DisplayStyle.None));
 			Assert.That(page.Q("tag-configuration-section").style.display.value, Is.EqualTo(DisplayStyle.None));
 			root.Q("new-space-button").style.display = operatorMode ? DisplayStyle.None : DisplayStyle.Flex;
-			root.Q("probe-maps-button").style.display = DisplayStyle.Flex;
 			using var picker = new MapPickerBinder(operatorMode);
 			picker.Bind(root.Q("map-catalog-section"), () => { }, () => { });
 			Assert.That(root.Q("new-space-button").style.display.value, Is.EqualTo(operatorMode ? DisplayStyle.Flex : DisplayStyle.None));
-			Assert.That(root.Q("probe-maps-button").style.display.value, Is.EqualTo(DisplayStyle.None));
-			using var probe = new MapProbeBinder(root.Q<Button>("probe-maps-button"));
-			Assert.That(root.Q("probe-maps-button").style.display.value, Is.EqualTo(DisplayStyle.Flex));
 		}
 
 		[TestCase(MapEditorTool.Mode.Move, "objects-page")]

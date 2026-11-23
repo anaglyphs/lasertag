@@ -16,8 +16,9 @@ namespace Anaglyph.LaserTag.Editor
 {
 	/// <summary>
 	/// Every iPhone build, however started: ARKit as iOS's XR runtime (without it the app starts
-	/// as the desktop operator), the usage text iOS shows when it asks for the local network or Bluetooth, and,
-	/// once Apple has granted it to the team, the multicast entitlement session discovery needs.
+	/// as the desktop operator), the usage text iOS shows when it asks for the local network or Bluetooth,
+	/// the hotspot entitlement joining a Wi-Fi Direct session needs, and, once Apple has granted it to the team,
+	/// the multicast entitlement session discovery needs.
 	/// </summary>
 	public class IosSetup : IPreprocessBuildWithReport, IPostprocessBuildWithReport
 	{
@@ -27,6 +28,7 @@ namespace Anaglyph.LaserTag.Editor
 		private const string ARKitLoader = "UnityEngine.XR.ARKit.ARKitLoader";
 		private const string GizmosDefine = "XR_GIZMOS";
 		private const string MulticastEntitlement = "com.apple.developer.networking.multicast";
+		private const string HotspotEntitlement = "com.apple.developer.networking.HotspotConfiguration";
 		private const string EntitlementsPath = "Unity-iPhone/Lasertag.entitlements";
 		private const string CameraUsage = "Lasertag sees the room through the camera to line up players and map walls.";
 		private const string LocalNetworkUsage = "Lasertag finds and joins games with players on the same Wi-Fi.";
@@ -175,13 +177,14 @@ namespace Anaglyph.LaserTag.Editor
 			frameworkProject.AddFrameworkToProject(frameworkProject.GetUnityFrameworkTargetGuid(), "Photos.framework", false);
 			frameworkProject.AddFrameworkToProject(frameworkProject.GetUnityFrameworkTargetGuid(), "CoreHaptics.framework", false);
 			frameworkProject.AddFrameworkToProject(frameworkProject.GetUnityFrameworkTargetGuid(), "CoreBluetooth.framework", false);
+			frameworkProject.AddFrameworkToProject(frameworkProject.GetUnityFrameworkTargetGuid(), "NetworkExtension.framework", false);
 			frameworkProject.WriteToFile(frameworkProjectPath);
-			if (!MulticastEntitlementGranted) return;
 
 			string entitlementsFile = Path.Combine(output, EntitlementsPath);
 			PlistDocument entitlements = new();
 			if (File.Exists(entitlementsFile)) entitlements.ReadFromFile(entitlementsFile);
-			entitlements.root.SetBoolean(MulticastEntitlement, true);
+			entitlements.root.SetBoolean(HotspotEntitlement, true);
+			if (MulticastEntitlementGranted) entitlements.root.SetBoolean(MulticastEntitlement, true);
 			entitlements.WriteToFile(entitlementsFile);
 
 			string projectPath = PBXProject.GetPBXProjectPath(output);

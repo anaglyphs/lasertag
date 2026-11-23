@@ -84,7 +84,7 @@ namespace Anaglyph.XR.VisualLocalization
 	/// <summary>
 	/// A feature tracked across keyframes, parameterized by inverse depth along the ray of
 	/// the camera that first saw it: ρ = 0 is a point at infinity, a direction alone, and
-	/// σρ says how well triangulation (or the scanned mesh) has ranged it. A building a
+	/// σρ says how well triangulation (or a depth sensor) has ranged it. A building a
 	/// block away ends up with ρ ≈ 0 and a σρ that keeps it out of translation while it
 	/// still pins yaw; a corner of the room ends up with a tight ρ.
 	/// </summary>
@@ -101,6 +101,8 @@ namespace Anaglyph.XR.VisualLocalization
 		public float3 bearing;
 		public float inverseDepth;
 		public float inverseDepthSigma = float.PositiveInfinity;
+		/// <summary>What a depth sensor read along the reference ray, and its sigma; a zero sigma for no reading, or one the sightings contradicted.</summary>
+		public float sensedInverseDepth, sensedInverseDepthSigma;
 		public readonly List<Observation> observations = new();
 		/// <summary>Keyframe features pointing at this landmark; it is dropped at zero.</summary>
 		public int references;
@@ -121,6 +123,14 @@ namespace Anaglyph.XR.VisualLocalization
 		/// <summary>This landmark as it goes to a file or another headset, once it no longer changes.</summary>
 		internal VisualMapData.Landmark wire;
 		internal bool hasWire;
+
+		/// <summary>Takes a depth sensor's reading along the reference ray: the fit weighs it with the sightings.</summary>
+		public void SetSensedRange(SensedRange range)
+		{
+			if (!range.IsKnown) return;
+			sensedInverseDepth = 1f / range.meters;
+			sensedInverseDepthSigma = range.sigma / (range.meters * range.meters);
+		}
 
 		/// <summary>Seen from at least two keyframes, or received fixed with only some of the views that founded it.</summary>
 		public bool IsUsable => observations.Count >= 2 || established;
@@ -151,9 +161,10 @@ namespace Anaglyph.XR.VisualLocalization
 		}
 
 		/// <summary>
-		/// Fits ρ to every sighting (Gauss-Newton on the angular residuals, with the mesh
-		/// depth as a prior when there is one) and drops sightings that disagree. Returns
-		/// the dropped ones so their keyframes can be unlinked.
+		/// Fits ρ to every sighting (Gauss-Newton on the angular residuals, with the depth
+		/// sensor's reading as one more measurement when there is one) and drops sightings
+		/// that disagree, or the reading when it is the one that does. Returns the dropped
+		/// sightings so their keyframes can be unlinked.
 		/// </summary>
 		public List<Observation> Estimate(IKeyframeAnchoring anchoring, float outlierSigmas = 3f) =>
 			Apply(Fit(observations.ToArray(), anchoring, outlierSigmas));
@@ -164,13 +175,16 @@ namespace Anaglyph.XR.VisualLocalization
 			public readonly bool placed;
 			public readonly float inverseDepth, inverseDepthSigma;
 			public readonly List<Observation> dropped;
+			/// <summary>The sightings put the landmark somewhere the depth sensor's reading can't be.</summary>
+			public readonly bool sensedRangeDropped;
 
-			public Fitted(float inverseDepth, float inverseDepthSigma, List<Observation> dropped)
+			public Fitted(float inverseDepth, float inverseDepthSigma, List<Observation> dropped, bool sensedRangeDropped)
 			{
 				placed = true;
 				this.inverseDepth = inverseDepth;
 				this.inverseDepthSigma = inverseDepthSigma;
 				this.dropped = dropped;
+				this.sensedRangeDropped = sensedRangeDropped;
 			}
 		}
 
@@ -188,17 +202,20 @@ namespace Anaglyph.XR.VisualLocalization
 				placed[k] = TryCamera(anchoring, kept[k].node, kept[k].cameraInNode, out cameras[k]);
 
 			float fitted = inverseDepth, fittedSigma = inverseDepthSigma;
-			for (int round = 0; round < 3; round++)
+			float sensed = sensedInverseDepth, sensedSigma = sensedInverseDepthSigma;
+			bool sensedRangeDropped = false;
+			for (int round = 0, rounds = sensedSigma > 0 ? 4 : 3; round < rounds; round++)
 			{
-				// a coarse sweep picks the basin
+				// a coarse sweep picks the basin: the sensor's reading is one of the places to start
 				float rho = 0;
-				float best = Cost(kept, rho, origin, direction, cameras, placed);
-				for (int s = 0; s < Seeds.Length; s++)
+				float best = Cost(kept, rho, origin, direction, cameras, placed) + SensedCost(rho, sensed, sensedSigma);
+				for (int s = sensedSigma > 0 ? -1 : 0; s < Seeds.Length; s++)
 				{
-					float cost = Cost(kept, Seeds[s], origin, direction, cameras, placed);
+					float seed = s < 0 ? sensed : Seeds[s];
+					float cost = Cost(kept, seed, origin, direction, cameras, placed) + SensedCost(seed, sensed, sensedSigma);
 					if (cost >= best) continue;
 					best = cost;
-					rho = Seeds[s];
+					rho = seed;
 				}
 
 				double hessian = 0;
@@ -206,6 +223,12 @@ namespace Anaglyph.XR.VisualLocalization
 				{
 					double g = 0;
 					hessian = Prior(rho, ref g);
+					if (sensedSigma > 0)
+					{
+						double h = 1.0 / ((double)sensedSigma * sensedSigma);
+						g += (rho - sensed) * h;
+						hessian += h;
+					}
 					float step = 1e-4f + 1e-3f * rho;
 					for (int k = 1; k < count; k++)
 					{
@@ -236,6 +259,16 @@ namespace Anaglyph.XR.VisualLocalization
 					worst = k;
 				}
 
+				// the reading goes instead when it is further past its own gate than any sighting is past theirs:
+				// a ray that grazed an edge reads the wall behind
+				float sensedError = SensedCost(rho, sensed, sensedSigma);
+				if (sensedError > outlierSigmas * outlierSigmas && sensedError * 2 >= worstError)
+				{
+					sensedSigma = 0;
+					sensedRangeDropped = true;
+					continue;
+				}
+
 				if (worst < 0) break;
 				(dropped ??= new()).Add(kept[worst]);
 				kept.RemoveAt(worst);
@@ -244,7 +277,15 @@ namespace Anaglyph.XR.VisualLocalization
 				placed = RemoveAt(placed, worst);
 			}
 
-			return new Fitted(fitted, fittedSigma, dropped);
+			return new Fitted(fitted, fittedSigma, dropped, sensedRangeDropped);
+		}
+
+		// the sensor's reading against a depth, in its sigmas squared; nothing without a reading
+		private static float SensedCost(float rho, float sensed, float sensedSigma)
+		{
+			if (!(sensedSigma > 0)) return 0;
+			float off = (rho - sensed) / sensedSigma;
+			return off * off;
 		}
 
 		/// <summary>Takes a fit: the depth, and the sightings it dropped out of this landmark. Returns those, as they are now.</summary>
@@ -253,6 +294,7 @@ namespace Anaglyph.XR.VisualLocalization
 			if (!fit.placed) return null;
 			inverseDepth = fit.inverseDepth;
 			inverseDepthSigma = fit.inverseDepthSigma;
+			if (fit.sensedRangeDropped) sensedInverseDepthSigma = 0;
 			if (fit.dropped == null) return null;
 
 			List<Observation> removed = new(fit.dropped.Count);

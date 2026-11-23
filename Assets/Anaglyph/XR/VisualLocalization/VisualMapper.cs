@@ -200,6 +200,7 @@ namespace Anaglyph.XR.VisualLocalization
 
 				// everything about the frame is read now: the image buffer is reused
 				PinholeCamera intrinsics = image.intrinsics;
+				Pose cameraInTrackingSpace = image.cameraInTrackingSpace;
 				long timestampNs = image.timestampNs;
 				int mapRevision = Map.Revision;
 				VisualFrameRecord record = Frames.Begin("map", image, node, cameraInNode);
@@ -219,6 +220,8 @@ namespace Anaglyph.XR.VisualLocalization
 					return;
 				}
 
+				SensedRange[] sensedRanges = await SenseRanges(cameraInTrackingSpace, intrinsics, features);
+				if (!owner) return;
 				if (Map.Revision != mapRevision)
 				{
 					Mapping.stale++;
@@ -233,6 +236,7 @@ namespace Anaglyph.XR.VisualLocalization
 					node = node,
 					cameraInNode = cameraInNode,
 					landmarks = new int[features.Count],
+					sensedRanges = sensedRanges,
 					timestampNs = timestampNs,
 					frame = frame,
 					original = original,
@@ -256,6 +260,24 @@ namespace Anaglyph.XR.VisualLocalization
 				if (extracting) queue.ReleaseExtractor();
 				mappingBusy = false;
 				Mapping.busySeconds += Time.realtimeSinceStartup - attemptStart;
+			}
+		}
+
+		// the scene's distance along each feature's ray, read while the depth frame still shows what the image did
+		private async Awaitable<SensedRange[]> SenseRanges(Pose cameraInTrackingSpace, PinholeCamera intrinsics, FeatureSet features)
+		{
+			IFeatureRangeSensor sensor = owner.RangeSensor;
+			if (sensor == null) return null;
+			float3[] rays = new float3[features.Count];
+			for (int i = 0; i < rays.Length; i++) rays[i] = intrinsics.Ray(features.keypoints[i]);
+			try
+			{
+				return await sensor.SenseAsync(cameraInTrackingSpace, rays);
+			}
+			catch (Exception e)
+			{
+				Debug.LogException(e, owner);
+				return null;
 			}
 		}
 
@@ -311,7 +333,7 @@ namespace Anaglyph.XR.VisualLocalization
 			Map.Add(keyframe);
 			Frames.Pin(keyframe.frame, true);
 			HashSet<Landmark> touched = new();
-			int extended = 0, started = 0, sighted = 0;
+			int extended = 0, started = 0, sighted = 0, sensed = 0;
 			foreach ((VisualKeyframe neighbor, int[] matches, int _) in matched)
 			{
 				for (int i = 0; i < matches.Length; i++)
@@ -322,6 +344,11 @@ namespace Anaglyph.XR.VisualLocalization
 					{
 						landmark = Map.CreateLandmark(neighbor, j, owner.PixelSigma);
 						started++;
+						if (neighbor.sensedRanges != null && j < neighbor.sensedRanges.Length && neighbor.sensedRanges[j].IsKnown)
+						{
+							landmark.SetSensedRange(neighbor.sensedRanges[j]);
+							sensed++;
+						}
 					}
 					else if (landmark.established) sighted++;
 					else extended++;
@@ -383,7 +410,7 @@ namespace Anaglyph.XR.VisualLocalization
 			// second view of it comes: take the next sharp frame at once, while it's still in sight
 			nextMapping = Time.unscaledTime + (matched.Count == 0 ? 0 : settings.mappingInterval);
 			owner.RaiseKeyframeAdded(keyframe);
-			LogKeyframe(keyframe, $"{matched.Count} trusted neighbors{lonely}, {extended} sightings extended tracks, {sighted} sighted established landmarks, {started} started, {dropped} rejected, {refined} refined");
+			LogKeyframe(keyframe, $"{matched.Count} trusted neighbors{lonely}, {extended} sightings extended tracks, {sighted} sighted established landmarks, {started} started ({sensed} ranged by the depth sensor), {dropped} rejected, {refined} refined");
 		}
 
 		// a depth moving by less than this share isn't worth rereading or sending

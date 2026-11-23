@@ -29,13 +29,14 @@ namespace Anaglyph.LaserTag.Interface
 		private NavPage homePage;
 		private NavPage sessionPage;
 		private NavPage networkErrorModal;
+		private NavPage wifiOffModal;
 		private NavPage bluetoothErrorModal;
 		private MenuErrorPresenter errors;
 		private UIToolkitPanelXRSetup panel;
 		private SessionDiscoveryController sessionDiscoveryController;
 
 		private HostModePicker hostModePicker;
-		private bool directSupported;
+		private bool directHostingSupported;
 		private FlashingLabel sessionDiscoveryStatus;
 		private string shownDiscoveryKey;
 
@@ -71,13 +72,14 @@ namespace Anaglyph.LaserTag.Interface
 			homePage = navView.GetPage("home-page");
 			sessionPage = navView.GetPage("session-page");
 			networkErrorModal = navView.GetPage("network-error-modal");
+			wifiOffModal = navView.GetPage("wifi-off-modal");
 			bluetoothErrorModal = navView.GetPage("bluetooth-error-modal");
 			sessionDiscoveryStatus = Require<FlashingLabel>(root, "session-discovery-status");
 			shownDiscoveryKey = null;
 
 			bindings.Click(Require<Button>(root, "host-button"), Host);
 
-			hostModePicker = new HostModePicker(root, bindings, hostModeSetting, directSupported);
+			hostModePicker = new HostModePicker(root, bindings, hostModeSetting, directHostingSupported);
 
 			useRelayToggle = Require<Toggle>(root, "use-relay-toggle");
 			ipFieldRow = Require<VisualElement>(root, "ip-field-row");
@@ -108,6 +110,10 @@ namespace Anaglyph.LaserTag.Interface
 				() => navView.DismissModal(networkErrorModal));
 			bindings.Click(Require<Button>(root, "open-wifi-settings-button"),
 				ConnectionConnectivityMonitor.OpenWifiSettings);
+			bindings.Click(Require<Button>(root, "dismiss-wifi-off-button"),
+				() => navView.DismissModal(wifiOffModal));
+			bindings.Click(Require<Button>(root, "open-wifi-settings-from-wifi-off-button"),
+				ConnectionConnectivityMonitor.OpenWifiSettings);
 			bindings.Click(Require<Button>(root, "dismiss-bluetooth-error-button"),
 				() => navView.DismissModal(bluetoothErrorModal));
 			bindings.Click(Require<Button>(root, "open-bluetooth-settings-button"),
@@ -121,7 +127,7 @@ namespace Anaglyph.LaserTag.Interface
 		private void Awake()
 		{
 			errors = new MenuErrorPresenter(MenuErrorArea.Connection);
-			directSupported = NetcodeManagement.DirectSupported;
+			directHostingSupported = NetcodeManagement.DirectHostingSupported;
 			sessionDiscoveryController =
 				GetComponentInParent<SessionDiscoveryController>();
 			if (sessionDiscoveryController == null)
@@ -154,6 +160,7 @@ namespace Anaglyph.LaserTag.Interface
 
 			RefreshHostModes();
 			OnNetcodeStateChanged(NetcodeManagement.State);
+			connectivity.WifiEnabledChanged += OnWifiEnabledChanged;
 			connectivity.LanConnectionChanged += OnLanConnectionChanged;
 			connectivity.InternetConnectionChanged += RefreshHostModes;
 			connectivity.BluetoothEnabledChanged += OnBluetoothEnabledChanged;
@@ -170,6 +177,7 @@ namespace Anaglyph.LaserTag.Interface
 				sessionDiscoveryStatus.Flashing = false;
 
 			connectivity.Stop();
+			connectivity.WifiEnabledChanged -= OnWifiEnabledChanged;
 			connectivity.LanConnectionChanged -= OnLanConnectionChanged;
 			connectivity.InternetConnectionChanged -= RefreshHostModes;
 			connectivity.BluetoothEnabledChanged -= OnBluetoothEnabledChanged;
@@ -201,22 +209,39 @@ namespace Anaglyph.LaserTag.Interface
 			if (sessionDiscoveryStatus == null)
 				return;
 
+			if (NetcodeManagement.State != NetcodeState.Disconnected)
+				UpdateIpText();
+
+			string unjoinableKey = UnjoinableSessionKey(SessionDiscovery.UnjoinableSessionNearby);
 			string key = connectivity.HasBluetoothState && !connectivity.BluetoothIsEnabled
 				? "discovery.bluetooth-off"
-				: sessionDiscoveryController != null && sessionDiscoveryController.IsListening
-					? "discovery.searching"
-					: "discovery.preparing";
+				: unjoinableKey != null
+					? unjoinableKey
+					: sessionDiscoveryController != null && sessionDiscoveryController.IsListening
+						? "discovery.searching"
+						: "discovery.preparing";
 			if (key == shownDiscoveryKey) return;
 			shownDiscoveryKey = key;
 			sessionDiscoveryStatus.text = MenuCopy.Get("ConnectionMenu", key);
+			sessionDiscoveryStatus.EnableInClassList("warning", key == unjoinableKey);
 		}
+
+		private static string UnjoinableSessionKey(UnjoinableSessionReason reason) => reason switch
+		{
+			UnjoinableSessionReason.WifiOff => "discovery.unjoinable.wifi-off",
+			UnjoinableSessionReason.NoLocalNetwork => "discovery.unjoinable.no-local-network",
+			UnjoinableSessionReason.NoInternet => "discovery.unjoinable.no-internet",
+			UnjoinableSessionReason.DirectUnsupported => "discovery.unjoinable.direct-unsupported",
+			_ => null
+		};
 
 		private void OnHostModeSettingChanged(int _) => RefreshHostModes();
 
 		private void RefreshHostModes()
 		{
 			bool bluetoothOn = !connectivity.HasBluetoothState || connectivity.BluetoothIsEnabled;
-			hostModePicker?.Refresh(connectivity.HasLocalNetwork, connectivity.HasFullInternet, bluetoothOn);
+			hostModePicker?.Refresh(connectivity.WifiIsEnabled, connectivity.HasLocalNetwork,
+				connectivity.HasFullInternet, bluetoothOn);
 		}
 
 		private void UpdateManualConnectionFields(bool usingRelay)
@@ -253,8 +278,7 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void RefreshSessionConnectionState()
 		{
-			sessionDiscoveryController?.SetMenuAllowsListening(
-				AutomaticDiscoveryAllowed(), directSupported && !connectivity.HasLocalNetwork);
+			sessionDiscoveryController?.SetMenuAllowsListening(AutomaticDiscoveryAllowed());
 			if (sessionDiscoveryStatus != null)
 				sessionDiscoveryStatus.Flashing = isActiveAndEnabled &&
 					panel != null && panel.IsVisible && navView?.CurrentPage == homePage;
@@ -299,7 +323,8 @@ namespace Anaglyph.LaserTag.Interface
 			}
 			else if (transport is UnityTransport unityTransport)
 			{
-				sessionIpText.text = unityTransport.ConnectionData.Address;
+				// a Wi-Fi Direct session only gets its address once the group forms and the transport starts
+				sessionIpText.text = Manager.IsListening ? unityTransport.ConnectionData.Address : "";
 			}
 		}
 
@@ -341,10 +366,17 @@ namespace Anaglyph.LaserTag.Interface
 				NetcodeManagement.Host(mode);
 		}
 
+		private void OnWifiEnabledChanged(bool isEnabled)
+		{
+			navView.SetModalPresented(wifiOffModal, !isEnabled, 100);
+			RefreshHostModes();
+		}
+
 		private void OnLanConnectionChanged(bool isConnected)
 		{
-			// with direct hosting the mode cards explain a missing network instead
-			navView.SetModalPresented(networkErrorModal, !isConnected && !directSupported, 100);
+			// with direct hosting the mode cards explain a missing network instead; Wi-Fi off has its own modal
+			navView.SetModalPresented(networkErrorModal,
+				!isConnected && !directHostingSupported && connectivity.WifiIsEnabled, 100);
 			RefreshSessionConnectionState();
 			RefreshHostModes();
 		}

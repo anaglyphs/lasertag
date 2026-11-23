@@ -7,7 +7,8 @@ namespace Anaglyph.XR.SharedSpaces
 	/// began, usable views kept coming and none found the map. A view too plain to match anything
 	/// says nothing either way. One view that finds the map says the place is likely the map's:
 	/// the looking starts over and goes on far longer, since views that find nothing are as common
-	/// in a thinly mapped room as in another place.
+	/// in a thinly mapped room as in another place. A map that was only a guess at the place is
+	/// given up sooner: on headset maps two views in three find the map of the room they are in.
 	/// </summary>
 	public sealed class UnfamiliarPlaceVerdict
 	{
@@ -16,6 +17,8 @@ namespace Anaglyph.XR.SharedSpaces
 		{
 			[UnityEngine.Tooltip("Seconds of looking with nothing of the map found before the place is called unfamiliar; the view that says so comes up to a query interval later")]
 			public float seconds = 4f;
+			[UnityEngine.Tooltip("Seconds instead, for a map that is only a guess at the place")]
+			public float secondsForAGuess = 2f;
 			[UnityEngine.Tooltip("Seconds instead, counted from the last view that found the map")]
 			public float secondsAfterTheMapWasFound = 30f;
 			[UnityEngine.Tooltip("Usable views that must have found nothing of the map in that time")]
@@ -33,11 +36,11 @@ namespace Anaglyph.XR.SharedSpaces
 
 		public UnfamiliarPlaceVerdict(Settings settings) => this.settings = settings;
 
-		public void BeginLooking(float time)
+		public void BeginLooking(float time, bool mapIsAGuess = false)
 		{
 			viewsThatFoundNothing = 0;
 			lookingSince = time;
-			patience = settings.seconds;
+			patience = mapIsAGuess ? settings.secondsForAGuess : settings.seconds;
 		}
 
 		/// <returns>Whether the place is unfamiliar, counting this view.</returns>
