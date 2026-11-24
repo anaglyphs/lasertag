@@ -59,6 +59,7 @@ namespace Anaglyph.LaserTag.Operator
 		private CancellationTokenSource refreshCancellation;
 		private MapManagerUI mapManager;
 		private MatchSettingsBinder matchSettings;
+		private OperatorUpdatePrompt updatePrompt;
 
 		[SerializeField] private Material tagIndicatorMaterial;
 
@@ -102,6 +103,7 @@ namespace Anaglyph.LaserTag.Operator
 			sessionAddressLabel = Require<Label>(networkNav, "session-address");
 			hostButton = Require<Button>(networkNav, "host-button");
 			disconnectButton = Require<Button>(networkNav, "disconnect-button");
+			updatePrompt = new OperatorUpdatePrompt(root);
 
 			VisualElement clientPanel = Require<VisualElement>(root, "client-list-panel");
 			clientList = Require<MultiColumnListView>(clientPanel, "client-list");
@@ -158,6 +160,8 @@ namespace Anaglyph.LaserTag.Operator
 			refreshCancellation?.Dispose();
 			refreshCancellation = null;
 			bindings.Dispose();
+			updatePrompt?.Dispose();
+			updatePrompt = null;
 			mapManager?.Unbind();
 			matchSettings?.Dispose();
 			matchSettings = null;

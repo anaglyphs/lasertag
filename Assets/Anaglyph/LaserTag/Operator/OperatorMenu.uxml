@@ -135,5 +135,20 @@
                 </ui:TwoPaneSplitView>
             </ui:TwoPaneSplitView>
         </ui:TwoPaneSplitView>
+        <ui:VisualElement name="update-popup-backdrop" class="popup-backdrop">
+            <Anaglyph.Menu.NavView first-page="update-page" name="update-popup" class="menu-root popup-panel">
+                <Anaglyph.Menu.NavPage name="update-page" show-back-button="false">
+                    <ui:VisualElement class="page-template-root">
+                        <Anaglyph.Menu.NavHeader>
+                            <Bindings>
+                                <UnityEngine.Localization.LocalizedString property="Title" table="OperatorMenu" entry="update.title"/>
+                            </Bindings>
+                        </Anaglyph.Menu.NavHeader>
+                        <ui:Label name="update-status" class="body-copy"/>
+                        <ui:Button name="update-button"/>
+                    </ui:VisualElement>
+                </Anaglyph.Menu.NavPage>
+            </Anaglyph.Menu.NavView>
+        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

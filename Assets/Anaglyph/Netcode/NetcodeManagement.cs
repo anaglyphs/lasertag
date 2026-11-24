@@ -138,16 +138,18 @@ namespace Anaglyph.Netcode
 		/// Identifies this build for display and diagnostics. Multiplayer compatibility
 		/// is determined by NetworkConfig.ProtocolVersion and NGO's configuration checks.
 		/// </summary>
-		public static string GameVersion
+		public static string GameVersion => string.IsNullOrEmpty(BuildNumber)
+			? Application.version
+			: $"{Application.version} ({BuildNumber})";
+
+		public static string BuildNumber
 		{
 			get
 			{
 				if (buildNumber == null)
 					buildNumber = Resources.Load<StringObject>(buildNumberResourceName);
 
-				return buildNumber != null && !string.IsNullOrEmpty(buildNumber.Value)
-					? $"{Application.version} ({buildNumber.Value})"
-					: Application.version;
+				return buildNumber != null ? buildNumber.Value : null;
 			}
 		}
 

@@ -140,6 +140,7 @@ namespace Anaglyph.LaserTag.Maps
 			SyncBus.Activated += OnBusActivated;
 			SyncBus.Deactivated += OnBusDeactivated;
 			SyncBus.AuthorityChanged += OnAuthorityChanged;
+			HeadsetConfiguration.SessionOperatorManagedChanged += ReapplyAlignmentIfMethodChanged;
 			MainXRRig.Recentered += OnRecentered;
 			SaveVisualMapsPeriodically(lifetime.Token).RunUntilCancelled();
 			ReplaceWithRecognizedSpaces(lifetime.Token).RunUntilCancelled();
@@ -170,6 +171,7 @@ namespace Anaglyph.LaserTag.Maps
 			SyncBus.Activated -= OnBusActivated;
 			SyncBus.Deactivated -= OnBusDeactivated;
 			SyncBus.AuthorityChanged -= OnAuthorityChanged;
+			HeadsetConfiguration.SessionOperatorManagedChanged -= ReapplyAlignmentIfMethodChanged;
 			MainXRRig.Recentered -= OnRecentered;
 			TagSetup.Unregister();
 			Sync.Unregister();
@@ -752,6 +754,13 @@ namespace Anaglyph.LaserTag.Maps
 			}
 			else localSpace = space; // the host's space arrives with its header
 			SpacesChanged.Invoke();
+			SpaceChanged.Invoke();
+		}
+
+		private void ReapplyAlignmentIfMethodChanged()
+		{
+			if (space == null || Alignment.PreferredMethod == Alignment.ActiveMethod) return;
+			Alignment.Apply(space, preserve: false);
 			SpaceChanged.Invoke();
 		}
 

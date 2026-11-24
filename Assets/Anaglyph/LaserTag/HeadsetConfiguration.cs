@@ -110,6 +110,7 @@ namespace Anaglyph.LaserTag
 
 		public static event Action Changed = delegate { };
 		public static event Action MenuAccessChanged = delegate { };
+		public static event Action SessionOperatorManagedChanged = delegate { };
 
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
 		private static void Init()
@@ -117,6 +118,7 @@ namespace Anaglyph.LaserTag
 			Instance = null;
 			Changed = delegate { };
 			MenuAccessChanged = delegate { };
+			SessionOperatorManagedChanged = delegate { };
 		}
 
 		private void Awake()
@@ -276,14 +278,16 @@ namespace Anaglyph.LaserTag
 
 		private void OnPolicySynced()
 		{
-			if (!IsOperator)
-				ApplySyncedPolicy(policySync.Value);
+			if (IsOperator) return;
+			ApplySyncedPolicy(policySync.Value);
+			if (policySync.Value.operatorManaged != 0) SessionOperatorManagedChanged.Invoke();
 		}
 
-		private void OnSyncedPolicyChanged(SyncedPolicy _, SyncedPolicy policy)
+		private void OnSyncedPolicyChanged(SyncedPolicy previous, SyncedPolicy policy)
 		{
-			if (!IsOperator)
-				ApplySyncedPolicy(policy);
+			if (IsOperator) return;
+			ApplySyncedPolicy(policy);
+			if (previous.operatorManaged != policy.operatorManaged) SessionOperatorManagedChanged.Invoke();
 		}
 
 		private void PublishOperatorPolicy()

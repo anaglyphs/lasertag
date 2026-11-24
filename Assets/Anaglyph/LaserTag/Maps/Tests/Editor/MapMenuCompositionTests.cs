@@ -460,7 +460,7 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(secondField.value, Is.EqualTo(secondValue));
 
 			firstBinder.Dispose();
-			secondField.value = Choice(secondField, ColocationManager.ColocationMethod.MetaSharedAnchor);
+			secondField.value = Choice(secondField, ColocationManager.ColocationMethod.AprilTag);
 			Assert.That(firstChanges, Is.EqualTo(1));
 			Assert.That(secondChanges, Is.EqualTo(1), "Disposing one fragment must not unbind another instance.");
 		}
@@ -475,6 +475,7 @@ namespace Anaglyph.LaserTag.Tests
 			owner.SetActive(false);
 			bool wasEditing = MapEditor.MapEditor.IsActive;
 			var previousMode = MapEditorTool.CurrentMode;
+			var previousConfiguration = HeadsetConfiguration.Instance;
 			SpaceManagerTestContext context = null;
 			try
 			{
@@ -490,6 +491,12 @@ namespace Anaglyph.LaserTag.Tests
 				var page = headset.Q<NavPage>("space-details");
 				using var details = new SpaceDetailsBinder(page);
 				headset.Q<NavView>("maps-nav").GoToPage(page);
+				Assert.That(details.Alignment.UsesTags, Is.False, "Headsets use visual alignment unless an operator runs the session.");
+				var configuration = owner.AddComponent<HeadsetConfiguration>();
+				typeof(HeadsetConfiguration).GetField("role", BindingFlags.NonPublic | BindingFlags.Instance)
+					.SetValue(configuration, HeadsetConfiguration.DeviceRole.Operator);
+				typeof(HeadsetConfiguration).GetProperty("Instance").SetValue(null, configuration);
+				details.Alignment.Refresh();
 				Assert.That(details.Alignment.UsesTags, Is.True);
 				Assert.That(headset.Q("tag-configuration-section").style.display.value, Is.EqualTo(DisplayStyle.Flex));
 				Assert.That(headset.Q("tag-configuration-section").Q<Button>("start-apriltag-setup"), Is.Not.Null);
@@ -506,6 +513,7 @@ namespace Anaglyph.LaserTag.Tests
 			finally
 			{
 				typeof(MapEditor.MapEditor).GetProperty("IsActive").SetValue(null, wasEditing);
+				typeof(HeadsetConfiguration).GetProperty("Instance").SetValue(null, previousConfiguration);
 				MapEditorTool.SetMode(previousMode);
 				context?.Dispose();
 				Object.DestroyImmediate(owner);
@@ -515,8 +523,7 @@ namespace Anaglyph.LaserTag.Tests
 		// the dropdown lists only these, in this order, so indexes are not enum values
 		private static readonly ColocationManager.ColocationMethod[] ListedMethods =
 		{
-			ColocationManager.ColocationMethod.MetaSharedAnchor, ColocationManager.ColocationMethod.AprilTag,
-			ColocationManager.ColocationMethod.Visual
+			ColocationManager.ColocationMethod.AprilTag, ColocationManager.ColocationMethod.Visual
 		};
 
 		private static string Choice(DropdownField field, ColocationManager.ColocationMethod method) =>
@@ -526,7 +533,6 @@ namespace Anaglyph.LaserTag.Tests
 		{
 			Assert.That(field.choices, Is.EqualTo(new[]
 			{
-				MenuCopy.Get("Map", "alignment.anchors"),
 				MenuCopy.Get("Map", "alignment.tags"),
 				"Visual relocalization"
 			}));

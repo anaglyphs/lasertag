@@ -96,6 +96,7 @@ namespace Anaglyph.Editor
 					break;
 				// desktop players have no build number of their own; BuildProcess stamps Android's into the game
 				case BuildTarget.StandaloneWindows64:
+				case BuildTarget.StandaloneLinux64:
 					if (buildNumber.HasValue) PlayerSettings.Android.bundleVersionCode = buildNumber.Value;
 					break;
 				default:

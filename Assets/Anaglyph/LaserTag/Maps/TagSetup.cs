@@ -103,42 +103,31 @@ namespace Anaglyph.LaserTag.Maps
 		public bool CanMeasure => IsGuidingHeadset && alignment.TagSizeBlocker() == null;
 
 		public bool CanFinish => CanEndFromHere && manager.Space.HasTags &&
-			manager.Space.alignment.method == Method.AprilTag && !manager.IsChangingMap;
+			alignment.SelectedMethod == Method.AprilTag && !manager.IsChangingMap;
 
 		public string StartBlocker =>
 			IsActive ? null :
-			HeadsetConfiguration.IsOperatorDevice && (!SyncBus.Active || !SyncBus.IsAuthority) ? L("tag-setup.host-first") :
+			!HeadsetConfiguration.IsOperatorDevice ? L("blocker.the-operator-sets-the-alignment-method") :
+			!SyncBus.Active || !SyncBus.IsAuthority ? L("tag-setup.host-first") :
 			manager.Space == null ? L("tag-setup.space-first") :
 			manager.IsChangingMap || RoundInProgress ? L("tag-setup.busy") :
-			manager.Role == SpaceRole.Client ? null :
 			alignment.MethodBlocker(Method.AprilTag);
 
 		// ------- commands --------------------------------------------
 
-		/// <summary>Starts a setup for the shown space, switching it to AprilTags. A client asks the host.</summary>
+		/// <summary>The operator starts a setup for the shown space, switching it to AprilTags; any ready headset authors.</summary>
 		public bool Begin()
 		{
 			if (IsActive) return true;
 			if (StartBlocker != null) return false;
-			if (manager.Role == SpaceRole.Client)
-			{
-				Send(SpaceRequestKind.TagSetupBegin);
-				return true;
-			}
-			return ApplyBegin(HeadsetConfiguration.IsOperatorDevice ? null : SyncBus.LocalClientId);
-		}
-
-		// the requester authors when it can; an operator takes any ready headset
-		private bool ApplyBegin(ulong? requester)
-		{
 			Space space = manager.Space;
-			if (space.alignment.method != Method.AprilTag && !alignment.SetMethod(Method.AprilTag)) return false;
+			if (alignment.SelectedMethod != Method.AprilTag && !alignment.SetMethod(Method.AprilTag)) return false;
 			// after the switch: entering two-tag mode gives the space a new frame
-			ulong? author = requester.HasValue && alignment.ReadyFor(requester.Value) ? requester : alignment.SelectAuthor(null);
+			ulong? author = alignment.SelectAuthor(null);
 			Set(new TagSetupState
 			{
 				operation = Guid.NewGuid(), spaceId = space.Id, frameId = space.FrameId,
-				operatorManaged = HeadsetConfiguration.IsOperatorDevice,
+				operatorManaged = true,
 				sizeConfirmed = space.HasTags, tagSizeCm = space.alignment.tagSizeCm,
 				hasAuthor = author.HasValue, author = author ?? 0
 			});
@@ -235,9 +224,7 @@ namespace Anaglyph.LaserTag.Maps
 			switch (value.kind)
 			{
 				case SpaceRequestKind.TagSetupBegin:
-					if (IsActive) return true;
-					return !RoundInProgress && !manager.IsChangingMap && alignment.ReadyFor(sender) &&
-						alignment.MethodBlocker(Method.AprilTag) == null && ApplyBegin(sender);
+					return IsActive;
 				case SpaceRequestKind.TagSetupMeasure:
 					return IsActive && State.hasAuthor && sender == State.author && ApplyMeasure(value.size);
 				case SpaceRequestKind.TagSetupFinish:
@@ -267,7 +254,7 @@ namespace Anaglyph.LaserTag.Maps
 			if (state.operation == Guid.Empty) return;
 			Space space = manager.Space;
 			if (space == null || state.spaceId != space.Id || RoundInProgress ||
-				space.alignment.method != Method.AprilTag || state.operatorManaged && !SyncBus.Active)
+				alignment.SelectedMethod != Method.AprilTag || state.operatorManaged && !SyncBus.Active)
 			{
 				Set(default);
 				return;

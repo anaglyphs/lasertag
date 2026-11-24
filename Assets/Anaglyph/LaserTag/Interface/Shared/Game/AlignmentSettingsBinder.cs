@@ -40,8 +40,7 @@ namespace Anaglyph.LaserTag.Interface
 		// the methods offered, in dropdown order
 		private static readonly ColocationManager.ColocationMethod[] ListedMethods =
 		{
-			ColocationManager.ColocationMethod.MetaSharedAnchor, ColocationManager.ColocationMethod.AprilTag,
-			ColocationManager.ColocationMethod.Visual
+			ColocationManager.ColocationMethod.AprilTag, ColocationManager.ColocationMethod.Visual
 		};
 		public string Status { get; private set; }
 
@@ -74,6 +73,7 @@ namespace Anaglyph.LaserTag.Interface
 				bindings.Click(unregisterAllTagsButton, OnUnregisterAllTagsClicked);
 			}
 			methodField = Require<DropdownField>(root, "colocation-method-field");
+			methodField.style.display = operatorMode ? DisplayStyle.Flex : DisplayStyle.None;
 			statusLabel = Require<Label>(root, "colocation-status");
 			preferenceStatus = Require<Label>(root, "colocation-preference-status");
 			choosePair = Require<Button>(root, "choose-two-tag-pair");
@@ -189,7 +189,7 @@ namespace Anaglyph.LaserTag.Interface
 		{
 			bool aprilTags = DisplayedMethod == ColocationManager.ColocationMethod.AprilTag;
 			tagConfigurationSection.style.display = aprilTags || operatorMode && UsesTags ? DisplayStyle.Flex : DisplayStyle.None;
-			setupTagsButton.style.display = aprilTags ? DisplayStyle.Flex : DisplayStyle.None;
+			setupTagsButton.style.display = aprilTags && operatorMode ? DisplayStyle.Flex : DisplayStyle.None;
 			TagSetup setup = SpaceManager.Instance?.TagSetup;
 			setupTagsButton.SetEnabled(setup != null && setup.StartBlocker == null);
 			setupTagsButton.tooltip = setup?.StartBlocker;

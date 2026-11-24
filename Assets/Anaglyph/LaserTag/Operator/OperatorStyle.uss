@@ -60,3 +60,20 @@
     min-height: 160px;
     min-width: 200px;
 }
+
+.popup-backdrop {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.75);
+}
+
+.popup-panel {
+    flex-grow: 0;
+    width: 560px;
+    max-width: 90%;
+}

@@ -64,11 +64,11 @@ namespace Anaglyph.LaserTag.Maps
 		public static bool TrackingReady => AppFocus.IsFocused && PlayerHeadsetStatus.HeadTrackingReady;
 
 		public Method ActiveMethod => colocation.ActiveMethod;
-		/// <summary>The method the shown space is set to; visual without a space.</summary>
-		public Method SelectedMethod => space?.alignment.method ?? Method.Visual;
+		/// <summary>The method the shown space uses: its own only when an operator runs the session, otherwise visual.</summary>
+		public Method SelectedMethod => space != null && HeadsetConfiguration.SessionIsOperatorManaged ? space.alignment.method : Method.Visual;
 		/// <summary>The space's method as far as it has the references for it: a tag or anchor preference without tags or anchors falls back to the kind it has.</summary>
 		public Method PreferredMethod => space == null ? Method.Visual :
-			ColocationManager.CompatibleMethod(space.alignment.method, space.HasTags, space.anchors.Count > 0);
+			ColocationManager.CompatibleMethod(SelectedMethod, space.HasTags, space.anchors.Count > 0);
 		public bool UsingTwoTagMode => colocation.UsingTwoTagMode;
 		public float TagSizeCm => space?.alignment.tagSizeCm ?? Space.DefaultTagSizeCm;
 
@@ -231,7 +231,7 @@ namespace Anaglyph.LaserTag.Maps
 			!ColocationManager.IsValidMethod(method) ? L("blocker.unknown-colocation-method") :
 			space == null ? L("space.load-first") :
 			RoundInProgress ? L("blocker.wait-until-the-round-ends") :
-			HeadsetConfiguration.SessionIsOperatorManaged && !HeadsetConfiguration.IsOperatorDevice ? L("blocker.the-operator-sets-the-alignment-method") : null;
+			!HeadsetConfiguration.IsOperatorDevice ? L("blocker.the-operator-sets-the-alignment-method") : null;
 
 		/// <summary>Saves the method and re-aligns everyone. The frame moves when two-tag mode is entered or left.</summary>
 		public bool SetMethod(Method method)
@@ -248,7 +248,7 @@ namespace Anaglyph.LaserTag.Maps
 		private bool ApplyMethod(Method method)
 		{
 			if (space.alignment.method == method) return true;
-			bool wasTwoTag = ColocationManager.IsTwoTagMode(space.alignment.method, space);
+			bool wasTwoTag = ColocationManager.IsTwoTagMode(SelectedMethod, space);
 			space.alignment.method = method;
 			bool isTwoTag = ColocationManager.IsTwoTagMode(method, space);
 			manager.SpaceAlignmentChanged(rebase: wasTwoTag != isTwoTag);
@@ -305,7 +305,7 @@ namespace Anaglyph.LaserTag.Maps
 				if (privateReferences.tagAnchors.RemoveAll(anchor => anchor.tagId == id) > 0) store.SavePrivate(privateReferences);
 			}
 			EraseUnreferenced(orphaned);
-			bool entersTwoTag = space.alignment.method == Method.AprilTag && !space.HasTags;
+			bool entersTwoTag = SelectedMethod == Method.AprilTag && !space.HasTags;
 			manager.SpaceAlignmentChanged(rebase: entersTwoTag);
 			return true;
 		}
@@ -380,8 +380,7 @@ namespace Anaglyph.LaserTag.Maps
 			switch (value.kind)
 			{
 				case SpaceRequestKind.SetMethod:
-					return ColocationManager.IsValidMethod(value.method) && !RoundInProgress &&
-						!HeadsetConfiguration.SessionIsOperatorManaged && ApplyMethod(value.method);
+					return false;
 				case SpaceRequestKind.RegisterTag:
 					return value.tag >= 0 && Space.ValidPose(value.pose) && !RoundInProgress && ReadyFor(sender) &&
 						value.trackingGeneration == SenderTrackingGeneration(sender) && ApplyRegisterTag(value.tag, value.pose);
