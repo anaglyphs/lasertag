@@ -14,6 +14,7 @@ namespace Anaglyph.XR.UILayers
 	/// composition layers are displayed. The document stays world-space, so input
 	/// is unchanged: it moves to a Unity layer only a mirror camera renders, and a
 	/// depth-tested hole lets the underlay show through wherever nothing is in front.
+	/// The layer is hidden while the main camera is behind the panel.
 	/// </summary>
 	[RequireComponent(typeof(UIDocument))]
 	public class UnderlaidUIDocument : MonoBehaviour
@@ -55,6 +56,16 @@ namespace Anaglyph.XR.UILayers
 			}
 		}
 
+		private bool IsViewedFromFront
+		{
+			get
+			{
+				Camera viewer = Camera.main;
+				return viewer == null ||
+					Vector3.Dot(viewer.transform.position - transform.position, transform.forward) < 0;
+			}
+		}
+
 		private void Awake()
 		{
 			document = GetComponent<UIDocument>();
@@ -88,7 +99,7 @@ namespace Anaglyph.XR.UILayers
 			bool composited = mirroredUnityLayer >= 0 && CompositionLayersDisplayed;
 			gameObject.layer = composited ? mirroredUnityLayer : displayedUnityLayer;
 
-			bool showLayer = composited && IsDocumentDisplayed;
+			bool showLayer = composited && IsDocumentDisplayed && IsViewedFromFront;
 
 			if (showLayer && layerRoot == null)
 				CreateLayer();

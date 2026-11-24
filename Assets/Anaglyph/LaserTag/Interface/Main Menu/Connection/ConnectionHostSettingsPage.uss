@@ -1,45 +1,93 @@
-.host-mode-cards {
+/* color is the dotted path color */
+.host-mode-diagram {
+    color: var(--primary);
+    align-items: center;
+    flex-shrink: 0;
+    margin-top: auto;
+    padding: var(--spacing-small, 4px) 0;
+}
+
+.unity-button.host-mode-tile {
+    width: 52px;
+    height: 52px;
+    margin: var(--spacing-small, 4px) 0;
+    padding: 0;
     flex-direction: row;
+    align-items: center;
+    overflow: hidden;
+    transition: width 0.15s ease-out;
 }
 
-.host-mode-card {
-    flex-grow: 1;
-    flex-basis: 0;
-    min-height: 58px;
-    justify-content: center;
+.unity-button.host-mode-tile.option--selected {
+    width: 180px;
 }
 
-.host-mode-card > Label {
+.host-mode-tile__icon {
+    width: 34px;
+    height: 34px;
+    margin: 0 9px;
+    flex-shrink: 0;
+    background-size: contain;
+    -unity-background-image-tint-color: var(--secondary);
+}
+
+.host-mode-tile__icon--relay { background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/Connection/relay-cloud-only.svg"); }
+.host-mode-tile__icon--lan { background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/Connection/lan-router.svg"); }
+.host-mode-tile__icon--direct { background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/Connection/direct-arrow.svg"); }
+
+.host-mode-tile__text {
+    display: none;
+}
+
+.option--selected > .host-mode-tile__text {
+    display: flex;
+}
+
+.host-mode-tile__text > Label {
     margin: 0;
-    -unity-text-align: middle-center;
+    padding: 0;
 }
 
-.host-mode-card__name {
+.host-mode-tile__name {
     -unity-font-definition: var(--font-bold);
 }
 
-.unity-label.host-mode-card__status {
+.unity-label.host-mode-tile__status {
     font-size: var(--font-size-small, 14px);
 }
 
-.unity-button.host-mode-card--unusable {
-    --text-color: var(--primary);
-    background-color: transparent;
-    border-width: var(--control-border-width, 1px);
+.unity-button.host-mode-tile--unusable {
+    background-color: var(--secondary);
+    border-width: 2px;
     border-color: var(--primary);
 }
 
-.unity-button.host-mode-card--unusable:hover {
+.unity-button.host-mode-tile--unusable:hover {
     border-color: var(--highlight);
 }
 
-.host-mode-card--unusable > .host-mode-card__status {
-    color: rgb(255, 210, 80);
+.host-mode-tile--unusable > .host-mode-tile__icon {
+    margin: 0 7px;
+    -unity-background-image-tint-color: var(--primary);
 }
 
+/* bottom centers the headsets on the lowest tile */
+.host-mode-headset {
+    position: absolute;
+    bottom: 19px;
+    width: 30px;
+    height: 30px;
+    background-color: white;
+}
+
+.host-mode-headset--left { left: var(--spacing-large, 12px); }
+.host-mode-headset--right { right: var(--spacing-large, 12px); }
+
+/* height holds three lines */
 .host-mode-about {
-    flex-grow: 1;
+    flex-shrink: 0;
+    height: 60px;
     white-space: normal;
+    -unity-text-align: upper-center;
     font-size: var(--font-size-small, 14px);
-    min-height: 40px;
 }

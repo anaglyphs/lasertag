@@ -79,7 +79,8 @@ namespace Anaglyph.LaserTag.Interface
 
 			bindings.Click(Require<Button>(root, "host-button"), Host);
 
-			hostModePicker = new HostModePicker(root, bindings, hostModeSetting, directHostingSupported);
+			hostModePicker = new HostModePicker(root, bindings, hostModeSetting,
+				directHostingSupported || Application.isEditor, errors.Show);
 
 			useRelayToggle = Require<Toggle>(root, "use-relay-toggle");
 			ipFieldRow = Require<VisualElement>(root, "ip-field-row");

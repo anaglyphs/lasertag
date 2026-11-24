@@ -1,50 +1,59 @@
 .game-menu {
     width: 400px;
-    height: 446px;
+    height: 400px;
     flex-shrink: 0;
     font-size: 20px;
 }
 
-.game-menu-panel {
-    height: 400px;
-    flex-grow: 0;
-    flex-shrink: 0;
+/* A fixed-size box in the headset; on a screen it takes the room there is */
+.touch-screen .game-menu {
+    width: auto;
+    height: auto;
+    flex-grow: 1;
+    flex-shrink: 1;
 }
 
 .game-menu-tabs {
     flex-direction: row;
     height: 46px;
     flex-shrink: 0;
-    margin-left: var(--spacing-large);
-    margin-right: var(--spacing-large);
+}
+
+/* Over each menu's home page, in the header's place, flush with the frame line.
+   The negative margins take back the outer tabs' half gaps. */
+.game-menu-tabs--in-panel {
+    position: absolute;
+    top: var(--panel-frame-inset);
+    left: var(--panel-frame-inset);
+    right: var(--panel-frame-inset);
+    margin-left: -2px;
+    margin-right: -2px;
+}
+
+/* Home pages keep their header's space for the tabs */
+.nav-page--under-tabs .nav-header {
+    visibility: hidden;
 }
 
 .game-menu-tab {
-    --text-color: white;
+    --text-color: var(--secondary);
     flex-grow: 1;
     flex-basis: 0;
     margin: 0;
-	margin-left: var(--spacing-small);
-	margin-right: var(--spacing-small);
-    border-width: 2px;
-    border-top-width: 0;
+    margin-left: 2px;
+    margin-right: 2px;
+    border-width: 0;
     border-color: var(--primary);
     border-radius: 0;
-    background-color: var(--secondary);
-    color: white;
+    background-color: var(--primary);
+    color: var(--secondary);
     -unity-text-align: middle-center;
 }
 
-.game-menu-tab-selected {
-    background-color: rgb(255, 255, 255);
-	border-color: rgb(255, 255, 255);
-    color: var(--secondary);
-}
-
+.game-menu-tab-selected,
 .game-menu-tab:hover:enabled {
     background-color: var(--highlight);
-	border-color: var(--highlight);
-    color: var(--secondary);
+    border-color: var(--highlight);
 }
 
 .game-menu-hidden {

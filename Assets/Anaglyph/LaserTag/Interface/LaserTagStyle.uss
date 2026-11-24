@@ -14,6 +14,13 @@
     --scrollbar-size: 24px;
     --scrollbar-button-clearance: 28px;
     --panel-frame-padding: 12px;
+    /* The frame line's inner edge, and how far that sits outside the panel padding */
+    --panel-frame-inset: 8px;
+    --panel-frame-gap: 4px;
+    --panel-frame-gap-negative: -4px;
+    --header-button-size: 38px;
+    --highlight: rgb(255, 255, 255);
+    --disabled: rgb(128, 128, 128);
 }
 
 .bold {
@@ -24,18 +31,18 @@
     -unity-font-definition: var(--font-italic);
 }
 
-.light {
-    -unity-font-definition: var(--font-light);
-}
-
 .bold.italic {
     -unity-font-definition: var(--font-bold-italic);
 }
 
-.menu-root {
+/* Panel colors: neutral unless a panel class follows */
+.menu-root,
+.neutral-panel {
     --primary: rgb(200, 200, 200);
-    --highlight: rgb(220, 220, 220);
     --secondary: rgb(20, 20, 20);
+}
+
+.menu-root {
     flex-grow: 1;
     background-color: var(--secondary);
     color: rgb(255, 255, 255);
@@ -51,29 +58,21 @@
 
 .multiplayer-panel {
     --primary: rgb(255, 38, 57);
-    --primary-dark: rgb(200, 0, 1);
-    --highlight: rgb(255, 128, 140);
-    --secondary: rgb(27, 0, 33);
+    --secondary: rgb(20, 0, 25);
 }
 
 .multiplayer-panel.session-connected {
     --primary: rgb(236, 255, 61);
-    --primary-dark: rgb(127, 186, 29);
-    --highlight: rgb(207, 255, 128);
-    --secondary: rgb(27, 30, 0);
+    --secondary: rgb(22, 25, 0);
 }
 
 .game-panel {
     --primary: rgb(0, 230, 230);
-    --primary-dark: rgb(0, 142, 97);
-    --highlight: rgb(177, 255, 230);
-    --secondary: rgb(12, 0, 49);
+    --secondary: rgb(11, 0, 25);
 }
 
 .settings-panel {
     --primary: rgb(255, 138, 89);
-    --primary-dark: rgb(189, 88, 0);
-    --highlight: rgb(255, 185, 127);
     --secondary: rgb(16, 0, 4);
 }
 
@@ -84,6 +83,7 @@
 
 .unity-base-text-field > .unity-base-text-field__input {
     --text-color: white;
+    height: var(--control-min-height, 46px);
     background-color: transparent;
     border-width: var(--control-border-width, 1px);
     border-color: var(--primary, rgb(150, 150, 150));
@@ -93,7 +93,7 @@
 .unity-base-text-field:hover:enabled > .unity-base-text-field__input,
 .unity-base-text-field:focus:enabled > .unity-base-text-field__input,
 .unity-base-text-field > .unity-base-text-field__input:focus {
-    border-color: var(--highlight, rgb(255, 255, 255));
+    border-color: var(--highlight);
 }
 
 .unity-toggle,
@@ -106,7 +106,7 @@
 .unity-toggle:focus:enabled,
 .unity-radio-button:hover:enabled,
 .unity-radio-button:focus:enabled {
-    --selection-outline: var(--highlight, rgb(255, 255, 255));
+    --selection-outline: var(--highlight);
 }
 
 .unity-toggle__input:checked,
@@ -137,7 +137,7 @@
 
 .unity-base-slider:hover:enabled #unity-dragger,
 .unity-base-slider:focus:enabled #unity-dragger {
-    background-color: var(--highlight, rgb(255, 255, 255));
+    background-color: var(--highlight);
 }
 
 RadioButton .unity-radio-button__checkmark-background {
@@ -182,12 +182,36 @@ RadioButton #unity-checkmark {
     justify-content: flex-start;
 }
 
+/* A panel's navigation reaches out to the frame line, so the headers it clips while paging
+   stay flush; its pages pad their content back in */
+.menu-root > .nav-view {
+    margin-top: var(--panel-frame-gap-negative);
+    margin-left: var(--panel-frame-gap-negative);
+    margin-right: var(--panel-frame-gap-negative);
+}
+
+.menu-root > .nav-view .page-template-root {
+    padding-left: var(--panel-frame-gap);
+    padding-right: var(--panel-frame-gap);
+}
+
+.menu-root > .nav-view .nav-header {
+    margin-top: 0;
+}
+
+/* Solid bar flush with the panel's frame line */
 .nav-header {
     flex-direction: row;
     align-items: center;
+    flex-shrink: 0;
     height: var(--control-min-height, 46px);
-	margin: var(--spacing-small, 4px);
-	margin-bottom: var(--spacing-large, 16px);
+    margin-top: var(--panel-frame-gap-negative);
+    margin-left: var(--panel-frame-gap-negative);
+    margin-right: var(--panel-frame-gap-negative);
+    margin-bottom: var(--spacing-large, 12px);
+    padding-left: var(--spacing-small, 4px);
+    padding-right: var(--spacing-medium, 8px);
+    background-color: var(--primary);
 }
 
 .title,
@@ -199,18 +223,19 @@ RadioButton #unity-checkmark {
 
 /* Cap height fills the nav bar */
 .unity-label.nav-header__title {
-    --text-color: var(--primary);
+    --text-color: var(--secondary);
     flex-grow: 1;
     flex-shrink: 1;
     height: 100%;
     margin: 0;
-    font-size: var(--font-size-nav-title, 64px);
+    font-size: var(--font-size-nav-title, 38px);
     -unity-text-align: middle-right;
     overflow: visible;
 }
 
 .nav-header--without-back-button > .unity-label.nav-header__title {
     -unity-text-align: middle-left;
+    margin-left: var(--spacing-small, 4px);
 }
 
 .nav-button {
@@ -225,25 +250,36 @@ RadioButton #unity-checkmark {
 .nav-button.nav-header__back-button {
     background-position-x: center;
     background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/back%20chevron.svg?fileID=7388822144124034973&guid=ce2a202a9449e49a38f514f72b39cc20&type=3#back chevron");
-    width: var(--control-min-height, 46px);
-    height: var(--control-min-height, 46px);
+    width: var(--header-button-size);
+    height: var(--header-button-size);
     flex-shrink: 0;
-    padding: 0;		
-	margin: 0;
-	margin-right: var(--spacing-large, 16px);
+    padding: 0;
+    margin: 0;
+    margin-right: var(--spacing-large, 12px);
 }
 
-/* Tile control: label, chosen value beneath, marks on the right */
+.unity-button.nav-header__back-button {
+    background-color: var(--secondary);
+    -unity-background-image-tint-color: var(--primary);
+}
 
-.detent-field {
-    --text-color: var(--secondary);
-    min-height: 84px;
-    margin: 0;
-    margin-bottom: var(--spacing-medium, 8px);
-    padding: var(--spacing-medium, 8px) var(--spacing-large, 12px);
+.unity-button.nav-header__back-button:hover {
+    background-color: var(--highlight);
+    -unity-background-image-tint-color: var(--secondary);
+}
+
+/* Option control: label, chosen value beneath, marks on the right */
+
+.unity-base-field.detent-field {
+    --text-color: var(--primary);
+    height: 52px;
+    margin-top: var(--spacing-large, 12px);
+    margin-bottom: var(--spacing-large, 12px);
+    margin-left: var(--spacing-small, 4px);
+    margin-right: var(--spacing-small, 4px);
+    padding: 0;
     flex-direction: column;
     justify-content: center;
-    background-color: var(--primary);
 }
 
 .detent-field > .unity-base-field__label {
@@ -251,24 +287,26 @@ RadioButton #unity-checkmark {
     width: auto;
     margin: 0;
     padding: 0;
-    color: var(--secondary);
+    color: var(--primary);
     font-size: var(--font-size-body, 20px);
     -unity-font-definition: var(--font-light);
 }
 
+/* Pulls the value up under the label: their line boxes are taller than the glyphs */
 .detent-field > .detent-field__value {
     margin: 0;
-    color: var(--secondary);
+    margin-top: -6px;
+    color: white;
     font-size: var(--font-size-title, 32px);
     -unity-font-definition: var(--font-bold);
 }
 
 .detent-field > .detent-field__marks {
     position: absolute;
-    top: var(--spacing-medium, 8px);
-    bottom: var(--spacing-medium, 8px);
-    right: var(--spacing-large, 12px);
-    /* Fits 20 ticks exactly: 20 × 4px + 19 gaps × 6px */
+    top: 0;
+    bottom: 0;
+    right: 0;
+    /* 20 ticks of 4px leave 19 whole 6px gaps, so they space evenly */
     width: 194px;
     margin: 0;
     flex-direction: row;
@@ -276,32 +314,36 @@ RadioButton #unity-checkmark {
     background-color: transparent;
 }
 
+.detent-field > .detent-field__marks--ticks {
+    justify-content: space-between;
+}
+
+/* Icons tint with the mark color; ticks and bar segments fill with it */
 .detent-field__mark {
+    --mark-color: var(--disabled);
     flex-shrink: 0;
-    -unity-background-image-tint-color: var(--secondary);
+    -unity-background-image-tint-color: var(--mark-color);
 }
 
-.detent-field__mark.detent-field__mark--lit {
-    -unity-background-image-tint-color: white;
+.detent-field__mark--lit {
+    --mark-color: var(--primary);
 }
 
-/* Whole-pixel width and gap keep ticks evenly spaced */
+/* Hover marks choices up to the pointer */
+.detent-field__mark--hovered {
+    --mark-color: var(--highlight);
+}
+
 .detent-field__tick {
     width: 4px;
-    margin-left: 6px;
-    background-color: var(--secondary);
+    background-color: var(--mark-color);
 }
 
 .detent-field__segment {
     flex-basis: 0;
     margin-left: 2px;
     margin-right: 2px;
-    background-color: var(--secondary);
-}
-
-.detent-field__tick.detent-field__mark--lit,
-.detent-field__segment.detent-field__mark--lit {
-    background-color: white;
+    background-color: var(--mark-color);
 }
 
 .field-row {
@@ -344,7 +386,17 @@ RadioButton #unity-checkmark {
 }
 
 .unity-button:hover {
-    background-color: var(--highlight, rgb(255, 255, 255));
+    background-color: var(--highlight);
+}
+
+.unity-button:disabled {
+    background-color: var(--disabled);
+    opacity: 1;
+}
+
+/* Pressed buttons blink out and back, whatever their own colors */
+.press-flash {
+    opacity: 0;
 }
 
 .unity-button.option--selected,
@@ -381,8 +433,8 @@ TextField,
 
 .unity-popup-field:hover:enabled > .unity-popup-field__input,
 .unity-popup-field:focus:enabled > .unity-popup-field__input {
-    background-color: var(--highlight, rgb(255, 255, 255));
-    border-color: var(--highlight, rgb(255, 255, 255));
+    background-color: var(--highlight);
+    border-color: var(--highlight);
 }
 
 .unity-popup-field .unity-base-popup-field__input {
@@ -406,7 +458,6 @@ TextField,
 
 .unity-base-dropdown {
     --primary: rgb(150, 150, 150);
-    --highlight: rgb(200, 200, 200);
     --secondary: rgb(20, 20, 20);
 }
 
@@ -432,12 +483,12 @@ TextField,
 }
 
 .unity-base-dropdown .unity-base-dropdown__item:checked {
-    background-color: var(--highlight, rgb(255, 255, 255));
+    background-color: var(--highlight);
 }
 
 .unity-base-dropdown .unity-base-dropdown__item:hover:enabled,
 .unity-base-dropdown .unity-base-dropdown__item:focus:enabled {
-    background-color: var(--highlight, rgb(255, 255, 255));
+    background-color: var(--highlight);
 }
 
 .unity-base-dropdown .unity-base-dropdown__label {
@@ -473,18 +524,23 @@ TextField,
 
 ScrollView {
     flex-grow: 1;
+    padding: 0;
+}
+
+ScrollView .unity-scroll-view__content-container {
+    padding: 0;
 }
 
 ScrollView .unity-scroll-view__vertical-scroller {
     width: var(--scrollbar-size, 24px);
     margin-left: var(--spacing-small, 4px);
-    margin-right: var(--spacing-small, 4px);
+    margin-right: 0;
 }
 
 ScrollView .unity-scroll-view__horizontal-scroller {
     height: var(--scrollbar-size, 24px);
     margin-top: var(--spacing-small, 4px);
-    margin-bottom: var(--spacing-small, 4px);
+    margin-bottom: 0;
 }
 
 ScrollView #unity-low-button,
@@ -505,8 +561,8 @@ ScrollView #unity-high-button {
 
 ScrollView #unity-low-button:hover,
 ScrollView #unity-high-button:hover {
-    background-color: var(--highlight, rgb(255, 255, 255));
-    border-color: var(--highlight, rgb(255, 255, 255));
+    background-color: var(--highlight);
+    border-color: var(--highlight);
 }
 
 ScrollView .unity-scroller--vertical > .unity-scroller__slider {
@@ -620,7 +676,7 @@ ScrollView .unity-scroll-view__horizontal-scroller #unity-dragger {
 
 .unity-tab__header:checked,
 .unity-tab__header:hover:enabled {
-    background-color: var(--highlight, rgb(255, 255, 255));
+    background-color: var(--highlight);
 }
 
 .unity-tab__header-label {
@@ -669,7 +725,7 @@ ScrollView .unity-scroll-view__horizontal-scroller #unity-dragger {
 
 .unity-multi-column-header__column:hover,
 .unity-multi-column-header__column:hover .unity-multi-column-header__column__content-container {
-    background-color: var(--highlight, rgb(255, 255, 255));
+    background-color: var(--highlight);
 }
 
 .unity-multi-column-header__column__title {
@@ -679,7 +735,7 @@ ScrollView .unity-scroll-view__horizontal-scroller #unity-dragger {
 .unity-collection-view__item:hover:enabled,
 .unity-collection-view__item--selected {
     --text-color: var(--secondary, rgb(20, 20, 20));
-    background-color: var(--highlight, rgb(255, 255, 255));
+    background-color: var(--highlight);
 }
 
 .unity-two-pane-split-view__dragline-anchor {
@@ -688,7 +744,7 @@ ScrollView .unity-scroll-view__horizontal-scroller #unity-dragger {
 }
 
 .unity-two-pane-split-view__dragline-anchor:hover {
-    background-color: var(--highlight, rgb(255, 255, 255));
+    background-color: var(--highlight);
 }
 
 .unity-two-pane-split-view__dragline-anchor--horizontal {
@@ -767,7 +823,6 @@ ScrollView .unity-scroll-view__horizontal-scroller #unity-dragger {
 
 .camera-mode {
     --primary: rgb(200, 200, 200);
-    --highlight: rgb(255, 255, 255);
     --secondary: rgb(20, 20, 20);
     position: absolute;
     left: 0;

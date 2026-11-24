@@ -257,23 +257,22 @@ namespace Anaglyph.LaserTag.Interface.HUD
 		{
 			MatchSettings settings = MatchReferee.Settings;
 			string key = RespawnCountdownKey;
-			int tenths = 0;
+			float timeSinceDeath = Time.time - MainPlayer.Instance.LastDeathTime;
+			float timeToRespawn = settings.respawnSeconds - timeSinceDeath;
+			int tenths = Mathf.Max(0, Mathf.RoundToInt(timeToRespawn * 10));
 
 			if (settings.respawnCondition == RespawnCondition.NextRound
 			    && MatchReferee.State == MatchState.Playing)
 			{
 				key = RespawnNextRoundKey;
+				tenths = 0;
 			}
 			else if (settings.respawnCondition == RespawnCondition.InBases
+			         && timeToRespawn <= 0
 			         && !MainPlayer.Instance.IsInFriendlyBase)
 			{
 				key = RespawnBaseKey;
-			}
-			else
-			{
-				float timeSinceDeath = Time.time - MainPlayer.Instance.LastDeathTime;
-				float timeToRespawn = settings.respawnSeconds - timeSinceDeath;
-				tenths = Mathf.RoundToInt(timeToRespawn * 10);
+				tenths = 0;
 			}
 
 			respawnLabel.Flashing = key == RespawnBaseKey;

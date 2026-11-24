@@ -85,9 +85,10 @@ namespace Anaglyph.Menu
 
 			foreach (NavButton button in backButtons)
 			{
-				button.style.display = display;
 				if (button.parent is NavHeader header)
-					header.EnableInClassList(NavHeader.withoutBackButtonUssClassName, display == DisplayStyle.None);
+					header.SetBackButtonShown(display == DisplayStyle.Flex);
+				else
+					button.style.display = display;
 			}
 		}
 

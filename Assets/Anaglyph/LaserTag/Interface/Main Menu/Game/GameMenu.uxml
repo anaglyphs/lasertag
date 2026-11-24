@@ -16,7 +16,7 @@
             <Anaglyph.Menu.NavView name="game-nav" first-page="home-page">
                 <Anaglyph.Menu.NavPage name="home-page" show-back-button="false">
                     <Anaglyph.Menu.NavView name="maps-nav" first-page="maps-page">
-                        <Anaglyph.Menu.NavPage name="maps-page" show-back-button="false">
+                        <Anaglyph.Menu.NavPage name="maps-page" show-back-button="false" class="nav-page--under-tabs">
                             <ui:Instance template="GameMapsPage"/>
                         </Anaglyph.Menu.NavPage>
                         <Anaglyph.Menu.NavPage name="manage-maps-page">
@@ -33,7 +33,7 @@
                         </Anaglyph.Menu.NavPage>
                     </Anaglyph.Menu.NavView>
                     <Anaglyph.Menu.NavView name="match-nav" first-page="match-page" class="game-menu-hidden">
-                        <Anaglyph.Menu.NavPage name="match-page" show-back-button="false">
+                        <Anaglyph.Menu.NavPage name="match-page" show-back-button="false" class="nav-page--under-tabs">
                             <ui:Instance template="GameMatchSettingsPage"/>
                         </Anaglyph.Menu.NavPage>
                         <Anaglyph.Menu.NavPage name="playing-page" show-back-button="false">
@@ -44,7 +44,7 @@
                         </Anaglyph.Menu.NavPage>
                     </Anaglyph.Menu.NavView>
                     <Anaglyph.Menu.NavView name="demo-nav" first-page="demo-page" class="game-menu-hidden">
-                        <Anaglyph.Menu.NavPage name="demo-page" show-back-button="false">
+                        <Anaglyph.Menu.NavPage name="demo-page" show-back-button="false" class="nav-page--under-tabs">
                             <ui:Instance template="GameDemoPage"/>
                         </Anaglyph.Menu.NavPage>
                     </Anaglyph.Menu.NavView>
@@ -53,23 +53,23 @@
                     <ui:Instance template="MenuErrorPage"/>
                 </Anaglyph.Menu.NavPage>
             </Anaglyph.Menu.NavView>
-        </ui:VisualElement>
-        <ui:VisualElement name="game-menu-tabs" picking-mode="Ignore" class="game-menu-tabs">
-            <ui:Button name="maps-tab" class="game-menu-tab game-menu-tab-selected">
-                <Bindings>
-                    <UnityEngine.Localization.LocalizedString property="text" table="OperatorMenu" entry="maps-tab.label"/>
-                </Bindings>
-            </ui:Button>
-            <ui:Button name="match-tab" class="game-menu-tab">
-                <Bindings>
-                    <UnityEngine.Localization.LocalizedString property="text" table="OperatorMenu" entry="match-tab.label"/>
-                </Bindings>
-            </ui:Button>
-            <ui:Button name="demo-tab" class="game-menu-tab" style="display: none;">
-                <Bindings>
-                    <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="demo.title"/>
-                </Bindings>
-            </ui:Button>
+            <ui:VisualElement name="game-menu-tabs" picking-mode="Ignore" class="game-menu-tabs game-menu-tabs--in-panel">
+                <ui:Button name="maps-tab" class="game-menu-tab game-menu-tab-selected">
+                    <Bindings>
+                        <UnityEngine.Localization.LocalizedString property="text" table="OperatorMenu" entry="maps-tab.label"/>
+                    </Bindings>
+                </ui:Button>
+                <ui:Button name="match-tab" class="game-menu-tab">
+                    <Bindings>
+                        <UnityEngine.Localization.LocalizedString property="text" table="OperatorMenu" entry="match-tab.label"/>
+                    </Bindings>
+                </ui:Button>
+                <ui:Button name="demo-tab" class="game-menu-tab" style="display: none;">
+                    <Bindings>
+                        <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="demo.title"/>
+                    </Bindings>
+                </ui:Button>
+            </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

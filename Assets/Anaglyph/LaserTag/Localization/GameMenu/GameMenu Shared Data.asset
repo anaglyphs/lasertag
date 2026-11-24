@@ -36,27 +36,27 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 212852822
-    m_Key: GameMatchSettingsPage.damage-multiplier-slider.label
+    m_Key: GameMatchSettingsPage.damage-field.label
     m_Metadata:
       m_Items: []
   - m_Id: 212852823
-    m_Key: GameMatchSettingsPage.rounds-slider.label
+    m_Key: GameMatchSettingsPage.rounds-field.label
     m_Metadata:
       m_Items: []
   - m_Id: 212852825
-    m_Key: GameMatchSettingsPage.win-by-radio.label
+    m_Key: GameMatchSettingsPage.end-field.label
     m_Metadata:
       m_Items: []
   - m_Id: 212852826
-    m_Key: GameMatchSettingsPage.round-time-slider.label
+    m_Key: GameMatchSettingsPage.round-time-field.label
     m_Metadata:
       m_Items: []
   - m_Id: 212852827
-    m_Key: GameMatchSettingsPage.score-target-slider.label
+    m_Key: GameMatchSettingsPage.score-target-field.label
     m_Metadata:
       m_Items: []
   - m_Id: 212852828
-    m_Key: GameMatchSettingsPage.respawn-condition-radio.label
+    m_Key: GameMatchSettingsPage.respawn-field.label
     m_Metadata:
       m_Items: []
   - m_Id: 212852830
@@ -68,19 +68,19 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 212852832
-    m_Key: GameMatchSettingsPage.win-by-radio.choice-0
+    m_Key: GameMatchSettingsPage.end-field.timed
     m_Metadata:
       m_Items: []
   - m_Id: 212852833
-    m_Key: GameMatchSettingsPage.win-by-radio.choice-1
+    m_Key: GameMatchSettingsPage.end-field.score
     m_Metadata:
       m_Items: []
   - m_Id: 212852836
-    m_Key: GameMatchSettingsPage.respawn-condition-radio.choice-1
+    m_Key: GameMatchSettingsPage.respawn-field.at-base
     m_Metadata:
       m_Items: []
   - m_Id: 212852837
-    m_Key: GameMatchSettingsPage.respawn-condition-radio.choice-2
+    m_Key: GameMatchSettingsPage.respawn-field.next-round
     m_Metadata:
       m_Items: []
   - m_Id: 4522449700904960
@@ -108,15 +108,19 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 26868607257403392
-    m_Key: GameMatchSettingsPage.damage.choice-0
+    m_Key: GameMatchSettingsPage.damage-field.low
     m_Metadata:
       m_Items: []
   - m_Id: 26868607261597696
-    m_Key: GameMatchSettingsPage.damage.choice-1
+    m_Key: GameMatchSettingsPage.damage-field.medium
     m_Metadata:
       m_Items: []
   - m_Id: 26868607261597697
-    m_Key: GameMatchSettingsPage.damage.choice-2
+    m_Key: GameMatchSettingsPage.damage-field.high
+    m_Metadata:
+      m_Items: []
+  - m_Id: 27055456886185984
+    m_Key: GameMatchSettingsPage.rounds-field.endless
     m_Metadata:
       m_Items: []
   m_Metadata:

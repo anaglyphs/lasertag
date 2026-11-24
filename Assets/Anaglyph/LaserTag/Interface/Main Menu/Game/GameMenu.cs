@@ -50,6 +50,7 @@ namespace Anaglyph.LaserTag.Interface
 		private Button mapsTab;
 		private Button matchTab;
 		private Button demoTab;
+		private VisualElement tabBar;
 		private Tab selectedTab = Tab.Maps;
 		private VisualElement demoWeapons;
 		private Button showDebugMeshForEveryone;
@@ -91,6 +92,7 @@ namespace Anaglyph.LaserTag.Interface
 			mapsTab = Require<Button>(root, "maps-tab");
 			matchTab = Require<Button>(root, "match-tab");
 			demoTab = Require<Button>(root, "demo-tab");
+			tabBar = Require<VisualElement>(root, "game-menu-tabs");
 			playingPage = matchNavigation.GetPage("playing-page");
 			missingBasesPage = matchNavigation.GetPage("missing-bases-modal");
 			hadRequiredBases = null;
@@ -115,6 +117,8 @@ namespace Anaglyph.LaserTag.Interface
 			spaceDetails.Alignment.Changing += OnAlignmentChanging;
 			spaceDetails.Alignment.Changed += OnAlignmentChanged;
 			mapsNavigation.Changed += OnNavPageChanged;
+			foreach (NavView navigation in TabbedNavigations())
+				navigation.Changed += OnAnyPageChanged;
 
 			bindings.Click(matchSettings.StartButton, () =>
 			{
@@ -168,6 +172,9 @@ namespace Anaglyph.LaserTag.Interface
 			MapEditor.MapEditor.ActiveChanged -= OnMapEditorStateChanged;
 			MapEditor.MapEditor.TagRegistrationRequested -= ShowSpaceAlignment;
 			if (mapsNavigation != null) mapsNavigation.Changed -= OnNavPageChanged;
+			if (navView != null)
+				foreach (NavView navigation in TabbedNavigations())
+					navigation.Changed -= OnAnyPageChanged;
 			SetEditorActive(false);
 			if (spaceDetails != null)
 			{
@@ -207,6 +214,7 @@ namespace Anaglyph.LaserTag.Interface
 			mapsTab.EnableInClassList("game-menu-tab-selected", maps);
 			matchTab.EnableInClassList("game-menu-tab-selected", tab == Tab.Match);
 			demoTab.EnableInClassList("game-menu-tab-selected", tab == Tab.Demo);
+			UpdateTabBarShown();
 			OnNavPageChanged(mapsNavigation.CurrentPage);
 		}
 
@@ -297,6 +305,27 @@ namespace Anaglyph.LaserTag.Interface
 			try { MapEditor.MapEditor.SetActive(active); }
 			finally { updatingEditor = false; }
 		}
+
+		private NavView[] TabbedNavigations() => new[] { navView, mapsNavigation, matchNavigation, demoNavigation };
+
+		private NavView SelectedNavigation => selectedTab switch
+		{
+			Tab.Maps => mapsNavigation,
+			Tab.Match => matchNavigation,
+			_ => demoNavigation,
+		};
+
+		private void OnAnyPageChanged(NavPage _) => UpdateTabBarShown();
+
+		// The tabs stand in for the header on each menu's home page; every other page covers them.
+		private void UpdateTabBarShown()
+		{
+			bool home = IsOnFirstPage(navView) && IsOnFirstPage(SelectedNavigation);
+			tabBar.style.display = home ? DisplayStyle.Flex : DisplayStyle.None;
+		}
+
+		private static bool IsOnFirstPage(NavView navigation) =>
+			navigation.CurrentPage == null || navigation.CurrentPage.name == navigation.FirstPageName;
 
 		private void OnNavPageChanged(NavPage page)
 		{

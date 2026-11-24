@@ -18,6 +18,7 @@ namespace Anaglyph.Menu
 		public static readonly string withoutBackButtonUssClassName = "nav-header--without-back-button";
 
 		private readonly Label titleLabel = new();
+		private readonly NavButton backButton = new();
 		private string title;
 
 		/// <summary>The authored title; it displays in capitals.</summary>
@@ -36,12 +37,18 @@ namespace Anaglyph.Menu
 		{
 			AddToClassList(ussClassName);
 
-			NavButton backButton = new();// { text = "‹" };
 			backButton.AddToClassList(backButtonUssClassName);
 			titleLabel.AddToClassList(titleUssClassName);
 
 			hierarchy.Add(backButton);
 			hierarchy.Add(titleLabel);
+		}
+
+		/// <summary>Shows or hides the back button; without it the title moves to the start.</summary>
+		internal void SetBackButtonShown(bool shown)
+		{
+			backButton.style.display = shown ? DisplayStyle.Flex : DisplayStyle.None;
+			EnableInClassList(withoutBackButtonUssClassName, !shown);
 		}
 	}
 }

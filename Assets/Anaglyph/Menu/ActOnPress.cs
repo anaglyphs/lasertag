@@ -10,9 +10,35 @@ namespace Anaglyph.Menu
 	/// </summary>
 	public class PressClickable : Clickable
 	{
-		public PressClickable() : base((Action)null) { }
+		public static readonly string flashUssClassName = "press-flash";
+		private const int FlashIntervalMs = 50;
+		// on, off, on, off
+		private const int FlashSteps = 4;
 
-		public PressClickable(Action handler) : base(handler) { }
+		public PressClickable() : this(null) { }
+
+		public PressClickable(Action handler) : base(handler)
+		{
+			clicked += FlashTarget;
+		}
+
+		/// <summary>Blinks the element out and back twice, like a retro desktop confirming a click.</summary>
+		public static void Flash(VisualElement element)
+		{
+			int step = 0;
+			element.AddToClassList(flashUssClassName);
+			element.schedule.Execute(() =>
+			{
+				step++;
+				element.EnableInClassList(flashUssClassName, step % 2 == 0 && step < FlashSteps);
+			}).StartingIn(FlashIntervalMs).Every(FlashIntervalMs).Until(() => step >= FlashSteps - 1);
+		}
+
+		private void FlashTarget()
+		{
+			if (target != null)
+				Flash(target);
+		}
 
 		private bool actOnRelease;
 

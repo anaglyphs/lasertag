@@ -38,6 +38,7 @@ namespace Anaglyph.LaserTag.Interface
 		public const string TouchThemeResource = "LaserTagTouchTheme";
 		// on each document's root, so a style sheet can tell the screen from the headset
 		public const string TouchScreenUssClassName = "touch-screen";
+		private const string NeutralPanelUssClassName = "neutral-panel";
 
 		private static readonly Color ToggleFill = new(20 / 255f, 20 / 255f, 20 / 255f);
 		private static readonly Color ToggleEdge = new(200 / 255f, 200 / 255f, 200 / 255f);
@@ -253,19 +254,6 @@ namespace Anaglyph.LaserTag.Interface
 			VisualElement root = document.rootVisualElement;
 			if (root == null) return;
 			root.style.position = Position.Absolute;
-			root.AddToClassList(TouchScreenUssClassName);
-
-			// the game menu is a fixed-size box in the headset; on a screen it takes the room there is
-			root.Query(className: "game-menu").ForEach(Fill);
-			root.Query(className: "game-menu-panel").ForEach(Fill);
-		}
-
-		private static void Fill(VisualElement element)
-		{
-			element.style.width = StyleKeyword.Auto;
-			element.style.height = StyleKeyword.Auto;
-			element.style.flexGrow = 1;
-			element.style.flexShrink = 1;
 		}
 
 		private int DefaultPanel()
@@ -325,9 +313,6 @@ namespace Anaglyph.LaserTag.Interface
 				Button tab = new(() => menu.ScreenPanel = index) { name = $"handheld-tab-{i}" };
 				tab.AddToClassList("game-menu-tab");
 				tab.AddToClassList(PanelColorClass(menu.Panels[i]));
-				tab.style.flexGrow = 1;
-				tab.style.flexBasis = 0;
-				tab.style.borderTopWidth = 2;
 				tabs[i] = tab;
 				tabBar.Add(tab);
 			}
@@ -336,10 +321,7 @@ namespace Anaglyph.LaserTag.Interface
 			{
 				cameraTab = new Button(EnterCameraMode) { name = "handheld-tab-camera" };
 				cameraTab.AddToClassList("game-menu-tab");
-				cameraTab.AddToClassList("menu-root");
-				cameraTab.style.flexGrow = 1;
-				cameraTab.style.flexBasis = 0;
-				cameraTab.style.borderTopWidth = 2;
+				cameraTab.AddToClassList(NeutralPanelUssClassName);
 				tabBar.Add(cameraTab);
 				cameraScreen = new CameraModeScreen(cameraMode, root);
 			}
@@ -376,7 +358,7 @@ namespace Anaglyph.LaserTag.Interface
 			if (panel.GetComponent<GameMenu>() != null) return "game-panel";
 			if (panel.GetComponent<ConnectionMenu>() != null) return "multiplayer-panel";
 			if (panel.GetComponent<SettingsMenu>() != null) return "settings-panel";
-			return "menu-root";
+			return NeutralPanelUssClassName;
 		}
 
 		private void LabelTabs()
@@ -557,6 +539,8 @@ namespace Anaglyph.LaserTag.Interface
 		{
 			VisualElement root = document != null ? document.rootVisualElement : null;
 			if (root == null) return;
+			// the touch-screen class lets fixed-size headset menus take the room there is
+			root.AddToClassList(TouchScreenUssClassName);
 			// a world-space document's root carries its fixed size, which would override the insets
 			root.style.width = StyleKeyword.Auto;
 			root.style.height = StyleKeyword.Auto;

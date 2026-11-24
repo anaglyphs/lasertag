@@ -332,7 +332,7 @@ namespace Anaglyph.LaserTag.Tests
 			var tabs = game.Q("game-menu-tabs");
 			Assert.That(panel.layout.width, Is.EqualTo(400).Within(.5f));
 			Assert.That(panel.layout.height, Is.EqualTo(400).Within(.5f));
-			Assert.That(tabs.worldBound.yMin, Is.EqualTo(panel.worldBound.yMax).Within(.1f));
+			Assert.That(tabs.worldBound.yMin, Is.EqualTo(panel.worldBound.yMin + 8).Within(.1f));
 			foreach (var tabName in new[] { "maps-tab", "match-tab" })
 			{
 				var tab = game.Q<Button>(tabName);
@@ -350,7 +350,8 @@ namespace Anaglyph.LaserTag.Tests
 			var error = nav.GetPage("error-modal");
 			nav.PresentModal(error);
 			yield return Layout();
-			Assert.That(error.resolvedStyle.backgroundColor, Is.EqualTo((Color)new Color32(12, 0, 49, 255)));
+			Assert.That(error.resolvedStyle.backgroundColor, Is.EqualTo(panel.resolvedStyle.backgroundColor),
+				"The modal's surface is the panel's own background.");
 			Assert.That(error.resolvedStyle.translate.y, Is.GreaterThan(0));
 			yield return Settled();
 			nav.DismissModal(error);

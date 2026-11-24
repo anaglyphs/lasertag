@@ -6,9 +6,9 @@ using UnityEngine.UIElements;
 namespace Anaglyph.Menu
 {
 	/// <summary>
-	/// A tile that picks one of a row of marks: icons given as UXML children, or
-	/// <c>tick-count</c> plain ticks. Press or drag across the row to choose.
-	/// The value is the chosen mark's index. Shows its label and, beneath it,
+	/// Picks one of a row of marks: icons given as UXML children, or ticks and bar segments
+	/// made by <see cref="SetTicks"/> and <see cref="SetSegments(float[])"/>. Press or drag across
+	/// the row to choose. The value is the chosen mark's index. Shows its label and, beneath it,
 	/// the chosen mark's text (or <see cref="FormatValue"/>'s).
 	/// </summary>
 	[UxmlElement]
@@ -19,58 +19,44 @@ namespace Anaglyph.Menu
 		public static readonly string marksUssClassName = ussClassName + "__marks";
 		public static readonly string tickUssClassName = ussClassName + "__tick";
 		public static readonly string segmentUssClassName = ussClassName + "__segment";
-		public static readonly string barMarksUssClassName = marksUssClassName + "--bar";
+		public static readonly string tickMarksUssClassName = marksUssClassName + "--ticks";
 		public static readonly string litMarkUssClassName = DetentMark.ussClassName + "--lit";
+		public static readonly string hoveredMarkUssClassName = DetentMark.ussClassName + "--hovered";
 
 		private readonly VisualElement marks;
 		private readonly Label valueText = new();
-		private int tickCount;
 		private bool cumulative;
 		private Func<int, string> formatValue;
+		private int hoveredIndex = -1;
 
 		public override VisualElement contentContainer => marks ?? this;
 
-		/// <summary>Plain ticks to generate. Zero keeps the UXML children as marks.</summary>
-		[UxmlAttribute("tick-count")]
-		public int TickCount
-		{
-			get => tickCount;
-			set
-			{
-				tickCount = Mathf.Max(0, value);
-				if (tickCount == 0)
-					return;
-				marks.RemoveFromClassList(barMarksUssClassName);
-				marks.Clear();
-				for (int i = 0; i < tickCount; i++)
-				{
-					var tick = new DetentMark();
-					tick.AddToClassList(tickUssClassName);
-					if (i == 0)
-						tick.style.marginLeft = 0;
-					marks.Add(tick);
-				}
-				Refresh();
-			}
-		}
+		/// <summary>Replaces the marks with evenly spaced ticks.</summary>
+		public void SetTicks(int count) => ReplaceMarks(count, tickUssClassName, null);
 
-		/// <summary>
-		/// Replaces the marks with one bar of segments, each as wide as its weight.
-		/// </summary>
-		public void SetSegmentWeights(float[] weights)
+		/// <summary>Replaces the marks with one bar of segments, each as wide as its weight.</summary>
+		public void SetSegments(float[] weights) => ReplaceMarks(weights.Length, segmentUssClassName, weights);
+
+		/// <summary>Replaces the marks with one bar of equal segments.</summary>
+		public void SetSegments(int count) => ReplaceMarks(count, segmentUssClassName, null);
+
+		private void ReplaceMarks(int count, string markClassName, float[] weights)
 		{
-			tickCount = 0;
-			marks.AddToClassList(barMarksUssClassName);
+			marks.EnableInClassList(tickMarksUssClassName, markClassName == tickUssClassName);
 			marks.Clear();
-			foreach (float weight in weights)
+			for (int i = 0; i < count; i++)
 			{
-				var segment = new DetentMark();
-				segment.AddToClassList(segmentUssClassName);
-				segment.style.flexGrow = weight;
-				marks.Add(segment);
+				var mark = new DetentMark();
+				mark.AddToClassList(markClassName);
+				if (markClassName == segmentUssClassName)
+					mark.style.flexGrow = weights?[i] ?? 1;
+				marks.Add(mark);
 			}
 			Refresh();
 		}
+
+		/// <summary>Adds a USS class to one mark, to give it its own shape.</summary>
+		public void AddMarkClass(int index, string className) => marks[index].AddToClassList(className);
 
 		/// <summary>Light every mark up to the chosen one, not only the chosen one.</summary>
 		[UxmlAttribute("cumulative")]
@@ -108,6 +94,7 @@ namespace Anaglyph.Menu
 			marks.RegisterCallback<PointerDownEvent>(OnPointerDown);
 			marks.RegisterCallback<PointerMoveEvent>(OnPointerMove);
 			marks.RegisterCallback<PointerUpEvent>(OnPointerUp);
+			marks.RegisterCallback<PointerLeaveEvent>(_ => SetHoveredIndex(-1));
 			RegisterCallback<NavigationMoveEvent>(OnNavigationMove);
 			RegisterCallback<AttachToPanelEvent>(_ => Refresh());
 		}
@@ -120,18 +107,45 @@ namespace Anaglyph.Menu
 
 		internal void Refresh()
 		{
-			int chosen = value;
-			for (int i = 0; i < marks.childCount; i++)
-				marks[i].EnableInClassList(litMarkUssClassName, Cumulative ? i <= chosen : i == chosen);
+			RefreshMarks();
+			RefreshValueText();
+		}
 
+		private void RefreshMarks()
+		{
+			int chosen = value;
+			// Pointing inside a cumulative choice previews the smaller one over it
+			bool hoveringWithinChoice = Cumulative && hoveredIndex >= 0 && hoveredIndex <= chosen;
+			for (int i = 0; i < marks.childCount; i++)
+			{
+				bool lit = Covers(chosen, i);
+				marks[i].EnableInClassList(litMarkUssClassName, lit);
+				marks[i].EnableInClassList(hoveredMarkUssClassName, Covers(hoveredIndex, i) && (!lit || hoveringWithinChoice));
+			}
+		}
+
+		internal void RefreshValueText()
+		{
+			int chosen = value;
 			if (formatValue != null)
 				valueText.text = formatValue(chosen);
 			else
 				valueText.text = chosen >= 0 && chosen < marks.childCount && marks[chosen] is DetentMark mark ? mark.Text : string.Empty;
 		}
 
-		private void ChooseMarkUnder(Vector2 marksLocalPosition)
+		private bool Covers(int markedIndex, int i) => Cumulative ? i <= markedIndex : i == markedIndex;
+
+		private void SetHoveredIndex(int index)
 		{
+			if (index == hoveredIndex)
+				return;
+			hoveredIndex = index;
+			RefreshMarks();
+		}
+
+		private int NearestMarkIndex(Vector2 panelPosition)
+		{
+			Vector2 marksLocalPosition = marks.WorldToLocal(panelPosition);
 			int nearest = -1;
 			float nearestDistance = float.MaxValue;
 			for (int i = 0; i < marks.childCount; i++)
@@ -144,6 +158,12 @@ namespace Anaglyph.Menu
 					nearest = i;
 				}
 			}
+			return nearest;
+		}
+
+		private void ChooseMarkUnder(Vector2 panelPosition)
+		{
+			int nearest = NearestMarkIndex(panelPosition);
 			if (nearest >= 0)
 				value = nearest;
 		}
@@ -153,14 +173,16 @@ namespace Anaglyph.Menu
 			if (!enabledInHierarchy)
 				return;
 			marks.CapturePointer(evt.pointerId);
-			ChooseMarkUnder(evt.localPosition);
+			ChooseMarkUnder(evt.position);
 			evt.StopPropagation();
 		}
 
 		private void OnPointerMove(PointerMoveEvent evt)
 		{
+			if (enabledInHierarchy)
+				SetHoveredIndex(NearestMarkIndex(evt.position));
 			if (marks.HasPointerCapture(evt.pointerId))
-				ChooseMarkUnder(evt.localPosition);
+				ChooseMarkUnder(evt.position);
 		}
 
 		private void OnPointerUp(PointerUpEvent evt)
@@ -199,7 +221,7 @@ namespace Anaglyph.Menu
 			set
 			{
 				text = value ?? string.Empty;
-				GetFirstAncestorOfType<DetentField>()?.Refresh();
+				GetFirstAncestorOfType<DetentField>()?.RefreshValueText();
 			}
 		}
 

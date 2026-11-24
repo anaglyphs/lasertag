@@ -19,9 +19,10 @@ namespace Anaglyph.LaserTag.Interface
 
 		private static readonly float[] RoundMinuteChoices = { 1, 2, 3, 5, 7, 10 };
 		private static readonly float[] DamageMultiplierChoices = { 0.5f, 1f, 2f };
-		private static readonly List<RespawnCondition> RespawnChoices = new() { RespawnCondition.InBases, RespawnCondition.NextRound };
+		private static readonly List<RespawnCondition> RespawnChoices = new() { RespawnCondition.NextRound, RespawnCondition.InBases };
 		private const int MinScoreTarget = 1, MaxScoreTarget = 20;
 		private const int MinRounds = 1, MaxRounds = 5;
+		private const int InfiniteRoundsChoice = MaxRounds - MinRounds + 1;
 
 		private readonly DetentField endField;
 		private readonly DetentField roundTimeField;
@@ -49,21 +50,26 @@ namespace Anaglyph.LaserTag.Interface
 			spawnZombiesToggle = Require<Toggle>(root, "spawn-zombies-toggle");
 			StartButton = Require<Button>(root, "start-button");
 
-			roundTimeField.SetSegmentWeights(MinutesAddedByEachChoice());
+			roundTimeField.SetSegments(MinutesAddedByEachChoice());
 			roundTimeField.FormatValue = choice => $"{(int)RoundMinuteChoices[ClampChoice(choice, RoundMinuteChoices.Length)]}:00";
-			scoreTargetField.TickCount = MaxScoreTarget - MinScoreTarget + 1;
+			scoreTargetField.SetTicks(MaxScoreTarget - MinScoreTarget + 1);
 			scoreTargetField.FormatValue = choice => (choice + MinScoreTarget).ToString();
-			roundsField.SetSegmentWeights(EqualWeights(MaxRounds - MinRounds + 1));
-			roundsField.FormatValue = choice => (choice + MinRounds).ToString();
+			roundsField.SetSegments(InfiniteRoundsChoice + 1);
+			roundsField.AddMarkClass(InfiniteRoundsChoice, "match-segment--arrow");
+			FormatRounds();
+			MenuCopy.Changed += FormatRounds;
 
 			// Winning by both time and score shows as score.
 			endField.SetValueWithoutNotify(matchSettings.CheckWinByScore() ? EndScoreChoice : EndTimedChoice);
 			roundTimeField.SetValueWithoutNotify(NearestChoice(RoundMinuteChoices, matchSettings.roundTimeSeconds / 60f));
 			scoreTargetField.SetValueWithoutNotify(Mathf.Clamp(matchSettings.scoreTarget, MinScoreTarget, MaxScoreTarget) - MinScoreTarget);
-			roundsField.SetValueWithoutNotify(Mathf.Clamp(matchSettings.GetNumRounds(), MinRounds, MaxRounds) - MinRounds);
+			roundsField.SetValueWithoutNotify(matchSettings.HasInfiniteRounds()
+				? InfiniteRoundsChoice
+				: Mathf.Clamp(matchSettings.GetNumRounds(), MinRounds, MaxRounds) - MinRounds);
 			damageField.SetValueWithoutNotify(NearestChoice(DamageMultiplierChoices, matchSettings.damageMultiplier));
 			// A timed respawn shows as at base.
-			respawnField.SetValueWithoutNotify(Mathf.Max(0, RespawnChoices.IndexOf(matchSettings.respawnCondition)));
+			RespawnCondition shownRespawn = matchSettings.respawnCondition == RespawnCondition.Timer ? RespawnCondition.InBases : matchSettings.respawnCondition;
+			respawnField.SetValueWithoutNotify(RespawnChoices.IndexOf(shownRespawn));
 			spawnZombiesToggle.SetValueWithoutNotify(matchSettings.spawnZombies);
 
 			SetEnd(endField.value);
@@ -82,7 +88,18 @@ namespace Anaglyph.LaserTag.Interface
 			bindings.Value(spawnZombiesToggle, change => matchSettings.spawnZombies = change.newValue);
 		}
 
-		public void Dispose() => bindings.Dispose();
+		public void Dispose()
+		{
+			bindings.Dispose();
+			MenuCopy.Changed -= FormatRounds;
+		}
+
+		// "Endless" follows the language, so it is looked up again when the language changes
+		private void FormatRounds()
+		{
+			string endless = MenuCopy.Get("GameMenu", "GameMatchSettingsPage.rounds-field.endless");
+			roundsField.FormatValue = choice => choice >= InfiniteRoundsChoice ? endless : (choice + MinRounds).ToString();
+		}
 
 		private void SetEnd(int choice)
 		{
@@ -98,8 +115,11 @@ namespace Anaglyph.LaserTag.Interface
 		private void SetScoreTarget(int choice) =>
 			matchSettings.scoreTarget = (short)Mathf.Clamp(choice + MinScoreTarget, MinScoreTarget, MaxScoreTarget);
 
+		// Zero rounds means the match runs until somebody ends it.
 		private void SetRounds(int choice) =>
-			matchSettings.numRounds = (byte)Mathf.Clamp(choice + MinRounds, MinRounds, MaxRounds);
+			matchSettings.numRounds = choice >= InfiniteRoundsChoice
+				? (byte)0
+				: (byte)Mathf.Clamp(choice + MinRounds, MinRounds, MaxRounds);
 
 		private void SetDamage(int choice) =>
 			matchSettings.damageMultiplier = DamageMultiplierChoices[ClampChoice(choice, DamageMultiplierChoices.Length)];
@@ -116,13 +136,6 @@ namespace Anaglyph.LaserTag.Interface
 			for (int i = 0; i < added.Length; i++)
 				added[i] = RoundMinuteChoices[i] - (i == 0 ? 0 : RoundMinuteChoices[i - 1]);
 			return added;
-		}
-
-		private static float[] EqualWeights(int count)
-		{
-			var weights = new float[count];
-			Array.Fill(weights, 1f);
-			return weights;
 		}
 
 		private static int ClampChoice(int choice, int count) => Mathf.Clamp(choice, 0, count - 1);

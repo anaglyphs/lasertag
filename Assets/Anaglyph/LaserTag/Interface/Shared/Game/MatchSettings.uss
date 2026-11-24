@@ -1,6 +1,6 @@
 .match-icon {
-    width: 58px;
-    height: 58px;
+    width: 52px;
+    height: 52px;
     margin-left: var(--spacing-large, 12px);
     align-self: center;
     background-size: contain;
@@ -23,3 +23,14 @@
 .match-icon--ramp-1 { background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/Match/ramp-1.svg"); }
 .match-icon--ramp-2 { background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/Match/ramp-2.svg"); }
 .match-icon--ramp-3 { background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/Match/ramp-3.svg"); }
+
+/* The infinite-rounds section points onward */
+.detent-field__segment.match-segment--arrow {
+    background-color: transparent;
+    background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/Match/arrow.svg");
+    /* Slicing keeps the point's size while the body stretches to the section's width */
+    -unity-slice-right: 15;
+    -unity-slice-left: 0;
+    -unity-slice-top: 0;
+    -unity-slice-bottom: 0;
+}

@@ -200,24 +200,28 @@ namespace Anaglyph.LaserTag.Tests
 		}
 
 		[UnityTest]
-		public IEnumerator TabsSitFlushBelow400PixelPanelAndFitInsideXrTouchArea()
+		public IEnumerator TabsSitInsidePanelTopOnlyOnHomePagesAndFitInsideXrTouchArea()
 		{
 			yield return Layout();
 			var panel = root.Q("game-menu-panel");
 			var tabs = root.Q("game-menu-tabs");
 			Assert.That(panel.layout.size, Is.EqualTo(new Vector2(400, 400)));
-			Assert.That(tabs.worldBound.yMin, Is.EqualTo(panel.worldBound.yMax).Within(.1f));
-			Assert.That(tabs.worldBound.xMin, Is.EqualTo(panel.worldBound.xMin + 12).Within(.1f));
-			Assert.That(tabs.layout.size, Is.EqualTo(new Vector2(376, 46)));
-			Assert.That(root.Q<Button>("maps-tab").worldBound.yMin, Is.EqualTo(panel.worldBound.yMax).Within(.1f));
+			Assert.That(tabs.worldBound.yMin, Is.EqualTo(panel.worldBound.yMin + 8).Within(.1f));
+			Assert.That(root.Q<Button>("maps-tab").worldBound.xMin, Is.EqualTo(panel.worldBound.xMin + 8).Within(.1f));
+			Assert.That(tabs.layout.height, Is.EqualTo(46));
+			Assert.That(tabs.style.display.value, Is.EqualTo(DisplayStyle.Flex));
+			maps.GoToPage("manage-maps-page");
+			Assert.That(tabs.style.display.value, Is.EqualTo(DisplayStyle.None), "Pages past the home page cover the tabs.");
+			maps.GoBack();
+			Assert.That(tabs.style.display.value, Is.EqualTo(DisplayStyle.Flex));
 			Assert.That(root.Q<Button>("maps-tab").text, Is.EqualTo("Maps"));
 			Assert.That(root.Q<Button>("match-tab").text, Is.EqualTo("Matches"));
 			Assert.That(root.Q<Button>("demo-tab").text, Is.EqualTo("Demo"));
 			var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Anaglyph/LaserTag/Interface/Main Menu/Menu.prefab");
 			var game = prefab.transform.Find("Game Panel");
-			Assert.That(game.GetComponent<UIDocument>().worldSpaceSize, Is.EqualTo(new Vector2(400, 446)));
+			Assert.That(game.GetComponent<UIDocument>().worldSpaceSize, Is.EqualTo(new Vector2(400, 400)));
 			var collider = game.GetComponent<BoxCollider>();
-			Assert.That(collider.size.y, Is.EqualTo(4.46f).Within(.001f));
+			Assert.That(collider.size.y, Is.EqualTo(4f).Within(.001f));
 			float gameTop = game.TransformPoint(collider.center + Vector3.up * collider.size.y * .5f).y;
 			foreach (var document in prefab.GetComponentsInChildren<UIDocument>(true))
 			{

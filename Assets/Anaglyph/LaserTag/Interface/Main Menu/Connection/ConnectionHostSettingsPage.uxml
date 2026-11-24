@@ -7,19 +7,30 @@
                 <UnityEngine.Localization.LocalizedString property="Title" table="ConnectionMenu" entry="ConnectionHostSettingsPage.navheader-2.title"/>
             </Bindings>
         </Anaglyph.Menu.NavHeader>
-        <ui:VisualElement class="host-mode-cards">
-            <ui:Button name="host-mode-direct" class="host-mode-card">
-                <ui:Label picking-mode="Ignore" class="host-mode-card__name"/>
-                <ui:Label picking-mode="Ignore" class="host-mode-card__status"/>
+        <ui:VisualElement name="host-mode-diagram" class="host-mode-diagram">
+            <ui:Button name="host-mode-relay" class="host-mode-tile">
+                <ui:VisualElement picking-mode="Ignore" class="host-mode-tile__icon host-mode-tile__icon--relay"/>
+                <ui:VisualElement picking-mode="Ignore" class="host-mode-tile__text">
+                    <ui:Label picking-mode="Ignore" class="host-mode-tile__name"/>
+                    <ui:Label picking-mode="Ignore" class="host-mode-tile__status"/>
+                </ui:VisualElement>
             </ui:Button>
-            <ui:Button name="host-mode-lan" class="host-mode-card">
-                <ui:Label picking-mode="Ignore" class="host-mode-card__name"/>
-                <ui:Label picking-mode="Ignore" class="host-mode-card__status"/>
+            <ui:Button name="host-mode-lan" class="host-mode-tile">
+                <ui:VisualElement picking-mode="Ignore" class="host-mode-tile__icon host-mode-tile__icon--lan"/>
+                <ui:VisualElement picking-mode="Ignore" class="host-mode-tile__text">
+                    <ui:Label picking-mode="Ignore" class="host-mode-tile__name"/>
+                    <ui:Label picking-mode="Ignore" class="host-mode-tile__status"/>
+                </ui:VisualElement>
             </ui:Button>
-            <ui:Button name="host-mode-relay" class="host-mode-card">
-                <ui:Label picking-mode="Ignore" class="host-mode-card__name"/>
-                <ui:Label picking-mode="Ignore" class="host-mode-card__status"/>
+            <ui:Button name="host-mode-direct" class="host-mode-tile">
+                <ui:VisualElement picking-mode="Ignore" class="host-mode-tile__icon host-mode-tile__icon--direct"/>
+                <ui:VisualElement picking-mode="Ignore" class="host-mode-tile__text">
+                    <ui:Label picking-mode="Ignore" class="host-mode-tile__name"/>
+                    <ui:Label picking-mode="Ignore" class="host-mode-tile__status"/>
+                </ui:VisualElement>
             </ui:Button>
+            <ui:VisualElement name="host-mode-headset-left" picking-mode="Ignore" class="host-mode-headset host-mode-headset--left"/>
+            <ui:VisualElement name="host-mode-headset-right" picking-mode="Ignore" class="host-mode-headset host-mode-headset--right"/>
         </ui:VisualElement>
         <ui:Label name="host-mode-about" class="host-mode-about"/>
         <ui:Button name="host-button">

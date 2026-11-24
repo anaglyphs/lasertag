@@ -10,66 +10,66 @@
         <ui:ScrollView>
             <Anaglyph.Menu.DetentField name="end-field">
                 <Bindings>
-                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.win-by-radio.label"/>
+                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.end-field.label"/>
                 </Bindings>
                 <Anaglyph.Menu.DetentMark class="match-icon match-icon--hourglass">
                     <Bindings>
-                        <UnityEngine.Localization.LocalizedString property="Text" table="GameMenu" entry="GameMatchSettingsPage.win-by-radio.choice-0"/>
+                        <UnityEngine.Localization.LocalizedString property="Text" table="GameMenu" entry="GameMatchSettingsPage.end-field.timed"/>
                     </Bindings>
                 </Anaglyph.Menu.DetentMark>
                 <Anaglyph.Menu.DetentMark class="match-icon match-icon--podium">
                     <Bindings>
-                        <UnityEngine.Localization.LocalizedString property="Text" table="GameMenu" entry="GameMatchSettingsPage.win-by-radio.choice-1"/>
+                        <UnityEngine.Localization.LocalizedString property="Text" table="GameMenu" entry="GameMatchSettingsPage.end-field.score"/>
                     </Bindings>
                 </Anaglyph.Menu.DetentMark>
             </Anaglyph.Menu.DetentField>
             <Anaglyph.Menu.DetentField name="round-time-field" cumulative="true">
                 <Bindings>
-                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.round-time-slider.label"/>
+                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.round-time-field.label"/>
                 </Bindings>
             </Anaglyph.Menu.DetentField>
             <Anaglyph.Menu.DetentField name="score-target-field" cumulative="true">
                 <Bindings>
-                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.score-target-slider.label"/>
+                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.score-target-field.label"/>
                 </Bindings>
             </Anaglyph.Menu.DetentField>
             <Anaglyph.Menu.DetentField name="rounds-field" cumulative="true">
                 <Bindings>
-                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.rounds-slider.label"/>
+                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.rounds-field.label"/>
                 </Bindings>
             </Anaglyph.Menu.DetentField>
             <Anaglyph.Menu.DetentField name="respawn-field">
                 <Bindings>
-                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.respawn-condition-radio.label"/>
+                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.respawn-field.label"/>
                 </Bindings>
-                <Anaglyph.Menu.DetentMark class="match-icon match-icon--base">
-                    <Bindings>
-                        <UnityEngine.Localization.LocalizedString property="Text" table="GameMenu" entry="GameMatchSettingsPage.respawn-condition-radio.choice-1"/>
-                    </Bindings>
-                </Anaglyph.Menu.DetentMark>
                 <Anaglyph.Menu.DetentMark class="match-icon match-icon--next-round">
                     <Bindings>
-                        <UnityEngine.Localization.LocalizedString property="Text" table="GameMenu" entry="GameMatchSettingsPage.respawn-condition-radio.choice-2"/>
+                        <UnityEngine.Localization.LocalizedString property="Text" table="GameMenu" entry="GameMatchSettingsPage.respawn-field.next-round"/>
+                    </Bindings>
+                </Anaglyph.Menu.DetentMark>
+                <Anaglyph.Menu.DetentMark class="match-icon match-icon--base">
+                    <Bindings>
+                        <UnityEngine.Localization.LocalizedString property="Text" table="GameMenu" entry="GameMatchSettingsPage.respawn-field.at-base"/>
                     </Bindings>
                 </Anaglyph.Menu.DetentMark>
             </Anaglyph.Menu.DetentField>
 	        <Anaglyph.Menu.DetentField name="damage-field" cumulative="true">
 		        <Bindings>
-			        <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.damage-multiplier-slider.label"/>
+			        <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.damage-field.label"/>
 		        </Bindings>
 		        <Anaglyph.Menu.DetentMark class="match-icon match-icon--ramp-1">
 			        <Bindings>
-				        <UnityEngine.Localization.LocalizedString property="Text" table="GameMenu" entry="GameMatchSettingsPage.damage.choice-0"/>
+				        <UnityEngine.Localization.LocalizedString property="Text" table="GameMenu" entry="GameMatchSettingsPage.damage-field.low"/>
 			        </Bindings>
 		        </Anaglyph.Menu.DetentMark>
 		        <Anaglyph.Menu.DetentMark class="match-icon match-icon--ramp-2">
 			        <Bindings>
-				        <UnityEngine.Localization.LocalizedString property="Text" table="GameMenu" entry="GameMatchSettingsPage.damage.choice-1"/>
+				        <UnityEngine.Localization.LocalizedString property="Text" table="GameMenu" entry="GameMatchSettingsPage.damage-field.medium"/>
 			        </Bindings>
 		        </Anaglyph.Menu.DetentMark>
 		        <Anaglyph.Menu.DetentMark class="match-icon match-icon--ramp-3">
 			        <Bindings>
-				        <UnityEngine.Localization.LocalizedString property="Text" table="GameMenu" entry="GameMatchSettingsPage.damage.choice-2"/>
+				        <UnityEngine.Localization.LocalizedString property="Text" table="GameMenu" entry="GameMatchSettingsPage.damage-field.high"/>
 			        </Bindings>
 		        </Anaglyph.Menu.DetentMark>
 	        </Anaglyph.Menu.DetentField>
