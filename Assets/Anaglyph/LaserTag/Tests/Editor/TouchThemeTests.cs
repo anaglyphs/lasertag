@@ -65,15 +65,12 @@ namespace Anaglyph.LaserTag.Tests
 			yield return null;
 			foreach (string list in PaletteLists)
 				Assert.That(root.Q<ScrollView>(list).mode, Is.EqualTo(ScrollViewMode.Vertical), list);
-			Assert.That(root.Q("editing-context").resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
 			Assert.That(root.Q("delete-object-button").resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
 
 			root.AddToClassList(HandheldScreenUI.TouchScreenUssClassName);
 			yield return null;
 			foreach (string list in PaletteLists)
 				Assert.That(root.Q<ScrollView>(list).mode, Is.EqualTo(ScrollViewMode.Horizontal), list);
-			Assert.That(root.Q("editing-context").resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
-			Assert.That(root.Q("category-title").resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
 			Assert.That(root.Q("delete-object-button").resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
 		}
 	}

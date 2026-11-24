@@ -20,7 +20,7 @@ MonoBehaviour:
     - rid: 533178702104363356
   m_TableData:
   - m_Id: 217047040
-    m_Localized: Bluetooth is off. Can't find host automatically!
+    m_Localized: Bluetooth is off. You can't find games automatically without Bluetooth.
     m_Metadata:
       m_Items: []
   - m_Id: 217047041
@@ -110,11 +110,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 25851322312941569
-    m_Localized: This headset makes its own Wi-Fi for players nearby. No router or internet needed.
+    m_Localized: 'Your headset makes its own network. You don''t need a router or hotspot, but range and player count are limited. '
     m_Metadata:
       m_Items: []
   - m_Id: 25851322312941568
-    m_Localized: No router
+    m_Localized: Anywhere!
     m_Metadata:
       m_Items: []
   - m_Id: 221241361
@@ -186,7 +186,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 25851322312941570
-    m_Localized: Wi-Fi
+    m_Localized: LAN
     m_Metadata:
       m_Items: []
   - m_Id: 25851322312941571
@@ -194,11 +194,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 25851322312941572
-    m_Localized: Players on the same Wi-Fi network as this headset can join.
+    m_Localized: Everyone must be on the same local network to join you. Recommended for large areas with good coverage. If other people can't connect, try switching to Relay hosting.
     m_Metadata:
       m_Items: []
   - m_Id: 25851322312941573
-    m_Localized: Online
+    m_Localized: Relay
     m_Metadata:
       m_Items: []
   - m_Id: 25851322312941574
@@ -206,7 +206,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 25851322312941575
-    m_Localized: Players join through an internet server. Works on guest or venue Wi-Fi that blocks local play.
+    m_Localized: Everyone needs full internet to join you. All traffic goes to far-away cloud servers. Only recommended if the other modes won't work.
     m_Metadata:
       m_Items: []
   - m_Id: 25851322312941576
@@ -222,7 +222,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 25851322312941579
-    m_Localized: Turn on Wi-Fi or Bluetooth to host.
+    m_Localized: Turn on Wi-Fi and Bluetooth to host.
     m_Metadata:
       m_Items: []
   - m_Id: 26032498491252736
@@ -230,7 +230,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 26032498495447040
-    m_Localized: Turn on Wi-Fi to host or join. Direct mode needs Wi-Fi switched on, even without a network to connect to.
+    m_Localized: Turn on Wi-Fi to host or join. You need Wi-Fi switched on, even if you aren't joining a network.
     m_Metadata:
       m_Items: []
   - m_Id: 26032498499641344
@@ -238,15 +238,15 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 26032498533195801
-    m_Localized: Wi-Fi is switched off. Turn it on to host this way.
+    m_Localized: Wi-Fi is off. Turn it on to host.
     m_Metadata:
       m_Items: []
   - m_Id: 26032498533195802
-    m_Localized: Bluetooth is switched off. Direct hosting needs it so nearby players can find your session.
+    m_Localized: Bluetooth is off. Other players need it to find your device.
     m_Metadata:
       m_Items: []
   - m_Id: 26032498533195803
-    m_Localized: This device isn't connected to a Wi-Fi network. Join one to host on it.
+    m_Localized: You aren't connected to a Wi-Fi network. Join one to host.
     m_Metadata:
       m_Items: []
   - m_Id: 26032498533195804

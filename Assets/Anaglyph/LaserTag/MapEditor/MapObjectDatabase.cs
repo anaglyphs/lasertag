@@ -26,8 +26,17 @@ namespace Anaglyph.LaserTag.MapEditor
 
 			[SerializeField] private MapObject prefab;
 
+			[Tooltip("Offered in the palette only while debug mode is on")]
+			[SerializeField] private bool debugOnly;
+
+			[Tooltip("Never offered in the palette; saved maps that hold it still load it")]
+			[SerializeField] private bool hiddenFromPalette;
+
 			public VectorImage Icon => icon;
 			public MapObject Prefab => prefab;
+			public bool DebugOnly => debugOnly;
+
+			public bool OfferedInPalette(bool debugMode) => !hiddenFromPalette && (debugMode || !debugOnly);
 
 			public string DisplayName =>
 				localizedName != null && !localizedName.IsEmpty ? localizedName.GetLocalizedString() :
@@ -44,14 +53,10 @@ namespace Anaglyph.LaserTag.MapEditor
 			[Tooltip("Icon on the category tab")]
 			[SerializeField] private VectorImage icon;
 
-			[Tooltip("Hidden from the palette unless debug mode is on")]
-			[SerializeField] private bool debugOnly;
-
 			[SerializeField] private List<Entry> objects = new();
 
 			public string Name => localizedName != null && !localizedName.IsEmpty ? localizedName.GetLocalizedString() : name;
 			public VectorImage Icon => icon;
-			public bool DebugOnly => debugOnly;
 			public IReadOnlyList<Entry> Objects => objects;
 		}
 

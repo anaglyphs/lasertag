@@ -6,7 +6,9 @@
     min-height: 0;
 }
 
+/* Every object shares one category for now, so the category list stays hidden */
 .palette-rail {
+    display: none;
     flex-grow: 0;
     flex-shrink: 0;
     width: 84px;
@@ -16,12 +18,6 @@
 .palette-content {
     flex-grow: 1;
     min-width: 0;
-}
-
-.palette-title {
-    font-size: 26px;
-    -unity-text-align: middle-left;
-    margin-bottom: 2px;
 }
 
 /* Object grid */
@@ -117,9 +113,6 @@
 
 /* Touch screens: a row of category names over a row of objects, with nothing drawn behind them */
 
-.touch-screen #editing-context,
-.touch-screen .palette-root > .nav-header,
-.touch-screen .palette-title,
 .touch-screen .palette-tab-icon {
     display: none;
 }

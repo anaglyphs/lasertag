@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Anaglyph.Debugging;
 using Anaglyph.LaserTag.MapEditor.Tools;
 using Anaglyph.LaserTag.Maps;
+using Anaglyph.LaserTag.Player.Teams;
 using Anaglyph.Menu;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -18,9 +19,10 @@ namespace Anaglyph.LaserTag.MapEditor
 	{
 		[SerializeField] private MapObjectDatabase database;
 
+		[Tooltip("Tint each object's icon with the team color its prefab is set to")]
+		[SerializeField] private bool tintIconsWithTeamColors;
+
 		private VisualElement categoryRail;
-		private Label categoryTitle;
-		private Label editingContext;
 		private ScrollView objectGrid;
 		private NavView navView;
 		private NavPage objectsPage;
@@ -71,8 +73,6 @@ namespace Anaglyph.LaserTag.MapEditor
 			tagsPage = navView.GetPage("tags-page");
 			measureTagSizePage = navView.GetPage("measure-tag-size-page");
 			categoryRail = Require<VisualElement>(root, "category-rail");
-			categoryTitle = Require<Label>(root, "category-title");
-			editingContext = Require<Label>(root, "editing-context");
 			objectGrid = Require<ScrollView>(root, "object-grid");
 			tagSizeSliders = root.Query<Slider>("tag-size-slider").ToList();
 			tagSizeNotes = root.Query<Label>("tag-size-note").ToList();
@@ -224,14 +224,6 @@ namespace Anaglyph.LaserTag.MapEditor
 
 		private void Update()
 		{
-			Label context = editingContext;
-			if (context != null)
-			{
-				SpaceManager manager = SpaceManager.Instance;
-				bool objects = MapEditorTool.CurrentMode is MapEditorTool.Mode.Place or MapEditorTool.Mode.Move;
-				context.text = MenuCopy.Format("Map", objects ? "palette.map-context" : "palette.space-context",
-					objects ? manager?.Map?.name ?? "" : manager?.Space?.name ?? "");
-			}
 			if (pendingTagSizeCm.HasValue && Time.unscaledTime - pendingTagSizeTime >= tagSizeSettleSeconds)
 				FlushPendingTagSize();
 
@@ -424,9 +416,6 @@ namespace Anaglyph.LaserTag.MapEditor
 
 			foreach (MapObjectDatabase.Category category in database.Categories)
 			{
-				if (category.DebugOnly && !AnaglyphDebugging.DebugMode)
-					continue;
-
 				Button button = MakeThumbnailButton("palette-tab", category.Icon, category.Name);
 				MapObjectDatabase.Category captured = category;
 				button.clicked += () => SelectCategory(captured);
@@ -435,7 +424,7 @@ namespace Anaglyph.LaserTag.MapEditor
 				categoryButtons.Add((category, button));
 			}
 
-			// Whatever was open stays open, unless debug mode just took it away.
+			// Whatever was open stays open, unless it left the database.
 			bool selectionStillListed = false;
 			foreach ((MapObjectDatabase.Category category, Button _) in categoryButtons)
 				selectionStillListed |= category == selectedCategory;
@@ -451,8 +440,6 @@ namespace Anaglyph.LaserTag.MapEditor
 			objectGrid.Clear();
 			objectButtons.Clear();
 
-			categoryTitle.text = selectedCategory != null ? selectedCategory.Name : MenuCopy.Get("PaletteMenu", "title");
-
 			if (selectedCategory == null)
 			{
 				ShowGridMessage(MenuCopy.Get("PaletteMenu", "empty.categories"), "body-copy");
@@ -462,10 +449,11 @@ namespace Anaglyph.LaserTag.MapEditor
 			foreach (MapObjectDatabase.Entry entry in selectedCategory.Objects)
 			{
 				// A half-authored entry is skipped rather than made unplaceable-but-clickable.
-				if (entry.Prefab == null)
+				if (entry.Prefab == null || !entry.OfferedInPalette(AnaglyphDebugging.DebugMode))
 					continue;
 
 				Button button = MakeThumbnailButton("palette-item", entry.Icon, entry.DisplayName);
+				if (tintIconsWithTeamColors) TintWithTeamColor(button, entry.Prefab);
 				MapObject captured = entry.Prefab;
 				button.clicked += () => SelectObject(captured);
 
@@ -510,6 +498,14 @@ namespace Anaglyph.LaserTag.MapEditor
 			button.Add(label);
 
 			return button;
+		}
+
+		// an object with no team keeps the style sheet's tint
+		private static void TintWithTeamColor(Button button, MapObject prefab)
+		{
+			TeamOwner owner = prefab.GetComponentInChildren<TeamOwner>(true);
+			if (owner == null || owner.Team == 0) return;
+			button.Q(className: "palette-item-icon").style.unityBackgroundImageTintColor = Teams.Colors[owner.Team];
 		}
 
 		// ------- selection -------------------------------------------

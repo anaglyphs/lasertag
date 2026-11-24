@@ -19,6 +19,7 @@
     --panel-frame-gap: 4px;
     --panel-frame-gap-negative: -4px;
     --header-button-size: 38px;
+    --font-nav-title: url("project://database/Assets/Resources/Fonts/DINishCondensed-Light.ttf?fileID=12800000&guid=67a02d15b790b4aa98aa67d81f08ef7c&type=3#DINishCondensed-Light");
     --highlight: rgb(255, 255, 255);
     --disabled: rgb(128, 128, 128);
 }
@@ -57,22 +58,22 @@
 }
 
 .multiplayer-panel {
-    --primary: rgb(255, 38, 57);
+    --primary: rgb(255, 80, 96);
     --secondary: rgb(20, 0, 25);
 }
 
 .multiplayer-panel.session-connected {
-    --primary: rgb(236, 255, 61);
+    --primary: rgb(213, 223, 86);
     --secondary: rgb(22, 25, 0);
 }
 
 .game-panel {
-    --primary: rgb(0, 230, 230);
+    --primary: rgb(87, 227, 227);
     --secondary: rgb(11, 0, 25);
 }
 
 .settings-panel {
-    --primary: rgb(255, 138, 89);
+    --primary: rgb(255, 160, 123);
     --secondary: rgb(16, 0, 4);
 }
 
@@ -214,21 +215,25 @@ RadioButton #unity-checkmark {
     background-color: var(--primary);
 }
 
-.title,
-.nav-header__title {
+.title {
     -unity-text-align: middle-left;
     font-size: var(--font-size-title, 32px);
-    -unity-font-definition: url("project://database/Assets/Resources/Fonts/DINishCondensed-Light.ttf?fileID=12800000&guid=67a02d15b790b4aa98aa67d81f08ef7c&type=3#DINishCondensed-Light");
+    -unity-font-definition: var(--font-nav-title);
 }
 
-/* Cap height fills the nav bar */
-.unity-label.nav-header__title {
+/* Nav titles, and buttons that stand in for them; cap height fills the nav bar */
+.unity-label.nav-header__title,
+.unity-button.nav-title {
     --text-color: var(--secondary);
+    font-size: var(--font-size-nav-title, 38px);
+    -unity-font-definition: var(--font-nav-title);
+}
+
+.unity-label.nav-header__title {
     flex-grow: 1;
     flex-shrink: 1;
     height: 100%;
     margin: 0;
-    font-size: var(--font-size-nav-title, 38px);
     -unity-text-align: middle-right;
     overflow: visible;
 }

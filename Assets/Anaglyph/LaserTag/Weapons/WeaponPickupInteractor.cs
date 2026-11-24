@@ -1,5 +1,6 @@
 using Anaglyph.XR.Input;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace Anaglyph.LaserTag.Weapons
 {
@@ -7,25 +8,35 @@ namespace Anaglyph.LaserTag.Weapons
 	{
 		[SerializeField] private HandSubject handSubject;
 
-		// private WeaponPickup intersectingPickup;
+		private const string TriggerAction = "OnFire";
+		private const string GripAction = "OnGrip";
 
-		// private void OnEnable()
-		// {
-		// 	handSubject.Bind(nameof(OnGrip), OnGrip);
-		// }
-		//
-		// private void OnDisable()
-		// {
-		// 	handSubject.Unbind(nameof(OnGrip), OnGrip);
-		// }
+		private WeaponPickup hoveredPickup;
 
-		// private void OnGrip(InputAction.CallbackContext obj)
-		// {
-		// 	if (intersectingPickup == null)
-		// 		return;
-		//
-		// 	WeaponSwitcher.Instance.SwitchWeapon(intersectingPickup.weaponPrefab, handSubject.Current.Handedness);
-		// }
+		private void OnEnable()
+		{
+			handSubject.Bind(TriggerAction, OnSelectInput);
+			handSubject.Bind(GripAction, OnSelectInput);
+		}
+
+		private void OnDisable()
+		{
+			handSubject.Unbind(TriggerAction, OnSelectInput);
+			handSubject.Unbind(GripAction, OnSelectInput);
+			SetHovered(null);
+		}
+
+		private void OnSelectInput(InputAction.CallbackContext context)
+		{
+			if (!context.performed || hoveredPickup == null)
+				return;
+
+			WeaponSwitcher switcher = WeaponSwitcher.Instance;
+			if (switcher == null || !switcher.WeaponsActive)
+				return;
+
+			switcher.SwitchWeapon(hoveredPickup.weaponPrefab, handSubject.Current.Handedness);
+		}
 
 		private void OnTriggerEnter(Collider other)
 		{
@@ -35,20 +46,30 @@ namespace Anaglyph.LaserTag.Weapons
 			if (!other.TryGetComponent(out WeaponPickup pickup))
 				return;
 
-			// intersectingPickup = pickup;
-			
-			WeaponSwitcher.Instance.SwitchWeapon(pickup.weaponPrefab, handSubject.Current.Handedness);
+			if (pickup.selectOnPress)
+				SetHovered(pickup);
+			else
+				WeaponSwitcher.Instance.SwitchWeapon(pickup.weaponPrefab, handSubject.Current.Handedness);
 		}
-		//
-		// private void OnTriggerExit(Collider other)
-		// {
-		// 	if (!other.CompareTag(WeaponPickup.Tag))
-		// 		return;
-		//
-		// 	if (!other.TryGetComponent(out WeaponPickup potentialPickup))
-		// 		return;
-		//
-		// 	if (potentialPickup == intersectingPickup) intersectingPickup = null;
-		// }
+
+		private void OnTriggerExit(Collider other)
+		{
+			if (hoveredPickup != null && other.gameObject == hoveredPickup.gameObject)
+				SetHovered(null);
+		}
+
+		private void SetHovered(WeaponPickup pickup)
+		{
+			if (hoveredPickup == pickup)
+				return;
+
+			if (hoveredPickup != null)
+				hoveredPickup.RemoveHoveringHand();
+
+			hoveredPickup = pickup;
+
+			if (hoveredPickup != null)
+				hoveredPickup.AddHoveringHand();
+		}
 	}
 }

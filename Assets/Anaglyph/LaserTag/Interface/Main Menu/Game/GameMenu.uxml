@@ -54,21 +54,21 @@
                 </Anaglyph.Menu.NavPage>
             </Anaglyph.Menu.NavView>
             <ui:VisualElement name="game-menu-tabs" picking-mode="Ignore" class="game-menu-tabs game-menu-tabs--in-panel">
-                <ui:Button name="maps-tab" class="game-menu-tab game-menu-tab-selected">
+                <Anaglyph.Menu.CapsButton name="maps-tab" class="nav-title game-menu-tab game-menu-tab-selected">
                     <Bindings>
                         <UnityEngine.Localization.LocalizedString property="text" table="OperatorMenu" entry="maps-tab.label"/>
                     </Bindings>
-                </ui:Button>
-                <ui:Button name="match-tab" class="game-menu-tab">
+                </Anaglyph.Menu.CapsButton>
+                <Anaglyph.Menu.CapsButton name="match-tab" class="nav-title game-menu-tab">
                     <Bindings>
                         <UnityEngine.Localization.LocalizedString property="text" table="OperatorMenu" entry="match-tab.label"/>
                     </Bindings>
-                </ui:Button>
-                <ui:Button name="demo-tab" class="game-menu-tab" style="display: none;">
+                </Anaglyph.Menu.CapsButton>
+                <Anaglyph.Menu.CapsButton name="demo-tab" class="nav-title game-menu-tab" style="display: none;">
                     <Bindings>
                         <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="demo.title"/>
                     </Bindings>
-                </ui:Button>
+                </Anaglyph.Menu.CapsButton>
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>

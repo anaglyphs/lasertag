@@ -155,6 +155,13 @@ namespace Anaglyph.LaserTag.Interface
 						};
 					}
 
+					// an unselected path stops under its tile
+					if (!drawingSelected)
+					{
+						Array.Resize(ref path, path.Length / 2 + 1);
+						path[^1] = new Vector2(card.layout.center.x, y);
+					}
+
 					painter.strokeColor = drawingSelected ? Color.white : diagram.resolvedStyle.color;
 					painter.lineWidth = drawingSelected ? SelectedPathWidth : UnselectedPathWidth;
 					painter.BeginPath();

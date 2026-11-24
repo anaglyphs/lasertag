@@ -15,21 +15,11 @@ MonoBehaviour:
   m_TableCollectionName: PaletteMenu
   m_TableCollectionNameGuidString: 35db57a8e38ff4acb80ea3e52b22e69a
   m_Entries:
-  - m_Id: 212852736
-    m_Key: static-1.text
-    m_Metadata:
-      m_Items:
-      - rid: 533178725424169097
   - m_Id: 212852737
     m_Key: error.no-database
     m_Metadata:
       m_Items:
       - rid: 533178725424169098
-  - m_Id: 212852738
-    m_Key: title
-    m_Metadata:
-      m_Items:
-      - rid: 533178725424169099
   - m_Id: 212852739
     m_Key: empty.categories
     m_Metadata:
@@ -40,11 +30,6 @@ MonoBehaviour:
     m_Metadata:
       m_Items:
       - rid: 533178725424169101
-  - m_Id: 120673263616
-    m_Key: category.93790f38bf42f48f9baa20fd8c0411a3.0
-    m_Metadata:
-      m_Items:
-      - rid: 533178725424169102
   - m_Id: 120677457920
     m_Key: object.93790f38bf42f48f9baa20fd8c0411a3.0.0
     m_Metadata:
@@ -55,11 +40,6 @@ MonoBehaviour:
     m_Metadata:
       m_Items:
       - rid: 533178725424169104
-  - m_Id: 120677457922
-    m_Key: category.93790f38bf42f48f9baa20fd8c0411a3.1
-    m_Metadata:
-      m_Items:
-      - rid: 533178725424169105
   - m_Id: 120677457923
     m_Key: object.93790f38bf42f48f9baa20fd8c0411a3.1.0
     m_Metadata:
@@ -70,11 +50,6 @@ MonoBehaviour:
     m_Metadata:
       m_Items:
       - rid: 533178725424169107
-  - m_Id: 120677457925
-    m_Key: category.93790f38bf42f48f9baa20fd8c0411a3.2
-    m_Metadata:
-      m_Items:
-      - rid: 533178725424169108
   - m_Id: 120677457926
     m_Key: object.93790f38bf42f48f9baa20fd8c0411a3.2.0
     m_Metadata:
@@ -85,11 +60,6 @@ MonoBehaviour:
     m_Metadata:
       m_Items:
       - rid: 533178725424169110
-  - m_Id: 120677457928
-    m_Key: category.93790f38bf42f48f9baa20fd8c0411a3.3
-    m_Metadata:
-      m_Items:
-      - rid: 533178725424169111
   - m_Id: 120677457929
     m_Key: object.93790f38bf42f48f9baa20fd8c0411a3.3.0
     m_Metadata:
@@ -115,15 +85,7 @@ MonoBehaviour:
       type: {class: DistributedUIDGenerator, ns: UnityEngine.Localization.Tables, asm: Unity.Localization}
       data:
         m_CustomEpoch: 1789082531648
-    - rid: 533178725424169097
-      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
-      data:
-        m_CommentText: Map editing palette. Category or object caption; do not translate prefab identifiers.
     - rid: 533178725424169098
-      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
-      data:
-        m_CommentText: Map editing palette. Category or object caption; do not translate prefab identifiers.
-    - rid: 533178725424169099
       type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
       data:
         m_CommentText: Map editing palette. Category or object caption; do not translate prefab identifiers.
@@ -135,19 +97,11 @@ MonoBehaviour:
       type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
       data:
         m_CommentText: Map editing palette. Category or object caption; do not translate prefab identifiers.
-    - rid: 533178725424169102
-      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
-      data:
-        m_CommentText: Map editing palette. Category or object caption; do not translate prefab identifiers.
     - rid: 533178725424169103
       type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
       data:
         m_CommentText: Map editing palette. Category or object caption; do not translate prefab identifiers.
     - rid: 533178725424169104
-      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
-      data:
-        m_CommentText: Map editing palette. Category or object caption; do not translate prefab identifiers.
-    - rid: 533178725424169105
       type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
       data:
         m_CommentText: Map editing palette. Category or object caption; do not translate prefab identifiers.
@@ -159,19 +113,11 @@ MonoBehaviour:
       type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
       data:
         m_CommentText: Map editing palette. Category or object caption; do not translate prefab identifiers.
-    - rid: 533178725424169108
-      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
-      data:
-        m_CommentText: Map editing palette. Category or object caption; do not translate prefab identifiers.
     - rid: 533178725424169109
       type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
       data:
         m_CommentText: Map editing palette. Category or object caption; do not translate prefab identifiers.
     - rid: 533178725424169110
-      type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
-      data:
-        m_CommentText: Map editing palette. Category or object caption; do not translate prefab identifiers.
-    - rid: 533178725424169111
       type: {class: Comment, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
       data:
         m_CommentText: Map editing palette. Category or object caption; do not translate prefab identifiers.

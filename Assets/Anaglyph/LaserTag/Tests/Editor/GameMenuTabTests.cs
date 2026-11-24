@@ -214,9 +214,9 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(tabs.style.display.value, Is.EqualTo(DisplayStyle.None), "Pages past the home page cover the tabs.");
 			maps.GoBack();
 			Assert.That(tabs.style.display.value, Is.EqualTo(DisplayStyle.Flex));
-			Assert.That(root.Q<Button>("maps-tab").text, Is.EqualTo("Maps"));
-			Assert.That(root.Q<Button>("match-tab").text, Is.EqualTo("Matches"));
-			Assert.That(root.Q<Button>("demo-tab").text, Is.EqualTo("Demo"));
+			Assert.That(root.Q<Button>("maps-tab").text, Is.EqualTo("MAPS"));
+			Assert.That(root.Q<Button>("match-tab").text, Is.EqualTo("MATCHES"));
+			Assert.That(root.Q<Button>("demo-tab").text, Is.EqualTo("DEMO"));
 			var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Anaglyph/LaserTag/Interface/Main Menu/Menu.prefab");
 			var game = prefab.transform.Find("Game Panel");
 			Assert.That(game.GetComponent<UIDocument>().worldSpaceSize, Is.EqualTo(new Vector2(400, 400)));

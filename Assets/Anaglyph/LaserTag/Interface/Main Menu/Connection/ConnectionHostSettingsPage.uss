@@ -85,9 +85,10 @@
 
 /* height holds three lines */
 .host-mode-about {
+	
     flex-shrink: 0;
     height: 60px;
     white-space: normal;
-    -unity-text-align: upper-center;
+    -unity-text-align: lower-left;
     font-size: var(--font-size-small, 14px);
 }

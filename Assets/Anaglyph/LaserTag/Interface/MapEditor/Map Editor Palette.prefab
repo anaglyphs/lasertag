@@ -264,6 +264,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c5b3ba0828af24edbafdf1d7a12030e0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.UIToolkitPanelXRSetup
+  backFaceMaterial: {fileID: 2100000, guid: d6cf3b1e6823c43ba9c225626f7458a0, type: 2}
 --- !u!114 &4589037019337585015
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -277,3 +278,4 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.PaletteMenu
   database: {fileID: 11400000, guid: 93790f38bf42f48f9baa20fd8c0411a3, type: 2}
+  tintIconsWithTeamColors: 1

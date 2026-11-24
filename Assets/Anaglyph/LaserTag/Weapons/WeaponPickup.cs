@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace Anaglyph.LaserTag.Weapons
@@ -6,10 +7,15 @@ namespace Anaglyph.LaserTag.Weapons
 	{
 		public GameObject weaponPrefab;
 
+		[Tooltip("Touching only highlights it; trigger or grip then takes it.")]
+		public bool selectOnPress;
+
 		public const string Tag = "Weapon Pickup";
 
-		private Vector3 viewHolderBasePosition;
-		private float animationTime;
+		private int hoveringHandCount;
+
+		/// <summary>True while at least one hand touches it.</summary>
+		public event Action<bool> HoveredChanged = delegate { };
 
 		private void Awake()
 		{
@@ -25,6 +31,21 @@ namespace Anaglyph.LaserTag.Weapons
 				Debug.LogError($"{weaponPrefab.name} does not contain a {nameof(WeaponVisual)}.", this);
 				return;
 			}
+		}
+
+		public void AddHoveringHand()
+		{
+			if (++hoveringHandCount == 1)
+				HoveredChanged.Invoke(true);
+		}
+
+		public void RemoveHoveringHand()
+		{
+			if (hoveringHandCount == 0)
+				return;
+
+			if (--hoveringHandCount == 0)
+				HoveredChanged.Invoke(false);
 		}
 	}
 }

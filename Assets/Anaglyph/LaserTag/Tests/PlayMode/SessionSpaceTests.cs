@@ -251,7 +251,7 @@ namespace Anaglyph.LaserTag.Tests.PlayMode
 			var database = (MapObjectDatabase)typeof(SpaceManager).GetField("objectDatabase", Private).GetValue(manager);
 			foreach (MapObjectDatabase.Category category in database.Categories)
 				foreach (MapObjectDatabase.Entry entry in category.Objects)
-					if (entry.Prefab != null && !category.DebugOnly) return entry.Prefab;
+					if (entry.Prefab != null && !entry.DebugOnly) return entry.Prefab;
 			return null;
 		}
 	}

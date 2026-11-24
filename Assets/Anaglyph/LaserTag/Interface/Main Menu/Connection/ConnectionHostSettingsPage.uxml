@@ -1,6 +1,6 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
     <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
-    <Style src="ConnectionHostSettingsPage.uss"/>
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Connection/ConnectionHostSettingsPage.uss?fileID=7433441132597879392&amp;guid=5f5655591ecfa4454a112726c1337aa8&amp;type=3#ConnectionHostSettingsPage"/>
     <ui:VisualElement class="page-template-root">
         <Anaglyph.Menu.NavHeader>
             <Bindings>
@@ -32,7 +32,7 @@
             <ui:VisualElement name="host-mode-headset-left" picking-mode="Ignore" class="host-mode-headset host-mode-headset--left"/>
             <ui:VisualElement name="host-mode-headset-right" picking-mode="Ignore" class="host-mode-headset host-mode-headset--right"/>
         </ui:VisualElement>
-        <ui:Label name="host-mode-about" class="host-mode-about"/>
+        <ui:Label name="host-mode-about" class="host-mode-about bold"/>
         <ui:Button name="host-button">
             <Bindings>
                 <UnityEngine.Localization.LocalizedString property="text" table="ConnectionMenu" entry="ConnectionHostSettingsPage.host-button.text"/>

@@ -6,6 +6,7 @@ using Anaglyph.LaserTag.Player;
 using Anaglyph.LaserTag.Player.Teams;
 using Anaglyph.Netcode;
 using Anaglyph.Netcode.SyncVariables;
+using Anaglyph.VariableObjects;
 using Anaglyph.XR.DepthKit.EnvScanning;
 using UnityEngine;
 
@@ -201,6 +202,9 @@ namespace Anaglyph.LaserTag.Matches
 		private CancellationTokenSource cancelSrc;
 		private MonsterSpawner[] monsterSpawners;
 
+		[SerializeField, Tooltip("While this headset hosts, every match spawns zombies when this is on.")]
+		private BoolObject hostPrototypeZombiesSetting;
+
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
 		private static void Init()
 		{
@@ -233,6 +237,8 @@ namespace Anaglyph.LaserTag.Matches
 			roundWinsSync.Changed += OnRoundWinsChanged;
 			scoreEvent.Received += OnScoreSubmitted;
 			SyncBus.AuthorityChanged += OnAuthorityChanged;
+			if (hostPrototypeZombiesSetting != null)
+				hostPrototypeZombiesSetting.Changed += OnHostPrototypeZombiesChanged;
 
 			ApplyZombieSpawning();
 		}
@@ -245,6 +251,8 @@ namespace Anaglyph.LaserTag.Matches
 			roundWinsSync.Changed -= OnRoundWinsChanged;
 			scoreEvent.Received -= OnScoreSubmitted;
 			SyncBus.AuthorityChanged -= OnAuthorityChanged;
+			if (hostPrototypeZombiesSetting != null)
+				hostPrototypeZombiesSetting.Changed -= OnHostPrototypeZombiesChanged;
 
 			scoreEvent.Unregister();
 			stateSync.Unregister();
@@ -451,11 +459,30 @@ namespace Anaglyph.LaserTag.Matches
 			ApplyZombieSpawning();
 		}
 
+		private void OnHostPrototypeZombiesChanged(bool enabled)
+		{
+			ApplyZombieSpawning();
+		}
+
+		// The host's setting overrides whatever settings a match was queued with.
+		private void ApplyHostPrototypeZombies()
+		{
+			if (!SyncBus.IsAuthority || hostPrototypeZombiesSetting == null) return;
+
+			MatchSettings settings = Settings;
+			if (settings.spawnZombies == hostPrototypeZombiesSetting.Value) return;
+
+			settings.spawnZombies = hostPrototypeZombiesSetting.Value;
+			settingsSync.Request(settings);
+		}
+
 		// Zombies path around the scanned room, so the navmesh has to be built wherever
 		// one might be simulated. Only the authority spawns them, so the session gets a
 		// single stream of monsters rather than one per peer.
 		private void ApplyZombieSpawning()
 		{
+			ApplyHostPrototypeZombies();
+
 			bool zombiesInMatch = Settings.spawnZombies && State != MatchState.NotPlaying;
 
 			if (EnvNavMesher.Instance != null)
