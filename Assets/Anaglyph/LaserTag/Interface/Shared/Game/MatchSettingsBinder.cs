@@ -16,6 +16,8 @@ namespace Anaglyph.LaserTag.Interface
 	{
 		private const int EndTimedChoice = 0;
 		private const int EndScoreChoice = 1;
+		private const int PointsForKillsChoice = 0;
+		private const int PointsForFlagCapturesChoice = 1;
 
 		private static readonly float[] RoundMinuteChoices = { 1, 2, 3, 5, 7, 10 };
 		private static readonly float[] DamageMultiplierChoices = { 0.5f, 1f, 2f };
@@ -24,6 +26,7 @@ namespace Anaglyph.LaserTag.Interface
 		private const int MinRounds = 1, MaxRounds = 5;
 		private const int InfiniteRoundsChoice = MaxRounds - MinRounds + 1;
 
+		private readonly DetentField pointsField;
 		private readonly DetentField endField;
 		private readonly DetentField roundTimeField;
 		private readonly DetentField scoreTargetField;
@@ -41,6 +44,7 @@ namespace Anaglyph.LaserTag.Interface
 
 		public MatchSettingsBinder(VisualElement root)
 		{
+			pointsField = Require<DetentField>(root, "points-field");
 			endField = Require<DetentField>(root, "end-field");
 			roundTimeField = Require<DetentField>(root, "round-time-field");
 			scoreTargetField = Require<DetentField>(root, "score-target-field");
@@ -59,6 +63,7 @@ namespace Anaglyph.LaserTag.Interface
 			FormatRounds();
 			MenuCopy.Changed += FormatRounds;
 
+			pointsField.SetValueWithoutNotify(matchSettings.pointsPerFlagCapture > 0 ? PointsForFlagCapturesChoice : PointsForKillsChoice);
 			// Winning by both time and score shows as score.
 			endField.SetValueWithoutNotify(matchSettings.CheckWinByScore() ? EndScoreChoice : EndTimedChoice);
 			roundTimeField.SetValueWithoutNotify(NearestChoice(RoundMinuteChoices, matchSettings.roundTimeSeconds / 60f));
@@ -72,6 +77,7 @@ namespace Anaglyph.LaserTag.Interface
 			respawnField.SetValueWithoutNotify(RespawnChoices.IndexOf(shownRespawn));
 			spawnZombiesToggle.SetValueWithoutNotify(matchSettings.spawnZombies);
 
+			SetPoints(pointsField.value);
 			SetEnd(endField.value);
 			SetRoundMinutes(roundTimeField.value);
 			SetScoreTarget(scoreTargetField.value);
@@ -79,6 +85,7 @@ namespace Anaglyph.LaserTag.Interface
 			SetDamage(damageField.value);
 			SetRespawnCondition(respawnField.value);
 
+			bindings.Value(pointsField, change => SetPoints(change.newValue));
 			bindings.Value(endField, change => SetEnd(change.newValue));
 			bindings.Value(roundTimeField, change => SetRoundMinutes(change.newValue));
 			bindings.Value(scoreTargetField, change => SetScoreTarget(change.newValue));
@@ -99,6 +106,13 @@ namespace Anaglyph.LaserTag.Interface
 		{
 			string endless = MenuCopy.Get("GameMenu", "GameMatchSettingsPage.rounds-field.endless");
 			roundsField.FormatValue = choice => choice >= InfiniteRoundsChoice ? endless : (choice + MinRounds).ToString();
+		}
+
+		private void SetPoints(int choice)
+		{
+			bool flagCapturesEarnPoints = choice == PointsForFlagCapturesChoice;
+			matchSettings.pointsPerKill = (byte)(flagCapturesEarnPoints ? 0 : 1);
+			matchSettings.pointsPerFlagCapture = (byte)(flagCapturesEarnPoints ? 1 : 0);
 		}
 
 		private void SetEnd(int choice)

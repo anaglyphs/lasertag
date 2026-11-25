@@ -737,7 +737,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			{
 				if (maskTex) maskTex.Release();
 				maskTex = new RenderTexture(depthTex.width, depthTex.height, GraphicsFormat.R16_SFloat,
-					GraphicsFormat.D16_UNorm)
+					GraphicsFormat.None)
 				{
 					name = "EnvScanner Mask",
 					filterMode = FilterMode.Point,
@@ -751,7 +751,7 @@ namespace Anaglyph.XR.DepthKit.EnvScanning
 			maskCmd.Clear();
 			maskCmd.SetRenderTarget(maskTex);
 			// cleared to half max: further than anything, so masks nothing
-			maskCmd.ClearRenderTarget(true, true, new Color(65504f, 0, 0, 0), 1f);
+			maskCmd.ClearRenderTarget(false, true, new Color(65504f, 0, 0, 0));
 			maskCmd.SetGlobalMatrix(maskViewProjID, viewProj);
 			maskCmd.SetGlobalVector(maskEyePosID, dkd.ViewInv[0].GetColumn(3));
 

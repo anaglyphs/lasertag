@@ -15,6 +15,14 @@ float4x4 agOcclusionVP[2];
 float4 agOcclusionTexSize;
 float agOcclusionDepthSoftness;
 
+// unset globals read zero, so this is false on cameras whose renderer lacks the occlusion feature
+bool agOcclusionRendered()
+{
+	return agOcclusionTexSize.z > 0;
+}
+
+#define AG_UNOCCLUDED_DISTANCE 1e5
+
 // xy: agOcclusionTex uv, z: device depth comparable with its texels
 float3 agOcclusionUVDepth(float3 positionWS, uint eye)
 {
@@ -37,6 +45,8 @@ float3 agOcclusionUVDepth(float3 positionWS, uint eye)
 // 4x4 texel box, and along depth over agOcclusionDepthSoftness meters
 float agSoftEnvOcclusion(float3 positionWS, uint eye)
 {
+	if (!agOcclusionRendered()) return 1;
+
 	float3 uvDepth = agOcclusionUVDepth(positionWS, eye);
 
 	// signed device-depth span of the softness at this distance; the sign absorbs the Z direction
@@ -82,6 +92,12 @@ void agEnvOcclusion_half(float3 WorldPos, out float OutValue)
 // Reads the far plane's distance where nothing was rasterized
 void agEnvSurfaceDistance_float(float3 EyePos, float3 RayDir, out float OutDistance)
 {
+	if (!agOcclusionRendered())
+	{
+		OutDistance = AG_UNOCCLUDED_DISTANCE;
+		return;
+	}
+
 	uint eye = unity_StereoEyeIndex;
 	float2 uv = agOcclusionUVDepth(EyePos + RayDir, eye).xy;
 	float depth = agOcclusionTex.SampleLevel(agPointClampSampler, float3(uv, eye), 0);

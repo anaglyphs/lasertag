@@ -708,6 +708,9 @@ void integrateVoxel(const int chunkIdx, const uint3 voxDataCoord, const float3 v
 	const float3 eyeToDepth = depthPos - eyePos;
 	const float depthEyeDist = length(eyeToDepth);
 
+	// samples nearer than minDist are hands and arms; their truncation band must not reach past it
+	if (depthEyeDist < minDist) return;
+
 	float sDist = depthEyeDist - voxEyeDist;
 	sDist *= saturate(normDot);
 

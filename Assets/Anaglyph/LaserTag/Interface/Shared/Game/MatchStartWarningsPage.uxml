@@ -3,17 +3,27 @@
     <ui:VisualElement class="page-template-root">
         <Anaglyph.Menu.NavHeader>
             <Bindings>
-                <UnityEngine.Localization.LocalizedString property="Title" table="GameMenu" entry="bases.required-title"/>
+                <UnityEngine.Localization.LocalizedString property="Title" table="GameMenu" entry="match-start-warnings.title"/>
             </Bindings>
         </Anaglyph.Menu.NavHeader>
-        <ui:Label name="missing-bases-instructions" class="body-copy">
+        <ui:Label name="missing-bases-warning" class="body-copy">
             <Bindings>
                 <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="bases.required-instructions"/>
             </Bindings>
         </ui:Label>
-        <ui:Button name="place-bases-button">
+        <ui:Label name="missing-flags-warning" class="body-copy">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="flags.required-instructions"/>
+            </Bindings>
+        </ui:Label>
+        <ui:Button name="match-warnings-edit-map-button">
             <Bindings>
                 <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="bases.edit-map"/>
+            </Bindings>
+        </ui:Button>
+        <ui:Button name="match-warnings-dismiss-button">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="ConnectionMenu" entry="ConnectionErrorPage.dismiss-error-button.text"/>
             </Bindings>
         </ui:Button>
     </ui:VisualElement>

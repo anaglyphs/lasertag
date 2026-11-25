@@ -19,6 +19,7 @@ using UnityEngine.TestTools;
 using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
 using TeamBase = Anaglyph.LaserTag.Objects.Gameplay.Base.Base;
+using TeamFlag = Anaglyph.LaserTag.Objects.Gameplay.Flag.Flag;
 
 namespace Anaglyph.LaserTag.Tests
 {
@@ -34,6 +35,7 @@ namespace Anaglyph.LaserTag.Tests
 		private Locale previousLocale;
 		private MapEditor.Tools.MapEditorTool.Mode previousMode;
 		private readonly List<TeamBase> bases = new();
+		private readonly List<GameObject> flags = new();
 
 		private void Call(string method, params object[] arguments) =>
 			typeof(GameMenu).GetMethod(method, Private).Invoke(menu, arguments);
@@ -92,6 +94,8 @@ namespace Anaglyph.LaserTag.Tests
 				if (homeBase) Object.DestroyImmediate(homeBase.gameObject);
 			}
 			bases.Clear();
+			foreach (var flag in flags) Object.DestroyImmediate(flag);
+			flags.Clear();
 			LocalizationSettings.SelectedLocale = previousLocale;
 		}
 
@@ -109,7 +113,7 @@ namespace Anaglyph.LaserTag.Tests
 				Press(root.Q<Button>("match-tab"));
 				Assert.That(MapEditor.MapEditor.IsActive, Is.False);
 				Assert.That(maps.CurrentPage.name, Is.EqualTo("editing-map-page"));
-				Assert.That(match.CurrentPage.name, Is.EqualTo("missing-bases-modal"));
+				Assert.That(match.CurrentPage.name, Is.EqualTo("match-page"));
 				yield return Layout();
 				Assert.That(maps.resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
 				Assert.That(match.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
@@ -142,7 +146,7 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(maps.CurrentPage.name, Is.EqualTo("editing-map-page"));
 			Call("OnMatchStateChanged", MatchState.NotPlaying);
 			Assert.That(root.Q<Button>("maps-tab").enabledSelf, Is.True);
-			Assert.That(match.CurrentPage.name, Is.EqualTo("missing-bases-modal"));
+			Assert.That(match.CurrentPage.name, Is.EqualTo("match-page"));
 			Assert.That(MapEditor.MapEditor.IsActive, Is.False);
 			Call("SelectTab", GameMenu.Tab.Maps);
 			Assert.That(MapEditor.MapEditor.IsActive, Is.True);
@@ -175,7 +179,7 @@ namespace Anaglyph.LaserTag.Tests
 			Press(root.Q<Button>("dismiss-error-button"));
 			Assert.That(shell.CurrentPage.name, Is.EqualTo("home-page"));
 			Assert.That(maps.CurrentPage.name, Is.EqualTo("editing-map-page"));
-			Assert.That(match.CurrentPage.name, Is.EqualTo("missing-bases-modal"));
+			Assert.That(match.CurrentPage.name, Is.EqualTo("match-page"));
 			Assert.That(maps.ClassListContains("game-menu-hidden"), Is.True);
 			Assert.That(MapEditor.MapEditor.IsActive, Is.False);
 		}
@@ -231,32 +235,71 @@ namespace Anaglyph.LaserTag.Tests
 			}
 		}
 
-		[Test]
-		public void MissingBasesCannotBeDismissedAndBothColorsRestoreMatchSettings()
+		[UnityTest]
+		public IEnumerator StartWithoutBothBasesWarnsAndKeepsMatchSettings()
 		{
 			Call("SelectTab", GameMenu.Tab.Match);
+			Call("OnNetcodeStateChanged", NetcodeState.Connected);
+			var start = root.Q<Button>("start-button");
 			var score = root.Q<DetentField>("score-target-field");
 			score.value = 17;
-			Assert.That(match.CurrentPage.ModalUserDismissible, Is.False);
-			for (int attempt = 0; attempt < 3; attempt++) match.GoBack();
-			Assert.That(match.CurrentPage.name, Is.EqualTo("missing-bases-modal"));
-			Call("OnNetcodeStateChanged", NetcodeState.Connected);
-			Assert.That(root.Q<Button>("start-button").enabledSelf, Is.False);
+			Assert.That(start.enabledSelf, Is.True);
+			Assert.That(match.CurrentPage.name, Is.EqualTo("match-page"));
+
+			yield return Layout();
+			Press(start);
+			Assert.That(match.CurrentPage.name, Is.EqualTo(MatchStartWarningsBinder.PageName));
+			Assert.That(Shown("missing-bases-warning"), Is.True);
+			Assert.That(Shown("missing-flags-warning"), Is.False);
+			match.GoBack();
+			Assert.That(match.CurrentPage.name, Is.EqualTo("match-page"));
 
 			AddBase(Teams.Red);
-			Call("Update");
-			Assert.That(match.CurrentPage.name, Is.EqualTo("missing-bases-modal"));
-			var blue = AddBase(Teams.Blue);
-			Call("Update");
+			Call("StartMatchUnlessWarned");
+			Assert.That(match.CurrentPage.name, Is.EqualTo(MatchStartWarningsBinder.PageName));
+			yield return Layout();
+			Press(root.Q<Button>("match-warnings-dismiss-button"));
+			Assert.That(match.CurrentPage.name, Is.EqualTo("match-page"));
+
+			AddBase(Teams.Blue);
+			Call("StartMatchUnlessWarned");
 			Assert.That(match.CurrentPage.name, Is.EqualTo("match-page"));
 			Assert.That(score.value, Is.EqualTo(17));
-			Call("OnNetcodeStateChanged", NetcodeState.Connected);
-			Assert.That(root.Q<Button>("start-button").enabledSelf, Is.True);
+			Assert.That(start.enabledSelf, Is.True);
+		}
 
-			Object.DestroyImmediate(blue.gameObject);
-			Call("Update");
-			Assert.That(match.CurrentPage.name, Is.EqualTo("missing-bases-modal"));
-			Assert.That(root.Q<Button>("start-button").enabledSelf, Is.False);
+		[Test]
+		public void FlagCapturePointsWarnUntilTheMapHasAFlag()
+		{
+			AddBase(Teams.Red);
+			AddBase(Teams.Blue);
+			Call("SelectTab", GameMenu.Tab.Match);
+			var points = root.Q<DetentField>("points-field");
+
+			points.value = 0;
+			Call("StartMatchUnlessWarned");
+			Assert.That(match.CurrentPage.name, Is.EqualTo("match-page"), "Kills need no flag.");
+
+			points.value = 1;
+			Call("StartMatchUnlessWarned");
+			Assert.That(match.CurrentPage.name, Is.EqualTo(MatchStartWarningsBinder.PageName));
+			Assert.That(Shown("missing-bases-warning"), Is.False);
+			Assert.That(Shown("missing-flags-warning"), Is.True);
+
+			AddFlag();
+			Assert.That(MapRequirements.HasAnyFlag, Is.True);
+			Call("StartMatchUnlessWarned");
+			Assert.That(match.CurrentPage.name, Is.EqualTo("match-page"));
+		}
+
+		[Test]
+		public void MissingBasesAndFlagsAreListedTogether()
+		{
+			Call("SelectTab", GameMenu.Tab.Match);
+			root.Q<DetentField>("points-field").value = 1;
+			Call("StartMatchUnlessWarned");
+			Assert.That(Shown("missing-bases-warning"), Is.True);
+			Assert.That(Shown("missing-flags-warning"), Is.True);
 		}
 
 		[Test]
@@ -265,49 +308,44 @@ namespace Anaglyph.LaserTag.Tests
 			var red = AddBase(Teams.Red);
 			var other = AddBase(Teams.Red);
 			AddBase(0);
-			Assert.That(MapBaseRequirements.HasBothTeamBases, Is.False);
+			Assert.That(MapRequirements.HasBothTeamBases, Is.False);
 			SetTeam(other, Teams.Blue);
-			Assert.That(MapBaseRequirements.HasBothTeamBases, Is.True);
+			Assert.That(MapRequirements.HasBothTeamBases, Is.True);
 			red.enabled = false;
-			Assert.That(MapBaseRequirements.HasBothTeamBases, Is.False);
+			Assert.That(MapRequirements.HasBothTeamBases, Is.False);
 			red.enabled = true;
 			other.gameObject.SetActive(false);
-			Assert.That(MapBaseRequirements.HasBothTeamBases, Is.False);
+			Assert.That(MapRequirements.HasBothTeamBases, Is.False);
 			other.gameObject.SetActive(true);
-			Assert.That(MapBaseRequirements.HasBothTeamBases, Is.True);
-			SetTeam(other, Teams.Red);
-			Call("Update");
-			Assert.That(match.CurrentPage.name, Is.EqualTo("missing-bases-modal"));
+			Assert.That(MapRequirements.HasBothTeamBases, Is.True);
 		}
 
 		[UnityTest]
-		public IEnumerator PlaceBasesButtonSelectsMapsAndEntersObjectEditing()
+		public IEnumerator WarningEditMapButtonSelectsMapsAndEntersObjectEditing()
 		{
 			Call("SelectTab", GameMenu.Tab.Match);
 			MapEditor.Tools.MapEditorTool.SetMode(MapEditor.Tools.MapEditorTool.Mode.Tags);
+			Call("StartMatchUnlessWarned");
 			yield return Layout();
-			Press(root.Q<Button>("place-bases-button"));
+			Press(root.Q<Button>("match-warnings-edit-map-button"));
 			Assert.That(maps.ClassListContains("game-menu-hidden"), Is.False);
 			Assert.That(maps.CurrentPage.name, Is.EqualTo("editing-map-page"));
 			Assert.That(MapEditor.MapEditor.IsActive, Is.True);
 			Assert.That(MapEditor.Tools.MapEditorTool.CurrentMode, Is.EqualTo(MapEditor.Tools.MapEditorTool.Mode.Move));
 			Call("SelectTab", GameMenu.Tab.Match);
 			Assert.That(MapEditor.MapEditor.IsActive, Is.False);
-			Assert.That(match.CurrentPage.name, Is.EqualTo("missing-bases-modal"));
+			Assert.That(match.CurrentPage.name, Is.EqualTo("match-page"));
 		}
 
 		[Test]
-		public void LosingBasesDuringMatchPreservesPlayingControlsUntilMatchEnds()
+		public void StartWarningIsGoneAfterAMatchStartedElsewhereEnds()
 		{
-			AddBase(Teams.Red);
-			var blue = AddBase(Teams.Blue);
-			Call("Update");
+			Call("StartMatchUnlessWarned");
+			Assert.That(match.CurrentPage.name, Is.EqualTo(MatchStartWarningsBinder.PageName));
 			Call("OnMatchStateChanged", MatchState.Playing);
-			Object.DestroyImmediate(blue.gameObject);
-			Call("Update");
 			Assert.That(match.CurrentPage.name, Is.EqualTo("playing-page"));
 			Call("OnMatchStateChanged", MatchState.NotPlaying);
-			Assert.That(match.CurrentPage.name, Is.EqualTo("missing-bases-modal"));
+			Assert.That(match.CurrentPage.name, Is.EqualTo("match-page"));
 		}
 
 		[UnityTest]
@@ -386,6 +424,19 @@ namespace Anaglyph.LaserTag.Tests
 				typeof(TeamBase).GetMethod("Awake", Private).Invoke(homeBase, null);
 			return homeBase;
 		}
+
+		private void AddFlag()
+		{
+			var flagObject = new GameObject("Flag test");
+			flagObject.SetActive(false);
+			flagObject.AddComponent<NetworkObject>();
+			flagObject.AddComponent<TeamFlag>();
+			flagObject.SetActive(true);
+			flags.Add(flagObject);
+		}
+
+		private bool Shown(string elementName) =>
+			match.Q(elementName).style.display.value == DisplayStyle.Flex;
 
 		private static void SetTeam(TeamBase homeBase, byte team) =>
 			typeof(NetworkVariable<byte>).GetField("m_InternalValue", Private)

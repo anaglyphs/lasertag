@@ -277,6 +277,14 @@ namespace Anaglyph.LaserTag.Tests
 			end.value = 0;
 			Assert.That(binder.Settings.CheckWinByScore(), Is.False);
 			Assert.That(binder.Settings.CheckWinByTimer(), Is.True);
+			var points = root.Q<DetentField>("points-field");
+			Assert.That(points.Query<DetentMark>().ToList().Select(mark => mark.Text),
+				Is.EqualTo(new[] { "Kills", "Flag captures" }));
+			Assert.That(binder.Settings.pointsPerKill, Is.EqualTo(1));
+			Assert.That(binder.Settings.pointsPerFlagCapture, Is.EqualTo(0));
+			points.value = 1;
+			Assert.That(binder.Settings.pointsPerKill, Is.EqualTo(0));
+			Assert.That(binder.Settings.pointsPerFlagCapture, Is.EqualTo(1));
 			Assert.That(root.Q<Button>("start-button").text, Is.EqualTo("Start match"));
 			Assert.That(root.Q<Button>("start-button").worldBound.height, Is.GreaterThan(0));
 		}

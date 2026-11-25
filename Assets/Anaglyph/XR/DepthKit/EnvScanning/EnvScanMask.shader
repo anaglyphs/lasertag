@@ -11,8 +11,13 @@ Shader "Hidden/Anaglyph/EnvScanMask"
 		{
 			Name "EnvScanMask"
 
-			ZTest LEqual
-			ZWrite On
+			// keeps the nearest distance per texel. no depth clipping, so masks nearer
+			// than the depth projection's near plane still cover what's behind them
+			ZClip Off
+			ZTest Always
+			ZWrite Off
+			BlendOp Min
+			Blend One One
 			Cull Back
 
 			HLSLPROGRAM

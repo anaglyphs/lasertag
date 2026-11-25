@@ -1,9 +1,11 @@
 using Anaglyph.LaserTag.Objects.Gameplay.Base;
+using Anaglyph.LaserTag.Objects.Gameplay.Flag;
 using Anaglyph.LaserTag.Player.Teams;
+using UnityEngine;
 
 namespace Anaglyph.LaserTag.Matches
 {
-	public static class MapBaseRequirements
+	public static class MapRequirements
 	{
 		public static bool HasBothTeamBases
 		{
@@ -20,5 +22,7 @@ namespace Anaglyph.LaserTag.Matches
 				return false;
 			}
 		}
+
+		public static bool HasAnyFlag => Object.FindAnyObjectByType<Flag>() != null;
 	}
 }

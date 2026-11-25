@@ -3,6 +3,7 @@
     <ui:Template name="DeleteSpacePage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/DeleteSpacePage.uxml?fileID=9197481963319205126&amp;guid=6129634a19654579bdcede2f56f2aa06&amp;type=3#DeleteSpacePage"/>
     <ui:Template name="GameMatchPlayingPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Game/GameMatchPlayingPage.uxml?fileID=9197481963319205126&amp;guid=617e74b6016424210b1d97fb28257683&amp;type=3#GameMatchPlayingPage"/>
     <ui:Template name="GameMatchSettingsPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/GameMatchSettingsPage.uxml?fileID=9197481963319205126&amp;guid=f28cafb4354a24f018772c69222a55ef&amp;type=3#GameMatchSettingsPage"/>
+    <ui:Template name="MatchStartWarningsPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/Game/MatchStartWarningsPage.uxml?fileID=9197481963319205126&amp;guid=a827b79061cb4dd3a981ed77e4c66a54&amp;type=3#MatchStartWarningsPage"/>
     <ui:Template name="MenuErrorPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Shared/MenuErrorPage.uxml?fileID=9197481963319205126&amp;guid=07ab6142193414ebda335d8f277b3ead&amp;type=3#MenuErrorPage"/>
     <ui:Template name="OperatorMapSettingsPage" src="project://database/Assets/Anaglyph/LaserTag/Operator/OperatorMapSettingsPage.uxml?fileID=9197481963319205126&amp;guid=d51249ce67904b63a9732b67a419ef61&amp;type=3#OperatorMapSettingsPage"/>
     <ui:Template name="OperatorMapsPage" src="project://database/Assets/Anaglyph/LaserTag/Operator/OperatorMapsPage.uxml?fileID=9197481963319205126&amp;guid=7e3af4252ef249ed8ae61e7784be2de2&amp;type=3#OperatorMapsPage"/>
@@ -73,6 +74,9 @@
                             </Anaglyph.Menu.NavPage>
                             <Anaglyph.Menu.NavPage name="playing-page" show-back-button="false">
                                 <ui:Instance template="GameMatchPlayingPage"/>
+                            </Anaglyph.Menu.NavPage>
+                            <Anaglyph.Menu.NavPage name="match-start-warnings-modal" show-back-button="false" modal-user-dismissible="true">
+                                <ui:Instance template="MatchStartWarningsPage"/>
                             </Anaglyph.Menu.NavPage>
                         </Anaglyph.Menu.NavView>
                     </ui:Tab>

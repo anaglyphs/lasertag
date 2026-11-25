@@ -59,6 +59,7 @@ namespace Anaglyph.LaserTag.Operator
 		private CancellationTokenSource refreshCancellation;
 		private MapManagerUI mapManager;
 		private MatchSettingsBinder matchSettings;
+		private MatchStartWarningsBinder matchStartWarnings;
 		private OperatorUpdatePrompt updatePrompt;
 
 		[SerializeField] private Material tagIndicatorMaterial;
@@ -125,6 +126,7 @@ namespace Anaglyph.LaserTag.Operator
 			RefreshHeadsetConfigurationControls();
 
 			matchSettings = new MatchSettingsBinder(matchNav);
+			matchStartWarnings = new MatchStartWarningsBinder(matchNav);
 			BindMapEditing(root);
 
 			BindViewportToCamera(root);
@@ -135,8 +137,7 @@ namespace Anaglyph.LaserTag.Operator
 
 			bindings.Click(hostButton, StartHosting);
 			bindings.Click(disconnectButton, NetcodeManagement.Disconnect);
-			bindings.Click(matchSettings.StartButton,
-				() => MatchReferee.Instance?.QueueMatch(matchSettings.Settings));
+			bindings.Click(matchSettings.StartButton, StartMatchUnlessWarned);
 			bindings.Click(Require<Button>(matchNav, "stop-button"),
 				() => MatchReferee.Instance?.EndMatch());
 
@@ -165,6 +166,8 @@ namespace Anaglyph.LaserTag.Operator
 			mapManager?.Unbind();
 			matchSettings?.Dispose();
 			matchSettings = null;
+			matchStartWarnings?.Dispose();
+			matchStartWarnings = null;
 			MenuCopy.Changed -= RefreshLocalizedCopy;
 			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
 			MatchReferee.StateChanged -= OnMatchStateChanged;
@@ -404,9 +407,17 @@ namespace Anaglyph.LaserTag.Operator
 				PlayerPrefs.SetFloat(key, dimension);
 		}
 
+		private void StartMatchUnlessWarned()
+		{
+			if (matchStartWarnings.PresentWarningsFor(matchSettings.Settings)) return;
+			MatchReferee.Instance?.QueueMatch(matchSettings.Settings);
+		}
+
 		private void OnMatchStateChanged(MatchState state)
 		{
-			matchNav.SetModalPresented(playingPage, state != MatchState.NotPlaying, 20);
+			bool playing = state != MatchState.NotPlaying;
+			if (playing) matchStartWarnings.Dismiss();
+			matchNav.SetModalPresented(playingPage, playing, 20);
 		}
 
 		private async Awaitable BeginRefreshLoop()

@@ -8,6 +8,21 @@
             </Bindings>
         </Anaglyph.Menu.NavHeader>
         <ui:ScrollView>
+            <Anaglyph.Menu.DetentField name="points-field">
+                <Bindings>
+                    <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.points-field.label"/>
+                </Bindings>
+                <Anaglyph.Menu.DetentMark class="match-icon match-icon--kills">
+                    <Bindings>
+                        <UnityEngine.Localization.LocalizedString property="Text" table="GameMenu" entry="GameMatchSettingsPage.points-field.kills"/>
+                    </Bindings>
+                </Anaglyph.Menu.DetentMark>
+                <Anaglyph.Menu.DetentMark class="match-icon match-icon--flag">
+                    <Bindings>
+                        <UnityEngine.Localization.LocalizedString property="Text" table="GameMenu" entry="GameMatchSettingsPage.points-field.flag-captures"/>
+                    </Bindings>
+                </Anaglyph.Menu.DetentMark>
+            </Anaglyph.Menu.DetentField>
             <Anaglyph.Menu.DetentField name="end-field">
                 <Bindings>
                     <UnityEngine.Localization.LocalizedString property="label" table="GameMenu" entry="GameMatchSettingsPage.end-field.label"/>

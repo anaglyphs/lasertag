@@ -57,8 +57,6 @@ namespace Anaglyph.LaserTag.Interface
 		private Button hideDebugMeshForEveryone;
 		private bool updatingEditor;
 		private NavPage playingPage;
-		private NavPage missingBasesPage;
-		private bool? hadRequiredBases;
 		private NavPage editingMapPage;
 
 		private readonly UIEventBindings bindings = new();
@@ -67,6 +65,7 @@ namespace Anaglyph.LaserTag.Interface
 		private LoadedSpaceMapsBinder loadedSpaceMaps;
 		private NavPage manageMapsPage;
 		private MatchSettingsBinder matchSettings;
+		private MatchStartWarningsBinder matchStartWarnings;
 		private MapNameBinder mapName;
 		private SpaceDetailsBinder spaceDetails;
 		private NavPage spaceDetailsPage;
@@ -94,8 +93,6 @@ namespace Anaglyph.LaserTag.Interface
 			demoTab = Require<Button>(root, "demo-tab");
 			tabBar = Require<VisualElement>(root, "game-menu-tabs");
 			playingPage = matchNavigation.GetPage("playing-page");
-			missingBasesPage = matchNavigation.GetPage("missing-bases-modal");
-			hadRequiredBases = null;
 			editingMapPage = mapsNavigation.GetPage("editing-map-page");
 			spaceDetailsPage = mapsNavigation.GetPage("space-details");
 			manageMapsPage = mapsNavigation.GetPage("manage-maps-page");
@@ -112,6 +109,7 @@ namespace Anaglyph.LaserTag.Interface
 			mapProbe = new MapProbeBinder(Require<Button>(root, "probe-maps-button"));
 			loadedSpaceMaps = new LoadedSpaceMapsBinder(Require<VisualElement>(root, "loaded-space-maps-section"), ShowMapEditing);
 			matchSettings = new MatchSettingsBinder(root);
+			matchStartWarnings = new MatchStartWarningsBinder(matchNavigation, ShowMapEditing);
 			mapName = new MapNameBinder(Require<VisualElement>(editingMapPage, "map-name-section"));
 			spaceDetails = new SpaceDetailsBinder(spaceDetailsPage);
 			spaceDetails.Alignment.Changing += OnAlignmentChanging;
@@ -120,15 +118,10 @@ namespace Anaglyph.LaserTag.Interface
 			foreach (NavView navigation in TabbedNavigations())
 				navigation.Changed += OnAnyPageChanged;
 
-			bindings.Click(matchSettings.StartButton, () =>
-			{
-				if (MapBaseRequirements.HasBothTeamBases) Referee?.QueueMatch(matchSettings.Settings);
-			});
-			bindings.Click(Require<Button>(missingBasesPage, "place-bases-button"), ShowMapEditing);
+			bindings.Click(matchSettings.StartButton, StartMatchUnlessWarned);
 			bindings.Click(Require<Button>(root, "stop-button"), () => Referee?.EndMatch());
 			bindings.Click(Require<Button>(root, "finish-editing-button"),
 				() => MapEditor.MapEditor.SetActive(false));
-			RefreshBaseRequirements();
 		}
 
 		private void OnEnable()
@@ -164,6 +157,8 @@ namespace Anaglyph.LaserTag.Interface
 			loadedSpaceMaps = null;
 			matchSettings?.Dispose();
 			matchSettings = null;
+			matchStartWarnings?.Dispose();
+			matchStartWarnings = null;
 			MatchReferee.StateChanged -= OnMatchStateChanged;
 			DemoModeChanged -= OnDemoModeChanged;
 			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
@@ -193,7 +188,6 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void Update()
 		{
-			RefreshBaseRequirements();
 			if (selectedTab != Tab.Maps) return;
 			if (mapsNavigation?.CurrentPage == spaceDetailsPage)
 			{
@@ -250,13 +244,10 @@ namespace Anaglyph.LaserTag.Interface
 			hideDebugMeshForEveryone.SetEnabled(available);
 		}
 
-		private void RefreshBaseRequirements()
+		private void StartMatchUnlessWarned()
 		{
-			bool ready = MapBaseRequirements.HasBothTeamBases;
-			if (hadRequiredBases == ready) return;
-			hadRequiredBases = ready;
-			matchNavigation.SetModalPresented(missingBasesPage, !ready, 10);
-			OnNetcodeStateChanged(NetcodeManagement.State);
+			if (matchStartWarnings.PresentWarningsFor(matchSettings.Settings)) return;
+			Referee?.QueueMatch(matchSettings.Settings);
 		}
 
 		private void ShowMapEditing()
@@ -356,6 +347,7 @@ namespace Anaglyph.LaserTag.Interface
 		{
 			bool playing = state != MatchState.NotPlaying;
 			if (playing) MapEditor.MapEditor.SetActive(false);
+			if (playing) matchStartWarnings.Dismiss();
 			mapsTab.SetEnabled(!playing);
 			RefreshDemoControls();
 			matchNavigation.SetModalPresented(playingPage, playing, 20);
@@ -371,7 +363,7 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void OnNetcodeStateChanged(NetcodeState state)
 		{
-			matchSettings.StartButton.SetEnabled(state == NetcodeState.Connected && MapBaseRequirements.HasBothTeamBases);
+			matchSettings.StartButton.SetEnabled(state == NetcodeState.Connected);
 		}
 	}
 }

@@ -3214,10 +3214,10 @@ MonoBehaviour:
   bodyTransform: {fileID: 4338230215912558260}
   leftHandTransform: {fileID: 7101617277615030970}
   rightHandTransform: {fileID: 3726543627519253456}
-  OnRespawned:
+  OnRespawn:
     m_PersistentCalls:
       m_Calls: []
-  OnKilled:
+  OnKill:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 5557311319812307847}
@@ -3244,7 +3244,7 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-  OnDamaged:
+  OnDamage:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 5557311319812307847}
@@ -3424,7 +3424,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 1, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 2, y: 1, z: 2}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 9176886480471808712}

@@ -114,13 +114,13 @@ namespace Anaglyph.Menu
 		private void RefreshMarks()
 		{
 			int chosen = value;
-			// Pointing inside a cumulative choice previews the smaller one over it
-			bool hoveringWithinChoice = Cumulative && hoveredIndex >= 0 && hoveredIndex <= chosen;
+			// A cumulative choice hidden under a larger hover keeps its own color
+			bool hoverShowsOverChoice = !Cumulative || hoveredIndex <= chosen;
 			for (int i = 0; i < marks.childCount; i++)
 			{
 				bool lit = Covers(chosen, i);
 				marks[i].EnableInClassList(litMarkUssClassName, lit);
-				marks[i].EnableInClassList(hoveredMarkUssClassName, Covers(hoveredIndex, i) && (!lit || hoveringWithinChoice));
+				marks[i].EnableInClassList(hoveredMarkUssClassName, Covers(hoveredIndex, i) && (!lit || hoverShowsOverChoice));
 			}
 		}
 

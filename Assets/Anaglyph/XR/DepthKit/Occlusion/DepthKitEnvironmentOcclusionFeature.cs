@@ -17,6 +17,7 @@ namespace Anaglyph.XR.DepthKit.Occlusion
 		public LayerMask OcclusionMeshLayerMask;
 
 		private DepthKitEnvironmentOcclusionPass depthKitEnvironmentOcclusionPass;
+		private UnbindOcclusionPass unbindOcclusionPass;
 		private Material depthMat;
 		private Material primeMat;
 
@@ -34,6 +35,7 @@ namespace Anaglyph.XR.DepthKit.Occlusion
 				{
 					renderPassEvent = RenderPassEvent.BeforeRenderingOpaques
 				};
+			unbindOcclusionPass = new UnbindOcclusionPass { renderPassEvent = RenderPassEvent.AfterRendering };
 		}
 
 		protected override void Dispose(bool disposing)
@@ -48,9 +50,31 @@ namespace Anaglyph.XR.DepthKit.Occlusion
 			CoreUtils.Destroy(primeMat);
 		}
 
+		// a play session starts with no camera's occlusion bound, even after earlier sessions in the editor
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+		private static void UnbindOcclusion() =>
+			Shader.SetGlobalVector(DepthKitEnvironmentOcclusionPass.OcclusionTexSizeID, Vector4.zero);
+
 		public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
 		{
 			renderer.EnqueuePass(depthKitEnvironmentOcclusionPass);
+			// editor Scene view and preview cameras would otherwise leave their occlusion bound for game cameras without this feature
+			if (renderingData.cameraData.cameraType != CameraType.Game)
+				renderer.EnqueuePass(unbindOcclusionPass);
+		}
+
+		private class UnbindOcclusionPass : ScriptableRenderPass
+		{
+			private class PassData { }
+
+			public override void RecordRenderGraph(RenderGraph graph, ContextContainer frameContext)
+			{
+				using IUnsafeRenderGraphBuilder builder = graph.AddUnsafePass("Unbind Environment Occlusion", out PassData _);
+				builder.AllowPassCulling(false);
+				builder.AllowGlobalStateModification(true);
+				builder.SetRenderFunc((PassData _, UnsafeGraphContext ctx) =>
+					ctx.cmd.SetGlobalVector(DepthKitEnvironmentOcclusionPass.OcclusionTexSizeID, Vector4.zero));
+			}
 		}
 
 		private class DepthKitEnvironmentOcclusionPass : ScriptableRenderPass
@@ -60,7 +84,7 @@ namespace Anaglyph.XR.DepthKit.Occlusion
 			private static readonly int OcclusionTexID = Shader.PropertyToID("agOcclusionTex");
 			private static readonly int MaxDistanceID = Shader.PropertyToID("_MaxDistance");
 			private static readonly int OcclusionVPID = Shader.PropertyToID("agOcclusionVP");
-			private static readonly int OcclusionTexSizeID = Shader.PropertyToID("agOcclusionTexSize");
+			public static readonly int OcclusionTexSizeID = Shader.PropertyToID("agOcclusionTexSize");
 			private static readonly int OcclusionDepthSoftnessID = Shader.PropertyToID("agOcclusionDepthSoftness");
 			private static readonly ShaderTagId ShaderTag = new("UniversalForward");
 
@@ -151,8 +175,10 @@ namespace Anaglyph.XR.DepthKit.Occlusion
 					// composite the live sensor depth under the environment meshes.
 					// agDepthTex is external to the render graph (set via
 					// Shader.SetGlobalTexture on the CPU timeline), so it needs no
-					// UseTexture tracking; skip while no sensor depth is bound
-					bool primeRawDepth = rawDepthPrimeMat != null && DepthKitDriver.DepthAvailable;
+					// UseTexture tracking; skip while no sensor depth is bound. Only game cameras sit at the
+					// headset's eye, where the prime's single-refinement ray search finds the right surface
+					bool primeRawDepth = rawDepthPrimeMat != null && DepthKitDriver.DepthAvailable &&
+					                     cameraData.cameraType == CameraType.Game;
 					if (primeRawDepth)
 						rawDepthPrimeMat.SetFloat(MaxDistanceID, rawDepthMaxDistance);
 					data.primeMat = primeRawDepth ? rawDepthPrimeMat : null;

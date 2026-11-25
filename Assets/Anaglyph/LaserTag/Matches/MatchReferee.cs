@@ -100,7 +100,7 @@ namespace Anaglyph.LaserTag.Matches
 
 				pointsPerKill = 1,
 				pointsPerSecondHoldingPoint = 1,
-				pointsPerFlagCapture = 10,
+				pointsPerFlagCapture = 0,
 				pointsPerZombieKill = 1,
 
 				winCondition = WinCondition.ReachScore,

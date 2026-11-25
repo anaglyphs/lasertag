@@ -1,3 +1,4 @@
+using Anaglyph.XR.DepthKit.EnvScanning;
 using UnityEngine;
 using UnityEngine.Serialization;
 using UnityEngine.XR;
@@ -44,6 +45,11 @@ namespace Anaglyph.LaserTag
 				// a phone's camera background would otherwise write the sensor's depth and hide everything on a real surface: DepthKit occludes
 				foreach (AROcclusionManager occlusion in g.GetComponentsInChildren<AROcclusionManager>(true))
 					occlusion.requestedOcclusionPreferenceMode = UnityEngine.XR.ARSubsystems.OcclusionPreferenceMode.NoOcclusion;
+				// a phone's hands are the phone; the user's body stays behind it
+				foreach (EnvScanArmMask armMask in g.GetComponentsInChildren<EnvScanArmMask>(true))
+					armMask.gameObject.SetActive(false);
+				foreach (EnvScanBodyMask bodyMask in g.GetComponentsInChildren<EnvScanBodyMask>(true))
+					bodyMask.gameObject.SetActive(false);
 				g.AddComponent<CameraMode>();
 				g.AddComponent<Interface.HandheldScreenUI>();
 				HandheldRendering.Apply();
