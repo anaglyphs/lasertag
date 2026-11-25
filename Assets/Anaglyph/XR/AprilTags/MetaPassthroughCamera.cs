@@ -1,6 +1,6 @@
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
-#if META_OPENXR_2_6_OR_NEWER && (!UNITY_IOS || UNITY_EDITOR)
+#if META_OPENXR_2_6_OR_NEWER && (!UNITY_IOS && !UNITY_STANDALONE_LINUX || UNITY_EDITOR)
 using UnityEngine;
 using UnityEngine.XR.OpenXR.Features.Meta;
 #endif
@@ -25,7 +25,7 @@ namespace Anaglyph.XR.AprilTags
 		}
 
 		public static bool IsSupported =>
-#if META_OPENXR_2_6_OR_NEWER && (!UNITY_IOS || UNITY_EDITOR)
+#if META_OPENXR_2_6_OR_NEWER && (!UNITY_IOS && !UNITY_STANDALONE_LINUX || UNITY_EDITOR)
 			true;
 #else
 			false;
@@ -41,7 +41,7 @@ namespace Anaglyph.XR.AprilTags
 		{
 			frame = default;
 
-#if META_OPENXR_2_6_OR_NEWER && (!UNITY_IOS || UNITY_EDITOR)
+#if META_OPENXR_2_6_OR_NEWER && (!UNITY_IOS && !UNITY_STANDALONE_LINUX || UNITY_EDITOR)
 			if (cameraManager == null || cameraManager.subsystem is not MetaOpenXRCameraSubsystem meta)
 				return false;
 
@@ -92,7 +92,7 @@ namespace Anaglyph.XR.AprilTags
 #endif
 		}
 
-#if META_OPENXR_2_6_OR_NEWER && (!UNITY_IOS || UNITY_EDITOR)
+#if META_OPENXR_2_6_OR_NEWER && (!UNITY_IOS && !UNITY_STANDALONE_LINUX || UNITY_EDITOR)
 		private static XRCameraParams GetCameraParams()
 		{
 			Camera camera = MainXRRig.Camera;

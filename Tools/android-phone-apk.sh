@@ -1,6 +1,6 @@
 #!/bin/bash
 # Builds this working tree (uncommitted and new files included) as an Android phone APK to send around:
-# batch Unity in ../lasertag_release/Android-phone, then a copy in Builds/Phone named by version and commit.
+# batch Unity in ../lasertag_build, then a copy in Builds/Phone named by version and commit.
 # Your open editor is untouched.
 #
 # Usage: Tools/android-phone-apk.sh
@@ -15,16 +15,12 @@ source "$project_dir/Tools/lib/unity-batch.sh"
 
 profile="Assets/Settings/Build Profiles/Android Phone.asset"
 apk_output="Builds/Phone/Lasertag.apk"
-dir="$side_build_root/Android-phone"
-log_dir="$side_build_root/logs/android-phone-$(date +%Y%m%d-%H%M%S)"
+log_dir="$build_logs_dir/android-phone-$(date +%Y%m%d-%H%M%S)"
 shared_apk_dir="$project_dir/Builds/Phone"
 
 snapshot="$(working_tree_snapshot)"
 tree="$(git -C "$project_dir" rev-parse "$snapshot^{tree}")"
-# the Quest release folder's Library is already imported for Android, so the first build here starts warm
-library_source="$side_build_root/Android/Library"
-[ -d "$library_source" ] || library_source="$project_dir/Library"
-prepare_worktree "$dir" "$snapshot" "$library_source" >/dev/null
+dir="$(prepare_build_worktree "$snapshot")"
 mkdir -p "$log_dir"
 
 apk="$dir/$apk_output"

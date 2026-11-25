@@ -31,7 +31,7 @@ platform_package() {
 	player_dir="$(dirname "$1")"
 	zip="$(operator_zip "$1")"
 	rm -f "$zip"
-	sed -n 's/^  defaultVal: //p' "$side_build_root/$PLATFORM_BUILD_TARGET/Assets/Anaglyph/Resources/BuildNumber.asset" > "$(stamped_number_file "$1")"
+	sed -n 's/^  defaultVal: //p' "$build_dir/Assets/Anaglyph/Resources/BuildNumber.asset" > "$(stamped_number_file "$1")"
 	( cd "$player_dir" && zip -qr "$zip" . -x '*_DoNotShip/*' '*_ButDontShipItWithYourGame/*' )
 }
 

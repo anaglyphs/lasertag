@@ -1,20 +1,25 @@
-# Sourced by the build scripts in Tools: batch Unity builds in worktrees beside this checkout, so the
-# open editor is untouched. Callers set project_dir and define fail().
+# Sourced by the build scripts in Tools: batch Unity builds in one worktree beside this checkout, so the
+# open editor is untouched. Every platform shares that worktree's Library, which keeps each build target's
+# imports side by side. Callers set project_dir and define fail().
 
-side_build_root="$(dirname "$project_dir")/lasertag_release"
+build_dir="$(dirname "$project_dir")/lasertag_build"
+build_logs_dir="$project_dir/Builds/Logs"
 
 unity_version="$(sed -n 's/^m_EditorVersion: //p' "$project_dir/ProjectSettings/ProjectVersion.txt")"
 unity_app="/Applications/Unity/Hub/Editor/$unity_version/Unity.app"
 [ -x "$unity_app/Contents/MacOS/Unity" ] || fail "Unity $unity_version is not installed at $unity_app"
 
-# prepare_worktree <dir> <commit> [library to clone on first use, default this checkout's]
-# A detached worktree at <commit> that keeps its own Library between builds. Prints the folder.
-prepare_worktree() {
-	local dir="$1" commit="$2" library_source="${3:-$project_dir/Library}"
+# prepare_build_worktree <commit>
+# Checks out <commit> in build_dir, a detached worktree that keeps its Library and Builds between builds.
+# Prints the folder.
+prepare_build_worktree() {
+	local dir="$build_dir" commit="$1"
+	pgrep -f -- "-projectPath $dir( |$)" >/dev/null && fail "Unity is already open on $dir"
 	if [ ! -e "$dir/.git" ]; then
+		git -C "$project_dir" worktree prune
 		git -C "$project_dir" worktree add --quiet --detach "$dir" "$commit"
-		echo "cloning $library_source into $dir" >&2
-		cp -Rc "$library_source" "$dir/Library"
+		echo "cloning $project_dir/Library into $dir" >&2
+		cp -Rc "$project_dir/Library" "$dir/Library"
 		rm -f "$dir/Library/EditorInstance.json" "$dir/Library/"*-lock
 		# Gradle's intermediates hold absolute paths into the source checkout; Unity regenerates them per build
 		rm -rf "$dir/Library/Bee/Android/Prj"
@@ -22,7 +27,6 @@ prepare_worktree() {
 		git -C "$dir" checkout --quiet --detach --force "$commit"
 		git -C "$dir" clean -fdq
 	fi
-	pgrep -f -- "-projectPath $dir( |$)" >/dev/null && fail "Unity is already open on $dir"
 	rm -f "$dir/Temp/UnityLockfile"
 	echo "$dir"
 }

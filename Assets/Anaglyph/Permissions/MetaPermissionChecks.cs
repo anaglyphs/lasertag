@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.XR.ARSubsystems;
 using UnityEngine.XR.Management;
 using UnityEngine.XR.OpenXR;
-#if !UNITY_IOS || UNITY_EDITOR
+#if !UNITY_IOS && !UNITY_STANDALONE_LINUX || UNITY_EDITOR
 using UnityEngine.XR.OpenXR.Features.Meta;
 #endif
 
@@ -163,7 +163,7 @@ namespace Anaglyph.Permissions
 			anchorSubsystems.Clear();
 			SubsystemManager.GetSubsystems(anchorSubsystems);
 
-#if !UNITY_IOS || UNITY_EDITOR
+#if !UNITY_IOS && !UNITY_STANDALONE_LINUX || UNITY_EDITOR
 			foreach (XRAnchorSubsystem subsystem in anchorSubsystems)
 			{
 				if (subsystem is not MetaOpenXRAnchorSubsystem metaSubsystem)
@@ -207,7 +207,7 @@ namespace Anaglyph.Permissions
 				return CapabilityConfiguration.Enabled;
 #endif
 
-#if !UNITY_IOS || UNITY_EDITOR
+#if !UNITY_IOS && !UNITY_STANDALONE_LINUX || UNITY_EDITOR
 			ARCameraFeature cameraFeature =
 				OpenXRSettings.Instance?.GetFeature<ARCameraFeature>();
 

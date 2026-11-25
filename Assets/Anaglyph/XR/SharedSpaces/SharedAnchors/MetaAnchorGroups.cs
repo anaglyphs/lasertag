@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
-#if !UNITY_IOS || UNITY_EDITOR
+#if !UNITY_IOS && !UNITY_STANDALONE_LINUX || UNITY_EDITOR
 using UnityEngine.XR.OpenXR.Features.Meta;
 #endif
 
@@ -15,7 +15,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 	public static class MetaAnchorGroups
 	{
 		public static Supported SharingSupport(XRAnchorSubsystem anchors) =>
-#if !UNITY_IOS || UNITY_EDITOR
+#if !UNITY_IOS && !UNITY_STANDALONE_LINUX || UNITY_EDITOR
 			anchors is MetaOpenXRAnchorSubsystem meta ? meta.isSharedAnchorsSupported : Supported.Unsupported;
 #else
 			Supported.Unsupported;
@@ -24,7 +24,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		/// <summary>Shares <paramref name="anchor"/> into <paramref name="group"/>.</summary>
 		public static async Awaitable<XRResultStatus> ShareAsync(ARAnchorManager manager, ARAnchor anchor, SerializableGuid group)
 		{
-#if !UNITY_IOS || UNITY_EDITOR
+#if !UNITY_IOS && !UNITY_STANDALONE_LINUX || UNITY_EDITOR
 			// the subsystem reads the group synchronously, before the share's Awaitable returns
 			if (manager.subsystem is MetaOpenXRAnchorSubsystem meta)
 			{
@@ -39,7 +39,7 @@ namespace Anaglyph.XR.SharedSpaces.SharedAnchors
 		/// <summary>Downloads every anchor shared into <paramref name="group"/>.</summary>
 		public static async Awaitable<XRResultStatus> LoadAllAsync(ARAnchorManager manager, SerializableGuid group, List<XRAnchor> into)
 		{
-#if !UNITY_IOS || UNITY_EDITOR
+#if !UNITY_IOS && !UNITY_STANDALONE_LINUX || UNITY_EDITOR
 			if (manager.subsystem is MetaOpenXRAnchorSubsystem meta)
 			{
 				meta.sharedAnchorsGroupId = group;

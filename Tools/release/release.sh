@@ -1,7 +1,7 @@
 #!/bin/bash
 # Builds the committed HEAD for each platform in platforms/<name>.sh and uploads it to that platform's
 # test channel. All platforms share one build number, tagged release/<number>.
-# Builds run in batch Unity inside ../lasertag_release/<Unity build target> (see Tools/lib/unity-batch.sh).
+# Builds run in batch Unity inside ../lasertag_build (see Tools/lib/unity-batch.sh).
 #
 # Usage: Tools/release/release.sh [--dry-run] [platform...]     (RELEASE_DEFAULT_PLATFORMS when none given)
 #   --dry-run   check credentials and print the build number and notes, without building or uploading
@@ -71,7 +71,7 @@ git -C "$project_dir" cat-file -e "$commit:Assets/Anaglyph/Editor/ProfileBuild.c
 	|| fail "the build code isn't committed yet (Assets/Anaglyph/Editor/ProfileBuild.cs)"
 
 source "$project_dir/Tools/lib/unity-batch.sh"
-log_dir="$side_build_root/logs/$(date +%Y%m%d-%H%M%S)"
+log_dir="$build_logs_dir/release-$(date +%Y%m%d-%H%M%S)"
 
 # each platform runs in its own subshell, so platform files can't see each other's settings
 in_platform() { local platform="$1"; shift; ( source "$release_dir/platforms/$platform.sh"; "$@" ); }
@@ -98,11 +98,11 @@ if $dry_run; then
 fi
 mkdir -p "$log_dir"
 
-artifact_path() { echo "$side_build_root/$PLATFORM_BUILD_TARGET/$PLATFORM_OUTPUT"; }
+artifact_path() { echo "$build_dir/$PLATFORM_OUTPUT"; }
 
 build_platform() {
 	local platform="$1" dir artifact log built build_stamp
-	dir="$(prepare_worktree "$side_build_root/$PLATFORM_BUILD_TARGET" "$commit")"
+	dir="$(prepare_build_worktree "$commit")"
 	artifact="$(artifact_path)"
 	log="$log_dir/$platform-unity.log"
 	build_stamp="$dir/Builds/Release/$platform.built-from"

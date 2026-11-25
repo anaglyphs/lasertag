@@ -1,6 +1,6 @@
 #!/bin/bash
 # Builds this working tree (uncommitted and new files included) as an iOS development build and runs it
-# on an iPhone: batch Unity in ../lasertag_release/iOS-dev, then Xcode, then install and launch.
+# on an iPhone: batch Unity in ../lasertag_build, then Xcode, then install and launch.
 # Your open editor is untouched.
 #
 # Usage: Tools/ios-device.sh [device name or UDID]      (the first connected iPhone when none given)
@@ -16,8 +16,7 @@ source "$project_dir/Tools/lib/unity-batch.sh"
 
 profile="Assets/Settings/Build Profiles/iOS.asset"
 xcode_output="Builds/Dev/iOS"
-dir="$side_build_root/iOS-dev"
-log_dir="$side_build_root/logs/ios-dev-$(date +%Y%m%d-%H%M%S)"
+log_dir="$build_logs_dir/ios-dev-$(date +%Y%m%d-%H%M%S)"
 
 [ -n "$APPLE_TEAM_ID" ] || fail "set APPLE_TEAM_ID in Tools/release/release.config"
 
@@ -41,10 +40,7 @@ echo "ios-device: building for $device_name ($udid)"
 
 snapshot="$(working_tree_snapshot)"
 tree="$(git -C "$project_dir" rev-parse "$snapshot^{tree}")"
-# the release iOS folder's Library is already imported for iOS, so the first build here starts warm
-library_source="$side_build_root/iOS/Library"
-[ -d "$library_source" ] || library_source="$project_dir/Library"
-prepare_worktree "$dir" "$snapshot" "$library_source" >/dev/null
+dir="$(prepare_build_worktree "$snapshot")"
 mkdir -p "$log_dir"
 
 xcode_dir="$dir/$xcode_output"
