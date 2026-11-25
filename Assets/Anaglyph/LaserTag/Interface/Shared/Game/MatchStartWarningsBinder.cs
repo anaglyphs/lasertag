@@ -19,6 +19,7 @@ namespace Anaglyph.LaserTag.Interface
 		private readonly NavPage page;
 		private readonly Label missingBasesWarning;
 		private readonly Label missingFlagsWarning;
+		private readonly Label missingBothTeamFlagsWarning;
 		private readonly UIEventBindings bindings = new();
 
 		/// <param name="editMap">Opens map editing. The page offers no edit button without it.</param>
@@ -28,6 +29,7 @@ namespace Anaglyph.LaserTag.Interface
 			page = matchNavigation.GetPage(PageName);
 			missingBasesWarning = Require<Label>(page, "missing-bases-warning");
 			missingFlagsWarning = Require<Label>(page, "missing-flags-warning");
+			missingBothTeamFlagsWarning = Require<Label>(page, "missing-both-team-flags-warning");
 
 			Button editMapButton = Require<Button>(page, "match-warnings-edit-map-button");
 			SetShown(editMapButton, editMap != null);
@@ -46,11 +48,15 @@ namespace Anaglyph.LaserTag.Interface
 		public bool PresentWarningsFor(MatchSettings settings)
 		{
 			bool missingBases = !MapRequirements.HasBothTeamBases;
-			bool missingFlags = settings.pointsPerFlagCapture > 0 && !MapRequirements.HasAnyFlag;
+			bool flagCapturesEarnPoints = settings.pointsPerFlagCapture > 0;
+			bool oneTeamsFlagsAreEnough = MapRequirements.OneTeamsFlagsAreEnoughFor(settings);
+			bool missingFlags = flagCapturesEarnPoints && oneTeamsFlagsAreEnough && !MapRequirements.HasAnyFlag;
+			bool missingBothTeamFlags = flagCapturesEarnPoints && !oneTeamsFlagsAreEnough && !MapRequirements.HasBothTeamFlags;
 			SetShown(missingBasesWarning, missingBases);
 			SetShown(missingFlagsWarning, missingFlags);
+			SetShown(missingBothTeamFlagsWarning, missingBothTeamFlags);
 
-			bool anyWarnings = missingBases || missingFlags;
+			bool anyWarnings = missingBases || missingFlags || missingBothTeamFlags;
 			matchNavigation.SetModalPresented(page, anyWarnings, ModalPriority);
 			return anyWarnings;
 		}

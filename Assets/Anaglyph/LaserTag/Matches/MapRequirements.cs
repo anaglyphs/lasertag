@@ -23,6 +23,48 @@ namespace Anaglyph.LaserTag.Matches
 			}
 		}
 
-		public static bool HasAnyFlag => Object.FindAnyObjectByType<Flag>() != null;
+		public static bool HasAnyFlag
+		{
+			get
+			{
+				FindTeamsWithFlags(out bool hasRed, out bool hasBlue);
+				return hasRed || hasBlue;
+			}
+		}
+
+		public static bool HasBothTeamFlags
+		{
+			get
+			{
+				FindTeamsWithFlags(out bool hasRed, out bool hasBlue);
+				return hasRed && hasBlue;
+			}
+		}
+
+		/// <summary>The team whose flags are the only ones in the map. Zero when both or neither team has one.</summary>
+		public static byte TeamDefendingTheOnlyFlags
+		{
+			get
+			{
+				FindTeamsWithFlags(out bool hasRed, out bool hasBlue);
+				if (hasRed == hasBlue) return 0;
+				return hasRed ? Teams.Red : Teams.Blue;
+			}
+		}
+
+		/// <summary>Whether these settings can be played with one team's flags, the other team only defending.</summary>
+		public static bool OneTeamsFlagsAreEnoughFor(MatchSettings settings) =>
+			settings.respawnCondition == RespawnCondition.NextRound;
+
+		private static void FindTeamsWithFlags(out bool hasRed, out bool hasBlue)
+		{
+			hasRed = false;
+			hasBlue = false;
+			foreach (Flag flag in Object.FindObjectsByType<Flag>())
+			{
+				hasRed |= flag.Team == Teams.Red;
+				hasBlue |= flag.Team == Teams.Blue;
+			}
+		}
 	}
 }

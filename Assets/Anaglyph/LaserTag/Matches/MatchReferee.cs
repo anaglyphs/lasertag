@@ -380,7 +380,17 @@ namespace Anaglyph.LaserTag.Matches
 			return false; // only one team in the match; nobody to eliminate
 		}
 
-		// Timer-expiry rounds go to the leading team; ties are a draw.
+		// A timed-out round goes to the leading team. Without a leader, a team that
+		// only had to defend its flags has held them and wins; otherwise it is a draw.
+		private static byte GetTimeoutWinner()
+		{
+			byte leader = GetRoundLeader();
+			if (leader != 0 || Settings.pointsPerFlagCapture == 0) return leader;
+
+			return MapRequirements.TeamDefendingTheOnlyFlags;
+		}
+
+		// Zero when the top score is shared.
 		private static byte GetRoundLeader()
 		{
 			byte leader = 0;
@@ -596,7 +606,7 @@ namespace Anaglyph.LaserTag.Matches
 
 								if (SyncBus.IsAuthority && timeLeft <= 0)
 								{
-									EndRound(GetRoundLeader());
+									EndRound(GetTimeoutWinner());
 									break;
 								}
 							}

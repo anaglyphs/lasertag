@@ -16,6 +16,11 @@
                 <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="flags.required-instructions"/>
             </Bindings>
         </ui:Label>
+        <ui:Label name="missing-both-team-flags-warning" class="body-copy">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="flags.both-teams-required-instructions"/>
+            </Bindings>
+        </ui:Label>
         <ui:Button name="match-warnings-edit-map-button">
             <Bindings>
                 <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="bases.edit-map"/>

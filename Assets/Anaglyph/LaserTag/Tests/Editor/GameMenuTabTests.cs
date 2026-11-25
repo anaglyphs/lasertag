@@ -286,10 +286,58 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(Shown("missing-bases-warning"), Is.False);
 			Assert.That(Shown("missing-flags-warning"), Is.True);
 
-			AddFlag();
+			AddFlag(Teams.Red);
 			Assert.That(MapRequirements.HasAnyFlag, Is.True);
 			Call("StartMatchUnlessWarned");
 			Assert.That(match.CurrentPage.name, Is.EqualTo("match-page"));
+		}
+
+		[Test]
+		public void OneTeamsFlagStartsOnlyWithNextRoundRespawn()
+		{
+			const int nextRound = 0, atBase = 1;
+			AddBase(Teams.Red);
+			AddBase(Teams.Blue);
+			AddFlag(Teams.Red);
+			Call("SelectTab", GameMenu.Tab.Match);
+			root.Q<DetentField>("points-field").value = 1;
+			var respawn = root.Q<DetentField>("respawn-field");
+
+			respawn.value = atBase;
+			Call("StartMatchUnlessWarned");
+			Assert.That(match.CurrentPage.name, Is.EqualTo(MatchStartWarningsBinder.PageName));
+			Assert.That(Shown("missing-flags-warning"), Is.False);
+			Assert.That(Shown("missing-both-team-flags-warning"), Is.True);
+			match.GoBack();
+
+			respawn.value = nextRound;
+			Call("StartMatchUnlessWarned");
+			Assert.That(match.CurrentPage.name, Is.EqualTo("match-page"));
+
+			respawn.value = atBase;
+			AddFlag(Teams.Blue);
+			Call("StartMatchUnlessWarned");
+			Assert.That(match.CurrentPage.name, Is.EqualTo("match-page"));
+		}
+
+		[Test]
+		public void TimedOutRoundWithoutALeaderGoesToTheTeamDefendingTheOnlyFlags()
+		{
+			MatchSettings flagCaptures = MatchSettings.DemoGame();
+			flagCaptures.pointsPerKill = 0;
+			flagCaptures.pointsPerFlagCapture = 1;
+			MatchSettings kills = MatchSettings.DemoGame();
+
+			Assert.That(TimeoutWinner(flagCaptures), Is.EqualTo(0), "No flags: draw.");
+
+			AddFlag(Teams.Blue);
+			Assert.That(MapRequirements.TeamDefendingTheOnlyFlags, Is.EqualTo(Teams.Blue));
+			Assert.That(TimeoutWinner(flagCaptures), Is.EqualTo(Teams.Blue));
+			Assert.That(TimeoutWinner(kills), Is.EqualTo(0), "Flags decide nothing when kills earn the points.");
+
+			AddFlag(Teams.Red);
+			Assert.That(MapRequirements.TeamDefendingTheOnlyFlags, Is.EqualTo(0));
+			Assert.That(TimeoutWinner(flagCaptures), Is.EqualTo(0), "Both teams attack: draw.");
 		}
 
 		[Test]
@@ -425,14 +473,34 @@ namespace Anaglyph.LaserTag.Tests
 			return homeBase;
 		}
 
-		private void AddFlag()
+		private void AddFlag(byte team)
 		{
 			var flagObject = new GameObject("Flag test");
 			flagObject.SetActive(false);
 			flagObject.AddComponent<NetworkObject>();
-			flagObject.AddComponent<TeamFlag>();
+			var teamOwner = flagObject.AddComponent<TeamOwner>();
+			var flag = flagObject.AddComponent<TeamFlag>();
+			typeof(TeamFlag).GetField("teamOwner", Private).SetValue(flag, teamOwner);
+			typeof(NetworkVariable<byte>).GetField("m_InternalValue", Private).SetValue(teamOwner.teamSync, team);
 			flagObject.SetActive(true);
 			flags.Add(flagObject);
+		}
+
+		private static byte TimeoutWinner(MatchSettings settings)
+		{
+			const BindingFlags privateStatic = BindingFlags.Static | BindingFlags.NonPublic;
+			object settingsSync = typeof(MatchReferee).GetField("settingsSync", privateStatic).GetValue(null);
+			FieldInfo current = settingsSync.GetType().GetField("current", Private);
+			object previous = current.GetValue(settingsSync);
+			current.SetValue(settingsSync, settings);
+			try
+			{
+				return (byte)typeof(MatchReferee).GetMethod("GetTimeoutWinner", privateStatic).Invoke(null, null);
+			}
+			finally
+			{
+				current.SetValue(settingsSync, previous);
+			}
 		}
 
 		private bool Shown(string elementName) =>
