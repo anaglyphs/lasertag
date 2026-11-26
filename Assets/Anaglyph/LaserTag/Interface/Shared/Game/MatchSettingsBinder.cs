@@ -86,7 +86,11 @@ namespace Anaglyph.LaserTag.Interface
 			SetRespawnCondition(respawnField.value);
 
 			bindings.Value(pointsField, change => SetPoints(change.newValue));
-			bindings.Value(endField, change => SetEnd(change.newValue));
+			bindings.Value(endField, change =>
+			{
+				SetEnd(change.newValue);
+				PressClickable.Flash(change.newValue == EndTimedChoice ? roundTimeField : scoreTargetField);
+			});
 			bindings.Value(roundTimeField, change => SetRoundMinutes(change.newValue));
 			bindings.Value(scoreTargetField, change => SetScoreTarget(change.newValue));
 			bindings.Value(roundsField, change => SetRounds(change.newValue));
