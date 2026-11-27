@@ -1,4 +1,5 @@
-# Meta Quest: Release profile APK to the Meta release channel in release.config.
+# Meta Quest: Release profile APK to the Meta release channel in release.config, and attached to the
+# GitHub release as Lasertag-Quest-<number>.apk.
 # A platform file sets PLATFORM_PROFILE, PLATFORM_BUILD_TARGET (Unity -buildTarget) and PLATFORM_OUTPUT
 # (relative to the project), and defines:
 #   platform_preflight                       fail early on missing credentials
@@ -9,11 +10,13 @@
 PLATFORM_PROFILE="Assets/Settings/Build Profiles/Release.asset"
 PLATFORM_BUILD_TARGET=Android
 PLATFORM_OUTPUT="Builds/Release/Quest/Lasertag.apk"
+source "$release_dir/lib/github-release.sh"
 
 platform_preflight() {
 	[ -n "$META_APP_ID" ] || fail "set META_APP_ID in Tools/release/release.config"
 	metavr auth status 2>&1 | grep -qi "not authenticated" && fail "run 'metavr auth login' first"
 	require_android_keystore_passwords
+	require_github_release_access
 }
 
 # Meta lists only each channel's current build, so the profile's own code covers builds since replaced
@@ -26,6 +29,11 @@ platform_highest_store_build_number() {
 
 platform_built_number() { android_version_code "$1"; }
 
+# GitHub first: it replaces its asset on a rerun, while Meta refuses a version code it already has
 platform_upload() {
+	local github_apk
+	github_apk="$(dirname "$1")/Lasertag-Quest-$build_number.apk"
+	cp "$1" "$github_apk"
+	attach_to_github_release "$github_apk" "$2"
 	metavr store dist upload --app-id "$META_APP_ID" --channel "$META_CHANNEL" --apk "$1" --notes="$2" --publish
 }
