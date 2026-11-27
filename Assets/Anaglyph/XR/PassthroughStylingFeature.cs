@@ -83,6 +83,7 @@ namespace Anaglyph.XR
 		private static XrDestroyPassthroughColorLutDelegate destroyColorLut;
 
 		private static float opacity = 1f;
+		private static float brightness = 1f;
 		private static Color passthroughTint = Color.white;
 		private static float passthroughTintAmount;
 		private static Color edgeTint = Color.clear;
@@ -169,6 +170,19 @@ namespace Anaglyph.XR
 				new Vector4(passthroughTint.r, passthroughTint.g, passthroughTint.b, passthroughTintAmount));
 			Shader.SetGlobalVector(PassthroughEdgeColorId,
 				new Vector4(edgeTint.r, edgeTint.g, edgeTint.b, edgeTint.a));
+		}
+
+		/// <summary>
+		/// Darkens passthrough on top of whatever style is set: zero is black, one leaves it as styled.
+		/// It is kept apart from the style, so setting or clearing the style does not undo it.
+		/// </summary>
+		public static bool SetBrightness(float newBrightness)
+		{
+			lock (sync)
+			{
+				brightness = Mathf.Clamp01(newBrightness);
+				return ApplyStyleToAllLayers();
+			}
 		}
 
 		/// <summary>Restores unmodified, fully opaque passthrough with no edges.</summary>
@@ -356,7 +370,7 @@ namespace Anaglyph.XR
 			{
 				type = PassthroughStyleType,
 				next = IntPtr.Zero,
-				textureOpacityFactor = opacity,
+				textureOpacityFactor = opacity * brightness,
 				edgeColor = new XrColor(edgeTint),
 			};
 

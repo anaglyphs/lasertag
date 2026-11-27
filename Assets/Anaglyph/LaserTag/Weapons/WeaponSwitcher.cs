@@ -17,8 +17,10 @@ namespace Anaglyph.LaserTag.Weapons
 
 		private readonly Dictionary<Handedness, GameObject> selected = new();
 
-		/// <summary>False while weapons are put away, e.g. for the map editor.</summary>
-		public bool WeaponsActive { get; private set; } = true;
+		private readonly HashSet<object> weaponsPutAwayBy = new();
+
+		/// <summary>False while anything has weapons put away, e.g. the map editor or an open menu.</summary>
+		public bool WeaponsActive => weaponsPutAwayBy.Count == 0;
 
 		private void Awake()
 		{
@@ -52,9 +54,11 @@ namespace Anaglyph.LaserTag.Weapons
 			selected[handedness] = prefab;
 		}
 
-		public void SetWeaponsActive(bool active)
+		/// <summary>Weapons stay put away until every requester that put them away lets go.</summary>
+		public void SetWeaponsPutAway(object requester, bool putAway)
 		{
-			WeaponsActive = active;
+			if (putAway) weaponsPutAwayBy.Add(requester);
+			else weaponsPutAwayBy.Remove(requester);
 		}
 	}
 }

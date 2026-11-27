@@ -80,15 +80,21 @@ echo "release: checking credentials for ${platforms[*]}"
 # every credential is checked before the first long build
 for platform in "${platforms[@]}"; do in_platform "$platform" platform_preflight; done
 
-highest="$(git -C "$project_dir" tag -l 'release/*' | sed -n 's#^release/\([0-9][0-9]*\)$#\1#p' | sort -n | tail -1)"
-highest="${highest:-0}"
-for platform in "${platforms[@]}"; do
-	store_highest="$(in_platform "$platform" platform_highest_store_build_number)" || fail "couldn't read $platform's store build numbers"
-	if [ "${store_highest:-0}" -gt "$highest" ]; then highest="$store_highest"; fi
-done
-build_number=$(( highest + 1 ))
+release_numbers() { sed -n 's#^release/\([0-9][0-9]*\)$#\1#p' | sort -n; }
 
-previous_release="$(git -C "$project_dir" tag -l 'release/*' --sort=-v:refname | head -1)"
+# a commit already tagged by a partly uploaded release keeps its number, so a rerun reuses its builds
+build_number="$(git -C "$project_dir" tag -l 'release/*' --points-at "$commit" | release_numbers | tail -1)"
+if [ -z "$build_number" ]; then
+	highest="$(git -C "$project_dir" tag -l 'release/*' | release_numbers | tail -1)"
+	highest="${highest:-0}"
+	for platform in "${platforms[@]}"; do
+		store_highest="$(in_platform "$platform" platform_highest_store_build_number)" || fail "couldn't read $platform's store build numbers"
+		if [ "${store_highest:-0}" -gt "$highest" ]; then highest="$store_highest"; fi
+	done
+	build_number=$(( highest + 1 ))
+fi
+
+previous_release="$(git -C "$project_dir" tag -l 'release/*' --no-contains "$commit" --sort=-v:refname | head -1)"
 notes="$(git -C "$project_dir" log --format='• %s' --no-merges -20 "${previous_release:+$previous_release..}$commit")"
 
 echo "release: $(git -C "$project_dir" log -1 --format='%h %s' "$commit") as build $build_number to ${platforms[*]}"

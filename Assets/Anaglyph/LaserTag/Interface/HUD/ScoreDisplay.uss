@@ -48,6 +48,16 @@
     background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/hourglass.svg?fileID=7388822144124034973&guid=d076fd1c710a34cfdaf4b1a4108a24ed&type=3#hourglass");
 }
 
+/* Animated graphics drawn over each mode's background, in its SVG's coordinates */
+.score-display__mode-graphic {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    --sand-color: rgb(255, 255, 255);
+}
+
 /* Score goal: scores sit on the mountain's two slopes */
 
 .score-display__goal-score {

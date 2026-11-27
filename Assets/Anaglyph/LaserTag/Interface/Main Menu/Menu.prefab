@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 3265400383502883182}
   - component: {fileID: 7168057922247978476}
   - component: {fileID: 7301948502376401123}
+  - component: {fileID: 178525795781077424}
   m_Layer: 5
   m_Name: Menu
   m_TagString: Untagged
@@ -144,6 +145,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.HeadsetConfiguration
   role: 0
+--- !u!114 &178525795781077424
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 344261913376298918}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 70e059378e3064e469b06ada2640f55b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.Interface.MenuOpenPresentation
+  passthroughBrightnessWhileOpen: 0.35
+  passthroughFadeSeconds: 0.2
 --- !u!1 &1493847234382081523
 GameObject:
   m_ObjectHideFlags: 0

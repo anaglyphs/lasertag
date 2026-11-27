@@ -42,7 +42,7 @@ namespace Anaglyph.LaserTag.MapEditor
 				Maps.SpaceManager.Instance?.Save();
 			}
 
-			WeaponSwitcher.Instance?.SetWeaponsActive(!IsActive);
+			WeaponSwitcher.Instance?.SetWeaponsPutAway(nameof(MapEditor), IsActive);
 
 			ActiveChanged.Invoke(active);
 		}

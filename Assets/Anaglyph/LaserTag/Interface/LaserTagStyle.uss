@@ -13,11 +13,8 @@
     --panel-border-width: 2px;
     --scrollbar-size: 24px;
     --scrollbar-button-clearance: 28px;
-    --panel-frame-padding: 12px;
-    /* The frame line's inner edge, and how far that sits outside the panel padding */
-    --panel-frame-inset: 8px;
-    --panel-frame-gap: 4px;
-    --panel-frame-gap-negative: -4px;
+    --panel-padding: 12px;
+    --panel-padding-negative: -12px;
     --header-button-size: 38px;
     --font-nav-title: url("project://database/Assets/Resources/Fonts/DINishCondensed-Light.ttf?fileID=12800000&guid=67a02d15b790b4aa98aa67d81f08ef7c&type=3#DINishCondensed-Light");
     --highlight: rgb(255, 255, 255);
@@ -48,13 +45,9 @@
     background-color: var(--secondary);
     color: rgb(255, 255, 255);
     font-size: var(--font-size-body, 20px);
-    padding: var(--panel-frame-padding, 12px);
-    background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/panel-frame.svg");
-    -unity-background-image-tint-color: var(--primary);
-    -unity-slice-left: 12;
-    -unity-slice-right: 12;
-    -unity-slice-top: 12;
-    -unity-slice-bottom: 12;
+    padding: var(--panel-padding, 12px);
+    border-width: var(--panel-border-width, 2px);
+    border-color: var(--primary);
 }
 
 .multiplayer-panel {
@@ -183,32 +176,33 @@ RadioButton #unity-checkmark {
     justify-content: flex-start;
 }
 
-/* A panel's navigation reaches out to the frame line, so the headers it clips while paging
-   stay flush; its pages pad their content back in */
+/* A panel's navigation fills the whole panel; its pages pad their content back in */
 .menu-root > .nav-view {
-    margin-top: var(--panel-frame-gap-negative);
-    margin-left: var(--panel-frame-gap-negative);
-    margin-right: var(--panel-frame-gap-negative);
+    margin-top: var(--panel-padding-negative);
+    margin-left: var(--panel-padding-negative);
+    margin-right: var(--panel-padding-negative);
+    margin-bottom: var(--panel-padding-negative);
 }
 
 .menu-root > .nav-view .page-template-root {
-    padding-left: var(--panel-frame-gap);
-    padding-right: var(--panel-frame-gap);
+    padding-left: var(--panel-padding);
+    padding-right: var(--panel-padding);
+    padding-bottom: var(--panel-padding);
 }
 
 .menu-root > .nav-view .nav-header {
     margin-top: 0;
 }
 
-/* Solid bar flush with the panel's frame line */
+/* Solid bar flush with the panel's edges */
 .nav-header {
     flex-direction: row;
     align-items: center;
     flex-shrink: 0;
     height: var(--control-min-height, 46px);
-    margin-top: var(--panel-frame-gap-negative);
-    margin-left: var(--panel-frame-gap-negative);
-    margin-right: var(--panel-frame-gap-negative);
+    margin-top: var(--panel-padding-negative);
+    margin-left: var(--panel-padding-negative);
+    margin-right: var(--panel-padding-negative);
     margin-bottom: var(--spacing-large, 12px);
     padding-left: var(--spacing-small, 4px);
     padding-right: var(--spacing-medium, 8px);

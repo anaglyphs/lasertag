@@ -1,6 +1,4 @@
-/* color is the dotted path color */
 .host-mode-diagram {
-    color: var(--primary);
     align-items: center;
     flex-shrink: 0;
     margin-top: auto;
@@ -74,10 +72,11 @@
 /* bottom centers the headsets on the lowest tile */
 .host-mode-headset {
     position: absolute;
-    bottom: 19px;
-    width: 30px;
-    height: 30px;
-    background-color: white;
+    bottom: 16px;
+    width: 36px;
+    height: 36px;
+    background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/Connection/person.svg");
+    background-size: contain;
 }
 
 .host-mode-headset--left { left: var(--spacing-large, 12px); }

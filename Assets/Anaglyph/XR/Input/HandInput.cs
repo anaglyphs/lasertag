@@ -6,6 +6,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 using UnityEngine.XR;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
+using UnityEngine.XR.Interaction.Toolkit.Interactors.Visuals;
 
 namespace Anaglyph.XR.Input
 {
@@ -103,17 +104,44 @@ namespace Anaglyph.XR.Input
 		public static event Action<HandInput> Registered = delegate { };
 		public event Action<bool> IsTrackingChanged = delegate { };
 
+		private static bool raysShownWithoutTarget;
+		private XRInteractorLineVisual rayLine;
+		private Gradient rayGradientWithoutTarget;
+
+		/// <summary>Every hand's ray draws even when it points at nothing it can interact with.</summary>
+		public static bool RaysShownWithoutTarget
+		{
+			get => raysShownWithoutTarget;
+			set
+			{
+				raysShownWithoutTarget = value;
+				foreach (HandInput hand in hands.Values)
+					if (hand != null) hand.ApplyRayGradientWithoutTarget();
+			}
+		}
+
+		private void ApplyRayGradientWithoutTarget()
+		{
+			if (rayLine != null)
+				rayLine.invalidColorGradient = raysShownWithoutTarget ? rayLine.validColorGradient : rayGradientWithoutTarget;
+		}
+
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
 		private static void ResetStatics()
 		{
 			hands.Clear();
 			FollowedCamera = null;
+			raysShownWithoutTarget = false;
 			Registered = delegate { };
 		}
 
 		private void Awake()
 		{
 			hands[handedness] = this;
+
+			rayLine = interactor != null ? interactor.GetComponent<XRInteractorLineVisual>() : null;
+			if (rayLine != null) rayGradientWithoutTarget = rayLine.invalidColorGradient;
+			ApplyRayGradientWithoutTarget();
 			
 			trackingState.action.performed += OnTrackingStateChanged;
 		}

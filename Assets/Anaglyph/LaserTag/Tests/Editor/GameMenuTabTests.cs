@@ -210,8 +210,8 @@ namespace Anaglyph.LaserTag.Tests
 			var panel = root.Q("game-menu-panel");
 			var tabs = root.Q("game-menu-tabs");
 			Assert.That(panel.layout.size, Is.EqualTo(new Vector2(400, 400)));
-			Assert.That(tabs.worldBound.yMin, Is.EqualTo(panel.worldBound.yMin + 8).Within(.1f));
-			Assert.That(root.Q<Button>("maps-tab").worldBound.xMin, Is.EqualTo(panel.worldBound.xMin + 8).Within(.1f));
+			Assert.That(tabs.worldBound.yMin, Is.EqualTo(panel.worldBound.yMin + panel.resolvedStyle.borderTopWidth).Within(.1f));
+			Assert.That(root.Q<Button>("maps-tab").worldBound.xMin, Is.EqualTo(panel.worldBound.xMin + panel.resolvedStyle.borderLeftWidth).Within(.1f));
 			Assert.That(tabs.layout.height, Is.EqualTo(46));
 			Assert.That(tabs.style.display.value, Is.EqualTo(DisplayStyle.Flex));
 			maps.GoToPage("manage-maps-page");

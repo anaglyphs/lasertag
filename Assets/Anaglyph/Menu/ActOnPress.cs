@@ -11,6 +11,7 @@ namespace Anaglyph.Menu
 	public class PressClickable : Clickable
 	{
 		public static readonly string flashUssClassName = "press-flash";
+		public static readonly string noFlashUssClassName = "no-press-flash";
 		private const int FlashIntervalMs = 50;
 		// on, off, on, off
 		private const int FlashSteps = 4;
@@ -36,7 +37,7 @@ namespace Anaglyph.Menu
 
 		private void FlashTarget()
 		{
-			if (target != null)
+			if (target != null && !target.ClassListContains(noFlashUssClassName))
 				Flash(target);
 		}
 

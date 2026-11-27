@@ -19,13 +19,13 @@
     flex-shrink: 0;
 }
 
-/* Over each menu's home page, in the header's place, flush with the frame line.
+/* Over each menu's home page, in the header's place, flush with the panel's edges.
    The negative margins take back the outer tabs' half gaps. */
 .game-menu-tabs--in-panel {
     position: absolute;
-    top: var(--panel-frame-inset);
-    left: var(--panel-frame-inset);
-    right: var(--panel-frame-inset);
+    top: 0;
+    left: 0;
+    right: 0;
     margin-left: -2px;
     margin-right: -2px;
 }

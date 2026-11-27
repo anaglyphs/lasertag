@@ -31,12 +31,15 @@ namespace Anaglyph.LaserTag.Interface.HUD
 		public static readonly string timerScoreUssClassName = "score-display__timer-score";
 		public static readonly string timerLabelUssClassName = "score-display__timer-label";
 		public static readonly string roundUssClassName = "score-display__round";
+		public static readonly string modeGraphicUssClassName = "score-display__mode-graphic";
 		public static readonly string redModifierSuffix = "--red";
 		public static readonly string blueModifierSuffix = "--blue";
 
 		private readonly VisualElement content = new();
 		private readonly VisualElement scoreMode = new();
 		private readonly VisualElement timerMode = new();
+		private readonly MountainClimb mountainClimb = new();
+		private readonly HourglassSand hourglassSand = new();
 
 		private readonly Label goalTargetLabel = new();
 		private readonly Label timerLabel = new();
@@ -90,6 +93,9 @@ namespace Anaglyph.LaserTag.Interface.HUD
 			scoreMode.AddToClassList(scoreModeUssClassName);
 			scoreMode.pickingMode = PickingMode.Ignore;
 
+			mountainClimb.AddToClassList(modeGraphicUssClassName);
+			scoreMode.Add(mountainClimb);
+
 			goalScores[Teams.Red] = AddTeamLabel(scoreMode, goalScoreUssClassName, Teams.Red);
 			goalScores[Teams.Blue] = AddTeamLabel(scoreMode, goalScoreUssClassName, Teams.Blue);
 
@@ -101,6 +107,9 @@ namespace Anaglyph.LaserTag.Interface.HUD
 			timerMode.AddToClassList(modeUssClassName);
 			timerMode.AddToClassList(timerModeUssClassName);
 			timerMode.pickingMode = PickingMode.Ignore;
+
+			hourglassSand.AddToClassList(modeGraphicUssClassName);
+			timerMode.Add(hourglassSand);
 
 			timerScores[Teams.Red] = AddTeamLabel(timerMode, timerScoreUssClassName, Teams.Red);
 			timerScores[Teams.Blue] = AddTeamLabel(timerMode, timerScoreUssClassName, Teams.Blue);
@@ -179,6 +188,8 @@ namespace Anaglyph.LaserTag.Interface.HUD
 
 			if (showTimer)
 			{
+				hourglassSand.SetElapsedFraction(GetRoundTimeElapsedFraction(settings));
+
 				for (byte team = Teams.Red; team < Teams.NumTeams; team++)
 					SetInt(timerScores[team], ref shownTimerScores[team],
 						MatchReferee.GetTeamScore(team));
@@ -189,11 +200,24 @@ namespace Anaglyph.LaserTag.Interface.HUD
 				SetInt(goalTargetLabel, ref shownScoreTarget, settings.scoreTarget);
 
 				for (byte team = Teams.Red; team < Teams.NumTeams; team++)
-					SetInt(goalScores[team], ref shownGoalScores[team],
-						MatchReferee.GetTeamScore(team));
+				{
+					int score = MatchReferee.GetTeamScore(team);
+					SetInt(goalScores[team], ref shownGoalScores[team], score);
+
+					mountainClimb.AnimateTowardProgress(team,
+						settings.scoreTarget > 0 ? (float)score / settings.scoreTarget : 0f);
+				}
 			}
 
 			RefreshRoundLabel(playing, settings.GetNumRounds());
+		}
+
+		private static float GetRoundTimeElapsedFraction(MatchSettings settings)
+		{
+			MatchReferee referee = MatchReferee.Instance;
+			if (referee == null || settings.roundTimeSeconds <= 0) return 0f;
+
+			return 1f - referee.GetTimeLeft() / settings.roundTimeSeconds;
 		}
 
 		private void RefreshRoundLabel(bool playing, int numRounds)

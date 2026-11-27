@@ -11,7 +11,7 @@ namespace Anaglyph.LaserTag.Interface
 {
 	/// <summary>
 	/// Three tiles choosing how this headset hosts, stacked by how far the connection travels: a path
-	/// joins the two headsets through each tile. A tile the device's network can't use is outlined, and
+	/// joins the two headsets through the selected tile. A tile the device's network can't use is outlined, and
 	/// tapping it raises an alert saying why. The saved choice is kept while unusable, and hosting falls
 	/// back to the next usable mode.
 	/// </summary>
@@ -21,11 +21,9 @@ namespace Anaglyph.LaserTag.Interface
 		private const string WifiOffReasonKey = "host-mode.blocked.wifi-off";
 		private const string BluetoothOffReasonKey = "host-mode.blocked.bluetooth";
 		private static readonly Protocol[] FallbackOrder = { Protocol.LAN, Protocol.Direct, Protocol.UnityService };
-		private static readonly Protocol[] ShortestPathFirst = { Protocol.Direct, Protocol.LAN, Protocol.UnityService };
-		private const float SelectedPathWidth = 6;
-		private const float UnselectedPathWidth = 2;
-		private const float DashLength = 5;
-		private const float PathCornerCut = 20;
+		private const float PathWidth = 6;
+		private const float GapBetweenRelayPathAndPerson = 6;
+		private const float RelayPathCornerCut = 20;
 
 		private readonly IntObject savedMode;
 		private readonly Label about;
@@ -123,88 +121,46 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void DrawPaths(MeshGenerationContext context)
 		{
-			Painter2D painter = context.painter2D;
-			painter.lineJoin = LineJoin.Miter;
+			if (SelectedMode is not { } selected || !cards.TryGetValue(selected, out Button card)) return;
+
 			Rect left = leftHeadset.layout;
 			Rect right = rightHeadset.layout;
+			float tileY = card.layout.center.y;
 
-			foreach (bool drawingSelected in new[] { false, true })
+			Vector2[] path;
+			if (selected == Protocol.UnityService)
 			{
-				int pathsBelow = 0;
-				foreach (Protocol mode in ShortestPathFirst)
+				float pathEndY = left.yMin - GapBetweenRelayPathAndPerson;
+				float cut = Mathf.Min(RelayPathCornerCut, pathEndY - tileY);
+				path = new[]
 				{
-					if (!cards.TryGetValue(mode, out Button card)) continue;
-					int stepsUp = pathsBelow++;
-					if ((mode == SelectedMode) != drawingSelected) continue;
-
-					float y = card.layout.center.y;
-					Vector2[] path;
-					if (stepsUp == 0)
-						path = new[] { new Vector2(left.xMax, y), new Vector2(right.xMin, y) };
-					else
-					{
-						// higher paths leave the headsets further out, so they never share a line
-						float inset = left.width * (cards.Count - stepsUp) / cards.Count;
-						float leftX = left.xMin + inset;
-						float rightX = right.xMax - inset;
-						float cut = Mathf.Min(PathCornerCut, left.yMin - y);
-						path = new[]
-						{
-							new Vector2(leftX, left.yMin), new Vector2(leftX, y + cut), new Vector2(leftX + cut, y),
-							new Vector2(rightX - cut, y), new Vector2(rightX, y + cut), new Vector2(rightX, right.yMin)
-						};
-					}
-
-					// an unselected path stops under its tile
-					if (!drawingSelected)
-					{
-						Array.Resize(ref path, path.Length / 2 + 1);
-						path[^1] = new Vector2(card.layout.center.x, y);
-					}
-
-					painter.strokeColor = drawingSelected ? Color.white : diagram.resolvedStyle.color;
-					painter.lineWidth = drawingSelected ? SelectedPathWidth : UnselectedPathWidth;
-					painter.BeginPath();
-					if (drawingSelected) TraceSolid(painter, path);
-					else TraceDashed(painter, path);
-					painter.Stroke();
-				}
+					new Vector2(left.center.x, pathEndY), new Vector2(left.center.x, tileY + cut),
+					new Vector2(left.center.x + cut, tileY), new Vector2(right.center.x - cut, tileY),
+					new Vector2(right.center.x, tileY + cut), new Vector2(right.center.x, pathEndY)
+				};
 			}
-		}
+			else
+			{
+				// climbs at 45 degrees to the tile's row, so the lowest tile's path is one straight line
+				float personY = left.center.y;
+				float climb = personY - tileY;
+				path = new[]
+				{
+					new Vector2(left.xMax, personY), new Vector2(left.xMax + climb, tileY),
+					new Vector2(right.xMin - climb, tileY), new Vector2(right.xMin, personY)
+				};
+			}
 
-		private static void TraceSolid(Painter2D painter, Vector2[] path)
-		{
+			Painter2D painter = context.painter2D;
+			painter.strokeColor = Color.white;
+			painter.lineWidth = PathWidth;
+			painter.lineJoin = LineJoin.Miter;
+			painter.BeginPath();
 			painter.MoveTo(path[0]);
 			for (int i = 1; i < path.Length; i++)
-				painter.LineTo(path[i]);
-		}
-
-		private static void TraceDashed(Painter2D painter, Vector2[] path)
-		{
-			bool penDown = true;
-			float untilPenToggles = DashLength;
-			for (int i = 0; i < path.Length - 1; i++)
-			{
-				Vector2 from = path[i];
-				Vector2 to = path[i + 1];
-				float length = Vector2.Distance(from, to);
-				Vector2 direction = (to - from) / length;
-				float travelled = 0;
-
-				if (penDown) painter.MoveTo(from);
-				while (travelled + untilPenToggles < length)
-				{
-					travelled += untilPenToggles;
-					Vector2 point = from + direction * travelled;
-					if (penDown) painter.LineTo(point);
-					else painter.MoveTo(point);
-					penDown = !penDown;
-					untilPenToggles = DashLength;
-				}
-
-				untilPenToggles -= length - travelled;
-				if (penDown) painter.LineTo(to);
-			}
+				if (path[i] != path[i - 1])
+					painter.LineTo(path[i]);
+			painter.Stroke();
 		}
 
 		private static string Key(Protocol mode) => mode switch

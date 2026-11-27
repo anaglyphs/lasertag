@@ -168,12 +168,20 @@ namespace Anaglyph.Menu
 				value = nearest;
 		}
 
+		private void FlashChosenMarks()
+		{
+			for (int i = 0; i < marks.childCount; i++)
+				if (Covers(value, i))
+					PressClickable.Flash(marks[i]);
+		}
+
 		private void OnPointerDown(PointerDownEvent evt)
 		{
 			if (!enabledInHierarchy)
 				return;
 			marks.CapturePointer(evt.pointerId);
 			ChooseMarkUnder(evt.position);
+			FlashChosenMarks();
 			evt.StopPropagation();
 		}
 
@@ -202,6 +210,7 @@ namespace Anaglyph.Menu
 			if (step == 0 || marks.childCount == 0)
 				return;
 			value = Mathf.Clamp(value + step, 0, marks.childCount - 1);
+			FlashChosenMarks();
 			evt.StopPropagation();
 		}
 	}
