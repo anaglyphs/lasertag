@@ -24,10 +24,10 @@ namespace Anaglyph.XR
 	/// same space OVR head poses were expressed in), so they stay valid across
 	/// rig realignment (e.g. drift correction's AlignSpace).
 	///
-	/// Timestamps are CLOCK_MONOTONIC nanoseconds, which on the Quest OpenXR
-	/// runtime is the same time base as XrTime — i.e. the same domain as
-	/// ARCameraFrameEventArgs.timestampNs / AROcclusionFrameEventArgs timestamps.
-	/// No clock conversion needed; pass timestampNs straight in.
+	/// Timestamps are CLOCK_MONOTONIC nanoseconds. On Quest that is also XrTime, the domain of
+	/// ARCameraFrameEventArgs.timestampNs / AROcclusionFrameEventArgs timestamps, so those pass
+	/// straight in; Camera2 frames arrive converted to it. <see cref="HeadPoseAtTimeFeature"/>
+	/// converts to the runtime's own XrTime when it asks for a pose.
 	///
 	/// On phones, <see cref="HandheldCameraPoses"/> feeds every camera frame's own pose
 	/// and timestamp instead (<see cref="SamplesAreCameraFrames"/>).

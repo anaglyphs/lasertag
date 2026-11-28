@@ -137,7 +137,7 @@ namespace Anaglyph.LaserTag.Tests
 			Assert.That(version.text, Is.EqualTo("Version: test-build"));
 			Assert.That(root.Q<NavHeader>().Title, Is.EqualTo("Settings"));
 			Assert.That(root.Q<Button>("graphics-button").text, Is.EqualTo("Graphics"));
-			Assert.That(root.Q<Button>("show-debug-mesh-for-everyone"), Is.Null);
+			Assert.That(root.Q<NavView>().GetPage("demo-page").Q<Button>("show-debug-mesh-for-everyone"), Is.Not.Null);
 			MenuCopy.SetVariable(version, "version", "next-build");
 			double deadline = EditorApplication.timeSinceStartup + 2;
 			while (version.text != "Version: next-build" && EditorApplication.timeSinceStartup < deadline) yield return null;

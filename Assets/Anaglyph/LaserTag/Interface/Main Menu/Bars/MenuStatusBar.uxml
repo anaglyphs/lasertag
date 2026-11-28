@@ -1,0 +1,14 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Anaglyph/LaserTag/Interface/LaserTagStyle.uss?fileID=7433441132597879392&amp;guid=9bde092a3b54b4999a5046033ab19531&amp;type=3#LaserTagStyle"/>
+    <Style src="MenuBars.uss"/>
+    <ui:VisualElement picking-mode="Ignore" class="menu-root menu-bar menu-status-bar">
+        <ui:Label name="clock-label" class="menu-status-bar__clock bold"/>
+        <ui:VisualElement name="battery" picking-mode="Ignore" class="battery">
+            <ui:Label name="battery-label" class="battery__label"/>
+            <ui:VisualElement picking-mode="Ignore" class="battery__body">
+                <ui:VisualElement name="battery-fill" picking-mode="Ignore" class="battery__fill"/>
+            </ui:VisualElement>
+            <ui:VisualElement picking-mode="Ignore" class="battery__tip"/>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

@@ -16,6 +16,7 @@ namespace Anaglyph.LaserTag.Weapons
 		[SerializeField] private GameObject defaultWeapon;
 
 		private readonly Dictionary<Handedness, GameObject> selected = new();
+		private readonly Dictionary<Handedness, Pose> arrivingFrom = new();
 
 		private readonly HashSet<object> weaponsPutAwayBy = new();
 
@@ -49,10 +50,21 @@ namespace Anaglyph.LaserTag.Weapons
 				? prefab
 				: defaultWeapon;
 
-		public void SwitchWeapon(GameObject prefab, Handedness handedness)
+		/// <param name="arrivingFromWorldPose">Where the weapon's visual starts before flying into the hand.</param>
+		public void SwitchWeapon(GameObject prefab, Handedness handedness, Pose? arrivingFromWorldPose = null)
 		{
+			if (prefab == GetSelected(handedness))
+				return;
+
 			selected[handedness] = prefab;
+
+			if (arrivingFromWorldPose is Pose pose) arrivingFrom[handedness] = pose;
+			else arrivingFrom.Remove(handedness);
 		}
+
+		/// <summary>Where the newly selected weapon should fly in from, once; false to place it directly.</summary>
+		public bool TakeArrivalPose(Handedness handedness, out Pose worldPose) =>
+			arrivingFrom.Remove(handedness, out worldPose);
 
 		/// <summary>Weapons stay put away until every requester that put them away lets go.</summary>
 		public void SetWeaponsPutAway(object requester, bool putAway)

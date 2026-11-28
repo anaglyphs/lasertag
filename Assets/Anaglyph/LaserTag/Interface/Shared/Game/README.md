@@ -38,6 +38,15 @@ so owners refresh while visible. The binder owns method-specific visibility: bot
 tag methods expose operator size controls, registered AprilTags expose count/removal,
 and Two AprilTags exposes pair selection.
 
+The headset game menu has no tab bar and no entry to map management: it opens on the match
+pages, and each space shows its one map. Match settings lead to `match-objects-page`
+(`MatchObjectsBinder`), which turns the map editor on, lists the bases and flags the settings
+still need (`MapRequirements.MissingFor`), and starts the match once they are placed. The
+game panel itself is shown only in a session (`MainMenuController`). Space settings open only when a session asks for tag registration;
+back from them returns to the match pages. The demo controls are a Settings page
+(`DemoControlsBinder`).
+The operator keeps the map catalog and `MatchStartWarningsBinder`.
+
 Physical actions belong to the headset composition: `MapProbeBinder` probes spaces;
 `GameMenu` activates tag tools from space settings and routes automatic registration
 there. `PaletteMenu` manages measurement and physical tool presentation.

@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 using UnityEngine;
+using UnityEngine.XR.OpenXR;
 using UnityEngine.XR.OpenXR.Features;
 using UnityEngine.XR.OpenXR.NativeTypes;
 
@@ -31,11 +32,13 @@ namespace Anaglyph.XR
 		       "paired with the head pose at capture time.",
 		Category = FeatureCategory.Feature,
 		FeatureId = featureId,
+		OpenxrExtensionStrings = ConvertTimespecExtension,
 		Version = "1.0.0")]
 #endif
 	public class HeadPoseAtTimeFeature : OpenXRFeature
 	{
 		public const string featureId = "com.anaglyph.xrtemplate.headposeattime";
+		private const string ConvertTimespecExtension = "XR_KHR_convert_timespec_time";
 
 		/// <summary>Null unless the feature is enabled and the runtime is up.</summary>
 		public static HeadPoseAtTimeFeature Instance { get; private set; }
@@ -48,14 +51,15 @@ namespace Anaglyph.XR
 		private XrCreateReferenceSpaceDelegate createReferenceSpace;
 		private XrLocateSpaceDelegate locateSpace;
 		private XrDestroySpaceDelegate destroySpace;
+		private XrConvertTimespecTimeToTimeDelegate convertTimespecTimeToTime;
 
 		private bool loggedLocateFailure;
 
 		public bool IsReady => locateSpace != null && viewSpace != 0;
 
 		/// <summary>
-		/// Head pose at <paramref name="timestampNs"/> (an XrTime, which is
-		/// CLOCK_MONOTONIC nanoseconds on Quest), expressed in OpenXR app space
+		/// Head pose at <paramref name="timestampNs"/> (CLOCK_MONOTONIC nanoseconds, converted
+		/// to the runtime's XrTime where it offers the conversion), expressed in OpenXR app space
 		/// -- the same space the XR camera's local transform lives in.
 		/// Main thread only. Returns false when the runtime has no pose for that
 		/// time, which it will for timestamps outside its history window.
@@ -74,7 +78,7 @@ namespace Anaglyph.XR
 
 			XrSpaceLocation location = new() { type = XrStructureType.SpaceLocation };
 
-			XrResult result = locateSpace(viewSpace, baseSpace, timestampNs, ref location);
+			XrResult result = locateSpace(viewSpace, baseSpace, ToXrTime(timestampNs), ref location);
 
 			if (result != XrResult.Success)
 			{
@@ -117,8 +121,28 @@ namespace Anaglyph.XR
 				return false;
 			}
 
+			// Quest's XrTime is CLOCK_MONOTONIC itself; other runtimes' needn't be
+			if (Application.platform == RuntimePlatform.Android &&
+			    OpenXRRuntime.IsExtensionEnabled(ConvertTimespecExtension) &&
+			    !TryGetFunction(getProcAddr, "xrConvertTimespecTimeToTimeKHR", out convertTimespecTimeToTime))
+				Debug.LogError("HeadPoseAtTimeFeature: could not resolve xrConvertTimespecTimeToTimeKHR");
+
 			Instance = this;
 			return true;
+		}
+
+		private long ToXrTime(long monotonicNs)
+		{
+			if (convertTimespecTimeToTime == null) return monotonicNs;
+
+			Timespec timespec = new()
+			{
+				seconds = monotonicNs / 1_000_000_000L,
+				nanoseconds = monotonicNs % 1_000_000_000L,
+			};
+			return convertTimespecTimeToTime(instance, ref timespec, out long xrTime) == XrResult.Success
+				? xrTime
+				: monotonicNs;
 		}
 
 		protected override void OnInstanceDestroy(ulong xrInstance)
@@ -129,6 +153,7 @@ namespace Anaglyph.XR
 			createReferenceSpace = null;
 			locateSpace = null;
 			destroySpace = null;
+			convertTimespecTimeToTime = null;
 			instance = 0;
 		}
 
@@ -193,6 +218,18 @@ namespace Anaglyph.XR
 
 		[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
 		private delegate XrResult XrDestroySpaceDelegate(ulong space);
+
+		[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+		private delegate XrResult XrConvertTimespecTimeToTimeDelegate(ulong instance, ref Timespec timespec,
+			out long time);
+
+		// struct timespec on 64-bit Android
+		[StructLayout(LayoutKind.Sequential)]
+		private struct Timespec
+		{
+			public long seconds;
+			public long nanoseconds;
+		}
 
 		[StructLayout(LayoutKind.Sequential)]
 		private struct XrReferenceSpaceCreateInfo

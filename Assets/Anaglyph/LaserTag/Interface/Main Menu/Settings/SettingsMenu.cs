@@ -4,6 +4,7 @@ using Anaglyph.InGameConsole;
 using Anaglyph.Menu;
 using Anaglyph.Netcode;
 using Anaglyph.VariableObjects;
+using Anaglyph.XR.AprilTags;
 using Anaglyph.XR.DepthKit.EnvScanning;
 using Anaglyph.XR.Input;
 using Anaglyph.XR.SharedSpaces;
@@ -26,7 +27,7 @@ namespace Anaglyph.LaserTag.Interface
 		private InGameConsoleView consoleView;
 		private Toggle debugModeToggle;
 		private Toggle showDebugMeshToggle;
-		private Toggle demoModeToggle;
+		private DemoControlsBinder demoControls;
 		private Slider debugMeshOpacitySlider;
 		private RadioButtonGroup sightingModeRadio;
 		private Toggle sightingRawTrackingToggle;
@@ -76,12 +77,10 @@ namespace Anaglyph.LaserTag.Interface
 
 			debugModeToggle = Require<Toggle>(root, "debug-mode-toggle");
 			showDebugMeshToggle = Require<Toggle>(root, "show-debug-mesh-toggle");
-			demoModeToggle = Require<Toggle>(root, "demo-mode-toggle");
+			demoControls = new DemoControlsBinder(navView.GetPage("demo-page"));
 
 			bindings.Value(debugModeToggle,
 				change => AnaglyphDebugging.SetDebugMode(change.newValue));
-			bindings.Value(demoModeToggle,
-				change => GameMenu.DemoMode = change.newValue);
 			bindings.Value(showDebugMeshToggle, change =>
 			{
 				showDebugMesh = change.newValue;
@@ -107,8 +106,15 @@ namespace Anaglyph.LaserTag.Interface
 				change => AlignmentSightingTool.CrosshairInRightEye = change.newValue);
 			bindings.Click(Require<Button>(root, "sighting-clear-button"), AlignmentSightingTool.ClearMarkers);
 
+			Toggle forceCamera2Toggle = Require<Toggle>(root, "force-camera2-toggle");
+			bindings.Value(forceCamera2Toggle, change => PassthroughFrames.ForceCamera2 = change.newValue);
+			forceCamera2Toggle.SetValueWithoutNotify(PassthroughFrames.ForceCamera2);
+
 			if (!Debug.isDebugBuild)
+			{
 				Require<VisualElement>(root, "alignment-sighting-button").style.display = DisplayStyle.None;
+				forceCamera2Toggle.style.display = DisplayStyle.None;
+			}
 
 			healthPassthroughTintToggle =
 				Require<Toggle>(root, "health-passthrough-tint-toggle");
@@ -133,7 +139,6 @@ namespace Anaglyph.LaserTag.Interface
 			MenuCopy.Changed += RefreshHeadsetConfiguration;
 
 			AnaglyphDebugging.DebugModeChanged += OnDebugModeChanged;
-			GameMenu.DemoModeChanged += OnDemoModeChanged;
 			AlignmentSightingTool.Changed += OnSightingChanged;
 			healthPassthroughTintSetting.Changed += OnHealthPassthroughTintChanged;
 			lightEffectsSetting.Changed += OnLightEffectsChanged;
@@ -143,7 +148,6 @@ namespace Anaglyph.LaserTag.Interface
 
 			UpdateConsoleVisible();
 			OnDebugModeChanged(AnaglyphDebugging.DebugMode);
-			OnDemoModeChanged(GameMenu.DemoMode);
 			OnSightingChanged();
 			OnHealthPassthroughTintChanged(healthPassthroughTintSetting.Value);
 			OnLightEffectsChanged(lightEffectsSetting.Value);
@@ -156,7 +160,6 @@ namespace Anaglyph.LaserTag.Interface
 			bindings.Dispose();
 			MenuCopy.Changed -= RefreshHeadsetConfiguration;
 			AnaglyphDebugging.DebugModeChanged -= OnDebugModeChanged;
-			GameMenu.DemoModeChanged -= OnDemoModeChanged;
 			AlignmentSightingTool.Changed -= OnSightingChanged;
 			healthPassthroughTintSetting.Changed -= OnHealthPassthroughTintChanged;
 			lightEffectsSetting.Changed -= OnLightEffectsChanged;
@@ -171,6 +174,8 @@ namespace Anaglyph.LaserTag.Interface
 
 			consoleView?.Dispose();
 			consoleView = null;
+			demoControls?.Dispose();
+			demoControls = null;
 			consolePage = null;
 		}
 
@@ -193,11 +198,6 @@ namespace Anaglyph.LaserTag.Interface
 		private void OnDebugModeChanged(bool enabled)
 		{
 			debugModeToggle.SetValueWithoutNotify(enabled);
-		}
-
-		private void OnDemoModeChanged(bool enabled)
-		{
-			demoModeToggle.SetValueWithoutNotify(enabled);
 		}
 
 		// a debugging tool: the status reports its readings verbatim, unlocalized

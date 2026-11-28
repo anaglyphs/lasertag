@@ -105,15 +105,53 @@ namespace Anaglyph.LaserTag.Tests
 		}
 
 		[Test]
-		public void ConnectionClosesMenuAndEndingTransitionHidesPanels()
+		public void GamePanelIsShownOnlyInASessionAndTheOthersCloseTheGap()
 		{
+			Call(controller, "FindSessionPanel");
+			int game = Array.FindIndex(panels, p => p.GetComponent<GameMenu>() != null);
+			Assert.That(game, Is.EqualTo(1));
+			Set(controller, "transitionProgress", 1f);
 			Call(controller, "SetVisibility", true, false);
+			Call(controller, "ApplyPanelLayout");
+			AssertPanel(panels[game], false, false);
+			AssertPanel(panels[0], true, true);
+			AssertPanel(panels[2], true, true);
+			Assert.That(controller.IsPanelAvailable(game), Is.False);
+			float gapWithoutGame = panels[2].transform.localPosition.x - panels[0].transform.localPosition.x;
+			Assert.That(panels[0].transform.localPosition.x, Is.EqualTo(-panels[2].transform.localPosition.x).Within(1e-4f),
+				"Out of a session the center is between the two panels.");
+
 			Call(controller, "OnNetworkStateChanged", NetcodeState.Connected);
-			Assert.That(controller.IsVisible, Is.False);
-			Assert.That(controller.IsClosing, Is.True);
-			Call(controller, "OnDisable");
-			Assert.That(controller.IsClosing, Is.False);
-			foreach (var panel in panels) AssertPanel(panel, false, false);
+			Assert.That(controller.IsVisible, Is.False, "Joining a session closes the menu.");
+			Set(controller, "transitionProgress", 1f);
+			Set(gate, "passwordUnlocked", true);
+			Call(gate, "RefreshAccess", false);
+			Call(controller, "SetVisibility", true, false);
+			AssertPanel(panels[game], true, true);
+			Set(controller, "sessionPanelPresence", 1f);
+			Call(controller, "ApplyPanelLayout");
+			Assert.That(panels[game].transform.localPosition.x, Is.EqualTo(0).Within(1e-4f));
+			Assert.That(panels[2].transform.localPosition.x - panels[0].transform.localPosition.x, Is.GreaterThan(gapWithoutGame * 1.5f));
+			Assert.That(gatePanel.transform.localPosition.x, Is.EqualTo(0).Within(1e-4f));
+
+			Call(controller, "OnNetworkStateChanged", NetcodeState.Disconnected);
+			AssertPanel(panels[game], false, true);
+			Set(controller, "sessionPanelPresence", 0f);
+			Call(controller, "ApplyPanelVisibility");
+			AssertPanel(panels[game], false, false);
+		}
+
+		[Test]
+		public void PhoneLeavesTheGamePanelWhenTheSessionEnds()
+		{
+			Call(controller, "FindSessionPanel");
+			Call(controller, "OnNetworkStateChanged", NetcodeState.Connected);
+			controller.ShowOnScreen(1);
+			Assert.That(controller.ScreenPanel, Is.EqualTo(1));
+			Call(controller, "OnNetworkStateChanged", NetcodeState.Disconnected);
+			Assert.That(controller.ScreenPanel, Is.EqualTo(0));
+			controller.ScreenPanel = 1;
+			Assert.That(controller.ScreenPanel, Is.EqualTo(0), "The game panel is not available out of a session.");
 		}
 
 		[Test]

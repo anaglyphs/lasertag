@@ -10,6 +10,13 @@ namespace Anaglyph.LaserTag.Weapons
 		[Tooltip("Touching only highlights it; trigger or grip then takes it.")]
 		public bool selectOnPress;
 
+		[Tooltip("The displayed weapon, which the held one flies in from. Optional.")]
+		public Transform shownWeapon;
+
+		public Pose? ShownWeaponPose => shownWeapon != null
+			? new Pose(shownWeapon.position, shownWeapon.rotation)
+			: null;
+
 		public const string Tag = "Weapon Pickup";
 
 		private int hoveringHandCount;

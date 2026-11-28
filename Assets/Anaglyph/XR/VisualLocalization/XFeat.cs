@@ -139,7 +139,7 @@ namespace Anaglyph.XR.VisualLocalization
 		// count (and cost) 640×480 had; any multiple of 32 suits the networks, re-exported for
 		// it (Tools~/export_xfeat.py, XFEAT_SIZE): XFeat's input and LighterGlue's normalization
 		public const int Width = 544, Height = 544, MaxKeypoints = 1024;
-		// pixels kept clear of a padded band's edge
+		// pixels kept clear of the frame's edge
 		private const float PaddingMargin = 8;
 		private const int Cell = 8, FieldWidth = Width / Cell, FieldHeight = Height / Cell;
 
@@ -206,7 +206,6 @@ namespace Anaglyph.XR.VisualLocalization
 					scores = scores,
 					descriptors = descriptors,
 					count = count,
-					// a padded band's repeated edge pixels make streaks, not features
 					content = content + new float4(PaddingMargin, PaddingMargin, -PaddingMargin, -PaddingMargin),
 				}.Schedule();
 				JobHandle.ScheduleBatchedJobs();

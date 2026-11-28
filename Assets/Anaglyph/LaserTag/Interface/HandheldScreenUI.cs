@@ -18,7 +18,8 @@ namespace Anaglyph.LaserTag.Interface
 	/// is one density-independent pixel, so the panels' 48-unit controls are a fingertip tall on any screen.
 	/// Interfaces that follow controllers are put away. Camera mode, entered from a tab beside the panels'
 	/// own, replaces all of it with its own screen. Editing a map's objects replaces all but the dot with
-	/// the map editor's palette along the bottom of the screen.
+	/// the map editor's palette along the bottom of the screen. Standing in their own base, the player
+	/// picks a weapon from a row like the palette's along the bottom, clear of the menu button.
 	/// </summary>
 	public sealed class HandheldScreenUI : MonoBehaviour
 	{
@@ -62,6 +63,7 @@ namespace Anaglyph.LaserTag.Interface
 		private Button cameraTab;
 		private CameraMode cameraMode;
 		private CameraModeScreen cameraScreen;
+		private HandheldWeaponPicker weaponPicker;
 		private readonly System.Collections.Generic.List<VisualElement> scoreRoots = new();
 		private UIDocument[] menuDocuments;
 		private UIDocument gateDocument, hudDocument, editorDocument;
@@ -109,6 +111,10 @@ namespace Anaglyph.LaserTag.Interface
 			Anaglyph.MenuCopy.Changed += LabelTabs;
 			LabelTabs();
 			PutAwayControllerInterfaces();
+			weaponPicker = new HandheldWeaponPicker(overlay.rootVisualElement,
+				editorDocument != null && editorDocument.visualTreeAsset != null
+					? editorDocument.visualTreeAsset.stylesheets
+					: System.Array.Empty<StyleSheet>());
 		}
 
 		// a back swipe: rightward, mostly level, and not one that drags a slider, scrollbar or text.
@@ -383,9 +389,11 @@ namespace Anaglyph.LaserTag.Interface
 
 			if (!Mathf.Approximately(screenPanel.scale, PixelsPerUnit)) screenPanel.scale = PixelsPerUnit;
 
-			// editing objects starts from a menu page: the menu gets out of the way
+			// editing objects starts from a menu page: the menu gets out of the way, and is back when
+			// editing ends, unless a match ended it
 			bool editingObjects = IsEditingObjects;
 			if (editingObjects && !wasEditingObjects) menu.SetVisible(false);
+			else if (!editingObjects && wasEditingObjects && Matches.MatchReferee.State == Matches.MatchState.NotPlaying) menu.SetVisible(true);
 			wasEditingObjects = editingObjects;
 
 			bool menuShown = menu.IsVisible;
@@ -402,8 +410,12 @@ namespace Anaglyph.LaserTag.Interface
 			foreach (VisualElement score in scoreRoots) Display(score, !filming && !editing);
 			if (editorPanel != null) editorPanel.SetVisible(editing);
 			cameraScreen?.Refresh();
+			weaponPicker?.Refresh(granted && !menuShown && !filming && !editing);
 			for (int i = 0; i < tabs.Length; i++)
+			{
 				tabs[i].EnableInClassList("game-menu-tab-selected", i == menu.ScreenPanel);
+				tabs[i].SetEnabled(menu.IsPanelAvailable(i));
+			}
 
 			IPanel panel = overlay.rootVisualElement.panel;
 			Vector2 panelSize = panel != null ? panel.visualTree.layout.size : Vector2.zero;
@@ -498,6 +510,7 @@ namespace Anaglyph.LaserTag.Interface
 				Place(document, panelLeft, panelTop, panelRight, panelBottom);
 
 			cameraScreen?.Layout(left, top, right, bottom, orientation);
+			weaponPicker?.Layout(panelLeft, panelRight, panelBottom);
 			PlaceAlongScreenBottom(editorDocument, left + Margin, right + Margin, bottom + Margin);
 		}
 

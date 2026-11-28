@@ -1,11 +1,14 @@
 using Anaglyph.LaserTag.Weapons;
+using Anaglyph.Netcode;
 using Anaglyph.XR;
 using Anaglyph.XR.Input;
 using UnityEngine;
 
 namespace Anaglyph.LaserTag.Interface
 {
-	/// <summary>While the main menu is open: passthrough fades darker, weapons are put away and rays always show.</summary>
+	/// <summary>
+	/// While the main menu is open weapons are put away. Out of a session it also dims passthrough and always shows rays.
+	/// </summary>
 	[RequireComponent(typeof(MainMenuController))]
 	public class MenuOpenPresentation : MonoBehaviour
 	{
@@ -14,7 +17,7 @@ namespace Anaglyph.LaserTag.Interface
 
 		private MainMenuController menu;
 		private float passthroughBrightness = 1f;
-		private bool appliedMenuOpen;
+		private bool appliedMenuOpenOutOfSession;
 
 		private void Awake() => menu = GetComponent<MainMenuController>();
 
@@ -23,13 +26,14 @@ namespace Anaglyph.LaserTag.Interface
 			bool menuOpen = menu.IsVisible;
 			WeaponSwitcher.Instance?.SetWeaponsPutAway(this, menuOpen);
 
-			if (menuOpen != appliedMenuOpen)
+			bool menuOpenOutOfSession = menuOpen && NetcodeManagement.State != NetcodeState.Connected;
+			if (menuOpenOutOfSession != appliedMenuOpenOutOfSession)
 			{
-				appliedMenuOpen = menuOpen;
-				HandInput.RaysShownWithoutTarget = menuOpen;
+				appliedMenuOpenOutOfSession = menuOpenOutOfSession;
+				HandInput.RaysShownWithoutTarget = menuOpenOutOfSession;
 			}
 
-			float targetBrightness = menuOpen ? passthroughBrightnessWhileOpen : 1f;
+			float targetBrightness = menuOpenOutOfSession ? passthroughBrightnessWhileOpen : 1f;
 			if (passthroughBrightness == targetBrightness) return;
 			passthroughBrightness = passthroughFadeSeconds <= 0f ? targetBrightness
 				: Mathf.MoveTowards(passthroughBrightness, targetBrightness, Time.unscaledDeltaTime / passthroughFadeSeconds);
@@ -40,7 +44,7 @@ namespace Anaglyph.LaserTag.Interface
 		{
 			WeaponSwitcher.Instance?.SetWeaponsPutAway(this, false);
 			HandInput.RaysShownWithoutTarget = false;
-			appliedMenuOpen = false;
+			appliedMenuOpenOutOfSession = false;
 			passthroughBrightness = 1f;
 			PassthroughStylingFeature.SetBrightness(1f);
 		}

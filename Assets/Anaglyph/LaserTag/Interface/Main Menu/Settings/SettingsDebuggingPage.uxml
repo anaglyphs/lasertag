@@ -16,16 +16,17 @@
                 <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsDebuggingPage.alignment-sighting-button.text"/>
             </Bindings>
         </Anaglyph.Menu.NavButton>
+        <Anaglyph.Menu.NavButton name="demo-button" target="demo-page">
+            <Bindings>
+                <UnityEngine.Localization.LocalizedString property="text" table="GameMenu" entry="demo.title"/>
+            </Bindings>
+        </Anaglyph.Menu.NavButton>
         <ui:Toggle name="debug-mode-toggle">
             <Bindings>
                 <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsDebuggingPage.debug-mode-toggle.text"/>
             </Bindings>
         </ui:Toggle>
-        <ui:Toggle name="demo-mode-toggle">
-            <Bindings>
-                <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsDebuggingPage.demo-mode-toggle.text"/>
-            </Bindings>
-        </ui:Toggle>
+        <ui:Toggle name="force-camera2-toggle" text="Camera frames from Camera2"/>
         <ui:Toggle name="show-debug-mesh-toggle">
             <Bindings>
                 <UnityEngine.Localization.LocalizedString property="text" table="SettingsMenu" entry="SettingsDebuggingPage.show-debug-mesh-toggle.text"/>

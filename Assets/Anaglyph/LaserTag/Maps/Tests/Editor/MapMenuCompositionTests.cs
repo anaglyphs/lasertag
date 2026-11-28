@@ -140,6 +140,8 @@ namespace Anaglyph.LaserTag.Tests
 		{
 			Assert.That(SpaceManager.Instance, Is.Null);
 			var root = Load("Assets/Anaglyph/LaserTag/Interface/Main Menu/Game/GameMenu.uxml");
+			root.Q<NavView>("match-nav").AddToClassList("game-menu-hidden");
+			root.Q<NavView>("maps-nav").RemoveFromClassList("game-menu-hidden");
 			var list = root.Q<NavView>("maps-nav").GetPage("maps-page").Q<ScrollView>("map-list");
 			var row = new MapRows().Build(Map.Create("Arena"), false, null, () => { });
 			list.Add(row);
@@ -156,6 +158,8 @@ namespace Anaglyph.LaserTag.Tests
 		{
 			window.wantsMouseMove = true;
 			var root = Load("Assets/Anaglyph/LaserTag/Interface/Main Menu/Game/GameMenu.uxml");
+			root.Q<NavView>("match-nav").AddToClassList("game-menu-hidden");
+			root.Q<NavView>("maps-nav").RemoveFromClassList("game-menu-hidden");
 			var list = root.Q<NavView>("maps-nav").GetPage("maps-page").Q<ScrollView>("map-list");
 			var row = new MapRows().Build(Map.Create("Arena"), false, null, () => { });
 			list.Add(row);

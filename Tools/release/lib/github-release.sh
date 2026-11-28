@@ -20,6 +20,6 @@ attach_to_github_release() {
 		gh release upload "$tag" "$1" --repo "$GITHUB_REPO" --clobber
 	else
 		gh release create "$tag" "$1" --repo "$GITHUB_REPO" --target "$commit" \
-			--title "Build $build_number" --notes "$2" --prerelease --latest=false
+			--title "Build $build_number" --notes "$2" --latest
 	fi
 }

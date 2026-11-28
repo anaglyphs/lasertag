@@ -35,7 +35,7 @@ namespace Anaglyph.LaserTag.Weapons
 			if (switcher == null || !switcher.WeaponsActive)
 				return;
 
-			switcher.SwitchWeapon(hoveredPickup.weaponPrefab, handSubject.Current.Handedness);
+			switcher.SwitchWeapon(hoveredPickup.weaponPrefab, handSubject.Current.Handedness, hoveredPickup.ShownWeaponPose);
 		}
 
 		private void OnTriggerEnter(Collider other)
@@ -49,7 +49,7 @@ namespace Anaglyph.LaserTag.Weapons
 			if (pickup.selectOnPress)
 				SetHovered(pickup);
 			else
-				WeaponSwitcher.Instance.SwitchWeapon(pickup.weaponPrefab, handSubject.Current.Handedness);
+				WeaponSwitcher.Instance.SwitchWeapon(pickup.weaponPrefab, handSubject.Current.Handedness, pickup.ShownWeaponPose);
 		}
 
 		private void OnTriggerExit(Collider other)

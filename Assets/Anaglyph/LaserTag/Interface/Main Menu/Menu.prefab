@@ -33,11 +33,13 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 5676502434384603877}
   - {fileID: 5303867393154814340}
   - {fileID: 6735076080040087814}
+  - {fileID: 5676502434384603877}
   - {fileID: 3359021349843820501}
   - {fileID: 2267886466539483}
+  - {fileID: 3520789870916265275}
+  - {fileID: 236864516522155015}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &3265400383502883182
@@ -90,12 +92,13 @@ MonoBehaviour:
   protectedMenuClickWindow: 0.8
   radius: 1.5
   panels:
-  - {fileID: 6735076080040087814}
   - {fileID: 5303867393154814340}
+  - {fileID: 6735076080040087814}
   - {fileID: 5676502434384603877}
   panelWidth: 0.6
   centerIndex: 1
   transitionLength: 0.1
+  sessionPanelTransitionLength: 0.2
   transitionCurve:
     serializedVersion: 2
     m_Curve:
@@ -120,6 +123,10 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  sessionPanelScaleWhenAbsent: 0.8
+  statusBar: {fileID: 6658489587478642456}
+  closeBar: {fileID: 3081638873929244034}
+  barGapInMeters: 0.02
 --- !u!114 &7168057922247978476
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -159,6 +166,227 @@ MonoBehaviour:
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.Interface.MenuOpenPresentation
   passthroughBrightnessWhileOpen: 0.35
   passthroughFadeSeconds: 0.2
+--- !u!1 &1260324838667350244
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 236864516522155015}
+  - component: {fileID: 3072835555586243400}
+  - component: {fileID: 8103812033040346806}
+  - component: {fileID: 4536187800222812264}
+  - component: {fileID: 486345305602724933}
+  - component: {fileID: 3081638873929244034}
+  - component: {fileID: 9084386220788877721}
+  - component: {fileID: 8587623211383092453}
+  m_Layer: 5
+  m_Name: Close Bar
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &236864516522155015
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1260324838667350244}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: -0.7, z: 0}
+  m_LocalScale: {x: 0.15, y: 0.15, z: 0.15}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2781404978312192105}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3072835555586243400
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1260324838667350244}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.dll::UnityEngine.UIElements.UIDocument
+  m_PanelSettings: {fileID: 11400000, guid: 7c43a3bc9f5b447489293a17655c3b2c, type: 2}
+  m_ParentUI: {fileID: 0}
+  sourceAsset: {fileID: 9197481963319205126, guid: 6b4f202cfc0294579898ae092b89b6ba, type: 3}
+  m_SortingOrder: 0
+  m_Position: 0
+  m_WorldSpaceSizeMode: 1
+  m_WorldSpaceWidth: 400
+  m_WorldSpaceHeight: 64
+  m_PivotReferenceSize: 1
+  m_Pivot: 0
+  m_WorldSpaceCollider: {fileID: 0}
+--- !u!65 &8103812033040346806
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1260324838667350244}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 4, y: 0.64, z: 0.02}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &4536187800222812264
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1260324838667350244}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a35f6cfbfba9b548aaa00d52cfe8a50, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.XR.Interaction.Toolkit::UnityEngine.XR.Interaction.Toolkit.Interactables.XRSimpleInteractable
+  m_InteractionManager: {fileID: 0}
+  m_Colliders:
+  - {fileID: 8103812033040346806}
+  m_InteractionLayers:
+    m_Bits: 1
+  m_DistanceCalculationMode: 1
+  m_SelectMode: 0
+  m_FocusMode: 1
+  m_CustomReticle: {fileID: 0}
+  m_AllowGazeInteraction: 0
+  m_AllowGazeSelect: 0
+  m_OverrideGazeTimeToSelect: 0
+  m_GazeTimeToSelect: 0.5
+  m_OverrideTimeToAutoDeselectGaze: 0
+  m_TimeToAutoDeselectGaze: 3
+  m_AllowGazeAssistance: 0
+  m_FirstHoverEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_LastHoverExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_HoverEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_HoverExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FirstSelectEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_LastSelectExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_SelectEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_SelectExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FirstFocusEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_LastFocusExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FocusEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FocusExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Activated:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Deactivated:
+    m_PersistentCalls:
+      m_Calls: []
+  m_StartingHoverFilters: []
+  m_StartingSelectFilters: []
+  m_StartingInteractionStrengthFilters: []
+  m_AutoFindParentInteractableInHierarchy: 0
+  m_ParentInteractableObject: {fileID: 0}
+--- !u!114 &486345305602724933
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1260324838667350244}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 115f1a2a50d85cd4b9d6dad4c95622be, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.XR.Interaction.Toolkit::UnityEngine.XR.Interaction.Toolkit.Filtering.XRPokeFilter
+  m_Interactable: {fileID: 4536187800222812264}
+  m_PokeCollider: {fileID: 8103812033040346806}
+  m_PokeConfiguration:
+    m_UseConstant: 1
+    m_ConstantValue:
+      m_PokeDirection: 3
+      m_InteractionDepthOffset: 0
+      m_EnablePokeAngleThreshold: 1
+      m_PokeAngleThreshold: 45
+    m_Variable: {fileID: 0}
+--- !u!114 &3081638873929244034
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1260324838667350244}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c5b3ba0828af24edbafdf1d7a12030e0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.UIToolkitPanelXRSetup
+  backFaceMaterial: {fileID: 2100000, guid: d6cf3b1e6823c43ba9c225626f7458a0, type: 2}
+--- !u!114 &9084386220788877721
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1260324838667350244}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a283695fe5f046b8a2efd3c19e8e9f4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.XR.UILayers::Anaglyph.XR.UILayers.UnderlaidUIDocument
+  mirroredUnityLayerName: Composited UI
+  holeShader: {fileID: 4800000, guid: cc6c2b055b7994b2b9c453deafc926a3, type: 3}
+  mirrorCameraRendererIndex: 1
+  panelPixelsPerUnit: 100
+  textureScale: 1.5
+--- !u!114 &8587623211383092453
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1260324838667350244}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 05eae37273ef140e18b5e33f7e8fc60b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.Interface.MenuCloseBar
 --- !u!1 &1493847234382081523
 GameObject:
   m_ObjectHideFlags: 0
@@ -191,7 +419,7 @@ Transform:
   m_GameObject: {fileID: 1493847234382081523}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 1.5}
+  m_LocalPosition: {x: 0, y: -1, z: 0}
   m_LocalScale: {x: 0.15, y: 0.15, z: 0.15}
   m_ConstrainProportionsScale: 1
   m_Children: []
@@ -381,6 +609,227 @@ MonoBehaviour:
   mirrorCameraRendererIndex: 1
   panelPixelsPerUnit: 100
   textureScale: 1.5
+--- !u!1 &5319452294414409949
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3520789870916265275}
+  - component: {fileID: 730943902229868490}
+  - component: {fileID: 7599167510537204414}
+  - component: {fileID: 1938485044246271241}
+  - component: {fileID: 6075915084635546405}
+  - component: {fileID: 6658489587478642456}
+  - component: {fileID: 3540924035723772972}
+  - component: {fileID: 4349128307848869963}
+  m_Layer: 5
+  m_Name: Status Bar
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3520789870916265275
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5319452294414409949}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.1, z: 0}
+  m_LocalScale: {x: 0.15, y: 0.15, z: 0.15}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2781404978312192105}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &730943902229868490
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5319452294414409949}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.dll::UnityEngine.UIElements.UIDocument
+  m_PanelSettings: {fileID: 11400000, guid: 7c43a3bc9f5b447489293a17655c3b2c, type: 2}
+  m_ParentUI: {fileID: 0}
+  sourceAsset: {fileID: 9197481963319205126, guid: 096974dbe19244c33a1df89ee5750d35, type: 3}
+  m_SortingOrder: 0
+  m_Position: 0
+  m_WorldSpaceSizeMode: 1
+  m_WorldSpaceWidth: 400
+  m_WorldSpaceHeight: 44
+  m_PivotReferenceSize: 1
+  m_Pivot: 0
+  m_WorldSpaceCollider: {fileID: 0}
+--- !u!65 &7599167510537204414
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5319452294414409949}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 4, y: 0.44, z: 0.02}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &1938485044246271241
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5319452294414409949}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a35f6cfbfba9b548aaa00d52cfe8a50, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.XR.Interaction.Toolkit::UnityEngine.XR.Interaction.Toolkit.Interactables.XRSimpleInteractable
+  m_InteractionManager: {fileID: 0}
+  m_Colliders:
+  - {fileID: 7599167510537204414}
+  m_InteractionLayers:
+    m_Bits: 1
+  m_DistanceCalculationMode: 1
+  m_SelectMode: 0
+  m_FocusMode: 1
+  m_CustomReticle: {fileID: 0}
+  m_AllowGazeInteraction: 0
+  m_AllowGazeSelect: 0
+  m_OverrideGazeTimeToSelect: 0
+  m_GazeTimeToSelect: 0.5
+  m_OverrideTimeToAutoDeselectGaze: 0
+  m_TimeToAutoDeselectGaze: 3
+  m_AllowGazeAssistance: 0
+  m_FirstHoverEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_LastHoverExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_HoverEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_HoverExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FirstSelectEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_LastSelectExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_SelectEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_SelectExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FirstFocusEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_LastFocusExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FocusEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FocusExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Activated:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Deactivated:
+    m_PersistentCalls:
+      m_Calls: []
+  m_StartingHoverFilters: []
+  m_StartingSelectFilters: []
+  m_StartingInteractionStrengthFilters: []
+  m_AutoFindParentInteractableInHierarchy: 0
+  m_ParentInteractableObject: {fileID: 0}
+--- !u!114 &6075915084635546405
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5319452294414409949}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 115f1a2a50d85cd4b9d6dad4c95622be, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.XR.Interaction.Toolkit::UnityEngine.XR.Interaction.Toolkit.Filtering.XRPokeFilter
+  m_Interactable: {fileID: 1938485044246271241}
+  m_PokeCollider: {fileID: 7599167510537204414}
+  m_PokeConfiguration:
+    m_UseConstant: 1
+    m_ConstantValue:
+      m_PokeDirection: 3
+      m_InteractionDepthOffset: 0
+      m_EnablePokeAngleThreshold: 1
+      m_PokeAngleThreshold: 45
+    m_Variable: {fileID: 0}
+--- !u!114 &6658489587478642456
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5319452294414409949}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c5b3ba0828af24edbafdf1d7a12030e0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.UIToolkitPanelXRSetup
+  backFaceMaterial: {fileID: 2100000, guid: d6cf3b1e6823c43ba9c225626f7458a0, type: 2}
+--- !u!114 &3540924035723772972
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5319452294414409949}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a283695fe5f046b8a2efd3c19e8e9f4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.XR.UILayers::Anaglyph.XR.UILayers.UnderlaidUIDocument
+  mirroredUnityLayerName: Composited UI
+  holeShader: {fileID: 4800000, guid: cc6c2b055b7994b2b9c453deafc926a3, type: 3}
+  mirrorCameraRendererIndex: 1
+  panelPixelsPerUnit: 100
+  textureScale: 1.5
+--- !u!114 &4349128307848869963
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5319452294414409949}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2658422b1e9e64eff8d434187db20d69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.Interface.MenuStatusBar
 --- !u!1 &6903953378024613189
 GameObject:
   m_ObjectHideFlags: 0
@@ -413,7 +862,7 @@ Transform:
   m_GameObject: {fileID: 6903953378024613189}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 1.5}
+  m_LocalPosition: {x: -0.7, y: 0, z: 0}
   m_LocalScale: {x: 0.15, y: 0.15, z: 0.15}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -635,13 +1084,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7831272810532019032}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: -0.19866659, z: 0, w: 0.98006713}
-  m_LocalPosition: {x: -0.5841275, y: 0, z: 1.3815914}
+  m_LocalRotation: {x: -0.022013756, y: -0.12532867, z: -0.0027793844, w: 0.9918671}
+  m_LocalPosition: {x: 0.2966768, y: 0.09312831, z: -0.07005808}
   m_LocalScale: {x: 0.15, y: 0.15, z: 0.15}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2781404978312192105}
-  m_LocalEulerAnglesHint: {x: 0, y: -22.918, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &6385193509817661114
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -808,7 +1257,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 42b0d42330e36fc4884910f0b4f0304d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.Lasertag.GameMenu
-  weaponDatabase: {fileID: 11400000, guid: 045856440b73c4f949c5ba26590e2ee1, type: 2}
 --- !u!114 &5345525076357511453
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -870,13 +1318,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8627892836725830402}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0.19866659, z: 0, w: 0.98006713}
-  m_LocalPosition: {x: 0.5841275, y: 0, z: 1.3815914}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.7, y: 0, z: 0}
   m_LocalScale: {x: 0.15, y: 0.15, z: 0.15}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2781404978312192105}
-  m_LocalEulerAnglesHint: {x: 0, y: 22.918, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1476141424141850979
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1093,13 +1541,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 9208453996975774985}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 1, z: 0, w: -0.00000004371139}
-  m_LocalPosition: {x: 0, y: 0, z: 1.51}
+  m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 0.1}
   m_LocalScale: {x: 0.15, y: 0.15, z: 0.15}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2781404978312192105}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
 --- !u!114 &5788993436253422029
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1283,6 +1731,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5066aacae90cd4b79bc44cdfe7761892, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Anaglyph.Lasertag::Anaglyph.LaserTag.Interface.SecretsMenu
-  connectionPanel: {fileID: 6567378669736010760}
+  parentPanel: {fileID: 1075698427333703147}
   gapBehindConnectionPanelInMeters: 0.01
   hostPrototypeZombiesSetting: {fileID: 11400000, guid: 4fbff79f284a84521a5192562a1b40cb, type: 2}

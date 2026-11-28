@@ -2,6 +2,7 @@
     <ui:Template name="SettingsAlignmentSightingPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Settings/SettingsAlignmentSightingPage.uxml?fileID=9197481963319205126&amp;guid=475e00eca673c42a58890b7a73d6551f&amp;type=3#SettingsAlignmentSightingPage"/>
     <ui:Template name="SettingsConsolePage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Settings/SettingsConsolePage.uxml?fileID=9197481963319205126&amp;guid=29fff76d7449646bd813bb3c6cc8fc6c&amp;type=3#SettingsConsolePage"/>
     <ui:Template name="SettingsDebuggingPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Settings/SettingsDebuggingPage.uxml?fileID=9197481963319205126&amp;guid=9bf826ccd1d164ad3b161157ee49f263&amp;type=3#SettingsDebuggingPage"/>
+    <ui:Template name="SettingsDemoPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Settings/SettingsDemoPage.uxml?fileID=9197481963319205126&amp;guid=24a52b38cc4343cfbdef5557b993dabf&amp;type=3#SettingsDemoPage"/>
     <ui:Template name="SettingsGraphicsPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Settings/SettingsGraphicsPage.uxml?fileID=9197481963319205126&amp;guid=973da39e3ff984cecaae07976fa2d51e&amp;type=3#SettingsGraphicsPage"/>
     <ui:Template name="SettingsHomePage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Settings/SettingsHomePage.uxml?fileID=9197481963319205126&amp;guid=88766cfbe7d504cd799b5f088fbf7100&amp;type=3#SettingsHomePage"/>
 	<ui:Template name="SettingsOperatorProvisioningPage" src="project://database/Assets/Anaglyph/LaserTag/Interface/Main%20Menu/Settings/SettingsOperatorProvisioningPage.uxml?fileID=9197481963319205126&amp;guid=ce039c3eee314d45bc62dc158682802b&amp;type=3#SettingsOperatorProvisioningPage"/>
@@ -19,6 +20,9 @@
             </Anaglyph.Menu.NavPage>
             <Anaglyph.Menu.NavPage name="console-page">
                 <ui:Instance template="SettingsConsolePage"/>
+            </Anaglyph.Menu.NavPage>
+            <Anaglyph.Menu.NavPage name="demo-page">
+                <ui:Instance template="SettingsDemoPage"/>
             </Anaglyph.Menu.NavPage>
             <Anaglyph.Menu.NavPage name="graphics-page">
                 <ui:Instance template="SettingsGraphicsPage"/>

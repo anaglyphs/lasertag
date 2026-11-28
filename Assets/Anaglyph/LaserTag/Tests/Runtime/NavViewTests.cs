@@ -329,16 +329,12 @@ namespace Anaglyph.LaserTag.Tests
 			yield return Layout();
 			Vector2 viewport = nav.layout.size;
 			var panel = game.Q("game-menu-panel");
-			var tabs = game.Q("game-menu-tabs");
 			Assert.That(panel.layout.width, Is.EqualTo(400).Within(.5f));
 			Assert.That(panel.layout.height, Is.EqualTo(400).Within(.5f));
-			Assert.That(tabs.worldBound.yMin, Is.EqualTo(panel.worldBound.yMin + 8).Within(.1f));
-			foreach (var tabName in new[] { "maps-tab", "match-tab" })
-			{
-				var tab = game.Q<Button>(tabName);
-				var picked = root.panel.Pick(tab.worldBound.center);
-				Assert.That(picked == tab || tab.Contains(picked), Is.True, tabName);
-			}
+			Assert.That(game.Q("game-menu-tabs"), Is.Null);
+			var header = game.Q<NavView>("match-nav").Q<NavHeader>();
+			Assert.That(header.resolvedStyle.visibility, Is.EqualTo(Visibility.Visible));
+			Assert.That(header.worldBound.height, Is.GreaterThan(0));
 			var first = nav.CurrentPage;
 			var maps = game.Q<NavView>("maps-nav");
 			var match = game.Q<NavView>("match-nav");

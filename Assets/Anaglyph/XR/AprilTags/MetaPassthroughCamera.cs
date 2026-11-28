@@ -16,17 +16,17 @@ namespace Anaglyph.XR.AprilTags
 	/// </summary>
 	public static class MetaPassthroughCamera
 	{
-		public struct Frame
-		{
-			public XRCpuImage image;
-			public XRCameraIntrinsics intrinsics;
-			public long timestampNs;
-			public LensPosition lensPosition;
-		}
-
 		public static bool IsSupported =>
 #if META_OPENXR_2_6_OR_NEWER && (!UNITY_IOS && !UNITY_STANDALONE_LINUX || UNITY_EDITOR)
 			true;
+#else
+			false;
+#endif
+
+		/// <summary>Meta's camera subsystem runs, so its per-eye API is the source to use.</summary>
+		public static bool IsActive(ARCameraManager cameraManager) =>
+#if META_OPENXR_2_6_OR_NEWER && (!UNITY_IOS && !UNITY_STANDALONE_LINUX || UNITY_EDITOR)
+			cameraManager != null && cameraManager.subsystem is MetaOpenXRCameraSubsystem;
 #else
 			false;
 #endif
@@ -37,7 +37,7 @@ namespace Anaglyph.XR.AprilTags
 		/// </summary>
 		/// <returns>False if the per-eye API isn't available, in which case the
 		/// caller should fall back to <see cref="ARCameraManager"/>.</returns>
-		public static bool TryAcquireFrame(ARCameraManager cameraManager, out Frame frame)
+		public static bool TryAcquireFrame(ARCameraManager cameraManager, out PassthroughFrame frame)
 		{
 			frame = default;
 

@@ -1,0 +1,55 @@
+.menu-bar {
+    flex-grow: 1;
+}
+
+.menu-status-bar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+.menu-close-bar__button {
+    flex-grow: 1;
+    margin: 0;
+    -unity-text-align: middle-center;
+    font-size: var(--font-size-title, 32px);
+}
+
+.battery {
+    flex-direction: row;
+    align-items: center;
+}
+
+.battery__label {
+    margin-right: var(--spacing-medium, 8px);
+}
+
+.battery__body {
+    width: 36px;
+    height: 18px;
+    padding: 2px;
+    border-width: 2px;
+    border-radius: 3px;
+    border-color: rgb(255, 255, 255);
+}
+
+.battery__fill {
+    height: 100%;
+    background-color: rgb(255, 255, 255);
+}
+
+.battery__tip {
+    width: 3px;
+    height: 8px;
+    background-color: rgb(255, 255, 255);
+}
+
+.battery--low .battery__fill {
+    background-color: rgb(255, 80, 96);
+}
+
+.battery--charging .battery__fill {
+    background-color: rgb(120, 230, 120);
+}

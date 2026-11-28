@@ -19,22 +19,6 @@
     flex-shrink: 0;
 }
 
-/* Over each menu's home page, in the header's place, flush with the panel's edges.
-   The negative margins take back the outer tabs' half gaps. */
-.game-menu-tabs--in-panel {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    margin-left: -2px;
-    margin-right: -2px;
-}
-
-/* Home pages keep their header's space for the tabs */
-.nav-page--under-tabs .nav-header {
-    visibility: hidden;
-}
-
 .game-menu-tab {
     --text-color: var(--secondary);
     flex-grow: 1;
@@ -58,19 +42,4 @@
 
 .game-menu-hidden {
     display: none;
-}
-
-.demo-instructions {
-    white-space: normal;
-}
-
-.demo-weapons {
-    flex-direction: row;
-    flex-wrap: wrap;
-    margin-bottom: var(--spacing-medium);
-}
-
-.demo-weapons > Button {
-    flex-basis: 40%;
-    flex-grow: 1;
 }

@@ -73,6 +73,7 @@ namespace Anaglyph.LaserTag.Weapons
 			WeaponPickup pickup = slot.AddComponent<WeaponPickup>();
 			pickup.weaponPrefab = weaponPrefab;
 			pickup.selectOnPress = true;
+			pickup.shownWeapon = view.transform;
 			pickup.HoveredChanged += hovered =>
 			{
 				if (hoverMaterial == null)

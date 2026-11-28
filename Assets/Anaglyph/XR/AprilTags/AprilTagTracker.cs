@@ -67,6 +67,13 @@ namespace Anaglyph.XR.AprilTags
 				Start();
 		}
 
+		// Camera2 frames arrive with no AR Foundation frame event to start detection
+		private void Update()
+		{
+			if (PassthroughFrames.UsesCamera2(arCameraManager))
+				DetectLatestFrame(null);
+		}
+
 		private void LateUpdate()
 		{
 			if(AnaglyphDebugging.DebugMode)
@@ -81,8 +88,11 @@ namespace Anaglyph.XR.AprilTags
 		}
 
 		private bool busy;
+		private long lastDetectedTimestampNs;
 
-		private async void OnFrameReceived(ARCameraFrameEventArgs args)
+		private void OnFrameReceived(ARCameraFrameEventArgs args) => DetectLatestFrame(args.timestampNs);
+
+		private async void DetectLatestFrame(long? frameEventTimestampNs)
 		{
 			if (busy) return;
 			busy = true;
@@ -103,26 +113,37 @@ namespace Anaglyph.XR.AprilTags
 				// physical camera the image came from, which the cross-platform
 				// AR Foundation API can't express, and hands back that camera's
 				// own intrinsics and capture time.
-				if (MetaPassthroughCamera.TryAcquireFrame(arCameraManager,
-					    out MetaPassthroughCamera.Frame metaFrame))
+				if (PassthroughFrames.TryAcquire(arCameraManager, out PassthroughFrame frame))
 				{
-					img = metaFrame.image;
+					img = frame.image;
 					gotImg = true;
-					intrins = metaFrame.intrinsics;
-					frameTimestampNs = metaFrame.timestampNs;
-					lensPosition = metaFrame.lensPosition;
+					intrins = frame.intrinsics;
+					frameTimestampNs = frame.timestampNs;
+					lensPosition = frame.lensPosition;
+					if (frame.lensInHead.HasValue && !lookedForLens)
+					{
+						lookedForLens = true;
+						lensPose = frame.lensInHead.Value;
+					}
 				}
 				else
 				{
+					if (!PassthroughFrames.GenericImageAllowed || !frameEventTimestampNs.HasValue)
+						return;
+
 					bool gotIntrins = arCameraManager.TryGetIntrinsics(out intrins);
 					gotImg = arCameraManager.TryAcquireLatestCpuImage(out img);
 
-					if (!gotImg || !gotIntrins || !args.timestampNs.HasValue)
+					if (!gotImg || !gotIntrins)
 						return;
 
-					frameTimestampNs = args.timestampNs.Value;
+					frameTimestampNs = frameEventTimestampNs.Value;
 					lensPosition = LensPosition.Unknown;
 				}
+
+				if (frameTimestampNs == lastDetectedTimestampNs)
+					return;
+				lastDetectedTimestampNs = frameTimestampNs;
 
 				if (detector == null || detectorDimensions != img.dimensions)
 				{
@@ -177,6 +198,16 @@ namespace Anaglyph.XR.AprilTags
 						img.Convert(convParams, processedImg);
 
 						break;
+
+					case XRCpuImage.Format.OneComponent8:
+					{
+						XRCpuImage.Plane luma = img.GetPlane(0);
+						EnsureProcessedImgSize(img.width * img.height);
+						for (int row = 0; row < img.height; row++)
+							NativeArray<byte>.Copy(luma.data, row * luma.rowStride, processedImg, row * img.width, img.width);
+
+						break;
+					}
 
 					case XRCpuImage.Format.BGRA32:
 					case XRCpuImage.Format.RGBA32:

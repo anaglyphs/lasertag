@@ -86,6 +86,7 @@ namespace Anaglyph.Netcode
 			{
 				bool changed = value != _state;
 				_state = value;
+				if (value == NetcodeState.Disconnected) IsHosting = false;
 				if (changed)
 					StateChanged.Invoke(_state);
 			}
@@ -292,8 +293,12 @@ namespace Anaglyph.Netcode
 			manager.NetworkConfig.NetworkTransport = newTransport;
 		}
 
+		/// <summary>True from <see cref="Host"/> until the session ends.</summary>
+		public static bool IsHosting { get; private set; }
+
 		public static async void Host(Protocol protocol)
 		{
+			if (State == NetcodeState.Disconnected) IsHosting = true;
 			switch (protocol)
 			{
 				case Protocol.LAN:

@@ -14,6 +14,8 @@ namespace Anaglyph.LaserTag.Objects.Gameplay.Base
 		[SerializeField, Range(0.001f, 1f)] private float fadeInShare = 0.1f;
 		[SerializeField] private float peakIntensity = 1f;
 
+		public float Visibility { get; set; } = 1;
+
 		private new Renderer renderer;
 		private MaterialPropertyBlock propertyBlock;
 
@@ -32,7 +34,9 @@ namespace Anaglyph.LaserTag.Objects.Gameplay.Base
 			transform.localPosition = position;
 
 			float fadeOut = 1f - cycle;
-			float intensity = peakIntensity * Mathf.Clamp01(cycle / fadeInShare) * fadeOut * fadeOut;
+			float intensity = Visibility * peakIntensity * Mathf.Clamp01(cycle / fadeInShare) * fadeOut * fadeOut;
+
+			renderer.enabled = Visibility > 0;
 
 			// the block also holds the colour from TeamColorer
 			renderer.GetPropertyBlock(propertyBlock);

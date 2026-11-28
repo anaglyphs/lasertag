@@ -2455,10 +2455,18 @@ MonoBehaviour:
   shoulderBelowNeck: 0.13
   shoulderHalfWidth: 0.17
   bodyYawDeadzoneDegrees: 30
+  fistTubeToBarrelDegrees: 80
+  handleFromPalm: 0.02
+  sightFromHandle: {x: 0, y: 0.104, z: 0.079}
+  barrelFollowsSightLine: 1
+  minimumSightDistance: 0.12
   tapPressGap: 0.022
   tapReleaseGap: 0.035
   tapTriggerZeroGap: 0.06
   palmFacingHeadCosine: 0.6
+  handTrackingLagSeconds: 0.05
+  maxHeadTravel: 0.3
+  smoothDirections: 0
   aimMinCutoffHz: 1.2
   aimCutoffPerDegreePerSecond: 0.05
   aimFreezeDuringTap: 0.85

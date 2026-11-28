@@ -61,7 +61,7 @@ namespace Anaglyph.XR.VisualLocalization
 		/// <summary>Head rotation speed around capture, degrees per second: motion blur's proxy.</summary>
 		public float angularSpeed;
 
-		/// <summary>Where the camera's frame lies in <see cref="pixels"/> (min x, min y, max x, max y); outside it is padding.</summary>
+		/// <summary>Where the camera's frame lies in <see cref="pixels"/> (min x, min y, max x, max y): all of it.</summary>
 		public float4 content;
 
 		/// <summary>XR Simulation's rendered readback rather than a physical sensor.</summary>
@@ -75,8 +75,8 @@ namespace Anaglyph.XR.VisualLocalization
 
 	/// <summary>
 	/// Grabs the passthrough camera's latest CPU image through
-	/// <see cref="MetaPassthroughCamera"/> (or AR Foundation's generic image, as on phones), fits
-	/// the whole frame into the extractor's square grayscale with matching intrinsics, and places
+	/// <see cref="PassthroughFrames"/> (or AR Foundation's generic image, as on phones), crops
+	/// the frame's center square into the extractor's square grayscale with matching intrinsics, and places
 	/// the lens in the world at the frame's capture time through <see cref="HeadPoseHistory"/>.
 	/// </summary>
 	public sealed class PassthroughCapture : IDisposable
@@ -117,17 +117,22 @@ namespace Anaglyph.XR.VisualLocalization
 				long timestampNs;
 				LensPosition lens;
 
-				if (MetaPassthroughCamera.TryAcquireFrame(cameraManager, out MetaPassthroughCamera.Frame frame))
+				if (PassthroughFrames.TryAcquire(cameraManager, out PassthroughFrame frame))
 				{
 					image = frame.image;
 					gotImage = true;
 					intrinsics = frame.intrinsics;
 					timestampNs = frame.timestampNs;
 					lens = frame.lensPosition;
+					if (frame.lensInHead.HasValue && !lookedForLens)
+					{
+						lookedForLens = true;
+						lensPose = frame.lensInHead.Value;
+					}
 				}
 				else
 				{
-					if (!cameraManager.TryGetIntrinsics(out intrinsics)) return false;
+					if (!PassthroughFrames.GenericImageAllowed || !cameraManager.TryGetIntrinsics(out intrinsics)) return false;
 					gotImage = cameraManager.TryAcquireLatestCpuImage(out image);
 					if (!gotImage) return false;
 					lens = LensPosition.Unknown;
@@ -189,7 +194,7 @@ namespace Anaglyph.XR.VisualLocalization
 				{
 					// which camera mode the runtime picked: AR Foundation can't choose one on Quest
 					loggedSize = true;
-					Debug.Log($"[{nameof(PassthroughCapture)}] camera frames are {width}×{height}, fitted into {XFeatExtractor.Width}×{XFeatExtractor.Height}");
+					Debug.Log($"[{nameof(PassthroughCapture)}] camera frames are {width}×{height}, center-cropped to {XFeatExtractor.Width}×{XFeatExtractor.Height}");
 				}
 
 				// intrinsics of the full image; XR Simulation reports none, so take its render camera's
@@ -213,13 +218,12 @@ namespace Anaglyph.XR.VisualLocalization
 				cx -= sourceOffsetX;
 				cy -= sourceOffsetY;
 
-				// the whole frame, fitted inside the model's square input: a 1280×1280 frame fills
-				// it, a 4:3 one keeps its full width between padded bands (edge pixels repeated,
-				// and no keypoints taken near them), so no field of view is ever cropped away
+				// the frame's center square fills the model's square input: a 4:3 frame keeps its
+				// full height and loses the ends of its width
 				const int outW = XFeatExtractor.Width, outH = XFeatExtractor.Height;
-				float scale = math.min((float)outW / width, (float)outH / height);
+				float scale = math.max((float)outW / width, (float)outH / height);
 				float x0 = (width - outW / scale) * 0.5f, y0 = (height - outH / scale) * 0.5f;
-				float4 sensorContent = new(-x0 * scale, -y0 * scale, (width - x0) * scale, (height - y0) * scale);
+				float4 sensorContent = new(0, 0, outW, outH);
 				PinholeCamera sensorIntrinsics = new(fx * scale, fy * scale, (cx - x0 + 0.5f) * scale - 0.5f, (cy - y0 + 0.5f) * scale - 0.5f);
 
 				// XFeat's descriptors aren't rotation-invariant: a phone held upright sees its scene

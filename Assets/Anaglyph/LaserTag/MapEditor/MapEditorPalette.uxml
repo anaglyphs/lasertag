@@ -17,7 +17,7 @@
                 <ui:Instance template="MapEditorMeasureTagSizePage" />
             </Anaglyph.Menu.NavPage>
         </Anaglyph.Menu.NavView>
-        <ui:VisualElement picking-mode="Ignore" class="palette-actions">
+        <ui:VisualElement name="palette-actions" picking-mode="Ignore" class="palette-actions">
             <ui:Button name="delete-object-button" class="palette-delete destructive">
                 <Bindings>
                     <UnityEngine.Localization.LocalizedString property="text" table="Map" entry="maps.delete" />

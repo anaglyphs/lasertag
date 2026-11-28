@@ -20,12 +20,25 @@ namespace Anaglyph.LaserTag.Interface
 		[SerializeField] private float panelWidth = 0.6f;
 		[SerializeField] private int centerIndex;
 		[SerializeField] private float transitionLength = 0.2f;
+		[SerializeField] private float sessionPanelTransitionLength = 0.2f;
 		[SerializeField] private AnimationCurve transitionCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
+		[SerializeField] private float sessionPanelScaleWhenAbsent = 0.8f;
+		
+		[SerializeField] private UIToolkitPanelXRSetup statusBar;
+		[SerializeField] private UIToolkitPanelXRSetup closeBar;
+		[SerializeField] private float barGapInMeters = 0.02f;
 
 		private Transform camTransform => MainXRRig.Camera.transform;
 
 		private bool hasPose;
+		private bool isWaitingForOpeningPose;
+		private bool openingRequestsRecovery;
 		private float transitionProgress;
+		// the game panel: shown only in a session, in the center, the other panels closing the gap without it
+		private int sessionPanelIndex = -1;
+		private Vector3 sessionPanelScale = Vector3.one;
+		private float sessionPanelPresence;
+		private bool inSession;
 		private GateMenu gateMenu;
 		private UIToolkitPanelXRSetup gatePanel;
 		private UIToolkitPanelXRSetup[] menuPanels;
@@ -57,10 +70,15 @@ namespace Anaglyph.LaserTag.Interface
 			get => screenPanel;
 			set
 			{
-				screenPanel = Mathf.Clamp(value, 0, panels.Length - 1);
+				int panel = Mathf.Clamp(value, 0, panels.Length - 1);
+				if (!IsPanelAvailable(panel)) return;
+				screenPanel = panel;
 				ApplyPanelVisibility();
 			}
 		}
+
+		/// <summary>The game panel is available only in a session.</summary>
+		public bool IsPanelAvailable(int panel) => panel != sessionPanelIndex || inSession;
 
 		public void ShowOnScreen(int initialPanel)
 		{
@@ -87,6 +105,12 @@ namespace Anaglyph.LaserTag.Interface
 				if (menuPanels[i] == null)
 					throw new InvalidOperationException("Every menu panel requires UIToolkitPanelXRSetup.");
 			}
+			if (statusBar == null || closeBar == null)
+				throw new InvalidOperationException("MainMenuController requires a status bar and a close bar.");
+
+			FindSessionPanel();
+			inSession = NetcodeManagement.State == NetcodeState.Connected;
+			sessionPanelPresence = inSession ? 1 : 0;
 
 			showMenuAction.performed += OnShowMenuPerformed;
 
@@ -98,6 +122,16 @@ namespace Anaglyph.LaserTag.Interface
 			NetcodeManagement.StateChanged += OnNetworkStateChanged;
 			ApplyPanelVisibility();
 			ApplyPanelLayout();
+		}
+
+		private void FindSessionPanel()
+		{
+			for (int i = 0; i < panels.Length; i++)
+				if (panels[i].GetComponent<GameMenu>() != null)
+				{
+					sessionPanelIndex = i;
+					sessionPanelScale = panels[i].localScale;
+				}
 		}
 
 		private void OnShowMenuPerformed(InputAction.CallbackContext _)
@@ -151,11 +185,21 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void OnNetworkStateChanged(NetcodeState state)
 		{
-			if (state == NetcodeState.Connected && gateMenu.Access != GateMenu.AccessState.Permissions)
+			inSession = state == NetcodeState.Connected;
+			if (!IsPanelAvailable(screenPanel)) ScreenPanel = FirstAvailablePanel();
+			if (state == NetcodeState.Connected && !NetcodeManagement.IsHosting &&
+				gateMenu.Access != GateMenu.AccessState.Permissions)
 				SetVisibility(false, false);
-			else if (state == NetcodeState.Disconnected && !IsVisible &&
-				!HeadsetConfiguration.MenuPasswordRequired)
+			else if (state == NetcodeState.Disconnected && !IsVisible && !HeadsetConfiguration.MenuPasswordRequired)
 				SetVisibility(true, false);
+			else ApplyPanelVisibility();
+		}
+
+		private int FirstAvailablePanel()
+		{
+			for (int i = 0; i < panels.Length; i++)
+				if (IsPanelAvailable(i)) return i;
+			return 0;
 		}
 
 		private void OnDestroy()
@@ -212,6 +256,27 @@ namespace Anaglyph.LaserTag.Interface
 				ApplyPanelLayout();
 				if (!IsVisible && transitionProgress == 0) ApplyPanelVisibility();
 			}
+
+			float presenceTarget = inSession ? 1 : 0;
+			if (sessionPanelPresence != presenceTarget)
+			{
+				// nothing to watch while the menu is closed or flat on a screen
+				bool animated = !OnScreen && transitionProgress > 0 && sessionPanelTransitionLength > 0;
+				sessionPanelPresence = !animated ? presenceTarget
+					: Mathf.MoveTowards(sessionPanelPresence, presenceTarget, Time.unscaledDeltaTime / sessionPanelTransitionLength);
+				ApplyPanelLayout();
+				if (sessionPanelPresence == presenceTarget) ApplyPanelVisibility();
+			}
+		}
+
+		/// <summary>Where a panel sits around the player, in panel widths from the center.</summary>
+		private float SlotOf(int panel, float sessionPanelLerp)
+		{
+			float slotInSession = panel - centerIndex;
+			if (sessionPanelIndex < 0 || panel == sessionPanelIndex) return slotInSession;
+			int indexAmongTheOthers = panel > sessionPanelIndex ? panel - 1 : panel;
+			float slotOutOfSession = indexAmongTheOthers - (panels.Length - 2) * 0.5f;
+			return Mathf.Lerp(slotOutOfSession, slotInSession, sessionPanelLerp);
 		}
 
 		private void CheckAutoCloseDistance(Vector3 userPosition)
@@ -227,18 +292,34 @@ namespace Anaglyph.LaserTag.Interface
 		{
 			if (OnScreen) return;
 			float lerp = transitionCurve.Evaluate(transitionProgress);
+			float sessionPanelLerp = transitionCurve.Evaluate(sessionPanelPresence);
 			for (int i = 0; i < panels.Length; i++)
 			{
-				float radiusOffs = radius + Mathf.Abs(i - centerIndex) * 0.2f + 0.2f;
+				float slot = SlotOf(i, sessionPanelLerp);
+				float radiusOffs = radius + Mathf.Abs(slot) * 0.2f + 0.2f;
 				float r = Mathf.Lerp(radiusOffs, radius, lerp);
-				float angle = Mathf.Lerp(0, (i - centerIndex) * panelWidth / radius, lerp);
+				if (i == sessionPanelIndex)
+				{
+					r += (1 - sessionPanelLerp) * 0.2f;
+					panels[i].localScale = sessionPanelScale * Mathf.Lerp(sessionPanelScaleWhenAbsent, 1, sessionPanelLerp);
+				}
+				float angle = Mathf.Lerp(0, slot * panelWidth / radius, lerp);
 				Vector3 pos = new(Mathf.Sin(angle) * r, 0, Mathf.Cos(angle) * r);
 				panels[i].localPosition = pos;
 				panels[i].forward = transform.TransformDirection(pos);
 			}
 			// The permission/password panel occupies the center slot independently.
-			gateMenu.transform.localPosition = new Vector3(0, 0, Mathf.Lerp(radius + 0.2f, radius, lerp));
+			float centerDistance = Mathf.Lerp(radius + 0.2f, radius, lerp);
+			gateMenu.transform.localPosition = new Vector3(0, 0, centerDistance);
+
+			float statusBarBottom = gatePanel.EdgeHeightAbovePivot(1) + barGapInMeters;
+			float closeBarTop = gatePanel.EdgeHeightAbovePivot(-1) - barGapInMeters;
+			PlaceInCenterSlot(statusBar, statusBarBottom - statusBar.EdgeHeightAbovePivot(-1), centerDistance);
+			PlaceInCenterSlot(closeBar, closeBarTop - closeBar.EdgeHeightAbovePivot(1), centerDistance);
 		}
+
+		private static void PlaceInCenterSlot(UIToolkitPanelXRSetup panel, float height, float distance) =>
+			panel.transform.SetLocalPositionAndRotation(new Vector3(0, height, distance), Quaternion.identity);
 
 		private bool CheckIsInView()
 		{
@@ -269,12 +350,26 @@ namespace Anaglyph.LaserTag.Interface
 			SetVisibility(shouldBeVisible, shouldBeVisible);
 		}
 
+		/// <summary>Opening from fully closed waits for the end-of-frame pose; nothing changes until then.</summary>
 		private void SetVisibility(bool visible, bool recoveryRequested)
+		{
+			ResetProtectedMenuClicks();
+			bool opensFromClosed = visible && !IsVisible && transitionProgress == 0 && !OnScreen;
+			if (opensFromClosed)
+			{
+				openingRequestsRecovery = recoveryRequested;
+				if (!isWaitingForOpeningPose) SetPose();
+				isWaitingForOpeningPose = true;
+				return;
+			}
+			isWaitingForOpeningPose = false;
+			ApplyVisibility(visible, recoveryRequested);
+		}
+
+		private void ApplyVisibility(bool visible, bool recoveryRequested)
 		{
 			bool changed = IsVisible != visible;
 			IsVisible = visible;
-			ResetProtectedMenuClicks();
-			if (changed && visible && transitionProgress == 0) SetPose();
 			if (!isActiveAndEnabled || transitionLength <= 0) transitionProgress = visible ? 1 : 0;
 
 			// Apply the close before resetting access: the animation retains the
@@ -293,9 +388,13 @@ namespace Anaglyph.LaserTag.Interface
 			for (int i = 0; i < menuPanels.Length; i++)
 			{
 				bool shown = showMenu && (!OnScreen || i == screenPanel);
-				menuPanels[i].SetVisible(IsVisible && shown, IsClosing && shown);
+				bool usable = shown && IsPanelAvailable(i);
+				bool leaving = shown && !usable && sessionPanelPresence > 0;
+				menuPanels[i].SetVisible(IsVisible && usable, IsClosing && usable || leaving && (IsVisible || IsClosing));
 			}
 			gatePanel.SetVisible(IsVisible && !showMenu, IsClosing && !showMenu);
+			statusBar.SetVisible(IsVisible && !OnScreen, IsClosing && !OnScreen);
+			closeBar.SetVisible(IsVisible && !OnScreen, IsClosing && !OnScreen);
 		}
 
 		private void ResetProtectedMenuClicks()
@@ -308,20 +407,31 @@ namespace Anaglyph.LaserTag.Interface
 
 		private async Awaitable SetPoseAtEndOfFrame()
 		{
-			if (OnScreen) return;
-			// Wait for placement before checking distance when opening or recentering.
-			hasPose = false;
+			if (!OnScreen)
+			{
+				// Wait for placement before checking distance when opening or recentering.
+				hasPose = false;
 
-			await Awaitable.EndOfFrameAsync(destroyCancellationToken);
+				await Awaitable.EndOfFrameAsync(destroyCancellationToken);
+			}
 
-			Vector3 camPos = camTransform.position;
-			transform.position = camPos + Vector3.up * verticalOffset;
+			if (!OnScreen && MainXRRig.Camera != null)
+			{
+				Vector3 camPos = camTransform.position;
+				transform.position = camPos + Vector3.up * verticalOffset;
 
-			Vector3 f = camTransform.forward;
-			f = new Vector3(f.x, 0, f.z).normalized;
+				Vector3 f = camTransform.forward;
+				f = new Vector3(f.x, 0, f.z).normalized;
 
-			transform.forward = f;
-			hasPose = true;
+				transform.forward = f;
+				hasPose = true;
+			}
+
+			if (isWaitingForOpeningPose)
+			{
+				isWaitingForOpeningPose = false;
+				ApplyVisibility(true, openingRequestsRecovery);
+			}
 		}
 	}
 }

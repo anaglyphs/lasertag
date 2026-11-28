@@ -36,6 +36,7 @@ namespace Anaglyph.LaserTag.MapEditor
 		private Button unregisterAllTagsButton;
 		private Button doneButton;
 		private Button deleteObjectButton;
+		private VisualElement actions;
 		private Label setupMeasureInstructions;
 		private Label setupRegisterInstructions;
 		private Label setupFinish;
@@ -82,6 +83,7 @@ namespace Anaglyph.LaserTag.MapEditor
 			unregisterAllTagsButton = Require<Button>(root, "unregister-all-tags-button");
 			doneButton = Require<Button>(root, "done-button");
 			deleteObjectButton = Require<Button>(root, "delete-object-button");
+			actions = Require<VisualElement>(root, "palette-actions");
 			setupMeasureInstructions = Require<Label>(root, "tag-setup-measure-instructions");
 			setupRegisterInstructions = Require<Label>(root, "tag-setup-register-instructions");
 			setupFinish = Require<Label>(root, "tag-setup-finish");
@@ -166,6 +168,7 @@ namespace Anaglyph.LaserTag.MapEditor
 			// Move is the editor's initial state. Keep the catalog available there so selecting its
 			// first object can enter Place mode; tag modes alone replace the catalog.
 			bool selectingObjects = mode is MapEditorTool.Mode.Move or MapEditorTool.Mode.Place;
+			actions.EnableInClassList("palette-actions--placing-objects", selectingObjects);
 			categoryRail.SetEnabled(selectingObjects);
 			objectGrid.SetEnabled(selectingObjects);
 			selectedPrefab = MapEditorTool.SelectedObject;
@@ -248,7 +251,8 @@ namespace Anaglyph.LaserTag.MapEditor
 			registrationTagSize.style.display = guided ? DisplayStyle.None : DisplayStyle.Flex;
 			measureTagSizeButton.style.display = guided ? DisplayStyle.None : DisplayStyle.Flex;
 			unregisterAllTagsButton.style.display = guided ? DisplayStyle.None : DisplayStyle.Flex;
-			doneButton.style.display = guided && !setup.CanEndFromHere ? DisplayStyle.None : DisplayStyle.Flex;
+			// otherwise the style sheet decides, by the tool's mode and the kind of screen
+			doneButton.style.display = guided && !setup.CanEndFromHere ? DisplayStyle.None : new StyleEnum<DisplayStyle>(StyleKeyword.Null);
 			doneButton.text = MenuCopy.Get("Map", guided && !setup.CanFinish ? "tag-setup.cancel" : "GameMapEditingPage.finish-editing-button.text");
 			measurementHint.style.display = guided && !setup.CanMeasure ? DisplayStyle.None : DisplayStyle.Flex;
 			if (!guided) return;
@@ -431,6 +435,9 @@ namespace Anaglyph.LaserTag.MapEditor
 
 			if (!selectionStillListed)
 				selectedCategory = categoryButtons.Count > 0 ? categoryButtons[0].category : null;
+
+			// one category needs no tabs
+			categoryRail.style.display = categoryButtons.Count > 1 ? DisplayStyle.Flex : DisplayStyle.None;
 
 			RebuildGrid();
 		}

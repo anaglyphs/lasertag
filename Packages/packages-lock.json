@@ -508,6 +508,19 @@
         "com.unity.render-pipelines.core": "17.6.0"
       }
     },
+    "com.unity.xr.androidxr-openxr": {
+      "version": "1.5.1",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {
+        "com.unity.xr.hands": "1.6.1",
+        "com.unity.xr.openxr": "1.19.0",
+        "com.unity.xr.management": "4.5.0",
+        "com.unity.xr.arfoundation": "6.7.1",
+        "com.unity.xr.compositionlayers": "2.3.0"
+      },
+      "url": "https://packages.unity.com"
+    },
     "com.unity.xr.arcore": {
       "version": "6.7.1",
       "depth": 0,
@@ -636,8 +649,8 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.xr.openxr": {
-      "version": "1.18.0",
-      "depth": 0,
+      "version": "1.19.0",
+      "depth": 1,
       "source": "registry",
       "dependencies": {
         "com.unity.modules.xr": "1.0.0",

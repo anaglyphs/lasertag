@@ -18,11 +18,13 @@ namespace Anaglyph.Permissions
 	public static class MetaPermissionChecks
 	{
 		public const string ScenePermission = "com.oculus.permission.USE_SCENE";
+		public const string AndroidXRScenePermission = "android.permission.SCENE_UNDERSTANDING_FINE";
 		public const string AndroidCameraPermission = "android.permission.CAMERA";
 		public const string HeadsetCameraPermission = "horizonos.permission.HEADSET_CAMERA";
 
 		public const string SceneExtension = "XR_FB_scene";
 		public const string EnvironmentDepthExtension = "XR_META_environment_depth";
+		public const string AndroidXRDepthExtension = "XR_ANDROID_depth_texture";
 		public const string PassthroughExtension = "XR_FB_passthrough";
 		public const string SharedSpatialAnchorsExtension = "XR_META_spatial_entity_group_sharing";
 
@@ -30,6 +32,12 @@ namespace Anaglyph.Permissions
 		public const int VpsDisabledNativeStatusCode = -1000169004;
 
 		private const string AndroidCameraSystemFeature = "android.hardware.camera";
+
+		private static readonly string[] scenePermissionCandidates =
+		{
+			ScenePermission,
+			AndroidXRScenePermission
+		};
 
 		private static readonly string[] passthroughCameraPermissionCandidates =
 		{
@@ -44,12 +52,13 @@ namespace Anaglyph.Permissions
 		{
 			CapabilitySupport support = CheckAnyOpenXRExtension(
 				SceneExtension,
-				EnvironmentDepthExtension);
+				EnvironmentDepthExtension,
+				AndroidXRDepthExtension);
 
 			return new PermissionCheckResult(
 				GameCapability.Scene,
 				support,
-				AndroidPermissionChecks.CheckPermission(ScenePermission).authorization);
+				AndroidPermissionChecks.CheckPreferredPermission(scenePermissionCandidates).authorization);
 		}
 
 		/// <summary>
@@ -59,7 +68,7 @@ namespace Anaglyph.Permissions
 		/// </summary>
 		public static CapabilitySupport CheckEnvironmentDepth()
 		{
-			return CheckAnyOpenXRExtension(EnvironmentDepthExtension);
+			return CheckAnyOpenXRExtension(EnvironmentDepthExtension, AndroidXRDepthExtension);
 		}
 
 		public static PassthroughCameraCheckResult CheckPassthroughCamera()
@@ -85,12 +94,13 @@ namespace Anaglyph.Permissions
 		}
 
 		/// <summary>
-		/// Requests USE_SCENE and reports the terminal Android permission callback.
+		/// Requests the scene permission this OS defines (Meta's or Android XR's), if any,
+		/// and reports the terminal Android permission callback.
 		/// This method never runs automatically.
 		/// </summary>
 		public static void RequestScenePermission(Action<PermissionRequestResult> completed)
 		{
-			AndroidPermissionChecks.RequestPermission(ScenePermission, completed);
+			AndroidPermissionChecks.RequestPreferredPermission(scenePermissionCandidates, completed);
 		}
 
 		/// <summary>

@@ -15,6 +15,7 @@ namespace Anaglyph.LaserTag.Player
 	{
 		[SerializeField] private Handedness handedness;
 		[SerializeField] private WeaponDatabase database;
+		[SerializeField, Min(0.01f)] private float flyToHandSeconds = 0.25f;
 
 		private NetworkVariable<int> weaponIdSync = new(WeaponDatabase.NoWeapon);
 
@@ -33,6 +34,10 @@ namespace Anaglyph.LaserTag.Player
 		// owner only
 		private GameObject selectedPrefab;
 		private bool weaponsActive = true;
+
+		private Pose flyStartWorldPose;
+		private Pose visualPoseInParent;
+		private float flyProgress = 1;
 
 		private void Awake()
 		{
@@ -98,12 +103,40 @@ namespace Anaglyph.LaserTag.Player
 			firingSync.Value = visual != null && visual.IsFiring;
 		}
 
+		private void LateUpdate()
+		{
+			if (flyProgress >= 1 || visual == null)
+				return;
+
+			flyProgress = Mathf.Min(1, flyProgress + Time.deltaTime / flyToHandSeconds);
+			float eased = 1 - Mathf.Pow(1 - flyProgress, 3);
+
+			Transform visualTransform = visual.transform;
+			Transform parent = visualTransform.parent;
+			Vector3 targetPosition = parent.TransformPoint(visualPoseInParent.position);
+			Quaternion targetRotation = parent.rotation * visualPoseInParent.rotation;
+
+			visualTransform.SetPositionAndRotation(
+				Vector3.Lerp(flyStartWorldPose.position, targetPosition, eased),
+				Quaternion.Slerp(flyStartWorldPose.rotation, targetRotation, eased));
+		}
+
+		private void StartFlyingIn(Pose startWorldPose)
+		{
+			visual.transform.GetLocalPositionAndRotation(out Vector3 position, out Quaternion rotation);
+			visualPoseInParent = new Pose(position, rotation);
+			flyStartWorldPose = startWorldPose;
+			flyProgress = 0;
+			LateUpdate();
+		}
+
 		private void Show(int weaponId)
 		{
 			if (weaponId == id)
 				return;
 
 			id = weaponId;
+			flyProgress = 1;
 
 			if (visual != null)
 				visual.Fired -= OnFired;
@@ -136,7 +169,12 @@ namespace Anaglyph.LaserTag.Player
 			presentationRoot.SetActive(avatar.CanInteract && weaponsActive);
 
 			if (visual != null)
+			{
 				visual.Fired += OnFired;
+
+				if (WeaponSwitcher.Instance.TakeArrivalPose(handedness, out Pose arrivalPose))
+					StartFlyingIn(arrivalPose);
+			}
 		}
 
 		// the hand transform is the grip pose, so the weapon is moved until its handle sits there

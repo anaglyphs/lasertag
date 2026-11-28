@@ -3,6 +3,7 @@ using Anaglyph.Menu;
 using Anaglyph.VariableObjects;
 using Anaglyph.XR;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UIElements;
 using static Anaglyph.Menu.UIQuery;
 
@@ -16,7 +17,7 @@ namespace Anaglyph.LaserTag.Interface
 	[RequireComponent(typeof(UIToolkitPanelXRSetup))]
 	public class SecretsMenu : MonoBehaviour
 	{
-		[SerializeField] private UIToolkitPanelXRSetup connectionPanel;
+		[SerializeField] private UIToolkitPanelXRSetup parentPanel;
 		[SerializeField] private float gapBehindConnectionPanelInMeters = 0.01f;
 		[SerializeField] private BoolObject hostPrototypeZombiesSetting;
 
@@ -54,12 +55,9 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void LateUpdate()
 		{
-			Transform front = connectionPanel.transform;
-			transform.SetPositionAndRotation(
-				front.position + front.forward * gapBehindConnectionPanelInMeters,
-				front.rotation * Quaternion.Euler(0, 180, 0));
+			Transform front = parentPanel.transform;
 
-			panel.SetVisible(connectionPanel.IsVisible && connectionPanel.IsPlacedInWorld &&
+			panel.SetVisible(parentPanel.IsVisible && parentPanel.IsPlacedInWorld &&
 				IsCameraBehindConnectionPanel());
 		}
 
@@ -67,7 +65,7 @@ namespace Anaglyph.LaserTag.Interface
 		{
 			Camera viewer = MainXRRig.Camera;
 			if (viewer == null) return false;
-			Transform front = connectionPanel.transform;
+			Transform front = parentPanel.transform;
 			return Vector3.Dot(viewer.transform.position - front.position, front.forward) >
 				gapBehindConnectionPanelInMeters;
 		}

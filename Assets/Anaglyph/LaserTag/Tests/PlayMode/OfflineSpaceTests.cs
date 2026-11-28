@@ -45,22 +45,21 @@ namespace Anaglyph.LaserTag.Tests.PlayMode
 			manager.Store.KeepsEverySpace = false;
 			try
 			{
-				// a new space starts visual, with no map, and is neither listed nor on disk
+				// a new space starts visual, with one empty map, and is neither listed nor on disk
 				Assert.That(manager.NewSpace(), Is.True);
 				Space space = manager.Space;
 				created.Add(space.id);
 				Assert.That(space.alignment.method, Is.EqualTo(Method.Visual));
-				Assert.That(manager.Map, Is.Null);
+				Assert.That(manager.Map, Is.Not.Null);
+				Assert.That(manager.Map.HasObjects, Is.False);
+				Assert.That(space.maps.Count, Is.EqualTo(1));
 				Assert.That(Saved(manager, space.id), Is.Null);
 				Assert.That(manager.Spaces, Has.No.Member(space));
 				yield return null;
 				Assert.That(colocation.ActiveMethod, Is.EqualTo(Method.Visual));
 				Assert.That(colocation.VisualProvider.IsRunning, Is.True);
 
-				// a map the player makes is kept once an object is placed in it, and its space with it
-				Assert.That(manager.NewMap(), Is.True);
-				Assert.That(manager.Map, Is.Not.Null);
-				Assert.That(Saved(manager, space.id), Is.Null, "an empty map is not saved");
+				// the space's map is kept once an object is placed in it, and its space with it
 				MapObject prefab = FirstPrefab(manager);
 				Assert.That(prefab, Is.Not.Null, "the object database has a placeable prefab");
 				Object.Instantiate(prefab.gameObject, new Vector3(2, 0, 3), Quaternion.Euler(0, 45, 0));

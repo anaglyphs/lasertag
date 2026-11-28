@@ -20,6 +20,13 @@
     min-width: 0;
 }
 
+/* The object page's panel is as tall as its grid; the rest of the document stays clear */
+#objects-page .palette-root,
+#objects-page .palette-body,
+#objects-page .palette-grid {
+    flex-grow: 0;
+}
+
 /* Object grid */
 
 .palette-grid {
@@ -31,6 +38,7 @@
     flex-direction: row;
     flex-wrap: wrap;
     align-content: flex-start;
+    justify-content: center;
 }
 
 .palette-tab,
@@ -45,9 +53,10 @@
     margin: 0 0 6px 0;
 }
 
+/* Two to a row: the four bases and flags fill the panel */
 .palette-item {
-    width: 30%;
-    margin: 4px;
+    width: 46%;
+    margin: 6px;
 }
 
 .palette-tab-icon,
@@ -104,6 +113,11 @@
     display: none;
 }
 
+/* While objects are placed, the menu page that opened the editor also closes it */
+.palette-actions--placing-objects .palette-done {
+    display: none;
+}
+
 /* Scroll directions, read by StyleDirectedScrollView */
 
 .palette-rail,
@@ -139,6 +153,8 @@
 
 .touch-screen .palette-grid .unity-scroll-view__content-container {
     flex-wrap: nowrap;
+    justify-content: flex-start;
+    min-width: 100%;
 }
 
 .touch-screen .palette-tab,
@@ -159,13 +175,26 @@
     white-space: nowrap;
 }
 
+/* The items share the row's width; past what fits at their narrowest, the row scrolls */
 .touch-screen .palette-item {
-    width: 88px;
+    flex-grow: 1;
+    flex-basis: 0;
+    width: auto;
+    min-width: 72px;
+}
+
+.touch-screen .palette-item:last-child {
+    margin-right: 0;
 }
 
 .touch-screen .palette-delete {
     display: flex;
     margin-right: var(--spacing-medium, 8px);
+}
+
+/* The menu is off screen while objects are placed, so the palette closes the editor itself */
+.touch-screen .palette-actions--placing-objects .palette-done {
+    display: flex;
 }
 
 .touch-screen .palette-done,

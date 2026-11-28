@@ -5,8 +5,20 @@ using UnityEngine;
 
 namespace Anaglyph.LaserTag.Matches
 {
+	[System.Flags]
+	public enum MissingMatchObjects { None = 0, BothTeamBases = 1, AnyFlag = 2, BothTeamFlags = 4 }
+
 	public static class MapRequirements
 	{
+		/// <summary>What must still be placed before a match with these settings can start.</summary>
+		public static MissingMatchObjects MissingFor(MatchSettings settings)
+		{
+			MissingMatchObjects missing = HasBothTeamBases ? MissingMatchObjects.None : MissingMatchObjects.BothTeamBases;
+			if (settings.pointsPerFlagCapture <= 0) return missing;
+			if (OneTeamsFlagsAreEnoughFor(settings)) return HasAnyFlag ? missing : missing | MissingMatchObjects.AnyFlag;
+			return HasBothTeamFlags ? missing : missing | MissingMatchObjects.BothTeamFlags;
+		}
+
 		public static bool HasBothTeamBases
 		{
 			get

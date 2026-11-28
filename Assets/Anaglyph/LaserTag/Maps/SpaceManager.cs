@@ -18,10 +18,12 @@ namespace Anaglyph.LaserTag.Maps
 	/// <summary>
 	/// The scene component that owns the space and map currently shown, the space list,
 	/// autosave and startup discovery. Its role follows the sync bus: offline and the host own
-	/// the shown space and save it; a client renders the host's and saves nothing of it.
+	/// the shown space and save it; a client renders the host's and cannot change it. Once a
+	/// client is aligned in a host's space that has objects, it keeps a copy, in place of the
+	/// space it had shown before joining.
 	/// A map is saved while it has objects, and a space while the store keeps it (objects or
 	/// registered tags; any space in simulation): until then the shown space is not among
-	/// <see cref="Spaces"/>. A map exists only once the player makes one.
+	/// <see cref="Spaces"/>. A shown space always shows one map: its most recently used, or a new empty one.
 	/// <see cref="Space"/> and <see cref="Map"/> are the live documents, read-only to callers;
 	/// every change goes through a command here or on <see cref="Alignment"/>.
 	/// </summary>
@@ -57,9 +59,11 @@ namespace Anaglyph.LaserTag.Maps
 		private CancellationTokenSource shown;
 		private bool dirty, forceVisualSave, shuttingDown;
 		private float saveDue;
-		// a client shows the host's space, which is never saved; its own last space comes back on disconnect
+		// a client shows the host's space; on disconnect it shows localSpace again: its own last
+		// space, or the copy it kept of the host's
 		private bool showingSessionSpace;
 		private Space localSpace;
+		private string keptSessionSpaceJson;
 		private int sessionGeneration;
 		// the host is replacing the session's map: objects are being retired and spawned
 		private bool changingMap;
@@ -81,7 +85,7 @@ namespace Anaglyph.LaserTag.Maps
 
 		/// <summary>The shown space; null until startup finds or makes one.</summary>
 		public Space Space => space;
-		/// <summary>The shown map; null until the player makes or loads one.</summary>
+		/// <summary>The shown map; null only while no space is shown.</summary>
 		public Map Map => map;
 		/// <summary>Every saved space, most recently used first.</summary>
 		public IReadOnlyList<Space> Spaces => spaces;
@@ -191,6 +195,7 @@ namespace Anaglyph.LaserTag.Maps
 		private void OnApplicationPause(bool paused)
 		{
 			if (!paused) return;
+			KeepSessionSpace(forceVisualSave: true);
 			forceVisualSave = true;
 			Save(synchronousVisual: true);
 		}
@@ -289,7 +294,7 @@ namespace Anaglyph.LaserTag.Maps
 
 		private void SetMap(Map next)
 		{
-			map = next;
+			map = next ?? (space != null ? AddMap(space) : null);
 			if (map != null) map.lastUsed = DateTime.UtcNow.Ticks;
 			MapRevision = Guid.NewGuid();
 			if (Role == SpaceRole.Host)
@@ -366,6 +371,33 @@ namespace Anaglyph.LaserTag.Maps
 			if (realigns) Alignment.Apply(space, preserve: true);
 			SpaceChanged.Invoke();
 			if (mapChanged) MapChanged.Invoke();
+			KeepSessionSpace(forceVisualSave: false);
+		}
+
+		/// <summary>
+		/// A client keeps the host's space once it has objects and this headset is aligned in it:
+		/// the space file, and the visual map this headset mirrors, so the room is recognized
+		/// alone later. The copy replaces the space this device showed before joining, which is
+		/// deleted with everything saved of it.
+		/// </summary>
+		private void KeepSessionSpace(bool forceVisualSave)
+		{
+			if (!showingSessionSpace || space == null || !space.HasPlacedObjects || !ColocationManager.IsLocalized) return;
+			string json = JsonUtility.ToJson(space);
+			if (json != keptSessionSpaceJson)
+			{
+				Space kept = JsonUtility.FromJson<Space>(json);
+				kept.lastUsed = DateTime.UtcNow.Ticks;
+				if (!store.Save(kept)) return;
+				keptSessionSpaceJson = json;
+				Space replaced = localSpace;
+				spaces.RemoveAll(saved => saved.id == kept.id || saved == replaced);
+				spaces.Insert(0, kept);
+				localSpace = kept;
+				if (replaced != null && replaced.id != kept.id) Forget(replaced);
+				SpacesChanged.Invoke();
+			}
+			visualMaps.Save(space, forceVisualSave, synchronous: false);
 		}
 
 		private static bool SameEntries<T>(List<T> a, List<T> b) where T : struct
@@ -474,6 +506,7 @@ namespace Anaglyph.LaserTag.Maps
 			{
 				await Awaitable.WaitForSecondsAsync(10f, token);
 				if (space != null && !showingSessionSpace && store.Keeps(space) && ColocationManager.IsLocalized) visualMaps.Save(space, false, false);
+				KeepSessionSpace(forceVisualSave: false);
 			}
 		}
 
@@ -666,7 +699,7 @@ namespace Anaglyph.LaserTag.Maps
 		public string DeleteMapBlocker(string id) =>
 			id == null ? L("blocker.no-map-selected") : ManageBlocker() ?? (OwnerOf(id) == null ? L("blocker.map-is-missing") : null);
 
-		/// <summary>Deletes a saved map, and its space when nothing else keeps it. Deleting the shown map leaves none shown.</summary>
+		/// <summary>Deletes a saved map, and its space when nothing else keeps it. Deleting the shown map shows a new empty one.</summary>
 		public bool DeleteMap(string id)
 		{
 			if (DeleteMapBlocker(id) != null) return false;
@@ -778,6 +811,8 @@ namespace Anaglyph.LaserTag.Maps
 		{
 			sessionGeneration++;
 			changingMap = false;
+			KeepSessionSpace(forceVisualSave: true);
+			keptSessionSpaceJson = null;
 			if (!showingSessionSpace) Save();
 			RestoreAfterSession(sessionGeneration, lifetime.Token).RunUntilCancelled();
 			SpaceChanged.Invoke();
@@ -800,7 +835,8 @@ namespace Anaglyph.LaserTag.Maps
 				return;
 			}
 			showingSessionSpace = false;
-			// the session's space is the host's: nothing of it is this device's to forget
+			// the session's space is the host's: nothing of it is this device's to forget. What was
+			// kept of it is localSpace, shown next as this device's own
 			space = null;
 			map = null;
 			Space local = localSpace;
@@ -865,7 +901,7 @@ namespace Anaglyph.LaserTag.Maps
 			}
 		}
 
-		/// <summary>The room is none of the saved spaces: shows a new one, with no map.</summary>
+		/// <summary>The room is none of the saved spaces: shows a new one.</summary>
 		private bool ShowBlankSpace()
 		{
 			ShowFreshSpace();

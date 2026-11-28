@@ -51,6 +51,7 @@ namespace Anaglyph.Permissions
 		/// <summary>
 		/// Selects the first available permission. An Unknown candidate stops selection
 		/// so a lower-priority, broader permission is never used due to a failed query.
+		/// When no candidate exists on this OS, none is required.
 		/// </summary>
 		public static AndroidPermissionCheckResult CheckPreferredPermission(
 			params string[] orderedCandidates)
@@ -88,8 +89,8 @@ namespace Anaglyph.Permissions
 
 			return new AndroidPermissionCheckResult(
 				null,
-				PermissionAvailability.Unavailable,
-				PermissionAuthorization.Unknown);
+				PermissionAvailability.NotRequired,
+				PermissionAuthorization.NotRequired);
 		}
 
 		/// <summary>

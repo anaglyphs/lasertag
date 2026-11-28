@@ -29,9 +29,9 @@
     -unity-background-image-tint-color: var(--secondary);
 }
 
-.host-mode-tile__icon--relay { background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/Connection/relay-cloud-only.svg"); }
-.host-mode-tile__icon--lan { background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/Connection/lan-router.svg"); }
-.host-mode-tile__icon--direct { background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/Connection/direct-arrow.svg"); }
+.host-mode-tile__icon--relay { background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/cloud.svg"); }
+.host-mode-tile__icon--lan { background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/router.svg"); }
+.host-mode-tile__icon--direct { background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/dual.svg"); }
 
 .host-mode-tile__text {
     display: none;
@@ -75,7 +75,7 @@
     bottom: 16px;
     width: 36px;
     height: 36px;
-    background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/Connection/person.svg");
+    background-image: url("project://database/Assets/Anaglyph/LaserTag/Interface/Graphics/person.svg");
     background-size: contain;
 }
 

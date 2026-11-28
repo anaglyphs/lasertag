@@ -58,11 +58,9 @@ namespace Anaglyph.LaserTag
 			// a phone's AR runtime asks for its camera itself; a Quest's depth needs the scene permission
 			if (Anaglyph.XR.HandheldAR.IsActive) return true;
 
-			PermissionAuthorization authorization = AndroidPermissionChecks.CheckPermission(
-				MetaPermissionChecks.ScenePermission).authorization;
+			PermissionAuthorization authorization = MetaPermissionChecks.CheckScene().authorization;
 
-			// Non-Android providers (including AR Foundation simulation) do not
-			// require the Quest scene permission or Meta environment-depth extension.
+			// headsets and providers that define no scene permission need no depth extension check either
 			if (authorization == PermissionAuthorization.NotRequired)
 				return true;
 

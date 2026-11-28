@@ -3,3 +3,5 @@ This is a Unity project with Unity's official MCP server enabled. Its `mcp__unit
 Read README.md
 
 NEVER write documentation in README.md
+
+Two Unity MCP servers are configured in `.mcp.json`: `unity-mcp` is pinned to the main editor and `unity-mcp-player2` to Multiplayer Play Mode Player 2 (`Library/VP/mppm48239993`). Player 2 tools only respond while that player is active.

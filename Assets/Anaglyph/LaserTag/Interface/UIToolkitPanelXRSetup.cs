@@ -111,6 +111,32 @@ namespace Anaglyph.LaserTag.Interface
 			backFace.SetActive(isRendered && IsPlacedInWorld);
 		}
 
+		public Vector2 PanelSizeInLocalUnits => GetComponent<UIDocument>().worldSpaceSize / PixelsPerUnit;
+
+		public Vector2 PanelCenterInLocalUnits
+		{
+			get
+			{
+				Vector2 halfSize = PanelSizeInLocalUnits * 0.5f;
+				return GetComponent<UIDocument>().pivot switch
+				{
+					Pivot.TopLeft => new Vector2(halfSize.x, -halfSize.y),
+					Pivot.TopCenter => new Vector2(0, -halfSize.y),
+					Pivot.TopRight => new Vector2(-halfSize.x, -halfSize.y),
+					Pivot.LeftCenter => new Vector2(halfSize.x, 0),
+					Pivot.RightCenter => new Vector2(-halfSize.x, 0),
+					Pivot.BottomLeft => new Vector2(halfSize.x, halfSize.y),
+					Pivot.BottomCenter => new Vector2(0, halfSize.y),
+					Pivot.BottomRight => new Vector2(-halfSize.x, halfSize.y),
+					_ => Vector2.zero
+				};
+			}
+		}
+
+		/// <summary>Height of the panel's top (side 1) or bottom (side -1) edge above its pivot, in parent units.</summary>
+		public float EdgeHeightAbovePivot(int side) =>
+			(PanelCenterInLocalUnits.y + side * PanelSizeInLocalUnits.y * 0.5f) * transform.localScale.y;
+
 		[ContextMenu("Configure XR Panel")]
 		public void Configure()
 		{
@@ -119,20 +145,8 @@ namespace Anaglyph.LaserTag.Interface
 			XRSimpleInteractable interactable = GetComponent<XRSimpleInteractable>();
 			XRPokeFilter pokeFilter = GetComponent<XRPokeFilter>();
 
-			Vector2 panelSize = document.worldSpaceSize / PixelsPerUnit;
-			Vector2 halfSize = panelSize * 0.5f;
-			Vector2 panelCenter = document.pivot switch
-			{
-				Pivot.TopLeft => new Vector2(halfSize.x, -halfSize.y),
-				Pivot.TopCenter => new Vector2(0, -halfSize.y),
-				Pivot.TopRight => new Vector2(-halfSize.x, -halfSize.y),
-				Pivot.LeftCenter => new Vector2(halfSize.x, 0),
-				Pivot.RightCenter => new Vector2(-halfSize.x, 0),
-				Pivot.BottomLeft => new Vector2(halfSize.x, halfSize.y),
-				Pivot.BottomCenter => new Vector2(0, halfSize.y),
-				Pivot.BottomRight => new Vector2(-halfSize.x, halfSize.y),
-				_ => Vector2.zero
-			};
+			Vector2 panelSize = PanelSizeInLocalUnits;
+			Vector2 panelCenter = PanelCenterInLocalUnits;
 
 			panelCollider.isTrigger = true;
 			panelCollider.center = new Vector3(panelCenter.x, panelCenter.y, 0);

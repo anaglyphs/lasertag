@@ -9,11 +9,6 @@
     <uses-feature android:name="com.oculus.feature.PASSTHROUGH" android:required="true"/>
     <uses-feature android:name="com.oculus.feature.BOUNDARYLESS_APP" android:required="true"/>
 
-    <!-- Required features for AndroidXR -->
-    <uses-feature android:name="android.software.xr.api.openxr" android:version="0x00010001" android:required="true"/>
-    <uses-feature android:name="android.hardware.xr.input.controller" android:required="true"/>
-    <uses-feature android:name="android.permission.SCENE_UNDERSTANDING_FINE" android:required="true"/>
-
     <!-- Permissions -->
     <uses-permission android:name="org.khronos.openxr.permission.OPENXR_SYSTEM"/>
     <uses-permission android:name="android.permission.INTERNET"/>
@@ -40,13 +35,6 @@
             android:allowBackup="false"
             android:extractNativeLibs="true"
             android:networkSecurityConfig="@xml/network_sec_config">
-
-        <!-- AndroidXR -->
-        <property android:name="android.window.PROPERTY_XR_ACTIVITY_START_MODE"
-                  android:value="XR_ACTIVITY_START_MODE_FULL_SPACE_UNMANAGED"/>
-        <property android:name="android.window.PROPERTY_XR_BOUNDARY_TYPE_RECOMMENDED"
-                  android:value="XR_BOUNDARY_TYPE_LARGE"/>
-        <uses-native-library android:name="libopenxr.google.so" android:required="false"/>
 
         <!-- Meta-specific metadata -->
         <meta-data android:name="unityplayer.SkipPermissionsDialog" android:value="true"/>

@@ -155,6 +155,7 @@ namespace Anaglyph.LaserTag.Editor
 		public static readonly Permission[] All =
 		{
 			new("Scene", MetaPermissionChecks.ScenePermission),
+			new("Scene (Android XR)", MetaPermissionChecks.AndroidXRScenePermission),
 			new("Headset camera", MetaPermissionChecks.HeadsetCameraPermission),
 			new("Android camera fallback", MetaPermissionChecks.AndroidCameraPermission)
 		};
@@ -284,10 +285,38 @@ namespace Anaglyph.LaserTag.Editor
 		public static readonly PlayModeSetting Setting = new("Anaglyph.PlayMode.SimulateXR");
 	}
 
-	/// Plays over XR Simulation with the phone's screen UI and touch input.
+	/// Plays over XR Simulation with the phone's screen UI and touch input, shown
+	/// in the Device Simulator view. The previous play mode view returns on exit.
+	[InitializeOnLoad]
 	public static class PlayModePhoneSimulation
 	{
 		public static readonly PlayModeSetting Setting = new("Anaglyph.PlayMode.SimulatePhone");
+
+		private const string ViewBeforePlayKey = "Anaglyph.PlayMode.ViewBeforePlay";
+
+		static PlayModePhoneSimulation()
+		{
+			EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+		}
+
+		private static bool PlaysAsPhone => Setting.Value && PlayModeXRSimulation.Setting.Value;
+
+		private static void OnPlayModeStateChanged(PlayModeStateChange change)
+		{
+			switch (change)
+			{
+				case PlayModeStateChange.ExitingEditMode:
+					SessionState.SetInt(ViewBeforePlayKey, (int)PlayModeWindow.GetViewType());
+					if (PlaysAsPhone)
+						PlayModeWindow.SetViewType(PlayModeWindow.PlayModeViewTypes.SimulatorView);
+					break;
+
+				case PlayModeStateChange.EnteredEditMode:
+					PlayModeWindow.SetViewType((PlayModeWindow.PlayModeViewTypes)SessionState.GetInt(
+						ViewBeforePlayKey, (int)PlayModeWindow.GetViewType()));
+					break;
+			}
+		}
 	}
 
 	/// Hosts or connects on entering play mode. Runs in every editor process,
