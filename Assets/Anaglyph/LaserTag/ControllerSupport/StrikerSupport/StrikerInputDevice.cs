@@ -42,7 +42,7 @@ namespace Anaglyph.StrikerSupport
 		{
 			float triggerAxis = 0;
 
-			var strikerClient = StrikerController.Controller.GetClient();
+			StrikerClient strikerClient = StrikerController.Controller.GetClient();
 
 			if (strikerClient != null && strikerClient.IsConnected)
 			{

@@ -1,3 +1,4 @@
+using Anaglyph.LaserTag.Player;
 using Anaglyph.Netcode;
 using Anaglyph.XR.Input;
 using Unity.Netcode;
@@ -65,7 +66,7 @@ namespace Anaglyph.LaserTag.Weapons.Blaster
 
 		public void Fire()
 		{
-			if (!NetworkManager.Singleton.IsConnectedClient || !WeaponsManagement.CanFire)
+			if (!MainPlayer.Instance.CanFire)
 				return;
 
 			NetworkObject n = NetworkObjectPool.Instance.GetNetworkObject(boltPrefab, muzzle.position, muzzle.rotation);

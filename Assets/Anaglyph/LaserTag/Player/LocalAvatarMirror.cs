@@ -56,8 +56,9 @@ namespace Anaglyph.LaserTag.Player
 			avatar.TeamOwner.TeamChanged -= OnTeamChanged;
 			avatar.SpatialPresenceChanged -= OnSpatialPresenceChanged;
 
-			if (player != null)
-				player.SetInPlay(false);
+			player.SetInPlay(false);
+			
+			player.Respawn();
 		}
 
 		private void Update()

@@ -8,6 +8,9 @@ namespace Anaglyph.LaserTag.Weapons
 	{
 		public static SessionWeaponSwitcher Instance { get; private set; }
 
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+		private static void ResetStatics() => Instance = null;
+
 		[SerializeField] private WeaponDatabase database;
 		public WeaponDatabase Database => database;
 

@@ -1,4 +1,3 @@
-using Anaglyph.LaserTag.Weapons;
 using Anaglyph.Netcode;
 using Anaglyph.Netcode.SyncVariables;
 using Unity.Netcode;
@@ -14,6 +13,9 @@ namespace Anaglyph.LaserTag.Player
 	{
 		public static PlayerAvatarSpawner Instance { get; private set; }
 
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+		private static void ResetStatics() => Instance = null;
+
 		[SerializeField] private GameObject avatarPrefab;
 
 		private NetworkObject spawned;
@@ -24,30 +26,42 @@ namespace Anaglyph.LaserTag.Player
 		private void Awake()
 		{
 			Instance = this;
+		}
 
+		private void Start() => Subscribe();
+
+		private void OnEnable()
+		{
+			if (didStart)
+				Subscribe();
+		}
+
+		private void OnDisable()
+		{
+			NetcodeManagement.StateChanged -= OnNetworkStateChange;
+			SyncBus.Activated -= OnSessionStarted;
+		}
+
+		private void Subscribe()
+		{
 			NetcodeManagement.StateChanged += OnNetworkStateChange;
 			SyncBus.Activated += OnSessionStarted;
+			Handle();
 		}
 
 		private void OnDestroy()
 		{
-			NetcodeManagement.StateChanged -= OnNetworkStateChange;
-			SyncBus.Activated -= OnSessionStarted;
-
 			if (Instance == this)
 				Instance = null;
 		}
 
 		private void OnNetworkStateChange(NetcodeState state) => Handle();
 		private void OnSessionStarted() => Handle();
-		private void Start() => Handle();
 
 		public void SetIsParticipating(bool isParticipating)
 		{
 			participating = isParticipating;
 			PlayerAvatar.Local?.RefreshParticipation();
-
-			if (!isParticipating) WeaponsManagement.CanFire = false;
 		}
 
 		private void Handle()

@@ -59,7 +59,7 @@ namespace Anaglyph.LaserTag.Operator.Freecam
 
 		private bool CheckPointerIsOverUI()
 		{
-			var lastInputModuleRaycast = inputModule.GetLastRaycastResult(0);
+			UnityEngine.EventSystems.RaycastResult lastInputModuleRaycast = inputModule.GetLastRaycastResult(0);
 			return lastInputModuleRaycast.module && lastInputModuleRaycast.module.GetType() == typeof(GraphicRaycaster);
 		}
 

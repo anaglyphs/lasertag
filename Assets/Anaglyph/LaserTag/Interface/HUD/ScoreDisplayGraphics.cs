@@ -67,7 +67,7 @@ namespace Anaglyph.LaserTag.Interface.HUD
 
 		private void Draw(MeshGenerationContext context)
 		{
-			var space = new ContainedSvgSpace(contentRect, SvgSize);
+			ContainedSvgSpace space = new(contentRect, SvgSize);
 			Painter2D painter = context.painter2D;
 			painter.fillColor = sandColor;
 
@@ -141,7 +141,7 @@ namespace Anaglyph.LaserTag.Interface.HUD
 
 		private void Draw(MeshGenerationContext context)
 		{
-			var space = new ContainedSvgSpace(contentRect, SvgSize);
+			ContainedSvgSpace space = new(contentRect, SvgSize);
 			Painter2D painter = context.painter2D;
 			painter.lineWidth = LineWidth * space.Scale;
 			painter.lineCap = LineCap.Butt;

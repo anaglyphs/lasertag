@@ -31,6 +31,12 @@ namespace Anaglyph.LaserTag.Weapons
 			if (!context.performed || hoveredPickup == null)
 				return;
 
+			if (!hoveredPickup.isActiveAndEnabled)
+			{
+				SetHovered(null);
+				return;
+			}
+
 			WeaponSwitcher switcher = WeaponSwitcher.Instance;
 			if (switcher == null || !switcher.WeaponsActive)
 				return;

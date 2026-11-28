@@ -104,7 +104,7 @@ namespace Anaglyph.LaserTag.Interface
 			backFace.transform.localScale = new Vector3(panelCollider.size.x, panelCollider.size.y, 1);
 
 			backFace.AddComponent<MeshFilter>().sharedMesh = Resources.GetBuiltinResource<Mesh>("Quad.fbx");
-			var backFaceRenderer = backFace.AddComponent<MeshRenderer>();
+			MeshRenderer backFaceRenderer = backFace.AddComponent<MeshRenderer>();
 			backFaceRenderer.sharedMaterial = backFaceMaterial;
 			backFaceRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 			backFaceRenderer.receiveShadows = false;

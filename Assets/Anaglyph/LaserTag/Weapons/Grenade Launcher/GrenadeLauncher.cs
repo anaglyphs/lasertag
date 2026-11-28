@@ -94,7 +94,7 @@ namespace Anaglyph.LaserTag.Weapons.Grenades
 
 		public void Fire()
 		{
-			if (Rounds <= 0 || !NetworkManager.Singleton.IsConnectedClient || !WeaponsManagement.CanFire)
+			if (Rounds <= 0 || !MainPlayer.Instance.CanFire)
 				return;
 
 			NetworkObject n = NetworkObjectPool.Instance.GetNetworkObject(

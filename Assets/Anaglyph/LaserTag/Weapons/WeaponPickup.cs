@@ -40,6 +40,16 @@ namespace Anaglyph.LaserTag.Weapons
 			}
 		}
 
+		// a disabled collider sends no trigger exit
+		private void OnDisable()
+		{
+			if (hoveringHandCount == 0)
+				return;
+
+			hoveringHandCount = 0;
+			HoveredChanged.Invoke(false);
+		}
+
 		public void AddHoveringHand()
 		{
 			if (++hoveringHandCount == 1)

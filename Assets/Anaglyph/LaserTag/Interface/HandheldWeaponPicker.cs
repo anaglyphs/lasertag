@@ -65,14 +65,21 @@ namespace Anaglyph.LaserTag.Interface
 			}
 		}
 
-		private static bool IsInOwnBase => MainPlayer.Instance != null && MainPlayer.Instance.IsInFriendlyBase;
+		private static bool IsAtOwnAvailableWeaponRack
+		{
+			get
+			{
+				PlayerAvatar local = PlayerAvatar.Local;
+				return local != null && local.IsInFriendlyBase && local.OccupiedBase != null && local.OccupiedBase.WeaponRackAvailable;
+			}
+		}
 
 		/// <summary>Shows it while the player is in their own base and nothing else holds the screen.</summary>
 		public void Refresh(bool screenFree)
 		{
 			AddTilesOnce();
 			WeaponSwitcher switcher = WeaponSwitcher.Instance;
-			bool shown = screenFree && switcher != null && switcher.WeaponsActive && IsInOwnBase && weaponByTile.Count > 0;
+			bool shown = screenFree && switcher != null && switcher.WeaponsActive && IsAtOwnAvailableWeaponRack && weaponByTile.Count > 0;
 			Display(shown);
 			if (!shown) return;
 

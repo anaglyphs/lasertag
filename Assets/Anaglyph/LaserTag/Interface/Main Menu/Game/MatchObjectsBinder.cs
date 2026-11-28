@@ -44,7 +44,7 @@ namespace Anaglyph.LaserTag.Interface
 
 			MissingMatchObjects missing = MapRequirements.MissingFor(settings);
 			SetShown(missingBasesWarning, missing.HasFlag(MissingMatchObjects.BothTeamBases));
-			SetShown(missingFlagsWarning, missing.HasFlag(MissingMatchObjects.AnyFlag));
+			SetShown(missingFlagsWarning, (missing & (MissingMatchObjects.AnyFlag | MissingMatchObjects.BothTeamFlags)) != 0);
 
 			bool canStart = missing == MissingMatchObjects.None;
 			StartButton.SetEnabled(canStart);

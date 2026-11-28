@@ -155,10 +155,10 @@ namespace Anaglyph.LaserTag.Maps
 				catch (Exception e) { Debug.LogException(e); }
 				finally { writesInFlight--; }
 			}
-			else WriteAsync(data, path, sequence, revision, space.id, sources, mayBuildVocabulary);
+			else WriteAsync(data, path, sequence, revision, space.id, sources, mayBuildVocabulary).RunUntilCancelled();
 		}
 
-		private async void WriteAsync(VisualMapData data, string path, int sequence, int revision, string spaceId,
+		private async Awaitable WriteAsync(VisualMapData data, string path, int sequence, int revision, string spaceId,
 			List<VisualKeyframe> sources, bool mayBuildVocabulary)
 		{
 			writesInFlight++;

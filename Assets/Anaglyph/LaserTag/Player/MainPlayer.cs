@@ -1,6 +1,5 @@
 using System;
 using Anaglyph.LaserTag.Matches;
-using Anaglyph.LaserTag.Weapons;
 using Anaglyph.XR;
 using UnityEngine;
 
@@ -34,7 +33,7 @@ namespace Anaglyph.LaserTag.Player
 		/// <summary>Whether the participating player has a valid spatial presence in the match.</summary>
 		public bool IsInPlay => hasSpatialPresence && !IsTeamlessDuringMatch;
 
-		private bool CanFire => IsInPlay && IsAlive && MatchReferee.State != MatchState.Mustering;
+		public bool CanFire => IsInPlay && IsAlive && MatchReferee.State != MatchState.Mustering;
 
 		/// <summary>A player who has not joined a team sits out until they do.</summary>
 		public bool IsTeamlessDuringMatch =>
@@ -64,14 +63,20 @@ namespace Anaglyph.LaserTag.Player
 			Instance = this;
 
 			// passthroughLayer = FindFirstObjectByType<OVRPassthroughLayer>();
-
-			MatchReferee.StateChanged += OnMatchStateChange;
 		}
+
+		private void Start() => MatchReferee.StateChanged += OnMatchStateChange;
+
+		private void OnEnable()
+		{
+			if (didStart)
+				MatchReferee.StateChanged += OnMatchStateChange;
+		}
+
+		private void OnDisable() => MatchReferee.StateChanged -= OnMatchStateChange;
 
 		private void OnDestroy()
 		{
-			MatchReferee.StateChanged -= OnMatchStateChange;
-
 			if (Instance == this)
 				Instance = null;
 		}
@@ -80,7 +85,6 @@ namespace Anaglyph.LaserTag.Player
 		{
 			if (!IsInPlay)
 			{
-				WeaponsManagement.CanFire = false;
 				ClearPassthroughEffects();
 				return;
 			}
@@ -117,8 +121,6 @@ namespace Anaglyph.LaserTag.Player
 
 			if (IsAlive) Health += MatchReferee.Settings.healthRegenPerSecond * Time.deltaTime;
 
-			WeaponsManagement.CanFire = CanFire;
-
 			Health = Mathf.Clamp(Health, 0, MaxHealth);
 
 			// respawn timer
@@ -144,8 +146,6 @@ namespace Anaglyph.LaserTag.Player
 		{
 			if (state == MatchState.Mustering)
 				Respawn();
-
-			WeaponsManagement.CanFire = CanFire;
 		}
 
 		public void SetInPlay(bool inPlay)
@@ -156,7 +156,6 @@ namespace Anaglyph.LaserTag.Player
 				return;
 
 			IsInFriendlyBase = false;
-			WeaponsManagement.CanFire = false;
 			ClearPassthroughEffects();
 		}
 
@@ -190,8 +189,6 @@ namespace Anaglyph.LaserTag.Player
 		{
 			if (!IsAlive) return;
 
-			WeaponsManagement.CanFire = false;
-
 			IsAlive = false;
 			Health = 0;
 			LastDeathTime = Time.time;
@@ -207,7 +204,6 @@ namespace Anaglyph.LaserTag.Player
 
 			IsAlive = true;
 			Health = MaxHealth;
-			WeaponsManagement.CanFire = CanFire;
 
 			Respawned.Invoke();
 		}

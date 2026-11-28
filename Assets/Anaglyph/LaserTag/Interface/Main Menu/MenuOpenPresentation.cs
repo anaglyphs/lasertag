@@ -16,36 +16,60 @@ namespace Anaglyph.LaserTag.Interface
 		[SerializeField, Min(0f)] private float passthroughFadeSeconds = 0.2f;
 
 		private MainMenuController menu;
+		private WeaponSwitcher weaponSwitcher;
 		private float passthroughBrightness = 1f;
-		private bool appliedMenuOpenOutOfSession;
+		private float targetPassthroughBrightness = 1f;
 
 		private void Awake() => menu = GetComponent<MainMenuController>();
 
-		private void Update()
+		private void Start()
+		{
+			weaponSwitcher = WeaponSwitcher.Instance;
+			Subscribe();
+		}
+
+		private void OnEnable()
+		{
+			if (didStart)
+				Subscribe();
+		}
+
+		private void Subscribe()
+		{
+			menu.VisibilityChanged += ApplyMenuState;
+			NetcodeManagement.StateChanged += HandleNetcodeStateChange;
+			ApplyMenuState();
+		}
+
+		private void HandleNetcodeStateChange(NetcodeState state) => ApplyMenuState();
+
+		private void ApplyMenuState()
 		{
 			bool menuOpen = menu.IsVisible;
-			WeaponSwitcher.Instance?.SetWeaponsPutAway(this, menuOpen);
+			weaponSwitcher.SetWeaponsPutAway(this, menuOpen);
 
 			bool menuOpenOutOfSession = menuOpen && NetcodeManagement.State != NetcodeState.Connected;
-			if (menuOpenOutOfSession != appliedMenuOpenOutOfSession)
-			{
-				appliedMenuOpenOutOfSession = menuOpenOutOfSession;
-				HandInput.RaysShownWithoutTarget = menuOpenOutOfSession;
-			}
+			HandInput.RaysShownWithoutTarget = menuOpenOutOfSession;
+			targetPassthroughBrightness = menuOpenOutOfSession ? passthroughBrightnessWhileOpen : 1f;
+		}
 
-			float targetBrightness = menuOpenOutOfSession ? passthroughBrightnessWhileOpen : 1f;
-			if (passthroughBrightness == targetBrightness) return;
-			passthroughBrightness = passthroughFadeSeconds <= 0f ? targetBrightness
-				: Mathf.MoveTowards(passthroughBrightness, targetBrightness, Time.unscaledDeltaTime / passthroughFadeSeconds);
+		private void Update()
+		{
+			if (passthroughBrightness == targetPassthroughBrightness) return;
+			passthroughBrightness = passthroughFadeSeconds <= 0f ? targetPassthroughBrightness
+				: Mathf.MoveTowards(passthroughBrightness, targetPassthroughBrightness, Time.unscaledDeltaTime / passthroughFadeSeconds);
 			PassthroughStylingFeature.SetBrightness(passthroughBrightness);
 		}
 
 		private void OnDisable()
 		{
-			WeaponSwitcher.Instance?.SetWeaponsPutAway(this, false);
+			if (!didStart) return;
+
+			menu.VisibilityChanged -= ApplyMenuState;
+			NetcodeManagement.StateChanged -= HandleNetcodeStateChange;
+			weaponSwitcher.SetWeaponsPutAway(this, false);
 			HandInput.RaysShownWithoutTarget = false;
-			appliedMenuOpenOutOfSession = false;
-			passthroughBrightness = 1f;
+			passthroughBrightness = targetPassthroughBrightness = 1f;
 			PassthroughStylingFeature.SetBrightness(1f);
 		}
 	}

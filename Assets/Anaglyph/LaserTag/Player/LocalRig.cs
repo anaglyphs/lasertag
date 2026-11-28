@@ -10,6 +10,9 @@ namespace Anaglyph.LaserTag.Player
 	{
 		public static LocalRig Instance { get; private set; }
 
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+		private static void ResetStatics() => Instance = null;
+
 		[SerializeField] private Transform head;
 		[SerializeField] private Transform leftHand;
 		[SerializeField] private Transform rightHand;

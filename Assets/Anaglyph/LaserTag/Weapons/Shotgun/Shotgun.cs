@@ -1,3 +1,4 @@
+using Anaglyph.LaserTag.Player;
 using Anaglyph.LaserTag.Weapons;
 using Anaglyph.LaserTag.Weapons.Bullets;
 using Anaglyph.Netcode;
@@ -57,7 +58,7 @@ public class Shotgun : MonoBehaviour, IWeapon
 
 	public void Fire()
 	{
-		if (!NetworkManager.Singleton.IsConnectedClient || !WeaponsManagement.CanFire)
+		if (!MainPlayer.Instance.CanFire)
 			return;
 
 		ushort groupId = nextGroupId++;

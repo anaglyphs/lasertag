@@ -26,6 +26,9 @@ namespace Anaglyph.LaserTag.EnvSyncing
 	{
 		public static EnvSync Instance { get; private set; }
 
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+		private static void ResetStatics() => Instance = null;
+
 		// frames are unreliable: a lost one only leaves peers a little less fused, while a
 		// reliable one stalls all synced state behind its retransmission. Snapshot chunks
 		// stay reliable, since a joiner has nothing else to fill a hole with
@@ -259,7 +262,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 			}
 
 			if (!snapshotServing && snapshotQueue.Count > 0)
-				ServeSnapshots(syncGeneration);
+				ServeSnapshots(syncGeneration).RunUntilCancelled();
 
 			ReportStats();
 		}
@@ -420,7 +423,7 @@ namespace Anaglyph.LaserTag.EnvSyncing
 		/// Reads back every chunk this headset holds and sends each to the requester,
 		/// a few per Unity frame so the GPU and the wire are never saturated
 		/// </summary>
-		private async void ServeSnapshots(int generation)
+		private async Awaitable ServeSnapshots(int generation)
 		{
 			snapshotServing = true;
 			EnvScanner scanner = EnvScanner.Instance;

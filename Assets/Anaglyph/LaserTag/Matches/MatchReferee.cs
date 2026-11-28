@@ -1,6 +1,5 @@
 using System;
 using System.Threading;
-using System.Threading.Tasks;
 using Anaglyph.LaserTag.NPCs;
 using Anaglyph.LaserTag.Player;
 using Anaglyph.LaserTag.Player.Teams;
@@ -208,6 +207,7 @@ namespace Anaglyph.LaserTag.Matches
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
 		private static void Init()
 		{
+			Instance = null;
 			StateChanged = delegate { };
 			MatchFinished = delegate { };
 			RoundFinished = delegate { };
@@ -504,7 +504,7 @@ namespace Anaglyph.LaserTag.Matches
 				spawner.enabled = spawning;
 		}
 
-		private async void OnStateChanged(MatchState old, MatchState state)
+		private void OnStateChanged(MatchState old, MatchState state)
 		{
 			// a fresh match begins: round history belongs to the previous one
 			if (SyncBus.IsAuthority && old == MatchState.NotPlaying && state == MatchState.Mustering)
@@ -525,118 +525,112 @@ namespace Anaglyph.LaserTag.Matches
 
 			StateChanged.Invoke(state);
 
-			await RunStatePhase(state);
+			RunStatePhase(state).RunUntilCancelled();
 		}
 
 		// The per-state loops run on every peer (timer text is local UI); only the
 		// authority advances the replicated state.
-		private async Task RunStatePhase(MatchState state)
+		private async Awaitable RunStatePhase(MatchState state)
 		{
 			cancelSrc?.Cancel();
 			cancelSrc = new CancellationTokenSource();
 			CancellationToken ctn = cancelSrc.Token;
 
-			try
+			switch (state)
 			{
-				switch (state)
-				{
-					case MatchState.NotPlaying:
+				case MatchState.NotPlaying:
+					if (SyncBus.IsAuthority)
+						settingsSync.Value = MatchSettings.Lobby();
+					break;
+
+				case MatchState.Mustering:
+					ResetScores();
+					PlayerAvatar.Local?.ResetScoreLocally();
+
+					UpdateTimerText(Settings.roundTimeSeconds);
+					while (State == MatchState.Mustering)
+					{
+						if (SyncBus.IsAuthority && AllPlayersInBase())
+						{
+							ResetScores();
+							startTimeSync.Value = ServerTime + CountdownSeconds;
+							stateSync.Value = MatchState.Countdown;
+						}
+
+						await Awaitable.NextFrameAsync(ctn);
+						ctn.ThrowIfCancellationRequested();
+					}
+
+					break;
+
+				case MatchState.Countdown:
+					// startTime is when play begins, i.e. the countdown deadline
+					while (State == MatchState.Countdown)
+					{
 						if (SyncBus.IsAuthority)
-							settingsSync.Value = MatchSettings.Lobby();
-						break;
-
-					case MatchState.Mustering:
-						ResetScores();
-						PlayerAvatar.Local?.ResetScoreLocally();
-
-						UpdateTimerText(Settings.roundTimeSeconds);
-						while (State == MatchState.Mustering)
 						{
-							if (SyncBus.IsAuthority && AllPlayersInBase())
+							if (!AllPlayersInBase())
 							{
-								ResetScores();
-								startTimeSync.Value = ServerTime + CountdownSeconds;
-								stateSync.Value = MatchState.Countdown;
-							}
-
-							await Awaitable.NextFrameAsync(ctn);
-							ctn.ThrowIfCancellationRequested();
-						}
-
-						break;
-
-					case MatchState.Countdown:
-						// startTime is when play begins, i.e. the countdown deadline
-						while (State == MatchState.Countdown)
-						{
-							if (SyncBus.IsAuthority)
-							{
-								if (!AllPlayersInBase())
-								{
-									stateSync.Value = MatchState.Mustering;
-									break;
-								}
-
-								if (ServerTime >= TimeRoundStarted)
-								{
-									stateSync.Value = MatchState.Playing;
-									break;
-								}
-							}
-
-							await Awaitable.NextFrameAsync(ctn);
-							ctn.ThrowIfCancellationRequested();
-						}
-
-						break;
-
-					case MatchState.Playing:
-						PlayerAvatar.Local?.ResetScoreLocally();
-
-						bool timed = Settings.CheckWinByTimer();
-						bool eliminationEndsRound =
-							Settings.respawnCondition == RespawnCondition.NextRound;
-
-						while (State == MatchState.Playing)
-						{
-							if (timed)
-							{
-								float timeLeft = GetTimeLeft();
-								UpdateTimerText(timeLeft);
-
-								if (SyncBus.IsAuthority && timeLeft <= 0)
-								{
-									EndRound(GetTimeoutWinner());
-									break;
-								}
-							}
-
-							if (SyncBus.IsAuthority && eliminationEndsRound
-							    && TryGetEliminationWinner(out byte winner))
-							{
-								EndRound(winner);
+								stateSync.Value = MatchState.Mustering;
 								break;
 							}
 
-							await Awaitable.NextFrameAsync(ctn);
-							ctn.ThrowIfCancellationRequested();
+							if (ServerTime >= TimeRoundStarted)
+							{
+								stateSync.Value = MatchState.Playing;
+								break;
+							}
 						}
 
-						break;
+						await Awaitable.NextFrameAsync(ctn);
+						ctn.ThrowIfCancellationRequested();
+					}
 
-					case MatchState.RoundBreak:
-						await Awaitable.WaitForSecondsAsync(RoundBreakSeconds, ctn);
+					break;
 
-						if (SyncBus.IsAuthority)
+				case MatchState.Playing:
+					PlayerAvatar.Local?.ResetScoreLocally();
+
+					bool timed = Settings.CheckWinByTimer();
+					bool eliminationEndsRound =
+						Settings.respawnCondition == RespawnCondition.NextRound;
+
+					while (State == MatchState.Playing)
+					{
+						if (timed)
 						{
-							stateSync.Value = MatchState.Mustering;
+							float timeLeft = GetTimeLeft();
+							UpdateTimerText(timeLeft);
+
+							if (SyncBus.IsAuthority && timeLeft <= 0)
+							{
+								EndRound(GetTimeoutWinner());
+								break;
+							}
 						}
 
-						break;
-				}
-			}
-			catch (OperationCanceledException)
-			{
+						if (SyncBus.IsAuthority && eliminationEndsRound
+						    && TryGetEliminationWinner(out byte winner))
+						{
+							EndRound(winner);
+							break;
+						}
+
+						await Awaitable.NextFrameAsync(ctn);
+						ctn.ThrowIfCancellationRequested();
+					}
+
+					break;
+
+				case MatchState.RoundBreak:
+					await Awaitable.WaitForSecondsAsync(RoundBreakSeconds, ctn);
+
+					if (SyncBus.IsAuthority)
+					{
+						stateSync.Value = MatchState.Mustering;
+					}
+
+					break;
 			}
 		}
 

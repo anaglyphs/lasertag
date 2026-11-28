@@ -26,7 +26,7 @@ namespace Anaglyph.LaserTag.NPCs
 		private void OnEnable()
 		{
 			spawnLoopCancellation = CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken);
-			SpawnLoop(spawnLoopCancellation);
+			SpawnLoop(spawnLoopCancellation).RunUntilCancelled();
 		}
 
 		private void OnDisable()
@@ -34,7 +34,7 @@ namespace Anaglyph.LaserTag.NPCs
 			spawnLoopCancellation?.Cancel();
 		}
 
-		private async void SpawnLoop(CancellationTokenSource cancellation)
+		private async Awaitable SpawnLoop(CancellationTokenSource cancellation)
 		{
 			try
 			{
@@ -47,9 +47,6 @@ namespace Anaglyph.LaserTag.NPCs
 
 					TrySpawnRandomly();
 				}
-			}
-			catch (OperationCanceledException)
-			{
 			}
 			finally
 			{

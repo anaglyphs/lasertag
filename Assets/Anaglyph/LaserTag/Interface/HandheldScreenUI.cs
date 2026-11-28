@@ -108,6 +108,9 @@ namespace Anaglyph.LaserTag.Interface
 			cameraMode = GetComponent<CameraMode>();
 			BuildOverlay();
 			menu.ShowOnScreen(DefaultPanel());
+			MapEditor.MapEditor.ActiveChanged += HandleMapEditorActiveChanged;
+			MapEditorTool.ModeChanged += HandleMapEditorModeChanged;
+			ShowMenuUnlessEditingObjects();
 			Anaglyph.MenuCopy.Changed += LabelTabs;
 			LabelTabs();
 			PutAwayControllerInterfaces();
@@ -218,6 +221,8 @@ namespace Anaglyph.LaserTag.Interface
 			Anaglyph.XR.Input.HandInput.FollowCamera(null);
 			Anaglyph.Menu.ActOnPress.ActsOnRelease = false;
 			Anaglyph.MenuCopy.Changed -= LabelTabs;
+			MapEditor.MapEditor.ActiveChanged -= HandleMapEditorActiveChanged;
+			MapEditorTool.ModeChanged -= HandleMapEditorModeChanged;
 			MainPlayer.TeamChanged -= ColorReticle;
 			cameraScreen?.Dispose();
 			if (screenPanel != null) Destroy(screenPanel);
@@ -352,6 +357,19 @@ namespace Anaglyph.LaserTag.Interface
 			tabBar.Add(toggle);
 		}
 
+		private void HandleMapEditorActiveChanged(bool active) => ShowMenuUnlessEditingObjects();
+		private void HandleMapEditorModeChanged(MapEditorTool.Mode mode) => ShowMenuUnlessEditingObjects();
+
+		// editing objects starts from a menu page: the menu gets out of the way, and is back when
+		// editing ends, unless a match ended it
+		private void ShowMenuUnlessEditingObjects()
+		{
+			bool editingObjects = IsEditingObjects;
+			if (editingObjects && !wasEditingObjects) menu.SetVisible(false);
+			else if (!editingObjects && wasEditingObjects && Matches.MatchReferee.State == Matches.MatchState.NotPlaying) menu.SetVisible(true);
+			wasEditingObjects = editingObjects;
+		}
+
 		private void EnterCameraMode()
 		{
 			menu.SetVisible(false);
@@ -388,13 +406,6 @@ namespace Anaglyph.LaserTag.Interface
 			if (menu == null || overlay == null) return;
 
 			if (!Mathf.Approximately(screenPanel.scale, PixelsPerUnit)) screenPanel.scale = PixelsPerUnit;
-
-			// editing objects starts from a menu page: the menu gets out of the way, and is back when
-			// editing ends, unless a match ended it
-			bool editingObjects = IsEditingObjects;
-			if (editingObjects && !wasEditingObjects) menu.SetVisible(false);
-			else if (!editingObjects && wasEditingObjects && Matches.MatchReferee.State == Matches.MatchState.NotPlaying) menu.SetVisible(true);
-			wasEditingObjects = editingObjects;
 
 			bool menuShown = menu.IsVisible;
 			bool granted = menu.Gate.Access == GateMenu.AccessState.Granted;

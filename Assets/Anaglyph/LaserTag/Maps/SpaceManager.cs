@@ -63,6 +63,8 @@ namespace Anaglyph.LaserTag.Maps
 		// space, or the copy it kept of the host's
 		private bool showingSessionSpace;
 		private Space localSpace;
+		// startup guessed localSpace and this headset never aligned in it: it may be another room, so it is not replaced
+		private bool localSpaceIsUnconfirmedGuess;
 		private string keptSessionSpaceJson;
 		private int sessionGeneration;
 		// the host is replacing the session's map: objects are being retired and spawned
@@ -195,7 +197,7 @@ namespace Anaglyph.LaserTag.Maps
 		private void OnApplicationPause(bool paused)
 		{
 			if (!paused) return;
-			KeepSessionSpace(forceVisualSave: true);
+			KeepSessionSpace(forceVisualSave: true, synchronousVisual: true);
 			forceVisualSave = true;
 			Save(synchronousVisual: true);
 		}
@@ -344,6 +346,7 @@ namespace Anaglyph.LaserTag.Maps
 				ForgetShownMapIfEmpty();
 				Save();
 				localSpace = space;
+				localSpaceIsUnconfirmedGuess = space != null && space.id == provisionalSpaceId && !ColocationManager.IsLocalized;
 				showingSessionSpace = true;
 			}
 			if (incoming == null)
@@ -380,7 +383,7 @@ namespace Anaglyph.LaserTag.Maps
 		/// alone later. The copy replaces the space this device showed before joining, which is
 		/// deleted with everything saved of it.
 		/// </summary>
-		private void KeepSessionSpace(bool forceVisualSave)
+		private void KeepSessionSpace(bool forceVisualSave, bool synchronousVisual = false)
 		{
 			if (!showingSessionSpace || space == null || !space.HasPlacedObjects || !ColocationManager.IsLocalized) return;
 			string json = JsonUtility.ToJson(space);
@@ -390,14 +393,15 @@ namespace Anaglyph.LaserTag.Maps
 				kept.lastUsed = DateTime.UtcNow.Ticks;
 				if (!store.Save(kept)) return;
 				keptSessionSpaceJson = json;
-				Space replaced = localSpace;
+				Space replaced = localSpaceIsUnconfirmedGuess ? null : localSpace;
+				localSpaceIsUnconfirmedGuess = false;
 				spaces.RemoveAll(saved => saved.id == kept.id || saved == replaced);
 				spaces.Insert(0, kept);
 				localSpace = kept;
 				if (replaced != null && replaced.id != kept.id) Forget(replaced);
 				SpacesChanged.Invoke();
 			}
-			visualMaps.Save(space, forceVisualSave, synchronous: false);
+			visualMaps.Save(space, forceVisualSave, synchronousVisual);
 		}
 
 		private static bool SameEntries<T>(List<T> a, List<T> b) where T : struct

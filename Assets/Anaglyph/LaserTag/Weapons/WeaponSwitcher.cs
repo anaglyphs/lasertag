@@ -13,6 +13,9 @@ namespace Anaglyph.LaserTag.Weapons
 	{
 		public static WeaponSwitcher Instance { get; private set; }
 
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+		private static void ResetStatics() => Instance = null;
+
 		[SerializeField] private GameObject defaultWeapon;
 
 		private readonly Dictionary<Handedness, GameObject> selected = new();
@@ -26,14 +29,20 @@ namespace Anaglyph.LaserTag.Weapons
 		private void Awake()
 		{
 			Instance = this;
-
-			NetcodeManagement.StateChanged += OnNetcodeStateChanged;
 		}
+
+		private void Start() => NetcodeManagement.StateChanged += OnNetcodeStateChanged;
+
+		private void OnEnable()
+		{
+			if (didStart)
+				NetcodeManagement.StateChanged += OnNetcodeStateChanged;
+		}
+
+		private void OnDisable() => NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
 
 		private void OnDestroy()
 		{
-			NetcodeManagement.StateChanged -= OnNetcodeStateChanged;
-
 			if (Instance == this)
 				Instance = null;
 		}

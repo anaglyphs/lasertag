@@ -28,6 +28,9 @@ namespace Anaglyph.LaserTag.Objects.Gameplay.Base
 		private float meshLoweredFraction;
 		private float weaponRackSunkFraction;
 
+		/// <summary>False once the round has run past the time weapons can be changed.</summary>
+		public bool WeaponRackAvailable { get; private set; } = true;
+
 		public const string Tag = "Base";
 
 		public static List<Base> AllBases { get; private set; } = new();
@@ -58,6 +61,7 @@ namespace Anaglyph.LaserTag.Objects.Gameplay.Base
 			                          && MatchReferee.Instance.GetTimeElapsed() >= weaponRackSecondsIntoRound;
 
 			AnimateMeshAndGlowRings(roundOnlySpawn);
+			WeaponRackAvailable = !weaponRackTimeOver;
 			AnimateWeaponRack(weaponRackTimeOver);
 
 			volume.isTrigger = roundOnlySpawn || LocalPlayerInside();

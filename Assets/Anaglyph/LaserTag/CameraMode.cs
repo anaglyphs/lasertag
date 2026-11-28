@@ -32,6 +32,9 @@ namespace Anaglyph.LaserTag
 
 		public static CameraMode Instance { get; private set; }
 
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+		private static void ResetStatics() => Instance = null;
+
 		public bool IsActive { get; private set; }
 
 		public VideoQuality Quality { get; private set; }
@@ -80,6 +83,9 @@ namespace Anaglyph.LaserTag
 			if (active) Enter();
 			else Exit();
 			PlayerAvatarSpawner.Instance?.SetIsParticipating(!active);
+			// a camera is on no team, and one that is not participating is given none
+			PlayerAvatar local = PlayerAvatar.Local;
+			if (active && local != null && local.Team != 0) local.TeamOwner.teamSync.Value = 0;
 			Changed.Invoke();
 		}
 
@@ -189,10 +195,6 @@ namespace Anaglyph.LaserTag
 				ReleaseOrientation();
 				FitViewToVideo();
 			}
-
-			// standing in a base would otherwise enlist the camera
-			PlayerAvatar local = PlayerAvatar.Local;
-			if (local != null && local.IsOwner && local.Team != 0) local.TeamOwner.teamSync.Value = 0;
 		}
 
 		private void ReleaseOrientation()

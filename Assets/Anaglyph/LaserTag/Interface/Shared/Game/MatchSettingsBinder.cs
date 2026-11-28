@@ -150,7 +150,7 @@ namespace Anaglyph.LaserTag.Interface
 
 		private static float[] MinutesAddedByEachChoice()
 		{
-			var added = new float[RoundMinuteChoices.Length];
+			float[] added = new float[RoundMinuteChoices.Length];
 			for (int i = 0; i < added.Length; i++)
 				added[i] = RoundMinuteChoices[i] - (i == 0 ? 0 : RoundMinuteChoices[i - 1]);
 			return added;

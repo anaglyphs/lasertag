@@ -189,7 +189,6 @@ namespace Anaglyph.LaserTag.Operator
 		{
 			RefreshMapSettings();
 			tagSetupWizard?.Tick();
-			matchSettings?.StartButton.SetEnabled(NetcodeManagement.State == NetcodeState.Connected);
 		}
 
 		private void LateUpdate() =>

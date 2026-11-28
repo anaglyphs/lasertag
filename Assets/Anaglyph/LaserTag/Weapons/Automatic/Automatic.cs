@@ -1,3 +1,4 @@
+using Anaglyph.LaserTag.Player;
 using Anaglyph.Netcode;
 using Anaglyph.XR.Input;
 using Unity.Netcode;
@@ -73,7 +74,7 @@ namespace Anaglyph.LaserTag.Weapons.Automatic
 
 		private bool TryFire()
 		{
-			if (!NetworkManager.Singleton.IsConnectedClient || !WeaponsManagement.CanFire)
+			if (!MainPlayer.Instance.CanFire)
 				return false;
 
 			NetworkObject n = NetworkObjectPool.Instance.GetNetworkObject(

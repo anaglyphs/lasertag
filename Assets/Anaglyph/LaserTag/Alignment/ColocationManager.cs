@@ -85,7 +85,15 @@ namespace Anaglyph.LaserTag
 		/// The same alone or in a session; peers localized in the same space are colocated
 		/// </summary>
 		public static bool IsLocalized { get; private set; }
-		public static Action<bool> LocalizedChanged = delegate { };
+		public static event Action<bool> LocalizedChanged = delegate { };
+
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+		private static void ResetStatics()
+		{
+			Instance = null;
+			IsLocalized = false;
+			LocalizedChanged = delegate { };
+		}
 
 		/// <summary>Colocated, but on an alignment still being tested: what this headset would share with the others should wait.</summary>
 		public static bool AlignmentUnconfirmed =>

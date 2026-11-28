@@ -81,7 +81,7 @@ namespace Anaglyph.LaserTag.Player
 
 		public bool IsInBase => OccupiedBase != null;
 		public bool IsInFriendlyBase { get; private set; }
-		public Action<bool> InFriendlyBaseChanged = delegate { };
+		public event Action<bool> InFriendlyBaseChanged = delegate { };
 		public Base OccupiedBase { get; private set; }
 
 		public NetworkVariable<int> scoreSync;

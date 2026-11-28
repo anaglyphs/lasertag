@@ -86,23 +86,17 @@ namespace Anaglyph.LaserTag.Weapons.Bullets
 			partMod.startColor = color;
 		}
 
-		private async void HandleCollision()
+		private void HandleCollision() => ShowImpact().RunUntilCancelled();
+
+		private async Awaitable ShowImpact()
 		{
 			// HitRpc has already moved the bullet onto the hit point
 			hitDistance = DistanceAlongShot(bullet.transform.position);
 			impactEffect.Play();
 
-			CancellationToken ctkn = destroyCancellationToken;
-
-			try
-			{
-				await Awaitable.NextFrameAsync(ctkn);
-				pointLight.enabled = false;
-				LeaveGroupLight();
-			}
-			catch (OperationCanceledException)
-			{
-			}
+			await Awaitable.NextFrameAsync(destroyCancellationToken);
+			pointLight.enabled = false;
+			LeaveGroupLight();
 		}
 
 		private void LateUpdate()

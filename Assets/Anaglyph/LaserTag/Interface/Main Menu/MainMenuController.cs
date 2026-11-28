@@ -109,17 +109,11 @@ namespace Anaglyph.LaserTag.Interface
 				throw new InvalidOperationException("MainMenuController requires a status bar and a close bar.");
 
 			FindSessionPanel();
-			inSession = NetcodeManagement.State == NetcodeState.Connected;
-			sessionPanelPresence = inSession ? 1 : 0;
 
 			showMenuAction.performed += OnShowMenuPerformed;
 
 			showMenuAction.Enable();
 
-			MainXRRig.Recentered += SetPose;
-			gateMenu.AccessChanged += OnAccessChanged;
-			HeadsetConfiguration.MenuAccessChanged += OnMenuAccessChanged;
-			NetcodeManagement.StateChanged += OnNetworkStateChanged;
 			ApplyPanelVisibility();
 			ApplyPanelLayout();
 		}
@@ -204,10 +198,6 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void OnDestroy()
 		{
-			MainXRRig.Recentered -= SetPose;
-			if (gateMenu != null) gateMenu.AccessChanged -= OnAccessChanged;
-			HeadsetConfiguration.MenuAccessChanged -= OnMenuAccessChanged;
-			NetcodeManagement.StateChanged -= OnNetworkStateChanged;
 			showMenuAction.performed -= OnShowMenuPerformed;
 			showMenuAction.Disable();
 		}
@@ -220,7 +210,24 @@ namespace Anaglyph.LaserTag.Interface
 				SetPose();
 		}
 
-		private void Start() => SetPoseAfterStartupDelay().RunUntilCancelled();
+		private void Start()
+		{
+			Subscribe();
+			sessionPanelPresence = inSession ? 1 : 0;
+			if (gateMenu.HasCheckedPermissions) OnAccessChanged();
+			ApplyPanelLayout();
+			ApplyPanelVisibility();
+			SetPoseAfterStartupDelay().RunUntilCancelled();
+		}
+
+		private void Subscribe()
+		{
+			MainXRRig.Recentered += SetPose;
+			gateMenu.AccessChanged += OnAccessChanged;
+			HeadsetConfiguration.MenuAccessChanged += OnMenuAccessChanged;
+			NetcodeManagement.StateChanged += OnNetworkStateChanged;
+			inSession = NetcodeManagement.State == NetcodeState.Connected;
+		}
 
 		private async Awaitable SetPoseAfterStartupDelay()
 		{
@@ -230,6 +237,7 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void OnEnable()
 		{
+			if (didStart) Subscribe();
 			if (gateMenu.HasCheckedPermissions) OnAccessChanged();
 			ApplyPanelLayout();
 			ApplyPanelVisibility();
@@ -237,7 +245,11 @@ namespace Anaglyph.LaserTag.Interface
 
 		private void OnDisable()
 		{
+			MainXRRig.Recentered -= SetPose;
+			HeadsetConfiguration.MenuAccessChanged -= OnMenuAccessChanged;
+			NetcodeManagement.StateChanged -= OnNetworkStateChanged;
 			if (gateMenu == null) return;
+			gateMenu.AccessChanged -= OnAccessChanged;
 			transitionProgress = IsVisible ? 1 : 0;
 			ApplyPanelVisibility();
 		}

@@ -210,9 +210,6 @@ namespace Anaglyph.LaserTag.Interface
 			if (sessionDiscoveryStatus == null)
 				return;
 
-			if (NetcodeManagement.State != NetcodeState.Disconnected)
-				UpdateIpText();
-
 			string unjoinableKey = UnjoinableSessionKey(SessionDiscovery.UnjoinableSessionNearby);
 			string key = connectivity.HasBluetoothState && !connectivity.BluetoothIsEnabled
 				? "discovery.bluetooth-off"
